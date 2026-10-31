@@ -11,6 +11,6 @@
     // the same Google OAuth client as AI Engineer from Zero; add this site's URL to its authorized JavaScript origins
     "GOOGLE_CLIENT_ID": "213282967449-rkdia4efp2ptkh0i57ih2vo6fej68qpv.apps.googleusercontent.com",
     // enrolled learners, comma-separated (keep in step with the Google consent screen's test users)
-    "ALLOWED_EMAILS": "ai.arunav@gmail.com"
+    "ALLOWED_EMAILS": "ai.arunav@gmail.com, mbajoria1@gmail.com"
   }
 }
