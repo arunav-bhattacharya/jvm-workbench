@@ -1,0 +1,15 @@
+build/
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+.idea/
+*.iml
+.wrangler/
+labs/.gradle/
+labs/build/
+labs/*/build/
+labs/.kotlin/
+art/build/
+.attach_pid*
+labs/*/.kotlin/

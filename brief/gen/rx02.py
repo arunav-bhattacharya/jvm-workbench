@@ -1,0 +1,398 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/reactive/src"
+P = "java/workbench/reactive/l02"
+PK = "kotlin/workbench/reactive/l02"
+read = lambda p: (ROOT / p).read_text()
+DEMO = "./gradlew :reactive:demo -Pmain=workbench.reactive.l02."
+
+S1 = """Reactor has two publisher types, and the type tells you how many items to expect.
+
+A `Flux<T>` emits zero to many items, then maybe `onComplete` or `onError`. All three are optional: a `Flux` with no terminal signal is infinite, like `Flux.interval(Duration.ofSeconds(1))`. A `Mono<T>` emits at most one item and then completes, or emits only an error. It can never send an item and then an error. `Mono<Void>` means "tell me when it's done", for example after a ledger write that returns nothing.
+
+```java
+Flux<String> authorizations = Flux.just("auth-1", "auth-2", "auth-3");
+Flux<Integer> attempts      = Flux.range(1, 3);
+Mono<String> fxRate         = Mono.just("EURUSD=1.08");
+Mono<String> nothing        = Mono.empty();
+Mono<String> declined       = Mono.error(new IllegalStateException("card declined"));
+```
+
+```kotlin
+val authorizations: Flux<String> = Flux.just("auth-1", "auth-2", "auth-3")
+val attempts: Flux<Int>          = Flux.range(1, 3)
+val fxRate: Mono<String>         = Mono.just("EURUSD=1.08")
+val nothing: Mono<String>        = Mono.empty()
+val declined: Mono<String>       = Mono.error(IllegalStateException("card declined"))
+```
+
+Both types implement `org.reactivestreams.Publisher`, so everything from lesson 1 of this track applies. The split exists for readers and for operators. A method that returns `Mono<Receipt>` promises one receipt or none, and `Mono` has operators that only make sense for one value, such as `Mono.zip` into a tuple. Some operators change the type: `mono.concatWith(other)` gives a `Flux`, while `mono.then(other)` gives a `Mono`.
+
+The simplest way to run one is `subscribe` with up to three lambdas:
+
+```java
+authorizations.subscribe(
+        a -> process(a),                            // onNext
+        e -> log.error("stream failed", e),         // onError
+        () -> log.info("all authorizations done")); // onComplete
+```
+
+```kotlin
+authorizations.subscribe(
+    { a -> process(a) },                            // onNext
+    { e -> log.error("stream failed", e) },         // onError
+    { log.info("all authorizations done") })        // onComplete
+```
+
+This form requests everything (`Long.MAX_VALUE`). Always pass the error lambda. If you leave it out and the stream fails, Reactor does not throw to your code. It logs `ErrorCallbackNotImplemented` at ERROR level and your method carries on, so a test that doesn't assert on the error passes happily.
+
+Reactive Streams forbids `null` items, and Reactor 3.8 enforces it: `Mono.just(null)` throws a `NullPointerException`, and so does a `map` whose function returns `null`. Use `Mono.empty()` for "no value". Kotlin catches this one earlier: Reactor 3.8 publishes JSpecify nullness annotations, so a Kotlin `map { if (ok) x else null }` doesn't even compile ("Return type mismatch: expected 'Any', actual 'String?'")."""
+
+S2 = """Here is the single most important fact about Reactor: building a pipeline runs none of your code.
+
+```java
+Flux<Integer> fees = Flux.range(1, 3)
+        .map(cents -> cents * 100);       // nothing has run yet
+fees.subscribe(System.out::println);      // now range and map run
+```
+
+```kotlin
+val fees: Flux<Int> = Flux.range(1, 3)
+    .map { cents -> cents * 100 }        // nothing has run yet
+fees.subscribe { println(it) }           // now range and map run
+```
+
+There are three separate passes, and it helps to keep them apart.
+
+**Assembly.** Each operator call returns a new `Flux` that wraps the previous one. `Flux.range(1, 3).map(...)` is a `FluxMap` object holding a `FluxRange` object. Your lambda is stored, not called. The Reactor docs describe this as building "an abstract description of your asynchronous process".
+
+**Subscription.** When you call `subscribe`, Reactor walks the chain backwards. Your subscriber subscribes to `map`, which creates its own subscriber and subscribes to `range`. Then `request(n)` travels up the same chain to the source.
+
+**Data.** Only now does the source emit. `onNext` signals flow down through each operator to your lambda, and finally `onComplete` or `onError`.
+
+Three consequences follow. Code inside an operator runs at subscription time: maybe once, maybe once per subscriber, maybe never if nobody subscribes, and possibly on another thread (lesson 6 of this track). Operators never change the object you call them on, so a dropped return value is a silent no-op: `amounts.filter(a -> a > 10);` on its own line does nothing at all. And a method that returns a `Mono` can still do work *before* it returns, at assembly time, which looks lazy but isn't. That last one is the subject of the final section."""
+
+S3 = """Most publishers you meet are **cold**: each subscriber gets its own run, from the start. `Flux.range`, `Mono.fromCallable`, an HTTP client's response `Mono`, a reactive database query: subscribe twice and the work happens twice.
+
+That is often what you want. The `retry` operator from lesson 5 of this track works by subscribing again, and a cold source gives it a fresh attempt. It also means two subscribers to an HTTP call each get their own response.
+
+It bites when you subscribe twice without meaning to. Payment code is where this hurts most:
+
+```java
+Mono<Receipt> charge = issuer.charge(request);    // cold
+charge.subscribe(audit::record);                  // run 1: the card is charged
+return charge.block();                            // run 2: charged again
+```
+
+```kotlin
+val charge: Mono<Receipt> = issuer.charge(request)   // cold
+charge.subscribe { audit.record(it) }                // run 1: the card is charged
+return charge.block()                                // run 2: charged again
+```
+
+Each subscription is a separate charge at the issuer. The same thing happens when a controller subscribes to a `Mono` "to log it" and then returns it to a framework that subscribes again, or when a test calls `block()` twice on the same cold `Mono`.
+
+The fix is to build one chain and put the side effect inside it:
+
+```java
+return issuer.charge(request)
+        .doOnNext(audit::record)    // runs once per subscription, inside the one chain
+        .block();
+```
+
+```kotlin
+return issuer.charge(request)
+    .doOnNext { audit.record(it) }    // runs once per subscription, inside the one chain
+    .block()
+```
+
+If several consumers really do need the same single result, make the sharing explicit with `cache()` or `share()`. Those turn a cold publisher into a **hot** one that runs once and hands the result to everyone. They have sharp edges of their own, so they get lesson 8 of this track.
+
+A quick test for any `Mono` you didn't write: count subscriptions. Wrap it with `doOnSubscribe(s -> counter.incrementAndGet())` and check the number after your code runs. The lab has you build exactly that helper."""
+
+S4 = """`Mono.just(x)` holds a value you already have. That sounds harmless until `x` is a method call:
+
+```java
+Mono<String> rate = Mono.just(fx.fetchFxRate("EURUSD"));
+```
+
+```kotlin
+val rate: Mono<String> = Mono.just(fx.fetchFxRate("EURUSD"))
+```
+
+Java evaluates the argument before `just` is even called. So the remote call runs at assembly, on the caller's thread, exactly once. Every later subscriber gets the same captured value, however stale. If the call throws, the exception flies out of the method that builds the `Mono`, instead of arriving as `onError` where your error operators can see it. And a `retry` can never call the service again, because there is nothing to re-run.
+
+Two factory methods fix it, and they fit different shapes of work:
+
+| You have | Use | When it runs |
+|---|---|---|
+| A value already in hand | `Mono.just(value)` | at assembly, once |
+| A computation that returns a value (often blocking) | `Mono.fromCallable(() -> repo.find(id))` | on each subscription |
+| Code that returns a `Mono` or reads state at subscribe time | `Mono.defer(() -> client.charge(sign(req)))` | on each subscription |
+
+In Kotlin the same calls read `Mono.fromCallable { repo.find(id) }` and `Mono.defer { client.charge(sign(req)) }`. `fromCallable` also maps the edge cases into signals: a thrown exception becomes `onError`, and a `null` result becomes an empty `Mono`. `Mono.fromSupplier` is the same for code that throws no checked exceptions. `defer` is for when building the publisher itself does work: signing a request, reading `Instant.now()`, choosing a target from config. Wrapping it in `defer` moves all of that to subscription time.
+
+Watch for `Mono.justOrEmpty(repo.find(id))`. It handles `null`, but the call is still an eager argument. The same trap exists with `Mono.fromFuture(cf)`: a `CompletableFuture` is already running when you pass it in, so use the `Supplier` overload, `Mono.fromFuture(() -> client.sendAsync(req))`, to start it per subscription."""
+
+SVG = ('<svg viewBox="0 0 680 280" role="img" aria-label="A chain Flux.range, map, filter, subscribe. Assembly wraps left to right and runs nothing; '
+       'subscribe and request travel right to left; data travels left to right">'
+       '<rect class="box" x="20" y="24" width="140" height="44" rx="8"/><text class="t t-code" x="90" y="51" text-anchor="middle">Flux.range</text>'
+       '<rect class="box" x="190" y="24" width="130" height="44" rx="8"/><text class="t t-code" x="255" y="51" text-anchor="middle">map(...)</text>'
+       '<rect class="box" x="350" y="24" width="140" height="44" rx="8"/><text class="t t-code" x="420" y="51" text-anchor="middle">filter(...)</text>'
+       '<rect class="box-a" x="520" y="24" width="140" height="44" rx="8"/><text class="t t-code" x="590" y="51" text-anchor="middle">subscriber</text>'
+       '<line class="ln" x1="160" y1="46" x2="186" y2="46" marker-end="url(#arr)"/>'
+       '<line class="ln" x1="320" y1="46" x2="346" y2="46" marker-end="url(#arr)"/>'
+       '<line class="ln" x1="490" y1="46" x2="516" y2="46" marker-end="url(#arr)"/>'
+       '<text class="t-s t-m" x="340" y="112" text-anchor="middle">1. assembly: each call wraps the one before it. None of your lambdas run.</text>'
+       '<line class="ln-d" x1="40" y1="124" x2="640" y2="124" marker-end="url(#arr)"/>'
+       '<text class="t-s t-a" x="340" y="172" text-anchor="middle">2. subscribe(): subscribers are linked up the chain, then request(n) goes up</text>'
+       '<line class="ln-a" x1="640" y1="184" x2="40" y2="184" marker-end="url(#arr)"/>'
+       '<text class="t-s" x="340" y="232" text-anchor="middle">3. data: onNext items flow down through map and filter to you</text>'
+       '<line class="ln" x1="40" y1="244" x2="640" y2="244" marker-end="url(#arr)"/>'
+       '</svg>')
+
+W0K = """fun charge(req: ChargeRequest): Mono<Receipt> {
+    val nonce = UUID.randomUUID().toString()
+    val signed = signer.sign(req, nonce)          // HMAC with a one-time nonce
+    log.info("charging {}", req.paymentId)
+    return issuerClient.send(signed)              // a cold Mono: sends on subscribe
+}"""
+W2K = """fun charge(req: ChargeRequest): Mono<Receipt> =
+    Mono.defer {
+        val nonce = UUID.randomUUID().toString()     // 1. per attempt
+        val signed = signer.sign(req, nonce)         // 2. per attempt
+        log.info("charging {} (nonce {})", req.paymentId, nonce)
+        issuerClient.send(signed)                    // 3. the cold call
+    }"""
+W3K = """val m = client.charge(req)
+assertThat(signer.calls()).isZero()        // nothing at assembly
+m.block()
+m.block()
+assertThat(signer.calls()).isEqualTo(2)    // once per subscription"""
+DK = """fun balance(accountId: String): Mono<BigDecimal> =
+    Mono.fromCallable { repo.findBalance(accountId) }   // a null result becomes an empty Mono
+
+// proof: a counting fake repo (fun interface Repo { fun findBalance(id: String): BigDecimal? })
+val calls = AtomicInteger()
+val repo = Repo { calls.incrementAndGet(); null }
+val m = Accounts(repo).balance("acc-1")
+check(calls.get() == 0)        // lazy
+check(m.block() == null)       // empty Mono: block() returns null
+check(calls.get() == 1)        // one call per subscription"""
+CK = """// eager: fetchFxRate runs here, once, before just() is called
+val eager: Mono<Rate> = Mono.just(fx.fetchFxRate("EURUSD"))
+
+// lazy: the lambda runs on every subscription
+val lazy: Mono<Rate> = Mono.fromCallable { fx.fetchFxRate("EURUSD") }
+
+// lazy: build a whole publisher per subscription
+val charge: Mono<Receipt> = Mono.defer { issuer.charge(signer.sign(request)) }
+
+// lazy, written as a coroutine (kotlinx-coroutines-reactor): the block starts on each subscription
+val chargeCo: Mono<Receipt> = mono { issuer.chargeSuspending(signer.sign(request)) }"""
+
+L = {
+ "id": "rx-02",
+ "title": "Mono and Flux: nothing happens until you subscribe",
+ "minutes": 35,
+ "goal": "By the end you can tell assembly time from subscription time, predict how many times a cold `Mono` or `Flux` does its work, and choose between `Mono.just`, `fromCallable` and `defer`.",
+ "warmup": {
+  "q": "How many times does this code call the FX service?\n\n```java\nMono<String> rate = Mono.just(fx.fetchFxRate(\"EURUSD\"));\nrate.block();\nrate.block();\n```",
+  "options": [
+   "Zero: nothing happens until you subscribe",
+   "Once, while the Mono is being built",
+   "Twice, once per block()",
+   "Three times: once to build it and once per block()"
+  ],
+  "answer": 1,
+  "why": "Java evaluates `fx.fetchFxRate(\"EURUSD\")` before `Mono.just` is called, so the call happens at assembly, once. `Mono.just` then hands the same captured value to every subscriber. \"Nothing happens until you subscribe\" is true for the code inside operators, not for arguments you evaluate yourself."
+ },
+ "sections": [
+  {
+   "h": "Flux is zero to many, Mono is zero or one",
+   "body": S1,
+   "try": {
+    "title": "Watch the signals go by",
+    "minutes": 4,
+    "steps": [
+     "Read `FirstFluxDemo`. It subscribes to a `Flux` of three authorizations with `log()` in the chain, then to a failing `Mono` with no error callback.",
+     "Predict the order of the lines, including the `log()` lines. What happens to the declined card?",
+     "Run it. Then add an error lambda to the second `subscribe` and run it again."
+    ],
+    "code": {"lang": "java", "title": "FirstFluxDemo.java", "src": read(f"{lab}/demo/{P}/FirstFluxDemo.java"),
+             "run": DEMO + "FirstFluxDemo", "file": f"{lab}/demo/{P}/FirstFluxDemo.java",
+             "alt": {"lang": "kotlin", "title": "FirstFluxDemo.kt", "src": read(f"{lab}/demo/{PK}/FirstFluxDemo.kt"),
+                     "run": DEMO + "FirstFluxDemoKt", "file": f"{lab}/demo/{PK}/FirstFluxDemo.kt"}},
+    "expect": "`log()` prints `onSubscribe`, then `request(unbounded)`, then each `onNext` followed by your `got ...` line, then `onComplete()` and `done`. The protocol from lesson 1 of this track, live. The declined card prints `main carries on` and an `[ERROR] ... Operator called default onErrorDropped - reactor.core.Exceptions$ErrorCallbackNotImplemented` log line (the two may appear in either order, since one goes to stderr). Nothing is thrown at `main`. With an error lambda, your lambda prints the failure and the ERROR log line is gone."
+   }
+  },
+  {
+   "h": "Assembly writes a recipe, subscribe cooks it",
+   "body": S2,
+   "figure": {"svg": SVG, "caption": "Three passes over the same chain: assembly runs no user code, subscription travels up, data travels down."},
+   "try": {
+    "title": "Count what runs, and when",
+    "minutes": 3,
+    "steps": [
+     "`AssemblyDemo` counts how often `map` runs, before and after `subscribe`. Then it filters a list of amounts.",
+     "Predict both counts and the amounts printed. Run it.",
+     "Fix the filter so only amounts above 10 print."
+    ],
+    "code": {"lang": "java", "title": "AssemblyDemo.java", "src": read(f"{lab}/demo/{P}/AssemblyDemo.java"),
+             "run": DEMO + "AssemblyDemo", "file": f"{lab}/demo/{P}/AssemblyDemo.java",
+             "alt": {"lang": "kotlin", "title": "AssemblyDemo.kt", "src": read(f"{lab}/demo/{PK}/AssemblyDemo.kt"),
+                     "run": DEMO + "AssemblyDemoKt", "file": f"{lab}/demo/{PK}/AssemblyDemo.kt"}},
+    "expect": "`after assembly: map ran 0 times`, three fees, then `after subscribe: map ran 3 times`. All three amounts print, 5 included, because `amounts.filter(...)` returned a new `Flux` that nobody used. The fix is to subscribe to the result: `amounts.filter(a -> a > 10).subscribe(...)` in Java, `amounts.filter { it > 10 }.subscribe { ... }` in Kotlin."
+   },
+   "refs": [{"title": "Reactor reference: Introduction to reactive programming (source)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/reactiveProgramming.adoc", "kind": "docs"}]
+  },
+  {
+   "h": "Cold publishers run again for every subscriber",
+   "body": S3,
+   "try": {
+    "title": "Charge a card twice by accident",
+    "minutes": 4,
+    "steps": [
+     "`ColdDemo` builds one charge `Mono`, subscribes once for an audit log and once with `block()` for the caller.",
+     "Predict how many charges the issuer sees. Run it.",
+     "Rewrite `main` as one chain: `charge.doOnNext(r -> System.out.println(\"audit log: \" + r)).block()` in Java, or `charge.doOnNext { println(\"audit log: $it\") }.block()` in Kotlin. Run it again."
+    ],
+    "code": {"lang": "java", "title": "ColdDemo.java", "src": read(f"{lab}/demo/{P}/ColdDemo.java"),
+             "run": DEMO + "ColdDemo", "file": f"{lab}/demo/{P}/ColdDemo.java",
+             "alt": {"lang": "kotlin", "title": "ColdDemo.kt", "src": read(f"{lab}/demo/{PK}/ColdDemo.kt"),
+                     "run": DEMO + "ColdDemoKt", "file": f"{lab}/demo/{PK}/ColdDemo.kt"}},
+    "expect": "The first run prints two `issuer: charging pay-42` lines, the audit log shows `receipt-1`, the caller gets `receipt-2`, and `charges made: 2`. The audit record and the receipt don't even match. With one chain there is one charge, and the audit log and the caller see the same receipt."
+   }
+  },
+  {
+   "h": "Mono.just is eager; fromCallable and defer are lazy",
+   "body": S4,
+   "try": {
+    "title": "just, fromCallable, defer",
+    "minutes": 3,
+    "steps": [
+     "`LazyDemo` builds the same FX rate `Mono` three ways and subscribes to each twice.",
+     "Before running, fill in a small table: calls at assembly and calls after two subscriptions, for each of the three.",
+     "Run it and compare. Then change the `defer` line to use `Mono.justOrEmpty(fetchFxRate())` inside the `defer`. Does that change anything?"
+    ],
+    "code": {"lang": "java", "title": "LazyDemo.java", "src": read(f"{lab}/demo/{P}/LazyDemo.java"),
+             "run": DEMO + "LazyDemo", "file": f"{lab}/demo/{P}/LazyDemo.java",
+             "alt": {"lang": "kotlin", "title": "LazyDemo.kt", "src": read(f"{lab}/demo/{PK}/LazyDemo.kt"),
+                     "run": DEMO + "LazyDemoKt", "file": f"{lab}/demo/{PK}/LazyDemo.kt"}},
+    "expect": "`just`: 1 call at assembly, still 1 after two subscriptions. `fromCallable` and `defer`: 0 at assembly, 2 after two subscriptions. `justOrEmpty` inside `defer` is still lazy, because `defer` delays the whole lambda, argument included. Outside `defer`, `justOrEmpty(fetchFxRate())` would be eager like `just`."
+   },
+   "refs": [{"title": "Reactor reference: Hot versus cold (source)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/advancedFeatures/reactor-hotCold.adoc", "kind": "docs"}]
+  }
+ ],
+ "analogy": "Building a pipeline is writing a recipe card. `Flux.range(...).map(...)` is \"take three numbers, multiply each by 100\": no food yet. Subscribing is cooking, and with a cold publisher every guest who orders gets their own dish cooked from scratch. `Mono.just(fetchRate())` is different: you cooked the dish while writing the recipe, then serve the same plate to everyone who orders, even an hour later. The analogy breaks on side effects: a kitchen never charges a customer's card just because a second waiter read the same order, but a cold `Mono` subscribed twice does exactly that.",
+ "in_your_world": "Payment code is full of calls that must happen once per request and no more: issuer charges, ledger postings, Kafka sends. In a reactive client, check every place a `Mono` is subscribed: an explicit `subscribe()` for logging next to a framework that also subscribes, a `block()` in a test helper and another in the assertion, a `retry` wrapped around a `Mono.just(client.call())`. The same thinking applies outside Reactor. A Temporal activity is retried by the server, so it must be safe to run again. A cold `Mono` is the same idea in miniature: subscribing is \"run it\", and doing it twice runs it twice.",
+ "mistake": "The most common mistake is `Mono.just(someCall())` where `someCall()` does real work: a remote call, a database read, `Instant.now()`, a random idempotency key. People write it because it reads like \"a Mono of the result\" and it passes tests that subscribe once. The call actually runs at assembly, once, on the caller's thread, and its exceptions skip your error handling. Use `Mono.fromCallable(() -> someCall())` for a value, or `Mono.defer(() -> ...)` when the code returns a `Mono`.",
+ "compare": {
+  "title": "Eager and lazy Monos in Java and Kotlin",
+  "java": {"title": "Rates.java", "src": "// eager: fetchFxRate runs here, once, before just() is called\nMono<Rate> eager = Mono.just(fx.fetchFxRate(\"EURUSD\"));\n\n// lazy: the lambda runs on every subscription\nMono<Rate> lazy = Mono.fromCallable(() -> fx.fetchFxRate(\"EURUSD\"));\n\n// lazy: build a whole publisher per subscription\nMono<Receipt> charge = Mono.defer(() -> issuer.charge(signer.sign(request)));"},
+  "kotlin": {"title": "Rates.kt", "src": CK},
+  "note": "The calls are the same Reactor API in both languages, and the trap is the same too, because it is plain argument evaluation: Kotlin evaluates `fx.fetchFxRate(\"EURUSD\")` before `Mono.just` runs, exactly like Java. Kotlin's trailing lambdas make the lazy forms shorter (`Mono.fromCallable { ... }`), and `kotlinx-coroutines-reactor` adds `mono { }`, a cold `Mono` whose body is a coroutine: it starts on each subscription, and a `null` result gives an empty `Mono`. That is handy when a Kotlin service has to hand a `Mono` to Java code. Kotlin Flow has the same trap with different names: `flowOf(call())` is eager, `flow { emit(call()) }` is lazy."
+ },
+ "worked": {
+  "title": "Make an issuer client method lazy",
+  "steps": [
+   {"say": "This method signs a charge request and returns the issuer's response. It returns a `Mono`, so it looks lazy. Mark which lines run when `charge(req)` is called, and which run on subscribe.",
+    "code": "Mono<Receipt> charge(ChargeRequest req) {\n    String nonce = UUID.randomUUID().toString();\n    SignedRequest signed = signer.sign(req, nonce);   // HMAC with a one-time nonce\n    log.info(\"charging {}\", req.paymentId());\n    return issuerClient.send(signed);                 // a cold Mono: sends on subscribe\n}", "lang": "java", "alt_code": W0K, "alt_lang": "kotlin"},
+   {"say": "The nonce, the signature and the log line all happen at call time, once. Only the HTTP send happens on subscribe. Now add `.retry(2)` at the call site: each retry re-subscribes to the same `send(signed)` and replays the same nonce. An issuer that rejects reused nonces fails every retry with \"replayed request\", and the log shows one \"charging\" line for three attempts.", "code": "", "lang": ""},
+   {"say": "Move the whole body into `defer`. Now every subscription, including every retry, builds a fresh nonce, signs again and logs again.",
+    "code": "Mono<Receipt> charge(ChargeRequest req) {\n    return Mono.defer(() -> {\n        String nonce = UUID.randomUUID().toString();     // 1. per attempt\n        SignedRequest signed = signer.sign(req, nonce);  // 2. per attempt\n        log.info(\"charging {} (nonce {})\", req.paymentId(), nonce);\n        return issuerClient.send(signed);               // 3. the cold call\n    });\n}", "lang": "java", "alt_code": W2K, "alt_lang": "kotlin"},
+   {"say": "Check it with a counter, the way the lab does: build the `Mono`, assert zero sign calls, subscribe twice, assert two. A test like this catches the next person who \"simplifies\" the method back to the eager version.",
+    "code": "Mono<Receipt> m = client.charge(req);\nassertThat(signer.calls()).isZero();     // nothing at assembly\nm.block();\nm.block();\nassertThat(signer.calls()).isEqualTo(2); // once per subscription", "lang": "java", "alt_code": W3K, "alt_lang": "kotlin"}
+  ]
+ },
+ "lab": {
+  "title": "Make an eager lookup lazy, and count subscriptions",
+  "minutes": 12,
+  "files": [f"{lab}/main/{P}/PaymentLookup.java", f"{lab}/main/{P}/Subscriptions.java"],
+  "run": "./gradlew :reactive:test --tests 'workbench.reactive.l02.*'",
+  "steps": [
+   "Run the tests. All six fail. Read the messages: the issuer is called while the `Mono` is being built, a failure is thrown instead of signalled, and `take(2)` still costs five calls.",
+   "Rewrite `PaymentLookup.status` so the issuer is called on each subscription. Pick the factory that also turns `null` into an empty `Mono`.",
+   "Rewrite `PaymentLookup.statuses` so each id is fetched only when the subscriber asks for it. You need two operators.",
+   "Write `Subscriptions.counted`: return a `Mono` that adds one to the counter every time something subscribes, and leaves the values alone.",
+   "Run the tests until all six pass."
+  ],
+  "hints": [
+   "`Mono.fromCallable(() -> api.fetchStatus(paymentId))` does all three jobs: lazy, exception to `onError`, `null` to empty.",
+   "`Flux.fromIterable(ids)` emits the ids lazily. `.map(api::fetchStatus)` then calls the issuer once per id, as each one is requested. `take(2)` requests only two.",
+   "`doOnSubscribe` runs a side effect once per subscription. `Mono.defer(() -> { counter.incrementAndGet(); return source; })` works too."
+  ],
+  "done_when": "All six tests in `LazinessTest` pass."
+ },
+ "drill": {
+  "title": "Wrap a blocking lookup, from memory",
+  "minutes": 4,
+  "prompt": "Close this page. `repo.findBalance(accountId)` is a blocking JDBC call that returns a `BigDecimal` or `null`. Write `Mono<BigDecimal> balance(String accountId)` so that it is lazy, calls the repo once per subscription, and turns `null` into an empty `Mono`. Then write three lines that prove it with an `AtomicInteger`.",
+  "answer": {"lang": "java", "src": "Mono<BigDecimal> balance(String accountId) {\n    return Mono.fromCallable(() -> repo.findBalance(accountId));\n}\n\n// proof: a counting fake repo\nAtomicInteger calls = new AtomicInteger();\nRepo repo = id -> { calls.incrementAndGet(); return null; };\nMono<BigDecimal> m = new Accounts(repo).balance(\"acc-1\");\nassert calls.get() == 0;            // lazy\nassert m.block() == null;           // empty Mono: block() returns null\nassert calls.get() == 1;            // one call per subscription", "alt": {"lang": "kotlin", "src": DK}}
+ },
+ "recap": [
+  "`Flux` is 0 to N items, `Mono` is 0 or 1. Both are Reactive Streams publishers, and neither may emit `null`.",
+  "Assembly only builds a chain of wrapper objects. Your lambdas run at subscription time, once per subscriber, possibly never.",
+  "Operators return new instances. An operator whose result you drop is not part of any chain.",
+  "Cold publishers run again for every subscriber. Two subscriptions to a charge `Mono` are two charges.",
+  "`Mono.just(call())` runs `call()` at assembly, once. Use `fromCallable` for a value and `defer` for code that builds a publisher.",
+  "Always give `subscribe` an error callback, or failures end up as a log line instead of in your code."
+ ],
+ "quiz": [
+  {"q": "What does this print?\n\n```java\nFlux<String> f = Flux.just(\"a\", \"b\")\n        .map(s -> { System.out.println(\"map \" + s); return s.toUpperCase(); });\nSystem.out.println(\"built\");\n```",
+   "options": ["`map a`, `map b`, `built`", "`built` only", "`built`, `map a`, `map b`", "Nothing"],
+   "answer": 1,
+   "why": "Building the chain stores the lambda without calling it. Nobody subscribes to `f`, so `map` never runs and only `built` prints. The tempting first option is how `Stream` works with an eager terminal step; here there is no subscribe at all."},
+  {"q": "`issuer.charge(req)` returns a cold `Mono<Receipt>` built with `fromCallable`. A handler does `Mono<Receipt> r = issuer.charge(req); r.subscribe(audit::record); return r.block();`. How many charges reach the issuer?",
+   "options": ["One, because both use the same `Mono` object", "Two, one per subscription", "Zero, because `subscribe` and `block` cancel each other", "It depends on which thread runs first"],
+   "answer": 1,
+   "why": "A cold publisher runs once per subscriber. `subscribe` and `block` are two subscriptions, so the callable runs twice. Sharing a `Mono` object shares the recipe, not the result. Put the audit in the chain with `doOnNext`, or use `cache()` if you really need to share a result."},
+  {"q": "`repo.find(id)` is a blocking call that may return `null`. Which line gives a lazy `Mono` that runs the call per subscription and is empty on `null`?",
+   "options": ["`Mono.just(repo.find(id))`", "`Mono.justOrEmpty(repo.find(id))`", "`Flux.just(repo.find(id)).next()`", "`Mono.fromCallable(() -> repo.find(id))`"],
+   "answer": 3,
+   "why": "`fromCallable` calls the lambda on each subscription and maps `null` to empty and exceptions to `onError`. `justOrEmpty` handles `null` too, but `repo.find(id)` is still an eager argument evaluated at assembly. `Mono.just(null)` would throw."},
+  {"q": "You subscribe to `Mono.error(new IllegalStateException(\"declined\"))` with only an `onNext` lambda. What happens?",
+   "options": ["The exception is thrown out of `subscribe` to your code", "Reactor logs `ErrorCallbackNotImplemented` at ERROR level, and your code carries on", "Nothing at all: errors without a handler are ignored silently", "The JVM prints a stack trace and exits"],
+   "answer": 1,
+   "why": "Without an error callback, Reactor routes the error to its `onErrorDropped` hook, which logs it at ERROR level. Your thread is not interrupted. That is why a test with no assertion on the error can pass even though the stream failed."},
+  {"q": "From \"Why reactive: push, pull and backpressure\": you call `flux.subscribe(item -> process(item))` with just the one lambda. What demand does that subscriber signal to the source?",
+   "options": ["`request(1)` before each item", "`request(256)`, then more in batches", "`request(Long.MAX_VALUE)`: unbounded", "No request until the first item arrives"],
+   "answer": 2,
+   "why": "The lambda form of `subscribe` requests everything, which the `log()` output shows as `request(unbounded)`. That is rule 3.17's \"effectively unbounded\" demand: no backpressure from this subscriber. Lesson 7 of this track shows how operators like `limitRate` turn it back into bounded requests.",
+   "from": "rx-01"}
+ ],
+ "flashcards": [
+  {"front": "When does the lambda inside `flux.map(...)` run?", "back": "At subscription time, once per item for each subscriber. Never at assembly, and never if nobody subscribes."},
+  {"front": "`Mono.just(fetch())` is subscribed three times. How many times does `fetch()` run?", "back": "Once, at assembly, before `just` is even called. All three subscribers get the same value."},
+  {"front": "What does `Mono.fromCallable` do with a thrown exception and with a `null` result?", "back": "The exception becomes `onError`. `null` becomes an empty `Mono` (just `onComplete`)."},
+  {"front": "What is a cold publisher?", "back": "One that does its work again, from the start, for every subscriber. Most Reactor sources are cold."},
+  {"front": "`amounts.filter(a -> a > 10);` on its own line, then `amounts.subscribe(...)`. Is anything filtered?", "back": "No. Operators return a new `Flux`. The filtered one was thrown away, so `amounts` is unchanged."},
+  {"front": "When do you pick `Mono.defer` over `Mono.fromCallable`?", "back": "When the code returns a `Mono` (or other publisher), or must read state at subscription time, such as a nonce or `Instant.now()`."}
+ ],
+ "terms": [
+  {"term": "Flux", "plain": "A Reactor publisher of 0 to N items, optionally ending with complete or error."},
+  {"term": "Mono", "plain": "A Reactor publisher of at most one item. `Mono<Void>` only signals completion or error."},
+  {"term": "Assembly time", "plain": "When you call operators to build the chain. Only wrapper objects are created; none of your lambdas run."},
+  {"term": "Subscription time", "plain": "When `subscribe` (or `block`) is called. The chain is linked up, demand goes up, and the source starts."},
+  {"term": "Cold publisher", "plain": "A publisher that does its work again for each subscriber."},
+  {"term": "Hot publisher", "plain": "A publisher that runs once and shares its items with whoever is subscribed. Lesson 8 of this track."},
+  {"term": "Operator", "plain": "A method like `map` or `filter` that wraps a publisher and returns a new one."}
+ ],
+ "explain_back": {
+  "prompt": "A teammate wrapped a flaky issuer call as `Mono.just(issuer.authorize(req)).retry(3)` and is puzzled that the logs show only one attempt. Explain in your own words what is going on and how to fix it.",
+  "answer": "`issuer.authorize(req)` is an argument to `Mono.just`, so Java runs it once, right there, before any `Mono` exists. If it throws, the exception leaves the method before `retry` is even attached. If it returns, `Mono.just` holds that one value and every subscription gets it again. `retry` works by subscribing again, and re-subscribing to `just` re-runs nothing. Wrapping the call as `Mono.fromCallable(() -> issuer.authorize(req))`, or `Mono.defer(...)` if the client already returns a `Mono`, moves the call to subscription time, so each retry makes a real new attempt and failures arrive as `onError` where `retry` can see them."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "Two more eager traps look like the `Mono.just` one.\n\n**`Flux.fromStream(stream)`.** A Java `Stream` can only be consumed once. The first subscriber drains it, and the second gets `IllegalStateException: stream has already been operated upon or closed`. Use the supplier overload, `Flux.fromStream(() -> repo.streamRows())`, so each subscription gets a fresh stream. (`Flux.fromIterable(list)` is fine to subscribe many times, because a `List` can be iterated again.)\n\n**`Mono.fromFuture(future)`.** A `CompletableFuture` represents work that has already started. `Mono.fromFuture(client.sendAsync(req))` sends the request at assembly, and a retry re-subscribes to the same finished future. `Mono.fromFuture(() -> client.sendAsync(req))` starts a new request for each subscription. This is the bridge you'll use most from code built with the executors track's `CompletableFuture` APIs.\n\nThere is also a distinction between `Mono.fromCallable` and `Mono.fromSupplier`: the first accepts code that throws checked exceptions (a `Callable` may throw `Exception`), the second does not. Both are lazy and both treat `null` as empty.\n\nFinally, a word on `block()`. It subscribes, waits on the calling thread, and returns the value (or `null` for an empty `Mono`, or throws the error). It is the right tool at the edge of reactive code: a `main` method, a test, a blocking framework calling into a reactive client. Lesson 6 of this track explains why it throws on some Reactor threads, and why calling it in the middle of a pipeline defeats the point."
+ },
+ "sources": [
+  {"title": "Reactor reference: Introduction to reactive programming (source)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/reactiveProgramming.adoc"},
+  {"title": "Reactor reference: Flux, an asynchronous sequence of 0-N items (source)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/coreFeatures/flux.adoc"},
+  {"title": "Reactor reference: Mono, an asynchronous 0-1 result (source)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/coreFeatures/mono.adoc"},
+  {"title": "Reactor reference: Hot versus cold (source)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/advancedFeatures/reactor-hotCold.adoc"}
+ ]
+}
+out = ROOT / "content/lessons/rx-02.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)

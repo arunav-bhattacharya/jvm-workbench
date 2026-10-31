@@ -1,0 +1,361 @@
+{
+ "id": "exec-01",
+ "title": "Why pools: Executor, ExecutorService and shutdown",
+ "minutes": 35,
+ "goal": "By the end you can say what a thread pool saves you, pick execute or submit on purpose, and shut a pool down without losing work or hanging the JVM.",
+ "warmup": {
+  "q": "A fixed pool of 4 threads has 10 queued tasks that take 1 second each. `main` calls `pool.shutdown()` and then prints \"done\". When does \"done\" appear?",
+  "options": [
+   "Right away, while the tasks keep running",
+   "After about 3 seconds, when the last task finishes",
+   "Never, because shutdown() blocks until someone calls awaitTermination()",
+   "Right away, and the 10 tasks are cancelled"
+  ],
+  "answer": 0,
+  "why": "`shutdown()` only stops new submissions. Queued and running tasks carry on, and the call returns at once. Waiting is a separate step: `awaitTermination` or, since JDK 19, `close()`. Nothing is cancelled; that would be `shutdownNow()`."
+ },
+ "sections": [
+  {
+   "h": "A thread per task costs time and has no ceiling",
+   "body": "Here is a measurement from `ThreadPerTaskDemo` below. Five thousand tiny tasks, each run on a brand-new thread, took between 0.5 and 1.5 seconds per round on a 4-core machine, depending on how busy it was. The same tasks on a pool of four reused threads took 6 to 25 ms.\n\nThe work was identical. The difference is the threads. A Java platform thread wraps an operating system thread. Starting one means a system call, a new stack (on 64-bit Linux the JVM reserves 1 MB of address space per thread by default) and registration with the OS scheduler. When the thread ends, all of that is torn down again. For a task that runs for microseconds, the setup costs far more than the work.\n\nThe second cost is worse, because it only shows up under load. Thread-per-task has no upper limit. If 3,000 authorization requests arrive at once, you get 3,000 threads. Something runs out first: the process thread limit, memory for stacks, or CPU time spent switching between threads that all want to run. In Java the first sign is often `java.lang.OutOfMemoryError: unable to create native thread`, during your busiest hour.\n\nA **thread pool** fixes both problems. It creates a few threads once and keeps them. Each thread loops: take a task from a queue, run it, take the next one. The pool size caps how many tasks run at the same time, and the rest wait in the queue.\n\nVirtual threads, the subject of the \"Virtual threads\" track, make threads cheap to create, so the first cost mostly goes away for them. The second one does not. You still need a limit on how much work runs at once; with virtual threads you put that limit on the scarce resource instead of on the threads.",
+   "try": {
+    "title": "Pay for 5,000 threads",
+    "minutes": 3,
+    "steps": [
+     "Predict first: for 5,000 tiny tasks, how many times slower is one new thread per task than a pool of 4? Twice? Ten times? A hundred?",
+     "Run `ThreadPerTaskDemo` (Java or Kotlin, they do the same thing) with the command below. It runs two rounds.",
+     "Run it again with `-Pargs=10000` added. Does each column double?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "ThreadPerTaskDemo.java",
+     "src": "package workbench.executors.l01;\n\nimport java.util.concurrent.CountDownLatch;\nimport java.util.concurrent.ExecutorService;\nimport java.util.concurrent.Executors;\nimport java.util.concurrent.atomic.LongAdder;\n\n/** 5,000 tiny tasks: one new thread per task, then the same tasks on a pool of 4 threads. */\npublic class ThreadPerTaskDemo {\n    static final LongAdder work = new LongAdder();\n\n    static void task() {\n        work.add(Long.toHexString(System.nanoTime()).length());   // a few nanoseconds of real work\n    }\n\n    public static void main(String[] args) throws Exception {\n        int tasks = args.length > 0 ? Integer.parseInt(args[0]) : 5_000;\n        for (int round = 1; round <= 2; round++) {\n            // 1. a brand-new platform thread for every task\n            long t0 = System.nanoTime();\n            CountDownLatch done = new CountDownLatch(tasks);\n            for (int i = 0; i < tasks; i++) {\n                new Thread(() -> { task(); done.countDown(); }).start();\n            }\n            done.await();\n            long perTask = (System.nanoTime() - t0) / 1_000_000;\n\n            // 2. the same tasks on four threads that are created once and reused\n            t0 = System.nanoTime();\n            try (ExecutorService pool = Executors.newFixedThreadPool(4)) {\n                for (int i = 0; i < tasks; i++) pool.execute(ThreadPerTaskDemo::task);\n            }   // close() waits for all of them\n            long pooled = (System.nanoTime() - t0) / 1_000_000;\n\n            System.out.printf(\"round %d: %,d tasks  new thread each: %,d ms  pool of 4: %,d ms%n\",\n                    round, tasks, perTask, pooled);\n        }\n    }\n}\n",
+     "run": "./gradlew :executors:demo -Pmain=workbench.executors.l01.ThreadPerTaskDemo",
+     "file": "labs/executors/src/demo/java/workbench/executors/l01/ThreadPerTaskDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "ThreadPerTaskDemo.kt",
+      "src": "package workbench.executors.l01\n\nimport java.util.concurrent.CountDownLatch\nimport java.util.concurrent.Executors\nimport java.util.concurrent.atomic.LongAdder\n\nprivate val work = LongAdder()\n\nprivate fun task() {\n    work.add(System.nanoTime().toString(16).length.toLong())    // a few nanoseconds of real work\n}\n\n/** 5,000 tiny tasks: one new thread per task, then the same tasks on a pool of 4 threads. */\nfun main(args: Array<String>) {\n    val tasks = args.firstOrNull()?.toInt() ?: 5_000\n    for (round in 1..2) {\n        // 1. a brand-new platform thread for every task\n        var t0 = System.nanoTime()\n        val done = CountDownLatch(tasks)\n        repeat(tasks) {\n            Thread { task(); done.countDown() }.start()\n        }\n        done.await()\n        val perTask = (System.nanoTime() - t0) / 1_000_000\n\n        // 2. the same tasks on four threads that are created once and reused\n        t0 = System.nanoTime()\n        Executors.newFixedThreadPool(4).use { pool ->\n            repeat(tasks) { pool.execute(::task) }\n        }   // close() waits for all of them\n        val pooled = (System.nanoTime() - t0) / 1_000_000\n\n        println(\"round %d: %,d tasks  new thread each: %,d ms  pool of 4: %,d ms\".format(round, tasks, perTask, pooled))\n    }\n}\n",
+      "run": "./gradlew :executors:demo -Pmain=workbench.executors.l01.ThreadPerTaskDemoKt",
+      "file": "labs/executors/src/demo/kotlin/workbench/executors/l01/ThreadPerTaskDemo.kt"
+     }
+    },
+    "expect": "On the machine this was written on, one thread per task took 0.5 to 1.5 seconds per round and the pool took 6 to 25 ms: 50 to 150 times faster. The pool's first round is the slowest because the JIT is still warming up. With 10,000 tasks the thread-per-task column roughly doubles, because the cost is paid per thread. The pool pays it four times in total."
+   },
+   "refs": [
+    {
+     "title": "Thread Pools (The Java Tutorials)",
+     "url": "https://docs.oracle.com/javase/tutorial/essential/concurrency/pools.html",
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "h": "Executor runs tasks, ExecutorService owns the threads",
+   "body": "`java.util.concurrent` splits the idea into two interfaces.\n\n`Executor` has one method, `void execute(Runnable task)`. It says nothing about threads. An implementation may run the task on the calling thread, on a new thread or on a pool, and code that takes an `Executor` doesn't care which.\n\n`ExecutorService` extends it with what a pool needs: `submit` (which returns a `Future`), `invokeAll` and `invokeAny`, and the lifecycle methods `shutdown`, `shutdownNow`, `awaitTermination` and, since JDK 19, `close`. You rarely implement it. You get one from the `Executors` factory:\n\n```java\nExecutorService fixed  = Executors.newFixedThreadPool(8);          // 8 threads, unbounded queue\nExecutorService single = Executors.newSingleThreadExecutor();      // 1 thread, tasks run in order\nExecutorService cached = Executors.newCachedThreadPool();          // grows without limit, idle threads die after 60 s\nExecutorService vts    = Executors.newVirtualThreadPerTaskExecutor(); // JDK 21: a new virtual thread per task\n```\n\n```kotlin\nval fixed  = Executors.newFixedThreadPool(8)              // 8 threads, unbounded queue\nval single = Executors.newSingleThreadExecutor()          // 1 thread, tasks run in order\nval cached = Executors.newCachedThreadPool()              // grows without limit, idle threads die after 60 s\nval vts    = Executors.newVirtualThreadPerTaskExecutor()  // JDK 21: a new virtual thread per task\n```\n\nThe first three are built on `ThreadPoolExecutor` with different settings. Lesson 2 of this track takes it apart.\n\nNow the trap. `execute` and `submit` look interchangeable, and they handle failure in opposite ways. Here is what `SwallowDemo` prints for the same failing task sent both ways:\n\n```text\n--- execute ---\ncharging on pool-1-thread-1\nException in thread \"pool-1-thread-1\" java.lang.IllegalStateException: card issuer returned 502\n--- submit ---\ncharging on pool-1-thread-2\nsubmit: nothing printed. isDone=true\n```\n\nWith `execute`, the exception escapes the task and kills the worker thread. The thread's `UncaughtExceptionHandler` prints the stack trace (that is the default handler's job), and the pool starts a replacement worker. That is why the second task runs on `pool-1-thread-2`.\n\nWith `submit`, the pool wraps your task in a `FutureTask`, which catches the exception and stores it in the `Future`. Nothing is printed. The only way to see the failure is to call `get()`, which throws `ExecutionException` with your exception as its cause. If nobody calls `get()`, the failure is gone.\n\nSo choose on purpose. Use `execute` for fire-and-forget work, so failures at least reach the handler. Use `submit` only when some code will call `get()`. Lesson 9 of this track shows how to log failures from both.",
+   "try": {
+    "title": "Lose an exception on purpose",
+    "minutes": 3,
+    "steps": [
+     "Run `SwallowDemo` below and read the thread name printed for each run.",
+     "Delete the whole `--- get ---` part (the `println` and the `try` block around `f.get()`). Predict: will any trace of the second failure remain?",
+     "Run it again."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "SwallowDemo.java",
+     "src": "package workbench.executors.l01;\n\nimport java.util.concurrent.ExecutionException;\nimport java.util.concurrent.ExecutorService;\nimport java.util.concurrent.Executors;\nimport java.util.concurrent.Future;\n\n/** The same failing task, sent once with execute and once with submit. Watch where the exception goes. */\npublic class SwallowDemo {\n    public static void main(String[] args) throws Exception {\n        try (ExecutorService pool = Executors.newFixedThreadPool(1)) {\n            Runnable charge = () -> {\n                System.out.println(\"charging on \" + Thread.currentThread().getName());\n                throw new IllegalStateException(\"card issuer returned 502\");\n            };\n\n            System.out.println(\"--- execute ---\");\n            pool.execute(charge);\n            Thread.sleep(200);                      // give the stack trace time to print\n\n            System.out.println(\"--- submit ---\");\n            Future<?> f = pool.submit(charge);\n            Thread.sleep(200);\n            System.out.println(\"submit: nothing printed. isDone=\" + f.isDone());\n\n            System.out.println(\"--- get ---\");\n            try {\n                f.get();\n            } catch (ExecutionException e) {\n                System.out.println(\"get() threw ExecutionException, cause: \" + e.getCause());\n            }\n        }\n    }\n}\n",
+     "run": "./gradlew :executors:demo -Pmain=workbench.executors.l01.SwallowDemo",
+     "file": "labs/executors/src/demo/java/workbench/executors/l01/SwallowDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "SwallowDemo.kt",
+      "src": "package workbench.executors.l01\n\nimport java.util.concurrent.ExecutionException\nimport java.util.concurrent.Executors\n\n/** The same failing task, sent once with execute and once with submit. Watch where the exception goes. */\nfun main() {\n    Executors.newFixedThreadPool(1).use { pool ->\n        val charge = Runnable {\n            println(\"charging on \" + Thread.currentThread().name)\n            throw IllegalStateException(\"card issuer returned 502\")\n        }\n\n        println(\"--- execute ---\")\n        pool.execute(charge)\n        Thread.sleep(200)                       // give the stack trace time to print\n\n        println(\"--- submit ---\")\n        val f = pool.submit(charge)\n        Thread.sleep(200)\n        println(\"submit: nothing printed. isDone=\" + f.isDone)\n\n        println(\"--- get ---\")\n        try {\n            f.get()\n        } catch (e: ExecutionException) {\n            println(\"get() threw ExecutionException, cause: \" + e.cause)\n        }\n    }\n}\n",
+      "run": "./gradlew :executors:demo -Pmain=workbench.executors.l01.SwallowDemoKt",
+      "file": "labs/executors/src/demo/kotlin/workbench/executors/l01/SwallowDemo.kt"
+     }
+    },
+    "expect": "The first run prints a stack trace for the `execute` failure, then the `submit` task runs on `pool-1-thread-2` because the first worker died. The `get()` block prints the `ExecutionException` and its cause. Without that block, the second failure leaves no trace at all: the exception sits inside a `Future` nobody reads."
+   },
+   "refs": [
+    {
+     "title": "Executors (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/Executors.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "shutdown() starts the stop, awaitTermination() waits for it",
+   "body": "An `ExecutorService` moves one way: running, then shutting down (or stopping), then terminated. Two methods start that trip, and neither of them waits.\n\n`shutdown()` closes the door. New tasks are rejected with `RejectedExecutionException`. Queued tasks and running tasks carry on. The method returns at once.\n\n`shutdownNow()` closes the door and empties the room. It removes every queued task that has not started and returns them as a `List<Runnable>`. Then it interrupts the threads that are running tasks. An interrupt is a request, not a kill. A task blocked in `sleep`, `wait` or `BlockingQueue.take` wakes up with an `InterruptedException`. A task in a CPU loop that never checks the flag keeps running. Lesson 4 of this track covers that protocol.\n\nTo wait for the end, call `awaitTermination(timeout, unit)`. It returns `true` if the pool terminated in time and `false` if not. Together they make the shutdown idiom from the `ExecutorService` Javadoc (the timeouts are yours to pick):\n\n```java\npool.shutdown();                                         // 1. no new work\ntry {\n    if (!pool.awaitTermination(20, TimeUnit.SECONDS)) {  // 2. let the backlog finish\n        pool.shutdownNow();                              // 3. interrupt the stragglers\n        if (!pool.awaitTermination(5, TimeUnit.SECONDS))\n            log.error(\"pool did not terminate\");\n    }\n} catch (InterruptedException e) {\n    pool.shutdownNow();                                  // we were interrupted: stop now\n    Thread.currentThread().interrupt();                  // and keep the flag for our caller\n}\n```\n\n```kotlin\npool.shutdown()                                          // 1. no new work\ntry {\n    if (!pool.awaitTermination(20, TimeUnit.SECONDS)) {  // 2. let the backlog finish\n        pool.shutdownNow()                               // 3. interrupt the stragglers\n        if (!pool.awaitTermination(5, TimeUnit.SECONDS))\n            log.error(\"pool did not terminate\")\n    }\n} catch (e: InterruptedException) {\n    pool.shutdownNow()                                   // we were interrupted: stop now\n    Thread.currentThread().interrupt()                   // and keep the flag for our caller\n}\n```\n\nSince JDK 19, `ExecutorService` is `AutoCloseable`, so try-with-resources can do the waiting. `close()` calls `shutdown()` and waits until every task has finished. If the waiting thread is interrupted, it calls `shutdownNow()`, keeps waiting, and sets the interrupt flag again before it returns. There is no timeout, so `close()` blocks forever on a task that never ends. Use `close()` for a short-lived pool inside one method. Use the idiom for a long-lived pool that must stop within a deadline.\n\nForget both and you get a different bug. The threads of `newFixedThreadPool` are not daemon threads, so they keep the JVM alive after `main` returns, waiting for tasks that will never come.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 640 260\" role=\"img\" aria-label=\"ExecutorService lifecycle: running, then shutting down or stopping, then terminated\"><rect class=\"box-a\" x=\"20\" y=\"105\" width=\"150\" height=\"56\" rx=\"8\"/><text class=\"t\" x=\"95\" y=\"129\" text-anchor=\"middle\">running</text><text class=\"t-s t-m\" x=\"95\" y=\"149\" text-anchor=\"middle\">accepts tasks</text><rect class=\"box\" x=\"250\" y=\"20\" width=\"160\" height=\"56\" rx=\"8\"/><text class=\"t\" x=\"330\" y=\"44\" text-anchor=\"middle\">shutting down</text><text class=\"t-s t-m\" x=\"330\" y=\"64\" text-anchor=\"middle\">queue drains</text><rect class=\"box-bad\" x=\"250\" y=\"190\" width=\"160\" height=\"56\" rx=\"8\"/><text class=\"t\" x=\"330\" y=\"214\" text-anchor=\"middle\">stopping</text><text class=\"t-s t-m\" x=\"330\" y=\"234\" text-anchor=\"middle\">queue handed back</text><rect class=\"box-ok\" x=\"490\" y=\"105\" width=\"130\" height=\"56\" rx=\"8\"/><text class=\"t\" x=\"555\" y=\"129\" text-anchor=\"middle\">terminated</text><text class=\"t-s t-m\" x=\"555\" y=\"149\" text-anchor=\"middle\">threads gone</text><line class=\"ln-a\" x1=\"170\" y1=\"118\" x2=\"246\" y2=\"62\" marker-end=\"url(#arr)\"/><text class=\"t-s t-code\" x=\"188\" y=\"78\" text-anchor=\"middle\">shutdown()</text><line class=\"ln-a\" x1=\"170\" y1=\"148\" x2=\"246\" y2=\"204\" marker-end=\"url(#arr)\"/><text class=\"t-s t-code\" x=\"186\" y=\"198\" text-anchor=\"middle\">shutdownNow()</text><line class=\"ln\" x1=\"330\" y1=\"76\" x2=\"330\" y2=\"186\" marker-end=\"url(#arr)\"/><text class=\"t-s t-code\" x=\"385\" y=\"136\" text-anchor=\"middle\">shutdownNow()</text><line class=\"ln\" x1=\"410\" y1=\"56\" x2=\"492\" y2=\"104\" marker-end=\"url(#arr)\"/><text class=\"t-s t-m\" x=\"478\" y=\"66\" text-anchor=\"middle\">last task done</text><line class=\"ln\" x1=\"410\" y1=\"210\" x2=\"492\" y2=\"162\" marker-end=\"url(#arr)\"/><text class=\"t-s t-m\" x=\"478\" y=\"212\" text-anchor=\"middle\">workers exit</text></svg>",
+    "caption": "shutdown() and shutdownNow() only start the trip. awaitTermination() or close() is how you wait for the end."
+   },
+   "try": {
+    "title": "Watch shutdown not wait",
+    "minutes": 4,
+    "steps": [
+     "`ShutdownDemo` queues six 300 ms settlement batches on two threads, then calls `shutdown()`. Predict the timestamp on the `shutdown returned` line, then run it.",
+     "Run it again with `-Pargs=now`, which calls `shutdownNow()` after 100 ms instead. Predict how many batches settle."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "ShutdownDemo.java",
+     "src": "package workbench.executors.l01;\n\nimport java.util.List;\nimport java.util.concurrent.ExecutorService;\nimport java.util.concurrent.Executors;\nimport java.util.concurrent.RejectedExecutionException;\nimport java.util.concurrent.TimeUnit;\n\n/** shutdown, awaitTermination and shutdownNow on a pool of 2 threads with 6 queued 300 ms tasks. */\npublic class ShutdownDemo {\n    static final long T0 = System.nanoTime();\n\n    static void log(String msg) {\n        System.out.printf(\"%5d ms  %s%n\", (System.nanoTime() - T0) / 1_000_000, msg);\n    }\n\n    static Runnable settle(int id) {\n        return () -> {\n            try {\n                Thread.sleep(300);                  // a 300 ms call to the ledger\n                log(\"settled batch \" + id);\n            } catch (InterruptedException e) {\n                log(\"batch \" + id + \" interrupted\");\n                Thread.currentThread().interrupt();\n            }\n        };\n    }\n\n    public static void main(String[] args) throws Exception {\n        boolean now = args.length > 0 && args[0].equals(\"now\");\n        ExecutorService pool = Executors.newFixedThreadPool(2);\n        for (int i = 1; i <= 6; i++) pool.execute(settle(i));\n\n        if (now) {\n            Thread.sleep(100);\n            List<Runnable> neverStarted = pool.shutdownNow();\n            log(\"shutdownNow returned \" + neverStarted.size() + \" tasks that never started\");\n        } else {\n            pool.shutdown();\n            log(\"shutdown returned. isShutdown=\" + pool.isShutdown() + \" isTerminated=\" + pool.isTerminated());\n        }\n\n        try {\n            pool.execute(settle(7));\n        } catch (RejectedExecutionException e) {\n            log(\"batch 7 rejected: the pool is shut down\");\n        }\n\n        boolean done = pool.awaitTermination(5, TimeUnit.SECONDS);\n        log(\"awaitTermination returned \" + done + \". isTerminated=\" + pool.isTerminated());\n    }\n}\n",
+     "run": "./gradlew :executors:demo -Pmain=workbench.executors.l01.ShutdownDemo",
+     "file": "labs/executors/src/demo/java/workbench/executors/l01/ShutdownDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "ShutdownDemo.kt",
+      "src": "package workbench.executors.l01\n\nimport java.util.concurrent.Executors\nimport java.util.concurrent.RejectedExecutionException\nimport java.util.concurrent.TimeUnit\n\nprivate val T0 = System.nanoTime()\n\nprivate fun log(msg: String) = println(\"%5d ms  %s\".format((System.nanoTime() - T0) / 1_000_000, msg))\n\nprivate fun settle(id: Int) = Runnable {\n    try {\n        Thread.sleep(300)                       // a 300 ms call to the ledger\n        log(\"settled batch $id\")\n    } catch (e: InterruptedException) {\n        log(\"batch $id interrupted\")\n        Thread.currentThread().interrupt()\n    }\n}\n\n/** shutdown, awaitTermination and shutdownNow on a pool of 2 threads with 6 queued 300 ms tasks. */\nfun main(args: Array<String>) {\n    val now = args.firstOrNull() == \"now\"\n    val pool = Executors.newFixedThreadPool(2)\n    for (i in 1..6) pool.execute(settle(i))\n\n    if (now) {\n        Thread.sleep(100)\n        val neverStarted = pool.shutdownNow()\n        log(\"shutdownNow returned ${neverStarted.size} tasks that never started\")\n    } else {\n        pool.shutdown()\n        log(\"shutdown returned. isShutdown=${pool.isShutdown} isTerminated=${pool.isTerminated}\")\n    }\n\n    try {\n        pool.execute(settle(7))\n    } catch (e: RejectedExecutionException) {\n        log(\"batch 7 rejected: the pool is shut down\")\n    }\n\n    val done = pool.awaitTermination(5, TimeUnit.SECONDS)\n    log(\"awaitTermination returned $done. isTerminated=${pool.isTerminated}\")\n}\n",
+      "run": "./gradlew :executors:demo -Pmain=workbench.executors.l01.ShutdownDemoKt",
+      "file": "labs/executors/src/demo/kotlin/workbench/executors/l01/ShutdownDemo.kt"
+     }
+    },
+    "expect": "With `shutdown()`, that line prints within a few milliseconds, batch 7 is rejected, and the six batches settle in pairs at about 300, 600 and 900 ms. Only then does `awaitTermination` return `true`. With `now`, batches 1 and 2 are interrupted in their sleep, `shutdownNow` hands back the 4 batches that never started, nothing settles, and the pool terminates at about 100 ms."
+   },
+   "refs": [
+    {
+     "title": "ExecutorService (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ExecutorService.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "A pool is a queue and a few threads that loop",
+   "body": "Strip away the options and a fixed pool is small enough to write in a lab. Each worker thread runs this loop:\n\n```java\nwhile (true) {\n    Runnable task = queue.take();   // blocks while the queue is empty\n    if (task == POISON) return;     // shutdown: time to exit\n    task.run();\n}\n```\n\n```kotlin\nwhile (true) {\n    val task = queue.take()          // blocks while the queue is empty\n    if (task === POISON) return      // shutdown: time to exit\n    task.run()\n}\n```\n\n`execute` puts the task on a `BlockingQueue`, and workers take it off. The queue does the hand-off between threads, and the number of workers is the limit on how many tasks run at once.\n\nShutdown is the interesting part. Idle workers are blocked inside `take()`, so the pool has to wake them. One way is a **poison pill**: a marker task, one per worker, added behind every real task. A worker that takes a pill exits. The queue is first in, first out, so every task submitted before `shutdown()` runs before any worker sees a pill. `shutdownNow()` drains the queue instead, adds fresh pills, and interrupts the workers, so idle ones fall out of `take()` and busy ones get the request to stop.\n\nThere is one race to get right, and it is the check-then-act shape from \"Race conditions: why count++ lies\". `execute` checks the shutdown flag, then queues the task. If `shutdown()` runs between those two steps, the task lands behind the pills and never runs, although the caller was told it was accepted. So both methods take the same lock, and the check and the queueing happen as one step.\n\n`ThreadPoolExecutor` solves the same problem with one `AtomicInteger` called `ctl`. It packs the run state into the top 3 bits and the worker count into the other 29, so a single compare-and-set can check and change both. The lab uses a plain lock instead. It is slower and much easier to read, which is the right trade when the goal is to see the moving parts."
+  }
+ ],
+ "analogy": "A pool is a courier office. The couriers are the threads, hired once and kept. Parcels go into one in-tray (the queue), and whichever courier is free takes the next one. `shutdown()` is the sign on the door that says \"no more parcels\": the couriers still clear the tray. `shutdownNow()` hands the tray back to the customers and phones every courier on the road to come back. The analogy breaks at that phone call. A real courier hears it. A Java task hears an interrupt only if it checks for one or is blocked in a method that does.",
+ "in_your_world": "A Kafka consumer in a payment service often hands records to a fixed pool so slow ledger writes don't stall polling. When Kubernetes stops the pod, it sends SIGTERM and waits `terminationGracePeriodSeconds` (30 seconds by default) before SIGKILL. That is your shutdown budget. Stop polling first, then `shutdown()` the pool, `awaitTermination` for about 20 seconds, then `shutdownNow()` and log what it handed back, and commit offsets only for records that finished. Quarkus manages its own worker pool, and a Temporal `WorkerFactory` stops its threads when you shut the factory down. The pools you create yourself, for a fan-out to card issuers or a nightly settlement job, are yours to close.",
+ "mistake": "Calling `shutdown()` and treating the work as done. A settlement job runs `pool.shutdown(); dataSource.close();` and the batches still running fail with connection errors. The name sounds final and the call returns quickly, so it reads like a wait. It only stops new submissions. Wait with `awaitTermination` (or `close()` on JDK 19 and later) before you release anything the tasks still use.",
+ "compare": {
+  "title": "Closing a pool in Java and Kotlin",
+  "java": {
+   "title": "UseDemo.java (sketch)",
+   "src": "try (ExecutorService pool = Executors.newFixedThreadPool(4)) {\n    List<Future<Integer>> futures = new ArrayList<>();\n    for (int n = 1; n <= 10; n++) {\n        int k = n;\n        futures.add(pool.submit(() -> k * k));\n    }\n    int total = 0;\n    for (Future<Integer> f : futures) {\n        total += f.get();   // must handle InterruptedException and ExecutionException\n    }\n    System.out.println(\"sum of squares 1..10 = \" + total);\n}   // close(): shutdown, then wait for every task"
+  },
+  "kotlin": {
+   "title": "UseDemo.kt",
+   "src": "package workbench.executors.l01\n\nimport java.util.concurrent.Executors\n\n/** Kotlin's use {} calls ExecutorService.close() (JDK 19+), which waits for the tasks to finish. */\nfun main() {\n    val total = Executors.newFixedThreadPool(4).use { pool ->\n        val futures = (1..10).map { n -> pool.submit<Int> { n * n } }\n        futures.sumOf { it.get() }   // get() can still throw ExecutionException; Kotlin just doesn't force a catch\n    }\n    println(\"sum of squares 1..10 = $total\")\n}\n"
+  },
+  "note": "Both versions end in `ExecutorService.close()`, so the waiting is the same. Kotlin's `use` is its try-with-resources, and it works on a pool because `ExecutorService` has been `AutoCloseable` since JDK 19 (on older JDKs, write the shutdown idiom in a `finally`). The real difference is checked exceptions. Java makes you deal with `InterruptedException` and `ExecutionException` from `get()`. Kotlin compiles without a catch, so a failed task surfaces as an exception you never planned for. If you later wrap a pool for coroutines with `asCoroutineDispatcher()`, the dispatcher needs closing too; closing it shuts the pool down."
+ },
+ "worked": {
+  "title": "Stop a settlement job without losing batches",
+  "steps": [
+   {
+    "say": "A nightly job settles merchant batches on a pool of 4. Here is the end of `main` as first written. Decide what happens to batches still running when this code reaches `dataSource.close()`.",
+    "code": "for (Batch b : batches) pool.execute(() -> settle(b));\npool.shutdown();\ndataSource.close();                 // release the 20 DB connections\nlog.info(\"settlement finished\");",
+    "lang": "java",
+    "alt_code": "for (b in batches) pool.execute { settle(b) }\npool.shutdown()\ndataSource.close()                  // release the 20 DB connections\nlog.info(\"settlement finished\")",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "`shutdown()` returned at once. The log line lies, and `dataSource.close()` pulls connections away from batches that are still running, so they fail with connection errors. Nothing waited for anything.",
+    "code": "",
+    "lang": ""
+   },
+   {
+    "say": "Wait, with a deadline. The job has a 10 minute slot, so give the backlog 9 of them, then interrupt and record what never started. Release shared resources only after the pool has terminated.",
+    "code": "pool.shutdown();                                            // 1. no new batches\ntry {\n    if (!pool.awaitTermination(9, TimeUnit.MINUTES)) {      // 2. let the backlog finish\n        List<Runnable> unstarted = pool.shutdownNow();      // 3. interrupt, collect the rest\n        log.warn(\"{} batches never started\", unstarted.size());\n        pool.awaitTermination(30, TimeUnit.SECONDS);\n    }\n} catch (InterruptedException e) {\n    pool.shutdownNow();\n    Thread.currentThread().interrupt();\n}\ndataSource.close();                                         // 4. only now",
+    "lang": "java",
+    "alt_code": "pool.shutdown()                                             // 1. no new batches\ntry {\n    if (!pool.awaitTermination(9, TimeUnit.MINUTES)) {      // 2. let the backlog finish\n        val unstarted = pool.shutdownNow()                  // 3. interrupt, collect the rest\n        log.warn(\"{} batches never started\", unstarted.size)\n        pool.awaitTermination(30, TimeUnit.SECONDS)\n    }\n} catch (e: InterruptedException) {\n    pool.shutdownNow()\n    Thread.currentThread().interrupt()\n}\ndataSource.close()                                          // 4. only now",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "If the job has no deadline, JDK 19's try-with-resources is shorter, and the order is right by construction: the block cannot end before the pool has terminated.",
+    "code": "try (ExecutorService pool = Executors.newFixedThreadPool(4)) {\n    for (Batch b : batches) pool.execute(() -> settle(b));\n}                                   // close() waits for every batch\ndataSource.close();\nlog.info(\"settlement finished\");",
+    "lang": "java",
+    "alt_code": "Executors.newFixedThreadPool(4).use { pool ->\n    for (b in batches) pool.execute { settle(b) }\n}                                   // close() waits for every batch\ndataSource.close()\nlog.info(\"settlement finished\")",
+    "alt_lang": "kotlin"
+   }
+  ]
+ },
+ "lab": {
+  "title": "Build a tiny fixed pool",
+  "minutes": 15,
+  "files": [
+   "labs/executors/src/main/java/workbench/executors/l01/TinyPool.java"
+  ],
+  "run": "./gradlew :executors:test --tests 'workbench.executors.l01.*'",
+  "steps": [
+   "Run the tests. All eight fail with `UnsupportedOperationException`.",
+   "Write `execute`: a null check, then, inside `synchronized (lock)`, throw `RejectedExecutionException` if `shutdown` is set, otherwise `queue.add(task)`.",
+   "Write `workerLoop`: `take()` a task, return on `POISON` or on `InterruptedException`, run the task, and count a `RuntimeException` in `failed` instead of letting it escape.",
+   "Write `shutdown` (under the lock: set the flag, add one `POISON` per worker) and `awaitTermination` (wait on the `terminated` latch).",
+   "Write `shutdownNow`: under the lock, set the flag, drain the queue into a list, remove the pills from it and add fresh ones. Then interrupt every worker and return the list.",
+   "Run the tests until all eight pass, then run them twice more."
+  ],
+  "hints": [
+   "Why add pills in `shutdownNow` as well? A running task may swallow the interrupt. When it ends, its worker goes back to `take()`. Without a pill waiting there, that worker blocks forever and `awaitTermination` never returns `true`.",
+   "`BlockingQueue.drainTo(list)` moves everything in the queue into `list` in one call, in queue order.",
+   "The `shutdownNow` test checks that you return the very same `Runnable` objects, in the order they were queued. Don't wrap them."
+  ],
+  "done_when": "All eight tests in `TinyPoolTest` pass, three runs in a row."
+ },
+ "drill": {
+  "title": "Write the shutdown idiom from memory",
+  "minutes": 4,
+  "prompt": "Close this page. Write `static void stop(ExecutorService pool, Duration grace)`. It stops new work, waits up to `grace` for the backlog, interrupts stragglers, waits 5 more seconds, and handles its own interruption correctly. Then compare. Did you restore the interrupt flag?",
+  "answer": {
+   "lang": "java",
+   "src": "static void stop(ExecutorService pool, Duration grace) {\n    pool.shutdown();                                        // no new tasks\n    try {\n        if (!pool.awaitTermination(grace.toMillis(), TimeUnit.MILLISECONDS)) {\n            pool.shutdownNow();                             // interrupt what is still running\n            if (!pool.awaitTermination(5, TimeUnit.SECONDS)) {\n                System.err.println(\"pool did not terminate\");\n            }\n        }\n    } catch (InterruptedException e) {\n        pool.shutdownNow();\n        Thread.currentThread().interrupt();                 // keep the flag for the caller\n    }\n}",
+   "alt": {
+    "lang": "kotlin",
+    "title": "stop.kt",
+    "src": "fun stop(pool: ExecutorService, grace: Duration) {\n    pool.shutdown()                                         // no new tasks\n    try {\n        if (!pool.awaitTermination(grace.toMillis(), TimeUnit.MILLISECONDS)) {\n            pool.shutdownNow()                              // interrupt what is still running\n            if (!pool.awaitTermination(5, TimeUnit.SECONDS)) {\n                System.err.println(\"pool did not terminate\")\n            }\n        }\n    } catch (e: InterruptedException) {\n        pool.shutdownNow()\n        Thread.currentThread().interrupt()                  // keep the flag for the caller\n    }\n}"
+   }
+  }
+ },
+ "recap": [
+  "A new platform thread costs a system call and a stack, and thread-per-task has no limit. A pool reuses a few threads and queues the rest.",
+  "`Executor` is one method, `execute`. `ExecutorService` adds `submit`, `invokeAll`, `invokeAny` and the lifecycle.",
+  "`execute` lets a failure reach the `UncaughtExceptionHandler`. `submit` stores it in the `Future`, and you only see it if you call `get()`.",
+  "`shutdown()` rejects new tasks and returns at once. `shutdownNow()` also interrupts running tasks and returns the ones that never started.",
+  "Wait with `awaitTermination(timeout)`, or with `close()` and try-with-resources on JDK 19+, which waits with no timeout.",
+  "Inside, a fixed pool is a `BlockingQueue` plus worker threads that loop on `take()`."
+ ],
+ "quiz": [
+  {
+   "q": "A Kafka handler does `pool.submit(() -> ledger.post(entry))` and never keeps the `Future`. `post` throws a `SQLException` wrapped in a `RuntimeException`. What shows up in the logs?",
+   "options": [
+    "A stack trace from the default UncaughtExceptionHandler",
+    "Nothing at all",
+    "A RejectedExecutionException on the next submit",
+    "A warning that the pool lost a worker"
+   ],
+   "answer": 1,
+   "why": "`submit` wraps the task in a `FutureTask`, which catches the exception and stores it in the `Future`. Nobody calls `get()`, so nobody sees it. The stack trace from the default handler is what you'd get with `execute`, which is why that option is tempting."
+  },
+  {
+   "q": "`main` creates `Executors.newFixedThreadPool(2)`, runs three tasks that finish quickly, and returns without calling `shutdown()`. What happens to the JVM?",
+   "options": [
+    "It exits when `main` returns",
+    "It exits once the three tasks are done",
+    "It keeps running, because the two idle worker threads are not daemon threads",
+    "It throws IllegalStateException because the pool was never shut down"
+   ],
+   "answer": 2,
+   "why": "The JVM exits when the last non-daemon thread ends. The pool's workers are non-daemon and wait in `take()` for more work forever. A cached pool would let the JVM exit after 60 idle seconds, because its idle threads time out."
+  },
+  {
+   "q": "A pool runs a task with a loop `while (true) { score(next()); }` that never checks the interrupt flag and never blocks. You call `shutdownNow()` and then `awaitTermination(5, SECONDS)`. What does `awaitTermination` return?",
+   "options": [
+    "true, because shutdownNow stops the threads",
+    "true, because the task is removed from the queue",
+    "It throws InterruptedException",
+    "false, because the interrupt is only a request and this task ignores it"
+   ],
+   "answer": 3,
+   "why": "`shutdownNow` calls `interrupt()` on the workers. That sets a flag and wakes blocking calls. A loop that never checks the flag and never blocks runs on, so the pool cannot terminate and the wait times out with `false`."
+  },
+  {
+   "q": "Which code waits until every submitted task has finished, with no timeout, on JDK 21?",
+   "options": [
+    "`pool.shutdown();`",
+    "`try (pool) { ... }` (try-with-resources, which calls `close()`)",
+    "`pool.shutdownNow();`",
+    "`pool.isTerminated();`"
+   ],
+   "answer": 1,
+   "why": "`close()` (JDK 19+) calls `shutdown()` and then waits until the pool has terminated. `shutdown()` and `shutdownNow()` return at once, and `isTerminated()` only reports the state."
+  },
+  {
+   "q": "From \"Race conditions: why count++ lies\": four tasks on a fixed pool each run `total += amount` 100,000 times on a shared `long` field. What is `total` after `close()` returns?",
+   "options": [
+    "Exactly 400,000 times `amount`, because the pool runs tasks one after another",
+    "Often less, because the four workers run at the same time and lose updates",
+    "Exactly right, because each task runs on a single thread",
+    "Unknown, because the pool throws ConcurrentModificationException"
+   ],
+   "answer": 1,
+   "why": "A pool of four runs four tasks at once on four threads, so `total += amount` is the same read-modify-write race as before. The pool changes who creates the threads, not the rules for shared state. Use a `LongAdder`, an `AtomicLong`, or give each task its own subtotal.",
+   "from": "conc-03"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "Does `shutdown()` wait for running tasks to finish?",
+   "back": "No. It rejects new tasks and returns at once. Queued and running tasks carry on. Wait with `awaitTermination` or `close()`."
+  },
+  {
+   "front": "What does `shutdownNow()` return?",
+   "back": "A `List<Runnable>` of the queued tasks that never started. It also interrupts the threads running tasks."
+  },
+  {
+   "front": "A task sent with `submit()` throws. Where does the exception go?",
+   "back": "Into the `Future`. Nothing is printed. `get()` throws `ExecutionException` with it as the cause."
+  },
+  {
+   "front": "A task sent with `execute()` throws. What happens?",
+   "back": "The worker thread dies, its `UncaughtExceptionHandler` runs (by default it prints the stack trace), and the pool starts a replacement."
+  },
+  {
+   "front": "What does `ExecutorService.close()` do (JDK 19+)?",
+   "back": "`shutdown()`, then waits with no timeout until every task is done. If interrupted while waiting, it calls `shutdownNow()`, keeps waiting, then restores the interrupt flag."
+  },
+  {
+   "front": "Why can a forgotten `newFixedThreadPool` keep the JVM running after `main` returns?",
+   "back": "Its worker threads are non-daemon and wait for new tasks forever."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Thread pool",
+   "plain": "A set of threads created once that run many tasks, taking them from a queue."
+  },
+  {
+   "term": "Executor",
+   "plain": "Anything that can run a `Runnable`. It has one method, `execute`."
+  },
+  {
+   "term": "ExecutorService",
+   "plain": "An Executor that also returns Futures and can be shut down and waited for."
+  },
+  {
+   "term": "Future",
+   "plain": "A handle to a task's result that you can wait on, check or cancel."
+  },
+  {
+   "term": "Poison pill",
+   "plain": "A marker item put in a queue to tell the consumer that takes it to stop."
+  },
+  {
+   "term": "Daemon thread",
+   "plain": "A thread that does not keep the JVM alive. Pool threads usually are not daemon threads."
+  },
+  {
+   "term": "Graceful shutdown",
+   "plain": "Stop taking new work, let accepted work finish within a deadline, then release resources."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A new teammate asks what `shutdown()`, `shutdownNow()` and `awaitTermination()` each do, and in what order the payments service should call them when the pod gets SIGTERM. Explain it in your own words.",
+  "answer": "`shutdown()` stops the pool from accepting new tasks but lets queued and running tasks finish. It returns immediately, so it is only the start. `awaitTermination(timeout)` is the waiting part: it blocks until the pool has finished everything or the timeout passes, and tells you which happened. `shutdownNow()` is the hard stop: it removes the tasks that never started, hands them back, and interrupts the running ones, which only works if those tasks respond to interrupts. On SIGTERM we have about 30 seconds. So: stop taking work from Kafka or HTTP first, call `shutdown()`, wait maybe 20 seconds with `awaitTermination`, then call `shutdownNow()` and log what came back, wait a few more seconds, and only then close the database pool."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "`ThreadPoolExecutor` has five run states, not three: `RUNNING`, `SHUTDOWN`, `STOP`, `TIDYING` and `TERMINATED`. `shutdown()` moves it to `SHUTDOWN`. `shutdownNow()` moves it to `STOP`, from either of the first two. When the queue is empty and the last worker has exited, the pool moves to `TIDYING`, runs the protected `terminated()` hook (override it to log or release something), and then becomes `TERMINATED`. Threads blocked in `awaitTermination` wake only at that last step.\n\nThe state and the worker count live together in one `AtomicInteger` called `ctl`. The top 3 bits hold the state and the low 29 bits hold the count. That is why the Javadoc caps a pool at about 500 million workers: (2^29) - 1. Packing both into one word lets `execute` check \"still running?\" and \"room for one more worker?\" and claim the slot with one compare-and-set, which is the same atomic check-and-act the lab gets from a lock.\n\nOne more detail from the `Executors` Javadoc: `newSingleThreadExecutor()` is \"guaranteed not to be reconfigurable to use additional threads\", unlike `newFixedThreadPool(1)`. The fixed pool is a plain `ThreadPoolExecutor`, so any code holding it can cast it and call `setMaximumPoolSize`. The single-thread executor is wrapped so nobody can. If your design depends on tasks running one at a time, in order, say so with `newSingleThreadExecutor()`."
+ },
+ "sources": [
+  {
+   "title": "ExecutorService (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ExecutorService.html"
+  },
+  {
+   "title": "Executors (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/Executors.html"
+  },
+  {
+   "title": "Executors (The Java Tutorials)",
+   "url": "https://docs.oracle.com/javase/tutorial/essential/concurrency/executors.html"
+  },
+  {
+   "title": "Java Concurrency in Practice, Goetz et al., chapters 6 and 7",
+   "url": "https://jcip.net/"
+  }
+ ]
+}

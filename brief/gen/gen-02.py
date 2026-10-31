@@ -1,0 +1,509 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+LAB = "labs/generics/src"
+read = lambda p: (ROOT / p).read_text()
+RUN = "./gradlew :generics:demo -Pmain="
+
+
+def demo(rel, title, main, lang="kotlin", alt=None):
+    path = f"{LAB}/demo/{rel}"
+    d = {"lang": lang, "title": title, "src": read(path), "run": RUN + main, "file": path}
+    if alt:
+        d["alt"] = demo(*alt)
+    return d
+
+
+def jdemo(name):
+    return (f"java/workbench/generics/l02/demo/{name}.java", f"{name}.java", f"workbench.generics.l02.demo.{name}", "java")
+
+
+FIG = (
+    '<svg viewBox="0 0 640 300" role="img" aria-label="Nested sets of types. The default bound Any? allows every type including nullable ones. '
+    'T : Any allows only non-null types. Inside it, Comparable types and CharSequence types overlap; a where clause with both bounds allows only the overlap, such as String and StringBuilder.">'
+    '<rect class="box-dim" x="10" y="10" width="620" height="280" rx="8"/>'
+    '<text class="t-s" x="320" y="30" text-anchor="middle">fun &lt;T&gt;  (bound Any?): every type, null included</text>'
+    '<rect class="box" x="40" y="44" width="560" height="208" rx="8"/>'
+    '<text class="t-s" x="320" y="64" text-anchor="middle">T : Any   every non-null type</text>'
+    '<rect class="box-a" x="70" y="80" width="300" height="150" rx="8"/>'
+    '<rect class="box-b" x="270" y="80" width="300" height="150" rx="8"/>'
+    '<text class="t-s t-code" x="165" y="102" text-anchor="middle">T : Comparable&lt;T&gt;</text>'
+    '<text class="t-s t-code" x="475" y="102" text-anchor="middle">T : CharSequence</text>'
+    '<text class="t-s" x="165" y="150" text-anchor="middle">Int, LocalDate</text>'
+    '<text class="t-s" x="165" y="170" text-anchor="middle">Money</text>'
+    '<text class="t-s" x="475" y="150" text-anchor="middle">a CharSequence</text>'
+    '<text class="t-s" x="475" y="170" text-anchor="middle">with no compareTo</text>'
+    '<text class="t-s t-a" x="320" y="140" text-anchor="middle">String</text>'
+    '<text class="t-s t-a" x="320" y="160" text-anchor="middle">StringBuilder</text>'
+    '<text class="t-s t-a" x="320" y="214" text-anchor="middle">where: both</text>'
+    '<text class="t-s t-m" x="320" y="275" text-anchor="middle">String?, Int?, null: only the default bound lets these in</text>'
+    '</svg>'
+)
+
+S1 = """A type parameter with no bound means "some type, I don't know which". So inside the function, `T` can do only what every type can do. In Java the default bound is `Object`. In Kotlin, "every type" includes the nullable ones, so the default bound is **`Any?`**.
+
+```java
+static <T> String describe(T x) {
+    return "value=" + x + ", hash=" + Objects.hashCode(x);
+}
+
+describe("EUR");    // fine
+describe(978);      // fine
+describe(null);     // fine: any Java T accepts null
+```
+
+```kotlin
+fun <T> describe(x: T): String = "value=$x, hash=${x.hashCode()}"
+
+describe("EUR")     // fine
+describe(978)       // fine
+describe(null)      // also fine: T is inferred as Nothing?
+```
+
+`toString()`, `hashCode()` and `==` work, because they exist on `Any?`. Anything more specific fails, even when every caller you have in mind would pass a `String`:
+
+```java
+static <T> int lengthOf(T x) { return x.length(); }
+// error: cannot find symbol: method length()
+```
+
+```kotlin
+fun <T> lengthOf(x: T) = x.length
+// error: unresolved reference 'length'.
+```
+
+The compiler is not being fussy. Someone could call `lengthOf(42)`, and an `Int` has no `length`. A generic function must work for every type the caller is allowed to pick, so you can use only what all of them share.
+
+Comparison fails the same way. Java says `cannot find symbol: method compareTo(T)`. Kotlin gives a stranger message:
+
+```java
+static <T> T bigger(T a, T b) { return a.compareTo(b) >= 0 ? a : b; }
+// error: cannot find symbol: method compareTo(T)
+```
+
+```kotlin
+fun <T> bigger(a: T, b: T): T = if (a > b) a else b
+// error: candidate 'fun String.compareTo(other: String, ignoreCase: Boolean = ...): Int'
+//        is inapplicable because of a receiver type mismatch.
+```
+
+In Kotlin `a > b` means `a.compareTo(b)`. The compiler looks for any `compareTo` it could use on a `T`, finds only the one on `String`, and tells you that one doesn't fit. When an error mentions some unrelated type's method, read it as "this operation is not defined for `T`".
+
+The null case surprises people coming from Java, where every `T` accepts `null` anyway and nobody thinks about it. In Kotlin, `fun <T> f(x: T)` accepts `null` too, because `T` can be `String?` or `Nothing?`. Even an extension like `fun <T> T.describe()` can be called on `null`. If your function must not see null, you have to say so with a bound. Section 4 shows how.
+
+So the job of a bound is to promise more about `T`. The caller can pick fewer types, and in return your code can do more with the one they pick."""
+
+S2 = """An **upper bound** says "T must be this type or a subtype of it". Java writes it with `extends`, even for interfaces. Kotlin writes it after a colon:
+
+```java
+static <T extends Comparable<T>> T maxOf2(T a, T b) {
+    return a.compareTo(b) >= 0 ? a : b;
+}
+
+maxOf2(1_200, 99);                                  // 1200
+maxOf2("EUR", "USD");                               // USD
+```
+
+```kotlin
+fun <T : Comparable<T>> maxOf2(a: T, b: T): T = if (a > b) a else b
+
+maxOf2(1_200, 99)                                   // 1200
+maxOf2("EUR", "USD")                                // USD
+maxOf2(LocalDate.of(2026, 11, 2), LocalDate.of(2026, 10, 30))
+```
+
+Read `T : Comparable<T>` aloud as "T is something that can be compared with another T". `Int` is a `Comparable<Int>`, `String` is a `Comparable<String>` and `LocalDate` is a `Comparable<ChronoLocalDate>`. Kotlin accepts that last one because `Comparable` is declared `in T`, which lesson 5 of this track explains. Inside the function, `a > b` now compiles, because the bound guarantees a `compareTo`.
+
+The bound also rejects bad calls at the call site:
+
+```java
+maxOf2(1, "a");
+// error: method maxOf2 cannot be applied to given types
+
+record Payment(String id, long cents) {}
+maxOf2(new Payment("pay_1", 500), new Payment("pay_2", 900));
+// error: ... inference variable T has incompatible bounds
+//        upper bounds: Comparable<T>   lower bounds: Payment
+```
+
+```kotlin
+maxOf2(1, "a")
+// error: argument type mismatch: actual type is 'String', but 'Int' was expected.
+
+data class Payment(val id: String, val cents: Long)
+maxOf2(Payment("pay_1", 500), Payment("pay_2", 900))
+// error: argument type mismatch: actual type is 'Payment',
+//        but 'Comparable<uninferred T (of fun <T : Comparable<T>> maxOf2)>' was expected.
+```
+
+The first call fails because the two arguments must be the same `T`. The second fails because `Payment` has no natural order. Should a payment compare by amount, by time or by id? The compiler won't guess. Make `Payment` implement `Comparable<Payment>` and the call compiles. Or, usually better, keep `Payment` plain and pass a `Comparator` where you need an order.
+
+The `T` appears twice in `T : Comparable<T>`, and that is on purpose. `Comparable<T>` says what `T` can be compared *with*. This is called a **recursive bound**, and it is the most common bound in practice. You'll see it again in `Enum<E : Enum<E>>` and in builder classes in lesson 10 of this track.
+
+The two compilers word their errors differently, but they say the same thing: `Payment` is not within the bound. One real difference shows up with `LocalDate`. In Java, `LocalDate d = maxOf2(day1, day2)` fails, because the strict bound forces `T` to be `ChronoLocalDate`. The JDK writes `<T extends Comparable<? super T>>` to fix that. Kotlin's plain `T : Comparable<T>` already returns a `LocalDate`."""
+
+S3 = """A type parameter can have more than one bound. Angle brackets hold only one, so the rest go into a **`where` clause** after the signature. Java joins the bounds with `&`:
+
+```java
+static <T extends CharSequence & Comparable<T>> T shortestLabel(List<T> items) {
+    T best = items.get(0);
+    for (T item : items) {
+        if (item.length() < best.length()) best = item;           // CharSequence gives length()
+        else if (item.length() == best.length() && item.compareTo(best) < 0) best = item;
+    }
+    return best;
+}
+```
+
+```kotlin
+fun <T> shortestLabel(items: List<T>): T
+        where T : CharSequence, T : Comparable<T> {
+    var best = items[0]
+    for (item in items) {
+        if (item.length < best.length) best = item     // CharSequence gives .length
+        else if (item.length == best.length && item < best) best = item   // Comparable gives <
+    }
+    return best
+}
+```
+
+`T` must satisfy every bound at once. A `String` is both a `CharSequence` and a `Comparable<String>`, so it fits. An `Int` is comparable but has no characters:
+
+```text
+error: cannot infer type for type parameter 'T'. Specify it explicitly.
+error: argument type mismatch: actual type is 'Int', but 'CharSequence' was expected.
+```
+
+You get two errors for one mistake. The first says the compiler gave up looking for a `T`. The second says why: an `Int` is not a `CharSequence`, so no `T` can meet both bounds. When \"cannot infer type\" appears next to a mismatch, read the mismatch first. It is the real reason.
+
+Here is one that surprises people: `shortestLabel(listOf(StringBuilder("iban"), StringBuilder("bic")))` compiles. Since JDK 11, `StringBuilder` implements `Comparable<StringBuilder>`, so it sits in the overlap too.
+
+At most one bound may be a class. The others must be interfaces, because a JVM class has one superclass. Java also wants the class first:
+
+```java
+static <T extends Number & Exception> void amountOrError(T t) {}           // error: interface expected here
+static <T extends Number & Comparable<T>> T clampToZero(T x) { ... }       // fine: class first
+static <T extends Comparable<T> & Number> T wrong(T x) { ... }             // error: interface expected here
+```
+
+```kotlin
+fun <T> amountOrError(t: T) where T : Number, T : Exception {}
+// error: only one of the upper bounds can be a class.
+fun <T> clampToZero(x: T): T where T : Number, T : Comparable<T> = x       // fine
+fun <T> anyOrder(x: T): T where T : Comparable<T>, T : Number = x          // also fine
+```
+
+Kotlin has no ordering rule. It just counts classes.
+
+Use `where` when the function needs two abilities that no single type in your code names. If you find yourself writing the same pair of bounds in five places, that pair probably wants to be one interface. A `MerchantCode` type that is a `CharSequence` and `Comparable` might be better modelled with a single interface of your own."""
+
+S4 = """The default bound is `Any?`, so `T` can be a nullable type. Most of the time that is what you want. A `Box<String?>` is a fine thing to have. Sometimes it quietly breaks your API. Look at this cache. The Java version has the same problem, because `HashMap` happily stores `null` values:
+
+```java
+class Cache<K, V> {
+    private final Map<K, V> entries = new HashMap<>();
+    void put(K key, V value) { entries.put(key, value); }
+    V get(K key) { return entries.get(key); }   // null means "no entry"... usually
+}
+
+Cache<String, String> lastError = new Cache<>();
+lastError.put("pay_1", null);                   // "checked, no error"
+lastError.get("pay_1");                         // null
+lastError.get("pay_9");                         // null, but never stored
+```
+
+```kotlin
+class Cache<K, V> {
+    private val entries = HashMap<K, V>()
+    fun put(key: K, value: V) { entries[key] = value }
+    fun get(key: K): V? = entries[key]     // null means "no entry"... usually
+}
+
+val lastError = Cache<String, String?>()
+lastError.put("pay_1", null)               // "checked, no error"
+lastError.get("pay_1")                     // null
+lastError.get("pay_9")                     // null, but never stored
+```
+
+With `V = String?`, `get` returns `null` for two different reasons, and the caller cannot tell them apart. The fix is the bound **`T : Any`**, which means "any type, but not a nullable one". Java has no such bound, so the closest it gets is a check at run time:
+
+```java
+void put(K key, V value) {
+    entries.put(key, Objects.requireNonNull(value, "no null values"));   // fails at run time
+}
+```
+
+```kotlin
+class Cache<K : Any, V : Any> { ... }
+
+Cache<String, String?>()
+// error: type argument is not within its bounds: type parameter 'V (of class Cache<K : Any, V : Any>)'
+//        must be subtype of 'Any', but actual: 'String?'.
+```
+
+Now `V?` in `get` always means "absent", because a stored value can never be `null`. The same bound helps functions that must return a real value:
+
+```java
+@SafeVarargs
+static <T> T coalesce(T... values) {
+    for (T v : values) if (v != null) return v;
+    throw new IllegalArgumentException("all values were null");
+}
+
+String currency = coalesce(null, "EUR", "USD");   // the type says nothing about null
+```
+
+```kotlin
+fun <T : Any> coalesce(vararg values: T?): T {
+    for (v in values) if (v != null) return v
+    throw IllegalArgumentException("all values were null")
+}
+
+val currency: String = coalesce(null, "EUR", "USD")   // String, not String?
+```
+
+The parameters are `T?` and the return type is `T`, and that difference is only meaningful because `T` itself can't be nullable. Pass a bare `null` to a `T : Any` parameter and you get `null cannot be a value of a non-null type`.
+
+So the rule I use is simple. Put `T : Any` on a type parameter when `null` already has a job in your API, such as \"not found\". Leave the default when holding a nullable value is fine, as in a `Box<String?>`.
+
+Java types carry no nullability. `<T>` in Java always allows `null`, and the best you can do is a run-time check or an annotation like `@NonNull`, which Kotlin reads when it calls the Java code. Lesson 10 of this track shows a related Kotlin tool, `T & Any`, for the rare case where you need both a nullable `T` and a non-null version of it in one signature."""
+
+L = {
+    "id": "gen-02",
+    "title": "Bounds and constraints: upper bounds, where, T : Any",
+    "minutes": 35,
+    "goal": "By the end you can add an upper bound, a `where` clause or `T : Any` to a type parameter, say what each one lets your code do and which callers it shuts out, and read the matching Java `extends` and `&` syntax.",
+    "warmup": {
+        "q": "Which of these compiles: `fun <T> f(x: T) = x.length`, `fun <T> g(x: T) = x.hashCode()`, or `fun <T> h(x: T) { }` called as `h(null)`?",
+        "options": [
+            "Only `f`, because the caller will pass strings",
+            "`g` and `h(null)`, but not `f`",
+            "None of them: an unbounded T can do nothing",
+            "All three"
+        ],
+        "answer": 1,
+        "why": "With no bound, `T` can be any type, nullable ones included, so you may only use what `Any?` has: `hashCode`, `toString`, `==`. `length` is not on every type. And `h(null)` compiles because `T` may be a nullable type. A bound is how you ask for more."
+    },
+    "sections": [
+        {
+            "h": "An unbounded T can do only what Any? can do",
+            "body": S1,
+            "try": {
+                "title": "Find the edge of an unbounded T",
+                "minutes": 3,
+                "steps": [
+                    "Run `UnboundedDemo` (or `UnboundedDemoJava`). Note what `describe(null)` prints.",
+                    "Uncomment `lengthOf`, run, and read the error. Comment it out again.",
+                    "Uncomment `bigger` and run. Before you read the message, guess which type it will mention."
+                ],
+                "code": demo("kotlin/workbench/generics/l02/demo/UnboundedDemo.kt", "UnboundedDemo.kt", "workbench.generics.l02.demo.UnboundedDemoKt", alt=jdemo("UnboundedDemoJava")),
+                "expect": "`describe(null)` prints `value=null, hash=0`: null is a legal `T`. `lengthOf` fails with `Unresolved reference 'length'.` `bigger` fails with a message about `String.compareTo` being inapplicable, because the only `compareTo` the compiler could find is String's. Neither error is about your callers. Both say `T` promises nothing beyond `Any?`. The Java twin fails both with `cannot find symbol`: Java's `T` promises nothing beyond `Object`."
+            }
+        },
+        {
+            "h": "An upper bound says what T must be",
+            "body": S2,
+            "try": {
+                "title": "Bound T, then make Payment fit",
+                "minutes": 5,
+                "steps": [
+                    "Run `MaxDemo` (or `MaxDemoJava`) and check the three results.",
+                    "Uncomment the `maxOf2(1, \"a\")` line, run, read the error, and comment it out.",
+                    "Uncomment the Payment line and run it. Then make `Payment` implement `Comparable<Payment>` by `cents` (`override fun compareTo(other: Payment) = cents.compareTo(other.cents)`) and run again."
+                ],
+                "code": demo("kotlin/workbench/generics/l02/demo/MaxDemo.kt", "MaxDemo.kt", "workbench.generics.l02.demo.MaxDemoKt", alt=jdemo("MaxDemoJava")),
+                "expect": "The demo prints `1200`, `USD` and `2026-11-02`. The mixed call fails with `Argument type mismatch: actual type is 'String', but 'Int' was expected.` The Payment call fails with `Cannot infer type for type parameter 'T'` and `actual type is 'Payment', but 'Comparable<uninferred T ...>' was expected`. Once `Payment` is comparable, it prints `Payment(id=pay_2, cents=900)`. In the Java twin both bad calls fail with `method maxOf2 ... cannot be applied to given types`, and its extra wrong move shows why the JDK writes `Comparable<? super T>`: `LocalDate later = maxOf2(...)` fails with `inference variable T has incompatible bounds`."
+            }
+        },
+        {
+            "h": "Two bounds need a where clause",
+            "body": S3,
+            "figure": {"svg": FIG, "caption": "Each bound shrinks the set of types a caller may pick. A where clause with two bounds allows only the overlap."},
+            "try": {
+                "title": "Predict which calls fit both bounds",
+                "minutes": 4,
+                "steps": [
+                    "Before running `WhereDemo` (or `WhereDemoJava`), decide whether the `StringBuilder` line compiles.",
+                    "Run it. Then uncomment `sortedLabel(42, 7)` and run again.",
+                    "Comment that out and uncomment `amountOrError`. Run, read the error, and comment it out again."
+                ],
+                "code": demo("kotlin/workbench/generics/l02/demo/WhereDemo.kt", "WhereDemo.kt", "workbench.generics.l02.demo.WhereDemoKt", alt=jdemo("WhereDemoJava")),
+                "expect": "The demo prints `ACH (3) then SEPA (4)` and `bic (3) then iban (4)`: `StringBuilder` is both a `CharSequence` and a `Comparable<StringBuilder>` on JDK 11 and later. `sortedLabel(42, 7)` fails with `Cannot infer type for type parameter 'T'` and `actual type is 'Int', but 'CharSequence' was expected`. `amountOrError` fails with `Only one of the upper bounds can be a class.` In the Java twin, `sortedLabel(42, 7)` fails with `cannot be applied to given types`, and both bad bound lists fail with `interface expected here`."
+            }
+        },
+        {
+            "h": "T : Any keeps null out",
+            "body": S4,
+            "try": {
+                "title": "Make a null mean one thing",
+                "minutes": 4,
+                "steps": [
+                    "Run `NullBoundDemo` (or `NullBoundDemoJava`). Look at the two lines it prints for `pay_1` and `pay_9`.",
+                    "Change the Kotlin class header to `class Cache<K : Any, V : Any>` and run again. Java has no such bound: in the Java twin, uncomment the `requireNonNull` line instead and see that it fails only when it runs.",
+                    "Fix `main` so it compiles. How would you now record \"checked, no error\"? (One answer: store an empty string, or better, a small `sealed interface CheckResult`.)"
+                ],
+                "code": demo("kotlin/workbench/generics/l02/demo/NullBoundDemo.kt", "NullBoundDemo.kt", "workbench.generics.l02.demo.NullBoundDemoKt", alt=jdemo("NullBoundDemoJava")),
+                "expect": "The first run prints `pay_1 -> null` and `pay_9 -> null`: a stored null and a missing entry look the same. With the bound, `Cache<String, String?>()` no longer compiles: `Type argument is not within its bounds: type parameter 'V (of class Cache<K : Any, V : Any>)' must be subtype of 'Any', but actual: 'String?'.` From then on, `get` returning null can only mean \"not there\"."
+            }
+        }
+    ],
+    "analogy": "A bound is like the requirements line on a job posting. \"Any person\" (no bound) gets you many applicants, but you can't ask any of them to drive the van. \"Must hold a driving licence\" (an upper bound) shuts some people out, and in exchange you can hand the keys to whoever turns up. Two requirements (a `where` clause) shrink the pool to people who have both. The analogy breaks in one place: a real employer can interview the candidate and check. The compiler can only trust what the types declare. A class that happens to have a `length` method but does not implement `CharSequence` does not count.",
+    "in_your_world": "Bounds show up wherever your services compare or key things. A settlement cut-off window over `LocalDate` or `Instant` is a `Window<T : Comparable<T>>`. A generic retry policy that sorts attempts by time needs a comparable timestamp. An in-memory cache in front of the card issuer API, or a store of idempotency responses, should be `Cache<K : Any, V : Any>`, so a `null` from `get` always means \"miss\" and never \"we cached a null\". When you call a Java library from Kotlin, its `<T>` allows null, so a Kotlin wrapper with `T : Any` is the place to pin that down.",
+    "mistake": "The common mistake is leaving a type parameter unbounded and then returning `T?` to mean \"absent\", as in `fun get(key: K): V?`. It works in every test, because nobody stores a null. Then a caller writes `Cache<String, Instant?>` to remember \"we checked and found nothing\", and `get` can no longer tell \"missing\" from \"stored null\". People make this mistake because the default bound is invisible. The fix is to write `V : Any` whenever `null` has a job in your API, and to model \"checked, nothing found\" as a real value, not as a stored `null`.",
+    "compare": {
+        "title": "Bounds in Java and Kotlin",
+        "java": {
+            "title": "Bounds.java",
+            "src": "import java.util.List;\n\nclass Bounds {\n    // one bound: extends, even for an interface\n    static <T extends Comparable<T>> T maxOf2(T a, T b) {\n        return a.compareTo(b) >= 0 ? a : b;\n    }\n\n    // two bounds with &: the class (if any) must come first\n    static <T extends CharSequence & Comparable<T>> T shortest(List<T> items) {\n        T best = items.get(0);\n        for (T item : items) {\n            if (item.length() < best.length()) best = item;\n        }\n        return best;\n    }\n\n    // no way to say \"not null\": T may always be null\n    static <T> T firstOrThrow(List<T> items) {\n        return items.get(0);   // could be null\n    }\n}"
+        },
+        "kotlin": {
+            "title": "Bounds.kt",
+            "src": "// one bound: a colon\nfun <T : Comparable<T>> maxOf2(a: T, b: T): T = if (a >= b) a else b\n\n// two bounds: a where clause, in any order, at most one class\nfun <T> shortest(items: List<T>): T where T : CharSequence, T : Comparable<T> {\n    var best = items[0]\n    for (item in items) {\n        if (item.length < best.length) best = item\n    }\n    return best\n}\n\n// T : Any rules out nullable type arguments\nfun <T : Any> firstOrThrow(items: List<T>): T = items[0]   // never null"
+        },
+        "note": "The bounds mean the same thing in both languages and compile to the same JVM bounds. Kotlin uses a colon and a `where` clause and does not care about order; Java uses `extends` and `&` and wants the class first. The real difference is nullability. Kotlin's default bound is `Any?`, so you can opt out of null with `T : Any`. Java has no nullable types, so every Java `T` allows null and only annotations can say otherwise. One small surprise: javap shows Kotlin's `T : Comparable<T>` as `<T extends Comparable<? super T>>`, because Kotlin's `Comparable` is declared `in T`. Lesson 5 of this track explains that `? super`."
+    },
+    "worked": {
+        "title": "Build a settlement window that works for any comparable type",
+        "steps": [
+            {"say": "Settlement runs between a cut-off start and end. You want one class for amounts, dates and times. Start without a bound and see what breaks.", "code": "class Window<T>(val start: T, val endInclusive: T) {\n    operator fun contains(value: T) = start <= value && value <= endInclusive\n    // error: candidate 'fun String.compareTo(...)' is inapplicable\n    //        because of a receiver type mismatch.\n}", "lang": "kotlin",
+             "alt_lang": "java", "alt_code": "class Window<T> {\n    final T start, endInclusive;\n    Window(T start, T endInclusive) { this.start = start; this.endInclusive = endInclusive; }\n\n    boolean contains(T value) {\n        return start.compareTo(value) <= 0 && value.compareTo(endInclusive) <= 0;\n        // error: cannot find symbol: method compareTo(T)\n    }\n}"},
+            {"say": "1. Ask for exactly the ability you use. The body only compares, so the bound is `T : Comparable<T>`. Now `<=` resolves to `compareTo`.", "code": "class Window<T : Comparable<T>>(val start: T, val endInclusive: T) {\n    init { require(start <= endInclusive) { \"start $start is after end $endInclusive\" } }\n\n    operator fun contains(value: T): Boolean = start <= value && value <= endInclusive\n}", "lang": "kotlin",
+             "alt_lang": "java", "alt_code": "class Window<T extends Comparable<? super T>> {\n    final T start, endInclusive;\n\n    Window(T start, T endInclusive) {\n        if (start.compareTo(endInclusive) > 0) throw new IllegalArgumentException(\"start is after end\");\n        this.start = start;\n        this.endInclusive = endInclusive;\n    }\n\n    boolean contains(T value) {\n        return start.compareTo(value) <= 0 && value.compareTo(endInclusive) <= 0;\n    }\n}"},
+            {"say": "2. Use it with types that already fit the bound. `LocalDate` and `Instant` are comparable out of the box, so are `Int` and `String`. Self-check: why does `Window(1, \"z\")` fail? (Both values must be the same `T`, and there is no single `T` that is a `Comparable<T>` for both.)", "code": "val cutoff = Window(LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 6))\nLocalDate.of(2026, 11, 4) in cutoff        // true\n\nval limits = Window(1_000L, 50_000L)\n75_000L in limits                          // false", "lang": "kotlin",
+             "alt_lang": "java", "alt_code": "var cutoff = new Window<>(LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 6));\ncutoff.contains(LocalDate.of(2026, 11, 4));   // true (needs the ? super T form for LocalDate)\n\nvar limits = new Window<>(1_000L, 50_000L);\nlimits.contains(75_000L);                     // false"},
+            {"say": "3. Make your own type fit. A `Money` value with an explicit order is a better fit than raw `Long` cents, and the window needs no change at all.", "code": "data class Money(val cents: Long) : Comparable<Money> {\n    override fun compareTo(other: Money): Int = cents.compareTo(other.cents)\n}\n\nval refundable = Window(Money(100), Money(500_00))\nMoney(42_00) in refundable                 // true", "lang": "kotlin",
+             "alt_lang": "java", "alt_code": "record Money(long cents) implements Comparable<Money> {\n    public int compareTo(Money other) { return Long.compare(cents, other.cents); }\n}\n\nvar refundable = new Window<>(new Money(100), new Money(500_00));\nrefundable.contains(new Money(42_00));   // true"}
+        ]
+    },
+    "lab": {
+        "title": "Bound your type parameters: maxOfAll, Window, shortestLabel, coalesce",
+        "minutes": 12,
+        "files": [
+            f"{LAB}/main/kotlin/workbench/generics/l02/Bounds.kt",
+            f"{LAB}/main/kotlin/workbench/generics/l02/Window.kt"
+        ],
+        "run": "./gradlew :generics:test --tests 'workbench.generics.l02.*'",
+        "steps": [
+            "Run the tests once. All nine fail.",
+            "In `Bounds.kt`, write `maxOfAll` with a loop and `>`. Then try deleting `: Comparable<T>` from its signature to see the error, and put it back.",
+            "In `Window.kt`, add the `require` in `init`, then write `contains`, `clamp` and `overlaps` using only `<`, `<=`, `>` and `>=`.",
+            "Write `shortestLabel`. It uses `.length` from one bound and `<` from the other.",
+            "Write `coalesce`. Notice that the test assigns its result to a plain `String`.",
+            "Run the tests until all nine pass."
+        ],
+        "hints": [
+            "`require(condition) { \"message\" }` throws `IllegalArgumentException` when the condition is false.",
+            "Two windows do NOT overlap when one ends before the other starts: `endInclusive < other.start || other.endInclusive < start`. Negate that.",
+            "In `coalesce`, `if (value != null) return value` smart-casts `value` from `T?` to `T`."
+        ],
+        "done_when": "All nine tests in `BoundsTest` pass."
+    },
+    "drill": {
+        "title": "Write three bounded signatures from memory",
+        "minutes": 4,
+        "prompt": "Close this page. Write only the signatures (no bodies): (1) a function `largest` that returns the biggest item of a `List<T>` for any comparable `T`; (2) a function `trimAndSort` that takes a `List<T>` where `T` is both a `CharSequence` and comparable to itself; (3) a class `Registry` with a key type and a value type, neither of which may be nullable. Then write (1) and (2) in Java.",
+        "answer": {
+            "lang": "kotlin",
+            "src": "fun <T : Comparable<T>> largest(items: List<T>): T = TODO()\n\nfun <T> trimAndSort(items: List<T>): List<T> where T : CharSequence, T : Comparable<T> = TODO()\n\nclass Registry<K : Any, V : Any>\n\n// Java:\n// static <T extends Comparable<T>> T largest(List<T> items)\n// static <T extends CharSequence & Comparable<T>> List<T> trimAndSort(List<T> items)",
+            "alt": {"lang": "java", "title": "Signatures.java", "src": "static <T extends Comparable<T>> T largest(List<T> items) { ... }\n\nstatic <T extends CharSequence & Comparable<T>> List<T> trimAndSort(List<T> items) { ... }\n\n// Java has no non-null bound: the closest is a run-time check in the constructor or in put()\nclass Registry<K, V> {\n    void put(K key, V value) {\n        Objects.requireNonNull(key);\n        Objects.requireNonNull(value);\n    }\n}"}
+        }
+    },
+    "recap": [
+        "An unbounded `T` has the bound `Any?`: you can use `toString`, `hashCode` and `==`, and callers may pass `null`.",
+        "`T : Comparable<T>` lets you compare two `T` values with `<` and `>`, and rejects types with no natural order at the call site.",
+        "More than one bound goes in a `where` clause. At most one bound can be a class. Java writes `<T extends A & B>` with the class first.",
+        "`T : Any` rules out nullable type arguments, so `T?` in your API can only mean \"absent\".",
+        "Java type parameters always allow null; Kotlin lets you choose with the bound."
+    ],
+    "quiz": [
+        {
+            "q": "`fun <T : Comparable<T>> maxOf2(a: T, b: T): T`. Which call does NOT compile?",
+            "options": [
+                "`maxOf2(3, 7)`",
+                "`maxOf2(\"EUR\", \"USD\")`",
+                "`maxOf2(LocalDate.now(), LocalDate.MIN)`",
+                "`maxOf2(Payment(\"a\", 5), Payment(\"b\", 9))` where `Payment` is a plain data class"
+            ],
+            "answer": 3,
+            "why": "`Int`, `String` and `LocalDate` are all comparable. A plain data class is not, so the compiler reports `actual type is 'Payment', but 'Comparable<uninferred T ...>' was expected`. Data classes get `equals` and `hashCode`, not an order."
+        },
+        {
+            "q": "Which signature lets a function call both `x.length` and `x < y` on two `T` values?",
+            "options": [
+                "`fun <T : CharSequence, Comparable<T>> f(x: T, y: T)`",
+                "`fun <T> f(x: T, y: T) where T : CharSequence, T : Comparable<T>`",
+                "`fun <T : CharSequence & Comparable<T>> f(x: T, y: T)`",
+                "`fun <T : Any> f(x: T, y: T)`"
+            ],
+            "answer": 1,
+            "why": "Kotlin allows one bound inside the angle brackets. A second bound for the same `T` goes into a `where` clause. The first option declares a second type parameter called `Comparable`, which is not what you meant, and `&` is Java's spelling, not Kotlin's."
+        },
+        {
+            "q": "A teammate writes `class Cache<K, V> { fun get(key: K): V? }`. Another teammate creates `Cache<String, Instant?>`. What problem appears?",
+            "options": [
+                "It does not compile: `V?` is not allowed when `V` is nullable",
+                "`get` returns `null` both for a missing key and for a stored null, so callers can't tell them apart",
+                "Every `get` throws a NullPointerException",
+                "None: `V?` and `Instant?` cancel out"
+            ],
+            "answer": 1,
+            "why": "With the default bound `Any?`, `V` may itself be nullable, and `V?` adds nothing. Declaring `class Cache<K : Any, V : Any>` makes `Cache<String, Instant?>` a compile error, so `null` from `get` always means \"missing\"."
+        },
+        {
+            "q": "Java: which bound declaration compiles?",
+            "options": [
+                "`<T extends Comparable<T> & Number>`",
+                "`<T extends Number & Comparable<T>>`",
+                "`<T extends Number, Comparable<T>>` with the same meaning",
+                "`<T : Number & Comparable<T>>`"
+            ],
+            "answer": 1,
+            "why": "In Java the class bound must come first and the interfaces follow after `&`. Putting `Number` second gives `interface expected here`. The comma form declares a second type parameter, and the colon is Kotlin syntax."
+        },
+        {
+            "q": "From \"Generics from zero\": what does `val probe: Int = mapOf(\"EUR\" to 100, \"USD\" to 250L)` make the compiler print?",
+            "options": [
+                "expected 'Int', actual 'Map<String, Int>'",
+                "expected 'Int', actual 'Map<String, Long>'",
+                "expected 'Int', actual 'Map<String, Number>'",
+                "expected 'Int', actual 'Map<String, Any>'"
+            ],
+            "answer": 1,
+            "why": "The assignment to a wrong type is the trick for printing an inferred type. Here the compiler makes the literal `100` a `Long` so that both values share one type. With two values that really differ, such as `1` and `2.5`, you would get an intersection type instead.",
+            "from": "gen-01"
+        }
+    ],
+    "flashcards": [
+        {"front": "What is the default upper bound of a Kotlin type parameter?", "back": "`Any?`. So an unbounded `T` accepts nullable types, and `fun <T> f(x: T)` can be called with `null`."},
+        {"front": "`fun <T> lengthOf(x: T) = x.length` gives what error?", "back": "`unresolved reference 'length'.` An unbounded `T` only has the members of `Any?`."},
+        {"front": "How do you say \"T can be compared with another T\"?", "back": "`<T : Comparable<T>>` in Kotlin, `<T extends Comparable<T>>` in Java."},
+        {"front": "How do you give one type parameter two bounds in Kotlin?", "back": "A `where` clause: `fun <T> f(x: T) where T : CharSequence, T : Comparable<T>`."},
+        {"front": "Why does `where T : Number, T : Exception` fail?", "back": "`only one of the upper bounds can be a class.` A JVM type has one superclass; the other bounds must be interfaces."},
+        {"front": "What does `class Cache<K : Any, V : Any>` buy you?", "back": "Neither type argument can be nullable, so `get(): V?` returning null always means \"no entry\"."},
+        {"front": "In Java's `<T extends A & B>`, which must come first?", "back": "The class, if there is one. Interfaces follow after `&`. Otherwise javac says `interface expected here`."}
+    ],
+    "terms": [
+        {"term": "Upper bound", "plain": "A limit on a type parameter: \"T must be this type or a subtype of it\", written `T : Comparable<T>`."},
+        {"term": "Default bound", "plain": "`Any?`, the bound a Kotlin type parameter has when you write none."},
+        {"term": "where clause", "plain": "The place for extra bounds on a type parameter: `where T : CharSequence, T : Comparable<T>`."},
+        {"term": "Recursive bound", "plain": "A bound that mentions the parameter itself, like `T : Comparable<T>`: T can be compared with another T."},
+        {"term": "T : Any", "plain": "A bound that rules out nullable type arguments."},
+        {"term": "Multiple bounds (Java)", "plain": "Java's `<T extends A & B>`; the class, if any, must come first."}
+    ],
+    "explain_back": {
+        "prompt": "In your own words: what does adding a bound to a type parameter take away from callers, and what does it give the function body? Use `T : Comparable<T>` and `T : Any` as your two examples.",
+        "answer": "A bound narrows the set of types a caller may pick. In exchange, the function body can rely on more. With no bound, `T` might be anything, including a nullable type, so the body can only use what `Any?` has. With `T : Comparable<T>`, callers can no longer pass types that have no order, like a plain data class, but the body can now use `<` and `>`. With `T : Any`, callers can no longer pick a nullable type, but the body and the API get a guarantee: a `T` is never null, so a `T?` return can only mean \"absent\". In both cases the compiler enforces the deal at every call site."
+    },
+    "deeper": {
+        "minutes": 8,
+        "body": "Why does javap show Kotlin's `fun <T : Comparable<T>> maxOf2(a: T, b: T)` as `<T extends Comparable<? super T>> T maxOf2(T, T)`? Because Kotlin declares `Comparable<in T>`, and when Kotlin writes a Java signature for a parameter of an `in` type, it adds `? super`. That is also why Kotlin accepts `LocalDate`, which is a `Comparable<ChronoLocalDate>` and not a `Comparable<LocalDate>`.\n\nJava's own `Collections.max` shows how messy this gets without declaration-site variance:\n\n```java\npublic static <T extends Object & Comparable<? super T>> T max(Collection<? extends T> coll)\n```\n\n```kotlin\nfun <T : Comparable<T>> Iterable<T>.max(): T\n```\n\nThe `Object &` part is there for backward compatibility: it keeps the erased signature returning `Object`, as it did before Java 5. The `? super T` lets a `List<LocalDate>` through. The `? extends T` lets a collection of a subtype through. Kotlin's version gets the same flexibility from `in` and `out` declared once on `Comparable` and `Iterable`. Lessons 4 to 6 of this track build up to reading that Java signature with ease.\n\nOne more bound rule: a type parameter bounded by another type parameter can't have extra bounds. `fun <T, U> f(u: U) where U : T, U : Comparable<U>` gives `type parameter cannot have any other bounds if it's bounded by another type parameter.`"
+    },
+    "sources": [
+        {"title": "Generics: upper bounds and where clauses (Kotlin docs)", "url": "https://kotlinlang.org/docs/generics.html"},
+        {"title": "Bounded type parameters (The Java Tutorials)", "url": "https://docs.oracle.com/javase/tutorial/java/generics/bounded.html"},
+        {"title": "Null safety (Kotlin docs)", "url": "https://kotlinlang.org/docs/null-safety.html"}
+    ]
+}
+
+out = ROOT / "content/lessons/gen-02.json"
+out.write_text(json.dumps(L, indent=2, ensure_ascii=False) + "\n")
+print("wrote", out)

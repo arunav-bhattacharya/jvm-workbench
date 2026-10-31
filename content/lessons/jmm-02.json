@@ -1,0 +1,341 @@
+{
+ "id": "jmm-02",
+ "title": "Happens-before, the rules that matter",
+ "minutes": 35,
+ "goal": "By the end you can name the happens-before edge that makes a read see a write, spot a data race where no edge exists, and fix it with the right lock, volatile field, join or java.util.concurrent handoff.",
+ "warmup": {
+  "q": "A `synchronized` method `setStatus` writes a field. Another thread calls a plain, unsynchronized `getStatus()`. Is the getter guaranteed to see the latest status?",
+  "options": [
+   "Yes, because the write happened inside a lock",
+   "Yes, as long as the getter runs after the setter in wall-clock time",
+   "No, because the reader never takes the lock, so nothing links the two threads",
+   "No, because a synchronized method can't be called while another thread reads the field"
+  ],
+  "answer": 2,
+  "why": "A lock links threads only when both sides use it: the writer's release pairs with the reader's acquire of the same lock. The getter acquires nothing, so the read races with the write. Wall-clock order (option 2) is the tempting one, and it is exactly what happens-before is not about."
+ },
+ "sections": [
+  {
+   "h": "Happens-before is a promise about visibility, not about time",
+   "body": "The memory model answers one question: when is a read in one thread guaranteed to see a write from another? The `java.util.concurrent` package documentation gives the answer in one sentence: \"The results of a write by one thread are guaranteed to be visible to a read by another thread only if the write operation happens-before the read operation.\"\n\n**Happens-before** is a relation between two actions, such as a write of a field and a read of it. If the write happens-before the read, and no other write to that field races in, the read sees that value. If nothing orders them, the read may see the new value, an old one, or, as in lesson 1 of this track, never the new value at all.\n\nThe name misleads people. Happens-before is not about wall-clock time. A write can run a full second before a read and still not happen-before it: that was the stop flag. In the other direction, the JVM may reorder two actions that are ordered by happens-before, as long as no thread can tell.\n\nThe first rule is one you already rely on. Inside one thread, each action happens-before every later action of that thread. This is **program order**, and it's why single-threaded code reads as written.\n\nThe rules in the next sections connect different threads. Chain them together and you have a proof that a particular read sees a particular write. When two threads access the same field, at least one of them writes, and no chain of happens-before orders the two accesses, the program has a **data race**.\n\nData races are what the JMM is really about. Its main promise is called DRF-SC: a program with no data races behaves as if the threads' actions ran one at a time, interleaved, each thread in its own order. You can reason about it like the simulator in \"Race conditions: why count++ lies\". A program with a data race gets very few guarantees beyond that.\n\nSo the working method is short. For every field that two threads share, name the edge between the write and the read. If you can't name one, you have a race."
+  },
+  {
+   "h": "Locks and volatile link threads only through the same lock or the same field",
+   "body": "Two rules cover most of the code you write.\n\nThe monitor rule: releasing a lock happens-before every later acquisition of the same lock. Leaving a `synchronized` block or method releases the monitor; entering one acquires it. Add program order on both sides, and everything T1 did before leaving `synchronized (lock)` is visible to T2 once it enters `synchronized (lock)`.\n\nThe volatile rule: a write to a volatile field happens-before every later read of that same field, where \"later\" means the read sees that write or a newer one. A volatile works like a lock without the mutual exclusion.\n\nThe JLS calls the source of such an edge a **release** and the target an **acquire**. Leaving a monitor and writing a volatile are releases. Entering a monitor and reading a volatile are acquires. Every class in `java.util.concurrent` is built on the same pair.\n\nBoth rules contain the word *same*, and that's where the bugs are.\n\n```java\nsynchronized (paymentLock) { status = APPROVED; }   // T1 releases paymentLock\nsynchronized (auditLock)   { s = status; }          // T2 acquires auditLock: no edge\n```\n\n```kotlin\nsynchronized(paymentLock) { status = APPROVED }   // T1 releases paymentLock\nsynchronized(auditLock) { s = status }            // T2 acquires auditLock: no edge\n```\n\nTwo different locks give you mutual exclusion on each one and no edge between them. Volatile works the same way: a write to a volatile `version` and a read of a volatile `checksum` give no edge.\n\nThe most common shape of this bug is the half-synchronized class: a `synchronized` setter and a plain getter. The writer releases the lock, the reader never acquires it, so there's nothing to pair with. `LedgerTotals` in the lab is that class.\n\nOne more: `synchronized (new Object())` does nothing for other threads. No other thread can ever lock that object, so no edge can form. HotSpot knows it, too. Its escape analysis proves that no other thread can reach the object and removes the lock completely, and then the read inside is just a plain read.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 700 360\" role=\"img\" aria-label=\"Two threads. T1 writes amount and status, then leaves a synchronized block on lock. T2 enters a synchronized block on the same lock, then reads status and amount. The unlock synchronizes-with the lock, so by transitivity the write of amount happens-before the read of amount.\"><text class=\"t\" x=\"130\" y=\"34\" text-anchor=\"middle\">T1: authorization</text><text class=\"t\" x=\"570\" y=\"34\" text-anchor=\"middle\">T2: capture</text><rect class=\"box-ok\" x=\"20\" y=\"52\" width=\"220\" height=\"34\" rx=\"8\"/><text class=\"t-s t-code\" x=\"130\" y=\"74\" text-anchor=\"middle\">amount = 12000;</text><rect class=\"box\" x=\"20\" y=\"112\" width=\"220\" height=\"34\" rx=\"8\"/><text class=\"t-s t-code\" x=\"130\" y=\"134\" text-anchor=\"middle\">status = APPROVED;</text><rect class=\"box-a\" x=\"20\" y=\"172\" width=\"220\" height=\"34\" rx=\"8\"/><text class=\"t-s t-code\" x=\"130\" y=\"194\" text-anchor=\"middle\">exit synchronized (lock)</text><line class=\"ln\" x1=\"130\" y1=\"86\" x2=\"130\" y2=\"110\" marker-end=\"url(#arr)\"/><line class=\"ln\" x1=\"130\" y1=\"146\" x2=\"130\" y2=\"170\" marker-end=\"url(#arr)\"/><text class=\"t-s t-m\" x=\"138\" y=\"103\">program order</text><rect class=\"box-a\" x=\"460\" y=\"172\" width=\"220\" height=\"34\" rx=\"8\"/><text class=\"t-s t-code\" x=\"570\" y=\"194\" text-anchor=\"middle\">enter synchronized (lock)</text><rect class=\"box\" x=\"460\" y=\"232\" width=\"220\" height=\"34\" rx=\"8\"/><text class=\"t-s t-code\" x=\"570\" y=\"254\" text-anchor=\"middle\">read status</text><rect class=\"box-ok\" x=\"460\" y=\"292\" width=\"220\" height=\"34\" rx=\"8\"/><text class=\"t-s t-code\" x=\"570\" y=\"314\" text-anchor=\"middle\">read amount: 12000</text><line class=\"ln\" x1=\"570\" y1=\"206\" x2=\"570\" y2=\"230\" marker-end=\"url(#arr)\"/><line class=\"ln\" x1=\"570\" y1=\"266\" x2=\"570\" y2=\"290\" marker-end=\"url(#arr)\"/><line class=\"ln-a\" x1=\"240\" y1=\"189\" x2=\"458\" y2=\"189\" marker-end=\"url(#arr)\"/><text class=\"t-s t-a\" x=\"246\" y=\"212\">synchronizes-with</text><line class=\"ln-d\" x1=\"240\" y1=\"86\" x2=\"458\" y2=\"292\" marker-end=\"url(#arr)\"/><text class=\"t-s t-ok\" x=\"290\" y=\"118\">happens-before, by transitivity</text><text class=\"t-s t-m\" x=\"350\" y=\"350\" text-anchor=\"middle\">Same lock, so T2 must see amount = 12000. A different lock gives no edge at all.</text></svg>",
+    "caption": "T1's release of the monitor pairs with T2's acquire of the same monitor. Program order on both sides extends the edge to every write before the release and every read after the acquire."
+   },
+   "try": {
+    "title": "Same lock or own lock",
+    "minutes": 4,
+    "steps": [
+     "Read `LockScopeDemo.java`. The writer sets `balance` inside `synchronized (LEDGER_LOCK)`. By default the reader locks a fresh `new Object()` (`Any()` in Kotlin) on every pass.",
+     "Predict, then run the Gradle command below.",
+     "Run it again with `-Pargs=shared` added, so the reader locks `LEDGER_LOCK` too."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "LockScopeDemo.java",
+     "src": "package workbench.jmm.l02;\n\n/** A writer sets a balance inside a lock. A reader spins until it sees it. Which lock does the reader need? */\npublic class LockScopeDemo {\n    static final Object LEDGER_LOCK = new Object();\n    static long balance;   // meant to be guarded by LEDGER_LOCK\n\n    public static void main(String[] args) throws InterruptedException {\n        boolean shared = args.length > 0 && args[0].equals(\"shared\");\n        Thread reader = new Thread(shared ? LockScopeDemo::readWithLedgerLock : LockScopeDemo::readWithOwnLock);\n        reader.setDaemon(true);   // so the JVM can exit even if the reader never stops\n        reader.start();\n\n        Thread.sleep(500);        // let the JIT compile the reader's loop\n        synchronized (LEDGER_LOCK) {\n            balance = 12_000;     // cents\n        }\n        System.out.println(\"writer set balance = 12000 inside synchronized (LEDGER_LOCK)\");\n\n        reader.join(3_000);\n        System.out.println(\"reader still spinning 3 s later? \" + reader.isAlive());\n    }\n\n    static void readWithOwnLock() {\n        long seen;\n        do {\n            synchronized (new Object()) {   // a lock no other thread can ever take\n                seen = balance;\n            }\n        } while (seen == 0);\n        System.out.println(\"reader (own lock) saw balance = \" + seen);\n    }\n\n    static void readWithLedgerLock() {\n        long seen;\n        do {\n            synchronized (LEDGER_LOCK) {    // the same monitor the writer released\n                seen = balance;\n            }\n        } while (seen == 0);\n        System.out.println(\"reader (LEDGER_LOCK) saw balance = \" + seen);\n    }\n}\n",
+     "run": "./gradlew :jmm:demo -Pmain=workbench.jmm.l02.LockScopeDemo",
+     "file": "labs/jmm/src/demo/java/workbench/jmm/l02/LockScopeDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "LockScopeDemo.kt",
+      "src": "package workbench.jmm.l02\n\nimport kotlin.concurrent.thread\n\nprivate val LEDGER_LOCK = Any()\nprivate var balance = 0L   // meant to be guarded by LEDGER_LOCK\n\n/** A writer sets a balance inside a lock. A reader spins until it sees it. Which lock does the reader need? */\nfun main(args: Array<String>) {\n    val shared = args.firstOrNull() == \"shared\"\n    // daemon, so the JVM can exit even if the reader never stops\n    val reader = thread(isDaemon = true) {\n        if (shared) readWithLedgerLock() else readWithOwnLock()\n    }\n\n    Thread.sleep(500)          // let the JIT compile the reader's loop\n    synchronized(LEDGER_LOCK) {\n        balance = 12_000       // cents\n    }\n    println(\"writer set balance = 12000 inside synchronized(LEDGER_LOCK)\")\n\n    reader.join(3_000)\n    println(\"reader still spinning 3 s later? ${reader.isAlive}\")\n}\n\nprivate fun readWithOwnLock() {\n    var seen: Long\n    do {\n        seen = synchronized(Any()) { balance }        // a lock no other thread can ever take\n    } while (seen == 0L)\n    println(\"reader (own lock) saw balance = $seen\")\n}\n\nprivate fun readWithLedgerLock() {\n    var seen: Long\n    do {\n        seen = synchronized(LEDGER_LOCK) { balance }  // the same monitor the writer released\n    } while (seen == 0L)\n    println(\"reader (LEDGER_LOCK) saw balance = $seen\")\n}\n",
+      "run": "./gradlew :jmm:demo -Pmain=workbench.jmm.l02.LockScopeDemoKt",
+      "file": "labs/jmm/src/demo/kotlin/workbench/jmm/l02/LockScopeDemo.kt"
+     }
+    },
+    "expect": "With its own lock the reader is still spinning 3 seconds later: there's no edge, the JIT removes the useless lock and reads `balance` once. With `-Pargs=shared` the reader prints `balance = 12000` right after the writer, because the writer releases and the reader acquires the same monitor."
+   }
+  },
+  {
+   "h": "Thread start and join are edges, and sleep is not",
+   "body": "Two rules link a thread to the code that started it.\n\n`Thread.start()` happens-before every action in the started thread. Whatever the parent wrote before calling `start()` (the config, the list of partitions, the variables a lambda captured) the new thread sees.\n\nEvery action in a thread happens-before another thread returns from `join()` on it. The same holds when another thread sees `isAlive()` return `false`. After `join()` returns, the parent sees every result the worker wrote, even into plain fields and plain arrays.\n\nA third rule matters for cancellation. When T1 calls `t2.interrupt()`, that call happens-before any thread noticing the interrupt through `isInterrupted()`, `Thread.interrupted()` or an `InterruptedException`.\n\n`Thread.sleep()` has none of this. Sleeping for 50 ms doesn't wait for the worker to finish. And even if the worker did finish in time, the sleep creates no edge, so a stale read is still legal. A sleep long enough to \"always work\" passes on your laptop and fails on a busy CI agent.\n\nThe start edge covers only writes made before `start()`:\n\n```java\nThread sender = new Thread(() -> send(config.endpoint()));\nsender.start();\nconfig = loadConfig();   // after start(): no edge to the sender thread\n```\n\n```kotlin\nval sender = thread { send(config.endpoint) }   // thread {} calls start() for you\nconfig = loadConfig()                          // after start(): no edge to the sender thread\n```\n\nThe sender may see `config` as `null` or as the old value. This case comes back in lesson 4 of this track, where a constructor starts a thread before it has finished setting fields.",
+   "try": {
+    "title": "Replace a sleep with a join",
+    "minutes": 4,
+    "steps": [
+     "Read `SleepIsNotJoinDemo.java`. The worker makes 20 calls of about 10 ms each, then writes `total`. Predict what `main` prints.",
+     "Run it with the Gradle command below.",
+     "Replace `Thread.sleep(50)` with `worker.join()` and run it again.",
+     "Think it through: would `Thread.sleep(5_000)` be a correct fix? Which rule would it be missing?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "SleepIsNotJoinDemo.java",
+     "src": "package workbench.jmm.l02;\n\n/** main starts a worker that adds up merchant settlements, then sleeps and reads the total. */\npublic class SleepIsNotJoinDemo {\n    static long total;   // written by the worker, read by main\n\n    public static void main(String[] args) throws InterruptedException {\n        Thread worker = new Thread(() -> {\n            long sum = 0;\n            for (int merchant = 0; merchant < 20; merchant++) {\n                sum += fetchSettlement(merchant);   // each call takes about 10 ms\n            }\n            total = sum;\n        });\n        worker.start();\n\n        Thread.sleep(50);   // \"plenty of time\"\n        System.out.printf(\"after sleep(50): total = %,d (expected %,d)%n\", total, 20 * 100_000L);\n    }\n\n    // stands in for a call to the settlement service\n    static long fetchSettlement(int merchant) {\n        try {\n            Thread.sleep(10);\n        } catch (InterruptedException e) {\n            Thread.currentThread().interrupt();\n        }\n        return 100_000;\n    }\n}\n",
+     "run": "./gradlew :jmm:demo -Pmain=workbench.jmm.l02.SleepIsNotJoinDemo",
+     "file": "labs/jmm/src/demo/java/workbench/jmm/l02/SleepIsNotJoinDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "SleepIsNotJoinDemo.kt",
+      "src": "package workbench.jmm.l02\n\nimport kotlin.concurrent.thread\n\nprivate var total = 0L   // written by the worker, read by main\n\n/** main starts a worker that adds up merchant settlements, then sleeps and reads the total. */\nfun main() {\n    val worker = thread {\n        var sum = 0L\n        for (merchant in 0 until 20) {\n            sum += fetchSettlement(merchant)   // each call takes about 10 ms\n        }\n        total = sum\n    }\n\n    Thread.sleep(50)   // \"plenty of time\"\n    println(\"after sleep(50): total = %,d (expected %,d)\".format(total, 20 * 100_000L))\n}\n\n// stands in for a call to the settlement service for one merchant\nprivate fun fetchSettlement(@Suppress(\"UNUSED_PARAMETER\") merchant: Int): Long {\n    Thread.sleep(10)\n    return 100_000\n}\n",
+      "run": "./gradlew :jmm:demo -Pmain=workbench.jmm.l02.SleepIsNotJoinDemoKt",
+      "file": "labs/jmm/src/demo/kotlin/workbench/jmm/l02/SleepIsNotJoinDemo.kt"
+     }
+    },
+    "expect": "The first run prints `total = 0`: the worker is a fifth of the way through. With `join()` it prints `2,000,000` every time, because `join()` waits for the worker to end and its edge makes the write visible. A 5-second sleep would print the right number on an idle machine, but it is still a data race: no rule links the worker's write to the read in `main`."
+   }
+  },
+  {
+   "h": "Transitivity, and the edges java.util.concurrent gives you",
+   "body": "Edges chain. If A happens-before B and B happens-before C, then A happens-before C. That property is why one volatile or one lock can protect many plain fields.\n\n```java\n// loader thread                     // request thread\nrates = Map.copyOf(loaded);  // A     while (!ready) { }          // C: sees true\nready = true;                // B     Map<String, Long> r = rates; // D\n```\n\n```kotlin\n// loader thread                     // request thread\nrates = loaded.toMap()       // A     while (!ready) { }          // C: sees true\nready = true                 // B     val r = rates               // D\n```\n\nA comes before B in program order. B is a volatile write and C is a volatile read that sees it. C comes before D in program order. So A happens-before D, and the request thread sees the map, though `rates` is a plain field. This is often called **piggybacking** on the volatile.\n\nTwo conditions are easy to miss. The plain writes must come before the release: if the loader wrote `rates` after setting `ready`, no edge would cover it. And the reader gets the edge only when its acquire actually sees the release. If C reads `false` and the code goes on to read `rates` anyway, nothing is promised.\n\nYou rarely need to build these chains by hand. `java.util.concurrent` documents its own edges in its package docs. Among them:\n\n- putting an object into any concurrent collection happens-before another thread accesses or removes it;\n- submitting a `Runnable` or `Callable` to an executor happens-before the task starts;\n- whatever a `Future`'s task does happens-before `Future.get()` returns in another thread;\n- `countDown()`, `release()` and `unlock()` happen-before a successful `await()`, `acquire()` or `lock()` on the same object in another thread.\n\nSo a mutable `Payment` object handed to another thread through a `BlockingQueue` needs no volatile fields, as long as the producer stops writing to it after `put`. Prefer these edges to hand-rolled flags. A `CountDownLatch` blocks instead of spinning, responds to interrupts, and its edge is written down in its Javadoc.",
+   "try": {
+    "title": "Name the edge",
+    "minutes": 4,
+    "steps": [
+     "For each snippet, name the happens-before edge that makes the last read safe, or write \"none\".",
+     "(a) `order.setAmount(500); executor.submit(() -> audit(order));` and the task reads `order.getAmount()`.",
+     "(b) `queue.put(payment); payment.setStatus(SENT);` and the consumer calls `queue.take().getStatus()`.",
+     "(c) T1: `x = 1; v = 1;` T2: `if (w == 1) log(x);` where `v` and `w` are different volatile fields.",
+     "(d) T1: `synchronized (ledger) { total += 5; }` T2: `synchronized (ledger) { log(total); }`."
+    ],
+    "expect": "(a) Executor submission: writes before `submit` happen-before the task. (b) None for the status: `setStatus` runs after `put`, so the consumer may see the old value. (c) None: the volatile write and read are on different fields. (d) The monitor rule on `ledger`, as long as T1's block ran first."
+   },
+   "refs": [
+    {
+     "title": "java.util.concurrent package docs, \"Memory Consistency Properties\" (JDK 25 source)",
+     "url": "https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/java/util/concurrent/package-info.java",
+     "kind": "docs"
+    }
+   ]
+  }
+ ],
+ "analogy": "Think of a sealed courier envelope. Everything you put in before sealing it (the release) travels with it. The recipient gets those contents only by opening that same envelope (the acquire). Anything you write after sealing stays behind, and opening a different envelope gets you nothing. The analogy breaks in one place: nothing is copied. Both threads look at the same memory the whole time. An unopened envelope doesn't mean the writes haven't arrived; often they have. It means you have no promise that they have.",
+ "in_your_world": "A Kafka listener in your authorization service parses a mutable `AuthRequest` with Jackson, submits it to a worker pool, and then calls `req.setReceivedAt(Instant.now())` for latency metrics. The submit edge covers everything written before `submit`, and nothing after it, so once in a while the worker logs `receivedAt=null`. The same reasoning applies to Quarkus beans that fill a `HashMap` at startup for request threads to read. Whether an edge exists there depends on how the framework hands work to request threads, which you can't see from your code. A `final` field holding `Map.copyOf(...)`, or a `volatile` field, puts the guarantee where you can read it.",
+ "mistake": "The most common mistake is locking only the writes. People think of locks as protecting data from concurrent changes, so they put `synchronized` on the setter and leave the getter plain because \"reads don't change anything\". But visibility needs both halves of the edge: the reader must acquire what the writer released. Guard the read with the same lock, or, if the read is a single field and the writes are already safe, make the field `volatile`.",
+ "compare": {
+  "title": "The same lock on both sides, in Java and Kotlin",
+  "java": {
+   "title": "LedgerTotals.java",
+   "src": "public class LedgerTotals {\n    private long total;   // guarded by this\n\n    public synchronized void add(long cents) {\n        total += cents;\n    }\n\n    // hb: the unlock in add() pairs with the lock here\n    public synchronized long total() {\n        return total;\n    }\n}"
+  },
+  "kotlin": {
+   "title": "LedgerTotals.kt",
+   "src": "class LedgerTotals {\n    private val lock = Any()\n    private var totalCents = 0L   // guarded by lock\n\n    fun add(cents: Long) {\n        synchronized(lock) { totalCents += cents }\n    }\n\n    // hb: same lock object on both sides\n    fun total(): Long = synchronized(lock) { totalCents }\n}"
+  },
+  "note": "Kotlin's `synchronized(lock) { }` is a standard library function, not a keyword. It is inlined and compiles to the same monitor enter and exit bytecode as a Java `synchronized` block, so it creates exactly the same edges. Kotlin code often locks a private `val lock = Any()` instead of `this`, which keeps outside code from taking your lock. Both languages give you `@Synchronized` or `synchronized` methods on `this` if you prefer that. `CountDownLatch`, executors and `Future.get()` give the same edges from either language."
+ },
+ "worked": {
+  "title": "Find the missing edge in an executor handoff",
+  "steps": [
+   {
+    "say": "A Kafka listener thread parses a request and hands it to a worker pool. The worker logs latency from `receivedAt`, and about one log line in a thousand says `receivedAt=null`. List each write, each read, and the thread that does it.",
+    "code": "void onRecord(ConsumerRecord<String, String> rec) throws IOException {   // listener thread\n    AuthRequest req = mapper.readValue(rec.value(), AuthRequest.class);  // 1. build a mutable object\n    workers.submit(() -> authorize(req));                                 // 2. hand it to a pool thread\n    req.setReceivedAt(Instant.now());                                     // 3. one more write, after the handoff\n}",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "fun onRecord(rec: ConsumerRecord<String, String>) {                     // listener thread\n    val req = mapper.readValue(rec.value(), AuthRequest::class.java)     // 1. build a mutable object\n    workers.execute { authorize(req) }                                   // 2. hand it to a pool thread\n    req.receivedAt = Instant.now()                                       // 3. one more write, after the handoff\n}"
+   },
+   {
+    "say": "Draw the edges. Jackson's writes in step 1 come before `submit` in program order, and `submit` happens-before the task starts, so the worker sees them. The write in step 3 comes after `submit`, and no edge covers it. The worker's read of `receivedAt` is a data race. It usually reads the new value because the task starts a little later, which is why it fails only now and then.",
+    "code": "",
+    "lang": ""
+   },
+   {
+    "say": "Put every write before the release, and stop touching the object after it. Then the one submit edge covers all of it.",
+    "code": "void onRecord(ConsumerRecord<String, String> rec) throws IOException {\n    AuthRequest req = mapper.readValue(rec.value(), AuthRequest.class);\n    req.setReceivedAt(Instant.now());          // 1. every write happens before the release\n    workers.submit(() -> authorize(req));      // 2. submit carries them all to the worker\n    // 3. no writes to req after this line\n}",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "fun onRecord(rec: ConsumerRecord<String, String>) {\n    val req = mapper.readValue(rec.value(), AuthRequest::class.java)\n    req.receivedAt = Instant.now()             // 1. every write happens before the release\n    workers.execute { authorize(req) }         // 2. the handoff carries them all to the worker\n    // 3. no writes to req after this line\n}"
+   },
+   {
+    "say": "If the listener needs the worker's decision, `Future.get()` is the edge back: everything the task did happens-before `get()` returns. No field in `AuthRequest` or in the result needs to be `volatile`. Better still, make the request a record built once with all its fields, and the question of later writes can't come up.",
+    "code": "Future<Decision> f = workers.submit(() -> authorize(req));\nDecision d = f.get(2, TimeUnit.SECONDS);   // hb: the task's actions happen-before get() returns",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "val f: Future<Decision> = workers.submit(Callable { authorize(req) })\nval d = f.get(2, TimeUnit.SECONDS)   // hb: the task's actions happen-before get() returns"
+   }
+  ]
+ },
+ "lab": {
+  "title": "Name the edge, then fix three handoffs",
+  "minutes": 13,
+  "files": [
+   "labs/jmm/src/main/java/workbench/jmm/l02/LedgerTotals.java",
+   "labs/jmm/src/main/java/workbench/jmm/l02/IssuerReply.java",
+   "labs/jmm/src/main/java/workbench/jmm/l02/PartitionReconciler.java"
+  ],
+  "run": "./gradlew :jmm:test --tests 'workbench.jmm.l02.*'",
+  "steps": [
+   "Run the tests once. Three of the five fail. The two \"still waiting\" tests each wait 5 seconds for a stuck thread.",
+   "`LedgerTotals`: give `total()` an edge to `add()`. Add a `// hb:` comment that names the rule.",
+   "`IssuerReply`: replace the `boolean done` with a `CountDownLatch` of 1. Count it down after writing the fields, and `await()` it before reading them. Add the `// hb:` comment.",
+   "`PartitionReconciler`: keep one thread per partition, but replace the sleep with a wait that is also an edge. Add `// hb:` comments for the edge that lets the workers see `sums` and the one that lets the caller see their results.",
+   "Run the tests until all five pass, then twice more."
+  ],
+  "hints": [
+   "`LedgerTotals` has two correct fixes: make `total()` synchronized, or make the field `volatile`. Either way `add` stays synchronized, because `+=` is a read and a write.",
+   "`CountDownLatch.await()` throws `InterruptedException`. That's why `awaitReply()` already declares it.",
+   "In `PartitionReconciler`, collect the threads in a list as you start them, and join them in a second loop. Joining inside the first loop would run the partitions one after another."
+  ],
+  "done_when": "All five tests in `HappensBeforeTest` pass, three runs in a row."
+ },
+ "drill": {
+  "title": "A one-shot result slot from memory",
+  "minutes": 5,
+  "prompt": "Close this page. Write `OneShot<T>` with `void set(T value)`, called once by a producer thread, and `T get()`, which blocks until the value is set. Use a `CountDownLatch` and no `volatile`. Mark the happens-before edge in a comment. Then compare.",
+  "answer": {
+   "lang": "java",
+   "src": "public final class OneShot<T> {\n    private final CountDownLatch done = new CountDownLatch(1);\n    private T value;   // plain: the latch orders it\n\n    public void set(T v) {\n        value = v;          // 1. write\n        done.countDown();   // 2. release\n    }\n\n    // hb: actions before countDown() happen-before actions after await() returns\n    public T get() throws InterruptedException {\n        done.await();       // 3. acquire\n        return value;       // 4. sees the write from step 1\n    }\n}",
+   "alt": {
+    "lang": "kotlin",
+    "src": "class OneShot<T> {\n    private val done = CountDownLatch(1)\n    private var value: T? = null   // plain: the latch orders it\n\n    fun set(v: T) {\n        value = v          // 1. write\n        done.countDown()   // 2. release\n    }\n\n    // hb: actions before countDown() happen-before actions after await() returns\n    fun get(): T {\n        done.await()       // 3. acquire\n        @Suppress(\"UNCHECKED_CAST\")\n        return value as T  // 4. sees the write from step 1\n    }\n}"
+   }
+  }
+ },
+ "recap": [
+  "A write is guaranteed visible to a read in another thread only if the write happens-before the read.",
+  "Happens-before is about visibility and ordering guarantees, not about which line ran first on the clock.",
+  "The edges to know: program order, releasing then acquiring the same monitor, volatile write then read of the same field, `start()`, `join()`, plus the java.util.concurrent handoffs.",
+  "Edges chain, so plain writes made before a release are visible after the matching acquire.",
+  "`sleep`, a different lock, or a different volatile field gives no edge.",
+  "No edge between a write and a read of shared data means a data race. Name the edge for every shared field."
+ ],
+ "quiz": [
+  {
+   "q": "`setStatus` writes inside `synchronized (paymentLock)`. `getStatus` reads inside `synchronized (auditLock)`. Is the getter guaranteed to see the latest status?",
+   "options": [
+    "Yes, because both methods are synchronized",
+    "No: the edge exists only between releasing a monitor and a later acquire of the same monitor",
+    "Yes, because entering any synchronized block refreshes all fields from memory",
+    "No, because a field can't be read inside a synchronized block"
+   ],
+   "answer": 1,
+   "why": "Two different monitors give no edge. The idea that any `synchronized` block refreshes everything comes from thinking of locks as memory barriers. The JMM only promises the edge for the same monitor, and the JIT is allowed to optimize accordingly."
+  },
+  {
+   "q": "T1 runs `x = 1; v = 1;` where `v` is volatile and `x` is plain. T2 reads `v` and gets 0, then reads `x`. What can T2 see for `x`?",
+   "options": [
+    "Always 0, because T1 hasn't written `v` yet",
+    "Always 1, because volatile flushes every earlier write",
+    "Either 0 or 1: T2's read of `v` didn't see the write, so no edge covers `x`",
+    "It throws, because reading a plain field next to a volatile is illegal"
+   ],
+   "answer": 2,
+   "why": "The volatile edge forms only when the read sees the write. T2 saw 0, so it has no edge to T1's writes, and its read of `x` races with `x = 1`. T1 may well have already written `x`, which is why option 1 is wrong too."
+  },
+  {
+   "q": "`main` fills a plain `HashMap` with 10,000 entries, then calls `executor.submit(() -> lookup(map))` and never touches the map again. Is the task's read safe?",
+   "options": [
+    "Yes: submitting to an executor happens-before the task starts, and nobody writes after that",
+    "No, because `HashMap` is not thread-safe",
+    "Only if the map field is volatile",
+    "Only if you switch to `ConcurrentHashMap`"
+   ],
+   "answer": 0,
+   "why": "`HashMap` is unsafe for concurrent writes, but here all writes come before the handoff and none after. The submit edge makes them visible to the task. Volatile or `ConcurrentHashMap` would add cost and no safety."
+  },
+  {
+   "q": "A worker thread writes `result`. Which of these does NOT give `main` a happens-before edge to that write?",
+   "options": [
+    "`worker.join()` returns",
+    "`future.get()` returns, where the worker is the future's task",
+    "`latch.await()` returns, after the worker wrote and then called `latch.countDown()`",
+    "`Thread.sleep(1_000)` returns"
+   ],
+   "answer": 3,
+   "why": "`join`, `Future.get` and the latch are all documented edges. `sleep` only passes time. The worker may not be done, and even if it is, a read after a sleep still races with its write."
+  },
+  {
+   "q": "From lesson 1 of this track: you add `Thread.onSpinWait()` to a spin loop on a plain flag, and the loop starts noticing the flag. In memory model terms, what changed?",
+   "options": [
+    "The loop now has a happens-before edge to the writer",
+    "Nothing: there is still no edge, HotSpot just happens to re-read the field",
+    "`onSpinWait` makes the next read volatile",
+    "`onSpinWait` flushes the writer's store buffer"
+   ],
+   "answer": 1,
+   "why": "`onSpinWait` is a hint to the CPU, with no synchronization effect in the JMM. HotSpot happens to re-read the field after it today. The program still has a data race on the flag, and only a volatile, a lock or another real edge fixes it.",
+   "from": "jmm-01"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "When is a write in one thread guaranteed visible to a read in another?",
+   "back": "Only when the write happens-before the read."
+  },
+  {
+   "front": "State the monitor rule of happens-before.",
+   "back": "Releasing a lock happens-before every later acquisition of the same lock."
+  },
+  {
+   "front": "T1 writes inside `synchronized (a)`. T2 reads inside `synchronized (b)`. Is there an edge?",
+   "back": "No. The edge needs the same monitor on both sides."
+  },
+  {
+   "front": "State the volatile rule of happens-before.",
+   "back": "A write to a volatile field happens-before every read of that same field that sees it (or a later write)."
+  },
+  {
+   "front": "What does `Thread.start()` guarantee to the new thread?",
+   "back": "Everything the parent did before calling `start()` is visible to the new thread. Writes after `start()` are not covered."
+  },
+  {
+   "front": "Is `Thread.sleep(100)` a happens-before edge?",
+   "back": "No. Use `join()`, `Future.get()` or a latch."
+  },
+  {
+   "front": "What is a data race?",
+   "back": "Two threads access the same variable, at least one access is a write, and no happens-before edge orders them."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Happens-before",
+   "plain": "The memory model's ordering between two actions. If a write happens-before a read, the read sees it."
+  },
+  {
+   "term": "Program order",
+   "plain": "The order of actions within one thread, as the code is written."
+  },
+  {
+   "term": "Release",
+   "plain": "The sending end of an edge: leaving a lock, writing a volatile, `countDown()`, `put` into a concurrent queue."
+  },
+  {
+   "term": "Acquire",
+   "plain": "The receiving end of an edge: entering a lock, reading a volatile, `await()`, `take` from a concurrent queue."
+  },
+  {
+   "term": "Data race",
+   "plain": "Conflicting accesses to one variable from two threads with no happens-before edge between them."
+  },
+  {
+   "term": "DRF-SC",
+   "plain": "The JMM promise: a program free of data races behaves as if its threads were interleaved one action at a time."
+  },
+  {
+   "term": "Piggybacking",
+   "plain": "Relying on transitivity so one volatile or lock edge also publishes the plain writes made before it."
+  }
+ ],
+ "explain_back": {
+  "prompt": "In lesson 1 of this track, `FxRateBoard` kept `rates` as a plain field and made only `ready` volatile. Explain in your own words why the reader is guaranteed to see the map. Use the words release, acquire and program order.",
+  "answer": "The loader writes `rates` and then writes `ready`, so by program order the write of `rates` happens-before the write of `ready`. The write of the volatile `ready` is a release. The reader's read of `ready` is an acquire, and when it sees `true` it pairs with that release, so the write of `ready` happens-before the read. After the loop, the reader reads `rates`, which comes later in its program order. Chaining the three edges, the write of `rates` happens-before the read of `rates`, so the reader sees the map. It only works because `rates` is written before `ready` and read after the loop sees `true`."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "Two refinements are worth knowing once the basic rules feel natural.\n\nFirst, the JLS builds happens-before from a smaller relation called **synchronizes-with**. Each synchronizes-with edge links a release in one thread to an acquire in another: releasing a monitor to a later acquire of the same monitor, a volatile write to a read that sees it, `start()` to the first action of the new thread, a thread's last action to a `join()` that returns. Happens-before is then program order plus synchronizes-with, closed under transitivity. Apart from an edge into finalizers, that's the whole construction. All the synchronization actions in a run also fall into one total order, which is why two volatile writes are seen in the same order by every thread.\n\nSecond, a lock is not a memory fence. It's tempting to picture `synchronized` as \"flush everything on exit, reload everything on entry\". The JMM promises less, and the JIT uses the difference. The jcstress sample `AdvancedJMM_01_SynchronizedBarriers` writes `x` and `y` in two back-to-back `synchronized (this)` blocks, and an observer that takes no lock reads them with volatile reads. On x86_64 the observer saw the new `y` with the old `x` in 207,479 of about four billion samples. The JIT had merged the two blocks into one (lock coarsening) and reordered the writes inside it. That is legal: only a thread that also locks `this` is owed the order.\n\nAleksey Shipilëv's \"Close Encounters of The Java Memory Model Kind\" walks through more misreadings like these, each with a jcstress test."
+ },
+ "sources": [
+  {
+   "title": "java.util.concurrent package summary (Java SE 25 API), Memory Consistency Properties",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/package-summary.html"
+  },
+  {
+   "title": "Java Language Specification, chapter 17: Threads and Locks",
+   "url": "https://docs.oracle.com/javase/specs/jls/se25/html/jls-17.html"
+  },
+  {
+   "title": "Aleksey Shipilëv, Close Encounters of The Java Memory Model Kind",
+   "url": "https://shipilev.net/blog/2016/close-encounters-of-jmm-kind/"
+  },
+  {
+   "title": "jcstress samples (AdvancedJMM_01_SynchronizedBarriers)",
+   "url": "https://github.com/openjdk/jcstress/tree/master/jcstress-samples"
+  }
+ ]
+}

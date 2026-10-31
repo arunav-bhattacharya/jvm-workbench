@@ -1,0 +1,359 @@
+{
+ "id": "conc-01",
+ "title": "Threads from zero",
+ "minutes": 35,
+ "goal": "By the end you can say what a thread is and what it costs, start threads with `start()` and wait for them with `join()`, and split a job across several workers.",
+ "warmup": {
+  "q": "`main` starts a thread that prints \"done\" after 2 seconds. Then `main` returns at once. What happens?",
+  "options": [
+   "The program exits at once and \"done\" never prints",
+   "\"done\" prints after about 2 seconds, then the program exits",
+   "An IllegalThreadStateException is thrown because main ended first",
+   "It depends on how many cores the machine has"
+  ],
+  "answer": 1,
+  "why": "The JVM keeps running until every non-daemon thread has finished, and threads you create are non-daemon by default. Returning from `main` ends only the main thread. The worker carries on, prints \"done\", and then the JVM exits. Core count changes how fast things run, not whether the JVM waits."
+ },
+ "sections": [
+  {
+   "h": "A thread is one path through your code, inside a shared process",
+   "body": "Run an empty `main` method and the JVM already has six Java threads: `main`, plus five helpers such as `Reference Handler`, `Finalizer` and `Signal Dispatcher`. The garbage collector and the JIT compiler have more threads of their own, which a thread dump shows. You've been writing multithreaded programs all along.\n\nTwo words matter here. A **process** is a running program with its own memory. Your payment service in its container is one process, and no other process can read its memory. A **thread** is one path of execution inside a process. It runs one statement after another, calls methods and returns from them.\n\nThe threads of one process split their memory in a simple way:\n\n- They all share the **heap**. Every object you create with `new`, and every `static` field, can be reached by every thread that has a reference to it.\n- Each thread has its own **stack**. Local variables, method parameters and the chain of calls in progress belong to one thread only. Each thread also tracks its own position in the code.\n\nThat split explains most of this track. Sharing the heap is what makes threads useful: one thread can put a `Payment` into a map and another can read it, with no copying and no network. It is also what makes them dangerous. Two threads can change the same object at the same moment, and lesson 3 of this track (Race conditions: why count++ lies) shows how that silently loses money. Local variables are safe, because no other thread can see them.\n\nSo when you look at a piece of code and ask \"is this thread-safe?\", the first question is always: which of these values live on the heap, and can another thread reach them?",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 640 270\" role=\"img\" aria-label=\"One JVM process: a heap shared by all threads on top, and three threads below, each with its own stack\"><rect class=\"box-dim\" x=\"10\" y=\"10\" width=\"620\" height=\"250\" rx=\"8\"/><text class=\"t-s t-m\" x=\"320\" y=\"30\" text-anchor=\"middle\">one JVM process (its own memory, invisible to other processes)</text><rect class=\"box-a\" x=\"30\" y=\"44\" width=\"580\" height=\"78\" rx=\"8\"/><text class=\"t t-a\" x=\"320\" y=\"64\" text-anchor=\"middle\">heap: objects and static fields, shared by every thread</text><rect class=\"box\" x=\"70\" y=\"78\" width=\"130\" height=\"32\" rx=\"8\"/><text class=\"t-s t-code\" x=\"135\" y=\"99\" text-anchor=\"middle\">Payment</text><rect class=\"box\" x=\"255\" y=\"78\" width=\"130\" height=\"32\" rx=\"8\"/><text class=\"t-s t-code\" x=\"320\" y=\"99\" text-anchor=\"middle\">ledgerMap</text><rect class=\"box\" x=\"440\" y=\"78\" width=\"130\" height=\"32\" rx=\"8\"/><text class=\"t-s t-code\" x=\"505\" y=\"99\" text-anchor=\"middle\">static count</text><rect class=\"box\" x=\"40\" y=\"160\" width=\"170\" height=\"84\" rx=\"8\"/><text class=\"t\" x=\"125\" y=\"182\" text-anchor=\"middle\">main</text><text class=\"t-s t-m\" x=\"125\" y=\"204\" text-anchor=\"middle\">own stack: locals,</text><text class=\"t-s t-m\" x=\"125\" y=\"222\" text-anchor=\"middle\">call frames, position</text><rect class=\"box\" x=\"235\" y=\"160\" width=\"170\" height=\"84\" rx=\"8\"/><text class=\"t\" x=\"320\" y=\"182\" text-anchor=\"middle\">worker-0</text><text class=\"t-s t-m\" x=\"320\" y=\"204\" text-anchor=\"middle\">own stack: locals,</text><text class=\"t-s t-m\" x=\"320\" y=\"222\" text-anchor=\"middle\">call frames, position</text><rect class=\"box\" x=\"430\" y=\"160\" width=\"170\" height=\"84\" rx=\"8\"/><text class=\"t\" x=\"515\" y=\"182\" text-anchor=\"middle\">worker-1</text><text class=\"t-s t-m\" x=\"515\" y=\"204\" text-anchor=\"middle\">own stack: locals,</text><text class=\"t-s t-m\" x=\"515\" y=\"222\" text-anchor=\"middle\">call frames, position</text><line class=\"ln-d\" x1=\"125\" y1=\"158\" x2=\"135\" y2=\"124\" marker-end=\"url(#arr)\"/><line class=\"ln-d\" x1=\"320\" y1=\"158\" x2=\"320\" y2=\"124\" marker-end=\"url(#arr)\"/><line class=\"ln-d\" x1=\"515\" y1=\"158\" x2=\"505\" y2=\"124\" marker-end=\"url(#arr)\"/><text class=\"t-s t-m\" x=\"420\" y=\"146\" text-anchor=\"middle\">every thread can read and write the heap</text></svg>",
+    "caption": "Threads in one process share the heap. Each thread has a private stack for its local variables and calls."
+   },
+   "try": {
+    "title": "Meet the threads you already have",
+    "minutes": 3,
+    "steps": [
+     "Run `HelloThreads` with the command below.",
+     "Read the list of threads that exist before your code starts any. Which of them are daemon threads?",
+     "Run it three more times. Does `worker-a` always print before `worker-b`?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "HelloThreads.java",
+     "src": "package workbench.concurrency.l01;\n\n/** Lists the threads the JVM already has, then starts two of your own. Run it a few times. */\npublic class HelloThreads {\n    public static void main(String[] args) throws InterruptedException {\n        System.out.println(\"cores the JVM sees: \" + Runtime.getRuntime().availableProcessors());\n        System.out.println(\"Java threads before main starts any:\");\n        for (Thread t : Thread.getAllStackTraces().keySet()) {\n            System.out.println(\"  \" + t.getName() + (t.isDaemon() ? \" (daemon)\" : \"\"));\n        }\n\n        Runnable task = () -> System.out.println(\"hello from \" + Thread.currentThread().getName());\n        Thread a = new Thread(task, \"worker-a\");\n        Thread b = new Thread(task, \"worker-b\");\n\n        a.start();          // try changing these two calls to a.run() and b.run()\n        b.start();\n\n        a.join();           // wait for both to finish before main goes on\n        b.join();\n        System.out.println(\"main is done\");\n    }\n}\n",
+     "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l01.HelloThreads",
+     "file": "labs/concurrency/src/demo/java/workbench/concurrency/l01/HelloThreads.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "HelloThreads.kt",
+      "src": "package workbench.concurrency.l01\n\n// Lists the threads the JVM already has, then starts two of your own. Run it a few times.\nfun main() {\n    println(\"cores the JVM sees: ${Runtime.getRuntime().availableProcessors()}\")\n    println(\"Java threads before main starts any:\")\n    for (t in Thread.getAllStackTraces().keys) {\n        println(\"  ${t.name}${if (t.isDaemon) \" (daemon)\" else \"\"}\")\n    }\n\n    val task = Runnable { println(\"hello from ${Thread.currentThread().name}\") }\n    val a = Thread(task, \"worker-a\")\n    val b = Thread(task, \"worker-b\")\n\n    a.start()          // try changing these two calls to a.run() and b.run()\n    b.start()\n\n    a.join()           // wait for both to finish before main goes on\n    b.join()\n    println(\"main is done\")\n}\n",
+      "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l01.HelloThreadsKt",
+      "file": "labs/concurrency/src/demo/kotlin/workbench/concurrency/l01/HelloThreads.kt"
+     }
+    },
+    "expect": "You'll see `main` and five daemon helper threads (the order of the list changes). The two workers usually print in start order, but not always: the order is up to the scheduler, and nothing in the code promises it. Code that depends on that order is a bug waiting for a busy day."
+   }
+  },
+  {
+   "h": "Cores run threads, and concurrency is not parallelism",
+   "body": "A CPU core runs one thread at a time. (Hyper-threading lets one physical core run two, a little slower each.) `Runtime.getRuntime().availableProcessors()` tells you how many the JVM may use, and inside a container it follows the CPU limit, so your pod with `cpu: 2` reports 2.\n\nYour service has far more threads than cores. The operating system's scheduler handles that: it lets a thread run for a short slice of time, then saves its registers and switches to another one. This is a **context switch**. It happens thousands of times a second, which is why 200 threads on 4 cores all appear to make progress.\n\nTwo words get mixed up here, so pin them down:\n\n- **Concurrency** is about structure: several tasks are in progress at the same time. It works fine on one core, by taking turns.\n- **Parallelism** is about hardware: several tasks run at the same instant, on different cores.\n\nA Kafka consumer that handles 12 partitions on 12 threads is concurrent. Whether it is parallel depends on the cores and on what the threads are doing.\n\nThat last part is the one that matters for sizing. A thread that waits for a 120 ms response from the card issuer uses no core while it waits. So an I/O-bound service can usefully run many more threads than it has cores. A CPU-bound job, like scoring transactions with a fraud model, is different. Once every core is busy, adding threads adds only switching overhead. The demo below shows the wall: on a 4-core machine, 8 threads are no faster than 4.\n\nThe executors track turns this into a sizing formula. For now, remember the shape: CPU-bound work wants about one thread per core, and waiting work can use many more.",
+   "try": {
+    "title": "Find the core count by timing",
+    "minutes": 4,
+    "steps": [
+     "Before running, check your core count and predict the time for 1, 2, 4 and 8 threads.",
+     "Run `ParallelSum` with the command below. Each run does the same 400 million additions, split across the threads.",
+     "Compare the times. Where does adding threads stop helping?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "ParallelSum.java",
+     "src": "package workbench.concurrency.l01;\n\n/** Splits a CPU-bound job over 1, 2, 4 and 8 threads and times each run. */\npublic class ParallelSum {\n    static final int N = 400_000_000;\n\n    public static void main(String[] args) throws InterruptedException {\n        System.out.println(\"cores: \" + Runtime.getRuntime().availableProcessors());\n        for (int i = 0; i < 3; i++) timed(4);        // warm-up runs, so the JIT has compiled the loop\n        for (int threads : new int[] {1, 2, 4, 8}) {\n            long t0 = System.nanoTime();\n            long result = timed(threads);\n            System.out.printf(\"%d thread(s): %4d ms  (checksum %d)%n\", threads, (System.nanoTime() - t0) / 1_000_000, result);\n        }\n    }\n\n    static long timed(int threads) throws InterruptedException {\n        long[] partial = new long[threads];\n        Thread[] ts = new Thread[threads];\n        int chunk = N / threads;\n        for (int w = 0; w < threads; w++) {\n            int slot = w, from = w * chunk, to = (w == threads - 1) ? N : from + chunk;\n            ts[w] = new Thread(() -> {\n                long sum = 0;\n                for (int i = from; i < to; i++) sum += (i * 31L) % 7;   // pure CPU work\n                partial[slot] = sum;\n            });\n            ts[w].start();\n        }\n        long total = 0;\n        for (int w = 0; w < threads; w++) {\n            ts[w].join();\n            total += partial[w];\n        }\n        return total;\n    }\n}\n",
+     "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l01.ParallelSum",
+     "file": "labs/concurrency/src/demo/java/workbench/concurrency/l01/ParallelSum.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "ParallelSum.kt",
+      "src": "package workbench.concurrency.l01\n\nprivate const val N = 400_000_000\n\n// Splits a CPU-bound job over 1, 2, 4 and 8 threads and times each run.\nfun main() {\n    println(\"cores: ${Runtime.getRuntime().availableProcessors()}\")\n    repeat(3) { timed(4) }                          // warm-up runs, so the JIT has compiled the loop\n    for (threads in intArrayOf(1, 2, 4, 8)) {\n        val t0 = System.nanoTime()\n        val result = timed(threads)\n        println(\"%d thread(s): %4d ms  (checksum %d)\".format(threads, (System.nanoTime() - t0) / 1_000_000, result))\n    }\n}\n\nprivate fun timed(threads: Int): Long {\n    val partial = LongArray(threads)\n    val chunk = N / threads\n    val workers = List(threads) { w ->\n        val from = w * chunk\n        val to = if (w == threads - 1) N else from + chunk\n        Thread {\n            var sum = 0L\n            for (i in from until to) sum += (i * 31L) % 7   // pure CPU work\n            partial[w] = sum\n        }.apply { start() }\n    }\n    workers.forEach { it.join() }\n    return partial.sum()\n}\n",
+      "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l01.ParallelSumKt",
+      "file": "labs/concurrency/src/demo/kotlin/workbench/concurrency/l01/ParallelSum.kt"
+     }
+    },
+    "expect": "On a 4-core Linux machine one run printed 510 ms, 257 ms, 121 ms and 125 ms. Each doubling halves the time until the threads outnumber the cores. After that the extra threads just take turns on the same cores. Your numbers will differ, but the bend in the curve sits at your core count."
+   }
+  },
+  {
+   "h": "start() makes a new thread, run() is just a method call",
+   "body": "Here is the whole API you need for now:\n\n```java\nRunnable task = () -> settle(batch);           // what to do\nThread t = new Thread(task, \"settlement-1\");  // a thread that will do it\nt.start();                                     // ask the JVM to run it on a new thread\nt.join();                                      // wait here until it has finished\n```\n\n```kotlin\nval task = Runnable { settle(batch) }          // what to do\nval t = Thread(task, \"settlement-1\")          // a thread that will do it\nt.start()                                      // ask the JVM to run it on a new thread\nt.join()                                       // wait here until it has finished\n```\n\n`Runnable` is a functional interface with one method, `void run()`, so a lambda works. You can also subclass `Thread` and override `run()`, but don't. It ties the work to one way of running it, and the executors and virtual threads you'll meet later take a `Runnable`, not a `Thread` subclass.\n\nThe classic first bug is calling `run()` instead of `start()`:\n\n```java\nt.run();   // compiles, works, and runs settle(batch) on the CURRENT thread\n```\n\n```kotlin\nt.run()    // same trap in Kotlin: an ordinary call on the current thread\n```\n\nNothing fails. Your tests pass. The code is just sequential, and the job is as slow as before. `start()` is the call that creates a thread: the JVM asks the operating system for a new thread, and that new thread then calls `run()`. A thread can be started only once. A second `start()` throws `IllegalThreadStateException`.\n\nTwo more habits pay off from the start.\n\nName your threads. When you read a thread dump at 2 a.m., `settlement-1` tells you something and `Thread-7` does not.\n\nKnow what happens to exceptions. If `run()` throws, that thread ends and the JVM prints the stack trace to standard error. The thread that started it is not told. `main` carries on as if nothing happened. That is one reason the executors track hands you work through a `Future`, which carries the exception back to the caller.\n\nLast, `join()`. It waits for a thread to end, and it also makes everything the thread wrote visible to the thread that called `join()`. Lesson 2 of this track looks at it closely.",
+   "try": {
+    "title": "Break it with run()",
+    "minutes": 3,
+    "steps": [
+     "In `HelloThreads`, change `a.start()` and `b.start()` to `a.run()` and `b.run()`. Predict the two \"hello from\" lines.",
+     "Run it with the same command as the first Try it.",
+     "Put the `start()` calls back, then add a second `a.start();` right after the first. Run it again."
+    ],
+    "expect": "With `run()`, both lines say `hello from main`: no new thread was created, and the joins return at once because the threads never started. With the double `start()`, main dies with `IllegalThreadStateException`, while `worker-a` still prints its line, because the first start worked."
+   }
+  },
+  {
+   "h": "Every thread costs memory and time, and the JVM waits for them",
+   "body": "A `Thread` you create this way is a **platform thread**: one Java thread backed by one operating system thread. That has a price.\n\nMemory first. Each platform thread gets its own stack, and on 64-bit Linux the JVM reserves 1 MB for it by default (`java -XX:+PrintFlagsFinal -version` shows `ThreadStackSize = 1024`, in KB). The operating system commits that memory only as the stack grows, so a thread with shallow calls uses much less. But 10,000 threads still means 10 GB of reserved address space, 10,000 kernel threads, and a scheduler that has to share the cores among all of them. Somewhere along that road your service dies with an `OutOfMemoryError` that says it is unable to create a native thread.\n\nThen time. Creating, starting and ending a thread is a round trip to the kernel. The demo below measures it. On a busy 4-core Linux machine it printed about 130 microseconds per thread. For one 120 ms card-issuer call, that's noise. For a new thread per Kafka record at 5,000 records a second, it's most of a core spent on thread churn. This is why the executors track reuses threads in pools, and why the virtual threads track exists at all.\n\nThe last rule in this lesson is about shutdown. The JVM exits when the last **non-daemon** thread ends, or when someone calls `System.exit`. Returning from `main` ends the main thread and nothing else. A worker that is still settling a batch keeps the JVM alive until it finishes. Threads are non-daemon unless you say otherwise. Lesson 2 of this track shows daemon threads and how to stop a thread that should not finish.\n\nKotlin gives you a shorter way to write all this. `thread { ... }` from `kotlin.concurrent` creates a `java.lang.Thread` and starts it at once. Its parameters (`start`, `isDaemon`, `name`, `priority`) map straight onto the Java ones. It's the same thread with the same costs, and only the syntax changes.",
+   "try": {
+    "title": "Measure a thread, then let main go first",
+    "minutes": 4,
+    "steps": [
+     "Run `ThreadCost`. It starts and joins 10,000 empty threads, three rounds in a row. Note the microseconds per thread.",
+     "Now open `MainEndsFirst` (below). `main` starts a worker and returns at once. Predict: how many \"settling batch\" lines will print?",
+     "Run it with `./gradlew :concurrency:demo -Pmain=workbench.concurrency.l01.MainEndsFirst`."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "MainEndsFirst.java",
+     "src": "package workbench.concurrency.l01;\n\n/** main returns at once. Does the program end? */\npublic class MainEndsFirst {\n    public static void main(String[] args) {\n        Thread worker = new Thread(() -> {\n            for (int i = 1; i <= 5; i++) {\n                System.out.println(\"worker: settling batch \" + i);\n                try {\n                    Thread.sleep(300);\n                } catch (InterruptedException e) {\n                    return;\n                }\n            }\n            System.out.println(\"worker: all batches settled\");\n        }, \"settlement-worker\");\n        worker.start();\n        System.out.println(\"main: returning from main()\");\n    }\n}\n",
+     "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l01.MainEndsFirst",
+     "file": "labs/concurrency/src/demo/java/workbench/concurrency/l01/MainEndsFirst.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "MainEndsFirst.kt",
+      "src": "package workbench.concurrency.l01\n\nimport kotlin.concurrent.thread\n\n// main returns at once. Does the program end?\nfun main() {\n    thread(name = \"settlement-worker\") {             // thread {} starts it straight away\n        for (i in 1..5) {\n            println(\"worker: settling batch $i\")\n            try {\n                Thread.sleep(300)\n            } catch (e: InterruptedException) {\n                return@thread\n            }\n        }\n        println(\"worker: all batches settled\")\n    }\n    println(\"main: returning from main()\")\n}\n",
+      "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l01.MainEndsFirstKt",
+      "file": "labs/concurrency/src/demo/kotlin/workbench/concurrency/l01/MainEndsFirst.kt"
+     }
+    },
+    "expect": "`ThreadCost` prints tens to a couple of hundred microseconds per thread, depending on your machine and how busy it is. `MainEndsFirst` prints `main: returning from main()` first, then all five batches and `all batches settled`. The JVM waited for the non-daemon worker, even though `main` was long gone."
+   }
+  }
+ ],
+ "analogy": "A process is a restaurant kitchen. The heap is the shared fridge and counters: any cook can take an onion from the fridge or put a plate on the pass. Each cook (a thread) carries a private order ticket and a cutting board, which is their stack. The stoves are the cores: more cooks than stoves means cooks take turns, which is fine when most of them are waiting for water to boil (I/O), and pointless when they all need a stove (CPU work). The kitchen closes when the last non-daemon cook goes home, not when the head chef does. The analogy breaks in one place. Cooks see what the others are doing. Threads do not reliably see each other's changes unless the code uses the tools in the rest of this track.",
+ "in_your_world": "Take a thread dump of one of your Quarkus services (`jcmd <pid> Thread.print`) and count. You'll find event-loop threads, a pool of worker threads for blocking code, Kafka client threads, connection-pool housekeeping threads and the JVM's own helpers, often well over a hundred, on a pod with two cores. Most of them are waiting at any moment, which is why that works. The names tell you who is who, and that is why you name your own threads. The same picture explains a Kafka rule you may already follow: a `KafkaConsumer` must be used from one thread, so services that want more parallelism run several consumers, one per thread, each with its own partitions.",
+ "mistake": "The most common real mistake is reading a worker's result before the worker has finished. Someone starts a thread that fills an array or a field, then reads it on the next line, or adds a `Thread.sleep(100)` \"to give it time\". It works on the developer's laptop and returns a half-filled result in production when the machine is busy. The fix is `join()`: it waits for the thread to end and guarantees you see everything it wrote. `sleep` guarantees neither.",
+ "compare": {
+  "title": "Starting and joining workers in Java and Kotlin",
+  "java": {
+   "title": "Java",
+   "src": "long[] partial = new long[4];\nList<Thread> workers = new ArrayList<>();\nfor (int w = 0; w < 4; w++) {\n    int slot = w;\n    Thread t = new Thread(() -> partial[slot] = sumSlice(slot), \"ledger-worker-\" + w);\n    t.start();                      // nothing runs until start()\n    workers.add(t);\n}\nfor (Thread t : workers) t.join();  // join() throws the checked InterruptedException"
+  },
+  "kotlin": {
+   "title": "KotlinThreads.kt",
+   "src": "package workbench.concurrency.l01\n\nimport kotlin.concurrent.thread\n\n// The same slice-and-join idea as LedgerTotals, written with Kotlin's thread {} builder.\nfun main() {\n    val amounts = LongArray(1_000) { it + 1L }\n    val partial = LongArray(4)\n    val chunk = amounts.size / partial.size\n\n    val workers = List(partial.size) { w ->\n        thread(name = \"ledger-worker-$w\") {       // starts at once: start = true is the default\n            var sum = 0L\n            for (i in w * chunk until (w + 1) * chunk) sum += amounts[i]\n            partial[w] = sum\n        }\n    }\n    workers.forEach { it.join() }                  // join is the same java.lang.Thread method\n\n    println(\"total = ${partial.sum()} on ${workers.map { it.name }}\")\n}\n"
+  },
+  "note": "Kotlin's `thread { }` is a small standard-library function that builds a `java.lang.Thread`, sets its options and calls `start()` for you, unless you pass `start = false`. So the Java mistake of forgetting `start()` mostly goes away. Kotlin has no checked exceptions, so `join()` needs no `throws InterruptedException`. The interruption rules still apply, and lesson 2 of this track covers them. In Java a lambda can only capture effectively final locals, which is why the loop copies `w` into `slot`. A Kotlin lambda captures the `w` parameter of `List(4) { w -> }` directly."
+ },
+ "worked": {
+  "title": "Split a settlement total across four threads",
+  "steps": [
+   {
+    "say": "You have one million settled amounts in a `List<Long>` and four cores. First decide the slices. Give each worker a contiguous range, and spread the remainder so sizes differ by at most one.",
+    "code": "int slices = Math.min(workers, amounts.size());   // no idle threads\nint base = amounts.size() / slices;\nint extra = amounts.size() % slices;               // the first `extra` slices get one more",
+    "lang": "java",
+    "alt_code": "val slices = minOf(workers, amounts.size)   // no idle threads\nval base = amounts.size / slices\nval extra = amounts.size % slices             // the first `extra` slices get one more",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "Give each worker its own slot in an array. Worker 2 writes only `partial[2]`. No two threads write the same memory, so there is nothing to race on.",
+    "code": "long[] partial = new long[slices];\nThread[] threads = new Thread[slices];",
+    "lang": "java",
+    "alt_code": "val partial = LongArray(slices)\nval threads = ArrayList<Thread>(slices)",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "Start every thread first. Ask yourself before reading on: what would happen if you called `join()` inside this same loop, right after `start()`?",
+    "code": "int from = 0;\nfor (int w = 0; w < slices; w++) {\n    int start = from, end = start + base + (w < extra ? 1 : 0), slot = w;\n    // 1. each worker sums its own slice into its own slot\n    threads[w] = new Thread(() -> {\n        long sum = 0;\n        for (int i = start; i < end; i++) sum += amounts.get(i);\n        partial[slot] = sum;\n    }, \"ledger-worker-\" + w);\n    threads[w].start();\n    from = end;\n}",
+    "lang": "java",
+    "alt_code": "var from = 0\nfor (w in 0 until slices) {\n    val start = from\n    val end = start + base + if (w < extra) 1 else 0\n    // 1. each worker sums its own slice into its own slot\n    threads += thread(name = \"ledger-worker-$w\") {   // thread {} also starts it\n        var sum = 0L\n        for (i in start until end) sum += amounts[i]\n        partial[w] = sum\n    }\n    from = end\n}",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "Joining inside the loop would wait for worker 0 before starting worker 1, so the workers would run one at a time. Start them all, then join them all. Only after the joins is it safe to read `partial`, because `join()` makes each worker's write visible here.",
+    "code": "// 2. wait for every worker\nfor (Thread t : threads) t.join();\n// 3. combine on the calling thread\nlong total = 0;\nfor (long p : partial) total += p;",
+    "lang": "java",
+    "alt_code": "// 2. wait for every worker\nthreads.forEach { it.join() }\n// 3. combine on the calling thread\nval total = partial.sum()",
+    "alt_lang": "kotlin"
+   }
+  ]
+ },
+ "lab": {
+  "title": "Total a day of payments on N threads",
+  "minutes": 12,
+  "files": [
+   "labs/concurrency/src/main/java/workbench/concurrency/l01/LedgerTotals.java"
+  ],
+  "run": "./gradlew :concurrency:test --tests 'workbench.concurrency.l01.*'",
+  "steps": [
+   "Run the tests once. All six fail with `UnsupportedOperationException`.",
+   "In `LedgerTotals.total`, reject `workers < 1` with an `IllegalArgumentException`.",
+   "Work out the slices: `Math.min(workers, size)` threads, contiguous ranges, sizes differing by at most one.",
+   "Start one named thread per slice. Each thread sums its slice into its own slot of a `long[]`.",
+   "Join every thread, then add up the slots and return the total. Run the tests until all six pass."
+  ],
+  "hints": [
+   "One test wraps the list so it can record which threads call `get`. It fails if the caller reads any amount, or if the number of reading threads is not the number of slices.",
+   "A lambda can only use local variables that never change. Copy loop variables into fresh locals (`int slot = w;`) before the lambda.",
+   "If the totals come out wrong only sometimes, check that you read `partial` after the joins, not before."
+  ],
+  "done_when": "All six tests in `LedgerTotalsTest` pass."
+ },
+ "drill": {
+  "title": "Start, then join, from memory",
+  "minutes": 4,
+  "prompt": "Close this page. Write a `main` that starts three threads named `fx-0`, `fx-1` and `fx-2`. Each prints its own name. `main` waits for all three, then prints `all done`. Check: did you start all three before joining any?",
+  "answer": {
+   "lang": "java",
+   "src": "public static void main(String[] args) throws InterruptedException {\n    List<Thread> threads = new ArrayList<>();\n    for (int i = 0; i < 3; i++) {\n        Thread t = new Thread(() -> System.out.println(Thread.currentThread().getName()), \"fx-\" + i);\n        t.start();\n        threads.add(t);\n    }\n    for (Thread t : threads) t.join();\n    System.out.println(\"all done\");\n}",
+   "alt": {
+    "lang": "kotlin",
+    "title": "Kotlin",
+    "src": "fun main() {\n    val threads = List(3) { i ->\n        thread(name = \"fx-$i\") { println(Thread.currentThread().name) }   // created and started\n    }\n    threads.forEach { it.join() }\n    println(\"all done\")\n}"
+   }
+  }
+ },
+ "recap": [
+  "A process has its own memory. Threads inside it share the heap (objects, static fields) and each has a private stack (locals, calls).",
+  "Concurrency is many tasks in progress. Parallelism is many tasks running at the same instant, which needs cores.",
+  "CPU-bound work stops getting faster at about one thread per core. Threads that wait on I/O use no core while they wait.",
+  "`start()` creates a thread that calls `run()`. Calling `run()` yourself runs the code on the current thread.",
+  "A platform thread is an OS thread with a 1 MB stack reservation by default on 64-bit Linux, and creating one is a trip to the kernel.",
+  "The JVM exits when the last non-daemon thread ends. `join()` waits for a thread and makes its writes visible."
+ ],
+ "quiz": [
+  {
+   "q": "What does this print?\n\n```java\nThread t = new Thread(() -> System.out.println(Thread.currentThread().getName()), \"audit\");\nt.run();\n```",
+   "options": [
+    "audit",
+    "main",
+    "Thread-0",
+    "Nothing, because the thread was never started"
+   ],
+   "answer": 1,
+   "why": "`run()` is an ordinary method call, so the lambda runs on the calling thread, which is `main`. No new thread exists. It would print `audit` only with `t.start()`. It does print something, because `run()` executes the code, just on the wrong thread."
+  },
+  {
+   "q": "A batch job scores transactions with a fraud model. It is pure CPU work, with no I/O. The pod has 4 cores. Which thread count gives about the best throughput?",
+   "options": [
+    "1",
+    "4",
+    "64",
+    "400"
+   ],
+   "answer": 1,
+   "why": "With pure CPU work, each core can run one thread at a time. Four threads keep all four cores busy. More threads only take turns on the same cores and add context-switch overhead. Large counts like 400 make sense only when most threads spend their time waiting."
+  },
+  {
+   "q": "A worker thread throws a `NullPointerException` out of its `run()` method. What happens to `main`, which started it?",
+   "options": [
+    "`main` gets the NullPointerException at its next line",
+    "The JVM shuts down",
+    "`main` carries on. The worker ends and its stack trace is printed to standard error",
+    "`main` gets it when it calls `join()`"
+   ],
+   "answer": 2,
+   "why": "An uncaught exception ends only the thread that threw it. The default handler prints the stack trace, and nobody else is told. `join()` simply returns once the worker has ended. Carrying exceptions back to the caller is a job for `Future`, in the executors track."
+  },
+  {
+   "q": "What is wrong with this loop?\n\n```java\nfor (Runnable job : jobs) {\n    Thread t = new Thread(job);\n    t.start();\n    t.join();\n}\n```",
+   "options": [
+    "Nothing. It runs the jobs in parallel",
+    "It runs the jobs one at a time, because each join waits before the next thread starts",
+    "It deadlocks on the second job",
+    "`join()` must be called before `start()`"
+   ],
+   "answer": 1,
+   "why": "Each `join()` blocks until that thread ends, so the next thread starts only after the previous one is done. You pay for threads and get sequential execution. Start all threads in one loop, then join them in a second loop."
+  },
+  {
+   "q": "A Kafka consumer service handles 12 partitions with 12 threads on a 2-core pod. Each record waits about 50 ms on Oracle. Which statement is true?",
+   "options": [
+    "It is concurrent: 12 records are in progress, at most 2 threads run at any instant, and most are waiting anyway",
+    "It is parallel: all 12 threads run at the same instant",
+    "It cannot work, because threads must not outnumber cores",
+    "It is neither concurrent nor parallel"
+   ],
+   "answer": 0,
+   "why": "Twelve tasks in progress at once is concurrency. With 2 cores, at most 2 threads run at the same instant, which is the parallel part. Because each thread spends most of its time waiting on the database, 12 threads on 2 cores is a sensible setup. The rule of one thread per core is for CPU-bound work."
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "What do threads in one process share, and what does each thread have of its own?",
+   "back": "They share the heap: objects and static fields. Each thread has its own stack: local variables, parameters and the calls in progress."
+  },
+  {
+   "front": "What happens if you call `t.run()` instead of `t.start()`?",
+   "back": "The code runs on the current thread, like any method call. No new thread is created, and nothing warns you."
+  },
+  {
+   "front": "Concurrency vs parallelism, in one line each.",
+   "back": "Concurrency: several tasks in progress at the same time (works on one core). Parallelism: several tasks running at the same instant on different cores."
+  },
+  {
+   "front": "When does the JVM exit?",
+   "back": "When the last non-daemon thread ends, or when something calls `System.exit`. Returning from `main` ends only the main thread."
+  },
+  {
+   "front": "How much stack does the JVM reserve for a platform thread on 64-bit Linux by default?",
+   "back": "1 MB (`ThreadStackSize = 1024` KB). It is reserved address space, committed as the stack grows. Change it with `-Xss`."
+  },
+  {
+   "front": "What happens when you call `start()` twice on the same Thread?",
+   "back": "The second call throws `IllegalThreadStateException`. A thread runs at most once."
+  },
+  {
+   "front": "A worker thread throws an uncaught exception. Who finds out?",
+   "back": "Only that thread dies. The default handler prints the stack trace to standard error. The starting thread is not told."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Process",
+   "plain": "A running program with its own memory, such as one JVM."
+  },
+  {
+   "term": "Thread",
+   "plain": "One path of execution inside a process, with its own stack, sharing the process heap."
+  },
+  {
+   "term": "Heap",
+   "plain": "The memory where objects and static fields live. Every thread can reach it."
+  },
+  {
+   "term": "Core",
+   "plain": "A piece of the CPU that runs one thread at a time."
+  },
+  {
+   "term": "Context switch",
+   "plain": "The OS pausing one thread and resuming another on the same core."
+  },
+  {
+   "term": "Concurrency",
+   "plain": "Several tasks in progress at once, taking turns or not."
+  },
+  {
+   "term": "Parallelism",
+   "plain": "Several tasks running at the same instant on different cores."
+  },
+  {
+   "term": "Platform thread",
+   "plain": "A Java thread backed one-to-one by an operating system thread."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A colleague moved a slow report onto \"four threads\" by writing `new Thread(job).run()` four times. All tests pass, but the report is exactly as slow as before. Explain what happened and how to fix it, in your own words.",
+  "answer": "`run()` is just a method call, so each job ran on the calling thread, one after the other. No new threads were ever created, which is why the speed did not change and why nothing failed. `start()` is the call that creates a new thread and has it call `run()`. The fix is to call `start()` on all four threads first, then `join()` each one before reading the results, so the jobs overlap and their results are visible to the caller."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "Since JDK 21 there is a builder API for threads, and it is worth knowing because the virtual threads track uses the same shape:\n\n```java\nThread t = Thread.ofPlatform()\n        .name(\"ledger-worker-\", 0)   // ledger-worker-0, ledger-worker-1, ...\n        .start(task);\n```\n\n```kotlin\nval t = Thread.ofPlatform()\n    .name(\"ledger-worker-\", 0)       // ledger-worker-0, ledger-worker-1, ...\n    .start(task)\n```\n\n`Thread.ofPlatform()` gives you the same kind of thread as `new Thread(...)`. `Thread.ofVirtual()` gives you a virtual thread, which is not tied to one OS thread and costs far less. That is a whole track of its own.\n\nIf you want to see the threads the JVM keeps for itself, run `jcmd <pid> Thread.print` against any running Java process. Beyond the Java threads from the first Try it, you'll see entries such as `VM Thread`, the JIT compiler threads and the garbage collector's worker threads. These are threads inside the JVM itself. They don't show up in `Thread.getAllStackTraces()`, but they use cores and memory like any other.\n\nOne more cost: a context switch is not free. The kernel saves and restores registers, and the new thread often finds the CPU caches full of the old thread's data. That is why the ParallelSum demo does not get faster past the core count, and why a thousand busy threads can run slower than ten."
+ },
+ "sources": [
+  {
+   "title": "Thread (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Thread.html"
+  },
+  {
+   "title": "Defining and starting a thread (The Java Tutorials)",
+   "url": "https://docs.oracle.com/javase/tutorial/essential/concurrency/runthread.html"
+  },
+  {
+   "title": "kotlin.concurrent.thread (Kotlin standard library)",
+   "url": "https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.concurrent/thread.html"
+  },
+  {
+   "title": "Java Concurrency in Practice, Goetz et al.",
+   "url": "https://jcip.net/"
+  }
+ ]
+}

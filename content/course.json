@@ -1,0 +1,370 @@
+{
+  "title": "JVM Workbench",
+  "tagline": "Concurrency, generics and design patterns in Java and Kotlin, one focused session a day.",
+  "tracks": [
+    {
+      "id": "conc",
+      "lab": "concurrency",
+      "title": "Threads and the bugs they cause",
+      "short": "Threads, races, locks, deadlock, atomics, concurrent collections and synchronizers.",
+      "lessons": [
+        {
+          "id": "conc-01",
+          "title": "Threads from zero"
+        },
+        {
+          "id": "conc-02",
+          "title": "A thread's life: start, join, sleep, interrupt"
+        },
+        {
+          "id": "conc-03",
+          "title": "Race conditions: why count++ lies"
+        },
+        {
+          "id": "conc-04",
+          "title": "synchronized and intrinsic locks"
+        },
+        {
+          "id": "conc-05",
+          "title": "wait, notify and guarded blocks"
+        },
+        {
+          "id": "conc-06",
+          "title": "Deadlock, livelock and starvation"
+        },
+        {
+          "id": "conc-07",
+          "title": "Explicit locks: ReentrantLock, Condition, ReadWriteLock"
+        },
+        {
+          "id": "conc-08",
+          "title": "Atomics and compare-and-set"
+        },
+        {
+          "id": "conc-09",
+          "title": "Concurrent collections"
+        },
+        {
+          "id": "conc-10",
+          "title": "Synchronizers: latch, barrier, semaphore, phaser"
+        },
+        {
+          "id": "conc-11",
+          "title": "Don't share: immutability, confinement, ThreadLocal"
+        },
+        {
+          "id": "conc-12",
+          "title": "Classic problems: producer-consumer, philosophers, readers-writers"
+        },
+        {
+          "id": "conc-13",
+          "title": "Testing and debugging concurrent code"
+        }
+      ]
+    },
+    {
+      "id": "jmm",
+      "lab": "jmm",
+      "title": "The Java Memory Model",
+      "short": "Visibility, reordering, happens-before, volatile, safe publication and VarHandles.",
+      "lessons": [
+        {
+          "id": "jmm-01",
+          "title": "Why your loop never stops: caches and reordering"
+        },
+        {
+          "id": "jmm-02",
+          "title": "Happens-before, the rules that matter"
+        },
+        {
+          "id": "jmm-03",
+          "title": "volatile: what it gives you and what it doesn't"
+        },
+        {
+          "id": "jmm-04",
+          "title": "Safe publication, final fields and escaping this"
+        },
+        {
+          "id": "jmm-05",
+          "title": "Lazy init done right: double-checked locking and holders"
+        },
+        {
+          "id": "jmm-06",
+          "title": "VarHandles and memory ordering modes"
+        }
+      ]
+    },
+    {
+      "id": "exec",
+      "lab": "executors",
+      "title": "Thread pools and executors",
+      "short": "ExecutorService, ThreadPoolExecutor internals, sizing, futures, CompletableFuture and ForkJoin.",
+      "lessons": [
+        {
+          "id": "exec-01",
+          "title": "Why pools: Executor, ExecutorService and shutdown"
+        },
+        {
+          "id": "exec-02",
+          "title": "Inside ThreadPoolExecutor: core, max, queue, rejection"
+        },
+        {
+          "id": "exec-03",
+          "title": "Sizing a pool: CPU-bound, IO-bound and Little's law"
+        },
+        {
+          "id": "exec-04",
+          "title": "Callable, Future, cancellation and interruption"
+        },
+        {
+          "id": "exec-05",
+          "title": "Scheduled executors: fixed rate vs fixed delay"
+        },
+        {
+          "id": "exec-06",
+          "title": "CompletableFuture: composing async steps"
+        },
+        {
+          "id": "exec-07",
+          "title": "CompletableFuture: errors, timeouts and fan-out"
+        },
+        {
+          "id": "exec-08",
+          "title": "ForkJoinPool, work stealing and parallel streams"
+        },
+        {
+          "id": "exec-09",
+          "title": "Pools in production: names, errors, context, shutdown"
+        }
+      ]
+    },
+    {
+      "id": "vt",
+      "lab": "vthreads",
+      "title": "Virtual threads",
+      "short": "Project Loom from the inside: carriers, pinning, structured concurrency and scoped values.",
+      "lessons": [
+        {
+          "id": "vt-01",
+          "title": "The thread-per-request wall"
+        },
+        {
+          "id": "vt-02",
+          "title": "How virtual threads work: carriers and continuations"
+        },
+        {
+          "id": "vt-03",
+          "title": "Using virtual threads: one per task, limits with semaphores"
+        },
+        {
+          "id": "vt-04",
+          "title": "Pinning, ThreadLocals and other traps"
+        },
+        {
+          "id": "vt-05",
+          "title": "Structured concurrency and scoped values"
+        },
+        {
+          "id": "vt-06",
+          "title": "Moving a blocking service to virtual threads"
+        }
+      ]
+    },
+    {
+      "id": "gen",
+      "lab": "generics",
+      "title": "Kotlin generics, properly",
+      "short": "Variance from first principles: out, in, projections, star projection, reified, KClass, and Java side by side.",
+      "lessons": [
+        {
+          "id": "gen-01",
+          "title": "Generics from zero: type parameters"
+        },
+        {
+          "id": "gen-02",
+          "title": "Bounds and constraints: upper bounds, where, T : Any"
+        },
+        {
+          "id": "gen-03",
+          "title": "Subtyping, and why List<String> is not List<Object>"
+        },
+        {
+          "id": "gen-04",
+          "title": "Covariance with out: producers"
+        },
+        {
+          "id": "gen-05",
+          "title": "Contravariance with in: consumers"
+        },
+        {
+          "id": "gen-06",
+          "title": "Use-site variance and type projections"
+        },
+        {
+          "id": "gen-07",
+          "title": "Star projection: when you don't know the type"
+        },
+        {
+          "id": "gen-08",
+          "title": "Type erasure and reified type parameters"
+        },
+        {
+          "id": "gen-09",
+          "title": "KClass, Class and type tokens"
+        },
+        {
+          "id": "gen-10",
+          "title": "Advanced generics: recursive bounds, T & Any, @UnsafeVariance"
+        },
+        {
+          "id": "gen-11",
+          "title": "Generics workshop: a type-safe container and event bus"
+        }
+      ]
+    },
+    {
+      "id": "rx",
+      "lab": "reactive",
+      "title": "Reactive programming",
+      "short": "Reactive Streams, Project Reactor, operators, schedulers, backpressure and testing.",
+      "lessons": [
+        {
+          "id": "rx-01",
+          "title": "Why reactive: push, pull and backpressure"
+        },
+        {
+          "id": "rx-02",
+          "title": "Mono and Flux: nothing happens until you subscribe"
+        },
+        {
+          "id": "rx-03",
+          "title": "Transforming streams: map, flatMap, concatMap"
+        },
+        {
+          "id": "rx-04",
+          "title": "Combining streams: zip, merge, concat, combineLatest"
+        },
+        {
+          "id": "rx-05",
+          "title": "Errors, retries and timeouts"
+        },
+        {
+          "id": "rx-06",
+          "title": "Schedulers: publishOn, subscribeOn and blocking calls"
+        },
+        {
+          "id": "rx-07",
+          "title": "Backpressure in practice"
+        },
+        {
+          "id": "rx-08",
+          "title": "Hot and cold publishers, Sinks, and StepVerifier"
+        }
+      ]
+    },
+    {
+      "id": "co",
+      "lab": "coroutines",
+      "title": "Kotlin coroutines",
+      "short": "Suspend functions, structured concurrency, dispatchers, cancellation, Flow and channels.",
+      "lessons": [
+        {
+          "id": "co-01",
+          "title": "Suspend functions from zero"
+        },
+        {
+          "id": "co-02",
+          "title": "Builders: launch, async, runBlocking, coroutineScope"
+        },
+        {
+          "id": "co-03",
+          "title": "Structured concurrency: scopes, jobs and the tree"
+        },
+        {
+          "id": "co-04",
+          "title": "Dispatchers and the coroutine context"
+        },
+        {
+          "id": "co-05",
+          "title": "Cancellation and timeouts"
+        },
+        {
+          "id": "co-06",
+          "title": "Exceptions: launch vs async, SupervisorJob, handlers"
+        },
+        {
+          "id": "co-07",
+          "title": "Flow basics: cold streams and operators"
+        },
+        {
+          "id": "co-08",
+          "title": "StateFlow, SharedFlow and hot streams"
+        },
+        {
+          "id": "co-09",
+          "title": "Channels, select and pipelines"
+        },
+        {
+          "id": "co-10",
+          "title": "Shared state and testing coroutines"
+        },
+        {
+          "id": "co-11",
+          "title": "Coroutines meet Java: futures, Reactor, virtual threads"
+        }
+      ]
+    },
+    {
+      "id": "pat",
+      "lab": "patterns",
+      "title": "Design patterns in Java and Kotlin",
+      "short": "Creational, structural and behavioral patterns, what Kotlin makes unnecessary, and concurrency patterns.",
+      "lessons": [
+        {
+          "id": "pat-01",
+          "title": "Patterns in a modern language, and Singleton"
+        },
+        {
+          "id": "pat-02",
+          "title": "Factory Method and Abstract Factory"
+        },
+        {
+          "id": "pat-03",
+          "title": "Builder and Prototype"
+        },
+        {
+          "id": "pat-04",
+          "title": "Adapter and Facade"
+        },
+        {
+          "id": "pat-05",
+          "title": "Decorator and Proxy"
+        },
+        {
+          "id": "pat-06",
+          "title": "Composite, Bridge and Flyweight"
+        },
+        {
+          "id": "pat-07",
+          "title": "Strategy and Template Method"
+        },
+        {
+          "id": "pat-08",
+          "title": "Observer and Command"
+        },
+        {
+          "id": "pat-09",
+          "title": "State and Chain of Responsibility"
+        },
+        {
+          "id": "pat-10",
+          "title": "Visitor, Iterator, Mediator and Memento"
+        },
+        {
+          "id": "pat-11",
+          "title": "Concurrency patterns that tie it all together"
+        }
+      ]
+    }
+  ]
+}

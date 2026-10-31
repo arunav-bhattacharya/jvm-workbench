@@ -1,0 +1,319 @@
+{
+ "id": "co-02",
+ "title": "Builders: launch, async, runBlocking, coroutineScope",
+ "minutes": 35,
+ "goal": "By the end you can pick the right builder for a job (launch, async, coroutineScope or runBlocking), and split one request into concurrent calls that take as long as the slowest call.",
+ "warmup": {
+  "q": "Three quote calls take 300, 120 and 200 ms. You write `val a = async { q1() }; val b = async { q2() }; val c = async { q3() }` and then `listOf(a.await(), b.await(), c.await())`. About how long does it take?",
+  "options": [
+   "About 620 ms, the sum",
+   "About 300 ms, the slowest call",
+   "About 120 ms, the fastest call",
+   "About 0 ms, because async returns at once"
+  ],
+  "answer": 1,
+  "why": "All three `async` blocks start before the first `await`, so the calls overlap. The awaits then wait for the slowest one. Awaiting each `async` right after starting it would give you the sum instead."
+ },
+ "sections": [
+  {
+   "h": "`launch` starts a coroutine and hands you a Job",
+   "body": "A **coroutine builder** is a plain function that starts a coroutine. You'll use four every day: `launch`, `async`, `coroutineScope` and `runBlocking`. They differ in what they give back and in whether the caller suspends or blocks.\n\n`launch` starts a coroutine and returns a `Job` at once. Use it for work whose result you don't need: write an audit row, publish an event, warm a connection.\n\n```kotlin\nval audit: Job = launch { auditLog.write(event) }   // returns at once\nval quote = pricing.quote(pair)                     // carries on meanwhile\naudit.join()                                        // suspend until the audit is written\n```\n\nA `Job` is a handle to the coroutine's lifecycle. You can check `isActive` and `isCompleted`, wait with `join()`, or stop it with `cancel()`. It holds no value. If the coroutine throws, the exception does not come back through the `Job`. It goes to the coroutine's parent, which lessons 3 and 6 of this track cover.\n\n`launch` is an extension function on `CoroutineScope`, so you can only call it where a scope exists: inside `runBlocking`, inside `coroutineScope`, or inside another coroutine. That restriction is on purpose. The scope becomes the new coroutine's parent, and the parent is what stops work from leaking.\n\nOne detail surprises almost everyone. `launch` does not run its block immediately. It hands the block to the dispatcher and returns. Inside `runBlocking`, which has a single thread, the new coroutine gets to run only when the current coroutine suspends or finishes. So the line after `launch` usually runs first, and the `Job` already reports `isActive = true` for a block that has not started yet.",
+   "try": {
+    "title": "Predict the order",
+    "minutes": 4,
+    "steps": [
+     "Read `LaunchAndAsync.kt`. Everything runs on the one thread that `runBlocking` owns.",
+     "Write down the order in which the seven lines A to G will print. The letters are not a hint.",
+     "Run it and compare. For each line you got wrong, find the suspension point that explains it."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "LaunchAndAsync.kt",
+     "src": "package workbench.coroutines.l02\n\nimport kotlinx.coroutines.async\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.runBlocking\n\n/** Predict the order of the lines before you run it. Everything runs on one thread. */\nfun main() = runBlocking {\n    println(\"A: before the builders\")\n    val audit = launch {\n        println(\"C: audit starts\")\n        delay(100)\n        println(\"F: audit written\")\n    }\n    val price = async {\n        println(\"D: price lookup starts\")\n        delay(50)\n        1_084_512L\n    }\n    println(\"B: builders returned, audit.isActive=${audit.isActive}\")\n    println(\"E: price is ${price.await()}\")\n    audit.join()\n    println(\"G: audit.isCompleted=${audit.isCompleted}\")\n}\n",
+     "run": "./gradlew :coroutines:demo -Pmain=workbench.coroutines.l02.LaunchAndAsyncKt",
+     "file": "labs/coroutines/src/demo/kotlin/workbench/coroutines/l02/LaunchAndAsync.kt"
+    },
+    "expect": "A, B, C, D, E, F, G. B prints before C because `launch` and `async` only schedule their blocks, and the thread is still busy with main's body. The audit job is already `isActive=true`. C and D run when main suspends in `await`. E prints at about 50 ms, F at about 100 ms, and G after `join`."
+   }
+  },
+  {
+   "h": "`async` returns a Deferred: start now, await later",
+   "body": "`async` is `launch` with a result. It starts a coroutine and returns a `Deferred<T>` at once. A `Deferred` is a `Job` that will also hold a value. `await()` suspends until the value is ready and returns it, or rethrows the exception the coroutine failed with.\n\nWhat `async` buys you is **concurrent decomposition**: split one job into independent calls, start them all, then collect the answers.\n\n```kotlin\nsuspend fun allQuotes(pair: String): List<FxQuote> = coroutineScope {\n    val pending = providers.map { p -> async { p.quote(pair) } }   // 1. start all three\n    pending.awaitAll()                                             // 2. then wait for all\n}\n```\n\nThree providers that take 300, 120 and 200 ms answer in about 300 ms this way. One after another they take 620 ms.\n\nThe classic mistake is to await too early:\n\n```kotlin\nval a = async { northbank.quote(pair) }.await()   // waits 300 ms right here\nval b = async { fjord.quote(pair) }.await()       // and only then starts this one\n```\n\nThis compiles, runs and passes a functional test. It is also completely sequential. Concurrency lives in the gap between starting a `Deferred` and awaiting it, so start everything first and await afterwards.\n\nPrefer `awaitAll()` to `map { it.await() }`. Both return the results in list order. The difference shows up on failure: `awaitAll` fails as soon as any deferred fails, while the `map` version only notices when it reaches the failed one in the list.\n\nDon't use `async` when you don't need the value. An `async` that nobody awaits hides your intent, and in a supervisor scope it also hides the exception. Use `launch`.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 680 260\" role=\"img\" aria-label=\"Timeline: three quote calls of 300, 120 and 200 ms take 620 ms one after another, and 300 ms when started together with async and awaited with awaitAll\"><text class=\"t-s t-m\" x=\"20\" y=\"30\">one after another</text><rect class=\"box-dim\" x=\"100\" y=\"42\" width=\"270\" height=\"30\" rx=\"8\"/><text class=\"t-s\" x=\"235\" y=\"62\" text-anchor=\"middle\">northbank 300</text><rect class=\"box-dim\" x=\"370\" y=\"42\" width=\"108\" height=\"30\" rx=\"8\"/><text class=\"t-s\" x=\"424\" y=\"62\" text-anchor=\"middle\">fjord-fx 120</text><rect class=\"box-dim\" x=\"478\" y=\"42\" width=\"180\" height=\"30\" rx=\"8\"/><text class=\"t-s\" x=\"568\" y=\"62\" text-anchor=\"middle\">tidewater 200</text><text class=\"t-s t-bad\" x=\"658\" y=\"92\" text-anchor=\"end\">done at 620 ms</text><text class=\"t-s t-m\" x=\"20\" y=\"124\">async + awaitAll</text><rect class=\"box-a\" x=\"100\" y=\"136\" width=\"270\" height=\"30\" rx=\"8\"/><text class=\"t-s\" x=\"235\" y=\"156\" text-anchor=\"middle\">northbank 300</text><rect class=\"box-a\" x=\"100\" y=\"172\" width=\"108\" height=\"30\" rx=\"8\"/><text class=\"t-s\" x=\"154\" y=\"192\" text-anchor=\"middle\">fjord-fx 120</text><rect class=\"box-a\" x=\"100\" y=\"208\" width=\"180\" height=\"30\" rx=\"8\"/><text class=\"t-s\" x=\"190\" y=\"228\" text-anchor=\"middle\">tidewater 200</text><line class=\"ln-d\" x1=\"371\" y1=\"130\" x2=\"371\" y2=\"246\"/><text class=\"t-s t-ok\" x=\"380\" y=\"228\">done at 300 ms: the slowest call</text><line class=\"ln\" x1=\"100\" y1=\"250\" x2=\"660\" y2=\"250\" marker-end=\"url(#arr)\"/><text class=\"t-s t-m\" x=\"94\" y=\"254\" text-anchor=\"end\">time</text></svg>",
+    "caption": "Concurrency happens between starting a Deferred and awaiting it. Start all three calls, then await: the total is the slowest call."
+   },
+   "try": {
+    "title": "Sequential, concurrent, and accidentally sequential",
+    "minutes": 4,
+    "steps": [
+     "Read `SequentialVsConcurrent.kt` and predict both timings.",
+     "Run it.",
+     "In `concurrent()`, change the body to `latencies.map { (p, ms) -> async { quote(p, ms) }.await() }` and run again. Predict first."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "SequentialVsConcurrent.kt",
+     "src": "package workbench.coroutines.l02\n\nimport kotlinx.coroutines.async\nimport kotlinx.coroutines.awaitAll\nimport kotlinx.coroutines.coroutineScope\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.runBlocking\nimport kotlin.system.measureTimeMillis\n\nprivate suspend fun quote(provider: String, latencyMs: Long): String {\n    delay(latencyMs) // stands in for a network call\n    return \"$provider:${latencyMs}ms\"\n}\n\nprivate val latencies = listOf(\"northbank\" to 300L, \"fjord-fx\" to 120L, \"tidewater\" to 200L)\n\nsuspend fun sequential(): List<String> =\n    latencies.map { (p, ms) -> quote(p, ms) }\n\nsuspend fun concurrent(): List<String> = coroutineScope {\n    latencies.map { (p, ms) -> async { quote(p, ms) } }.awaitAll()\n}\n\nfun main() = runBlocking {\n    var result: List<String>\n    val t1 = measureTimeMillis { result = sequential() }\n    println(\"sequential: $result in $t1 ms\")\n    val t2 = measureTimeMillis { result = concurrent() }\n    println(\"concurrent: $result in $t2 ms\")\n}\n",
+     "run": "./gradlew :coroutines:demo -Pmain=workbench.coroutines.l02.SequentialVsConcurrentKt",
+     "file": "labs/coroutines/src/demo/kotlin/workbench/coroutines/l02/SequentialVsConcurrent.kt"
+    },
+    "expect": "About 620 ms for the sequential version (642 ms here) and about 300 ms for the concurrent one (309 ms here). After your change, `concurrent()` takes about 620 ms too: each `await` runs before the next `async` starts."
+   },
+   "refs": [
+    {
+     "title": "Composing suspending functions (Kotlin docs)",
+     "url": "https://kotlinlang.org/docs/composing-suspending-functions.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "`coroutineScope` waits for its children",
+   "body": "`coroutineScope` is how a suspend function gets a scope to start children in. It creates a scope, runs the block, and then suspends until every coroutine started inside has finished. Only then does it return the block's value.\n\n```kotlin\nsuspend fun warmUp() = coroutineScope {\n    providers.forEach { p -> launch { p.quote(\"EURUSD\") } }\n}   // returns after the slowest provider has answered\n```\n\nThat gives your callers a strong promise: when a suspend function returns, the work it started is done. Nothing keeps running behind their back, holding a connection or writing to the ledger after the request has finished.\n\nFailure travels the same path in reverse. If one child fails, `coroutineScope` cancels the other children, waits for them to stop, and rethrows the exception to its caller. In `allQuotes`, a provider that throws at 50 ms makes the whole call fail at about 50 ms, and the two other requests are cancelled instead of left running. Lesson 3 of this track draws this tree of parents and children, and lesson 6 of this track is about the exceptions.\n\n`coroutineScope` suspends; it does not block. The thread is free while it waits. It is itself a suspend function, so you call it from suspend code, and you can nest it as deep as you like. The lab's `quoteBoard` puts `allQuotes` inside another `coroutineScope`: two currency pairs times three providers is six calls in flight at once, and the board is still ready in 300 ms.\n\nThe builders so far, side by side: `launch` and `async` start a child and return at once, while `coroutineScope` runs a block and suspends until all of its children are done. You will rarely write `launch` or `async` without a `coroutineScope` (or a class-owned scope, lesson 3 of this track) around them."
+  },
+  {
+   "h": "`runBlocking` belongs at the edges: main and tests",
+   "body": "`runBlocking` is the bridge from blocking code into coroutines. It starts a coroutine, **blocks** the current thread until that coroutine and all its children finish, and returns the result. The children run on that same blocked thread, in a small event loop.\n\nUse it at the edges only: `fun main()`, tests, and the rare framework callback that has to be blocking. For tests, `runTest` from kotlinx-coroutines-test is better, because it skips delays (lesson 10 of this track). For `main`, Kotlin also accepts `suspend fun main()`.\n\nNever call `runBlocking` from suspend code. The kotlinx.coroutines docs call it redundant there and warn that it blocks the thread. In a service it does real damage. Suspend code usually runs on a small shared pool, and `runBlocking` holds one of those threads for as long as the inner work takes, which is exactly what suspending was meant to avoid. It also ignores the caller's coroutine context, so the caller's cancellation and timeouts don't reach the work inside.\n\nThe Try it runs eight 200 ms lookups on a pool of two threads. With `delay`, all eight overlap and finish in about 200 ms. With `runBlocking { delay(200) }` hidden inside the suspend function, each lookup holds a pool thread for its full 200 ms. Eight lookups on two threads need four rounds.\n\nIf you find yourself reaching for `runBlocking` inside suspend code to \"just call\" another suspend function, you don't need it. Call the function directly. If you need several calls at once, that's `coroutineScope` with `async`.",
+   "try": {
+    "title": "Starve a pool with runBlocking",
+    "minutes": 4,
+    "steps": [
+     "Read `RunBlockingTrap.kt`. Eight lookups share a pool of two threads.",
+     "Run it as is (the good version). Note the time.",
+     "Predict the time with `runBlocking` inside the suspend function, then run with `-Pargs=bad`."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "RunBlockingTrap.kt",
+     "src": "package workbench.coroutines.l02\n\nimport kotlinx.coroutines.asCoroutineDispatcher\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.runBlocking\nimport kotlinx.coroutines.withContext\nimport java.util.concurrent.Executors\nimport kotlin.system.measureTimeMillis\n\n/** A suspend function that \"helpfully\" calls runBlocking inside. Pass \"bad\" to use it. */\nsuspend fun lookupBad(id: Int): Int {\n    runBlocking { delay(200) } // blocks the calling thread for 200 ms\n    return id\n}\n\nsuspend fun lookupGood(id: Int): Int {\n    delay(200) // suspends; the thread serves other coroutines meanwhile\n    return id\n}\n\nfun main(args: Array<String>) {\n    val bad = args.firstOrNull() == \"bad\"\n    // a pool with only two threads, like a small request pool\n    Executors.newFixedThreadPool(2).asCoroutineDispatcher().use { pool ->\n        val took = measureTimeMillis {\n            runBlocking {\n                withContext(pool) {\n                    repeat(8) { id -> launch { if (bad) lookupBad(id) else lookupGood(id) } }\n                }\n            }\n        }\n        println(\"8 lookups of 200 ms on 2 threads (${if (bad) \"runBlocking inside\" else \"delay\"}): $took ms\")\n    }\n}\n",
+     "run": "./gradlew :coroutines:demo -Pmain=workbench.coroutines.l02.RunBlockingTrapKt",
+     "file": "labs/coroutines/src/demo/kotlin/workbench/coroutines/l02/RunBlockingTrap.kt"
+    },
+    "expect": "About 200 ms with `delay` (268 ms here). About 800 ms with `runBlocking` inside (849 ms here): each lookup holds one of the two threads for 200 ms, so the eight lookups run in four rounds of two."
+   },
+   "refs": [
+    {
+     "title": "runBlocking (API reference, see the pitfalls)",
+     "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/run-blocking.html",
+     "kind": "docs"
+    }
+   ]
+  }
+ ],
+ "analogy": "A deli counter. `launch` is asking a colleague to restock the fridge: you don't wait and you expect nothing back. `async` is taking a numbered ticket: the order starts now, and you swap the ticket (`await`) for your sandwich later. Take three tickets at once and you wait for the slowest sandwich, not all three in a row. `coroutineScope` is the shift manager who won't close the till until every ticket issued during the shift has been served. `runBlocking` is standing at the counter, refusing to move until your order is done, while the queue behind you grows. The analogy breaks on one point: a real deli makes sandwiches in parallel with more staff. Coroutines get their overlap from waiting, so three calls on one thread still overlap, because none of them uses the thread while it waits for the network.",
+ "in_your_world": "A payment details page in your Quarkus service needs the account (80 ms), the last 20 ledger entries (150 ms) and the risk flags (60 ms). Written as three suspend calls in a row, the page takes about 290 ms. Inside `coroutineScope` with three `async` calls, it takes about 150 ms, and if the ledger call fails, the other two are cancelled rather than left holding Oracle connections. Checkout is the same shape: FX quotes from several liquidity providers, a fraud score and a BIN lookup, all independent. Keep `runBlocking` at the edges. A blocking Kafka poll loop that hands each record to a suspend handler is one of the few places where it belongs.",
+ "mistake": "The most common builder mistake is awaiting each `async` right after starting it: `val a = async { a() }.await(); val b = async { b() }.await()`. The code looks concurrent and runs sequentially, so the latency is the sum. People write it because they read `async` as \"run in the background\" rather than \"start a child that I will collect later\". The fix is to start every `async` first, keep the `Deferred` values, and await them afterwards, preferably with `awaitAll()`. The runner-up mistake is `GlobalScope.async` or `runBlocking` inside suspend code to get a scope. Use `coroutineScope { }` instead.",
+ "compare": {
+  "title": "Three quotes at once: CompletableFuture vs async",
+  "java": {
+   "title": "QuoteAggregator.java",
+   "src": "List<FxQuote> allQuotes(String pair) {\n    List<CompletableFuture<FxQuote>> futures = providers.stream()\n        .map(p -> CompletableFuture.supplyAsync(() -> p.quote(pair), ioPool))\n        .toList();\n    return futures.stream()\n        .map(CompletableFuture::join)   // blocks until each one is done\n        .toList();\n}"
+  },
+  "kotlin": {
+   "title": "QuoteAggregator.kt",
+   "src": "suspend fun allQuotes(pair: String): List<FxQuote> = coroutineScope {\n    providers.map { p -> async { p.quote(pair) } }.awaitAll()\n}"
+  },
+  "note": "Both start three calls and collect them in order. In Java, each `supplyAsync` takes a thread from `ioPool` for the whole call, and `join` blocks the caller's thread too. In Kotlin, the three children suspend while they wait, so they need no extra threads, and the caller suspends rather than blocks. Failure handling differs most. If one Java future fails, the others keep running to the end, and nobody cancels them (cancelling a `CompletableFuture` would not interrupt the work anyway). In Kotlin, `coroutineScope` cancels the remaining children as soon as one fails and rethrows the original exception. With virtual threads on JDK 21+, the Java version can block cheaply, but cancelling the siblings still needs structured concurrency, which is a preview API (see \"Structured concurrency and scoped values\" in the virtual threads track)."
+ },
+ "worked": {
+  "title": "Make a payment details endpoint concurrent",
+  "steps": [
+   {
+    "say": "The endpoint makes three calls in a row. They don't depend on each other, so the 290 ms is all waiting.",
+    "code": "suspend fun details(id: PaymentId): PaymentDetails {\n    val account = accounts.load(id)          // 80 ms\n    val entries = ledger.recent(id, 20)      // 150 ms\n    val flags = risk.flags(id)               // 60 ms\n    return PaymentDetails(account, entries, flags)\n}",
+    "lang": "kotlin"
+   },
+   {
+    "say": "Open a scope, start all three as children, then await. The function now takes as long as the ledger call, about 150 ms.",
+    "code": "suspend fun details(id: PaymentId): PaymentDetails = coroutineScope {\n    // 1. start every independent call\n    val account = async { accounts.load(id) }\n    val entries = async { ledger.recent(id, 20) }\n    val flags = async { risk.flags(id) }\n    // 2. collect the answers\n    PaymentDetails(account.await(), entries.await(), flags.await())\n}",
+    "lang": "kotlin"
+   },
+   {
+    "say": "A new requirement: risk flags need the account's country. Keep that one dependency inside its own child, so the ledger call still runs alongside both.",
+    "code": "    val account = async { accounts.load(id) }\n    val entries = async { ledger.recent(id, 20) }\n    // 3. a dependent call waits for its input inside its own child\n    val flags = async { risk.flags(id, account.await().country) }",
+    "lang": "kotlin"
+   },
+   {
+    "say": "Self-check: the ledger call throws at 40 ms. What happens to the other two calls, and when does `details` fail? (The scope cancels the account and risk children, waits for them to stop, and rethrows the ledger exception at about 40 ms. Nothing is left running.)",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "Fetch three quotes at once, timed on virtual time",
+  "minutes": 12,
+  "files": [
+   "labs/coroutines/src/main/kotlin/workbench/coroutines/l02/Quotes.kt",
+   "labs/coroutines/src/main/kotlin/workbench/coroutines/l02/QuoteAggregator.kt"
+  ],
+  "run": "./gradlew :coroutines:test --tests 'workbench.coroutines.l02.*'",
+  "steps": [
+   "Run the tests. Four of five fail. The order test passes already, and `allQuotes` takes 620 virtual ms instead of 300.",
+   "Make `allQuotes` concurrent: wrap it in `coroutineScope`, start one `async` per provider, and `awaitAll()`.",
+   "Write `bestQuote` on top of `allQuotes`.",
+   "Write `warmUp` with one `launch` per provider. It must return only after every provider has answered.",
+   "Write `quoteBoard`: one `async` per pair, each calling `allQuotes`, then build the map.",
+   "Run the tests until all five pass."
+  ],
+  "hints": [
+   "The tests run in `runTest`, so `delay` uses virtual time. `currentTime` is the virtual clock, and it reads exactly 300 when the calls overlap.",
+   "`coroutineScope` waits for `launch` children too. You don't need `join` in `warmUp`.",
+   "In `quoteBoard`, `async { pair to allQuotes(pair) }` gives a `Deferred<Pair<String, List<FxQuote>>>`. `awaitAll().toMap()` finishes it."
+  ],
+  "done_when": "All five tests in `QuoteAggregatorTest` pass, with `currentTime` at 300 in each timing test."
+ },
+ "drill": {
+  "title": "Concurrent decomposition from memory",
+  "minutes": 4,
+  "prompt": "Close this page. Write `suspend fun scoreAll(ids: List<String>, score: suspend (String) -> Int): Map<String, Int>` that scores every id at the same time and returns when all are done. Then write one line that would make it accidentally sequential.",
+  "answer": {
+   "lang": "kotlin",
+   "src": "suspend fun scoreAll(ids: List<String>, score: suspend (String) -> Int): Map<String, Int> =\n    coroutineScope {\n        ids.map { id -> async { id to score(id) } }   // start all\n            .awaitAll()                               // then wait\n            .toMap()\n    }\n\n// accidentally sequential: awaits each one before starting the next\n// ids.map { id -> async { id to score(id) }.await() }.toMap()"
+  }
+ },
+ "recap": [
+  "`launch` starts a child and returns a `Job`: no result, and failures go to the parent.",
+  "`async` starts a child and returns a `Deferred<T>`; `await()` gives the value or rethrows. Start them all first, await afterwards.",
+  "Prefer `awaitAll()`: it fails as soon as any deferred fails.",
+  "`coroutineScope` suspends until every child finishes, cancels the rest if one fails, and rethrows. It is how a suspend function gets a scope.",
+  "`runBlocking` blocks its thread. Use it only in `main` and at blocking edges, never inside suspend code; tests use `runTest`."
+ ],
+ "quiz": [
+  {
+   "q": "What does this print?\n\n```kotlin\nrunBlocking {\n    launch { println(\"X\") }\n    println(\"Y\")\n}\n```",
+   "options": [
+    "X then Y",
+    "Y then X",
+    "Either order, it changes from run to run",
+    "Only Y; the launched coroutine never runs"
+   ],
+   "answer": 1,
+   "why": "`launch` schedules its block on `runBlocking`'s single thread and returns. That thread is still running the outer block, so `Y` prints first. The child runs when the outer block finishes, and `runBlocking` waits for it before returning. Order is deterministic here because there is only one thread."
+  },
+  {
+   "q": "About how long does this take?\n\n```kotlin\ncoroutineScope {\n    val a = async { delay(300); 1 }\n    val b = async { delay(200); 2 }\n    a.await() + b.await()\n}\n```",
+   "options": [
+    "About 200 ms",
+    "About 500 ms",
+    "About 300 ms",
+    "About 0 ms, because async returns at once"
+   ],
+   "answer": 2,
+   "why": "Both children start before the first `await`, so the delays overlap and the total is the longer one. 500 ms would be the sequential version. `async` does return at once, but `await` and the scope both wait for the children."
+  },
+  {
+   "q": "`fetchA` takes 300 ms and `fetchB` 200 ms. How long does this take?\n\n```kotlin\nval a = async { fetchA() }.await()\nval b = async { fetchB() }.await()\n```",
+   "options": [
+    "About 500 ms: each await finishes before the next async starts",
+    "About 300 ms: async runs them in parallel",
+    "About 200 ms",
+    "It does not compile, because await must be called later"
+   ],
+   "answer": 0,
+   "why": "Calling `await()` right after `async` waits for that child before the next line runs, so nothing overlaps. Keep the `Deferred` values and await them after starting both."
+  },
+  {
+   "q": "A suspend handler must publish a `PaymentCaptured` event and write an audit row, at the same time. It needs neither result, but it must not return until both are done. Which fits?",
+   "options": [
+    "`GlobalScope.launch { publish() }; GlobalScope.launch { audit() }`",
+    "`runBlocking { launch { publish() }; launch { audit() } }`",
+    "`publish(); audit()`",
+    "`coroutineScope { launch { publish() }; launch { audit() } }`"
+   ],
+   "answer": 3,
+   "why": "`coroutineScope` with two `launch` children runs them concurrently and returns only when both finish. `GlobalScope` returns at once and leaks the work. `runBlocking` blocks the handler's thread. Two plain calls are correct but sequential."
+  },
+  {
+   "q": "From the executors track: `CompletableFuture.allOf(a, b, c)`. `b` fails after 10 ms, while `a` and `c` take one second. When does the `allOf` future complete?",
+   "options": [
+    "As soon as `b` fails, after about 10 ms",
+    "When all three have completed, after about one second, exceptionally",
+    "After about one second, normally, with `b`'s result left out",
+    "Never: `allOf` hangs when one future fails"
+   ],
+   "answer": 1,
+   "why": "`allOf` completes when all of its futures complete, and it completes exceptionally if any of them did. It does not cancel `a` and `c` when `b` fails. Compare `coroutineScope` with `awaitAll()`, which fails at 10 ms and cancels the two remaining children.",
+   "from": "exec-07"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "What does `launch` return, and where does its exception go?",
+   "back": "A `Job`, with no result. If the coroutine fails, the exception goes to its parent, not to whoever holds the Job."
+  },
+  {
+   "front": "What does `async` return?",
+   "back": "A `Deferred<T>`: a Job that will hold a value. `await()` suspends until it is ready, then returns it or rethrows the failure."
+  },
+  {
+   "front": "`val a = async { f() }.await(); val b = async { g() }.await()`: concurrent or sequential?",
+   "back": "Sequential. Each `await` finishes before the next `async` starts. Start both, then await."
+  },
+  {
+   "front": "`awaitAll()` vs `map { it.await() }`?",
+   "back": "Same results in the same order, but `awaitAll` fails as soon as any deferred fails. The `map` version notices only when it reaches the failed one."
+  },
+  {
+   "front": "When does `coroutineScope { ... }` return?",
+   "back": "After its block and every child started inside it have finished. If a child fails, it cancels the others and rethrows."
+  },
+  {
+   "front": "Where is `runBlocking` allowed?",
+   "back": "At blocking edges: `main`, tests and blocking framework callbacks. Never inside suspend code, where it holds the thread and ignores the caller's context."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Coroutine builder",
+   "plain": "A function that starts a coroutine, such as `launch`, `async`, `runBlocking` or `coroutineScope`."
+  },
+  {
+   "term": "Job",
+   "plain": "A handle to a coroutine's lifecycle: check it, join it, cancel it. It holds no value."
+  },
+  {
+   "term": "Deferred",
+   "plain": "A Job that will also hold a result. `await()` returns it or rethrows the failure."
+  },
+  {
+   "term": "CoroutineScope",
+   "plain": "The thing you call `launch` and `async` on. It supplies the parent Job and context for new coroutines."
+  },
+  {
+   "term": "Concurrent decomposition",
+   "plain": "Splitting one task into independent calls, starting them together, and combining their results."
+  },
+  {
+   "term": "Event loop",
+   "plain": "The queue of coroutines that `runBlocking` runs one at a time on the thread it blocks."
+  }
+ ],
+ "explain_back": {
+  "prompt": "Explain to a teammate why `allQuotes` with three `async` calls and `awaitAll()` takes 300 ms, while the same code with `.await()` right after each `async` takes 620 ms. Use the words \"start\" and \"wait\".",
+  "answer": "`async` starts a child coroutine and returns immediately with a Deferred. If I start all three first, the three network calls are waiting at the same time, and `awaitAll` then waits until the slowest one, 300 ms, has answered. If I call `.await()` right after each `async`, I wait for the first call to finish before I even start the second, so the three waits happen one after another: 300 + 120 + 200 = 620 ms. The overlap only exists between starting a Deferred and awaiting it."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "A `Job` moves through a small set of states. A job created with `start = CoroutineStart.LAZY` begins in **New** and starts only when you call `start()`, `join()` or `await()`. Every other job starts in **Active**. When its block finishes, a job is **Completing** while it waits for its children, then **Completed**. If it is cancelled or fails, it goes through **Cancelling** (children are being cancelled, `finally` blocks run) to **Cancelled**. `isActive`, `isCompleted` and `isCancelled` are views over these states. That is why `launch` reports `isActive = true` before its block has run a single line.\n\nLazy `async` is a coroutine version of `lazy {}` for suspend work: `val rates = async(start = CoroutineStart.LAZY) { loadRates() }` starts nothing until the first `await()`. Be careful with it inside `coroutineScope`: a lazy child that nobody starts keeps the scope waiting forever, because the scope waits for all children, including those in the New state.\n\nThe kotlinx.coroutines guide also has a section on \"async-style functions\", such as `fun quoteAsync() = GlobalScope.async { ... }`, and strongly discourages them. If the caller fails between starting and awaiting, the work keeps running in the background with nobody to collect it. Expose a suspend function instead, and let the caller decide what runs concurrently."
+ },
+ "sources": [
+  {
+   "title": "Composing suspending functions (Kotlin docs)",
+   "url": "https://kotlinlang.org/docs/composing-suspending-functions.html"
+  },
+  {
+   "title": "Coroutines basics (Kotlin docs)",
+   "url": "https://kotlinlang.org/docs/coroutines-basics.html"
+  },
+  {
+   "title": "awaitAll (kotlinx.coroutines API)",
+   "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/await-all.html"
+  },
+  {
+   "title": "runBlocking (kotlinx.coroutines API)",
+   "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/run-blocking.html"
+  }
+ ]
+}

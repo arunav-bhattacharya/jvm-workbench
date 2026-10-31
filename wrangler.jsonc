@@ -1,0 +1,10 @@
+{
+  // Static site on Cloudflare Workers (assets only, no server code).
+  // Deploy: npx wrangler deploy   (or connect the repo in Workers & Pages > Create > Import a repository)
+  "name": "jvm-workbench",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./web",
+    "not_found_handling": "single-page-application"
+  }
+}

@@ -1,0 +1,343 @@
+{
+ "id": "jmm-01",
+ "title": "Why your loop never stops: caches and reordering",
+ "minutes": 35,
+ "goal": "By the end you can explain why a plain stop flag can hang a loop forever, tell a compiler effect from a CPU effect, and fix the bug with volatile.",
+ "warmup": {
+  "q": "A worker thread runs `while (!stop) { spins++; }`. One second later, `main` sets the plain field `stop = true`. What happens on a normal JDK 25 run?",
+  "options": [
+   "The worker stops within a few nanoseconds",
+   "The worker stops within a millisecond or so, once the CPU cache is flushed",
+   "The worker may never stop",
+   "The JVM throws an IllegalMonitorStateException"
+  ],
+  "answer": 2,
+  "why": "The JIT compiler may read `stop` once, keep it in a register and turn the loop into `while (true)`. Nothing in the code tells it another thread writes that field. The cache story in option 2 is the tempting one, but caches keep each other up to date on their own. The value that goes stale is the copy the compiled code keeps in a register."
+ },
+ "sections": [
+  {
+   "h": "A plain boolean can keep a loop running forever",
+   "body": "Here is the smallest version of a bug that ships in real services. A worker thread loops until another thread asks it to stop.\n\n```java\nstatic boolean stop;   // plain field\n\nThread worker = new Thread(() -> {\n    long spins = 0;\n    while (!stop) {\n        spins++;\n    }\n    System.out.println(\"worker saw stop\");\n});\nworker.start();\nThread.sleep(1_000);\nstop = true;           // main asks the worker to stop\n```\n\n```kotlin\nvar stop = false       // plain property\n\nval worker = thread {\n    var spins = 0L\n    while (!stop) {\n        spins++\n    }\n    println(\"worker saw stop\")\n}\nThread.sleep(1_000)\nstop = true            // main asks the worker to stop\n```\n\nRun it on JDK 21 or 25 and the worker never stops. Not after a second, not after an hour. `main` wrote `true`, and the worker keeps reading `false`.\n\nNow run the same program with `java -Xint`. That flag turns the JIT compiler off, so the JVM runs every line in its bytecode interpreter. The worker stops at once. One run printed `worker saw stop after 135,865,168 spins`.\n\nThat flag tells you where the bug lives. It is not in the CPU cache, which is the same with or without `-Xint`. It is in the **JIT compiler**. After the loop has run many thousands of times, HotSpot's C2 compiler turns it into machine code. C2 sees that nothing inside the loop writes `stop`, and nothing in the loop talks to other threads. So it reads `stop` once, before the loop, and runs the rest as `while (true)`.\n\nThat is a legal optimization. The Java Memory Model (JMM) only promises that one thread sees another thread's write when something connects the two: a `volatile` field, a lock, `Thread.join`, and a few more you'll meet in lesson 2 of this track. A plain field has none of that, so the compiler may assume no other thread ever changes it.\n\nThe fix is one word:\n\n```java\nstatic volatile boolean stop;\n```\n\n```kotlin\n@Volatile var stop = false\n```\n\nThe JIT can't keep a `volatile` field in a register or move its read out of the loop. Every pass reads it again, and the JMM guarantees the write from `main` becomes visible.",
+   "try": {
+    "title": "Hang a thread, then unhang it",
+    "minutes": 5,
+    "steps": [
+     "Read `StopFlagDemo.java` below. Predict: will the worker print `worker saw stop`?",
+     "Run it from `labs/` with the Gradle command below. It waits 3 seconds for the worker, then exits.",
+     "Run the Java file with the JIT turned off: `java -Xint jmm/src/demo/java/workbench/jmm/l01/StopFlagDemo.java` (from `labs/`). The source launcher only runs Java files; the Kotlin twin compiles to the same field read, so the result carries over.",
+     "Make the field `static volatile boolean stop;` (in the Kotlin twin, put `@Volatile` on `stop`) and run the Gradle command again."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "StopFlagDemo.java",
+     "src": "package workbench.jmm.l01;\n\n/** A worker spins until main sets a plain boolean. Does it ever notice? */\npublic class StopFlagDemo {\n    static boolean stop;   // plain field: no volatile, no lock\n\n    public static void main(String[] args) throws InterruptedException {\n        Thread worker = new Thread(() -> {\n            long spins = 0;\n            while (!stop) {\n                spins++;\n            }\n            System.out.printf(\"worker saw stop after %,d spins%n\", spins);\n        });\n        worker.setDaemon(true);   // so the JVM can exit even if the worker never stops\n        worker.start();\n\n        Thread.sleep(1_000);      // give the JIT time to compile the loop\n        stop = true;\n        System.out.println(\"main set stop = true\");\n\n        worker.join(3_000);\n        System.out.println(\"worker still running 3 s later? \" + worker.isAlive());\n    }\n}\n",
+     "run": "./gradlew :jmm:demo -Pmain=workbench.jmm.l01.StopFlagDemo",
+     "file": "labs/jmm/src/demo/java/workbench/jmm/l01/StopFlagDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "StopFlagDemo.kt",
+      "src": "package workbench.jmm.l01\n\nimport kotlin.concurrent.thread\n\nprivate var stop = false   // plain field: no @Volatile, no lock\n\n/** A worker spins until main sets a plain boolean. Does it ever notice? */\nfun main() {\n    // daemon, so the JVM can exit even if the worker never stops\n    val worker = thread(isDaemon = true) {\n        var spins = 0L\n        while (!stop) {\n            spins++\n        }\n        println(\"worker saw stop after %,d spins\".format(spins))\n    }\n\n    Thread.sleep(1_000)   // give the JIT time to compile the loop\n    stop = true\n    println(\"main set stop = true\")\n\n    worker.join(3_000)\n    println(\"worker still running 3 s later? ${worker.isAlive}\")\n}\n",
+      "run": "./gradlew :jmm:demo -Pmain=workbench.jmm.l01.StopFlagDemoKt",
+      "file": "labs/jmm/src/demo/kotlin/workbench/jmm/l01/StopFlagDemo.kt"
+     }
+    },
+    "expect": "The first run prints `main set stop = true` and then `worker still running 3 s later? true`. With `-Xint` the worker prints how many times it spun and stops, because the interpreter reads the field on every pass. With `volatile` the compiled loop stops too, within a moment of `main` setting the flag."
+   },
+   "refs": [
+    {
+     "title": "jcstress sample BasicJMM_04_Progress: spin loops on plain, volatile and opaque fields",
+     "url": "https://github.com/openjdk/jcstress/blob/master/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/jmm/basic/BasicJMM_04_Progress.java",
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "h": "The JIT only promises that one thread can't tell",
+   "body": "Every optimizer in the JVM follows one rule, often called **as-if-serial**: it may change your code in any way, as long as a single thread running it alone can't tell the difference. Reading `stop` once is fine by that rule. If no other thread exists, `stop` can't change during the loop.\n\nHere is the change C2 is allowed to make, side by side:\n\n```text\n// what you wrote             // what the compiled code may do\nwhile (!stop) {               if (!stop) {\n    spins++;                      while (true) { spins++; }\n}                             }\n```\n\nThe same rule lets the JIT do other things you never see in one thread. It can merge two writes to the same field into one, drop a write nobody reads, or swap two writes to different fields. Each change is invisible to the thread that runs the code. Another thread, reading those fields at the same time, can see the effects.\n\nNow the part that makes these bugs survive code review. Put almost any method call inside the loop and the hang usually goes away. A `Thread.sleep(10)`, a log line, a `Thread.yield()`, even `Thread.onSpinWait()`. C2 treats each of these as something that may have changed memory, usually because it can't see inside the call, so it reads `stop` again after it.\n\nThat is luck, not a guarantee. The Java Language Specification says outright that `sleep` and `yield` have no synchronization effect, and a compiler may still read the field once. A later JDK might inline more, or a teammate might replace the log call with a counter, and the hang is back. The loop that has worked for two years is still broken. It just hasn't been compiled the wrong way yet.\n\nSo don't reason about what HotSpot does today. Ask one question: is there a synchronization point between the write and the read? For a plain field, there isn't.",
+   "try": {
+    "title": "Hide the bug without fixing it",
+    "minutes": 3,
+    "steps": [
+     "In `StopFlagDemo` (either language), remove `volatile` or `@Volatile` again so the flag is plain.",
+     "Add `Thread.yield()` as the first line inside the `while` loop. Predict before you run: will the worker stop?",
+     "Run the Gradle command from the previous Try it."
+    ],
+    "expect": "The worker stops. `Thread.yield()` ends in a native call that HotSpot can't look inside, so the JIT re-reads `stop` after each call. The program is still incorrect by the JMM: nothing promises that re-read. Undo the change and keep `volatile`."
+   }
+  },
+  {
+   "h": "Caches agree with each other; store buffers let a core run ahead",
+   "body": "The usual story is that each CPU core keeps its own copy of `stop` in its cache, and the copy goes stale. That story is wrong on every server CPU you'll deploy to. Caches run a **coherence** protocol: when one core writes a memory location, the other cores' copies are invalidated or updated, usually within nanoseconds. No cache keeps an old value forever.\n\nThe hardware does reorder, though, through a different part of the core: the **store buffer**. When a core writes, it doesn't wait for the cache. It puts the write in a small queue and runs the next instruction. If the next instruction is a read of a different variable, that read can finish before the write leaves the queue. To another core, the write and the read look swapped.\n\nThe classic test for this has two threads and two fields, both starting at 0:\n\n```java\n// thread A          // thread B\nx = 1;               y = 1;\nr1 = y;              r2 = x;\n```\n\n```kotlin\n// thread A          // thread B\nx = 1                y = 1\nr1 = y               r2 = x\n```\n\nIn any order that keeps each thread's two lines in sequence, at least one thread reads a 1. Yet `r1 == 0 && r2 == 0` happens: each thread's write is still in its own store buffer when the other thread reads. The jcstress suite measured it in 6.29% of samples on x86_64 with plain fields. With both fields `volatile` it never happened. The JMM forbids that outcome for volatile fields, so on x86 HotSpot follows each volatile write with an instruction that drains the store buffer before any later read.\n\nx86 only lets a later read pass an earlier write. ARM, which runs Apple Silicon laptops and AWS Graviton servers, also lets reads pass reads and writes pass writes. Code that never fails on an x86 build agent can fail on an ARM pod.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 680 350\" role=\"img\" aria-label=\"Two CPU cores, each with registers, a store buffer and an L1 cache, above a shared cache and RAM. The worker core holds a stale copy of stop in a register. The main core has its write to stop in its store buffer on the way to the caches.\"><rect class=\"box\" x=\"20\" y=\"20\" width=\"300\" height=\"212\" rx=\"8\"/><text class=\"t\" x=\"170\" y=\"42\" text-anchor=\"middle\">Core 0: worker thread</text><text class=\"t-s t-code\" x=\"170\" y=\"62\" text-anchor=\"middle\">while (!stop) spins++;</text><rect class=\"box-bad\" x=\"40\" y=\"74\" width=\"260\" height=\"36\" rx=\"8\"/><text class=\"t-s\" x=\"170\" y=\"97\" text-anchor=\"middle\">register: stop = false, read once</text><rect class=\"box-dim\" x=\"40\" y=\"126\" width=\"260\" height=\"36\" rx=\"8\"/><text class=\"t-s t-m\" x=\"170\" y=\"149\" text-anchor=\"middle\">store buffer: empty</text><rect class=\"box\" x=\"40\" y=\"178\" width=\"260\" height=\"36\" rx=\"8\"/><text class=\"t-s\" x=\"170\" y=\"201\" text-anchor=\"middle\">L1 cache: stop = true</text><rect class=\"box\" x=\"360\" y=\"20\" width=\"300\" height=\"212\" rx=\"8\"/><text class=\"t\" x=\"510\" y=\"42\" text-anchor=\"middle\">Core 1: main thread</text><text class=\"t-s t-code\" x=\"510\" y=\"62\" text-anchor=\"middle\">stop = true;</text><rect class=\"box-dim\" x=\"380\" y=\"74\" width=\"260\" height=\"36\" rx=\"8\"/><text class=\"t-s t-m\" x=\"510\" y=\"97\" text-anchor=\"middle\">registers</text><rect class=\"box-a\" x=\"380\" y=\"126\" width=\"260\" height=\"36\" rx=\"8\"/><text class=\"t-s\" x=\"510\" y=\"149\" text-anchor=\"middle\">store buffer: stop = true, briefly</text><rect class=\"box\" x=\"380\" y=\"178\" width=\"260\" height=\"36\" rx=\"8\"/><text class=\"t-s\" x=\"510\" y=\"201\" text-anchor=\"middle\">L1 cache: stop = true</text><line class=\"ln-a\" x1=\"510\" y1=\"162\" x2=\"510\" y2=\"176\" marker-end=\"url(#arr)\"/><rect class=\"box-b\" x=\"20\" y=\"262\" width=\"640\" height=\"40\" rx=\"8\"/><text class=\"t\" x=\"340\" y=\"287\" text-anchor=\"middle\">shared L3 cache and RAM: stop = true</text><line class=\"ln-a\" x1=\"560\" y1=\"214\" x2=\"560\" y2=\"260\" marker-end=\"url(#arr)\"/><line class=\"ln\" x1=\"120\" y1=\"260\" x2=\"120\" y2=\"216\" marker-end=\"url(#arr)\"/><text class=\"t-s t-m\" x=\"130\" y=\"246\">coherence</text><text class=\"t-s t-m\" x=\"570\" y=\"246\">write lands</text><text class=\"t-s t-bad\" x=\"340\" y=\"330\" text-anchor=\"middle\">The caches already agree. The stale copy is the register the JIT never reloads.</text></svg>",
+    "caption": "Coherent caches carry the write to every core. The worker still spins, because its compiled loop reads a register copy. The store buffer only delays a write, for nanoseconds."
+   },
+   "try": {
+    "title": "Catch the CPU reordering",
+    "minutes": 4,
+    "steps": [
+     "Read `ReorderDemo.java`. It runs the two-thread test above about half a million times with plain fields, then with volatile fields.",
+     "Run it with the Gradle command below and note the counts.",
+     "Run the Java file in the interpreter: `java -Xint jmm/src/demo/java/workbench/jmm/l01/ReorderDemo.java`. Predict first: the JIT is off now, so will the plain count drop to zero?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "ReorderDemo.java",
+     "src": "package workbench.jmm.l01;\n\nimport java.util.concurrent.atomic.AtomicInteger;\nimport java.util.function.IntConsumer;\n\n/**\n * The store-buffering test. Thread A runs {@code x = 1; r1 = y;} and thread B runs {@code y = 1; r2 = x;}.\n * If the four lines ran in any order that keeps each thread's two lines in program order,\n * at least one thread would read a 1. Count the trials where both threads read 0.\n */\npublic class ReorderDemo {\n    static final class Plain { int x, y; }\n    static final class Volatile { volatile int x, y; }\n\n    static final int TRIALS = 1 << 19;\n    static final int BATCH = 32;\n\n    public static void main(String[] args) throws InterruptedException {\n        for (int run = 1; run <= 3; run++) {\n            System.out.printf(\"run %d: both read 0 in %,7d trials with plain fields, %,d with volatile fields (of %,d)%n\",\n                    run, plain(), withVolatile(), TRIALS);\n        }\n    }\n\n    static int plain() throws InterruptedException {\n        Plain[] s = new Plain[TRIALS];\n        for (int i = 0; i < TRIALS; i++) s[i] = new Plain();\n        int[] r1 = new int[TRIALS], r2 = new int[TRIALS];\n        race(i -> { s[i].x = 1; r1[i] = s[i].y; },\n             i -> { s[i].y = 1; r2[i] = s[i].x; });\n        return bothZero(r1, r2);\n    }\n\n    static int withVolatile() throws InterruptedException {\n        Volatile[] s = new Volatile[TRIALS];\n        for (int i = 0; i < TRIALS; i++) s[i] = new Volatile();\n        int[] r1 = new int[TRIALS], r2 = new int[TRIALS];\n        race(i -> { s[i].x = 1; r1[i] = s[i].y; },\n             i -> { s[i].y = 1; r2[i] = s[i].x; });\n        return bothZero(r1, r2);\n    }\n\n    // Runs a(i) and b(i) for every trial on two threads. A small spin barrier every BATCH trials\n    // keeps the two threads on the same trial at about the same moment.\n    static void race(IntConsumer a, IntConsumer b) throws InterruptedException {\n        AtomicInteger doneA = new AtomicInteger(), doneB = new AtomicInteger();\n        Thread ta = new Thread(() -> runSide(a, doneA, doneB));\n        Thread tb = new Thread(() -> runSide(b, doneB, doneA));\n        ta.start(); tb.start();\n        ta.join(); tb.join();\n    }\n\n    static void runSide(IntConsumer side, AtomicInteger mine, AtomicInteger other) {\n        for (int batch = 0; batch < TRIALS / BATCH; batch++) {\n            mine.set(batch);\n            while (other.get() < batch) Thread.onSpinWait();   // wait for the other thread\n            for (int i = batch * BATCH; i < (batch + 1) * BATCH; i++) side.accept(i);\n        }\n    }\n\n    static int bothZero(int[] r1, int[] r2) {\n        int n = 0;\n        for (int i = 0; i < r1.length; i++) if (r1[i] == 0 && r2[i] == 0) n++;\n        return n;\n    }\n}\n",
+     "run": "./gradlew :jmm:demo -Pmain=workbench.jmm.l01.ReorderDemo",
+     "file": "labs/jmm/src/demo/java/workbench/jmm/l01/ReorderDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "ReorderDemo.kt",
+      "src": "package workbench.jmm.l01\n\nimport java.util.concurrent.atomic.AtomicInteger\nimport java.util.function.IntConsumer\nimport kotlin.concurrent.thread\n\n/*\n * The store-buffering test. Thread A runs `x = 1; r1 = y` and thread B runs `y = 1; r2 = x`.\n * If the four lines ran in any order that keeps each thread's two lines in program order,\n * at least one thread would read a 1. Count the trials where both threads read 0.\n */\nprivate class PlainPair { var x = 0; var y = 0 }\nprivate class VolatilePair { @Volatile var x = 0; @Volatile var y = 0 }\n\nprivate const val TRIALS = 1 shl 19\nprivate const val BATCH = 32\n\nfun main() {\n    for (run in 1..3) {\n        println(\"run %d: both read 0 in %,7d trials with plain fields, %,d with @Volatile fields (of %,d)\"\n            .format(run, plain(), withVolatile(), TRIALS))\n    }\n}\n\nprivate fun plain(): Int {\n    val s = Array(TRIALS) { PlainPair() }\n    val r1 = IntArray(TRIALS)\n    val r2 = IntArray(TRIALS)\n    race(IntConsumer { i -> s[i].x = 1; r1[i] = s[i].y },\n         IntConsumer { i -> s[i].y = 1; r2[i] = s[i].x })\n    return bothZero(r1, r2)\n}\n\nprivate fun withVolatile(): Int {\n    val s = Array(TRIALS) { VolatilePair() }\n    val r1 = IntArray(TRIALS)\n    val r2 = IntArray(TRIALS)\n    race(IntConsumer { i -> s[i].x = 1; r1[i] = s[i].y },\n         IntConsumer { i -> s[i].y = 1; r2[i] = s[i].x })\n    return bothZero(r1, r2)\n}\n\n// Runs a(i) and b(i) for every trial on two threads. A small spin barrier every BATCH trials\n// keeps the two threads on the same trial at about the same moment.\nprivate fun race(a: IntConsumer, b: IntConsumer) {\n    val doneA = AtomicInteger()\n    val doneB = AtomicInteger()\n    val ta = thread { runSide(a, doneA, doneB) }\n    val tb = thread { runSide(b, doneB, doneA) }\n    ta.join(); tb.join()\n}\n\nprivate fun runSide(side: IntConsumer, mine: AtomicInteger, other: AtomicInteger) {\n    for (batch in 0 until TRIALS / BATCH) {\n        mine.set(batch)\n        while (other.get() < batch) Thread.onSpinWait()   // wait for the other thread\n        for (i in batch * BATCH until (batch + 1) * BATCH) side.accept(i)\n    }\n}\n\nprivate fun bothZero(r1: IntArray, r2: IntArray): Int = r1.indices.count { r1[it] == 0 && r2[it] == 0 }\n",
+      "run": "./gradlew :jmm:demo -Pmain=workbench.jmm.l01.ReorderDemoKt",
+      "file": "labs/jmm/src/demo/kotlin/workbench/jmm/l01/ReorderDemo.kt"
+     }
+    },
+    "expect": "With plain fields a large share of trials see both reads return 0 (runs here showed between 85,000 and 330,000 of 524,288, and it changes every run). With volatile fields the count is 0 every time. Under `-Xint` the plain count stays high: the interpreter doesn't reorder anything, so this one is the store buffer, not the compiler."
+   },
+   "refs": [
+    {
+     "title": "jcstress sample BasicJMM_07_Consensus: the store-buffering test with plain, volatile and acquire/release",
+     "url": "https://github.com/openjdk/jcstress/blob/master/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/jmm/basic/BasicJMM_07_Consensus.java",
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "h": "Three layers reorder your code, and the memory model is the contract",
+   "body": "Three layers stand between your source and what other threads observe.\n\n- `javac` barely changes order. It compiles statements to bytecode almost one for one.\n- The JIT (C1, then C2 for hot code) hoists reads, merges and removes writes, and moves independent loads and stores around.\n- The CPU runs ahead through store buffers, and on ARM it reorders more freely still.\n\nEach layer follows as-if-serial, so a single thread never notices. You can't control which layer does what, and you don't need to. The JMM is the contract that sits above all three. It names the operations that link threads: volatile reads and writes, taking and releasing a lock, thread start and join, and the classes in `java.util.concurrent`. If every read of shared data is linked to the write it needs by those operations, the JMM guarantees that your program behaves as if its lines ran in some single interleaved order. That property is called sequential consistency, and lesson 2 of this track shows how the links work.\n\nIf you skip the links, you have a **data race**, and the guarantees mostly go away. You can see a stale value, a value that seems to arrive before the write that made it, or, for `long` and `double`, half of one write and half of another.\n\nThis is why \"it works on my machine\" means so little here. Your test ran on one CPU family, with one JIT, under one load profile. A different JDK, a busier server or an ARM instance can expose a reordering your tests never saw. In one jcstress test, a thread writes `x` and then `y`, the compiler is told to keep that order, and another thread reads `y` and then `x`. On x86_64, seeing the new `y` with the old `x` never happened. On AArch64 it happened in 0.68% of samples. Both results obey the same JMM. Write to the contract, and the hardware becomes someone else's problem."
+  }
+ ],
+ "analogy": "Picture a cashier who checks the \"store closing\" sign once at the start of the shift, writes \"open\" on a sticky note, and from then on only looks at the note. The manager can flip the sign at 9 pm and the cashier keeps selling. That's the JIT and a register. Making the field `volatile` is a rule that says: look at the sign every single time. The analogy breaks on the hardware side. The store buffer is more like the manager holding the new sign for a few seconds before hanging it, while already walking on to the next task. That delay is short and always ends; the sticky note never updates.",
+ "in_your_world": "Look at every background loop in your services that ends with a flag: a Kafka consumer thread with `private boolean running = true` and a shutdown hook that sets it to false, a Quarkus `@Scheduled` job that a health check pauses, a reconciliation worker that drains an in-memory batch. Most of them call `poll()` or do I/O inside the loop, which hides the bug on today's HotSpot. Then someone optimizes the loop to drain a local list first, the loop becomes tight, and a pod that used to stop in 200 ms hangs until Kubernetes kills it 30 seconds later. Make every cross-thread flag `volatile` or an `AtomicBoolean`, so the guarantee lives in the code and not in the JIT's mood.",
+ "mistake": "The most common mistake is \"fixing\" a hung loop by adding `Thread.sleep`, a log statement or `Thread.onSpinWait()` to it, seeing it stop, and moving on. Each of those happens to make HotSpot re-read the field today, because the JIT can't see what the call does. None of them is a synchronization point in the JMM, and the JLS says so for `sleep` and `yield`. A future JDK or a small refactoring brings the hang back. The fix is to declare the flag `volatile` (or use `AtomicBoolean`), and keep any `sleep` only if you want the pause.",
+ "compare": {
+  "title": "A stop flag in Java and Kotlin",
+  "java": {
+   "title": "SettlementLoop.java",
+   "src": "public class SettlementLoop implements Runnable {\n    private volatile boolean running = true;\n\n    @Override\n    public void run() {\n        while (running) {\n            settleNextBatch();\n        }\n    }\n\n    public void stop() {\n        running = false;\n    }\n}"
+  },
+  "kotlin": {
+   "title": "SettlementLoop.kt",
+   "src": "class SettlementLoop : Runnable {\n    @Volatile\n    private var running = true\n\n    override fun run() {\n        while (running) {\n            settleNextBatch()\n        }\n    }\n\n    fun stop() {\n        running = false\n    }\n}"
+  },
+  "note": "Kotlin has no `volatile` keyword. You put `@Volatile` on a `var` property, and the compiler marks its JVM backing field `volatile`, so the bytecode is the same as the Java version. A `val` can't be `@Volatile`, because it is never written after construction. A plain Kotlin `var` has exactly the same bug as a plain Java field: a `while (running)` loop compiles to a field read the JIT can hoist. `AtomicBoolean` from `java.util.concurrent.atomic` works the same in both languages."
+ },
+ "worked": {
+  "title": "Find the flags that freeze a standby pod",
+  "steps": [
+   {
+    "say": "Two pods run a ledger exporter, and leader election picks one of them. When the standby pod is elected, a callback thread calls `onElected()`. On shutdown, a hook thread calls `stop()`. In a failover drill the standby was elected, exported nothing, and then ignored SIGTERM until Kubernetes killed it. Find the shared state before reading on.",
+    "code": "class LedgerExporter implements Runnable {\n    private boolean leader;                 // 1. written by the election callback thread\n    private boolean running = true;         // 2. written by the shutdown hook thread\n\n    @Override\n    public void run() {\n        while (running) {                   // 3. both flags read in a hot loop\n            if (leader) exportBatch();\n        }\n    }\n\n    void onElected() { leader = true; }\n    void stop() { running = false; }\n}",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "class LedgerExporter : Runnable {\n    private var leader = false              // 1. written by the election callback thread\n    private var running = true              // 2. written by the shutdown hook thread\n\n    override fun run() {\n        while (running) {                   // 3. both flags read in a hot loop\n            if (leader) exportBatch()\n        }\n    }\n\n    fun onElected() { leader = true }\n    fun stop() { running = false }\n}"
+   },
+   {
+    "say": "Both flags are written by one thread and read by another, with nothing linking them. On the standby, `leader` stays false for hours, so the profile says `exportBatch()` never runs. C2 compiles the loop as if that branch were not there. What's left is two reads of plain fields that nothing in the loop writes, so C2 reads them once. A copy of this class run for this lesson exported 0 batches after `onElected()` and was still spinning 3 seconds after `stop()`.",
+    "code": "",
+    "lang": ""
+   },
+   {
+    "say": "Make both flags `volatile`. Then stop the standby from spinning: it has nothing to do, so it should sleep between checks and leave the core to other work.",
+    "code": "class LedgerExporter implements Runnable {\n    private volatile boolean leader;            // 1. both flags cross threads: both volatile\n    private volatile boolean running = true;\n\n    @Override\n    public void run() {\n        try {\n            while (running) {                   // 2. re-read on every pass\n                if (leader) {\n                    exportBatch();\n                } else {\n                    Thread.sleep(50);           // 3. a standby doesn't need a whole core\n                }\n            }\n        } catch (InterruptedException e) {\n            Thread.currentThread().interrupt(); // 4. treat an interrupt as a stop, too\n        }\n    }\n\n    void onElected() { leader = true; }\n    void stop() { running = false; }\n}",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "class LedgerExporter : Runnable {\n    @Volatile private var leader = false     // 1. both flags cross threads: both @Volatile\n    @Volatile private var running = true\n\n    override fun run() {\n        try {\n            while (running) {                    // 2. re-read on every pass\n                if (leader) {\n                    exportBatch()\n                } else {\n                    Thread.sleep(50)             // 3. a standby doesn't need a whole core\n                }\n            }\n        } catch (e: InterruptedException) {\n            Thread.currentThread().interrupt()   // 4. treat an interrupt as a stop, too\n        }\n    }\n\n    fun onElected() { leader = true }\n    fun stop() { running = false }\n}"
+   },
+   {
+    "say": "The `sleep` alone would also have hidden the hang, because HotSpot re-reads fields after it. That is why the `volatile` stays. The `sleep` is there to save CPU. The `volatile` is there for correctness, and it keeps working after the next refactoring.",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "Unhang a settlement loop and a rate board",
+  "minutes": 12,
+  "files": [
+   "labs/jmm/src/main/java/workbench/jmm/l01/SettlementLoop.java",
+   "labs/jmm/src/main/java/workbench/jmm/l01/FxRateBoard.java"
+  ],
+  "run": "./gradlew :jmm:test --tests 'workbench.jmm.l01.*'",
+  "steps": [
+   "Run the tests once. Two of the three fail with \"still spinning\" or \"still waiting\". Each failing test waits 5 seconds for a thread that never finishes, so the run takes a little while.",
+   "Fix `SettlementLoop` with the smallest change that makes the write in `stop()` reach the loop. Run the tests.",
+   "In `FxRateBoard`, first try making only `rates` volatile and run the tests. Predict whether it passes, then see.",
+   "Now fix the field that matters. Leave the other one plain. Run the tests three times in a row."
+  ],
+  "hints": [
+   "The tests sleep 300 ms before calling `stop()` or `publish()`. That gives the JIT time to compile the spinning loop, which is when the plain field gets read once and never again.",
+   "`awaitRates()` spins on `ready`, not on `rates`. The field the loop reads is the one the JIT can hoist.",
+   "Why may `rates` stay plain? It is written before the volatile write to `ready`, and read after the volatile read sees `true`. Lesson 2 of this track names that rule.",
+   "Adding `Thread.onSpinWait()` or a log call to the loop may make a test pass on HotSpot. That is the accident from section 2. Fix the field instead."
+  ],
+  "done_when": "All three tests in `VisibilityTest` pass, three runs in a row."
+ },
+ "drill": {
+  "title": "A worker that is sure to stop",
+  "minutes": 4,
+  "prompt": "Close this page. From memory, write a class `Poller implements Runnable` whose `run()` loops calling `pollOnce()` until another thread calls `shutdown()`. It must be guaranteed to stop. Then write one sentence on why a plain `boolean` is not enough.",
+  "answer": {
+   "lang": "java",
+   "src": "public class Poller implements Runnable {\n    private volatile boolean running = true;   // volatile: the loop re-reads it, the write is visible\n\n    @Override\n    public void run() {\n        while (running) {\n            pollOnce();\n        }\n    }\n\n    public void shutdown() {\n        running = false;\n    }\n\n    private void pollOnce() { /* fetch and handle one batch */ }\n}\n\n// With a plain boolean, nothing links the write in shutdown() to the read in run(),\n// so the JIT may read the field once and loop forever.",
+   "alt": {
+    "lang": "kotlin",
+    "src": "class Poller : Runnable {\n    @Volatile\n    private var running = true   // @Volatile: the loop re-reads it, the write is visible\n\n    override fun run() {\n        while (running) {\n            pollOnce()\n        }\n    }\n\n    fun shutdown() {\n        running = false\n    }\n\n    private fun pollOnce() { /* fetch and handle one batch */ }\n}\n\n// With a plain var, nothing links the write in shutdown() to the read in run(),\n// so the JIT may read the field once and loop forever."
+   }
+  }
+ },
+ "recap": [
+  "A loop on a plain field can spin forever: the JIT may read the field once and keep it in a register.",
+  "The hang goes away under `-Xint`, which proves it comes from the compiler, not from CPU caches.",
+  "Caches are coherent. Store buffers let a core's later read pass its own earlier write, which reorders what other threads see.",
+  "Every layer (javac, JIT, CPU) may reorder as long as one thread alone can't tell. Other threads can tell.",
+  "`sleep`, `yield`, log lines and `onSpinWait` hide the bug on today's HotSpot but guarantee nothing. Use `volatile` or an atomic.",
+  "Correctness comes from the JMM, not from your CPU: code that passes on x86 can fail on ARM."
+ ],
+ "quiz": [
+  {
+   "q": "A health checker runs `while (!done) { Thread.sleep(10); }` on a plain `boolean done`. It has worked in production for two years. Is it correct?",
+   "options": [
+    "Yes, because `Thread.sleep` flushes the CPU caches",
+    "Yes, because the loop body is not empty",
+    "No. The JMM lets the read of `done` happen once; HotSpot re-reads after `sleep` today, but nothing promises it",
+    "No, because `Thread.sleep` inside a loop always throws InterruptedException"
+   ],
+   "answer": 2,
+   "why": "`sleep` has no synchronization effect in the JMM. HotSpot happens to re-read the field after a call it can't see into, which is why the loop works today. Caches don't need flushing (they are coherent), and the body being non-empty is not a rule anywhere. Make `done` volatile."
+  },
+  {
+   "q": "`ReorderDemo` still shows both threads reading 0 when you run it with `-Xint`. What causes those outcomes?",
+   "options": [
+    "The JIT reordering the write and the read",
+    "Each core's store buffer: the read runs before the core's own write is visible to the other core",
+    "`javac` reordering the two statements",
+    "The garbage collector moving the objects between the write and the read"
+   ],
+   "answer": 1,
+   "why": "`-Xint` disables the JIT, so compiler reordering is ruled out, and `javac` keeps statement order. What's left is the hardware: a write waits in the store buffer while the next read goes ahead. A volatile write drains the buffer first, which is why the volatile count is 0."
+  },
+  {
+   "q": "A stop-flag loop hangs with the JIT on and stops under `-Xint`. What is the best explanation?",
+   "options": [
+    "The worker's CPU cache never receives the new value",
+    "The compiled loop read the field once and keeps using a register copy",
+    "The interpreter runs on a single core, so there is no second cache",
+    "The main thread's write is still sitting in its store buffer"
+   ],
+   "answer": 1,
+   "why": "Caches and store buffers are identical in both runs, so they can't explain the difference. Only the JIT changes. C2 hoisted the read out of the loop, which as-if-serial allows for a plain field. A store buffer drains in nanoseconds, so it can't cause a hang."
+  },
+  {
+   "q": "`FxRateBoard` writes `rates = map; ready = true;` and readers spin `while (!ready) {}` and then return `rates`. Which change makes it correct?",
+   "options": [
+    "Make `rates` volatile and leave `ready` plain",
+    "Make `ready` volatile and leave `rates` plain",
+    "Add `Thread.onSpinWait()` inside the loop",
+    "Swap the two lines in `publish` so `ready` is set first"
+   ],
+   "answer": 1,
+   "why": "The loop reads `ready`, so that is the read the JIT must not hoist. Because `rates` is written before the volatile write and read after the volatile read sees `true`, the reader also sees the map. Making only `rates` volatile still lets the loop on `ready` spin forever, and swapping the lines would let a reader see `ready == true` with `rates` still null."
+  },
+  {
+   "q": "From the threads track: `count` is a `volatile int`, and two threads each run `count++` a million times. What does `count` usually hold at the end?",
+   "options": [
+    "Exactly 2,000,000, because volatile makes every access go to memory",
+    "Less than 2,000,000, because `count++` is still a read, an add and a write",
+    "Exactly 1,000,000, because each thread overwrites the other",
+    "It doesn't compile: `++` isn't allowed on a volatile field"
+   ],
+   "answer": 1,
+   "why": "`volatile` makes each read and each write visible, but it doesn't merge them into one step. Two threads can still read the same value and both write value + 1. Visibility and atomicity are different problems; lesson 3 of this track takes them apart.",
+   "from": "conc-03"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "Why can `while (!stop) {}` spin forever when `stop` is a plain boolean?",
+   "back": "The JIT may read `stop` once, keep it in a register and compile the loop to `while (true)`. Nothing tells it another thread writes the field."
+  },
+  {
+   "front": "The stop-flag hang disappears under `java -Xint`. What does that prove?",
+   "back": "The hang is a compiler effect. The interpreter reads the field on every pass; caches are the same in both runs."
+  },
+  {
+   "front": "Can a CPU cache hold a stale value forever while another core writes it?",
+   "back": "No. Caches are coherent: a write invalidates or updates other cores' copies, usually within nanoseconds."
+  },
+  {
+   "front": "What is a store buffer?",
+   "back": "A small queue where a core parks its writes on the way to the cache. The core's later reads can complete before those writes are visible to other cores."
+  },
+  {
+   "front": "Thread A: `x = 1; r1 = y;` Thread B: `y = 1; r2 = x;` Plain ints, both start at 0. Can `r1 == 0 && r2 == 0`?",
+   "back": "Yes, through store buffers or JIT reordering. With both fields volatile, no."
+  },
+  {
+   "front": "Does adding `Thread.sleep` or a log line to a spin loop fix a plain stop flag?",
+   "back": "No. It hides the bug on today's HotSpot because the JIT re-reads after calls it can't see into. The JMM promises nothing. Use `volatile`."
+  },
+  {
+   "front": "What is the as-if-serial rule?",
+   "back": "Compilers and CPUs may reorder or remove work as long as a single thread running alone can't tell the difference."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Visibility",
+   "plain": "Whether and when a write by one thread can be seen by a read in another thread."
+  },
+  {
+   "term": "Hoisting",
+   "plain": "The JIT moving a read out of a loop because it believes the value can't change inside the loop."
+  },
+  {
+   "term": "Store buffer",
+   "plain": "A per-core queue of pending writes. It lets the core keep running before its writes reach the cache."
+  },
+  {
+   "term": "Cache coherence",
+   "plain": "The hardware protocol that keeps every core's cache in agreement about each memory location."
+  },
+  {
+   "term": "As-if-serial",
+   "plain": "Optimizers may change anything a single thread can't observe."
+  },
+  {
+   "term": "Data race",
+   "plain": "Two threads access the same variable, at least one writes, and no synchronization orders the two accesses."
+  },
+  {
+   "term": "volatile",
+   "plain": "A field modifier: reads and writes go to memory in order, and they link threads in the memory model."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A teammate says: \"The shutdown flag works when I step through it in the debugger, so it can't be a visibility bug.\" Explain, in your own words, why it hangs in production and what the fix is.",
+  "answer": "In the debugger the code runs slowly and often interpreted, so every pass of the loop reads the field from memory and sees the new value. In production the loop gets hot, the JIT compiles it, and because the field is plain and nothing in the loop synchronizes, the compiler is allowed to read it once and keep the value in a register. The CPU caches are not the problem; they stay in sync. The fix is to make the flag volatile (or an AtomicBoolean). Then the JIT must read it on every pass, and the memory model guarantees the write from the shutdown thread becomes visible."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "`volatile` is the usual fix, but it does more than this loop needs. The weakest mode that already guarantees the loop ends is **opaque** access through a `VarHandle` (`getOpaque` and `setOpaque`, JDK 9+). The jcstress sample `BasicJMM_04_Progress` makes the point: the plain spin loop is marked \"Test is stuck\" as an allowed outcome, while for both the volatile and the opaque spin loops getting stuck is forbidden. Opaque stops the compiler from caching the read and leaves the hardware's own guarantee (writes become visible eventually) in place. It does not order other fields, which is why it's rarely what you want. Lesson 6 of this track covers the modes.\n\nThe jcstress sample `BasicJMM_06_Causality` is the cleanest look at hardware differences. One thread writes `x = 1` then `y = 1`, and another reads `y` then `x`. With plain fields, the sample's recorded run saw `y == 1` but `x == 0` in 0.09% of samples. With opaque accesses, which keep the compiler from reordering, x86_64 showed it 0 times, because x86 keeps stores in order. An AArch64 machine still showed it in 0.68% of samples. Make `y` volatile and the outcome is forbidden on every platform.\n\nIf you want the long version of why the JMM is written as a contract over executions, read Aleksey Shipilëv's \"Java Memory Model Pragmatics\". It is long, and worth one slow evening."
+ },
+ "sources": [
+  {
+   "title": "Java Language Specification, chapter 17: Threads and Locks",
+   "url": "https://docs.oracle.com/javase/specs/jls/se25/html/jls-17.html"
+  },
+  {
+   "title": "jcstress samples (BasicJMM_04_Progress, BasicJMM_06_Causality, BasicJMM_07_Consensus)",
+   "url": "https://github.com/openjdk/jcstress/tree/master/jcstress-samples"
+  },
+  {
+   "title": "Aleksey Shipilëv, Java Memory Model Pragmatics",
+   "url": "https://shipilev.net/blog/2014/jmm-pragmatics/"
+  },
+  {
+   "title": "Kotlin API: @Volatile",
+   "url": "https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.concurrent/-volatile/"
+  }
+ ]
+}

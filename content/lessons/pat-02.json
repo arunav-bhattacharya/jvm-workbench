@@ -1,0 +1,358 @@
+{
+ "id": "pat-02",
+ "title": "Factory Method and Abstract Factory",
+ "minutes": 35,
+ "goal": "By the end you can replace constructor calls with named static or companion factories that validate and return sealed results, pass factories around as functions, and group matching products behind an abstract factory.",
+ "warmup": {
+  "q": "`List.of(1)` and `List.of(1, 2, 3)` both return a `List<Integer>`. What do you expect `getClass()` to say for each?",
+  "options": [
+   "Both are `ArrayList`",
+   "Both are the same private immutable class",
+   "Two different private classes, chosen by the factory from the number of elements",
+   "`List` itself, since `List.of` is defined on the interface"
+  ],
+  "answer": 2,
+  "why": "`List.of` is a static factory, so it can return any implementation it likes. In JDK 21 it returns `List12` for one or two elements and `ListN` for more, both private classes. A constructor could never do that: `new X()` always gives you an `X`. An interface can't be instantiated, so `List` itself is impossible."
+ },
+ "sections": [
+  {
+   "h": "Static factory methods are constructors with names",
+   "body": "A static factory method is a static method that returns an instance of its class, or of some class behind an interface. Effective Java opens with it (item 1: consider static factory methods instead of constructors), and the JDK is full of them: `List.of`, `Duration.ofMinutes`, `Integer.valueOf`, `HttpClient.newHttpClient`, `Thread.ofVirtual`.\n\nA constructor can do one thing: make a new object of exactly that class. A static factory can do four things a constructor can't.\n\n1. It has a name. `Duration.ofMinutes(2)` and `Duration.ofSeconds(2)` both take a `long`. Two constructors with the same parameter types can't exist, and `new Duration(2)` would say nothing anyway.\n2. It can return a cached instance. `Integer.valueOf(100)` hands back the same object every time.\n3. It can return any subtype, chosen from the input. `List.of(1)` and `List.of(1, 2, 3)` return two different private classes. `EnumSet.noneOf` picks a set backed by a single `long` when the enum has 64 constants or fewer, and a larger one otherwise. Callers never see the class names.\n4. The class it returns doesn't have to exist when the factory is written. `DriverManager.getConnection(url)` returns a `Connection` from whichever JDBC driver on the classpath accepts the URL, found through `ServiceLoader`. The Oracle driver in your service was written long after `java.sql`.\n\nThe downsides are small. A class with only private constructors can't be subclassed, which pushes you toward composition and costs little. Factories are also harder to spot in an IDE than constructors, so stick to the usual names: `of`, `from`, `valueOf`, `parse`, `newX`, `create`.\n\nFor your own value types, make this the default. Make the constructor private and offer `Money.ofMinor(1250, \"EUR\")` and `Money.parse(\"12.50 EUR\")`. With the constructor private, every `Money` in the system went through your validation.",
+   "try": {
+    "title": "Watch the JDK's factories choose",
+    "minutes": 4,
+    "steps": [
+     "Read `FactoriesInTheJdk`. For each of the first four lines, predict the class name you'll see. The Kotlin twin adds three lines for Kotlin's own `listOf`.",
+     "Run it with the command below.",
+     "Try `EnumSet.noneOf(TimeUnit.class).getClass()` in your IDE's auto-complete: can you type `RegularEnumSet` yourself?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "FactoriesInTheJdk.java",
+     "src": "package workbench.patterns.l02;\n\nimport java.time.Duration;\nimport java.util.EnumSet;\nimport java.util.List;\nimport java.util.concurrent.TimeUnit;\n\n/** Static factories in the JDK pick the class for you. Predict each class name before you run this. */\npublic class FactoriesInTheJdk {\n    public static void main(String[] args) {\n        // the factory picks an implementation based on the input\n        System.out.println(\"List.of(1)            -> \" + List.of(1).getClass().getSimpleName());\n        System.out.println(\"List.of(1, 2, 3)      -> \" + List.of(1, 2, 3).getClass().getSimpleName());\n        System.out.println(\"EnumSet of TimeUnit   -> \" + EnumSet.noneOf(TimeUnit.class).getClass().getSimpleName()\n                + \" (\" + TimeUnit.values().length + \" constants)\");\n        System.out.println(\"EnumSet of scripts    -> \" + EnumSet.noneOf(Character.UnicodeScript.class).getClass().getSimpleName()\n                + \" (\" + Character.UnicodeScript.values().length + \" constants)\");\n\n        // the factory can hand back a cached instance instead of a new one\n        System.out.println(\"valueOf(100) twice    -> same object? \" + (Integer.valueOf(100) == Integer.valueOf(100)));\n        System.out.println(\"Duration.ofSeconds(0) -> same as ZERO? \" + (Duration.ofSeconds(0) == Duration.ZERO));\n\n        // and its name says what you get, which a constructor can't\n        System.out.println(\"Duration.ofMinutes(2) -> \" + Duration.ofMinutes(2));\n    }\n}\n",
+     "run": "./gradlew :patterns:demo -Pmain=workbench.patterns.l02.FactoriesInTheJdk",
+     "file": "labs/patterns/src/demo/java/workbench/patterns/l02/FactoriesInTheJdk.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "FactoriesInTheJdk.kt",
+      "src": "package workbench.patterns.l02\n\nimport java.time.Duration\nimport java.util.EnumSet\nimport java.util.concurrent.TimeUnit\n\n// The same JDK factories called from Kotlin, plus Kotlin's own. Predict each class name first.\n\nfun main() {\n    // JDK static factories pick an implementation from the input\n    println(\"List.of(1)            -> \" + java.util.List.of(1).javaClass.simpleName)\n    println(\"List.of(1, 2, 3)      -> \" + java.util.List.of(1, 2, 3).javaClass.simpleName)\n    println(\"EnumSet of TimeUnit   -> \" + EnumSet.noneOf(TimeUnit::class.java).javaClass.simpleName +\n            \" (\" + TimeUnit.entries.size + \" constants)\")\n    println(\"EnumSet of scripts    -> \" + EnumSet.noneOf(Character.UnicodeScript::class.java).javaClass.simpleName +\n            \" (\" + Character.UnicodeScript.entries.size + \" constants)\")\n\n    // Kotlin's factory functions do the same (full names, since two of these are nested classes)\n    println(\"listOf()              -> \" + listOf<Int>().javaClass.name)\n    println(\"listOf(1)             -> \" + listOf(1).javaClass.name)\n    println(\"listOf(1, 2, 3)       -> \" + listOf(1, 2, 3).javaClass.name)\n\n    // a factory can hand back a cached instance, and its name says what you get\n    println(\"Currency EUR twice    -> same object? \" + (java.util.Currency.getInstance(\"EUR\") === java.util.Currency.getInstance(\"EUR\")))\n    println(\"Duration.ofMinutes(2) -> \" + Duration.ofMinutes(2))\n}\n",
+      "run": "./gradlew :patterns:demo -Pmain=workbench.patterns.l02.FactoriesInTheJdkKt",
+      "file": "labs/patterns/src/demo/kotlin/workbench/patterns/l02/FactoriesInTheJdk.kt"
+     }
+    },
+    "expect": "`List12` for one element and `ListN` for three. `RegularEnumSet` for `TimeUnit` (7 constants) and `JumboEnumSet` for `Character.UnicodeScript` (well over 64 constants). Both `same object?` lines print `true`, because the factories handed back cached instances. None of these classes are public, so you can't name them in your code. The factory is the only door. Kotlin's `listOf` plays the same game: `EmptyList`, `Collections$SingletonList` and `Arrays$ArrayList`, depending on how many elements you pass."
+   },
+   "refs": [
+    {
+     "title": "DriverManager (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.sql/java/sql/DriverManager.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Factory Method: let someone else choose the class",
+   "body": "The GoF Factory Method is a related idea with a confusingly similar name. A class needs to create something, but it shouldn't decide which concrete class. In the book's version, an abstract creator declares a creation hook and subclasses override it:\n\n```java\nabstract class CheckoutService {\n    protected abstract PaymentGateway createGateway();       // the factory method\n    final String pay(long amountMinor, String token) {\n        return createGateway().charge(amountMinor, token);\n    }\n}\nclass AdyenCheckout extends CheckoutService {\n    protected PaymentGateway createGateway() { return new AdyenGateway(); }\n}\n```\n\n```kotlin\nabstract class CheckoutService {\n    protected abstract fun createGateway(): PaymentGateway      // the factory method\n    fun pay(amountMinor: Long, token: String) = createGateway().charge(amountMinor, token)\n}\nclass AdyenCheckout : CheckoutService() {\n    override fun createGateway(): PaymentGateway = AdyenGateway()\n}\n```\n\nThat is one subclass per product, just to pick a constructor. Since Java 8, a function does the same job. A `Supplier<PaymentGateway>` (in Kotlin, a `() -> PaymentGateway`) is a factory, and a constructor reference is the shortest way to write one:\n\n```java\nrecord Checkout(Supplier<? extends PaymentGateway> gateways) {\n    String pay(long amountMinor, String token) { return gateways.get().charge(amountMinor, token); }\n}\nnew Checkout(AdyenGateway::new);   // production\nnew Checkout(FakeGateway::new);    // test\n```\n\n```kotlin\nclass Checkout(private val gateways: () -> PaymentGateway) {\n    fun pay(amountMinor: Long, token: String) = gateways().charge(amountMinor, token)\n}\nCheckout(::AdyenGateway)   // production\nCheckout(::FakeGateway)    // test\n```\n\nWhen the choice depends on data (a config value, a tenant, the BIN of a card), put it in one static factory over a sealed product family:\n\n```java\nstatic PaymentGateway of(Provider p) {\n    return switch (p) {            // no default branch, on purpose\n        case ADYEN -> new AdyenGateway();\n        case STRIPE -> new StripeGateway();\n        case FAKE -> new FakeGateway();\n    };\n}\n```\n\n```kotlin\nfun gatewayOf(p: Provider): PaymentGateway = when (p) {   // no else branch, on purpose\n    Provider.ADYEN -> AdyenGateway()\n    Provider.STRIPE -> StripeGateway()\n    Provider.FAKE -> FakeGateway()\n}\n```\n\nLeave out `default` (or `else` in Kotlin). When someone adds `KLARNA` to the enum, this switch stops compiling, and the compiler points at the one place that needs a new gateway. With a catch-all branch that returns `FakeGateway`, the build stays green and real Klarna payments go to the fake. It is the factory bug I see most often in review.\n\nPeople mix up the two names, so keep them apart. A static factory is about how one class hands out its own instances. Factory Method is about who decides the concrete class: not the code that uses the object.\n\nYou already write factory methods in your services under another name. A Quarkus `@Produces` method or a Spring `@Bean` method is a factory method that the container calls. It decides how to build the `KafkaProducer` or the issuer client, and the rest of the code injects only the interface. The container calls it when it creates the bean, not once per request, so a choice that depends on the current request (which network this card belongs to) still needs a factory you call yourself.",
+   "try": {
+    "title": "Break a factory on purpose",
+    "minutes": 5,
+    "steps": [
+     "Run `GatewayFactory` with the command below.",
+     "Add `KLARNA` to the `Provider` enum and run it again. Read the compiler error.",
+     "Now add a catch-all as the last branch (`default -> new FakeGateway();` in Java, `else -> FakeGateway()` in Kotlin), keep `KLARNA`, and run again. Where does Klarna's charge go?",
+     "Undo both changes."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "GatewayFactory.java",
+     "src": "package workbench.patterns.l02;\n\nimport java.util.function.Supplier;\n\n/** A factory method over a sealed family, and the same factory passed around as a function. */\npublic class GatewayFactory {\n    enum Provider { ADYEN, STRIPE, FAKE }\n\n    sealed interface PaymentGateway permits AdyenGateway, StripeGateway, FakeGateway {\n        String charge(long amountMinor, String token);\n\n        // the static factory: an exhaustive switch over the enum, with no default branch\n        static PaymentGateway of(Provider p) {\n            return switch (p) {\n                case ADYEN -> new AdyenGateway();\n                case STRIPE -> new StripeGateway();\n                case FAKE -> new FakeGateway();\n            };\n        }\n    }\n\n    record AdyenGateway() implements PaymentGateway {\n        public String charge(long amountMinor, String token) { return \"adyen:\" + token + \":\" + amountMinor; }\n    }\n    record StripeGateway() implements PaymentGateway {\n        public String charge(long amountMinor, String token) { return \"stripe:\" + token + \":\" + amountMinor; }\n    }\n    record FakeGateway() implements PaymentGateway {\n        public String charge(long amountMinor, String token) { return \"fake:ok\"; }\n    }\n\n    // the modern \"factory method\": the caller hands in how to make the product\n    record Checkout(Supplier<? extends PaymentGateway> gateways) {\n        String pay(long amountMinor, String token) { return gateways.get().charge(amountMinor, token); }\n    }\n\n    public static void main(String[] args) {\n        for (Provider p : Provider.values()) {\n            System.out.println(p + \" -> \" + PaymentGateway.of(p).charge(1_250, \"tok_42\"));\n        }\n        System.out.println(\"test checkout -> \" + new Checkout(FakeGateway::new).pay(1_250, \"tok_42\"));\n    }\n}\n",
+     "run": "./gradlew :patterns:demo -Pmain=workbench.patterns.l02.GatewayFactory",
+     "file": "labs/patterns/src/demo/java/workbench/patterns/l02/GatewayFactory.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "GatewayFactory.kt",
+      "src": "package workbench.patterns.l02\n\n// A factory over a sealed family, and the same factory passed around as a function.\n\nenum class Provider { ADYEN, STRIPE, FAKE }\n\nsealed interface PaymentGateway {\n    fun charge(amountMinor: Long, token: String): String\n\n    companion object {\n        // the factory: an exhaustive when over the enum, with no else branch\n        fun of(p: Provider): PaymentGateway = when (p) {\n            Provider.ADYEN -> AdyenGateway()\n            Provider.STRIPE -> StripeGateway()\n            Provider.FAKE -> FakeGateway()\n        }\n    }\n}\n\nclass AdyenGateway : PaymentGateway {\n    override fun charge(amountMinor: Long, token: String) = \"adyen:$token:$amountMinor\"\n}\nclass StripeGateway : PaymentGateway {\n    override fun charge(amountMinor: Long, token: String) = \"stripe:$token:$amountMinor\"\n}\nclass FakeGateway : PaymentGateway {\n    override fun charge(amountMinor: Long, token: String) = \"fake:ok\"\n}\n\n// the modern \"factory method\": the caller hands in how to make the product\nclass GatewayCheckout(private val gateways: () -> PaymentGateway) {\n    fun pay(amountMinor: Long, token: String) = gateways().charge(amountMinor, token)\n}\n\nfun main() {\n    for (p in Provider.entries) {\n        println(\"$p -> ${PaymentGateway.of(p).charge(1_250, \"tok_42\")}\")\n    }\n    println(\"test checkout -> ${GatewayCheckout(::FakeGateway).pay(1_250, \"tok_42\")}\")\n}\n",
+      "run": "./gradlew :patterns:demo -Pmain=workbench.patterns.l02.GatewayFactoryKt",
+      "file": "labs/patterns/src/demo/kotlin/workbench/patterns/l02/GatewayFactory.kt"
+     }
+    },
+    "expect": "The first run prints one charge per provider and `test checkout -> fake:ok`. With `KLARNA` added, the build fails, pointing at the factory: javac says `error: the switch expression does not cover all possible input values`, and kotlinc says `'when' expression must be exhaustive. Add the 'KLARNA' branch or an 'else' branch.` With a catch-all branch it compiles and prints `KLARNA -> fake:ok`: a customer's payment would go to the fake gateway, and nothing warns you."
+   }
+  },
+  {
+   "h": "Kotlin factories: companion, invoke and sealed results",
+   "body": "Kotlin has no `static`, so its factories live in three other places.\n\nThe **companion object** is the direct translation of a Java static factory. Make the constructor private and put the factory next to it:\n\n```kotlin\nclass Card private constructor(val network: Network, val last4: String) {\n    companion object {\n        fun parse(raw: String): CardResult { /* validate, then Card(network, last4) */ }\n    }\n}\n```\n\n```java\npublic final class Card {\n    private final Network network;\n    private final String last4;\n    private Card(Network network, String last4) { this.network = network; this.last4 = last4; }\n\n    public static CardResult parse(String raw) { /* validate, then new Card(network, last4) */ }\n}\n```\n\nAn `operator fun invoke` on the companion lets callers write what looks like a constructor call, `Fee(290)`, while you run a factory that validates or returns a cached instance. Use it sparingly: readers expect `Fee(290)` to make a new object.\n\nThe third shape is a top-level function named like the type. The Kotlin coding conventions allow a factory function to share the name of the abstract type it returns, and kotlinx.coroutines does exactly that: `Job()`, `CoroutineScope(context)` and `MutableStateFlow(0)` are functions that return a private implementation class.\n\nWhat a factory returns matters as much as where it lives. A parser that throws makes every caller remember a `try`. A factory that returns a sealed result makes the compiler remember for them:\n\n```kotlin\nsealed interface CardResult {\n    data class Valid(val card: Card) : CardResult\n    data class Invalid(val reason: String) : CardResult\n}\n\nwhen (val r = Card.parse(input)) {      // no else\n    is CardResult.Valid -> charge(r.card)\n    is CardResult.Invalid -> reject(r.reason)\n}\n```\n\n```java\npublic sealed interface CardResult {\n    record Valid(Card card) implements CardResult {}\n    record Invalid(String reason) implements CardResult {}\n}\n\nswitch (Card.parse(input)) {             // no default\n    case CardResult.Valid v -> charge(v.card());\n    case CardResult.Invalid i -> reject(i.reason());\n}\n```\n\nAdd a third case later, say `Expired`, and every `when` without an `else` stops compiling until it handles it. Java 21 gives you the same check with a sealed interface, records and a `switch` with type patterns, as the Java twin shows. Throw exceptions for bugs and broken infrastructure. Return a sealed result for outcomes the caller is expected to handle, like a mistyped card number.",
+   "try": {
+    "title": "Let the compiler find the missing case",
+    "minutes": 4,
+    "steps": [
+     "Run `CompanionFactories` (Kotlin, or its Java twin) with the command below and read the three `parse` lines.",
+     "Add a fourth result: `data class Blocked(val country: String) : IbanResult` in Kotlin, or `record Blocked(String country) implements IbanResult {}` in Java. Predict what happens, then run.",
+     "Fix it by adding a branch for `Blocked` to `describe`, not an `else` or `default`."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "CompanionFactories.kt",
+     "src": "package workbench.patterns.l02\n\n// Three Kotlin factory shapes, and a factory that returns a sealed result instead of throwing.\n\nclass Iban private constructor(val country: String, val digits: String) {\n    override fun toString() = \"$country****${digits.takeLast(4)}\"\n\n    companion object {\n        // 1. a named factory in the companion: Iban.parse(\"...\")\n        fun parse(raw: String): IbanResult {\n            val s = raw.replace(\" \", \"\").uppercase()\n            return when {\n                s.length < 15 -> IbanResult.TooShort(s.length)\n                !s.take(2).all(Char::isLetter) -> IbanResult.BadCountry(s.take(2))\n                else -> IbanResult.Ok(Iban(s.take(2), s.drop(2)))\n            }\n        }\n    }\n}\n\nsealed interface IbanResult {\n    data class Ok(val iban: Iban) : IbanResult\n    data class TooShort(val length: Int) : IbanResult\n    data class BadCountry(val prefix: String) : IbanResult\n}\n\nclass Fee private constructor(val bps: Int) {\n    override fun toString() = \"Fee($bps bps)\"\n\n    companion object {\n        private val standard = Fee(290)\n        // 2. operator invoke: callers write Fee(290) and get the cached instance\n        operator fun invoke(bps: Int): Fee = if (bps == 290) standard else Fee(bps)\n    }\n}\n\ninterface Ledger { fun post(entry: String) }\n\n// 3. a top-level function named like the interface, as kotlinx.coroutines does with Job() and CoroutineScope()\nfun Ledger(): Ledger = object : Ledger {\n    override fun post(entry: String) = println(\"  ledger <- $entry\")\n}\n\nfun describe(r: IbanResult): String = when (r) {      // no else: the compiler checks every case is here\n    is IbanResult.Ok -> \"ok: ${r.iban}\"\n    is IbanResult.TooShort -> \"too short (${r.length} chars)\"\n    is IbanResult.BadCountry -> \"bad country code '${r.prefix}'\"\n}\n\nfun main() {\n    listOf(\"DE89 3704 0044 0532 0130 00\", \"DE89 3704\", \"12345678901234567890\").forEach {\n        println(\"parse(\\\"$it\\\") -> ${describe(Iban.parse(it))}\")\n    }\n    println(\"Fee(290) === Fee(290)? ${Fee(290) === Fee(290)}\")\n    println(\"Fee(150) === Fee(150)? ${Fee(150) === Fee(150)}\")\n    Ledger().post(\"fee 29.00 EUR\")\n}\n",
+     "run": "./gradlew :patterns:demo -Pmain=workbench.patterns.l02.CompanionFactoriesKt",
+     "file": "labs/patterns/src/demo/kotlin/workbench/patterns/l02/CompanionFactories.kt",
+     "alt": {
+      "lang": "java",
+      "title": "CompanionFactoriesJava.java",
+      "src": "package workbench.patterns.l02;\n\nimport java.util.List;\n\n/** The Java twin of CompanionFactories.kt: static factories, a cached instance, and a sealed result. */\npublic class CompanionFactoriesJava {\n\n    static final class Iban {\n        final String country, digits;\n        private Iban(String country, String digits) { this.country = country; this.digits = digits; }\n        @Override public String toString() { return country + \"****\" + digits.substring(digits.length() - 4); }\n\n        // 1. a named static factory: Iban.parse(\"...\")\n        static IbanResult parse(String raw) {\n            String s = raw.replace(\" \", \"\").toUpperCase();\n            if (s.length() < 15) return new TooShort(s.length());\n            if (!Character.isLetter(s.charAt(0)) || !Character.isLetter(s.charAt(1))) return new BadCountry(s.substring(0, 2));\n            return new Ok(new Iban(s.substring(0, 2), s.substring(2)));\n        }\n    }\n\n    sealed interface IbanResult {}                     // permitted subtypes: the records in this file\n    record Ok(Iban iban) implements IbanResult {}\n    record TooShort(int length) implements IbanResult {}\n    record BadCountry(String prefix) implements IbanResult {}\n\n    static final class Fee {\n        private static final Fee STANDARD = new Fee(290);\n        final int bps;\n        private Fee(int bps) { this.bps = bps; }\n        // 2. Java has no operator invoke, so the cached-instance factory needs a name\n        static Fee of(int bps) { return bps == 290 ? STANDARD : new Fee(bps); }\n    }\n\n    interface Ledger {\n        void post(String entry);\n        // 3. a static factory on the interface returns a hidden implementation\n        static Ledger create() { return entry -> System.out.println(\"  ledger <- \" + entry); }\n    }\n\n    static String describe(IbanResult r) {\n        return switch (r) {                               // no default: the compiler checks every case is here\n            case Ok ok -> \"ok: \" + ok.iban();\n            case TooShort t -> \"too short (\" + t.length() + \" chars)\";\n            case BadCountry b -> \"bad country code '\" + b.prefix() + \"'\";\n        };\n    }\n\n    public static void main(String[] args) {\n        for (String raw : List.of(\"DE89 3704 0044 0532 0130 00\", \"DE89 3704\", \"12345678901234567890\")) {\n            System.out.println(\"parse(\\\"\" + raw + \"\\\") -> \" + describe(Iban.parse(raw)));\n        }\n        System.out.println(\"Fee.of(290) == Fee.of(290)? \" + (Fee.of(290) == Fee.of(290)));\n        System.out.println(\"Fee.of(150) == Fee.of(150)? \" + (Fee.of(150) == Fee.of(150)));\n        Ledger.create().post(\"fee 29.00 EUR\");\n    }\n}\n",
+      "run": "./gradlew :patterns:demo -Pmain=workbench.patterns.l02.CompanionFactoriesJava",
+      "file": "labs/patterns/src/demo/java/workbench/patterns/l02/CompanionFactoriesJava.java"
+     }
+    },
+    "expect": "The first run prints `ok: DE****3000`, `too short (8 chars)` and `bad country code '12'`, then `true` for the cached `Fee` with 290 bps and `false` for 150. Java has no `operator invoke`, so its twin needs a named factory, `Fee.of(290)`. After adding `Blocked`, the build stops: kotlinc says `'when' expression must be exhaustive. Add the 'is Blocked' branch or an 'else' branch.`, and javac says `the switch expression does not cover all possible input values`. The compiler found the one place that needs the new case."
+   },
+   "refs": [
+    {
+     "title": "Coding conventions: naming rules (Kotlin docs)",
+     "url": "https://kotlinlang.org/docs/coding-conventions.html",
+     "kind": "docs"
+    },
+    {
+     "title": "Sealed classes and interfaces (Kotlin docs)",
+     "url": "https://kotlinlang.org/docs/sealed-classes.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Abstract Factory: one choice for a whole family",
+   "body": "Sometimes you create several objects that must match. A card network gives you an authorization API and a refund API, and a Visa auth code means nothing to Mastercard's refund endpoint. If every call site picks its own authorizer and its own refunder, sooner or later a code path that runs once a month pairs a Visa authorizer with a Mastercard refunder.\n\nAbstract Factory puts that choice in one place. One interface creates every product of the family, with one implementation per family:\n\n```kotlin\ninterface CardNetworkClients {\n    val network: Network\n    fun authorizer(): Authorizer\n    fun refunder(): Refunder\n\n    companion object {\n        fun sandbox(network: Network): CardNetworkClients = when (network) {\n            Network.VISA -> SandboxClients(Network.VISA, \"https://sandbox.visa.example\", \"V\")\n            Network.MASTERCARD -> SandboxClients(Network.MASTERCARD, \"https://sandbox.mastercard.example\", \"M\")\n        }\n    }\n}\n```\n\n```java\npublic interface CardNetworkClients {\n    Network network();\n    Authorizer authorizer();\n    Refunder refunder();\n\n    static CardNetworkClients sandbox(Network network) {\n        return switch (network) {\n            case VISA -> new SandboxClients(Network.VISA, \"https://sandbox.visa.example\", \"V\");\n            case MASTERCARD -> new SandboxClients(Network.MASTERCARD, \"https://sandbox.mastercard.example\", \"M\");\n        };\n    }\n}\n```\n\nCallers ask for the family once, `clientsFor(card.network)`, and take both products from it. They can't mix families because they never pick a product directly.\n\nEach family here is one class built from settings, not a `VisaAuthorizer` plus a `VisaRefunder`. When the products are single-method interfaces, a family is just a class (or a Java record) of functions. The GoF diagram with two parallel class hierarchies is the worst case, not a requirement.\n\nThe weakness runs the other way. Adding a family is cheap: one more implementation. Adding a product, say a `Tokenizer`, changes the interface and every family. And with a DI container you may not need to write the factory at all: Quarkus build profiles or Spring profiles can pick the Kafka messaging family in production and an in-memory one in tests. Write the factory yourself when the choice depends on runtime data, such as the card in this request.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 660 270\" role=\"img\" aria-label=\"Checkout asks the CardNetworkClients factory for one family; the Visa family and the Mastercard family each create their own authorizer and refunder\"><rect class=\"box\" x=\"15\" y=\"110\" width=\"120\" height=\"44\" rx=\"8\"/><text class=\"t\" x=\"75\" y=\"137\" text-anchor=\"middle\">Checkout</text><rect class=\"box-a\" x=\"190\" y=\"110\" width=\"180\" height=\"44\" rx=\"8\"/><text class=\"t t-code\" x=\"280\" y=\"137\" text-anchor=\"middle\">CardNetworkClients</text><text class=\"t-s t-m\" x=\"280\" y=\"176\" text-anchor=\"middle\">sandbox(network)</text><line class=\"ln-a\" x1=\"135\" y1=\"132\" x2=\"186\" y2=\"132\" marker-end=\"url(#arr)\"/><text class=\"t-s t-m\" x=\"160\" y=\"104\" text-anchor=\"middle\">once</text><rect class=\"box-b\" x=\"420\" y=\"15\" width=\"225\" height=\"110\" rx=\"8\"/><text class=\"t t-b\" x=\"532\" y=\"40\" text-anchor=\"middle\">Visa family</text><rect class=\"box\" x=\"432\" y=\"58\" width=\"98\" height=\"44\" rx=\"8\"/><text class=\"t-s\" x=\"481\" y=\"85\" text-anchor=\"middle\">authorizer()</text><rect class=\"box\" x=\"537\" y=\"58\" width=\"98\" height=\"44\" rx=\"8\"/><text class=\"t-s\" x=\"586\" y=\"85\" text-anchor=\"middle\">refunder()</text><rect class=\"box-b\" x=\"420\" y=\"145\" width=\"225\" height=\"110\" rx=\"8\"/><text class=\"t t-b\" x=\"532\" y=\"170\" text-anchor=\"middle\">Mastercard family</text><rect class=\"box\" x=\"432\" y=\"188\" width=\"98\" height=\"44\" rx=\"8\"/><text class=\"t-s\" x=\"481\" y=\"215\" text-anchor=\"middle\">authorizer()</text><rect class=\"box\" x=\"537\" y=\"188\" width=\"98\" height=\"44\" rx=\"8\"/><text class=\"t-s\" x=\"586\" y=\"215\" text-anchor=\"middle\">refunder()</text><line class=\"ln\" x1=\"370\" y1=\"124\" x2=\"416\" y2=\"72\" marker-end=\"url(#arr)\"/><line class=\"ln\" x1=\"370\" y1=\"140\" x2=\"416\" y2=\"196\" marker-end=\"url(#arr)\"/><text class=\"t-s t-m\" x=\"280\" y=\"230\" text-anchor=\"middle\">both products come from</text><text class=\"t-s t-m\" x=\"280\" y=\"248\" text-anchor=\"middle\">the same family, so they match</text></svg>",
+    "caption": "Checkout asks for a family once. Both products come from that family, so a Visa auth code never reaches a Mastercard refund."
+   }
+  }
+ ],
+ "analogy": "A static factory is the counter at a bank branch. You ask for \"a debit card for this account\", and the clerk decides which card stock, which network and which design you get. You never walk into the print room. An abstract factory is a branch that only issues matching sets: your card, PIN letter and online-banking token all come from the same issuer, so they work together. The analogy breaks on cost: a bank can add a new kind of card at one counter, but adding a new product to an abstract factory means teaching every family to make it.",
+ "in_your_world": "Card BIN routing is a factory: the first digits pick the network, and the network picks the issuer client, its base URL, its timeouts and its error mapping. Put that decision in one `when` over a sealed `Network`, return a sealed result for numbers you can't route, and inject the family factory as a function into your Quarkus resource or Temporal activity. Then a test passes a lambda that returns a fake family and records which network was asked for. For Kafka, a family of producer plus consumer plus serde, chosen once by a build profile, keeps the in-memory test setup from leaking into production config.",
+ "mistake": "The most common mistake is a factory `switch` or `when` with a `default` or `else` branch that returns something plausible, such as a fake or the most common implementation. It looks defensive. In practice it turns \"you forgot to handle the new provider\" from a compile error into a production incident. Write the switch over a sealed type or an enum with no default, so the compiler forces a decision for every new case. If some input really has no product, return a sealed `Invalid` result instead of guessing.",
+ "compare": {
+  "title": "A validating factory that returns a sealed result",
+  "java": {
+   "title": "Money.java",
+   "src": "public final class Money {\n    private final long minor;\n    private final String currency;\n    private Money(long minor, String currency) { this.minor = minor; this.currency = currency; }\n\n    public static Money ofMinor(long minor, String currency) {        // named and validating\n        if (minor < 0) throw new IllegalArgumentException(\"negative amount\");\n        return new Money(minor, currency);\n    }\n\n    public sealed interface Parsed permits Ok, Bad {}\n    public record Ok(Money money) implements Parsed {}\n    public record Bad(String reason) implements Parsed {}\n\n    public static Parsed parse(String text) {                         // \"12.50 EUR\"\n        String[] parts = text.trim().split(\" \");\n        if (parts.length != 2) return new Bad(\"expected '<amount> <currency>'\");\n        try {\n            long minor = new BigDecimal(parts[0]).movePointRight(2).longValueExact();\n            return new Ok(ofMinor(minor, parts[1]));\n        } catch (ArithmeticException | IllegalArgumentException e) {\n            return new Bad(\"not an amount: \" + parts[0]);\n        }\n    }\n}\n\n// caller: the compiler checks both cases are handled\nString shown = switch (Money.parse(input)) {\n    case Money.Ok(Money m) -> \"charge \" + m;\n    case Money.Bad(String why) -> \"rejected: \" + why;\n};"
+  },
+  "kotlin": {
+   "title": "Money.kt",
+   "src": "class Money private constructor(val minor: Long, val currency: String) {\n    companion object {\n        @JvmStatic fun ofMinor(minor: Long, currency: String): Money {\n            require(minor >= 0) { \"negative amount\" }\n            return Money(minor, currency)\n        }\n\n        @JvmStatic fun parse(text: String): Parsed {                   // \"12.50 EUR\"\n            val parts = text.trim().split(\" \")\n            if (parts.size != 2) return Parsed.Bad(\"expected '<amount> <currency>'\")\n            val minor = parts[0].toBigDecimalOrNull()\n                ?.movePointRight(2)\n                ?.runCatching { longValueExact() }?.getOrNull()\n                ?: return Parsed.Bad(\"not an amount: ${parts[0]}\")\n            return if (minor < 0) Parsed.Bad(\"negative amount\") else Parsed.Ok(Money(minor, parts[1]))\n        }\n    }\n}\n\nsealed interface Parsed {\n    data class Ok(val money: Money) : Parsed\n    data class Bad(val reason: String) : Parsed\n}\n\n// caller\nval shown = when (val p = Money.parse(input)) {\n    is Parsed.Ok -> \"charge ${p.money}\"\n    is Parsed.Bad -> \"rejected: ${p.reason}\"\n}"
+  },
+  "note": "The shape is the same: private constructor, named factories, a sealed result and an exhaustive switch or `when` at the call site. Java 21 deconstructs the result with record patterns (`case Money.Ok(Money m)`), Kotlin smart-casts it after `is`. The real difference is where the factory lives. Kotlin has no `static`: `ofMinor` is a method on the companion object, so Java callers would write `Money.Companion.ofMinor(...)` without `@JvmStatic`. Kotlin also gives you `operator fun invoke` and top-level factory functions, and its named arguments remove a lot of the constructor ambiguity that pushes Java code toward factories in the first place."
+ },
+ "worked": {
+  "title": "Replace ambiguous constructors with named factories",
+  "steps": [
+   {
+    "say": "A `Refund` class grew four constructors. Look at the last line and decide what it creates before reading on.",
+    "code": "public class Refund {\n    public Refund(String paymentId, long amountMinor) { ... }                 // partial\n    public Refund(String paymentId) { ... }                                   // full\n    public Refund(String paymentId, long amountMinor, String reason) { ... }  // partial, with reason\n    public Refund(String paymentId, String reason) { ... }                    // full, with reason\n}\n\nnew Refund(\"p-1\", \"duplicate\");   // ?",
+    "lang": "java",
+    "alt_code": "class Refund {\n    constructor(paymentId: String, amountMinor: Long) { ... }                 // partial\n    constructor(paymentId: String) { ... }                                    // full\n    constructor(paymentId: String, amountMinor: Long, reason: String) { ... } // partial, with reason\n    constructor(paymentId: String, reason: String) { ... }                    // full, with reason\n}\n\nRefund(\"p-1\", \"duplicate\")   // ?",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "It's a full refund with a reason, but only the parameter types say so. Adding a chargeback reversal would mean a fifth constructor with another type mix. Give each kind a name, validate there, and make the constructor private so every `Refund` goes through a factory.",
+    "code": "public final class Refund {\n    private final String paymentId;\n    private final OptionalLong amountMinor;      // empty = full refund\n    private final String reason;\n\n    private Refund(String paymentId, OptionalLong amountMinor, String reason) {\n        this.paymentId = paymentId; this.amountMinor = amountMinor; this.reason = reason;\n    }\n\n    public static Refund full(String paymentId, String reason) {                 // 1. the name says what you get\n        return new Refund(paymentId, OptionalLong.empty(), reason);\n    }\n\n    public static Refund partial(String paymentId, long amountMinor, String reason) {\n        if (amountMinor <= 0) throw new IllegalArgumentException(\"partial refund needs a positive amount\");  // 2. validate per kind\n        return new Refund(paymentId, OptionalLong.of(amountMinor), reason);\n    }\n}\n\nRefund.full(\"p-1\", \"duplicate\");\nRefund.partial(\"p-1\", 500, \"damaged item\");",
+    "lang": "java",
+    "alt_code": "class Refund private constructor(\n    val paymentId: String,\n    val amountMinor: Long?,                      // null = full refund\n    val reason: String,\n) {\n    companion object {\n        fun full(paymentId: String, reason: String) = Refund(paymentId, null, reason)       // 1. the name says what you get\n\n        fun partial(paymentId: String, amountMinor: Long, reason: String): Refund {\n            require(amountMinor > 0) { \"partial refund needs a positive amount\" }         // 2. validate per kind\n            return Refund(paymentId, amountMinor, reason)\n        }\n    }\n}\n\nRefund.full(\"p-1\", \"duplicate\")\nRefund.partial(\"p-1\", 500, \"damaged item\")",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "Downstream, a full refund also releases the authorization hold. When the kinds behave differently, let the same factories return different records (or data classes) behind a sealed interface. Callers don't change, and code that handles refunds can switch over the two cases with the compiler checking it covers both. In Kotlin, `@JvmStatic` keeps `Refund.full(...)` working for Java callers, and Kotlin callers could also write `Refund.Partial(paymentId = \"p-1\", amountMinor = 500, reason = \"damaged\")`: named arguments already remove the ambiguity that started this.",
+    "code": "public sealed interface Refund permits FullRefund, PartialRefund {\n    String paymentId();\n\n    static Refund full(String paymentId, String reason) { return new FullRefund(paymentId, reason); }\n    static Refund partial(String paymentId, long amountMinor, String reason) {\n        return new PartialRefund(paymentId, amountMinor, reason);                // 3. the factory picks the record\n    }\n}\n\nrecord FullRefund(String paymentId, String reason) implements Refund {}\nrecord PartialRefund(String paymentId, long amountMinor, String reason) implements Refund {\n    PartialRefund {                                                              // 4. the invariant lives in the record\n        if (amountMinor <= 0) throw new IllegalArgumentException(\"amount must be positive\");\n    }\n}",
+    "lang": "java",
+    "alt_code": "sealed interface Refund {\n    val paymentId: String\n\n    data class Full(override val paymentId: String, val reason: String) : Refund\n    data class Partial(override val paymentId: String, val amountMinor: Long, val reason: String) : Refund {\n        init { require(amountMinor > 0) { \"amount must be positive\" } }        // 4. the invariant lives in the class\n    }\n\n    companion object {\n        @JvmStatic fun full(paymentId: String, reason: String): Refund = Full(paymentId, reason)\n        @JvmStatic fun partial(paymentId: String, amountMinor: Long, reason: String): Refund =\n            Partial(paymentId, amountMinor, reason)                            // 3. the factory picks the class\n    }\n}",
+    "alt_lang": "kotlin"
+   }
+  ]
+ },
+ "lab": {
+  "title": "A card factory, a network family, and a checkout that only knows interfaces",
+  "minutes": 13,
+  "files": [
+   "labs/patterns/src/main/kotlin/workbench/patterns/l02/Card.kt",
+   "labs/patterns/src/main/kotlin/workbench/patterns/l02/CardNetworkClients.kt",
+   "labs/patterns/src/main/kotlin/workbench/patterns/l02/Checkout.kt"
+  ],
+  "run": "./gradlew :patterns:test --tests 'workbench.patterns.l02.*'",
+  "steps": [
+   "Run the tests. All nine fail with `NotImplementedError`.",
+   "Write `Card.parse` in `Card.kt`. Apply the four checks from its KDoc in order and return `CardResult.Invalid(reason)` with the exact reason strings. Only `parse` may call the private constructor.",
+   "Write `CardNetworkClients.sandbox`. One private class built from settings (network, base URL, prefix) can serve both families. Use `require` for the cross-network checks, and an exhaustive `when` with no `else`.",
+   "Write `Checkout.pay` as a `when` over `Card.parse(rawPan)`. Call `clientsFor` only for a valid card.",
+   "Run the tests until all nine pass."
+  ],
+  "hints": [
+   "`raw.replace(\" \", \"\")`, then `digits.all { it in '0'..'9' }` and `digits.length !in 12..19` cover the first two checks. `luhnOk` is already written.",
+   "For the network, `digits.startsWith(\"4\")` is Visa. For Mastercard, check `digits.take(2).toInt() in 51..55 || digits.take(4).toInt() in 2221..2720`.",
+   "`Authorizer` and `Refunder` are `fun interface`s, so `Authorizer { card, amount -> ... }` builds one from a lambda.",
+   "`require(condition) { \"message\" }` throws `IllegalArgumentException` when the condition is false."
+  ],
+  "done_when": "All nine tests in `FactoryTest` pass."
+ },
+ "drill": {
+  "title": "A sealed-result factory from memory",
+  "minutes": 5,
+  "prompt": "Close this page. In Kotlin (or Java, with a static `parse`), write `Email` with a private constructor and a companion `parse(raw: String): EmailResult`. It returns `Ok(email)` when the trimmed text has exactly one `@` with something on both sides, and `Invalid(reason)` otherwise. Then write a caller that uses `when` (or `switch`) with no `else` or `default`.",
+  "answer": {
+   "lang": "kotlin",
+   "src": "class Email private constructor(val value: String) {\n    companion object {\n        fun parse(raw: String): EmailResult {\n            val parts = raw.trim().split(\"@\")\n            return if (parts.size == 2 && parts.all { it.isNotEmpty() }) EmailResult.Ok(Email(raw.trim()))\n            else EmailResult.Invalid(\"expected name@domain\")\n        }\n    }\n}\n\nsealed interface EmailResult {\n    data class Ok(val email: Email) : EmailResult\n    data class Invalid(val reason: String) : EmailResult\n}\n\nfun receiptTarget(raw: String): String = when (val r = Email.parse(raw)) {\n    is EmailResult.Ok -> \"sending receipt to ${r.email.value}\"\n    is EmailResult.Invalid -> \"skipped: ${r.reason}\"\n}",
+   "alt": {
+    "lang": "java",
+    "title": "Java",
+    "src": "public final class Email {\n    private final String value;\n    private Email(String value) { this.value = value; }\n    public String value() { return value; }\n\n    public static EmailResult parse(String raw) {\n        String[] parts = raw.trim().split(\"@\", -1);\n        return parts.length == 2 && !parts[0].isEmpty() && !parts[1].isEmpty()\n                ? new EmailResult.Ok(new Email(raw.trim()))\n                : new EmailResult.Invalid(\"expected name@domain\");\n    }\n}\n\npublic sealed interface EmailResult {\n    record Ok(Email email) implements EmailResult {}\n    record Invalid(String reason) implements EmailResult {}\n}\n\nstatic String receiptTarget(String raw) {\n    return switch (Email.parse(raw)) {\n        case EmailResult.Ok ok -> \"sending receipt to \" + ok.email().value();\n        case EmailResult.Invalid bad -> \"skipped: \" + bad.reason();\n    };\n}"
+   }
+  }
+ },
+ "recap": [
+  "A static factory is a constructor with a name. It can cache, return any subtype, and pick the class from its input (`List.of`, `EnumSet.noneOf`, `DriverManager.getConnection`).",
+  "Make the constructor private and validate in the factory, so every instance in the system is a valid one.",
+  "The GoF Factory Method (a subclass overrides a creation hook) is now usually a `Supplier<T>` or `() -> T`, often a constructor reference such as `FakeGateway::new`.",
+  "A factory's `switch` or `when` over a sealed type or enum gets no `default` or `else`, so a new case is a compile error at the one place that must change.",
+  "Kotlin factories live in the companion object, in `operator fun invoke`, or in a top-level function named like the type (`Job()`, `MutableStateFlow(0)`). Return a sealed result for outcomes callers must handle.",
+  "Abstract Factory makes a family of matching products from one choice. New families are cheap; a new product touches every family."
+ ],
+ "quiz": [
+  {
+   "q": "Which of these can a static factory do that a constructor can never do?",
+   "options": [
+    "Return an instance of a subtype chosen from its arguments",
+    "Validate its arguments",
+    "Be called from another package",
+    "Throw a checked exception"
+   ],
+   "answer": 0,
+   "why": "Constructors can validate, be public and throw checked exceptions too. Only a factory can return a cached object or a different class, like `List.of` returning `List12` or `ListN` depending on how many elements you pass."
+  },
+  {
+   "q": "A factory has `switch (provider) { case ADYEN -> ...; case STRIPE -> ...; default -> new FakeGateway(); }`. A teammate adds `KLARNA` to the enum. What happens?",
+   "options": [
+    "A compile error in the factory",
+    "A `MatchException` at runtime",
+    "Klarna payments silently go to the fake gateway",
+    "The switch throws `NullPointerException`"
+   ],
+   "answer": 2,
+   "why": "The `default` branch catches every new constant, so the build stays green and Klarna gets the fake gateway. Without `default`, a switch expression over an enum must cover every constant, and adding `KLARNA` would be a compile error at exactly this line."
+  },
+  {
+   "q": "Which Kotlin shape lets callers write `Fee(290)` while you return a cached instance?",
+   "options": [
+    "A secondary constructor",
+    "`operator fun invoke` in the companion object",
+    "An `init` block",
+    "A `data class` with a default argument"
+   ],
+   "answer": 1,
+   "why": "A constructor always makes a new object, whether primary or secondary. `operator fun invoke(bps: Int): Fee` on the companion turns `Fee(290)` into a function call that can return anything, including a cached instance. Readers expect a new object from that syntax, so use it with care."
+  },
+  {
+   "q": "You have `interface MessagingFactory { Publisher publisher(); Subscriber subscriber(); }` with a Kafka family and an in-memory family. Now you need a `DeadLetterQueue` product too. What does that cost?",
+   "options": [
+    "Nothing: add one new class",
+    "Only the Kafka family changes",
+    "You have to switch to Factory Method",
+    "The interface and every existing family change"
+   ],
+   "answer": 3,
+   "why": "Abstract Factory makes new families cheap and new products expensive: every family must now produce a dead-letter queue, including the in-memory one used in tests. Weigh that before you add a product to the interface."
+  },
+  {
+   "q": "From lesson 1 of this track: a Kotlin `companion object` holds a factory `of(...)` and `val cache = loadCache()`. When does `loadCache()` run?",
+   "options": [
+    "When the outer class is loaded, like a Java static initializer",
+    "Lazily, the first time `cache` is read, under a lock",
+    "Every time `of` is called",
+    "At application startup, for every class on the classpath"
+   ],
+   "answer": 0,
+   "why": "A companion object is initialized when its outer class is loaded, which matches a Java static initializer, so `loadCache()` runs then even if nobody reads `cache`. If you want it on first read, write `val cache by lazy { loadCache() }`.",
+   "from": "pat-01"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "Name two things a static factory can do that a constructor can't.",
+   "back": "Return a cached instance, and return a subtype chosen from its arguments (`List.of` gives `List12` or `ListN`). It also has a name."
+  },
+  {
+   "front": "Why leave out `default` in a factory's switch over a sealed type or enum?",
+   "back": "So adding a new case is a compile error at the factory. With `default`, the new case silently takes the default branch."
+  },
+  {
+   "front": "What replaced the GoF Factory Method's creator subclass in modern Java?",
+   "back": "A function: a `Supplier<PaymentGateway>`, usually written as a constructor reference such as `AdyenGateway::new`."
+  },
+  {
+   "front": "Kotlin has no `static`. Where does a class's named factory usually live?",
+   "back": "In its `companion object`: `companion object { fun parse(raw: String): CardResult }`."
+  },
+  {
+   "front": "What name may a Kotlin factory function have, by the coding conventions?",
+   "back": "The same name as the abstract type it returns, like `fun Job(): Job` or `MutableStateFlow(0)`."
+  },
+  {
+   "front": "When should a factory return a sealed result instead of throwing?",
+   "back": "When the failure is an outcome the caller is expected to handle, like a mistyped card number. Keep exceptions for bugs and broken infrastructure."
+  },
+  {
+   "front": "Abstract Factory: what is cheap to add, and what is expensive?",
+   "back": "A new family is cheap (one implementation). A new product is expensive (the interface and every family change)."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Static factory method",
+   "plain": "A static method that returns an instance, used instead of a public constructor."
+  },
+  {
+   "term": "Factory Method (GoF)",
+   "plain": "A creation hook that lets something other than the caller pick the concrete class. Now often a `Supplier<T>` or `() -> T`."
+  },
+  {
+   "term": "Abstract Factory",
+   "plain": "An interface that creates a whole family of matching objects, with one implementation per family."
+  },
+  {
+   "term": "Product family",
+   "plain": "Objects that must be used together, such as one network's authorizer and refunder."
+  },
+  {
+   "term": "Sealed result",
+   "plain": "A sealed set of outcomes (`Valid`, `Invalid`) returned instead of throwing. A `switch` or `when` must handle every case."
+  },
+  {
+   "term": "Companion object",
+   "plain": "A Kotlin object tied to a class, and the usual home for that class's factories."
+  }
+ ],
+ "explain_back": {
+  "prompt": "Explain to a teammate why `CardNetworkClients.sandbox(network)` has no `else` branch, and why `Checkout` takes a `(Network) -> CardNetworkClients` instead of calling `sandbox` directly.",
+  "answer": "With no `else`, the `when` has to name every `Network`. When someone adds `AMEX`, the factory stops compiling until they decide which family Amex gets, instead of quietly falling into a default. The function parameter keeps `Checkout` ignorant of which families exist and how they're built. Production passes `CardNetworkClients::sandbox` or a live factory, and a test passes a lambda that returns a fake family and records which network was asked for. So the choice of concrete classes lives in one place, and the checkout logic can be tested without any network client."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "`DriverManager` is a factory whose products did not exist when it was written. On first use it asks `ServiceLoader` for every `java.sql.Driver` that a JAR on the classpath lists in a `META-INF/services/java.sql.Driver` file. `getConnection(url)` then offers the URL to each driver until one accepts it. You can build the same plug-in mechanism yourself: define an interface, list the implementations in `META-INF/services/<interface name>`, and call `ServiceLoader.load(YourInterface.class)`. The module system adds `provides ... with ...` and `uses ...` declarations for the same thing.\n\nEffective Java lists conventional factory names, and sticking to them makes factories easy to find: `from` for a one-argument conversion (`Date.from(instant)`), `of` for aggregation (`EnumSet.of(...)`), `valueOf`, `getInstance` or `instance`, `create` or `newInstance` when each call returns a new object, `getType` and `newType` when the factory lives in another class (`Files.newBufferedReader`), and a bare `type` (`Collections.list`).\n\nFrom Java, a Kotlin companion factory is `Money.Companion.parse(...)`. Annotate it with `@JvmStatic` and Java callers can write `Money.parse(...)`. If a Java team consumes your Kotlin library, do it for every public factory. The same goes for `@JvmOverloads` on functions with default arguments, which you'll meet in *Builder and Prototype* (lesson 3 of this track)."
+ },
+ "sources": [
+  {
+   "title": "Object declarations and companion objects (Kotlin docs)",
+   "url": "https://kotlinlang.org/docs/object-declarations.html"
+  },
+  {
+   "title": "Sealed classes and interfaces (Kotlin docs)",
+   "url": "https://kotlinlang.org/docs/sealed-classes.html"
+  },
+  {
+   "title": "JEP 441: Pattern Matching for switch",
+   "url": "https://openjdk.org/jeps/441"
+  },
+  {
+   "title": "DriverManager (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.sql/java/sql/DriverManager.html"
+  }
+ ]
+}

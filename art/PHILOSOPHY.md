@@ -1,0 +1,13 @@
+# Loom Notation
+
+A visual philosophy for drawings that record many lines moving at once.
+
+Loom Notation treats a picture as a record kept by a patient observer. Its first material is the line: hair-thin, evenly spaced, running in parallel for long distances. The lines do not decorate a surface. They are counted. Each one has a place in a strict grid, and the grid is shown honestly, faint guide rules left visible like pencil marks under ink. A composition in this manner should look as if someone sat for weeks with a ruling pen and a magnifier, and refused to let a single crossing land a hair out of place. Meticulous craft is the subject as much as the method.
+
+Space is the second material. The drawing occupies a disciplined block and leaves wide, quiet margins around it, the way a scientific plate leaves room for the eye to rest before it reads the data. Density is earned, never sprayed: a field of marks builds slowly from repeated identical units, and the repetition itself carries the meaning. Where the pattern thins, the emptiness is deliberate. Where it thickens, the viewer should feel accumulated time.
+
+Color is held to a ration. A bone-white or ink-dark ground, one deep indigo for the body of the marks, and a single saffron accent that appears rarely and always means the same thing. The accent is never ornamental. It marks the moment where order is enforced, where many lines must pass one at a time. Because it is scarce, it is legible from across a room. Every hue is calibrated against the others with painstaking care, so that the whole reads as one dyed cloth rather than a set of swatches.
+
+Rhythm comes from systems, not gestures. Bands repeat at fixed intervals; small square cells advance row by row like a woven drawdown; tick marks fall at exact multiples. Variation enters only through the rules of the system, a shift of one cell, a skipped pick, a band that holds while others move, so the eye discovers structure instead of being told about it. The result should reward a second and third look: from a distance a calm texture, up close a precise and almost obsessive record, the product of deep expertise and countless hours of refinement.
+
+Text is a whisper. A few words at most, set small in a thin serif or a clinical monospace, placed like the caption on a museum plate or the index marks on a technical draft: a plate number, a count, a short phrase. Type never explains the image. It anchors it, the way a scale bar anchors a micrograph. Nothing touches the edge, nothing collides, every label has air around it. The finished work must feel master-level in its restraint: nothing added that the system did not demand, nothing left that the eye would miss if removed.

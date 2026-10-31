@@ -1,0 +1,235 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/vthreads/src"
+P = "java/workbench/vthreads/l02"
+K = "kotlin/workbench/vthreads/l02"
+read = lambda p: (ROOT / p).read_text()
+
+FIG = (
+    '<svg viewBox="0 0 680 320" role="img" aria-label="Three carrier threads run virtual threads taken from a ready queue. A virtual thread that blocks unmounts and is parked on the heap, then goes back to the ready queue when its event fires.">'
+    '<text class="t-s t-m" x="105" y="44" text-anchor="middle">ready queue (FIFO)</text>'
+    '<rect class="box" x="20" y="56" width="170" height="196" rx="8"/>'
+    '<rect class="box-b" x="45" y="72" width="120" height="34" rx="8"/>'
+    '<text class="t" x="105" y="94" text-anchor="middle">VT 7</text>'
+    '<rect class="box-b" x="45" y="120" width="120" height="34" rx="8"/>'
+    '<text class="t" x="105" y="142" text-anchor="middle">VT 12</text>'
+    '<rect class="box-b" x="45" y="168" width="120" height="34" rx="8"/>'
+    '<text class="t" x="105" y="190" text-anchor="middle">VT 3</text>'
+    '<text class="t-s t-m" x="105" y="232" text-anchor="middle">waiting for a carrier</text>'
+    '<text class="t-s t-m" x="345" y="44" text-anchor="middle">carrier threads (about one per core)</text>'
+    '<rect class="box" x="250" y="56" width="190" height="60" rx="8"/>'
+    '<text class="t-s t-m" x="345" y="74" text-anchor="middle">carrier: worker-1</text>'
+    '<text class="t-s t-m" x="345" y="100" text-anchor="middle">idle: takes the next VT</text>'
+    '<rect class="box" x="250" y="128" width="190" height="60" rx="8"/>'
+    '<text class="t-s t-m" x="345" y="146" text-anchor="middle">carrier: worker-2</text>'
+    '<rect class="box-a" x="270" y="154" width="150" height="26" rx="8"/>'
+    '<text class="t-s" x="345" y="172" text-anchor="middle">VT 21 mounted</text>'
+    '<rect class="box" x="250" y="200" width="190" height="60" rx="8"/>'
+    '<text class="t-s t-m" x="345" y="218" text-anchor="middle">carrier: worker-3</text>'
+    '<rect class="box-a" x="270" y="226" width="150" height="26" rx="8"/>'
+    '<text class="t-s" x="345" y="244" text-anchor="middle">VT 8 mounted</text>'
+    '<text class="t-s t-m" x="580" y="44" text-anchor="middle">heap: parked VTs</text>'
+    '<rect class="box-dim" x="500" y="56" width="160" height="196" rx="8"/>'
+    '<rect class="box" x="515" y="72" width="130" height="34" rx="8"/>'
+    '<text class="t-s" x="580" y="94" text-anchor="middle">VT 5: sleep</text>'
+    '<rect class="box" x="515" y="120" width="130" height="34" rx="8"/>'
+    '<text class="t-s" x="580" y="142" text-anchor="middle">VT 9: socket read</text>'
+    '<rect class="box" x="515" y="168" width="130" height="34" rx="8"/>'
+    '<text class="t-s" x="580" y="190" text-anchor="middle">VT 14: lock</text>'
+    '<text class="t-s t-m" x="580" y="232" text-anchor="middle">frames saved here</text>'
+    '<line class="ln-a" x1="190" y1="88" x2="246" y2="88" marker-end="url(#arr)"/>'
+    '<text class="t-s t-a" x="218" y="80" text-anchor="middle">mount</text>'
+    '<line class="ln-a" x1="440" y1="158" x2="496" y2="158" marker-end="url(#arr)"/>'
+    '<text class="t-s t-a" x="468" y="150" text-anchor="middle">unmount</text>'
+    '<path class="ln-a" d="M 580 252 L 580 292 L 105 292 L 105 256" marker-end="url(#arr)"/>'
+    '<text class="t-s t-a" x="342" y="284" text-anchor="middle">timer or I/O event fires: back in the queue</text>'
+    '</svg>'
+)
+
+L = {
+ "id": "vt-02",
+ "title": "How virtual threads work: carriers and continuations",
+ "minutes": 35,
+ "goal": "By the end you can explain what happens to a virtual thread when it blocks: how it unmounts from its carrier, where its stack goes, and how the scheduler brings it back.",
+ "warmup": {
+  "q": "A virtual thread prints `Thread.currentThread()`, sleeps for 50 ms, and prints it again. What do you expect to see?",
+  "options": [
+   "The same platform thread both times, because a thread can't change its OS thread",
+   "The same virtual thread both times, possibly running on a different carrier thread after the sleep",
+   "Two different virtual threads, because the JDK creates a new one after each blocking call",
+   "The carrier thread, because `currentThread()` returns the OS thread that is running the code"
+  ],
+  "answer": 1,
+  "why": "`Thread.currentThread()` always returns the virtual thread itself, never its carrier. During the sleep the virtual thread is unmounted, and when it wakes, any free carrier can pick it up. The virtual thread's `toString()` shows the current carrier after the `@`, which is how the demo in this lesson makes the switch visible."
+ },
+ "sections": [
+  {
+   "h": "A virtual thread is a Thread plus a continuation",
+   "body": "`Thread.ofVirtual().start(task)` returns an ordinary `java.lang.Thread`. Inside the JDK it is an instance of `java.lang.VirtualThread`, a package-private subclass. It holds two things a platform thread doesn't have: a **continuation** and a **scheduler**.\n\nA continuation is a paused piece of code: everything a computation still has to do, plus every stack frame it had when it stopped. The JDK has an internal class for it, `jdk.internal.vm.Continuation`, with two operations that matter. `run()` starts the code, or resumes it where it stopped. `yield()`, called from inside that code, stops it and returns control to whoever called `run()`, with the frames kept. The next `run()` carries on from the line after the `yield()`.\n\n```text\ncont = new Continuation(scope, () -> { a(); yield(); b(); })\ncont.run()    // runs a(), stops at yield(), returns here\ncont.run()    // carries on with b()\n```\n\nYou can't call this class yourself: the `jdk.internal.vm` package is not exported. The virtual thread uses it for you. Its task is wrapped in a continuation, and when the task is about to block, the JDK calls `yield()`. The thread stops without ever blocking an OS thread.\n\nThe scheduler decides which paused continuation runs next, and on which OS thread.\n\nTo your code, a virtual thread is just a thread. `Thread.currentThread()` returns it. `ThreadLocal`s work. `interrupt()` works, and `sleep` throws `InterruptedException` the same way. Stack traces show your frames. A few things differ, and they are all in the `Thread` Javadoc: virtual threads are always daemon threads, their priority is fixed, they have no name unless you give one, and `Thread.getAllStackTraces()` leaves them out."
+  },
+  {
+   "h": "Carriers: a few platform threads run every virtual thread",
+   "body": "The default scheduler is a `ForkJoinPool` that the JDK creates just for virtual threads. It is a different pool from `ForkJoinPool.commonPool()`, which parallel streams use. It runs in FIFO mode, so ready virtual threads run roughly in the order they became ready.\n\nIts worker threads are platform threads, and they have a special name: **carrier threads**. By default there is one per core (`Runtime.availableProcessors()`). You can change that with `-Djdk.virtualThreadScheduler.parallelism=N`. The pool may add carriers for a while when some operation blocks a carrier, up to `jdk.virtualThreadScheduler.maxPoolSize`, which defaults to 256.\n\nTwo words describe the life of a virtual thread on a carrier:\n\n- **Mount**: a carrier takes a ready virtual thread from the queue and runs its continuation. The virtual thread's top frames are now on the carrier's stack, and the carrier is busy running your code.\n- **Unmount**: the continuation yields at a blocking call. The frames go to the heap, and the carrier goes back to the pool to mount someone else.\n\nThe carrier is invisible to your code. `Thread.currentThread()` returns the virtual thread, and the carrier's own `ThreadLocal`s are not visible. The one place it shows is the virtual thread's `toString()`: `VirtualThread[#22,payment-0]/runnable@ForkJoinPool-1-worker-3`. The part after `@` is the carrier. Treat that format as a debugging aid, not an API: it is not specified anywhere.\n\nA virtual thread that unmounts can come back on any carrier. That is normal, and it is why the JDK never lets your code see the carrier: a `ThreadLocal` on the carrier would leak between unrelated requests.",
+   "figure": {"svg": FIG, "caption": "A few carriers run whichever virtual thread is ready. A virtual thread that blocks unmounts and waits on the heap, then goes back to the ready queue when its timer or I/O event fires."},
+   "try": {
+    "title": "Watch virtual threads change carriers",
+    "minutes": 4,
+    "steps": [
+     "Run `CarrierDemo` with the command below. It starts 8 virtual threads that print `Thread.currentThread()`, sleep 50 ms, and print it again.",
+     "Count the carriers in the summary line and compare with your number of cores. How many threads woke up on a different carrier?",
+     "Predict, then run with one carrier: `-Pargs='8 1'`. Does it take 8 times as long?"
+    ],
+    "code": {"lang": "java", "title": "CarrierDemo.java", "src": read(f"{lab}/demo/{P}/CarrierDemo.java"),
+             "run": "./gradlew :vthreads:demo -Pmain=workbench.vthreads.l02.CarrierDemo",
+             "file": f"{lab}/demo/{P}/CarrierDemo.java",
+             "alt": {"lang": "kotlin", "title": "CarrierDemo.kt", "src": read(f"{lab}/demo/{K}/CarrierDemo.kt"),
+                     "run": "./gradlew :vthreads:demo -Pmain=workbench.vthreads.l02.CarrierDemoKt",
+                     "file": f"{lab}/demo/{K}/CarrierDemo.kt"}},
+    "expect": "On a 4-core machine all 8 virtual threads share carriers `worker-1` to `worker-4`, and most of them wake up on a different carrier than they slept on (7 of 8 in one run here). With one carrier everything shows `worker-1`, and it still finishes in about 50 ms plus startup: the 8 sleeps overlap, because a sleeping virtual thread doesn't hold the carrier."
+   },
+   "refs": [
+    {"title": "Thread (Java SE 25 API): the virtual threads section", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Thread.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "Blocking points: where a virtual thread lets go",
+   "body": "Unmounting is not magic in the JVM. The JDK team rewrote the blocking parts of the class library to check whether the current thread is virtual, and to yield instead of blocking. Here is `parkNanos` from `java.lang.VirtualThread`, trimmed to its core:\n\n```java solo\n// simplified from java.lang.VirtualThread.parkNanos (JDK 25)\nvoid parkNanos(long nanos) {\n    timeout = nanos;\n    setState(TIMED_PARKING);\n    boolean yielded = yieldContinuation();   // unmount: frames to the heap, carrier is free\n    if (!yielded) {\n        parkOnCarrierThread(true, nanos);    // couldn't unmount: block the carrier instead\n    }\n}\n```\n\nThe JDK schedules a timer that will unpark the thread, and `yieldContinuation()` unmounts it. When the timer fires, the virtual thread goes back into the scheduler's queue.\n\nThese operations unmount a virtual thread:\n\n- `Thread.sleep` and `LockSupport.park`, and everything built on `park`: `ReentrantLock`, `Semaphore`, `CountDownLatch`, `BlockingQueue.take`, `Future.get`, `CompletableFuture.join`.\n- Socket I/O, including the JDK's `HttpClient` and JDBC drivers that use plain sockets. The JDK switches the socket to non-blocking mode and registers it with a poller (epoll on Linux), which unparks the virtual thread when data arrives.\n- From JDK 24 (JEP 491), `synchronized` and `Object.wait()`. On JDK 21 to 23 these pin the carrier instead. Lesson 4 of this track covers that.\n\nSome operations can't unmount. Most file I/O blocks inside the OS, so the JDK lets it take over the carrier (\"capture\") and adds a temporary extra carrier to make up for it. Blocking while a native method or a class initializer is on the stack pins the carrier.\n\nThe last rule surprises people: there is **no time slicing**. A virtual thread that computes for two seconds without blocking keeps its carrier for two seconds. Other virtual threads wait for a free carrier. Virtual threads are cheap waiting, not cheap computing.",
+   "try": {
+    "title": "Replace the sleep with real work",
+    "minutes": 4,
+    "steps": [
+     "In `CarrierDemo.java`, replace `Thread.sleep(50);` with a 50 ms busy loop: `long end = System.nanoTime() + 50_000_000; while (System.nanoTime() < end) { }`. The compiler will then complain about the unreachable `catch`, so remove the `try` and `catch` too. In `CarrierDemo.kt` the loop is `val end = System.nanoTime() + 50_000_000; while (System.nanoTime() < end) { }`, and Kotlin doesn't mind the leftover `catch`.",
+     "Predict the total time with one carrier (`-Pargs='8 1'`) and with the default number of carriers. Then run both.",
+     "Look at the before and after carriers. Did any thread change carrier this time?"
+    ],
+    "expect": "With one carrier the 8 busy loops run one after another: about 400 ms. With 4 carriers it takes about 100 ms on an idle machine (8 loops / 4 carriers x 50 ms), more if other programs are busy. No thread changes carrier, because none of them ever blocks, so none of them unmounts. CPU work is limited by carriers, which means cores."
+   }
+  },
+  {
+   "h": "Stacks live on the heap",
+   "body": "A platform thread's stack is a fixed block of native memory reserved when the thread starts, 1 MB by default. A virtual thread's stack is different. When it unmounts, the JDK copies its frames off the carrier's stack into **stack chunk** objects on the Java heap. The chunk is only as big as the frames that are really there, and the garbage collector manages it like any other object.\n\nWhen the virtual thread mounts again, the JDK doesn't copy the whole stack back. It copies the top few frames, enough to continue. If your code returns into a frame that is still on the heap, the JDK copies more at that point. A thread parked deep inside a framework pays for its depth only once, when it parks.\n\nThis is what makes a million virtual threads possible. A virtual thread parked at a shallow depth costs about 2 KB of heap in the demo below, including the `Thread` object. A thread parked 200 frames deep costs more, because each frame has to be stored. Deep framework stacks (a Quarkus REST call through several interceptors, a Hibernate query) are not free, but they are paid for in heap, which the GC can reclaim, not in reserved memory sized for the worst case.\n\nIt also explains a design choice. Kotlin coroutines save only the locals of `suspend` functions, in objects the compiler generates. A virtual thread saves the whole real stack, so a blocking call deep inside a library that knows nothing about virtual threads can still unmount. The compare block below shows both.\n\nIn the lab you build the other half: a tiny scheduler with a run queue, a timer queue and one carrier, which mounts and unmounts hand-written continuations.",
+   "try": {
+    "title": "Weigh a parked virtual thread",
+    "minutes": 4,
+    "steps": [
+     "Run `StackOnHeapDemo`. It parks 10,000 virtual threads at call depth 1, measures the heap, releases them, then does the same at depth 200.",
+     "Before you look: how many times bigger will the depth-200 number be?",
+     "Run `-Pargs=1000` for depth 1,000 and compare with the 1 MB a platform thread reserves."
+    ],
+    "code": {"lang": "java", "title": "StackOnHeapDemo.java", "src": read(f"{lab}/demo/{P}/StackOnHeapDemo.java"),
+             "run": "./gradlew :vthreads:demo -Pmain=workbench.vthreads.l02.StackOnHeapDemo",
+             "file": f"{lab}/demo/{P}/StackOnHeapDemo.java",
+             "alt": {"lang": "kotlin", "title": "StackOnHeapDemo.kt", "src": read(f"{lab}/demo/{K}/StackOnHeapDemo.kt"),
+                     "run": "./gradlew :vthreads:demo -Pmain=workbench.vthreads.l02.StackOnHeapDemoKt",
+                     "file": f"{lab}/demo/{K}/StackOnHeapDemo.kt"}},
+    "expect": "At depth 1 each parked virtual thread costs about 2 KB of heap. At depth 200 it costs about 10 to 15 KB, depending on the JDK and on whether the JIT compiled `descend` yet. Even at depth 1,000 it stays far below 1 MB. The heap grows with the real depth of the stack, nothing more. The numbers are rough because `totalMemory - freeMemory` after `System.gc()` is a rough measure."
+   }
+  }
+ ],
+ "analogy": "Think of carriers as desks in an office and virtual threads as workers who carry their papers in a briefcase. A worker sits at any free desk and spreads out the papers. When the worker has to wait for a phone call, they pack everything into the briefcase, put it on a shelf, and free the desk. When the call comes, they take the next free desk, which may be a different one, and carry on. There are only as many desks as cores, but there can be a million briefcases on the shelves. The analogy breaks in one place: a real worker can be told to leave the desk. A virtual thread that never waits for anything keeps its desk until it is done, because nobody makes it get up.",
+ "in_your_world": "When you take a thread dump of a Quarkus service on virtual threads, the carriers show up as `ForkJoinPool-1-worker-N` platform threads, mostly idle, and `jstack` shows the carriers but not the parked virtual threads. Use `jcmd <pid> Thread.dump_to_file -format=json dump.json` to see them. The no-time-slicing rule matters for payment code: a virtual thread that verifies a large batch of signatures or parses a 50 MB settlement file holds a carrier the whole time. Four of those on a 4-core pod and every HTTP request waits. Keep heavy CPU work on a bounded platform pool, and keep virtual threads for code that waits.",
+ "mistake": "The most common mistake is believing a virtual thread runs on \"its\" OS thread, and writing code that depends on that: carrier-level `ThreadLocal` tricks, native libraries that keep state per OS thread, or logging the OS thread id to correlate requests. A virtual thread can resume on a different carrier after every blocking call, and the JDK hides the carrier on purpose. Correlate with the virtual thread (or better, a request id you pass along), and treat the carrier as an implementation detail you never touch.",
+ "compare": {
+  "title": "Stackful virtual threads vs stackless coroutines",
+  "java": {"title": "Java: the JDK saves the real stack", "src": "// any method can block, even deep inside an old library\nvoid settle(Payment p) throws InterruptedException {\n    Auth auth = issuer.authorize(p);       // blocking socket read: unmounts here\n    Thread.sleep(Duration.ofMillis(30));   // unmounts here too\n    ledger.record(p, auth);                // plain JDBC over a socket: unmounts\n}\n\n// run it on a virtual thread; nothing in settle() knows\nThread.ofVirtual().name(\"settle-\", 0).start(() -> {\n    try { settle(payment); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }\n});"},
+  "kotlin": {"title": "Kotlin: the compiler builds a state machine", "src": "// only suspend calls can pause; the compiler rewrites this function\nsuspend fun settle(p: Payment) {\n    val auth = issuer.authorize(p)   // must be a suspend fun to free the thread\n    delay(30)\n    ledger.record(p, auth)           // blocking JDBC here would block the thread\n}\n\n// roughly what the compiler generates (simplified):\n// class SettleContinuation(var label: Int, var auth: Auth?)\n// label 0: call authorize(p); label = 1; return COROUTINE_SUSPENDED\n// label 1: auth = result; call delay(30); label = 2; return COROUTINE_SUSPENDED\n// label 2: ledger.record(p, auth)"},
+  "note": "Both pause in the middle of a function and continue later, possibly on another thread. Kotlin coroutines are stackless: the compiler turns each `suspend` function into a state machine and saves its locals in a generated continuation object, so only `suspend` calls can pause. Virtual threads are stackful: the JVM copies the real frames, so any blocking JDK call anywhere on the stack can unmount, including calls inside libraries compiled before virtual threads existed. The fibers in this lesson's lab are written by hand in the Kotlin style, with a `label` counter, so you can see what the JDK saves you from writing."
+ },
+ "worked": {
+  "title": "Follow one virtual thread through a sleep",
+  "steps": [
+   {"say": "Here is the task. The comments mark the points where the virtual thread's life changes.", "code": "Thread vt = Thread.ofVirtual().name(\"auth-1\").start(() -> {   // 1. start: queued in the scheduler\n    Risk risk = fraud.check(payment);       // 2. mounted on some carrier, say worker-2\n    sleepQuietly(Duration.ofMillis(50));    // 3. unmounts here; worker-2 is free\n    issuer.authorize(payment, risk);        // 4. resumed, maybe on worker-4\n});", "lang": "java",
+    "alt_lang": "kotlin", "alt_code": "val vt = Thread.ofVirtual().name(\"auth-1\").start {   // 1. start: queued in the scheduler\n    val risk = fraud.check(payment)         // 2. mounted on some carrier, say worker-2\n    Thread.sleep(Duration.ofMillis(50))     // 3. unmounts here; worker-2 is free\n    issuer.authorize(payment, risk)         // 4. resumed, maybe on worker-4\n}"},
+   {"say": "Start. `start()` doesn't run anything on the caller's thread. It submits the virtual thread's continuation to the scheduler's queue as a task. The caller carries on at once."},
+   {"say": "Mount. A free carrier, `worker-2`, takes the task and calls `run()` on the continuation. The frames of the lambda and of `fraud.check` are on `worker-2`'s stack now. Inside, `Thread.currentThread()` is `auth-1`. The socket reads inside `fraud.check` may unmount and remount it several times on their own."},
+   {"say": "Unmount. `sleep` reaches `parkNanos`, which schedules a timer for 50 ms and calls `yieldContinuation()`. The JDK copies the frames into a stack chunk on the heap, and `run()` returns on `worker-2`. `worker-2` goes back to the queue and mounts another virtual thread. No OS thread is blocked."},
+   {"say": "Wake and remount. The timer fires and unparks `auth-1`, which puts its continuation back in the queue. Whichever carrier is free next, say `worker-4`, mounts it, copies the top frames back, and `sleep` returns. The code runs `issuer.authorize` without knowing it moved."}
+  ]
+ },
+ "lab": {
+  "title": "Build a one-carrier scheduler",
+  "minutes": 14,
+  "files": [f"{lab}/main/{P}/ToyScheduler.java", f"{lab}/main/{P}/Fiber.java", f"{lab}/main/{P}/Step.java"],
+  "run": "./gradlew :vthreads:test --tests 'workbench.vthreads.l02.*'",
+  "steps": [
+   "Read `Fiber` and `Step`. A `Fiber` is a hand-written continuation: each `resume()` runs to the next blocking point and returns `Step.Sleep(ms)` or `Step.Done`. You don't change these two files.",
+   "Run the tests once. All six fail. Read `ToySchedulerTest.sleeper`: it is a fiber written as a state machine with a program counter, like a Kotlin suspend function.",
+   "In `ToyScheduler`, add a run queue (`ArrayDeque<Fiber>`), a timer queue (`PriorityQueue` of a small record holding the wake-up time, a sequence number and the fiber), and a `long now`.",
+   "Write `run()` as one loop that runs while either queue has something: if nothing is ready, jump `now` to the earliest wake-up and move every fiber due at that time into the run queue. Then take one ready fiber, count a mount, call `resume()`, and park it in the timer queue if it asked to sleep.",
+   "Run the tests until all six pass. Look at the 10,000-fiber test: 30,000 mounts on one thread, and the clock ends at 150 ms."
+  ],
+  "hints": [
+   "Order the timer queue by wake-up time, then by a sequence number you increment on every park. That keeps fibers that wake at the same moment in the order they went to sleep.",
+   "Java 21 can switch on the sealed `Step`: `switch (step) { case Step.Sleep s -> ...; case Step.Done d -> { } }`. The compiler checks that you covered both.",
+   "Move fibers from the timer queue only when the run queue is empty. Running code takes no virtual time, so the clock only moves when nothing can run."
+  ],
+  "done_when": "All six tests in `ToySchedulerTest` pass."
+ },
+ "drill": {
+  "title": "The scheduler loop from memory",
+  "minutes": 5,
+  "prompt": "Close the lab. On paper or in a blank file, write the body of `run()`: a run queue, a timer queue ordered by wake-up time, a virtual clock, and the mount and unmount steps. Then label each part with the real thing it stands for in the JDK (the ForkJoinPool queue, the carrier, `yield()`, the timer that unparks a sleeping thread).",
+  "answer": {"lang": "java", "src": "int mounts = 0;\nwhile (!ready.isEmpty() || !sleeping.isEmpty()) {\n    if (ready.isEmpty()) {                          // JDK: carriers idle, waiting for events\n        now = sleeping.peek().wakeAt();\n        while (!sleeping.isEmpty() && sleeping.peek().wakeAt() <= now) {\n            ready.addLast(sleeping.poll().fiber()); // JDK: the timer unparks, thread is resubmitted\n        }\n    }\n    Fiber f = ready.pollFirst();                    // JDK: a carrier takes the next task (FIFO)\n    mounts++;\n    Step step = f.resume();                         // JDK: mount, Continuation.run()\n    if (step instanceof Step.Sleep s) {             // JDK: Continuation.yield() at sleep, unmount\n        sleeping.add(new Parked(now + s.millis(), seq++, f));\n    }\n}\nreturn mounts;",
+            "alt": {"lang": "kotlin", "src": "var mounts = 0\nwhile (ready.isNotEmpty() || sleeping.isNotEmpty()) {\n    if (ready.isEmpty()) {                          // JDK: carriers idle, waiting for events\n        now = sleeping.peek().wakeAt\n        while (sleeping.isNotEmpty() && sleeping.peek().wakeAt <= now) {\n            ready.addLast(sleeping.poll().fiber)    // JDK: the timer unparks, thread is resubmitted\n        }\n    }\n    val f = ready.removeFirst()                     // JDK: a carrier takes the next task (FIFO)\n    mounts++\n    when (val step = f.resume()) {                  // JDK: mount, Continuation.run()\n        is Step.Sleep -> sleeping.add(Parked(now + step.millis(), seq++, f))   // JDK: yield() at sleep, unmount\n        is Step.Done -> {}\n    }\n}\nreturn mounts"}}
+ },
+ "recap": [
+  "A virtual thread is a `Thread` whose task runs inside a continuation: code that can stop at `yield()` and resume later with its frames intact.",
+  "Carrier threads are the platform workers of a dedicated `ForkJoinPool`, one per core by default. Mount means a carrier runs the virtual thread; unmount means it lets go at a blocking call.",
+  "`Thread.currentThread()` always returns the virtual thread. A virtual thread may resume on a different carrier after every blocking call.",
+  "Sleep, `park` (locks, queues, latches, futures) and socket I/O unmount. `synchronized` unmounts from JDK 24 only. File I/O captures the carrier, and native frames pin it.",
+  "There is no time slicing: a virtual thread that computes keeps its carrier until it blocks or ends.",
+  "A parked virtual thread's frames live on the heap in stack chunks sized to the real depth, about 2 KB for a shallow stack."
+ ],
+ "quiz": [
+  {"q": "Inside a virtual thread that is mounted on `ForkJoinPool-1-worker-3`, what does `Thread.currentThread()` return?",
+   "options": ["The carrier thread `ForkJoinPool-1-worker-3`", "The virtual thread", "`null`, because virtual threads aren't registered with the JVM", "The scheduler's `ForkJoinPool`"], "answer": 1,
+   "why": "The JDK hides the carrier on purpose. Code in a virtual thread always sees the virtual thread as the current thread, so `ThreadLocal`s and `interrupt()` behave per virtual thread. The carrier only shows up in `toString()`, as debugging help."},
+  {"q": "On an 8-core machine with default settings, you start 100,000 virtual threads that each sleep for 10 seconds. About how many carrier threads exist while they sleep?",
+   "options": ["100,000, one per virtual thread", "256, the scheduler's maximum", "About 8", "One, because the scheduler is single-threaded"], "answer": 2,
+   "why": "The scheduler's parallelism defaults to the number of cores. Sleeping virtual threads are unmounted and don't need a carrier at all. The pool only grows toward 256 for a while when something captures a carrier, such as file I/O."},
+  {"q": "A service has 4 carriers. Four virtual threads each run a 2-second loop that hashes data without ever blocking. A fifth virtual thread should log a heartbeat every 100 ms. What happens to the heartbeat?",
+   "options": ["It logs on time, because the JVM time-slices virtual threads", "It stalls for about 2 seconds, until a hashing thread finishes and frees a carrier", "The JVM moves the heartbeat to a new platform thread automatically", "The hashing threads are suspended every 10 ms so others can run"], "answer": 1,
+   "why": "Virtual threads have no time slicing. A virtual thread gives up its carrier only when it blocks or ends. Four CPU-bound virtual threads hold all four carriers, so the heartbeat waits in the queue. Keep long CPU work off the virtual thread scheduler."},
+  {"q": "A virtual thread is parked inside `queue.take()`, 120 frames deep in your framework. Where are those 120 frames right now?",
+   "options": ["On the carrier thread's stack, which stays reserved for it", "In a 1 MB native stack reserved when the virtual thread started", "On the Java heap, in stack chunk objects", "Nowhere: the JDK will rerun the method from the start when it wakes"], "answer": 2,
+   "why": "When a virtual thread unmounts, the JDK copies its frames into stack chunk objects on the heap and frees the carrier. Nothing is reserved up front; the chunks are as big as the real stack. On remount, the top frames are copied back first and the rest on demand."},
+  {"q": "From the lesson \"A thread's life: start, join, sleep, interrupt\": you call `t.interrupt()` on a virtual thread that is inside `Thread.sleep(10_000)`. What happens?",
+   "options": ["`sleep` throws `InterruptedException` right away, and the interrupt flag is cleared", "Nothing until the 10 seconds are up, because the virtual thread is unmounted", "The virtual thread is killed", "The carrier thread gets the interrupt instead"], "answer": 0,
+   "why": "Interruption works on virtual threads exactly as on platform threads. The JDK unparks the sleeping virtual thread, `sleep` throws `InterruptedException` and clears the flag. Being unmounted doesn't matter: the interrupt is delivered to the virtual thread, not the carrier.", "from": "conc-02"}
+ ],
+ "flashcards": [
+  {"front": "What is a carrier thread?", "back": "A platform thread (a worker of the virtual thread scheduler's `ForkJoinPool`) that runs a virtual thread while it is mounted."},
+  {"front": "What happens when a virtual thread unmounts?", "back": "At a blocking call its continuation yields: the frames are copied to the heap and the carrier goes back to run other virtual threads."},
+  {"front": "How many carrier threads does the default scheduler use?", "back": "One per core (`availableProcessors()`), set by `jdk.virtualThreadScheduler.parallelism`. It can add carriers temporarily, up to 256 by default."},
+  {"front": "Does the JVM time-slice virtual threads?", "back": "No. A virtual thread keeps its carrier until it blocks or ends."},
+  {"front": "Where are a parked virtual thread's stack frames?", "back": "On the Java heap, in stack chunk objects sized to the real stack depth."},
+  {"front": "Is the virtual thread scheduler `ForkJoinPool.commonPool()`?", "back": "No. It is a separate `ForkJoinPool` in FIFO mode. Parallel streams and default `CompletableFuture` async methods use the common pool."},
+  {"front": "Name two operations that unmount a virtual thread and one that captures the carrier instead.", "back": "Unmount: `Thread.sleep`, socket reads, `ReentrantLock.lock`, `BlockingQueue.take`. Capture: most file I/O."}
+ ],
+ "terms": [
+  {"term": "Continuation", "plain": "Code that can pause at a point and resume later with its stack intact."},
+  {"term": "Carrier thread", "plain": "A platform thread that runs virtual threads, one at a time."},
+  {"term": "Mount / unmount", "plain": "Start running a virtual thread on a carrier / take it off the carrier at a blocking call."},
+  {"term": "Scheduler", "plain": "The ForkJoinPool that decides which ready virtual thread a free carrier runs next."},
+  {"term": "Stack chunk", "plain": "A heap object holding the saved frames of an unmounted virtual thread."},
+  {"term": "Stackful vs stackless", "plain": "Saving the real call stack (virtual threads) vs saving only compiler-chosen locals (Kotlin coroutines)."},
+  {"term": "Time slicing", "plain": "Forcing a running thread off the CPU after a time slot. The OS does it to platform threads; nobody does it to virtual threads."}
+ ],
+ "explain_back": {
+  "prompt": "A teammate asks: \"If a virtual thread is a real `Thread`, how can a million of them run on 8 OS threads? Doesn't `Thread.sleep` block the OS thread?\" Explain what happens to a virtual thread when it sleeps.",
+  "answer": "A virtual thread runs its task inside a continuation, on a carrier thread taken from a small ForkJoinPool, about one per core. When the code calls `sleep`, the JDK sees that the current thread is virtual. It sets a timer and yields the continuation: the stack frames are copied to the heap and the carrier goes back to run another virtual thread. No OS thread waits. When the timer fires, the virtual thread goes back into the queue, and whichever carrier is free mounts it, copies the top frames back, and `sleep` returns. So a million sleeping virtual threads are a million small heap objects, and only the ones actually running need a carrier. The same happens for socket reads, locks and queues, but not for long CPU work, which keeps the carrier until it finishes."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "Three implementation details are worth knowing, because they explain behavior you will see in production.\n\n**How sockets unmount.** A socket used from a virtual thread is put in non-blocking mode. When a read would block, the JDK registers the socket's file descriptor with a poller (epoll on Linux, kqueue on macOS) and parks the virtual thread. The poller waits on all the registered sockets at once and unparks each virtual thread when its socket is ready. One OS-level wait covers thousands of connections, which is what event-loop frameworks do by hand.\n\n**Why file I/O is different.** Linux has no general non-blocking API for regular files that the JDK uses here, so a file read really blocks the OS thread. The JDK lets the virtual thread capture its carrier for the duration and asks the scheduler for a temporary extra carrier so the others keep running. That is why `jdk.virtualThreadScheduler.maxPoolSize` exists. A service that does heavy file I/O on virtual threads can see the carrier count grow toward 256.\n\n**Why FIFO.** A ForkJoinPool normally runs a worker's own tasks last-in first-out, which is good for divide-and-conquer work. For virtual threads the JDK creates it in async mode, which is first-in first-out, so a virtual thread that became ready long ago runs before one that became ready a moment ago. That keeps latency fair across requests.\n\nThe scheduler itself is not a public API in JDK 21 or 25. You can tune its size with the system properties, but you can't plug in your own scheduler. Libraries that need special scheduling still use platform threads."
+ },
+ "sources": [
+  {"title": "JEP 444: Virtual Threads", "url": "https://openjdk.org/jeps/444"},
+  {"title": "Thread (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Thread.html"},
+  {"title": "Virtual Threads (Java SE 21 Core Libraries guide)", "url": "https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html"},
+  {"title": "JEP 491: Synchronize Virtual Threads without Pinning", "url": "https://openjdk.org/jeps/491"}
+ ]
+}
+out = ROOT / "content/lessons/vt-02.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)

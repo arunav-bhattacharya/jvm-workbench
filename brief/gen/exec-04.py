@@ -1,0 +1,259 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/executors/src"
+P = "java/workbench/executors/l04"
+KP = "kotlin/workbench/executors/l04"
+read = lambda p: (ROOT / p).read_text()
+
+def demo(name):
+    return {"lang": "java", "title": f"{name}.java", "src": read(f"{lab}/demo/{P}/{name}.java"),
+            "run": f"./gradlew :executors:demo -Pmain=workbench.executors.l04.{name}",
+            "file": f"{lab}/demo/{P}/{name}.java",
+            "alt": {"lang": "kotlin", "title": f"{name}.kt", "src": read(f"{lab}/demo/{KP}/{name}.kt"),
+                    "run": f"./gradlew :executors:demo -Pmain=workbench.executors.l04.{name}Kt",
+                    "file": f"{lab}/demo/{KP}/{name}.kt"}}
+
+SVG = (
+    '<svg viewBox="0 0 640 250" role="img" aria-label="Future states: RUNNING moves to SUCCESS, FAILED or CANCELLED, and get() behaves differently in each">'
+    '<rect class="box-a" x="20" y="97" width="150" height="56" rx="8"/>'
+    '<text class="t t-code" x="95" y="121" text-anchor="middle">RUNNING</text>'
+    '<text class="t-s t-m" x="95" y="141" text-anchor="middle">get() blocks</text>'
+    '<rect class="box-ok" x="380" y="15" width="240" height="56" rx="8"/>'
+    '<text class="t t-code" x="500" y="39" text-anchor="middle">SUCCESS</text>'
+    '<text class="t-s" x="500" y="59" text-anchor="middle">get(), resultNow(): the value</text>'
+    '<rect class="box-bad" x="380" y="97" width="240" height="56" rx="8"/>'
+    '<text class="t t-code" x="500" y="121" text-anchor="middle">FAILED</text>'
+    '<text class="t-s" x="500" y="141" text-anchor="middle">get() throws, exceptionNow() works</text>'
+    '<rect class="box-dim" x="380" y="179" width="240" height="56" rx="8"/>'
+    '<text class="t t-code" x="500" y="203" text-anchor="middle">CANCELLED</text>'
+    '<text class="t-s" x="500" y="223" text-anchor="middle">get() throws CancellationException</text>'
+    '<line class="ln-a" x1="170" y1="110" x2="376" y2="45" marker-end="url(#arr)"/>'
+    '<text class="t-s t-m" x="262" y="66" text-anchor="middle">task returns</text>'
+    '<line class="ln" x1="170" y1="125" x2="376" y2="125" marker-end="url(#arr)"/>'
+    '<text class="t-s t-m" x="272" y="116" text-anchor="middle">task throws</text>'
+    '<line class="ln-d" x1="170" y1="140" x2="376" y2="205" marker-end="url(#arr)"/>'
+    '<text class="t-s t-m" x="236" y="196" text-anchor="middle">cancel()</text>'
+    '</svg>'
+)
+
+L = {
+ "id": "exec-04",
+ "title": "Callable, Future, cancellation and interruption",
+ "minutes": 35,
+ "goal": "By the end you can wait for a task with a deadline, cancel it in a way that actually stops it, and handle InterruptedException so a stop request is never lost.",
+ "warmup": {
+  "q": "A request thread calls `future.get(200, MILLISECONDS)` on a task that charges a card. The issuer takes 600 ms, so `get` throws `TimeoutException`. What happens to the charge?",
+  "options": [
+   "It is cancelled, because the timeout cancels the task",
+   "It keeps going, and the card is charged about 400 ms later",
+   "It is rolled back when TimeoutException is thrown",
+   "The task gets a TimeoutException too and stops"
+  ],
+  "answer": 1,
+  "why": "A timeout ends your wait, not the task. Nothing tells the task you gave up, so it finishes and the issuer approves the charge. To stop it you must call `cancel(true)`, and even that only sends an interrupt the task may or may not notice in time."
+ },
+ "sections": [
+  {
+   "h": "Callable returns a value, and Future is the claim ticket",
+   "body": "`Runnable.run()` returns nothing and can't throw checked exceptions. `Callable<V>.call()` returns a `V` and may throw any `Exception`, which makes it the natural shape for \"call the issuer and give me the answer\". Hand one to `submit` and you get a `Future<V>` back at once, a claim ticket for a result that doesn't exist yet:\n\n```java\nFuture<String> auth = pool.submit(() -> issuer.authorize(payment));   // returns at once\nString decision = auth.get(200, TimeUnit.MILLISECONDS);              // waits up to 200 ms\n```\n\n```kotlin\nval auth: Future<String> = pool.submit<String> { issuer.authorize(payment) }  // returns at once\nval decision = auth.get(200, TimeUnit.MILLISECONDS)                          // waits up to 200 ms\n```\n\n`get()` blocks until the task finishes. Then it returns the value, or throws `ExecutionException` with the task's exception as the cause, or `CancellationException` if the task was cancelled. It throws `InterruptedException` if your own thread is interrupted while it waits. A successful `get()` also gives you visibility: everything the task wrote before it finished is visible to the thread that got the result.\n\nUse `get(timeout, unit)` in request paths. Plain `get()` waits forever, and forever is how one slow dependency turns into a pile of hung request threads.\n\nYou can also `submit` a plain `Runnable`. The `Future<?>` you get back returns `null` from `get()`, which is still useful: it tells you when the task finished and whether it threw.\n\nThe part people miss is that a timeout ends your wait, not the task. `TimeoutDemo` shows it:\n\n```text\n  16 ms  pool-1-thread-1 calling the issuer\n 216 ms  main         get timed out after 200 ms\n 648 ms  pool-1-thread-1 issuer answered: APPROVED (and the charge went through)\n```\n\nThe caller gave up at 200 ms and probably told the customer the payment failed. The task kept going, and the issuer approved the charge 430 ms later. So when you stop waiting, decide what happens to the work: cancel it, or make sure its result still gets recorded somewhere a retry can find it.",
+   "try": {
+    "title": "Give up on a slow issuer",
+    "minutes": 3,
+    "steps": [
+     "Run `TimeoutDemo` (either language). Note the time on the `issuer answered` line.",
+     "Run it again with `-Pargs=cancel`, which calls `cancel(true)` after the timeout. Predict: does the issuer still answer?"
+    ],
+    "code": demo("TimeoutDemo"),
+    "expect": "Without `cancel`, the issuer answers at about 650 ms, long after `get` timed out, and the pool closes only then. With `cancel`, the task prints \"interrupted: giving up on the issuer\" at about 215 ms, `cancel(true)` returns `true`, and the pool closes at once."
+   },
+   "refs": [
+    {"title": "Future (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/Future.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "cancel(true) sends an interrupt, nothing more",
+   "body": "`Future.cancel(boolean mayInterruptIfRunning)` has two modes. `cancel(false)` stops a task that hasn't started, so it will never run, and leaves a running task alone. `cancel(true)` does the same and, if the task is running, calls `interrupt()` on the thread running it.\n\nThat is all it does. Java has no safe way to kill a thread: `Thread.stop` was deprecated for decades, has thrown `UnsupportedOperationException` since JDK 20, and was removed in JDK 26. Cancellation is cooperative. An interrupt sets a flag on the thread. If the thread is blocked in a method that responds to interrupts (`Thread.sleep`, `Object.wait`, `BlockingQueue.take`, `Future.get` and others), that method wakes up and throws `InterruptedException`. Code that never blocks and never checks the flag doesn't notice anything.\n\n`CancelDemo` cancels three tasks 100 ms after they start:\n\n```text\nafter cancel: isCancelled=true/true/true isDone=true/true/true\nsleeper: InterruptedException, stopping\nchecker: saw the flag after 46 slices, stopping\nignorer: finished all 400 slices anyway\n```\n\nRead the first line again. All three futures report cancelled and done straight away. A `Future` changes state the moment you call `cancel`. It doesn't wait for the task to stop. The ignorer then ran to the end. If its work was posting to a ledger, the post happened, and the `Future` still says cancelled.\n\nTwo rules follow. A long CPU loop should check `Thread.currentThread().isInterrupted()` every so often, as the checker does. And a cancelled `Future` only tells you that nobody will get a result from it. It does not tell you the side effects didn't happen.\n\n`cancel(false)` has its own use. During a graceful shutdown you may want running settlements to finish but queued ones never to start: cancel the queued futures with `false` and let `awaitTermination` wait for the rest. `cancel` returns `false` if the task had already finished or was already cancelled, which tells you the cancel came too late.",
+   "try": {
+    "title": "Cancel three kinds of task",
+    "minutes": 4,
+    "steps": [
+     "Run `CancelDemo` and match each line of output to one of the three tasks.",
+     "Make the ignorer cooperate: add the same `isInterrupted()` check the checker has at the top of its loop. Predict how long the demo takes now, then run it."
+    ],
+    "code": demo("CancelDemo"),
+    "expect": "First run: the sleeper and the checker stop within milliseconds, but the ignorer burns about a second of CPU and `close()` waits for it, so \"pool closed\" comes last. After your change the ignorer stops after a few dozen slices too, and the demo finishes in well under a second after the cancel."
+   }
+  },
+  {
+   "h": "The interruption protocol: rethrow or restore",
+   "body": "When a blocking method throws `InterruptedException`, it clears the thread's interrupt flag first. That one detail is behind most interrupt bugs. If you catch the exception and carry on, the request to stop is gone, and no code further up can see it.\n\nThe `Thread` Javadoc in JDK 26 states the rule in a new section on interruption: code that catches `InterruptedException` should rethrow it, or restore the interrupted status with `Thread.currentThread().interrupt()` before it continues or throws something else. So there are two correct moves:\n\n```java\n// 1. propagate: declare it and let it go up\nvoid settle(Batch b) throws InterruptedException {\n    ledgerQueue.put(b);\n}\n\n// 2. you can't propagate (Runnable.run can't throw it): restore the flag\npublic void run() {\n    try {\n        ledgerQueue.put(batch);\n    } catch (InterruptedException e) {\n        Thread.currentThread().interrupt();   // keep the request visible\n        return;                               // and stop\n    }\n}\n```\n\n```kotlin\n// 1. propagate: Kotlin has no checked exceptions, so simply don't catch it\nfun settle(b: Batch) {\n    ledgerQueue.put(b)\n}\n\n// 2. if you do catch it: restore the flag\noverride fun run() {\n    try {\n        ledgerQueue.put(batch)\n    } catch (e: InterruptedException) {\n        Thread.currentThread().interrupt()    // keep the request visible\n        return                                // and stop\n    }\n}\n```\n\nThe broken version looks reasonable. A helper sleeps between polls and swallows the exception, because \"there's nothing useful to do here\". The loop around it checks `isInterrupted()` correctly and still never stops, because the helper cleared the flag before the loop could look at it. That is the bug in the lab's `StatementPoller`, and neither `shutdownNow()` nor `cancel(true)` can stop it.\n\nWrapping is fine if you restore the flag first: `catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new LedgerUnavailableException(e); }`. Logging it and moving on is not.\n\nOne more trap: whether a blocked network read notices an interrupt depends on the API. NIO channels do (the channel is closed and the read fails), but a classic `java.net.Socket` stream read on a platform thread does not. Give every HTTP and database client its own timeout, and treat the interrupt as a second line of defence."
+  },
+  {
+   "h": "Future.state(), invokeAll and invokeAny",
+   "body": "Before JDK 19, asking a `Future` how it ended meant calling `get()` inside a `try` with three `catch` blocks. JDK 19 added `state()`, which never blocks, and two accessors for futures you already know are done:\n\n```java\nswitch (f.state()) {\n    case RUNNING   -> log.info(\"still waiting on the issuer\");\n    case SUCCESS   -> record(f.resultNow());                   // the value, no checked exceptions\n    case FAILED    -> log.warn(\"issuer failed\", f.exceptionNow());  // the task's own exception, unwrapped\n    case CANCELLED -> log.info(\"cancelled\");\n}\n```\n\n```kotlin\nwhen (f.state()) {\n    Future.State.RUNNING -> log.info(\"still waiting on the issuer\")\n    Future.State.SUCCESS -> record(f.resultNow())              // the value, no checked exceptions\n    Future.State.FAILED -> log.warn(\"issuer failed\", f.exceptionNow())  // the task's own exception, unwrapped\n    Future.State.CANCELLED -> log.info(\"cancelled\")\n}\n```\n\n`resultNow()` throws `IllegalStateException` if the task isn't done or didn't succeed. `exceptionNow()` throws it if the task didn't fail, including when it was cancelled. Call them after checking `state()`, or on futures you know are finished.\n\n`ExecutorService` also has two bulk methods. `invokeAll(tasks)` runs every task and returns their futures once all are done. With a timeout, it cancels whatever hasn't finished by the deadline, so every future it returns is done. `invokeAny(tasks)` returns the result of the first task that succeeds, cancels the rest, and throws `ExecutionException` only if every task fails. That fits \"ask three FX-rate providers and take the first good answer\".\n\nIn `InvokeAnyDemo` the fastest provider fails after 100 ms. `invokeAny` ignores that failure, returns the answer from the provider that succeeds at 200 ms, and interrupts the slowest. `invokeAll` with a 250 ms deadline returns one future of each kind: failed, succeeded and cancelled.\n\nBoth bulk methods block the calling thread until they return, so call them from a thread that may wait, never from a task running on the same bounded pool. A pool of 3 whose tasks each call `invokeAll` with 3 subtasks on that pool can end up with every thread waiting for subtasks that have no thread to run on. Lesson 9 of this track calls that pool-induced deadlock.",
+   "figure": {"svg": SVG, "caption": "A Future starts RUNNING and ends in one of three states. state() tells you which without blocking."},
+   "try": {
+    "title": "First answer wins",
+    "minutes": 3,
+    "steps": [
+     "Read the three providers in `InvokeAnyDemo`: alpha takes 300 ms, beta fails at 100 ms, gamma takes 200 ms. Predict what `invokeAny` returns and which provider gets interrupted.",
+     "Predict the three states `invokeAll` reports with its 250 ms deadline, then run the demo."
+    ],
+    "code": demo("InvokeAnyDemo"),
+    "expect": "`invokeAny` returns gamma's rate: beta finished first but failed, and a failure doesn't count. Alpha prints \"interrupted, cancelled\". With the 250 ms deadline, `invokeAll` reports alpha `CANCELLED` (interrupted at the deadline), beta `FAILED` with \"beta is down\" and gamma `SUCCESS`."
+   },
+   "refs": [
+    {"title": "ExecutorService (Java SE 25 API): invokeAll and invokeAny", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ExecutorService.html", "kind": "docs"}
+   ]
+  }
+ ],
+ "analogy": "A `Future` is the ticket from a dry cleaner. You can come back and wait at the counter (`get`), wait only until your lunch break ends (`get` with a timeout), or ask the shop how your shirt is doing without waiting (`state`). Cancelling is phoning the shop to say \"don't bother\". If they haven't started, the shirt never gets cleaned. If it is already in the machine, the clerk may or may not hear the phone, and either way your ticket now says \"cancelled\". The analogy breaks at the end: a real shop tells you whether the shirt got cleaned. A cancelled `Future` never tells you whether the work happened.",
+ "in_your_world": "Every call your payment service makes to an issuer, a fraud scorer or a ledger API should have a deadline, and a timeout should lead somewhere on purpose. For an authorization, \"we stopped waiting\" is not \"declined\": return a pending status, keep the idempotency key, and let a reconciler ask the issuer what happened. In a Kafka consumer, a stuck downstream call that ignores interrupts blocks the partition and, through `max.poll.interval.ms`, eventually costs you the partition. In the Temporal Java SDK, an activity learns it was cancelled when it heartbeats, so an activity stuck in one long blocking call with no timeout of its own never finds out. And grep for `catch (InterruptedException e)` in your services: every one should rethrow or restore the flag.",
+ "mistake": "Catching `InterruptedException` and carrying on, usually in a helper like `sleepQuietly()` or in a retry loop that \"just tries again\". It happens because the compiler forces a catch in Java, and the quickest way to make it compile is an empty block. The flag is cleared when the exception is thrown, so the stop request vanishes and `shutdownNow()` or `cancel(true)` silently stop working. Fix: propagate it, or call `Thread.currentThread().interrupt()` in the catch and then stop or throw.",
+ "compare": {
+  "title": "Cancelling work: Future and interrupts vs coroutine cancellation",
+  "java": {"title": "CancelOne.java", "src": "Future<String> f = pool.submit(() -> {\n    Thread.sleep(5_000);          // wakes with InterruptedException on cancel(true)\n    return \"done\";\n});\nThread.sleep(100);\nf.cancel(true);                   // sends an interrupt to the worker thread\n// f.isCancelled() is true at once, whatever the task does next"},
+  "kotlin": {"title": "CancelOne.kt (kotlinx.coroutines)", "src": "val job = scope.launch(Dispatchers.IO) {\n    delay(5_000)                  // suspends; resumes with CancellationException on cancel\n    println(\"done\")\n}\ndelay(100)\njob.cancel()                      // no interrupt: delay() notices the cancellation itself\n\n// a blocking call ignores job.cancel() unless you wrap it:\n// runInterruptible { Thread.sleep(5_000) }"},
+  "note": "Both models are cooperative, and both need the task to listen. Java delivers the request as a thread interrupt, which blocking methods and `isInterrupted()` checks pick up. Coroutines deliver it as a `CancellationException` at suspension points such as `delay`, `await` and `withContext`, with no interrupt at all, so a blocking Java call inside a coroutine doesn't notice unless you wrap it in `runInterruptible`. The interrupt rules from this lesson still apply to Kotlin code that runs blocking work on an executor. Watch `runCatching` there: it catches `InterruptedException` like any other exception, which makes it an easy way to swallow a stop request."
+ },
+ "worked": {
+  "title": "Give up on a slow issuer without lying to the customer",
+  "steps": [
+   {"say": "An authorization handler submits the issuer call to a pool and waits for it. Under normal load this works. What happens when the issuer starts taking 30 seconds?",
+    "code": "Future<String> auth = pool.submit(() -> issuer.authorize(payment));\nreturn auth.get();                       // waits as long as the issuer does", "lang": "java",
+    "alt_code": "val auth = pool.submit<String> { issuer.authorize(payment) }\nreturn auth.get()                        // waits as long as the issuer does", "alt_lang": "kotlin"},
+   {"say": "Every request thread ends up parked in `get()`. Little's law from lesson 3 of this track does the rest: at 400 requests a second and 30 s each, you would need 12,000 threads. The service stops answering anything. Bound the wait, and cancel the work you stopped waiting for.",
+    "code": "Future<String> auth = pool.submit(() -> issuer.authorize(payment));\ntry {\n    return auth.get(800, TimeUnit.MILLISECONDS);   // 1. bounded wait\n} catch (TimeoutException e) {\n    auth.cancel(true);                             // 2. interrupt the issuer call\n    return \"PENDING\";                              // 3. don't claim it was declined\n}", "lang": "java",
+    "alt_code": "val auth = pool.submit<String> { issuer.authorize(payment) }\nreturn try {\n    auth.get(800, TimeUnit.MILLISECONDS)           // 1. bounded wait\n} catch (e: TimeoutException) {\n    auth.cancel(true)                              // 2. interrupt the issuer call\n    \"PENDING\"                                      // 3. don't claim it was declined\n}", "alt_lang": "kotlin"},
+   {"say": "Why `PENDING` and not `DECLINED`? The interrupt may arrive after the request already reached the issuer, and a classic socket read may not even notice it. The charge can still happen. Saying \"declined\" invites the customer to pay again, and then you have a double charge.",
+    "code": "", "lang": ""},
+   {"say": "Make the outcome findable. Send an idempotency key with the request, and on timeout hand the key to a reconciler that asks the issuer later what happened to it. A retry with the same key can't charge twice.",
+    "code": "String key = payment.idempotencyKey();\nFuture<String> auth = pool.submit(() -> issuer.authorize(payment, key));\ntry {\n    return auth.get(800, TimeUnit.MILLISECONDS);\n} catch (TimeoutException e) {\n    auth.cancel(true);\n    reconciler.checkLater(key);                    // \"what happened to key X?\"\n    return \"PENDING\";\n}", "lang": "java",
+    "alt_code": "val key = payment.idempotencyKey()\nval auth = pool.submit<String> { issuer.authorize(payment, key) }\nreturn try {\n    auth.get(800, TimeUnit.MILLISECONDS)\n} catch (e: TimeoutException) {\n    auth.cancel(true)\n    reconciler.checkLater(key)                     // \"what happened to key X?\"\n    \"PENDING\"\n}", "alt_lang": "kotlin"}
+  ]
+ },
+ "lab": {
+  "title": "Deadlines, states and a poller that won't stop",
+  "minutes": 12,
+  "files": [f"{lab}/main/{P}/Futures.java", f"{lab}/main/{P}/StatementPoller.java"],
+  "run": "./gradlew :executors:test --tests 'workbench.executors.l04.*'",
+  "steps": [
+   "Run the tests. All seven fail.",
+   "Write `Futures.getOrDefault`: `get` with the timeout, and one `catch` for each outcome in the Javadoc. On timeout and on your own interruption, call `cancel(true)` first.",
+   "Write `Futures.describe` with a `switch` on `future.state()`, using `resultNow()` and `exceptionNow()`.",
+   "`StatementPoller` is the buggy version. Run its two tests and read the failure: the executor never terminates. Find the line that defeats the loop condition and fix it with one statement.",
+   "Run the tests until all seven pass."
+  ],
+  "hints": [
+   "`get(long, TimeUnit)` throws four checked or unchecked exceptions here: `TimeoutException`, `ExecutionException`, `CancellationException` and `InterruptedException`. A multi-catch handles the two that share an answer.",
+   "In `getOrDefault`, after you cancel on `InterruptedException`, rethrow the same exception. Propagating it is one of the two correct moves, so you don't also restore the flag.",
+   "The poller's `while` condition is fine. Ask what state the interrupt flag is in when that condition runs right after `pause()` caught an `InterruptedException`."
+  ],
+  "done_when": "All seven tests in `CancellationTest` pass."
+ },
+ "drill": {
+  "title": "A polling loop that stops when asked",
+  "minutes": 4,
+  "prompt": "Close this page. Write a `Runnable` that calls `poll()` once a second until the thread is interrupted, then returns. It must stop whether the interrupt arrives during `poll()` or during the sleep. Then compare. Did you restore the flag, or return straight from the catch?",
+  "answer": {"lang": "java", "title": "Poller.java", "src": "Runnable poller = () -> {\n    while (!Thread.currentThread().isInterrupted()) {   // interrupt during poll(): seen here\n        poll();\n        try {\n            Thread.sleep(1_000);\n        } catch (InterruptedException e) {             // interrupt during sleep: flag now cleared\n            Thread.currentThread().interrupt();          // restore it (or simply return)\n        }\n    }\n};",
+   "alt": {"lang": "kotlin", "title": "Poller.kt", "src": "val poller = Runnable {\n    while (!Thread.currentThread().isInterrupted) {    // interrupt during poll(): seen here\n        poll()\n        try {\n            Thread.sleep(1_000)\n        } catch (e: InterruptedException) {             // interrupt during sleep: flag now cleared\n            Thread.currentThread().interrupt()           // restore it (or simply return)\n        }\n    }\n}"}}
+ },
+ "recap": [
+  "`submit(Callable)` returns a `Future` at once. `get` returns the value or throws `ExecutionException`, `CancellationException` or `InterruptedException`.",
+  "`get(timeout)` ends your wait, not the task. Cancel the work or make its outcome findable, for example with an idempotency key.",
+  "`cancel(true)` only interrupts. The task stops if it is blocked in an interruptible call or checks `isInterrupted()`. The `Future` says cancelled either way.",
+  "Throwing `InterruptedException` clears the flag. Rethrow it or restore it with `Thread.currentThread().interrupt()`. Never swallow it.",
+  "JDK 19 added `state()`, `resultNow()` and `exceptionNow()`. `invokeAll` waits for all, `invokeAny` returns the first success and cancels the rest."
+ ],
+ "quiz": [
+  {
+   "q": "A task calls a ledger API that posts a debit. The caller's `get(500, MILLISECONDS)` throws `TimeoutException` and the caller does nothing else. What happens to the debit?",
+   "options": [
+    "It is cancelled automatically when get() times out",
+    "It may well still be posted, because the task keeps running",
+    "It is rolled back by the executor",
+    "The task receives the TimeoutException and stops"
+   ],
+   "answer": 1,
+   "why": "The timeout is only about the caller's wait. The task has no idea anyone gave up, so it carries on and posts the debit. Only `cancel(true)` sends it a signal, and even that is just an interrupt."
+  },
+  {
+   "q": "A worker runs `while (!Thread.currentThread().isInterrupted()) { work(); try { Thread.sleep(100); } catch (InterruptedException e) { log.warn(\"interrupted\"); } }`. The pool calls `shutdownNow()` while the worker sleeps. What happens?",
+   "options": [
+    "The worker stops at the next loop check",
+    "The worker throws and the pool replaces it",
+    "The worker logs a warning and keeps looping, because the exception cleared the flag",
+    "shutdownNow() waits until the worker finishes"
+   ],
+   "answer": 2,
+   "why": "`sleep` clears the interrupt flag when it throws. The catch only logs, so the `while` check sees a clear flag and loops forever. Restore the flag in the catch, or `return` from it."
+  },
+  {
+   "q": "You call `cancel(true)` on a task that is in a long CPU loop and never checks the interrupt flag. What do you see?",
+   "options": [
+    "`isCancelled()` is true at once, and the loop runs to the end anyway",
+    "`isCancelled()` stays false until the loop ends",
+    "The thread is stopped immediately",
+    "`cancel` returns false because the task is running"
+   ],
+   "answer": 0,
+   "why": "The Future moves to CANCELLED as soon as `cancel` succeeds, and `cancel` returns true for a running task. The interrupt sets a flag the loop never reads, so the work continues. Java can't stop a thread from outside."
+  },
+  {
+   "q": "You ask three FX-rate providers for EUR/USD and want the first successful answer, ignoring providers that fail, with the slower ones cancelled. Which tool fits?",
+   "options": [
+    "Submit each one and call `get()` on them in order",
+    "`invokeAll`, then pick the first SUCCESS",
+    "A single-thread executor, so they run one at a time",
+    "`invokeAny`"
+   ],
+   "answer": 3,
+   "why": "`invokeAny` returns the first task that completes successfully and cancels the rest. `invokeAll` waits for every provider, so you pay for the slowest. Calling `get()` in order waits for the first provider even if the third is faster."
+  },
+  {
+   "q": "From \"A thread's life: start, join, sleep, interrupt\": thread `t` is in `Thread.sleep(10_000)`. Another thread calls `t.interrupt()`. Inside `t`'s catch block, what does `Thread.currentThread().isInterrupted()` return?",
+   "options": [
+    "true, because the thread was just interrupted",
+    "false, because throwing InterruptedException cleared the flag",
+    "It throws IllegalThreadStateException",
+    "true until sleep's 10 seconds are up"
+   ],
+   "answer": 1,
+   "why": "Blocking methods clear the interrupt flag when they throw `InterruptedException`. That's why a catch block that neither rethrows nor calls `Thread.currentThread().interrupt()` loses the stop request.",
+   "from": "conc-02"
+  }
+ ],
+ "flashcards": [
+  {"front": "What does `cancel(true)` do to a task that is already running?", "back": "It calls `interrupt()` on the task's thread. The task stops only if it responds to the interrupt."},
+  {"front": "You call `cancel(true)` and the task ignores the interrupt. What does `isCancelled()` return?", "back": "`true`, immediately, even though the task keeps running to the end."},
+  {"front": "Does `future.get(timeout)` stop the task when it throws `TimeoutException`?", "back": "No. It only ends your wait. Call `cancel(true)` if the work should stop."},
+  {"front": "What happens to the interrupt flag when `sleep` throws `InterruptedException`?", "back": "It is cleared. Rethrow the exception or restore the flag with `Thread.currentThread().interrupt()`."},
+  {"front": "What does `invokeAny(tasks)` return?", "back": "The result of the first task that succeeds. It cancels the others, and throws `ExecutionException` only if all fail."},
+  {"front": "What does `resultNow()` do on a future that failed?", "back": "Throws `IllegalStateException`. Check `state()` first, or use `exceptionNow()` for FAILED."}
+ ],
+ "terms": [
+  {"term": "Callable", "plain": "A task that returns a value and may throw a checked exception."},
+  {"term": "Future", "plain": "A handle to a task's result: wait for it, check its state, or cancel it."},
+  {"term": "Interrupt", "plain": "A request to a thread to stop what it is doing. It sets a flag and wakes blocking calls."},
+  {"term": "Interrupt flag", "plain": "The per-thread boolean that `interrupt()` sets and `InterruptedException` clears."},
+  {"term": "Cooperative cancellation", "plain": "Cancellation that works only if the task checks for it and stops itself."},
+  {"term": "invokeAny", "plain": "Run several tasks and return the first successful result, cancelling the rest."}
+ ],
+ "explain_back": {
+  "prompt": "A teammate's code has `catch (InterruptedException e) { log.warn(\"interrupted, retrying\"); }` inside a retry loop. Explain why this breaks shutdown, and what they should write instead.",
+  "answer": "When a blocking call like sleep or take throws InterruptedException, it clears the thread's interrupt flag. Logging and retrying means the stop request is gone: the loop has no way to know someone asked it to stop. So when the pool calls shutdownNow or someone calls cancel(true), this task just keeps retrying, awaitTermination times out, and the pod gets killed mid-work. They should either let the exception propagate (declare throws InterruptedException), or, if the method can't throw it, call Thread.currentThread().interrupt() in the catch and then stop the loop or throw a different exception. Anything above them that checks the flag then still sees the request."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "Two methods read the interrupt flag and they are easy to mix up. `Thread.currentThread().isInterrupted()` reads it and leaves it alone. The static `Thread.interrupted()` reads it and clears it. Use the second only when you are about to handle the interrupt yourself, for example to throw `InterruptedException` from your own blocking method:\n\n```java\nif (Thread.interrupted()) throw new InterruptedException();   // clear, then report by throwing\n```\n\n```kotlin\nif (Thread.interrupted()) throw InterruptedException()        // clear, then report by throwing\n```\n\nHow does `cancel(true)` find the thread? `FutureTask` remembers the thread that is running it. `cancel(true)` moves the task to a cancelled state and then calls `interrupt()` on that thread. Because the flag belongs to the thread and not to the task, a pool has to make sure an interrupt meant for one task doesn't hit the next one on the same worker. `ThreadPoolExecutor` does that: before each task, its worker clears any leftover interrupt, unless the pool itself is stopping after `shutdownNow()`.\n\nVirtual threads, in the \"Virtual threads\" track, use the same interrupt mechanism. A virtual thread blocked in `sleep` or a `BlockingQueue` responds exactly as described here, so everything in this lesson carries over."
+ },
+ "sources": [
+  {"title": "Future (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/Future.html"},
+  {"title": "Thread (Java SE 25 API): interrupt()", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Thread.html"},
+  {"title": "Interrupts (The Java Tutorials)", "url": "https://docs.oracle.com/javase/tutorial/essential/concurrency/interrupt.html"},
+  {"title": "Java Concurrency in Practice, Goetz et al., chapter 7 (cancellation and shutdown)", "url": "https://jcip.net/"}
+ ]
+}
+out = ROOT / "content/lessons/exec-04.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)

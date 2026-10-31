@@ -1,0 +1,510 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+LAB = "labs/generics/src"
+read = lambda p: (ROOT / p).read_text()
+RUN = "./gradlew :generics:demo -Pmain="
+
+
+def demo(rel, title, main, lang="kotlin", alt=None):
+    path = f"{LAB}/demo/{rel}"
+    d = {"lang": lang, "title": title, "src": read(path), "run": RUN + main, "file": path}
+    if alt:
+        d["alt"] = demo(*alt)
+    return d
+
+
+FIG = (
+    '<svg viewBox="0 0 640 250" role="img" aria-label="One generic class Box of T is filled in three ways, '
+    'Box of String, Box of Long and Box of Payment, which the compiler checks as three types. At run time all three are one class, Box.">'
+    '<text class="t-s t-m" x="115" y="22" text-anchor="middle">you write</text>'
+    '<text class="t-s t-m" x="385" y="22" text-anchor="middle">the compiler checks</text>'
+    '<text class="t-s t-m" x="570" y="22" text-anchor="middle">the JVM runs</text>'
+    '<rect class="box-a" x="30" y="100" width="170" height="50" rx="8"/>'
+    '<text class="t t-code" x="115" y="130" text-anchor="middle">class Box&lt;T&gt;</text>'
+    '<text class="t-s t-m" x="115" y="172" text-anchor="middle">T is a blank to fill</text>'
+    '<rect class="box" x="300" y="40" width="170" height="40" rx="8"/>'
+    '<text class="t t-code" x="385" y="65" text-anchor="middle">Box&lt;String&gt;</text>'
+    '<rect class="box" x="300" y="105" width="170" height="40" rx="8"/>'
+    '<text class="t t-code" x="385" y="130" text-anchor="middle">Box&lt;Long&gt;</text>'
+    '<rect class="box" x="300" y="170" width="170" height="40" rx="8"/>'
+    '<text class="t t-code" x="385" y="195" text-anchor="middle">Box&lt;Payment&gt;</text>'
+    '<line class="ln-a" x1="200" y1="125" x2="298" y2="62" marker-end="url(#arr)"/>'
+    '<line class="ln-a" x1="200" y1="125" x2="298" y2="125" marker-end="url(#arr)"/>'
+    '<line class="ln-a" x1="200" y1="125" x2="298" y2="188" marker-end="url(#arr)"/>'
+    '<rect class="box-dim" x="520" y="100" width="100" height="50" rx="8"/>'
+    '<text class="t t-code" x="570" y="130" text-anchor="middle">Box</text>'
+    '<line class="ln-d" x1="470" y1="60" x2="518" y2="118" marker-end="url(#arr)"/>'
+    '<line class="ln-d" x1="470" y1="125" x2="518" y2="125" marker-end="url(#arr)"/>'
+    '<line class="ln-d" x1="470" y1="190" x2="518" y2="133" marker-end="url(#arr)"/>'
+    '<text class="t-s t-m" x="570" y="172" text-anchor="middle">one class</text>'
+    '<text class="t-s t-m" x="385" y="236" text-anchor="middle">three different types</text>'
+    '</svg>'
+)
+
+S1 = """Before generics, a container that could hold anything held `Object` in Java and `Any` in Kotlin. You put a value in, and you cast it back when you took it out. Here is a small settings holder written that way:
+
+```java
+class AnyBox { Object value; AnyBox(Object v) { value = v; } }
+
+static void configure(AnyBox box) {
+    box.value = 978;                      // bug: the numeric code, not "EUR"
+}
+
+static String currencyLabel(AnyBox box) {
+    String code = (String) box.value;     // ClassCastException here
+    return "Settles in " + code;
+}
+```
+
+```kotlin
+class AnyBox(var value: Any)
+
+fun configure(box: AnyBox) {
+    box.value = 978                   // bug: the numeric code, not "EUR"
+}
+
+fun currencyLabel(box: AnyBox): String {
+    val code = box.value as String    // ClassCastException here
+    return "Settles in $code"
+}
+```
+
+The bug is in `configure`. Someone stored the ISO numeric currency code 978 where the rest of the code expects the letters `"EUR"`. The compiler accepts it, because an `Int` is an `Any`. `configure` returns normally. Nothing fails until `currencyLabel` runs, maybe hours later, in a class another team owns. The stack trace points at the cast in the reader. The writer is not in it at all.
+
+That is the real cost of `Any` plus casts. The type check still happens, but it happens late, at run time, and in the wrong place. The error shows up at the read. The bug is at the write.
+
+Generics move the check to the write. Give the box a **type parameter** and say what it holds:
+
+```java
+class Box<T> { T value; Box(T v) { value = v; } }
+
+static void configure(Box<String> box) {
+    box.value = 978;                      // now a compile error
+}
+```
+
+```kotlin
+class Box<T>(var value: T)
+
+fun configure(box: Box<String>) {
+    box.value = 978                   // now a compile error
+}
+```
+
+Both compilers now reject the bad line itself. javac says `incompatible types: int cannot be converted to String`. kotlinc says:
+
+```text
+error: assignment type mismatch: actual type is 'Int', but 'String' was expected.
+```
+
+The reader needs no cast any more. `box.value` is already a `String`, so `currencyLabel` cannot throw a `ClassCastException`.
+
+The compiler messages in this track come from kotlinc 2.4.21. Gradle and IntelliJ print the same text with a capital first letter."""
+
+S2 = """Read `class Box<T>` as: "Box has one blank in it, called `T`. Whoever uses Box fills the blank with a real type." `T` is the **type parameter**. The real type you put in, like `String` in `Box<String>`, is the **type argument**. Inside the class, `T` stands for whatever the caller chose. The class never finds out which one.
+
+```java
+class Box<T> {
+    T value;
+    Box(T value) { this.value = value; }
+    T replace(T newValue) {
+        T old = value;
+        value = newValue;
+        return old;
+    }
+}
+
+Box<String> currency = new Box<>("EUR");
+Box<Long> limit = new Box<>(50_000L);
+currency.replace("USD");      // fine
+limit.replace("USD");         // error: String cannot be converted to Long
+```
+
+```kotlin
+class Box<T>(var value: T) {
+    fun replace(newValue: T): T {
+        val old = value
+        value = newValue
+        return old
+    }
+}
+
+val currency = Box("EUR")       // Box<String>
+val limit = Box(50_000L)        // Box<Long>
+currency.replace("USD")         // fine
+limit.replace("USD")            // error: actual type is 'String', but 'Long' was expected
+```
+
+One class gives you many types: `Box<String>`, `Box<Long>`, `Box<Payment>`. The compiler checks each one on its own. To the compiler, `Box<String>` and `Box<Long>` are as different as `String` and `Long`.
+
+Functions can have type parameters too. In Java the `<T>` goes before the return type. In Kotlin it goes right after `fun`, before the function name:
+
+```java
+static <T> T firstOrNull(List<T> items) {
+    return items.isEmpty() ? null : items.get(0);
+}
+```
+
+```kotlin
+fun <T> firstOrNull(items: List<T>): T? =
+    if (items.isEmpty()) null else items[0]
+```
+
+`<T>` declares the blank. `List<T>` and `T?` use it, and the two uses are tied together. Pass a `List<Payment>` and you get a `Payment?` back, with no cast. Pass a `List<String>` and you get a `String?`.
+
+A function can have several type parameters, separated by commas: `fun <T, K> indexBy(items: List<T>, key: (T) -> K): Map<K, T>`. The single-letter names are a habit, not a rule: `T` for type, `E` for element, `K` and `V` for key and value, `R` for result.
+
+A method can also have a type parameter that its class does not have. In `fun <C> mapSecond(f: (B) -> C): Duo<A, C>` on a class `Duo<A, B>`, `A` and `B` belong to the class. `C` belongs to this one call, and the lambda you pass decides what it is.
+
+One fact to keep for later. At run time there is only one `Box` class. The `<String>` part exists for the compiler, and the JVM never sees it. Lesson 8 of this track, on type erasure, shows what that costs you."""
+
+S3 = """You rarely write type arguments in Kotlin. The compiler works them out from the values you pass. This is **type inference**, and Java does it too, with `var` and the diamond.
+
+```java
+var amounts = List.of(1200, 350, 99);            // List<Integer>
+var box = new Box<>("EUR");                      // Box<String>
+var fees = Map.of("EUR", 100, "USD", 250L);      // Map<String, Number & Comparable<...> & ...>
+```
+
+```kotlin
+val amounts = listOf(1200, 350, 99)              // List<Int>
+val box = Box("EUR")                             // Box<String>
+val fees = mapOf("EUR" to 100, "USD" to 250L)    // Map<String, Long>
+```
+
+Look at the last line in each. Kotlin sees `250L` in the same map and makes the literal `100` a `Long`, so both values fit `Long`. Java never changes a literal's type: `100` stays an `Integer`, and javac infers a long intersection type for the values instead.
+
+When the values really have different types, the compiler picks the closest type they share:
+
+```java
+var mixed = List.of(1, 2.5);     // List<Number & Comparable<...> & Constable & ConstantDesc>
+var odd = List.of(1, "a");       // another intersection, of Serializable, Comparable and more
+```
+
+```kotlin
+val mixed = listOf(1, 2.5)       // List<Number & Comparable<*>>
+val odd = listOf(1, "a")         // List<Comparable<*> & Serializable>
+```
+
+`Number & Comparable<*>` is an **intersection type**: something that is both a `Number` and a `Comparable`. You cannot write that type in your own code, but the compiler uses it. When you see one, you have usually mixed types by accident.
+
+Sometimes there is nothing to infer from. `emptyList()` gets no values, so Kotlin has no clue what `T` should be:
+
+```text
+error: cannot infer type for type parameter 'T'. Specify it explicitly.
+```
+
+Java does not complain here. `var none = Collections.emptyList();` quietly becomes a `List<Object>`, which is rarely what you meant. In both languages the fix is the same. Write the type argument at the call, or give the variable a type and let the compiler work backwards from it:
+
+```java
+var none = Collections.<String>emptyList();
+List<String> alsoNone = Collections.emptyList();
+```
+
+```kotlin
+val none = emptyList<String>()
+val alsoNone: List<String> = emptyList()
+```
+
+Each pair means the same thing. I use the first form inside expressions and the second for properties, where the declared type documents the API anyway.
+
+Kotlin builders infer too. `buildList { add("idem_1"); add("idem_2") }` is a `List<String>`, worked out from the `add` calls inside the lambda. Java has no such builder, so there you name the type up front: `new ArrayList<String>()`.
+
+Here is a trick you will use for the rest of this track. When you are not sure what the compiler inferred, assign the value to a type you know is wrong, such as `val probe: Int = mixed` in Kotlin or `int probe = mixed;` in Java. The error message prints the real type."""
+
+S4 = """Java has had generics since Java 5, and Kotlin compiles to the same JVM machinery. The ideas map one to one. Only the punctuation moves.
+
+```java
+class Box<T> {
+    private T value;
+    Box(T value) { this.value = value; }
+    T get() { return value; }
+}
+
+static <T> T firstOrNull(List<T> items) {
+    return items.isEmpty() ? null : items.get(0);
+}
+
+Box<String> box = new Box<>("EUR");                    // diamond
+List<String> none = Collections.emptyList();           // inferred from the target
+List<String> same = Collections.<String>emptyList();   // explicit type argument
+```
+
+```kotlin
+class Box<T>(private var value: T) {
+    fun get(): T = value
+}
+
+fun <T> firstOrNull(items: List<T>): T? =
+    if (items.isEmpty()) null else items[0]
+
+val box = Box("EUR")                         // no diamond, no new
+val none: List<String> = emptyList()         // inferred from the target
+val same = emptyList<String>()               // explicit type argument
+```
+
+Three differences matter in practice.
+
+In a Java method, `<T>` comes before the return type: `static <T> T firstOrNull(...)`. In Kotlin it comes before the function name. The meaning is the same. Java also has no nullable types, so its `firstOrNull` returns a plain `T` that may be null, while Kotlin's says `T?`.
+
+Java needs the **diamond** `<>` on `new`, which tells javac to infer the type argument. Leave it out and `new Box("EUR")` is a **raw type**: `Box` with its generics switched off. Kotlin has no `new` and no raw types, so `Box("EUR")` is always a `Box<String>`.
+
+Java type arguments must be reference types. `List<int>` is an error (`unexpected type`, `required: reference`, `found: int`), so you write `List<Integer>`. In Kotlin you write `List<Int>`, and the compiler stores boxed `java.lang.Integer` objects for you.
+
+Raw types are why old Java code can still blow up. They exist so that code from before Java 5 keeps compiling. A raw `List` accepts anything, and javac only warns:
+
+```text
+warning: [unchecked] unchecked call to add(E) as a member of the raw type List
+```
+
+The bad value then sits inside a `List<String>` until someone reads it. It is the `AnyBox` failure again, hidden inside a type that claims to be safe. When a Kotlin service gets a `ClassCastException` on a line with no cast in it, look for a raw type in the Java library underneath."""
+
+L = {
+    "id": "gen-01",
+    "title": "Generics from zero: type parameters",
+    "minutes": 35,
+    "goal": "By the end you can write generic classes and functions in Kotlin and Java, read `<T>` as a blank the caller fills in, and explain why a type parameter moves a ClassCastException from the read to a compile error at the write.",
+    "warmup": {
+        "q": "A `MutableList<Any>` holds payment ids. One module adds the `Int` 1001 by mistake. Much later another module runs `val id = ids[0] as String`. Where do you first hear about the bug?",
+        "options": [
+            "A compile error on the line that adds 1001",
+            "An exception on the line that adds 1001",
+            "A ClassCastException on the `as String` line in the other module",
+            "Nowhere: Kotlin converts 1001 to \"1001\""
+        ],
+        "answer": 2,
+        "why": "An `Int` is an `Any`, so the add compiles and runs. The cast is the only check, and it runs in the reader. The exception names the reader's line, not the line with the bug. A `MutableList<String>` would have stopped the add at compile time."
+    },
+    "sections": [
+        {
+            "h": "A cast from Any fails in the wrong place",
+            "body": S1,
+            "try": {
+                "title": "Watch the cast fail far from the bug",
+                "minutes": 4,
+                "steps": [
+                    "Run `AnyBoxDemo` with the command below (or its Java twin, `AnyBoxDemoJava`). Note which function the exception names.",
+                    "Make the box generic: change the class to `class AnyBox<T>(var value: T)` (Java: `static class AnyBox<T>` with a `T value` field), and change both functions to take `AnyBox<String>`. Leave `main` alone.",
+                    "Before you run it again, predict which line the compiler will reject. Then run it. Undo the change when you are done."
+                ],
+                "code": demo("kotlin/workbench/generics/l01/demo/AnyBoxDemo.kt", "AnyBoxDemo.kt", "workbench.generics.l01.demo.AnyBoxDemoKt",
+                         alt=("java/workbench/generics/l01/demo/AnyBoxDemoJava.java", "AnyBoxDemoJava.java", "workbench.generics.l01.demo.AnyBoxDemoJava", "java")),
+                "expect": "The first run prints `configure() returned. Nothing has failed yet.` and then `ClassCastException: class java.lang.Integer cannot be cast to class java.lang.String`, thrown in `currencyLabel`. The function with the bug is not in the trace. After the change the build stops at compile time on `box.value = 978`: Kotlin says `Assignment type mismatch: actual type is 'Int', but 'String' was expected.`, javac says `incompatible types: int cannot be converted to String`. The check moved from the reader to the writer."
+            }
+        },
+        {
+            "h": "A type parameter is a blank the caller fills in",
+            "body": S2,
+            "figure": {"svg": FIG, "caption": "You write one generic class. The compiler checks each filled-in version as its own type. The JVM runs a single class."},
+            "try": {
+                "title": "Fill the blank, then break it",
+                "minutes": 4,
+                "steps": [
+                    "Run `BoxDemo` (or `BoxDemoJava`) with the command below to see it work.",
+                    "Uncomment the three wrong moves at the bottom of `main`, one at a time. For each one, write down the error you expect before you run.",
+                    "For the last one, decide how you would fix it without changing `firstOrNull`."
+                ],
+                "code": demo("kotlin/workbench/generics/l01/demo/BoxDemo.kt", "BoxDemo.kt", "workbench.generics.l01.demo.BoxDemoKt",
+                         alt=("java/workbench/generics/l01/demo/BoxDemoJava.java", "BoxDemoJava.java", "workbench.generics.l01.demo.BoxDemoJava", "java")),
+                "expect": "`limit.replace(\"USD\")` gives `Argument type mismatch: actual type is 'String', but 'Long' was expected.` The Box<Int> line gives `Initializer type mismatch: expected 'Box<String>', actual 'Box<Int>'.` The last one gives `expected 'String', actual 'String?'`: `firstOrNull` returns `T?`, so with `T = String` you get a `String?`. Declare `id` as `String?`, or add a default with `?: \"none\"`. In the Java twin the first two fail (`String cannot be converted to Long`, `cannot infer type arguments for Box<>`), and the third compiles: Java has no `T?`, so it hands you a `null` without warning."
+            }
+        },
+        {
+            "h": "Inference fills in most type arguments for you",
+            "body": S3,
+            "try": {
+                "title": "Make the compiler tell you the type",
+                "minutes": 5,
+                "steps": [
+                    "Open `InferenceDemo.kt`. For each of the six values, write down the type you think the compiler inferred.",
+                    "Uncomment `probe1` only and run the demo. The build fails, and the message prints the inferred type. Comment it out again.",
+                    "Repeat for `probe2` to `probe6`, one at a time. Count how many you predicted right."
+                ],
+                "code": demo("kotlin/workbench/generics/l01/demo/InferenceDemo.kt", "InferenceDemo.kt", "workbench.generics.l01.demo.InferenceDemoKt",
+                         alt=("java/workbench/generics/l01/demo/InferenceDemoJava.java", "InferenceDemoJava.java", "workbench.generics.l01.demo.InferenceDemoJava", "java")),
+                "expect": "The messages say `actual 'List<Int>'`, `'List<Number & Comparable<*>>'`, `'List<String?>'`, `'Map<String, Long>'` and `'List<String>'`. `probe6` gives `Cannot infer type for type parameter 'T'. Specify it explicitly.` Most people miss `Map<String, Long>` and the intersection type on the first try. The Java twin prints `List<Integer>`, `List<INT#1>` (javac's name for an intersection), `List<String>`, `Map<String,INT#1>` and `ArrayList<String>`, and `probe6` shows `List<Object>`: Java picked `Object` for the empty list without a word."
+            }
+        },
+        {
+            "h": "Java says the same thing with different punctuation",
+            "body": S4,
+            "try": {
+                "title": "Let a raw type smuggle in an Integer",
+                "minutes": 4,
+                "steps": [
+                    "Run `RawTypeDemo` with the command below. Look for javac's `Note:` line near the top of the Gradle output.",
+                    "Predict: does `ids.add(42)` fail, or does something later fail?",
+                    "Change the parameter of `legacyAppend` from `List ids` to `List<String> ids` and run it again. Then undo it. (The Kotlin twin has no raw type to remove: it switches the check off with an unchecked cast instead, and fails the same way.)"
+                ],
+                "code": demo("java/workbench/generics/l01/demo/RawTypeDemo.java", "RawTypeDemo.java", "workbench.generics.l01.demo.RawTypeDemo", "java",
+                         alt=("kotlin/workbench/generics/l01/demo/RawTypeDemo.kt", "RawTypeDemo.kt", "workbench.generics.l01.demo.RawTypeDemoKt")),
+                "expect": "Gradle prints `Note: ... RawTypeDemo.java uses unchecked or unsafe operations.` The program prints `size = 2, nothing failed yet` and `PAY_1001`, then a `ClassCastException` for the `Integer`. The add worked; the failure comes in the loop, where javac inserted a hidden cast to `String`. With `List<String> ids` the build fails at `ids.add(42)` with `incompatible types: int cannot be converted to String`."
+            },
+            "refs": [
+                {"title": "Raw types (The Java Tutorials)", "url": "https://docs.oracle.com/javase/tutorial/java/generics/rawTypes.html", "kind": "read"}
+            ]
+        }
+    ],
+    "analogy": "An `Any` box is an unlabeled crate in a warehouse. Anyone can put anything in it, and you find out what is inside when you open it at the far end of the building. A `Box<String>` is a crate with a label, and the loading dock refuses anything that does not match the label. You stop the wrong item at the door instead of at the other end. The analogy breaks in one place: a real label travels with the crate. On the JVM the label is removed after the loading dock, so the check happens at compile time only and the running program cannot read it.",
+    "in_your_world": "Payment services collect untyped bags: a `Map<String, Any>` of payment metadata, Kafka record headers read as bytes, a JSON blob from the card issuer parsed into a map. Every `as String` or `as Long` on a read is a place where a `ClassCastException` can show up far from the code that wrote the value. When you own the type, give it a type parameter or a real class (`data class PaymentMetadata(val merchantId: String, val retries: Int)`). When you do not own it, convert once at the edge, in the Kafka deserializer or the HTTP client, so everything behind that line is typed. The Kafka client already does this for you: a `ConsumerRecord<String, PaymentEvent>` hands you a typed value.",
+    "mistake": "The common mistake is choosing `Any` or `Map<String, Any>` \"to keep it flexible\" and casting on every read. People do it because it compiles, and the first version has one writer and one reader who agree. Six months later there are five writers, and one of them stores an `Int`. The fix is to put the type in the signature: a type parameter when the content varies (`Box<T>`, `Cache<V>`), or a small typed class when the shape is fixed. If the values really are of several kinds, use a sealed interface, not `Any`.",
+    "compare": {
+        "title": "One generic box and one generic function, in both languages",
+        "java": {
+            "title": "Box.java",
+            "src": "import java.util.Collections;\nimport java.util.List;\n\nclass Box<T> {\n    private T value;\n\n    Box(T value) { this.value = value; }\n\n    T get() { return value; }\n\n    T replace(T newValue) {\n        T old = value;\n        value = newValue;\n        return old;\n    }\n\n    // <T> before the return type\n    static <T> T firstOrNull(List<T> items) {\n        return items.isEmpty() ? null : items.get(0);\n    }\n\n    static void use() {\n        Box<String> box = new Box<>(\"EUR\");            // diamond infers <String>\n        Box raw = new Box(\"EUR\");                        // raw type: checks off\n        List<String> none = Collections.<String>emptyList();\n        List<Integer> ints = List.of(1, 2);               // no List<int>\n    }\n}"
+        },
+        "kotlin": {
+            "title": "Box.kt",
+            "src": "class Box<T>(var value: T) {\n    fun replace(newValue: T): T {\n        val old = value\n        value = newValue\n        return old\n    }\n}\n\n// <T> before the function name\nfun <T> firstOrNull(items: List<T>): T? =\n    if (items.isEmpty()) null else items[0]\n\nfun use() {\n    val box = Box(\"EUR\")                  // Box<String>, no diamond needed\n    // there is no raw Box: Box without <...> must be inferable or it does not compile\n    val none = emptyList<String>()\n    val ints: List<Int> = listOf(1, 2)     // Int works; stored as java.lang.Integer\n}"
+        },
+        "note": "The model is the same: one class, type parameters checked at compile time, one runtime class. Kotlin infers the type argument from constructor arguments without a diamond, and it has no raw types, so the unchecked-warning escape hatch that Java keeps for old code does not exist. Kotlin also accepts `Int` as a type argument, while Java forces you to write `Integer`. Both compile to boxed objects. One more difference shows in `firstOrNull`: Kotlin's return type says `T?`, so callers must handle null. Java's `T` can be null without saying so."
+    },
+    "worked": {
+        "title": "Make an idempotency cache generic",
+        "steps": [
+            {"say": "A payment API caches the response for each idempotency key, so a retried request gets the same answer. The first version stores `Any`, and every caller casts. Find the two places a wrong type could get in or out.", "code": "class IdempotencyCache {\n    private val responses = HashMap<String, Any>()\n\n    fun put(key: String, response: Any) { responses[key] = response }\n    fun get(key: String): Any? = responses[key]\n}\n\n// caller\nval cached = cache.get(key) as AuthorizationResponse?   // cast on every read", "lang": "kotlin",
+             "alt_lang": "java", "alt_code": "class IdempotencyCache {\n    private final Map<String, Object> responses = new HashMap<>();\n\n    void put(String key, Object response) { responses.put(key, response); }\n    Object get(String key) { return responses.get(key); }\n}\n\n// caller\nAuthorizationResponse cached = (AuthorizationResponse) cache.get(key);   // cast on every read"},
+            {"say": "1. Decide what varies. The key is always a `String`. The response type changes per endpoint: authorizations, refunds, captures. So the response type becomes the type parameter, and the key stays a plain `String`.", "code": "class IdempotencyCache<R> {\n    private val responses = HashMap<String, R>()\n\n    fun put(key: String, response: R) { responses[key] = response }\n    fun get(key: String): R? = responses[key]\n}", "lang": "kotlin",
+             "alt_lang": "java", "alt_code": "class IdempotencyCache<R> {\n    private final Map<String, R> responses = new HashMap<>();\n\n    void put(String key, R response) { responses.put(key, response); }\n    R get(String key) { return responses.get(key); }   // null when absent\n}"},
+            {"say": "2. Fill the blank at the use site. Each endpoint gets its own cache with its own type. The cast is gone, and a wrong put is now a compile error.", "code": "val authCache = IdempotencyCache<AuthorizationResponse>()\nval cached: AuthorizationResponse? = authCache.get(key)   // no cast\n\nauthCache.put(key, RefundResponse(\"rf_1\"))\n// error: argument type mismatch: actual type is 'RefundResponse',\n//        but 'AuthorizationResponse' was expected.", "lang": "kotlin",
+             "alt_lang": "java", "alt_code": "var authCache = new IdempotencyCache<AuthorizationResponse>();\nAuthorizationResponse cached = authCache.get(key);   // no cast\n\nauthCache.put(key, new RefundResponse(\"rf_1\"));\n// error: incompatible types: RefundResponse cannot be converted to AuthorizationResponse"},
+            {"say": "3. Add a helper that computes on a miss. It uses the class's `R`, so it needs no `<R>` of its own. Stop and answer: what would go wrong if you wrote `fun <R> getOrPut(...)` here? (A new `R` on the function would hide the class's `R`, and `responses[key] = value` would no longer type-check. The same happens in Java with `<R> R getOrPut(...)`.)", "code": "fun getOrPut(key: String, compute: () -> R): R {\n    responses[key]?.let { return it }\n    val value = compute()\n    responses[key] = value\n    return value\n}", "lang": "kotlin",
+             "alt_lang": "java", "alt_code": "R getOrPut(String key, Supplier<R> compute) {\n    R cached = responses.get(key);\n    if (cached != null) return cached;\n    R value = compute.get();\n    responses.put(key, value);\n    return value;\n}"}
+        ]
+    },
+    "lab": {
+        "title": "Write a generic Stack, two generic functions and a Duo",
+        "minutes": 12,
+        "files": [
+            f"{LAB}/main/kotlin/workbench/generics/l01/Stack.kt",
+            f"{LAB}/main/kotlin/workbench/generics/l01/Search.kt",
+            f"{LAB}/main/kotlin/workbench/generics/l01/Duo.kt"
+        ],
+        "run": "./gradlew :generics:test --tests 'workbench.generics.l01.*'",
+        "steps": [
+            "Run the tests once. All nine fail with `NotImplementedError`.",
+            "In `Stack.kt`, add a `private val items = mutableListOf<T>()` and write the five members. `pop` on an empty stack throws `NoSuchElementException`.",
+            "In `Search.kt`, write `firstMatching` with a plain `for` loop, then `indexBy`. `indexBy` keeps the first item it sees for each key.",
+            "In `Duo.kt`, write `swap`, `mapSecond` and `zipToDuos`. Read each return type first: it tells you what to build.",
+            "Run the tests until all nine pass. Then search your code for `as `: there should be no casts at all."
+        ],
+        "hints": [
+            "`MutableList<T>.removeAt(lastIndex)` returns a `T`. `lastOrNull()` returns a `T?`.",
+            "For `indexBy`, a `LinkedHashMap<K, T>` with `putIfAbsent(key(item), item)` keeps the first item and the input order.",
+            "`swap()` is one line: `Duo(second, first)`. The compiler checks that it is a `Duo<B, A>`."
+        ],
+        "done_when": "All nine tests in `GenericsFromZeroTest` pass, and your code has no `as` casts."
+    },
+    "drill": {
+        "title": "Write Box and firstOrNull from memory",
+        "minutes": 4,
+        "prompt": "Close this page. In a scratch file, write a `Box<T>` class with a value and a `replace` method that returns the old value, plus a generic `lastOrNull(items)` function. Write it in Kotlin, then in Java. Check: where did each `<T>` go?",
+        "answer": {
+            "lang": "kotlin",
+            "src": "class Box<T>(var value: T) {\n    fun replace(newValue: T): T {\n        val old = value\n        value = newValue\n        return old\n    }\n}\n\nfun <T> lastOrNull(items: List<T>): T? =\n    if (items.isEmpty()) null else items[items.size - 1]\n\n// Java: the <T> goes before the return type\n// static <T> T lastOrNull(List<T> items) {\n//     return items.isEmpty() ? null : items.get(items.size() - 1);\n// }",
+            "alt": {"lang": "java", "title": "Box.java", "src": "class Box<T> {\n    private T value;\n\n    Box(T value) { this.value = value; }\n\n    T replace(T newValue) {\n        T old = value;\n        value = newValue;\n        return old;\n    }\n\n    // <T> before the return type\n    static <T> T lastOrNull(List<T> items) {\n        return items.isEmpty() ? null : items.get(items.size() - 1);\n    }\n}"}
+        }
+    },
+    "recap": [
+        "A cast from `Any` checks the type late, at the read, so the exception points at the reader and not at the bug.",
+        "`class Box<T>` declares a type parameter. `Box<String>` fills it with a type argument, and the compiler checks every use.",
+        "Kotlin puts a function's `<T>` before the name (`fun <T> f`). Java puts it before the return type (`static <T> T f`).",
+        "Inference fills in most type arguments. When there is nothing to infer from, write `emptyList<String>()` or declare the variable's type.",
+        "Assign a value to a wrong type (`val probe: Int = x`) to make the compiler print what it inferred.",
+        "Java raw types (`List` with no `<...>`) switch the checks off. Kotlin has none."
+    ],
+    "quiz": [
+        {
+            "q": "Payment metadata is a `MutableMap<String, Any>`. A retry handler stores `meta[\"retries\"] = \"3\"`. A report later runs `val n = meta[\"retries\"] as Int`. What happens?",
+            "options": [
+                "A compile error on the line that stores \"3\"",
+                "A ClassCastException on the line that stores \"3\"",
+                "A ClassCastException on the `as Int` line, when the report runs",
+                "`n` is 3, because Kotlin converts the string"
+            ],
+            "answer": 2,
+            "why": "A `String` is an `Any`, so the store compiles and runs. The cast in the report is the first check, and it fails there. Casts never convert values. A typed field such as `retries: Int` would have made the store a compile error."
+        },
+        {
+            "q": "Given `fun <T> firstOrNull(items: List<T>): T?`, what does the compiler say about `val id: String? = firstOrNull(listOf(1, 2))`?",
+            "options": [
+                "Initializer type mismatch: expected 'String?', actual 'Int?'",
+                "It compiles, and `id` is null",
+                "It compiles, and `id` is \"1\"",
+                "It compiles, then throws ClassCastException"
+            ],
+            "answer": 0,
+            "why": "`T` is inferred from the argument as `Int`, so the call returns `Int?`. That does not fit in a `String?`. The type parameter ties the input and the output together, which is the whole point. Nothing is converted at run time."
+        },
+        {
+            "q": "`val none = emptyList()` does not compile. Which line fixes it?",
+            "options": [
+                "`val none = emptyList<String>()`",
+                "`val none: List<String> = emptyList()`",
+                "Either of the two above",
+                "Neither: `emptyList` needs an argument"
+            ],
+            "answer": 2,
+            "why": "The compiler needs to know `T`. You can give the type argument at the call, or give the variable a type and let inference work backwards from it. Both produce a `List<String>`."
+        },
+        {
+            "q": "Java: `List raw = new ArrayList(); raw.add(7); List<String> names = raw; String s = names.get(0);` What happens?",
+            "options": [
+                "A compile error on `raw.add(7)`",
+                "It compiles with unchecked warnings, then throws ClassCastException on the `names.get(0)` line",
+                "It compiles, and `s` is \"7\"",
+                "ArrayStoreException on `raw.add(7)`"
+            ],
+            "answer": 1,
+            "why": "Raw types turn the checks off, so javac only warns. The `Integer` sits in the list until the read, where javac inserted a cast to `String`. The failure appears far from the line that caused it, the same as with `Any`."
+        },
+        {
+            "q": "From the race conditions lesson: a Kafka consumer does `if (!seen.contains(key)) { charge(m); seen.add(key) }`, where `seen` is `ConcurrentHashMap.newKeySet<String>()`. Two copies of one message arrive on two threads. What is the smallest fix?",
+            "options": [
+                "Make the field `seen` volatile",
+                "Replace `seen` with a `Collections.synchronizedSet`",
+                "Call `charge` only after `seen.add(key)` returned true: `if (seen.add(key)) charge(m)`",
+                "Make `seen` a `MutableSet<Any>` so both copies fit"
+            ],
+            "answer": 2,
+            "why": "This is check-then-act. Each set call is atomic, but two calls in a row are not. `add` checks and inserts in one step and returns false for the second copy, so only one thread charges. `volatile` and a synchronized wrapper leave the gap between the two calls.",
+            "from": "conc-03"
+        }
+    ],
+    "flashcards": [
+        {"front": "In `class Box<T>`, what is `T`?", "back": "A type parameter: a blank that each user of `Box` fills with a real type, such as `Box<String>`."},
+        {"front": "Where does a bad value stored in an `Any` field get caught?", "back": "At the cast in the code that reads it, at run time. The stack trace points at the reader, not at the writer with the bug."},
+        {"front": "`val e = emptyList()` gives what error?", "back": "`cannot infer type for type parameter 'T'. Specify it explicitly.` Fix: `emptyList<String>()` or `val e: List<String> = emptyList()`."},
+        {"front": "Where does `<T>` go in a Kotlin generic function, and in a Java one?", "back": "Kotlin: before the name, `fun <T> first(xs: List<T>): T`. Java: before the return type, `static <T> T first(List<T> xs)`."},
+        {"front": "What does Java's diamond in `new ArrayList<>()` do?", "back": "It tells javac to infer the type argument from the target type. Without it, `new ArrayList()` is a raw type."},
+        {"front": "What does `listOf(1, 2.5)` infer to?", "back": "`List<Number & Comparable<*>>`, an intersection type: the closest type that both `Int` and `Double` share."},
+        {"front": "How do you see the type Kotlin inferred for `x`?", "back": "Write `val probe: Int = x`. The compile error prints the actual type."}
+    ],
+    "terms": [
+        {"term": "Type parameter", "plain": "The placeholder in a declaration, like `T` in `class Box<T>`."},
+        {"term": "Type argument", "plain": "The real type that fills a type parameter, like `String` in `Box<String>`."},
+        {"term": "Generic function", "plain": "A function with its own type parameters, such as `fun <T> firstOrNull(items: List<T>): T?`."},
+        {"term": "Type inference", "plain": "The compiler working out type arguments from the values and the expected type."},
+        {"term": "Intersection type", "plain": "A type that is two types at once, like `Number & Comparable<*>`. Inferred by the compiler; you cannot write it yourself."},
+        {"term": "Diamond", "plain": "Java's `<>` on `new`, asking javac to infer the type arguments."},
+        {"term": "Raw type", "plain": "A Java generic type used without type arguments, like plain `List`. The compiler stops checking it."}
+    ],
+    "explain_back": {
+        "prompt": "A teammate wants to keep a `Map<String, Any>` of payment settings \"because it's flexible\". In your own words, explain what a type parameter or a typed class buys you, using where the error shows up.",
+        "answer": "With `Any`, the compiler accepts any value on the way in, so a wrong value is only caught by the cast on the way out. That cast runs in whatever code reads the setting, maybe much later, and the exception points there instead of at the code that stored the bad value. With a type parameter, or a small class with typed fields, the compiler checks every write against the declared type. The bad write becomes a compile error on the exact line with the bug, and readers need no casts, so they cannot fail with a ClassCastException. The flexibility of `Any` is just the freedom to store the wrong thing."
+    },
+    "deeper": {
+        "minutes": 8,
+        "body": "Two inference tools are worth knowing.\n\nA **`_` type argument** lets you give some type arguments and infer the rest. If a function has two type parameters and only one can be inferred, write `_` for the one the compiler can work out: `runner.run<CardGateway, _>()`. The Kotlin generics page has the full example.\n\nYou can also widen a type **on purpose**. `listOf(1, \"a\")` infers an intersection type that you cannot name. If you really want a list of anything, say so: `listOf<Any>(1, \"a\")`. Now the type is `List<Any>` and it reads honestly in code review.\n\nOne Java detail: the explicit type argument goes after the dot, `Collections.<String>emptyList()`, and it needs a receiver. Inside the same class you must write `this.<String>helper()` or `MyClass.<String>helper()`. In Java 8 and later you rarely need it, because target typing infers the argument from the variable you assign to.\n\nFinally, Kotlin's `List<Int>` holds `java.lang.Integer` objects, so a list of a million ints costs a million small objects. When that matters, use `IntArray`, which is a real `int[]`."
+    },
+    "sources": [
+        {"title": "Generics: in, out, where (Kotlin docs)", "url": "https://kotlinlang.org/docs/generics.html"},
+        {"title": "Generics (The Java Tutorials)", "url": "https://docs.oracle.com/javase/tutorial/java/generics/index.html"},
+        {"title": "Calling Kotlin from Java (Kotlin docs)", "url": "https://kotlinlang.org/docs/java-to-kotlin-interop.html"}
+    ]
+}
+
+out = ROOT / "content/lessons/gen-01.json"
+out.write_text(json.dumps(L, indent=2, ensure_ascii=False) + "\n")
+print("wrote", out)
