@@ -11,7 +11,7 @@
 const JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 const ISSUERS = ["https://accounts.google.com", "accounts.google.com"];
 const COOKIE = "jvmwb_s", DAYS = 30, MAX_BYTES = 512 * 1024, PREFIX = "jvmwb:";
-const PUBLIC_ART = new Set(["/art/plate-dark.webp", "/art/plate-light.webp"]);
+const isPublicAsset = (path) => path.startsWith("/fonts/"); // the sign-in page needs the fonts
 let jwksCache = { at: 0, keys: [] }, hmacKey = null;
 
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -93,27 +93,29 @@ export function merge(a, b) {
 
 const LOGIN = (clientId) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Sign in · JVM Workbench</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@500&display=swap">
 <style>
-:root{color-scheme:dark;--ink:#0f1218;--fg:#e9e3d6;--mute:#aba597;--faint:#7d786d;--hold:#e8b04e;--bad:#e8775f;--rule:#e9e3d61f}
-:root.light{color-scheme:light;--ink:#f2f1ec;--fg:#1c2030;--mute:#4e5262;--faint:#7a7c86;--hold:#8f5a05;--bad:#b4412b;--rule:#1c20301c}
+@font-face{font-family:'Instrument Serif';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/instrument-serif-400.woff2) format('woff2')}
+@font-face{font-family:'Instrument Serif';font-style:italic;font-weight:400;font-display:swap;src:url(/fonts/instrument-serif-400i.woff2) format('woff2')}
+@font-face{font-family:'Newsreader';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/newsreader-400.woff2) format('woff2')}
+@font-face{font-family:'Inter';font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/inter-600.woff2) format('woff2')}
+:root{color-scheme:light;--ink:#fcfcfb;--fg:#23262e;--mute:#575b66;--faint:#8b909b;--ember:#1f5fc4;--gold:#1a4a96;--bad:#b5303a;--rule:#e2e5eb}
+:root.dark{color-scheme:dark;--ink:#0b1220;--fg:#e4e9f3;--mute:#a3b0c6;--faint:#6f7e98;--ember:#5b9bff;--gold:#8ec5ff;--bad:#f07a86;--rule:#24324f}
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--ink);color:var(--fg);font:17px/1.55 "Instrument Sans",system-ui,sans-serif;padding:24px max(16px,env(safe-area-inset-left,0px))}
-.card{width:100%;max-width:560px;display:grid;gap:20px;justify-items:center;text-align:center}
-.art{width:100%;border:1px solid var(--rule);border-radius:12px;aspect-ratio:8/5;height:auto;display:block}
-:root.light .d,:root:not(.light) .l{display:none}
-.label{font:500 11.5px "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
-h1{font:400 52px/1 "Instrument Serif",Georgia,serif;margin:0}h1 i{color:var(--hold)}
-p{margin:0;color:var(--mute);max-width:40ch}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--ink);color:var(--fg);font:400 20px/1.46 "Newsreader",Georgia,serif;padding:24px max(16px,env(safe-area-inset-left,0px))}
+.card{width:100%;max-width:440px;display:grid;gap:18px;justify-items:center;text-align:center}
+.label{font:600 13px -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;color:var(--mute)}
+h1{font:400 56px/1.02 "Instrument Serif",Georgia,serif;margin:0}h1 i{color:var(--gold)}
+p{margin:0;color:var(--mute);max-width:34ch}
+.rule{width:100%;border-top:1px solid var(--rule)}
 #g{min-height:44px;display:grid;place-items:center}
-.msg{min-height:1.5em;font-size:14.5px;color:var(--mute)}.msg.bad{color:var(--bad)}
+.msg{min-height:1.5em;font:15px -apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;color:var(--mute)}.msg.bad{color:var(--bad)}
 </style>
-<script>try{var t=(JSON.parse(localStorage.getItem('jvmwb-v1')||'{}').theme)||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');if(t==='light')document.documentElement.className='light'}catch(e){}</script>
+<script>try{if((JSON.parse(localStorage.getItem('jvmwb-v1')||'{}').theme)==='dark')document.documentElement.className='dark'}catch(e){}</script>
 </head><body><main class="card">
-<img class="art d" src="/art/plate-dark.webp" alt="" width="1600" height="1000"><img class="art l" src="/art/plate-light.webp" alt="" width="1600" height="1000">
-<span class="label">Concurrency · generics · patterns</span>
+<svg width="44" height="44" viewBox="0 0 22 22" aria-hidden="true"><g fill="var(--ember)"><circle cx="4" cy="4" r="1.35"/><circle cx="4" cy="11" r="1.35"/><circle cx="4" cy="18" r="1.35"/><circle cx="11" cy="11" r="2.1"/></g><g fill="var(--ember)" fill-opacity=".6"><circle cx="11" cy="4" r="1.35"/><circle cx="11" cy="18" r="1.35"/></g><g fill="var(--ember)" fill-opacity=".3"><circle cx="18" cy="4" r="1.35"/><circle cx="18" cy="11" r="1.35"/><circle cx="18" cy="18" r="1.35"/></g><circle cx="11" cy="11" r="6" fill="none" stroke="var(--ember)" stroke-opacity=".7" stroke-width=".9"/></svg>
+<span class="label">Concurrency, generics and patterns in Java and Kotlin</span>
 <h1>JVM <i>Workbench</i></h1>
+<div class="rule"></div>
 <p>Sign in with your enrolled Google account. Your progress follows you between devices.</p>
 <div id="g"></div><div class="msg" id="msg" role="status">Loading Google sign-in…</div>
 </main>
@@ -125,7 +127,7 @@ async function done(r){say('Checking your account…');
  if(x.ok){var n=new URLSearchParams(location.search).get('next')||'/';if(n.charAt(0)!=='/'||n.charAt(1)==='/')n='/';location.replace(n+location.hash);}
  else say(x.status===403?'This Google account is not enrolled. Ask the course owner to add it.':'Sign-in failed. Please try again.',true);}
 function start(){
- var light=document.documentElement.className==='light';
+ var light=document.documentElement.className!=='dark';
  google.accounts.id.initialize({client_id:${JSON.stringify(clientId)},callback:done,auto_select:true,itp_support:true});
  google.accounts.id.renderButton(document.getElementById('g'),{theme:light?'outline':'filled_black',size:'large',shape:'pill',text:'signin_with',width:260});
  google.accounts.id.prompt();
@@ -140,7 +142,7 @@ export default {
     const clientId = env.GOOGLE_CLIENT_ID || "";
     // public: the sign-in page, its art, and the sign-in API
     if (path === "/login") return new Response(LOGIN(clientId), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
-    if (PUBLIC_ART.has(path)) return env.ASSETS.fetch(request);
+    if (isPublicAsset(path)) return env.ASSETS.fetch(request);
     if (path === "/api/config") return json({ clientId });
     if (path === "/api/session" && request.method === "POST") {
       let who;
@@ -176,7 +178,7 @@ export default {
     if (path.startsWith("/api/")) return json({ error: "not found" }, 404);
     const res = await env.ASSETS.fetch(request);
     const out = new Response(res.body, res);
-    out.headers.set("cache-control", path.startsWith("/art/") ? "private, max-age=604800" : "private, no-cache");
+    out.headers.set("cache-control", "private, no-cache");
     return out;
   },
 };

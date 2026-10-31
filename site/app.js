@@ -6,7 +6,6 @@
   const L = C.lessons;
   const T = Object.fromEntries(C.tracks.map((t, i) => [t.id, Object.assign(t, { idx: i + 1 })]));
   const ORDER = C.order;
-  const ART = window.ART || {};
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -176,7 +175,7 @@
     moon: '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 12.4A7 7 0 0 1 7.6 3.5a7 7 0 1 0 8.9 8.9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
     timer: '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 7.5V11l2.4 1.6M8 2.2h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
   };
-  const brandMark = '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><g stroke="currentColor" stroke-opacity=".35" stroke-width=".8"><path d="M5 1v20M11 1v20M17 1v20"/></g><rect x="2.5" y="3.5" width="5" height="3" rx=".6" fill="var(--run)"/><rect x="8.5" y="9.5" width="5" height="3" rx=".6" fill="var(--hold)"/><rect x="14.5" y="3.5" width="5" height="3" rx=".6" fill="var(--run)"/><rect x="2.5" y="15.5" width="5" height="3" rx=".6" fill="var(--run)"/><rect x="14.5" y="15.5" width="5" height="3" rx=".6" fill="none" stroke="var(--run)" stroke-width=".9"/></svg>';
+  const brandMark = '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">' + [0, 1, 2].map((r) => ["var(--ember)", "color-mix(in srgb, var(--ember) 65%, var(--ink))", "color-mix(in srgb, var(--ember) 35%, var(--ink))"].map((c, k) => `<circle cx="${4 + k * 7}" cy="${4 + r * 7}" r="${r === 1 && k === 1 ? 2.1 : 1.35}" fill="${c}"/>`).join("")).join("") + '<circle cx="11" cy="11" r="6" fill="none" stroke="var(--ember)" stroke-opacity=".7" stroke-width=".9"/></svg>';
   const cells = (ids, big) => `<span class="draft" aria-hidden="true">${ids.map((id) => `<i class="cell${big ? " lg" : ""} ${cellState(id)}"></i>`).join("")}</span>`;
   function codeBox(c, title) {
     if (!c) return "";
@@ -203,7 +202,7 @@
   /* ---------------- frame ---------------- */
   const app = $("#app");
   let mobileOpen = false, deskOpen = true;
-  function effectiveTheme() { return S.theme || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"); }
+  const effectiveTheme = () => S.theme || "light"; // light unless the learner picks dark
   function frame() {
     const due = dueIds().length;
     app.innerHTML = `
@@ -213,7 +212,7 @@
       <span class="spacer"></span>
       <button class="chip ${due ? "" : "quiet"}" data-go="review" title="Spaced review"><span class="dot"></span><span class="tnum">${due}</span><span class="hide-sm">&nbsp;due</span></button>
       <button class="iconbtn" data-act="timer" aria-label="Focus timer" title="35-minute focus timer">${icon.timer}</button>
-      <button class="iconbtn" data-act="theme" aria-label="Switch theme" title="Switch theme">${effectiveTheme() === "dark" ? icon.sun : icon.moon}</button>
+      <button class="switch" data-act="theme" role="switch" aria-checked="${effectiveTheme() === "dark"}" aria-label="Dark mode" title="Dark mode"><span class="tr"></span><span class="kn"></span></button>
       ${me ? `<button class="avatar" data-go="plan" title="${esc(me.email)}" aria-label="Signed in as ${esc(me.email)}">${me.picture ? `<img src="${esc(me.picture)}" alt="" referrerpolicy="no-referrer">` : esc((me.name || me.email || "?")[0].toUpperCase())}</button>` : ""}
     </header>
     <div class="scrim ${mobileOpen ? "on" : ""}" data-act="close-menu"></div>
@@ -292,15 +291,18 @@
     const due = dueIds().length;
     const l = nx ? L[nx] : null;
     const started = doneCount() > 0;
-    const art = ART.dark ? `<img class="plate dark" src="${ART.dark}" alt="A weaving draft: rows of indigo cells in a twill pattern, interrupted by a band where a single saffron cell passes one column at a time, captioned happens before" width="1600" height="1000"><img class="plate light" src="${ART.light}" alt="" width="1600" height="1000">` : "";
     return `
     <section class="hero">
-      <div>
-        <span class="label">${ORDER.length} lessons · 8 tracks · about 35 minutes a day</span>
-        <h1 style="margin-top:14px">Threads, types and patterns, <i>one turn at a time.</i></h1>
-        <p>${esc(C.tagline)} Every lesson ends with real code to write and tests that tell you when it works.</p>
+      <div class="row" style="justify-content:space-between"><span class="label">${ORDER.length} lessons · 8 tracks · about 35 minutes a day</span><span class="label">${totalWeeks()} weeks at ${pace()} days a week</span></div>
+      <h1>JVM <i>Workbench</i></h1>
+      <p>${esc(C.tagline)} Every lesson ends with real code to write and tests that tell you when it works.</p>
+      <div class="plate-wrap">${weekPlate()}</div>
+      <div class="plate-legend">
+        <span><svg width="14" height="14" viewBox="-7 -7 14 14"><circle r="3.4" fill="var(--ember)"/></svg>Done</span>
+        <span><svg width="18" height="18" viewBox="-9 -9 18 18"><circle r="6" fill="none" stroke="var(--ember)" stroke-width="1.2" class="pulse"/><circle r="2.2" fill="var(--ember)"/></svg>Next</span>
+        <span><svg width="14" height="14" viewBox="-7 -7 14 14"><circle r="2.2" fill="var(--mark-off)"/></svg>Later</span>
+        <span>One column per week, one dot per study day. Tap a dot to open that lesson.</span>
       </div>
-      <div>${art}</div>
     </section>
 
     <div class="sechead"><h2>Today</h2>${l ? `<span class="label">${wdLabel(l.id)} of ${totalWeeks()} weeks</span>` : ""}</div>
@@ -344,6 +346,23 @@
       <div><b>Write the code</b><span>Short "Try it" steps in each section, then a lab with tests in the <code>labs</code> project, and a drill you write from memory.</span></div>
       <div><b>Check, then let it go</b><span>A five-question quiz with one question from an earlier lesson. Anything you miss comes back in your review deck.</span></div>
     </section>`;
+  }
+
+  // one column per course week, one row per study day; each dot is a lesson
+  function weekPlate() {
+    const weeks = totalWeeks(), days = pace(), sx = 36, sy = 24, x0 = 46, y0 = 30;
+    const W = x0 + (weeks - 1) * sx + 20, H = y0 + (days - 1) * sy + 14;
+    const nx = nextUp();
+    let g = "";
+    for (let w = 0; w < weeks; w++) g += `<text class="wk" x="${x0 + w * sx}" y="12" text-anchor="middle">${w + 1}</text>`;
+    for (let d = 0; d < days; d++) g += `<text class="wk" x="0" y="${y0 + d * sy + 4}">D${d + 1}</text>`;
+    ORDER.forEach((id, k) => {
+      const x = x0 + Math.floor(k / days) * sx, y = y0 + (k % days) * sy;
+      const st = S.done[id] ? "done" : id === nx ? "next" : "later";
+      const mark = st === "done" ? `<circle r="4.2" fill="var(--ember)"/>` : st === "next" ? `<circle r="7.4" fill="none" stroke="var(--ember)" stroke-width="1.3" class="pulse"/><circle r="2.8" fill="var(--ember)"/>` : `<circle r="2.8" fill="var(--mark-off)"/>`;
+      g += `<g transform="translate(${x} ${y})" data-go="${id}" role="link" aria-label="${wdLabel(id)}: ${esc(L[id].title)}"><title>${wdLabel(id)}: ${esc(L[id].title)}</title><circle r="11" fill="transparent"/>${mark}</g>`;
+    });
+    return `<svg class="plate-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Course plan: ${doneCount()} of ${ORDER.length} lessons done">${g}</svg>`;
   }
 
   /* ---------------- lesson ---------------- */
@@ -843,7 +862,6 @@
   });
   let wasDesk = isDesk();
   addEventListener("resize", () => { if (isDesk() !== wasDesk) { wasDesk = isDesk(); render(true); } });
-  matchMedia("(prefers-color-scheme: light)").addEventListener?.("change", () => { if (!S.theme) render(true); });
   if (S.theme) document.documentElement.setAttribute("data-theme", S.theme);
   document.documentElement.setAttribute("data-code", S.code || "both");
   render();

@@ -167,33 +167,42 @@ def compile_course():
     return out
 
 
-def pyg_css():
-    return ""  # token colors live in style.css so they follow the theme
+# the same faces as AI Engineer from Zero, served with the site (web) or inlined (preview)
+FONTS = [
+    ("Instrument Serif", "normal", 400, "instrument-serif-400.woff2"), ("Instrument Serif", "italic", 400, "instrument-serif-400i.woff2"),
+    ("Newsreader", "normal", 400, "newsreader-400.woff2"), ("Newsreader", "italic", 400, "newsreader-400i.woff2"),
+    ("Newsreader", "normal", 600, "newsreader-600.woff2"), ("Newsreader", "italic", 600, "newsreader-600i.woff2"),
+    ("Inter", "normal", 400, "inter-400.woff2"), ("Inter", "normal", 500, "inter-500.woff2"), ("Inter", "normal", 600, "inter-600.woff2"),
+    ("CMU Typewriter Text", "normal", 400, "cmu-typewriter.woff2"),
+    ("CMU Serif", "normal", 400, "cmu-serif-400.woff2"), ("CMU Serif", "italic", 400, "cmu-serif-400i.woff2"),
+]
+
+
+def font_css(inline):
+    out = []
+    for fam, style, weight, f in FONTS:
+        src = ("data:font/woff2;base64," + base64.b64encode((SITE / "fonts" / f).read_bytes()).decode()) if inline else f"/fonts/{f}"
+        adj = "size-adjust:98%;" if fam == "Newsreader" else ""
+        out.append(f"@font-face{{font-family:'{fam}';font-style:{style};font-weight:{weight};font-display:swap;{adj}src:url({src}) format('woff2')}}")
+    return "".join(out)
 
 
 def page(course, mode):
     css = (SITE / "style.css").read_text()
     js = (SITE / "app.js").read_text()
     data = json.dumps(course, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
-    if mode == "preview":
-        art = {m: "data:image/webp;base64," + base64.b64encode((ROOT / f"art/plate-{m}.webp").read_bytes()).decode() for m in ("dark", "light")}
-    else:
-        art = {m: f"art/plate-{m}.webp" for m in ("dark", "light")}
-    fonts = ('<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-             '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700'
-             '&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:ital,wght@0,400..700;1,400&display=swap">')
+    fonts = f"<style>{font_css(mode == 'preview')}</style>"
     body = (f'<title>JVM Workbench</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n'
             f'<meta name="description" content="{html.escape(course["tagline"])}">\n{fonts}\n<style>{css}</style>\n'
             f'<script>try{{var t=JSON.parse(localStorage.getItem("jvmwb-v1")||"{{}}").theme;if(t)document.documentElement.setAttribute("data-theme",t)}}catch(e){{}}</script>\n'
             f'<div id="app"></div>\n'
             f'<script type="application/json" id="course">{data}</script>\n'
-            f'<script>window.ART={json.dumps(art)};</script>\n'
             f'<script>{js}</script>\n')
     if mode == "preview":
         return body
     return ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
-            '<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%230f1218%22/%3E%3Crect x=%223%22 y=%223%22 width=%224%22 height=%224%22 fill=%22%235b74d6%22/%3E%3Crect x=%229%22 y=%229%22 width=%224%22 height=%224%22 fill=%22%23e2a43a%22/%3E%3Crect x=%229%22 y=%223%22 width=%224%22 height=%224%22 fill=%22%235b74d6%22 fill-opacity=%22.45%22/%3E%3C/svg%3E">\n'
+            '<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%23ffffff%22/%3E%3Ccircle cx=%224%22 cy=%224%22 r=%221.4%22 fill=%22%231f5fc4%22/%3E%3Ccircle cx=%228%22 cy=%224%22 r=%221.4%22 fill=%22%235b8bd6%22/%3E%3Ccircle cx=%2212%22 cy=%224%22 r=%221.4%22 fill=%22%239bb8e8%22/%3E%3Ccircle cx=%224%22 cy=%228%22 r=%221.4%22 fill=%22%231f5fc4%22/%3E%3Ccircle cx=%228%22 cy=%228%22 r=%222.1%22 fill=%22%231f5fc4%22/%3E%3Ccircle cx=%2212%22 cy=%228%22 r=%221.4%22 fill=%22%239bb8e8%22/%3E%3Ccircle cx=%224%22 cy=%2212%22 r=%221.4%22 fill=%22%231f5fc4%22/%3E%3Ccircle cx=%228%22 cy=%2212%22 r=%221.4%22 fill=%22%235b8bd6%22/%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%221.4%22 fill=%22%239bb8e8%22/%3E%3C/svg%3E">\n'
             + body.replace("</title>", "</title>", 1).split("\n<div id=\"app\">")[0]
             + '\n</head>\n<body>\n<div id="app"></div>\n'
             + body.split('<div id="app"></div>\n', 1)[1]
@@ -220,9 +229,11 @@ def main():
     course = compile_course()
     ready = sum(1 for l in course["lessons"].values() if l["ready"])
     WEB.mkdir(exist_ok=True)
-    (WEB / "art").mkdir(exist_ok=True)
-    for m in ("dark", "light"):
-        (WEB / "art" / f"plate-{m}.webp").write_bytes((ROOT / f"art/plate-{m}.webp").read_bytes())
+    import shutil
+    shutil.rmtree(WEB / "art", ignore_errors=True)  # the old cover plate is no longer used
+    (WEB / "fonts").mkdir(exist_ok=True)
+    for _, _, _, f in FONTS:
+        (WEB / "fonts" / f).write_bytes((SITE / "fonts" / f).read_bytes())
     core, bodies = split(course)
     les = WEB / "lessons"
     les.mkdir(exist_ok=True)
