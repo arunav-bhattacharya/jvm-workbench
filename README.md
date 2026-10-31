@@ -50,7 +50,7 @@ python3 site/build.py             # writes web/index.html
 
 ## Deploy to Cloudflare
 
-The site is a static Cloudflare Worker (`wrangler.jsonc`, assets only). Either:
+Step-by-step instructions are in [DEPLOY.md](DEPLOY.md). In short, the site is a static Cloudflare Worker (`wrangler.jsonc`, assets only). Either:
 
 - connect this repo in the Cloudflare dashboard (Workers & Pages, Create, Import a repository) with deploy command `npx wrangler deploy`, so every push to `main` deploys; or
 - add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as repository secrets, and the `ci` workflow deploys after the content and lab checks pass; or
