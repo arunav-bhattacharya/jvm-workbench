@@ -1,0 +1,262 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/executors/src"
+P = "java/workbench/executors/l05"
+KP = "kotlin/workbench/executors/l05"
+read = lambda p: (ROOT / p).read_text()
+
+def demo(name):
+    return {"lang": "java", "title": f"{name}.java", "src": read(f"{lab}/demo/{P}/{name}.java"),
+            "run": f"./gradlew :executors:demo -Pmain=workbench.executors.l05.{name}",
+            "file": f"{lab}/demo/{P}/{name}.java",
+            "alt": {"lang": "kotlin", "title": f"{name}.kt", "src": read(f"{lab}/demo/{KP}/{name}.kt"),
+                    "run": f"./gradlew :executors:demo -Pmain=workbench.executors.l05.{name}Kt",
+                    "file": f"{lab}/demo/{KP}/{name}.kt"}}
+
+# timeline: x = 110 + ms * 0.6
+def x(ms): return 110 + ms * 0.6
+def run_rects(starts, durs, y):
+    out = []
+    for i, (s, d) in enumerate(zip(starts, durs)):
+        cls = "box-bad" if d > 100 else "box-a"
+        out.append(f'<rect class="{cls}" x="{x(s):.0f}" y="{y}" width="{max(d * 0.6, 5):.0f}" height="30" rx="4"/>')
+    return "".join(out)
+
+rate_s, durs = [0, 100, 350, 360, 400, 500, 600], [10, 250, 10, 10, 10, 10, 10]
+delay_s = [0, 110, 460, 570, 680, 790, 900]
+SVG = (
+    '<svg viewBox="0 0 680 235" role="img" aria-label="Timeline: with fixed rate, runs after a slow run start back to back to catch up; with fixed delay, every run starts 100 ms after the previous one ends">'
+    '<text class="t" x="55" y="60" text-anchor="middle">fixed rate</text>'
+    '<text class="t" x="55" y="140" text-anchor="middle">fixed delay</text>'
+    + run_rects(rate_s, durs, 40) +
+    f'<text class="t-s" x="{x(100) + 75:.0f}" y="60" text-anchor="middle">run 2: 250 ms</text>'
+    '<text class="t-s t-m" x="338" y="90" text-anchor="middle">3 and 4 run back to back</text>'
+    + run_rects(delay_s, durs, 120) +
+    f'<text class="t-s" x="{x(110) + 75:.0f}" y="140" text-anchor="middle">run 2: 250 ms</text>'
+    '<text class="t-s t-m" x="420" y="170" text-anchor="middle">each start waits 100 ms after the last end</text>'
+    f'<line class="ln" x1="110" y1="200" x2="{x(910):.0f}" y2="200"/>'
+    + "".join(f'<line class="ln" x1="{x(t):.0f}" y1="195" x2="{x(t):.0f}" y2="205"/>' for t in range(0, 901, 100)) +
+    '<text class="t-s t-m" x="110" y="222" text-anchor="middle">0</text>'
+    f'<text class="t-s t-m" x="{x(500):.0f}" y="222" text-anchor="middle">500 ms</text>'
+    f'<text class="t-s t-m" x="{x(900):.0f}" y="222" text-anchor="middle">900 ms</text>'
+    '</svg>'
+)
+
+L = {
+ "id": "exec-05",
+ "title": "Scheduled executors: fixed rate vs fixed delay",
+ "minutes": 35,
+ "goal": "By the end you can pick between schedule, fixed rate and fixed delay, predict when each run starts, and keep a periodic task alive when one run throws.",
+ "warmup": {
+  "q": "You schedule a health check with `scheduleAtFixedRate(check, 0, 10, SECONDS)`. On its fifth run, the ledger ping inside it throws an `IllegalStateException` that nothing catches. What happens next?",
+  "options": [
+   "The exception is logged and the check runs again 10 seconds later",
+   "The scheduler thread dies, a new one starts, and the check carries on",
+   "The check never runs again, and nothing is logged",
+   "The whole scheduler shuts down"
+  ],
+  "answer": 2,
+  "why": "The Javadoc says that if any execution throws, \"subsequent executions are suppressed\". The exception is stored in the `ScheduledFuture` and nothing prints it. The scheduler itself is fine and keeps running its other tasks, which is why the failure is so easy to miss."
+ },
+ "sections": [
+  {
+   "h": "Three ways to schedule work, and which jobs belong elsewhere",
+   "body": "A `ScheduledExecutorService` runs tasks later, or over and over. You get one from `Executors.newScheduledThreadPool(n)` or `newSingleThreadScheduledExecutor()`, and three of its methods do nearly all the work:\n\n```java\nScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);\n\nscheduler.schedule(this::expireHold, 15, TimeUnit.MINUTES);                     // once, after a delay\nscheduler.scheduleAtFixedRate(this::sendHeartbeat, 0, 30, TimeUnit.SECONDS);    // on a timetable\nscheduler.scheduleWithFixedDelay(this::refreshFxRate, 0, 5, TimeUnit.SECONDS);  // with a gap between runs\n```\n\n```kotlin\nval scheduler = Executors.newScheduledThreadPool(2)\n\nscheduler.schedule(this::expireHold, 15, TimeUnit.MINUTES)                     // once, after a delay\nscheduler.scheduleAtFixedRate(this::sendHeartbeat, 0, 30, TimeUnit.SECONDS)    // on a timetable\nscheduler.scheduleWithFixedDelay(this::refreshFxRate, 0, 5, TimeUnit.SECONDS)  // with a gap between runs\n```\n\nEach call returns a `ScheduledFuture`, a `Future` that also knows its remaining delay. Cancel it to stop a periodic task. For a periodic task, `get()` never returns normally: it waits until the task is cancelled or fails. The scheduler is a pool like any other, so shut it down, or its threads keep the JVM alive.\n\nSkip `java.util.Timer`. It runs every task on one thread, and if one task throws, that thread dies and the whole `Timer` is cancelled: every other task on it stops too, and the next `schedule` call throws `IllegalStateException`. `ScheduledThreadPoolExecutor` replaced it back in JDK 5.\n\nSome schedules don't belong in the JVM at all. An in-process scheduler forgets everything when the pod restarts, and with three replicas every job runs three times. The settlement export each night, a monthly fee run, anything with business meaning: put those in a cron job, a scheduler with a database such as Quartz, or a Temporal schedule. The JVM scheduler is for in-process housekeeping, like refreshing a cache, sending heartbeats or expiring holds kept in memory.",
+   "try": {
+    "title": "Pick the method",
+    "minutes": 3,
+    "steps": [
+     "For each job, choose `schedule`, `scheduleAtFixedRate`, `scheduleWithFixedDelay`, or \"not in the JVM\": (a) drop an idempotency key from an in-memory cache 10 minutes after it was stored; (b) send the issuer a heartbeat every 30 seconds, which it expects on a steady beat; (c) refresh FX rates from a provider whose calls sometimes take 20 seconds; (d) export the settlement file once a night.",
+     "Write one sentence of reasoning for each before you read the answer."
+    ],
+    "expect": "(a) `schedule`: it is a one-shot delay. (b) Fixed rate: the timing is the point. (c) Fixed delay: a slow call pushes the next one later instead of causing a burst of catch-up calls. (d) Not in the JVM: a restart loses the schedule and every replica would export the file."
+   },
+   "refs": [
+    {"title": "ScheduledExecutorService (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ScheduledExecutorService.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "Fixed rate catches up, fixed delay never does",
+   "body": "The two periodic methods measure the period from different places.\n\n`scheduleAtFixedRate(task, initialDelay, period, unit)` follows a timetable fixed in advance. Runs are due at `initialDelay`, then `initialDelay + period`, then `initialDelay + 2 x period`, and so on. `scheduleWithFixedDelay(task, initialDelay, delay, unit)` waits `delay` after each run ends, then starts the next one.\n\nWhile runs are short, you can't tell them apart. They split when one run is slow. Take a 100 ms period where the second run takes 250 ms and the others 10 ms. In the lab's model, which counts virtual milliseconds, the runs start at:\n\n```text\nfixed rate:   0, 100, 350, 360, 400, 500, 600\nfixed delay:  0, 110, 460, 570, 680, 790, 900\n```\n\n`RateVsDelayDemo` shows the same shape with a few milliseconds of real-world noise.\n\nFixed rate never runs two executions at once. A late run starts as soon as the previous one ends, and then the overdue runs go back to back (runs 3 and 4 above) until the schedule is back on its timetable. By run 5 it is on time again. Fixed delay has no timetable to catch up with, so a slow run just pushes everything after it later.\n\nPick fixed rate when the timing itself is the point: a heartbeat the issuer expects every 30 seconds, a metrics flush per interval. Pick fixed delay when the task calls something that can slow down, like an FX provider or a database, because you never want a provider that just recovered to be hit with a burst of catch-up calls. For most housekeeping in a service, fixed delay is the safer default.\n\nNeither method ever runs a task concurrently with itself, even on a scheduler with many threads. A task that takes 3 minutes on a 1 minute rate doesn't pile up three copies. It just runs late, every time.",
+   "figure": {"svg": SVG, "caption": "The same slow second run under both modes. Fixed rate catches up with its timetable; fixed delay shifts everything later."},
+   "try": {
+    "title": "Watch a slow run",
+    "minutes": 3,
+    "steps": [
+     "Run `RateVsDelayDemo` and compare its start times with the fixed-rate row above.",
+     "Run it again with `-Pargs=delay`. Before you do, predict when run 3 starts."
+    ],
+    "code": demo("RateVsDelayDemo"),
+    "expect": "With fixed rate, runs 3 and 4 start within about 10 ms of each other, right after the slow run, and runs 5 to 7 are back on the 100 ms grid. With fixed delay, run 3 starts about 100 ms after run 2 ends (around 460 to 500 ms), and every later run is 110 ms after the one before. On a busy machine, all times drift a little later."
+   }
+  },
+  {
+   "h": "One exception, and the schedule stops without a word",
+   "body": "This sentence in the `ScheduledExecutorService` Javadoc causes more production surprises than any other in the package. A periodic task keeps running until it is cancelled, the executor terminates, or \"an execution of the task throws an exception\", and then: \"Subsequent executions are suppressed.\"\n\nNothing is logged. The exception goes into the `ScheduledFuture`, the same way `submit` hides exceptions, and almost nobody calls `get()` on a periodic task's future. Here is `SilentDeathDemo`, a health check every 100 ms that throws on its third run:\n\n```text\nhealth check 1\nhealth check 2\nhealth check 3\nafter 1 s: runs=3 isDone=true\nget() threw ExecutionException, cause: java.lang.IllegalStateException: ledger ping timed out\n```\n\nTen periods passed and three runs happened. In a real service, the FX rate quietly stops refreshing, a cache serves data that is days old, and the first sign is a customer complaint.\n\nThe fix is to catch inside the task, so that no exception ever reaches the scheduler:\n\n```java\nscheduler.scheduleWithFixedDelay(() -> {\n    try {\n        refreshFxRate();\n    } catch (RuntimeException e) {\n        log.warn(\"FX refresh failed, keeping the last rate\", e);   // report it, keep the schedule\n    }\n}, 0, 5, TimeUnit.SECONDS);\n```\n\n```kotlin\nscheduler.scheduleWithFixedDelay({\n    try {\n        refreshFxRate()\n    } catch (e: RuntimeException) {\n        log.warn(\"FX refresh failed, keeping the last rate\", e)    // report it, keep the schedule\n    }\n}, 0, 5, TimeUnit.SECONDS)\n```\n\nCatch `RuntimeException` (or `Exception` if the body calls checked-exception code), not `Throwable`. An `OutOfMemoryError` or a `StackOverflowError` means the JVM itself is in trouble, and a schedule that hides it will keep failing politely. Let errors stop the task and alert on them. The lab wraps the pattern once, as `SafeTask.wrap`, so every periodic task in a service gets it.\n\nIf you want to catch a dead schedule anyway, check `future.isDone()` from a health endpoint. For a periodic task that should run forever, done means dead.",
+   "try": {
+    "title": "Kill a schedule, then save it",
+    "minutes": 3,
+    "steps": [
+     "Run `SilentDeathDemo`. Count the health checks before the `after 1 s` line.",
+     "Run it with `-Pargs=safe`, which wraps the check in a try/catch. Predict the run count after one second."
+    ],
+    "code": demo("SilentDeathDemo"),
+    "expect": "The first run prints three health checks and then nothing for the rest of the second: `isDone=true`, and `get()` reveals the exception. With `safe`, run 3 prints \"caught and logged\" and the checks continue to about 10 or 11 in the second, with `isDone=false`."
+   }
+  },
+  {
+   "h": "ScheduledThreadPoolExecutor, and ForkJoinPool as a scheduler in JDK 25",
+   "body": "`newScheduledThreadPool(n)` returns a `ScheduledThreadPoolExecutor`: a `ThreadPoolExecutor` whose queue is ordered by due time. Its Javadoc says it \"acts as a fixed-sized pool using corePoolSize threads and an unbounded queue\", so the maximum pool size has no useful effect. That has three consequences worth knowing.\n\nA scheduler with one thread runs one task at a time. A refresh that hangs for a minute delays every other task on that scheduler by a minute, heartbeats included. Give slow periodic work its own scheduler, or let the scheduled task only hand the real work to another pool.\n\nCancelled tasks stay in the queue until their due time by default. If you schedule and cancel a lot, for example one timeout per request, call `setRemoveOnCancelPolicy(true)` so they don't pile up.\n\nAfter `shutdown()`, one-shot delayed tasks still run when they come due, but periodic tasks stop. Those are the defaults of `setExecuteExistingDelayedTasksAfterShutdownPolicy` and `setContinueExistingPeriodicTasksAfterShutdownPolicy`, and they matter when a service shuts down with holds still waiting to expire.\n\nJDK 25 adds a second scheduler you already have. `ForkJoinPool` now implements `ScheduledExecutorService`, so `ForkJoinPool.commonPool()` can schedule tasks too, with the same fixed-rate, fixed-delay and exception rules. It also gains `submitWithTimeout`, which cancels a task (or runs an action you pass) if it hasn't finished in time. This compiles only on JDK 25 or later, so it stays out of the labs:\n\n```java\n// JDK 25+\nForkJoinPool pool = ForkJoinPool.commonPool();\npool.scheduleWithFixedDelay(this::refreshFxRate, 0, 5, TimeUnit.SECONDS);\nForkJoinTask<Quote> quote = pool.submitWithTimeout(() -> fetchQuote(pair), 300, TimeUnit.MILLISECONDS, null);\n// a null timeout action means: cancel(true) if it isn't done after 300 ms\n```\n\n```kotlin\n// JDK 25+\nval pool = ForkJoinPool.commonPool()\npool.scheduleWithFixedDelay(this::refreshFxRate, 0, 5, TimeUnit.SECONDS)\nval quote: ForkJoinTask<Quote> = pool.submitWithTimeout({ fetchQuote(pair) }, 300, TimeUnit.MILLISECONDS, null)\n// a null timeout action means: cancel(true) if it isn't done after 300 ms\n```\n\nKeep blocking work off the common pool, scheduled or not. Every parallel stream and every default `CompletableFuture` in the JVM shares it, which lesson 8 of this track shows the hard way."
+  }
+ ],
+ "analogy": "Fixed rate is a train timetable. Trains are due at 8:00, 8:10, 8:20. If the 8:10 leaves twenty minutes late, the next train leaves as soon as the line is clear, and the one after that too, until they are back on the printed times. Fixed delay is a shuttle bus that leaves ten minutes after the previous one gets back, so a late bus just makes every later one later. The analogy breaks on parallel tracks. Two trains can run at once on a busy line. Two runs of the same scheduled task never overlap, however late they are.",
+ "in_your_world": "Look for three schedules in a payment service. FX rates or BIN tables refreshed into memory: fixed delay, wrapped so a provider outage keeps the last good value, with the value's age exposed as a metric. A heartbeat or keep-alive to the issuer: fixed rate on its own scheduler, so a slow refresh can't delay it. In-memory expiry of authorization holds or idempotency keys: `schedule` per entry, or better, a cache with built-in expiry. Quarkus's `@Scheduled` is a different scheduler with its own rules (it has a `concurrentExecution` setting for overlapping runs), so check how it treats exceptions and overlap instead of assuming the JDK behavior carries over. Anything with business meaning, like the settlement export, belongs in a durable scheduler such as a Temporal schedule.",
+ "mistake": "A periodic task with no try/catch. It works in every test, then one run throws (a 502 from the FX provider, a null in a response) and the schedule stops for good. The scheduler logs nothing, so the first sign is stale data hours later. People expect it to behave like a loop that logs and carries on. Wrap every periodic task body in a try/catch for `RuntimeException` that reports the failure, and expose `isDone()` or the age of the last success on a health endpoint.",
+ "compare": {
+  "title": "A fixed-delay refresher: scheduler vs coroutine loop",
+  "java": {"title": "FxRefresh.java", "src": "ScheduledFuture<?> refresher = scheduler.scheduleWithFixedDelay(() -> {\n    try {\n        rate = fetchRate();\n    } catch (RuntimeException e) {\n        log.warn(\"FX refresh failed, keeping the last rate\", e);\n    }\n}, 0, 5, TimeUnit.SECONDS);\n\n// later\nrefresher.cancel(false);   // no more runs; a running fetch finishes"},
+  "kotlin": {"title": "FxRefresh.kt (kotlinx.coroutines)", "src": "val refresher = scope.launch {\n    while (isActive) {\n        try {\n            rate = fetchRate()\n        } catch (e: CancellationException) {\n            throw e                                  // let cancellation through\n        } catch (e: Exception) {\n            log.warn(\"FX refresh failed, keeping the last rate\", e)\n        }\n        delay(5.seconds)                             // the gap is measured from the end of the run\n    }\n}\n\n// later\nrefresher.cancel()         // stops at the next delay()"},
+  "note": "Coroutines have no scheduler API. A loop with `delay` is a fixed-delay schedule, and a fixed rate needs you to compute the next due time yourself. The failure behavior differs in a useful way: an exception that escapes the JDK task disappears into the `ScheduledFuture`, while an exception that escapes `launch` propagates to the parent scope and its exception handler, so it is loud by default. Either way you catch inside the loop to keep it alive, and in Kotlin you rethrow `CancellationException`, or `cancel()` would be swallowed like any other exception."
+ },
+ "worked": {
+  "title": "Why did the FX rate stop updating?",
+  "steps": [
+   {"say": "Checkout prices in USD have used the same EUR/USD rate for six hours. The logs show no errors. Here is the refresher. Find the bug before reading on.",
+    "code": "scheduler.scheduleAtFixedRate(\n        () -> rate = fxProvider.eurUsd(),     // throws on a 502\n        0, 30, TimeUnit.SECONDS);", "lang": "java",
+    "alt_code": "scheduler.scheduleAtFixedRate(\n    { rate = fxProvider.eurUsd() },           // throws on a 502\n    0, 30, TimeUnit.SECONDS)", "alt_lang": "kotlin"},
+   {"say": "Six hours ago the provider returned a 502 and `eurUsd()` threw. That run's exception went into the `ScheduledFuture`, which nobody holds, and every later run was suppressed. No log line, because nothing ever printed the exception. Fixed rate is a second, smaller problem: when the provider is slow, overdue runs fire back to back.",
+    "code": "", "lang": ""},
+   {"say": "Catch inside the task, keep the last good rate, count the failure, and switch to fixed delay so a slow provider never gets a burst of catch-up calls.",
+    "code": "ScheduledFuture<?> refresher = scheduler.scheduleWithFixedDelay(() -> {\n    try {\n        rate = fxProvider.eurUsd();              // 1. fetch\n        lastSuccess = Instant.now();\n    } catch (RuntimeException e) {\n        failures.increment();                    // 2. count it for a metric\n        log.warn(\"FX refresh failed, keeping {}\", rate, e);  // 3. keep the old rate\n    }\n}, 0, 30, TimeUnit.SECONDS);", "lang": "java",
+    "alt_code": "val refresher = scheduler.scheduleWithFixedDelay({\n    try {\n        rate = fxProvider.eurUsd()               // 1. fetch\n        lastSuccess = Instant.now()\n    } catch (e: RuntimeException) {\n        failures.increment()                     // 2. count it for a metric\n        log.warn(\"FX refresh failed, keeping {}\", rate, e)   // 3. keep the old rate\n    }\n}, 0, 30, TimeUnit.SECONDS)", "alt_lang": "kotlin"},
+   {"say": "Make the next failure visible. A health check that reports the rate's age and whether the schedule is still alive turns six silent hours into one alert.",
+    "code": "boolean healthy = !refresher.isDone()\n        && Duration.between(lastSuccess, Instant.now()).toMinutes() < 5;", "lang": "java",
+    "alt_code": "val healthy = !refresher.isDone &&\n    Duration.between(lastSuccess, Instant.now()).toMinutes() < 5", "alt_lang": "kotlin"}
+  ]
+ },
+ "lab": {
+  "title": "Model the timetable, then build a refresher that survives",
+  "minutes": 14,
+  "files": [f"{lab}/main/{P}/Schedules.java", f"{lab}/main/{P}/SafeTask.java", f"{lab}/main/{P}/FxRateRefresher.java"],
+  "run": "./gradlew :executors:test --tests 'workbench.executors.l05.*'",
+  "steps": [
+   "Run the tests. All eight fail.",
+   "Write `Schedules.startTimes`. Keep the end time of the previous run in a variable. For fixed rate, the start is the later of the due time and that end time; for fixed delay, it is that end time plus the period.",
+   "Write `SafeTask.wrap`: a lambda that runs the task inside a try/catch for `RuntimeException` and hands the exception to `onError`.",
+   "Write `FxRateRefresher`: `start()` calls `scheduleWithFixedDelay` with an initial delay of 0 and a `SafeTask` that stores the rate and counts failures; `close()` cancels the returned future.",
+   "Run the tests until all eight pass."
+  ],
+  "hints": [
+   "Run 0 of the model always starts at `initialDelay`, whatever the mode.",
+   "Request threads read `current()` while the scheduler thread writes the rate. Store it in an `AtomicReference<BigDecimal>` (or a `volatile` field), not a plain field.",
+   "`close()` must not shut down the scheduler: it belongs to the caller and may run other tasks. Cancel your own `ScheduledFuture` with `cancel(false)`."
+  ],
+  "done_when": "All eight tests in `SchedulingTest` pass."
+ },
+ "drill": {
+  "title": "A refresher that can't die quietly",
+  "minutes": 4,
+  "prompt": "Close this page. Write the code that refreshes a cached value every 10 seconds, measured from the end of each refresh, keeps the old value when a refresh throws, logs the failure, and can be stopped later. Then compare. Which method did you use, and where is the try?",
+  "answer": {"lang": "java", "title": "Refresh.java", "src": "ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();\nAtomicReference<Limits> limits = new AtomicReference<>();\n\nScheduledFuture<?> refresh = scheduler.scheduleWithFixedDelay(() -> {\n    try {\n        limits.set(loadLimits());                     // replace only on success\n    } catch (RuntimeException e) {\n        log.warn(\"limit refresh failed, keeping the old value\", e);\n    }\n}, 0, 10, TimeUnit.SECONDS);\n\n// to stop it\nrefresh.cancel(false);\nscheduler.shutdown();",
+   "alt": {"lang": "kotlin", "title": "Refresh.kt", "src": "val scheduler = Executors.newSingleThreadScheduledExecutor()\nval limits = AtomicReference<Limits>()\n\nval refresh = scheduler.scheduleWithFixedDelay({\n    try {\n        limits.set(loadLimits())                      // replace only on success\n    } catch (e: RuntimeException) {\n        log.warn(\"limit refresh failed, keeping the old value\", e)\n    }\n}, 0, 10, TimeUnit.SECONDS)\n\n// to stop it\nrefresh.cancel(false)\nscheduler.shutdown()"}}
+ },
+ "recap": [
+  "`schedule` runs once after a delay, `scheduleAtFixedRate` follows a timetable, `scheduleWithFixedDelay` waits a fixed gap after each run ends.",
+  "After a slow run, fixed rate starts the overdue runs back to back to catch up. Fixed delay just shifts later runs. Runs of one task never overlap.",
+  "If one execution of a periodic task throws, all later executions are suppressed and nothing is logged. Catch `RuntimeException` inside the task.",
+  "`ScheduledThreadPoolExecutor` is a fixed pool of core threads with an unbounded delay queue; a slow task on one thread delays every other task.",
+  "Since JDK 25, `ForkJoinPool` (including the common pool) implements `ScheduledExecutorService` and adds `submitWithTimeout`.",
+  "Business schedules belong in a durable scheduler (cron, Quartz with a database, Temporal), not in a pod's memory."
+ ],
+ "quiz": [
+  {
+   "q": "A task scheduled with `scheduleAtFixedRate(task, 0, 1, SECONDS)` takes 3 seconds every time. What happens?",
+   "options": [
+    "Three copies run at once, one starting each second",
+    "Each run starts as soon as the previous one ends, so it runs back to back",
+    "The scheduler skips the missed slots and waits for the next whole second",
+    "The scheduler throws RejectedExecutionException"
+   ],
+   "answer": 1,
+   "why": "Executions of one periodic task never overlap. Every run is overdue by the time the last one ends, so it starts immediately, and the task runs continuously. Missed slots are not skipped; they are run late."
+  },
+  {
+   "q": "`scheduleWithFixedDelay(task, 0, 10, SECONDS)` runs a task that always takes 2 seconds. When do the first three runs start?",
+   "options": [
+    "0, 10 and 20 seconds",
+    "0, 2 and 12 seconds",
+    "0, 8 and 16 seconds",
+    "0, 12 and 24 seconds"
+   ],
+   "answer": 3,
+   "why": "The delay is measured from the end of each run: run 1 ends at 2 s, so run 2 starts at 12 s, ends at 14 s, and run 3 starts at 24 s. 0, 10, 20 is what fixed rate would give."
+  },
+  {
+   "q": "A periodic cache refresh throws a NullPointerException on its 40th run. Nothing catches it. What do you observe?",
+   "options": [
+    "It stops for good, nothing is logged, and its future reports isDone() = true",
+    "It logs the exception and runs again next period",
+    "The scheduler thread dies and is replaced, and the task keeps running",
+    "The scheduler shuts down"
+   ],
+   "answer": 0,
+   "why": "Later executions are suppressed and the exception is stored in the `ScheduledFuture`. Nothing is printed, which is the dangerous part. The scheduler and its other tasks carry on as if nothing happened."
+  },
+  {
+   "q": "A single-thread scheduler runs a 30-second heartbeat and a report job that sometimes takes 2 minutes. The issuer complains about missing heartbeats. What is the right fix?",
+   "options": [
+    "Raise the scheduler's maximum pool size",
+    "Switch the heartbeat to fixed delay",
+    "Give the report job its own scheduler, or have its scheduled task hand the work to another pool",
+    "Wrap the heartbeat in a try/catch"
+   ],
+   "answer": 2,
+   "why": "With one thread, the heartbeat can't run while the report is running. Maximum pool size does nothing on a `ScheduledThreadPoolExecutor`, and fixed delay or a try/catch don't free the thread. Separate the slow job from the time-sensitive one."
+  },
+  {
+   "q": "From \"Callable, Future, cancellation and interruption\": a periodic task is in the middle of a run when you call `cancel(false)` on its `ScheduledFuture`. What happens?",
+   "options": [
+    "The run in progress is interrupted and no more runs happen",
+    "The run in progress finishes, and no more runs happen",
+    "Nothing, because cancel(false) only affects tasks that have not started",
+    "The run in progress finishes, and the schedule continues"
+   ],
+   "answer": 1,
+   "why": "`cancel(false)` does not interrupt a running task, so the current run completes. Cancelling still marks the future cancelled, so the scheduler never queues the next run. `cancel(true)` would also interrupt the current run.",
+   "from": "exec-04"
+  }
+ ],
+ "flashcards": [
+  {"front": "`scheduleAtFixedRate` vs `scheduleWithFixedDelay`: what is the period measured from?", "back": "Fixed rate: from a timetable fixed at the start (initialDelay + n x period). Fixed delay: from the end of the previous run."},
+  {"front": "A periodic task throws once, uncaught. What happens to later runs?", "back": "They are suppressed forever. Nothing is logged; the exception is in the ScheduledFuture."},
+  {"front": "Can two runs of the same periodic task overlap?", "back": "No. A late run waits for the previous one to finish, on any number of threads."},
+  {"front": "Why does `maximumPoolSize` do nothing on a ScheduledThreadPoolExecutor?", "back": "It is a fixed pool of core threads with an unbounded delay queue, so it never grows past core."},
+  {"front": "What did JDK 25 add to ForkJoinPool for scheduling?", "back": "It implements ScheduledExecutorService (schedule, fixed rate, fixed delay) and adds `submitWithTimeout`."},
+  {"front": "Why avoid `java.util.Timer`?", "back": "One thread for all tasks, and one task that throws kills that thread and cancels every task on the Timer."}
+ ],
+ "terms": [
+  {"term": "ScheduledExecutorService", "plain": "An executor that can run tasks after a delay or periodically."},
+  {"term": "Fixed rate", "plain": "Runs due at fixed times (start + n x period), caught up after a late run."},
+  {"term": "Fixed delay", "plain": "A fixed gap between the end of one run and the start of the next."},
+  {"term": "ScheduledFuture", "plain": "The handle for a scheduled task: cancel it, check isDone, read its remaining delay."},
+  {"term": "Suppressed execution", "plain": "A periodic run that never happens because an earlier run threw."},
+  {"term": "Delay queue", "plain": "A queue ordered by due time that releases each task only when it comes due."}
+ ],
+ "explain_back": {
+  "prompt": "Explain to a teammate the difference between fixed rate and fixed delay, and why every periodic task in the service needs a try/catch inside it.",
+  "answer": "Fixed rate keeps a timetable: runs are due at the start time plus multiples of the period, and if a run is slow, the overdue runs start back to back until it's back on schedule. Fixed delay waits the full delay after each run finishes, so a slow run just pushes everything later and nothing bunches up. That makes fixed delay the safer choice for anything that calls a dependency that can slow down. In both modes, if any run throws an exception that escapes the task, the scheduler stops running it forever and logs nothing; the exception sits in the ScheduledFuture that nobody reads. So the task body needs a try/catch that logs the failure and keeps the last good state, and ideally a health check that alerts if the future is done or the last success is too old."
+ },
+ "deeper": {
+  "minutes": 7,
+  "body": "Why can't runs overlap? Because `ScheduledThreadPoolExecutor` puts a periodic task back in its queue only after the current run returns. For fixed rate it computes the next time as the previous due time plus the period. For fixed delay it computes it as \"now\" plus the delay, measured right after the run. When the next due time is already in the past, the task is ready at once, which is the catch-up you saw. That also explains the exception rule: when a run throws, the task is not put back in the queue, so there is no next run to execute.\n\nThe clock is `System.nanoTime()`, not the wall clock. A periodic task is unaffected when NTP corrects the system time or daylight saving time starts, which is what you want for \"every 30 seconds\". It also means a `ScheduledExecutorService` can't express \"at 02:00 local time\". You can approximate it by computing the delay to the next 02:00 and calling `schedule` again after each run, but that is a sign the job belongs in a real scheduler.\n\n`CompletableFuture` has its own small scheduling helper, `CompletableFuture.delayedExecutor(delay, unit)`, which returns an `Executor` that runs each task after a delay. Lesson 7 of this track uses its relatives, `orTimeout` and `completeOnTimeout`."
+ },
+ "sources": [
+  {"title": "ScheduledExecutorService (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ScheduledExecutorService.html"},
+  {"title": "ScheduledThreadPoolExecutor (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ScheduledThreadPoolExecutor.html"},
+  {"title": "ForkJoinPool (Java SE 25 API): scheduling and submitWithTimeout", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ForkJoinPool.html"},
+  {"title": "Java Concurrency in Practice, Goetz et al., section 6.2.5 (delayed and periodic tasks)", "url": "https://jcip.net/"}
+ ]
+}
+out = ROOT / "content/lessons/exec-05.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)

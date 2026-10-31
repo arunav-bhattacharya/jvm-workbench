@@ -1,10 +1,16 @@
 {
-  // Static site on Cloudflare Workers (assets only, no server code).
-  // Deploy: npx wrangler deploy   (or connect the repo in Workers & Pages > Create > Import a repository)
+  // Cloudflare Worker: serves web/ and lets in only enrolled Google accounts (see DEPLOY.md).
   "name": "jvm-workbench",
   "compatibility_date": "2026-10-01",
-  "assets": {
-    "directory": "./web",
-    "not_found_handling": "single-page-application"
+  "main": "worker/index.js",
+  // the worker runs first for every request, so nothing is served before the sign-in check
+  "assets": { "directory": "./web", "binding": "ASSETS", "run_worker_first": true },
+  // shares the namespace used by AI Engineer from Zero; every key here starts with "jvmwb:"
+  "kv_namespaces": [{ "binding": "PROGRESS", "id": "db7a4fe1777f4276b3bf62828c86b331" }],
+  "vars": {
+    // the same Google OAuth client as AI Engineer from Zero; add this site's URL to its authorized JavaScript origins
+    "GOOGLE_CLIENT_ID": "213282967449-rkdia4efp2ptkh0i57ih2vo6fej68qpv.apps.googleusercontent.com",
+    // enrolled learners, comma-separated (keep in step with the Google consent screen's test users)
+    "ALLOWED_EMAILS": "ai.arunav@gmail.com"
   }
 }

@@ -1,0 +1,474 @@
+{
+ "id": "conc-06",
+ "title": "Deadlock, livelock and starvation",
+ "minutes": 38,
+ "goal": "By the end you can explain the four conditions for deadlock, remove one with lock ordering or timed `tryLock`, tell deadlock from livelock and starvation, and find a deadlock in a thread dump.",
+ "warmup": {
+  "q": "`transfer(from, to)` locks `from`, then `to`. One thread runs `transfer(a, b)` while another runs `transfer(b, a)`, many times. What is the worst that can happen?",
+  "options": [
+   "A few transfers run slower because of contention",
+   "Money is lost, because the two transfers race on the balances",
+   "Both threads stop for good, each holding one lock and waiting for the other",
+   "The JVM detects the problem and throws a DeadlockException"
+  ],
+  "answer": 2,
+  "why": "If each thread takes its first lock before the other takes its second, T1 holds a and waits for b while T2 holds b and waits for a. Neither can ever move. The balances stay correct, since the locks still exclude, but nothing progresses. Java has no DeadlockException: the threads just sit there, BLOCKED, until the process is restarted."
+ },
+ "sections": [
+  {
+   "h": "Two locks taken in opposite orders can stop forever",
+   "body": "Here is a transfer that looks careful. It locks both accounts, so the debit and the credit happen as one step:\n\n```java\nvoid transfer(Account from, Account to, long cents) {\n    synchronized (from) {\n        synchronized (to) {\n            from.debit(cents);\n            to.credit(cents);\n        }\n    }\n}\n// thread 1: transfer(a, b, 100)        thread 2: transfer(b, a, 50)\n```\n\n```kotlin\nfun transfer(from: Account, to: Account, cents: Long) {\n    synchronized(from) {\n        synchronized(to) {\n            from.debit(cents)\n            to.credit(cents)\n        }\n    }\n}\n// thread 1: transfer(a, b, 100)        thread 2: transfer(b, a, 50)\n```\n\nEach call is correct on its own. Together they can freeze. Thread 1 locks `a`. Before it locks `b`, thread 2 locks `b`. Now thread 1 waits for `b`, which thread 2 holds, and thread 2 waits for `a`, which thread 1 holds. Neither will ever let go, because each releases its first lock only after it gets the second.\n\nThat is a **deadlock**: a set of threads where each one waits for something another one in the set holds. Nothing throws. Nothing logs. CPU use drops to zero, both threads sit in BLOCKED, and every request that needs either account joins the queue behind them. In a payment service, the first sign is usually a health check that times out and a pool with no free threads.\n\nThe nasty part is timing. The bad interleaving needs both threads to take their first lock inside the same tiny window. A test that runs one transfer at a time never sees it. Under load, with thousands of transfers a second between the same busy merchant accounts, it is only a matter of when.\n\nThe simulator lets you play the scheduler. Run T1 to the end, then T2, and both transfers finish. Then reset and give each thread one step first.",
+   "sim": {
+    "title": "Two transfers, two locks, opposite orders",
+    "intro": "T1 runs transfer(a, b), T2 runs transfer(b, a). First let them finish one after the other. Then reset and find the order that freezes both.",
+    "vars": {
+     "transfers": 0
+    },
+    "locks": [
+     "a",
+     "b"
+    ],
+    "threads": [
+     {
+      "name": "T1: transfer(a, b)",
+      "steps": [
+       {
+        "op": "lock",
+        "lock": "a",
+        "code": "synchronized (a) {"
+       },
+       {
+        "op": "lock",
+        "lock": "b",
+        "code": "    synchronized (b) {"
+       },
+       {
+        "op": "read",
+        "var": "transfers",
+        "reg": "r",
+        "code": "        int r = transfers;"
+       },
+       {
+        "op": "add",
+        "reg": "r",
+        "n": 1,
+        "code": "        r = r + 1;   // move the money"
+       },
+       {
+        "op": "write",
+        "var": "transfers",
+        "reg": "r",
+        "code": "        transfers = r;"
+       },
+       {
+        "op": "unlock",
+        "lock": "b",
+        "code": "    }"
+       },
+       {
+        "op": "unlock",
+        "lock": "a",
+        "code": "}"
+       }
+      ]
+     },
+     {
+      "name": "T2: transfer(b, a)",
+      "steps": [
+       {
+        "op": "lock",
+        "lock": "b",
+        "code": "synchronized (b) {"
+       },
+       {
+        "op": "lock",
+        "lock": "a",
+        "code": "    synchronized (a) {"
+       },
+       {
+        "op": "read",
+        "var": "transfers",
+        "reg": "r",
+        "code": "        int r = transfers;"
+       },
+       {
+        "op": "add",
+        "reg": "r",
+        "n": 1,
+        "code": "        r = r + 1;   // move the money"
+       },
+       {
+        "op": "write",
+        "var": "transfers",
+        "reg": "r",
+        "code": "        transfers = r;"
+       },
+       {
+        "op": "unlock",
+        "lock": "a",
+        "code": "    }"
+       },
+       {
+        "op": "unlock",
+        "lock": "b",
+        "code": "}"
+       }
+      ]
+     }
+    ],
+    "goal": {
+     "var": "transfers",
+     "eq": 2,
+     "say": "Both transfers finished. Now reset and give each thread its first lock before either takes its second."
+    }
+   },
+   "try": {
+    "title": "Freeze two transfers",
+    "minutes": 3,
+    "steps": [
+     "Read `DeadlockDemo`. Each thread takes its first lock, sleeps 300 ms, then asks for the second.",
+     "Run it. After one second, `main` asks the JVM which threads are deadlocked.",
+     "Delete the `sleep(300)` line and run it a few times. Does it still deadlock every time?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "DeadlockDemo.java",
+     "src": "package workbench.concurrency.l06;\n\nimport java.lang.management.ManagementFactory;\nimport java.lang.management.ThreadInfo;\nimport java.lang.management.ThreadMXBean;\n\n/** Two transfers lock the same two accounts in opposite orders. Run with -Pargs=wait to keep it alive for jcmd. */\npublic class DeadlockDemo {\n    static final Object accountA = new Object();\n    static final Object accountB = new Object();\n\n    public static void main(String[] args) throws InterruptedException {\n        boolean stayAlive = args.length > 0 && args[0].equals(\"wait\");\n        Thread t1 = new Thread(() -> move(accountA, accountB), \"transfer-A-to-B\");\n        Thread t2 = new Thread(() -> move(accountB, accountA), \"transfer-B-to-A\");\n        t1.setDaemon(true);                  // daemon, so the JVM can still exit at the end\n        t2.setDaemon(true);\n        t1.start();\n        t2.start();\n        Thread.sleep(1_000);\n\n        ThreadMXBean mx = ManagementFactory.getThreadMXBean();\n        long[] ids = mx.findDeadlockedThreads();   // what a health check can ask the JVM\n        System.out.println(\"deadlocked threads: \" + (ids == null ? 0 : ids.length));\n        if (ids != null) {\n            for (ThreadInfo info : mx.getThreadInfo(ids)) {\n                System.out.println(\"  \" + info.getThreadName() + \" is \" + info.getThreadState()\n                        + \", wants a lock held by \" + info.getLockOwnerName());\n            }\n        }\n        if (stayAlive) {\n            System.out.println(\"pid \" + ProcessHandle.current().pid() + \": run  jcmd \"\n                    + ProcessHandle.current().pid() + \" Thread.print  in another terminal (60 s)\");\n            Thread.sleep(60_000);\n        }\n    }\n\n    static void move(Object from, Object to) {\n        synchronized (from) {\n            sleep(300);                      // widen the window: the other thread takes its first lock now\n            synchronized (to) {\n                System.out.println(Thread.currentThread().getName() + \" moved the money\");\n            }\n        }\n    }\n\n    static void sleep(long ms) {\n        try { Thread.sleep(ms); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }\n    }\n}\n",
+     "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l06.DeadlockDemo",
+     "file": "labs/concurrency/src/demo/java/workbench/concurrency/l06/DeadlockDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "DeadlockDemo.kt",
+      "src": "package workbench.concurrency.l06\n\nimport java.lang.management.ManagementFactory\n\n// Two transfers lock the same two accounts in opposite orders. Run with -Pargs=wait to keep it alive for jcmd.\nprivate val accountA = Any()\nprivate val accountB = Any()\n\nfun main(args: Array<String>) {\n    val stayAlive = args.firstOrNull() == \"wait\"\n    val t1 = Thread({ move(accountA, accountB) }, \"transfer-A-to-B\").apply { isDaemon = true; start() }\n    val t2 = Thread({ move(accountB, accountA) }, \"transfer-B-to-A\").apply { isDaemon = true; start() }\n    Thread.sleep(1_000)\n\n    val mx = ManagementFactory.getThreadMXBean()\n    val ids = mx.findDeadlockedThreads()           // what a health check can ask the JVM\n    println(\"deadlocked threads: ${ids?.size ?: 0}\")\n    ids?.let { mx.getThreadInfo(it) }?.forEach { info ->\n        println(\"  ${info.threadName} is ${info.threadState}, wants a lock held by ${info.lockOwnerName}\")\n    }\n    if (stayAlive) {\n        val pid = ProcessHandle.current().pid()\n        println(\"pid $pid: run  jcmd $pid Thread.print  in another terminal (60 s)\")\n        Thread.sleep(60_000)\n    }\n}\n\nprivate fun move(from: Any, to: Any) {\n    synchronized(from) {\n        Thread.sleep(300)                          // widen the window: the other thread takes its first lock now\n        synchronized(to) {\n            println(\"${Thread.currentThread().name} moved the money\")\n        }\n    }\n}\n",
+      "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l06.DeadlockDemoKt",
+      "file": "labs/concurrency/src/demo/kotlin/workbench/concurrency/l06/DeadlockDemo.kt"
+     }
+    },
+    "expect": "With the sleep: `deadlocked threads: 2`, both BLOCKED, each waiting for a lock the other holds, and neither \"moved the money\" line. Without the sleep it deadlocks only sometimes, and often both transfers finish. That is the same bug, now hiding. The sleep only widens a window that is always there."
+   }
+  },
+  {
+   "h": "Deadlock needs four conditions, so break one",
+   "body": "A deadlock can only happen when all four of these hold at once. They are known as the Coffman conditions, after a 1971 paper.\n\n1. **Mutual exclusion.** A resource can be held by only one thread at a time. A lock is exactly that.\n2. **Hold and wait.** A thread holds one resource while it waits for another.\n3. **No preemption.** Nobody can take a resource away from the thread that holds it. It has to let go on its own.\n4. **Circular wait.** There is a cycle: T1 waits for T2, which waits for T1. Longer cycles count too.\n\nRemove any one and deadlock becomes impossible. In practice you pick from three moves.\n\nBreak circular wait with a **global lock order**. If every thread that needs both `a` and `b` takes them in the same order, no thread can hold the second while waiting for the first, so no cycle can form. This is the fix you'll reach for most often, and the next section shows it.\n\nBreak no-preemption with a **timed `tryLock`**. A thread that can't get its second lock in time gives back the first and tries again later. It preempts itself.\n\nBreak hold-and-wait by **needing only one lock**: one coarse lock around both accounts, or an operation designed so it never holds one resource while asking for another.\n\nMutual exclusion is the one you rarely remove, since it is the reason you took a lock. Sometimes you can design it away, with immutable data or one owner per account (lesson 11 of this track).\n\nThe same four conditions apply to every kind of resource, not just Java locks: database row locks, connections from a pool, permits from a semaphore. The figure shows the cycle from the first section as a wait-for graph. Deadlock detectors, including the JVM's, look for exactly this loop.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 640 240\" role=\"img\" aria-label=\"Wait-for cycle: T1 holds lock a and waits for lock b; T2 holds lock b and waits for lock a\"><rect class=\"box-a\" x=\"30\" y=\"92\" width=\"160\" height=\"56\" rx=\"8\"/><text class=\"t\" x=\"110\" y=\"115\" text-anchor=\"middle\">T1</text><text class=\"t-s t-code\" x=\"110\" y=\"135\" text-anchor=\"middle\">transfer(a, b)</text><rect class=\"box-b\" x=\"450\" y=\"92\" width=\"160\" height=\"56\" rx=\"8\"/><text class=\"t\" x=\"530\" y=\"115\" text-anchor=\"middle\">T2</text><text class=\"t-s t-code\" x=\"530\" y=\"135\" text-anchor=\"middle\">transfer(b, a)</text><rect class=\"box\" x=\"250\" y=\"16\" width=\"140\" height=\"44\" rx=\"8\"/><text class=\"t t-code\" x=\"320\" y=\"43\" text-anchor=\"middle\">lock a</text><rect class=\"box\" x=\"250\" y=\"180\" width=\"140\" height=\"44\" rx=\"8\"/><text class=\"t t-code\" x=\"320\" y=\"207\" text-anchor=\"middle\">lock b</text><line class=\"ln\" x1=\"250\" y1=\"44\" x2=\"185\" y2=\"90\" marker-end=\"url(#arr)\"/><text class=\"t-s\" x=\"205\" y=\"56\" text-anchor=\"end\">held by</text><line class=\"ln-bad\" x1=\"185\" y1=\"150\" x2=\"250\" y2=\"196\" marker-end=\"url(#arr)\"/><text class=\"t-s t-bad\" x=\"205\" y=\"190\" text-anchor=\"end\">waits for</text><line class=\"ln\" x1=\"390\" y1=\"196\" x2=\"455\" y2=\"150\" marker-end=\"url(#arr)\"/><text class=\"t-s\" x=\"435\" y=\"190\" text-anchor=\"start\">held by</text><line class=\"ln-bad\" x1=\"455\" y1=\"90\" x2=\"390\" y2=\"44\" marker-end=\"url(#arr)\"/><text class=\"t-s t-bad\" x=\"435\" y=\"56\" text-anchor=\"start\">waits for</text><text class=\"t t-bad\" x=\"320\" y=\"118\" text-anchor=\"middle\">a cycle:</text><text class=\"t-s t-bad\" x=\"320\" y=\"136\" text-anchor=\"middle\">nobody can move</text></svg>",
+    "caption": "A wait-for graph. Each thread holds one lock and waits for the other's. The cycle is the deadlock."
+   }
+  },
+  {
+   "h": "Fix it with a global lock order",
+   "body": "Give every account a stable, unique key, and always lock the lower key first, whichever way the money moves:\n\n```java\nvoid transfer(Account from, Account to, long cents) {\n    Account first = from.id() < to.id() ? from : to;   // one order for everyone\n    Account second = first == from ? to : from;\n    synchronized (first) {\n        synchronized (second) {\n            from.debit(cents);\n            to.credit(cents);\n        }\n    }\n}\n```\n\n```kotlin\nfun transfer(from: Account, to: Account, cents: Long) {\n    val first = if (from.id < to.id) from else to      // one order for everyone\n    val second = if (first === from) to else from\n    synchronized(first) {\n        synchronized(second) {\n            from.debit(cents)\n            to.credit(cents)\n        }\n    }\n}\n```\n\nNow `transfer(a, b)` and `transfer(b, a)` both lock `a` first. Whoever gets `a` gets to run. The other waits for `a` while holding nothing, which is plain contention, not deadlock.\n\nThree details make or break this.\n\nThe key must be unique and must never change. An account id or an IBAN works. `hashCode()` does not: two different objects can share one, and then two threads may again disagree about the order. If you have no natural key, *Java Concurrency in Practice* shows a tie-breaker: compare `System.identityHashCode`, and on a tie take one extra global lock first.\n\nThe rule must be global. Each method locking in a sensible-looking order is not enough. One method that locks account then customer, and another that locks customer then account, recreate the cycle. Put the ordering in one helper and make every caller use it.\n\nThe order must survive calls you don't see. If you call a listener, a repository or any other alien code while you hold a lock, that code may take locks of its own in a different order. That is the rule from lesson 4 of this track again: copy what you need, release the lock, then call out.\n\nIn the lab, `Account` has a `ReentrantLock` instead of using `synchronized`, so that part 2 can use `tryLock`. The ordering idea is the same.",
+   "try": {
+    "title": "Same transfers, one order",
+    "minutes": 3,
+    "steps": [
+     "Read `OrderedLocks`. It runs 100,000 transfers in each direction between the same two accounts, with the ordering rule above.",
+     "Predict whether it finishes, then run it.",
+     "Break it on purpose: change `move` to lock `from` first and `to` second. Run it again, and stop it with Ctrl+C if it hangs."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "OrderedLocks.java",
+     "src": "package workbench.concurrency.l06;\n\n/** The same opposite transfers, with every thread taking the locks in one global order. */\npublic class OrderedLocks {\n    record Acct(int id, long[] balance) {}\n\n    public static void main(String[] args) throws InterruptedException {\n        Acct a = new Acct(1, new long[] {1_000_000});\n        Acct b = new Acct(2, new long[] {1_000_000});\n        Thread t1 = new Thread(() -> { for (int i = 0; i < 100_000; i++) move(a, b, 1); }, \"A-to-B\");\n        Thread t2 = new Thread(() -> { for (int i = 0; i < 100_000; i++) move(b, a, 1); }, \"B-to-A\");\n        long t0 = System.nanoTime();\n        t1.start();\n        t2.start();\n        t1.join();\n        t2.join();\n        System.out.printf(\"200,000 opposite transfers in %d ms, total still %,d%n\",\n                (System.nanoTime() - t0) / 1_000_000, a.balance()[0] + b.balance()[0]);\n    }\n\n    static void move(Acct from, Acct to, long cents) {\n        Acct first = from.id() < to.id() ? from : to;    // lower id first, whatever the direction\n        Acct second = first == from ? to : from;\n        synchronized (first) {\n            synchronized (second) {\n                from.balance()[0] -= cents;\n                to.balance()[0] += cents;\n            }\n        }\n    }\n}\n",
+     "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l06.OrderedLocks",
+     "file": "labs/concurrency/src/demo/java/workbench/concurrency/l06/OrderedLocks.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "OrderedLocks.kt",
+      "src": "package workbench.concurrency.l06\n\nimport kotlin.concurrent.thread\n\n// The same opposite transfers, with every thread taking the locks in one global order.\nprivate class Acct(val id: Int, var balance: Long)\n\nfun main() {\n    val a = Acct(1, 1_000_000)\n    val b = Acct(2, 1_000_000)\n    val t0 = System.nanoTime()\n    val t1 = thread(name = \"A-to-B\") { repeat(100_000) { move(a, b, 1) } }\n    val t2 = thread(name = \"B-to-A\") { repeat(100_000) { move(b, a, 1) } }\n    t1.join()\n    t2.join()\n    println(\"200,000 opposite transfers in %d ms, total still %,d\"\n        .format((System.nanoTime() - t0) / 1_000_000, a.balance + b.balance))\n}\n\nprivate fun move(from: Acct, to: Acct, cents: Long) {\n    val first = if (from.id < to.id) from else to    // lower id first, whatever the direction\n    val second = if (first === from) to else from\n    synchronized(first) {\n        synchronized(second) {\n            from.balance -= cents\n            to.balance += cents\n        }\n    }\n}\n",
+      "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l06.OrderedLocksKt",
+      "file": "labs/concurrency/src/demo/kotlin/workbench/concurrency/l06/OrderedLocks.kt"
+     }
+    },
+    "expect": "With ordered locks, 200,000 opposite transfers finish in well under a second and the total stays 2,000,000. Locking in argument order usually hangs within the first few thousand transfers. With no sleep to widen the window, it is down to luck, so on some runs it may survive a while."
+   }
+  },
+  {
+   "h": "Timed tryLock, and the livelock it can cause",
+   "body": "Sometimes you can't impose an order, for example when you don't know all the locks up front. Then make sure no wait can last forever. `ReentrantLock.tryLock(timeout)` gives up after the timeout and returns `false`. If you can't get both locks, let go of what you hold, wait a little, and try again:\n\n```java\nif (from.lock().tryLock(10, TimeUnit.MILLISECONDS)) {\n    try {\n        if (to.lock().tryLock(10, TimeUnit.MILLISECONDS)) {\n            try { /* move the money */ return true; }\n            finally { to.lock().unlock(); }\n        }\n    } finally {\n        from.lock().unlock();      // couldn't get both: let go of everything\n    }\n}\nThread.sleep(ThreadLocalRandom.current().nextLong(1, 10));   // random back-off, then retry\n```\n\n```kotlin\nif (from.lock().tryLock(10, TimeUnit.MILLISECONDS)) {\n    try {\n        if (to.lock().tryLock(10, TimeUnit.MILLISECONDS)) {\n            try { /* move the money */ return true }\n            finally { to.lock().unlock() }\n        }\n    } finally {\n        from.lock().unlock()       // couldn't get both: let go of everything\n    }\n}\nThread.sleep(ThreadLocalRandom.current().nextLong(1, 10))    // random back-off, then retry\n```\n\nThe random back-off matters more than it looks. Leave it out, or use a fixed sleep, and two threads can fall into lockstep: both take their first lock, both fail on the second, both release, both retry at the same moment, forever. That is **livelock**. The threads are busy, they change state all the time, and nothing gets done. A thread dump looks healthy, which makes livelock harder to spot than deadlock.\n\nThe demo below shows a livelock with no locks at all. Two polite diners share one spoon, and each hands it over whenever the other is hungry. In one second they pass it about ten million times and nobody eats. The fix is to break the symmetry: random back-off, or a rule such as \"after three polite turns, eat anyway\".\n\nThe third failure is **starvation**: the system makes progress, but one thread never does. A non-fair `ReentrantLock` (the default) lets a thread that just released the lock grab it again before a waiter wakes up. That is faster overall, but one unlucky thread can wait a long time. `new ReentrantLock(true)` hands the lock to the longest waiter instead. It costs throughput, and its Javadoc warns that fairness of locks does not guarantee fairness of thread scheduling. Starvation also happens when readers keep a read-write lock busy so a writer never gets in. Lesson 12 of this track comes back to that.",
+   "try": {
+    "title": "Watch a livelock, then break the symmetry",
+    "minutes": 3,
+    "steps": [
+     "Run `LivelockDemo`. Both diners are hungry and both are polite.",
+     "Read the count of handovers and meals.",
+     "Run it again with `-Pargs=fixed`, where a diner eats anyway after three polite turns."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "LivelockDemo.java",
+     "src": "package workbench.concurrency.l06;\n\n/** Two polite diners share one spoon. Each hands it over while the other is hungry. Try -Pargs=fixed. */\npublic class LivelockDemo {\n    static volatile int spoonOwner = 0;                 // diner 0 or diner 1\n    static final boolean[] hungry = {true, true};       // written by its owner only, read by the other\n    static volatile boolean stop;\n    static final long[] handovers = new long[2];\n\n    public static void main(String[] args) throws InterruptedException {\n        boolean fixed = args.length > 0 && args[0].equals(\"fixed\");\n        Thread d0 = new Thread(() -> dine(0, fixed), \"diner-0\");\n        Thread d1 = new Thread(() -> dine(1, fixed), \"diner-1\");\n        d0.start();\n        d1.start();\n        d0.join(1_000);\n        d1.join(1_000);\n        stop = true;\n        d0.join();\n        d1.join();\n        System.out.printf(\"spoon handed over %,d times; meals eaten: %d%n\",\n                handovers[0] + handovers[1], (hungry[0] ? 0 : 1) + (hungry[1] ? 0 : 1));\n    }\n\n    static void dine(int me, boolean fixed) {\n        int other = 1 - me;\n        int politeTurns = 0;\n        while (!stop) {\n            if (spoonOwner != me) {                     // not my spoon: wait for it\n                Thread.onSpinWait();\n                continue;\n            }\n            boolean otherHungry;\n            synchronized (hungry) { otherHungry = hungry[other]; }\n            if (otherHungry && (!fixed || politeTurns < 3)) {\n                politeTurns++;\n                handovers[me]++;\n                spoonOwner = other;                     // \"you first\": both keep saying it\n                continue;\n            }\n            synchronized (hungry) { hungry[me] = false; } // eat\n            spoonOwner = other;                         // then pass the spoon on\n            return;\n        }\n    }\n}\n",
+     "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l06.LivelockDemo",
+     "file": "labs/concurrency/src/demo/java/workbench/concurrency/l06/LivelockDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "LivelockDemo.kt",
+      "src": "package workbench.concurrency.l06\n\nimport kotlin.concurrent.thread\n\n// Two polite diners share one spoon. Each hands it over while the other is hungry. Try -Pargs=fixed.\n@Volatile private var spoonOwner = 0                // diner 0 or diner 1\nprivate val hungry = booleanArrayOf(true, true)     // guarded by synchronized(hungry)\n@Volatile private var stop = false\nprivate val handovers = LongArray(2)\n\nfun main(args: Array<String>) {\n    val fixed = args.firstOrNull() == \"fixed\"\n    val d0 = thread(name = \"diner-0\") { dine(0, fixed) }\n    val d1 = thread(name = \"diner-1\") { dine(1, fixed) }\n    d0.join(1_000)\n    d1.join(1_000)\n    stop = true\n    d0.join()\n    d1.join()\n    val meals = (if (hungry[0]) 0 else 1) + (if (hungry[1]) 0 else 1)\n    println(\"spoon handed over %,d times; meals eaten: %d\".format(handovers[0] + handovers[1], meals))\n}\n\nprivate fun dine(me: Int, fixed: Boolean) {\n    val other = 1 - me\n    var politeTurns = 0\n    while (!stop) {\n        if (spoonOwner != me) {                     // not my spoon: wait for it\n            Thread.onSpinWait()\n            continue\n        }\n        val otherHungry = synchronized(hungry) { hungry[other] }\n        if (otherHungry && (!fixed || politeTurns < 3)) {\n            politeTurns++\n            handovers[me]++\n            spoonOwner = other                      // \"you first\": both keep saying it\n            continue\n        }\n        synchronized(hungry) { hungry[me] = false } // eat\n        spoonOwner = other                          // then pass the spoon on\n        return\n    }\n}\n",
+      "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l06.LivelockDemoKt",
+      "file": "labs/concurrency/src/demo/kotlin/workbench/concurrency/l06/LivelockDemo.kt"
+     }
+    },
+    "expect": "Without the fix: around ten million handovers in one second and `meals eaten: 0`. Both threads were RUNNABLE the whole time. With `-Pargs=fixed`: 6 handovers and 2 meals, done at once."
+   }
+  },
+  {
+   "h": "Read a deadlock from a thread dump",
+   "body": "When a service freezes, take a thread dump before you restart it. The restart destroys the evidence.\n\n```bash\njcmd                      # lists Java processes with their PIDs\njcmd <pid> Thread.print   # every thread's state and stack, plus deadlock detection\n```\n\n`jstack <pid>` prints the same dump. If the JVM finds a cycle of threads waiting for each other's locks, it says so at the end. This is real output from the demo, on JDK 21:\n\n```text\nFound one Java-level deadlock:\n=============================\n\"transfer-A-to-B\":\n  waiting to lock monitor 0x00007f70d4001870 (object 0x00000006f794b518, a java.lang.Object),\n  which is held by \"transfer-B-to-A\"\n\n\"transfer-B-to-A\":\n  waiting to lock monitor 0x00007f70d80012f0 (object 0x00000006f794b508, a java.lang.Object),\n  which is held by \"transfer-A-to-B\"\n\nJava stack information for the threads listed above:\n===================================================\n\"transfer-A-to-B\":\n\tat workbench.concurrency.l06.DeadlockDemo.move(DeadlockDemo.java:42)\n\t- waiting to lock <0x00000006f794b518> (a java.lang.Object)\n\t- locked <0x00000006f794b508> (a java.lang.Object)\n\t...\nFound 1 deadlock.\n```\n\nRead it from the bottom up. Each thread's stack shows what it holds (`- locked <...>`) and what it wants (`- waiting to lock <...>`), and the header names the owner of the lock it wants. The line numbers take you straight to the two `synchronized` blocks that lock in opposite orders.\n\nThe detector also finds deadlocks on `ReentrantLock`. Then the dump says `waiting for ownable synchronizer ... which is held by`, and the stack shows `parking to wait for` instead of `waiting to lock`. Add `-l` (`Thread.print -l`) to list the `java.util.concurrent` locks each thread owns.\n\nFor tooling, `jcmd <pid> Thread.dump_to_file -format=json dump.json` writes JSON. On JDK 21 each thread has only `tid`, `name` and `stack`. From JDK 25 it also has `state`, `blockedOn`, `waitingOn`, `owner` and the monitors each thread holds, which is enough to rebuild the wait-for graph.\n\nInside the process you can ask the same question in code, which makes a cheap health check:\n\n```java\nlong[] ids = ManagementFactory.getThreadMXBean().findDeadlockedThreads();   // null if none\n```\n\n```kotlin\nval ids: LongArray? = ManagementFactory.getThreadMXBean().findDeadlockedThreads()   // null if none\n```\n\nTwo limits to know. The detector only sees cycles of Java locks. Twenty threads that each hold a pooled database connection and wait for a second one are deadlocked too, but the dump just shows twenty threads waiting inside the pool. And there is no JFR event for deadlocks: you find them with thread dumps or `ThreadMXBean`.",
+   "try": {
+    "title": "Take the dump yourself",
+    "minutes": 5,
+    "steps": [
+     "Run `./gradlew :concurrency:demo -Pmain=workbench.concurrency.l06.DeadlockDemo -Pargs=wait`. It deadlocks, prints its PID, and stays alive for 60 seconds.",
+     "In a second terminal, run `jcmd <pid> Thread.print` with that PID. Find `Found one Java-level deadlock` and follow each thread's `locked` and `waiting to lock` lines to a line number.",
+     "Run `jcmd <pid> Thread.dump_to_file -format=json /tmp/dump.json` and open the file. Which fields does each thread have on your JDK?"
+    ],
+    "code": {
+     "lang": "bash",
+     "title": "terminal 2",
+     "src": "jcmd                                   # find the PID of DeadlockDemo\njcmd <pid> Thread.print\njcmd <pid> Thread.dump_to_file -format=json /tmp/dump.json",
+     "run": ""
+    },
+    "expect": "The text dump ends with `Found 1 deadlock.` and points at `DeadlockDemo.java:42` for both threads. The JSON has `tid`, `name` and `stack` per thread on JDK 21, and state and lock fields as well on JDK 25 and later. `Thread.dump_to_file` refuses to overwrite an existing file unless you add `-overwrite`."
+   },
+   "refs": [
+    {
+     "title": "diagnosticCommand.hpp at jdk-27-ga: the jcmd Thread.* commands",
+     "url": "https://github.com/openjdk/jdk/blob/jdk-27-ga/src/hotspot/share/services/diagnosticCommand.hpp",
+     "kind": "docs"
+    }
+   ]
+  }
+ ],
+ "analogy": "Deadlock is two cars meeting head-on at a one-lane bridge: each waits for the other to back up, and neither will. Lock ordering is a rule that traffic always crosses from the north side first. Livelock is both drivers backing up at the same moment, then both driving forward again, over and over. Starvation is the car on a side road that never finds a gap in the traffic, while everyone else gets through. The analogy breaks in one useful way: real drivers eventually lose patience and do something different. Threads never do, unless you write the timeout and the random back-off into the code yourself.",
+ "in_your_world": "You'll meet the same cycle outside the JVM. Two ledger transactions that run `SELECT ... FOR UPDATE` on the same two account rows in opposite orders deadlock in Oracle. Oracle detects that, fails one statement with `ORA-00060: deadlock detected while waiting for resource`, and your service sees an exception. The fix is the one from this lesson: lock rows in id order, for example with a single `SELECT ... WHERE id IN (...) ORDER BY id FOR UPDATE`. The other common one is pool deadlock: a Quarkus endpoint that takes a connection from a pool of 20, then calls a method that needs a second connection from the same pool. With 20 concurrent requests, every thread holds one connection and waits for another, forever. No Java lock is involved, so no detector will name it.",
+ "mistake": "The most common real mistake is believing that each method's locking order is enough. Developers check that `transfer` always locks `from` then `to` and call it consistent, but \"`from` first\" is a different order for every pair of calls. The same trap appears across classes: `OrderService` locks the order then the customer, `CustomerService` locks the customer then the orders. The fix is one rule for the whole system, such as \"lower id first\", written once in a helper that every caller uses, plus a review rule that nothing calls alien code while holding a lock.",
+ "compare": {
+  "title": "Ordered locking in Java and Kotlin",
+  "java": {
+   "title": "Java",
+   "src": "void transfer(Account from, Account to, long cents) {\n    Account first = from.id() < to.id() ? from : to;\n    Account second = first == from ? to : from;\n    first.lock().lock();\n    try {\n        second.lock().lock();\n        try {\n            from.debit(cents);\n            to.credit(cents);\n        } finally {\n            second.lock().unlock();\n        }\n    } finally {\n        first.lock().unlock();\n    }\n}"
+  },
+  "kotlin": {
+   "title": "Kotlin",
+   "src": "fun transfer(from: Account, to: Account, cents: Long) {\n    val first = if (from.id < to.id) from else to\n    val second = if (first === from) to else from\n    first.lock().withLock {                 // kotlin.concurrent.withLock: lock, try, finally unlock\n        second.lock().withLock {\n            from.debit(cents)\n            to.credit(cents)\n        }\n    }\n}"
+  },
+  "note": "The idea is identical, and so is the deadlock risk: Kotlin adds no protection here. What differs is ceremony. Kotlin's `withLock { }` extension on `Lock` writes the `lock()`, `try`, `finally unlock()` for you, so you can't forget the `finally`. In Java the `try`/`finally` pairs are on you, and an `unlock()` in the wrong `finally` is a classic way to leak a lock. Both languages get the same dump from `jcmd`, since Kotlin compiles to the same `ReentrantLock` and monitor calls."
+ },
+ "worked": {
+  "title": "Find a deadlock that hides behind a callback",
+  "steps": [
+   {
+    "say": "A ledger tells an audit log about every posting. A scheduler flushes the audit log every second, and the flush reads the ledger's balance. Each class looks fine on its own. Find the cycle.",
+    "code": "class Ledger {\n    synchronized void post(Entry e) {\n        entries.add(e);\n        auditLog.record(e);              // calls AuditLog while holding the Ledger lock\n    }\n    synchronized long balance() { return sum(entries); }\n}\n\nclass AuditLog {\n    synchronized void record(Entry e) { pending.add(e); }\n    synchronized void flush() {\n        long b = ledger.balance();       // calls Ledger while holding the AuditLog lock\n        write(pending, b);\n        pending.clear();\n    }\n}",
+    "lang": "java",
+    "alt_code": "class Ledger(private val auditLog: AuditLog) {\n    @Synchronized fun post(e: Entry) {\n        entries += e\n        auditLog.record(e)               // calls AuditLog while holding the Ledger lock\n    }\n    @Synchronized fun balance(): Long = sum(entries)\n}\n\nclass AuditLog {\n    @Synchronized fun record(e: Entry) { pending += e }\n    @Synchronized fun flush() {\n        val b = ledger.balance()         // calls Ledger while holding the AuditLog lock\n        write(pending, b)\n        pending.clear()\n    }\n}",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "A request thread in `post` holds the Ledger lock and wants the AuditLog lock. The scheduler thread in `flush` holds the AuditLog lock and wants the Ledger lock. That is the AB/BA cycle again, split across two classes. The dump would show it like this:",
+    "code": "\"http-worker-7\":  waiting to lock <0x...a0> (a AuditLog), locked <0x...b8> (a Ledger)\n\"audit-flusher\":  waiting to lock <0x...b8> (a Ledger),   locked <0x...a0> (a AuditLog)",
+    "lang": "text"
+   },
+   {
+    "say": "You could impose an order, but the cleaner fix is to stop holding a lock while calling the other class. Each method keeps its own lock only around its own state. Before reading the fix, decide: which call in each method is the alien one?",
+    "code": "void post(Entry e) {\n    synchronized (this) { entries.add(e); }\n    auditLog.record(e);                  // 1. no Ledger lock held while calling out\n}\n\nvoid flush() {\n    long b = ledger.balance();           // 2. read the balance before taking our own lock\n    List<Entry> batch;\n    synchronized (this) { batch = List.copyOf(pending); pending.clear(); }\n    write(batch, b);                     // 3. slow I/O with no lock at all\n}",
+    "lang": "java",
+    "alt_code": "fun post(e: Entry) {\n    synchronized(this) { entries += e }\n    auditLog.record(e)                   // 1. no Ledger lock held while calling out\n}\n\nfun flush() {\n    val b = ledger.balance()             // 2. read the balance before taking our own lock\n    val batch = synchronized(this) {\n        pending.toList().also { pending.clear() }\n    }\n    write(batch, b)                      // 3. slow I/O with no lock at all\n}",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "Now no thread ever holds one of the two locks while asking for the other, so hold-and-wait is gone and no cycle can form. The balance written with the batch may be a moment older than the last entry. For an audit log that is fine; if it weren't, you'd need one lock over both, which is the coarse-lock fix.",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "Fix a transfer deadlock, then add a transfer that gives up",
+  "minutes": 15,
+  "files": [
+   "labs/concurrency/src/main/java/workbench/concurrency/l06/Transfers.java",
+   "labs/concurrency/src/main/java/workbench/concurrency/l06/Account.java"
+  ],
+  "run": "./gradlew :concurrency:test --tests 'workbench.concurrency.l06.*'",
+  "steps": [
+   "Run the tests. Two transfer tests time out after 10 seconds: they deadlocked. The three `tryTransfer` tests fail with `UnsupportedOperationException`.",
+   "Read `Account`. You don't change it. `debit` and `credit` throw unless you hold that account's lock.",
+   "Part 1: fix `Transfers.transfer` so it always locks the account with the lower `id()` first. Keep the `try`/`finally` around each `unlock()`.",
+   "Part 2: write `tryTransfer`. Loop until the deadline: `tryLock` the first account for 10 ms, then the second for 10 ms. If you get both, move the money and return true. If not, release what you hold, sleep a random 1 to 10 ms, and loop. Return false when time is up.",
+   "Run the tests until all five pass, then run them twice more."
+  ],
+  "hints": [
+   "A self-transfer (`from == to`) takes the same `ReentrantLock` twice. That is fine, because it is reentrant, as long as you release it twice.",
+   "In part 2, put the `from.lock().unlock()` in a `finally` that runs whether or not you got `to`. The test checks that `from` is free after a failed attempt.",
+   "`ThreadLocalRandom.current().nextLong(1, 10)` gives a random back-off without sharing a `Random` between threads."
+  ],
+  "done_when": "All five tests in `TransfersTest` pass, three runs in a row."
+ },
+ "drill": {
+  "title": "Ordered locking from memory",
+  "minutes": 4,
+  "prompt": "Close this page. Write `transfer(Account from, Account to, long cents)` using each account's `ReentrantLock`, so that two transfers in opposite directions can never deadlock. Check: does every `lock()` have its `unlock()` in a `finally`?",
+  "answer": {
+   "lang": "java",
+   "src": "void transfer(Account from, Account to, long cents) {\n    Account first = from.id() < to.id() ? from : to;\n    Account second = first == from ? to : from;\n    first.lock().lock();\n    try {\n        second.lock().lock();\n        try {\n            from.debit(cents);\n            to.credit(cents);\n        } finally {\n            second.lock().unlock();\n        }\n    } finally {\n        first.lock().unlock();\n    }\n}",
+   "alt": {
+    "lang": "kotlin",
+    "title": "Kotlin",
+    "src": "fun transfer(from: Account, to: Account, cents: Long) {\n    val first = if (from.id < to.id) from else to\n    val second = if (first === from) to else from\n    first.lock().lock()\n    try {\n        second.lock().lock()\n        try {\n            from.debit(cents)\n            to.credit(cents)\n        } finally {\n            second.lock().unlock()\n        }\n    } finally {\n        first.lock().unlock()\n    }\n}"
+   }
+  }
+ },
+ "recap": [
+  "Deadlock needs all four conditions: mutual exclusion, hold and wait, no preemption, circular wait. Break any one.",
+  "The usual fix is a global lock order by a unique, stable key, written once and used everywhere.",
+  "Timed `tryLock` with release and random back-off ensures no wait lasts forever. Without the randomness you can get livelock.",
+  "Livelock is busy threads making no progress. Starvation is one thread that never gets its turn while others do.",
+  "`jcmd <pid> Thread.print` (or `jstack`) reports Java-level deadlocks on monitors and on `ReentrantLock`, with the holder and the waiter.",
+  "Calling alien code while holding a lock is the most common way a cycle sneaks in across classes."
+ ],
+ "quiz": [
+  {
+   "q": "Which change makes `transfer(from, to)` safe from deadlock when transfers run in both directions?",
+   "options": [
+    "Mark the field that holds each balance `volatile`",
+    "Always lock the account with the lower id first, then the other",
+    "Add `Thread.sleep(1)` between the two locks",
+    "Make `transfer` a `synchronized` instance method on each account"
+   ],
+   "answer": 1,
+   "why": "One global order means no thread can hold the second lock while waiting for the first, so circular wait can't happen. `volatile` doesn't affect locking. A sleep just changes the odds. A `synchronized` method on the source account is still \"lock `from`, then `to`\", the same broken order."
+  },
+  {
+   "q": "Two threads use `tryLock` with a fixed 5 ms sleep between attempts. A thread dump shows both RUNNABLE or TIMED_WAITING, their stacks change between dumps, and no deadlock is reported. Nothing has completed in a minute. What is this?",
+   "options": [
+    "A deadlock that the JVM failed to detect",
+    "Starvation of one thread",
+    "Livelock: they keep retrying in lockstep and both keep failing",
+    "A GC pause"
+   ],
+   "answer": 2,
+   "why": "The threads are active, they release and retake locks, and neither makes progress. That is livelock. With fixed sleeps they stay in step. A random back-off breaks the symmetry. It isn't deadlock, because nobody waits forever on a held lock, and it isn't starvation, because nobody else is progressing either."
+  },
+  {
+   "q": "A service stops answering. You suspect a lock cycle. Which tool tells you for sure?",
+   "options": [
+    "A JFR recording, filtered on the jdk.Deadlock event",
+    "The GC log",
+    "Restarting the pod and watching whether it happens again",
+    "`jcmd <pid> Thread.print`, which prints \"Found one Java-level deadlock\" with the threads and locks involved"
+   ],
+   "answer": 3,
+   "why": "The thread dump's deadlock detector finds cycles on monitors and on `ReentrantLock`, and names who holds what. JFR has no deadlock event. Restarting destroys the evidence. Take the dump first."
+  },
+  {
+   "q": "A report thread needs a `ReentrantLock` for 50 ms once a minute. Request threads take the same lock thousands of times a second and grab it again the moment they release it. The report sometimes waits for minutes. What is this, and what is one fix?",
+   "options": [
+    "Starvation; a fair lock, `new ReentrantLock(true)`, gives the longest waiter the next turn",
+    "Deadlock; order the locks",
+    "Livelock; add random back-off",
+    "A race condition; make the field volatile"
+   ],
+   "answer": 0,
+   "why": "Everyone else makes progress and one thread never gets its turn: that is starvation. A non-fair lock lets a running thread barge back in ahead of waiters. A fair lock queues them in order, at some cost in throughput. Making the request path hold the lock for less time also helps."
+  },
+  {
+   "q": "From wait, notify and guarded blocks: a one-slot buffer using `notify()` stalls with all four threads WAITING. Will `jcmd Thread.print` report a Java-level deadlock?",
+   "options": [
+    "Yes, every stall is reported as a deadlock",
+    "No: no thread holds the monitor, they are all waiting for a notification that will never come",
+    "Yes, but only with the -l flag",
+    "No, because jcmd can't see WAITING threads"
+   ],
+   "answer": 1,
+   "why": "The deadlock detector looks for threads blocked on locks held by each other. Threads in `wait()` hold nothing, and the monitor is free. They are stuck because a signal was lost, not because of a lock cycle, so the dump shows four WAITING threads and no deadlock section.",
+   "from": "conc-05"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "Deadlock condition 1: what is mutual exclusion?",
+   "back": "A resource can be held by only one thread at a time. Every lock has it."
+  },
+  {
+   "front": "Deadlock condition 2: what is hold and wait?",
+   "back": "A thread holds one resource while waiting for another."
+  },
+  {
+   "front": "Deadlock condition 3: what is no preemption?",
+   "back": "Nobody can take a resource away from the thread that holds it; only the holder can release it."
+  },
+  {
+   "front": "Deadlock condition 4: what is circular wait?",
+   "back": "A cycle of threads, each waiting for a resource the next one holds: T1 waits for T2, T2 waits for T1."
+  },
+  {
+   "front": "How does a global lock order prevent deadlock?",
+   "back": "Every thread takes locks in the same order (for example lower id first), so no cycle can form. It breaks circular wait."
+  },
+  {
+   "front": "Deadlock vs livelock vs starvation, in one line each.",
+   "back": "Deadlock: threads wait forever for each other. Livelock: threads stay busy reacting to each other and make no progress. Starvation: others progress, one thread never gets a turn."
+  },
+  {
+   "front": "What does `jcmd <pid> Thread.print` print when it finds a lock cycle?",
+   "back": "`Found one Java-level deadlock:`, then each thread, the lock it waits for and who holds it, then their stacks, ending with `Found 1 deadlock.`"
+  }
+ ],
+ "terms": [
+  {
+   "term": "Deadlock",
+   "plain": "Threads that each wait for a resource another one holds, so none can ever proceed."
+  },
+  {
+   "term": "Livelock",
+   "plain": "Threads that keep reacting to each other, busy but making no progress."
+  },
+  {
+   "term": "Starvation",
+   "plain": "One thread never gets the resource it needs while others keep getting it."
+  },
+  {
+   "term": "Lock ordering",
+   "plain": "A rule that every thread takes locks in the same global order."
+  },
+  {
+   "term": "Wait-for graph",
+   "plain": "A picture of which thread waits for which. A cycle in it is a deadlock."
+  },
+  {
+   "term": "Thread dump",
+   "plain": "A snapshot of every thread's state and stack, from `jcmd Thread.print` or `jstack`."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A teammate says: \"We added `tryLock(5, SECONDS)` everywhere, so we can't have deadlocks any more.\" Explain what they got right, and what can still go wrong.",
+  "answer": "They're right that a timed `tryLock` means no thread waits forever, so the classic deadlock can't freeze the system: a thread that can't get its second lock gives up after the timeout. But giving up only helps if the code then releases what it holds and tries again later, ideally after a random back-off. If two threads retry in lockstep, they can livelock, failing over and over. A 5-second timeout also means a request can stall for 5 seconds before it even notices. Lock ordering removes the cycle altogether, so I'd use that where we can, and keep timed `tryLock` for the cases where we can't know the order."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "The JVM's detector covers two kinds of lock. `ThreadMXBean.findDeadlockedThreads()` looks for cycles on monitors and on ownable synchronizers such as `ReentrantLock` and the write lock of `ReentrantReadWriteLock`. The older `findMonitorDeadlockedThreads()` sees monitors only. Neither sees semaphores, latches, `Object.wait()`, futures waiting on each other or pooled connections, because none of those has a single owning thread the JVM could point at.\n\nThat covers the common case of two thread pools waiting on each other. Task A runs on pool 1 and blocks on a `Future` from pool 2, while pool 2's only thread is blocked on a `Future` from pool 1. No lock is involved, so the detector stays silent. The dump still gives it away if you read the stacks: every pool thread is parked in `FutureTask.get` or `CompletableFuture.join`. *Java Concurrency in Practice* calls this thread-starvation deadlock.\n\nJSON thread dumps keep improving. JDK 25 added per-thread `state`, `parkBlocker`, `blockedOn`, `waitingOn`, `owner` and the monitors each thread owns. JDK 26 added `java.util.concurrent` lock information. JDK 27 added a `formatVersion` field. If you build tooling on these dumps, check that field and the JDK version first.\n\nDatabases take the opposite approach to the JVM. Oracle detects deadlocks between sessions and breaks them by failing one statement. Your code must be ready to retry that transaction, ideally after ordering its row locks so the retry doesn't deadlock again."
+ },
+ "sources": [
+  {
+   "title": "Deadlock (The Java Tutorials)",
+   "url": "https://docs.oracle.com/javase/tutorial/essential/concurrency/deadlock.html"
+  },
+  {
+   "title": "Starvation and livelock (The Java Tutorials)",
+   "url": "https://docs.oracle.com/javase/tutorial/essential/concurrency/starvelive.html"
+  },
+  {
+   "title": "ThreadMXBean (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.management/java/lang/management/ThreadMXBean.html"
+  },
+  {
+   "title": "ReentrantLock.java at jdk-25-ga (tryLock and fairness notes)",
+   "url": "https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/java/util/concurrent/locks/ReentrantLock.java"
+  },
+  {
+   "title": "Java Concurrency in Practice, Goetz et al., chapter 10",
+   "url": "https://jcip.net/"
+  }
+ ]
+}

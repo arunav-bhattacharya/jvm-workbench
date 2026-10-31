@@ -11,9 +11,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class RunBlockingTrapJava {
-    // a 200 ms lookup that completes from a timer: it holds no thread while it waits
-    static CompletableFuture<Integer> lookup(int id, Executor pool) {
-        Executor after200ms = CompletableFuture.delayedExecutor(200, TimeUnit.MILLISECONDS, pool);
+    // a 200 ms lookup that completes from a timer: it holds no thread while it waits.
+    // (If the timer completed on the same two-thread pool, the "bad" version would deadlock:
+    // both threads blocked in join(), waiting for work that needs one of them.)
+    static CompletableFuture<Integer> lookup(int id) {
+        Executor after200ms = CompletableFuture.delayedExecutor(200, TimeUnit.MILLISECONDS);
         return CompletableFuture.supplyAsync(() -> id, after200ms);
     }
 
@@ -25,8 +27,8 @@ public class RunBlockingTrapJava {
         for (int id = 0; id < 8; id++) {
             int i = id;
             all.add(bad
-                ? CompletableFuture.supplyAsync(() -> lookup(i, pool).join(), pool)  // holds a pool thread for 200 ms
-                : CompletableFuture.supplyAsync(() -> i, pool).thenCompose(x -> lookup(x, pool)));
+                ? CompletableFuture.supplyAsync(() -> lookup(i).join(), pool)  // holds a pool thread for 200 ms
+                : CompletableFuture.supplyAsync(() -> i, pool).thenCompose(RunBlockingTrapJava::lookup));
         }
         CompletableFuture.allOf(all.toArray(CompletableFuture[]::new)).join();
         System.out.printf("8 lookups of 200 ms on 2 threads (%s): %d ms%n", bad ? "join inside the task" : "thenCompose",

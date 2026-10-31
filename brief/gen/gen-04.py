@@ -51,7 +51,7 @@ FIG = (
 
 S1 = """A **producer** is a type whose values of `T` only ever come out of it. A feed of payments, a page of search results, an iterator, a `Supplier`. You call it, and it hands you a `T`. Nothing about it takes a `T` in.
 
-Run the substitution test from the previous lesson on a producer. Suppose some code expects a source of `Payment`, and you hand it a source of `CardPayment`. Every call it can make returns a `CardPayment`, and every `CardPayment` is a `Payment`. Nothing can go wrong. So it is safe to treat a `Source<CardPayment>` as a `Source<Payment>`.
+Run the substitution test from lesson 3 of this track on a producer. Suppose some code expects a source of `Payment`, and you hand it a source of `CardPayment`. Every call it can make returns a `CardPayment`, and every `CardPayment` is a `Payment`. Nothing can go wrong. So it is safe to treat a `Source<CardPayment>` as a `Source<Payment>`.
 
 The compiler can't see that by itself. Generic types are invariant unless you say otherwise. In Kotlin you say otherwise on the declaration, once, with **`out`**. Java has no such keyword, so it says it at every use with `? extends`:
 
@@ -156,7 +156,7 @@ sumCentsMutable(cards)        // error: actual type is 'MutableList<CardPayment>
 
 The two snippets line up exactly. Java's `List<? extends Payment>` and Kotlin's `List<Payment>` are the same contract: "a list I will only read from, of `Payment` or any subtype". Java's plain `List<Payment>` and Kotlin's `MutableList<Payment>` are the strict, invariant version.
 
-Kotlin keeps this promise when Java code calls it. When a parameter's type is declared `out`, Kotlin writes a `? extends` into the Java signature. `javap` shows it:
+Kotlin keeps this promise when Java code calls it. When a parameter's type is declared `out`, Kotlin writes a `? extends` into the Java signature. `javap` shows it (package names shortened):
 
 ```text
 public static final long sumCents(java.util.List<? extends Payment>);
@@ -212,7 +212,7 @@ L = {
             "Cast: `total(cards as Source<Payment>)` is the normal way"
         ],
         "answer": 1,
-        "why": "Generic types are invariant unless you say otherwise, so the call does not compile yet. `Source` only produces `T`, so a source of card payments can safely act as a source of payments. `out` tells the compiler that. `in` is for the opposite case, consumers, which is the next lesson."
+        "why": "Generic types are invariant unless you say otherwise, so the call does not compile yet. `Source` only produces `T`, so a source of card payments can safely act as a source of payments. `out` tells the compiler that. `in` is for the opposite case, consumers, which lesson 5 of this track covers."
     },
     "sections": [
         {

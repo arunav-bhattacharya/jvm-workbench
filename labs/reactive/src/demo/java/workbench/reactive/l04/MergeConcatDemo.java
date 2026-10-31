@@ -5,7 +5,7 @@ import reactor.core.publisher.Flux;
 import java.time.Duration;
 import java.util.function.BiFunction;
 
-/** Two event sources: card events every 30 ms, bank events every 50 ms. Three ways to combine them. */
+/** Two event sources: card events every 30 ms, bank events every 40 ms. Three ways to combine them. */
 public class MergeConcatDemo {
     static Flux<String> card() {
         return Flux.interval(Duration.ofMillis(30)).map(i -> "card-" + i).take(3)
@@ -13,7 +13,7 @@ public class MergeConcatDemo {
     }
 
     static Flux<String> bank() {
-        return Flux.interval(Duration.ofMillis(50)).map(i -> "bank-" + i).take(3)
+        return Flux.interval(Duration.ofMillis(40)).map(i -> "bank-" + i).take(3)
                 .doOnSubscribe(s -> System.out.printf("  [%3d ms] bank subscribed%n", ms()));
     }
 

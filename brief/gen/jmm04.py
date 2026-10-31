@@ -1,0 +1,270 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/jmm/src"
+P = "java/workbench/jmm/l04"
+K = "kotlin/workbench/jmm/l04"
+read = lambda p: (ROOT / p).read_text()
+demo = lambda name: f"{lab}/demo/{P}/{name}.java"
+kdemo = lambda name: f"{lab}/demo/{K}/{name}.kt"
+run = lambda name: f"./gradlew :jmm:demo -Pmain=workbench.jmm.l04.{name}"
+
+
+def code(name):
+    return {"lang": "java", "title": f"{name}.java", "src": read(demo(name)), "run": run(name), "file": demo(name),
+            "alt": {"lang": "kotlin", "title": f"{name}.kt", "src": read(kdemo(name)), "run": run(name + "Kt"), "file": kdemo(name)}}
+
+
+FIG = (
+    '<svg viewBox="0 0 680 300" role="img" aria-label="Left: the writer thread allocates a Quote, sets its fee, then stores the reference in card. '
+    'Right: another thread may see the store to card first, read card as not null, read fee as 0, and only later see fee = 120.">'
+    '<text class="t" x="160" y="30" text-anchor="middle">Writer, in program order</text>'
+    '<text class="t" x="520" y="30" text-anchor="middle">What another thread may see</text>'
+    '<rect class="box" x="20" y="48" width="280" height="36" rx="8"/>'
+    '<text class="t-s t-code" x="160" y="71" text-anchor="middle">q = new Quote()   // fee = 0</text>'
+    '<rect class="box" x="20" y="108" width="280" height="36" rx="8"/>'
+    '<text class="t-s t-code" x="160" y="131" text-anchor="middle">q.fee = 120</text>'
+    '<rect class="box-a" x="20" y="168" width="280" height="36" rx="8"/>'
+    '<text class="t-s t-code" x="160" y="191" text-anchor="middle">card = q   // publish</text>'
+    '<line class="ln" x1="160" y1="84" x2="160" y2="106" marker-end="url(#arr)"/>'
+    '<line class="ln" x1="160" y1="144" x2="160" y2="166" marker-end="url(#arr)"/>'
+    '<rect class="box-a" x="380" y="48" width="280" height="36" rx="8"/>'
+    '<text class="t-s t-code" x="520" y="71" text-anchor="middle">card = q becomes visible</text>'
+    '<rect class="box" x="380" y="108" width="280" height="36" rx="8"/>'
+    '<text class="t-s t-code" x="520" y="131" text-anchor="middle">reader: card != null</text>'
+    '<rect class="box-bad" x="380" y="168" width="280" height="36" rx="8"/>'
+    '<text class="t-s t-code" x="520" y="191" text-anchor="middle">reader: card.fee == 0</text>'
+    '<rect class="box-dim" x="380" y="228" width="280" height="36" rx="8"/>'
+    '<text class="t-s t-code" x="520" y="251" text-anchor="middle">q.fee = 120 becomes visible</text>'
+    '<line class="ln" x1="520" y1="84" x2="520" y2="106" marker-end="url(#arr)"/>'
+    '<line class="ln" x1="520" y1="144" x2="520" y2="166" marker-end="url(#arr)"/>'
+    '<line class="ln" x1="520" y1="204" x2="520" y2="226" marker-end="url(#arr)"/>'
+    '<line class="ln-d" x1="300" y1="186" x2="378" y2="68" marker-end="url(#arr)"/>'
+    '<text class="t-s t-ok" x="160" y="250" text-anchor="middle">a final fee, or a volatile card,</text>'
+    '<text class="t-s t-ok" x="160" y="268" text-anchor="middle">rules out the red box</text>'
+    '</svg>'
+)
+
+L = {
+ "id": "jmm-04",
+ "title": "Safe publication, final fields and escaping this",
+ "minutes": 35,
+ "goal": "By the end you can publish an object so other threads see it whole, build immutable classes that are safe to share through any race, and keep this from escaping a constructor.",
+ "warmup": {
+  "q": "A loader thread runs `registry.current = new RateCard(\"EUR\", fees);` where `current` is a plain field and RateCard's fields are plain too. A request thread reads `registry.current` and gets a non-null card. What can `card.currency()` return?",
+  "options": [
+   "Always \"EUR\": the constructor finished before the reference was stored",
+   "\"EUR\" or null",
+   "\"EUR\", or it throws ConcurrentModificationException",
+   "null, until the loader thread ends"
+  ],
+  "answer": 1,
+  "why": "Without an edge, the store of the reference and the stores inside the constructor may become visible in any order. A reader can see the reference before the field write, so it may read the default value, null. Program order in the loader (option 1) says nothing about what another thread sees."
+ },
+ "sections": [
+  {
+   "h": "Publishing an object is a write, and it can race",
+   "body": "Publishing an object means making a reference to it reachable from another thread: storing it in a shared field, a static, a collection, or handing it to code that runs elsewhere.\n\n```java\nRateCard card = new RateCard(\"EUR\", fees);   // 1. allocate, 2. run the constructor\nregistry.current = card;                     // 3. publish: store the reference where others look\n```\n\n```kotlin\nval card = RateCard(\"EUR\", fees)             // 1. allocate, 2. run the constructor\nregistry.current = card                      // 3. publish: store the reference where others look\n```\n\nThree things happen. The JVM allocates memory with every field at its default (0, false, null). The constructor writes the fields. Then the reference is stored. In the writing thread they happen in that order. A thread that reads `current` through a plain field has no edge to any of them. The JIT may store the reference before the field writes, and an ARM CPU may make the stores visible in any order. So the reader can see `current != null` and still read a `null` currency or a fee of 0. That's a **partially constructed object**, and no line you wrote creates one.\n\nIt's not theory. The jcstress sample `BasicJMM_08_Finals` publishes an object with four plain `int` fields through a plain field. On x86_64 a reader saw the reference with some fields still 0 in about 18,000 out of 219 million samples. On AArch64 it saw just about every mix of zeros and real values.\n\nUnsafe publication has a second failure you already know from lesson 1 of this track: the reader may never see the reference at all, because the JIT may read the field once. That's the `RateCardRegistry` bug in the lab.\n\nThere are two ways out. Publish through something that creates a happens-before edge, so the reference and the state travel together. Or make the object safe to see even through a race, which is what `final` fields do. The best code does both.",
+   "figure": {"svg": FIG, "caption": "With no edge, another thread can see the publishing store before the constructor's store. It finds a real object with a default value inside."}
+  },
+  {
+   "h": "Four ways to publish safely",
+   "body": "An object is **safely published** when the reference and the state it had at that moment reach the reader together. The standard idioms, from *Java Concurrency in Practice*:\n\n1. Initialize it in a static initializer. The JVM runs class initialization under a lock, and every thread that uses the class sees the result.\n2. Store it in a `volatile` field or an `AtomicReference`.\n3. Store it in a `final` field of an object that is itself properly constructed.\n4. Store it in a field guarded by a lock, or hand it over through `java.util.concurrent`: a concurrent map or queue, an executor, a future.\n\nEach gives the reader an edge you already know: the class-initialization lock, volatile write and read, the final-field rule (next section), the monitor rule, or a j.u.c handoff.\n\n```java\nclass RateCardRegistry {\n    static final RateCard DEFAULT = new RateCard(\"EUR\", Map.of(\"VISA\", 120L));         // 1. static initializer\n    private volatile RateCard current = DEFAULT;                                      // 2. volatile field\n    private final ConcurrentMap<String, RateCard> byCurrency = new ConcurrentHashMap<>(); // 4. j.u.c handoff\n\n    void publish(RateCard card) {\n        current = card;\n        byCurrency.put(card.currency(), card);\n    }\n}\n```\n\n```kotlin\nclass RateCardRegistry {\n    companion object {\n        val DEFAULT = RateCard(\"EUR\", mapOf(\"VISA\" to 120L))   // 1. static initializer (companion object)\n    }\n    @Volatile private var current: RateCard = DEFAULT           // 2. @Volatile property\n    private val byCurrency = ConcurrentHashMap<String, RateCard>()   // 4. j.u.c handoff\n\n    fun publish(card: RateCard) {\n        current = card\n        byCurrency[card.currency] = card\n    }\n}\n```\n\nA Kotlin companion object is initialized when its class is loaded, with the same semantics as a Java static initializer, so idiom 1 works the same way.\n\nFor anything you replace at runtime, use a `volatile` field or an `AtomicReference`. Use `static final` for constants. Don't add `synchronized` getters only to publish; a volatile read is cheaper and says what you mean.\n\nSafe publication covers the state the object had when you published it. If you change the object afterwards, each change needs its own synchronization. That's why the best objects to publish are the ones that never change.",
+   "try": {
+    "title": "Safe or not?",
+    "minutes": 3,
+    "steps": [
+     "For each line, say whether a request thread is guaranteed to see the whole `RateCard`, and name the idiom or the missing edge.",
+     "(a) `static final RateCard DEFAULT = new RateCard(...)`, read by any thread.",
+     "(b) `private RateCard current;`, set by the loader, read by request threads.",
+     "(c) `private volatile RateCard current;`, set by the loader, read by request threads.",
+     "(d) `cards.put(id, card)` on a `ConcurrentHashMap`, and request threads call `cards.get(id)`."
+    ],
+    "expect": "(a) Safe: the static initializer runs under the class-initialization lock. (b) Not safe: no edge, so a reader may see a half-built card or never see it at all. (c) Safe: volatile write, then volatile read. (d) Safe: putting into a concurrent map happens-before a `get` that returns it."
+   }
+  },
+  {
+   "h": "Final fields survive a data race",
+   "body": "The memory model gives `final` fields one extra promise. The JLS (section 17.5) says, in short: a thread that can only see a reference to an object after its constructor has finished is guaranteed to see the correct values of that object's final fields. No volatile, no lock. It holds even when the reference reached the reader through a data race.\n\nThe promise reaches through the field. If a final field points to an array or a map, the reader also sees its contents as they were at the end of the constructor. The JLS calls the end of the constructor the **freeze**.\n\n```java\nfinal class Quote {\n    private final String scheme;            // final: correct even through a race\n    private final Map<String, Long> fees;   // final: and the map's contents as of the constructor\n    private long hits;                      // plain: a racing reader may see 0\n\n    Quote(String scheme, Map<String, Long> fees) {\n        this.scheme = scheme;\n        this.fees = Map.copyOf(fees);\n    }\n}\n```\n\n```kotlin\nclass Quote(scheme: String, fees: Map<String, Long>) {\n    private val scheme = scheme                 // val: a final field, correct even through a race\n    private val fees = fees.toMap()             // val: and the map's contents as of the constructor\n    private var hits = 0L                       // var: a plain field, a racing reader may see 0\n}\n```\n\nIn `BasicJMM_08_Finals`, making all four fields final removed every partial result on both x86_64 and AArch64: readers saw either no object or the complete one.\n\nTwo limits. Final fields don't make the reference visible: a reader spinning on a plain field may still never see your object. And the promise holds only if `this` doesn't escape before the constructor ends, which is the next section.\n\nPut the pieces together and you get an **immutable object**: a final class, every field final, mutable inputs copied in the constructor, nothing mutable handed out, and no escaping `this`. You can share it through any race and no reader will ever see it half-built or changing. Java records and Kotlin classes with only `val` properties get you most of the way. They still store a caller's mutable list as it is, so copy it, for example in a record's compact constructor: `record FeeSchedule(List<Fee> fees) { FeeSchedule { fees = List.copyOf(fees); } }`.",
+   "try": {
+    "title": "Find final in the bytecode",
+    "minutes": 4,
+    "steps": [
+     "Run both demos below once (the Java one, then the Kotlin one) so Gradle compiles them.",
+     "From `labs/`, run `javap -p 'jmm/build/classes/java/demo/workbench/jmm/l04/FinalFieldsDemo$Quote.class'` and the same for `FinalFieldsDemo$MutableQuote.class`.",
+     "Run `javap -p jmm/build/classes/kotlin/demo/workbench/jmm/l04/KQuote.class` and the same for `KMutableQuote.class`.",
+     "Predict before each command: which fields will say `final`?"
+    ],
+    "code": code("FinalFieldsDemo"),
+    "expect": "The record and `KQuote` both show `private final java.lang.String scheme;` and `private final long feeCents;`. `MutableQuote` and `KMutableQuote` show the same fields without `final`, and the Kotlin one also has setters. A Kotlin `val` and a Java record component become the same thing in bytecode: a final field, with the JMM's final-field promise attached."
+   },
+   "refs": [
+    {"title": "jcstress sample BasicJMM_08_Finals: plain, opaque and final publication", "url": "https://github.com/openjdk/jcstress/blob/master/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/jmm/basic/BasicJMM_08_Finals.java", "kind": "read"}
+   ]
+  },
+  {
+   "h": "Don't let this escape the constructor",
+   "body": "The freeze happens when the constructor returns. Any code that gets hold of `this` before then can see the object half-built, and that includes code running on the same thread.\n\n`this` escapes when a constructor:\n\n- registers the object as a listener or callback;\n- starts a thread, or submits a task, that uses the object;\n- creates a lambda or inner class that captures `this` and hands it out;\n- calls a method that a subclass can override.\n\nHere's the first case. The bus replays its last event to every new subscriber, so `onEvent` runs inside `subscribe`, before the fields are set:\n\n```java\nclass ChargebackAlerts implements Consumer<PaymentEvent> {\n    private final long thresholdCents;\n    private final Pager pager;\n\n    ChargebackAlerts(EventBus bus, long thresholdCents, Pager pager) {\n        bus.register(this);                  // the bus calls accept() right here...\n        this.thresholdCents = thresholdCents; // ...before these fields are set\n        this.pager = pager;\n    }\n\n    public void accept(PaymentEvent e) {\n        if (e.amountCents() > thresholdCents) pager.page(e);   // NullPointerException on pager\n    }\n}\n```\n\n```kotlin\nclass ChargebackAlerts(bus: EventBus, thresholdCents: Long, pager: Pager) : Consumer<PaymentEvent> {\n    init {\n        bus.register(this)                   // the bus calls accept() right here...\n    }\n    private val thresholdCents = thresholdCents   // ...before these properties are set\n    private val pager = pager\n\n    override fun accept(e: PaymentEvent) {\n        if (e.amountCents() > thresholdCents) pager.page(e)   // NullPointerException on pager\n    }\n}\n```\n\nKotlin runs `init` blocks and property initializers in the order you write them, so the same bug is one misplaced `init` away. And Kotlin's null safety doesn't help: `pager` is declared non-null and still reads as null.\n\nMoving `register` to the last line of the constructor is not a fix. The final-field promise is tied to the end of the constructor, and a subclass constructor would still run after it. The fix is to keep constructors to assigning fields, and do the wiring after construction: in a static factory (`create`, then `register`), in a `start()` method, or in a `@PostConstruct` method that your CDI container calls once the bean is built.",
+   "try": {
+    "title": "A thread that starts too early",
+    "minutes": 4,
+    "steps": [
+     "Read `ThisEscapeDemo`. The constructor starts a heartbeat thread, then resolves its endpoint, which takes about 50 ms.",
+     "Predict both lines of output, then run it.",
+     "Fix it: move the thread start out of the constructor into a `start()` method, and call `start()` from `main` after construction. Run it again."
+    ],
+    "code": code("ThisEscapeDemo"),
+    "expect": "The first run prints `heartbeat thread sends to: null`, then the constructor finishes with the real endpoint. The heartbeat thread ran while the constructor was still resolving. In Kotlin the `val endpoint: String` is non-null by type and still reads as null. After the fix, the heartbeat prints the real URL: `start()` happens-before the thread's first action, and the field was set before `start()`."
+   }
+  }
+ ],
+ "analogy": "Publishing an object is like hanging a new price board in the shop window. Hang it before you've finished writing and a passer-by reads half a board, with blanks where prices should be. Safe publication means hanging it only when it's done, in a window everyone looks through. Final fields are like boards printed at the factory: by the time anyone can see one, it's complete, whichever window it's in. The analogy breaks on escaping `this`: in a shop you'd notice someone reading over your shoulder, and in Java the reader can be your own constructor's callback, running on the same thread.",
+ "in_your_world": "Watch for constructors that wire things up. A Quarkus bean whose constructor calls `scheduler.scheduleAtFixedRate(this::refresh, ...)` before it has assigned its HTTP client will, now and then, run `refresh` with a null client. A Kafka listener that registers itself with a listener container from its constructor can receive a record before its deserializer is set. Move that wiring into a `@PostConstruct` method or an `@Observes StartupEvent` observer, which CDI calls after the bean is fully constructed. For data, prefer records and `val`-only Kotlin classes for anything you cache and share: rate cards, issuer configs, BIN tables. Publish each new version with one volatile write.",
+ "mistake": "The most common mistake is calling a class immutable because its fields are `final`. `private final List<Fee> fees` assigned straight from the caller's `ArrayList` is a final reference to a list the caller can still change. A getter that returns that list lets every reader change it too. The final-field promise covers the list's state at the end of the constructor and nothing after. Copy mutable inputs in (`List.copyOf`, `Map.copyOf`), hand out only unmodifiable views, and make the class final so a subclass can't add mutable state.",
+ "compare": {
+  "title": "An immutable rate card in Java and Kotlin",
+  "java": {"title": "RateCard.java", "src": "public final class RateCard {\n    private final String currency;\n    private final Map<String, Long> feesByScheme;\n\n    public RateCard(String currency, Map<String, Long> feesByScheme) {\n        this.currency = currency;\n        this.feesByScheme = Map.copyOf(feesByScheme);   // our own unmodifiable copy\n    }\n\n    public String currency() { return currency; }\n    public Map<String, Long> feesByScheme() { return feesByScheme; }   // safe to hand out\n}"},
+  "kotlin": {"title": "RateCard.kt", "src": "class RateCard(val currency: String, feesByScheme: Map<String, Long>) {\n    // our own copy, behind a read-only type\n    val feesByScheme: Map<String, Long> = feesByScheme.toMap()\n}"},
+  "note": "Kotlin classes are final by default and a `val` compiles to a private final field with a getter, so the Kotlin class is three lines. The difference is in the map. `Map.copyOf` in Java returns a truly unmodifiable map. Kotlin's `Map` is a read-only interface: `toMap()` gives you a private `LinkedHashMap`, and code that casts it to `MutableMap` could still change it. Inside your own code that's usually fine. If the object crosses a library boundary, wrap it with `Collections.unmodifiableMap(...)` or build it with Java's `Map.copyOf`."
+ },
+ "worked": {
+  "title": "Publish a config snapshot from a scheduler",
+  "steps": [
+   {"say": "A Quarkus bean refreshes the card issuer's settings every minute on the scheduler thread. Request threads read them for every call. Sometimes a call goes to the new URL with the old timeout. Find both problems.", "code": "@ApplicationScoped\npublic class IssuerConfigHolder {\n    @Inject SettingsClient settingsClient;\n    private IssuerConfig config = new IssuerConfig();   // 1. a mutable object in a plain field\n\n    @Scheduled(every = \"60s\")\n    void refresh() {                                   // scheduler thread\n        Settings s = settingsClient.fetch();\n        config.setBaseUrl(s.baseUrl());                // 2. changed in place...\n        config.setTimeout(s.timeout());                // ...one field at a time\n    }\n\n    public IssuerConfig current() { return config; }   // 3. request threads read it\n}", "lang": "java", "alt_lang": "kotlin", "alt_code": "@ApplicationScoped\nclass IssuerConfigHolder(private val settingsClient: SettingsClient) {\n    private var config = IssuerConfig()                // 1. a mutable object in a plain property\n\n    @Scheduled(every = \"60s\")\n    fun refresh() {                                    // scheduler thread\n        val s = settingsClient.fetch()\n        config.baseUrl = s.baseUrl                     // 2. changed in place...\n        config.timeout = s.timeout                     // ...one field at a time\n    }\n\n    fun current(): IssuerConfig = config               // 3. request threads read it\n}"},
+   {"say": "First, the refresh changes one shared object in place, field by field, with no lock, so a request can read the new URL next to the old timeout, a pair that was never configured. Second, nothing publishes `config` safely: the fields are plain and there is no edge from the scheduler thread to the request threads. Even a full lock around `refresh` wouldn't help readers that don't take it.", "code": "", "lang": ""},
+   {"say": "Make the config immutable, build a whole new one on each refresh, and publish it with one volatile write. Readers then always get one consistent snapshot.", "code": "public record IssuerConfig(String baseUrl, Duration timeout) {}   // 1. immutable: final fields, no setters\n\n@ApplicationScoped\npublic class IssuerConfigHolder {\n    @Inject SettingsClient settingsClient;\n    private volatile IssuerConfig config =\n            new IssuerConfig(\"https://issuer.example\", Duration.ofMillis(800));\n\n    @Scheduled(every = \"60s\")\n    void refresh() {\n        Settings s = settingsClient.fetch();\n        config = new IssuerConfig(s.baseUrl(), s.timeout());   // 2. build a new snapshot, 3. publish it\n    }\n\n    public IssuerConfig current() { return config; }           // 4. one consistent snapshot per read\n}", "lang": "java", "alt_lang": "kotlin", "alt_code": "data class IssuerConfig(val baseUrl: String, val timeout: Duration)   // 1. immutable: val only\n\n@ApplicationScoped\nclass IssuerConfigHolder(private val settingsClient: SettingsClient) {\n    @Volatile\n    private var config = IssuerConfig(\"https://issuer.example\", Duration.ofMillis(800))\n\n    @Scheduled(every = \"60s\")\n    fun refresh() {\n        val s = settingsClient.fetch()\n        config = IssuerConfig(s.baseUrl, s.timeout)    // 2. build a new snapshot, 3. publish it\n    }\n\n    fun current(): IssuerConfig = config               // 4. one consistent snapshot per read\n}"},
+   {"say": "Why both changes? The record alone makes every snapshot safe to read even through a race, but a reader might keep an old reference for a long time. The volatile alone publishes the reference, but a mutable object behind it could still change under a reader. An immutable object behind a volatile reference fixes both. One habit completes it: a request calls `current()` once and keeps that snapshot for the whole call.", "code": "", "lang": ""}
+  ]
+ },
+ "lab": {
+  "title": "Fix an escaping constructor and an unsafe publication",
+  "minutes": 13,
+  "files": [
+   "labs/jmm/src/main/java/workbench/jmm/l04/RateCard.java",
+   "labs/jmm/src/main/java/workbench/jmm/l04/RateCardRegistry.java",
+   "labs/jmm/src/main/java/workbench/jmm/l04/FraudMonitor.java"
+  ],
+  "run": "./gradlew :jmm:test --tests 'workbench.jmm.l04.*'",
+  "steps": [
+   "Run the tests once. All six fail. The FraudMonitor ones fail with a `NullPointerException` thrown from inside the constructor.",
+   "Make `RateCard` immutable: a final class, final fields, `Map.copyOf` in the constructor. Keep the public constructor and methods.",
+   "Publish safely in `RateCardRegistry`. Then think: if RateCard is now immutable, why does the waiting reader still need this change?",
+   "Fix `FraudMonitor` so the bus can't see the monitor before its constructor has finished. `create` stays the only way to make one.",
+   "Run the tests until all six pass, then twice more."
+  ],
+  "hints": [
+   "`Map.copyOf` makes an unmodifiable copy, so `feesByScheme()` can return the field directly.",
+   "Final fields make a RateCard safe to read once a thread has the reference. They do nothing to make the reference itself visible to a thread spinning on a plain field.",
+   "In `FraudMonitor`, the private constructor should only assign fields. Construct the monitor in `create`, then register it, then return it. `EventBus` and `PaymentEvent` are given and need no changes."
+  ],
+  "done_when": "All six tests in `SafePublicationTest` pass, three runs in a row."
+ },
+ "drill": {
+  "title": "An immutable fee schedule from memory",
+  "minutes": 5,
+  "prompt": "Close this page. Write `FeeSchedule` with a currency and a list of fees, immutable and safe to share through any race. Then write a holder that publishes the latest schedule to request threads. Check: what would break if you skipped the copy?",
+  "answer": {"lang": "java", "src": "public final class FeeSchedule {              // final: no mutable subclasses\n    private final String currency;            // final fields: safe through a race\n    private final List<Fee> fees;\n\n    public FeeSchedule(String currency, List<Fee> fees) {\n        this.currency = currency;\n        this.fees = List.copyOf(fees);        // copy in: the caller can't change ours\n    }\n\n    public String currency() { return currency; }\n    public List<Fee> fees() { return fees; }  // unmodifiable: safe to hand out\n}\n\npublic final class FeeScheduleHolder {\n    private volatile FeeSchedule current;     // volatile: each new schedule is published safely\n\n    public void replace(FeeSchedule next) { current = next; }\n    public FeeSchedule current() { return current; }\n}\n\n// Without the copy, the caller still holds the list and can change it under every reader.",
+             "alt": {"lang": "kotlin", "src": "class FeeSchedule(val currency: String, fees: List<Fee>) {   // final by default\n    val fees: List<Fee> = fees.toList()       // copy in: the caller can't change ours\n}\n\nclass FeeScheduleHolder {\n    @Volatile\n    var current: FeeSchedule? = null          // each new schedule is published safely\n        private set\n\n    fun replace(next: FeeSchedule) { current = next }\n}\n\n// Without the copy, the caller still holds the list and can change it under every reader."}}
+ },
+ "recap": [
+  "Publishing an object is a write of a reference. With no edge, a reader can see the reference before the constructor's writes, or never see it.",
+  "Safe publication idioms: a static initializer, a volatile field or AtomicReference, a final field of a properly built object, or a lock or java.util.concurrent handoff.",
+  "Final fields are seen as the constructor set them, even through a data race, but they don't make the reference visible.",
+  "An immutable object (final class, final fields, copied inputs, no escaping `this`) is safe to share however it is published.",
+  "`this` escapes when a constructor registers it, starts a thread with it, or hands out a lambda that captures it. Wire objects up after construction.",
+  "For data you replace at runtime, publish an immutable snapshot through a volatile reference."
+ ],
+ "quiz": [
+  {
+   "q": "`registry.current` is a plain field. The loader stores a `RateCard` whose fields are all `final`. What can a request thread that reads `registry.current` see?",
+   "options": [
+    "null, or a RateCard with correct field values; it may also keep seeing null for a long time",
+    "A RateCard whose currency is still null",
+    "Always the latest RateCard, because its fields are final",
+    "A ClassCastException, because the object is half-built"
+   ],
+   "answer": 0,
+   "why": "Final fields guarantee that whoever sees the reference sees the constructed values. They don't make the reference visible, so the reader can see null, an older card, or the new one, but never a half-built one. Option 3 is the common confusion between the two guarantees."
+  },
+  {
+   "q": "Which of these publishes a new `RateCard` safely to request threads that call `current()`?",
+   "options": [
+    "A plain field, with `publish` marked `synchronized` and `current()` unsynchronized",
+    "A `volatile` field",
+    "A `HashMap` field that `publish` puts the card into",
+    "A plain field, written after `Thread.sleep(100)`"
+   ],
+   "answer": 1,
+   "why": "The volatile write in `publish` pairs with the volatile read in `current()`. The half-synchronized version has no acquire on the read side, a plain HashMap creates no edge, and a sleep is not an edge."
+  },
+  {
+   "q": "A constructor sets all its final fields and then, as its last line, calls `bus.register(this)`. Is that safe?",
+   "options": [
+    "Yes, all the fields are already set",
+    "Yes, final fields make any publication safe",
+    "No: the final-field promise starts when the constructor returns, so the bus's threads get no such promise, and a subclass constructor hasn't run yet",
+    "No, `register` can't accept `this` inside a constructor"
+   ],
+   "answer": 2,
+   "why": "The freeze happens at the end of the constructor, and `this` left before that. In practice it often works, which is why the bug survives review. Register from a factory method or `@PostConstruct` instead."
+  },
+  {
+   "q": "A final class has `private final List<Fee> fees;`, set with `this.fees = fees;` from the caller's `ArrayList`, and no setters. Is it safe to share between threads?",
+   "options": [
+    "Yes, the field is final",
+    "Yes, as long as it is published through a volatile field",
+    "No, because `List` is an interface",
+    "No: the caller still holds the `ArrayList` and can change it after the constructor, racing with every reader"
+   ],
+   "answer": 3,
+   "why": "Final freezes the reference and the list's state at the end of the constructor. Later changes through the caller's reference are ordinary racy writes to an ArrayList. Copy it with `List.copyOf` in the constructor."
+  },
+  {
+   "q": "From lesson 3 of this track: a field is `volatile Map<String, Rule> rules`. A refresher thread calls `rules.put(k, v)` on the existing `HashMap`, and request threads call `rules.get(k)`. Is it safe?",
+   "options": [
+    "Yes, the field is volatile",
+    "No: `put` is not a volatile write, it changes a HashMap that isn't safe for concurrent use",
+    "Yes, if the map has fewer than 16 entries",
+    "Only on x86"
+   ],
+   "answer": 1,
+   "why": "Volatile covers the reference. `put` never writes the field, so there's no edge, and HashMap can corrupt itself under concurrent access. Build a new map and assign it with one volatile write, or use a ConcurrentHashMap.",
+   "from": "jmm-03"
+  }
+ ],
+ "flashcards": [
+  {"front": "An object is published through a plain field. What can a reader that sees the reference observe?", "back": "Default values (0, false, null) in its non-final fields, because the reference may become visible before the constructor's writes."},
+  {"front": "What do final fields guarantee?", "back": "A thread that sees the reference after the constructor finished sees the final fields, and what they point to, as the constructor left them, even through a data race."},
+  {"front": "Do final fields make the reference to the object visible to other threads?", "back": "No. You still need a safe publication channel, such as a volatile field, for readers to see the reference at all."},
+  {"front": "Name a safe publication idiom that needs no volatile and no lock.", "back": "A static initializer, such as `static final RateCard DEFAULT = new RateCard(...)`. Class initialization runs under a JVM lock."},
+  {"front": "A constructor calls `bus.register(this)`. What's the fix?", "back": "Make the constructor only assign fields, and register in a static factory or `@PostConstruct`, after construction."},
+  {"front": "What does a Kotlin `val` compile to?", "back": "A private final backing field (plus a getter). A `var` gives a non-final field."},
+  {"front": "Is `this.fees = fees;` enough for an immutable class with a list?", "back": "No. Copy it (`List.copyOf(fees)`), or the caller can still change the list under your readers."}
+ ],
+ "terms": [
+  {"term": "Publication", "plain": "Making a reference to an object reachable from another thread."},
+  {"term": "Safe publication", "plain": "Publishing so the reader gets the reference and the object's state together, through a happens-before edge or final fields."},
+  {"term": "Partially constructed object", "plain": "An object a thread can see before the constructor's writes are visible to it."},
+  {"term": "Freeze", "plain": "The end of a constructor, after which final fields carry the JMM's special visibility promise."},
+  {"term": "Immutable object", "plain": "Final class, final fields, copied inputs, nothing mutable handed out, no escaping this."},
+  {"term": "Escaping this", "plain": "A constructor letting other code get a reference to the object before the constructor has finished."},
+  {"term": "Defensive copy", "plain": "Copying a mutable input or output so outside code can't change your object's state."}
+ ],
+ "explain_back": {
+  "prompt": "`FraudMonitor` had only final fields, yet the bus's replayed event hit a `NullPointerException` inside it. Explain why, in your own words, and why moving `register` to the end of the constructor is not the right fix.",
+  "answer": "The constructor handed `this` to the bus before it set its fields, and the bus called `accept` right away to replay its last event. At that point `flagged` and `limitCents` still held their default values, null and 0, so `flagged.add` threw. Final fields don't help, because their promise starts when the constructor returns, and the object was used before that. Moving `register` to the last line would make this single-threaded case work, but the bus's other threads would still get the object before its constructor finished, with no final-field promise, and a subclass constructor would run even later. The right fix is to only assign fields in the constructor and register the finished object from a factory method."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "The final-field promise has a few edges worth knowing.\n\nIt covers what the constructor set and what the final fields point to as of the freeze. Change a mutable object that a final field points to after the constructor, and those later changes get no promise. That's why \"effectively immutable\" objects (objects nobody changes after publication, though nothing stops them) still need safe publication, while truly immutable objects don't.\n\nReflection can break final. Frameworks have long used deep reflection (`Field.setAccessible(true)` followed by `set`) to write final fields after construction, and the JMM gives such writes almost no guarantees. JDK 26 starts closing this door with JEP 500, \"Prepare to Make Final Mean Final\": by default it warns when deep reflection mutates a final field, and a later release is planned to make that an error unless you opt in. Serialization libraries and mocking tools are the usual sources of these warnings.\n\nFinally, the static-initializer idiom works because class initialization is itself a synchronization protocol. The JVM initializes each class once, under a lock, and any thread that then uses the class is guaranteed to see what the static initializer wrote. Lesson 5 of this track builds lazy initialization on exactly that.\n\nAleksey Shipilëv's \"Safe Publication and Safe Initialization in Java\" separates the two ideas this lesson combines: safe publication (the channel) and safe initialization (final fields), and measures what each costs."
+ },
+ "sources": [
+  {"title": "Java Language Specification, chapter 17 (17.5 final field semantics)", "url": "https://docs.oracle.com/javase/specs/jls/se25/html/jls-17.html"},
+  {"title": "Aleksey Shipilëv, Safe Publication and Safe Initialization in Java", "url": "https://shipilev.net/blog/2014/safe-public-construction/"},
+  {"title": "jcstress sample BasicJMM_08_Finals", "url": "https://github.com/openjdk/jcstress/blob/master/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/jmm/basic/BasicJMM_08_Finals.java"},
+  {"title": "JEP 500: Prepare to Make Final Mean Final", "url": "https://openjdk.org/jeps/500"},
+  {"title": "Java Concurrency in Practice, Goetz et al., section 3.5 on safe publication", "url": "https://jcip.net/"}
+ ]
+}
+out = ROOT / "content/lessons/jmm-04.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)

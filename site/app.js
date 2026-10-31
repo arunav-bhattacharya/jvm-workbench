@@ -14,10 +14,63 @@
 
   /* ---------------- storage ---------------- */
   const KEY = "jvmwb-v1";
-  const blank = () => ({ v: 1, theme: null, code: "both", done: {}, quiz: {}, tquiz: {}, cards: {}, explain: {}, days: {}, pace: 5, open: {}, timer: null, seenSetup: false });
+  const blank = () => ({ v: 1, theme: null, code: "both", done: {}, undone: {}, paceAt: "", quiz: {}, tquiz: {}, cards: {}, explain: {}, days: {}, pace: 5, open: {}, timer: null, seenSetup: false });
   let S = blank();
   try { S = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) { /* private window or blocked storage */ }
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } };
+  const saveLocal = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } };
+  const save = () => { saveLocal(); schedulePush(); };
+
+  /* ---------------- account and sync ----------------
+     On the Cloudflare site every page needs an enrolled Google account, and progress syncs to it
+     through /api/progress. The server merges what we send with what it has and returns the result,
+     so two devices never overwrite each other. Where there is no API (the preview), progress stays local. */
+  let me = null, cloud = false, pushTimer = null;
+  const SYNC = ["done", "undone", "quiz", "tquiz", "cards", "days", "explain", "pace", "paceAt"];
+  const syncDoc = () => Object.fromEntries(SYNC.map((k) => [k, S[k]]));
+  const later = (a, b) => (!a ? b : !b ? a : a > b ? a : b);
+  function mergeInto(x) {
+    if (!x || typeof x !== "object") return;
+    const done = {}, undone = {};
+    const ids = new Set([...Object.keys(S.done), ...Object.keys(S.undone || {}), ...Object.keys(x.done || {}), ...Object.keys(x.undone || {})]);
+    for (const id of ids) {
+      const d = later(S.done[id], (x.done || {})[id]), u = later((S.undone || {})[id], (x.undone || {})[id]);
+      if (d && (!u || d > u)) done[id] = d;
+      if (u) undone[id] = u;
+    }
+    S.done = done; S.undone = undone;
+    for (const k of ["quiz", "tquiz"]) for (const [id, v] of Object.entries(x[k] || {})) S[k][id] = Math.max(S[k][id] || 0, +v || 0);
+    for (const [id, c] of Object.entries(x.cards || {})) {
+      const cur = S.cards[id];
+      if (!cur || (c.reps || 0) > (cur.reps || 0) || ((c.reps || 0) === (cur.reps || 0) && (c.last || 0) > (cur.last || 0))) S.cards[id] = c;
+    }
+    for (const [d, e] of Object.entries(x.days || {})) { const cur = S.days[d] || { l: 0, r: 0 }; S.days[d] = { l: Math.max(cur.l || 0, e.l || 0), r: Math.max(cur.r || 0, e.r || 0) }; }
+    for (const [id, t] of Object.entries(x.explain || {})) if (t && !S.explain[id]) S.explain[id] = t;
+    if (x.pace && (x.paceAt || "") > (S.paceAt || "")) { S.pace = x.pace; S.paceAt = x.paceAt; }
+  }
+  function schedulePush() { if (!cloud) return; clearTimeout(pushTimer); pushTimer = setTimeout(push, 1200); }
+  async function push() {
+    try {
+      const r = await fetch("api/progress", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(syncDoc()) });
+      if (r.status === 401) { cloud = false; toast("You were signed out. Reload the page to sign in again."); render(true); return; }
+      if (r.ok) { mergeInto(await r.json()); saveLocal(); }
+    } catch (e) { /* offline: the next save tries again */ }
+  }
+  async function syncStart() {
+    try {
+      const r = await fetch("api/me", { headers: { accept: "application/json" } });
+      if (r.status === 401) { location.href = "/login?next=" + encodeURIComponent("/" + location.hash); return; }
+      if (!r.ok || !(r.headers.get("content-type") || "").includes("json")) return;
+      me = await r.json();
+      const p = await fetch("api/progress");
+      if (!p.ok) return;
+      mergeInto(await p.json());
+      cloud = true; saveLocal(); render(true); push();
+    } catch (e) { /* no account API here: progress stays in this browser */ }
+  }
+  async function signOut() {
+    try { await fetch("api/logout", { method: "POST" }); } catch (e) { /* signing out locally anyway */ }
+    location.href = "/login";
+  }
 
   /* ---------------- dates ---------------- */
   const DAY = 864e5;
@@ -91,7 +144,7 @@
   const trackDone = (t) => t.lessons.filter((id) => S.done[id]).length;
   function setDone(id, on) {
     if (on && !S.done[id]) { S.done[id] = new Date().toISOString(); const n = addCards(id); logDay("l"); save(); toast(n ? `Done. ${n} cards join your review from tomorrow.` : "Marked done."); }
-    else if (!on && S.done[id]) { delete S.done[id]; for (const k of Object.keys(S.cards)) if (k.startsWith(id + ":c") && !S.cards[k].reps) delete S.cards[k]; save(); toast("Marked not done."); }
+    else if (!on && S.done[id]) { delete S.done[id]; S.undone[id] = new Date().toISOString(); for (const k of Object.keys(S.cards)) if (k.startsWith(id + ":c") && !S.cards[k].reps) delete S.cards[k]; save(); toast("Marked not done."); }
     render();
   }
   // the plan is counted in course weeks and days, never calendar dates: lesson k sits at
@@ -161,6 +214,7 @@
       <button class="chip ${due ? "" : "quiet"}" data-go="review" title="Spaced review"><span class="dot"></span><span class="tnum">${due}</span><span class="hide-sm">&nbsp;due</span></button>
       <button class="iconbtn" data-act="timer" aria-label="Focus timer" title="35-minute focus timer">${icon.timer}</button>
       <button class="iconbtn" data-act="theme" aria-label="Switch theme" title="Switch theme">${effectiveTheme() === "dark" ? icon.sun : icon.moon}</button>
+      ${me ? `<button class="avatar" data-go="plan" title="${esc(me.email)}" aria-label="Signed in as ${esc(me.email)}">${me.picture ? `<img src="${esc(me.picture)}" alt="" referrerpolicy="no-referrer">` : esc((me.name || me.email || "?")[0].toUpperCase())}</button>` : ""}
     </header>
     <div class="scrim ${mobileOpen ? "on" : ""}" data-act="close-menu"></div>
     <nav class="side ${(isDesk() ? !deskOpen : !mobileOpen) ? "closed" : ""}" aria-label="Contents" id="side"></nav>
@@ -196,7 +250,9 @@
           ${shown.map((id) => `<li><button data-go="${id}" class="${cur === id ? "on" : ""}"><i class="cell ${cellState(id)}"></i><span>${esc(L[id].title)}</span></button></li>`).join("")}</ul>` : ""}
       </div>`;
     }
-    h += `<p class="label" style="padding:18px 20px 0;line-height:1.6">Progress is saved in this browser. Move it between devices from Plan and progress.</p>`;
+    h += me
+      ? `<p class="label" style="padding:18px 20px 0;line-height:1.6;text-transform:none;letter-spacing:.02em">Signed in as ${esc(me.email)}. ${cloud ? "Progress syncs to this account." : "Sync is paused."} <button class="linkish" data-act="signout">Sign out</button></p>`
+      : `<p class="label" style="padding:18px 20px 0;line-height:1.6">Progress is saved in this browser. Move it between devices from Plan and progress.</p>`;
     $("#side").innerHTML = h;
   }
   let filterText = "";
@@ -652,20 +708,14 @@
         ${Array.from({ length: weeks }, (_, k) => k + 1).map((w) => `<div class="ptrack">Week ${w}</div>` + ORDER.slice((w - 1) * pace(), w * pace()).map((id) => `<div class="pr"><span class="d">Day ${wd(id).d}</span><i class="cell ${cellState(id)}"></i><button data-go="${id}">${esc(L[id].title)} <span class="label" style="margin-left:6px">${esc(T[L[id].track].title)}</span></button><span class="label">${S.quiz[id] != null ? `quiz ${S.quiz[id]}/5` : ""}</span></div>`).join("")).join("")}
       </div></section>
       <section class="block"><span class="label">Move your progress</span><h2>Phone and laptop</h2>
-        <p class="mute" style="margin:0;max-width:62ch">Progress lives in this browser. To move it, copy it here, then paste it on the other device and import. Importing merges: nothing you've done on either device is lost.</p>
+        <p class="mute" style="margin:0;max-width:62ch">${cloud ? `Your progress syncs to ${esc(me.email)}, so every device you sign in on shows the same plan, deck and scores. You can still copy it here as a backup.` : "Progress lives in this browser. To move it, copy it here, then paste it on the other device and import. Importing merges: nothing you've done on either device is lost."}</p>
         <textarea class="field" id="sync-box" rows="4" placeholder="Paste progress from another device here"></textarea>
         <div class="row"><button class="btn ghost sm" data-act="export">Copy my progress</button><button class="btn sm" data-act="import">Import pasted progress</button></div></section>`;
   }
   function importProgress(text) {
     let x; try { x = JSON.parse(text); } catch (e) { return toast("That isn't progress data. Copy it again from the other device."); }
     if (!x || typeof x !== "object" || !x.done) return toast("That isn't progress data. Copy it again from the other device.");
-    for (const [k, v] of Object.entries(x.done || {})) if (!S.done[k]) S.done[k] = v;
-    for (const [k, v] of Object.entries(x.quiz || {})) S.quiz[k] = Math.max(S.quiz[k] || 0, v);
-    for (const [k, v] of Object.entries(x.tquiz || {})) S.tquiz[k] = Math.max(S.tquiz[k] || 0, v);
-    for (const [k, v] of Object.entries(x.cards || {})) if (!S.cards[k] || (v.last || 0) > (S.cards[k].last || 0)) S.cards[k] = v;
-    for (const [k, v] of Object.entries(x.days || {})) { const e = S.days[k] || { l: 0, r: 0 }; S.days[k] = { l: Math.max(e.l || 0, v.l || 0), r: Math.max(e.r || 0, v.r || 0) }; }
-    for (const [k, v] of Object.entries(x.explain || {})) if (!S.explain[k]) S.explain[k] = v;
-    save(); toast("Imported and merged."); render();
+    mergeInto(x); save(); toast("Imported and merged."); render();
   }
 
   /* ---------------- reference pages ---------------- */
@@ -762,7 +812,8 @@
       case "rv-pick": pageState.review.pick = +a.dataset.k; render(); break;
       case "rv-grade": rvGrade(+a.dataset.g); break;
       case "new-mix": delete pageState.mix; delete pageState.quiz.mix; render(); scrollTo(0, 0); break;
-      case "export": copyText(JSON.stringify({ done: S.done, quiz: S.quiz, tquiz: S.tquiz, cards: S.cards, days: S.days, explain: S.explain }), null).then(() => toast("Progress copied. Paste it on the other device.")); break;
+      case "signout": signOut(); break;
+      case "export": copyText(JSON.stringify(syncDoc()), null).then(() => toast("Progress copied. Paste it on the other device.")); break;
       case "import": importProgress($("#sync-box").value); break;
       case "timer": if (!S.timer) S.timer = { acc: 0, run: Date.now() }; save(); timerRender(); break;
       case "timer-pause": if (S.timer.run) { S.timer.acc += Date.now() - S.timer.run; S.timer.run = null; } else S.timer.run = Date.now(); save(); timerRender(); break;
@@ -771,7 +822,7 @@
     }
   });
   document.addEventListener("change", (ev) => {
-    if (ev.target.id === "pace") { S.pace = +ev.target.value; save(); render(true); }
+    if (ev.target.id === "pace") { S.pace = +ev.target.value; S.paceAt = new Date().toISOString(); save(); render(true); }
   });
   let explainTimer;
   document.addEventListener("input", (ev) => {
@@ -796,5 +847,6 @@
   if (S.theme) document.documentElement.setAttribute("data-theme", S.theme);
   document.documentElement.setAttribute("data-code", S.code || "both");
   render();
+  syncStart();
   setTimeout(() => { const nx = nextUp(); if (nx && L[nx].remote && !L[nx].sections) loadLesson(L[nx]); }, 1200);
 })();

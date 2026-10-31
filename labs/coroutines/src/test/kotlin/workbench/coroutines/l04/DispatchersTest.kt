@@ -62,7 +62,7 @@ class DispatchersTest {
     }
 
     @Test
-    fun `statementPdf hands the result back on the caller's thread`() = runBlocking {
+    fun `statementPdf hands the result back on the caller's thread`() = runBlocking<Unit> {
         val threads = CopyOnWriteArrayList<String>()
         val service = StatementService(RecordingStore(threads), RecordingRenderer(threads), io, cpu)
         val callerThread = Thread.currentThread().name
@@ -81,7 +81,7 @@ class DispatchersTest {
     }
 
     @Test
-    fun `issuerDispatcher lets 20 blocking calls run at the same time`() = runBlocking {
+    fun `issuerDispatcher lets 20 blocking calls run at the same time`() = runBlocking<Unit> {
         val dispatcher = issuerDispatcher()
         val allIn = CountDownLatch(20)
         val met = withTimeout(10.seconds) {
@@ -96,7 +96,7 @@ class DispatchersTest {
     }
 
     @Test
-    fun `issuerDispatcher never runs more than 20 calls at once`() = runBlocking {
+    fun `issuerDispatcher never runs more than 20 calls at once`() = runBlocking<Unit> {
         val dispatcher = issuerDispatcher()
         val active = AtomicInteger()
         val peak = AtomicInteger()

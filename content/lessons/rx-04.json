@@ -1,0 +1,349 @@
+{
+ "id": "rx-04",
+ "title": "Combining streams: zip, merge, concat, combineLatest",
+ "minutes": 35,
+ "goal": "By the end you can fan out independent calls with `Mono.zip` without losing empty results, and choose between `merge`, `concat`, `zip` and `combineLatest` from when each source is subscribed and when output is produced.",
+ "warmup": {
+  "q": "A checkout runs `Mono.zip(fxRate, fee, limit)`. The FX rate and the fee arrive, but this customer has no limit configured, so `limit` completes empty. What does the zip do?",
+  "options": [
+   "It fails with `NoSuchElementException`",
+   "It emits a tuple with `null` in the third slot",
+   "It completes empty, with no value and no error, and cancels the other calls",
+   "It waits forever for the limit"
+  ],
+  "answer": 2,
+  "why": "`Mono.zip` needs one value from every source. When one completes empty there is nothing to combine, so the zip completes empty right away and cancels the others. Reactive Streams forbids `null` items, so a tuple with a null slot can't happen. The silent empty result is the trap this lesson fixes."
+ },
+ "sections": [
+  {
+   "h": "Pairing by position: zip and Mono.zip",
+   "body": "`Flux.zip(a, b)` waits until every source has emitted one item, combines those items, and repeats. It pairs by position: first with first, second with second. It completes as soon as any source completes, so the extra items of a longer source are dropped. `Flux.zip(Flux.just(1, 2, 3), Flux.just(\"a\", \"b\"))` gives `[[1,a], [2,b]]`, and the 3 is never used.\n\nIn service code you'll use `Mono.zip` far more often, for fan-out: run several independent calls at once and combine the results.\n\n```java\nMono<Quote> quote = Mono.zip(fx.rate(\"EURUSD\"), fees.forMerchant(m), limits.forCustomer(c))\n        .map(t -> new Quote(t.getT1(), t.getT2(), t.getT3()));\n```\n\n```kotlin\nval quote: Mono<Quote> = Mono.zip(fx.rate(\"EURUSD\"), fees.forMerchant(m), limits.forCustomer(c))\n    .map { t -> Quote(t.t1, t.t2, t.t3) }\n```\n\n`Mono.zip` subscribes to all of its sources immediately. If the FX rate takes 100 ms, the fee schedule 300 ms and the limit 200 ms, the quote is ready after 300 ms, not 600. There are typed overloads for up to eight sources (`Tuple2` to `Tuple8`).\n\nIf any source fails, the zip fails and cancels the others. That is usually what you want. The surprise is the other terminal signal. The `Mono.zip` Javadoc says it plainly: an \"empty completion of any source will cause other sources to be cancelled and the resulting Mono to immediately ... complete\". **No error, no value.** A customer with no limit configured makes the whole quote complete empty. A controller turns that into an empty 200 response, `block()` returns `null`, and the logs show nothing at all.\n\nDecide what \"empty\" means for each source and say it in code. Either it is an error:\n\n```java\nlimits.forCustomer(c)\n        .switchIfEmpty(Mono.error(() -> new IllegalStateException(\"missing limit\")))\n```\n\n```kotlin\nlimits.forCustomer(c)\n    .switchIfEmpty(Mono.error { IllegalStateException(\"missing limit\") })\n```\n\nor it has a sensible default, such as `fees.forMerchant(m).defaultIfEmpty(BigDecimal.ZERO)`. A `Mono<Void>` is always empty, so it can never take part in a zip; the last section shows the tool for that.",
+   "try": {
+    "title": "Watch a quote disappear",
+    "minutes": 4,
+    "steps": [
+     "`ZipDemo` zips two Fluxes of different lengths, then zips three Monos where the limit is empty, then does it again with `switchIfEmpty` on the limit.",
+     "Predict each line, including whether the slow FX call finishes or is cancelled.",
+     "Run it. Then change the empty limit to `Mono.just(\"500\")` and predict how long the zip takes."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "ZipDemo.java",
+     "src": "package workbench.reactive.l04;\n\nimport reactor.core.publisher.Flux;\nimport reactor.core.publisher.Mono;\n\nimport java.time.Duration;\n\n/** zip pairs by position. Mono.zip with an empty source completes empty, and cancels the others. */\npublic class ZipDemo {\n    public static void main(String[] args) {\n        System.out.println(\"Flux.zip: \" + Flux.zip(Flux.just(1, 2, 3), Flux.just(\"a\", \"b\")).collectList().block());\n\n        Mono<String> fxRate = Mono.delay(Duration.ofMillis(200)).thenReturn(\"1.08\")\n                .doOnCancel(() -> System.out.println(\"  fx rate call cancelled\"));\n        Mono<String> fee = Mono.delay(Duration.ofMillis(100)).thenReturn(\"0.30\");\n        Mono<String> limit = Mono.empty();                                   // no limit configured\n\n        Mono.zip(fxRate, fee, limit)\n                .doOnSuccess(t -> System.out.println(\"Mono.zip result: \" + t))  // null means \"completed empty\"\n                .block();\n\n        try {\n            Mono.zip(fxRate, fee, limit.switchIfEmpty(Mono.error(new IllegalStateException(\"missing limit\"))))\n                    .block();\n        } catch (IllegalStateException e) {\n            System.out.println(\"with switchIfEmpty: \" + e.getMessage());\n        }\n    }\n}\n",
+     "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l04.ZipDemo",
+     "file": "labs/reactive/src/demo/java/workbench/reactive/l04/ZipDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "ZipDemo.kt",
+      "src": "package workbench.reactive.l04\n\nimport reactor.core.publisher.Flux\nimport reactor.core.publisher.Mono\nimport java.time.Duration\n\n/** zip pairs by position. Mono.zip with an empty source completes empty, and cancels the others. */\nfun main() {\n    println(\"Flux.zip: \" + Flux.zip(Flux.just(1, 2, 3), Flux.just(\"a\", \"b\")).collectList().block())\n\n    val fxRate: Mono<String> = Mono.delay(Duration.ofMillis(200)).thenReturn(\"1.08\")\n        .doOnCancel { println(\"  fx rate call cancelled\") }\n    val fee: Mono<String> = Mono.delay(Duration.ofMillis(100)).thenReturn(\"0.30\")\n    val limit: Mono<String> = Mono.empty()                                   // no limit configured\n\n    Mono.zip(fxRate, fee, limit)\n        .doOnSuccess { t -> println(\"Mono.zip result: $t\") }                 // null means \"completed empty\"\n        .block()\n\n    try {\n        Mono.zip(fxRate, fee, limit.switchIfEmpty(Mono.error(IllegalStateException(\"missing limit\"))))\n            .block()\n    } catch (e: IllegalStateException) {\n        println(\"with switchIfEmpty: ${e.message}\")\n    }\n}\n",
+      "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l04.ZipDemoKt",
+      "file": "labs/reactive/src/demo/kotlin/workbench/reactive/l04/ZipDemo.kt"
+     }
+    },
+    "expect": "`Flux.zip: [[1,a], [2,b]]`. The `Mono.zip` prints `fx rate call cancelled` and `Mono.zip result: null`: `doOnSuccess` received no value because the zip completed empty. The `switchIfEmpty` version cancels the FX call again and prints `with switchIfEmpty: missing limit`, so now the failure is visible. With a real limit the zip emits a tuple of all three after about 200 ms, the time of the slowest call."
+   },
+   "refs": [
+    {
+     "title": "Mono Javadoc source, reactor-core 3.8.x (zip, zipDelayError, when, firstWithValue)",
+     "url": "https://github.com/reactor/reactor-core/blob/3.8.x/reactor-core/src/main/java/reactor/core/publisher/Mono.java",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Interleave or take turns: merge and concat",
+   "body": "`Flux.merge(a, b)` subscribes to every source at once and passes items on as they arrive, from whichever source has one. The output order is arrival order. It completes when all sources have completed, and by default the first error from any source ends it and cancels the rest.\n\n`Flux.concat(a, b)` subscribes to `b` only after `a` has completed. The output is all of `a`, then all of `b`. That makes it the right tool when the second source must not start early: settled entries before pending ones, cached rows before fresh ones, the first page before the rest.\n\n```java\nFlux<String> feed = Flux.merge(cardEvents, bankEvents);          // both at once, as they arrive\nFlux<String> statement = Flux.concat(settled, pending);          // pending only after settled completes\n```\n\n```kotlin\nval feed: Flux<String> = Flux.merge(cardEvents, bankEvents)          // both at once, as they arrive\nval statement: Flux<String> = Flux.concat(settled, pending)          // pending only after settled completes\n```\n\nThe trap with `concat` is a first source that never completes. A live Kafka stream of card events never sends `onComplete`, so `Flux.concat(cardEvents, bankEvents)` never subscribes to the bank events at all. If the inputs are endless, you want `merge`.\n\n`Flux.mergeSequential(a, b)` sits in between. It subscribes to all sources at once, like `merge`, but emits them source by source, like `concat`, buffering what arrives early. It is the combining twin of `flatMapSequential` from lesson 3 of this track.\n\nHere are the three on the same inputs: card events at 30, 60 and 90 ms, bank events at 40, 80 and 120 ms.\n\n| Operator | Output | Done at |\n|---|---|---|\n| `merge` | card-0, bank-0, card-1, bank-1, card-2, bank-2 | 120 ms |\n| `concat` | card-0, card-1, card-2, bank-0, bank-1, bank-2 | 210 ms (bank starts at 90) |\n| `mergeSequential` | card-0, card-1, card-2, bank-0, bank-1, bank-2 | 120 ms |\n\n`concat` is late because the bank source starts its own 40 ms clock only when it is subscribed, at 90 ms. `mergeSequential` received bank-0 and bank-1 early, held them while the card events went out, and released both the moment the card source completed.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 680 300\" role=\"img\" aria-label=\"Marble diagram. Card events at 30, 60, 90 ms and bank events at 40, 80, 120 ms. merge interleaves them by time; concat emits the cards, then starts bank at 90 ms; mergeSequential emits cards, then the buffered bank events.\"><line class=\"ln-d\" x1=\"150.0\" y1=\"38\" x2=\"150.0\" y2=\"285\"/><text class=\"t-s t-m\" x=\"150.0\" y=\"28\" text-anchor=\"middle\">0</text><line class=\"ln-d\" x1=\"250.0\" y1=\"38\" x2=\"250.0\" y2=\"285\"/><text class=\"t-s t-m\" x=\"250.0\" y=\"28\" text-anchor=\"middle\">50</text><line class=\"ln-d\" x1=\"350.0\" y1=\"38\" x2=\"350.0\" y2=\"285\"/><text class=\"t-s t-m\" x=\"350.0\" y=\"28\" text-anchor=\"middle\">100</text><line class=\"ln-d\" x1=\"450.0\" y1=\"38\" x2=\"450.0\" y2=\"285\"/><text class=\"t-s t-m\" x=\"450.0\" y=\"28\" text-anchor=\"middle\">150</text><line class=\"ln-d\" x1=\"550.0\" y1=\"38\" x2=\"550.0\" y2=\"285\"/><text class=\"t-s t-m\" x=\"550.0\" y=\"28\" text-anchor=\"middle\">200</text><text class=\"t-s t-m\" x=\"650\" y=\"28\" text-anchor=\"middle\">ms</text><text class=\"t t-code\" x=\"16\" y=\"67\">card</text><line class=\"ln\" x1=\"150\" y1=\"62\" x2=\"640\" y2=\"62\" marker-end=\"url(#arr)\"/><circle class=\"box-a\" cx=\"210.0\" cy=\"62\" r=\"9.5\"/><text class=\"t-s\" x=\"210.0\" y=\"66\" text-anchor=\"middle\">c0</text><circle class=\"box-a\" cx=\"270.0\" cy=\"62\" r=\"9.5\"/><text class=\"t-s\" x=\"270.0\" y=\"66\" text-anchor=\"middle\">c1</text><circle class=\"box-a\" cx=\"330.0\" cy=\"62\" r=\"9.5\"/><text class=\"t-s\" x=\"330.0\" y=\"66\" text-anchor=\"middle\">c2</text><text class=\"t t-code\" x=\"16\" y=\"111\">bank</text><line class=\"ln\" x1=\"150\" y1=\"106\" x2=\"640\" y2=\"106\" marker-end=\"url(#arr)\"/><circle class=\"box-b\" cx=\"230.0\" cy=\"106\" r=\"9.5\"/><text class=\"t-s\" x=\"230.0\" y=\"110\" text-anchor=\"middle\">b0</text><circle class=\"box-b\" cx=\"310.0\" cy=\"106\" r=\"9.5\"/><text class=\"t-s\" x=\"310.0\" y=\"110\" text-anchor=\"middle\">b1</text><circle class=\"box-b\" cx=\"390.0\" cy=\"106\" r=\"9.5\"/><text class=\"t-s\" x=\"390.0\" y=\"110\" text-anchor=\"middle\">b2</text><text class=\"t t-code\" x=\"16\" y=\"173\">merge</text><line class=\"ln\" x1=\"150\" y1=\"168\" x2=\"640\" y2=\"168\" marker-end=\"url(#arr)\"/><circle class=\"box-a\" cx=\"210.0\" cy=\"168\" r=\"9.5\"/><text class=\"t-s\" x=\"210.0\" y=\"172\" text-anchor=\"middle\">c0</text><circle class=\"box-b\" cx=\"230.0\" cy=\"168\" r=\"9.5\"/><text class=\"t-s\" x=\"230.0\" y=\"172\" text-anchor=\"middle\">b0</text><circle class=\"box-a\" cx=\"270.0\" cy=\"168\" r=\"9.5\"/><text class=\"t-s\" x=\"270.0\" y=\"172\" text-anchor=\"middle\">c1</text><circle class=\"box-b\" cx=\"310.0\" cy=\"168\" r=\"9.5\"/><text class=\"t-s\" x=\"310.0\" y=\"172\" text-anchor=\"middle\">b1</text><circle class=\"box-a\" cx=\"330.0\" cy=\"168\" r=\"9.5\"/><text class=\"t-s\" x=\"330.0\" y=\"172\" text-anchor=\"middle\">c2</text><circle class=\"box-b\" cx=\"390.0\" cy=\"168\" r=\"9.5\"/><text class=\"t-s\" x=\"390.0\" y=\"172\" text-anchor=\"middle\">b2</text><text class=\"t t-code\" x=\"16\" y=\"221\">concat</text><line class=\"ln\" x1=\"150\" y1=\"216\" x2=\"640\" y2=\"216\" marker-end=\"url(#arr)\"/><circle class=\"box-a\" cx=\"210.0\" cy=\"216\" r=\"9.5\"/><text class=\"t-s\" x=\"210.0\" y=\"220\" text-anchor=\"middle\">c0</text><circle class=\"box-a\" cx=\"270.0\" cy=\"216\" r=\"9.5\"/><text class=\"t-s\" x=\"270.0\" y=\"220\" text-anchor=\"middle\">c1</text><circle class=\"box-a\" cx=\"330.0\" cy=\"216\" r=\"9.5\"/><text class=\"t-s\" x=\"330.0\" y=\"220\" text-anchor=\"middle\">c2</text><circle class=\"box-b\" cx=\"410.0\" cy=\"216\" r=\"9.5\"/><text class=\"t-s\" x=\"410.0\" y=\"220\" text-anchor=\"middle\">b0</text><circle class=\"box-b\" cx=\"490.0\" cy=\"216\" r=\"9.5\"/><text class=\"t-s\" x=\"490.0\" y=\"220\" text-anchor=\"middle\">b1</text><circle class=\"box-b\" cx=\"570.0\" cy=\"216\" r=\"9.5\"/><text class=\"t-s\" x=\"570.0\" y=\"220\" text-anchor=\"middle\">b2</text><text class=\"t t-code\" x=\"16\" y=\"269\">mergeSequential</text><line class=\"ln\" x1=\"150\" y1=\"264\" x2=\"640\" y2=\"264\" marker-end=\"url(#arr)\"/><circle class=\"box-a\" cx=\"210.0\" cy=\"264\" r=\"9.5\"/><text class=\"t-s\" x=\"210.0\" y=\"268\" text-anchor=\"middle\">c0</text><circle class=\"box-a\" cx=\"270.0\" cy=\"264\" r=\"9.5\"/><text class=\"t-s\" x=\"270.0\" y=\"268\" text-anchor=\"middle\">c1</text><circle class=\"box-a\" cx=\"330.0\" cy=\"264\" r=\"9.5\"/><text class=\"t-s\" x=\"330.0\" y=\"268\" text-anchor=\"middle\">c2</text><circle class=\"box-b\" cx=\"350.0\" cy=\"264\" r=\"9.5\"/><text class=\"t-s\" x=\"350.0\" y=\"268\" text-anchor=\"middle\">b0</text><circle class=\"box-b\" cx=\"370.0\" cy=\"264\" r=\"9.5\"/><text class=\"t-s\" x=\"370.0\" y=\"268\" text-anchor=\"middle\">b1</text><circle class=\"box-b\" cx=\"390.0\" cy=\"264\" r=\"9.5\"/><text class=\"t-s\" x=\"390.0\" y=\"268\" text-anchor=\"middle\">b2</text><line class=\"ln-d\" x1=\"20\" y1=\"136\" x2=\"660\" y2=\"136\"/></svg>",
+    "caption": "The same two sources through three combinators. concat starts the bank source late; mergeSequential starts it early, holds b0 and b1 back, and releases them when the card source completes at 90 ms."
+   },
+   "try": {
+    "title": "Three ways to join two feeds",
+    "minutes": 4,
+    "steps": [
+     "`MergeConcatDemo` builds card events every 30 ms and bank events every 40 ms, three of each, and prints when each source is subscribed.",
+     "For each combinator, predict when the bank source is subscribed, the output order and the total time.",
+     "Run it. Then remove `.take(3)` from `card()` and predict what `concat` does. (Put it back afterwards; that run never ends, so stop it with Ctrl+C.)"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "MergeConcatDemo.java",
+     "src": "package workbench.reactive.l04;\n\nimport reactor.core.publisher.Flux;\n\nimport java.time.Duration;\nimport java.util.function.BiFunction;\n\n/** Two event sources: card events every 30 ms, bank events every 40 ms. Three ways to combine them. */\npublic class MergeConcatDemo {\n    static Flux<String> card() {\n        return Flux.interval(Duration.ofMillis(30)).map(i -> \"card-\" + i).take(3)\n                .doOnSubscribe(s -> System.out.printf(\"  [%3d ms] card subscribed%n\", ms()));\n    }\n\n    static Flux<String> bank() {\n        return Flux.interval(Duration.ofMillis(40)).map(i -> \"bank-\" + i).take(3)\n                .doOnSubscribe(s -> System.out.printf(\"  [%3d ms] bank subscribed%n\", ms()));\n    }\n\n    static long t0;\n\n    static long ms() {\n        return (System.nanoTime() - t0) / 1_000_000;\n    }\n\n    public static void main(String[] args) {\n        // warm up, so the first timing doesn't include class loading\n        Flux.merge(Flux.interval(Duration.ofMillis(1)).take(2), Flux.just(9L)).concatWith(Flux.mergeSequential(Flux.just(1L))).blockLast();\n        String.format(\"%3d\", 0);\n        run(\"merge\", Flux::merge);\n        run(\"concat\", Flux::concat);\n        run(\"mergeSequential\", Flux::mergeSequential);\n    }\n\n    static void run(String name, BiFunction<Flux<String>, Flux<String>, Flux<String>> combine) {\n        System.out.println(name + \":\");\n        t0 = System.nanoTime();\n        var out = combine.apply(card(), bank()).collectList().block();\n        System.out.printf(\"  %s, done at about %d ms%n\", out, Math.round(ms() / 10.0) * 10);\n    }\n}\n",
+     "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l04.MergeConcatDemo",
+     "file": "labs/reactive/src/demo/java/workbench/reactive/l04/MergeConcatDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "MergeConcatDemo.kt",
+      "src": "package workbench.reactive.l04\n\nimport reactor.core.publisher.Flux\nimport java.time.Duration\nimport kotlin.math.roundToLong\n\nprivate var t0 = 0L\nprivate fun ms() = (System.nanoTime() - t0) / 1_000_000\n\nprivate fun card(): Flux<String> =\n    Flux.interval(Duration.ofMillis(30)).map { i -> \"card-$i\" }.take(3)\n        .doOnSubscribe { println(\"  [%3d ms] card subscribed\".format(ms())) }\n\nprivate fun bank(): Flux<String> =\n    Flux.interval(Duration.ofMillis(40)).map { i -> \"bank-$i\" }.take(3)\n        .doOnSubscribe { println(\"  [%3d ms] bank subscribed\".format(ms())) }\n\n/** Two event sources: card events every 30 ms, bank events every 40 ms. Three ways to combine them. */\nfun main() {\n    // warm up, so the first timing doesn't include class loading\n    Flux.merge(Flux.interval(Duration.ofMillis(1)).take(2), Flux.just(9L)).concatWith(Flux.mergeSequential(Flux.just(1L))).blockLast()\n    \"%3d\".format(0)\n    run(\"merge\") { a, b -> Flux.merge(a, b) }\n    run(\"concat\") { a, b -> Flux.concat(a, b) }\n    run(\"mergeSequential\") { a, b -> Flux.mergeSequential(a, b) }\n}\n\nprivate fun run(name: String, combine: (Flux<String>, Flux<String>) -> Flux<String>) {\n    println(\"$name:\")\n    t0 = System.nanoTime()\n    val out = combine(card(), bank()).collectList().block()\n    println(\"  $out, done at about ${(ms() / 10.0).roundToLong() * 10} ms\")\n}\n",
+      "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l04.MergeConcatDemoKt",
+      "file": "labs/reactive/src/demo/kotlin/workbench/reactive/l04/MergeConcatDemo.kt"
+     }
+    },
+    "expect": "`merge` subscribes to both at once and interleaves: `card-0, bank-0, card-1, bank-1, card-2, bank-2`, done at about 120 to 140 ms. `concat` subscribes to bank only at about 90 ms and finishes at about 210 ms. `mergeSequential` subscribes to both at once, emits cards then banks, and finishes at about 120 to 140 ms, like merge. Timings drift by a few milliseconds, more on a busy machine. With an endless card source, `concat` prints card events forever and never subscribes to bank."
+   }
+  },
+  {
+   "h": "Recompute on every change: combineLatest",
+   "body": "`Flux.combineLatest(a, b, f)` waits until every source has emitted at least once. After that, each new item from any source is combined with the most recent item from each of the others. Its Javadoc warns that elements \"can and will be passed to the combinator multiple times\", because the latest value stays in use until it is replaced.\n\nThat is the shape of a derived value that must track several inputs. A customer's spending limit is stored in EUR, the checkout shows USD, and the EUR/USD rate moves:\n\n```java\nFlux<BigDecimal> usdLimit = Flux.combineLatest(limitsInEur, eurUsdRates, BigDecimal::multiply);\nFlux<Payment> inUsd = payments.withLatestFrom(eurUsdRates, Payment::convertedAt);   // only payments trigger\n```\n\n```kotlin\nval usdLimit: Flux<BigDecimal> = Flux.combineLatest(limitsInEur, eurUsdRates) { limit, rate -> limit.multiply(rate) }\nval inUsd: Flux<Payment> = payments.withLatestFrom(eurUsdRates) { p, rate -> p.convertedAt(rate) }   // only payments trigger\n```\n\nCompare it with `zip` on the same timeline. The limit is 1000 at 0 ms and 2000 at 300 ms. The rate is 1.10 at 100 ms, 1.20 at 200 ms and 1.15 at 400 ms.\n\n| Operator | Output |\n|---|---|\n| `zip` | 1100, 2400 |\n| `combineLatest` | 1100, 1200, 2400, 2300 |\n\n`zip` pairs the second limit with the second rate, so 2000 is multiplied by 1.20 even though 1.15 is the current rate by the end, and the rate change at 200 ms is never shown. `combineLatest` shows every state the inputs pass through.\n\nTwo details. `combineLatest` stays silent until every source has emitted once, so an input that might never emit needs a starting value (`rates.startWith(defaultRate)`). And when only one side should trigger output, use `withLatestFrom` from the second line above: each payment is converted with the rate that is current when the payment arrives, and a rate change on its own emits nothing.",
+   "try": {
+    "title": "zip versus combineLatest",
+    "minutes": 3,
+    "steps": [
+     "`CombineLatestDemo` multiplies a EUR limit by a EUR/USD rate with `zip` and with `combineLatest`, on the timeline from the section.",
+     "Write down both outputs before you run it.",
+     "Run it. Then swap `combineLatest` for `limits().withLatestFrom(rates(), ...)` (keep the multiply) and predict the output."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "CombineLatestDemo.java",
+     "src": "package workbench.reactive.l04;\n\nimport reactor.core.publisher.Flux;\nimport reactor.core.publisher.Mono;\n\nimport java.math.BigDecimal;\nimport java.time.Duration;\n\n/** A EUR limit and a EUR/USD rate that change at different times. zip vs combineLatest. */\npublic class CombineLatestDemo {\n    static Flux<BigDecimal> limits() {     // 1000 at 0 ms, 2000 at 300 ms\n        return Flux.concat(Mono.just(new BigDecimal(\"1000\")), Mono.just(new BigDecimal(\"2000\")).delayElement(Duration.ofMillis(300)));\n    }\n\n    static Flux<BigDecimal> rates() {      // 1.10 at 100 ms, 1.20 at 200 ms, 1.15 at 400 ms\n        return Flux.just(\"1.10\", \"1.20\", \"1.15\").map(BigDecimal::new)\n                .zipWith(Flux.just(100L, 100L, 200L), (rate, wait) -> Mono.just(rate).delayElement(Duration.ofMillis(wait)))\n                .concatMap(m -> m);\n    }\n\n    public static void main(String[] args) {\n        System.out.println(\"zip:           \" + Flux.zip(limits(), rates(), BigDecimal::multiply).collectList().block());\n        System.out.println(\"combineLatest: \" + Flux.combineLatest(limits(), rates(), BigDecimal::multiply).collectList().block());\n    }\n}\n",
+     "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l04.CombineLatestDemo",
+     "file": "labs/reactive/src/demo/java/workbench/reactive/l04/CombineLatestDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "CombineLatestDemo.kt",
+      "src": "package workbench.reactive.l04\n\nimport reactor.core.publisher.Flux\nimport reactor.core.publisher.Mono\nimport java.math.BigDecimal\nimport java.time.Duration\n\n// 1000 at 0 ms, 2000 at 300 ms\nprivate fun limits(): Flux<BigDecimal> =\n    Flux.concat(Mono.just(BigDecimal(\"1000\")), Mono.just(BigDecimal(\"2000\")).delayElement(Duration.ofMillis(300)))\n\n// 1.10 at 100 ms, 1.20 at 200 ms, 1.15 at 400 ms\nprivate fun rates(): Flux<BigDecimal> =\n    Flux.just(\"1.10\", \"1.20\", \"1.15\").map { BigDecimal(it) }\n        .zipWith(Flux.just(100L, 100L, 200L)) { rate, wait -> Mono.just(rate).delayElement(Duration.ofMillis(wait)) }\n        .concatMap { it }\n\n/** A EUR limit and a EUR/USD rate that change at different times. zip vs combineLatest. */\nfun main() {\n    println(\"zip:           \" + Flux.zip(limits(), rates()) { l, r -> l.multiply(r) }.collectList().block())\n    println(\"combineLatest: \" + Flux.combineLatest(limits(), rates()) { l, r -> l.multiply(r) }.collectList().block())\n}\n",
+      "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l04.CombineLatestDemoKt",
+      "file": "labs/reactive/src/demo/kotlin/workbench/reactive/l04/CombineLatestDemo.kt"
+     }
+    },
+    "expect": "`zip: [1100.00, 2400.00]` and `combineLatest: [1100.00, 1200.00, 2400.00, 2300.00]`. With `withLatestFrom`, only the limits trigger: the first limit arrives at 0 ms before any rate exists, so it is dropped, and the second limit (300 ms) uses the latest rate 1.20, giving `[2400.00]`."
+   }
+  },
+  {
+   "h": "Choosing a combinator, and what errors do",
+   "body": "Most combining questions come down to this table:\n\n| You want | Use |\n|---|---|\n| One result from several independent calls | `Mono.zip`, with `switchIfEmpty` or `defaultIfEmpty` on each source |\n| Items from several streams, as they arrive | `Flux.merge` |\n| One stream after another, the next one started late | `Flux.concat` |\n| Several streams started together, output stream by stream | `Flux.mergeSequential` |\n| Item-by-item pairs | `Flux.zip` |\n| A value recomputed from the latest of every input | `Flux.combineLatest` |\n| Each item of one stream, enriched with the latest of another | `withLatestFrom` |\n| Wait for several side effects that return `Mono<Void>` | `Mono.when` |\n| The first of several sources to produce a value | `Mono.firstWithValue` |\n\n`Mono.when(a, b)` exists because `Mono.zip` and `Mono<Void>` don't mix: a `Mono<Void>` always completes empty, so zipping it completes the whole zip empty. `Mono.when(ledger.write(a), audit.write(b)).then(Mono.just(receipt))` waits for both writes and then carries on.\n\n`Mono.firstWithValue(providerA.rate(ccy), providerB.rate(ccy))` subscribes to both FX providers and takes the first rate that arrives, cancelling the slower call. Empty sources are skipped. That is the hedged-request pattern: it trades extra load for lower tail latency, so keep it for calls that are cheap for the other side.\n\nEvery combinator in the table fails fast: the first error cancels the other sources. Each has a `DelayError` variant (`Mono.zipDelayError`, `Flux.mergeDelayError`, `Flux.concatDelayError`) that lets the other sources finish and reports the error at the end. Use those when partial work is still useful, such as a batch job that should process every file before reporting the bad one. The `DelayError` versions treat empty differently too: `Mono.zipDelayError` waits for the other sources to finish before it completes empty, instead of cancelling them.\n\nIf a combinator surprises you, check two things: when does it subscribe to each source (all at once, or one after another), and what does it do when one source completes early or empty. Those two answers explain every row of the table.",
+   "refs": [
+    {
+     "title": "Flux Javadoc source, reactor-core 3.8.x (merge, concat, mergeSequential, combineLatest, zip)",
+     "url": "https://github.com/reactor/reactor-core/blob/3.8.x/reactor-core/src/main/java/reactor/core/publisher/Flux.java",
+     "kind": "docs"
+    }
+   ]
+  }
+ ],
+ "analogy": "Think of four ways to serve a table. `merge` brings each dish out the moment it is ready, from any cook. `concat` serves all the starters before the kitchen even begins the mains. `zip` waits until it has one plate from each of three cooks and carries them out together, and if one cook has nothing to make, no tray goes out at all. `combineLatest` is the drinks board above the bar: whenever any price changes, the whole board is redrawn with the newest prices. The analogy breaks at empty: a real waiter would tell you the kitchen is out of something, but `Mono.zip` just quietly brings nothing.",
+ "in_your_world": "A checkout or authorization service fans out constantly: FX rate, merchant fees, customer limits, a fraud score, all independent. `Mono.zip` keeps that fan-out at the speed of the slowest call, and the empty rule decides whether a misconfigured merchant becomes a clear error or a silent empty response. An operations dashboard that shows card events and bank callbacks in one feed is `merge`. A statement that lists settled entries before running the expensive pending query is `concat`. An exposure figure that must follow both the position and the FX rate is `combineLatest`.",
+ "mistake": "The most common mistake is using `Mono.zip` without deciding what an empty source means. It works in every test that stubs all calls with values. In production one lookup returns nothing (a merchant without a fee schedule, a customer without a limit), and the whole result completes empty with no error and no log line. Put `switchIfEmpty(Mono.error(...))` or `defaultIfEmpty(...)` on each source that can be empty, and add a test for the empty case.",
+ "compare": {
+  "title": "Fan-out with Mono.zip and Mono.when in Java and Kotlin",
+  "java": {
+   "title": "Checkout.java",
+   "src": "// three calls at once; ready when the slowest one is\nMono<Quote> quote = Mono.zip(\n                fx.rate(\"EURUSD\").switchIfEmpty(missing(\"fx rate\")),\n                fees.forMerchant(m).defaultIfEmpty(BigDecimal.ZERO),\n                limits.forCustomer(c).switchIfEmpty(missing(\"limit\")))\n        .map(t -> new Quote(t.getT1(), t.getT2(), t.getT3()));\n\n// three side effects that return Mono<Void>: zip would complete empty\nMono<Receipt> done = Mono.when(ledger.write(entry), audit.write(entry), kafka.send(event))\n        .then(Mono.just(receipt));"
+  },
+  "kotlin": {
+   "title": "Checkout.kt",
+   "src": "// three calls at once; ready when the slowest one is\nval quote: Mono<Quote> = Mono.zip(\n        fx.rate(\"EURUSD\").switchIfEmpty(missing(\"fx rate\")),\n        fees.forMerchant(m).defaultIfEmpty(BigDecimal.ZERO),\n        limits.forCustomer(c).switchIfEmpty(missing(\"limit\")))\n    .map { t -> Quote(t.t1, t.t2, t.t3) }\n\n// `when` is a Kotlin keyword, so the method name needs backticks\nval done: Mono<Receipt> = Mono.`when`(ledger.write(entry), audit.write(entry), kafka.send(event))\n    .then(Mono.just(receipt))"
+  },
+  "note": "The Reactor calls are the same. In Kotlin, tuple getters read as properties (`t.t1`), and core Reactor has no destructuring for tuples. `when` is a keyword in Kotlin, so `Mono.when` has to be written with backticks. Kotlin's own fan-out looks different: inside `coroutineScope { }` you start each call with `async { }` and then `await()` them, and the Reactor bridge `awaitSingleOrNull()` turns an empty `Mono` into `null`, which the compiler then forces you to handle. That makes the empty case hard to forget, while `Mono.zip` lets you forget it. The coroutines track covers `async`."
+ },
+ "worked": {
+  "title": "Make a checkout quote fail loudly instead of disappearing",
+  "steps": [
+   {
+    "say": "The quote endpoint fans out three lookups. It passed every test, and support reports that some merchants see an empty checkout page.",
+    "code": "Mono<Quote> quote(String m, String c) {\n    return Mono.zip(fx.rate(\"EURUSD\"), fees.forMerchant(m), limits.forCustomer(c))\n            .map(t -> new Quote(t.getT1(), t.getT2(), t.getT3()));\n}",
+    "lang": "java",
+    "alt_code": "fun quote(m: String, c: String): Mono<Quote> =\n    Mono.zip(fx.rate(\"EURUSD\"), fees.forMerchant(m), limits.forCustomer(c))\n        .map { t -> Quote(t.t1, t.t2, t.t3) }",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "New merchants have no fee schedule yet, so `fees.forMerchant(m)` completes empty. `Mono.zip` then completes empty and cancels the other two calls. The `map` never runs, the controller has nothing to render, and no error is logged. Decide per source: a missing fee schedule means \"no fee\", a missing FX rate or limit is a real error.",
+    "code": "",
+    "lang": ""
+   },
+   {
+    "say": "Encode those decisions on each source, before the zip.",
+    "code": "Mono<Quote> quote(String m, String c) {\n    return Mono.zip(\n                    fx.rate(\"EURUSD\").switchIfEmpty(missing(\"fx rate\")),    // 1. empty becomes an error\n                    fees.forMerchant(m).defaultIfEmpty(BigDecimal.ZERO),    // 2. or a sensible default\n                    limits.forCustomer(c).switchIfEmpty(missing(\"limit\")))\n            .map(t -> new Quote(t.getT1(), t.getT2(), t.getT3()));        // 3. only reached with all three\n}\n\nprivate static <T> Mono<T> missing(String what) {\n    return Mono.error(() -> new IllegalStateException(\"missing \" + what));\n}",
+    "lang": "java",
+    "alt_code": "fun quote(m: String, c: String): Mono<Quote> =\n    Mono.zip(\n        fx.rate(\"EURUSD\").switchIfEmpty(missing(\"fx rate\")),     // 1. empty becomes an error\n        fees.forMerchant(m).defaultIfEmpty(BigDecimal.ZERO),     // 2. or a sensible default\n        limits.forCustomer(c).switchIfEmpty(missing(\"limit\")))\n        .map { t -> Quote(t.t1, t.t2, t.t3) }                    // 3. only reached with all three\n\nprivate fun <T : Any> missing(what: String): Mono<T> =\n    Mono.error { IllegalStateException(\"missing $what\") }",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "Pin the behaviour with a test for the empty case, the one the original tests never had.",
+    "code": "StepVerifier.create(checkout.quote(\"m-1\", \"no-limit-customer\"))\n        .expectErrorMessage(\"missing limit\")     // 4. the case that used to complete empty\n        .verify(Duration.ofSeconds(1));",
+    "lang": "java",
+    "alt_code": "StepVerifier.create(checkout.quote(\"m-1\", \"no-limit-customer\"))\n    .expectErrorMessage(\"missing limit\")     // 4. the case that used to complete empty\n    .verify(Duration.ofSeconds(1))",
+    "alt_lang": "kotlin"
+   }
+  ]
+ },
+ "lab": {
+  "title": "Four combinators for a checkout page",
+  "minutes": 13,
+  "files": [
+   "labs/reactive/src/main/java/workbench/reactive/l04/Checkout.java"
+  ],
+  "run": "./gradlew :reactive:test --tests 'workbench.reactive.l04.*'",
+  "steps": [
+   "Read the Javadoc on the four methods in `Checkout`. For each one, decide the combinator before writing code: when must each source be subscribed, and when should output appear?",
+   "`quote`: run the three lookups at once, build a `Quote`, and turn an empty lookup into `IllegalStateException(\"missing <name>\")`.",
+   "`activityFeed`: card and bank events in the order they happen.",
+   "`statement`: settled entries, then pending ones, without subscribing to pending early. The test checks this with a `PublisherProbe`.",
+   "`limitInUsd`: a new value whenever either the limit or the rate changes. Run the tests until all five pass."
+  ],
+  "hints": [
+   "If the empty-quote test says `expected: onError(); actual: onComplete()`, you zipped the sources as they are. Add `switchIfEmpty(Mono.error(...))` to each one.",
+   "`Mono.error(() -> new IllegalStateException(...))` with a supplier builds the exception lazily, only if the source really is empty.",
+   "If `limitInUsd` emits `1100` and `2400` but not `1200`, you used `zip`: it waits for a new item from both sides before emitting."
+  ],
+  "done_when": "All five tests in `CheckoutTest` pass."
+ },
+ "drill": {
+  "title": "Write the safe fan-out from memory",
+  "minutes": 4,
+  "prompt": "Close this page. Write `Mono<Quote> quote(Mono<BigDecimal> fxRate, Mono<BigDecimal> fee, Mono<BigDecimal> limit)` so that all three run at once, and any empty source fails with `IllegalStateException(\"missing ...\")` naming it. Then compare.",
+  "answer": {
+   "lang": "java",
+   "src": "Mono<Quote> quote(Mono<BigDecimal> fxRate, Mono<BigDecimal> fee, Mono<BigDecimal> limit) {\n    return Mono.zip(\n                    fxRate.switchIfEmpty(missing(\"fx rate\")),\n                    fee.switchIfEmpty(missing(\"fee\")),\n                    limit.switchIfEmpty(missing(\"limit\")))\n            .map(t -> new Quote(t.getT1(), t.getT2(), t.getT3()));\n}\n\nstatic <T> Mono<T> missing(String what) {\n    return Mono.error(() -> new IllegalStateException(\"missing \" + what));\n}",
+   "alt": {
+    "lang": "kotlin",
+    "src": "fun quote(fxRate: Mono<BigDecimal>, fee: Mono<BigDecimal>, limit: Mono<BigDecimal>): Mono<Quote> =\n    Mono.zip(\n        fxRate.switchIfEmpty(missing(\"fx rate\")),\n        fee.switchIfEmpty(missing(\"fee\")),\n        limit.switchIfEmpty(missing(\"limit\")))\n        .map { t -> Quote(t.t1, t.t2, t.t3) }\n\nprivate fun <T : Any> missing(what: String): Mono<T> =\n    Mono.error { IllegalStateException(\"missing $what\") }"
+   }
+  }
+ },
+ "recap": [
+  "`Mono.zip` subscribes to all sources at once, so a fan-out takes as long as its slowest call.",
+  "If any zipped source completes empty, the zip completes empty and cancels the others. Say what empty means with `switchIfEmpty` or `defaultIfEmpty`.",
+  "`merge` subscribes to everything at once and emits in arrival order; `concat` subscribes to the next source only after the previous one completes.",
+  "`concat` behind an endless source never reaches the second source. Use `merge` for live feeds.",
+  "`combineLatest` re-emits whenever any input changes, using the latest of the others. `zip` pairs strictly by position.",
+  "Combinators fail fast on the first error. The `DelayError` variants let the other sources finish first."
+ ],
+ "quiz": [
+  {
+   "q": "`Mono.zip(fraudScore, fxRate)`: the fraud call fails after 50 ms; the FX call would take 2 seconds. What happens?",
+   "options": [
+    "The zip waits 2 seconds, then fails",
+    "The zip fails at about 50 ms and cancels the FX call",
+    "The zip emits the FX rate with a null fraud score",
+    "The zip retries the fraud call"
+   ],
+   "answer": 1,
+   "why": "Combinators fail fast: the first error ends the zip and cancels the other sources. Waiting for the others is what `Mono.zipDelayError` does. Nothing is retried unless you add `retry` (lesson 5 of this track)."
+  },
+  {
+   "q": "A statement must show settled entries, then pending ones. The pending query is expensive and must not start until the settled list is complete. Which line fits?",
+   "options": [
+    "`Flux.merge(settled, pending)`",
+    "`Flux.mergeSequential(settled, pending)`",
+    "`Flux.concat(settled, pending)`",
+    "`Flux.zip(settled, pending)`"
+   ],
+   "answer": 2,
+   "why": "`concat` subscribes to `pending` only after `settled` completes. `mergeSequential` produces the same output order but subscribes to both at once, so the expensive query starts early. `merge` interleaves, and `zip` pairs entries that have nothing to do with each other."
+  },
+  {
+   "q": "Card events and bank events are two endless Kafka streams. A dashboard uses `Flux.concat(cardEvents, bankEvents)`. What does it show?",
+   "options": [
+    "Card and bank events, interleaved",
+    "Only card events, forever",
+    "Nothing until both streams complete",
+    "Bank events first, because they are smaller"
+   ],
+   "answer": 1,
+   "why": "`concat` waits for the first source to complete before subscribing to the second, and an endless stream never completes. The bank stream is never subscribed. `merge` is the combinator for live feeds."
+  },
+  {
+   "q": "Limits: 1000 at 0 ms, 2000 at 300 ms. Rates: 1.10 at 100 ms, 1.20 at 200 ms. What does `Flux.combineLatest(limits, rates, BigDecimal::multiply)` emit?",
+   "options": [
+    "`1100, 2400`",
+    "`1100, 1200, 2400`",
+    "`1100, 1200`",
+    "`2200, 2400`"
+   ],
+   "answer": 1,
+   "why": "Nothing until both have emitted (100 ms: 1000 x 1.10). Then every change from either side re-emits with the latest of the other: the rate change at 200 ms gives 1200, and the limit change at 300 ms gives 2000 x 1.20 = 2400. `zip` would give only `1100, 2400`."
+  },
+  {
+   "q": "From \"CompletableFuture: errors, timeouts and fan-out\": you fan out three calls with `CompletableFuture.allOf(a, b, c)`, and `a` fails at once. When does the `allOf` future complete?",
+   "options": [
+    "At once, exceptionally, and it cancels `b` and `c`",
+    "Exceptionally, but only after `b` and `c` have also completed",
+    "Normally, and you have to check each future yourself",
+    "Never, because one future failed"
+   ],
+   "answer": 1,
+   "why": "`allOf` completes when all of the given futures complete, and exceptionally if any of them did. It does not cancel the others. That is the opposite of `Mono.zip`, which fails at the first error and cancels the remaining sources.",
+   "from": "exec-07"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "What does `Mono.zip` do when one of its sources completes empty?",
+   "back": "It completes empty right away (no value, no error) and cancels the other sources."
+  },
+  {
+   "front": "How do you make an empty source fail inside a `Mono.zip`?",
+   "back": "Put `.switchIfEmpty(Mono.error(...))` on that source before zipping it (or `defaultIfEmpty(x)` if there is a sensible default)."
+  },
+  {
+   "front": "`merge` vs `concat`: when is the second source subscribed?",
+   "back": "`merge`: immediately, together with the first. `concat`: only after the first source completes."
+  },
+  {
+   "front": "`Flux.concat(endless, other)`: what happens to `other`?",
+   "back": "It is never subscribed, because `endless` never completes."
+  },
+  {
+   "front": "When does `combineLatest` emit?",
+   "back": "Once every source has emitted at least once, and then on every new item from any source, combined with the latest of the others."
+  },
+  {
+   "front": "Why can't you `Mono.zip` a `Mono<Void>`?",
+   "back": "It always completes empty, so the zip completes empty. Use `Mono.when(...)` to wait for side effects, then `.then(...)`."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Fan-out",
+   "plain": "Starting several independent calls at once and combining their results."
+  },
+  {
+   "term": "zip",
+   "plain": "Combines one item from each source, position by position; completes when any source completes."
+  },
+  {
+   "term": "merge",
+   "plain": "Subscribes to all sources at once and emits their items in arrival order."
+  },
+  {
+   "term": "concat",
+   "plain": "Subscribes to each source only after the previous one has completed."
+  },
+  {
+   "term": "combineLatest",
+   "plain": "Emits a new combination whenever any source emits, using the latest item of each."
+  },
+  {
+   "term": "DelayError variant",
+   "plain": "A version of a combinator that lets the other sources finish before reporting an error."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A teammate's quote endpoint uses `Mono.zip` over three lookups and \"sometimes returns nothing, with no error\". Explain in your own words what is happening and how you would fix it so it can't happen silently again.",
+  "answer": "`Mono.zip` needs a value from every source. If any of them completes without a value, there is nothing to combine, so the zip completes empty immediately and cancels the other lookups. No error is raised, so nothing is logged, and the endpoint has nothing to return. It happens for whichever lookup can legitimately be empty, for example a merchant without a fee schedule. The fix is to decide what empty means for each lookup and encode it before zipping: `switchIfEmpty(Mono.error(...))` where it is a real error, and `defaultIfEmpty(...)` where there is a sensible default. Then add a test with an empty stub for each lookup, so the case is covered."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "**Zip in a chain.** `Mono.zipWith(other)` zips two Monos without the static call, and `Mono.zipWhen(value -> otherCall(value))` runs the second call *after* the first and gives you both results: handy when the second lookup needs the first one's answer, such as fetching a merchant and then that merchant's fee schedule. That is sequential on purpose, so it takes the sum of both times.\n\n**Zipping a Flux with an index.** `flux.index()` pairs each item with its position, which is often what people reach for `zip` with `Flux.range` to do.\n\n**Many Monos of unknown count.** For a list of calls, `Mono.zip(listOfMonos, array -> ...)` exists but hands you an `Object[]`. Usually `Flux.fromIterable(ids).flatMap(this::lookup, n).collectList()` is clearer: it caps concurrency, which `Mono.zip` cannot, and it returns results in arrival order (use `flatMapSequential` to keep the input order).\n\n**Merge and backpressure.** `merge` requests from all its sources at once, with a prefetch per source, and interleaves what comes back. merge asks each source for a small prefetch and requests more only as items move downstream, so a fast source can't flood a slow subscriber. Lesson 7 of this track looks at demand in detail.\n\n**`switchIfEmpty` is lazy, the argument isn't.** `switchIfEmpty(Mono.error(new IllegalStateException(...)))` builds the exception object on every call, even when the source has a value. That is cheap but wasteful, and the stack trace points at assembly. The supplier form `Mono.error(() -> new IllegalStateException(...))` builds it only when needed."
+ },
+ "sources": [
+  {
+   "title": "Mono Javadoc source, reactor-core 3.8.x",
+   "url": "https://github.com/reactor/reactor-core/blob/3.8.x/reactor-core/src/main/java/reactor/core/publisher/Mono.java"
+  },
+  {
+   "title": "Flux Javadoc source, reactor-core 3.8.x",
+   "url": "https://github.com/reactor/reactor-core/blob/3.8.x/reactor-core/src/main/java/reactor/core/publisher/Flux.java"
+  },
+  {
+   "title": "Reactor reference: Testing (StepVerifier, TestPublisher, PublisherProbe) (source)",
+   "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/testing.adoc"
+  },
+  {
+   "title": "CompletableFuture.allOf (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/CompletableFuture.html"
+  }
+ ]
+}

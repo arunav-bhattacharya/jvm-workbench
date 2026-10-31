@@ -70,7 +70,7 @@ public class PinningDemo {
                     .filter(e -> e.getEventType().getName().equals("jdk.VirtualThreadPinned"))   // other recordings may add events
                     .toList();
             System.out.printf("%-24s longest gap between ticks: %3d ms   pinned events: %d%n", label, maxGap, pins.size());
-            if (!pins.isEmpty() && pins.get(0).hasField("pinnedReason")) {     // the reason field exists from JDK 24
+            if (!pins.isEmpty() && pins.get(0).hasField("pinnedReason")) {     // JDK 25 records a reason; JDK 21 only the stack
                 System.out.println("    reason: " + pins.get(0).getString("pinnedReason"));
             }
         } finally {

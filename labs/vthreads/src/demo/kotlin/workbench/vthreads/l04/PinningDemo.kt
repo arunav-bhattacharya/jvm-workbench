@@ -62,7 +62,7 @@ private fun runScenario(label: String, blocker: () -> Unit) {
             val pins = RecordingFile.readAllEvents(file)
                 .filter { it.eventType.name == "jdk.VirtualThreadPinned" }   // other recordings may add events
             println("%-24s longest gap between ticks: %3d ms   pinned events: %d".format(label, maxGap, pins.size))
-            pins.firstOrNull()?.takeIf { it.hasField("pinnedReason") }?.let {   // the reason field exists from JDK 24
+            pins.firstOrNull()?.takeIf { it.hasField("pinnedReason") }?.let {   // JDK 25 records a reason; JDK 21 only the stack
                 println("    reason: ${it.getString("pinnedReason")}")
             }
         }
