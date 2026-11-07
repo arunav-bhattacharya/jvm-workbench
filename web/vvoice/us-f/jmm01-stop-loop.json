@@ -1,0 +1,403 @@
+{
+ "slug": "jmm01-stop-loop",
+ "voice": "us-f",
+ "max_late": 0.12,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.62,
+   "tries": 1,
+   "text": "A worker thread spins in a loop until a plain boolean called stop turns true."
+  },
+  {
+   "cue": 7.53,
+   "start": 7.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.04,
+   "tries": 1,
+   "text": "A second later, the main thread sets it to true."
+  },
+  {
+   "cue": 10.77,
+   "start": 10.77,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.56,
+   "tries": 1,
+   "text": "On J D K twenty-one or twenty-five, the worker never stops."
+  },
+  {
+   "cue": 14.36,
+   "start": 14.48,
+   "late": 0.12,
+   "tempo": 1.0,
+   "secs": 2.45,
+   "tries": 1,
+   "text": "Not after a second, not after an hour."
+  },
+  {
+   "cue": 18.0,
+   "start": 18.0,
+   "late": 0.0,
+   "tempo": 1.139,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "The usual story blames the C P U cache."
+  },
+  {
+   "cue": 20.44,
+   "start": 20.44,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.19,
+   "tries": 1,
+   "text": "Each core keeps its own copy of stop, and the worker's copy goes stale."
+  },
+  {
+   "cue": 25.12,
+   "start": 25.12,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.01,
+   "tries": 1,
+   "text": "Here is what the hardware really does."
+  },
+  {
+   "cue": 28.43,
+   "start": 28.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.52,
+   "tries": 1,
+   "text": "Each core has registers, a small store buffer, and its own cache."
+  },
+  {
+   "cue": 32.59,
+   "start": 32.59,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.8,
+   "tries": 1,
+   "text": "Below them sits a shared cache and main memory."
+  },
+  {
+   "cue": 35.6,
+   "start": 35.6,
+   "late": 0.0,
+   "tempo": 1.004,
+   "secs": 2.39,
+   "tries": 1,
+   "text": "Right now, stop is false everywhere."
+  },
+  {
+   "cue": 38.13,
+   "start": 38.14,
+   "late": 0.01,
+   "tempo": 1.15,
+   "secs": 1.6,
+   "tries": 1,
+   "text": "The main thread writes true."
+  },
+  {
+   "cue": 39.79,
+   "start": 39.89,
+   "late": 0.1,
+   "tempo": 1.007,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "The core does not wait for the cache."
+  },
+  {
+   "cue": 41.99,
+   "start": 42.0,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 4.26,
+   "tries": 1,
+   "text": "It puts the write in its store buffer, and runs on to its next instruction."
+  },
+  {
+   "cue": 46.63,
+   "start": 46.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.82,
+   "tries": 1,
+   "text": "For a moment, only this core knows about the write."
+  },
+  {
+   "cue": 49.67,
+   "start": 49.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.53,
+   "tries": 1,
+   "text": "That is how a store buffer lets a core run ahead."
+  },
+  {
+   "cue": 52.58,
+   "start": 52.58,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.72,
+   "tries": 1,
+   "text": "A later read of another field can finish before this write leaves the queue."
+  },
+  {
+   "cue": 57.33,
+   "start": 57.33,
+   "late": 0.0,
+   "tempo": 1.046,
+   "secs": 2.15,
+   "tries": 1,
+   "text": "But the queue drains within nanoseconds."
+  },
+  {
+   "cue": 59.72,
+   "start": 59.72,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.5,
+   "tries": 2,
+   "text": "The write lands in the cache."
+  },
+  {
+   "cue": 61.67,
+   "start": 61.67,
+   "late": 0.0,
+   "tempo": 1.015,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "Caches run a coherence protocol."
+  },
+  {
+   "cue": 63.73,
+   "start": 63.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.07,
+   "tries": 1,
+   "text": "When one core writes, the other cores' copies are updated or thrown away."
+  },
+  {
+   "cue": 68.43,
+   "start": 68.43,
+   "late": 0.0,
+   "tempo": 1.037,
+   "secs": 2.65,
+   "tries": 1,
+   "text": "So core zero's cache soon says true as well."
+  },
+  {
+   "cue": 71.3,
+   "start": 71.3,
+   "late": 0.0,
+   "tempo": 1.074,
+   "secs": 0.94,
+   "tries": 1,
+   "text": "The caches agree."
+  },
+  {
+   "cue": 72.45,
+   "start": 72.45,
+   "late": 0.0,
+   "tempo": 1.032,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "No cache keeps an old value forever."
+  },
+  {
+   "cue": 74.9,
+   "start": 74.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "So why does the worker still spin?"
+  },
+  {
+   "cue": 77.43,
+   "start": 77.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.18,
+   "tries": 1,
+   "text": "Look at its register."
+  },
+  {
+   "cue": 78.94,
+   "start": 78.94,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.88,
+   "tries": 1,
+   "text": "The compiled loop read stop once, into a register."
+  },
+  {
+   "cue": 82.54,
+   "start": 82.54,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "It never reads memory again."
+  },
+  {
+   "cue": 85.47,
+   "start": 85.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.99,
+   "tries": 1,
+   "text": "After the loop has run many thousands of times, the jit compiles it."
+  },
+  {
+   "cue": 90.05,
+   "start": 90.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.13,
+   "tries": 1,
+   "text": "HotSpot's C two compiler turns it into machine code."
+  },
+  {
+   "cue": 93.57,
+   "start": 93.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.77,
+   "tries": 1,
+   "text": "C two sees that nothing inside the loop writes stop."
+  },
+  {
+   "cue": 96.65,
+   "start": 96.65,
+   "late": 0.0,
+   "tempo": 1.023,
+   "secs": 4.16,
+   "tries": 1,
+   "text": "So it reads stop once, before the loop, and runs the rest forever."
+  },
+  {
+   "cue": 101.03,
+   "start": 101.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.84,
+   "tries": 1,
+   "text": "That is allowed."
+  },
+  {
+   "cue": 102.03,
+   "start": 102.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.41,
+   "tries": 1,
+   "text": "For a plain field, the memory model gives no promise about another thread's write."
+  },
+  {
+   "cue": 107.13,
+   "start": 107.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.11,
+   "tries": 1,
+   "text": "So the compiler may assume that no other thread changes it."
+  },
+  {
+   "cue": 111.03,
+   "start": 111.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.67,
+   "tries": 1,
+   "text": "You can check where the bug lives."
+  },
+  {
+   "cue": 113.07,
+   "start": 113.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "Turn the jit off with one flag, and run it again."
+  },
+  {
+   "cue": 116.0,
+   "start": 116.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.92,
+   "tries": 1,
+   "text": "The caches are the same, and the worker stops at once."
+  },
+  {
+   "cue": 120.13,
+   "start": 120.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.28,
+   "tries": 1,
+   "text": "The fix is one word."
+  },
+  {
+   "cue": 121.61,
+   "start": 121.61,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.57,
+   "tries": 1,
+   "text": "Declare the field volatile."
+  },
+  {
+   "cue": 123.83,
+   "start": 123.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.57,
+   "tries": 1,
+   "text": "The jit can't keep a volatile field in a register, or move its read out of the loop."
+  },
+  {
+   "cue": 128.93,
+   "start": 128.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.45,
+   "tries": 1,
+   "text": "Every pass reads it again."
+  },
+  {
+   "cue": 131.33,
+   "start": 131.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.45,
+   "tries": 1,
+   "text": "Now each pass of the loop goes to the cache."
+  },
+  {
+   "cue": 133.95,
+   "start": 133.95,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.6,
+   "tries": 1,
+   "text": "The cache already says true, so the worker sees main's write, and the loop ends."
+  },
+  {
+   "cue": 138.93,
+   "start": 138.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.76,
+   "tries": 1,
+   "text": "And the memory model guarantees that main's volatile write becomes visible to the worker."
+  }
+ ]
+}

@@ -1,0 +1,214 @@
+{
+ "slug": "mem04-g1-regions",
+ "voice": "us-f",
+ "max_late": 0.29,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.015,
+   "secs": 5.93,
+   "tries": 1,
+   "text": "G one, the default collector, keeps eden, survivor and old, but not as three big spaces."
+  },
+  {
+   "cue": 8.84,
+   "start": 8.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.06,
+   "tries": 1,
+   "text": "It cuts the heap into equal regions."
+  },
+  {
+   "cue": 11.63,
+   "start": 11.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 8.87,
+   "tries": 1,
+   "text": "A region is the max heap divided by two thousand forty-eight, kept between one and thirty-two MB, and rounded up to a power of two."
+  },
+  {
+   "cue": 21.36,
+   "start": 21.36,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.63,
+   "tries": 1,
+   "text": "A one GB heap gets one MB regions."
+  },
+  {
+   "cue": 24.83,
+   "start": 24.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.73,
+   "tries": 1,
+   "text": "Each region has a role for a while: eden, survivor, old, humongous, or free."
+  },
+  {
+   "cue": 30.73,
+   "start": 30.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.19,
+   "tries": 1,
+   "text": "New objects fill the eden regions."
+  },
+  {
+   "cue": 33.27,
+   "start": 33.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.45,
+   "tries": 1,
+   "text": "A young pause copies the live objects out of every eden and survivor region, into free regions that become survivors."
+  },
+  {
+   "cue": 41.27,
+   "start": 41.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.57,
+   "tries": 1,
+   "text": "The evacuated regions are free again, and next time any of them can become anything."
+  },
+  {
+   "cue": 46.47,
+   "start": 46.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.02,
+   "tries": 1,
+   "text": "An object larger than half a region is humongous."
+  },
+  {
+   "cue": 49.87,
+   "start": 49.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.2,
+   "tries": 1,
+   "text": "It skips eden and gets its own run of whole regions, side by side, which count as old from the start."
+  },
+  {
+   "cue": 57.07,
+   "start": 57.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.58,
+   "tries": 1,
+   "text": "A three MiB array plus its sixteen-byte header needs four one MB regions, and nearly all of the fourth is wasted."
+  },
+  {
+   "cue": 65.83,
+   "start": 65.83,
+   "late": 0.0,
+   "tempo": 1.055,
+   "secs": 2.88,
+   "tries": 1,
+   "text": "Old regions fill up slowly with promoted objects."
+  },
+  {
+   "cue": 68.94,
+   "start": 68.94,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.84,
+   "tries": 1,
+   "text": "When they pass a threshold, forty-five percent of the heap to begin with, G one marks the live objects in the background, while your code keeps running."
+  },
+  {
+   "cue": 77.88,
+   "start": 77.88,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.96,
+   "tries": 1,
+   "text": "Now it knows how much of each old region is still live."
+  },
+  {
+   "cue": 81.57,
+   "start": 81.57,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.26,
+   "tries": 1,
+   "text": "Then come mixed pauses."
+  },
+  {
+   "cue": 82.97,
+   "start": 82.98,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 4.72,
+   "tries": 1,
+   "text": "They take all the young regions, plus a few old ones: the ones with the most garbage."
+  },
+  {
+   "cue": 88.14,
+   "start": 88.14,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.68,
+   "tries": 1,
+   "text": "That choice is where the name Garbage First comes from."
+  },
+  {
+   "cue": 91.67,
+   "start": 91.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.86,
+   "tries": 1,
+   "text": "Copying costs what is live, so a mostly garbage region gives back the most space for the least work."
+  },
+  {
+   "cue": 98.46,
+   "start": 98.46,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.62,
+   "tries": 1,
+   "text": "A region more than eighty-five percent live is not even a candidate."
+  },
+  {
+   "cue": 103.07,
+   "start": 103.07,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.07,
+   "tries": 1,
+   "text": "So, a check."
+  },
+  {
+   "cue": 104.0,
+   "start": 104.28,
+   "late": 0.29,
+   "tempo": 1.0,
+   "secs": 6.61,
+   "tries": 1,
+   "text": "Which old region does G one take first: one that is seventy percent live, or one that is twenty percent live?"
+  },
+  {
+   "cue": 112.3,
+   "start": 112.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.17,
+   "tries": 1,
+   "text": "The twenty percent one."
+  },
+  {
+   "cue": 113.72,
+   "start": 113.72,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.69,
+   "tries": 1,
+   "text": "G one copies a fifth of a region, and gets the whole region back."
+  }
+ ]
+}

@@ -1,0 +1,295 @@
+{
+ "slug": "gen08-reified",
+ "voice": "us-f",
+ "max_late": 0.35,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.071,
+   "secs": 1.15,
+   "tries": 1,
+   "text": "Here are two lists."
+  },
+  {
+   "cue": 4.06,
+   "start": 4.06,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.31,
+   "tries": 1,
+   "text": "One holds payment ids."
+  },
+  {
+   "cue": 5.64,
+   "start": 5.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.92,
+   "tries": 1,
+   "text": "The other holds amounts in cents."
+  },
+  {
+   "cue": 8.23,
+   "start": 8.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.44,
+   "tries": 1,
+   "text": "The compiler checks them as two different types."
+  },
+  {
+   "cue": 11.53,
+   "start": 11.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "Then it erases the type arguments."
+  },
+  {
+   "cue": 14.02,
+   "start": 14.02,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.74,
+   "tries": 1,
+   "text": "At run time both objects are the same class, java.util.ArrayList."
+  },
+  {
+   "cue": 19.0,
+   "start": 19.0,
+   "late": 0.0,
+   "tempo": 1.035,
+   "secs": 1.86,
+   "tries": 1,
+   "text": "Nothing in the object says String."
+  },
+  {
+   "cue": 21.07,
+   "start": 21.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.88,
+   "tries": 1,
+   "text": "Ask each one for its class, and you get the same answer."
+  },
+  {
+   "cue": 25.3,
+   "start": 25.3,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.5,
+   "tries": 1,
+   "text": "So a check like x is T can't compile."
+  },
+  {
+   "cue": 27.75,
+   "start": 27.95,
+   "late": 0.19,
+   "tempo": 1.0,
+   "secs": 2.73,
+   "tries": 1,
+   "text": "At run time, there is no T to check against."
+  },
+  {
+   "cue": 31.4,
+   "start": 31.4,
+   "late": 0.0,
+   "tempo": 1.065,
+   "secs": 1.92,
+   "tries": 1,
+   "text": "Kotlin has one way around this."
+  },
+  {
+   "cue": 33.53,
+   "start": 33.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "Mark the function inline."
+  },
+  {
+   "cue": 35.47,
+   "start": 35.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.95,
+   "tries": 1,
+   "text": "Now the compiler does not call it."
+  },
+  {
+   "cue": 37.67,
+   "start": 37.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.14,
+   "tries": 1,
+   "text": "It copies its body into every call site."
+  },
+  {
+   "cue": 40.47,
+   "start": 40.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.44,
+   "tries": 1,
+   "text": "At each call site, the type argument is right there in the code."
+  },
+  {
+   "cue": 44.7,
+   "start": 44.7,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.39,
+   "tries": 1,
+   "text": "Here it is String."
+  },
+  {
+   "cue": 45.89,
+   "start": 46.24,
+   "late": 0.35,
+   "tempo": 1.15,
+   "secs": 1.3,
+   "tries": 1,
+   "text": "Here it is Long."
+  },
+  {
+   "cue": 47.57,
+   "start": 47.69,
+   "late": 0.12,
+   "tempo": 1.0,
+   "secs": 4.31,
+   "tries": 1,
+   "text": "Mark T reified, and the compiler writes that real class into each copy."
+  },
+  {
+   "cue": 52.83,
+   "start": 52.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.88,
+   "tries": 1,
+   "text": "Here is java P on the compiled check function."
+  },
+  {
+   "cue": 55.88,
+   "start": 55.88,
+   "late": 0.0,
+   "tempo": 1.048,
+   "secs": 1.41,
+   "tries": 1,
+   "text": "There is no call to isA."
+  },
+  {
+   "cue": 57.51,
+   "start": 57.51,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.32,
+   "tries": 1,
+   "text": "There is an instanceof String, and an instanceof Long, right in the caller's own bytecode."
+  },
+  {
+   "cue": 64.43,
+   "start": 64.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.48,
+   "tries": 1,
+   "text": "The standard library uses the same trick."
+  },
+  {
+   "cue": 67.25,
+   "start": 67.25,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.9,
+   "tries": 1,
+   "text": "Here is a list of mixed values."
+  },
+  {
+   "cue": 69.6,
+   "start": 69.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.4,
+   "tries": 1,
+   "text": "filterIsInstance of String keeps only the strings, with a real instanceof check on each one."
+  },
+  {
+   "cue": 76.57,
+   "start": 76.57,
+   "late": 0.0,
+   "tempo": 1.088,
+   "secs": 1.11,
+   "tries": 1,
+   "text": "It needs both words."
+  },
+  {
+   "cue": 77.9,
+   "start": 77.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.04,
+   "tries": 1,
+   "text": "Without inline, there is one compiled body for every caller, so there is nowhere to write the real class."
+  },
+  {
+   "cue": 85.13,
+   "start": 85.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "And the caller must know the type."
+  },
+  {
+   "cue": 87.36,
+   "start": 87.36,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.49,
+   "tries": 1,
+   "text": "A generic caller with a plain T has no class to copy in."
+  },
+  {
+   "cue": 91.77,
+   "start": 91.77,
+   "late": 0.0,
+   "tempo": 1.073,
+   "secs": 2.39,
+   "tries": 1,
+   "text": "Java has no reified type parameters."
+  },
+  {
+   "cue": 94.38,
+   "start": 94.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.92,
+   "tries": 1,
+   "text": "The closest Java gets is to pass the Class object yourself."
+  },
+  {
+   "cue": 98.9,
+   "start": 98.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.12,
+   "tries": 1,
+   "text": "In Kotlin you name the type at the call, and the compiler fills in the class."
+  },
+  {
+   "cue": 103.74,
+   "start": 103.74,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.28,
+   "tries": 1,
+   "text": "Both calls return true."
+  }
+ ]
+}

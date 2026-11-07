@@ -1,0 +1,322 @@
+{
+ "slug": "gen03-invariance",
+ "voice": "us-f",
+ "max_late": 0.11,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.38,
+   "tries": 1,
+   "text": "Here is a mutable list of strings, called ids."
+  },
+  {
+   "cue": 6.05,
+   "start": 6.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.17,
+   "tries": 1,
+   "text": "It holds one payment id, pay_one."
+  },
+  {
+   "cue": 8.53,
+   "start": 8.53,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.88,
+   "tries": 1,
+   "text": "String is a subtype of Any."
+  },
+  {
+   "cue": 10.45,
+   "start": 10.56,
+   "late": 0.11,
+   "tempo": 1.0,
+   "secs": 1.56,
+   "tries": 1,
+   "text": "Every String is an Any."
+  },
+  {
+   "cue": 12.3,
+   "start": 12.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.59,
+   "tries": 1,
+   "text": "So it looks harmless to use this list as a mutable list of Any."
+  },
+  {
+   "cue": 16.16,
+   "start": 16.16,
+   "late": 0.0,
+   "tempo": 1.032,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "Suppose the compiler allowed it."
+  },
+  {
+   "cue": 18.33,
+   "start": 18.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "Now two names point at the same list."
+  },
+  {
+   "cue": 20.78,
+   "start": 20.78,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.11,
+   "tries": 1,
+   "text": "Nothing was copied."
+  },
+  {
+   "cue": 22.67,
+   "start": 22.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.74,
+   "tries": 1,
+   "text": "Through the Any name, adding forty-two is legal."
+  },
+  {
+   "cue": 25.77,
+   "start": 25.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "forty-two is an Int, and an Int is an Any."
+  },
+  {
+   "cue": 28.63,
+   "start": 28.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.5,
+   "tries": 1,
+   "text": "Now code on the String side reads slot one."
+  },
+  {
+   "cue": 31.33,
+   "start": 31.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.23,
+   "tries": 1,
+   "text": "It was promised a String."
+  },
+  {
+   "cue": 34.0,
+   "start": 34.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.73,
+   "tries": 1,
+   "text": "The compiler put a hidden cast to String on that read."
+  },
+  {
+   "cue": 37.62,
+   "start": 37.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.93,
+   "tries": 1,
+   "text": "forty-two is not a String, so the cast throws a ClassCastException."
+  },
+  {
+   "cue": 41.87,
+   "start": 41.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.08,
+   "tries": 1,
+   "text": "The bad value went in through one name."
+  },
+  {
+   "cue": 44.09,
+   "start": 44.09,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.66,
+   "tries": 1,
+   "text": "The crash comes out of the other, later, on a line with no cast in it."
+  },
+  {
+   "cue": 49.2,
+   "start": 49.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.36,
+   "tries": 1,
+   "text": "Java has the same problem, with a List of String and a List of Object."
+  },
+  {
+   "cue": 54.03,
+   "start": 54.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.62,
+   "tries": 1,
+   "text": "Same list, same forty-two, same crash on the read."
+  },
+  {
+   "cue": 58.33,
+   "start": 58.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.19,
+   "tries": 1,
+   "text": "So both compilers refuse the line that makes the second name."
+  },
+  {
+   "cue": 62.37,
+   "start": 62.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.37,
+   "tries": 1,
+   "text": "java C says the types are incompatible."
+  },
+  {
+   "cue": 64.97,
+   "start": 64.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.84,
+   "tries": 1,
+   "text": "kotlinc says the initializer type does not match."
+  },
+  {
+   "cue": 69.13,
+   "start": 69.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.89,
+   "tries": 1,
+   "text": "This rule is called invariance."
+  },
+  {
+   "cue": 71.43,
+   "start": 71.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.27,
+   "tries": 1,
+   "text": "A mutable list of A is a subtype of a mutable list of B only when A and B are the same type."
+  },
+  {
+   "cue": 78.13,
+   "start": 78.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.07,
+   "tries": 1,
+   "text": "It does not matter that String is an Any."
+  },
+  {
+   "cue": 80.45,
+   "start": 80.45,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.14,
+   "tries": 1,
+   "text": "The arrow between the elements does not carry over to the lists."
+  },
+  {
+   "cue": 85.7,
+   "start": 85.7,
+   "late": 0.0,
+   "tempo": 1.043,
+   "secs": 1.39,
+   "tries": 1,
+   "text": "You meet this in real code."
+  },
+  {
+   "cue": 87.31,
+   "start": 87.31,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.35,
+   "tries": 1,
+   "text": "You have a mutable list of CardPayment, and a function that takes a mutable list of Payment."
+  },
+  {
+   "cue": 93.03,
+   "start": 93.03,
+   "late": 0.0,
+   "tempo": 1.029,
+   "secs": 1.43,
+   "tries": 1,
+   "text": "The call does not compile."
+  },
+  {
+   "cue": 94.69,
+   "start": 94.69,
+   "late": 0.0,
+   "tempo": 1.121,
+   "secs": 1.24,
+   "tries": 1,
+   "text": "Don't reach for a cast."
+  },
+  {
+   "cue": 96.15,
+   "start": 96.15,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.89,
+   "tries": 1,
+   "text": "Ask what the function does with the list."
+  },
+  {
+   "cue": 98.97,
+   "start": 98.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.57,
+   "tries": 1,
+   "text": "If it only reads, make it take a read-only List of Payment."
+  },
+  {
+   "cue": 102.73,
+   "start": 102.73,
+   "late": 0.0,
+   "tempo": 1.125,
+   "secs": 1.0,
+   "tries": 1,
+   "text": "That call compiles."
+  },
+  {
+   "cue": 103.94,
+   "start": 103.94,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.27,
+   "tries": 1,
+   "text": "The last section of this lesson shows why."
+  },
+  {
+   "cue": 107.63,
+   "start": 107.63,
+   "late": 0.0,
+   "tempo": 1.119,
+   "secs": 2.18,
+   "tries": 1,
+   "text": "If it adds, the compiler just caught a bug."
+  },
+  {
+   "cue": 110.03,
+   "start": 110.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.15,
+   "tries": 1,
+   "text": "It could have put a BankTransfer into your list of card payments."
+  }
+ ]
+}

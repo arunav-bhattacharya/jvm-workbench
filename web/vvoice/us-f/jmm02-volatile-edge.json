@@ -1,0 +1,349 @@
+{
+ "slug": "jmm02-volatile-edge",
+ "voice": "us-f",
+ "max_late": 0.68,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.65,
+   "tries": 1,
+   "text": "Thread one fills in a payment."
+  },
+  {
+   "cue": 4.5,
+   "start": 4.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.11,
+   "tries": 1,
+   "text": "It writes the amount, then sets a flag called ready."
+  },
+  {
+   "cue": 8.07,
+   "start": 8.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.08,
+   "tries": 1,
+   "text": "Thread two waits until ready is true."
+  },
+  {
+   "cue": 10.63,
+   "start": 10.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.22,
+   "tries": 1,
+   "text": "Then it reads the amount."
+  },
+  {
+   "cue": 12.45,
+   "start": 12.45,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "Is it sure to see one two zero zero zero?"
+  },
+  {
+   "cue": 14.43,
+   "start": 14.95,
+   "late": 0.52,
+   "tempo": 1.2,
+   "secs": 1.43,
+   "tries": 1,
+   "text": "With plain fields, no."
+  },
+  {
+   "cue": 15.85,
+   "start": 16.53,
+   "late": 0.68,
+   "tempo": 1.2,
+   "secs": 1.32,
+   "tries": 1,
+   "text": "Nothing links the two threads."
+  },
+  {
+   "cue": 17.78,
+   "start": 18.0,
+   "late": 0.22,
+   "tempo": 1.05,
+   "secs": 2.65,
+   "tries": 1,
+   "text": "Thread two may read the new amount, or an old one."
+  },
+  {
+   "cue": 20.87,
+   "start": 20.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.32,
+   "tries": 1,
+   "text": "It may even never see ready turn true."
+  },
+  {
+   "cue": 23.53,
+   "start": 23.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.44,
+   "tries": 1,
+   "text": "The memory model answers with a relation called happens-before."
+  },
+  {
+   "cue": 27.34,
+   "start": 27.34,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.13,
+   "tries": 1,
+   "text": "If a write happens-before a read, the read is sure to see that write, or a newer one."
+  },
+  {
+   "cue": 32.7,
+   "start": 32.7,
+   "late": 0.0,
+   "tempo": 1.025,
+   "secs": 3.56,
+   "tries": 1,
+   "text": "Inside one thread, each action happens-before the next one."
+  },
+  {
+   "cue": 36.48,
+   "start": 36.48,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.79,
+   "tries": 1,
+   "text": "That is called program order."
+  },
+  {
+   "cue": 38.57,
+   "start": 38.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.33,
+   "tries": 1,
+   "text": "Now make ready volatile."
+  },
+  {
+   "cue": 40.39,
+   "start": 40.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.47,
+   "tries": 1,
+   "text": "Nothing else changes."
+  },
+  {
+   "cue": 42.2,
+   "start": 42.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.6,
+   "tries": 1,
+   "text": "The volatile rule: a write to a volatile field happens-before every later read of that same field that sees the write."
+  },
+  {
+   "cue": 50.1,
+   "start": 50.1,
+   "late": 0.0,
+   "tempo": 1.132,
+   "secs": 1.71,
+   "tries": 1,
+   "text": "The write is called a release."
+  },
+  {
+   "cue": 52.02,
+   "start": 52.02,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.09,
+   "tries": 1,
+   "text": "The read that sees it is called an acquire."
+  },
+  {
+   "cue": 54.97,
+   "start": 54.97,
+   "late": 0.0,
+   "tempo": 1.107,
+   "secs": 1.02,
+   "tries": 1,
+   "text": "Now chain the arrows."
+  },
+  {
+   "cue": 56.2,
+   "start": 56.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.83,
+   "tries": 1,
+   "text": "Writing the amount comes before the volatile write."
+  },
+  {
+   "cue": 59.2,
+   "start": 59.2,
+   "late": 0.0,
+   "tempo": 1.135,
+   "secs": 1.79,
+   "tries": 1,
+   "text": "The volatile read sees that write."
+  },
+  {
+   "cue": 61.2,
+   "start": 61.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.38,
+   "tries": 1,
+   "text": "And the read comes before reading the amount."
+  },
+  {
+   "cue": 64.07,
+   "start": 64.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.4,
+   "tries": 1,
+   "text": "So writing the amount happens-before reading it."
+  },
+  {
+   "cue": 67.32,
+   "start": 67.32,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 4.42,
+   "tries": 1,
+   "text": "Thread two must see one two zero zero zero, though amount is a plain field."
+  },
+  {
+   "cue": 71.33,
+   "start": 71.89,
+   "late": 0.56,
+   "tempo": 1.0,
+   "secs": 2.75,
+   "tries": 1,
+   "text": "One volatile field carries every write that came before it."
+  },
+  {
+   "cue": 75.31,
+   "start": 75.31,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.93,
+   "tries": 1,
+   "text": "A write made after ready = true is not covered."
+  },
+  {
+   "cue": 78.7,
+   "start": 78.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.66,
+   "tries": 1,
+   "text": "The rule says the same field."
+  },
+  {
+   "cue": 80.57,
+   "start": 80.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.36,
+   "tries": 1,
+   "text": "Say thread two reads a different volatile field, called checksum, and then reads the amount."
+  },
+  {
+   "cue": 86.6,
+   "start": 86.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.47,
+   "tries": 1,
+   "text": "Both fields are volatile, but the write was to ready, and the read is of checksum."
+  },
+  {
+   "cue": 91.89,
+   "start": 91.89,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.98,
+   "tries": 1,
+   "text": "No edge forms."
+  },
+  {
+   "cue": 92.79,
+   "start": 93.02,
+   "late": 0.23,
+   "tempo": 1.0,
+   "secs": 2.32,
+   "tries": 1,
+   "text": "Thread two may read an old amount again."
+  },
+  {
+   "cue": 96.17,
+   "start": 96.17,
+   "late": 0.0,
+   "tempo": 1.018,
+   "secs": 1.98,
+   "tries": 1,
+   "text": "A lock gives the same kind of edge."
+  },
+  {
+   "cue": 98.38,
+   "start": 98.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.76,
+   "tries": 1,
+   "text": "Leaving a synchronized block releases the lock."
+  },
+  {
+   "cue": 101.35,
+   "start": 101.35,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.99,
+   "tries": 1,
+   "text": "Entering a synchronized block on the same lock acquires it."
+  },
+  {
+   "cue": 105.3,
+   "start": 105.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.09,
+   "tries": 1,
+   "text": "Here the two threads use different locks."
+  },
+  {
+   "cue": 107.74,
+   "start": 107.74,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.9,
+   "tries": 1,
+   "text": "Each block still runs one thread at a time, but no edge links them."
+  },
+  {
+   "cue": 111.97,
+   "start": 111.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.51,
+   "tries": 1,
+   "text": "So for every field two threads share, name the edge: the same volatile field, or the same lock."
+  },
+  {
+   "cue": 118.0,
+   "start": 118.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.62,
+   "tries": 1,
+   "text": "If you can't name one, you have a data race."
+  }
+ ]
+}

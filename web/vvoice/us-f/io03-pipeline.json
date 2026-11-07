@@ -1,0 +1,250 @@
+{
+ "slug": "io03-pipeline",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.23,
+   "tries": 1,
+   "text": "Netty is the select loop from the last lesson, written well."
+  },
+  {
+   "cue": 6.32,
+   "start": 6.32,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.02,
+   "tries": 1,
+   "text": "An event loop is one thread that runs a selector over many channels, plus a queue of tasks."
+  },
+  {
+   "cue": 12.03,
+   "start": 12.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.63,
+   "tries": 1,
+   "text": "Each new connection is registered with one loop for life."
+  },
+  {
+   "cue": 15.71,
+   "start": 15.71,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.64,
+   "tries": 1,
+   "text": "So all of a channel's events run on that one thread, one after another, and handlers rarely need locks."
+  },
+  {
+   "cue": 23.87,
+   "start": 23.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.26,
+   "tries": 1,
+   "text": "Every channel also has a pipeline: a list of handlers between a head, next to the socket, and a tail."
+  },
+  {
+   "cue": 30.63,
+   "start": 30.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.25,
+   "tries": 1,
+   "text": "Inbound events start at the head and move toward the tail."
+  },
+  {
+   "cue": 34.3,
+   "start": 34.3,
+   "late": 0.0,
+   "tempo": 1.056,
+   "secs": 1.9,
+   "tries": 1,
+   "text": "The first read brings three bytes."
+  },
+  {
+   "cue": 36.43,
+   "start": 36.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.37,
+   "tries": 1,
+   "text": "The frame decoder keeps them, because the line has not ended."
+  },
+  {
+   "cue": 40.47,
+   "start": 40.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.44,
+   "tries": 3,
+   "text": "The next read brings the end of the line and the start of another."
+  },
+  {
+   "cue": 44.56,
+   "start": 44.56,
+   "late": 0.0,
+   "tempo": 1.019,
+   "secs": 4.03,
+   "tries": 1,
+   "text": "Now the decoder passes on one ByteBuf, hello, and keeps the rest."
+  },
+  {
+   "cue": 48.8,
+   "start": 48.8,
+   "late": 0.0,
+   "tempo": 1.033,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "The string decoder turns it into a String."
+  },
+  {
+   "cue": 51.44,
+   "start": 51.44,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.68,
+   "tries": 1,
+   "text": "The read skips the encoder, which only handles writes."
+  },
+  {
+   "cue": 54.83,
+   "start": 54.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "Your handler sees whole lines."
+  },
+  {
+   "cue": 56.93,
+   "start": 56.93,
+   "late": 0.0,
+   "tempo": 1.012,
+   "secs": 1.41,
+   "tries": 1,
+   "text": "Writes go the other way."
+  },
+  {
+   "cue": 58.57,
+   "start": 58.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.36,
+   "tries": 1,
+   "text": "Your handler calls ctx.writeAndFlush, and the message moves toward the head."
+  },
+  {
+   "cue": 63.97,
+   "start": 63.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.86,
+   "tries": 1,
+   "text": "The string encoder turns the String back into bytes, and the head hands them to the socket."
+  },
+  {
+   "cue": 69.3,
+   "start": 69.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.81,
+   "tries": 1,
+   "text": "So reads see the handlers in the order you added them, and writes see them in reverse."
+  },
+  {
+   "cue": 75.2,
+   "start": 75.2,
+   "late": 0.0,
+   "tempo": 1.015,
+   "secs": 3.54,
+   "tries": 1,
+   "text": "One thread runs every handler of every channel on its loop."
+  },
+  {
+   "cue": 78.96,
+   "start": 78.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.8,
+   "tries": 1,
+   "text": "So never block in a handler."
+  },
+  {
+   "cue": 81.47,
+   "start": 81.47,
+   "late": 0.0,
+   "tempo": 1.044,
+   "secs": 6.21,
+   "tries": 1,
+   "text": "Client A asks for SLOW, and the handler sleeps for one second, standing in for a JDBC call."
+  },
+  {
+   "cue": 87.9,
+   "start": 87.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.87,
+   "tries": 1,
+   "text": "Client B asks for FAST, fifty milliseconds later."
+  },
+  {
+   "cue": 91.57,
+   "start": 91.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.83,
+   "tries": 1,
+   "text": "The loop thread is stuck in A's handler, so it cannot even read B's request."
+  },
+  {
+   "cue": 97.24,
+   "start": 97.24,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.53,
+   "tries": 1,
+   "text": "B's reply takes one thousand eleven milliseconds."
+  },
+  {
+   "cue": 100.07,
+   "start": 100.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.04,
+   "tries": 1,
+   "text": "The fix is to hand the slow part to your own executor."
+  },
+  {
+   "cue": 103.43,
+   "start": 103.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.83,
+   "tries": 1,
+   "text": "The loop thread is free at once, and FAST comes back in two milliseconds."
+  },
+  {
+   "cue": 108.77,
+   "start": 108.77,
+   "late": 0.0,
+   "tempo": 1.102,
+   "secs": 4.31,
+   "tries": 1,
+   "text": "In code: leave the loop, block in your pool, and write the reply from there."
+  },
+  {
+   "cue": 113.3,
+   "start": 113.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.11,
+   "tries": 1,
+   "text": "Netty sees the write is not on the loop thread, and queues it as a task on the channel's own loop."
+  }
+ ]
+}

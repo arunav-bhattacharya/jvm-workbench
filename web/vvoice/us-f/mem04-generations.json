@@ -1,0 +1,259 @@
+{
+ "slug": "mem04-generations",
+ "voice": "us-f",
+ "max_late": 0.24,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.063,
+   "secs": 5.7,
+   "tries": 1,
+   "text": "A payment request allocates parsed jay-son, a few data objects, some strings and a response."
+  },
+  {
+   "cue": 8.61,
+   "start": 8.61,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.6,
+   "tries": 1,
+   "text": "A few milliseconds later, all of it is garbage."
+  },
+  {
+   "cue": 11.93,
+   "start": 11.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.93,
+   "tries": 1,
+   "text": "A few objects live much longer, like a cached merchant config or a pooled connection."
+  },
+  {
+   "cue": 18.23,
+   "start": 18.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.34,
+   "tries": 1,
+   "text": "That split has a name, the weak generational hypothesis."
+  },
+  {
+   "cue": 22.83,
+   "start": 22.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.26,
+   "tries": 1,
+   "text": "Most objects die young."
+  },
+  {
+   "cue": 24.72,
+   "start": 24.72,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.88,
+   "tries": 1,
+   "text": "In one real collection, the young objects were twenty-seven MB still alive and four hundred seventy MB of garbage."
+  },
+  {
+   "cue": 32.67,
+   "start": 32.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.26,
+   "tries": 1,
+   "text": "HotSpot's collectors split the heap to match."
+  },
+  {
+   "cue": 35.56,
+   "start": 35.56,
+   "late": 0.0,
+   "tempo": 1.093,
+   "secs": 3.01,
+   "tries": 1,
+   "text": "New objects go into eden, in the young generation."
+  },
+  {
+   "cue": 38.77,
+   "start": 38.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.94,
+   "tries": 1,
+   "text": "Objects that stay alive end up in the old generation."
+  },
+  {
+   "cue": 42.37,
+   "start": 42.37,
+   "late": 0.0,
+   "tempo": 1.027,
+   "secs": 4.52,
+   "tries": 1,
+   "text": "Your code fills eden with new objects, and most of them die soon after."
+  },
+  {
+   "cue": 47.1,
+   "start": 47.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.44,
+   "tries": 1,
+   "text": "When eden fills, a young collection starts."
+  },
+  {
+   "cue": 49.72,
+   "start": 49.72,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.1,
+   "tries": 1,
+   "text": "It follows references from the roots and finds the few objects that are still alive."
+  },
+  {
+   "cue": 55.03,
+   "start": 55.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.52,
+   "tries": 1,
+   "text": "It copies them into an empty survivor space, and each one's age goes up by one."
+  },
+  {
+   "cue": 60.07,
+   "start": 60.07,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.05,
+   "tries": 1,
+   "text": "Then all of eden is free at once."
+  },
+  {
+   "cue": 62.17,
+   "start": 62.27,
+   "late": 0.09,
+   "tempo": 1.0,
+   "secs": 2.44,
+   "tries": 1,
+   "text": "The collector never even looks at the dead objects."
+  },
+  {
+   "cue": 65.63,
+   "start": 65.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.21,
+   "tries": 1,
+   "text": "So a young collection costs time in proportion to what survives, not to what was allocated."
+  },
+  {
+   "cue": 72.33,
+   "start": 72.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.92,
+   "tries": 3,
+   "text": "There is a catch."
+  },
+  {
+   "cue": 73.44,
+   "start": 73.44,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.44,
+   "tries": 1,
+   "text": "Moving an object is only safe while no thread is using it."
+  },
+  {
+   "cue": 77.23,
+   "start": 77.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.57,
+   "tries": 1,
+   "text": "So first, every application thread stops at a safepoint, a known place where the collector can find and fix its references."
+  },
+  {
+   "cue": 85.25,
+   "start": 85.25,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.89,
+   "tries": 1,
+   "text": "That is a stop-the-world pause."
+  },
+  {
+   "cue": 87.47,
+   "start": 87.47,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.71,
+   "tries": 1,
+   "text": "In G one, every young collection runs inside such a pause."
+  },
+  {
+   "cue": 91.09,
+   "start": 91.33,
+   "late": 0.24,
+   "tempo": 1.042,
+   "secs": 6.38,
+   "tries": 1,
+   "text": "This time the live objects from eden and from the survivor space are copied to the other survivor space."
+  },
+  {
+   "cue": 97.93,
+   "start": 97.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.33,
+   "tries": 1,
+   "text": "Then the threads run again."
+  },
+  {
+   "cue": 100.4,
+   "start": 100.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.05,
+   "tries": 1,
+   "text": "The age lives in four bits of each object's header."
+  },
+  {
+   "cue": 103.92,
+   "start": 103.92,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.43,
+   "tries": 1,
+   "text": "After enough survivals, at most fifteen, an object is promoted to the old generation, which is collected much less often."
+  },
+  {
+   "cue": 112.13,
+   "start": 112.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.12,
+   "tries": 1,
+   "text": "This is why medium-lived objects are the expensive kind."
+  },
+  {
+   "cue": 115.67,
+   "start": 115.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.72,
+   "tries": 1,
+   "text": "They get copied at every young collection, then promoted, and then they die in the old generation, where only a bigger collection can free them."
+  },
+  {
+   "cue": 124.97,
+   "start": 124.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.04,
+   "tries": 1,
+   "text": "An idempotency cache with a ten-minute expiry has exactly that shape."
+  }
+ ]
+}

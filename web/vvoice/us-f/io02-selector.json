@@ -1,0 +1,286 @@
+{
+ "slug": "io02-selector",
+ "voice": "us-f",
+ "max_late": 0.04,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.61,
+   "tries": 1,
+   "text": "A classic blocking server gives every connection its own thread."
+  },
+  {
+   "cue": 6.7,
+   "start": 6.7,
+   "late": 0.0,
+   "tempo": 1.013,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "Each thread calls read and waits for bytes."
+  },
+  {
+   "cue": 9.6,
+   "start": 9.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.4,
+   "tries": 1,
+   "text": "Most connections are idle."
+  },
+  {
+   "cue": 11.31,
+   "start": 11.31,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.46,
+   "tries": 1,
+   "text": "A point-of-sale terminal sends one request every ten seconds."
+  },
+  {
+   "cue": 15.33,
+   "start": 15.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.2,
+   "tries": 1,
+   "text": "So almost every thread sits parked in read, doing nothing."
+  },
+  {
+   "cue": 19.37,
+   "start": 19.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.14,
+   "tries": 1,
+   "text": "Each one still holds its own stack, about a megabyte of native memory."
+  },
+  {
+   "cue": 24.03,
+   "start": 24.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.44,
+   "tries": 1,
+   "text": "Bytes arrive on one socket."
+  },
+  {
+   "cue": 25.7,
+   "start": 25.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.33,
+   "tries": 1,
+   "text": "The kernel wakes that one thread, and the rest keep waiting."
+  },
+  {
+   "cue": 29.63,
+   "start": 29.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.42,
+   "tries": 1,
+   "text": "Ten thousand connections need ten thousand threads, and almost all of them are waiting."
+  },
+  {
+   "cue": 35.73,
+   "start": 35.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.68,
+   "tries": 1,
+   "text": "A Selector turns this around."
+  },
+  {
+   "cue": 37.61,
+   "start": 37.61,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.09,
+   "tries": 1,
+   "text": "Put every channel in non-blocking mode, and register it with one selector."
+  },
+  {
+   "cue": 42.63,
+   "start": 42.63,
+   "late": 0.0,
+   "tempo": 1.03,
+   "secs": 2.03,
+   "tries": 1,
+   "text": "Each registration is a SelectionKey."
+  },
+  {
+   "cue": 44.89,
+   "start": 44.89,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.2,
+   "tries": 1,
+   "text": "It holds the interest set, the operations you care about, and the ready set, which the selector fills in."
+  },
+  {
+   "cue": 51.48,
+   "start": 51.48,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.34,
+   "tries": 1,
+   "text": "Its attachment keeps that connection's state."
+  },
+  {
+   "cue": 55.03,
+   "start": 55.03,
+   "late": 0.0,
+   "tempo": 1.103,
+   "secs": 1.54,
+   "tries": 1,
+   "text": "Now one thread runs a loop."
+  },
+  {
+   "cue": 56.78,
+   "start": 56.78,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.11,
+   "tries": 1,
+   "text": "It calls select, which sleeps until at least one channel is ready."
+  },
+  {
+   "cue": 61.06,
+   "start": 61.06,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.11,
+   "tries": 1,
+   "text": "On Linux, that is E poll underneath."
+  },
+  {
+   "cue": 63.53,
+   "start": 63.53,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.34,
+   "tries": 1,
+   "text": "Two clients send data."
+  },
+  {
+   "cue": 64.98,
+   "start": 65.03,
+   "late": 0.04,
+   "tempo": 1.0,
+   "secs": 4.0,
+   "tries": 1,
+   "text": "Their keys become ready, and select returns them in the selected-key set."
+  },
+  {
+   "cue": 70.0,
+   "start": 70.0,
+   "late": 0.0,
+   "tempo": 1.063,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "The thread serves only those two."
+  },
+  {
+   "cue": 72.06,
+   "start": 72.06,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.96,
+   "tries": 1,
+   "text": "It reads what arrived, writes the reply, and moves on."
+  },
+  {
+   "cue": 75.42,
+   "start": 75.42,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.37,
+   "tries": 1,
+   "text": "The four idle channels cost it nothing."
+  },
+  {
+   "cue": 78.07,
+   "start": 78.07,
+   "late": 0.0,
+   "tempo": 1.071,
+   "secs": 2.99,
+   "tries": 1,
+   "text": "It must remove each handled key from the set itself."
+  },
+  {
+   "cue": 81.27,
+   "start": 81.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.6,
+   "tries": 1,
+   "text": "The selector adds keys and never takes them out."
+  },
+  {
+   "cue": 84.23,
+   "start": 84.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.94,
+   "tries": 1,
+   "text": "Leave one in, and the next pass handles it again with its old ready set."
+  },
+  {
+   "cue": 88.9,
+   "start": 88.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.37,
+   "tries": 1,
+   "text": "Then it calls select again, and sleeps until the next channel is ready."
+  },
+  {
+   "cue": 93.9,
+   "start": 93.9,
+   "late": 0.0,
+   "tempo": 1.027,
+   "secs": 2.39,
+   "tries": 1,
+   "text": "Here is that loop in Java and in Kotlin."
+  },
+  {
+   "cue": 96.51,
+   "start": 96.51,
+   "late": 0.0,
+   "tempo": 1.12,
+   "secs": 3.78,
+   "tries": 1,
+   "text": "Select, walk the selected keys, remove each one, serve it."
+  },
+  {
+   "cue": 100.5,
+   "start": 100.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.84,
+   "tries": 1,
+   "text": "A selector's selected-key set is not safe for several threads at once."
+  },
+  {
+   "cue": 104.76,
+   "start": 104.76,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.17,
+   "tries": 1,
+   "text": "So one thread owns the selector and does all the work for its channels."
+  },
+  {
+   "cue": 109.09,
+   "start": 109.09,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.88,
+   "tries": 1,
+   "text": "Netty calls that thread an event loop."
+  }
+ ]
+}

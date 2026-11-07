@@ -1,0 +1,286 @@
+{
+ "slug": "gen04-out",
+ "voice": "us-f",
+ "max_late": 0.01,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.05,
+   "tries": 1,
+   "text": "A producer is a type that only hands values of T out."
+  },
+  {
+   "cue": 6.27,
+   "start": 6.27,
+   "late": 0.0,
+   "tempo": 1.037,
+   "secs": 2.75,
+   "tries": 1,
+   "text": "A feed of payments, an iterator, a Supplier."
+  },
+  {
+   "cue": 9.24,
+   "start": 9.24,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 3,
+   "text": "You call it, and it gives you a T."
+  },
+  {
+   "cue": 12.23,
+   "start": 12.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.78,
+   "tries": 1,
+   "text": "Here is a source of card payments."
+  },
+  {
+   "cue": 14.46,
+   "start": 14.46,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.25,
+   "tries": 1,
+   "text": "It holds two of them."
+  },
+  {
+   "cue": 16.03,
+   "start": 16.03,
+   "late": 0.0,
+   "tempo": 1.089,
+   "secs": 1.22,
+   "tries": 1,
+   "text": "And here is totalCents."
+  },
+  {
+   "cue": 17.47,
+   "start": 17.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.69,
+   "tries": 1,
+   "text": "It wants a source of any Payment."
+  },
+  {
+   "cue": 19.53,
+   "start": 19.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.31,
+   "tries": 1,
+   "text": "It calls next until it gets null, and adds up the cents."
+  },
+  {
+   "cue": 23.23,
+   "start": 23.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.21,
+   "tries": 1,
+   "text": "Can you hand it your source of card payments?"
+  },
+  {
+   "cue": 25.87,
+   "start": 25.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.03,
+   "tries": 1,
+   "text": "Run the substitution test from lesson three of this track."
+  },
+  {
+   "cue": 29.23,
+   "start": 29.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.49,
+   "tries": 1,
+   "text": "The only thing totalCents ever does with the source is call next."
+  },
+  {
+   "cue": 33.42,
+   "start": 33.42,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.21,
+   "tries": 1,
+   "text": "Each call hands back a CardPayment."
+  },
+  {
+   "cue": 35.9,
+   "start": 35.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.83,
+   "tries": 1,
+   "text": "Every CardPayment is a Payment, so the sum works."
+  },
+  {
+   "cue": 39.3,
+   "start": 39.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.53,
+   "tries": 1,
+   "text": "Nothing can go wrong, because nothing ever goes into a source."
+  },
+  {
+   "cue": 43.9,
+   "start": 43.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.51,
+   "tries": 1,
+   "text": "But the compiler can't see that by itself."
+  },
+  {
+   "cue": 46.64,
+   "start": 46.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.94,
+   "tries": 1,
+   "text": "Generic types are invariant unless you say otherwise."
+  },
+  {
+   "cue": 50.33,
+   "start": 50.33,
+   "late": 0.0,
+   "tempo": 1.017,
+   "secs": 3.29,
+   "tries": 1,
+   "text": "So this call fails, with an argument type mismatch."
+  },
+  {
+   "cue": 53.83,
+   "start": 53.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.75,
+   "tries": 1,
+   "text": "In Kotlin you say otherwise once, on the declaration, with out."
+  },
+  {
+   "cue": 58.19,
+   "start": 58.19,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.95,
+   "tries": 1,
+   "text": "Now the same call compiles."
+  },
+  {
+   "cue": 60.87,
+   "start": 60.87,
+   "late": 0.0,
+   "tempo": 1.09,
+   "secs": 1.17,
+   "tries": 1,
+   "text": "This is covariance."
+  },
+  {
+   "cue": 62.25,
+   "start": 62.25,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.32,
+   "tries": 1,
+   "text": "CardPayment is a subtype of Payment."
+  },
+  {
+   "cue": 65.1,
+   "start": 65.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.71,
+   "tries": 1,
+   "text": "Because Source is declared out, a Source of CardPayment is a subtype of a Source of Payment."
+  },
+  {
+   "cue": 70.97,
+   "start": 70.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.46,
+   "tries": 1,
+   "text": "The arrow between the elements carries over to the sources, in the same direction."
+  },
+  {
+   "cue": 76.73,
+   "start": 76.73,
+   "late": 0.0,
+   "tempo": 1.067,
+   "secs": 1.51,
+   "tries": 1,
+   "text": "Java has no out keyword."
+  },
+  {
+   "cue": 78.47,
+   "start": 78.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.07,
+   "tries": 1,
+   "text": "Each Java method that takes a source says it at the use site, with ? extends."
+  },
+  {
+   "cue": 84.27,
+   "start": 84.27,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.52,
+   "tries": 1,
+   "text": "Kotlin's out is declaration-site variance."
+  },
+  {
+   "cue": 86.93,
+   "start": 86.93,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 3.88,
+   "tries": 1,
+   "text": "You write it once, on Source, and every caller gets it for free."
+  },
+  {
+   "cue": 91.2,
+   "start": 91.2,
+   "late": 0.0,
+   "tempo": 1.083,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "Java's ? extends is use-site variance."
+  },
+  {
+   "cue": 93.95,
+   "start": 93.95,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.85,
+   "tries": 1,
+   "text": "A method that forgets it is stricter than it needs to be."
+  },
+  {
+   "cue": 98.9,
+   "start": 98.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.53,
+   "tries": 1,
+   "text": "That is the promise out makes: T only comes out."
+  },
+  {
+   "cue": 102.33,
+   "start": 102.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.05,
+   "tries": 1,
+   "text": "Add a method that takes a T in, and the compiler rejects the out, and tells you which position broke it."
+  }
+ ]
+}
