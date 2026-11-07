@@ -128,7 +128,7 @@ Vert.x's documentation makes the same point about every blocking API: while the 
   },
   {
    "h": "Little's law counts the threads you need",
-   "body": """You met Little's law in the executors and virtual threads tracks. The number of requests in a system equals the arrival rate times the time each one spends there: L = λ × W. With thread-per-request, L is also the number of threads you need.
+   "body": """The number of requests in a system equals the arrival rate times the time each one spends there: L = λ × W. That is Little's law, which you met in the executors and virtual threads tracks. With thread-per-request, L is also the number of threads you need.
 
 Take an authorization service. At peak it gets 800 requests a second. Each request spends 30 ms in your code and 120 ms waiting for the card issuer. That is 800 × 0.15 s = 120 requests in flight, so 120 busy threads, and a pool of 200 copes. If the issuer slows to 600 ms, the same traffic needs 800 × 0.63 s = 504 threads. Your CPU is no busier. The extra threads are all waiting.
 
@@ -211,9 +211,9 @@ My default for a new blocking service is virtual threads. I'd move to an event-l
     "steps": [
      "Finish the lab first, so `BlockingEchoServer` works.",
      "Read the test `virtualThreadsScale`. It passes `Executors.newVirtualThreadPerTaskExecutor()` to the same server class that `idleClientsHoldThreads` runs on a cached pool.",
-     "Change its client count from 500 to 2,000 and run only that test with `--tests '*virtualThreadsScale'`. Predict whether the platform-thread assertion still holds."
+     "Change its client count from 500 to 1,500 (the loop bound and the `isEqualTo(500)`) and run only that test with `--tests '*virtualThreadsScale'`. Predict whether the platform-thread assertion still holds."
     ],
-    "expect": "It still passes. The platform-thread count grows by a few threads (carriers and poller threads) whether 500 or 2,000 connections are open, because a parked virtual thread holds no OS thread. Put the count back to 500 when you're done."
+    "expect": "It still passes. The platform-thread count grows by a few threads (carriers and poller threads) whether 500 or 1,500 connections are open, because a parked virtual thread holds no OS thread. Put the count back to 500 when you're done."
    },
    "refs": [
     {"title": "JEP 444: Virtual Threads", "url": "https://openjdk.org/jeps/444", "kind": "read"}

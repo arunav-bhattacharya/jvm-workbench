@@ -230,9 +230,7 @@ Step 3 works because Netty checks `inEventLoop()` on every write. Called from an
   },
   {
    "h": "What else Netty 4.2 changed",
-   "body": """You'll read a lot of Netty 4.1 code and blog posts, so it helps to know what moved. These come from the official 4.2 migration guide and the 4.2.20 sources.
-
-The default `ByteBuf` allocator is now the adaptive allocator. `ByteBufAllocator.DEFAULT` is an `AdaptiveByteBufAllocator`, and a plain `buffer(16)` comes back as a direct `AdaptiveByteBuf`. The migration guide says most workloads should see less memory use and that it was designed to work well with virtual threads. `-Dio.netty.allocator.type=pooled` brings back the old pooled allocator if you need it.
+   "body": """In Netty 4.2, `ByteBufAllocator.DEFAULT` is no longer the pooled allocator most 4.1 code and blog posts assume: it is an `AdaptiveByteBufAllocator`, and a plain `buffer(16)` comes back as a direct `AdaptiveByteBuf`. The migration guide says most workloads should see less memory use and that it was designed to work well with virtual threads. `-Dio.netty.allocator.type=pooled` brings back the old pooled allocator if you need it.
 
 io_uring graduated from the incubator to a first-class transport. The package is now `io.netty.channel.uring`, the classes start with `IoUring`, and you use it like the others: `MultiThreadIoEventLoopGroup` with `IoUringIoHandler.newFactory()` and the `IoUring` channel classes. Lesson 8 measures it against epoll.
 

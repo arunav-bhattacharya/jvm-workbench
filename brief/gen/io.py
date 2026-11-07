@@ -1,0 +1,195 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+
+intro = """By the end of this track you can explain what a blocked socket read costs and why ten thousand idle connections broke thread-per-connection servers, write a correct `java.nio` select loop, build and test Netty 4.2 pipelines with codecs, backpressure and leak detection, reason about Vert.x contexts, the event bus and the blocked-thread checker, predict which thread runs a Quarkus REST endpoint, configure Jetty 12's thread pool and virtual threads, and choose a server model for a payments service, down to what the kernel does with `epoll`, `sendfile` and io_uring.
+
+The track assumes no knowledge of NIO, Netty, Vert.x or Jetty. It builds each layer by hand first: a blocking server, then a select loop, then the same ideas in Netty, then the frameworks built on Netty. You need the basics from the first track (threads, locks, races), Little's law from the executors track (\"Sizing a pool: CPU-bound, IO-bound and Little's law\"), and the virtual threads track, which this one connects back to in lessons 1, 6, 7 and 8. Versions are pinned: JDK 21 or newer (install JDK 25, the current LTS), Netty 4.2.20.Final, Vert.x 5.2.3, Quarkus 3.40 and Jetty 12.1.14.
+
+The labs live in `labs/nio`, one package per lesson (`workbench.nio.l01` to `l08`). Lessons 1, 2, 4, 5 and 7 have Java labs; lessons 3, 6 and 8 are in Kotlin. Run `./gradlew :nio:test --tests 'workbench.nio.lNN.*'` from `labs/` until it passes, and `./gradlew :nio:solutionTest` to check the reference answers. Servers in the tests bind `127.0.0.1` on a free port, so nothing clashes with what you have running. The Try-it demos run with `./gradlew :nio:demo -Pmain=...`, in Java and Kotlin. A few steps use Linux tools (`strace`, `epoll`, io_uring); on macOS the same demos run on `kqueue` and say so."""
+
+cheatsheet = """## Versions in this track
+
+| Piece | Version | Note |
+|---|---|---|
+| JDK | labs compile for 21; install 25 (LTS) | virtual-thread pollers on Linux from 22; `synchronized` no longer pins from 24 (JEP 491) |
+| Netty | 4.2.20.Final | `MultiThreadIoEventLoopGroup` + `XxxIoHandler.newFactory()`; adaptive allocator by default; io_uring first-class |
+| Vert.x | 5.2.3 (on Netty 4.2.20) | futures only; `VerticleBase`; `ThreadingModel.VIRTUAL_THREAD` |
+| Quarkus | 3.40 | return type picks the thread; add `@Blocking` to JTA endpoints that return `Uni` |
+| Jetty | 12.1.14 | core `Handler` API is async; Servlet in `ee8` to `ee11` environments |
+
+## Numbers worth remembering
+
+| What | Default or rule |
+|---|---|
+| Threads a blocking design needs | Little's law: in flight = rate × time; thread-per-connection needs one per open socket |
+| Netty event loops | 2 × CPUs |
+| Netty water marks | low 32 KiB, high 64 KiB (`isWritable()` flips between them) |
+| Netty leak detection | SIMPLE samples about 1 in 128 buffers; use PARANOID in tests |
+| Vert.x event loops / worker pool | 2 × CPUs / 20 threads |
+| Vert.x blocked-thread checker | checks every 1 s; warns past 2 s; stack trace past 5 s |
+| Vert.x event bus request timeout | 30 s |
+| Quarkus event loops | `max(2, min(maxHeapMB / 10, CPUs))`; warning and stack trace at 2 s |
+| Quarkus blocking executor | `quarkus.thread-pool.max-threads` = max(8 × CPUs, 200) |
+| Jetty `QueuedThreadPool` | min 8, max 200, queue must stay unbounded |
+| Jetty connector | 1 acceptor; `max(1, min(CPUs / 2, maxThreads / 16))` selectors |
+| Tomcat NIO connector | `maxThreads` 200, `maxConnections` 8192, `acceptCount` 100 |
+
+## The select loop rules (lesson 2)
+
+- `flip()` before reading a buffer, `compact()` after a partial write, never `clear()` with bytes pending.
+- One `read` is not one message: frame with a length or a delimiter.
+- Remove every handled key from `selectedKeys()`.
+- `OP_WRITE` only while bytes are pending; drop `OP_READ` while your buffer is full; close on EOF only when drained.
+
+## Netty 4.2: group, pipeline, offload
+
+```java
+EventLoopGroup group = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());   // not NioEventLoopGroup
+new ServerBootstrap().group(group).channel(NioServerSocketChannel.class)
+        .childHandler(new ChannelInitializer<SocketChannel>() {
+            @Override protected void initChannel(SocketChannel ch) {
+                ch.pipeline().addLast(new LengthFieldBasedFrameDecoder(1024, 0, 4, 0, 4),
+                        new PaymentFrameDecoder(), new PaymentFrameEncoder(), new AuthHandler(blockingPool));
+            }
+        }).bind(9000).sync();
+
+// in AuthHandler.channelRead0: never block the loop
+blockingPool.execute(() -> ctx.writeAndFlush(issuer.authorize(msg)));   // writeAndFlush is safe from any thread
+```
+
+```kotlin
+val group = MultiThreadIoEventLoopGroup(NioIoHandler.newFactory())                  // not NioEventLoopGroup
+ServerBootstrap().group(group).channel(NioServerSocketChannel::class.java)
+    .childHandler(object : ChannelInitializer<SocketChannel>() {
+        override fun initChannel(ch: SocketChannel) {
+            ch.pipeline().addLast(LengthFieldBasedFrameDecoder(1024, 0, 4, 0, 4),
+                PaymentFrameDecoder(), PaymentFrameEncoder(), AuthHandler(blockingPool))
+        }
+    }).bind(9000).sync()
+
+// in AuthHandler.channelRead0: never block the loop
+blockingPool.execute { ctx.writeAndFlush(issuer.authorize(msg)) }          // writeAndFlush is safe from any thread
+```
+
+Release rule: whoever touches a `ByteBuf` last releases it. `fireChannelRead` and `write` hand ownership on; `SimpleChannelInboundHandler` releases after `channelRead0`. Backpressure: in `channelReadComplete`, `if (!isWritable) autoRead = false`; in `channelWritabilityChanged`, turn it back on. Close with `writeAndFlush(last).addListener(ChannelFutureListener.CLOSE)`.
+
+## Vert.x 5: deploy, offload without serializing
+
+```java
+vertx.deployVerticle(BalanceVerticle::new, new DeploymentOptions().setInstances(2));
+vertx.executeBlocking(() -> dao.balance(account), false)   // false: calls from one context may overlap
+        .onSuccess(msg::reply);
+```
+
+```kotlin
+vertx.deployVerticle(::BalanceVerticle, DeploymentOptions().setInstances(2))   // a bare lambda is ambiguous in Kotlin
+vertx.executeBlocking(Callable<Long> { dao.balance(account) }, false)        // false: calls from one context may overlap
+    .onSuccess { cents: Long -> msg.reply(cents) }
+```
+
+## Quarkus REST 3.40: which thread?
+
+| Endpoint | Thread |
+|---|---|
+| returns a plain value | worker (executor) |
+| returns `Uni`, `Multi`, `CompletionStage`, `Publisher`, or is Kotlin `suspend` | IO thread (event loop) |
+| `@Blocking` / `@NonBlocking` | worker / IO thread, overriding the signature |
+| `@Transactional` | blocking per the 3.40.1 docs, not per main: add `@Blocking` |
+| `@RunOnVirtualThread` | a new virtual thread |
+
+## Jetty 12: honest handlers, virtual threads for blocking work
+
+```java
+QueuedThreadPool pool = new QueuedThreadPool(200);
+pool.setVirtualThreadsExecutor(VirtualThreads.getNamedVirtualThreadsExecutor("ledger-vt-"));
+// Handler.Abstract = BLOCKING: EPC or PEC (virtual thread). Handler.Abstract.NonBlocking = runs on the selector (PC).
+```
+
+```kotlin
+val pool = QueuedThreadPool(200)
+pool.virtualThreadsExecutor = VirtualThreads.getNamedVirtualThreadsExecutor("ledger-vt-")
+// Handler.Abstract = BLOCKING: EPC or PEC (virtual thread). Handler.Abstract.NonBlocking = runs on the selector (PC).
+```
+
+## Zero-copy and the kernel
+
+```java
+long sent = 0;
+while (sent < count) sent += file.transferTo(position + sent, count - sent, socket);   // sendfile on Linux
+```
+
+```kotlin
+var sent = 0L
+while (sent < count) sent += file.transferTo(position + sent, count - sent, socket)   // sendfile on Linux
+```
+
+No zero-copy when the JVM must change the bytes (TLS in the JVM, compression). `epoll` = readiness, io_uring = completion; measure before switching. A virtual thread's blocking read = non-blocking read + JDK `Poller` (epoll one-shot) + park.
+
+## Choosing a model
+
+| Service | Model | Limit lives in |
+|---|---|---|
+| blocking stack (JDBC, JTA, SDKs), IO-bound | virtual threads per request | a semaphore or pool per downstream |
+| blocking stack, moderate traffic | bounded worker pool | the pool size (Little's law) |
+| async end to end | event loop (Netty, Vert.x, Quarkus `Uni`) | never waiting; writability and auto-read |
+| many idle long-lived connections | event loop | memory per connection, idle timeouts |
+| large unchanged files | `transferTo` / `DefaultFileRegion` | the socket buffer (loop on partial transfers) |"""
+
+recap = [
+ "A blocked read holds its thread; thread-per-connection needs one thread per open socket, which is why ten thousand idle connections (C10K) broke it. Little's law sizes the threads a blocking design needs.",
+ "A `java.nio` server reads and writes partially: keep unsent bytes, `compact()` instead of `clear()`, remove selected keys, and arm `OP_WRITE` only while bytes are pending, because Linux selectors are level-triggered.",
+ "A Netty event loop is one thread that owns its channels for life. Netty 4.2 builds groups with `MultiThreadIoEventLoopGroup` and an `IoHandler` factory, and blocking work is dispatched manually to your own executor.",
+ "Frame before you decode, release every `ByteBuf` exactly once (last owner releases), catch leaks with PARANOID detection in tests, and turn auto-read off while a channel isn't writable.",
+ "Vert.x puts contexts on Netty's loops: a handler never runs concurrently with itself, the event bus is best effort, the blocked-thread checker warns after 2 s, and `executeBlocking` is ordered per context unless you pass `false`.",
+ "Quarkus REST picks the thread from the signature: reactive types and `suspend` run on the IO thread, plain values on a worker. Add `@Blocking` to JTA endpoints that return `Uni`, and use `@RunOnVirtualThread` with explicit downstream limits.",
+ "Jetty 12 decides per task from the handler's declared invocation type: non-blocking on the selector thread, blocking with a reserved thread or handed off, optionally to virtual threads. Its pool queue must stay unbounded.",
+ "Virtual threads hide an event loop inside the JDK's poller. Zero-copy (`sendfile`) and io_uring are kernel-level tools to measure, and every server model still needs a concurrency limit somewhere."
+]
+
+quiz = [
+ {"q": "A thread-per-connection gateway has 6,000 terminals connected. They send 300 requests a second in total, each taking 100 ms. How many threads does the gateway hold?",
+  "options": ["30", "300", "About 6,000", "One per CPU core"],
+  "answer": 2,
+  "why": "Little's law gives 300 × 0.1 s = 30 requests in flight, but thread-per-connection keeps a thread on every open socket, busy or idle: about 6,000. That gap is the C10K problem in miniature."},
+ {"q": "An NIO server burns one core at 100% with no traffic. Which change fixes it?",
+  "options": ["Use direct buffers instead of heap buffers", "Register `OP_WRITE` only while a connection has unsent bytes", "Call `selectNow()` instead of `select()`", "Add a second selector thread"],
+  "answer": 1,
+  "why": "A socket with free send-buffer space is always writable, and Linux selectors are level-triggered, so a permanent `OP_WRITE` makes every `select()` return at once. `selectNow()` would spin even harder."},
+ {"q": "In Netty 4.2, a handler must call a blocking fraud-scoring SDK. What is the recommended way?",
+  "options": ["`pipeline.addLast(new DefaultEventExecutorGroup(8), \"fraud\", handler)`", "Call it in the handler; Netty 4.2 loops are virtual threads", "Dispatch the call to your own executor and `ctx.writeAndFlush` the result from there", "Wrap the call in `synchronized`"],
+  "answer": 2,
+  "why": "Netty 4.2 deprecated the per-handler `EventExecutorGroup` overloads and says to dispatch manually. Event loops are platform threads, and `writeAndFlush` from another thread is queued back onto the channel's loop."},
+ {"q": "A Netty handler extends `ChannelInboundHandlerAdapter`, logs `msg.readableBytes()`, and then does nothing else with the `ByteBuf`. What is wrong?",
+  "options": ["Nothing: the garbage collector frees it", "It leaks: it neither passes the buffer on nor releases it", "It double-releases the buffer", "It blocks the event loop"],
+  "answer": 1,
+  "why": "`ChannelInboundHandlerAdapter` releases nothing. A handler that is the last to touch a buffer must release it (`ReferenceCountUtil.release(msg)`) or pass it on with `ctx.fireChannelRead(msg)`. PARANOID leak detection reports it once the buffer is garbage-collected."},
+ {"q": "A Netty proxy forwards from a fast client to a slow backend. The backend channel's `isWritable()` turns false. What should the proxy do?",
+  "options": ["Turn off auto-read on the client channel until the backend channel is writable again", "Keep writing; Netty buffers it", "Close the backend channel", "Sleep in the handler until the backend catches up"],
+  "answer": 0,
+  "why": "Writability is Netty's signal that the outbound buffer passed the high water mark. Stopping reads from the producer keeps the backlog in the kernel and TCP, not in your memory; sleeping would block the event loop."},
+ {"q": "A Vert.x consumer wraps a 300 ms JDBC call in `vertx.executeBlocking(callable)`. Six requests arrive at once. Roughly how long until all six are answered?",
+  "options": ["About 300 ms", "About 600 ms", "About 1,800 ms, because executeBlocking is ordered per context by default", "Never: it deadlocks"],
+  "answer": 2,
+  "why": "All six messages come from the consumer's one context, and the default `executeBlocking` runs calls from a context one after another. The event loop is free, but the queries are serialized. Pass `false` to let them overlap."},
+ {"q": "In Quarkus 3.40, which endpoint blocks an IO thread?",
+  "options": ["`public Balance get(...)` that calls JDBC", "`@Blocking public Uni<Balance> get(...)` that calls JDBC", "`@RunOnVirtualThread public Balance get(...)` that calls JDBC", "`public Uni<Balance> get(...)` that returns `Uni.createFrom().item(jdbc.find(id))`"],
+  "answer": 3,
+  "why": "A `Uni` return type puts the method on the IO thread, and `jdbc.find(id)` runs while the `Uni` is being built. The other three run on a worker or a virtual thread."},
+ {"q": "A Jetty 12 health-check handler extends `Handler.Abstract.NonBlocking`, and someone adds a database ping to it. What happens under load?",
+  "options": ["Jetty notices and moves it to a worker thread", "It runs on a selector thread in Produce-Consume mode, so other connections on that selector wait behind each ping", "It runs on a virtual thread", "Jetty rejects the handler at startup"],
+  "answer": 1,
+  "why": "`NonBlocking` is a promise Jetty trusts: it runs the handler directly on the selector thread. Blocking there stalls the selector, which Jetty's docs call a risk of server lock-up. Change the superclass to `Handler.Abstract`."},
+ {"q": "On JDK 21, what happens when a virtual thread calls `socket.getInputStream().read()` and no data has arrived?",
+  "options": ["Its carrier thread blocks in the kernel until data arrives", "The JDK does a non-blocking read, registers the socket with its internal poller and parks the virtual thread; a poller thread unparks it when data arrives", "The JVM creates a new platform thread for the read", "The read throws, and the virtual thread retries in a loop"],
+  "answer": 1,
+  "why": "`NioSocketImpl` keeps the socket non-blocking, gets EAGAIN, registers the file descriptor with the `Poller` (epoll, one-shot) and parks. On JDK 21 the pollers are platform threads such as `Read-Poller`; from JDK 22 on Linux they are mostly virtual threads."},
+ {"q": "A service streams 500 MB settlement files to an internal archive over plain TCP. Which code sends them most efficiently, and what must it handle?",
+  "options": ["`Files.readAllBytes` then one `write`; nothing else", "A loop of `FileChannel.transferTo` calls, because a call may transfer fewer bytes than asked", "Netty with io_uring, because it is always fastest", "A heap `ByteBuffer` of 500 MB"],
+  "answer": 1,
+  "why": "`transferTo` to a socket becomes `sendfile` on Linux, so the bytes never pass through the JVM, and it can return early, so it belongs in a loop. Reading 500 MB into the heap wastes memory, and io_uring was not faster in this track's runs."}
+]
+
+T = {"id": "io", "intro": intro, "cheatsheet": cheatsheet, "recap": recap, "quiz": quiz}
+out = ROOT / "content/tracks/io.json"
+out.write_text(json.dumps(T, indent=1, ensure_ascii=False) + "\n")
+print(out)
