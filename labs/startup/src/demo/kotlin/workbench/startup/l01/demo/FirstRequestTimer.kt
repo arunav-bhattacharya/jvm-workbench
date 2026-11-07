@@ -36,7 +36,8 @@ fun main(args: Array<String>) {
 
     // 1. warm up our own HTTP client (nothing listens yet), then start the clock and the service
     val client = HttpClient.newBuilder().proxy(HttpClient.Builder.NO_PROXY).build()
-    val hello = HttpRequest.newBuilder(URI.create("http://127.0.0.1:$port/hello")).build()
+    val hello = HttpRequest.newBuilder(URI.create("http://127.0.0.1:$port/hello"))
+        .timeout(Duration.ofSeconds(2)).build()
     try {
         client.send(hello, HttpResponse.BodyHandlers.ofString())
     } catch (expected: IOException) {
@@ -50,7 +51,7 @@ fun main(args: Array<String>) {
     // 2. poll from outside every 2 ms until the first 200
     var attempts = 0
     var firstOk = -1L
-    while (firstOk < 0 && System.nanoTime() - t0 < Duration.ofSeconds(8).toNanos()) {
+    while (firstOk < 0 && System.nanoTime() - t0 < Duration.ofSeconds(5).toNanos()) {
         attempts++
         try {
             if (client.send(hello, HttpResponse.BodyHandlers.ofString()).statusCode() == 200) {

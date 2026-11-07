@@ -1,0 +1,128 @@
+{
+ "id": "kt",
+ "intro": "By the end of this track the Kotlin features you use every day stop being magic. For each one you can say what the compiler writes into the class file, and so predict how it behaves in a case nobody showed you: what an `inline` function pastes into its callers and why `crossinline` exists, where a value class is a plain `long` and where it becomes an object, which hidden fields `by` creates, how a lambda with receiver becomes a DSL, what a contract promises and why nobody checks it, how context parameters reach a function, and what the all-open, no-arg and serialization plugins change. Each lesson also shows what Java sees when it calls the same Kotlin code, because the two languages meet in the bytecode.\n\nYou need the syntax of both languages and nothing else. The first lesson starts from what a lambda costs at run time. Every lesson shows the problem first, then the feature that fixes it, then the bytecode as `javap` prints it, then the trap. The compiler messages quoted in the lessons are copied from Kotlin 2.4.21. Install JDK 25; the labs compile with release 21.\n\nThe labs live in `labs/kotlin`, one package per lesson (`workbench.kotlin.l01` to `l06`). They are Kotlin, and each lesson adds a Java test that calls your Kotlin code the way a Java module would. Lessons 1 and 5 test inline functions through a `Callers.kt` file that you don't edit (lesson 1 explains why). The module already applies the kotlinx.serialization, all-open and no-arg plugins; lesson 6 puts them to work. Run `./gradlew :kotlin:test --tests 'workbench.kotlin.lNN.*'` from `labs/` until it passes, `./gradlew :kotlin:solutionTest` to see the reference answers pass the same tests, and `./gradlew :kotlin:demo -Pmain=<class>` for the Try-it programs. To read bytecode, run `javap -c -p -cp kotlin/build/classes/kotlin/demo <class>` after a demo has compiled.",
+ "cheatsheet": "## Inline functions\n\n| You write | The compiler | Java sees |\n|---|---|---|\n| `inline fun timed(block: () -> T)` | pastes the body and the lambda body into each caller | an ordinary static method taking `Function0` |\n| `return` in a lambda passed to an inline function | a non-local return: leaves the enclosing function | (Java lambdas can only leave themselves) |\n| `return@forEach` | leaves only that lambda call | `continue` in a loop |\n| `noinline f: () -> Unit` | keeps `f` as a real object you can store or pass on | `Function0` |\n| `crossinline f: () -> Unit` | lets you call `f` inside a `Runnable`, object or lambda; forbids `return` in it | `Function0` |\n| `@PublishedApi internal fun helper()` | public in bytecode, so public inline bodies may call it | a public method |\n\n- Inline small functions that take lambdas, or need `reified` or a non-local return. Not lambda-free functions: `expected performance impact from inlining is insignificant`.\n- A public inline body is copied into clients at their compile time: changing it reaches a client only when the client is rebuilt.\n- Not allowed: recursion (`cannot be recursive`) and local functions inside an inline function.\n- Tests of inline functions must call them through code compiled with the solution, or they keep a copy of the stub.\n\n## Value classes\n\n| Use of `@JvmInline value class Money(val cents: Long)` | Run time |\n|---|---|\n| parameter, field, return value, `a + b`, `a == b` | a plain `long` |\n| generic `T`, `Money?`, an interface it implements, `Any`, collections, `println` | boxed: `Money.box-impl(long)` |\n| `fun charge(m: Money)` | `charge-<hash>(long)`: mangled, Java can't call it |\n| `@JvmName(\"chargeFromJava\")` | Java calls `chargeFromJava(long)`, skipping `init`: validate again |\n| `@JvmExposeBoxed` (Experimental, `@OptIn(ExperimentalStdlibApi::class)`) | a public constructor that runs `init`, boxed overloads |\n\n- One property only on the JVM: `value class must have exactly one primary constructor parameter.` Multi-field value classes wait for Valhalla (JEP 401 is a preview in JDK 28).\n- `===` is an error. A type alias is only another name; a value class is a new type.\n- Keep `override fun toString(): String` with its explicit type: Kotlin 2.4.21 crashes on an inferred platform type there.\n\n## Delegation\n\n| Code | Compiled to | Trap |\n|---|---|---|\n| `class A(x: I) : I by x` | every `I` method forwards to a hidden `private final I $$delegate_0` | reassigning a `var` doesn't move it; `equals`/`hashCode`/`toString` not forwarded; the delegate never calls your overrides |\n| `var p: T by d` | a `p$delegate` field, a static `$$delegatedProperties` `KProperty[]`, accessors calling `getValue`/`setValue` | one delegate object per property per instance |\n| `val v by lazy { }` | a `kotlin.Lazy v$delegate` (`SynchronizedLazyImpl` by default) plus an initializer lambda | two objects per instance, read through `Lazy.getValue()`; exceptions are not cached |\n| `Delegates.observable` / `vetoable` | handler after / before the assignment | `vetoable` never checks the initial value |\n| `val host: String by map` | `map[\"host\"]` on each read | missing key fails on read: `Key host is missing in the map.` |\n| `operator fun provideDelegate(thisRef, property)` | called once per property during construction | the place to validate early |\n\n## Type-safe DSLs\n\n- `A.() -> B` is `Function1<A, B>` on the JVM: the receiver is the first parameter, and Java passes `b -> { ...; return Unit.INSTANCE; }`.\n- A DSL is builder classes plus `fun entry(block: Builder.() -> Unit) = Builder().apply(block).build()`. Validate single values at the call, cross-field rules in `build()`.\n- `@DslMarker` on an annotation, that annotation on every builder class: only the nearest receiver is implicit, outer ones need `this@label`. On functions or properties it has no effect.\n- `buildList`, `buildMap`, `buildString`: mutable receiver while building, read-only result, inline.\n- Context receivers (`context(Logger) fun f()`, `-Xcontext-receivers`) are gone since 2.3.20.\n\n## Contracts and context parameters\n\n| Feature | Status in 2.4 | Syntax | JVM / Java |\n|---|---|---|---|\n| Contracts | Experimental: `@OptIn(ExperimentalContracts::class)` | `contract { returns() implies (x != null); callsInPlace(block, InvocationKind.EXACTLY_ONCE) }` as the first statement | no trace in bytecode; stored in Kotlin metadata |\n| Extended contracts | Experimental, plus `ExperimentalExtendedContracts` for `returnsNotNull()`, `holdsIn` | | |\n| Context parameters | Stable since 2.4.0, no flag | `context(tx: TxContext) fun note(line: String)`; `_` plus `contextOf<T>()` | leading parameters: context, then receiver, then the rest |\n| Explicit context arguments, callable references | not stable: avoid | `-Xexplicit-context-arguments` | |\n\n- The compiler trusts contracts unconditionally: a lie compiles and fails as `ClassCastException`. Keep the body identical to the promise.\n- Context arguments resolve by type from enclosing context parameters, `context(a, b) { }` and implicit receivers. Two candidates at one level: `multiple potential context arguments`. None: `no context argument for 'tx: TxContext' found.`\n- Not on constructors; properties only without backing fields. Adding one to a public function changes its JVM signature.\n\n## Compiler plugins\n\n| Plugin | Does | Watch out |\n|---|---|---|\n| all-open (`kotlin-spring`) | removes `final` from annotated classes and their members | private members and fields untouched; the 2.4.21 `quarkus` preset knows only `javax`: list `jakarta.ws.rs.Path`, `jakarta.enterprise.context.ApplicationScoped` yourself |\n| no-arg (`kotlin-jpa`) | adds a zero-arg constructor, `@Deprecated(HIDDEN)`: Java and reflection only | skips property initializers unless `invokeInitializers`; since 2.3.20 `plugin.jpa` also applies all-open |\n| kotlinx.serialization | generates `X$$serializer` and `X.serializer()` at compile time | `\"type\"` only when the static type is the base; pin it with `@SerialName`; default `Json` rejects unknown keys |\n| KSP / kapt | generate new source files from annotations | prefer KSP; kapt runs Java processors on generated stubs |\n\n## Reading the bytecode\n\n```bash\njavap -p -cp kotlin/build/classes/kotlin/demo workbench.kotlin.l02.demo.ValueClassDemoKt   # signatures\njavap -c -p -cp kotlin/build/classes/kotlin/demo workbench.kotlin.l01.demo.InlineDemoKt    # instructions\n```",
+ "recap": [
+  "`inline` pastes a function and its lambdas into each caller: no lambda object, non-local returns allowed, but every caller carries a copy and a public body stays frozen in compiled clients.",
+  "`crossinline` lets an inline function call a lambda from another execution context by forbidding `return` in it; `noinline` keeps a lambda as an object you can store.",
+  "A value class is its underlying value where it's used as itself and a box everywhere else; functions that take one get mangled names, so give Java a validated door.",
+  "`by` on a class forwards to an object captured once; `by` on a property is a hidden `$delegate` field plus `getValue`/`setValue` calls. `lazy` costs objects per instance.",
+  "A DSL is lambdas with receivers (`Function1` on the JVM) and builder classes; `@DslMarker` on the builder classes keeps calls on the nearest receiver.",
+  "Contracts give callers smart casts and in-place lambdas; they are Experimental and trusted, never checked.",
+  "Context parameters, Stable in 2.4.0, are arguments the compiler fills by type; on the JVM they are ordinary leading parameters.",
+  "all-open, no-arg and kotlinx.serialization change the class file at compile time: configure the exact `jakarta` annotations, mind no-arg's skipped initializers, and pin serial names.",
+  "When in doubt, run `javap`: every feature in this track is visible there, and Java sees exactly that."
+ ],
+ "quiz": [
+  {
+   "q": "Which declaration makes the compiler warn `expected performance impact from inlining is insignificant`?",
+   "options": [
+    "`inline fun <T> timed(label: String, block: () -> T): T`",
+    "`inline fun <reified T> Any?.isA() = this is T`",
+    "`inline fun cents(amount: BigDecimal): Long = amount.movePointRight(2).longValueExact()`",
+    "`inline fun Executor.runAsync(crossinline task: () -> Unit)`"
+   ],
+   "answer": 2,
+   "why": "`cents` takes no function-typed parameter and has no reified type parameter, so inlining removes nothing; the JIT would inline a hot small method on its own. `isA` needs `inline` for its reified `T`, and the others take lambdas."
+  },
+  {
+   "q": "`inline fun <T> inTx(block: () -> T): T = runner.execute(Callable { block() })`. A caller writes `inTx { if (done) return; work() }` inside `fun f()`. Once the compiler's suggestion is applied to `inTx`, what does the caller get?",
+   "options": [
+    "It compiles, and `return` leaves `f`",
+    "`'return' is prohibited here.`, because `block` is now `crossinline`",
+    "It compiles, and `return` leaves only the `Callable`",
+    "`illegal usage of inline parameter`"
+   ],
+   "answer": 1,
+   "why": "`block` runs inside the `Callable`, another execution context, so the compiler asks for `crossinline`. That forbids non-local returns in the caller's lambda: the `return` is rejected. `return@inTx` would compile."
+  },
+  {
+   "q": "`@JvmInline value class Money(val cents: Long)`. Which of these allocates a `Money` object?",
+   "options": [
+    "`fun total(a: Money, b: Money) = a + b`",
+    "`val cache = HashMap<String, Money>(); cache[\"pay_1\"] = Money(100)`",
+    "`class Invoice(val amount: Money)`",
+    "`Money(100) == Money(100)`"
+   ],
+   "answer": 1,
+   "why": "A map stores objects, so the value is boxed with `Money.box-impl`. `total` works on two longs, `Invoice` stores a `long` field, and `==` compiles to `equals-impl0(long, long)`."
+  },
+  {
+   "q": "`class Router(var gateway: Gateway) : Gateway by gateway`. A feature flag sets `router.gateway = newGateway`. Where do `router.authorize(...)` calls go?",
+   "options": [
+    "To the gateway passed to the constructor, held in a hidden final field",
+    "To `newGateway`",
+    "To both, in order",
+    "Nowhere: it throws `IllegalStateException`"
+   ],
+   "answer": 0,
+   "why": "Class delegation copies the constructor argument into `$$delegate_0` once. The `var` is a separate property; changing it doesn't change the forwarding target."
+  },
+  {
+   "q": "A class is created once per Kafka record and declares `val summary: String by lazy { render() }`, read for 1% of records. What does it cost for the other 99%?",
+   "options": [
+    "Nothing: `lazy` allocates on first read",
+    "One lock acquisition per record",
+    "A static field shared by all records",
+    "A `Lazy` object and an initializer lambda per record, created in the constructor"
+   ],
+   "answer": 3,
+   "why": "The constructor stores a new `SynchronizedLazyImpl` (and the lambda it holds) in `summary$delegate` for every instance, read or not. A plain getter, `val summary get() = render()`, costs nothing until called."
+  },
+  {
+   "q": "Both builders of a DSL are marked `@PaymentDsl`. Inside `payer { }`, which line compiles?",
+   "options": [
+    "`payee { name = \"x\" }`",
+    "`currency = \"GBP\"` (a property of the outer builder)",
+    "`this@paymentRequest.currency = \"GBP\"`",
+    "None of them"
+   ],
+   "answer": 2,
+   "why": "With the marker, outer receivers are no longer implicit, so the first two are `cannot be called in this context with an implicit receiver.` A labeled `this` names the outer builder on purpose and is allowed."
+  },
+  {
+   "q": "`fun PaymentEvent.isCaptured(): Boolean { contract { returns(true) implies (this@isCaptured is Captured) }; return true }` compiles with `@OptIn(ExperimentalContracts::class)`. What happens at `if (failed.isCaptured()) println(failed.amountMinor)` for a `Failed` event?",
+   "options": [
+    "A compile error: the body breaks the contract",
+    "A warning, and then it prints 0",
+    "It compiles, and fails at run time with `ClassCastException`",
+    "The smart cast is skipped, so it doesn't compile"
+   ],
+   "answer": 2,
+   "why": "The compiler trusts `returns ... implies` unconditionally and never compares it with the body. The smart cast inserts a cast to `Captured`, and the JVM rejects it for a `Failed`."
+  },
+  {
+   "q": "What is the JVM signature of `context(audit: AuditLog, tx: TxContext) fun AuthRequest.authorize(limitMinor: Long): Decision`?",
+   "options": [
+    "`authorize(AuthRequest, long)`, with the context in a ThreadLocal",
+    "`authorize(AuthRequest, AuditLog, TxContext, long)`",
+    "`authorize(AuditLog, TxContext, AuthRequest, long)`",
+    "`authorize(long, AuditLog, TxContext, AuthRequest)`"
+   ],
+   "answer": 2,
+   "why": "Context parameters come first, then the extension receiver, then the value parameters. That's how Java calls it, and why adding a context parameter is a binary-incompatible change."
+  },
+  {
+   "q": "A Quarkus 3 service uses Kotlin 2.4.21 and the all-open plugin's built-in `quarkus` preset. A bean is annotated `@jakarta.enterprise.context.ApplicationScoped`. What do you find in `javap`?",
+   "options": [
+    "`public class` with open methods",
+    "A class with a generated no-arg constructor",
+    "`public class`, but only for beans that also have `@Transactional`",
+    "`public final class`, because the preset only knows the `javax` annotations"
+   ],
+   "answer": 3,
+   "why": "The 2.4.21 preset lists `javax.enterprise.context.ApplicationScoped` and `RequestScoped` only. Configure `annotation(\"jakarta.enterprise.context.ApplicationScoped\")` and the other `jakarta` annotations you use."
+  },
+  {
+   "q": "A `@Serializable sealed interface PaymentEvent` has subtypes without `@SerialName`. Someone moves them to another package. What changes on the Kafka topic?",
+   "options": [
+    "Nothing: the discriminator is the simple class name",
+    "Nothing: the plugin assigns stable numeric ids",
+    "The `\"type\"` values change, because the default is the fully qualified class name, so old consumers can't decode new messages",
+    "Serialization fails until you add a `SerializersModule`"
+   ],
+   "answer": 2,
+   "why": "Without `@SerialName`, the discriminator value is the fully qualified class name. A package move changes it, and a consumer with the old classes reports that the subclass is not found in the polymorphic scope. Pin every subtype with `@SerialName`."
+  }
+ ]
+}

@@ -1,0 +1,369 @@
+{
+ "id": "boot-04",
+ "title": "CRaC, and choosing a startup strategy",
+ "minutes": 40,
+ "goal": "By the end you can explain what CRaC saves and what it can't, write checkpoint hooks that close and reopen resources in the right order, and choose between doing nothing, AppCDS, the AOT cache, native image and CRaC for a given service.",
+ "warmup": {
+  "q": "A JVM is checkpointed after an hour of traffic, then restored on another machine of the same type. Its pool of 20 database connections was open at the checkpoint, and nobody wrote any CRaC hooks. What happens?",
+  "options": [
+   "The restored JVM keeps using the 20 connections, because CRIU saved them",
+   "The checkpoint fails: with the default policy, open sockets stop it, and the process keeps running",
+   "The checkpoint succeeds and the connections fail silently later",
+   "The JVM closes and reopens them automatically after restore"
+  ],
+  "answer": 1,
+  "why": "CRaC's default policy for open files and sockets is `error`: print an error and fail the checkpoint. A TCP connection also lives on the database server, which would have dropped it long before the restore, so it can't be carried in an image anyway. The fix is a `Resource` whose `beforeCheckpoint` closes the pool and whose `afterRestore` reconnects."
+ },
+ "sections": [
+  {
+   "h": "A started JVM is still cold",
+   "body": "Lessons 1 to 3 were about reaching the first request. There is a second wait after it. Run the same 20,000 card-number checks ten times in a fresh JVM, and on a shared 4-vCPU VM the first round took about 29 ms while round six and later took 2 to 3 ms. Nothing in the code changed between rounds. The JVM did.\n\nA fresh JVM runs every method in the interpreter and counts how often each one runs and how often each loop turns. When a method gets hot, C1 compiles it quickly, with light optimization, and keeps counting. When it stays hot, C2 compiles it again using the profile: which branches were taken, which classes arrived at each call. That climb is called **warm-up**, and every new JVM makes it again, on every pod, after every deploy and every scale-out.\n\nThe tools in this track each attack part of it. AppCDS and the AOT cache get classes ready sooner. On JDK 25 the AOT cache also hands the JIT the profiles from its training run (JEP 515), so it can compile sooner, but the compiling still happens inside each new JVM; compiled code in the cache is JEP 544, still in development for JDK 28. A native image is compiled before it runs, so it never warms up, and it never reaches C2's profile-driven code either (lesson 3).\n\nCRaC takes a different route. It lets one JVM warm up, saves the whole running process to disk, and starts copies of it later, already warm. Before the Try it, predict the shape of the round times with `-Xint`, which turns the JIT off, and with `-XX:TieredStopAtLevel=1`, which stops at C1.",
+   "try": {
+    "title": "Watch a JVM warm up",
+    "minutes": 4,
+    "steps": [
+     "Read `WarmupDemo`. It starts a fresh JVM and runs ten rounds of 20,000 Luhn checks on 16-digit card numbers, printing each round's time.",
+     "Run it as is. Note round 1 and round 10.",
+     "Run it with `-Pargs=-Xint` and then with `-Pargs=-XX:TieredStopAtLevel=1`, after writing down your prediction for each.",
+     "Explain the three shapes with what C1 and C2 do."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "WarmupDemo.java",
+     "src": "package workbench.startup.l04.demo;\n\nimport java.nio.file.Path;\nimport java.util.ArrayList;\nimport java.util.List;\n\n/**\n * Runs the same work in 10 rounds in a fresh JVM and prints how long each round took. A fresh\n * JVM starts in the interpreter, then the JIT compiles the hot code. Extra arguments are passed\n * to that JVM as flags, for example -Xint (interpreter only) or -XX:TieredStopAtLevel=1 (C1 only).\n */\npublic class WarmupDemo {\n    public static void main(String[] args) throws Exception {\n        if (args.length > 0 && args[0].equals(\"--work\")) {\n            work();\n            return;\n        }\n        List<String> cmd = new ArrayList<>();\n        cmd.add(Path.of(System.getProperty(\"java.home\"), \"bin\", \"java\").toString());\n        cmd.addAll(List.of(args));\n        cmd.addAll(List.of(\"-cp\", System.getProperty(\"java.class.path\"), WarmupDemo.class.getName(), \"--work\"));\n        System.out.println(\"fresh JVM, flags \" + List.of(args));\n        Process child = new ProcessBuilder(cmd).redirectErrorStream(true).inheritIO().start();\n        child.waitFor();\n    }\n\n    /** Ten rounds of 20,000 Luhn checks on card numbers, the check every PAN field gets. */\n    static void work() {\n        long checksum = 0;\n        for (int round = 1; round <= 10; round++) {\n            long t0 = System.nanoTime();\n            for (int i = 0; i < 20_000; i++) {\n                String digits = Long.toString(1_000_003L * i + round);\n                String pan = \"4000\" + \"0\".repeat(12 - digits.length()) + digits;   // a 16-digit PAN\n                if (luhnValid(pan)) checksum += i;\n            }\n            long us = (System.nanoTime() - t0) / 1_000;\n            System.out.printf(\"round %2d: %,7d us%n\", round, us);\n        }\n        if (checksum == 42) System.out.println();   // keeps the JIT from dropping the work\n    }\n\n    static boolean luhnValid(String pan) {\n        int sum = 0;\n        boolean twice = false;\n        for (int i = pan.length() - 1; i >= 0; i--) {\n            int d = pan.charAt(i) - '0';\n            if (twice) {\n                d *= 2;\n                if (d > 9) d -= 9;\n            }\n            sum += d;\n            twice = !twice;\n        }\n        return sum % 10 == 0;\n    }\n}\n",
+     "run": "./gradlew :startup:demo -Pmain=workbench.startup.l04.demo.WarmupDemo",
+     "file": "labs/startup/src/demo/java/workbench/startup/l04/demo/WarmupDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "WarmupDemo.kt",
+      "src": "package workbench.startup.l04.demo\n\nimport java.nio.file.Path\n\n/**\n * Runs the same work in 10 rounds in a fresh JVM and prints how long each round took. A fresh\n * JVM starts in the interpreter, then the JIT compiles the hot code. Extra arguments are passed\n * to that JVM as flags, for example -Xint (interpreter only) or -XX:TieredStopAtLevel=1 (C1 only).\n */\nfun main(args: Array<String>) {\n    if (args.firstOrNull() == \"--work\") {\n        work()\n        return\n    }\n    val cmd = listOf(Path.of(System.getProperty(\"java.home\"), \"bin\", \"java\").toString()) + args +\n        listOf(\"-cp\", System.getProperty(\"java.class.path\"), \"workbench.startup.l04.demo.WarmupDemoKt\", \"--work\")\n    println(\"fresh JVM, flags ${args.toList()}\")\n    ProcessBuilder(cmd).redirectErrorStream(true).inheritIO().start().waitFor()\n}\n\n/** Ten rounds of 20,000 Luhn checks on card numbers, the check every PAN field gets. */\nprivate fun work() {\n    var checksum = 0L\n    for (round in 1..10) {\n        val t0 = System.nanoTime()\n        for (i in 0 until 20_000) {\n            val pan = \"4000\" + (1_000_003L * i + round).toString().padStart(12, '0')   // a 16-digit PAN\n            if (luhnValid(pan)) checksum += i\n        }\n        val us = (System.nanoTime() - t0) / 1_000\n        println(\"round %2d: %,7d us\".format(round, us))\n    }\n    if (checksum == 42L) println()                      // keeps the JIT from dropping the work\n}\n\nprivate fun luhnValid(pan: String): Boolean {\n    var sum = 0\n    var twice = false\n    for (i in pan.indices.reversed()) {\n        var d = pan[i] - '0'\n        if (twice) {\n            d *= 2\n            if (d > 9) d -= 9\n        }\n        sum += d\n        twice = !twice\n    }\n    return sum % 10 == 0\n}\n",
+      "run": "./gradlew :startup:demo -Pmain=workbench.startup.l04.demo.WarmupDemoKt",
+      "file": "labs/startup/src/demo/kotlin/workbench/startup/l04/demo/WarmupDemo.kt"
+     }
+    },
+    "expect": "On a shared Linux VM: the default run went from about 29,000 us in round 1 to 2,100 to 3,400 us from round 6 on. With `-Xint` every round took 70,000 to 105,000 us and never got faster, because nothing is compiled. With C1 only, round 1 was about 18,000 us and later rounds stayed at 3,500 to 5,600 us: faster than the interpreter, slower than C2. Your numbers will differ; the shapes won't."
+   },
+   "refs": [
+    {
+     "title": "JEP 515: Ahead-of-Time Method Profiling",
+     "url": "https://openjdk.org/jeps/515",
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "h": "CRaC saves a warm JVM to disk and brings it back",
+   "body": "**CRaC** stands for Coordinated Restore at Checkpoint. A **checkpoint** writes a running JVM to disk; a **restore** starts a new process from that image. The OpenJDK implementation uses CRIU (Checkpoint/Restore In Userspace), a Linux tool that freezes a process and writes its memory pages, each thread's CPU registers, and the kernel state it can describe into a directory of image files. A restore builds a new process from those files, and it continues at the instruction where the old one stopped. The heap, the loaded classes and the JIT's compiled code all come back as they were. The CRaC docs put it this way: \"After the restore, Java runtime performance is also on-par with the one at the checkpoint.\"\n\nThat mechanism also tells you what can't come back. A TCP connection lives partly in the kernel and partly on the other machine, and the card issuer's server dropped its side long before your restore. A file may have changed or moved. So the JVM and your code are told before and after, which is the \"coordinated\" part, and CRaC refuses to checkpoint while files or sockets are open.\n\nThe flow has three commands:\n\n```bash\njava -XX:CRaCCheckpointTo=cr -jar pay.jar     # start; allows a checkpoint into the directory cr\njcmd pay.jar JDK.checkpoint                   # after warm-up traffic: write the image, end the process\njava -XX:CRaCRestoreFrom=cr                   # later, any number of times: continue from the image\n```\n\nOne trap: the docs say \"success is always reported in jcmd output, problems are reported in the console of the application\". Read the application's log, not jcmd's \"Command executed successfully\".\n\nThe CRaC project published these \"time to first operation\" numbers in 2020, from a JDK 14 CRaC build on a laptop:\n\n| App | Normal start | Restored |\n|---|---|---|\n| Spring Boot | 3,898 ms | 38 ms |\n| Micronaut | 1,001 ms | 46 ms |\n| Quarkus | 980 ms | 33 ms |\n\nCRaC is not in mainline OpenJDK: there is no JEP, and the main repository has no CRaC commits. You get it from vendors. Azul ships it in its Zulu builds of JDK 17, 21 and 25 for Linux on x64 and ARM64, in the files with \"-crac-\" in the name; BellSoft ships CRaC builds of Liberica JDK 17 and 21. CRIU needs extra privileges, and restoring on a machine with a different CPU can fail unless you pin CPU features with `-XX:CPUFeatures` at checkpoint time. The image holds the whole heap, secrets included, so store it like a heap dump.",
+   "try": {
+    "title": "Checkpoint and restore (optional, needs a CRaC JDK on Linux)",
+    "minutes": 5,
+    "steps": [
+     "If you have a CRaC build (for example a Zulu build with `-crac-` in its name), build any small service JAR and start it with the first command. Send it some requests.",
+     "Run the `jcmd` command. Look at both terminals: jcmd's and the application's.",
+     "Run the restore command and send a request at once. Compare how fast it answers with a normal start.",
+     "Without a CRaC JDK, answer this from the mechanism instead: your service opened a log file in append mode and keeps it open. What does the checkpoint do, and why?"
+    ],
+    "code": {
+     "lang": "bash",
+     "title": "terminal (CRaC JDK on Linux)",
+     "src": "java -XX:CRaCCheckpointTo=cr -jar pay.jar\n# in a second terminal, after some traffic:\njcmd pay.jar JDK.checkpoint\n# later, as often as you like:\njava -XX:CRaCRestoreFrom=cr",
+     "run": ""
+    },
+    "expect": "jcmd prints `Command executed successfully` whatever happened; the application's console shows any problem. If the checkpoint worked, the original process ends and `cr` is a directory of image files. The restore continues from the checkpoint and answers like a warm JVM. The open log file fails the checkpoint under the default `error` policy, because an open file descriptor can't be put in the image safely: the file might change or vanish before a restore."
+   },
+   "refs": [
+    {
+     "title": "CRaC project documentation (README)",
+     "url": "https://github.com/CRaC/docs/blob/master/README.md",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Resources must let go before the snapshot",
+   "body": "Your code takes part through two methods. In the `org.crac` library (version 1.5.0 is the latest release) a resource looks like this:\n\n```java\npublic final class LedgerPool implements Resource {\n    public LedgerPool() {\n        Core.getGlobalContext().register(this);    // the context only holds a weak reference\n    }\n    @Override public void beforeCheckpoint(Context<? extends Resource> c) { closeAllConnections(); }\n    @Override public void afterRestore(Context<? extends Resource> c) { reconnect(); }\n}\n```\n\n```kotlin\nclass LedgerPool : Resource {\n    init {\n        Core.getGlobalContext().register(this)     // the context only holds a weak reference\n    }\n    override fun beforeCheckpoint(c: Context<out Resource>) = closeAllConnections()\n    override fun afterRestore(c: Context<out Resource>) = reconnect()\n}\n```\n\n`org.crac` mirrors the `jdk.crac` API of CRaC JDKs and finds the real implementation by reflection at run time. On a JDK without CRaC you can still register resources; only a checkpoint request fails. So the same JAR runs everywhere.\n\nThe global context has documented rules. It calls `beforeCheckpoint` in the **reverse** order of registration and `afterRestore` in registration order. Components created later usually use the earlier ones: the Kafka consumer writes through the ledger pool, so it must stop first and start last. Every resource is told, even when another one throws, and the context collects the exceptions as suppressed exceptions on a `CheckpointException`. If the checkpoint fails, the restore notifications run at once, without an image, and the process keeps going.\n\nOpen files and sockets fail the checkpoint by default. Their policy is `error`, which the CRaC docs describe as \"just print error and fail the checkpoint\". You can set other policies (`ignore`, `close`, `reopen`) in a file named by `-Djdk.crac.resource-policies`, but for sockets \"the reopening part is not implemented, therefore will result in a runtime exception after restore\". Close them yourself.\n\nThe image is one copy of memory, and every restore starts from it. If you restore ten instances, anything generated before the checkpoint is the same in all ten: an instance id, a nonce counter, a cached access token. Recreate those in `afterRestore`.\n\nAWS Lambda SnapStart uses the same `org.crac` hooks, and AWS documents the same order. It is a separate implementation, though: the Quarkus guide warns that \"SnapStart is not CRaC and can do things that would not work with others CRaC implementations\", and it uses `beforeCheckpoint` to prime clients, so they are ready before the snapshot. Quarkus's SnapStart support also preloads and initializes the classes listed in `META-INF/quarkus-preload-classes.txt` before the snapshot, which moves lesson 1's class loading into the image. Restore time is limited, so keep `afterRestore` short.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 700 235\" role=\"img\" aria-label=\"CRaC hook order: components registered as pool, consumer, reporter. beforeCheckpoint runs reporter, consumer, pool, then the snapshot; afterRestore runs pool, consumer, reporter.\"><text class=\"t-s t-m\" x=\"20\" y=\"24\">registered in this order: 1 ledger DB pool, 2 Kafka consumer, 3 metrics reporter</text><text class=\"t-s t-a\" x=\"20\" y=\"66\">checkpoint</text><text class=\"t-s t-m\" x=\"120\" y=\"50\">beforeCheckpoint: newest first</text><rect class=\"box\" x=\"120\" y=\"56\" width=\"120\" height=\"40\" rx=\"8\"/><text class=\"t-s\" x=\"180\" y=\"81\" text-anchor=\"middle\">metrics reporter</text><line class=\"ln\" x1=\"240\" y1=\"76\" x2=\"258\" y2=\"76\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"260\" y=\"56\" width=\"120\" height=\"40\" rx=\"8\"/><text class=\"t-s\" x=\"320\" y=\"81\" text-anchor=\"middle\">Kafka consumer</text><line class=\"ln\" x1=\"380\" y1=\"76\" x2=\"398\" y2=\"76\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"400\" y=\"56\" width=\"120\" height=\"40\" rx=\"8\"/><text class=\"t-s\" x=\"460\" y=\"81\" text-anchor=\"middle\">ledger DB pool</text><line class=\"ln\" x1=\"520\" y1=\"76\" x2=\"538\" y2=\"76\" marker-end=\"url(#arr)\"/><rect class=\"box-ok\" x=\"540\" y=\"56\" width=\"140\" height=\"40\" rx=\"8\"/><text class=\"t-s\" x=\"610\" y=\"81\" text-anchor=\"middle\">snapshot written</text><line class=\"ln-d\" x1=\"610\" y1=\"96\" x2=\"610\" y2=\"132\" marker-end=\"url(#arr)\"/><text class=\"t-s t-m\" x=\"600\" y=\"118\" text-anchor=\"end\">later, maybe in another process</text><text class=\"t-s t-a\" x=\"20\" y=\"160\">restore</text><text class=\"t-s t-m\" x=\"120\" y=\"144\">afterRestore: oldest first</text><rect class=\"box-b\" x=\"540\" y=\"150\" width=\"140\" height=\"40\" rx=\"8\"/><text class=\"t-s\" x=\"610\" y=\"175\" text-anchor=\"middle\">image restored</text><line class=\"ln\" x1=\"540\" y1=\"170\" x2=\"522\" y2=\"170\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"400\" y=\"150\" width=\"120\" height=\"40\" rx=\"8\"/><text class=\"t-s\" x=\"460\" y=\"175\" text-anchor=\"middle\">ledger DB pool</text><line class=\"ln\" x1=\"400\" y1=\"170\" x2=\"382\" y2=\"170\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"260\" y=\"150\" width=\"120\" height=\"40\" rx=\"8\"/><text class=\"t-s\" x=\"320\" y=\"175\" text-anchor=\"middle\">Kafka consumer</text><line class=\"ln\" x1=\"260\" y1=\"170\" x2=\"242\" y2=\"170\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"120\" y=\"150\" width=\"120\" height=\"40\" rx=\"8\"/><text class=\"t-s\" x=\"180\" y=\"175\" text-anchor=\"middle\">metrics reporter</text><text class=\"t-s t-m\" x=\"20\" y=\"222\">A later component may use an earlier one, so it stops first and starts last.</text></svg>",
+    "caption": "The global context tells the newest component first at checkpoint and the oldest first at restore."
+   },
+   "try": {
+    "title": "Hook order, and a forgotten socket",
+    "minutes": 3,
+    "steps": [
+     "Read `HookOrderDemo`. Three components register in the order a service creates them: the ledger DB pool, the Kafka consumer, the metrics reporter.",
+     "Predict the order of the six hook lines, then run it.",
+     "Run it with `-Pargs=leak`, where the reporter forgets to close its socket. Predict whether the restore hooks still run."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "HookOrderDemo.java",
+     "src": "package workbench.startup.l04.demo;\n\nimport java.util.ArrayList;\nimport java.util.List;\n\n/**\n * A toy checkpoint: three components register hooks in the order the service creates them.\n * Pass \"leak\" as an argument and the metrics reporter forgets to close its socket.\n */\npublic class HookOrderDemo {\n    /** org.crac.Resource has the same two methods, each taking a Context argument. */\n    interface Resource {\n        void beforeCheckpoint();\n        void afterRestore();\n    }\n\n    static final List<Resource> registered = new ArrayList<>();\n    static final List<String> openSockets = new ArrayList<>();\n\n    static final class Component implements Resource {\n        final String name;\n        final boolean leaks;\n\n        Component(String name, boolean leaks) {\n            this.name = name;\n            this.leaks = leaks;\n            openSockets.add(name);                       // every component holds a connection\n            registered.add(this);                        // and registers itself when it is created\n        }\n\n        public void beforeCheckpoint() {\n            System.out.println(\"  beforeCheckpoint: \" + name);\n            if (!leaks) openSockets.remove(name);\n        }\n\n        public void afterRestore() {\n            System.out.println(\"  afterRestore:     \" + name);\n            if (!openSockets.contains(name)) openSockets.add(name);\n        }\n    }\n\n    public static void main(String[] args) {\n        boolean leak = args.length > 0 && args[0].equals(\"leak\");\n        new Component(\"ledger DB pool\", false);         // created first: the others use it\n        new Component(\"Kafka consumer\", false);\n        new Component(\"metrics reporter\", leak);\n\n        System.out.println(\"checkpoint requested\");\n        for (Resource r : registered.reversed()) r.beforeCheckpoint();         // last registered first\n        if (openSockets.isEmpty()) {\n            System.out.println(\"  -- snapshot written --\");\n        } else {\n            System.out.println(\"  -- checkpoint refused, still open: \" + openSockets + \" --\");\n        }\n        for (Resource r : registered) r.afterRestore();                       // first registered first\n    }\n}\n",
+     "run": "./gradlew :startup:demo -Pmain=workbench.startup.l04.demo.HookOrderDemo",
+     "file": "labs/startup/src/demo/java/workbench/startup/l04/demo/HookOrderDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "HookOrderDemo.kt",
+      "src": "package workbench.startup.l04.demo\n\n/**\n * A toy checkpoint: three components register hooks in the order the service creates them.\n * Pass \"leak\" as an argument and the metrics reporter forgets to close its socket.\n */\nprivate interface Hooks {                               // org.crac.Resource: the same two methods, plus a Context argument\n    fun beforeCheckpoint()\n    fun afterRestore()\n}\n\nprivate val registered = mutableListOf<Hooks>()\nprivate val openSockets = mutableListOf<String>()\n\nprivate class Component(val name: String, val leaks: Boolean) : Hooks {\n    init {\n        openSockets += name                             // every component holds a connection\n        registered += this                              // and registers itself when it is created\n    }\n\n    override fun beforeCheckpoint() {\n        println(\"  beforeCheckpoint: $name\")\n        if (!leaks) openSockets -= name\n    }\n\n    override fun afterRestore() {\n        println(\"  afterRestore:     $name\")\n        if (name !in openSockets) openSockets += name\n    }\n}\n\nfun main(args: Array<String>) {\n    val leak = args.firstOrNull() == \"leak\"\n    Component(\"ledger DB pool\", false)                  // created first: the others use it\n    Component(\"Kafka consumer\", false)\n    Component(\"metrics reporter\", leak)\n\n    println(\"checkpoint requested\")\n    registered.asReversed().forEach { it.beforeCheckpoint() }          // last registered first\n    if (openSockets.isEmpty()) {\n        println(\"  -- snapshot written --\")\n    } else {\n        println(\"  -- checkpoint refused, still open: $openSockets --\")\n    }\n    registered.forEach { it.afterRestore() }                           // first registered first\n}\n",
+      "run": "./gradlew :startup:demo -Pmain=workbench.startup.l04.demo.HookOrderDemoKt",
+      "file": "labs/startup/src/demo/kotlin/workbench/startup/l04/demo/HookOrderDemo.kt"
+     }
+    },
+    "expect": "`beforeCheckpoint` runs for the reporter, the consumer, then the pool; the snapshot is written; `afterRestore` runs for the pool, the consumer, then the reporter. With `leak` the checkpoint is refused (`still open: [metrics reporter]`), and the restore hooks still run in the same order, so the service keeps working, as the real global context does when a checkpoint fails."
+   },
+   "refs": [
+    {
+     "title": "CRaC: file descriptor policies",
+     "url": "https://github.com/CRaC/docs/blob/master/fd-policies.md",
+     "kind": "docs"
+    },
+    {
+     "title": "Quarkus 3.40: AWS Lambda SnapStart configuration",
+     "url": "https://raw.githubusercontent.com/quarkusio/quarkus/3.40.1.1/docs/src/main/asciidoc/aws-lambda-snapstart.adoc",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Choosing a start-up strategy",
+   "body": "Here is the whole track in one table. The numbers come from the lessons: this track's own runs on a shared VM, Quarkus's perf-lab benchmark, and CRaC's 2020 results. Read them as directions, not promises.\n\n| | Nothing | AppCDS (JDK 21) | AOT cache (JDK 25.0.4+) | Native image | CRaC or SnapStart |\n|---|---|---|---|---|---|\n| Code changes | none | none | none; one property in Quarkus 3.40 | metadata, build-time init fixes | hooks for sockets, files, pools |\n| Start-up gain seen | baseline | about half the CPU | about a sixth of the CPU; first request 218 to 136 ms | first request 581 ms vs 4,417 ms | first operation 33 ms vs 980 ms |\n| Peak throughput | baseline | same | about 7% lower | about 59% lower | a warm JVM's |\n| RSS | baseline | a little lower | 240 vs 304 MiB | 95 vs 304 MiB | a warm JVM's |\n| What it costs | nothing | an archive step in the build | a training run; same JDK build, flags and JAR | builds of 3 to 10 min and 4 to 8 GB | a vendor JDK or Lambda, CRIU rights, image storage |\n\nStart with the JVM and measure, as lesson 1 showed: time to first request from outside, RSS from `ps`. On JDK 25.0.4 or later, add the AOT cache trained by your integration tests. It is the cheapest gain in the table and changes no code. On JDK 21, build a dynamic AppCDS archive when you build the image. Do nothing more for services that rarely restart and that nobody waits on.\n\nMove to a native image when start-up in milliseconds or memory per instance is the real limit, for example scale-to-zero functions or many small services on one node, and the team accepts slow builds, metadata upkeep and lower peak throughput.\n\nMove to CRaC or SnapStart when new instances must be fast and warm at once, you control the runtime (Lambda, or a vendor CRaC JDK on Linux with CRIU rights), and you can make every connection pool, consumer and file handle checkpoint-safe.\n\nCheck yourself with a case the table doesn't list: a nightly batch job on JDK 25.0.5 runs for 40 minutes, starts once a night, and is CPU-bound for the whole run. Which column wins? (Nothing, or at most the AOT cache. Its start-up is a rounding error next to 40 minutes, and native would cost it peak throughput every minute of the run.)"
+  }
+ ],
+ "analogy": "Restarting a JVM is rebooting a laptop: every app starts from nothing and takes a while to get fast. Lesson 2's AOT cache is a faster reboot with the bookshelf already sorted. A native image swaps the laptop for a calculator built for one job: it is on instantly, but it can only do what it was built for. CRaC is hibernating the laptop with every app open and warm, then waking it. Before you hibernate, you close the network connections, because the other side won't wait for you. The analogy breaks in one place: you wake a laptop once, but you can restore one CRaC image into a hundred processes, and all hundred wake up with the same memory, the same counters and the same cached tokens.",
+ "in_your_world": "For Quarkus services on Kubernetes, CRaC is rarely the first step: start with the AOT cache, which needs no code and no special JDK. CRaC and SnapStart fit where cold starts hit users directly, such as a card-tokenization function on Lambda that sits idle at night and must answer within the issuer's timeout on the first call. If you go there, every component with an outside connection needs hooks: the Oracle connection pool, the Kafka consumer (stop polling and close it before the checkpoint, create it again after restore), Temporal worker connections, the HTTP client to the card issuer. Then look for per-instance state created at start-up: an idempotency-key prefix, a node id for ledger entry ids, an OAuth token. In a restored copy those are shared with every other copy unless `afterRestore` makes new ones.",
+ "mistake": "The subtle mistake is registering a resource that nobody else holds. `Core.getGlobalContext().register(new Resource() { ... })` compiles and works in a quick test, but the global context keeps only a weak reference, so the garbage collector can remove your anonymous resource at any time. Its hooks then never run: the checkpoint fails on the pool's open sockets, or worse, a restored process keeps a pool of dead connections. The CRaC best-practices guide gives the fix: store the resource in a field of the component it belongs to, and register that field.",
+ "compare": {
+  "title": "A checkpoint-safe pool with org.crac in Java and Kotlin",
+  "java": {
+   "title": "IssuerClientPool.java",
+   "src": "public final class IssuerClientPool {\n    private final List<IssuerConnection> connections = new ArrayList<>();\n\n    // a field keeps the handler reachable: the global context only holds a weak reference\n    private final Resource cracHandler = new Resource() {\n        @Override public void beforeCheckpoint(Context<? extends Resource> c) { closeAll(); }\n        @Override public void afterRestore(Context<? extends Resource> c) { openAll(); }\n    };\n\n    public IssuerClientPool() {\n        openAll();\n        Core.getGlobalContext().register(cracHandler);\n    }\n\n    private synchronized void openAll() {\n        for (int i = 0; i < 20; i++) connections.add(IssuerConnection.open());\n    }\n\n    private synchronized void closeAll() {\n        connections.forEach(IssuerConnection::close);   // nothing open in the image\n        connections.clear();\n    }\n}"
+  },
+  "kotlin": {
+   "title": "IssuerClientPool.kt",
+   "src": "class IssuerClientPool {\n    private val connections = mutableListOf<IssuerConnection>()\n\n    // a property keeps the handler reachable: the global context only holds a weak reference\n    private val cracHandler = object : Resource {\n        override fun beforeCheckpoint(c: Context<out Resource>) = closeAll()\n        override fun afterRestore(c: Context<out Resource>) = openAll()\n    }\n\n    // after cracHandler: Kotlin runs property initializers and init blocks top to bottom\n    init {\n        openAll()\n        Core.getGlobalContext().register(cracHandler)\n    }\n\n    @Synchronized private fun openAll() = repeat(20) { connections += IssuerConnection.open() }\n\n    @Synchronized private fun closeAll() {\n        connections.forEach { it.close() }              // nothing open in the image\n        connections.clear()\n    }\n}"
+  },
+  "note": "The JVM sees the same thing from both: an object implementing `org.crac.Resource`, held strongly by the pool and weakly by the global context. Java's anonymous class and Kotlin's `object :` expression both compile to a small inner class, and `Resource` has two methods, so neither language can use a lambda for it. The Kotlin trap is order. Properties and `init` blocks run top to bottom. With the `init` block above `cracHandler`, a direct reference fails to compile (\"variable 'cracHandler' must be initialized\"), but the same reference made through a helper method compiles and registers `null`. Java runs all field initializers before the constructor body, so the Java version has no such trap. Kotlin sees the parameter as `Context<out Resource>`, which is Java's `Context<? extends Resource>`."
+ },
+ "worked": {
+  "title": "Make a Kafka-fed ledger service checkpoint-safe",
+  "steps": [
+   {
+    "say": "List what the service holds that lives outside the process: a ledger DB pool, a Kafka consumer that writes through the pool, and an instance id that prefixes every ledger entry id. The pool and the consumer hold sockets. The instance id is plain memory, which is the problem: every restored copy would get the same one.",
+    "code": "",
+    "lang": ""
+   },
+   {
+    "say": "Give the consumer its hooks. It is created after the pool, so it is registered later, which makes the context stop it before the pool closes and start it after the pool is back. Keep the handler in a field.",
+    "code": "final class LedgerConsumer {\n    private volatile KafkaConsumer<String, String> consumer = newConsumer();\n    private final Resource cracHandler = new Resource() {\n        // 1. stop polling, commit, and close the broker connections\n        @Override public void beforeCheckpoint(Context<? extends Resource> c) { stopPolling(); consumer.close(); }\n        // 2. a new consumer joins the group again after restore\n        @Override public void afterRestore(Context<? extends Resource> c) { consumer = newConsumer(); startPolling(); }\n    };\n\n    LedgerConsumer() { Core.getGlobalContext().register(cracHandler); }\n}",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "class LedgerConsumer {\n    @Volatile private var consumer = newConsumer()\n    private val cracHandler = object : Resource {\n        // 1. stop polling, commit, and close the broker connections\n        override fun beforeCheckpoint(c: Context<out Resource>) { stopPolling(); consumer.close() }\n        // 2. a new consumer joins the group again after restore\n        override fun afterRestore(c: Context<out Resource>) { consumer = newConsumer(); startPolling() }\n    }\n\n    init { Core.getGlobalContext().register(cracHandler) }\n}"
+   },
+   {
+    "say": "Make per-instance state after restore. The instance id moves out of a final field and into something `afterRestore` can replace, so two copies restored from one image never write the same ledger entry id.",
+    "code": "final class InstanceId implements Resource {\n    private volatile String value = UUID.randomUUID().toString();\n\n    InstanceId() { Core.getGlobalContext().register(this); }   // kept alive by whoever holds InstanceId\n\n    String get() { return value; }\n\n    @Override public void beforeCheckpoint(Context<? extends Resource> c) { }\n    // 3. every restored copy gets its own id\n    @Override public void afterRestore(Context<? extends Resource> c) { value = UUID.randomUUID().toString(); }\n}",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "class InstanceId : Resource {\n    @Volatile var value: String = UUID.randomUUID().toString()\n        private set\n\n    init { Core.getGlobalContext().register(this) }   // kept alive by whoever holds InstanceId\n\n    override fun beforeCheckpoint(c: Context<out Resource>) {}\n    // 3. every restored copy gets its own id\n    override fun afterRestore(c: Context<out Resource>) { value = UUID.randomUUID().toString() }\n}"
+   },
+   {
+    "say": "Test the checkpoint for real on a CRaC JDK, and read the application's console, because jcmd reports success either way. A refused checkpoint names what was still open.",
+    "code": "java -XX:CRaCCheckpointTo=cr -jar ledger.jar &\n# drive some traffic, then:\njcmd ledger.jar JDK.checkpoint     # prints \"Command executed successfully\" in any case\n# check the service's own log for errors, then restore and send a payment:\njava -XX:CRaCRestoreFrom=cr",
+    "lang": "bash"
+   }
+  ]
+ },
+ "lab": {
+  "title": "Build a checkpoint context and a checkpoint-safe pool",
+  "minutes": 15,
+  "files": [
+   "labs/startup/src/main/kotlin/workbench/startup/l04/SimContext.kt",
+   "labs/startup/src/main/kotlin/workbench/startup/l04/IssuerConnectionPool.kt"
+  ],
+  "run": "./gradlew :startup:test --tests 'workbench.startup.l04.*'",
+  "steps": [
+   "Run the tests once. Seven of eight fail; `borrow` already works.",
+   "Implement `SimContext.checkpointRestore`, following the four numbered rules in its KDoc. They are the rules the org.crac docs give for the real global context. Run `SimContextTest` until its four tests pass.",
+   "Fix `IssuerConnectionPool`: register it with the context in `init`, close and drop every socket in `beforeCheckpoint`, and open `size` new ones in `afterRestore`.",
+   "Run all eight tests. Then read `after restore the pool hands out new, open connections`: the ids prove the pool reconnected instead of reusing the old sockets."
+  ],
+  "hints": [
+   "`resources.asReversed()` gives a reversed view of the list without copying it.",
+   "Collect problems in a `mutableListOf<Exception>()`, then `CheckpointException(\"checkpoint failed\").apply { problems.forEach(::addSuppressed) }`.",
+   "When the checkpoint fails, restore notifications still run on every resource, and their exceptions go into the same `CheckpointException`."
+  ],
+  "done_when": "All eight tests in `SimContextTest` and `IssuerConnectionPoolTest` pass."
+ },
+ "drill": {
+  "title": "Hooks for a metrics reporter, from memory",
+  "minutes": 5,
+  "prompt": "Close this page. A `MetricsReporter` sends counters over a socket every 10 seconds from a `ScheduledExecutorService`. Write its `org.crac` hooks: before the checkpoint stop the schedule and close the socket; after restore open a new socket and schedule again. Keep the handler reachable, and register it.",
+  "answer": {
+   "lang": "java",
+   "src": "public final class MetricsReporter {\n    private ScheduledExecutorService timer;\n    private StatsSocket socket;\n    // held in a field: the global context only keeps a weak reference\n    private final Resource cracHandler = new Resource() {\n        @Override\n        public void beforeCheckpoint(Context<? extends Resource> c) throws Exception {\n            timer.shutdownNow();                                 // 1. no thread sends during the snapshot\n            timer.awaitTermination(5, TimeUnit.SECONDS);\n            socket.close();                                      // 2. nothing open in the image\n        }\n\n        @Override\n        public void afterRestore(Context<? extends Resource> c) {\n            start();                                             // 3. a new socket and a new schedule\n        }\n    };\n\n    public MetricsReporter() {\n        start();\n        Core.getGlobalContext().register(cracHandler);\n    }\n\n    private void start() {\n        socket = StatsSocket.connect(\"metrics.internal:8125\");\n        timer = Executors.newSingleThreadScheduledExecutor();\n        timer.scheduleAtFixedRate(this::send, 10, 10, TimeUnit.SECONDS);\n    }\n\n    private void send() { socket.write(Counters.snapshot()); }\n}",
+   "alt": {
+    "lang": "kotlin",
+    "src": "class MetricsReporter {\n    private lateinit var timer: ScheduledExecutorService\n    private lateinit var socket: StatsSocket\n\n    // held in a property: the global context only keeps a weak reference\n    private val cracHandler = object : Resource {\n        override fun beforeCheckpoint(c: Context<out Resource>) {\n            timer.shutdownNow()                                  // 1. no thread sends during the snapshot\n            timer.awaitTermination(5, TimeUnit.SECONDS)\n            socket.close()                                       // 2. nothing open in the image\n        }\n\n        override fun afterRestore(c: Context<out Resource>) = start()   // 3. new socket, new schedule\n    }\n\n    init {                                                       // after cracHandler, so it is set\n        start()\n        Core.getGlobalContext().register(cracHandler)\n    }\n\n    private fun start() {\n        socket = StatsSocket.connect(\"metrics.internal:8125\")\n        timer = Executors.newSingleThreadScheduledExecutor()\n        timer.scheduleAtFixedRate({ socket.write(Counters.snapshot()) }, 10, 10, TimeUnit.SECONDS)\n    }\n}"
+   }
+  }
+ },
+ "recap": [
+  "A started JVM is still cold: it interprets, then C1 compiles, then C2 recompiles hot code with profiles. Every new JVM warms up again.",
+  "CRaC checkpoints a running JVM to disk with CRIU and restores it later, with heap, classes and JIT code as they were. It ships in vendor builds (Azul Zulu, BellSoft Liberica), not in mainline OpenJDK.",
+  "Open files and sockets fail the checkpoint by default (`error` policy). Close them in `beforeCheckpoint`, reopen in `afterRestore`, and recreate per-instance state, because every restore starts from the same memory.",
+  "The global context calls `beforeCheckpoint` in reverse registration order and `afterRestore` in registration order, tells every resource even when one throws, and holds resources by weak reference, so keep yours in a field.",
+  "Lambda SnapStart uses the same `org.crac` hooks with its own implementation; Quarkus preloads classes before its snapshot.",
+  "Default to the JVM plus the AOT cache (JDK 25.0.4+) or AppCDS (JDK 21); go native when start-up or memory per instance is the real limit; use CRaC when instances must start fast and warm and you control the runtime."
+ ],
+ "quiz": [
+  {
+   "q": "On JDK 25, which of these brings back JIT-compiled machine code from a previous run, so hot methods are fast from the first request?",
+   "options": [
+    "An AOT cache made with `-XX:AOTCacheOutput`",
+    "A dynamic AppCDS archive",
+    "Restoring a CRaC checkpoint",
+    "The default CDS archive"
+   ],
+   "answer": 2,
+   "from": "boot-02",
+   "why": "A CRaC image holds the whole process memory, including the code cache, so a restored JVM is as warm as it was at the checkpoint. JDK 25's AOT cache holds classes, linked state, heap objects and method profiles that help the JIT start sooner, but the compiling still happens in each new JVM. Compiled code in the AOT cache is JEP 544, in development for JDK 28."
+  },
+  {
+   "q": "A service registers, in this order, a ledger DB pool, a Kafka consumer and a metrics reporter. In which order does the global context call `beforeCheckpoint`?",
+   "options": [
+    "Pool, consumer, reporter",
+    "Reporter, consumer, pool",
+    "In parallel, on separate threads",
+    "In an undefined order"
+   ],
+   "answer": 1,
+   "why": "Checkpoint notification runs in reverse registration order, and restore notification in registration order. Components created later tend to use earlier ones: the consumer writes through the pool, so it must stop before the pool closes and start after it reopens."
+  },
+  {
+   "q": "Nobody wrote hooks for the HTTP client's open connection to the card issuer. With the default settings of a CRaC JDK, what does a checkpoint request do?",
+   "options": [
+    "Saves the connection in the image; it works after restore",
+    "Closes it silently and reopens it after restore",
+    "Exits the JVM",
+    "Fails the checkpoint with an error, runs the restore hooks, and leaves the process running"
+   ],
+   "answer": 3,
+   "why": "The default policy for open files and sockets is `error`, which prints an error and fails the checkpoint. Restore notification then starts at once, without an image, and the service carries on. Even the `reopen` policy can't help a socket: the docs say reopening sockets is not implemented."
+  },
+  {
+   "q": "One CRaC image is restored into 20 instances. Each instance builds idempotency keys from a random prefix chosen in a constructor before the checkpoint. What happens?",
+   "options": [
+    "All 20 instances use the same prefix, so their keys can collide",
+    "Each instance gets its own prefix, because the restore reseeds memory",
+    "The checkpoint fails because random numbers can't be saved",
+    "The prefix is lost and becomes null"
+   ],
+   "answer": 0,
+   "why": "A restore copies the image's memory as it was, so every instance starts with the same prefix. Recreate per-instance values like this in `afterRestore`."
+  },
+  {
+   "q": "A Quarkus REST service on Kubernetes runs JDK 25.0.5, deploys several times a day, and peak throughput matters. The team wants faster pod start-up without code changes. Which option fits best?",
+   "options": [
+    "A native image",
+    "CRaC with hooks for every resource",
+    "The AOT cache, trained during the integration tests",
+    "`-XX:+AutoCreateSharedArchive` written to the pod's disk at run time"
+   ],
+   "answer": 2,
+   "why": "The AOT cache needs no code change (one Quarkus property), keeps peak throughput within about 7% in Quarkus's benchmark, and on 25.0.4 or later it is rejected safely when the JAR changes. Native costs about 59% of peak throughput, CRaC needs hooks and a vendor JDK, and an archive written at run time is lost with each pod."
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "What does CRaC do?",
+   "back": "Coordinated Restore at Checkpoint: it writes a running JVM's whole process to an image (with CRIU on Linux) and later starts new processes from it, warm, with heap, classes and JIT code as they were."
+  },
+  {
+   "front": "In which order are CRaC hooks called?",
+   "back": "`beforeCheckpoint` in reverse registration order; `afterRestore` in registration order."
+  },
+  {
+   "front": "What does CRaC do by default with an open file or socket at checkpoint time?",
+   "back": "Its policy is `error`: it prints an error and fails the checkpoint. The process keeps running."
+  },
+  {
+   "front": "Why must you keep your `org.crac` Resource in a field?",
+   "back": "The global context holds only a weak reference. An unreferenced resource can be garbage-collected, and its hooks never run."
+  },
+  {
+   "front": "Is CRaC part of mainline OpenJDK?",
+   "back": "No. There is no JEP. It ships in vendor builds such as Azul Zulu (17, 21, 25 on Linux, the `-crac-` files) and BellSoft Liberica (17, 21)."
+  },
+  {
+   "front": "`jcmd pay.jar JDK.checkpoint` prints \"Command executed successfully\". Did the checkpoint work?",
+   "back": "You don't know yet. jcmd always reports success; problems appear in the application's own console."
+  },
+  {
+   "front": "Restored copies of one image share what?",
+   "back": "Everything in memory at the checkpoint: ids, counters, random seeds, cached tokens. Recreate per-instance values in `afterRestore`."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Warm-up",
+   "plain": "The time after start-up during which the JIT is still compiling hot code, so the program runs slower than it will later."
+  },
+  {
+   "term": "CRaC",
+   "plain": "Coordinated Restore at Checkpoint: save a running JVM to disk and start copies of it later, already warm."
+  },
+  {
+   "term": "Checkpoint",
+   "plain": "The moment a running process is written to an image on disk."
+  },
+  {
+   "term": "Restore",
+   "plain": "Starting a new process from a checkpoint image; it continues where the old one stopped."
+  },
+  {
+   "term": "CRIU",
+   "plain": "Checkpoint/Restore In Userspace, the Linux tool CRaC uses to save and rebuild a process."
+  },
+  {
+   "term": "Resource (org.crac)",
+   "plain": "An object with `beforeCheckpoint` and `afterRestore` hooks, registered with a CRaC context."
+  },
+  {
+   "term": "File descriptor policy",
+   "plain": "The rule for an open file or socket at checkpoint time; the default, `error`, fails the checkpoint."
+  },
+  {
+   "term": "Lambda SnapStart",
+   "plain": "AWS Lambda's snapshot and restore of initialized Java functions, using the same `org.crac` hooks."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A teammate asks: \"If CRaC restores in 30 milliseconds, why don't we use it for all our Quarkus services instead of the AOT cache?\" Answer them in your own words.",
+  "answer": "CRaC is fast because it restores the whole process memory, warm JIT code included, but that same mechanism is what makes it costly. Anything outside the process can't be in the image, so every pool, consumer, client and open file needs hooks that close it before the checkpoint and reopen it after, in the right order, or the checkpoint fails. Every restored copy shares the memory of the image, so per-instance ids and tokens must be recreated. It also needs a vendor CRaC JDK on Linux with CRIU privileges, or Lambda, and somewhere to keep images, which contain the heap with its secrets. The AOT cache needs no code changes and no special JDK beyond 25.0.4 or later, and it is safely ignored when it doesn't match. So I'd start with the AOT cache everywhere, and use CRaC only for the services where a warm instance at once is worth that work."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "Three details for when you try CRaC for real.\n\nFirst, the threads. A resource can be called while other threads still use the component. The CRaC best-practices guide sorts components by how threads reach them: an unknown number of threads arriving at random, a known number of threads arriving periodically, or an event loop. For the first case it suggests a `java.util.concurrent.locks.ReadWriteLock`: borrowers take the read lock, and `beforeCheckpoint` takes the write lock and keeps it until `afterRestore`, so callers wait during the checkpoint instead of failing on a closed connection.\n\nSecond, the policies. If a library holds a file you can't close, `-Djdk.crac.resource-policies=<file>` points at a policy file. Rules are separated by `---`, match by type (`file`, `pipe`, `socket`, `filedescriptor`) and fields such as the path or port, and the first matching rule wins. `ignore` leaves the descriptor to CRIU, `close` closes it (\"an attempt to use it after restore will fail\"), and `reopen` reopens a file at the same position. Use policies as a temporary workaround; hooks in your own code are clearer.\n\nThird, the warm-up you capture. The CRaC docs describe the intended flow as a canary deployment: real traffic triggers class loading and JIT compilation, then you checkpoint, and the image becomes part of the release. A checkpoint taken after a synthetic warm-up only contains what that warm-up exercised, the same lesson as a training run in lesson 2. For Lambda, the Quarkus SnapStart guide also recommends `-XX:+TieredCompilation -XX:TieredStopAtLevel=1` through `JAVA_TOOL_OPTIONS`, which trades peak speed for less compiling right after a restore. The C1-only run in this lesson's first Try it shows that trade."
+ },
+ "sources": [
+  {
+   "title": "CRaC project documentation (README)",
+   "url": "https://github.com/CRaC/docs/blob/master/README.md"
+  },
+  {
+   "title": "org.crac API: Resource",
+   "url": "https://github.com/CRaC/org.crac/blob/master/src/main/java/org/crac/Resource.java"
+  },
+  {
+   "title": "CRaC: file descriptor policies",
+   "url": "https://github.com/CRaC/docs/blob/master/fd-policies.md"
+  },
+  {
+   "title": "AWS Lambda: SnapStart runtime hooks for Java",
+   "url": "https://docs.aws.amazon.com/lambda/latest/dg/snapstart-runtime-hooks-java.html"
+  },
+  {
+   "title": "Quarkus 3.40: AWS Lambda SnapStart configuration",
+   "url": "https://raw.githubusercontent.com/quarkusio/quarkus/3.40.1.1/docs/src/main/asciidoc/aws-lambda-snapstart.adoc"
+  }
+ ]
+}

@@ -1,0 +1,361 @@
+{
+ "id": "cls-07",
+ "title": "Java agents and instrumentation",
+ "minutes": 35,
+ "goal": "By the end you can write a startup agent, retransform a class that is already loaded under live objects, explain what retransformation may and may not change, read JEP 451's dynamic-agent warning, and use Byte Buddy's AgentBuilder with Advice to count calls on a final Kotlin class.",
+ "warmup": {
+  "q": "A service has been running for an hour. An agent attaches and changes the body of `SettlementJob.settle()`. A `SettlementJob` object created at startup calls `settle()` again. Which body runs?",
+  "options": [
+   "The old one: objects keep the class version they were created with",
+   "The new one: the class changed in place, and the old object uses the same class",
+   "Neither: the call throws because the class changed",
+   "The new one, but only after a restart"
+  ],
+  "answer": 1,
+  "why": "Retransformation replaces method bodies inside the existing `Class` object, and objects don't carry their own copy of the code, so the next call on the old object runs the new body. Only a call that was already running when the change happened finishes on the old bytecode. No restart is involved."
+ },
+ "sections": [
+  {
+   "h": "An agent is a class the JVM hands an Instrumentation object",
+   "body": "Lessons 4 and 5 added behaviour by wrapping objects. That needs an interface or a non-final class, and it misses self-calls whenever the proxy forwards. It also only works on objects you create through the proxy. Sometimes you need more: timing a method inside a library jar, or tracing a framework class you don't construct yourself. An **agent** gets access to the class instead of the object.\n\nAn agent is an ordinary class with a special entry point. The JVM calls it with a `java.lang.instrument.Instrumentation`, the JDK's handle for watching and changing classes. There are three ways to start one:\n\n- `java -javaagent:agent.jar[=args]` calls the agent's `premain(String args, Instrumentation inst)` before your `main`. You can repeat the option, and the agents start in the order given.\n- An executable jar can name an agent in its manifest with `Launcher-Agent-Class`. The JVM calls its `agentmain` before the application's `main`.\n- A tool can attach to a JVM that is already running and load an agent jar. The JVM calls `agentmain(String, Instrumentation)`. The next section covers this case.\n\nThe agent jar's manifest names the class: `Premain-Class` or `Agent-Class`. `Can-Retransform-Classes: true` asks for the right to change classes that are already loaded.\n\nThe first thing most agents do is register a `ClassFileTransformer`. The JVM calls its `transform` method with the bytes of every class it is about to define from then on, and the method returns either new bytes or `null`, which means \"no change\". The smallest useful agent changes nothing and only watches:\n\n```java\npublic static void premain(String args, Instrumentation inst) {\n    inst.addTransformer(new ClassFileTransformer() {\n        @Override\n        public byte[] transform(ClassLoader loader, String className, Class<?> redefined,\n                                ProtectionDomain domain, byte[] bytes) {\n            System.out.println(\"[agent] loading \" + className + \" (\" + bytes.length + \" bytes)\");\n            return null;                                   // null: leave the class as it is\n        }\n    });\n}\n```\n\n```kotlin\n@JvmStatic\nfun premain(args: String?, inst: Instrumentation) {\n    inst.addTransformer(object : ClassFileTransformer {\n        override fun transform(\n            loader: ClassLoader?, className: String?, redefined: Class<*>?,\n            domain: ProtectionDomain?, bytes: ByteArray,\n        ): ByteArray? {\n            println(\"[agent] loading $className (${bytes.size} bytes)\")\n            return null                                    // null: leave the class as it is\n        }\n    })\n}\n```\n\nThe class files that `transform` receives are the bytes from lesson 6. An agent that wants to change a class rewrites them, with the ClassFile API on JDK 24 and later, or with a library such as Byte Buddy. A startup agent sees almost every class of your application, because nearly all of them load after `premain` returns. Note `ClassFileTransformer` uses an anonymous class above, not a lambda: both of its `transform` methods are default methods, so it isn't a functional interface.",
+   "try": {
+    "title": "Watch a startup agent",
+    "minutes": 4,
+    "steps": [
+     "Read `CountingAgent` and `AgentTarget`. Predict which `workbench/` classes the agent will report, and in which order relative to the two `main:` lines.",
+     "Run `StartupAgentDemo` (or the Kotlin twin). It writes a jar that holds only a manifest with `Premain-Class`, then starts a second JVM with `-javaagent:<jar>=payments`.",
+     "Find the arguments string, the number of classes already loaded when `premain` ran, and the total the transformer saw."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "StartupAgentDemo.java",
+     "src": "package workbench.bytecode.l07;\n\nimport java.nio.file.Files;\nimport java.nio.file.Path;\nimport java.util.jar.Attributes;\nimport java.util.jar.JarOutputStream;\nimport java.util.jar.Manifest;\n\n/** Builds a one-line agent jar and starts a second JVM with -javaagent, so you can watch premain run. */\npublic class StartupAgentDemo {\n    public static void main(String[] args) throws Exception {\n        // 1. an agent jar needs a manifest naming the agent class; the class itself is on the class path\n        Path jar = Files.createTempFile(\"counting-agent\", \".jar\");\n        Manifest manifest = new Manifest();\n        manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, \"1.0\");\n        manifest.getMainAttributes().putValue(\"Premain-Class\", CountingAgent.class.getName());\n        try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(jar), manifest)) {\n            // no entries needed\n        }\n\n        // 2. java -javaagent:<jar>=payments -cp <this class path> AgentTarget\n        String java = ProcessHandle.current().info().command().orElse(\"java\");\n        Process child = new ProcessBuilder(java, \"-javaagent:\" + jar + \"=payments\",\n                \"-cp\", System.getProperty(\"java.class.path\"), AgentTarget.class.getName())\n                .redirectErrorStream(true)\n                .start();\n        child.getInputStream().transferTo(System.out);\n        System.out.println(\"child JVM exited with \" + child.waitFor());\n        Files.delete(jar);\n    }\n}\n",
+     "run": "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l07.StartupAgentDemo",
+     "file": "labs/bytecode/src/demo/java/workbench/bytecode/l07/StartupAgentDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "StartupAgentDemo.kt",
+      "src": "package workbench.bytecode.l07\n\nimport java.lang.instrument.ClassFileTransformer\nimport java.lang.instrument.Instrumentation\nimport java.nio.file.Files\nimport java.security.ProtectionDomain\nimport java.util.concurrent.atomic.AtomicInteger\nimport java.util.jar.Attributes\nimport java.util.jar.JarOutputStream\nimport java.util.jar.Manifest\n\n/** A startup agent: the JVM calls premain before main. It watches classes load and changes nothing. */\nobject KCountingAgent {\n    @JvmStatic\n    fun premain(args: String?, inst: Instrumentation) {\n        println(\"[agent] premain args=$args, classes already loaded: ${inst.allLoadedClasses.size}\")\n        val seen = AtomicInteger()\n        inst.addTransformer(object : ClassFileTransformer {\n            override fun transform(\n                loader: ClassLoader?, className: String?, classBeingRedefined: Class<*>?,\n                domain: ProtectionDomain?, classfileBuffer: ByteArray,\n            ): ByteArray? {\n                seen.incrementAndGet()\n                if (className?.startsWith(\"workbench/\") == true) {\n                    println(\"[agent] loading $className (${classfileBuffer.size} bytes)\")\n                }\n                return null                        // null means \"no change\"\n            }\n        })\n        Runtime.getRuntime().addShutdownHook(Thread { println(\"[agent] transformer saw ${seen.get()} class definitions\") })\n    }\n}\n\ndata class KPayment(val id: String, val amountMinor: Long)\n\n/** The program the startup agent watches. */\nobject KAgentTarget {\n    @JvmStatic\n    fun main(args: Array<String>) {\n        println(\"main: started\")\n        val p = KPayment(\"p-1\", 1_250)            // KPayment is loaded here, on first use\n        println(\"main: $p\")\n    }\n}\n\n/** Builds a one-line agent jar and starts a second JVM with -javaagent, so you can watch premain run. */\nfun main() {\n    // 1. an agent jar needs a manifest naming the agent class; the class itself is on the class path\n    val jar = Files.createTempFile(\"counting-agent\", \".jar\")\n    val manifest = Manifest().apply {\n        mainAttributes[Attributes.Name.MANIFEST_VERSION] = \"1.0\"\n        mainAttributes.putValue(\"Premain-Class\", KCountingAgent::class.java.name)\n    }\n    JarOutputStream(Files.newOutputStream(jar), manifest).use { }   // no entries needed\n\n    // 2. java -javaagent:<jar>=payments -cp <this class path> KAgentTarget\n    val java = ProcessHandle.current().info().command().orElse(\"java\")\n    val child = ProcessBuilder(java, \"-javaagent:$jar=payments\", \"-cp\", System.getProperty(\"java.class.path\"),\n        KAgentTarget::class.java.name)\n        .redirectErrorStream(true)\n        .start()\n    child.inputStream.transferTo(System.out)\n    println(\"child JVM exited with ${child.waitFor()}\")\n    Files.delete(jar)\n}\n",
+      "run": "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l07.StartupAgentDemoKt",
+      "file": "labs/bytecode/src/demo/kotlin/workbench/bytecode/l07/StartupAgentDemo.kt"
+     }
+    },
+    "expect": "`[agent] premain args=payments, classes already loaded: ...` comes first (several hundred JDK classes). Then the agent reports `AgentTarget`, then `main: started`, then `AgentTarget$Payment` just before it's used, then `main: Payment[...]`. At exit, `transformer saw N class definitions`, a few dozen. A record's first use also loads some JDK support classes. No warning appears: an agent named on the command line is not a dynamic load."
+   },
+   "refs": [
+    {
+     "title": "java.lang.instrument package (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.instrument/java/lang/instrument/package-summary.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Retransformation swaps method bodies under live objects",
+   "body": "\"An agent needs a restart\" is false for method bodies. `Instrumentation.retransformClasses(classes...)` runs the registered transformers again on classes that are already loaded and installs the result in place. The `Class` object stays the same, so every existing instance and every reference to the class sees the new code. The demo shows it on a final class: `clock.now()` printed nothing extra before, and the same `clock` object prints the advice line after.\n\nThe `Instrumentation` Javadoc lists what that does and doesn't mean:\n\n- \"If a retransformed method has active stack frames, those active frames continue to run the bytecodes of the original method. The retransformed method will be used on new invokes.\"\n- \"Redefining a class does not cause its initializers to be run. The values of static variables will remain as they were.\"\n- \"If this method throws an exception, no classes have been retransformed.\"\n\nThe JVM Tool Interface (JVMTI, the native interface agents are built on) sets the limit on what may change: \"The retransformation must not add, remove or rename fields or methods, change the signatures of methods, change modifiers, or change inheritance.\" Method bodies, the constant pool and attributes may change. So you can add timing code to `settle()`, but you can't add a `long calls` field to count with. The count has to live somewhere else, such as a public class the new code calls, which is what the lab's `CallCounts` is for.\n\nThat limit also explains the other direction. A transformer that wants to add members can do it only when the class is first loaded, which means registering it before the class loads, usually through `-javaagent`. Quarkus's class-loading guide states the same rule for its own build-time transformers: \"Once a class has been loaded it cannot be changed, so if a class is loaded before the transformers have been prepared this will prevent the transformation from working.\"\n\nRetransformation also needs permission. The agent's manifest must say `Can-Retransform-Classes: true`, and each transformer that should run again must be registered with `addTransformer(transformer, true)`. `isRetransformClassesSupported()` reports whether this JVM and agent can do it. It's `true` for Byte Buddy's agent on JDK 21 to 27.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 680 290\" role=\"img\" aria-label=\"Retransformation keeps the same Class object and its static fields, and swaps the body of now(). An object created before still uses the class, so its next call runs the new body. A call already running finishes on the old body. Adding or removing fields or methods, or changing signatures, modifiers or the superclass, is not allowed.\">\n<rect class=\"box\" x=\"20\" y=\"30\" width=\"640\" height=\"110\" rx=\"8\"/>\n<text class=\"t-s t-m\" x=\"340\" y=\"50\" text-anchor=\"middle\">class FxClock: the same Class object, same static fields, before and after</text>\n<rect class=\"box-dim\" x=\"40\" y=\"62\" width=\"250\" height=\"60\" rx=\"8\"/>\n<text class=\"t-s t-code\" x=\"165\" y=\"88\" text-anchor=\"middle\">now() body v1</text>\n<text class=\"t-s t-m\" x=\"165\" y=\"108\" text-anchor=\"middle\">return \"tick\"</text>\n<line class=\"ln-a\" x1=\"290\" y1=\"92\" x2=\"386\" y2=\"92\" marker-end=\"url(#arr)\"/>\n<text class=\"t-s t-a\" x=\"338\" y=\"82\" text-anchor=\"middle\">retransform</text>\n<rect class=\"box-ok\" x=\"390\" y=\"62\" width=\"250\" height=\"60\" rx=\"8\"/>\n<text class=\"t-s t-code\" x=\"515\" y=\"88\" text-anchor=\"middle\">now() body v2</text>\n<text class=\"t-s t-m\" x=\"515\" y=\"108\" text-anchor=\"middle\">advice + return \"tick\"</text>\n<rect class=\"box-a\" x=\"40\" y=\"166\" width=\"250\" height=\"40\" rx=\"8\"/>\n<text class=\"t-s\" x=\"165\" y=\"191\" text-anchor=\"middle\">clock, created before</text>\n<line class=\"ln\" x1=\"290\" y1=\"186\" x2=\"515\" y2=\"186\"/>\n<line class=\"ln\" x1=\"515\" y1=\"186\" x2=\"515\" y2=\"126\" marker-end=\"url(#arr)\"/>\n<text class=\"t-s t-ok\" x=\"580\" y=\"160\" text-anchor=\"middle\">its next call</text>\n<rect class=\"box\" x=\"40\" y=\"218\" width=\"250\" height=\"34\" rx=\"8\"/>\n<text class=\"t-s\" x=\"165\" y=\"240\" text-anchor=\"middle\">a call already inside now()</text>\n<line class=\"ln-d\" x1=\"165\" y1=\"218\" x2=\"165\" y2=\"126\" marker-end=\"url(#arr)\"/>\n<text class=\"t-s t-m\" x=\"232\" y=\"160\" text-anchor=\"middle\">finishes on v1</text>\n<rect class=\"box-bad\" x=\"320\" y=\"218\" width=\"340\" height=\"34\" rx=\"8\"/>\n<text class=\"t-s\" x=\"490\" y=\"240\" text-anchor=\"middle\">not allowed: new fields or methods, new signatures</text>\n<text class=\"t-s t-m\" x=\"340\" y=\"278\" text-anchor=\"middle\">statics keep their values and no static initializer runs again</text>\n</svg>",
+    "caption": "Retransformation changes the method body inside the existing class. Old objects use the new code on their next call."
+   },
+   "try": {
+    "title": "Change a class under a live object",
+    "minutes": 4,
+    "steps": [
+     "Read `LiveRetransformDemo` (or the Kotlin twin). `FxClock` is final, and `KFxClock` is final because it's Kotlin.",
+     "Before running it: will the `after:` call on the same `clock` print an advice line? Will you see a warning?",
+     "Run it with the command below and read the output from top to bottom."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "LiveRetransformDemo.java",
+     "src": "package workbench.bytecode.l07;\n\nimport net.bytebuddy.agent.ByteBuddyAgent;\nimport net.bytebuddy.agent.builder.AgentBuilder;\nimport net.bytebuddy.asm.Advice;\n\nimport java.lang.instrument.Instrumentation;\n\nimport static net.bytebuddy.matcher.ElementMatchers.is;\nimport static net.bytebuddy.matcher.ElementMatchers.named;\n\n/** Attach an agent to this running JVM and change a loaded class under a live object. */\npublic class LiveRetransformDemo {\n    public static final class FxClock {           // final: lesson 5's subclass proxies couldn't touch it\n        public String now() { return \"tick\"; }\n    }\n\n    public static class TimingAdvice {\n        @Advice.OnMethodEnter\n        static long enter() {\n            return System.nanoTime();             // copied to the start of now()\n        }\n\n        @Advice.OnMethodExit(onThrowable = Throwable.class)\n        static void exit(@Advice.Origin(\"#t.#m\") String where, @Advice.Enter long t0) {\n            System.out.println(\"  [advice] \" + where + \" took \" + (System.nanoTime() - t0) + \" ns\");\n        }\n    }\n\n    public static void main(String[] args) throws Exception {\n        if (args.length > 0) {                    // -Pargs=allowed or -Pargs=blocked\n            relaunch(args[0]);\n            return;\n        }\n        FxClock clock = new FxClock();\n        System.out.println(\"before: \" + clock.now());\n\n        Instrumentation inst = ByteBuddyAgent.install();   // self-attach: JEP 451 warns unless allowed\n        System.out.println(\"retransform supported: \" + inst.isRetransformClassesSupported());\n        new AgentBuilder.Default()\n                .disableClassFormatChanges()\n                .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)\n                .type(is(FxClock.class))\n                .transform((builder, type, loader, module, domain) ->\n                        builder.visit(Advice.to(TimingAdvice.class).on(named(\"now\"))))\n                .installOn(inst);\n\n        System.out.println(\"after:  \" + clock.now() + \"   (the same object, no restart)\");\n    }\n\n    /** Runs this demo again in a child JVM with dynamic agent loading explicitly allowed or blocked. */\n    static void relaunch(String mode) throws Exception {\n        String flag = mode.equals(\"blocked\") ? \"-XX:-EnableDynamicAgentLoading\" : \"-XX:+EnableDynamicAgentLoading\";\n        String java = ProcessHandle.current().info().command().orElse(\"java\");\n        Process child = new ProcessBuilder(java, flag, \"-cp\", System.getProperty(\"java.class.path\"),\n                LiveRetransformDemo.class.getName())\n                .redirectErrorStream(true)\n                .start();\n        System.out.println(\"child JVM with \" + flag + \":\");\n        child.getInputStream().transferTo(System.out);\n        System.out.println(\"child exited with \" + child.waitFor());\n    }\n}\n",
+     "run": "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l07.LiveRetransformDemo",
+     "file": "labs/bytecode/src/demo/java/workbench/bytecode/l07/LiveRetransformDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "LiveRetransformDemo.kt",
+      "src": "package workbench.bytecode.l07\n\nimport net.bytebuddy.agent.ByteBuddyAgent\nimport net.bytebuddy.agent.builder.AgentBuilder\nimport net.bytebuddy.asm.Advice\nimport net.bytebuddy.matcher.ElementMatchers.`is`\nimport net.bytebuddy.matcher.ElementMatchers.named\n\n/** Final, like every Kotlin class without `open`: lesson 5's subclass proxies couldn't touch it. */\nclass KFxClock {\n    fun now() = \"tick\"\n}\n\nobject KTimingAdvice {\n    @JvmStatic\n    @Advice.OnMethodEnter\n    fun enter(): Long = System.nanoTime()        // copied to the start of now()\n\n    @JvmStatic\n    @Advice.OnMethodExit(onThrowable = Throwable::class)\n    fun exit(@Advice.Origin(\"#t.#m\") where: String, @Advice.Enter t0: Long) {\n        println(\"  [advice] $where took ${System.nanoTime() - t0} ns\")\n    }\n}\n\n/** Attach an agent to this running JVM and change a loaded class under a live object. */\nfun main(args: Array<String>) {\n    if (args.isNotEmpty()) {                     // -Pargs=allowed or -Pargs=blocked\n        relaunch(args[0])\n        return\n    }\n    val clock = KFxClock()\n    println(\"before: ${clock.now()}\")\n\n    val inst = ByteBuddyAgent.install()          // self-attach: JEP 451 warns unless allowed\n    println(\"retransform supported: ${inst.isRetransformClassesSupported}\")\n    AgentBuilder.Default()\n        .disableClassFormatChanges()\n        .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)\n        .type(`is`(KFxClock::class.java))\n        .transform { builder, _, _, _, _ -> builder.visit(Advice.to(KTimingAdvice::class.java).on(named(\"now\"))) }\n        .installOn(inst)\n\n    println(\"after:  ${clock.now()}   (the same object, no restart)\")\n}\n\n/** Runs this demo again in a child JVM with dynamic agent loading explicitly allowed or blocked. */\nprivate fun relaunch(mode: String) {\n    val flag = if (mode == \"blocked\") \"-XX:-EnableDynamicAgentLoading\" else \"-XX:+EnableDynamicAgentLoading\"\n    val java = ProcessHandle.current().info().command().orElse(\"java\")\n    val child = ProcessBuilder(java, flag, \"-cp\", System.getProperty(\"java.class.path\"), \"workbench.bytecode.l07.LiveRetransformDemoKt\")\n        .redirectErrorStream(true)\n        .start()\n    println(\"child JVM with $flag:\")\n    child.inputStream.transferTo(System.out)\n    println(\"child exited with ${child.waitFor()}\")\n}\n",
+      "run": "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l07.LiveRetransformDemoKt",
+      "file": "labs/bytecode/src/demo/kotlin/workbench/bytecode/l07/LiveRetransformDemo.kt"
+     }
+    },
+    "expect": "`before: tick`, then four `WARNING:` lines (next section), then `retransform supported: true`, then `[advice] ...FxClock.now took ... ns` printed from inside `now()`, then `after: tick (the same object, no restart)`. The object was created before the agent existed, its class is final, and nothing was restarted."
+   },
+   "refs": [
+    {
+     "title": "Instrumentation (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.instrument/java/lang/instrument/Instrumentation.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Loading an agent into a running JVM prints a warning since JDK 21",
+   "body": "The four lines in the demo's output are JEP 451, \"Prepare to Disallow the Dynamic Loading of Agents\", delivered in JDK 21:\n\n```text\nWARNING: A Java agent has been loaded dynamically (.../byte-buddy-agent-1.18.17.jar)\nWARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning\nWARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information\nWARNING: Dynamic loading of agents will be disallowed by default in a future release\n```\n\nA dynamic load is any agent that arrives after startup, through the attach mechanism. `ByteBuddyAgent.install()` attaches to its own JVM, and so does any library that \"self-attaches\". The `java.lang.instrument` docs say \"the JVM prints a warning on the standard error stream for each agent that it attempts to start in a running JVM\", and name the HotSpot switch. `-XX:+EnableDynamicAgentLoading` opts in and hides the warning. `-XX:-EnableDynamicAgentLoading` refuses the load, and then `ByteBuddyAgent.install()` throws `IllegalStateException: Could not self-attach to current VM`. An agent started with `-javaagent` doesn't warn: the startup demo in section 1 printed none.\n\nToday the default is still \"allow, with a warning\". In the jdk-25-ga source the flag is declared `product(bool, EnableDynamicAgentLoading, true, ...)`, and runs for this track on JDK 21, 25, 26 and 27.0.1 all warned and loaded the agent. The last warning line says the default will change. When it does, every tool and test that self-attaches without the flag will fail at startup.\n\nSo decide on purpose. If production uses an agent, an APM or a profiler, start it with `-javaagent` so it's there from the first class. If a test suite self-attaches, add the flag to the test JVM: the labs' Gradle build passes `-XX:+EnableDynamicAgentLoading` to every test task, which is why the lab runs quietly. To find what would break, run your tests once without the flag and grep for the warning.\n\nOne more warning can appear on JDK 25. In the research runs, Byte Buddy's `AgentBuilder` triggered `WARNING: sun.misc.Unsafe::objectFieldOffset has been called by net.bytebuddy...`, from JEP 498, which made the JDK warn about `sun.misc.Unsafe` memory access by default in JDK 24. Byte Buddy's release notes show it moving away from `Unsafe` (1.18.10: \"Delay change of default for unsafe use to Java 26\"), and the JDK 26 and 27 runs printed no such line.",
+   "try": {
+    "title": "Allow it, then block it",
+    "minutes": 3,
+    "steps": [
+     "Run `LiveRetransformDemo` with `-Pargs=allowed`. It starts itself again in a child JVM with `-XX:+EnableDynamicAgentLoading`.",
+     "Run it with `-Pargs=blocked`, which uses `-XX:-EnableDynamicAgentLoading`. Predict the outcome first.",
+     "Look at `labs/build.gradle.kts` and find the line that keeps the lab tests quiet."
+    ],
+    "code": {
+     "lang": "bash",
+     "title": "terminal",
+     "src": "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l07.LiveRetransformDemo -Pargs=allowed\n./gradlew :bytecode:demo -Pmain=workbench.bytecode.l07.LiveRetransformDemo -Pargs=blocked",
+     "run": ""
+    },
+    "expect": "With `allowed`, the child prints the same lines as before but no `WARNING:` lines. With `blocked`, the child prints `before: tick` and then dies with `java.lang.IllegalStateException: Could not self-attach to current VM using external process`, exit code 1. In `labs/build.gradle.kts`, the shared test setup has `jvmArgs(\"-XX:+EnableDynamicAgentLoading\", \"-Xshare:off\")`."
+   },
+   "refs": [
+    {
+     "title": "JEP 451: Prepare to Disallow the Dynamic Loading of Agents",
+     "url": "https://openjdk.org/jeps/451",
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "h": "Byte Buddy's AgentBuilder writes the transformer, and Advice writes the bytecode",
+   "body": "Writing a `ClassFileTransformer` that edits bytecode by hand means parsing, changing and re-emitting the class, with lesson 6's tools. Byte Buddy's `AgentBuilder` does the plumbing, and its `Advice` does the editing. This is the lab's solution, line by line:\n\n```java\nResettableClassFileTransformer t = new AgentBuilder.Default()\n        .disableClassFormatChanges()                              // 1. no new members: required to retransform\n        .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION) // 2. also rewrite classes already loaded\n        .type(is(SettlementJob.class))                            // 3. which classes\n        .transform((builder, type, loader, module, domain) ->\n                builder.visit(Advice.to(CountingAdvice.class).on(named(\"settle\"))))  // 4. what to change\n        .installOn(ByteBuddyAgent.install());                     // 5. register and retransform now\n```\n\n```kotlin\nval t = AgentBuilder.Default()\n    .disableClassFormatChanges()                                  // 1. no new members: required to retransform\n    .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)     // 2. also rewrite classes already loaded\n    .type(`is`(SettlementJob::class.java))                        // 3. which classes\n    .transform { builder, _, _, _, _ ->\n        builder.visit(Advice.to(CountingAdvice::class.java).on(named(\"settle\")))  // 4. what to change\n    }\n    .installOn(ByteBuddyAgent.install())                          // 5. register and retransform now\n```\n\n`Advice` is not a delegation. Byte Buddy copies the body of your `@Advice.OnMethodEnter` method into the start of the target method, and the `@Advice.OnMethodExit` body into every exit. That's why advice methods must be static, why they may only call public code (the copied code runs inside the target class), and why `@Advice.Origin(\"#t.#m\")` can hand them the method's name as a constant. Nothing new is added to the class, so the result respects the retransformation rule. `MethodDelegation` from lesson 5 adds accessor methods and helper classes, so it only works on new classes or classes not yet loaded. The returned transformer's `reset(inst, RETRANSFORMATION)` puts the original bodies back.\n\nBecause the advice runs inside the method, it sees every call, from anywhere: from other classes, from the class itself through `this`, and on final classes. Here are the three ways to intercept from this track side by side:\n\n| | needs | `this.method()` calls | final classes and methods |\n|---|---|---|---|\n| JDK proxy (lesson 4) | an interface | not seen | not relevant |\n| subclass proxy (lesson 5) | an open class | seen only if the proxy is the object | can't intercept |\n| agent with Advice | an agent | seen | fine |\n\nThe price is reach. An agent changes the class for every caller in that class loader, and starting one after startup warns, as section 3 showed. Use a proxy when you own the call path, and an agent when you need to change code you don't control.\n\nCheck yourself before the lab: the lab's `SettlementJob.settleAll` calls `settle` three times on `this`. With the advice installed on `settle`, how many calls does `CallCounts` record when you call `settleAll` once? (Three: each inner call runs `settle`'s new body, which begins with the copied advice.)",
+   "refs": [
+    {
+     "title": "Byte Buddy README (AgentBuilder and Advice examples)",
+     "url": "https://github.com/raphw/byte-buddy/blob/master/README.md",
+     "kind": "read"
+    }
+   ]
+  }
+ ],
+ "analogy": "A proxy is a receptionist in front of one employee. An agent is the building manager, who has keys to every office. The manager can hand you a list of everyone who moves in (a transformer at startup), and can repaint an office while people are working in it (retransformation): the next person who walks in sees the new walls, and someone in mid-sentence finishes the sentence in the old room. What the manager can't do while the building is in use is add or knock down walls, which is the rule against new fields and methods. The analogy breaks on permission. Since JDK 21 the building logs a warning whenever a manager arrives after opening time, and one day the doors will stay shut unless you said yes at startup.",
+ "in_your_world": "Agents already run in your services. APM and tracing tools usually arrive as `-javaagent`, and test libraries may self-attach. On JDK 21 and later, a self-attach in your CI logs the JEP 451 warning, and when the default flips, those builds fail. Find them now by running tests once without `-XX:+EnableDynamicAgentLoading`. For debugging, the same mechanism lets you add timing to a slow method in a library you can't recompile, such as the client that calls a 120 ms card-issuer API, without a restart and without touching the code. Do it in staging, though: a retransformation applies to every caller in that JVM, including the ones handling real authorizations.",
+ "mistake": "The common mistake is expecting a transformer to see classes that are already loaded, or to add members to them. Someone writes an `agentmain` that calls `addTransformer(t)` and waits for `transform` to be called for a class the service loaded an hour ago. It never is, because a transformer sees class definitions that happen after it's registered. Or they add a field for a counter and the retransformation fails, because retransformation may only change method bodies. People make this mistake because the startup agent they copied did both and worked: at startup, nearly every class loads after `premain`. The fix is to register with `addTransformer(t, true)` and call `retransformClasses`, with `Can-Retransform-Classes: true` in the manifest, to keep the class shape unchanged (Byte Buddy: `disableClassFormatChanges()` and `Advice`), and to keep any state in a separate public class.",
+ "compare": {
+  "title": "The counting advice in Java and Kotlin",
+  "java": {
+   "title": "CountingAdvice.java",
+   "src": "public class CountingAdvice {\n    @Advice.OnMethodEnter                                  // copied to the start of the method\n    static void enter(@Advice.Origin(\"#t.#m\") String method) {\n        CallCounts.hit(method);                            // must be public: this code runs in the target class\n    }\n}\n\n// install it\nnew AgentBuilder.Default()\n        .disableClassFormatChanges()\n        .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)\n        .type(is(SettlementJob.class))\n        .transform((b, type, loader, module, domain) -> b.visit(Advice.to(CountingAdvice.class).on(named(\"settle\"))))\n        .installOn(ByteBuddyAgent.install());"
+  },
+  "kotlin": {
+   "title": "CountingAdvice.kt",
+   "src": "object CountingAdvice {\n    @JvmStatic                                             // Advice needs a real static method\n    @Advice.OnMethodEnter                                  // copied to the start of the method\n    fun enter(@Advice.Origin(\"#t.#m\") method: String) {\n        CallCounts.hit(method)                             // must be public: this code runs in the target class\n    }\n}\n\n// install it\nAgentBuilder.Default()\n    .disableClassFormatChanges()\n    .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)\n    .type(`is`(SettlementJob::class.java))\n    .transform { b, _, _, _, _ -> b.visit(Advice.to(CountingAdvice::class.java).on(named(\"settle\"))) }\n    .installOn(ByteBuddyAgent.install())"
+  },
+  "note": "Kotlin has no `static`, so the advice lives in an `object` with `@JvmStatic`, which makes kotlinc emit a real static method that Byte Buddy can copy. `is` is a Kotlin keyword, so the matcher must be written `` `is`(...) ``. The bigger difference is in the target, not the agent. A Kotlin class is final by default, which blocked every subclass proxy in lesson 5, and an agent doesn't care: Advice edits the existing class instead of extending it. The advice's code is copied into the target class, so anything it calls (`CallCounts`, `println`) must be reachable from there, in Kotlin as much as in Java."
+ },
+ "worked": {
+  "title": "A transformer that never sees its class",
+  "steps": [
+   {
+    "say": "An engineer attaches an agent to a running staging service to log the bytes of `IssuerClient`, which loaded at startup. `transform` is never called for it. Read the agent and find out why before reading on.",
+    "code": "public static void agentmain(String args, Instrumentation inst) {\n    inst.addTransformer(new LoggingTransformer(\"com/acme/IssuerClient\"));\n    // waits for transform(...) to be called for IssuerClient: it never is\n}",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "@JvmStatic\nfun agentmain(args: String?, inst: Instrumentation) {\n    inst.addTransformer(LoggingTransformer(\"com/acme/IssuerClient\"))\n    // waits for transform(...) to be called for IssuerClient: it never is\n}"
+   },
+   {
+    "say": "A transformer sees class definitions that happen after it's registered. `IssuerClient` was defined an hour ago, so nothing will define it again. To see it, ask the JVM to run the transformers again for that class. That needs three things: the manifest's `Can-Retransform-Classes: true`, registering the transformer as able to retransform, and the call itself.",
+    "code": "public static void agentmain(String args, Instrumentation inst) throws Exception {\n    LoggingTransformer t = new LoggingTransformer(\"com/acme/IssuerClient\");\n    inst.addTransformer(t, true);                               // 1. canRetransform = true\n    for (Class<?> c : inst.getAllLoadedClasses()) {\n        if (c.getName().equals(\"com.acme.IssuerClient\")) {\n            inst.retransformClasses(c);                         // 2. run the transformers again for it\n        }\n    }\n}",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "@JvmStatic\nfun agentmain(args: String?, inst: Instrumentation) {\n    val t = LoggingTransformer(\"com/acme/IssuerClient\")\n    inst.addTransformer(t, true)                                // 1. canRetransform = true\n    inst.allLoadedClasses\n        .filter { it.name == \"com.acme.IssuerClient\" }\n        .forEach { inst.retransformClasses(it) }                // 2. run the transformers again for it\n}"
+   },
+   {
+    "say": "Now `transform` is called with the class's current bytes and a non-null `classBeingRedefined`. If it returns changed bytes, they may only change method bodies, the constant pool and attributes. Returning a class with a new field makes `retransformClasses` throw, and then, as the Javadoc promises, no class was changed. Calls already inside `IssuerClient` methods finish on the old code, and the next calls run the new code.",
+    "code": "",
+    "lang": ""
+   },
+   {
+    "say": "Byte Buddy packs all of this into the builder. `RedefinitionStrategy.RETRANSFORMATION` registers the transformer as retransform-capable and retransforms the matching loaded classes. `disableClassFormatChanges()` stops Byte Buddy from adding members. `Advice` changes only method bodies. That's why the lab needs five builder calls and no loop over loaded classes.",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "Count calls on a loaded class, without a restart",
+  "minutes": 13,
+  "files": [
+   "labs/bytecode/src/main/kotlin/workbench/bytecode/l07/CallCountingAgent.kt"
+  ],
+  "run": "./gradlew :bytecode:test --tests 'workbench.bytecode.l07.*'",
+  "steps": [
+   "Run the tests once. All six fail with `NotImplementedError`. Read `SettlementJob` in the test folder: it's a final Kotlin class.",
+   "Write `instrumentation()` as `ByteBuddyAgent.install()`.",
+   "Annotate `CountingAdvice.enter` with `@Advice.OnMethodEnter`, and its parameter with `@Advice.Origin(\"#t.#m\")`.",
+   "Write `countCalls(type, method)` with the five builder calls from section 4: `disableClassFormatChanges()`, `.with(RedefinitionStrategy.RETRANSFORMATION)`, `` .type(`is`(type)) ``, `.transform { builder, _, _, _, _ -> builder.visit(Advice.to(CountingAdvice::class.java).on(named(method))) }`, and `.installOn(instrumentation())`.",
+   "Return `Installed { transformer.reset(instrumentation(), AgentBuilder.RedefinitionStrategy.RETRANSFORMATION) }`. Run the tests until all six pass. Then read the self-call test and compare it with lesson 5's forwarding proxy."
+  ],
+  "hints": [
+   "The Gradle test task already passes `-XX:+EnableDynamicAgentLoading`, so there is no warning. Run a test from an IDE without it and you'll see the four JEP 451 lines.",
+   "If a test counts 0, check that the advice method is `@JvmStatic` and annotated with `@Advice.OnMethodEnter`. Byte Buddy silently ignores an advice class with no annotated methods.",
+   "If the uninstall test still counts calls after uninstalling, `reset` needs the same `RedefinitionStrategy.RETRANSFORMATION` you installed with."
+  ],
+  "done_when": "All six tests in `CallCountingAgentTest` pass."
+ },
+ "drill": {
+  "title": "A startup agent from memory",
+  "minutes": 4,
+  "prompt": "Close the page. Write a startup agent class whose `premain` prints its argument string and registers a transformer that prints the name of every class in the `com/acme/` package as it loads, changing nothing. Then write the one manifest line it needs and the command line that starts it.",
+  "answer": {
+   "lang": "java",
+   "src": "// manifest:  Premain-Class: com.acme.agent.LoadLogger\n// run:       java -javaagent:load-logger.jar=payments -jar service.jar\npublic class LoadLogger {\n    public static void premain(String args, Instrumentation inst) {\n        System.out.println(\"[agent] args=\" + args);\n        inst.addTransformer(new ClassFileTransformer() {\n            @Override\n            public byte[] transform(ClassLoader loader, String className, Class<?> redefined,\n                                    ProtectionDomain domain, byte[] bytes) {\n                if (className != null && className.startsWith(\"com/acme/\")) System.out.println(\"[agent] \" + className);\n                return null;                       // no change\n            }\n        });\n    }\n}",
+   "alt": {
+    "lang": "kotlin",
+    "src": "// manifest:  Premain-Class: com.acme.agent.LoadLogger\n// run:       java -javaagent:load-logger.jar=payments -jar service.jar\nobject LoadLogger {\n    @JvmStatic\n    fun premain(args: String?, inst: Instrumentation) {\n        println(\"[agent] args=$args\")\n        inst.addTransformer(object : ClassFileTransformer {\n            override fun transform(\n                loader: ClassLoader?, className: String?, redefined: Class<*>?,\n                domain: ProtectionDomain?, bytes: ByteArray,\n            ): ByteArray? {\n                if (className?.startsWith(\"com/acme/\") == true) println(\"[agent] $className\")\n                return null                        // no change\n            }\n        })\n    }\n}"
+   }
+  }
+ },
+ "recap": [
+  "An agent receives an `Instrumentation`: via `premain` with `-javaagent` (in order, before `main`), via `Launcher-Agent-Class`, or via `agentmain` when a tool attaches to a running JVM.",
+  "A `ClassFileTransformer` sees each class defined after it is registered and returns new bytes or `null` for no change.",
+  "`retransformClasses` changes loaded classes in place: same `Class` object, statics kept, no initializers rerun. Running frames finish on the old code; new calls get the new code.",
+  "Retransformation may change method bodies only: no new or removed fields or methods, no signature, modifier or superclass changes. It needs `Can-Retransform-Classes` and `addTransformer(t, true)`.",
+  "Since JDK 21 (JEP 451) a dynamically loaded agent prints a warning; `-XX:+EnableDynamicAgentLoading` hides it, `-XX:-EnableDynamicAgentLoading` blocks it, and the default is meant to become \"blocked\".",
+  "Byte Buddy's `AgentBuilder` with `RETRANSFORMATION`, `disableClassFormatChanges()` and `Advice` inlines code into existing methods, so it sees self-calls and works on final classes."
+ ],
+ "quiz": [
+  {
+   "q": "Your agent retransforms `SettlementJob` and adds a `private long calls` field to count calls. What happens?",
+   "options": [
+    "It works: retransformation can change anything",
+    "`retransformClasses` fails, and no class is changed: retransformation can't add fields. Keep the counter in a separate public class",
+    "It works for new instances only",
+    "The JVM restarts the class's static initializer"
+   ],
+   "answer": 1,
+   "why": "JVMTI allows only method bodies, the constant pool and attributes to change on retransformation. Adding, removing or renaming fields or methods, changing signatures, modifiers or inheritance is refused. The Javadoc adds that if the call throws, no classes were retransformed. That's why the lab's advice calls `CallCounts.hit`."
+  },
+  {
+   "q": "A request thread is in the middle of `IssuerClient.authorize()` when an agent retransforms `IssuerClient`. What does that thread do?",
+   "options": [
+    "It jumps into the new code at the same line",
+    "It finishes the call on the old bytecode; its next call to `authorize` runs the new body",
+    "It gets an exception",
+    "It blocks until the retransformation is done, then restarts the method"
+   ],
+   "answer": 1,
+   "why": "The Javadoc: active stack frames \"continue to run the bytecodes of the original method. The retransformed method will be used on new invokes.\" Nothing is restarted or interrupted."
+  },
+  {
+   "q": "A JDK 25 service runs with default flags. An operator attaches a profiler that loads an agent dynamically. What happens?",
+   "options": [
+    "The attach is refused",
+    "The agent loads, and the JVM prints a multi-line warning on stderr saying dynamic loading will be disallowed by default in a future release",
+    "The service must be restarted with `-javaagent`",
+    "The agent loads silently"
+   ],
+   "answer": 1,
+   "why": "Since JDK 21 (JEP 451), the default is to allow dynamic loading with a warning, and runs on JDK 21 through 27.0.1 still behaved that way. `-XX:+EnableDynamicAgentLoading` hides the warning and `-XX:-EnableDynamicAgentLoading` refuses the load."
+  },
+  {
+   "q": "You must count every call to `quote()` on a third-party, final Kotlin class, including calls the class makes to itself, without changing its code. Which tool fits?",
+   "options": [
+    "A JDK dynamic proxy",
+    "A Byte Buddy subclass proxy with `@SuperCall`",
+    "An agent with Byte Buddy `Advice` on `quote()`",
+    "A Spring AOP aspect"
+   ],
+   "answer": 2,
+   "why": "A JDK proxy needs an interface. A subclass proxy can't extend a final class, and Spring AOP uses proxies, so self-calls would be missed too. `Advice` copies the counting code into `quote()` itself, so every call from anywhere, including `this`, runs it, and finality doesn't matter."
+  },
+  {
+   "q": "From *Generated proxies*: `settleAll()` calls `this.settle()`. Which of these counts that inner call: a forwarding subclass proxy, a Byte Buddy subclass with `@SuperCall`, or an agent's advice on `settle`?",
+   "options": [
+    "Only the forwarding proxy",
+    "The `@SuperCall` subclass and the agent's advice, but not the forwarding proxy",
+    "All three",
+    "None: self-calls are invisible to bytecode tools"
+   ],
+   "answer": 1,
+   "why": "In the `@SuperCall` model the proxy is the object, so `this.settle()` dispatches to the intercepting override. The agent's advice lives inside `settle` itself, so every call runs it. The forwarding proxy hands the call to a separate target whose `this` is the target, so the inner call never reaches the proxy.",
+   "from": "cls-05"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "Which method does the JVM call for an agent started with `-javaagent`, and when?",
+   "back": "`public static void premain(String args, Instrumentation inst)`, before the application's `main`."
+  },
+  {
+   "front": "What does a `ClassFileTransformer.transform` return to leave a class unchanged?",
+   "back": "`null`."
+  },
+  {
+   "front": "Does retransforming a class run its static initializer again?",
+   "back": "No. Static fields keep their values, and existing instances are not changed."
+  },
+  {
+   "front": "What may retransformation change, and what not?",
+   "back": "It may change method bodies, the constant pool and attributes. It may not add, remove or rename fields or methods, or change signatures, modifiers or the superclass."
+  },
+  {
+   "front": "What prints the JEP 451 warning, and how do you silence it?",
+   "back": "Loading an agent into a running JVM (attach or self-attach). `-XX:+EnableDynamicAgentLoading` silences it; `-XX:-EnableDynamicAgentLoading` blocks loading."
+  },
+  {
+   "front": "Why must Byte Buddy advice methods be static and call only public code?",
+   "back": "Byte Buddy copies their bodies into the target method, so the code runs inside the target class."
+  },
+  {
+   "front": "Two settings in Byte Buddy's AgentBuilder make a transformation safe for already-loaded classes. Which?",
+   "back": "`.with(RedefinitionStrategy.RETRANSFORMATION)` and `.disableClassFormatChanges()`, with `Advice` for the change itself."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Java agent",
+   "plain": "A class the JVM starts with an `Instrumentation` handle, through `-javaagent`, a launcher manifest or attach."
+  },
+  {
+   "term": "Instrumentation",
+   "plain": "The JDK interface that lets an agent add transformers, list loaded classes and retransform them."
+  },
+  {
+   "term": "ClassFileTransformer",
+   "plain": "A callback that receives each class's bytes before the JVM defines it and may return changed bytes."
+  },
+  {
+   "term": "Retransformation",
+   "plain": "Running transformers again on a loaded class and swapping in new method bodies, keeping the class's shape."
+  },
+  {
+   "term": "Dynamic attach",
+   "plain": "Loading an agent into a JVM that is already running; warned about since JDK 21 (JEP 451)."
+  },
+  {
+   "term": "Advice",
+   "plain": "Byte Buddy's way of copying your enter and exit code into an existing method's body."
+  },
+  {
+   "term": "JVMTI",
+   "plain": "The JVM Tool Interface: the native interface for debuggers and agents, which defines what retransformation may change."
+  }
+ ],
+ "explain_back": {
+  "prompt": "Explain to a teammate how an agent can add timing to a method of a class that loaded an hour ago, without a restart, what it can't change that way, and why the JVM prints a warning when you do it.",
+  "answer": "An agent gets an `Instrumentation` object. It registers a `ClassFileTransformer` that can retransform, then calls `retransformClasses` for the loaded class. The JVM hands the transformer the class's current bytes, and the transformer returns new bytes in which the method body starts and ends with timing code. Byte Buddy's `Advice` does that by copying static enter and exit methods into the body. The JVM swaps the body in place: same `Class` object, same statics, no initializer rerun, so existing objects use the new body on their next call, while calls already running finish on the old one. It can't add or remove fields or methods, or change signatures, modifiers or the superclass. State such as counters must live in another class. Loading the agent after startup, through attach or self-attach, prints the JEP 451 warning because since JDK 21 the JDK wants that ability granted at startup with `-XX:+EnableDynamicAgentLoading`, or the agent started with `-javaagent`. A future release is meant to block it by default."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "Retransformation and redefinition are two different calls. `redefineClasses` takes new class bytes you supply. `retransformClasses` asks the registered transformers to produce them, starting from the class's original bytes. Both follow the same JVMTI rule about the class's shape, and both need permission in the manifest (`Can-Redefine-Classes`, `Can-Retransform-Classes`). Byte Buddy's `RedefinitionStrategy.REDEFINITION` exists too, but `RETRANSFORMATION` cooperates better with other agents, because each transformer sees the result of the previous one.\n\nAgent order matters with more than one agent. With several `-javaagent` options, \"the premain methods will be called in the order that the agents are specified\", and each registered transformer sees the bytes produced by the ones before it. Two agents that both rewrite the same method, for example an APM agent and your own, can conflict. Test them together.\n\nThis lesson closes the track's \"integrity by default\" thread. Recent JDKs warn before they forbid: dynamic agents since JDK 21 (JEP 451), `sun.misc.Unsafe` memory access since JDK 24 (JEP 498, default `--sun-misc-unsafe-memory-access=warn`), and reflective mutation of final fields since JDK 26 (JEP 500, default `--illegal-final-field-mutation=warn`). In the runs for this track, none of them had become a hard failure by JDK 27.0.1. To find what will break later, run your test suite once with the stricter settings:\n\n```text\ntest JVM options for a \"what will break later\" run:\n  --sun-misc-unsafe-memory-access=deny     (JDK 24 and later)\n  --illegal-final-field-mutation=deny      (JDK 26 and later)\n  and leave out -XX:+EnableDynamicAgentLoading\n```"
+ },
+ "sources": [
+  {
+   "title": "java.lang.instrument package (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.instrument/java/lang/instrument/package-summary.html"
+  },
+  {
+   "title": "Instrumentation (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.instrument/java/lang/instrument/Instrumentation.html"
+  },
+  {
+   "title": "JEP 451: Prepare to Disallow the Dynamic Loading of Agents",
+   "url": "https://openjdk.org/jeps/451"
+  },
+  {
+   "title": "Byte Buddy README",
+   "url": "https://github.com/raphw/byte-buddy/blob/master/README.md"
+  }
+ ]
+}

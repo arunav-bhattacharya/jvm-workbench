@@ -1,0 +1,347 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/memory/src"
+P = "java/workbench/memory/l05"
+K = "kotlin/workbench/memory/l05"
+read = lambda p: (ROOT / p).read_text()
+DEMO = "./gradlew :memory:demo -Pmain=workbench.memory.l05."
+
+
+def demo(name):
+    return {"lang": "java", "title": f"{name}.java", "src": read(f"{lab}/demo/{P}/{name}.java"),
+            "run": DEMO + name, "file": f"{lab}/demo/{P}/{name}.java",
+            "alt": {"lang": "kotlin", "title": f"{name}.kt", "src": read(f"{lab}/demo/{K}/{name}.kt"),
+                    "run": DEMO + name + "Kt", "file": f"{lab}/demo/{K}/{name}.kt"}}
+
+
+FIGURE = """<svg viewBox="0 0 680 260" role="img" aria-label="Timeline: in a G1 young pause every application thread stops for 12.7 ms while live objects are copied; in a ZGC minor collection the application keeps running, GC threads work alongside it for 52 ms, and three pauses of about 0.02 ms are the only stops">
+<text class="t t-m" x="390" y="22" text-anchor="middle">one young collection, two collectors</text>
+<text class="t" x="62" y="77" text-anchor="middle">G1</text>
+<rect class="box-ok" x="130" y="55" width="180" height="34" rx="8"/>
+<text class="t-s" x="220" y="76" text-anchor="middle">app threads run</text>
+<rect class="box-bad" x="310" y="55" width="140" height="34" rx="8"/>
+<text class="t-s" x="380" y="76" text-anchor="middle">every thread stopped</text>
+<rect class="box-ok" x="450" y="55" width="200" height="34" rx="8"/>
+<text class="t-s" x="550" y="76" text-anchor="middle">app threads run</text>
+<text class="t-s t-bad" x="380" y="108" text-anchor="middle">12.7 ms pause: copying the survivors</text>
+<text class="t" x="62" y="165" text-anchor="middle">ZGC</text>
+<rect class="box-ok" x="130" y="143" width="520" height="34" rx="8"/>
+<text class="t-s" x="560" y="164" text-anchor="middle">app keeps running</text>
+<rect class="box-bad" x="170" y="139" width="5" height="42" rx="2"/>
+<rect class="box-bad" x="300" y="139" width="5" height="42" rx="2"/>
+<rect class="box-bad" x="355" y="139" width="5" height="42" rx="2"/>
+<rect class="box-a" x="170" y="190" width="320" height="30" rx="8"/>
+<text class="t-s" x="330" y="210" text-anchor="middle">GC threads: mark, then relocate (52 ms)</text>
+<text class="t-s t-bad" x="390" y="244" text-anchor="middle">the only stops: three pauses of about 0.02 ms each</text>
+</svg>"""
+
+S1 = """Lesson 4's G1 log had a young pause of 16 ms, and almost all of it was "Evacuate Collection Set": copying live objects while every thread waited. That pause grows with the work. A service with a 32 GB heap full of cached risk scores has more to copy in each pause, and a full GC on that heap can stop it for seconds. For a fraud check with a 20 ms budget, that is an outage.
+
+**ZGC** moves objects while your threads keep running. The hard part is that a thread may be about to read a reference to an object the collector has just moved. ZGC solves that with two tricks.
+
+First, every reference stored in the heap carries a few metadata bits, its **color**. ZGC needs room for them, so it uses full 8-byte references: on JDK 21, `PrintFlagsFinal` shows `UseCompressedOops` false under ZGC, and lesson 1's 40-byte `Payment` takes 48 bytes.
+
+Second, the JIT inserts a **load barrier** after every load of a reference from the heap. It compares the reference's color with the color the collector currently calls good. Nearly always they match, and the cost is a test and a branch. When they don't, the object may have moved. The barrier then finds the new address (moving the object itself if the collector hasn't done it yet) and writes the fixed reference back into the field, so the next load of that field is fast again.
+
+So ZGC only stops your threads to handle their roots, briefly. Each generational ZGC collection has three pauses, and in the demo each took about 0.02 ms. The `java` manual says ZGC gives "max pause times of a few milliseconds" and that "pause times are independent of what heap size is used", for heaps from 8 MB to 16 TB.
+
+The versions matter. JDK 21 added generational ZGC as an option (`-XX:+ZGenerational`, JEP 439), JDK 23 made it the default (JEP 474), and JDK 24 removed the old single-generation mode (JEP 490).
+
+Read its log with care. In `Minor Collection (Allocation Rate) 582M(57%)->226M(22%) 0.052s`, the 0.052 s is the whole concurrent collection, not a pause. The pauses are the lines that say `Pause Mark Start`, `Pause Mark End` and `Pause Relocate Start`."""
+
+S2 = """The manual is honest about the price: ZGC gives low pauses "at some throughput cost". You pay in three ways.
+
+CPU. Marking and relocating run on GC threads beside your threads, and the barrier's slow path runs on your own threads. In a pod with 2 CPUs, the GC threads take CPU away from request handling exactly when the service is busiest.
+
+Headroom. While a collection runs, your code keeps allocating. In one run a major collection went `342M(33%)->466M(46%)`: the heap was fuller at the end than at the start, because the application allocated at least 124 MB during the 119 ms cycle. If the heap fills before a collection finishes, ZGC has to make allocating threads wait. The log calls that an **allocation stall**, and it hurts more than a pause, because it hits exactly the threads doing the most work. Stalls should be zero. When they aren't, give ZGC a bigger heap or more CPU.
+
+Memory per object. With 8-byte references, every object that holds references is bigger, as above.
+
+Shenandoah, the other concurrent collector in OpenJDK, makes the same trade with a different design. It also marks and evacuates while your threads run, and the manual says its pause times "are not proportional to the size of the heap". Its default mode has a single generation. A generational mode is experimental in JDK 24 and a product mode in JDK 25 (`-XX:ShenandoahGCMode=generational`). Not every vendor's build includes Shenandoah, so check that `java -XX:+UseShenandoahGC -version` starts before you plan on it.
+
+The demo runs the same second of load under five collectors. Predict the order of the "longest pause" column before you run it, and look at the shape of the results rather than the exact numbers: they change on every run and every machine."""
+
+S3 = """Before you choose, know what you get when you choose nothing. On JDK 21 to 26, the JVM picks G1 only on a "server-class machine": at least 2 CPUs and at least 1,792 MB of memory, both as the JVM sees them inside the container. Anything smaller silently gets Serial. A Quarkus service in a pod with 1 CPU, or with a 1 GiB memory limit, has been running Serial all along unless someone named a collector. Per the JDK 27 source, JDK 27 picks G1 everywhere.
+
+Then the table. These are my defaults for payment services, not benchmark results:
+
+| Collector | Pick it when | Watch out for |
+|---|---|---|
+| Serial | 1 CPU and a heap up to a few hundred MB | full GCs that grow with the live data |
+| Parallel | batch jobs, where total throughput beats any single pause | long full-GC pauses on big heaps |
+| G1 | most services: heaps from about 256 MB to tens of GB, pause budgets of tens of milliseconds | `(Evacuation Failure)`, `Pause Full`, humongous churn |
+| ZGC | GC pauses must stay under about 10 ms, and there are cores to spare | CPU in small pods, `Allocation Stall`, 8-byte references |
+| Shenandoah | the same goals as ZGC, on a build that includes it | vendor availability; generational only from JDK 24 |
+| Epsilon | tests and benchmarks only | the JVM dies when the heap is full, by design |
+
+The flags change with the JDK:
+
+| Collector | JDK 21 | JDK 25 |
+|---|---|---|
+| G1, Serial, Parallel | `-XX:+UseG1GC`, `-XX:+UseSerialGC`, `-XX:+UseParallelGC` | the same |
+| Generational ZGC | `-XX:+UseZGC -XX:+ZGenerational` | `-XX:+UseZGC` |
+| Generational Shenandoah | not available | `-XX:+UseShenandoahGC -XX:ShenandoahGCMode=generational` |
+| Epsilon | `-XX:+UnlockExperimentalVMOptions -XX:+UseEpsilonGC` | the same |
+
+From JDK 24, `-XX:+ZGenerational` is an obsolete flag, so remove it when you move a service from 21 to 25. The lab turns both tables into code."""
+
+S4 = """Epsilon is a garbage collector that never collects. It hands out memory, and when the heap is full, the JVM stops:
+
+```text
+Terminating due to java.lang.OutOfMemoryError: Java heap space
+```
+
+In production that would be useless. In a test it's a measuring tool, because under Epsilon the heap size is an **allocation budget**: if a code path finishes under `-Xmx64m`, it allocated less than 64 MB in total, a few of which went to starting the JVM.
+
+The demo runs lesson 2's two ways of summing settlement totals, over 5 million payments, each under a 64 MB budget. The primitive version finishes. The boxed version dies. It dies even when the JIT's escape analysis removes the temporary boxes for the key and the amount, because every running sum is a new 24-byte `Long` stored in the map, and Epsilon never frees the old one: at least 120 MB.
+
+Epsilon has two other honest uses: benchmarks that must not be disturbed by GC pauses, and very short jobs that exit before they could fill the heap.
+
+It's an experimental option on every JDK from 21 to 27, and the JVM is strict about the order of flags. Write `-XX:+UseEpsilonGC -XX:+UnlockExperimentalVMOptions` and it refuses to start: `Error: The unlock option must precede 'UseEpsilonGC'.`"""
+
+L = {
+ "id": "mem-05",
+ "title": "Low-pause collectors: ZGC, Shenandoah, and choosing a GC",
+ "minutes": 36,
+ "goal": "By the end you can explain how ZGC keeps pauses under a millisecond and what it costs, read its log without mistaking cycles for pauses, and pick and configure a collector for a service on JDK 21, 25 or 27.",
+ "warmup": {
+  "q": "A ZGC log line says `GC(4) Minor Collection (Allocation Rate) 582M(57%)->226M(22%) 0.052s`. How long were the application threads stopped?",
+  "options": ["52 ms", "About 0.05 ms in all, spread over three short pauses", "Not at all: ZGC never stops threads", "It depends on how much was freed: 356 MB takes longer"],
+  "answer": 1,
+  "why": "The 0.052 s on that line is the whole concurrent collection, which ran while the application kept working. The stop-the-world parts are the `Pause Mark Start`, `Pause Mark End` and `Pause Relocate Start` lines, about 0.02 ms each in that run. ZGC does stop threads, just very briefly, and how much it frees doesn't change the pause."
+ },
+ "sections": [
+  {
+   "h": "ZGC moves objects while your code keeps running",
+   "body": S1,
+   "figure": {"svg": FIGURE, "caption": "G1 stops every thread while it copies survivors. ZGC copies while the application runs and stops it only three times, for a few hundredths of a millisecond."},
+   "try": {
+    "title": "Find the pauses in a ZGC log",
+    "minutes": 4,
+    "steps": [
+     "Read `ZgcDemo`. It runs two seconds of the service load from lesson 4 under generational ZGC (it adds `-XX:+ZGenerational` on JDK 21 and 22), then prints every line of the first minor collection.",
+     "Predict before you run: will the pauses be longer than G1's young pauses in lesson 4, the same, or shorter? Will the collection time on the last line be longer or shorter than G1's pauses?",
+     "Run it and match the `Pause` lines to the three red marks in the figure."
+    ],
+    "code": demo("ZgcDemo"),
+    "expect": "One collection prints about a dozen lines. Three of them are pauses (`y: Pause Mark Start`, `y: Pause Mark End`, `y: Pause Relocate Start`) of a few hundredths of a millisecond; the rest are concurrent phases of several milliseconds. The summary shows something like 20 collections taking 0.4 s in all, alongside the application, while some 70 pauses add up to about 1 ms, the longest under 0.1 ms. Allocation stalls: 0."
+   },
+   "refs": [
+    {"title": "JEP 439: Generational ZGC", "url": "https://openjdk.org/jeps/439", "kind": "read"},
+    {"title": "zAddress.hpp at jdk-25-ga: ZGC's colored pointers", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/hotspot/share/gc/z/zAddress.hpp", "kind": "read"}
+   ]
+  },
+  {
+   "h": "Low pauses cost CPU, headroom and memory",
+   "body": S2,
+   "try": {
+    "title": "Run one load under five collectors",
+    "minutes": 4,
+    "steps": [
+     "Read `CollectorCompareDemo`. Each collector gets the same second of load in a 512 MB heap, in a fresh child JVM. The child reports the rounds of work it finished and the CPU time the whole process used, GC threads included.",
+     "Predict the order of the longest pauses, from longest to shortest. Then run it.",
+     "Run it again and see which columns stay stable and which jump around."
+    ],
+    "code": demo("CollectorCompareDemo"),
+    "expect": "Serial has the longest pauses (around 20 ms in one run here) and the most total pause time. Parallel and G1 sit at a few to about 10 ms. Shenandoah's longest pause is around half a millisecond to a few ms, and ZGC's about a tenth of a millisecond or less, with about 1 ms of pauses in total. ZGC and Shenandoah tend to use a bit more CPU for the same second. The rounds column is noisy on a shared machine, so don't read throughput from one run."
+   },
+   "refs": [
+    {"title": "The java command, JDK 27 man page source: collector descriptions", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-27-ga/src/java.base/share/man/java.md", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "Choose a collector with a table, not a hunch",
+   "body": S3,
+   "try": {
+    "title": "See what the JVM picks in a small container",
+    "minutes": 3,
+    "steps": [
+     "Run the first command. `-XX:ActiveProcessorCount=1` makes the JVM believe it has one CPU, like a pod with a 1-CPU limit.",
+     "Run the second one without the flag and compare.",
+     "Predict what JDK 27 would print for the first command."
+    ],
+    "code": {"lang": "bash", "title": "terminal", "src": "java -XX:ActiveProcessorCount=1 -XX:+PrintFlagsFinal -version | grep -E ' Use(Serial|G1|Parallel|Z|Shenandoah)GC '\njava -XX:+PrintFlagsFinal -version | grep -E ' Use(Serial|G1)GC '", "run": ""},
+    "expect": "On JDK 21 to 26 the first command shows `UseSerialGC = true {ergonomic}` and `UseG1GC = false`: one CPU is not a server-class machine. Without the flag, on a machine with 2 or more CPUs and enough memory, `UseG1GC = true {ergonomic}`. On JDK 27, per its source, both commands select G1."
+   },
+   "refs": [
+    {"title": "gcConfig.cpp at jdk-25-ga: how the JVM picks a collector", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/hotspot/share/gc/shared/gcConfig.cpp", "kind": "read"}
+   ]
+  },
+  {
+   "h": "Epsilon never collects, which makes it a test tool",
+   "body": S4,
+   "try": {
+    "title": "Put a code path on an allocation budget",
+    "minutes": 3,
+    "steps": [
+     "Read `EpsilonDemo`. Each version runs in a child JVM with Epsilon and a 64 MB heap.",
+     "Predict which version finishes, then run it."
+    ],
+    "code": demo("EpsilonDemo"),
+    "expect": "`primitive` prints `finished inside the budget`. `boxed` prints `Terminating due to java.lang.OutOfMemoryError: Java heap space`. Five million new `Long` sums need at least 120 MB, and nothing is ever freed. Change `PAYMENTS` to 1,000,000 and the boxed run may finish or fail depending on how soon the JIT removes the temporary boxes, which is why you shouldn't build a test right at the edge of the budget."
+   }
+  }
+ ],
+ "analogy": "ZGC is a removal company that moves you to a new house while you keep living in it. They carry boxes while you work, and they leave a forwarding note on the old address of each box they move. Whenever you reach for something, you check the label first; if it carries an old address, you follow the note and fix the label so the next reach is direct. That label check is the load barrier. Twice a day the movers ask everyone to freeze for a moment while they check the hallway: those are the pauses. Where it breaks: real movers only slow you down while they're in the house. ZGC's label check runs on every reference you load, all day, whether a move is going on or not.",
+ "in_your_world": "Most Quarkus payment APIs should stay on G1: their GC pauses of 10 to 20 ms are small next to a card-issuer call of 120 ms. The case for ZGC is a service like real-time fraud scoring: a large heap of cached features, a p99 budget of 20 ms, and cores to spare. Check two things before you switch. On a pod with 2 CPUs, ZGC's threads will compete with your requests. And your memory goes up, because references double to 8 bytes. Also check what you run today: a sidecar or webhook relay in a pod with one CPU or less than 1,792 MB on JDK 21 or 25 has been on Serial all along, which is often fine for it.",
+ "mistake": "Switching to ZGC because \"it has the lowest pauses\" in a pod that has no CPU to spare, then watching p99 latency get worse. ZGC's GC threads run alongside your request threads, the load barrier runs on every reference load, and if the collector falls behind, allocating threads stall. The man page says it plainly: low pauses \"at some throughput cost\". The fix is to decide with numbers: measure the G1 pauses you actually have in the GC log, compare them with your latency budget, and only switch when G1's pauses really break the budget and the pod has spare cores. After a switch, watch CPU, pause lines and allocation stalls.",
+ "compare": {
+  "title": "Report which collector runs, from inside the service",
+  "java": {"title": "GcReport.java", "src": "// log once at startup, and on a timer if you like\nfor (GarbageCollectorMXBean gc : ManagementFactory.getGarbageCollectorMXBeans()) {\n    log.infof(\"%s: %d collections, %d ms\", gc.getName(), gc.getCollectionCount(), gc.getCollectionTime());\n}"},
+  "kotlin": {"title": "GcReport.kt", "src": "// log once at startup, and on a timer if you like\nManagementFactory.getGarbageCollectorMXBeans().forEach { gc ->\n    log.infof(\"%s: %d collections, %d ms\", gc.name, gc.collectionCount, gc.collectionTime)\n}"},
+  "note": "The code is the same API in both languages; Kotlin reads the getters as properties. What differs is what the beans mean for each collector, measured on JDK 21. G1 reports `G1 Young Generation`, `G1 Concurrent GC` and `G1 Old Generation`. Generational ZGC reports `ZGC Minor Cycles`, `ZGC Minor Pauses`, `ZGC Major Cycles` and `ZGC Major Pauses`; Shenandoah reports `Shenandoah Cycles` and `Shenandoah Pauses`. The time of a \"Cycles\" bean is concurrent work, not stopped time. A dashboard that adds up every bean's time as \"GC pause\" makes ZGC look like the slowest collector of all, the same trap as reading the 0.052 s in its log as a pause."
+ },
+ "worked": {
+  "title": "Pick collectors for three payment services",
+  "steps": [
+   {"say": "Three services, three sets of facts. A checkout API: 4 CPUs, a 2 GB heap, and a latency target that leaves about 100 ms for GC. A fraud scorer: 8 CPUs at 30% use, a 16 GB heap of cached features, and a 5 ms GC budget. A nightly settlement batch: 8 CPUs, 16 GB, and nobody waiting on a single request. Write them down as `Workload`s.",
+    "code": "var checkout = new Workload(Workload.Kind.SERVICE, 4, 2_048, 100);\nvar fraud = new Workload(Workload.Kind.SERVICE, 8, 16_384, 5);\nvar settlement = new Workload(Workload.Kind.BATCH, 8, 16_384, 5_000);",
+    "lang": "java",
+    "alt_code": "val checkout = Workload(Workload.Kind.SERVICE, 4, 2_048, 100)\nval fraud = Workload(Workload.Kind.SERVICE, 8, 16_384, 5)\nval settlement = Workload(Workload.Kind.BATCH, 8, 16_384, 5_000)",
+    "alt_lang": "kotlin"},
+   {"say": "1. The checkout API keeps G1. Its log shows young pauses of 10 to 20 ms, far inside the 100 ms budget. If it ever shows `(Evacuation Failure)` or `Pause Full`, the answer is more heap headroom, not another collector.",
+    "code": "", "lang": ""},
+   {"say": "2. The fraud scorer moves to ZGC: its 5 ms budget is below what G1 can promise on a 16 GB heap, and it has cores to spare. The flags depend on the JDK, so take them from the table instead of from an old wiki page. Then plan what to watch after the switch.",
+    "code": "JDK 21:  -XX:+UseZGC -XX:+ZGenerational -Xmx16g\nJDK 25:  -XX:+UseZGC -Xmx16g\n\nwatch:   pause lines in -Xlog:gc*          (expect well under 1 ms)\n         'Allocation Stall' in the GC log   (expect none)\n         CPU per pod                        (expect it to rise a little)\n         heap use                           (references are now 8 bytes)",
+    "lang": "text"},
+   {"say": "3. The settlement batch gets Parallel: it only cares how fast the whole run finishes, and Parallel's longer pauses bother nobody. Check all three against the lab's decision function, which encodes the same table.",
+    "code": "assert GcChoice.recommend(checkout) == Collector.G1;\nassert GcChoice.recommend(fraud) == Collector.ZGC;\nassert GcChoice.recommend(settlement) == Collector.PARALLEL;\nSystem.out.println(GcChoice.flagsFor(Collector.ZGC, Runtime.version().feature()));",
+    "lang": "java",
+    "alt_code": "check(GcChoice.recommend(checkout) == Collector.G1)\ncheck(GcChoice.recommend(fraud) == Collector.ZGC)\ncheck(GcChoice.recommend(settlement) == Collector.PARALLEL)\nprintln(GcChoice.flagsFor(Collector.ZGC, Runtime.version().feature()))",
+    "alt_lang": "kotlin"}
+  ]
+ },
+ "lab": {
+  "title": "Turn the collector tables into code",
+  "minutes": 12,
+  "files": [
+   "labs/memory/src/main/java/workbench/memory/l05/GcChoice.java",
+   "labs/memory/src/main/java/workbench/memory/l05/Collector.java",
+   "labs/memory/src/main/java/workbench/memory/l05/Workload.java"
+  ],
+  "run": "./gradlew :memory:test --tests 'workbench.memory.l05.*'",
+  "steps": [
+   "Run the tests. All seven fail.",
+   "Write `defaultCollector`: G1 from JDK 27; before that, G1 only with 2 or more CPUs and at least 1,792 MB, otherwise Serial.",
+   "Write `flagsFor` with a `switch` over the collector. Add `-XX:+ZGenerational` for ZGC before JDK 23. Throw `IllegalArgumentException` for generational Shenandoah before JDK 24. Put `-XX:+UnlockExperimentalVMOptions` first wherever it's needed: Epsilon always, generational Shenandoah on JDK 24.",
+   "Write `recommend` as the five rows of the decision table, in order.",
+   "Run the tests until all seven pass. Then try one of your own services: build its `Workload` and see whether you agree with the answer."
+  ],
+  "hints": [
+   "1,792 MB is 2 GB minus 256 MB. The test uses 1,791 and 1,792 to check the boundary.",
+   "Return `List.copyOf(flags)` so callers can't change your list.",
+   "In `recommend`, the order of the rows matters: a 1-CPU batch job with a 256 MB heap gets Serial, because that row comes first."
+  ],
+  "done_when": "All 7 tests in `GcChoiceTest` pass."
+ },
+ "drill": {
+  "title": "Write the flags from memory",
+  "minutes": 4,
+  "prompt": "Close the page. Write the JVM flags for generational ZGC on JDK 21 and on JDK 25, for Epsilon on JDK 25, and say which collector a JDK 25 service gets with no flags in a pod with 2 CPUs and a 1.5 GiB memory limit. Then write `defaultCollector` from memory.",
+  "answer": {
+   "lang": "java",
+   "src": "// ZGC on 21:   -XX:+UseZGC -XX:+ZGenerational\n// ZGC on 25:   -XX:+UseZGC\n// Epsilon:     -XX:+UnlockExperimentalVMOptions -XX:+UseEpsilonGC   (unlock first)\n// 2 CPUs, 1.5 GiB = 1,536 MB < 1,792 MB: not server-class, so Serial (G1 on JDK 27)\nstatic Collector defaultCollector(int jdk, int cpus, long memoryMb) {\n    if (jdk >= 27) return Collector.G1;\n    return cpus >= 2 && memoryMb >= 1_792 ? Collector.G1 : Collector.SERIAL;\n}",
+   "alt": {
+    "lang": "kotlin",
+    "src": "// ZGC on 21:   -XX:+UseZGC -XX:+ZGenerational\n// ZGC on 25:   -XX:+UseZGC\n// Epsilon:     -XX:+UnlockExperimentalVMOptions -XX:+UseEpsilonGC   (unlock first)\n// 2 CPUs, 1.5 GiB = 1,536 MB < 1,792 MB: not server-class, so Serial (G1 on JDK 27)\nfun defaultCollector(jdk: Int, cpus: Int, memoryMb: Long): Collector = when {\n    jdk >= 27 -> Collector.G1\n    cpus >= 2 && memoryMb >= 1_792 -> Collector.G1\n    else -> Collector.SERIAL\n}"
+   }
+  }
+ },
+ "recap": [
+  "ZGC relocates objects while threads run. Colored references and a load barrier on every reference load let threads fix stale references themselves, so pauses stay around hundredths of a millisecond at any heap size.",
+  "In a ZGC log the duration on a `Collection` line is the concurrent cycle. The pauses are the `Pause Mark Start`, `Pause Mark End` and `Pause Relocate Start` lines.",
+  "Low pauses cost CPU for GC threads and barriers, heap headroom for allocation during a cycle (or allocation stalls), and 8-byte references.",
+  "Generational ZGC: opt-in on JDK 21 (`-XX:+ZGenerational`), the default on 23, the only mode from 24. Generational Shenandoah: experimental on 24, product on 25.",
+  "With no GC flag, JDK 21 to 26 pick Serial unless the JVM sees 2 CPUs and 1,792 MB; JDK 27 picks G1 everywhere. Keep G1 for most services, ZGC for tight pause budgets with spare cores, Parallel for batch.",
+  "Epsilon never frees memory. Use it as an allocation budget in tests, with `-XX:+UnlockExperimentalVMOptions` written first."
+ ],
+ "quiz": [
+  {
+   "q": "A JDK 25 service runs in a container with 2 CPUs and a 1.5 GiB memory limit, with no GC flag. Which collector does it run, and what changes on JDK 27?",
+   "options": [
+    "G1 on both, because G1 is the default collector",
+    "Serial on JDK 25, because 1,536 MB is under 1,792 MB; G1 on JDK 27",
+    "Parallel on JDK 25, G1 on JDK 27",
+    "ZGC on JDK 27, because it became the default"
+   ],
+   "answer": 1,
+   "why": "On JDK 21 to 26, G1 is chosen only on a server-class machine: 2 or more CPUs and at least 1,792 MB as the JVM sees them. 1.5 GiB is 1,536 MB, so this pod gets Serial without anyone noticing. Per the JDK 27 source, JDK 27 selects G1 in all environments. ZGC has never been the default."
+  },
+  {
+   "q": "A team moves a service in a pod with 2 CPUs from G1 to ZGC. GC pauses drop below 0.1 ms, but p99 latency gets worse. What is the most likely reason?",
+   "options": [
+    "ZGC's pauses are longer than the log says",
+    "ZGC's concurrent GC threads and load barriers take CPU from request threads, and allocating threads may stall",
+    "ZGC doesn't support Quarkus",
+    "The heap is now too large for the region size"
+   ],
+   "answer": 1,
+   "why": "ZGC moves the work out of the pauses, not out of the process. With 2 CPUs, GC threads compete with request threads, every reference load runs a barrier, and if the collection can't keep up with allocation, threads stall waiting for memory. Look for `Allocation Stall` lines and CPU saturation."
+  },
+  {
+   "q": "Which flags select generational ZGC on JDK 21?",
+   "options": ["`-XX:+UseZGC`", "`-XX:+UseZGC -XX:+ZGenerational`", "`-XX:+UseZGC -XX:ZGCMode=generational`", "`-XX:+UnlockExperimentalVMOptions -XX:+UseZGC`"],
+   "answer": 1,
+   "why": "On JDK 21, plain `-XX:+UseZGC` gives the old single-generation ZGC; `-XX:+ZGenerational` opts in to the generational one. JDK 23 made generational the default, and JDK 24 removed the old mode, so on JDK 25 `-XX:+UseZGC` alone is right and `ZGenerational` is obsolete. ZGC is not experimental, so it needs no extra flag."
+  },
+  {
+   "q": "A test should prove that importing a 50,000-line settlement file allocates less than 200 MB in total. Which setup does that most directly?",
+   "options": [
+    "Run the import in a child JVM with `-XX:+UnlockExperimentalVMOptions -XX:+UseEpsilonGC -Xmx200m` and check that it finishes",
+    "Run it with `-Xmx200m` and G1, and check there's no `OutOfMemoryError`",
+    "Call `System.gc()` after the import and check `Runtime.totalMemory()`",
+    "Run it with ZGC and check the pause times"
+   ],
+   "answer": 0,
+   "why": "Epsilon never frees anything, so finishing inside a 200 MB heap means total allocation stayed under 200 MB (minus what JVM startup used). With G1, the import could allocate gigabytes and still fit in 200 MB, because the GC keeps freeing garbage. `totalMemory()` after a GC shows what's committed, not what was allocated."
+  },
+  {
+   "q": "From lesson 4: G1's young pauses grow with the amount of live data they copy. Why don't ZGC's pauses grow the same way?",
+   "options": [
+    "ZGC copies live objects while the application runs, and its pauses only deal with thread roots",
+    "ZGC never copies objects; it only marks them",
+    "ZGC uses bigger regions, so there is less to copy",
+    "ZGC skips the young generation"
+   ],
+   "answer": 0,
+   "why": "G1 evacuates inside the stop-the-world pause, so the pause grows with the survivors. ZGC relocates concurrently: the load barrier lets application threads find, and even perform, the moves. What's left for the pauses is handling roots such as thread stacks, which is why they stay around hundredths of a millisecond. ZGC does copy, and it is generational since JDK 21.",
+   "from": "mem-04"
+  }
+ ],
+ "flashcards": [
+  {"front": "In `Minor Collection (Allocation Rate) 582M(57%)->226M(22%) 0.052s` from ZGC, what is 0.052 s?", "back": "The whole concurrent collection, not a pause. The pauses are the `Pause Mark Start`, `Pause Mark End` and `Pause Relocate Start` lines."},
+  {"front": "What does ZGC's load barrier do?", "back": "After every reference load, it checks the reference's color bits. If they're stale, it finds the object's new address, moving it if needed, and writes the fixed reference back into the field."},
+  {"front": "What is a ZGC allocation stall?", "back": "Threads blocked because the heap filled before the concurrent collection finished. It means the heap is too small or the GC is short of CPU."},
+  {"front": "Generational ZGC per JDK version?", "back": "JDK 21: opt-in with `-XX:+ZGenerational`. JDK 23: the default. JDK 24 and later: the only mode."},
+  {"front": "Which collector does JDK 25 pick with no GC flag in a 1-CPU container?", "back": "Serial. G1 needs a server-class machine: 2 or more CPUs and at least 1,792 MB. JDK 27 picks G1 everywhere."},
+  {"front": "What is Epsilon good for?", "back": "Tests and benchmarks: it never frees memory, so a heap size becomes an allocation budget. The JVM exits when the heap is full."},
+  {"front": "Why must `-XX:+UnlockExperimentalVMOptions` come first?", "back": "HotSpot refuses an experimental option that appears before it, with `The unlock option must precede 'UseEpsilonGC'`."}
+ ],
+ "terms": [
+  {"term": "ZGC", "plain": "A collector that marks and moves objects while the application runs; its pauses don't grow with the heap."},
+  {"term": "Load barrier", "plain": "A few instructions the JIT adds after each reference load, to catch and fix references to moved objects."},
+  {"term": "Colored pointer", "plain": "A reference with metadata bits that tell ZGC's barrier whether it can be used as it is."},
+  {"term": "Concurrent relocation", "plain": "Moving live objects while application threads keep running."},
+  {"term": "Allocation stall", "plain": "An application thread waiting for memory because a concurrent collection hasn't freed enough yet."},
+  {"term": "Shenandoah", "plain": "OpenJDK's other concurrent, low-pause collector; not included in every vendor's build."},
+  {"term": "Server-class machine", "plain": "The JVM's test for picking G1 by default on JDK 21 to 26: 2 or more CPUs and at least 1,792 MB."},
+  {"term": "Epsilon", "plain": "A collector that allocates but never frees. For tests and benchmarks only."}
+ ],
+ "explain_back": {
+  "prompt": "Your team lead asks: \"Why don't we just use ZGC everywhere? It has the shortest pauses.\" Answer in your own words: how ZGC gets its short pauses, what it costs, and how you would decide per service.",
+  "answer": "ZGC moves objects while the application runs. Every reference in the heap carries color bits, and a load barrier after each reference load checks them; if a reference is stale, the thread fixes it on the spot. So the pauses only handle thread roots and stay well under a millisecond, whatever the heap size. The cost moves elsewhere: GC threads use CPU next to the request threads, the barrier runs on every load, the heap needs headroom because the application keeps allocating during a cycle (or threads stall), and references are 8 bytes, so objects get bigger. I'd decide per service from the GC log: if G1's real pauses fit the latency budget, stay on G1. If they don't, and the pod has spare cores, try ZGC and watch CPU, allocation stalls and heap use."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "The full `-Xlog:gc*` output of one generational ZGC minor collection on JDK 21 has more to read than the pause lines:\n\n```text\nGC(4) y: Using tenuring threshold: 4 (Computed)\nGC(4) y: Allocation Stalls:          0                0                0                0\nGC(4) y: MMU: 2ms/97.4%, 5ms/99.0%, 10ms/99.3%, 20ms/99.5%, 50ms/99.8%, 100ms/99.8%\nGC(4) y: Eden              27M (3%)          470M (46%)        233 / 217            1 / 0              0 / 0\nGC(4) y: Young Generation 582M(57%)->226M(22%) 0.052s\n```\n\n`MMU` is minimum mutator utilization: `2ms/97.4%` means that in every 2 ms window during this collection, the application got at least 97.4% of the time. It's a better latency number than pause length alone, because it also counts a burst of pauses close together. The `Eden` row shows the generational hypothesis from lesson 4: 27 MB live against 470 MB of garbage. `Allocation Stalls` should stay all zeros.\n\nA prefix tells you which generation a line is about: `y:` for the young collection of a minor GC, `Y:` and `O:` for the young and old parts of a major GC.\n\nZGC also gives memory back to the operating system on its own: `ZUncommit` is on by default and returns memory that has been unused for `ZUncommitDelay`, 300 seconds by default. G1 can shrink its heap after a full GC (the soft-reference demo in lesson 3 went from 64M to 8M), and its periodic collection for idle services is off by default (`G1PeriodicGCInterval` is 0). That difference can matter in a container: a ZGC service's resident memory can fall after a traffic peak, while a G1 service may keep what it grew to."
+ },
+ "sources": [
+  {"title": "The java command, JDK 27 man page source: ZGC, Shenandoah, Serial, Parallel, Epsilon", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-27-ga/src/java.base/share/man/java.md"},
+  {"title": "JEP 439: Generational ZGC", "url": "https://openjdk.org/jeps/439"},
+  {"title": "gcConfig.cpp at jdk-27-ga: G1 selected in all environments", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-27-ga/src/hotspot/share/gc/shared/gcConfig.cpp"},
+  {"title": "z_globals.hpp at jdk-25-ga: ZGC flags and defaults", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/hotspot/share/gc/z/z_globals.hpp"}
+ ]
+}
+
+(ROOT / "content/lessons/mem-05.json").write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print("wrote mem-05")
