@@ -248,11 +248,11 @@
    "q": "Which change makes a class usable for Hibernate's lazy proxies?",
    "options": [
     "Mark the entity `final` so Hibernate can inline it",
-    "Give the entity a non-`private` no-argument constructor and keep it non-final",
     "Declare collection fields as `ArrayList` instead of `List`",
-    "Make `equals` compare `getClass()` of both objects"
+    "Make `equals` compare `getClass()` of both objects",
+    "Give the entity a non-`private` no-argument constructor and keep it non-final"
    ],
-   "answer": 1,
+   "answer": 3,
    "why": "Hibernate generates a subclass of the entity, so the class must not be final and needs a non-private no-arg constructor. Collection fields must use interface types, because Hibernate puts its own collection classes there. A `getClass()` comparison in `equals` fails against a proxy, whose class is the generated subclass."
   },
   {

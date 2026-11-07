@@ -274,10 +274,10 @@
    "options": [
     "Two different versions of `Money` were compiled",
     "The JVM's class cache is corrupt",
-    "`Money` was defined by two loaders, and an object from one copy met a variable typed with the other",
-    "`Money` is missing a no-argument constructor"
+    "`Money` is missing a no-argument constructor",
+    "`Money` was defined by two loaders, and an object from one copy met a variable typed with the other"
    ],
-   "answer": 2,
+   "answer": 3,
    "why": "The same name with two different loaders is two different classes, even from identical bytes. The fix is to make sure both sides use the same copy, for example by not holding `Money` objects in something the app loader owns, or by adjusting what is loaded parent-first. Recompiling changes nothing, because the bytes were never the problem."
   },
   {

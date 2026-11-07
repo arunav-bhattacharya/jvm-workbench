@@ -52,7 +52,7 @@
   },
   {
    "h": "The ClassFile API parses bytes into an immutable model",
-   "body": "The package `java.lang.classfile` is the JDK's own class-file library. It was a preview feature in JDK 22 (JEP 457) and JDK 23 (JEP 466), and became final in JDK 24 (JEP 484). The labs compile with `release 21`, so this lesson's ClassFile API code lives in single-file programs under `labs/bytecode/preview/`, which you run with `java File.java` on JDK 24 or later. On JDK 21 they fail with `package java.lang.classfile does not exist`.\n\nEverything starts at `ClassFile.of()`. Its `parse` method turns bytes into a `ClassModel`:\n\n```java\nClassModel cm = ClassFile.of().parse(bytes);\nSystem.out.println(cm.thisClass().asInternalName() + \" major \" + cm.majorVersion());\nfor (MethodModel m : cm.methods()) {\n    long invokes = m.code()\n            .map(code -> code.elementStream().filter(e -> e instanceof InvokeInstruction).count())\n            .orElse(0L);\n    System.out.println(m.methodName().stringValue() + m.methodType().stringValue() + \" invokes=\" + invokes);\n}\n```\n\n```kotlin\nval cm = ClassFile.of().parse(bytes)\nprintln(\"${cm.thisClass().asInternalName()} major ${cm.majorVersion()}\")\nfor (m in cm.methods()) {\n    val invokes = m.code()\n        .map { code -> code.elementStream().filter { it is InvokeInstruction }.count() }\n        .orElse(0L)\n    println(\"${m.methodName().stringValue()}${m.methodType().stringValue()} invokes=$invokes\")\n}\n```\n\nA model is an immutable description of one part of a class file. There are models for the class, each field, each method, and each method's code. The package documentation adds two properties. A `ClassModel` \"is inflated lazily; most parts of the classfile are not parsed until they are actually needed\". So a malformed method can parse fine and throw `IllegalArgumentException` only when you open it.\n\nEach model can also be read as a sequence of **elements**. A class's elements are its methods, fields and attributes. A method's code is a sequence of instructions, labels and other code elements. Each instruction is an object with a type you can match on, such as `InvokeInstruction`, `ConstantInstruction` or `InvokeDynamicInstruction`. That's the key to the whole API: reading walks elements, building emits elements, and transforming maps elements to elements.\n\nNames and types come back as constant-pool entries (`methodName()` is a `Utf8Entry`, which is why the code calls `stringValue()`). When you build, you pass symbolic descriptions from `java.lang.constant`, such as `ClassDesc.of(\"FeeRule\")` and `MethodTypeDesc.of(CD_long, CD_long)`, and the library creates the entries.",
+   "body": "The package `java.lang.classfile` is the JDK's own class-file library. It was a preview feature in JDK 22 (JEP 457) and JDK 23 (JEP 466), and became final in JDK 24 (JEP 484). The labs compile with `release 21`, so this lesson's ClassFile API code lives in single-file programs under `labs/bytecode/preview/`, which you run with `java File.java` on JDK 24 or later. On JDK 21 they fail with `package java.lang.classfile does not exist`.\n\nEverything starts at `ClassFile.of()`. Its `parse` method turns bytes into a `ClassModel`:\n\n```java\nClassModel cm = ClassFile.of().parse(bytes);\nSystem.out.println(cm.thisClass().asInternalName() + \" major \" + cm.majorVersion());\nfor (MethodModel m : cm.methods()) {\n    long invokes = m.code()\n            .map(code -> code.elementStream().filter(e -> e instanceof InvokeInstruction).count())\n            .orElse(0L);\n    System.out.println(m.methodName().stringValue() + m.methodType().stringValue() + \" invokes=\" + invokes);\n}\n```\n\n```kotlin\nval cm = ClassFile.of().parse(bytes)\nprintln(\"${cm.thisClass().asInternalName()} major ${cm.majorVersion()}\")\nfor (m in cm.methods()) {\n    val invokes = m.code()\n        .map { code -> code.elementStream().filter { it is InvokeInstruction }.count() }\n        .orElse(0L)\n    println(\"${m.methodName().stringValue()}${m.methodType().stringValue()} invokes=$invokes\")\n}\n```\n\nA model is an immutable description of one part of a class file. There are models for the class, each field, each method, and each method's code. The package documentation adds two properties. A `ClassModel` \"is inflated lazily; most parts of the classfile are not parsed until they are actually needed\". So a malformed method can parse fine and throw `IllegalArgumentException` only when you open it.\n\nEach model can also be read as a sequence of **elements**. A class's elements are its methods, fields and attributes. A method's code is a sequence of instructions, labels and other code elements. Each instruction is an object with a type you can match on, such as `InvokeInstruction`, `ConstantInstruction` or `InvokeDynamicInstruction`. The rest of the API is built on that: reading walks elements, building emits elements, and transforming maps elements to elements.\n\nNames and types come back as constant-pool entries (`methodName()` is a `Utf8Entry`, which is why the code calls `stringValue()`). When you build, you pass symbolic descriptions from `java.lang.constant`, such as `ClassDesc.of(\"FeeRule\")` and `MethodTypeDesc.of(CD_long, CD_long)`, and the library creates the entries.",
    "try": {
     "title": "Tour lesson 2's class with the ClassFile API",
     "minutes": 4,
@@ -241,33 +241,33 @@
    "q": "Your pool walk handles every tag but forgets that `Long` takes two indexes. What happens on a class with a `long` constant?",
    "options": [
     "Nothing: the second index is empty, so skipping it is optional",
-    "Every index after the long is off by one, and the loop reads one entry too many, past the end of the pool: names come out wrong, or the walk fails on an unknown tag",
     "`readUTF` throws immediately",
+    "Every index after the long is off by one, and the loop reads one entry too many, past the end of the pool: names come out wrong, or the walk fails on an unknown tag",
     "Only the long's value is wrong"
    ],
-   "answer": 1,
+   "answer": 2,
    "why": "You skipped the right number of bytes, but the numbering is off by one. Every later entry gets an index one too small, so a `Class` entry's name index points at the wrong string, and the loop expects one more entry than the file has, so it reads the access flags as if they were a tag. The symptom is far from the cause, usually an unknown tag or garbage names. That's why the lab's `Fixture` has both a `long` and a `double`."
   },
   {
    "q": "`ClassFile.of().verify(bytes)` returns an empty list for your generated class. What do you know?",
    "options": [
     "The class computes the right results",
-    "The bytecode is type-safe for the verifier, for example every return finds the type its descriptor promises, but it may still compute the wrong thing",
     "The class has already been loaded",
-    "The class will run on every JDK"
+    "The class will run on every JDK",
+    "The bytecode is type-safe for the verifier, for example every return finds the type its descriptor promises, but it may still compute the wrong thing"
    ],
-   "answer": 1,
+   "answer": 3,
    "why": "Verification checks types and stack shapes, not meaning. A fee method with a missing `ldiv` still verifies and returns the wrong number. A class verified today can also fail to load on an older JDK because of its version number."
   },
   {
    "q": "You want a build-time check, running on JDK 25, that fails if any class in your service references `java/util/Random`. Which tool fits best?",
    "options": [
-    "A JDK dynamic proxy around every class",
     "`ClassFile.of().parse(bytes)` over every class file, checking the class entries in each constant pool",
+    "A JDK dynamic proxy around every class",
     "A Java agent that retransforms every loaded class",
     "`Class.forName` on every class with initialization"
    ],
-   "answer": 1,
+   "answer": 0,
    "why": "Every class a class mentions has a `Class` entry in its constant pool, so parsing the files is enough. No class needs to be loaded, initialized or run. Proxies intercept calls at run time, agents change loaded classes, and `Class.forName` runs static initializers, which is the last thing a build check should do."
   },
   {

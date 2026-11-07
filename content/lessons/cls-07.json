@@ -219,11 +219,11 @@
    "q": "Your agent retransforms `SettlementJob` and adds a `private long calls` field to count calls. What happens?",
    "options": [
     "It works: retransformation can change anything",
-    "`retransformClasses` fails, and no class is changed: retransformation can't add fields. Keep the counter in a separate public class",
     "It works for new instances only",
-    "The JVM restarts the class's static initializer"
+    "The JVM restarts the class's static initializer",
+    "`retransformClasses` fails, and no class is changed: retransformation can't add fields. Keep the counter in a separate public class"
    ],
-   "answer": 1,
+   "answer": 3,
    "why": "JVMTI allows only method bodies, the constant pool and attributes to change on retransformation. Adding, removing or renaming fields or methods, changing signatures, modifiers or inheritance is refused. The Javadoc adds that if the call throws, no classes were retransformed. That's why the lab's advice calls `CallCounts.hit`."
   },
   {
@@ -240,12 +240,12 @@
   {
    "q": "A JDK 25 service runs with default flags. An operator attaches a profiler that loads an agent dynamically. What happens?",
    "options": [
-    "The attach is refused",
     "The agent loads, and the JVM prints a multi-line warning on stderr saying dynamic loading will be disallowed by default in a future release",
+    "The attach is refused",
     "The service must be restarted with `-javaagent`",
     "The agent loads silently"
    ],
-   "answer": 1,
+   "answer": 0,
    "why": "Since JDK 21 (JEP 451), the default is to allow dynamic loading with a warning, and runs on JDK 21 through 27.0.1 still behaved that way. `-XX:+EnableDynamicAgentLoading` hides the warning and `-XX:-EnableDynamicAgentLoading` refuses the load."
   },
   {

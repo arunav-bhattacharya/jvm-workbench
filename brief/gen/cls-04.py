@@ -303,6 +303,11 @@ L = {
 }
 # the generated-method listing goes into section 1
 L["sections"][0]["body"] = L["sections"][0]["body"].replace('" + "{GEN}" + "', GEN)
+# spread the correct answers over the option positions
+for q, idx in zip(L["quiz"], [1, 3, 0, 2, 0]):
+    right = q["options"].pop(q["answer"])
+    q["options"].insert(idx, right)
+    q["answer"] = idx
 out = ROOT / "content/lessons/cls-04.json"
 out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
 print(out)

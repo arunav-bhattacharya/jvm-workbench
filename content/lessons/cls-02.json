@@ -225,11 +225,11 @@
    "q": "Which Java signature has the descriptor `(Ljava/lang/String;[JZ)V`?",
    "options": [
     "`void m(String s, long j, boolean z)`",
-    "`void m(String s, long[] js, boolean z)`",
     "`boolean m(String s, long[] js)`",
-    "`void m(String[] s, int j, char z)`"
+    "`void m(String[] s, int j, char z)`",
+    "`void m(String s, long[] js, boolean z)`"
    ],
-   "answer": 1,
+   "answer": 3,
    "why": "`Ljava/lang/String;` is a String, `[J` is an array of long (J is long, not int), `Z` is boolean, and `V` after the parenthesis is the void return type."
   },
   {
@@ -258,11 +258,11 @@
    "q": "From *Race conditions*: `count++` on a static `int` compiles to `getstatic count`, `iconst_1`, `iadd`, `putstatic count`. Between which instructions can another thread change `count` and cause a lost update?",
    "options": [
     "Only between `iadd` and `putstatic`",
-    "Between any two of them: after `getstatic`, the value on this thread's operand stack is a private copy",
     "None: one line of Java runs atomically",
+    "Between any two of them: after `getstatic`, the value on this thread's operand stack is a private copy",
     "Only before `getstatic`"
    ],
-   "answer": 1,
+   "answer": 2,
    "why": "`getstatic` copies the field onto this frame's operand stack. From then on the thread computes with its own copy, and `putstatic` writes back whatever it computed. Any write by another thread after the `getstatic` and before the `putstatic` is overwritten.",
    "from": "conc-03"
   }

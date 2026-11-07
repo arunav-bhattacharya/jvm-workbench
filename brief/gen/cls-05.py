@@ -266,6 +266,11 @@ L = {
   {"title": "Hibernate ORM introduction: Interacting with the database (proxies, source)", "url": "https://raw.githubusercontent.com/hibernate/hibernate-orm/main/documentation/src/main/asciidoc/introduction/Interacting.adoc"}
  ]
 }
+# spread the correct answers over the option positions
+for q, idx in zip(L["quiz"], [1, 2, 0, 3, 1]):
+    right = q["options"].pop(q["answer"])
+    q["options"].insert(idx, right)
+    q["answer"] = idx
 out = ROOT / "content/lessons/cls-05.json"
 out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
 print(out)

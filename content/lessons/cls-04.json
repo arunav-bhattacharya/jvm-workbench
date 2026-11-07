@@ -244,33 +244,33 @@
    "q": "Kotlin: `interface RatesClient { fun fetch(): Rates }`, implemented by a Kotlin class whose `fetch()` calls a Java HTTP client that throws `IOException`. A JDK proxy around it unwraps `InvocationTargetException` correctly. A Kotlin caller wraps the call in `catch (e: IOException)`. What happens when the issuer is down?",
    "options": [
     "The `catch` runs: Kotlin has no checked exceptions, so anything goes",
-    "The caller gets `UndeclaredThrowableException`: the interface method declares no `IOException`, so the generated proxy method wraps it",
     "The caller gets `InvocationTargetException`",
-    "It doesn't compile"
+    "It doesn't compile",
+    "The caller gets `UndeclaredThrowableException`: the interface method declares no `IOException`, so the generated proxy method wraps it"
    ],
-   "answer": 1,
+   "answer": 3,
    "why": "The generated method only lets through unchecked exceptions and the checked exceptions its interface method declares. A Kotlin interface declares none unless you write `@Throws(IOException::class)`. With that annotation, the `IOException` reaches the caller unchanged and the `catch` matches."
   },
   {
    "q": "A service creates a new JDK proxy around a `CardIssuerClient` for every request: 50,000 requests an hour, same class loader, same single interface. How many proxy classes does the JVM generate?",
    "options": [
-    "50,000, one per proxy",
     "One, then each request only constructs a small proxy object",
+    "50,000, one per proxy",
     "One per thread",
     "None: proxies are hidden classes that aren't counted"
    ],
-   "answer": 1,
+   "answer": 0,
    "why": "`Proxy` caches the generated class's constructor per class loader, keyed by the ordered interface list. Later calls construct an instance. Listing the interfaces in a different order would generate a second class. Proxy classes are not hidden: `isHidden()` is false."
   },
   {
    "q": "Your retry proxy retries any method that throws `IssuerUnavailableException`, including the default method `authorizeAndCapture()`, which calls `authorize` then `capture`, and it forwards defaults with `method.invoke(target, args)`. `capture` fails once. What does the issuer see?",
    "options": [
     "One authorization and two captures",
-    "Two authorizations and two captures: the whole default method ran again",
     "One authorization and one capture",
+    "Two authorizations and two captures: the whole default method ran again",
     "Nothing: default methods can't be proxied"
    ],
-   "answer": 1,
+   "answer": 2,
    "why": "The default body runs on the target, so neither inner call is retried on its own. When `capture` fails, the exception escapes the whole `authorizeAndCapture`, and the handler retries the whole thing, authorization included. With `invokeDefault` and retries only on abstract methods, the issuer sees one authorization and two capture attempts."
   },
   {

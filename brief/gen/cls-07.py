@@ -269,6 +269,11 @@ L = {
   {"title": "Byte Buddy README", "url": "https://github.com/raphw/byte-buddy/blob/master/README.md"}
  ]
 }
+# spread the correct answers over the option positions
+for q, idx in zip(L["quiz"], [3, 1, 0, 2, 1]):
+    right = q["options"].pop(q["answer"])
+    q["options"].insert(idx, right)
+    q["answer"] = idx
 out = ROOT / "content/lessons/cls-07.json"
 out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
 print(out)

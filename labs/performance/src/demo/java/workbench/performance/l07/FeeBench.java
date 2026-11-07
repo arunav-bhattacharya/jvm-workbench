@@ -21,8 +21,8 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Warmup(iterations = 2, time = 200, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 3, time = 200, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 3, time = 300, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 3, time = 300, timeUnit = TimeUnit.MILLISECONDS)
 @Fork(1)
 public class FeeBench {
     FeeVariants.Payment payment = new FeeVariants.Payment("pay_123", "EUR", "1234.56", "m_7");   // non-final input

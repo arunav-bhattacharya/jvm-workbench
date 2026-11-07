@@ -266,6 +266,11 @@ L = {
   {"title": "What's new in Kotlin 2.0.0", "url": "https://kotlinlang.org/docs/whatsnew20.html"}
  ]
 }
+# spread the correct answers over the option positions
+for q, idx in zip(L["quiz"], [1, 3, 2, 0, 0]):
+    right = q["options"].pop(q["answer"])
+    q["options"].insert(idx, right)
+    q["answer"] = idx
 out = ROOT / "content/lessons/cls-03.json"
 out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
 print(out)

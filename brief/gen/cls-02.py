@@ -251,6 +251,11 @@ L = {
   {"title": "What's new in Kotlin 1.5.20 (string concatenation via invokedynamic)", "url": "https://kotlinlang.org/docs/whatsnew1520.html"}
  ]
 }
+# spread the correct answers over the option positions
+for q, idx in zip(L["quiz"], [0, 3, 2, 1, 2]):
+    right = q["options"].pop(q["answer"])
+    q["options"].insert(idx, right)
+    q["answer"] = idx
 out = ROOT / "content/lessons/cls-02.json"
 out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
 print(out)

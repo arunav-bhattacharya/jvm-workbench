@@ -282,6 +282,11 @@ L = {
   {"title": "Quarkus: Class loading reference", "url": "https://quarkus.io/guides/class-loading-reference"}
  ]
 }
+# spread the correct answers over the option positions
+for q, idx in zip(L["quiz"], [2, 1, 3, 0, 1]):
+    right = q["options"].pop(q["answer"])
+    q["options"].insert(idx, right)
+    q["answer"] = idx
 out = ROOT / "content/lessons/cls-01.json"
 out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
 print(out)

@@ -251,33 +251,33 @@
    "q": "javap shows `invokedynamic #0:apply:(Lcom/acme/RateService;)Ljava/util/function/Function;` for a lambda inside `RateService`. What does it tell you?",
    "options": [
     "The lambda takes a `RateService` as its argument",
-    "The lambda captures `this` (a `RateService`), so each evaluation creates a new object that keeps the service reachable",
     "The lambda is a method reference to a static method",
-    "The lambda was compiled by kotlinc"
+    "The lambda was compiled by kotlinc",
+    "The lambda captures `this` (a `RateService`), so each evaluation creates a new object that keeps the service reachable"
    ],
-   "answer": 1,
+   "answer": 3,
    "why": "The call site type is the factory: its parameters are the captured values and it returns the interface. A leading `RateService` means the lambda captured `this`, usually because its body reads a field or calls an instance method. The lambda's own parameter types are in the bootstrap arguments, not in this type."
   },
   {
    "q": "A Kotlin library built with kotlinc on the command line, with no `-jvm-target`, uses many string templates. What does `javap -c` show for them?",
    "options": [
     "`invokedynamic makeConcatWithConstants`, as for Java",
-    "`new StringBuilder`, `append` and `toString`: the default target is Java 8, which has no `StringConcatFactory`",
     "`String.format` calls",
+    "`new StringBuilder`, `append` and `toString`: the default target is Java 8, which has no `StringConcatFactory`",
     "`invokedynamic` with `LambdaMetafactory`"
    ],
-   "answer": 1,
+   "answer": 2,
    "why": "kotlinc 2.4.21 without `-jvm-target` writes class-file version 52 (Java 8), and `StringConcatFactory` only exists from JDK 9. With target 9 or newer (the labs use 21), templates compile to `makeConcatWithConstants`."
   },
   {
    "q": "Which of these compiles to plain bytecode, with no `invokedynamic` at all?",
    "options": [
+    "A Kotlin `data class`'s `equals()`",
     "A record's `toString()`",
     "`\"id=\" + id`",
-    "A Kotlin `data class`'s `equals()`",
     "A pattern-matching `switch` over a sealed interface"
    ],
-   "answer": 2,
+   "answer": 0,
    "why": "kotlinc writes a data class's `equals` and `hashCode` as ordinary bytecode, and only its `toString` uses a concatenation `invokedynamic`. A record's three methods use `ObjectMethods.bootstrap`, string `+` uses `StringConcatFactory`, and a pattern switch uses `SwitchBootstraps.typeSwitch`."
   },
   {
