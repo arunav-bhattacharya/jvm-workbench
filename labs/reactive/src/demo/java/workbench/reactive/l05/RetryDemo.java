@@ -24,6 +24,15 @@ public class RetryDemo {
         throw new IllegalStateException("issuer down");
     }
 
+    // a client that calls the issuer when the method is called, and wraps the answer in a Mono
+    static Mono<String> eagerClient() {
+        try {
+            return Mono.just(callIssuer());
+        } catch (RuntimeException e) {
+            return Mono.error(e);
+        }
+    }
+
     public static void main(String[] args) {
         // warm up Reactor and the formatter, so the first timings don't include class loading
         Mono.fromCallable(() -> 1).retryWhen(Retry.backoff(1, Duration.ofMillis(1))).block();
@@ -50,11 +59,12 @@ public class RetryDemo {
             System.out.println("  -> " + e + "\n     cause: " + e.getCause());
         }
 
-        start("4. Mono.just(callIssuer()) + retry: the call already happened");
+        start("4. retry(3) on a Mono built from one eager call");
+        AtomicInteger subscriptions = new AtomicInteger();
         try {
-            Mono.just(callIssuer()).retry(3).block();
+            eagerClient().doOnSubscribe(s -> subscriptions.incrementAndGet()).retry(3).block();
         } catch (RuntimeException e) {
-            System.out.println("  -> " + e);
+            System.out.println("  -> " + e + " after " + subscriptions.get() + " subscriptions");
         }
     }
 

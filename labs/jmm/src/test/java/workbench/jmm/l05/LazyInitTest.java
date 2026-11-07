@@ -20,18 +20,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LazyInitTest {
     private static final int THREADS = 8;
 
-    // starts the threads behind one latch so they all ask at the same moment, then joins them
+    // parks every thread at a start line, releases them together so they all ask at the same moment, then joins them
     private static void collide(int threads, Runnable task) throws InterruptedException {
+        CountDownLatch ready = new CountDownLatch(threads);
         CountDownLatch go = new CountDownLatch(1);
         List<Thread> ts = new ArrayList<>();
         for (int i = 0; i < threads; i++) {
             Thread t = new Thread(() -> {
+                ready.countDown();
                 try { go.await(); } catch (InterruptedException e) { return; }
                 task.run();
             }, "caller-" + i);
             t.start();
             ts.add(t);
         }
+        ready.await();
         go.countDown();
         for (Thread t : ts) t.join();
     }
@@ -66,6 +69,23 @@ class LazyInitTest {
         StringBuilder first = lazy.get();
         for (int i = 0; i < 1_000; i++) assertThat(lazy.get()).isSameAs(first);
         assertThat(runs.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("DoubleCheckedLazy drops its initializer after the first call, so whatever the lambda captured can be collected")
+    void dclDropsInitializer() throws IllegalAccessException {
+        DoubleCheckedLazy<String> lazy = new DoubleCheckedLazy<>(() -> "issuer-config");
+        List<Field> suppliers = new ArrayList<>();
+        for (Field f : DoubleCheckedLazy.class.getDeclaredFields()) {
+            if (!Modifier.isStatic(f.getModifiers()) && Supplier.class.isAssignableFrom(f.getType())) suppliers.add(f);
+        }
+        assertThat(suppliers).as("a Supplier field that holds the initializer").isNotEmpty();
+        assertThat(lazy.get()).isEqualTo("issuer-config");
+        for (Field f : suppliers) {
+            f.setAccessible(true);
+            assertThat(f.get(lazy)).as("field %s after the first get()", f.getName()).isNull();
+        }
+        assertThat(lazy.get()).as("later calls still return the value").isEqualTo("issuer-config");
     }
 
     @Test

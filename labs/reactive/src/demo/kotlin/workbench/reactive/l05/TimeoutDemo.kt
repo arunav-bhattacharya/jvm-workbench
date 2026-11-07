@@ -25,11 +25,13 @@ fun main() {
     val attempts = AtomicInteger()
     val t0 = System.nanoTime()
     try {
-        Mono.defer { attempts.incrementAndGet(); slowRate }
+        val r = Mono.defer { attempts.incrementAndGet(); slowRate }
             .timeout(Duration.ofMillis(100))                        // per attempt
             .retryWhen(Retry.backoff(5, Duration.ofMillis(50)).jitter(0.0))
             .timeout(Duration.ofMillis(400))                        // budget for the whole call
             .block()
+        println("budget: got %s after %d attempts and %d ms".format(
+            r, attempts.get(), (System.nanoTime() - t0) / 1_000_000))
     } catch (e: RuntimeException) {
         println("budget: gave up after %d attempts and %d ms: %s".format(
             attempts.get(), (System.nanoTime() - t0) / 1_000_000, e.cause?.javaClass?.simpleName))

@@ -50,6 +50,18 @@ class ResilientAuthorizerTest {
     }
 
     @Test
+    @DisplayName("calling authorize() does not call the issuer until someone subscribes")
+    void nothingHappensBeforeSubscribe() {
+        ScriptedIssuer issuer = new ScriptedIssuer(List.of(approved()));
+
+        Mono<String> pending = new ResilientAuthorizer(issuer).authorize("p-0");
+        assertThat(issuer.calls).as("issuer calls before subscribe").hasValue(0);
+
+        StepVerifier.create(pending).expectNext("APPROVED").expectComplete().verify(Duration.ofSeconds(5));
+        assertThat(issuer.calls).as("issuer calls after subscribe").hasValue(1);
+    }
+
+    @Test
     @DisplayName("succeeds on the third attempt, after waiting 100 ms and then 200 ms")
     void retriesWithBackoff() {
         ScriptedIssuer issuer = new ScriptedIssuer(List.of(unavailable(), unavailable(), approved()));

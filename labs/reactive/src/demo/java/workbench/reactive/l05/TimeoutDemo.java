@@ -27,11 +27,13 @@ public class TimeoutDemo {
         AtomicInteger attempts = new AtomicInteger();
         long t0 = System.nanoTime();
         try {
-            Mono.defer(() -> { attempts.incrementAndGet(); return slowRate; })
+            String r = Mono.defer(() -> { attempts.incrementAndGet(); return slowRate; })
                     .timeout(Duration.ofMillis(100))                        // per attempt
                     .retryWhen(Retry.backoff(5, Duration.ofMillis(50)).jitter(0))
                     .timeout(Duration.ofMillis(400))                        // budget for the whole call
                     .block();
+            System.out.printf("budget: got %s after %d attempts and %d ms%n",
+                    r, attempts.get(), (System.nanoTime() - t0) / 1_000_000);
         } catch (RuntimeException e) {
             System.out.printf("budget: gave up after %d attempts and %d ms: %s%n",
                     attempts.get(), (System.nanoTime() - t0) / 1_000_000, e.getCause().getClass().getSimpleName());

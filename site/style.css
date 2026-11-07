@@ -23,13 +23,15 @@
   --ok: #1d7a4c;
   --bad: #b5303a;
   --mark-off: rgba(35, 38, 46, 0.16);
-  --c-kw: #1f5fc4; --c-str: #1a4a96; --c-com: #8b909b; --c-fn: #0f7a6a; --c-num: #995a05; --c-op: #575b66; --c-ann: #4b55b8;
+  /* code, in GitHub's light theme */
+  --gh-fg: #1f2328; --gh-bg: #f6f8fa; --gh-file: #ffffff; --gh-border: #d1d9e0; --gh-inline: rgba(129, 139, 152, 0.12);
+  --gh-kw: #cf222e; --gh-str: #0a3069; --gh-com: #59636e; --gh-const: #0550ae; --gh-ent: #6639ba; --gh-var: #953800;
   /* older names the page still uses */
   --run: var(--ember); --link: var(--ember); --hold: var(--ember); --hold-ink: var(--gold);
   --display: "Instrument Serif", "CMU Serif", Georgia, serif;
   --read: "Newsreader", "CMU Serif", Georgia, serif;
   --body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Inter", "Segoe UI", system-ui, sans-serif;
-  --mono: "Google Sans Code", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --fig: "CMU Serif", "Latin Modern Roman", Georgia, serif;
   --top: 54px;
   --side: 272px;
@@ -43,7 +45,8 @@
   --ember: #5b9bff; --ember-ink: #050608; --soft: rgba(91, 155, 255, 0.12); --gold: #8ec5ff;
   --teal: #3fc7b3; --amber: #f2b85b; --plum: #a7b4ff; --rose: #f2839a; --ok: #5ccf96; --bad: #f07a86;
   --mark-off: rgba(236, 236, 238, 0.16);
-  --c-kw: #7ab4ff; --c-str: #a9d6ff; --c-com: #717177; --c-fn: #6fcbd8; --c-num: #f2b85b; --c-op: #a6a6ad; --c-ann: #a7b4ff;
+  --gh-fg: #f0f6fc; --gh-bg: #151b23; --gh-file: #0d1117; --gh-border: #3d444d; --gh-inline: rgba(101, 108, 118, 0.2);
+  --gh-kw: #ff7b72; --gh-str: #a5d6ff; --gh-com: #9198a1; --gh-const: #79c0ff; --gh-ent: #d2a8ff; --gh-var: #ffa657;
 }
 
 * { box-sizing: border-box; }
@@ -57,7 +60,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; border-radius: 4px; }
 code, pre, kbd { font-family: var(--mono); }
 p code, li code, td code, dd code, h2 code, h3 code, .q code, .opt code, .why code, .goal code, .front code, .crumb code, .tag code {
-  font-family: var(--mono); font-size: 0.84em; padding: 0.08em 0.38em; border-radius: 4px; background: var(--tint); color: var(--fg); border: 1px solid var(--rule-2); white-space: break-spaces;
+  font-family: var(--mono); font-size: 0.8em; padding: 0.2em 0.4em; border-radius: 6px; background: var(--gh-inline); color: var(--gh-fg); white-space: break-spaces;
 }
 h1, h2, h3 { font-family: var(--display); font-weight: 400; letter-spacing: 0; text-wrap: balance; margin: 0; line-height: 1.08; }
 h1 em, h1 i, h2 em { font-style: italic; }
@@ -164,27 +167,28 @@ select.field { width: auto; font: 14px var(--body); height: 34px; padding: 0 10p
 .tablewrap th { font-weight: 600; font-size: 13px; color: var(--mute); background: var(--well); }
 .tablewrap tr:last-child td { border-bottom: 0; }
 
-/* ---------- code ---------- */
-pre.code, .codebox pre { margin: 0; background: var(--well); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 16px; overflow-x: auto; font: 400 14.5px/1.6 var(--mono); tab-size: 4; max-width: 100%; }
+/* ---------- code: GitHub's look (markdown blocks on a grey panel, files with a header bar) ---------- */
+pre.code, .codebox pre { margin: 0; background: var(--gh-bg); color: var(--gh-fg); border: 0; border-radius: 6px; padding: 16px; overflow-x: auto; font: 400 14px/1.5 var(--mono); tab-size: 4; max-width: 100%; }
 .prose pre.code { margin: 0 0 1em; }
-.codebox { border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; background: var(--well); min-width: 0; }
-.codebox .bar { display: flex; align-items: center; gap: 10px; padding: 7px 10px 7px 14px; border-bottom: 1px solid var(--rule); font: 500 13.5px var(--body); color: var(--mute); background: var(--panel); }
-.codebox .bar .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 14px; }
-.codebox .bar .label { font-size: 12px; }
-.codebox pre { border: 0; border-radius: 0; }
-.codebox .run { display: flex; align-items: center; gap: 10px; padding: 7px 10px 7px 16px; border-top: 1px dashed var(--rule); font: 13px/1.4 var(--mono); color: var(--mute); background: var(--panel); }
-.codebox .run code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; color: var(--fg); }
-.copy { font: 500 12.5px var(--body); background: transparent; border: 1px solid var(--rule); border-radius: 8px; padding: 4px 10px; cursor: pointer; color: var(--mute); }
-.copy:hover { color: var(--fg); border-color: var(--mute); }
+.codebox { border: 1px solid var(--gh-border); border-radius: 6px; overflow: hidden; background: var(--gh-file); min-width: 0; }
+.codebox .bar { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 14px; border-bottom: 1px solid var(--gh-border); font: 600 13px var(--body); color: var(--gh-fg); background: var(--gh-bg); }
+.codebox .bar .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px var(--mono); }
+.codebox .bar .label { font-size: 12px; font-weight: 500; color: var(--gh-com); }
+.codebox pre { background: var(--gh-file); border-radius: 0; }
+.codebox .run { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 14px; border-top: 1px solid var(--gh-border); font: 13px/1.4 var(--mono); color: var(--gh-com); background: var(--gh-bg); }
+.codebox .run code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; color: var(--gh-fg); }
+.copy { font: 500 12px var(--body); background: var(--gh-file); border: 1px solid var(--gh-border); border-radius: 6px; padding: 3px 10px; cursor: pointer; color: var(--gh-fg); }
+.copy:hover { background: var(--gh-bg); }
 code, pre, kbd, .codebox, .sim ol { font-variant-ligatures: none; }
-.k, .kd, .kn, .kc, .kr, .kt, .kp, .ow { color: var(--c-kw); }
-.s, .s1, .s2, .sb, .sc, .se, .sa, .sh, .sx, .si, .sd, .dl { color: var(--c-str); }
-.c, .c1, .cm, .cs, .ch, .cp, .cpf { color: var(--c-com); font-style: italic; }
-.m, .mi, .mf, .mh, .il, .mb, .mo { color: var(--c-num); }
-.nf, .fm, .nc, .nb, .bp, .nn { color: var(--c-fn); }
-.nd, .na { color: var(--c-ann); }
-.o, .p { color: var(--c-op); }
-.gp { color: var(--faint); user-select: none; }
+/* Pygments token classes mapped to GitHub's syntax roles */
+.k, .kd, .kn, .kr, .kp, .kt, .ow { color: var(--gh-kw); }
+.kc, .m, .mi, .mf, .mh, .il, .mb, .mo, .nb, .bp, .no { color: var(--gh-const); }
+.s, .s1, .s2, .sb, .sc, .se, .sa, .sh, .sx, .si, .sd, .dl, .sr { color: var(--gh-str); }
+.c, .c1, .cm, .cs, .ch, .cp, .cpf { color: var(--gh-com); }
+.nf, .fm, .nc, .ne { color: var(--gh-ent); }
+.nd, .nl { color: var(--gh-var); }
+.n, .nn, .na, .nv, .o, .p, .w { color: inherit; }
+.gp { color: var(--gh-com); user-select: none; }
 .err { color: inherit; background: none; }
 
 /* Java/Kotlin pairs: html[data-code] is java, kotlin or both */

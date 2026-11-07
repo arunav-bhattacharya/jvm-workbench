@@ -167,14 +167,13 @@ def compile_course():
     return out
 
 
-# the faces of AI Engineer from Zero (code in Google Sans Code), served with the site (web) or inlined (preview)
+# the faces of AI Engineer from Zero, served with the site (web) or inlined (preview); code uses the
+# reader's SF Mono (Apple's licence doesn't allow bundling it), with GitHub's fallback list
 FONTS = [
     ("Instrument Serif", "normal", 400, "instrument-serif-400.woff2"), ("Instrument Serif", "italic", 400, "instrument-serif-400i.woff2"),
     ("Newsreader", "normal", 400, "newsreader-400.woff2"), ("Newsreader", "italic", 400, "newsreader-400i.woff2"),
     ("Newsreader", "normal", 600, "newsreader-600.woff2"), ("Newsreader", "italic", 600, "newsreader-600i.woff2"),
     ("Inter", "normal", 400, "inter-400.woff2"), ("Inter", "normal", 500, "inter-500.woff2"), ("Inter", "normal", 600, "inter-600.woff2"),
-    ("Google Sans Code", "normal", "300 800", "google-sans-code-normal.woff2"),
-    ("Google Sans Code", "italic", "300 800", "google-sans-code-italic.woff2"),
     ("CMU Serif", "normal", 400, "cmu-serif-400.woff2"), ("CMU Serif", "italic", 400, "cmu-serif-400i.woff2"),
 ]
 

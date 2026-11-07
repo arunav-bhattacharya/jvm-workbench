@@ -21,6 +21,14 @@ private fun alwaysFails(): String {
     throw IllegalStateException("issuer down")
 }
 
+// a client that calls the issuer when the function is called, and wraps the answer in a Mono
+private fun eagerClient(): Mono<String> =
+    try {
+        Mono.just(callIssuer())
+    } catch (e: RuntimeException) {
+        Mono.error(e)
+    }
+
 private fun start(title: String) {
     println(title)
     calls.set(0)
@@ -54,10 +62,11 @@ fun main() {
         println("  -> $e\n     cause: ${e.cause}")
     }
 
-    start("4. Mono.just(callIssuer()) + retry: the call already happened")
+    start("4. retry(3) on a Mono built from one eager call")
+    val subscriptions = AtomicInteger()
     try {
-        Mono.just(callIssuer()).retry(3).block()
+        eagerClient().doOnSubscribe { subscriptions.incrementAndGet() }.retry(3).block()
     } catch (e: RuntimeException) {
-        println("  -> $e")
+        println("  -> $e after ${subscriptions.get()} subscriptions")
     }
 }
