@@ -99,7 +99,7 @@ const LOGIN = (clientId) => `<!doctype html><html lang="en"><head><meta charset=
 @font-face{font-family:'Newsreader';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/newsreader-400.woff2) format('woff2')}
 @font-face{font-family:'Inter';font-style:normal;font-weight:600;font-display:swap;src:url(/fonts/inter-600.woff2) format('woff2')}
 :root{color-scheme:light;--ink:#fcfcfb;--fg:#23262e;--mute:#575b66;--faint:#8b909b;--ember:#1f5fc4;--gold:#1a4a96;--bad:#b5303a;--rule:#e2e5eb}
-:root.dark{color-scheme:dark;--ink:#0b1220;--fg:#e4e9f3;--mute:#a3b0c6;--faint:#6f7e98;--ember:#5b9bff;--gold:#8ec5ff;--bad:#f07a86;--rule:#24324f}
+:root.dark{color-scheme:dark;--ink:#0a0a0b;--fg:#ececee;--mute:#a6a6ad;--faint:#717177;--ember:#5b9bff;--gold:#8ec5ff;--bad:#f07a86;--rule:#2a2a2d}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--ink);color:var(--fg);font:400 20px/1.46 "Newsreader",Georgia,serif;padding:24px max(16px,env(safe-area-inset-left,0px))}
 .card{width:100%;max-width:440px;display:grid;gap:18px;justify-items:center;text-align:center}

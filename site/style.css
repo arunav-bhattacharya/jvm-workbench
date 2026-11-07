@@ -1,5 +1,5 @@
 /* The AI Engineer from Zero look: a field-guide book. Index on the left, one reading column,
-   contents on the right on wide screens. Light by default on a near-white page; the navy night
+   contents on the right on wide screens. Light by default on a near-white page; a near-black night
    theme is one toggle away. Blue is the one accent; teal, amber, rose and plum only mark callouts. */
 :root {
   color-scheme: light;
@@ -37,13 +37,13 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  /* night: deep navy ink, a clear blue accent */
-  --ink: #0b1220; --panel: #111a2d; --well: #0e1627; --tint: #172238; --rule: #24324f; --rule-2: #1a2640;
-  --fg: #e4e9f3; --mute: #a3b0c6; --faint: #6f7e98;
-  --ember: #5b9bff; --ember-ink: #07111f; --soft: rgba(91, 155, 255, 0.13); --gold: #8ec5ff;
+  /* night: near-black neutral greys, the same blue accent */
+  --ink: #0a0a0b; --panel: #141415; --well: #101011; --tint: #1d1d1f; --rule: #2a2a2d; --rule-2: #1f1f21;
+  --fg: #ececee; --mute: #a6a6ad; --faint: #717177;
+  --ember: #5b9bff; --ember-ink: #050608; --soft: rgba(91, 155, 255, 0.12); --gold: #8ec5ff;
   --teal: #3fc7b3; --amber: #f2b85b; --plum: #a7b4ff; --rose: #f2839a; --ok: #5ccf96; --bad: #f07a86;
-  --mark-off: rgba(228, 233, 243, 0.16);
-  --c-kw: #7ab4ff; --c-str: #a9d6ff; --c-com: #6f7e98; --c-fn: #6fcbd8; --c-num: #f2b85b; --c-op: #a3b0c6; --c-ann: #a7b4ff;
+  --mark-off: rgba(236, 236, 238, 0.16);
+  --c-kw: #7ab4ff; --c-str: #a9d6ff; --c-com: #717177; --c-fn: #6fcbd8; --c-num: #f2b85b; --c-op: #a6a6ad; --c-ann: #a7b4ff;
 }
 
 * { box-sizing: border-box; }
