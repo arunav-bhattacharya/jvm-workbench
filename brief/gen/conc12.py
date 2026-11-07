@@ -184,10 +184,10 @@ L = {
     "steps": [
      "Read `Philosophers`. Five philosophers try to eat 200 meals each, pausing 1 ms between their two forks. After 3 seconds, the demo asks the JVM which threads are deadlocked.",
      "Run it as is. Then run it with `-Pargs=ordered` and with `-Pargs=waiter`.",
-     "Compare the meal counts and times. Why can the waiter version be faster than the ordered one?"
+     "Compare the meal counts, the times and the deadlock count."
     ],
     "code": code("Philosophers"),
-    "expect": "As is: almost no meals (0 or 1 in runs here) and `deadlocked philosophers: 5`, found by `ThreadMXBean` because the forks are `ReentrantLock`s. Ordered and waiter: all 1,000 meals in about a second, and no deadlock. The waiter version was a little faster here, because with ordering two philosophers both start by reaching for fork 0, which serializes them more."
+    "expect": "As is: almost no meals (0 or 1 in runs here) and `deadlocked philosophers: 5`, found by `ThreadMXBean` because the forks are `ReentrantLock`s. Ordered and waiter: all 1,000 meals in about a second, and `deadlocked philosophers: 0` (the waiter version was slightly faster in runs here)."
    }
   },
   {
@@ -210,7 +210,7 @@ L = {
   }
  ],
  "analogy": "Producer-consumer is a kitchen pass: cooks put plates on a shelf with room for eight, and waiters take them. When the shelf is full the cooks wait, and at closing time the head chef puts one \"kitchen closed\" card on the shelf for each waiter. Dining philosophers is five people sharing five chopsticks; numbering the chopsticks and always grabbing the lower number first stops the standoff. Readers-writers is a museum room: visitors can share it, but the restorer needs it empty, and someone has to decide whether new visitors may keep walking in while the restorer waits at the door. The analogy breaks at the closing card: a waiter who finds it would tell the others. A consumer that takes a pill just stops, and the other consumers learn nothing.",
- "in_your_world": "The Kafka-to-Oracle path in a payment service is producer-consumer: a poll loop produces records, a worker pool settles them, and a bounded queue between them is what keeps a slow database from turning into an out-of-memory crash. Shutdown is where it usually goes wrong. On SIGTERM, Quarkus gives the application a grace period, and the pipeline has to stop polling, drain what is queued, commit offsets for what it finished, and stop. The worked example shows that order. Dining philosophers is any job that locks several resources at once: transfers that lock two accounts, a netting run that locks a merchant and a settlement batch. Readers-writers is every reference table you refresh while serving traffic.",
+ "in_your_world": "The Kafka-to-Oracle path in a payment service is producer-consumer: a poll loop produces records, a worker pool settles them, and a bounded queue between them is what keeps a slow database from turning into an out-of-memory crash. Shutdown is where it usually goes wrong. On SIGTERM the application gets a grace period (30 seconds by default in Kubernetes), and the pipeline has to stop polling, drain what is queued, commit offsets for what it finished, and stop. The worked example shows that order. Dining philosophers is any job that locks several resources at once: transfers that lock two accounts, a netting run that locks a merchant and a settlement batch. Readers-writers is every reference table you refresh while serving traffic.",
  "mistake": "The most common mistake is getting the poison pills wrong at shutdown: putting a single pill for several consumers, or putting the pills before every producer has finished. With one pill, the other consumers wait in `take()` forever and the shutdown hangs until the platform kills the pod, so whatever they were holding is lost. With pills sent too early, consumers stop while producers are still putting, the bounded queue fills, and the producers block forever instead. Both bugs pass every test that never shuts the pipeline down. The fix is the order in this lesson: stop the producers, join them, put one pill per consumer, then join the consumers with a deadline.",
  "compare": {
   "title": "Stopping consumers: pills in Java, a closed channel in Kotlin coroutines",
