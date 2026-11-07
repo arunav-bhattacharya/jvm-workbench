@@ -22,7 +22,7 @@ BANNED = ["delve", "crucial", "pivotal", "leverage", "seamless", "tapestry", "la
 SVG_CLASSES = {"box", "box-a", "box-b", "box-ok", "box-bad", "box-dim", "t", "t-s", "t-m", "t-a", "t-b", "t-ok", "t-bad", "t-code",
                "ln", "ln-d", "ln-a", "ln-bad"}
 OPS = {"read", "add", "write", "set", "lock", "unlock", "check", "note"}
-CODE_KEYS = {"src", "code", "svg", "run", "file", "files", "url", "lang", "id"}
+CODE_KEYS = {"src", "code", "svg", "run", "file", "files", "url", "lang", "id", "op", "alt_code", "alt_lang"}
 
 
 class Report:

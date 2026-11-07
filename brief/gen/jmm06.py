@@ -86,13 +86,13 @@ You don't need the boilerplate to use the modes. Since JDK 9, `AtomicInteger`, `
 
 S2 = """The VarHandle Javadoc defines the modes as a ladder. Each one keeps everything below it and adds one promise.
 
-**Plain** (`get`, `set`) is an ordinary field access. It's atomic for references and for values of 32 bits or less, and it promises nothing about what other threads see, or when. The JIT may read it once for a whole loop. That was the hang in lesson 1 of this track.
+Plain mode (`get`, `set`) is an ordinary field access. It's atomic for references and for values of 32 bits or less, and it promises nothing about what other threads see, or when. The JIT may read it once for a whole loop. That was the hang in lesson 1 of this track.
 
-**Opaque** (`getOpaque`, `setOpaque`) adds two things. It's atomic for `long` and `double` too. And it's coherent for that one variable: the JIT must really perform each read and write, in order, so a thread spinning on it eventually sees a new value. It orders nothing else. Other fields can still appear in any order.
+Opaque mode (`getOpaque`, `setOpaque`) adds two things. It's atomic for `long` and `double` too. And it's coherent for that one variable: the JIT must really perform each read and write, in order, so a thread spinning on it eventually sees a new value. It orders nothing else. Other fields can still appear in any order.
 
-**Acquire and release** (`getAcquire`, `setRelease`) add one-way ordering. Nothing before a release write may move after it. Nothing after an acquire read may move before it. When an acquire read sees the value that a release write stored, the reader also sees everything the writer did before the release. That's the happens-before handoff from lesson 2 of this track, built from one variable.
+Acquire and release (`getAcquire`, `setRelease`) add one-way ordering. Nothing before a release write may move after it. Nothing after an acquire read may move before it. When an acquire read sees the value that a release write stored, the reader also sees everything the writer did before the release. That's the happens-before handoff from lesson 2 of this track, built from one variable.
 
-**Volatile** (`getVolatile`, `setVolatile`, or a `volatile` field) adds a single total order: all threads agree on one order of all volatile accesses. That's what forbids the store-buffering result, where each thread writes its own variable and then reads the other's as 0.
+Volatile mode (`getVolatile`, `setVolatile`, or a `volatile` field) adds a single total order: all threads agree on one order of all volatile accesses. That's what forbids the store-buffering result, where each thread writes its own variable and then reads the other's as 0.
 
 | Mode | What can still go wrong |
 |---|---|
@@ -191,7 +191,7 @@ L = {
      "Run it (Java or Kotlin). Then explain the opaque line: opaque stops the JIT from reordering, so who is reordering?"
     ],
     "code": code("ModesDemo"),
-    "expect": "Plain, opaque and release/acquire all show tens of thousands of trials where both threads read 0 (here between about 40,000 and 130,000 per mode, changing every run). Volatile shows 0 on every run. Opaque and release/acquire keep the JIT honest, so what you see is the CPU's store buffer: each thread's write is still queued while it reads the other field. Only the volatile write makes HotSpot drain the buffer before the next read."
+    "expect": "Plain, opaque and release/acquire all show trials where both threads read 0: usually tens of thousands, up to about 130,000 here, fewer in a cold first run, and different every time. Volatile shows 0 on every run. Opaque and release/acquire keep the JIT honest, so what you see is the CPU's store buffer: each thread's write is still queued while it reads the other field. Only the volatile write makes HotSpot drain the buffer before the next read."
    },
    "refs": [
     {"title": "jcstress sample BasicJMM_07_Consensus: plain, volatile and acquire/release Dekker", "url": "https://github.com/openjdk/jcstress/blob/master/jcstress-samples/src/main/java/org/openjdk/jcstress/samples/jmm/basic/BasicJMM_07_Consensus.java", "kind": "read"},

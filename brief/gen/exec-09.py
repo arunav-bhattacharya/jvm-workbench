@@ -1,0 +1,305 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/executors/src"
+P = "java/workbench/executors/l09"
+KP = "kotlin/workbench/executors/l09"
+read = lambda p: (ROOT / p).read_text()
+
+def demo(name):
+    return {"lang": "java", "title": f"{name}.java", "src": read(f"{lab}/demo/{P}/{name}.java"),
+            "run": f"./gradlew :executors:demo -Pmain=workbench.executors.l09.{name}",
+            "file": f"{lab}/demo/{P}/{name}.java",
+            "alt": {"lang": "kotlin", "title": f"{name}.kt", "src": read(f"{lab}/demo/{KP}/{name}.kt"),
+                    "run": f"./gradlew :executors:demo -Pmain=workbench.executors.l09.{name}Kt",
+                    "file": f"{lab}/demo/{KP}/{name}.kt"}}
+
+def rect(cls, x, y, w, h, title, sub=None, tcls="t t-code"):
+    cx = x + w / 2
+    out = f'<rect class="{cls}" x="{x}" y="{y}" width="{w}" height="{h}" rx="8"/>'
+    if sub:
+        out += f'<text class="{tcls}" x="{cx:.0f}" y="{y + 20}" text-anchor="middle">{title}</text>'
+        out += f'<text class="t-s" x="{cx:.0f}" y="{y + 38}" text-anchor="middle">{sub}</text>'
+    else:
+        out += f'<text class="{tcls}" x="{cx:.0f}" y="{y + h / 2 + 5:.0f}" text-anchor="middle">{title}</text>'
+    return out
+
+SVG = ('<svg viewBox="0 0 680 270" role="img" aria-label="Pool-induced deadlock: both threads of a 2-thread pool run statement tasks that wait for fetch tasks, and the fetch tasks sit in the queue behind them, so nothing can ever run">'
+       '<text class="t" x="140" y="24" text-anchor="middle">2 pool threads</text>'
+       '<text class="t" x="520" y="24" text-anchor="middle">the pool\'s queue</text>'
+       + rect("box-bad", 20, 40, 240, 50, "stmt-0: statement(m1)", "blocked in fetch(m1).get()")
+       + rect("box-bad", 20, 130, 240, 50, "stmt-1: statement(m2)", "blocked in fetch(m2).get()")
+       + rect("box", 420, 40, 200, 36, "statement(m3)")
+       + rect("box-dim", 420, 90, 200, 36, "fetch(m1)")
+       + rect("box-dim", 420, 140, 200, 36, "fetch(m2)")
+       + '<line class="ln-bad" x1="260" y1="65" x2="416" y2="108" marker-end="url(#arr)"/>'
+       + '<line class="ln-bad" x1="260" y1="155" x2="416" y2="158" marker-end="url(#arr)"/>'
+       + '<text class="t-s t-bad" x="340" y="75" text-anchor="middle">waits for</text>'
+       + '<text class="t-s t-bad" x="340" y="148" text-anchor="middle">waits for</text>'
+       + '<line class="ln-d" x1="20" y1="210" x2="660" y2="210"/>'
+       + '<text class="t-s t-m" x="340" y="234" text-anchor="middle">the fetches can only start on a free thread, and no thread will ever be free:</text>'
+       + '<text class="t-s t-m" x="340" y="252" text-anchor="middle">CPU near zero, no exception, and no "deadlock found" in the thread dump</text>'
+       + '</svg>')
+
+STOP_JAVA = """void stop() throws InterruptedException {
+    intake.stop();                                                      // 1. no new work comes in
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);   //    inside the 30 s grace period
+    for (ExecutorService pool : List.of(authPool, ledgerPool)) {        // 2. upstream first: auth feeds ledger
+        pool.shutdown();
+        long left = Math.max(0, deadline - System.nanoTime());
+        if (!pool.awaitTermination(left, TimeUnit.NANOSECONDS)) {
+            List<Runnable> neverStarted = pool.shutdownNow();           // 3. interrupt what is still running
+            log.warn("{} tasks never started", neverStarted.size());    // 4. say what was lost
+        }
+    }
+}"""
+STOP_KOTLIN = """fun stop() {
+    intake.stop()                                                       // 1. no new work comes in
+    val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)     //    inside the 30 s grace period
+    for (pool in listOf(authPool, ledgerPool)) {                        // 2. upstream first: auth feeds ledger
+        pool.shutdown()
+        val left = maxOf(0L, deadline - System.nanoTime())
+        if (!pool.awaitTermination(left, TimeUnit.NANOSECONDS)) {
+            val neverStarted = pool.shutdownNow()                       // 3. interrupt what is still running
+            log.warn("{} tasks never started", neverStarted.size)       // 4. say what was lost
+        }
+    }
+}"""
+
+L = {
+ "id": "exec-09",
+ "title": "Pools in production: names, errors, context, shutdown",
+ "minutes": 38,
+ "goal": "By the end you can set up a pool you can debug at 3 a.m.: named threads, every failure reported with its request id, context carried to the worker, the right metrics, a clean shutdown, and no task waiting on another task in the same pool.",
+ "warmup": {
+  "q": "A month-end statement job runs on a fixed pool of 20 threads. Each merchant's task submits a ledger query to the same pool and calls `get()` on it. With 5 merchants it takes 2 seconds. With 400 merchants, what happens?",
+  "options": [
+   "It takes about 80 times longer, because the pool is busy",
+   "The pool grows past 20 threads to keep up",
+   "It hangs forever with the CPU near zero",
+   "The JVM detects the deadlock and throws in one of the tasks"
+  ],
+  "answer": 2,
+  "why": "The first 20 merchant tasks take every thread, and each one waits for a query that is queued behind 380 other merchant tasks. No thread will ever be free to run a query, so the job hangs. A fixed pool never grows, and the JVM's deadlock detector looks for cycles of locks, not tasks waiting on queued tasks, so nothing throws."
+ },
+ "sections": [
+  {
+   "h": "Name your threads, and know where failures go",
+   "body": "The default names are `pool-3-thread-7`. In a thread dump of a service with eight pools, that tells you nothing. Name them, and the name shows up in every log line that prints the thread, in every thread dump and in every profiler:\n\n```java\nThreadFactory named = Thread.ofPlatform().name(\"ledger-\", 0).factory();   // JDK 21+: ledger-0, ledger-1, ...\nExecutorService ledgerPool = Executors.newFixedThreadPool(8, named);\n```\n\n```kotlin\nval named = Thread.ofPlatform().name(\"ledger-\", 0).factory()            // JDK 21+: ledger-0, ledger-1, ...\nval ledgerPool = Executors.newFixedThreadPool(8, named)\n```\n\nBefore JDK 21 you write a small `ThreadFactory` with an `AtomicInteger`, or use Guava's `ThreadFactoryBuilder`.\n\nNow failures. Lesson 1 of this track showed that `execute` and `submit` treat an exception differently, and in production the difference decides whether you ever hear about it.\n\nWith `execute`, the exception escapes the task. The worker thread dies, its `UncaughtExceptionHandler` runs, and the pool starts a new thread in its place. The default handler prints a stack trace to `System.err`, outside your logging framework and its request ids.\n\nWith `submit`, the `FutureTask` catches the exception and keeps it. Nothing is printed. If nobody calls `get()`, which is normal for fire-and-forget work, the failure is gone.\n\nSo an `UncaughtExceptionHandler` on the thread factory covers only half the cases. To cover both, catch failures in one place that every task passes through. `submit`, `invokeAll` and `CompletableFuture.supplyAsync(task, pool)` all end up in `execute`, so a `ThreadPoolExecutor` subclass that overrides `execute` and wraps each task sees everything. Report the failure there, with the request id, and don't rethrow: rethrowing only kills the worker and prints the same stack trace a second time. The lab builds exactly that pool.",
+   "try": {
+    "title": "Find out who hears about a failure",
+    "minutes": 3,
+    "steps": [
+     "Run `FailureDemo`. Its threads are named `ledger-N` and have an `UncaughtExceptionHandler`.",
+     "Before you run it, predict for each case: does the handler print, and which thread runs the next task?"
+    ],
+    "code": demo("FailureDemo"),
+    "expect": "For `execute`, the handler prints `ledger-0 died of ... ledger row locked`, and the next task runs on `ledger-1`: the pool replaced the dead worker. For `submit`, nothing prints, the next task still runs on `ledger-1`, and the exception only appears when `get()` is called."
+   },
+   "refs": [
+    {"title": "Thread.Builder (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Thread.Builder.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "Carry the request context across the hand-off",
+   "body": "SLF4J's MDC, the current tracing span and the authenticated principal usually live in `ThreadLocal`s. When you hand a task to a pool, they don't come along. The worker's `ThreadLocal` is empty, or it still holds a value that an earlier task left behind. Then the ledger write you are trying to trace during an incident logs no request id at all, or the wrong one.\n\nThe fix has three steps: capture the value on the submitting thread, install it on the worker before the task runs, and put the worker's old value back afterwards:\n\n```java\nstatic Runnable withRequestId(Runnable task) {\n    String captured = RequestContext.get();            // 1. on the submitting thread\n    return () -> {\n        String previous = RequestContext.get();\n        RequestContext.set(captured);                  // 2. on the worker\n        try {\n            task.run();\n        } finally {\n            if (previous == null) RequestContext.clear(); else RequestContext.set(previous);   // 3. never leak\n        }\n    };\n}\n```\n\n```kotlin\nfun withRequestId(task: Runnable): Runnable {\n    val captured = RequestContext.get()                // 1. on the submitting thread\n    return Runnable {\n        val previous = RequestContext.get()\n        RequestContext.set(captured)                   // 2. on the worker\n        try {\n            task.run()\n        } finally {\n            if (previous == null) RequestContext.clear() else RequestContext.set(previous)   // 3. never leak\n        }\n    }\n}\n```\n\nThe capture must happen in the method that is called on the submitting thread. Read the `ThreadLocal` inside the lambda and you read the worker's value, which is the bug you set out to fix. The `finally` matters as much: pool threads are reused, so whatever a task leaves behind is the next task's context.\n\nDon't make every caller remember to wrap. Wrap once, in the executor that everyone uses, as the lab does. MicroProfile Context Propagation's `ManagedExecutor`, which Quarkus provides, does the same for the contexts it knows about.\n\nVirtual threads don't change any of this: a new thread starts with empty `ThreadLocal`s, except inheritable ones. Scoped values, final in JDK 25, are the newer tool for request context, and the virtual threads track covers them.",
+   "try": {
+    "title": "Lose a request id, then leak one",
+    "minutes": 3,
+    "steps": [
+     "Run `ContextDemo`. The main thread sets `req-42` and submits three tasks to a pool with one thread.",
+     "Predict all three lines before you look. For line 3, find the task that caused it."
+    ],
+    "code": demo("ContextDemo"),
+    "expect": "Line 1 prints `null`: the plain task runs on a pool thread that never saw `req-42`. Line 2 prints `req-42`, because the wrapper captured it on `main`. Line 3 prints `req-7`, left over from the earlier task that set the `ThreadLocal` and never removed it. The new caller had no request at all."
+   }
+  },
+  {
+   "h": "Watch the queue, the active count, rejections and time in queue",
+   "body": "A pool is a queue in front of a few threads, and it is the first place a slow dependency shows up. Four numbers tell you most of what you need.\n\nThe queue size, `getQueue().size()`. A queue that keeps growing means tasks arrive faster than they finish. Little's law from lesson 3 of this track says the wait grows with it.\n\nThe active count, `getActiveCount()`, compared with the maximum. A pool pinned at its maximum for minutes is saturated, and it's usually waiting on something downstream rather than working.\n\nRejections. `ThreadPoolExecutor` doesn't count them for you. Wrap the `RejectedExecutionHandler` in one that increments a counter and then throws, as `MetricsDemo` does. Every rejection is a request you turned away, so alert on it.\n\nTime in queue. This is latency the caller feels and the task never measures. Record the time when a task is submitted, in the same wrapper that carries the context, and compare it when the task starts.\n\nThe getters are approximate. The Javadoc says so, because the threads keep changing them while you read. That's fine for a dashboard and wrong for program logic. Micrometer's `ExecutorServiceMetrics` binds most of these numbers for you.\n\nOf the four, queue time and rejections are what your customers feel. A pool with an empty queue and no rejections is healthy, however busy its threads look.",
+   "try": {
+    "title": "Read a pool's dashboard",
+    "minutes": 3,
+    "steps": [
+     "`MetricsDemo` sends 10 tasks of 300 ms to a pool with 2 threads and a queue of 4. Predict how many are rejected, and when the queue empties.",
+     "Run it and read the table row by row."
+    ],
+    "code": demo("MetricsDemo"),
+    "expect": "Two tasks run, four wait in the queue and four are rejected right away (2 + 4 = 6 accepted). Every 300 ms two more finish: the queue goes 4, 2, 0 while `done` climbs 0, 2, 4, 6, and `active` drops to 0 after about 900 ms. The rejected count stays at 4."
+   },
+   "refs": [
+    {"title": "ThreadPoolExecutor (Java SE 25 API): hooks and monitoring", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "Pool-induced deadlock: tasks that wait for tasks in the same pool",
+   "body": "Here is a statement job that works in every test:\n\n```java\npool.submit(() -> {\n    Future<List<String>> lines = pool.submit(() -> ledger.lines(merchant));   // a task inside a task\n    return render(merchant, lines.get());                                     // waits for it\n});\n```\n\n```kotlin\npool.submit<String> {\n    val lines = pool.submit<List<String>> { ledger.lines(merchant) }   // a task inside a task\n    render(merchant, lines.get())                                     // waits for it\n}\n```\n\nWith 20 threads and 5 merchants, it's fine. At month-end it gets 400 merchants. The first 20 statement tasks take all 20 threads. Each one submits its fetch, and the fetches join the back of the queue, behind 380 statement tasks. Every thread now waits for a task that can only run on a free thread, and no thread will ever be free. The CPU drops to zero. Nothing throws. A thread dump shows no \"deadlock found\" line, because no lock is involved: every thread is just `WAITING` in `FutureTask.get`. *Java Concurrency in Practice* calls this thread starvation deadlock.\n\nThree fixes, in the order I'd try them:\n\n1. Don't block inside the pool. Compose: `supplyAsync(() -> ledger.lines(m), pool).thenApply(lines -> render(m, lines))`. The render step runs as a callback when the fetch completes, so no thread waits. Only the caller joins at the end.\n2. Don't split what doesn't need splitting. If the statement task only waits for the fetch, do the fetch inline in the same task.\n3. Give each stage its own pool. Statement tasks may wait for a separate fetch pool, as long as fetch tasks never wait for the statement pool. That's a bulkhead from lesson 3.\n\nA cached pool with no thread limit also makes the hang go away, by starting a thread for every waiting task. That moves the problem to memory and to the database connection pool. `join()` inside a `CompletableFuture` stage is the same bug, which is why lesson 6 of this track warned against it.",
+   "figure": {"svg": SVG, "caption": "Both threads wait for fetches that sit in the queue behind them. The fetches need a free thread, and none will ever be free."},
+   "try": {
+    "title": "Hang a pool on purpose",
+    "minutes": 3,
+    "steps": [
+     "Run `DeadlockDemo`: two statement tasks on a pool of two threads, each waiting for a fast fetch on the same pool. Read the active and queued counts.",
+     "Run it with `-Pargs=fixed`, which composes the fetch and the render with `CompletableFuture`. Predict how long it takes."
+    ],
+    "code": demo("DeadlockDemo"),
+    "expect": "The default run shows `active=2, queued=2, completed=0` after 300 ms, then gives up after 2 s with no statement, although each fetch takes microseconds. The `fixed` run prints both statements at once, on the same two threads."
+   }
+  },
+  {
+   "h": "Shut down in order, with a deadline",
+   "body": "When Kubernetes stops a pod it sends `SIGTERM`, waits `terminationGracePeriodSeconds` (30 seconds unless you change it) and then kills the process. Everything in flight has to finish, or be recorded as lost, inside that window. The order matters:\n\n```java\n" + STOP_JAVA + "\n```\n\n```kotlin\n" + STOP_KOTLIN + "\n```\n\nStop intake first: pause the Kafka consumer, or fail the readiness probe so the load balancer stops sending requests. Otherwise new work keeps arriving at pools that are trying to drain.\n\nThen shut pools down upstream first. `authPool`'s tasks submit into `ledgerPool`. Shut down `ledgerPool` first and the authorizations still running in `authPool` get a `RejectedExecutionException` when they try to post to the ledger, which turns a clean shutdown into half-finished payments.\n\nGive the whole sequence one deadline, shorter than the grace period, and share it between the pools. When a pool misses it, `shutdownNow()` interrupts what is still running and returns the tasks that never started. Log them, with request ids if your wrapper keeps them, so somebody can replay them. Don't forget the schedulers from lesson 5: after `shutdown()` their periodic tasks stop, which is what you want.\n\nIn Quarkus, put this in a method that observes `ShutdownEvent`, or in a `@PreDestroy` method on the bean that owns the pools. Never leave a pool for garbage collection to clean up: its threads keep it alive."
+  }
+ ],
+ "analogy": "Running pools in production is like running a busy restaurant kitchen. Name tags on every cook (thread names) let you see who is stuck. An order ticket travels with each dish (the request context), and every cook throws the old ticket away before taking the next one. The board by the pass shows how many tickets are waiting (queue size) and how many customers were turned away (rejections). The deadlock is two cooks who each started a dish that needs a sauce, put the sauce order at the back of the queue, and stand waiting for it, while nobody is left to make sauce. The analogy breaks at closing time: a kitchen can tell customers to leave. A pool has to stop its own intake first, then let each station finish in order, and it gets one fixed deadline from the orchestrator.",
+ "in_your_world": "In a payment service, a named pool per dependency (`issuer-`, `ledger-`, `fraud-`) turns a thread dump during an incident into a map: 40 `issuer-` threads in a socket read means the issuer is slow, not your code. Put the request id or idempotency key in the MDC at the edge, and make every pool carry it, so a ledger write logged on `ledger-7` can be traced back to the authorization that caused it. Count rejections on the authorization pool and alert on them, because each one is a declined payment. Settlement and statement jobs are where pool-induced deadlock likes to live: nested fan-outs on one shared pool that only hang at month-end volume. On shutdown, pause the Kafka consumer before draining the pools, so no offset is committed for work that never ran, and remember that a Temporal worker factory needs its own shutdown call, so activities in flight can finish.",
+ "mistake": "The most common mistake is fire-and-forget with `submit`: `pool.submit(() -> audit.write(event))` with nobody keeping the `Future`. The audit write starts failing on a schema change, every exception sits in a `Future` that is garbage the moment it's created, and nothing is logged for days. People use `submit` because it's the method they know, and the failure path never runs in tests. Use `execute` for fire-and-forget work, or better, run every pool through a wrapper that reports failures from both `execute` and `submit` with the request id, the way the lab's `ProductionPool` does.",
+ "compare": {
+  "title": "Carrying the MDC: an executor wrapper vs a coroutine context element",
+  "java": {"title": "MdcExecutor.java (SLF4J)", "src": "static Executor withMdc(Executor delegate) {\n    return task -> {\n        Map<String, String> captured = MDC.getCopyOfContextMap();     // 1. on the submitting thread\n        delegate.execute(() -> {\n            Map<String, String> previous = MDC.getCopyOfContextMap();\n            if (captured != null) MDC.setContextMap(captured); else MDC.clear();     // 2. on the worker\n            try {\n                task.run();\n            } finally {\n                if (previous != null) MDC.setContextMap(previous); else MDC.clear(); // 3. never leak\n            }\n        });\n    };\n}\n\nCompletableFuture.runAsync(() -> ledger.post(entry), withMdc(ledgerPool));"},
+  "kotlin": {"title": "MdcCoroutine.kt (kotlinx-coroutines-slf4j)", "src": "// MDCContext() copies the MDC now and installs it every time the coroutine\n// runs, on whichever thread that is, then restores the thread's own MDC\nscope.launch(Dispatchers.IO + MDCContext()) {\n    ledger.post(entry)\n    delay(100)                      // may resume on another thread\n    log.info(\"posted\")              // the request id is still in the MDC\n}\n\n// the same idea for your own ThreadLocal\nscope.launch(Dispatchers.IO + requestId.asContextElement(value = \"req-42\")) { /* ... */ }"},
+  "note": "The Java wrapper installs the context once, because a task stays on one thread from start to finish. A coroutine can move to another thread at every suspension point, so a wrapper around the whole coroutine wouldn't be enough. `MDCContext()` and `asContextElement` are thread context elements: the dispatcher installs the value each time the coroutine resumes on a thread and restores the thread's old value when it suspends. One trap: an `MDC.put` inside the coroutine is lost at the next suspension, because the element keeps reinstalling the map it captured. The kotlinx docs say to wrap the change in `withContext(MDCContext())`."
+ },
+ "worked": {
+  "title": "Diagnose a statement job that stopped at month-end",
+  "steps": [
+   {"say": "The month-end statement job has produced nothing for 30 minutes. CPU on the pod is near zero. A thread dump (`jcmd <pid> Thread.print`) shows all 20 `stmt-` threads in the same place. Before reading on, say what they are waiting for.",
+    "code": "\"stmt-3\" #41 prio=5 os_prio=0 ... waiting on condition\n   java.lang.Thread.State: WAITING (parking)\n\tat jdk.internal.misc.Unsafe.park(Native Method)\n\t- parking to wait for <0x...> (a java.util.concurrent.FutureTask)\n\tat java.util.concurrent.locks.LockSupport.park(...)\n\tat java.util.concurrent.FutureTask.awaitDone(...)\n\tat java.util.concurrent.FutureTask.get(...)\n\tat com.acme.settlement.StatementJob.lambda$run$0(StatementJob.java)\n\t...", "lang": "text"},
+   {"say": "Every thread is inside a statement task, parked in `FutureTask.get()`, waiting for another task's result. The pool's metrics finish the story: `active=20`, the queue at 380 and not moving, `completed` flat. The awaited fetch tasks are in that queue, behind the other statement tasks, and they need a free thread that will never come. The dump has no \"Found one Java-level deadlock\" line, because the detector looks for cycles of locks, and a `Future` has no owner.",
+    "code": "", "lang": ""},
+   {"say": "The fix is to stop holding a thread while waiting. Compose the fetch and the render, start every merchant's pipeline, and let only the job's own thread wait at the end.",
+    "code": "List<CompletableFuture<String>> statements = merchants.stream()\n        .map(m -> CompletableFuture.supplyAsync(() -> ledger.lines(m), pool)   // 1. fetch on the pool\n                .thenApply(lines -> render(m, lines)))                       // 2. render as a callback\n        .toList();\nreturn statements.stream().map(CompletableFuture::join).toList();           // 3. only the caller waits", "lang": "java",
+    "alt_code": "val statements = merchants.map { m ->\n    CompletableFuture.supplyAsync({ ledger.lines(m) }, pool)                // 1. fetch on the pool\n        .thenApply { lines -> render(m, lines) }                           // 2. render as a callback\n}\nreturn statements.map { it.join() }                                        // 3. only the caller waits", "alt_lang": "kotlin"},
+   {"say": "Then make the next incident shorter. The `stmt-` names already paid off: they showed at once which pool was stuck. Add a dashboard panel and an alert for the queue size and the oldest task's wait on this pool, so a queue that stops moving pages someone within minutes, not after the merchants complain.",
+    "code": "", "lang": ""}
+  ]
+ },
+ "lab": {
+  "title": "A production pool, and a deadlock to fix",
+  "minutes": 15,
+  "files": [f"{lab}/main/{P}/ProductionPool.java", f"{lab}/main/{P}/StatementJob.java", f"{lab}/main/{P}/RequestContext.java", f"{lab}/main/{P}/FailureLog.java"],
+  "run": "./gradlew :executors:test --tests 'workbench.executors.l09.*'",
+  "steps": [
+   "Run the tests. All eight fail. The two `StatementJob` tests time out after 5 seconds: that is the deadlock.",
+   "Write `ProductionPool.create`: build the factory with `Thread.ofPlatform().name(name + \"-\", 0).factory()` and pass it to the private constructor, which already sets up the bounded queue.",
+   "Write `ProductionPool.execute`. Read `RequestContext.get()` first, on the calling thread. Then call `super.execute` with a lambda that saves the worker's own context, sets the captured id, runs the task, and restores the saved context in a `finally`.",
+   "Report failures inside that lambda: catch `RuntimeException | Error` from `task.run()` and report it without rethrowing. After `run()` returns, if the task is a `Future` whose `state()` is `FAILED`, report `exceptionNow()`.",
+   "Fix `StatementJob.run`: start a `supplyAsync(fetch, pool).thenApply(render)` pipeline for every merchant, then join them all on the calling thread.",
+   "Run the tests until all eight pass."
+  ],
+  "hints": [
+   "Capture the id before `super.execute`. Inside the lambda you are already on the worker, where `RequestContext.get()` returns the worker's value.",
+   "`task instanceof Future<?> f && f.state() == Future.State.FAILED` (JDK 19+), then `f.exceptionNow()`, gives you the original exception, not an `ExecutionException`.",
+   "If `reportsExecuteFailures` sees the next task on `ledger-1`, your wrapper rethrew: the worker died and the pool replaced it.",
+   "The `StatementJob` fix needs no second pool. A `thenApply` callback never holds a thread while it waits."
+  ],
+  "done_when": "All eight tests in `ProductionTest` pass."
+ },
+ "drill": {
+  "title": "A context-carrying executor from memory",
+  "minutes": 5,
+  "prompt": "Close this page. Write `Executor withRequestId(Executor delegate)`: every task runs with the `RequestContext` of the thread that called `execute`, and the worker's own value is restored afterwards. Then compare. Where did you read the context, and is the restore in a `finally`?",
+  "answer": {"lang": "java", "title": "Contexts.java", "src": "static Executor withRequestId(Executor delegate) {\n    return task -> {\n        String captured = RequestContext.get();          // on the caller's thread\n        delegate.execute(() -> {\n            String previous = RequestContext.get();\n            RequestContext.set(captured);                // on the worker\n            try {\n                task.run();\n            } finally {\n                if (previous == null) RequestContext.clear();\n                else RequestContext.set(previous);\n            }\n        });\n    };\n}",
+   "alt": {"lang": "kotlin", "title": "Contexts.kt", "src": "fun withRequestId(delegate: Executor) = Executor { task ->\n    val captured = RequestContext.get()                  // on the caller's thread\n    delegate.execute {\n        val previous = RequestContext.get()\n        RequestContext.set(captured)                     // on the worker\n        try {\n            task.run()\n        } finally {\n            if (previous == null) RequestContext.clear() else RequestContext.set(previous)\n        }\n    }\n}"}}
+ },
+ "recap": [
+  "Name every pool's threads (`Thread.ofPlatform().name(\"ledger-\", 0).factory()` on JDK 21+), so dumps and logs say which pool is stuck.",
+  "An `UncaughtExceptionHandler` only sees `execute` failures; `submit` hides them in the `Future`. Wrap `execute` once to report both, with the request id.",
+  "ThreadLocal context (MDC, tracing, security) doesn't follow a task to a pool. Capture it at submission, install it in the worker, restore it in `finally`.",
+  "Watch queue size, active count against the maximum, rejections and time in queue. Count rejections yourself in the handler.",
+  "A task that blocks on another task in the same bounded pool can hang the pool forever. Compose instead, do the work inline, or give each stage its own pool.",
+  "Shut down in order: stop intake, then pools upstream first, all within one deadline inside the grace period; log what `shutdownNow` returns."
+ ],
+ "quiz": [
+  {
+   "q": "A report service uses a fixed pool of 4. Each report task submits two sub-queries to the same pool and calls `get()` on both. It passes every test and hangs at month-end with the CPU near zero. What happened?",
+   "options": [
+    "The sub-queries got slow, so the reports need more time",
+    "Four report tasks hold all four threads, and each waits for sub-queries queued behind other reports, so nothing can ever finish",
+    "Two report tasks locked each other's monitors",
+    "The queue overflowed and the sub-queries were rejected"
+   ],
+   "answer": 1,
+   "why": "This is pool-induced deadlock. The awaited tasks need a free thread, and all the threads are busy waiting for them. Slowness wouldn't drop the CPU to zero forever, no monitors are involved, and a fixed pool's queue is unbounded, so nothing is rejected."
+  },
+  {
+   "q": "A request thread puts `requestId=req-42` in the MDC and submits a task to a fixed pool. The task logs a line. With no context propagation in place, which request id is on that line?",
+   "options": [
+    "`req-42`, because pool threads inherit the MDC",
+    "None, every time, because pool threads clear their MDC between tasks",
+    "Whatever that pool thread last had: often none, sometimes a stale id from an earlier task",
+    "The logging call throws, because the MDC isn't thread-safe"
+   ],
+   "answer": 2,
+   "why": "The MDC is a `ThreadLocal` on the worker thread. That thread was created long ago and is reused, so it holds nothing, or whatever an earlier task put there and didn't clean up. Nothing clears it between tasks unless your wrapper does."
+  },
+  {
+   "q": "Which number warns you first that a bounded `ThreadPoolExecutor` is falling behind, before it starts rejecting?",
+   "options": [
+    "`getPoolSize()`",
+    "`getCompletedTaskCount()`",
+    "`getLargestPoolSize()`",
+    "`getQueue().size()` climbing, or the time tasks spend in the queue"
+   ],
+   "answer": 3,
+   "why": "A queue that keeps growing means arrivals outpace completions, and every queued task's wait grows with it. Pool size is fixed in a fixed pool, the completed count only rises, and the largest pool size is history. When the queue is full, rejections start."
+  },
+  {
+   "q": "Intake hands work to `enrichPool`, whose tasks submit to `ledgerPool`. The pod gets `SIGTERM`. In what order do you shut down?",
+   "options": [
+    "Stop intake, shut down `enrichPool` and wait for it, then shut down `ledgerPool` and wait for it",
+    "Shut down `ledgerPool`, then `enrichPool`, then stop intake",
+    "Call `shutdownNow()` on both pools at once to be quick",
+    "Stop intake, then shut down `ledgerPool` first because it holds the money"
+   ],
+   "answer": 0,
+   "why": "Upstream first. While `enrichPool` drains, its tasks still submit to `ledgerPool`, so `ledgerPool` must keep accepting work until then. Shutting it down first makes those submissions fail with `RejectedExecutionException`, and `shutdownNow` on both interrupts work that could have finished."
+  },
+  {
+   "q": "From \"Inside ThreadPoolExecutor\": a `ProductionPool` has 4 threads and a queue of 100, with the default `AbortPolicy`. 200 slow tasks arrive at once. How many are rejected?",
+   "options": [
+    "0",
+    "96",
+    "100",
+    "196"
+   ],
+   "answer": 1,
+   "why": "Four tasks start the four threads, the next 100 fill the queue, and core equals max, so the pool can't grow. The remaining 96 are rejected with `RejectedExecutionException`, which is what a bounded queue is for: the caller hears about the overload at once.",
+   "from": "exec-02"
+  }
+ ],
+ "flashcards": [
+  {"front": "How do you name pool threads on JDK 21+?", "back": "Pass `Thread.ofPlatform().name(\"ledger-\", 0).factory()` to the executor. Threads are named ledger-0, ledger-1, ..."},
+  {"front": "Which pool failures reach an `UncaughtExceptionHandler`?", "back": "Only tasks run with `execute()`. With `submit()` the exception is stored in the Future and nothing is printed."},
+  {"front": "Why does an MDC value disappear when you hand a task to a pool?", "back": "The MDC is a ThreadLocal, and the task runs on another thread. Capture it at submission and install it in the worker."},
+  {"front": "Why must a context wrapper restore the worker's value in `finally`?", "back": "Pool threads are reused. Whatever one task leaves behind is the next task's context."},
+  {"front": "What is pool-induced deadlock?", "back": "Tasks in a bounded pool block waiting for other tasks queued in the same pool; every thread waits and the awaited tasks never start."},
+  {"front": "Name two fixes for pool-induced deadlock.", "back": "Compose instead of blocking (`supplyAsync(...).thenApply(...)`), or give each stage its own pool so waits never point back into the same pool."},
+  {"front": "In what order do you shut down chained pools?", "back": "Stop intake, then shut down the upstream pool and wait, then the downstream one, all within one deadline."}
+ ],
+ "terms": [
+  {"term": "Thread factory", "plain": "The object a pool asks for new threads; it sets their names, daemon flag and exception handler."},
+  {"term": "UncaughtExceptionHandler", "plain": "Code that runs when an exception escapes a thread's run method."},
+  {"term": "MDC", "plain": "Mapped Diagnostic Context: per-thread key-value pairs that SLF4J adds to every log line."},
+  {"term": "Context propagation", "plain": "Copying thread-local state such as a request id from the submitting thread to the worker."},
+  {"term": "Pool-induced deadlock", "plain": "Every thread in a pool waits for a task that is queued in that same pool. Also called thread starvation deadlock."},
+  {"term": "Graceful shutdown", "plain": "Stopping intake, letting in-flight work finish within a deadline, and recording what didn't."}
+ ],
+ "explain_back": {
+  "prompt": "A teammate's statement job works with 5 merchants and hangs with 400, on a fixed pool of 20 threads. Explain what is happening and two ways to fix it.",
+  "answer": "Each merchant task submits its ledger fetch to the same pool and blocks on `get()`. With 400 merchants, the first 20 tasks take every thread, and their fetches are queued behind the other 380 merchant tasks. A fetch can only run on a free thread, and every thread is waiting for a fetch, so nothing ever finishes. The CPU is idle and nothing throws, because no lock is involved. One fix is to stop blocking inside the pool: start `supplyAsync(fetch, pool).thenApply(render)` for each merchant, so rendering is a callback and only the job's own thread waits at the end. Another is to run the fetches on a separate pool, so the statement threads wait on a pool that never waits back on them. Simplest of all, if the statement task only waits for the fetch, do the fetch inline."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "Why is the JVM's deadlock detector silent? `jcmd <pid> Thread.print` (and `ThreadMXBean.findDeadlockedThreads`) look for cycles of threads that each hold a lock another one needs: monitors from `synchronized`, and ownable synchronizers such as `ReentrantLock`. A thread waiting in `Future.get()` parks on the future, which has no owner, so there is no cycle to find. Names and stack traces are your only tools, which is one more reason to name threads.\n\nThe `ThreadPoolExecutor` Javadoc shows a second way to catch failures: override the `afterExecute` hook, which runs on the worker after each task:\n\n```java\n@Override\nprotected void afterExecute(Runnable r, Throwable t) {\n    super.afterExecute(r, t);\n    if (t == null && r instanceof Future<?> f && f.isDone()) {\n        try {\n            f.get();\n        } catch (CancellationException e) {\n            t = e;\n        } catch (ExecutionException e) {\n            t = e.getCause();\n        } catch (InterruptedException e) {\n            Thread.currentThread().interrupt();\n        }\n    }\n    if (t != null) log.error(\"task failed on {}\", Thread.currentThread().getName(), t);\n}\n```\n\n```kotlin\noverride fun afterExecute(r: Runnable, t: Throwable?) {\n    super.afterExecute(r, t)\n    var failure = t\n    if (failure == null && r is Future<*> && r.isDone) {\n        try {\n            r.get()\n        } catch (e: CancellationException) {\n            failure = e\n        } catch (e: ExecutionException) {\n            failure = e.cause\n        } catch (e: InterruptedException) {\n            Thread.currentThread().interrupt()\n        }\n    }\n    if (failure != null) log.error(\"task failed on {}\", Thread.currentThread().name, failure)\n}\n```\n\nIt works, with two limits. It can't stop an `execute` failure from killing the worker, because the exception is rethrown after the hook runs. And it doesn't know the submitter's request id unless a wrapper stored it. That's why the lab wraps `execute`. Its sister hook, `beforeExecute(Thread, Runnable)`, is the natural place to measure time in queue, and `terminated()` runs once when the pool has fully stopped."
+ },
+ "sources": [
+  {"title": "ThreadPoolExecutor (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html"},
+  {"title": "ExecutorService (Java SE 25 API): shutdown and awaitTermination", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ExecutorService.html"},
+  {"title": "Thread.Builder (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Thread.Builder.html"},
+  {"title": "MDCContext (kotlinx-coroutines-slf4j API)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-slf4j/kotlinx.coroutines.slf4j/-m-d-c-context/"},
+  {"title": "Java Concurrency in Practice, Goetz et al., section 8.1 (thread starvation deadlock)", "url": "https://jcip.net/"}
+ ]
+}
+out = ROOT / "content/lessons/exec-09.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)

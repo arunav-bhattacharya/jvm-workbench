@@ -1,0 +1,137 @@
+{
+ "id": "jmm",
+ "intro": "By the end of this track you can explain why one thread may never see another thread's write, name the happens-before edge that makes a read safe, and choose between `volatile`, an atomic and a lock for any shared field. You can publish objects so other threads see them whole, write lazy initialization that builds exactly once, and read VarHandle memory modes and jcstress results without guessing. This is the theory under every concurrent class you use, and the reason \"it passed on my machine\" means so little.\n\nYou need the first track: threads, race conditions, `synchronized` and atomics. Install JDK 25. The memory model has not changed since Java 5 (JSR-133), so everything here holds from JDK 21 to JDK 27; when a lesson mentions a newer feature, it says which JDK.\n\nThe labs live in `labs/jmm`, one package per lesson (`workbench.jmm.l01` to `l06`). They are in Java, and every code sample and Try-it demo also comes in Kotlin. Memory-model bugs rarely show up on demand, so the tests check code that is deterministic once it's right: a loop that must stop, an initializer that must run exactly once under contention, a handoff that must deliver every item. Generous time limits make a broken version fail instead of hanging the build. Run `./gradlew :jmm:test --tests 'workbench.jmm.lNN.*'` from `labs/` until it passes, and `./gradlew :jmm:solutionTest` to run the same tests on the reference answers. Lesson 6 shows how to go further with jcstress, which runs outside Gradle.",
+ "cheatsheet": "## The one rule\n\nA write is guaranteed visible to a read in another thread only if the write **happens-before** the read. Without an edge you have a data race: stale values that may never update, writes that seem to arrive out of order, and torn `long` and `double` values.\n\n## The edges you use\n\n| The writer does | The reader does | Edge? |\n|---|---|---|\n| anything, then leaves `synchronized (m)` | enters `synchronized (m)` on the same `m` | yes |\n| anything, then writes volatile `v` | reads the same `v` and sees that write | yes |\n| `t.start()` | anything inside `t` | yes |\n| anything inside `t` | `t.join()` returns | yes |\n| puts into a concurrent collection | a `get` or `take` that returns it | yes |\n| `executor.submit(task)` | the task runs | yes |\n| the task of a `Future` | `future.get()` returns | yes |\n| `latch.countDown()`, `semaphore.release()`, `lock.unlock()` | `latch.await()`, `acquire()`, `lock()` returns | yes |\n| `Thread.sleep`, a different lock, a different volatile field | anything | **no** |\n\nEdges chain: if A happens-before B and B happens-before C, then A happens-before C. That's how a plain field written before a volatile write reaches the reader of that volatile.\n\n## Pick the tool for a shared field\n\n| Situation | Use |\n|---|---|\n| One writer, readers want the latest value (stop flag, status, config version) | `volatile` / `@Volatile` |\n| Many writers update one number (`count++`, `balance += x`) | `AtomicLong`, `LongAdder`, `ConcurrentHashMap.merge` |\n| Several fields must change together | a lock, or one immutable object behind a volatile reference |\n| A whole object replaced at runtime (rate card, issuer config) | immutable snapshot published with one volatile write |\n| One value per key, built once | `computeIfAbsent` (not Kotlin's `getOrPut`) |\n| \"First writer wins\" | `compareAndSet` |\n\n`volatile` gives visibility, ordering of the plain writes before it, one order of all volatile accesses, and atomic 64-bit reads and writes. It does not make `v++` atomic, does not protect the object it points to, and does nothing for a thread that doesn't read it.\n\n## Safe publication and immutability\n\nPublish through one of: a static initializer; a volatile field or `AtomicReference`; a final field of a properly constructed object; a lock or a `java.util.concurrent` handoff. An immutable object (final class, final fields, mutable inputs copied, nothing mutable handed out, no escaping `this`) is safe through any race. Never let `this` escape a constructor: register listeners and start threads afterwards, in a factory, a `start()` method or `@PostConstruct`.\n\n```java\npublic record IssuerConfig(String baseUrl, Duration timeout) {}   // immutable\n\nprivate volatile IssuerConfig config = new IssuerConfig(\"https://issuer.example\", Duration.ofMillis(800));\nvoid refresh(Settings s) { config = new IssuerConfig(s.baseUrl(), s.timeout()); }   // one volatile write\nIssuerConfig current() { return config; }                                           // one consistent snapshot\n```\n\n```kotlin\ndata class IssuerConfig(val baseUrl: String, val timeout: Duration)   // immutable\n\n@Volatile private var config = IssuerConfig(\"https://issuer.example\", Duration.ofMillis(800))\nfun refresh(s: Settings) { config = IssuerConfig(s.baseUrl, s.timeout) }   // one volatile write\nfun current(): IssuerConfig = config                                       // one consistent snapshot\n```\n\n## Lazy initialization\n\n| Need | Use |\n|---|---|\n| Every request needs it anyway | build it eagerly at startup |\n| One per JVM, construction can't fail | holder class idiom, enum, Kotlin `object` |\n| Per instance, or must retry after a failure | double-checked locking on a volatile field, Kotlin `by lazy` |\n| One per key | `computeIfAbsent` |\n\n```java\nprivate static final class Holder { static final BinTable INSTANCE = new BinTable(); }\nstatic BinTable instance() { return Holder.INSTANCE; }      // the JVM's class-init lock does the work\n\nprivate volatile SigningKey key;                             // volatile is not optional\nSigningKey key() {\n    SigningKey k = key;                                      // one volatile read on the fast path\n    if (k != null) return k;\n    synchronized (this) {\n        if (key == null) key = vault.fetch(\"issuer-signing-key\");\n        return key;\n    }\n}\n```\n\n```kotlin\nclass BinTable private constructor() {\n    private object Holder { val INSTANCE = BinTable() }\n    companion object { fun instance(): BinTable = Holder.INSTANCE }\n}\n\nval key: SigningKey by lazy { vault.fetch(\"issuer-signing-key\") }   // SYNCHRONIZED: a volatile DCL\n```\n\nKotlin modes: `SYNCHRONIZED` (default, runs once, others wait, retries if it throws), `PUBLICATION` (may run on several threads, one result wins: only for cheap, side-effect-free work), `NONE` (one thread only). A holder whose initializer throws never retries: later calls get `NoClassDefFoundError`.\n\n## VarHandle access modes\n\n| Mode | Methods | Adds |\n|---|---|---|\n| plain | `get`, `set` | nothing across threads |\n| opaque | `getOpaque`, `setOpaque` | each access really happens; untorn; eventually visible |\n| acquire/release | `getAcquire`, `setRelease` | writes before the release are seen after the matching acquire |\n| volatile | `getVolatile`, `setVolatile` | one total order of all volatile accesses |\n\n`compareAndSet` and `getAndAdd` have volatile semantics. Release/acquire does not forbid the store-buffering result (each thread writes its own flag, both read the other's as 0); only volatile does. `AtomicReference` and friends offer the same modes without a lookup. In app code use `volatile`, the `Atomic` classes and `java.util.concurrent`. Test any lock-free code with jcstress, on ARM if you can, because x86 hides many ordering bugs.",
+ "recap": [
+  "The JIT may read a plain field once for a whole loop, and the CPU's store buffer lets a later read overtake an earlier write. Neither is a bug: the memory model allows both.",
+  "A read is guaranteed to see a write only through a happens-before edge: the same lock, the same volatile field, start, join, or a java.util.concurrent handoff. Sleep is not an edge.",
+  "volatile gives visibility and ordering for one variable, not atomic read-modify-write. Use atomics or LongAdder for counters, a lock or an immutable snapshot for several fields.",
+  "Publishing an object is a write that can race. Publish through a volatile field, a static initializer, a final field or a j.u.c handoff, and prefer immutable objects, which survive any race.",
+  "Final fields are seen as the constructor left them, but only if `this` didn't escape the constructor. Wire objects up after construction.",
+  "Double-checked locking needs a volatile field. For statics the holder idiom is simpler; in Kotlin, `by lazy` is the same DCL. A failed holder never retries.",
+  "VarHandle modes form a ladder: plain, opaque, acquire/release, volatile. Release/acquire hands data from one writer through one variable; only volatile gives one total order.",
+  "Tests can't prove the absence of reordering. Write code that is correct by the rules, and use jcstress, ideally on ARM, for anything lock-free."
+ ],
+ "quiz": [
+  {
+   "q": "A worker runs `while (!stopped) { pollOnce(); }`, where `pollOnce` is small enough for the JIT to inline and `stopped` is a plain boolean that another thread sets. In production the worker sometimes never stops. Why, and what's the fix?",
+   "options": [
+    "A CPU cache keeps the old value forever; call `System.gc()` to flush it",
+    "The JIT may read `stopped` once and loop forever; make the field volatile",
+    "Add `Thread.sleep(10)` to the loop, because sleeping forces a fresh read",
+    "Use an AtomicBoolean, because boolean writes can tear"
+   ],
+   "answer": 1,
+   "why": "Caches are coherent; the compiler is the problem. With no edge, the JIT may hoist the read out of the loop. A volatile read can't be hoisted. Sleep has no synchronization semantics, and a boolean can't tear.",
+   "from": "jmm-01"
+  },
+  {
+   "q": "In which case is the reader guaranteed to see `x = 42`?",
+   "options": [
+    "The writer sets `x`, then writes volatile `a`; the reader reads volatile `b`, then `x`",
+    "The writer sets `x` inside `synchronized (lockA)`; the reader reads `x` inside `synchronized (lockB)`",
+    "The writer sets `x`, then sleeps 100 ms; the reader sleeps 200 ms, then reads `x`",
+    "The writer sets `x`, then calls `latch.countDown()`; the reader returns from `latch.await()` and reads `x`"
+   ],
+   "answer": 3,
+   "why": "countDown happens-before a successful await on the same latch, and the write to x comes before countDown in program order. The other options use different variables, different locks, or sleep, which creates no edge at all.",
+   "from": "jmm-02"
+  },
+  {
+   "q": "Fifty request threads increment and decrement `volatile int inFlight`. The dashboard drifts further from the truth every hour. What's the fix?",
+   "options": [
+    "Use an AtomicInteger (`incrementAndGet`, `decrementAndGet`)",
+    "Make it `volatile long` so it can't overflow",
+    "Add `Thread.yield()` after each update",
+    "Read it inside a synchronized block on the dashboard side"
+   ],
+   "answer": 0,
+   "why": "`inFlight++` is a read, an add and a write. volatile makes each one visible but doesn't stop two threads from reading the same value, so updates get lost. An atomic does the whole update as one step.",
+   "from": "jmm-03"
+  },
+  {
+   "q": "A config version number is written only by one refresher thread and read by every request thread. What is enough?",
+   "options": [
+    "A lock around every read and write",
+    "An AtomicLong updated with compareAndSet",
+    "A volatile long",
+    "A plain long, because writes are rare"
+   ],
+   "answer": 2,
+   "why": "With a single writer there is no read-modify-write race, so the only problem is visibility, and that's what volatile solves. It also makes the 64-bit write atomic. A lock and CAS work but buy nothing here; a plain long has no edge at all.",
+   "from": "jmm-03"
+  },
+  {
+   "q": "`record RateCard(String currency, Map<String, Long> fees)` stores the caller's HashMap as it is. Is a RateCard safe to share between threads?",
+   "options": [
+    "Yes: record fields are final",
+    "Not quite: the reference is final, but the caller can still change the HashMap; copy it with `Map.copyOf` in a compact constructor",
+    "No: records can't be shared between threads",
+    "Yes, as long as it's published through a volatile field"
+   ],
+   "answer": 1,
+   "why": "Final fields freeze what the constructor stored, which is a reference to someone else's mutable map. Later changes through the caller's reference are ordinary racy writes. A defensive copy makes the record truly immutable.",
+   "from": "jmm-04"
+  },
+  {
+   "q": "A Kafka listener's constructor calls `container.register(this)` and then sets its `deserializer` field. What can happen?",
+   "options": [
+    "Nothing: a constructor always runs to the end before anyone can use the object",
+    "The compiler rejects `this` as an argument inside a constructor",
+    "The container can deliver a record before `deserializer` is set, and the listener throws a NullPointerException",
+    "Nothing, as long as `deserializer` is final"
+   ],
+   "answer": 2,
+   "why": "`this` escaped before the constructor finished, so another thread (or a callback on the same thread) can use a half-built object. Final doesn't help: its promise starts when the constructor returns. Register after construction.",
+   "from": "jmm-04"
+  },
+  {
+   "q": "Which of these lazy initializers can hand a caller a half-built object?",
+   "options": [
+    "Double-checked locking on a plain (non-volatile) field",
+    "The holder class idiom",
+    "Kotlin `by lazy` with the default mode",
+    "`ConcurrentHashMap.computeIfAbsent`"
+   ],
+   "answer": 0,
+   "why": "The lock-free first check reads the field with no edge to the write, so the reference can become visible before the constructor's writes. The holder relies on class-initialization locking, `by lazy` uses a volatile field, and computeIfAbsent publishes through the map.",
+   "from": "jmm-05"
+  },
+  {
+   "q": "A static holder builds an issuer client whose constructor connects over the network. The issuer is down when the first request arrives. What do later calls get once the issuer is back?",
+   "options": [
+    "A fresh attempt: the holder retries on the next call",
+    "The half-built client from the first attempt",
+    "null",
+    "`NoClassDefFoundError` on every call until the JVM restarts"
+   ],
+   "answer": 3,
+   "why": "If a static initializer throws, the class is marked as failed and is never initialized again. The first caller gets ExceptionInInitializerError and everyone after it NoClassDefFoundError. Use a volatile DCL or Kotlin `lazy`, which retry, for anything that can fail.",
+   "from": "jmm-05"
+  },
+  {
+   "q": "Two threads each set their own flag with `setRelease`, then read the other's flag with `getAcquire`. Can both read false?",
+   "options": [
+    "No: release/acquire keeps each write before the read that follows it",
+    "Yes, even on x86; volatile accesses would forbid it",
+    "Only on ARM",
+    "Only if the flags are long fields"
+   ],
+   "answer": 1,
+   "why": "Release keeps earlier accesses before the write, but a later read of a different variable may still pass it, and x86's store buffer does exactly that. Only volatile's single total order forbids both reading false.",
+   "from": "jmm-06"
+  },
+  {
+   "q": "Many threads may try to record \"the first failure reason\", and only the first one should stick. Which tool fits?",
+   "options": [
+    "A plain String field",
+    "`setRelease` through a VarHandle",
+    "`compareAndSet(null, reason)` on an AtomicReference or a VarHandle",
+    "A volatile String set with `if (reason == null) reason = r;`"
+   ],
+   "answer": 2,
+   "why": "First writer wins is a read-modify-write, so it needs one atomic step. compareAndSet succeeds for exactly one caller and has volatile semantics. The volatile check-then-set is a race between the check and the set, and setRelease is just a write.",
+   "from": "jmm-06"
+  }
+ ]
+}

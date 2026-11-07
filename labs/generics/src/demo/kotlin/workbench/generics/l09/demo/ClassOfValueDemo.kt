@@ -21,5 +21,5 @@ fun main() {
     // Wrong moves. Uncomment one at a time, predict the error, then run.
     // val strict: KClass<PaymentEvent> = events[0]::class      // 1
     // val nullable = note::class                             // 2
-    val kn: KClass<String?>? = null                        // 3
+    // val kn: KClass<String?>? = null                        // 3
 }
