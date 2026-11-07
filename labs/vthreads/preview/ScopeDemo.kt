@@ -1,7 +1,7 @@
 // JDK 25 only. StructuredTaskScope is a preview API in JDK 25 (JEP 505), called here from Kotlin.
-// Needs the Kotlin command-line compiler. From labs/vthreads:
-//     kotlinc preview/ScopeDemo.kt -include-runtime -d build/scope-demo.jar
-//     java --enable-preview -jar build/scope-demo.jar
+// Needs the Kotlin command-line compiler. From labs/:
+//     kotlinc vthreads/preview/ScopeDemo.kt -include-runtime -d vthreads/build/scope-demo.jar
+//     java --enable-preview -jar vthreads/build/scope-demo.jar
 // Not part of the Gradle build. In Kotlin code you would usually use coroutineScope instead.
 
 import java.time.Duration

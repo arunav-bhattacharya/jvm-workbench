@@ -1,5 +1,5 @@
-// JDK 25 only. StructuredTaskScope is a preview API in JDK 25 (JEP 505). From labs/vthreads:
-//     java --enable-preview --source 25 preview/ScopeDemo.java
+// JDK 25 only. StructuredTaskScope is a preview API in JDK 25 (JEP 505). From labs/:
+//     java --enable-preview --source 25 vthreads/preview/ScopeDemo.java
 // The quote handler from LeakDemo, written with a scope. Not part of the Gradle build.
 
 import java.time.Duration;

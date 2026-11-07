@@ -1,7 +1,7 @@
 // JDK 25 or later. Scoped values are final in JDK 25 (JEP 506). Needs the Kotlin command-line
-// compiler. From labs/vthreads:
-//     kotlinc preview/ScopedValueDemo.kt -include-runtime -d build/sv-demo.jar
-//     java -jar build/sv-demo.jar
+// compiler. From labs/:
+//     kotlinc vthreads/preview/ScopedValueDemo.kt -include-runtime -d vthreads/build/sv-demo.jar
+//     java -jar vthreads/build/sv-demo.jar
 // Not part of the Gradle build, because the labs compile for JDK 21, where ScopedValue is a preview API.
 
 import java.util.concurrent.Callable
@@ -24,7 +24,7 @@ fun main() {
     }
 
     // 2. a scoped value is bound for one call, and gone afterwards
-    // (Runnable { } picks ScopedValue.Carrier.run, not Kotlin's own run)
+    // Runnable { } is optional; it shows this is the carrier's run, not Kotlin's run {}
     ScopedValue.where(TENANT, "bank-a").run(Runnable { println("2. inside run():   " + ledgerLookup()) })
     println("   after run():    " + ledgerLookup())
 

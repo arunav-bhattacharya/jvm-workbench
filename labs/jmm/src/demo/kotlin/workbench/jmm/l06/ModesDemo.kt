@@ -10,10 +10,19 @@ import kotlin.concurrent.thread
  * The store-buffering test from lesson 1, once per VarHandle access mode. Thread A runs
  * `x = 1; r1 = y` and thread B runs `y = 1; r2 = x`. Count the trials where both read 0.
  */
-private class IntPair { var x = 0; var y = 0 }
+private class IntPair {
+    var x = 0
+    var y = 0
 
-private val X: VarHandle = MethodHandles.lookup().findVarHandle(IntPair::class.java, "x", Int::class.javaPrimitiveType)
-private val Y: VarHandle = MethodHandles.lookup().findVarHandle(IntPair::class.java, "y", Int::class.javaPrimitiveType)
+    companion object {
+        // the lookup runs inside the class, so it may reach the private backing fields x and y
+        val X: VarHandle = MethodHandles.lookup().findVarHandle(IntPair::class.java, "x", Int::class.javaPrimitiveType)
+        val Y: VarHandle = MethodHandles.lookup().findVarHandle(IntPair::class.java, "y", Int::class.javaPrimitiveType)
+    }
+}
+
+private val X = IntPair.X
+private val Y = IntPair.Y
 
 private const val TRIALS = 1 shl 18
 private const val BATCH = 32

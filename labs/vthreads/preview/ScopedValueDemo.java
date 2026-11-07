@@ -1,5 +1,5 @@
-// JDK 25 or later. Scoped values are final in JDK 25 (JEP 506), so no flag is needed. From labs/vthreads:
-//     java preview/ScopedValueDemo.java
+// JDK 25 or later. Scoped values are final in JDK 25 (JEP 506), so no flag is needed. From labs/:
+//     java vthreads/preview/ScopedValueDemo.java
 // Not part of the Gradle build, because the labs compile for JDK 21, where ScopedValue is a preview API.
 
 import java.util.concurrent.ExecutorService;

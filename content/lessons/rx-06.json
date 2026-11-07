@@ -1,0 +1,395 @@
+{
+ "id": "rx-06",
+ "title": "Schedulers: publishOn, subscribeOn and blocking calls",
+ "minutes": 35,
+ "goal": "By the end you can predict which thread runs each step of a Reactor chain, move work with publishOn and subscribeOn on purpose, wrap blocking calls so they really run concurrently on boundedElastic, and replace block() inside a pipeline with composition.",
+ "warmup": {
+  "q": "`Flux.fromIterable(ids).flatMap(id -> Mono.fromCallable(() -> jdbcLookup(id))).subscribeOn(Schedulers.boundedElastic())` runs 10 lookups of 100 ms each. About how long does it take?",
+  "options": [
+   "About 100 ms: `flatMap` runs them concurrently on boundedElastic threads",
+   "About 1 second: all ten run in turn on one boundedElastic thread",
+   "About 250 ms: boundedElastic has one thread per core",
+   "It fails, because `fromCallable` cannot block"
+  ],
+  "answer": 1,
+  "why": "`subscribeOn` on the outer Flux moves the subscription to one boundedElastic thread. `flatMap` subscribes to each inner `fromCallable` on that same thread, and a `fromCallable` runs synchronously when subscribed, so the lookups take turns. To get concurrency, put `subscribeOn` on each inner Mono. `flatMap` only subscribes to many inners at once; the threads have to come from the inners."
+ },
+ "sections": [
+  {
+   "h": "Reactor runs on the thread that delivered the last signal",
+   "body": "Reactor doesn't own a thread pool the way an `ExecutorService` does. Unless you say otherwise, the source runs on the thread that called `subscribe()`, and each operator runs on the thread that delivered the signal to it. `Flux.range(1, 2).map(...).subscribe(...)` called from `main` runs every step on `main`, and `subscribe` returns only when the range is done.\n\nOther threads appear when something asynchronous sits in the chain. A timer (`Mono.delay`, `interval`, `delayElements`, `timeout`, the waits of `Retry.backoff`) fires on `Schedulers.parallel()`, and the operators after it carry on there. An HTTP client delivers its response on its own I/O threads. In a `flatMap` over three timers, the three inners fire on three parallel workers, so the downstream sees items arrive on three different threads, still one at a time. Rule 1.3 from lesson 1 of this track holds: signals are serial even when the thread changes.\n\nWhen you want to choose the thread, you pass a `Scheduler`. It is close to an `ExecutorService`, and it is also a clock, which is how `StepVerifier.withVirtualTime` can fake time. Reactor 3.8 has four shared ones:\n\n| Scheduler | Threads | Use it for |\n|---|---|---|\n| `Schedulers.immediate()` | the current thread | a placeholder that changes nothing |\n| `Schedulers.single()` | one shared thread | cheap work that must stay serial |\n| `Schedulers.parallel()` | one per CPU core | CPU work and timers; never block here |\n| `Schedulers.boundedElastic()` | up to 10 x cores, then a queue of 100,000 tasks | blocking calls |\n\nThe threads of `parallel` and `single` are marked as non-blocking, and Reactor refuses `block()` on them (the last section). `boundedElastic` creates threads on demand up to its cap, reuses them, and drops a worker after 60 seconds idle. Past the cap, tasks wait in its queue. Past the queue, it throws `RejectedExecutionException`.\n\nYou can build your own with `Schedulers.newParallel`, `newBoundedElastic` or `fromExecutorService`, and you then have to `dispose()` them. The reference guide still mentions `Schedulers.elastic()`, which no longer exists in 3.8: use `boundedElastic()`.",
+   "try": {
+    "title": "A tour of the threads",
+    "minutes": 3,
+    "steps": [
+     "`ThreadTourDemo` prints the thread of each step in three chains: no scheduler at all, a chain after `Mono.delay`, and a `flatMap` over three timers. Predict each thread name before you run it.",
+     "Run it.",
+     "In part 3, add `.publishOn(Schedulers.single())` right before the `doOnNext` (and import `reactor.core.scheduler.Schedulers`). Predict the threads, then run it again."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "ThreadTourDemo.java",
+     "src": "package workbench.reactive.l06;\n\nimport reactor.core.publisher.Flux;\nimport reactor.core.publisher.Mono;\n\nimport java.time.Duration;\n\n/** Where does each step run? Reactor stays on whatever thread delivered the last signal. */\npublic class ThreadTourDemo {\n    static void where(String step) {\n        System.out.printf(\"  %-26s on %s%n\", step, Thread.currentThread().getName());\n    }\n\n    public static void main(String[] args) {\n        System.out.println(\"1. no scheduler anywhere\");\n        Flux.range(1, 2)\n                .doOnNext(i -> where(\"source emits \" + i))\n                .map(i -> i * 10)\n                .subscribe(i -> where(\"subscriber gets \" + i));\n\n        System.out.println(\"2. after a timer (Mono.delay)\");\n        Mono.delay(Duration.ofMillis(10))\n                .doOnNext(t -> where(\"timer fires\"))\n                .map(t -> \"ok\")\n                .doOnNext(v -> where(\"map after the timer\"))\n                .block();\n\n        System.out.println(\"3. flatMap over three timers\");\n        Flux.range(1, 3)\n                .flatMap(i -> Mono.delay(Duration.ofMillis(10L * i)).thenReturn(i))\n                .doOnNext(i -> where(\"downstream gets \" + i))\n                .blockLast();\n    }\n}\n",
+     "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l06.ThreadTourDemo",
+     "file": "labs/reactive/src/demo/java/workbench/reactive/l06/ThreadTourDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "ThreadTourDemo.kt",
+      "src": "package workbench.reactive.l06\n\nimport reactor.core.publisher.Flux\nimport reactor.core.publisher.Mono\nimport java.time.Duration\n\nprivate fun where(step: String) = println(\"  %-26s on %s\".format(step, Thread.currentThread().name))\n\n/** Where does each step run? Reactor stays on whatever thread delivered the last signal. */\nfun main() {\n    println(\"1. no scheduler anywhere\")\n    Flux.range(1, 2)\n        .doOnNext { i -> where(\"source emits $i\") }\n        .map { i -> i * 10 }\n        .subscribe { i -> where(\"subscriber gets $i\") }\n\n    println(\"2. after a timer (Mono.delay)\")\n    Mono.delay(Duration.ofMillis(10))\n        .doOnNext { where(\"timer fires\") }\n        .map { \"ok\" }\n        .doOnNext { where(\"map after the timer\") }\n        .block()\n\n    println(\"3. flatMap over three timers\")\n    Flux.range(1, 3)\n        .flatMap { i -> Mono.delay(Duration.ofMillis(10L * i)).thenReturn(i) }\n        .doOnNext { i -> where(\"downstream gets $i\") }\n        .blockLast()\n}\n",
+      "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l06.ThreadTourDemoKt",
+      "file": "labs/reactive/src/demo/kotlin/workbench/reactive/l06/ThreadTourDemo.kt"
+     }
+    },
+    "expect": "Part 1 runs entirely on `main`, and the source and subscriber alternate item by item. Part 2 runs on `parallel-1`, the timer's thread, including the `map` after it. Part 3 delivers the three items on three different parallel threads (for example `parallel-2`, `parallel-3`, `parallel-4`). After your change, all three arrive on `single-1`."
+   },
+   "refs": [
+    {
+     "title": "Reactor reference: Threading and Schedulers (source, 3.8.x)",
+     "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/coreFeatures/schedulers.adoc",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "publishOn moves what comes after it; subscribeOn moves the source",
+   "body": "Two operators move work to another thread, and they move different things.\n\n`publishOn(scheduler)` sits in the data path. Items arrive from above on whatever thread, `publishOn` queues them (it prefetches 256 by default), and one worker of the scheduler hands them to the operators below. Everything after it, up to the next `publishOn`, runs on that worker. Everything before it is unaffected. Use it to get work off a thread that must stay free, or onto `parallel` for a CPU-heavy step.\n\n`subscribeOn(scheduler)` sits in the subscription path. When you call `subscribe()`, Reactor builds the chain of subscribers from the bottom up to the source (lesson 2 of this track). `subscribeOn` makes that subscribe call, and the `request(n)` calls after it, continue on the scheduler's thread. So the source starts producing there, and a synchronous source such as `fromCallable` or `range` runs there. Where you write it doesn't matter:\n\n```java\nFlux.range(1, 1)\n        .doOnNext(i -> where(\"source\"))                 // boundedElastic-1\n        .publishOn(Schedulers.single())\n        .doOnNext(i -> where(\"after publishOn\"))        // single-1\n        .subscribeOn(Schedulers.boundedElastic())       // written last, still moves the source\n        .blockLast();\n```\n\n```kotlin\nFlux.range(1, 1)\n    .doOnNext { where(\"source\") }                       // boundedElastic-1\n    .publishOn(Schedulers.single())\n    .doOnNext { where(\"after publishOn\") }              // single-1\n    .subscribeOn(Schedulers.boundedElastic())           // written last, still moves the source\n    .blockLast()\n```\n\nWith two `subscribeOn` calls, **the one nearest the source wins**. The other only adds a thread hop on the way up. Reactor's guide recommends writing `subscribeOn` right after the source, where a reader looks for it.\n\nTwo limits. If the source is itself asynchronous, such as `Mono.delay` or an HTTP client, `subscribeOn` moves only the subscribe call: the items still arrive on the source's own threads. And after a `publishOn` below the source, the data path belongs to the `publishOn` scheduler, as the second line of output above shows.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 680 196\" role=\"img\" aria-label=\"A chain range, map, publishOn(single), filter, subscribeOn(boundedElastic), subscriber. The subscribe call travels up from the subscriber on main and switches to boundedElastic at subscribeOn. Data flows down on boundedElastic until publishOn, then on single.\"><text class=\"t-s t-m\" x=\"562\" y=\"22\" text-anchor=\"middle\">on main</text><line class=\"ln-d\" x1=\"618\" y1=\"32\" x2=\"510\" y2=\"32\" marker-end=\"url(#arr)\"/><text class=\"t-s t-b\" x=\"284\" y=\"22\" text-anchor=\"middle\">subscribe() and request(n) continue on boundedElastic-1</text><line class=\"ln-d\" x1=\"506\" y1=\"32\" x2=\"66\" y2=\"32\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"15\" y=\"46\" width=\"95\" height=\"38\" rx=\"8\"/><text class=\"t-s\" x=\"62\" y=\"69\" text-anchor=\"middle\">Flux.range</text><line class=\"ln\" x1=\"111\" y1=\"65\" x2=\"124\" y2=\"65\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"126\" y=\"46\" width=\"95\" height=\"38\" rx=\"8\"/><text class=\"t-s\" x=\"174\" y=\"69\" text-anchor=\"middle\">map</text><line class=\"ln\" x1=\"222\" y1=\"65\" x2=\"235\" y2=\"65\" marker-end=\"url(#arr)\"/><rect class=\"box-a\" x=\"237\" y=\"46\" width=\"95\" height=\"38\" rx=\"8\"/><text class=\"t-s\" x=\"284\" y=\"69\" text-anchor=\"middle\">publishOn</text><text class=\"t-s t-a\" x=\"284\" y=\"102\" text-anchor=\"middle\">single()</text><line class=\"ln\" x1=\"333\" y1=\"65\" x2=\"346\" y2=\"65\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"348\" y=\"46\" width=\"95\" height=\"38\" rx=\"8\"/><text class=\"t-s\" x=\"396\" y=\"69\" text-anchor=\"middle\">filter</text><line class=\"ln\" x1=\"444\" y1=\"65\" x2=\"457\" y2=\"65\" marker-end=\"url(#arr)\"/><rect class=\"box-b\" x=\"459\" y=\"46\" width=\"95\" height=\"38\" rx=\"8\"/><text class=\"t-s\" x=\"506\" y=\"69\" text-anchor=\"middle\">subscribeOn</text><text class=\"t-s t-b\" x=\"506\" y=\"102\" text-anchor=\"middle\">boundedElastic()</text><line class=\"ln\" x1=\"555\" y1=\"65\" x2=\"568\" y2=\"65\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"570\" y=\"46\" width=\"95\" height=\"38\" rx=\"8\"/><text class=\"t-s\" x=\"618\" y=\"69\" text-anchor=\"middle\">subscriber</text><rect class=\"box-b\" x=\"15\" y=\"116\" width=\"270\" height=\"28\" rx=\"8\"/><text class=\"t-s\" x=\"150\" y=\"135\" text-anchor=\"middle\">items on boundedElastic-1</text><rect class=\"box-a\" x=\"284\" y=\"116\" width=\"380\" height=\"28\" rx=\"8\"/><text class=\"t-s\" x=\"475\" y=\"135\" text-anchor=\"middle\">items on single-1</text><text class=\"t-s t-m\" x=\"340\" y=\"172\" text-anchor=\"middle\">items flow left to right; the subscription travels right to left, and subscribeOn switches its thread</text></svg>",
+    "caption": "publishOn splits the data path: before it, items run where the source runs; after it, on single. subscribeOn changes the thread of the subscription on its way up, so the source runs on boundedElastic even though subscribeOn is written near the end."
+   },
+   "try": {
+    "title": "publishOn, subscribeOn, and two of them",
+    "minutes": 4,
+    "steps": [
+     "`PublishSubscribeDemo` runs three chains: `publishOn` in the middle, `subscribeOn` written after a `publishOn`, and two `subscribeOn` calls in a row. Predict the thread of every printed line.",
+     "Run it.",
+     "In part 3, swap the two `subscribeOn` lines so `boundedElastic` is nearest the source. Predict, then run it again."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "PublishSubscribeDemo.java",
+     "src": "package workbench.reactive.l06;\n\nimport reactor.core.publisher.Flux;\nimport reactor.core.scheduler.Schedulers;\n\n/** publishOn moves what comes after it. subscribeOn moves the source, wherever you write it. */\npublic class PublishSubscribeDemo {\n    static void where(String step) {\n        System.out.printf(\"  %-22s on %s%n\", step, Thread.currentThread().getName());\n    }\n\n    public static void main(String[] args) {\n        System.out.println(\"1. publishOn(single) in the middle\");\n        Flux.range(1, 1)\n                .doOnNext(i -> where(\"source\"))\n                .publishOn(Schedulers.single())\n                .doOnNext(i -> where(\"after publishOn\"))\n                .blockLast();\n\n        System.out.println(\"2. subscribeOn(boundedElastic) written last\");\n        Flux.range(1, 1)\n                .doOnNext(i -> where(\"source\"))\n                .publishOn(Schedulers.single())\n                .doOnNext(i -> where(\"after publishOn\"))\n                .subscribeOn(Schedulers.boundedElastic())\n                .blockLast();\n\n        System.out.println(\"3. two subscribeOn calls\");\n        Flux.range(1, 1)\n                .doOnNext(i -> where(\"source\"))\n                .subscribeOn(Schedulers.single())               // nearest to the source: this one wins\n                .subscribeOn(Schedulers.boundedElastic())       // only adds a thread hop\n                .doOnNext(i -> where(\"downstream\"))\n                .blockLast();\n    }\n}\n",
+     "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l06.PublishSubscribeDemo",
+     "file": "labs/reactive/src/demo/java/workbench/reactive/l06/PublishSubscribeDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "PublishSubscribeDemo.kt",
+      "src": "package workbench.reactive.l06\n\nimport reactor.core.publisher.Flux\nimport reactor.core.scheduler.Schedulers\n\nprivate fun where(step: String) = println(\"  %-22s on %s\".format(step, Thread.currentThread().name))\n\n/** publishOn moves what comes after it. subscribeOn moves the source, wherever you write it. */\nfun main() {\n    println(\"1. publishOn(single) in the middle\")\n    Flux.range(1, 1)\n        .doOnNext { where(\"source\") }\n        .publishOn(Schedulers.single())\n        .doOnNext { where(\"after publishOn\") }\n        .blockLast()\n\n    println(\"2. subscribeOn(boundedElastic) written last\")\n    Flux.range(1, 1)\n        .doOnNext { where(\"source\") }\n        .publishOn(Schedulers.single())\n        .doOnNext { where(\"after publishOn\") }\n        .subscribeOn(Schedulers.boundedElastic())\n        .blockLast()\n\n    println(\"3. two subscribeOn calls\")\n    Flux.range(1, 1)\n        .doOnNext { where(\"source\") }\n        .subscribeOn(Schedulers.single())               // nearest to the source: this one wins\n        .subscribeOn(Schedulers.boundedElastic())       // only adds a thread hop\n        .doOnNext { where(\"downstream\") }\n        .blockLast()\n}\n",
+      "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l06.PublishSubscribeDemoKt",
+      "file": "labs/reactive/src/demo/kotlin/workbench/reactive/l06/PublishSubscribeDemo.kt"
+     }
+    },
+    "expect": "Part 1: the source on `main`, after `publishOn` on `single-1`. Part 2: the source on `boundedElastic-1` although `subscribeOn` is written last, and after `publishOn` still `single-1`. Part 3: everything on `single-1`, because the `subscribeOn` nearest the source wins. After the swap, everything runs on a `boundedElastic` thread."
+   }
+  },
+  {
+   "h": "Wrap a blocking call in fromCallable and subscribeOn(boundedElastic)",
+   "body": "JDBC, a SOAP client, `Files.readAllLines`, an old vendor SDK: each holds its thread until the answer comes. Run one on `parallel` (one thread per core) and four slow calls on a 4-core pod stop every timer and every other pipeline that shares that pool. Reactor's FAQ gives the standard wrapper:\n\n```java\nMono<BigDecimal> balance(String account) {\n    return Mono.fromCallable(() -> ledgerDao.balance(account))   // lazy: runs per subscription\n            .subscribeOn(Schedulers.boundedElastic());          // on a thread that may block\n}\n```\n\n```kotlin\nfun balance(account: String): Mono<BigDecimal> =\n    Mono.fromCallable { ledgerDao.balance(account) }            // lazy: runs per subscription\n        .subscribeOn(Schedulers.boundedElastic())               // on a thread that may block\n```\n\n`fromCallable` makes the call lazy and turns a thrown exception into `onError`. `subscribeOn` puts the call on a thread that is allowed to block. As the FAQ says, `subscribeOn` does not subscribe to anything: it only says where the work runs once somebody subscribes.\n\nFor many calls, **the `subscribeOn` must sit on each inner `Mono`**. This looks concurrent and isn't:\n\n```java\nFlux.fromIterable(accounts)\n        .flatMap(a -> Mono.fromCallable(() -> ledgerDao.balance(a)))\n        .subscribeOn(Schedulers.boundedElastic());      // one thread runs every call, in turn\n```\n\n```kotlin\nFlux.fromIterable(accounts)\n    .flatMap { a -> Mono.fromCallable { ledgerDao.balance(a) } }\n    .subscribeOn(Schedulers.boundedElastic())           // one thread runs every call, in turn\n```\n\n`flatMap` subscribes to each inner on the thread it is running on, and a `fromCallable` runs right there, so the calls take turns on one thread: eight 100 ms calls take 800 ms. Move `subscribeOn` inside the `flatMap`, and the same eight take about 100 ms on eight threads. Then cap them with `flatMap`'s concurrency argument, so the 20-connection pool in front of Oracle isn't asked for 40 connections at once.\n\nSince Reactor 3.6, `boundedElastic` can use virtual threads. On a JDK 21+ runtime, start the JVM with `-Dreactor.schedulers.defaultBoundedElasticOnVirtualThreads=true` and the shared `boundedElastic()` runs every task on a new virtual thread (named `loomBoundedElastic-N`). The caps stay the same, and the Javadoc suggests raising `reactor.schedulers.defaultBoundedElasticSize` when you turn it on. The property is read once, when the `Schedulers` class loads, so put it on the command line. The virtual threads track applies here too: on JDK 21 to 23, a driver that blocks inside `synchronized` pins its carrier.",
+   "try": {
+    "title": "Eight blocking calls, three ways",
+    "minutes": 5,
+    "steps": [
+     "`BlockingCallDemo` makes eight ledger calls that each sleep 100 ms: with no scheduler, with `subscribeOn` on the outer Flux, and with `subscribeOn` on each inner call. Predict the time and the number of threads for each.",
+     "Run it.",
+     "Run it again with `-Pargs=virtual` added to the command. The demo then sets `reactor.schedulers.defaultBoundedElasticOnVirtualThreads` before Reactor loads its schedulers. Look at the thread names and the `virtual` flag."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "BlockingCallDemo.java",
+     "src": "package workbench.reactive.l06;\n\nimport reactor.core.publisher.Flux;\nimport reactor.core.publisher.Mono;\nimport reactor.core.scheduler.Schedulers;\n\nimport java.math.BigDecimal;\nimport java.util.List;\nimport java.util.Set;\nimport java.util.concurrent.ConcurrentHashMap;\n\n/** Eight blocking ledger calls of 100 ms each. Where you put subscribeOn decides how long they take. */\npublic class BlockingCallDemo {\n    static final Set<Thread> threads = ConcurrentHashMap.newKeySet();\n\n    // a JDBC-style call: it holds the calling thread for 100 ms\n    static BigDecimal balance(String account) {\n        threads.add(Thread.currentThread());\n        try {\n            Thread.sleep(100);\n        } catch (InterruptedException e) {\n            Thread.currentThread().interrupt();\n        }\n        return BigDecimal.TEN;\n    }\n\n    static void run(String title, Flux<BigDecimal> balances) {\n        threads.clear();\n        long t0 = System.nanoTime();\n        long n = balances.count().block();\n        Thread one = threads.iterator().next();\n        System.out.printf(\"%-34s %d calls in %3d ms on %d thread(s), e.g. %s (virtual=%s)%n\", title, n,\n                (System.nanoTime() - t0) / 1_000_000, threads.size(), one.getName(), one.isVirtual());\n    }\n\n    public static void main(String[] args) {\n        if (args.length > 0 && args[0].equals(\"virtual\")) {\n            // must be set before Reactor's Schedulers class is first used; normally a -D JVM flag\n            System.setProperty(\"reactor.schedulers.defaultBoundedElasticOnVirtualThreads\", \"true\");\n        }\n        List<String> accounts = List.of(\"a-1\", \"a-2\", \"a-3\", \"a-4\", \"a-5\", \"a-6\", \"a-7\", \"a-8\");\n\n        run(\"1. fromCallable, no scheduler\", Flux.fromIterable(accounts)\n                .flatMap(a -> Mono.fromCallable(() -> balance(a))));\n\n        run(\"2. subscribeOn on the outer Flux\", Flux.fromIterable(accounts)\n                .flatMap(a -> Mono.fromCallable(() -> balance(a)))\n                .subscribeOn(Schedulers.boundedElastic()));\n\n        run(\"3. subscribeOn on each call\", Flux.fromIterable(accounts)\n                .flatMap(a -> Mono.fromCallable(() -> balance(a))\n                        .subscribeOn(Schedulers.boundedElastic())));\n    }\n}\n",
+     "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l06.BlockingCallDemo",
+     "file": "labs/reactive/src/demo/java/workbench/reactive/l06/BlockingCallDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "BlockingCallDemo.kt",
+      "src": "package workbench.reactive.l06\n\nimport reactor.core.publisher.Flux\nimport reactor.core.publisher.Mono\nimport reactor.core.scheduler.Schedulers\nimport java.math.BigDecimal\nimport java.util.concurrent.ConcurrentHashMap\n\nprivate val threads: MutableSet<Thread> = ConcurrentHashMap.newKeySet()\n\n// a JDBC-style call: it holds the calling thread for 100 ms\nprivate fun balance(account: String): BigDecimal {\n    threads += Thread.currentThread()\n    Thread.sleep(100)\n    return BigDecimal.TEN\n}\n\nprivate fun run(title: String, balances: Flux<BigDecimal>) {\n    threads.clear()\n    val t0 = System.nanoTime()\n    val n = balances.count().block()\n    val one = threads.first()\n    println(\"%-34s %d calls in %3d ms on %d thread(s), e.g. %s (virtual=%s)\".format(title, n,\n        (System.nanoTime() - t0) / 1_000_000, threads.size, one.name, one.isVirtual))\n}\n\n/** Eight blocking ledger calls of 100 ms each. Where you put subscribeOn decides how long they take. */\nfun main(args: Array<String>) {\n    if (args.firstOrNull() == \"virtual\") {\n        // must be set before Reactor's Schedulers class is first used; normally a -D JVM flag\n        System.setProperty(\"reactor.schedulers.defaultBoundedElasticOnVirtualThreads\", \"true\")\n    }\n    val accounts = listOf(\"a-1\", \"a-2\", \"a-3\", \"a-4\", \"a-5\", \"a-6\", \"a-7\", \"a-8\")\n\n    run(\"1. fromCallable, no scheduler\", Flux.fromIterable(accounts)\n        .flatMap { a -> Mono.fromCallable { balance(a) } })\n\n    run(\"2. subscribeOn on the outer Flux\", Flux.fromIterable(accounts)\n        .flatMap { a -> Mono.fromCallable { balance(a) } }\n        .subscribeOn(Schedulers.boundedElastic()))\n\n    run(\"3. subscribeOn on each call\", Flux.fromIterable(accounts)\n        .flatMap { a -> Mono.fromCallable { balance(a) }.subscribeOn(Schedulers.boundedElastic()) })\n}\n",
+      "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l06.BlockingCallDemoKt",
+      "file": "labs/reactive/src/demo/kotlin/workbench/reactive/l06/BlockingCallDemo.kt"
+     }
+    },
+    "expect": "No scheduler: about 800 ms on `main`. `subscribeOn` outside: about 800 ms on one thread, `boundedElastic-1`. `subscribeOn` on each call: about 100 ms on 8 threads. With `-Pargs=virtual`, the thread names become `loomBoundedElastic-N` and `virtual=true`, with the same timings: the virtual threads change the cost of each thread, not the shape of the pipeline."
+   },
+   "refs": [
+    {
+     "title": "Reactor FAQ: How do I wrap a synchronous, blocking call? (source, 3.8.x)",
+     "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/faq.adoc",
+     "kind": "docs"
+    },
+    {
+     "title": "What's new in reactor-core 3.6.0 (Spring blog): virtual-thread boundedElastic",
+     "url": "https://spring.io/blog/2023/10/31/what-new-is-coming-in-reactor-core-3-6-0",
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "h": "Keep block() at the edges",
+   "body": "`block()` subscribes and parks the calling thread until the Mono finishes. On a `parallel` or `single` thread that is a bug, and Reactor checks for it: `block()`, `blockFirst()`, `blockLast()`, `toIterable()` and `toStream()` throw `IllegalStateException: block()/blockFirst()/blockLast() are blocking, which is not supported in thread parallel-1`.\n\nIt shows up in code like the first line below, once the amount arrives from a timer, a timeout or a non-blocking client:\n\n```java\nusd.map(amount -> amount.multiply(fx.usdToEur().block()))       // throws on a parallel thread\nusd.flatMap(amount -> fx.usdToEur().map(amount::multiply))     // composes instead\n```\n\n```kotlin\nusd.map { amount -> amount.multiply(fx.usdToEur().block()) }    // throws on a parallel thread\nusd.flatMap { amount -> fx.usdToEur().map(amount::multiply) }  // composes instead\n```\n\nThe check is a safety net with holes in it. `Mono.just(x).block()` takes a shortcut for a value that is already there and doesn't check the thread at all, so a unit test whose stubs return `Mono.just` passes while staging fails. And the check only knows threads that implement Reactor's `NonBlocking` marker interface. A Kafka listener thread or an application worker thread isn't marked, so `block()` there works, and holds that thread until the answer comes.\n\nTo find blocking calls the check misses, Reactor has a separate agent, BlockHound (not in the labs). It instruments the JDK and throws when a non-blocking thread calls something like `Thread.sleep` or a blocking socket read.\n\nSo where is `block()` fine? In `main`, in a test (though `StepVerifier` is better), and at the edge where reactive code meets code that is blocking anyway, on a thread that is yours to block. On `boundedElastic` it is allowed, and it costs you one of a limited set of threads. Inside a pipeline there is always an operator that composes instead: `flatMap`, `zipWith`, `then`.",
+   "try": {
+    "title": "When block() is refused",
+    "minutes": 4,
+    "steps": [
+     "`BlockInParallelDemo` multiplies a USD amount by an FX rate four ways: `block()` inside `map`, `flatMap`, `block()` on a `Mono.just`, and `block()` after `publishOn(boundedElastic())`. The amount arrives from `Mono.delay`, so on a parallel thread. Predict which lines fail.",
+     "Run it.",
+     "Change `usd` to `Mono.just(new BigDecimal(\"100\"))` and run again. Predict line 1 first."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "BlockInParallelDemo.java",
+     "src": "package workbench.reactive.l06;\n\nimport reactor.core.publisher.Mono;\nimport reactor.core.scheduler.Schedulers;\n\nimport java.math.BigDecimal;\nimport java.time.Duration;\n\n/** block() on a Reactor parallel thread is refused. flatMap composes instead. */\npublic class BlockInParallelDemo {\n    static Mono<BigDecimal> rate() {                      // a non-blocking FX lookup\n        return Mono.delay(Duration.ofMillis(20)).thenReturn(new BigDecimal(\"0.92\"));\n    }\n\n    public static void main(String[] args) {\n        // a timer emits on a parallel thread, just like a WebClient response emits on a Netty thread\n        Mono<BigDecimal> usd = Mono.delay(Duration.ofMillis(10)).thenReturn(new BigDecimal(\"100\"));\n\n        try {\n            usd.map(amount -> amount.multiply(rate().block())).block();\n        } catch (IllegalStateException e) {\n            System.out.println(\"1. block() inside map:  \" + e.getMessage());\n        }\n\n        System.out.println(\"2. flatMap instead:     \" + usd.flatMap(amount -> rate().map(amount::multiply)).block());\n\n        System.out.println(\"3. Mono.just(..).block() inside map: \"\n                + usd.map(amount -> amount.multiply(Mono.just(new BigDecimal(\"0.92\")).block())).block()\n                + \" (a shortcut, not a permission)\");\n\n        System.out.println(\"4. block() after publishOn(boundedElastic): \"\n                + usd.publishOn(Schedulers.boundedElastic()).map(amount -> amount.multiply(rate().block())).block());\n    }\n}\n",
+     "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l06.BlockInParallelDemo",
+     "file": "labs/reactive/src/demo/java/workbench/reactive/l06/BlockInParallelDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "BlockInParallelDemo.kt",
+      "src": "package workbench.reactive.l06\n\nimport reactor.core.publisher.Mono\nimport reactor.core.scheduler.Schedulers\nimport java.math.BigDecimal\nimport java.time.Duration\n\nprivate fun rate(): Mono<BigDecimal> =                     // a non-blocking FX lookup\n    Mono.delay(Duration.ofMillis(20)).thenReturn(BigDecimal(\"0.92\"))\n\n/** block() on a Reactor parallel thread is refused. flatMap composes instead. */\nfun main() {\n    // a timer emits on a parallel thread, just like a WebClient response emits on a Netty thread\n    val usd: Mono<BigDecimal> = Mono.delay(Duration.ofMillis(10)).thenReturn(BigDecimal(\"100\"))\n\n    try {\n        usd.map { amount -> amount.multiply(rate().block()) }.block()\n    } catch (e: IllegalStateException) {\n        println(\"1. block() inside map:  ${e.message}\")\n    }\n\n    println(\"2. flatMap instead:     \" + usd.flatMap { amount -> rate().map(amount::multiply) }.block())\n\n    println(\"3. Mono.just(..).block() inside map: \" +\n        usd.map { amount -> amount.multiply(Mono.just(BigDecimal(\"0.92\")).block()) }.block() +\n        \" (a shortcut, not a permission)\")\n\n    println(\"4. block() after publishOn(boundedElastic): \" +\n        usd.publishOn(Schedulers.boundedElastic()).map { amount -> amount.multiply(rate().block()) }.block())\n}\n",
+      "run": "./gradlew :reactive:demo -Pmain=workbench.reactive.l06.BlockInParallelDemoKt",
+      "file": "labs/reactive/src/demo/kotlin/workbench/reactive/l06/BlockInParallelDemo.kt"
+     }
+    },
+    "expect": "Line 1 prints the `block()/blockFirst()/blockLast() are blocking, which is not supported in thread parallel-1` message. Lines 2, 3 and 4 print `92.00`: `flatMap` composes, `Mono.just` takes the scalar shortcut, and `boundedElastic` threads are allowed to block. With `Mono.just` as the amount, line 1 also prints `92.00`, because `map` now runs on `main`. Same code, different thread, different result: that is why tests with `Mono.just` stubs miss this bug."
+   },
+   "refs": [
+    {
+     "title": "BlockHound README",
+     "url": "https://github.com/reactor/BlockHound/blob/master/README.md",
+     "kind": "read"
+    }
+   ]
+  }
+ ],
+ "analogy": "Think of a bank branch. Requests are customers, and by default the clerk who greets a customer handles everything for them. `publishOn` is a ticket counter in the middle of the hall: from there on, a different clerk takes over. `subscribeOn` is the instruction at the front door saying which clerk opens the file in the first place, and it doesn't matter which wall the sign hangs on. `boundedElastic` is the back office with many clerks who are allowed to sit on the phone waiting for another bank; `parallel` is the few cashiers at the front, and if one of them waits on the phone, the queue stops. The analogy breaks at speed: a real clerk hand-off takes minutes, while a thread hop costs microseconds, which is still enough that you shouldn't add them for nothing.",
+ "in_your_world": "In a Quarkus or Spring service you rarely pick the first thread. The HTTP server delivers requests on a few event-loop threads, and a reactive client delivers responses on its own I/O threads. The moment a chain calls Oracle through JDBC, an old card-scheme SOAP client or a file-based HSM wrapper, that call needs `fromCallable` plus `subscribeOn(boundedElastic())`, or the event loop stops serving everyone else while it waits. Size it against the real limit: `boundedElastic` allows 40 threads on a 4-core pod, but your Oracle pool has 20 connections, so cap the fan-out at 20. And when the reactive pipeline feeds a Kafka producer or a Temporal client that blocks, that call is a blocking call too.",
+ "mistake": "The most common mistake is putting `subscribeOn(boundedElastic())` on the outer Flux of a `flatMap` and believing the calls now run in parallel. They run one after another on a single boundedElastic thread, so a batch of 200 lookups takes 200 times as long as one. People do it because `subscribeOn` \"moves the work\" and the code is shorter. The fix is to put `subscribeOn` on each inner `Mono.fromCallable(...)`, ideally inside a small method like `balance(account)`, and cap the fan-out with `flatMap(this::balance, n)`.",
+ "compare": {
+  "title": "Choosing threads in Reactor and in coroutines",
+  "java": {
+   "title": "StatementService.java (Reactor)",
+   "src": "// Reactor: say where each part of the chain runs\nMono<Statement> statement(String account) {\n    return Mono.fromCallable(() -> ledgerDao.lines(account))   // blocking JDBC call...\n            .subscribeOn(Schedulers.boundedElastic())          // ...so the source runs here\n            .publishOn(Schedulers.parallel())                  // what follows runs here\n            .map(lines -> pdf.render(lines));                  // CPU-heavy rendering\n}"
+  },
+  "kotlin": {
+   "title": "StatementService.kt (coroutines)",
+   "src": "// Kotlin coroutines: switch the dispatcher around each block of work\nsuspend fun statement(account: String): Statement {\n    val lines = withContext(Dispatchers.IO) { ledgerDao.lines(account) }   // blocking JDBC call\n    return withContext(Dispatchers.Default) { pdf.render(lines) }          // CPU-heavy rendering\n}"
+  },
+  "note": "Reactor attaches threads to positions in a chain: `subscribeOn` picks where the source runs and `publishOn` picks where the rest runs. Coroutines attach them to blocks of code: `withContext(Dispatchers.IO)` runs the block on the IO dispatcher and comes back afterwards, so you read the thread switches top to bottom. The pools line up: `Dispatchers.Default` has one thread per core like `parallel`, and `Dispatchers.IO` is for blocking calls like `boundedElastic`. Kotlin `Flow` has one more twist: `flowOn(Dispatchers.IO)` changes where everything *above* it runs, which is closer to `subscribeOn` than to `publishOn`. `kotlinx-coroutines-reactor` bridges the two with `Scheduler.asCoroutineDispatcher()`."
+ },
+ "worked": {
+  "title": "Get a JDBC lookup off the I/O thread",
+  "steps": [
+   {
+    "say": "A payment-status endpoint takes the request as a `Mono` and looks the payment up in Oracle through a JDBC repository. Under load, every endpoint on the service slows down, not just this one. Find the cause before reading on.",
+    "code": "Mono<PaymentView> view(Mono<PaymentRequest> request) {\n    return request\n            .map(req -> repository.find(req.paymentId()))     // JDBC, about 30 ms\n            .map(PaymentView::from);\n}",
+    "lang": "java",
+    "alt_code": "fun view(request: Mono<PaymentRequest>): Mono<PaymentView> =\n    request\n        .map { req -> repository.find(req.paymentId) }       // JDBC, about 30 ms\n        .map(PaymentView::from)",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "The request arrives on one of the server's few event-loop threads, and `map` runs on whatever thread delivered the item. So the 30 ms JDBC call runs on the event loop. While it waits for Oracle, every other connection served by that loop waits too. Nothing throws, because the server's thread isn't one Reactor checks, and a unit test with `Mono.just(request)` runs it on the test thread and looks fine.",
+    "code": "",
+    "lang": ""
+   },
+   {
+    "say": "Turn the lookup into its own inner Mono, wrapped and offloaded. The `map` after it now runs on the boundedElastic thread that finished the lookup, which is fine for a cheap conversion. A heavy step would get a `publishOn(Schedulers.parallel())` first.",
+    "code": "Mono<PaymentView> view(Mono<PaymentRequest> request) {\n    return request\n            .flatMap(req -> Mono.fromCallable(() -> repository.find(req.paymentId()))   // 1. wrap the blocking call\n                    .subscribeOn(Schedulers.boundedElastic()))                          // 2. run it off the I/O thread\n            .map(PaymentView::from);                                                    // 3. continues on boundedElastic\n}",
+    "lang": "java",
+    "alt_code": "fun view(request: Mono<PaymentRequest>): Mono<PaymentView> =\n    request\n        .flatMap { req ->\n            Mono.fromCallable { repository.find(req.paymentId) }      // 1. wrap the blocking call\n                .subscribeOn(Schedulers.boundedElastic())             // 2. run it off the I/O thread\n        }\n        .map(PaymentView::from)                                       // 3. continues on boundedElastic",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "Pin it with a test. The trick is to make the request arrive on a non-blocking thread, the way production does, and record the thread the repository sees.",
+    "code": "@Test\nvoid lookupRunsOnBoundedElastic() {\n    AtomicReference<String> thread = new AtomicReference<>();\n    repository.onFind(() -> thread.set(Thread.currentThread().getName()));\n    Mono<PaymentRequest> request = Mono.delay(Duration.ofMillis(5))          // 4. arrive on a non-blocking thread,\n            .thenReturn(new PaymentRequest(\"pay-1\"));                        //    like the real server does\n\n    StepVerifier.create(handler.view(request)).expectNextCount(1).verifyComplete();\n    assertThat(thread.get()).startsWith(\"boundedElastic-\");\n}",
+    "lang": "java",
+    "alt_code": "@Test\nfun `lookup runs on boundedElastic`() {\n    val thread = AtomicReference<String>()\n    repository.onFind { thread.set(Thread.currentThread().name) }\n    val request = Mono.delay(Duration.ofMillis(5))                           // 4. arrive on a non-blocking thread,\n        .thenReturn(PaymentRequest(\"pay-1\"))                                 //    like the real server does\n\n    StepVerifier.create(handler.view(request)).expectNextCount(1).verifyComplete()\n    assertThat(thread.get()).startsWith(\"boundedElastic-\")\n}",
+    "alt_lang": "kotlin"
+   }
+  ]
+ },
+ "lab": {
+  "title": "A reactive front for a blocking ledger",
+  "minutes": 13,
+  "files": [
+   "labs/reactive/src/main/java/workbench/reactive/l06/LedgerGateway.java",
+   "labs/reactive/src/main/java/workbench/reactive/l06/BlockingLedger.java",
+   "labs/reactive/src/main/java/workbench/reactive/l06/FxRates.java"
+  ],
+  "run": "./gradlew :reactive:test --tests 'workbench.reactive.l06.*'",
+  "steps": [
+   "Run the tests once. All five fail. Read the failure of the `toEur` test: it is the `block()` message from the last section.",
+   "Write `balance(account)`: wrap `ledger.balance(account)` so it runs only when subscribed, on `Schedulers.boundedElastic()`.",
+   "Write `balances(accounts)`: the balances of all the accounts in the input order, with at most 4 ledger calls at a time. Reuse `balance`.",
+   "Fix `toEur` without `block()`. Then run the tests until all five pass, and run them once more: the concurrency test must pass every time."
+  ],
+  "hints": [
+   "If the boundedElastic test reports the thread `Test worker`, the call ran on the thread that subscribed: `subscribeOn` is missing.",
+   "If `balances` peaks at 1 call in flight, your `subscribeOn` sits on the outer Flux, or `balance` lacks it. Each inner Mono needs its own.",
+   "If it peaks at 20, you used `flatMap` or `flatMapSequential` without the concurrency argument (the default is 256).",
+   "If the order test fails, use `flatMapSequential(this::balance, 4)` from lesson 3 of this track: it runs inners concurrently and emits in source order."
+  ],
+  "done_when": "All five tests in `LedgerGatewayTest` pass, twice in a row."
+ },
+ "drill": {
+  "title": "Wrap a blocking client from memory",
+  "minutes": 4,
+  "prompt": "Close this page. `legacy.fetchStatement(id)` is a blocking SOAP call. Write `Mono<Statement> statement(String id)` that never blocks the subscriber's thread, and `Flux<Statement> statements(List<String> ids)` that runs at most 8 calls at once, in any order. Then compare.",
+  "answer": {
+   "lang": "java",
+   "src": "Mono<Statement> statement(String id) {\n    return Mono.fromCallable(() -> legacy.fetchStatement(id))   // lazy, exceptions become onError\n            .subscribeOn(Schedulers.boundedElastic());          // a thread that may block\n}\n\nFlux<Statement> statements(List<String> ids) {\n    return Flux.fromIterable(ids)\n            .flatMap(this::statement, 8);                       // each inner has its own subscribeOn\n}",
+   "alt": {
+    "lang": "kotlin",
+    "src": "fun statement(id: String): Mono<Statement> =\n    Mono.fromCallable { legacy.fetchStatement(id) }             // lazy, exceptions become onError\n        .subscribeOn(Schedulers.boundedElastic())               // a thread that may block\n\nfun statements(ids: List<String>): Flux<Statement> =\n    Flux.fromIterable(ids)\n        .flatMap({ statement(it) }, 8)                          // each inner has its own subscribeOn"
+   }
+  }
+ },
+ "recap": [
+  "Without a scheduler, a chain runs on the thread that subscribed; after a timer or an async client, it runs on whatever thread delivered the item.",
+  "`publishOn` moves the operators after it to one worker of a scheduler. `subscribeOn` moves the subscription, and so the source, wherever you write it.",
+  "With several `subscribeOn` calls, the one nearest the source wins.",
+  "Wrap blocking calls as `Mono.fromCallable(...).subscribeOn(Schedulers.boundedElastic())`, with `subscribeOn` on each inner Mono, and cap the fan-out with `flatMap`'s concurrency.",
+  "On a JDK 21+ runtime, `-Dreactor.schedulers.defaultBoundedElasticOnVirtualThreads=true` (Reactor 3.6+) runs boundedElastic tasks on virtual threads.",
+  "`block()` throws on `parallel` and `single` threads, is skipped for `Mono.just`, and belongs only at the edges of reactive code."
+ ],
+ "quiz": [
+  {
+   "q": "Where do A and B run?\n\n```java\nFlux.range(1, 3)\n        .map(i -> i * 2)                    // A\n        .publishOn(Schedulers.parallel())\n        .map(i -> i + 1)                    // B\n        .subscribeOn(Schedulers.single())\n        .blockLast();\n```\n\n```kotlin\nFlux.range(1, 3)\n    .map { i -> i * 2 }                     // A\n    .publishOn(Schedulers.parallel())\n    .map { i -> i + 1 }                     // B\n    .subscribeOn(Schedulers.single())\n    .blockLast()\n```",
+   "options": [
+    "A on `single-1`, B on a parallel thread",
+    "A on `main`, B on a parallel thread",
+    "Both on `single-1`",
+    "A on a parallel thread, B on `single-1`"
+   ],
+   "answer": 0,
+   "why": "`subscribeOn` moves the subscription, so the synchronous `range` and the `map` right after it run on `single-1`, even though `subscribeOn` is written last. `publishOn` then moves everything below it to a parallel worker. The second option ignores `subscribeOn`; the last one mixes up which operator affects which direction."
+  },
+  {
+   "q": "`Mono.fromCallable(dao::load).subscribeOn(Schedulers.parallel()).subscribeOn(Schedulers.boundedElastic())`. Where does `dao.load` run, and is that a problem?",
+   "options": [
+    "On boundedElastic, the last `subscribeOn`; fine",
+    "On a parallel thread, the `subscribeOn` nearest the source; a problem if `load` blocks",
+    "On both, one after the other",
+    "On the calling thread, because two `subscribeOn` calls cancel out"
+   ],
+   "answer": 1,
+   "why": "Only the `subscribeOn` nearest the source decides where the subscription reaches the source. The outer one adds a hop on the way up and nothing else. So a blocking `load` would run on one of the few parallel threads, which is the pool you must never block."
+  },
+  {
+   "q": "A handler calls `rates.current().block()` inside a `map`. Its unit tests, which stub `rates.current()` with `Mono.just(...)`, pass. In staging, where the item comes from a non-blocking HTTP client, it throws `IllegalStateException`. Why the difference?",
+   "options": [
+    "Staging runs a newer Reactor that bans `block()` everywhere",
+    "In staging the `map` runs on a non-blocking thread, which Reactor checks; `Mono.just(...).block()` takes a shortcut and is never checked",
+    "`Mono.just` is cold and the HTTP client is hot",
+    "The unit tests forgot to call `verify()`"
+   ],
+   "answer": 1,
+   "why": "In the tests everything runs on the test thread, and `block()` on a `Mono.just` returns the stored value without any check. In staging the item arrives on a thread marked non-blocking, so the real `block()` call is refused. Replace the `block()` with `flatMap`, and make test stubs emit on a non-blocking thread (for example via `Mono.delay`)."
+  },
+  {
+   "q": "You need the balances of 200 accounts from a blocking DAO, and the database pool has 20 connections. Which line fits?",
+   "options": [
+    "`Flux.fromIterable(ids).flatMap(id -> Mono.fromCallable(() -> dao.balance(id))).subscribeOn(boundedElastic())`",
+    "`Flux.fromIterable(ids).flatMap(id -> Mono.fromCallable(() -> dao.balance(id)).subscribeOn(boundedElastic()), 20)`",
+    "`Flux.fromIterable(ids).publishOn(boundedElastic()).map(dao::balance)`",
+    "`Flux.fromIterable(ids).flatMap(id -> Mono.just(dao.balance(id)), 20)`"
+   ],
+   "answer": 1,
+   "why": "Each inner call carries its own `subscribeOn`, so up to 20 run at once on boundedElastic threads, matching the pool. The first option runs all 200 in turn on one thread. The third also runs them one by one, on one publishOn worker. The last calls the DAO while building each inner, on the caller's thread, so it blocks there."
+  },
+  {
+   "q": "From \"Pinning, ThreadLocals and other traps\": you turn on the virtual-thread boundedElastic on JDK 21, and your JDBC driver blocks on socket reads inside `synchronized` methods. What happens during those reads?",
+   "options": [
+    "Nothing special: virtual threads always unmount when they block",
+    "Each blocked virtual thread pins its carrier thread until the read returns, so carriers can run out",
+    "Reactor detects it and moves the call to a platform thread",
+    "The read throws `IllegalStateException` because boundedElastic is non-blocking"
+   ],
+   "answer": 1,
+   "why": "On JDK 21 to 23, a virtual thread that blocks while holding a monitor can't unmount, so it holds its carrier (JDK 24 removed that limit, JEP 491). Reactor doesn't intervene. boundedElastic threads, virtual or not, are allowed to block, so there is no `IllegalStateException` either.",
+   "from": "vt-04"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "With no scheduler anywhere, which thread runs a Reactor chain?",
+   "back": "The thread that called `subscribe()`. After a timer or an async client, the thread that delivered the item."
+  },
+  {
+   "front": "What does `publishOn(s)` change?",
+   "back": "The thread of every operator after it (until the next `publishOn`), using one worker of `s`."
+  },
+  {
+   "front": "What does `subscribeOn(s)` change?",
+   "back": "The thread of the subscription and request calls on their way up, so the source runs on `s`, wherever `subscribeOn` is written."
+  },
+  {
+   "front": "Two `subscribeOn` calls in one chain: which one decides where the source runs?",
+   "back": "The one nearest the source. The other only adds a thread hop."
+  },
+  {
+   "front": "How do you wrap a blocking call in Reactor?",
+   "back": "`Mono.fromCallable(() -> blockingCall()).subscribeOn(Schedulers.boundedElastic())`"
+  },
+  {
+   "front": "`flatMap(x -> Mono.fromCallable(...))` followed by `.subscribeOn(boundedElastic())`: do the calls run concurrently?",
+   "back": "No. They run in turn on one boundedElastic thread. Put `subscribeOn` on each inner Mono."
+  },
+  {
+   "front": "`Mono.delay(d).map(x -> other.block())`: what happens?",
+   "back": "`IllegalStateException`: `block()` is not supported on the parallel thread where the timer fired. Use `flatMap`."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Scheduler",
+   "plain": "Reactor's source of threads, like an ExecutorService that is also a clock."
+  },
+  {
+   "term": "publishOn",
+   "plain": "Moves the operators after it onto a scheduler's thread."
+  },
+  {
+   "term": "subscribeOn",
+   "plain": "Moves the subscription, and so the source, onto a scheduler's thread."
+  },
+  {
+   "term": "boundedElastic",
+   "plain": "The shared scheduler for blocking calls: up to 10 threads per core, then a bounded queue."
+  },
+  {
+   "term": "parallel scheduler",
+   "plain": "The shared scheduler with one thread per core, for CPU work and timers. Never block on it."
+  },
+  {
+   "term": "Non-blocking thread",
+   "plain": "A thread marked with Reactor's `NonBlocking` interface; `block()` throws on it."
+  },
+  {
+   "term": "BlockHound",
+   "plain": "A Java agent from the Reactor team that detects blocking calls on non-blocking threads."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A teammate asks: \"What's the difference between publishOn and subscribeOn, and which one do I use to call our JDBC repository from a reactive chain?\" Explain it in your own words.",
+  "answer": "Both move work to a scheduler's thread, but in different directions. `publishOn` sits in the stream of items: everything after it runs on the new thread, and everything before it is unchanged. `subscribeOn` changes the thread on which the subscription travels up to the source, so the source itself runs there, no matter where in the chain you write it; if there are several, the one nearest the source wins. For a JDBC call you want the call itself to run on a thread that may block, so you wrap it as `Mono.fromCallable(() -> repository.find(id))` and add `subscribeOn(Schedulers.boundedElastic())` to that Mono. If you do many lookups in a `flatMap`, each inner Mono needs its own `subscribeOn`, and you cap the concurrency at the size of the connection pool."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "**ParallelFlux.** For CPU-heavy work on many items, `flux.parallel(4).runOn(Schedulers.parallel()).map(this::sign).sequential()` splits the stream into 4 rails, runs each rail on its own parallel worker, and merges them back. Without `runOn`, the rails exist but share one thread. `sequential()` merges the rails as items finish, so the original order is lost.\n\n**Tuning the shared schedulers.** System properties set the sizes before the `Schedulers` class loads: `reactor.schedulers.defaultPoolSize` for `parallel`, `reactor.schedulers.defaultBoundedElasticSize` (threads) and `reactor.schedulers.defaultBoundedElasticQueueSize` (queued tasks) for `boundedElastic`. Prefer a dedicated `Schedulers.newBoundedElastic(20, 1_000, \"oracle\")` per downstream, which works like a bulkhead from the executors track: one slow dependency can only exhaust its own threads. Dispose it on shutdown.\n\n**publishOn prefetch.** `publishOn` requests 256 items up front and then replenishes, so it also changes the demand the source sees. `publishOn(scheduler, 32)` lowers that. Lesson 7 of this track looks at demand in detail.\n\n**Coroutines on a Reactor scheduler.** `kotlinx-coroutines-reactor` has `Schedulers.boundedElastic().asCoroutineDispatcher()`, so coroutine code can share the same threads as the Reactor parts of a service."
+ },
+ "sources": [
+  {
+   "title": "Reactor reference: Threading and Schedulers (source, 3.8.x)",
+   "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/coreFeatures/schedulers.adoc"
+  },
+  {
+   "title": "Schedulers source and Javadoc, including the virtual-thread boundedElastic (3.8.x)",
+   "url": "https://github.com/reactor/reactor-core/blob/3.8.x/reactor-core/src/main/java/reactor/core/scheduler/Schedulers.java"
+  },
+  {
+   "title": "Reactor FAQ: wrapping blocking calls (source, 3.8.x)",
+   "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/faq.adoc"
+  },
+  {
+   "title": "What's new in reactor-core 3.6.0 (Spring blog, Oleh Dokuka)",
+   "url": "https://spring.io/blog/2023/10/31/what-new-is-coming-in-reactor-core-3-6-0"
+  }
+ ]
+}

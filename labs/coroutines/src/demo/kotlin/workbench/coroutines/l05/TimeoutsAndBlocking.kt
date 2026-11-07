@@ -17,7 +17,7 @@ private suspend fun timed(label: String, block: suspend () -> Any?) {
     } catch (e: TimeoutCancellationException) {
         "threw TimeoutCancellationException"
     }
-    println("%-46s %-36s after %5d ms".format(label, outcome, (System.nanoTime() - t0) / 1_000_000))
+    println("%-50s %-36s after %5d ms".format(label, outcome, (System.nanoTime() - t0) / 1_000_000))
 }
 
 fun main() = runBlocking {

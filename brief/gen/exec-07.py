@@ -1,0 +1,275 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/executors/src"
+P = "java/workbench/executors/l07"
+KP = "kotlin/workbench/executors/l07"
+read = lambda p: (ROOT / p).read_text()
+
+def demo(name):
+    return {"lang": "java", "title": f"{name}.java", "src": read(f"{lab}/demo/{P}/{name}.java"),
+            "run": f"./gradlew :executors:demo -Pmain=workbench.executors.l07.{name}",
+            "file": f"{lab}/demo/{P}/{name}.java",
+            "alt": {"lang": "kotlin", "title": f"{name}.kt", "src": read(f"{lab}/demo/{KP}/{name}.kt"),
+                    "run": f"./gradlew :executors:demo -Pmain=workbench.executors.l07.{name}Kt",
+                    "file": f"{lab}/demo/{KP}/{name}.kt"}}
+
+def box(cls, x, y, w, h, title, sub=None, code=True):
+    cx = x + w / 2
+    tc = "t t-code" if code else "t"
+    out = f'<rect class="{cls}" x="{x}" y="{y}" width="{w}" height="{h}" rx="8"/>'
+    if sub:
+        out += f'<text class="{tc}" x="{cx:.0f}" y="{y + 19}" text-anchor="middle">{title}</text>'
+        out += f'<text class="t-s" x="{cx:.0f}" y="{y + 36}" text-anchor="middle">{sub}</text>'
+    else:
+        out += f'<text class="{tc}" x="{cx:.0f}" y="{y + h / 2 + 5:.0f}" text-anchor="middle">{title}</text>'
+    return out
+
+rows = [(25, "box-ok", "alpha", "1.0850 at 90 ms", "box-ok", "Optional[alpha]"),
+        (105, "box-bad", "beta", "throws a 502", "box-dim", "empty, onSkip"),
+        (185, "box-bad", "gamma", "silent past 200 ms", "box-dim", "empty, onSkip")]
+SVG = ('<svg viewBox="0 0 700 260" role="img" aria-label="Fan-out: best asks three providers at once; each call has its own 200 ms timeout and a handle step that turns a failure into an empty result; allOf then waits for all three and the lowest answer wins">'
+       + box("box", 10, 105, 110, 44, "best(pair)"))
+for y, c1, name, sub, c2, out in rows:
+    SVG += box(c1, 165, y, 160, 44, name, sub, code=False)
+    SVG += box(c2, 370, y, 150, 44, out, None)
+    SVG += f'<line class="ln" x1="120" y1="127" x2="163" y2="{y + 22}" marker-end="url(#arr)"/>'
+    SVG += f'<line class="ln" x1="325" y1="{y + 22}" x2="368" y2="{y + 22}" marker-end="url(#arr)"/>'
+    SVG += f'<line class="ln" x1="520" y1="{y + 22}" x2="563" y2="127" marker-end="url(#arr)"/>'
+SVG += (box("box-a", 565, 100, 125, 54, "allOf", "then min()")
+        + '<text class="t-s t-m" x="347" y="18" text-anchor="middle">orTimeout(200 ms) + handle</text>'
+        + '<text class="t-s t-ok" x="627" y="180" text-anchor="middle">alpha 1.0850</text>'
+        + '<text class="t-s t-m" x="627" y="196" text-anchor="middle">or NoQuoteException</text>'
+        + '<text class="t-s t-m" x="627" y="212" text-anchor="middle">if all are empty</text>'
+        + '</svg>')
+
+L = {
+ "id": "exec-07",
+ "title": "CompletableFuture: errors, timeouts and fan-out",
+ "minutes": 35,
+ "goal": "By the end you can recover from a failure at the right stage, unwrap CompletionException, give each call its own timeout, and fan out to several providers without one bad answer failing the whole request.",
+ "warmup": {
+  "q": "A pipeline reads `supplyAsync(this::fetchRate, io).thenApply(this::convert).thenApply(this::charge).exceptionally(ex -> fallback)`. `fetchRate` throws an `IllegalStateException`. What happens?",
+  "options": [
+   "`convert` and `charge` run with a null rate",
+   "`convert` and `charge` are skipped, and `exceptionally` gets the exception wrapped in a `CompletionException`",
+   "`supplyAsync` throws the exception on the calling thread",
+   "`convert` and `charge` are skipped, and `exceptionally` gets the `IllegalStateException` itself"
+  ],
+  "answer": 1,
+  "why": "A failed stage skips every later `thenApply` until a handler. The handler sees a `CompletionException` with the `IllegalStateException` as its cause, because the exception was thrown inside a stage. The last option is the tempting one, and code that tests `ex instanceof IllegalStateException` there is silently wrong."
+ },
+ "sections": [
+  {
+   "h": "A failure skips every step until a handler catches it",
+   "body": "When a stage throws, its future completes exceptionally. Every `thenApply`, `thenCompose` and `thenCombine` after it is skipped: the function never runs, and its own future fails with the same cause. The failure travels down the chain until it reaches a handler. There are four:\n\n| Method | Runs on | Changes the outcome? |\n|---|---|---|\n| `exceptionally(ex -> value)` | failure only | yes, replaces the failure with a value |\n| `handle((value, ex) -> result)` | success and failure | yes, returns any result |\n| `whenComplete((value, ex) -> ...)` | success and failure | no, passes the outcome on |\n| `exceptionallyCompose(ex -> future)` | failure only | yes, with another future (JDK 12) |\n\nWhere you attach the handler decides what you recover. Put `exceptionally` at the end of a checkout and the conversion and charge steps are skipped; the only honest value left to return is \"declined\". Put it right after the FX call and it can return the last known rate, and every later step runs as if nothing went wrong. Recover as close to the failing call as you can, with a value that makes sense at that point.\n\n`whenComplete` is for logs and metrics. It sees both outcomes and hands the same one on. One detail: if its action throws after a success, the result becomes that failure; after a failure, the original failure wins.\n\nWhen the fallback is itself asynchronous, such as a second FX provider or a cache service with an async client, use `exceptionallyCompose`. It is to `exceptionally` what `thenCompose` is to `thenApply`:\n\n```java\nCompletableFuture<BigDecimal> rate = live.rateAsync(pair)\n        .exceptionallyCompose(ex -> backup.rateAsync(pair));   // JDK 12+\n```\n\n```kotlin\nval rate: CompletableFuture<BigDecimal> = live.rateAsync(pair)\n    .exceptionallyCompose { backup.rateAsync(pair) }       // JDK 12+\n```",
+   "try": {
+    "title": "Move the handler",
+    "minutes": 3,
+    "steps": [
+     "Run `ErrorPathDemo`. The FX call throws. Before you run it, write down which of the numbered steps will print.",
+     "Run it with `-Pargs=early`, which recovers the rate right after the call. Predict again, including what `whenComplete` sees."
+    ],
+    "code": demo("ErrorPathDemo"),
+    "expect": "The default run prints no numbered steps: `whenComplete` and then `exceptionally` both see a `CompletionException` wrapping the 502, and the result is the declined message. With `early`, `exceptionally` fires first, then steps 1, 2 and 3 run with the 1.0800 rate, and `whenComplete` sees `charged 108.00 USD`, a success."
+   },
+   "refs": [
+    {"title": "CompletionStage (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/CompletionStage.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "CompletionException: the wrapper you sometimes get",
+   "body": "Handlers don't always see your exception. They see one of two things, by a rule that surprises everyone once.\n\nIf the exception was thrown inside a stage, by a `supplyAsync` task or a `thenApply` function, the future stores it wrapped in a `CompletionException`. A handler on that future, or on any later stage, gets the wrapper, with your exception as `getCause()`.\n\nIf someone completed the future with `completeExceptionally(ex)`, as `orTimeout` and many client libraries do, a handler attached directly to that future gets `ex` itself. One stage later it is wrapped again. The wrapper comes from the library catching your exception inside a stage; `completeExceptionally` stores exactly the exception it is given. `WrapDemo` prints all the cases:\n\n```text\n1. handle() on the supplyAsync future      CompletionException <- IllegalStateException\n2. handle() on completeExceptionally       IllegalStateException\n3. handle() one stage later                CompletionException <- IllegalStateException\n4. handle() after orTimeout                TimeoutException\n5. get() throws                            ExecutionException <- IllegalStateException\n6. join() throws                           CompletionException <- IllegalStateException\n```\n\nThe last two lines are the blocking calls from the previous lesson: `get()` throws `ExecutionException` and `join()` throws `CompletionException`, both with the original as the cause.\n\nSo a handler that checks `ex instanceof TimeoutException` is right in one place and silently wrong one stage further down. Unwrap first, then decide:\n\n```java\n.exceptionally(ex -> {\n    Throwable cause = (ex instanceof CompletionException && ex.getCause() != null) ? ex.getCause() : ex;\n    if (cause instanceof TimeoutException) return lastKnownRate;\n    throw new CompletionException(cause);       // not ours to handle: keep failing\n})\n```\n\n```kotlin\n.exceptionally { ex ->\n    val cause = if (ex is CompletionException && ex.cause != null) ex.cause!! else ex\n    if (cause is TimeoutException) lastKnownRate\n    else throw CompletionException(cause)       // not ours to handle: keep failing\n}\n```\n\nRethrowing inside a handler is how you say \"I looked, and this one isn't mine\". The lab's `unwrap` does the same job in a loop, and also strips the `ExecutionException` that `get()` adds. On a completed future, `exceptionNow()` (JDK 19) hands you the unwrapped cause directly.",
+   "try": {
+    "title": "Predict the wrapper",
+    "minutes": 3,
+    "steps": [
+     "Cover the output above. Read `WrapDemo` and write down, for each numbered line, what you expect it to print.",
+     "Run it and check. For each line you got wrong, find whether the exception was thrown inside a stage or passed to `completeExceptionally`."
+    ],
+    "code": demo("WrapDemo"),
+    "expect": "The six lines shown in the section. Lines 2 and 4 are the raw exceptions, because `completeExceptionally` and `orTimeout` store them as they are. Every exception that crosses a stage boundary, or was thrown inside one, arrives as a `CompletionException`."
+   }
+  },
+  {
+   "h": "Timeouts end the wait, not the work",
+   "body": "JDK 9 added two timeouts to `CompletableFuture`:\n\n```java\nquote.orTimeout(300, TimeUnit.MILLISECONDS);                    // fails with TimeoutException\nquote.completeOnTimeout(lastKnown, 300, TimeUnit.MILLISECONDS); // completes with a default\n```\n\n```kotlin\nquote.orTimeout(300, TimeUnit.MILLISECONDS)                     // fails with TimeoutException\nquote.completeOnTimeout(lastKnown, 300, TimeUnit.MILLISECONDS)  // completes with a default\n```\n\nBoth change the future you call them on and return it. If it hasn't completed when the time is up, a JDK timer thread completes it (on JDK 21 the thread is called `CompletableFutureDelayScheduler`). Plain stages attached to it then run on that timer thread, so keep them cheap.\n\nWhat neither one does is touch the task. The provider call keeps running on its `io` thread until it returns, and then its result is thrown away. `KeepsRunningDemo` gives a 600 ms call a 200 ms timeout: the future fails at 200 ms, and the call finishes at 600 ms anyway.\n\n`cancel(true)` on a `CompletableFuture` is no better. Its Javadoc says the `mayInterruptIfRunning` flag \"has no effect in this implementation because interrupts are not used to control processing.\" The future completes with `CancellationException` and the task runs on. That is the opposite of the `FutureTask` from `submit`, where `cancel(true)` interrupts the worker, as lesson 4 of this track showed.\n\nThis matters under load. Take a 20-thread pool and a provider that hangs for 30 seconds. Each request gets its `TimeoutException` after 300 ms, right on time, but each call holds its thread for 30 seconds. After 20 requests the pool is full of calls nobody is waiting for, and new calls, even to healthy providers, queue behind them and time out too.\n\nSo every remote call needs two timeouts. The one on the future is the caller's deadline. The one in the client (the HTTP client's request timeout, the JDBC query timeout) gives the thread back. Set the client's timeout no longer than the future's, and bound the pool per provider, as lesson 3 of this track did with bulkheads.",
+   "try": {
+    "title": "Time out a call, then watch it finish",
+    "minutes": 3,
+    "steps": [
+     "Run `KeepsRunningDemo`. Read the thread names and timestamps.",
+     "Run it with `-Pargs=cancel`, which calls `cancel(true)` at 200 ms instead. Predict: does the provider see an interrupt?"
+    ],
+    "code": demo("KeepsRunningDemo"),
+    "expect": "The future completes with `TimeoutException` at about 200 ms, on the timer thread. The provider still prints its answer at about 600 ms, and `pool closed` waits for it. With `cancel`, `cancel(true)` returns `true` and the future completes with `CancellationException` on `main`, but the line `interrupted` never prints: the call runs to 600 ms."
+   }
+  },
+  {
+   "h": "Fan-out: allOf waits for everyone, anyOf takes whoever finishes first",
+   "body": "To ask three FX providers at once, start three futures and combine them. The JDK gives you two combinators, and neither does what you want on its own.\n\n`allOf(f1, f2, f3)` returns a `CompletableFuture<Void>`. It completes when all three have completed, and it has no results of its own: you read them from your futures with `join()`, which no longer blocks because they're all done. If any of them failed, `allOf` fails too, but only after the slowest one finishes. One provider that returns a 503 in 50 ms fails the whole call, 300 ms later.\n\n`anyOf(f1, f2, f3)` returns a `CompletableFuture<Object>` that completes like whichever future completes first. That includes a failure. A provider that fails fast beats two that answer correctly a little later. If what you want is the first *successful* answer, `anyOf` can't give it to you; the deeper section has a ten-line helper for that.\n\nThe fix is to make each call unable to fail before you combine them. Give every call its own timeout, then turn any failure into \"no answer\":\n\n```java\nCompletableFuture<Optional<BigDecimal>> safe = ask(provider)\n        .orTimeout(200, TimeUnit.MILLISECONDS)                       // this provider's deadline\n        .handle((price, ex) -> ex == null ? Optional.of(price) : Optional.empty());\n```\n\n```kotlin\nval safe: CompletableFuture<Optional<BigDecimal>> = ask(provider)\n    .orTimeout(200, TimeUnit.MILLISECONDS)                          // this provider's deadline\n    .handle { price, ex -> if (ex == null) Optional.of(price) else Optional.empty() }\n```\n\nNow `allOf` over the safe futures can only succeed, and the step after it picks the best answer, or fails with a clear error when every provider was skipped. The timeout must sit on each call. Put one `orTimeout` on the `allOf` instead and one hung provider throws away the two good answers.\n\nThat is the lab: a quote aggregator with a timeout per provider, a report for every skipped provider with its real cause, and the lowest price among those that answered.",
+   "figure": {"svg": SVG, "caption": "Each provider call gets its own deadline and a handle step, so allOf only ever sees answers or empty results."},
+   "try": {
+    "title": "Three ways to fan out",
+    "minutes": 4,
+    "steps": [
+     "Read `FanOutDemo`: `flaky` fails at 50 ms, `alpha` answers at 100 ms, `beta` at 300 ms.",
+     "Run it with `-Pargs=any`, then `-Pargs=all`, then `-Pargs=safe`. Before each run, predict the result and when it arrives."
+    ],
+    "code": demo("FanOutDemo"),
+    "expect": "`any` fails at about 50 ms with flaky's 503, and alpha and beta keep running after the result is printed. `all` also fails with the 503, but only at about 300 ms, after beta answers. `safe` succeeds at about 300 ms with 1.0842, beta's price, because the failure became an empty `Optional`. Timestamps run a bit late on a busy machine."
+   }
+  }
+ ],
+ "analogy": "You phone three exchange bureaus for a EUR/USD rate. `allOf` is waiting until all three have called back, and giving up on the whole thing if one of them called to say it's closed. `anyOf` is taking whoever calls back first, even if that call is to say they're closed. The safe pattern gives each call its own egg timer: when it rings, you write \"no answer\" next to that bureau, and when every line has a rate or a \"no answer\", you pick the best rate. The analogy breaks when you hang up. A clerk who hears you hang up stops working. A provider call in the JVM keeps running after your timeout, and it keeps a pool thread busy until it's done.",
+ "in_your_world": "Authorization paths are full of fan-outs with deadlines: a fraud vendor that must answer in 150 ms or the payment goes to manual review, an issuer call with a 2 s budget, two FX providers where any recent rate will do. Give each dependency its own deadline and its own fallback, close to the call, and record which path each request took with `whenComplete`, so a dashboard shows when the fallback rate becomes the normal rate. Remember the second timeout in the client, or a slow vendor quietly fills your pool. Temporal's activity timeouts have the same limit one level up: when an activity times out, the worker keeps running the activity code until it heartbeats and learns it was cancelled. In Quarkus, MicroProfile Fault Tolerance's `@Timeout` and `@Fallback` do this job with annotations, and the same two-timeout question applies.",
+ "mistake": "The common mistake is putting `orTimeout` on the future and thinking the slow call is handled. The caller does get its answer on time, so every test passes. In production a hung provider keeps each abandoned call on a pool thread for as long as the HTTP client is willing to wait, often 30 seconds or more. The pool fills with calls nobody is waiting for, and requests to healthy providers start timing out behind them. People make the mistake because the future and the work feel like one thing. They aren't: the future is a box for the answer. Set a client-side timeout no longer than the future's deadline, and give each provider its own bounded pool or semaphore.",
+ "compare": {
+  "title": "One provider call with a deadline: CompletableFuture vs coroutines",
+  "java": {"title": "Ask.java (CompletableFuture)", "src": "CompletableFuture<Optional<Quote>> ask(QuoteProvider p, String pair) {\n    return CompletableFuture.supplyAsync(() -> new Quote(p.name(), p.quote(pair)), io)\n            .orTimeout(300, TimeUnit.MILLISECONDS)          // the caller stops waiting...\n            .handle((q, ex) -> ex == null ? Optional.of(q) : Optional.empty());\n    // ...but p.quote keeps running on io until it returns\n}"},
+  "kotlin": {"title": "Ask.kt (kotlinx.coroutines)", "src": "suspend fun ask(p: QuoteProvider, pair: String): Quote? =\n    try {\n        withTimeoutOrNull(300.milliseconds) {               // null when time is up\n            runInterruptible(Dispatchers.IO) {              // interrupts the thread on cancel\n                Quote(p.name(), p.quote(pair))\n            }\n        }\n    } catch (e: CancellationException) {\n        throw e                                             // never swallow cancellation\n    } catch (e: Exception) {\n        null                                                // a failure becomes \"no answer\"\n    }"},
+  "note": "The shapes match: a deadline, then a failure turned into \"no answer\". The difference is what happens to the work. `orTimeout` only completes the future, and the provider call runs to its end. `withTimeoutOrNull` cancels the block, and `runInterruptible` turns that cancellation into `Thread.interrupt()` on the IO thread, so a blocking call that responds to interrupts stops and gives its thread back. In both languages, a call that ignores interrupts keeps its thread, which is why the client-side timeout still matters. Kotlin also makes you rethrow `CancellationException` by hand when you catch `Exception`; `CompletableFuture` has no such trap."
+ },
+ "worked": {
+  "title": "Give the FX call a deadline and a fallback",
+  "steps": [
+   {"say": "The checkout gets its rate from an async FX client. When the provider hangs, every checkout hangs with it. Before reading on, decide what should happen after 300 ms.",
+    "code": "CompletableFuture<BigDecimal> rate(String pair) {\n    return fx.rateAsync(pair);          // no deadline: a hung provider hangs the checkout\n}", "lang": "java",
+    "alt_code": "fun rate(pair: String): CompletableFuture<BigDecimal> =\n    fx.rateAsync(pair)                  // no deadline: a hung provider hangs the checkout", "alt_lang": "kotlin"},
+   {"say": "Give the live call a deadline, observe failures without changing them, then fall back to the rate cache, which has its own async client. The cache gets its own short deadline, because `exceptionallyCompose` starts a new call that the first timeout doesn't cover.",
+    "code": "CompletableFuture<BigDecimal> rate(String pair) {\n    return fx.rateAsync(pair)\n            .orTimeout(300, TimeUnit.MILLISECONDS)                    // 1. the live call gets 300 ms\n            .whenComplete((r, ex) -> {                                // 2. observe, don't change\n                if (ex != null) metrics.count(\"fx.live.failed\", unwrap(ex).getClass().getSimpleName());\n            })\n            .exceptionallyCompose(ex -> cache.rateAsync(pair)        // 3. fall back, asynchronously\n                    .orTimeout(50, TimeUnit.MILLISECONDS));           // 4. the fallback's own deadline\n}", "lang": "java",
+    "alt_code": "fun rate(pair: String): CompletableFuture<BigDecimal> =\n    fx.rateAsync(pair)\n        .orTimeout(300, TimeUnit.MILLISECONDS)                        // 1. the live call gets 300 ms\n        .whenComplete { _, ex ->                                      // 2. observe, don't change\n            if (ex != null) metrics.count(\"fx.live.failed\", unwrap(ex).javaClass.simpleName)\n        }\n        .exceptionallyCompose {                                       // 3. fall back, asynchronously\n            cache.rateAsync(pair).orTimeout(50, TimeUnit.MILLISECONDS)   // 4. the fallback's own deadline\n        }", "alt_lang": "kotlin"},
+   {"say": "Why `unwrap` in the metric? The live client may complete its future with a raw exception, `orTimeout` stores a raw `TimeoutException`, and anything thrown inside a stage arrives wrapped. Without unwrapping, half your failures would be tagged `CompletionException`, which tells the on-call engineer nothing.",
+    "code": "", "lang": ""},
+   {"say": "One gap is left. After 300 ms the checkout moves on, but the live call still holds a thread and a connection. Give the HTTP request a timeout of its own, so the client gives up too. With the JDK client it is one line on the request.",
+    "code": "HttpRequest request = HttpRequest.newBuilder(uri)\n        .timeout(Duration.ofMillis(300))    // 5. the client stops waiting too\n        .build();", "lang": "java",
+    "alt_code": "val request = HttpRequest.newBuilder(uri)\n    .timeout(Duration.ofMillis(300))        // 5. the client stops waiting too\n    .build()", "alt_lang": "kotlin"}
+  ]
+ },
+ "lab": {
+  "title": "A quote aggregator that survives bad providers",
+  "minutes": 14,
+  "files": [f"{lab}/main/{P}/QuoteAggregator.java", f"{lab}/main/{P}/QuoteProvider.java", f"{lab}/main/{P}/NoQuoteException.java"],
+  "run": "./gradlew :executors:test --tests 'workbench.executors.l07.*'",
+  "steps": [
+   "Run the tests. All seven fail. Read the Javadoc on `QuoteAggregator`: it is the spec.",
+   "Write `unwrap`: loop while the throwable is a `CompletionException` or an `ExecutionException` and has a cause, moving to the cause each time.",
+   "Add a private method `ask(QuoteProvider p, String pair)` that returns `CompletableFuture<Optional<Quote>>`: `supplyAsync` on `io`, then `orTimeout`, then `handle`. On failure, call `onSkip.accept(p.name(), unwrap(ex))` and return `Optional.empty()`.",
+   "In `best`, map every provider to `ask`, collect the futures in a list, and `allOf` them. In the `thenApply` after it, `join` each future, keep the present quotes, and return the lowest price, or throw `NoQuoteException`.",
+   "Run the tests until all seven pass, then once more."
+  ],
+  "hints": [
+   "`orTimeout` takes a `long` and a unit: `orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS)`.",
+   "`allOf` takes an array (`asks.toArray(CompletableFuture[]::new)`) and returns `CompletableFuture<Void>`. Read the quotes from your own list.",
+   "If `skipsFailingProvider` reports a `CompletionException`, you passed `ex` to `onSkip` without unwrapping it. If `skipsSlowProvider` times out, the deadline is on the whole call, not on each provider.",
+   "Throwing `NoQuoteException` inside the `thenApply` is enough: the returned future fails with it as the cause."
+  ],
+  "done_when": "All seven tests in `QuoteAggregatorTest` pass."
+ },
+ "drill": {
+  "title": "A rate with a deadline and a fallback",
+  "minutes": 5,
+  "prompt": "Close this page. Write `CompletableFuture<BigDecimal> rate(String pair)`: call `live.rateAsync(pair)` with a 300 ms deadline; if it fails for any reason, log the unwrapped cause and fall back to `backup.rateAsync(pair)`, which returns a `CompletableFuture` too. Then compare. Which method did you use for the fallback, and did you unwrap before logging?",
+  "answer": {"lang": "java", "title": "Rates.java", "src": "CompletableFuture<BigDecimal> rate(String pair) {\n    return live.rateAsync(pair)\n            .orTimeout(300, TimeUnit.MILLISECONDS)\n            .exceptionallyCompose(ex -> {\n                Throwable cause = ex instanceof CompletionException && ex.getCause() != null ? ex.getCause() : ex;\n                log.warn(\"live FX failed, using backup: {}\", cause.toString());\n                return backup.rateAsync(pair);       // a future, so exceptionallyCompose, not exceptionally\n            });\n}",
+   "alt": {"lang": "kotlin", "title": "Rates.kt", "src": "fun rate(pair: String): CompletableFuture<BigDecimal> =\n    live.rateAsync(pair)\n        .orTimeout(300, TimeUnit.MILLISECONDS)\n        .exceptionallyCompose { ex ->\n            val cause = if (ex is CompletionException && ex.cause != null) ex.cause!! else ex\n            log.warn(\"live FX failed, using backup: {}\", cause.toString())\n            backup.rateAsync(pair)                   // a future, so exceptionallyCompose, not exceptionally\n        }"}}
+ },
+ "recap": [
+  "A failure skips every later stage until a handler. `exceptionally` and `handle` can recover, `whenComplete` only observes, `exceptionallyCompose` (JDK 12) recovers with another future.",
+  "Exceptions thrown inside a stage reach handlers wrapped in `CompletionException`. `completeExceptionally` and `orTimeout` store them raw. Unwrap before you test the type.",
+  "`orTimeout` and `completeOnTimeout` end the caller's wait, not the work. `cancel(true)` on a `CompletableFuture` doesn't interrupt either. Give the client its own timeout.",
+  "`allOf` waits for every future and fails if any failed. `anyOf` takes the first to complete, failures included.",
+  "For a fan-out, give each call its own timeout and turn its failure into \"no answer\" before `allOf`, then pick from what came back."
+ ],
+ "quiz": [
+  {
+   "q": "Each step prints its letter: `supplyAsync(fails, io).thenApply(A).whenComplete(B).exceptionally(C).thenAccept(D)`, and the supplier throws. What prints?",
+   "options": [
+    "A, B, C, D",
+    "B, C, D",
+    "C, D",
+    "B and C, then the pipeline fails"
+   ],
+   "answer": 1,
+   "why": "`A` is skipped because its input failed. `whenComplete` runs on failure too but passes the failure on, so `C` runs and recovers, and `D` runs with the fallback value. Recovery in `exceptionally` makes everything after it see a success."
+  },
+  {
+   "q": "`supplyAsync(() -> { throw new IllegalStateException(\"502\"); }, io).exceptionally(ex -> ...)`. What is the class of `ex`?",
+   "options": [
+    "`ExecutionException`",
+    "`IllegalStateException`",
+    "`RuntimeException`",
+    "`CompletionException`, with the `IllegalStateException` as its cause"
+   ],
+   "answer": 3,
+   "why": "The exception was thrown inside a stage, so the future stores it wrapped in a `CompletionException`. `ExecutionException` is what `get()` throws at the blocking edge. You would get the raw `IllegalStateException` only if someone had called `completeExceptionally` with it."
+  },
+  {
+   "q": "Quote calls run on a fixed pool of 20 threads with `orTimeout(300, MILLISECONDS)`. A provider hangs for 30 s, and 100 requests arrive in one second. What happens?",
+   "options": [
+    "The first 20 time out at 300 ms but keep their threads; later calls queue behind them, so they time out too, even to healthy providers",
+    "Every request times out at 300 ms and the pool stays free",
+    "`orTimeout` interrupts the hung calls, so the threads come back at 300 ms",
+    "The pool rejects the 21st request"
+   ],
+   "answer": 0,
+   "why": "`orTimeout` completes the future but never touches the task, so each hung call holds its thread for 30 s. A fixed pool has an unbounded queue, so nothing is rejected: new calls just wait behind the hung ones until their own deadlines pass. A client-side timeout and a per-provider limit prevent it."
+  },
+  {
+   "q": "You want a metric for every FX call, tagged success or failure, without changing what the caller receives. Which method fits?",
+   "options": [
+    "`exceptionally`",
+    "`handle`",
+    "`whenComplete`",
+    "`thenAccept`"
+   ],
+   "answer": 2,
+   "why": "`whenComplete` sees both outcomes and passes the original one on. `handle` sees both too, but you'd have to rebuild the outcome yourself (rethrowing the failure), which is easy to get wrong. `exceptionally` misses successes and `thenAccept` misses failures."
+  },
+  {
+   "q": "From \"Callable, Future, cancellation and interruption\": the same blocking call, sleeping in `Thread.sleep`, runs twice: once via `executor.submit(task)` and once via `CompletableFuture.supplyAsync(task, executor)`. You call `cancel(true)` on both futures. What happens?",
+   "options": [
+    "Both calls are interrupted",
+    "Only the `submit` call is interrupted; the `CompletableFuture` one keeps sleeping",
+    "Only the `CompletableFuture` call is interrupted",
+    "Neither, because `cancel` only affects tasks that haven't started"
+   ],
+   "answer": 1,
+   "why": "`submit` returns a `FutureTask`, whose `cancel(true)` interrupts the worker thread. `CompletableFuture.cancel` ignores the flag: it completes the future with `CancellationException` and leaves the task alone. Both futures report `isCancelled() == true`.",
+   "from": "exec-04"
+  }
+ ],
+ "flashcards": [
+  {"front": "Which CompletableFuture handler sees a failure but can't change the outcome?", "back": "`whenComplete`. It passes the original result or failure on. `exceptionally` and `handle` can replace it."},
+  {"front": "A handler on a failed `supplyAsync` future: which exception does it get?", "back": "A `CompletionException`, with the exception the task threw as `getCause()`."},
+  {"front": "Does `orTimeout` stop the task?", "back": "No. It completes the future with `TimeoutException` and the task keeps running, holding its thread."},
+  {"front": "Does `cancel(true)` interrupt a CompletableFuture's task?", "back": "No. The flag has no effect. The future completes with `CancellationException`; the task runs on."},
+  {"front": "One of three futures fails at 50 ms, the slowest takes 300 ms. When does `allOf` complete?", "back": "At 300 ms, exceptionally. `allOf` waits for all of them; it doesn't fail fast."},
+  {"front": "What does `anyOf` give you if the fastest future fails?", "back": "A failure. `anyOf` completes like the first future to complete, success or failure."},
+  {"front": "When do you use `exceptionallyCompose` instead of `exceptionally`?", "back": "When the fallback is itself a future, such as a call to a backup provider (JDK 12+)."}
+ ],
+ "terms": [
+  {"term": "CompletionException", "plain": "The unchecked wrapper CompletableFuture puts around an exception thrown inside a stage."},
+  {"term": "exceptionally", "plain": "Runs only on failure and replaces it with a value."},
+  {"term": "handle", "plain": "Runs on success or failure and returns a new result either way."},
+  {"term": "whenComplete", "plain": "Runs on success or failure to observe; passes the outcome on unchanged."},
+  {"term": "orTimeout", "plain": "Fails the future with TimeoutException if it isn't done in time. The work keeps running."},
+  {"term": "completeOnTimeout", "plain": "Completes the future with a default value if it isn't done in time."},
+  {"term": "allOf / anyOf", "plain": "Combine many futures: wait for all of them, or take the first to complete."}
+ ],
+ "explain_back": {
+  "prompt": "A teammate's quote aggregator does `allOf(askA, askB, askC).orTimeout(500, MILLISECONDS)` and then picks the lowest price. Explain why it fails whenever one provider is down or slow, and how you would restructure it.",
+  "answer": "`allOf` fails if any of its futures fails, so one provider returning an error fails the whole call, and it only fails after the slowest provider finishes. The single `orTimeout` on the `allOf` means one hung provider makes the whole call time out and throws away the answers that did come back. I'd give each provider call its own `orTimeout`, then a `handle` that turns a failure into an empty `Optional` and reports the unwrapped cause. Then `allOf` over those safe futures can't fail, and the step after it picks the lowest price from the ones that are present, or fails with a clear \"no quote\" error if all are empty. I'd also set a timeout in the HTTP client, because `orTimeout` doesn't stop the call itself."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "`anyOf` gives you the first to finish, not the first to succeed. When you want the first success, complete a future of your own from each success, and fail it only when every call has failed. `complete` returns `false` for every caller after the first, so the first success wins without a lock:\n\n```java\nstatic <T> CompletableFuture<T> firstSuccess(List<CompletableFuture<T>> calls) {   // calls must not be empty\n    CompletableFuture<T> first = new CompletableFuture<>();\n    AtomicInteger failed = new AtomicInteger();\n    for (CompletableFuture<T> call : calls) {\n        call.whenComplete((value, ex) -> {\n            if (ex == null) first.complete(value);                                   // only the first one counts\n            else if (failed.incrementAndGet() == calls.size()) first.completeExceptionally(ex);\n        });\n    }\n    return first;\n}\n```\n\n```kotlin\nfun <T> firstSuccess(calls: List<CompletableFuture<T>>): CompletableFuture<T> {     // calls must not be empty\n    val first = CompletableFuture<T>()\n    val failed = AtomicInteger()\n    for (call in calls) {\n        call.whenComplete { value, ex ->\n            if (ex == null) first.complete(value)                                    // only the first one counts\n            else if (failed.incrementAndGet() == calls.size) first.completeExceptionally(ex)\n        }\n    }\n    return first\n}\n```\n\nTwo smaller things are worth knowing. `orTimeout` and `completeOnTimeout` change the very future you call them on. If a client library hands the same cached future to several callers, one caller's timeout fails it for all of them. Call `copy()` (JDK 9) first and put the timeout on your copy. And when you need a delay without a timeout, `CompletableFuture.delayedExecutor(500, MILLISECONDS, io)` (JDK 9) returns an `Executor` that runs each task 500 ms after you submit it. It is handy for a retry with backoff: `supplyAsync(this::call, CompletableFuture.delayedExecutor(500, MILLISECONDS, io))`."
+ },
+ "sources": [
+  {"title": "CompletableFuture (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/CompletableFuture.html"},
+  {"title": "CompletionException (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/CompletionException.html"},
+  {"title": "Cancellation and timeouts (Kotlin docs)", "url": "https://kotlinlang.org/docs/cancellation-and-timeouts.html"},
+  {"title": "runInterruptible (kotlinx.coroutines API)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/run-interruptible.html"}
+ ]
+}
+out = ROOT / "content/lessons/exec-07.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)
