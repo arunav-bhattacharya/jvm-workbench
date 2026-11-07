@@ -24,7 +24,7 @@ public class ChannelCapacitiesJava {
         List<Integer> received = new ArrayList<>();
         for (int id = queue.take(); id != -1; id = queue.take()) { Thread.sleep(100); received.add(id); }
         producer.join();
-        System.out.printf("%-20s put() returned at %-26s received %s%n", label, sendTimes + " ms", received);
+        System.out.printf("%-22s put() returned at %-26s received %s%n", label, sendTimes + " ms", received);
     }
 
     public static void main(String[] args) throws InterruptedException {
