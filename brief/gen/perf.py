@@ -1,0 +1,178 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+
+CHEAT = r"""## How HotSpot runs your code (JDK 21 to 27)
+
+| Tier | Runs the code | Reached after |
+|---|---|---|
+| 0 | interpreter, counts calls and loop back-edges | start |
+| 3 | C1 with full profiling (branches, receiver types) | about 200 calls (`Tier3InvocationThreshold`) |
+| 4 | C2, optimized with the profile | about 5,000 more calls (`Tier4InvocationThreshold`) |
+| OSR | a running loop compiled and entered mid-loop | about 60,000 back-edges (tier 3), 40,000 more (tier 4) |
+
+Tier 1 is C1 for trivial methods; tier 2 is C1 with counters only, used when C2 has a backlog. Thresholds grow when compile queues are long. `CompileThreshold` (10,000) applies only with `-XX:-TieredCompilation`. Code cache: 240 MB reserved, three heaps; check with `jcmd <pid> Compiler.codecache`.
+
+## Reading PrintCompilation
+
+```text
+40   10 %     4       Hot::longLoop @ 4 (27 bytes)   made not entrant: uncommon trap
+ms   id flags tier    method        OSR bci  bytecode size   message (reason on JDK 25)
+```
+
+Flags: `%` OSR, `s` synchronized, `!` exception handler, `b` blocking, `n` native. Reasons on JDK 25: `not used` and `OSR invalidation of lower levels` are routine; `uncommon trap` means a C2 bet failed. Timestamps and ids change every run.
+
+## What C2 bets on
+
+| Rule | Value |
+|---|---|
+| Inline at a call site that isn't hot | callee at most 35 bytes of bytecode (`MaxInlineSize`) |
+| Inline at a hot site (25% or more of the caller's calls) | at most 325 bytes (`FreqInlineSize`) |
+| Types inlined per call site | 2 (`TypeProfileWidth`); with more, only a type with 90% or more |
+| Uncommon trap kinds | `unstable_if` (untaken branch), `class_check` (unseen type) |
+
+Diagnose with `-XX:+UnlockDiagnosticVMOptions -XX:+PrintInlining` and `-Xlog:deoptimization=debug`. Keep cold paths out of hot methods:
+
+```java
+static long requireAmount(long cents) {
+    if (cents <= 0 || cents > MAX_CENTS) throw badAmount(cents);   // 21 bytes, inlines anywhere
+    return cents;
+}
+```
+
+```kotlin
+fun requireAmount(cents: Long): Long {
+    if (cents <= 0 || cents > MAX_CENTS) throw badAmount(cents)    // 21 bytes, inlines anywhere
+    return cents
+}
+```
+
+`final` doesn't make calls faster; the number of receiver types does. Prefer JDK intrinsics (`Math.addExact`, `Arrays.equals`, `Long.bitCount`) over hand-written loops.
+
+## JMH rules
+
+```java
+@State(Scope.Thread) @BenchmarkMode(Mode.AverageTime) @OutputTimeUnit(TimeUnit.NANOSECONDS)
+@Warmup(iterations = 5, time = 1) @Measurement(iterations = 5, time = 1) @Fork(2)
+public class FeeBench {
+    long amountCents = 123_456;                                   // non-final input
+    @Benchmark public long fee() { return FeeMath.feeCents(amountCents); }   // result returned
+    @Benchmark public void baseline() { }                         // the floor
+}
+```
+
+```kotlin
+@State(Scope.Thread) @BenchmarkMode(Mode.AverageTime) @OutputTimeUnit(TimeUnit.NANOSECONDS)
+@Warmup(iterations = 5, time = 1) @Measurement(iterations = 5, time = 1) @Fork(2)
+open class FeeBench {                                             // JMH subclasses it
+    var amountCents = 123_456L                                    // non-final input
+    @Benchmark fun fee(): Long = FeeMath.feeCents(amountCents)    // result returned
+    @Benchmark fun baseline() {}                                  // the floor
+}
+```
+
+Return results or `Blackhole.consume` them; never read inputs from `final` constant fields; never `@Fork(0)`; compare with a baseline. `-prof gc` gives `gc.alloc.rate.norm` (B/op): stable enough for CI, unlike ns/op. Defaults in 1.37: 5 forks, 5 + 5 iterations of 10 s.
+
+## Caches and false sharing
+
+Lines are 64 bytes. Two threads writing fields on one line slow each other down (false sharing); how much depends on the hardware. Pad hot fields at least 64 bytes apart with a class chain, check with JOL (`ClassLayout.parseClass(X.class)`), assert distances, not offsets. `@Contended` needs `-XX:-RestrictContended` and `--add-exports` for your own classes. For counters, use `LongAdder`.
+
+## JFR
+
+```bash
+java -XX:StartFlightRecording:filename=rec.jfr,settings=profile -jar app.jar
+jcmd <pid> JFR.start name=x settings=profile     # on a running JVM
+jcmd <pid> JFR.dump name=x filename=x.jfr
+jfr summary rec.jfr
+jfr view hot-methods | allocation-by-site | gc-pauses | contention-by-site | deoptimizations-by-reason rec.jfr
+jfr print --events workbench.IssuerCall --stack-depth 3 rec.jfr
+```
+
+`default.jfc` stays on; `profile.jfc` for short investigations. Custom events extend `jdk.jfr.Event` (`begin`, `end`, `shouldCommit`, `commit`); read files with `RecordingFile`, live events with `RecordingStream`. A custom event's setting on the command line needs a `+`: `+workbench.IssuerCall#threshold=30ms`. JDK 25: `method-timing=`, `report-on-exit=`, experimental `jdk.CPUTimeSample` on Linux. Recordings contain environment variables; JDK 27 can redact them.
+
+## async-profiler and flame graphs
+
+```bash
+asprof -d 30 -f cpu.html <pid>                    # CPU (use -e ctimer if perf_events is blocked)
+asprof -e wall -t -d 30 -f wall.html <pid>        # waiting: I/O, locks, sleep, per thread
+asprof -e alloc -d 30 -f alloc.html <pid>         # who allocates
+asprof -e lock -d 30 -f lock.html <pid>           # contended locks
+asprof -d 30 -o collapsed -f out.collapsed <pid>  # text: "a;b;c 42"
+```
+
+Width = samples (inclusive), root at the bottom, left to right is alphabetical, never time. Wide exposed tops are self time; follow them down to the first frame in your code. `getStackTrace`-based profilers suffer from safepoint bias; async-profiler doesn't.
+
+## The investigation loop
+
+1. Symptom: p99.9/p99.99 and GC count, not the average.
+2. JFR: `gc-pauses`, then allocation by the first frame in your code and its line.
+3. Flame graph: who calls it.
+4. Fix one thing; profile again (the order of costs changes).
+5. Prove it with JMH `-prof gc`; keep it with an allocation budget test (`getCurrentThreadAllocatedBytes`), with a margin.
+"""
+
+T = {
+ "id": "perf",
+ "intro": "By the end of this track you can say what the JVM does with your code after `javac` or `kotlinc` is done with it: which tier runs a method, what C2 inlines and bets on, and why it sometimes throws compiled code away. You can write a JMH benchmark that measures your code instead of the optimizer, spot false sharing and fix it with padding or `LongAdder`, record and query a running JVM with JDK Flight Recorder, read a flame graph from async-profiler without being fooled by it, and run a performance investigation from a p99.99 complaint to a fix you can prove to the byte.\n\nYou don't need to know anything about JIT compilers or profilers to start: lesson 1 begins with bytecode. You do need the memory model track's first lesson (why a loop on a plain field can hang) and the first track's lesson on atomics and `LongAdder`. Install JDK 25, the current LTS. Thresholds and inlining limits are the same from JDK 21 to 27, and every lesson says which JDK a newer feature needs (JFR method timing and CPU-time sampling are JDK 25; compact object headers are on by default in JDK 27). async-profiler is a separate download for lesson 6.\n\nThe labs live in `labs/performance`, one package per lesson (`workbench.performance.l01` to `l07`). Lessons 1 and 6 have Kotlin labs; the rest are Java, because JMH benchmarks are Java classes here. The tests never time anything: they parse real JVM output, read class files and object layouts, record and read JFR files, and count allocated bytes. Run `./gradlew :performance:test --tests 'workbench.performance.lNN.*'` from `labs/` until it passes, and `solutionTest` to check the reference answers. Demos run with `./gradlew :performance:demo -Pmain=...`. Many start a second JVM with the flags the lesson is about, so you see real `-XX:+PrintCompilation`, `-XX:+PrintInlining` and JFR output.",
+ "cheatsheet": CHEAT,
+ "recap": [
+  "HotSpot runs every method in the interpreter first, then C1 with profiling (about 200 calls) and C2 (about 5,000 more). OSR compiles long loops mid-run. Every new JVM starts cold.",
+  "`-XX:+PrintCompilation` lines read: time, id, flags, tier, method, OSR index, bytecode size, message. JDK 25 says why code was made not entrant.",
+  "C2 inlines within a bytecode budget (35 bytes at sites that aren't hot, 325 at hot ones) and only for one or two receiver types per call site. What it never saw becomes an uncommon trap; when one fires, the code is thrown away and recompiled.",
+  "A `nanoTime` loop measures the optimizer. JMH, with returned results, non-final `@State` inputs, warm-up, forks and a baseline, measures your code. `-prof gc` B/op is steady enough for CI; time isn't.",
+  "Caches move 64-byte lines. Threads writing neighbouring fields can slow each other badly (false sharing); pad with a class chain, check with JOL, or use `LongAdder`.",
+  "JFR records GC, JIT, locks, samples and your own events on one timeline. Start it with `-XX:StartFlightRecording` or `jcmd`, query it with `jfr view`, read it with `RecordingFile`, stream it with `RecordingStream`.",
+  "async-profiler samples stacks without safepoint bias in cpu, wall, alloc and lock modes. In a flame graph width is samples and the x-axis is alphabetical; wide exposed tops are where time goes.",
+  "An investigation goes symptom (the tail), JFR (what and which line), flame graph (who calls), one fix, re-profile, JMH proof, allocation budget test."
+ ],
+ "quiz": [
+  {"q": "Which compiler produced this line, and why is there an `@ 4`?\n\n```text\n45   10 %     4       Hot::longLoop @ 4 (27 bytes)\n```",
+   "options": ["C1, because `%` marks a profiled compile", "C2, compiling a running loop (OSR) entered at bytecode index 4", "The interpreter, at line 4 of the source", "C2, inlining 4 callees"],
+   "answer": 1,
+   "why": "Tier 4 is C2. `%` marks on-stack replacement: the loop was hot while the method was still running, so C2 compiled a version entered at the loop header, bytecode index 4. Bytecode indexes aren't source lines."},
+  {"q": "A 60-byte (bytecode) validator is called on about 1 in 10 invocations of its caller. Will C2 inline it there?",
+   "options": ["Yes, everything under 325 bytes is inlined", "No: below 25% of the caller's calls the limit is 35 bytes, so it's \"too big\"", "Only if the method is `final`", "Only in the interpreter"],
+   "answer": 1,
+   "why": "C2 uses 325 bytes only when the call runs on at least 25% of the caller's invocations. Otherwise `MaxInlineSize` (35) applies. Moving the cold path into its own method is the usual fix."},
+  {"q": "You must decide in a pull request whether a new JSON mapper allocates less than the old one, and keep it that way in CI. Which tool fits?",
+   "options": ["A unit test timing 1,000 calls with `System.nanoTime()`", "A JMH benchmark with `-prof gc`, then an allocation budget test", "`-XX:+PrintCompilation`", "async-profiler in wall mode"],
+   "answer": 1,
+   "why": "JMH with `-prof gc` gives bytes per operation with an error near zero, and a test using the per-thread allocation counter keeps the number from growing. A hand-made timing loop measures the optimizer, and wall mode answers a different question."},
+  {"q": "A JMH benchmark reads its input from `private final long amount = 12_345;` and scores the same as an empty benchmark. Why?",
+   "options": ["JMH can't read private fields", "javac copies the constant into the method and C2 folds the calculation into a constant", "The benchmark forgot `@Fork`", "Private fields are always cached in registers"],
+   "answer": 1,
+   "why": "A `final` field with a constant initializer is a compile-time constant in Java, so the method contains `ldc2_w 12345`, and C2 can compute the result once. Use a non-final `@State` field."},
+  {"q": "Two worker threads each update their own `volatile long` counter in the same small object, and the job is slower with two threads than with one. JOL shows the fields at offsets 16 and 24. What's the first thing to try?",
+   "options": ["Make the fields non-volatile", "Put the counters at least 64 bytes apart (a class chain), or use one `LongAdder` per counter, then measure", "Add `synchronized` to both updates", "Use `AtomicLong` for both fields in the same object"],
+   "answer": 1,
+   "why": "8 bytes apart is one cache line, so every write takes the line from the other core: false sharing. Padding or `LongAdder` cells separate them. Removing `volatile` changes visibility, not layout, and an `AtomicLong` field is just a reference to an object that may sit next to the other one."},
+  {"q": "Production pods show p99 spikes and you can't install anything on them. Which first step gives you GC pauses, lock waits and allocation for the last few minutes?",
+   "options": ["`jcmd <pid> JFR.dump` from a continuous recording, then `jfr view gc-pauses`, `contention-by-site` and `allocation-by-site`", "Restart with `-XX:+PrintCompilation`", "Attach async-profiler", "Run JMH on the pod"],
+   "answer": 0,
+   "why": "JFR is built into the JDK, and a continuous recording can be dumped without stopping the JVM. Its views answer all three questions from one file."},
+  {"q": "Your custom JFR event fills four fields from expensive lookups before `commit()`. Most of the time no recording is running. What should the code check first?",
+   "options": ["`event.isEnabled()` after commit", "`event.shouldCommit()` after `end()`, and fill the fields only if it returns true", "`FlightRecorder.isAvailable()` on every call", "Nothing: JFR skips disabled events before the fields are computed"],
+   "answer": 1,
+   "why": "`shouldCommit()` is true only if some recording enables the event and the duration passes its threshold. Java evaluates your field values before `commit()` is called, so JFR can't skip that work for you."},
+  {"q": "In a flame graph, `Pattern.compile` is drawn to the left of `String.format` at the same level. Which statement is true?",
+   "options": ["`Pattern.compile` ran first", "`Pattern.compile` is the slower of the two", "Their order is alphabetical; only the widths carry information", "`String.format` called `Pattern.compile`"],
+   "answer": 2,
+   "why": "Flame graphs sort frames alphabetically at each level; the x-axis is not a timeline. Width is the number of samples, and a callee is drawn above its caller, never beside it."},
+  {"q": "A profiler built on `Thread.getStackTrace()` charges a lot of time to a method that only calls other methods. async-profiler doesn't. What's going on?",
+   "options": ["async-profiler skips small methods", "Safepoint bias: `getStackTrace` sees threads only at safepoint polls, so time is charged where the thread can stop, not where it ran", "The JIT inlined the method away", "`getStackTrace` uses wall-clock time"],
+   "answer": 1,
+   "why": "Reading another thread's stack needs that thread at a safepoint, and polls sit at method returns and loop back-edges. async-profiler interrupts the thread with a signal and walks the stack at the exact instruction."},
+  {"q": "After hoisting a regex into a `static final` field, the fee method's allocation drops from about 2,000 to 200 bytes per call. What does the investigation loop say to do next?",
+   "options": ["Stop: a 10x improvement is enough", "Profile again: the remaining 200 bytes now have a new top line (here the `Matcher` per call), fix that if the budget needs it, and stop when what's left is real work", "Increase the heap so GC runs less", "Rewrite the method in Kotlin"],
+   "answer": 1,
+   "why": "Each fix changes the order of costs. In this track's investigation, the `Matcher` behind the hoisted pattern became the top line only after round 1; replacing the regex left 72 bytes, all of it the `BigDecimal` parse that is the actual job."}
+ ]
+}
+# spread the correct answers over the four positions
+for q, target in zip(T["quiz"], [1, 0, 2, 3, 2, 0, 1, 2, 3, 1]):
+    correct = q["options"].pop(q["answer"])
+    q["options"].insert(target, correct)
+    q["answer"] = target
+
+out = ROOT / "content/tracks/perf.json"
+out.write_text(json.dumps(T, indent=1, ensure_ascii=False) + "\n")
+print(out)
