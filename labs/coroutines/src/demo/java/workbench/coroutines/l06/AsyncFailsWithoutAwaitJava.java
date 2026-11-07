@@ -10,11 +10,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class AsyncFailsWithoutAwaitJava {
-    static final long T0 = System.nanoTime();
+    static long T0;
     static void log(String msg) { System.out.printf("%5d ms  %s%n", (System.nanoTime() - T0) / 1_000_000, msg); }
     static void sleep(long ms) { try { Thread.sleep(ms); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } }
 
     public static void main(String[] args) {
+        T0 = System.nanoTime();
         try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
             CompletableFuture<Void> risk = CompletableFuture.runAsync(() -> {
                 sleep(100);

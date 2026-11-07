@@ -1,0 +1,374 @@
+{
+ "id": "conc-10",
+ "title": "Synchronizers: latch, barrier, semaphore, phaser",
+ "minutes": 36,
+ "goal": "By the end you can pick the right synchronizer for a coordination problem (wait for events, meet at a line, limit concurrency, phases that change size) and use each without the classic bugs.",
+ "warmup": {
+  "q": "A `Semaphore` starts with 5 permits. One thread calls `release()` without ever calling `acquire()`. What does `availablePermits()` return?",
+  "options": [
+   "5: the stray release is ignored",
+   "6",
+   "It throws `IllegalMonitorStateException`",
+   "4"
+  ],
+  "answer": 1,
+  "why": "Permits belong to nobody. A semaphore is a counter, and `release()` adds one whoever calls it. That's handy (one thread can acquire, another release), and it's also how a bug quietly raises your connection limit from 5 to 6, then 7. A lock would throw here; a semaphore can't."
+ },
+ "sections": [
+  {
+   "h": "CountDownLatch waits for N events, once",
+   "body": "A `CountDownLatch` starts at a count. Any thread can call `countDown()`. Threads that call `await()` wait until the count reaches zero, then all of them go on. You used two of them in lesson 3 of this track to make threads collide.\n\n```java\nCountDownLatch warmedUp = new CountDownLatch(3);\n\n// each warm-up thread, when it is done (in a finally):\nwarmedUp.countDown();\n\n// the thread that opens the service for traffic:\nif (!warmedUp.await(30, TimeUnit.SECONDS)) {\n    throw new IllegalStateException(\"caches not warm after 30 s\");\n}\n```\n\n```kotlin\nval warmedUp = CountDownLatch(3)\n\n// each warm-up thread, when it is done (in a finally):\nwarmedUp.countDown()\n\n// the thread that opens the service for traffic:\nif (!warmedUp.await(30, TimeUnit.SECONDS)) {\n    throw IllegalStateException(\"caches not warm after 30 s\")\n}\n```\n\nThe latch waits for events, not for particular threads. One thread may count down three times, or three threads once each. It doesn't care.\n\nIt is also **one-shot**. Once the count reaches zero, it stays there. Every later `await()` returns at once, and extra `countDown()` calls do nothing. There is no reset. If you need the same gate every round, you want a barrier, the next section.\n\nTwo habits keep latches from hanging services. Call `countDown()` in a `finally`, so a task that throws still counts. Otherwise the count never reaches zero and the waiter waits forever, `WAITING` in `CountDownLatch.await` in every thread dump. And prefer `await(timeout, unit)`, which returns `false` if time ran out, so the caller can fail with a clear message instead of hanging.\n\nA latch also carries visibility: everything a thread did before `countDown()` happens-before `await()` returns in the waiting thread. That is why the caller can read the warm-up results without another lock.",
+   "try": {
+    "title": "Open for traffic when the caches are warm",
+    "minutes": 3,
+    "steps": [
+     "Read `LatchDemo`. Three threads load three caches (200, 400 and 300 ms) and count down. `main` waits at most 2 seconds.",
+     "Predict when `ready` is printed, and what an extra `countDown()` does after that.",
+     "Run it, then run it again with `-Pargs=stuck`, where one load takes a minute."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "LatchDemo.java",
+     "src": "package workbench.concurrency.l10;\n\nimport java.util.concurrent.CountDownLatch;\nimport java.util.concurrent.TimeUnit;\n\n/**\n * A service warms three caches in parallel and opens for traffic when all three are loaded.\n * Run with -Pargs=stuck to make one warm-up hang.\n */\npublic class LatchDemo {\n    public static void main(String[] args) throws InterruptedException {\n        boolean stuck = args.length > 0 && args[0].equals(\"stuck\");\n        String[] caches = {\"bin-ranges\", \"fx-rates\", \"merchant-config\"};\n        long[] loadMs = {200, 400, stuck ? 60_000 : 300};\n        CountDownLatch warmedUp = new CountDownLatch(caches.length);\n        long t0 = System.nanoTime();\n\n        for (int i = 0; i < caches.length; i++) {\n            String name = caches[i];\n            long ms = loadMs[i];\n            Thread t = new Thread(() -> {\n                try {\n                    Thread.sleep(ms);                                  // pretend to load\n                    System.out.printf(\"%5d ms  %s loaded%n\", (System.nanoTime() - t0) / 1_000_000, name);\n                } catch (InterruptedException e) {\n                    Thread.currentThread().interrupt();\n                } finally {\n                    warmedUp.countDown();                              // count down even if loading failed\n                }\n            }, \"warm-\" + name);\n            t.setDaemon(true);\n            t.start();\n        }\n\n        boolean ready = warmedUp.await(2, TimeUnit.SECONDS);          // never wait forever at startup\n        System.out.printf(\"%5d ms  ready=%s, count=%d%n\", (System.nanoTime() - t0) / 1_000_000, ready, warmedUp.getCount());\n\n        // a latch is one-shot: once at zero, await() returns at once, forever\n        if (ready) {\n            warmedUp.countDown();\n            System.out.println(\"after another countDown(): count=\" + warmedUp.getCount()\n                    + \", await returns at once: \" + warmedUp.await(0, TimeUnit.MILLISECONDS));\n        }\n    }\n}\n",
+     "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l10.LatchDemo",
+     "file": "labs/concurrency/src/demo/java/workbench/concurrency/l10/LatchDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "LatchDemo.kt",
+      "src": "package workbench.concurrency.l10\n\nimport java.util.concurrent.CountDownLatch\nimport java.util.concurrent.TimeUnit\nimport kotlin.concurrent.thread\n\n// A service warms three caches in parallel and opens for traffic when all three are loaded.\n// Run with -Pargs=stuck to make one warm-up hang.\nfun main(args: Array<String>) {\n    val stuck = args.firstOrNull() == \"stuck\"\n    val caches = listOf(\"bin-ranges\" to 200L, \"fx-rates\" to 400L, \"merchant-config\" to if (stuck) 60_000L else 300L)\n    val warmedUp = CountDownLatch(caches.size)\n    val t0 = System.nanoTime()\n\n    for ((name, ms) in caches) {\n        thread(isDaemon = true, name = \"warm-$name\") {\n            try {\n                Thread.sleep(ms)                                       // pretend to load\n                println(\"%5d ms  %s loaded\".format((System.nanoTime() - t0) / 1_000_000, name))\n            } catch (e: InterruptedException) {\n                Thread.currentThread().interrupt()\n            } finally {\n                warmedUp.countDown()                                   // count down even if loading failed\n            }\n        }\n    }\n\n    val ready = warmedUp.await(2, TimeUnit.SECONDS)                   // never wait forever at startup\n    println(\"%5d ms  ready=%s, count=%d\".format((System.nanoTime() - t0) / 1_000_000, ready, warmedUp.count))\n\n    // a latch is one-shot: once at zero, await() returns at once, forever\n    if (ready) {\n        warmedUp.countDown()\n        println(\"after another countDown(): count=${warmedUp.count}, await returns at once: ${warmedUp.await(0, TimeUnit.MILLISECONDS)}\")\n    }\n}\n",
+      "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l10.LatchDemoKt",
+      "file": "labs/concurrency/src/demo/kotlin/workbench/concurrency/l10/LatchDemo.kt"
+     }
+    },
+    "expect": "The caches load at about 200, 300 and 400 ms, and `ready=true, count=0` follows right after the slowest one. The extra `countDown()` leaves the count at 0, and `await` returns at once. With `stuck`, `main` prints `ready=false, count=1` after 2 seconds instead of hanging forever."
+   }
+  },
+  {
+   "h": "CyclicBarrier makes N threads meet, then all go on together",
+   "body": "A `CyclicBarrier` waits for threads, not events. You give it a number of parties. Each thread calls `await()` when it reaches the meeting point and waits there until the last party arrives. Then all of them are released together, and the barrier resets itself for the next round. That is the cyclic part.\n\n```java\nCyclicBarrier endOfDay = new CyclicBarrier(4, () -> recordExposure(sum(shares)));   // the barrier action\n\n// each of the 4 workers, for every simulated day:\nshares[me] = simulate(me, day);\nendOfDay.await();          // the 4th to arrive runs the action, then all 4 go on\n```\n\n```kotlin\nval endOfDay = CyclicBarrier(4) { recordExposure(shares.sum()) }   // the barrier action\n\n// each of the 4 workers, for every simulated day:\nshares[me] = simulate(me, day)\nendOfDay.await()          // the 4th to arrive runs the action, then all 4 go on\n```\n\nThe optional **barrier action** runs once per round, on the last thread to arrive, before anyone is released. It's the place to combine results: each worker writes its own slot of `shares` before `await()`, and those writes are visible to the action and to every thread after the barrier. The figure shows two rounds.\n\nA barrier can break. If a waiting thread is interrupted, or its `await(timeout)` times out, or the barrier action throws, the barrier is broken: the thread that timed out gets `TimeoutException`, and every other waiter, now and later, gets `BrokenBarrierException` until someone calls `reset()`. That is deliberate. A round with a missing party can't complete, and failing all of them is better than leaving the rest waiting forever.\n\nBut look at what doesn't break it: a thread that throws before it ever calls `await()`. The barrier can't know it's gone. The others wait, with plain `await()`, forever. So use the timed `await` in anything that runs in production.\n\nLatch or barrier? A latch is a gate opened by events (\"three caches loaded\"). A barrier is a meeting point for a fixed group of threads (\"all four workers finished day 3\").",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 680 240\" role=\"img\" aria-label=\"Three workers run day 1 and day 2. Each waits at the barrier until the last one arrives; the barrier action runs once per day, then all three continue\"><text class=\"t\" x=\"20\" y=\"65\">W0</text><text class=\"t\" x=\"20\" y=\"110\">W1</text><text class=\"t\" x=\"20\" y=\"155\">W2</text><line class=\"ln-a\" x1=\"270\" y1=\"40\" x2=\"270\" y2=\"170\"/><text class=\"t-s t-a\" x=\"270\" y=\"30\" text-anchor=\"middle\">barrier: day 1</text><line class=\"ln-a\" x1=\"520\" y1=\"40\" x2=\"520\" y2=\"170\"/><text class=\"t-s t-a\" x=\"520\" y=\"30\" text-anchor=\"middle\">barrier: day 2</text><rect class=\"box\" x=\"70\" y=\"52\" width=\"80\" height=\"16\" rx=\"6\"/><line class=\"ln-d\" x1=\"150\" y1=\"60\" x2=\"268\" y2=\"60\"/><rect class=\"box\" x=\"70\" y=\"97\" width=\"140\" height=\"16\" rx=\"6\"/><line class=\"ln-d\" x1=\"210\" y1=\"105\" x2=\"268\" y2=\"105\"/><rect class=\"box-a\" x=\"70\" y=\"142\" width=\"196\" height=\"16\" rx=\"6\"/><rect class=\"box\" x=\"290\" y=\"52\" width=\"60\" height=\"16\" rx=\"6\"/><line class=\"ln-d\" x1=\"350\" y1=\"60\" x2=\"518\" y2=\"60\"/><rect class=\"box-a\" x=\"290\" y=\"97\" width=\"226\" height=\"16\" rx=\"6\"/><rect class=\"box\" x=\"290\" y=\"142\" width=\"150\" height=\"16\" rx=\"6\"/><line class=\"ln-d\" x1=\"440\" y1=\"150\" x2=\"518\" y2=\"150\"/><rect class=\"box-ok\" x=\"215\" y=\"186\" width=\"110\" height=\"30\" rx=\"8\"/><text class=\"t-s\" x=\"270\" y=\"206\" text-anchor=\"middle\">action: total</text><rect class=\"box-ok\" x=\"465\" y=\"186\" width=\"110\" height=\"30\" rx=\"8\"/><text class=\"t-s\" x=\"520\" y=\"206\" text-anchor=\"middle\">action: total</text><text class=\"t-s t-m\" x=\"600\" y=\"65\">bar: work</text><text class=\"t-s t-m\" x=\"600\" y=\"110\">dashes: wait</text><text class=\"t-s t-a\" x=\"600\" y=\"155\">last to arrive</text></svg>",
+    "caption": "Each worker waits at the barrier until the last one arrives. The barrier action runs once per round, then all three start the next day together."
+   },
+   "try": {
+    "title": "Three rounds, then a missing worker",
+    "minutes": 3,
+    "steps": [
+     "Read `BarrierDemo`. Three workers simulate three days; the barrier action prints the day's exposure and the name of the thread that ran it.",
+     "On day 4, worker 2 never arrives and the other two wait at most 300 ms. Predict what each of them prints.",
+     "Run it twice."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "BarrierDemo.java",
+     "src": "package workbench.concurrency.l10;\n\nimport java.util.concurrent.BrokenBarrierException;\nimport java.util.concurrent.CyclicBarrier;\nimport java.util.concurrent.TimeUnit;\nimport java.util.concurrent.TimeoutException;\n\n/** Three workers, three rounds, one barrier that resets itself. Then a round where one worker never shows up. */\npublic class BarrierDemo {\n    public static void main(String[] args) throws InterruptedException {\n        long[] shares = new long[3];\n        CyclicBarrier endOfDay = new CyclicBarrier(3, () ->       // runs once per round, before anyone moves on\n                System.out.printf(\"  day closed by %s: exposure %,d%n\",\n                        Thread.currentThread().getName(), shares[0] + shares[1] + shares[2]));\n\n        Thread[] workers = new Thread[3];\n        for (int w = 0; w < 3; w++) {\n            int me = w;\n            workers[w] = new Thread(() -> {\n                try {\n                    for (int day = 1; day <= 3; day++) {\n                        Thread.sleep(50L * (me + 1));                  // workers finish at different times\n                        shares[me] = 1_000L * day * (me + 1);\n                        endOfDay.await();                              // wait for the other two\n                    }\n                    // day 4: worker 2 never arrives, the others give up after 300 ms\n                    if (me == 2) return;\n                    endOfDay.await(300, TimeUnit.MILLISECONDS);\n                } catch (TimeoutException e) {\n                    System.out.println(\"  \" + Thread.currentThread().getName() + \": TimeoutException, barrier now broken\");\n                } catch (BrokenBarrierException e) {\n                    System.out.println(\"  \" + Thread.currentThread().getName() + \": BrokenBarrierException\");\n                } catch (InterruptedException e) {\n                    Thread.currentThread().interrupt();\n                }\n            }, \"worker-\" + w);\n            workers[w].start();\n        }\n        for (Thread t : workers) t.join();\n        System.out.println(\"broken: \" + endOfDay.isBroken());\n    }\n}\n",
+     "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l10.BarrierDemo",
+     "file": "labs/concurrency/src/demo/java/workbench/concurrency/l10/BarrierDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "BarrierDemo.kt",
+      "src": "package workbench.concurrency.l10\n\nimport java.util.concurrent.BrokenBarrierException\nimport java.util.concurrent.CyclicBarrier\nimport java.util.concurrent.TimeUnit\nimport java.util.concurrent.TimeoutException\nimport kotlin.concurrent.thread\n\n// Three workers, three rounds, one barrier that resets itself. Then a round where one worker never shows up.\nfun main() {\n    val shares = LongArray(3)\n    val endOfDay = CyclicBarrier(3) {                             // runs once per round, before anyone moves on\n        println(\"  day closed by %s: exposure %,d\".format(Thread.currentThread().name, shares.sum()))\n    }\n\n    val workers = List(3) { me ->\n        thread(name = \"worker-$me\") {\n            try {\n                for (day in 1..3) {\n                    Thread.sleep(50L * (me + 1))                      // workers finish at different times\n                    shares[me] = 1_000L * day * (me + 1)\n                    endOfDay.await()                                  // wait for the other two\n                }\n                // day 4: worker 2 never arrives, the others give up after 300 ms\n                if (me != 2) endOfDay.await(300, TimeUnit.MILLISECONDS)\n            } catch (e: TimeoutException) {\n                println(\"  ${Thread.currentThread().name}: TimeoutException, barrier now broken\")\n            } catch (e: BrokenBarrierException) {\n                println(\"  ${Thread.currentThread().name}: BrokenBarrierException\")\n            }\n        }\n    }\n    workers.forEach { it.join() }\n    println(\"broken: ${endOfDay.isBroken}\")\n}\n",
+      "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l10.BarrierDemoKt",
+      "file": "labs/concurrency/src/demo/kotlin/workbench/concurrency/l10/BarrierDemo.kt"
+     }
+    },
+    "expect": "Three lines `day closed by worker-2`, with exposures 6,000, 12,000 and 18,000: worker 2 is the slowest, so it is always the last to arrive and runs the action. On day 4, one worker gets `TimeoutException` and breaks the barrier, and the other gets `BrokenBarrierException`. Which one gets which can change between runs. `broken: true` at the end."
+   }
+  },
+  {
+   "h": "Semaphore limits how many threads do something at once",
+   "body": "A `Semaphore` holds a number of permits. `acquire()` takes one, waiting while none are left. `release()` gives one back. With 20 permits, at most 20 threads can be between the two calls.\n\n```java\nprivate final Semaphore issuerPermits = new Semaphore(20);\n\nAuthorization authorize(Request r) throws InterruptedException {\n    issuerPermits.acquire();             // before the try, like lock()\n    try {\n        return issuer.authorize(r);      // at most 20 threads in here\n    } finally {\n        issuerPermits.release();\n    }\n}\n```\n\n```kotlin\nprivate val issuerPermits = Semaphore(20)\n\nfun authorize(r: Request): Authorization {\n    issuerPermits.acquire()              // before the try, like lock()\n    try {\n        return issuer.authorize(r)       // at most 20 threads in here\n    } finally {\n        issuerPermits.release()\n    }\n}\n```\n\nThis is how you protect something that tolerates N users but not N + 1: a card-issuer API that throttles above 20 concurrent calls per client, a pool of 20 database connections, a CPU-heavy PDF renderer. `tryAcquire(timeout, unit)` waits a bounded time and returns `false` if no permit came free, so a request can fail fast instead of piling up.\n\nThe idiom is the one from explicit locks: `acquire()` before the `try`, `release()` in `finally`. It matters even more here, because of the property from the warm-up: **permits have no owner**. A lock knows who holds it and throws if a stranger releases it. A semaphore is just a counter. Both of these bugs silently raise your limit:\n\n- calling `acquire()` inside the `try`, so an interrupted wait still runs the `release()` in `finally`;\n- ignoring the result of `tryAcquire`, then running the task and releasing anyway.\n\nThe lab's `IssuerGate` has both. Every extra release is a permanent extra permit, and a limit of 20 drifts to 30 over a day of interrupts and timeouts. No exception, no log line.\n\nTwo more points. A `Semaphore` limits one JVM: six pods with 20 permits each send up to 120 calls to the issuer, so divide the issuer's limit by your pod count. And `new Semaphore(20, true)` makes it fair, which stops a fast thread from grabbing permits ahead of threads that have waited longer.",
+   "try": {
+    "title": "Five permits, twenty calls",
+    "minutes": 3,
+    "steps": [
+     "Read `SemaphoreDemo`. Twenty threads each make a 100 ms issuer call through a `Semaphore(5)`, and the demo tracks the peak number in flight.",
+     "Predict the peak and the total time.",
+     "Run it. Then move `issuer.acquire()` to inside the `try` in the Java version: does anything change in this run? Why might it in production?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "SemaphoreDemo.java",
+     "src": "package workbench.concurrency.l10;\n\nimport java.util.concurrent.Semaphore;\nimport java.util.concurrent.atomic.AtomicInteger;\n\n/** 20 authorizations, 5 issuer permits, 100 ms per call. Then the bug that adds permits out of thin air. */\npublic class SemaphoreDemo {\n    public static void main(String[] args) throws InterruptedException {\n        Semaphore issuer = new Semaphore(5);\n        AtomicInteger inFlight = new AtomicInteger(), peak = new AtomicInteger();\n        Thread[] requests = new Thread[20];\n        long t0 = System.nanoTime();\n        for (int i = 0; i < requests.length; i++) {\n            requests[i] = new Thread(() -> {\n                try {\n                    issuer.acquire();                                  // before the try\n                    try {\n                        peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);\n                        Thread.sleep(100);                             // the call to the issuer\n                        inFlight.decrementAndGet();\n                    } finally {\n                        issuer.release();\n                    }\n                } catch (InterruptedException e) {\n                    Thread.currentThread().interrupt();\n                }\n            });\n            requests[i].start();\n        }\n        for (Thread t : requests) t.join();\n        System.out.printf(\"20 calls, peak in flight %d, took %d ms%n\", peak.get(), (System.nanoTime() - t0) / 1_000_000);\n\n        // permits belong to nobody: any thread can release, even one that never acquired\n        Semaphore pool = new Semaphore(5);\n        pool.release();\n        System.out.println(\"new Semaphore(5), then one stray release(): \" + pool.availablePermits() + \" permits\");\n    }\n}\n",
+     "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l10.SemaphoreDemo",
+     "file": "labs/concurrency/src/demo/java/workbench/concurrency/l10/SemaphoreDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "SemaphoreDemo.kt",
+      "src": "package workbench.concurrency.l10\n\nimport java.util.concurrent.Semaphore\nimport java.util.concurrent.atomic.AtomicInteger\nimport kotlin.concurrent.thread\n\n// 20 authorizations, 5 issuer permits, 100 ms per call. Then the bug that adds permits out of thin air.\nprivate inline fun <T> Semaphore.withPermit(block: () -> T): T {\n    acquire()                                                          // before the try\n    try {\n        return block()\n    } finally {\n        release()\n    }\n}\n\nfun main() {\n    val issuer = Semaphore(5)\n    val inFlight = AtomicInteger()\n    val peak = AtomicInteger()\n    val t0 = System.nanoTime()\n    val requests = List(20) {\n        thread {\n            issuer.withPermit {\n                peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max)\n                Thread.sleep(100)                                      // the call to the issuer\n                inFlight.decrementAndGet()\n            }\n        }\n    }\n    requests.forEach { it.join() }\n    println(\"20 calls, peak in flight ${peak.get()}, took ${(System.nanoTime() - t0) / 1_000_000} ms\")\n\n    // permits belong to nobody: any thread can release, even one that never acquired\n    val pool = Semaphore(5)\n    pool.release()\n    println(\"new Semaphore(5), then one stray release(): ${pool.availablePermits()} permits\")\n}\n",
+      "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l10.SemaphoreDemoKt",
+      "file": "labs/concurrency/src/demo/kotlin/workbench/concurrency/l10/SemaphoreDemo.kt"
+     }
+    },
+    "expect": "Peak in flight 5, total about 400 ms: four waves of five calls. The stray `release()` turns 5 permits into 6. Moving `acquire()` inside the `try` changes nothing here, because nobody interrupts the waiters. In production an interrupt during the wait (a cancelled request, a shutdown) would release a permit that was never taken."
+   },
+   "refs": [
+    {
+     "title": "Semaphore (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/Semaphore.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Phaser and Exchanger, briefly",
+   "body": "A `Phaser` is a barrier whose group can change size. Parties `register()` to join and `arriveAndDeregister()` to leave, and each phase waits only for the parties registered at that moment. Phases are numbered from 0, and you can override `onAdvance(phase, parties)` to run code between phases and to end the phaser by returning `true`.\n\n```java\nPhaser phaser = new Phaser(1);          // the coordinator is a party\nphaser.register();                      // each worker joins when it starts\nphaser.arriveAndAwaitAdvance();         // wait for everyone still registered\nphaser.arriveAndDeregister();           // leave; later phases wait for one party fewer\n```\n\n```kotlin\nval phaser = Phaser(1)          // the coordinator is a party\nphaser.register()               // each worker joins when it starts\nphaser.arriveAndAwaitAdvance()  // wait for everyone still registered\nphaser.arriveAndDeregister()    // leave; later phases wait for one party fewer\n```\n\nUse it when the number of workers isn't known up front or changes between phases: a settlement run where some workers only fetch and then leave, or a job that registers one party per file it discovers. If the group is fixed, a `CyclicBarrier` is simpler and says what it means. A phaser can also replace a `CountDownLatch` that you'd like to reuse.\n\nAn `Exchanger` is the smallest synchronizer: two threads meet and swap one object each, for example a full buffer for an empty one. You will rarely need it.\n\nAll of these synchronizers, like `ReentrantLock`, are built on `AbstractQueuedSynchronizer`, so a thread waiting in any of them is parked and shows as `WAITING` or `TIMED_WAITING` in a thread dump, with the synchronizer's class in its stack. And none of them has an owner the deadlock detector can see, so a cycle of threads waiting on semaphores or latches is never reported as a deadlock.",
+   "try": {
+    "title": "A worker leaves halfway",
+    "minutes": 3,
+    "steps": [
+     "Read `PhaserDemo`. Three workers run three phases (fetch, net, post). Worker 2 leaves after the first phase. `onAdvance` prints each phase and the parties left.",
+     "Predict the party count printed for each phase.",
+     "Run it."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "PhaserDemo.java",
+     "src": "package workbench.concurrency.l10;\n\nimport java.util.concurrent.Phaser;\n\n/** A settlement run in three phases. One worker leaves after the first phase; the Phaser just has fewer parties. */\npublic class PhaserDemo {\n    public static void main(String[] args) throws InterruptedException {\n        String[] phases = {\"fetch\", \"net\", \"post\"};\n        Phaser phaser = new Phaser(1) {                        // 1 party: main, until it deregisters\n            @Override\n            protected boolean onAdvance(int phase, int parties) {\n                System.out.printf(\"  phase %d (%s) done, %d parties%n\", phase, phases[phase], parties);\n                return phase == phases.length - 1 || parties == 0;   // true ends the phaser\n            }\n        };\n        Thread[] workers = new Thread[3];\n        for (int w = 0; w < workers.length; w++) {\n            int me = w;\n            phaser.register();                                 // a new party joins\n            workers[w] = new Thread(() -> {\n                for (int p = 0; p < phases.length; p++) {\n                    if (me == 2 && p == 1) {\n                        phaser.arriveAndDeregister();          // worker 2 only fetches, then leaves\n                        return;\n                    }\n                    phaser.arriveAndAwaitAdvance();            // like a barrier, for this phase\n                }\n            });\n            workers[w].start();\n        }\n        phaser.arriveAndDeregister();                          // main stops taking part\n        for (Thread t : workers) t.join();\n        System.out.println(\"terminated: \" + phaser.isTerminated());\n    }\n}\n",
+     "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l10.PhaserDemo",
+     "file": "labs/concurrency/src/demo/java/workbench/concurrency/l10/PhaserDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "PhaserDemo.kt",
+      "src": "package workbench.concurrency.l10\n\nimport java.util.concurrent.Phaser\nimport kotlin.concurrent.thread\n\n// A settlement run in three phases. One worker leaves after the first phase; the Phaser just has fewer parties.\nfun main() {\n    val phases = listOf(\"fetch\", \"net\", \"post\")\n    val phaser = object : Phaser(1) {                         // 1 party: main, until it deregisters\n        override fun onAdvance(phase: Int, parties: Int): Boolean {\n            println(\"  phase %d (%s) done, %d parties\".format(phase, phases[phase], parties))\n            return phase == phases.lastIndex || parties == 0     // true ends the phaser\n        }\n    }\n    val workers = List(3) { me ->\n        phaser.register()                                     // a new party joins\n        thread(start = true) {\n            for (p in phases.indices) {\n                if (me == 2 && p == 1) {\n                    phaser.arriveAndDeregister()              // worker 2 only fetches, then leaves\n                    return@thread\n                }\n                phaser.arriveAndAwaitAdvance()                // like a barrier, for this phase\n            }\n        }\n    }\n    phaser.arriveAndDeregister()                              // main stops taking part\n    workers.forEach { it.join() }\n    println(\"terminated: ${phaser.isTerminated}\")\n}\n",
+      "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l10.PhaserDemoKt",
+      "file": "labs/concurrency/src/demo/kotlin/workbench/concurrency/l10/PhaserDemo.kt"
+     }
+    },
+    "expect": "`phase 0 (fetch) done, 3 parties`, then `phase 1 (net) done, 2 parties` and `phase 2 (post) done, 2 parties`, then `terminated: true`. `main` registered itself first so no phase could finish before every worker had joined, then left. Worker 2's `arriveAndDeregister` counts as its arrival for phase 1 and shrinks every later phase."
+   }
+  }
+ ],
+ "analogy": "A `CountDownLatch` is a rocket countdown: when it reaches zero the launch happens, and you can't count down again. A `CyclicBarrier` is a tour group regrouping at every landmark: the bus leaves only when everyone is back, and the guide (the barrier action) does a head count each time. A `Semaphore` is a car park with 20 spaces and a sign showing how many are free; nobody checks which car leaves, so a car that never parked can still \"leave\" and the sign shows 21. A `Phaser` is a relay race where runners can join or drop out between legs. The analogy breaks at the tour bus: a guide would go looking for a missing tourist. A barrier just waits, forever, unless you gave `await` a timeout.",
+ "in_your_world": "In a Quarkus service, a latch shows up at startup (open for traffic after the BIN ranges and FX rates load) and in almost every concurrency test you write. A semaphore shows up in front of anything with a concurrency limit: a card-issuer API that throttles at 20 calls per client, a PDF generator, a Temporal activity that calls a partner with a strict rate limit. Remember the multiplication: the limit is per JVM, so 6 pods with 20 permits each is 120 calls at the partner. Barriers and phasers are rarer in request-handling code and common in batch jobs: an end-of-day exposure simulation or a reconciliation that runs in phases across worker threads.",
+ "mistake": "The most common real mistake is releasing a permit you never acquired. It happens in two ways: `acquire()` placed inside the `try`, so an interrupted wait still reaches the `release()` in `finally`, and `tryAcquire(timeout)` whose `false` result is ignored. Both look fine in review and in tests, because tests rarely interrupt waiters or exhaust permits. In production, each cancelled request or timeout adds one permit for good, and the limit that protected the issuer API slowly stops limiting. The fix is the lock idiom: `acquire()` on the line before `try`, and `if (!tryAcquire(...))` that returns or throws before the `try` is entered.",
+ "compare": {
+  "title": "A permit helper in Java and Kotlin",
+  "java": {
+   "title": "Java",
+   "src": "static <T> T withPermit(Semaphore s, Callable<T> task) throws Exception {\n    s.acquire();                  // before the try, like lock()\n    try {\n        return task.call();\n    } finally {\n        s.release();              // exactly the permit we took\n    }\n}\n\nAuthorization a = withPermit(issuerPermits, () -> issuer.authorize(request));"
+  },
+  "kotlin": {
+   "title": "Kotlin",
+   "src": "inline fun <T> Semaphore.withPermit(block: () -> T): T {\n    acquire()                     // before the try, like lock()\n    try {\n        return block()\n    } finally {\n        release()                 // exactly the permit we took\n    }\n}\n\nval a = issuerPermits.withPermit { issuer.authorize(request) }"
+  },
+  "note": "Both languages use the same `java.util.concurrent` classes, and both block a thread while it waits. Kotlin's difference is that an `inline` extension function makes the safe idiom read like a language feature: the lambda is inlined, so there's no allocation, `return` inside it works as usual, and nobody on the team writes the `try`/`finally` by hand again. The Kotlin standard library doesn't ship `withPermit` for `java.util.concurrent.Semaphore`; you write it once, as above. kotlinx.coroutines has its own `Semaphore` with a built-in `withPermit` that suspends the coroutine instead of blocking a thread. The coroutines track covers it."
+ },
+ "worked": {
+  "title": "A parallel reconciliation that can't hang",
+  "steps": [
+   {
+    "say": "End-of-day reconciliation compares 4 ledger partitions against the bank statement. Each takes a few seconds, so it runs on 4 threads and waits for all of them with a latch. Read this first version. What happens if `reconcile` throws for one partition?",
+    "code": "CountDownLatch done = new CountDownLatch(4);\nList<Mismatch> found = new CopyOnWriteArrayList<>();\nfor (Partition p : partitions) {\n    new Thread(() -> {\n        found.addAll(reconcile(p));\n        done.countDown();\n    }).start();\n}\ndone.await();\nreport(found);",
+    "lang": "java",
+    "alt_code": "val done = CountDownLatch(4)\nval found = CopyOnWriteArrayList<Mismatch>()\nfor (p in partitions) {\n    thread {\n        found.addAll(reconcile(p))\n        done.countDown()\n    }\n}\ndone.await()\nreport(found)",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "The failing thread dies before `countDown()`. The count stays at 1, and `await()` waits forever. The job doesn't fail; it just never ends. A dump shows `main` `WAITING` in `CountDownLatch.await` and no worker threads at all, because they all finished or died. The fix has three parts: count down in `finally`, record the failure so it isn't lost, and never wait without a deadline.",
+    "code": "",
+    "lang": ""
+   },
+   {
+    "say": "Here is the version that always ends, with subgoal labels.",
+    "code": "CountDownLatch done = new CountDownLatch(partitions.size());\nList<Mismatch> found = new CopyOnWriteArrayList<>();\nList<Throwable> failures = new CopyOnWriteArrayList<>();\nfor (Partition p : partitions) {\n    new Thread(() -> {\n        try {\n            found.addAll(reconcile(p));          // 1. do the work\n        } catch (Throwable e) {\n            failures.add(e);                      // 2. remember the failure instead of losing it\n        } finally {\n            done.countDown();                     // 3. always count down\n        }\n    }, \"recon-\" + p.id()).start();\n}\nif (!done.await(10, TimeUnit.MINUTES)) {          // 4. never wait forever\n    throw new IllegalStateException(\"reconciliation still running after 10 min\");\n}\nif (!failures.isEmpty()) throw new IllegalStateException(\"partitions failed: \" + failures);\nreport(found);                                    // 5. countDown happens-before await returns: all results visible",
+    "lang": "java",
+    "alt_code": "val done = CountDownLatch(partitions.size)\nval found = CopyOnWriteArrayList<Mismatch>()\nval failures = CopyOnWriteArrayList<Throwable>()\nfor (p in partitions) {\n    thread(name = \"recon-${p.id}\") {\n        try {\n            found.addAll(reconcile(p))          // 1. do the work\n        } catch (e: Throwable) {\n            failures.add(e)                      // 2. remember the failure instead of losing it\n        } finally {\n            done.countDown()                     // 3. always count down\n        }\n    }\n}\nif (!done.await(10, TimeUnit.MINUTES)) {         // 4. never wait forever\n    throw IllegalStateException(\"reconciliation still running after 10 min\")\n}\nif (failures.isNotEmpty()) throw IllegalStateException(\"partitions failed: $failures\")\nreport(found)                                    // 5. countDown happens-before await returns: all results visible",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "Before reading on, explain to yourself: why can `main` read `found` after `await` returns without any lock? Answer: everything a worker did before `countDown()` happens-before `await()` returns in the thread that waited. `found` is still a `CopyOnWriteArrayList`, because the four workers add to it at the same time. In a real service you'd submit the four tasks to an `ExecutorService` and use `invokeAll`, which the executors track covers. A latch is one of the pieces such tools are built from.",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "Fix a permit leak, then run a simulation in rounds",
+  "minutes": 15,
+  "files": [
+   "labs/concurrency/src/main/java/workbench/concurrency/l10/IssuerGate.java",
+   "labs/concurrency/src/main/java/workbench/concurrency/l10/RoundRunner.java"
+  ],
+  "run": "./gradlew :concurrency:test --tests 'workbench.concurrency.l10.*'",
+  "steps": [
+   "Run the tests. Four of six fail: the timed call runs its task with no permit, an interrupted waiter adds a permit, and both `RoundRunner` tests hit `UnsupportedOperationException`.",
+   "Fix `IssuerGate.call(task)`: move `acquire()` to the line before the `try`.",
+   "Fix `IssuerGate.call(task, maxWait)`: if `tryAcquire` returns `false`, throw `TimeoutException` before the `try`, so the task doesn't run and nothing is released.",
+   "Write `RoundRunner.run`. Keep a `long[] shares`, one slot per worker. Build a `CyclicBarrier(workers, action)` whose action sums `shares` and calls `onRoundTotal`. Start one thread per worker that loops over the rounds: `shares[me] = step.applyAsLong(me, r)`, then `await()`. Join every thread before returning.",
+   "Run the tests until all six pass, then twice more."
+  ],
+  "hints": [
+   "Why can the barrier action read `shares` without a lock? Each worker writes only its own slot, before `await()`, and everything before `await()` happens-before the action runs.",
+   "`await()` throws `InterruptedException` and `BrokenBarrierException`. In the worker, restore the interrupt flag for the first, and stop the loop for both.",
+   "The second `RoundRunner` test calls your step from 4 threads and checks that round `r` never starts before `r` totals have been passed on. The barrier action runs before anyone is released, so this holds by construction."
+  ],
+  "done_when": "All six tests in `SynchronizersTest` pass, three runs in a row."
+ },
+ "drill": {
+  "title": "Wait for N tasks, with a deadline",
+  "minutes": 4,
+  "prompt": "Close this page. Write `awaitAll(tasks, deadline)`: run each task on its own thread and return `true` if all of them finished within the deadline, `false` otherwise. A task that throws must not make it hang. Check: where is your `countDown()`?",
+  "answer": {
+   "lang": "java",
+   "src": "static boolean awaitAll(List<Runnable> tasks, Duration deadline) throws InterruptedException {\n    CountDownLatch done = new CountDownLatch(tasks.size());\n    for (Runnable task : tasks) {\n        new Thread(() -> {\n            try {\n                task.run();\n            } finally {\n                done.countDown();          // even when the task throws\n            }\n        }).start();\n    }\n    return done.await(deadline.toMillis(), TimeUnit.MILLISECONDS);\n}",
+   "alt": {
+    "lang": "kotlin",
+    "title": "Kotlin",
+    "src": "fun awaitAll(tasks: List<() -> Unit>, deadline: Duration): Boolean {\n    val done = CountDownLatch(tasks.size)\n    for (task in tasks) {\n        thread {\n            try {\n                task()\n            } finally {\n                done.countDown()          // even when the task throws\n            }\n        }\n    }\n    return done.await(deadline.toMillis(), TimeUnit.MILLISECONDS)\n}"
+   }
+  }
+ },
+ "recap": [
+  "`CountDownLatch`: wait until N events have happened. One-shot; count down in `finally`; await with a timeout.",
+  "`CyclicBarrier`: N threads meet, the barrier action runs once on the last arrival, then all continue. It resets itself each round and breaks on timeout or interrupt.",
+  "A thread that never reaches `await()` leaves the others waiting forever unless they use the timed `await`.",
+  "`Semaphore`: at most N threads at once. Permits have no owner, so release only what you acquired: `acquire()` before `try`, check `tryAcquire`'s result.",
+  "`Phaser`: a reusable barrier whose parties can register and leave between phases. `Exchanger` swaps one object between two threads.",
+  "Releasing a latch, barrier or semaphore happens-before the waiting threads continue, so results written before it are visible after it."
+ ],
+ "quiz": [
+  {
+   "q": "A service must not accept traffic until four independent caches have loaded, each on its own thread. Which tool fits best?",
+   "options": [
+    "`CountDownLatch(4)`, counted down by each loader, awaited by the startup code",
+    "`CyclicBarrier(4)`",
+    "`Semaphore(4)`",
+    "`Exchanger`"
+   ],
+   "answer": 0,
+   "why": "You are waiting for four events, once. That is a latch. A barrier would make the four loader threads wait for each other, which they don't need to, and it is built for repeated rounds. A semaphore limits concurrency; it doesn't wait for completion."
+  },
+  {
+   "q": "`try { sem.acquire(); callIssuer(); } finally { sem.release(); }` with `new Semaphore(10)`. A thread is interrupted while it waits in `acquire()`. What happens?",
+   "options": [
+    "Nothing: `acquire()` gives up cleanly",
+    "The thread gets the permit anyway",
+    "`acquire()` throws, the `finally` releases a permit that was never taken, and the semaphore now allows 11",
+    "The semaphore throws `IllegalMonitorStateException` in `release()`"
+   ],
+   "answer": 2,
+   "why": "`acquire()` throws `InterruptedException`, which still runs the `finally`. Permits have no owner, so `release()` simply adds one. Move `acquire()` above the `try`."
+  },
+  {
+   "q": "Three workers use a `CyclicBarrier(3)` with plain `await()`. One worker throws an exception before it reaches `await()` in round 5. What do the other two do?",
+   "options": [
+    "They get `BrokenBarrierException` at once",
+    "The barrier notices the dead thread and lets them through",
+    "They get `TimeoutException` after a default timeout",
+    "They wait forever"
+   ],
+   "answer": 3,
+   "why": "The barrier only breaks when a waiting thread is interrupted or times out, or the action fails. A thread that never arrives is invisible to it, and plain `await()` has no timeout. Use `await(timeout, unit)` so the round fails instead of hanging."
+  },
+  {
+   "q": "From deadlock, livelock and starvation: 20 request threads each take 1 permit from a `Semaphore(20)` that guards DB connections, then call a helper that takes another permit from the same semaphore. Under full load everything stops. What will `jcmd Thread.print` say?",
+   "options": [
+    "`Found one Java-level deadlock` naming the semaphore",
+    "No deadlock report: semaphore permits have no owner, so the detector can't see the cycle; you see 20 threads `WAITING` in `Semaphore.acquire`",
+    "It reports a livelock",
+    "The threads show as `BLOCKED`"
+   ],
+   "answer": 1,
+   "why": "This is hold-and-wait: every thread holds one permit and waits for a second. It is a real deadlock, but the JVM's detector only follows owned locks (monitors and `ReentrantLock`-style synchronizers). Parked threads show as `WAITING`, not `BLOCKED`. Acquire both permits at once with `acquire(2)`, or don't take a second one while holding the first.",
+   "from": "conc-06"
+  },
+  {
+   "q": "A batch job processes files in rounds and the number of worker threads changes between rounds as files are discovered. Which tool fits?",
+   "options": [
+    "One `CountDownLatch` per round, created up front",
+    "A `CyclicBarrier` with the maximum number of workers",
+    "A `Phaser`, with workers registering when they start and deregistering when they finish",
+    "A `Semaphore`"
+   ],
+   "answer": 2,
+   "why": "A phaser's group can grow and shrink between phases, and each phase waits only for the parties registered then. A barrier's party count is fixed, so missing workers would hang it. Latches are one-shot and need their count known in advance."
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "A `CountDownLatch` has reached zero. What do later `await()` and `countDown()` calls do?",
+   "back": "`await()` returns at once. `countDown()` does nothing. A latch can't be reset."
+  },
+  {
+   "front": "When does a `CyclicBarrier`'s barrier action run, and on which thread?",
+   "back": "Once per round, on the last thread to arrive, before any waiting thread is released."
+  },
+  {
+   "front": "What breaks a `CyclicBarrier`?",
+   "back": "A waiting thread being interrupted or timing out, the barrier action throwing, or `reset()`. Then every waiter gets `BrokenBarrierException`."
+  },
+  {
+   "front": "What does `release()` do on a `Semaphore` when the caller never acquired a permit?",
+   "back": "It adds a permit anyway. Permits have no owner, so stray releases silently raise the limit."
+  },
+  {
+   "front": "Where do `acquire()` and `release()` go relative to `try`/`finally`?",
+   "back": "`acquire()` on the line before `try`; `release()` in `finally`. With `tryAcquire`, check its result before entering the `try`."
+  },
+  {
+   "front": "Latch or barrier: \"start serving after 3 caches load\" vs \"4 workers finish day N before any starts day N+1\"?",
+   "back": "The first is a latch (waiting for events, once). The second is a barrier (a fixed group meeting every round)."
+  },
+  {
+   "front": "What can a `Phaser` do that a `CyclicBarrier` can't?",
+   "back": "Change its number of parties between phases: `register()` to join, `arriveAndDeregister()` to leave."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Synchronizer",
+   "plain": "An object that makes threads wait for each other or for events, such as a latch, barrier or semaphore."
+  },
+  {
+   "term": "CountDownLatch",
+   "plain": "A one-shot gate that opens when a count reaches zero."
+  },
+  {
+   "term": "CyclicBarrier",
+   "plain": "A meeting point for a fixed number of threads that resets itself after each round."
+  },
+  {
+   "term": "Barrier action",
+   "plain": "Code a `CyclicBarrier` runs once per round, before releasing the threads."
+  },
+  {
+   "term": "Semaphore",
+   "plain": "A counter of permits that limits how many threads can do something at once."
+  },
+  {
+   "term": "Permit",
+   "plain": "One unit of a semaphore's count. It belongs to nobody."
+  },
+  {
+   "term": "Phaser",
+   "plain": "A reusable barrier whose set of parties can change between phases."
+  }
+ ],
+ "explain_back": {
+  "prompt": "Explain the difference between a `CountDownLatch`, a `CyclicBarrier` and a `Semaphore` to a teammate, with one payments example of each.",
+  "answer": "A latch waits for a number of events and then opens for good: startup code waits until the BIN ranges, FX rates and merchant config have loaded, then starts taking traffic. A barrier is a meeting point for a fixed group of threads, every round: four workers simulating exposure each finish day 3, the last one totals the day, and then all four start day 4. A semaphore limits how many threads do something at the same time: at most 20 threads may be inside a call to the card issuer. The traps differ too. A latch hangs if a task forgets to count down. A barrier hangs if a thread never arrives and nobody used a timeout. A semaphore quietly raises its limit if code releases a permit it never took."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "Every synchronizer in this lesson, like `ReentrantLock`, is a thin layer over `AbstractQueuedSynchronizer`: an `int` of state and a queue of parked threads. For a latch the state is the count, and `await` parks until it is zero. For a semaphore it is the permits left. That shared core is why they all show up the same way in a thread dump: `WAITING (parking)`, with a line like `parking to wait for <0x...> (a java.util.concurrent.Semaphore$NonfairSync)`.\n\nA few API corners are worth knowing. `Semaphore.acquire(n)` takes several permits in one step, which avoids the hold-one-wait-for-another deadlock from the quiz. `drainPermits()` takes all that are left, which is handy when you want to stop new work during a shutdown. `acquireUninterruptibly()` ignores interrupts, which you almost never want. `CyclicBarrier.await()` returns the arrival index (parties minus one for the first to arrive, zero for the last), so you can pick one thread to do extra work without a barrier action.\n\n`Phaser` supports tiering: you can build a tree of phasers so thousands of parties don't all contend on one. Its Javadoc caps a single phaser at 65,535 registered parties.\n\nOn virtual threads (JDK 21), blocking in any of these is cheap: the virtual thread parks and its carrier thread runs something else. A `Semaphore` is in fact the standard way to limit concurrency once you start a virtual thread per task, because there is no pool size to do it for you. The virtual threads track comes back to that. In Kotlin coroutines, the equivalents suspend instead of blocking: `kotlinx.coroutines.sync.Semaphore`, `Job.join()` or `awaitAll()` for latches, and channels for most of the rest."
+ },
+ "sources": [
+  {
+   "title": "CountDownLatch (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/CountDownLatch.html"
+  },
+  {
+   "title": "CyclicBarrier (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/CyclicBarrier.html"
+  },
+  {
+   "title": "Phaser (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/Phaser.html"
+  },
+  {
+   "title": "Java Concurrency in Practice, Goetz et al., section 5.5 (synchronizers)",
+   "url": "https://jcip.net/"
+  }
+ ]
+}

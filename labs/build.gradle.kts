@@ -3,6 +3,9 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 plugins {
     kotlin("jvm") version "2.4.21" apply false
+    kotlin("plugin.serialization") version "2.4.21" apply false
+    kotlin("plugin.allopen") version "2.4.21" apply false
+    kotlin("plugin.noarg") version "2.4.21" apply false
 }
 
 val versions = mapOf(
@@ -10,6 +13,12 @@ val versions = mapOf(
     "assertj" to "3.27.7",
     "coroutines" to "1.11.0",
     "reactor" to "3.8.8",
+    "jmh" to "1.37",
+    "bytebuddy" to "1.18.17",
+    "netty" to "4.2.20.Final",
+    "vertx" to "5.2.3",
+    "jol" to "0.17",
+    "serialization" to "1.12.0",
 )
 extra["versions"] = versions
 

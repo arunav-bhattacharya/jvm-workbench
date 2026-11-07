@@ -5,7 +5,7 @@ import java.lang.invoke.VarHandle;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * One producer hands transfers to one consumer through a one-item slot, for two seconds.
+ * One producer hands transfers to one consumer through a one-item slot, for three seconds.
  * The argument picks the slot: plain (ordinary field access), opaque, or release (the default).
  */
 public class HandoffDemo {
@@ -99,7 +99,7 @@ public class HandoffDemo {
 
         long last = -1;
         for (int tick = 0; tick < 4; tick++) {
-            Thread.sleep(500);
+            Thread.sleep(750);
             long now = handed.get();
             if (now == last) {
                 System.out.printf("%s: stuck after %,d handoffs. A spinning thread stopped seeing the slot change.%n", mode, now);
@@ -107,6 +107,6 @@ public class HandoffDemo {
             }
             last = now;
         }
-        System.out.printf("%s: %,d transfers handed over in 2 s, %,d with wrong fields%n", mode, handed.get(), wrong.get());
+        System.out.printf("%s: %,d transfers handed over in 3 s, %,d with wrong fields%n", mode, handed.get(), wrong.get());
     }
 }

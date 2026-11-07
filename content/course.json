@@ -1,6 +1,6 @@
 {
   "title": "JVM Workbench",
-  "tagline": "Concurrency, generics and design patterns in Java and Kotlin, one focused session a day.",
+  "tagline": "Concurrency, the JVM runtime, generics and design patterns in Java and Kotlin, one focused session a day.",
   "tracks": [
     {
       "id": "conc",
@@ -363,6 +363,222 @@
         {
           "id": "pat-11",
           "title": "Concurrency patterns that tie it all together"
+        }
+      ]
+    },
+    {
+      "id": "mem",
+      "lab": "memory",
+      "title": "Memory and garbage collection",
+      "short": "Heap, stacks and object layout, allocation, references, G1, ZGC and Shenandoah, GC logs, and hunting leaks.",
+      "lessons": [
+        {
+          "id": "mem-01",
+          "title": "Where objects live: heap, stacks, metaspace and object headers"
+        },
+        {
+          "id": "mem-02",
+          "title": "Allocation, TLABs and escape analysis"
+        },
+        {
+          "id": "mem-03",
+          "title": "Reachability: strong, soft, weak and phantom references"
+        },
+        {
+          "id": "mem-04",
+          "title": "How garbage collectors work: generations and G1"
+        },
+        {
+          "id": "mem-05",
+          "title": "Low-pause collectors: ZGC, Shenandoah, and choosing a GC"
+        },
+        {
+          "id": "mem-06",
+          "title": "Reading GC logs and sizing the heap in containers"
+        },
+        {
+          "id": "mem-07",
+          "title": "Hunting memory leaks: heap dumps, native memory and off-heap"
+        }
+      ]
+    },
+    {
+      "id": "perf",
+      "lab": "performance",
+      "title": "JIT, profiling and benchmarking",
+      "short": "Tiered compilation, inlining and deoptimization, JMH, false sharing, JFR, async-profiler and flame graphs.",
+      "lessons": [
+        {
+          "id": "perf-01",
+          "title": "From bytecode to machine code: interpreter, C1, C2"
+        },
+        {
+          "id": "perf-02",
+          "title": "Inlining, deoptimization and intrinsics"
+        },
+        {
+          "id": "perf-03",
+          "title": "Benchmarking with JMH, and the traps it saves you from"
+        },
+        {
+          "id": "perf-04",
+          "title": "CPU caches, false sharing and @Contended"
+        },
+        {
+          "id": "perf-05",
+          "title": "JDK Flight Recorder and Mission Control"
+        },
+        {
+          "id": "perf-06",
+          "title": "async-profiler and flame graphs"
+        },
+        {
+          "id": "perf-07",
+          "title": "A performance investigation, start to finish"
+        }
+      ]
+    },
+    {
+      "id": "cls",
+      "lab": "bytecode",
+      "title": "Class loading, bytecode and dynamic proxies",
+      "short": "Class loaders and initialization, reading bytecode, invokedynamic, JDK and generated proxies, the ClassFile API and agents.",
+      "lessons": [
+        {
+          "id": "cls-01",
+          "title": "Class loading: loaders, delegation, linking and initialization"
+        },
+        {
+          "id": "cls-02",
+          "title": "Reading bytecode: javap, the operand stack and Kotlin's output"
+        },
+        {
+          "id": "cls-03",
+          "title": "invokedynamic: how lambdas and string concatenation compile"
+        },
+        {
+          "id": "cls-04",
+          "title": "Dynamic proxies with java.lang.reflect.Proxy"
+        },
+        {
+          "id": "cls-05",
+          "title": "Generated proxies: Byte Buddy, Spring AOP and Quarkus interceptors"
+        },
+        {
+          "id": "cls-06",
+          "title": "Generating and transforming classes with the ClassFile API"
+        },
+        {
+          "id": "cls-07",
+          "title": "Java agents and instrumentation"
+        }
+      ]
+    },
+    {
+      "id": "io",
+      "lab": "nio",
+      "title": "NIO and event loops",
+      "short": "Blocking vs non-blocking IO, buffers, channels and selectors, Netty and Vert.x event loops, and zero-copy.",
+      "lessons": [
+        {
+          "id": "io-01",
+          "title": "Blocking IO, threads and the C10K problem"
+        },
+        {
+          "id": "io-02",
+          "title": "NIO: buffers, channels and selectors"
+        },
+        {
+          "id": "io-03",
+          "title": "Netty: the event loop and the channel pipeline"
+        },
+        {
+          "id": "io-04",
+          "title": "Vert.x and Quarkus: event loops, workers and blocking the loop"
+        },
+        {
+          "id": "io-05",
+          "title": "Zero-copy, epoll, io_uring, and where virtual threads fit"
+        }
+      ]
+    },
+    {
+      "id": "boot",
+      "lab": "startup",
+      "title": "Startup and footprint",
+      "short": "Why the JVM starts slowly, class data sharing, Project Leyden's AOT cache, GraalVM native image and CRaC.",
+      "lessons": [
+        {
+          "id": "boot-01",
+          "title": "Why the JVM starts slowly, and how to measure it"
+        },
+        {
+          "id": "boot-02",
+          "title": "Class data sharing and Project Leyden's AOT cache"
+        },
+        {
+          "id": "boot-03",
+          "title": "GraalVM native image and Quarkus native"
+        },
+        {
+          "id": "boot-04",
+          "title": "CRaC, and choosing a startup strategy"
+        }
+      ]
+    },
+    {
+      "id": "kt",
+      "lab": "kotlin",
+      "title": "Advanced Kotlin",
+      "short": "Inline functions, value classes, delegation, type-safe DSLs, contracts, context parameters and compiler plugins.",
+      "lessons": [
+        {
+          "id": "kt-01",
+          "title": "Inline functions: noinline, crossinline and non-local returns"
+        },
+        {
+          "id": "kt-02",
+          "title": "Value classes and what they compile to"
+        },
+        {
+          "id": "kt-03",
+          "title": "Delegation: class delegation and delegated properties"
+        },
+        {
+          "id": "kt-04",
+          "title": "Type-safe DSLs with lambdas with receivers"
+        },
+        {
+          "id": "kt-05",
+          "title": "Contracts and context parameters"
+        },
+        {
+          "id": "kt-06",
+          "title": "Compiler plugins: all-open, no-arg and kotlinx.serialization"
+        }
+      ]
+    },
+    {
+      "id": "dop",
+      "lab": "modernjava",
+      "title": "Modern Java data modeling",
+      "short": "Records, sealed types, pattern matching and data-oriented programming, and where Project Valhalla is heading.",
+      "lessons": [
+        {
+          "id": "dop-01",
+          "title": "Records: transparent carriers for data"
+        },
+        {
+          "id": "dop-02",
+          "title": "Sealed types: hierarchies the compiler can check"
+        },
+        {
+          "id": "dop-03",
+          "title": "Pattern matching with switch and record patterns"
+        },
+        {
+          "id": "dop-04",
+          "title": "Data-oriented programming, and Project Valhalla"
         }
       ]
     }

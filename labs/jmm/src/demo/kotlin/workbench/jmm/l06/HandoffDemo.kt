@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 
 /*
- * One producer hands transfers to one consumer through a one-item slot, for two seconds.
+ * One producer hands transfers to one consumer through a one-item slot, for three seconds.
  * The argument picks the slot: plain (ordinary property access), opaque, or release (the default).
  */
 private class Transfer { var id = 0L; var amountCents = 0L }   // plain fields on purpose
@@ -96,7 +96,7 @@ fun main(args: Array<String>) {
 
     var last = -1L
     repeat(4) {
-        Thread.sleep(500)
+        Thread.sleep(750)
         val now = handed.get()
         if (now == last) {
             println("%s: stuck after %,d handoffs. A spinning thread stopped seeing the slot change.".format(mode, now))
@@ -104,5 +104,5 @@ fun main(args: Array<String>) {
         }
         last = now
     }
-    println("%s: %,d transfers handed over in 2 s, %,d with wrong fields".format(mode, handed.get(), wrong.get()))
+    println("%s: %,d transfers handed over in 3 s, %,d with wrong fields".format(mode, handed.get(), wrong.get()))
 }

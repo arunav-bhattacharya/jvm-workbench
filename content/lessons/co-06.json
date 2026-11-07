@@ -1,0 +1,405 @@
+{
+ "id": "co-06",
+ "title": "Exceptions: launch vs async, SupervisorJob, handlers",
+ "minutes": 35,
+ "goal": "By the end you can predict where a coroutine's exception goes (parent, await or handler), let independent work fail alone with a supervisor, put a CoroutineExceptionHandler where it actually runs, and spot the launch(SupervisorJob()) trap.",
+ "warmup": {
+  "q": "Inside `coroutineScope { }`, you start `val risk = async { riskScore(id) }` and then do 500 ms of other work before calling `risk.await()`. The risk call throws at 100 ms. When does anything happen?",
+  "options": [
+   "Only at `await()`, at 500 ms: until then the exception waits inside the Deferred",
+   "At 100 ms: the scope is cancelled, the other work stops, and `coroutineScope` throws",
+   "Never: an exception in `async` is ignored unless someone awaits it",
+   "At 100 ms the exception is printed by the uncaught handler, and `await()` returns null"
+  ],
+  "answer": 1,
+  "why": "A failed child cancels its parent at once, and that is as true for `async` as for `launch`. The exception waits in the `Deferred` only when the parent is a supervisor or there is no parent. Here the scope is cancelled at 100 ms and `await()` is never reached."
+ },
+ "sections": [
+  {
+   "h": "launch and async both report a failure to their parent at once",
+   "body": "A coroutine that ends with an exception other than `CancellationException` has **failed**, and a failed child tells its parent at once. With a regular job, the parent then does what lesson 3 of this track described: it cancels its other children, waits for them to stop, and fails with the same exception. That holds for `launch` and for `async` alike.\n\nThe `async` half surprises people. Many expect a failure in `async` to wait in the `Deferred` until somebody calls `await`, the way a failed `CompletableFuture` waits for `join`. It doesn't:\n\n```kotlin\ncoroutineScope {\n    val risk = async { riskScore(paymentId) }      // throws at 100 ms\n    launch { postToLedger(paymentId) }\n    delay(500)                                     // never passed: the scope is cancelled at 100 ms\n    risk.await()\n}\n```\n\n```java\n// Java equivalent: a failed future tells nobody until someone joins it\nCompletableFuture<Score> risk = CompletableFuture.supplyAsync(() -> riskScore(paymentId), pool);\nCompletableFuture.runAsync(() -> postToLedger(paymentId), pool);\nThread.sleep(500);                                  // passed: the ledger task keeps running too\nrisk.join();                                        // the failure shows up only here\n```\n\nAt 100 ms the risk call fails, the scope cancels the ledger call, and `coroutineScope` throws the risk exception to its caller. The kotlinx.coroutines 1.11 KDoc says it directly: `async` follows the same rules, and only when the parent is a supervisor or there is no parent is the exception \"only available through the returned `Deferred`\".\n\nSo a `try` around `await` does not protect the scope. By the time `await` would throw, the child has already cancelled the scope. `runCatching { risk.await() }` inside `coroutineScope` is a common bug, and it is one of the bugs in this lesson's lab.\n\nWhere do `launch` and `async` differ, then? Only when a failure has nobody above it to tell. A `launch` at the root hands its exception to a handler, which the next section covers. An `async` at the root keeps it in the `Deferred`, and `await` rethrows it. That is the same split as `execute` and `submit` on a Java executor: `execute` sends a task's exception to the thread's uncaught exception handler, while `submit` keeps it in the `Future` for `get`.",
+   "try": {
+    "title": "Fail an async that nobody awaits",
+    "minutes": 4,
+    "steps": [
+     "Read `AsyncFailsWithoutAwait.kt`. The risk call fails at 100 ms, and the body only awaits it at 500 ms. Predict which lines print, and when.",
+     "Run it.",
+     "Run it with `-Pargs=supervisor`, which uses `supervisorScope`. Predict first: when does the failure surface now, and what happens to the ledger child?",
+     "Run the Java twin."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "AsyncFailsWithoutAwait.kt",
+     "src": "package workbench.coroutines.l06\n\nimport kotlinx.coroutines.CoroutineScope\nimport kotlinx.coroutines.async\nimport kotlinx.coroutines.coroutineScope\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.runBlocking\nimport kotlinx.coroutines.supervisorScope\nimport java.io.IOException\n\nprivate var t0 = 0L\nprivate fun log(msg: String) = println(\"%5d ms  %s\".format((System.nanoTime() - t0) / 1_000_000, msg))\n\nfun main(args: Array<String>) = runBlocking {\n    t0 = System.nanoTime()\n    val supervised = args.firstOrNull() == \"supervisor\"\n    try {\n        val body: suspend CoroutineScope.() -> Unit = {\n            val risk = async { delay(100); throw IOException(\"risk service down\") }  // nobody awaits this yet\n            launch {\n                try { delay(1_000); log(\"ledger: done\") } finally { log(\"ledger: finally\") }\n            }\n            delay(500)\n            log(\"body: still running at 500 ms, about to await risk\")\n            risk.await()\n        }\n        if (supervised) supervisorScope(body) else coroutineScope(body)\n        log(\"scope returned normally\")\n    } catch (e: IOException) {\n        log(\"caller caught: ${e.message}\")\n    }\n}\n",
+     "run": "./gradlew :coroutines:demo -Pmain=workbench.coroutines.l06.AsyncFailsWithoutAwaitKt -Pargs=supervisor",
+     "file": "labs/coroutines/src/demo/kotlin/workbench/coroutines/l06/AsyncFailsWithoutAwait.kt",
+     "alt": {
+      "lang": "java",
+      "title": "AsyncFailsWithoutAwaitJava.java",
+      "src": "// Java equivalent of AsyncFailsWithoutAwait.kt: a failed CompletableFuture tells nobody.\n// The failure sits in the future until someone joins it, and the sibling task runs on.\npackage workbench.coroutines.l06;\n\nimport java.io.IOException;\nimport java.io.UncheckedIOException;\nimport java.util.concurrent.CompletableFuture;\nimport java.util.concurrent.CompletionException;\nimport java.util.concurrent.ExecutorService;\nimport java.util.concurrent.Executors;\n\npublic class AsyncFailsWithoutAwaitJava {\n    static long T0;\n    static void log(String msg) { System.out.printf(\"%5d ms  %s%n\", (System.nanoTime() - T0) / 1_000_000, msg); }\n    static void sleep(long ms) { try { Thread.sleep(ms); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } }\n\n    public static void main(String[] args) {\n        T0 = System.nanoTime();\n        try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {\n            CompletableFuture<Void> risk = CompletableFuture.runAsync(() -> {\n                sleep(100);\n                throw new UncheckedIOException(new IOException(\"risk service down\"));   // nobody joins this yet\n            }, pool);\n            CompletableFuture.runAsync(() -> {\n                try { sleep(1_000); log(\"ledger: done\"); } finally { log(\"ledger: finally\"); }\n            }, pool);\n            sleep(500);\n            log(\"body: still running at 500 ms, about to join risk\");\n            try {\n                risk.join();\n            } catch (CompletionException e) {\n                log(\"caller caught: \" + e.getCause().getCause().getMessage());\n            }\n        }   // close() waits for the ledger task, which nobody cancelled\n        log(\"pool closed\");\n    }\n}\n",
+      "run": "./gradlew :coroutines:demo -Pmain=workbench.coroutines.l06.AsyncFailsWithoutAwaitJava",
+      "file": "labs/coroutines/src/demo/java/workbench/coroutines/l06/AsyncFailsWithoutAwaitJava.java"
+     }
+    },
+    "expect": "Plain: at about 100 ms, `ledger: finally` and `caller caught: risk service down`. The body's 500 ms line never prints. With `-Pargs=supervisor`, the failed `async` does nothing on its own. The body prints at 500 ms, `await` rethrows, and because the block itself threw, `supervisorScope` cancels the ledger child (`ledger: finally`) and rethrows. The Java twin is the contrast: nothing reacts at 100 ms, the caller sees the failure only when it joins at 500 ms, and the ledger task runs on to 1,000 ms."
+   },
+   "refs": [
+    {
+     "title": "Coroutine exceptions handling (Kotlin docs)",
+     "url": "https://kotlinlang.org/docs/exception-handling.html",
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "h": "CoroutineExceptionHandler is a last resort, and only roots use it",
+   "body": "`CoroutineExceptionHandler` is a context element that receives the exceptions nobody else handled. It is for logging and metrics. By the time it runs the coroutine has already finished, so there is nothing left to recover.\n\nThe rule that trips people up: **only root coroutines use it**. A child passes its exception to its parent, all the way up to the root, so a handler installed on a child is never called. A handler takes effect in two places. One is a coroutine launched straight into a scope whose job is not a coroutine, such as `CoroutineScope(SupervisorJob() + handler).launch { }`. The other is a direct child of a supervisor, which handles its own failure the way a root does (next section). It never takes effect on `async`, because an `async` keeps its exception for `await`.\n\n```kotlin\ncoroutineScope {\n    launch(handler) { throw IOException(\"webhook 503\") }   // ignored: this is a child\n}                                                          // coroutineScope throws IOException\n\nval webhooks = CoroutineScope(SupervisorJob() + Dispatchers.IO + handler)\nwebhooks.launch { throw IOException(\"webhook 503\") }        // a root: the handler gets it\n```\n\n```java\n// Java equivalent: the thread's uncaught handler sees execute() failures, never submit() ones\nThread.UncaughtExceptionHandler handler = (t, e) -> log.warn(\"task failed on {}\", t.getName(), e);\nExecutorService webhooks = Executors.newFixedThreadPool(8, r -> {\n    Thread t = new Thread(r, \"webhooks\");\n    t.setUncaughtExceptionHandler(handler);\n    return t;\n});\nwebhooks.execute(() -> { throw new UncheckedIOException(new IOException(\"webhook 503\")); });   // handler gets it\n```\n\nIf there is no handler in the context, the library falls back to the JVM's last-resort path: handlers registered through `ServiceLoader`, then the thread's uncaught exception handler, which usually prints a stack trace to stderr. In a service that is one log line and nothing more.\n\nWhen several children fail at once, the first exception wins and the others are attached to it as suppressed exceptions. Read the suppressed list before you decide only one call failed. Handlers ignore `CancellationException`, since a cancel is not a failure.\n\nThe practical upshot: install one handler on each long-lived scope you own, at the line where you create the scope, and use it to log and count. Don't sprinkle handlers on `launch` calls inside request code. There, a failure should reach the request, where an ordinary `try` around `coroutineScope` deals with it.",
+   "try": {
+    "title": "Find out where a handler runs",
+    "minutes": 3,
+    "steps": [
+     "Read `HandlerOnlyAtRoot.kt`. It installs the same handler in three places. Predict which of the three prints `handler got`.",
+     "Run it.",
+     "In case 1, swap `coroutineScope` for `supervisorScope` and run it again. Predict first.",
+     "Run the Java twin, which uses `execute` and `submit` on a pool with an uncaught exception handler."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "HandlerOnlyAtRoot.kt",
+     "src": "package workbench.coroutines.l06\n\nimport kotlinx.coroutines.CoroutineExceptionHandler\nimport kotlinx.coroutines.CoroutineName\nimport kotlinx.coroutines.CoroutineScope\nimport kotlinx.coroutines.Dispatchers\nimport kotlinx.coroutines.SupervisorJob\nimport kotlinx.coroutines.async\nimport kotlinx.coroutines.coroutineScope\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.runBlocking\nimport java.io.IOException\n\nfun main() = runBlocking {\n    val handler = CoroutineExceptionHandler { ctx, e -> println(\"  handler got: ${e.message} (from ${ctx[CoroutineName]?.name})\") }\n\n    println(\"1. handler on a child inside coroutineScope:\")\n    try {\n        coroutineScope {\n            launch(handler + CoroutineName(\"child\")) { throw IOException(\"webhook 503\") }\n        }\n    } catch (e: IOException) {\n        println(\"  coroutineScope threw: ${e.message}  (the child's handler was ignored)\")\n    }\n\n    println(\"2. handler on a scope with a SupervisorJob, root launch:\")\n    val webhooks = CoroutineScope(SupervisorJob() + Dispatchers.Default + handler)\n    webhooks.launch(CoroutineName(\"root-launch\")) { throw IOException(\"webhook 503\") }.join()\n\n    println(\"3. the same scope, root async that nobody awaits:\")\n    val d = webhooks.async(CoroutineName(\"root-async\")) { throw IOException(\"webhook 503\") }\n    delay(100)\n    println(\"  nothing printed: the failure waits in the Deferred\")\n    try { d.await() } catch (e: IOException) { println(\"  await threw: ${e.message}\") }\n}\n",
+     "run": "./gradlew :coroutines:demo -Pmain=workbench.coroutines.l06.HandlerOnlyAtRootKt",
+     "file": "labs/coroutines/src/demo/kotlin/workbench/coroutines/l06/HandlerOnlyAtRoot.kt",
+     "alt": {
+      "lang": "java",
+      "title": "HandlerOnlyAtRootJava.java",
+      "src": "// Java equivalent of HandlerOnlyAtRoot.kt: execute() sends a task's exception to the thread's\n// uncaught exception handler (like a root launch and its handler), while submit() keeps it\n// inside the Future until someone calls get() (like a root async and await).\npackage workbench.coroutines.l06;\n\nimport java.io.IOException;\nimport java.io.UncheckedIOException;\nimport java.util.concurrent.ExecutionException;\nimport java.util.concurrent.ExecutorService;\nimport java.util.concurrent.Executors;\nimport java.util.concurrent.Future;\nimport java.util.concurrent.TimeUnit;\n\npublic class HandlerOnlyAtRootJava {\n    public static void main(String[] args) throws Exception {\n        Thread.UncaughtExceptionHandler handler = (t, e) -> System.out.println(\"  handler got: \" + e.getCause().getMessage() + \" (on \" + t.getName() + \")\");\n        ExecutorService webhooks = Executors.newFixedThreadPool(2, r -> {\n            Thread t = new Thread(r, \"webhooks\");\n            t.setUncaughtExceptionHandler(handler);\n            return t;\n        });\n        Runnable failing = () -> { throw new UncheckedIOException(new IOException(\"webhook 503\")); };\n\n        System.out.println(\"1. execute(): the exception reaches the thread's handler\");\n        webhooks.execute(failing);\n        Thread.sleep(100);\n\n        System.out.println(\"2. submit() that nobody waits for:\");\n        Future<?> f = webhooks.submit(failing);\n        Thread.sleep(100);\n        System.out.println(\"  nothing printed: the failure waits in the Future\");\n        try { f.get(); } catch (ExecutionException e) { System.out.println(\"  get threw: \" + e.getCause().getCause().getMessage()); }\n\n        webhooks.shutdown();\n        webhooks.awaitTermination(5, TimeUnit.SECONDS);\n    }\n}\n",
+      "run": "./gradlew :coroutines:demo -Pmain=workbench.coroutines.l06.HandlerOnlyAtRootJava",
+      "file": "labs/coroutines/src/demo/java/workbench/coroutines/l06/HandlerOnlyAtRootJava.java"
+     }
+    },
+    "expect": "Only case 2 prints `handler got: webhook 503 (from root-launch)`. In case 1 the handler on the child is ignored and `coroutineScope` throws. In case 3 nothing prints until `await` rethrows. After your change, case 1 prints `handler got` too: a direct child of `supervisorScope` handles its own failure like a root, and the scope returns normally. The Java twin shows the same split: `execute` reaches the thread's handler, `submit` waits in the `Future` until `get`."
+   },
+   "refs": [
+    {
+     "title": "CoroutineExceptionHandler (API reference)",
+     "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-coroutine-exception-handler/",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "A supervisor lets children fail alone",
+   "body": "Sometimes siblings shouldn't care about each other. The payment is captured, and now an email, an SMS and a push notification go out. An outage at the SMS gateway must not cancel the email. That is the job of a **supervisor**: a job whose children can fail independently. A child's failure doesn't cancel its siblings or the supervisor. Cancellation still flows down, so cancelling the supervisor cancels every child.\n\nThere are two ways to get one. `supervisorScope { }` is the supervisor version of `coroutineScope`, for work the caller waits for:\n\n```kotlin\nsuspend fun notifyAll(paymentId: String): Map<Channel, Outcome> = supervisorScope {\n    val sends = senders.mapValues { (_, s) -> async { s.send(paymentId) } }\n    sends.mapValues { (_, d) ->\n        try { d.await(); Outcome.Delivered }\n        catch (e: CancellationException) { throw e }\n        catch (e: Exception) { Outcome.Failed(e.message ?: e.toString()) }\n    }\n}\n```\n\n```java\n// Java equivalent: futures are independent, so each one handles its own failure\nMap<Channel, CompletableFuture<Outcome>> sends = new EnumMap<>(Channel.class);\nsenders.forEach((ch, s) -> sends.put(ch, CompletableFuture.runAsync(() -> s.send(paymentId), pool)\n    .handle((ok, e) -> e == null ? new Delivered() : new Failed(e.getMessage()))));\nCompletableFuture.allOf(sends.values().toArray(CompletableFuture[]::new)).join();\n```\n\nWith `async` children, each failure stays in its `Deferred`, and `await` rethrows it where you can catch it. With `launch` children there is no `await`, so the failure goes to the handler in the context. `supervisorScope` doesn't install one, so without your own handler it lands in the uncaught exception handler.\n\n`SupervisorJob()` is the supervisor for a scope you own (lesson 3 of this track): `CoroutineScope(SupervisorJob() + Dispatchers.IO + handler)`. Every `launch` into that scope is a child that can fail alone, and its failure goes to the scope's handler. The library's own `MainScope()` is built the same way, from a `SupervisorJob` and the main dispatcher.\n\nOne rule doesn't change. If the body of `supervisorScope` throws, the whole scope is cancelled, children included. Supervision covers the children, not the block itself, which is why the Try it in the first section cancelled the ledger child when `await` rethrew.\n\nPick per call, not per service. A payment details endpoint that needs all three of its calls wants `coroutineScope`, so one failure cancels the rest at once. Notifications, cache warm-ups and optional enrichments want a supervisor.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 680 270\" role=\"img\" aria-label=\"Two trees with email, sms and push children. Under coroutineScope the sms failure goes up, the scope is cancelled and cancels email and push, and the caller gets the exception. Under supervisorScope the sms failure stays with sms, email and push are sent, and the scope carries on.\"><text class=\"t-s t-code\" x=\"165\" y=\"24\" text-anchor=\"middle\">coroutineScope (Job)</text><rect class=\"box-bad\" x=\"80\" y=\"40\" width=\"170\" height=\"38\" rx=\"8\"/><text class=\"t\" x=\"165\" y=\"64\" text-anchor=\"middle\">scope cancelled</text><line class=\"ln-a\" x1=\"165\" y1=\"78\" x2=\"57\" y2=\"136\" marker-end=\"url(#arr)\"/><rect class=\"box-dim\" x=\"10\" y=\"140\" width=\"95\" height=\"36\" rx=\"8\"/><text class=\"t\" x=\"57\" y=\"163\" text-anchor=\"middle\">email</text><text class=\"t-s t-m\" x=\"57\" y=\"196\" text-anchor=\"middle\">cancelled</text><line class=\"ln-bad\" x1=\"165\" y1=\"140\" x2=\"165\" y2=\"82\" marker-end=\"url(#arr)\"/><rect class=\"box-bad\" x=\"118\" y=\"140\" width=\"95\" height=\"36\" rx=\"8\"/><text class=\"t\" x=\"165\" y=\"163\" text-anchor=\"middle\">sms</text><text class=\"t-s t-bad\" x=\"165\" y=\"196\" text-anchor=\"middle\">throws</text><line class=\"ln-a\" x1=\"165\" y1=\"78\" x2=\"273\" y2=\"136\" marker-end=\"url(#arr)\"/><rect class=\"box-dim\" x=\"226\" y=\"140\" width=\"95\" height=\"36\" rx=\"8\"/><text class=\"t\" x=\"273\" y=\"163\" text-anchor=\"middle\">push</text><text class=\"t-s t-m\" x=\"273\" y=\"196\" text-anchor=\"middle\">cancelled</text><text class=\"t-s\" x=\"165\" y=\"236\" text-anchor=\"middle\">the caller gets the IOException</text><text class=\"t-s t-m\" x=\"165\" y=\"254\" text-anchor=\"middle\">after email and push have stopped</text><line class=\"ln-d\" x1=\"340\" y1=\"16\" x2=\"340\" y2=\"258\"/><text class=\"t-s t-code\" x=\"515\" y=\"24\" text-anchor=\"middle\">supervisorScope (SupervisorJob)</text><rect class=\"box-ok\" x=\"430\" y=\"40\" width=\"170\" height=\"38\" rx=\"8\"/><text class=\"t\" x=\"515\" y=\"64\" text-anchor=\"middle\">scope carries on</text><line class=\"ln\" x1=\"515\" y1=\"78\" x2=\"407\" y2=\"140\"/><rect class=\"box-ok\" x=\"360\" y=\"140\" width=\"95\" height=\"36\" rx=\"8\"/><text class=\"t\" x=\"407\" y=\"163\" text-anchor=\"middle\">email</text><text class=\"t-s t-ok\" x=\"407\" y=\"196\" text-anchor=\"middle\">sent</text><line class=\"ln\" x1=\"515\" y1=\"78\" x2=\"515\" y2=\"140\"/><rect class=\"box-bad\" x=\"468\" y=\"140\" width=\"95\" height=\"36\" rx=\"8\"/><text class=\"t\" x=\"515\" y=\"163\" text-anchor=\"middle\">sms</text><text class=\"t-s t-bad\" x=\"515\" y=\"196\" text-anchor=\"middle\">throws</text><line class=\"ln\" x1=\"515\" y1=\"78\" x2=\"623\" y2=\"140\"/><rect class=\"box-ok\" x=\"576\" y=\"140\" width=\"95\" height=\"36\" rx=\"8\"/><text class=\"t\" x=\"623\" y=\"163\" text-anchor=\"middle\">push</text><text class=\"t-s t-ok\" x=\"623\" y=\"196\" text-anchor=\"middle\">sent</text><text class=\"t-s\" x=\"515\" y=\"236\" text-anchor=\"middle\">the failure stays with sms</text><text class=\"t-s t-m\" x=\"515\" y=\"254\" text-anchor=\"middle\">await rethrows it, or the handler logs it</text></svg>",
+    "caption": "Same failure, two parents. A plain Job cancels the whole family; a SupervisorJob keeps the failure with the child that had it."
+   },
+   "try": {
+    "title": "Three channels, one outage",
+    "minutes": 3,
+    "steps": [
+     "Read `SupervisorDemo.kt`. SMS fails at 50 ms, push takes 100 ms and email 300 ms. Predict the output with `coroutineScope`.",
+     "Run it.",
+     "Run it with `-Pargs=supervisor`. Predict first: what does the handler print, and when does the scope return?",
+     "Run the Java twin and compare its default with Kotlin's default."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "SupervisorDemo.kt",
+     "src": "package workbench.coroutines.l06\n\nimport kotlinx.coroutines.CoroutineExceptionHandler\nimport kotlinx.coroutines.CoroutineScope\nimport kotlinx.coroutines.coroutineScope\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.runBlocking\nimport kotlinx.coroutines.supervisorScope\nimport java.io.IOException\n\nprivate var started = 0L\nprivate fun log(msg: String) = println(\"%5d ms  %s\".format((System.nanoTime() - started) / 1_000_000, msg))\n\n// supervisorScope installs no handler of its own, so failed launch children need one in the context\nprivate val handler = CoroutineExceptionHandler { _, e -> log(\"handler: ${e.message}\") }\n\nfun main(args: Array<String>) = runBlocking(handler) {\n    started = System.nanoTime()\n    val supervised = args.firstOrNull() == \"supervisor\"\n    val sendAll: suspend CoroutineScope.() -> Unit = {\n        launch { try { delay(300); log(\"email sent\") } finally { log(\"email: finally\") } }\n        launch { delay(50); throw IOException(\"sms gateway down\") }\n        launch { try { delay(100); log(\"push sent\") } finally { log(\"push: finally\") } }\n    }\n    try {\n        if (supervised) supervisorScope(sendAll) else coroutineScope(sendAll)\n        log(\"scope returned normally\")\n    } catch (e: IOException) {\n        log(\"caller caught: ${e.message}\")\n    }\n}\n",
+     "run": "./gradlew :coroutines:demo -Pmain=workbench.coroutines.l06.SupervisorDemoKt -Pargs=supervisor",
+     "file": "labs/coroutines/src/demo/kotlin/workbench/coroutines/l06/SupervisorDemo.kt",
+     "alt": {
+      "lang": "java",
+      "title": "SupervisorDemoJava.java",
+      "src": "// Java equivalent of SupervisorDemo.kt: CompletableFutures are independent by default, like\n// children of a supervisor. Nothing cancels the siblings, so each future handles its own failure.\npackage workbench.coroutines.l06;\n\nimport java.io.IOException;\nimport java.io.UncheckedIOException;\nimport java.util.concurrent.CompletableFuture;\nimport java.util.concurrent.ExecutorService;\nimport java.util.concurrent.Executors;\n\npublic class SupervisorDemoJava {\n    static long started;\n    static void log(String msg) { System.out.printf(\"%5d ms  %s%n\", (System.nanoTime() - started) / 1_000_000, msg); }\n    static void sleep(long ms) { try { Thread.sleep(ms); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } }\n\n    public static void main(String[] args) {\n        started = System.nanoTime();\n        try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {\n            CompletableFuture<Void> email = CompletableFuture.runAsync(() -> { sleep(300); log(\"email sent\"); }, pool);\n            CompletableFuture<Void> sms = CompletableFuture.runAsync(() -> {\n                sleep(50);\n                throw new UncheckedIOException(new IOException(\"sms gateway down\"));\n            }, pool);\n            CompletableFuture<Void> push = CompletableFuture.runAsync(() -> { sleep(100); log(\"push sent\"); }, pool);\n            // each failure is handled where it happens; the siblings never hear about it\n            CompletableFuture<Void> smsHandled = sms.exceptionally(e -> { log(\"handled: \" + e.getCause().getCause().getMessage()); return null; });\n            CompletableFuture.allOf(email, smsHandled, push).join();\n            log(\"all three settled\");\n        }\n    }\n}\n",
+      "run": "./gradlew :coroutines:demo -Pmain=workbench.coroutines.l06.SupervisorDemoJava",
+      "file": "labs/coroutines/src/demo/java/workbench/coroutines/l06/SupervisorDemoJava.java"
+     }
+    },
+    "expect": "With `coroutineScope`, email and push are cancelled at about 50 ms (their `finally` lines) and the caller catches `sms gateway down`. With `-Pargs=supervisor`, the handler prints at about 50 ms, push is sent at about 100 ms, email at about 300 ms, and the scope returns normally. The Java twin behaves like the supervisor without being asked: futures are independent, so each one has to handle its own failure."
+   },
+   "refs": [
+    {
+     "title": "supervisorScope (API reference)",
+     "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/supervisor-scope.html",
+     "kind": "docs"
+    },
+    {
+     "title": "SupervisorJob (API reference)",
+     "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-supervisor-job.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "launch(SupervisorJob()) cuts the child loose",
+   "body": "Here is the most common wrong fix. A merchant webhook in a capture handler keeps cancelling its siblings when the merchant's server is down, so someone writes:\n\n```kotlin\ncoroutineScope {\n    launch(SupervisorJob()) { webhooks.post(event) }   // meant as \"make this child supervised\"\n    launch { ledger.record(event) }\n}\n```\n\n```java\n// Java equivalent: hand the task to some other, longer-lived executor\ntry (var request = Executors.newVirtualThreadPerTaskExecutor()) {\n    SHARED_POOL.submit(() -> webhooks.post(event));     // no longer part of this request\n    request.submit(() -> ledger.record(event));\n}\n```\n\nIt reads like \"a supervised child\". It is something else. A `Job` in a builder's context replaces the parent, so the new coroutine becomes the child of that fresh `SupervisorJob`, which has no parent of its own. The coroutine has left the tree. `coroutineScope` doesn't wait for it, cancelling the request doesn't cancel it, and its failure goes to a handler or the uncaught exception handler instead of to the request. It is `GlobalScope` from lesson 3 of this track, spelled differently.\n\nThe builder docs say it plainly: passing a `Job` there breaks structured concurrency, and it doesn't throw \"only for backward compatibility reasons\". kotlinx.coroutines 1.11 goes further and deprecates the overload, so the compiler now warns: \"Passing a Job to coroutine builders breaks structured concurrency, leading to hard-to-diagnose errors.\" The same rule applies to `async` and `withContext`. The one documented exception is `withContext(NonCancellable)` for cleanup, from lesson 5 of this track.\n\nPut the supervisor where it belongs. Inside a function, wrap the children in `supervisorScope { }`. For background work, give the owning class a scope built with `SupervisorJob()` in its constructor, and launch into that scope. Then the work is supervised and still owned: the scope waits for it, counts it and cancels it on shutdown.\n\nWhen you see `launch(SupervisorJob())`, `launch(Job())` or `async(SupervisorJob())` in a review, ask what the author wanted. Usually the answer is one of those two shapes.",
+   "try": {
+    "title": "Cancel a request and watch the trap child survive",
+    "minutes": 3,
+    "steps": [
+     "Read `SupervisorTrap.kt`. The request is cancelled at 100 ms. Predict which of the two children prints after that.",
+     "Run it. Look for the deprecation warning in the Gradle output when the demo compiles.",
+     "Delete `SupervisorJob()` from the first `launch` and run it again.",
+     "Run the Java twin, where the detached task lives on a shared executor."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "SupervisorTrap.kt",
+     "src": "package workbench.coroutines.l06\n\nimport kotlinx.coroutines.SupervisorJob\nimport kotlinx.coroutines.cancelAndJoin\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.runBlocking\n\nprivate var since = 0L\nprivate fun stamp(msg: String) = println(\"%5d ms  %s\".format((System.nanoTime() - since) / 1_000_000, msg))\n\nfun main() = runBlocking {\n    since = System.nanoTime()\n    val request = launch {\n        // looks like \"a supervised child\". It is a child of a brand-new SupervisorJob instead,\n        // so it has left the request's tree: nobody waits for it and nobody cancels it.\n        launch(SupervisorJob()) {\n            delay(300)\n            stamp(\"trap child: still running, nobody cancelled me\")\n        }\n        launch {\n            try { delay(300); stamp(\"normal child: done\") } finally { stamp(\"normal child: finally\") }\n        }\n    }\n    delay(100)\n    request.cancelAndJoin()\n    stamp(\"request cancelled and joined\")\n    delay(400)\n    stamp(\"main done\")\n}\n",
+     "run": "./gradlew :coroutines:demo -Pmain=workbench.coroutines.l06.SupervisorTrapKt",
+     "file": "labs/coroutines/src/demo/kotlin/workbench/coroutines/l06/SupervisorTrap.kt",
+     "alt": {
+      "lang": "java",
+      "title": "SupervisorTrapJava.java",
+      "src": "// Java equivalent of SupervisorTrap.kt: a task sent to some other executor is not part of the\n// request. Shutting the request's executor down interrupts its own tasks, not that one.\npackage workbench.coroutines.l06;\n\nimport java.util.concurrent.ExecutorService;\nimport java.util.concurrent.Executors;\nimport java.util.concurrent.TimeUnit;\n\npublic class SupervisorTrapJava {\n    static long since;\n    static void stamp(String msg) { System.out.printf(\"%5d ms  %s%n\", (System.nanoTime() - since) / 1_000_000, msg); }\n\n    public static void main(String[] args) throws Exception {\n        since = System.nanoTime();\n        ExecutorService shared = Executors.newCachedThreadPool();          // what launch(SupervisorJob()) amounts to\n        ExecutorService request = Executors.newVirtualThreadPerTaskExecutor();\n        shared.submit(() -> {\n            try { Thread.sleep(300); stamp(\"detached task: still running, nobody cancelled me\"); }\n            catch (InterruptedException e) { stamp(\"detached task: interrupted\"); }\n        });\n        request.submit(() -> {\n            try { Thread.sleep(300); stamp(\"request task: done\"); }\n            catch (InterruptedException e) { stamp(\"request task: interrupted\"); }\n        });\n        Thread.sleep(100);\n        request.shutdownNow();\n        request.awaitTermination(1, TimeUnit.SECONDS);\n        stamp(\"request cancelled and joined\");\n        Thread.sleep(400);\n        shared.shutdown();\n        stamp(\"main done\");\n    }\n}\n",
+      "run": "./gradlew :coroutines:demo -Pmain=workbench.coroutines.l06.SupervisorTrapJava",
+      "file": "labs/coroutines/src/demo/java/workbench/coroutines/l06/SupervisorTrapJava.java"
+     }
+    },
+    "expect": "The normal child's `finally` runs at about 100 ms and the request is cancelled and joined. Then, at about 300 ms, `trap child: still running, nobody cancelled me` prints: it was never part of the request's tree. After your change, neither child prints after the cancel. The Java twin shows the same leak with a task on a shared pool. (The warning appears only on the first compile; once the class is compiled, Gradle doesn't print it again.)"
+   }
+  }
+ ],
+ "analogy": "Think of a coroutine family as a film crew on location. With a regular job, the crew is one unit: if the camera operator is injured, the director stops the shoot, sends everyone home and reports the incident to the studio. A supervisor is a courier depot instead. If one courier's van breaks down, the depot logs it and the other couriers finish their rounds, but when the depot closes for the night, everyone comes back. The exception handler is the depot's incident book: it records what went wrong after the fact and fixes nothing. `launch(SupervisorJob())` is hiring a freelancer through a different agency. They do the work, but your depot doesn't know they exist and won't call them back at closing time. The analogy breaks at the start of the trip: a real crew member can see the director wave. A coroutine only hears about a cancel at its next suspension point.",
+ "in_your_world": "After a capture succeeds, a payments service usually fires several side effects: merchant webhooks, customer notifications, loyalty points, an analytics event. None of them should cancel the others, and none should fail the capture. If the request waits for them, wrap them in `supervisorScope` and turn each `await` into an outcome. If they run after the response, give a component one scope built with `SupervisorJob()`, `Dispatchers.IO` and a handler that logs with the payment id and increments a failure metric, and close it in `@PreDestroy`. The Kafka partition worker from lesson 3 of this track wants the same swap: with a `SupervisorJob`, one bad record no longer cancels every batch in the partition. And keep anything that must not be lost, such as the ledger write, out of fire-and-forget code entirely. It belongs in the request's own scope, or in an outbox table that a worker drains.",
+ "mistake": "The most common mistake is trying to contain a failure at the wrong place: wrapping `await()` in `try` or `runCatching` inside `coroutineScope`, or putting a `CoroutineExceptionHandler` on a child `launch`. Both look like error handling, and neither runs before the damage is done, because a failed child cancels its parent the moment it fails. The scope and its other children are already cancelled when your `catch` would run, and the handler on a child is never consulted. Decide first whether the siblings should share a fate. If they should, let the failure propagate and catch it around the whole `coroutineScope`. If they shouldn't, use `supervisorScope` (or a scope with a `SupervisorJob`), and then a `try` around each `await` or a handler on the scope does work.",
+ "compare": {
+  "title": "A background sender: pool with an uncaught handler vs supervisor scope with a handler",
+  "java": {
+   "title": "WebhookSender.java",
+   "src": "class WebhookSender implements AutoCloseable {\n    private final ExecutorService pool = Executors.newFixedThreadPool(8, r -> {\n        Thread t = new Thread(r, \"webhooks\");\n        // last resort for task failures, like a CoroutineExceptionHandler\n        t.setUncaughtExceptionHandler((th, e) -> log.warn(\"webhook failed\", e));\n        return t;\n    });\n\n    void post(Event event) {\n        pool.execute(() -> client.post(event));   // execute, not submit: failures reach the handler\n    }\n\n    @Override public void close() { pool.shutdownNow(); }\n}"
+  },
+  "kotlin": {
+   "title": "WebhookSender.kt",
+   "src": "class WebhookSender(dispatcher: CoroutineDispatcher = Dispatchers.IO) {\n    private val handler = CoroutineExceptionHandler { _, e -> log.warn(\"webhook failed\", e) }\n\n    // SupervisorJob: one failed post doesn't cancel the others or the scope\n    private val scope = CoroutineScope(SupervisorJob() + dispatcher + handler)\n\n    fun post(event: Event): Job =\n        scope.launch { client.post(event) }       // a root child: failures reach the handler\n\n    fun close() = scope.cancel()\n}"
+  },
+  "note": "The two defaults are opposite. A Java thread pool is a supervisor without being asked: tasks never cancel each other, so you only have to make sure failures are seen (`execute` sends them to the uncaught handler, `submit` hides them in a `Future` nobody reads). A coroutine scope with a plain `Job` fails together, which is right for a request and wrong for a background sender, so you opt in with `SupervisorJob()`. After that the shapes match: `launch` is `execute` and goes to the handler, `async` is `submit` and keeps its failure for `await`. What Kotlin adds is the tree. The scope still knows every child, so `close()` cancels the sends in flight, and code that calls `post` from a test can wait for them."
+ },
+ "worked": {
+  "title": "Undo a launch(SupervisorJob()) fix",
+  "steps": [
+   {
+    "say": "A capture handler posts a merchant webhook. The merchant's server was down, the webhook failure cancelled the ledger write, and someone fixed it like this. Tests became flaky (webhooks fire after the test has ended) and shutdown logs show webhooks posting into a closed HTTP client. Why?",
+    "code": "suspend fun capture(cmd: Capture) = coroutineScope {\n    val result = issuer.capture(cmd)\n    launch { ledger.record(result) }\n    launch(SupervisorJob()) { webhooks.post(result.toEvent()) }   // the \"fix\"\n    result\n}",
+    "lang": "kotlin",
+    "alt_code": "// Java equivalent of the same fix: the webhook goes to a shared pool nobody owns\nCaptureResult capture(Capture cmd) throws Exception {\n    CaptureResult result = issuer.capture(cmd);\n    try (var request = Executors.newVirtualThreadPerTaskExecutor()) {\n        request.submit(() -> ledger.record(result));\n        SHARED_POOL.submit(() -> webhooks.post(result.toEvent()));   // the \"fix\"\n    }\n    return result;\n}",
+    "alt_lang": "java"
+   },
+   {
+    "say": "The `SupervisorJob()` became the webhook's parent, so the webhook left the request's tree. Nothing waits for it and nothing cancels it. Decide what the author wanted. The response shouldn't wait for the merchant, so the webhook belongs to a long-lived owner. Give that owner a supervisor scope and a handler.",
+    "code": "class WebhookDispatcher(dispatcher: CoroutineDispatcher = Dispatchers.IO) : AutoCloseable {\n    private val handler = CoroutineExceptionHandler { ctx, e ->\n        log.warn(\"webhook ${ctx[CoroutineName]?.name} failed\", e)   // 1. log with the payment id\n    }\n    // 2. supervised and owned: children fail alone, close() still reaches them\n    private val scope = CoroutineScope(SupervisorJob() + dispatcher + handler)\n\n    fun post(event: Event): Job = scope.launch(CoroutineName(event.paymentId)) { webhooks.post(event) }\n\n    override fun close() = scope.cancel()\n}",
+    "lang": "kotlin",
+    "alt_code": "// Java equivalent: the dispatcher owns its pool and its failure handler\nclass WebhookDispatcher implements AutoCloseable {\n    private final ExecutorService pool = Executors.newFixedThreadPool(8, r -> {\n        Thread t = new Thread(r, \"webhooks\");\n        t.setUncaughtExceptionHandler((th, e) -> log.warn(\"webhook failed\", e));   // 1. log\n        return t;\n    });\n\n    // 2. owned: close() reaches every task\n    void post(Event event) { pool.execute(() -> webhooks.post(event)); }\n\n    @Override public void close() { pool.shutdownNow(); }\n}",
+    "alt_lang": "java"
+   },
+   {
+    "say": "The capture goes back to a plain structured scope. The ledger write must succeed or fail with the capture, so it stays a child. The webhook is handed to its owner.",
+    "code": "suspend fun capture(cmd: Capture): CaptureResult {\n    val result = issuer.capture(cmd)\n    ledger.record(result)                  // 3. part of the request: a failure fails the capture\n    webhookDispatcher.post(result.toEvent())   //    handed off: the owner deals with failures\n    return result\n}",
+    "lang": "kotlin",
+    "alt_code": "CaptureResult capture(Capture cmd) {\n    CaptureResult result = issuer.capture(cmd);\n    ledger.record(result);                     // 3. part of the request\n    webhookDispatcher.post(result.toEvent());  //    handed off to its owner\n    return result;\n}",
+    "alt_lang": "java"
+   },
+   {
+    "say": "If the response must include whether the webhook got through, the request does wait, and the right shape is `supervisorScope` with an outcome per call instead.",
+    "code": "suspend fun captureAndNotify(cmd: Capture): Pair<CaptureResult, Boolean> = supervisorScope {\n    val result = issuer.capture(cmd)\n    ledger.record(result)\n    // 4. waited for, but allowed to fail alone\n    val hook = async { webhooks.post(result.toEvent()) }\n    val delivered = try { hook.await(); true }\n        catch (e: CancellationException) { throw e }\n        catch (e: Exception) { false }\n    result to delivered\n}",
+    "lang": "kotlin",
+    "alt_code": "Map.Entry<CaptureResult, Boolean> captureAndNotify(Capture cmd) {\n    CaptureResult result = issuer.capture(cmd);\n    ledger.record(result);\n    // 4. waited for, but allowed to fail alone\n    boolean delivered = CompletableFuture.runAsync(() -> webhooks.post(result.toEvent()), pool)\n        .handle((ok, e) -> e == null)\n        .join();\n    return Map.entry(result, delivered);\n}",
+    "alt_lang": "java"
+   },
+   {
+    "say": "Self-check: in step 4, the ledger write throws. What happens to the webhook call? (Nothing yet: it hasn't started. The exception is thrown from the `supervisorScope` block itself, so the scope is cancelled and rethrows. A supervisor protects siblings from each other, not from a failing block.)",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "Notifications that fail one channel at a time",
+  "minutes": 13,
+  "files": [
+   "labs/coroutines/src/main/kotlin/workbench/coroutines/l06/Notifications.kt",
+   "labs/coroutines/src/main/kotlin/workbench/coroutines/l06/NotifyAll.kt",
+   "labs/coroutines/src/main/kotlin/workbench/coroutines/l06/NotificationService.kt"
+  ],
+  "run": "./gradlew :coroutines:test --tests 'workbench.coroutines.l06.*'",
+  "steps": [
+   "Run the tests. Five of eight fail. `Notifications.kt` holds the shared model: `Channel`, `Sender` and `Outcome`.",
+   "In `NotifyAll.kt`, switch `coroutineScope` to `supervisorScope`, so a failed send stays in its own `Deferred`.",
+   "Give each send its own deadline with `withTimeoutOrNull(timeout)` inside the `async`, and map a `null` result to `Outcome.Failed(\"timed out\")`.",
+   "Replace `runCatching` around `await()` with a `try` that rethrows `CancellationException` and turns any other exception into `Outcome.Failed(message)`. The notifyAll tests should now pass.",
+   "In `NotificationService.kt`, build the scope from `dispatcher + SupervisorJob() + handler`, where the handler calls `reportFailure` with the payment id from the coroutine's `CoroutineName`.",
+   "Run the tests until all eight pass. Then try `launch(SupervisorJob() + ...)` in `notifyLater` and see which tests catch it."
+  ],
+  "hints": [
+   "`withTimeoutOrNull(timeout) { sender.send(paymentId) }` returns `Unit` when the send finishes and `null` when it times out.",
+   "`CoroutineExceptionHandler { context, error -> ... }` gets the failed coroutine's context, so `context[CoroutineName]?.name` is the payment id that `notifyLater` set.",
+   "A handler is used only by root coroutines. Children launched straight into a scope built with `SupervisorJob()` count as roots, so a handler in the scope's context sees their failures.",
+   "The `close` and `pending` tests already pass on the stub. They are there to catch the `launch(SupervisorJob())` trap."
+  ],
+  "done_when": "All eight tests in `ExceptionsTest` pass."
+ },
+ "drill": {
+  "title": "A supervised background worker from memory",
+  "minutes": 4,
+  "prompt": "Close this page. Write `class LoyaltyUpdater(dispatcher: CoroutineDispatcher)` with `fun award(paymentId: String): Job` that calls a suspending `points.add(paymentId)` in the background. One failed award must not stop the others; every failure is logged with `log.warn`; and `suspend fun close()` cancels pending awards and waits for them.",
+  "answer": {
+   "lang": "kotlin",
+   "src": "class LoyaltyUpdater(dispatcher: CoroutineDispatcher) {\n    private val handler = CoroutineExceptionHandler { _, e -> log.warn(\"loyalty award failed\", e) }\n    private val scope = CoroutineScope(SupervisorJob() + dispatcher + handler)\n\n    fun award(paymentId: String): Job =\n        scope.launch { points.add(paymentId) }\n\n    suspend fun close() {\n        scope.coroutineContext.job.cancelAndJoin()\n    }\n}",
+   "alt": {
+    "lang": "java",
+    "title": "Java equivalent",
+    "src": "// Java equivalent: a pool is independent by default; route failures to a handler\nclass LoyaltyUpdater implements AutoCloseable {\n    private final ExecutorService pool = Executors.newFixedThreadPool(4, r -> {\n        Thread t = new Thread(r, \"loyalty\");\n        t.setUncaughtExceptionHandler((th, e) -> log.warn(\"loyalty award failed\", e));\n        return t;\n    });\n\n    void award(String paymentId) { pool.execute(() -> points.add(paymentId)); }\n\n    @Override public void close() throws InterruptedException {\n        pool.shutdownNow();\n        pool.awaitTermination(30, TimeUnit.SECONDS);\n    }\n}"
+   }
+  }
+ },
+ "recap": [
+  "A failed child cancels its parent at once, whether it was started with `launch` or `async`, and whether or not anyone awaits it.",
+  "`launch` and `async` differ only at the root: a root `launch` goes to a `CoroutineExceptionHandler`, a root `async` keeps the exception for `await`.",
+  "`CoroutineExceptionHandler` runs only for root coroutines and direct children of a supervisor, never for `async`. It is for logging, not recovery.",
+  "A supervisor lets children fail alone, while cancellation still flows down. Use `supervisorScope` inside a function and `SupervisorJob()` in the constructor of a scope you own.",
+  "`launch(SupervisorJob())` replaces the parent and detaches the child from the tree. kotlinx.coroutines 1.11 deprecates passing a `Job` to builders.",
+  "When several children fail, the first exception wins and the rest are attached as suppressed."
+ ],
+ "quiz": [
+  {
+   "q": "What happens here?\n\n```kotlin\ncoroutineScope {\n    async { delay(100); throw IOException(\"risk down\") }\n    delay(1_000)\n    println(\"after\")\n}\n```",
+   "options": [
+    "`after` prints at 1 s, and the exception is lost because nobody awaited the `Deferred`",
+    "`after` never prints; at about 100 ms `coroutineScope` throws the `IOException`",
+    "`after` prints at 1 s, then `coroutineScope` throws the `IOException`",
+    "The uncaught exception handler prints the error, and `after` prints at 1 s"
+   ],
+   "answer": 1,
+   "why": "A failed `async` child cancels its parent immediately, exactly like `launch`. The scope's own `delay` is cancelled, `after` never prints, and the scope rethrows the child's exception. The \"waits in the Deferred\" behavior is only for supervisors and roots."
+  },
+  {
+   "q": "What does this do?\n\n```kotlin\nval handler = CoroutineExceptionHandler { _, e -> log.warn(\"failed\", e) }\ncoroutineScope {\n    launch(handler) { throw IOException(\"webhook 503\") }\n}\n```",
+   "options": [
+    "The handler logs the error and `coroutineScope` returns normally",
+    "The handler logs the error, then `coroutineScope` throws it too",
+    "The handler is ignored and `coroutineScope` throws the `IOException`",
+    "Nothing happens: the exception is swallowed by `launch`"
+   ],
+   "answer": 2,
+   "why": "The `launch` is a child, and a child hands its exception to its parent. Only roots consult a handler, so this one is never called. The scope fails and rethrows the exception to its caller."
+  },
+  {
+   "q": "A component sends merchant webhooks in the background for the whole life of the service. One failed webhook must not affect the others, failures must be logged, and shutdown must stop them. Which scope fits?",
+   "options": [
+    "`CoroutineScope(SupervisorJob() + Dispatchers.IO + handler)`, created once and cancelled on shutdown",
+    "`GlobalScope`, with `launch(handler)` for every webhook",
+    "`CoroutineScope(Job() + Dispatchers.IO)`, with `launch(SupervisorJob())` for every webhook",
+    "`supervisorScope { }` around each webhook, called from the request"
+   ],
+   "answer": 0,
+   "why": "A supervisor scope you own lets each webhook fail alone, routes failures to the handler, and still reaches every child on shutdown. `GlobalScope` and `launch(SupervisorJob())` detach the webhooks so nothing can cancel them, and `supervisorScope` in the request makes the request wait for the merchant."
+  },
+  {
+   "q": "No handler is installed anywhere. What happens?\n\n```kotlin\nsupervisorScope {\n    launch { throw IOException(\"sms down\") }\n    launch { delay(100); println(\"push sent\") }\n}\nprintln(\"done\")\n```",
+   "options": [
+    "`push sent` never prints; `supervisorScope` throws the `IOException`",
+    "`push sent` prints, then `supervisorScope` throws the `IOException`",
+    "Nothing prints: without a handler, the scope hangs",
+    "The uncaught exception handler prints the `IOException`, then `push sent` and `done` print"
+   ],
+   "answer": 3,
+   "why": "In a supervisor, a failed child doesn't cancel its sibling or the scope. A failed `launch` child has no `await`, so its exception goes to a handler, and with none installed it reaches the thread's uncaught exception handler, which prints it. The scope then returns normally after the slowest child."
+  },
+  {
+   "q": "From lesson 5 of this track: a notifier loops over channels with `try { sender.send(id) } catch (e: Exception) { log.warn(\"send failed\", e) }`. During shutdown its scope is cancelled while SMS is being sent. What happens?",
+   "options": [
+    "The loop stops at SMS, because `CancellationException` is not an `Exception`",
+    "The cancel is logged as a failed send, and each remaining channel is attempted and \"fails\" at once",
+    "The JVM interrupts the thread and the loop exits",
+    "The scope's handler receives the `CancellationException`"
+   ],
+   "answer": 1,
+   "why": "`CancellationException` extends `IllegalStateException`, so `catch (e: Exception)` catches it. The coroutine stays cancelled, so every later send throws at its first suspension point and is logged too. Rethrow `CancellationException` or catch narrower types. Handlers ignore cancellations.",
+   "from": "co-05"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "In a plain `coroutineScope`, an `async` child fails and nobody has called `await`. What happens?",
+   "back": "The scope is cancelled at once, its other children are cancelled, and the scope rethrows the child's exception."
+  },
+  {
+   "front": "Where does a `CoroutineExceptionHandler` take effect?",
+   "back": "On root coroutines and direct children of a supervisor. Never on ordinary children, never on `async`."
+  },
+  {
+   "front": "What does `supervisorScope` change compared with `coroutineScope`?",
+   "back": "A failed child doesn't cancel its siblings or the scope. Cancelling the scope still cancels every child."
+  },
+  {
+   "front": "A `launch` child of `supervisorScope` fails. Where does its exception go?",
+   "back": "To the `CoroutineExceptionHandler` in its context, or to the thread's uncaught exception handler if there is none."
+  },
+  {
+   "front": "What does `launch(SupervisorJob()) { }` inside a scope really do?",
+   "back": "The new `SupervisorJob` becomes the parent, so the coroutine leaves the scope's tree: the scope doesn't wait for it or cancel it."
+  },
+  {
+   "front": "Where does `SupervisorJob()` belong?",
+   "back": "In the constructor of a scope you own: `CoroutineScope(SupervisorJob() + dispatcher + handler)`. Inside a function, use `supervisorScope { }`."
+  },
+  {
+   "front": "Three children fail at once. Which exception does the parent rethrow?",
+   "back": "The first one. The other two are attached to it as suppressed exceptions."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Failed coroutine",
+   "plain": "A coroutine that ended with an exception other than CancellationException. It cancels its parent unless the parent is a supervisor."
+  },
+  {
+   "term": "Root coroutine",
+   "plain": "A coroutine with no parent coroutine above it, such as one launched straight into a scope you created."
+  },
+  {
+   "term": "CoroutineExceptionHandler",
+   "plain": "A context element that receives uncaught exceptions from root coroutines, for logging and metrics."
+  },
+  {
+   "term": "Supervisor",
+   "plain": "A job whose children fail independently. Cancellation still flows down to all of them."
+  },
+  {
+   "term": "supervisorScope",
+   "plain": "The supervisor version of coroutineScope, for a block of work the caller waits for."
+  },
+  {
+   "term": "Suppressed exception",
+   "plain": "An extra failure attached to the first one, when several children fail together."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A teammate asks why their `runCatching { quote.await() }` inside `coroutineScope` didn't stop one failed FX quote from failing the whole pricing call, and why moving a `CoroutineExceptionHandler` onto the `async` didn't help either. Explain, and say what you would write instead.",
+  "answer": "In a regular coroutineScope, a child that fails reports to its parent straight away, whether it's a launch or an async and whether or not anyone has awaited it. So the moment the quote failed, the scope was cancelled, the other quotes were cancelled, and coroutineScope rethrew the exception. The runCatching around await came too late to matter. The handler did nothing because handlers only run for root coroutines, and an async never uses one anyway: it keeps its exception for await. If one failed quote should not sink the others, use supervisorScope. There, a failed async child just stores its exception in its Deferred, so a try around each await, rethrowing CancellationException, turns each quote into a value or a failure. If the call really needs all the quotes, keep coroutineScope and catch the exception around the whole scope instead."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "`SupervisorJob(parent)` takes an optional parent, and that link works in one direction. If the parent is cancelled or fails, the supervisor is cancelled with it. A failure of one of the supervisor's children doesn't travel up. That makes `CoroutineScope(SupervisorJob(appJob) + dispatcher)` a good shape for a component scope that should die with the application but never take it down.\n\n`supervisorScope` and `SupervisorJob` differ in one detail that bites in tests. `supervisorScope` waits for all its children, like `coroutineScope`, and rethrows if its own block throws. A scope built with `SupervisorJob()` never \"completes\" on its own: it is a long-lived container, and you end it with `cancel()`. That is why the lab's `NotificationService` has an explicit `close()`.\n\nThe last-resort path on the JVM is pluggable. kotlinx.coroutines looks up `CoroutineExceptionHandler` implementations through `ServiceLoader` and calls each of them before the thread's uncaught exception handler. kotlinx-coroutines-test uses that hook to collect exceptions from coroutines that escape the test, and since 1.7 `runTest` fails at the end if any were collected, even from coroutines that are not children of the test. That is why the lab's stub fails loudly instead of printing a stack trace and passing.\n\nFinally, `CancellationException` again. Since a cancel is not a failure, it never goes to a handler, and a child that ends with it never cancels its parent. That is the rule that made the `runCatching` loop in lesson 5 of this track so dangerous, and it is also why `withTimeout` inside a `launch` fails quietly. Code that turns a timeout into a real error (`withTimeoutOrNull(d) { } ?: error(\"timed out\")`) produces an `IllegalStateException`, which does travel up the tree."
+ },
+ "sources": [
+  {
+   "title": "Coroutine exceptions handling (Kotlin docs)",
+   "url": "https://kotlinlang.org/docs/exception-handling.html"
+  },
+  {
+   "title": "CoroutineExceptionHandler (kotlinx.coroutines API)",
+   "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-coroutine-exception-handler/"
+  },
+  {
+   "title": "supervisorScope (kotlinx.coroutines API)",
+   "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/supervisor-scope.html"
+  },
+  {
+   "title": "launch (kotlinx.coroutines API: why not to pass a Job)",
+   "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/launch.html"
+  }
+ ]
+}

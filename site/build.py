@@ -14,6 +14,8 @@ from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "site"))
+import validate  # noqa: E402  (only lessons that pass the brief are published)
 SITE = ROOT / "site"
 WEB = ROOT / "web"
 REPO = "https://github.com/arunav-bhattacharya/jvm-workbench"
@@ -146,13 +148,15 @@ def compile_course():
     out = {"title": C["title"], "tagline": C["tagline"], "repo": REPO, "tracks": [], "lessons": {}, "order": []}
     for t in C["tracks"]:
         tp = ROOT / "content/tracks" / f"{t['id']}.json"
-        T = json.loads(tp.read_text()) if tp.exists() else {}
+        T = json.loads(tp.read_text()) if tp.exists() and not validate.check_track(t["id"]).errors else {}
         ids = []
         for i, ref in enumerate(t["lessons"], 1):
             ids.append(ref["id"])
             out["order"].append(ref["id"])
             lp = ROOT / "content/lessons" / f"{ref['id']}.json"
-            if lp.exists():
+            if lp.exists() and validate.check_lesson(lp).errors:
+                print(f"skipping {ref['id']}: it does not pass site/validate.py yet", file=sys.stderr)
+            elif lp.exists():
                 try:
                     out["lessons"][ref["id"]] = lesson(json.loads(lp.read_text()), i, t)
                     continue
