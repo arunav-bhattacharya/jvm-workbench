@@ -13,3 +13,7 @@ labs/.kotlin/
 art/build/
 .attach_pid*
 labs/*/.kotlin/
+/cracdocs/
+/graal/
+/orgcrac/
+/quarkus/
