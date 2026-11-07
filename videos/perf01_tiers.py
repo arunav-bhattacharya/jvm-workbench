@@ -17,6 +17,20 @@ def card(title, sub, color, w, h=1.3, tsize=30, ssize=20, mono_sub=False):
     return VGroup(r, t, s)
 
 
+def rows(lines, step=0.38):
+    """Stack text lines at a fixed step, top-left aligned, so code lines sit evenly whatever their glyphs."""
+    for k, l in enumerate(lines):
+        l.move_to(ORIGIN, aligned_edge=UL).shift(DOWN * k * step)
+    return lines
+
+
+def listing(label, lines, size=22, color=WHITE, label_color=GREY_B, step=0.38):
+    body = rows(VGroup(*[M(x, size, color) for x in lines]), step)
+    head = T(label, 22, label_color)
+    head.next_to(body, UP, buff=0.2).align_to(body, LEFT)
+    return VGroup(head, body)
+
+
 class Perf01Tiers(VoiceScene):
     """perf-01: interpreter, C1 with profiling, C2 with the profile's bets; perf-02: a lost bet deoptimizes."""
 
@@ -47,20 +61,18 @@ class Perf01Tiers(VoiceScene):
         self.title_card("From bytecode to machine code", "interpreter, C1, C2")
 
         # --- source and bytecode
-        jv = VGroup(T("Java", 22, GREY_B),
-                    M("long fee = methods[i].feeCents(amounts[i]);", 22, BLUE_M),
-                    M("if (refund[i]) net -= amounts[i];", 22, BLUE_M),
-                    M("else net += amounts[i] - fee;", 22, BLUE_M)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        kv = VGroup(T("Kotlin", 22, GREY_B),
-                    M("val fee = methods[i].feeCents(amounts[i])", 22, BLUE_M),
-                    M("if (refund[i]) net -= amounts[i]", 22, BLUE_M),
-                    M("else net += amounts[i] - fee", 22, BLUE_M)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+        jl = listing("Java", ["long fee = methods[i].feeCents(amounts[i]);", "if (refund[i]) net -= amounts[i];",
+                              "else net += amounts[i] - fee;"], color=BLUE_M)
+        kl = listing("Kotlin", ["val fee = methods[i].feeCents(amounts[i])", "if (refund[i]) net -= amounts[i]",
+                                "else net += amounts[i] - fee"], color=BLUE_M)
+        jv = VGroup(jl[0], *jl[1])
+        kv = VGroup(kl[0], *kl[1])
         src = VGroup(jv, kv).arrange(DOWN, aligned_edge=LEFT, buff=0.45).move_to(LEFT * 2.9 + UP * 0.3)
         bc_txt = ["12: aload_0", "13: iload 5", "15: aaload", "16: aload_1", "17: iload 5", "19: laload",
                   "20: invokeinterface feeCents", "25: lstore 6", "27: aload_2", "28: iload 5", "30: baload", "31: ifeq 44"]
-        bc = VGroup(*[M(x, 22) for x in bc_txt]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        bc_h = T("its bytecode, from javap", 22, GREY_B)
-        bcg = VGroup(bc_h, bc).arrange(DOWN, aligned_edge=LEFT, buff=0.25).move_to(RIGHT * 3.7 + DOWN * 0.1)
+        bcl = listing("its bytecode, from javap", bc_txt, step=0.37)
+        bc_h, bc = bcl[0], bcl[1]
+        bcg = bcl.move_to(RIGHT * 3.7 + DOWN * 0.1)
         self.say("javac and kotlinc don't produce machine code. "
                  "They produce bytecode: small instructions for the JVM, which HotSpot turns into machine code while the program runs.",
                  [(0, [FadeIn(jv, shift=UP * 0.2), FadeIn(kv, shift=UP * 0.2)], 1.2),
@@ -86,9 +98,9 @@ class Perf01Tiers(VoiceScene):
                        vt.animate(run_time=2.4, rate_func=linear).set_value(120)], 2.4)])
 
         # --- the tier ladder
-        t0 = card("interpreter", "tier 0, counts", INT_C, w=3.2).move_to(LEFT * 4.6 + UP * 1.9)
-        t3 = card("C1 + profile", "tier 3, ~200 calls", C1_C, w=3.2).move_to(UP * 1.9)
-        t4 = card("C2", "tier 4, ~5,000 later", C2_C, w=3.2).move_to(RIGHT * 4.6 + UP * 1.9)
+        t0 = card("interpreter", "tier 0, counts", INT_C, w=3.3).move_to(LEFT * 4.6 + UP * 1.9)
+        t3 = card("C1 + profile", "tier 3, about 200 calls", C1_C, w=3.3).move_to(UP * 1.9)
+        t4 = card("C2", "tier 4, 5,000 more calls", C2_C, w=3.3).move_to(RIGHT * 4.6 + UP * 1.9)
         a03 = arrow(t0.get_right(), t3.get_left(), GREY_B, buff=0.1)
         a34 = arrow(t3.get_right(), t4.get_left(), GREY_B, buff=0.1)
         meth = chip("settle", WHITE, 26, mono=True).next_to(t0, DOWN, buff=0.35)
@@ -101,9 +113,9 @@ class Perf01Tiers(VoiceScene):
                   (0, [GrowArrow(a03), FadeIn(t3), meth.animate.next_to(t3, DOWN, buff=0.35),
                        anchor.animate.move_to(t3.get_bottom() + DOWN * 1.27)], 1.0)])
 
-        prof_h = T("the profile, recorded by tier 3", 22, C1_C)
-        prof = VGroup(M("call at 20:   Card, 100%", 22), M("branch at 31: refund never taken", 22)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
-        profg = VGroup(prof_h, prof).arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to(LEFT * 3.4 + DOWN * 2.2)
+        profg = listing("the profile, recorded by tier 3", ["call at 20:   Card, 100%", "branch at 31: refund never taken"],
+                        label_color=C1_C).move_to(LEFT * 3.4 + DOWN * 2.2)
+        prof_h, prof = profg[0], profg[1]
         self.say("Its code also records a profile: which way each branch went, and which receiver types reached each call.",
                  [(0, [FadeIn(prof_h)], 0.5), (0, [FadeIn(prof[1], shift=UP * 0.1)], 0.7), (0, [FadeIn(prof[0], shift=UP * 0.1)], 0.7)])
 
@@ -113,10 +125,9 @@ class Perf01Tiers(VoiceScene):
                   (0, [GrowArrow(a34), FadeIn(t4), meth.animate.next_to(t4, DOWN, buff=0.35),
                        anchor.animate.move_to(t4.get_bottom() + DOWN * 1.27)], 1.0)])
 
-        bets_h = T("C2's bets", 22, C2_C)
-        bets = VGroup(M("Card?        inline Card.feeCents", 22), M("not a Card?  uncommon trap", 22),
-                      M("refund?      uncommon trap", 22)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
-        betsg = VGroup(bets_h, bets).arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to(RIGHT * 3.5 + DOWN * 2.05)
+        betsg = listing("C2's bets", ["Card?        inline Card.feeCents", "not a Card?  uncommon trap", "refund?      uncommon trap"],
+                        label_color=C2_C).move_to(RIGHT * 3.5 + DOWN * 2.05)
+        bets_h, bets = betsg[0], betsg[1]
         counter.clear_updaters()
         self.play(FadeOut(counter), run_time=0.3)
         self.say("C2 bets on the profile. Every receiver was a Card, so it inlines Card's feeCents behind a cheap class check. "
@@ -134,10 +145,11 @@ class Perf01Tiers(VoiceScene):
                   (1, [Flash(meth, color=TRAP_C, flash_radius=0.9)], 0.6),
                   (1, [Create(deopt), FadeIn(d_lab), meth.animate.next_to(t0, DOWN, buff=0.35)], 1.2)])
 
-        log = VGroup(M("settle(...)  trap_bci=31 unstable_if", 22, GREY_B),
-                     M("settle (62 bytes)  made not entrant: uncommon trap", 22, TRAP_C)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
-        log_h = T("the JDK 25 log", 22, GREY_B)
-        logg = VGroup(log_h, log).arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to(DOWN * 2.2)
+        logg = listing("the JDK 25 log, trimmed", ["settle(...)  trap_bci=31 unstable_if",
+                                                   "settle (62 bytes)  made not entrant: uncommon trap"]).move_to(DOWN * 2.2)
+        log_h, log = logg[0], logg[1]
+        log[0].set_color(GREY_B)
+        log[1].set_color(TRAP_C)
         self.say("The C2 code is made not entrant. The method profiles again, now with refunds, and gets compiled again.",
                  [(0, [FadeOut(profg), FadeOut(betsg), FadeOut(deopt), FadeOut(d_lab), t4.animate.set_opacity(0.4), FadeIn(logg)], 0.9),
                   (1, [meth.animate.next_to(t3, DOWN, buff=0.35)], 0.9),
