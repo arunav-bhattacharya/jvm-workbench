@@ -22,3 +22,8 @@ Quarkus and Micronaut move it to build time.
   time" registry (a small code generator run in the test) and show what that saves; AppCDS/AOT cache
   commands in Try-it steps. Tests: the generated registry wires the same graph as the reflective one.
   Ends with the design review (run-time vs build-time wiring).
+
+Diagnostics thread (required): cap4-03 has a Try-it that takes a heap dump of the running container
+(`jcmd <pid> GC.heap_dump`) and a class histogram (`jcmd <pid> GC.class_histogram`), and reads how many
+proxy and generated classes and instances exist and who holds them. Show real, trimmed output.
+

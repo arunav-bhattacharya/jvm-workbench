@@ -18,3 +18,11 @@ money, never deadlocks, publishes balances safely, and serves thousands of concu
   and a fail-fast fan-out with an executor (structured concurrency is preview on 21: show it in a
   deeper note only). Tests: max in-flight never exceeds the bulkhead, the deadline fires, the
   invariant still holds at 10k concurrent requests. Ends with the design review.
+
+Diagnostics thread (required): cap1-02 has a Try-it that hangs the pool on purpose (a task waiting on
+a task in the same bounded pool) and has the learner find it with `jcmd <pid> Thread.print`: read the
+thread names, states, the "waiting on" / "locked" lines and the stack frames. cap1-03 has a Try-it that
+takes a JSON dump with `jcmd <pid> Thread.dump_to_file -format=json` while 10k virtual threads are
+parked, and reads it (where the virtual threads appear, how to group them by stack). Show the real
+output from your runs, trimmed.
+

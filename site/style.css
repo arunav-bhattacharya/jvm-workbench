@@ -461,8 +461,13 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
 .lsec, .block, .tryit, .lab, .quiz, .qcard, .rv, .flash, .step, .lhead, .cmp, .call, .tcard, .score > div { grid-template-columns: minmax(0, 1fr); min-width: 0; }
 .tryit .label, .crumb .label { overflow-wrap: anywhere; }
 /* parts: groups of related tracks */
-.partsec { padding: 16px 16px 6px; display: grid; gap: 2px; border-bottom: 1px solid var(--rule); }
-.partsec b { font: 400 19px/1.2 var(--display); }
+.partsec { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 8px; width: 100%; text-align: left; padding: 16px 16px 10px; background: none; border: 0; border-bottom: 1px solid var(--rule); color: var(--fg); cursor: pointer; }
+.partsec:hover b { color: var(--ember); }
+.partsec .label { grid-column: 1; }
+.partsec b { grid-column: 1; font: 400 19px/1.2 var(--display); }
+.partsec .chev { grid-column: 2; grid-row: 1 / span 2; width: 8px; height: 8px; border-right: 1.5px solid var(--mute); border-bottom: 1.5px solid var(--mute); transform: rotate(-45deg); transition: transform .15s; }
+.partsec[aria-expanded="true"] .chev { transform: rotate(45deg); }
+.partsec:focus-visible { outline: 2px solid var(--ember); outline-offset: -2px; }
 .parthead { display: grid; gap: 4px; margin: 10px 0 14px; }
 .parthead h3 { font-size: 30px; }
 .parthead p { margin: 0; color: var(--mute); font-size: 17.5px; max-width: 46em; }

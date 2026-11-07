@@ -216,12 +216,21 @@
     </div>
     <div class="navsec"><span class="label">Tracks · ${doneCount()} of ${ORDER.length} lessons done</span>
     <input class="field filter" id="lesson-filter" type="search" placeholder="Find a lesson" aria-label="Find a lesson" value="${esc(filterText)}"></div>`;
+    const hereTrack = curTrack || nxTrack;
+    const partOpen = (p) => filterText ? true : S.open["part-" + p.id] ?? p.tracks.includes(hereTrack);
     for (const t of C.tracks) {
+      const part = partOf[t.id];
+      const hits = (tid) => T[tid].lessons.some((id) => L[id].title.toLowerCase().includes(filterText.toLowerCase()));
+      if (part && part.tracks[0] === t.id && (!filterText || part.tracks.some(hits))) {
+        const ids = part.tracks.flatMap((tid) => T[tid].lessons);
+        const pOpen = partOpen(part);
+        h += `<button class="partsec" data-act="toggle-part" data-id="${part.id}" aria-expanded="${pOpen}">
+          <span class="label">Part ${part.idx} · ${ids.filter(isDone).length} of ${ids.length}</span><i class="chev" aria-hidden="true"></i><b>${esc(part.title)}</b></button>`;
+      }
+      if (part && !partOpen(part)) continue;
       const open = filterText ? true : S.open[t.id] ?? (t.id === curTrack || (!curTrack && t.id === nxTrack));
       const shown = t.lessons.filter((id) => !filterText || L[id].title.toLowerCase().includes(filterText.toLowerCase()));
       if (filterText && !shown.length) continue;
-      const part = partOf[t.id];
-      if (part && part.tracks[0] === t.id) h += `<div class="partsec"><span class="label">Part ${part.idx}</span><b>${esc(part.title)}</b></div>`;
       h += `<div class="trk"><button data-act="toggle-track" data-id="${t.id}" aria-expanded="${open}">
           <span class="tn">${pad(t.idx)}</span><span class="tt">${esc(t.title)}</span><span></span>${cells(t.lessons)}</button>
         ${open ? `<ul><li><button data-go="track-${t.id}" class="${cur === "track-" + t.id ? "on" : ""}"><span class="cell" style="visibility:hidden"></span>Track overview</button></li>
@@ -259,7 +268,12 @@
     if (keepScroll) scrollTo(0, y);
     document.title = L[cur] ? `${L[cur].title} · JVM Workbench` : cur.startsWith("track-") && T[cur.slice(6)] ? `${T[cur.slice(6)].title} · JVM Workbench` : "JVM Workbench";
   }
-  addEventListener("hashchange", () => { mobileOpen = false; resetPageState(); render(); scrollTo(0, 0); });
+  addEventListener("hashchange", () => {
+    mobileOpen = false; resetPageState();
+    const r = route(), tid = L[r] ? L[r].track : r.startsWith("track-") ? r.slice(6) : null;
+    if (tid && partOf[tid] && S.open["part-" + partOf[tid].id] === false) { delete S.open["part-" + partOf[tid].id]; save(); }
+    render(); scrollTo(0, 0);
+  });
   const go = (id) => { if (route() === id) { render(); scrollTo(0, 0); } else location.hash = id; };
 
   /* ---------------- home ---------------- */
@@ -794,6 +808,7 @@
       case "menu": if (isDesk()) deskOpen = !deskOpen; else mobileOpen = !mobileOpen; render(true); break;
       case "close-menu": mobileOpen = false; render(true); break;
       case "theme": S.theme = effectiveTheme() === "dark" ? "light" : "dark"; document.documentElement.setAttribute("data-theme", S.theme); save(); render(true); break;
+      case "toggle-part": { const open = a.getAttribute("aria-expanded") === "true"; S.open["part-" + id] = !open; save(); sidebar(route()); break; }
       case "toggle-track": { const el = a.closest(".trk"); const open = a.getAttribute("aria-expanded") === "true"; S.open[id] = !open; save(); sidebar(route()); void el; break; }
       case "done": setDone(id, true); break;
       case "undone": setDone(id, false); break;
