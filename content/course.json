@@ -171,54 +171,22 @@
       ]
     },
     {
-      "id": "gen",
-      "lab": "generics",
-      "title": "Kotlin generics, properly",
-      "short": "Variance from first principles: out, in, projections, star projection, reified, KClass, and Java side by side.",
+      "id": "cap1",
+      "lab": "ledger",
+      "title": "Capstone: a payment ledger under load",
+      "short": "Build one ledger in three sittings: correct under contention, on a pool you can reason about, then on virtual threads.",
       "lessons": [
         {
-          "id": "gen-01",
-          "title": "Generics from zero: type parameters"
+          "id": "cap1-01",
+          "title": "Design the ledger and make it correct"
         },
         {
-          "id": "gen-02",
-          "title": "Bounds and constraints: upper bounds, where, T : Any"
+          "id": "cap1-02",
+          "title": "Run it on a pool you can reason about"
         },
         {
-          "id": "gen-03",
-          "title": "Subtyping, and why List<String> is not List<Object>"
-        },
-        {
-          "id": "gen-04",
-          "title": "Covariance with out: producers"
-        },
-        {
-          "id": "gen-05",
-          "title": "Contravariance with in: consumers"
-        },
-        {
-          "id": "gen-06",
-          "title": "Use-site variance and type projections"
-        },
-        {
-          "id": "gen-07",
-          "title": "Star projection: when you don't know the type"
-        },
-        {
-          "id": "gen-08",
-          "title": "Type erasure and reified type parameters"
-        },
-        {
-          "id": "gen-09",
-          "title": "KClass, Class and type tokens"
-        },
-        {
-          "id": "gen-10",
-          "title": "Advanced generics: recursive bounds, T & Any, @UnsafeVariance"
-        },
-        {
-          "id": "gen-11",
-          "title": "Generics workshop: a type-safe container and event bus"
+          "id": "cap1-03",
+          "title": "Serve it with virtual threads"
         }
       ]
     },
@@ -315,6 +283,118 @@
       ]
     },
     {
+      "id": "io",
+      "lab": "nio",
+      "title": "Servers and event loops: NIO, Netty, Vert.x and Jetty",
+      "short": "Blocking vs non-blocking IO, NIO selectors, Netty pipelines and flow control, Vert.x and Quarkus event loops, Jetty 12, and zero-copy.",
+      "lessons": [
+        {
+          "id": "io-01",
+          "title": "Blocking IO, threads and the C10K problem"
+        },
+        {
+          "id": "io-02",
+          "title": "NIO: buffers, channels and selectors"
+        },
+        {
+          "id": "io-03",
+          "title": "Netty: the event loop and the channel pipeline"
+        },
+        {
+          "id": "io-04",
+          "title": "Netty in practice: codecs, flow control and leaks"
+        },
+        {
+          "id": "io-05",
+          "title": "Vert.x: event loops, verticles and the golden rule"
+        },
+        {
+          "id": "io-06",
+          "title": "Quarkus on Vert.x: IO threads, workers and virtual threads"
+        },
+        {
+          "id": "io-07",
+          "title": "Jetty 12: acceptors, selectors and thread pools"
+        },
+        {
+          "id": "io-08",
+          "title": "Zero-copy, epoll, io_uring, and choosing a server model"
+        }
+      ]
+    },
+    {
+      "id": "cap2",
+      "lab": "quotes",
+      "title": "Capstone: a non-blocking quote service",
+      "short": "A Netty service that fans out to three flaky providers with coroutines and answers inside a deadline.",
+      "lessons": [
+        {
+          "id": "cap2-01",
+          "title": "A Netty server that never blocks its loop"
+        },
+        {
+          "id": "cap2-02",
+          "title": "Fan out with coroutines, inside a deadline"
+        },
+        {
+          "id": "cap2-03",
+          "title": "Hold up under load"
+        }
+      ]
+    },
+    {
+      "id": "gen",
+      "lab": "generics",
+      "title": "Kotlin generics, properly",
+      "short": "Variance from first principles: out, in, projections, star projection, reified, KClass, and Java side by side.",
+      "lessons": [
+        {
+          "id": "gen-01",
+          "title": "Generics from zero: type parameters"
+        },
+        {
+          "id": "gen-02",
+          "title": "Bounds and constraints: upper bounds, where, T : Any"
+        },
+        {
+          "id": "gen-03",
+          "title": "Subtyping, and why List<String> is not List<Object>"
+        },
+        {
+          "id": "gen-04",
+          "title": "Covariance with out: producers"
+        },
+        {
+          "id": "gen-05",
+          "title": "Contravariance with in: consumers"
+        },
+        {
+          "id": "gen-06",
+          "title": "Use-site variance and type projections"
+        },
+        {
+          "id": "gen-07",
+          "title": "Star projection: when you don't know the type"
+        },
+        {
+          "id": "gen-08",
+          "title": "Type erasure and reified type parameters"
+        },
+        {
+          "id": "gen-09",
+          "title": "KClass, Class and type tokens"
+        },
+        {
+          "id": "gen-10",
+          "title": "Advanced generics: recursive bounds, T & Any, @UnsafeVariance"
+        },
+        {
+          "id": "gen-11",
+          "title": "Generics workshop: a type-safe container and event bus"
+        }
+      ]
+    },
+    {
       "id": "pat",
       "lab": "patterns",
       "title": "Design patterns in Java and Kotlin",
@@ -363,6 +443,118 @@
         {
           "id": "pat-11",
           "title": "Concurrency patterns that tie it all together"
+        }
+      ]
+    },
+    {
+      "id": "dop",
+      "lab": "modernjava",
+      "title": "Modern Java data modeling",
+      "short": "Records, sealed types, pattern matching and data-oriented programming, and where Project Valhalla is heading.",
+      "lessons": [
+        {
+          "id": "dop-01",
+          "title": "Records: transparent carriers for data"
+        },
+        {
+          "id": "dop-02",
+          "title": "Sealed types: hierarchies the compiler can check"
+        },
+        {
+          "id": "dop-03",
+          "title": "Pattern matching with switch and record patterns"
+        },
+        {
+          "id": "dop-04",
+          "title": "Data-oriented programming, and Project Valhalla"
+        }
+      ]
+    },
+    {
+      "id": "kt",
+      "lab": "kotlin",
+      "title": "Advanced Kotlin",
+      "short": "Inline functions, value classes, delegation, type-safe DSLs, contracts, context parameters and compiler plugins.",
+      "lessons": [
+        {
+          "id": "kt-01",
+          "title": "Inline functions: noinline, crossinline and non-local returns"
+        },
+        {
+          "id": "kt-02",
+          "title": "Value classes and what they compile to"
+        },
+        {
+          "id": "kt-03",
+          "title": "Delegation: class delegation and delegated properties"
+        },
+        {
+          "id": "kt-04",
+          "title": "Type-safe DSLs with lambdas with receivers"
+        },
+        {
+          "id": "kt-05",
+          "title": "Contracts and context parameters"
+        },
+        {
+          "id": "kt-06",
+          "title": "Compiler plugins: all-open, no-arg and kotlinx.serialization"
+        }
+      ]
+    },
+    {
+      "id": "cap3",
+      "lab": "events",
+      "title": "Capstone: a typed event library",
+      "short": "A sealed event model, a typed event bus and an API that reads well from Kotlin and from Java.",
+      "lessons": [
+        {
+          "id": "cap3-01",
+          "title": "A sealed event model"
+        },
+        {
+          "id": "cap3-02",
+          "title": "A typed event bus"
+        },
+        {
+          "id": "cap3-03",
+          "title": "An API for Kotlin and Java callers"
+        }
+      ]
+    },
+    {
+      "id": "cls",
+      "lab": "bytecode",
+      "title": "Class loading, bytecode and dynamic proxies",
+      "short": "Class loaders and initialization, reading bytecode, invokedynamic, JDK and generated proxies, the ClassFile API and agents.",
+      "lessons": [
+        {
+          "id": "cls-01",
+          "title": "Class loading: loaders, delegation, linking and initialization"
+        },
+        {
+          "id": "cls-02",
+          "title": "Reading bytecode: javap, the operand stack and Kotlin's output"
+        },
+        {
+          "id": "cls-03",
+          "title": "invokedynamic: how lambdas and string concatenation compile"
+        },
+        {
+          "id": "cls-04",
+          "title": "Dynamic proxies with java.lang.reflect.Proxy"
+        },
+        {
+          "id": "cls-05",
+          "title": "Generated proxies: Byte Buddy, Spring AOP and Quarkus interceptors"
+        },
+        {
+          "id": "cls-06",
+          "title": "Generating and transforming classes with the ClassFile API"
+        },
+        {
+          "id": "cls-07",
+          "title": "Java agents and instrumentation"
         }
       ]
     },
@@ -439,82 +631,6 @@
       ]
     },
     {
-      "id": "cls",
-      "lab": "bytecode",
-      "title": "Class loading, bytecode and dynamic proxies",
-      "short": "Class loaders and initialization, reading bytecode, invokedynamic, JDK and generated proxies, the ClassFile API and agents.",
-      "lessons": [
-        {
-          "id": "cls-01",
-          "title": "Class loading: loaders, delegation, linking and initialization"
-        },
-        {
-          "id": "cls-02",
-          "title": "Reading bytecode: javap, the operand stack and Kotlin's output"
-        },
-        {
-          "id": "cls-03",
-          "title": "invokedynamic: how lambdas and string concatenation compile"
-        },
-        {
-          "id": "cls-04",
-          "title": "Dynamic proxies with java.lang.reflect.Proxy"
-        },
-        {
-          "id": "cls-05",
-          "title": "Generated proxies: Byte Buddy, Spring AOP and Quarkus interceptors"
-        },
-        {
-          "id": "cls-06",
-          "title": "Generating and transforming classes with the ClassFile API"
-        },
-        {
-          "id": "cls-07",
-          "title": "Java agents and instrumentation"
-        }
-      ]
-    },
-    {
-      "id": "io",
-      "lab": "nio",
-      "title": "Servers and event loops: NIO, Netty, Vert.x and Jetty",
-      "short": "Blocking vs non-blocking IO, NIO selectors, Netty pipelines and flow control, Vert.x and Quarkus event loops, Jetty 12, and zero-copy.",
-      "lessons": [
-        {
-          "id": "io-01",
-          "title": "Blocking IO, threads and the C10K problem"
-        },
-        {
-          "id": "io-02",
-          "title": "NIO: buffers, channels and selectors"
-        },
-        {
-          "id": "io-03",
-          "title": "Netty: the event loop and the channel pipeline"
-        },
-        {
-          "id": "io-04",
-          "title": "Netty in practice: codecs, flow control and leaks"
-        },
-        {
-          "id": "io-05",
-          "title": "Vert.x: event loops, verticles and the golden rule"
-        },
-        {
-          "id": "io-06",
-          "title": "Quarkus on Vert.x: IO threads, workers and virtual threads"
-        },
-        {
-          "id": "io-07",
-          "title": "Jetty 12: acceptors, selectors and thread pools"
-        },
-        {
-          "id": "io-08",
-          "title": "Zero-copy, epoll, io_uring, and choosing a server model"
-        }
-      ]
-    },
-    {
       "id": "boot",
       "lab": "startup",
       "title": "Startup and footprint",
@@ -539,59 +655,72 @@
       ]
     },
     {
-      "id": "kt",
-      "lab": "kotlin",
-      "title": "Advanced Kotlin",
-      "short": "Inline functions, value classes, delegation, type-safe DSLs, contracts, context parameters and compiler plugins.",
+      "id": "cap4",
+      "lab": "container",
+      "title": "Capstone: a tiny dependency injection container",
+      "short": "Wire classes by reflection, add interceptors with proxies, then measure it and move the wiring to build time.",
       "lessons": [
         {
-          "id": "kt-01",
-          "title": "Inline functions: noinline, crossinline and non-local returns"
+          "id": "cap4-01",
+          "title": "Wire classes by reflection"
         },
         {
-          "id": "kt-02",
-          "title": "Value classes and what they compile to"
+          "id": "cap4-02",
+          "title": "Add interceptors with proxies"
         },
         {
-          "id": "kt-03",
-          "title": "Delegation: class delegation and delegated properties"
-        },
-        {
-          "id": "kt-04",
-          "title": "Type-safe DSLs with lambdas with receivers"
-        },
-        {
-          "id": "kt-05",
-          "title": "Contracts and context parameters"
-        },
-        {
-          "id": "kt-06",
-          "title": "Compiler plugins: all-open, no-arg and kotlinx.serialization"
+          "id": "cap4-03",
+          "title": "Measure it, then make it start fast"
         }
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "p1",
+      "title": "Concurrency on the JVM",
+      "short": "Threads, races and locks, the memory model, thread pools, then virtual threads.",
+      "tracks": [
+        "conc",
+        "jmm",
+        "exec",
+        "vt",
+        "cap1"
       ]
     },
     {
-      "id": "dop",
-      "lab": "modernjava",
-      "title": "Modern Java data modeling",
-      "short": "Records, sealed types, pattern matching and data-oriented programming, and where Project Valhalla is heading.",
-      "lessons": [
-        {
-          "id": "dop-01",
-          "title": "Records: transparent carriers for data"
-        },
-        {
-          "id": "dop-02",
-          "title": "Sealed types: hierarchies the compiler can check"
-        },
-        {
-          "id": "dop-03",
-          "title": "Pattern matching with switch and record patterns"
-        },
-        {
-          "id": "dop-04",
-          "title": "Data-oriented programming, and Project Valhalla"
-        }
+      "id": "p2",
+      "title": "Async, reactive and servers",
+      "short": "Reactor, Kotlin coroutines, then the event loops under Netty, Vert.x and Jetty.",
+      "tracks": [
+        "rx",
+        "co",
+        "io",
+        "cap2"
+      ]
+    },
+    {
+      "id": "p3",
+      "title": "Types and design",
+      "short": "Kotlin generics, design patterns, modern Java data modeling and advanced Kotlin.",
+      "tracks": [
+        "gen",
+        "pat",
+        "dop",
+        "kt",
+        "cap3"
+      ]
+    },
+    {
+      "id": "p4",
+      "title": "Inside the JVM",
+      "short": "Class loading and proxies, memory and GC, the JIT and profiling, then start-up.",
+      "tracks": [
+        "cls",
+        "mem",
+        "perf",
+        "boot",
+        "cap4"
       ]
     }
   ]
