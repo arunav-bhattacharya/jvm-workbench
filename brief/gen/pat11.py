@@ -360,16 +360,13 @@ val ref = retrying(3) { guarded.get() }                       // outermost: try 
     throw last!!
 }""", "alt_lang": "kotlin"},
    {"say": "Why is the bulkhead inside the breaker? An open breaker rejects before the bulkhead is reached, so a dead PSP never holds permits. Why is the retry outside? Each attempt is a separate breaker call, so three failed attempts count as three failures, and a PSP that is really down trips the breaker within one or two payments. Retrying inside the breaker would hide those failures from it.",
-    "code": """// what each layer sees for one payment while the PSP returns 503:
-// retry        attempt 1          attempt 2          attempt 3
-// breaker      Closed(0) -> (1)   Closed(1) -> (2)   Closed(2) -> Open      3. three failures trip it
-// bulkhead     permit, released   permit, released   permit, released
-// next payment: retry -> breaker rejects at once (CallNotPermitted) -> no PSP call, no permit""", "lang": "java",
-    "alt_code": """// what each layer sees for one payment while the PSP returns 503:
-// retry        attempt 1          attempt 2          attempt 3
-// breaker      Closed(0) -> (1)   Closed(1) -> (2)   Closed(2) -> Open      3. three failures trip it
-// bulkhead     permit, released   permit, released   permit, released
-// next payment: retry -> breaker rejects at once (CallNotPermitted) -> no PSP call, no permit""", "alt_lang": "kotlin"},
+    "code": """what each layer sees for one payment while the PSP returns 503:
+
+retry      attempt 1          attempt 2          attempt 3
+breaker    Closed(0) -> (1)   Closed(1) -> (2)   Closed(2) -> Open    (three failures trip it)
+bulkhead   permit, released   permit, released   permit, released
+
+next payment: retry -> breaker rejects at once (CallNotPermitted) -> no PSP call, no permit""", "lang": "text"},
    {"say": "Pin it in a test with a fake PSP that always fails and the lab's classes. The second payment must never reach the PSP.",
     "code": """AtomicInteger pspCalls = new AtomicInteger();
 Supplier<String> failing = () -> { pspCalls.incrementAndGet(); throw new IllegalStateException("PSP 503"); };

@@ -2,6 +2,7 @@ package workbench.coroutines.l10
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -23,8 +24,8 @@ class SharedStateAndTestingTest {
     @Test
     fun `100 concurrent credits all land`() = runTest {
         val book = BalanceBook { amount, _ -> delay(50); amount * 100 } // 50 ms FX call, EUR to cents
-        repeat(100) { launch { book.credit("acc-1", 1, "EUR") } }
-        advanceUntilIdle()
+        val credits = List(100) { launch { book.credit("acc-1", 1, "EUR") } }
+        credits.joinAll() // waits even for work that escaped to a real dispatcher
         assertThat(book.balance("acc-1")).`as`("cents after 100 credits of 1 EUR").isEqualTo(10_000)
     }
 
@@ -38,8 +39,8 @@ class SharedStateAndTestingTest {
             active.decrementAndGet()
             amount * 100
         }
-        repeat(100) { launch { book.credit("acc-1", 1, "EUR") } }
-        advanceUntilIdle()
+        val credits = List(100) { launch { book.credit("acc-1", 1, "EUR") } }
+        credits.joinAll()
         assertThat(peak.get()).`as`("FX calls in flight at once").isEqualTo(100)
         assertThat(currentTime).`as`("virtual ms for 100 credits").isEqualTo(50)
         assertThat(book.balance("acc-1")).isEqualTo(10_000)

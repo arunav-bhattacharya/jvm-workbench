@@ -1,0 +1,139 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+
+INTRO = """By the end of this track you can name the classic design patterns in the code you already run, and you know which ones modern Java and Kotlin have turned into a few lines: Strategy and Command into lambdas, State and Visitor into sealed types with an exhaustive `switch` or `when`, Builder into named arguments, Decorator into Kotlin `by`. You can also tell when a pattern still earns its class: adapters at the edge of your service, facades over multi-step jobs, framework proxies with rules of their own, and the concurrency patterns that keep a payment service up when the card issuer is not. The last lesson builds a circuit breaker and a bulkhead by hand, out of State, Decorator and compare-and-set.
+
+You should be comfortable with records, sealed interfaces and pattern matching in Java 21, and with Kotlin data classes and lambdas. The concurrency and memory model tracks help with lessons 1 and 11. Install JDK 25; the labs compile with `release 21`, so they also run on JDK 21. Kotlin samples use 2.4.21, and `when` guards need Kotlin 2.2 or later.
+
+The labs live in `labs/patterns`, one package per lesson (`workbench.patterns.l01` to `l11`). About half are in Java and half in Kotlin, and every code sample and Try-it demo in the lessons comes in both languages. Most labs are refactors: the tests pin the behavior, and you change the shape. Run `./gradlew :patterns:test --tests 'workbench.patterns.lNN.*'` from `labs/` until it passes, and `./gradlew :patterns:solutionTest` to run the same tests against the reference answers. The concurrency tests use latches, counters and a fake clock, so they pass or fail the same way on every run."""
+
+CHEATSHEET = """## The position
+
+A pattern is a name for a design you keep meeting, with its trade-offs. Learn the intent, so you recognize the language feature that replaced it, and so you know when the feature is not enough.
+
+## Creational
+
+| Pattern | Java 21+ | Kotlin | Watch out for |
+|---|---|---|---|
+| Singleton | `enum`; holder idiom; double-checked locking with `volatile` | `object`; `by lazy` (default `SYNCHRONIZED`) | Prefer an injected bean; `PUBLICATION` may run the initializer twice |
+| Factory Method | static factory, private constructor; `Supplier<T>` | companion `of`, `operator fun invoke`, top-level fun named like the type | Return a sealed result; no `default` in the caller's switch |
+| Abstract Factory | one interface that builds a matching family | the same; `when` over the family | A new product touches every family |
+| Builder | validating record plus a builder that only collects | named and default arguments, `copy()`, DSL with `@DslMarker` | Validate in the compact constructor or `init` |
+| Prototype | copy constructor, withers | `copy()` | Every copy is shallow; `Cloneable` has no `clone`; `@ConsistentCopyVisibility` |
+
+## Structural
+
+| Pattern | Java 21+ | Kotlin | Watch out for |
+|---|---|---|---|
+| Adapter | class implementing your port, translating results and errors | the same; extension function for data | Kotlin lets a vendor's checked exception leak silently |
+| Facade | one class that runs a multi-step job | the same | It owns order and failure rules, nothing else |
+| Decorator | same-interface wrapper; default-method combinators | `by` delegation; extension decorators | Order changes results; `by` has no open recursion |
+| Proxy | `java.lang.reflect.Proxy`; unwrap `InvocationTargetException` | `reified` helper | Spring skips `this.method()` (Quarkus doesn't); final Kotlin classes need `kotlin-spring` |
+| Composite | sealed records plus an exhaustive switch | sealed interface plus `when` | Keep trees immutable: `List.copyOf`, `toList()` |
+| Bridge | abstraction holds an implementor interface | implementor as a `fun interface` or function type | Designed up front; skip it when only one dimension varies |
+| Flyweight | private constructor plus `computeIfAbsent` pool; `Integer` cache -128 to 127 | the same; `enum class`, `object` | Boxed `==` in Java; pools must be bounded |
+
+## Behavioral
+
+| Pattern | Java 21+ | Kotlin | Watch out for |
+|---|---|---|---|
+| Strategy | lambda, `Comparator.comparing`; `EnumMap` for open sets, switch for closed | function types, `compareBy` | A missing map entry fails at runtime, a missing case at compile time |
+| Template Method | final skeleton with hooks; prefer execute around | `inline` higher-order function | Never call a hook from a constructor |
+| Observer | `CopyOnWriteArrayList` of listeners plus an unsubscribe handle; `SubmissionPublisher` | `SharedFlow` for events, `StateFlow` for state | StateFlow drops values equal to the current one |
+| Command | sealed records; `Runnable` | sealed data classes; `() -> Unit` | Record for undo only after success; a refund is not an undo |
+| State | sealed states and events, one pure transition function | the same with `when` guards | No `default` on the switch over states |
+| Chain of Responsibility | list of interceptors folded into one function | `foldRight` over `fun interface`s | Order is behavior; never skip or double `next` |
+| Visitor | sealed type plus switch with record patterns | sealed type plus `when` and guards | Keep Visitor for open or library hierarchies |
+| Iterator | hand-written `Iterator`, `while` in `hasNext` | `sequence {}`, `iterator {}` | Sequences are cold; `finally` inside may never run |
+| Mediator | a hub that holds the routing rules | the same; a shared `SharedFlow` | The hub turning into a god object |
+| Memento | private record behind an opaque interface, copied on save and restore | private data class, `toList()` | Shallow snapshots; unbounded history |
+
+## Concurrency
+
+| Pattern | Java 21+ | Kotlin | Watch out for |
+|---|---|---|---|
+| Producer-consumer | bounded `BlockingQueue`, one poison pill per consumer | `Channel(capacity)`, `close()`, `for` in each worker | Unbounded queues; `consumeEach` in many workers |
+| Thread-per-message | `newVirtualThreadPerTaskExecutor()` | `launch` per message | Always pair it with a limit |
+| Active object | single-thread executor as a mailbox, methods return futures | a coroutine owning state, reading a `Channel` | Blocking on its own future from inside |
+| Guarded suspension | `CompletableFuture`, `CountDownLatch`, `wait` in a `while` loop | `CompletableDeferred`, `withTimeout` | Waiting without a timeout |
+| Balking | `AtomicBoolean.compareAndSet(false, true)` | the same, or `Mutex.tryLock()` | One JVM only; across pods use a lease |
+| Read-write lock | `ReentrantReadWriteLock`, or an `AtomicReference` to an immutable snapshot | the same | No read-to-write upgrade |
+| Bulkhead | `Semaphore.tryAcquire`, release in `finally` | `kotlinx.coroutines.sync.Semaphore` | Size it to the dependency, not to your threads |
+| Circuit breaker | sealed states in an `AtomicReference`, injected `Clock`; Resilience4j 2.4.0 | the same | Resilience4j's default `minimumNumberOfCalls` is 100 |
+
+## Rules that cover most cases
+
+- No `default` or `else` on a switch over your own sealed type or enum. Use one, and make it throw, only for open sets you don't control, such as vendor codes and config strings.
+- Copy every mutable part at every boundary: compact constructors, composites, mementos, factories.
+- One-method patterns (Strategy, Command, Template Method, a chain link, a single-method adapter) are functions first. Give them a named interface when the name helps.
+- Framework annotations live in proxies: they run only for calls that go through the proxy.
+- Retry in one layer, around idempotent calls or with an idempotency key, outside the breaker, and never on `CallNotPermitted` or a full bulkhead."""
+
+RECAP = [
+ "Patterns are vocabulary for recurring designs. In Java 21 and Kotlin, many of them are now a language feature: lambdas, sealed types with exhaustive `switch`/`when`, records and data classes, named arguments and `by` delegation.",
+ "Creational: inject instances instead of hand-rolling singletons, name constructors with validating factories, use named arguments or a record plus builder, and remember that every copy (`copy()`, withers) is shallow.",
+ "Structural: adapters translate a vendor's types and errors at the edge, facades own multi-step jobs, decorators add behavior behind the same interface (order matters), and proxies carry framework behavior with their own rules, self-invocation above all.",
+ "Composite, State and Visitor become sealed types plus pure functions. Leave the default off the switch over your own types, and the compiler lists every place a new case needs a rule.",
+ "Strategy, Command, Template Method and Chain of Responsibility become functions: lambdas, comparators, execute-around helpers and folded interceptor lists.",
+ "Observer: return an unsubscribe handle and isolate listener failures; use SharedFlow for events and StateFlow for state. Memento and Command both give undo, by snapshot or by inverse.",
+ "Concurrency patterns answer who owns the state and who waits: bounded producer-consumer queues, balking with compare-and-set, guarded suspension with futures, and one owner per piece of mutable state.",
+ "Cheap threads don't make dependencies cheap: put a fail-fast bulkhead per dependency, a circuit breaker that stops calling a failing one, and one retry layer around idempotent calls."
+]
+
+QUIZ = [
+ {"q": "A Quarkus service needs one shared `FxRates` cache. A teammate writes `object FxRates { ... }` and calls it directly from twelve classes. What is the main cost?",
+  "options": ["It isn't thread-safe: two threads can create two instances", "Tests can't swap it for a fake, and its state leaks from one test to the next", "Kotlin creates a new instance per class that uses it", "It can't hold mutable state"],
+  "answer": 1,
+  "why": "A Kotlin `object` is created once, safely, on first access, so thread safety isn't the problem. The cost is the hidden dependency: twelve classes reach for a global, so a test can't give them a fake, and anything one test caches is still there for the next. Make it an `@ApplicationScoped` bean and inject it.",
+  "from": "pat-01"},
+ {"q": "A Kotlin 2.4 `data class Payout private constructor(...)` is meant to be created only through a validating factory. What does `payout.copy(amountMinor = -5)` do?",
+  "options": ["It doesn't compile, because `copy()` is private like the constructor", "It deep-copies the payout and rejects the negative amount", "It compiles: `copy()` stays public and skips the factory, though checks in `init` still run", "`copy()` isn't generated for a private constructor"],
+  "answer": 2,
+  "why": "In Kotlin 2.4, a private primary constructor doesn't make the generated `copy()` private; you get a warning unless you add `@ConsistentCopyVisibility`. So `copy()` goes around the factory, and only rules in `init` still apply. That is why validation belongs in `init`.",
+  "from": "pat-03"},
+ {"q": "Name these four wrappers, in order: (1) a class that makes a vendor's `SoapClient` look like your `PaymentGateway`; (2) a `PaymentGateway` that wraps another and times `authorize`; (3) the object Spring injects so that `@Transactional` works; (4) one `checkout()` call over inventory, payments and email.",
+  "options": ["Adapter, Decorator, Proxy, Facade", "Decorator, Proxy, Adapter, Facade", "Adapter, Proxy, Decorator, Bridge", "Facade, Decorator, Proxy, Adapter"],
+  "answer": 0,
+  "why": "An adapter changes the interface to yours. A decorator keeps the interface and adds behavior. A proxy keeps the interface and controls access, here by wrapping calls in a transaction. A facade puts one simple entry point in front of several objects. Structure alone can't tell them apart; intent does.",
+  "from": "pat-05"},
+ {"q": "Notifications have four alert types and three channels, and both lists will grow. Which pattern keeps the code at N + M pieces instead of N x M classes?",
+  "options": ["Composite", "Flyweight", "Adapter", "Bridge"],
+  "answer": 3,
+  "why": "Bridge splits two dimensions that vary on their own: each alert holds a `Channel` and calls it, so a new channel works with every alert. Composite is for trees, Flyweight for sharing immutable instances, and Adapter for fitting one existing class to your interface.",
+  "from": "pat-06"},
+ {"q": "Every outbound PSP call must be timed and logged the same way, around a different call each time. What is the modern replacement for a Template Method base class here?",
+  "options": ["A higher-order function, `timed(\"psp.capture\") { ... }`, inline in Kotlin", "A Strategy map from call name to `Runnable`", "A Singleton that every call registers with", "A dynamic proxy around every lambda"],
+  "answer": 0,
+  "why": "The skeleton is fixed and only the middle varies, which is execute around: one function that does setup and teardown and takes the varying step as a lambda. It composes, needs no subclass per call site, and can't hit the constructor-calls-hook trap. In Kotlin, `inline` removes the lambda object too.",
+  "from": "pat-07"},
+ {"q": "A ledger exposes \"posting happened\" notifications and the account's current balance as Kotlin flows. Which pairing is right?",
+  "options": ["StateFlow for both", "SharedFlow for both", "SharedFlow for the postings, StateFlow for the balance", "StateFlow for the postings, SharedFlow for the balance"],
+  "answer": 2,
+  "why": "Postings are events: two equal postings in a row are two real events, and a StateFlow would drop the second because it conflates by `equals`. The balance is state: collectors only need the latest value, which is exactly what StateFlow gives them, including late subscribers.",
+  "from": "pat-08"},
+ {"q": "A Java switch over a sealed `PaymentState` covers all five states with no `default`. A new `Disputed` state is added in a separately compiled jar, and a `Disputed` value reaches the old switch at runtime. What happens?",
+  "options": ["It falls into the first case", "It returns null", "The JVM throws `MatchException`", "Nothing: the compiler rejected the old jar"],
+  "answer": 2,
+  "why": "Exhaustiveness is checked at compile time against the subtypes known then. A subtype added later in separately compiled code is part of the runtime remainder, and Java throws `MatchException` for it (Kotlin throws `NoWhenBranchMatchedException`; a null state throws `NullPointerException`). Recompiling the switch turns it back into a compile error.",
+  "from": "pat-09"},
+ {"q": "When does the classic Visitor pattern still make sense in modern Java or Kotlin?",
+  "options": ["Whenever a hierarchy has more than five subtypes", "For any sealed hierarchy you own", "Never: pattern matching replaced it completely", "For hierarchies that are open across modules, or libraries that hand you one, such as annotation processing or bytecode tools"],
+  "answer": 3,
+  "why": "For a closed hierarchy you own, a sealed type plus `switch` or `when` gives Visitor's benefit (cheap new operations) without `accept` methods. Visitor still fits when the hierarchy isn't sealed or isn't yours: `ElementVisitor` in annotation processors, javac's Tree API, ASM's `ClassVisitor`.",
+  "from": "pat-10"},
+ {"q": "The card issuer is down, and every call hangs until a 2-second timeout. Which tool stops your request threads from each waiting those 2 seconds?",
+  "options": ["A bulkhead of 50", "A circuit breaker", "A retry with three attempts", "A bigger thread pool"],
+  "answer": 1,
+  "why": "Once its failure threshold is reached, the breaker opens and rejects calls at once, with no network trip. A bulkhead only caps how many calls wait at the same time, so 50 of them still wait 2 seconds each. Retries multiply the waiting, and a bigger pool just lets more threads wait.",
+  "from": "pat-11"},
+ {"q": "`Card.parse(raw)` is a factory that returns a sealed `CardResult` with `Valid` and `Invalid`. What should the caller's `when` (or `switch`) look like?",
+  "options": ["One branch per subtype and no `else`, so a new result type breaks the build here", "A single `else` branch, to be safe", "A `try`/`catch` around the call instead of a `when`", "An `is Valid` branch only, because invalid input throws"],
+  "answer": 0,
+  "why": "A sealed result is a promise that the caller handles every outcome, and the compiler checks it only if there is no `else`. Add a `Blocked` result later, and every caller that needs to decide fails to compile. `parse` never throws for bad input; that's what `Invalid` is for.",
+  "from": "pat-02"}
+]
+
+T = {"id": "pat", "intro": INTRO, "cheatsheet": CHEATSHEET, "recap": RECAP, "quiz": QUIZ}
+out = ROOT / "content/tracks/pat.json"
+out.write_text(json.dumps(T, indent=1, ensure_ascii=False) + "\n")
+print("wrote", out)
