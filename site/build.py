@@ -146,6 +146,15 @@ def lesson(L, n, track):
 def compile_course():
     C = json.loads((ROOT / "content/course.json").read_text())
     out = {"title": C["title"], "tagline": C["tagline"], "repo": REPO, "tracks": [], "lessons": {}, "order": []}
+    vids = {}
+    for v in [v for vp in sorted((ROOT / "content/videos").glob("*.json")) for v in json.loads(vp.read_text())["videos"]]:
+        meta = ROOT / "web/video" / f"{v['slug']}.json"
+        if (ROOT / "web/video" / f"{v['slug']}.mp4").exists() and meta.exists():
+            vids.setdefault(v["lesson"], {})[v["section"]] = {
+                "src": f"video/{v['slug']}.mp4", "poster": f"video/{v['slug']}.jpg", "vtt": f"video/{v['slug']}.vtt",
+                "secs": json.loads(meta.read_text())["secs"], "title": inline(v["title"])}
+        else:
+            print(f"video {v['slug']} is listed but not rendered yet", file=sys.stderr)
     for t in C["tracks"]:
         tp = ROOT / "content/tracks" / f"{t['id']}.json"
         T = json.loads(tp.read_text()) if tp.exists() and not validate.check_track(t["id"]).errors else {}
@@ -159,6 +168,9 @@ def compile_course():
             elif lp.exists():
                 try:
                     out["lessons"][ref["id"]] = lesson(json.loads(lp.read_text()), i, t)
+                    for si, v in vids.get(ref["id"], {}).items():
+                        if si < len(out["lessons"][ref["id"]]["sections"]):
+                            out["lessons"][ref["id"]]["sections"][si]["video"] = v
                     continue
                 except Exception as e:
                     print(f"warning: {ref['id']} failed to compile: {e}", file=sys.stderr)

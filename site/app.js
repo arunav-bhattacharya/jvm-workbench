@@ -199,6 +199,11 @@
   }
   const isDesk = () => matchMedia("(min-width: 1024px)").matches;
 
+  const mmss = (t) => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, "0")}`;
+  const videoFig = (v) => `<figure class="vid"><video controls preload="none" playsinline poster="${v.poster}">
+      <source src="${v.src}" type="video/mp4"><track kind="captions" srclang="en" label="English" src="${v.vtt}"></video>
+      <figcaption><b>WATCH · ${mmss(v.secs)}</b>${v.title}</figcaption></figure>`;
+
   function sidebar(cur) {
     const curTrack = L[cur] ? L[cur].track : cur.startsWith("track-") ? cur.slice(6) : null;
     const nx = nextUp();
@@ -387,6 +392,7 @@
     l.sections.forEach((s, si) => {
       toc.push([`s${si}`, s.h, pad(si + 1)]);
       h += `<section class="lsec" id="s${si}"><div class="shead"><span class="sn">${pad(si + 1)}</span><h2>${s.h}</h2></div>
+        ${s.video ? videoFig(s.video) : ""}
         <div class="prose">${s.html}</div>
         ${s.figure ? `<figure class="fig"><div class="svg">${s.figure.svg}</div><figcaption><b>FIG ${pad(si + 1)}</b>${s.figure.caption}</figcaption></figure>` : ""}
         ${s.sim ? `<div class="sim" data-sim="${l.id}-${si}"></div>` : ""}

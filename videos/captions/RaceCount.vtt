@@ -1,0 +1,129 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.763
+Here is one line of Java.
+
+2
+00:00:04.763 --> 00:00:05.423
+count++.
+
+3
+00:00:05.423 --> 00:00:07.733
+It looks like a single step.
+
+4
+00:00:08.533 --> 00:00:10.867
+But the CPU runs it as three.
+
+5
+00:00:10.867 --> 00:00:13.361
+Read the value into a register.
+
+6
+00:00:13.361 --> 00:00:14.004
+Add one.
+
+7
+00:00:14.004 --> 00:00:15.131
+Write it back.
+
+8
+00:00:15.333 --> 00:00:18.625
+Between any two of those steps, another thread can run.
+
+9
+00:00:19.467 --> 00:00:21.568
+Two threads share one counter.
+
+10
+00:00:21.568 --> 00:00:22.829
+It starts at zero.
+
+11
+00:00:22.829 --> 00:00:25.140
+Each thread has its own register.
+
+12
+00:00:25.367 --> 00:00:27.507
+Thread A reads the counter.
+
+13
+00:00:27.507 --> 00:00:28.537
+It sees zero.
+
+14
+00:00:29.267 --> 00:00:33.412
+Before A writes anything, the scheduler switches to thread B.
+
+15
+00:00:33.412 --> 00:00:34.635
+B also reads zero.
+
+16
+00:00:35.367 --> 00:00:36.346
+A adds one.
+
+17
+00:00:36.346 --> 00:00:38.751
+Its register now holds one.
+
+18
+00:00:38.967 --> 00:00:40.350
+B adds one too.
+
+19
+00:00:40.350 --> 00:00:42.009
+It also holds one.
+
+20
+00:00:42.233 --> 00:00:43.904
+A writes one to memory.
+
+21
+00:00:44.633 --> 00:00:46.859
+Then B writes one, right over it.
+
+22
+00:00:47.667 --> 00:00:48.976
+Two increments ran.
+
+23
+00:00:48.976 --> 00:00:50.422
+The counter says one.
+
+24
+00:00:50.422 --> 00:00:53.660
+One update is lost, and nothing threw an error.
+
+25
+00:00:53.867 --> 00:00:55.438
+This is a race condition.
+
+26
+00:00:55.438 --> 00:00:59.147
+The result depends on how the threads happen to interleave.
+
+27
+00:00:59.147 --> 00:01:04.553
+Run it a million times on two threads, and the total comes up short almost every time.
+
+28
+00:01:05.467 --> 00:01:11.041
+The fix is to make read, add and write happen as one step that no other thread can split.
+
+29
+00:01:11.267 --> 00:01:15.475
+An AtomicInteger does it with one compare and swap instruction.
+
+30
+00:01:15.475 --> 00:01:17.680
+The same class works from Kotlin.
+
+31
+00:01:17.900 --> 00:01:22.344
+Or hold a lock, so only one thread at a time can run the three steps.
+
+32
+00:01:22.567 --> 00:01:25.645
+Either way, the counter now adds up, every run.

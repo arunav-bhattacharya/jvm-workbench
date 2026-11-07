@@ -471,3 +471,9 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
 .parthead { display: grid; gap: 4px; margin: 10px 0 14px; }
 .parthead h3 { font-size: 30px; }
 .parthead p { margin: 0; color: var(--mute); font-size: 17.5px; max-width: 46em; }
+
+/* narrated concept videos (Manim, 1080p, black like the figures) */
+figure.vid { margin: 4px 0 22px; display: grid; gap: 0; }
+figure.vid video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; border: 1px solid #1d2026; border-radius: 14px; }
+figure.vid figcaption { font: italic 16px/1.45 var(--read); color: var(--mute); padding: 10px 2px 0; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+figure.vid figcaption b { font: normal 600 12px/1 "Inter", system-ui, sans-serif; letter-spacing: .08em; color: var(--ember); }

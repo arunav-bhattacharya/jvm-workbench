@@ -1,0 +1,5 @@
+{
+  "videos": [
+    {"slug": "conc03-race", "lesson": "conc-03", "section": 1, "title": "Why count++ lies: three steps, two threads, one lost update"}
+  ]
+}
