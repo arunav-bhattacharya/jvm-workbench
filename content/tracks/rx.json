@@ -1,0 +1,129 @@
+{
+ "id": "rx",
+ "intro": "By the end of this track you can read and write Project Reactor code with a clear picture of what runs when, on which thread, and how fast. You can explain the Reactive Streams contract and its demand signal, build lazy `Mono` and `Flux` pipelines, pick the right flattening and combining operators, make a remote call survive failures with timeouts, filtered backoff and fallbacks, move blocking calls off the wrong threads, choose a loss policy for sources that can't slow down, share one source between many subscribers, and test all of it in milliseconds with `StepVerifier` and virtual time. The last lesson says plainly when you shouldn't use Reactor at all.\n\nYou need the first track (threads, races, `synchronized`), the executors track (pools, `CompletableFuture`, Little's law) and the virtual threads track, because this one keeps comparing against them. Install JDK 25. The labs use Reactor 3.8.8 and reactor-test 3.8.8 and compile with release 21, so they run on JDK 21 or later.\n\nThe labs live in `labs/reactive`, one package per lesson (`workbench.reactive.l01` to `l08`). They are in Java, and every code sample and Try-it demo also comes in Kotlin, with Kotlin `Flow` and coroutine counterparts where they exist. Timing tests use virtual time, latches and max-concurrency counters rather than sleeps. Run `./gradlew :reactive:test --tests 'workbench.reactive.lNN.*'` from `labs/` until it passes, use `solutionTest` to check the reference answers, and run the demos with `./gradlew :reactive:demo -Pmain=...`.",
+ "cheatsheet": "## The contract\n\n| Signal | Direction | Rule |\n|---|---|---|\n| `onSubscribe(s)` | publisher to subscriber | always first, exactly once |\n| `request(n)` | subscriber to publisher | demand; the publisher never sends more than requested |\n| `onNext(item)` | publisher to subscriber | zero or more, never `null`, one at a time |\n| `onError(e)` or `onComplete()` | publisher to subscriber | at most one, and nothing after it |\n| `cancel()` | subscriber to publisher | the only way a subscriber stops the stream |\n\n`java.util.concurrent.Flow` is the same four interfaces in the JDK. `Flux` is 0 to N items, `Mono` is 0 or 1.\n\n## Nothing happens until you subscribe\n\n| You write | The work runs |\n|---|---|\n| `Mono.just(call())` | once, at assembly, before anyone subscribes |\n| `Mono.fromCallable(() -> call())` | once per subscription |\n| `Mono.defer(() -> client.call())` | once per subscription; `client.call()` returns a publisher |\n\nA cold publisher does its work again for each subscriber. `retry` re-subscribes, so it needs a lazy source.\n\n## Picking an operator\n\n| You want | Use |\n|---|---|\n| a synchronous change per item | `map`, `filter` |\n| async calls, any order, capped | `flatMap(call, n)` (default n is 256) |\n| async calls, one at a time, in order | `concatMap(call)` |\n| async calls, concurrent, in input order | `flatMapSequential(call, n)` |\n| only the latest request matters | `switchMap(call)` |\n| one result from several independent calls | `Mono.zip(a, b, c)`, with `switchIfEmpty` or `defaultIfEmpty` on each |\n| two live streams interleaved / one after the other | `Flux.merge` / `Flux.concat` |\n| a value recomputed when any input changes | `Flux.combineLatest` |\n\nSource `3, 1, 2`, item i takes i x 100 ms: `flatMap` gives `1, 2, 3` at 300 ms, `concatMap` gives `3, 1, 2` at 600 ms, `flatMapSequential` gives `3, 1, 2` at 300 ms.\n\n## Errors, retries, timeouts\n\n```java\nMono.defer(() -> issuer.authorize(id))                  // a fresh call per attempt\n        .timeout(Duration.ofMillis(500))                  // per attempt\n        .retryWhen(Retry.backoff(3, Duration.ofMillis(100))   // 4 attempts: 0, 100, 300, 700 ms\n                .filter(e -> e instanceof IssuerUnavailableException || e instanceof TimeoutException))\n        .onErrorResume(Exceptions::isRetryExhausted, e -> Mono.just(\"PENDING:\" + id));\n```\n\n```kotlin\nMono.defer { issuer.authorize(id) }                       // a fresh call per attempt\n    .timeout(Duration.ofMillis(500))                      // per attempt\n    .retryWhen(Retry.backoff(3, Duration.ofMillis(100))   // 4 attempts: 0, 100, 300, 700 ms\n        .filter { e -> e is IssuerUnavailableException || e is TimeoutException })\n    .onErrorResume(Exceptions::isRetryExhausted) { Mono.just(\"PENDING:$id\") }\n```\n\nErrors are terminal. `retry(n)` makes n + 1 immediate attempts and rethrows the original error; `Retry.backoff` ends with `RetryExhaustedException` (jitter 0.5 by default). Skip a bad item inside a per-item `Mono`, not with `onErrorContinue`.\n\n## Threads\n\n| Scheduler | Threads | For |\n|---|---|---|\n| none | the thread that subscribed, or the one that delivered the item | most operators |\n| `Schedulers.parallel()` | one per core | CPU work and timers; never block |\n| `Schedulers.single()` | one | cheap serial work |\n| `Schedulers.boundedElastic()` | up to 10 x cores, then a queue of 100,000 | blocking calls |\n\n`publishOn` moves the operators after it. `subscribeOn` moves the source, wherever it is written; the one nearest the source wins. Wrap blocking calls as `Mono.fromCallable(...).subscribeOn(boundedElastic())`, with `subscribeOn` on each inner Mono. `block()` throws on `parallel` and `single` threads. `-Dreactor.schedulers.defaultBoundedElasticOnVirtualThreads=true` (Reactor 3.6+, JDK 21+) runs boundedElastic on virtual threads.\n\n## Backpressure\n\n| Between you and the source | The source sees |\n|---|---|\n| `subscribe(consumer)` or `block()` alone | `Long.MAX_VALUE` |\n| `take(3)` | `3` |\n| `limitRate(10)` | `10, 8, 8, ...` |\n| `flatMap(call, 4)` | `4, 1, 1, ...` |\n\nFor a source that can't slow down, choose: `onBackpressureBuffer(n)` (keep n, then fail loudly), `onBackpressureDrop(onDropped)`, `onBackpressureLatest()`, `onBackpressureError()`. All of them request unbounded upstream. Never use `onBackpressureBuffer()` without a size. `Flux.create` buffers without limit by default.\n\n## Sharing and Sinks\n\n| Operator | A late subscriber gets | Disconnects |\n|---|---|---|\n| `share()` = `publish().refCount()` | only new items | when the last one leaves |\n| `replay(n).refCount()` | the last n, then new ones | when the last one leaves |\n| `publish().autoConnect(n)` | only new items | never |\n| `cache()` | everything | never |\n| `Mono.cache(ttl)` | the value until it expires | not applicable |\n\n`Sinks.many().multicast().directBestEffort()` for a live hub that survives having no subscribers; `onBackpressureBuffer()` buffers but shuts down when its last subscriber leaves. From several threads, use `emitNext(item, Sinks.EmitFailureHandler.busyLooping(Duration.ofSeconds(1)))`; a bare `tryEmitNext` can return `FAIL_NON_SERIALIZED` and lose the item.\n\n## Testing and debugging\n\n```java\nStepVerifier.withVirtualTime(() -> poller.awaitFinal(\"p-1\"))   // build it inside the supplier\n        .expectSubscription()                                    // before expectNoEvent\n        .expectNoEvent(Duration.ofSeconds(90))\n        .expectNext(SETTLED)\n        .expectComplete()\n        .verify(Duration.ofSeconds(1));                          // nothing runs without verify()\n```\n\n```kotlin\nStepVerifier.withVirtualTime { poller.awaitFinal(\"p-1\") }       // build it inside the supplier\n    .expectSubscription()                                        // before expectNoEvent\n    .expectNoEvent(Duration.ofSeconds(90))\n    .expectNext(SETTLED)\n    .expectComplete()\n    .verify(Duration.ofSeconds(1))                               // nothing runs without verify()\n```\n\n`TestPublisher` drives a source by hand; `PublisherProbe` proves a branch ran. `checkpoint(\"name\")` labels errors cheaply, `log()` prints every signal, `Hooks.onOperatorDebug()` is a costly last resort.\n\n## When to use it\n\nRequest and response over JDBC or other blocking clients: virtual threads and plain code. Streams, demand, cancellation, loss policies, and many calls composed with timeouts and retries: Reactor. Kotlin: coroutines and `Flow`, bridged by `kotlinx-coroutines-reactor`.",
+ "recap": [
+  "Reactive Streams is a contract of four interfaces: the subscriber asks for `n` items, the publisher never sends more, and `onError` or `onComplete` ends the stream for good.",
+  "Assembly builds a recipe; subscription runs it, once per subscriber for a cold publisher. `Mono.just(call())` runs the call at assembly; `fromCallable` and `defer` run it per subscription.",
+  "`flatMap` runs inners concurrently in completion order (256 at a time by default), `concatMap` one at a time in order, `flatMapSequential` concurrently in order, `switchMap` keeps only the latest.",
+  "`Mono.zip` completes empty, silently, when one source is empty. Say what empty means on each source.",
+  "For remote calls: a lazy source, a per-attempt `timeout`, `retryWhen(Retry.backoff(...).filter(...))` (3 retries means 4 attempts), and a fallback for exhausted retries.",
+  "Code runs on the thread that delivered the signal. `publishOn` moves what follows, `subscribeOn` moves the source; blocking calls go on `boundedElastic`, with `subscribeOn` on each inner.",
+  "`limitRate` reshapes demand. For sources that can't slow down, pick a loss policy; `onBackpressureBuffer()` with no size only hides the backlog.",
+  "`share`, `replay(n).refCount()` and `cache` differ in what late subscribers get and when they disconnect. Sinks need a retrying emit when several threads push.",
+  "Test with `StepVerifier` and virtual time: always `verify()` with a timeout, and build the publisher inside the supplier.",
+  "Use Reactor for streams and composed concurrency; for request and response over blocking libraries, virtual threads and imperative code are simpler."
+ ],
+ "quiz": [
+  {
+   "q": "A `Flow.Subscriber` calls `request(2)` in `onSubscribe` and never requests again. Its publisher has 100 items ready. What does the subscriber receive?",
+   "options": [
+    "All 100 items, because the publisher pushes what it has",
+    "2 items, then nothing until it requests more",
+    "2 items, then `onComplete`",
+    "2 items, then `onError`, because the rest were not requested"
+   ],
+   "answer": 1,
+   "why": "Rule 1.1: a publisher sends no more `onNext` signals than were requested. A publisher that still has items to deliver doesn't complete; it waits for more demand. A stream with unmet demand simply stalls, which is what to look for when a pipeline hangs."
+  },
+  {
+   "q": "`Mono<Receipt> r = Mono.just(chargeCard(payment));` is built, but nothing ever subscribes to `r`. How many times is the card charged?",
+   "options": [
+    "Never: nothing happens until you subscribe",
+    "Once",
+    "Once per subscriber, so zero",
+    "It depends on the scheduler"
+   ],
+   "answer": 1,
+   "why": "`Mono.just` takes a value, so Java evaluates `chargeCard(payment)` before `just` is even called: the charge happens at assembly. \"Nothing happens until you subscribe\" is true of the work inside operators and `fromCallable`, not of arguments you compute yourself."
+  },
+  {
+   "q": "Source `3, 1, 2`; each item i is turned into a call that takes i x 100 ms. What does `concatMap` emit, and when is it done?",
+   "options": [
+    "`1, 2, 3`, done at 300 ms",
+    "`3, 1, 2`, done at 300 ms",
+    "`3, 1, 2`, done at 600 ms",
+    "`1, 2, 3`, done at 600 ms"
+   ],
+   "answer": 2,
+   "why": "`concatMap` runs one call at a time in source order, so it takes 300 + 100 + 200 = 600 ms. `flatMap` would give `1, 2, 3` at 300 ms (completion order), and `flatMapSequential` `3, 1, 2` at 300 ms (concurrent, but reordered)."
+  },
+  {
+   "q": "A merchant search box sends a lookup on every keystroke. Results of an older query must never overwrite newer ones. Which operator fits?",
+   "options": [
+    "`flatMap`",
+    "`concatMap`",
+    "`switchMap`",
+    "`flatMapSequential`"
+   ],
+   "answer": 2,
+   "why": "`switchMap` cancels the previous lookup as soon as a new keystroke arrives, so only the latest query can produce results. `flatMap` lets a slow old query land after a newer one; `concatMap` and `flatMapSequential` would wait for every old query in order."
+  },
+  {
+   "q": "`Mono.zip(fxRate, fee, limit)`: `limit` completes empty because the customer has no limit configured. What does the zip do?",
+   "options": [
+    "Fails with `NoSuchElementException`",
+    "Emits a tuple with `null` for the limit",
+    "Waits for a limit that never comes",
+    "Completes empty, with no error, and cancels the other calls"
+   ],
+   "answer": 3,
+   "why": "An empty source gives the zip nothing to combine, so it completes empty at once and cancels the rest. Nothing is logged. Put `switchIfEmpty(Mono.error(...))` or `defaultIfEmpty(...)` on each source that can be empty."
+  },
+  {
+   "q": "`Mono.defer(() -> issuer.authorize(id)).retryWhen(Retry.backoff(3, Duration.ofMillis(100)).jitter(0))` against an issuer that always fails. What happens?",
+   "options": [
+    "3 calls, then the issuer's exception",
+    "4 calls at 0, 100, 300 and 700 ms, then `RetryExhaustedException` with the issuer's exception as its cause",
+    "4 calls 100 ms apart, then the issuer's exception",
+    "An endless loop of calls"
+   ],
+   "answer": 1,
+   "why": "The 3 counts retries, so there are 4 attempts, with waits of 100, 200 and 400 ms. When the retries run out, `Retry.backoff` signals `RetryExhaustedException` (\"Retries exhausted: 3/3\"). Plain `retry(3)` would also make 4 attempts, with no waits, and rethrow the original error."
+  },
+  {
+   "q": "`Flux.fromIterable(ids).flatMap(id -> Mono.fromCallable(() -> dao.load(id))).subscribeOn(Schedulers.boundedElastic())` loads 50 rows, 20 ms each, with a blocking DAO. About how long does it take?",
+   "options": [
+    "About 20 ms: flatMap runs them all at once",
+    "About 1 second: all 50 run in turn on one thread",
+    "About 250 ms: one thread per core",
+    "It fails: blocking is not allowed on boundedElastic"
+   ],
+   "answer": 1,
+   "why": "`subscribeOn` on the outer Flux puts the whole subscription on one boundedElastic thread, and each `fromCallable` runs synchronously when `flatMap` subscribes to it, on that same thread. Put `subscribeOn(boundedElastic())` on each inner Mono, and cap the fan-out with `flatMap`'s concurrency."
+  },
+  {
+   "q": "A WebSocket of audit events can't slow down. No event may be lost silently, and bursts of a few hundred are normal. Which line fits?",
+   "options": [
+    "`events.onBackpressureBuffer()`",
+    "`events.onBackpressureLatest()`",
+    "`events.onBackpressureBuffer(1_000, e -> log.error(\"overflow at {}\", e.id()))`",
+    "`events.limitRate(100)`"
+   ],
+   "answer": 2,
+   "why": "A bounded buffer absorbs the bursts, and if the consumer falls further behind, it cancels the source, logs the overflowing event and fails, so the gap is visible. The unbounded buffer hides the backlog until memory runs out, `onBackpressureLatest` drops events silently, and `limitRate` changes requests that this source ignores."
+  },
+  {
+   "q": "Twelve dashboards share one FX provider connection. A dashboard that opens late must show the current rate at once, and the connection must close when nobody watches. Which operator fits?",
+   "options": [
+    "`rates.replay(1).refCount()`",
+    "`rates.share()`",
+    "`rates.cache()`",
+    "`rates.publish().autoConnect(1)`"
+   ],
+   "answer": 0,
+   "why": "`replay(1)` hands a late subscriber the latest rate, and `refCount()` cancels the upstream when the last subscriber leaves. `share()` makes a late dashboard wait for the next tick; `cache()` and `autoConnect` never disconnect, and `cache()` keeps every rate forever."
+  },
+  {
+   "q": "A test builds `Mono<Status> poll = poller.awaitFinal(\"p-1\");` in `@BeforeEach`, then runs `StepVerifier.withVirtualTime(() -> poll).thenAwait(Duration.ofMinutes(5))...verify(Duration.ofSeconds(1))`. It fails with \"VerifySubscriber timed out\". Why?",
+   "options": [
+    "Virtual time doesn't work with `Mono`",
+    "`thenAwait` must be replaced with `Thread.sleep`",
+    "`verify` needs a longer timeout, such as 5 minutes",
+    "The Mono was assembled before virtual time was installed, so its timers use the real clock"
+   ],
+   "answer": 3,
+   "why": "Operators such as `interval`, `delay` and `timeout` pick their scheduler at assembly. Built in `@BeforeEach`, the poller's timers run on the real `parallel` scheduler, and advancing the virtual clock does nothing. Call `poller.awaitFinal(\"p-1\")` inside the supplier. A 5-minute real timeout would just make the test slow."
+  }
+ ]
+}

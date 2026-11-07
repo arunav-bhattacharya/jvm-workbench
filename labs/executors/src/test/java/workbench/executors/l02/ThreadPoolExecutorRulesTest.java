@@ -119,9 +119,16 @@ class ThreadPoolExecutorRulesTest {
     void authPoolRejectsOverflow() throws Exception {
         ThreadPoolExecutor pool = AuthPool.create();
         CountDownLatch release = new CountDownLatch(1);
-        Runnable block = () -> { try { release.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } };
+        CountDownLatch coreBusy = new CountDownLatch(4);
+        Runnable block = () -> {
+            coreBusy.countDown();
+            try { release.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        };
         try {
-            for (int i = 0; i < 24; i++) pool.execute(block);
+            // fill the 4 core threads first and wait until they really run, so the queue starts empty
+            for (int i = 0; i < 4; i++) pool.execute(block);
+            assertThat(coreBusy.await(5, TimeUnit.SECONDS)).as("4 core threads busy").isTrue();
+            for (int i = 4; i < 24; i++) pool.execute(block);   // 16 queue up, 4 start extra threads
             assertThatThrownBy(() -> pool.execute(block)).isInstanceOf(RejectedExecutionException.class);
             assertThat(pool.getPoolSize()).as("threads").isEqualTo(8);
             assertThat(pool.getQueue()).as("queue").hasSize(16);

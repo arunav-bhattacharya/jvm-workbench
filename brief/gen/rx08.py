@@ -29,7 +29,7 @@ In the demo a feed emits a rate every 100 ms and dashboard B joins at 250 ms. Co
 
 Two details matter in production. `publish` follows the slowest subscriber: it requests from the source only what every subscriber can take, so one slow dashboard slows them all (combine it with a policy from lesson 7 of this track). And `refCount(1, Duration.ofSeconds(5))` adds a grace period: when the last subscriber leaves, it waits 5 seconds before disconnecting, so a dashboard that refreshes the page doesn't make you reconnect to the provider."""
 
-S2 = """Sometimes the values come from ordinary code: a Kafka listener callback, a webhook handler, a scheduled job. `Sinks` is Reactor's safe way to push them into a `Flux`. (Processors used to do this; Reactor phased them out in 3.5.)
+S2 = """Sometimes the values come from ordinary code: a Kafka listener callback, a webhook handler, a scheduled job. `Sinks` is Reactor's safe way to push them into a `Flux`. (Processors used to do this; Reactor has phased them out in favour of Sinks.)
 
 ```java
 Sinks.Many<PaymentEvent> sink = Sinks.many().multicast().directBestEffort();
@@ -45,7 +45,7 @@ val result: Sinks.EmitResult = sink.tryEmitNext(event)      // what the listener
 
 `Sinks.many().multicast()` sends each item to the subscribers present at that moment, in three flavours. `onBackpressureBuffer()` buffers for slow subscribers and keeps items pushed before the first subscriber arrives for it. By default it also shuts down for good when its last subscriber leaves: a subscriber that comes later just receives `onComplete`. `directBestEffort()` keeps no buffer: a subscriber that isn't asking misses the item, and the sink keeps working with zero subscribers. `directAllOrNothing()` drops the item for everyone if one subscriber isn't ready. Then `many().replay()` keeps history for late subscribers (`all()`, `limit(n)`, `limit(Duration)`, `latest()`), `many().unicast()` allows exactly one subscriber, and `Sinks.one()` and `Sinks.empty()` carry a single value or a bare completion.
 
-The trap is threads. `tryEmitNext` never blocks and never retries. If two threads call it at the same moment, one of them gets `EmitResult.FAIL_NON_SERIALIZED` and its item is not emitted. Ignore the result and items vanish. In the demo, 8 threads emitting 10,000 items each delivered between 4,000 and 8,000 of the 80,000.
+The trap is threads. `tryEmitNext` never blocks and never retries. If two threads call it at the same moment, one of them gets `EmitResult.FAIL_NON_SERIALIZED` and its item is not emitted. Ignore the result and items vanish. In my runs of the demo, 8 threads emitting 10,000 items each delivered only a few thousand of the 80,000.
 
 Either check every result, or call `emitNext(item, handler)` with a handler that retries. `Sinks.EmitFailureHandler.busyLooping(Duration.ofSeconds(1))` spins until the sink is free, for up to a second. Its Javadoc asks you not to keep and reuse it, so create one per call. Wrapping the emit in a lock works too."""
 
@@ -98,11 +98,11 @@ Virtual threads (final in JDK 21) took away most of the thread-count argument. M
 
 So here is the position I'd take for your services:
 
-- **Request and response over JDBC, JPA or other blocking clients**: virtual threads and plain imperative code. Don't rewrite a working Quarkus REST or Spring MVC service in Reactor.
-- **Streams**: server-sent events, WebSockets, Kafka pipelines, anything where demand, cancellation and a loss policy matter. Reactor earns its complexity here.
-- **Many calls composed with timeouts, retries and fan-out**: Reactor's operators are hard to beat. Coroutines, or structured concurrency once it is final, are the imperative alternatives.
-- **A stack that is already reactive end to end** (WebClient, R2DBC, Reactor Netty): stay reactive, and keep the few blocking calls on `boundedElastic`.
-- **Kotlin**: coroutines give sequential-looking code over the same runtime. `kotlinx-coroutines-reactor` bridges both ways (`awaitSingle()`, `mono { }`, `Flow.asFlux()`), and Spring maps `Mono` to `suspend` and `Flux` to `Flow`. The coroutines track builds on that."""
+- For request and response over JDBC, JPA or other blocking clients, use virtual threads and plain imperative code. Don't rewrite a working Quarkus REST or Spring MVC service in Reactor.
+- For streams (server-sent events, WebSockets, Kafka pipelines, anything where demand, cancellation and a loss policy matter), Reactor earns its complexity.
+- For many calls composed with timeouts, retries and fan-out, Reactor's operators are hard to beat. Coroutines, or structured concurrency once it is final, are the imperative alternatives.
+- In a stack that is already reactive end to end (WebClient, R2DBC, Reactor Netty), stay reactive and keep the few blocking calls on `boundedElastic`.
+- In Kotlin, coroutines give sequential-looking code over the same runtime. `kotlinx-coroutines-reactor` bridges both ways (`awaitSingle()`, `mono { }`, `Flow.asFlux()`), and Spring maps `Mono` to `suspend` and `Flux` to `Flow`. The coroutines track builds on that."""
 
 X0, PX = 150, 0.8
 def x(ms): return X0 + ms * PX
@@ -120,6 +120,9 @@ lanes = [
     ("B, replay(1)", 208, live[2:], [(250, "1")]),
     ("B, cache()", 256, live[2:], [(238, "0"), (262, "1")]),
 ]
+SVG += '<line class="ln-d" x1="16" y1="128" x2="660" y2="128"/>'
+SVG += f'<line class="ln-bad" x1="{x(250):.0f}" y1="134" x2="{x(250):.0f}" y2="278"/>'
+SVG += f'<text class="t-s t-bad" x="{x(250) + 8:.0f}" y="146">B subscribes at 250 ms</text>'
 for name, y, items, replayed in lanes:
     SVG += f'<text class="t-s" x="16" y="{y + 4}">{name}</text>'
     SVG += f'<line class="ln" x1="{X0}" y1="{y}" x2="645" y2="{y}" marker-end="url(#arr)"/>'
@@ -127,9 +130,6 @@ for name, y, items, replayed in lanes:
         SVG += f'<circle class="box-b" cx="{x(ms):.0f}" cy="{y}" r="10"/><text class="t-s" x="{x(ms):.0f}" y="{y + 4}" text-anchor="middle">{label}</text>'
     for ms, label in items:
         SVG += f'<circle class="box-a" cx="{x(ms):.0f}" cy="{y}" r="10"/><text class="t-s" x="{x(ms):.0f}" y="{y + 4}" text-anchor="middle">{label}</text>'
-SVG += f'<line class="ln-bad" x1="{x(250):.0f}" y1="132" x2="{x(250):.0f}" y2="278"/>'
-SVG += f'<text class="t-s t-bad" x="{x(250) + 8:.0f}" y="136">B subscribes</text>'
-SVG += '<line class="ln-d" x1="16" y1="130" x2="660" y2="130"/>'
 SVG += '</svg>'
 
 CJ = '''// Reactor: a hub that listener threads push into, and a shared rate feed
@@ -282,7 +282,7 @@ L = {
      "Run it. In part 1, add `.verify()` to the end of the line and run again."
     ],
     "code": code("StepVerifierDemo"),
-    "expect": "Part 1 reports `subscriptions=0`: without `verify()` nothing ran, and the wrong expectation (`refunded`) went unnoticed. After you add `.verify()`, it fails with `expected value: refunded; actual value: charged`. Part 2 verifies a full day in a few dozen milliseconds. Part 3 fails with `expected no event: onSubscribe(...)`. Part 4 fails with `VerifySubscriber timed out`, because the delay holds the real clock. Part 5 passes."
+    "expect": "Part 1 reports `subscriptions=0`: without `verify()` nothing ran, and the wrong expectation (`refunded`) went unnoticed. After you add `.verify()`, it throws an `AssertionError` saying it expected `refunded` and got `charged`. Part 2 verifies a full day in a few dozen milliseconds. Part 3 fails with `expected no event: onSubscribe(...)`. Part 4 fails with `VerifySubscriber timed out`, because the delay holds the real clock. Part 5 passes."
    },
    "refs": [
     {"title": "Reactor reference: Testing (source, 3.8.x)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/testing.adoc", "kind": "docs"}
@@ -333,7 +333,7 @@ L = {
     "code": W1, "lang": "java", "alt_code": W1K, "alt_lang": "kotlin"},
    {"say": "The timeout path: the payment never settles. Jump the clock to the deadline and expect the `TimeoutException`. Keep a real-time limit on `verify` as well, so a mistake makes the test fail in one second instead of hanging.",
     "code": W2, "lang": "java", "alt_code": W2K, "alt_lang": "kotlin"},
-   {"say": "Both tests run in a few milliseconds. If one of them hangs instead, look at where the poller is built: `Flux.interval` and `timeout` pick their scheduler when the chain is assembled, so a poller created before `withVirtualTime` runs on the real clock. The same goes for a poller held in a field and built once in a `@BeforeEach`.", "code": "", "lang": ""}
+   {"say": "Both tests run in a few milliseconds. If one of them hangs instead, look at where the poller is built: `Flux.interval` and `timeout` pick their scheduler when the chain is assembled, so a poller created before `withVirtualTime` runs on the real clock. The same goes for a `Mono` built once in a `@BeforeEach` and kept in a field.", "code": "", "lang": ""}
   ]
  },
  "lab": {
