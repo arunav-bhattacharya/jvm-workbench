@@ -1,0 +1,97 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.498
+Here is a sealed interface for payment methods.
+
+2
+00:00:05.498 --> 00:00:08.236
+Sealed means it lists every subtype it allows.
+
+3
+00:00:08.236 --> 00:00:10.379
+Right now that is Card and Transfer.
+
+4
+00:00:10.600 --> 00:00:14.233
+Two pieces of code turn a method into a receipt label.
+
+5
+00:00:14.467 --> 00:00:17.887
+Both compile, and both give the same answers today.
+
+6
+00:00:18.100 --> 00:00:20.637
+Now a new payment method ships: Wallet.
+
+7
+00:00:20.637 --> 00:00:22.913
+You add it to the sealed interface.
+
+8
+00:00:23.133 --> 00:00:24.378
+Then you recompile.
+
+9
+00:00:24.378 --> 00:00:28.833
+javac reads the permits list, so it knows every Method there can be.
+
+10
+00:00:28.833 --> 00:00:32.305
+It checks the switch against that list, case by case.
+
+11
+00:00:32.533 --> 00:00:36.529
+There is no case for Wallet, so the switch is now a compile error.
+
+12
+00:00:36.733 --> 00:00:38.839
+The chain compiles without a word.
+
+13
+00:00:38.839 --> 00:00:44.661
+To the compiler it is just a few if statements, and nothing says they must cover every Method.
+
+14
+00:00:44.867 --> 00:00:47.689
+At run time, a Wallet payment walks through it.
+
+15
+00:00:47.900 --> 00:00:48.980
+Not a Card.
+
+16
+00:00:48.980 --> 00:00:50.452
+Not a Transfer.
+
+17
+00:00:50.667 --> 00:00:54.556
+So it lands in the else, and every wallet receipt says unknown.
+
+18
+00:00:55.467 --> 00:01:02.535
+Kotlin's when over a sealed interface gets the same check, whether you use it as an expression or as a statement.
+
+19
+00:01:02.767 --> 00:01:05.207
+Add Wallet, and both compilers stop.
+
+20
+00:01:05.207 --> 00:01:07.985
+kotlinc even names the branch you forgot.
+
+21
+00:01:09.600 --> 00:01:15.623
+Every switch over Method gets this check, so the build stays red until each one handles Wallet.
+
+22
+00:01:16.433 --> 00:01:17.525
+One rule follows.
+
+23
+00:01:17.525 --> 00:01:20.799
+Don't put a default on a switch over a sealed type.
+
+24
+00:01:21.000 --> 00:01:27.641
+A default catches Wallet quietly, the same way the else did, and the compiler has nothing left to check.

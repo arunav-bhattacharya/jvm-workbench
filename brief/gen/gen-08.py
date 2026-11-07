@@ -60,7 +60,7 @@ println(ids.javaClass == cents.javaClass)                  // true: both are jav
 
 This is **type erasure**. Java 5 added generics this way so that old and new class files could run on the same JVM. Kotlin compiles to the same JVM and inherits the rule. The compiler checks the type argument, and then it is gone: the object has no field that says `String`.
 
-Here is what both compilers write instead. In the class file, each type parameter becomes its bound: a plain `T` becomes `Object`, and `T : Comparable<T>` becomes `Comparable`. So `List.get` returns an `Object`. Where your code needs a `String`, the compiler inserts a `checkcast` instruction to `String` right after the call. Run `javap -c` on any class that reads from a `List<String>` and you'll see it. That inserted cast is the line that throws in the last example below.
+Here is what both compilers leave in the class file. Each type parameter becomes its bound: a plain `T` becomes `Object`, and `T : Comparable<T>` becomes `Comparable`. So `List.get` returns an `Object`. Where your code needs a `String`, the compiler inserts a `checkcast` instruction to `String` right after the call. Run `javap -c` on any class that reads from a `List<String>` and you'll see it. That inserted cast is the line that throws in the last example below.
 
 Three things follow, and each has an error you'll meet:
 
