@@ -11,6 +11,7 @@ import java.lang.management.ManagementFactory;
 
 public class ArenaDemo {
     public static void main(String[] args) {
+        long before = directBytes();                                      // the JDK may already hold a little
         MemorySegment escaped;
         try (Arena arena = Arena.ofConfined()) {                          // 1. one owner thread, closed by try-with-resources
             MemorySegment ledger = arena.allocate(32L * 1024 * 1024);      // 2. 32 MiB outside the heap
@@ -18,10 +19,10 @@ public class ArenaDemo {
                 ledger.setAtIndex(ValueLayout.JAVA_LONG, i, i * 100);      //    4 million longs, and no objects
             }
             System.out.println("entry 1,000 holds " + ledger.getAtIndex(ValueLayout.JAVA_LONG, 1_000));
-            System.out.println("inside the arena: " + direct());
+            System.out.printf("inside the arena: %+d MiB of direct memory%n", (directBytes() - before) >> 20);
             escaped = ledger;
         }                                                                 // 3. freed here, not by the GC
-        System.out.println("after close():    " + direct());
+        System.out.printf("after close():    %+d MiB of direct memory%n", (directBytes() - before) >> 20);
         try {
             escaped.getAtIndex(ValueLayout.JAVA_LONG, 0);                 // 4. use after free is an exception, not a crash
         } catch (IllegalStateException e) {
@@ -29,11 +30,10 @@ public class ArenaDemo {
         }
     }
 
-    // native segments count against the same limit as direct ByteBuffers
-    static String direct() {
+    // native segments are counted, and limited, together with direct ByteBuffers
+    static long directBytes() {
         return ManagementFactory.getPlatformMXBeans(BufferPoolMXBean.class).stream()
                 .filter(p -> p.getName().equals("direct"))
-                .map(p -> p.getCount() + " direct allocation(s), " + (p.getMemoryUsed() >> 20) + " MiB")
-                .findFirst().orElse("?");
+                .mapToLong(BufferPoolMXBean::getMemoryUsed).sum();
     }
 }

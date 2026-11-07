@@ -11,12 +11,13 @@ import java.lang.foreign.ValueLayout
 import java.lang.management.BufferPoolMXBean
 import java.lang.management.ManagementFactory
 
-// native segments count against the same limit as direct ByteBuffers
-fun direct(): String = ManagementFactory.getPlatformMXBeans(BufferPoolMXBean::class.java)
-    .firstOrNull { it.name == "direct" }
-    ?.let { "${it.count} direct allocation(s), ${it.memoryUsed shr 20} MiB" } ?: "?"
+// native segments are counted, and limited, together with direct ByteBuffers
+fun directBytes(): Long = ManagementFactory.getPlatformMXBeans(BufferPoolMXBean::class.java)
+    .filter { it.name == "direct" }
+    .sumOf { it.memoryUsed }
 
 fun main() {
+    val before = directBytes()                                            // the JDK may already hold a little
     val escaped: MemorySegment
     Arena.ofConfined().use { arena ->                                     // 1. one owner thread, closed by use {}
         val ledger = arena.allocate(32L * 1024 * 1024)                     // 2. 32 MiB outside the heap
@@ -24,10 +25,10 @@ fun main() {
             ledger.setAtIndex(ValueLayout.JAVA_LONG, i, i * 100)           //    4 million longs, and no objects
         }
         println("entry 1,000 holds ${ledger.getAtIndex(ValueLayout.JAVA_LONG, 1_000)}")
-        println("inside the arena: ${direct()}")
+        println("inside the arena: %+d MiB of direct memory".format((directBytes() - before) shr 20))
         escaped = ledger
     }                                                                     // 3. freed here, not by the GC
-    println("after close():    ${direct()}")
+    println("after close():    %+d MiB of direct memory".format((directBytes() - before) shr 20))
     try {
         escaped.getAtIndex(ValueLayout.JAVA_LONG, 0)                      // 4. use after free is an exception, not a crash
     } catch (e: IllegalStateException) {
