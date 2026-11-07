@@ -68,7 +68,7 @@ You can watch the loading happen. `-Xlog:class+load` prints one line per class, 
 
 That `source:` column turns "start-up is slow" into a histogram you can read. When you try lesson 2's archives later, the same histogram shows them working."""
 
-S2 = """Loading a class and initializing it are two different events. The JVM loads a class when something needs its definition. It runs the class's static initializer, the method the bytecode calls `<clinit>`, only on the first **active use**: `new`, a call to a static method, a read or write of a static field that is not a compile-time constant, or a reflective call that asks for initialization. Initializing a subclass initializes its superclass first. Declaring a variable of the type, or writing `Fees.class`, does neither.
+S2 = """Loading a class and initializing it are two different events. The JVM loads a class when something needs its definition. It runs the class's static initializer, the method the bytecode calls `<clinit>`, only on the first **active use**: `new`, a call to a static method, a read or write of a static field that is not a compile-time constant, or a reflective call that asks for initialization. Initializing a subclass initializes its superclass first. Declaring a variable of the type does not initialize the class. Neither does `Fees.class`, which loads the class but runs no initializer.
 
 That rule decides what ends up on your start-up path. Here is a common shape: a table built in a static field.
 
@@ -92,7 +92,7 @@ class BinTable {
 }
 ```
 
-The readiness check only logs `version()`. It still pays for the whole table, because calling any static method initializes the class, and the class's initializer builds the table. The Kotlin version has the same problem, and it surprises people. A companion object's properties compile to static fields of the outer class, and the outer class's `<clinit>` fills them. `javap` shows `private static final java.util.Map table` on `BinTable` itself.
+The readiness check only logs `version()`. It still pays for the whole table, because calling any static method initializes the class, and the class's initializer builds the table. The Kotlin version has the same problem, and it surprises people. A companion object's properties compile to static fields of the outer class, and the outer class's `<clinit>` fills them. `javap -p` lists `table` as a `private static final` field of `BinTable` itself.
 
 The fix is the **holder idiom**: give the expensive field its own class.
 
@@ -117,7 +117,7 @@ object BinTable {
 }
 ```
 
-Now `version()` touches only `BinTable`. The JVM loads and initializes `Holder` the first time `issuerOf` reads `Holder.TABLE`. It is also thread-safe without any lock in your code: the JVM initializes a class under its own lock (JLS 12.4.2), so if eight threads arrive at once, one runs the initializer and the others wait for it. In Kotlin, `val table by lazy { build() }` gives you the same laziness with a lock you can see. The memory model track covers why this is safe in lesson 5, "Lazy init done right".
+Now `version()` touches only `BinTable`. The JVM loads and initializes `Holder` the first time `issuerOf` reads `Holder.TABLE`. It is also thread-safe without any lock in your code: the JVM initializes a class under its own lock (JLS 12.4.2), so if eight threads arrive at once, one runs the initializer and the others wait for it. In Kotlin, `val table by lazy { build() }` gives you the same laziness with a lock you can see. Lesson 5 of the memory model track, "Lazy init done right: double-checked locking and holders", shows why this is safe.
 
 Lazy is not always better. Moving the cost to the first request makes that request slow instead. Be lazy about work that many starts never need, such as admin tables or rarely used reports. Do the work early, on purpose, when every request needs it."""
 
@@ -151,7 +151,7 @@ NMT      : Java Heap (reserved=3420MB, committed=216MB)
 
 Native Memory Tracking (NMT) is the JVM's own accounting. It says the JVM has **committed** 290 MB, 216 MB of it for the heap. The operating system says the process has 53 MB **resident** (RSS). Both are right. Committed memory is memory the JVM has asked the OS for. A page only becomes resident when someone touches it, and a fresh heap is mostly untouched pages.
 
-RSS is the number the container limit cares about. It is much more than the heap. It counts touched heap pages, metaspace and the class space, the JIT's code cache, GC data structures, thread stacks, the mapped CDS archive, the JDK's modules file, `libjvm.so`, direct buffers and malloc arenas. `RssAnon` is memory the process created. `RssFile` is file-backed: the archive, the modules file and native libraries, which other processes on the same host may share. For shared pages, `Pss` in `/proc/<pid>/smaps_rollup` splits each one between the processes that map it.
+RSS is the number the container limit cares about. It is much more than the heap. It counts touched heap pages, metaspace and the class space, the JIT's code cache, GC data structures, thread stacks, the mapped CDS archive, the JDK's modules file, `libjvm.so`, direct buffers and malloc arenas. `RssAnon` is memory the process created for itself. `RssFile` is file-backed pages, such as the JDK's modules file and `libjvm.so`, and processes that map the same file can share them. For shared pages, `Pss` in `/proc/<pid>/smaps_rollup` splits each one between the processes that map it.
 
 Measure it like this:
 
@@ -163,7 +163,7 @@ jcmd <pid> VM.native_memory summary         # only if started with -XX:NativeMem
 
 Don't use `docker stats`. The Quarkus guide on measuring performance says so in capitals: it "only measures a subset of the in-use resident pages", while a container is killed "based on its full RSS memory usage". It recommends `ps -e -o pid,rss,args` or `docker top <id> -o pid,rss,args` instead.
 
-One more trap: heap usage from your metrics is not footprint either. A service with 80 MB of live heap can sit at 300 MB RSS, and the other 220 MB is the JVM itself plus everything the GC has touched."""
+One more trap: heap usage from your metrics dashboard is not footprint either. It leaves out everything in the list above, and it counts live objects, not the heap pages the GC has already touched."""
 
 L = {
  "id": "boot-01",
@@ -174,7 +174,7 @@ L = {
   "q": "A test app has 300 classes of its own. How many classes does the JVM load to run it to the end?",
   "options": ["About 300", "About 600: your classes plus the JDK classes they import", "About 1,500", "About 30,000"],
   "answer": 2,
-  "why": "A generated 300-class app loaded 1,537 classes on JDK 21 with class sharing off: 301 from the app's JAR, 911 from the JDK's modules, and 325 hidden classes for lambdas and method handles. The JDK and the run-time machinery are most of the work, not your code. 30,000 is the order of a large Spring app (JEP 483 cites about 21,000 for PetClinic)."
+  "why": "A generated 300-class app loaded 1,537 classes on JDK 21 with class sharing off: 301 from the app's JAR, 911 from the JDK's modules, and 325 hidden classes for lambdas and method handles. The JDK and the run-time machinery are most of the work, not your code. Your 300 classes are about a fifth of the total."
  },
  "sections": [
   {
@@ -272,7 +272,7 @@ L = {
     "code": "object FxRates {\n    fun source() = \"ecb-daily\"\n    fun rate(currency: String) = Holder.rates.getValue(currency)\n\n    // 1. its own class, so its own initializer\n    private object Holder {\n        val rates: Map<String, Double> = loadRatesFile()\n    }\n}",
     "lang": "kotlin", "alt_lang": "java",
     "alt_code": "public final class FxRates {\n    public static String source() { return \"ecb-daily\"; }\n    public static double rate(String currency) { return Holder.RATES.get(currency); }\n\n    // 1. its own class, so its own initializer\n    private static final class Holder {\n        static final Map<String, Double> RATES = loadRatesFile();\n    }\n}"},
-   {"say": "Prove it instead of trusting it. Start the service with `-Xlog:class+load` and grep for the holder. Before the fix nothing called `Holder` because it didn't exist. After the fix it must not appear until the first payment that needs a rate.",
+   {"say": "Prove it instead of trusting it. Start the service with `-Xlog:class+load` and grep for the class. After the fix, `FxRates$Holder` must not appear in the log until the first payment that needs a rate.",
     "code": "$ java -Xlog:class+load -jar app.jar | grep FxRates\n[info][class,load] com.acme.fx.FxRates source: file:/srv/app.jar\n... (readiness check passes, first payment arrives) ...\n[info][class,load] com.acme.fx.FxRates$Holder source: file:/srv/app.jar",
     "lang": "text"}
   ]
@@ -366,7 +366,7 @@ L = {
  },
  "deeper": {
   "minutes": 10,
-  "body": "Loading is lazy, but not as lazy as the rule above suggests. Two things load classes you never called.\n\nThe first is the verifier. To check that a method is type-safe, it sometimes needs to know whether one class is a subtype of another, for example when two branches produce different classes that meet at the same variable. To answer that, it loads both classes. Lesson 2's lab hits this: a test fixture whose static initializer referenced an outer class pulled in the outer class and more. That is why the lab compares the exact set of classes your loader defined, taken from a run of the reference answer, and never a count of all loaded classes, which changes from one JDK build to the next.\n\nThe second is the framework. Annotation scanning reads class files to find `@Path` or `@ApplicationScoped`, and reflection-driven dependency injection loads every bean class at start-up. This is the work Quarkus moves to build time. At build time it indexes the classes (Jandex), decides the wiring and generates plain bytecode that does it, so at run time there is no scanning and much less reflection. Its extension guide puts it as registering classes \"at build time and generating code that registers them at static-init time instead of relying on reflection\". Spring's AOT mode makes a similar move with a different design.\n\nIf you want to see where a large app spends its start-up, `-Xlog:class+load` piped through `sed -E 's/.*source: //' | sort | uniq -c | sort -rn | head` gives the same histogram as the demo, and the JFR `jdk.ClassLoad` event (off by default) gives you stack traces for who triggered each load. Measure first, then pick a fix from lessons 2 to 4."
+  "body": "Loading is lazy, but not as lazy as the rule above suggests. Two things load classes you never called.\n\nThe first is the verifier. To check that a method is type-safe, it sometimes needs to know whether one class is a subtype of another, for example when two branches produce different classes that meet at the same variable. To answer that, it loads both classes. A prototype of lesson 2's lab hit this: a test fixture whose static initializer read a field of its outer class pulled in the outer class, and verifying that class pulled in more. That is why the lab compares the exact set of classes your loader defined, taken from a run of the reference answer, and never a count of all loaded classes, which changes from one JDK build to the next.\n\nThe second is the framework. Annotation scanning reads class files to find `@Path` or `@ApplicationScoped`, and reflection-driven dependency injection loads every bean class at start-up. This is the work Quarkus moves to build time. At build time it indexes the classes (Jandex), decides the wiring and generates plain bytecode that does it, so at run time there is no scanning and much less reflection. Its extension guide puts it as registering classes \"at build time and generating code that registers them at static-init time instead of relying on reflection\". Spring's AOT mode makes a similar move with a different design.\n\nIf you want to see where a large app spends its start-up, `-Xlog:class+load` piped through `sed -E 's/.*source: //' | sort | uniq -c | sort -rn | head` gives the same histogram as the demo, and the JFR `jdk.ClassLoad` event, which is off by default, records a stack trace for each load once you enable it. Measure first, then pick a fix from lessons 2 to 4."
  },
  "sources": [
   {"title": "The java command, JDK 25 (man page source: -Xlog, CDS, AOT cache)", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/java.base/share/man/java.md"},

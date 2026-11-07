@@ -25,7 +25,8 @@ fun chargeAlias(amount: CentsAlias): String = "charged $amount (alias)"
 fun main() {
     val fee = Cents(150) + Cents(49)
     println(charge(fee))
-    println(chargeAlias(System.currentTimeMillis() % 1_000))   // compiles: an alias is just a Long
+    val orderId: Long = 981
+    println(chargeAlias(orderId))      // compiles: an order id is a Long, so it is a CentsAlias too
     try {
         Cents(-1)
     } catch (e: IllegalArgumentException) {

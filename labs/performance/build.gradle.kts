@@ -7,4 +7,7 @@ dependencies {
     "annotationProcessor"("org.openjdk.jmh:jmh-generator-annprocess:${versions["jmh"]}")
     "demoAnnotationProcessor"("org.openjdk.jmh:jmh-generator-annprocess:${versions["jmh"]}")
     "solutionAnnotationProcessor"("org.openjdk.jmh:jmh-generator-annprocess:${versions["jmh"]}")
+    // JOL reads real field offsets for lesson 4 (false sharing): used by its tests and demos
+    "testImplementation"("org.openjdk.jol:jol-core:${versions["jol"]}")
+    "demoImplementation"("org.openjdk.jol:jol-core:${versions["jol"]}")
 }

@@ -1,0 +1,374 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/memory/src"
+P = "java/workbench/memory/l02"
+K = "kotlin/workbench/memory/l02"
+read = lambda p: (ROOT / p).read_text()
+DEMO = "./gradlew :memory:demo -Pmain=workbench.memory.l02."
+
+
+def demo(name):
+    return {"lang": "java", "title": f"{name}.java", "src": read(f"{lab}/demo/{P}/{name}.java"),
+            "run": DEMO + name, "file": f"{lab}/demo/{P}/{name}.java",
+            "alt": {"lang": "kotlin", "title": f"{name}.kt", "src": read(f"{lab}/demo/{K}/{name}.kt"),
+                    "run": DEMO + name + "Kt", "file": f"{lab}/demo/{K}/{name}.kt"}}
+
+
+FIGURE = """<svg viewBox="0 0 680 270" role="img" aria-label="Eden is split into thread-local allocation buffers. Each thread bumps its own top pointer; only a refill touches the shared eden pointer, and humongous objects bypass TLABs">
+<text class="t t-m" x="340" y="24" text-anchor="middle">eden (young generation)</text>
+<rect class="box-dim" x="20" y="36" width="640" height="120" rx="8"/>
+<rect class="box-a" x="36" y="52" width="190" height="88" rx="8"/>
+<text class="t" x="131" y="74" text-anchor="middle">TLAB of thread A</text>
+<rect class="box-ok" x="48" y="86" width="110" height="26" rx="8"/>
+<text class="t-s" x="103" y="104" text-anchor="middle">used</text>
+<text class="t-s t-code" x="190" y="104" text-anchor="middle">top</text>
+<line class="ln-a" x1="162" y1="99" x2="174" y2="99" marker-end="url(#arr)"/>
+<text class="t-s t-m" x="131" y="130" text-anchor="middle">free until end</text>
+<rect class="box-a" x="244" y="52" width="190" height="88" rx="8"/>
+<text class="t" x="339" y="74" text-anchor="middle">TLAB of thread B</text>
+<rect class="box-ok" x="256" y="86" width="60" height="26" rx="8"/>
+<text class="t-s" x="286" y="104" text-anchor="middle">used</text>
+<text class="t-s t-code" x="348" y="104" text-anchor="middle">top</text>
+<line class="ln-a" x1="320" y1="99" x2="332" y2="99" marker-end="url(#arr)"/>
+<text class="t-s t-m" x="339" y="130" text-anchor="middle">free until end</text>
+<rect class="box" x="452" y="52" width="192" height="88" rx="8"/>
+<text class="t" x="548" y="82" text-anchor="middle">unclaimed eden</text>
+<text class="t-s t-m" x="548" y="104" text-anchor="middle">next TLAB comes from here</text>
+<text class="t-s t-m" x="548" y="122" text-anchor="middle">(one atomic update)</text>
+<text class="t-s" x="20" y="186">fast path: new Payment() in thread A = compare top + 40 with end, then top += 40</text>
+<text class="t-s" x="20" y="208">slow path: TLAB full, so thread A takes a fresh TLAB from unclaimed eden</text>
+<rect class="box-b" x="20" y="222" width="640" height="36" rx="8"/>
+<text class="t-s" x="340" y="245" text-anchor="middle">G1: an object over half a region is humongous and skips TLABs and eden entirely</text>
+</svg>"""
+
+S1 = """Allocation on the JVM is cheap, and the reason is the **TLAB**, the thread-local allocation buffer.
+
+New objects go into eden, the young part of the heap. Every thread shares eden, so if each `new` took memory from it directly, all threads would fight over one pointer. Instead, each thread claims a chunk of eden for itself and allocates inside it with no locking at all. In a JDK 21 trace of a small test JVM, each chunk was about 266 KB.
+
+Allocating inside a TLAB means bumping a "top" pointer. This is HotSpot's fast path, from the JDK 25 source:
+
+```text
+HeapWord* obj = top();
+if (pointer_delta(end(), obj) >= size) {   // does the object fit?
+  set_top(obj + size);                     // bump the pointer
+  return obj;
+}
+return nullptr;                            // no: take the slow path
+```
+
+A compare, an add and a store. Then the JVM writes the header and zeroes the fields. In compiled code, the JIT inlines all of this into your method.
+
+The slow path runs when the object doesn't fit. Usually the TLAB is simply full, and the thread takes a fresh one from eden with one atomic update. Objects too big for a TLAB go straight into eden. In G1, an object bigger than half a region is **humongous**: a 3 MB `byte[]` on a heap with 2 MB regions skips TLABs and eden entirely. Lesson 4 shows why that costs more.
+
+So the `new` itself is cheap. What you pay for is the rate. Every TLAB brings the next young collection closer. A service that allocates 1 GB a second fills a 500 MB eden twice a second, and with G1 every full eden means a young collection pause. The objects that are already dead cost almost nothing at that point, because a young collection copies only the survivors. Kotlin compiles to the same `new` bytecode, so all of this is identical in both languages."""
+
+S2 = """HotSpot counts every byte each thread allocates. `com.sun.management.ThreadMXBean`, an extension of the standard `ThreadMXBean`, gives you the counter with `getCurrentThreadAllocatedBytes()` (since JDK 14):
+
+```java
+var threads = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+long before = threads.getCurrentThreadAllocatedBytes();
+byte[] receipt = new byte[1 << 20];
+long bytes = threads.getCurrentThreadAllocatedBytes() - before;   // 1,048,592
+```
+
+```kotlin
+val threads = ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
+val before = threads.currentThreadAllocatedBytes
+val receipt = ByteArray(1 shl 20)
+val bytes = threads.currentThreadAllocatedBytes - before          // 1,048,592
+```
+
+The Javadoc calls the number "an approximation". For code that runs once, it is exact to the byte in practice: 1 MiB of data plus a 16-byte array header gave 1,048,592 in 20 out of 20 runs on JDK 21. That makes it the best tool to test your model from lesson 1. A thousand uncached `Long` boxes allocate 24,000 bytes, exactly 1,000 times 24.
+
+There are two traps.
+
+The first call to anything pays for one-time setup. The first `Long.valueOf` builds the JDK's cache of the 256 boxes from -128 to 127, and that cost 7,440 bytes in the demo. The first string concatenation bootstraps itself and cost about 137 KB. Measure twice and trust the second number.
+
+The counter returns -1 on a virtual thread. If your Quarkus endpoint runs with `@RunOnVirtualThread`, measure its code in a test on a platform thread.
+
+In a test, the pattern is: call the code once on tiny input so its classes are loaded, measure one call on real input, and compare the bytes with what the result itself needs, plus a margin. A method that returns a `long[500]` needs 4,016 bytes. If it allocates 1.5 MB, something inside it is boxing. That comparison is deterministic, and it is exactly what the lab's tests do.
+
+The counter is for questions like "which step of this request allocates?" For the allocation rate of a whole running service, use JFR or the GC log. The performance track covers JFR, and lesson 6 of this track reads GC logs."""
+
+S3 = """Sometimes `new` allocates nothing. C2, the JIT compiler that optimizes hot methods, runs **escape analysis**: after inlining, it checks whether an object can be seen outside the method it is compiling. If it can't, C2 can skip the object and keep its fields in registers. That step is called **scalar replacement**.
+
+```java
+record Point(long x, long y) {}
+
+static long sumPoints(int n) {
+    long s = 0;
+    for (int i = 0; i < n; i++) {
+        Point p = new Point(i, i + 1);   // p never leaves the method
+        s += p.x() + p.y();
+    }
+    return s;
+}
+```
+
+```kotlin
+data class Point(val x: Long, val y: Long)
+
+fun sumPoints(n: Int): Long {
+    var s = 0L
+    for (i in 0 until n) {
+        val p = Point(i.toLong(), i + 1L)   // p never leaves the function
+        s += p.x + p.y
+    }
+    return s
+}
+```
+
+Call it ten times with n = 1,000,000 and count the bytes of each call. On JDK 21, the first rounds allocated a few megabytes (3 MB, then 19 MB in one run; the numbers change every run), and from round 4 or so, each round allocated 0 bytes. With `-XX:-DoEscapeAnalysis`, every round allocated 32,000,000 bytes: a million 32-byte points.
+
+Look at the first rounds again. The interpreter and C1, the quick JIT compiler, allocate every object. The allocation only disappears once C2 has compiled the method, and when that happens depends on timing. So **never assert "allocates nothing" in a unit test**. It can pass on your laptop and fail in CI. The lab asserts only the allocations the code really needs.
+
+An object escapes when you store it in a field, an array or a collection, return it, or pass it to a method that C2 doesn't inline. C2 also won't scalar-replace an array with more than 64 elements (the `EliminateAllocationArraySizeLimit` flag). Escape analysis is a bonus you get in tight loops. It won't save a design that puts every amount into a `HashMap<Integer, Long>`, because the boxes live on inside the map."""
+
+S4 = """Most of the allocation in a service doesn't come from your own `new` statements. It hides in boxing, in collection helpers and in string building. The lab's settlement batch is a typical case:
+
+```java
+Map<Integer, Long> totals = new HashMap<>();
+for (int i = 0; i < merchantIds.length; i++) {
+    totals.merge(merchantIds[i], amountsMinor[i], Long::sum);   // boxes the key, the amount and the sum
+}
+```
+
+```kotlin
+val totals = HashMap<Int, Long>()
+for (i in merchantIds.indices) {
+    totals.merge(merchantIds[i], amountsMinor[i]) { a, b -> a + b }   // the same three boxes
+}
+```
+
+For 20,000 payments over 500 merchants this allocates 1,539,040 bytes, about 77 bytes per payment. Merchant ids above 127 become new `Integer` boxes, and every amount and every running sum becomes a new 24-byte `Long`. The caller only needs one total per merchant: a `long[500]` of 4,016 bytes. Index the array by merchant id and you get the same answer with no garbage.
+
+These are the usual suspects in payment code:
+
+- Boxed collections: `List<Long>`, `Map<String, Integer>`, and in Kotlin anything typed `Long?` or used as a type argument.
+- Helpers that copy: `toList()`, `map {}`, `windowed`, `zip`, and streams of boxed values.
+- Strings: each `"pay-" + i` costs 48 bytes (a `String` and its array), and `String.format` also allocates a varargs array and boxes its arguments.
+- `BigDecimal` arithmetic: a fee computed as `amount.multiply(rate).setScale(2, HALF_EVEN)` allocated 184 bytes per call in my measurement, even after warm-up.
+- Lambdas that capture local variables, which create a new object each time the expression runs.
+
+Don't chase every allocation. A request that allocates 50 KB is fine. Fix the loops over large batches, and the code a profile shows behind a young GC that runs several times a second. Measure, change one thing, and measure again."""
+
+L = {
+ "id": "mem-02",
+ "title": "Allocation, TLABs and escape analysis",
+ "minutes": 36,
+ "goal": "By the end you can explain why `new` is cheap, count the bytes a piece of code allocates, say when escape analysis removes an allocation, and remove boxing from a hot loop.",
+ "warmup": {
+  "q": "A loop runs `Point p = new Point(i, i + 1); sum += p.x() + p.y();` a million times, and `p` is never stored anywhere. Once the loop's method is hot and compiled by C2, how many bytes does one call allocate?",
+  "options": ["32,000,000: a million 32-byte points", "16,000,000: only the fields", "0, usually", "It depends on the heap size"],
+  "answer": 2,
+  "why": "C2's escape analysis sees that `p` never leaves the method, so it keeps `x` and `y` in registers and never creates the object. In one run the first rounds allocated megabytes while the code ran in the interpreter and C1, and later rounds allocated 0. With `-XX:-DoEscapeAnalysis` every round allocated 32,000,000 bytes. The heap size plays no part."
+ },
+ "sections": [
+  {
+   "h": "Allocating an object is a pointer bump",
+   "body": S1,
+   "figure": {"svg": FIGURE, "caption": "Each thread allocates inside its own TLAB by bumping a pointer. Only a refill touches shared eden."},
+   "try": {
+    "title": "Count TLAB refills",
+    "minutes": 3,
+    "steps": [
+     "Read `TlabDemo`. It allocates 2,000,000 arrays of 40 bytes, 80 MB in all, in a child JVM that logs a TLAB summary at every GC. Predict: how many times will the main thread go back to eden for a fresh TLAB?",
+     "Run it with the command below.",
+     "Find `GC(1) TLAB totals`. Divide the bytes the pause freed by `refills`."
+    ],
+    "code": demo("TlabDemo"),
+    "expect": "Something like `GC(1) TLAB totals: thrds: 1 refills: 300 ... slow allocs: 0 ... waste: 0.3%`, followed by `Pause Young ... 61M->1M`. One thread allocated about 60 MB with about 300 refills, so roughly 5,000 arrays took the fast path for every trip to the shared eden. `slow allocs: 0` means no array had to bypass its TLAB. The exact counts change from run to run."
+   },
+   "refs": [
+    {"title": "threadLocalAllocBuffer.inline.hpp at jdk-25-ga: the fast path", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/hotspot/share/gc/shared/threadLocalAllocBuffer.inline.hpp", "kind": "read"}
+   ]
+  },
+  {
+   "h": "Count bytes with the thread's allocation counter",
+   "body": S2,
+   "try": {
+    "title": "Predict four allocation counts",
+    "minutes": 4,
+    "steps": [
+     "Read `AllocationCounterDemo` (or the Kotlin twin). Write down your prediction for each line, for the first run and the second.",
+     "Run it with the command below.",
+     "Explain each difference between the first and the second column."
+    ],
+    "code": demo("AllocationCounterDemo"),
+    "expect": "The 1 MiB array costs 1,048,592 bytes both times. `Long.valueOf(i % 128)` costs 7,440 bytes the first time (building the box cache) and 0 after, because every value comes from the cache. `Long.valueOf(1_000 + i)` costs 24,000 both times. String concatenation costs about 184,000 bytes the first time and about 48,000 after: 48 bytes per id. On the virtual thread the counter says -1."
+   },
+   "refs": [
+    {"title": "com.sun.management.ThreadMXBean (JDK 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/jdk.management/com/sun/management/ThreadMXBean.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "Escape analysis can delete an allocation",
+   "body": S3,
+   "try": {
+    "title": "Watch an allocation disappear, then bring it back",
+    "minutes": 5,
+    "steps": [
+     "Run `EscapeDemo`. It runs the measurement in two child JVMs: one with default flags, one with `-XX:-DoEscapeAnalysis`.",
+     "Now make `p` escape. In the Java version add `static Point last;` to the class and `last = p;` inside the loop. In Kotlin add a top-level `var last: KPoint? = null` and `last = p`. Predict the new numbers, then run it again.",
+     "Remove the change when you are done."
+    ],
+    "code": demo("EscapeDemo"),
+    "expect": "With default flags, the first few rounds allocate megabytes and then the count drops to 0 and stays there. With `-XX:-DoEscapeAnalysis`, every round allocates 32,000,000 bytes. After you add `last = p`, the default run also allocates 32,000,000 bytes in every round, because the point now escapes into a static field and C2 has to create it."
+   }
+  },
+  {
+   "h": "Hidden allocations in everyday code",
+   "body": S4
+  }
+ ],
+ "analogy": "A TLAB is a cashier's own cash drawer. Taking change from your own drawer needs no one's permission, so it's fast. When the drawer runs low, you walk to the vault and sign for a new bundle of notes: that's the slow path, and it's rare. A humongous object is a pallet that never goes in a drawer and goes straight to the warehouse floor. The analogy breaks at the end of the day: a cashier counts the money out, but the garbage collector never looks at the dead objects in a TLAB. It copies the few live ones and reuses the whole drawer.",
+ "in_your_world": "A settlement job that computes interchange fees with `BigDecimal` for 10 million card transactions allocates about 1.8 GB for the arithmetic alone, at 184 bytes per fee. The same fee in `long` minor units with basis points allocates nothing, and the worked example shows how to keep the exact rounding rule. In a Kafka consumer, look at the per-record path: the deserialized DTO, every boxed `Long` id, every log line built with `String.format`. When the young GC runs several times a second on a quiet topic, that path is where the bytes come from. And if the code runs under Quarkus `@RunOnVirtualThread`, measure it in a test on a platform thread, because the counter says -1 on a virtual one.",
+ "mistake": "Pooling short-lived objects to \"save allocation\". It sounds thrifty, but for the collector it's the expensive choice. A temporary object that dies in eden costs almost nothing, because a young collection copies only survivors. A pooled object survives, so the collector copies it to survivor space and then to the old generation, and every young object you store into it later must be tracked by the write barrier (lesson 4). Pools also need locking and reset logic, and a missed reset leaks one request's data into the next. Allocate short-lived objects freely, remove boxing from big loops, and keep pools for things that are truly expensive to create: connections, threads and large direct buffers.",
+ "compare": {
+  "title": "A money type with and without an object",
+  "java": {"title": "Cents.java", "src": "// Java: a record is always an object (escape analysis may remove short-lived ones)\nrecord Cents(long value) {\n    Cents plus(Cents other) { return new Cents(value + other.value); }   // a new 24-byte object\n}\n\nCents total = new Cents(0);\nfor (long a : amountsMinor) total = total.plus(new Cents(a));"},
+  "kotlin": {"title": "Cents.kt", "src": "// Kotlin: a value class is a plain long at runtime, unless it has to be boxed\n@JvmInline\nvalue class Cents(val value: Long) {\n    operator fun plus(other: Cents) = Cents(value + other.value)       // compiles to long + long\n}\n\nvar total = Cents(0)\nfor (a in amountsMinor) total += Cents(a)                               // no objects"},
+  "note": "The Kotlin `value class` compiles to a raw `long` in fields, parameters and return types, so the loop allocates nothing even in the interpreter. The Java record is a real object each time; C2 may scalar-replace the short-lived ones in a hot loop, but you can't count on it. The Kotlin version boxes as soon as the value is used as a type argument, a nullable type or `Any`: a `List<Cents>` or a `Cents?` holds boxed objects again, just like `List<Long>` does."
+ },
+ "worked": {
+  "title": "Take the allocation out of a fee calculation",
+  "steps": [
+   {"say": "A card fee is 1.75% of the amount, rounded half-even to the cent. The settlement job calls this 10 million times a night. Measure it first: with the allocation counter around 10,000 calls, it allocates 1,840,000 bytes, 184 per call, and the number stays the same after warm-up.",
+    "code": "static final BigDecimal RATE = new BigDecimal(\"0.0175\");\n\nstatic long feeMinor(long amountMinor) {\n    BigDecimal amount = BigDecimal.valueOf(amountMinor, 2);                        // a new BigDecimal\n    BigDecimal fee = amount.multiply(RATE).setScale(2, RoundingMode.HALF_EVEN);  // two more\n    return fee.unscaledValue().longValueExact();                                 // and a BigInteger\n}",
+    "lang": "java",
+    "alt_code": "val RATE = BigDecimal(\"0.0175\")\n\nfun feeMinor(amountMinor: Long): Long {\n    val amount = BigDecimal.valueOf(amountMinor, 2)                              // a new BigDecimal\n    val fee = (amount * RATE).setScale(2, RoundingMode.HALF_EVEN)                // two more\n    return fee.unscaledValue().longValueExact()                                  // and a BigInteger\n}",
+    "alt_lang": "kotlin"},
+   {"say": "Do the same arithmetic in `long`. 1.75% is 175 basis points, so the exact fee in cents is `amountMinor * 175 / 10_000`. Integer division drops the remainder, so the rounding rule has to be written out: round up above half, and on exactly half, round to the even neighbour. This version is for amounts of zero or more; refunds go in as positive amounts.",
+    "code": "static long feeMinor(long amountMinor, int basisPoints) {\n    // 1. scale: cents x basis points, exact in a long for any real payment\n    long scaled = amountMinor * basisPoints;\n    // 2. divide, keeping the remainder\n    long fee = scaled / 10_000, rest = scaled % 10_000;\n    // 3. round half-even, the same rule as RoundingMode.HALF_EVEN\n    if (rest > 5_000 || (rest == 5_000 && fee % 2 == 1)) fee++;\n    return fee;\n}",
+    "lang": "java",
+    "alt_code": "fun feeMinor(amountMinor: Long, basisPoints: Int): Long {\n    // 1. scale: cents x basis points, exact in a long for any real payment\n    val scaled = amountMinor * basisPoints\n    // 2. divide, keeping the remainder\n    var fee = scaled / 10_000\n    val rest = scaled % 10_000\n    // 3. round half-even, the same rule as RoundingMode.HALF_EVEN\n    if (rest > 5_000 || (rest == 5_000L && fee % 2 == 1L)) fee++\n    return fee\n}",
+    "alt_lang": "kotlin"},
+   {"say": "Prove the two agree before you switch. Compare them on every amount from 0 to 1,999,999 cents, which includes every exact-half case at this rate. The run behind this lesson found 0 mismatches. Then measure again: the `long` version allocated 0 bytes for 10,000 calls, in the interpreter and after warm-up.",
+    "code": "for (long amount = 0; amount < 2_000_000; amount++) {\n    if (feeMinorBig(amount) != feeMinor(amount, 175)) throw new AssertionError(\"differs at \" + amount);\n}",
+    "lang": "java",
+    "alt_code": "for (amount in 0L until 2_000_000L) {\n    check(feeMinorBig(amount) == feeMinor(amount, 175)) { \"differs at $amount\" }\n}",
+    "alt_lang": "kotlin"}
+  ]
+ },
+ "lab": {
+  "title": "Make a settlement batch allocate only its result",
+  "minutes": 13,
+  "files": [
+   "labs/memory/src/main/kotlin/workbench/memory/l02/AllocationMeter.kt",
+   "labs/memory/src/main/kotlin/workbench/memory/l02/SettlementBatch.kt"
+  ],
+  "run": "./gradlew :memory:test --tests 'workbench.memory.l02.*'",
+  "steps": [
+   "Run the tests. Five of seven fail. The two that pass check the answers: the batch code is correct, only wasteful. Read the failure messages: `totalsByMerchant` allocates about 1.5 MB where its result is 4,016 bytes.",
+   "Write `AllocationMeter.bytesAllocatedBy`: read the counter, run the block, read it again. Throw `IllegalStateException` if the counter is -1, which is what a virtual thread gets.",
+   "Rewrite `totalsByMerchant` with one `LongArray(merchantCount)` indexed by merchant id.",
+   "Rewrite `rollingSums` with a running sum: add the first `window` amounts, then for each step add the amount that enters the window and subtract the one that leaves.",
+   "Run the tests until all seven pass."
+  ],
+  "hints": [
+   "`check(before >= 0) { \"...\" }` throws `IllegalStateException` with your message.",
+   "`for (i in merchantIds.indices)` compiles to a plain index loop over the array. It allocates no iterator and no range object.",
+   "The tests call each method once on tiny input before they measure. That loads every class the method uses, so one-time setup doesn't count against you.",
+   "The allocation tests allow 512 bytes above the result array. Any boxing at all blows through that: 20,000 boxes are 480,000 bytes."
+  ],
+  "done_when": "All 7 tests in `AllocationTest` pass."
+ },
+ "drill": {
+  "title": "Write the allocation meter from memory",
+  "minutes": 4,
+  "prompt": "Close the page. Write a function that returns the number of bytes a block of code allocates on the current thread. Make it refuse to run where the counter doesn't work. Which threads are those?",
+  "answer": {
+   "lang": "java",
+   "src": "static final com.sun.management.ThreadMXBean THREADS =\n        (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();\n\nstatic long bytesAllocatedBy(Runnable block) {\n    long before = THREADS.getCurrentThreadAllocatedBytes();\n    if (before < 0) throw new IllegalStateException(\"no counter here: use a platform thread\");   // -1 on a virtual thread\n    block.run();\n    return THREADS.getCurrentThreadAllocatedBytes() - before;\n}",
+   "alt": {
+    "lang": "kotlin",
+    "src": "private val THREADS = ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean\n\nfun bytesAllocatedBy(block: () -> Unit): Long {\n    val before = THREADS.currentThreadAllocatedBytes\n    check(before >= 0) { \"no counter here: use a platform thread\" }   // -1 on a virtual thread\n    block()\n    return THREADS.currentThreadAllocatedBytes - before\n}"
+   }
+  }
+ },
+ "recap": [
+  "Each thread allocates inside its own TLAB, a chunk of eden, by bumping a pointer. Only a refill touches shared memory, and G1's humongous objects skip TLABs entirely.",
+  "`new` is cheap. The allocation rate is what costs you, because it decides how often eden fills and the young GC runs.",
+  "`com.sun.management.ThreadMXBean.getCurrentThreadAllocatedBytes()` counts a thread's bytes exactly. Measure twice to skip one-time setup, and never on a virtual thread, where it returns -1.",
+  "C2's escape analysis can remove an object that never leaves a compiled method. It only happens after C2 compiles the code, so show it in demos and never assert it in tests.",
+  "Most allocation hides in boxing, copying helpers, strings and `BigDecimal`. Use primitive arrays in big loops, and measure before and after each change."
+ ],
+ "quiz": [
+  {
+   "q": "A test warms up `parseAmount` three times, then asserts it allocates 0 bytes. It passes on your laptop and fails in CI. What's the most likely reason?",
+   "options": [
+    "The CI machine has a smaller TLAB",
+    "The zero depends on C2 having compiled the method with escape analysis, which depends on timing",
+    "The allocation counter is less accurate on Linux",
+    "CI runs the tests on virtual threads"
+   ],
+   "answer": 1,
+   "why": "The interpreter and C1 allocate every object. The allocation only disappears once C2 compiles the method, and three calls rarely get it there; when it does happen depends on the machine and on what else is running. TLAB size doesn't change how many bytes are allocated. A virtual thread would make the counter return -1, not a small positive number."
+  },
+  {
+   "q": "A service runs G1 with 2 MB regions. Which allocation does NOT happen in a TLAB?",
+   "options": ["`new Payment()`", "`new byte[1_024]`", "`new byte[1_500_000]` for a settlement file", "`Long.valueOf(1_000_000)`"],
+   "answer": 2,
+   "why": "In G1, an object bigger than half a region is humongous and never goes in a TLAB: 1.5 MB is more than half of 2 MB. The other three are small and take the bump-pointer fast path. The boxed `Long` is outside the cache range, so it is a fresh 24-byte object, but still a TLAB allocation."
+  },
+  {
+   "q": "Which of these loops keeps allocating once C2 has compiled it?",
+   "options": [
+    "`results.add(new Point(i, i + 1));`",
+    "`Point p = new Point(i, i + 1); sum += p.x();`",
+    "`totals[merchantId[i]] += amount[i];`",
+    "`sum += amount[i] * 175 / 10_000;`"
+   ],
+   "answer": 0,
+   "why": "Adding the point to a list makes it escape: it outlives the loop, so it has to exist on the heap. The local point that only feeds a sum can be scalar-replaced. The last two never create objects at all."
+  },
+  {
+   "q": "In Kotlin, which of these holds 10,000 amounts without one box per amount?",
+   "options": ["`List<Long>`", "`Array<Long>`", "`MutableList<Long?>`", "`LongArray`"],
+   "answer": 3,
+   "why": "`LongArray` compiles to a JVM `long[]`, with the values stored inline. `List<Long>`, `Array<Long>` (a `Long[]`) and any list of `Long?` hold references to `java.lang.Long` boxes, 24 bytes each for values outside the -128 to 127 cache."
+  },
+  {
+   "q": "From the previous lesson: on a default JDK 21, how many bytes do 1,000 calls of `Long.valueOf(1_000 + i)` allocate?",
+   "options": ["0, because of the Long cache", "8,000", "16,000", "24,000"],
+   "answer": 3,
+   "why": "Values from 1,000 up are outside the -128 to 127 cache, so each call creates a new `Long`. A `Long` is a 12-byte header plus 8 bytes of value, padded to 24. The allocation counter reports exactly 24,000. 8,000 counts only the values.",
+   "from": "mem-01"
+  }
+ ],
+ "flashcards": [
+  {"front": "What is a TLAB?", "back": "A thread-local allocation buffer: a chunk of eden owned by one thread. Allocating inside it is a pointer bump with no locking."},
+  {"front": "What happens when an object doesn't fit in the current TLAB?", "back": "The slow path: the thread takes a fresh TLAB from eden (one atomic update), or a large object goes straight into eden."},
+  {"front": "Which G1 objects never go into a TLAB?", "back": "Humongous objects: anything bigger than half a region."},
+  {"front": "How do you count the bytes a block of code allocates?", "back": "Read `com.sun.management.ThreadMXBean.getCurrentThreadAllocatedBytes()` before and after, on a platform thread. Measure twice to skip one-time setup."},
+  {"front": "What does `getCurrentThreadAllocatedBytes()` return on a virtual thread?", "back": "-1. Measure on a platform thread."},
+  {"front": "What is scalar replacement?", "back": "C2 replaces an object that never escapes the compiled method with its fields in registers, so the allocation never happens."},
+  {"front": "Why must a unit test never assert that code allocates 0 bytes?", "back": "The interpreter and C1 allocate every object. The zero only appears after C2 compiles the method, which depends on timing."}
+ ],
+ "terms": [
+  {"term": "Eden", "plain": "The part of the young generation where new objects are created."},
+  {"term": "TLAB", "plain": "A chunk of eden that one thread allocates into without locking."},
+  {"term": "Bump-pointer allocation", "plain": "Allocating by moving a 'top' pointer forward by the object's size."},
+  {"term": "Allocation rate", "plain": "Bytes allocated per second. It decides how often young collections run."},
+  {"term": "Escape analysis", "plain": "C2's check for whether an object can be seen outside the method being compiled."},
+  {"term": "Scalar replacement", "plain": "Keeping a non-escaping object's fields in registers instead of creating the object."},
+  {"term": "Boxing", "plain": "Wrapping a primitive in an object, such as `long` in `java.lang.Long`."}
+ ],
+ "explain_back": {
+  "prompt": "A colleague says: \"Allocation is free on the JVM, so I never think about it.\" Explain in your own words what is true in that, and what is missing.",
+  "answer": "The allocation itself is nearly free. Each thread owns a TLAB in eden and allocates by bumping a pointer, with no locking, and dead young objects cost the collector almost nothing because it only copies survivors. What's missing is the rate. Every byte allocated brings the next young GC closer, so a hot path that boxes every amount or builds strings per record makes the collector pause more often. Escape analysis can remove some short-lived objects, but only after C2 compiles the code and only if they never escape. So: don't fear `new`, but measure the bytes in big loops and per-record paths, and remove boxing there."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "The TLAB trace line has more in it than the debug summary. With `-Xlog:gc+tlab=trace`, each refill prints a line like this one from JDK 21:\n\n```text\nTLAB: fill thread: 0x00007f79d401a8a0 [id: 22952] desired_size: 266KB slow allocs: 0  refill waste: 4256B alloc: 0.99998     1024KB refills: 1 waste  0.0% gc: 0B slow: 0B\n```\n\n`desired_size` is the TLAB size the JVM is aiming for this thread. It adapts to how fast the thread allocates and how many threads share eden. `refill waste` is the most free space the JVM is willing to throw away to start a new TLAB. When an object doesn't fit and less than that is left, the thread abandons the rest of its TLAB and takes a new one. When more is left, the thread keeps its TLAB, allocates that one object directly in eden, and counts a `slow alloc`. The abandoned tail of a TLAB is filled with a dummy object so the heap stays walkable, and the `waste` percentage counts those tails.\n\nEscape analysis helps with locks too. If an object never escapes, no other thread can ever lock it, so C2 can drop the `synchronized` blocks on it. A local `StringBuffer`, whose methods are all synchronized, is the classic example.\n\nFinally, the counter you used is per thread. `getThreadAllocatedBytes(long[] ids)` reads it for other threads too. For a whole service, JFR records allocation events at TLAB refills and at allocations outside a TLAB, with stack traces, so it can show which code allocates the most. The per-second rate from JFR or the GC log tells you whether allocation is a problem at all; the per-block counter then tells you where the bytes come from."
+ },
+ "sources": [
+  {"title": "threadLocalAllocBuffer.hpp at jdk-25-ga: what a TLAB is", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/hotspot/share/gc/shared/threadLocalAllocBuffer.hpp"},
+  {"title": "c2_globals.hpp at jdk-25-ga: DoEscapeAnalysis, EliminateAllocations, EliminateAllocationArraySizeLimit", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/hotspot/share/opto/c2_globals.hpp"},
+  {"title": "com.sun.management.ThreadMXBean source at jdk-25-ga", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/jdk.management/share/classes/com/sun/management/ThreadMXBean.java"},
+  {"title": "Inline value classes (Kotlin documentation)", "url": "https://kotlinlang.org/docs/inline-classes.html"}
+ ]
+}
+
+(ROOT / "content/lessons/mem-02.json").write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print("wrote mem-02")
