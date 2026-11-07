@@ -1,173 +1,173 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:07.564
+00:00:02.700 --> 00:00:07.531
 A worker thread spins in a loop until a plain boolean called stop turns true.
 
 2
-00:00:07.564 --> 00:00:10.576
+00:00:07.531 --> 00:00:10.543
 A second later, the main thread sets it to true.
 
 3
-00:00:10.733 --> 00:00:14.329
+00:00:10.767 --> 00:00:14.362
 On JDK 21 or 25, the worker never stops.
 
 4
-00:00:14.329 --> 00:00:17.744
+00:00:14.362 --> 00:00:17.777
 Not after a second, not after an hour.
 
 5
-00:00:17.933 --> 00:00:20.371
+00:00:18.000 --> 00:00:20.438
 The usual story blames the CPU cache.
 
 6
-00:00:20.371 --> 00:00:25.049
+00:00:20.438 --> 00:00:25.116
 Each core keeps its own copy of stop, and the worker's copy goes stale.
 
 7
-00:00:25.049 --> 00:00:27.553
+00:00:25.116 --> 00:00:27.620
 Here is what the hardware really does.
 
 8
-00:00:28.333 --> 00:00:32.493
+00:00:28.433 --> 00:00:32.593
 Each core has registers, a small store buffer, and its own cache.
 
 9
-00:00:32.493 --> 00:00:35.500
+00:00:32.593 --> 00:00:35.600
 Below them sits a shared cache and main memory.
 
 10
-00:00:35.500 --> 00:00:37.804
+00:00:35.600 --> 00:00:37.904
 Right now, stop is false everywhere.
 
 11
-00:00:38.000 --> 00:00:39.659
+00:00:38.133 --> 00:00:39.793
 The main thread writes true.
 
 12
-00:00:39.659 --> 00:00:41.852
+00:00:39.793 --> 00:00:41.986
 The core does not wait for the cache.
 
 13
-00:00:41.852 --> 00:00:46.297
+00:00:41.986 --> 00:00:46.431
 It puts the write in its store buffer, and runs on to its next instruction.
 
 14
-00:00:46.533 --> 00:00:49.568
+00:00:46.633 --> 00:00:49.668
 For a moment, only this core knows about the write.
 
 15
-00:00:49.568 --> 00:00:52.484
+00:00:49.668 --> 00:00:52.584
 That is how a store buffer lets a core run ahead.
 
 16
-00:00:52.484 --> 00:00:57.007
+00:00:52.584 --> 00:00:57.107
 A later read of another field can finish before this write leaves the queue.
 
 17
-00:00:57.200 --> 00:00:59.582
+00:00:57.333 --> 00:00:59.716
 But the queue drains within nanoseconds.
 
 18
-00:00:59.582 --> 00:01:01.309
+00:00:59.716 --> 00:01:01.443
 The write lands in the cache.
 
 19
-00:01:01.600 --> 00:01:03.662
+00:01:01.667 --> 00:01:03.728
 Caches run a coherence protocol.
 
 20
-00:01:03.662 --> 00:01:08.365
+00:01:03.728 --> 00:01:08.432
 When one core writes, the other cores' copies are updated or thrown away.
 
 21
-00:01:08.365 --> 00:01:11.007
+00:01:08.432 --> 00:01:11.073
 So core 0's cache soon says true as well.
 
 22
-00:01:11.200 --> 00:01:12.354
+00:01:11.300 --> 00:01:12.454
 The caches agree.
 
 23
-00:01:12.354 --> 00:01:14.799
+00:01:12.454 --> 00:01:14.899
 No cache keeps an old value forever.
 
 24
-00:01:14.799 --> 00:01:17.108
+00:01:14.899 --> 00:01:17.208
 So why does the worker still spin?
 
 25
-00:01:17.267 --> 00:01:18.778
+00:01:17.433 --> 00:01:18.944
 Look at its register.
 
 26
-00:01:18.778 --> 00:01:22.376
+00:01:18.944 --> 00:01:22.542
 The compiled loop read stop once, into a register.
 
 27
-00:01:22.376 --> 00:01:24.391
+00:01:22.542 --> 00:01:24.557
 It never reads memory again.
 
 28
-00:01:25.267 --> 00:01:30.927
+00:01:25.467 --> 00:01:31.127
 After the loop has run many thousands of times, the JIT compiler turns it into machine code.
 
 29
-00:01:31.067 --> 00:01:34.154
+00:01:31.333 --> 00:01:34.420
 C2 sees that nothing inside the loop writes stop.
 
 30
-00:01:34.154 --> 00:01:38.312
+00:01:34.420 --> 00:01:38.579
 So it reads stop once, before the loop, and runs the rest forever.
 
 31
-00:01:38.467 --> 00:01:39.462
+00:01:38.800 --> 00:01:39.796
 That is allowed.
 
 32
-00:01:39.462 --> 00:01:44.565
+00:01:39.796 --> 00:01:44.898
 For a plain field, the memory model gives no promise about another thread's write.
 
 33
-00:01:44.565 --> 00:01:48.236
+00:01:44.898 --> 00:01:48.569
 So the compiler may assume that no other thread changes it.
 
 34
-00:01:48.400 --> 00:01:50.433
+00:01:48.800 --> 00:01:50.833
 You can check where the bug lives.
 
 35
-00:01:50.433 --> 00:01:53.362
+00:01:50.833 --> 00:01:53.762
 Turn the JIT off with one flag, and run it again.
 
 36
-00:01:53.362 --> 00:01:56.591
+00:01:53.762 --> 00:01:56.991
 The caches are the same, and the worker stops at once.
 
 37
-00:01:57.467 --> 00:01:58.943
+00:01:57.900 --> 00:01:59.376
 The fix is one word.
 
 38
-00:01:58.943 --> 00:02:00.936
+00:01:59.376 --> 00:02:01.369
 Declare the field volatile.
 
 39
-00:02:01.133 --> 00:02:06.226
+00:02:01.600 --> 00:02:06.693
 The JIT can't keep a volatile field in a register, or move its read out of the loop.
 
 40
-00:02:06.226 --> 00:02:07.803
+00:02:06.693 --> 00:02:08.269
 Every pass reads it again.
 
 41
-00:02:08.600 --> 00:02:11.216
+00:02:09.100 --> 00:02:11.716
 Now each pass of the loop goes to the cache.
 
 42
-00:02:11.216 --> 00:02:15.973
+00:02:11.716 --> 00:02:16.473
 The cache already says true, so the worker sees main's write, and the loop ends.
 
 43
-00:02:16.133 --> 00:02:21.559
+00:02:16.700 --> 00:02:22.125
 And the memory model guarantees that main's volatile write becomes visible to the worker.
