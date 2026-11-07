@@ -1,0 +1,109 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:08.321
+A payment details endpoint makes three calls at once: account, ledger and risk.
+
+2
+00:00:08.321 --> 00:00:12.804
+In Kotlin, each one is a child coroutine of one coroutineScope.
+
+3
+00:00:13.033 --> 00:00:16.315
+Every launch and async makes a child job of the scope.
+
+4
+00:00:16.315 --> 00:00:19.596
+So the work forms a tree, with the request at the top.
+
+5
+00:00:19.800 --> 00:00:24.308
+At 100 milliseconds, the ledger call throws an IOException.
+
+6
+00:00:24.533 --> 00:00:25.569
+Failure goes up.
+
+7
+00:00:25.569 --> 00:00:29.709
+The ledger child reports the exception to its parent, the scope.
+
+8
+00:00:29.933 --> 00:00:35.937
+The scope's job is cancelled with that exception, and a cancelled job cancels all of its children.
+
+9
+00:00:35.937 --> 00:00:39.675
+Account and risk are cancelled, and their finally blocks run.
+
+10
+00:00:39.900 --> 00:00:43.586
+The scope waits until those children have really stopped.
+
+11
+00:00:43.586 --> 00:00:47.401
+Then coroutineScope rethrows the IOException to its caller.
+
+12
+00:00:47.633 --> 00:00:51.808
+So one failure surfaces as one exception, where the work started.
+
+13
+00:00:51.808 --> 00:00:57.844
+It took about 100 milliseconds, not the time of the slowest call, and nothing is left running.
+
+14
+00:00:58.067 --> 00:00:59.333
+That fits a request.
+
+15
+00:00:59.333 --> 00:01:04.715
+Without the ledger there is no response, so the other two calls would be wasted work.
+
+16
+00:01:05.733 --> 00:01:07.267
+Now the other direction.
+
+17
+00:01:07.267 --> 00:01:10.461
+The client hangs up, and the request is cancelled.
+
+18
+00:01:10.667 --> 00:01:12.200
+Cancellation goes down.
+
+19
+00:01:12.200 --> 00:01:15.800
+The scope is cancelled, and then every child below it.
+
+20
+00:01:16.833 --> 00:01:18.010
+It never goes up.
+
+21
+00:01:18.010 --> 00:01:21.818
+Cancel only the risk child, and its parent is not told.
+
+22
+00:01:21.818 --> 00:01:28.949
+A child that ends with CancellationException counts as cancelled, not failed, and the scope carries on.
+
+23
+00:01:29.167 --> 00:01:34.146
+One catch: cancellation reaches a coroutine only at a suspension point.
+
+24
+00:01:34.146 --> 00:01:38.844
+A child stuck in a CPU loop or a blocking call finishes that first.
+
+25
+00:01:39.667 --> 00:01:44.177
+So a failure goes up to the parent, and from there down to the siblings.
+
+26
+00:01:44.177 --> 00:01:45.931
+Cancellation only goes down.
+
+27
+00:01:46.133 --> 00:01:51.089
+When siblings should survive each other's failures, you ask for a supervisor instead.
