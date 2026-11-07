@@ -43,7 +43,7 @@ FIGURE = """<svg viewBox="0 0 680 270" role="img" aria-label="Eden is split into
 
 S1 = """Allocation on the JVM is cheap, and the reason is the **TLAB**, the thread-local allocation buffer.
 
-New objects go into eden, the young part of the heap. Every thread shares eden, so if each `new` took memory from it directly, all threads would fight over one pointer. Instead, each thread claims a chunk of eden for itself and allocates inside it with no locking at all. In a JDK 21 trace of a small test JVM, each chunk was about 266 KB.
+New objects go into eden, the area of the heap where every object starts its life (lesson 4 covers the rest of the heap). Every thread shares eden, so if each `new` took memory from it directly, all threads would fight over one pointer. Instead, each thread claims a chunk of eden for itself and allocates inside it with no locking at all. In a JDK 21 trace of a small test JVM, each chunk was about 266 KB.
 
 Allocating inside a TLAB means bumping a "top" pointer. This is HotSpot's fast path, from the JDK 25 source:
 
@@ -58,9 +58,9 @@ return nullptr;                            // no: take the slow path
 
 A compare, an add and a store. Then the JVM writes the header and zeroes the fields. In compiled code, the JIT inlines all of this into your method.
 
-The slow path runs when the object doesn't fit. Usually the TLAB is simply full, and the thread takes a fresh one from eden with one atomic update. Objects too big for a TLAB go straight into eden. In G1, an object bigger than half a region is **humongous**: a 3 MB `byte[]` on a heap with 2 MB regions skips TLABs and eden entirely. Lesson 4 shows why that costs more.
+The slow path runs when the object doesn't fit. Usually the TLAB is simply full, and the thread takes a fresh one from eden with one atomic update. Objects too big for a TLAB go straight into eden. G1, the default garbage collector, splits the heap into equal regions of 1 to 32 MB, and an object bigger than half a region is **humongous**: a 3 MB `byte[]` on a heap with 2 MB regions skips TLABs and eden entirely. Lesson 4 shows why that costs more.
 
-So the `new` itself is cheap. What you pay for is the rate. Every TLAB brings the next young collection closer. A service that allocates 1 GB a second fills a 500 MB eden twice a second, and with G1 every full eden means a young collection pause. The objects that are already dead cost almost nothing at that point, because a young collection copies only the survivors. Kotlin compiles to the same `new` bytecode, so all of this is identical in both languages."""
+So the `new` itself is cheap. What you pay for is the rate. Every TLAB brings the next young collection closer: the GC run that empties eden once it's full. A service that allocates 1 GB a second fills a 500 MB eden twice a second, and with G1 every full eden means a young collection pause. The objects that are already dead cost almost nothing at that point, because a young collection copies only the survivors. Kotlin compiles to the same `new` bytecode, so all of this is identical in both languages."""
 
 S2 = """HotSpot counts every byte each thread allocates. `com.sun.management.ThreadMXBean`, an extension of the standard `ThreadMXBean`, gives you the counter with `getCurrentThreadAllocatedBytes()` (since JDK 14):
 
@@ -90,7 +90,7 @@ In a test, the pattern is: call the code once on tiny input so its classes are l
 
 The counter is for questions like "which step of this request allocates?" For the allocation rate of a whole running service, use JFR or the GC log. The performance track covers JFR, and lesson 6 of this track reads GC logs."""
 
-S3 = """Sometimes `new` allocates nothing. C2, the JIT compiler that optimizes hot methods, runs **escape analysis**: after inlining, it checks whether an object can be seen outside the method it is compiling. If it can't, C2 can skip the object and keep its fields in registers. That step is called **scalar replacement**.
+S3 = """Sometimes `new` allocates nothing. C2, the JIT compiler that optimizes hot methods, runs **escape analysis**: after inlining (copying small methods into the method that calls them), it checks whether an object can be seen outside the method it is compiling. If it can't, C2 can skip the object and keep its fields in registers. That step is called **scalar replacement**.
 
 ```java
 record Point(long x, long y) {}
@@ -150,7 +150,9 @@ These are the usual suspects in payment code:
 - `BigDecimal` arithmetic: a fee computed as `amount.multiply(rate).setScale(2, HALF_EVEN)` allocated 184 bytes per call in my measurement, even after warm-up.
 - Lambdas that capture local variables, which create a new object each time the expression runs.
 
-Don't chase every allocation. A request that allocates 50 KB is fine. Fix the loops over large batches, and the code a profile shows behind a young GC that runs several times a second. Measure, change one thing, and measure again."""
+Don't chase every allocation. A request that allocates 50 KB is fine. Fix the loops over large batches, and the code a profile shows behind a young GC that runs several times a second. Measure, change one thing, and measure again.
+
+A check before the lab: `amounts.map { it * 2 }.sum()` in Kotlin, or `amounts.stream().map(a -> a * 2).toList()` in Java, on a list of 10,000 amounts above 1,000 cents. Count the objects each one creates and estimate the bytes. (About 10,000 new 24-byte `Long` boxes and a 40 KB array for the new list, so roughly 280 KB. Summing over a `LongArray` creates nothing.)"""
 
 L = {
  "id": "mem-02",

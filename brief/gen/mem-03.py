@@ -48,7 +48,7 @@ FIGURE = """<svg viewBox="0 0 680 290" role="img" aria-label="From the GC roots,
 <text class="t-s" x="605" y="248" text-anchor="middle">get() is always null</text>
 </svg>"""
 
-S1 = """The garbage collector doesn't free the objects you stopped using. It frees the objects nothing can reach. It starts from the **GC roots** (the local variables on every live thread's stack, static fields, and references held by native code), follows every reference, and keeps whatever it finds. Everything else is garbage.
+S1 = """The garbage collector doesn't free the objects you stopped using. It frees the objects nothing can reach. It starts from the **GC roots** (the local variables on every live thread's stack, static fields, and references held by native code called through JNI), follows every reference, and keeps whatever it finds. Everything else is garbage.
 
 `java.lang.ref` lets you point at an object without holding it as tightly. Its package docs define a ladder:
 
@@ -86,7 +86,7 @@ GC(6) Pause Full (G1 Compaction Pause) 42M->1M(8M) 10.816ms
 after a 40 MB report: rate table cached: false
 ```
 
-G1 ran a full GC that kept the soft referent and still had no room. Then it ran a second full GC that cleared the soft reference, and the allocation went through. The rate table is gone, and the next request has to reload it.
+G1 ran a full GC (a collection of the whole heap, with every thread stopped) that kept the soft referent and still had no room. Then it ran a second full GC that cleared the soft reference, and the allocation went through. The rate table is gone, and the next request has to reload it.
 
 That's the trouble with soft caches in a service. They empty in bulk, at the worst moment: when the heap is nearly full and the collector is already running full GCs. Then every request that missed reloads at once, against a database that is slow for the same reason. And a heap full of soft references always looks full, so you can't size it by watching it.
 

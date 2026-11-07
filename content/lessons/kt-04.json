@@ -1,0 +1,359 @@
+{
+ "id": "kt-04",
+ "title": "Type-safe DSLs with lambdas with receivers",
+ "minutes": 35,
+ "goal": "By the end you can explain what `A.() -> B` is on the JVM, write a nested builder DSL with validation, use `@DslMarker` so misplaced calls stop compiling, and give Java callers a way in.",
+ "warmup": {
+  "q": "Inside `payer { }` of a payment-request DSL with no `@DslMarker`, someone writes `payee { name = \"oops\" }` by mistake. What happens?",
+  "options": [
+   "It doesn't compile: `payee` isn't a member of `PartyBuilder`",
+   "It compiles and calls `payee` on the outer `PaymentRequestBuilder`",
+   "It compiles and builds a payee nested inside the payer",
+   "It compiles and is ignored at run time"
+  ],
+  "answer": 1,
+  "why": "Both receivers are in scope inside `payer { }`, and Kotlin resolves an unqualified call against each of them, nearest first. `PartyBuilder` has no `payee`, so the outer builder's `payee` is used. `@DslMarker` exists to turn that into a compile error. The first option is what most people expect, which is exactly why the bug survives review."
+ },
+ "sections": [
+  {
+   "h": "A lambda with receiver is a function whose first parameter is this",
+   "body": "A Java builder call repeats the builder's name on every line: `b.debit(...)`, `b.credit(...)`, `b.memo(...)`. Kotlin DSLs drop that prefix, and the whole trick is one type. First a word: the **receiver** of a call is the object it's called on. In `sb.append(x)`, `sb` is the receiver. Inside a class's own methods the receiver is `this`, and you can leave it out.\n\nA function type with a receiver, written `A.() -> B`, is a lambda that runs with an `A` as `this`. So inside its braces you call the `A`'s members with no prefix, as if you were writing a method of `A`. `apply`, `with` and `run` in the standard library are built on it.\n\n```java\n// Java has no receiver lambdas. Its idiom: a Consumer that receives the builder as a parameter.\nstatic String receipt(Consumer<StringBuilder> block) {\n    StringBuilder sb = new StringBuilder();\n    block.accept(sb);\n    return sb.toString();\n}\n\nreceipt(sb -> sb.append(\"captured \").append(1_999));\n```\n\n```kotlin\nfun receipt(block: StringBuilder.() -> Unit): String = StringBuilder().apply(block).toString()\n\nreceipt { append(\"captured \"); append(1_999) }    // `this` is the StringBuilder\n```\n\nTo the JVM, `StringBuilder.() -> Unit` and `(StringBuilder) -> Unit` are the same thing: a `kotlin.jvm.functions.Function1<StringBuilder, Unit>`. The receiver is just the first argument. That's why Kotlin lets you assign one type to the other, and why you can call a receiver lambda both ways, `sb.withReceiver()` or `withReceiver(sb)`. The difference exists only in the compiler, which decides what `this` means inside the braces.\n\nIt is also exactly what Java sees. Java calls `receipt` with a `Function1`, gets the builder as a parameter, and must end with `return Unit.INSTANCE`, because a Kotlin `() -> Unit` returns a real `Unit` object.\n\nTwo more facts make DSLs work. A receiver lambda can take parameters too: `Builder.(Int) -> Unit` gets a `this` and an `Int`. And an extension function is a named lambda with receiver. `fun EntryBuilder.payout(merchant: String, grossMinor: Long, feeBps: Int)` can be called inside any `EntryBuilder.() -> Unit` block, which is how you add vocabulary to a builder you don't own. The worked example does that.",
+   "try": {
+    "title": "Call a receiver lambda both ways",
+    "minutes": 3,
+    "steps": [
+     "Run `ReceiverDemo`, then `ReceiverDemoJava`.",
+     "In `ReceiverDemo.kt`, try the reverse assignment: `val back: (StringBuilder) -> Unit = withReceiver`. Predict whether it compiles, then run.",
+     "In the Java twin, delete `return Unit.INSTANCE;` from the first lambda and run. Read javac's complaint."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "ReceiverDemo.kt",
+     "src": "package workbench.kotlin.l04.demo\n\n// Two function types. Inside the first, the StringBuilder is `this`; in the second it's a parameter.\nval withReceiver: StringBuilder.() -> Unit = { append(\"EUR \"); append(19.99) }\nval withParameter: (StringBuilder) -> Unit = { sb -> sb.append(\"EUR \").append(19.99) }\n\n/** An ordinary function that takes a lambda with receiver: the smallest possible DSL entry point. */\nfun receipt(block: StringBuilder.() -> Unit): String = StringBuilder().apply(block).toString()\n\nfun main() {\n    val sb = StringBuilder()\n    sb.withReceiver()                     // call it like an extension function...\n    withReceiver(sb)                      // ...or pass the receiver as the first argument\n    println(sb)\n\n    val swapped: StringBuilder.() -> Unit = withParameter    // the two types are interchangeable\n    println(receipt(swapped))\n    println(receipt { append(\"captured \"); append(1_999) })\n\n    println(\"JVM type of withReceiver: ${withReceiver.javaClass.interfaces.joinToString { it.name }}\")\n}\n",
+     "run": "./gradlew :kotlin:demo -Pmain=workbench.kotlin.l04.demo.ReceiverDemoKt",
+     "file": "labs/kotlin/src/demo/kotlin/workbench/kotlin/l04/demo/ReceiverDemo.kt",
+     "alt": {
+      "lang": "java",
+      "title": "ReceiverDemoJava.java",
+      "src": "package workbench.kotlin.l04.demo;\n\nimport kotlin.Unit;\n\nimport java.util.function.Consumer;\n\n/**\n * Java twin of ReceiverDemo.kt. Java has no lambdas with receivers. A Kotlin\n * StringBuilder.() -> Unit is a Function1<StringBuilder, Unit> to Java: the receiver is the first parameter.\n */\npublic class ReceiverDemoJava {\n\n    // Java's own idiom for the same job: a Consumer that gets the builder as a parameter\n    static String receiptJava(Consumer<StringBuilder> block) {\n        StringBuilder sb = new StringBuilder();\n        block.accept(sb);\n        return sb.toString();\n    }\n\n    public static void main(String[] args) {\n        String r = ReceiverDemoKt.receipt(sb -> {\n            sb.append(\"captured \").append(1_999);\n            return Unit.INSTANCE;                     // Kotlin's Unit is a real object here\n        });\n        System.out.println(r);\n        System.out.println(receiptJava(sb -> sb.append(\"refunded \").append(500)));\n\n        StringBuilder sb = new StringBuilder();\n        ReceiverDemoKt.getWithReceiver().invoke(sb);  // a receiver lambda, invoked with the receiver as argument\n        System.out.println(sb);\n    }\n}\n",
+      "run": "./gradlew :kotlin:demo -Pmain=workbench.kotlin.l04.demo.ReceiverDemoJava",
+      "file": "labs/kotlin/src/demo/java/workbench/kotlin/l04/demo/ReceiverDemoJava.java"
+     }
+    },
+    "expect": "Kotlin prints `EUR 19.99EUR 19.99` (one call as an extension, one with the receiver as an argument), `EUR 19.99`, `captured 1999`, and `JVM type of withReceiver: kotlin.jvm.functions.Function1`. The reverse assignment compiles too. Without `return Unit.INSTANCE`, javac stops with `incompatible types: bad return type in lambda expression` and `missing return value`: `Function1.invoke` returns an `Object`, so a Java lambda for it has to return something."
+   },
+   "refs": [
+    {
+     "title": "Type-safe builders (Kotlin docs)",
+     "url": "https://kotlinlang.org/docs/type-safe-builders.html",
+     "kind": "docs"
+    },
+    {
+     "title": "Function literals with receiver (Kotlin docs)",
+     "url": "https://kotlinlang.org/docs/lambdas.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "A DSL is builder classes plus functions that take receiver lambdas",
+   "body": "A type-safe builder has two pieces. A builder class holds the state and offers the vocabulary: properties to set and functions to call. An entry function creates the builder, runs your lambda on it and returns the result: `Builder().apply(block).build()`. Nesting is the same trick again: a builder function that takes another receiver lambda. Lesson 3 of the patterns track built a payment-request DSL this way, and the Kotlin docs build HTML from nothing more than classes, extension functions and function literals with receiver. You need no library.\n\nThe standard library ships three small builders you can use today:\n\n```java\nList<Item> building = new ArrayList<>();\nbuilding.add(new Item(\"sku-1\", 2, 999));\nbuilding.add(new Item(\"sku-2\", 1, 500));\nif (building.size() == 2) building.add(new Item(\"gift-wrap\", 1, 0));\nList<Item> items = List.copyOf(building);            // freeze it with a copy\n\nString text = new StringBuilder().append(\"total=\").append(2_498).toString();\n```\n\n```kotlin\nval items = buildList {\n    add(Item(\"sku-1\", 2, 999))\n    add(Item(\"sku-2\", 1, 500))\n    if (size == 2) add(Item(\"gift-wrap\", 1, 0))   // `this` is a MutableList\n}\nval totals = buildMap { for (i in items) put(i.sku, i.qty * i.unitMinor) }\nval text = buildString { append(\"total=\"); append(totals.values.sum()) }\n```\n\nInside `buildList { }`, `this` is a `MutableList`, so `add`, `addAll` and even `size` work. The result is typed `List`, and the demo shows it really is read-only: cast it back to `MutableList`, call `add`, and you get `UnsupportedOperationException`. That's what you want from a builder: mutable while you build, fixed once you're done. Java gets the same with `List.copyOf`, one copy later.\n\n`buildList`, `buildMap` and `buildString` are inline, so their lambdas cost nothing (lesson 1 of this track). Your own entry functions can be inline too. Most DSL entry points run a few times per request, so it rarely matters.\n\nWhere does validation go? Check a single bad value at the call that passes it, so the error points at the wrong line: a `debit` of `-100` fails inside `debit`. Check rules that span fields in `build()`, the one place that sees all of them: debits must equal credits. The lab does both.",
+   "try": {
+    "title": "Use the standard builders",
+    "minutes": 3,
+    "steps": [
+     "Run `BuildersDemo` and `BuildersDemoJava`. They print the same four lines.",
+     "In `buildList { }`, add `println(this::class.simpleName)` as the first line. Predict whether you'll see `ArrayList`, then run.",
+     "Move the `if (size == 2)` line above the two `add` calls and run again. What changed, and why?"
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "BuildersDemo.kt",
+     "src": "package workbench.kotlin.l04.demo\n\ndata class Item(val sku: String, val qty: Int, val unitMinor: Long)\n\nfun main() {\n    val items = buildList {\n        add(Item(\"sku-1\", 2, 999))\n        add(Item(\"sku-2\", 1, 500))\n        if (size == 2) add(Item(\"gift-wrap\", 1, 0))     // `this` is a MutableList, so size works here\n    }\n    val totals = buildMap {\n        for (i in items) put(i.sku, i.qty * i.unitMinor)\n    }\n    val text = buildString {\n        append(\"total=\")\n        append(totals.values.sum())\n    }\n    println(items.map { it.sku })\n    println(totals)\n    println(text)\n\n    try {\n        @Suppress(\"UNCHECKED_CAST\")\n        (items as MutableList<Item>).add(Item(\"late\", 1, 1))\n    } catch (e: UnsupportedOperationException) {\n        println(\"the built list is read-only: ${e.javaClass.simpleName}\")\n    }\n}\n",
+     "run": "./gradlew :kotlin:demo -Pmain=workbench.kotlin.l04.demo.BuildersDemoKt",
+     "file": "labs/kotlin/src/demo/kotlin/workbench/kotlin/l04/demo/BuildersDemo.kt",
+     "alt": {
+      "lang": "java",
+      "title": "BuildersDemoJava.java",
+      "src": "package workbench.kotlin.l04.demo;\n\nimport java.util.ArrayList;\nimport java.util.LinkedHashMap;\nimport java.util.List;\nimport java.util.Map;\n\n/**\n * Java twin of BuildersDemo.kt. Java builds a mutable collection, then copies it into an\n * unmodifiable one. buildList and buildString are inline-only Kotlin functions, so Java can't call them.\n */\npublic class BuildersDemoJava {\n\n    record ItemJava(String sku, int qty, long unitMinor) {}\n\n    public static void main(String[] args) {\n        List<ItemJava> building = new ArrayList<>();\n        building.add(new ItemJava(\"sku-1\", 2, 999));\n        building.add(new ItemJava(\"sku-2\", 1, 500));\n        if (building.size() == 2) building.add(new ItemJava(\"gift-wrap\", 1, 0));\n        List<ItemJava> items = List.copyOf(building);\n\n        Map<String, Long> totals = new LinkedHashMap<>();\n        for (ItemJava i : items) totals.put(i.sku(), i.qty() * i.unitMinor());\n\n        String text = new StringBuilder()\n                .append(\"total=\")\n                .append(totals.values().stream().mapToLong(Long::longValue).sum())\n                .toString();\n\n        System.out.println(items.stream().map(ItemJava::sku).toList());\n        System.out.println(totals);\n        System.out.println(text);\n        try {\n            items.add(new ItemJava(\"late\", 1, 1));\n        } catch (UnsupportedOperationException e) {\n            System.out.println(\"the copied list is read-only: \" + e.getClass().getSimpleName());\n        }\n    }\n}\n",
+      "run": "./gradlew :kotlin:demo -Pmain=workbench.kotlin.l04.demo.BuildersDemoJava",
+      "file": "labs/kotlin/src/demo/java/workbench/kotlin/l04/demo/BuildersDemoJava.java"
+     }
+    },
+    "expect": "Both print `[sku-1, sku-2, gift-wrap]`, `{sku-1=1998, sku-2=500, gift-wrap=0}`, `total=2498` and a line saying the list is read-only. Inside the block, `this` is the standard library's own list builder class (it prints `ListBuilder`), not an `ArrayList`: that's how the result can become read-only without a copy. With the `if` first, `size` is 0, so no gift-wrap line is added."
+   }
+  },
+  {
+   "h": "@DslMarker makes only the nearest receiver implicit",
+   "body": "Nesting creates a trap. Inside `payer { }` two receivers are in scope: the `PartyBuilder` and the outer `PaymentRequestBuilder`. Kotlin resolves an unqualified call against all of them, nearest first. So `payee { }` written inside `payer { }` compiles, because it finds `payee` on the outer builder. In the demo, without a marker, that misplaced line builds a second party and the program fails at run time with `IllegalArgumentException: iban required for 'oops'`. In a DSL without a required field, it would simply build the wrong request.\n\n`@DslMarker` closes the hole. Annotate an annotation class with it, then put that annotation on every builder class. From then on, inside a block only the nearest marked receiver is implicit:\n\n```java\n// Java needs no marker: each lambda names its builder, so reaching the outer one takes `r.`\nDslMarkerDemoKt.paymentRequest(\"PR-1\", r -> {\n    r.payer(p -> {\n        p.setName(\"ACME Ltd\");\n        r.setCurrency(\"EUR\");          // deliberate, and visible in review\n        return Unit.INSTANCE;\n    });\n    return Unit.INSTANCE;\n});\n```\n\n```kotlin\n@DslMarker\n@Target(AnnotationTarget.CLASS, AnnotationTarget.TYPE)\nannotation class PaymentDsl\n\n@PaymentDsl class PartyBuilder { /* ... */ }\n@PaymentDsl class PaymentRequestBuilder(private val id: String) { /* ... */ }\n\npaymentRequest(\"PR-2\") {\n    payer {\n        name = \"ACME Ltd\"\n        payee { name = \"oops\" }                 // error: cannot be called in this context with an implicit receiver\n        this@paymentRequest.currency = \"EUR\"    // an explicit label still works\n    }\n}\n```\n\nThe full message is `'fun payee(block: PartyBuilder.() -> Unit): Unit' cannot be called in this context with an implicit receiver. Use an explicit receiver if necessary.` The label `this@paymentRequest` uses the name of the function that took the lambda, and nobody types it by accident.\n\nThe rules are narrow, so learn them exactly. The docs say a marker counts only on classes, on the receiver types of function types (the `TYPE` target, as in `@PaymentDsl PartyBuilder.() -> Unit`) and on type aliases. On a function or a property it \"has no effect\". Marking a common superclass is enough, so a DSL with twenty builders can mark one base class. And extension functions on a marked builder still work inside its block, because they resolve against the nearest receiver.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 680 290\" role=\"img\" aria-label=\"Nested DSL scopes: inside payer, the nearest receiver PartyBuilder is implicit, a call on the outer PaymentRequestBuilder is an error, and an explicit this@paymentRequest label works\"><rect class=\"box\" x=\"20\" y=\"16\" width=\"640\" height=\"258\" rx=\"8\"/><text class=\"t t-code\" x=\"250\" y=\"42\" text-anchor=\"middle\">paymentRequest(\"PR-1\") {</text><text class=\"t-s t-m\" x=\"520\" y=\"42\" text-anchor=\"middle\">this: PaymentRequestBuilder</text><rect class=\"box-a\" x=\"44\" y=\"62\" width=\"400\" height=\"190\" rx=\"8\"/><text class=\"t t-code\" x=\"160\" y=\"88\" text-anchor=\"middle\">payer {</text><text class=\"t-s t-m\" x=\"340\" y=\"88\" text-anchor=\"middle\">this: PartyBuilder</text><rect class=\"box-ok\" x=\"64\" y=\"104\" width=\"360\" height=\"36\" rx=\"8\"/><text class=\"t-s t-code\" x=\"244\" y=\"127\" text-anchor=\"middle\">name = \"ACME Ltd\"   (nearest receiver)</text><rect class=\"box-bad\" x=\"64\" y=\"150\" width=\"360\" height=\"36\" rx=\"8\"/><text class=\"t-s t-code\" x=\"244\" y=\"173\" text-anchor=\"middle\">payee { ... }   (outer receiver: error)</text><rect class=\"box-ok\" x=\"64\" y=\"196\" width=\"360\" height=\"36\" rx=\"8\"/><text class=\"t-s t-code\" x=\"244\" y=\"219\" text-anchor=\"middle\">this@paymentRequest.currency = \"EUR\"</text><text class=\"t-s\" x=\"555\" y=\"120\" text-anchor=\"middle\">Both builders carry</text><text class=\"t-s t-a\" x=\"555\" y=\"140\" text-anchor=\"middle\">@PaymentDsl</text><text class=\"t-s\" x=\"555\" y=\"172\" text-anchor=\"middle\">only the nearest marked</text><text class=\"t-s\" x=\"555\" y=\"190\" text-anchor=\"middle\">receiver is implicit;</text><text class=\"t-s\" x=\"555\" y=\"208\" text-anchor=\"middle\">outer ones need a label</text></svg>",
+    "caption": "With @PaymentDsl on both builders, only the nearest receiver is implicit inside payer { }. Reaching the outer builder needs an explicit label."
+   },
+   "try": {
+    "title": "Watch the marker catch a misplaced call",
+    "minutes": 5,
+    "steps": [
+     "Run `DslMarkerDemo` (or its Java twin). Both print the same `PaymentRequest`, with currency `EUR`.",
+     "Uncomment the wrong-move block at the end of `main`. Predict, then run.",
+     "Now remove `@PaymentDsl` from both builder classes (keep the annotation class) and run again.",
+     "Put the markers back, and move one `@PaymentDsl` onto the `payer` function instead of `PartyBuilder`. Does the error come back?"
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "DslMarkerDemo.kt",
+     "src": "package workbench.kotlin.l04.demo\n\n@DslMarker\n@Target(AnnotationTarget.CLASS, AnnotationTarget.TYPE)\nannotation class PaymentDsl\n\ndata class Party(val name: String, val iban: String)\n\ndata class PaymentRequest(val id: String, val currency: String, val payer: Party, val payee: Party)\n\n@PaymentDsl\nclass PartyBuilder {\n    var name = \"\"\n    var iban = \"\"\n\n    fun build(): Party {\n        require(iban.isNotBlank()) { \"iban required for '$name'\" }\n        return Party(name, iban)\n    }\n}\n\n@PaymentDsl\nclass PaymentRequestBuilder(private val id: String) {\n    var currency = \"EUR\"\n    private var payer: Party? = null\n    private var payee: Party? = null\n\n    fun payer(block: PartyBuilder.() -> Unit) { payer = PartyBuilder().apply(block).build() }\n\n    fun payee(block: PartyBuilder.() -> Unit) { payee = PartyBuilder().apply(block).build() }\n\n    fun build() = PaymentRequest(id, currency, checkNotNull(payer) { \"payer missing\" }, checkNotNull(payee) { \"payee missing\" })\n}\n\nfun paymentRequest(id: String, block: PaymentRequestBuilder.() -> Unit): PaymentRequest =\n    PaymentRequestBuilder(id).apply(block).build()\n\nfun main() {\n    val req = paymentRequest(\"PR-1\") {\n        currency = \"GBP\"\n        payer { name = \"ACME Ltd\"; iban = \"GB33BUKB20201555555555\" }\n        payee {\n            name = \"Corner Shop\"\n            iban = \"GB94BARC10201530093459\"\n            this@paymentRequest.currency = \"EUR\"      // an outer receiver needs an explicit label\n        }\n    }\n    println(req)\n\n    // Wrong move. Uncomment the block, predict, run. Then remove @PaymentDsl from both builder\n    // classes and run it again.\n    // paymentRequest(\"PR-2\") {\n    //     payer {\n    //         name = \"ACME Ltd\"\n    //         payee { name = \"oops\" }\n    //         iban = \"GB33BUKB20201555555555\"\n    //     }\n    // }\n}\n",
+     "run": "./gradlew :kotlin:demo -Pmain=workbench.kotlin.l04.demo.DslMarkerDemoKt",
+     "file": "labs/kotlin/src/demo/kotlin/workbench/kotlin/l04/demo/DslMarkerDemo.kt",
+     "alt": {
+      "lang": "java",
+      "title": "DslMarkerDemoJava.java",
+      "src": "package workbench.kotlin.l04.demo;\n\nimport kotlin.Unit;\n\n/**\n * Java twin of DslMarkerDemo.kt. Java calls the same Kotlin DSL with Function1 lambdas. It needs no\n * marker: each block names its builder, so reaching the outer one means typing `r.` on purpose.\n */\npublic class DslMarkerDemoJava {\n    public static void main(String[] args) {\n        PaymentRequest req = DslMarkerDemoKt.paymentRequest(\"PR-1\", r -> {\n            r.setCurrency(\"GBP\");\n            r.payer(p -> {\n                p.setName(\"ACME Ltd\");\n                p.setIban(\"GB33BUKB20201555555555\");\n                return Unit.INSTANCE;\n            });\n            r.payee(p -> {\n                p.setName(\"Corner Shop\");\n                p.setIban(\"GB94BARC10201530093459\");\n                r.setCurrency(\"EUR\");                 // the outer builder, named explicitly\n                return Unit.INSTANCE;\n            });\n            return Unit.INSTANCE;\n        });\n        System.out.println(req);\n    }\n}\n",
+      "run": "./gradlew :kotlin:demo -Pmain=workbench.kotlin.l04.demo.DslMarkerDemoJava",
+      "file": "labs/kotlin/src/demo/java/workbench/kotlin/l04/demo/DslMarkerDemoJava.java"
+     }
+    },
+    "expect": "With the markers, the build fails with `'fun payee(block: PartyBuilder.() -> Unit): Unit' cannot be called in this context with an implicit receiver.` Without them it compiles, runs, and dies with `IllegalArgumentException: iban required for 'oops'`, thrown while building the misplaced payee. With the marker on the function and not the class, the wrong move compiles again: a marker on a function has no effect, and `PartyBuilder` is no longer a marked receiver."
+   }
+  },
+  {
+   "h": "Calling a DSL from Java, and what became of context receivers",
+   "body": "A Kotlin DSL works from Java, though it isn't pretty. Every `Builder.() -> Unit` parameter is a `Function1<Builder, Unit>`, so the Java caller writes `b -> { b.debit(...); return Unit.INSTANCE; }`, and the lab's `LedgerFromJavaTest` does just that. If Java callers matter, add a thin overload that takes a `java.util.function.Consumer` and give it its own name, so Kotlin callers never have to choose between two lambda types:\n\n```java\nJournalEntry e = LedgerKt.journalEntryJava(\"payout-981\", b -> {\n    b.debit(\"merchant:981\", 12_000L);\n    b.credit(\"bank:clearing\", 12_000L);      // a void lambda: no Unit.INSTANCE\n});\n```\n\n```kotlin\nfun journalEntryJava(id: String, block: Consumer<EntryBuilder>): JournalEntry =\n    journalEntry(id) { block.accept(this) }   // `this` is the EntryBuilder\n```\n\n`@DslMarker` means nothing to Java. A Java lambda names its parameter, so the scope problem doesn't arise.\n\nDSLs were also the main reason for an experiment you'll still find in older code and blog posts: context receivers. Kotlin 1.6.20 shipped them as a prototype behind `-Xcontext-receivers`, and its release notes warned that the compiler would \"produce pre-release binaries that cannot be used in production code\". They let a function demand a receiver from its surroundings, as in `context(Logger) fun audit()`, so a DSL function could require being called inside some scope. Kotlin 2.2.0 replaced them with context parameters, and the 2.3.20 notes say it plainly: \"Experimental context receivers are no longer supported and are replaced by context parameters.\"\n\nIn Kotlin 2.4.21 the old syntax fails twice: `context parameters must be named. Use '_' to declare an anonymous context parameter.` and then `unresolved reference 'log'`, because a context parameter is not a receiver in the body. The old flag fails too: `experimental context receivers are superseded by context parameters. Remove the '-Xcontext-receivers' compiler argument and migrate to the new syntax.` When you see either message, the fix is the next lesson: context parameters, stable since Kotlin 2.4.0.\n\nA check before you move on: a Java caller passes `b -> { b.debit(\"merchant:981\", 100L); b.credit(\"bank:clearing\", 100L); }` to `journalEntry`, with no `return` at the end. Predict what javac says, and why the same lambda is fine for `journalEntryJava`. (The answer follows from the two interfaces: `Function1.invoke` returns a value, and `Consumer.accept` returns `void`.)"
+  }
+ ],
+ "analogy": "A lambda with receiver is like being handed a form already clipped to a clipboard: inside the block you write on that form without saying which one. Nested blocks stack forms on top of each other, and without `@DslMarker` a field that doesn't exist on the top form gets written onto the form underneath, without anyone noticing. The marker says only the top form may be written on without naming it. The analogy breaks in a good way: a clerk finds the misfiled field after the forms are sent, while the compiler finds it before the code ever runs.",
+ "in_your_world": "Payment services build nested data all day: a payout batch with entries and postings, routing rules per merchant, a test fixture for a Kafka event with its headers. A small DSL makes Quarkus tests and fixtures read like the data they produce, and it puts the validation (debits equal credits, every party has an IBAN) in one `build()` instead of in every test. Keep DSLs for nested data that many people write; a flat request with six fields is clearer with named arguments. Put `@DslMarker` in from the first day. Adding it later breaks every call site that was quietly reaching an outer builder, which is the point, but finding them in a hundred tests is a bad afternoon.",
+ "mistake": "Putting the marker on the builder functions instead of the builder classes, or leaving one builder unmarked. `@PaymentDsl fun payer(...)` compiles and does nothing: the docs say a marker on a function or property has no effect. The scope check starts only when the receiver types themselves (the builder classes, or one common superclass) carry the annotation:\n\n```java\n// Java has no equivalent rule to get wrong: the outer builder is always reached by name\nr.payer(p -> { p.setName(\"ACME Ltd\"); return Unit.INSTANCE; });\n```\n\n```kotlin\n@PaymentDsl fun payer(block: PartyBuilder.() -> Unit) { ... }   // no effect at all\n\n@PaymentDsl class PartyBuilder { ... }                         // this is what the check needs\n```\n\nTest your DSL by writing a misplaced call on purpose. If `payee { }` inside `payer { }` compiles, your marker isn't doing anything.",
+ "compare": {
+  "title": "A journal-entry builder: Java Consumer vs Kotlin lambda with receiver",
+  "java": {
+   "title": "Journal.java",
+   "src": "public final class Journal {\n    public static JournalEntry entry(String id, Consumer<EntryBuilder> block) {\n        EntryBuilder b = new EntryBuilder(id);\n        block.accept(b);                 // the builder arrives as a parameter\n        return b.build();\n    }\n}\n\nJournalEntry e = Journal.entry(\"payout-981\", b -> {\n    b.memo(\"merchant payout\");\n    b.debit(\"merchant:981\", 12_000);\n    b.credit(\"bank:clearing\", 11_850);\n    b.credit(\"revenue:fees\", 150);\n});"
+  },
+  "kotlin": {
+   "title": "Journal.kt",
+   "src": "fun journalEntry(id: String, block: EntryBuilder.() -> Unit): JournalEntry =\n    EntryBuilder(id).apply(block).build()   // the builder is `this` inside block\n\nval e = journalEntry(\"payout-981\") {\n    memo = \"merchant payout\"\n    debit(\"merchant:981\", 12_000)\n    credit(\"bank:clearing\", 11_850)\n    credit(\"revenue:fees\", 150)\n}"
+  },
+  "note": "Both compile to the same thing: a function object that receives the builder. On the JVM, Kotlin's `EntryBuilder.() -> Unit` is a `Function1<EntryBuilder, Unit>`, and Java's `Consumer<EntryBuilder>` plays the same role. The difference is only in the source: Kotlin makes the builder `this`, so the block reads like a list of statements, and nested blocks need `@DslMarker` to stop calls from reaching outer builders by accident. Java names the parameter every time, which is noisier but can never resolve a call against the wrong builder."
+ },
+ "worked": {
+  "title": "Add vocabulary to the ledger DSL with an extension function",
+  "steps": [
+   {
+    "say": "Every merchant payout is the same three postings: debit the merchant's balance, credit the bank with the net amount, credit fee revenue. Written out each time, the arithmetic gets copied, and one day it's copied wrong.",
+    "code": "Journal.entry(\"payout-981\", b -> {\n    b.debit(\"merchant:981\", 12_000);\n    b.credit(\"bank:clearing\", 12_000 - 150);\n    b.credit(\"revenue:fees\", 150);\n});",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "journalEntry(\"payout-981\") {\n    debit(\"merchant:981\", 12_000)\n    credit(\"bank:clearing\", 12_000 - 150)\n    credit(\"revenue:fees\", 150)\n}"
+   },
+   {
+    "say": "Write an extension function on the builder. It works even if `EntryBuilder` lives in a library you can't edit, and inside a block it reads like a built-in word.",
+    "code": "// 1. compute the fee once, in one place\nfun EntryBuilder.payout(merchant: String, grossMinor: Long, feeBps: Int) {\n    val fee = grossMinor * feeBps / 10_000\n    // 2. the three postings, always balanced\n    debit(\"merchant:$merchant\", grossMinor)\n    credit(\"bank:clearing\", grossMinor - fee)\n    credit(\"revenue:fees\", fee)\n}\n\njournalEntry(\"payout-981\") { payout(\"981\", 12_000, feeBps = 125) }",
+    "lang": "kotlin",
+    "alt_lang": "java",
+    "alt_code": "// Java's version is a static helper that takes the builder as its first parameter,\n// which is exactly what the Kotlin extension compiles to\nstatic void payout(EntryBuilder b, String merchant, long grossMinor, int feeBps) {\n    long fee = grossMinor * feeBps / 10_000;\n    b.debit(\"merchant:\" + merchant, grossMinor);\n    b.credit(\"bank:clearing\", grossMinor - fee);\n    b.credit(\"revenue:fees\", fee);\n}"
+   },
+   {
+    "say": "Check where it can be called. Inside `entry { }` it resolves against the nearest receiver, the `EntryBuilder`. Inside `batch { }` but outside an entry, it doesn't compile, so a payout can't be posted outside an entry by accident.",
+    "code": "batch(\"batch-17\") {\n    entry(\"payout-982\") { payout(\"982\", 8_000, 125) }   // fine\n    payout(\"983\", 5_000, 125)\n    // error: candidate 'fun EntryBuilder.payout(...): Unit' is inapplicable because of a receiver type mismatch.\n}",
+    "lang": "kotlin",
+    "alt_lang": "java",
+    "alt_code": "Batches.batch(\"batch-17\", bb -> {\n    bb.entry(\"payout-982\", b -> payout(b, \"982\", 8_000, 125));   // fine\n    // payout(bb, \"983\", 5_000, 125);   // error: incompatible types: BatchBuilder cannot be converted to EntryBuilder\n});"
+   },
+   {
+    "say": "Run it: the entry has postings of 12,000 debit, 11,850 and 150 credit, and `build()` accepts it because the debits equal the credits. Integer division rounds the fee down, so the bank gets the extra cent. Whether that's right is a business rule, and it's now in one function you can test.",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "A double-entry journal DSL",
+  "minutes": 13,
+  "files": [
+   "labs/kotlin/src/main/kotlin/workbench/kotlin/l04/Ledger.kt"
+  ],
+  "run": "./gradlew :kotlin:test --tests 'workbench.kotlin.l04.*'",
+  "steps": [
+   "Run the tests. All seven fail.",
+   "In `EntryBuilder`, keep the postings in a private list, and write `debit` and `credit` so they reject an amount of 0 or less (TODO 1).",
+   "Write `build()` (TODO 2): at least two postings, debits equal to credits, and a copy of the list in the result.",
+   "Write `BatchBuilder` (TODO 3) and the two entry functions (TODO 4). Each is one or two lines once `EntryBuilder` works.",
+   "Before adding the marker, write a scratch function with `entry(\"e2\") { ... }` inside another `entry { }`. It compiles. Then put `@LedgerDsl` on both builders (TODO 5) and read the error.",
+   "Run until all seven pass, including `LedgerFromJavaTest`, which builds an entry from Java with a `Function1`."
+  ],
+  "hints": [
+   "A private helper `post(account, side, amountMinor)` that calls `require(amountMinor > 0) { ... }` and then `postings += Posting(...)` keeps `debit` and `credit` to one line each.",
+   "`postings.filter { it.side == Side.DEBIT }.sumOf { it.amountMinor }` gives the debit total.",
+   "`postings.toList()` makes the copy, so later calls on the builder can't change an entry you already built.",
+   "In `BatchBuilder.entry`, the parameter `id` shadows the property. Use `this.id` for the batch id in the error message."
+  ],
+  "done_when": "All seven tests in `LedgerDslTest` and `LedgerFromJavaTest` pass."
+ },
+ "drill": {
+  "title": "Write a tiny CSV-line DSL from memory",
+  "minutes": 4,
+  "prompt": "Close this page. Write `csvLine { field(\"pay_7\"); field(1_999); field(\"EUR\") }` returning `\"pay_7,1999,EUR\"`: a builder class with `field(value: Any)` and an entry function that takes a lambda with receiver. Then write the Java version with a `Consumer`. Which line in the Kotlin version makes the builder `this`?",
+  "answer": {
+   "lang": "kotlin",
+   "src": "class CsvLine {\n    private val fields = mutableListOf<String>()\n    fun field(value: Any) { fields += value.toString() }\n    fun build(): String = fields.joinToString(\",\")\n}\n\n// the parameter type CsvLine.() -> Unit is what makes the builder `this` inside the braces\nfun csvLine(block: CsvLine.() -> Unit): String = CsvLine().apply(block).build()\n\nval line = csvLine { field(\"pay_7\"); field(1_999); field(\"EUR\") }   // pay_7,1999,EUR",
+   "alt": {
+    "lang": "java",
+    "title": "CsvLine.java",
+    "src": "final class CsvLine {\n    private final List<String> fields = new ArrayList<>();\n    void field(Object value) { fields.add(String.valueOf(value)); }\n    String build() { return String.join(\",\", fields); }\n\n    static String csvLine(Consumer<CsvLine> block) {\n        CsvLine b = new CsvLine();\n        block.accept(b);                       // the builder is a parameter, not `this`\n        return b.build();\n    }\n}\n\nString line = CsvLine.csvLine(b -> { b.field(\"pay_7\"); b.field(1_999); b.field(\"EUR\"); });"
+   }
+  }
+ },
+ "recap": [
+  "`A.() -> B` is a function type with receiver: inside the lambda, the `A` is `this`. On the JVM it's a `Function1<A, B>`, interchangeable with `(A) -> B`.",
+  "A DSL is builder classes plus entry functions of the form `Builder().apply(block).build()`. No library is needed.",
+  "`buildList`, `buildMap` and `buildString` give you a mutable receiver while building and a read-only result.",
+  "Validate single values at the call, and cross-field rules in `build()`.",
+  "`@DslMarker` on the builder classes makes only the nearest receiver implicit; reach outer ones with `this@label`. On functions it does nothing.",
+  "Java calls a DSL with `Function1` lambdas that `return Unit.INSTANCE`. Context receivers are gone since 2.3.20; context parameters replace them."
+ ],
+ "quiz": [
+  {
+   "q": "What is the JVM type of a parameter declared as `block: PartyBuilder.() -> Unit`?",
+   "options": [
+    "`kotlin.jvm.functions.Function0<Unit>`",
+    "`kotlin.jvm.functions.Function1<PartyBuilder, Unit>`",
+    "`java.util.function.Consumer<PartyBuilder>`",
+    "A generated interface named `PartyBuilderBlock`"
+   ],
+   "answer": 1,
+   "why": "The receiver becomes the first parameter, so a receiver lambda with no other parameters is a `Function1`. That's why Java passes `p -> { ...; return Unit.INSTANCE; }`. `Consumer` is Java's idiom for the same job, not what Kotlin compiles to."
+  },
+  {
+   "q": "Both builders carry `@PaymentDsl`. Which of these compiles inside `payer { }`?",
+   "options": [
+    "`payee { name = \"x\" }`",
+    "`currency = \"GBP\"`",
+    "`this@paymentRequest.currency = \"GBP\"`",
+    "None of them"
+   ],
+   "answer": 2,
+   "why": "With the marker, members of the outer `PaymentRequestBuilder` can't be reached implicitly, so `payee { }` and `currency = ...` are errors. An explicit label names the outer receiver on purpose, and that is allowed."
+  },
+  {
+   "q": "You put `@PaymentDsl` on the functions `payer`, `payee` and `paymentRequest`, but not on the builder classes. What happens to `payee { }` written inside `payer { }`?",
+   "options": [
+    "It compiles and calls the outer builder's `payee`: a marker on functions has no effect",
+    "A compile error: implicit receiver not allowed",
+    "It always throws at run time",
+    "A compiler warning, then it runs"
+   ],
+   "answer": 0,
+   "why": "The docs say a DSL marker counts only on classes, receiver types in function types and type aliases. On functions or properties it has no effect, so the scope check never starts and the misplaced call resolves against the outer builder."
+  },
+  {
+   "q": "What does `buildList { add(1); if (size == 1) add(2) }` return, and can you add to it afterwards?",
+   "options": [
+    "`[1, 2]`, and casting it to `MutableList` lets you add",
+    "`[1]`, because `size` was read before `add`",
+    "It doesn't compile: `size` isn't available inside the block",
+    "`[1, 2]`, and it's read-only: `add` after a cast throws `UnsupportedOperationException`"
+   ],
+   "answer": 3,
+   "why": "Inside the block `this` is a `MutableList`, so `size` is 1 after the first `add` and the second element is added. The returned list is read-only even if you cast it, which is the point of a builder: mutable while building, fixed afterwards."
+  },
+  {
+   "q": "From the patterns track: a `ChargeRequest` has six flat fields and no nested parts. What's the best way to build it in Kotlin?",
+   "options": [
+    "A type-safe DSL with `@DslMarker`",
+    "A constructor with named and default arguments",
+    "A Java-style builder with setters and `build()`",
+    "A `buildMap` of field names to values"
+   ],
+   "answer": 1,
+   "why": "Named and default arguments already give readable, checked construction for flat data. A DSL earns its two extra classes only when the data nests, like items under a request or postings under an entry.",
+   "from": "pat-03"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "What is `A.() -> B`?",
+   "back": "A function type with receiver: inside the lambda, the `A` is `this`. On the JVM it's `Function1<A, B>`."
+  },
+  {
+   "front": "Are `StringBuilder.() -> Unit` and `(StringBuilder) -> Unit` interchangeable?",
+   "back": "Yes. The receiver is just the first parameter: you can assign one to the other and call either as `f(sb)`."
+  },
+  {
+   "front": "What does `@DslMarker` change inside a nested block?",
+   "back": "Only the nearest receiver marked with that annotation is implicit. Outer marked receivers need an explicit `this@label`."
+  },
+  {
+   "front": "Where must a DSL marker annotation go to have any effect?",
+   "back": "On the builder classes (or a common superclass), on receiver types of function types, or on type aliases. On functions or properties it does nothing."
+  },
+  {
+   "front": "What does `buildList { }` give you?",
+   "back": "A `MutableList` as `this` while you build, and a read-only `List` as the result. It's inline, so the lambda costs nothing."
+  },
+  {
+   "front": "How does Java call `fun journalEntry(id: String, block: EntryBuilder.() -> Unit)`?",
+   "back": "With a `Function1<EntryBuilder, Unit>`: `b -> { b.debit(...); return Unit.INSTANCE; }`."
+  },
+  {
+   "front": "What happened to context receivers?",
+   "back": "A 1.6.20 prototype behind `-Xcontext-receivers`, replaced by context parameters in 2.2.0, and no longer supported since 2.3.20."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Lambda with receiver",
+   "plain": "A lambda in which one object is `this`, so its members can be called without a prefix."
+  },
+  {
+   "term": "Function type with receiver",
+   "plain": "A type such as `A.() -> B`. On the JVM, the receiver is the first parameter of a `Function1`."
+  },
+  {
+   "term": "Type-safe builder",
+   "plain": "Builder classes plus functions that take receiver lambdas, so nested data can be written as code the compiler checks."
+  },
+  {
+   "term": "@DslMarker",
+   "plain": "Meta-annotation for an annotation that marks DSL receivers. Inside a block, only the nearest marked receiver is implicit."
+  },
+  {
+   "term": "Implicit receiver",
+   "plain": "An object whose members you can call without naming it, such as `this` inside a receiver lambda."
+  },
+  {
+   "term": "Labeled this",
+   "plain": "`this@paymentRequest`: names an outer receiver by the function that introduced it."
+  },
+  {
+   "term": "Context receivers",
+   "plain": "An experimental feature (1.6.20) that let a function require a receiver from its scope. Replaced by context parameters."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A teammate's test builds a payment request with `payee { }` accidentally written inside `payer { }`, and it compiled. Explain why it compiled, and what `@DslMarker` changes.",
+  "answer": "Inside `payer { }` there are two implicit receivers: the `PartyBuilder` the block was given, and the outer `PaymentRequestBuilder` from the `paymentRequest { }` block around it. When Kotlin sees an unqualified call, it tries each receiver in scope, nearest first. `PartyBuilder` has no `payee`, so the compiler found `payee` on the outer builder and called that, which built a second party in the wrong place. Nothing in the types was wrong, so it compiled. `@DslMarker` is a rule about those receivers: if the builder classes carry the same marker annotation, only the nearest marked receiver is implicit inside a block. The misplaced `payee { }` becomes a compile error that says it can't be called with an implicit receiver. If you really mean the outer builder, you name it with `this@paymentRequest`, which nobody writes by accident. The marker has to be on the builder classes; putting it on the functions does nothing."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "Context parameters, the subject of the next lesson, interact with implicit receivers, and Kotlin 2.4.21 is strict about it. The KEEP for context parameters uses this example:\n\n```java\n// No Java twin: Java has neither receivers nor context parameters.\n// The nearest idea is two parameters of the same type, where you must pick one by name.\nstatic void moo(Cow cow) { System.out.println(\"moo from \" + cow.name()); }\n```\n\n```kotlin\nclass Cow(val name: String) { fun moo() = println(\"moo from $name\") }\n\nwith(Cow(\"receiver\")) {\n    context(Cow(\"context\")) {\n        moo()   // which Cow?\n    }\n}\n```\n\nThe `with` block makes one `Cow` an implicit receiver, and the `context(...)` block brings a second `Cow` into scope as a context argument. A bare `moo()` would resolve against the receiver, which is probably not what the author meant. Kotlin 2.4.21 reports an error: `call to 'fun moo(): Unit' defined in 'Cow' uses an implicit receiver shadowed by a context parameter. Make the receiver explicit using 'this' or 'contextOf<Cow>()'.` The type-safe builders page calls this a warning. The compiler you run is what counts, and here it is stricter than the page.\n\nA second detail: the `TYPE` target on the marker lets you mark one block without marking the class, as in `fun payer(block: @PaymentDsl PartyBuilder.() -> Unit)`. That helps when the builder comes from a library you can't annotate. And when you design a DSL for others, keep each builder's surface small. Every public member is offered by the IDE inside the block, and every one of them is a word someone will eventually use in the wrong place."
+ },
+ "sources": [
+  {
+   "title": "Type-safe builders (Kotlin docs)",
+   "url": "https://kotlinlang.org/docs/type-safe-builders.html"
+  },
+  {
+   "title": "Higher-order functions and lambdas: function literals with receiver (Kotlin docs)",
+   "url": "https://kotlinlang.org/docs/lambdas.html"
+  },
+  {
+   "title": "What's new in Kotlin 2.3.20 (context receivers removed)",
+   "url": "https://kotlinlang.org/docs/whatsnew2320.html"
+  },
+  {
+   "title": "KEEP-0367: context parameters",
+   "url": "https://github.com/Kotlin/KEEP/blob/main/proposals/KEEP-0367-context-parameters.md"
+  }
+ ]
+}

@@ -1,0 +1,270 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/performance/src"
+P = "java/workbench/performance/l05"
+K = "kotlin/workbench/performance/l05"
+read = lambda p: (ROOT / p).read_text()
+DEMO = "./gradlew :performance:demo -Pmain=workbench.performance.l05."
+
+def demo(name):
+    return {"lang": "java", "title": f"{name}.java", "src": read(f"{lab}/demo/{P}/{name}.java"),
+            "run": DEMO + name, "file": f"{lab}/demo/{P}/{name}.java",
+            "alt": {"lang": "kotlin", "title": f"{name}.kt", "src": read(f"{lab}/demo/{K}/{name}.kt"),
+                    "run": DEMO + name + "Kt", "file": f"{lab}/demo/{K}/{name}.kt"}}
+
+def box(cls, x, y, w, h, title, sub):
+    return (f'<rect class="{cls}" x="{x}" y="{y}" width="{w}" height="{h}" rx="8"/>'
+            f'<text class="t" x="{x + w // 2}" y="{y + 21}" text-anchor="middle">{title}</text>'
+            f'<text class="t-s t-m" x="{x + w // 2}" y="{y + 38}" text-anchor="middle">{sub}</text>\n')
+
+FIG = ('<svg viewBox="0 0 680 240" role="img" aria-label="JVM events and your own events go into a recording, which holds them in memory buffers and on disk. A dump writes a .jfr file that the jfr tool, JDK Mission Control and RecordingFile read. RecordingStream reads the same events live inside the JVM.">\n'
+       + box("box", 20, 40, 170, 50, "JVM events", "GC, JIT, locks, samples")
+       + box("box-a", 20, 140, 170, 50, "your events", "workbench.IssuerCall")
+       + '<rect class="box-b" x="250" y="76" width="170" height="78" rx="8"/>'
+         '<text class="t" x="335" y="100" text-anchor="middle">recording</text>'
+         '<text class="t-s t-m" x="335" y="120" text-anchor="middle">buffers, then disk</text>'
+         '<text class="t-s t-m" x="335" y="138" text-anchor="middle">maxsize, maxage</text>\n'
+       + box("box", 490, 16, 170, 50, ".jfr file", "dump, filename, exit")
+       + box("box-ok", 490, 92, 170, 50, "jfr, JMC", "RecordingFile API")
+       + box("box-a", 490, 176, 170, 50, "RecordingStream", "live, same JVM")
+       + '<line class="ln-a" x1="190" y1="65" x2="248" y2="100" marker-end="url(#arr)"/>\n'
+         '<line class="ln-a" x1="190" y1="165" x2="248" y2="130" marker-end="url(#arr)"/>\n'
+         '<line class="ln-a" x1="420" y1="96" x2="488" y2="46" marker-end="url(#arr)"/>\n'
+         '<line class="ln-a" x1="575" y1="66" x2="575" y2="90" marker-end="url(#arr)"/>\n'
+         '<line class="ln-a" x1="420" y1="138" x2="488" y2="198" marker-end="url(#arr)"/>\n'
+         '</svg>')
+
+EVENT_J = """@Name("workbench.IssuerCall")
+@Label("Issuer Call")
+@Category({"Workbench", "Payments"})
+public class IssuerCallEvent extends Event {
+    @Label("Merchant") String merchant;
+    @Label("Amount (cents)") long amountCents;
+    @Label("Approved") boolean approved;
+}
+
+IssuerCallEvent event = new IssuerCallEvent();
+event.begin();                                  // 1. start the clock
+boolean approved = issuer.approve(merchant, cents);
+event.end();                                    // 2. stop it
+if (event.shouldCommit()) {                     // 3. false if no recording wants it
+    event.merchant = merchant;
+    event.amountCents = cents;
+    event.approved = approved;
+    event.commit();                             // 4. write it, with a stack trace
+}"""
+EVENT_K = """@Name("workbench.IssuerCall")
+@Label("Issuer Call")
+@Category("Workbench", "Payments")
+class KIssuerCallEvent : Event() {
+    @Label("Merchant") var merchant: String? = null
+    @Label("Amount (cents)") var amountCents = 0L
+    @Label("Approved") var approved = false
+}
+
+val event = KIssuerCallEvent()
+event.begin()                                   // 1. start the clock
+val approved = issuer.approve(merchant, cents)
+event.end()                                     // 2. stop it
+if (event.shouldCommit()) {                     // 3. false if no recording wants it
+    event.merchant = merchant
+    event.amountCents = cents
+    event.approved = approved
+    event.commit()                              // 4. write it, with a stack trace
+}"""
+
+L = {
+ "id": "perf-05",
+ "title": "JDK Flight Recorder and Mission Control",
+ "minutes": 38,
+ "goal": "By the end you can start and dump a JFR recording on a running JVM, answer questions with `jfr summary`, `jfr view` and `jfr print`, and add your own events that land in the same timeline as GC and locks.",
+ "warmup": {
+  "q": "A payment service has slow authorizations every few minutes. Your logs say \"issuer call took 230 ms\" for those requests. What can a JFR recording of the same minutes tell you that the log line can't?",
+  "options": [
+   "Nothing more: the log already has the duration",
+   "Whether a GC pause, a lock wait or a burst of allocation happened at the same moments, on the same timeline",
+   "The issuer's internal processing time",
+   "The SQL plan of every query"
+  ],
+  "answer": 1,
+  "why": "JFR records the JVM's own events (GC pauses, monitor waits, allocation and CPU samples, compilations) with timestamps and threads, next to any events you add. So you can see what else was happening when the slow call ran. It can't see inside the issuer, and SQL plans live in the database."
+ },
+ "sections": [
+  {
+   "h": "JFR records what the JVM was doing, and it's already in your JDK",
+   "body": "Start with the problem. Authorizations are sometimes slow. The hand-made fix is a timer and a log line: `log.info(\"issuer call took {} ms\", ms)`. That gives you one number per call. It doesn't tell you whether a garbage collection paused every thread at that moment, whether the thread waited for a lock, or whether the code allocated 2 GB that second.\n\n**JDK Flight Recorder (JFR)** is a recorder built into HotSpot. It writes **events**, small timestamped records, about what the JVM is doing: GC pauses, JIT compilations, threads waiting on locks, sampled stacks of running threads (execution samples), sampled allocations, file and socket I/O, and more. Your own code can add events too. Everything lands in one timeline, in a compact binary format, kept in memory buffers and written to disk.\n\nYou start a recording from the command line or on a live JVM:\n\n```bash\njava -XX:StartFlightRecording:filename=rec.jfr,settings=profile -jar app.jar\n\njcmd <pid> JFR.start name=pay settings=profile    # attach to a running JVM\njcmd <pid> JFR.dump name=pay filename=pay.jfr     # copy what it has so far to a file\njcmd <pid> JFR.stop name=pay\n```\n\nThe JVM answers with real lines like these (JDK 21):\n\n```text\nStarted recording 1. No limit specified, using maxsize=250MB as default.\nUse jcmd 4971 JFR.dump name=1 to copy recording data to file.\n```\n\nWith `filename=` set, the file is written when the JVM exits. `settings` picks a configuration file. `default.jfc` is meant to stay on. `profile.jfc`, in the words of the `java` man page, \"provides more data than the default configuration, but can have more overhead\", so use it for shorter periods. The difference is in the details. In JDK 25, `default` samples thread stacks every 20 ms and allocations at up to 150 per second, and records lock waits of 20 ms or more. `profile` samples every 10 ms, records up to 300 allocation samples a second, and records lock waits from 10 ms.",
+   "try": {
+    "title": "Record a busy payment service",
+    "minutes": 4,
+    "steps": [
+     "Read `JfrDemo` and skim `PaymentWorkload` next to it: four threads compute fees with `BigDecimal`, call a fake issuer that sleeps, and sometimes hold a shared lock for 15 ms.",
+     "Predict which event type will be the most common in the recording.",
+     "Run it. The demo starts a second JVM with `-XX:StartFlightRecording` and prints the path of the `.jfr` file.",
+     "Run `jfr summary` on that file (the demo prints the command)."
+    ],
+    "code": demo("JfrDemo"),
+    "expect": "The JVM prints the two \"Started recording\" lines, then the demo prints the file path, about 400 KB after 4 seconds. In one run, `jfr summary` listed 1,746 `workbench.IssuerCall` events (the demo's own), 1,126 `jdk.ObjectAllocationSample`, 960 `jdk.GCPhaseParallel` and 530 `jdk.ThreadSleep`, but only 28 `jdk.ExecutionSample`, because the threads spend most of their time sleeping."
+   }
+  },
+  {
+   "h": "Ask the recording questions with jfr summary, view and print",
+   "body": "The `jfr` tool ships with the JDK. Three of its subcommands cover most days.\n\n`jfr summary rec.jfr` lists every event type with its count and size. Read it first, to see what the recording holds.\n\n`jfr view <view> rec.jfr` prints a ready-made report. It arrived in JDK 21 with 74 views, and JDK 25 has 83. The ones you'll use most are `hot-methods`, `allocation-by-site`, `gc-pauses`, `contention-by-site` and `deoptimizations-by-reason` (lesson 2's uncommon traps, counted). Real output from the demo's recording:\n\n```text\n                     Contention by Site\n\nStackTrace                                                    Count    Avg.    Max.\n------------------------------------------------------------- ----- ------- -------\nworkbench.performance.l05.PaymentWorkload.authorizeLoop(int,      7 15.5 ms 25.0 ms\n\n                     Allocation by Site\n\nMethod                                                  Allocation Pressure\n------------------------------------------------------- -------------------\nworkbench.performance.l05.PaymentWorkload.fee(String)               40.82%\njava.lang.StringLatin1.toChars(byte[])                              26.97%\n```\n\nEach view is a query over events. `jfr view --verbose allocation-by-site rec.jfr` shows the columns it sums, and the JDK source defines it as `SELECT stackTrace.topFrame AS S, SUM(weight) AS W FROM ObjectAllocationSample GROUP BY S ORDER BY W DESC`. You can also pass an event type as the view, such as `jfr view workbench.IssuerCall rec.jfr`, and get a table of those events. On a live JVM, `jcmd <pid> JFR.view hot-methods` prints the same report without dumping a file (it works on JDK 21 as well).\n\n`jfr print --events workbench.IssuerCall --stack-depth 2 rec.jfr` prints events one by one, with every field and a short stack trace. Add `--json` for something a script can read.\n\n**JDK Mission Control (JMC)** is the desktop app for the same files: timelines, flame graphs of the samples, and automated analysis. It's developed in the `openjdk/jmc` project and downloaded separately from builds that several vendors publish. The `jfr` tool is enough for everything in this lesson.\n\nOne warning before you send a recording to anyone. The demo's recording also holds 169 `jdk.InitialEnvironmentVariable` events and the full command line. For a payment service that can mean secrets. JDK 27 adds in-process redaction (JEP 536, `-XX:FlightRecorderOptions:redact-argument=...`). On older JDKs, check what's in the file first.",
+   "figure": {"svg": FIG, "caption": "Events go into a recording. A dump makes a .jfr file for the jfr tool, JMC or RecordingFile; RecordingStream reads the same events live."},
+   "try": {
+    "title": "Answer three questions from one file",
+    "minutes": 5,
+    "steps": [
+     "Using the file from the last Try it: which method allocates the most? Run `jfr view allocation-by-site <file>`.",
+     "Where do threads wait for locks, and for how long at most? Run `jfr view contention-by-site <file>`.",
+     "Which merchant has slow issuer calls? Run `jfr view workbench.IssuerCall <file>` and look at the Duration column, then `jfr print --events workbench.IssuerCall --stack-depth 2 <file> | head -20`."
+    ],
+    "code": {"lang": "bash", "title": "terminal (from labs/)", "src": "jfr view allocation-by-site performance/build/perf05.jfr\njfr view contention-by-site performance/build/perf05.jfr\njfr view workbench.IssuerCall performance/build/perf05.jfr\njfr print --events workbench.IssuerCall --stack-depth 2 performance/build/perf05.jfr | head -20", "run": ""},
+    "expect": "`PaymentWorkload.fee(String)` tops the allocation report (about 40% in one run). Contention shows `authorizeLoop` with a handful of waits averaging about 15 ms, the lock that one thread holds for 15 ms. The issuer table shows durations of a few ms for most merchants and up to about 40 ms for `m_7`, whose fake issuer is slower."
+   },
+   "refs": [
+    {"title": "The jfr command, JDK 25 man page", "url": "https://docs.oracle.com/en/java/javase/25/docs/specs/man/jfr.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "Your own events put business context on the same timeline",
+   "body": "A JFR event is a class that extends `jdk.jfr.Event`. Its fields are the data. Annotations give it a stable name and labels for the tools:\n\n```java\n" + EVENT_J + "\n```\n\n```kotlin\n" + EVENT_K + "\n```\n\n`begin()` and `end()` give the event its duration. `commit()` writes it, with the thread and a stack trace taken at that moment. `shouldCommit()` returns true only if some recording has the event enabled and the duration passes that recording's threshold, so you can skip filling in fields nobody will read. Kotlin needs nothing special: JFR records the fields behind Kotlin properties, and `@Label` on a property lands on the field.\n\nCompared with the log line from the first section, the event is structured (fields, not text to parse), off unless a recording asks for it, and filterable per recording: `-XX:StartFlightRecording:+workbench.IssuerCall#threshold=30ms,...` keeps only calls of 30 ms or more. The `+` is needed because your event isn't listed in the `.jfc` file. Without it, the JVM warns that the setting \"doesn't exist\" and ignores it. Above all, it sits on the same timeline as the GC pauses and lock waits, with the same thread names.\n\nThe demo's events, as `jfr view workbench.IssuerCall` shows them:\n\n```text\nStart Time Duration Event Thread Stack Trace                                            Merchant Amount (cents) Approved\n---------- -------- ------------ ------------------------------------------------------ -------- -------------- --------\n18:05:59    9.94 ms auth-3       workbench.performance.l05.PaymentWorkload.callIssuer   m_0               1,000     true\n18:05:59    3.37 ms auth-2       workbench.performance.l05.PaymentWorkload.callIssuer   m_0               1,000     true\n```\n\nReading events back in code is short. `RecordingFile.readAllEvents(path)` returns every event, and each `RecordedEvent` has `getEventType().getName()`, `getDuration()`, `getString(\"merchant\")`, `getBoolean(\"approved\")` and friends. That's the lab.\n\nCheck yourself: you commit an event in a method that runs 50,000 times a second, and no recording enables it. What does `shouldCommit()` return, and what does it save you? (False. It saves the work of filling in the fields, and `commit()` would write nothing anyway.)",
+   "try": {
+    "title": "Keep only the slow calls",
+    "minutes": 4,
+    "steps": [
+     "In `JfrDemo.java`, change the recording option to `\"-XX:StartFlightRecording:filename=\" + file + \",settings=profile,+workbench.IssuerCall#threshold=30ms\"` (note the `+`).",
+     "Predict: out of about 1,700 issuer calls, roughly how many will be recorded now?",
+     "Run the demo again, then `jfr summary` and `jfr view workbench.IssuerCall` on the new file."
+    ],
+    "expect": "Only a few dozen `workbench.IssuerCall` events remain (43 in one run, against 1,744 without the threshold), all from `m_7` and all 30 ms or longer, because only that merchant's fake issuer sleeps that long. The JVM's own events are unchanged. The threshold is a setting of the recording, not of your code."
+   }
+  },
+  {
+   "h": "Stream events live, and what JDK 25 added",
+   "body": "A recording file answers questions after the fact. `jdk.jfr.consumer.RecordingStream`, available since JDK 14, delivers the same events to your code while the JVM runs:\n\n```java\ntry (RecordingStream rs = new RecordingStream()) {\n    rs.enable(\"workbench.IssuerCall\").withThreshold(Duration.ofMillis(35));\n    rs.onEvent(\"workbench.IssuerCall\", e -> System.out.printf(\"slow issuer call: %s, %d ms%n\",\n            e.getString(\"merchant\"), e.getDuration().toMillis()));\n    rs.startAsync();                 // events arrive on a background thread\n    PaymentWorkload.run(3);\n}\n```\n\n```kotlin\nRecordingStream().use { rs ->\n    rs.enable(\"workbench.IssuerCall\").withThreshold(Duration.ofMillis(35))\n    rs.onEvent(\"workbench.IssuerCall\") { e ->\n        println(\"slow issuer call: ${e.getString(\"merchant\")}, ${e.duration.toMillis()} ms\")\n    }\n    rs.startAsync()                  // events arrive on a background thread\n    kRunWorkload(3)\n}\n```\n\nThat's enough to turn JVM events into metrics or alerts inside the service, for example GC pause time per minute. Events arrive in batches after a short delay, so this is monitoring, not a callback on the hot path.\n\nJDK 25 added three profiling features. All of these ran here on JDK 25:\n\n- Method timing and tracing (JEP 520). `-XX:StartFlightRecording:method-timing=Work::fee,report-on-exit=method-timing` counted and timed one method with no code change. It printed 21,282,793 invocations, an average of 0.000063 ms and a maximum of 7.54 ms. The filter can also be an annotation such as `@jakarta.ws.rs.GET`.\n- CPU-time sampling (JEP 509), experimental and Linux only. Enable `jdk.CPUTimeSample` (for example `jdk.CPUTimeSample#enabled=true,jdk.CPUTimeSample#throttle=10ms`) and read it with `jfr view cpu-time-hot-methods`. It samples each thread by the CPU time it uses. In a 3-second run of one busy thread at 10 ms, it collected 276 samples, close to the 300 you'd expect.\n- Cooperative sampling (JEP 518) changes how the JVM takes execution samples internally. You don't configure it.\n\n`report-on-exit=<view>` itself is also there in JDK 25 (JDK 21 rejects it), and it prints any view when the JVM exits: a profile in your CI log for free.",
+   "try": {
+    "title": "Watch slow calls and GCs as they happen",
+    "minutes": 4,
+    "steps": [
+     "Run `StreamingDemo` and watch the output for 3 seconds.",
+     "Predict before running the Kotlin twin: which merchant will show up, and roughly how slow?",
+     "On JDK 25 only: run the workload with method timing, using the command in the note below, and compare the printed table with your expectations."
+    ],
+    "code": demo("StreamingDemo"),
+    "expect": "Lines such as `slow issuer call: m_7, 39 ms` keep arriving in batches, mixed with `GC: G1New, 1.5 ms pause total`. Only `m_7` appears, between 35 and 40 ms, because of the threshold and the fake issuer. For the JDK 25 step, run `java '-XX:StartFlightRecording:method-timing=workbench.performance.l05.PaymentWorkload::fee,report-on-exit=method-timing' -cp performance/build/classes/java/demo workbench.performance.l05.JfrDemo child` from `labs/`: it ends with a Method Timing table for `fee`."
+   }
+  }
+ ],
+ "analogy": "JFR is the flight recorder in an aircraft. It's always on, records hundreds of instrument readings with timestamps, and costs little enough that nobody switches it off. When something goes wrong you pull the box and replay the minutes around it. Your custom events are the cockpit voice recorder: what the crew (your code) was doing, on the same clock as the instruments. The analogy breaks in one useful way: you can pull JFR's data from a running JVM with `jcmd ... JFR.dump` without stopping anything, and you can even subscribe to it live with `RecordingStream`.",
+ "in_your_world": "Run your Quarkus payment services with a continuous recording using `default.jfc`, `maxage` and `maxsize` set so it keeps the last hour or so. When the authorization p99 jumps, `jcmd <pid> JFR.dump` gives you the minutes around it without a restart, and `jfr view gc-pauses` and `contention-by-site` tell you quickly whether the JVM is involved. Add one custom event around each issuer call and each Kafka batch, with merchant, partition and outcome as fields, so you can line them up with GC and lock events. Before a recording leaves your network, remember it contains environment variables and command-line arguments, and on JDK 27 use the redaction options.",
+ "mistake": "The common mistake is turning on `profile.jfc` in production \"because more data is better\", or starting a recording with no limits and never dumping it. `profile` doubles the sampling and lowers the lock thresholds, and the man page itself says it can have more overhead and belongs in short periods. A recording without `maxage` or `maxsize` falls back to a 250 MB default, so set limits that match how far back you need to look. The fix is a continuous `default` recording with limits, plus a short `profile` recording started with `jcmd` when you are investigating.\n\n```java\n// a continuous recording, started from code, keeping the last hour within 200 MB\nRecording r = new Recording(Configuration.getConfiguration(\"default\"));\nr.setMaxAge(Duration.ofHours(1));\nr.setMaxSize(200L * 1024 * 1024);\nr.start();\n```\n\n```kotlin\n// a continuous recording, started from code, keeping the last hour within 200 MB\nval r = Recording(Configuration.getConfiguration(\"default\"))\nr.maxAge = Duration.ofHours(1)\nr.maxSize = 200L * 1024 * 1024\nr.start()\n```",
+ "compare": {
+  "title": "A custom JFR event in Java and Kotlin",
+  "java": {"title": "IssuerCallEvent.java", "src": EVENT_J},
+  "kotlin": {"title": "JfrDemo.kt", "src": EVENT_K},
+  "note": "The same event, recorded the same way. Kotlin properties work as event fields: a `var` compiles to a private field plus accessors, and JFR records the field. A Java annotation such as `@Label` placed on a Kotlin property goes to that field, because `FIELD` is the only one of its targets a property can use. `@Category` takes an array, written `{\"Workbench\", \"Payments\"}` in Java and as plain arguments in Kotlin. Both versions produce the same event type, `workbench.IssuerCall`, so the same `jfr view` works on either recording."
+ },
+ "worked": {
+  "title": "Explain a latency spike with one dump",
+  "steps": [
+   {"say": "Authorization p99 jumped at 14:02 on one pod. The pod runs a continuous recording. Dump the last 10 minutes without restarting anything.", "code": "jcmd 4711 JFR.check\njcmd 4711 JFR.dump name=1 maxage=10m filename=/tmp/auth-1402.jfr", "lang": "bash"},
+   {"say": "First question: did the JVM stop the world? `gc-pauses` answers in one screen. If the longest pause is a few ms, GC isn't your 200 ms.", "code": "jfr view gc-pauses /tmp/auth-1402.jfr", "lang": "bash"},
+   {"say": "Second question: did threads wait on each other? `contention-by-site` lists monitors that threads waited on, with counts and the longest wait. A 180 ms max on a ledger lock would explain a lot.", "code": "jfr view contention-by-site /tmp/auth-1402.jfr", "lang": "bash"},
+   {"say": "Third question: which calls were slow, and for whom? Your own event answers it, on the same clock. Self-check: if the slow issuer calls and a long lock wait share a thread name and a timestamp, which one do you look at first? (The lock wait: it's inside your process and the issuer call may only look slow because the thread was waiting.)", "code": "jfr print --events workbench.IssuerCall /tmp/auth-1402.jfr | grep -B3 -A6 'duration = [0-9][0-9][0-9] ms'", "lang": "bash"},
+   {"say": "Write the finding down with the evidence, and attach the views, not the raw file: the file contains environment variables and arguments.", "code": "", "lang": ""}
+  ]
+ },
+ "lab": {
+  "title": "Emit a custom event and read it back",
+  "minutes": 14,
+  "files": [f"{lab}/main/{P}/AuthorizationEvent.java", f"{lab}/main/{P}/Authorizer.java", f"{lab}/main/{P}/AuthReport.java"],
+  "run": "./gradlew :performance:test --tests 'workbench.performance.l05.*'",
+  "steps": [
+   "Run the tests. All five fail. Each test starts a real JFR recording, calls your `Authorizer` six times, dumps a real `.jfr` file and reads it back.",
+   "Make `AuthorizationEvent` an event named `workbench.Authorization`, with a label, a category that includes `Payments`, and three labelled fields: `merchant`, `amountCents`, `approved`.",
+   "In `Authorizer.authorize`, record one event per call. Its duration must cover the issuer call: one fake issuer takes 40 ms and the test checks for it.",
+   "Write `AuthReport.declinesByMerchant` and `AuthReport.slowestMerchant` with `RecordingFile`. The file also contains `jdk.ThreadSleep` events, so filter by event name.",
+   "Run the tests until all five pass. Then run `JfrDemo` again and try `jfr view` on your own recording."
+  ],
+  "hints": [
+   "The annotations are `@Name`, `@Label`, `@Category` and `@Description` from `jdk.jfr`. The fields can stay package-private.",
+   "Call `begin()` right before the issuer call and `end()` right after it. Fill the fields and `commit()` inside `if (event.shouldCommit())`.",
+   "`RecordingFile.readAllEvents(path)` returns a `List<RecordedEvent>`. Filter on `e.getEventType().getName()`, then use `e.getBoolean(\"approved\")`, `e.getString(\"merchant\")` and `e.getDuration()`.",
+   "`Map.merge(merchant, 1L, Long::sum)` counts per key in one line. A `TreeMap` keeps the result sorted, which makes failures easier to read."
+  ],
+  "done_when": "All five tests in `FlightRecorderTest` pass."
+ },
+ "drill": {
+  "title": "From memory: event, recording, query",
+  "minutes": 5,
+  "prompt": "Close this page. Write (1) an event class `LedgerWriteEvent` named `workbench.LedgerWrite` with an `account` field, (2) the code that times a ledger write with it, and (3) the two shell commands that start a recording on JVM 4711 and later write it to `ledger.jfr`. Then check against the answer.",
+  "answer": {"lang": "java", "src": "@Name(\"workbench.LedgerWrite\")\n@Label(\"Ledger Write\")\n@Category({\"Workbench\", \"Ledger\"})\nclass LedgerWriteEvent extends Event {\n    @Label(\"Account\") String account;\n}\n\nLedgerWriteEvent event = new LedgerWriteEvent();\nevent.begin();\nledger.write(entry);\nevent.end();\nif (event.shouldCommit()) {\n    event.account = entry.account();\n    event.commit();\n}\n\n// jcmd 4711 JFR.start name=ledger settings=profile\n// jcmd 4711 JFR.dump name=ledger filename=ledger.jfr",
+             "alt": {"lang": "kotlin", "src": "@Name(\"workbench.LedgerWrite\")\n@Label(\"Ledger Write\")\n@Category(\"Workbench\", \"Ledger\")\nclass LedgerWriteEvent : Event() {\n    @Label(\"Account\") var account: String? = null\n}\n\nval event = LedgerWriteEvent()\nevent.begin()\nledger.write(entry)\nevent.end()\nif (event.shouldCommit()) {\n    event.account = entry.account\n    event.commit()\n}\n\n// jcmd 4711 JFR.start name=ledger settings=profile\n// jcmd 4711 JFR.dump name=ledger filename=ledger.jfr"}}
+ },
+ "recap": [
+  "JFR is built into HotSpot and records timestamped events (GC, JIT, locks, CPU and allocation samples, I/O) on one timeline. Start it with `-XX:StartFlightRecording` or `jcmd <pid> JFR.start`, and copy data out with `JFR.dump`.",
+  "`default.jfc` is for leaving on; `profile.jfc` samples twice as often and lowers lock thresholds, so use it for short investigations. Set `maxage` or `maxsize`.",
+  "`jfr summary` shows what's in a file, `jfr view` (JDK 21+) prints reports such as `hot-methods`, `allocation-by-site`, `gc-pauses` and `contention-by-site`, and `jfr print` shows single events.",
+  "Custom events extend `jdk.jfr.Event`: `begin`, `end`, `shouldCommit`, `commit`. They share the timeline with the JVM's events. `RecordingFile` reads them back; `RecordingStream` delivers them live.",
+  "JDK 25 adds method timing (JEP 520), experimental CPU-time sampling on Linux (JEP 509) and `report-on-exit`. Recordings contain environment variables and arguments; JDK 27 can redact them."
+ ],
+ "quiz": [
+  {"q": "A pod is misbehaving right now and you can't restart it. How do you get JFR data from the last few minutes?",
+   "options": ["Restart it with `-XX:StartFlightRecording`", "If a recording is running, `jcmd <pid> JFR.dump name=1 filename=now.jfr`; otherwise `jcmd <pid> JFR.start` and wait", "Read the GC log", "Attach a debugger and suspend all threads"],
+   "answer": 1,
+   "why": "`JFR.dump` copies a running recording to a file without stopping the JVM, which is why a continuous recording pays off. Without one, `JFR.start` begins recording now, so you only see what happens next."},
+  {"q": "Which `jfr view` tells you where threads waited for locks, and for how long?",
+   "options": ["`hot-methods`", "`allocation-by-site`", "`contention-by-site`", "`gc-pauses`"],
+   "answer": 2,
+   "why": "`contention-by-site` groups `jdk.JavaMonitorEnter` events by stack, with counts, average and maximum wait. `hot-methods` shows where threads ran, not where they waited."},
+  {"q": "Your custom event has `@Name(\"workbench.Authorization\")`, but `jfr summary` of a recording shows none of them. The code calls `commit()`. What's the most likely cause?",
+   "options": ["Custom events are only recorded with `settings=profile`", "The recording's settings switch the event off, or give it a threshold longer than the calls take", "Events with a `String` field can't be recorded", "`commit()` needs a call to `flush()` afterwards"],
+   "answer": 1,
+   "why": "Custom events are enabled by default with no threshold, so even a bare `new Recording()` keeps them. When they're missing although `commit()` runs, the settings turned them off (`+workbench.Authorization#enabled=false`) or set a threshold the calls never reach. Any `.jfc` works for custom events, and there's no flush call."},
+  {"q": "You need method-level timings for a REST endpoint on JDK 25 without changing code. What fits best?",
+   "options": ["`-XX:StartFlightRecording:method-timing=@jakarta.ws.rs.GET,report-on-exit=method-timing`", "`-XX:+PrintCompilation`", "A JMH benchmark of the endpoint", "`jcmd <pid> Thread.print` every second"],
+   "answer": 0,
+   "why": "JEP 520 (JDK 25) times methods matched by a filter, which can be an annotation. PrintCompilation shows compiles, not timings, and JMH is for microbenchmarks, not live endpoints."},
+  {"q": "From lesson 2: a long-running service keeps throwing away C2 code because a type check fails, hours after start-up. Which JFR view helps you confirm it?",
+   "options": ["`jfr view deoptimizations-by-reason`", "`jfr view gc-pauses`", "`jfr view allocation-by-site`", "`jfr view hot-methods`"],
+   "answer": 0,
+   "why": "JFR records a `jdk.Deoptimization` event each time compiled code traps. The view groups them by reason, such as `class_check` or `unstable_if`. A steady count long after start-up is the signal lesson 2 described.",
+   "from": "perf-02"}
+ ],
+ "flashcards": [
+  {"front": "How do you start a JFR recording on a JVM that's already running?", "back": "`jcmd <pid> JFR.start name=x settings=profile`, and later `jcmd <pid> JFR.dump name=x filename=x.jfr`."},
+  {"front": "`default.jfc` or `profile.jfc` for a recording that stays on in production?", "back": "`default.jfc`. `profile.jfc` samples twice as often and can have more overhead; use it for short investigations."},
+  {"front": "Which `jfr` subcommand gives ready-made reports, and since which JDK?", "back": "`jfr view <view> file.jfr`, since JDK 21. For example `hot-methods`, `allocation-by-site`, `gc-pauses`."},
+  {"front": "What does `event.shouldCommit()` tell you?", "back": "Whether a recording has this event enabled and the duration passes its threshold. If false, skip filling in the fields."},
+  {"front": "How do you read events from a .jfr file in Java?", "back": "`RecordingFile.readAllEvents(path)`, then filter on `e.getEventType().getName()` and read fields with `getString`, `getLong`, `getDuration`."},
+  {"front": "What does `RecordingStream` do?", "back": "Delivers JFR events to callbacks inside the running JVM (since JDK 14), in batches after a short delay."},
+  {"front": "Why check a .jfr file before sharing it?", "back": "It contains environment variables and the command line. JDK 27 adds redaction (JEP 536)."}
+ ],
+ "terms": [
+  {"term": "JFR (JDK Flight Recorder)", "plain": "A recorder built into HotSpot that writes timestamped events about the JVM and your code."},
+  {"term": "Event", "plain": "One timestamped record, such as a GC pause, a lock wait or one issuer call."},
+  {"term": "Recording", "plain": "A running JFR session with its settings and limits, dumped to a .jfr file."},
+  {"term": "Execution sample", "plain": "A periodic snapshot of a running thread's stack, used to find hot methods."},
+  {"term": "Threshold", "plain": "A minimum duration below which a recording drops an event."},
+  {"term": "JMC (JDK Mission Control)", "plain": "The desktop app for analysing .jfr files."},
+  {"term": "RecordingStream", "plain": "An API that hands JFR events to your code while the JVM runs."}
+ ],
+ "explain_back": {
+  "prompt": "A teammate asks why you'd add a JFR event around the issuer call when there's already a log line with the duration. Explain the difference in your own words.",
+  "answer": "The log line gives one number per call as text, and it's always on. A JFR event is structured: merchant, amount and outcome are fields I can filter and group without parsing. It costs almost nothing when no recording enables it, and a recording can keep only the slow ones with a threshold. Most importantly, it lands on the same timeline as the JVM's own events, so for a slow call I can see whether a GC pause, a lock wait or a burst of allocation happened on the same thread at the same moment. A log line can't tell me that."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "JFR's views are queries, and the JDK source keeps them in a file called `view.ini`. For example, `hot-methods` is `SELECT stackTrace.topFrame AS T, COUNT(*), COUNT(*) FROM ExecutionSample GROUP BY T LIMIT 25`, and `deoptimizations-by-reason` is `SELECT reason, COUNT(reason) AS C FROM Deoptimization GROUP BY reason ORDER BY C DESC`. `jfr view --verbose` shows which fields a view uses, which helps when you build your own analysis with `RecordingFile`.\n\nThe demo recorded only 28 execution samples in 4 seconds. Its threads sleep most of the time, and the classic sampler records threads that are running Java code, not sleeping ones. Even so, 28 is fewer than a 10 ms period suggests, and this course couldn't pin down the sampler's exact rules in the source. That's one reason lesson 6 brings in async-profiler, which samples with signals and timers, and JDK 25 brought the CPU-time sampler.\n\n`jfr` has more subcommands: `jfr configure` builds a custom `.jfc` from options, `jfr scrub` writes a copy of a recording without chosen events, `jfr assemble` and `jfr disassemble` join and split chunk files, and `jfr metadata` lists every event type and field.\n\nTo record a whole test run in CI, add `-XX:StartFlightRecording:filename=build/test.jfr` to the test JVM's arguments. On JDK 25, `report-on-exit=allocation-by-site` prints the allocation report straight into the build log."
+ },
+ "sources": [
+  {"title": "The java command, JDK 25 man page (-XX:StartFlightRecording)", "url": "https://docs.oracle.com/en/java/javase/25/docs/specs/man/java.html"},
+  {"title": "The jfr command, JDK 25 man page", "url": "https://docs.oracle.com/en/java/javase/25/docs/specs/man/jfr.html"},
+  {"title": "jdk.jfr.Event (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/jdk.jfr/jdk/jfr/Event.html"},
+  {"title": "JEP 520: JFR Method Timing and Tracing", "url": "https://openjdk.org/jeps/520"},
+  {"title": "JDK Mission Control (openjdk/jmc)", "url": "https://github.com/openjdk/jmc"}
+ ]
+}
+out = ROOT / "content/lessons/perf-05.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)

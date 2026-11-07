@@ -57,22 +57,58 @@ The payoff is that a young collection costs time in proportion to what survives,
 
 That makes medium-lived objects the expensive kind. They survive a few young collections, get copied each time, get promoted, and then die in the old generation, where only a bigger collection can reclaim them. An idempotency cache with a 10-minute expiry is exactly that shape."""
 
-S2 = """Every HotSpot collector is built from three moves.
+S2 = """A garbage collector needs two steps to be correct, and you can write both in a few lines. Here's a toy one. Its heap is a map from an object id to the ids that object's fields point to:
 
-**Marking** finds what's alive. It starts at the GC roots, follows every reference, and sets a bit for each object it reaches. **Copying**, also called evacuation, moves the live objects into empty space and then treats the whole old space as free. Its cost follows the number of live objects, and it compacts memory as a side effect. **Mark-compact** slides the live objects together inside the space they're already in. It needs no spare room, but it makes several passes over the heap.
+```java
+Set<Integer> mark(Collection<Integer> roots) {
+    Set<Integer> live = new HashSet<>();
+    for (int root : roots) visit(root, live);
+    return live;
+}
 
-Young collections copy, which is why G1 calls its young pauses evacuation pauses: `Pause Young (Normal) (G1 Evacuation Pause)`. Mark-compact is the last resort for when copying has nowhere to go. G1's full GC is a mark-compact of the whole heap, and with `-Xlog:gc*` its phases show up as "Mark live objects", "Prepare compaction", "Adjust pointers" and "Compact heap".
+void visit(int id, Set<Integer> live) {
+    if (!live.add(id)) return;                        // already marked: this also ends cycles
+    for (int next : refs.get(id)) visit(next, live);  // follow every reference field
+}
 
-Moving an object is only safe while no thread is using it. So these steps run in a **stop-the-world pause** at a **safepoint**: a moment when every application thread is stopped at a known place, with its references where the collector can find and update them. Compiled code checks for a pending safepoint at method returns and in loops.
+Set<Integer> sweep(Set<Integer> live) {
+    Set<Integer> dead = new HashSet<>(refs.keySet());
+    dead.removeAll(live);
+    refs.keySet().removeAll(dead);                    // their memory is free again
+    return dead;
+}
+```
 
-Getting every thread to stop takes time of its own, and `-Xlog:safepoint` splits it out:
+```kotlin
+fun mark(roots: Collection<Int>): Set<Int> {
+    val live = HashSet<Int>()
+    fun visit(id: Int) {
+        if (!live.add(id)) return                     // already marked: this also ends cycles
+        refs.getValue(id).forEach(::visit)            // follow every reference field
+    }
+    roots.forEach(::visit)
+    return live
+}
+
+fun sweep(live: Set<Int>): Set<Int> {
+    val dead = refs.keys.filterTo(HashSet()) { it !in live }
+    refs.keys.removeAll(dead)                         // their memory is free again
+    return dead
+}
+```
+
+**Marking** follows references from the roots and remembers every object it reaches. **Sweeping** frees the rest. Two things follow from the code. A cycle of objects that point at each other, with no root pointing in, gets freed: a tracing collector asks only whether a root can reach an object, never how many references it has. And the sweep visits every object, dead or alive, so its cost grows with the heap. (The recursion is a toy shortcut: a chain of 200,000 objects overflows a thread's stack. A real collector keeps its own mark stack, and so will your lab.)
+
+HotSpot replaces the sweep with better moves. **Copying**, also called evacuation, moves the live objects into empty space and then treats the whole old space as free. It never touches the dead objects, so its cost follows the live ones, and it compacts memory as a side effect. **Mark-compact** slides the live objects together inside the space they're in: no spare room needed, but several passes. Young collections copy, which is why G1 calls them evacuation pauses. G1's full GC is a mark-compact of the whole heap, the last resort.
+
+Moving an object is only safe while no thread is using it. So these steps run in a **stop-the-world pause** at a **safepoint**: a moment when every application thread is stopped at a known place, with its references where the collector can find and update them. Compiled code checks for a pending safepoint at method returns and in loops. Getting every thread there takes time of its own, and `-Xlog:safepoint` splits it out:
 
 ```text
 Safepoint "G1CollectForAllocation", Time since last: 32350666 ns, Reaching safepoint: 3409 ns,
 Cleanup: 4274 ns, At safepoint: 1671830 ns, Leaving safepoint: 1364 ns, Total: 1680877 ns
 ```
 
-"Reaching safepoint" (3.4 microseconds here) is the time-to-safepoint: how long the slowest thread took to stop. "At safepoint" (1.67 ms) is the collector's work. When the first number is large, the collector is not your problem: some thread ran for a long time without reaching a safepoint check."""
+"Reaching safepoint" (3.4 microseconds here) is how long the slowest thread took to stop. "At safepoint" (1.67 ms) is the collector's work. When the first number is large, the collector is not your problem: some thread ran a long time without reaching a safepoint check."""
 
 S3 = """There's a catch in the young collection story. To decide which young objects are alive, the collector follows references from the roots. But old objects point at young ones all the time: the idempotency cache sitting in the old generation gets a new young entry with every request. If a young collection had to scan the whole old generation to find those pointers, it would cost as much as a full GC.
 
@@ -87,7 +123,9 @@ A young collection then scans the roots plus the dirty cards, not the whole old 
 
 G1 has a second barrier for its concurrent marking, which section 5 describes. While the application keeps running during marking, it can move a reference out of an object the marker hasn't visited into one it already has. To catch that, the barrier records the old value before a reference is overwritten, so the marker still finds every object that was live when marking began. The technique is called snapshot-at-the-beginning (SATB), and the comment on G1's barrier class in the JDK 25 source calls it "a logging barrier to support snapshot-at-the-beginning marking".
 
-These barriers are the steady cost of a generational, concurrent collector: a few instructions on every reference store in your code, all the time. Lesson 5 shows that ZGC pays at reference loads instead."""
+These barriers are the steady cost of a generational, concurrent collector: a few instructions on every reference store in your code, all the time. Lesson 5 shows that ZGC pays at reference loads instead.
+
+Reason it through before you move on. A Kafka consumer keeps a long-lived map of the last offset per partition, so the map sits in the old generation. For every record it replaces one partition's value with a new boxed `Long`. Which cards does the barrier dirty, and what does the next young pause scan? (Only the few cards holding the map entries whose value changed. The pause scans those cards and the roots, finds the new `Long`s, and never reads the rest of the old generation.)"""
 
 S4 = """G1, the default collector, doesn't keep one big eden and one big old space. It cuts the heap into equal **regions**, and each region has a role for a while: eden, survivor, old, humongous or free. The roles move around. After a young pause, the evacuated eden regions are free, and next time any of them can become anything.
 
@@ -227,27 +265,29 @@ L = {
   ]
  },
  "lab": {
-  "title": "G1 by numbers",
-  "minutes": 13,
+  "title": "A toy collector, then G1 by numbers",
+  "minutes": 15,
   "files": [
+   "labs/memory/src/main/kotlin/workbench/memory/l04/ToyHeap.kt",
    "labs/memory/src/main/kotlin/workbench/memory/l04/G1Model.kt",
    "labs/memory/src/main/kotlin/workbench/memory/l04/OldRegion.kt"
   ],
   "run": "./gradlew :memory:test --tests 'workbench.memory.l04.*'",
   "steps": [
-   "Run the tests. All nine fail. Each function's KDoc gives the rule from the JDK 25 source.",
-   "Write `regionSize`: divide by 2048, clamp to 1 MB to 32 MB, then round up to a power of two. In that order.",
+   "Run the tests. Fourteen of fifteen fail; the one that passes tests a helper you're given.",
+   "Start with the toy: write `ToyHeap.mark` without recursion. Keep an `ArrayDeque` of objects still to visit, pop one, mark it, push its references. Then write `sweep`. The `ToyHeapTest` tests should pass, including the unreachable cycle and the 200,000-object chain.",
+   "Now G1. Write `regionSize`: divide by 2048, clamp to 1 MB to 32 MB, then round up to a power of two. In that order. Each KDoc gives the rule from the JDK 25 source.",
    "Write `isHumongous` (strictly more than half a region) and `regionsFor` (whole regions, rounded up).",
-   "Write `minOldRegionsPerMixedGc`: candidates divided by 8, rounded up.",
-   "Write `mixedCandidates`: filter, sort, then prune from the end. Run the tests until all nine pass, then read the test for the 3 MiB settlement file and explain its numbers to yourself."
+   "Write `mixedCandidates`: filter, sort, then prune from the end, using the given `minOldRegionsPerMixedGc`. Run the tests until all fifteen pass, then read the test for the 3 MiB settlement file and explain its numbers to yourself."
   ],
   "hints": [
+   "In `mark`, skip an object that is already marked when you pop it. That one check ends cycles and avoids scanning anything twice.",
    "`(a + b - 1) / b` rounds a division up, for positive numbers.",
    "`coerceIn(MB, 32 * MB)` clamps. For the power of two, start at 1 MB and double until you reach the wanted size.",
    "`compareByDescending { regionBytes - it.liveBytes }.thenBy { it.index }` sorts the candidates.",
    "Pruning: walk back from the last candidate. Stop when you're down to the minimum, or when dropping the next one would push the total dropped garbage past 5% of the heap."
   ],
-  "done_when": "All 9 tests in `G1ModelTest` pass."
+  "done_when": "All 15 tests in `ToyHeapTest` and `G1ModelTest` pass."
  },
  "drill": {
   "title": "Size G1's regions in your head",
@@ -264,7 +304,7 @@ L = {
  },
  "recap": [
   "Most objects die young. A young collection copies the few survivors out of eden, so it costs what survives, not what was allocated.",
-  "Collectors mark, copy or compact. Moving objects needs a stop-the-world pause at a safepoint, and \"Reaching safepoint\" in the log is separate from the GC work.",
+  "A collector marks what the roots can reach and frees the rest, so unreachable cycles go too. Copying costs what survives; moving objects needs a stop-the-world pause at a safepoint.",
   "Write barriers mark 512-byte cards dirty on every reference store, so a young collection scans dirty cards instead of the whole old generation. G1's SATB barrier keeps concurrent marking correct.",
   "G1 cuts the heap into regions of 1 to 32 MB. Objects over half a region are humongous: they take whole contiguous regions and count as old from the start.",
   "When old-generation occupancy crosses IHOP, G1 marks concurrently, then runs mixed pauses on old regions under 85% live, best first, in at most 8 pauses.",
@@ -330,7 +370,7 @@ L = {
   {"front": "How does G1 pick its region size by default?", "back": "Max heap / 2048, clamped to 1 to 32 MB, rounded up to a power of two."},
   {"front": "When is an object humongous in G1?", "back": "When it is bigger than half a region. It gets whole contiguous regions and skips TLABs and eden."},
   {"front": "Which old regions can a G1 mixed collection take?", "back": "Regions under 85% live (`G1MixedGCLiveThresholdPercent`), best first, until the remaining garbage is within 5% of the heap."},
-  {"front": "In a safepoint log line, what does a long \"Reaching safepoint\" mean?", "back": "A thread ran a long time without reaching a safepoint check. The GC work is the \"At safepoint\" part."}
+  {"front": "Two objects point at each other and nothing else points at them. Does a tracing GC free them?", "back": "Yes. Marking only asks whether a root can reach an object, so an unreachable cycle is never marked and gets freed."}
  ],
  "terms": [
   {"term": "Young generation", "plain": "Eden plus survivor space, where new objects live until they die or are promoted."},

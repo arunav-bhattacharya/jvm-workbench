@@ -98,7 +98,7 @@ readable content: "lloXY"
 
 Forget `flip()` and nothing throws. A buffer of 8 with 2 bytes put has `remaining()` 6, so a write sends the 6 bytes after your data, whatever they happen to be.
 
-There are two kinds of buffer. `allocate` gives a heap buffer backed by a `byte[]`. `allocateDirect` gives memory outside the Java heap. The JDK's Javadoc says direct buffers have "somewhat higher allocation and deallocation costs" and recommends them for large, long-lived buffers used for native IO. They exist because the JDK copies a heap buffer through a temporary direct buffer on every channel read and write (`sun.nio.ch.IOUtil` does it). So allocate direct buffers once and reuse them. Netty's pooled allocators do exactly that for you.""",
+There are two kinds of buffer. `allocate` gives a heap buffer backed by a `byte[]`. `allocateDirect` gives memory outside the Java heap. The JDK's Javadoc says direct buffers have "somewhat higher allocation and deallocation costs" and recommends them for large, long-lived buffers used for native IO. They exist because the kernel reads and writes memory by address during a system call, and the garbage collector is allowed to move a `byte[]` on the heap. So the JDK copies a heap buffer through a temporary direct buffer on every channel read and write (`sun.nio.ch.IOUtil` does it). So allocate direct buffers once and reuse them. Netty's pooled allocators do exactly that for you.""",
    "figure": {"svg": FIG, "caption": "Three moments of one buffer: after writing hello, after flip() the readable bytes run from pos to lim, and compact() keeps the unread llo at the front."},
    "try": {
     "title": "Predict the marks",
@@ -119,7 +119,9 @@ There are two kinds of buffer. `allocate` gives a heap buffer backed by a `byte[
   },
   {
    "h": "Non-blocking reads and writes move only what fits",
-   "body": """Put a `SocketChannel` in non-blocking mode with `configureBlocking(false)` and its calls stop waiting. They do what the kernel can do right now and return.
+   "body": """Every TCP socket has two buffers inside the kernel. The receive buffer holds bytes that arrived from the network and that your program hasn't read yet. The send buffer holds bytes your program wrote that the kernel hasn't delivered to the other side yet. `read` and `write` never touch the network themselves: they copy between your `ByteBuffer` and these kernel buffers.
+
+Put a `SocketChannel` in non-blocking mode with `configureBlocking(false)` and those copies stop waiting. They do what the buffers allow right now and return.
 
 `read(buf)` copies whatever sits in the socket's receive buffer. That can be one byte, half a message, three messages, or nothing at all, in which case it returns 0. It returns -1 when the other side has closed its end. `write(buf)` is the call that bites. Its Javadoc says a socket channel in non-blocking mode "cannot write any more bytes than are free in the socket's output buffer". When the client reads slowly, the kernel's send buffer fills, and `write` sends part of your buffer or none of it.
 
@@ -256,9 +258,9 @@ if (pending) ops = ops or SelectionKey.OP_WRITE                                /
 key.interestOps(ops)
 ```
 
-The `OP_READ` line is the other half of the same idea. When the buffer is full because the client reads slowly, stop reading from that client. Its bytes wait in the kernel, the TCP window shrinks, and the client's own writes slow down. That is backpressure in two lines, and lesson 4 shows Netty's version of it: writability and `AUTO_READ`. In the 8 MiB run mentioned earlier, the server armed `OP_WRITE` only 4 times in 537 selects.
+The `OP_READ` line is the other half of the same idea. When the buffer is full because the client reads slowly, stop reading from that client. Its bytes pile up in your socket's receive buffer, and TCP tells the client how much free space is left there (the TCP window). As the window shrinks to zero, the client's own writes stop. That is backpressure in two lines, and lesson 4 shows Netty's version of it: writability and `AUTO_READ`. In the 8 MiB run mentioned earlier, the server armed `OP_WRITE` only 4 times in 537 selects.
 
-Closing follows the same logic. When `read` returns -1 the client has said it will send nothing more, but it still wants the rest of its echo. Close only once nothing is pending.""",
+Closing follows the same logic. A client can half-close a connection (`shutdownOutput()`): it says it will send nothing more but keeps reading. Your `read` then returns -1, yet the client still wants the rest of its echo. Close only once nothing is pending.""",
    "try": {
     "title": "Watch the spin",
     "minutes": 3,

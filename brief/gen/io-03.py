@@ -52,7 +52,18 @@ L = {
  "sections": [
   {
    "h": "An event loop is one thread that owns its channels",
-   "body": """Netty is the select loop from the last lesson, written once and written well. Its central idea is the event loop: one thread that runs a selector over many channels, plus a queue of tasks. A group is a set of such loops. In Netty 4.2 you build a group by naming the IO handler, the transport-specific part:
+   "body": """Netty is the select loop from the last lesson, written once and written well. Each piece you wrote by hand has a Netty name, and each fixes a bug you met there:
+
+| Your loop in lesson 2 | Netty | Why it exists |
+|---|---|---|
+| one thread running `select()` | `EventLoop`, several in an `EventLoopGroup` | one loop per core instead of one per server |
+| the `Conn` attachment | `Channel` and its `ChannelPipeline` of handlers | per-connection state and logic in small pieces |
+| `flip()` and `compact()` by hand | `ByteBuf`, with separate read and write indexes | no mode to get wrong (lesson 4) |
+| pending bytes and arming `OP_WRITE` | the channel's outbound buffer | Netty sets and clears `OP_WRITE` for you |
+| dropping `OP_READ` when full | `autoRead` and writability | backpressure as a setting (lesson 4) |
+| nothing: only the loop may touch the selector | a task queue on every loop | any thread can hand the loop work safely |
+
+So an event loop is one thread that runs a selector over many channels, plus that queue of tasks. In Netty 4.2 you build a group by naming the IO handler, the transport-specific part:
 
 ```java
 EventLoopGroup boss = new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());   // accepts connections
@@ -119,7 +130,7 @@ That pinning is why Netty handlers rarely need locks: every event for a channel 
    "h": "The pipeline: reads flow in, writes flow out",
    "body": """Every channel has a `ChannelPipeline`: a linked list of handlers between a head, next to the socket, and a tail. Two kinds of traffic move through it.
 
-Inbound events start at the head and move toward the tail: `channelActive` when the connection opens, `channelRead` for each message, `channelReadComplete` after a batch of reads, and `exceptionCaught` when something fails. Inbound handlers transform the message on its way. In the quote server, the frame decoder turns a stream of bytes into one `ByteBuf` per line, and `StringDecoder` turns that into a `String`, so the last handler only ever sees whole lines.
+Each handler gets a `ChannelHandlerContext`, usually called `ctx`: its own slot in the pipeline, with methods to pass an event to the next handler or to start a write from that slot. Inbound events start at the head and move toward the tail: `channelActive` when the connection opens, `channelRead` for each message, `channelReadComplete` after a batch of reads, and `exceptionCaught` when something fails. Inbound handlers transform the message on its way. In the quote server, the frame decoder turns a stream of bytes into one `ByteBuf` per line, and `StringDecoder` turns that into a `String`, so the last handler only ever sees whole lines.
 
 Outbound operations go the other way. `write`, `flush` and `close` start where you call them and move toward the head. `StringEncoder` sits on that path and turns your `String` back into bytes. So the order of `addLast` is the order inbound events see the handlers, and the reverse of the order writes see them.
 
@@ -229,7 +240,16 @@ TLS clients now verify the server's hostname by default. Code that relied on the
 
 `netty-codec` was split into smaller modules, and the minimum Java version is now 8. And Netty 4.1 and 4.2 cannot be on the same classpath. That one matters in practice: Vert.x 5.2.3 pins Netty 4.2.20.Final, so a library that drags Netty 4.1 jars in next to it fails at runtime in confusing ways instead of with a clear version conflict. Check `./gradlew dependencies` for mixed `io.netty` versions before you debug anything else.
 
-The threading rules did not change. A channel still belongs to one loop, handlers still run on it, and blocking it is still the most common way to make a Netty service slow."""
+The threading rules did not change. A channel still belongs to one loop, handlers still run on it, and blocking it is still the most common way to make a Netty service slow.""",
+   "try": {
+    "title": "Switch the transport",
+    "minutes": 3,
+    "steps": [
+     "In `EventLoopDemo`, change both groups to `EpollIoHandler.newFactory()` and the channel class to `EpollServerSocketChannel.class` (on macOS use `KQueueIoHandler` and `KQueueServerSocketChannel`). Run it. Predict first: do the thread names or the round-robin change?",
+     "Now put the channel class back to `NioServerSocketChannel.class` but keep the epoll (or kqueue) factory. Predict what happens before you run it."
+    ],
+    "expect": "With matching factory and channel class the output looks the same: same thread names, same round-robin, because the threading model doesn't depend on the transport. With a mismatch the bind fails at once with `IllegalStateException: incompatible event loop type: io.netty.channel.SingleThreadIoEventLoop`: an NIO channel can only register with a loop whose IO handler is NIO. That is why the 4.2 migration guide reminds you to configure the channel class as well as the factory."
+   }
   }
  ],
  "analogy": "A channel pipeline is the mail line in an office. Letters come in at the door, one clerk opens the envelopes (the frame decoder), the next reads the handwriting (the string decoder), and the last one writes the answer. Replies go back down the same line the other way, and a typist (the encoder) turns them into print before they leave. The event loop is one worker who carries each letter through every station for a fixed set of mailboxes. The analogy breaks because real clerks work at the same time. In Netty one thread carries each message through every handler, which is exactly why one slow station stops the whole line.",

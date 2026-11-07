@@ -48,9 +48,11 @@ FIG = (
     '</svg>'
 )
 
-S1 = """`native-image`, from GraalVM or from Mandrel (the distribution "tailored for Quarkus"), takes your class path and builds one executable for one OS and CPU. At build time it starts at `main` and follows every call it can see. Code it can't reach is left out, and so are the JDK classes nothing uses. This is the **closed-world assumption**: everything the program will ever run is known when you build it.
+S1 = """Lesson 2's AOT cache makes the JVM start faster, but it is still a JVM: it maps classes, links what training missed, interprets, and waits for the JIT. In Quarkus's benchmark below, the first request still took 1,859 ms with the cache. Native image removes that work from the start by doing it all in the build.
 
-The binary runs on a small runtime, SubstrateVM, with no class loading, no bytecode verification, no interpreter and no JIT. Objects that build-time initializers created are stored in the binary's image heap and mapped at start-up. That is why it starts fast and stays small. The Quarkus docs publish a tuned benchmark (Quarkus 3.34.3, JDK 25.0.2):
+`native-image`, from GraalVM or from Mandrel (the distribution "tailored for Quarkus"), takes your class path and builds one executable for one OS and CPU, in three steps. First it analyzes: starting at `main`, it follows every method call and field access it can see, and works out which classes can show up at each call. Second it runs static initializers where it can, and saves the objects they created into the **image heap**, a section of the executable that is mapped into memory at start-up. Third it compiles every reachable method to machine code. Code the analysis never reached is left out, and so are the JDK classes nothing uses. This is the **closed-world assumption**: everything the program will ever run is known when you build it.
+
+The binary runs on a small runtime, SubstrateVM, with no class loading, no bytecode verification, no interpreter and no JIT. That is why it starts fast and stays small. The Quarkus docs publish a tuned benchmark (Quarkus 3.34.3, JDK 25.0.2):
 
 | | JVM | JVM + AOT cache | Native (Mandrel) |
 |---|---|---|---|
@@ -59,9 +61,9 @@ The binary runs on a small runtime, SubstrateVM, with no class loading, no bytec
 | RSS | 304 MiB | 240 MiB | 95 MiB |
 | Build | about 30 s | build plus a training run | 3 to 10 min, 4 to 8 GB of RAM |
 
-Peak throughput is 59% lower. With no JIT there are no run-time profiles, and GraalVM's own docs say that "without profiling information, it is difficult to generate machine code of the same quality as a JIT compiler". Profile-guided optimization narrows the gap, but "PGO is not available in GraalVM Community Edition". The default garbage collector is Serial, "optimized for low footprint and small Java heap sizes"; G1 is available only in Oracle GraalVM, on Linux.
+Peak throughput is 59% lower. With no JIT there are no run-time profiles, and GraalVM's own docs say that "without profiling information, it is difficult to generate machine code of the same quality as a JIT compiler". Profile-guided optimization (PGO: building again with profiles recorded from a test run) narrows the gap, but "PGO is not available in GraalVM Community Edition". The default garbage collector is Serial, a single-threaded collector "optimized for low footprint and small Java heap sizes"; G1 is available only in Oracle GraalVM, on Linux.
 
-The other price is everything the analysis can't see: reflection, dynamic proxies, resources loaded by name, JNI and serialization. The analysis copes with constants. GraalVM works out reflective calls at build time "given that all the call arguments are constant", so `Class.forName("com.acme.pay.Fees")` with a literal just works. `Class.forName(record.headers().get("type"))` does not: the class name arrives with the Kafka message, and the build can't know it. You have to tell the build, or the call fails at run time. Current GraalVM throws `MissingReflectionRegistrationError`, which "extends `java.lang.Error` and should not be handled"."""
+The other price is everything the analysis can't see: reflection, dynamic proxies, resources loaded by name, JNI (calls into native C code) and serialization. The analysis copes with constants. GraalVM works out reflective calls at build time "given that all the call arguments are constant", so `Class.forName("com.acme.pay.Fees")` with a literal just works. `Class.forName(record.headers().get("type"))` does not: the class name arrives with the Kafka message, and the build can't know it. You have to tell the build, or the call fails at run time. Current GraalVM throws `MissingReflectionRegistrationError`, which "extends `java.lang.Error` and should not be handled"."""
 
 S2 = """You tell the build in `reachability-metadata.json`, placed in `META-INF/native-image/<groupId>/<artifactId>/` on the class path. The current schema is v1.2.0, and its top level has four keys: `reflection`, `resources`, `foreign` and `comment`. Proxies, serialization and JNI all live inside `reflection` entries.
 
@@ -96,7 +98,7 @@ Two warnings about documentation. The older schema, v1.1.0, had separate top-lev
 
 You rarely write all of it by hand. The tracing agent watches a run on a normal JVM and writes what it saw: `java -agentlib:native-image-agent=config-output-dir=build/ni-config -jar app.jar`. Like an AOT training run, it only sees the code paths you exercise, so drive it with your integration tests and then read what it wrote. To make gaps fail loudly, build with `--exact-reachability-metadata` and run the tests with `-XX:MissingRegistrationReportingMode=Exit`."""
 
-S3 = """Class initialization is the other half of the story. GraalVM's docs give the numbers: "the simple 'Hello, World!' application requires more than 300 classes to be initialized", and in AOT-compiled code the check "is this class initialized yet?" on every access "can reduce performance by more than twofold". So the builder runs static initializers **at build time** where it can, and stores what they produced in the image heap.
+S3 = """Class initialization is the other half of the story. GraalVM's docs give the numbers: "the simple 'Hello, World!' application requires more than 300 classes to be initialized", and in code compiled ahead of time, the check "is this class initialized yet?" on every access "can reduce performance by more than twofold". So the builder runs static initializers **at build time** where it can, and stores what they produced in the image heap.
 
 Plain GraalVM initializes most JDK classes at build time, and your classes only when it can prove that safe. An initializer that calls native code (`System.out.println` counts), makes a virtual call it can't pin to one target, or reaches a substituted method stays at run time. Quarkus goes further: "By default, Quarkus initializes all classes at build time."
 
@@ -150,7 +152,9 @@ class IssuerProxyConfig
 
 When you do need JSON, put it in `src/main/resources/META-INF/native-image/<group-id>/<artifact-id>/`; the current docs warn that Quarkus overwrites a file placed directly in `META-INF/native-image/`. The Quarkus 3.x guides still show the older separate files, `reflect-config.json` and `proxy-config.json`, while the 4.0 guides say those legacy files "are not supported". Write the unified `reachability-metadata.json` and the file survives the upgrade.
 
-`./mvnw verify -Dnative` builds the binary and runs your `@QuarkusIntegrationTest`s against it. Because a native build takes minutes and gigabytes, most teams run it in CI and develop in JVM mode. Quarkus's own advice is "Start with JVM mode. Move to native when you have a concrete need." Lesson 4 of this track turns that into a decision table."""
+`./mvnw verify -Dnative` builds the binary and runs your `@QuarkusIntegrationTest`s against it. Because a native build takes minutes and gigabytes, most teams run it in CI and develop in JVM mode. Quarkus's own advice is "Start with JVM mode. Move to native when you have a concrete need." Lesson 4 of this track turns that into a decision table.
+
+Check before the lab: your event classes live in a shared `payment-events` JAR that another team owns, so you can't annotate them. Which annotation do you add, and on which class? (`@RegisterForReflection(targets = {...})` on any class in your own code, listing their classes; the class carrying the annotation is not registered itself.)"""
 
 L = {
  "id": "boot-03",

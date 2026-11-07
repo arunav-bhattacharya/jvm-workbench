@@ -48,15 +48,17 @@ FIG = (
     '</svg>'
 )
 
-S1 = """Most JDK builds since JDK 12 come with a head start. They contain a **class data sharing** (CDS) archive, `lib/server/classes.jsa`, holding about 1,300 core JDK classes that are already parsed into the JVM's internal form. At start-up the JVM memory-maps that file and uses those classes as they are. It skips the find, parse and verify steps from lesson 1 for each of them. This happens by default; `-Xshare:off` turns it off.
+S1 = """Start with the cost. Turn sharing off and `java -version` alone makes the JVM find, parse and verify 440 classes before it prints one line. On a shared 4-vCPU VM that doubled the `Create VM` time from lesson 1, from about 27 ms to about 54 ms, and lesson 1's tiny service needed about 250 ms instead of about 180 ms to its first 200.
+
+Most JDK builds since JDK 12 avoid most of that work. They ship a **class data sharing** (CDS) archive, `lib/server/classes.jsa`, holding about 1,300 core JDK classes. The file does not contain class files. It contains the JVM's own internal structures for those classes, the ones it would otherwise build in metaspace, already parsed and verified, laid out as they sit in memory. At start-up the JVM memory-maps the file: it asks the OS to make the file part of its address space, so pages are read from disk only when they are touched. Then it fixes up the pointers and uses the classes as they are. This happens by default; `-Xshare:off` turns it off.
 
 `java -version` shows it. On JDK 21 that command loads 405 classes, and all 405 say `source: shared objects file`. With `-Xshare:off` it loads 440 classes and none are shared. The extra 35 are classes the JVM has to generate at run time when there is no archive to take them from.
 
-A JDK 21 package has two archives: `classes.jsa` (14.6 MB here) and `classes_nocoops.jsa`, for when compressed object pointers are off, as with heaps over 32 GB. JDK 25 adds two `_coh` variants for compact object headers, which JEP 519 made a product feature in JDK 25 (still off by default). The JVM picks the archive that matches its flags.
+A JDK 21 package has two archives: `classes.jsa` (14.6 MB here) and `classes_nocoops.jsa`, for when compressed object pointers (32-bit object references, the default for heaps under 32 GB) are off. JDK 25 adds two `_coh` variants for compact object headers, a smaller object header layout that JEP 519 made a product feature in JDK 25 (still off by default). The JVM picks the archive that matches its flags.
 
-CDS changes where class bytes come from. It does not change what your code does. Archived classes are loaded and linked from the file, but their static initializers still run on first use, in the same order. A test program that logs its initializer order printed identical output with and without a JDK 21 archive and a JDK 25 AOT cache.
+That tells you what CDS can and can't save. It saves the find, parse and verify steps from lesson 1. It does not run static initializers: those still run on first use, in the same order, so a class whose `<clinit>` takes 400 ms takes 400 ms with any archive. A test program that logs its initializer order printed identical output with and without a JDK 21 archive and a JDK 25 AOT cache. It also does nothing for the JIT, which still starts cold.
 
-Old articles also sell CDS as a memory saver, because several JVMs on one host can share the archive's pages. On current JDKs, count on start-up time, not on that. Since JDK 21 the JVM maps archives at an alternative address by default (the log says `ArchiveRelocationMode == 1`), and patching the pointers after the move writes to most pages, which makes them private to the process. In one JDK 25 process, 11.5 MiB of the 14.4 MiB resident in the AOT cache's mapping were private dirty pages."""
+Old articles also sell CDS as a way for JVMs on one host to share memory. Count on start-up time instead. Since JDK 21 the JVM maps archives at an alternative address by default (the log says `ArchiveRelocationMode == 1`), and patching the pointers writes to most pages, which makes them private. In one JDK 25 process, 11.5 MiB of the 14.4 MiB resident in the AOT cache's mapping were private dirty pages."""
 
 S2 = """The default archive covers the JDK. **AppCDS** adds your own classes. It has been part of OpenJDK since JDK 10, and on JDK 21 it is the start-up gain you can have today without touching code. There are three ways to build one.
 
@@ -81,7 +83,9 @@ java -XX:SharedArchiveFile=app.jsa -cp app.jar com.acme.pay.Main
 
 On JDK 21, on a shared 4-vCPU VM, the 300-class app's median CPU time fell from 349 ms with the default archive to 171 ms with a dynamic archive and 178 ms with a static one. Wall time fell from 333 ms to 196 ms and 191 ms. Your absolute numbers will differ. The halving is what carries over.
 
-The archive has rules. The class path must be JAR files, not directories of classes. The class path at run time must be the same as when the archive was made, or start with it. If a JAR changed after the archive was made, the JVM refuses the archive with warnings such as `h21.jar timestamp has changed` and `size has changed`, and runs normally from the JARs. It keeps using the default archive for the JDK classes. On JDK 21 this check works; keep that in mind for the last section."""
+The archive has rules. The class path must be JAR files, not directories of classes. The class path at run time must be the same as when the archive was made, or start with it. If a JAR changed after the archive was made, the JVM refuses the archive with warnings such as `h21.jar timestamp has changed` and `size has changed`, and runs normally from the JARs. It keeps using the default archive for the JDK classes. On JDK 21 this check works; keep that in mind for the last section.
+
+Check: in development you run the app with `-cp build/classes/java/main:libs/*.jar` and add `-XX:ArchiveClassesAtExit=app.jsa`. What happens at exit? (JDK 21 refuses: `Cannot have non-empty directory in paths`. Package the classes into a JAR first, as the Try it does.)"""
 
 S3 = """Project Leyden is the OpenJDK project that moves start-up work out of production runs. Its first result is the **AOT cache**, built one JEP at a time:
 
@@ -107,15 +111,15 @@ java -XX:AOTMode=record -XX:AOTConfiguration=app.aotconf -cp app.jar com.acme.pa
 java -XX:AOTMode=create -XX:AOTConfiguration=app.aotconf -XX:AOTCache=app.aot -cp app.jar
 ```
 
-The one-step command does the same underneath. After training it launches a second JVM with `-XX:AOTMode=create` and passes the settings through `JAVA_TOOL_OPTIONS`, so the output shows a `Picked up JAVA_TOOL_OPTIONS` line.
+The one-step command does the same underneath: after training it starts a second JVM with `-XX:AOTMode=create`, passing the settings through `JAVA_TOOL_OPTIONS`.
 
-The cache holds more than an AppCDS archive: classes already linked, `invokedynamic` call sites already resolved (these modes switch on `-XX:+AOTClassLinking`), heap objects, and on JDK 25 the method profiles. The JVM loads and links every cached class before `main` runs, so it reports more classes loaded than without the cache, all from the archive.
+The cache holds more than an AppCDS archive. Normally the JVM resolves references lazily: the first time an instruction runs, it turns a symbolic name in the constant pool, such as `java/util/Map.get`, into a pointer to the real method. The first run of a lambda does more: its `invokedynamic` instruction calls a bootstrap method that generates the lambda's hidden class. The AOT cache stores the results of that work from the training run: classes already linked, those references and `invokedynamic` call sites already resolved (these modes switch on `-XX:+AOTClassLinking`), Java objects the JVM would build at start-up, such as its module graph, and on JDK 25 the method profiles, the counts that tell the JIT what is hot. The JVM loads and links every cached class before `main` runs, so it reports more classes loaded than without the cache, all from the archive. Code that training never ran gets none of this; it is resolved lazily, as before.
 
 On JDK 25 on the same VM, the 300-class app went from 504 ms of CPU to 81 ms, from 431 ms to 98 ms of wall time, and from 64 MiB to 42 MiB of max RSS. A JDK `HttpServer` app's median time to first request fell from 218 ms to 136 ms. Quarkus's perf lab measured time to first request of 4,417 ms in JVM mode and 1,859 ms with the cache, with peak throughput about 7% lower.
 
-Quarkus 3.40 wires it up for you. Set `quarkus.package.jar.aot.enabled=true` and it trains the cache while your `@QuarkusIntegrationTest`s run, then writes `target/quarkus-app/app.aot`; start with `java -XX:AOTCache=app.aot -jar quarkus-run.jar`. It uses a special `aot-jar` packaging that leaves all class loading to the JDK's own loaders, because Leyden does not support custom class loaders yet. Its docs add the rule that the lab makes concrete: "The more representative your integration tests are of production traffic, the more effective the AOT cache will be.\""""
+Quarkus 3.40 wires it up for you. Set `quarkus.package.jar.aot.enabled=true` and it trains the cache while your `@QuarkusIntegrationTest`s run and writes `target/quarkus-app/app.aot`; start with `java -XX:AOTCache=app.aot -jar quarkus-run.jar`. Its `aot-jar` packaging leaves all class loading to the JDK's own loaders, because Leyden does not support custom class loaders yet. The docs add the rule the lab makes concrete: "The more representative your integration tests are of production traffic, the more effective the AOT cache will be.\""""
 
-S4 = """The man page is blunt: a cache belongs to one application class path, one JDK release, and one OS and CPU, and "if any of the above changes, you must recreate the AOT cache". The JVM checks, and in the default `auto` mode it starts without the cache when a check fails. Here is how that bites.
+S4 = """The man page is blunt: a cache belongs to one application class path, one JDK release, and one OS and CPU, and "if any of the above changes, you must recreate the AOT cache". The JVM checks, and in the default `auto` mode it starts without the cache when a check fails.
 
 A changed JAR is the worst case, because on early JDK 25 builds the check was missing. On 25.0.0 to 25.0.3 and on 26.0.0 to 26.0.1, the JVM never compared the application's JARs with the cache (bug JDK-8377932). Rebuild the JAR, keep the old `app.aot`, and the JVM serves the **old classes**. This is JDK 25 GA running a JAR rebuilt to print "version TWO":
 
@@ -138,9 +142,11 @@ An AOT cache the JVM can't use leaves you with no archive at all. It does not fa
 
 A different GC breaks it on JDK 25. A cache trained under G1 gave 0 archived classes under `-XX:+UseZGC`. Training under ZGC worked only partly: CPU fell from 610 ms to 439 ms, against 504 ms to 81 ms with G1. JDK 26's JEP 516 removes this limit. Until then, train with the GC you run.
 
-Module and agent options must match too. `--module-path`, `--add-modules` and `--enable-native-access` should be the same in training and production. Quarkus documents one trap: `-XX:StartFlightRecording` quietly adds the `jdk.jfr` module, and the cache no longer matches. The man page also lists "certain JVMTI options" as incompatible, which matters if an APM agent gets attached.
+Module and agent options must match too. `--module-path`, `--add-modules` and `--enable-native-access` should be the same in training and production. Quarkus documents one trap: `-XX:StartFlightRecording` quietly adds the `jdk.jfr` module, and the cache no longer matches. The man page also lists "certain JVMTI options" as incompatible. JVMTI is the JVM's tool interface, the one monitoring (APM) agents use to rewrite classes as they load, so this matters as soon as someone attaches an agent.
 
-Two flags catch all of this. `-Xlog:aot` prints `Opened AOT cache app.aot.` when the cache works and the reason when it doesn't. `-XX:AOTMode=on` (JDK 24 to 26; `required` from JDK 27) makes the JVM exit instead of running without the cache. Use that in CI. Keep it out of production: the JDK 27 man page warns that your application "may fail to launch" if something like a cloud provider's monitoring agent adds an incompatible option."""
+Two flags catch all of this. `-Xlog:aot` prints `Opened AOT cache app.aot.` when the cache works and the reason when it doesn't. `-XX:AOTMode=on` (JDK 24 to 26; `required` from JDK 27) makes the JVM exit instead of running without the cache. Use that in CI. Keep it out of production: the JDK 27 man page warns that your application "may fail to launch" if something like a cloud provider's monitoring agent adds an incompatible option.
+
+Check with the mechanism: you train on JDK 25.0.4 with G1, then deploy the same JAR on 25.0.5 with G1. Does the cache load? (No. The cache records the exact JDK build, and the JVM refuses one made by a different build.)"""
 
 L = {
  "id": "boot-02",
@@ -162,7 +168,7 @@ L = {
     "minutes": 3,
     "steps": [
      "List the archives your JDK ships with the first command.",
-     "Count how many classes `java -version` loads from the archive, then how many it loads in total with `-Xshare:off`.",
+     "Predict: with `-Xshare:off`, will `java -version` load more classes than with the archive, fewer, or the same number? Then count both with the next two commands.",
      "Run the last command to see which archive file the JVM opened."
     ],
     "code": {"lang": "bash", "title": "terminal",

@@ -49,11 +49,13 @@ FIG = (
     '</svg>'
 )
 
-S1 = """A generated test app with 300 classes loads **1,537 classes** on JDK 21 before it finishes, with class sharing turned off. 301 come from the app's JAR. 911 come from the JDK's own modules. The other 325 are hidden classes that the JVM spins up at run time for lambdas and method handles. Your 300 classes are a fifth of the work.
+S1 = """A generated test app with 300 classes loads **1,537 classes** on JDK 21 before it finishes, with class sharing turned off. 301 come from the app's JAR. 911 come from the JDK's own modules. The other 325 are hidden classes: classes the JVM generates in memory at run time, with no class file, for lambdas and method handles. Your 300 classes are a fifth of the work.
 
-For every one of those classes the JVM does the same steps on every launch. It finds the bytes, parses them into its internal form in metaspace, verifies the bytecode, and later runs the static initializer. Then it runs your code in the interpreter, because the JIT compilers only start once they have profiles of what is hot. A framework adds its own start-up work on top: scanning the classpath for annotations, wiring beans by reflection, generating proxies, parsing config. Quarkus moves as much of that as it can to build time; its extension guide says to favor "doing work at build time ... as opposed to let the framework do work at startup time".
+Here is what happens between typing `java` and the first line of your `main`. The `java` launcher, a small native program, loads the JVM library (`libjvm.so` on Linux) and asks it to create a VM. The JVM reserves the heap, generates its interpreter, starts its own threads, and initializes the core `java.lang` classes and the module system. Only then does the application class loader find your main class, and the real work starts.
 
-Nothing of this survives the process. Stop the JVM and the next start does it all again. Only one thing is cached by default: the JDK ships a class data sharing archive with about 1,300 of its own classes, which the JVM maps from disk instead of parsing. Lesson 2 of this track is about that archive and the bigger ones you can build.
+For every class your code touches, the JVM repeats the same steps on every launch. It finds the class file, parses it into its internal form in **metaspace** (native memory the JVM keeps for class data, outside the Java heap), verifies the bytecode (checks that it is type-safe), and later runs the class's static initializer. It runs your code in the **interpreter**, which executes bytecode one instruction at a time. The JIT compilers, the parts of the JVM that turn hot methods into machine code while the program runs, only start once they have profiles: counts of which methods, branches and types the code really uses. A framework adds its own start-up work on top: scanning the classpath for annotations, wiring beans by reflection, generating proxies, parsing config. Quarkus moves as much of that as it can to build time; its extension guide says to favor "doing work at build time ... as opposed to let the framework do work at startup time".
+
+Nothing of this survives the process. Stop the JVM and the next start does it all again. Only one thing is cached by default: the JDK ships an archive with about 1,300 of its own classes, already parsed, which the JVM maps from disk instead of parsing again. Lesson 2 of this track is about that archive and the bigger ones you can build.
 
 You can watch the loading happen. `-Xlog:class+load` prints one line per class, and the end of each line says where the class came from:
 
@@ -64,9 +66,9 @@ You can watch the loading happen. `-Xlog:class+load` prints one line per class, 
 [info][class,load] com.acme.pay.Main$$Lambda/0x... source: com.acme.pay.Main
 ```
 
-`shared objects file` means the class was mapped from a CDS archive. `jrt:/` means it was read and parsed from the JDK's modules file. `file:` is your classpath. A class name as the source marks a hidden class that this class defined at run time, usually a lambda. `-verbose:class` prints the same lines.
+`shared objects file` means the class was mapped from a class data sharing (CDS) archive, a file of classes the JDK has already parsed. `jrt:/` means it was read and parsed from the JDK's modules file. `file:` is your classpath. A class name as the source marks a hidden class that this class defined at run time, usually a lambda. `-verbose:class` prints the same lines.
 
-That `source:` column turns "start-up is slow" into a histogram you can read. When you try lesson 2's archives later, the same histogram shows them working."""
+That `source:` column turns "start-up is slow" into a histogram you can read. Check yourself before the Try it: a hidden class is generated in memory and has no class file. Why can its `source:` never start with `file:`?"""
 
 S2 = """Loading a class and initializing it are two different events. The JVM loads a class when something needs its definition. It runs the class's static initializer, the method the bytecode calls `<clinit>`, only on the first **active use**: `new`, a call to a static method, a read or write of a static field that is not a compile-time constant, or a reflective call that asks for initialization. Initializing a subclass initializes its superclass first. Declaring a variable of the type does not initialize the class. Neither does `Fees.class`, which loads the class but runs no initializer.
 
@@ -119,7 +121,9 @@ object BinTable {
 
 Now `version()` touches only `BinTable`. The JVM loads and initializes `Holder` the first time `issuerOf` reads `Holder.TABLE`. It is also thread-safe without any lock in your code: the JVM initializes a class under its own lock (JLS 12.4.2), so if eight threads arrive at once, one runs the initializer and the others wait for it. In Kotlin, `val table by lazy { build() }` gives you the same laziness with a lock you can see. Lesson 5 of the memory model track, "Lazy init done right: double-checked locking and holders", shows why this is safe.
 
-Lazy is not always better. Moving the cost to the first request makes that request slow instead. Be lazy about work that many starts never need, such as admin tables or rarely used reports. Do the work early, on purpose, when every request needs it."""
+Lazy is not always better. Moving the cost to the first request makes that request slow instead. Be lazy about work that many starts never need, such as admin tables or rarely used reports. Do the work early, on purpose, when every request needs it.
+
+Check the rule on a case the text didn't show: `BinTable` gets a `public static final String VERSION = "bins-2026.11";` constant, and the readiness check reads `BinTable.VERSION` instead of calling `version()`. Does the table get built? (No. A compile-time constant is copied into the caller by `javac`, so reading it is not an active use of `BinTable` at all.)"""
 
 S3 = """There are three start-up numbers, and people mix them up.
 
@@ -139,7 +143,7 @@ first 200: 179 ms after launch, measured outside (15 attempts)
 
 30 ms, 103 ms and 179 ms. The gap between the last two is the launcher, process creation, and the first request's own class loading.
 
-Even the first 200 is not the end. Early requests run in the interpreter or in C1-compiled code, and the C2 compiler only takes over hot methods after it has seen enough of them. So time to first request and time to peak throughput are different numbers too. You can feel this when a new pod joins under load: it answers, but slowly, for a while. The performance track's first lesson, "From bytecode to machine code", goes into the tiers."""
+Even the first 200 is not the end. HotSpot has two JIT compilers: C1 compiles quickly with simple optimizations, and C2 compiles slowly into much faster code. Early requests run in the interpreter or in C1 code, and C2 only takes over a method after it has run often enough to be worth it. So time to first request and time to peak throughput are different numbers too. You can feel this when a new pod joins under load: it answers, but slowly, for a while. The performance track's first lesson, "From bytecode to machine code", goes into the tiers. Before the Try it, predict this: does `-Xshare:off`, which turns the CDS archive off, slow down `Create VM` too, or only the later clocks? Think about which classes the JVM loads while it creates itself."""
 
 S4 = """The same demo also reads the service's memory, and the numbers disagree by a factor of five.
 
@@ -163,7 +167,9 @@ jcmd <pid> VM.native_memory summary         # only if started with -XX:NativeMem
 
 Don't use `docker stats`. The Quarkus guide on measuring performance says so in capitals: it "only measures a subset of the in-use resident pages", while a container is killed "based on its full RSS memory usage". It recommends `ps -e -o pid,rss,args` or `docker top <id> -o pid,rss,args` instead.
 
-One more trap: heap usage from your metrics dashboard is not footprint either. It leaves out everything in the list above, and it counts live objects, not the heap pages the GC has already touched."""
+One more trap: heap usage from your metrics dashboard is not footprint either. It leaves out everything in the list above, and it counts live objects, not the heap pages the GC has already touched.
+
+Check: a service starts with `-Xms2g`. Right after start-up, is its RSS about 2 GB? (No. The JVM commits 2 GB for the heap, but RSS grows only as the application and the GC touch those pages.)"""
 
 L = {
  "id": "boot-01",
@@ -224,10 +230,10 @@ L = {
     "steps": [
      "Read `FirstRequestTimer`. It picks a free port, starts the same class as a service in a second JVM, polls `/hello` every 2 ms from outside, and stops the clock at the first 200.",
      "Run it with `-Pargs=-Xlog:startuptime` added to the command below. Note the three numbers.",
-     "Predict what `-Pargs=-Xshare:off` does to each clock, then run it."
+     "Predict what turning the archive off does to each clock, then run it with `-Pargs='-Xlog:startuptime -Xshare:off'`."
     ],
     "code": demo("FirstRequestTimer"),
-    "expect": "On JDK 21 on a shared 4-vCPU VM: `Create VM` about 0.03 s, `started in` about 0.10 s, first 200 about 160 to 210 ms after launch. With `-Xshare:off`, `started in` rose to 0.167 s and the first 200 to 257 ms, because every JDK class was parsed and verified again. Your machine gives different absolute numbers; compare runs on the same machine only."
+    "expect": "On JDK 21 on a shared 4-vCPU VM: `Create VM` about 0.03 s, `started in` about 0.10 s, first 200 about 160 to 210 ms after launch. With `-Xshare:off` all three moved: `Create VM` went to about 0.06 s, `started in` to about 0.15 to 0.20 s and the first 200 to about 235 to 320 ms. Creating the VM already loads the core `java.lang` classes, so it slows down too, and every later class is now parsed and verified from the modules file. Your machine gives different absolute numbers; compare runs on the same machine only."
    }
   },
   {

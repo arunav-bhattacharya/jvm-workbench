@@ -55,7 +55,9 @@ FIG = (
     '</svg>'
 )
 
-S1 = """An interface normally says nothing about who implements it. Add `sealed` and a `permits` clause, and the list of implementations becomes part of the type:
+S1 = """Any class, in any package, can implement an ordinary interface. So code that handles "each kind of command" can never know it handled them all: someone adds a `Void` command next week, it compiles, and the `if`/`else` chain that dispatches commands quietly skips it. Before JDK 17 the only fix was by hand: an abstract class with a package-private constructor, so that only classes in its own package can extend it. That closes the hierarchy, but the compiler still doesn't know the list, so it can't check a switch against it.
+
+A sealed type is a class or interface that names its permitted subtypes, the only classes allowed to extend it directly. Add `sealed` and a `permits` clause, and the list becomes part of the type:
 
 ```java
 public sealed interface Command permits Authorize, Capture, Refund {}
@@ -73,7 +75,7 @@ sealed interface Command {
 }
 ```
 
-Sealed classes and interfaces have been final since JDK 17 (JEP 409). javac checks the list from both sides. A class that implements `Command` without being on it fails with `class is not allowed to extend sealed class: Command (as it is not listed in its 'permits' clause)`. javac also writes the list into the class file as a `PermittedSubclasses` attribute, and the JVM checks it when it loads a class. A subclass compiled against an older, unsealed `Command` fails to load with `IncompatibleClassChangeError: class Void cannot implement sealed interface Command`.
+Sealed classes and interfaces have been final since JDK 17 (JEP 409). javac checks the list from both sides. A class that implements `Command` without being on it fails with `class is not allowed to extend sealed class: Command (as it is not listed in its 'permits' clause)`. javac also writes the list into the class file, as a `PermittedSubclasses` attribute (a table the JVM reads), and the JVM checks it when it loads a class. A subclass compiled against an older, unsealed `Command` fails to load with `IncompatibleClassChangeError: class Void cannot implement sealed interface Command`.
 
 You can leave `permits` out when every subtype is declared in the same source file as the sealed type. javac then takes the subtypes it finds there. Reflection shows the result: `Command.class.isSealed()` is true, and `getPermittedSubclasses()` returns the three records.
 
@@ -108,7 +110,7 @@ So "sealed means final" is wrong: a sealed type has subtypes by definition, and 
 
 S3 = """Sealing ties a hierarchy to one place, and Java and Kotlin draw the boundary slightly differently.
 
-In Java the permitted subtypes must be in the same module as the sealed type. If your code isn't in a named module, they must be in the same package. A typical Quarkus or Spring service runs on the class path, in the unnamed module, so the package rule is the one you will meet. Split a sealed interface and its record across `pay.api` and `pay.card` and javac refuses:
+In Java the permitted subtypes must be in the same module as the sealed type. A module here means a JPMS module: a set of packages described by a `module-info.java`. If your code isn't in a named module, the subtypes must be in the same package. A typical Quarkus or Spring service runs on the class path, in the unnamed module, so the package rule is the one you will meet. Split a sealed interface and its record across `pay.api` and `pay.card` and javac refuses:
 
 ```text
 error: class PaymentMethod in unnamed module cannot extend a sealed class in a different package
@@ -121,7 +123,7 @@ Kotlin's rule is the same package and the same module, whether or not you use JP
 
 The restriction makes sense once you see what sealing promises. The author of a sealed type says "this is the complete list", and the compiler can only hold everyone to that if the whole list is compiled and shipped as one unit. A subtype in some other module could be released on its own schedule, and the list every switch was checked against would quietly go stale."""
 
-S4 = """Sealing pays off in a `switch`. Over a sealed type, javac knows every possible subtype, so a switch with one case per subtype needs no `default`, and javac checks that the cases really cover every subtype:
+S4 = """Sealing pays off in a `switch`. Over a sealed type, javac knows every possible subtype, so a switch with one case per subtype is exhaustive (its cases cover every possible value) and needs no `default`. javac checks that the cases really do cover every subtype:
 
 ```java
 static long ledgerImpact(Dispute d) {

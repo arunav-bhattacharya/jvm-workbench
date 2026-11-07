@@ -32,10 +32,10 @@ object G1Model {
     /**
      * The fewest old regions each mixed collection must take, so that all [candidateCount] candidates
      * are done within [MIXED_GC_COUNT_TARGET] mixed collections: candidateCount / 8, rounded up.
+     * (Given: use it in [mixedCandidates].)
      */
-    fun minOldRegionsPerMixedGc(candidateCount: Int): Int {
-        TODO("candidateCount / MIXED_GC_COUNT_TARGET, rounded up")
-    }
+    fun minOldRegionsPerMixedGc(candidateCount: Int): Int =
+        (candidateCount + MIXED_GC_COUNT_TARGET - 1) / MIXED_GC_COUNT_TARGET
 
     /**
      * The old regions the mixed collections after a marking cycle will evacuate, best first.

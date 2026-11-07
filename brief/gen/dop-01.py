@@ -42,7 +42,36 @@ FIG = (
     '</svg>'
 )
 
-S1 = """Write one line:
+S1 = """Here is a small value class written by hand, the way a lot of Java code still has them:
+
+```java
+public final class Money {
+    private final long minor;
+    private final String currency;                  // added in the last sprint
+
+    public Money(long minor, String currency) { this.minor = minor; this.currency = currency; }
+    public long minor() { return minor; }
+    public String currency() { return currency; }
+
+    @Override public boolean equals(Object o) {
+        return o instanceof Money m && m.minor == minor;   // nobody updated this
+    }
+    @Override public int hashCode() { return Long.hashCode(minor); }
+    @Override public String toString() { return "Money[minor=" + minor + "]"; }
+}
+```
+
+```kotlin
+class Money(val minor: Long, val currency: String) {     // currency added in the last sprint
+    override fun equals(other: Any?) = other is Money && other.minor == minor   // nobody updated this
+    override fun hashCode() = minor.hashCode()
+    override fun toString() = "Money(minor=$minor)"
+}
+```
+
+It compiles, and `new Money(1000, "EUR").equals(new Money(1000, "USD"))` is true. A refund matcher that compares amounts now matches across currencies, and the log line doesn't even show the currency. The class says "these fields are the value" in four places, and the four drifted apart.
+
+A record says it once. You list its components, the values that make up the record, in the header, and javac writes the rest from that list:
 
 ```java
 public record Money(long minor, String currency) {}
@@ -52,15 +81,15 @@ public record Money(long minor, String currency) {}
 data class Money(val minor: Long, val currency: String)
 ```
 
-From that line javac generates a private final field per component, a public accessor per component (`minor()` and `currency()`, with no `get` prefix), a canonical constructor that takes the components in order, and `equals`, `hashCode` and `toString`. The class is final and extends `java.lang.Record`. Records have been final since JDK 16 (JEP 395), so everything in this lesson works on the JDK 21 the labs compile for.
+From that header javac generates a private final field per component, a public accessor per component (`minor()` and `currency()`, with no `get` prefix), a canonical constructor that takes the components in order, and `equals`, `hashCode` and `toString`. The class is final and extends `java.lang.Record`. Records have been final since JDK 16 (JEP 395), so everything in this lesson works on the JDK 21 the labs compile for.
 
 The `Record` Javadoc calls a record "a shallowly immutable, transparent carrier for a fixed set of values". Each part of that phrase is a rule you will run into. The component list is fixed: you can't add instance fields, and `private int cache;` in the body fails with `field declaration must be static`. Static fields, methods and nested types are fine. Transparent means the state is the API. Every component gets a public accessor, and `equals` and `toString` use every component. A record can implement interfaces but can't extend a class, because it already extends `Record`. And shallowly immutable means the fields are final while the objects they point to may not be. Section 3 is about that.
 
-The generated methods are not what you would write by hand. `javap` shows that `equals`, `hashCode` and `toString` are each a single `invokedynamic` call to `java.lang.runtime.ObjectMethods.bootstrap`. javac passes it the component names as one string (`minor;currency`) and a direct getter for each private field. At run time the JDK builds the method bodies from that list, which is why the Javadoc says the exact `hashCode` algorithm and `toString` format may change: never parse a record's `toString`. kotlinc does it the older way and writes `equals` and `hashCode` out as ordinary bytecode in your class.
+The generated methods are not what you would write by hand. `javap` shows that `equals`, `hashCode` and `toString` are each a single `invokedynamic` instruction. `invokedynamic` is a call whose target the JVM decides at run time: the first time it runs, the JVM calls a bootstrap method, here `java.lang.runtime.ObjectMethods.bootstrap`, and links in whatever method that returns. javac passes it the component names as one string (`minor;currency`) and a direct getter for each private field, and the JDK builds the method bodies from that list. That is why the Javadoc says the exact `hashCode` algorithm and `toString` format may change: never parse a record's `toString`. kotlinc does it the older way and writes `equals` and `hashCode` out as ordinary bytecode in your class.
 
-A record is still an ordinary object with its own identity. `new Point(3, 4) == new Point(3, 4)` is `false`, and `synchronized` on a record compiles and runs. Objects without identity are what Project Valhalla adds, as a preview feature scheduled for JDK 28. Lesson 4 of this track covers where that stands."""
+A record is still an ordinary object with its own identity: every `new` makes a distinct object, and `==` and `synchronized` can tell it apart from an equal one. `new Point(3, 4) == new Point(3, 4)` is `false`, and `synchronized` on a record compiles and runs. Objects without identity are what Project Valhalla adds, as a preview feature scheduled for JDK 28. Lesson 4 of this track covers where that stands."""
 
-S2 = """A record has exactly one canonical constructor: the one whose parameters match the components. Every other constructor must call it first, and so does every static factory, every wither, and Java deserialization. That makes it the one place for validation and normalization. Write it in the compact form, with no parameter list:
+S2 = """Validation in a static factory is easy to get around. `Money.of(...)` can check the amount all it likes, and `new Money(-5, "eur")` walks straight past it. A record gives you a place nobody can walk past. It has exactly one canonical constructor: the one whose parameters match the components. Every other constructor must call it first, and so does every static factory, every wither, and Java deserialization. That makes it the one place for validation and normalization. Write it in the compact form, with no parameter list:
 
 ```java
 public record Money(long minor, String currency) {
@@ -356,7 +385,7 @@ data class Key private constructor(val v: String) {
 
 So validation must live inside the constructor, where nobody can bypass it. Kotlin lets you make a data class constructor private and force callers through a factory that normalizes, but `copy()` still exposes it. Kotlin 2.4.21 warns about this, says the warning becomes an error in language version 2.5, and offers `@ConsistentCopyVisibility` to make `copy()` as private as the constructor.
 
-The second detail is about what comes after records. In a January 2026 design note, "Data-Oriented Programming for Java: Beyond Records", Brian Goetz describes the cliff you fall off when a class is almost a record: one derived field or one private cache, and you are back to writing everything by hand. The note sketches *carrier classes*, written like `class Point(int x, int y) { ... }`: a normal class with a record-style state description. The language would require the canonical constructor and the accessors and give the class a deconstruction pattern, while the class declares its own fields and need not be final. It is a design note, not a JEP, so treat it as a direction, not a feature."""
+The second detail is about what comes after records. In a January 2026 design note, "Data-Oriented Programming for Java: Beyond Records", Brian Goetz describes the cliff you fall off when a class is almost a record: one derived field or one private cache, and you are back to writing everything by hand. The note sketches *carrier classes*, written like `class Point(int x, int y) { ... }`: a normal class with a record-style state description. The language would require the canonical constructor and the accessors and give the class a deconstruction pattern, while the class declares its own fields and need not be final. It is a design note and no JEP exists yet, so treat it as a direction for now."""
  },
  "sources": [
   {"title": "Record (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Record.html"},

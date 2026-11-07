@@ -98,11 +98,13 @@ fun echo(socket: Socket) {
 }
 ```
 
-The code is easy to read, and that is its strength. The cost hides in `readLine()`. While the client thinks, types, or sits idle on a keep-alive connection, the thread that called `readLine()` can do nothing else. The kernel keeps it asleep until bytes arrive on that one socket.
+The code is easy to read, and that is its strength. The cost hides in `readLine()`.
+
+Go one level down to see it. A socket is the kernel's object for one end of a TCP connection, and the kernel keeps a receive buffer for it: bytes that have arrived from the network but that your program hasn't read yet. `read()` copies bytes out of that buffer. If the buffer is empty, the kernel takes the calling thread off the CPU and parks it on the socket's wait list. When a packet arrives, the kernel appends its bytes to the buffer and wakes the parked thread, which then returns from `read()`. While the client thinks, or sits idle on a keep-alive connection (one it leaves open between requests), that thread can do nothing else.
 
 Two things surprise people the first time they look.
 
-The thread is not free to keep. A platform thread is an operating system thread with its own stack, and Jetty's documentation puts it at about 1 MiB of native memory. The OS scheduler also has to track every one of them.
+The thread is not free to keep. A Java platform thread is a thin wrapper around one operating system thread, with its own stack, and Jetty's documentation puts it at about 1 MiB of native memory. The OS scheduler also has to track every one of them.
 
 And a thread dump hides the waiting. A platform thread blocked in a socket read reports `RUNNABLE`, because the JVM sees it running native code (`SocketDispatcher.read0`). A server with 2,000 idle connections shows 2,000 runnable threads and almost no CPU use.
 
@@ -134,7 +136,7 @@ Thread-per-connection is worse than thread-per-request, because it pays for conn
 
 That gap explains two defaults you may have seen in Tomcat's connector docs. `maxThreads` is 200 and caps simultaneous requests. `maxConnections` is 8,192 and caps open connections. The NIO connector's poller watches the idle sockets with `select()`, so a worker thread is needed only while a request is being processed. Threads follow requests in flight, not open sockets.
 
-Each extra platform thread costs a stack and a slot in the scheduler. A few thousand works, as the demo showed. Tens of thousands is where servers in the late 1990s fell over, and it is still a bad place to be.""",
+Each extra platform thread costs a stack and a slot in the scheduler. When many threads are runnable, the OS also pays for context switches: saving one thread's registers and loading another's, with the CPU caches going cold in between. A few thousand works, as the demo showed. Tens of thousands is where servers in the late 1990s fell over, and it is still a bad place to be.""",
    "try": {
     "title": "Do the arithmetic before the incident",
     "minutes": 3,
@@ -153,7 +155,7 @@ Each extra platform thread costs a stack and a slot in the scheduler. A few thou
    "h": "C10K: ten thousand clients at once",
    "body": """In 1999 Dan Kegel wrote a page called "The C10K problem". The name is short for ten thousand concurrent clients. His argument was that the hardware of the day could already serve that many connections and the server software could not, because of how it used threads and system calls.
 
-The answer the industry settled on is the one this whole track is about: stop giving each connection a thread. Put many sockets in non-blocking mode and ask the kernel one question: which of these sockets are ready right now? `select` and `poll` were the first system calls for that, and they take the whole list of sockets on every call, which gets slow with thousands of them. Linux added `epoll` and the BSDs and macOS added `kqueue`. Both keep the watched sockets inside the kernel and report only the ones that are ready. One thread can then watch thousands of connections and run code only for those with data.
+The answer the industry settled on is the one this whole track is about: stop giving each connection a thread. Put many sockets in non-blocking mode, where a `read` on an empty receive buffer returns 0 bytes at once instead of parking the thread. Then ask the kernel one question: which of these sockets are ready right now? `select` and `poll` were the first system calls for that, and they take the whole list of sockets on every call, which gets slow with thousands of them. Linux added `epoll` and the BSDs and macOS added `kqueue`. Both keep the watched sockets inside the kernel and report only the ones that are ready. One thread can then watch thousands of connections and run code only for those with data. That loop (wait for ready sockets, serve each one a little, wait again) is called an event loop.
 
 That one idea has many names on the JVM:
 
@@ -198,7 +200,7 @@ ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
 val pool = Executors.newVirtualThreadPerTaskExecutor()
 ```
 
-The demo showed the effect: 2,000 blocked readers on 15 platform threads. It works because the JDK runs an event loop for you. When a virtual thread's socket read would block, the JDK registers the socket with an internal poller built on `epoll` or `kqueue`, parks the virtual thread, and frees its carrier thread for other work. Lesson 8 opens that poller up.
+The demo showed the effect: 2,000 blocked readers on 15 platform threads. It works because the JDK runs an event loop for you. When a virtual thread's socket read would block, the JDK registers the socket with an internal poller built on `epoll` or `kqueue`, parks the virtual thread, and frees its carrier (the platform thread that was running it) for other work. Lesson 8 opens that poller up.
 
 Neither way makes a single request faster. Non-blocking IO and virtual threads buy concurrency per unit of memory, not latency. A request that waits 120 ms for the card issuer still takes 120 ms. Neither removes the limits behind your service either. If 10,000 virtual threads all want one of 20 database connections, 9,980 of them wait in the pool's queue. The virtual threads track shows how to cap that with a semaphore.
 

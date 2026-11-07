@@ -39,7 +39,9 @@ FIGURE = """<svg viewBox="0 0 680 300" role="img" aria-label="One JVM process st
 <text class="t-s" x="575" y="259" text-anchor="middle">other: about 6 MB</text>
 </svg>"""
 
-S1 = """Start a JDK 21 service with `-Xmx256m` and turn on Native Memory Tracking (NMT). In one such run, NMT reported 216 MB committed for the Java heap. The whole process had committed 390 MB. The other 174 MB lived outside the heap, and `-Xmx` limits none of it.
+S1 = """Every object your program creates with `new` lives in one area of memory, the **heap**. The garbage collector (GC) is the part of the JVM that finds objects nothing refers to any more and reuses their memory. `-Xmx` sets the largest size the heap may grow to. So it's natural to think `-Xmx` is the size of the process. It isn't.
+
+Start a JDK 21 service with `-Xmx256m` and turn on Native Memory Tracking (NMT), the JVM's own accounting of the memory it uses. In one such run, NMT reported 216 MB of heap committed. Committed means memory the operating system has really given the process, as opposed to address space that is only reserved for later. The whole process had committed 390 MB. The other 174 MB lived outside the heap, and `-Xmx` limits none of it.
 
 Here is where it went:
 
@@ -48,14 +50,14 @@ Here is where it went:
 | Java heap | 216 MB | every object you create with `new` |
 | Direct buffers and FFM memory | 96 MB | `ByteBuffer.allocateDirect`, `Arena.allocate` (that program asked for 96 MB) |
 | GC bookkeeping | 45 MB | card tables, remembered sets, marking bitmaps |
-| Shared class archive (CDS) | 13 MB | JDK classes, already parsed, mapped from a file |
-| Code cache | 7 MB | machine code from the JIT compilers |
+| Shared class archive (CDS, class data sharing) | 13 MB | JDK classes, already parsed, mapped from a file |
+| Code cache | 7 MB | machine code from the JIT (just-in-time) compilers, which compile hot bytecode while the program runs |
 | Thread stacks | 6 MB | one stack per platform thread (71 of them) |
 | Metaspace | 1 MB | metadata for the classes loaded from your jars |
 
-The **heap** is the part `-Xmx` caps and the garbage collector cleans. Every object you create lands there. (Lesson 2 shows the one case where an object never gets created at all.) A virtual thread's stack is on the heap too, in stack chunk objects, while the thread is unmounted.
+The heap is the part `-Xmx` caps and the GC cleans. Every object you create lands there. (Lesson 2 shows the one case where an object never gets created at all.) A virtual thread's stack is on the heap too, in stack chunk objects, while the thread is unmounted.
 
-**Thread stacks** live outside the heap. Each platform thread reserves its stack, 1 MB by default on Linux x64, but only commits the pages it touches. That's why 71 threads committed only 6 MB.
+**Thread stacks** live outside the heap. A thread's stack holds the local variables and return addresses of the methods it is running. Each platform thread reserves its stack, 1 MB by default on Linux x64, but only commits the pages it touches. That's why 71 threads committed only 6 MB.
 
 **Metaspace** holds class metadata: methods, bytecode, constant pools. It has no limit by default (`MaxMetaspaceSize` is unlimited), so a class loader leak grows it until the container runs out of memory.
 
@@ -138,7 +140,7 @@ There is a way past 32 GB: `-XX:ObjectAlignmentInBytes=16` keeps 4-byte referenc
 
 Class pointers are compressed separately, into a 1 GB compressed class space. That's why the header stays 12 bytes even when compressed oops are off."""
 
-S4 = """Project Lilliput shrinks the header to 8 bytes. With **compact object headers**, the class pointer moves into the mark word (as 22 bits), and the separate class word disappears.
+S4 = """Project Lilliput, the OpenJDK project working on smaller object headers, shrinks the header to 8 bytes. With **compact object headers**, the class pointer moves into the mark word (as 22 bits), and the separate class word disappears.
 
 | JDK | Compact object headers |
 |---|---|

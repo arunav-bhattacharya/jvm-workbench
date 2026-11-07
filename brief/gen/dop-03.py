@@ -43,7 +43,7 @@ FIG = (
     '</svg>'
 )
 
-S1 = """Pattern matching came to Java in steps. JDK 16 made `instanceof` patterns final (JEP 394): the type test and the cast become one, and the binding is in scope wherever the test is known to have passed.
+S1 = """A pattern is a test with a binding. `Card c` asks "is this value a `Card`?" and, if it is, gives you a new variable `c` of type `Card`. Pattern matching came to Java in steps. JDK 16 made `instanceof` patterns final (JEP 394): the type test and the cast become one, and the binding is in scope wherever the test is known to have passed.
 
 ```java
 if (!(o instanceof Card c)) return "not a card";
@@ -64,7 +64,7 @@ JDK 21 made pattern `switch` final (JEP 441), together with record patterns (JEP
 
 Kotlin has had most of this for years. A `when` with a subject checks exhaustiveness over a sealed type, whether you use it as an expression or a statement, and smart casts merge the `is` check and the cast. With the JDK 21 target, kotlinc 2.4 even compiles that `when` to the same `typeSwitch` call; its fallback arm throws `NoWhenBranchMatchedException` instead. What Kotlin doesn't have is the subject of the next section."""
 
-S2 = """A type pattern tests a type and binds one variable. A record pattern also takes the record apart, through its accessors, and each part can be a pattern too. Here is the first fee rule from this lesson's lab, next to the closest Kotlin:
+S2 = """A type pattern tests a type and binds one variable. A record pattern also takes the record apart, through its accessors, and each part can be a pattern too. Here are the first fee rules from this lesson's lab, next to the closest Kotlin. The `when` after each pattern is a guard, an extra condition that section 3 covers.
 
 ```java
 return switch (charge) {
@@ -83,7 +83,7 @@ return when (val method = charge.method) {    // pick the nested part out first
 }
 ```
 
-Read the Java label from the outside in. The selector must be a `Charge`. Its `amount()` must match `Money(long m, var ccy)`, which binds `m` and `ccy`. Its `method()` must be a `Card`, which binds `net` and `corp`. And `region()` binds to `r`. With `var`, javac infers each type from the record's components. Patterns are positional and type-checked: put `String x` where a record has an `int` and javac stops with `incompatible types: int cannot be converted to String`. Generic records work too. Over `sealed interface Result<T>`, the case `Ok<T>(var v)` binds `v` as a `T`. Record patterns also work in `instanceof`, as in `if (o instanceof Line(Point(var x, var y), var to) && x == 0)`.
+Read the Java label from the outside in. The selector, the value in `switch (...)`, must be a `Charge`. Its `amount()` must match `Money(long m, var ccy)`, which binds `m` and `ccy`. Its `method()` must be a `Card`, which binds `net` and `corp`. And `region()` binds to `r`. With `var`, javac infers each type from the record's components. Patterns are positional and type-checked: put `String x` where a record has an `int` and javac stops with `incompatible types: int cannot be converted to String`. Generic records work too. Over `sealed interface Result<T>`, the case `Ok<T>(var v)` binds `v` as a `T`. Record patterns also work in `instanceof`, as in `if (o instanceof Line(Point(var x, var y), var to) && x == 0)`.
 
 Kotlin has no record patterns. The closest tools are smart casts on nested properties, as in the twin above, and positional destructuring, `val (from, to) = line`, through `component1()` and `component2()`. Destructuring has a trap Java's patterns mostly avoid: it goes by position, not by name. With `data class Payment(val id: String, val amountMinor: Long)`, the line `val (amountMinor, id) = payment` compiles without a warning and puts the id into `amountMinor`. Kotlin 2.3.20 added name-based destructuring as an Experimental feature, behind `-Xname-based-destructuring`; its `name-mismatch` mode warns about exactly this line. Java's record patterns are positional as well, but every component is type-checked, so most swaps fail to compile. Two `var` bindings of the same type can still be swapped silently, so keep the record header in front of you."""
 
@@ -101,7 +101,7 @@ is Charge.Card if c.corporate -> c.amountMinor * 290 / 10_000
 is Charge.Card -> c.amountMinor * 30 / 10_000
 ```
 
-Guards don't count toward exhaustiveness, in either language. The compiler can't prove that a set of guards covers every value, so a family of guarded cases must end with an unguarded case of the same pattern. Delete the last line above and javac says the switch doesn't cover all possible input values, while kotlinc asks you to `Add the 'is Card' branch`.
+Guards don't count toward exhaustiveness, in either language. The compiler can't prove that a set of guards covers every value, so a family of guarded cases must end with an unguarded case of the same pattern. Delete the last line above and javac says the switch doesn't cover all possible input values, while kotlinc asks you to `Add the 'is Card' branch`. You can predict javac's verdict yourself. List the permitted subtypes of the selector's type. Cross off each one that has an unguarded case, or that sits under a sealed parent with an unguarded case. Inside record patterns, check combinations, not columns: for each subtype of the first component, the cases that start with it must between them cover the second component, and so on. With `Pair(Red a, Red b)` and `Pair(Green a, Light b)`, the `Red` cases cover only `Red` in second place, so `Pair(Red, Green)` is missing. What is left over is what JDK 27 prints under `missing patterns:`.
 
 javac also rejects a case that can never be reached: `this case label is dominated by a preceding case label`. That happens when an earlier unguarded case already matches everything the later one could: `case String s` after `case CharSequence cs`, `case Integer i when i > 0` after an unguarded `case Integer i`, a constant `case 1` after `case Integer i`, or any pattern after `default`. A guarded case never dominates, which is why javac accepts the two guarded card rules in either order. Only your tests notice the difference. kotlinc has no dominance check at all: put the unguarded `is Charge.Card` first and it compiles without a warning, and every card pays 0.3%. Kotlin guards (`is T if condition`) have been stable since Kotlin 2.2; one limit is that a guard can't follow several conditions joined by commas.
 
