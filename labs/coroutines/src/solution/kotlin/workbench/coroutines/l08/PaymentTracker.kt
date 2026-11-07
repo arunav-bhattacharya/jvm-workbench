@@ -5,7 +5,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
-class PaymentTracker(private val paymentId: String) {
+class PaymentTracker(
+    private val paymentId: String,
+    private val beforeMove: (Transition) -> Unit = {},
+) {
 
     // explicit backing field (stable since Kotlin 2.4): callers see a StateFlow, and inside
     // the class `status` smart-casts to the MutableStateFlow in `field`
@@ -22,9 +25,12 @@ class PaymentTracker(private val paymentId: String) {
         while (true) {
             val from = status.value
             if (!from.canMoveTo(next)) return false
-            // compareAndSet is atomic: only one thread can move AUTHORIZED -> CAPTURED
+            val transition = Transition(paymentId, from, next)
+            beforeMove(transition)
+            // compareAndSet is atomic: it only moves if the status is still `from`, so only one
+            // thread can move AUTHORIZED -> CAPTURED
             if (status.compareAndSet(from, next)) {
-                check(transitions.tryEmit(Transition(paymentId, from, next))) { "audit buffer full for $paymentId" }
+                check(transitions.tryEmit(transition)) { "audit buffer full for $paymentId" }
                 return true
             }
             // someone else changed the status between our read and our CAS: look again

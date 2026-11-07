@@ -8,8 +8,14 @@ import kotlinx.coroutines.flow.StateFlow
 /**
  * Tracks one payment. Kafka listener threads call [moveTo]; status pages read [status];
  * the audit writer collects [transitions].
+ *
+ * [beforeMove] is the service's hook for checks that must pass before a move (limits, fraud
+ * rules). It can be slow, and it runs on the calling thread.
  */
-class PaymentTracker(private val paymentId: String) {
+class PaymentTracker(
+    private val paymentId: String,
+    private val beforeMove: (Transition) -> Unit = {},
+) {
 
     /** The current status. Callers can read it but not set it. */
     val status: StateFlow<PaymentStatus>
@@ -37,8 +43,10 @@ class PaymentTracker(private val paymentId: String) {
     fun moveTo(next: PaymentStatus): Boolean {
         val from = status.value
         if (!from.canMoveTo(next)) return false
+        val transition = Transition(paymentId, from, next)
+        beforeMove(transition)
         status.value = next
-        transitions.tryEmit(Transition(paymentId, from, next))
+        transitions.tryEmit(transition)
         return true
     }
 }

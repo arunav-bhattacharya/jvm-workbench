@@ -26,7 +26,8 @@ public class SelfTypeDemoJava {
     }
 
     public static void main(String[] args) {
-        System.out.println(new PlainCardBuilder().cardToken("tok_1").amount(1_200).getClass().getSimpleName());
+        PlainBuilder lost = new PlainCardBuilder().cardToken("tok_1").amount(1_200);   // amount() returns a PlainBuilder
+        System.out.println("after amount(): static type PlainBuilder, run-time class " + lost.getClass().getSimpleName());
         System.out.println(new CardBuilder().amount(1_200).cardToken("tok_1").build());
 
         // Wrong move. Uncomment, predict the error, then run.

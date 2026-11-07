@@ -14,6 +14,8 @@ import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import workbench.coroutines.l08.PaymentStatus.AUTHORIZED
@@ -37,34 +39,18 @@ class HotFlowsTest {
         assertThat(t.status.value).isEqualTo(CAPTURED)
     }
 
-    /** Releases all [parties] threads at the same instant, again and again. Spins, so the threads line up tightly. */
-    private class StartLine(private val parties: Int) {
-        private val waiting = AtomicInteger()
-        @Volatile private var round = 0
-        fun await() {
-            val r = round
-            if (waiting.incrementAndGet() == parties) { waiting.set(0); round = r + 1; return }
-            var spins = 0
-            while (round == r) if (++spins % 1_000 == 0) Thread.yield() else Thread.onSpinWait()
-        }
-    }
-
     @Test
-    fun `when 4 threads capture the same payment at once, exactly one wins`() {
-        val trackers = List(10_000) { PaymentTracker("pay-$it").also { t -> t.moveTo(AUTHORIZED) } }
-        val wins = List(trackers.size) { AtomicInteger() }
-        val line = StartLine(4)
-        val threads = List(4) {
-            thread {
-                for (i in trackers.indices) {
-                    line.await() // all four threads try to capture payment i together
-                    if (trackers[i].moveTo(CAPTURED)) wins[i].incrementAndGet()
-                }
-            }
-        }
+    fun `when two threads capture the same payment, exactly one wins`() {
+        // the hook holds each thread until both have passed the status check, so the two
+        // moves always overlap (a real limit check would take a few ms and overlap by chance)
+        val bothChecked = CyclicBarrier(2)
+        val t = PaymentTracker("pay-1") { tr -> if (tr.to == CAPTURED) runCatching { bothChecked.await(2, TimeUnit.SECONDS) } }
+        t.moveTo(AUTHORIZED)
+        val results = CopyOnWriteArrayList<Boolean>()
+        val threads = List(2) { thread { results += t.moveTo(CAPTURED) } }
         threads.forEach { it.join() }
-        assertThat(wins.count { it.get() > 1 }).`as`("payments captured more than once").isZero()
-        assertThat(wins.count { it.get() == 1 }).`as`("payments captured exactly once").isEqualTo(trackers.size)
+        assertThat(results).`as`("what the two moveTo(CAPTURED) calls returned").containsExactlyInAnyOrder(true, false)
+        assertThat(t.status.value).isEqualTo(CAPTURED)
     }
 
     // ---- PaymentTracker.transitions ----

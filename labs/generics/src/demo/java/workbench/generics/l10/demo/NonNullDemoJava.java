@@ -25,6 +25,7 @@ public class NonNullDemoJava {
         System.out.println("first = " + first + ", shown = " + shown);
         System.out.println("transformed = " + new UpperCaser<String>().transform("pay_1"));
 
-        String oops = elvis(null, null);     // compiles in Java; fails only at run time
+        // Uncomment and run: it compiles in Java. What happens at run time?
+        // String oops = elvis(null, null);
     }
 }

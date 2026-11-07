@@ -25,7 +25,8 @@ class CardBuilder : Builder<CardBuilder>() {
 }
 
 fun main() {
-    println(PlainCardBuilder().cardToken("tok_1").amount(1_200))       // compiles, but the result is a PlainBuilder
+    val lost: PlainBuilder = PlainCardBuilder().cardToken("tok_1").amount(1_200)   // amount() returns a PlainBuilder
+    println("after amount(): static type PlainBuilder, run-time class ${lost::class.simpleName}")
     println(CardBuilder().amount(1_200).cardToken("tok_1").build())    // the chain keeps CardBuilder
 
     // Wrong moves. Uncomment one at a time, predict the error, then run.
