@@ -57,7 +57,7 @@ class Co01StateMachine(Narrated):
                 "    val result = authorize(token)  // waits\n"
                 "    return result\n"
                 "}", 26, t2c={"suspend": PURPLE_M, "// waits": GREY_B})
-        code = VGroup(lang, src).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
+        code = VGroup(lang, src).arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to(UP * 0.2)
         self.beat("This Kotlin suspend function waits twice: for the card vault, then for the issuer. "
                   "Java has no suspend, so this is Kotlin only.", FadeIn(code, shift=UP * 0.2), run_time=1.2)
         self.beat("While it waits, it holds no thread. How can a function stop in the middle and carry on later?",
@@ -68,8 +68,11 @@ class Co01StateMachine(Narrated):
         sig = M("Object chargeCard(String pan, Continuation c)", 26, t2c={"Continuation c": YELLOW_M, "Object": GOLD_M})
         ret = VGroup(T("returns the result, or the marker", 26), M("COROUTINE_SUSPENDED", 26, GOLD_M)).arrange(RIGHT, buff=0.25)
         low = VGroup(jl, sig, ret).arrange(DOWN, aligned_edge=LEFT, buff=0.25).next_to(code, DOWN, buff=0.7).align_to(code, LEFT)
-        VGroup(code, low).move_to(UP * 0.2)
+        shift_v = UP * 0.2 - VGroup(code, low).get_center()  # centre code + javap lines together
+        low.shift(shift_v)
+        code_final = code.get_center() + shift_v
         self.beat("The JVM has no special support for coroutines. The Kotlin compiler rewrites the function.")
+        self.play(code.animate.move_to(code_final), run_time=0.6)
         self.beat("It adds a hidden last parameter, a Continuation, and changes the return type to Object.",
                   FadeIn(jl), FadeIn(sig, shift=UP * 0.15), run_time=1.2)
         self.beat("It returns the real result, or a marker, COROUTINE_SUSPENDED, which means: I paused, I will call you back.", FadeIn(ret, shift=UP * 0.15), run_time=1.0)
@@ -155,7 +158,7 @@ class Co01StateMachine(Narrated):
         self.say("worker-1 is now free, and goes back to the pool to run other coroutines. "
                  "This payment holds no thread, only the object.")
         self.play(back(ws[0], 0, st[0].get_x()), FadeOut(cur), run_time=1.4)
-        self.play(Indicate(obj_r, color=YELLOW_M, scale_factor=1.03), run_time=1.0)
+        self.play(Circumscribe(obj_r, color=YELLOW_M, buff=0.12), run_time=1.0)
         self.hold()
 
         res1 = M('resumeWith("tok_4242")', 26, TEAL_M).move_to(mark)

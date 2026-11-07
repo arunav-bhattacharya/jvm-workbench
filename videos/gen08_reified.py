@@ -1,7 +1,7 @@
 from fg import *
 
 # ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(])")
+_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
 
 
 class Beat3(VoiceScene):
@@ -179,7 +179,7 @@ class Gen08Reified(Beat3):
         self.beat("filterIsInstance of String keeps only the strings, with a real instanceof check on each one.",
                   FadeIn(call, shift=UP * 0.1), drop.animate.set_opacity(0.25),
                   Transform(keep.copy(), res), FadeIn(brk), run_time=2.0)
-        self.play(FadeOut(VGroup(*self.mobjects)), run_time=0.6)
+        self.play(*[FadeOut(m) for m in self.mobjects if isinstance(m, VMobject)], run_time=0.6)
 
         # the rules
         r1 = one("fun <reified T> notInline(x: Any) = x is T", 26, WHITE)

@@ -1,7 +1,7 @@
 from fg import *
 
 # ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(])")
+_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
 
 
 class Beat3(VoiceScene):

@@ -42,7 +42,7 @@ def frames(names, color):
         r = RoundedRectangle(corner_radius=0.06, width=1.95, height=0.38, stroke_color=color, stroke_width=2)
         r.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(color), 0.12), opacity=1)
         g.add(VGroup(r, M(n, 20).move_to(r)))
-    return g.arrange(DOWN, buff=0.04)
+    return g.arrange(DOWN, buff=0.04).set_z_index(5)
 
 
 class Vt02Carriers(VoiceScene):
@@ -89,6 +89,8 @@ class Vt02Carriers(VoiceScene):
 
         names = ["VT 1", "VT 2", "VT 3", "VT 4", "VT 5", "VT 6"]
         vts = [chip(n, YELLOW_M if n == "VT 1" else BLUE_M, size=24) for n in names]
+        for c in vts:
+            c.set_z_index(5)   # above the filled carrier and heap boxes
         queue = list(vts)
 
         def qpos(i):

@@ -54,10 +54,8 @@ class Cls01Loading(VoiceScene):
         kt = VGroup(T("Kotlin", 22, GREY_B), M("val cap = Limits.CAP", 30, YELLOW_M)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
         pair = VGroup(java, kt).arrange(RIGHT, buff=1.2, aligned_edge=UP).move_to(UP * 1.0)
         jar = card("app.jar", "com/acme/Limits.class", GREY_B, w=4.4, h=1.2, mono_sub=True).move_to(DOWN * 1.4)
-        self.beat("Your code reads Limits.CAP. The JVM has never seen this class.",
-                  FadeIn(pair, shift=UP * 0.2), run_time=1.2)
-        self.beat("Its bytes sit in a jar, and the JVM reads none of them until some code needs one.",
-                  FadeIn(jar, shift=UP * 0.2), run_time=1.0)
+        self.say("Your code reads Limits.CAP. The JVM has never seen this class. Its bytes sit unread in a jar.",
+                 [(0, [FadeIn(pair, shift=UP * 0.2)], 1.2), (2, [FadeIn(jar, shift=UP * 0.2)], 0.8)])
 
         # --- three loaders, parent-first
         boot = card("bootstrap loader", "java.base", RED_M, w=4.4, mono_sub=True).move_to(LEFT * 3.2 + UP * 2.15)
@@ -75,8 +73,8 @@ class Cls01Loading(VoiceScene):
         dn1 = arrow(boot.get_bottom() + RIGHT * 0.8, plat.get_top() + RIGHT * 0.8, GREY_B, buff=0.08, sw=3)
         dn2 = arrow(plat.get_bottom() + RIGHT * 0.8, app.get_top() + RIGHT * 0.8, GREY_B, buff=0.08, sw=3)
         req = chip("com.acme.Limits?", YELLOW_M, 24, mono=True).next_to(app, RIGHT, buff=0.3).shift(UP * 0.95)
-        self.say("The request goes to the app loader. Before it looks anywhere, it asks its parent. "
-                 "The platform loader asks its parent too.",
+        self.say("The app loader gets the request. Before it looks anywhere, it asks its parent. "
+                 "So does the platform loader.",
                  [(0, [GrowArrow(up1), GrowArrow(up2), FadeIn(req, shift=LEFT * 0.2)], 0.8),
                   (1, [travel(up1, YELLOW_M, 0.9), req.animate.next_to(plat, RIGHT, buff=0.3)], 0.9),
                   (2, [travel(up2, YELLOW_M, 0.9), req.animate.next_to(boot, RIGHT, buff=0.3)], 0.9)])
@@ -152,14 +150,12 @@ class Cls01Loading(VoiceScene):
             new = T(text, 26, WHITE).move_to(UP * 0.35)
             return new
 
-        self.say("Defining the class is only the first of three phases. "
-                 "Loading, linking and initialization.",
-                 [(1, [FadeIn(load)], 0.6), (1, [GrowArrow(a1), FadeIn(link)], 0.7), (1, [GrowArrow(a2), FadeIn(init)], 0.7),
-                  (1, [FadeIn(slot_l), FadeIn(slot), FadeIn(con_l), FadeIn(con)], 0.6)])
-
         n1 = set_note("a Class object exists; none of your code has run", BLUE_M)
-        self.say("Loading made a Class object. None of your code has run.",
-                 [(0, [load[0].animate.set_stroke(opacity=1), FadeIn(cls_chip, shift=DOWN * 0.2), FadeIn(n1)], 1.0)])
+        self.say("Defining the class was loading, the first of three phases. "
+                 "It made a Class object, and none of your code has run.",
+                 [(0, [FadeIn(load), GrowArrow(a1), FadeIn(link), GrowArrow(a2), FadeIn(init)], 1.2),
+                  (0, [FadeIn(slot_l), FadeIn(slot), FadeIn(con_l), FadeIn(con)], 0.5),
+                  (1, [load[0].animate.set_stroke(opacity=1), FadeIn(cls_chip, shift=DOWN * 0.2), FadeIn(n1)], 1.0)])
 
         n2 = set_note("verify: the bytecode is type safe", PURPLE_M)
         self.say("Linking comes next. It verifies that the bytecode is type safe.",
@@ -211,10 +207,10 @@ class Cls01Loading(VoiceScene):
         nog = VGroup(no_t, no).arrange(DOWN, aligned_edge=LEFT, buff=0.25).move_to(LEFT * 3.6 + DOWN * 1.05)
         g_arrow = arrow(np.array([init.get_x(), gog.get_top()[1], 0]), init.get_bottom(), GREEN_M, buff=0.12)
         n_line = DashedLine(nog.get_top() + UP * 0.1, link_r.get_bottom() + LEFT * 2.0 + DOWN * 0.08, dash_length=0.08, stroke_width=2, color=GREY_B)
-        self.say("It starts on a few precise triggers. A new instance, a static method call, "
-                 "a static field write, or a read of a static field that is not a constant.",
-                 [(0, [FadeIn(go_t), GrowArrow(g_arrow)], 0.7),
-                  (1, [LaggedStart(*[FadeIn(c, shift=RIGHT * 0.2) for c in go], lag_ratio=0.5)], 2.2)])
+        self.say("It starts on a new instance, a static method call, a static field write, "
+                 "or a read of a static field that is not a constant.",
+                 [(0, [FadeIn(go_t), GrowArrow(g_arrow)], 0.6),
+                  (0, [LaggedStart(*[FadeIn(c, shift=RIGHT * 0.2) for c in go], lag_ratio=0.5)], 2.6)])
         self.say("A constant read doesn't start it. Neither does Limits.class, or an array of Limits.",
                  [(0, [FadeIn(no_t), Create(n_line), FadeIn(no[0], shift=RIGHT * 0.2)], 0.8),
                   (1, [FadeIn(no[1], shift=RIGHT * 0.2)], 0.5), (1, [FadeIn(no[2], shift=RIGHT * 0.2)], 0.5)])
@@ -232,7 +228,7 @@ class Cls01Loading(VoiceScene):
         v2 = T("CAP: boxed, not a constant. Reading it runs <clinit>.", 26, GREEN_M)
         verdict = VGroup(v1, v2).arrange(DOWN, buff=0.3).move_to(DOWN * 1.9)
         verdict.scale(min(1, 12.2 / verdict.width))
-        self.beat("So, a check. Which of these two reads runs the static initializer?",
+        self.beat("Check: which of these two reads runs the static initializer?",
                   Write(title), FadeIn(code, shift=UP * 0.2), run_time=1.6)
         self.beat("MAX_MINOR is a constant. javac copied its value into your class, so reading it runs nothing.",
                   FadeIn(v1, shift=UP * 0.15), run_time=1.0)

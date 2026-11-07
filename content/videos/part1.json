@@ -1,5 +1,10 @@
 {
   "videos": [
-    {"slug": "conc03-race", "lesson": "conc-03", "section": 1, "title": "Why count++ lies: three steps, two threads, one lost update"}
+    {"slug": "conc03-race", "lesson": "conc-03", "section": 1, "title": "Why count++ lies: three steps, two threads, one lost update"},
+    {"slug": "conc06-deadlock", "lesson": "conc-06", "section": 0, "title": "Two locks taken in opposite orders: the wait-for cycle, and one global lock order that breaks it"},
+    {"slug": "jmm01-stop-loop", "lesson": "jmm-01", "section": 2, "title": "Why the stop loop spins: the caches agree, the store buffer drains, the JIT keeps stop in a register"},
+    {"slug": "jmm02-volatile-edge", "lesson": "jmm-02", "section": 1, "title": "A volatile write and a read of the same field make a happens-before edge; a different field makes none"},
+    {"slug": "exec02-pool-rules", "lesson": "exec-02", "section": 0, "title": "Seven tasks through the four rules of ThreadPoolExecutor, then an unbounded queue that makes max useless"},
+    {"slug": "vt02-carriers", "lesson": "vt-02", "section": 1, "title": "Virtual threads mount on carriers, unmount at a blocking call, and come back on any carrier"}
   ]
 }

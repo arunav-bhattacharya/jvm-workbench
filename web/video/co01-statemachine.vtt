@@ -1,0 +1,117 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:08.207
+This Kotlin suspend function waits twice: for the card vault, then for the issuer.
+
+2
+00:00:08.207 --> 00:00:11.161
+Java has no suspend, so this is Kotlin only.
+
+3
+00:00:11.367 --> 00:00:13.401
+While it waits, it holds no thread.
+
+4
+00:00:13.401 --> 00:00:16.713
+How can a function stop in the middle and carry on later?
+
+5
+00:00:16.967 --> 00:00:20.330
+The JVM has no special support for coroutines.
+
+6
+00:00:20.330 --> 00:00:23.401
+The Kotlin compiler rewrites the function.
+
+7
+00:00:23.633 --> 00:00:29.741
+It adds a hidden last parameter, a Continuation, and changes the return type to Object.
+
+8
+00:00:29.967 --> 00:00:37.120
+It returns the real result, or a marker, COROUTINE_SUSPENDED, which means: I paused, I will call you back.
+
+9
+00:00:37.933 --> 00:00:41.037
+Then it cuts the body at each suspension point.
+
+10
+00:00:41.037 --> 00:00:45.264
+Two suspending calls give three states: label zero, one and two.
+
+11
+00:00:46.167 --> 00:00:52.744
+The state lives in one small object on the heap: the label, and every local that must survive a pause.
+
+12
+00:00:52.967 --> 00:00:54.981
+Run it on a pool of threads.
+
+13
+00:00:54.981 --> 00:00:57.140
+worker-1 starts at label zero.
+
+14
+00:00:57.367 --> 00:01:02.067
+It saves pan in the object, sets the label to one, and calls tokenize.
+
+15
+00:01:02.300 --> 00:01:10.307
+tokenize must wait for the vault, so it returns COROUTINE_SUSPENDED, and chargeCard passes the marker straight up the stack.
+
+16
+00:01:10.533 --> 00:01:15.462
+worker-1 is now free, and goes back to the pool to run other coroutines.
+
+17
+00:01:15.462 --> 00:01:18.611
+This payment holds no thread, only the object.
+
+18
+00:01:18.833 --> 00:01:20.062
+The vault answers.
+
+19
+00:01:20.062 --> 00:01:26.207
+The dispatcher resumes the coroutine on whatever pool thread is free: this time, worker-3.
+
+20
+00:01:26.433 --> 00:01:33.053
+resumeWith calls chargeCard again with the same object, and a switch on the label jumps to label one.
+
+21
+00:01:33.267 --> 00:01:38.444
+It keeps the token in the object, sets the label to two, and calls authorize.
+
+22
+00:01:38.444 --> 00:01:41.067
+That suspends too, and worker-3 leaves.
+
+23
+00:01:41.300 --> 00:01:46.811
+When the issuer answers, worker-2 resumes it at label two, and it returns the result.
+
+24
+00:01:48.333 --> 00:01:53.724
+If a call does not need to wait, say on a cache hit, it returns the value directly.
+
+25
+00:01:53.724 --> 00:01:56.581
+Nothing is scheduled, and no thread changes.
+
+26
+00:01:56.800 --> 00:02:00.345
+A paused coroutine costs one object, not a thread stack.
+
+27
+00:02:00.345 --> 00:02:03.320
+That is why you can have hundreds of thousands.
+
+28
+00:02:04.133 --> 00:02:07.244
+And plain code cannot call a suspend function.
+
+29
+00:02:07.244 --> 00:02:09.544
+It has no continuation to pass in.

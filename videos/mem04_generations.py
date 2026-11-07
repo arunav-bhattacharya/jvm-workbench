@@ -198,7 +198,7 @@ class Mem04Generations(VoiceScene):
                  "They get copied at every young collection, then promoted, "
                  "and then they die in the old generation, where only a bigger collection can free them.",
                  [(0, [FadeOut(later)], 0.4),
-                  (2, [*[p.animate.set_fill(DEAD_C, 1).set_stroke(RED_M) for p in promoted], FadeIn(dead_old)], 1.0)])
+                  (1, [*[p.animate.set_fill(DEAD_C, 1).set_stroke(RED_M) for p in promoted], FadeIn(dead_old)], 1.0)])
         self.say("An idempotency cache with a 10-minute expiry has exactly that shape.",
                  [(0, [Indicate(VGroup(*promoted), color=RED_M, scale_factor=1.15)], 1.0)])
         self.wait(0.8)

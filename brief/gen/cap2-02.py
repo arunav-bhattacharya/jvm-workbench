@@ -300,7 +300,7 @@ L = {
      "Run it. Then set `deadline` to 100 and predict the last line again."
     ],
     "code": demo("FanOutDemo"),
-    "expect": "620 ms in turn, 300 ms all at once, 250 ms with the deadline, where Eastgate (300 ms) comes back as `null` and the other two still count. With a 100 ms deadline the last line takes 100 ms and all three answers are `null`: nobody was fast enough, which is the case section 3 handles. The Java twin prints about the same times in real time, with `Optional.empty` where Kotlin prints `null`."
+    "expect": "620 ms in turn, 300 ms all at once, 250 ms with the deadline, where Eastgate (300 ms) comes back as `null` and the other two still count. With a 100 ms deadline the last line takes 100 ms and all three answers are `null`: nobody was fast enough, which is the case section 3 handles. The Java twin prints similar times in real time (more on a busy machine), with `Optional.empty` where Kotlin prints `null`."
    },
    "refs": [
     {"title": "withTimeoutOrNull (kotlinx.coroutines API)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/with-timeout-or-null.html", "kind": "docs"}

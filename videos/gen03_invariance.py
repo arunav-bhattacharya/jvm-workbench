@@ -1,7 +1,7 @@
 from fg import *
 
 # ---- helpers for this file (fg.py is shared and stays untouched) ----
-_SENT = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(])")
+_SENT = re.compile(r"(?<=[.!])\s+|(?<=\?)\s+(?=[A-Z0-9\"'(])")
 
 
 class Beat3(VoiceScene):
@@ -205,8 +205,14 @@ class Gen03Invariance(Beat3):
         self.beat("If it only reads, make it take a read-only List of Payment. That call compiles. The last section of this lesson shows why.",
                   Transform(sig, sig2), Transform(call, call2), run_time=1.6)
 
+        sig3 = code(["fun settle(batch: MutableList<Payment>) {",
+                     "    batch.add(transfer)",
+                     "}"], 26).move_to(sig, aligned_edge=UL)
+        part(sig3[1], "batch.add(transfer)").set_color(PURPLE_M)
+        call3 = one("settle(cards)   // does not compile", 26, WHITE).next_to(sig3, DOWN, buff=0.3).align_to(sig3, LEFT)
+        part(call3, "// does not compile").set_color(RED_M)
         bt = val("transfer pay_7", PURPLE_M).move_to(RIGHT * 4.3).set_y(cframe.get_y())
-        self.play(FadeIn(bt, shift=LEFT * 0.3), run_time=0.5)
+        self.play(FadeOut(sig), FadeOut(call), FadeIn(sig3), FadeIn(call3), FadeIn(bt, shift=LEFT * 0.3), run_time=0.8)
         stop = tick(False, 0.3).next_to(cframe, RIGHT, buff=0.4)
         self.beat("If it adds, the compiler just caught a bug. It could have put a BankTransfer into your list of card payments.",
                   Succession(bt.animate(run_time=0.9).next_to(cframe, RIGHT, buff=0.15),

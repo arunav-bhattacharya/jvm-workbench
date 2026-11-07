@@ -341,7 +341,7 @@ L = {
      "Run it. Then set the hedge to 30 ms, below Northbank's normal latency, and predict the number of calls."
     ],
     "code": demo("HedgeDemo"),
-    "expect": "No hedge: p50 40 ms, p99 and max 600 ms, 200 calls. Hedge at 80 ms: p50 still 40, p99 and max 120 ms (80 ms of waiting plus a 40 ms hedge), 210 calls. With the hedge at 30 ms every request is hedged: 400 calls, twice the load, for a p99 that the 80 ms hedge already got down to 120. A hedge time below the normal latency duplicates every request. The Java twin uses Reactor's `Mono.firstWithValue` and prints about the same numbers in real time."
+    "expect": "No hedge: p50 40 ms, p99 and max 600 ms, 200 calls. Hedge at 80 ms: p50 still 40, p99 and max 120 ms (80 ms of waiting plus a 40 ms hedge), 210 calls. With the hedge at 30 ms every request is hedged: 400 calls, twice the load, for a p99 that the 80 ms hedge already got down to 120. A hedge time below the normal latency duplicates every request. The Java twin uses Reactor's `Mono.firstWithValue` and prints about the same numbers in real time, give or take the scheduling delays of a busy machine."
    },
    "refs": [
     {"title": "select (kotlinx.coroutines API)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.selects/select.html", "kind": "docs"}

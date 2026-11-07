@@ -175,11 +175,11 @@ The demo pipelines 20,000 requests and reads nothing for 500 ms:
 
 | Policy | Requests taken while the client read nothing | Peak outbound buffer |
 |---|---|---|
-| none | 20,000 | 2,487,339 bytes |
+| none | all 20,000 | 2,487,339 bytes |
 | the auto-read rule | 2,993 | 694,144 bytes |
 | the rule and `FlowControlHandler` | 1,217 | 67,596 bytes |
 
-The last peak is the 64 KiB high water mark (65,536 bytes) plus a few replies. Every client still got all 20,000 replies once it read them. The lab tests the cap directly: 40 pipelined requests against a source that holds every quote must produce exactly 16 calls."""
+The last two rows came out the same on every run. The first one moves with the machine's load: on a busy machine the server's own loop choked on its growing queue and took fewer requests, but the queue still reached megabytes. The last peak is the 64 KiB high water mark (65,536 bytes) plus a few replies. Every client still got all 20,000 replies once it read them. The lab tests the cap directly: 40 pipelined requests against a source that holds every quote must produce exactly 16 calls."""
 
 S4 = f"""A connection ends in one of four ways, and each has its own code path.
 
@@ -390,7 +390,7 @@ L = {
      "Change `MAX_IN_FLIGHT` to 1. Predict the third line: does the peak change much, and do all 20,000 replies still arrive?"
     ],
     "code": demo("BackpressureDemo"),
-    "expect": "No policy: the server takes all 20,000 requests and queues about 2.5 MB of replies. The rule alone: about 3,000 requests and 690 KB, because one read brought thousands of lines and the decoder delivered them all. With `FlowControlHandler`: about 1,200 requests and 67,596 bytes, just above the 64 KiB high water mark. With a cap of 1 the peak stays near the high water mark (writability is what stops it) and every reply still arrives, more slowly, one request at a time."
+    "expect": "No policy: the server takes everything the client manages to send, all 20,000 on a quiet machine, and queues 1 to 2.5 MB of replies; this row changes from run to run. The rule alone: about 3,000 requests and 690 KB, because one read brought thousands of lines and the decoder delivered them all. With `FlowControlHandler`: about 1,200 requests and about 67,600 bytes, just above the 64 KiB high water mark. With a cap of 1 the peak stays near the high water mark (writability is what stops it) and every reply still arrives, more slowly, one request at a time."
    },
    "refs": [
     {"title": "FlowControlHandler source and Javadoc, Netty 4.2", "url": "https://raw.githubusercontent.com/netty/netty/4.2/handler/src/main/java/io/netty/handler/flow/FlowControlHandler.java", "kind": "docs"}

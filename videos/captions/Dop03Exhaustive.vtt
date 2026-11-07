@@ -1,0 +1,89 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:05.531
+Here is a sealed interface for payment methods.
+
+2
+00:00:05.531 --> 00:00:08.269
+Sealed means it lists every subtype it allows.
+
+3
+00:00:08.269 --> 00:00:10.412
+Right now that is Card and Transfer.
+
+4
+00:00:10.600 --> 00:00:14.233
+Two pieces of code turn a method into a receipt label.
+
+5
+00:00:14.400 --> 00:00:17.820
+Both compile, and both give the same answers today.
+
+6
+00:00:18.000 --> 00:00:20.537
+Now a new payment method ships: Wallet.
+
+7
+00:00:20.537 --> 00:00:22.813
+You add it to the sealed interface.
+
+8
+00:00:23.000 --> 00:00:28.724
+Then you recompile. javac reads the permits list, so it knows every Method there can be.
+
+9
+00:00:28.724 --> 00:00:32.172
+It checks the switch against that list, case by case.
+
+10
+00:00:32.333 --> 00:00:36.329
+There is no case for Wallet, so the switch is now a compile error.
+
+11
+00:00:36.467 --> 00:00:38.573
+The chain compiles without a word.
+
+12
+00:00:38.573 --> 00:00:44.395
+To the compiler it is just a few if statements, and nothing says they must cover every Method.
+
+13
+00:00:44.533 --> 00:00:47.356
+At run time, a Wallet payment walks through it.
+
+14
+00:00:47.533 --> 00:00:48.613
+Not a Card.
+
+15
+00:00:48.613 --> 00:00:50.085
+Not a Transfer.
+
+16
+00:00:50.267 --> 00:00:54.156
+So it lands in the else, and every wallet receipt says unknown.
+
+17
+00:00:55.067 --> 00:01:02.135
+Kotlin's when over a sealed interface gets the same check, whether you use it as an expression or as a statement.
+
+18
+00:01:02.333 --> 00:01:07.552
+Add Wallet, and both compilers stop. kotlinc even names the branch you forgot.
+
+19
+00:01:08.667 --> 00:01:14.689
+Every switch over Method gets this check, so the build stays red until each one handles Wallet.
+
+20
+00:01:15.467 --> 00:01:16.558
+One rule follows.
+
+21
+00:01:16.558 --> 00:01:19.832
+Don't put a default on a switch over a sealed type.
+
+22
+00:01:20.000 --> 00:01:26.641
+A default catches Wallet quietly, the same way the else did, and the compiler has nothing left to check.

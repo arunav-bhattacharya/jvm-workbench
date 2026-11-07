@@ -163,8 +163,8 @@ class Mem04G1Regions(VoiceScene):
                  "When they pass a threshold, 45 percent of the heap to begin with, "
                  "G1 marks the live objects in the background, while your code keeps running. "
                  "Now it knows how much of each old region is still live.",
-                 [(0, [*[self.set(i, "O", 0.9) for i in live]], 1.0), (2, [FadeIn(n4)], 0.6),
-                  (3, [*[self.set(i, "O", p / 100, f"{p}%") for i, p in live.items()]], 1.4)])
+                 [(0, [*[self.set(i, "O", 0.9) for i in live]], 1.0), (1, [FadeIn(n4)], 0.6),
+                  (2, [*[self.set(i, "O", p / 100, f"{p}%") for i, p in live.items()]], 1.4)])
 
         # --- a mixed pause: all young regions plus the old ones with the most garbage
         picks = [idx(2, 7), idx(0, 1), idx(1, 3)]
