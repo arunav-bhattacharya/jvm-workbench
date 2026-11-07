@@ -1,0 +1,277 @@
+{
+ "slug": "conc03-race",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "Here is one line of Java."
+  },
+  {
+   "cue": 4.76,
+   "start": 4.76,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "count plus plus. It looks like a single step."
+  },
+  {
+   "cue": 8.53,
+   "start": 8.53,
+   "late": 0.0,
+   "tempo": 1.022,
+   "secs": 2.11,
+   "tries": 3,
+   "text": "But the C P U runs it as three."
+  },
+  {
+   "cue": 10.87,
+   "start": 10.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.88,
+   "tries": 1,
+   "text": "Read the value into a register."
+  },
+  {
+   "cue": 13.36,
+   "start": 13.36,
+   "late": 0.0,
+   "tempo": 1.051,
+   "secs": 1.75,
+   "tries": 1,
+   "text": "Add one. Write it back."
+  },
+  {
+   "cue": 15.33,
+   "start": 15.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.01,
+   "tries": 1,
+   "text": "Between any two of those steps, another thread can run."
+  },
+  {
+   "cue": 19.47,
+   "start": 19.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.9,
+   "tries": 1,
+   "text": "Two threads share one counter."
+  },
+  {
+   "cue": 21.57,
+   "start": 21.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.1,
+   "tries": 1,
+   "text": "It starts at zero."
+  },
+  {
+   "cue": 22.83,
+   "start": 22.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.02,
+   "tries": 1,
+   "text": "Each thread has its own register."
+  },
+  {
+   "cue": 25.37,
+   "start": 25.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "Thread A reads the counter."
+  },
+  {
+   "cue": 27.51,
+   "start": 27.51,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.01,
+   "tries": 1,
+   "text": "It sees zero."
+  },
+  {
+   "cue": 29.27,
+   "start": 29.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.58,
+   "tries": 1,
+   "text": "Before A writes anything, the scheduler switches to thread B."
+  },
+  {
+   "cue": 33.41,
+   "start": 33.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.66,
+   "tries": 1,
+   "text": "B also reads zero."
+  },
+  {
+   "cue": 35.37,
+   "start": 35.37,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.81,
+   "tries": 1,
+   "text": "A adds one."
+  },
+  {
+   "cue": 36.35,
+   "start": 36.35,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "Its register now holds one."
+  },
+  {
+   "cue": 38.97,
+   "start": 38.97,
+   "late": 0.0,
+   "tempo": 1.016,
+   "secs": 1.15,
+   "tries": 1,
+   "text": "B adds one too."
+  },
+  {
+   "cue": 40.35,
+   "start": 40.35,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.28,
+   "tries": 1,
+   "text": "It also holds one."
+  },
+  {
+   "cue": 42.23,
+   "start": 42.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.59,
+   "tries": 1,
+   "text": "A writes one to memory."
+  },
+  {
+   "cue": 44.63,
+   "start": 44.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.11,
+   "tries": 1,
+   "text": "Then B writes one, right over it."
+  },
+  {
+   "cue": 47.67,
+   "start": 47.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.13,
+   "tries": 1,
+   "text": "Two increments ran."
+  },
+  {
+   "cue": 48.98,
+   "start": 48.98,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.28,
+   "tries": 1,
+   "text": "The counter says one."
+  },
+  {
+   "cue": 50.42,
+   "start": 50.42,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "One update is lost, and nothing threw an error."
+  },
+  {
+   "cue": 53.87,
+   "start": 53.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.28,
+   "tries": 1,
+   "text": "This is a race condition."
+  },
+  {
+   "cue": 55.44,
+   "start": 55.44,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "The result depends on how the threads happen to interleave."
+  },
+  {
+   "cue": 59.15,
+   "start": 59.15,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.6,
+   "tries": 1,
+   "text": "Run it a million times on two threads, and the total comes up short almost every time."
+  },
+  {
+   "cue": 65.47,
+   "start": 65.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.29,
+   "tries": 1,
+   "text": "The fix is to make read, add and write happen as one step that no other thread can split."
+  },
+  {
+   "cue": 71.27,
+   "start": 71.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.26,
+   "tries": 1,
+   "text": "An AtomicInteger does it with one compare and swap instruction."
+  },
+  {
+   "cue": 75.47,
+   "start": 75.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "The same class works from Kotlin."
+  },
+  {
+   "cue": 77.9,
+   "start": 77.9,
+   "late": 0.0,
+   "tempo": 1.017,
+   "secs": 4.46,
+   "tries": 1,
+   "text": "Or hold a lock, so only one thread at a time can run the three steps."
+  },
+  {
+   "cue": 82.57,
+   "start": 82.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.21,
+   "tries": 1,
+   "text": "Either way, the counter now adds up, every run."
+  }
+ ]
+}
