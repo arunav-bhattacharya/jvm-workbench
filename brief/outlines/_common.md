@@ -1,3 +1,12 @@
+# NEW TRACK NOTE (for the seven tracks added later: mem, perf, cls, io, boot, kt, dop)
+
+If your track is one of these, nobody has written it before: skip steps 1 and 2 of the restart note
+below, but do follow its step 3 and the rule against git. Your research notes are in
+"research_notes/Advanced JVM runtime topics/" (named in your outline), not the older folder. Your
+lab module, its dependencies and the course map entries already exist; do not edit
+content/course.json or any Gradle file except your own module's build.gradle.kts if your outline
+allows it. Keep clones and experiments in your scratchpad, never in the course repo.
+
 # RESTART NOTE (read first)
 
 This track was started by an earlier writer who stopped part-way. Before writing anything:

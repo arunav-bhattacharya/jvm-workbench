@@ -17,6 +17,7 @@ val versions = mapOf(
     "bytebuddy" to "1.18.17",
     "netty" to "4.2.20.Final",
     "vertx" to "5.2.3",
+    "jetty" to "12.1.14",
     "jol" to "0.17",
     "serialization" to "1.12.0",
 )

@@ -9,7 +9,7 @@ import kotlinx.coroutines.runBlocking
 data class Rate(val pair: String, val mid: Double)
 
 fun main() = runBlocking {
-    val eurUsd = MutableStateFlow(Rate("EUR/USD", 1.0810))
+    val eurUsd = MutableStateFlow(Rate("EUR/USD", 1.0809))
     val dashboard = launch(start = CoroutineStart.UNDISPATCHED) {
         eurUsd.collect { rate ->
             println("dashboard shows ${rate.mid}")

@@ -477,8 +477,8 @@
     {
       "id": "io",
       "lab": "nio",
-      "title": "NIO and event loops",
-      "short": "Blocking vs non-blocking IO, buffers, channels and selectors, Netty and Vert.x event loops, and zero-copy.",
+      "title": "Servers and event loops: NIO, Netty, Vert.x and Jetty",
+      "short": "Blocking vs non-blocking IO, NIO selectors, Netty pipelines and flow control, Vert.x and Quarkus event loops, Jetty 12, and zero-copy.",
       "lessons": [
         {
           "id": "io-01",
@@ -494,11 +494,23 @@
         },
         {
           "id": "io-04",
-          "title": "Vert.x and Quarkus: event loops, workers and blocking the loop"
+          "title": "Netty in practice: codecs, flow control and leaks"
         },
         {
           "id": "io-05",
-          "title": "Zero-copy, epoll, io_uring, and where virtual threads fit"
+          "title": "Vert.x: event loops, verticles and the golden rule"
+        },
+        {
+          "id": "io-06",
+          "title": "Quarkus on Vert.x: IO threads, workers and virtual threads"
+        },
+        {
+          "id": "io-07",
+          "title": "Jetty 12: acceptors, selectors and thread pools"
+        },
+        {
+          "id": "io-08",
+          "title": "Zero-copy, epoll, io_uring, and choosing a server model"
         }
       ]
     },

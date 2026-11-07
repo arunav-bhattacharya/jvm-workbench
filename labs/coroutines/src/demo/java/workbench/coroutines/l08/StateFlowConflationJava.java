@@ -11,7 +11,7 @@ public class StateFlowConflationJava {
     record Rate(String pair, double mid) {}
 
     public static void main(String[] args) throws InterruptedException {
-        Sinks.Many<Rate> eurUsd = Sinks.many().replay().latestOrDefault(new Rate("EUR/USD", 1.0810));
+        Sinks.Many<Rate> eurUsd = Sinks.many().replay().latestOrDefault(new Rate("EUR/USD", 1.0809));
         Disposable dashboard = eurUsd.asFlux()
             .distinctUntilChanged()
             .onBackpressureLatest()
