@@ -1,0 +1,250 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/coroutines/src"
+P = "kotlin/workbench/coroutines/l10"
+J = "java/workbench/coroutines/l10"
+read = lambda p: (ROOT / p).read_text()
+demo = lambda name: f"{lab}/demo/{P}/{name}"
+jdemo = lambda name: f"{lab}/demo/{J}/{name}"
+run = lambda cls, extra="": f"./gradlew :coroutines:demo -Pmain=workbench.coroutines.l10.{cls}{extra}"
+
+
+def tryit(kt, java, extra_kt="", extra_java=""):
+    k, j = kt.replace(".kt", ""), java.replace(".java", "")
+    return {"lang": "kotlin", "title": kt, "src": read(demo(kt)), "run": run(k + "Kt", extra_kt), "file": demo(kt),
+            "alt": {"lang": "java", "title": java, "src": read(jdemo(java)), "run": run(j, extra_java), "file": jdemo(java)}}
+
+
+def solo(kt):
+    k = kt.replace(".kt", "")
+    return {"lang": "kotlin", "title": kt, "src": read(demo(kt)), "run": run(k + "Kt"), "file": demo(kt), "solo": True}
+
+
+def credit(name):
+    return {"name": name, "steps": [
+        {"op": "read", "var": "balance", "reg": "before", "code": "val before = balances[acc] ?: 0L"},
+        {"op": "note", "code": "val cents = fx.toEurCents(1, \"EUR\")   // suspends: the thread is free"},
+        {"op": "add", "reg": "before", "n": 100, "code": "val after = before + cents   // 100 cents"},
+        {"op": "write", "var": "balance", "reg": "before", "code": "balances[acc] = after"},
+    ]}
+
+
+SIM = {
+ "title": "Two credits on limitedParallelism(1)",
+ "intro": "Both credits run on a one-thread view, so only one runs at a time. But each one gives the thread away when it suspends in fx.toEurCents. You are the scheduler: click a credit to run its next line. Can you end with balance = 100 after two credits of 100?",
+ "vars": {"balance": 0},
+ "threads": [credit("credit A"), credit("credit B")],
+ "goal": {"var": "balance", "eq": 100, "say": "Lost credit. Both read 0 before either wrote. One coroutine at a time between suspensions is not one credit at a time."},
+}
+
+L = {
+ "id": "co-10",
+ "title": "Shared state and testing coroutines",
+ "minutes": 35,
+ "goal": "By the end you can protect shared state across coroutines with atomics or a Mutex, explain why limitedParallelism(1) is not a lock, and test timing-heavy code such as retry with backoff on virtual time with runTest, test dispatchers and backgroundScope.",
+ "warmup": {
+  "q": "100 coroutines on a `Dispatchers.Default.limitedParallelism(1)` view each run `val b = balance; val c = fx.convert(1); balance = b + c`, where `fx.convert` is a suspend call to the FX service. Each credit adds 1. What is `balance` at the end?",
+  "options": [
+   "Exactly 100, because only one coroutine runs at a time on the view",
+   "Usually far less than 100, because the coroutines interleave at fx.convert",
+   "Exactly 100, but only if fx.convert doesn't suspend for long",
+   "The code fails, because a one-thread view rejects concurrent coroutines"
+  ],
+  "answer": 1,
+  "why": "A one-thread view runs one coroutine at a time only between suspension points. When a credit suspends in `fx.convert`, the thread is free and the next credit reads the same old balance. When they resume, each writes its own `b + c` over the others. The KDoc's own heading for this is \"limitedParallelism(1) is not a mutex!\"."
+ },
+ "sections": [
+  {
+   "h": "Coroutines on Default race like threads, and the same tools fix them",
+   "body": "Coroutines on `Dispatchers.Default` run on several threads at once, so shared mutable state needs the same care as in the threads track. `counter++` from 100 coroutines loses updates. `@Volatile` doesn't help, and the coroutines guide says so in as many words: \"volatiles are of no help\". A volatile write is atomic and visible, but read, add and write are still three steps.\n\nPick the tool by the shape of the update.\n\n- One value, changed in one atomic step: an atomic. `AtomicLong.incrementAndGet()`, `AtomicReference.updateAndGet`, or `MutableStateFlow.update { }` from lesson 8 of this track. They never suspend and never block. Kotlin 2.1.20 also added common atomics such as `AtomicInt` in `kotlin.concurrent.atomics`, as an experimental API; on the JVM the `java.util.concurrent.atomic` classes do the same job.\n- Several steps that must happen together: a `Mutex`.\n- State that one coroutine owns: confinement. Keep the map inside one coroutine and send it requests through a channel (lesson 9 of this track).\n\n`Mutex` is the coroutine lock:\n\n```kotlin\nprivate val mutex = Mutex()\n\nsuspend fun credit(account: String, cents: Long) = mutex.withLock {\n    balances[account] = (balances[account] ?: 0L) + cents\n}\n```\n\n```java\n// Java equivalent: a ReentrantLock around the same read-modify-write\nprivate final ReentrantLock lock = new ReentrantLock();\n\nvoid credit(String account, long cents) {\n    lock.lock();\n    try { balances.put(account, balances.getOrDefault(account, 0L) + cents); }\n    finally { lock.unlock(); }\n}\n```\n\n`withLock` is lock, `try`, and unlock in `finally`, the same idiom as Java's. The difference is what waiting costs. `Mutex.lock()` suspends the coroutine, so a credit waiting for the lock holds no thread. The KDoc gives the Mutex the memory semantics of a `synchronized` block, and makes it fair: waiters get the lock in the order they asked.\n\nTwo warnings come with it. A `Mutex` is **not reentrant**. A coroutine that holds it and calls `withLock` again suspends forever, waiting for itself, so a `transfer` that calls `credit` while holding the lock deadlocks. Take the lock once, at the top. And the guide's measurements show that fine-grained locking, a lock or a dispatcher switch around every tiny increment, is slow. Lock around a meaningful unit of work, or use an atomic for a single number.",
+   "try": {
+    "title": "Count a million payments five ways",
+    "minutes": 4,
+    "steps": [
+     "Read `SharedCounter.kt`. 100 coroutines on Default each count 10,000 payments. Predict which counters reach 1,000,000, and which is slowest.",
+     "Run it twice.",
+     "Run the Java twin, which uses 8 threads and a `ReentrantLock`."
+    ],
+    "code": tryit("SharedCounter.kt", "SharedCounterJava.java"),
+    "expect": "The plain and `@Volatile` counters come out short, by a different amount each run. `AtomicLong`, `Mutex.withLock` and the one-thread view all reach exactly 1,000,000. `AtomicLong` is fastest by far; the `Mutex` and the `withContext` switch for every increment take about a second, because each increment pays for a lock or a dispatch. The Java twin shows the same split, with `ReentrantLock` much cheaper than a Mutex here because these threads never suspend."
+   },
+   "refs": [
+    {"title": "Shared mutable state and concurrency (Kotlin docs)", "url": "https://kotlinlang.org/docs/shared-mutable-state-and-concurrency.html", "kind": "read"},
+    {"title": "Mutex (API reference)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.sync/-mutex/", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "A one-thread view is not a mutex",
+   "body": "A view such as `Dispatchers.Default.limitedParallelism(1)` runs at most one of its coroutines at a time. That looks like a lock, and the KDoc has a heading of its own to say it isn't one: \"limitedParallelism(1) is not a mutex!\"\n\nThe view guarantees that code **between suspension points** runs one coroutine at a time, with a happens-before edge from each to the next, so `counter++` on it is safe. But the moment a coroutine suspends, the view's thread is free and the next coroutine runs. Any sequence that suspends in the middle is open to interleaving:\n\n```kotlin\nwithContext(oneAtATime) {\n    val before = balances[account] ?: 0L\n    val cents = fx.toEurCents(amount, currency)    // suspends: another credit runs here\n    balances[account] = before + cents             // writes over the other credit\n}\n```\n\n```java\n// Java equivalent: one thread, but an async step in the middle\nCompletableFuture.supplyAsync(() -> balances.getOrDefault(account, 0L), oneThread)\n    .thenCombine(fx.toEurCentsAsync(amount, currency), Long::sum)        // another credit runs meanwhile\n    .thenAcceptAsync(after -> balances.put(account, after), oneThread);  // writes over the other credit\n```\n\nPlay it out in the simulator: two credits, one thread, and a suspension in the middle of each. (The simulator lets you switch after any line. On the real view a switch can only happen at the suspending line, and that is enough to lose a credit.)\n\nThere are two fixes. Move the suspension out of the critical part: convert first, then do the read and the write with nothing that suspends between them. On a one-thread view that is now safe, because nothing else can run in the middle. Or hold a `Mutex` across the whole sequence, which keeps other credits out even while the holder is suspended. The first is faster, because the conversions overlap. Use the second when the suspending call really must sit inside, for example a ledger check whose answer must not go stale before you write.\n\nThe general rule is the one you learned for threads. A critical section is safe only if nothing else can run in the middle of it. For coroutines, \"in the middle\" means any suspension point, including the ones hidden inside functions you call.",
+   "sim": SIM,
+   "try": {
+    "title": "Interleave three credits, then lock them",
+    "minutes": 3,
+    "steps": [
+     "Read `NotAMutex.kt`. Predict the order of the `read` and `write` lines for the one-thread view, then for the `Mutex`.",
+     "Run it.",
+     "Look at the last part: why does the nested `withLock` time out instead of returning `inner`?",
+     "Run the Java twin, where a single-thread executor interleaves the same way and `ReentrantLock` happily locks twice."
+    ],
+    "code": tryit("NotAMutex.kt", "NotAMutexJava.java"),
+    "expect": "On the one-thread view, all three `read balance` lines print before any `write balance`: each credit suspended in the middle and let the next one in. With the `Mutex`, each credit reads and writes before the next one starts. The nested `withLock` times out after 500 ms, because a Mutex is not reentrant: the inner lock waits for the outer one, which waits for the inner one. The Java twin interleaves the same way on one thread, and its `ReentrantLock` reports a hold count of 2."
+   },
+   "refs": [
+    {"title": "limitedParallelism (API reference: \"not a mutex\")", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-coroutine-dispatcher/limited-parallelism.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "runTest runs delays on virtual time",
+   "body": "Testing coroutine code in real time is slow and flaky. A retry with waits of 100, 200 and 400 ms costs 700 ms per test, and a loaded CI machine turns 700 into 1,500 and your timing assertion into a coin toss. `runTest` from kotlinx-coroutines-test replaces the clock. Every `delay` in the test's coroutines is skipped, and a virtual clock jumps forward instead, keeping the order the delays would have produced.\n\n```kotlin\n@Test\nfun `waits 100 then 200 ms between attempts`() = runTest {\n    val attempts = mutableListOf<Long>()\n    retryWithBackoff(times = 3, initialDelay = 100.milliseconds, maxDelay = 1.seconds) {\n        attempts += currentTime                          // virtual milliseconds\n        if (attempts.size < 3) throw IOException(\"issuer 503\") else \"ok\"\n    }\n    assertThat(attempts).containsExactly(0L, 100L, 300L)  // in a few real milliseconds\n}\n```\n\n```java\n// Java equivalent: Reactor's StepVerifier with virtual time (reactor-test)\n@Test\nvoid waitsBetweenAttempts() {\n    StepVerifier.withVirtualTime(() -> issuer.authorize(req)\n            .retryWhen(Retry.backoff(2, Duration.ofMillis(100)).jitter(0)))\n        .expectSubscription()\n        .thenAwait(Duration.ofMillis(300))\n        .expectNext(Decision.APPROVED)\n        .verifyComplete();\n}\n```\n\n`runTest` runs the body in a `TestScope` on a single-threaded test dispatcher, and `currentTime` reads the virtual clock. You can also drive the clock by hand: `advanceTimeBy(ms)` runs everything due before that point, `runCurrent()` runs what is due now, and `advanceUntilIdle()` runs everything queued. At the end, `runTest` waits for every child coroutine, so a test can't pass with work still pending.\n\nThree rules keep the clock honest.\n\nOnly the test dispatcher's delays are virtual. Code that switches to `Dispatchers.IO` or `Dispatchers.Default` runs its delays in real time, and the test clock never sees them. That is why lesson 4 of this track injected the dispatchers: tests pass `StandardTestDispatcher(testScheduler)`, production passes the real ones.\n\n`withTimeout` inside `runTest` uses virtual time too. Combine it with real work on another dispatcher, and the scheduler, finding nothing of its own to do, can jump the clock forward and fire the timeout while the real work is still running. The lab tests in lesson 5 of this track use `runBlocking` for their blocking lookup for exactly that reason.\n\nThe `runTest` timeout is wall-clock time: 60 seconds by default since kotlinx.coroutines 1.8 (it was 10 s in 1.7). Change it with `runTest(timeout = 10.seconds)` or the `kotlinx.coroutines.test.default_timeout` system property. In 1.11 the old `dispatchTimeoutMs` overloads are errors.",
+   "try": {
+    "title": "Run five seconds of work in a blink",
+    "minutes": 3,
+    "steps": [
+     "Read `VirtualTime.kt`. It calls `runTest` from a plain `main`. Predict the virtual time of each log line, and how much real time the first `runTest` takes.",
+     "Run it.",
+     "Look at the last line: why did the clock stay at 0 while a real second went by?"
+    ],
+    "code": solo("VirtualTime.kt"),
+    "expect": "The lines print at virtual 1,000, 1,200, 3,000, 3,200 and 3,500 ms, in that order, and `await returned` at 3,500. The real time stays well under a second, and most of it is the test library starting up. The last `runTest` reports virtual 0 ms and about 1,000 real ms: `withContext(Dispatchers.Default)` left the test scheduler, so its `delay` was a real one."
+   },
+   "refs": [
+    {"title": "runTest (API reference)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-test/kotlinx.coroutines.test/run-test.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "Standard or Unconfined, and backgroundScope for work that never ends",
+   "body": "`runTest` uses a `StandardTestDispatcher` by default. With it, `launch` only queues the new coroutine, and nothing runs until the test body suspends or advances the scheduler. Tests stay predictable, because you decide when each child runs. Production dispatchers don't run a child immediately either, so this is also the more honest default.\n\n`UnconfinedTestDispatcher(testScheduler)` enters a new coroutine at once and runs it to its first suspension, like `Dispatchers.Unconfined`. That is handy for a collector that must be subscribed before the next line emits, such as a test of a SharedFlow with no replay:\n\n```kotlin\nbackgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {\n    tracker.transitions.collect { seen += it }    // subscribed before the next line runs\n}\ntracker.moveTo(PaymentStatus.CAPTURED)\n```\n\n```java\n// Java equivalent: StepVerifier subscribes first, then runs the action that emits\nStepVerifier.create(tracker.transitions())\n    .then(() -> tracker.moveTo(PaymentStatus.CAPTURED))\n    .expectNextMatches(t -> t.to() == PaymentStatus.CAPTURED)\n    .thenCancel()\n    .verify();\n```\n\nIf you mix dispatchers, give them all the same `testScheduler`. Two schedulers mean two clocks, and one of them will not move.\n\n`backgroundScope` is for coroutines that never finish on their own: a poller, a collector of a StateFlow, the sharing scope of a `stateIn`. `runTest` waits for every child before it returns, so an endless child in the test scope itself would hang until the 60-second timeout. Coroutines in `backgroundScope` are cancelled when the test body ends instead. Two details matter. `advanceUntilIdle()` stops once only background work is left (otherwise a poller would keep it busy forever), so drive background work with `advanceTimeBy`. And a failure in `backgroundScope` doesn't stop the test at once, but it is reported when the test ends, so the test still fails.\n\nThis lesson's lab is written the way these rules suggest. The retry tests read `currentTime` to check each wait exactly, and the balance tests count how many conversions overlap instead of timing them. On the stub, one of those tests reports 0 virtual milliseconds: the stub's conversions ran on a real `Default` thread, outside the virtual clock.\n\nFor flows there is also Turbine (`app.cash.turbine`, not on this lab's classpath), which adds `flow.test { awaitItem() }`. Its waits use a 3-second wall-clock timeout, not the virtual clock.",
+   "try": {
+    "title": "Watch the two test dispatchers and a background poller",
+    "minutes": 3,
+    "steps": [
+     "Read `TestDispatchers.kt`. Predict the order in each of the two lists, and the poll count after each line.",
+     "Run it.",
+     "Move the poller from `backgroundScope.launch` to a plain `launch`, and add `runTest(timeout = 3.seconds)` (import `kotlin.time.Duration.Companion.seconds`). Predict, then run."
+    ],
+    "code": solo("TestDispatchers.kt"),
+    "expect": "`StandardTestDispatcher: [after launch, child ran]` and `UnconfinedTestDispatcher: [child ran, after launch]`. The poller has run 5 times after `advanceTimeBy(5_500)`, and still 5 after `advanceUntilIdle()`, which ignores background work. After your change the test never finishes: `runTest` waits for the endless child, and after 3 real seconds it fails with an `AssertionError` about the timeout."
+   }
+  }
+ ],
+ "analogy": "Shared state is the cash drawer at a shop. An atomic is a till that adds a sale in one press of a key. A `Mutex` is the key to the drawer: whoever holds it counts, takes and writes down, and the others wait their turn, without standing around blocking the aisle (they suspend). A one-thread view is a rule that only one cashier stands at the till at a time. That rule doesn't stop a cashier from walking off to phone the bank in the middle of counting, letting the next cashier count the same drawer. `runTest` is a rehearsal with a stage clock that jumps straight to the next cue, so a day of trading takes seconds. The analogy breaks on reentry: a shopkeeper holding the drawer key can open the drawer twice. A coroutine holding a Mutex that asks for it again waits for itself forever.",
+ "in_your_world": "Most payment state lives in Oracle, where row locks and unique keys do this job, but services keep some state in memory: per-merchant rate-limit counters, a cache of FX rates, the in-flight totals of a settlement run. Counters belong in atomics. A compound update, such as checking a merchant's daily limit and then reserving the amount, needs a `Mutex` held across the check and the reservation, with any suspending call (the FX conversion, the fraud score) done before the lock if you can. Don't reach for `limitedParallelism(1)` as a lock: it serializes code only between suspension points. For tests, inject dispatchers everywhere (Quarkus beans can take a `CoroutineDispatcher` from a producer method), so a test passes `StandardTestDispatcher(testScheduler)` and a retry policy with a 30-second cap tests in milliseconds.",
+ "mistake": "The most common mistake is protecting a sequence that suspends in the middle with something that only works between suspensions: a `limitedParallelism(1)` view, a single-threaded dispatcher, or `synchronized` around code that was refactored into a suspend function. It passes code review because it reads like a lock, and it passes tests that never make two coroutines overlap. Under load, two credits read the same balance, both suspend in the FX call, and one overwrites the other. The fix is to look for every suspension point inside the critical section. Move it out (compute first, then read and write with nothing in between), or hold a `Mutex` across the whole sequence and keep that sequence short.",
+ "compare": {
+  "title": "A merchant limit check: ReentrantLock vs Mutex",
+  "java": {"title": "DailyLimits.java", "src": "class DailyLimits {\n    private final Map<String, Long> spent = new HashMap<>();\n    private final ReentrantLock lock = new ReentrantLock();\n\n    boolean reserve(String merchant, long cents, long limit) {\n        long risk = fraud.score(merchant, cents);            // 1. the slow call, outside the lock (blocks a thread)\n        lock.lock();                                          // 2. blocks the thread while waiting\n        try {\n            long already = spent.getOrDefault(merchant, 0L);\n            if (risk > 80 || already + cents > limit) return false;\n            spent.put(merchant, already + cents);             // 3. check and reserve together\n            return true;\n        } finally {\n            lock.unlock();\n        }\n    }\n}"},
+  "kotlin": {"title": "DailyLimits.kt", "src": "class DailyLimits {\n    private val spent = HashMap<String, Long>()\n    private val mutex = Mutex()\n\n    suspend fun reserve(merchant: String, cents: Long, limit: Long): Boolean {\n        val risk = fraud.score(merchant, cents)              // 1. the slow call, outside the lock (suspends)\n        return mutex.withLock {                              // 2. suspends while waiting, holds no thread\n            val already = spent[merchant] ?: 0L\n            if (risk > 80 || already + cents > limit) return@withLock false\n            spent[merchant] = already + cents                // 3. check and reserve together\n            true\n        }\n    }\n}"},
+  "note": "The shape is identical: do the slow call first, then check and reserve under one lock. Two things differ. Waiting for a `ReentrantLock` blocks a thread, while waiting for a `Mutex` suspends a coroutine, so a burst of 5,000 reservations doesn't need 5,000 threads. And the Java lock is reentrant while the Mutex isn't, so a helper that takes the Mutex again from inside `withLock` hangs instead of nesting. The Kotlin version has one extra trap that Java can't have: if someone later moves `fraud.score` inside `withLock`, it still works but holds the lock across a network call, and if they replace the Mutex with a one-thread dispatcher, it stops being correct at all."
+ },
+ "worked": {
+  "title": "Test a retry policy without waiting for it",
+  "steps": [
+   {"say": "A capture client retries the issuer on `IOException`: up to 5 attempts, waits starting at 200 ms, doubling, capped at 2 s. The existing test uses real time and `Thread.sleep`. It takes 3 seconds, and it fails on CI about once a week.",
+    "code": "@Test\nfun `retries on 503`() = runBlocking {\n    var calls = 0\n    val started = System.currentTimeMillis()\n    val result = client.captureWithRetry(cmd) { calls++; if (calls < 4) throw IOException(\"503\") else \"ok\" }\n    assertThat(result).isEqualTo(\"ok\")\n    assertThat(System.currentTimeMillis() - started).isBetween(1_350L, 1_600L)   // 200 + 400 + 800 = 1,400\n}", "lang": "kotlin",
+    "alt_code": "// Java equivalent of the flaky test: real sleeps, a timing window\n@Test\nvoid retriesOn503() {\n    AtomicInteger calls = new AtomicInteger();\n    long started = System.currentTimeMillis();\n    String result = client.captureWithRetry(cmd, () -> { if (calls.incrementAndGet() < 4) throw new UncheckedIOException(new IOException(\"503\")); return \"ok\"; });\n    assertThat(result).isEqualTo(\"ok\");\n    assertThat(System.currentTimeMillis() - started).isBetween(1_350L, 1_600L);\n}", "alt_lang": "java"},
+   {"say": "Move to `runTest`. The waits are `delay` calls on the test dispatcher, so they become virtual, and the test can check each attempt's exact virtual time instead of a window.",
+    "code": "@Test\nfun `waits 200, 400, then 800 ms between attempts`() = runTest {\n    val at = mutableListOf<Long>()\n    val result = client.captureWithRetry(cmd) {\n        at += currentTime                                   // 1. record virtual ms per attempt\n        if (at.size < 4) throw IOException(\"503\") else \"ok\"\n    }\n    assertThat(result).isEqualTo(\"ok\")\n    assertThat(at).containsExactly(0L, 200L, 600L, 1_400L)   // 2. exact, and instant\n}", "lang": "kotlin",
+    "alt_code": "// Java equivalent: Reactor's virtual time, if the client is built on Reactor\n@Test\nvoid waitsBetweenAttempts() {\n    StepVerifier.withVirtualTime(() -> client.captureWithRetry(cmd))\n        .expectSubscription()\n        .thenAwait(Duration.ofMillis(1_400))             // 1. advance the virtual clock\n        .expectNext(\"ok\")                                // 2. exact, and instant\n        .verifyComplete();\n}", "alt_lang": "java"},
+   {"say": "The test went back to real time when someone added `withContext(Dispatchers.IO)` around the HTTP call inside the client: its `delay` calls now ran on IO. Inject the dispatcher, and give the test the test scheduler's one.",
+    "code": "class CaptureClient(private val io: CoroutineDispatcher = Dispatchers.IO) {\n    suspend fun <T> captureWithRetry(cmd: Capture, call: suspend () -> T): T =\n        withContext(io) { retryWithBackoff(times = 5, initialDelay = 200.milliseconds, maxDelay = 2.seconds) { call() } }\n}\n\n// 3. in the test\nval client = CaptureClient(io = StandardTestDispatcher(testScheduler))", "lang": "kotlin",
+    "alt_code": "// Java equivalent: inject the Scheduler, and give the test a virtual one\nclass CaptureClient {\n    private final Scheduler io;\n    CaptureClient(Scheduler io) { this.io = io; }\n\n    <T> Mono<T> captureWithRetry(Capture cmd, Mono<T> call) {\n        return call.subscribeOn(io)\n            .retryWhen(Retry.backoff(4, Duration.ofMillis(200)).maxBackoff(Duration.ofSeconds(2)).jitter(0).scheduler(io));\n    }\n}\n\n// 3. in the test\nVirtualTimeScheduler vts = VirtualTimeScheduler.getOrSet();\nCaptureClient client = new CaptureClient(vts);", "alt_lang": "java"},
+   {"say": "Add the case people forget: cancellation during a wait must stop the retries. Virtual time lets you stop exactly between two attempts.",
+    "code": "@Test\nfun `a cancel during the backoff stops the retries`() = runTest {\n    var calls = 0\n    val job = launch { client.captureWithRetry(cmd) { calls++; throw IOException(\"503\") } }\n    advanceTimeBy(300)                 // 4. attempts at 0 and 200 ms; now waiting until 600 ms\n    job.cancel()\n    advanceUntilIdle()\n    assertThat(calls).isEqualTo(2)\n}", "lang": "kotlin",
+    "alt_code": "@Test\nvoid cancelDuringBackoffStopsRetries() {\n    AtomicInteger calls = new AtomicInteger();\n    StepVerifier.withVirtualTime(() -> client.captureWithRetry(cmd,\n            Mono.<String>fromCallable(() -> { calls.incrementAndGet(); throw new IOException(\"503\"); })))\n        .expectSubscription()\n        .thenAwait(Duration.ofMillis(300))   // 4. attempts at 0 and 200 ms\n        .thenCancel()\n        .verify();\n    assertThat(calls.get()).isEqualTo(2);\n}", "alt_lang": "java"},
+   {"say": "Self-check: the retry helper wraps each attempt in `runCatching` and retries any failure. Which of these tests catches the bug? (The cancel test. A cancel during an attempt that suspends would be caught by `runCatching` and treated as a failed attempt, so the retries would continue. Lesson 5 of this track showed the same trap.)",
+    "code": "", "lang": ""}
+  ]
+ },
+ "lab": {
+  "title": "Fix a balance book, then write retry with backoff",
+  "minutes": 13,
+  "files": [f"{lab}/main/{P}/BalanceBook.kt", f"{lab}/main/{P}/Retry.kt"],
+  "run": "./gradlew :coroutines:test --tests 'workbench.coroutines.l10.*'",
+  "steps": [
+   "Run the tests. All seven fail. Read `SharedStateAndTestingTest.kt` first: it is the spec, and every test runs on virtual time.",
+   "In `BalanceBook.credit`, call `fx.toEurCents` first, outside any lock. Then do the read and the write inside `mutex.withLock { }`. Replace the one-thread view with a `Mutex` in `balance` too.",
+   "Write `retryWithBackoff`. Loop over attempts 1 to `times - 1`: return the block's result on success; on an exception, rethrow `CancellationException`, rethrow when `retryOn` is false, otherwise `delay` and grow the wait. Then make the last attempt outside the loop, so its exception reaches the caller.",
+   "Run the tests until all seven pass."
+  ],
+  "hints": [
+   "On the stub, `100 concurrent credits all land` reports 100 cents instead of 10,000: every credit read 0 before any wrote. The second test reports 0 virtual ms because the stub's conversions ran on a real `Default` thread, outside the test clock.",
+   "`Duration` times a `Double` is a `Duration`: `wait = (wait * factor).coerceAtMost(maxDelay)`.",
+   "Catch `CancellationException` before `Exception`, and rethrow it. `kotlin.coroutines.cancellation.CancellationException` is the class to import.",
+   "The cancel test cancels the job during a `delay`. A `delay` that is not inside your `try` simply throws, and the loop ends without another attempt."
+  ],
+  "done_when": "All seven tests in `SharedStateAndTestingTest` pass."
+ },
+ "drill": {
+  "title": "A safe counter map and a virtual-time test, from memory",
+  "minutes": 5,
+  "prompt": "Close this page. Write `class MerchantCounts` with `suspend fun record(merchant: String)` that calls a suspending `fraud.check(merchant)` first, then increments that merchant's count, safe for many coroutines on `Dispatchers.Default`. Then write a `runTest` test that checks a function `pollEvery(1.seconds)` has polled 3 times after 3.5 virtual seconds, using `backgroundScope` for the endless poller.",
+  "answer": {"lang": "kotlin", "src": "class MerchantCounts(private val fraud: FraudCheck) {\n    private val counts = HashMap<String, Int>()\n    private val mutex = Mutex()\n\n    suspend fun record(merchant: String) {\n        fraud.check(merchant)                      // suspends: keep it outside the lock\n        mutex.withLock { counts[merchant] = (counts[merchant] ?: 0) + 1 }\n    }\n}\n\n@Test\nfun `polls once a second`() = runTest {\n    var polls = 0\n    backgroundScope.launch { pollEvery(1.seconds) { polls++ } }   // never ends on its own\n    advanceTimeBy(3_500)\n    assertThat(polls).isEqualTo(3)\n}",
+            "alt": {"lang": "java", "title": "Java equivalent", "src": "// Java equivalent: a lock-free counter map, and Reactor virtual time for the poller\nclass MerchantCounts {\n    private final ConcurrentHashMap<String, Integer> counts = new ConcurrentHashMap<>();\n\n    void record(String merchant) {\n        fraud.check(merchant);                     // blocking: outside any lock\n        counts.merge(merchant, 1, Integer::sum);   // one atomic step\n    }\n}\n\n@Test\nvoid pollsOnceASecond() {\n    StepVerifier.withVirtualTime(() -> Flux.interval(Duration.ofSeconds(1)).map(tick -> poll()))\n        .expectSubscription()\n        .thenAwait(Duration.ofMillis(3_500))\n        .expectNextCount(3)\n        .thenCancel()\n        .verify();\n}"}}
+ },
+ "recap": [
+  "Coroutines on `Dispatchers.Default` race like threads. `@Volatile` doesn't make `count++` safe; atomics do, for single values.",
+  "A `Mutex` protects a sequence of steps. `withLock` suspends instead of blocking, and the Mutex is fair and not reentrant: locking it again from inside hangs.",
+  "`limitedParallelism(1)` serializes code only between suspension points, so a read, a suspending call and a write on it can lose updates. Move the suspension out, or hold a Mutex.",
+  "`runTest` skips `delay` with a virtual clock (`currentTime`, `advanceTimeBy`, `runCurrent`, `advanceUntilIdle`). Delays on real dispatchers stay real, so inject dispatchers.",
+  "`StandardTestDispatcher` (the default) queues new coroutines; `UnconfinedTestDispatcher` starts them at once. Share one `testScheduler` between them.",
+  "Put never-ending coroutines in `backgroundScope`. `advanceUntilIdle` ignores them, and `runTest` cancels them at the end."
+ ],
+ "quiz": [
+  {"q": "A merchant limit check runs `mutex.withLock { if (spent + amount <= limit) { reserve(amount) } }`, and `reserve` itself calls `mutex.withLock { spent += amount }`. What happens on the first reservation?",
+   "options": ["It works: a coroutine may take a lock it already holds", "It throws `IllegalStateException`: the mutex is already locked", "It hangs: the inner `withLock` waits for the outer one, which never finishes", "The inner `withLock` is skipped, so `spent` never changes"],
+   "answer": 2,
+   "why": "`Mutex` is not reentrant. The inner `withLock` suspends until the lock is free, but the lock is held by the same code waiting on it, so it never is. Take the lock once at the top and have `reserve` assume it is held."},
+  {"q": "Which tool fits a per-merchant counter of approved payments, incremented by many coroutines on Default, where each update is just \"add one\"?",
+   "options": ["A `ConcurrentHashMap<String, AtomicLong>` and `incrementAndGet()`", "A `Dispatchers.Default.limitedParallelism(1)` view around the whole handler", "A `Mutex` held across the handler's network calls", "`@Volatile` on the map field"],
+   "answer": 0,
+   "why": "Each update is one atomic step on one value, so an atomic is the cheapest correct tool: it never suspends or blocks. A Mutex held across network calls serializes everything, and `@Volatile` on the field only covers the reference to the map, not the increments."},
+  {"q": "Inside `runTest`, the code under test calls `withContext(Dispatchers.IO) { delay(2_000) }`. What does the test see?",
+   "options": ["`currentTime` jumps by 2,000 and the test finishes at once", "The test fails at once, because `Dispatchers.IO` is forbidden in `runTest`", "`currentTime` jumps by 2,000, but only after `advanceUntilIdle()`", "The test waits about 2 real seconds, and `currentTime` doesn't move"],
+   "answer": 3,
+   "why": "Only delays on the test dispatcher are virtual. `withContext(Dispatchers.IO)` leaves the test scheduler, so that `delay` is a real one, invisible to the virtual clock. Inject the dispatcher so the test can pass `StandardTestDispatcher(testScheduler)`."},
+  {"q": "A test launches `launch { while (true) { delay(1_000); poll() } }` in the `runTest` body, checks the poll count after `advanceTimeBy(3_500)`, and ends. What happens?",
+   "options": ["The test passes; the loop is cancelled when the body ends", "The test hangs until the `runTest` timeout, because `runTest` waits for every child", "The loop never runs, because `launch` only queues it", "`advanceTimeBy` throws, because the loop never ends"],
+   "answer": 1,
+   "why": "`runTest` waits for all children of the test scope before it returns, and this one never ends, so the test fails after the wall-clock timeout (60 s by default). Launch endless work in `backgroundScope`, which `runTest` cancels when the body ends."},
+  {"q": "From lesson 5 of this track: a retry helper wraps each attempt in `runCatching { block() }` and retries on any failure. The caller is cancelled while an attempt is suspended in an HTTP call. What happens?",
+   "options": ["The `CancellationException` counts as a failed attempt, and the helper goes on to the next one", "The retries stop at once, because `runCatching` never catches `CancellationException`", "The coroutine is killed and no `finally` blocks run", "The helper waits for the HTTP call to finish, then stops"],
+   "answer": 0,
+   "why": "`runCatching` catches every `Throwable`, including `CancellationException`, so the cancel looks like a failed attempt. The next `delay` throws at once in the cancelled coroutine, which may end the loop by luck, but any code between them still runs. Rethrow `CancellationException` before treating anything as retryable.",
+   "from": "co-05"}
+ ],
+ "flashcards": [
+  {"front": "Does `@Volatile` make `count++` safe across coroutines on `Dispatchers.Default`?", "back": "No. It makes each read and write visible, but `count++` is still read, add, write. Use an atomic or a `Mutex`."},
+  {"front": "What does `Mutex.withLock` do while another coroutine holds the lock?", "back": "It suspends the caller (no thread is blocked) until the lock is free, and the Mutex hands out the lock in arrival order."},
+  {"front": "A coroutine holding a `Mutex` calls `withLock` on it again. What happens?", "back": "It suspends forever: `Mutex` is not reentrant."},
+  {"front": "Why is `limitedParallelism(1)` not a mutex?", "back": "It runs one coroutine at a time only between suspension points. When one suspends, another runs, so a sequence with a suspension in the middle can interleave."},
+  {"front": "What happens to `delay(1_000)` inside `runTest`?", "back": "It is skipped: the virtual clock (`currentTime`) jumps forward by 1,000 ms, keeping the order of events."},
+  {"front": "`StandardTestDispatcher` vs `UnconfinedTestDispatcher` for `launch`?", "back": "Standard queues the new coroutine until the test yields or advances time. Unconfined starts it at once and runs it to its first suspension."},
+  {"front": "Where do never-ending coroutines go in a `runTest` test?", "back": "`backgroundScope`: they are cancelled when the test body ends, and `advanceUntilIdle()` doesn't wait for them."}
+ ],
+ "terms": [
+  {"term": "Mutex", "plain": "A coroutine lock: waiting suspends instead of blocking. Fair, and not reentrant."},
+  {"term": "Critical section", "plain": "Code that must run without anything else touching the same state in the middle of it."},
+  {"term": "Confinement", "plain": "Keeping mutable state reachable from only one coroutine or thread, so it needs no lock."},
+  {"term": "Virtual time", "plain": "The test scheduler's clock. Delays advance it instantly instead of waiting."},
+  {"term": "TestScope", "plain": "The scope runTest runs the test body in, with currentTime and a test dispatcher."},
+  {"term": "StandardTestDispatcher", "plain": "A test dispatcher that queues tasks until the test lets the scheduler run."},
+  {"term": "backgroundScope", "plain": "A scope inside runTest for endless work; it is cancelled when the test body ends."}
+ ],
+ "explain_back": {
+  "prompt": "A teammate replaced a `Mutex` with `Dispatchers.Default.limitedParallelism(1)` in the merchant limit check \"because it's simpler and only one coroutine runs at a time anyway\". The check calls the fraud service between reading and writing the limit. Explain what can go wrong, and how you'd test it without real time.",
+  "answer": "The one-thread view only guarantees one coroutine at a time between suspension points. The fraud call suspends, so while one check waits for the fraud service, the thread runs the next check, which reads the same \"spent so far\" value. Both then pass the limit check and both reserve, so a merchant can go over its limit. A Mutex held across the whole check keeps the second one out even while the first is suspended; better still, call the fraud service first and then do the read and the reservation together under the lock, with nothing suspending in between. To test it, I'd use runTest with a fake fraud service that just calls delay(50), launch a hundred reservations, and assert on the totals and on how many overlapped. On virtual time that is deterministic and runs in milliseconds, as long as the class takes its dispatcher as a parameter instead of hard-coding Dispatchers.Default."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "`Semaphore(permits)` in `kotlinx.coroutines.sync` is the counting version of a Mutex: `withPermit { }` lets at most n coroutines in at once. It is the coroutine counterpart of the shared `Semaphore` from lesson 3 of the virtual threads track, and like the Mutex it suspends rather than blocks. Since 1.9 you can no longer cast a `Mutex` to a `Semaphore`; they are separate types.\n\n`Mutex` has an optional owner: `lock(owner)` and `withLock(owner)` record who holds it, and `holdsLock(owner)` checks it. Passing an owner turns a reentrant call into an immediate `IllegalStateException` instead of a silent hang, which is a cheap safety net in code where a helper might be called with the lock held.\n\nThe test library has more knobs than this lesson uses. Several `StandardTestDispatcher(testScheduler, name = ...)` instances can share one scheduler, so production code that takes two dispatchers (IO and CPU) can get two named test dispatchers with one clock. `Dispatchers.setMain(...)` and `resetMain()` swap the Main dispatcher for UI-style code. And `runTest` reports uncaught exceptions from coroutines it doesn't own at the end of the test, through a `ServiceLoader` hook, which is why a forgotten `GlobalScope.launch` that throws can fail an unrelated test.\n\nFinally, virtual time is not a load test. It proves that the order and the timing logic are right. It says nothing about how long the real FX service takes, how a real Mutex behaves with 5,000 waiters, or whether Oracle keeps up. Keep a few real-time integration tests, with generous margins, for that."
+ },
+ "sources": [
+  {"title": "Shared mutable state and concurrency (Kotlin docs)", "url": "https://kotlinlang.org/docs/shared-mutable-state-and-concurrency.html"},
+  {"title": "Mutex (kotlinx.coroutines API)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.sync/-mutex/"},
+  {"title": "kotlinx-coroutines-test (API reference)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-test/"},
+  {"title": "runTest (kotlinx-coroutines-test API)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-test/kotlinx.coroutines.test/run-test.html"}
+ ]
+}
+out = ROOT / "content/lessons/co-10.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)

@@ -306,7 +306,7 @@ L = {
      "Run it twice and compare the counts and the times."
     ],
     "code": code("WakeupCount"),
-    "expect": "With one condition, tens of thousands of wake-ups are wasted (80,000 to 90,000 in runs here), because every `signalAll()` wakes all seven other threads and most of them go back to sleep. With two conditions, the count drops to a few hundred, and the run takes about a third of the time. It isn't zero, because of barging: a running thread can grab the lock and the item before the signalled thread wakes up. That is why the `while` loop stays."
+    "expect": "With one condition, tens of thousands of wake-ups are wasted (80,000 to 90,000 in runs here), because every `signalAll()` wakes all seven other threads and most of them go back to sleep. With two conditions, the count drops to hundreds or a few thousand, and the run is several times faster. It isn't zero, because of barging: a running thread can grab the lock and the item before the signalled thread wakes up. That is why the `while` loop stays."
    },
    "refs": [
     {"title": "Condition.java at jdk-25-ga (spurious wake-ups, await and signal)", "url": "https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/java/util/concurrent/locks/Condition.java", "kind": "read"}
