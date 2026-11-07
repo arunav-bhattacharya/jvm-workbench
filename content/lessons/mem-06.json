@@ -232,23 +232,23 @@
   {
    "q": "Over ten minutes, a service's young pauses end at `310M`, `355M`, `402M`, `447M` and `495M`, and a full GC finally goes `1490M->1210M(1536M)`. What is going on?",
    "options": [
-    "The young generation is too small; raise it",
     "The live set keeps growing, which points to a leak or an unbounded cache",
+    "The young generation is too small; raise it",
     "G1's pause goal is too strict",
     "Nothing: G1 always lets the heap fill before collecting"
    ],
-   "answer": 1,
+   "answer": 0,
    "why": "The after-values of young pauses are what survives, and their floor rises about 45 MB a pass. Even a full GC can only free 280 MB of 1,490 MB: 1.2 GB is really live. A bigger heap only delays the moment it fills; lesson 7 finds what's holding the memory."
   },
   {
    "q": "A pod has a 1 GiB limit. The service runs with `-XX:MaxRAMPercentage=75` and Netty-based I/O, with no other memory flags. Which flag should you add first?",
    "options": [
     "`-Xmx1g`",
-    "`-XX:MaxDirectMemorySize` with a value that fits the I/O layer",
     "`-XX:MaxRAMPercentage=100`",
+    "`-XX:MaxDirectMemorySize` with a value that fits the I/O layer",
     "`-XX:+HeapDumpOnOutOfMemoryError`, to catch the OOM kill"
    ],
-   "answer": 1,
+   "answer": 2,
    "why": "Without `MaxDirectMemorySize`, direct buffers may grow up to the max heap size, here 768 MB on top of a 768 MB heap in a 1 GiB pod. Capping it makes the budget real. `-Xmx1g` and 100% make the pod's problem worse, and a heap dump is never written when the kernel kills the process."
   },
   {

@@ -117,7 +117,7 @@ jcmd <pid> VM.native_memory summary.diff scale=MB
 
 The diff marks every change: in one test, `Other (reserved=100MB +100MB, committed=100MB +100MB)` after 100 direct buffers of 1 MiB. A growing `Other` points at direct buffers or native code; a growing `Thread` at threads you start and never stop; a growing `Class` or `Metaspace` at class loaders.
 
-Direct buffers deserve one more level of detail. A `ByteBuffer.allocateDirect` call creates a small object on the heap that owns the native memory, and a `Cleaner` (lesson 3) frees that memory after the GC collects the small object. So native memory waits for a garbage collection, and a big, quiet heap may not collect for a long time. Unless you set `-XX:MaxDirectMemorySize`, the limit for all of it is the max heap size. Set it, and a leak fails loudly instead of quietly: `java.lang.OutOfMemoryError: Cannot reserve 67108864 bytes of direct buffer memory (allocated: 0, limit: 33554432)`, with a stack trace that points at the code."""
+Direct buffers deserve one more level of detail. A `ByteBuffer.allocateDirect` call creates a small object on the heap that owns the native memory, and a phantom-reference cleaner, the same idea as lesson 3's `Cleaner`, frees that memory after the GC collects the small object. So native memory waits for a garbage collection, and a big, quiet heap may not collect for a long time. Unless you set `-XX:MaxDirectMemorySize`, the limit for all of it is the max heap size. Set it, and a leak fails loudly instead of quietly: `java.lang.OutOfMemoryError: Cannot reserve 67108864 bytes of direct buffer memory (allocated: 0, limit: 33554432)`, with a stack trace that points at the code."""
 
 S4 = """The Foreign Function and Memory API (FFM), final since JDK 22 (JEP 454), gives off-heap memory a lifetime you control. Memory comes from an **arena**, and the arena decides when it's freed:
 
@@ -186,7 +186,7 @@ L = {
     "title": "Find the holder in Eclipse MAT",
     "minutes": 6,
     "steps": [
-     "Download Eclipse Memory Analyzer (MAT) from eclipse.dev/mat and open `labs/memory/build/heapdumps/leak.hprof` from the previous demo.",
+     "Download Eclipse Memory Analyzer (MAT) from the Eclipse website and open `labs/memory/build/heapdumps/leak.hprof` from the previous demo.",
      "Before you click anything, predict the top entry of the dominator tree and its retained size from the figure.",
      "Open the dominator tree. Then, on the biggest entry, use \"Path to GC Roots\" to find the field that holds it."
     ],
@@ -398,6 +398,16 @@ L = {
   {"title": "Arena source at jdk-25-ga", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/java.base/share/classes/java/lang/foreign/Arena.java"}
  ]
 }
+
+def move_answer(q, to):
+    """Put the correct option at index `to`, keeping the others in order."""
+    right = q["options"].pop(q["answer"])
+    q["options"].insert(to, right)
+    q["answer"] = to
+
+
+for q, to in zip(L["quiz"], [0, 2, 3, 1, 1]):
+    move_answer(q, to)
 
 (ROOT / "content/lessons/mem-07.json").write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
 print("wrote mem-07")

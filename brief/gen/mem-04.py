@@ -398,5 +398,15 @@ L = {
  ]
 }
 
+def move_answer(q, to):
+    """Put the correct option at index `to`, keeping the others in order."""
+    right = q["options"].pop(q["answer"])
+    q["options"].insert(to, right)
+    q["answer"] = to
+
+
+for q, to in zip(L["quiz"], [2, 1, 3, 1, 0]):
+    move_answer(q, to)
+
 (ROOT / "content/lessons/mem-04.json").write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
 print("wrote mem-04")

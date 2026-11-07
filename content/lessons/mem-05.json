@@ -253,22 +253,22 @@
    "q": "A team moves a service in a pod with 2 CPUs from G1 to ZGC. GC pauses drop below 0.1 ms, but p99 latency gets worse. What is the most likely reason?",
    "options": [
     "ZGC's pauses are longer than the log says",
-    "ZGC's concurrent GC threads and load barriers take CPU from request threads, and allocating threads may stall",
     "ZGC doesn't support Quarkus",
-    "The heap is now too large for the region size"
+    "The heap is now too large for the region size",
+    "ZGC's concurrent GC threads and load barriers take CPU from request threads, and allocating threads may stall"
    ],
-   "answer": 1,
+   "answer": 3,
    "why": "ZGC moves the work out of the pauses, not out of the process. With 2 CPUs, GC threads compete with request threads, every reference load runs a barrier, and if the collection can't keep up with allocation, threads stall waiting for memory. Look for `Allocation Stall` lines and CPU saturation."
   },
   {
    "q": "Which flags select generational ZGC on JDK 21?",
    "options": [
     "`-XX:+UseZGC`",
-    "`-XX:+UseZGC -XX:+ZGenerational`",
     "`-XX:+UseZGC -XX:ZGCMode=generational`",
+    "`-XX:+UseZGC -XX:+ZGenerational`",
     "`-XX:+UnlockExperimentalVMOptions -XX:+UseZGC`"
    ],
-   "answer": 1,
+   "answer": 2,
    "why": "On JDK 21, plain `-XX:+UseZGC` gives the old single-generation ZGC; `-XX:+ZGenerational` opts in to the generational one. JDK 23 made generational the default, and JDK 24 removed the old mode, so on JDK 25 `-XX:+UseZGC` alone is right and `ZGenerational` is obsolete. ZGC is not experimental, so it needs no extra flag."
   },
   {

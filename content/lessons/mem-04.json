@@ -266,11 +266,11 @@
    "q": "A G1 log shows `GC(42) Pause Young (Normal) (G1 Evacuation Pause) 1210M->1180M(1536M)`, then `(Evacuation Failure)` on the next pauses, then `Pause Full (G1 Compaction Pause) 1490M->1150M(1536M)`. What does it tell you?",
    "options": [
     "The pause goal is too high; set `-XX:MaxGCPauseMillis=50`",
-    "About 1.15 GB is really live in a 1.5 GB heap, which leaves G1 too little room to copy",
     "The young generation is too small; the old generation is fine",
-    "The application calls `System.gc()`"
+    "The application calls `System.gc()`",
+    "About 1.15 GB is really live in a 1.5 GB heap, which leaves G1 too little room to copy"
    ],
-   "answer": 1,
+   "answer": 3,
    "why": "The full GC's after-value is the live set: 1,150 MB of 1,536 MB. A young pause that frees only 30 MB, and copies that fail for lack of free regions, say the same thing. A smaller pause goal can't create free regions. A `System.gc()` call would show `(System.gc())` as the cause."
   },
   {
