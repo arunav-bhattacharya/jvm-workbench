@@ -18,6 +18,7 @@ val versions = mapOf(
     "netty" to "4.2.20.Final",
     "vertx" to "5.2.3",
     "jetty" to "12.1.14",
+    "slf4j" to "2.0.20",
     "jol" to "0.17",
     "serialization" to "1.12.0",
 )
