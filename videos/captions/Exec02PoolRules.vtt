@@ -1,149 +1,149 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:08.777
+00:00:02.700 --> 00:00:08.744
 Here is a thread pool with two core threads, a maximum of four, and a queue that holds two tasks.
 
 2
-00:00:08.933 --> 00:00:11.129
+00:00:08.967 --> 00:00:11.163
 Seven tasks arrive, one by one.
 
 3
-00:00:11.129 --> 00:00:13.184
+00:00:11.163 --> 00:00:13.217
 Each one takes half a second.
 
 4
-00:00:13.184 --> 00:00:14.884
+00:00:13.217 --> 00:00:14.917
 Where does each task go?
 
 5
-00:00:15.667 --> 00:00:19.833
+00:00:15.733 --> 00:00:19.900
 Every call to execute walks the same four rules, in this order.
 
 6
-00:00:20.000 --> 00:00:21.012
+00:00:20.133 --> 00:00:21.145
 Task 1 arrives.
 
 7
-00:00:21.012 --> 00:00:26.072
+00:00:21.145 --> 00:00:26.205
 The pool has fewer threads than core, so rule 1 starts a new thread for it.
 
 8
-00:00:26.267 --> 00:00:28.483
+00:00:26.433 --> 00:00:28.650
 Task 2 also gets a new thread.
 
 9
-00:00:28.483 --> 00:00:32.104
+00:00:28.650 --> 00:00:32.271
 Rule 1 starts one even if another thread is idle.
 
 10
-00:00:32.333 --> 00:00:32.849
+00:00:32.500 --> 00:00:33.015
 Task 3.
 
 11
-00:00:32.849 --> 00:00:34.984
+00:00:33.015 --> 00:00:35.151
 The pool is at core size now.
 
 12
-00:00:34.984 --> 00:00:39.329
+00:00:35.151 --> 00:00:39.496
 So rule 2 offers the task to the queue, and it waits there.
 
 13
-00:00:39.533 --> 00:00:40.860
+00:00:39.700 --> 00:00:41.026
 Task 4 waits too.
 
 14
-00:00:40.860 --> 00:00:42.576
+00:00:41.026 --> 00:00:42.743
 Now the queue is full.
 
 15
-00:00:42.800 --> 00:00:43.331
+00:00:42.967 --> 00:00:43.498
 Task 5.
 
 16
-00:00:43.331 --> 00:00:44.697
+00:00:43.498 --> 00:00:44.864
 The queue says no.
 
 17
-00:00:44.697 --> 00:00:50.692
+00:00:44.864 --> 00:00:50.859
 Rule 3 starts an extra thread, because three threads is within the max of four.
 
 18
-00:00:50.933 --> 00:00:53.062
+00:00:51.067 --> 00:00:53.196
 Task 6 gets the fourth thread.
 
 19
-00:00:53.062 --> 00:00:54.979
+00:00:53.196 --> 00:00:55.112
 The pool is now at its max.
 
 20
-00:00:55.200 --> 00:00:57.319
+00:00:55.333 --> 00:00:57.453
 Task 7 finds everything full.
 
 21
-00:00:57.319 --> 00:01:00.316
+00:00:57.453 --> 00:01:00.449
 Rule 4 hands it to the rejection handler.
 
 22
-00:01:00.316 --> 00:01:04.116
+00:01:00.449 --> 00:01:04.249
 The default one throws a RejectedExecutionException.
 
 23
-00:01:04.333 --> 00:01:05.567
+00:01:04.467 --> 00:01:05.700
 Read rule 3 again.
 
 24
-00:01:05.567 --> 00:01:09.200
+00:01:05.700 --> 00:01:09.333
 The pool grows past core only when the queue is full.
 
 25
-00:01:09.200 --> 00:01:11.393
+00:01:09.333 --> 00:01:11.527
 Most people expect the opposite.
 
 26
-00:01:11.533 --> 00:01:14.383
+00:01:11.733 --> 00:01:14.583
 And tasks 5 and 6 run before tasks 3 and 4.
 
 27
-00:01:14.383 --> 00:01:19.355
+00:01:14.583 --> 00:01:19.555
 A new thread takes the task that made it, not the oldest task in the queue.
 
 28
-00:01:20.333 --> 00:01:23.253
+00:01:20.567 --> 00:01:23.487
 Now swap in an unbounded LinkedBlockingQueue.
 
 29
-00:01:23.253 --> 00:01:25.979
+00:01:23.487 --> 00:01:26.212
 That is the queue newFixedThreadPool uses.
 
 30
-00:01:26.133 --> 00:01:27.711
+00:01:26.433 --> 00:01:28.011
 Rule 2 always succeeds.
 
 31
-00:01:27.711 --> 00:01:30.797
+00:01:28.011 --> 00:01:31.097
 Every task past core just waits in the queue.
 
 32
-00:01:30.933 --> 00:01:35.115
+00:01:31.300 --> 00:01:35.482
 So rule 3 never runs, and no extra thread is ever started.
 
 33
-00:01:35.115 --> 00:01:38.648
+00:01:35.482 --> 00:01:39.015
 Rule 4 never runs either, so nothing is rejected.
 
 34
-00:01:38.800 --> 00:01:42.315
+00:01:39.233 --> 00:01:42.749
 Set max to 100 and you still get two threads, forever.
 
 35
-00:01:42.315 --> 00:01:44.659
+00:01:42.749 --> 00:01:45.092
 Under overload the queue just grows.
 
 36
-00:01:44.659 --> 00:01:47.588
+00:01:45.092 --> 00:01:48.021
 The first alert you get is probably the heap.
 
 37
-00:01:47.733 --> 00:01:55.463
+00:01:48.233 --> 00:01:55.963
 A bounded queue with a finite max is the shape that pushes back: rule 4 can fire, and overload becomes visible.

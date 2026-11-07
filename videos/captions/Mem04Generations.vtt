@@ -1,113 +1,113 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:08.614
+00:00:02.800 --> 00:00:08.714
 A payment request allocates parsed JSON, a few data objects, some strings and a response.
 
 2
-00:00:08.614 --> 00:00:11.737
+00:00:08.714 --> 00:00:11.837
 A few milliseconds later, all of it is garbage.
 
 3
-00:00:11.933 --> 00:00:17.423
+00:00:11.800 --> 00:00:17.289
 A few objects live much longer, like a cached merchant config or a pooled connection.
 
 4
-00:00:18.233 --> 00:00:22.832
+00:00:18.000 --> 00:00:22.598
 That split has a name, the weak generational hypothesis.
 
 5
-00:00:22.832 --> 00:00:24.720
+00:00:22.598 --> 00:00:24.487
 Most objects die young.
 
 6
-00:00:24.720 --> 00:00:31.864
+00:00:24.487 --> 00:00:31.631
 In one real collection, the young objects were 27 MB still alive and 470 MB of garbage.
 
 7
-00:00:32.667 --> 00:00:35.559
+00:00:32.200 --> 00:00:35.093
 HotSpot's collectors split the heap to match.
 
 8
-00:00:35.559 --> 00:00:38.773
+00:00:35.093 --> 00:00:38.307
 New objects go into eden, in the young generation.
 
 9
-00:00:38.773 --> 00:00:42.180
+00:00:38.307 --> 00:00:41.713
 Objects that stay alive end up in the old generation.
 
 10
-00:00:42.367 --> 00:00:46.875
+00:00:41.800 --> 00:00:46.308
 Your code fills eden with new objects, and most of them die soon after.
 
 11
-00:00:47.100 --> 00:00:49.719
+00:00:46.600 --> 00:00:49.219
 When eden fills, a young collection starts.
 
 12
-00:00:49.719 --> 00:00:54.836
+00:00:49.219 --> 00:00:54.336
 It follows references from the roots and finds the few objects that are still alive.
 
 13
-00:00:55.033 --> 00:01:00.068
+00:00:54.600 --> 00:00:59.635
 It copies them into an empty survivor space, and each one's age goes up by one.
 
 14
-00:01:00.068 --> 00:01:02.171
+00:00:59.635 --> 00:01:01.738
 Then all of eden is free at once.
 
 15
-00:01:02.171 --> 00:01:05.421
+00:01:01.738 --> 00:01:04.988
 The collector never even looks at the dead objects.
 
 16
-00:01:05.633 --> 00:01:11.315
+00:01:05.200 --> 00:01:10.881
 So a young collection costs time in proportion to what survives, not to what was allocated.
 
 17
-00:01:12.333 --> 00:01:13.442
+00:01:11.800 --> 00:01:12.909
 There is a catch.
 
 18
-00:01:13.442 --> 00:01:17.226
+00:01:12.909 --> 00:01:16.693
 Moving an object is only safe while no thread is using it.
 
 19
-00:01:17.226 --> 00:01:25.250
+00:01:16.693 --> 00:01:24.716
 So first, every application thread stops at a safepoint, a known place where the collector can find and fix its references.
 
 20
-00:01:25.250 --> 00:01:27.272
+00:01:24.716 --> 00:01:26.739
 That is a stop-the-world pause.
 
 21
-00:01:27.467 --> 00:01:31.087
+00:01:26.800 --> 00:01:30.421
 In G1, every young collection runs inside such a pause.
 
 22
-00:01:31.087 --> 00:01:37.933
+00:01:30.421 --> 00:01:37.267
 This time the live objects from eden and from the survivor space are copied to the other survivor space.
 
 23
-00:01:37.933 --> 00:01:39.711
+00:01:37.267 --> 00:01:39.044
 Then the threads run again.
 
 24
-00:01:40.400 --> 00:01:43.922
+00:01:39.600 --> 00:01:43.122
 The age lives in four bits of each object's header.
 
 25
-00:01:43.922 --> 00:01:51.933
+00:01:43.122 --> 00:01:51.133
 After enough survivals, at most 15, an object is promoted to the old generation, which is collected much less often.
 
 26
-00:01:52.133 --> 00:01:55.667
+00:01:51.200 --> 00:01:54.734
 This is why medium-lived objects are the expensive kind.
 
 27
-00:01:55.667 --> 00:02:04.755
+00:01:54.734 --> 00:02:03.821
 They get copied at every young collection, then promoted, and then they die in the old generation, where only a bigger collection can free them.
 
 28
-00:02:04.967 --> 00:02:09.773
+00:02:03.800 --> 00:02:08.607
 An idempotency cache with a 10-minute expiry has exactly that shape.

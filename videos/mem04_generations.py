@@ -166,12 +166,11 @@ class Mem04Generations(VoiceScene):
         stay = [k for k in range(len(live1)) if k not in die_s]
         surv2_old = [surv1[k] for k in stay]
         surv2_new = [aged(e2[i], 1) for i in live2]
-        aged2 = [aged(surv1[k], 2).move_to(surv1[k]) for k in stay]
+        aged2 = [aged(surv1[k], 2).move_to(s1_slots[j]) for j, k in enumerate(stay)]
         self.say("In G1, every young collection runs inside such a pause. "
                  "This time the live objects from eden and from the survivor space are copied to the other survivor space. "
                  "Then the threads run again.",
-                 [(1, [*[Transform(surv1[k], aged2[j]) for j, k in enumerate(stay)]], 0.4),
-                  (1, [*[surv1[k].animate.move_to(s1_slots[j]) for j, k in enumerate(stay)],
+                 [(1, [*[Transform(surv1[k], aged2[j]) for j, k in enumerate(stay)],
                        *[surv2_new[j].animate.move_to(s1_slots[len(stay) + j]) for j in range(len(live2))],
                        *[FadeOut(e2[i]) for i in live2]], 1.3),
                   (1, [*[FadeOut(o) for i, o in enumerate(e2) if i not in live2], *[FadeOut(surv1[k]) for k in die_s]], 0.6),

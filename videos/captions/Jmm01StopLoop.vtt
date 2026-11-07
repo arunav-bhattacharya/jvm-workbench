@@ -109,65 +109,69 @@ The compiled loop read stop once, into a register.
 It never reads memory again.
 
 28
-00:01:25.467 --> 00:01:31.127
-After the loop has run many thousands of times, the JIT compiler turns it into machine code.
+00:01:25.467 --> 00:01:30.050
+After the loop has run many thousands of times, the JIT compiles it.
 
 29
-00:01:31.333 --> 00:01:34.420
-C2 sees that nothing inside the loop writes stop.
+00:01:30.050 --> 00:01:33.352
+HotSpot's C2 compiler turns it into machine code.
 
 30
-00:01:34.420 --> 00:01:38.579
-So it reads stop once, before the loop, and runs the rest forever.
+00:01:33.567 --> 00:01:36.654
+C2 sees that nothing inside the loop writes stop.
 
 31
-00:01:38.800 --> 00:01:39.796
-That is allowed.
+00:01:36.654 --> 00:01:40.812
+So it reads stop once, before the loop, and runs the rest forever.
 
 32
-00:01:39.796 --> 00:01:44.898
-For a plain field, the memory model gives no promise about another thread's write.
+00:01:41.033 --> 00:01:42.029
+That is allowed.
 
 33
-00:01:44.898 --> 00:01:48.569
-So the compiler may assume that no other thread changes it.
+00:01:42.029 --> 00:01:47.131
+For a plain field, the memory model gives no promise about another thread's write.
 
 34
-00:01:48.800 --> 00:01:50.833
-You can check where the bug lives.
+00:01:47.131 --> 00:01:50.803
+So the compiler may assume that no other thread changes it.
 
 35
-00:01:50.833 --> 00:01:53.762
-Turn the JIT off with one flag, and run it again.
+00:01:51.033 --> 00:01:53.066
+You can check where the bug lives.
 
 36
-00:01:53.762 --> 00:01:56.991
-The caches are the same, and the worker stops at once.
+00:01:53.066 --> 00:01:55.996
+Turn the JIT off with one flag, and run it again.
 
 37
-00:01:57.900 --> 00:01:59.376
-The fix is one word.
+00:01:55.996 --> 00:01:59.224
+The caches are the same, and the worker stops at once.
 
 38
-00:01:59.376 --> 00:02:01.369
-Declare the field volatile.
+00:02:00.133 --> 00:02:01.610
+The fix is one word.
 
 39
-00:02:01.600 --> 00:02:06.693
-The JIT can't keep a volatile field in a register, or move its read out of the loop.
+00:02:01.610 --> 00:02:03.603
+Declare the field volatile.
 
 40
-00:02:06.693 --> 00:02:08.269
-Every pass reads it again.
+00:02:03.833 --> 00:02:08.926
+The JIT can't keep a volatile field in a register, or move its read out of the loop.
 
 41
-00:02:09.100 --> 00:02:11.716
-Now each pass of the loop goes to the cache.
+00:02:08.926 --> 00:02:10.503
+Every pass reads it again.
 
 42
-00:02:11.716 --> 00:02:16.473
-The cache already says true, so the worker sees main's write, and the loop ends.
+00:02:11.333 --> 00:02:13.950
+Now each pass of the loop goes to the cache.
 
 43
-00:02:16.700 --> 00:02:22.125
+00:02:13.950 --> 00:02:18.707
+The cache already says true, so the worker sees main's write, and the loop ends.
+
+44
+00:02:18.933 --> 00:02:24.359
 And the memory model guarantees that main's volatile write becomes visible to the worker.
