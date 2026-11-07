@@ -25,9 +25,9 @@ fun main() {
         clb.withFlags(ClassFile.ACC_PUBLIC or ClassFile.ACC_FINAL)
         clb.withMethodBody("fee", MethodTypeDesc.of(CD_long, CD_long), static) { cob ->
             cob.lload(0)                  // push the amount (slots 0 and 1)
-                .ldc(290L)                // push the rate in basis points
+                .loadConstant(290L)       // push the rate in basis points (ldc2_w)
                 .lmul()
-                .ldc(10_000L)
+                .loadConstant(10_000L)
                 .ldiv()
                 .lreturn()
         }
@@ -39,13 +39,16 @@ fun main() {
 
     // 2. verify before you load: an int method that returns a String
     val broken = cf.build(ClassDesc.of("Broken")) { clb ->
-        clb.withMethodBody("answer", MethodTypeDesc.of(CD_int), static) { cob -> cob.ldc("forty-two").ireturn() }
+        clb.withMethodBody("answer", MethodTypeDesc.of(CD_int), static) { cob ->
+            // Kotlin's String type doesn't expose Java's ConstantDesc, so pass a constant-pool entry
+            cob.ldc(cob.constantPool().stringEntry("forty-two")).ireturn()
+        }
     }
     println("verify(Broken): ${cf.verify(broken)}")
 
     // 3. transform: drop debug methods and change the 290 constant to 310, as a new class FeeRuleV2
     val newRate = CodeTransform { cob, element ->
-        if (element is ConstantInstruction && (element.constantValue() as? Long) == 290L) {
+        if (element is ConstantInstruction && element.constantValue().equals(290L)) {
             cob.loadConstant(310L)        // replace this element
         } else {
             cob.with(element)             // pass everything else through unchanged

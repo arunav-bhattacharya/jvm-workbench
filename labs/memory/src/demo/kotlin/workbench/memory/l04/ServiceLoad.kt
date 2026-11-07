@@ -6,11 +6,11 @@ import kotlin.random.Random
 private var sink: Any? = null                                     // garbage goes here, so it's really allocated
 
 /**
- * A stand-in for a payment service under load, used by this lesson's GC demos. Runs for [seconds]:
+ * A stand-in for a payment service under load, used by the GC demos of lessons 4 and 5. Runs for [seconds]:
  * 5,000 short-lived request objects per round, a cache that grows to [cacheShare] of the max heap and then
- * sheds every other entry, and a 3 MiB buffer every 50 rounds.
+ * sheds every other entry, and a 3 MiB buffer every 50 rounds. Returns how many rounds it finished.
  */
-fun serviceLoad(seconds: Double, cacheShare: Double) {
+fun serviceLoad(seconds: Double, cacheShare: Double): Int {
     val maxHeap = Runtime.getRuntime().maxMemory()
     val cache = ArrayList<ByteArray>()
     var cached = 0L
@@ -27,4 +27,5 @@ fun serviceLoad(seconds: Double, cacheShare: Double) {
         }
         if (round % 50 == 0) sink = ByteArray(3 * 1024 * 1024)                             // a 3 MiB settlement file
     }
+    return round
 }
