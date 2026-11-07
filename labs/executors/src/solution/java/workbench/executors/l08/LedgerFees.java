@@ -37,6 +37,10 @@ public class LedgerFees extends RecursiveTask<Long> {
         LedgerFees left = new LedgerFees(amounts, fees, threshold, from, mid);
         LedgerFees right = new LedgerFees(amounts, fees, threshold, mid, to);
         // 3. fork the left half: it goes on this worker's deque, where an idle worker can steal it
-        return left.compute() + right.compute();
+        left.fork();
+        // 4. work on the right half ourselves, right now
+        long rightFees = right.compute();
+        // 5. only then wait for the left half (or run it here, if nobody stole it)
+        return left.join() + rightFees;
     }
 }
