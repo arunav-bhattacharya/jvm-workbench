@@ -85,11 +85,11 @@ class Mem04G1Regions(VoiceScene):
         full_w = COLS * CELL + (COLS - 1) * GAP
         full_h = ROWS * CELL + (ROWS - 1) * GAP
         big = VGroup()
-        for name, kind, frac in (("eden", "E", 0.42), ("survivor", "S", 0.12), ("old", "O", 0.46)):
+        for name, kind, frac in (("eden", "E", 0.40), ("survivor", "S", 0.16), ("old", "O", 0.44)):
             col = ROLE[kind][1]
             r = Rectangle(width=full_w * frac - 0.1, height=full_h, stroke_color=col, stroke_width=3)
             r.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(col), 0.10), opacity=1)
-            big.add(VGroup(r, T(name, 28, col).move_to(r)))
+            big.add(VGroup(r, T(name, 26, col).move_to(r)))
         big.arrange(RIGHT, buff=0.1).move_to(ORIGIN)
         self.kinds = [LAYOUT[r][c] for r in range(ROWS) for c in range(COLS)]
         self.regs = [region(k).move_to(pos(i)) for i, k in enumerate(self.kinds)]
@@ -97,9 +97,7 @@ class Mem04G1Regions(VoiceScene):
         self.say("G1, the default collector, keeps eden, survivor and old, but not as three big spaces. "
                  "It cuts the heap into equal regions.",
                  [(0, [LaggedStart(*[FadeIn(b) for b in big], lag_ratio=0.3)], 1.4),
-                  (1, [ReplacementTransform(big, grid)], 1.6)])
-        self.remove(grid)
-        self.add(*self.regs)
+                  (1, [FadeOut(big), LaggedStart(*[FadeIn(g, scale=0.8) for g in self.regs], lag_ratio=0.03)], 1.8)])
 
         legend = VGroup()
         for k in "ESOHF":

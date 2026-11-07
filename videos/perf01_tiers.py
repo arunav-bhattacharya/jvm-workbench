@@ -80,9 +80,9 @@ class Perf01Tiers(VoiceScene):
         vt = ValueTracker(0)
         anchor = Dot(radius=0.001).move_to(LEFT * 2.9 + DOWN * 3.0)
         counter = always_redraw(lambda: VGroup(T("calls", 24, GREY_B), M(f"{int(vt.get_value()):,}", 26)).arrange(RIGHT, buff=0.3).move_to(anchor))
-        self.add(anchor)
+        self.add(anchor, counter)
         self.say("Meanwhile the JVM counts the calls, and the jumps back to the top of each loop.",
-                 [(0, [FadeIn(counter), Succession(*[cursor.animate(run_time=0.2).next_to(bc[k % 12], LEFT, buff=0.15) for k in range(12)]),
+                 [(0, [Succession(*[cursor.animate(run_time=0.2).next_to(bc[k % 12], LEFT, buff=0.15) for k in range(12)]),
                        vt.animate(run_time=2.4, rate_func=linear).set_value(120)], 2.4)])
 
         # --- the tier ladder
@@ -117,6 +117,7 @@ class Perf01Tiers(VoiceScene):
         bets = VGroup(M("Card?        inline Card.feeCents", 22), M("not a Card?  uncommon trap", 22),
                       M("refund?      uncommon trap", 22)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
         betsg = VGroup(bets_h, bets).arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to(RIGHT * 3.5 + DOWN * 2.05)
+        counter.clear_updaters()
         self.play(FadeOut(counter), run_time=0.3)
         self.say("C2 bets on the profile. Every receiver was a Card, so it inlines Card's feeCents behind a cheap class check. "
                  "The refund branch never ran, so C2 leaves it out, and puts an uncommon trap there.",

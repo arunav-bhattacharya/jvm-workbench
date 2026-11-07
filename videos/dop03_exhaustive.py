@@ -76,10 +76,13 @@ def val(text, color, size=28):
 KIDS = {"Card": BLUE_M, "Transfer": TEAL_M, "Wallet": GOLD_M}
 
 
-def make_tree(names):
-    parent = mbox("sealed interface Method", WHITE, size=26).move_to(UP * 2.2)
-    xs = {2: [-1.6, 1.6], 3: [-3.2, 0, 3.2]}[len(names)]
-    kids = VGroup(*[mbox(n, KIDS[n], w=2.6, size=26).move_to([x, 0.5, 0]) for n, x in zip(names, xs)])
+def make_tree(names, small=False):
+    if small:
+        sz, kw, kh, py, ky, xs = 22, 1.9, 0.6, 3.0, 2.0, {2: [-1.2, 1.2], 3: [-2.2, 0, 2.2]}[len(names)]
+    else:
+        sz, kw, kh, py, ky, xs = 26, 2.6, 0.8, 2.2, 0.5, {2: [-1.6, 1.6], 3: [-3.2, 0, 3.2]}[len(names)]
+    parent = mbox("sealed interface Method", WHITE, h=kh, size=sz).move_to(UP * py)
+    kids = VGroup(*[mbox(n, KIDS[n], w=kw, h=kh, size=sz).move_to([x, ky, 0]) for n, x in zip(names, xs)])
     lines = VGroup(*[Line(parent.get_bottom(), k.get_top(), stroke_width=2.5, color=GREY_B) for k in kids])
     return VGroup(parent, kids, lines)
 
@@ -97,14 +100,7 @@ class Dop03Exhaustive(Beat3):
                   FadeIn(tree[0]), FadeIn(tree[1]), Create(tree[2]), FadeIn(perm, shift=UP * 0.15), run_time=2.0)
 
         # shrink the tree to the top, bring in the two pieces of code
-        S = 0.62
-        top = UP * 2.75
-
-        def place(t):
-            t.scale(S).move_to(top)
-            return t
-
-        small = place(tree.copy())
+        small = make_tree(["Card", "Transfer"], small=True)
         lh = T("an instanceof chain", 26, GREY_B)
         lc = code(['if (m instanceof Card c)',
                    '    return "card";',
@@ -121,7 +117,7 @@ class Dop03Exhaustive(Beat3):
         lcol = VGroup(lh, lc).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
         rcol = VGroup(rh, rc).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
         cols = VGroup(lcol, rcol).arrange(RIGHT, buff=0.9, aligned_edge=UP)
-        cols.scale(min(1, 12.2 / cols.width)).move_to(DOWN * 0.15)
+        cols.scale(min(1, 12.6 / cols.width)).move_to(DOWN * 0.05)
         self.beat("Two pieces of code turn a method into a receipt label.",
                   Transform(tree, small), FadeOut(perm), FadeIn(cols, shift=UP * 0.2), run_time=1.8)
         okl = tick(True, 0.22).next_to(lh, RIGHT, buff=0.3)
@@ -129,8 +125,7 @@ class Dop03Exhaustive(Beat3):
         self.beat("Both compile, and both give the same answers today.", FadeIn(okl), FadeIn(okr), run_time=1.0)
 
         # a new subtype arrives
-        big3 = make_tree(["Card", "Transfer", "Wallet"])
-        small3 = place(big3.copy())
+        small3 = make_tree(["Card", "Transfer", "Wallet"], small=True)
         self.beat("Now a new payment method ships: Wallet. You add it to the sealed interface.",
                   Transform(tree[0], small3[0]), Transform(tree[1][0], small3[1][0]), Transform(tree[1][1], small3[1][1]),
                   Transform(tree[2][0], small3[2][0]), Transform(tree[2][1], small3[2][1]),
@@ -164,7 +159,7 @@ class Dop03Exhaustive(Beat3):
 
         # Java and Kotlin side by side
         jv = code(["sealed interface Method",
-                   "    permits Card, Transfer, Wallet {}",
+                   "  permits Card, Transfer, Wallet {}",
                    "",
                    "return switch (m) {",
                    '    case Card c -> "card";',
@@ -192,7 +187,7 @@ class Dop03Exhaustive(Beat3):
         je.next_to(jv, DOWN, buff=0.4).align_to(jv, LEFT).set_y(kt.get_bottom()[1] - 0.4 - je.height / 2)
         ke.next_to(kt, DOWN, buff=0.4).align_to(kt, LEFT)
         allg = VGroup(pair, je, ke)
-        allg.scale(min(1, 12.2 / allg.width, 6.6 / allg.height)).move_to(ORIGIN)
+        allg.scale(min(1, 12.8 / allg.width, 6.6 / allg.height)).move_to(ORIGIN)
         self.beat("Kotlin's when over a sealed interface gets the same check, whether you use it as an expression or as a statement.",
                   FadeIn(pair, shift=UP * 0.2), run_time=1.6)
         self.beat("Add Wallet, and both compilers stop. kotlinc even names the branch you forgot.",

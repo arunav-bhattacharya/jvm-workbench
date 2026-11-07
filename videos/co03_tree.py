@@ -72,7 +72,7 @@ class Co03FailureTree(Narrated):
             return anims
 
         def paint(node, color):
-            return node[0].animate.set_stroke(color=color).set_fill(BLACK if color == WHITE else dim(color), opacity=1)
+            return node[0].animate.set_stroke(color=color).set_fill(BLACK if ManimColor(color).to_hex().upper() == "#FFFFFF" else dim(color), opacity=1)
 
         def dot(a, b, color, rt=0.8):
             return travel(Line(a, b), color, run_time=rt)

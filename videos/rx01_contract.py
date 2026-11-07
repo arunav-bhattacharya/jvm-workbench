@@ -161,7 +161,7 @@ class Rx01Contract(Narrated):
         self.say("The publisher answers with onSubscribe, and hands over a Subscription. "
                  "The subscriber uses it to ask for items.")
         self.play(*label("onSubscribe(subscription)", "dn", YELLOW_M), run_dot("dn", YELLOW_M), run_time=1.1)
-        self.play(FadeIn(sbn, shift=UP * 0.25), Indicate(sub, color=YELLOW_M, scale_factor=1.04), run_time=0.8)
+        self.play(FadeIn(sbn, shift=UP * 0.25), Circumscribe(sub, color=YELLOW_M, buff=0.1), run_time=0.8)
         self.hold()
 
         self.beat("Nothing flows yet. The demand is zero.", FadeIn(dem, shift=UP * 0.15), run_time=0.8)

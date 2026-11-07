@@ -1,149 +1,149 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.232
+00:00:02.700 --> 00:00:05.198
 Each request gets its own virtual thread.
 
 2
-00:00:05.232 --> 00:00:10.960
+00:00:05.198 --> 00:00:10.927
 Ten thousand requests means ten thousand threads, and most of them are waiting on the network.
 
 3
-00:00:11.133 --> 00:00:14.164
+00:00:11.100 --> 00:00:14.130
 Yet only a few OS threads run all of them.
 
 4
-00:00:14.164 --> 00:00:15.029
+00:00:14.130 --> 00:00:14.996
 Here is how.
 
 5
-00:00:15.800 --> 00:00:19.830
+00:00:15.700 --> 00:00:19.730
 The JDK runs virtual threads on a ForkJoinPool of its own.
 
 6
-00:00:19.830 --> 00:00:23.791
+00:00:19.730 --> 00:00:23.691
 Its workers are platform threads, called carrier threads.
 
 7
-00:00:23.791 --> 00:00:26.084
+00:00:23.691 --> 00:00:25.984
 By default there is one per core.
 
 8
-00:00:26.084 --> 00:00:27.752
+00:00:25.984 --> 00:00:27.652
 Say the machine has two.
 
 9
-00:00:27.933 --> 00:00:32.021
+00:00:27.800 --> 00:00:31.887
 A carrier takes a ready virtual thread from the queue and runs it.
 
 10
-00:00:32.021 --> 00:00:33.507
+00:00:31.887 --> 00:00:33.373
 This is called mounting.
 
 11
-00:00:33.507 --> 00:00:37.532
+00:00:33.373 --> 00:00:37.399
 The thread's top stack frames now sit on the carrier's own stack.
 
 12
-00:00:37.667 --> 00:00:40.242
+00:00:37.400 --> 00:00:39.975
 Now VT 1 calls a socket read.
 
 13
-00:00:40.242 --> 00:00:42.373
+00:00:39.975 --> 00:00:42.107
 No data has arrived yet.
 
 14
-00:00:42.533 --> 00:00:44.026
+00:00:42.300 --> 00:00:43.792
 So the JDK unmounts it.
 
 15
-00:00:44.026 --> 00:00:49.800
+00:00:43.792 --> 00:00:49.567
 It copies the frames into stack chunk objects on the heap, and the carrier is free again.
 
 16
-00:00:50.000 --> 00:00:52.389
+00:00:49.700 --> 00:00:52.089
 The carrier does not wait for the network.
 
 17
-00:00:52.389 --> 00:00:54.664
+00:00:52.089 --> 00:00:54.364
 It mounts the next ready virtual thread.
 
 18
-00:00:54.800 --> 00:01:00.844
+00:00:54.500 --> 00:01:00.544
 VT 2 calls sleep, so it unmounts the same way, and carrier 2 picks up VT 4.
 
 19
-00:01:01.000 --> 00:01:05.617
-Meanwhile, the JDK has registered VT 1's socket with a poller.
+00:01:00.500 --> 00:01:05.533
+Meanwhile, the JDK has registered the socket of VT 1 with a poller.
 
 20
-00:01:05.617 --> 00:01:11.723
+00:01:05.533 --> 00:01:11.692
 When data arrives, the poller unparks VT 1, and it goes back into the ready queue.
 
 21
-00:01:11.867 --> 00:01:13.356
+00:01:11.600 --> 00:01:13.089
 It waits its turn.
 
 22
-00:01:13.356 --> 00:01:18.899
+00:01:13.089 --> 00:01:18.632
 VT 4 then blocks on a lock and unmounts, and carrier 2 mounts VT 5.
 
 23
-00:01:19.000 --> 00:01:23.124
+00:01:18.700 --> 00:01:22.824
 Then VT 3 finishes, and carrier 1 mounts VT 6.
 
 24
-00:01:23.267 --> 00:01:26.108
+00:01:22.900 --> 00:01:25.742
 VT 5 sends its reply and finishes.
 
 25
-00:01:26.108 --> 00:01:29.619
+00:01:25.742 --> 00:01:29.252
 Now carrier 2 is free, and it mounts VT 1.
 
 26
-00:01:29.619 --> 00:01:35.553
+00:01:29.252 --> 00:01:35.187
 The JDK copies its top frames back, and VT 1 carries on after the read.
 
 27
-00:01:35.733 --> 00:01:39.768
+00:01:35.300 --> 00:01:39.334
 VT 1 started on carrier 1 and now runs on carrier 2.
 
 28
-00:01:39.768 --> 00:01:40.931
+00:01:39.334 --> 00:01:40.498
 That is normal.
 
 29
-00:01:40.931 --> 00:01:44.500
+00:01:40.498 --> 00:01:44.067
 A virtual thread can come back on any carrier.
 
 30
-00:01:45.467 --> 00:01:47.530
+00:01:45.000 --> 00:01:47.064
 Your code never sees the switch.
 
 31
-00:01:47.530 --> 00:01:52.819
+00:01:47.064 --> 00:01:52.352
 Thread.currentThread() returns the same virtual thread, before and after the read.
 
 32
-00:01:53.000 --> 00:01:55.856
+00:01:52.500 --> 00:01:55.356
 The one place the carrier shows is toString.
 
 33
-00:01:55.856 --> 00:01:58.194
+00:01:55.356 --> 00:01:57.694
 The part after the at sign names it.
 
 34
-00:01:58.194 --> 00:02:00.011
+00:01:57.694 --> 00:01:59.511
 Use that for debugging only.
 
 35
-00:02:00.011 --> 00:02:02.413
+00:01:59.511 --> 00:02:01.913
 The format is not specified anywhere.
 
 36
-00:02:02.600 --> 00:02:06.322
+00:02:02.100 --> 00:02:05.822
 A parked virtual thread costs a little heap, not an OS thread.
 
 37
-00:02:06.322 --> 00:02:09.504
+00:02:05.822 --> 00:02:09.004
 That is how two carriers can serve thousands of them.

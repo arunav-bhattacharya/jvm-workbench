@@ -1,0 +1,93 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.953
+javac and kotlinc don't produce machine code.
+
+2
+00:00:05.953 --> 00:00:14.340
+They produce bytecode: small instructions for the JVM, which HotSpot turns into machine code while the program runs.
+
+3
+00:00:14.400 --> 00:00:19.050
+This is the loop body of settle, which adds up a batch of payments.
+
+4
+00:00:19.050 --> 00:00:21.549
+Bytecode 20 is the call to feeCents.
+
+5
+00:00:21.549 --> 00:00:23.700
+Bytecode 31 tests for a refund.
+
+6
+00:00:23.700 --> 00:00:25.709
+Nothing is compiled at first.
+
+7
+00:00:25.709 --> 00:00:34.508
+Every method starts in the interpreter, a loop inside the JVM that reads one bytecode instruction at a time and carries it out.
+
+8
+00:00:34.600 --> 00:00:39.897
+Meanwhile the JVM counts the calls, and the jumps back to the top of each loop.
+
+9
+00:00:40.800 --> 00:00:46.554
+At about 200, a compiler thread compiles the method with C1, in the background.
+
+10
+00:00:46.554 --> 00:00:49.176
+C1 is quick, and optimizes a little.
+
+11
+00:00:49.300 --> 00:00:56.048
+Its code also records a profile: which way each branch went, and which receiver types reached each call.
+
+12
+00:00:56.200 --> 00:01:02.163
+About 5,000 calls later, C2 compiles it again, slowly and hard, from that profile.
+
+13
+00:01:02.163 --> 00:01:09.653
+The JVM raises these thresholds when the compile queues are long, so treat them as orders of magnitude.
+
+14
+00:01:10.100 --> 00:01:11.660
+C2 bets on the profile.
+
+15
+00:01:11.660 --> 00:01:17.358
+Every receiver was a Card, so it inlines Card's feeCents behind a cheap class check.
+
+16
+00:01:17.358 --> 00:01:22.920
+The refund branch never ran, so C2 leaves it out, and puts an uncommon trap there.
+
+17
+00:01:22.900 --> 00:01:24.443
+Then a refund arrives.
+
+18
+00:01:24.443 --> 00:01:27.248
+The trap fires, and the JVM deoptimizes.
+
+19
+00:01:27.248 --> 00:01:32.648
+It rebuilds an interpreter frame from the compiled one, and carries on there.
+
+20
+00:01:32.800 --> 00:01:34.994
+The C2 code is made not entrant.
+
+21
+00:01:34.994 --> 00:01:39.725
+The method profiles again, now with refunds, and gets compiled again.
+
+22
+00:01:39.800 --> 00:01:42.503
+A burst of this after a deploy is normal.
+
+23
+00:01:42.503 --> 00:01:46.064
+A steady stream, hours after startup, is worth a look.

@@ -475,5 +475,9 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
 /* narrated concept videos (Manim, 1080p, black like the figures) */
 figure.vid { margin: 4px 0 22px; display: grid; gap: 0; }
 figure.vid video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; border: 1px solid #1d2026; border-radius: 14px; }
-figure.vid figcaption { font: italic 16px/1.45 var(--read); color: var(--mute); padding: 10px 2px 0; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+figure.vid figcaption { font: italic 16px/1.45 var(--read); color: var(--mute); padding: 10px 2px 0; display: flex; gap: 6px 10px; align-items: baseline; flex-wrap: wrap; }
+figure.vid .vt { flex: 1 1 260px; min-width: 0; }
+figure.vid .vpicks { display: flex; gap: 10px; flex-wrap: wrap; font-style: normal; }
+figure.vid .vpick { display: inline-flex; align-items: center; gap: 6px; font: 500 12.5px/1 "Inter", system-ui, sans-serif; color: var(--faint); }
+figure.vid .vpick select { font: 400 13px/1.2 "Inter", system-ui, sans-serif; padding: 4px 6px; width: auto; }
 figure.vid figcaption b { font: normal 600 12px/1 "Inter", system-ui, sans-serif; letter-spacing: .08em; color: var(--ember); }

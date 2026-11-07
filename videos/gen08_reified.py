@@ -118,8 +118,8 @@ class Gen08Reified(Beat3):
         # inline copies the body; reified fills in the class
         dfn = one("inline fun <reified T> Any?.isA(): Boolean = this is T", 26, WHITE).move_to(UP * 2.75)
         part(dfn, "inline").set_color(GREEN_M)
-        self.beat("Kotlin has one way around this. Mark the function inline.", FadeIn(dfn[:6]), run_time=0.8)
-        self.play(FadeIn(dfn[6:]), run_time=0.6)
+        self.beat("Kotlin has one way around this. Mark the function inline.", Succession(FadeIn(dfn, shift=DOWN * 0.15, run_time=0.8),
+                             Indicate(part(dfn, "inline"), color=GREEN_M, scale_factor=1.25, run_time=0.8)), run_time=1.6)
 
         you = code(["fun check(x: Any?) {",
                     "    println(x.isA<String>())",

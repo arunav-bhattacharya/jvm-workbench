@@ -140,9 +140,9 @@ class Io03Pipeline(Narrated):
         hs = chip_m("hello", STR).move_to(above(sdec))
         self.say("The string decoder turns it into a String. The read skips the encoder, which only handles writes. "
                  "Your handler sees whole lines.")
-        self.play(ReplacementTransform(hello, hs), Indicate(sdec, color=IN, scale_factor=1.04), run_time=0.8)
+        self.play(ReplacementTransform(hello, hs), Circumscribe(sdec, color=IN, buff=0.08), run_time=0.8)
         self.play(hs.animate.move_to(above(hand)), senc.animate.set_opacity(0.45), run_time=1.2)
-        self.play(Indicate(hand, color=IN, scale_factor=1.05), run_time=0.7)
+        self.play(Circumscribe(hand, color=IN, buff=0.08), run_time=0.7)
         self.hold()
 
         oa = Arrow([hand.get_x(), -2.05, 0], [head.get_x(), -2.05, 0], buff=0, stroke_width=3, color=OUT,
@@ -157,7 +157,7 @@ class Io03Pipeline(Narrated):
 
         ub = chip_m("HELLO\\n", BYTES).move_to(below(senc))
         self.say("The string encoder turns the String back into bytes, and the head hands them to the socket.")
-        self.play(ReplacementTransform(up, ub), Indicate(senc, color=OUT, scale_factor=1.04), run_time=0.8)
+        self.play(ReplacementTransform(up, ub), Circumscribe(senc, color=OUT, buff=0.08), run_time=0.8)
         self.play(ub.animate.move_to(below(head)), fdec.animate.set_opacity(0.45), sdec.animate.set_opacity(0.45), run_time=1.3)
         self.play(FadeOut(ub, shift=DOWN * 0.3), fdec.animate.set_opacity(1), sdec.animate.set_opacity(1), run_time=0.5)
         self.hold()
@@ -192,7 +192,7 @@ class Io03Pipeline(Narrated):
         l1 = lane("loop thread", y1)
         a1 = bar(0, 1000, y1, BAD, "A: SLOW, sleep(1000)")
         btick = Line([X(50), y1 + 0.55, 0], [X(50), y1 + 0.25, 0], stroke_width=3, color=TEAL_M)
-        blab = T("B asks for FAST", 22, TEAL_M).next_to(btick, UP, buff=0.08).align_to(btick, LEFT).shift(LEFT * 0.1)
+        blab = T("B asks for FAST", 22, TEAL_M).move_to([X(50) + 0.15, y1 + 0.68, 0], aligned_edge=LEFT)
         bwait = DashedLine([X(50), y1 + 0.4, 0], [X(1000), y1 + 0.4, 0], dash_length=0.1, stroke_width=2, color=TEAL_M)
         b1 = bar(1000, 1011, y1, TEAL_M)
         r1 = T("FAST reply after 1,011 ms", 26, BAD).move_to([x1, y1 - 0.6, 0], aligned_edge=RIGHT)

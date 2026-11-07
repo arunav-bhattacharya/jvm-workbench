@@ -1,0 +1,93 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:08.839
+G1, the default collector, keeps eden, survivor and old, but not as three big spaces.
+
+2
+00:00:08.839 --> 00:00:11.439
+It cuts the heap into equal regions.
+
+3
+00:00:11.500 --> 00:00:21.231
+A region is the max heap divided by 2048, kept between 1 and 32 MB, and rounded up to a power of two.
+
+4
+00:00:21.231 --> 00:00:24.121
+A 1 GB heap gets 1 MB regions.
+
+5
+00:00:24.600 --> 00:00:30.281
+Each region has a role for a while: eden, survivor, old, humongous, or free.
+
+6
+00:00:30.400 --> 00:00:32.711
+New objects fill the eden regions.
+
+7
+00:00:32.900 --> 00:00:40.672
+A young pause copies the live objects out of every eden and survivor region, into free regions that become survivors.
+
+8
+00:00:40.800 --> 00:00:45.777
+The evacuated regions are free again, and next time any of them can become anything.
+
+9
+00:00:45.900 --> 00:00:49.298
+An object larger than half a region is humongous.
+
+10
+00:00:49.298 --> 00:00:56.303
+It skips eden and gets its own run of whole regions, side by side, which count as old from the start.
+
+11
+00:00:56.400 --> 00:01:04.556
+A 3 MiB array plus its 16-byte header needs four 1 MB regions, and nearly all of the fourth is wasted.
+
+12
+00:01:05.100 --> 00:01:08.206
+Old regions fill up slowly with promoted objects.
+
+13
+00:01:08.206 --> 00:01:17.143
+When they pass a threshold, 45 percent of the heap to begin with, G1 marks the live objects in the background, while your code keeps running.
+
+14
+00:01:17.143 --> 00:01:20.629
+Now it knows how much of each old region is still live.
+
+15
+00:01:20.700 --> 00:01:22.100
+Then come mixed pauses.
+
+16
+00:01:22.100 --> 00:01:27.272
+They take all the young regions, plus a few old ones: the ones with the most garbage.
+
+17
+00:01:27.272 --> 00:01:30.619
+That choice is where the name Garbage First comes from.
+
+18
+00:01:30.600 --> 00:01:37.397
+Copying costs what is live, so a mostly garbage region gives back the most space for the least work.
+
+19
+00:01:37.397 --> 00:01:41.408
+A region more than 85 percent live is not even a candidate.
+
+20
+00:01:41.900 --> 00:01:42.829
+So, a check.
+
+21
+00:01:42.829 --> 00:01:50.340
+Which old region does G1 take first: one that is 70 percent live, or one that is 20 percent live?
+
+22
+00:01:51.100 --> 00:01:52.519
+The 20 percent one.
+
+23
+00:01:52.519 --> 00:01:57.151
+G1 copies a fifth of a region, and gets the whole region back.

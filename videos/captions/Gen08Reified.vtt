@@ -1,0 +1,129 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.064
+Here are two lists.
+
+2
+00:00:04.064 --> 00:00:05.642
+One holds payment ids.
+
+3
+00:00:05.642 --> 00:00:08.011
+The other holds amounts in cents.
+
+4
+00:00:08.233 --> 00:00:10.928
+The compiler checks them as two different types.
+
+5
+00:00:11.533 --> 00:00:14.022
+Then it erases the type arguments.
+
+6
+00:00:14.022 --> 00:00:18.779
+At run time both objects are the same class, java.util.ArrayList.
+
+7
+00:00:19.000 --> 00:00:21.068
+Nothing in the object says String.
+
+8
+00:00:21.068 --> 00:00:24.475
+Ask each one for its class, and you get the same answer.
+
+9
+00:00:25.300 --> 00:00:27.752
+So a check like x is T can't compile.
+
+10
+00:00:27.752 --> 00:00:30.668
+At run time, there is no T to check against.
+
+11
+00:00:31.400 --> 00:00:33.533
+Kotlin has one way around this.
+
+12
+00:00:33.533 --> 00:00:35.253
+Mark the function inline.
+
+13
+00:00:35.467 --> 00:00:37.668
+Now the compiler does not call it.
+
+14
+00:00:37.668 --> 00:00:40.259
+It copies its body into every call site.
+
+15
+00:00:40.467 --> 00:00:44.701
+At each call site, the type argument is right there in the code.
+
+16
+00:00:44.701 --> 00:00:45.892
+Here it is String.
+
+17
+00:00:45.892 --> 00:00:46.951
+Here it is Long.
+
+18
+00:00:47.567 --> 00:00:52.608
+Mark T reified, and the compiler writes that real class into each copy.
+
+19
+00:00:52.833 --> 00:00:55.882
+Here is javap on the compiled check function.
+
+20
+00:00:55.882 --> 00:00:57.508
+There is no call to isA.
+
+21
+00:00:57.508 --> 00:01:03.605
+There is an instanceof String, and an instanceof Long, right in the caller's own bytecode.
+
+22
+00:01:04.433 --> 00:01:07.247
+The standard library uses the same trick.
+
+23
+00:01:07.247 --> 00:01:09.375
+Here is a list of mixed values.
+
+24
+00:01:09.600 --> 00:01:15.751
+filterIsInstance of String keeps only the strings, with a real instanceof check on each one.
+
+25
+00:01:16.567 --> 00:01:17.900
+It needs both words.
+
+26
+00:01:17.900 --> 00:01:24.900
+Without inline, there is one compiled body for every caller, so there is nowhere to write the real class.
+
+27
+00:01:25.133 --> 00:01:27.363
+And the caller must know the type.
+
+28
+00:01:27.363 --> 00:01:31.035
+A generic caller with a plain T has no class to copy in.
+
+29
+00:01:31.767 --> 00:01:34.383
+Java has no reified type parameters.
+
+30
+00:01:34.383 --> 00:01:38.671
+The closest Java gets is to pass the Class object yourself.
+
+31
+00:01:38.900 --> 00:01:43.740
+In Kotlin you name the type at the call, and the compiler fills in the class.
+
+32
+00:01:43.740 --> 00:01:45.185
+Both calls return true.

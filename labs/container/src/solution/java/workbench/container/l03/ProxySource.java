@@ -39,8 +39,13 @@ final class ProxySource {
         List<Method> candidates = interfaces.length > 0
                 ? Arrays.stream(interfaces).flatMap(i -> Arrays.stream(i.getMethods())).toList()
                 : Arrays.asList(component.getMethods());
-        return candidates.stream().filter(Interception::isIntercepted).filter(m -> !m.isDefault()).toList();
+        return candidates.stream().filter(Interception::isIntercepted).filter(m -> !m.isDefault())
+                .sorted(BY_SIGNATURE).toList();
     }
+
+    // getMethods() has no fixed order; sorting makes the generated source the same on every build
+    private static final java.util.Comparator<Method> BY_SIGNATURE =
+            java.util.Comparator.comparing(Method::getName).thenComparing(m -> Arrays.toString(m.getParameterTypes()));
 
     /** A class that implements the interfaces and forwards to a target; default methods are inherited. */
     private static String forwarder(Class<?> component) {
@@ -54,6 +59,7 @@ final class ProxySource {
         for (Class<?> i : component.getInterfaces()) {
             for (Method m : i.getMethods()) if (Modifier.isAbstract(m.getModifiers())) abstracts.add(m);
         }
+        abstracts.sort(BY_SIGNATURE);
         appendChains(out, abstracts);
         out.append("        private final ").append(target).append(" target;\n\n");
         out.append("        ").append(name).append("(").append(target).append(" target) {\n")

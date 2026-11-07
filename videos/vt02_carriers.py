@@ -28,6 +28,8 @@ def seq(scene, text, *steps, after=0.25):
             scene.wait(st); used += st
         else:
             anims, rt = st
+            if callable(anims):      # built at play time, so several moves of one mobject don't share a target
+                anims = anims()
             scene.play(*anims, run_time=rt); used += rt
     if dur - used > 0.02:
         scene.wait(dur - used)
@@ -133,21 +135,21 @@ class Vt02Carriers(VoiceScene):
         # mount VT 1 and VT 2
         seq(self, "A carrier takes a ready virtual thread from the queue and runs it. This is called mounting. "
                   "The thread's top stack frames now sit on the carrier's own stack.",
-            1.8, (mount("VT 1", 0), 1.0), 1.2, (mount("VT 2", 1), 1.0))
+            1.8, (lambda: mount("VT 1", 0), 1.0), 1.2, (lambda: mount("VT 2", 1), 1.0))
 
         # VT 1 blocks on a socket read
         seq(self, "Now VT 1 calls a socket read. No data has arrived yet.",
             1.6, ([Indicate(st["VT 1"][0][1], color=RED_M, scale_factor=1.2)], 1.0))
         seq(self, "So the JDK unmounts it. It copies the frames into stack chunk objects on the heap, "
                   "and the carrier is free again.",
-            1.0, (unmount("VT 1", 0), 1.4))
+            1.0, (lambda: unmount("VT 1", 0), 1.4))
         seq(self, "The carrier does not wait for the network. It mounts the next ready virtual thread.",
-            1.0, (mount("VT 3", 0), 1.0))
+            1.0, (lambda: mount("VT 3", 0), 1.0))
         seq(self, "VT 2 calls sleep, so it unmounts the same way, and carrier 2 picks up VT 4.",
-            0.6, (unmount("VT 2", 1), 1.0), 0.3, (mount("VT 4", 1), 1.0))
+            0.6, (lambda: unmount("VT 2", 1), 1.0), 0.3, (lambda: mount("VT 4", 1), 1.0))
 
         # the IO finishes; VT 1 back to the queue
-        poll = T("socket ready", 24, GREEN_M).next_to(by["VT 1"], UP, buff=0.15)
+        poll = T("data ready", 22, GREEN_M).next_to(by["VT 1"], DOWN, buff=0.12)
         seq(self, "Meanwhile, the JDK has registered the socket of VT 1 with a poller. When data arrives, "
                   "the poller unparks VT 1, and it goes back into the ready queue.",
             2.4, ([FadeIn(poll, shift=DOWN * 0.1)], 0.6), 1.4,
@@ -158,17 +160,17 @@ class Vt02Carriers(VoiceScene):
         queue.remove(by["VT 5"])
         f5 = frames(["send()", "notify()", "handle()"], BLUE_M).move_to(st_spot(1))
         seq(self, "It waits its turn. VT 4 then blocks on a lock and unmounts, and carrier 2 mounts VT 5.",
-            0.8, (unmount("VT 4", 2), 1.0), 0.3,
-            ([by["VT 5"].animate.move_to(vt_spot(1)), FadeIn(f5, shift=RIGHT * 0.2)] + reflow(), 1.0))
+            0.8, (lambda: unmount("VT 4", 2), 1.0), 0.3,
+            (lambda: [by["VT 5"].animate.move_to(vt_spot(1)), FadeIn(f5, shift=RIGHT * 0.2)] + reflow(), 1.0))
         queue.remove(by["VT 6"])
         f6 = frames(["parse()", "route()", "handle()"], BLUE_M).move_to(st_spot(0))
         seq(self, "Then VT 3 finishes, and carrier 1 mounts VT 6.",
             0.6, ([FadeOut(by["VT 3"]), FadeOut(st["VT 3"])], 0.6),
-            ([by["VT 6"].animate.move_to(vt_spot(0)), FadeIn(f6, shift=RIGHT * 0.2)] + reflow(), 1.0))
+            (lambda: [by["VT 6"].animate.move_to(vt_spot(0)), FadeIn(f6, shift=RIGHT * 0.2)] + reflow(), 1.0))
         seq(self, "VT 5 sends its reply and finishes. Now carrier 2 is free, and it mounts VT 1. "
                   "The JDK copies its top frames back, and VT 1 carries on after the read.",
             1.6, ([FadeOut(by["VT 5"]), FadeOut(f5)], 0.6), 0.8,
-            (mount("VT 1", 1, from_heap=True), 1.4))
+            (lambda: mount("VT 1", 1, from_heap=True), 1.4))
         moved = T("first carrier 1, now carrier 2", 24, YELLOW_M).move_to([CX, -3.0, 0])
         self.beat("VT 1 started on carrier 1 and now runs on carrier 2. That is normal. "
                   "A virtual thread can come back on any carrier.",

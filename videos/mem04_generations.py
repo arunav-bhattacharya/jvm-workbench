@@ -63,13 +63,12 @@ class Mem04Generations(VoiceScene):
         req = box("payment request", WHITE, h=0.9, size=28).move_to(LEFT * 4.6 + UP * 1.2)
         names = ["JSON tree", "PaymentDto", "Response", "String", "String"]
         objs = VGroup(*[chip(n, EDEN_C, 24, mono=True) for n in names])
-        VGroup(objs[:3]).arrange(RIGHT, buff=0.3)
-        VGroup(objs[3:]).arrange(RIGHT, buff=0.3)
-        rows = VGroup(VGroup(*objs[:3]), VGroup(*objs[3:])).arrange(DOWN, buff=0.3, aligned_edge=LEFT).move_to(RIGHT * 2.0 + UP * 1.2)
+        rows = VGroup(VGroup(*objs[:3]).arrange(RIGHT, buff=0.3), VGroup(*objs[3:]).arrange(RIGHT, buff=0.3))
+        rows.arrange(DOWN, buff=0.3, aligned_edge=LEFT).move_to(RIGHT * 2.0 + UP * 1.2)
         links = VGroup(*[arrow(req.get_right(), o.get_left(), GREY_D, buff=0.12, sw=2) for o in (objs[0], objs[3])])
         dead_l = T("garbage a few milliseconds later", 26, GREY_B).next_to(rows, DOWN, buff=0.35).align_to(rows, LEFT)
         longl = VGroup(chip("merchant config", EDEN_C, 24), chip("pooled connection", EDEN_C, 24)).arrange(RIGHT, buff=0.3)
-        long_t = T("these live for hours", 26, EDEN_C)
+        long_t = T("these live much longer", 26, EDEN_C)
         long_g = VGroup(long_t, longl).arrange(RIGHT, buff=0.5).move_to(DOWN * 2.0)
         self.say("A payment request allocates parsed JSON, a few data objects, some strings and a response. "
                  "A few milliseconds later, all of it is garbage.",
@@ -149,7 +148,7 @@ class Mem04Generations(VoiceScene):
         seg2 = VGroup(*[Line([2.6, y, 0], [6.2, y, 0], stroke_width=4, color=GREY_B) for y in lanes_y])
         band = Rectangle(width=2.6, height=1.15, stroke_color=RED_M, stroke_width=2).set_fill(RED_M, opacity=0.22)
         band.move_to([1.2, 2.75, 0])
-        band_t = T("pause", 24, RED_M).move_to(band)
+        band_t = VGroup(T("stop-the-world", 22, RED_M), T("pause", 22, RED_M)).arrange(DOWN, buff=0.08).move_to(band)
         self.play(FadeOut(VGroup(brace, young_t)), run_time=0.4)
         live2 = [8, 20, 33, 49]
         e2 = [obj().move_to(p) for p in e_slots]

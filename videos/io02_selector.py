@@ -58,7 +58,8 @@ class Io02Selector(Narrated):
                   run_time=1.4)
         self.hold()
 
-        mib = T("each thread: about 1 MiB of native memory", 26, GREY_B).move_to(RIGHT * 4.2 + DOWN * 3.05)
+        mib = VGroup(T("each thread holds", 26, GREY_B), T("about 1 MiB of", 26, GREY_B),
+                     T("native memory", 26, GREY_B)).arrange(DOWN, buff=0.12).move_to(RIGHT * 4.4 + DOWN * 1.2)
         self.beat("Each one still holds its own stack, about a megabyte of native memory.", FadeIn(mib, shift=UP * 0.15),
                   run_time=0.8)
 
@@ -74,7 +75,8 @@ class Io02Selector(Narrated):
         self.play(recolor(thr[2], GREY_M), recolor(conns[2], CONN), Transform(st[2], back), run_time=0.5)
         self.hold()
 
-        big = T("10,000 connections = 10,000 threads", 30, RED_M).move_to(RIGHT * 3.6 + UP * 3.05)
+        big = VGroup(T("10,000 connections", 30, RED_M), T("= 10,000 threads", 30, RED_M)).arrange(DOWN, buff=0.15)
+        big.move_to(RIGHT * 4.4 + UP * 1.0)
         self.beat("Ten thousand connections need ten thousand threads, and almost all of them are waiting.",
                   FadeIn(big, shift=UP * 0.15), run_time=0.9)
         self.play(FadeOut(VGroup(*thr, *wires, *st, mib, big)), run_time=0.7)

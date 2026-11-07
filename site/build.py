@@ -152,7 +152,9 @@ def compile_course():
         if (ROOT / "web/video" / f"{v['slug']}.mp4").exists() and meta.exists():
             vids.setdefault(v["lesson"], {})[v["section"]] = {
                 "src": f"video/{v['slug']}.mp4", "poster": f"video/{v['slug']}.jpg", "vtt": f"video/{v['slug']}.vtt",
-                "secs": json.loads(meta.read_text())["secs"], "title": inline(v["title"])}
+                "secs": json.loads(meta.read_text())["secs"], "title": inline(v["title"]),
+                "voices": {k: f"vvoice/{k}/{v['slug']}.m4a" for k in ("us-f", "in-m")
+                           if (ROOT / "web/vvoice" / k / f"{v['slug']}.m4a").exists()}}
         else:
             print(f"video {v['slug']} is listed but not rendered yet", file=sys.stderr)
     for t in C["tracks"]:
