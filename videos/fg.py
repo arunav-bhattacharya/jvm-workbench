@@ -80,6 +80,8 @@ class VoiceScene(Scene):
     def tear_down(self):
         out = ["WEBVTT", ""]
         for i, (a, b, txt) in enumerate(self._cues, 1):
+            # WebVTT treats < and & as markup: escape them (text already escaped stays as it is)
+            txt = re.sub(r"&(?!lt;|gt;|amp;)", "&amp;", txt).replace("<", "&lt;").replace(">", "&gt;")
             out += [str(i), f"{_ts(a)} --> {_ts(b)}", txt, ""]
         (CAPS / f"{type(self).__name__}.vtt").write_text("\n".join(out))
 

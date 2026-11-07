@@ -1,10 +1,25 @@
 {
   "live": [
+    "cls01-loading",
+    "cls04-proxy",
+    "co01-statemachine",
+    "co03-tree",
     "conc03-race",
     "conc06-deadlock",
+    "dop03-exhaustive",
     "exec02-pool-rules",
+    "gen03-invariance",
+    "gen04-out",
+    "gen05-in",
+    "gen08-reified",
+    "io02-selector",
+    "io03-pipeline",
     "jmm01-stop-loop",
     "jmm02-volatile-edge",
+    "mem04-g1-regions",
+    "mem04-generations",
+    "perf01-tiers",
+    "rx01-contract",
     "vt02-carriers"
   ]
 }
