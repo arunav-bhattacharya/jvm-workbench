@@ -75,7 +75,7 @@ L = {
      "Run the Java twin, which uses `Future.cancel(true)` and the interrupt flag."
     ],
     "code": tryit("CancelABusyLoop.kt", "CancelABusyLoopJava.java"),
-    "expect": "The loop with no check stops about 1,000 ms after `cancel()` (or more on a slow machine): it simply finished its work. The other three stop within a few milliseconds. With a check only every 10 million rows, that loop stops a few hundred ms late, at its next check. The Java twin shows the same split: `cancel(true)` reports success at once, but the loop that never reads the flag keeps its thread busy until it ends."
+    "expect": "The loop with no check stops about 1,000 ms after `cancel()` (or more on a slow machine): it simply finished its work. The other three stop within a few milliseconds. With a check only every 10 million rows, that loop stops late, at its next check (10 million rows take a couple of hundred ms). The Java twin shows the same split: `cancel(true)` reports success at once, but the loop that never reads the flag keeps its thread busy until it ends."
    },
    "refs": [
     {"title": "Cancellation and timeouts (Kotlin docs)", "url": "https://kotlinlang.org/docs/cancellation-and-timeouts.html", "kind": "read"},

@@ -20,7 +20,7 @@ public class LoaderTour {
 
     static void show(Class<?> c) {
         ClassLoader l = c.getClassLoader();
-        System.out.printf("%-22s loader=%-9s module=%s%n",
+        System.out.printf("%-34s loader=%-9s module=%s%n",
                 c.getName(), l == null ? "bootstrap" : l.getName(), c.getModule().getName());
     }
 }

@@ -14,7 +14,6 @@ def demo(name, kname=None, title=None):
                     "run": DEMO + kname + "Kt", "file": f"{lab}/demo/{K}/{kname}.kt"}}
 
 FIG = """<svg viewBox="0 0 680 230" role="img" aria-label="One PrintCompilation line split into its columns: time, compile id, OSR flag, tier, method, loop bytecode index and bytecode size">
-<text class="t-s t-m" x="20" y="22">40   10 %     4       Hot::longLoop @ 4 (27 bytes)</text>
 <rect class="box" x="30" y="92" width="56" height="38" rx="8"/><text class="t t-code" x="58" y="116" text-anchor="middle">40</text>
 <rect class="box" x="96" y="92" width="56" height="38" rx="8"/><text class="t t-code" x="124" y="116" text-anchor="middle">10</text>
 <rect class="box-b" x="162" y="92" width="44" height="38" rx="8"/><text class="t t-code" x="184" y="116" text-anchor="middle">%</text>
@@ -28,7 +27,7 @@ FIG = """<svg viewBox="0 0 680 230" role="img" aria-label="One PrintCompilation 
 <line class="ln-d" x1="238" y1="130" x2="238" y2="166"/><text class="t-s t-a" x="238" y="182" text-anchor="middle">tier 4 = C2</text>
 <line class="ln-d" x1="338" y1="62" x2="338" y2="92"/><text class="t-s" x="338" y="56" text-anchor="middle">Class::method</text>
 <line class="ln-d" x1="444" y1="130" x2="444" y2="166"/><text class="t-s t-b" x="444" y="182" text-anchor="middle">enters at bytecode 4</text>
-<line class="ln-d" x1="538" y1="62" x2="538" y2="92"/><text class="t-s" x="560" y="56" text-anchor="middle">bytecode size</text>
+<line class="ln-d" x1="538" y1="62" x2="538" y2="92"/><text class="t-s" x="538" y="56" text-anchor="middle">bytecode size</text>
 <text class="t-s t-m" x="340" y="214" text-anchor="middle">a trailing message such as "made not entrant" can follow the size</text>
 </svg>"""
 

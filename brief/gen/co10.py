@@ -123,7 +123,7 @@ L = {
      "Move the poller from `backgroundScope.launch` to a plain `launch`, and add `runTest(timeout = 3.seconds)` (import `kotlin.time.Duration.Companion.seconds`). Predict, then run."
     ],
     "code": solo("TestDispatchers.kt"),
-    "expect": "`StandardTestDispatcher: [after launch, child ran]` and `UnconfinedTestDispatcher: [child ran, after launch]`. The poller has run 5 times after `advanceTimeBy(5_500)`, and still 5 after `advanceUntilIdle()`, which ignores background work. After your change the test never finishes: `runTest` waits for the endless child, and after 3 real seconds it fails with an `AssertionError` about the timeout."
+    "expect": "`StandardTestDispatcher: [after launch, child ran]` and `UnconfinedTestDispatcher: [child ran, after launch]`. The poller has run 5 times after `advanceTimeBy(5_500)`, and still 5 after `advanceUntilIdle()`, which ignores background work. After your change, `advanceUntilIdle()` treats the poller as foreground work and runs it again and again, millions of virtual seconds' worth, until the 3-second wall-clock timeout stops everything with `UncompletedCoroutinesError` (an `AssertionError`): the test body did not run to completion."
    }
   }
  ],

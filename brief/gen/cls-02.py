@@ -1,0 +1,256 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/bytecode/src"
+P = "java/workbench/bytecode/l02"
+K = "kotlin/workbench/bytecode/l02"
+read = lambda p: (ROOT / p).read_text()
+RUN = "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l02."
+
+# ---- figure: the operand stack after each instruction of feeMinor(125_000, 290) ----
+steps = [("lload_0", ["125000L"]), ("iload_2", ["125000L", "290"]), ("i2l", ["125000L", "290L"]),
+         ("lmul", ["36250000L"]), ("ldc2_w #7", ["36250000L", "10000L"]), ("ldiv", ["3625L"]), ("lreturn", [])]
+parts = ['<svg viewBox="0 0 680 250" role="img" aria-label="The operand stack after each instruction of feeMinor(125000, 290): '
+         'load the long, load the int, widen it, multiply, push 10000, divide, return 3625.">']
+for i, (ins, stack) in enumerate(steps):
+    x = 14 + i * 95
+    cx = x + 42
+    parts.append(f'<text class="t-s t-code" x="{cx}" y="24" text-anchor="middle">{ins}</text>')
+    parts.append(f'<line class="ln-d" x1="{x}" y1="196" x2="{x + 84}" y2="196"/>')
+    for j, v in enumerate(stack):
+        y = 160 - j * 40
+        cls = "box-a" if j == len(stack) - 1 else "box"
+        parts.append(f'<rect class="{cls}" x="{x}" y="{y}" width="84" height="32" rx="8"/>')
+        parts.append(f'<text class="t-s t-code" x="{cx}" y="{y + 21}" text-anchor="middle">{v}</text>')
+    if not stack:
+        parts.append(f'<text class="t-s t-ok" x="{cx}" y="181" text-anchor="middle">3625 out</text>')
+    if i < len(steps) - 1:
+        parts.append(f'<line class="ln" x1="{x + 86}" y1="40" x2="{x + 93}" y2="40" marker-end="url(#arr)"/>')
+parts.append('<text class="t-s t-m" x="340" y="226" text-anchor="middle">locals: slot 0-1 = amountMinor (a long takes two), slot 2 = bps</text>')
+parts.append('<text class="t-s t-m" x="340" y="244" text-anchor="middle">the top of the stack is highlighted; javap -v reports stack=4, locals=3</text>')
+parts.append('</svg>')
+FIG = "\n".join(parts)
+
+STACK_JAVA = read(f"{lab}/demo/{P}/StackDemo.java")
+STACK_KT = read(f"{lab}/demo/{K}/StackDemo.kt")
+
+L = {
+ "id": "cls-02",
+ "title": "Reading bytecode: javap, the operand stack and Kotlin's output",
+ "minutes": 35,
+ "goal": "By the end you can run javap on any class in your build, trace a method's operand stack by hand, decode a method descriptor, and translate what kotlinc produced (getters, Companion, $default, INSTANCE) back into the Kotlin you wrote.",
+ "warmup": {
+  "q": "Kotlin: `class Account { companion object { val DEFAULT_CURRENCY = \"EUR\" } }`. How does Java code read it?",
+  "options": [
+   "`Account.DEFAULT_CURRENCY`",
+   "`Account.Companion.getDEFAULT_CURRENCY()`",
+   "`Account.getDEFAULT_CURRENCY()`",
+   "Java can't read companion properties"
+  ],
+  "answer": 1,
+  "why": "kotlinc stores the value in a private static field on `Account`, but the public accessor is a getter on the `Companion` object, so Java writes `Account.Companion.getDEFAULT_CURRENCY()`. `Account.DEFAULT_CURRENCY` only works if you make it `const val` or `@JvmField`. A static getter on `Account` would need `@JvmStatic`."
+ },
+ "sections": [
+  {
+   "h": "The javap tool turns a class file back into readable instructions",
+   "body": "`javap` ships with every JDK, and it reads `.class` files. Point it at your build output:\n\n```bash\njavap -c -p bytecode/build/classes/java/demo/workbench/bytecode/l02/StackDemo.class\n```\n\n`-c` prints each method's bytecode, `-p` includes private members, and `-v` (verbose) adds the constant pool, stack and local-variable sizes, flags and the class-file version. Here is one method in Java and its Kotlin twin, both compiled by the labs build:\n\n```java\nstatic long feeMinor(long amountMinor, int bps) {\n    return amountMinor * bps / 10_000;\n}\n```\n\n```kotlin\nfun feeMinor(amountMinor: Long, bps: Int): Long = amountMinor * bps / 10_000\n```\n\n```text\njavac                                 kotlinc\nstatic long feeMinor(long, int);      public static final long feeMinor(long, int);\n   0: lload_0                            0: lload_0\n   1: iload_2                            1: iload_2\n   2: i2l                                2: i2l\n   3: lmul                               3: lmul\n   4: ldc2_w  #7  // long 10000l         4: sipush  10000\n   7: ldiv                               7: i2l\n   8: lreturn                            8: ldiv\n                                         9: lreturn\n```\n\nThe two compilers agree on almost everything. kotlinc put the top-level function in a class named `StackDemoKt`, made it `public static final`, and pushed `10000` as a short (`sipush`) that it then widens, where javac loads a ready-made `long` from the constant pool. That's a style difference between the compilers: both leave the same `long` 10000 on the stack.\n\nThat is the right mental model for bytecode. It's the contract between your compiler and the JVM, and it's what every tool in this track reads or writes: the verifier, the JIT, `java.lang.reflect.Proxy`, Byte Buddy, agents. You'll rarely write it, but you'll read it whenever the source doesn't explain what happens at run time. A Kotlin property that Java can't see, a lambda that allocates, or a framework proxy that skips your method all show up in `javap` first.\n\nThe class-file version tells you which compiler settings won. The labs compile with `release 21`, so `javap -v` prints `major version: 65`. JDK 25's javac without `--release` writes 69. kotlinc 2.4.21 run by hand with no `-jvm-target` writes 52, which is Java 8, and that changes how it compiles string templates (lesson 3).",
+   "try": {
+    "title": "Read one method in two languages",
+    "minutes": 4,
+    "steps": [
+     "Run `StackDemo` once (command below) so Gradle compiles it, and run `StackDemoKt` for the Kotlin twin.",
+     "From `labs/`, run `javap -c -p bytecode/build/classes/java/demo/workbench/bytecode/l02/StackDemo.class`, then the same for `bytecode/build/classes/kotlin/demo/workbench/bytecode/l02/StackDemoKt.class`.",
+     "Find `describe` in both. Which instruction does Kotlin add before building the string, and why?"
+    ],
+    "code": {"lang": "java", "title": "StackDemo.java", "src": STACK_JAVA, "run": RUN + "StackDemo", "file": f"{lab}/demo/{P}/StackDemo.java",
+             "alt": {"lang": "kotlin", "title": "StackDemo.kt", "src": STACK_KT, "run": RUN + "StackDemoKt", "file": f"{lab}/demo/{K}/StackDemo.kt"}},
+    "expect": "Both print `3625 EUR`. In the Kotlin `describe`, the first three instructions are `aload_0`, `ldc \"currency\"` and `invokestatic Intrinsics.checkNotNullParameter`: a public Kotlin function checks every non-null reference parameter on entry, so a Java caller passing `null` fails right there with the parameter's name. Both versions then build the string with `invokedynamic makeConcatWithConstants`. The Kotlin class also has two `main` methods: your `main()` and a `main(String[])` bridge that calls it."
+   },
+   "refs": [
+    {"title": "The javap command (JDK 25 tool docs)", "url": "https://docs.oracle.com/en/java/javase/25/docs/specs/man/javap.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "The operand stack: every instruction pops its inputs and pushes its result",
+   "body": "The JVM is a stack machine. Each method call gets a frame with two areas: an array of local-variable slots, and an operand stack. Instructions don't name registers. They pop their inputs off the stack and push their result back.\n\nHere is `feeMinor(125_000, 290)` step by step. The parameters start in local slots. `amountMinor` is a `long`, and a `long` or `double` takes two slots, so it fills slots 0 and 1, and `bps` sits in slot 2.\n\n- `lload_0` pushes the long in slot 0: the stack holds 125000.\n- `iload_2` pushes the int in slot 2: 125000, 290.\n- `i2l` pops the int and pushes it as a long, because `lmul` only takes two longs.\n- `lmul` pops both and pushes 36250000.\n- `ldc2_w #7` pushes the long constant 10000 from constant-pool entry 7.\n- `ldiv` pops two longs and pushes 3625.\n- `lreturn` pops the long and returns it.\n\nThe first letter of an instruction gives its type: `i` int, `l` long, `f` float, `d` double, `a` reference. `iload` and `lload`, `iadd` and `ladd` are different instructions, which is how the verifier proves type safety without running anything. The broken class from lesson 1 pushed a `String` and then ran `ireturn`. It loaded, then failed with `VerifyError: Bad type on operand stack` as soon as the JVM verified it.\n\n`javap -v` shows the frame sizes the compiler computed. For `feeMinor` it prints `stack=4, locals=3`. Two longs on the stack at once need four slots, and the locals need three.\n\nYou've met this before: `count++` on a field is `getstatic`, `iconst_1`, `iadd`, `putstatic`. That's four instructions, and another thread can run between any two of them. Reading the stack is how you see that a single line of source is not a single step.",
+   "figure": {"svg": FIG, "caption": "The operand stack after each instruction of feeMinor(125000, 290). Longs count as one entry here but take two stack slots."},
+   "try": {
+    "title": "Predict two instructions",
+    "minutes": 3,
+    "steps": [
+     "Change `feeMinor` in `StackDemo.java` to `return amountMinor * bps / 10_000 + 30;` (and the same in `StackDemo.kt`).",
+     "Before you compile, write down the instructions you expect between `ldiv` and `lreturn`, for javac and for kotlinc.",
+     "Run both demos, then `javap -c -p` both classes and check."
+    ],
+    "expect": "javac adds `ldc2_w // long 30l` and `ladd`. kotlinc adds `bipush 30`, `i2l` and `ladd`: it pushes the small int and widens it, as it did with `sipush 10000`. Both now print `3655 EUR`."
+   }
+  },
+  {
+   "h": "The constant pool holds every name, and descriptors encode every type",
+   "body": "Bytecode never contains a class name or a method name inline. `invokestatic #15` means \"the method described by constant-pool entry 15\". `javap -v` prints the pool, and following the references shows how a call is spelled:\n\n```text\n #7 = Long               10000l\n#15 = Methodref          #16.#17   // workbench/bytecode/l02/StackDemo.feeMinor:(JI)J\n#16 = Class              #18       // workbench/bytecode/l02/StackDemo\n#17 = NameAndType        #19:#20   // feeMinor:(JI)J\n#19 = Utf8               feeMinor\n#20 = Utf8               (JI)J\n#21 = Fieldref           #22.#23   // java/lang/System.out:Ljava/io/PrintStream;\n#27 = String             #28       // EUR\n```\n\nA `Methodref` points to a `Class` and a `NameAndType`, which point to `Utf8` strings. There is no entry 8: a `Long` or `Double` entry uses two pool indexes, a quirk the JVM specification itself calls \"a poor choice\" in retrospect, and one every class-file reader must handle (lesson 6 has you write one).\n\nThe string `(JI)J` is a method descriptor: parameter types in parentheses, then the return type. The grammar is short:\n\n| Descriptor | Type |\n|---|---|\n| `B C D F I J S Z` | byte, char, double, float, int, **long**, short, **boolean** |\n| `Lpkg/Name;` | a reference type, with `/` instead of `.` |\n| `[` before a type | an array of it: `[J` is `long[]`, `[Ljava/lang/Class;` is `Class[]` |\n| `V` | void (return type only) |\n\nSo `(Ljava/lang/String;J)Ljava/lang/String;` is `String describe(String, long)`. The two letters that trip people up are `J` for long and `Z` for boolean.\n\nThe descriptor has no parameter names and no generics. `List<String>` and `List<Payment>` are both `Ljava/util/List;`. Generic types survive only in a separate `Signature` attribute that reflection reads, which is the erasure from the generics track seen from the class file. Resolution, the lazy linking step from lesson 1, is the JVM turning entries like #15 into a direct pointer the first time an instruction uses them.\n\n`javap -v` also shows a `BootstrapMethods` table when the class uses `invokedynamic`. `StackDemo.describe` has one, pointing at `StringConcatFactory.makeConcatWithConstants` with the recipe `\\u0001 \\u0001`. That's lesson 3.",
+   "try": {
+    "title": "Walk the constant pool",
+    "minutes": 4,
+    "steps": [
+     "Run `javap -v bytecode/build/classes/java/demo/workbench/bytecode/l02/StackDemo.class | less` from `labs/`.",
+     "Find `major version`, then the `Methodref` for `describe`, and follow it to its `Class` and `NameAndType` entries.",
+     "Decode `describe`'s descriptor by hand, then find `stack=` and `locals=` for `main`."
+    ],
+    "code": {"lang": "bash", "title": "terminal", "src": "javap -v bytecode/build/classes/java/demo/workbench/bytecode/l02/StackDemo.class | grep -E 'major|Methodref|NameAndType|stack='", "run": ""},
+    "expect": "`major version: 65` (release 21). `describe` is a `Methodref` to `StackDemo` with NameAndType `describe:(Ljava/lang/String;J)Ljava/lang/String;`, which reads `String describe(String, long)`. The numbers after `stack=` are small (single digits): the compiler sizes each frame exactly."
+   }
+  },
+  {
+   "h": "What Kotlin compiles to",
+   "body": "javap shows the JVM's view of a Kotlin class, not the Kotlin source. Learn to translate it back. Here is what `javap -p` shows for five shapes, compiled by kotlinc 2.4.21 in the labs build (the full output is the next Try it).\n\nA property becomes a private field plus accessors. `var balanceMinor: Long` with `private set` gives `getBalanceMinor()` and no setter method at all. A property named `isEmpty` keeps its name for the getter: `isEmpty()`. A `lateinit var iban` is a public field, plus a getter and setter.\n\nA companion object is a nested class `Account$Companion` and a field `public static final Companion Companion` on `Account`. Its members split three ways. A `const val MAX_MINOR` becomes `public static final long MAX_MINOR` on `Account`, a real constant Java can use in a `switch`. A plain `val DEFAULT_CURRENCY` becomes a private static field on `Account`, with the public getter on `Companion`. A function is a method on `Companion` only, unless you add `@JvmStatic`, which emits a static method on `Account` as well.\n\nAn `object Registry` is a final class with a private constructor and `public static final Registry INSTANCE`, built in its static initializer. Top-level functions are static methods on a class named after the file (`KotlinShapesKt`).\n\nDefault arguments compile to a second, synthetic method. `greet(name: String = \"Ana\", punct: Char = '!')` produces `greet$default(String, char, int, Object)`. The `int` is a bitmask of the arguments the caller left out:\n\n```text\n0: iload_2      // the mask\n1: iconst_1\n2: iand         // bit 0 set: name was omitted\n3: ifeq  9\n6: ldc   \"Ana\"\n8: astore_0\n... bit 1 the same way for punct, then invokestatic greet(String, char)\n```\n\nJava never sees the defaults. It calls `greet(\"Bo\", '?')` with every argument, unless you add `@JvmOverloads`. A `data class Payment` adds `component1()`, `component2()`, `copy`, a static `copy$default`, and `equals`, `hashCode` and `toString`. Everything is `final` unless you write `open`, which is the root of the proxy problems in lesson 5.\n\nKotlin keeps its own model of the class (nullability, which methods are properties, default values) in a `@kotlin.Metadata` annotation that `javap -v` shows as an encoded blob. The Kotlin compiler and kotlin-reflect read it. The JVM ignores it.",
+   "try": {
+    "title": "What Java sees of five Kotlin shapes",
+    "minutes": 5,
+    "steps": [
+     "Read the five declarations at the top of `KotlinShapes.kt`. For `Account`, predict which members `Account` has and which `Account$Companion` has.",
+     "Run `KotlinShapesKt` (command below). It prints each class's fields, constructors and methods.",
+     "Run the Java twin, `KotlinShapesJava`, which calls the same classes from Java. Uncomment `a.setBalanceMinor(5);` and run it again."
+    ],
+    "code": {"lang": "kotlin", "title": "KotlinShapes.kt", "src": read(f"{lab}/demo/{K}/KotlinShapes.kt"), "run": RUN + "KotlinShapesKt", "file": f"{lab}/demo/{K}/KotlinShapes.kt",
+             "alt": {"lang": "java", "title": "KotlinShapesJava.java", "src": read(f"{lab}/demo/{P}/KotlinShapesJava.java"), "run": RUN + "KotlinShapesJava", "file": f"{lab}/demo/{P}/KotlinShapesJava.java"}},
+    "expect": "`Account` has `public static final long MAX_MINOR`, `private static final String DEFAULT_CURRENCY`, `public String iban`, `getBalanceMinor()` with no setter, `isEmpty()`, a static `open(String)` and a synthetic `access$getDEFAULT_CURRENCY$cp()`. `Account$Companion` has `create`, `open` and `getDEFAULT_CURRENCY`. `Payment` has the synthetic constructor ending in `DefaultConstructorMarker` and the static `copy$default`. The Java twin prints `1250 p-1 Payment(id=p-2, amountMinor=99)` and three more lines; with the setter line uncommented the build fails, because the method doesn't exist."
+   },
+   "refs": [
+    {"title": "Calling Kotlin from Java (Kotlin docs)", "url": "https://kotlinlang.org/docs/java-to-kotlin-interop.html", "kind": "docs"}
+   ]
+  }
+ ],
+ "analogy": "Bytecode is the kitchen ticket, and your Kotlin or Java source is the menu. The menu says \"steak, medium, with the usual sides\". The ticket the cook reads says \"1 steak, MR, fries, salad, no butter\", because the waiter filled in every default and translated the house terms. javap lets you read the ticket. When a dish comes out wrong, the ticket tells you whether the waiter (the compiler) or the cook (the JVM) did it. The analogy breaks because a real ticket is short and ad hoc, while bytecode is strictly typed and checked: the JVM's verifier refuses a ticket that asks for an `int` and hands over a `String`.",
+ "in_your_world": "Your Quarkus services mix Kotlin and Java, and the boundary is where javap pays off. A Kotlin `data class AuthorizationRequest(val amountMinor: Long, val currency: String = \"EUR\")` looks friendly, but a Java Kafka deserializer has to pass the currency every time, and a Java mapper that calls `getCurrency()` on a field declared `val isoCurrency` fails to compile. A Kotlin companion `val TIMEOUT_MS` that Java reads as `Config.Companion.getTIMEOUT_MS()` can't go into a Java annotation, while `const val` can. When a Java teammate says \"I can't call it\", run `javap -p` on the Kotlin class and read the API they actually have.",
+ "mistake": "The common mistake is assuming Java sees Kotlin source structure: that a companion `val` is a static field, that default arguments work from Java, or that `@Throws` is optional. It's optional for Kotlin callers and required for Java ones: without `@Throws(IOException::class)`, Java code can't even write `catch (IOException e)` around the call, because javac rejects catching a checked exception the method doesn't declare. People make the mistake because the Kotlin code compiles and its tests pass. The fix is to design the Java-facing API on purpose with `const val`, `@JvmField`, `@JvmStatic`, `@JvmOverloads`, `@Throws` and `@JvmName`, and to check it with `javap -p` or a Java test that calls it.",
+ "compare": {
+  "title": "One wallet API, written in Java and generated by Kotlin",
+  "java": {"title": "Wallet.java (what you'd write by hand)", "src": "public final class Wallet {\n    public static final long MAX_BALANCE_MINOR = 10_000_000L;\n\n    private final String owner;\n    private long balanceMinor;\n\n    public Wallet(String owner) { this.owner = owner; }\n\n    public static Wallet open(String owner) { return new Wallet(owner); }\n\n    public long getBalanceMinor() { return balanceMinor; }\n\n    public long deposit(long amountMinor) { return deposit(amountMinor, \"EUR\"); }\n    public long deposit(long amountMinor, String currency) {\n        balanceMinor += amountMinor;\n        return balanceMinor;\n    }\n}"},
+  "kotlin": {"title": "Wallet.kt (kotlinc generates the same members)", "src": "class Wallet(val owner: String) {\n    var balanceMinor: Long = 0\n        private set\n\n    @JvmOverloads\n    fun deposit(amountMinor: Long, currency: String = \"EUR\"): Long {\n        balanceMinor += amountMinor\n        return balanceMinor\n    }\n\n    companion object {\n        const val MAX_BALANCE_MINOR = 10_000_000L\n        @JvmStatic fun open(owner: String) = Wallet(owner)\n    }\n}"},
+  "note": "`javap -p` on the Kotlin class lists the same public members as the Java one, plus a few extras. There's a `Companion` field and class, `open` exists twice (static on `Wallet`, instance on `Companion`), and there's a static `deposit$default` with the bitmask, plus the `@kotlin.Metadata` annotation. Two real differences remain. kotlinc inserts `Intrinsics.checkNotNullParameter` for every non-null reference parameter of a public function, so `new Wallet(null)` from Java fails at once with \"parameter owner\". And the class is `final` by default, so a subclass-based proxy can't extend it."
+ },
+ "worked": {
+  "title": "Translate synthetic names in a Kotlin stack trace",
+  "steps": [
+   {"say": "A Java batch job that calls a Kotlin library fails. Read the trace and name the Kotlin construct behind each frame before you go on.", "code": "Exception in thread \"main\" java.lang.NullPointerException: Parameter specified as non-null is null:\n        method com.acme.wallet.Wallet$Companion.open, parameter owner\n    at com.acme.wallet.Wallet$Companion.open(Wallet.kt)\n    at com.acme.wallet.Wallet.open(Wallet.kt)\n    at com.acme.batch.Reconcile.lambda$run$0(Reconcile.java:11)\n    at java.base/java.lang.Iterable.forEach(Iterable.java:75)\n    at com.acme.batch.Reconcile.run(Reconcile.java:10)", "lang": "text"},
+   {"say": "Read it from the bottom. `Reconcile.run` is Java code that calls `forEach` with a lambda, and javac compiled the lambda's body into the private method `lambda$run$0`. The lambda calls the static `Wallet.open`. That static method exists only because of `@JvmStatic`, and its whole body forwards to `Wallet$Companion.open`, where the Kotlin code lives.", "code": "accounts.forEach(a -> {\n    // 1. this lambda body is the method lambda$run$0\n    Wallet w = Wallet.open(a.ownerName());   // 2. the @JvmStatic bridge\n    w.deposit(a.amountMinor());\n});", "lang": "java",
+    "alt_lang": "kotlin", "alt_code": "accounts.forEach { a ->\n    // 1. a Kotlin lambda body is also a private static method (its name contains $lambda$)\n    val w = Wallet.open(a.ownerName)        // 2. Kotlin callers go straight to Companion.open\n    w.deposit(a.amountMinor)\n}"},
+   {"say": "The top frame is the null check kotlinc put at the start of `Companion.open`. `owner` is a non-null `String` in Kotlin, but Java passed `null`, because `a.ownerName()` returned null for one account. The message names the method and the parameter, so you don't need a debugger. Fix it at the boundary, where the null enters.", "code": "String owner = a.ownerName();\nif (owner == null) {\n    // 3. decide what a missing owner means here, before crossing into Kotlin\n    rejected.add(a.id());\n    return;\n}\nWallet w = Wallet.open(owner);", "lang": "java",
+    "alt_lang": "kotlin", "alt_code": "// 3. or accept the null in the Kotlin API and decide there\ncompanion object {\n    @JvmStatic fun open(owner: String?): Wallet =\n        Wallet(requireNotNull(owner) { \"account has no owner\" })\n}"},
+   {"say": "The same reading works for every synthetic name: `copy$default` and `greet$default` are default arguments, `access$...$cp` is a companion reaching a private static, `INSTANCE` is an `object`, and a `$lambda$` or `lambda$` suffix is a lambda body. Both Kotlin frames say `(Wallet.kt)` with no line number: each is stopped in code kotlinc added before your first line, a parameter check or a bridge.", "code": "", "lang": ""}
+  ]
+ },
+ "lab": {
+  "title": "Give Java callers the API they need",
+  "minutes": 12,
+  "files": ["labs/bytecode/src/main/kotlin/workbench/bytecode/l02/Wallet.kt"],
+  "run": "./gradlew :bytecode:test --tests 'workbench.bytecode.l02.*'",
+  "steps": [
+   "Run the tests once. Six of seven fail. Each test reads one member of `Wallet`'s JVM shape with reflection, the list `javap -p` prints.",
+   "Run `javap -p bytecode/build/classes/kotlin/main/workbench/bytecode/l02/Wallet.class` and `javap -p 'bytecode/build/classes/kotlin/main/workbench/bytecode/l02/Wallet$Companion.class'`. Note where `MAX_BALANCE_MINOR` and `open` live now.",
+   "Fix the six items in the KDoc, one test at a time, using only annotations, modifiers and the property name: `const val`, `@JvmStatic`, `@JvmOverloads`, `private set`, a property named `isFrozen`, and `@Throws(IOException::class)`.",
+   "Run the tests and `javap -p` again. Compare the member lists with the first run."
+  ],
+  "hints": [
+   "`const val` works for primitives and `String` with a constant value. `@JvmField val` would also give a public static field, but it isn't a compile-time constant for javac.",
+   "`private set` goes on the line after the property: `var balanceMinor: Long = 0` then `    private set`.",
+   "Renaming `frozen` to `isFrozen` gives `isFrozen()` and `setFrozen(boolean)`. Remember to update the two places in the class that read it. `@get:JvmName(\"isFrozen\")` is the other way to do it."
+  ],
+  "done_when": "All seven tests in `WalletShapeTest` pass, and `javap -p` shows `public static final long MAX_BALANCE_MINOR` and a static `open` on `Wallet`."
+ },
+ "drill": {
+  "title": "Bytecode back to source",
+  "minutes": 4,
+  "prompt": "A static method has descriptor `(J)I` and this body: `lload_0`, `ldc2_w // long 10000l`, `lrem`, `l2i`, `ireturn`. Without looking anything up, write the Java method (and the Kotlin function) it came from. Then name what each instruction pops and pushes.",
+  "answer": {
+   "lang": "java",
+   "src": "// lload_0: push the long param | ldc2_w: push 10000L | lrem: pop 2 longs, push the remainder\n// l2i: pop a long, push an int   | ireturn: pop the int and return it\nstatic int centsPart(long amountMinor) {\n    return (int) (amountMinor % 10_000);\n}",
+   "alt": {"lang": "kotlin", "src": "// kotlinc emits the same five instructions for this version (with the L suffix)\nfun centsPart(amountMinor: Long): Int = (amountMinor % 10_000L).toInt()"}
+  }
+ },
+ "recap": [
+  "`javap -c -p` prints bytecode including private members; `-v` adds the constant pool, `stack=`/`locals=` sizes and the class-file version (65 for release 21, 69 for JDK 25).",
+  "The JVM is a stack machine: instructions pop typed inputs and push results. A `long` or `double` takes two slots in locals and on the stack.",
+  "Instructions refer to the constant pool by index; a `Methodref` points to a `Class` and a `NameAndType`, which point to `Utf8` strings.",
+  "Descriptors: `J` long, `Z` boolean, `Lpkg/Name;` references, `[` arrays, `V` void. Generics and parameter names aren't in them.",
+  "Kotlin lowers to plain JVM members: getters and setters, `Companion` and `INSTANCE`, `FileKt` statics, `$default` methods with a bitmask, `componentN` and `copy`, and null checks on every public non-null parameter.",
+  "Java sees that lowered shape. Design it with `const val`, `@JvmField`, `@JvmStatic`, `@JvmOverloads`, `@Throws` and `@JvmName`."
+ ],
+ "quiz": [
+  {
+   "q": "javap shows a static method body: `iload_0`, `iload_1`, `imul`, `iconst_1`, `iadd`, `ireturn`. What source produced it?",
+   "options": ["`return a * b + 1;` with `int a, b`", "`return a + b * 1;` with `int a, b`", "`return (a + 1) * b;` with `int a, b`", "`return a * (b + 1);` with `int a, b`"],
+   "answer": 0,
+   "why": "Trace the stack: push a, push b, multiply (a*b), push 1, add (a*b + 1), return. For `a * (b + 1)` the `iconst_1; iadd` would come right after `iload_1`, before `imul`."
+  },
+  {
+   "q": "Which Java signature has the descriptor `(Ljava/lang/String;[JZ)V`?",
+   "options": ["`void m(String s, long j, boolean z)`", "`void m(String s, long[] js, boolean z)`", "`boolean m(String s, long[] js)`", "`void m(String[] s, int j, char z)`"],
+   "answer": 1,
+   "why": "`Ljava/lang/String;` is a String, `[J` is an array of long (J is long, not int), `Z` is boolean, and `V` after the parenthesis is the void return type."
+  },
+  {
+   "q": "A Kotlin library has `fun authorize(amountMinor: Long, currency: String = \"EUR\"): AuthResult`. A Java caller writes `client.authorize(1_250)`. What happens?",
+   "options": [
+    "It compiles and uses \"EUR\"",
+    "It compiles, and `currency` is null at run time",
+    "It doesn't compile: Java only sees `authorize(long, String)` and the synthetic `authorize$default`, unless the function has `@JvmOverloads`",
+    "It throws `NoSuchMethodError` at run time"
+   ],
+   "answer": 2,
+   "why": "Defaults live in the synthetic `authorize$default` method with its bitmask, which only kotlinc calls. `@JvmOverloads` makes kotlinc also emit `authorize(long)`, which fills in the default for Java callers."
+  },
+  {
+   "q": "Java code must use a Kotlin value in an annotation: `@Timeout(Config.TIMEOUT_MS)`. In Kotlin it's `companion object { val TIMEOUT_MS = 120L }`. What's the right change?",
+   "options": ["Add `@JvmStatic` to the property", "Make it `const val TIMEOUT_MS = 120L`", "Add `@JvmField` to the property", "Move it to a top-level `val`"],
+   "answer": 1,
+   "why": "Annotation arguments must be compile-time constants. `const val` emits `public static final long TIMEOUT_MS` with a constant value on `Config`, which javac treats like a Java constant. `@JvmField` gives a public static field, but not a constant javac can put in an annotation. `@JvmStatic` gives a static getter, which is still a method call."
+  },
+  {
+   "q": "From *Race conditions*: `count++` on a static `int` compiles to `getstatic count`, `iconst_1`, `iadd`, `putstatic count`. Between which instructions can another thread change `count` and cause a lost update?",
+   "options": [
+    "Only between `iadd` and `putstatic`",
+    "Between any two of them: after `getstatic`, the value on this thread's operand stack is a private copy",
+    "None: one line of Java runs atomically",
+    "Only before `getstatic`"
+   ],
+   "answer": 1,
+   "why": "`getstatic` copies the field onto this frame's operand stack. From then on the thread computes with its own copy, and `putstatic` writes back whatever it computed. Any write by another thread after the `getstatic` and before the `putstatic` is overwritten.",
+   "from": "conc-03"
+  }
+ ],
+ "flashcards": [
+  {"front": "Which javap flags show private members, bytecode, and the constant pool?", "back": "`-p` for private members, `-c` for bytecode, `-v` for everything including the constant pool and stack/locals sizes."},
+  {"front": "In a method descriptor, what do `J` and `Z` mean?", "back": "`J` is long and `Z` is boolean. (`I` is int, `V` is void, `Lpkg/Name;` is a reference type, `[` is an array.)"},
+  {"front": "How many local-variable slots does a `long` parameter take?", "back": "Two. So in `static long f(long a, int b)`, `a` is in slots 0 and 1 and `b` is in slot 2 (`iload_2`)."},
+  {"front": "Kotlin `companion object { val X = 1 }`: how does Java read X? And with `const val`?", "back": "Plain `val`: `Outer.Companion.getX()`. `const val`: `Outer.X`, a `public static final` constant."},
+  {"front": "What does kotlinc generate for `fun greet(name: String = \"Ana\")` besides `greet(String)`?", "back": "A static `greet$default(String, int, Object)`: the `int` is a bitmask of the omitted arguments. Java can't use the default unless you add `@JvmOverloads`."},
+  {"front": "What does a Kotlin `lateinit var iban: String` look like to Java?", "back": "A public field `iban`, plus `getIban()` and `setIban(String)`."},
+  {"front": "Where does Kotlin keep nullability and property information that the JVM doesn't model?", "back": "In the `@kotlin.Metadata` annotation on each class, which kotlinc and kotlin-reflect read and the JVM ignores."}
+ ],
+ "terms": [
+  {"term": "javap", "plain": "The JDK tool that prints a class file's members, bytecode and constant pool."},
+  {"term": "Operand stack", "plain": "The per-call stack that bytecode instructions pop inputs from and push results onto."},
+  {"term": "Local variable slots", "plain": "A per-call array holding parameters and locals; `long` and `double` take two slots."},
+  {"term": "Constant pool", "plain": "The table in a class file that holds every name, type, string and number the bytecode refers to by index."},
+  {"term": "Descriptor", "plain": "The compact type string of a field or method, such as `(JI)J` for `long f(long, int)`."},
+  {"term": "Class-file version", "plain": "The `major version` in a class file: 65 for Java 21, 69 for Java 25, 52 for Java 8."},
+  {"term": "@kotlin.Metadata", "plain": "An annotation where kotlinc stores Kotlin-only information about a class, such as nullability and properties."}
+ ],
+ "explain_back": {
+  "prompt": "A Java teammate says \"the Kotlin `Wallet` has a static `MAX_BALANCE_MINOR` and default arguments, but my code can't use either\". Explain what kotlinc actually generated and how you'd check and fix it.",
+  "answer": "Kotlin has no statics. A plain `val` in a companion object becomes a private static field on `Wallet` with a public getter on the `Wallet.Companion` object, so Java has to write `Wallet.Companion.getMAX_BALANCE_MINOR()`. Default arguments live in a synthetic `deposit$default` method that takes a bitmask of the omitted arguments, and only kotlinc calls it, so Java must pass every argument. I'd run `javap -p` on `Wallet.class` and `Wallet$Companion.class` to see the real members. Then I'd fix the Kotlin side: `const val` for the constant, `@JvmStatic` for static factory functions, `@JvmOverloads` for defaults, and `@Throws` for checked exceptions Java needs to catch. Running `javap -p` again confirms the shape."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "Three more things javap shows you.\n\nInline functions are copied, not called. `inline fun <T> measure(block: () -> T): T` is still emitted as a static method, so Java can call it. But at each Kotlin call site kotlinc pastes the function body (`System.nanoTime()` calls and all) into the caller, and the lambda's code with it, so no `Function0` object is created. A non-inline lambda such as `val adder: (Int) -> Int = { it + 1 }` compiles to an `invokedynamic` that `LambdaMetafactory` links (Kotlin 2.0 made that the default), with the body in a private static method like `useAll$lambda$0`. A `reified T` argument compiles to a plain `ldc` of the class: `typeName<User>()` becomes `ldc class kt/User`.\n\nThe JVM target changes the output. With `-jvm-target 21`, string templates become `invokedynamic makeConcatWithConstants`. With kotlinc's command-line default of 1.8, the same template becomes `new StringBuilder`, `append`, `append`, `toString`. The Kotlin 1.5.20 release notes describe the switch and the option `-Xstring-concat=inline` to turn it off. The labs pass `jvmTarget = 21` in Gradle, so you see the indy version.\n\nAnnotations you never wrote show up too. `javap -v` on a Kotlin class prints `RuntimeVisibleAnnotations: kotlin.Metadata(mv=[2,4,0], k=1, ...)` with two encoded arrays. `mv` is the metadata version and `k=1` means a class. The `d1` array is a protobuf that the `kotlin-metadata-jvm` library can decode. That annotation is how Kotlin reflection knows a JVM `getBalanceMinor()` is the property `balanceMinor`."
+ },
+ "sources": [
+  {"title": "JVM Specification SE 25, chapter 4: The class File Format", "url": "https://docs.oracle.com/javase/specs/jvms/se25/html/jvms-4.html"},
+  {"title": "JVM Specification SE 25, chapter 6: The Java Virtual Machine Instruction Set", "url": "https://docs.oracle.com/javase/specs/jvms/se25/html/jvms-6.html"},
+  {"title": "Calling Kotlin from Java (Kotlin docs)", "url": "https://kotlinlang.org/docs/java-to-kotlin-interop.html"},
+  {"title": "What's new in Kotlin 1.5.20 (string concatenation via invokedynamic)", "url": "https://kotlinlang.org/docs/whatsnew1520.html"}
+ ]
+}
+out = ROOT / "content/lessons/cls-02.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)

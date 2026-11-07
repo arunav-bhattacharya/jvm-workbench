@@ -1,0 +1,376 @@
+{
+ "id": "mem-01",
+ "title": "Where objects live: heap, stacks, metaspace and object headers",
+ "minutes": 35,
+ "goal": "By the end you can name the memory areas of a JVM process, predict the size of an object from its fields, and say what compressed oops and compact object headers change.",
+ "warmup": {
+  "q": "On a default 64-bit JDK 21, how many bytes of heap does one `Long` object take?",
+  "options": [
+   "8",
+   "16",
+   "24",
+   "32"
+  ],
+  "answer": 2,
+  "why": "The `long` value is 8 bytes, but every object also has a 12-byte header (an 8-byte mark word and a 4-byte class pointer). 12 + 8 = 20, and objects pad to a multiple of 8, so a `Long` takes 24 bytes. 8 forgets the header. 16 is the size of an `Integer`, whose 4-byte value fits next to the header."
+ },
+ "sections": [
+  {
+   "h": "-Xmx caps the heap, not the process",
+   "body": "Start a JDK 21 service with `-Xmx256m` and turn on Native Memory Tracking (NMT). In one such run, NMT reported 216 MB committed for the Java heap. The whole process had committed 390 MB. The other 174 MB lived outside the heap, and `-Xmx` limits none of it.\n\nHere is where it went:\n\n| Area | Committed | What lives there |\n|---|---|---|\n| Java heap | 216 MB | every object you create with `new` |\n| Direct buffers and FFM memory | 96 MB | `ByteBuffer.allocateDirect`, `Arena.allocate` (that program asked for 96 MB) |\n| GC bookkeeping | 45 MB | card tables, remembered sets, marking bitmaps |\n| Shared class archive (CDS) | 13 MB | JDK classes, already parsed, mapped from a file |\n| Code cache | 7 MB | machine code from the JIT compilers |\n| Thread stacks | 6 MB | one stack per platform thread (71 of them) |\n| Metaspace | 1 MB | metadata for the classes loaded from your jars |\n\nThe **heap** is the part `-Xmx` caps and the garbage collector cleans. Every object you create lands there. (Lesson 2 shows the one case where an object never gets created at all.) A virtual thread's stack is on the heap too, in stack chunk objects, while the thread is unmounted.\n\n**Thread stacks** live outside the heap. Each platform thread reserves its stack, 1 MB by default on Linux x64, but only commits the pages it touches. That's why 71 threads committed only 6 MB.\n\n**Metaspace** holds class metadata: methods, bytecode, constant pools. It has no limit by default (`MaxMetaspaceSize` is unlimited), so a class loader leak grows it until the container runs out of memory.\n\n**Direct buffers** are memory that NIO asks for outside the heap. Netty and Vert.x, and so Quarkus, use them for socket reads and writes.\n\nLesson 6 of this track fits all of this into a container limit, and lesson 7 measures it with NMT. For the rest of this lesson, we stay on the heap and look at what one object costs.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 680 300\" role=\"img\" aria-label=\"One JVM process started with -Xmx256m: the Java heap is 216 MB of the 390 MB the process committed; direct buffers, GC data, the class archive, code cache, thread stacks and metaspace sit beside it\">\n<rect class=\"box-dim\" x=\"10\" y=\"10\" width=\"660\" height=\"280\" rx=\"8\"/>\n<text class=\"t t-m\" x=\"340\" y=\"34\" text-anchor=\"middle\">one JVM process, -Xmx256m: 390 MB committed</text>\n<rect class=\"box-a\" x=\"30\" y=\"50\" width=\"290\" height=\"220\" rx=\"8\"/>\n<text class=\"t\" x=\"175\" y=\"150\" text-anchor=\"middle\">Java heap</text>\n<text class=\"t-s\" x=\"175\" y=\"172\" text-anchor=\"middle\">216 MB committed</text>\n<text class=\"t-s\" x=\"175\" y=\"192\" text-anchor=\"middle\">every object you new</text>\n<text class=\"t-s t-a\" x=\"175\" y=\"250\" text-anchor=\"middle\">the only part -Xmx caps</text>\n<rect class=\"box-b\" x=\"340\" y=\"50\" width=\"310\" height=\"62\" rx=\"8\"/>\n<text class=\"t\" x=\"495\" y=\"78\" text-anchor=\"middle\">direct buffers, FFM memory</text>\n<text class=\"t-s\" x=\"495\" y=\"98\" text-anchor=\"middle\">96 MB</text>\n<rect class=\"box\" x=\"340\" y=\"120\" width=\"310\" height=\"40\" rx=\"8\"/>\n<text class=\"t-s\" x=\"495\" y=\"145\" text-anchor=\"middle\">GC bookkeeping: 45 MB</text>\n<rect class=\"box\" x=\"340\" y=\"168\" width=\"310\" height=\"28\" rx=\"8\"/>\n<text class=\"t-s\" x=\"495\" y=\"187\" text-anchor=\"middle\">shared class archive (CDS): 13 MB</text>\n<rect class=\"box\" x=\"340\" y=\"202\" width=\"150\" height=\"28\" rx=\"8\"/>\n<text class=\"t-s\" x=\"415\" y=\"221\" text-anchor=\"middle\">code cache: 7 MB</text>\n<rect class=\"box\" x=\"500\" y=\"202\" width=\"150\" height=\"28\" rx=\"8\"/>\n<text class=\"t-s\" x=\"575\" y=\"221\" text-anchor=\"middle\">71 stacks: 6 MB</text>\n<rect class=\"box\" x=\"340\" y=\"238\" width=\"150\" height=\"32\" rx=\"8\"/>\n<text class=\"t-s\" x=\"415\" y=\"259\" text-anchor=\"middle\">metaspace: 1 MB</text>\n<rect class=\"box\" x=\"500\" y=\"238\" width=\"150\" height=\"32\" rx=\"8\"/>\n<text class=\"t-s\" x=\"575\" y=\"259\" text-anchor=\"middle\">other: about 6 MB</text>\n</svg>",
+    "caption": "Native Memory Tracking for one JDK 21 process with -Xmx256m: the heap was 216 MB of the 390 MB the process committed."
+   },
+   "try": {
+    "title": "List the memory areas of a JVM",
+    "minutes": 3,
+    "steps": [
+     "Read `MemoryAreasDemo` (or its Kotlin twin). It lists every memory pool the JVM reports, then creates a 64 MiB direct buffer. Predict: will the buffer show up in one of the heap pools?",
+     "Run it from `labs/` with the command below.",
+     "Compare the max heap it prints with your machine's RAM. With no `-Xmx`, the JVM takes a quarter of it."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "MemoryAreasDemo.java",
+     "src": "package workbench.memory.l01;\n\nimport java.lang.management.BufferPoolMXBean;\nimport java.lang.management.ManagementFactory;\nimport java.lang.management.MemoryPoolMXBean;\nimport java.nio.ByteBuffer;\n\n/** Lists the memory areas this JVM reports, heap and non-heap, then adds a 64 MiB direct buffer. */\npublic class MemoryAreasDemo {\n    static final long MB = 1024 * 1024;\n\n    public static void main(String[] args) {\n        System.out.printf(\"max heap (-Xmx or its default): %,d MB%n\", Runtime.getRuntime().maxMemory() / MB);\n        for (MemoryPoolMXBean pool : ManagementFactory.getMemoryPoolMXBeans()) {\n            System.out.printf(\"%-9s %-32s used %,6d KB  committed %,7d KB%n\",\n                    pool.getType() == java.lang.management.MemoryType.HEAP ? \"heap\" : \"non-heap\",\n                    pool.getName(), pool.getUsage().getUsed() / 1024, pool.getUsage().getCommitted() / 1024);\n        }\n        System.out.println(\"live threads: \" + ManagementFactory.getThreadMXBean().getThreadCount() + \", each with a stack outside the heap\");\n\n        ByteBuffer direct = ByteBuffer.allocateDirect((int) (64 * MB));      // off-heap: not in any pool above\n        for (BufferPoolMXBean p : ManagementFactory.getPlatformMXBeans(BufferPoolMXBean.class)) {\n            if (p.getName().equals(\"direct\")) {\n                System.out.printf(\"direct buffers: %d, %,d MB, outside the heap%n\", p.getCount(), p.getMemoryUsed() / MB);\n            }\n        }\n        System.out.println(\"buffer capacity \" + direct.capacity());\n    }\n}\n",
+     "run": "./gradlew :memory:demo -Pmain=workbench.memory.l01.MemoryAreasDemo",
+     "file": "labs/memory/src/demo/java/workbench/memory/l01/MemoryAreasDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "MemoryAreasDemo.kt",
+      "src": "package workbench.memory.l01\n\nimport java.lang.management.BufferPoolMXBean\nimport java.lang.management.ManagementFactory\nimport java.lang.management.MemoryType\nimport java.nio.ByteBuffer\n\nprivate const val MB = 1024L * 1024\n\n/** Lists the memory areas this JVM reports, heap and non-heap, then adds a 64 MiB direct buffer. */\nfun main() {\n    println(\"max heap (-Xmx or its default): %,d MB\".format(Runtime.getRuntime().maxMemory() / MB))\n    for (pool in ManagementFactory.getMemoryPoolMXBeans()) {\n        println(\"%-9s %-32s used %,6d KB  committed %,7d KB\".format(\n            if (pool.type == MemoryType.HEAP) \"heap\" else \"non-heap\",\n            pool.name, pool.usage.used / 1024, pool.usage.committed / 1024))\n    }\n    println(\"live threads: ${ManagementFactory.getThreadMXBean().threadCount}, each with a stack outside the heap\")\n\n    val direct = ByteBuffer.allocateDirect((64 * MB).toInt())           // off-heap: not in any pool above\n    ManagementFactory.getPlatformMXBeans(BufferPoolMXBean::class.java)\n        .filter { it.name == \"direct\" }\n        .forEach { println(\"direct buffers: %d, %,d MB, outside the heap\".format(it.count, it.memoryUsed / MB)) }\n    println(\"buffer capacity ${direct.capacity()}\")\n}\n",
+      "run": "./gradlew :memory:demo -Pmain=workbench.memory.l01.MemoryAreasDemoKt",
+      "file": "labs/memory/src/demo/kotlin/workbench/memory/l01/MemoryAreasDemo.kt"
+     }
+    },
+    "expect": "Three heap pools (`G1 Eden Space`, `G1 Survivor Space`, `G1 Old Gen`) and several non-heap ones: `Metaspace`, `Compressed Class Space` and three `CodeHeap` segments for compiled code. The 64 MB buffer appears in none of them, only in the `direct` buffer pool, because it lives outside the heap. The max heap is 25% of your RAM (about 4 GB on a 16 GB laptop), or of the container limit if you run in one."
+   },
+   "refs": [
+    {
+     "title": "The java command, JDK 25 manual (source of the man page)",
+     "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/java.base/share/man/java.md",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Every object starts with a 12-byte header",
+   "body": "`new Object()` has no fields and still takes 16 bytes. On a 64-bit HotSpot JVM, every object starts with a header of two parts.\n\nThe **mark word** is 8 bytes. It holds the identity hash code once something asks for it, the object's GC age (how many young collections it survived, in 4 bits, so at most 15), and the lock bits that `synchronized` uses.\n\nThe **class pointer** says which class the object belongs to. It's compressed to 4 bytes by default.\n\nThat's 12 bytes. The fields come next. Then comes padding: every object starts at a multiple of 8 bytes, so its size rounds up to a multiple of 8. `new Object()` is 12 bytes of header plus 4 of padding. An `Integer` puts its `int` in those 4 bytes, so it is also 16. A `Long` needs 8 more: 12 + 8 = 20, padded to 24.\n\nJOL (Java Object Layout, an OpenJDK tool) prints the real layout. Here is a payment class:\n\n```java\nclass Payment {\n    boolean captured;\n    long amountMinor;\n    byte status;\n    String currency;\n    int attempts;\n    Object metadata;\n}\n```\n\n```kotlin\nclass Payment {\n    var captured = false\n    var amountMinor = 0L\n    var status: Byte = 0\n    var currency: String? = null\n    var attempts = 0\n    var metadata: Any? = null\n}\n```\n\nJOL's output on JDK 21 (both classes print the same layout):\n\n```text\nOFF  SZ               TYPE DESCRIPTION               VALUE\n  0   8                    (object header: mark)     N/A\n  8   4                    (object header: class)    N/A\n 12   4                int Payment.attempts          N/A\n 16   8               long Payment.amountMinor       N/A\n 24   1            boolean Payment.captured          N/A\n 25   1               byte Payment.status            N/A\n 26   2                    (alignment/padding gap)\n 28   4   java.lang.String Payment.currency          N/A\n 32   4   java.lang.Object Payment.metadata          N/A\n 36   4                    (object alignment gap)\nInstance size: 40 bytes\n```\n\nThe JVM chose the field order. It put the `int` right after the header, because a `long` must start at a multiple of 8. References take 4 bytes each. And 6 of the 40 bytes are gaps. A subclass that adds a `String` and a `short` still takes 40 bytes, because its fields fill those gaps.\n\nThe rule that gets you close every time: header, plus the sum of the field sizes, rounded up to 8. The lab has you write it and check it against JOL.\n\nThe overhead hurts most in small objects. A three-letter currency code as a `String` costs 48 bytes: a 24-byte `String` plus a 24-byte `byte[]` that holds 3 bytes of data. An `ArrayList<Integer>` with 1,000 numbers costs 20,976 bytes. An `int[1000]` costs 4,016.",
+   "try": {
+    "title": "Print real layouts with JOL",
+    "minutes": 5,
+    "steps": [
+     "Before you run anything, write down your guess for `Payment`, `Integer`, `Long`, and the string `\"EUR\"` with its array.",
+     "Run `LayoutDemo` (Java) or `LayoutDemoKt` (Kotlin, whose class is called `KPayment`). Ignore JOL's two warnings about attaching an agent: the layouts are still right.",
+     "Find the padding in the printout. Then look at the last line: the JVM's own allocation counter, which measures the same thing without JOL."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "LayoutDemo.java",
+     "src": "package workbench.memory.l01;\n\nimport com.sun.management.ThreadMXBean;\nimport org.openjdk.jol.datamodel.Model64_Lilliput;\nimport org.openjdk.jol.info.ClassLayout;\nimport org.openjdk.jol.info.GraphLayout;\nimport org.openjdk.jol.layouters.HotSpotLayouter;\nimport workbench.memory.Jvm;\n\nimport java.lang.management.ManagementFactory;\nimport java.util.ArrayList;\nimport java.util.Arrays;\nimport java.util.List;\n\n/**\n * Prints real object layouts with JOL. Pass JVM flags to see them change, for example\n * -Pargs=-XX:-UseCompressedOops (the demo then reruns itself in a child JVM with those flags).\n */\npublic class LayoutDemo {\n    static class Payment {\n        boolean captured;\n        long amountMinor;\n        byte status;\n        String currency;\n        int attempts;\n        Object metadata;\n    }\n\n    public static void main(String[] args) {\n        if (args.length > 0) {                                   // flags given: rerun in a JVM that has them\n            Jvm.run(Arrays.asList(args), LayoutDemo.class.getName());\n            return;\n        }\n        System.out.println(ClassLayout.parseClass(Payment.class).toPrintable());\n\n        List<Integer> boxed = new ArrayList<>();\n        for (int i = 0; i < 1_000; i++) boxed.add(i);\n        System.out.printf(\"Object %d, Integer %d, Long %d, String shell %d bytes%n\",\n                ClassLayout.parseClass(Object.class).instanceSize(), ClassLayout.parseClass(Integer.class).instanceSize(),\n                ClassLayout.parseClass(Long.class).instanceSize(), ClassLayout.parseClass(String.class).instanceSize());\n        System.out.printf(\"\\\"EUR\\\" with its byte[]: %d bytes%n\", GraphLayout.parseInstance(new String(\"EUR\")).totalSize());\n        System.out.printf(\"ArrayList<Integer> of 0..999: %,d bytes, int[1000]: %,d bytes%n\",\n                GraphLayout.parseInstance(boxed).totalSize(), GraphLayout.parseInstance((Object) new int[1_000]).totalSize());\n\n        // JOL can also simulate a layout: here, an 8-byte compact header with compressed references\n        ClassLayout compact = ClassLayout.parseClass(Payment.class, new HotSpotLayouter(new Model64_Lilliput(true, 8, false), 25));\n        System.out.printf(\"Payment with compact headers (JOL simulation): %d bytes%n\", compact.instanceSize());\n\n        // and the JVM itself can tell you: count the bytes 10,000 new Payment objects take\n        ThreadMXBean threads = (ThreadMXBean) ManagementFactory.getThreadMXBean();\n        Payment[] keep = new Payment[10_000];                     // allocate the array before we start counting\n        long before = threads.getCurrentThreadAllocatedBytes();\n        for (int i = 0; i < keep.length; i++) keep[i] = new Payment();\n        long bytes = threads.getCurrentThreadAllocatedBytes() - before;\n        System.out.printf(\"10,000 Payments allocated %,d bytes: %d per object in this JVM%n\", bytes, bytes / keep.length);\n    }\n}\n",
+     "run": "./gradlew :memory:demo -Pmain=workbench.memory.l01.LayoutDemo",
+     "file": "labs/memory/src/demo/java/workbench/memory/l01/LayoutDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "LayoutDemo.kt",
+      "src": "package workbench.memory.l01\n\nimport com.sun.management.ThreadMXBean\nimport org.openjdk.jol.datamodel.Model64_Lilliput\nimport org.openjdk.jol.info.ClassLayout\nimport org.openjdk.jol.info.GraphLayout\nimport org.openjdk.jol.layouters.HotSpotLayouter\nimport workbench.memory.Jvm\nimport java.lang.management.ManagementFactory\n\n/** The same fields as the Java demo's Payment. Kotlin properties compile to the same JVM fields. */\nclass KPayment {\n    var captured = false\n    var amountMinor = 0L\n    var status: Byte = 0\n    var currency: String? = null\n    var attempts = 0\n    var metadata: Any? = null\n}\n\n/**\n * Prints real object layouts with JOL. Pass JVM flags to see them change, for example\n * -Pargs=-XX:-UseCompressedOops (the demo then reruns itself in a child JVM with those flags).\n */\nfun main(args: Array<String>) {\n    if (args.isNotEmpty()) {                                    // flags given: rerun in a JVM that has them\n        Jvm.run(args.toList(), \"workbench.memory.l01.LayoutDemoKt\")\n        return\n    }\n    println(ClassLayout.parseClass(KPayment::class.java).toPrintable())\n\n    val boxed = ArrayList<Int>()                                // List<Int> holds boxed Integers\n    for (i in 0 until 1_000) boxed.add(i)\n    println(\"Object %d, Integer %d, Long %d, String shell %d bytes\".format(\n        ClassLayout.parseClass(Any::class.java).instanceSize(), ClassLayout.parseClass(Int::class.javaObjectType).instanceSize(),\n        ClassLayout.parseClass(Long::class.javaObjectType).instanceSize(), ClassLayout.parseClass(String::class.java).instanceSize()))\n    println(\"\\\"EUR\\\" with its byte[]: %d bytes\".format(GraphLayout.parseInstance(String(\"EUR\".toCharArray())).totalSize()))\n    println(\"ArrayList<Integer> of 0..999: %,d bytes, int[1000]: %,d bytes\".format(\n        GraphLayout.parseInstance(boxed).totalSize(), GraphLayout.parseInstance(IntArray(1_000)).totalSize()))\n\n    // JOL can also simulate a layout: here, an 8-byte compact header with compressed references\n    val compact = ClassLayout.parseClass(KPayment::class.java, HotSpotLayouter(Model64_Lilliput(true, 8, false), 25))\n    println(\"Payment with compact headers (JOL simulation): %d bytes\".format(compact.instanceSize()))\n\n    // and the JVM itself can tell you: count the bytes 10,000 new Payment objects take\n    val threads = ManagementFactory.getThreadMXBean() as ThreadMXBean\n    val keep = arrayOfNulls<KPayment>(10_000)                   // allocate the array before we start counting\n    val before = threads.currentThreadAllocatedBytes\n    for (i in keep.indices) keep[i] = KPayment()\n    val bytes = threads.currentThreadAllocatedBytes - before\n    println(\"10,000 Payments allocated %,d bytes: %d per object in this JVM\".format(bytes, bytes / keep.size))\n}\n",
+      "run": "./gradlew :memory:demo -Pmain=workbench.memory.l01.LayoutDemoKt",
+      "file": "labs/memory/src/demo/kotlin/workbench/memory/l01/LayoutDemo.kt"
+     }
+    },
+    "expect": "`Payment` is 40 bytes with 2 bytes of internal gap and 4 bytes of padding at the end. Object 16, Integer 16, Long 24, a `String` shell 24, and `\"EUR\"` 48 with its array. `ArrayList<Integer>` of 0..999 costs 20,976 bytes against 4,016 for `int[1000]`. The last line says 10,000 Payments allocated 400,000 bytes, 40 per object, the same answer JOL gave."
+   },
+   "refs": [
+    {
+     "title": "JOL (Java Object Layout) on GitHub",
+     "url": "https://github.com/openjdk/jol",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Compressed oops make references 4 bytes, up to 32 GB",
+   "body": "A reference on a 64-bit machine should take 8 bytes. On HotSpot it usually takes 4, thanks to **compressed oops** (an \"oop\" is an ordinary object pointer).\n\nEvery object starts at a multiple of 8 bytes, so the lowest 3 bits of every object address are zero. The JVM doesn't store them. It keeps a 32-bit number and shifts it left by 3 bits when it follows the reference. 2^32 slots times 8 bytes is 32 GB. As long as the maximum heap fits in that range, every reference field and every slot of an `Object[]` takes 4 bytes.\n\nGive the JVM `-Xmx32g` or more and it switches compressed oops off on its own. References go back to 8 bytes. These are JOL's numbers on JDK 21 with `-Xmx40g`:\n\n| Object | heap under 32 GB | `-Xmx40g` |\n|---|---|---|\n| `Payment` | 40 | 48 |\n| `String` (shell) | 24 | 32 |\n| `\"EUR\"` with its array | 48 | 56 |\n| `ArrayList<Integer>` of 1,000 | 20,976 | 25,920 |\n| `int[1000]` | 4,016 | 4,016 |\n\nThe list grew by 24%. So a 40 GB heap holds less data than its size suggests, and a jump from 31 GB to 40 GB can buy you almost nothing. The `int[]` didn't change, because it holds no references.\n\nThere is a way past 32 GB: `-XX:ObjectAlignmentInBytes=16` keeps 4-byte references up to 64 GB, because a 4-bit shift now reaches twice as far. The price is that every object pads to 16 bytes, so `Payment` is 48 bytes again. For a payments service I'd rather stay under 32 GB per JVM and run more instances.\n\nClass pointers are compressed separately, into a 1 GB compressed class space. That's why the header stays 12 bytes even when compressed oops are off.",
+   "try": {
+    "title": "Turn compressed oops off",
+    "minutes": 4,
+    "steps": [
+     "Predict the new size of `Payment` and of the `ArrayList<Integer>` with 8-byte references.",
+     "Run the demo again with `-Pargs=-XX:-UseCompressedOops` added to the command. The demo starts a child JVM with that flag.",
+     "Run it once more with `-Pargs=-Xmx40g` instead. The JVM only reserves address space for the max heap, so this works on a small laptop."
+    ],
+    "code": {
+     "lang": "bash",
+     "title": "terminal",
+     "src": "./gradlew :memory:demo -Pmain=workbench.memory.l01.LayoutDemo -Pargs=-XX:-UseCompressedOops\n./gradlew :memory:demo -Pmain=workbench.memory.l01.LayoutDemo -Pargs=-Xmx40g",
+     "run": ""
+    },
+    "expect": "Both runs print the same numbers. References are now 8 bytes, so `Payment` grows to 48 and its gaps grow to 6 bytes in one block. The `String` shell is 32, `\"EUR\"` 56, and the list 25,920 bytes. `int[1000]` stays at 4,016. The allocation counter says 48 bytes per Payment. `-Xmx40g` switched compressed oops off by itself."
+   }
+  },
+  {
+   "h": "Compact object headers shrink the header to 8 bytes",
+   "body": "Project Lilliput shrinks the header to 8 bytes. With **compact object headers**, the class pointer moves into the mark word (as 22 bits), and the separate class word disappears.\n\n| JDK | Compact object headers |\n|---|---|\n| 21 | not available: the JVM rejects the flag |\n| 24 | experimental (JEP 450): `-XX:+UnlockExperimentalVMOptions -XX:+UseCompactObjectHeaders` |\n| 25 and 26 | product option, off by default (JEP 519): `-XX:+UseCompactObjectHeaders` |\n| 27 | on by default, per the JDK source; `-XX:-UseCompactObjectHeaders` turns it off |\n\nThe JDK 25 manual says the option saves \"4 bytes per object (on average)\". The word that matters is \"average\". Objects still pad to 8 bytes, so each one saves either 8 bytes or nothing:\n\n| Object | 12-byte header | 8-byte header |\n|---|---|---|\n| `Payment` | 40 | 32 |\n| `Long` | 24 | 16 |\n| `HashMap$Node` | 32 | 24 |\n| `Integer` | 16 | 16 |\n| `String` (shell) | 24 | 24 |\n\nThe right-hand column comes from JOL's layout simulation, which follows the JDK 25 source. The research for this course could only run JDK 21, so treat it as a prediction you can check yourself on JDK 25.\n\nThe saving grows with the number of objects, not with the size of the heap. A heap full of small DTOs, map entries and boxed numbers gains the most. A heap full of large byte arrays barely changes: for one heap dump made mostly of 2 KB arrays, JOL estimated only 1.3% less.\n\nOn JDK 25 it's worth a load test: it's one flag, and you can remove it again. Watch for old agents or libraries that read fields through `Unsafe` with hard-coded offsets, because the first field now starts at offset 8, not 12.",
+   "try": {
+    "title": "Check compact headers on JDK 25",
+    "minutes": 3,
+    "steps": [
+     "This step needs Gradle running on JDK 25 or later (check with `./gradlew --version`). On JDK 21 the child JVM stops with `Unrecognized VM option 'UseCompactObjectHeaders'`, which proves the version table.",
+     "Run the demo with `-Pargs=-XX:+UseCompactObjectHeaders`.",
+     "Read the last line, which the JVM measures itself. JOL 0.17 is older than compact headers, so trust that line over JOL's printout."
+    ],
+    "code": {
+     "lang": "bash",
+     "title": "terminal (JDK 25)",
+     "src": "./gradlew :memory:demo -Pmain=workbench.memory.l01.LayoutDemo -Pargs=-XX:+UseCompactObjectHeaders",
+     "run": ""
+    },
+    "expect": "Per the JDK 25 source and JOL's simulation, the allocation counter should report 320,000 bytes, 32 per Payment, against 40 without the flag. The \"JOL simulation\" line prints 32 on every JDK, because it is a model, not a measurement."
+   },
+   "refs": [
+    {
+     "title": "JEP 519: Compact Object Headers",
+     "url": "https://openjdk.org/jeps/519",
+     "kind": "read"
+    }
+   ]
+  }
+ ],
+ "analogy": "Compressed oops work like seat numbers in a stadium where every seat is 8 bytes wide. A 4-byte seat number can name about 4 billion seats, which covers a 32 GB stadium, and the usher multiplies the number by 8 to find the seat. Build a bigger stadium and the seat numbers run out, so every ticket has to print the full street address instead, and every ticket gets bigger. The analogy breaks at the seats themselves: real objects are not one seat each. They take as many 8-byte seats as their header and fields need, and the padding is the empty seat at the end of the row.",
+ "in_your_world": "A payments DTO often carries `BigDecimal amount`, `String currency` and a few `Long` ids. JOL puts a `BigDecimal` like `19.99` at 40 bytes and each boxed `Long` at 24, against 8 bytes for a `long amountMinor`. In a Quarkus service that keeps 500,000 recent authorizations in memory for duplicate detection, that difference is tens of megabytes of heap in a pod whose default heap is a quarter of its memory limit. Before you raise the heap, count the objects. And if someone proposes `-Xmx40g` for a big settlement batch, remember that above 32 GB every reference doubles.",
+ "mistake": "Sizing memory by counting data instead of objects. A team estimates a cache of 1 million idempotency keys as \"36-character keys plus 8-byte values, about 44 MB\" and sets the heap accordingly. The real cost is about 144 MB, because each entry is four objects with their own headers and padding: a `String`, its `byte[]`, a `Long` and a `HashMap$Node`, plus a slot in the table. The fix is to measure: JOL's `GraphLayout.parseInstance(map).totalSize()` in a test, or the allocation counter, before you trust any estimate.",
+ "compare": {
+  "title": "The same two fields in Java and Kotlin",
+  "java": {
+   "title": "Refund.java",
+   "src": "class Refund {\n    long amountMinor;   // primitive: 8 bytes inside the object\n    Long feeMinor;      // reference: 4 bytes here, plus a 24-byte Long elsewhere (or null)\n}"
+  },
+  "kotlin": {
+   "title": "Refund.kt",
+   "src": "class Refund(\n    var amountMinor: Long,   // compiles to a long field: 8 bytes inside the object\n    var feeMinor: Long?,     // compiles to a java.lang.Long field: a reference plus a 24-byte box\n)"
+  },
+  "note": "Both classes compile to the same two JVM fields and the same 24-byte layout, and JOL can't tell them apart. The difference is what the source shows you. Java names the box: `Long` with a capital L. Kotlin has one `Long` type and decides for you: it's a primitive `long` when it can be, and a boxed `java.lang.Long` when it is nullable (`Long?`) or a type argument (`List<Long>`). So in Kotlin, a single `?` can add an object per value. `val` versus `var` changes nothing in size, and `data class` adds methods, not fields."
+ },
+ "worked": {
+  "title": "Estimate a million-entry idempotency cache, then check it",
+  "steps": [
+   {
+    "say": "A payment API remembers which idempotency keys it has seen, mapped to the ledger entry it created. Keys are 36-character UUID strings. How much heap does it take at 1 million entries?",
+    "code": "// key: the request's idempotency key, value: the ledger entry id\nMap<String, Long> seen = new HashMap<>();\nseen.put(request.idempotencyKey(), ledgerEntryId);",
+    "lang": "java",
+    "alt_code": "// key: the request's idempotency key, value: the ledger entry id\nval seen = HashMap<String, Long>()\nseen[request.idempotencyKey] = ledgerEntryId",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "List the objects one entry creates and size each with the rule: header + fields, rounded up to 8. The table is shared: 1 million entries is more than 0.75 of 2^20 slots, so `HashMap` grows its table to 2^21 slots of 4 bytes, 8 MB in all.",
+    "code": "String          24   header 12 + byte[] ref 4 + hash 4 + coder 1 + flag 1 = 22 -> 24\nbyte[36]        56   header 12 + length 4 + 36 bytes of data = 52 -> 56\nLong            24   header 12 + long 8 = 20 -> 24\nHashMap$Node    32   header 12 + hash 4 + key, value, next 3 x 4 = 28 -> 32\ntable slot     ~8.4  2,097,152 slots x 4 bytes / 1,000,000 entries\n               ------\n               ~144 bytes per entry, ~144 MB for the cache",
+    "lang": "text"
+   },
+   {
+    "say": "Check the estimate instead of trusting it. JOL walks the whole object graph from the map. On JDK 21, with random UUID keys, it counted 4,000,002 objects and 144,388,672 bytes: 144.4 per entry. The data itself is 36 + 8 = 44 bytes per entry, so two thirds of the cache is headers, references and padding.",
+    "code": "GraphLayout g = GraphLayout.parseInstance(seen);\nSystem.out.println(g.toFootprint());     // a table: count and bytes per class\nSystem.out.println(g.totalSize() / seen.size() + \" bytes per entry\");",
+    "lang": "java",
+    "alt_code": "val g = GraphLayout.parseInstance(seen)\nprintln(g.toFootprint())                 // a table: count and bytes per class\nprintln(\"${g.totalSize() / seen.size} bytes per entry\")",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "Shrink it where the bytes are. The key costs 80 bytes as a `String` plus its array. A `UUID` object holds the same 128 bits in two `long` fields and takes 32 bytes. That one change takes about 48 bytes off every entry, a third of the cache. Bounding the cache's size matters even more, and lesson 7 does that.",
+    "code": "Map<UUID, Long> seen = new HashMap<>();\nseen.put(UUID.fromString(request.idempotencyKey()), ledgerEntryId);   // 32-byte key instead of 80",
+    "lang": "java",
+    "alt_code": "val seen = HashMap<UUID, Long>()\nseen[UUID.fromString(request.idempotencyKey)] = ledgerEntryId          // 32-byte key instead of 80",
+    "alt_lang": "kotlin"
+   }
+  ]
+ },
+ "lab": {
+  "title": "Predict object sizes, then check them against JOL",
+  "minutes": 12,
+  "files": [
+   "labs/memory/src/main/java/workbench/memory/l01/ObjectSize.java",
+   "labs/memory/src/test/java/workbench/memory/l01/Samples.java"
+  ],
+  "run": "./gradlew :memory:test --tests 'workbench.memory.l01.*'",
+  "steps": [
+   "Run the tests once. All 8 fail with `UnsupportedOperationException`. Open `Samples.java` in the test folder: these are the classes the tests measure.",
+   "Write `alignUp`. The alignment is always a power of two.",
+   "Write `fieldBytes`: the eight primitive widths, and `vm.referenceBytes()` for everything else, arrays included.",
+   "Write `instanceSize`: start at the header, add every non-static field of the class and of each superclass, and round up. Then `arraySize`: header, 4 bytes of length, the elements, rounded up.",
+   "Run the tests until all 8 pass. The last test builds a `Vm` from JOL's view of the running JVM and compares your answers with JOL's for nine classes and three arrays."
+  ],
+  "hints": [
+   "`(size + alignment - 1) / alignment * alignment` rounds up. The solution uses the bit trick `(size + alignment - 1) & -alignment`, which only works for powers of two.",
+   "`Modifier.isStatic(field.getModifiers())` tells you to skip a field. `Class.getSuperclass()` returns `null` after `Object`.",
+   "`type.isPrimitive()` is false for `Integer.class` and for `int[].class`. Both are references when they appear as a field."
+  ],
+  "done_when": "All 8 tests in `ObjectSizeTest` pass."
+ },
+ "drill": {
+  "title": "Size an object in your head",
+  "minutes": 4,
+  "prompt": "Close the page. Work out the size of `class Authorization { long amountMinor; int merchantId; boolean approved; String authCode; }` three ways: JDK 21 defaults, without compressed oops, and with compact headers. Then write `alignUp` from memory.",
+  "answer": {
+   "lang": "java",
+   "src": "// Authorization { long amountMinor; int merchantId; boolean approved; String authCode; }\n// default:          12 + 8 + 4 + 1 + 4 = 29 -> 32 bytes\n// no compressed oops: 12 + 8 + 4 + 1 + 8 = 33 -> 40 bytes\n// compact headers:   8 + 8 + 4 + 1 + 4 = 25 -> 32 bytes (padding eats the saving)\nstatic long alignUp(long size, int alignment) {\n    return (size + alignment - 1) / alignment * alignment;\n}",
+   "alt": {
+    "lang": "kotlin",
+    "src": "// class Authorization(var amountMinor: Long, var merchantId: Int, var approved: Boolean, var authCode: String)\n// default:          12 + 8 + 4 + 1 + 4 = 29 -> 32 bytes\n// no compressed oops: 12 + 8 + 4 + 1 + 8 = 33 -> 40 bytes\n// compact headers:   8 + 8 + 4 + 1 + 4 = 25 -> 32 bytes (padding eats the saving)\nfun alignUp(size: Long, alignment: Int): Long =\n    (size + alignment - 1) / alignment * alignment"
+   }
+  }
+ },
+ "recap": [
+  "`-Xmx` caps only the Java heap. Thread stacks, metaspace, the code cache, GC bookkeeping and direct buffers come on top: 174 MB on top of a 216 MB heap in one measured process.",
+  "Every object has a header: an 8-byte mark word (hash, GC age, lock bits) and a 4-byte compressed class pointer, 12 bytes on JDK 21 to 26.",
+  "Size = header + fields, rounded up to 8. `Integer` 16, `Long` 24, `Payment` 40, and small fields can fill the padding for free.",
+  "Compressed oops keep references at 4 bytes while the max heap is under about 32 GB. At `-Xmx32g` and above they switch off, and the same data grows by about a fifth.",
+  "Compact object headers (8 bytes) are opt-in on JDK 25 and on by default on JDK 27. They save 8 bytes on some objects and nothing on others, so the gain follows your object count."
+ ],
+ "quiz": [
+  {
+   "q": "What is the shallow size of `class Fee { long amountMinor; int basisPoints; }` on a default JDK 21?",
+   "options": [
+    "12 bytes",
+    "16 bytes",
+    "24 bytes",
+    "32 bytes"
+   ],
+   "answer": 2,
+   "why": "12-byte header + 8 + 4 = 24, which is already a multiple of 8. The JVM puts the `int` at offset 12, right after the header, and the `long` at 16. 12 forgets the header. 32 assumes a 16-byte header, which you only get with compressed class pointers off."
+  },
+  {
+   "q": "A batch job holds a large in-memory map of settlement records. A teammate raises `-Xmx` from 30g to 36g to fit 20% more records. What happens?",
+   "options": [
+    "Compressed oops switch off, every reference doubles, and the extra 6 GB holds far fewer records than planned",
+    "It fits 20% more records, because heap size and capacity grow together",
+    "The JVM refuses to start, because compressed oops can't address 36 GB",
+    "Nothing changes until the heap is full"
+   ],
+   "answer": 0,
+   "why": "At 32 GB and above the JVM stops compressing references, so every reference field and array slot grows from 4 to 8 bytes. On JOL's numbers the same object graph grows by about a fifth, which eats most of the extra 6 GB. The JVM still starts: it just picks 8-byte references on its own."
+  },
+  {
+   "q": "Which of these objects gets smaller when you turn on compact object headers?",
+   "options": [
+    "An `Integer`",
+    "A `Long`",
+    "A `String` shell",
+    "A `byte[1_000_000]`, by a meaningful amount"
+   ],
+   "answer": 1,
+   "why": "A `Long` is 12 + 8 = 20, padded to 24. With an 8-byte header it is 8 + 8 = 16 exactly. An `Integer` is 16 either way (12 + 4 = 16, and 8 + 4 = 12 pads back to 16). A `String` shell stays 24 for the same reason. A one-megabyte array saves at most 8 bytes, which is nothing next to its data."
+  },
+  {
+   "q": "A Quarkus service with `-Xmx512m` calls `ByteBuffer.allocateDirect(64 * 1024 * 1024)`. Where do those 64 MB live?",
+   "options": [
+    "In the young generation",
+    "In the old generation",
+    "In metaspace",
+    "In native memory outside the heap"
+   ],
+   "answer": 3,
+   "why": "A direct buffer is native memory. The heap only holds a small `DirectByteBuffer` object that points to it. That's why the demo showed the buffer in the `direct` buffer pool and in no heap pool, and why `-Xmx` does not limit it. Metaspace holds class metadata, not buffers."
+  },
+  {
+   "q": "From the virtual threads track: a virtual thread waiting on a JDBC call has unmounted from its carrier. Where are its stack frames now?",
+   "options": [
+    "Still on the carrier's stack, which stays reserved for it",
+    "In a 1 MB thread stack outside the heap",
+    "In stack chunk objects on the Java heap",
+    "In metaspace, next to the class data"
+   ],
+   "answer": 2,
+   "why": "When a virtual thread unmounts, the JDK copies its frames into stack chunk objects on the heap, sized to the frames that exist. The garbage collector manages them like any other object. The carrier's stack is free for the next virtual thread, and only platform threads get a fixed native stack.",
+   "from": "vt-02"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "How big is an object header on a default 64-bit JDK 21?",
+   "back": "12 bytes: an 8-byte mark word and a 4-byte compressed class pointer."
+  },
+  {
+   "front": "What does the mark word hold?",
+   "back": "The identity hash code (once computed), the GC age in 4 bits, and lock state bits."
+  },
+  {
+   "front": "How many bytes does a `Long` take on a default JDK 21?",
+   "back": "24: a 12-byte header plus 8 bytes of value is 20, padded to a multiple of 8."
+  },
+  {
+   "front": "Up to which max heap do compressed oops work by default?",
+   "back": "Just under 32 GB: 2^32 references times 8-byte alignment. At `-Xmx32g` and above, references become 8 bytes."
+  },
+  {
+   "front": "Does `-Xmx` limit thread stacks, metaspace or direct buffers?",
+   "back": "No. It caps only the Java heap. Everything else comes on top of it."
+  },
+  {
+   "front": "What does `-XX:+UseCompactObjectHeaders` do, and where is it available?",
+   "back": "It shrinks the header to 8 bytes by moving the class pointer into the mark word. Experimental in JDK 24, opt-in in JDK 25, on by default in JDK 27 per the JDK source."
+  },
+  {
+   "front": "Why can adding a field to a class cost 0 bytes?",
+   "back": "Objects pad to 8 bytes. A small new field can fill the padding: a subclass of the 40-byte `Payment` that adds a `String` and a `short` is still 40 bytes."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Mark word",
+   "plain": "The first 8 bytes of every object: hash code, GC age and lock bits."
+  },
+  {
+   "term": "Class pointer",
+   "plain": "The header field that says which class an object is. 4 bytes when compressed."
+  },
+  {
+   "term": "Compressed oops",
+   "plain": "4-byte object references that the JVM shifts by 3 bits to reach up to 32 GB of heap."
+  },
+  {
+   "term": "Object alignment",
+   "plain": "Every object starts at a multiple of 8 bytes, so sizes round up to 8."
+  },
+  {
+   "term": "Shallow size",
+   "plain": "The bytes of one object alone: header, fields and padding, not the objects it points to."
+  },
+  {
+   "term": "Metaspace",
+   "plain": "Native memory for class metadata. Unlimited by default."
+  },
+  {
+   "term": "Code cache",
+   "plain": "Native memory for the machine code the JIT compilers produce."
+  },
+  {
+   "term": "Compact object headers",
+   "plain": "An 8-byte header with the class pointer folded into the mark word. Opt-in on JDK 25."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A teammate is surprised that a `HashMap<String, Long>` with a million idempotency keys takes about 144 MB when the keys and values add up to about 44 MB. Explain where the other 100 MB goes, in your own words.",
+  "answer": "Each entry is not 44 bytes of data. It is four objects, and every object pays a 12-byte header and rounds up to a multiple of 8. The key is a 24-byte `String` that points to a separate 56-byte `byte[]` with the 36 characters. The value is a 24-byte `Long` box around 8 bytes. The map adds a 32-byte `HashMap$Node` per entry, plus about 8 bytes of table slot. That's about 144 bytes per entry. To shrink it, store fewer objects: a `UUID` key (32 bytes) instead of a `String`, primitive values in a specialized map, or a bounded cache."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "The mark word has a precise bit layout, and it changed between JDK 21 and 25. On JDK 21 a normal object's mark word is `unused:25 hash:31 unused_gap:1 age:4 unused_gap:1 lock:2`. On JDK 25 it is `unused:22 hash:31 unused_gap:4 age:4 self-fwd:1 lock:2`, and with compact headers the 22 unused bits become `klass:22`, the class pointer. 22 bits can name about 4 million classes, which is plenty. Four of the gap bits are marked in the source as reserved for Valhalla, the project that will bring value objects.\n\nYou can watch the mark word change with JOL's `ClassLayout.parseInstance(obj).toPrintable()`. On JDK 21 a fresh object shows `0x0000000000000001 (non-biasable; age: 0)`. After `System.identityHashCode(obj)` the hash appears in the word: `0x00000077846d2c01 (hash: 0x77846d2c; age: 0)`. Inside a `synchronized` block on JDK 21, the word points to a lock record on the thread's stack: `(thin lock: 0x00007f310cdfe928)`.\n\nField packing has its own rules since JDK 15. The JVM fills the 4-byte gap after a 12-byte header with an `int`, a `float` or a reference, but never with a `long`, which must start at a multiple of 8. That's why a `Long` has 4 bytes of padding in the middle and an `Integer` has none. Subclass fields can fill gaps left by the superclass, as the lab's `CardPayment` shows.\n\nTwo practical notes about JOL. It can't read record field offsets on JDK 21 unless you set `-Djol.magicFieldOffset=true` (the lab sets it in code before JOL starts). And without permission to attach to processes it prints warnings and guesses addresses, but the layouts and sizes it prints are still exact."
+ },
+ "sources": [
+  {
+   "title": "The java command (JDK 25 man page source): compressed oops and compact headers",
+   "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/java.base/share/man/java.md"
+  },
+  {
+   "title": "markWord.hpp at jdk-25-ga: the mark word bit layout",
+   "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/hotspot/share/oops/markWord.hpp"
+  },
+  {
+   "title": "JEP 519: Compact Object Headers",
+   "url": "https://openjdk.org/jeps/519"
+  },
+  {
+   "title": "JOL (Java Object Layout)",
+   "url": "https://github.com/openjdk/jol"
+  }
+ ]
+}
