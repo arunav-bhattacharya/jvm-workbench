@@ -28,7 +28,7 @@ public class StarRulesDemoJava {
 
         // Wrong moves. Uncomment one at a time, predict the error, then run.
         // anySink.accept("pay_1");                // 1
-        anyBox.item = "USD";                    // 2
+        // anyBox.item = "USD";                    // 2
         // Integer n = peek(amounts);              // 3
     }
 }
