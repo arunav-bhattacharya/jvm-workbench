@@ -187,8 +187,8 @@ class Io03Pipeline(Narrated):
                 return VGroup(r, M(label, 22, BLACK).move_to(r))
             return VGroup(r)
 
-        head1 = T("handler blocks the loop", 26, BAD).move_to([-6.45, 3.1, 0], aligned_edge=LEFT)
-        y1 = 2.1
+        head1 = T("handler blocks the loop", 26, BAD).move_to([-6.45, 2.8, 0], aligned_edge=LEFT)
+        y1 = 1.75
         l1 = lane("loop thread", y1)
         a1 = bar(0, 1000, y1, BAD, "A: SLOW, sleep(1000)")
         btick = Line([X(50), y1 + 0.55, 0], [X(50), y1 + 0.25, 0], stroke_width=3, color=TEAL_M)
@@ -210,15 +210,15 @@ class Io03Pipeline(Narrated):
         self.play(FadeIn(b1), FadeIn(r1, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
-        head2 = T("handler hands the slow part to its own pool", 26, OK).move_to([-6.45, 0.4, 0], aligned_edge=LEFT)
-        y2, y3, y4 = -0.45, -1.25, -2.05
+        head2 = T("handler hands the slow part to its own pool", 26, OK).move_to([-6.45, 0.25, 0], aligned_edge=LEFT)
+        y2, y3, y4 = -0.6, -1.4, -2.2
         l2, l3, l4 = lane("loop thread", y2), lane("pool thread 1", y3), lane("pool thread 2", y4)
         a2 = VGroup(bar(0, 3, y2, LOOP), bar(50, 53, y2, LOOP))
         a3 = bar(2, 1000, y3, BAD, "A: SLOW, sleep(1000)")
         b2 = bar(51, 53, y4, TEAL_M)
         btick2 = Line([X(50), y2 + 0.55, 0], [X(50), y2 + 0.25, 0], stroke_width=3, color=TEAL_M)
         r2 = T("FAST reply after 2 ms", 26, OK).move_to([x1, y4, 0], aligned_edge=RIGHT)
-        axis = VGroup(*[T(f"{ms:,} ms", 20, GREY_B).move_to([X(ms), -2.75, 0]) for ms in (0, 500, 1000)])
+        axis = VGroup(*[T(f"{ms:,} ms", 20, GREY_B).move_to([X(ms), -2.9, 0]) for ms in (0, 500, 1000)])
         self.say("The fix is to hand the slow part to your own executor. "
                  "The loop thread is free at once, and FAST comes back in 2 milliseconds.")
         self.play(FadeIn(head2), FadeIn(l2), FadeIn(l3), FadeIn(l4), FadeIn(axis), run_time=0.6)

@@ -1,0 +1,121 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.615
+Say you want to log every call your service makes to its FX quotes client.
+
+2
+00:00:07.615 --> 00:00:12.928
+A wrapper written by hand repeats the same log-and-forward code in every method.
+
+3
+00:00:12.928 --> 00:00:17.312
+Forty methods on six interfaces is tedious, and easy to get wrong.
+
+4
+00:00:17.500 --> 00:00:21.700
+The JDK can write that wrapper for you, while the program runs.
+
+5
+00:00:21.700 --> 00:00:23.167
+You write one handler.
+
+6
+00:00:24.200 --> 00:00:25.473
+Here is one call.
+
+7
+00:00:25.473 --> 00:00:30.040
+Your code calls quoteMicros on what it thinks is an FxQuotes.
+
+8
+00:00:30.040 --> 00:00:35.356
+The object is really a proxy, an instance of a class the JDK generated.
+
+9
+00:00:35.567 --> 00:00:40.957
+The generated method takes the Method object for quoteMicros, which it looked up once.
+
+10
+00:00:40.957 --> 00:00:45.406
+It copies the arguments into a new Object array, boxing any primitives.
+
+11
+00:00:45.406 --> 00:00:47.725
+Then it calls invoke on your handler.
+
+12
+00:00:47.900 --> 00:00:50.820
+An InvocationHandler has one method, invoke.
+
+13
+00:00:50.820 --> 00:00:57.257
+It gets the proxy, the Method and the arguments, for every call on every method of the interface.
+
+14
+00:00:57.867 --> 00:01:00.075
+Your handler decides what happens.
+
+15
+00:01:00.075 --> 00:01:04.621
+This one logs the call, then calls the same method on the real target.
+
+16
+00:01:04.833 --> 00:01:07.104
+The answer comes back as an Object.
+
+17
+00:01:07.104 --> 00:01:12.164
+The proxy casts it to Long and unboxes it, and the caller gets its plain long.
+
+18
+00:01:12.367 --> 00:01:16.252
+A handler doesn't have to call a target at all.
+
+19
+00:01:16.252 --> 00:01:19.725
+In this section's demo there is no target.
+
+20
+00:01:19.725 --> 00:01:23.032
+The handler returns 1,084,250 by itself.
+
+21
+00:01:24.033 --> 00:01:27.773
+The proxy class is real, and you can ask it about itself.
+
+22
+00:01:27.773 --> 00:01:34.201
+It is final, it extends Proxy, and it implements exactly the interfaces you passed, in that order.
+
+23
+00:01:34.400 --> 00:01:38.224
+It keeps one static Method field per method, looked up once.
+
+24
+00:01:38.224 --> 00:01:41.539
+The name and the module are details that may change.
+
+25
+00:01:42.433 --> 00:01:49.676
+To get one, call Proxy.newProxyInstance with a class loader, the list of interfaces, and the handler.
+
+26
+00:01:49.676 --> 00:01:56.057
+From Kotlin it is the same call, because a Kotlin interface is an ordinary JVM interface.
+
+27
+00:01:56.267 --> 00:01:57.356
+Here is a check.
+
+28
+00:01:57.356 --> 00:02:00.216
+Your handler returns null for quoteMicros.
+
+29
+00:02:00.216 --> 00:02:01.919
+What does the caller get?
+
+30
+00:02:02.700 --> 00:02:08.403
+A NullPointerException, thrown at the step where the proxy unboxes the answer to a long.
