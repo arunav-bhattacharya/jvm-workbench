@@ -79,6 +79,8 @@ fun <L, R, R2> Either<L, R>.map(f: (R) -> R2): Either<L, R2> = when (this) {
 
 Two tools from this track meet here. `Either` only hands values out, so both parameters are `out` (lesson 4). And `Left` fills the unused side with `Nothing`, the bottom type from lesson 10. Put together, a `Left<String>` is an `Either<String, Nothing>`, and because `Nothing` is a subtype of every type and `R` is `out`, it is also an `Either<String, R2>` for any `R2`. That's why `is Either.Left -> this` type-checks: the same object is a valid result for any success type. Java has neither tool, so its `map` must build a new `Left` every time.
 
+In payment code this is the shape of validation: `fun validate(auth: Authorization): Either<RejectReason, ApprovedAuthorization>`. A caller can `map` the success, fall back with `getOrElse`, or `when` over both cases, and because `Either` is sealed the compiler checks that both are handled. Unlike an exception, the failure is part of the signature.
+
 Covariance also makes results compose: an `Either<String, Long>` is an `Either<Any, Number>`, so a function that reports any failure and any numeric result accepts it. Remove the `out`s and almost everything breaks at once, including the `Left` and `Right` declarations themselves: `Type parameter 'L' is declared as 'out' but occurs in 'invariant' position in type 'Either<L (of class Left<out L>), Nothing>'.` A supertype is a position too."""
 
 S2 = """The second design is a repository. A full repository both takes entities (`save`) and returns them (`findAll`, `findById`), so it must be invariant, and an audit job that wants to read *any* repository can't accept a `Repository<Merchant, Long>` as a `Repository<Entity<Long>, Long>`. The fix is to split the interface by variance: put the reading half in its own covariant interface.
@@ -108,7 +110,9 @@ fun printAll(repo: ReadRepository<Entity<*>>) {
 
 Now `printAll` accepts a `Repository<Merchant, Long>` and a `Repository<Settlement, String>`, because each one *is* a `ReadRepository` of its entity, and the read side is covariant. The full repository is still invariant, and the compiler still refuses `val anyEntity: Repository<Entity<Long>, Long> = merchants` with `Initializer type mismatch`. Nothing was weakened; the safe half was given its own name.
 
-The bounds are lesson 2's tools: `ID : Comparable<ID>` lets the in-memory implementation keep entities in a `TreeMap` sorted by id, and `T : Entity<ID>` ties each entity to its id type. The Kotlin docs give the same advice for reading and writing dictionaries: split the interface instead of casting. This is interface segregation, done by variance."""
+The bounds are lesson 2's tools: `ID : Comparable<ID>` lets the in-memory implementation keep entities in a `TreeMap` sorted by id, and `T : Entity<ID>` ties each entity to its id type. The Kotlin docs give the same advice for reading and writing dictionaries: split the interface instead of casting. This is interface segregation, done by variance.
+
+Notice where the variance came from. You didn't decide that `ReadRepository` is covariant; you looked at its members, saw that each one only returns `T`, and the compiler agreed. That is the habit this track has been building: read the positions, and let them tell you."""
 
 S3 = """The third design is the one in the figure: an event bus for a payment service. Events flow *out* of publishers, and handlers take them *in*. That's lessons 4 and 5 in one class.
 
@@ -152,7 +156,9 @@ inline fun <reified E : PaymentEvent> subscribe(noinline handler: (E) -> Unit) =
 bus.subscribe<CardAuthorized> { fraudCheck(it) }
 ```
 
-A lambda passed to an inline function is normally inlined too, which means it doesn't exist as an object. This one gets stored in the map, so it has to stay an object: `noinline` says so."""
+A lambda passed to an inline function is normally inlined too, which means it doesn't exist as an object. This one gets stored in the map, so it has to stay an object: `noinline` says so.
+
+One limit to know: this bus routes by the exact class. A handler subscribed under `PaymentEvent::class` never runs, because no event's run-time class is the interface itself. The "Go deeper" part shows how to walk supertypes when you need that."""
 
 S4 = """The last design is a container for values of many types, the kind of per-payment context a Quarkus request or a Temporal workflow carries around: the accepted currencies, the retry delays, the retry count. Lesson 9's registry used the type as the whole key. Here the key is a small object that carries a name *and* the full type of its value:
 
@@ -182,7 +188,9 @@ val currencies: List<String>? = attributes[CURRENCIES]       // no cast, no type
 
 The key's type parameter does the typing: `attributes[CURRENCIES]` is a `List<String>?` with no cast at the call site, and `attributes[CURRENCIES] = 42` is a compile error (`Argument type mismatch: actual type is 'Int', but 'List<String>' was expected.`). The `KType` inside the key makes `key<List<Long>>("retries")` and `key<Int>("retries")` different keys, so two teams can't collide by picking the same name.
 
-`Key<T>` is invariant on purpose, and this is the last variance decision of the track. Declare it `out T`, and a `Key<List<String>>` becomes a `Key<Any>`. Then `attributes[currencies] = 42` compiles, with `T` inferred as `Any`, and the next read of the currencies throws `ClassCastException: class java.lang.Integer cannot be cast to class java.util.List`. A key is used to write as well as to read, so it can't be a producer. The one unchecked cast in `get` stays safe only as long as that holds."""
+`Key<T>` is invariant on purpose, and this is the last variance decision of the track. Declare it `out T`, and a `Key<List<String>>` becomes a `Key<Any>`. Then `attributes[currencies] = 42` compiles, with `T` inferred as `Any`, and the next read of the currencies throws `ClassCastException: class java.lang.Integer cannot be cast to class java.util.List`. A key is used to write as well as to read, so it can't be a producer. The one unchecked cast in `get` stays safe only as long as that holds.
+
+This is also a good place to stop adding generics. Four designs, two commented casts, one deliberately invariant key: if a design needs much more than that, a plainer one with a sealed class and a `when` is usually easier for the next engineer to read."""
 
 L = {
     "id": "gen-11",
