@@ -16,7 +16,7 @@ fun directBytes(): Long = ManagementFactory.getPlatformMXBeans(BufferPoolMXBean:
     .filter { it.name == "direct" }
     .sumOf { it.memoryUsed }
 
-fun main() {
+fun main(args: Array<String>) {                                        // args unused; one main keeps every launcher happy
     val before = directBytes()                                            // the JDK may already hold a little
     val escaped: MemorySegment
     Arena.ofConfined().use { arena ->                                     // 1. one owner thread, closed by use {}
