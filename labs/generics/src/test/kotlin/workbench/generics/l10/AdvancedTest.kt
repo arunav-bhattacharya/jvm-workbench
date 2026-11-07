@@ -20,7 +20,7 @@ class AdvancedTest {
 
     @Test
     fun `a bank transfer uses the same base setters and its own iban`() {
-        val transfer = BankTransferBuilder().iban("NL91ABNA0417164300").currency("EUR").amount(99_00).build()
+        val transfer = BankTransferBuilder().iban("NL91ABNA0417164300").currency("EUR").amount(9_900).build()
         assertThat(transfer).isEqualTo(BankTransfer(9_900, "EUR", "", "NL91ABNA0417164300"))
     }
 
