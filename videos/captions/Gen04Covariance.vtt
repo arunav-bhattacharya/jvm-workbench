@@ -1,0 +1,125 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:06.306
+A producer is a type that only hands values of T out.
+
+2
+00:00:06.306 --> 00:00:09.272
+A feed of payments, an iterator, a Supplier.
+
+3
+00:00:09.272 --> 00:00:11.564
+You call it, and it gives you a T.
+
+4
+00:00:11.733 --> 00:00:13.957
+Here is a source of card payments.
+
+5
+00:00:13.957 --> 00:00:15.331
+It holds two of them.
+
+6
+00:00:15.467 --> 00:00:16.903
+And here is totalCents.
+
+7
+00:00:16.903 --> 00:00:18.965
+It wants a source of any Payment.
+
+8
+00:00:18.965 --> 00:00:22.463
+It calls next until it gets null, and adds up the cents.
+
+9
+00:00:22.600 --> 00:00:25.234
+Can you hand it your source of card payments?
+
+10
+00:00:25.234 --> 00:00:28.395
+Run the substitution test from lesson 3 of this track.
+
+11
+00:00:28.533 --> 00:00:32.716
+The only thing totalCents ever does with the source is call next.
+
+12
+00:00:32.716 --> 00:00:34.968
+Each call hands back a CardPayment.
+
+13
+00:00:35.133 --> 00:00:38.319
+Every CardPayment is a Payment, so the sum works.
+
+14
+00:00:38.467 --> 00:00:42.249
+Nothing can go wrong, because nothing ever goes into a source.
+
+15
+00:00:43.000 --> 00:00:45.741
+But the compiler can't see that by itself.
+
+16
+00:00:45.741 --> 00:00:49.200
+Generic types are invariant unless you say otherwise.
+
+17
+00:00:49.400 --> 00:00:52.692
+So this call fails, with an argument type mismatch.
+
+18
+00:00:52.867 --> 00:00:57.222
+In Kotlin you say otherwise once, on the declaration, with out.
+
+19
+00:00:57.222 --> 00:00:59.088
+Now the same call compiles.
+
+20
+00:00:59.867 --> 00:01:01.249
+This is covariance.
+
+21
+00:01:01.249 --> 00:01:03.869
+CardPayment is a subtype of Payment.
+
+22
+00:01:04.067 --> 00:01:09.727
+Because Source is declared out, a Source of CardPayment is a subtype of a Source of Payment.
+
+23
+00:01:09.867 --> 00:01:14.823
+The arrow between the elements carries over to the sources, in the same direction.
+
+24
+00:01:15.600 --> 00:01:17.379
+Java has no out keyword.
+
+25
+00:01:17.379 --> 00:01:25.235
+A Java Source of T stays invariant, so each method that takes one says it at the use site, with ? extends.
+
+26
+00:01:25.400 --> 00:01:27.955
+Kotlin's out is declaration-site variance.
+
+27
+00:01:27.955 --> 00:01:32.944
+You think about it once, when you write Source, and every caller gets it for free.
+
+28
+00:01:33.133 --> 00:01:35.682
+Java's ? extends is use-site variance.
+
+29
+00:01:35.682 --> 00:01:43.195
+Every method that takes a source has to remember it, and the ones that forget are stricter than they need to be.
+
+30
+00:01:43.933 --> 00:01:47.140
+That is the promise out makes: T only comes out.
+
+31
+00:01:47.333 --> 00:01:53.740
+Add a method that takes a T in, and the compiler rejects the out, and tells you which position broke it.

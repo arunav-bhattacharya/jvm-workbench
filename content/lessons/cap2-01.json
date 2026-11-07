@@ -1,0 +1,384 @@
+{
+ "id": "cap2-01",
+ "title": "A Netty server that never blocks its loop",
+ "minutes": 38,
+ "goal": "By the end you can build the shell of a non-blocking quote server on Netty 4.2 (a line protocol with request ids and a length limit, a handler that never waits on its event loop, reading that pauses when a client stops reading, and a clean close) and prove that the loop stays free with a test that counts instead of timing.",
+ "warmup": {
+  "q": "A Netty server has one event loop. Its handler calls `source.quote(symbol).join()`, and each quote takes 100 ms. Ten clients send one request each at the same moment. When does the last client get its reply?",
+  "options": [
+   "After about 100 ms: the ten quotes wait at the same time",
+   "After about 1 second: the loop waits for each quote in turn",
+   "After about 200 ms: Netty starts a second loop when the first one is busy",
+   "Never: Netty throws when a handler calls `join()`"
+  ],
+  "answer": 1,
+  "why": "The loop is one thread, and `join()` holds it for the whole 100 ms. It reads the next request only after the current quote is back, so the ten quotes run one after another: about 1,000 ms (1,072 ms in this lesson's demo). Netty never adds loops on its own and doesn't detect blocking. Handing the future back lets all ten wait at once, and the same demo then answers everyone in about 100 ms."
+ },
+ "sections": [
+  {
+   "h": "The service we are building, and the rule it never breaks",
+   "body": "Over three lessons you build one program: a small quote service. A client opens a TCP connection and sends a line such as `7 EURUSD`. The service asks three FX providers for a price and answers `7 OK EURUSD 1.0842 northbank`, the best price it got, within 300 ms. The providers are invented (Northbank, Eastgate and Fjord), and like real ones they are slow on a bad day and sometimes down. This lesson builds the server shell on Netty. Lesson 2 of this track adds the fan-out to the providers with coroutines and a deadline. Lesson 3 makes the whole thing hold up under load.\n\nOne rule shapes every decision: **the event loop never waits**. As \"Netty: the event loop and the channel pipeline\" showed, a channel is registered with one loop for its whole life, and that loop is a single thread that runs the handlers of every channel it owns. If a handler waits 100 ms for a provider, every connection on that loop gets 100 ms of silence.\n\nThe protocol is lines of text. A client can be `nc` in a terminal, tests can write requests as strings, and `LineBasedFrameDecoder` does the framing. A binary protocol would use a length field instead, as \"Netty in practice: codecs, flow control and leaks\" did, and nothing else in the design would change. Two details are deliberate.\n\nThe decoder takes at most 64 bytes per line. Without a limit, a client that sends bytes and never a newline makes the decoder buffer forever. A longer line fails with `TooLongFrameException`.\n\nEvery request carries an id, and every reply repeats it. A reply leaves when its quote arrives, so a fast quote overtakes a slow one and replies come back out of order. The client matches them by id.\n\nHere is the pipeline. Each connection gets new instances, because the handler keeps state for its connection:\n\n```java\nChannelHandler[] handlers(QuoteSource source) {\n    return new ChannelHandler[] {\n        new LineBasedFrameDecoder(64),        // one line per message; a longer line fails\n        new StringDecoder(UTF_8),\n        new StringEncoder(UTF_8),             // outbound: String to bytes\n        new FlowControlHandler(),             // section 3 explains this one\n        new QuoteHandler(source),             // new per connection: it keeps state\n    };\n}\n```\n\n```kotlin\nfun handlers(source: QuoteSource): Array<ChannelHandler> = arrayOf(\n    LineBasedFrameDecoder(64),                // one line per message; a longer line fails\n    StringDecoder(UTF_8),\n    StringEncoder(UTF_8),                     // outbound: String to bytes\n    FlowControlHandler(),                     // section 3 explains this one\n    QuoteHandler(source),                     // new per connection: it keeps state\n)\n```\n\n`FlowControlHandler` looks out of place for now. Section 3 shows what goes wrong without it.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 700 290\" role=\"img\" aria-label=\"The quote server: a client line passes the frame decoder, string decoder, string encoder and flow control handler to QuoteHandler, which asks QuoteSource for a future and gets the callback back on the same event loop. Auto-read is on only while the channel is writable and fewer than 16 requests wait. One event-loop thread runs all of it.\"><text class=\"t-s t-a\" x=\"330\" y=\"34\" text-anchor=\"middle\">requests flow in, replies flow back out through the encoder</text><rect class=\"box\" x=\"12\" y=\"50\" width=\"76\" height=\"52\" rx=\"8\"/><text class=\"t\" x=\"50\" y=\"72\" text-anchor=\"middle\">client</text><text class=\"t-s t-m\" x=\"50\" y=\"92\" text-anchor=\"middle\">7 EURUSD</text><line class=\"ln\" x1=\"90\" y1=\"76\" x2=\"102\" y2=\"76\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"104\" y=\"50\" width=\"104\" height=\"52\" rx=\"8\"/><text class=\"t\" x=\"156\" y=\"72\" text-anchor=\"middle\">frame</text><text class=\"t-s t-m\" x=\"156\" y=\"92\" text-anchor=\"middle\">max 64 bytes</text><line class=\"ln\" x1=\"210\" y1=\"76\" x2=\"218\" y2=\"76\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"220\" y=\"50\" width=\"84\" height=\"52\" rx=\"8\"/><text class=\"t\" x=\"262\" y=\"72\" text-anchor=\"middle\">decode</text><text class=\"t-s t-m\" x=\"262\" y=\"92\" text-anchor=\"middle\">UTF-8</text><line class=\"ln\" x1=\"306\" y1=\"76\" x2=\"314\" y2=\"76\" marker-end=\"url(#arr)\"/><rect class=\"box-b\" x=\"316\" y=\"50\" width=\"84\" height=\"52\" rx=\"8\"/><text class=\"t\" x=\"358\" y=\"72\" text-anchor=\"middle\">encode</text><text class=\"t-s t-m\" x=\"358\" y=\"92\" text-anchor=\"middle\">replies out</text><line class=\"ln\" x1=\"402\" y1=\"76\" x2=\"410\" y2=\"76\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"412\" y=\"50\" width=\"96\" height=\"52\" rx=\"8\"/><text class=\"t\" x=\"460\" y=\"72\" text-anchor=\"middle\">flow ctl</text><text class=\"t-s t-m\" x=\"460\" y=\"92\" text-anchor=\"middle\">holds lines</text><line class=\"ln\" x1=\"510\" y1=\"76\" x2=\"522\" y2=\"76\" marker-end=\"url(#arr)\"/><rect class=\"box-a\" x=\"524\" y=\"50\" width=\"124\" height=\"52\" rx=\"8\"/><text class=\"t\" x=\"586\" y=\"72\" text-anchor=\"middle\">QuoteHandler</text><text class=\"t-s t-m\" x=\"586\" y=\"92\" text-anchor=\"middle\">max 16 waiting</text><line class=\"ln-a\" x1=\"566\" y1=\"104\" x2=\"566\" y2=\"156\" marker-end=\"url(#arr)\"/><line class=\"ln-a\" x1=\"606\" y1=\"158\" x2=\"606\" y2=\"106\" marker-end=\"url(#arr)\"/><text class=\"t-s t-a\" x=\"536\" y=\"134\" text-anchor=\"middle\">quote()</text><text class=\"t-s t-a\" x=\"644\" y=\"128\" text-anchor=\"middle\">callback</text><text class=\"t-s t-a\" x=\"648\" y=\"144\" text-anchor=\"middle\">on the loop</text><rect class=\"box\" x=\"524\" y=\"160\" width=\"124\" height=\"52\" rx=\"8\"/><text class=\"t\" x=\"586\" y=\"182\" text-anchor=\"middle\">QuoteSource</text><text class=\"t-s t-m\" x=\"586\" y=\"202\" text-anchor=\"middle\">returns a future</text><rect class=\"box-dim\" x=\"104\" y=\"160\" width=\"404\" height=\"52\" rx=\"8\"/><text class=\"t-s\" x=\"306\" y=\"181\" text-anchor=\"middle\">auto-read is on only while the channel is writable</text><text class=\"t-s\" x=\"306\" y=\"199\" text-anchor=\"middle\">and fewer than 16 requests are waiting</text><rect class=\"box-ok\" x=\"12\" y=\"236\" width=\"636\" height=\"40\" rx=\"8\"/><text class=\"t\" x=\"330\" y=\"261\" text-anchor=\"middle\">one event-loop thread runs every box above, and it never waits</text></svg>",
+    "caption": "One event loop carries every request through the pipeline. The handler asks the source for a future and gets the callback back on the same loop, and auto-read decides when it takes the next line."
+   },
+   "try": {
+    "title": "Feed the pipeline by hand",
+    "minutes": 4,
+    "steps": [
+     "Open `ProtocolDemo.java` (or `ProtocolDemo.kt`). It pushes bytes into a line pipeline with `EmbeddedChannel` and completes the two quotes by hand, GBPUSD first.",
+     "Predict what comes out after each of the five steps, and whether the channel is still open at the end.",
+     "Run it. Then run it again with `-Pargs=6`, a 6-byte line limit. Predict first: `7 EURUSD` is 8 bytes."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "ProtocolDemo.java",
+     "src": "package workbench.quotes.l01;\n\nimport io.netty.buffer.ByteBuf;\nimport io.netty.buffer.Unpooled;\nimport io.netty.channel.ChannelFutureListener;\nimport io.netty.channel.ChannelHandlerContext;\nimport io.netty.channel.SimpleChannelInboundHandler;\nimport io.netty.channel.embedded.EmbeddedChannel;\nimport io.netty.handler.codec.LineBasedFrameDecoder;\nimport io.netty.handler.codec.string.StringDecoder;\nimport io.netty.handler.codec.string.StringEncoder;\n\nimport java.util.ArrayList;\nimport java.util.HashMap;\nimport java.util.List;\nimport java.util.Map;\nimport java.util.concurrent.CompletableFuture;\n\nimport static java.nio.charset.StandardCharsets.UTF_8;\n\n/** Feeds a line pipeline by hand: framing, request ids, replies out of order, and a line that is too long. */\npublic class ProtocolDemo {\n    static final Map<String, CompletableFuture<String>> pending = new HashMap<>();\n\n    // each request waits for a price that main() supplies by hand\n    static class PendingHandler extends SimpleChannelInboundHandler<String> {\n        @Override\n        protected void channelRead0(ChannelHandlerContext ctx, String line) {\n            String[] p = line.split(\" \");\n            CompletableFuture<String> price = new CompletableFuture<>();\n            pending.put(p[1], price);\n            price.whenCompleteAsync((v, e) -> ctx.writeAndFlush(p[0] + \" OK \" + p[1] + \" \" + v + \"\\n\"), ctx.executor());\n        }\n\n        @Override\n        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {\n            ctx.writeAndFlush(\"ERR line too long\\n\").addListener(ChannelFutureListener.CLOSE);\n        }\n    }\n\n    public static void main(String[] args) {\n        int maxLine = args.length > 0 ? Integer.parseInt(args[0]) : 64;\n        EmbeddedChannel ch = new EmbeddedChannel(\n                new LineBasedFrameDecoder(maxLine), new StringDecoder(UTF_8), new StringEncoder(UTF_8), new PendingHandler());\n        step(ch, \"in \\\"7 EUR\\\"\", () -> ch.writeInbound(buf(\"7 EUR\")));\n        step(ch, \"in \\\"USD\\\\n8 GBPUSD\\\\n\\\"\", () -> ch.writeInbound(buf(\"USD\\n8 GBPUSD\\n\")));\n        step(ch, \"GBPUSD answers first\", () -> answer(\"GBPUSD\", \"1.2710 fjord\"));\n        step(ch, \"EURUSD answers\", () -> answer(\"EURUSD\", \"1.0842 northbank\"));\n        step(ch, \"in a 100-byte line\", () -> ch.writeInbound(buf(\"x\".repeat(100) + \"\\n\")));\n        System.out.println(\"channel open: \" + ch.isOpen());\n    }\n\n    static void answer(String symbol, String price) {\n        CompletableFuture<String> f = pending.get(symbol);\n        if (f != null) f.complete(price);\n    }\n\n    static ByteBuf buf(String s) {\n        return Unpooled.copiedBuffer(s, UTF_8);\n    }\n\n    static void step(EmbeddedChannel ch, String what, Runnable action) {\n        if (ch.isOpen()) action.run();\n        ch.runPendingTasks();                        // run the callbacks queued on the channel's loop\n        List<String> out = new ArrayList<>();\n        for (ByteBuf b; (b = ch.readOutbound()) != null; b.release()) out.add(b.toString(UTF_8).trim());\n        System.out.printf(\"%-24s -> out %s%n\", what, out.isEmpty() ? \"(nothing)\" : out);\n    }\n}\n",
+     "run": "./gradlew :quotes:demo -Pmain=workbench.quotes.l01.ProtocolDemo",
+     "file": "labs/quotes/src/demo/java/workbench/quotes/l01/ProtocolDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "ProtocolDemo.kt",
+      "src": "package workbench.quotes.l01\n\nimport io.netty.buffer.ByteBuf\nimport io.netty.buffer.Unpooled\nimport io.netty.channel.ChannelFutureListener\nimport io.netty.channel.ChannelHandlerContext\nimport io.netty.channel.SimpleChannelInboundHandler\nimport io.netty.channel.embedded.EmbeddedChannel\nimport io.netty.handler.codec.LineBasedFrameDecoder\nimport io.netty.handler.codec.string.StringDecoder\nimport io.netty.handler.codec.string.StringEncoder\nimport java.util.concurrent.CompletableFuture\nimport kotlin.text.Charsets.UTF_8\n\nprivate val pendingPrices = HashMap<String, CompletableFuture<String>>()\n\n// each request waits for a price that main() supplies by hand\nprivate class PendingPriceHandler : SimpleChannelInboundHandler<String>() {\n    override fun channelRead0(ctx: ChannelHandlerContext, line: String) {\n        val (id, symbol) = line.split(\" \")\n        val price = CompletableFuture<String>()\n        pendingPrices[symbol] = price\n        price.whenCompleteAsync({ v, _ -> ctx.writeAndFlush(\"$id OK $symbol $v\\n\") }, ctx.executor())\n    }\n\n    override fun exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable) {\n        ctx.writeAndFlush(\"ERR line too long\\n\").addListener(ChannelFutureListener.CLOSE)\n    }\n}\n\n/** Feeds a line pipeline by hand: framing, request ids, replies out of order, and a line that is too long. */\nfun main(args: Array<String>) {\n    val maxLine = args.firstOrNull()?.toInt() ?: 64\n    val ch = EmbeddedChannel(LineBasedFrameDecoder(maxLine), StringDecoder(UTF_8), StringEncoder(UTF_8), PendingPriceHandler())\n    fun buf(s: String): ByteBuf = Unpooled.copiedBuffer(s, UTF_8)\n    fun step(what: String, action: () -> Unit) {\n        if (ch.isOpen) action()\n        ch.runPendingTasks()                         // run the callbacks queued on the channel's loop\n        val out = generateSequence { ch.readOutbound<ByteBuf>() }.map { b -> b.toString(UTF_8).trim().also { b.release() } }.toList()\n        println(\"%-24s -> out %s\".format(what, if (out.isEmpty()) \"(nothing)\" else out))\n    }\n    step(\"in \\\"7 EUR\\\"\") { ch.writeInbound(buf(\"7 EUR\")) }\n    step(\"in \\\"USD\\\\n8 GBPUSD\\\\n\\\"\") { ch.writeInbound(buf(\"USD\\n8 GBPUSD\\n\")) }\n    step(\"GBPUSD answers first\") { pendingPrices[\"GBPUSD\"]?.complete(\"1.2710 fjord\") }\n    step(\"EURUSD answers\") { pendingPrices[\"EURUSD\"]?.complete(\"1.0842 northbank\") }\n    step(\"in a 100-byte line\") { ch.writeInbound(buf(\"x\".repeat(100) + \"\\n\")) }\n    println(\"channel open: ${ch.isOpen}\")\n}\n",
+      "run": "./gradlew :quotes:demo -Pmain=workbench.quotes.l01.ProtocolDemoKt",
+      "file": "labs/quotes/src/demo/kotlin/workbench/quotes/l01/ProtocolDemo.kt"
+     }
+    },
+    "expect": "Half a line produces nothing. The second write completes both requests, but nothing comes out until a price arrives. GBPUSD answers first, so `8 OK GBPUSD 1.2710 fjord` leaves before `7 OK EURUSD 1.0842 northbank`: the ids are what let a client match them. The 100-byte line gets `ERR line too long` and the channel closes. With a 6-byte limit, the second write already fails: `7 EURUSD` is too long, the channel closes, and the later steps find nothing to do."
+   },
+   "refs": [
+    {
+     "title": "LineBasedFrameDecoder source, Netty 4.2",
+     "url": "https://raw.githubusercontent.com/netty/netty/4.2/codec-base/src/main/java/io/netty/handler/codec/LineBasedFrameDecoder.java",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Hand the future back instead of waiting for it",
+   "body": "`QuoteSource.quote(symbol)` returns a `CompletableFuture<Quote>`. The first draft of the handler, which is the starting code of this lesson's lab, waits for it:\n\n```java\n@Override\nprotected void channelRead0(ChannelHandlerContext ctx, String line) {\n    Request r = QuoteProtocol.parse(line);\n    Quote q = source.quote(r.symbol()).join();          // the loop waits here\n    ctx.writeAndFlush(QuoteProtocol.ok(r.id(), q));\n}\n```\n\n```kotlin\noverride fun channelRead0(ctx: ChannelHandlerContext, line: String) {\n    val r = QuoteProtocol.parse(line)\n    val q = source.quote(r.symbol).join()               // the loop waits here\n    ctx.writeAndFlush(QuoteProtocol.ok(r.id, q))\n}\n```\n\nIt answers correctly, and it passes a test with one client. This section's demo measures what it costs, with one event loop, ten clients and a provider that takes 100 ms. The tenth reply came after 1,072 ms, and the provider never saw more than one quote at a time. The loop asked for a quote, held its thread in `join()` until the answer came, and only then read the next request.\n\nThe fix gives the future back to the loop and finishes later:\n\n```java\nCompletableFuture<Quote> quote = source.quote(r.symbol());   // 1. returns at once\ninFlight.add(quote);\nquote.whenCompleteAsync((q, e) -> {                           // 2. later, on this channel's loop\n    inFlight.remove(quote);\n    ctx.writeAndFlush(e == null ? ok(r.id(), q) : error(r.id(), e));\n}, ctx.executor());\n```\n\n```kotlin\nval quote = source.quote(r.symbol)                            // 1. returns at once\ninFlight += quote\nquote.whenCompleteAsync({ q, e ->                             // 2. later, on this channel's loop\n    inFlight -= quote\n    ctx.writeAndFlush(if (e == null) ok(r.id, q) else error(r.id, e))\n}, ctx.executor())\n```\n\n`channelRead0` now returns in microseconds. The same demo answered all ten clients in 106 ms, with ten quotes waiting at once.\n\nThe second argument decides which thread runs the callback. `ctx.executor()` is the channel's own event loop, so the callback runs there as a task, like every other event of this channel. That matters because the handler keeps state, the set of in-flight futures. With plain `whenComplete`, the callback would run on whatever thread completed the future, a provider's thread, while the loop adds to the same `HashSet` in `channelRead0`. That is the read-modify-write race from \"Race conditions: why count++ lies\". When every touch of handler state happens on the loop, you need no lock: the loop is the lock. `ctx.writeAndFlush` would be safe from any thread. The set is not.\n\nThe interface carries the other half of the rule: `quote` must return at once and complete the future later. Lesson 2 meets that contract by starting a coroutine with `scope.future { }`. A `runBlocking { }` in its place would block the loop exactly like `join()`.\n\nHow do you prove the loop is free? The lab in \"Netty: the event loop and the channel pipeline\" timed a lag probe and asserted under 300 ms. That holds on a quiet laptop. On a build machine running eight builds on four cores, a healthy loop can miss 300 ms, and a broken handler can pass when the fake provider answers fast. This lab's test counts instead. It holds 100 quotes open, checks that the source saw 100 calls, then checks that the loop ran 50 empty tasks. A loop stuck in `join()` shows 1 call, on any machine and at any load. The 5-second limit in the test only decides how soon a failure is reported.",
+   "try": {
+    "title": "Ten clients, one loop, two handlers",
+    "minutes": 4,
+    "steps": [
+     "Open `BlockedLoopDemo.java` (or the Kotlin twin). One event loop serves ten clients; the provider answers each quote after 100 ms.",
+     "Predict the time until all ten replies, and the most quotes waiting at the same time, for `join` and for `async`.",
+     "Run it. Then change the group to `new MultiThreadIoEventLoopGroup(2, ...)` and predict the `join` numbers again."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "BlockedLoopDemo.java",
+     "src": "package workbench.quotes.l01;\n\nimport io.netty.bootstrap.ServerBootstrap;\nimport io.netty.channel.Channel;\nimport io.netty.channel.ChannelHandlerContext;\nimport io.netty.channel.ChannelInitializer;\nimport io.netty.channel.EventLoopGroup;\nimport io.netty.channel.MultiThreadIoEventLoopGroup;\nimport io.netty.channel.SimpleChannelInboundHandler;\nimport io.netty.channel.nio.NioIoHandler;\nimport io.netty.channel.socket.SocketChannel;\nimport io.netty.channel.socket.nio.NioServerSocketChannel;\nimport io.netty.handler.codec.LineBasedFrameDecoder;\nimport io.netty.handler.codec.string.StringDecoder;\nimport io.netty.handler.codec.string.StringEncoder;\n\nimport java.io.BufferedReader;\nimport java.io.InputStreamReader;\nimport java.net.InetAddress;\nimport java.net.InetSocketAddress;\nimport java.net.Socket;\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.concurrent.CompletableFuture;\nimport java.util.concurrent.Executors;\nimport java.util.concurrent.ScheduledExecutorService;\nimport java.util.concurrent.TimeUnit;\nimport java.util.concurrent.atomic.AtomicInteger;\n\nimport static java.nio.charset.StandardCharsets.UTF_8;\n\n/** One event loop, ten clients, a provider that answers after 100 ms: join() on the loop vs handing the future back. */\npublic class BlockedLoopDemo {\n    static final ScheduledExecutorService provider = Executors.newSingleThreadScheduledExecutor();\n    static final AtomicInteger inFlight = new AtomicInteger();\n    static final AtomicInteger peak = new AtomicInteger();\n\n    static CompletableFuture<String> quote(String symbol) {\n        peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);       // count quotes waiting at once\n        CompletableFuture<String> f = new CompletableFuture<>();\n        provider.schedule(() -> {\n            inFlight.decrementAndGet();\n            f.complete(symbol + \" 1.0842\");\n        }, 100, TimeUnit.MILLISECONDS);\n        return f;\n    }\n\n    static final class QuoteOnLoop extends SimpleChannelInboundHandler<String> {\n        private final boolean block;\n\n        QuoteOnLoop(boolean block) {\n            this.block = block;\n        }\n\n        @Override\n        protected void channelRead0(ChannelHandlerContext ctx, String line) {\n            String[] p = line.split(\" \");\n            CompletableFuture<String> q = quote(p[1]);\n            if (block) {\n                ctx.writeAndFlush(p[0] + \" OK \" + q.join() + \"\\n\");                // waits 100 ms on the loop\n            } else {\n                q.whenCompleteAsync((v, e) -> ctx.writeAndFlush(p[0] + \" OK \" + v + \"\\n\"), ctx.executor());\n            }\n        }\n    }\n\n    public static void main(String[] args) throws Exception {\n        run(true);\n        run(false);\n        provider.shutdown();\n    }\n\n    static void run(boolean block) throws Exception {\n        EventLoopGroup group = new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());\n        try {\n            Channel server = new ServerBootstrap().group(group).channel(NioServerSocketChannel.class)\n                    .childHandler(new ChannelInitializer<SocketChannel>() {\n                        @Override\n                        protected void initChannel(SocketChannel ch) {\n                            ch.pipeline().addLast(new LineBasedFrameDecoder(64), new StringDecoder(UTF_8),\n                                    new StringEncoder(UTF_8), new QuoteOnLoop(block));\n                        }\n                    })\n                    .bind(InetAddress.getLoopbackAddress(), 0).sync().channel();\n            int port = ((InetSocketAddress) server.localAddress()).getPort();\n            List<Socket> clients = new ArrayList<>();\n            for (int i = 0; i < 10; i++) clients.add(new Socket(InetAddress.getLoopbackAddress(), port));\n\n            peak.set(0);\n            long t0 = System.nanoTime();\n            for (int i = 0; i < 10; i++) clients.get(i).getOutputStream().write((i + \" EURUSD\\n\").getBytes(UTF_8));\n            for (Socket c : clients) new BufferedReader(new InputStreamReader(c.getInputStream(), UTF_8)).readLine();\n            long ms = (System.nanoTime() - t0) / 1_000_000;\n            System.out.printf(\"%-6s 10 replies after %,5d ms; quotes waiting at the same time: %2d%n\",\n                    block ? \"join\" : \"async\", ms, peak.get());\n            for (Socket c : clients) c.close();\n        } finally {\n            group.shutdownGracefully(0, 1, TimeUnit.SECONDS).sync();\n        }\n    }\n}\n",
+     "run": "./gradlew :quotes:demo -Pmain=workbench.quotes.l01.BlockedLoopDemo",
+     "file": "labs/quotes/src/demo/java/workbench/quotes/l01/BlockedLoopDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "BlockedLoopDemo.kt",
+      "src": "package workbench.quotes.l01\n\nimport io.netty.bootstrap.ServerBootstrap\nimport io.netty.channel.ChannelHandlerContext\nimport io.netty.channel.ChannelInitializer\nimport io.netty.channel.MultiThreadIoEventLoopGroup\nimport io.netty.channel.SimpleChannelInboundHandler\nimport io.netty.channel.nio.NioIoHandler\nimport io.netty.channel.socket.SocketChannel\nimport io.netty.channel.socket.nio.NioServerSocketChannel\nimport io.netty.handler.codec.LineBasedFrameDecoder\nimport io.netty.handler.codec.string.StringDecoder\nimport io.netty.handler.codec.string.StringEncoder\nimport java.net.InetAddress\nimport java.net.InetSocketAddress\nimport java.net.Socket\nimport java.util.concurrent.CompletableFuture\nimport java.util.concurrent.Executors\nimport java.util.concurrent.TimeUnit\nimport java.util.concurrent.atomic.AtomicInteger\nimport kotlin.text.Charsets.UTF_8\n\nprivate val slowProvider = Executors.newSingleThreadScheduledExecutor()\nprivate val quotesInFlight = AtomicInteger()\nprivate val peakInFlight = AtomicInteger()\n\nprivate fun slowQuote(symbol: String): CompletableFuture<String> {\n    peakInFlight.accumulateAndGet(quotesInFlight.incrementAndGet(), ::maxOf)   // count quotes waiting at once\n    val f = CompletableFuture<String>()\n    slowProvider.schedule({ quotesInFlight.decrementAndGet(); f.complete(\"$symbol 1.0842\") }, 100, TimeUnit.MILLISECONDS)\n    return f\n}\n\nprivate class QuoteOnLoopKt(private val block: Boolean) : SimpleChannelInboundHandler<String>() {\n    override fun channelRead0(ctx: ChannelHandlerContext, line: String) {\n        val (id, symbol) = line.split(\" \")\n        val q = slowQuote(symbol)\n        if (block) {\n            ctx.writeAndFlush(\"$id OK ${q.join()}\\n\")                           // waits 100 ms on the loop\n        } else {\n            q.whenCompleteAsync({ v, _ -> ctx.writeAndFlush(\"$id OK $v\\n\") }, ctx.executor())\n        }\n    }\n}\n\n/** One event loop, ten clients, a provider that answers after 100 ms: join() on the loop vs handing the future back. */\nfun main() {\n    for (block in listOf(true, false)) {\n        val group = MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory())\n        try {\n            val server = ServerBootstrap().group(group).channel(NioServerSocketChannel::class.java)\n                .childHandler(object : ChannelInitializer<SocketChannel>() {\n                    override fun initChannel(ch: SocketChannel) {\n                        ch.pipeline().addLast(LineBasedFrameDecoder(64), StringDecoder(UTF_8), StringEncoder(UTF_8), QuoteOnLoopKt(block))\n                    }\n                })\n                .bind(InetAddress.getLoopbackAddress(), 0).sync().channel()\n            val port = (server.localAddress() as InetSocketAddress).port\n            val clients = List(10) { Socket(InetAddress.getLoopbackAddress(), port) }\n\n            peakInFlight.set(0)\n            val t0 = System.nanoTime()\n            clients.forEachIndexed { i, c -> c.getOutputStream().write(\"$i EURUSD\\n\".toByteArray(UTF_8)) }\n            clients.forEach { it.getInputStream().bufferedReader(UTF_8).readLine() }\n            val ms = (System.nanoTime() - t0) / 1_000_000\n            println(\"%-6s 10 replies after %,5d ms; quotes waiting at the same time: %2d\".format(if (block) \"join\" else \"async\", ms, peakInFlight.get()))\n            clients.forEach { it.close() }\n        } finally {\n            group.shutdownGracefully(0, 1, TimeUnit.SECONDS).sync()\n        }\n    }\n    slowProvider.shutdown()\n}\n",
+      "run": "./gradlew :quotes:demo -Pmain=workbench.quotes.l01.BlockedLoopDemoKt",
+      "file": "labs/quotes/src/demo/kotlin/workbench/quotes/l01/BlockedLoopDemo.kt"
+     }
+    },
+    "expect": "`join`: about 1,070 ms and 1 quote at a time, because the loop waits for each quote before it reads the next request. `async`: about 105 ms and 10 at once. With two loops, the ten connections are split five and five, so `join` takes about 500 ms with 2 quotes at a time: more threads divide the damage, they don't remove it."
+   },
+   "refs": [
+    {
+     "title": "CompletableFuture (Java SE 25 API): whenCompleteAsync",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/CompletableFuture.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Auto-read is the only tap you control",
+   "body": "A client may pipeline: send 20,000 requests without waiting for a single reply. Two things then grow in the server's memory. Each request that waits for its quote is a future in the in-flight set. Each reply the client hasn't read yet sits in the channel's outbound buffer, because `writeAndFlush` never blocks (\"Netty in practice: codecs, flow control and leaks\"). Nothing limits either one.\n\nNetty gives you one control: auto-read. While it is on, the loop reads the socket whenever bytes arrive. Turn it off and the loop stops reading that channel, the kernel's buffers fill, and TCP's window makes the client wait. The policy is one rule, applied after every new request, after every reply, and whenever writability changes:\n\n```java\nprivate void updateReading(ChannelHandlerContext ctx) {\n    boolean read = ctx.channel().isWritable() && inFlight.size() < MAX_IN_FLIGHT;\n    ctx.channel().config().setAutoRead(read);\n}\n```\n\n```kotlin\nprivate fun updateReading(ctx: ChannelHandlerContext) {\n    val read = ctx.channel().isWritable && inFlight.size < MAX_IN_FLIGHT\n    ctx.channel().config().isAutoRead = read\n}\n```\n\nThe cap of 16 bounds the futures one connection can hold. The writability check bounds the outbound buffer: `isWritable()` turns false above the high water mark, 64 KiB by default.\n\nThere is a catch, and the demo shows it. Turning auto-read off stops the next socket read. It doesn't stop the lines the decoder already has. One read can bring 64 KB, a few thousand requests, and `LineBasedFrameDecoder` hands every one of them to the handler before the loop looks at auto-read again. `FlowControlHandler`, placed between the decoders and your handler, closes that gap. While auto-read is off it holds the decoded lines, and it releases them as reading resumes.\n\nThe demo pipelines 20,000 requests and reads nothing for 500 ms:\n\n| Policy | Requests taken while the client read nothing | Peak outbound buffer |\n|---|---|---|\n| none | 20,000 | 2,487,339 bytes |\n| the auto-read rule | 2,993 | 694,144 bytes |\n| the rule and `FlowControlHandler` | 1,217 | 67,596 bytes |\n\nThe last peak is the 64 KiB high water mark (65,536 bytes) plus a few replies. Every client still got all 20,000 replies once it read them. The lab tests the cap directly: 40 pipelined requests against a source that holds every quote must produce exactly 16 calls.",
+   "try": {
+    "title": "Pipeline 20,000 requests at a client that doesn't read",
+    "minutes": 5,
+    "steps": [
+     "Open `BackpressureDemo.java` (or the Kotlin twin). It runs the same server three times: no policy, the auto-read rule, and the rule plus `FlowControlHandler`.",
+     "Run it and compare the three lines.",
+     "Change `MAX_IN_FLIGHT` to 1. Predict the third line: does the peak change much, and do all 20,000 replies still arrive?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "BackpressureDemo.java",
+     "src": "package workbench.quotes.l01;\n\nimport io.netty.bootstrap.ServerBootstrap;\nimport io.netty.channel.Channel;\nimport io.netty.channel.ChannelHandlerContext;\nimport io.netty.channel.ChannelInitializer;\nimport io.netty.channel.ChannelOption;\nimport io.netty.channel.EventLoopGroup;\nimport io.netty.channel.MultiThreadIoEventLoopGroup;\nimport io.netty.channel.SimpleChannelInboundHandler;\nimport io.netty.channel.nio.NioIoHandler;\nimport io.netty.channel.socket.SocketChannel;\nimport io.netty.channel.socket.nio.NioServerSocketChannel;\nimport io.netty.handler.codec.LineBasedFrameDecoder;\nimport io.netty.handler.codec.string.StringDecoder;\nimport io.netty.handler.codec.string.StringEncoder;\nimport io.netty.handler.flow.FlowControlHandler;\n\nimport java.io.BufferedOutputStream;\nimport java.io.BufferedReader;\nimport java.io.InputStreamReader;\nimport java.io.OutputStream;\nimport java.net.InetAddress;\nimport java.net.InetSocketAddress;\nimport java.net.Socket;\nimport java.util.concurrent.CompletableFuture;\nimport java.util.concurrent.TimeUnit;\nimport java.util.concurrent.atomic.AtomicInteger;\nimport java.util.concurrent.atomic.AtomicLong;\n\nimport static java.nio.charset.StandardCharsets.UTF_8;\n\n/** A client pipelines 20,000 requests and reads nothing for 500 ms. How much does the server take on? */\npublic class BackpressureDemo {\n    static final int REQUESTS = 20_000;\n    static final int MAX_IN_FLIGHT = 16;\n\n    enum Mode { NONE, AUTO_READ, AUTO_READ_AND_FLOW_CONTROL }\n\n    static final AtomicInteger taken = new AtomicInteger();\n    static final AtomicLong peakPending = new AtomicLong();\n\n    static final class Answer extends SimpleChannelInboundHandler<String> {\n        private final boolean policy;\n        private int inFlight;                                   // only the loop touches it\n\n        Answer(boolean policy) {\n            this.policy = policy;\n        }\n\n        @Override\n        protected void channelRead0(ChannelHandlerContext ctx, String line) {\n            taken.incrementAndGet();\n            inFlight++;\n            update(ctx);\n            CompletableFuture.completedFuture(line.split(\" \")[0]).whenCompleteAsync((id, e) -> {\n                inFlight--;\n                ctx.writeAndFlush(id + \" OK EURUSD 1.0842 northbank\\n\");\n                peakPending.accumulateAndGet(ctx.channel().unsafe().outboundBuffer().totalPendingWriteBytes(), Math::max);\n                update(ctx);\n            }, ctx.executor());\n        }\n\n        @Override\n        public void channelWritabilityChanged(ChannelHandlerContext ctx) {\n            update(ctx);\n            ctx.fireChannelWritabilityChanged();\n        }\n\n        private void update(ChannelHandlerContext ctx) {\n            if (policy) ctx.channel().config().setAutoRead(ctx.channel().isWritable() && inFlight < MAX_IN_FLIGHT);\n        }\n    }\n\n    public static void main(String[] args) throws Exception {\n        for (Mode m : Mode.values()) run(m);\n    }\n\n    static void run(Mode mode) throws Exception {\n        taken.set(0);\n        peakPending.set(0);\n        EventLoopGroup group = new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());\n        try {\n            Channel server = new ServerBootstrap().group(group).channel(NioServerSocketChannel.class)\n                    .childOption(ChannelOption.SO_SNDBUF, 8 * 1024)\n                    .childHandler(new ChannelInitializer<SocketChannel>() {\n                        @Override\n                        protected void initChannel(SocketChannel ch) {\n                            ch.pipeline().addLast(new LineBasedFrameDecoder(64), new StringDecoder(UTF_8), new StringEncoder(UTF_8));\n                            if (mode == Mode.AUTO_READ_AND_FLOW_CONTROL) ch.pipeline().addLast(new FlowControlHandler());\n                            ch.pipeline().addLast(new Answer(mode != Mode.NONE));\n                        }\n                    })\n                    .bind(InetAddress.getLoopbackAddress(), 0).sync().channel();\n            int port = ((InetSocketAddress) server.localAddress()).getPort();\n\n            try (Socket client = new Socket()) {\n                client.setReceiveBufferSize(8 * 1024);              // a slow client with a small window\n                client.connect(new InetSocketAddress(InetAddress.getLoopbackAddress(), port));\n                Thread writer = Thread.ofPlatform().start(() -> {\n                    try {\n                        OutputStream out = new BufferedOutputStream(client.getOutputStream());\n                        for (int i = 0; i < REQUESTS; i++) out.write((i + \" EURUSD\\n\").getBytes(UTF_8));\n                        out.flush();\n                    } catch (Exception ignored) {\n                    }\n                });\n                Thread.sleep(500);                                  // the client reads nothing for 500 ms\n                int takenWhileIdle = taken.get();\n                BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(), UTF_8));\n                int replies = 0;\n                while (replies < REQUESTS && in.readLine() != null) replies++;\n                writer.join();\n                System.out.printf(\"%-27s taken while the client read nothing: %,6d   peak outbound: %,9d bytes   replies: %,d%n\",\n                        mode, takenWhileIdle, peakPending.get(), replies);\n            }\n        } finally {\n            group.shutdownGracefully(0, 1, TimeUnit.SECONDS).sync();\n        }\n    }\n}\n",
+     "run": "./gradlew :quotes:demo -Pmain=workbench.quotes.l01.BackpressureDemo",
+     "file": "labs/quotes/src/demo/java/workbench/quotes/l01/BackpressureDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "BackpressureDemo.kt",
+      "src": "package workbench.quotes.l01\n\nimport io.netty.bootstrap.ServerBootstrap\nimport io.netty.channel.ChannelHandlerContext\nimport io.netty.channel.ChannelInitializer\nimport io.netty.channel.ChannelOption\nimport io.netty.channel.MultiThreadIoEventLoopGroup\nimport io.netty.channel.SimpleChannelInboundHandler\nimport io.netty.channel.nio.NioIoHandler\nimport io.netty.channel.socket.SocketChannel\nimport io.netty.channel.socket.nio.NioServerSocketChannel\nimport io.netty.handler.codec.LineBasedFrameDecoder\nimport io.netty.handler.codec.string.StringDecoder\nimport io.netty.handler.codec.string.StringEncoder\nimport io.netty.handler.flow.FlowControlHandler\nimport java.net.InetAddress\nimport java.net.InetSocketAddress\nimport java.net.Socket\nimport java.util.concurrent.CompletableFuture\nimport java.util.concurrent.TimeUnit\nimport java.util.concurrent.atomic.AtomicInteger\nimport java.util.concurrent.atomic.AtomicLong\nimport kotlin.concurrent.thread\nimport kotlin.text.Charsets.UTF_8\n\nprivate const val PIPELINED = 20_000\nprivate const val IN_FLIGHT_CAP = 16\nprivate val taken = AtomicInteger()\nprivate val peakPending = AtomicLong()\n\nprivate enum class ReadPolicy { NONE, AUTO_READ, AUTO_READ_AND_FLOW_CONTROL }\n\nprivate class AnswerAtOnce(private val policy: Boolean) : SimpleChannelInboundHandler<String>() {\n    private var inFlight = 0                                    // only the loop touches it\n\n    override fun channelRead0(ctx: ChannelHandlerContext, line: String) {\n        taken.incrementAndGet()\n        inFlight++\n        update(ctx)\n        CompletableFuture.completedFuture(line.substringBefore(' ')).whenCompleteAsync({ id, _ ->\n            inFlight--\n            ctx.writeAndFlush(\"$id OK EURUSD 1.0842 northbank\\n\")\n            peakPending.accumulateAndGet(ctx.channel().unsafe().outboundBuffer()!!.totalPendingWriteBytes(), ::maxOf)\n            update(ctx)\n        }, ctx.executor())\n    }\n\n    override fun channelWritabilityChanged(ctx: ChannelHandlerContext) {\n        update(ctx)\n        ctx.fireChannelWritabilityChanged()\n    }\n\n    private fun update(ctx: ChannelHandlerContext) {\n        if (policy) ctx.channel().config().isAutoRead = ctx.channel().isWritable && inFlight < IN_FLIGHT_CAP\n    }\n}\n\n/** A client pipelines 20,000 requests and reads nothing for 500 ms. How much does the server take on? */\nfun main() {\n    for (mode in ReadPolicy.entries) {\n        taken.set(0)\n        peakPending.set(0)\n        val group = MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory())\n        try {\n            val server = ServerBootstrap().group(group).channel(NioServerSocketChannel::class.java)\n                .childOption(ChannelOption.SO_SNDBUF, 8 * 1024)\n                .childHandler(object : ChannelInitializer<SocketChannel>() {\n                    override fun initChannel(ch: SocketChannel) {\n                        ch.pipeline().addLast(LineBasedFrameDecoder(64), StringDecoder(UTF_8), StringEncoder(UTF_8))\n                        if (mode == ReadPolicy.AUTO_READ_AND_FLOW_CONTROL) ch.pipeline().addLast(FlowControlHandler())\n                        ch.pipeline().addLast(AnswerAtOnce(mode != ReadPolicy.NONE))\n                    }\n                })\n                .bind(InetAddress.getLoopbackAddress(), 0).sync().channel()\n            val port = (server.localAddress() as InetSocketAddress).port\n\n            Socket().use { client ->\n                client.receiveBufferSize = 8 * 1024                 // a slow client with a small window\n                client.connect(InetSocketAddress(InetAddress.getLoopbackAddress(), port))\n                val writer = thread {\n                    runCatching {\n                        val out = client.getOutputStream().buffered()\n                        repeat(PIPELINED) { out.write(\"$it EURUSD\\n\".toByteArray(UTF_8)) }\n                        out.flush()\n                    }\n                }\n                Thread.sleep(500)                                   // the client reads nothing for 500 ms\n                val takenWhileIdle = taken.get()\n                val reader = client.getInputStream().bufferedReader(UTF_8)\n                var replies = 0\n                while (replies < PIPELINED && reader.readLine() != null) replies++\n                writer.join()\n                println(\"%-27s taken while the client read nothing: %,6d   peak outbound: %,9d bytes   replies: %,d\"\n                    .format(mode, takenWhileIdle, peakPending.get(), replies))\n            }\n        } finally {\n            group.shutdownGracefully(0, 1, TimeUnit.SECONDS).sync()\n        }\n    }\n}\n",
+      "run": "./gradlew :quotes:demo -Pmain=workbench.quotes.l01.BackpressureDemoKt",
+      "file": "labs/quotes/src/demo/kotlin/workbench/quotes/l01/BackpressureDemo.kt"
+     }
+    },
+    "expect": "No policy: the server takes all 20,000 requests and queues about 2.5 MB of replies. The rule alone: about 3,000 requests and 690 KB, because one read brought thousands of lines and the decoder delivered them all. With `FlowControlHandler`: about 1,200 requests and 67,596 bytes, just above the 64 KiB high water mark. With a cap of 1 the peak stays near the high water mark (writability is what stops it) and every reply still arrives, more slowly, one request at a time."
+   },
+   "refs": [
+    {
+     "title": "FlowControlHandler source and Javadoc, Netty 4.2",
+     "url": "https://raw.githubusercontent.com/netty/netty/4.2/handler/src/main/java/io/netty/handler/flow/FlowControlHandler.java",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Close on purpose: say why, cancel what nobody will read, then stop",
+   "body": "A connection ends in one of four ways, and each has its own code path.\n\nThe client sends `QUIT`. The server writes `BYE` and closes from the write's future, with `ctx.writeAndFlush(\"BYE\\n\").addListener(ChannelFutureListener.CLOSE)`. Closing right after `flush()` can drop bytes that are still in the outbound buffer; \"Netty in practice: codecs, flow control and leaks\" lost 57,344 bytes that way.\n\nA line is too long. `LineBasedFrameDecoder` throws `TooLongFrameException`, and Netty passes it to the handler's `exceptionCaught`. The server answers `ERR line too long` and closes the same way. A client that sends 100 bytes where 64 are allowed is broken or hostile, and neither deserves a long conversation.\n\nThe client hangs up. `channelInactive` runs on the loop, and the handler cancels every future still in its set. For a plain `CompletableFuture` that interrupts nothing, as \"CompletableFuture: errors, timeouts and fan-out\" showed. It tells the source that nobody wants the answer any more. Lesson 2 turns that cancel into a coroutine cancel that reaches all three provider calls.\n\nThe server shuts down. The order matters:\n\n```java\n@Override\npublic void close() {\n    stopAccepting();                                    // 1. close the listening socket\n    connections.close().syncUninterruptibly();          // 2. close every open connection\n    group.shutdownGracefully(0, 2, TimeUnit.SECONDS)    // 3. then stop the loop threads\n         .syncUninterruptibly();\n}\n```\n\n```kotlin\noverride fun close() {\n    stopAccepting()                                     // 1. close the listening socket\n    connections.close().syncUninterruptibly()           // 2. close every open connection\n    group.shutdownGracefully(0, 2, TimeUnit.SECONDS)    // 3. then stop the loop threads\n        .syncUninterruptibly()\n}\n```\n\n`stopAccepting()` closes the listening socket first, so no new connection arrives while the rest shuts down. `connections` is a `ChannelGroup`: the server adds each new channel to it, and the group drops a channel again when it closes. Closing the group closes every open connection, each handler sees `channelInactive` and cancels its work, and only then does `shutdownGracefully` stop the loop threads. `shutdownGracefully` also closes the channels it still finds, but in this track's test runs that wasn't reliable: in about one run in three, a client still saw its connection open after the loops had stopped. Closing the connections yourself makes the order explicit. Lesson 3 of this track puts one more step between the first two lines: a short grace period in which quotes already in flight can still be answered.\n\nCheck yourself before the lab: a client has two requests pending when `close()` runs. What does it read from its socket, and what happens to the two futures? (It reads end of stream, because its channel was closed. Both futures are cancelled in `channelInactive`.)",
+   "refs": [
+    {
+     "title": "WriteBufferWaterMark source, Netty 4.2",
+     "url": "https://raw.githubusercontent.com/netty/netty/4.2/transport/src/main/java/io/netty/channel/WriteBufferWaterMark.java",
+     "kind": "docs"
+    }
+   ]
+  }
+ ],
+ "analogy": "One waiter covers a section of tables, as one event loop covers its channels. The first-draft handler is a waiter who takes an order, walks to the kitchen and stands at the pass until the dish is ready, while every other table in the section waits. The fixed handler leaves the ticket with the kitchen and walks on, and when the bell rings for that ticket, the same waiter carries the plate (`whenCompleteAsync` on the channel's own loop). The auto-read rule is the waiter taking no new orders from a table that already has 16 dishes coming or hasn't cleared its last plates, and `FlowControlHandler` keeps the order slips already written in the waiter's pocket. The analogy breaks at the kitchen door: a real waiter can see that the kitchen is slow. The loop knows only what your handler counts.",
+ "in_your_world": "Every Quarkus REST endpoint that returns a `Uni` runs on a Vert.x event loop, and a Vert.x event loop is a Netty event loop (\"Quarkus on Vert.x: IO threads, workers and virtual threads\"). A `.await().indefinitely()` inside such an endpoint is this lesson's `join()`: it stalls every request on that loop, not just its own. The same server shape appears wherever payments meet long-lived TCP. An acquirer link that carries many authorizations on one connection matches replies by a trace number, for the same reason this protocol has an id, and a terminal that bursts its queued requests after a network blip is a pipelining client. Give such a link the same three guards: a frame limit, a cap on requests in flight per connection, and reading that follows writability.",
+ "mistake": "The most common mistake is blocking the event loop \"just a little\": `join()`, `get()`, `block()` or `runBlocking` in a handler, because the provider usually answers in 5 ms. It passes every test with one client and a fast fake. Under load, 5 ms per request on a loop that serves 2,000 connections is a queue that never drains, and a provider that stalls for 2 seconds freezes every connection on that loop. The runner-up is the half fix: `whenComplete` instead of `whenCompleteAsync(..., ctx.executor())`. It frees the loop but lets provider threads touch the handler's state. Return the future from `channelRead0`, and finish on the channel's own loop.",
+ "compare": {
+  "title": "The non-blocking handler in Java and Kotlin",
+  "java": {
+   "title": "QuoteHandler.java (core)",
+   "src": "@Override\nprotected void channelRead0(ChannelHandlerContext ctx, String line) {\n    QuoteProtocol.Request r = QuoteProtocol.parse(line);\n    CompletableFuture<Quote> quote = source.quote(r.symbol());\n    inFlight.add(quote);\n    updateReading(ctx);\n    quote.whenCompleteAsync((q, e) -> {\n        inFlight.remove(quote);\n        if (ctx.channel().isActive()) {\n            ctx.writeAndFlush(e == null ? QuoteProtocol.ok(r.id(), q) : QuoteProtocol.error(r.id(), e));\n        }\n        updateReading(ctx);\n    }, ctx.executor());\n}\n\n@Override\npublic void channelInactive(ChannelHandlerContext ctx) {\n    for (CompletableFuture<Quote> f : List.copyOf(inFlight)) f.cancel(true);\n    inFlight.clear();\n    ctx.fireChannelInactive();\n}"
+  },
+  "kotlin": {
+   "title": "QuoteHandler.kt (core)",
+   "src": "override fun channelRead0(ctx: ChannelHandlerContext, line: String) {\n    val r = QuoteProtocol.parse(line)\n    val quote = source.quote(r.symbol)\n    inFlight += quote\n    updateReading(ctx)\n    quote.whenCompleteAsync({ q: Quote?, e: Throwable? ->     // platform types: say they can be null\n        inFlight -= quote\n        if (ctx.channel().isActive) {\n            ctx.writeAndFlush(if (e == null) QuoteProtocol.ok(r.id, q) else QuoteProtocol.error(r.id, e))\n        }\n        updateReading(ctx)\n    }, ctx.executor())\n}\n\noverride fun channelInactive(ctx: ChannelHandlerContext) {\n    inFlight.toList().forEach { it.cancel(true) }\n    inFlight.clear()\n    ctx.fireChannelInactive()\n}"
+  },
+  "note": "At runtime these are the same handler: Netty sees a `SimpleChannelInboundHandler<String>`, and the Kotlin lambda becomes a `BiConsumer` through SAM conversion. One Kotlin detail needs care. `whenCompleteAsync` comes from Java, so `q` and `e` arrive as platform types, and Kotlin won't stop you calling `q.price` when the future failed and `q` is null. Declare them `Quote?` and `Throwable?` so the compiler makes you check. Kotlin also tempts you with one thing Java doesn't have: `runBlocking { }` around a suspend call inside `channelRead0`. It blocks the loop exactly like `join()`. Lesson 2 of this track shows the bridge that doesn't: `scope.future { }`, which returns at once."
+ },
+ "worked": {
+  "title": "Write the test that proves the loop is free, by counting",
+  "steps": [
+   {
+    "say": "Decide what to count. Hold every quote open, so a blocked loop stays blocked for the whole test, and count something the loop can only do while it is free: calls that reach the source. The fake keeps each future until the test releases it.",
+    "code": "final class FakeSource implements QuoteSource {\n    private final List<CompletableFuture<Quote>> pending = new ArrayList<>();   // guarded by this\n    private int calls;\n\n    @Override\n    public synchronized CompletableFuture<Quote> quote(String symbol) {\n        calls++;                                   // 1. count every call that reaches the source\n        CompletableFuture<Quote> f = new CompletableFuture<>();\n        pending.add(f);                            // 2. hold it: a blocked loop stays blocked\n        notifyAll();\n        return f;\n    }\n}",
+    "lang": "java",
+    "alt_code": "class FakeSource : QuoteSource {\n    private val pending = mutableListOf<CompletableFuture<Quote>>()   // guarded by this\n    private var calls = 0\n\n    @Synchronized\n    override fun quote(symbol: String): CompletableFuture<Quote> {\n        calls++                                    // 1. count every call that reaches the source\n        val f = CompletableFuture<Quote>()\n        pending += f                               // 2. hold it: a blocked loop stays blocked\n        (this as Object).notifyAll()\n        return f\n    }\n}",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "Add a probe: hand the loop empty tasks and count how many ran. The 5-second wait only bounds how long a failure takes to report. The assertion is on the count, so a slow machine can't fail a healthy loop.",
+    "code": "static int probe(EventLoopGroup group, int tasks) throws InterruptedException {\n    CountDownLatch ran = new CountDownLatch(tasks);\n    for (int i = 0; i < tasks; i++) group.next().execute(ran::countDown);   // 3. empty tasks\n    ran.await(5, TimeUnit.SECONDS);              // bounds the failure, it is not the assertion\n    return tasks - (int) ran.getCount();         // 4. the assertion is on this count\n}",
+    "lang": "java",
+    "alt_code": "fun probe(group: EventLoopGroup, tasks: Int): Int {\n    val ran = CountDownLatch(tasks)\n    repeat(tasks) { group.next().execute(ran::countDown) }   // 3. empty tasks\n    ran.await(5, TimeUnit.SECONDS)               // bounds the failure, it is not the assertion\n    return tasks - ran.count.toInt()             // 4. the assertion is on this count\n}",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "Spread 100 requests over 10 connections. One connection may hold only 16 requests (section 3), so 100 on one connection would test the cap instead of the loop. Assert both counts, then release the quotes and check that every id came back on the right connection.",
+    "code": "for (int c = 0; c < 10; c++) {                    // 10 connections x 10 requests\n    Client client = new Client(server.port());\n    clients.add(client);\n    client.send(requests(c * 10, 10));\n}\nassertThat(source.awaitCalls(100)).isEqualTo(100);           // 5. the loop asked for all 100\nassertThat(probe(server.group(), 50)).isEqualTo(50);         // 6. and still ran other work\nsource.releaseAll();\nfor (int c = 0; c < 10; c++) assertThat(clients.get(c).readIds(10)).isEqualTo(ids(c * 10, 10));",
+    "lang": "java",
+    "alt_code": "val clients = List(10) { c ->                     // 10 connections x 10 requests\n    Client(server.port()).also { it.send(requests(c * 10, 10)) }\n}\nassertThat(source.awaitCalls(100)).isEqualTo(100)            // 5. the loop asked for all 100\nassertThat(probe(server.group(), 50)).isEqualTo(50)          // 6. and still ran other work\nsource.releaseAll()\nclients.forEachIndexed { c, client -> assertThat(client.readIds(10)).isEqualTo(ids(c * 10, 10)) }",
+    "alt_lang": "kotlin"
+   },
+   {
+    "say": "Release the quotes in `finally`. A broken handler is stuck in `join()`; completing its future wakes the loop, so the server can close and the next test starts clean. Self-check: against the first-draft handler, which assertion fails, and with what number? (The first one: `expected: 100 but was: 1`. The loop took one request and has been waiting in `join()` ever since.)",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "Build the server shell and keep its loop free",
+  "minutes": 15,
+  "files": [
+   "labs/quotes/src/main/java/workbench/quotes/l01/QuotePipeline.java",
+   "labs/quotes/src/main/java/workbench/quotes/l01/QuoteHandler.java",
+   "labs/quotes/src/main/java/workbench/quotes/l01/QuoteServer.java",
+   "labs/quotes/src/main/java/workbench/quotes/l01/QuoteProtocol.java",
+   "labs/quotes/src/main/java/workbench/quotes/l01/QuoteSource.java",
+   "labs/quotes/src/main/java/workbench/quotes/l01/Quote.java"
+  ],
+  "run": "./gradlew :quotes:test --tests 'workbench.quotes.l01.*'",
+  "steps": [
+   "Run the tests. All eight fail. Read `QuoteProtocol.java` (the wire format) and `QuoteSource.java` (the contract: return at once). The tests' fake source is in `src/test/.../l01/FakeSource.java`.",
+   "Write `QuotePipeline.handlers`: the five handlers in the order its Javadoc lists. The framing and `QUIT` tests should pass now.",
+   "Fix point 1 in `QuoteHandler`: add a `Set<CompletableFuture<Quote>> inFlight` field, keep each future in it, and write the reply in `whenCompleteAsync(..., ctx.executor())`. Skip the write if the channel is no longer active.",
+   "Add `updateReading` (point 2) and call it after adding a future, after each reply, and in `channelWritabilityChanged`.",
+   "Cancel the in-flight futures in `channelInactive` (point 3), and answer a too-long line in `exceptionCaught` (point 4).",
+   "Write `QuoteServer.close()` in the order its Javadoc gives. Run the tests until all eight pass, then run them twice more."
+  ],
+  "hints": [
+   "If the 100-pending test says `expected: 100 but was: 1`, the loop is still inside `join()` somewhere in `channelRead0`.",
+   "If the `MAX_IN_FLIGHT` test sees more than 16 calls, check that `FlowControlHandler` sits between the decoders and `QuoteHandler`, and that you call `updateReading` right after adding the future.",
+   "`whenCompleteAsync` runs the callback as a task on the loop. In the `EmbeddedChannel` tests the replies appear after `runPendingTasks()`, which the tests call for you.",
+   "`exceptionCaught` receives the `TooLongFrameException` itself. `QUIT` shows the close: `ctx.writeAndFlush(...).addListener(ChannelFutureListener.CLOSE)`."
+  ],
+  "done_when": "All eight tests in `QuoteServerTest` pass, three runs in a row."
+ },
+ "drill": {
+  "title": "Write the non-blocking reply from memory",
+  "minutes": 4,
+  "prompt": "Close the lab. In a `SimpleChannelInboundHandler<String>` with a `QuoteSource source` and a `Set` called `inFlight`, write `channelRead0` so that it asks for the quote, keeps the future while it is pending, and writes the reply on the channel's own event loop. Then write the auto-read rule as one line. Which argument decides the thread that runs your callback?",
+  "answer": {
+   "lang": "java",
+   "src": "@Override\nprotected void channelRead0(ChannelHandlerContext ctx, String line) {\n    Request r = QuoteProtocol.parse(line);\n    CompletableFuture<Quote> quote = source.quote(r.symbol());   // returns at once\n    inFlight.add(quote);\n    updateReading(ctx);\n    quote.whenCompleteAsync((q, e) -> {                           // runs on this channel's loop\n        inFlight.remove(quote);\n        if (ctx.channel().isActive()) ctx.writeAndFlush(e == null ? ok(r.id(), q) : error(r.id(), e));\n        updateReading(ctx);\n    }, ctx.executor());\n}\n\n// the rule: read only while writable and under the cap\n// setAutoRead(ctx.channel().isWritable() && inFlight.size() < MAX_IN_FLIGHT)",
+   "alt": {
+    "lang": "kotlin",
+    "src": "override fun channelRead0(ctx: ChannelHandlerContext, line: String) {\n    val r = QuoteProtocol.parse(line)\n    val quote = source.quote(r.symbol)                            // returns at once\n    inFlight += quote\n    updateReading(ctx)\n    quote.whenCompleteAsync({ q, e ->                             // runs on this channel's loop\n        inFlight -= quote\n        if (ctx.channel().isActive) ctx.writeAndFlush(if (e == null) ok(r.id, q) else error(r.id, e))\n        updateReading(ctx)\n    }, ctx.executor())\n}\n\n// the rule: read only while writable and under the cap\n// isAutoRead = ctx.channel().isWritable && inFlight.size < MAX_IN_FLIGHT"
+   }
+  }
+ },
+ "recap": [
+  "The program is a TCP quote service. This lesson is its Netty shell: a line protocol with request ids, a 64-byte line limit, and a `QuoteSource` that returns a future.",
+  "The event loop never waits. `join()`, `get()` or `runBlocking` in a handler stalls every channel on that loop; hand the future back and finish in `whenCompleteAsync(..., ctx.executor())`, which keeps handler state on one thread.",
+  "Prove it by counting: hold quotes open and count calls and probe tasks. A blocked loop shows 1 call whatever the machine's speed; a millisecond bar can fail a healthy loop on a busy box.",
+  "Auto-read is the only tap: read while the channel is writable and fewer than 16 requests wait. `FlowControlHandler` holds lines already decoded, which took the demo's peak from 694,144 to 67,596 bytes.",
+  "Close on purpose: `BYE` and errors close from the write's future, a hang-up cancels the in-flight futures, and the server stops accepting, closes its connections, and only then shuts its loops down."
+ ],
+ "quiz": [
+  {
+   "q": "The server runs 8 event loops with 800 connections, and the first-draft handler calls `source.quote(s).join()`. One provider stalls for 2 seconds on a single request. Who waits?",
+   "options": [
+    "Only the client whose quote stalled",
+    "All 800 clients: Netty runs one handler at a time for the whole server",
+    "About 100 clients: every connection registered on the same loop as that request",
+    "Nobody: `join()` parks the loop thread and Netty moves its channels to another loop"
+   ],
+   "answer": 2,
+   "why": "Channels are spread over the 8 loops round-robin and stay where they were registered, about 100 per loop. The loop running `join()` can't read, decode or write for any of its channels for 2 seconds, while the other 7 loops carry on. Netty never moves a channel to another loop.",
+   "from": "io-03"
+  },
+  {
+   "q": "A handler writes every reply with `ctx.writeAndFlush` and never looks at writability. A client pipelines thousands of requests and reads its socket slowly. Where do the unread replies pile up?",
+   "options": [
+    "In the client's receive buffer, which grows to fit",
+    "Nowhere: `writeAndFlush` blocks the loop until the client reads",
+    "In the kernel's send buffer, without limit",
+    "In the channel's outbound buffer, in the server's own memory"
+   ],
+   "answer": 3,
+   "why": "`writeAndFlush` never blocks. The kernel's buffers are small and fill first; after that Netty keeps the bytes in the channel's outbound buffer, in your heap or direct memory. In this lesson's demo that reached 2,487,339 bytes. Only reading less from that client stops it growing.",
+   "from": "io-04"
+  },
+  {
+   "q": "`QuoteHandler` finishes each quote with `whenCompleteAsync(callback, ctx.executor())`. What goes wrong with plain `whenComplete(callback)`?",
+   "options": [
+    "The callback runs on the thread that completed the future, so it races the event loop on the in-flight `HashSet`",
+    "`writeAndFlush` throws, because it may only be called on the event loop",
+    "Nothing: the two behave the same",
+    "The callback never runs, because the loop doesn't know about it"
+   ],
+   "answer": 0,
+   "why": "`whenComplete` runs the callback on whichever thread completes the future, here a provider's thread, while the loop adds to the same set in `channelRead0`: a read-modify-write race on a plain `HashSet`. `writeAndFlush` itself is safe from any thread, which is why the bug is easy to miss."
+  },
+  {
+   "q": "In Reactive Streams a subscriber paces the publisher with `request(n)`. What plays that part between this server and one client?",
+   "options": [
+    "The 64-byte line limit",
+    "Auto-read, switched on only while the channel is writable and fewer than 16 requests wait",
+    "TCP's receive window on its own, with no code in the server",
+    "The 64 KiB high water mark on its own"
+   ],
+   "answer": 1,
+   "why": "Auto-read is the server's demand signal: it reads more only when it has room, and TCP carries the pause back to the client. TCP alone does nothing while the server keeps reading, because the bytes just move from the kernel into the server's heap. The water mark only reports a full buffer; your handler has to act on it.",
+   "from": "rx-01"
+  },
+  {
+   "q": "When a client hangs up, `channelInactive` calls `cancel(true)` on a pending future from a source that runs blocking calls with `supplyAsync` on a thread pool. What happens to the provider call?",
+   "options": [
+    "It is interrupted and stops at once",
+    "The pool thread is stopped",
+    "It runs to the end, and its result is dropped: `cancel` only completes the future",
+    "The cancel fails, because the work has already started"
+   ],
+   "answer": 2,
+   "why": "`CompletableFuture.cancel` completes the future with a `CancellationException` and doesn't interrupt the thread doing the work, whatever you pass. The call finishes and its result goes nowhere. To stop the work itself, the source has to react to the cancel, which is what lesson 2's coroutines do.",
+   "from": "exec-07"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "What does `join()` in a Netty handler cost?",
+   "back": "Every channel on that event loop waits until the future completes, not just the one that asked."
+  },
+  {
+   "front": "Why finish with `whenCompleteAsync(callback, ctx.executor())`?",
+   "back": "The callback runs on the channel's own event loop, so the handler's state is only ever touched by one thread."
+  },
+  {
+   "front": "When should the quote server read a connection?",
+   "back": "Only while the channel is writable and fewer than `MAX_IN_FLIGHT` (16) of its requests are waiting for a quote."
+  },
+  {
+   "front": "What does `FlowControlHandler` add when auto-read is off?",
+   "back": "It holds messages the decoder already produced and releases them as reading resumes. Auto-read alone only stops the next socket read."
+  },
+  {
+   "front": "Why count instead of time in a test that proves the loop is free?",
+   "back": "A healthy loop can miss a millisecond bar on a busy machine. A blocked loop's count (1 call, 0 probe tasks) doesn't depend on speed."
+  },
+  {
+   "front": "Why does the quote protocol carry a request id?",
+   "back": "A reply leaves when its quote arrives, so replies can overtake each other. The client matches them by id."
+  },
+  {
+   "front": "In what order does the server shut down?",
+   "back": "Stop accepting, close every open connection (a `ChannelGroup`; handlers cancel their in-flight work), then `shutdownGracefully` to stop the loop threads."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Event loop",
+   "plain": "One thread that reads, decodes and writes for every channel registered with it, plus a queue of tasks."
+  },
+  {
+   "term": "Pipelining",
+   "plain": "A client sends many requests without waiting for the replies."
+  },
+  {
+   "term": "In-flight request",
+   "plain": "A request the server has read but not yet answered."
+  },
+  {
+   "term": "Auto-read",
+   "plain": "Whether the loop keeps reading a channel's socket. Off means the kernel's buffers fill and TCP makes the client wait."
+  },
+  {
+   "term": "FlowControlHandler",
+   "plain": "A Netty handler that holds already-decoded messages while auto-read is off."
+  },
+  {
+   "term": "Correlation id",
+   "plain": "An id the client puts on a request and the server repeats on the reply, so replies can arrive in any order."
+  },
+  {
+   "term": "Probe task",
+   "plain": "An empty task handed to an event loop to check that it still runs work."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A colleague reviews your handler: \"Why all this ceremony? The providers answer in 5 ms, so `join()` is fine, and Netty buffers writes for us anyway.\" Explain what `join()` costs on an event loop, why the callback runs on `ctx.executor()`, and why the server needs the auto-read rule.",
+  "answer": "An event loop is one thread that serves every channel registered with it, so `join()` doesn't cost 5 ms for one client, it costs 5 ms for every client on that loop, on every request. Under load that is a queue that never drains, and when a provider stalls for two seconds, every connection on the loop freezes for two seconds. Handing the future back lets the loop keep reading and writing while any number of quotes wait. The callback runs on `ctx.executor()` so that the handler's state, the set of in-flight futures, is only touched by the loop thread; with plain `whenComplete` a provider thread would race the loop on that set. Netty does buffer writes, but without limit: a client that pipelines and doesn't read makes the outbound buffer and the set of pending futures grow in our memory. Auto-read is the one control we have, so we read only while the channel is writable and fewer than 16 requests wait, with `FlowControlHandler` holding lines the decoder already produced. In the demo that kept the peak at about 67 KB instead of 2.5 MB."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "Three things a production shell adds to this one.\n\nAn idle timeout. A client that connects and never sends a line holds a channel forever. `IdleStateHandler` fires an `IdleStateEvent` through `userEventTriggered` after a connection has been quiet for the time you set; close the channel there.\n\nTLS. An `SslHandler` goes first in the pipeline, before the frame decoder, and nothing after it changes. That is the payoff of keeping every concern in its own handler.\n\nLoop metrics. Every loop of a `MultiThreadIoEventLoopGroup` is a `SingleThreadEventExecutor`, and `pendingTasks()` is the length of its task queue. In this server every reply is a task, so a queue that keeps growing is a loop that can't keep up. Export it per loop.\n\nTwo limits of this lesson's design are worth knowing. The cap of 16 protects the server from one greedy client and does nothing against ten thousand polite ones: lesson 3 of this track adds a global admission limit that sheds load with a clear error. And `whenCompleteAsync` costs a task hand-off per reply even when the quote is already done. That is cheap next to a network round trip, and it buys the single-threaded handler state.\n\nFinally, the counting probe has a stronger cousin for tests: BlockHound, a separate Java agent library, throws as soon as code on a Netty event-loop thread calls a known blocking method such as `CompletableFuture.join` or `Thread.sleep`. Netty ships the integration for it (`Hidden$NettyBlockHoundIntegration` in `netty-common`)."
+ },
+ "sources": [
+  {
+   "title": "Netty 4.2 Migration Guide (Netty wiki)",
+   "url": "https://raw.githubusercontent.com/wiki/netty/netty/Netty-4.2-Migration-Guide.md"
+  },
+  {
+   "title": "FlowControlHandler source and Javadoc, Netty 4.2",
+   "url": "https://raw.githubusercontent.com/netty/netty/4.2/handler/src/main/java/io/netty/handler/flow/FlowControlHandler.java"
+  },
+  {
+   "title": "ChannelConfig source (setAutoRead), Netty 4.2",
+   "url": "https://raw.githubusercontent.com/netty/netty/4.2/transport/src/main/java/io/netty/channel/ChannelConfig.java"
+  },
+  {
+   "title": "WriteBufferWaterMark source, Netty 4.2",
+   "url": "https://raw.githubusercontent.com/netty/netty/4.2/transport/src/main/java/io/netty/channel/WriteBufferWaterMark.java"
+  },
+  {
+   "title": "CompletableFuture (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/CompletableFuture.html"
+  }
+ ]
+}

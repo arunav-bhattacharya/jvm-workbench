@@ -1,0 +1,201 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.238
+Here is a money transfer.
+
+2
+00:00:04.238 --> 00:00:08.668
+It locks the account it takes money from, then the account it pays into.
+
+3
+00:00:08.668 --> 00:00:10.145
+Then it moves the money.
+
+4
+00:00:10.145 --> 00:00:12.113
+Each call is correct on its own.
+
+5
+00:00:12.333 --> 00:00:15.142
+Now two threads run it at the same time.
+
+6
+00:00:15.142 --> 00:00:17.460
+Thread 1 moves money from a to b.
+
+7
+00:00:17.460 --> 00:00:19.777
+Thread 2 moves money from b to a.
+
+8
+00:00:20.600 --> 00:00:22.740
+Thread 1 will lock a, then b.
+
+9
+00:00:22.740 --> 00:00:24.880
+Thread 2 will lock b, then a.
+
+10
+00:00:25.100 --> 00:00:26.856
+Thread 1 takes lock a.
+
+11
+00:00:27.067 --> 00:00:31.109
+Before it asks for b, the scheduler switches to thread 2.
+
+12
+00:00:31.109 --> 00:00:32.669
+Thread 2 takes lock b.
+
+13
+00:00:32.900 --> 00:00:35.071
+Now thread 1 asks for lock b.
+
+14
+00:00:35.071 --> 00:00:37.841
+Thread 2 holds it, so thread 1 waits.
+
+15
+00:00:38.067 --> 00:00:40.034
+Thread 2 asks for lock a.
+
+16
+00:00:40.034 --> 00:00:41.923
+Thread 1 holds that one.
+
+17
+00:00:41.923 --> 00:00:43.655
+So thread 2 waits too.
+
+18
+00:00:43.867 --> 00:00:45.275
+Follow the arrows.
+
+19
+00:00:45.275 --> 00:00:46.919
+Thread 1 waits for b.
+
+20
+00:00:46.919 --> 00:00:49.580
+Thread 2 holds b, and waits for a.
+
+21
+00:00:49.580 --> 00:00:50.910
+Thread 1 holds a.
+
+22
+00:00:50.910 --> 00:00:52.945
+The arrows close a circle.
+
+23
+00:00:53.167 --> 00:00:57.493
+Each thread lets go of its first lock only after it gets its second.
+
+24
+00:00:57.493 --> 00:00:59.402
+So neither one will ever move.
+
+25
+00:00:59.402 --> 00:01:00.611
+That is a deadlock.
+
+26
+00:01:00.833 --> 00:01:01.929
+Nothing throws.
+
+27
+00:01:01.929 --> 00:01:02.879
+Nothing logs.
+
+28
+00:01:02.879 --> 00:01:10.987
+Both threads sit in BLOCKED, CPU use drops to zero, and every request for these accounts queues up behind them.
+
+29
+00:01:11.233 --> 00:01:16.347
+It needs bad timing, so a test that runs one transfer at a time never sees it.
+
+30
+00:01:16.347 --> 00:01:18.969
+Under load, it is only a matter of when.
+
+31
+00:01:19.200 --> 00:01:21.725
+This loop is called a wait-for graph.
+
+32
+00:01:21.725 --> 00:01:26.637
+Deadlock detectors, including the JVM's own, look for exactly this loop.
+
+33
+00:01:27.667 --> 00:01:30.634
+The fix is one rule that every thread follows.
+
+34
+00:01:30.634 --> 00:01:35.019
+Give each account a unique key, and always lock the lower key first.
+
+35
+00:01:35.019 --> 00:01:38.567
+If a has the lower id, both transfers now lock a first.
+
+36
+00:01:38.800 --> 00:01:40.343
+Thread 1 takes a.
+
+37
+00:01:40.567 --> 00:01:42.514
+Thread 2 asks for a and waits.
+
+38
+00:01:42.514 --> 00:01:44.591
+It holds nothing while it waits.
+
+39
+00:01:44.800 --> 00:01:46.030
+Thread 1 takes b.
+
+40
+00:01:46.030 --> 00:01:49.357
+It moves the money, and lets go of both locks.
+
+41
+00:01:49.567 --> 00:01:52.859
+Then thread 2 gets a, then b, and finishes too.
+
+42
+00:01:53.067 --> 00:01:56.609
+Waiting while you hold nothing is plain contention.
+
+43
+00:01:56.609 --> 00:01:57.859
+No cycle can form.
+
+44
+00:01:58.767 --> 00:02:02.216
+In code, pick the first and the second lock by id.
+
+45
+00:02:02.216 --> 00:02:05.735
+Then lock them in that order, in Java or in Kotlin.
+
+46
+00:02:05.967 --> 00:02:08.929
+The key must be unique and must never change.
+
+47
+00:02:08.929 --> 00:02:10.245
+An account id works.
+
+48
+00:02:10.245 --> 00:02:14.392
+hashCode does not, because two different objects can share one.
+
+49
+00:02:14.633 --> 00:02:16.336
+And the rule must be global.
+
+50
+00:02:16.336 --> 00:02:20.044
+Put the ordering in one helper, and make every caller use it.

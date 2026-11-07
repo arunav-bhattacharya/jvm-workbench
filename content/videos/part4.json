@@ -1,0 +1,9 @@
+{
+  "videos": [
+    {"slug": "cls01-loading", "lesson": "cls-01", "section": 1, "title": "How a class gets in: parent-first delegation, then loading, linking and initialization"},
+    {"slug": "cls04-proxy", "lesson": "cls-04", "section": 0, "title": "A dynamic proxy: every call becomes one invoke with a Method and an Object array"},
+    {"slug": "mem04-generations", "lesson": "mem-04", "section": 0, "title": "Most objects die young: eden, survivor copies and promotion to the old generation"},
+    {"slug": "mem04-g1-regions", "lesson": "mem-04", "section": 3, "title": "G1 cuts the heap into equal regions and collects the most garbage first"},
+    {"slug": "perf01-tiers", "lesson": "perf-01", "section": 0, "title": "From the interpreter to C1 to C2, and back when a bet loses"}
+  ]
+}

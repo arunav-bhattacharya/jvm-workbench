@@ -1,0 +1,9 @@
+{
+  "videos": [
+    {"slug": "gen03-invariance", "lesson": "gen-03", "section": 1, "title": "MutableList<String> is not a MutableList<Any>: one list, two names, a crash on the read"},
+    {"slug": "gen04-out", "lesson": "gen-04", "section": 0, "title": "A producer only hands values out, so the subtype arrow keeps its direction"},
+    {"slug": "gen05-in", "lesson": "gen-05", "section": 0, "title": "A consumer only takes values in, so the subtype arrow flips"},
+    {"slug": "gen08-reified", "lesson": "gen-08", "section": 1, "title": "Erasure removes T, and inline with reified writes the real class into each call site"},
+    {"slug": "dop03-exhaustive", "lesson": "dop-03", "section": 0, "title": "Add a subtype: the pattern switch stops compiling, the instanceof chain stays silent"}
+  ]
+}

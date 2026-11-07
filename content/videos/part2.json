@@ -1,0 +1,9 @@
+{
+  "videos": [
+    {"slug": "rx01-contract", "lesson": "rx-01", "section": 1, "title": "Reactive Streams demand: the publisher sends only what the subscriber asked for"},
+    {"slug": "co01-statemachine", "lesson": "co-01", "section": 2, "title": "A suspend function becomes a state machine with one small continuation object"},
+    {"slug": "co03-tree", "lesson": "co-03", "section": 1, "title": "In the job tree, failure goes up and cancellation goes down"},
+    {"slug": "io02-selector", "lesson": "io-02", "section": 2, "title": "A thread per connection versus one thread asking a Selector what is ready"},
+    {"slug": "io03-pipeline", "lesson": "io-03", "section": 1, "title": "Netty's event loop and pipeline: reads flow in, writes flow out, never block"}
+  ]
+}

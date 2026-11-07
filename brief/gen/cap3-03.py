@@ -1,0 +1,449 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/events/src"
+read = lambda p: (ROOT / p).read_text()
+DEMO = "./gradlew :events:demo -Pmain=workbench.events.l03.demo."
+DK = f"{lab}/demo/kotlin/workbench/events/l03/demo"
+DJ = f"{lab}/demo/java/workbench/events/l03/demo"
+
+
+def kotlin_first(pkg, name):
+    """A Kotlin demo (NameKt) with a Java twin NameJava, in workbench.events.l03.demo.<pkg>."""
+    k, j = f"{DK}/{pkg}/{name}.kt", f"{DJ}/{pkg}/{name}Java.java"
+    return {"lang": "kotlin", "title": f"{name}.kt", "src": read(k), "run": f"{DEMO}{pkg}.{name}Kt", "file": k,
+            "alt": {"lang": "java", "title": f"{name}Java.java", "src": read(j), "run": f"{DEMO}{pkg}.{name}Java", "file": j}}
+
+
+def java_first(pkg, name):
+    """A Java demo (Name) with a Kotlin twin Name.kt (class NameKt)."""
+    j, k = f"{DJ}/{pkg}/{name}.java", f"{DK}/{pkg}/{name}.kt"
+    return {"lang": "java", "title": f"{name}.java", "src": read(j), "run": f"{DEMO}{pkg}.{name}", "file": j,
+            "alt": {"lang": "kotlin", "title": f"{name}.kt", "src": read(k), "run": f"{DEMO}{pkg}.{name}Kt", "file": k}}
+
+
+FIG = (
+    '<svg viewBox="0 0 680 260" role="img" aria-label="Two doors into one core. Kotlin callers use the DSL with reified on functions. '
+    'Java callers use Events.subscriptions with a Consumer, plus a Java door made of Class overloads, JvmOverloads, JvmStatic and JvmField, '
+    'the Events facade over the value classes, and Handlers.timed. Both reach the same EventBus and sealed model.">'
+    '<rect class="box-a" x="10" y="20" width="160" height="40" rx="8"/>'
+    '<text class="t" x="90" y="45" text-anchor="middle">Kotlin callers</text>'
+    '<line class="ln" x1="170" y1="40" x2="216" y2="40" marker-end="url(#arr)"/>'
+    '<rect class="box" x="220" y="20" width="270" height="40" rx="8"/>'
+    '<text class="t-s t-code" x="355" y="45" text-anchor="middle">bus.subscriptions { on&lt;E&gt; { } }</text>'
+    '<rect class="box-dim" x="220" y="78" width="270" height="104" rx="8"/>'
+    '<text class="t-s t-b" x="355" y="98" text-anchor="middle">the Java door</text>'
+    '<text class="t-s" x="355" y="118" text-anchor="middle">Class&lt;E&gt; overloads</text>'
+    '<text class="t-s" x="355" y="136" text-anchor="middle">@JvmOverloads, @JvmStatic, @JvmField</text>'
+    '<text class="t-s" x="355" y="154" text-anchor="middle">Events facade: String and long</text>'
+    '<text class="t-s" x="355" y="172" text-anchor="middle">@file:JvmName("Handlers")</text>'
+    '<rect class="box-b" x="10" y="200" width="160" height="40" rx="8"/>'
+    '<text class="t" x="90" y="225" text-anchor="middle">Java callers</text>'
+    '<line class="ln" x1="170" y1="220" x2="216" y2="220" marker-end="url(#arr)"/>'
+    '<rect class="box" x="220" y="200" width="270" height="40" rx="8"/>'
+    '<text class="t-s t-code" x="355" y="225" text-anchor="middle">Events.subscriptions(bus, b -&gt; ...)</text>'
+    '<line class="ln-d" x1="355" y1="200" x2="355" y2="184" />'
+    '<rect class="box-ok" x="520" y="95" width="150" height="70" rx="8"/>'
+    '<text class="t t-code" x="595" y="123" text-anchor="middle">EventBus</text>'
+    '<text class="t-s" x="595" y="145" text-anchor="middle">sealed model</text>'
+    '<line class="ln" x1="490" y1="40" x2="540" y2="93" marker-end="url(#arr)"/>'
+    '<line class="ln" x1="490" y1="220" x2="540" y2="167" marker-end="url(#arr)"/>'
+    '</svg>'
+)
+
+S1 = """Wiring a service by hand looks like this: five `subscribe` calls, five handles to keep, and a config lookup between the third and the fourth. If that lookup throws, three handlers are live, nobody holds their handles, and the service starts half wired. The fix is the DSL shape from *Type-safe DSLs with lambdas with receivers*: a builder that collects what the block declares, and an entry function that commits it all at once.
+
+```java
+// Java, through the Consumer entry point
+Subscription handle = Events.subscriptions(bus, timings, b -> {
+    b.on(PaymentEvent.class, e -> audit.record(e));
+    b.on(PaymentCaptured.class, Handlers.timed(c -> ledger.credit(c), "ledger", timings));
+    b.on(PaymentRefunded.class, Handlers.timed(r -> ledger.debit(r), "ledger", timings));
+});
+```
+
+```kotlin
+val handle = bus.subscriptions(timings) {
+    on<PaymentEvent> { audit.record(it) }
+    timed("ledger") {
+        on<PaymentCaptured> { ledger.credit(it) }
+        on<PaymentRefunded> { ledger.debit(it) }
+    }
+}
+```
+
+Each piece is a decision. `on` only adds a `Pending(type, handler)` to a list; `commit` subscribes them after the block has returned. So a block that throws subscribes nothing, and the caller gets back one `Subscription` that closes everything, in reverse order. `Pending<E>` keeps a type and its handler together, so the builder can hold a `List<Pending<*>>` and still subscribe each entry without a cast, using the star projection from *Star projection: when you don't know the type*.
+
+`on<PaymentCaptured> { ... }` is `inline` with a `reified E`, so it can pass `E::class` on, as in *Type erasure and reified type parameters*. Its body is `on(E::class, Handler { handler(it) })`, and the compiler stops you there: `cannot inline 'handler: (E) -> Unit' here: it might contain non-local returns. Add 'crossinline' modifier`. The lambda is called from inside another object, the `Handler`, which runs later, when no enclosing function is left to return from. *Inline functions: noinline, crossinline and non-local returns* gave the choice: `noinline` would also compile but keeps a lambda object inside the `Handler`; `crossinline` pastes the body into the generated `Handler` class.
+
+One mistake the DSL can't prevent at compile time: calling `on` from inside a handler. The handler lambda has no receiver, so the builder is still in scope, and the call compiles. At run time it would register into a builder that has already committed, and the subscription would silently never exist. A `check(!committed)` in `on` turns that into an `IllegalStateException` at the first event, which the bus's isolation reports.
+
+Before you run the demo, predict the handler count it prints after the block that fails."""
+
+S2 = """Inside `timed("ledger") { ... }` two builders are in scope: the `TimedGroup` (nearest) and the `SubscriptionsBuilder` around it. Kotlin resolves a call against both, nearest first. `TimedGroup` has no `timed`, so this compiles:
+
+```java
+// Java has no implicit receivers: the same mistake must name the outer builder, b
+b.timed("ledger", g -> {
+    g.on(PaymentCaptured.class, c -> ledger.credit(c));
+    b.timed("refunds", r -> { r.on(PaymentRefunded.class, e -> ledger.debit(e)); return Unit.INSTANCE; });
+    return Unit.INSTANCE;
+});
+```
+
+```kotlin
+timed("ledger") {
+    on<PaymentCaptured> { ledger.credit(it) }
+    timed("refunds") { on<PaymentRefunded> { ledger.debit(it) } }   // reaches the OUTER builder
+}
+```
+
+You meant "refunds, inside the ledger group". What you get is a sibling group: refunds are timed under `refunds` only, and the ledger dashboard silently misses them. The demo prints `{ledger=1, refunds=1}` where you expected the ledger to count two.
+
+Mark both builder classes with an annotation that is itself annotated `@DslMarker`, and the nested call stops compiling: `'fun timed(name: String, block: TimedGroup.() -> Unit): Unit' cannot be called in this context with an implicit receiver. Use an explicit receiver if necessary.` If you really want a sibling, say so with a label, `this@subscriptions.timed("refunds") { ... }`, which nobody types by accident. The rules are the ones from that DSL lesson: the marker counts on classes (or a common superclass), and has no effect on functions.
+
+Java never had this problem. Every Java lambda names its parameter, so reaching the outer builder takes `b.timed`, and a reviewer sees it. Java pays elsewhere: `timed` takes a `TimedGroup.() -> Unit`, which Java sees as `Function1<TimedGroup, Unit>`, so each block ends with `return Unit.INSTANCE`. That cost is why the Java entry point, `Events.subscriptions`, takes a `java.util.function.Consumer`, and why the lab's Java code times handlers with `Handlers.timed(...)` instead of a group.
+
+In the demo, uncomment the nested `timed`, run, then delete `@DslMarker` and predict the printed map."""
+
+S3 = """Here is what javac sees when Java code meets the API as Kotlin developers usually write it. Every error below is from the demo:
+
+| Kotlin as written | What Java gets | The fix |
+|---|---|---|
+| `inline fun <reified E> subscribe(h)` | invisible: `no suitable method found for subscribe((e)->{ })` | a `Class<E>` overload |
+| `fun <E> subscribe(type: KClass<E>, h)` | callable via `JvmClassMappingKt.getKotlinClass(X.class)` | the same overload |
+| constructor with defaults | `new PlainBus()` and the full one only: `no suitable constructor found for PlainBus(String)` | `@JvmOverloads` |
+| `object` member | `Registry.INSTANCE.publish(...)` | `@JvmStatic` |
+| companion `val SYSTEM` | `Ticker.Companion.getSYSTEM()` | `@JvmField` |
+| top-level functions in `Timing.kt` | `TimingKt.timed(...)` | `@file:JvmName("Handlers")` |
+| data class with value-class properties | `PaymentCaptured(String,long) has private access`, getters like `getAmount-M68TK6M()` | a facade |
+
+The facade is the decision that matters, because it touches validation. *Value classes and what they compile to* showed that `@JvmName` on a function that takes a value class lets Java pass a raw `long` straight past `init`. The facade does the opposite: it takes plain values and builds the value classes, so every `init` block runs.
+
+```java
+PaymentCaptured c = Events.captured("pay_7781", 1_999);   // validates: "7781" throws
+long cents = Events.amountMinor(c);
+bus.subscribe(PaymentCaptured.class, e -> ledger.credit(Events.paymentId(e), Events.amountMinor(e)));
+```
+
+```kotlin
+object Events {
+    @JvmStatic
+    fun captured(paymentId: String, amountMinor: Long): PaymentCaptured =
+        PaymentCaptured(PaymentId(paymentId), Money(amountMinor))       // init blocks run
+
+    @JvmStatic
+    fun amountMinor(event: MoneyMovement): Long = event.amount.minor
+}
+```
+
+`@JvmExposeBoxed` (Experimental in Kotlin 2.4, opt-in) would give Java `new PaymentCaptured(new PaymentId(...), new Money(...))` and a boxed `getAmount()`. In a quick test with its module-wide flag, the getter on the `PaymentEvent` interface itself stayed mangled, so Java code that only knows `PaymentEvent` would still need `Events.paymentId(e)`. Keep the facade until that changes.
+
+Some of the Java surface came for free from earlier decisions. Lesson 2's `Handler<in E>` shows up as `Handler<? super E>`, so a Java `Handler<PaymentEvent>` fits any subscription. kotlinc writes `PermittedSubclasses` for the sealed model, so a Java `switch` over a `PaymentEvent` with one case per leaf compiles with no `default`. `Subscription.close()` declares no checked exception, so try-with-resources needs no `catch`. And because handlers and middleware are `fun interface`s with `void` and `int` methods, Java lambdas never return `Unit.INSTANCE`.
+
+Uncomment the four lines at the end of `JavaViewDemo.java` one at a time and predict javac's complaint before each run."""
+
+S4 = """A design review is where you find out which decisions you can defend. Here are the questions a sceptical reviewer asks about this library, with the answer I'd give. Disagree where your service differs.
+
+"Why value classes, if Java needs a facade?" Keep them. In the Kotlin model a swapped id and amount don't compile, and an invalid id can't exist. The facade costs one file. If most callers were Java, I'd undo it and use plain records with compact constructors.
+
+"Money has no currency." Undo it before a second currency arrives. `Money(minor, currency)` becomes a data class, one object per amount, and the edge gets a currency field to parse. The one-field rule of value classes made the first version cheap; it doesn't make it right forever.
+
+"Supertype dispatch will surprise people." Keep it, and document it. The sealed hierarchy makes the set of keys small, fixed and testable, and the order is a tested promise. The surprise to warn about: a `PaymentEvent` handler also receives every event type added next year.
+
+"`in`, adapters, casts: isn't that over-engineered?" Keep `in`: it is what lets one audit handler serve every subscription, from Kotlin and from Java. The single cast is checked by `type.cast` and guaranteed by the keys.
+
+"Delivery is synchronous and in memory." Keep it for decoupling modules inside one service. Undo it for anything that must survive a crash or reach another service: that goes to an outbox table and Kafka. Guava's own `EventBus` Javadoc now says "We recommend against using EventBus", and lists no backpressure, little control of threading and no exception propagation among the reasons. This bus fixes the last one with an `ErrorHandler`, and not the first two.
+
+"`DropDuplicates` remembers every event forever." Undo it as written. Bound it to a window of recent events, or move idempotency into the handler's own store with a unique key, which also survives restarts.
+
+"The DSL commits after the block. What if `commit` fails halfway?" Today `subscribe` can't fail. If it ever can, `commit` must close what it already opened before rethrowing.
+
+Notice the pattern in the answers. A choice is safe when an earlier lesson's mechanism forces it (`in` for a consumer, no `else` on a sealed `when`). It is a judgment call when it trades cost for safety (value classes, the facade, a currency-less `Money`). Those are the ones to write down, with the condition that would make you undo them."""
+
+L = {
+ "id": "cap3-03",
+ "title": "An API for Kotlin and Java callers",
+ "minutes": 40,
+ "goal": "By the end you can put a subscription DSL on top of the bus with `@DslMarker` and reified inline helpers, give Java callers a surface that reads like ordinary Java (`Class<T>` overloads, `@JvmOverloads`, `@JvmStatic`, a facade over the value classes) that still validates, and defend each generics and patterns choice in the library to a sceptical reviewer.",
+ "warmup": {
+  "q": "A Java service needs handlers for `PaymentCaptured`. The Kotlin bus offers `fun <E : PaymentEvent> subscribe(type: KClass<E>, handler: Handler<E>)` and `inline fun <reified E : PaymentEvent> subscribe(handler: Handler<E>)`. What can the Java team write?",
+  "options": [
+   "`bus.subscribe(PaymentCaptured.class, h)`",
+   "`bus.<PaymentCaptured>subscribe(h)`",
+   "`bus.subscribe(JvmClassMappingKt.getKotlinClass(PaymentCaptured.class), h)`",
+   "Nothing: Java can't call either function"
+  ],
+  "answer": 2,
+  "why": "A `Class` is not a `KClass`, so the first call doesn't match. The reified function is compiled as a synthetic method, and javac ignores synthetic methods, so the second finds nothing. The `KClass` version is callable once Java converts the class by hand, which works and reads badly. This lesson adds a `Class<E>` overload so Java can write the first line."
+ },
+ "sections": [
+  {
+   "h": "A subscription DSL: one block, one handle",
+   "body": S1,
+   "try": {
+    "title": "Wire, close, and fail halfway",
+    "minutes": 5,
+    "steps": [
+     "Read `DslDemo.kt`: a compact copy of the library, then a `main` that wires an audit handler and a timed ledger group, publishes three events, closes the handle, and runs a block that fails.",
+     "Predict the `ledger:` line (the fake clock moves 2 ms per read) and the handler count after the failed block. Run it.",
+     "In `SubscriptionsBuilder`, make `on` subscribe at once: replace its body with `bus.subscribe(type, handler)` and keep nothing. Predict the last two lines, and run.",
+     "Undo that. Run `DslDemoJava` and find the one place where the Java code has to write `return Unit.INSTANCE`."
+    ],
+    "code": kotlin_first("dsl", "DslDemo"),
+    "expect": "`ledger: 2 calls, 4 ms; handlers: 3`, then `after close: 0 handlers` and `block failed (missing configuration: ledger account); handlers: 0`. With your eager `on`, the handle has nothing to close, so you get `after close: 3 handlers`, and the failed block leaves one more behind: `handlers: 4`. In the Java twin, `Unit.INSTANCE` appears only inside `b.timed(...)`, which takes a Kotlin receiver lambda; the `Consumer` entry point needs none."
+   }
+  },
+  {
+   "h": "@DslMarker keeps a nested block from reaching out",
+   "body": S2,
+   "try": {
+    "title": "Reach the outer builder by accident",
+    "minutes": 4,
+    "steps": [
+     "Run `MarkerDemo` once as it is: `timed groups: {ledger=1}`.",
+     "Uncomment the nested `timed(\"refunds\")` line (Step 2) and run. Read the error.",
+     "Delete `@DslMarker` above `annotation class EventsDsl` in `DslDemo.kt`. Predict the printed map, then run.",
+     "Put `@DslMarker` back, comment Step 2 out again and try Step 4, the labelled call. Then run `MarkerDemoJava`, where the same mistake has to be written as `b.timed`."
+    ],
+    "code": kotlin_first("dsl", "MarkerDemo"),
+    "expect": "With the marker: `'fun timed(name: String, block: TimedGroup.() -> Unit): Unit' cannot be called in this context with an implicit receiver. Use an explicit receiver if necessary.` Without it, the demo compiles and prints `timed groups: {ledger=1, refunds=1}`: refunds became a sibling group, and the ledger counts one call where you meant two. The labelled call compiles with the marker and gives the same map, now on purpose. The Java twin prints the same map."
+   }
+  },
+  {
+   "h": "What Java sees, and the surface that fixes it",
+   "body": S3,
+   "figure": {"svg": FIG, "caption": "One core, two doors. Kotlin callers get the DSL; Java callers get overloads, statics and a facade that still runs every check."},
+   "try": {
+    "title": "Read javac's complaints",
+    "minutes": 5,
+    "steps": [
+     "Run `JavaViewDemo` (Java) and then its Kotlin twin. Both print a handler line, the KClass line and a refusal.",
+     "Uncomment the four lines at the end of `JavaViewDemo.java` one at a time. Before each run, predict the error.",
+     "After a demo run, list the class from `labs/` with `javap -p -cp events/build/classes/kotlin/demo workbench.events.l03.demo.javaview.Registry`. Find the mangled `describe` and the reified `subscribe`."
+    ],
+    "code": java_first("javaview", "JavaViewDemo"),
+    "expect": "`no suitable constructor found for PlainBus(String)`; `no suitable method found for subscribe((e)->{ })`, because the reified one is synthetic; `cannot find symbol ... constructor PaymentId(String)`, because a value class constructor is private to Java; and `cannot find symbol ... method describe(String)`. javap shows `describe-3JmmrqY(java.lang.String)` and a `subscribe(Handler<? super E>)` that javac skips. The Kotlin twin makes all four calls without trouble."
+   },
+   "refs": [{"title": "Calling Kotlin from Java (Kotlin docs)", "url": "https://kotlinlang.org/docs/java-to-kotlin-interop.html", "kind": "docs"}]
+  },
+  {
+   "h": "Design review: defend it, or undo it",
+   "body": S4,
+   "try": {
+    "title": "Write your own review notes",
+    "minutes": 5,
+    "steps": [
+     "Without looking back, list five design choices in the library you built across the three labs.",
+     "For each, write one line: keep or undo, the earlier lesson whose mechanism decides it, and the condition that would change your answer.",
+     "Pick the choice you're least sure about and write the test that would tell you you were wrong."
+    ],
+    "expect": "A strong list mixes forced choices (no `else` on the sealed `when`, `Handler<in E>`, a `Class<E>` overload because Java can't call reified functions) with judgment calls (value classes plus a facade, euro-only `Money`, synchronous delivery, unbounded dedupe). The forced ones cite a mechanism; the judgment calls cite a condition, such as \"undo when a second currency arrives\" or \"undo when a handler needs to survive a restart\"."
+   },
+   "refs": [{"title": "Guava EventBus Javadoc: why Guava recommends against it", "url": "https://raw.githubusercontent.com/google/guava/master/guava/src/com/google/common/eventbus/EventBus.java", "kind": "read"}]
+  }
+ ],
+ "analogy": "Think of a bank branch with one vault and two counters. At the first counter, regulars speak the house shorthand and the teller fills in the forms for them: that's the Kotlin DSL. At the second, visitors fill in the standard printed forms themselves: that's the Java door, with its overloads and its facade. Both counters feed the same vault, under the same rules. The analogy breaks where a teller might bend a rule for a visitor who doesn't understand the form. The facade never may: `Events.captured` builds the same value classes and runs the same checks as the Kotlin path.",
+ "in_your_world": "Mixed codebases are where this lesson pays. A Kotlin domain module holds the model and the bus, and older Java services (a reconciliation job, the support tool, a Temporal worker written with the Java SDK) consume it. Give them `Events` and the `Class<E>` overloads, and the Java code reads like any Java library. In Quarkus, a Java CDI bean calling a Kotlin `object` needs `@JvmStatic` or it writes `INSTANCE` everywhere. Run one Java test in the Kotlin module's build, as the lab does, so a Kotlin-side change that breaks Java callers fails on the Kotlin team's own CI instead of in a service owned by another team.",
+ "mistake": "The common mistake is building the Java door by loosening the model. Someone adds `@JvmName(\"capturedFromJava\")` to a function that takes `PaymentId` and `Money`, or swaps the model's value classes for raw `String` and `Long` \"so Java can use it\". The first lets Java pass a raw `long` that no `init` block ever checks: a negative capture gets through. The second brings back the swapped-argument bug for the Kotlin callers too. People do it because it's the quickest way to make javac stop complaining. The fix is a facade that takes plain values and builds the value classes, so every check still runs, and leaves the model alone.",
+ "compare": {
+  "title": "The same wiring from Kotlin and from Java",
+  "java": {
+   "title": "LedgerWiring.java",
+   "src": "EventBus bus = new EventBus(List.of(new DropDuplicates()));           // @JvmOverloads\nTimings timings = new Timings();\n\nHandler<PaymentEvent> audit = e -> auditLog.add(Events.paymentId(e));\n\nSubscription handle = Events.subscriptions(bus, timings, b -> {          // a Consumer: no Unit.INSTANCE\n    b.on(PaymentEvent.class, audit);\n    b.on(PaymentCaptured.class,\n         Handlers.timed(c -> ledger.credit(Events.paymentId(c), Events.amountMinor(c)), \"ledger\", timings));\n    b.on(PaymentRefunded.class,\n         Handlers.timed(r -> ledger.debit(Events.paymentId(r), Events.amountMinor(r)), \"ledger\", timings));\n});\n\nbus.publish(Events.captured(\"pay_7781\", 1_999));                     // validated by the value classes\nhandle.close();                                                        // close() throws nothing"
+  },
+  "kotlin": {
+   "title": "LedgerWiring.kt",
+   "src": "val bus = EventBus(listOf(DropDuplicates()))\nval timings = Timings()\n\nval audit = Handler<PaymentEvent> { auditLog += it.paymentId.value }\n\nval handle = bus.subscriptions(timings) {\n    on(PaymentEvent::class, audit)\n    timed(\"ledger\") {\n        on<PaymentCaptured> { ledger.credit(it.paymentId, it.amount) }\n        on<PaymentRefunded> { ledger.debit(it.paymentId, it.amount) }\n    }\n}\n\nbus.publish(PaymentCaptured(PaymentId(\"pay_7781\"), Money(1_999)))\nhandle.close()"
+  },
+  "note": "Both wire the same three subscriptions on the same bus, and both get one handle back. The Kotlin version reads the domain types directly (`it.paymentId`, `it.amount`), uses `on<E>` with a reified type and a `timed` group whose handlers can't reach the outer builder by accident. The Java version passes `Class` tokens, gets plain `String` and `long` through the `Events` facade, and times handlers one by one with `Handlers.timed`, because a Kotlin receiver lambda would cost it a `return Unit.INSTANCE`. What doesn't differ is the safety: the same `init` blocks validate events built from Java, `Handler<? super E>` lets the Java audit handler fit any subscription, and javac can switch exhaustively over the Kotlin sealed model."
+ },
+ "worked": {
+  "title": "Add subscribeOnce, with its Kotlin sugar and its Java door",
+  "steps": [
+   {
+    "say": "A welcome email must go out for a merchant's first capture only. Start with the core, in Kotlin, taking a `KClass`. The handle closes itself, and `compareAndSet` makes sure only one of eight publishing threads runs the handler, the balking idea from *Concurrency patterns that tie it all together*. One race needs care: an event can arrive before `handle.set` has run, so the code closes again after setting it.",
+    "code": "fun <E : PaymentEvent> subscribeOnce(type: KClass<E>, handler: Handler<E>): Subscription {\n    val fired = AtomicBoolean()\n    val handle = AtomicReference<Subscription>()\n    handle.set(subscribe(type) { event ->\n        if (fired.compareAndSet(false, true)) {          // 1. only the first event wins\n            try { handler.handle(event) }                // 2. do the work\n            finally { handle.get()?.close() }            // 3. stop further deliveries\n        }\n    })\n    if (fired.get()) handle.get().close()                // an event won before the handle was set\n    return handle.get()\n}",
+    "lang": "kotlin",
+    "alt_lang": "java",
+    "alt_code": "// What Java sees for the core: a KClass parameter it can only reach the long way round.\nbus.subscribeOnce(JvmClassMappingKt.getKotlinClass(PaymentCaptured.class), c -> sendWelcome(c));"
+   },
+   {
+    "say": "Add the Kotlin sugar: a one-line reified wrapper. No `noinline` or `crossinline`: its parameter is a `Handler`, not a function type, so there is nothing to inline.",
+    "code": "inline fun <reified E : PaymentEvent> subscribeOnce(handler: Handler<E>): Subscription =\n    subscribeOnce(E::class, handler)\n\nbus.subscribeOnce<PaymentCaptured> { sendWelcome(it) }",
+    "lang": "kotlin",
+    "alt_lang": "java",
+    "alt_code": "// Java can't see the reified wrapper: javac reports \"no suitable method found for subscribeOnce\"\nbus.subscribeOnce(c -> sendWelcome(c));"
+   },
+   {
+    "say": "Add the Java door: a `Class<E>` overload that converts and delegates. Because `Handler` is declared `in`, Java sees `Handler<? super E>`, so a general handler fits too.",
+    "code": "fun <E : PaymentEvent> subscribeOnce(type: Class<E>, handler: Handler<E>): Subscription =\n    subscribeOnce(type.kotlin, handler)",
+    "lang": "kotlin",
+    "alt_lang": "java",
+    "alt_code": "bus.subscribeOnce(PaymentCaptured.class, c -> sendWelcome(Events.paymentId(c)));"
+   },
+   {
+    "say": "Last, pin it from both sides. A Kotlin test publishes the same capture from eight threads and checks one email. A Java test makes the Java call above, so a Kotlin-side change that breaks Java callers fails in this module's build.",
+    "code": "val sent = AtomicInteger()\nbus.subscribeOnce<PaymentCaptured> { sent.incrementAndGet() }\ncollide(8) { bus.publish(capture) }\nassertThat(sent.get()).isEqualTo(1)",
+    "lang": "kotlin",
+    "alt_lang": "java",
+    "alt_code": "AtomicInteger sent = new AtomicInteger();\nbus.subscribeOnce(PaymentCaptured.class, c -> sent.incrementAndGet());\nbus.publish(Events.captured(\"pay_7781\", 1_999));\nbus.publish(Events.captured(\"pay_7781\", 1_999));\nassertThat(sent.get()).isEqualTo(1);"
+   }
+  ]
+ },
+ "lab": {
+  "title": "Put a DSL and a Java door on the bus",
+  "minutes": 16,
+  "files": [
+   "labs/events/src/main/kotlin/workbench/events/l03/Bus.kt",
+   "labs/events/src/main/kotlin/workbench/events/l03/Dsl.kt",
+   "labs/events/src/main/kotlin/workbench/events/l03/JavaApi.kt",
+   "labs/events/src/main/java/workbench/events/l03/RefundDesk.java"
+  ],
+  "run": "./gradlew :events:test --tests 'workbench.events.l03.*'",
+  "steps": [
+   "The package starts with lesson 2's solution, already given its Java-facing annotations: `@JvmOverloads` on the bus constructor, `@JvmField` on `ErrorHandler.PRINT` and `Ticker.SYSTEM`, `@file:JvmName(\"Handlers\")` on `Timing.kt`. Read them first. Don't edit `Callers.kt`. Run the tests: all thirteen fail, six Kotlin and seven Java.",
+   "`Bus.kt` TODO 1: the `Class<E>` overload of `subscribe`, in one line.",
+   "`Dsl.kt` TODO 2: add `@DslMarker` to `EventsDsl`, and `@EventsDsl` to both builder classes. TODO 3: `on` adds a `Pending`; `commit` sets `committed`, subscribes every entry and returns one handle that closes them in reverse.",
+   "TODO 4: the reified `on<E>`. Write `on(E::class, Handler { handler(it) })`, compile, and add the modifier the error asks for. TODO 5: `TimedGroup`'s two `on` functions.",
+   "`JavaApi.kt` TODO 6: `captured`, `paymentId`, `amountMinor` and the `Consumer` entry point.",
+   "`RefundDesk.java` TODO 7: one `Events.subscriptions` block with two `b.on(...)` calls.",
+   "Run until all thirteen pass. Then delete `@JvmStatic` from `Events.captured` and run once more: read what javac says about `FromJavaTest`, and put it back."
+  ],
+  "hints": [
+   "`type.kotlin` turns a `Class<E>` into a `KClass<E>`.",
+   "In `commit`: `val handles = pending.map { it.subscribeTo(bus) }`, then `Subscription { handles.asReversed().forEach(Subscription::close) }`.",
+   "`Events.subscriptions` is `SubscriptionsBuilder.build(bus, timings) { block.accept(this) }`: inside the receiver lambda, `this` is the builder.",
+   "In `RefundDesk`, `refundedMinor.merge(Events.paymentId(r), Events.amountMinor(r), Long::sum)` adds to the running total.",
+   "The `Handler<PaymentEvent>` for declines compiles in `b.on(PaymentDeclined.class, ...)` because Java sees `Handler<? super E>`."
+  ],
+  "done_when": "All thirteen tests in `DslTest` and `FromJavaTest` pass."
+ },
+ "drill": {
+  "title": "The DSL skeleton and the Java door from memory",
+  "minutes": 5,
+  "prompt": "Close the lab. From memory, write the Kotlin entry function `subscriptions`, the builder's `on(type, handler)`, `commit()` and the reified `on<E>` (with the right modifier). Then, below it, write the Java call that wires one refund handler through `Events.subscriptions`, and name the annotation or overload behind each part of that Java line.",
+  "answer": {
+   "lang": "kotlin",
+   "src": "@DslMarker\n@Target(AnnotationTarget.CLASS)\nannotation class EventsDsl\n\n@EventsDsl\nclass SubscriptionsBuilder private constructor(private val bus: EventBus) {\n    private val pending = mutableListOf<Pending<*>>()\n\n    fun <E : PaymentEvent> on(type: KClass<E>, handler: Handler<E>) { pending += Pending(type, handler) }\n    fun <E : PaymentEvent> on(type: Class<E>, handler: Handler<E>) = on(type.kotlin, handler)\n    inline fun <reified E : PaymentEvent> on(crossinline handler: (E) -> Unit) = on(E::class, Handler { handler(it) })\n\n    private fun commit(): Subscription {\n        val handles = pending.map { it.subscribeTo(bus) }\n        return Subscription { handles.asReversed().forEach(Subscription::close) }\n    }\n\n    private class Pending<E : PaymentEvent>(val type: KClass<E>, val handler: Handler<E>) {\n        fun subscribeTo(bus: EventBus) = bus.subscribe(type, handler)\n    }\n\n    companion object {\n        fun build(bus: EventBus, block: SubscriptionsBuilder.() -> Unit) = SubscriptionsBuilder(bus).apply(block).commit()\n    }\n}\n\nfun EventBus.subscriptions(block: SubscriptionsBuilder.() -> Unit): Subscription = SubscriptionsBuilder.build(this, block)",
+   "alt": {
+    "lang": "java",
+    "src": "Subscription handle = Events.subscriptions(bus, b ->        // @JvmStatic + a Consumer parameter\n        b.on(PaymentRefunded.class,                          // the Class<E> overload\n             r -> refunds.add(Events.amountMinor(r))));       // the facade over Money; Handler<? super E>\nhandle.close();                                               // Subscription.close() throws nothing"
+   }
+  }
+ },
+ "recap": [
+  "A subscription DSL collects what the block declares and subscribes it all at the end: a block that throws subscribes nothing, and one handle closes everything, in reverse order.",
+  "`on<E>` is inline and reified. Its lambda is called from inside a `Handler` object, so it must be `crossinline`. A `check` in `on` catches subscriptions made from inside a handler, which `@DslMarker` can't see.",
+  "`@DslMarker` on the builder classes makes only the nearest builder implicit, so `timed` inside `timed` stops compiling instead of creating a sibling group.",
+  "Java can't call reified functions and stumbles over `KClass`, defaults, objects, companions and value classes. Add `Class<E>` overloads, `@JvmOverloads`, `@JvmStatic`, `@JvmField`, `@file:JvmName` and a facade that builds the value classes, so every check still runs.",
+  "Java gets some things for free from earlier choices: `Handler<? super E>` from `in`, exhaustive `switch` over the Kotlin sealed model, and `fun interface` callbacks that take plain lambdas.",
+  "In a design review, a choice an earlier mechanism forces is easy to defend. Write down the judgment calls, and the condition that would make you undo each one."
+ ],
+ "quiz": [
+  {
+   "q": "From *Type-safe DSLs with lambdas with receivers*: inside `timed(\"ledger\") { ... }` you call `timed(\"refunds\") { ... }`. `TimedGroup` has no `timed`; both builder classes carry `@EventsDsl`, which is annotated `@DslMarker`. What happens?",
+   "options": [
+    "It compiles and creates a sibling group under the outer builder",
+    "It compiles and nests refunds inside the ledger group",
+    "It fails to compile: `timed` can't be called with an implicit outer receiver",
+    "It compiles, and throws at run time when the block runs"
+   ],
+   "answer": 2,
+   "why": "With the marker, only the nearest marked receiver, the `TimedGroup`, is implicit, and it has no `timed`. Without the marker, the first option is exactly what happens, silently. If you want the sibling, write `this@subscriptions.timed(...)`.",
+   "from": "kt-04"
+  },
+  {
+   "q": "From *Inline functions: noinline, crossinline and non-local returns*: `inline fun <reified E : PaymentEvent> on(handler: (E) -> Unit) = on(E::class, Handler { handler(it) })` doesn't compile. Which fix fits best?",
+   "options": [
+    "Mark `handler` `crossinline`: it's called from inside the `Handler` object, and its body can still be inlined there",
+    "Remove `inline`: the function then works without changes",
+    "Mark the function `@PublishedApi`",
+    "Change `Handler { handler(it) }` to `handler as Handler<E>`"
+   ],
+   "answer": 0,
+   "why": "The lambda runs later, from another object, so a non-local `return` inside it couldn't work, and the compiler asks you to rule it out. `noinline` would compile too but keeps a lambda object inside the Handler. Removing `inline` breaks `reified`. The cast doesn't compile either: an inlined lambda parameter can't be used as a value (`illegal usage of inline parameter`), and even with `noinline` a Kotlin function object is not a `Handler`.",
+   "from": "kt-01"
+  },
+  {
+   "q": "From *Value classes and what they compile to*: Java code writes `new PaymentCaptured(\"pay_7781\", 1_999L)`, where `PaymentCaptured` is a data class with `PaymentId` and `Money` value-class properties. What happens?",
+   "options": [
+    "It compiles and validates both values",
+    "It compiles and skips the `init` blocks",
+    "It throws `NoSuchMethodError` at run time",
+    "javac refuses: `PaymentCaptured(String,long) has private access`"
+   ],
+   "answer": 3,
+   "why": "kotlinc makes that constructor private and adds a public synthetic one with a `DefaultConstructorMarker`, which javac won't call. That's what keeps Java from building an unchecked `PaymentCaptured`. The way in is a facade such as `Events.captured(String, long)`, which builds the value classes so their checks run.",
+   "from": "kt-02"
+  },
+  {
+   "q": "From *Type erasure and reified type parameters*: why does the bus keep `subscribe(type: KClass<E>, ...)` and add `subscribe(type: Class<E>, ...)`, rather than offering only the reified `subscribe<E>`?",
+   "options": [
+    "Because reified functions are slower than ones that take a token",
+    "Because Java can't call a reified function, so the work must live in a version that takes a class token",
+    "Because `KClass` needs kotlin-reflect at run time",
+    "Because a reified function can't be a member of a class"
+   ],
+   "answer": 1,
+   "why": "javac can't inline Kotlin code, so it can't supply `E`, and kotlinc marks the reified function synthetic. The token versions do the work, and the reified one is a one-line wrapper for Kotlin. `KClass` itself needs no kotlin-reflect for `isInstance` and `cast`, and members can be reified.",
+   "from": "gen-08"
+  },
+  {
+   "q": "`class EventBus(middleware: List<Middleware> = emptyList(), onError: ErrorHandler = ErrorHandler.PRINT)`, with no `@JvmOverloads`. Which Java calls compile?",
+   "options": [
+    "Only `new EventBus(list, onError)`",
+    "`new EventBus()`, `new EventBus(list)` and `new EventBus(list, onError)`",
+    "`new EventBus()` and `new EventBus(list, onError)`, but not `new EventBus(list)`",
+    "None: Java can't call constructors with default arguments"
+   ],
+   "answer": 2,
+   "why": "When every constructor parameter has a default, kotlinc adds a no-argument constructor, so Java gets that one and the full one. The ones in between exist only with `@JvmOverloads`. javac reports `no suitable constructor found` for `new EventBus(list)`."
+  }
+ ],
+ "flashcards": [
+  {"front": "Why does the subscriptions builder collect first and subscribe at the end?", "back": "A block that throws halfway then subscribes nothing, and the caller gets one handle that closes everything the block declared."},
+  {"front": "Why must the lambda of `inline fun <reified E> on(handler: (E) -> Unit)` be `crossinline`?", "back": "The body calls it from inside another object, the `Handler`, which runs later. `crossinline` forbids non-local returns so it can still be inlined there."},
+  {"front": "What does `@DslMarker` stop, and what can't it stop?", "back": "It stops implicit calls to an outer marked builder from an inner block. It can't stop a call from inside a handler lambda, which has no receiver: use a runtime check."},
+  {"front": "Java can't call your reified `subscribe<E>`. What do you add?", "back": "A `Class<E>` overload that delegates with `type.kotlin`. The reified function stays a one-line wrapper for Kotlin."},
+  {"front": "A Kotlin constructor where every parameter has a default: what does Java get without `@JvmOverloads`?", "back": "A no-argument constructor and the full one. `@JvmOverloads` adds the ones in between."},
+  {"front": "Why a facade like `Events.captured(String, long)` instead of `@JvmName` on functions that take value classes?", "back": "The facade builds the value classes, so their `init` checks run. `@JvmName` lets Java pass raw values straight past them."},
+  {"front": "What does a Java caller get for free from `Handler<in E>` and a Kotlin sealed model?", "back": "`Handler<? super E>` in every signature, and an exhaustive `switch` over the sealed types with no `default`."}
+ ],
+ "terms": [
+  {"term": "Entry function", "plain": "The function that creates a builder, runs your block on it and returns the result, such as `bus.subscriptions { }`."},
+  {"term": "@DslMarker", "plain": "An annotation for DSL marker annotations: inside a block, only the nearest marked receiver can be called implicitly."},
+  {"term": "crossinline", "plain": "A modifier for a lambda parameter of an inline function that is called from another object or lambda; it forbids non-local returns."},
+  {"term": "Facade for Java", "plain": "A small object of static functions that takes and returns plain Java types and builds the Kotlin types inside."},
+  {"term": "@JvmOverloads", "plain": "Makes kotlinc generate one Java overload per trailing default parameter."},
+  {"term": "@JvmStatic", "plain": "Makes a member of an object or companion a real static method, so Java needs no INSTANCE or Companion."},
+  {"term": "Design review", "plain": "A meeting where you defend each design choice, say what forces it, and what would make you undo it."}
+ ],
+ "explain_back": {
+  "prompt": "A sceptical reviewer says: \"This is a lot of type machinery for an event bus. Why not a `Map<String, MutableList<(Any) -> Unit>>` and a JSON string per event?\" Defend your design: name the bugs each choice prevents, and the one or two choices you'd undo.",
+  "answer": "With strings and `Any`, every handler parses and casts for itself: a capture with amount \"12.50\" throws inside the ledger after audit logged it, a typo in an event name never matches, and a new event type is ignored everywhere without a word. The sealed model and the edge parser stop all three: bad input is rejected once, and a `when` without `else` breaks the build where a new type needs handling. Value classes make a swapped id and amount a compile error. The bus walks supertypes, so one audit handler sees every event, and `Handler<in E>` lets that handler fit any subscription from Kotlin and from Java. Isolation, handles and a copy-on-write list keep one bad or self-removing handler from hurting the rest. The DSL commits a block all at once, and `@DslMarker` keeps nested blocks from reaching the wrong builder. For Java, the overloads and the facade make it read like a Java library without skipping a check. What I'd undo: euro-only `Money`, as soon as a second currency appears, and the unbounded `DropDuplicates`, which should become a bounded window or a unique key in the handler's store. And anything that must survive a crash goes to an outbox, not this bus."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": """A production version of this library would add, roughly in this order:
+
+- Asynchronous lanes. An executor per handler group, with one single-threaded lane per payment id so events for one payment keep their order, and a bounded queue in front of each lane. That's also where backpressure lives: when a lane is full, the publisher waits or the event goes to a retry topic.
+- Real metrics and tracing. Replace `Timings` with Micrometer timers named after the subscription, and carry the trace context from the Kafka record through `publish` into each handler, so a slow handler shows up in the trace of the request that caused it.
+- Durability. Events that must survive a crash or reach other services go through a transactional outbox to Kafka, as *Observer and Command* described. The in-process bus stays for decoupling modules inside one service.
+- Dead letters for the edge. `Parsed.Rejected` goes to a dead-letter topic with the reason, a counter, and a replay tool for after the fix.
+- Versioned events. Stable type names with `@SerialName` if you serialize with kotlinx.serialization, and parser branches that map old names to new types.
+- A checked public API. `on<E>` and `subscribe<E>` are public inline functions, so their bodies are compiled into every caller, and the `@JvmOverloads` overloads are part of the Java ABI. A binary-compatibility check in the build catches a change that would break callers compiled against the previous version.
+- `@JvmExposeBoxed` once it is stable, if it also covers interface members. Until then, the `Events` facade is the Java door.
+
+One thing it should not add is reflection-driven registration with annotations, Guava style (`@Subscribe` on methods, found by scanning). Guava's own Javadoc lists the costs: subscribers are hard to find from the publisher, and reflection breaks under code shrinkers. Explicit `on<E>` calls keep every subscription visible in the code that owns it."""
+ },
+ "sources": [
+  {"title": "Calling Kotlin from Java (Kotlin docs)", "url": "https://kotlinlang.org/docs/java-to-kotlin-interop.html"},
+  {"title": "Type-safe builders (Kotlin docs)", "url": "https://kotlinlang.org/docs/type-safe-builders.html"},
+  {"title": "Inline functions (Kotlin docs)", "url": "https://kotlinlang.org/docs/inline-functions.html"},
+  {"title": "KEEP-0394: @JvmExposeBoxed", "url": "https://github.com/Kotlin/KEEP/blob/main/proposals/KEEP-0394-jvm-expose-boxed.md"},
+  {"title": "Guava EventBus source and Javadoc", "url": "https://raw.githubusercontent.com/google/guava/master/guava/src/com/google/common/eventbus/EventBus.java"}
+ ]
+}
+out = ROOT / "content/lessons/cap3-03.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)

@@ -1,4 +1,6 @@
-// cap3 uses KClass and reified types; kotlin-reflect is available if a lesson needs full reflection
+// cap3 (labs/events): kotlin-reflect is used only by the tests, for PaymentEvent::class.sealedSubclasses
+// (cap3-01) and Handler::class.typeParameters (cap3-02). The library itself needs only the standard
+// library: KClass.cast, isInstance and Java reflection work without kotlin-reflect.
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-reflect:2.4.21")
+    testImplementation("org.jetbrains.kotlin:kotlin-reflect:2.4.21")
 }

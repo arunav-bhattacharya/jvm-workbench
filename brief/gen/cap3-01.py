@@ -201,7 +201,7 @@ The cost is small, for the reason *Value classes and what they compile to* gave:
 
 The one-field rule also made a decision for this model. A real `Money` would carry its currency, but a value class can hold only one field until Project Valhalla arrives, and a data class with two fields would cost an object per amount. This service settles in euros only, so `Money` is euro cents and the currency lives nowhere. The design review in lesson 3 comes back to whether that was right.
 
-Keep the explicit `: String` on `toString`. Kotlin 2.4.21 can crash with a backend error when a value class's `toString` infers its return type and the value is used in a string template.
+Keep the explicit `: String` on `Money.toString`. When a value class's `toString` leaves out its return type and returns the result of a Java method such as `toPlainString()`, Kotlin 2.4.21 crashes with a backend error as soon as the value appears in a string template.
 
 In the demo, uncomment the swapped constructor call and read both errors. Then compare the field types the Kotlin and Java versions print."""
 

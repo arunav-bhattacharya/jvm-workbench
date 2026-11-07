@@ -1,0 +1,139 @@
+{
+ "id": "cap1",
+ "intro": "In three sittings you build one working program: an in-memory payment ledger that applies transfers from many threads, never loses or creates money, never deadlocks, shuts down without dropping an accepted transfer, publishes balances that always add up, and serves 10,000 concurrent requests on virtual threads while a slow fraud service is held behind a bulkhead and a deadline. At the end you defend the design in a review, and you know which earlier lesson's mechanism decides each line of it.\n\nThe capstone draws on every track of Part 1. Lesson 1 uses races, deadlock and lock ordering, immutability and stress testing from *Threads and the bugs they cause*. Lesson 2 uses `ThreadPoolExecutor`, Little's law and production shutdown from *Thread pools and executors*, and happens-before and safe publication from *The Java Memory Model*. Lesson 3 uses one-thread-per-request, semaphores, pinning and fail-fast scopes from *Virtual threads*. There is little new theory: each section shows what breaks if you choose differently, then names the earlier lesson that explains why.\n\nThe lab lives in `labs/ledger`, one package per lesson (`workbench.ledger.l01` to `l03`). Each lesson's starter code contains the previous lesson's solution, so you can start any sitting fresh. Lessons 1 and 2 are in Java; lesson 3 adds a Kotlin server on top of the same Java ledger, the way a Kotlin service calls a Java library. Run `./gradlew :ledger:test --tests 'workbench.ledger.lNN.*'` from `labs/` until it passes; `solutionTest` runs the same tests against the reference answers. The tests check what production cares about (invariants under 8 threads, no lost transfer on shutdown, a bulkhead that holds at 10,000 requests), never timings. The Try-it demos run with `./gradlew :ledger:demo -Pmain=...`, and two of them hang on purpose so you can read a thread dump: install JDK 25, and keep `jcmd` and `jq` at hand.",
+ "cheatsheet": "## The invariants, and what protects each\n\n| Invariant | Protected by | How the tests check it |\n|---|---|---|\n| Money is conserved: the sum of balances never changes | debit and credit in one critical section holding both account locks | total after 8 threads x 100,000 transfers; snapshots taken while transfers run |\n| No balance below zero | the balance check inside the same locks; `debit` refuses an overdraft | no negative balance, and `debit` throws at the moment a race would overdraw |\n| A transfer is whole or not at all | one critical section; journal first, apply second, nothing blocking inside `apply` | an interrupted transfer leaves every balance unchanged |\n| No deadlock | every multi-lock path locks in account id order | opposite transfers, 2 threads x 100,000, under a timeout |\n| No accepted transfer vanishes | drain on shutdown; `shutdownNow()`'s list cancelled and handed back | every accepted future done; queued transfers returned by id |\n\n## Every limit, and where its number comes from\n\n| Limit | Value in the labs | Source |\n|---|---|---|\n| ledger pool threads | 8 | Little's law: 1,600 transfers/s x 5 ms journal write |\n| ledger queue slots | 80 | 1,600/s x 50 ms longest acceptable wait |\n| rejection | count, then throw: 503 + Retry-After | money is never discarded; the client retries with the same id |\n| fraud bulkhead | 20 permits, shared | the fraud vendor's concurrency limit; 20 / 0.02 s = 1,000 checks/s |\n| request deadline | 300 ms for all screening | the latency you promise; every wait uses what is left |\n| stand-in limit | 50.00 | a risk decision: small amounts go through unchecked at the deadline |\n| request threads | one new virtual thread each | unlimited on purpose: the limits above are on resources |\n\n## The happens-before edge for every shared field\n\n| Field | Edge |\n|---|---|\n| `Account.balance` | the account's `ReentrantLock` |\n| `Ledger.accounts`, `inLockOrder` | final fields set in the constructor |\n| `Ledger.version` | written only while every account lock is held |\n| `Ledger.latest` | volatile write, then volatile read |\n| `BalanceSnapshot` contents | final record fields; `Map.copyOf` |\n| `Transfer` | immutable; `execute` happens-before the task runs |\n| a transfer's outcome | task completion happens-before `Future.get()` returns |\n| per-thread stress counts | `join()` |\n\n## The four decisive pieces of code\n\n```java\n// 1. two accounts, one global order\nAccount first = from.id().compareTo(to.id()) < 0 ? from : to, second = first == from ? to : from;\nfirst.lock().lock();\ntry {\n    second.lock().lock();\n    try {\n        if (from.balance() < cents) return Outcome.INSUFFICIENT_FUNDS;   // check inside the locks\n        from.debit(cents);\n        to.credit(cents);\n        return Outcome.APPLIED;\n    } finally { second.lock().unlock(); }\n} finally { first.lock().unlock(); }\n```\n\n```kotlin\n// 1. two accounts, one global order\nval first = if (from.id < to.id) from else to\nval second = if (first === from) to else from\nreturn first.lock.withLock {\n    second.lock.withLock {\n        if (from.balance < cents) return Outcome.INSUFFICIENT_FUNDS     // check inside the locks\n        from.debit(cents)\n        to.credit(cents)\n        Outcome.APPLIED\n    }\n}\n```\n\n```java\n// 2. shutdown that accounts for every transfer\npool.shutdown();\nif (!pool.awaitTermination(grace.toNanos(), TimeUnit.NANOSECONDS)) {\n    for (Runnable r : pool.shutdownNow()) {\n        TransferTask task = (TransferTask) r;\n        task.cancel(false);                       // wake waiting callers\n        neverStarted.add(task.transfer());        // log or replay\n    }\n}\n```\n\n```kotlin\n// 2. shutdown that accounts for every transfer\npool.shutdown()\nif (!pool.awaitTermination(grace.toNanos(), TimeUnit.NANOSECONDS)) {\n    for (r in pool.shutdownNow()) {\n        val task = r as TransferTask\n        task.cancel(false)                        // wake waiting callers\n        neverStarted += task.transfer             // log or replay\n    }\n}\n```\n\n```java\n// 3. a snapshot nobody can tear\nfor (Account a : inLockOrder) a.lock().lock();             // every lock, in id order\ntry {\n    Map<String, Long> copy = new HashMap<>();\n    long total = 0;\n    for (Account a : inLockOrder) { copy.put(a.id(), a.balance()); total += a.balance(); }\n    latest = new BalanceSnapshot(copy, total, ++version);       // volatile write, still locked\n} finally {\n    for (int i = inLockOrder.size() - 1; i >= 0; i--) inLockOrder.get(i).lock().unlock();\n}\n```\n\n```kotlin\n// 3. a snapshot nobody can tear\ninLockOrder.forEach { it.lock.lock() }                       // every lock, in id order\ntry {\n    val copy = inLockOrder.associate { it.id to it.balance }\n    latest = BalanceSnapshot(copy, copy.values.sum(), ++version)  // @Volatile write, still locked\n} finally {\n    inLockOrder.asReversed().forEach { it.lock.unlock() }\n}\n```\n\n```kotlin\n// 4. screening: one deadline, a bulkhead, fail-fast, a fallback\nval deadline = System.nanoTime() + budget.toNanos()\nval perTask = Executors.newVirtualThreadPerTaskExecutor()\ntry {\n    val done = ExecutorCompletionService<Boolean>(perTask)\n    done.submit { bulkhead.call(deadline - System.nanoTime()) { fraud.passes(t) } }\n    done.submit { limits.passes(t) }\n    repeat(2) {\n        val next = done.poll(deadline - System.nanoTime(), TimeUnit.NANOSECONDS) ?: return fallback(t)\n        val ok = try { next.get() } catch (e: ExecutionException) {\n            if (e.cause is TimeoutException) return fallback(t) else false\n        }\n        if (!ok) return Verdict.DECLINED\n    }\n    return Verdict.APPROVED\n} finally {\n    perTask.shutdownNow()                         // interrupt what still runs\n    perTask.close()                               // and wait for those threads\n}\n```\n\n```java\n// 4. screening: one deadline, a bulkhead, fail-fast, a fallback\nlong deadline = System.nanoTime() + budget.toNanos();\nExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor();\ntry {\n    CompletionService<Boolean> done = new ExecutorCompletionService<>(perTask);\n    done.submit(() -> bulkhead.call(deadline - System.nanoTime(), () -> fraud.passes(t)));\n    done.submit(() -> limits.passes(t));\n    for (int i = 0; i < 2; i++) {\n        Future<Boolean> next = done.poll(deadline - System.nanoTime(), TimeUnit.NANOSECONDS);\n        if (next == null) return fallback(t);\n        try {\n            if (!next.get()) return Verdict.DECLINED;\n        } catch (ExecutionException e) {\n            return e.getCause() instanceof TimeoutException ? fallback(t) : Verdict.DECLINED;\n        }\n    }\n    return Verdict.APPROVED;\n} finally {\n    perTask.shutdownNow();                        // interrupt what still runs\n    perTask.close();                              // and wait for those threads\n}\n```\n\n## Design checklist\n\n1. Write the invariants down before the code, and name the lock or edge that protects each.\n2. Make the values that cross threads immutable, and validate them in the constructor.\n3. Lock several accounts only in one global id order; sort them when there are more than two.\n4. Keep the check inside the critical section that acts on it.\n5. Never block inside an account lock: journal, fraud calls and logging happen outside.\n6. Size pools and queues with Little's law, then check the downstream's own limit.\n7. Bound every queue; choose the rejection policy on purpose and count rejections.\n8. Shut down in order, with one deadline, and hand back what never ran.\n9. One new virtual thread per request; a shared semaphore per slow dependency.\n10. One deadline per request; cancel what you stop waiting for; a fallback that is a business rule.\n11. Fail fast in fan-outs, and let no subtask outlive its request.\n12. Test invariants under collision, with latches and counts, never with timings.\n\n## Diagnostics\n\n| Question | Command |\n|---|---|\n| Which pool is stuck, and on what? | `jcmd <pid> Thread.print -l`: named threads, state, `parking to wait for`, `Locked ownable synchronizers` |\n| Is it a lock cycle? | the same dump ends with `Found one Java-level deadlock` if it is |\n| Where are 10,000 virtual threads? | `jcmd <pid> Thread.dump_to_file -format=json /tmp/t.json` (add `-overwrite` to replace a file) |\n| How are they spread? | `jq` per container, then group stacks by the first frame of your code and `uniq -c` |\n| Is anything pinned? | JFR event `jdk.VirtualThreadPinned` (20 ms threshold by default) |\n\nVersions: virtual threads final in JDK 21 (JEP 444); `synchronized` stops pinning in JDK 24 (JEP 491), first LTS JDK 25; JSON dumps carry `state` and `virtual` from JDK 25; `StructuredTaskScope` is preview in JDK 25 to 27 and final in JDK 28 (JEP 543).",
+ "recap": [
+  "Start from invariants: money is conserved, no balance goes below zero, a transfer is whole or not at all. Every lock and edge in the program protects one of them.",
+  "Per-account `ReentrantLock`s taken in one global id order give parallel transfers without deadlock; the balance check lives inside the same critical section as the move.",
+  "A transfer is an immutable, validated value, so any thread can see it whole; a reused mutable object handed to a pool delivers the wrong data.",
+  "Stress tests collide threads behind a start latch and check every invariant, at the end and at the point where it can break. A pass is evidence, not proof.",
+  "The ledger pool is sized by Little's law (8 threads, 80 slots), bounded, named, and rejects by counting and throwing; overflow becomes a visible 503, never a lost transfer.",
+  "Shutdown drains within a deadline, then cancels and hands back what never started; the journal is written before `apply`, so an interrupt never leaves half a transfer.",
+  "A consistent snapshot holds every account lock in order, copies, and publishes an immutable record through a volatile field; readers never lock.",
+  "Requests run on one new virtual thread each, behind written-down limits: a shared fraud semaphore, the bounded ledger pool, and one deadline per request with a stand-in fallback.",
+  "Fail-fast screening takes results in completion order and ends with `shutdownNow()` and `close()`, so no call outlives its request or keeps a permit.",
+  "Thread dumps find what tests can't: a pool parked on its own futures in `Thread.print -l`, and 10,000 virtual threads grouped by container and stack in the JSON dump."
+ ],
+ "quiz": [
+  {
+   "q": "Two transfers run at once: acc-07 to acc-03, and acc-03 to acc-07. With the ledger's lock order, which lock does each take first?",
+   "options": [
+    "Each takes its `from` account first",
+    "Both take acc-03 first",
+    "Both take acc-07 first",
+    "Whichever thread starts first decides"
+   ],
+   "answer": 1,
+   "why": "The order is by id, whatever direction the money moves, so both lock acc-03 first. The second thread waits while holding nothing, which is contention, not deadlock. \"`from` first\" is the order that deadlocks.",
+   "from": "cap1-01"
+  },
+  {
+   "q": "A stress test of a ledger that checks the balance before taking the locks reports total 500,000 and no negative balances at the end. Why did it miss the bug?",
+   "options": [
+    "Accounts went negative during the run and later credits topped them up before the final check",
+    "The race can't happen on x86",
+    "The JIT removed the check",
+    "Eight threads are too few to cause a race"
+   ],
+   "answer": 0,
+   "why": "Each move was still atomic, so the total held, and the overdrafts healed before the end. Check an invariant where it can break as well: `debit` refusing an overdraft turns the race into an immediate failure.",
+   "from": "cap1-01"
+  },
+  {
+   "q": "Peak traffic is 3,000 transfers a second and the journal write takes 4 ms. The storage allows 10 concurrent writes. What should the ledger pool's thread count be?",
+   "options": [
+    "12, from Little's law",
+    "3,000",
+    "10: the journal's limit is lower than what Little's law asks for",
+    "As many as the machine has cores"
+   ],
+   "answer": 2,
+   "why": "Little's law asks for 3,000 x 0.004 = 12, but the journal handles 10 at once, so the 11th and 12th threads would only queue inside it. Size from the scarce resource: 10 threads give at most 10 / 0.004 = 2,500 a second, and the counting rejection handles the rest.",
+   "from": "cap1-02"
+  },
+  {
+   "q": "Which rejection policy may silently lose a transfer that a caller was told was accepted?",
+   "options": [
+    "A counting policy that throws",
+    "`CallerRunsPolicy`",
+    "`AbortPolicy`",
+    "`DiscardOldestPolicy`"
+   ],
+   "answer": 3,
+   "why": "`DiscardOldestPolicy` drops the oldest queued task, which a caller already holds a future for, and that future never completes. A throwing policy rejects the new transfer before anyone is told it was accepted, and `CallerRunsPolicy` runs it on the submitter.",
+   "from": "cap1-02"
+  },
+  {
+   "q": "A balances endpoint adds up the accounts one at a time, locking each account while it reads it. Transfers keep running. What can it report?",
+   "options": [
+    "Always the exact total, because every read holds a lock",
+    "A total that is too high or too low, because a transfer can run between two reads",
+    "An exception, because two locks are taken",
+    "A total that is always too low"
+   ],
+   "answer": 1,
+   "why": "Money can move from an account not yet read to one already read (counted in neither) or the other way (counted twice). Only holding every lock at once, in the global order, gives one instant.",
+   "from": "cap1-02"
+  },
+  {
+   "q": "A thread dump shows every `ledger-` thread `WAITING (parking)` on a `FutureTask` inside your own `statement` method, and no deadlock report. What is wrong?",
+   "options": [
+    "Tasks waiting for other tasks queued in the same bounded pool",
+    "A lock-order deadlock between two accounts",
+    "The journal is slow",
+    "The pool's threads are pinned"
+   ],
+   "answer": 0,
+   "why": "Workers parked on futures of their own pool, with tasks still queued, is pool-induced deadlock. There is no lock cycle, so the detector reports nothing. Do the work inline, compose instead of blocking, or use a separate pool.",
+   "from": "cap1-02"
+  },
+  {
+   "q": "Which design caps what the fraud service sees when 10,000 requests run on virtual threads?",
+   "options": [
+    "A fixed pool of 20 virtual threads for whole requests",
+    "A `Semaphore(20)` created in each request handler",
+    "`newVirtualThreadPerTaskExecutor()` alone",
+    "One `Semaphore(20)` field on the fraud client, shared by every request"
+   ],
+   "answer": 3,
+   "why": "One shared semaphore limits only the fraud call. A pool of virtual threads caps the whole request, including the limits check and the ledger wait. A semaphore per handler limits nothing, and the per-task executor has no limit at all.",
+   "from": "cap1-03"
+  },
+  {
+   "q": "During a fraud outage each call takes 2 s. The request stops waiting at its 300 ms deadline but never cancels the call, and uses a shared executor. What happens to the bulkhead?",
+   "options": [
+    "Nothing: every request answers in 300 ms",
+    "It grows to fit the extra calls",
+    "Its permits stay held by abandoned calls for 2 s each, so most new requests can't get one",
+    "The calls are interrupted automatically"
+   ],
+   "answer": 2,
+   "why": "A timeout ends the wait, not the work. Each orphaned call keeps its permit until the fraud service answers. Cancel the call at the deadline so its `finally` gives the permit back to the next request.",
+   "from": "cap1-03"
+  },
+  {
+   "q": "The ledger must run on JDK 21 and serve virtual threads. Why are the account locks `ReentrantLock`s?",
+   "options": [
+    "On JDK 21 a virtual thread waiting to enter or blocking inside `synchronized` pins its carrier; `ReentrantLock` parks and frees it",
+    "`synchronized` doesn't give visibility",
+    "`ReentrantLock` makes the critical section faster",
+    "Kotlin can't use `synchronized`"
+   ],
+   "answer": 0,
+   "why": "JDK 24 (JEP 491) removed monitor pinning, but on JDK 21 to 23 contended or blocking `synchronized` code holds the carrier. `ReentrantLock` has always let a waiting virtual thread unmount. Either way, nothing slow belongs inside an account lock.",
+   "from": "cap1-03"
+  },
+  {
+   "q": "`jcmd <pid> Thread.print` on the server during an outage shows no request threads at all. Where are they?",
+   "options": [
+    "They have all finished",
+    "They are inside the carriers, under the name `ForkJoinPool-1-worker-N`",
+    "They were garbage collected",
+    "They are parked virtual threads, which `Thread.print` doesn't list; `Thread.dump_to_file -format=json` does"
+   ],
+   "answer": 3,
+   "why": "A parked virtual thread is a stack on the heap, not an OS thread. `Thread.print` lists platform threads (plus mounted virtual threads from JDK 24). The JSON dump lists every thread, grouped by the container that started it.",
+   "from": "cap1-03"
+  }
+ ]
+}

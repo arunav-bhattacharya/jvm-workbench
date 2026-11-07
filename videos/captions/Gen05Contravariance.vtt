@@ -1,0 +1,153 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:06.293
+A consumer is a type that only takes values of T in.
+
+2
+00:00:06.293 --> 00:00:09.374
+An audit log, an event handler, a Comparator.
+
+3
+00:00:09.374 --> 00:00:12.865
+You hand it a T, and it hands nothing typed T back.
+
+4
+00:00:13.000 --> 00:00:14.984
+Here is forwardAuthorizations.
+
+5
+00:00:14.984 --> 00:00:19.349
+It holds card authorizations, and it needs a sink to pass them to.
+
+6
+00:00:19.533 --> 00:00:21.139
+And here is an audit log.
+
+7
+00:00:21.139 --> 00:00:23.451
+It accepts any payment event at all.
+
+8
+00:00:23.600 --> 00:00:25.383
+Can the audit log stand in?
+
+9
+00:00:25.383 --> 00:00:28.883
+Run the substitution test again, the other way round.
+
+10
+00:00:29.067 --> 00:00:31.484
+Every call passes a CardAuthorized.
+
+11
+00:00:31.667 --> 00:00:35.513
+The audit log takes every PaymentEvent, so it takes these too.
+
+12
+00:00:35.667 --> 00:00:40.132
+So for a consumer, the more general type is the one that can stand in.
+
+13
+00:00:40.132 --> 00:00:44.725
+A Sink of PaymentEvent works where a Sink of CardAuthorized is expected.
+
+14
+00:00:45.467 --> 00:00:47.749
+The other way fails, and it should.
+
+15
+00:00:47.749 --> 00:00:53.160
+A Sink of CardAuthorized might be a fraud check built only for card authorizations.
+
+16
+00:00:53.333 --> 00:00:56.504
+Suppose you could view it as a Sink of PaymentEvent.
+
+17
+00:00:56.504 --> 00:00:58.637
+Then anyone could hand it a refund.
+
+18
+00:00:58.800 --> 00:01:01.132
+So the compiler refuses that view.
+
+19
+00:01:01.867 --> 00:01:03.662
+Here is the whole picture.
+
+20
+00:01:03.662 --> 00:01:06.701
+CardAuthorized is a subtype of PaymentEvent.
+
+21
+00:01:06.867 --> 00:01:08.655
+A producer keeps the arrow.
+
+22
+00:01:08.655 --> 00:01:12.299
+A Source of CardAuthorized is a Source of PaymentEvent.
+
+23
+00:01:12.467 --> 00:01:17.103
+Start the consumer the same way, with Sink of CardAuthorized on the bottom.
+
+24
+00:01:17.267 --> 00:01:20.797
+But the Sink of PaymentEvent is the one that stands in.
+
+25
+00:01:20.797 --> 00:01:22.466
+So it swaps to the bottom.
+
+26
+00:01:22.466 --> 00:01:24.007
+The subtype arrow flips.
+
+27
+00:01:24.200 --> 00:01:25.892
+This is contravariance.
+
+28
+00:01:26.667 --> 00:01:30.572
+Kotlin declares this once, on the interface, with in.
+
+29
+00:01:30.572 --> 00:01:32.931
+Java writes ? super at each use.
+
+30
+00:01:33.067 --> 00:01:37.319
+Either way, forwardAuthorizations now accepts the audit log.
+
+31
+00:01:38.067 --> 00:01:40.568
+Java programmers learn this as PECS.
+
+32
+00:01:40.568 --> 00:01:42.860
+Producer extends, consumer super.
+
+33
+00:01:42.860 --> 00:01:45.639
+It is the same rule, with Java spelling.
+
+34
+00:01:45.800 --> 00:01:48.338
+So for each parameter, ask one question.
+
+35
+00:01:48.338 --> 00:01:51.637
+Does it give you values of T, or take them from you?
+
+36
+00:01:51.800 --> 00:01:54.533
+Give: out, or ? extends.
+
+37
+00:01:54.533 --> 00:01:56.924
+Take: in, or ? super.
+
+38
+00:01:56.924 --> 00:01:58.519
+Both: plain T.

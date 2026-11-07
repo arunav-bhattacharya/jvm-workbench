@@ -1,0 +1,388 @@
+{
+ "id": "cap1-01",
+ "title": "Design the ledger and make it correct",
+ "minutes": 40,
+ "goal": "By the end you can write down a ledger's invariants before its code, protect them with per-account locks taken in one global order, model a transfer as an immutable value, and test the invariants with a stress harness of 8 threads x 100,000 transfers.",
+ "warmup": {
+  "q": "A ledger holds 50 accounts with 500,000 cents in total. Eight threads make 100,000 random transfers each with `if (balance[from] >= c) { balance[from] -= c; balance[to] += c; }` on a plain `long[]`, with no locks. What is the total at the end?",
+  "options": [
+   "Exactly 500,000, because every transfer adds what it subtracts",
+   "Some other number, different on every run",
+   "Exactly 500,000, but some balances are negative",
+   "The JVM throws a ConcurrentModificationException"
+  ],
+  "answer": 1,
+  "why": "Each `-=` and `+=` is a read, a change and a write. When two threads update the same account at the same moment, one of the two updates is lost. A lost debit creates money and a lost credit destroys it, so the total drifts, by millions of cents in the demo below. Nothing throws: a plain array has no checks at all."
+ },
+ "sections": [
+  {
+   "h": "Write the invariants down before the code",
+   "body": "Here is the smallest ledger that can be wrong. Fifty accounts, no locks:\n\n```java\nlong[] balance = new long[50];          // 10,000 cents each, 500,000 in total\n\nvoid transfer(int from, int to, long cents) {\n    if (balance[from] >= cents) {       // check\n        balance[from] -= cents;         // read, subtract, write\n        balance[to] += cents;           // read, add, write\n    }\n}\n```\n\n```kotlin\nval balance = LongArray(50) { 10_000L } // 500,000 cents in total\n\nfun transfer(from: Int, to: Int, cents: Long) {\n    if (balance[from] >= cents) {       // check\n        balance[from] -= cents          // read, subtract, write\n        balance[to] += cents            // read, add, write\n    }\n}\n```\n\nRun it on eight threads with 100,000 random transfers each, and the total is wrong by millions of cents. You know the mechanism from *Race conditions: why count++ lies*: `-=` is a read, a subtraction and a write, and two threads that read the same balance lose one of the two updates.\n\nBefore you write the real ledger, write down what correct means. An **invariant** is a statement about the data that must be true whenever another thread can look. This ledger has three:\n\n1. Money is conserved: the sum of all balances never changes.\n2. No balance is ever below zero.\n3. A transfer happens whole or not at all: nobody sees the debit without the credit.\n\nEach invariant decides part of the design. Invariants 1 and 3 say the debit and the credit must be one step that no other thread can split, and that step spans *two* accounts. Invariant 2 says the balance check belongs inside that same step. A check in one step and a debit in another is check-then-act, the second race shape from that lesson. And \"whenever another thread can look\" tells you where to test: not only at the end of a run.\n\nThe rest of this lesson builds the ledger so that every line of `apply` points at one of these three. That is the habit to keep for any shared state: invariants first, then the locks that protect them, then a test that tries hard to break them.",
+   "try": {
+    "title": "Count what a lock-free ledger loses",
+    "minutes": 3,
+    "steps": [
+     "Open `BrokenLedgerDemo` (or its Kotlin twin). Before you run it, write down what you expect the total to be after each run.",
+     "Run it with the command below. Note how far off each run is.",
+     "Run it again with `-Pargs=1000`, so each thread makes only 1,000 transfers. The threads still start behind a latch. Predict first: will the total be right?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "BrokenLedgerDemo.java",
+     "src": "package workbench.ledger.l01.demo;\n\nimport java.util.ArrayList;\nimport java.util.Arrays;\nimport java.util.List;\nimport java.util.concurrent.CountDownLatch;\nimport java.util.concurrent.ThreadLocalRandom;\n\n/** A ledger with no locks: 8 threads move money between 50 accounts. Count what goes wrong. */\npublic class BrokenLedgerDemo {\n    static final int ACCOUNTS = 50;\n    static final long OPENING = 10_000;              // cents per account: 500,000 in total\n\n    public static void main(String[] args) throws InterruptedException {\n        int perThread = args.length > 0 ? Integer.parseInt(args[0]) : 100_000;\n        for (int run = 1; run <= 3; run++) {\n            long[] balance = new long[ACCOUNTS];\n            Arrays.fill(balance, OPENING);\n            CountDownLatch go = new CountDownLatch(1);\n            List<Thread> workers = new ArrayList<>();\n            for (int i = 0; i < 8; i++) {\n                Thread w = new Thread(() -> {\n                    ThreadLocalRandom rnd = ThreadLocalRandom.current();\n                    try { go.await(); } catch (InterruptedException e) { return; }\n                    for (int n = 0; n < perThread; n++) {\n                        int from = rnd.nextInt(ACCOUNTS), to = rnd.nextInt(ACCOUNTS);\n                        if (from == to) continue;\n                        long cents = 1 + rnd.nextLong(5_000);\n                        if (balance[from] >= cents) {     // check\n                            balance[from] -= cents;       // act: read, subtract, write\n                            balance[to] += cents;         //      read, add, write\n                        }\n                    }\n                });\n                w.start();\n                workers.add(w);\n            }\n            go.countDown();\n            for (Thread w : workers) w.join();\n            long total = 0;\n            for (long b : balance) total += b;\n            System.out.printf(\"run %d: total %,d cents, expected 500,000, off by %,d%n\",\n                    run, total, total - ACCOUNTS * OPENING);\n        }\n    }\n}\n",
+     "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l01.demo.BrokenLedgerDemo",
+     "file": "labs/ledger/src/demo/java/workbench/ledger/l01/demo/BrokenLedgerDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "BrokenLedgerDemo.kt",
+      "src": "package workbench.ledger.l01.demo\n\nimport java.util.concurrent.CountDownLatch\nimport java.util.concurrent.ThreadLocalRandom\nimport kotlin.concurrent.thread\n\nprivate const val ACCOUNTS = 50\nprivate const val OPENING = 10_000L              // cents per account: 500,000 in total\n\n/** A ledger with no locks: 8 threads move money between 50 accounts. Count what goes wrong. */\nfun main(args: Array<String>) {\n    val perThread = args.firstOrNull()?.toInt() ?: 100_000\n    for (run in 1..3) {\n        val balance = LongArray(ACCOUNTS) { OPENING }\n        val go = CountDownLatch(1)\n        val workers = List(8) {\n            thread {\n                val rnd = ThreadLocalRandom.current()\n                go.await()\n                repeat(perThread) {\n                    val from = rnd.nextInt(ACCOUNTS)\n                    val to = rnd.nextInt(ACCOUNTS)\n                    if (from != to) {\n                        val cents = 1 + rnd.nextLong(5_000)\n                        if (balance[from] >= cents) {     // check\n                            balance[from] -= cents        // act: read, subtract, write\n                            balance[to] += cents          //      read, add, write\n                        }\n                    }\n                }\n            }\n        }\n        go.countDown()\n        workers.forEach { it.join() }\n        val total = balance.sum()\n        println(\"run %d: total %,d cents, expected 500,000, off by %,d\".format(run, total, total - ACCOUNTS * OPENING))\n    }\n}\n",
+      "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l01.demo.BrokenLedgerDemoKt",
+      "file": "labs/ledger/src/demo/kotlin/workbench/ledger/l01/demo/BrokenLedgerDemo.kt"
+     }
+    },
+    "expect": "With 100,000 transfers per thread the total is off by millions of cents, and by a different amount every run (one run here ended at 5,222,671 cents instead of 500,000). With 1,000 per thread it is still wrong, by thousands: the latch releases all eight threads at the same moment, so even short runs collide. Without the latch, short runs often look correct because each thread finishes before the next one starts."
+   }
+  },
+  {
+   "h": "A transfer is a value, so make it immutable",
+   "body": "A transfer crosses threads. An HTTP handler or a file importer builds it, a pool thread applies it, the journal writes it and a log line prints it. If any of them can change it, the others can see two versions of it.\n\nHere is that bug in its most common form. A batch importer parses a file into one reusable row object, to save allocations, and hands each row to a pool:\n\n```java\nTransferRow row = new TransferRow();             // mutable, reused for every line\nfor (String line : file) {\n    row.parse(line);                             // overwrites id, from, to, cents\n    pool.execute(() -> ledger.apply(row));       // a worker reads row later\n}\n```\n\n```kotlin\nval row = TransferRow()                          // mutable, reused for every line\nfor (line in file) {\n    row.parse(line)                              // overwrites id, from, to, cents\n    pool.execute { ledger.apply(row) }           // a worker reads row later\n}\n```\n\nBy the time a worker reads `row`, the parser has moved on. In this section's demo, 100,000 lines reached the ledger as about 11,000 different transfers, most of them applied several times. A few dozen rows carried the id of one line and the amount of another. That is a data race: the worker read the fields with no happens-before edge to the parser's later writes, so it could see any mix of them.\n\nThe fix is a value that can't change. A Java record, or a Kotlin `data class` of `val`s, has final fields and no setters:\n\n```java\npublic record Transfer(String id, String from, String to, long cents) {\n    public Transfer {                            // compact constructor: runs before the fields are set\n        Objects.requireNonNull(id, \"id\");\n        Objects.requireNonNull(from, \"from\");\n        Objects.requireNonNull(to, \"to\");\n        if (cents <= 0) throw new IllegalArgumentException(\"amount must be positive\");\n        if (from.equals(to)) throw new IllegalArgumentException(\"two different accounts\");\n    }\n}\n```\n\n```kotlin\ndata class Transfer(val id: String, val from: String, val to: String, val cents: Long) {\n    init {                                       // runs on every construction, copy() included\n        require(cents > 0) { \"amount must be positive\" }\n        require(from != to) { \"two different accounts\" }\n    }\n}\n```\n\nTwo things come with it. As *Safe publication, final fields and escaping this* showed, an object with only final fields that doesn't leak `this` is seen whole by any thread, however it gets there. And the checks run once, at construction, so a `Transfer` that exists is valid. The ledger never asks whether `cents` is negative or `from` equals `to`, and the lock-ordering code in the next section relies on two different accounts.\n\nMoney is a `long` of cents. A `double` can't hold 0.10 exactly, and a ledger that drifts by fractions of a cent breaks invariant 1 with no thread involved.",
+   "try": {
+    "title": "Reuse one row, then use a record",
+    "minutes": 3,
+    "steps": [
+     "Run `ReusedTransferDemo`. It parses 100,000 lines and hands each one to a pool of 4 threads. Predict first: how many different lines reach the ledger?",
+     "Run it again with `-Pargs=record`, which builds a new immutable `Transfer` for each line."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "ReusedTransferDemo.java",
+     "src": "package workbench.ledger.l01.demo;\n\nimport java.util.Set;\nimport java.util.concurrent.ConcurrentHashMap;\nimport java.util.concurrent.ExecutorService;\nimport java.util.concurrent.Executors;\nimport java.util.concurrent.TimeUnit;\nimport java.util.concurrent.atomic.AtomicInteger;\nimport java.util.concurrent.atomic.LongAdder;\n\n/** An importer parses 100,000 lines and hands each one to a pool. Pass \"record\" to use an immutable value. */\npublic class ReusedTransferDemo {\n    // the mutable row a parser fills in for each line, then reuses for the next line\n    static final class TransferRow {\n        String id;\n        long cents;\n    }\n\n    record Transfer(String id, long cents) {}       // immutable: one new value per line\n\n    public static void main(String[] args) throws InterruptedException {\n        boolean immutable = args.length > 0 && args[0].equals(\"record\");\n        ExecutorService pool = Executors.newFixedThreadPool(4);\n        LongAdder appliedCents = new LongAdder();\n        Set<String> appliedLines = ConcurrentHashMap.newKeySet();\n        AtomicInteger mixed = new AtomicInteger();\n        long fileCents = 0;\n        TransferRow row = new TransferRow();\n        for (int line = 0; line < 100_000; line++) {\n            long cents = 100 + line % 900;\n            fileCents += cents;\n            if (immutable) {\n                Transfer t = new Transfer(\"line-\" + line, cents);\n                pool.execute(() -> applyLine(t.id(), t.cents(), appliedCents, appliedLines, mixed));\n            } else {\n                row.id = \"line-\" + line;                 // overwrite the shared row...\n                row.cents = cents;\n                pool.execute(() -> applyLine(row.id, row.cents, appliedCents, appliedLines, mixed));   // ...read it later\n            }\n        }\n        pool.shutdown();\n        pool.awaitTermination(30, TimeUnit.SECONDS);\n        System.out.printf(\"file: 100,000 lines, %,d cents%n\", fileCents);\n        System.out.printf(\"applied: %,d different lines, %,d cents, %,d rows mixing two lines%n\",\n                appliedLines.size(), appliedCents.sum(), mixed.get());\n    }\n\n    // stands in for ledger.apply: records what the worker saw\n    static void applyLine(String id, long cents, LongAdder appliedCents, Set<String> lines, AtomicInteger mixed) {\n        appliedCents.add(cents);\n        lines.add(id);\n        int line = Integer.parseInt(id.substring(\"line-\".length()));\n        if (cents != 100 + line % 900) mixed.incrementAndGet();   // the id and the amount came from different lines\n    }\n}\n",
+     "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l01.demo.ReusedTransferDemo",
+     "file": "labs/ledger/src/demo/java/workbench/ledger/l01/demo/ReusedTransferDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "ReusedTransferDemo.kt",
+      "src": "package workbench.ledger.l01.demo\n\nimport java.util.concurrent.ConcurrentHashMap\nimport java.util.concurrent.Executors\nimport java.util.concurrent.TimeUnit\nimport java.util.concurrent.atomic.AtomicInteger\nimport java.util.concurrent.atomic.LongAdder\n\n// the mutable row a parser fills in for each line, then reuses for the next line\nprivate class ImportRow {\n    var id = \"\"\n    var cents = 0L\n}\n\nprivate data class ImportedTransfer(val id: String, val cents: Long)   // immutable: one new value per line\n\nprivate val appliedCents = LongAdder()\nprivate val appliedLines: MutableSet<String> = ConcurrentHashMap.newKeySet()\nprivate val mixed = AtomicInteger()\n\n/** An importer parses 100,000 lines and hands each one to a pool. Pass \"record\" to use an immutable value. */\nfun main(args: Array<String>) {\n    val immutable = args.firstOrNull() == \"record\"\n    val pool = Executors.newFixedThreadPool(4)\n    var fileCents = 0L\n    val row = ImportRow()\n    for (line in 0 until 100_000) {\n        val cents = 100L + line % 900\n        fileCents += cents\n        if (immutable) {\n            val t = ImportedTransfer(\"line-$line\", cents)\n            pool.execute { applyLine(t.id, t.cents) }\n        } else {\n            row.id = \"line-$line\"                        // overwrite the shared row...\n            row.cents = cents\n            pool.execute { applyLine(row.id, row.cents) }    // ...read it later\n        }\n    }\n    pool.shutdown()\n    pool.awaitTermination(30, TimeUnit.SECONDS)\n    println(\"file: 100,000 lines, %,d cents\".format(fileCents))\n    println(\"applied: %,d different lines, %,d cents, %,d rows mixing two lines\".format(appliedLines.size, appliedCents.sum(), mixed.get()))\n}\n\n// stands in for ledger.apply: records what the worker saw\nprivate fun applyLine(id: String, cents: Long) {\n    appliedCents.add(cents)\n    appliedLines += id\n    val line = id.removePrefix(\"line-\").toInt()\n    if (cents != 100L + line % 900) mixed.incrementAndGet()   // the id and the amount came from different lines\n}\n",
+      "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l01.demo.ReusedTransferDemoKt",
+      "file": "labs/ledger/src/demo/kotlin/workbench/ledger/l01/demo/ReusedTransferDemo.kt"
+     }
+    },
+    "expect": "With the reused row only a fraction of the lines arrive (between 10,000 and 13,000 in runs here), the cents don't add up, and a few dozen rows mix one line's id with another line's amount. With a record all 100,000 lines arrive, the totals match and nothing is mixed. Each record is built once, handed to the pool (an executor hand-off is a happens-before edge), and never written again."
+   },
+   "refs": [
+    {
+     "title": "Java Language Specification, section 8.10: Record classes",
+     "url": "https://docs.oracle.com/javase/specs/jls/se25/html/jls-8.html#jls-8.10",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Per-account locks, taken in one global order",
+   "body": "Invariants 1 and 3 need the debit and the credit to happen as one step. The simplest way is one lock for the whole ledger. It is correct, and it makes two transfers that share no account wait for each other. With one lock per account, a transfer between accounts 3 and 7 and another between 12 and 40 can run at the same time.\n\nPer-account locks bring back the bug from *Deadlock, livelock and starvation*: a transfer from A to B locks A and waits for B, while a transfer from B to A holds B and waits for A. The fix from that lesson applies as it is. Give every account a unique, stable key and always lock the smaller key first:\n\n```java\npublic Outcome apply(Transfer t) {\n    Account from = account(t.from()), to = account(t.to());\n    Account first = from.id().compareTo(to.id()) < 0 ? from : to;   // 1. one order for everyone\n    Account second = first == from ? to : from;\n    first.lock().lock();\n    try {\n        second.lock().lock();\n        try {\n            if (from.balance() < t.cents()) return Outcome.INSUFFICIENT_FUNDS;   // 2. check...\n            from.debit(t.cents());                                         // 3. ...and act\n            to.credit(t.cents());\n            return Outcome.APPLIED;\n        } finally {\n            second.lock().unlock();\n        }\n    } finally {\n        first.lock().unlock();                                             // 4. on every path\n    }\n}\n```\n\n```kotlin\nfun apply(t: Transfer): Outcome {\n    val from = account(t.from); val to = account(t.to)\n    val first = if (from.id < to.id) from else to                      // 1. one order for everyone\n    val second = if (first === from) to else from\n    return first.lock.withLock {\n        second.lock.withLock {\n            if (from.balance < t.cents) return Outcome.INSUFFICIENT_FUNDS  // 2. check...\n            from.debit(t.cents)                                            // 3. ...and act\n            to.credit(t.cents)\n            Outcome.APPLIED\n        }\n    }                                                                      // 4. withLock unlocks in finally\n}\n```\n\nEach line traces back to an invariant. The order (1) removes the cycle that a deadlock needs. The check sits under both locks (2), so no other transfer can spend the same money between the check and the debit. Debit and credit share one critical section (3), so a thread that takes these locks never sees half a transfer. And `finally` (4) releases both locks on every path, including the early return for a refusal.\n\nThe account id is a `String` compared with `compareTo`. It is unique and never changes, and that is all an order needs. `hashCode()` would not do: two accounts can share a hash code, and then two threads can disagree about which one comes first.\n\nWhy `ReentrantLock` and not `synchronized`? Here they behave the same. The choice pays off in lesson 3 of this track: on JDK 21, a virtual thread waiting to enter a `synchronized` block holds on to its carrier thread, and a ledger serving 10,000 virtual threads will have waiters.\n\nWhat do per-account locks buy? Run the demo and count. With one lock, at most one transfer is ever in progress. With per-account locks, about as many as you have cores. Whether that also makes it faster depends on how much work sits inside the lock and on what else your machine is doing, so the demo prints both.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 640 250\" role=\"img\" aria-label=\"Two opposite transfers between acc-03 and acc-07 both lock acc-03 first, so the second one waits while holding nothing\"><text class=\"t-s t-m\" x=\"160\" y=\"24\">time</text><line class=\"ln-d\" x1=\"200\" y1=\"20\" x2=\"630\" y2=\"20\" marker-end=\"url(#arr)\"/><text class=\"t\" x=\"20\" y=\"72\">T1</text><text class=\"t-s t-m\" x=\"20\" y=\"90\">acc-07 to acc-03</text><rect class=\"box-a\" x=\"160\" y=\"56\" width=\"105\" height=\"36\" rx=\"8\"/><text class=\"t t-code\" x=\"212\" y=\"79\" text-anchor=\"middle\">lock 03</text><rect class=\"box-a\" x=\"285\" y=\"56\" width=\"105\" height=\"36\" rx=\"8\"/><text class=\"t t-code\" x=\"337\" y=\"79\" text-anchor=\"middle\">lock 07</text><rect class=\"box-ok\" x=\"410\" y=\"56\" width=\"105\" height=\"36\" rx=\"8\"/><text class=\"t\" x=\"462\" y=\"79\" text-anchor=\"middle\">check, move</text><rect class=\"box\" x=\"535\" y=\"56\" width=\"95\" height=\"36\" rx=\"8\"/><text class=\"t\" x=\"582\" y=\"79\" text-anchor=\"middle\">unlock</text><line class=\"ln\" x1=\"265\" y1=\"74\" x2=\"283\" y2=\"74\" marker-end=\"url(#arr)\"/><line class=\"ln\" x1=\"390\" y1=\"74\" x2=\"408\" y2=\"74\" marker-end=\"url(#arr)\"/><line class=\"ln\" x1=\"515\" y1=\"74\" x2=\"533\" y2=\"74\" marker-end=\"url(#arr)\"/><text class=\"t\" x=\"20\" y=\"162\">T2</text><text class=\"t-s t-m\" x=\"20\" y=\"180\">acc-03 to acc-07</text><rect class=\"box-dim\" x=\"160\" y=\"146\" width=\"355\" height=\"36\" rx=\"8\"/><text class=\"t-s\" x=\"337\" y=\"169\" text-anchor=\"middle\">waits for 03, holding nothing</text><rect class=\"box-a\" x=\"535\" y=\"146\" width=\"95\" height=\"36\" rx=\"8\"/><text class=\"t t-code\" x=\"582\" y=\"169\" text-anchor=\"middle\">lock 03</text><line class=\"ln-d\" x1=\"582\" y1=\"92\" x2=\"582\" y2=\"144\" marker-end=\"url(#arr)\"/><text class=\"t-s t-ok\" x=\"337\" y=\"222\" text-anchor=\"middle\">one order for both: contention, never a cycle</text></svg>",
+    "caption": "T1 and T2 move money in opposite directions, and both lock acc-03 first. T2 waits for that lock while holding nothing, so no cycle can form."
+   },
+   "try": {
+    "title": "Count the transfers in progress",
+    "minutes": 4,
+    "steps": [
+     "Run `LockGranularityDemo`. It runs the same 400,000 random transfers under one ledger-wide lock, then under per-account locks taken in id order. Each transfer does 50 steps of work inside its lock.",
+     "Before you read the output, predict the last column, \"most transfers in progress at once\", for each strategy.",
+     "Run it with `-Pargs=0` (no work inside the lock) and with `-Pargs=200`. Compare the times, and explain any surprise."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "LockGranularityDemo.java",
+     "src": "package workbench.ledger.l01.demo;\n\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.concurrent.CountDownLatch;\nimport java.util.concurrent.ThreadLocalRandom;\nimport java.util.concurrent.atomic.AtomicInteger;\nimport java.util.concurrent.locks.ReentrantLock;\n\n/** The same random transfers under one ledger-wide lock, then under per-account locks taken in id order. */\npublic class LockGranularityDemo {\n    static final int ACCOUNTS = 50;\n\n    static final class Account {\n        final int id;\n        final ReentrantLock lock = new ReentrantLock();\n        long balance = 10_000;                       // guarded by lock (or by the global lock)\n\n        Account(int id) { this.id = id; }\n    }\n\n    interface Mover { void move(Account from, Account to, long cents); }\n\n    static final AtomicInteger inside = new AtomicInteger();    // transfers inside a critical section right now\n    static final AtomicInteger mostInside = new AtomicInteger();\n\n    public static void main(String[] args) throws InterruptedException {\n        int work = args.length > 0 ? Integer.parseInt(args[0]) : 50;   // extra steps inside the lock, per transfer\n        ReentrantLock global = new ReentrantLock();\n        Mover oneLock = (from, to, cents) -> {\n            global.lock();                           // every transfer waits for every other one\n            try {\n                if (from.balance >= cents) { from.balance -= cents; to.balance += cents; }\n                sign(work);                          // stands in for real work: an entry, a signature\n            } finally {\n                global.unlock();\n            }\n        };\n        Mover perAccount = (from, to, cents) -> {\n            Account first = from.id < to.id ? from : to;   // lower id first: no cycle can form\n            Account second = first == from ? to : from;\n            first.lock.lock();\n            try {\n                second.lock.lock();\n                try {\n                    if (from.balance >= cents) { from.balance -= cents; to.balance += cents; }\n                    sign(work);\n                } finally {\n                    second.lock.unlock();\n                }\n            } finally {\n                first.lock.unlock();\n            }\n        };\n        System.out.printf(\"8 threads x 50,000 transfers, %d accounts, %d steps of work inside the lock%n\", ACCOUNTS, work);\n        for (int round = 0; round < 3; round++) {    // round 0 only warms up the JIT\n            time(\"one ledger lock  \", oneLock, round > 0);\n            time(\"per-account locks\", perAccount, round > 0);\n        }\n    }\n\n    static void sign(int steps) {\n        int now = inside.incrementAndGet();\n        mostInside.accumulateAndGet(now, Math::max);\n        for (int i = 0; i < steps; i++) Thread.onSpinWait();\n        inside.decrementAndGet();\n    }\n\n    static void time(String label, Mover mover, boolean print) throws InterruptedException {\n        Account[] accounts = new Account[ACCOUNTS];\n        for (int i = 0; i < ACCOUNTS; i++) accounts[i] = new Account(i);\n        CountDownLatch go = new CountDownLatch(1);\n        List<Thread> workers = new ArrayList<>();\n        for (int i = 0; i < 8; i++) {\n            Thread w = new Thread(() -> {\n                ThreadLocalRandom rnd = ThreadLocalRandom.current();\n                try { go.await(); } catch (InterruptedException e) { return; }\n                for (int n = 0; n < 50_000; n++) {\n                    int a = rnd.nextInt(ACCOUNTS), b = rnd.nextInt(ACCOUNTS - 1);\n                    if (b >= a) b++;\n                    mover.move(accounts[a], accounts[b], 1 + rnd.nextLong(5_000));\n                }\n            });\n            w.start();\n            workers.add(w);\n        }\n        long t0 = System.nanoTime();\n        go.countDown();\n        for (Thread w : workers) w.join();\n        long ms = (System.nanoTime() - t0) / 1_000_000;\n        long total = 0;\n        for (Account a : accounts) total += a.balance;   // after join(): every write is visible\n        if (print) System.out.printf(\"%s %5d ms, total %,d, most transfers in progress at once: %d%n\",\n                label, ms, total, mostInside.get());\n        mostInside.set(0);\n    }\n}\n",
+     "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l01.demo.LockGranularityDemo",
+     "file": "labs/ledger/src/demo/java/workbench/ledger/l01/demo/LockGranularityDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "LockGranularityDemo.kt",
+      "src": "package workbench.ledger.l01.demo\n\nimport java.util.concurrent.CountDownLatch\nimport java.util.concurrent.ThreadLocalRandom\nimport java.util.concurrent.atomic.AtomicInteger\nimport java.util.concurrent.locks.ReentrantLock\nimport kotlin.concurrent.thread\nimport kotlin.concurrent.withLock\n\nprivate class GranularityAccount(val id: Int) {\n    val lock = ReentrantLock()\n    var balance = 10_000L                            // guarded by lock (or by the global lock)\n}\n\nprivate val inside = AtomicInteger()                 // transfers inside a critical section right now\nprivate val mostInside = AtomicInteger()\n\n/** The same random transfers under one ledger-wide lock, then under per-account locks taken in id order. */\nfun main(args: Array<String>) {\n    val work = args.firstOrNull()?.toInt() ?: 50     // extra steps inside the lock, per transfer\n    val global = ReentrantLock()\n    val oneLock = { from: GranularityAccount, to: GranularityAccount, cents: Long ->\n        global.withLock {                            // every transfer waits for every other one\n            if (from.balance >= cents) { from.balance -= cents; to.balance += cents }\n            sign(work)                               // stands in for real work: an entry, a signature\n        }\n    }\n    val perAccount = { from: GranularityAccount, to: GranularityAccount, cents: Long ->\n        val first = if (from.id < to.id) from else to   // lower id first: no cycle can form\n        val second = if (first === from) to else from\n        first.lock.withLock {\n            second.lock.withLock {\n                if (from.balance >= cents) { from.balance -= cents; to.balance += cents }\n                sign(work)\n            }\n        }\n    }\n    println(\"8 threads x 50,000 transfers, 50 accounts, $work steps of work inside the lock\")\n    for (round in 0 until 3) {                       // round 0 only warms up the JIT\n        time(\"one ledger lock  \", oneLock, round > 0)\n        time(\"per-account locks\", perAccount, round > 0)\n    }\n}\n\nprivate fun sign(steps: Int) {\n    val now = inside.incrementAndGet()\n    mostInside.accumulateAndGet(now, ::maxOf)\n    repeat(steps) { Thread.onSpinWait() }\n    inside.decrementAndGet()\n}\n\nprivate fun time(label: String, mover: (GranularityAccount, GranularityAccount, Long) -> Unit, print: Boolean) {\n    val accounts = Array(50) { GranularityAccount(it) }\n    val go = CountDownLatch(1)\n    val workers = List(8) {\n        thread {\n            val rnd = ThreadLocalRandom.current()\n            go.await()\n            repeat(50_000) {\n                val a = rnd.nextInt(50)\n                var b = rnd.nextInt(49)\n                if (b >= a) b++\n                mover(accounts[a], accounts[b], 1 + rnd.nextLong(5_000))\n            }\n        }\n    }\n    val t0 = System.nanoTime()\n    go.countDown()\n    workers.forEach { it.join() }\n    val ms = (System.nanoTime() - t0) / 1_000_000\n    val total = accounts.sumOf { it.balance }        // after join(): every write is visible\n    if (print) println(\"%s %5d ms, total %,d, most transfers in progress at once: %d\".format(label, ms, total, mostInside.get()))\n    mostInside.set(0)\n}\n",
+      "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l01.demo.LockGranularityDemoKt",
+      "file": "labs/ledger/src/demo/kotlin/workbench/ledger/l01/demo/LockGranularityDemo.kt"
+     }
+    },
+    "expect": "With one lock the last column is always 1. With per-account locks it shows about as many as your cores (4 or 5 on the 4-core machine used here; a thread paused by the OS inside a lock still counts). The times vary with your machine and its load. On the busy machine used here the per-account version was faster in some runs and slower in others, and with `-Pargs=0` the single lock often won, because handing a lock from thread to thread costs more than the few instructions it guards. The total is 500,000 in every row: both strategies keep the invariants."
+   },
+   "refs": [
+    {
+     "title": "ReentrantLock (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/locks/ReentrantLock.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "A stress harness that tests every invariant",
+   "body": "A stress test for the ledger has to make threads collide, then check every invariant. *Testing and debugging concurrent code* listed the habits: a start line so the threads overlap, more threads than cores, many operations, and checks after `join()`. The lab's harness runs 8 threads that each make 100,000 random transfers between 50 accounts:\n\n```java\nCountDownLatch ready = new CountDownLatch(threads), go = new CountDownLatch(1);\nList<Thread> workers = new ArrayList<>();\nfor (int i = 0; i < threads; i++) {\n    int me = i;\n    workers.add(Thread.ofPlatform().start(() -> {\n        ready.countDown();\n        try { go.await(); } catch (InterruptedException e) { return; }   // the start line\n        long ok = 0, no = 0;                       // counted in locals: nothing shared\n        for (int n = 0; n < perThread; n++) {\n            if (ledger.apply(randomTransfer(me, n)) == APPLIED) ok++; else no++;\n        }\n        applied[me] = ok; refused[me] = no;        // one slot per thread\n    }));\n}\nready.await(); go.countDown();                     // release them together...\nfor (Thread w : workers) w.join();                 // ...and wait for all of them\n```\n\n```kotlin\nval ready = CountDownLatch(threads); val go = CountDownLatch(1)\nval workers = List(threads) { me ->\n    thread {\n        ready.countDown()\n        go.await()                                 // the start line\n        var ok = 0L; var no = 0L                   // counted in locals: nothing shared\n        repeat(perThread) { n ->\n            if (ledger.apply(randomTransfer(me, n)) == APPLIED) ok++ else no++\n        }\n        applied[me] = ok; refused[me] = no         // one slot per thread\n    }\n}\nready.await(); go.countDown()                      // release them together...\nworkers.forEach { it.join() }                      // ...and wait for all of them\n```\n\nAfter the joins, the test checks: the total is still 500,000, no balance is negative, applied plus refused is 800,000 so no transfer vanished, and some transfers were refused, which proves the overdraft branch ran at all.\n\nThat list has a hole, and this section's demo falls into it. Take a ledger that locks in id order but checks the balance *before* it takes the locks. Money is still conserved, because each move is atomic. Balances look fine at the end, because a later credit usually tops up an account that went negative. Yet while it ran, thousands of debits took an account below zero. An end-of-run check sees a healthy ledger.\n\nSo check each invariant where it can break, as well as at the end. The lab's `Account.debit` throws `IllegalStateException` when a debit would overdraw, so a race that overdraws fails the stress test at once. The check costs one comparison, and in production it turns a silent loss into an error that pages someone. In a database, a `CHECK (balance >= 0)` constraint does the same job.\n\nThen remember what a pass means. Eight threads and 800,000 transfers that find nothing make the ledger more believable. They don't prove it. The proof is the argument you can make for each invariant from the code, which is why you wrote the invariants down first.",
+   "try": {
+    "title": "Find the bug that conserves money",
+    "minutes": 4,
+    "steps": [
+     "Read `CheckOutsideLockDemo`. Both ledgers lock accounts in id order. The first checks the balance, looks up a fee, then takes the locks and moves the money. The second takes the locks, then checks.",
+     "Predict which invariants each version breaks, then run it.",
+     "Find the line that counts overdrafts. Explain why the \"negative at the end\" column misses what it counts."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "CheckOutsideLockDemo.java",
+     "src": "package workbench.ledger.l01.demo;\n\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.concurrent.CountDownLatch;\nimport java.util.concurrent.ThreadLocalRandom;\nimport java.util.concurrent.atomic.AtomicInteger;\nimport java.util.concurrent.locks.ReentrantLock;\n\n/**\n * Two ledgers that both lock accounts in id order. One checks the balance before it takes the\n * locks, the other checks after. Run each under 8 threads and test every invariant.\n */\npublic class CheckOutsideLockDemo {\n    static final int ACCOUNTS = 50;\n    static final AtomicInteger overdrafts = new AtomicInteger();   // debits that left a balance below zero\n\n    static final class Account {\n        final int id;\n        final ReentrantLock lock = new ReentrantLock();\n        long balance = 10_000;                       // guarded by lock\n\n        Account(int id) { this.id = id; }\n\n        long read() {\n            lock.lock();\n            try { return balance; } finally { lock.unlock(); }\n        }\n    }\n\n    // the bug: the check runs under from's lock, but that lock is released before the move\n    static void checkFirst(Account from, Account to, long cents) {\n        if (from.read() < cents) return;             // check\n        lookUpFee();                                 // a slow step, outside any lock\n        locked(from, to, () -> move(from, to, cents));   // act, later\n    }\n\n    // the fix: check and act inside the same two locks\n    static void checkInside(Account from, Account to, long cents) {\n        lookUpFee();                                 // the same slow step, still outside the locks\n        locked(from, to, () -> {\n            if (from.balance >= cents) move(from, to, cents);\n        });\n    }\n\n    static void move(Account from, Account to, long cents) {\n        from.balance -= cents;\n        to.balance += cents;\n        if (from.balance < 0) overdrafts.incrementAndGet();   // the invariant, checked at the moment it can break\n    }\n\n    // stands in for a call to a fee table; it widens the gap between check and act\n    static void lookUpFee() {\n        for (int i = 0; i < 200; i++) Thread.onSpinWait();\n    }\n\n    static void locked(Account a, Account b, Runnable body) {\n        Account first = a.id < b.id ? a : b, second = first == a ? b : a;\n        first.lock.lock();\n        try {\n            second.lock.lock();\n            try { body.run(); } finally { second.lock.unlock(); }\n        } finally {\n            first.lock.unlock();\n        }\n    }\n\n    interface Mover { void move(Account from, Account to, long cents); }\n\n    public static void main(String[] args) throws InterruptedException {\n        runVariant(\"check, then lock and move\", CheckOutsideLockDemo::checkFirst);\n        runVariant(\"lock, then check and move\", CheckOutsideLockDemo::checkInside);\n    }\n\n    static void runVariant(String label, Mover mover) throws InterruptedException {\n        Account[] accounts = new Account[ACCOUNTS];\n        for (int i = 0; i < ACCOUNTS; i++) accounts[i] = new Account(i);\n        CountDownLatch go = new CountDownLatch(1);\n        List<Thread> workers = new ArrayList<>();\n        for (int i = 0; i < 8; i++) {\n            Thread w = new Thread(() -> {\n                ThreadLocalRandom rnd = ThreadLocalRandom.current();\n                try { go.await(); } catch (InterruptedException e) { return; }\n                for (int n = 0; n < 100_000; n++) {\n                    int a = rnd.nextInt(ACCOUNTS), b = rnd.nextInt(ACCOUNTS - 1);\n                    if (b >= a) b++;\n                    mover.move(accounts[a], accounts[b], 1 + rnd.nextLong(5_000));\n                }\n            });\n            w.start();\n            workers.add(w);\n        }\n        go.countDown();\n        for (Thread w : workers) w.join();\n        long total = 0, negative = 0;\n        for (Account a : accounts) {\n            total += a.balance;\n            if (a.balance < 0) negative++;\n        }\n        System.out.printf(\"%s%n  total %,d %s, negative at the end: %d, overdrafts while running: %,d%n\",\n                label, total, total == 500_000 ? \"(conserved)\" : \"(WRONG)\", negative, overdrafts.getAndSet(0));\n    }\n}\n",
+     "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l01.demo.CheckOutsideLockDemo",
+     "file": "labs/ledger/src/demo/java/workbench/ledger/l01/demo/CheckOutsideLockDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "CheckOutsideLockDemo.kt",
+      "src": "package workbench.ledger.l01.demo\n\nimport java.util.concurrent.CountDownLatch\nimport java.util.concurrent.ThreadLocalRandom\nimport java.util.concurrent.atomic.AtomicInteger\nimport java.util.concurrent.locks.ReentrantLock\nimport kotlin.concurrent.thread\nimport kotlin.concurrent.withLock\n\nprivate class CheckedAccount(val id: Int) {\n    val lock = ReentrantLock()\n    var balance = 10_000L                            // guarded by lock\n\n    fun read(): Long = lock.withLock { balance }\n}\n\nprivate val overdrafts = AtomicInteger()             // debits that left a balance below zero\n\n// the bug: the check runs under from's lock, but that lock is released before the move\nprivate fun checkFirst(from: CheckedAccount, to: CheckedAccount, cents: Long) {\n    if (from.read() < cents) return                  // check\n    lookUpFee()                                      // a slow step, outside any lock\n    locked(from, to) { move(from, to, cents) }       // act, later\n}\n\n// the fix: check and act inside the same two locks\nprivate fun checkInside(from: CheckedAccount, to: CheckedAccount, cents: Long) {\n    lookUpFee()                                      // the same slow step, still outside the locks\n    locked(from, to) {\n        if (from.balance >= cents) move(from, to, cents)\n    }\n}\n\nprivate fun move(from: CheckedAccount, to: CheckedAccount, cents: Long) {\n    from.balance -= cents\n    to.balance += cents\n    if (from.balance < 0) overdrafts.incrementAndGet()   // the invariant, checked at the moment it can break\n}\n\n// stands in for a call to a fee table; it widens the gap between check and act\nprivate fun lookUpFee() = repeat(200) { Thread.onSpinWait() }\n\nprivate fun locked(a: CheckedAccount, b: CheckedAccount, body: () -> Unit) {\n    val first = if (a.id < b.id) a else b\n    val second = if (first === a) b else a\n    first.lock.withLock { second.lock.withLock { body() } }\n}\n\n/**\n * Two ledgers that both lock accounts in id order. One checks the balance before it takes the\n * locks, the other checks after. Run each under 8 threads and test every invariant.\n */\nfun main() {\n    runVariant(\"check, then lock and move\", ::checkFirst)\n    runVariant(\"lock, then check and move\", ::checkInside)\n}\n\nprivate fun runVariant(label: String, mover: (CheckedAccount, CheckedAccount, Long) -> Unit) {\n    val accounts = Array(50) { CheckedAccount(it) }\n    val go = CountDownLatch(1)\n    val workers = List(8) {\n        thread {\n            val rnd = ThreadLocalRandom.current()\n            go.await()\n            repeat(100_000) {\n                val a = rnd.nextInt(50)\n                var b = rnd.nextInt(49)\n                if (b >= a) b++\n                mover(accounts[a], accounts[b], 1 + rnd.nextLong(5_000))\n            }\n        }\n    }\n    go.countDown()\n    workers.forEach { it.join() }\n    val total = accounts.sumOf { it.balance }\n    val negative = accounts.count { it.balance < 0 }\n    println(label)\n    println(\"  total %,d %s, negative at the end: %d, overdrafts while running: %,d\"\n        .format(total, if (total == 500_000L) \"(conserved)\" else \"(WRONG)\", negative, overdrafts.getAndSet(0)))\n}\n",
+      "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l01.demo.CheckOutsideLockDemoKt",
+      "file": "labs/ledger/src/demo/kotlin/workbench/ledger/l01/demo/CheckOutsideLockDemo.kt"
+     }
+    },
+    "expect": "Both totals are 500,000 and neither ledger ends with a negative balance. The first one still overdrew accounts a few thousand times while it ran (3,537 times in one run here); the second never did. Each move was atomic, so invariant 1 held. Invariant 2 broke in the gap between the check and the locks, and later credits hid the evidence before the end."
+   },
+   "refs": [
+    {
+     "title": "CountDownLatch (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/CountDownLatch.html",
+     "kind": "docs"
+    }
+   ]
+  }
+ ],
+ "analogy": "Picture a vault room where every safe-deposit box has its own key on a numbered hook. A clerk who moves cash between two boxes must hold both keys while doing it, and the house rule says: take the lower-numbered key first. Two clerks who both need boxes 3 and 7 never end up each holding one key and waiting for the other; one of them waits at hook 3 with empty hands. One key for the whole room would also be correct, and every clerk would queue at the door. The analogy breaks in one place: a real clerk who opens a box and finds it short of cash stops. A thread checks only what your code tells it to check, at the moment you tell it, which is why the check has to sit inside the locks.",
+ "in_your_world": "Your payment services lean on the same invariants, usually through the database: `SELECT ... FOR UPDATE` on two account rows, a `CHECK (balance >= 0)` constraint, a unique key on the transfer id. Row locks deadlock exactly like Java locks when two transactions lock the same two rows in opposite orders, and the database then fails one of them with a deadlock error. The fix is the same global order: lock the rows sorted by account id. An in-memory ledger like this one shows up in front of the database: a wallet balance cache, a per-merchant spend limit, the local state of a Temporal workflow. And a Kafka consumer that reuses one mutable DTO per record has the importer's bug the day someone hands records to a pool.",
+ "mistake": "The most common real mistake is checking the balance in one step and moving the money in another: read the balance (often under the account's lock), decide, then lock both accounts and transfer. Each step is thread-safe, so the code looks careful. It is check-then-act across two critical sections, and another transfer can spend the same money in between. It hides well, because money is still conserved and later credits cover the overdraft before any end-of-day report runs. The fix is to put the check inside the critical section that moves the money, and to guard the invariant where it can break: a debit that would overdraw throws.",
+ "compare": {
+  "title": "The ledger's apply in Java and Kotlin",
+  "java": {
+   "title": "Ledger.java",
+   "src": "public Outcome apply(Transfer t) {\n    Account from = account(t.from());\n    Account to = account(t.to());\n    Account first = from.id().compareTo(to.id()) < 0 ? from : to;\n    Account second = first == from ? to : from;\n    first.lock().lock();\n    try {\n        second.lock().lock();\n        try {\n            if (from.balance() < t.cents()) return Outcome.INSUFFICIENT_FUNDS;\n            from.debit(t.cents());\n            to.credit(t.cents());\n            return Outcome.APPLIED;\n        } finally {\n            second.lock().unlock();\n        }\n    } finally {\n        first.lock().unlock();\n    }\n}"
+  },
+  "kotlin": {
+   "title": "Ledger.kt",
+   "src": "fun apply(t: Transfer): Outcome {\n    val from = account(t.from)\n    val to = account(t.to)\n    val first = if (from.id < to.id) from else to\n    val second = if (first === from) to else from\n    return first.lock.withLock {\n        second.lock.withLock {\n            if (from.balance < t.cents) return Outcome.INSUFFICIENT_FUNDS\n            from.debit(t.cents)\n            to.credit(t.cents)\n            Outcome.APPLIED\n        }\n    }\n}"
+  },
+  "note": "Kotlin's `withLock` is an inline function that calls `lock()`, runs the block and calls `unlock()` in a `finally`, so the two nested `try`/`finally` blocks become two nested lambdas. Because it is inline, `return Outcome.INSUFFICIENT_FUNDS` inside the block returns from `apply` itself, and the locks are still released. `from.id < to.id` on strings calls the same `compareTo` as the Java version. The immutable `Transfer` differs only in style: a Kotlin `data class` of `val`s is exactly as shallow as a Java record. Both make the fields final, and neither copies a mutable list you pass in."
+ },
+ "worked": {
+  "title": "Add a fee without breaking the invariants",
+  "steps": [
+   {
+    "say": "The product team wants a fee on each transfer, paid into a fee account. Money is still conserved: the sender pays `cents + fee`, the receiver gets `cents` and the fee account gets `fee`. Three accounts now change in one step. Here is the first attempt. Read it against the three invariants and the lock order before you go on.",
+    "code": "Outcome applyWithFee(Transfer t, long fee) {\n    Account from = account(t.from()), to = account(t.to());\n    from.lock().lock();\n    to.lock().lock();\n    feeAccount.lock().lock();\n    try {\n        if (from.balance() < t.cents()) return Outcome.INSUFFICIENT_FUNDS;\n        from.debit(t.cents() + fee);\n        to.credit(t.cents());\n        feeAccount.credit(fee);\n        return Outcome.APPLIED;\n    } finally {\n        feeAccount.lock().unlock();\n        to.lock().unlock();\n        from.lock().unlock();\n    }\n}",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "fun applyWithFee(t: Transfer, fee: Long): Outcome {\n    val from = account(t.from); val to = account(t.to)\n    from.lock.lock()\n    to.lock.lock()\n    feeAccount.lock.lock()\n    try {\n        if (from.balance < t.cents) return Outcome.INSUFFICIENT_FUNDS\n        from.debit(t.cents + fee)\n        to.credit(t.cents)\n        feeAccount.credit(fee)\n        return Outcome.APPLIED\n    } finally {\n        feeAccount.lock.unlock()\n        to.lock.unlock()\n        from.lock.unlock()\n    }\n}"
+   },
+   {
+    "say": "Two bugs. The locks are ordered by role, not by id: a transfer from acc-02 to acc-05 locks 02 then 05, while a transfer from acc-05 to acc-02 locks 05 then 02. That is the deadlock cycle again. And the check tests `cents`, but the debit takes `cents + fee`, so a sender with exactly `cents` left goes below zero. The lab's `debit` would throw; a plain field would quietly go negative.",
+    "code": "",
+    "lang": ""
+   },
+   {
+    "say": "Sort every account the operation touches by id, lock them in that order, and release them in reverse. The same code works for two accounts, three, or a payroll batch of fifty. `distinct()` covers the case where the sender is the fee account itself, because a `ReentrantLock` taken twice must also be released twice.",
+    "code": "Outcome applyWithFee(Transfer t, long fee) {\n    Account from = account(t.from()), to = account(t.to());\n    List<Account> touched = Stream.of(from, to, feeAccount)\n            .distinct()\n            .sorted(Comparator.comparing(Account::id))      // 1. one global order, any number of locks\n            .toList();\n    touched.forEach(a -> a.lock().lock());\n    try {\n        if (from.balance() < t.cents() + fee) return Outcome.INSUFFICIENT_FUNDS;   // 2. check what is debited\n        from.debit(t.cents() + fee);                         // 3. three changes, one critical section\n        to.credit(t.cents());\n        feeAccount.credit(fee);\n        return Outcome.APPLIED;\n    } finally {\n        for (int i = touched.size() - 1; i >= 0; i--) touched.get(i).lock().unlock();   // 4. reverse order\n    }\n}",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "fun applyWithFee(t: Transfer, fee: Long): Outcome {\n    val from = account(t.from); val to = account(t.to)\n    val touched = listOf(from, to, feeAccount)\n        .distinct()\n        .sortedBy { it.id }                                  // 1. one global order, any number of locks\n    touched.forEach { it.lock.lock() }\n    try {\n        if (from.balance < t.cents + fee) return Outcome.INSUFFICIENT_FUNDS   // 2. check what is debited\n        from.debit(t.cents + fee)                            // 3. three changes, one critical section\n        to.credit(t.cents)\n        feeAccount.credit(fee)\n        return Outcome.APPLIED\n    } finally {\n        touched.asReversed().forEach { it.lock.unlock() }    // 4. reverse order\n    }\n}"
+   },
+   {
+    "say": "Check it against the invariants. Conservation: the sender loses `cents + fee` and the other two gain exactly that. No overdraft: the check and the debit use the same amount under the same locks. Whole or nothing: all three changes happen inside one set of locks. No deadlock: plain `apply` locks two accounts in id order and this method locks three in id order, so any two operations agree on which lock comes first. Where the fee account's id sorts among the customer ids doesn't matter. Only the rule matters.",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "Build the ledger and the harness that tries to break it",
+  "minutes": 15,
+  "files": [
+   "labs/ledger/src/main/java/workbench/ledger/l01/Transfer.java",
+   "labs/ledger/src/main/java/workbench/ledger/l01/Ledger.java",
+   "labs/ledger/src/main/java/workbench/ledger/l01/StressHarness.java",
+   "labs/ledger/src/main/java/workbench/ledger/l01/Account.java"
+  ],
+  "run": "./gradlew :ledger:test --tests 'workbench.ledger.l01.*'",
+  "steps": [
+   "Run the tests once. All nine fail. Read `Account`: you don't change it, but its `debit` and `credit` throw unless you hold that account's lock, and `debit` throws on an overdraft.",
+   "In `Transfer`, add a compact constructor: `Objects.requireNonNull` for `id`, `from` and `to`, and an `IllegalArgumentException` when `cents <= 0` or `from.equals(to)`.",
+   "Write `Ledger.apply`: look up both accounts, pick `first` and `second` with `id().compareTo`, lock them in that order with nested `try`/`finally`, then check the balance and move the money while you hold both locks.",
+   "Write `StressHarness.run`: a `ready` latch and a `go` latch, `threads` workers that each make `perThread` random transfers with `ThreadLocalRandom`, per-thread counts stored in a `long[]` slot at the end, then join every worker and add up the slots.",
+   "Run the tests until all nine pass. Then break `apply` on purpose: lock `from` first and `to` second, and watch the deadlock test fail after its 15 second limit. Put the order back."
+  ],
+  "hints": [
+   "Two different random accounts without a retry loop: `int a = rnd.nextInt(n); int b = rnd.nextInt(n - 1); if (b >= a) b++;`.",
+   "Build each transfer's id from the thread number and the loop counter, such as `\"t\" + me + \"-\" + n`. The test checks that no id repeats.",
+   "Call `ThreadLocalRandom.current()` inside the worker's lambda, not before it. Each thread needs its own generator.",
+   "If the overlap test fails, check that each worker counts down `ready` before it waits on `go`, and that `run` waits on `ready` before it counts down `go`."
+  ],
+  "done_when": "All nine tests in `LedgerTest` pass, three runs in a row."
+ },
+ "drill": {
+  "title": "Write the ordered two-lock transfer from memory",
+  "minutes": 5,
+  "prompt": "Close the lab. In a blank file, write `Outcome move(Account from, Account to, long cents)` for accounts that have a unique `id()` and a `ReentrantLock lock()`. It must never deadlock, never overdraw and always release both locks. Then compare with the answer. Is your balance check inside both locks?",
+  "answer": {
+   "lang": "java",
+   "src": "Outcome move(Account from, Account to, long cents) {\n    Account first = from.id().compareTo(to.id()) < 0 ? from : to;   // lower id first, always\n    Account second = first == from ? to : from;\n    first.lock().lock();\n    try {\n        second.lock().lock();\n        try {\n            if (from.balance() < cents) return Outcome.INSUFFICIENT_FUNDS;   // check under both locks\n            from.debit(cents);\n            to.credit(cents);\n            return Outcome.APPLIED;\n        } finally {\n            second.lock().unlock();\n        }\n    } finally {\n        first.lock().unlock();\n    }\n}",
+   "alt": {
+    "lang": "kotlin",
+    "src": "fun move(from: Account, to: Account, cents: Long): Outcome {\n    val first = if (from.id < to.id) from else to                   // lower id first, always\n    val second = if (first === from) to else from\n    return first.lock.withLock {\n        second.lock.withLock {\n            if (from.balance < cents) return Outcome.INSUFFICIENT_FUNDS     // check under both locks\n            from.debit(cents)\n            to.credit(cents)\n            Outcome.APPLIED\n        }\n    }\n}"
+   }
+  }
+ },
+ "recap": [
+  "Write the invariants first: money is conserved, no balance goes below zero, a transfer is whole or not at all. Every line of `apply` protects one of them.",
+  "Debit and credit happen in one critical section that holds both accounts' locks, and the balance check sits inside it too. Anything else is check-then-act.",
+  "Lock accounts in one global order by a unique, stable id (`compareTo`, never `hashCode`). For more than two accounts, sort them all, lock in order, release in reverse.",
+  "A transfer is an immutable value checked in its constructor: safe to hand to any thread, and never invalid. A reused mutable row handed to a pool delivers the wrong data.",
+  "A stress harness needs a start line, more threads than cores, many operations, and checks of every invariant, both at the end and where each one can break.",
+  "Per-account locks let transfers on different accounts run at once. With little work inside the lock one lock can be as fast, so count and measure before you argue."
+ ],
+ "quiz": [
+  {
+   "q": "A teammate orders the two locks in `apply` by `System.identityHashCode(account)` instead of by account id. What can go wrong?",
+   "options": [
+    "Nothing: every object has a different identity hash code",
+    "Two accounts can share a hash code, and then two transfers may lock them in opposite orders and deadlock",
+    "The hash code changes when the GC moves the object, so the order changes",
+    "Nothing serious: ReentrantLock detects the deadlock and throws"
+   ],
+   "answer": 1,
+   "why": "Identity hash codes are not unique. On a tie neither account sorts first, so one thread may lock A first and another B first, which is the cycle. *Java Concurrency in Practice* breaks the tie with an extra global lock; a unique account id avoids the problem. The identity hash code stays the same for the object's life even when the GC moves it, and no lock detects a deadlock for you.",
+   "from": "conc-06"
+  },
+  {
+   "q": "This `apply` locks both accounts in id order, but first it calls `if (balanceOf(from) < cents) return INSUFFICIENT_FUNDS;`, which takes and releases `from`'s lock. Eight threads stress it. Which invariant can break?",
+   "options": [
+    "A balance can go below zero",
+    "Money is no longer conserved",
+    "Two opposite transfers can deadlock",
+    "None: every step holds a lock"
+   ],
+   "answer": 0,
+   "why": "It's check-then-act: another transfer can spend the money between `balanceOf` and the locks. Each move is still atomic, so the total is conserved, which is exactly why a test that only checks totals passes. Locks taken in id order can't deadlock. \"Every step holds a lock\" is the trap: two atomic steps in a row are not one atomic step.",
+   "from": "conc-03"
+  },
+  {
+   "q": "`record Transfer(String id, List<String> tags, long cents)`. The importer fills an `ArrayList` of tags, builds the record, submits it to a pool, then clears the list and reuses it for the next line. What can the worker see in `tags()`?",
+   "options": [
+    "The original tags, because records are immutable",
+    "A copy, because records copy their components",
+    "An empty or half-changed list, because the record holds the importer's list object",
+    "Nothing: `clear()` throws UnsupportedOperationException"
+   ],
+   "answer": 2,
+   "why": "Records are shallowly immutable. The field can't point at another list, but the list itself is the importer's `ArrayList`, and clearing it changes what the worker reads. Copy it in the compact constructor with `tags = List.copyOf(tags)`, which also gives the record an unmodifiable list. Records never copy their components for you.",
+   "from": "conc-11"
+  },
+  {
+   "q": "The ledger's stress test passed 50 runs in a row on your laptop. What have you shown?",
+   "options": [
+    "The ledger is thread-safe",
+    "The ledger is thread-safe on x86, but maybe not on ARM",
+    "The JIT compiled the race away",
+    "These runs found no failure; the argument that each invariant holds has to come from the code"
+   ],
+   "answer": 3,
+   "why": "A stress test can show that a race exists, never that none does. Fifty clean runs with a start latch and many threads make a bug less likely. The proof is the reasoning: which lock guards which field, and why each invariant holds inside the critical section.",
+   "from": "conc-13"
+  },
+  {
+   "q": "Which change to the ledger breaks invariant 3, \"a transfer happens whole or not at all\"?",
+   "options": [
+    "Locking `to` first whenever `to` has the lower id",
+    "Replacing the `ReentrantLock`s with `synchronized` blocks taken in the same order",
+    "Debiting inside one locked block, releasing both locks, then crediting inside a second locked block",
+    "Making `Transfer` a Kotlin data class instead of a Java record"
+   ],
+   "answer": 2,
+   "why": "Between the two blocks, a thread that locks both accounts (a snapshot, an audit) sees the money gone from one account and not yet in the other, and an exception at that point loses it. The other changes keep debit and credit in one critical section: locking the lower id first is the rule itself, `synchronized` gives the same exclusion, and a data class is as immutable as a record."
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "Ledger invariant 1: what must the sum of all balances do?",
+   "back": "Never change. A transfer moves money between accounts; it never creates or destroys any."
+  },
+  {
+   "front": "Why must the balance check sit inside the same locks as the debit?",
+   "back": "Otherwise it is check-then-act: another transfer can spend the money between the check and the debit, and the balance goes negative."
+  },
+  {
+   "front": "What stops `transfer(A, B)` and `transfer(B, A)` from deadlocking when each takes two locks?",
+   "back": "A global lock order: always lock the account with the lower id first, whichever way the money moves."
+  },
+  {
+   "front": "Why not order locks by `hashCode()`?",
+   "back": "Two accounts can share a hash code. On a tie, two threads may lock in opposite orders. Use a unique, stable id."
+  },
+  {
+   "front": "How do you lock N accounts for one operation without deadlock?",
+   "back": "Sort them by id, lock in that order, release in reverse. `distinct()` first, if one account can appear twice."
+  },
+  {
+   "front": "What does a record's compact constructor give a `Transfer`?",
+   "back": "Checks that run before the fields are set, so every `Transfer` that exists is valid. With final fields, any thread sees it whole."
+  },
+  {
+   "front": "A stress test checks only the final state. What can it miss?",
+   "back": "Violations that heal: an account that went negative and was topped up later. Also check each invariant where it can break."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Invariant",
+   "plain": "A statement about your data that must be true whenever another thread can look, such as \"the total never changes\"."
+  },
+  {
+   "term": "Global lock order",
+   "plain": "One rule, such as \"lower account id first\", that every code path follows when it takes more than one lock. It makes a wait cycle impossible."
+  },
+  {
+   "term": "Lock granularity",
+   "plain": "How much data one lock guards: the whole ledger, or one account. Finer locks let more work run at once and need a lock order."
+  },
+  {
+   "term": "Compact constructor",
+   "plain": "A record constructor without a parameter list. It runs before the fields are assigned, so it can check or normalize the values."
+  },
+  {
+   "term": "Stress harness",
+   "plain": "A test driver that starts many threads at once, runs many operations, then checks the invariants."
+  },
+  {
+   "term": "Overdraft",
+   "plain": "A debit that takes a balance below zero. In this ledger it is a bug, so `debit` refuses it."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A reviewer looks at your `apply` and says: \"Why two locks and all this ordering? Put `synchronized` on the method and be done.\" Explain what that would give you, what it would cost, and why the balance check sits where it does.",
+  "answer": "`synchronized` on `apply` locks the whole ledger, so every transfer waits for every other one. It is correct: it protects all three invariants, and with one lock there is no order to get wrong. The cost is parallelism. A transfer between two accounts nobody else touches still waits in line, and at most one transfer is ever in progress. With per-account locks, transfers on different accounts run at the same time, at the price of a rule everyone must follow: lock the lower id first, or two opposite transfers can deadlock. Whether that parallelism buys speed depends on the work inside the lock and on the cores you have, so I'd measure it. On JDK 21 I'd also avoid `synchronized` for code that virtual threads will call. Wherever the locks are, the balance check stays inside them: a check before them is check-then-act, and another transfer could spend the money between the check and the debit."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "Two directions this design grows in real systems.\n\nThe first is hot accounts. A merchant settlement account that receives a third of all transfers serializes them on its one lock, whatever the order. A common fix is to split it into a few sub-accounts, each with its own lock, credit a random one, and add them up for the balance. For a single account you could also drop the lock and use a compare-and-set loop, as *Atomics and compare-and-set* showed. The check becomes part of the loop:\n\n```java\nboolean debit(AtomicLong balance, long cents) {\n    while (true) {\n        long current = balance.get();\n        if (current < cents) return false;                   // the check is inside the loop\n        if (balance.compareAndSet(current, current - cents)) return true;\n    }\n}\n```\n\n```kotlin\nfun debit(balance: AtomicLong, cents: Long): Boolean {\n    while (true) {\n        val current = balance.get()\n        if (current < cents) return false                    // the check is inside the loop\n        if (balance.compareAndSet(current, current - cents)) return true\n    }\n}\n```\n\nThat is lock-free for one account. A transfer touches two, and two compare-and-sets in a row are not one atomic step: between them the money is in neither account, which breaks invariant 3. That is why locks are the simpler tool for transfers.\n\nThe second is the database. A persisted ledger uses the same ideas with other tools: row locks taken in account id order, a `CHECK (balance >= 0)` constraint, and a unique key on the transfer id so a retried request applies once. Many ledgers never update a balance in place at all. They append immutable entries, one debit and one credit per transfer, and compute balances from them. That is double-entry bookkeeping, and invariant 1 becomes \"the entries of every transfer sum to zero\", which you can check one transfer at a time."
+ },
+ "sources": [
+  {
+   "title": "ReentrantLock (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/locks/ReentrantLock.html"
+  },
+  {
+   "title": "Java Language Specification, section 8.10: Record classes",
+   "url": "https://docs.oracle.com/javase/specs/jls/se25/html/jls-8.html#jls-8.10"
+  },
+  {
+   "title": "Deadlock (The Java Tutorials)",
+   "url": "https://docs.oracle.com/javase/tutorial/essential/concurrency/deadlock.html"
+  },
+  {
+   "title": "Java Concurrency in Practice, Goetz et al., chapter 10 (lock ordering)",
+   "url": "https://jcip.net/"
+  }
+ ]
+}

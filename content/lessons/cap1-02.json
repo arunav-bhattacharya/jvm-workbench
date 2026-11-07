@@ -1,0 +1,386 @@
+{
+ "id": "cap1-02",
+ "title": "Run it on a pool you can reason about",
+ "minutes": 40,
+ "goal": "By the end you can run the ledger on a bounded ThreadPoolExecutor whose every setting you can defend (sizes from Little's law, named threads, a rejection policy chosen on purpose), shut it down without losing a transfer, publish a balance snapshot that is never torn, and find a hung pool in a thread dump.",
+ "warmup": {
+  "q": "The ledger pool has 8 threads (core and max), a bounded queue of 80 slots and a policy that throws. Each transfer takes 5 ms. 300 transfers arrive within a few milliseconds. About how many are accepted?",
+  "options": [
+   "All 300: the queue makes room",
+   "About 88: 8 running and 80 waiting",
+   "About 8: one per thread",
+   "About 80: the size of the queue"
+  ],
+  "answer": 1,
+  "why": "From *Inside ThreadPoolExecutor: core, max, queue, rejection*: the 8 core threads take the first 8 tasks, the next 80 fill the queue, and with core equal to max the pool can't grow, so the other 212 go to the rejection policy. The demo in this lesson accepts exactly 88, because submitting 300 tasks takes less time than the first 5 ms transfer."
+ },
+ "sections": [
+  {
+   "h": "Every pool setting is a decision",
+   "body": "Lesson 1's ledger is correct on any number of threads. Now it needs threads to run on. In production a transfer does more than change two numbers. It first appends to a **journal**, a write-ahead log on disk, so a crash can't lose a transfer that a caller was told was accepted. Say that write takes 5 ms. The ledger needs a pool for that work, and the default pools are each wrong in their own way. `Executors.newFixedThreadPool(8)` has an unbounded queue, so a slow disk turns into millions of queued transfers and an out-of-memory error. `Executors.newCachedThreadPool()` has no thread limit, so the same slow disk turns into thousands of threads.\n\nBuild the pool yourself and write down a reason for each setting:\n\n```java\nPoolPlan plan = PoolPlan.fromLittlesLaw(1_600, Duration.ofMillis(5), Duration.ofMillis(50));   // 8 and 80\nThreadPoolExecutor pool = new ThreadPoolExecutor(\n        plan.threads(), plan.threads(),                    // core == max: no burst threads\n        0, TimeUnit.MILLISECONDS,\n        new ArrayBlockingQueue<>(plan.queueCapacity()),    // bounded: a full queue pushes back\n        Thread.ofPlatform().name(\"ledger-\", 0).factory(),  // ledger-0, ledger-1, ... in every dump\n        new CountingAbortPolicy());                        // counted, then thrown at the caller\npool.prestartAllCoreThreads();\n```\n\n```kotlin\nval plan = PoolPlan.fromLittlesLaw(1_600, Duration.ofMillis(5), Duration.ofMillis(50))      // 8 and 80\nval pool = ThreadPoolExecutor(\n    plan.threads(), plan.threads(),                        // core == max: no burst threads\n    0, TimeUnit.MILLISECONDS,\n    ArrayBlockingQueue(plan.queueCapacity()),              // bounded: a full queue pushes back\n    Thread.ofPlatform().name(\"ledger-\", 0).factory(),      // ledger-0, ledger-1, ... in every dump\n    CountingAbortPolicy())                                 // counted, then thrown at the caller\npool.prestartAllCoreThreads()\n```\n\nThe sizes come from Little's law, from *Sizing a pool: CPU-bound, IO-bound and Little's law*: in flight = arrival rate x time in the system. At a peak of 1,600 transfers a second, each holding a thread for 5 ms, 1,600 x 0.005 = 8 transfers are in flight, so 8 threads. With fewer, the queue grows at every peak. With many more, you only add threads that wait on the same disk.\n\nThe queue gets the same law. A busy pool finishes 1,600 transfers a second, so 80 queued transfers drain in 80 / 1,600 = 50 ms. If 50 ms is the longest a transfer should wait for a thread, 80 slots is the most the queue should hold. A queue of 10,000 would hide six seconds of waiting behind a client's timeout.\n\nCore equals max because extra threads would only add waiters on the same journal, and the pool grows past core only when the queue is full. Here, the right answer to a full queue is no.\n\nThat makes the rejection policy the last decision. `DiscardPolicy` and `DiscardOldestPolicy` drop a transfer, so they are never right for money. `CallerRunsPolicy` makes the submitting thread write the journal itself: fine for a batch importer, wrong for an HTTP thread with a client waiting. For the API path, count and throw. The handler answers 503 with `Retry-After`, the client retries with the same transfer id, and the counter shows on the dashboard.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 680 270\" role=\"img\" aria-label=\"The ledger pool: transfers arrive, 8 named threads run them, 80 queue slots wait, and the rest are counted and rejected; each thread journals first, then applies\"><text class=\"t-s t-m\" x=\"20\" y=\"24\">peak: 1,600 transfers a second, 5 ms each</text><rect class=\"box\" x=\"20\" y=\"100\" width=\"110\" height=\"44\" rx=\"8\"/><text class=\"t\" x=\"75\" y=\"127\" text-anchor=\"middle\">transfers</text><line class=\"ln\" x1=\"130\" y1=\"122\" x2=\"168\" y2=\"122\" marker-end=\"url(#arr)\"/><rect class=\"box-b\" x=\"170\" y=\"96\" width=\"170\" height=\"52\" rx=\"8\"/><text class=\"t\" x=\"255\" y=\"118\" text-anchor=\"middle\">queue: 80 slots</text><text class=\"t-s t-m\" x=\"255\" y=\"138\" text-anchor=\"middle\">1,600/s x 50 ms</text><line class=\"ln\" x1=\"340\" y1=\"122\" x2=\"378\" y2=\"122\" marker-end=\"url(#arr)\"/><rect class=\"box-a\" x=\"380\" y=\"50\" width=\"150\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"455\" y=\"75\" text-anchor=\"middle\">ledger-0</text><rect class=\"box-a\" x=\"380\" y=\"102\" width=\"150\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"455\" y=\"127\" text-anchor=\"middle\">ledger-1 ...</text><rect class=\"box-a\" x=\"380\" y=\"154\" width=\"150\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"455\" y=\"179\" text-anchor=\"middle\">ledger-7</text><text class=\"t-s t-m\" x=\"455\" y=\"214\" text-anchor=\"middle\">8 threads: 1,600/s x 5 ms</text><line class=\"ln\" x1=\"530\" y1=\"122\" x2=\"558\" y2=\"122\" marker-end=\"url(#arr)\"/><rect class=\"box-ok\" x=\"560\" y=\"74\" width=\"105\" height=\"40\" rx=\"8\"/><text class=\"t\" x=\"612\" y=\"99\" text-anchor=\"middle\">1. journal</text><rect class=\"box-ok\" x=\"560\" y=\"130\" width=\"105\" height=\"40\" rx=\"8\"/><text class=\"t\" x=\"612\" y=\"155\" text-anchor=\"middle\">2. apply</text><line class=\"ln\" x1=\"612\" y1=\"114\" x2=\"612\" y2=\"128\" marker-end=\"url(#arr)\"/><line class=\"ln-bad\" x1=\"255\" y1=\"148\" x2=\"255\" y2=\"218\" marker-end=\"url(#arr)\"/><rect class=\"box-bad\" x=\"170\" y=\"220\" width=\"170\" height=\"40\" rx=\"8\"/><text class=\"t\" x=\"255\" y=\"245\" text-anchor=\"middle\">rejected, counted</text><text class=\"t-s t-bad\" x=\"75\" y=\"245\" text-anchor=\"middle\">503, Retry-After</text></svg>",
+    "caption": "Little's law sizes both halves of the pool: 8 threads for the transfers in flight, 80 slots for 50 ms of waiting. Whatever doesn't fit is rejected and counted."
+   },
+   "try": {
+    "title": "Send a burst at the pool",
+    "minutes": 4,
+    "steps": [
+     "Run `BurstDemo`: 300 transfers of 5 ms each arrive at once at the pool above. Predict how many are accepted and how long submitting takes.",
+     "Run it with `-Pargs=callerRuns`. Predict how many transfers the submitting thread runs itself, and how long submitting takes now."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "BurstDemo.java",
+     "src": "package workbench.ledger.l02.demo;\n\nimport java.util.concurrent.ArrayBlockingQueue;\nimport java.util.concurrent.RejectedExecutionException;\nimport java.util.concurrent.RejectedExecutionHandler;\nimport java.util.concurrent.ThreadPoolExecutor;\nimport java.util.concurrent.TimeUnit;\nimport java.util.concurrent.atomic.AtomicInteger;\n\n/**\n * A burst of 300 transfers hits a pool sized with Little's law: 8 threads, 80 queue slots, 5 ms\n * per transfer. Pass \"callerRuns\" to swap the counting abort policy for CallerRunsPolicy.\n */\npublic class BurstDemo {\n    public static void main(String[] args) throws InterruptedException {\n        boolean callerRuns = args.length > 0 && args[0].equals(\"callerRuns\");\n        AtomicInteger rejected = new AtomicInteger();\n        RejectedExecutionHandler policy = callerRuns\n                ? new ThreadPoolExecutor.CallerRunsPolicy()            // the submitting thread runs it itself\n                : (task, pool) -> {                                    // count it, then throw at the caller\n                    rejected.incrementAndGet();\n                    throw new RejectedExecutionException(\"ledger pool full\");\n                };\n        ThreadPoolExecutor pool = new ThreadPoolExecutor(8, 8, 0, TimeUnit.MILLISECONDS,\n                new ArrayBlockingQueue<>(80), Thread.ofPlatform().name(\"ledger-\", 0).factory(), policy);\n        pool.prestartAllCoreThreads();\n        AtomicInteger ranOnCaller = new AtomicInteger();\n        String caller = Thread.currentThread().getName();\n        long t0 = System.nanoTime();\n        int accepted = 0;\n        for (int i = 0; i < 300; i++) {\n            try {\n                pool.execute(() -> {\n                    if (Thread.currentThread().getName().equals(caller)) ranOnCaller.incrementAndGet();\n                    sleep(5);                                          // the journal write\n                });\n                accepted++;\n            } catch (RejectedExecutionException e) {\n                // an HTTP handler would answer 503 with Retry-After here\n            }\n        }\n        long submitMs = (System.nanoTime() - t0) / 1_000_000;\n        pool.shutdown();\n        pool.awaitTermination(10, TimeUnit.SECONDS);\n        long doneMs = (System.nanoTime() - t0) / 1_000_000;\n        System.out.printf(\"%s: accepted %d, rejected %d, run by the submitting thread %d%n\",\n                callerRuns ? \"CallerRunsPolicy\" : \"counting abort\", accepted, rejected.get(), ranOnCaller.get());\n        System.out.printf(\"submitting took %d ms, all done after %d ms%n\", submitMs, doneMs);\n    }\n\n    static void sleep(long ms) {\n        try {\n            Thread.sleep(ms);\n        } catch (InterruptedException e) {\n            Thread.currentThread().interrupt();\n        }\n    }\n}\n",
+     "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l02.demo.BurstDemo",
+     "file": "labs/ledger/src/demo/java/workbench/ledger/l02/demo/BurstDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "BurstDemo.kt",
+      "src": "package workbench.ledger.l02.demo\n\nimport java.util.concurrent.ArrayBlockingQueue\nimport java.util.concurrent.RejectedExecutionException\nimport java.util.concurrent.RejectedExecutionHandler\nimport java.util.concurrent.ThreadPoolExecutor\nimport java.util.concurrent.TimeUnit\nimport java.util.concurrent.atomic.AtomicInteger\n\n/**\n * A burst of 300 transfers hits a pool sized with Little's law: 8 threads, 80 queue slots, 5 ms\n * per transfer. Pass \"callerRuns\" to swap the counting abort policy for CallerRunsPolicy.\n */\nfun main(args: Array<String>) {\n    val callerRuns = args.firstOrNull() == \"callerRuns\"\n    val rejected = AtomicInteger()\n    val policy: RejectedExecutionHandler =\n        if (callerRuns) ThreadPoolExecutor.CallerRunsPolicy()           // the submitting thread runs it itself\n        else RejectedExecutionHandler { _, _ ->                         // count it, then throw at the caller\n            rejected.incrementAndGet()\n            throw RejectedExecutionException(\"ledger pool full\")\n        }\n    val pool = ThreadPoolExecutor(8, 8, 0, TimeUnit.MILLISECONDS,\n        ArrayBlockingQueue(80), Thread.ofPlatform().name(\"ledger-\", 0).factory(), policy)\n    pool.prestartAllCoreThreads()\n    val ranOnCaller = AtomicInteger()\n    val caller = Thread.currentThread().name\n    val t0 = System.nanoTime()\n    var accepted = 0\n    repeat(300) {\n        try {\n            pool.execute {\n                if (Thread.currentThread().name == caller) ranOnCaller.incrementAndGet()\n                Thread.sleep(5)                                         // the journal write\n            }\n            accepted++\n        } catch (e: RejectedExecutionException) {\n            // an HTTP handler would answer 503 with Retry-After here\n        }\n    }\n    val submitMs = (System.nanoTime() - t0) / 1_000_000\n    pool.shutdown()\n    pool.awaitTermination(10, TimeUnit.SECONDS)\n    val doneMs = (System.nanoTime() - t0) / 1_000_000\n    println(\"%s: accepted %d, rejected %d, run by the submitting thread %d\"\n        .format(if (callerRuns) \"CallerRunsPolicy\" else \"counting abort\", accepted, rejected.get(), ranOnCaller.get()))\n    println(\"submitting took $submitMs ms, all done after $doneMs ms\")\n}\n",
+      "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l02.demo.BurstDemoKt",
+      "file": "labs/ledger/src/demo/kotlin/workbench/ledger/l02/demo/BurstDemo.kt"
+     }
+    },
+    "expect": "With the counting abort policy, 88 are accepted (8 running, 80 queued) and 212 are rejected within a few milliseconds; the accepted ones are done after roughly 60 to 120 ms (88 x 5 ms / 8 threads, plus start-up). With `CallerRunsPolicy` nothing is rejected, but the submitting thread ran 24 transfers itself and submitting took about 130 ms instead of 4. While it writes a journal entry it can't submit, which is the back-pressure. If that thread were serving an HTTP request, its client would have waited all that time for other people's transfers."
+   },
+   "refs": [
+    {
+     "title": "ThreadPoolExecutor (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Shut down by draining, and account for every transfer",
+   "body": "A deploy stops the ledger while transfers are queued, and each of them belongs to a caller who was told \"accepted\". So the rule for shutdown is this: when it ends, every accepted transfer has been applied, has failed with an error its caller saw, or has been handed back to you by id. None may vanish.\n\n`pool.shutdownNow()` on its own breaks that rule. It interrupts the running tasks and returns the queued ones as a `List<Runnable>`. Ignore the list and those transfers are gone. Worse, their futures never complete, so a caller blocked in `get()` waits forever. In this section's demo a bare `shutdownNow()` loses 992 of 1,000 transfers.\n\nThe order from *Pools in production: names, errors, context, shutdown* fixes it:\n\n```java\npublic ShutdownReport shutdown(Duration grace) throws InterruptedException {\n    pool.shutdown();                                              // 1. no new transfers; the queue drains\n    if (pool.awaitTermination(grace.toNanos(), TimeUnit.NANOSECONDS))\n        return new ShutdownReport(true, List.of());               // 2. everything accepted was applied\n    List<Transfer> neverStarted = new ArrayList<>();\n    for (Runnable r : pool.shutdownNow()) {                       // 3. interrupt, take back the queue\n        TransferTask task = (TransferTask) r;\n        task.cancel(false);                                       //    wakes a caller blocked in get()\n        neverStarted.add(task.transfer());\n    }\n    pool.awaitTermination(grace.toNanos(), TimeUnit.NANOSECONDS);\n    return new ShutdownReport(false, List.copyOf(neverStarted));  // 4. log them, or replay them\n}\n```\n\n```kotlin\nfun shutdown(grace: Duration): ShutdownReport {\n    pool.shutdown()                                               // 1. no new transfers; the queue drains\n    if (pool.awaitTermination(grace.toNanos(), TimeUnit.NANOSECONDS))\n        return ShutdownReport(true, emptyList())                  // 2. everything accepted was applied\n    val neverStarted = pool.shutdownNow().map { r ->              // 3. interrupt, take back the queue\n        val task = r as TransferTask\n        task.cancel(false)                                        //    wakes a caller blocked in get()\n        task.transfer\n    }\n    pool.awaitTermination(grace.toNanos(), TimeUnit.NANOSECONDS)\n    return ShutdownReport(false, neverStarted)                    // 4. log them, or replay them\n}\n```\n\nTwo details make this work. First, the queue must hold objects that know their transfer. `pool.submit(callable)` wraps your work in an anonymous `FutureTask`, so the lab's `submit` builds a `TransferTask`, a `FutureTask` subclass with a `transfer()` accessor, and hands it to `execute`. Then `shutdownNow()` gives you back transfers instead of mystery `Runnable`s.\n\nSecond, an interrupted task must leave nothing half-done. Each task writes the journal first and changes memory second. An interrupt during the write means the transfer was never applied: its future fails with the `InterruptedException`, and no balance changed. `apply` itself never blocks, so once it starts, it finishes.\n\nSize the grace period from the same numbers as the pool. A full queue of 80 drains in 50 ms, so a few seconds of grace fits easily inside the 30 seconds Kubernetes gives a pod by default.",
+   "try": {
+    "title": "Lose transfers, then stop losing them",
+    "minutes": 4,
+    "steps": [
+     "Run `ShutdownDemo -Pargs=naive`: 1,000 accepted transfers, then a bare `shutdownNow()`. Read the `lost` column and the last line.",
+     "Run it with no arguments (drain, 100 ms of grace), then with `-Pargs='drain 5000'`. Before each run, predict how many transfers are applied."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "ShutdownDemo.java",
+     "src": "package workbench.ledger.l02.demo;\n\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.concurrent.ArrayBlockingQueue;\nimport java.util.concurrent.Callable;\nimport java.util.concurrent.FutureTask;\nimport java.util.concurrent.ThreadPoolExecutor;\nimport java.util.concurrent.TimeUnit;\nimport java.util.concurrent.atomic.AtomicInteger;\n\n/**\n * 1,000 transfers wait on 8 threads at 5 ms each, then the service stops. Where does each one end up?\n * Args: \"naive\" or \"drain\" (the default), then the grace period in ms (default 100).\n */\npublic class ShutdownDemo {\n    record Transfer(int id) {}\n\n    // a FutureTask that remembers its transfer, so the queue hands back transfers, not anonymous Runnables\n    static final class TransferTask extends FutureTask<Boolean> {\n        final Transfer transfer;\n\n        TransferTask(Transfer transfer, Callable<Boolean> work) {\n            super(work);\n            this.transfer = transfer;\n        }\n    }\n\n    public static void main(String[] args) throws InterruptedException {\n        String mode = args.length > 0 ? args[0] : \"drain\";\n        long graceMs = args.length > 1 ? Long.parseLong(args[1]) : 100;\n        ThreadPoolExecutor pool = new ThreadPoolExecutor(8, 8, 0, TimeUnit.MILLISECONDS,\n                new ArrayBlockingQueue<>(1_000), Thread.ofPlatform().name(\"ledger-\", 0).factory());\n        AtomicInteger applied = new AtomicInteger(), interrupted = new AtomicInteger();\n        List<TransferTask> accepted = new ArrayList<>();\n        for (int i = 0; i < 1_000; i++) {\n            TransferTask task = new TransferTask(new Transfer(i), () -> {\n                try {\n                    Thread.sleep(5);                          // the journal write\n                } catch (InterruptedException e) {\n                    interrupted.incrementAndGet();            // not journaled, so not applied\n                    throw e;\n                }\n                applied.incrementAndGet();\n                return true;\n            });\n            pool.execute(task);\n            accepted.add(task);\n        }\n        int handedBack = 0;\n        if (mode.equals(\"naive\")) {\n            pool.shutdownNow();                               // the list of queued tasks it returns is dropped\n        } else {\n            pool.shutdown();                                  // 1. no new work; the queue keeps draining\n            if (!pool.awaitTermination(graceMs, TimeUnit.MILLISECONDS)) {\n                List<Runnable> neverStarted = pool.shutdownNow();                   // 2. interrupt, take back the queue\n                for (Runnable r : neverStarted) ((TransferTask) r).cancel(false);   // 3. wake anyone waiting on them\n                handedBack = neverStarted.size();             // 4. log these ids, or replay them on restart\n            }\n        }\n        pool.awaitTermination(5, TimeUnit.SECONDS);\n        long neverComplete = accepted.stream().filter(t -> !t.isDone()).count();\n        System.out.printf(\"%s, grace %d ms: accepted 1,000 | applied %,d | interrupted %d | handed back %,d | lost %,d%n\",\n                mode, graceMs, applied.get(), interrupted.get(), handedBack,\n                1_000 - applied.get() - interrupted.get() - handedBack);\n        System.out.printf(\"futures that will never complete: %,d%n\", neverComplete);\n    }\n}\n",
+     "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l02.demo.ShutdownDemo",
+     "file": "labs/ledger/src/demo/java/workbench/ledger/l02/demo/ShutdownDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "ShutdownDemo.kt",
+      "src": "package workbench.ledger.l02.demo\n\nimport java.util.concurrent.ArrayBlockingQueue\nimport java.util.concurrent.Callable\nimport java.util.concurrent.FutureTask\nimport java.util.concurrent.ThreadPoolExecutor\nimport java.util.concurrent.TimeUnit\nimport java.util.concurrent.atomic.AtomicInteger\n\nprivate data class QueuedTransfer(val id: Int)\n\n// a FutureTask that remembers its transfer, so the queue hands back transfers, not anonymous Runnables\nprivate class QueuedTask(val transfer: QueuedTransfer, work: Callable<Boolean>) : FutureTask<Boolean>(work)\n\n/**\n * 1,000 transfers wait on 8 threads at 5 ms each, then the service stops. Where does each one end up?\n * Args: \"naive\" or \"drain\" (the default), then the grace period in ms (default 100).\n */\nfun main(args: Array<String>) {\n    val mode = args.getOrElse(0) { \"drain\" }\n    val graceMs = args.getOrNull(1)?.toLong() ?: 100\n    val pool = ThreadPoolExecutor(8, 8, 0, TimeUnit.MILLISECONDS,\n        ArrayBlockingQueue(1_000), Thread.ofPlatform().name(\"ledger-\", 0).factory())\n    val applied = AtomicInteger()\n    val interrupted = AtomicInteger()\n    val accepted = (0 until 1_000).map { i ->\n        QueuedTask(QueuedTransfer(i)) {\n            try {\n                Thread.sleep(5)                               // the journal write\n            } catch (e: InterruptedException) {\n                interrupted.incrementAndGet()                 // not journaled, so not applied\n                throw e\n            }\n            applied.incrementAndGet()\n            true\n        }.also { pool.execute(it) }\n    }\n    var handedBack = 0\n    if (mode == \"naive\") {\n        pool.shutdownNow()                                    // the list of queued tasks it returns is dropped\n    } else {\n        pool.shutdown()                                       // 1. no new work; the queue keeps draining\n        if (!pool.awaitTermination(graceMs, TimeUnit.MILLISECONDS)) {\n            val neverStarted = pool.shutdownNow()             // 2. interrupt, take back the queue\n            neverStarted.forEach { (it as QueuedTask).cancel(false) }   // 3. wake anyone waiting on them\n            handedBack = neverStarted.size                    // 4. log these ids, or replay them on restart\n        }\n    }\n    pool.awaitTermination(5, TimeUnit.SECONDS)\n    val neverComplete = accepted.count { !it.isDone }\n    println(\"%s, grace %d ms: accepted 1,000 | applied %,d | interrupted %d | handed back %,d | lost %,d\".format(\n        mode, graceMs, applied.get(), interrupted.get(), handedBack, 1_000 - applied.get() - interrupted.get() - handedBack))\n    println(\"futures that will never complete: %,d\".format(neverComplete))\n}\n",
+      "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l02.demo.ShutdownDemoKt",
+      "file": "labs/ledger/src/demo/kotlin/workbench/ledger/l02/demo/ShutdownDemo.kt"
+     }
+    },
+    "expect": "Naive: about 990 lost, and as many futures that will never complete, so their callers would hang. Drain with 100 ms: about 160 applied (8 threads x 20 rounds of 5 ms), 8 interrupted in the middle of their journal write, the rest handed back, and 0 lost. With 5 s of grace all 1,000 are applied, because they need only about 625 ms on 8 threads."
+   },
+   "refs": [
+    {
+     "title": "ExecutorService (Java SE 25 API): the shutdown idiom",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ExecutorService.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Publish a snapshot nobody can tear",
+   "body": "The balances endpoint wants every balance at once, and invariant 1 says they must add up to the opening total. Reading the accounts one at a time, each under its own lock, doesn't give you that:\n\n```java\nlong sum = 0;\nfor (Account a : accounts) {\n    a.lock().lock();\n    try { sum += a.balance(); } finally { a.lock().unlock(); }   // each read is safe...\n}                                                                  // ...the sum is not\n```\n\n```kotlin\nvar sum = 0L\nfor (a in accounts) {\n    sum += a.lock.withLock { a.balance }                         // each read is safe...\n}                                                                  // ...the sum is not\n```\n\nA transfer from account 40 to account 3 can run after you read 3 and before you read 40. Then you counted that money in neither account. In the other direction you count it twice. In the demo, a large share of such sums were wrong, by up to 13,957 cents, although no transfer ever broke an invariant. A sum like that is **torn**: it mixes two moments.\n\nA consistent snapshot needs one instant at which no transfer is half done. Lock every account, in the same id order that `apply` uses so the snapshot can't deadlock with a transfer, copy the balances, then release:\n\n```java\npublic BalanceSnapshot snapshot() {\n    for (Account a : inLockOrder) a.lock().lock();                 // 1. every lock, in id order\n    try {\n        Map<String, Long> copy = new HashMap<>();\n        long total = 0;\n        for (Account a : inLockOrder) { copy.put(a.id(), a.balance()); total += a.balance(); }\n        BalanceSnapshot s = new BalanceSnapshot(copy, total, ++version);   // 2. immutable\n        latest = s;                                                // 3. volatile write: published whole\n        return s;\n    } finally {\n        for (int i = inLockOrder.size() - 1; i >= 0; i--) inLockOrder.get(i).lock().unlock();\n    }\n}\n```\n\n```kotlin\nfun snapshot(): BalanceSnapshot {\n    inLockOrder.forEach { it.lock.lock() }                         // 1. every lock, in id order\n    try {\n        val copy = inLockOrder.associate { it.id to it.balance }\n        val s = BalanceSnapshot(copy, copy.values.sum(), ++version) // 2. immutable\n        latest = s                                                 // 3. @Volatile write: published whole\n        return s\n    } finally {\n        inLockOrder.asReversed().forEach { it.lock.unlock() }\n    }\n}\n```\n\nFor 50 accounts this pauses transfers for microseconds, and readers call `latestSnapshot()` without taking any lock. *Happens-before, the rules that matter* asked you to name the edge for every shared field. Here they are:\n\n| Field | Why every reader sees it correctly |\n|---|---|\n| `Account.balance` | the account's lock: each release happens-before the next acquire |\n| `accounts`, `inLockOrder` | final fields, set in the constructor, never changed |\n| `version` | written only while every account lock is held |\n| `latest` | volatile: its write happens-before every later read |\n| a snapshot's `balances` and `total` | final fields of a record, holding a map that `Map.copyOf` made unmodifiable |\n| a `Transfer` in the pool | immutable, and `execute` happens-before the task runs |\n| a transfer's outcome | the task's completion happens-before `Future.get()` returns |\n\nWriting `latest` before the locks are released keeps snapshots in version order: two snapshots can't overlap, because each needs every lock.",
+   "try": {
+    "title": "Tear a snapshot, then make it whole",
+    "minutes": 3,
+    "steps": [
+     "Run `TornSnapshotDemo`. Four threads move money while the main thread adds up all 50 balances, one locked account at a time. Predict how many sums come out wrong.",
+     "Run it with `-Pargs=locked`, where the reader holds every lock while it adds."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "TornSnapshotDemo.java",
+     "src": "package workbench.ledger.l02.demo;\n\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.concurrent.ThreadLocalRandom;\nimport java.util.concurrent.atomic.AtomicBoolean;\nimport java.util.concurrent.locks.ReentrantLock;\n\n/**\n * Four threads move money between 50 accounts while a reader adds up all the balances.\n * Pass \"locked\" to make the reader hold every account lock while it adds.\n */\npublic class TornSnapshotDemo {\n    static final class Account {\n        final int id;\n        final ReentrantLock lock = new ReentrantLock();\n        long balance = 1_000;                                 // guarded by lock: 50,000 in total\n\n        Account(int id) { this.id = id; }\n    }\n\n    public static void main(String[] args) throws InterruptedException {\n        boolean locked = args.length > 0 && args[0].equals(\"locked\");\n        Account[] accounts = new Account[50];\n        for (int i = 0; i < accounts.length; i++) accounts[i] = new Account(i);\n        AtomicBoolean writing = new AtomicBoolean(true);\n        List<Thread> writers = new ArrayList<>();\n        for (int w = 0; w < 4; w++) {\n            writers.add(Thread.ofPlatform().start(() -> {\n                ThreadLocalRandom rnd = ThreadLocalRandom.current();\n                for (int n = 0; n < 200_000; n++) {\n                    int a = rnd.nextInt(50), b = rnd.nextInt(49);\n                    if (b >= a) b++;\n                    move(accounts[a], accounts[b], 1 + rnd.nextLong(500));\n                }\n            }));\n        }\n        long taken = 0, torn = 0, worst = 0;\n        while (writers.stream().anyMatch(Thread::isAlive)) {\n            long sum = locked ? sumAllLocked(accounts) : sumOneByOne(accounts);\n            taken++;\n            if (sum != 50_000) {\n                torn++;\n                worst = Math.max(worst, Math.abs(sum - 50_000));\n            }\n        }\n        System.out.printf(\"%s: %,d snapshots, %,d torn (worst off by %,d cents)%n\",\n                locked ? \"every lock held\" : \"one account at a time\", taken, torn, worst);\n    }\n\n    // each read is safe on its own; the sum is not, because money moves between reads\n    static long sumOneByOne(Account[] accounts) {\n        long sum = 0;\n        for (Account a : accounts) {\n            a.lock.lock();\n            try { sum += a.balance; } finally { a.lock.unlock(); }\n        }\n        return sum;\n    }\n\n    // every lock, in id order: no transfer can run while we add, so the sum is one instant\n    static long sumAllLocked(Account[] accounts) {\n        for (Account a : accounts) a.lock.lock();\n        try {\n            long sum = 0;\n            for (Account a : accounts) sum += a.balance;\n            return sum;\n        } finally {\n            for (int i = accounts.length - 1; i >= 0; i--) accounts[i].lock.unlock();\n        }\n    }\n\n    static void move(Account from, Account to, long cents) {\n        Account first = from.id < to.id ? from : to, second = first == from ? to : from;\n        first.lock.lock();\n        try {\n            second.lock.lock();\n            try {\n                if (from.balance >= cents) { from.balance -= cents; to.balance += cents; }\n            } finally {\n                second.lock.unlock();\n            }\n        } finally {\n            first.lock.unlock();\n        }\n    }\n}\n",
+     "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l02.demo.TornSnapshotDemo",
+     "file": "labs/ledger/src/demo/java/workbench/ledger/l02/demo/TornSnapshotDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "TornSnapshotDemo.kt",
+      "src": "package workbench.ledger.l02.demo\n\nimport java.util.concurrent.ThreadLocalRandom\nimport java.util.concurrent.locks.ReentrantLock\nimport kotlin.concurrent.withLock\n\nprivate class SnapshotAccount(val id: Int) {\n    val lock = ReentrantLock()\n    var balance = 1_000L                                      // guarded by lock: 50,000 in total\n}\n\n/**\n * Four threads move money between 50 accounts while a reader adds up all the balances.\n * Pass \"locked\" to make the reader hold every account lock while it adds.\n */\nfun main(args: Array<String>) {\n    val locked = args.firstOrNull() == \"locked\"\n    val accounts = Array(50) { SnapshotAccount(it) }\n    val writers = List(4) {\n        Thread.ofPlatform().start {\n            val rnd = ThreadLocalRandom.current()\n            repeat(200_000) {\n                val a = rnd.nextInt(50)\n                var b = rnd.nextInt(49)\n                if (b >= a) b++\n                move(accounts[a], accounts[b], 1 + rnd.nextLong(500))\n            }\n        }\n    }\n    var taken = 0L\n    var torn = 0L\n    var worst = 0L\n    while (writers.any { it.isAlive }) {\n        val sum = if (locked) sumAllLocked(accounts) else sumOneByOne(accounts)\n        taken++\n        if (sum != 50_000L) {\n            torn++\n            worst = maxOf(worst, Math.abs(sum - 50_000))\n        }\n    }\n    println(\"%s: %,d snapshots, %,d torn (worst off by %,d cents)\"\n        .format(if (locked) \"every lock held\" else \"one account at a time\", taken, torn, worst))\n}\n\n// each read is safe on its own; the sum is not, because money moves between reads\nprivate fun sumOneByOne(accounts: Array<SnapshotAccount>): Long =\n    accounts.sumOf { a -> a.lock.withLock { a.balance } }\n\n// every lock, in id order: no transfer can run while we add, so the sum is one instant\nprivate fun sumAllLocked(accounts: Array<SnapshotAccount>): Long {\n    accounts.forEach { it.lock.lock() }\n    try {\n        return accounts.sumOf { it.balance }\n    } finally {\n        accounts.reversed().forEach { it.lock.unlock() }\n    }\n}\n\nprivate fun move(from: SnapshotAccount, to: SnapshotAccount, cents: Long) {\n    val first = if (from.id < to.id) from else to\n    val second = if (first === from) to else from\n    first.lock.withLock {\n        second.lock.withLock {\n            if (from.balance >= cents) { from.balance -= cents; to.balance += cents }\n        }\n    }\n}\n",
+      "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l02.demo.TornSnapshotDemoKt",
+      "file": "labs/ledger/src/demo/kotlin/workbench/ledger/l02/demo/TornSnapshotDemo.kt"
+     }
+    },
+    "expect": "One account at a time, many sums are wrong (7,241 of 9,456 in one Java run here, 1,226 of 6,239 in a Kotlin run), some by thousands of cents, while every transfer kept the books balanced. With every lock held, no sum is torn. A real service wouldn't let every request take all the locks: it takes one snapshot every few hundred milliseconds and lets readers share it through `latestSnapshot()`."
+   }
+  },
+  {
+   "h": "Find a hung pool in a thread dump",
+   "body": "Here is a bug that passes every test with a small batch. A month-end statement job runs on the ledger pool, and each statement asks the same pool for a balance:\n\n```java\npool.submit(() -> {\n    Future<Long> balance = pool.submit(() -> balanceOf(merchant));   // a task inside a task\n    return merchant + \": \" + balance.get();                          // waits for it\n});\n```\n\n```kotlin\npool.submit(Callable {\n    val balance = pool.submit(Callable { balanceOf(merchant) })      // a task inside a task\n    \"$merchant: ${balance.get()}\"                                    // waits for it\n})\n```\n\nWith 2 threads and 3 merchants, the first two statements take both threads. Each submits a balance lookup, which queues behind the third statement. Now both threads wait for tasks that need a free thread, and no thread will ever be free. *Pools in production: names, errors, context, shutdown* called this pool-induced deadlock. This section is about finding it in a running process.\n\nStart `PoolHangDemo` with a long hang, then dump its threads from a second terminal:\n\n```bash\njcmd                          # lists Java processes and their PIDs\njcmd <pid> Thread.print -l    # -l adds the java.util.concurrent locks each thread holds\n```\n\nHere is the part that matters, from a real run on JDK 21, trimmed:\n\n```text\n\"ledger-0\" #19 [5741] prio=5 os_prio=0 cpu=1.33ms elapsed=1.74s ... waiting on condition\n   java.lang.Thread.State: WAITING (parking)\n\tat jdk.internal.misc.Unsafe.park(java.base@21.0.12.1/Native Method)\n\t- parking to wait for  <0x00000006f79ef530> (a java.util.concurrent.FutureTask)\n\tat java.util.concurrent.locks.LockSupport.park(java.base@21.0.12.1/LockSupport.java:221)\n\tat java.util.concurrent.FutureTask.awaitDone(java.base@21.0.12.1/FutureTask.java:500)\n\tat java.util.concurrent.FutureTask.get(java.base@21.0.12.1/FutureTask.java:190)\n\tat workbench.ledger.l02.demo.PoolHangDemo.statement(PoolHangDemo.java:33)\n\tat workbench.ledger.l02.demo.PoolHangDemo.lambda$main$0(PoolHangDemo.java:21)\n\t...\n\tat java.util.concurrent.ThreadPoolExecutor.runWorker(java.base@21.0.12.1/ThreadPoolExecutor.java:1144)\n\t...\n   Locked ownable synchronizers:\n\t- <0x00000006f79650b8> (a java.util.concurrent.ThreadPoolExecutor$Worker)\n\n\"ledger-1\" #20 [5742] prio=5 os_prio=0 cpu=0.83ms elapsed=1.74s ... waiting on condition\n   java.lang.Thread.State: WAITING (parking)\n\tat jdk.internal.misc.Unsafe.park(java.base@21.0.12.1/Native Method)\n\t- parking to wait for  <0x00000006f7602c18> (a java.util.concurrent.FutureTask)\n\t...\n\tat workbench.ledger.l02.demo.PoolHangDemo.statement(PoolHangDemo.java:33)\n\t...\n   Locked ownable synchronizers:\n\t- <0x00000006f79bb838> (a java.util.concurrent.ThreadPoolExecutor$Worker)\n```\n\nRead each thread in the same order. The name says which pool: both `ledger-` threads are stuck, which is why the factory names them. The state, `WAITING (parking)`, means `java.util.concurrent` parked them; a thread stuck on `synchronized` would say `BLOCKED`. The `parking to wait for` line names the object they wait on: a `FutureTask`, so they are inside `get()`. The first frame from your own code, `statement` at line 33, is that `get()` call. And under `Locked ownable synchronizers` each worker holds its own `ThreadPoolExecutor$Worker`, a lock a worker holds while it runs a task. Both threads are busy, and busy waiting.\n\nNotice what is missing: the dump never says `Found one Java-level deadlock`. The JVM's detector looks for cycles of monitors and `ReentrantLock`s, and here nobody holds a lock that anybody else wants. Every worker of one pool parked on a `FutureTask` of that same pool, with tasks still queued, is the signature to learn. The fixes come from that lesson: do the lookup inline, compose with `thenApply` instead of blocking, or give lookups their own pool.",
+   "try": {
+    "title": "Take the dump yourself",
+    "minutes": 5,
+    "steps": [
+     "Run `PoolHangDemo` with `-Pargs=60` so it stays hung for a minute. It prints its PID.",
+     "In a second terminal, run `jcmd <pid> Thread.print -l`. For both `ledger-` threads, find the state, the `parking to wait for` line, the first frame from `workbench.ledger`, and the `Locked ownable synchronizers`. Then find `main`.",
+     "Scroll to the end of the dump. Is there a deadlock report? Explain why not.",
+     "Change `statement` to call `balanceOf(merchant)` directly instead of submitting it, and run the demo again."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "PoolHangDemo.java",
+     "src": "package workbench.ledger.l02.demo;\n\nimport java.util.List;\nimport java.util.concurrent.ArrayBlockingQueue;\nimport java.util.concurrent.ExecutorService;\nimport java.util.concurrent.Future;\nimport java.util.concurrent.ThreadPoolExecutor;\nimport java.util.concurrent.TimeUnit;\n\n/**\n * Month-end statements on the ledger pool: each statement task asks the same 2-thread pool for a\n * balance and waits for the answer. Run it, then take a thread dump while it hangs.\n * Arg: how many seconds to stay hung (default 4).\n */\npublic class PoolHangDemo {\n    public static void main(String[] args) throws InterruptedException {\n        int seconds = args.length > 0 ? Integer.parseInt(args[0]) : 4;\n        ThreadPoolExecutor pool = new ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS,\n                new ArrayBlockingQueue<>(100), Thread.ofPlatform().name(\"ledger-\", 0).factory());\n        for (String merchant : List.of(\"m-001\", \"m-002\", \"m-003\")) {\n            pool.submit(() -> statement(pool, merchant));\n        }\n        long pid = ProcessHandle.current().pid();\n        System.out.printf(\"pid %d, hanging for %d s. In another terminal: jcmd %d Thread.print -l%n\", pid, seconds, pid);\n        Thread.sleep(seconds * 1_000L);\n        System.out.printf(\"after %d s: active=%d, queued=%d, completed=%d%n\",\n                seconds, pool.getActiveCount(), pool.getQueue().size(), pool.getCompletedTaskCount());\n        pool.shutdownNow();                                   // interrupts the two get() calls that will never return\n    }\n\n    static String statement(ExecutorService pool, String merchant) throws Exception {\n        Future<Long> balance = pool.submit(() -> balanceOf(merchant));   // queued behind the other statements\n        return merchant + \": \" + balance.get();                          // waits for a thread that is never free\n    }\n\n    static long balanceOf(String merchant) {\n        return 4_200;                                         // fast: the problem is not speed\n    }\n}\n",
+     "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l02.demo.PoolHangDemo",
+     "file": "labs/ledger/src/demo/java/workbench/ledger/l02/demo/PoolHangDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "PoolHangDemo.kt",
+      "src": "package workbench.ledger.l02.demo\n\nimport java.util.concurrent.ArrayBlockingQueue\nimport java.util.concurrent.Callable\nimport java.util.concurrent.ExecutorService\nimport java.util.concurrent.ThreadPoolExecutor\nimport java.util.concurrent.TimeUnit\n\n/**\n * Month-end statements on the ledger pool: each statement task asks the same 2-thread pool for a\n * balance and waits for the answer. Run it, then take a thread dump while it hangs.\n * Arg: how many seconds to stay hung (default 4).\n */\nfun main(args: Array<String>) {\n    val seconds = args.firstOrNull()?.toInt() ?: 4\n    val pool = ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS,\n        ArrayBlockingQueue(100), Thread.ofPlatform().name(\"ledger-\", 0).factory())\n    for (merchant in listOf(\"m-001\", \"m-002\", \"m-003\")) {\n        pool.submit(Callable { statement(pool, merchant) })\n    }\n    val pid = ProcessHandle.current().pid()\n    println(\"pid $pid, hanging for $seconds s. In another terminal: jcmd $pid Thread.print -l\")\n    Thread.sleep(seconds * 1_000L)\n    println(\"after $seconds s: active=${pool.activeCount}, queued=${pool.queue.size}, completed=${pool.completedTaskCount}\")\n    pool.shutdownNow()                                        // interrupts the two get() calls that will never return\n}\n\nprivate fun statement(pool: ExecutorService, merchant: String): String {\n    val balance = pool.submit(Callable { balanceOf(merchant) })   // queued behind the other statements\n    return \"$merchant: ${balance.get()}\"                           // waits for a thread that is never free\n}\n\nprivate fun balanceOf(merchant: String): Long = 4_200                // fast: the problem is not speed\n",
+      "run": "./gradlew :ledger:demo -Pmain=workbench.ledger.l02.demo.PoolHangDemoKt",
+      "file": "labs/ledger/src/demo/kotlin/workbench/ledger/l02/demo/PoolHangDemo.kt"
+     }
+    },
+    "expect": "Both `ledger-0` and `ledger-1` are `WAITING (parking)` on a `FutureTask` inside `PoolHangDemo.statement`, each holding its `ThreadPoolExecutor$Worker`, and `main` is `TIMED_WAITING (sleeping)` in `Thread.sleep`. There is no deadlock report, because no thread holds a lock another thread wants. When the sleep ends the demo prints `active=2, queued=3, completed=0`: the third statement and both lookups never ran. With the lookup inline, it prints `completed=3`. The Kotlin twin shows the same dump with `PoolHangDemoKt.statement` as your frame."
+   }
+  }
+ ],
+ "analogy": "A pool is a bank branch with eight tellers and a waiting area with eighty chairs. When every chair is taken, the guard at the door tells the next customer to come back in a minute and makes a tally mark (the counting rejection). Hiring a teller for every customer, or letting the queue spill out into the street, only looks kind. At closing time the guard locks the door, the tellers finish the people already seated, and anyone still waiting at the deadline gets a numbered ticket for tomorrow instead of being sent home with nothing. The analogy breaks at the statement job: a real teller who needs a colleague's help walks over and asks. A pool thread that waits for a task in its own queue just stands at its desk, and so do all the others.",
+ "in_your_world": "Quarkus runs blocking endpoints on a worker pool whose size you set with `quarkus.thread-pool.max-threads`, and the argument for that number is this lesson's: in flight = rate x time, with the time measured under load. When Kubernetes stops a pod it sends `SIGTERM` and waits `terminationGracePeriodSeconds` (30 by default), so fail the readiness probe first, drain the ledger pool within a deadline inside that window, and log the ids of any transfer handed back so someone can replay it. A Temporal worker's limit on concurrent activities is a pool size too: size it from the activity's rate and duration in the same way, and watch for activities that block waiting on work that needs the same slots.",
+ "mistake": "The most common mistake is an unbounded queue: `Executors.newFixedThreadPool(n)`, or a `LinkedBlockingQueue` with no capacity. Nothing is ever rejected, so tests and dashboards look healthy while a slow disk or database grows the queue by thousands of transfers a second. Latency climbs to minutes, clients time out and retry, which adds more work, and the pod finally dies of memory with its queue full of transfers that callers were told were accepted. People choose it because it is the default and because rejecting feels worse than waiting. Bound the queue from Little's law, and turn the overflow into a counted, visible rejection.",
+ "compare": {
+  "title": "Starting the pool and submitting a transfer",
+  "java": {
+   "title": "LedgerService.java",
+   "src": "public static LedgerService start(Ledger ledger, Journal journal, PoolPlan plan) {\n    CountingAbortPolicy rejections = new CountingAbortPolicy();\n    ThreadPoolExecutor pool = new ThreadPoolExecutor(\n            plan.threads(), plan.threads(), 0, TimeUnit.MILLISECONDS,\n            new ArrayBlockingQueue<>(plan.queueCapacity()),\n            Thread.ofPlatform().name(\"ledger-\", 0).factory(),\n            rejections);\n    pool.prestartAllCoreThreads();\n    return new LedgerService(ledger, journal, pool, rejections);\n}\n\npublic Future<Outcome> submit(Transfer t) {\n    TransferTask task = new TransferTask(t, () -> {\n        journal.append(t);\n        return ledger.apply(t);\n    });\n    pool.execute(task);\n    return task;\n}\n\nstatic final class TransferTask extends FutureTask<Outcome> {\n    private final Transfer transfer;\n    TransferTask(Transfer transfer, Callable<Outcome> work) { super(work); this.transfer = transfer; }\n    Transfer transfer() { return transfer; }\n}"
+  },
+  "kotlin": {
+   "title": "LedgerService.kt",
+   "src": "fun start(ledger: Ledger, journal: Journal, plan: PoolPlan): LedgerService {\n    val rejections = CountingAbortPolicy()\n    val pool = ThreadPoolExecutor(\n        plan.threads, plan.threads, 0, TimeUnit.MILLISECONDS,\n        ArrayBlockingQueue(plan.queueCapacity),\n        Thread.ofPlatform().name(\"ledger-\", 0).factory(),\n        rejections)\n    pool.prestartAllCoreThreads()\n    return LedgerService(ledger, journal, pool, rejections)\n}\n\nfun submit(t: Transfer): Future<Outcome> {\n    val task = TransferTask(t) {\n        journal.append(t)\n        ledger.apply(t)\n    }\n    pool.execute(task)\n    return task\n}\n\nclass TransferTask(val transfer: Transfer, work: Callable<Outcome>) : FutureTask<Outcome>(work)"
+  },
+  "note": "Nothing here is specific to either language: `ThreadPoolExecutor`, `ArrayBlockingQueue` and `Thread.ofPlatform()` are the same JDK classes, with the same rules. Kotlin shortens the `FutureTask` subclass to one line, because the constructor parameter `work` goes straight to the superclass in the class header, and a trailing lambda converts to the Java `Callable`. When you call `pool.submit` with a bare lambda, Kotlin has to choose between `submit(Runnable)` and `submit(Callable)`; writing `Callable { ... }` says which you mean. In coroutine code, `Dispatchers.IO.limitedParallelism(8)` caps parallelism like this pool, but it queues without a bound and never rejects, so it can't replace the back-pressure."
+ },
+ "worked": {
+  "title": "Size the pool for a new peak",
+  "steps": [
+   {
+    "say": "The sales forecast for a promotion day is 4,000 transfers a second. Under load the journal's write takes 4 ms. You want no transfer to wait more than 100 ms for a thread. Start with Little's law, for both halves of the pool.",
+    "code": "// 1. peak rate, time each transfer holds a thread, longest acceptable queue wait\nPoolPlan plan = PoolPlan.fromLittlesLaw(4_000, Duration.ofMillis(4), Duration.ofMillis(100));\n// 2. 4,000/s x 0.004 s = 16 in flight; 4,000/s x 0.1 s = 400 waiting\nSystem.out.println(plan);   // PoolPlan[threads=16, queueCapacity=400]",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "// 1. peak rate, time each transfer holds a thread, longest acceptable queue wait\nval plan = PoolPlan.fromLittlesLaw(4_000, Duration.ofMillis(4), Duration.ofMillis(100))\n// 2. 4,000/s x 0.004 s = 16 in flight; 4,000/s x 0.1 s = 400 waiting\nprintln(plan)   // PoolPlan[threads=16, queueCapacity=400]"
+   },
+   {
+    "say": "Now check the downstream, as *Sizing a pool: CPU-bound, IO-bound and Little's law* insisted. The storage team says the journal volume handles 12 concurrent writes before each one slows down. With 16 threads, the extra 4 just queue inside the journal and make every write slower. The real ceiling is the journal's: 12 writes / 0.004 s = 3,000 transfers a second, whatever the forecast says.",
+    "code": "",
+    "lang": ""
+   },
+   {
+    "say": "Size from the scarce resource, and let the rejection policy handle the rest. At 3,000 a second, 100 ms of queue is 300 slots. Above that rate the pool rejects and counts, and the API answers 503 with `Retry-After`.",
+    "code": "// 3. the journal takes 12 writes at once: that sets the threads, and the throughput\nPoolPlan capped = new PoolPlan(12, 300);   // 12 / 0.004 s = 3,000 a second; 3,000 x 0.1 s = 300 slots\nLedgerService service = LedgerService.start(ledger, journal, capped);",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "// 3. the journal takes 12 writes at once: that sets the threads, and the throughput\nval capped = PoolPlan(12, 300)   // 12 / 0.004 s = 3,000 a second; 3,000 x 0.1 s = 300 slots\nval service = LedgerService.start(ledger, journal, capped)"
+   },
+   {
+    "say": "If 3,000 isn't enough, more threads won't help, because the journal is the bottleneck. Make each write do more: group commit (one disk flush for a batch of transfers) raises what 12 concurrent writes can carry. Then check shutdown again: 300 queued transfers on 12 threads at 4 ms drain in 100 ms, so a 5 s grace period still fits well inside Kubernetes' 30 s.",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "Put the ledger on a pool, drain it, and publish snapshots",
+  "minutes": 15,
+  "files": [
+   "labs/ledger/src/main/java/workbench/ledger/l02/PoolPlan.java",
+   "labs/ledger/src/main/java/workbench/ledger/l02/LedgerService.java",
+   "labs/ledger/src/main/java/workbench/ledger/l02/Ledger.java",
+   "labs/ledger/src/main/java/workbench/ledger/l02/BalanceSnapshot.java",
+   "labs/ledger/src/main/java/workbench/ledger/l02/Journal.java"
+  ],
+  "run": "./gradlew :ledger:test --tests 'workbench.ledger.l02.*'",
+  "steps": [
+   "Run the tests once. All eight fail. `Ledger.apply` is already lesson 1's solution. Read the field comments at the top of `Ledger`: they name the happens-before edge for every field.",
+   "Write `PoolPlan.fromLittlesLaw`: `Math.ceilDiv(perSecond * d.toNanos(), 1_000_000_000L)` for both numbers, and never less than 1.",
+   "Write `LedgerService.start` (the pool from section 1), `submit` (a `TransferTask` that appends to the journal and then applies, passed to `pool.execute`) and `CountingAbortPolicy.rejectedExecution` (count, then throw).",
+   "Write `LedgerService.shutdown` in the order from section 2: `shutdown`, `awaitTermination`, then `shutdownNow`, cancel and collect each `TransferTask`, wait once more, and report.",
+   "Write `Ledger.snapshot`: lock every account in `inLockOrder`, copy the balances, build the snapshot with `++version`, write `latest`, and release in reverse order in a `finally`.",
+   "Run the tests until all eight pass, then twice more."
+  ],
+  "hints": [
+   "Use `pool.execute(task)`, not `pool.submit(task)`. `submit` would wrap your `TransferTask` in another `FutureTask`, and `shutdownNow()` would hand back that wrapper.",
+   "The shutdown test's journal blocks until it is interrupted. If your `shutdown` hangs, check that you call `shutdownNow()` when the first `awaitTermination` returns `false`.",
+   "If the torn-snapshot test fails, check that you take every lock before you read any balance, and release none until the snapshot is built and published.",
+   "`perSecond * timePerTransfer.toNanos()` multiplies an `int` by a `long`, so Java computes it as a `long`. It doesn't overflow at these sizes."
+  ],
+  "done_when": "All eight tests in `LedgerServiceTest` pass, three runs in a row."
+ },
+ "drill": {
+  "title": "Write the drain-then-hand-back shutdown from memory",
+  "minutes": 5,
+  "prompt": "Close the lab. Write `List<Runnable> stop(ExecutorService pool, Duration grace)`: stop taking new work, let the queue drain for at most `grace`, then interrupt what is still running and return the tasks that never started, after cancelling any of them that are futures. If you are interrupted while waiting, keep the interrupt flag set.",
+  "answer": {
+   "lang": "java",
+   "src": "List<Runnable> stop(ExecutorService pool, Duration grace) {\n    pool.shutdown();                                         // no new work; the queue keeps draining\n    try {\n        if (pool.awaitTermination(grace.toNanos(), TimeUnit.NANOSECONDS)) return List.of();\n    } catch (InterruptedException e) {\n        Thread.currentThread().interrupt();                  // keep the flag, then stop hard\n    }\n    List<Runnable> neverStarted = pool.shutdownNow();        // interrupts the running tasks\n    for (Runnable r : neverStarted) {\n        if (r instanceof Future<?> f) f.cancel(false);       // a caller blocked in get() wakes up\n    }\n    return neverStarted;                                     // log them, or replay them\n}",
+   "alt": {
+    "lang": "kotlin",
+    "src": "fun stop(pool: ExecutorService, grace: Duration): List<Runnable> {\n    pool.shutdown()                                          // no new work; the queue keeps draining\n    try {\n        if (pool.awaitTermination(grace.toNanos(), TimeUnit.NANOSECONDS)) return emptyList()\n    } catch (e: InterruptedException) {\n        Thread.currentThread().interrupt()                   // keep the flag, then stop hard\n    }\n    val neverStarted = pool.shutdownNow()                    // interrupts the running tasks\n    neverStarted.forEach { (it as? Future<*>)?.cancel(false) }   // a caller blocked in get() wakes up\n    return neverStarted                                      // log them, or replay them\n}"
+   }
+  }
+ },
+ "recap": [
+  "Size a pool with Little's law: threads = peak rate x time per task, queue = peak rate x the longest wait you accept. Then check the downstream's own limit, which may be lower.",
+  "Bound the queue, set core equal to max, name the threads, and choose the rejection policy on purpose: for money on the API path, count and throw, never discard.",
+  "Shut down in order: `shutdown`, `awaitTermination` with a deadline, then `shutdownNow`; cancel what it returns and log or replay those transfers. None may vanish.",
+  "Journal first, apply second, and never block inside `apply`. Then an interrupt can only stop a transfer that hasn't changed anything yet.",
+  "A sum of separately locked reads is torn. A consistent snapshot holds every lock in the global order, copies, and publishes an immutable record through a volatile field.",
+  "A pool hung on its own tasks shows every named worker `WAITING (parking)` on a `FutureTask` in `get()`, each holding its `Worker` lock, and no deadlock report."
+ ],
+ "quiz": [
+  {
+   "q": "A teammate builds the ledger pool as `new ThreadPoolExecutor(8, 32, 60, SECONDS, new LinkedBlockingQueue<>())`. The journal slows from 5 ms to 500 ms per write. What happens?",
+   "options": [
+    "The pool grows to 32 threads and keeps up",
+    "The pool stays at 8 threads and the queue grows without limit",
+    "Transfers are rejected once 32 are running",
+    "The pool shrinks back to 8 threads after 60 seconds"
+   ],
+   "answer": 1,
+   "why": "The pool grows past core only when the queue refuses a task, and an unbounded `LinkedBlockingQueue` never refuses. So the 32 is dead code, nothing is ever rejected, and every transfer waits behind a queue that only grows. Option 1 is what most people expect from \"max 32\".",
+   "from": "exec-02"
+  },
+  {
+   "q": "Peak traffic is 1,200 transfers a second, and each holds a ledger thread for 10 ms. How many threads does Little's law ask for?",
+   "options": [
+    "12",
+    "120",
+    "1,200",
+    "10"
+   ],
+   "answer": 0,
+   "why": "In flight = 1,200/s x 0.010 s = 12. 120 would mean 100 ms per transfer, and 1,200 forgets the time entirely. After that, check that the journal can take 12 writes at once; if not, its limit is your ceiling.",
+   "from": "exec-03"
+  },
+  {
+   "q": "The snapshot refresher writes `latest = new BalanceSnapshot(copy, total, v)` to a plain field, not a volatile one, and request threads read `latest` without locks. What can a reader see?",
+   "options": [
+    "Always the newest snapshot, because reference writes are atomic",
+    "A snapshot with some balances missing, because `Map.copyOf` copies lazily",
+    "An exception, because two threads touch the same field",
+    "An old snapshot, possibly for a long time, because no happens-before edge links the write to the read"
+   ],
+   "answer": 3,
+   "why": "Without `volatile` nothing orders the refresher's write before the readers' reads, so the JIT may keep an old reference in a register, and a reader may not see a newer snapshot for a long time. The record's final fields make whatever snapshot a reader does see complete, so the risk is staleness, not a half-built map. `Map.copyOf` copies at once. Make the field `volatile`.",
+   "from": "jmm-04"
+  },
+  {
+   "q": "Four statement tasks run on a 4-thread pool. Each submits a balance lookup to the same pool and calls `get()`. A dump shows all four workers `WAITING (parking)` on a `FutureTask`. Which fix does NOT work?",
+   "options": [
+    "Do the lookup inline in the statement task",
+    "Compose with `supplyAsync(lookup, pool).thenApply(render)` and join only at the caller",
+    "Give the pool a fifth thread",
+    "Run the lookups on a separate pool that never waits for the statement pool"
+   ],
+   "answer": 2,
+   "why": "A fifth thread only moves the hang to the fifth statement running at once, and at month-end there are hundreds. The other three remove the wait: inline needs no second task, composition never holds a thread while it waits, and a separate lookup pool can't be starved by statements.",
+   "from": "exec-09"
+  },
+  {
+   "q": "Which rejection policy fits the ledger pool when the submitting thread is an HTTP request thread with a client waiting?",
+   "options": [
+    "`DiscardPolicy`, because the client can retry",
+    "A policy that counts and throws, so the handler answers 503 with Retry-After",
+    "`DiscardOldestPolicy`, because the newest transfer matters most",
+    "`CallerRunsPolicy`, so the request thread writes the journal itself"
+   ],
+   "answer": 1,
+   "why": "A counted, thrown rejection tells the caller at once: the client retries with the same transfer id, and the counter shows the overload on a dashboard. The discard policies drop a transfer without telling anyone, and its future never completes. `CallerRunsPolicy` suits a batch importer; here it makes one client wait for other clients' journal writes."
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "Little's law for the ledger pool's thread count?",
+   "back": "threads = peak rate x time each transfer holds a thread. 1,600/s x 5 ms = 8."
+  },
+  {
+   "front": "How big should the ledger pool's queue be?",
+   "back": "Peak rate x the longest queue wait you accept: 1,600/s x 50 ms = 80 slots. A bigger queue only hides latency."
+  },
+  {
+   "front": "Why is `DiscardPolicy` never right for the ledger pool?",
+   "back": "It silently drops a transfer, and the future of a dropped `submit` never completes, so a waiting caller hangs."
+  },
+  {
+   "front": "What does `shutdownNow()` return, and what must you do with it?",
+   "back": "The queued tasks that never started. Cancel the futures so waiting callers wake up, then log or replay the transfers."
+  },
+  {
+   "front": "Why is a sum of separately locked balance reads torn?",
+   "back": "A transfer can run between two reads and move money from an unread account to a read one, or back, so the sum mixes two moments."
+  },
+  {
+   "front": "Thread-dump signature of a pool-induced deadlock?",
+   "back": "Every worker of one pool `WAITING (parking)` on a `FutureTask` inside `get()`, tasks still queued, and no \"Found one Java-level deadlock\"."
+  },
+  {
+   "front": "Why hand a `TransferTask` to `execute` and not `submit`?",
+   "back": "`submit` wraps it in another `FutureTask`, so `shutdownNow()` would return the wrapper instead of your task and its transfer."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Bounded queue",
+   "plain": "A queue with a fixed capacity. When it is full, new work is rejected instead of waiting without limit."
+  },
+  {
+   "term": "Rejection policy",
+   "plain": "What a `ThreadPoolExecutor` does with a task it can't take: throw, run it on the caller's thread, or drop it."
+  },
+  {
+   "term": "Write-ahead journal",
+   "plain": "A log the ledger writes to disk before it changes anything in memory, so a crash can't lose an accepted transfer."
+  },
+  {
+   "term": "Graceful shutdown",
+   "plain": "Stopping a service so that accepted work finishes, or is handed back, within a deadline."
+  },
+  {
+   "term": "Torn read",
+   "plain": "A result built from reads taken at different moments, matching no state the data was ever in."
+  },
+  {
+   "term": "Pool-induced deadlock",
+   "plain": "Every thread of a pool waits for tasks queued in that same pool, so none can run. No lock is involved."
+  },
+  {
+   "term": "Thread dump",
+   "plain": "Every thread's name, state and stack at one moment, printed by `jcmd <pid> Thread.print`."
+  }
+ ],
+ "explain_back": {
+  "prompt": "An on-call engineer asks why the ledger pool has only 8 threads and 80 queue slots when the machine has memory for thousands. Explain where both numbers come from, and what happens when traffic goes above the plan.",
+  "answer": "Both come from Little's law. At the planned peak of 1,600 transfers a second, each transfer holds a thread for about 5 ms while the journal writes it, so 1,600 x 0.005 = 8 transfers are in flight. Eight threads keep up, and more would only wait on the same journal. The queue absorbs bursts, but every queued transfer waits: a busy pool finishes 1,600 a second, so 80 queued transfers wait at most 50 ms, the longest wait we accept. A bigger queue would hide seconds of latency until clients time out and retry. Above the plan the queue fills, and the counting policy rejects the extra transfers at once: the API answers 503 with Retry-After, the client retries with the same transfer id, and the rejection counter shows the overload. If that happens often, we measure the journal again and resize, or make each journal write cheaper."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "Locking every account costs time in proportion to the number of accounts, and it stops every writer while it copies. At 50 accounts that is microseconds. At five million accounts it is a pause your clients feel. Three designs avoid it.\n\nSnapshot per shard. Split the accounts into shards, route every transfer to one shard, and snapshot each shard on its own. The grand total is the sum of the shard totals, which is only consistent while no transfer crosses a shard.\n\nCopy-on-write state. Keep all balances in an immutable map behind an `AtomicReference`, and make every transfer a compare-and-set of a new map. Readers get a consistent snapshot for free with `get()`. Writers pay for the copy and retry when another writer won, so this fits read-heavy books with modest write rates. It is the snapshot idea from *Don't share: immutability, confinement, ThreadLocal*, used for writes too:\n\n```java\nprivate final AtomicReference<Map<String, Long>> balances =\n        new AtomicReference<>(Map.of(\"alice\", 100L, \"bob\", 0L));\n\nboolean transfer(String from, String to, long cents) {\n    while (true) {\n        Map<String, Long> now = balances.get();                   // a consistent snapshot, for free\n        if (now.get(from) < cents) return false;\n        Map<String, Long> next = new HashMap<>(now);              // copy, change two entries\n        next.merge(from, -cents, Long::sum);\n        next.merge(to, cents, Long::sum);\n        if (balances.compareAndSet(now, Map.copyOf(next))) return true;   // retry if another writer won\n    }\n}\n```\n\n```kotlin\nprivate val balances = AtomicReference(mapOf(\"alice\" to 100L, \"bob\" to 0L))\n\nfun transfer(from: String, to: String, cents: Long): Boolean {\n    while (true) {\n        val now = balances.get()                                  // a consistent snapshot, for free\n        if (now.getValue(from) < cents) return false\n        val next = now + mapOf(from to now.getValue(from) - cents, to to now.getValue(to) + cents)\n        if (balances.compareAndSet(now, next)) return true        // retry if another writer won\n    }\n}\n```\n\nEvent sourcing. Treat the journal as the truth and a snapshot as the result of applying it up to a position. You can build snapshots on a replica that reads the journal, and the live ledger never stops for them.\n\nFor dumps, `jcmd <pid> Thread.dump_to_file -format=json <file>` writes the same information as JSON, which tools can group and count. Lesson 3 of this track uses it on 10,000 virtual threads."
+ },
+ "sources": [
+  {
+   "title": "ThreadPoolExecutor (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html"
+  },
+  {
+   "title": "ExecutorService (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ExecutorService.html"
+  },
+  {
+   "title": "Java Language Specification, chapter 17: Threads and Locks",
+   "url": "https://docs.oracle.com/javase/specs/jls/se25/html/jls-17.html"
+  },
+  {
+   "title": "HotSpot diagnostic commands (diagnosticCommand.hpp, jdk-27-ga)",
+   "url": "https://github.com/openjdk/jdk/blob/jdk-27-ga/src/hotspot/share/services/diagnosticCommand.hpp"
+  }
+ ]
+}

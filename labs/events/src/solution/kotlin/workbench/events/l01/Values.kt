@@ -13,7 +13,6 @@ value class PaymentId(val value: String) {
         require(PATTERN.matches(value)) { "invalid payment id: '$value'" }
     }
 
-    // keep the explicit ': String' (an inferred return type here can crash kotlinc 2.4.21)
     override fun toString(): String = value
 
     companion object {
@@ -37,6 +36,7 @@ value class Money(val minor: Long) {
     // a result below zero fails in the constructor above
     operator fun minus(other: Money): Money = Money(Math.subtractExact(minor, other.minor))
 
+    // keep the explicit ': String': without it, this Java call's platform type crashes kotlinc 2.4.21 on "$money"
     override fun toString(): String = BigDecimal.valueOf(minor, 2).toPlainString()
 
     companion object {

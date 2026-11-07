@@ -5,9 +5,12 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.MultiThreadIoEventLoopGroup;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.util.concurrent.GlobalEventExecutor;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -17,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 public final class QuoteServer implements AutoCloseable {
     private final EventLoopGroup group;
     private final Channel serverChannel;
+    private final ChannelGroup connections = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);   // open ones only
 
     public QuoteServer(int loops, QuoteSource source) throws InterruptedException {
         group = new MultiThreadIoEventLoopGroup(loops, NioIoHandler.newFactory());
@@ -26,6 +30,7 @@ public final class QuoteServer implements AutoCloseable {
                 .childHandler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) {
+                        connections.add(ch);                            // removed again when it closes
                         ch.pipeline().addLast(QuotePipeline.handlers(source));
                     }
                 })
@@ -48,7 +53,9 @@ public final class QuoteServer implements AutoCloseable {
     @Override
     public void close() {
         stopAccepting();                                                // 1. no new connections
-        group.shutdownGracefully(0, 2, TimeUnit.SECONDS)                // 2. closes every open channel,
-                .syncUninterruptibly();                                 //    then stops the loop threads
+        connections.close().syncUninterruptibly();                      // 2. close each one on its own loop,
+                                                                        //    after the tasks already queued there
+        group.shutdownGracefully(0, 2, TimeUnit.SECONDS)                // 3. then stop the loop threads
+                .syncUninterruptibly();
     }
 }
