@@ -217,7 +217,9 @@ mediator.on("stock.missing", payments)         // payments refunds; inventory ne
 
 Mediator and Observer look alike. An observer is one subject telling many listeners about itself. A mediator sits between many parties and holds the rules about who reacts to what. In coroutine code, a `MutableSharedFlow<CheckoutEvent>` that all colleagues share is a natural mediator bus. Across services, the mediator becomes a message broker or a saga orchestrator: a Temporal workflow that calls the inventory, payment and shipping activities in order is a mediator with durable state.
 
-The risk is the god object. A mediator should route and sequence. When it starts computing fees or validating addresses, move that logic back to the colleague that owns it."""
+The risk is the god object. A mediator should route and sequence. When it starts computing fees or validating addresses, move that logic back to the colleague that owns it.
+
+Check yourself. A new rule arrives: when stock is missing, shipping must cancel the parcel it has booked. With the mediator above, what do you change? (One registration, `mediator.on("stock.missing", shipping)`, plus shipping's own handling of that event. Inventory doesn't change, and it still knows nothing about shipping.)"""
 
 L = {
  "id": "pat-10",
@@ -517,7 +519,7 @@ fun count(e: Expr): Int = when (e) {                           // 5. a new opera
  },
  "deeper": {
   "minutes": 10,
-  "body": """Kotlin's `sequence {}` is built on the same machinery as coroutines, but restricted. Its block runs on a `SequenceScope`, which allows only `yield` and `yieldAll` to suspend, so you can't call `delay` or another suspend function inside it. For asynchronous paging, where each page fetch is itself a suspending HTTP call, use `flow {}` and `emit` instead: a `Flow` is the suspending cousin of a sequence, cold in the same way, and covered in the coroutines track.
+  "body": """Kotlin's `sequence {}` is built on the same machinery as coroutines, but restricted. Its block runs on a `SequenceScope`, which allows only `yield` and `yieldAll` to suspend, so you can't call `delay` or another suspend function inside it. For asynchronous paging, where each page fetch is itself a suspending HTTP call, use `flow {}` and `emit` instead: a `Flow` is the suspending cousin of a sequence, cold in the same way, as you saw in *Flow basics: cold streams and operators* in the coroutines track.
 
 Java's `Iterator` has an optional `remove()`, and its Javadoc says iterators \"allow the caller to remove elements from the underlying collection during the iteration with well-defined semantics\". That's why `iterator.remove()` is safe inside a loop where `list.remove(x)` throws `ConcurrentModificationException`. For paging iterators, leave `remove()` unsupported, which is the default.
 

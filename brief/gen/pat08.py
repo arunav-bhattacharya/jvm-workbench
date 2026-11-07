@@ -179,7 +179,9 @@ Temporal is built on the same idea. When a workflow calls a method on an activit
 
 Both deliver at least once. A stored command can run twice: the relay crashed after publishing but before marking the row sent, or the activity finished but its result was lost. So every command that leaves the process must be idempotent. Charge with an idempotency key, and make "send receipt 7781" a no-op the second time.
 
-Undo changes meaning too. In memory, undo puts the old state back. Across systems you can't un-send money. A captured payment is reversed by a new command, a `Refund`, with its own record, its own fees and its own failure modes. Sagas, including Temporal's, are lists of such compensating commands, run in reverse when a later step fails. Model a refund as a compensation, never as `undo` of a charge."""
+Undo changes meaning too. In memory, undo puts the old state back. Across systems you can't un-send money. A captured payment is reversed by a new command, a `Refund`, with its own record, its own fees and its own failure modes. Sagas, including Temporal's, are lists of such compensating commands, run in reverse when a later step fails. Model a refund as a compensation, never as `undo` of a charge.
+
+Check yourself. The outbox relay publishes "send receipt for payment 7781" to Kafka, then crashes before it marks the row sent. It restarts. How many receipts does the customer get if the consumer just sends one per message, and what fixes it? (Two, because the relay publishes the row again. The consumer must remember which payment ids it has already sent a receipt for, and skip a repeat.)"""
 
 L = {
  "id": "pat-08",

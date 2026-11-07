@@ -159,11 +159,13 @@ S4 = """Composite and Flyweight work well together. A platform with 40,000 merch
 
 The GoF book names the split that makes this work. **Intrinsic state** lives inside the shared object and is the same for every user: the rates and caps in the plan. **Extrinsic state** belongs to one use, so the caller passes it in: the payment amount. That's why `fee` takes the amount as an argument. A plan that kept "the current amount" in a field could not be shared, by two merchants or by two threads.
 
-Sharing across threads costs nothing here, because the trees never change. Records have final fields, `List.copyOf` returns an unmodifiable list, and an object that never changes can be read by 200 request threads at once with no lock, once it has been published safely (in a `static final` field, or set before the threads start). *Don't share: immutability, confinement, ThreadLocal* in the concurrency track explains why that holds.
+Sharing across threads costs nothing here, because the trees never change. Records have final fields, `List.copyOf` returns an unmodifiable list, and an object that never changes can be read by 200 request threads at once with no lock, once it has been published safely (in a `static final` field, or set before the threads start). *Don't share: immutability, confinement, ThreadLocal* in the concurrency track showed why that holds.
 
 The same thinking fits the small values on every payment: currencies, merchant categories, card networks, response codes. If the set is closed and known when you compile, an `enum` (Java) or `enum class` (Kotlin) is the flyweight, with no pool to write. Reach for a pooled factory only when the set is open but bounded, such as category codes loaded from a table.
 
-In the lab you build both halves: a five-node pricing composite with two operations, and a merchant-category flyweight that stays correct when eight threads ask for the same code at once."""
+In the lab you build both halves: a five-node pricing composite with two operations, and a merchant-category flyweight that stays correct when eight threads ask for the same code at once.
+
+Check yourself. Merchants want to see "fees charged this month", and a teammate adds a `var monthTotal` to the shared root of the standard plan. What goes wrong, and where should the total live? (Every merchant on the standard plan points at that one root, so they all add to one total, and two request threads adding at once can lose an update. The total is extrinsic state: keep it per merchant, outside the tree.)"""
 
 L = {
  "id": "pat-06",

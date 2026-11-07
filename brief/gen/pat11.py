@@ -194,7 +194,9 @@ state.updateAndGet { cur ->
 
 Two choices make it testable and correct. Time comes from an injected `Clock`, so a test moves time forward 31 seconds at once instead of sleeping. And the move from open to half-open is a `compareAndSet`: when the cool-down ends and many threads arrive together, exactly one wins the right to probe, and the rest are still rejected.
 
-In production, use a library. Resilience4j 2.4.0 adds sliding windows, failure-rate and slow-call thresholds, metrics and events. Learn its defaults before you trust a test: `minimumNumberOfCalls` is 100, so a breaker that fails five calls in a unit test never opens, and `waitDurationInOpenState` is 60 seconds. And decide what counts as a failure. A declined card means the issuer is working fine, so it must not trip the breaker."""
+In production, use a library. Resilience4j 2.4.0 adds sliding windows, failure-rate and slow-call thresholds, metrics and events. Learn its defaults before you trust a test: `minimumNumberOfCalls` is 100, so a breaker that fails five calls in a unit test never opens, and `waitDurationInOpenState` is 60 seconds. And decide what counts as a failure. A declined card means the issuer is working fine, so it must not trip the breaker.
+
+Check yourself. The breaker opened at 10:00:00 with a 30-second cool-down. A test moves the fake clock to 10:00:31, and eight threads call at the same moment. How many calls reach the issuer, and what picks them? (One. Each thread tries the `compareAndSet` from `Open` to `HalfOpen`, and exactly one succeeds and runs the probe. The other seven find the state already changed and are rejected.)"""
 
 L = {
  "id": "pat-11",

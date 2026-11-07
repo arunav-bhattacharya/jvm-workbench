@@ -159,7 +159,7 @@ class Vt02Carriers(VoiceScene):
         # VT 4 blocks on a lock, frees carrier 2; VT 1 mounts there (VT 5 and VT 6 are ahead of it)
         queue.remove(by["VT 5"])
         f5 = frames(["send()", "notify()", "handle()"], BLUE_M).move_to(st_spot(1))
-        seq(self, "It waits its turn. VT 4 then blocks on a lock and unmounts, and carrier 2 mounts VT 5.",
+        seq(self, "It waits its turn. VT 4 then waits for a ReentrantLock and unmounts, and carrier 2 mounts VT 5.",
             0.8, (lambda: unmount("VT 4", 2), 1.0), 0.3,
             (lambda: [by["VT 5"].animate.move_to(vt_spot(1)), FadeIn(f5, shift=RIGHT * 0.2)] + reflow(), 1.0))
         queue.remove(by["VT 6"])

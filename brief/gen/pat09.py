@@ -183,9 +183,11 @@ Forgetting `next`. A handler that returns without calling `next` and without a r
 
 Calling `next` twice. A retry wrapped around `next.proceed(r)` at the front of the chain repeats everything after it: the fraud check, the idempotency check and the charge. Put retries as close as possible to the call they retry, around the PSP client, not around the pipeline.
 
-Exceptions. When a later handler throws, the code after `next.proceed(r)` in earlier handlers never runs. Timers, MDC cleanup and metrics belong in `finally`.
+Exceptions. When a later handler throws, the code after `next.proceed(r)` in earlier handlers never runs. Timers, MDC cleanup (removing the request's entries from the logger's per-thread context map) and metrics belong in `finally`.
 
-The same shape runs your Quarkus services. A CDI interceptor's `@AroundInvoke` method calls `InvocationContext.proceed()` to continue, and JAX-RS filters and CDI interceptors are ordered by `@Priority`. When a filter seems not to run, check its priority before you read its code."""
+The same shape runs your Quarkus services. A CDI interceptor's `@AroundInvoke` method calls `InvocationContext.proceed()` to continue, and JAX-RS filters and CDI interceptors are ordered by `@Priority`. When a filter seems not to run, check its priority before you read its code.
+
+Check yourself. In the pipeline from the last section, `fraud` throws for one request. Does that request get a line from `logging`, which is first in the list? (No. `logging` writes its line after `next.proceed(r)` returns, and that call never returns. Wrap `next.proceed(r)` in `try`/`finally` and log in the `finally`, and the request shows up, with the exception still on its way out.)"""
 
 L = {
  "id": "pat-09",

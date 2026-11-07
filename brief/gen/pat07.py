@@ -192,7 +192,9 @@ This is **execute around**: the function runs the setup and the teardown, and ca
 
 Kotlin makes the function version cheaper than Java's. The compiler copies the body of an `inline` function, lambda included, into each call site, so no lambda object is created, and a `return` inside the block returns from the enclosing function. Java's `Supplier` has a different limit: it can't throw checked exceptions, so wrapping an SDK call that throws `IOException` needs your own functional interface with a `throws` clause. Kotlin has no checked exceptions, so `timed { sdk.call() }` just works.
 
-Prefer the function. It composes (`timed("psp.capture") { retrying(3) { psp.capture(id) } }`), it needs no class per call site, and it can't hit the constructor trap, because there is no constructor. Keep Template Method for skeletons with many hooks, such as `AbstractList`, and make the template method `final`."""
+Prefer the function. It composes (`timed("psp.capture") { retrying(3) { psp.capture(id) } }`), it needs no class per call site, and it can't hit the constructor trap, because there is no constructor. Keep Template Method for skeletons with many hooks, such as `AbstractList`, and make the template method `final`.
+
+Check yourself. `psp.capture(authId)` throws inside `timed`. Does the call still show up in the metrics, and does the caller see the exception? (Yes to both. The `finally` block records the time, and then the exception carries on to the caller as if `timed` weren't there.)"""
 
 L = {
  "id": "pat-07",
