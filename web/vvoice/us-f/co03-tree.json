@@ -1,0 +1,250 @@
+{
+ "slug": "co03-tree",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.034,
+   "secs": 5.4,
+   "tries": 1,
+   "text": "A payment details endpoint makes three calls at once: account, ledger and risk."
+  },
+  {
+   "cue": 8.32,
+   "start": 8.32,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.31,
+   "tries": 1,
+   "text": "In Kotlin, each one is a child coroutine of one coroutineScope."
+  },
+  {
+   "cue": 13.03,
+   "start": 13.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.03,
+   "tries": 1,
+   "text": "Every launch and async makes a child job of the scope."
+  },
+  {
+   "cue": 16.32,
+   "start": 16.32,
+   "late": 0.0,
+   "tempo": 1.043,
+   "secs": 3.26,
+   "tries": 1,
+   "text": "So the work forms a tree, with the request at the top."
+  },
+  {
+   "cue": 19.8,
+   "start": 19.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.72,
+   "tries": 1,
+   "text": "At one hundred milliseconds, the ledger call throws an IOException."
+  },
+  {
+   "cue": 24.53,
+   "start": 24.53,
+   "late": 0.0,
+   "tempo": 1.11,
+   "secs": 0.81,
+   "tries": 1,
+   "text": "Failure goes up."
+  },
+  {
+   "cue": 25.57,
+   "start": 25.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.35,
+   "tries": 1,
+   "text": "The ledger child reports the exception to its parent, the scope."
+  },
+  {
+   "cue": 29.93,
+   "start": 29.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.42,
+   "tries": 1,
+   "text": "The scope's job is cancelled with that exception, and a cancelled job cancels all of its children."
+  },
+  {
+   "cue": 35.94,
+   "start": 35.94,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.27,
+   "tries": 1,
+   "text": "Account and risk are cancelled, and their finally blocks run."
+  },
+  {
+   "cue": 39.9,
+   "start": 39.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.48,
+   "tries": 1,
+   "text": "The scope waits until those children have really stopped."
+  },
+  {
+   "cue": 43.59,
+   "start": 43.59,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.45,
+   "tries": 1,
+   "text": "Then coroutineScope rethrows the IOException to its caller."
+  },
+  {
+   "cue": 47.63,
+   "start": 47.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.69,
+   "tries": 1,
+   "text": "So one failure surfaces as one exception, where the work started."
+  },
+  {
+   "cue": 51.81,
+   "start": 51.81,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.05,
+   "tries": 1,
+   "text": "It took about one hundred milliseconds, not the time of the slowest call, and nothing is left running."
+  },
+  {
+   "cue": 58.07,
+   "start": 58.07,
+   "late": 0.0,
+   "tempo": 1.06,
+   "secs": 1.05,
+   "tries": 1,
+   "text": "That fits a request."
+  },
+  {
+   "cue": 59.33,
+   "start": 59.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.39,
+   "tries": 1,
+   "text": "Without the ledger there is no response, so the other two calls would be wasted work."
+  },
+  {
+   "cue": 65.73,
+   "start": 65.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.35,
+   "tries": 1,
+   "text": "Now the other direction."
+  },
+  {
+   "cue": 67.27,
+   "start": 67.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.36,
+   "tries": 1,
+   "text": "The client hangs up, and the request is cancelled."
+  },
+  {
+   "cue": 70.67,
+   "start": 70.67,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.34,
+   "tries": 1,
+   "text": "Cancellation goes down."
+  },
+  {
+   "cue": 72.2,
+   "start": 72.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.7,
+   "tries": 1,
+   "text": "The scope is cancelled, and then every child below it."
+  },
+  {
+   "cue": 76.83,
+   "start": 76.83,
+   "late": 0.0,
+   "tempo": 1.015,
+   "secs": 0.96,
+   "tries": 3,
+   "text": "It never goes up."
+  },
+  {
+   "cue": 78.01,
+   "start": 78.01,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.22,
+   "tries": 1,
+   "text": "Cancel only the risk child, and its parent is not told."
+  },
+  {
+   "cue": 81.82,
+   "start": 81.82,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.9,
+   "tries": 1,
+   "text": "A child that ends with CancellationException counts as cancelled, not failed, and the scope carries on."
+  },
+  {
+   "cue": 89.17,
+   "start": 89.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.15,
+   "tries": 1,
+   "text": "One catch: cancellation reaches a coroutine only at a suspension point."
+  },
+  {
+   "cue": 94.15,
+   "start": 94.15,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.07,
+   "tries": 1,
+   "text": "A child stuck in a C P U loop or a blocking call finishes that first."
+  },
+  {
+   "cue": 99.67,
+   "start": 99.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.02,
+   "tries": 1,
+   "text": "So a failure goes up to the parent, and from there down to the siblings."
+  },
+  {
+   "cue": 104.18,
+   "start": 104.18,
+   "late": 0.0,
+   "tempo": 1.04,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "Cancellation only goes down."
+  },
+  {
+   "cue": 106.13,
+   "start": 106.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.59,
+   "tries": 1,
+   "text": "When siblings should survive each other's failures, you ask for a supervisor instead."
+  }
+ ]
+}

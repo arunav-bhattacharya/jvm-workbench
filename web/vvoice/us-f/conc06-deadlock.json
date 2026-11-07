@@ -1,0 +1,448 @@
+{
+ "slug": "conc06-deadlock",
+ "voice": "us-f",
+ "max_late": 0.25,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.32,
+   "tries": 1,
+   "text": "Here is a money transfer."
+  },
+  {
+   "cue": 4.24,
+   "start": 4.24,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.96,
+   "tries": 1,
+   "text": "It locks the account it takes money from, then the account it pays into."
+  },
+  {
+   "cue": 8.67,
+   "start": 8.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.19,
+   "tries": 3,
+   "text": "Then it moves the money."
+  },
+  {
+   "cue": 10.14,
+   "start": 10.14,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.99,
+   "tries": 1,
+   "text": "Each call is correct on its own."
+  },
+  {
+   "cue": 12.33,
+   "start": 12.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.28,
+   "tries": 1,
+   "text": "Now two threads run it at the same time."
+  },
+  {
+   "cue": 15.18,
+   "start": 15.18,
+   "late": 0.0,
+   "tempo": 1.068,
+   "secs": 2.13,
+   "tries": 1,
+   "text": "Thread one moves money from a to b."
+  },
+  {
+   "cue": 17.52,
+   "start": 17.52,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.43,
+   "tries": 1,
+   "text": "Thread two moves money from b to a."
+  },
+  {
+   "cue": 20.67,
+   "start": 20.67,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.24,
+   "tries": 1,
+   "text": "Thread one will lock a, then b."
+  },
+  {
+   "cue": 22.81,
+   "start": 23.06,
+   "late": 0.25,
+   "tempo": 1.15,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "Thread two will lock b, then a."
+  },
+  {
+   "cue": 25.17,
+   "start": 25.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.66,
+   "tries": 1,
+   "text": "Thread one takes lock a."
+  },
+  {
+   "cue": 27.13,
+   "start": 27.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.2,
+   "tries": 1,
+   "text": "Before it asks for b, the scheduler switches to thread two."
+  },
+  {
+   "cue": 31.18,
+   "start": 31.18,
+   "late": 0.0,
+   "tempo": 1.084,
+   "secs": 1.58,
+   "tries": 1,
+   "text": "Thread two takes lock b."
+  },
+  {
+   "cue": 32.97,
+   "start": 32.97,
+   "late": 0.0,
+   "tempo": 1.059,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "Now thread one asks for lock b."
+  },
+  {
+   "cue": 35.14,
+   "start": 35.14,
+   "late": 0.0,
+   "tempo": 1.03,
+   "secs": 2.77,
+   "tries": 1,
+   "text": "Thread two holds it, so thread one waits."
+  },
+  {
+   "cue": 38.13,
+   "start": 38.13,
+   "late": 0.0,
+   "tempo": 1.057,
+   "secs": 1.75,
+   "tries": 1,
+   "text": "Thread two asks for lock a."
+  },
+  {
+   "cue": 40.1,
+   "start": 40.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.66,
+   "tries": 1,
+   "text": "Thread one holds that one."
+  },
+  {
+   "cue": 41.99,
+   "start": 41.99,
+   "late": 0.0,
+   "tempo": 1.013,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "So thread two waits too."
+  },
+  {
+   "cue": 43.93,
+   "start": 43.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.11,
+   "tries": 1,
+   "text": "Follow the arrows."
+  },
+  {
+   "cue": 45.37,
+   "start": 45.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.37,
+   "tries": 1,
+   "text": "Thread one waits for b."
+  },
+  {
+   "cue": 47.04,
+   "start": 47.04,
+   "late": 0.0,
+   "tempo": 1.053,
+   "secs": 2.5,
+   "tries": 1,
+   "text": "Thread two holds b, and waits for a."
+  },
+  {
+   "cue": 49.74,
+   "start": 49.74,
+   "late": 0.0,
+   "tempo": 1.077,
+   "secs": 1.13,
+   "tries": 1,
+   "text": "Thread one holds a."
+  },
+  {
+   "cue": 51.09,
+   "start": 51.09,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.42,
+   "tries": 1,
+   "text": "The arrows close a circle."
+  },
+  {
+   "cue": 53.4,
+   "start": 53.4,
+   "late": 0.0,
+   "tempo": 1.091,
+   "secs": 4.12,
+   "tries": 1,
+   "text": "Each thread lets go of its first lock only after it gets its second."
+  },
+  {
+   "cue": 57.73,
+   "start": 57.73,
+   "late": 0.0,
+   "tempo": 1.109,
+   "secs": 1.69,
+   "tries": 1,
+   "text": "So neither one will ever move."
+  },
+  {
+   "cue": 59.63,
+   "start": 59.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.1,
+   "tries": 1,
+   "text": "That is a deadlock."
+  },
+  {
+   "cue": 61.07,
+   "start": 61.07,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.03,
+   "tries": 1,
+   "text": "Nothing throws. Nothing logs."
+  },
+  {
+   "cue": 63.11,
+   "start": 63.24,
+   "late": 0.13,
+   "tempo": 1.0,
+   "secs": 6.25,
+   "tries": 1,
+   "text": "Both threads sit in BLOCKED, C P U use drops to zero, and every request for these accounts queues up behind them."
+  },
+  {
+   "cue": 71.47,
+   "start": 71.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.96,
+   "tries": 1,
+   "text": "It needs bad timing, so a test that runs one transfer at a time never sees it."
+  },
+  {
+   "cue": 76.58,
+   "start": 76.58,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.3,
+   "tries": 1,
+   "text": "Under load, it is only a matter of when."
+  },
+  {
+   "cue": 79.43,
+   "start": 79.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.91,
+   "tries": 1,
+   "text": "This loop is called a wait-for graph."
+  },
+  {
+   "cue": 81.96,
+   "start": 81.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.54,
+   "tries": 1,
+   "text": "Deadlock detectors, including the J V M's own, look for exactly this loop."
+  },
+  {
+   "cue": 87.9,
+   "start": 87.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "The fix is one rule that every thread follows."
+  },
+  {
+   "cue": 90.97,
+   "start": 90.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.35,
+   "tries": 1,
+   "text": "Give each account a unique key, and always lock the lower key first."
+  },
+  {
+   "cue": 95.51,
+   "start": 95.51,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.4,
+   "tries": 1,
+   "text": "If a has the lower id, both transfers now lock a first."
+  },
+  {
+   "cue": 99.4,
+   "start": 99.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.22,
+   "tries": 1,
+   "text": "Thread one takes a."
+  },
+  {
+   "cue": 101.17,
+   "start": 101.17,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "Thread two asks for a and waits."
+  },
+  {
+   "cue": 103.2,
+   "start": 103.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.86,
+   "tries": 1,
+   "text": "It holds nothing while it waits."
+  },
+  {
+   "cue": 105.57,
+   "start": 105.57,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.32,
+   "tries": 1,
+   "text": "Thread one takes b."
+  },
+  {
+   "cue": 106.8,
+   "start": 107.04,
+   "late": 0.24,
+   "tempo": 1.0,
+   "secs": 2.68,
+   "tries": 1,
+   "text": "It moves the money, and lets go of both locks."
+  },
+  {
+   "cue": 110.33,
+   "start": 110.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.32,
+   "tries": 1,
+   "text": "Then thread two gets a, then b, and finishes too."
+  },
+  {
+   "cue": 113.83,
+   "start": 113.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "Waiting while you hold nothing is plain contention."
+  },
+  {
+   "cue": 117.38,
+   "start": 117.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.38,
+   "tries": 1,
+   "text": "No cycle can form."
+  },
+  {
+   "cue": 119.53,
+   "start": 119.53,
+   "late": 0.0,
+   "tempo": 1.102,
+   "secs": 3.24,
+   "tries": 1,
+   "text": "In code, pick the first and the second lock by id."
+  },
+  {
+   "cue": 122.98,
+   "start": 122.98,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.82,
+   "tries": 1,
+   "text": "Then lock them in that order, in Java or in Kotlin."
+  },
+  {
+   "cue": 126.73,
+   "start": 126.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "The key must be unique and must never change."
+  },
+  {
+   "cue": 129.69,
+   "start": 129.69,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.15,
+   "tries": 1,
+   "text": "An account id works."
+  },
+  {
+   "cue": 131.01,
+   "start": 131.01,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.24,
+   "tries": 1,
+   "text": "hashCode does not, because two different objects can share one."
+  },
+  {
+   "cue": 135.4,
+   "start": 135.4,
+   "late": 0.0,
+   "tempo": 1.022,
+   "secs": 1.47,
+   "tries": 1,
+   "text": "And the rule must be global."
+  },
+  {
+   "cue": 137.1,
+   "start": 137.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.52,
+   "tries": 1,
+   "text": "Put the ordering in one helper, and make every caller use it."
+  }
+ ]
+}

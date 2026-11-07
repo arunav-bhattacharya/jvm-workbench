@@ -1,0 +1,277 @@
+{
+ "slug": "cls04-proxy",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.92,
+   "tries": 1,
+   "text": "Say you want to log every call your service makes to its FX quotes client."
+  },
+  {
+   "cue": 7.62,
+   "start": 7.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.6,
+   "tries": 1,
+   "text": "A wrapper written by hand repeats the same log-and-forward code in every method."
+  },
+  {
+   "cue": 12.93,
+   "start": 12.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.03,
+   "tries": 1,
+   "text": "Forty methods on six interfaces is tedious, and easy to get wrong."
+  },
+  {
+   "cue": 17.5,
+   "start": 17.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.88,
+   "tries": 1,
+   "text": "The J D K can write that wrapper for you, while the program runs."
+  },
+  {
+   "cue": 21.7,
+   "start": 21.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.42,
+   "tries": 1,
+   "text": "You write one handler."
+  },
+  {
+   "cue": 24.2,
+   "start": 24.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.01,
+   "tries": 1,
+   "text": "Here is one call."
+  },
+  {
+   "cue": 25.47,
+   "start": 25.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.31,
+   "tries": 1,
+   "text": "Your code calls quoteMicros on what it thinks is an FxQuotes."
+  },
+  {
+   "cue": 30.04,
+   "start": 30.04,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.96,
+   "tries": 1,
+   "text": "The object is really a proxy, an instance of a class the J D K generated."
+  },
+  {
+   "cue": 35.57,
+   "start": 35.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.56,
+   "tries": 1,
+   "text": "The generated method takes the Method object for quoteMicros, which it looked up once."
+  },
+  {
+   "cue": 40.96,
+   "start": 40.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.14,
+   "tries": 1,
+   "text": "It copies the arguments into a new Object array, boxing any primitives."
+  },
+  {
+   "cue": 45.41,
+   "start": 45.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.75,
+   "tries": 1,
+   "text": "Then it calls invoke on your handler."
+  },
+  {
+   "cue": 47.9,
+   "start": 47.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.66,
+   "tries": 1,
+   "text": "An InvocationHandler has one method, invoke."
+  },
+  {
+   "cue": 50.82,
+   "start": 50.82,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.84,
+   "tries": 1,
+   "text": "It gets the proxy, the Method and the arguments, for every call on every method of the interface."
+  },
+  {
+   "cue": 57.87,
+   "start": 57.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.8,
+   "tries": 1,
+   "text": "Your handler decides what happens."
+  },
+  {
+   "cue": 60.08,
+   "start": 60.08,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.13,
+   "tries": 1,
+   "text": "This one logs the call, then calls the same method on the real target."
+  },
+  {
+   "cue": 64.83,
+   "start": 64.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.99,
+   "tries": 1,
+   "text": "The answer comes back as an Object."
+  },
+  {
+   "cue": 67.1,
+   "start": 67.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.14,
+   "tries": 1,
+   "text": "The proxy casts it to Long and unboxes it, and the caller gets its plain long."
+  },
+  {
+   "cue": 72.37,
+   "start": 72.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.38,
+   "tries": 2,
+   "text": "A handler doesn't have to call a target at all."
+  },
+  {
+   "cue": 76.25,
+   "start": 76.25,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "In this section's demo there is no target."
+  },
+  {
+   "cue": 79.72,
+   "start": 79.72,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.03,
+   "tries": 1,
+   "text": "The handler returns one thousand eighty-four,two hundred fifty by itself."
+  },
+  {
+   "cue": 84.03,
+   "start": 84.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.32,
+   "tries": 1,
+   "text": "The proxy class is real, and you can ask it about itself."
+  },
+  {
+   "cue": 87.77,
+   "start": 87.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.65,
+   "tries": 1,
+   "text": "It is final, it extends Proxy, and it implements exactly the interfaces you passed, in that order."
+  },
+  {
+   "cue": 94.4,
+   "start": 94.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.53,
+   "tries": 1,
+   "text": "It keeps one static Method field per method, looked up once."
+  },
+  {
+   "cue": 98.22,
+   "start": 98.22,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.46,
+   "tries": 1,
+   "text": "The name and the module are details that may change."
+  },
+  {
+   "cue": 102.43,
+   "start": 102.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.73,
+   "tries": 1,
+   "text": "To get one, call Proxy.newProxyInstance with a class loader, the list of interfaces, and the handler."
+  },
+  {
+   "cue": 109.68,
+   "start": 109.68,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.29,
+   "tries": 1,
+   "text": "From Kotlin it is the same call, because a Kotlin interface is an ordinary J V M interface."
+  },
+  {
+   "cue": 116.27,
+   "start": 116.27,
+   "late": 0.0,
+   "tempo": 1.004,
+   "secs": 0.94,
+   "tries": 1,
+   "text": "Here is a check."
+  },
+  {
+   "cue": 117.36,
+   "start": 117.36,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "Your handler returns null for quoteMicros."
+  },
+  {
+   "cue": 120.22,
+   "start": 120.22,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.3,
+   "tries": 1,
+   "text": "What does the caller get?"
+  },
+  {
+   "cue": 122.7,
+   "start": 122.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.13,
+   "tries": 1,
+   "text": "A NullPointerException, thrown at the step where the proxy unboxes the answer to a long."
+  }
+ ]
+}

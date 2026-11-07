@@ -1,0 +1,223 @@
+{
+ "slug": "dop03-exhaustive",
+ "voice": "us-f",
+ "max_late": 0.01,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.25,
+   "tries": 1,
+   "text": "Here is a sealed interface for payment methods."
+  },
+  {
+   "cue": 5.5,
+   "start": 5.5,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.6,
+   "tries": 1,
+   "text": "Sealed means it lists every subtype it allows."
+  },
+  {
+   "cue": 8.24,
+   "start": 8.25,
+   "late": 0.01,
+   "tempo": 1.041,
+   "secs": 2.13,
+   "tries": 1,
+   "text": "Right now that is Card and Transfer."
+  },
+  {
+   "cue": 10.6,
+   "start": 10.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.16,
+   "tries": 1,
+   "text": "Two pieces of code turn a method into a receipt label."
+  },
+  {
+   "cue": 14.47,
+   "start": 14.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.75,
+   "tries": 1,
+   "text": "Both compile, and both give the same answers today."
+  },
+  {
+   "cue": 18.1,
+   "start": 18.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.24,
+   "tries": 1,
+   "text": "Now a new payment method ships: Wallet."
+  },
+  {
+   "cue": 20.64,
+   "start": 20.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.77,
+   "tries": 1,
+   "text": "You add it to the sealed interface."
+  },
+  {
+   "cue": 23.13,
+   "start": 23.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.09,
+   "tries": 1,
+   "text": "Then you recompile."
+  },
+  {
+   "cue": 24.38,
+   "start": 24.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.12,
+   "tries": 1,
+   "text": "java C reads the permits list, so it knows every Method there can be."
+  },
+  {
+   "cue": 28.83,
+   "start": 28.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.81,
+   "tries": 1,
+   "text": "It checks the switch against that list, case by case."
+  },
+  {
+   "cue": 32.53,
+   "start": 32.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.54,
+   "tries": 1,
+   "text": "There is no case for Wallet, so the switch is now a compile error."
+  },
+  {
+   "cue": 36.73,
+   "start": 36.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.89,
+   "tries": 1,
+   "text": "The chain compiles without a word."
+  },
+  {
+   "cue": 38.84,
+   "start": 38.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.15,
+   "tries": 1,
+   "text": "To the compiler it is just a few if statements, and nothing says they must cover every Method."
+  },
+  {
+   "cue": 44.87,
+   "start": 44.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.39,
+   "tries": 1,
+   "text": "At run time, a Wallet payment walks through it."
+  },
+  {
+   "cue": 47.9,
+   "start": 47.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.86,
+   "tries": 1,
+   "text": "Not a Card."
+  },
+  {
+   "cue": 48.98,
+   "start": 48.98,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.08,
+   "tries": 1,
+   "text": "Not a Transfer."
+  },
+  {
+   "cue": 50.67,
+   "start": 50.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.07,
+   "tries": 1,
+   "text": "So it lands in the else, and every wallet receipt says unknown."
+  },
+  {
+   "cue": 55.47,
+   "start": 55.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.13,
+   "tries": 1,
+   "text": "Kotlin's when over a sealed interface gets the same check, whether you use it as an expression or as a statement."
+  },
+  {
+   "cue": 62.77,
+   "start": 62.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "Add Wallet, and both compilers stop."
+  },
+  {
+   "cue": 65.21,
+   "start": 65.21,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.07,
+   "tries": 1,
+   "text": "kotlinc even names the branch you forgot."
+  },
+  {
+   "cue": 69.6,
+   "start": 69.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.87,
+   "tries": 1,
+   "text": "Every switch over Method gets this check, so the build stays red until each one handles Wallet."
+  },
+  {
+   "cue": 76.43,
+   "start": 76.43,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.87,
+   "tries": 1,
+   "text": "One rule follows."
+  },
+  {
+   "cue": 77.53,
+   "start": 77.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.78,
+   "tries": 1,
+   "text": "Don't put a default on a switch over a sealed type."
+  },
+  {
+   "cue": 81.0,
+   "start": 81.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.84,
+   "tries": 1,
+   "text": "A default catches Wallet quietly, the same way the else did, and the compiler has nothing left to check."
+  }
+ ]
+}

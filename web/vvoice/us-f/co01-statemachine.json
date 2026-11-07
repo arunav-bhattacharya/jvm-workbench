@@ -1,0 +1,268 @@
+{
+ "slug": "co01-statemachine",
+ "voice": "us-f",
+ "max_late": 0.21,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.82,
+   "tries": 1,
+   "text": "This Kotlin suspend function waits twice: for the card vault, then for the issuer."
+  },
+  {
+   "cue": 8.21,
+   "start": 8.21,
+   "late": 0.0,
+   "tempo": 1.028,
+   "secs": 2.94,
+   "tries": 1,
+   "text": "Java has no suspend, so this is Kotlin only."
+  },
+  {
+   "cue": 11.37,
+   "start": 11.37,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.09,
+   "tries": 1,
+   "text": "While it waits, it holds no thread."
+  },
+  {
+   "cue": 13.4,
+   "start": 13.61,
+   "late": 0.21,
+   "tempo": 1.0,
+   "secs": 2.74,
+   "tries": 1,
+   "text": "How can a function stop in the middle and carry on later?"
+  },
+  {
+   "cue": 16.97,
+   "start": 16.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.92,
+   "tries": 1,
+   "text": "The J V M has no special support for coroutines."
+  },
+  {
+   "cue": 20.33,
+   "start": 20.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.16,
+   "tries": 1,
+   "text": "The Kotlin compiler rewrites the function."
+  },
+  {
+   "cue": 24.23,
+   "start": 24.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.78,
+   "tries": 1,
+   "text": "It adds a hidden last parameter, a Continuation, and changes the return type to Object."
+  },
+  {
+   "cue": 30.57,
+   "start": 30.57,
+   "late": 0.0,
+   "tempo": 1.101,
+   "secs": 7.77,
+   "tries": 1,
+   "text": "It returns the real result, or a marker, COROUTINE_SUSPENDED, which means: I paused, I will call you back."
+  },
+  {
+   "cue": 38.53,
+   "start": 38.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.32,
+   "tries": 1,
+   "text": "Then it cuts the body at each suspension point."
+  },
+  {
+   "cue": 41.64,
+   "start": 41.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.49,
+   "tries": 1,
+   "text": "Two suspending calls give three states: label zero, one and two."
+  },
+  {
+   "cue": 46.77,
+   "start": 46.77,
+   "late": 0.0,
+   "tempo": 1.037,
+   "secs": 6.59,
+   "tries": 1,
+   "text": "The state lives in one small object on the heap: the label, and every local that must survive a pause."
+  },
+  {
+   "cue": 53.57,
+   "start": 53.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.67,
+   "tries": 1,
+   "text": "Run it on a pool of threads."
+  },
+  {
+   "cue": 55.58,
+   "start": 55.58,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.06,
+   "tries": 1,
+   "text": "worker-one starts at label zero."
+  },
+  {
+   "cue": 57.97,
+   "start": 57.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.53,
+   "tries": 1,
+   "text": "It saves pan in the object, sets the label to one, and calls tokenize."
+  },
+  {
+   "cue": 62.9,
+   "start": 62.9,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 8.15,
+   "tries": 1,
+   "text": "tokenize must wait for the vault, so it returns COROUTINE_SUSPENDED, and chargeCard passes the marker straight up the stack."
+  },
+  {
+   "cue": 71.13,
+   "start": 71.2,
+   "late": 0.07,
+   "tempo": 1.0,
+   "secs": 4.01,
+   "tries": 1,
+   "text": "worker-one is now free, and goes back to the pool to run other coroutines."
+  },
+  {
+   "cue": 76.06,
+   "start": 76.06,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.88,
+   "tries": 1,
+   "text": "This payment holds no thread, only the object."
+  },
+  {
+   "cue": 79.43,
+   "start": 79.43,
+   "late": 0.0,
+   "tempo": 1.013,
+   "secs": 1.0,
+   "tries": 1,
+   "text": "The vault answers."
+  },
+  {
+   "cue": 80.66,
+   "start": 80.66,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.82,
+   "tries": 1,
+   "text": "The dispatcher resumes the coroutine on whatever pool thread is free: this time, worker-three."
+  },
+  {
+   "cue": 87.03,
+   "start": 87.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.75,
+   "tries": 1,
+   "text": "resumeWith calls chargeCard again with the same object, and a switch on the label jumps to label one."
+  },
+  {
+   "cue": 93.87,
+   "start": 93.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.62,
+   "tries": 1,
+   "text": "It keeps the token in the object, sets the label to two, and calls authorize."
+  },
+  {
+   "cue": 99.04,
+   "start": 99.04,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.58,
+   "tries": 1,
+   "text": "That suspends too, and worker-three leaves."
+  },
+  {
+   "cue": 101.9,
+   "start": 101.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.4,
+   "tries": 1,
+   "text": "When the issuer answers, worker-two resumes it at label two, and it returns the result."
+  },
+  {
+   "cue": 108.93,
+   "start": 108.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.65,
+   "tries": 1,
+   "text": "If a call does not need to wait, say on a cache hit, it returns the value directly."
+  },
+  {
+   "cue": 114.32,
+   "start": 114.32,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.74,
+   "tries": 1,
+   "text": "Nothing is scheduled, and no thread changes."
+  },
+  {
+   "cue": 117.4,
+   "start": 117.4,
+   "late": 0.0,
+   "tempo": 1.045,
+   "secs": 3.33,
+   "tries": 1,
+   "text": "A paused coroutine costs one object, not a thread stack."
+  },
+  {
+   "cue": 120.94,
+   "start": 120.94,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.4,
+   "tries": 1,
+   "text": "That is why you can have hundreds of thousands."
+  },
+  {
+   "cue": 124.73,
+   "start": 124.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.45,
+   "tries": 1,
+   "text": "And plain code cannot call a suspend function."
+  },
+  {
+   "cue": 127.84,
+   "start": 127.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.11,
+   "tries": 1,
+   "text": "It has no continuation to pass in."
+  }
+ ]
+}
