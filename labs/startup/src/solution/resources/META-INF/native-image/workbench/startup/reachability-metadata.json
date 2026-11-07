@@ -1,0 +1,18 @@
+{
+  "comment": "Reflection and proxy metadata for the startup lab, lesson boot-03 (schema v1.2.0).",
+  "reflection": [
+    {
+      "condition": { "typeReached": "workbench.startup.l03.EventDecoder" },
+      "type": "workbench.startup.l03.PaymentAuthorized",
+      "methods": [
+        { "name": "<init>", "parameterTypes": ["java.lang.String", "java.lang.String", "long"] },
+        { "name": "paymentId", "parameterTypes": [] },
+        { "name": "currency", "parameterTypes": [] },
+        { "name": "amountMinor", "parameterTypes": [] }
+      ]
+    },
+    {
+      "type": { "proxy": ["workbench.startup.l03.CardIssuerClient", "java.lang.AutoCloseable"] }
+    }
+  ]
+}

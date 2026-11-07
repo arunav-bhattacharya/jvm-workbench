@@ -1,0 +1,361 @@
+{
+ "id": "perf-04",
+ "title": "CPU caches, false sharing and @Contended",
+ "minutes": 35,
+ "goal": "By the end you can explain why two threads writing different fields can slow each other down, check field offsets with JOL, pad hot fields apart, and know when `LongAdder` is the better answer.",
+ "warmup": {
+  "q": "Thread A only ever writes `stats.card`. Thread B only ever writes `stats.sepa`. Both fields are `volatile long` in the same small object. What can go wrong?",
+  "options": [
+   "Nothing: they never touch the same field, so there's no contention",
+   "Lost updates, because `++` on a volatile isn't atomic",
+   "Both threads can slow down a lot, because the two fields share a cache line that the cores keep taking from each other",
+   "A deadlock between the two threads"
+  ],
+  "answer": 2,
+  "why": "Caches move memory in 64-byte lines, and a core that writes a line needs the only copy. Two fields 8 bytes apart sit on one line, so every write by A invalidates B's copy and the other way round. There are no lost updates here: each field has a single writer, so `++` on it is safe."
+ },
+ "sections": [
+  {
+   "h": "Caches move memory in 64-byte lines",
+   "body": "Your CPU never reads one `long` from memory. It moves a whole **cache line**, 64 bytes on x86. The Xeon VM used for this course reports it directly: `/sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size` says 64. Each core has its own L1 and L2 caches, and the hardware keeps them coherent, as the memory model track said. Coherent has a price, though. A core that wants to write a line needs the only valid copy of it. Every other core's copy is invalidated, and the next time one of them reads the line, it has to fetch it again.\n\nNow look at what an ordinary object looks like in memory. JOL (Java Object Layout) reads the real field offsets from the running JVM:\n\n```java\nstatic final class Adjacent {\n    volatile long card;\n    volatile long sepa;\n}\n// JOL on JDK 21: 32 bytes; card at offset 16, sepa at offset 24\n```\n\n```kotlin\nclass KAdjacent {\n    @Volatile var card = 0L\n    @Volatile var sepa = 0L\n}\n// JOL on JDK 21: 32 bytes; card at offset 16, sepa at offset 24\n```\n\nThe first 12 bytes are the object header (an 8-byte mark word and a 4-byte class pointer), then 4 bytes of alignment gap, then the two fields, 8 bytes apart. The whole object is 32 bytes. Unless it happens to straddle a line boundary, both counters live on the same 64-byte line.\n\nFor code that reads, that's good news: reading `card` brings `sepa` along for free. Arrays of primitives are fast to scan for the same reason. For two threads that each write their own field, it's bad news, and the next section shows why.\n\nOffsets depend on the JVM and its flags. On JDK 25 with `-XX:+UseCompactObjectHeaders` (JEP 519) the header shrinks to 8 bytes and `card` moves to offset 8. JDK 27 turns compact headers on by default (JEP 534). So when you check a layout in a test, check the distance between fields, never absolute offsets.",
+   "try": {
+    "title": "Read real layouts with JOL",
+    "minutes": 4,
+    "steps": [
+     "Run `LayoutDemo`. Ignore JOL's two `# WARNING` lines about attaching an agent.",
+     "Before reading the output, predict the offset of `sepa` in each of the three classes.",
+     "Look at the last entry: `Striped64$Cell`, the class `LongAdder` uses internally. Where is its only field?",
+     "Run the Kotlin twin and compare."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "LayoutDemo.java",
+     "src": "package workbench.performance.l04;\n\nimport org.openjdk.jol.info.ClassLayout;\n\n/** Prints the real field layout of four classes with JOL: where each field sits, in bytes. */\npublic class LayoutDemo {\n    static final class Adjacent {\n        volatile long card;\n        volatile long sepa;\n    }\n\n    static final class PaddedInOneClass {         // padding fields between the counters\n        volatile long card;\n        long p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16;\n        volatile long sepa;\n    }\n\n    static class CardField { volatile long card; }   // superclass fields are laid out first\n    static class Pad1 extends CardField { long p1, p2, p3, p4, p5, p6, p7, p8; }\n    static class SepaField extends Pad1 { volatile long sepa; }\n    static final class Padded extends SepaField { long q1, q2, q3, q4, q5, q6, q7, q8; }\n\n    public static void main(String[] args) throws Exception {\n        print(Adjacent.class);\n        print(PaddedInOneClass.class);\n        print(Padded.class);\n        // the cell behind LongAdder: the JDK pads it with @Contended\n        print(Class.forName(\"java.util.concurrent.atomic.Striped64$Cell\"));\n    }\n\n    static void print(Class<?> type) {\n        ClassLayout layout = ClassLayout.parseClass(type);\n        System.out.println(type.getSimpleName() + \": \" + layout.instanceSize() + \" bytes\");\n        layout.fields().stream()\n              .filter(f -> f.name().equals(\"card\") || f.name().equals(\"sepa\") || f.name().equals(\"value\"))\n              .forEach(f -> System.out.printf(\"  %-5s at offset %3d%n\", f.name(), f.offset()));\n    }\n}\n",
+     "run": "./gradlew :performance:demo -Pmain=workbench.performance.l04.LayoutDemo",
+     "file": "labs/performance/src/demo/java/workbench/performance/l04/LayoutDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "LayoutDemo.kt",
+      "src": "package workbench.performance.l04\n\nimport org.openjdk.jol.info.ClassLayout\n\n// Kotlin twin of LayoutDemo.java: the same layouts, declared in Kotlin.\n// @Volatile var compiles to a volatile field, so JOL sees the same thing as in Java.\n\nclass KAdjacent {\n    @Volatile var card = 0L\n    @Volatile var sepa = 0L\n}\n\nopen class KCardField { @Volatile var card = 0L }   // superclass fields are laid out first\nopen class KPad1 : KCardField() { var p1 = 0L; var p2 = 0L; var p3 = 0L; var p4 = 0L; var p5 = 0L; var p6 = 0L; var p7 = 0L; var p8 = 0L }\nopen class KSepaField : KPad1() { @Volatile var sepa = 0L }\nclass KPadded : KSepaField() { var q1 = 0L; var q2 = 0L; var q3 = 0L; var q4 = 0L; var q5 = 0L; var q6 = 0L; var q7 = 0L; var q8 = 0L }\n\nfun main() {\n    printLayout(KAdjacent::class.java)\n    printLayout(KPadded::class.java)\n    // the cell behind LongAdder: the JDK pads it with @Contended\n    printLayout(Class.forName(\"java.util.concurrent.atomic.Striped64\\$Cell\"))\n}\n\nfun printLayout(type: Class<*>) {\n    val layout = ClassLayout.parseClass(type)\n    println(\"${type.simpleName}: ${layout.instanceSize()} bytes\")\n    layout.fields()\n        .filter { it.name() in setOf(\"card\", \"sepa\", \"value\") }\n        .forEach { println(\"  %-5s at offset %3d\".format(it.name(), it.offset())) }\n}\n",
+      "run": "./gradlew :performance:demo -Pmain=workbench.performance.l04.LayoutDemoKt",
+      "file": "labs/performance/src/demo/kotlin/workbench/performance/l04/LayoutDemo.kt"
+     }
+    },
+    "expect": "On JDK 21: `Adjacent` is 32 bytes with `card` at 16 and `sepa` at 24. `PaddedInOneClass` is 160 bytes with `sepa` at 152. `Padded`, built from a class hierarchy, is 160 bytes with `sepa` at 88, 72 bytes after `card`. `Cell` is 152 bytes, and its `value` field sits at offset 144: the JDK pads it on purpose. Kotlin's `@Volatile var` fields get exactly the same layout. On JDK 25 JOL also prints warnings about `sun.misc.Unsafe`, which it uses internally."
+   },
+   "refs": [
+    {
+     "title": "JOL (Java Object Layout)",
+     "url": "https://github.com/openjdk/jol",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "False sharing: two threads, two fields, one line",
+   "body": "Put a thread on each counter. The card thread only writes `card`, the SEPA thread only writes `sepa`. They share no data, so there is nothing to lock and no race. But they share a line. Each write by core 1 invalidates core 2's copy of the line, and core 2's next write has to take the line back. The line bounces between the cores on almost every write. This is **false sharing**: the program shares nothing, the hardware shares a lot.\n\n`FalseSharingDemo` runs exactly that, 25 million increments per thread, first with the adjacent fields and then with the fields padded apart. On the shared 4-vCPU VM used for this course, one run printed this:\n\n```text\nround 1: adjacent 1,220 ms   padded   247 ms\nround 2: adjacent   957 ms   padded   225 ms\nround 3: adjacent 1,387 ms   padded   206 ms\n```\n\nThat's a clear gap. Here's the honest part, though. An earlier, more careful experiment on the same VM, with JMH running two threads per group, could not show any false-sharing effect: the error bars of padded and unpadded overlapped, and a second run reversed the order of the first. The Kotlin twin, run a few minutes after the Java one, showed a much smaller gap in one round. Whether you see the effect depends on whether your two threads land on different physical cores, on the CPU, and on what else the machine is doing. Two threads on hyperthreads of the same core share their L1 and L2, so there's no line to bounce.\n\nSo don't promise anyone a speed-up from padding. The mechanism is certain, the size of the effect isn't, and the only way to know is to measure on the hardware you run on. When it does hit, it hits code that looks perfectly innocent: per-partition counters in a Kafka consumer, a stats object with one field per worker thread, an array of per-thread totals where the slots sit 8 bytes apart.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 680 300\" role=\"img\" aria-label=\"Top: card and sepa share one 64-byte cache line, so each write by one core invalidates the other core's copy. Bottom: padded onto two lines, each core keeps its own line.\">\n<text class=\"t-s t-bad\" x=\"340\" y=\"18\" text-anchor=\"middle\">adjacent: one line, two writers</text>\n<rect class=\"box\" x=\"20\" y=\"28\" width=\"224\" height=\"34\" rx=\"8\"/><text class=\"t\" x=\"132\" y=\"50\" text-anchor=\"middle\">core 1 writes card</text>\n<rect class=\"box\" x=\"436\" y=\"28\" width=\"224\" height=\"34\" rx=\"8\"/><text class=\"t\" x=\"548\" y=\"50\" text-anchor=\"middle\">core 2 writes sepa</text>\n<rect class=\"box-dim\" x=\"20\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box-dim\" x=\"48\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box-a\" x=\"76\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box-b\" x=\"104\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"132\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"160\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"188\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"216\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box-dim\" x=\"436\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box-dim\" x=\"464\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box-a\" x=\"492\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box-b\" x=\"520\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"548\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"576\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"604\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"632\" y=\"76\" width=\"28\" height=\"30\" rx=\"4\"/>\n<text class=\"t-s t-m\" x=\"48\" y=\"124\" text-anchor=\"middle\">header</text>\n<text class=\"t-s t-a\" x=\"90\" y=\"140\" text-anchor=\"middle\">card</text>\n<text class=\"t-s t-b\" x=\"118\" y=\"124\" text-anchor=\"middle\">sepa</text>\n<text class=\"t-s t-a\" x=\"506\" y=\"140\" text-anchor=\"middle\">card</text>\n<text class=\"t-s t-b\" x=\"534\" y=\"124\" text-anchor=\"middle\">sepa</text>\n<line class=\"ln-bad\" x1=\"248\" y1=\"84\" x2=\"432\" y2=\"84\" marker-end=\"url(#arr)\"/>\n<line class=\"ln-bad\" x1=\"432\" y1=\"100\" x2=\"248\" y2=\"100\" marker-end=\"url(#arr)\"/>\n<text class=\"t-s t-bad\" x=\"340\" y=\"78\" text-anchor=\"middle\">invalidate</text>\n<text class=\"t-s t-bad\" x=\"340\" y=\"120\" text-anchor=\"middle\">fetch it back, again and again</text>\n<text class=\"t-s t-ok\" x=\"340\" y=\"178\" text-anchor=\"middle\">padded: two lines, no fight</text>\n<rect class=\"box\" x=\"20\" y=\"188\" width=\"224\" height=\"34\" rx=\"8\"/><text class=\"t\" x=\"132\" y=\"210\" text-anchor=\"middle\">core 1 writes card</text>\n<rect class=\"box\" x=\"436\" y=\"188\" width=\"224\" height=\"34\" rx=\"8\"/><text class=\"t\" x=\"548\" y=\"210\" text-anchor=\"middle\">core 2 writes sepa</text>\n<rect class=\"box\" x=\"20\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"48\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box-a\" x=\"76\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"104\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"132\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"160\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"188\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"216\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"436\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"464\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box-b\" x=\"492\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"520\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"548\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"576\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"604\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<rect class=\"box\" x=\"632\" y=\"236\" width=\"28\" height=\"30\" rx=\"4\"/>\n<text class=\"t-s t-a\" x=\"90\" y=\"286\" text-anchor=\"middle\">card, line A</text>\n<text class=\"t-s t-b\" x=\"506\" y=\"286\" text-anchor=\"middle\">sepa, line B</text>\n<text class=\"t-s t-ok\" x=\"340\" y=\"256\" text-anchor=\"middle\">no traffic</text>\n</svg>",
+    "caption": "Adjacent fields share a line, so every write by one core invalidates the other core's copy. Padded apart, each core keeps its own line."
+   },
+   "try": {
+    "title": "Race two counters on one line",
+    "minutes": 4,
+    "steps": [
+     "Read `FalseSharingDemo`. Predict: will the adjacent run be slower, the same, or faster than the padded one on your machine?",
+     "Run it, then run it again. Then run the Kotlin twin.",
+     "If you see a big gap, check how many physical cores your machine has (`lscpu` on Linux, `sysctl -n hw.physicalcpu` on macOS)."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "FalseSharingDemo.java",
+     "src": "package workbench.performance.l04;\n\n/**\n * Two threads, each incrementing its OWN volatile counter 25 million times.\n * Run 1: the two counters sit next to each other. Run 2: they are padded apart.\n * Whether you see a difference depends on your CPU and where the OS puts the threads.\n */\npublic class FalseSharingDemo {\n    // the two counters in one 32-byte object: almost certainly on the same 64-byte cache line\n    static final class Adjacent {\n        volatile long card;\n        volatile long sepa;\n    }\n\n    // superclass fields come first, so the padding class sits between card and sepa\n    static class CardField { volatile long card; }\n    static class Pad1 extends CardField { long p1, p2, p3, p4, p5, p6, p7, p8; }\n    static class SepaField extends Pad1 { volatile long sepa; }\n    static final class Padded extends SepaField { long q1, q2, q3, q4, q5, q6, q7, q8; }\n\n    static final int N = 25_000_000;\n\n    static long run(Runnable a, Runnable b) throws InterruptedException {\n        Thread t1 = new Thread(a), t2 = new Thread(b);\n        long t0 = System.nanoTime();\n        t1.start(); t2.start();\n        t1.join(); t2.join();\n        return (System.nanoTime() - t0) / 1_000_000;\n    }\n\n    public static void main(String[] args) throws InterruptedException {\n        for (int round = 1; round <= 3; round++) {\n            Adjacent adj = new Adjacent();\n            long msAdjacent = run(() -> { for (int i = 0; i < N; i++) adj.card++; },\n                                  () -> { for (int i = 0; i < N; i++) adj.sepa++; });\n            Padded pad = new Padded();\n            long msPadded = run(() -> { for (int i = 0; i < N; i++) pad.card++; },\n                                () -> { for (int i = 0; i < N; i++) pad.sepa++; });\n            System.out.printf(\"round %d: adjacent %,5d ms   padded %,5d ms   (counts %d/%d, %d/%d)%n\",\n                    round, msAdjacent, msPadded, adj.card, adj.sepa, pad.card, pad.sepa);\n        }\n    }\n}\n",
+     "run": "./gradlew :performance:demo -Pmain=workbench.performance.l04.FalseSharingDemo",
+     "file": "labs/performance/src/demo/java/workbench/performance/l04/FalseSharingDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "FalseSharingDemo.kt",
+      "src": "package workbench.performance.l04\n\nimport kotlin.concurrent.thread\n\n// Kotlin twin of FalseSharingDemo.java: two threads, each incrementing its OWN volatile counter.\n// Run 1: the counters sit next to each other. Run 2: they are padded apart (KPadded from LayoutDemo.kt).\n// Whether you see a difference depends on your CPU and where the OS puts the threads.\n\nprivate const val N = 25_000_000\n\nprivate fun timeTwo(a: () -> Unit, b: () -> Unit): Long {\n    val t0 = System.nanoTime()\n    val t1 = thread { a() }\n    val t2 = thread { b() }\n    t1.join(); t2.join()\n    return (System.nanoTime() - t0) / 1_000_000\n}\n\nfun main() {\n    for (round in 1..3) {\n        val adj = KAdjacent()\n        val msAdjacent = timeTwo({ repeat(N) { adj.card++ } }, { repeat(N) { adj.sepa++ } })\n        val pad = KPadded()\n        val msPadded = timeTwo({ repeat(N) { pad.card++ } }, { repeat(N) { pad.sepa++ } })\n        println(\"round %d: adjacent %,5d ms   padded %,5d ms   (counts %d/%d, %d/%d)\"\n            .format(round, msAdjacent, msPadded, adj.card, adj.sepa, pad.card, pad.sepa))\n    }\n}\n",
+      "run": "./gradlew :performance:demo -Pmain=workbench.performance.l04.FalseSharingDemoKt",
+      "file": "labs/performance/src/demo/kotlin/workbench/performance/l04/FalseSharingDemo.kt"
+     }
+    },
+    "expect": "On many laptops with several physical cores, the adjacent run is several times slower than the padded one, as in the run above. You may also see a small gap or none, depending on the CPU and where the scheduler puts the threads. All four counts always end at exactly 25,000,000: false sharing costs time, never correctness."
+   }
+  },
+  {
+   "h": "Padding pushes hot fields onto separate lines",
+   "body": "The fix is to keep at least 64 bytes between fields that different threads write. There are three ways, from least to most trustworthy.\n\nPadding fields in one class: put 8 or more unused `long`s between `card` and `sepa`. On today's HotSpot it works (`sepa` moved to offset 152), but JMH's false-sharing sample warns that this is \"not versatile because JVMs can freely rearrange the field order, even of the same type\".\n\nA class hierarchy: the same sample notes that \"superclass fields are usually laid out first\". So put each hot field and each block of padding in its own class, and chain them:\n\n```java\nabstract class CardCounter { volatile long card; }\nabstract class PadAfterCard extends CardCounter { long p1, p2, p3, p4, p5, p6, p7, p8; }\nabstract class SepaCounter extends PadAfterCard { volatile long sepa; }\n\npublic final class SettlementCounters extends SepaCounter {\n    public void addCard() { card++; }      // only the card thread calls this\n    public void addSepa() { sepa++; }      // only the SEPA thread calls this\n}\n```\n\n```kotlin\nabstract class CardCounter { @Volatile @JvmField var card = 0L }\nabstract class PadAfterCard : CardCounter() {\n    @JvmField var p1 = 0L; @JvmField var p2 = 0L; @JvmField var p3 = 0L; @JvmField var p4 = 0L\n    @JvmField var p5 = 0L; @JvmField var p6 = 0L; @JvmField var p7 = 0L; @JvmField var p8 = 0L\n}\nabstract class SepaCounter : PadAfterCard() { @Volatile @JvmField var sepa = 0L }\n\nclass SettlementCounters : SepaCounter() {\n    fun addCard() { card++ }               // only the card thread calls this\n    fun addSepa() { sepa++ }               // only the SEPA thread calls this\n}\n```\n\nThis is what the lab asks for. `@JvmField` in the Kotlin version makes each property a plain public field, which keeps the layout obvious.\n\n`@Contended`: the JDK's own annotation, `jdk.internal.vm.annotation.Contended`, available since JDK 8. The JVM adds `ContendedPaddingWidth` bytes of padding, 128 by default, around each annotated field. JOL on a class with both fields annotated shows `card` at offset 144, `sepa` at 280, and a 288-byte object. Its Javadoc warns that it \"will nearly always add significant space overhead to objects\". There are two catches for your own classes. The JVM ignores the annotation outside the JDK unless you run with `-XX:-RestrictContended`: without the flag, JOL shows the same 16 and 24 as no annotation at all, with no warning. And it lives in an internal package, so compiling needs `--add-exports java.base/jdk.internal.vm.annotation=ALL-UNNAMED`. `javac` refuses that together with `--release`, with \"exporting a package from system module java.base is not allowed with --release\", so this course's labs, which compile with `--release 21`, can't use it.\n\nEvery padding costs memory: 160 bytes instead of 32 here, and 288 with `@Contended`. That's nothing for one counter object and a lot for a million of them. Pad the few objects that several threads write in a hot loop, and nothing else.",
+   "refs": [
+    {
+     "title": "JMHSample_22_FalseSharing",
+     "url": "https://github.com/openjdk/jmh/blob/master/jmh-samples/src/main/java/org/openjdk/jmh/samples/JMHSample_22_FalseSharing.java",
+     "kind": "read"
+    }
+   ]
+  },
+  {
+   "h": "LongAdder is the padding you should actually use",
+   "body": "Hand padding is for library authors. For a counter in your service, the JDK already did the work. `LongAdder` (and `LongAccumulator`) extend `Striped64`, whose source explains the design: table entries are a \"variant of AtomicLong padded (via @Contended) to reduce cache contention\", because \"Atomic objects residing in arrays will tend to be placed adjacent to each other, and so will most often share cache lines (with a huge negative performance impact) without this precaution\". That's the `value` at offset 144 you saw in `LayoutDemo`.\n\nThe cells are lazy. \"When there is no contention, all updates are made to the base field.\" On the first failed compare-and-set, the table is created with 2 cells, and it doubles under more contention. Each thread then mostly updates its own cell, on its own cache line. `sum()` adds the base and the cells. As \"Atomics and compare-and-set\" said, `sum()` is not an atomic snapshot, so use `LongAdder` for counters you read now and then, such as metrics, and `AtomicLong` when the value drives a decision.\n\n```java\npublic final class RequestMetrics {\n    private final LongAdder count = new LongAdder();\n    private final LongAdder totalCents = new LongAdder();\n\n    public void record(long amountCents) {   // called by every request thread\n        count.increment();\n        totalCents.add(amountCents);\n    }\n\n    public long count() { return count.sum(); }   // read by the metrics scraper\n}\n```\n\n```kotlin\nclass RequestMetrics {\n    private val count = LongAdder()\n    private val totalCents = LongAdder()\n\n    fun record(amountCents: Long) {          // called by every request thread\n        count.increment()\n        totalCents.add(amountCents)\n    }\n\n    fun count(): Long = count.sum()          // read by the metrics scraper\n}\n```\n\n`AdderDemo` shows the difference with four threads counting 10 million requests each. In one run on the course VM, `AtomicLong` took 640 to 760 ms per round and `LongAdder` about 200 ms. With an `AtomicLong`, all four cores fight over one line, and every failed compare-and-set retries. With a `LongAdder`, each core mostly works on its own padded cell. Like the false-sharing demo, the gap depends on the machine, and the Kotlin twin's run here showed a smaller one.",
+   "try": {
+    "title": "AtomicLong against LongAdder",
+    "minutes": 3,
+    "steps": [
+     "Predict which one finishes first with four threads, and by how much.",
+     "Run `AdderDemo`, then the Kotlin twin.",
+     "Change `THREADS` to 1 and run again. Does `LongAdder` still win?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "AdderDemo.java",
+     "src": "package workbench.performance.l04;\n\nimport java.util.concurrent.CountDownLatch;\nimport java.util.concurrent.atomic.AtomicLong;\nimport java.util.concurrent.atomic.LongAdder;\n\n/** Four threads count 10 million requests each, into one AtomicLong and then into one LongAdder. */\npublic class AdderDemo {\n    static final int THREADS = 4, PER_THREAD = 10_000_000;\n\n    static long time(Runnable perThread) throws InterruptedException {\n        CountDownLatch go = new CountDownLatch(1);\n        Thread[] ts = new Thread[THREADS];\n        for (int i = 0; i < THREADS; i++) {\n            ts[i] = new Thread(() -> {\n                try { go.await(); } catch (InterruptedException e) { return; }\n                perThread.run();\n            });\n            ts[i].start();\n        }\n        long t0 = System.nanoTime();\n        go.countDown();\n        for (Thread t : ts) t.join();\n        return (System.nanoTime() - t0) / 1_000_000;\n    }\n\n    public static void main(String[] args) throws InterruptedException {\n        for (int round = 1; round <= 3; round++) {\n            AtomicLong atomic = new AtomicLong();\n            long msAtomic = time(() -> { for (int i = 0; i < PER_THREAD; i++) atomic.incrementAndGet(); });\n            LongAdder adder = new LongAdder();\n            long msAdder = time(() -> { for (int i = 0; i < PER_THREAD; i++) adder.increment(); });\n            System.out.printf(\"round %d: AtomicLong %,5d ms (%,d)   LongAdder %,5d ms (%,d)%n\",\n                    round, msAtomic, atomic.get(), msAdder, adder.sum());\n        }\n    }\n}\n",
+     "run": "./gradlew :performance:demo -Pmain=workbench.performance.l04.AdderDemo",
+     "file": "labs/performance/src/demo/java/workbench/performance/l04/AdderDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "AdderDemo.kt",
+      "src": "package workbench.performance.l04\n\nimport java.util.concurrent.CountDownLatch\nimport java.util.concurrent.atomic.AtomicLong\nimport java.util.concurrent.atomic.LongAdder\nimport kotlin.concurrent.thread\n\n// Kotlin twin of AdderDemo.java: four threads count 10 million requests each,\n// into one AtomicLong and then into one LongAdder.\n\nprivate const val THREADS = 4\nprivate const val PER_THREAD = 10_000_000\n\nprivate fun timeAll(perThread: () -> Unit): Long {\n    val go = CountDownLatch(1)\n    val ts = List(THREADS) { thread { go.await(); perThread() } }\n    val t0 = System.nanoTime()\n    go.countDown()\n    ts.forEach { it.join() }\n    return (System.nanoTime() - t0) / 1_000_000\n}\n\nfun main() {\n    for (round in 1..3) {\n        val atomic = AtomicLong()\n        val msAtomic = timeAll { repeat(PER_THREAD) { atomic.incrementAndGet() } }\n        val adder = LongAdder()\n        val msAdder = timeAll { repeat(PER_THREAD) { adder.increment() } }\n        println(\"round %d: AtomicLong %,5d ms (%,d)   LongAdder %,5d ms (%,d)\"\n            .format(round, msAtomic, atomic.get(), msAdder, adder.sum()))\n    }\n}\n",
+      "run": "./gradlew :performance:demo -Pmain=workbench.performance.l04.AdderDemoKt",
+      "file": "labs/performance/src/demo/kotlin/workbench/performance/l04/AdderDemo.kt"
+     }
+    },
+    "expect": "With four threads, `LongAdder` is usually clearly faster, and both always count exactly 40,000,000. With one thread, `AtomicLong` was faster on the course VM (about 70 ms against 110 ms). With no contention, `LongAdder` only touches its base field, its cells never exist, and its extra checks are pure cost."
+   }
+  }
+ ],
+ "analogy": "Two cashiers share one cash drawer. Each keeps their own money in their own compartment, so they never take each other's coins. But only one of them can have the drawer open at a time, so each sale waits for the other cashier to close it. That is false sharing: separate data, one physical unit. Padding gives each cashier their own drawer. `LongAdder` is the store manager's solution: one drawer per cashier, added up at closing time. The analogy breaks on timing: a cashier waits seconds, while a core waits for a line transfer measured in nanoseconds, so you only notice it when it happens hundreds of millions of times.",
+ "in_your_world": "Look for objects that several threads write in a tight loop: a stats object with one counter per Kafka partition, an array of per-worker totals in a batch settlement job, hand-rolled request counters in a Quarkus filter. For metrics, use `LongAdder` (or a metrics library) instead of `AtomicLong` or a `volatile` field: it's correct under contention and pads its own cells. Reach for manual padding only when a profile or a JMH run on your production hardware shows the cost, and then pad the one or two objects involved, not every class. Remember too that object layouts change with the JDK: compact object headers are on by default in JDK 27.",
+ "mistake": "The common mistake is fixing a \"slow counter\" by making each thread write its own slot of a plain array, believing that no sharing means no contention. The slots are 8 bytes apart, so eight of them share one line, and the threads still fight over it. The other common mistake is padding with unused fields and never checking the result: the JVM may move fields, and an unused field doesn't stop it. Check with JOL, measure with a forked benchmark, or use `LongAdder`, which does both for you.\n\n```java\nlong[] perThread = new long[8];          // 8 slots, one 64-byte line\nperThread[workerId]++;                   // every worker writes the same line\n```\n\n```kotlin\nval perThread = LongArray(8)             // 8 slots, one 64-byte line\nperThread[workerId]++                    // every worker writes the same line\n```",
+ "compare": {
+  "title": "A padded counter in Java and Kotlin",
+  "java": {
+   "title": "SettlementCounters.java",
+   "src": "abstract class CardCounter { volatile long card; }\nabstract class PadAfterCard extends CardCounter { long p1, p2, p3, p4, p5, p6, p7, p8; }\nabstract class SepaCounter extends PadAfterCard { volatile long sepa; }\n\npublic final class SettlementCounters extends SepaCounter {\n    public void addCard() { card++; }      // only the card thread calls this\n    public void addSepa() { sepa++; }      // only the SEPA thread calls this\n}"
+  },
+  "kotlin": {
+   "title": "SettlementCounters.kt",
+   "src": "abstract class CardCounter { @Volatile @JvmField var card = 0L }\nabstract class PadAfterCard : CardCounter() {\n    @JvmField var p1 = 0L; @JvmField var p2 = 0L; @JvmField var p3 = 0L; @JvmField var p4 = 0L\n    @JvmField var p5 = 0L; @JvmField var p6 = 0L; @JvmField var p7 = 0L; @JvmField var p8 = 0L\n}\nabstract class SepaCounter : PadAfterCard() { @Volatile @JvmField var sepa = 0L }\n\nclass SettlementCounters : SepaCounter() {\n    fun addCard() { card++ }               // only the card thread calls this\n    fun addSepa() { sepa++ }               // only the SEPA thread calls this\n}"
+  },
+  "note": "Both compile to the same JVM classes with the same field layout, because layout is decided by the JVM, not the language. The differences are in what you write. Kotlin classes are final by default, so the padding classes need `abstract` or `open`. A Kotlin `var` property is a private field plus a getter and setter; `@JvmField` exposes the field directly, and `@Volatile` makes it volatile. In both languages the padding fields are never read, and nothing in the language guarantees the order of fields within one class, which is why the hierarchy is the safer trick."
+ },
+ "worked": {
+  "title": "Find false sharing in a stats object and fix it",
+  "steps": [
+   {
+    "say": "A Kafka consumer has two partition threads. Each updates its own counters in one shared stats object. Profiling shows both threads spending time in `record`, which does almost nothing. Start by printing the layout.",
+    "code": "System.out.println(ClassLayout.parseClass(PartitionStats.class).toPrintable());",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "println(ClassLayout.parseClass(PartitionStats::class.java).toPrintable())"
+   },
+   {
+    "say": "The two hot fields are 8 bytes apart. Thread 0 writes `p0Processed`, thread 1 writes `p1Processed`, and both sit on one line.",
+    "code": "OFF  SZ   TYPE DESCRIPTION                 VALUE\n  0   8        (object header: mark)       N/A\n  8   4        (object header: class)      N/A\n 12   4        (alignment/padding gap)\n 16   8   long PartitionStats.p0Processed  N/A\n 24   8   long PartitionStats.p1Processed  N/A\nInstance size: 32 bytes",
+    "lang": "text"
+   },
+   {
+    "say": "Give each partition its own object instead of padding one. Two `PartitionCounter` objects allocated one after the other can still end up next to each other in memory, so if the profile still shows the problem, pad the counter class or use a `LongAdder` per field. Self-check: why don't separate objects guarantee separate lines? (Answer: the allocator places new objects next to each other in the thread's allocation buffer, so two small objects created together are often only a few bytes apart.)",
+    "code": "final class PartitionCounter {\n    volatile long processed;        // one writer: the partition's own thread\n}\nPartitionCounter[] counters = { new PartitionCounter(), new PartitionCounter() };",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "class PartitionCounter {\n    @Volatile var processed = 0L    // one writer: the partition's own thread\n}\nval counters = arrayOf(PartitionCounter(), PartitionCounter())"
+   },
+   {
+    "say": "Verify with a forked JMH benchmark using two threads, on the hardware you deploy to, not on your laptop alone. Keep the version that measures faster there. If neither is clearly faster, keep the simpler code.",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "Pad two counters and fix a metrics counter",
+  "minutes": 13,
+  "files": [
+   "labs/performance/src/main/java/workbench/performance/l04/SettlementCounters.java",
+   "labs/performance/src/main/java/workbench/performance/l04/RequestMetrics.java"
+  ],
+  "run": "./gradlew :performance:test --tests 'workbench.performance.l04.*'",
+  "steps": [
+   "Run the tests. Three of four fail: `card` and `sepa` are 8 bytes apart (at 16 and 24), and `RequestMetrics` loses updates when 8 threads record at once.",
+   "Lay out `SettlementCounters` so `card` and `sepa` are at least 64 bytes apart. Keep both fields `volatile long` with those exact names, and keep the public methods. A chain of classes is the reliable way.",
+   "Fix `RequestMetrics` so `count()` and `totalCents()` are exact under contention. Writes happen on every request and reads every few seconds, so pick the tool built for that.",
+   "Run the tests until all four pass. Run them twice: the metrics test is a race test.",
+   "Optional: print `ClassLayout.parseClass(SettlementCounters.class).toPrintable()` in a scratch test and look at your layout."
+  ],
+  "hints": [
+   "HotSpot lays out superclass fields before subclass fields. `abstract class CardCounter { volatile long card; }`, then a class with eight `long` padding fields extending it, then a class with `sepa` extending that, then `SettlementCounters` at the end of the chain.",
+   "The fields in the superclasses can't be `private` if `SettlementCounters` needs to read them. Package-private works, and JOL finds fields in superclasses too.",
+   "`count++` on a `volatile` is a read and a write, so two threads can both read 41 and both write 42. With many writers, `LongAdder.increment()` and `add(amount)` are exact and spread the writes over padded cells.",
+   "The reference solution puts `sepa` 72 bytes after `card` and passes on JDK 21 and 25."
+  ],
+  "done_when": "All four tests in `CacheLineTest` pass, twice in a row."
+ },
+ "drill": {
+  "title": "Explain a layout and write the fix from memory",
+  "minutes": 4,
+  "prompt": "Close this page. JOL prints `card` at offset 16 and `sepa` at offset 24 for a class that two threads write. Write two sentences on what goes wrong and why, then write a padded version using a class chain. Then write the one-line answer you'd give for a request counter written by 200 threads.",
+  "answer": {
+   "lang": "java",
+   "src": "// card and sepa are 8 bytes apart, so they share one 64-byte cache line. Each write by one\n// core invalidates the other core's copy, so the line bounces between them (false sharing).\n\nabstract class CardCounter { volatile long card; }\nabstract class PadAfterCard extends CardCounter { long p1, p2, p3, p4, p5, p6, p7, p8; }\nabstract class SepaCounter extends PadAfterCard { volatile long sepa; }\npublic final class SettlementCounters extends SepaCounter { }\n\n// 200 writers, occasional reads: use a LongAdder\nprivate final LongAdder requests = new LongAdder();",
+   "alt": {
+    "lang": "kotlin",
+    "src": "// card and sepa are 8 bytes apart, so they share one 64-byte cache line. Each write by one\n// core invalidates the other core's copy, so the line bounces between them (false sharing).\n\nabstract class CardCounter { @Volatile @JvmField var card = 0L }\nabstract class PadAfterCard : CardCounter() {\n    @JvmField var p1 = 0L; @JvmField var p2 = 0L; @JvmField var p3 = 0L; @JvmField var p4 = 0L\n    @JvmField var p5 = 0L; @JvmField var p6 = 0L; @JvmField var p7 = 0L; @JvmField var p8 = 0L\n}\nabstract class SepaCounter : PadAfterCard() { @Volatile @JvmField var sepa = 0L }\nclass SettlementCounters : SepaCounter()\n\n// 200 writers, occasional reads: use a LongAdder\nprivate val requests = LongAdder()"
+   }
+  }
+ },
+ "recap": [
+  "Caches move memory in 64-byte lines, and a core that writes a line invalidates every other core's copy.",
+  "False sharing: two threads writing different fields on the same line make it bounce between cores. It costs time, never correctness, and how much depends on the hardware.",
+  "Pad hot fields at least 64 bytes apart. A class hierarchy is reliable; padding fields in one class may be reordered; `@Contended` needs `-XX:-RestrictContended` and internal exports for your own classes.",
+  "Check layouts with JOL and assert distances, not offsets: headers differ between JDKs (compact headers are default in JDK 27).",
+  "For counters in application code, use `LongAdder`: its cells are padded with `@Contended` and only created under contention."
+ ],
+ "quiz": [
+  {
+   "q": "JOL shows `p0` at offset 16 and `p1` at offset 24 in a stats object. Thread 0 only writes `p0`, thread 1 only writes `p1`. What is the problem, if any?",
+   "options": [
+    "A race: updates to `p0` and `p1` can be lost",
+    "False sharing: the fields share a cache line, so the two cores keep invalidating each other's copy",
+    "None: different fields never interact",
+    "The object is too big to fit in a cache line"
+   ],
+   "answer": 1,
+   "why": "8 bytes apart means one 64-byte line. Each field has one writer, so nothing is lost, but every write takes the line away from the other core. That costs time, not correctness."
+  },
+  {
+   "q": "You annotate two fields of your own class with `@jdk.internal.vm.annotation.Contended`, compile it, and run normally. JOL shows them at 16 and 24. Why?",
+   "options": [
+    "`@Contended` only works on JDK 27",
+    "The JVM ignores `@Contended` outside the JDK unless you run with `-XX:-RestrictContended`",
+    "JOL can't see padding",
+    "The fields must also be `final`"
+   ],
+   "answer": 1,
+   "why": "`RestrictContended` is true by default, so the annotation only takes effect in JDK classes. With `-XX:-RestrictContended` the same class shows the fields at 144 and 280. The JVM prints no warning either way."
+  },
+  {
+   "q": "A metrics counter is incremented by every request thread and read by a scraper every 10 seconds. Which is the best fit?",
+   "options": [
+    "A `volatile long` with `count++`",
+    "An `AtomicLong`",
+    "A `LongAdder`",
+    "A `long` field inside a `synchronized` method"
+   ],
+   "answer": 2,
+   "why": "Many writers and rare reads is exactly what `LongAdder` is for: each thread mostly updates its own padded cell. `AtomicLong` is correct but makes all writers fight over one line. `volatile` with `++` loses updates."
+  },
+  {
+   "q": "Your test checks that two fields are \"at offset 16 and offset 88\". It passes on JDK 21 and fails on JDK 27. What's the best fix?",
+   "options": [
+    "Pin the tests to JDK 21",
+    "Assert the distance between the fields (at least 64 bytes) instead of absolute offsets",
+    "Turn off JOL on JDK 27",
+    "Add more padding until both pass"
+   ],
+   "answer": 1,
+   "why": "JDK 27 turns compact object headers on by default, so every field moves by a few bytes. The distance between the two fields is what decides whether they share a line, and it doesn't depend on the header size."
+  },
+  {
+   "q": "From the first track: two request threads call `counter.incrementAndGet()` on a shared `AtomicLong` 10 million times each. Then you switch to `LongAdder.increment()`. What changes in the result?",
+   "options": [
+    "Nothing: both count exactly; `LongAdder` usually gets there faster under contention",
+    "`LongAdder` may lose some increments, but it's faster",
+    "`AtomicLong` loses increments under contention",
+    "`LongAdder.sum()` is always more up to date than `AtomicLong.get()`"
+   ],
+   "answer": 0,
+   "why": "Both are exact once all writes finish. `LongAdder` spreads writes over cells so threads stop fighting over one cache line. Its `sum()` is not an atomic snapshot while writes are still happening, which is why decisions should use `AtomicLong`.",
+   "from": "conc-08"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "How big is a cache line on x86?",
+   "back": "64 bytes. Caches move whole lines, never single fields."
+  },
+  {
+   "front": "What is false sharing?",
+   "back": "Threads writing different fields that sit on the same cache line, so the line keeps moving between cores. It costs time, not correctness."
+  },
+  {
+   "front": "How far apart must two hot fields be to avoid sharing a 64-byte line?",
+   "back": "At least 64 bytes between their offsets."
+  },
+  {
+   "front": "Why is a class hierarchy better than padding fields inside one class?",
+   "back": "HotSpot lays out superclass fields before subclass fields; within one class the JVM may reorder fields, even of the same type."
+  },
+  {
+   "front": "What does `@Contended` need to work on your own classes?",
+   "back": "`-XX:-RestrictContended` at run time (otherwise it's silently ignored) and `--add-exports java.base/jdk.internal.vm.annotation=ALL-UNNAMED` to compile."
+  },
+  {
+   "front": "How does `LongAdder` avoid false sharing?",
+   "back": "Under contention it spreads updates over `Striped64.Cell` objects, each padded with `@Contended` (JOL shows the value at offset 144). `sum()` adds them up."
+  },
+  {
+   "front": "Why should a layout test assert distances, not offsets?",
+   "back": "Header sizes differ between JDKs and flags: compact object headers (default in JDK 27) move every field."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Cache line",
+   "plain": "The unit a CPU cache moves around: 64 bytes on x86."
+  },
+  {
+   "term": "Cache coherence",
+   "plain": "The hardware keeping every core's copy of a line consistent, by invalidating copies on writes."
+  },
+  {
+   "term": "False sharing",
+   "plain": "Different data on one cache line, written by different cores, making the line bounce between them."
+  },
+  {
+   "term": "Padding",
+   "plain": "Unused bytes placed between fields so they land on different cache lines."
+  },
+  {
+   "term": "@Contended",
+   "plain": "A JDK-internal annotation that makes the JVM pad a field or class, 128 bytes by default."
+  },
+  {
+   "term": "JOL",
+   "plain": "Java Object Layout, a tool that prints the real field offsets and object sizes."
+  },
+  {
+   "term": "LongAdder",
+   "plain": "A counter that spreads contended updates over padded cells and sums them on read."
+  }
+ ],
+ "explain_back": {
+  "prompt": "Explain to a teammate why giving each consumer thread its own field in a shared stats object didn't make the counters fast, and what you'd do instead.",
+  "answer": "The fields are separate, so there's no race, but they sit 8 bytes apart, which puts them on the same 64-byte cache line. A core can only write a line it owns exclusively, so each write by one thread invalidates the other core's copy and the line moves back and forth on almost every update. That's false sharing. One fix is to pad the fields at least 64 bytes apart, ideally with a class hierarchy since the JVM may reorder fields within one class, and to check the offsets with JOL. For ordinary counters I'd use a LongAdder per counter instead: it creates padded cells only when threads contend and adds them up when we read. And I'd only believe a speed-up after measuring it on our real hardware, because how much false sharing costs depends on the CPU and where the threads run."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "JMH protects you from one source of false sharing automatically. Its false-sharing sample says \"@States are automatically padded\", but \"This padding does not extend to the State internals\". Fields inside your `@State` object can still share a line, which is exactly what that sample demonstrates with several techniques side by side. To measure it on your own hardware, run that sample with several forks on a machine with real cores, and pin the threads to different physical cores if you can.\n\nWhy does the JDK pad with 128 bytes when lines are 64? The flag `ContendedPaddingWidth` says how many bytes to pad, nothing more. A common explanation is that some CPUs prefetch the neighbouring line too, so a 64-byte gap can still let two hot fields interfere. That explanation isn't something this course could check against a primary source, so treat 128 as \"the JDK's safe default\" rather than a rule.\n\nTwo other tools look at the same problem from the hardware side. `perf c2c` on Linux reports cache lines that bounce between cores (JMH wraps it as `-prof perfc2c`). And a CPU profiler such as async-profiler, in lesson 6, shows the symptom: lots of samples on a trivial line such as `count++`.\n\nThere's also true sharing, which padding can't fix: many threads writing the same field, like an `AtomicLong` hit by every request. The only fixes there are to write less often or to split the value, which is what `LongAdder` does."
+ },
+ "sources": [
+  {
+   "title": "Striped64.java: the padded cells behind LongAdder (JDK 25)",
+   "url": "https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/java/util/concurrent/atomic/Striped64.java"
+  },
+  {
+   "title": "Contended.java: the annotation and its Javadoc (JDK 25)",
+   "url": "https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/jdk/internal/vm/annotation/Contended.java"
+  },
+  {
+   "title": "JMHSample_22_FalseSharing",
+   "url": "https://github.com/openjdk/jmh/blob/master/jmh-samples/src/main/java/org/openjdk/jmh/samples/JMHSample_22_FalseSharing.java"
+  },
+  {
+   "title": "LongAdder (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/atomic/LongAdder.html"
+  },
+  {
+   "title": "JOL (Java Object Layout)",
+   "url": "https://github.com/openjdk/jol"
+  }
+ ]
+}

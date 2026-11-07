@@ -5,9 +5,9 @@ package workbench.startup.l02
  * class files its parent can see, and records each name in the order it defined it.
  * Every other class (java.*, kotlin.*, the lab's own classes) goes to the parent as usual.
  *
- * This "child-first for one package" shape is what plugin systems and app servers use, and
- * Quarkus's fast-jar runner has its own loader too. The AOT cache does not support classes from
- * custom class loaders, which is why Quarkus has a separate aot-jar packaging for it.
+ * This "child-first for one package" shape is what plugin systems and app servers use. Leyden's
+ * AOT cache does not support classes from custom class loaders yet, which is why Quarkus has a
+ * separate aot-jar packaging that leaves all class loading to the JDK's own loaders.
  *
  * TODO:
  * - `loadClass`: for a name outside [prefix], call `super.loadClass(name, resolve)`.

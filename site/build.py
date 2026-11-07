@@ -168,6 +168,11 @@ def compile_course():
             "intro": md(T.get("intro", "")), "cheatsheet": md(T.get("cheatsheet", "")),
             "recap": [inline(x) for x in T.get("recap", [])], "quiz": [mcq(q) for q in T.get("quiz", [])],
         })
+    secs = C.get("sections") or []
+    if secs:
+        flat = [tid for sec in secs for tid in sec["tracks"]]
+        assert flat == [t["id"] for t in C["tracks"]], "sections must list every track once, in track order"
+        out["sections"] = [{"id": s["id"], "title": s["title"], "short": s.get("short", ""), "tracks": s["tracks"]} for s in secs]
     return out
 
 

@@ -5,6 +5,11 @@
   const C = JSON.parse(document.getElementById("course").textContent);
   const L = C.lessons;
   const T = Object.fromEntries(C.tracks.map((t, i) => [t.id, Object.assign(t, { idx: i + 1 })]));
+  // parts group related tracks (course.json "sections"); without them the tracks are one flat list
+  const PARTS = (C.sections || []).map((p, i) => Object.assign(p, { idx: i + 1 }));
+  const partOf = {};
+  PARTS.forEach((p) => p.tracks.forEach((id) => { partOf[id] = p; }));
+  const trackTag = (t) => (partOf[t.id] ? `Part ${partOf[t.id].idx} · ` : "") + `Track ${pad(t.idx)}`;
   const ORDER = C.order;
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -215,6 +220,8 @@
       const open = filterText ? true : S.open[t.id] ?? (t.id === curTrack || (!curTrack && t.id === nxTrack));
       const shown = t.lessons.filter((id) => !filterText || L[id].title.toLowerCase().includes(filterText.toLowerCase()));
       if (filterText && !shown.length) continue;
+      const part = partOf[t.id];
+      if (part && part.tracks[0] === t.id) h += `<div class="partsec"><span class="label">Part ${part.idx}</span><b>${esc(part.title)}</b></div>`;
       h += `<div class="trk"><button data-act="toggle-track" data-id="${t.id}" aria-expanded="${open}">
           <span class="tn">${pad(t.idx)}</span><span class="tt">${esc(t.title)}</span><span></span>${cells(t.lessons)}</button>
         ${open ? `<ul><li><button data-go="track-${t.id}" class="${cur === "track-" + t.id ? "on" : ""}"><span class="cell" style="visibility:hidden"></span>Track overview</button></li>
@@ -300,14 +307,16 @@
     </section>
 
     <div class="sechead"><h2>Tracks</h2><span class="label">Do them in order, or jump to the one you need</span></div>
+    ${(PARTS.length ? PARTS : [{ idx: 0, title: "", short: "", tracks: C.tracks.map((t) => t.id) }]).map((part) => `
+    ${part.idx ? `<div class="parthead"><span class="label">Part ${part.idx} · ${part.tracks.reduce((n, id) => n + T[id].lessons.length, 0)} lessons</span><h3>${esc(part.title)}</h3>${part.short ? `<p>${esc(part.short)}</p>` : ""}</div>` : ""}
     <section class="tracks">
-      ${C.tracks.map((t) => `<button class="panel tcard" data-go="track-${t.id}">
+      ${part.tracks.map((id) => T[id]).map((t) => `<button class="panel tcard" data-go="track-${t.id}">
         <span class="label">Track ${pad(t.idx)} · ${t.lessons.length} lessons · labs/${esc(t.lab)}</span>
         <h3>${esc(t.title)}</h3><p>${esc(t.short)}</p>
         ${cells(t.lessons, true)}
         <span class="foot"><span>${trackDone(t)} of ${t.lessons.length} done</span><span>${t.lessons.filter((id) => L[id].ready).length < t.lessons.length ? `${t.lessons.filter((id) => L[id].ready).length} written` : ""}</span></span>
       </button>`).join("")}
-    </section>
+    </section>`).join("")}
 
     <div class="sechead"><h2>How a session works</h2></div>
     <section class="how">
@@ -344,7 +353,7 @@
     const t = T[l.track];
     const i = ORDER.indexOf(l.id);
     const prev = i > 0 ? L[ORDER[i - 1]] : null, next = i < ORDER.length - 1 ? L[ORDER[i + 1]] : null;
-    const crumb = `<div class="crumb"><span class="label" style="color:var(--hold-ink)">${wdLabel(l.id)}</span><button data-go="track-${t.id}">Track ${pad(t.idx)} · ${esc(t.title)}</button><span class="label">Lesson ${l.n} of ${t.lessons.length}${l.minutes ? ` · about ${l.minutes} min` : ""}</span></div>`;
+    const crumb = `<div class="crumb"><span class="label" style="color:var(--hold-ink)">${wdLabel(l.id)}</span><button data-go="track-${t.id}">${trackTag(t)} · ${esc(t.title)}</button><span class="label">Lesson ${l.n} of ${t.lessons.length}${l.minutes ? ` · about ${l.minutes} min` : ""}</span></div>`;
     if (!l.ready) return `<article class="pending lhead">${crumb}<h1>${esc(l.title)}</h1><p class="goal">This lesson is still being written. It will appear here, at the same link, when it is ready.</p></article>${pager(prev, next)}`;
     if (l.remote && !l.sections) {
       loadLesson(l);
@@ -584,7 +593,7 @@
   /* ---------------- track ---------------- */
   function trackPage(t) {
     const best = S.tquiz[t.id];
-    return `<header class="lhead"><div class="crumb"><span class="label">Track ${pad(t.idx)} · ${t.lessons.length} lessons · labs/${esc(t.lab)}</span></div>
+    return `<header class="lhead"><div class="crumb"><span class="label">${trackTag(t)} · ${t.lessons.length} lessons · labs/${esc(t.lab)}</span></div>
       <h1>${esc(t.title)}</h1><p class="goal">${esc(t.short)}</p>${cells(t.lessons, true)}</header>
       ${t.intro ? `<div class="prose" style="margin-bottom:34px">${t.intro}</div>` : ""}
       <section class="block" style="margin-top:0"><span class="label">Lessons</span><div class="plan-list">
@@ -711,7 +720,7 @@
   function sheetsPage() {
     const have = C.tracks.filter((t) => t.cheatsheet);
     return `<header class="lhead"><span class="label">Reference</span><h1>Cheat sheets</h1><p class="goal">One page per track. Come back to these when you need the answer, not the lesson.</p></header>
-      ${have.length ? have.map((t) => `<section class="sheet" id="sheet-${t.id}"><span class="label">Track ${pad(t.idx)}</span><h2>${esc(t.title)}</h2><div class="prose" style="max-width:none">${t.cheatsheet}</div></section>`).join("") : `<div class="empty">Cheat sheets appear here as tracks are written.</div>`}`;
+      ${have.length ? have.map((t) => `<section class="sheet" id="sheet-${t.id}"><span class="label">${trackTag(t)}</span><h2>${esc(t.title)}</h2><div class="prose" style="max-width:none">${t.cheatsheet}</div></section>`).join("") : `<div class="empty">Cheat sheets appear here as tracks are written.</div>`}`;
   }
   function glossaryPage() {
     const all = [];

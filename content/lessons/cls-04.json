@@ -1,0 +1,375 @@
+{
+ "id": "cls-04",
+ "title": "Dynamic proxies with java.lang.reflect.Proxy",
+ "minutes": 40,
+ "goal": "By the end you can read the class that Proxy.newProxyInstance generates, write a handler that gets equals, exceptions and default methods right (including InvocationHandler.invokeDefault), and predict when a proxy class is generated and what each call costs.",
+ "warmup": {
+  "q": "A JDK proxy for `interface Ledger { long balance(String a); default long total(String a, String b) { return balance(a) + balance(b); } }` has a handler that logs each call and then does `return method.invoke(target, args);`. A caller runs `proxy.total(\"ops\", \"fees\")`. How many calls does the handler log?",
+  "options": [
+   "1: only `total`",
+   "3: `total`, then `balance` twice",
+   "2: `balance` twice, because default methods never reach the handler",
+   "0: default methods bypass the proxy"
+  ],
+  "answer": 0,
+  "why": "`total` reaches the handler like any interface method. The handler then runs the default body on the target, where `this` is the target, so the two `balance` calls never pass through the proxy. Run the body with `InvocationHandler.invokeDefault(proxy, method, args)` instead and `this` is the proxy: the handler then logs 3 calls."
+ },
+ "sections": [
+  {
+   "h": "Proxy.newProxyInstance generates a real class, and you can read it",
+   "body": "In *Decorator and Proxy* you wrote an `InvocationHandler` and passed it to `Proxy.newProxyInstance`. The JDK wrote a class for you at that moment. Here is what `ProxyAnatomy` reports about it, on JDK 21 and JDK 25 alike:\n\n```text\nclass      public final jdk.proxy1.$Proxy0\nextends    java.lang.reflect.Proxy, implements [interface ...ProxyAnatomy$FxQuotes]\nmodule     jdk.proxy1, hidden: false\nfields     [m0, m1, m2, m3, m4]\nmethods    [equals, hashCode, proxyClassLookup, quoteMicros, spreadMicros, toString]\n```\n\nThe `Proxy` Javadoc promises most of this. A proxy class is `final`, extends `java.lang.reflect.Proxy`, and implements exactly the interfaces you passed, in the same order. Its name is unspecified, but names starting with `$Proxy` are reserved for proxy classes, and `Proxy.isProxyClass` recognizes it. The module `jdk.proxy1` and the counter in `$Proxy0` are implementation details.\n\nEvery method looks the same. This is `quoteMicros(String)` as JDK 25 generates it:\n\n```text\n{GEN}\n```\n\nSo every call loads the handler and the proxy, fetches a `Method` object that the static initializer looked up once (`m0` to `m2` are `hashCode`, `equals` and `toString`, then your interface methods), copies the arguments into a fresh `Object[]` (boxing primitives), and calls `invoke`. The result is cast back and unboxed. A `null` returned for a primitive return type becomes a `NullPointerException` at that unboxing step.\n\nThe exception table is the whole exception contract. `Error` and `RuntimeException` pass straight through, and so do checked exceptions that the interface method declares. Anything else gets wrapped in `UndeclaredThrowableException`. `quoteMicros` declares nothing, so its last entry is `any`.\n\nThe Kotlin twin prints the same shape for a Kotlin interface. Proxies are a JVM feature, and kotlinc's interfaces are ordinary JVM interfaces. Since JDK 23 the JDK's `ProxyGenerator` writes these classes with the ClassFile API; JDK 21 still used its internal copy of ASM, which is why the JDK 21 bytecode differs slightly in its exception handler.",
+   "try": {
+    "title": "Take a proxy apart",
+    "minutes": 4,
+    "steps": [
+     "Read `ProxyAnatomy` (or `ProxyAnatomy.kt`). Before running it, predict which of the five calls in part 2 reach the handler.",
+     "Run it. Check the class name, its fields and methods, and the list the handler saw.",
+     "Look at part 3: why do `{FxQuotes, Audited}` and `{Audited, FxQuotes}` get different class names?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "ProxyAnatomy.java",
+     "src": "package workbench.bytecode.l04;\n\nimport java.lang.reflect.InvocationHandler;\nimport java.lang.reflect.Modifier;\nimport java.lang.reflect.Proxy;\nimport java.util.ArrayList;\nimport java.util.Arrays;\nimport java.util.List;\n\n/** What Proxy.newProxyInstance generates, which calls reach the handler, and how the class is cached. */\npublic class ProxyAnatomy {\n    public interface FxQuotes {\n        long quoteMicros(String pair);\n        default long spreadMicros(String pair) { return quoteMicros(pair) / 1_000; }\n    }\n\n    public interface Audited { String auditId(); }\n\n    public static void main(String[] args) {\n        List<String> seen = new ArrayList<>();\n        InvocationHandler h = (proxy, m, a) -> {\n            seen.add(m.getDeclaringClass().getSimpleName() + \".\" + m.getName());\n            return switch (m.getName()) {\n                case \"quoteMicros\" -> 1_084_250L;\n                case \"hashCode\" -> 42;\n                case \"equals\" -> proxy == a[0];\n                case \"toString\" -> \"FxQuotes proxy\";\n                default -> null;\n            };\n        };\n        ClassLoader app = FxQuotes.class.getClassLoader();\n        FxQuotes q = (FxQuotes) Proxy.newProxyInstance(app, new Class<?>[]{FxQuotes.class}, h);\n\n        // 1. the generated class\n        Class<?> pc = q.getClass();\n        System.out.println(\"class      \" + Modifier.toString(pc.getModifiers()) + \" \" + pc.getName());\n        System.out.println(\"extends    \" + pc.getSuperclass().getName() + \", implements \" + Arrays.toString(pc.getInterfaces()));\n        System.out.println(\"module     \" + pc.getModule().getName() + \", hidden: \" + pc.isHidden());\n        System.out.println(\"fields     \" + Arrays.stream(pc.getDeclaredFields()).map(f -> f.getName()).sorted().toList());\n        System.out.println(\"methods    \" + Arrays.stream(pc.getDeclaredMethods()).map(m -> m.getName()).sorted().toList());\n\n        // 2. which calls reach the handler\n        q.quoteMicros(\"EURUSD\");\n        q.toString();\n        q.hashCode();\n        q.equals(q);\n        q.getClass();\n        System.out.println(\"handler saw \" + seen);\n\n        // 3. the class is cached per loader and per ordered interface list\n        Object again = Proxy.newProxyInstance(app, new Class<?>[]{FxQuotes.class}, (p, m, a) -> 0L);\n        Object ab = Proxy.newProxyInstance(app, new Class<?>[]{FxQuotes.class, Audited.class}, h);\n        Object ba = Proxy.newProxyInstance(app, new Class<?>[]{Audited.class, FxQuotes.class}, h);\n        System.out.println(\"same class for the same interface: \" + (again.getClass() == pc));\n        System.out.println(\"{FxQuotes, Audited} -> \" + ab.getClass().getName() + \", {Audited, FxQuotes} -> \" + ba.getClass().getName());\n    }\n}\n",
+     "run": "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l04.ProxyAnatomy",
+     "file": "labs/bytecode/src/demo/java/workbench/bytecode/l04/ProxyAnatomy.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "ProxyAnatomy.kt",
+      "src": "package workbench.bytecode.l04\n\nimport java.lang.reflect.InvocationHandler\nimport java.lang.reflect.Modifier\nimport java.lang.reflect.Proxy\n\ninterface KFxQuotes {\n    fun quoteMicros(pair: String): Long\n    fun spreadMicros(pair: String): Long = quoteMicros(pair) / 1_000   // a JVM default method (jvmTarget 21)\n}\n\ninterface KAudited {\n    fun auditId(): String\n}\n\n/** What Proxy.newProxyInstance generates, which calls reach the handler, and how the class is cached. */\nfun main() {\n    val seen = mutableListOf<String>()\n    val h = InvocationHandler { proxy, m, a ->\n        seen += \"${m.declaringClass.simpleName}.${m.name}\"\n        when (m.name) {\n            \"quoteMicros\" -> 1_084_250L\n            \"hashCode\" -> 42\n            \"equals\" -> proxy === a[0]\n            \"toString\" -> \"KFxQuotes proxy\"\n            else -> null\n        }\n    }\n    val app = KFxQuotes::class.java.classLoader\n    val q = Proxy.newProxyInstance(app, arrayOf(KFxQuotes::class.java), h) as KFxQuotes\n\n    // 1. the generated class\n    val pc = q.javaClass\n    println(\"class      ${Modifier.toString(pc.modifiers)} ${pc.name}\")\n    println(\"extends    ${pc.superclass.name}, implements ${pc.interfaces.toList()}\")\n    println(\"module     ${pc.module.name}, hidden: ${pc.isHidden}\")\n    println(\"fields     ${pc.declaredFields.map { it.name }.sorted()}\")\n    println(\"methods    ${pc.declaredMethods.map { it.name }.sorted()}\")\n\n    // 2. which calls reach the handler\n    q.quoteMicros(\"EURUSD\")\n    q.toString()\n    q.hashCode()\n    q.equals(q)\n    q.javaClass\n    println(\"handler saw $seen\")\n\n    // 3. the class is cached per loader and per ordered interface list\n    val again = Proxy.newProxyInstance(app, arrayOf(KFxQuotes::class.java)) { _, _, _ -> 0L }\n    val ab = Proxy.newProxyInstance(app, arrayOf(KFxQuotes::class.java, KAudited::class.java), h)\n    val ba = Proxy.newProxyInstance(app, arrayOf(KAudited::class.java, KFxQuotes::class.java), h)\n    println(\"same class for the same interface: ${again.javaClass == pc}\")\n    println(\"{KFxQuotes, KAudited} -> ${ab.javaClass.name}, {KAudited, KFxQuotes} -> ${ba.javaClass.name}\")\n}\n",
+      "run": "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l04.ProxyAnatomyKt",
+      "file": "labs/bytecode/src/demo/kotlin/workbench/bytecode/l04/ProxyAnatomy.kt"
+     }
+    },
+    "expect": "`public final jdk.proxy1.$Proxy0`, extending `java.lang.reflect.Proxy` in module `jdk.proxy1`, with fields `m0` to `m4`. The handler saw `quoteMicros`, `Object.toString`, `Object.hashCode` and `Object.equals`, but not `getClass()`. The same interface again gives the same class. The two orderings give `$Proxy1` and `$Proxy2`, because the class implements its interfaces in the order you list them, so the cache keys on the order too."
+   },
+   "refs": [
+    {
+     "title": "Proxy (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/reflect/Proxy.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "What reaches the handler, and what the handler owes the caller",
+   "body": "Three methods of `Object` reach the handler: `hashCode`, `equals` and `toString`, with `method.getDeclaringClass() == Object.class`. The other public `Object` methods, such as `getClass`, `wait` and `notify`, are final, and the proxy doesn't override them. For `hashCode` and other no-argument methods, `args` is `null`, not an empty array.\n\nWhat you do with `equals` matters. The tempting handler forwards everything:\n\n```java\nInvocationHandler h = (proxy, m, args) -> m.invoke(target, args);   // equals too\n```\n\n```kotlin\nval h = InvocationHandler { _, m, args -> m.invoke(target, *(args ?: emptyArray())) }   // equals too\n```\n\nNow `proxy.equals(proxy)` asks `target.equals(proxy)`, and the target has never heard of the proxy, so the answer is `false`. `equals` is no longer reflexive. The `ObjectMethodsDemo` shows the symptom: after `listeners.add(proxy)`, `listeners.remove(proxy)` returns `false` and the listener stays registered. A `HashSet` happens to survive, because `HashMap` compares references with `==` before it calls `equals`. That's luck, not correctness. Answer `equals` and `hashCode` by proxy identity (`proxy == args[0]`, `System.identityHashCode(proxy)`), or decide on purpose how two proxies compare.\n\nThe handler also owes the caller the right exceptions. The generated method rethrows unchecked exceptions and the checked exceptions its interface method declares. It wraps any other checked exception in `UndeclaredThrowableException`. `Method.invoke` adds a second layer: whatever the target throws arrives wrapped in `InvocationTargetException`. A handler must catch that and rethrow `e.getCause()`, or the caller sees `UndeclaredThrowableException` wrapping `InvocationTargetException` wrapping the real error.\n\nKotlin makes the first rule easy to trip over. Kotlin has no checked exceptions, so a Kotlin interface method declares none unless you write `@Throws`. A Kotlin implementation may still throw `IOException` (from a Java HTTP client it calls, say), because Kotlin doesn't check. A correctly unwrapping handler then produces `UndeclaredThrowableException`, and a Kotlin `catch (e: IOException)` around the call never matches. The demo's `status()` shows it. Add `@Throws(IOException::class)` to interface methods whose implementations throw checked exceptions.\n\nTwo more rules from the Javadoc. Only interfaces can be proxied: passing a class fails with `IllegalArgumentException: ... is not an interface`. And if two interfaces declare the same method, the handler gets the `Method` from the first interface in your list, whichever reference type the caller used.",
+   "try": {
+    "title": "Break equals, then the exception contract",
+    "minutes": 4,
+    "steps": [
+     "Run `ObjectMethodsDemo` (or the Kotlin twin) and read the four lines.",
+     "In `forwardingEverything`, answer `equals` before the `try`: `if (m.getName().equals(\"equals\")) return proxy == args[0];` (in Kotlin, `if (m.name == \"equals\") return@newProxyInstance proxy === args[0]`). Run it again.",
+     "In the Kotlin twin, remove `@Throws(IOException::class)` from `authorize` and predict what the `catch (e: IOException)` block does now. Run it."
+    ],
+    "code": {
+     "lang": "java",
+     "title": "ObjectMethodsDemo.java",
+     "src": "package workbench.bytecode.l04;\n\nimport java.io.IOException;\nimport java.lang.reflect.InvocationTargetException;\nimport java.lang.reflect.Proxy;\nimport java.lang.reflect.UndeclaredThrowableException;\nimport java.util.ArrayList;\nimport java.util.HashSet;\nimport java.util.List;\nimport java.util.Set;\n\n/** Two handler bugs: forwarding equals to the target, and throwing a checked exception the method doesn't declare. */\npublic class ObjectMethodsDemo {\n    public interface IssuerClient {\n        String authorize(String pan) throws IOException;   // declares IOException\n        String status();                                   // declares nothing\n    }\n\n    static class RealIssuer implements IssuerClient {\n        public String authorize(String pan) throws IOException { throw new IOException(\"issuer timed out after 120 ms\"); }\n        public String status() { return \"UP\"; }\n    }\n\n    static IssuerClient forwardingEverything(IssuerClient target) {\n        return (IssuerClient) Proxy.newProxyInstance(IssuerClient.class.getClassLoader(), new Class<?>[]{IssuerClient.class},\n                (proxy, m, args) -> {\n                    try {\n                        return m.invoke(target, args);   // equals and hashCode go to the target too\n                    } catch (InvocationTargetException e) {\n                        throw e.getCause();\n                    }\n                });\n    }\n\n    public static void main(String[] args) {\n        IssuerClient p = forwardingEverything(new RealIssuer());\n        System.out.println(\"p.equals(p): \" + p.equals(p) + \"   (target.equals(p) was asked)\");\n        List<IssuerClient> listeners = new ArrayList<>();\n        listeners.add(p);\n        System.out.println(\"listeners.remove(p) after listeners.add(p): \" + listeners.remove(p) + \", size still \" + listeners.size());\n        Set<IssuerClient> set = new HashSet<>(listeners);\n        System.out.println(\"HashSet.contains(p): \" + set.contains(p) + \"   (HashMap checks == before equals)\");\n\n        try {\n            p.authorize(\"4111111111111111\");\n        } catch (IOException e) {\n            System.out.println(\"declared IOException passes through: \" + e.getMessage());\n        }\n\n        IssuerClient angry = (IssuerClient) Proxy.newProxyInstance(IssuerClient.class.getClassLoader(),\n                new Class<?>[]{IssuerClient.class}, (proxy, m, a) -> { throw new IOException(\"connection reset\"); });\n        try {\n            angry.status();\n        } catch (UndeclaredThrowableException e) {\n            System.out.println(\"undeclared IOException from status() -> UndeclaredThrowableException, cause: \" + e.getCause());\n        }\n    }\n}\n",
+     "run": "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l04.ObjectMethodsDemo",
+     "file": "labs/bytecode/src/demo/java/workbench/bytecode/l04/ObjectMethodsDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "ObjectMethodsDemo.kt",
+      "src": "package workbench.bytecode.l04\n\nimport java.io.IOException\nimport java.lang.reflect.InvocationTargetException\nimport java.lang.reflect.Proxy\nimport java.lang.reflect.UndeclaredThrowableException\n\ninterface KIssuerClient {\n    @Throws(IOException::class)\n    fun authorize(pan: String): String   // @Throws writes `throws IOException` into the class file\n    fun status(): String                 // Kotlin declares nothing unless you say so\n}\n\nclass RealKIssuer : KIssuerClient {\n    override fun authorize(pan: String): String = throw IOException(\"issuer timed out after 120 ms\")\n    override fun status() = \"UP\"\n}\n\nfun forwardingEverything(target: KIssuerClient): KIssuerClient =\n    Proxy.newProxyInstance(KIssuerClient::class.java.classLoader, arrayOf(KIssuerClient::class.java)) { _, m, args ->\n        try {\n            m.invoke(target, *(args ?: emptyArray()))   // equals and hashCode go to the target too\n        } catch (e: InvocationTargetException) {\n            throw e.cause!!\n        }\n    } as KIssuerClient\n\n/** Two handler bugs: forwarding equals to the target, and throwing a checked exception the method doesn't declare. */\nfun main() {\n    val p = forwardingEverything(RealKIssuer())\n    println(\"p.equals(p): ${p.equals(p)}   (target.equals(p) was asked)\")\n    val listeners = ArrayList<KIssuerClient>()\n    listeners += p\n    println(\"listeners.remove(p) after listeners.add(p): ${listeners.remove(p)}, size still ${listeners.size}\")\n    val set = HashSet(listeners)\n    println(\"HashSet.contains(p): ${p in set}   (HashMap checks == before equals)\")\n\n    try {\n        p.authorize(\"4111111111111111\")\n    } catch (e: IOException) {\n        println(\"declared IOException passes through: ${e.message}\")\n    }\n\n    val angry = Proxy.newProxyInstance(KIssuerClient::class.java.classLoader, arrayOf(KIssuerClient::class.java)) { _, _, _ ->\n        throw IOException(\"connection reset\")\n    } as KIssuerClient\n    try {\n        angry.status()\n    } catch (e: UndeclaredThrowableException) {\n        println(\"undeclared IOException from status() -> UndeclaredThrowableException, cause: ${e.cause}\")\n    }\n}\n",
+      "run": "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l04.ObjectMethodsDemoKt",
+      "file": "labs/bytecode/src/demo/kotlin/workbench/bytecode/l04/ObjectMethodsDemo.kt"
+     }
+    },
+    "expect": "First run: `p.equals(p): false`, `listeners.remove(p) ... false, size still 1`, `HashSet.contains(p): true`, the declared `IOException` passing through, and `UndeclaredThrowableException` for `status()`. After the `equals` fix, `p.equals(p)` is `true` and `remove` works. Without `@Throws`, the Kotlin `authorize` call ends the program with an `UndeclaredThrowableException` whose cause is the `IOException`: the `catch` no longer matches."
+   },
+   "refs": [
+    {
+     "title": "InvocationHandler (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/reflect/InvocationHandler.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Default methods: the handler decides who this is",
+   "body": "*Decorator and Proxy* showed the self-invocation trap: when the target calls `this.authorize()` inside its own method, `this` is the target, and the proxy never sees the inner call. Default methods give you a choice about that.\n\nIf the handler forwards a default method with `method.invoke(target, args)`, the default body runs on the target. Its `this` is the target, and its inner calls skip the proxy. `DefaultMethodsDemo` logs `[totalMinor]`.\n\nJDK 16 added `InvocationHandler.invokeDefault(proxy, method, args)`. It runs the interface's default body with `this` set to the proxy, so every call the body makes comes back through the handler:\n\n```java\nif (method.isDefault()) {\n    return InvocationHandler.invokeDefault(proxy, method, args);   // body runs with this = proxy\n}\n```\n\n```kotlin\nif (method.isDefault) {\n    return@InvocationHandler InvocationHandler.invokeDefault(proxy, method, *(args ?: emptyArray()))\n}\n```\n\nNow the demo logs `[totalMinor, balanceMinor, balanceMinor]`. The proxy doesn't even need a target: a handler that answers the abstract methods itself and sends defaults to `invokeDefault` is a complete implementation. Calling `invokeDefault` on an abstract method throws `IllegalArgumentException`, and on a default method your code can't access it throws `IllegalAccessException`.\n\nKotlin interfaces work too. With the labs' JVM target 21, kotlinc 2.4.21 compiles an interface function that has a body to a real JVM `default` method, plus a `DefaultImpls` class for older callers. `method.isDefault` is `true` and `invokeDefault` runs the Kotlin body (the Kotlin twin prints the same three calls).\n\nThis choice decides whether a retry proxy is safe. Take `default String authorizeAndCapture(pan, amount) { return capture(authorize(pan, amount)); }`. Suppose your handler treats it like any other method and retries it whenever it fails. The first attempt authorizes, then the capture fails, so the handler retries the whole method, and the second attempt sends another authorization to the issuer. Run defaults through `invokeDefault` and retry only the abstract calls inside them. A failed capture is then retried as a capture, and the authorization that already succeeded stays at one. The lab tests exactly this.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 680 300\" role=\"img\" aria-label=\"Two ways a handler can run a default method. Forwarded to the target, the body's inner calls go to the target and skip the handler. Through invokeDefault, the body runs with this as the proxy, so both inner calls come back through the handler.\">\n<text class=\"t-s t-m\" x=\"20\" y=\"22\">handler forwards with m.invoke(target, args)</text>\n<rect class=\"box\" x=\"20\" y=\"34\" width=\"90\" height=\"40\" rx=\"8\"/>\n<text class=\"t-s\" x=\"65\" y=\"59\" text-anchor=\"middle\">caller</text>\n<rect class=\"box-a\" x=\"140\" y=\"34\" width=\"90\" height=\"40\" rx=\"8\"/>\n<text class=\"t-s\" x=\"185\" y=\"59\" text-anchor=\"middle\">proxy</text>\n<rect class=\"box\" x=\"260\" y=\"34\" width=\"90\" height=\"40\" rx=\"8\"/>\n<text class=\"t-s\" x=\"305\" y=\"59\" text-anchor=\"middle\">handler</text>\n<rect class=\"box\" x=\"380\" y=\"34\" width=\"150\" height=\"40\" rx=\"8\"/>\n<text class=\"t-s t-code\" x=\"455\" y=\"59\" text-anchor=\"middle\">target.totalMinor</text>\n<rect class=\"box-bad\" x=\"550\" y=\"34\" width=\"110\" height=\"40\" rx=\"8\"/>\n<text class=\"t-s t-code\" x=\"605\" y=\"59\" text-anchor=\"middle\">this.balance x2</text>\n<line class=\"ln\" x1=\"110\" y1=\"54\" x2=\"136\" y2=\"54\" marker-end=\"url(#arr)\"/>\n<line class=\"ln\" x1=\"230\" y1=\"54\" x2=\"256\" y2=\"54\" marker-end=\"url(#arr)\"/>\n<line class=\"ln\" x1=\"350\" y1=\"54\" x2=\"376\" y2=\"54\" marker-end=\"url(#arr)\"/>\n<line class=\"ln-bad\" x1=\"530\" y1=\"54\" x2=\"546\" y2=\"54\" marker-end=\"url(#arr)\"/>\n<text class=\"t-s t-bad\" x=\"605\" y=\"94\" text-anchor=\"middle\">this = target</text>\n<text class=\"t-s t-bad\" x=\"455\" y=\"94\" text-anchor=\"middle\">handler saw 1 call</text>\n<text class=\"t-s t-m\" x=\"20\" y=\"152\">handler runs it with invokeDefault(proxy, m, args)</text>\n<rect class=\"box\" x=\"20\" y=\"164\" width=\"90\" height=\"40\" rx=\"8\"/>\n<text class=\"t-s\" x=\"65\" y=\"189\" text-anchor=\"middle\">caller</text>\n<rect class=\"box-a\" x=\"140\" y=\"164\" width=\"90\" height=\"40\" rx=\"8\"/>\n<text class=\"t-s\" x=\"185\" y=\"189\" text-anchor=\"middle\">proxy</text>\n<rect class=\"box\" x=\"260\" y=\"164\" width=\"90\" height=\"40\" rx=\"8\"/>\n<text class=\"t-s\" x=\"305\" y=\"189\" text-anchor=\"middle\">handler</text>\n<rect class=\"box-ok\" x=\"380\" y=\"164\" width=\"150\" height=\"40\" rx=\"8\"/>\n<text class=\"t-s t-code\" x=\"455\" y=\"189\" text-anchor=\"middle\">Ledger.totalMinor</text>\n<line class=\"ln\" x1=\"110\" y1=\"184\" x2=\"136\" y2=\"184\" marker-end=\"url(#arr)\"/>\n<line class=\"ln\" x1=\"230\" y1=\"184\" x2=\"256\" y2=\"184\" marker-end=\"url(#arr)\"/>\n<line class=\"ln\" x1=\"350\" y1=\"184\" x2=\"376\" y2=\"184\" marker-end=\"url(#arr)\"/>\n<path class=\"ln-a\" fill=\"none\" d=\"M455 204 L455 240 L185 240 L185 208\" marker-end=\"url(#arr)\"/>\n<text class=\"t-s t-a\" x=\"320\" y=\"258\" text-anchor=\"middle\">this.balanceMinor(...) x2: this = proxy, back through the handler</text>\n<text class=\"t-s t-ok\" x=\"320\" y=\"282\" text-anchor=\"middle\">handler saw 3 calls: totalMinor, balanceMinor, balanceMinor</text>\n</svg>",
+    "caption": "Forwarding a default method to the target hides its inner calls. invokeDefault runs the body on the proxy, so the handler sees each one."
+   },
+   "try": {
+    "title": "Count the handler calls",
+    "minutes": 4,
+    "steps": [
+     "Read `DefaultMethodsDemo`. Predict the `handler saw` list for both runs and the total for the target-less proxy.",
+     "Run it (or the Kotlin twin).",
+     "Change `RealLedger.balanceMinor` to throw `IllegalStateException` for `\"fees\"` and run again. What does the first run's log contain when it fails?"
+    ],
+    "code": {
+     "lang": "java",
+     "title": "DefaultMethodsDemo.java",
+     "src": "package workbench.bytecode.l04;\n\nimport java.lang.reflect.InvocationHandler;\nimport java.lang.reflect.InvocationTargetException;\nimport java.lang.reflect.Method;\nimport java.lang.reflect.Proxy;\nimport java.util.ArrayList;\nimport java.util.List;\n\n/** Who is `this` inside a default method? It decides which inner calls the handler sees. */\npublic class DefaultMethodsDemo {\n    public interface Ledger {\n        long balanceMinor(String account);\n\n        default long totalMinor(String a, String b) {   // calls balanceMinor twice, on `this`\n            return balanceMinor(a) + balanceMinor(b);\n        }\n    }\n\n    static class RealLedger implements Ledger {\n        public long balanceMinor(String account) { return account.length() * 1_000L; }\n    }\n\n    /** Logs every call it sees. Default methods go either to the target or through invokeDefault. */\n    static Ledger logging(Ledger target, boolean useInvokeDefault, List<String> log) {\n        InvocationHandler h = (proxy, m, args) -> {\n            log.add(m.getName());\n            if (useInvokeDefault && m.isDefault()) {\n                return InvocationHandler.invokeDefault(proxy, m, args);   // the body runs with this = proxy\n            }\n            try {\n                return m.invoke(target, args);                            // the body runs with this = target\n            } catch (InvocationTargetException e) {\n                throw e.getCause();\n            }\n        };\n        return (Ledger) Proxy.newProxyInstance(Ledger.class.getClassLoader(), new Class<?>[]{Ledger.class}, h);\n    }\n\n    public static void main(String[] args) throws Exception {\n        List<String> log = new ArrayList<>();\n        long t = logging(new RealLedger(), false, log).totalMinor(\"ops\", \"fees\");\n        System.out.println(\"forward to target: total=\" + t + \", handler saw \" + log);\n\n        log.clear();\n        t = logging(new RealLedger(), true, log).totalMinor(\"ops\", \"fees\");\n        System.out.println(\"invokeDefault:     total=\" + t + \", handler saw \" + log);\n\n        // no implementation class at all: the handler answers balanceMinor, the interface supplies totalMinor\n        Ledger noTarget = (Ledger) Proxy.newProxyInstance(Ledger.class.getClassLoader(), new Class<?>[]{Ledger.class},\n                (proxy, m, a) -> m.isDefault() ? InvocationHandler.invokeDefault(proxy, m, a) : 500L);\n        System.out.println(\"no target:         total=\" + noTarget.totalMinor(\"x\", \"y\"));\n\n        try {\n            Method abstractOne = Ledger.class.getMethod(\"balanceMinor\", String.class);\n            InvocationHandler.invokeDefault(noTarget, abstractOne, \"x\");\n        } catch (Throwable e) {\n            System.out.println(\"invokeDefault on an abstract method -> \" + e.getClass().getSimpleName());\n        }\n    }\n}\n",
+     "run": "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l04.DefaultMethodsDemo",
+     "file": "labs/bytecode/src/demo/java/workbench/bytecode/l04/DefaultMethodsDemo.java",
+     "alt": {
+      "lang": "kotlin",
+      "title": "DefaultMethodsDemo.kt",
+      "src": "package workbench.bytecode.l04\n\nimport java.lang.reflect.InvocationHandler\nimport java.lang.reflect.InvocationTargetException\nimport java.lang.reflect.Proxy\n\ninterface KLedger {\n    fun balanceMinor(account: String): Long\n\n    fun totalMinor(a: String, b: String): Long =       // calls balanceMinor twice, on `this`\n        balanceMinor(a) + balanceMinor(b)\n}\n\nclass RealKLedger : KLedger {\n    override fun balanceMinor(account: String) = account.length * 1_000L\n}\n\n/** Logs every call it sees. Default methods go either to the target or through invokeDefault. */\nfun logging(target: KLedger, useInvokeDefault: Boolean, log: MutableList<String>): KLedger =\n    Proxy.newProxyInstance(KLedger::class.java.classLoader, arrayOf(KLedger::class.java)) { proxy, m, args ->\n        log += m.name\n        if (useInvokeDefault && m.isDefault) {\n            InvocationHandler.invokeDefault(proxy, m, *args)       // the body runs with this = proxy\n        } else {\n            try {\n                m.invoke(target, *args)                            // the body runs with this = target\n            } catch (e: InvocationTargetException) {\n                throw e.cause!!\n            }\n        }\n    } as KLedger\n\n/** Who is `this` inside a default method? It decides which inner calls the handler sees. */\nfun main() {\n    val log = mutableListOf<String>()\n    var t = logging(RealKLedger(), false, log).totalMinor(\"ops\", \"fees\")\n    println(\"forward to target: total=$t, handler saw $log\")\n\n    log.clear()\n    t = logging(RealKLedger(), true, log).totalMinor(\"ops\", \"fees\")\n    println(\"invokeDefault:     total=$t, handler saw $log\")\n\n    // no implementation class at all: the handler answers balanceMinor, the interface supplies totalMinor\n    val noTarget = Proxy.newProxyInstance(KLedger::class.java.classLoader, arrayOf(KLedger::class.java)) { proxy, m, a ->\n        if (m.isDefault) InvocationHandler.invokeDefault(proxy, m, *a) else 500L\n    } as KLedger\n    println(\"no target:         total=${noTarget.totalMinor(\"x\", \"y\")}\")\n\n    try {\n        InvocationHandler.invokeDefault(noTarget, KLedger::class.java.getMethod(\"balanceMinor\", String::class.java), \"x\")\n    } catch (e: Throwable) {\n        println(\"invokeDefault on an abstract method -> ${e.javaClass.simpleName}\")\n    }\n}\n",
+      "run": "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l04.DefaultMethodsDemoKt",
+      "file": "labs/bytecode/src/demo/kotlin/workbench/bytecode/l04/DefaultMethodsDemo.kt"
+     }
+    },
+    "expect": "`forward to target: total=7000, handler saw [totalMinor]`, then `invokeDefault: total=7000, handler saw [totalMinor, balanceMinor, balanceMinor]`, then `no target: total=1000` (two answers of 500), then `IllegalArgumentException`. With the exception for `\"fees\"`, the program stops in the first run. Its stack trace shows `RealLedger.balanceMinor` called from `Ledger.totalMinor` on the target, and the handler never logged a `balanceMinor`: a retry or a timer in the handler couldn't have seen the failing call. In the `invokeDefault` version the same failure would pass through the handler as the second `balanceMinor` call."
+   }
+  },
+  {
+   "h": "One class per loader and interface list, and a few nanoseconds per call",
+   "body": "Generating a class is the expensive part, and the JDK does it once. `Proxy` caches proxy constructors per class loader, keyed by the ordered interface list. Ten thousand `newProxyInstance` calls with the same loader and interfaces generate one class and construct ten thousand small objects. Listing the same interfaces in a different order generates a second class, as `ProxyAnatomy` showed.\n\nEach class loader gets one dynamic module for its proxies. On the runs for this track, proxies for app-loader interfaces landed in `jdk.proxy1`, and a `Runnable` proxy created with the bootstrap loader (`null`) landed in `jdk.proxy2`. If any interface is package-private, the proxy class goes into that interface's package instead, and it isn't public (`demo.$Proxy8` in one run). Calling `Constructor.newInstance` on a proxy class in a dynamic module throws `IllegalAccessException`. Use `newProxyInstance`, because `Proxy.getProxyClass` is deprecated.\n\nThe per-call cost is the bytecode from section 1: an `Object[]`, boxing, a virtual call to the handler, and whatever the handler does. One JMH run on JDK 25 (4 vCPUs, one fork, wide error bars) measured `add(3, 4)` like this:\n\n| Call | ns/op |\n|---|---|\n| direct | 0.83 |\n| Byte Buddy subclass with `@SuperCall` (lesson 5) | 0.88 |\n| JDK proxy, handler calls `method.invoke(target, args)` | 4.3 |\n| plain `Method.invoke` with boxing | 11.8 |\n\nRead the order, not the decimals. A few nanoseconds per call is nothing next to a 120 ms issuer call or a database round trip. It does show up in a loop that calls a proxied interface millions of times, and there a subclass proxy or plain code wins.\n\nYou can save the generated class and read it yourself. `-Djdk.proxy.ProxyGenerator.saveGeneratedFiles=true` writes it to `jdk/proxy1/$Proxy0.class` under the current directory. On JDK 21 that just works. On the JDK 24, 25, 26 and 27 builds tested for this track, the JDK writes the first file and then `newProxyInstance` throws `NullPointerException`. The JDK source explains it: a `return null;` that used to sit inside a `doPrivileged` lambda now returns from `generateProxyClass` itself. The file is still written, so you can read it on any of them.",
+   "try": {
+    "title": "Read the class the JDK wrote",
+    "minutes": 4,
+    "steps": [
+     "Run `ProxyAnatomy` once with Gradle so its classes exist. Then, from `labs/`, run the commands below. They work in a temporary directory, because the flag writes into the current one.",
+     "On JDK 24 or later, expect a `NullPointerException` after the first file is written. Carry on with `javap`.",
+     "Find `quoteMicros` and compare it with the listing in section 1. Then find the static initializer: where does it look up `m3`?"
+    ],
+    "code": {
+     "lang": "bash",
+     "title": "terminal",
+     "src": "D=$PWD/bytecode/build/classes/java/demo\ncd \"$(mktemp -d)\"\njava -Djdk.proxy.ProxyGenerator.saveGeneratedFiles=true -cp \"$D\" workbench.bytecode.l04.ProxyAnatomy\njavap -c -p 'jdk/proxy1/$Proxy0.class' | less",
+     "run": ""
+    },
+    "expect": "`quoteMicros` loads `h`, the proxy and `m3`, builds a one-element `Object[]`, calls `InvocationHandler.invoke`, then `checkcast Long` and `longValue`. The static initializer calls `Class.getMethod` for `hashCode`, `equals`, `toString`, `quoteMicros` and `spreadMicros` (on JDK 21 it first loads each class with `Class.forName`) and stores them in `m0` to `m4`. On JDK 21 the program also prints its normal output. On JDK 24 and later it stops with the NPE after writing `$Proxy0.class`."
+   },
+   "refs": [
+    {
+     "title": "ProxyGenerator.java at jdk-25-ga (OpenJDK source)",
+     "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/java.base/share/classes/java/lang/reflect/ProxyGenerator.java",
+     "kind": "read"
+    }
+   ]
+  }
+ ],
+ "analogy": "A JDK proxy is a receptionist for a list of phone extensions. Every call to one of those extensions goes to the receptionist, who writes a note (the `Method` and an `Object[]` of arguments) and hands it to one person, the handler, who decides what happens. Calls that staff make to each other inside the office never pass reception, which is self-invocation. A default method is a script taped to the desk: the handler can give the script to a staff member to read (forward it to the target), or read it out at reception itself (`invokeDefault`), in which case every call the script makes goes through reception again. The analogy breaks on identity. A receptionist knows they aren't the person you asked for, but a careless handler that forwards `equals` makes the proxy deny being itself.",
+ "in_your_world": "Payments code proxies interfaces all the time without saying so: REST clients, Kafka producer wrappers and repository interfaces in many frameworks are interfaces with a generated implementation behind them. A JDK proxy like the lab's is the right tool when you own the interface, for example a `CardIssuerClient` that every issuer adapter implements, and you want one retry, timeout and metrics policy around all of them. Be strict about what you retry: an authorization or a capture is safe to repeat only with an idempotency key the issuer deduplicates on. And keep `equals` honest: a proxied listener registered in a list that can't be removed is a memory leak that grows with every deploy-time reload.",
+ "mistake": "The most common mistake is a handler that treats every `Method` the same way. It forwards `equals`, `hashCode` and `toString` to the target, which breaks reflexivity, so collections can't find or remove the proxy. It forwards or retries default methods as one unit, so their inner calls skip the retry and timing logic, or the whole sequence runs again. And it lets `InvocationTargetException` escape, so callers get `UndeclaredThrowableException`. People write it that way because the one-line `m.invoke(target, args)` handler works in the first test. The fix is a handler with four explicit cases in order: `Object` methods, default methods (`invokeDefault`), the methods you decorate, and an unwrapping `catch`.",
+ "compare": {
+  "title": "A tracing proxy in Java and Kotlin",
+  "java": {
+   "title": "Tracing.java",
+   "src": "@SuppressWarnings(\"unchecked\")\nstatic <T> T tracing(Class<T> iface, T target, List<String> log) {\n    InvocationHandler h = (proxy, m, args) -> {\n        if (m.getDeclaringClass() == Object.class) {          // 1. identity, not the target's\n            return switch (m.getName()) {\n                case \"equals\" -> proxy == args[0];\n                case \"hashCode\" -> System.identityHashCode(proxy);\n                default -> \"Tracing[\" + target + \"]\";\n            };\n        }\n        log.add(m.getName());\n        if (m.isDefault()) return InvocationHandler.invokeDefault(proxy, m, args);  // 2. this = proxy\n        try {\n            return m.invoke(target, args);                    // 3. args is null for no-arg methods\n        } catch (InvocationTargetException e) {\n            throw e.getCause();                               // 4. the target's own exception\n        }\n    };\n    return (T) Proxy.newProxyInstance(iface.getClassLoader(), new Class<?>[]{iface}, h);\n}"
+  },
+  "kotlin": {
+   "title": "Tracing.kt",
+   "src": "inline fun <reified T : Any> tracing(target: T, log: MutableList<String>): T =\n    Proxy.newProxyInstance(T::class.java.classLoader, arrayOf(T::class.java)) { proxy, m, args ->\n        val a = args ?: emptyArray()                          // 3. null for no-arg methods\n        when {\n            m.declaringClass == Any::class.java -> when (m.name) {   // 1. identity\n                \"equals\" -> proxy === a[0]\n                \"hashCode\" -> System.identityHashCode(proxy)\n                else -> \"Tracing[$target]\"\n            }\n            else -> {\n                log += m.name\n                if (m.isDefault) InvocationHandler.invokeDefault(proxy, m, *a)   // 2. this = proxy\n                else try {\n                    m.invoke(target, *a)\n                } catch (e: InvocationTargetException) {\n                    throw e.cause!!                           // 4. the target's own exception\n                }\n            }\n        }\n    } as T"
+  },
+  "note": "Same JVM mechanism, same four cases. The Kotlin version is shorter because `reified T` reads `T::class.java` itself, so callers write `tracing(issuer, log)`. Two Kotlin-specific traps sit in it. `args` is a nullable Java array, `null` for methods with no parameters, so spreading it directly (`*args`) throws `NullPointerException` on `hashCode()`. And Kotlin interfaces declare no checked exceptions unless you add `@Throws`, so a Java client's `IOException` that the handler rethrows correctly still reaches Kotlin callers as `UndeclaredThrowableException`."
+ },
+ "worked": {
+  "title": "A test double for CardIssuerClient with no implementation class",
+  "steps": [
+   {
+    "say": "A test needs a `CardIssuerClient` that returns canned answers and records what was called, and you don't want to write a class with every method. A proxy with no target can do it. Start with the cases every handler needs.",
+    "code": "static CardIssuerClient fakeIssuer(Map<String, Object> answers, List<String> calls) {\n    InvocationHandler h = (proxy, m, args) -> {\n        // 1. Object methods: identity, so the fake behaves in collections\n        if (m.getDeclaringClass() == Object.class) {\n            return switch (m.getName()) {\n                case \"equals\" -> proxy == args[0];\n                case \"hashCode\" -> System.identityHashCode(proxy);\n                default -> \"FakeIssuer\" + answers.keySet();\n            };\n        }\n        // 2. default methods: run the real interface body, which calls back through this handler\n        if (m.isDefault()) return InvocationHandler.invokeDefault(proxy, m, args);\n        // 3. abstract methods: record the call and return the canned answer\n        calls.add(m.getName() + Arrays.toString(args));\n        if (!answers.containsKey(m.getName())) throw new UnsupportedOperationException(m.getName());\n        return answers.get(m.getName());\n    };\n    return (CardIssuerClient) Proxy.newProxyInstance(\n            CardIssuerClient.class.getClassLoader(), new Class<?>[]{CardIssuerClient.class}, h);\n}",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "fun fakeIssuer(answers: Map<String, Any>, calls: MutableList<String>): CardIssuerClient =\n    Proxy.newProxyInstance(CardIssuerClient::class.java.classLoader, arrayOf(CardIssuerClient::class.java)) { proxy, m, args ->\n        val a = args ?: emptyArray()\n        when {\n            // 1. Object methods: identity, so the fake behaves in collections\n            m.declaringClass == Any::class.java -> when (m.name) {\n                \"equals\" -> proxy === a[0]\n                \"hashCode\" -> System.identityHashCode(proxy)\n                else -> \"FakeIssuer${answers.keys}\"\n            }\n            // 2. default methods: run the real interface body, which calls back through this handler\n            m.isDefault -> InvocationHandler.invokeDefault(proxy, m, *a)\n            // 3. abstract methods: record the call and return the canned answer\n            else -> {\n                calls += m.name + a.contentToString()\n                answers[m.name] ?: throw UnsupportedOperationException(m.name)\n            }\n        }\n    } as CardIssuerClient"
+   },
+   {
+    "say": "Use it. The interesting call is the default method: the fake has no code for `authorizeAndCapture`, yet the interface's own body runs and its two inner calls are recorded in order. That only works because of `invokeDefault`. Forwarding to a target isn't possible here, since there is no target.",
+    "code": "List<String> calls = new ArrayList<>();\nCardIssuerClient issuer = fakeIssuer(\n        Map.of(\"authorize\", \"auth-1111\", \"capture\", \"captured auth-1111\"), calls);\n\nString result = issuer.authorizeAndCapture(\"4111111111111111\", 1_250);   // 4. exercise the default\n\nassertThat(result).isEqualTo(\"captured auth-1111\");\nassertThat(calls).containsExactly(\"authorize[4111111111111111, 1250]\", \"capture[auth-1111]\");",
+    "lang": "java",
+    "alt_lang": "kotlin",
+    "alt_code": "val calls = mutableListOf<String>()\nval issuer = fakeIssuer(mapOf(\"authorize\" to \"auth-1111\", \"capture\" to \"captured auth-1111\"), calls)\n\nval result = issuer.authorizeAndCapture(\"4111111111111111\", 1_250)   // 4. exercise the default\n\nassertThat(result).isEqualTo(\"captured auth-1111\")\nassertThat(calls).containsExactly(\"authorize[4111111111111111, 1250]\", \"capture[auth-1111]\")"
+   },
+   {
+    "say": "Check the edges before you trust it. A canned answer of the wrong type fails at the proxy's `checkcast`, with a `ClassCastException` from the generated method rather than from your handler. A missing answer for a method returning `long` would be `null`, and the proxy's unboxing turns that into a `NullPointerException`, so the handler throws a clear `UnsupportedOperationException` instead. And the fake works for one interface only. Mocking libraries generalize the same idea, adding argument matchers and class support.",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "A retrying, timing proxy for CardIssuerClient",
+  "minutes": 15,
+  "files": [
+   "labs/bytecode/src/main/java/workbench/bytecode/l04/ResilientProxy.java",
+   "labs/bytecode/src/main/java/workbench/bytecode/l04/RetryPolicy.java",
+   "labs/bytecode/src/main/java/workbench/bytecode/l04/CallRecorder.java"
+  ],
+  "run": "./gradlew :bytecode:test --tests 'workbench.bytecode.l04.*'",
+  "steps": [
+   "Run the tests once. All seven fail. Read `CardIssuerClient` and the `FakeIssuer` in the test: it fails a scripted number of calls and counts every one.",
+   "In `ResilientProxy.wrap`, create the proxy with `Proxy.newProxyInstance(iface.getClassLoader(), new Class<?>[]{iface}, handler)` and return `iface.cast(...)`.",
+   "Write the handler's first two cases: `Object` methods answered by identity and `\"Resilient[\" + target + \"]\"`, then default methods through `InvocationHandler.invokeDefault`.",
+   "Write the retry loop: read the clock once, call `method.invoke(target, args)`, and on `InvocationTargetException` take `getCause()`. Retry while attempts are left and `policy.retries(cause)` is true. Record `iface.getSimpleName() + \".\" + method.getName()` with the attempt count and `end - start` once, when the call ends.",
+   "Run the tests until all seven pass. Then read `defaultMethodShellIsNotRetried` and say out loud why the issuer saw one authorization."
+  ],
+  "hints": [
+   "The order of the cases matters. `equals` is not a default method, but check `Object` methods first anyway, so nothing else ever sees them.",
+   "The fake clock moves 5 ms per read. If the recorded time isn't `5ms`, you're reading the clock more than twice per call.",
+   "`throw cause;` compiles because `InvocationHandler.invoke` is declared `throws Throwable`. Because the cause is the target's own exception, the generated method lets `IssuerUnavailableException` through: `authorize` declares it."
+  ],
+  "done_when": "All seven tests in `ResilientProxyTest` pass."
+ },
+ "drill": {
+  "title": "The four cases from memory",
+  "minutes": 5,
+  "prompt": "Close the page. Write an `InvocationHandler` that times each call of an interface and reports the method name, handling the four cases in the right order: `Object` methods, default methods, the timed call, and exceptions. Then check your version against the answer. Which case did you forget?",
+  "answer": {
+   "lang": "java",
+   "src": "InvocationHandler h = (proxy, m, args) -> {\n    if (m.getDeclaringClass() == Object.class) {                        // 1. Object methods\n        return switch (m.getName()) {\n            case \"equals\" -> proxy == args[0];\n            case \"hashCode\" -> System.identityHashCode(proxy);\n            default -> \"Timed[\" + target + \"]\";\n        };\n    }\n    if (m.isDefault()) return InvocationHandler.invokeDefault(proxy, m, args);  // 2. defaults: this = proxy\n    long t0 = System.nanoTime();\n    try {\n        return m.invoke(target, args);                                  // 3. the timed call\n    } catch (InvocationTargetException e) {\n        throw e.getCause();                                             // 4. unwrap\n    } finally {\n        metrics.record(m.getName(), System.nanoTime() - t0);\n    }\n};",
+   "alt": {
+    "lang": "kotlin",
+    "src": "val h = InvocationHandler { proxy, m, args ->\n    val a = args ?: emptyArray()\n    if (m.declaringClass == Any::class.java) {                          // 1. Object methods\n        return@InvocationHandler when (m.name) {\n            \"equals\" -> proxy === a[0]\n            \"hashCode\" -> System.identityHashCode(proxy)\n            else -> \"Timed[$target]\"\n        }\n    }\n    if (m.isDefault) return@InvocationHandler InvocationHandler.invokeDefault(proxy, m, *a)  // 2. defaults\n    val t0 = System.nanoTime()\n    try {\n        m.invoke(target, *a)                                            // 3. the timed call\n    } catch (e: InvocationTargetException) {\n        throw e.cause!!                                                 // 4. unwrap\n    } finally {\n        metrics.record(m.name, System.nanoTime() - t0)\n    }\n}"
+   }
+  }
+ },
+ "recap": [
+  "`Proxy.newProxyInstance` generates a `public final $ProxyN extends Proxy` that implements exactly your interfaces, in order. Each method boxes its arguments into an `Object[]` and calls `h.invoke(proxy, Method, args)`.",
+  "`hashCode`, `equals` and `toString` reach the handler; `getClass` doesn't. Answer `equals`/`hashCode` by proxy identity, or collections can't find the proxy.",
+  "Unchecked exceptions and declared checked exceptions pass through; any other checked exception becomes `UndeclaredThrowableException`. Unwrap `InvocationTargetException`, and use `@Throws` on Kotlin interfaces.",
+  "`InvocationHandler.invokeDefault` (JDK 16) runs a default body with `this` = proxy, so its inner calls come back through the handler. Forwarding to the target hides them.",
+  "Never retry a default method as a whole: retry the abstract calls inside it, or a successful step runs twice.",
+  "Proxy classes are cached per loader and ordered interface list, in one `jdk.proxyN` module per loader. A call costs a few nanoseconds: irrelevant for I/O, visible in tight loops."
+ ],
+ "quiz": [
+  {
+   "q": "A handler does `return method.invoke(target, args)` for every method, unwrapping exceptions. A listener proxy is added to an `ArrayList` and later removed with `listeners.remove(proxy)`. What happens?",
+   "options": [
+    "It's removed: `remove` compares references",
+    "`remove` returns `false` and the proxy stays, because `proxy.equals(proxy)` asked `target.equals(proxy)`, which is false",
+    "It throws `UndeclaredThrowableException`",
+    "It's removed, but only after the JIT compiles `equals`"
+   ],
+   "answer": 1,
+   "why": "`ArrayList.remove(Object)` calls `equals` on each element, and the proxy forwards `equals` to the target, which knows nothing about the proxy. A `HashSet` would happen to work, because `HashMap` checks `==` first. The fix is identity in the handler: `proxy == args[0]`."
+  },
+  {
+   "q": "Kotlin: `interface RatesClient { fun fetch(): Rates }`, implemented by a Kotlin class whose `fetch()` calls a Java HTTP client that throws `IOException`. A JDK proxy around it unwraps `InvocationTargetException` correctly. A Kotlin caller wraps the call in `catch (e: IOException)`. What happens when the issuer is down?",
+   "options": [
+    "The `catch` runs: Kotlin has no checked exceptions, so anything goes",
+    "The caller gets `UndeclaredThrowableException`: the interface method declares no `IOException`, so the generated proxy method wraps it",
+    "The caller gets `InvocationTargetException`",
+    "It doesn't compile"
+   ],
+   "answer": 1,
+   "why": "The generated method only lets through unchecked exceptions and the checked exceptions its interface method declares. A Kotlin interface declares none unless you write `@Throws(IOException::class)`. With that annotation, the `IOException` reaches the caller unchanged and the `catch` matches."
+  },
+  {
+   "q": "A service creates a new JDK proxy around a `CardIssuerClient` for every request: 50,000 requests an hour, same class loader, same single interface. How many proxy classes does the JVM generate?",
+   "options": [
+    "50,000, one per proxy",
+    "One, then each request only constructs a small proxy object",
+    "One per thread",
+    "None: proxies are hidden classes that aren't counted"
+   ],
+   "answer": 1,
+   "why": "`Proxy` caches the generated class's constructor per class loader, keyed by the ordered interface list. Later calls construct an instance. Listing the interfaces in a different order would generate a second class. Proxy classes are not hidden: `isHidden()` is false."
+  },
+  {
+   "q": "Your retry proxy retries any method that throws `IssuerUnavailableException`, including the default method `authorizeAndCapture()`, which calls `authorize` then `capture`, and it forwards defaults with `method.invoke(target, args)`. `capture` fails once. What does the issuer see?",
+   "options": [
+    "One authorization and two captures",
+    "Two authorizations and two captures: the whole default method ran again",
+    "One authorization and one capture",
+    "Nothing: default methods can't be proxied"
+   ],
+   "answer": 1,
+   "why": "The default body runs on the target, so neither inner call is retried on its own. When `capture` fails, the exception escapes the whole `authorizeAndCapture`, and the handler retries the whole thing, authorization included. With `invokeDefault` and retries only on abstract methods, the issuer sees one authorization and two capture attempts."
+  },
+  {
+   "q": "From *Decorator and Proxy*: `RealIssuer.authorizeTwice` calls `this.authorize(...)` twice. It is wrapped in a JDK proxy whose handler logs each call and forwards to the target. A caller runs `proxy.authorizeTwice(...)`. How many `authorize` calls does the handler log?",
+   "options": [
+    "0: the handler sees only `authorizeTwice`",
+    "2",
+    "1",
+    "It depends on whether `authorize` is a default method"
+   ],
+   "answer": 0,
+   "why": "`authorizeTwice` is a method of the target class, so its body runs on the target, and `this.authorize` is a plain call on the target that never touches the proxy. That's the self-invocation trap. Only when `authorizeTwice` is an interface default method run with `invokeDefault` does `this` become the proxy.",
+   "from": "pat-05"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "What class does `Proxy.newProxyInstance` generate for one interface?",
+   "back": "A `public final` class such as `jdk.proxy1.$Proxy0` that extends `java.lang.reflect.Proxy` and implements exactly the given interfaces, in order."
+  },
+  {
+   "front": "Which `Object` methods reach an InvocationHandler?",
+   "back": "`hashCode`, `equals` and `toString`, with `getDeclaringClass() == Object.class`. Not `getClass`, `wait` or `notify`."
+  },
+  {
+   "front": "What is `args` in `invoke(proxy, method, args)` for a method with no parameters?",
+   "back": "`null`, not an empty array. In Kotlin, use `args ?: emptyArray()` before spreading it."
+  },
+  {
+   "front": "A handler throws a checked exception that the interface method doesn't declare. What does the caller get?",
+   "back": "`UndeclaredThrowableException`, with the checked exception as its cause."
+  },
+  {
+   "front": "What does `InvocationHandler.invokeDefault(proxy, m, args)` do differently from `m.invoke(target, args)`?",
+   "back": "It runs the interface's default body with `this` = the proxy, so the body's inner calls come back through the handler. (JDK 16.)"
+  },
+  {
+   "front": "When does `Proxy` generate a new class?",
+   "back": "Once per class loader and ordered interface list. `{A, B}` and `{B, A}` are two classes."
+  },
+  {
+   "front": "Why must a proxy answer `equals` itself?",
+   "back": "Forwarding it makes `proxy.equals(proxy)` ask `target.equals(proxy)`, which is false, so lists can't find or remove the proxy."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Dynamic proxy",
+   "plain": "An object of a class generated at run time that implements given interfaces and sends every call to one handler."
+  },
+  {
+   "term": "InvocationHandler",
+   "plain": "The single `invoke(proxy, method, args)` method that receives every call made on a JDK proxy."
+  },
+  {
+   "term": "UndeclaredThrowableException",
+   "plain": "The unchecked wrapper a proxy throws when its handler throws a checked exception that the method doesn't declare."
+  },
+  {
+   "term": "InvocationTargetException",
+   "plain": "The wrapper `Method.invoke` puts around whatever the called method threw. Unwrap it with `getCause()`."
+  },
+  {
+   "term": "invokeDefault",
+   "plain": "`InvocationHandler.invokeDefault`: runs an interface's default method body on the proxy itself (JDK 16)."
+  },
+  {
+   "term": "Self-invocation",
+   "plain": "A method calling another method of the same object through `this`, which bypasses any proxy in front of it."
+  },
+  {
+   "term": "Dynamic module",
+   "plain": "A module such as `jdk.proxy1` that the JDK creates per class loader to hold proxy classes."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A teammate wants to wrap every issuer client in a JDK proxy that retries on timeouts. Explain what the JDK generates, the four cases their handler must handle, and the one retry rule that keeps a default method like `authorizeAndCapture` from charging twice.",
+  "answer": "`Proxy.newProxyInstance` generates one `final` class per class loader and interface list. Each of its methods boxes the arguments into an `Object[]` and calls the handler with the proxy and a cached `Method`. The handler must first answer `equals`, `hashCode` and `toString` itself, by proxy identity, or collections stop finding the proxy. Second, it must run default methods with `InvocationHandler.invokeDefault`, so the body runs with `this` as the proxy and each inner call comes back through the handler. Third, it calls the target with `method.invoke` and retries only failures the policy names, like a timeout. Fourth, it rethrows `InvocationTargetException.getCause()`, so callers get the issuer's own exception and not an `UndeclaredThrowableException`. The retry rule: never retry a default method as one unit. Retry the abstract calls inside it, so a failed capture is retried as a capture, and the authorization that already succeeded isn't sent again."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "Three corners of `Proxy` that the lesson skipped.\n\nModules and visibility. If every interface is public and in an exported package, the proxy class is public, in an unconditionally exported but non-open package of a dynamic module. If any interface is non-public, the proxy class is non-public and goes into that interface's package and module, so all non-public interfaces must share one package. If an interface is in a package its module doesn't export, the proxy goes into a non-exported package of a dynamic module. In every dynamic-module case, `Constructor.newInstance` on the proxy class throws `IllegalAccessException`, which is why `Proxy.getProxyClass` is deprecated.\n\nWhat can fail at creation. `newProxyInstance` throws `IllegalArgumentException` when an element isn't a non-hidden, non-sealed interface, when an interface appears twice, when an interface isn't visible by name through the loader you pass (`Class.forName(i.getName(), false, loader) != i`), when two interfaces have a method with the same signature and incompatible return types, or when you pass more than 65,535 interfaces. The loader rule is the one you'll meet: in a Quarkus test or a plugin system, pass the loader that defined the interface (`iface.getClassLoader()`), not some other loader that has a second copy of it (lesson 1).\n\nThe caches. `Proxy` keeps the constructors in a `ClassLoaderValue`, so the cache entry goes away with the loader. A second cache backs `isProxyClass`. And a `ClassValue` of `ConcurrentHashMap<Method, MethodHandle>` holds the method handles behind `invokeDefault`, so only the first call of each default method pays for the lookup.\n\nThe `saveGeneratedFiles` crash from section 4 is easy to see in the source. At jdk-21-ga, `generateProxyClass` wrote the file inside `AccessController.doPrivileged(new PrivilegedAction<>() { ... return null; })`, and that `return null` belonged to the lambda. At jdk-24-ga, the release that permanently disabled the Security Manager, the `doPrivileged` wrapper is gone, and the same `return null;` now returns from `generateProxyClass` itself, so `defineClass` receives `null` bytes."
+ },
+ "sources": [
+  {
+   "title": "Proxy (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/reflect/Proxy.html"
+  },
+  {
+   "title": "InvocationHandler (Java SE 25 API), including invokeDefault",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/reflect/InvocationHandler.html"
+  },
+  {
+   "title": "Proxy.java at jdk-25-ga (OpenJDK source)",
+   "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/java.base/share/classes/java/lang/reflect/Proxy.java"
+  },
+  {
+   "title": "ProxyGenerator.java at jdk-25-ga (OpenJDK source)",
+   "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/java.base/share/classes/java/lang/reflect/ProxyGenerator.java"
+  }
+ ]
+}

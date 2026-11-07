@@ -33,6 +33,26 @@ So a lesson has about 1,000 to 1,800 words of section prose (not counting code),
 plus the callouts, worked example, lab and quiz. Do not go over.
 If a topic is too big, cut it and move the rest to "Go deeper".
 
+## Novice on the topic, taught from first principles
+
+The learner knows both languages but may know nothing about the topic of a
+track (GC, bytecode, Netty, JIT). Every track must take them from zero on that
+topic to a model good enough to reason about cases the course never showed.
+
+- The first lesson of a track assumes no knowledge of the topic. Later lessons
+  assume only earlier lessons.
+- Show the problem before the fix. Start from the smallest program that breaks
+  or is slow, let the learner feel it, then name the mechanism that solves it.
+- Go one level down. Say what the CPU, the OS, the JVM or the compiler really
+  does, enough that the learner could predict the result of a variant you did
+  not show. A rule without its cause does not count.
+- Build the small version first where it fits: a toy pool before
+  `ThreadPoolExecutor`, a proxy by hand before `java.lang.reflect.Proxy`, a
+  select loop before Netty. Then show what the real library adds and why.
+- Define every term in plain words the first time it appears.
+- End each section with a check the learner can do: a prediction, a run, or a
+  question whose answer follows from the mechanism, not from memory.
+
 ## Voice: blog mode, human, simple
 
 Write like a strong engineer's personal blog post that teaches one idea well.

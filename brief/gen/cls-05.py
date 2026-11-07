@@ -1,0 +1,271 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/bytecode/src"
+P = "java/workbench/bytecode/l05"
+K = "kotlin/workbench/bytecode/l05"
+read = lambda p: (ROOT / p).read_text()
+RUN = "./gradlew :bytecode:demo -Pmain=workbench.bytecode.l05."
+
+DEMO = {"lang": "java", "title": "TwoModelsDemo.java", "src": read(f"{lab}/demo/{P}/TwoModelsDemo.java"),
+        "run": RUN + "TwoModelsDemo", "file": f"{lab}/demo/{P}/TwoModelsDemo.java",
+        "alt": {"lang": "kotlin", "title": "TwoModelsDemo.kt", "src": read(f"{lab}/demo/{K}/TwoModelsDemo.kt"),
+                "run": RUN + "TwoModelsDemoKt", "file": f"{lab}/demo/{K}/TwoModelsDemo.kt"}}
+
+FIG = """<svg viewBox="0 0 680 300" role="img" aria-label="Two proxy models. In the subclass model the proxy and the object are one instance, so a call the body makes on this comes back through the interceptor. In the forwarding model the proxy hands each call to a separate target, and the target's calls on this never reach the proxy.">
+<text class="t-s t-m" x="20" y="20">subclass model: Quarkus ArC's Foo_Subclass, Byte Buddy with @SuperCall</text>
+<rect class="box" x="20" y="42" width="80" height="44" rx="8"/>
+<text class="t-s" x="60" y="68" text-anchor="middle">caller</text>
+<rect class="box-ok" x="140" y="30" width="400" height="68" rx="8"/>
+<text class="t-s t-m" x="340" y="46" text-anchor="middle">one object</text>
+<rect class="box-a" x="160" y="52" width="150" height="38" rx="8"/>
+<text class="t-s" x="235" y="75" text-anchor="middle">interceptor</text>
+<rect class="box" x="370" y="52" width="150" height="38" rx="8"/>
+<text class="t-s" x="445" y="75" text-anchor="middle">original body</text>
+<line class="ln" x1="100" y1="64" x2="156" y2="64" marker-end="url(#arr)"/>
+<line class="ln" x1="310" y1="71" x2="366" y2="71" marker-end="url(#arr)"/>
+<path class="ln-a" fill="none" d="M445 98 L445 118 L235 118 L235 94" marker-end="url(#arr)"/>
+<text class="t-s t-ok" x="340" y="136" text-anchor="middle">this.audit() comes back through the interceptor</text>
+<text class="t-s t-m" x="20" y="176">forwarding model: Spring AOP (JDK proxy or CGLIB subclass)</text>
+<rect class="box" x="20" y="196" width="80" height="44" rx="8"/>
+<text class="t-s" x="60" y="222" text-anchor="middle">caller</text>
+<rect class="box-a" x="140" y="196" width="170" height="44" rx="8"/>
+<text class="t-s" x="225" y="222" text-anchor="middle">proxy</text>
+<rect class="box" x="370" y="196" width="170" height="44" rx="8"/>
+<text class="t-s" x="455" y="222" text-anchor="middle">target object</text>
+<line class="ln" x1="100" y1="218" x2="136" y2="218" marker-end="url(#arr)"/>
+<line class="ln" x1="310" y1="218" x2="366" y2="218" marker-end="url(#arr)"/>
+<path class="ln-bad" fill="none" d="M500 240 L500 262 L410 262 L410 244" marker-end="url(#arr)"/>
+<text class="t-s t-bad" x="455" y="284" text-anchor="middle">this.audit() stays inside the target</text>
+<text class="t-s t-m" x="225" y="262" text-anchor="middle">never sees it</text>
+</svg>"""
+
+L = {
+ "id": "cls-05",
+ "title": "Generated proxies: Byte Buddy, Spring AOP and Quarkus interceptors",
+ "minutes": 40,
+ "goal": "By the end you can build a subclass proxy with Byte Buddy, tell the two proxy models apart (the proxy is the object, or the proxy forwards to a target), and predict from that whether Spring, Quarkus ArC or Hibernate will intercept a call, including self-calls and Kotlin's final members.",
+ "warmup": {
+  "q": "`settleAll()` calls `this.settle(id)` for each batch, and `settle` is annotated `@Transactional`. The same class runs as a Spring Boot bean and as a Quarkus `@ApplicationScoped` bean. Does each `settle` call start a transaction?",
+  "options": [
+   "Yes in both: the annotation is on the method",
+   "No in Spring, yes in Quarkus",
+   "Yes in Spring, no in Quarkus",
+   "No in both: self-calls never pass a proxy"
+  ],
+  "answer": 1,
+  "why": "Spring's proxy, JDK or CGLIB, forwards to a separate target object, so `this.settle` inside the target never passes the proxy. Quarkus ArC intercepts the bean through a generated subclass that is the bean itself, and its docs say self-interception works (as a non-standard extension of CDI). The answer depends on where the real object lives, not on the annotation."
+ },
+ "sections": [
+  {
+   "h": "A subclass proxy wraps a class by overriding its methods",
+   "body": "A JDK proxy needs an interface. Plenty of beans have none, so frameworks generate a subclass instead, and every method the subclass overrides becomes a place to add behaviour. Byte Buddy does it in a few lines:\n\n```java\nClass<? extends SettlementService> sub = new ByteBuddy()\n        .subclass(SettlementService.class)\n        .method(isDeclaredBy(SettlementService.class))            // which methods to override\n        .intercept(MethodDelegation.withDefaultConfiguration()\n                .filter(named(\"intercept\"))\n                .to(new InSubclass()))                            // who handles them\n        .make()\n        .load(SettlementService.class.getClassLoader())\n        .getLoaded();\n```\n\n```kotlin\nval sub: Class<out KSettlementService> = ByteBuddy()\n    .subclass(KSettlementService::class.java)\n    .method(isDeclaredBy(KSettlementService::class.java))         // which methods to override\n    .intercept(MethodDelegation.withDefaultConfiguration()\n        .filter { it.name == \"intercept\" }\n        .to(KInSubclass()))                                       // who handles them\n    .make()\n    .load(KSettlementService::class.java.classLoader)\n    .loaded\n```\n\nThe demo prints the result: a public class named `...SettlementService$ByteBuddy$nsokwLlA` (the suffix is random on every run) that declares `settle`, `audit`, and two accessors such as `settle$accessor$cvePe5kh`. The accessors let the interceptor's `@SuperCall Callable` call the original body. The interceptor receives `@Origin Method` for the method being called. Byte Buddy binds parameters by these annotations.\n\nA subclass can only intercept what it can override, and that sets the rules every subclass proxy lives by. A `final` class can't be subclassed at all. A `final` or `private` method isn't overridden, so it runs as written and nothing intercepts it: in the demo, `region()` just works, uncounted. And the subclass's constructor calls the superclass constructor, unless the framework skips it.\n\nKotlin turns the first rule into a daily problem, because classes and members are `final` unless you write `open`. Byte Buddy refuses a plain Kotlin class with `Cannot subclass primitive, array or final types`. The Kotlin all-open compiler plugin \"makes classes and their members open at compile time without requiring the `open` keyword\", for classes carrying annotations you choose.\n\nByte Buddy is the library most of the ecosystem uses for this; 1.18.17 is the current release. The older cglib's own README says it \"is unmaintained and does not work well (or possibly at all?) in newer JDKs, particularly JDK17+\" and points to Byte Buddy. Spring keeps working because it ships its own patched copy, repackaged as `org.springframework.cglib`, along with Objenesis.",
+   "try": {
+    "title": "Generate a subclass, then try a Kotlin class",
+    "minutes": 4,
+    "steps": [
+     "Run `TwoModelsDemo` (or the Kotlin twin) and read the first two lines and the last line.",
+     "In `TwoModelsDemo.kt`, make `KotlinFinalService` open: `open class KotlinFinalService { open fun settle(...) }`. Run either version again.",
+     "From `labs/`, run `javap -p bytecode/build/classes/kotlin/demo/workbench/bytecode/l05/KSettlementService.class` and find the one method that is still `final`."
+    ],
+    "code": DEMO,
+    "expect": "The generated class name ends in `$ByteBuddy$` plus a random suffix, and it declares `audit`, `settle` and an `$accessor$` method for each. The last line is `Kotlin class without open: Cannot subclass primitive, array or final types: class ...KotlinFinalService`; after adding `open`, that line disappears because `make()` succeeds. In javap, `settle` and `audit` are plain `public`, while `region()` is `public final`: kotlinc keeps a member final unless you mark it `open`, even inside an open class."
+   },
+   "refs": [
+    {"title": "Byte Buddy README (tutorial examples, Java version support)", "url": "https://github.com/raphw/byte-buddy/blob/master/README.md", "kind": "read"},
+    {"title": "All-open compiler plugin (Kotlin docs)", "url": "https://kotlinlang.org/docs/all-open-plugin.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "Where the real object lives decides whether self-calls are intercepted",
+   "body": "*Decorator and Proxy* blamed self-invocation on proxies in general. The demo shows it's more specific than that. The same Byte Buddy subclass, built two ways, gives opposite answers for `settle(\"B-17\")`, whose body calls `this.audit(batch)`.\n\nIn the first model, the generated subclass instance is the object. There's no separate target. The interceptor runs the original body through `@SuperCall`, on that same instance. When the body calls `this.audit(...)`, `this` is the subclass, the call dispatches virtually to its override, and the interceptor runs again. The log reads `[intercepted settle, intercepted audit]`.\n\nIn the second model, the subclass instance is only a front. Its interceptor holds a separate target object and calls `method.invoke(target, args)`. The body runs on the target, whose `this` is the target, so `this.audit(...)` is an ordinary call that the proxy never sees. The log reads `[forwarded settle]`. The demo also counts constructors: two, because the target was built once and the proxy subclass was built with `newInstance`, which runs the superclass constructor again. That's the \"constructor called twice\" that Spring's 3.2 documentation warned about.\n\nSo \"it's a subclass\" doesn't settle the question. Ask where the state and the body run. If the proxy is the object, self-calls are intercepted, `final` methods still run on the real state, and fields are real. If the proxy forwards, self-calls skip it, and anything the proxy can't override runs on the proxy object itself, with whatever fields that object has. The lab tests this last point: a forwarding proxy's `final` method reads the proxy's own `desk` field (`\"unset\"`), not the target's (`\"London\"`).\n\nThe frameworks you use pick different models. Spring AOP always forwards, whether it built a JDK proxy or a CGLIB subclass. Quarkus ArC intercepts with a generated subclass, and its documentation says self-interception works. The next two sections take them one at a time, from their documentation. This track ran neither framework; the Byte Buddy demo stands in for both models.",
+   "figure": {"svg": FIG, "caption": "If the proxy is the object, a call on this goes through the interceptor again. If the proxy forwards, the target's own calls never leave the target."},
+   "try": {
+    "title": "Watch the two models disagree",
+    "minutes": 4,
+    "steps": [
+     "Run `TwoModelsDemo` again and compare the `subclass model` and `forwarding model` lines, and the constructor count.",
+     "Predict what the subclass-model log shows if `audit` is `final` (in Java, add `final`; in Kotlin, remove `open`). Run it.",
+     "Undo that. Then explain in one sentence why no change inside `Forwarding.intercept` could make it see the target's `this.audit` call."
+    ],
+    "code": DEMO,
+    "expect": "`subclass model: [intercepted settle, intercepted audit]` and `forwarding model: [forwarded settle], constructors run: 2`. With `audit` final, the subclass model logs only `[intercepted settle]`: Byte Buddy can't override `audit`, so the self-call runs the original directly. The forwarding interceptor only sees calls made on the proxy object, and the target's `this.audit` is a call on the target, so nothing the proxy does can see it."
+   }
+  },
+  {
+   "h": "Spring AOP puts a JDK proxy or a CGLIB subclass in front of a separate target",
+   "body": "Spring's reference documentation says it in one rule: \"If the target object to be proxied implements at least one interface, a JDK dynamic proxy is used, and all of the interfaces implemented by the target type are proxied. If the target object does not implement any interfaces, a CGLIB proxy is created which is a runtime-generated subclass of the target type.\" Spring Boot changes the default. Its `AopAutoConfiguration` enables class-based proxies unless you set `spring.aop.proxy-target-class=false` (true in Boot 3.5.x and on main). So in a Boot application, expect CGLIB subclasses even for beans with interfaces. Spring Framework 7.0 adds `@Proxyable(INTERFACES)` and `@Proxyable(TARGET_CLASS)` to choose per bean.\n\nEither way, the proxy forwards to a separate target bean. The rules follow from the previous section, and the docs list them for CGLIB proxies: \"`final` classes cannot be proxied\", \"`final` methods cannot be advised\", \"`private` methods cannot be advised\", and package-private methods in a parent class from another package can't be advised either. The constructor is no longer called twice, because Spring creates the CGLIB instance through Objenesis, which skips constructors. That also means a final method, which runs on the proxy object itself, sees a proxy whose fields were never initialized.\n\nFor `@Transactional` the documentation spells out the consequences of proxy mode (the default): \"only external method calls coming in through the proxy are intercepted\", so self-invocation \"does not lead to an actual transaction at runtime\". The proxy must also be fully initialized, so don't rely on it in `@PostConstruct`. For class-based proxies, since Spring 6.0 `protected` and package-visible methods can be transactional too. Interface-based proxies need public methods declared in the interface. The documented ways out of self-invocation, best first: restructure so the call crosses a bean boundary, inject the bean into itself, or (\"highly discouraged\") `AopContext.currentProxy()`. AspectJ mode weaves the advice into your class instead, so there is no proxy at all.\n\nKotlin adds one more requirement. The `kotlin-spring` compiler plugin is \"a preconfigured wrapper around the all-open plugin\". It opens classes annotated with `@Component`, `@Async`, `@Transactional`, `@Cacheable` and `@SpringBootTest`, and, through the `@Component` meta-annotation, `@Service`, `@Repository`, `@Controller`, `@RestController` and `@Configuration`. Projects from start.spring.io enable it by default. Without it, a Kotlin bean is a `final` class that CGLIB can't subclass. If you write `open class` by hand and forget `open fun`, you get the quieter failure: methods that are never advised.",
+   "try": {
+    "title": "Read a class the way CGLIB would",
+    "minutes": 3,
+    "steps": [
+     "Open `labs/bytecode/src/main/kotlin/workbench/bytecode/l05/FxQuoteService.kt`, the lab's starting point. Compile it with `./gradlew :bytecode:classes` from `labs/`.",
+     "Run `javap -p bytecode/build/classes/kotlin/main/workbench/bytecode/l05/FxQuoteService.class`.",
+     "Mark each member: could a CGLIB subclass advise it? Then list what Spring would do with a `@Transactional` on `quote`."
+    ],
+    "code": {"lang": "bash", "title": "terminal", "src": "./gradlew :bytecode:classes\njavap -p bytecode/build/classes/kotlin/main/workbench/bytecode/l05/FxQuoteService.class", "run": ""},
+    "expect": "`public final class workbench.bytecode.l05.FxQuoteService` and every method `public final`. Nothing can be advised, and the class itself can't be subclassed, so Spring couldn't build a CGLIB proxy for it at all. With `kotlin-spring` and a Spring annotation on the class, kotlinc would emit the class and its members without `final`. In the lab you add `open` by hand."
+   },
+   "refs": [
+    {"title": "Spring Framework reference: Proxying mechanisms", "url": "https://docs.spring.io/spring-framework/reference/core/aop/proxying.html", "kind": "docs"},
+    {"title": "kotlin-spring compiler plugin (Kotlin docs)", "url": "https://kotlinlang.org/docs/kotlin-spring-plugin.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "Quarkus ArC generates its subclasses at build time, and Hibernate makes lazy ones",
+   "body": "Quarkus's CDI container, ArC, generates its proxy classes while the application builds, not at startup. Its processor names them in comments in its own source: \"Foo_Subclass extends Foo implements Subclass\" for an intercepted bean, and \"Foo_ClientProxy extends Foo implements ClientProxy\" for a client proxy. Both are subclasses of your bean class, playing two roles.\n\nA client proxy stands in for a normal-scoped bean such as `@ApplicationScoped`. The docs call it \"an object that delegates all method invocations to a target bean instance\". It's the forwarding model, used for laziness and scoping: the real instance is created on the first method call, which is also why the docs say to \"never read or write a field of a normal scoped bean\" from outside. A `@Singleton` bean has no client proxy.\n\nThe intercepted subclass is the other model. The Quarkus CDI reference says: \"Quarkus supports what is known as intercepted self-invocation or just self-interception - a scenario where CDI bean invokes its own intercepted method from within another method while triggering any associated interceptors.\" It calls this a non-standard feature, because the CDI specification doesn't define it. Given the generated `Foo_Subclass extends Foo`, the natural reading is that the subclass instance is the contextual instance, so `this.doSomething()` dispatches to the intercepting override. That mechanism is an inference from the docs and the class names; this track didn't trace it in ArC's source. The behaviour is documented. A client proxy in front of an intercepted bean forwards to that subclass instance, so both apply at once.\n\nArC also works around Kotlin's finality. `quarkus.arc.transform-unproxyable-classes` is `true` by default, and lets Quarkus proxy final classes and classes with final methods. The Quarkus Kotlin guide still configures all-open for `@Path`, `@ApplicationScoped` and JPA entities. Follow the guide, and check with javap and a test before assuming either is unnecessary. Private members are reached by reflection, so the docs recommend package-private instead.\n\nHibernate's lazy proxies are generated at run time with Byte Buddy (`ByteBuddyProxyFactory`). A proxy \"masquerades as a real entity\", but holds no state until you call a method, and after the session ends that call throws `LazyInitializationException`. Its rules are the subclass rules: an entity \"must be a non-`final` class, with a non-`private` constructor with no parameters\", collection fields must use interface types, and \"`instanceof` and typecasts do not work correctly\" on a proxy for a polymorphic association, unless you pay for `@ConcreteProxy`. Your `equals()` \"must be written to accommodate the possibility that the object passed to the equals() might be a proxy\". For Kotlin entities, the kotlin-jpa plugin opens them and adds the no-argument constructor."
+  }
+ ],
+ "analogy": "Think of two ways to give a clerk a supervisor. In the first, the supervisor sits inside the clerk's own desk: every request, including the ones the clerk makes to themselves (\"let me audit this first\"), passes the supervisor. That's Quarkus ArC's intercepted subclass, and Byte Buddy's `@SuperCall`. In the second, the supervisor sits at a front counter and passes requests back to the clerk, who then talks to themselves in private. That's Spring's proxy. The analogy breaks on the front counter's own desk: a forwarding proxy is also a full copy of the clerk's class, with its own empty drawers. Anything it can't pass back, a `final` method, quietly runs at the counter, using those empty drawers.",
+ "in_your_world": "Moving a payments service from Spring Boot to Quarkus can change behaviour without one edited line. A `@Transactional` ledger method called from the same bean was silently non-transactional under Spring and becomes transactional under ArC, so a batch that used to commit row by row now commits per call, and lock times change. The reverse migration loses transactions instead. In Kotlin, the plugin setup decides whether a bean can be proxied at all: `kotlin-spring` (or a Spring Initializr project) for Spring, and all-open as the Quarkus Kotlin guide recommends, plus kotlin-jpa for Hibernate entities. Check the generated class with javap rather than trusting the annotation you can see.",
+ "mistake": "The most common mistake is believing an interceptor annotation is part of the method, so it must apply on every call. It applies only when the call passes through generated code that can override the method. In a Spring bean that rules out self-calls, `private` methods, and in Kotlin every method you didn't mark `open` and the `kotlin-spring` plugin didn't open. People make it because the annotation sits right on the method, the code compiles, and unit tests that call the class directly can't tell the difference. The fix is to know which model your container uses, keep advised methods open and called from outside the bean (or rely on ArC's documented self-interception in Quarkus), and test through the container with an assertion on the effect, such as a rolled-back row.",
+ "compare": {
+  "title": "A timing subclass proxy in Java and Kotlin",
+  "java": {"title": "TimedSubclass.java", "src": "public class SuperCallTimer {\n    @RuntimeType\n    public Object intercept(@Origin Method m, @SuperCall Callable<?> original) throws Exception {\n        long t0 = System.nanoTime();\n        try {\n            return original.call();          // the original body, on this same object\n        } finally {\n            System.out.println(m.getName() + \" took \" + (System.nanoTime() - t0) + \" ns\");\n        }\n    }\n}\n\n// the service class is open by default in Java; final methods would be skipped\nFxQuoteService timed = new ByteBuddy()\n        .subclass(FxQuoteService.class)\n        .method(isPublic().and(isDeclaredBy(FxQuoteService.class)))\n        .intercept(MethodDelegation.withDefaultConfiguration()\n                .filter(named(\"intercept\")).to(new SuperCallTimer()))\n        .make().load(FxQuoteService.class.getClassLoader()).getLoaded()\n        .getDeclaredConstructor().newInstance();"},
+  "kotlin": {"title": "TimedSubclass.kt", "src": "class SuperCallTimer {\n    @RuntimeType\n    fun intercept(@Origin m: Method, @SuperCall original: Callable<*>): Any? {\n        val t0 = System.nanoTime()\n        try {\n            return original.call()           // the original body, on this same object\n        } finally {\n            println(\"${m.name} took ${System.nanoTime() - t0} ns\")\n        }\n    }\n}\n\n// FxQuoteService and each method must be `open` (or opened by all-open)\nval timed: FxQuoteService = ByteBuddy()\n    .subclass(FxQuoteService::class.java)\n    .method(isPublic<MethodDescription>().and(isDeclaredBy(FxQuoteService::class.java)))\n    .intercept(MethodDelegation.withDefaultConfiguration()\n        .filter(named(\"intercept\")).to(SuperCallTimer()))\n    .make().load(FxQuoteService::class.java.classLoader).loaded\n    .getDeclaredConstructor().newInstance()"},
+  "note": "The Byte Buddy calls are identical. The language changes what there is to intercept. A Java class and its methods are open unless marked `final`. A Kotlin class and its members are final unless marked `open`, so the same builder silently skips every Kotlin method you didn't open, and refuses the class outright if the class itself is final. Kotlin also needs an explicit type argument for `isPublic<MethodDescription>()`, because the matcher is generic. In both, `filter(named(\"intercept\"))` stops Byte Buddy from considering the interceptor's other methods (`equals`, `toString`) as delegation targets, which otherwise fails with \"Cannot resolve ambiguous delegation\"."
+ },
+ "worked": {
+  "title": "A @Transactional Kotlin method that never starts a transaction",
+  "steps": [
+   {"say": "A Spring Boot service in Kotlin. Someone added `open` to the class so the proxy could be created, and the app starts fine. Before reading on: does `settle` run in a transaction when a controller calls it?", "code": "@Service\nopen class SettlementService(private val ledger: LedgerRepository) {\n    @Transactional\n    fun settle(batchId: String) {          // no `open`\n        ledger.post(batchId)\n    }\n}", "lang": "kotlin",
+    "alt_lang": "java", "alt_code": "// the Java equivalent of what kotlinc generated\n@Service\npublic class SettlementService {\n    private final LedgerRepository ledger;\n    public SettlementService(LedgerRepository ledger) { this.ledger = ledger; }\n\n    @Transactional\n    public final void settle(String batchId) {   // final: CGLIB can't override it\n        ledger.post(batchId);\n    }\n}"},
+   {"say": "Check the JVM shape. `javap -p` shows the class without `final`, which is why Spring could build its CGLIB subclass. `settle` is still `public final void settle(java.lang.String)`. The Spring docs: \"`final` methods cannot be advised\". So the controller calls the proxy, the proxy can't override `settle`, and the inherited body runs on the proxy object, with no transaction.", "code": "public class SettlementService {\n  private final LedgerRepository ledger;\n  public SettlementService(LedgerRepository);\n  public final void settle(java.lang.String);     // 1. final: never advised\n}", "lang": "text"},
+   {"say": "It's worse than a missing transaction. The body runs on the proxy instance, not the target, and Spring creates CGLIB proxies through Objenesis, which skips constructors. On the proxy, `ledger` was never assigned. The forwarding test in this lesson's lab shows the same effect with Byte Buddy: a final method reads the proxy's own field, not the target's. Expect a `NullPointerException` on `ledger`, or silently wrong state.", "code": "", "lang": ""},
+   {"say": "Fix it at the build, not one method at a time. The `kotlin-spring` plugin opens `@Service` and `@Transactional` classes and their members, so `settle` compiles without `final`. Then keep calls to `settle` coming from outside the bean, because the proxy still forwards and a self-call would still skip it.", "code": "// build.gradle.kts\nplugins {\n    kotlin(\"jvm\") version \"2.4.21\"\n    kotlin(\"plugin.spring\") version \"2.4.21\"   // all-open preset for Spring annotations\n}", "lang": "kotlin", "solo": True}
+  ]
+ },
+ "lab": {
+  "title": "Time a Kotlin class with Byte Buddy, two ways",
+  "minutes": 15,
+  "files": [
+   "labs/bytecode/src/main/kotlin/workbench/bytecode/l05/FxQuoteService.kt",
+   "labs/bytecode/src/main/kotlin/workbench/bytecode/l05/TimingProxies.kt"
+  ],
+  "run": "./gradlew :bytecode:test --tests 'workbench.bytecode.l05.*'",
+  "steps": [
+   "Run the tests once. All six fail with `NotImplementedError`.",
+   "In `TimingProxies`, write a private `build(type, interceptor)` that does `ByteBuddy().subclass(type).method(isPublic<MethodDescription>().and(isDeclaredBy(type))).intercept(MethodDelegation.withDefaultConfiguration().filter(named(\"intercept\")).to(interceptor)).make().load(type.classLoader).loaded.getDeclaredConstructor().newInstance()`.",
+   "Write a `SuperCallInterceptor(clock, sink)` class with `@RuntimeType fun intercept(@Origin method: Method, @SuperCall zuper: Callable<*>): Any?`. Read the clock, call `zuper.call()`, read the clock, record, and on an exception record `failed = true` and rethrow it. Use it in `subclassTimed`.",
+   "Run the tests. You should now get `Cannot subclass primitive, array or final types`. Open `FxQuoteService` and its three quote methods, but leave `deskName` final. Run again and watch the self-call test pass.",
+   "Write a `ForwardingInterceptor(target, clock, sink)` whose `intercept(@Origin method: Method, @AllArguments args: Array<Any?>)` times `method.invoke(target, *args)` and unwraps `InvocationTargetException`. Use it in `forwardingTimed`. Run until all six pass."
+  ],
+  "hints": [
+   "`Cannot resolve ambiguous delegation ... to ... toString() or ...` means Byte Buddy considered other methods of your interceptor. Keep the `filter(named(\"intercept\"))`.",
+   "The fake clock moves 1 ms per read. `quote` should record `5ms` in the subclass model (its own two reads, plus two for each inner call) and `1ms` in the forwarding model.",
+   "Interceptor classes must be public (Kotlin's default), because the generated class lives in a child loader and calls them from outside your package's code."
+  ],
+  "done_when": "All six tests in `TimingProxiesTest` pass, and `deskName` is still final."
+ },
+ "drill": {
+  "title": "Which model, which result?",
+  "minutes": 4,
+  "prompt": "Without looking: write the two Byte Buddy interceptors from memory, one that runs the original body on the same object and one that forwards to a target. Then answer: in each model, is `this.audit()` inside `settle()` intercepted, and what does a `final` method see?",
+  "answer": {
+   "lang": "java",
+   "src": "// 1. the proxy IS the object: self-calls intercepted, final methods run on real state\npublic class InSubclass {\n    @RuntimeType\n    public Object intercept(@Origin Method m, @SuperCall Callable<?> original) throws Exception {\n        return original.call();\n    }\n}\n\n// 2. the proxy forwards: self-calls skip it, final methods run on the proxy's own fields\npublic class Forwarding {\n    private final Object target;\n    public Forwarding(Object target) { this.target = target; }\n\n    @RuntimeType\n    public Object intercept(@Origin Method m, @AllArguments Object[] args) throws Throwable {\n        try {\n            return m.invoke(target, args);\n        } catch (InvocationTargetException e) {\n            throw e.getCause();\n        }\n    }\n}",
+   "alt": {"lang": "kotlin", "src": "// 1. the proxy IS the object: self-calls intercepted, final methods run on real state\nclass InSubclass {\n    @RuntimeType\n    fun intercept(@Origin m: Method, @SuperCall original: Callable<*>): Any? = original.call()\n}\n\n// 2. the proxy forwards: self-calls skip it, final methods run on the proxy's own fields\nclass Forwarding(private val target: Any) {\n    @RuntimeType\n    fun intercept(@Origin m: Method, @AllArguments args: Array<Any?>): Any? =\n        try {\n            m.invoke(target, *args)\n        } catch (e: InvocationTargetException) {\n            throw e.cause!!\n        }\n}"}
+  }
+ },
+ "recap": [
+  "Subclass proxies (Byte Buddy, Spring's CGLIB, ArC, Hibernate) wrap classes, but only what they can override: no `final` classes, no `final` or `private` methods.",
+  "Kotlin classes and members are final by default. Use `open`, all-open, `kotlin-spring` or kotlin-jpa, and check with `javap -p`.",
+  "Two models: the proxy is the object (ArC's `_Subclass`, `@SuperCall`), so self-calls are intercepted; or the proxy forwards to a target (Spring AOP), so self-calls skip it.",
+  "On a forwarding proxy, a method it can't override runs on the proxy object itself, with the proxy's own (often uninitialized) fields.",
+  "Spring uses a JDK proxy if the bean has interfaces and CGLIB otherwise, but Spring Boot defaults to class-based proxies. `@Transactional` in proxy mode ignores self-invocation.",
+  "Quarkus ArC builds proxies at build time and documents self-interception. Hibernate's lazy proxies need non-final entities with a no-arg constructor and proxy-aware `equals`."
+ ],
+ "quiz": [
+  {
+   "q": "A Spring Boot application has `class FeeService implements FeeCalculator` with a `@Transactional` method, and no AOP settings. What kind of proxy does Spring Boot give other beans by default?",
+   "options": [
+    "A JDK dynamic proxy, because the class implements an interface",
+    "A CGLIB subclass of `FeeService`, because Boot sets `proxyTargetClass=true` unless `spring.aop.proxy-target-class=false`",
+    "No proxy: `@Transactional` is applied by an agent",
+    "A Byte Buddy subclass"
+   ],
+   "answer": 1,
+   "why": "Spring Framework on its own would pick a JDK proxy for a bean with interfaces. Spring Boot's `AopAutoConfiguration` enables class-based proxies by default. Either kind forwards to a separate target, so the self-invocation rules are the same."
+  },
+  {
+   "q": "Kotlin: `@Service open class Payouts { @Transactional fun pay(id: String) { repo.save(id) } }`, without the kotlin-spring plugin. A controller calls `payouts.pay(\"p-1\")`. What happens?",
+   "options": [
+    "`pay` runs in a transaction",
+    "Startup fails: Spring can't proxy the class",
+    "`pay` is `final`, so the CGLIB proxy can't advise it. The body runs on the proxy object, without a transaction, where `repo` may be null",
+    "It compiles to an interface-based proxy"
+   ],
+   "answer": 2,
+   "why": "`open class` lets CGLIB subclass it, but each member is still `final` unless marked `open`. A final method is inherited unchanged, so calling it on the proxy runs the body on the proxy instance, which Spring created through Objenesis without running constructors. `kotlin-spring` opens the members as well."
+  },
+  {
+   "q": "In a Quarkus `@ApplicationScoped` bean, `settleAll()` calls `this.settle(id)`, and `settle` is `@Transactional`. Which statement matches the Quarkus documentation?",
+   "options": [
+    "The inner call is intercepted: ArC supports intercepted self-invocation, as a non-standard feature",
+    "The inner call skips the interceptor, as in Spring",
+    "It depends on `quarkus.arc.transform-unproxyable-classes`",
+    "Quarkus rejects self-invocation at build time"
+   ],
+   "answer": 0,
+   "why": "The Quarkus CDI reference says ArC supports self-interception: calling an intercepted method from another method of the same bean still triggers its interceptors. It's non-standard because the CDI spec doesn't define it. `transform-unproxyable-classes` is about final classes and methods, not self-calls."
+  },
+  {
+   "q": "Which change makes a class usable for Hibernate's lazy proxies?",
+   "options": [
+    "Mark the entity `final` so Hibernate can inline it",
+    "Give the entity a non-`private` no-argument constructor and keep it non-final",
+    "Declare collection fields as `ArrayList` instead of `List`",
+    "Make `equals` compare `getClass()` of both objects"
+   ],
+   "answer": 1,
+   "why": "Hibernate generates a subclass of the entity, so the class must not be final and needs a non-private no-arg constructor. Collection fields must use interface types, because Hibernate puts its own collection classes there. A `getClass()` comparison in `equals` fails against a proxy, whose class is the generated subclass."
+  },
+  {
+   "q": "From *Dynamic proxies with java.lang.reflect.Proxy*: you call `Proxy.newProxyInstance(loader, new Class<?>[]{FxQuoteService.class}, h)` where `FxQuoteService` is a class with no interface. What happens?",
+   "options": [
+    "A subclass proxy is generated instead",
+    "`IllegalArgumentException: ... FxQuoteService is not an interface`",
+    "It works, but only public methods are dispatched",
+    "`UndeclaredThrowableException`"
+   ],
+   "answer": 1,
+   "why": "JDK proxies implement interfaces and extend `java.lang.reflect.Proxy`, so they can't extend your class. To intercept a class, a library must generate a subclass, which is what Byte Buddy, Spring's CGLIB, ArC and Hibernate do.",
+   "from": "cls-04"
+  }
+ ],
+ "flashcards": [
+  {"front": "What can a subclass proxy never intercept?", "back": "Anything it can't override: a `final` class (no proxy at all), `final` methods and `private` methods. Those run as written."},
+  {"front": "Why does a plain Kotlin class fail with Byte Buddy, CGLIB or Hibernate?", "back": "Kotlin classes and members are `final` by default. Byte Buddy says `Cannot subclass primitive, array or final types`."},
+  {"front": "In the subclass model (proxy is the object), is a self-call `this.audit()` intercepted?", "back": "Yes. `this` is the generated subclass, so the call dispatches to its overriding method and the interceptor runs."},
+  {"front": "On a forwarding proxy (Spring style), where does a `final` method run?", "back": "On the proxy object itself, with the proxy's own fields, which Spring's Objenesis-created proxies never initialized."},
+  {"front": "Which proxy does Spring Boot use by default for a bean that implements an interface?", "back": "A CGLIB subclass: Boot sets `proxyTargetClass=true` unless `spring.aop.proxy-target-class=false`."},
+  {"front": "What does Quarkus ArC do about self-invocation of an intercepted method?", "back": "It intercepts it (self-interception), a documented, non-standard CDI behaviour. Spring's proxy mode doesn't."},
+  {"front": "Which Kotlin plugin opens Spring beans, and which opens JPA entities?", "back": "`kotlin-spring` (an all-open preset) for Spring annotations; `kotlin-jpa` for entities, which also adds no-arg constructors."}
+ ],
+ "terms": [
+  {"term": "Subclass proxy", "plain": "A generated subclass that overrides methods to add behaviour; it works for classes, not only interfaces."},
+  {"term": "Byte Buddy", "plain": "A library for generating and changing classes at run time; Hibernate and many tools build on it."},
+  {"term": "CGLIB", "plain": "An older bytecode library, now unmaintained; Spring ships its own patched copy for class-based proxies."},
+  {"term": "Objenesis", "plain": "A library that creates objects without running constructors; Spring uses it for CGLIB proxy instances."},
+  {"term": "Client proxy", "plain": "ArC's `Foo_ClientProxy`: a subclass that forwards each call to the real bean instance for its scope."},
+  {"term": "Self-interception", "plain": "Intercepting a call a bean makes to its own method. ArC supports it; Spring's proxy mode doesn't."},
+  {"term": "all-open", "plain": "A Kotlin compiler plugin that makes classes with chosen annotations, and their members, non-final."}
+ ],
+ "explain_back": {
+  "prompt": "A colleague says: \"Spring uses a CGLIB subclass, and a subclass overrides methods, so self-calls must be intercepted.\" Explain why that's wrong, why Quarkus behaves differently, and what Kotlin adds to the picture.",
+  "answer": "Being a subclass only tells you which methods can be intercepted. The question is which object runs the body. Spring's CGLIB proxy is a separate object that forwards each call to the target bean. The body runs on the target, where `this` is the target, so a call to `this.settle()` never reaches the proxy. Methods the proxy can't override, `final` or `private` ones, run on the proxy object itself, whose fields Objenesis never initialized. Quarkus ArC generates an intercepted subclass that is the bean instance, so `this.settle()` dispatches to the overriding method and the interceptors run; its docs call this self-interception. Kotlin makes classes and members final by default, so without `open` or the kotlin-spring or all-open plugin there's nothing to override. Then Spring can't proxy the class, or silently can't advise the method."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "Byte Buddy can also change a class instead of subclassing it. `rebase(Clock.class)` keeps the original method body under a new private name, `now$original$...`, and generates a new `now` that can call it. The Javadoc likens it to \"creating a subclass where the subclass is later merged with the original class file\". `redefine(Clock.class)` replaces `now` and discards the original body. Both produce a class with the original name, so you can only load them where the original isn't loaded yet, or rename them, or, in a running JVM, use an agent. That's lesson 7, where Byte Buddy's `Advice` comes in. Advice inlines your code into the existing method body instead of adding accessor methods and helper classes, which is what retransforming a loaded class requires.\n\nThe subclass's helper methods have a cost you can see. Each intercepted method gets an `$accessor$` twin so the interceptor can call the original, and `@SuperCall` creates a small `Callable` per call. In this track's single JMH run, a Byte Buddy subclass with `@SuperCall` measured about 0.9 ns per call against 0.8 ns direct, and the JDK proxy about 4.3 ns. The numbers are noisy and indicative only, but the order is clear.\n\nQuarkus can intercept some static methods too. The CDI reference allows an interceptor binding on a non-private static method, with three limits: only method-level bindings count, private static methods are never intercepted, and `InvocationContext#getTarget()` returns `null`. For producer methods whose result needs interceptors, `InterceptionProxy` generates, at build time, a subclass that intercepts and forwards. The class must not be final, must not have non-private final methods, and needs a non-private no-argument constructor. These are the subclass rules once again."
+ },
+ "sources": [
+  {"title": "Spring Framework reference: Proxying mechanisms", "url": "https://docs.spring.io/spring-framework/reference/core/aop/proxying.html"},
+  {"title": "Quarkus: Contexts and Dependency Injection reference (ArC)", "url": "https://quarkus.io/guides/cdi-reference"},
+  {"title": "Byte Buddy README", "url": "https://github.com/raphw/byte-buddy/blob/master/README.md"},
+  {"title": "kotlin-spring compiler plugin (Kotlin docs)", "url": "https://kotlinlang.org/docs/kotlin-spring-plugin.html"},
+  {"title": "Hibernate ORM introduction: Interacting with the database (proxies, source)", "url": "https://raw.githubusercontent.com/hibernate/hibernate-orm/main/documentation/src/main/asciidoc/introduction/Interacting.adoc"}
+ ]
+}
+out = ROOT / "content/lessons/cls-05.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)
