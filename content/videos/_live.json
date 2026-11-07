@@ -1,5 +1,10 @@
 {
   "live": [
-    "conc03-race"
+    "conc03-race",
+    "conc06-deadlock",
+    "exec02-pool-rules",
+    "jmm01-stop-loop",
+    "jmm02-volatile-edge",
+    "vt02-carriers"
   ]
 }
