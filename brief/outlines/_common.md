@@ -1,3 +1,17 @@
+# RESTART NOTE (read first)
+
+This track was started by an earlier writer who stopped part-way. Before writing anything:
+1. List content/lessons/ for your track. Finished lessons validate clean: leave them alone
+   unless site/validate.py reports an error in one.
+2. Look for half-written lab code for the first missing lesson (labs/<lab>/src/*/.../lNN/).
+   Read it, then finish it or replace it so it passes the checks below. Delete stray files you
+   don't use.
+3. Re-read brief/BRIEF.md: it has rules added after the first writers started. The important
+   ones: every code sample in BOTH Java and Kotlin (section "Both languages in every sample",
+   enforced by the validator), and never refer to the schedule with calendar dates or weekdays.
+4. Write the remaining lessons in order, then the track file content/tracks/<id>.json.
+Do not run any git command. The coordinator commits, pushes and deploys.
+
 # Instructions shared by every track writer
 
 Working directory: /home/user/jvm-workbench (no git commands, please).
@@ -44,7 +58,7 @@ Rules:
 - The learner may install JDK 25 while labs compile with release 21: nothing in labs/ may use an API
   newer than JDK 21 or a preview API.
 - If a fact in a lesson depends on something you could not verify, write around it.
-- Seven writers run Gradle on this 4-core machine at the same time. Tests must not depend on tight
+- Eight writers run Gradle on this 4-core machine at the same time. Tests must not depend on tight
   timings: use counts, latches, max-concurrency counters, virtual time, or very generous margins.
   If Gradle waits on a lock for a while, that is another writer's build; wait.
 

@@ -23,7 +23,7 @@ The site also has:
 - **Cheat sheets** and a **glossary** for when you need the answer, not the lesson.
 - A **35-minute focus timer**: 10 minutes review, 12 learning, 13 practice.
 
-Sign-in is with Google, and only enrolled Gmail addresses get in (`ALLOWED_EMAILS` in `wrangler.jsonc`). Progress syncs to each learner's account through a small Cloudflare Worker (`worker/index.js`) and Cloudflare KV, and also stays in the browser, so it works offline and in the claude.ai preview.
+There is no sign-in. Progress is saved in the browser (`localStorage`); to move it between devices, use "Copy my progress" and "Import" on the Plan page.
 
 ## Do the labs
 
@@ -65,10 +65,9 @@ Step-by-step instructions are in [DEPLOY.md](DEPLOY.md). In short, the site is a
 | `content/tracks/` | Track intro, cheat sheet, recap and track quiz |
 | `labs/` | The Gradle project with every exercise, test, demo and solution |
 | `site/` | `build.py`, `validate.py`, `app.js`, `style.css` |
-| `worker/` | The Cloudflare Worker: Google sign-in, enrolled-email check, progress sync |
 | `web/` | The built site that Cloudflare serves |
 | `brief/` | The writing brief, track outlines and lesson generator scripts |
 | `research_notes/`, `reports/` | Fact-checked research behind the lessons |
-| `art/` | The cover plate and the design philosophy it came from |
+| `art/` | An earlier cover plate and its design philosophy (no longer used on the site) |
 
 All company names, people and numbers in examples are made up.

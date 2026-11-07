@@ -154,8 +154,6 @@ h1 em, h1 i, h2 em { font-style: italic; }
 .field:focus { outline: none; border-color: var(--mute); }
 select.field { width: auto; font: 14px var(--body); height: 34px; padding: 0 10px; border-radius: 9px; }
 .linkish { background: none; border: 0; padding: 0; color: var(--teal); cursor: pointer; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
-.avatar { width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--rule); background: var(--panel); color: var(--fg); display: grid; place-items: center; padding: 0; overflow: hidden; cursor: pointer; font: 600 13px var(--body); flex: none; }
-.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 16px; padding: 20px 22px; }
 .hair { border: 0; border-top: 1px solid var(--rule); margin: 0; }
 
@@ -492,14 +490,11 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
   const blank = () => ({ v: 1, theme: null, code: "both", done: {}, undone: {}, paceAt: "", quiz: {}, tquiz: {}, cards: {}, explain: {}, days: {}, pace: 5, open: {}, timer: null, seenSetup: false });
   let S = blank();
   try { S = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) { /* private window or blocked storage */ }
-  const saveLocal = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } };
-  const save = () => { saveLocal(); schedulePush(); };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } };
 
-  /* ---------------- account and sync ----------------
-     On the Cloudflare site every page needs an enrolled Google account, and progress syncs to it
-     through /api/progress. The server merges what we send with what it has and returns the result,
-     so two devices never overwrite each other. Where there is no API (the preview), progress stays local. */
-  let me = null, cloud = false, pushTimer = null;
+  /* ---------------- moving progress between devices ----------------
+     Progress lives in this browser. The Plan page copies it out as text and imports it on another
+     device; importing merges, so nothing done on either device is lost. */
   const SYNC = ["done", "undone", "quiz", "tquiz", "cards", "days", "explain", "pace", "paceAt"];
   const syncDoc = () => Object.fromEntries(SYNC.map((k) => [k, S[k]]));
   const later = (a, b) => (!a ? b : !b ? a : a > b ? a : b);
@@ -521,30 +516,6 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
     for (const [d, e] of Object.entries(x.days || {})) { const cur = S.days[d] || { l: 0, r: 0 }; S.days[d] = { l: Math.max(cur.l || 0, e.l || 0), r: Math.max(cur.r || 0, e.r || 0) }; }
     for (const [id, t] of Object.entries(x.explain || {})) if (t && !S.explain[id]) S.explain[id] = t;
     if (x.pace && (x.paceAt || "") > (S.paceAt || "")) { S.pace = x.pace; S.paceAt = x.paceAt; }
-  }
-  function schedulePush() { if (!cloud) return; clearTimeout(pushTimer); pushTimer = setTimeout(push, 1200); }
-  async function push() {
-    try {
-      const r = await fetch("api/progress", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(syncDoc()) });
-      if (r.status === 401) { cloud = false; toast("You were signed out. Reload the page to sign in again."); render(true); return; }
-      if (r.ok) { mergeInto(await r.json()); saveLocal(); }
-    } catch (e) { /* offline: the next save tries again */ }
-  }
-  async function syncStart() {
-    try {
-      const r = await fetch("api/me", { headers: { accept: "application/json" } });
-      if (r.status === 401) { location.href = "/login?next=" + encodeURIComponent("/" + location.hash); return; }
-      if (!r.ok || !(r.headers.get("content-type") || "").includes("json")) return;
-      me = await r.json();
-      const p = await fetch("api/progress");
-      if (!p.ok) return;
-      mergeInto(await p.json());
-      cloud = true; saveLocal(); render(true); push();
-    } catch (e) { /* no account API here: progress stays in this browser */ }
-  }
-  async function signOut() {
-    try { await fetch("api/logout", { method: "POST" }); } catch (e) { /* signing out locally anyway */ }
-    location.href = "/login";
   }
 
   /* ---------------- dates ---------------- */
@@ -689,7 +660,6 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
       <button class="chip ${due ? "" : "quiet"}" data-go="review" title="Spaced review"><span class="dot"></span><span class="tnum">${due}</span><span class="hide-sm">&nbsp;due</span></button>
       <button class="iconbtn" data-act="timer" aria-label="Focus timer" title="35-minute focus timer">${icon.timer}</button>
       <button class="switch" data-act="theme" role="switch" aria-checked="${effectiveTheme() === "dark"}" aria-label="Dark mode" title="Dark mode"><span class="tr"></span><span class="kn"></span></button>
-      ${me ? `<button class="avatar" data-go="plan" title="${esc(me.email)}" aria-label="Signed in as ${esc(me.email)}">${me.picture ? `<img src="${esc(me.picture)}" alt="" referrerpolicy="no-referrer">` : esc((me.name || me.email || "?")[0].toUpperCase())}</button>` : ""}
     </header>
     <div class="scrim ${mobileOpen ? "on" : ""}" data-act="close-menu"></div>
     <nav class="side ${(isDesk() ? !deskOpen : !mobileOpen) ? "closed" : ""}" aria-label="Contents" id="side"></nav>
@@ -725,9 +695,7 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
           ${shown.map((id) => `<li><button data-go="${id}" class="${cur === id ? "on" : ""}"><i class="cell ${cellState(id)}"></i><span>${esc(L[id].title)}</span></button></li>`).join("")}</ul>` : ""}
       </div>`;
     }
-    h += me
-      ? `<p class="label" style="padding:18px 20px 0;line-height:1.6;text-transform:none;letter-spacing:.02em">Signed in as ${esc(me.email)}. ${cloud ? "Progress syncs to this account." : "Sync is paused."} <button class="linkish" data-act="signout">Sign out</button></p>`
-      : `<p class="label" style="padding:18px 20px 0;line-height:1.6">Progress is saved in this browser. Move it between devices from Plan and progress.</p>`;
+    h += `<p class="label" style="padding:18px 20px 0;line-height:1.6">Progress is saved in this browser. Move it between devices from Plan and progress.</p>`;
     $("#side").innerHTML = h;
   }
   let filterText = "";
@@ -1203,7 +1171,7 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
         ${Array.from({ length: weeks }, (_, k) => k + 1).map((w) => `<div class="ptrack">Week ${w}</div>` + ORDER.slice((w - 1) * pace(), w * pace()).map((id) => `<div class="pr"><span class="d">Day ${wd(id).d}</span><i class="cell ${cellState(id)}"></i><button data-go="${id}">${esc(L[id].title)} <span class="label" style="margin-left:6px">${esc(T[L[id].track].title)}</span></button><span class="label">${S.quiz[id] != null ? `quiz ${S.quiz[id]}/5` : ""}</span></div>`).join("")).join("")}
       </div></section>
       <section class="block"><span class="label">Move your progress</span><h2>Phone and laptop</h2>
-        <p class="mute" style="margin:0;max-width:62ch">${cloud ? `Your progress syncs to ${esc(me.email)}, so every device you sign in on shows the same plan, deck and scores. You can still copy it here as a backup.` : "Progress lives in this browser. To move it, copy it here, then paste it on the other device and import. Importing merges: nothing you've done on either device is lost."}</p>
+        <p class="mute" style="margin:0;max-width:62ch">Progress lives in this browser. To move it, copy it here, then paste it on the other device and import. Importing merges: nothing you've done on either device is lost.</p>
         <textarea class="field" id="sync-box" rows="4" placeholder="Paste progress from another device here"></textarea>
         <div class="row"><button class="btn ghost sm" data-act="export">Copy my progress</button><button class="btn sm" data-act="import">Import pasted progress</button></div></section>`;
   }
@@ -1307,7 +1275,6 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
       case "rv-pick": pageState.review.pick = +a.dataset.k; render(); break;
       case "rv-grade": rvGrade(+a.dataset.g); break;
       case "new-mix": delete pageState.mix; delete pageState.quiz.mix; render(); scrollTo(0, 0); break;
-      case "signout": signOut(); break;
       case "export": copyText(JSON.stringify(syncDoc()), null).then(() => toast("Progress copied. Paste it on the other device.")); break;
       case "import": importProgress($("#sync-box").value); break;
       case "timer": if (!S.timer) S.timer = { acc: 0, run: Date.now() }; save(); timerRender(); break;
@@ -1341,7 +1308,6 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
   if (S.theme) document.documentElement.setAttribute("data-theme", S.theme);
   document.documentElement.setAttribute("data-code", S.code || "both");
   render();
-  syncStart();
   setTimeout(() => { const nx = nextUp(); if (nx && L[nx].remote && !L[nx].sections) loadLesson(L[nx]); }, 1200);
 })();
 </script>
