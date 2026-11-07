@@ -132,6 +132,36 @@ class FailFastScopeTest {
         });
     }
 
+    @Test
+    @DisplayName("A subtask forked after the scope was cancelled never runs, and its get() throws IllegalStateException")
+    void noForkAfterFailure() {
+        CountDownLatch siblingInterrupted = new CountDownLatch(1);
+        AtomicBoolean lateRan = new AtomicBoolean();
+        assertTimeoutPreemptively(Duration.ofSeconds(8), () -> {
+            try (FailFastScope scope = new FailFastScope()) {
+                scope.fork(() -> {
+                    try {
+                        return after(10_000, "customer");
+                    } catch (InterruptedException e) {
+                        siblingInterrupted.countDown();
+                        throw e;
+                    }
+                });
+                scope.fork(() -> { throw new IllegalStateException("issuer declined"); });
+                // the sibling was interrupted, so the scope is cancelled by now
+                assertThat(siblingInterrupted.await(5, TimeUnit.SECONDS)).as("sibling interrupted").isTrue();
+                Supplier<String> late = scope.fork(() -> {
+                    lateRan.set(true);
+                    return "late";
+                });
+                assertThatThrownBy(scope::join).isInstanceOf(ExecutionException.class)
+                        .cause().hasMessage("issuer declined");
+                assertThatThrownBy(late::get).isInstanceOf(IllegalStateException.class);
+            }
+        });
+        assertThat(lateRan).as("the late subtask ran").isFalse();
+    }
+
     static void sleepUninterruptibly(long ms) {
         long end = System.nanoTime() + ms * 1_000_000;
         boolean interrupted = false;

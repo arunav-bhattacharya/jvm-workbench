@@ -20,19 +20,24 @@ import java.util.function.Supplier;
  * <p>Rules:
  * <ul>
  *   <li>{@code fork} runs the task on a new virtual thread and returns a handle.</li>
- *   <li>The first subtask to fail cancels (interrupts) every other subtask at once: fail fast.</li>
+ *   <li>The first subtask to fail cancels (interrupts) every other subtask at once: fail fast.
+ *       A sibling that then fails because it was interrupted does not count as a failure.</li>
+ *   <li>A subtask forked after the scope was cancelled never runs. Its handle's {@code get()}
+ *       throws {@link IllegalStateException}.</li>
  *   <li>{@code join} waits until every subtask has finished, or until the first failure,
  *       whichever comes first. On a failure it throws {@link ExecutionException} with the
  *       first failure as its cause.</li>
  *   <li>A handle's {@code get()} returns the result only after {@code join}, and only for a
  *       subtask that succeeded. Otherwise it throws {@link IllegalStateException}.</li>
- *   <li>{@code close} cancels any subtask still running and waits until every forked thread has ended.</li>
+ *   <li>{@code close} cancels any subtask still running and waits until every forked thread
+ *       has really ended, including its {@code finally} blocks.</li>
  * </ul>
  */
 public final class FailFastScope implements AutoCloseable {
 
     public FailFastScope() {
-        // TODO: create a virtual-thread-per-task executor and whatever state you need
+        // TODO: you need a virtual-thread-per-task executor, a list of futures,
+        //       a place for the first failure, and a "joined" flag (fields are fine)
     }
 
     /** Starts {@code task} on its own virtual thread. Its result is available after {@link #join()}. */
@@ -48,6 +53,6 @@ public final class FailFastScope implements AutoCloseable {
     /** Cancels whatever is still running and waits for every forked thread to end. */
     @Override
     public void close() {
-        throw new UnsupportedOperationException("TODO: cancel all, then close the executor (which waits)");
+        throw new UnsupportedOperationException("TODO: cancel what is still running, then wait for the threads");
     }
 }
