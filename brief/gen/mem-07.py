@@ -1,0 +1,403 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/memory/src"
+P = "java/workbench/memory/l07"
+K = "kotlin/workbench/memory/l07"
+read = lambda p: (ROOT / p).read_text()
+DEMO = "./gradlew :memory:demo -Pmain=workbench.memory.l07."
+
+
+def demo(name):
+    return {"lang": "java", "title": f"{name}.java", "src": read(f"{lab}/demo/{P}/{name}.java"),
+            "run": DEMO + name, "file": f"{lab}/demo/{P}/{name}.java",
+            "alt": {"lang": "kotlin", "title": f"{name}.kt", "src": read(f"{lab}/demo/{K}/{name}.kt"),
+                    "run": DEMO + name + "Kt", "file": f"{lab}/demo/{K}/{name}.kt"}}
+
+
+FIGURE = """<svg viewBox="0 0 680 300" role="img" aria-label="The leaking cache as a chain: a static field holds a ConcurrentHashMap, its table, 20,000 nodes, 20,000 responses and 20,000 receipts of 2 KB. Everything below the map is its retained set, about 44 MB. A shared currency string that another root also reaches is not part of it">
+<rect class="box-dim" x="24" y="56" width="282" height="232" rx="8"/>
+<rect class="box-a" x="40" y="16" width="250" height="34" rx="8"/>
+<text class="t-s" x="165" y="37" text-anchor="middle">GC root: a static field</text>
+<rect class="box" x="40" y="62" width="250" height="34" rx="8"/>
+<text class="t-s" x="165" y="83" text-anchor="middle">ConcurrentHashMap: 64 B</text>
+<rect class="box" x="40" y="108" width="250" height="34" rx="8"/>
+<text class="t-s" x="165" y="129" text-anchor="middle">Node[] table: 128 KB</text>
+<rect class="box" x="40" y="154" width="250" height="34" rx="8"/>
+<text class="t-s" x="165" y="175" text-anchor="middle">20,000 nodes: 32 B each</text>
+<rect class="box" x="40" y="200" width="250" height="34" rx="8"/>
+<text class="t-s" x="165" y="221" text-anchor="middle">20,000 responses and keys</text>
+<rect class="box-bad" x="40" y="246" width="250" height="34" rx="8"/>
+<text class="t-s" x="165" y="267" text-anchor="middle">20,000 receipts: 2,064 B each</text>
+<line class="ln" x1="165" y1="50" x2="165" y2="60" marker-end="url(#arr)"/>
+<line class="ln" x1="165" y1="96" x2="165" y2="106" marker-end="url(#arr)"/>
+<line class="ln" x1="165" y1="142" x2="165" y2="152" marker-end="url(#arr)"/>
+<line class="ln" x1="165" y1="188" x2="165" y2="198" marker-end="url(#arr)"/>
+<line class="ln" x1="165" y1="234" x2="165" y2="244" marker-end="url(#arr)"/>
+<text class="t-s" x="425" y="100" text-anchor="middle">retained by the map: about 44 MB</text>
+<text class="t-s t-m" x="425" y="122" text-anchor="middle">drop the static field's reference</text>
+<text class="t-s t-m" x="425" y="140" text-anchor="middle">and all of it becomes garbage</text>
+<rect class="box-a" x="440" y="16" width="220" height="34" rx="8"/>
+<text class="t-s" x="550" y="37" text-anchor="middle">GC root: currency catalog</text>
+<rect class="box-b" x="440" y="200" width="220" height="34" rx="8"/>
+<text class="t-s" x="550" y="221" text-anchor="middle">shared "EUR" string</text>
+<line class="ln" x1="550" y1="50" x2="550" y2="198" marker-end="url(#arr)"/>
+<line class="ln-d" x1="290" y1="217" x2="438" y2="217" marker-end="url(#arr)"/>
+<text class="t-s t-m" x="550" y="258" text-anchor="middle">another root reaches it too,</text>
+<text class="t-s t-m" x="550" y="276" text-anchor="middle">so the map does not retain it</text>
+</svg>"""
+
+S1 = """In C, a leak is memory nobody can reach any more. In Java it's the opposite: the garbage collector frees everything unreachable, so a Java leak is memory that stays **reachable** from a GC root after the program is done with it. The GC is doing its job. Your code still holds the reference.
+
+Here's the classic one in payment services, an idempotency cache with no eviction:
+
+```java
+static final Map<String, CachedResponse> IDEMPOTENCY_CACHE = new ConcurrentHashMap<>();
+
+static CachedResponse handle(String requestId) {
+    return IDEMPOTENCY_CACHE.computeIfAbsent(requestId, id -> new CachedResponse(id, 1_999, new byte[2_048]));
+}
+```
+
+```kotlin
+val IDEMPOTENCY_CACHE = ConcurrentHashMap<String, CachedResponse>()
+
+fun handle(requestId: String): CachedResponse =
+    IDEMPOTENCY_CACHE.computeIfAbsent(requestId) { id -> CachedResponse(id, 1_999, ByteArray(2_048)) }
+```
+
+Every request adds an entry, and nothing ever removes one. Lesson 6 showed the symptom in a GC log: the after-values of young pauses rise pass after pass, full GCs free less and less, and in the end the JVM throws `OutOfMemoryError` or spends its time in `Pause Full`.
+
+The same shape shows up in four places, over and over:
+
+- maps and caches without a bound or an expiry;
+- `ThreadLocal` values on pooled threads that nobody removes (the threads track showed a pool thread keeping one forever);
+- listeners and callbacks registered and never unregistered (lesson 3's weak registry is one fix);
+- class loaders that can't be unloaded, which shows up as metaspace growth and GC causes like `Metadata GC Threshold`, mostly in dev mode and test suites that reload code.
+
+The first tool is a **class histogram**: a count of live objects per class. `jcmd <pid> GC.class_histogram` prints it after a full GC, so it counts only reachable objects. For the cache above, after 20,000 requests:
+
+```text
+ num     #instances         #bytes  class name (module)
+   1:         52255       43124072  [B (java.base@21.0.12.1)
+   2:         32139         771336  java.lang.String (java.base@21.0.12.1)
+   3:         22615         723680  java.util.concurrent.ConcurrentHashMap$Node (java.base@21.0.12.1)
+   4:         20000         640000  workbench.memory.l07.LeakDemo$CachedResponse
+```
+
+`[B` means `byte[]`. The histogram tells you what fills the heap. It can't tell you who holds it. 20,000 of something you didn't expect to keep is the clue to follow next."""
+
+S2 = """A **heap dump** is a file with every object on the heap and every reference between them, in the HPROF format. You can get one three ways:
+
+- `jcmd <pid> GC.heap_dump /tmp/app.hprof` from a running JVM. Its help text says "Impact: High": it does a full GC first (unless you pass `-all`) and pauses the JVM while it writes. `-gz` compresses the file, and JDK 24 and later add `-parallel` for more writer threads.
+- `-XX:+HeapDumpOnOutOfMemoryError` with `-XX:HeapDumpPath=...`, so the JVM writes one at the moment it runs out. It's off by default. It's also a manageable flag, so `jcmd <pid> VM.set_flag HeapDumpOnOutOfMemoryError true` turns it on in a running JVM.
+- `HotSpotDiagnosticMXBean.dumpHeap(path, true)` from code, which is what the demo uses.
+
+Open the dump in Eclipse MAT (Memory Analyzer). Two sizes matter. The **shallow size** of an object is its own bytes, lesson 1's header-plus-fields. Its **retained size** is everything that would be freed if that one object were gone: the object plus everything reachable only through it.
+
+You can compute retained size by hand on a small graph, and doing it once makes MAT's numbers obvious. Look at the figure. The static field holds the map, the map holds a table, the table holds 20,000 nodes, each node holds a key and a response, and each response holds a 2 KB receipt. Every path from a root to a receipt goes through the map, so the map **dominates** the receipts, and they are in its retained set. Add it up: 20,000 receipts at 2,064 bytes, 20,000 keys at 80, 20,000 responses at 32, 20,000 nodes at 32 and the table: about 44 MB. The shared `"EUR"` string is different. A currency catalog reaches it too, so removing the map wouldn't free it, and it isn't in the map's retained set.
+
+MAT's **dominator tree** lists objects by retained size, biggest first. For a leak like this one, the map should sit at the top with about 44 MB, and its path to a GC root names the static field that holds it. (I couldn't run MAT for this course, so that's what the dominator tree's definition predicts for this dump, not a screenshot.) The histogram said "byte arrays". The dominator tree says "this map, held by this field"."""
+
+S3 = """Sometimes the heap is fine and the process still grows. The GC log shows a flat floor, a heap dump shows nothing odd, and the pod still gets OOM-killed (lesson 6). The memory is outside the heap, where heap dumps can't see.
+
+**Native Memory Tracking** (NMT) is the JVM's account of its own native memory. It's off by default. Start the JVM with `-XX:NativeMemoryTracking=summary`, then ask a running process:
+
+```text
+jcmd <pid> VM.native_memory summary scale=MB
+```
+
+In the demo, a JVM with a 256 MB heap committed 294 MB at startup. After it allocated one 64 MiB direct buffer and started 100 threads, it had committed 369 MB. NMT shows where the difference went: `Other` went from nothing to 64 MB (the direct buffer), and `Thread` went from 1 MB to 11 MB committed, with 121 MB reserved, because each new thread reserves about 1 MB of stack but touches only a little of it.
+
+For a slow leak, take a baseline and compare later:
+
+```text
+jcmd <pid> VM.native_memory baseline
+jcmd <pid> VM.native_memory summary.diff scale=MB
+```
+
+The diff marks every change: in one test, `Other (reserved=100MB +100MB, committed=100MB +100MB)` after 100 direct buffers of 1 MiB. A growing `Other` points at direct buffers or native code; a growing `Thread` at threads you start and never stop; a growing `Class` or `Metaspace` at class loaders.
+
+Direct buffers deserve one more level of detail. A `ByteBuffer.allocateDirect` call creates a small object on the heap that owns the native memory, and a `Cleaner` (lesson 3) frees that memory after the GC collects the small object. So native memory waits for a garbage collection, and a big, quiet heap may not collect for a long time. Unless you set `-XX:MaxDirectMemorySize`, the limit for all of it is the max heap size. Set it, and a leak fails loudly instead of quietly: `java.lang.OutOfMemoryError: Cannot reserve 67108864 bytes of direct buffer memory (allocated: 0, limit: 33554432)`, with a stack trace that points at the code."""
+
+S4 = """The Foreign Function and Memory API (FFM), final since JDK 22 (JEP 454), gives off-heap memory a lifetime you control. Memory comes from an **arena**, and the arena decides when it's freed:
+
+| Arena | Lifetime | Closed by | Threads |
+|---|---|---|---|
+| `Arena.global()` | until the JVM exits | nobody | any |
+| `Arena.ofAuto()` | until the GC finds it unreachable | the GC | any |
+| `Arena.ofConfined()` | until you call `close()` | you, from the owner thread | the owner only |
+| `Arena.ofShared()` | until you call `close()` | you, from any thread | any |
+
+A confined arena in try-with-resources frees its memory at the closing brace. No GC is involved, so there's nothing to wait for. And if code uses a segment after its arena is closed, it gets an `IllegalStateException` ("Already closed"), not a crash or silently corrupted memory as with freed memory in C.
+
+```java
+try (Arena arena = Arena.ofConfined()) {
+    MemorySegment ledger = arena.allocate(32L * 1024 * 1024);   // 32 MiB off-heap
+    ledger.setAtIndex(ValueLayout.JAVA_LONG, 0, 1_999);
+}                                                               // freed here
+```
+
+```kotlin
+Arena.ofConfined().use { arena ->
+    val ledger = arena.allocate(32L * 1024 * 1024)              // 32 MiB off-heap
+    ledger.setAtIndex(ValueLayout.JAVA_LONG, 0, 1_999)
+}                                                               // freed here
+```
+
+Native segments count against the same limit as direct buffers. Per the JDK 25 source, allocating one reserves memory through the same accounting as `ByteBuffer.allocateDirect`, and on JDK 21's preview of the API, a 32 MiB segment under `-XX:MaxDirectMemorySize=16m` failed with `Cannot reserve 33554432 bytes of direct buffer memory`.
+
+The labs compile for JDK 21, where FFM is still a preview, so this lesson's FFM demo is a single file that runs outside Gradle on JDK 22 or later."""
+
+L = {
+ "id": "mem-07",
+ "title": "Hunting memory leaks: heap dumps, native memory and off-heap",
+ "minutes": 38,
+ "goal": "By the end you can tell a heap leak from native growth, find who holds a leaked object with a histogram, a heap dump and its dominator tree, measure native memory with NMT, and fix a leaking cache.",
+ "warmup": {
+  "q": "A service's GC log shows young pauses ending at a flat 300 MB for days, yet the pod's memory keeps growing until it is OOM-killed. Where should you look first?",
+  "options": ["A heap dump: the leak must be in the heap", "Native memory: direct buffers, threads, metaspace, with Native Memory Tracking", "The young generation size", "The GC pause goal"],
+  "answer": 1,
+  "why": "A flat floor after young pauses means the live heap isn't growing, so a heap dump will look normal. The growth is outside the heap, where only NMT, the direct buffer pool and the thread count can show it. The young generation size and the pause goal change how the heap is collected, not what grows beside it."
+ },
+ "sections": [
+  {
+   "h": "A Java leak is memory that stays reachable",
+   "body": S1,
+   "try": {
+    "title": "Leak, count, dump",
+    "minutes": 4,
+    "steps": [
+     "Read `LeakDemo`. Its first child JVM handles 20,000 requests with the cache above, prints the top of the class histogram and writes a heap dump. Its second child has `-Xmx64m -XX:+HeapDumpOnOutOfMemoryError` and handles requests until the heap is full.",
+     "Predict: which class tops the histogram, and how many `CachedResponse` objects are alive?",
+     "Run it."
+    ],
+    "code": demo("LeakDemo"),
+    "expect": "`[B` (byte arrays) tops the list with about 43 MB, then `String`, `ConcurrentHashMap$Node`, and exactly 20,000 `CachedResponse` objects at 32 bytes each. The dump `leak.hprof` is about 50 MB, in `labs/memory/build/heapdumps/`. The second child prints `java.lang.OutOfMemoryError: Java heap space`, `Dumping heap to build/heapdumps/oom.hprof ...` and `Heap dump file created [...]`, about 70 MB."
+   },
+   "refs": [
+    {"title": "The jcmd command, JDK 25 man page source: GC.class_histogram and GC.heap_dump", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/jdk.jcmd/share/man/jcmd.md", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "A heap dump and its dominator tree show who holds it",
+   "body": S2,
+   "figure": {"svg": FIGURE, "caption": "Everything below the map is reachable only through it, so it is the map's retained set. The shared string has another root, so the map doesn't retain it."},
+   "try": {
+    "title": "Find the holder in Eclipse MAT",
+    "minutes": 6,
+    "steps": [
+     "Download Eclipse Memory Analyzer (MAT) from eclipse.dev/mat and open `labs/memory/build/heapdumps/leak.hprof` from the previous demo.",
+     "Before you click anything, predict the top entry of the dominator tree and its retained size from the figure.",
+     "Open the dominator tree. Then, on the biggest entry, use \"Path to GC Roots\" to find the field that holds it."
+    ],
+    "expect": "From the definition and the histogram, the `ConcurrentHashMap` should top the dominator tree with a retained size of about 44 MB, almost all of it in 2 KB `byte[]` receipts. Its path to a GC root should end at the static field `IDEMPOTENCY_CACHE` of `LeakDemo`. If your top entry is something else, compare its retained size with the histogram's byte counts and follow its path to the root the same way."
+   },
+   "refs": [
+    {"title": "Eclipse MAT help: dominator tree", "url": "https://raw.githubusercontent.com/eclipse-mat/mat/master/plugins/org.eclipse.mat.ui.help/concepts/dominatortree.html", "kind": "docs"},
+    {"title": "Eclipse MAT help: shallow and retained heap", "url": "https://raw.githubusercontent.com/eclipse-mat/mat/master/plugins/org.eclipse.mat.ui.help/concepts/shallowretainedheap.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "Native Memory Tracking finds growth outside the heap",
+   "body": S3,
+   "try": {
+    "title": "Watch native memory move",
+    "minutes": 4,
+    "steps": [
+     "Read `NmtDemo`. Its first child runs with `-XX:NativeMemoryTracking=summary` and prints NMT's summary before and after a 64 MiB direct buffer and 100 threads. Its second child allocates 64 MiB of direct memory under `-XX:MaxDirectMemorySize=32m`.",
+     "Predict which NMT categories change, and by how much. Then run it."
+    ],
+    "code": demo("NmtDemo"),
+    "expect": "`Java Heap` stays at 216 MB committed. `Other` appears with 64 MB, the direct buffer. `Thread` grows from about 1 MB to 11 MB committed and from 18 MB to about 121 MB reserved: 100 stacks of about 1 MB each, mostly untouched. `Total` committed rises by about 75 MB. The second child prints `Cannot reserve 67108864 bytes of direct buffer memory (allocated: 0, limit: 33554432)`."
+   }
+  },
+  {
+   "h": "Arenas give off-heap memory a lifetime you control",
+   "body": S4,
+   "try": {
+    "title": "Free 32 MiB at a closing brace (JDK 22 or later)",
+    "minutes": 4,
+    "steps": [
+     "This one runs outside Gradle and needs JDK 22 or later, ideally 25. Check with `java -version`. From `labs/`, run `java memory/jdk25/ArenaDemo.java`. The Kotlin twin needs `kotlinc`: the commands are at the top of `ArenaDemo.kt`.",
+     "Predict the three numbers it prints, then run it.",
+     "Run it again with `-XX:MaxDirectMemorySize=16m` placed right after `java`."
+    ],
+    "code": {"lang": "java", "title": "ArenaDemo.java (JDK 22 or later)", "src": read("labs/memory/jdk25/ArenaDemo.java"),
+             "run": "java memory/jdk25/ArenaDemo.java", "file": "labs/memory/jdk25/ArenaDemo.java",
+             "alt": {"lang": "kotlin", "title": "ArenaDemo.kt (JDK 22 or later)", "src": read("labs/memory/jdk25/ArenaDemo.kt"),
+                     "run": "kotlinc memory/jdk25/ArenaDemo.kt -include-runtime -d memory/build/arena-demo.jar && java -jar memory/build/arena-demo.jar",
+                     "file": "labs/memory/jdk25/ArenaDemo.kt"}},
+    "expect": "`entry 1,000 holds 100000`, then `+32 MiB of direct memory` inside the arena and `+0 MiB` after `close()`, and `reading after close() throws: Already closed`. With the 16 MB limit, `arena.allocate` fails with `OutOfMemoryError: Cannot reserve 33554432 bytes of direct buffer memory`. These outputs come from JDK 21's preview of the same API; the methods used here are the same in the final API of JDK 22 and later."
+   },
+   "refs": [
+    {"title": "JEP 454: Foreign Function & Memory API", "url": "https://openjdk.org/jeps/454", "kind": "read"},
+    {"title": "Arena source at jdk-25-ga: the four kinds of arena", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/java.base/share/classes/java/lang/foreign/Arena.java", "kind": "docs"}
+   ]
+  }
+ ],
+ "analogy": "A dominator tree answers one question for every object: if I cut this one rope, how much falls? The heap is a set of loads hanging from hooks in the ceiling, the GC roots, by ropes that are references. Some loads hang from one rope; others are tied to two hooks. Cut the rope above the cache and 44 MB of receipts fall, because every rope to them ran through it. Cut a rope above something that also hangs from another hook, and nothing falls. Retained size is the weight that falls. Where it breaks: real ropes are cut once. In a heap, your code ties new ropes on every request, so you find the rope in a dump, but you fix it in the code that keeps tying it.",
+ "in_your_world": "In a payment platform the usual suspects are easy to list. Idempotency caches and duplicate-detection maps that never evict. Per-merchant maps keyed by something that is created per request. A `ThreadLocal` buffer on Kafka consumer or worker threads that nobody removes. A Temporal or Kafka listener registered for each new tenant and never removed. And outside the heap: a Netty-based client that allocates direct buffers per call without releasing them, or a native HSM or compression library. Decide which half to look at from the GC log first. A rising floor means a heap dump and the dominator tree. A flat floor with a growing pod means NMT with a baseline and a diff.",
+ "mistake": "Taking a heap dump to explain an OOM-killed pod. The kernel killed the process because the whole process outgrew its limit, and the heap was often fine: a heap dump shows only the heap, so it looks healthy and the team concludes the problem is random. People make the mistake because the heap is the only memory most tools show. The fix is to read the evidence in order: if the GC log's floor is flat, turn on `-XX:NativeMemoryTracking=summary`, take a baseline, and diff it after the growth; cap `-XX:MaxDirectMemorySize` so a direct-buffer leak becomes an `OutOfMemoryError` with a stack trace instead of a silent kill.",
+ "compare": {
+  "title": "A bounded LRU cache in Java and Kotlin",
+  "java": {"title": "LruCache.java", "src": "final class LruCache<K, V> {\n    private final Map<K, V> map;\n\n    LruCache(int maxEntries) {\n        // true = access order: get() moves an entry to the end, so the eldest is the least recently used\n        map = new LinkedHashMap<>(16, 0.75f, true) {\n            @Override\n            protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {\n                return size() > maxEntries;\n            }\n        };\n    }\n\n    synchronized V get(K key) { return map.get(key); }\n    synchronized void put(K key, V value) { map.put(key, value); }\n}"},
+  "kotlin": {"title": "LruCache.kt", "src": "class LruCache<K, V>(private val maxEntries: Int) {\n    // true = access order: get() moves an entry to the end, so the eldest is the least recently used\n    private val map = object : LinkedHashMap<K, V>(16, 0.75f, true) {\n        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?): Boolean =\n            size > maxEntries\n    }\n\n    @Synchronized fun get(key: K): V? = map[key]\n    @Synchronized fun put(key: K, value: V) { map[key] = value }\n}"},
+  "note": "Both build on the same JDK class, and both need the lock: `LinkedHashMap` isn't thread-safe, and in access order even `get` changes the map. Java overrides `removeEldestEntry` in an anonymous subclass; Kotlin does it with an `object :` expression, and its `eldest` parameter is nullable because the JDK doesn't annotate it. Kotlin returns `V?` from `get`, which makes the cache miss visible in the type. In a real service you'd often reach for a cache library with size limits and expiry, but the leak fix is the same idea in every form: decide a maximum and make the structure enforce it."
+ },
+ "worked": {
+  "title": "From OOMKilled to the line that leaks",
+  "steps": [
+   {"say": "An invented settlement API restarts with exit code 137 every two days. Start with the GC log, because it decides which half of memory to look at. Here the young pauses end at about 300 MB, day after day: the live heap is flat. A heap dump would look healthy, so don't start there.",
+    "code": "GC(9120) Pause Young (Normal) (G1 Evacuation Pause) 1490M->301M(1536M) 9.420ms\nGC(9121) Pause Young (Normal) (G1 Evacuation Pause) 1488M->298M(1536M) 9.112ms",
+    "lang": "text"},
+   {"say": "1. Measure native memory. Restart one instance with NMT, take a baseline once it's warm, and diff a few hours later. Only one category moved.",
+    "code": "java -XX:NativeMemoryTracking=summary ... -jar settlement-api.jar\njcmd <pid> VM.native_memory baseline\n# four hours later\njcmd <pid> VM.native_memory summary.diff scale=MB\n-                     Other (reserved=812MB +544MB, committed=812MB +544MB)\n                            (malloc=812MB +544MB #9310 +6480)",
+    "lang": "text"},
+   {"say": "2. Name the suspect. `Other` growing by thousands of mallocs is direct buffers or native code. The JDK's direct buffer pool confirms it: its count and size keep climbing. Find who allocates direct buffers per request. Here it's a report generator that keeps one per merchant report in a map and never removes them.",
+    "code": "// 1. the leak: one direct buffer per report, kept forever\nprivate final Map<String, ByteBuffer> reportBuffers = new ConcurrentHashMap<>();\n\nByteBuffer bufferFor(String reportId) {\n    return reportBuffers.computeIfAbsent(reportId, id -> ByteBuffer.allocateDirect(1 << 20));\n}",
+    "lang": "java",
+    "alt_code": "// 1. the leak: one direct buffer per report, kept forever\nprivate val reportBuffers = ConcurrentHashMap<String, ByteBuffer>()\n\nfun bufferFor(reportId: String): ByteBuffer =\n    reportBuffers.computeIfAbsent(reportId) { ByteBuffer.allocateDirect(1 shl 20) }",
+    "alt_lang": "kotlin"},
+   {"say": "3. Fix the lifetime, then add a guard. Give each report its memory for exactly as long as it's being written, with a confined arena (JDK 22 or later), or remove the buffer from the map when the report is done. Then cap direct memory, so the next leak of this kind fails as an `OutOfMemoryError` with a stack trace instead of a silent kill.",
+    "code": "void writeReport(String reportId, Report report) {\n    try (Arena arena = Arena.ofConfined()) {             // 2. memory lives exactly as long as the report\n        MemorySegment buffer = arena.allocate(1 << 20);\n        report.renderInto(buffer);\n        upload(reportId, buffer);\n    }                                                    // 3. freed here, no GC needed\n}\n// and on the command line: -XX:MaxDirectMemorySize=128m",
+    "lang": "java",
+    "alt_code": "fun writeReport(reportId: String, report: Report) {\n    Arena.ofConfined().use { arena ->                    // 2. memory lives exactly as long as the report\n        val buffer = arena.allocate(1 shl 20)\n        report.renderInto(buffer)\n        upload(reportId, buffer)\n    }                                                    // 3. freed here, no GC needed\n}\n// and on the command line: -XX:MaxDirectMemorySize=128m",
+    "alt_lang": "kotlin"}
+  ]
+ },
+ "lab": {
+  "title": "Find and fix the leaks in an idempotency cache",
+  "minutes": 14,
+  "files": [
+   "labs/memory/src/main/java/workbench/memory/l07/IdempotencyCache.java",
+   "labs/memory/src/main/java/workbench/memory/l07/PaymentRequest.java",
+   "labs/memory/src/main/java/workbench/memory/l07/PaymentResponse.java"
+  ],
+  "run": "./gradlew :memory:test --tests 'workbench.memory.l07.*'",
+  "steps": [
+   "Run the tests. Four of six fail. The two that pass check behaviour: a retry gets the same response, and a reused key with a different body is rejected. Keep those passing.",
+   "Read the failing messages. Two tests count live objects with the class histogram, the same one `jcmd GC.class_histogram` prints: 20,000 responses and 20,000 requests are still alive after 20,000 payments.",
+   "Fix the first leak: bound the cache to `maxEntries` with an access-ordered `LinkedHashMap` and `removeEldestEntry`, and make the methods `synchronized`.",
+   "Run again. The request test still fails, now with about 500. Find out why each entry keeps its whole `PaymentRequest`, and replace it with what the retry check really needs: a SHA-256 digest of the body.",
+   "Run the tests until all six pass."
+  ],
+  "hints": [
+   "`new LinkedHashMap<>(16, 0.75f, true)` makes the map access-ordered. Override `removeEldestEntry` to return `size() > maxEntries`.",
+   "`MessageDigest.getInstance(\"SHA-256\").digest(body)` gives 32 bytes. Compare two digests with `MessageDigest.isEqual`.",
+   "The entry record is private: you can change its fields freely, for example to `record Entry(byte[] bodyDigest, PaymentResponse response)`.",
+   "The leak tests allow 2 stray objects, because the test's own last local variables may still be reachable while it counts."
+  ],
+  "done_when": "All 6 tests in `IdempotencyCacheTest` pass."
+ },
+ "drill": {
+  "title": "Write the first-response commands from memory",
+  "minutes": 4,
+  "prompt": "Close the page. A pod is growing. Write the commands you'd run, in order, to decide whether it's a heap leak or native growth, and to collect evidence for each case. Then write a bounded LRU map from memory.",
+  "answer": {
+   "lang": "java",
+   "src": "// 1. which half? read the floor of the young pauses in the GC log (rising = heap, flat = native)\n// 2. heap:   jcmd <pid> GC.class_histogram          (what)\n//            jcmd <pid> GC.heap_dump /tmp/app.hprof  (who: dominator tree in MAT)\n// 3. native: start with -XX:NativeMemoryTracking=summary, then\n//            jcmd <pid> VM.native_memory baseline\n//            jcmd <pid> VM.native_memory summary.diff scale=MB\nstatic <K, V> Map<K, V> lru(int maxEntries) {\n    return Collections.synchronizedMap(new LinkedHashMap<K, V>(16, 0.75f, true) {\n        @Override protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {\n            return size() > maxEntries;\n        }\n    });\n}",
+   "alt": {
+    "lang": "kotlin",
+    "src": "// 1. which half? read the floor of the young pauses in the GC log (rising = heap, flat = native)\n// 2. heap:   jcmd <pid> GC.class_histogram          (what)\n//            jcmd <pid> GC.heap_dump /tmp/app.hprof  (who: dominator tree in MAT)\n// 3. native: start with -XX:NativeMemoryTracking=summary, then\n//            jcmd <pid> VM.native_memory baseline\n//            jcmd <pid> VM.native_memory summary.diff scale=MB\nfun <K, V> lru(maxEntries: Int): MutableMap<K, V> =\n    Collections.synchronizedMap(object : LinkedHashMap<K, V>(16, 0.75f, true) {\n        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?) = size > maxEntries\n    })"
+   }
+  }
+ },
+ "recap": [
+  "A Java leak is memory that stays reachable from a GC root after you're done with it: unbounded caches, ThreadLocals on pooled threads, forgotten listeners, class loaders.",
+  "A rising floor in the GC log means a heap leak. `jcmd GC.class_histogram` says what fills the heap; a heap dump says who holds it.",
+  "Retained size is what would be freed if one object went away. The dominator tree in MAT ranks objects by it and leads you to the field that holds the leak.",
+  "A flat floor with a growing pod means native memory. Start with `-XX:NativeMemoryTracking=summary`, take a `baseline`, and read `summary.diff`.",
+  "Direct buffers are freed only after a GC collects their small heap objects, and their default limit is the max heap. Set `-XX:MaxDirectMemorySize` so a leak fails loudly.",
+  "FFM arenas (final in JDK 22) free off-heap memory at `close()`. Native segments count against the same limit as direct buffers."
+ ],
+ "quiz": [
+  {
+   "q": "A class histogram after a full GC shows 2.1 million `byte[]` instances using 4.3 GB. What does that tell you about the leak?",
+   "options": [
+    "That `byte[]` is the leaking class, and the fix is to allocate fewer arrays",
+    "What fills the heap, but not who holds it: you need the dominator tree of a heap dump",
+    "That the leak is in native memory",
+    "Nothing, because the histogram counts garbage too"
+   ],
+   "answer": 1,
+   "why": "Byte arrays sit under strings, buffers, receipts and serialized payloads alike, so the histogram can't name the owner. `GC.class_histogram` runs a full GC first and counts only live objects. The dominator tree ranks objects by what they keep alive, and the path to a GC root names the field."
+  },
+  {
+   "q": "In a heap dump, a `MerchantRegistry` object has a shallow size of 24 bytes and a retained size of 1.2 GB. What does that mean?",
+   "options": [
+    "The registry object itself is 1.2 GB",
+    "If the registry became unreachable, about 1.2 GB would be freed with it",
+    "The registry is referenced 1.2 billion times",
+    "The dump is corrupt: retained size can't exceed shallow size by that much"
+   ],
+   "answer": 1,
+   "why": "Shallow size is the object's own header and fields. Retained size adds everything reachable only through it, its retained set. A small object at the top of a big map routinely retains gigabytes. That's exactly the object to look at."
+  },
+  {
+   "q": "A pod's young pauses end at a flat 400 MB, but NMT's `summary.diff` after six hours shows `Thread (reserved=2150MB +1900MB, committed=210MB +185MB)`. What is leaking?",
+   "options": ["Heap objects", "Threads: code keeps starting threads, each with its own stack, and never ends them", "Metaspace", "Direct buffers"],
+   "answer": 1,
+   "why": "About 1,900 MB more reserved stack is roughly 1,900 new threads at about 1 MB each, with a little of each stack touched. Look for an executor created per request and never shut down, or threads started per connection. Direct buffers would show in `Other`, and metaspace in `Class` and `Metaspace`."
+  },
+  {
+   "q": "Your service allocates a 1 MiB off-heap buffer per report. Which choice frees each buffer as soon as its report is written, without waiting for a GC?",
+   "options": [
+    "`ByteBuffer.allocateDirect` and drop the reference",
+    "`Arena.ofConfined()` in try-with-resources, allocating the segment from it",
+    "`Arena.ofAuto()`",
+    "`Arena.global()`"
+   ],
+   "answer": 1,
+   "why": "A confined arena frees its memory when `close()` runs, at the end of the try block. A dropped direct buffer and an automatic arena are freed only after the GC finds them unreachable, which on a quiet heap can take a long time. The global arena is never freed."
+  },
+  {
+   "q": "From the threads track: a worker pool's tasks call `TENANT.set(request.tenant())` on a `ThreadLocal` and never call `remove()`. Which leak pattern is this, and what does a heap dump show as the GC root?",
+   "options": [
+    "An unbounded cache; the root is a static map",
+    "A value kept alive by a long-lived pool thread; the root is the live thread itself",
+    "A class loader leak; the root is the class loader",
+    "Not a leak, because ThreadLocal values are weak"
+   ],
+   "answer": 1,
+   "why": "Each thread keeps its own ThreadLocal values, and a pool thread lives as long as the pool. A started, unfinished thread is a GC root, so the last value each thread saw stays reachable. The `ThreadLocal` key is weak inside the thread's map, but the value is strong. The fix is `remove()` in a `finally` block.",
+  "from": "conc-11"
+  }
+ ],
+ "flashcards": [
+  {"front": "What is a memory leak in Java?", "back": "Memory that stays reachable from a GC root after the program is done with it, so the GC may not free it."},
+  {"front": "What does `jcmd <pid> GC.class_histogram` show, and what does it miss?", "back": "Live objects per class, after a full GC: what fills the heap. It doesn't show who holds them."},
+  {"front": "Shallow size vs retained size?", "back": "Shallow: the object's own bytes. Retained: everything freed if that object went away, the object plus all it alone keeps reachable."},
+  {"front": "How do you get a heap dump at the moment of an `OutOfMemoryError`?", "back": "`-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=...`. It's manageable, so `jcmd <pid> VM.set_flag HeapDumpOnOutOfMemoryError true` works on a running JVM."},
+  {"front": "How do you find slow native memory growth?", "back": "Start with `-XX:NativeMemoryTracking=summary`, run `jcmd <pid> VM.native_memory baseline`, then later `jcmd <pid> VM.native_memory summary.diff`."},
+  {"front": "When is a direct ByteBuffer's native memory freed?", "back": "After the GC collects the small buffer object on the heap and its Cleaner runs. On a quiet heap that can take a long time."},
+  {"front": "When does a confined FFM arena free its memory?", "back": "When `close()` runs, for example at the end of try-with-resources. No GC is involved."}
+ ],
+ "terms": [
+  {"term": "Class histogram", "plain": "A count of live objects and their bytes, per class."},
+  {"term": "Heap dump", "plain": "A file (HPROF format) with every object on the heap and every reference between them."},
+  {"term": "Retained size", "plain": "The memory that would be freed if one object became unreachable."},
+  {"term": "Dominator", "plain": "Object X dominates Y if every path from a GC root to Y goes through X."},
+  {"term": "Native Memory Tracking", "plain": "The JVM's own accounting of the memory it uses outside the heap."},
+  {"term": "Direct buffer", "plain": "A ByteBuffer whose bytes live in native memory, freed after its heap object is collected."},
+  {"term": "Arena", "plain": "In the FFM API, the owner of off-heap memory that decides when it's freed."},
+  {"term": "MaxDirectMemorySize", "plain": "The limit for direct buffers and native segments. Defaults to the max heap."}
+ ],
+ "explain_back": {
+  "prompt": "Explain to an on-call colleague, in your own words, how you'd go from \"the pod keeps growing\" to the line of code that leaks, for both kinds of leak.",
+  "answer": "First I'd read the GC log, because it says which half of memory is growing. If the after-values of young pauses keep rising, it's the heap: a class histogram shows which classes pile up, and a heap dump opened in MAT shows who holds them. The dominator tree ranks objects by retained size, what would be freed if they went away, and the path to a GC root names the static field, the thread or the map. If the floor is flat but the pod grows, it's native memory: I'd restart one instance with Native Memory Tracking, take a baseline, and diff it later to see which category grows. `Other` points at direct buffers or native code, `Thread` at threads that never end, `Class` or `Metaspace` at class loaders. Then I'd fix the lifetime in code, bound caches, and set `MaxDirectMemorySize` so the next leak fails with a stack trace."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "A few details make leak hunting faster.\n\nA histogram is cheap enough to take twice. Take one, wait ten minutes under load, take another, and compare instance counts: the class whose count only goes up is your lead, even before you have a dump. `jcmd <pid> GC.class_histogram -all` skips the full GC and counts unreachable objects too, which is useful when you can't afford the pause and dangerous when you forget the flag.\n\nHeap dumps are large: about the size of the live heap, here 50 MB for 44 MB of leak. `GC.heap_dump -gz=1` compresses while writing. Writing a dump pauses the JVM, so in a cluster take it from one instance after you've taken it out of the load balancer.\n\nMAT's GC roots have kinds, and the kind is a clue. A *System Class* root means a static field. A *Thread* root, \"a started, but not stopped, thread\" in MAT's words, means something reachable from a live thread: its stack or its thread-locals. *JNI Global* means native code is holding a reference.\n\nClass loader leaks look different from object leaks. Each redeploy or hot reload creates a new class loader with new classes. If anything from outside still references one object of an old class, for example a JDBC driver registered in a global list, a `ThreadLocal` on a shared thread or a static cache in a library, the whole old class loader and every class it loaded stay in metaspace. NMT shows `Class` and `Metaspace` growing, and GC logs show collections with the cause `Metadata GC Threshold`. In production Quarkus rarely reloads, but dev mode and long test suites do.\n\nFinally, `jol-cli` can estimate how a heap dump's objects would lay out under other JVM settings. For the 50 MB dump from this lesson's research, it estimated 1.3% less with compact object headers and 3.2% more without compressed references: a dump full of 2 KB arrays gains little from smaller headers, as lesson 1 predicted."
+ },
+ "sources": [
+  {"title": "The jcmd command, JDK 25 man page source", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/jdk.jcmd/share/man/jcmd.md"},
+  {"title": "Eclipse MAT help: dominator tree", "url": "https://raw.githubusercontent.com/eclipse-mat/mat/master/plugins/org.eclipse.mat.ui.help/concepts/dominatortree.html"},
+  {"title": "Eclipse MAT help: GC roots", "url": "https://raw.githubusercontent.com/eclipse-mat/mat/master/plugins/org.eclipse.mat.ui.help/concepts/gcroots.html"},
+  {"title": "JEP 454: Foreign Function & Memory API", "url": "https://openjdk.org/jeps/454"},
+  {"title": "Arena source at jdk-25-ga", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/java.base/share/classes/java/lang/foreign/Arena.java"}
+ ]
+}
+
+(ROOT / "content/lessons/mem-07.json").write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print("wrote mem-07")
