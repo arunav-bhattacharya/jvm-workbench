@@ -29,7 +29,7 @@
   --display: "Instrument Serif", "CMU Serif", Georgia, serif;
   --read: "Newsreader", "CMU Serif", Georgia, serif;
   --body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Inter", "Segoe UI", system-ui, sans-serif;
-  --mono: "CMU Typewriter Text", "Latin Modern Mono", ui-monospace, Menlo, monospace;
+  --mono: "Google Sans Code", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --fig: "CMU Serif", "Latin Modern Roman", Georgia, serif;
   --top: 54px;
   --side: 272px;
@@ -167,7 +167,7 @@ select.field { width: auto; font: 14px var(--body); height: 34px; padding: 0 10p
 .tablewrap tr:last-child td { border-bottom: 0; }
 
 /* ---------- code ---------- */
-pre.code, .codebox pre { margin: 0; background: var(--well); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 16px; overflow-x: auto; font: 400 15px/1.55 var(--mono); tab-size: 4; max-width: 100%; }
+pre.code, .codebox pre { margin: 0; background: var(--well); border: 1px solid var(--rule); border-radius: 12px; padding: 14px 16px; overflow-x: auto; font: 400 14.5px/1.6 var(--mono); tab-size: 4; max-width: 100%; }
 .prose pre.code { margin: 0 0 1em; }
 .codebox { border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; background: var(--well); min-width: 0; }
 .codebox .bar { display: flex; align-items: center; gap: 10px; padding: 7px 10px 7px 14px; border-bottom: 1px solid var(--rule); font: 500 13.5px var(--body); color: var(--mute); background: var(--panel); }

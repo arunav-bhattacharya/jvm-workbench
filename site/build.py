@@ -167,13 +167,14 @@ def compile_course():
     return out
 
 
-# the same faces as AI Engineer from Zero, served with the site (web) or inlined (preview)
+# the faces of AI Engineer from Zero (code in Google Sans Code), served with the site (web) or inlined (preview)
 FONTS = [
     ("Instrument Serif", "normal", 400, "instrument-serif-400.woff2"), ("Instrument Serif", "italic", 400, "instrument-serif-400i.woff2"),
     ("Newsreader", "normal", 400, "newsreader-400.woff2"), ("Newsreader", "italic", 400, "newsreader-400i.woff2"),
     ("Newsreader", "normal", 600, "newsreader-600.woff2"), ("Newsreader", "italic", 600, "newsreader-600i.woff2"),
     ("Inter", "normal", 400, "inter-400.woff2"), ("Inter", "normal", 500, "inter-500.woff2"), ("Inter", "normal", 600, "inter-600.woff2"),
-    ("CMU Typewriter Text", "normal", 400, "cmu-typewriter.woff2"),
+    ("Google Sans Code", "normal", "300 800", "google-sans-code-normal.woff2"),
+    ("Google Sans Code", "italic", "300 800", "google-sans-code-italic.woff2"),
     ("CMU Serif", "normal", 400, "cmu-serif-400.woff2"), ("CMU Serif", "italic", 400, "cmu-serif-400i.woff2"),
 ]
 
@@ -232,6 +233,9 @@ def main():
     import shutil
     shutil.rmtree(WEB / "art", ignore_errors=True)  # the old cover plate is no longer used
     (WEB / "fonts").mkdir(exist_ok=True)
+    for old in (WEB / "fonts").glob("*.woff2"):  # drop faces the site no longer uses
+        if old.name not in {f for *_, f in FONTS}:
+            old.unlink()
     for _, _, _, f in FONTS:
         (WEB / "fonts" / f).write_bytes((SITE / "fonts" / f).read_bytes())
     core, bodies = split(course)
