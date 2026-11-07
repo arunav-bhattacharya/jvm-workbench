@@ -47,9 +47,11 @@ payments.subscribe(object : BaseSubscriber<Payment>() {
 
 Now the part that matters. A source that honours `request(n)` simply produces less when nobody asks: `Flux.range`, a database cursor, a paged API client, a Kafka adapter that polls only on demand. Backpressure then works from end to end, and you never have to think about it. A source that can't slow down (a ticker, a WebSocket, a callback API bridged with `Flux.create`) has to put the extra items somewhere. The third section is about that choice."""
 
-S2 = """`limitRate(n)` sits between a subscriber that asks for a lot and a source that should only be asked for a little. It requests n, then tops up by 75% of n each time 75% of the last batch has been delivered. `Flux.range(1, 40).limitRate(10)` sends `10, 8, 8, 8, 8, 8` upstream. Unlike `take`, it never cuts the stream short: every item still arrives, in batches.
+S2 = """A database cursor or a paging client that fetches "as many rows as were requested" does exactly that. Hand it the `Long.MAX_VALUE` of a plain `subscribe` or `blockLast()` (the first section), and it tries to fetch the whole table at once.
 
-Use it when the size of the request changes what the source does. A database cursor or a paging client that fetches "as many rows as were requested" will try to fetch the whole table for `request(Long.MAX_VALUE)`. With `limitRate(100)` in front, the export still streams every row, but never has more than one batch of about 100 in flight:
+`limitRate(n)` sits between a subscriber that asks for a lot and a source that should only be asked for a little. It requests n, then tops up by 75% of n each time 75% of the last batch has been delivered. `Flux.range(1, 40).limitRate(10)` sends `10, 8, 8, 8, 8, 8` upstream. Unlike `take`, it never cuts the stream short: every item still arrives, in batches.
+
+Use it when the size of the request changes what the source does. With `limitRate(100)` in front, the export still streams every row, but the cursor never has more than one batch of about 100 in flight:
 
 ```java
 Flux<LedgerRow> export = cursor.rows(day)
@@ -65,7 +67,7 @@ val export: Flux<LedgerRow> = cursor.rows(day)
 
 `limitRate(highTide, lowTide)` sets both numbers. `limitRate(10, 0)` asks for exactly 10 and waits until all 10 have arrived before asking again (`10, 10, 10, 10, 10`), which suits an API that works in fixed pages. Its Javadoc says `limitRate(n)` is equivalent to `publishOn(Schedulers.immediate(), n)`: the same prefetch-and-refill queue, without the thread switch.
 
-Know what it doesn't do. `limitRate` shapes demand; it doesn't make a slow consumer faster, and it can't help with a source that ignores demand. It also isn't a rate limit in the \"per second\" sense, despite the name. For that, the last section has a better tool."""
+Know what it doesn't do. `limitRate` shapes demand; it doesn't make a slow consumer faster, and it can't help with a source that ignores demand. It also isn't a rate limit in the \"per second\" sense, despite the name: it counts items, not time. The last section shows how to protect a service you call, and why that isn't a per-second limit either.\n\nQuick check: predict the first three requests that `Flux.range(1, 100)` sees under `.limitRate(20).blockLast()`, and what changes with `limitRate(20, 0)`. (20, then 15 and 15, because it tops up by 75% of 20. With a low tide of 0 it asks for 20 each time, and only after the whole batch has arrived.)"""
 
 S3 = """`Flux.interval(Duration.ofMillis(1))` ticks once a millisecond, whatever you request. Put a screen behind it that takes 10 ms per tick and asks for one at a time, and the second tick fails the stream: `OverflowException: Could not emit tick 1 due to lack of requests`. Any source that can't be paused behaves like this, or worse, quietly piles items up: a WebSocket of FX prices, a multicast sink, a callback API.
 

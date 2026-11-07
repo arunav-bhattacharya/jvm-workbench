@@ -73,6 +73,12 @@ def val(text, color, size=28):
     return chip(text, color, size=size, mono=True)
 
 
+def mark(m, color=WHITE, hold=0.6):
+    """Underline a few glyphs and fade the line out again. Unlike Indicate it never grows the text into its neighbours."""
+    u = Line(m.get_corner(DL) + DOWN * 0.09, m.get_corner(DR) + DOWN * 0.09, color=color, stroke_width=4)
+    return Succession(Create(u, run_time=0.45), Wait(hold), FadeOut(u, run_time=0.35))
+
+
 def listobj(values, colors, w=1.9, h=0.9):
     cells = VGroup(*[slot(w, h) for _ in values]).arrange(RIGHT, buff=0.1)
     frame = SurroundingRectangle(cells, buff=0.14, corner_radius=0.14, color=GREY_D, stroke_width=2)
@@ -94,8 +100,8 @@ class Gen08Reified(Beat3):
         self.beat("Here are two lists. One holds payment ids. The other holds amounts in cents.",
                   FadeIn(l_ids), FadeIn(l_cts), FadeIn(n_ids), FadeIn(n_cts), run_time=1.4)
         self.beat("The compiler checks them as two different types.", FadeIn(cap),
-                  Indicate(part(n_ids, "<String>"), color=BLUE_M, scale_factor=1.2),
-                  Indicate(part(n_cts, "<Int>"), color=GOLD_M, scale_factor=1.2), run_time=1.4)
+                  mark(part(n_ids, "<String>"), BLUE_M),
+                  mark(part(n_cts, "<Int>"), GOLD_M), run_time=1.4)
 
         cap2 = T("what exists at run time", 26, GREY_B).move_to(cap)
         r_ids = one("java.util.ArrayList", 30, GREY_A).move_to(n_ids)
@@ -119,7 +125,7 @@ class Gen08Reified(Beat3):
         dfn = one("inline fun <reified T> Any?.isA(): Boolean = this is T", 26, WHITE).move_to(UP * 2.75)
         part(dfn, "inline").set_color(GREEN_M)
         self.beat("Kotlin has one way around this. Mark the function inline.", Succession(FadeIn(dfn, shift=DOWN * 0.15, run_time=0.8),
-                             Indicate(part(dfn, "inline"), color=GREEN_M, scale_factor=1.25, run_time=0.8)), run_time=1.6)
+                             mark(part(dfn, "inline"), GREEN_M, hold=0.2)), run_time=1.6)
 
         you = code(["fun check(x: Any?) {",
                     "    println(x.isA<String>())",
@@ -132,8 +138,8 @@ class Gen08Reified(Beat3):
         self.beat("Now the compiler does not call it. It copies its body into every call site.",
                   FadeIn(youc, shift=UP * 0.15), run_time=1.2)
         self.beat("At each call site, the type argument is right there in the code. Here it is String. Here it is Long.",
-                  Succession(Indicate(part(you[1], "String"), color=BLUE_M, scale_factor=1.3),
-                             Indicate(part(you[2], "Long"), color=GOLD_M, scale_factor=1.3)), run_time=2.6)
+                  Succession(mark(part(you[1], "String"), BLUE_M, hold=0.3),
+                             mark(part(you[2], "Long"), GOLD_M, hold=0.3)), run_time=2.6)
 
         out = code(["fun check(x: Any?) {",
                     "    println(x is String)",
@@ -220,6 +226,5 @@ class Gen08Reified(Beat3):
                   FadeIn(jcol, shift=UP * 0.2), run_time=1.4)
         self.beat("In Kotlin you name the type at the call, and the compiler fills in the class. Both calls return true.",
                   FadeIn(kcol, shift=UP * 0.2), run_time=1.4)
-        self.play(Indicate(part(jv[5], "String.class"), color=BLUE_M, scale_factor=1.2),
-                  Indicate(part(kt[5], "String"), color=BLUE_M, scale_factor=1.3), run_time=1.0)
+        self.play(mark(part(jv[5], "String.class"), BLUE_M), mark(part(kt[5], "String"), BLUE_M), run_time=1.4)
         self.wait(0.8)

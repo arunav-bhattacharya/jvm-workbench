@@ -141,7 +141,7 @@ class Jmm01StopLoop(VoiceScene):
         jit.scale(min(1, 12 / jit.width))
         arr = Arrow(left.get_right() + RIGHT * 0.1, right.get_left() + LEFT * 0.1, buff=0.1, color=GREY_B, stroke_width=3)
         arr_lab = T("C2", 24, GREY_B).next_to(arr, UP, buff=0.1)
-        self.beat("After the loop has run many thousands of times, the JIT compiler turns it into machine code.",
+        self.beat("After the loop has run many thousands of times, the JIT compiles it. HotSpot's C2 compiler turns it into machine code.",
                   FadeIn(left, shift=UP * 0.2), run_time=1.0)
         self.beat("C2 sees that nothing inside the loop writes stop. So it reads stop once, before the loop, and runs the rest forever.",
                   GrowArrow(arr), FadeIn(arr_lab), FadeIn(right, shift=LEFT * 0.2), run_time=1.6)

@@ -198,7 +198,9 @@ In a service built with ports and adapters (often called hexagonal architecture)
 
 That layout pays off twice. Switching issuers means writing one new adapter, and nothing in the middle changes. And the middle is tested with lambdas: `new CheckoutFacade((pan, amount, currency) -> new Approved("A1"), ledger, notifier)` needs no SDK, no database and no broker.
 
-Domain-driven design calls a thick layer of adapters an anti-corruption layer: the place where the vendor's model (response code "51", numeric currency "978", amounts as strings) is translated into yours, so it never spreads. If you find `"51"` in a service class, the layer has a hole. The lab is that layer in miniature: an adapter that keeps an issuer SDK's quirks to itself, and a facade that callers can use without knowing the steps."""
+Domain-driven design calls a thick layer of adapters an anti-corruption layer: the place where the vendor's model (response code "51", numeric currency "978", amounts as strings) is translated into yours, so it never spreads. If you find `"51"` in a service class, the layer has a hole. The lab is that layer in miniature: an adapter that keeps an issuer SDK's quirks to itself, and a facade that callers can use without knowing the steps.
+
+Check yourself. You switch issuers, and the new SDK throws `TimeoutException` where the old one threw `IOException`. In a service laid out this way, which files change? (Only the new issuer adapter, which catches the new exception and throws the same `GatewayUnavailable`. The facade, the payment logic and their tests don't change, because they never saw `IOException` either.)"""
 
 L = {
  "id": "pat-04",

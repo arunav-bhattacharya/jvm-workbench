@@ -89,7 +89,7 @@ class Mem04G1Regions(VoiceScene):
             col = ROLE[kind][1]
             r = Rectangle(width=full_w * frac - 0.1, height=full_h, stroke_color=col, stroke_width=3)
             r.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(col), 0.10), opacity=1)
-            big.add(VGroup(r, T(name, 26, col).move_to(r)))
+            big.add(VGroup(r, T(name, 22 if kind == "S" else 26, col).move_to(r)))
         big.arrange(RIGHT, buff=0.1).move_to(ORIGIN)
         self.kinds = [LAYOUT[r][c] for r in range(ROWS) for c in range(COLS)]
         self.regs = [region(k).move_to(pos(i)) for i, k in enumerate(self.kinds)]

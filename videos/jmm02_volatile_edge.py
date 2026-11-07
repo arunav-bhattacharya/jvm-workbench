@@ -85,7 +85,7 @@ class Jmm02VolatileEdge(VoiceScene):
         po1_l = T("program order", 22, GREY_B).next_to(po1, RIGHT, buff=0.15)
         po2_l = T("program order", 22, GREY_B).next_to(po2, LEFT, buff=0.15)
         self.beat("The memory model answers with a relation called happens-before. If a write happens-before a read, "
-                  "the read must see that write.")
+                  "the read is sure to see that write, or a newer one.")
         self.beat("Inside one thread, each action happens-before the next one. That is called program order.",
                   GrowArrow(po1), GrowArrow(po2), FadeIn(po1_l), FadeIn(po2_l), run_time=1.2)
 
@@ -137,7 +137,7 @@ class Jmm02VolatileEdge(VoiceScene):
                        color=GREEN_M, max_tip_length_to_length_ratio=0.9)
         ang = np.arctan2(hq[1] - hp[1], hq[0] - hp[0])
         hb_l = T("happens-before", 24, GREEN_M).rotate(ang)
-        hb_l.move_to(guide.point_from_proportion(0.3) + 0.32 * np.array([-np.sin(ang), np.cos(ang), 0]))
+        hb_l.move_to(guide.point_from_proportion(0.3) + 0.45 * np.array([-np.sin(ang), np.cos(ang), 0]))
         sure = T("must read 12000", 26, GREEN_M).next_to(b_amt, DOWN, buff=0.3)
         self.beat("So writing the amount happens-before reading it. Thread 2 must see 12000, though amount is a plain field.",
                   Create(hb), FadeIn(hb_tip), FadeIn(hb_l), FadeIn(sure, shift=UP * 0.2), run_time=1.6)

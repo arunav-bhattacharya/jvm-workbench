@@ -194,7 +194,9 @@ Spring's docs rank the fixes. Best: restructure so the call crosses a bean bound
 
 Quarkus behaves differently. Its CDI container, ArC, supports "intercepted self-invocation", so the same code in a Quarkus service does start a transaction for each `settle` call. The Quarkus docs flag this as non-standard, because the CDI specification doesn't say whether self-interception should work. Code that moves between the two frameworks can change behavior without a single edited line.
 
-Kotlin adds one more trap. Classes and members are `final` unless marked `open`, and a CGLIB subclass can't override what is final. The `kotlin-spring` compiler plugin (a preset of all-open) opens classes that carry Spring annotations, so add it to every Kotlin Spring project. Quarkus transforms final classes for you, because `quarkus.arc.transform-unproxyable-classes` is `true` by default."""
+Kotlin adds one more trap. Classes and members are `final` unless marked `open`, and a CGLIB subclass can't override what is final. The `kotlin-spring` compiler plugin (a preset of all-open) opens classes that carry Spring annotations, so add it to every Kotlin Spring project. Quarkus transforms final classes for you, because `quarkus.arc.transform-unproxyable-classes` is `true` by default.
+
+Check yourself. In the Spring `SettlementService`, you move `@Transactional` from `settle` to `settleAll` and change nothing else. How many transactions does the REST call start now, and how many batches does each one cover? (One, covering all three batches. The outside call to `settleAll` goes through the proxy, so it starts a transaction. The inner `settle` calls still skip the proxy, so they run as plain method calls inside that one transaction.)"""
 
 L = {
  "id": "pat-05",

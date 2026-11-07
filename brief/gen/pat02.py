@@ -205,7 +205,9 @@ Callers ask for the family once, `clientsFor(card.network)`, and take both produ
 
 Each family here is one class built from settings, not a `VisaAuthorizer` plus a `VisaRefunder`. When the products are single-method interfaces, a family is just a class (or a Java record) of functions. The GoF diagram with two parallel class hierarchies is the worst case, not a requirement.
 
-The weakness runs the other way. Adding a family is cheap: one more implementation. Adding a product, say a `Tokenizer`, changes the interface and every family. And with a DI container you may not need to write the factory at all: Quarkus build profiles or Spring profiles can pick the Kafka messaging family in production and an in-memory one in tests. Write the factory yourself when the choice depends on runtime data, such as the card in this request."""
+The weakness runs the other way. Adding a family is cheap: one more implementation. Adding a product, say a `Tokenizer`, changes the interface and every family. And with a DI container you may not need to write the factory at all: Quarkus build profiles or Spring profiles can pick the Kafka messaging family in production and an in-memory one in tests. Write the factory yourself when the choice depends on runtime data, such as the card in this request.
+
+Check yourself. Card ops adds `AMEX` to `Network`. Where does the build fail, and which callers change? (It fails in `sandbox`, because its `when` and `switch` have no `else` or `default`, so you add an Amex branch with its own settings. No caller changes: callers only ask for a family and never name a product class.)"""
 
 L = {
  "id": "pat-02",

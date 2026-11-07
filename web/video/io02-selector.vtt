@@ -1,0 +1,125 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.702
+A classic blocking server gives every connection its own thread.
+
+2
+00:00:06.702 --> 00:00:09.391
+Each thread calls read and waits for bytes.
+
+3
+00:00:09.600 --> 00:00:11.313
+Most connections are idle.
+
+4
+00:00:11.313 --> 00:00:15.334
+A point-of-sale terminal sends one request every ten seconds.
+
+5
+00:00:15.334 --> 00:00:19.156
+So almost every thread sits parked in read, doing nothing.
+
+6
+00:00:19.367 --> 00:00:23.832
+Each one still holds its own stack, about a megabyte of native memory.
+
+7
+00:00:24.033 --> 00:00:25.699
+Bytes arrive on one socket.
+
+8
+00:00:25.699 --> 00:00:29.401
+The kernel wakes that one thread, and the rest keep waiting.
+
+9
+00:00:29.633 --> 00:00:34.824
+Ten thousand connections need ten thousand threads, and almost all of them are waiting.
+
+10
+00:00:35.733 --> 00:00:37.611
+A Selector turns this around.
+
+11
+00:00:37.611 --> 00:00:42.403
+Put every channel in non-blocking mode, and register it with one selector.
+
+12
+00:00:42.633 --> 00:00:44.892
+Each registration is a SelectionKey.
+
+13
+00:00:44.892 --> 00:00:51.478
+It holds the interest set, the operations you care about, and the ready set, which the selector fills in.
+
+14
+00:00:51.478 --> 00:00:54.301
+Its attachment keeps that connection's state.
+
+15
+00:00:55.033 --> 00:00:56.784
+Now one thread runs a loop.
+
+16
+00:00:56.784 --> 00:01:01.062
+It calls select, which sleeps until at least one channel is ready.
+
+17
+00:01:01.062 --> 00:01:03.331
+On Linux, that is epoll underneath.
+
+18
+00:01:03.533 --> 00:01:04.984
+Two clients send data.
+
+19
+00:01:04.984 --> 00:01:09.797
+Their keys become ready, and select returns them in the selected-key set.
+
+20
+00:01:10.000 --> 00:01:12.056
+The thread serves only those two.
+
+21
+00:01:12.056 --> 00:01:15.420
+It reads what arrived, writes the reply, and moves on.
+
+22
+00:01:15.420 --> 00:01:17.849
+The four idle channels cost it nothing.
+
+23
+00:01:18.067 --> 00:01:21.272
+It must remove each handled key from the set itself.
+
+24
+00:01:21.272 --> 00:01:24.230
+The selector adds keys and never takes them out.
+
+25
+00:01:24.230 --> 00:01:28.668
+Leave one in, and the next pass handles it again with its old ready set.
+
+26
+00:01:28.900 --> 00:01:32.981
+Then it calls select again, and sleeps until the next channel is ready.
+
+27
+00:01:33.900 --> 00:01:36.509
+Here is that loop in Java and in Kotlin.
+
+28
+00:01:36.509 --> 00:01:40.292
+Select, walk the selected keys, remove each one, serve it.
+
+29
+00:01:40.500 --> 00:01:44.763
+A selector's selected-key set is not safe for several threads at once.
+
+30
+00:01:44.763 --> 00:01:49.086
+So one thread owns the selector and does all the work for its channels.
+
+31
+00:01:49.086 --> 00:01:51.400
+Netty calls that thread an event loop.

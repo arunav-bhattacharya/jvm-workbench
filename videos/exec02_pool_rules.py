@@ -164,7 +164,7 @@ class Exec02PoolRules(VoiceScene):
         q2 = VGroup(*[slot(GREY_B, w=0.8).move_to([x, rows_y[1], 0]) for x in qx])
         dots = T("...", 30, GREY_B).move_to([5.75, rows_y[1], 0])
         q2_lab = T("queue: LinkedBlockingQueue, no limit", 24, GOLD_M).move_to(row_lab[1], aligned_edge=LEFT)
-        fixed = M("newFixedThreadPool(2)", 24, YELLOW_M).move_to([-6.4, 0.2, 0], aligned_edge=LEFT)
+        fixed = M("new LinkedBlockingQueue<>()", 24, YELLOW_M).move_to([-6.4, 0.2, 0], aligned_edge=LEFT)
         self.beat("Now swap in an unbounded LinkedBlockingQueue. That is the queue newFixedThreadPool uses.",
                   FadeIn(q2), FadeIn(dots), FadeOut(row_lab[1]), FadeIn(q2_lab), FadeIn(fixed), run_time=1.4)
 

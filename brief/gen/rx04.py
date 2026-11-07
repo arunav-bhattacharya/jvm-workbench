@@ -119,7 +119,9 @@ S4 = """Most combining questions come down to this table:
 
 Every combinator in the table fails fast: the first error cancels the other sources. Each has a `DelayError` variant (`Mono.zipDelayError`, `Flux.mergeDelayError`, `Flux.concatDelayError`) that lets the other sources finish and reports the error at the end. Use those when partial work is still useful, such as a batch job that should process every file before reporting the bad one. The `DelayError` versions treat empty differently too: `Mono.zipDelayError` waits for the other sources to finish before it completes empty, instead of cancelling them.
 
-If a combinator surprises you, check two things: when does it subscribe to each source (all at once, or one after another), and what does it do when one source completes early or empty. Those two answers explain every row of the table."""
+If a combinator surprises you, check two things: when does it subscribe to each source (all at once, or one after another), and what does it do when one source completes early or empty. Those two answers explain every row of the table.
+
+Quick check: `Mono.zip(ledger.write(entry), fx.rate("EURUSD"))`, where the write is a `Mono<Void>` that completes after 20 ms and the rate takes 100 ms. What does the zip emit, when, and what happens to the rate call? (It completes empty at about 20 ms, because the write completed with no value, and it cancels the rate call that is still in flight. `ledger.write(entry).then(fx.rate("EURUSD"))` gives you the rate after the write.)"""
 
 X0, PX = 150, 2.0
 def x(ms): return X0 + ms * PX

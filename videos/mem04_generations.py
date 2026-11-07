@@ -167,7 +167,7 @@ class Mem04Generations(VoiceScene):
         surv2_old = [surv1[k] for k in stay]
         surv2_new = [aged(e2[i], 1) for i in live2]
         aged2 = [aged(surv1[k], 2).move_to(surv1[k]) for k in stay]
-        self.say("Every young collection runs inside such a pause. "
+        self.say("In G1, every young collection runs inside such a pause. "
                  "This time the live objects from eden and from the survivor space are copied to the other survivor space. "
                  "Then the threads run again.",
                  [(1, [*[Transform(surv1[k], aged2[j]) for j, k in enumerate(stay)]], 0.4),

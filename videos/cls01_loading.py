@@ -2,8 +2,9 @@ from fg import *
 import fg
 
 # Local spoken forms (this process only; captions keep the written form).
+# Captions are WebVTT, where "<" opens a tag, so narration writes <clinit> as &lt;clinit&gt;.
 fg.SAY += [(r"java\.base", "java dot base"), (r"java\.sql", "java dot S Q L"), (r"app\.jar", "app dot jar"),
-           (r"Limits\.CAP", "Limits dot CAP"), (r"<clinit>", "clinit"), (r"\bMAX_MINOR\b", "max minor")]
+           (r"Limits\.CAP", "Limits dot CAP"), (r"<clinit>", "clinit"), (r"&lt;clinit&gt;", "clinit"), (r"\bMAX_MINOR\b", "max minor")]
 
 
 def card(title, sub, color, w, h=1.1, tsize=30, ssize=22, mono_sub=False):
@@ -187,7 +188,7 @@ class Cls01Loading(VoiceScene):
         n5 = set_note("initialization: static initializers and static blocks, in source order", GREEN_M)
         slot_v = mbox("500000", GREEN_M, w=3.4, h=0.85, size=26).move_to(slot)
         printed = M("Limits init", 24, GREEN_M).move_to(con)
-        self.say("Initialization runs the static initializer, <clinit>. "
+        self.say("Initialization runs the static initializer, &lt;clinit&gt;. "
                  "That is every static field initializer and static block, in source order. "
                  "CAP becomes 500,000, and the static block prints.",
                  [(0, [init[0].animate.set_stroke(opacity=1), FadeIn(n5)], 0.9),
@@ -232,7 +233,7 @@ class Cls01Loading(VoiceScene):
                   Write(title), FadeIn(code, shift=UP * 0.2), run_time=1.6)
         self.beat("MAX_MINOR is a constant. javac copied its value into your class, so reading it runs nothing.",
                   FadeIn(v1, shift=UP * 0.15), run_time=1.0)
-        self.beat("CAP is a boxed Integer, not a constant, so reading it runs <clinit>. "
+        self.beat("CAP is a boxed Integer, not a constant, so reading it runs &lt;clinit&gt;. "
                   "Kotlin's const val and plain val split the same way.",
                   FadeIn(v2, shift=UP * 0.15), Indicate(VGroup(jv[2], kv[2]), color=GREEN_M, scale_factor=1.04), run_time=1.6)
         self.wait(0.8)

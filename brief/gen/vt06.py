@@ -165,7 +165,9 @@ With it, the embedded web server handles requests on virtual threads, and Spring
 
 Neither framework adds the limits from the checklist. That's still your code. They also change what an old setting means. `quarkus.thread-pool.max-threads` sizes the worker pool, which `@RunOnVirtualThread` endpoints don't use, so it no longer caps them. If you relied on it as your database limit, that limit is gone, exactly like the pool in the lab.
 
-The Quarkus guide lists the traps it sees most, and you know all of them by now: libraries that pin on JDK 21, CPU-heavy endpoints that monopolize a carrier, and libraries that pool objects in `ThreadLocal`s."""
+The Quarkus guide lists the traps it sees most, and you know all of them by now: libraries that pin on JDK 21, CPU-heavy endpoints that monopolize a carrier, and libraries that pool objects in `ThreadLocal`s.
+
+Check yourself: a Quarkus service sets `quarkus.thread-pool.max-threads=20`, its datasource has 20 connections, and its busiest endpoint now has `@RunOnVirtualThread`. At a peak of 500 concurrent calls to that endpoint, how many can ask for a connection at the same moment? All 500. The worker pool's size doesn't apply to virtual-thread endpoints, so nothing stands in front of the datasource. A shared `Semaphore(20)` around the database calls puts the limit back."""
 
 S4 = """Measure before you switch, then again after, with the same load test. You need a baseline of throughput, p50 and p99 latency, error rate, CPU, heap and GC time. Without it, "it feels faster" is all you'll have.
 

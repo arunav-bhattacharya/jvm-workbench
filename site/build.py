@@ -147,7 +147,11 @@ def compile_course():
     C = json.loads((ROOT / "content/course.json").read_text())
     out = {"title": C["title"], "tagline": C["tagline"], "repo": REPO, "tracks": [], "lessons": {}, "order": []}
     vids = {}
-    for v in [v for vp in sorted((ROOT / "content/videos").glob("*.json")) for v in json.loads(vp.read_text())["videos"]]:
+    live_p = ROOT / "content/videos/_live.json"   # the coordinator lists the videos that are checked and may go live
+    live = set(json.loads(live_p.read_text())["live"]) if live_p.exists() else None
+    for v in [v for vp in sorted((ROOT / "content/videos").glob("[!_]*.json")) for v in json.loads(vp.read_text())["videos"]]:
+        if live is not None and v["slug"] not in live:
+            continue
         meta = ROOT / "web/video" / f"{v['slug']}.json"
         if (ROOT / "web/video" / f"{v['slug']}.mp4").exists() and meta.exists():
             vids.setdefault(v["lesson"], {})[v["section"]] = {

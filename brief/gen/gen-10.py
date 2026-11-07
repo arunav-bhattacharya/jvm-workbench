@@ -99,7 +99,7 @@ class CardBuilder : Builder<CardBuilder>() {
 }
 ```
 
-Read `B : Builder<B>` as "B is a builder whose own B is B". The only types that fit are subclasses that name themselves, as `CardBuilder : Builder<CardBuilder>()` does. Inside the base class, `B` stands for "my concrete subclass", so `amount` can return it. You met the shape already: lesson 2's `T : Comparable<T>` is a recursive bound, and Java's own `Enum<E extends Enum<E>>` is one too.
+Read `B : Builder<B>` as "B is a builder whose own B is B". The only types that fit are subclasses that name themselves, as `CardBuilder : Builder<CardBuilder>()` does. Inside the base class, `B` stands for "my concrete subclass", so `amount` can return it. Substitute, as in lesson 1: for a `CardBuilder`, every `B` in the base class reads as `CardBuilder`, so `CardBuilder().amount(1_200)` has the static type `CardBuilder`, and `.cardToken("tok_1")` is in reach again. You met the shape already: lesson 2's `T : Comparable<T>` is a recursive bound, and Java's own `Enum<E extends Enum<E>>` is one too.
 
 Two details matter. The abstract `self()` keeps the code checked: each subclass returns `this`, and the compiler verifies it is a `B`. And the bound can't force honesty: `class Liar : Builder<CardBuilder>()` compiles. If you write `self()` as abstract, the liar must return a `CardBuilder` it doesn't have, which is where you'd notice.
 

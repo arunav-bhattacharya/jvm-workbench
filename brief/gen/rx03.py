@@ -22,7 +22,7 @@ val statuses: Flux<Mono<String>> = paymentIds.map { id -> issuer.fetchStatus(id)
 
 The function returns a `Mono`, so `map` gives you a `Flux<Mono<String>>`: a stream of recipes. Nothing subscribes to the inner `Mono`s, so not one issuer call is made. The compiler is happy, the tests that only count items are happy, and the statuses are never fetched. When your function returns a publisher, you need one of the flattening operators below. The type checker is your friend here: if you see `Flux<Mono<T>>`, you used `map` where you needed `flatMap`.
 
-Two smaller rules. In Reactor 3.8 a `map` function may not return `null`; in Java the stream fails with `NullPointerException: The mapper [...] returned a null value.`, and in Kotlin the null-returning lambda doesn't compile, thanks to Reactor's JSpecify annotations. Filter first, or use `handle` to emit only when you have a value. And `map` must stay fast and non-blocking, because it runs inline on the delivering thread. A JDBC call inside `map` blocks that thread for every item. Lesson 6 of this track shows where blocking calls belong."""
+Two smaller rules. In Reactor 3.8 a `map` function may not return `null`; in Java the stream fails with `NullPointerException: The mapper [...] returned a null value.`, and in Kotlin the null-returning lambda doesn't compile, thanks to Reactor's JSpecify annotations. Filter first, or use `handle`, which works like a `map` that may emit zero or one item for each input, so it can skip the inputs that have no value. And `map` must stay fast and non-blocking, because it runs inline on the delivering thread. A JDBC call inside `map` blocks that thread for every item. Lesson 6 of this track shows where blocking calls belong."""
 
 S2 = """`flatMap(f)` takes a function that returns a publisher, the **inner**, and does three things with it:
 
@@ -57,7 +57,7 @@ S3 = """When order matters, you have two choices with very different costs.
 
 `flatMapSequential(f)` subscribes to inners eagerly, like flatMap (concurrency 256, prefetch 32), but it holds back results from later inners until all earlier inners have finished. Output order is input order, and the total time is about the time of the slowest inner. The cost is memory, since results that finish early wait in a buffer, and **head-of-line blocking**: one slow first call holds back everything behind it.
 
-Here are the three on the same input, measured with virtual time. The source emits 3, 1, 2 at once, and item `i` takes `i x 100 ms`:
+Here are the three on the same input, measured with virtual time (a test clock that skips the waits, lesson 8 of this track). The source emits 3, 1, 2 at once, and item `i` takes `i x 100 ms`:
 
 | Operator | Output | Done at |
 |---|---|---|

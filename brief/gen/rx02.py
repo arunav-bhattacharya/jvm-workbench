@@ -44,7 +44,7 @@ authorizations.subscribe(
     { log.info("all authorizations done") })        // onComplete
 ```
 
-This form requests everything (`Long.MAX_VALUE`). Always pass the error lambda. If you leave it out and the stream fails, Reactor does not throw to your code. It logs `ErrorCallbackNotImplemented` at ERROR level and your method carries on, so a test that doesn't assert on the error passes happily.
+This form requests everything (`Long.MAX_VALUE`). Always pass the error lambda. If you leave it out and the stream fails, Reactor does not throw to your code. It logs `ErrorCallbackNotImplemented` at ERROR level and your method carries on, so a test that doesn't assert on the error passes happily. The cause is rule 2.13 from lesson 1 of this track: `onError` must return normally, so the subscriber that `subscribe` builds for you can't throw. With no error lambda it hands the error to Reactor's `onErrorDropped` hook, and the default hook only logs it.
 
 Reactive Streams forbids `null` items, and Reactor 3.8 enforces it: `Mono.just(null)` throws a `NullPointerException`, and so does a `map` whose function returns `null`. Use `Mono.empty()` for "no value". Kotlin catches this one earlier: Reactor 3.8 publishes JSpecify nullness annotations, so a Kotlin `map { if (ok) x else null }` doesn't even compile ("Return type mismatch: expected 'Any', actual 'String?'")."""
 
@@ -90,9 +90,9 @@ charge.subscribe { audit.record(it) }                // run 1: the card is charg
 return charge.block()                                // run 2: charged again
 ```
 
-Each subscription is a separate charge at the issuer. The same thing happens when a controller subscribes to a `Mono` "to log it" and then returns it to a framework that subscribes again, or when a test calls `block()` twice on the same cold `Mono`.
+`block()` is a subscription too: it subscribes and parks the calling thread until the value arrives. Each subscription is a separate charge at the issuer. The same thing happens when a controller subscribes to a `Mono` "to log it" and then returns it to a framework that subscribes again, or when a test calls `block()` twice on the same cold `Mono`.
 
-The fix is to build one chain and put the side effect inside it:
+The fix is to build one chain and put the side effect inside it. `doOnNext` runs a side effect for each item and passes the item on unchanged:
 
 ```java
 return issuer.charge(request)

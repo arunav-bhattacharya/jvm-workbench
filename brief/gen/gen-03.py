@@ -132,7 +132,7 @@ Kotlin goes one step further and makes arrays invariant too, as the second snipp
 
 You still meet covariant arrays from Kotlin, because Java APIs pass them around. `Arrays.asList`, varargs and `toArray` all hand out arrays whose runtime element type may be narrower than their static type. If a library writes into an `Object[]` you gave it, give it a real `Object[]`."""
 
-S4 = """After two sections of "no", here is a "yes" that seems to break the rule. Java needs a wildcard to say it; Kotlin says it with a plain `List<Any>`:
+S4 = """After two sections of "no", here is a "yes" that seems to break the rule. Java needs a **wildcard** to say it: a `?` in the angle brackets, which means "some type I don't name". Kotlin says it with a plain `List<Any>`:
 
 ```java
 List<String> ids = new ArrayList<>(List.of("pay_1"));
@@ -148,7 +148,7 @@ Run the substitution test again, on Kotlin's read-only `List`. What can a caller
 
 That is the whole idea behind **covariance**: when a type only hands values out and never takes them in, its subtype arrow can follow the element type. Kotlin's `List` is declared as `List<out E>`, and the `out` is the promise that `E` only comes out. Lesson 4 of this track is about writing that promise yourself.
 
-Notice what `view` does not let you do. javac rejects `view.add(42)` with `int cannot be converted to CAP#1`. Kotlin's `List` has no `add` at all:
+Notice what `view` does not let you do. javac rejects `view.add(42)` with `int cannot be converted to CAP#1`. `CAP#1` is javac's name for the unknown type behind the `?`, and no `int` is known to fit it. Kotlin's `List` has no `add` at all:
 
 ```text
 view.add(42)

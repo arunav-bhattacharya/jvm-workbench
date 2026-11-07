@@ -89,7 +89,9 @@ This property is called **covariance**: the subtype arrow between the element ty
 
 Where you put `out` matters. Kotlin's `out` on the declaration is called **declaration-site variance**. You think about it once, when you write `Source`, and every user gets the flexible behaviour for free. Java's `? extends` is **use-site variance**: every method that takes a source must remember to write it, and the ones that forget are stricter than they need to be. Lesson 6 of this track shows that Kotlin has the use-site form too, for types that can't be `out` everywhere."""
 
-S2 = """`out` is a promise: "values of `T` only come out of this type". The compiler holds you to it by checking where `T` appears in each public member. Every place has a **position**:
+S2 = """A `Source<out T>` can't also have a `fun push(item: T)`, and the substitution test shows why. `out` lets you pass `cards`, a `Source<CardPayment>`, where a `Source<Payment>` is expected. Through that view, `push(BankTransfer(...))` type-checks, because a bank transfer is a `Payment`. Now a source that hands out card payments holds a bank transfer, and the next `next()` gives it to code that reads it as a `CardPayment`: a `ClassCastException`, far from the `push`. The compiler can't allow both the upcast and the parameter. With `out`, it keeps the upcast and rejects the parameter.
+
+`out` is a promise: "values of `T` only come out of this type". The compiler holds you to it by checking where `T` appears in each public member. Every place has a **position**:
 
 - A return type is an **out-position**. The value flows out to the caller.
 - A parameter type is an **in-position**. The value flows in from the caller.
@@ -156,7 +158,7 @@ sumCentsMutable(cards)        // error: actual type is 'MutableList<CardPayment>
 
 The two snippets line up exactly. Java's `List<? extends Payment>` and Kotlin's `List<Payment>` are the same contract: "a list I will only read from, of `Payment` or any subtype". Java's plain `List<Payment>` and Kotlin's `MutableList<Payment>` are the strict, invariant version.
 
-Kotlin keeps this promise when Java code calls it. When a parameter's type is declared `out`, Kotlin writes a `? extends` into the Java signature. `javap` shows it (package names shortened):
+Kotlin keeps this promise when Java code calls it. When a parameter's type is declared `out`, Kotlin writes a `? extends` into the Java signature. `javap`, the JDK tool that prints what a class file contains, shows it (package names shortened):
 
 ```text
 public static final long sumCents(java.util.List<? extends Payment>);

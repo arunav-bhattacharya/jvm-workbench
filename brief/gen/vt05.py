@@ -115,9 +115,11 @@ The siblings you interrupt fail too, with an `InterruptedException`. Those failu
 
 `close()` must wait for threads, not for futures. `Future.cancel(true)` interrupts the thread and marks the future done at once. On JDK 21, `newVirtualThreadPerTaskExecutor` counts a task as finished as soon as its future is done, so `close()` can return while a cancelled task is still in its `finally` block, writing an audit row or releasing a permit. `executor.shutdownNow()` interrupts every thread and leaves the futures alone, so `close()` keeps waiting until each thread has really finished.
 
-That second bug looks right and passes most tests, which is the strongest argument for using the JDK's scope once you can. The figure shows the difference it makes."""
+That second bug looks right and passes most tests, which is the strongest argument for using the JDK's scope once you can. The figure shows the difference it makes.
 
-S3 = """`StructuredTaskScope` is the JDK's version. Its current shape arrived in JDK 25 (JEP 505, the fifth preview). It is still a preview API in JDK 26 (JEP 525) and JDK 27 (JEP 533). JEP 543 makes it final in JDK 28, due in March 2027, with the JDK 27 API unchanged. Until then you need `--enable-preview`, which is why this course keeps it out of the Gradle labs.
+Check yourself: in your `FailFastScope`, the limit check fails at 100 ms. At that moment the customer call is blocked in a socket read, and a third subtask is in a 3-second loop that computes and never checks the interrupt flag. When does `join()` throw, and when does `close()` return? `join()` throws at about 100 ms with the limit failure. `close()` returns at about 3 seconds: the interrupt stops the socket read but not the loop, and `close()` waits for every thread."""
+
+S3 = """`StructuredTaskScope` is the JDK's version. Its current shape arrived in JDK 25 (JEP 505, the fifth preview). It is still a preview API in JDK 26 (JEP 525) and JDK 27 (JEP 533). JEP 543 makes it final in JDK 28, due in March 2027, with the JDK 27 API unchanged. Until then you need `--enable-preview`. A preview API is fully specified and implemented, but it can still change from one release to the next, which is why this course keeps it out of the Gradle labs.
 
 Here is the quote handler in the JDK 25 shape:
 

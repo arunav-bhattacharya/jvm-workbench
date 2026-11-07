@@ -38,7 +38,7 @@ FIG = (
     + '</svg>'
 )
 
-S1 = """`volatile` puts the memory rules on the field: every read and write of it is a volatile access. A **VarHandle** puts them on each access instead. VarHandles came in JDK 9 with JEP 193. A VarHandle is a typed handle to one field or array element, with one method per mode: `get` and `set` (plain), `getOpaque` and `setOpaque`, `getAcquire` and `setRelease`, `getVolatile` and `setVolatile`. It also has atomic updates such as `compareAndSet`, `getAndAdd` and `getAndSet`.
+S1 = """`volatile` puts the memory rules on the field: every read and write of it is a volatile access, whether that access needs the full rules or not. A one-producer queue that only needs its data to arrive in order still pays, on x86, for the store-buffer drain after every volatile write (lesson 3 of this track), millions of times a second. A **VarHandle** puts the rules on each access instead. VarHandles came in JDK 9 with JEP 193. (A JEP, or JDK Enhancement Proposal, is the public design document for one JDK feature.) A VarHandle is a typed handle to one field or array element, with one method per mode: `get` and `set` (plain), `getOpaque` and `setOpaque`, `getAcquire` and `setRelease`, `getVolatile` and `setVolatile`. It also has atomic updates such as `compareAndSet`, `getAndAdd` and `getAndSet`.
 
 ```java
 final class SettlementSlot {
@@ -82,7 +82,9 @@ The access methods are signature-polymorphic. The compiler records the argument 
 
 The mode at the access wins over the declaration. The Javadoc says a plain `get` reads a field as plain \"even if that field is declared volatile\", and warns that mixing modes on one field needs \"extreme care\". So keep the field plain, and send every access through the handle.
 
-You don't need the boilerplate to use the modes. Since JDK 9, `AtomicInteger`, `AtomicLong` and `AtomicReference` have `getPlain`, `getOpaque`, `getAcquire`, `setRelease` and friends. The old `lazySet` (JDK 6) is `setRelease` under another name. What a VarHandle saves is the extra object: the mode works on a plain field of your own class."""
+You don't need the boilerplate to use the modes. Since JDK 9, `AtomicInteger`, `AtomicLong` and `AtomicReference` have `getPlain`, `getOpaque`, `getAcquire`, `setRelease` and friends. The old `lazySet` (JDK 6) is `setRelease` under another name. What a VarHandle saves is the extra object: the mode works on a plain field of your own class.
+
+Check yourself: a field is declared `volatile`, and one hot loop reads it through `ITEM.get(this)`. Is that read volatile? No. The mode at the access wins, so it is a plain read, and the JIT may hoist it out of the loop exactly as it did in lesson 1 of this track."""
 
 S2 = """The VarHandle Javadoc defines the modes as a ladder. Each one keeps everything below it and adds one promise.
 

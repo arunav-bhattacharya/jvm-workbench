@@ -73,6 +73,12 @@ def val(text, color, size=28):
     return chip(text, color, size=size, mono=True)
 
 
+def mark(m, color=WHITE, hold=0.6):
+    """Underline a few glyphs and fade the line out again. Unlike Indicate it never grows the text into its neighbours."""
+    u = Line(m.get_corner(DL) + DOWN * 0.09, m.get_corner(DR) + DOWN * 0.09, color=color, stroke_width=4)
+    return Succession(Create(u, run_time=0.45), Wait(hold), FadeOut(u, run_time=0.35))
+
+
 def panel(title, sub, color, w=5.0, h=2.9):
     r = RoundedRectangle(corner_radius=0.16, width=w, height=h, stroke_color=color, stroke_width=3)
     r.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(color), 0.1), opacity=1)
@@ -204,8 +210,8 @@ class Gen05Contravariance(Beat3):
                   FadeIn(pair, shift=UP * 0.2), run_time=1.6,
                   say="Kotlin declares this once, on the interface, with in. Java writes question mark super at each use.")
         self.beat("Either way, forwardAuthorizations now accepts the audit log.",
-                  Indicate(kin, color=GREEN_M, scale_factor=1.5),
-                  Indicate(part(jv[6], "? super"), color=GREEN_M, scale_factor=1.3), run_time=1.4)
+                  mark(kin, GREEN_M),
+                  mark(part(jv[6], "? super"), GREEN_M), run_time=1.4)
         self.play(FadeOut(pair), run_time=0.6)
 
         # PECS in one beat

@@ -73,6 +73,12 @@ def val(text, color, size=28):
     return chip(text, color, size=size, mono=True)
 
 
+def mark(m, color=WHITE, hold=0.6):
+    """Underline a few glyphs and fade the line out again. Unlike Indicate it never grows the text into its neighbours."""
+    u = Line(m.get_corner(DL) + DOWN * 0.09, m.get_corner(DR) + DOWN * 0.09, color=color, stroke_width=4)
+    return Succession(Create(u, run_time=0.45), Wait(hold), FadeOut(u, run_time=0.35))
+
+
 KIDS = {"Card": BLUE_M, "Transfer": TEAL_M, "Wallet": GOLD_M}
 
 
@@ -192,7 +198,7 @@ class Dop03Exhaustive(Beat3):
                   FadeIn(pair, shift=UP * 0.2), run_time=1.6)
         self.beat("Add Wallet, and both compilers stop. kotlinc even names the branch you forgot.",
                   FadeIn(je, shift=UP * 0.1), FadeIn(ke, shift=UP * 0.1), run_time=1.4)
-        self.play(Indicate(part(ke[1], "'is Wallet'"), color=GOLD_M, scale_factor=1.2), run_time=0.9)
+        self.play(mark(part(ke[1], "'is Wallet'"), GOLD_M), run_time=1.4)
         self.beat("Every switch over Method gets this check, so the build stays red until each one handles Wallet.",
                   Indicate(VGroup(jv[3:], kt[5:]), color=WHITE, scale_factor=1.02), run_time=1.4)
         self.play(FadeOut(allg), run_time=0.6)
@@ -209,6 +215,6 @@ class Dop03Exhaustive(Beat3):
         dnote = T("compiles, and Wallet lands here", 26, RED_M).next_to(dflt, DOWN, buff=0.6)
         self.beat("One rule follows. Don't put a default on a switch over a sealed type.", FadeIn(dflt, shift=UP * 0.15), run_time=1.2)
         self.beat("A default catches Wallet quietly, the same way the else did, and the compiler has nothing left to check.",
-                  FadeIn(wv, shift=LEFT * 0.3), Indicate(part(dflt[3], "default"), color=RED_M, scale_factor=1.2),
+                  FadeIn(wv, shift=LEFT * 0.3), mark(part(dflt[3], "default"), RED_M),
                   FadeIn(dnote, shift=UP * 0.1), run_time=1.6)
         self.wait(0.8)

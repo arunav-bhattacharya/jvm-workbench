@@ -82,7 +82,7 @@ The other direction fails, and it should. A `Sink<CardAuthorized>` might be a fr
 error: initializer type mismatch: expected 'Sink<PaymentEvent>', actual 'Sink<CardAuthorized>'.
 ```
 
-The position rules are the mirror image of `out`. In a type declared `in T`, `T` may appear in parameters, and not in return types or `val`s. Add `fun last(): T` to `Sink` and the compiler says `type parameter 'T' is declared as 'in' but occurs in 'out' position`.
+The position rules are the mirror image of `out`. In a type declared `in T`, `T` may appear in parameters, and not in return types or `val`s. Add `fun last(): T` to `Sink` and the compiler says `type parameter 'T' is declared as 'in' but occurs in 'out' position`. The reason mirrors lesson 4. Through a `Sink<CardAuthorized>` view of the audit log, `last()` would promise a `CardAuthorized`, and the log may be holding a `RefundIssued`.
 
 The figure shows the two cases next to each other. Same element types, same "is a" arrow between them. A producer keeps the direction. A consumer reverses it."""
 
@@ -139,7 +139,7 @@ val tooBroad: (PaymentEvent) -> Unit = onCard         // error: expected '(Payme
 
 This is why the lab's `Dispatcher<CardAuthorized>` accepts a handler written for every `PaymentEvent` without any extra work.
 
-Function types also explain the odd cases from lesson 4 of this track. Give each position a sign: an out-position is `+`, an in-position is `−`. When one type sits inside another, multiply the signs. A plain parameter is `−`. The parameter of a function that is itself a parameter is `−` times `−`, which is `+`.
+Function types also explain the odd cases from lesson 4 of this track. Follow the value. In `fun each(f: (T) -> Unit)`, the class calls `f` and hands it a `T`, so the `T` travels out of the class, even though it sits inside a parameter. In `fun handler(): (T) -> Unit`, the class hands a function to the caller, and the caller feeds it a `T`, so the `T` travels in. To get the same answer without tracing, give each position a sign: an out-position is `+`, an in-position is `−`. When one type sits inside another, multiply the signs. A plain parameter is `−`. The parameter of a function that is itself a parameter is `−` times `−`, which is `+`.
 
 | Member in `class C<…T>` | Where `T` sits | Sign | Legal under `out T` | Legal under `in T` |
 |---|---|---|---|---|

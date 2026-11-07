@@ -1,0 +1,153 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.504
+Thread 1 fills in a payment.
+
+2
+00:00:04.504 --> 00:00:07.855
+It writes the amount, then sets a flag called ready.
+
+3
+00:00:08.067 --> 00:00:10.626
+Thread 2 waits until ready is true.
+
+4
+00:00:10.626 --> 00:00:12.454
+Then it reads the amount.
+
+5
+00:00:12.454 --> 00:00:14.209
+Is it sure to see 12000?
+
+6
+00:00:14.433 --> 00:00:15.849
+With plain fields, no.
+
+7
+00:00:15.849 --> 00:00:17.779
+Nothing links the two threads.
+
+8
+00:00:17.779 --> 00:00:20.868
+Thread 2 may read the new amount, or an old one.
+
+9
+00:00:20.868 --> 00:00:23.313
+It may even never see ready turn true.
+
+10
+00:00:23.533 --> 00:00:27.348
+The memory model answers with a relation called happens-before.
+
+11
+00:00:27.348 --> 00:00:31.163
+If a write happens-before a read, the read must see that write.
+
+12
+00:00:31.367 --> 00:00:35.152
+Inside one thread, each action happens-before the next one.
+
+13
+00:00:35.152 --> 00:00:37.012
+That is called program order.
+
+14
+00:00:37.233 --> 00:00:39.061
+Now make ready volatile.
+
+15
+00:00:39.061 --> 00:00:40.660
+Nothing else changes.
+
+16
+00:00:40.867 --> 00:00:48.553
+The volatile rule: a write to a volatile field happens-before every later read of that same field that sees the write.
+
+17
+00:00:48.767 --> 00:00:50.683
+The write is called a release.
+
+18
+00:00:50.683 --> 00:00:53.431
+The read that sees it is called an acquire.
+
+19
+00:00:53.633 --> 00:00:54.868
+Now chain the arrows.
+
+20
+00:00:54.868 --> 00:00:57.868
+Writing the amount comes before the volatile write.
+
+21
+00:00:57.868 --> 00:00:59.867
+The volatile read sees that write.
+
+22
+00:00:59.867 --> 00:01:02.513
+And the read comes before reading the amount.
+
+23
+00:01:02.733 --> 00:01:05.989
+So writing the amount happens-before reading it.
+
+24
+00:01:05.989 --> 00:01:09.787
+Thread 2 must see 12000, though amount is a plain field.
+
+25
+00:01:10.000 --> 00:01:13.973
+One volatile field carries every write that came before it.
+
+26
+00:01:13.973 --> 00:01:17.139
+A write made after ready = true is not covered.
+
+27
+00:01:17.367 --> 00:01:19.236
+The rule says the same field.
+
+28
+00:01:19.236 --> 00:01:25.039
+Say thread 2 reads a different volatile field, called checksum, and then reads the amount.
+
+29
+00:01:25.267 --> 00:01:30.553
+Both fields are volatile, but the write was to ready, and the read is of checksum.
+
+30
+00:01:30.553 --> 00:01:31.456
+No edge forms.
+
+31
+00:01:31.456 --> 00:01:33.905
+Thread 2 may read an old amount again.
+
+32
+00:01:34.833 --> 00:01:37.047
+A lock gives the same kind of edge.
+
+33
+00:01:37.047 --> 00:01:40.019
+Leaving a synchronized block releases the lock.
+
+34
+00:01:40.019 --> 00:01:43.749
+Entering a synchronized block on the same lock acquires it.
+
+35
+00:01:43.967 --> 00:01:46.409
+Here the two threads use different locks.
+
+36
+00:01:46.409 --> 00:01:50.401
+Each block still runs one thread at a time, but no edge links them.
+
+37
+00:01:50.633 --> 00:01:56.664
+So for every field two threads share, name the edge: the same volatile field, or the same lock.
+
+38
+00:01:56.664 --> 00:01:59.457
+If you can't name one, you have a data race.

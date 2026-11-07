@@ -137,6 +137,8 @@ limit.replace("USD")            // error: actual type is 'String', but 'Long' wa
 
 One class gives you many types: `Box<String>`, `Box<Long>`, `Box<Payment>`. The compiler checks each one on its own. To the compiler, `Box<String>` and `Box<Long>` are as different as `String` and `Long`.
 
+How does it check `limit.replace("USD")`? It substitutes. `limit` is a `Box<Long>`, so the compiler reads every `T` in `Box` as `Long`. For that call, `replace` is `replace(newValue: Long): Long`, and a `String` doesn't fit. Fill in the blank, then check the call as if the class had been written for `Long` all along. Do that in your head and you can predict any call on a generic class before the compiler does.
+
 Functions can have type parameters too. In Java the `<T>` goes before the return type. In Kotlin it goes right after `fun`, before the function name:
 
 ```java
@@ -257,7 +259,7 @@ Raw types are why old Java code can still blow up. They exist so that code from 
 warning: [unchecked] unchecked call to add(E) as a member of the raw type List
 ```
 
-The bad value then sits inside a `List<String>` until someone reads it. It is the `AnyBox` failure again, hidden inside a type that claims to be safe. When a Kotlin service gets a `ClassCastException` on a line with no cast in it, look for a raw type in the Java library underneath."""
+The bad value then sits inside a `List<String>` until someone reads it. Why does the read fail and not the add? At run time the list holds plain `Object` references, so `add(42)` has nothing to check against. Where your code reads an element as a `String`, javac adds a hidden cast to `String`, and that cast is what throws. Lesson 8 of this track shows that cast in the bytecode. It is the `AnyBox` failure again, hidden inside a type that claims to be safe. When a Kotlin service gets a `ClassCastException` on a line with no cast in it, look for a raw type in the Java library underneath."""
 
 L = {
     "id": "gen-01",

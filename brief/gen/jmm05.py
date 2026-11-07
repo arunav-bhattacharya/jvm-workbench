@@ -167,7 +167,7 @@ Read the field once, into a local. A final `return table` would be a second vola
 
 Both checks matter. Drop the first and you've rebuilt the synchronized method. Drop the second and every thread that queued at the lock builds its own table, one after another. The Try it below shows that one.
 
-Null needs care. DCL uses `null` to mean \"not built yet\", so an initializer that returns `null` runs again on every call. Kotlin's `lazy` stores a private sentinel object instead of null, and the jcstress sample `Lazy_03_Basic` keeps a separate volatile boolean.
+Null needs care. DCL uses `null` to mean \"not built yet\", so an initializer that returns `null` runs again on every call. Kotlin's `lazy` uses a private sentinel instead, a marker object that only means "not built yet", and the jcstress sample `Lazy_03_Basic` keeps a separate volatile boolean.
 
 If the initializer throws, nothing is stored, so the next caller tries again. Keep that in mind for the next section, because the holder idiom behaves differently."""
 

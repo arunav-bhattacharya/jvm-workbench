@@ -17,185 +17,185 @@ Then it moves the money.
 Each call is correct on its own.
 
 5
-00:00:12.333 --> 00:00:15.142
+00:00:12.333 --> 00:00:15.175
 Now two threads run it at the same time.
 
 6
-00:00:15.142 --> 00:00:17.460
+00:00:15.175 --> 00:00:17.519
 Thread 1 moves money from a to b.
 
 7
-00:00:17.460 --> 00:00:19.777
+00:00:17.519 --> 00:00:19.863
 Thread 2 moves money from b to a.
 
 8
-00:00:20.600 --> 00:00:22.740
+00:00:20.667 --> 00:00:22.807
 Thread 1 will lock a, then b.
 
 9
-00:00:22.740 --> 00:00:24.880
+00:00:22.807 --> 00:00:24.947
 Thread 2 will lock b, then a.
 
 10
-00:00:25.100 --> 00:00:26.856
+00:00:25.167 --> 00:00:26.923
 Thread 1 takes lock a.
 
 11
-00:00:27.067 --> 00:00:31.109
+00:00:27.133 --> 00:00:31.176
 Before it asks for b, the scheduler switches to thread 2.
 
 12
-00:00:31.109 --> 00:00:32.669
+00:00:31.176 --> 00:00:32.736
 Thread 2 takes lock b.
 
 13
-00:00:32.900 --> 00:00:35.071
+00:00:32.967 --> 00:00:35.138
 Now thread 1 asks for lock b.
 
 14
-00:00:35.071 --> 00:00:37.841
+00:00:35.138 --> 00:00:37.908
 Thread 2 holds it, so thread 1 waits.
 
 15
-00:00:38.067 --> 00:00:40.034
+00:00:38.133 --> 00:00:40.101
 Thread 2 asks for lock a.
 
 16
-00:00:40.034 --> 00:00:41.923
+00:00:40.101 --> 00:00:41.990
 Thread 1 holds that one.
 
 17
-00:00:41.923 --> 00:00:43.655
+00:00:41.990 --> 00:00:43.721
 So thread 2 waits too.
 
 18
-00:00:43.867 --> 00:00:45.275
+00:00:43.933 --> 00:00:45.365
 Follow the arrows.
 
 19
-00:00:45.275 --> 00:00:46.919
+00:00:45.365 --> 00:00:47.036
 Thread 1 waits for b.
 
 20
-00:00:46.919 --> 00:00:49.580
+00:00:47.036 --> 00:00:49.741
 Thread 2 holds b, and waits for a.
 
 21
-00:00:49.580 --> 00:00:50.910
+00:00:49.741 --> 00:00:51.093
 Thread 1 holds a.
 
 22
-00:00:50.910 --> 00:00:52.945
+00:00:51.093 --> 00:00:53.161
 The arrows close a circle.
 
 23
-00:00:53.167 --> 00:00:57.493
+00:00:53.400 --> 00:00:57.726
 Each thread lets go of its first lock only after it gets its second.
 
 24
-00:00:57.493 --> 00:00:59.402
+00:00:57.726 --> 00:00:59.635
 So neither one will ever move.
 
 25
-00:00:59.402 --> 00:01:00.611
+00:00:59.635 --> 00:01:00.844
 That is a deadlock.
 
 26
-00:01:00.833 --> 00:01:01.929
+00:01:01.067 --> 00:01:02.162
 Nothing throws.
 
 27
-00:01:01.929 --> 00:01:02.879
+00:01:02.162 --> 00:01:03.112
 Nothing logs.
 
 28
-00:01:02.879 --> 00:01:10.987
+00:01:03.112 --> 00:01:11.220
 Both threads sit in BLOCKED, CPU use drops to zero, and every request for these accounts queues up behind them.
 
 29
-00:01:11.233 --> 00:01:16.347
+00:01:11.467 --> 00:01:16.580
 It needs bad timing, so a test that runs one transfer at a time never sees it.
 
 30
-00:01:16.347 --> 00:01:18.969
+00:01:16.580 --> 00:01:19.203
 Under load, it is only a matter of when.
 
 31
-00:01:19.200 --> 00:01:21.725
+00:01:19.433 --> 00:01:21.958
 This loop is called a wait-for graph.
 
 32
-00:01:21.725 --> 00:01:26.637
+00:01:21.958 --> 00:01:26.871
 Deadlock detectors, including the JVM's own, look for exactly this loop.
 
 33
-00:01:27.667 --> 00:01:30.634
+00:01:27.900 --> 00:01:30.971
 The fix is one rule that every thread follows.
 
 34
-00:01:30.634 --> 00:01:35.019
+00:01:30.971 --> 00:01:35.512
 Give each account a unique key, and always lock the lower key first.
 
 35
-00:01:35.019 --> 00:01:38.567
+00:01:35.512 --> 00:01:39.184
 If a has the lower id, both transfers now lock a first.
 
 36
-00:01:38.800 --> 00:01:40.343
+00:01:39.400 --> 00:01:40.943
 Thread 1 takes a.
 
 37
-00:01:40.567 --> 00:01:42.514
+00:01:41.167 --> 00:01:43.196
 Thread 2 asks for a and waits.
 
 38
-00:01:42.514 --> 00:01:44.591
+00:01:43.196 --> 00:01:45.361
 It holds nothing while it waits.
 
 39
-00:01:44.800 --> 00:01:46.030
+00:01:45.567 --> 00:01:46.796
 Thread 1 takes b.
 
 40
-00:01:46.030 --> 00:01:49.357
+00:01:46.796 --> 00:01:50.124
 It moves the money, and lets go of both locks.
 
 41
-00:01:49.567 --> 00:01:52.859
+00:01:50.333 --> 00:01:53.625
 Then thread 2 gets a, then b, and finishes too.
 
 42
-00:01:53.067 --> 00:01:56.609
+00:01:53.833 --> 00:01:57.375
 Waiting while you hold nothing is plain contention.
 
 43
-00:01:56.609 --> 00:01:57.859
+00:01:57.375 --> 00:01:58.625
 No cycle can form.
 
 44
-00:01:58.767 --> 00:02:02.216
+00:01:59.533 --> 00:02:02.983
 In code, pick the first and the second lock by id.
 
 45
-00:02:02.216 --> 00:02:05.735
+00:02:02.983 --> 00:02:06.501
 Then lock them in that order, in Java or in Kotlin.
 
 46
-00:02:05.967 --> 00:02:08.929
+00:02:06.733 --> 00:02:09.695
 The key must be unique and must never change.
 
 47
-00:02:08.929 --> 00:02:10.245
+00:02:09.695 --> 00:02:11.012
 An account id works.
 
 48
-00:02:10.245 --> 00:02:14.392
+00:02:11.012 --> 00:02:15.159
 hashCode does not, because two different objects can share one.
 
 49
-00:02:14.633 --> 00:02:16.336
+00:02:15.400 --> 00:02:17.102
 And the rule must be global.
 
 50
-00:02:16.336 --> 00:02:20.044
+00:02:17.102 --> 00:02:20.811
 Put the ordering in one helper, and make every caller use it.

@@ -88,7 +88,7 @@ fun <T> bigger(a: T, b: T): T = if (a > b) a else b
 
 In Kotlin `a > b` means `a.compareTo(b)`. The compiler looks for any `compareTo` it could use on a `T`, finds only the one on `String`, and tells you that one doesn't fit. When an error mentions some unrelated type's method, read it as "this operation is not defined for `T`".
 
-The null case surprises people coming from Java, where every `T` accepts `null` anyway and nobody thinks about it. In Kotlin, `fun <T> f(x: T)` accepts `null` too, because `T` can be `String?` or `Nothing?`. Even an extension like `fun <T> T.describe()` can be called on `null`. If your function must not see null, you have to say so with a bound. Section 4 shows how.
+The null case surprises people coming from Java, where every `T` accepts `null` anyway and nobody thinks about it. In Kotlin, `fun <T> f(x: T)` accepts `null` too, because `T` can be `String?` or `Nothing?`. (`Nothing?` is the type Kotlin gives a bare `null`. Write `val x = null`, then `val y: Int = x`, and the error says `actual 'Nothing?'`.) Even an extension like `fun <T> T.describe()` can be called on `null`. If your function must not see null, you have to say so with a bound. Section 4 shows how.
 
 So the job of a bound is to promise more about `T`. The caller can pick fewer types, and in return your code can do more with the one they pick."""
 

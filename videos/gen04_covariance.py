@@ -73,6 +73,12 @@ def val(text, color, size=28):
     return chip(text, color, size=size, mono=True)
 
 
+def mark(m, color=WHITE, hold=0.6):
+    """Underline a few glyphs and fade the line out again. Unlike Indicate it never grows the text into its neighbours."""
+    u = Line(m.get_corner(DL) + DOWN * 0.09, m.get_corner(DR) + DOWN * 0.09, color=color, stroke_width=4)
+    return Succession(Create(u, run_time=0.45), Wait(hold), FadeOut(u, run_time=0.35))
+
+
 def panel(title, sub, color, w=4.6, h=2.8):
     r = RoundedRectangle(corner_radius=0.16, width=w, height=h, stroke_color=color, stroke_width=3)
     r.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(color), 0.1), opacity=1)
@@ -162,7 +168,7 @@ class Gen04Covariance(Beat3):
         s_ar = edge_arrow(s_bot, s_top, GREEN_M)
         s_lb = T("is a", 26, GREEN_M).next_to(s_ar, RIGHT, buff=0.15)
         h1 = T("element types", 24, GREY_B).next_to(e_top, UP, buff=0.35)
-        h2 = T("Source<out T>", 24, GREY_B).next_to(s_top, UP, buff=0.35)
+        h2 = M("Source<out T>", 24, GREY_B).next_to(s_top, UP, buff=0.35)
         same = T("same direction", 26, GREEN_M).next_to(VGroup(e_bot, s_bot), DOWN, buff=0.55)
         self.beat("This is covariance. CardPayment is a subtype of Payment.",
                   FadeIn(VGroup(e_top, e_bot, h1)), GrowArrow(e_ar), FadeIn(e_lb), run_time=1.6)
@@ -201,9 +207,9 @@ class Gen04Covariance(Beat3):
                   FadeIn(pair, shift=UP * 0.2), run_time=1.8,
                   say="Java has no out keyword. Each Java method that takes a source says it at the use site, with question mark extends.")
         self.beat("Kotlin's out is declaration-site variance. You write it once, on Source, and every caller gets it for free.",
-                  Indicate(part(kt[0], "out"), color=GREEN_M, scale_factor=1.4), run_time=1.4)
+                  mark(part(kt[0], "out"), GREEN_M), run_time=1.4)
         self.beat("Java's ? extends is use-site variance. A method that forgets it is stricter than it needs to be.",
-                  Indicate(part(jv[5], "? extends"), color=GREEN_M, scale_factor=1.3), run_time=1.4,
+                  mark(part(jv[5], "? extends"), GREEN_M), run_time=1.4,
                   say="Java's question mark extends is use-site variance. A method that forgets it is stricter than it needs to be.")
         self.play(FadeOut(pair), run_time=0.6)
 

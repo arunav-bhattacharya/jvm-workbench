@@ -83,7 +83,9 @@ In the Kotlin version, every argument at the call site says what it is. Optional
 
 Java callers are the gap. Java has no named arguments, so they see one constructor with seven parameters. `@JvmOverloads` on the constructor generates the telescoping overloads for them (one per trailing default), which is better than nothing and worse than a builder. If a Java team will call the class a lot, give them a real builder.
 
-A rule of thumb for porting: if every call site of a Java builder sets two or three fields and leaves the rest at their defaults, the Kotlin version is a data class with defaults and nothing else. If call sites build the object across a loop or an `if`, keep a builder, as the next section explains."""
+A rule of thumb for porting: if every call site of a Java builder sets two or three fields and leaves the rest at their defaults, the Kotlin version is a data class with defaults and nothing else. If call sites build the object across a loop or an `if`, keep a builder, as the next section explains.
+
+Check yourself. In the Kotlin `ChargeRequest`, what does `req.copy(maxRetries = -1)` do, and why? (It throws `IllegalArgumentException`. `copy` builds the new object through the primary constructor, so the `init` block runs again.)"""
 
 S2 = """Builders still win in four cases. The first is Java callers, as above. The second is validation that needs the whole object: "a statement descriptor is at most 22 characters, and only when `capture` is true" relates two fields. The third is construction spread across steps, such as headers added in a loop or 3-D Secure data added only for some cards; Kotlin's `buildList { }` and `buildString { }` are standard-library builders for exactly this. The fourth is nested data, which gets its own section next.
 
@@ -115,7 +117,7 @@ data class IssuerCall(
 // no builder and no withers: named arguments and copy(timeout = ...) do both jobs
 ```
 
-The builder holds no rules. The rules live in the compact constructor, which `build()`, the wither `withTimeout` and a direct `new IssuerCall(...)` all go through. Withers are how you get Prototype on a record: Java has no `with` syntax, so you write one small method per field you want to change. The Kotlin twin needs neither builder nor withers, and its `init` block plays the role of the compact constructor.
+The builder holds no rules. The rules live in the compact constructor, which `build()`, the wither `withTimeout` and a direct `new IssuerCall(...)` all go through. A compact constructor is a record constructor written without a parameter list. Its body runs first, and javac assigns the fields from the parameters after it, which is why `headers = Map.copyOf(headers)` changes what gets stored. Withers are how you get Prototype on a record: Java has no `with` syntax, so you write one small method per field you want to change. The Kotlin twin needs neither builder nor withers, and its `init` block plays the role of the compact constructor.
 
 The JDK's newer APIs follow the same idea of a builder that produces an immutable result: `HttpClient.newBuilder()`, and `Thread.ofVirtual()`, which returns a `Thread.Builder`.
 
@@ -539,7 +541,7 @@ static RefundBatch refundBatch(Consumer<RefundBatchBuilder> block) {
  },
  "deeper": {
   "minutes": 10,
-  "body": """Effective Java's hierarchical builder solves a problem you may meet in a shared Java library: a `Pizza.Builder` that subclasses (`NyPizza.Builder`, `Calzone.Builder`) extend without losing the subclass type in a chain. It uses a recursive type parameter, `Builder<T extends Builder<T>>`, and an abstract `self()` method that each subclass implements as `return this;`. The generics track explains why that recursive bound works. In Kotlin you almost never need it, because named arguments and `copy()` remove the chain.
+  "body": """Effective Java's hierarchical builder solves a problem you may meet in a shared Java library: a `Pizza.Builder` that subclasses (`NyPizza.Builder`, `Calzone.Builder`) extend without losing the subclass type in a chain. It uses a recursive type parameter, `Builder<T extends Builder<T>>`, and an abstract `self()` method that each subclass implements as `return this;`. *Advanced generics: recursive bounds, T & Any, @UnsafeVariance* in the generics track showed why that recursive bound works. In Kotlin you almost never need it, because named arguments and `copy()` remove the chain.
 
 Java has no `with` syntax for records yet. Project Amber has proposed one, derived record creation (JEP 468), where you would write something like `point with { x = 3; }`. Check its status on the JEP page before you plan around it. Until then, write withers for the fields that really change.
 

@@ -42,7 +42,7 @@ The 1994 "Gang of Four" book listed 23 patterns, written for C++ and Smalltalk. 
 
 In Java 21+ and Kotlin 2.x, the 23 sort into three groups. This track follows them.
 
-- The language absorbed them. Strategy, Command and Template Method become function values. State and Visitor become a sealed type plus an exhaustive `switch` or `when`. Builder mostly becomes Kotlin's named and default arguments. Singleton becomes an `enum` or a Kotlin `object`. Decorator becomes Kotlin's `by` delegation.
+- The language absorbed them. Strategy, Command and Template Method become function values. State and Visitor become a sealed type plus an exhaustive `switch` or `when`. A sealed type lists all its subtypes in one place, so the compiler knows every case, and an exhaustive switch is one the compiler has checked covers them all. Builder mostly becomes Kotlin's named and default arguments. Singleton becomes an `enum` or a Kotlin `object`. Decorator becomes Kotlin's `by` delegation, where the compiler writes the forwarding methods for you.
 - A framework absorbed them. Proxy lives inside Spring and Quarkus. Chain of Responsibility is a servlet filter chain or an HTTP client interceptor. Observer is Kotlin `Flow`, Reactor and `java.util.concurrent.Flow`.
 - You still design them by hand. Adapter, Facade, Bridge, Composite, Mediator and Flyweight are about how you cut up your own domain, and no feature does that for you.
 
@@ -217,7 +217,9 @@ Production still wants exactly one `FxRates`. Let the container make it. In Quar
 
 A hand-written singleton still fits in a few places: stateless objects such as a comparator or a `data object` state in a sealed hierarchy, library code that can't assume a container, and state the JVM itself owns, like `Runtime`. Anything with I/O or configuration gets injected.
 
-The lab's `CardNetworkRegistry` follows that rule. It is not a static singleton. Its loader comes in through the constructor, so the tests can pass a slow fake loader and count its calls. A container would make one per application, and DCL inside keeps the lazy load safe when eight threads ask at once."""
+The lab's `CardNetworkRegistry` follows that rule. It is not a static singleton. Its loader comes in through the constructor, so the tests can pass a slow fake loader and count its calls. A container would make one per application, and DCL inside keeps the lazy load safe when eight threads ask at once.
+
+Check yourself. Suppose the Kotlin `object FxRates` had a test hook, `FxRates.override(1.10)`, and one test called it and never reset it. A test in another class runs later in the same JVM and prices a payment. Which rate does it get, and why? (1.10. The `object` is one static `INSTANCE` for the whole JVM, as the previous section showed, so its state outlives the test that set it. An injected fake goes away with its test.)"""
 
 L = {
  "id": "pat-01",

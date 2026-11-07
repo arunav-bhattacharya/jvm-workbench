@@ -64,7 +64,7 @@ You will rarely write these by hand. Reactor, RxJava, Mutiny (the library behind
 - **1.1** A publisher never sends more `onNext` signals than were requested in total.
 - **1.3** Signals to one subscriber are serial: never two at the same time. So a subscriber needs no locks for its own fields.
 - **1.9** `onSubscribe` comes before any other signal.
-- **2.13** Subscriber methods must return normally. The only exception allowed is a `NullPointerException` for a `null` argument. A subscriber that wants to stop must call `cancel()`, not throw.
+- **2.13** Subscriber methods must return normally. The only exception allowed is a `NullPointerException` for a `null` argument. A subscriber that wants to stop must call `cancel()`, not throw. An exception from `onNext` lands in the publisher's delivery code, which can't hand it back to the subscriber, so the spec has the publisher treat the subscription as cancelled and report the error some other way, such as a log line.
 - **2.8** A subscriber must accept `onNext` calls that arrive after it cancelled. Items already requested may still be on their way.
 - **3.9** `request(n)` with `n <= 0` must produce `onError(IllegalArgumentException)`.
 - **3.17** Demand of `Long.MAX_VALUE` may be treated as "unbounded". That is a subscriber saying it wants no backpressure at all.
@@ -102,7 +102,7 @@ The parts that matter:
 - If a subscriber method throws, the publisher cancels that subscription.
 - `close()` completes every subscriber. `closeExceptionally(t)` sends them `onError(t)`.
 
-Blocking in `submit` is fine on a dedicated producer thread or a virtual thread. It is a bad idea on an event-loop thread, where it stalls everything else on that loop.
+Blocking in `submit` is fine on a dedicated producer thread or a virtual thread. It is a bad idea on an event-loop thread (one thread that serves many connections, as the next section explains), where it stalls everything else on that loop.
 
 `SubmissionPublisher` is a good teaching tool and a decent in-process fan-out, but it has no operators. You can't `map`, retry or time out a `Flow.Publisher` without writing the code yourself. That is the job Reactor does, starting with lesson 2 of this track."""
 
@@ -112,7 +112,9 @@ Non-blocking IO removes the wait. An event-loop thread (Netty, or the JDK's NIO 
 
 It has real costs. The Spring Framework docs say it plainly: "Reactive and non-blocking generally do not make applications run faster." The gain is "the ability to scale with a small, fixed number of threads and less memory", and you only see it when calls have latency. You also pay with stack traces that show operator internals instead of your code, a learning curve the whole team has to climb, and one strict rule: nothing on an event loop may block. A single JDBC call on an event-loop thread stalls every request that loop serves.
 
-Virtual threads (JDK 21, JEP 444) changed the trade. A blocked virtual thread unmounts from its carrier, so blocking code no longer burns a platform thread per call. For request and response over JDBC, a plain blocking style on virtual threads is now the simpler default. Reactive still earns its place where the problem is a stream: backpressure, cancellation that travels upstream, rate-limited fan-out, retries and timeouts as composable operators. Lesson 8 of this track comes back to this choice with the Spring team's own words."""
+Virtual threads (JDK 21, JEP 444) changed the trade. A blocked virtual thread unmounts from its carrier, so blocking code no longer burns a platform thread per call. For request and response over JDBC, a plain blocking style on virtual threads is now the simpler default. Reactive still earns its place where the problem is a stream: backpressure, cancellation that travels upstream, rate-limited fan-out, retries and timeouts as composable operators. Lesson 8 of this track comes back to this choice with the Spring team's own words.
+
+Quick check: your service makes 3,000 issuer calls a second, and each waits 120 ms. How many calls are in flight at any moment, and how many threads does each model need for them? (Little's law gives 3,000 x 0.12 s = 360 calls in flight. Blocking IO needs 360 threads, one parked per call. An event loop needs a handful, because no thread waits for a reply.)"""
 
 SVG = ('<svg viewBox="0 0 640 380" role="img" aria-label="Sequence of signals: the subscriber subscribes, receives onSubscribe, '
        'requests 2, gets two onNext signals, requests 2 more, gets one onNext and then onComplete">'

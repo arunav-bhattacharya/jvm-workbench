@@ -1,185 +1,169 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:04.934
+00:00:02.700 --> 00:00:04.801
 Your code reads Limits.CAP.
 
 2
-00:00:04.934 --> 00:00:07.748
+00:00:04.801 --> 00:00:07.447
 The JVM has never seen this class.
 
 3
-00:00:07.967 --> 00:00:13.669
-Its bytes sit in a jar, and the JVM reads none of them until some code needs one.
+00:00:07.447 --> 00:00:09.781
+Its bytes sit unread in a jar.
 
 4
-00:00:14.600 --> 00:00:19.320
+00:00:10.700 --> 00:00:15.420
 A class loader finds a class's bytes and turns them into a Class.
 
 5
-00:00:19.320 --> 00:00:20.627
+00:00:15.420 --> 00:00:16.727
 The JDK has three.
 
 6
-00:00:20.627 --> 00:00:22.516
+00:00:16.727 --> 00:00:18.616
 Bootstrap loads java.base.
 
 7
-00:00:22.516 --> 00:00:25.203
+00:00:18.616 --> 00:00:21.303
 Platform loads the other JDK modules.
 
 8
-00:00:25.203 --> 00:00:28.180
+00:00:21.303 --> 00:00:24.280
 And the app loader loads your class path.
 
 9
-00:00:28.333 --> 00:00:30.473
-The request goes to the app loader.
+00:00:24.433 --> 00:00:26.416
+The app loader gets the request.
 
 10
-00:00:30.473 --> 00:00:33.225
+00:00:26.416 --> 00:00:29.204
 Before it looks anywhere, it asks its parent.
 
 11
-00:00:33.225 --> 00:00:35.671
-The platform loader asks its parent too.
+00:00:29.204 --> 00:00:30.939
+So does the platform loader.
 
 12
-00:00:35.867 --> 00:00:37.506
+00:00:31.133 --> 00:00:32.773
 Bootstrap has no Limits.
 
 13
-00:00:37.506 --> 00:00:39.213
+00:00:32.773 --> 00:00:34.480
 Platform has none either.
 
 14
-00:00:39.213 --> 00:00:42.765
+00:00:34.480 --> 00:00:38.032
 Only then does the app loader search the class path.
 
 15
-00:00:42.765 --> 00:00:46.112
+00:00:38.032 --> 00:00:41.379
 It finds Limits in app.jar and defines the class.
 
 16
-00:00:46.900 --> 00:00:49.204
+00:00:42.167 --> 00:00:44.471
 This is parent-first delegation.
 
 17
-00:00:49.204 --> 00:00:52.373
+00:00:44.471 --> 00:00:47.640
 Ask for String, and bootstrap answers first.
 
 18
-00:00:52.373 --> 00:00:55.325
+00:00:47.640 --> 00:00:50.592
 So a stray jar can't replace a JDK class.
 
 19
-00:00:56.333 --> 00:00:59.886
+00:00:51.600 --> 00:00:55.153
 The loader that defines a class is part of its identity.
 
 20
-00:00:59.886 --> 00:01:03.566
+00:00:55.153 --> 00:00:58.833
 At run time, a class is its name plus its defining loader.
 
 21
-00:01:03.566 --> 00:01:08.705
+00:00:58.833 --> 00:01:03.972
 So two loaders that define Limits from the same bytes make two different classes.
 
 22
-00:01:09.600 --> 00:01:13.165
-Defining the class is only the first of three phases.
+00:01:04.867 --> 00:01:08.331
+Defining the class was loading, the first of three phases.
 
 23
-00:01:13.165 --> 00:01:15.587
-Loading, linking and initialization.
+00:01:08.331 --> 00:01:11.557
+It made a Class object, and none of your code has run.
 
 24
-00:01:15.967 --> 00:01:17.821
-Loading made a Class object.
-
-25
-00:01:17.821 --> 00:01:19.543
-None of your code has run.
-
-26
-00:01:19.767 --> 00:01:21.078
+00:01:11.733 --> 00:01:13.045
 Linking comes next.
 
-27
-00:01:21.078 --> 00:01:24.047
+25
+00:01:13.045 --> 00:01:16.013
 It verifies that the bytecode is type safe.
 
-28
-00:01:24.267 --> 00:01:27.805
+26
+00:01:16.233 --> 00:01:19.772
 It prepares the static fields with default values.
 
-29
-00:01:27.805 --> 00:01:30.424
+27
+00:01:19.772 --> 00:01:22.391
 So CAP exists now, and it holds null.
 
-30
-00:01:31.033 --> 00:01:34.501
+28
+00:01:23.000 --> 00:01:26.468
 And it resolves names in the constant pool, lazily.
 
-31
-00:01:34.501 --> 00:01:37.969
+29
+00:01:26.468 --> 00:01:29.935
 A class that uses a deleted Helper class runs fine.
 
-32
-00:01:37.969 --> 00:01:43.000
+30
+00:01:29.935 --> 00:01:34.967
 It throws NoClassDefFoundError only when the branch that uses Helper runs.
 
-33
-00:01:43.800 --> 00:01:47.631
-Initialization runs the static initializer, <clinit>.
+31
+00:01:35.767 --> 00:01:39.598
+Initialization runs the static initializer, &lt;clinit&gt;.
 
-34
-00:01:47.631 --> 00:01:52.908
+32
+00:01:39.598 --> 00:01:44.874
 That is every static field initializer and static block, in source order.
 
-35
-00:01:52.908 --> 00:01:56.449
+33
+00:01:44.874 --> 00:01:48.416
 CAP becomes 500,000, and the static block prints.
 
-36
-00:01:56.667 --> 00:01:58.700
+34
+00:01:48.633 --> 00:01:50.667
 Only this phase runs your code.
 
-37
-00:01:59.500 --> 00:02:01.870
-It starts on a few precise triggers.
+35
+00:01:51.467 --> 00:01:59.729
+It starts on a new instance, a static method call, a static field write, or a read of a static field that is not a constant.
 
-38
-00:02:01.870 --> 00:02:09.177
-A new instance, a static method call, a static field write, or a read of a static field that is not a constant.
-
-39
-00:02:09.400 --> 00:02:11.526
+36
+00:01:59.933 --> 00:02:02.059
 A constant read doesn't start it.
 
-40
-00:02:11.526 --> 00:02:14.683
+37
+00:02:02.059 --> 00:02:05.216
 Neither does Limits.class, or an array of Limits.
 
-41
-00:02:15.567 --> 00:02:16.420
-So, a check.
+38
+00:02:06.100 --> 00:02:09.819
+Check: which of these two reads runs the static initializer?
 
-42
-00:02:16.420 --> 00:02:20.188
-Which of these two reads runs the static initializer?
-
-43
-00:02:20.400 --> 00:02:22.091
+39
+00:02:10.033 --> 00:02:11.725
 MAX_MINOR is a constant.
 
-44
-00:02:22.091 --> 00:02:26.813
+40
+00:02:11.725 --> 00:02:16.447
 javac copied its value into your class, so reading it runs nothing.
 
-45
-00:02:27.033 --> 00:02:31.828
-CAP is a boxed Integer, not a constant, so reading it runs <clinit>.
+41
+00:02:16.667 --> 00:02:21.461
+CAP is a boxed Integer, not a constant, so reading it runs &lt;clinit&gt;.
 
-46
-00:02:31.828 --> 00:02:35.495
+42
+00:02:21.461 --> 00:02:25.128
 Kotlin's const val and plain val split the same way.

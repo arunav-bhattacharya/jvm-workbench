@@ -83,13 +83,13 @@ Java is more relaxed about one of these. `add(null)` compiles on a `List<?>`, be
 
 Everything that doesn't take an element still works: `size`, `isEmpty()`, `removeAt(0)`, `clear()`. So a function that empties any buffer can take a `MutableList<*>`. That's the `drain` function in this lesson's lab."""
 
-S2 = """A `*` is shorthand for the safest projection that the declaration allows, so what it means depends on the declared variance. The Kotlin docs give three rules:
+S2 = """Take `Source<out T : Number>` first. A `Source<*>` might be a `Source<Int>` or a `Source<BigDecimal>`. Whichever it is, `next()` returns some `Number`, so `Number` is the most the compiler can promise. Now take `Sink<in T>`. A `Sink<*>` might be a `Sink<String>` or a `Sink<CardAuthorized>`. No value is accepted by every one of them, so the compiler allows none. `Nothing` is Kotlin's name for a type with no values, which is exactly that answer. Both answers come from the substitution question of lesson 4, asked about every type the star could stand for.
+
+So a `*` is shorthand for the safest projection that the declaration allows, and what it means depends on the declared variance. The Kotlin docs write it as three rules:
 
 - For `Source<out T : Number>`, `Source<*>` means `Source<out Number>`. You can read, and reads keep the bound: you get a `Number`, not an `Any?`.
 - For `Sink<in T>`, `Sink<*>` means `Sink<in Nothing>`. No value has type `Nothing`, so you can't pass anything in at all.
 - For an invariant `Box<T>`, `Box<*>` means `Box<out Any?>` when you read and `Box<in Nothing>` when you write. (With a bound, `Box<T : Payment>`, reads would give `Payment`.)
-
-The rules come straight from the substitution question in lesson 4. A `Source<*>` might be a `Source<Int>` or a `Source<BigDecimal>`. Whichever it is, `next()` returns some `Number`, so `Number` is the most the compiler can promise. A `Sink<*>` might be a `Sink<String>` or a `Sink<CardAuthorized>`. No value is accepted by every one of them, so the compiler allows none. `Nothing` is Kotlin's name for a type with no values, which is exactly that answer.
 
 ```java
 interface Source<T extends Number> { T next(); }
