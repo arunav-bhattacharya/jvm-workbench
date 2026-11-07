@@ -1,0 +1,340 @@
+{
+ "slug": "vt02-carriers",
+ "voice": "us-f",
+ "max_late": 0.26,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.016,
+   "secs": 2.28,
+   "tries": 1,
+   "text": "Each request gets its own virtual thread."
+  },
+  {
+   "cue": 5.2,
+   "start": 5.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.83,
+   "tries": 1,
+   "text": "Ten thousand requests means ten thousand threads, and most of them are waiting on the network."
+  },
+  {
+   "cue": 11.13,
+   "start": 11.13,
+   "late": 0.0,
+   "tempo": 1.101,
+   "secs": 2.82,
+   "tries": 1,
+   "text": "Yet only a few O S threads run all of them."
+  },
+  {
+   "cue": 14.16,
+   "start": 14.16,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.75,
+   "tries": 2,
+   "text": "Here is how."
+  },
+  {
+   "cue": 15.83,
+   "start": 15.83,
+   "late": 0.0,
+   "tempo": 1.062,
+   "secs": 3.82,
+   "tries": 1,
+   "text": "The J D K runs virtual threads on a ForkJoinPool of its own."
+  },
+  {
+   "cue": 19.86,
+   "start": 19.86,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.46,
+   "tries": 1,
+   "text": "Its workers are platform threads, called carrier threads."
+  },
+  {
+   "cue": 23.82,
+   "start": 23.82,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.88,
+   "tries": 1,
+   "text": "By default there is one per core."
+  },
+  {
+   "cue": 26.12,
+   "start": 26.12,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.32,
+   "tries": 1,
+   "text": "Say the machine has two."
+  },
+  {
+   "cue": 28.0,
+   "start": 28.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.7,
+   "tries": 1,
+   "text": "A carrier takes a ready virtual thread from the queue and runs it."
+  },
+  {
+   "cue": 32.09,
+   "start": 32.09,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.19,
+   "tries": 1,
+   "text": "This is called mounting."
+  },
+  {
+   "cue": 33.57,
+   "start": 33.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.59,
+   "tries": 1,
+   "text": "The thread's top stack frames now sit on the carrier's own stack."
+  },
+  {
+   "cue": 37.8,
+   "start": 37.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.29,
+   "tries": 1,
+   "text": "Now VT one calls a socket read."
+  },
+  {
+   "cue": 40.38,
+   "start": 40.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.37,
+   "tries": 1,
+   "text": "No data has arrived yet."
+  },
+  {
+   "cue": 42.73,
+   "start": 42.73,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.6,
+   "tries": 1,
+   "text": "So the J D K unmounts it."
+  },
+  {
+   "cue": 44.23,
+   "start": 44.48,
+   "late": 0.26,
+   "tempo": 1.0,
+   "secs": 4.67,
+   "tries": 1,
+   "text": "It copies the frames into stack chunk objects on the heap, and the carrier is free again."
+  },
+  {
+   "cue": 50.23,
+   "start": 50.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.07,
+   "tries": 1,
+   "text": "The carrier does not wait for the network."
+  },
+  {
+   "cue": 52.62,
+   "start": 52.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.09,
+   "tries": 1,
+   "text": "It mounts the next ready virtual thread."
+  },
+  {
+   "cue": 55.1,
+   "start": 55.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.5,
+   "tries": 1,
+   "text": "VT two calls sleep, so it unmounts the same way, and carrier two picks up VT four."
+  },
+  {
+   "cue": 61.37,
+   "start": 61.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.52,
+   "tries": 1,
+   "text": "Meanwhile, the J D K has registered the socket of VT one with a poller."
+  },
+  {
+   "cue": 66.4,
+   "start": 66.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.17,
+   "tries": 1,
+   "text": "When data arrives, the poller unparks VT one, and it goes back into the ready queue."
+  },
+  {
+   "cue": 72.77,
+   "start": 72.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.06,
+   "tries": 1,
+   "text": "It waits its turn."
+  },
+  {
+   "cue": 74.27,
+   "start": 74.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.41,
+   "tries": 1,
+   "text": "VT four then waits for a ReentrantLock and unmounts, and carrier two mounts VT five."
+  },
+  {
+   "cue": 80.83,
+   "start": 80.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.69,
+   "tries": 1,
+   "text": "Then VT three finishes, and carrier one mounts VT six."
+  },
+  {
+   "cue": 85.17,
+   "start": 85.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.48,
+   "tries": 1,
+   "text": "VT five sends its reply and finishes."
+  },
+  {
+   "cue": 88.01,
+   "start": 88.01,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.1,
+   "tries": 1,
+   "text": "Now carrier two is free, and it mounts VT one."
+  },
+  {
+   "cue": 91.52,
+   "start": 91.52,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.52,
+   "tries": 1,
+   "text": "The J D K copies its top frames back, and VT one carries on after the read."
+  },
+  {
+   "cue": 97.67,
+   "start": 97.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.63,
+   "tries": 1,
+   "text": "VT one started on carrier one and now runs on carrier two."
+  },
+  {
+   "cue": 101.7,
+   "start": 101.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.96,
+   "tries": 1,
+   "text": "That is normal."
+  },
+  {
+   "cue": 102.87,
+   "start": 102.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.29,
+   "tries": 1,
+   "text": "A virtual thread can come back on any carrier."
+  },
+  {
+   "cue": 107.47,
+   "start": 107.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.7,
+   "tries": 1,
+   "text": "Your code never sees the switch."
+  },
+  {
+   "cue": 109.53,
+   "start": 109.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.04,
+   "tries": 1,
+   "text": "Thread.currentThread() returns the same virtual thread, before and after the read."
+  },
+  {
+   "cue": 115.03,
+   "start": 115.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.17,
+   "tries": 1,
+   "text": "The one place the carrier shows is toString."
+  },
+  {
+   "cue": 117.89,
+   "start": 117.89,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.92,
+   "tries": 1,
+   "text": "The part after the at sign names it."
+  },
+  {
+   "cue": 120.23,
+   "start": 120.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.65,
+   "tries": 1,
+   "text": "Use that for debugging only."
+  },
+  {
+   "cue": 122.05,
+   "start": 122.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.19,
+   "tries": 1,
+   "text": "The format is not specified anywhere."
+  },
+  {
+   "cue": 124.67,
+   "start": 124.67,
+   "late": 0.0,
+   "tempo": 1.058,
+   "secs": 3.5,
+   "tries": 1,
+   "text": "A parked virtual thread costs a little heap, not an O S thread."
+  },
+  {
+   "cue": 128.39,
+   "start": 128.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.76,
+   "tries": 1,
+   "text": "That is how two carriers can serve thousands of them."
+  }
+ ]
+}

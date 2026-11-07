@@ -1,0 +1,349 @@
+{
+ "slug": "rx01-contract",
+ "voice": "us-f",
+ "max_late": 0.6,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.8,
+   "tries": 1,
+   "text": "A payment service gets ten thousand events a second."
+  },
+  {
+   "cue": 5.95,
+   "start": 5.95,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.11,
+   "tries": 1,
+   "text": "Its ledger writer stores two thousand."
+  },
+  {
+   "cue": 8.53,
+   "start": 8.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.33,
+   "tries": 1,
+   "text": "With plain push, the producer hands over every event as soon as it exists."
+  },
+  {
+   "cue": 13.93,
+   "start": 13.93,
+   "late": 0.0,
+   "tempo": 1.009,
+   "secs": 4.32,
+   "tries": 1,
+   "text": "The rest wait in a queue with no limit, eight thousand more every second."
+  },
+  {
+   "cue": 18.36,
+   "start": 18.4,
+   "late": 0.04,
+   "tempo": 1.0,
+   "secs": 2.87,
+   "tries": 1,
+   "text": "Then the heap fills, and the service runs out of memory."
+  },
+  {
+   "cue": 22.57,
+   "start": 22.57,
+   "late": 0.0,
+   "tempo": 1.034,
+   "secs": 1.3,
+   "tries": 1,
+   "text": "Backpressure is the fix."
+  },
+  {
+   "cue": 24.1,
+   "start": 24.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.59,
+   "tries": 1,
+   "text": "The consumer says how much it can take, and the producer never sends more."
+  },
+  {
+   "cue": 29.53,
+   "start": 29.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.27,
+   "tries": 1,
+   "text": "Reactive Streams makes that a protocol: four interfaces, seven methods."
+  },
+  {
+   "cue": 34.67,
+   "start": 34.67,
+   "late": 0.0,
+   "tempo": 1.073,
+   "secs": 3.97,
+   "tries": 1,
+   "text": "Processor, the fourth, is a subscriber and a publisher in one."
+  },
+  {
+   "cue": 38.86,
+   "start": 38.86,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.97,
+   "tries": 1,
+   "text": "Every method returns void, so each call is a one-way message."
+  },
+  {
+   "cue": 43.8,
+   "start": 43.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.32,
+   "tries": 1,
+   "text": "Here is one subscription."
+  },
+  {
+   "cue": 45.39,
+   "start": 45.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.23,
+   "tries": 1,
+   "text": "The publisher already has five payments ready."
+  },
+  {
+   "cue": 48.53,
+   "start": 48.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.91,
+   "tries": 1,
+   "text": "The subscriber calls subscribe."
+  },
+  {
+   "cue": 50.87,
+   "start": 50.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.41,
+   "tries": 1,
+   "text": "The publisher answers with onSubscribe, and hands over a Subscription."
+  },
+  {
+   "cue": 55.34,
+   "start": 55.34,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.21,
+   "tries": 1,
+   "text": "The subscriber uses it to ask for items."
+  },
+  {
+   "cue": 58.1,
+   "start": 58.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.18,
+   "tries": 1,
+   "text": "Nothing flows yet."
+  },
+  {
+   "cue": 59.65,
+   "start": 59.65,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.25,
+   "tries": 1,
+   "text": "The demand is zero."
+  },
+  {
+   "cue": 61.5,
+   "start": 61.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.75,
+   "tries": 1,
+   "text": "The subscriber calls request two."
+  },
+  {
+   "cue": 63.63,
+   "start": 63.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.94,
+   "tries": 1,
+   "text": "Now the publisher may send two items, and no more."
+  },
+  {
+   "cue": 67.1,
+   "start": 67.1,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.01,
+   "tries": 1,
+   "text": "onNext, auth-one. onNext, auth-two."
+  },
+  {
+   "cue": 69.66,
+   "start": 70.26,
+   "late": 0.6,
+   "tempo": 1.0,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "Each one uses up one unit of demand."
+  },
+  {
+   "cue": 72.93,
+   "start": 72.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "Three payments are ready, and the publisher holds them."
+  },
+  {
+   "cue": 76.43,
+   "start": 76.43,
+   "late": 0.0,
+   "tempo": 1.023,
+   "secs": 1.11,
+   "tries": 1,
+   "text": "That is backpressure."
+  },
+  {
+   "cue": 77.77,
+   "start": 77.77,
+   "late": 0.0,
+   "tempo": 1.095,
+   "secs": 1.79,
+   "tries": 1,
+   "text": "The slow side sets the pace."
+  },
+  {
+   "cue": 79.77,
+   "start": 79.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.01,
+   "tries": 1,
+   "text": "The subscriber writes both to the ledger."
+  },
+  {
+   "cue": 82.27,
+   "start": 82.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.18,
+   "tries": 1,
+   "text": "Only then does it ask for two more."
+  },
+  {
+   "cue": 84.63,
+   "start": 84.63,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "auth-three and auth-four arrive."
+  },
+  {
+   "cue": 86.66,
+   "start": 87.13,
+   "late": 0.47,
+   "tempo": 1.0,
+   "secs": 1.51,
+   "tries": 1,
+   "text": "The demand is zero again."
+  },
+  {
+   "cue": 88.9,
+   "start": 88.9,
+   "late": 0.0,
+   "tempo": 1.116,
+   "secs": 2.79,
+   "tries": 1,
+   "text": "It asks for two again, but only auth-five is left."
+  },
+  {
+   "cue": 91.91,
+   "start": 91.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.08,
+   "tries": 1,
+   "text": "A publisher may send fewer than you asked for, then end the stream with onComplete."
+  },
+  {
+   "cue": 97.43,
+   "start": 97.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "After onComplete, nothing else arrives."
+  },
+  {
+   "cue": 99.87,
+   "start": 99.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.88,
+   "tries": 1,
+   "text": "A failure would end it the same way, with onError."
+  },
+  {
+   "cue": 103.9,
+   "start": 103.9,
+   "late": 0.0,
+   "tempo": 1.003,
+   "secs": 2.66,
+   "tries": 1,
+   "text": "So every subscriber sees one fixed order."
+  },
+  {
+   "cue": 106.7,
+   "start": 106.71,
+   "late": 0.01,
+   "tempo": 1.092,
+   "secs": 5.33,
+   "tries": 1,
+   "text": "One onSubscribe, any number of onNext, then at most one onError or onComplete."
+  },
+  {
+   "cue": 112.27,
+   "start": 112.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.22,
+   "tries": 1,
+   "text": "Rule one point one of the spec: a publisher never sends more onNext calls than were requested in total."
+  },
+  {
+   "cue": 119.6,
+   "start": 119.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.99,
+   "tries": 1,
+   "text": "Rule one point three: signals come one at a time, so a subscriber needs no locks for its own fields."
+  },
+  {
+   "cue": 126.63,
+   "start": 126.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.79,
+   "tries": 1,
+   "text": "And rule two point one three: a subscriber that wants to stop calls cancel."
+  },
+  {
+   "cue": 131.51,
+   "start": 131.51,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.05,
+   "tries": 1,
+   "text": "It never throws."
+  }
+ ]
+}

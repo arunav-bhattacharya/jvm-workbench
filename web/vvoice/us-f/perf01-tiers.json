@@ -1,0 +1,214 @@
+{
+ "slug": "perf01-tiers",
+ "voice": "us-f",
+ "max_late": 0.2,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.99,
+   "tries": 1,
+   "text": "java C and kotlinc don't produce machine code."
+  },
+  {
+   "cue": 5.95,
+   "start": 5.95,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.32,
+   "tries": 1,
+   "text": "They produce bytecode: small instructions for the J V M, which HotSpot turns into machine code while the program runs."
+  },
+  {
+   "cue": 14.53,
+   "start": 14.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.92,
+   "tries": 1,
+   "text": "This is the loop body of settle, which adds up a batch of payments."
+  },
+  {
+   "cue": 19.18,
+   "start": 19.18,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.16,
+   "tries": 1,
+   "text": "Bytecode twenty is the call to feeCents."
+  },
+  {
+   "cue": 21.68,
+   "start": 21.68,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "Bytecode thirty-one tests for a refund."
+  },
+  {
+   "cue": 24.0,
+   "start": 24.03,
+   "late": 0.03,
+   "tempo": 1.0,
+   "secs": 1.72,
+   "tries": 1,
+   "text": "Nothing is compiled at first."
+  },
+  {
+   "cue": 26.01,
+   "start": 26.01,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.99,
+   "tries": 1,
+   "text": "Every method starts in the interpreter, a loop inside the J V M that reads one bytecode instruction at a time and carries it out."
+  },
+  {
+   "cue": 35.0,
+   "start": 35.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.68,
+   "tries": 1,
+   "text": "Meanwhile the J V M counts the calls, and the jumps back to the top of each loop."
+  },
+  {
+   "cue": 41.3,
+   "start": 41.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.29,
+   "tries": 1,
+   "text": "At about two hundred, a compiler thread compiles the method with C one, in the background."
+  },
+  {
+   "cue": 47.05,
+   "start": 47.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.57,
+   "tries": 1,
+   "text": "C one is quick, and optimizes a little."
+  },
+  {
+   "cue": 49.9,
+   "start": 49.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.4,
+   "tries": 1,
+   "text": "Its code also records a profile: which way each branch went, and which receiver types reached each call."
+  },
+  {
+   "cue": 56.87,
+   "start": 56.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.46,
+   "tries": 1,
+   "text": "About five thousand calls later, C two compiles it again, slowly and hard, from that profile."
+  },
+  {
+   "cue": 62.83,
+   "start": 62.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.86,
+   "tries": 1,
+   "text": "The J V M raises these thresholds when the compile queues are long, so treat them as orders of magnitude."
+  },
+  {
+   "cue": 70.83,
+   "start": 70.83,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.37,
+   "tries": 1,
+   "text": "C two bets on the profile."
+  },
+  {
+   "cue": 72.39,
+   "start": 72.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.11,
+   "tries": 1,
+   "text": "Every receiver was a Card, so it inlines Card's feeCents behind a cheap class check."
+  },
+  {
+   "cue": 78.09,
+   "start": 78.09,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.02,
+   "tries": 1,
+   "text": "The refund branch never ran, so C two leaves it out, and puts an uncommon trap there."
+  },
+  {
+   "cue": 83.8,
+   "start": 83.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.24,
+   "tries": 1,
+   "text": "Then a refund arrives."
+  },
+  {
+   "cue": 85.34,
+   "start": 85.34,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "The trap fires, and the J V M deoptimizes."
+  },
+  {
+   "cue": 88.15,
+   "start": 88.35,
+   "late": 0.2,
+   "tempo": 1.0,
+   "secs": 4.66,
+   "tries": 1,
+   "text": "It rebuilds an interpreter frame from the compiled one, and carries on there."
+  },
+  {
+   "cue": 93.77,
+   "start": 93.77,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "The C two code is made not entrant."
+  },
+  {
+   "cue": 95.96,
+   "start": 96.11,
+   "late": 0.15,
+   "tempo": 1.0,
+   "secs": 4.18,
+   "tries": 1,
+   "text": "The method profiles again, now with refunds, and gets compiled again."
+  },
+  {
+   "cue": 100.87,
+   "start": 100.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.39,
+   "tries": 1,
+   "text": "A burst of this after a deploy is normal."
+  },
+  {
+   "cue": 103.57,
+   "start": 103.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.46,
+   "tries": 1,
+   "text": "A steady stream, hours after startup, is worth a look."
+  }
+ ]
+}
