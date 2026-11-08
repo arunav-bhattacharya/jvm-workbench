@@ -649,9 +649,9 @@
     const pick = st[qi];
     const answered = pick !== undefined;
     const src = q.from && L[q.from] ? `<span class="tag from">From: ${esc(L[q.from].title)}</span>` : "";
-    return `<div class="qcard" id="q-${esc(key)}-${qi}">
-      <div class="qn">${opt.num ? `<span class="label">Q${qi + 1}</span>` : ""}${src}${opt.lessonTag || ""}</div>
-      <div class="q prose" style="max-width:none">${q.q}</div>
+    const tags = src + (opt.lessonTag || "");
+    return `<div class="qcard ${opt.num ? "numbered" : ""}" id="q-${esc(key)}-${qi}">
+      <div class="qhead">${opt.num ? `<span class="qno" aria-label="Question ${qi + 1}">${qi + 1}</span>` : ""}<div class="q prose" style="max-width:none">${q.q}${tags ? `<span class="qtags">${tags}</span>` : ""}</div></div>
       <div class="opts" role="radiogroup" aria-label="Answers">${q.options.map((o, k) => {
         const cls = answered ? (k === q.answer ? "right" : k === pick ? "wrong" : "fade") : "";
         const state = answered ? (k === q.answer ? (k === pick ? ", your answer, right" : ", the right answer") : k === pick ? ", your answer, wrong" : "") : "";

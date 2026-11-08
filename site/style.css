@@ -370,14 +370,19 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
 .hint .label { color: var(--amber); margin-right: 8px; }
 
 /* quiz */
-.quiz { display: grid; gap: 18px; }
-.qcard { border: 1px solid var(--rule); border-radius: 16px; padding: 18px 20px; display: grid; gap: 12px; background: var(--panel); }
+.quiz { display: grid; gap: 14px; }
+.qcard { border: 1px solid var(--rule); border-radius: 14px; padding: 15px 18px 9px; display: grid; gap: 6px; background: var(--panel); }
 .qcard .qn { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.qcard .q { font-size: 19px; font-weight: 600; }
+/* the number sits in the ring column, so the question lines up with the answers below it */
+.qhead { display: grid; grid-template-columns: minmax(0, 1fr); }
+.qcard.numbered .qhead { grid-template-columns: 20px minmax(0, 1fr); column-gap: 16px; padding-left: 6px; align-items: baseline; }
+.qno { font: 400 24px/1 var(--display); color: var(--ember); text-align: center; font-variant-numeric: tabular-nums; }
+.qtags { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: 8px; vertical-align: 2px; }
+.qcard .q { font-size: 19px; line-height: 1.45; font-weight: 600; }
 .qcard .q pre { font-weight: 400; }
 .opts { display: grid; gap: 0; margin-top: 2px; }
 /* options are rows in one column: a ring, the text, a hairline between rows (no boxes) */
-.opt { position: relative; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 16px; align-items: center; text-align: left; border: 0; border-top: 1px solid color-mix(in srgb, var(--rule) 75%, transparent); background: none; border-radius: 0; padding: 12px 6px; cursor: pointer; font: 17.5px/1.45 var(--read); color: var(--fg); transition: background-color .15s, color .15s; }
+.opt { position: relative; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 16px; align-items: center; text-align: left; border: 0; border-top: 1px solid color-mix(in srgb, var(--rule) 75%, transparent); background: none; border-radius: 0; padding: 9px 6px; cursor: pointer; font: 17.5px/1.45 var(--read); color: var(--fg); transition: background-color .15s, color .15s; }
 .opt:first-child { border-top: 0; }
 .opt .ring { position: relative; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--faint) 70%, var(--ink)); transition: border-color .15s, background-color .15s; }
 .opt:hover:not([disabled]) { background: linear-gradient(90deg, var(--soft), transparent 75%); }
@@ -393,7 +398,7 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
 .opt.fade { color: var(--faint); }
 .opt.fade .ring { border-color: color-mix(in srgb, var(--faint) 40%, var(--ink)); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.why { font-size: 17px; color: var(--mute); border-top: 1px solid color-mix(in srgb, var(--rule) 75%, transparent); padding-top: 14px; margin-top: 2px; }
+.why { font-size: 17px; color: var(--mute); border-top: 1px solid color-mix(in srgb, var(--rule) 75%, transparent); padding: 10px 0 6px; }
 .why b { color: var(--fg); }
 .tag { font: 600 12px var(--body); border-radius: 999px; padding: 3px 10px; color: var(--mute); background: var(--tint); border: 0; }
 .tag.from { background: var(--soft); color: var(--ember); }
