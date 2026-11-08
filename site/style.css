@@ -375,16 +375,25 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
 .qcard .qn { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .qcard .q { font-size: 19px; font-weight: 600; }
 .qcard .q pre { font-weight: 400; }
-.opts { display: grid; gap: 8px; }
-.opt { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 12px; align-items: baseline; text-align: left; border: 1px solid var(--rule); background: transparent; border-radius: 10px; padding: 11px 12px; cursor: pointer; font: 17.5px/1.45 var(--read); color: var(--fg); }
-.opt:hover:not([disabled]) { border-color: var(--mute); }
+.opts { display: grid; gap: 0; margin-top: 2px; }
+/* options are rows in one column: a ring, the text, a hairline between rows (no boxes) */
+.opt { position: relative; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 16px; align-items: center; text-align: left; border: 0; border-top: 1px solid color-mix(in srgb, var(--rule) 75%, transparent); background: none; border-radius: 0; padding: 12px 6px; cursor: pointer; font: 17.5px/1.45 var(--read); color: var(--fg); transition: background-color .15s, color .15s; }
+.opt:first-child { border-top: 0; }
+.opt .ring { position: relative; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--faint) 70%, var(--ink)); transition: border-color .15s, background-color .15s; }
+.opt:hover:not([disabled]) { background: linear-gradient(90deg, var(--soft), transparent 75%); }
+.opt:hover:not([disabled]) .ring { border-color: var(--fg); }
+.opt:focus-visible { outline: none; background: linear-gradient(90deg, var(--soft), transparent 75%); }
+.opt:focus-visible .ring { border-color: var(--ember); box-shadow: 0 0 0 3px var(--soft); }
 .opt[disabled] { cursor: default; }
-.opt .key { font: 500 13px var(--mono); color: var(--mute); }
-.opt.right { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 8%, transparent); }
-.opt.right .key { color: var(--ok); }
-.opt.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 7%, transparent); }
-.opt.wrong .key { color: var(--bad); }
-.why { font-size: 17px; color: var(--mute); border-top: 1px dashed var(--rule); padding-top: 10px; }
+.opt.right .ring { border-color: var(--ok); background: var(--ok); }
+.opt.right .ring::after { content: ""; position: absolute; left: 6px; top: 2.5px; width: 5px; height: 9px; border: solid var(--panel); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.opt.wrong { color: var(--bad); }
+.opt.wrong .ring { border-color: var(--bad); }
+.opt.wrong .ring::after { content: ""; position: absolute; inset: 3.5px; border-radius: 50%; background: var(--bad); }
+.opt.fade { color: var(--faint); }
+.opt.fade .ring { border-color: color-mix(in srgb, var(--faint) 40%, var(--ink)); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.why { font-size: 17px; color: var(--mute); border-top: 1px solid color-mix(in srgb, var(--rule) 75%, transparent); padding-top: 14px; margin-top: 2px; }
 .why b { color: var(--fg); }
 .tag { font: 600 12px var(--body); border-radius: 999px; padding: 3px 10px; color: var(--mute); background: var(--tint); border: 0; }
 .tag.from { background: var(--soft); color: var(--ember); }

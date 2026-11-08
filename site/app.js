@@ -652,11 +652,12 @@
     return `<div class="qcard" id="q-${esc(key)}-${qi}">
       <div class="qn">${opt.num ? `<span class="label">Q${qi + 1}</span>` : ""}${src}${opt.lessonTag || ""}</div>
       <div class="q prose" style="max-width:none">${q.q}</div>
-      <div class="opts" role="group">${q.options.map((o, k) => {
-        const cls = answered ? (k === q.answer ? "right" : k === pick ? "wrong" : "") : "";
-        return `<button class="opt ${cls}" data-act="answer" data-key="${esc(key)}" data-qi="${qi}" data-k="${k}" ${answered ? "disabled" : ""}><span class="key">${"ABCD"[k]}</span><span>${o}</span></button>`;
+      <div class="opts" role="radiogroup" aria-label="Answers">${q.options.map((o, k) => {
+        const cls = answered ? (k === q.answer ? "right" : k === pick ? "wrong" : "fade") : "";
+        const state = answered ? (k === q.answer ? (k === pick ? ", your answer, right" : ", the right answer") : k === pick ? ", your answer, wrong" : "") : "";
+        return `<button class="opt ${cls}" role="radio" aria-checked="${k === pick}" data-act="answer" data-key="${esc(key)}" data-qi="${qi}" data-k="${k}" ${answered ? "disabled" : ""}><span class="ring" aria-hidden="true"></span><span class="ot">${o}<span class="sr">${state}</span></span></button>`;
       }).join("")}</div>
-      ${answered ? `<div class="why"><b>${pick === q.answer ? (opt.warm ? "Good guess." : "Right.") : opt.warm ? `Not quite. The answer is ${"ABCD"[q.answer]}.` : `Not this one. The answer is ${"ABCD"[q.answer]}.`}</b> ${q.why}${opt.warm ? " Keep it in mind as you read." : ""}</div>` : ""}
+      ${answered ? `<div class="why"><b>${pick === q.answer ? (opt.warm ? "Good guess." : "Right.") : opt.warm ? "Not quite. The right answer is marked." : "Not this one. The right answer is marked."}</b> ${q.why}${opt.warm ? " Keep it in mind as you read." : ""}</div>` : ""}
     </div>`;
   }
   function quizBlock(qs, key, kind) {
@@ -795,8 +796,8 @@
     if (d.kind === "mcq") {
       const answered = rs.pick !== undefined;
       return `<div class="rv">${meta}<div class="qcard"><span class="label">A question you missed before</span><div class="q prose" style="max-width:none">${d.q.q}</div>
-        <div class="opts">${d.q.options.map((o, k) => `<button class="opt ${answered ? (k === d.q.answer ? "right" : k === rs.pick ? "wrong" : "") : ""}" data-act="rv-pick" data-k="${k}" ${answered ? "disabled" : ""}><span class="key">${"ABCD"[k]}</span><span>${o}</span></button>`).join("")}</div>
-        ${answered ? `<div class="why"><b>${rs.pick === d.q.answer ? "Right." : `The answer is ${"ABCD"[d.q.answer]}.`}</b> ${d.q.why}</div>` : ""}</div>
+        <div class="opts" role="radiogroup" aria-label="Answers">${d.q.options.map((o, k) => `<button class="opt ${answered ? (k === d.q.answer ? "right" : k === rs.pick ? "wrong" : "fade") : ""}" role="radio" aria-checked="${k === rs.pick}" data-act="rv-pick" data-k="${k}" ${answered ? "disabled" : ""}><span class="ring" aria-hidden="true"></span><span class="ot">${o}${answered && k === d.q.answer ? '<span class="sr">, the right answer</span>' : ""}</span></button>`).join("")}</div>
+        ${answered ? `<div class="why"><b>${rs.pick === d.q.answer ? "Right." : "Not this one. The right answer is marked."}</b> ${d.q.why}</div>` : ""}</div>
         ${answered ? `<div class="row"><button class="btn" data-act="rv-grade" data-g="${rs.pick === d.q.answer ? 3 : 1}">Next card</button></div>` : ""}</div>`;
     }
     const opts = [1, 2, 3, 4].map((g) => schedule(c, g, id, true).ivl);

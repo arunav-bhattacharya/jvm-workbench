@@ -227,7 +227,7 @@ L = {
     "Each lookup gets a new platform thread, with no upper limit"
    ],
    "answer": 3,
-   "why": "With 2 CPUs the common pool's parallelism is 1, and before JDK 25 `CompletableFuture` didn't use the common pool when its parallelism was below 2. It created a thread per task instead. Option A is what JDK 25 does with the same code. Neither is acceptable for blocking work: pass an executor."
+   "why": "With 2 CPUs the common pool's parallelism is 1, and before JDK 25 `CompletableFuture` didn't use the common pool when its parallelism was below 2. It created a thread per task instead. The first option is what JDK 25 does with the same code. Neither is acceptable for blocking work: pass an executor."
   },
   {
    "q": "From \"Sizing a pool\": a checkout runs the price call (100 ms) and the FX call (100 ms) side by side on `io`, and you get 200 checkouts a second. How many `io` threads are busy on average?",
