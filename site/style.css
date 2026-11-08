@@ -518,3 +518,17 @@ figure.vid figcaption b { font: normal 600 12px/1 "Inter", system-ui, sans-serif
   .gsearch:focus-within .gs-ic { position: fixed; top: 17px; left: 24px; z-index: 62; }
   .gres { position: fixed; top: 52px; left: 12px; right: 12px; width: auto; }
 }
+
+/* "On this page" can be hidden; the lesson then takes the space */
+.toc-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.toc-x { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--faint); cursor: pointer; }
+.toc-x:hover { color: var(--fg); border-color: var(--rule); background: var(--panel); }
+.toc-open { display: none; }
+@media (min-width: 1280px) {
+  .lgrid.toc-off { grid-template-columns: minmax(0, 1fr) 40px; gap: 20px; }
+  .lgrid.toc-off .toc { display: none; }
+  .lgrid.toc-off > article { max-width: 1060px; --read-w: 860px; }
+  .lgrid.toc-off .toc-open { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--top) + 26px); align-self: start; display: inline-flex; flex-direction: column; align-items: center; gap: 10px; width: 40px; padding: 12px 0; border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); color: var(--mute); cursor: pointer; font: 500 12px/1 "Inter", system-ui, sans-serif; }
+  .lgrid.toc-off .toc-open span { writing-mode: vertical-rl; letter-spacing: .06em; }
+  .lgrid.toc-off .toc-open:hover { color: var(--fg); border-color: var(--ember); }
+}

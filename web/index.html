@@ -528,6 +528,20 @@ figure.vid figcaption b { font: normal 600 12px/1 "Inter", system-ui, sans-serif
   .gsearch:focus-within .gs-ic { position: fixed; top: 17px; left: 24px; z-index: 62; }
   .gres { position: fixed; top: 52px; left: 12px; right: 12px; width: auto; }
 }
+
+/* "On this page" can be hidden; the lesson then takes the space */
+.toc-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.toc-x { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--faint); cursor: pointer; }
+.toc-x:hover { color: var(--fg); border-color: var(--rule); background: var(--panel); }
+.toc-open { display: none; }
+@media (min-width: 1280px) {
+  .lgrid.toc-off { grid-template-columns: minmax(0, 1fr) 40px; gap: 20px; }
+  .lgrid.toc-off .toc { display: none; }
+  .lgrid.toc-off > article { max-width: 1060px; --read-w: 860px; }
+  .lgrid.toc-off .toc-open { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--top) + 26px); align-self: start; display: inline-flex; flex-direction: column; align-items: center; gap: 10px; width: 40px; padding: 12px 0; border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); color: var(--mute); cursor: pointer; font: 500 12px/1 "Inter", system-ui, sans-serif; }
+  .lgrid.toc-off .toc-open span { writing-mode: vertical-rl; letter-spacing: .06em; }
+  .lgrid.toc-off .toc-open:hover { color: var(--fg); border-color: var(--ember); }
+}
 </style>
 <script>try{var t=JSON.parse(localStorage.getItem("jvmwb-v1")||"{}").theme;if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head>
@@ -684,6 +698,8 @@ figure.vid figcaption b { font: normal 600 12px/1 "Inter", system-ui, sans-serif
     catch (e) { toast("Copy is blocked here. Select the text and copy it by hand."); }
   }
   const icon = {
+    toc: '<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5h13M3.5 10h13M3.5 15h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    collapse: '<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     search: '<svg width="17" height="17" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12.6 12.6 17 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
     video: '<svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><rect x="1.5" y="4.5" width="12" height="11" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M13.5 8.6 18.5 6v8l-5-2.6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
     menu: '<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
@@ -1064,7 +1080,7 @@ figure.vid figcaption b { font: normal 600 12px/1 "Inter", system-ui, sans-serif
     }
     const done = isDone(l.id);
     const toc = [];
-    let h = `<div class="lgrid"><article>
+    let h = `<div class="lgrid ${S.tocHide ? "toc-off" : ""}"><article>
       <header class="lhead">${crumb}<h1>${esc(l.title)}</h1><p class="goal">${l.goal}</p>
         <div class="donebar">${done ? `<span class="done-pill">■ Done</span><button class="btn ghost sm" data-act="undone" data-id="${l.id}">Mark not done</button>` : `<button class="btn ghost sm" data-act="done" data-id="${l.id}">Mark lesson done</button>`}
         <button class="btn ghost sm" data-act="timer">Start a 35-minute session</button></div>
@@ -1140,7 +1156,8 @@ figure.vid figcaption b { font: normal 600 12px/1 "Inter", system-ui, sans-serif
     h += `<section class="block"><div class="score"><div><span class="label">Finished?</span><div style="font:400 24px var(--display)">${done ? "This lesson is done." : "Tick it off. The plan moves with you."}</div></div>
       ${done ? `<button class="btn ghost" data-act="undone" data-id="${l.id}">Mark not done</button>` : `<button class="btn" data-act="done" data-id="${l.id}">Mark lesson done</button>`}</div></section>`;
     h += pager(prev, next) + `</article>
-      <aside class="toc" aria-label="On this page"><span class="label">On this page</span><ul>${toc.map(([id, label, n]) => `<li data-toc="${id}"><button data-act="scroll" data-id="${id}">${n ? `<span class="label" style="margin-right:6px">${n}</span>` : ""}${label}</button></li>`).join("")}</ul></aside></div>`;
+      <button class="toc-open" data-act="toc-toggle" aria-label="Show the contents of this page" title="Show contents">${icon.toc}<span>Contents</span></button>
+      <aside class="toc" aria-label="On this page"><div class="toc-h"><span class="label">On this page</span><button class="toc-x" data-act="toc-toggle" aria-label="Hide the contents and widen the lesson" title="Hide contents">${icon.collapse}</button></div><ul>${toc.map(([id, label, n]) => `<li data-toc="${id}"><button data-act="scroll" data-id="${id}">${n ? `<span class="label" style="margin-right:6px">${n}</span>` : ""}${label}</button></li>`).join("")}</ul></aside></div>`;
     return h;
   }
   // the web build ships lesson bodies as separate files (lessons/<id>.json); the preview inlines them
@@ -1498,6 +1515,12 @@ figure.vid figcaption b { font: normal 600 12px/1 "Inter", system-ui, sans-serif
       case "menu": if (isDesk()) deskOpen = !deskOpen; else mobileOpen = !mobileOpen; render(true); break;
       case "close-menu": mobileOpen = false; render(true); break;
       case "theme": S.theme = effectiveTheme() === "dark" ? "light" : "dark"; document.documentElement.setAttribute("data-theme", S.theme); save(); render(true); break;
+      case "toc-toggle": {
+        S.tocHide = !S.tocHide; save();
+        const g = $(".lgrid"); if (g) g.classList.toggle("toc-off", !!S.tocHide);
+        const f = $(S.tocHide ? ".toc-open" : ".toc-x"); if (f) f.focus({ preventScroll: true });
+        break;
+      }
       case "toggle-part": { const open = a.getAttribute("aria-expanded") === "true"; S.open["part-" + id] = !open; save(); sidebar(route()); break; }
       case "toggle-track": { const el = a.closest(".trk"); const open = a.getAttribute("aria-expanded") === "true"; S.open[id] = !open; save(); sidebar(route()); void el; break; }
       case "done": setDone(id, true); break;

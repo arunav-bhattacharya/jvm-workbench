@@ -148,6 +148,8 @@
     catch (e) { toast("Copy is blocked here. Select the text and copy it by hand."); }
   }
   const icon = {
+    toc: '<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5h13M3.5 10h13M3.5 15h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    collapse: '<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     search: '<svg width="17" height="17" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12.6 12.6 17 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
     video: '<svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><rect x="1.5" y="4.5" width="12" height="11" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M13.5 8.6 18.5 6v8l-5-2.6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
     menu: '<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
@@ -528,7 +530,7 @@
     }
     const done = isDone(l.id);
     const toc = [];
-    let h = `<div class="lgrid"><article>
+    let h = `<div class="lgrid ${S.tocHide ? "toc-off" : ""}"><article>
       <header class="lhead">${crumb}<h1>${esc(l.title)}</h1><p class="goal">${l.goal}</p>
         <div class="donebar">${done ? `<span class="done-pill">■ Done</span><button class="btn ghost sm" data-act="undone" data-id="${l.id}">Mark not done</button>` : `<button class="btn ghost sm" data-act="done" data-id="${l.id}">Mark lesson done</button>`}
         <button class="btn ghost sm" data-act="timer">Start a 35-minute session</button></div>
@@ -604,7 +606,8 @@
     h += `<section class="block"><div class="score"><div><span class="label">Finished?</span><div style="font:400 24px var(--display)">${done ? "This lesson is done." : "Tick it off. The plan moves with you."}</div></div>
       ${done ? `<button class="btn ghost" data-act="undone" data-id="${l.id}">Mark not done</button>` : `<button class="btn" data-act="done" data-id="${l.id}">Mark lesson done</button>`}</div></section>`;
     h += pager(prev, next) + `</article>
-      <aside class="toc" aria-label="On this page"><span class="label">On this page</span><ul>${toc.map(([id, label, n]) => `<li data-toc="${id}"><button data-act="scroll" data-id="${id}">${n ? `<span class="label" style="margin-right:6px">${n}</span>` : ""}${label}</button></li>`).join("")}</ul></aside></div>`;
+      <button class="toc-open" data-act="toc-toggle" aria-label="Show the contents of this page" title="Show contents">${icon.toc}<span>Contents</span></button>
+      <aside class="toc" aria-label="On this page"><div class="toc-h"><span class="label">On this page</span><button class="toc-x" data-act="toc-toggle" aria-label="Hide the contents and widen the lesson" title="Hide contents">${icon.collapse}</button></div><ul>${toc.map(([id, label, n]) => `<li data-toc="${id}"><button data-act="scroll" data-id="${id}">${n ? `<span class="label" style="margin-right:6px">${n}</span>` : ""}${label}</button></li>`).join("")}</ul></aside></div>`;
     return h;
   }
   // the web build ships lesson bodies as separate files (lessons/<id>.json); the preview inlines them
@@ -962,6 +965,12 @@
       case "menu": if (isDesk()) deskOpen = !deskOpen; else mobileOpen = !mobileOpen; render(true); break;
       case "close-menu": mobileOpen = false; render(true); break;
       case "theme": S.theme = effectiveTheme() === "dark" ? "light" : "dark"; document.documentElement.setAttribute("data-theme", S.theme); save(); render(true); break;
+      case "toc-toggle": {
+        S.tocHide = !S.tocHide; save();
+        const g = $(".lgrid"); if (g) g.classList.toggle("toc-off", !!S.tocHide);
+        const f = $(S.tocHide ? ".toc-open" : ".toc-x"); if (f) f.focus({ preventScroll: true });
+        break;
+      }
       case "toggle-part": { const open = a.getAttribute("aria-expanded") === "true"; S.open["part-" + id] = !open; save(); sidebar(route()); break; }
       case "toggle-track": { const el = a.closest(".trk"); const open = a.getAttribute("aria-expanded") === "true"; S.open[id] = !open; save(); sidebar(route()); void el; break; }
       case "done": setDone(id, true); break;
