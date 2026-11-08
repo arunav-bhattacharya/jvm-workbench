@@ -177,6 +177,7 @@ def compile_course():
                     for si, v in vids.get(ref["id"], {}).items():
                         if si < len(out["lessons"][ref["id"]]["sections"]):
                             out["lessons"][ref["id"]]["sections"][si]["video"] = v
+                    out["lessons"][ref["id"]]["vid"] = sum(1 for sec in out["lessons"][ref["id"]]["sections"] if sec.get("video"))
                     continue
                 except Exception as e:
                     print(f"warning: {ref['id']} failed to compile: {e}", file=sys.stderr)
@@ -236,7 +237,73 @@ def page(course, mode):
             + "</body>\n</html>\n")
 
 
-CORE = {"id", "track", "n", "title", "ready", "minutes", "goal", "quiz", "cards", "terms"}
+CORE = {"id", "track", "n", "title", "ready", "minutes", "goal", "quiz", "cards", "terms", "vid"}
+
+
+SKIP_KEYS = {"svg", "src", "url", "poster", "vtt", "voices", "sim", "secs", "lang", "answer", "from", "id", "track", "n", "ready", "minutes"}
+
+
+def plain(x):
+    """Every bit of readable text inside a compiled lesson part, without tags, for the search index."""
+    import html as H
+    out = []
+    def walk(v):
+        if isinstance(v, str):
+            out.append(v)
+        elif isinstance(v, dict):
+            for k, w in v.items():
+                if k not in SKIP_KEYS:
+                    walk(w)
+        elif isinstance(v, list):
+            for w in v:
+                walk(w)
+    walk(x)
+    t = " ".join(out)
+    t = re.sub(r"<svg.*?</svg>", " ", t, flags=re.S)
+    t = re.sub(r"<button.*?</button>", " ", t, flags=re.S)     # the Java / Kotlin / Both switch
+    t = re.sub(r"</?(span|b|i|em|strong|code|a|mark|sub|sup)\b[^>]*>", "", t)   # inline tags: no space, so code reads as written
+    t = re.sub(r"<[^>]+>", " ", t)
+    return " ".join(H.unescape(t).split())
+
+
+def search_index(course):
+    """One entry per place a reader can land: a lesson section, a lesson block, a track page part.
+    r = route, a = anchor id on that page, k = kind, h = heading, x = text."""
+    idx = []
+    def add(r, a, k, h, x, v=0):
+        x = plain(x)
+        if x or h:
+            idx.append({"r": r, "a": a, "k": k, "h": plain(h), "x": x, **({"v": 1} if v else {})})
+    for t in course["tracks"]:
+        tr = f"track-{t['id']}"
+        add(tr, "", "Track", t["title"], [t["short"], t["intro"], t["recap"]])
+        if t["cheatsheet"]:
+            add(tr, "", "Cheat sheet", t["title"] + ": cheat sheet", t["cheatsheet"])
+        if t["quiz"]:
+            add(tr, "", "Track quiz", t["title"] + ": track quiz", t["quiz"])
+        for lid in t["lessons"]:
+            L = course["lessons"][lid]
+            if not L["ready"]:
+                continue
+            secs = L["sections"]
+            for i, sec in enumerate(secs):
+                extra = []
+                if i == 0: extra.append(L["analogy"])
+                if i == min(1, len(secs) - 1): extra.append(L["world"])
+                if i == len(secs) - 1: extra.append(L["mistake"])
+                vid = sec.get("video")
+                add(lid, f"s{i}", "Lesson", f"{L['title']} · {sec['h']}",
+                    [vid["title"] if vid else "", sec["html"], sec.get("try"), sec.get("figure"), sec.get("refs"), extra], v=bool(vid))
+            for key, a, k, label in [("compare", "compare", "Java and Kotlin", "Java and Kotlin"), ("worked", "worked", "Worked example", "Worked example"),
+                                     ("lab", "lab", "Lab", "Lab"), ("drill", "drill", "Drill", "From memory"), ("quiz", "quiz", "Quiz", "Quiz"),
+                                     ("explain", "explain", "Explain it back", "Explain it back"), ("terms", "terms", "Key terms", "Key terms"),
+                                     ("deeper", "deeper", "Go deeper", "Go deeper")]:
+                part = L.get(key)
+                if key == "terms":
+                    part = [L.get("terms"), L.get("cards")]
+                if part:
+                    add(lid, a, k, f"{L['title']} · {label}", [part, L.get("goal") if key == "lab" else ""])
+    return idx
 
 
 def split(course):
@@ -273,6 +340,7 @@ def main():
     for lid, b in bodies.items():
         (les / f"{lid}.json").write_text(json.dumps(b, ensure_ascii=False, separators=(",", ":")))
     (WEB / "index.html").write_text(page(core, "web"))
+    (WEB / "search.json").write_text(json.dumps(search_index(course), ensure_ascii=False, separators=(",", ":")))
     (ROOT / "build").mkdir(exist_ok=True)
     (ROOT / "build/preview.html").write_text(page(course, "preview"))
     print(f"{ready}/{len(course['lessons'])} lessons ready; web/index.html {round((WEB / 'index.html').stat().st_size / 1024)} KB")

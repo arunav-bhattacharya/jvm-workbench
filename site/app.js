@@ -148,12 +148,15 @@
     catch (e) { toast("Copy is blocked here. Select the text and copy it by hand."); }
   }
   const icon = {
+    search: '<svg width="17" height="17" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12.6 12.6 17 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    video: '<svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><rect x="1.5" y="4.5" width="12" height="11" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M13.5 8.6 18.5 6v8l-5-2.6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
     menu: '<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
     sun: '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 1.8v2.2M10 16v2.2M1.8 10H4M16 10h2.2M4.2 4.2l1.6 1.6M14.2 14.2l1.6 1.6M4.2 15.8l1.6-1.6M14.2 5.8l1.6-1.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
     moon: '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 12.4A7 7 0 0 1 7.6 3.5a7 7 0 1 0 8.9 8.9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
     timer: '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 7.5V11l2.4 1.6M8 2.2h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
   };
   const brandMark = '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">' + [0, 1, 2].map((r) => ["var(--ember)", "color-mix(in srgb, var(--ember) 65%, var(--ink))", "color-mix(in srgb, var(--ember) 35%, var(--ink))"].map((c, k) => `<circle cx="${4 + k * 7}" cy="${4 + r * 7}" r="${r === 1 && k === 1 ? 2.1 : 1.35}" fill="${c}"/>`).join("")).join("") + '<circle cx="11" cy="11" r="6" fill="none" stroke="var(--ember)" stroke-opacity=".7" stroke-width=".9"/></svg>';
+  const vbadge = (id) => (L[id] && L[id].vid ? `<span class="vbadge" title="${L[id].vid === 1 ? "Has a video" : `Has ${L[id].vid} videos`}" aria-label="has a video">${icon.video}</span>` : "");
   const cells = (ids, big) => `<span class="draft" aria-hidden="true">${ids.map((id) => `<i class="cell${big ? " lg" : ""} ${cellState(id)}"></i>`).join("")}</span>`;
   function codeBox(c, title) {
     if (!c) return "";
@@ -188,6 +191,9 @@
       <button class="iconbtn" data-act="menu" aria-label="Show or hide contents">${icon.menu}</button>
       <button class="brand" data-go="home" aria-label="JVM Workbench home">${brandMark}<b>JVM <i>Workbench</i></b></button>
       <span class="spacer"></span>
+      <div class="gsearch" id="gsearch-box"><span class="gs-ic">${icon.search}</span>
+        <input id="gsearch" type="search" autocomplete="off" spellcheck="false" placeholder="Search everything" aria-label="Search lessons, labs, quizzes, cheat sheets and terms" aria-controls="gres" aria-expanded="false">
+        <kbd class="gs-k hide-sm">/</kbd><div class="gres" id="gres" role="listbox" hidden></div></div>
       <button class="chip ${due ? "" : "quiet"}" data-go="review" title="Spaced review"><span class="dot"></span><span class="tnum">${due}</span><span class="hide-sm">&nbsp;due</span></button>
       <button class="iconbtn" data-act="timer" aria-label="Focus timer" title="35-minute focus timer">${icon.timer}</button>
       <button class="switch" data-act="theme" role="switch" aria-checked="${effectiveTheme() === "dark"}" aria-label="Dark mode" title="Dark mode"><span class="tr"></span><span class="kn"></span></button>
@@ -296,13 +302,95 @@
       h += `<div class="trk"><button data-act="toggle-track" data-id="${t.id}" aria-expanded="${open}">
           <span class="tn">${pad(t.idx)}</span><span class="tt">${esc(t.title)}</span><span></span>${cells(t.lessons)}</button>
         ${open ? `<ul><li><button data-go="track-${t.id}" class="${cur === "track-" + t.id ? "on" : ""}"><span class="cell" style="visibility:hidden"></span>Track overview</button></li>
-          ${shown.map((id) => `<li><button data-go="${id}" class="${cur === id ? "on" : ""}"><i class="cell ${cellState(id)}"></i><span>${esc(L[id].title)}</span></button></li>`).join("")}</ul>` : ""}
+          ${shown.map((id) => `<li><button data-go="${id}" class="${cur === id ? "on" : ""}"><i class="cell ${cellState(id)}"></i><span>${esc(L[id].title)}${vbadge(id)}</span></button></li>`).join("")}</ul>` : ""}
       </div>`;
     }
     h += `<p class="label" style="padding:18px 20px 0;line-height:1.6">Progress is saved in this browser. Move it between devices from Plan and progress.</p>`;
     $("#side").innerHTML = h;
   }
   let filterText = "";
+
+  /* ---------------- search across everything ---------------- */
+  let IDX = null, idxLoading = null, gsel = 0, gres = [];
+  const loadIndex = () => idxLoading || (idxLoading = fetch("search.json").then((r) => r.json()).then((d) => { IDX = d; d.forEach((e) => { e.lh = e.h.toLowerCase(); e.lx = e.x.toLowerCase(); }); return d; }).catch(() => { IDX = []; }));
+  const KIND_W = { Lesson: 6, Track: 5, "Cheat sheet": 4, Lab: 3, "Worked example": 3, "Java and Kotlin": 3, "Key terms": 4, Quiz: 1, "Track quiz": 1, Drill: 2, "Go deeper": 2, "Explain it back": 1 };
+  const reEsc = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  function mark(text, words) {
+    let h = esc(text);
+    words.slice().sort((x, y) => y.length - x.length).forEach((w) => { h = h.replace(new RegExp(`(${reEsc(esc(w))})`, "gi"), "\u0001$1\u0002"); });
+    return h.replace(/\u0001/g, "<mark>").replace(/\u0002/g, "</mark>");
+  }
+  function searchAll(q) {
+    const ql = q.toLowerCase().trim(), words = ql.split(/\s+/).filter(Boolean);
+    if (!words.length || !IDX) return [];
+    const out = [];
+    for (const e of IDX) {
+      if (!words.every((w) => e.lh.includes(w) || e.lx.includes(w))) continue;
+      let sc = KIND_W[e.k] || 1;
+      words.forEach((w) => { if (e.lh.includes(w)) sc += 12; sc += Math.min(6, e.lx.split(w).length - 1); });
+      if (words.length > 1 && (e.lh.includes(ql) || e.lx.includes(ql))) sc += 20;
+      if (e.lh.includes(ql)) sc += 15;
+      out.push([sc, e]);
+    }
+    return out.sort((x, y) => y[0] - x[0]).slice(0, 40).map((x) => x[1]);
+  }
+  function snippet(e, words) {
+    const ql = words.join(" ");
+    let at = e.lx.indexOf(ql); if (at < 0) at = Math.min(...words.map((w) => e.lx.indexOf(w)).filter((i) => i >= 0).concat([0]));
+    const from = Math.max(0, at - 60), text = e.x.slice(from, from + 190);
+    return (from > 0 ? "… " : "") + mark(text, words) + (from + 190 < e.x.length ? " …" : "");
+  }
+  function gsRender() {
+    const box = $("#gres"), inp = $("#gsearch"); if (!box || !inp) return;
+    const q = inp.value.trim();
+    if (!q) { box.hidden = true; inp.setAttribute("aria-expanded", "false"); return; }
+    box.hidden = false; inp.setAttribute("aria-expanded", "true");
+    if (!IDX) { box.innerHTML = `<div class="gs-empty">Loading the search index…</div>`; return; }
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    gres = searchAll(q); gsel = Math.min(gsel, Math.max(0, gres.length - 1));
+    box.innerHTML = gres.length ? `<div class="gs-count">${gres.length === 40 ? "Top 40" : gres.length} result${gres.length === 1 ? "" : "s"} · ↑↓ to move, Enter to open</div>` + gres.map((e, i) => {
+      const tr = L[e.r] ? T[L[e.r].track] : T[e.r.replace(/^track-/, "")];
+      const where = L[e.r] ? `${wdShort(e.r)} · ${tr ? esc(tr.title) : ""}` : (tr ? trackTag(tr) : "");
+      return `<button class="gs-item ${i === gsel ? "on" : ""}" role="option" aria-selected="${i === gsel}" data-gs="${i}">
+        <span class="gs-meta"><span class="gs-kind">${esc(e.k)}</span>${e.v ? `<span class="vbadge">${icon.video}</span>` : ""}<span class="gs-where">${where}</span></span>
+        <span class="gs-h">${mark(e.h, words)}</span>${e.x ? `<span class="gs-x">${snippet(e, words)}</span>` : ""}</button>`;
+    }).join("") : `<div class="gs-empty">Nothing matches “${esc(q)}”. Try fewer or shorter words.</div>`;
+    const on = box.querySelector(".gs-item.on"); if (on) on.scrollIntoView({ block: "nearest" });
+  }
+  let pendingAnchor = null;
+  function gsOpen(i) {
+    const e = gres[i]; if (!e) return;
+    pendingAnchor = e.a || null;
+    const inp = $("#gsearch"); if (inp) { inp.value = ""; inp.blur(); }
+    mobileOpen = false;
+    go(e.r);
+  }
+  function jumpPending() {
+    if (!pendingAnchor) return;
+    const el = document.getElementById(pendingAnchor);
+    if (!el) return;  // the lesson body is still loading; the next render tries again
+    pendingAnchor = null;
+    requestAnimationFrame(() => { el.scrollIntoView({ block: "start" }); el.classList.add("gs-flash"); setTimeout(() => el.classList.remove("gs-flash"), 1600); });
+  }
+  document.addEventListener("input", (ev) => { if (ev.target.id === "gsearch") { gsel = 0; if (!IDX) loadIndex().then(gsRender); gsRender(); } });
+  document.addEventListener("focusin", (ev) => { if (ev.target.id === "gsearch") { loadIndex(); if (ev.target.value) gsRender(); } });
+  document.addEventListener("keydown", (ev) => {
+    const inp = $("#gsearch");
+    if (ev.target === inp) {
+      if (ev.key === "ArrowDown") { ev.preventDefault(); gsel = Math.min(gsel + 1, gres.length - 1); gsRender(); }
+      else if (ev.key === "ArrowUp") { ev.preventDefault(); gsel = Math.max(gsel - 1, 0); gsRender(); }
+      else if (ev.key === "Enter") { ev.preventDefault(); gsOpen(gsel); }
+      else if (ev.key === "Escape") { inp.value = ""; gsRender(); inp.blur(); }
+      return;
+    }
+    if (ev.target.closest && ev.target.closest("input,textarea,select,[contenteditable]")) return;
+    if ((ev.key === "/" && !ev.metaKey && !ev.ctrlKey) || (ev.key.toLowerCase() === "k" && (ev.metaKey || ev.ctrlKey))) { ev.preventDefault(); if (inp) inp.focus(); }
+  });
+  document.addEventListener("mousedown", (ev) => {
+    const it = ev.target.closest && ev.target.closest("[data-gs]");
+    if (it) { ev.preventDefault(); gsOpen(+it.dataset.gs); return; }
+    if (!ev.target.closest || !ev.target.closest("#gsearch-box")) { const box = $("#gres"); if (box) box.hidden = true; }
+  });
 
   /* ---------------- router ---------------- */
   const route = () => (location.hash.slice(1) || "home");
@@ -327,6 +415,7 @@
     page.classList.toggle("is-lesson", !!L[cur]);
     $$(".sim[data-sim]").forEach((el) => simRender(el));
     liveVids = $$("figure.vid").map(wireVideo);
+    jumpPending();
     timerRender();
     if (L[cur]) watchToc();
     if (keepScroll) scrollTo(0, y);
@@ -348,7 +437,7 @@
     const started = doneCount() > 0;
     return `
     <section class="hero">
-      <div class="row" style="justify-content:space-between"><span class="label">${ORDER.length} lessons · 8 tracks · about 35 minutes a day</span><span class="label">${totalWeeks()} weeks at ${pace()} days a week</span></div>
+      <div class="row" style="justify-content:space-between"><span class="label">${ORDER.length} lessons · ${C.tracks.length} tracks${PARTS.length ? ` in ${PARTS.length} parts` : ""} · about 35 minutes a day</span><span class="label">${totalWeeks()} weeks at ${pace()} days a week</span></div>
       <h1>JVM <i>Workbench</i></h1>
       <p>${esc(C.tagline)} Every lesson ends with real code to write and tests that tell you when it works.</p>
       <div class="plate-wrap">${weekPlate()}</div>
@@ -449,7 +538,7 @@
       h += `<section class="block" id="warmup" style="margin-top:0;margin-bottom:40px"><span class="label">Before you read · guess, no score</span>${mcqCard(l.warmup, "w:" + l.id, 0, { warm: true })}</section>`;
     }
     l.sections.forEach((s, si) => {
-      toc.push([`s${si}`, s.h, pad(si + 1)]);
+      toc.push([`s${si}`, s.h + (s.video ? `<span class="vbadge" title="Has a video">${icon.video}</span>` : ""), pad(si + 1)]);
       h += `<section class="lsec" id="s${si}"><div class="shead"><span class="sn">${pad(si + 1)}</span><h2>${s.h}</h2></div>
         ${s.video ? videoFig(s.video) : ""}
         <div class="prose">${s.html}</div>
@@ -676,7 +765,7 @@
       <h1>${esc(t.title)}</h1><p class="goal">${esc(t.short)}</p>${cells(t.lessons, true)}</header>
       ${t.intro ? `<div class="prose" style="margin-bottom:34px">${t.intro}</div>` : ""}
       <section class="block" style="margin-top:0"><span class="label">Lessons</span><div class="plan-list">
-        ${t.lessons.map((id) => { const l = L[id]; return `<div class="pr"><span class="d">${wdShort(id)}</span><i class="cell ${cellState(id)}"></i><button data-go="${id}">${esc(l.title)}${l.ready ? "" : ' <span class="label">being written</span>'}</button><span class="label">${S.quiz[id] != null ? `quiz ${S.quiz[id]}/5` : ""}</span></div>`; }).join("")}
+        ${t.lessons.map((id) => { const l = L[id]; return `<div class="pr"><span class="d">${wdShort(id)}</span><i class="cell ${cellState(id)}"></i><button data-go="${id}">${esc(l.title)}${vbadge(id)}${l.ready ? "" : ' <span class="label">being written</span>'}</button><span class="label">${S.quiz[id] != null ? `quiz ${S.quiz[id]}/5` : ""}</span></div>`; }).join("")}
       </div></section>
       ${t.cheatsheet ? `<section class="block"><span class="label">Cheat sheet</span><h2>The track on one page</h2><div class="prose" style="max-width:none">${t.cheatsheet}</div></section>` : ""}
       ${t.recap.length ? `<section class="block"><div class="recap"><span class="label">Remember from this track</span><ul class="prose" style="max-width:none">${t.recap.map((r) => `<li>${r}</li>`).join("")}</ul></div></section>` : ""}
