@@ -1,0 +1,340 @@
+{
+ "slug": "gen07-star",
+ "voice": "us-f",
+ "max_late": 0.07,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.23,
+   "tries": 1,
+   "text": "A logging helper has to take every list."
+  },
+  {
+   "cue": 5.37,
+   "start": 5.37,
+   "late": 0.0,
+   "tempo": 1.061,
+   "secs": 1.24,
+   "tries": 1,
+   "text": "A list of payment ids."
+  },
+  {
+   "cue": 6.83,
+   "start": 6.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.58,
+   "tries": 1,
+   "text": "A list of amounts in cents."
+  },
+  {
+   "cue": 8.63,
+   "start": 8.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.07,
+   "tries": 1,
+   "text": "It never needs to know the element type."
+  },
+  {
+   "cue": 11.53,
+   "start": 11.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.59,
+   "tries": 1,
+   "text": "Kotlin says that with a star projection: logAll takes a List of star, and both lists fit."
+  },
+  {
+   "cue": 17.6,
+   "start": 17.6,
+   "late": 0.0,
+   "tempo": 1.014,
+   "secs": 4.14,
+   "tries": 1,
+   "text": "Read List of star as a list of one specific type, and you don't know which."
+  },
+  {
+   "cue": 21.96,
+   "start": 21.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.42,
+   "tries": 1,
+   "text": "Here star points at the list of ids, but the compiler only knows it is a list of something."
+  },
+  {
+   "cue": 27.63,
+   "start": 27.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.75,
+   "tries": 3,
+   "text": "It could be the list of ints."
+  },
+  {
+   "cue": 29.63,
+   "start": 29.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.9,
+   "tries": 1,
+   "text": "Reading is safe."
+  },
+  {
+   "cue": 30.75,
+   "start": 30.75,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.42,
+   "tries": 1,
+   "text": "Whatever the list holds, each element comes out typed as nullable Any, which fits anything."
+  },
+  {
+   "cue": 37.23,
+   "start": 37.23,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.17,
+   "tries": 1,
+   "text": "Writing is not safe."
+  },
+  {
+   "cue": 38.56,
+   "start": 38.56,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.14,
+   "tries": 1,
+   "text": "star might be the list of ints, so no String may go in."
+  },
+  {
+   "cue": 42.9,
+   "start": 42.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.67,
+   "tries": 1,
+   "text": "Kotlin doesn't even let null in, because the unknown type might be non-nullable."
+  },
+  {
+   "cue": 48.5,
+   "start": 48.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.49,
+   "tries": 1,
+   "text": "Everything that doesn't take an element still works: size, isEmpty, removeAt and clear."
+  },
+  {
+   "cue": 54.4,
+   "start": 54.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.13,
+   "tries": 1,
+   "text": "So a function that empties any buffer can take a MutableList of star."
+  },
+  {
+   "cue": 59.53,
+   "start": 59.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.63,
+   "tries": 1,
+   "text": "Java writes the same idea as List of question mark, the unbounded wildcard."
+  },
+  {
+   "cue": 64.36,
+   "start": 64.36,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.18,
+   "tries": 1,
+   "text": "Each element comes out as an Object."
+  },
+  {
+   "cue": 67.4,
+   "start": 67.4,
+   "late": 0.0,
+   "tempo": 1.012,
+   "secs": 2.43,
+   "tries": 1,
+   "text": "A String can't go in on either side."
+  },
+  {
+   "cue": 70.06,
+   "start": 70.06,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.66,
+   "tries": 1,
+   "text": "Java is more relaxed about null: add(null) compiles on a List of question mark, because every Java reference type allows null."
+  },
+  {
+   "cue": 79.1,
+   "start": 79.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.62,
+   "tries": 1,
+   "text": "What the star stands for depends on the declaration."
+  },
+  {
+   "cue": 82.16,
+   "start": 82.16,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.89,
+   "tries": 1,
+   "text": "Take Source, declared out T, with the bound Number."
+  },
+  {
+   "cue": 85.33,
+   "start": 85.33,
+   "late": 0.0,
+   "tempo": 1.025,
+   "secs": 4.12,
+   "tries": 1,
+   "text": "A Source of star might be a Source of Int, or a Source of BigDecimal."
+  },
+  {
+   "cue": 89.67,
+   "start": 89.67,
+   "late": 0.0,
+   "tempo": 1.034,
+   "secs": 2.56,
+   "tries": 1,
+   "text": "Whichever it is, next returns some Number."
+  },
+  {
+   "cue": 92.46,
+   "start": 92.46,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.38,
+   "tries": 1,
+   "text": "So reads keep the bound: Source of star means Source of out Number."
+  },
+  {
+   "cue": 97.23,
+   "start": 97.23,
+   "late": 0.0,
+   "tempo": 1.056,
+   "secs": 1.86,
+   "tries": 1,
+   "text": "Now take Sink, declared in T."
+  },
+  {
+   "cue": 99.31,
+   "start": 99.31,
+   "late": 0.0,
+   "tempo": 1.002,
+   "secs": 4.45,
+   "tries": 1,
+   "text": "A Sink of star might be a Sink of String, or a Sink of CardAuthorized."
+  },
+  {
+   "cue": 103.9,
+   "start": 103.91,
+   "late": 0.01,
+   "tempo": 1.15,
+   "secs": 1.94,
+   "tries": 1,
+   "text": "A String fits only the first."
+  },
+  {
+   "cue": 105.93,
+   "start": 106.0,
+   "late": 0.07,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "A card authorization fits only the second."
+  },
+  {
+   "cue": 109.07,
+   "start": 109.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.54,
+   "tries": 1,
+   "text": "No value is accepted by every one of them, so the compiler allows none."
+  },
+  {
+   "cue": 113.82,
+   "start": 113.82,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.95,
+   "tries": 1,
+   "text": "Nothing is Kotlin's name for a type with no values."
+  },
+  {
+   "cue": 117.23,
+   "start": 117.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "Sink of star means Sink of in Nothing."
+  },
+  {
+   "cue": 120.1,
+   "start": 120.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.96,
+   "tries": 1,
+   "text": "So a star is shorthand for the safest projection the declaration allows."
+  },
+  {
+   "cue": 125.03,
+   "start": 125.03,
+   "late": 0.0,
+   "tempo": 1.021,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "An invariant Box gets both rules."
+  },
+  {
+   "cue": 127.48,
+   "start": 127.48,
+   "late": 0.0,
+   "tempo": 1.115,
+   "secs": 4.46,
+   "tries": 1,
+   "text": "A Box of star reads as Box of out nullable Any, and writes as Box of in Nothing."
+  },
+  {
+   "cue": 132.16,
+   "start": 132.16,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.44,
+   "tries": 1,
+   "text": "Assign to its item, and the compiler names the type it wanted: Nothing."
+  },
+  {
+   "cue": 138.23,
+   "start": 138.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.65,
+   "tries": 1,
+   "text": "Java's question mark follows the same rules: the bound survives it, and a String can't go into a Sink of question mark."
+  },
+  {
+   "cue": 145.84,
+   "start": 145.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.42,
+   "tries": 1,
+   "text": "Only null gets through, and only in Java."
+  }
+ ]
+}

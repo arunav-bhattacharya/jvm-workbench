@@ -1,0 +1,268 @@
+{
+ "slug": "boot03-closed-world",
+ "voice": "us-f",
+ "max_late": 0.15,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.26,
+   "tries": 1,
+   "text": "A J V M with the A O T cache still maps classes, links, interprets, and waits for the jit."
+  },
+  {
+   "cue": 10.16,
+   "start": 10.16,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 5.03,
+   "tries": 1,
+   "text": "In Quarkus's benchmark, its first request took one thousand eight hundred fifty-nine ms."
+  },
+  {
+   "cue": 15.2,
+   "start": 15.35,
+   "late": 0.15,
+   "tempo": 1.0,
+   "secs": 5.0,
+   "tries": 1,
+   "text": "A native image answered in five hundred eighty-one ms, because it did that work in the build."
+  },
+  {
+   "cue": 22.03,
+   "start": 22.03,
+   "late": 0.0,
+   "tempo": 1.062,
+   "secs": 2.18,
+   "tries": 1,
+   "text": "The native-image builder starts at main."
+  },
+  {
+   "cue": 24.43,
+   "start": 24.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.58,
+   "tries": 1,
+   "text": "It follows every method call and field access it can see, and works out which classes can show up at each call."
+  },
+  {
+   "cue": 31.27,
+   "start": 31.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.9,
+   "tries": 1,
+   "text": "Code it never reaches is left out, and so are the J D K classes nothing uses."
+  },
+  {
+   "cue": 39.0,
+   "start": 39.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.52,
+   "tries": 1,
+   "text": "It runs static initializers where it can, and saves their objects in the image heap."
+  },
+  {
+   "cue": 44.17,
+   "start": 44.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.79,
+   "tries": 1,
+   "text": "Then it compiles every reachable method to machine code."
+  },
+  {
+   "cue": 47.8,
+   "start": 47.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.63,
+   "tries": 1,
+   "text": "The binary needs no class loading, no bytecode verification, no interpreter and no jit."
+  },
+  {
+   "cue": 53.69,
+   "start": 53.69,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.28,
+   "tries": 1,
+   "text": "This is the closed-world assumption: everything the program will run is known at build time."
+  },
+  {
+   "cue": 60.7,
+   "start": 60.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.85,
+   "tries": 1,
+   "text": "The price is what the analysis can't see: reflection, proxies, resources loaded by name, JNI and serialization."
+  },
+  {
+   "cue": 69.97,
+   "start": 69.97,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.17,
+   "tries": 1,
+   "text": "Constants are fine."
+  },
+  {
+   "cue": 71.21,
+   "start": 71.29,
+   "late": 0.08,
+   "tempo": 1.0,
+   "secs": 4.08,
+   "tries": 1,
+   "text": "Class.forName with a literal name just works, because the build can read it."
+  },
+  {
+   "cue": 76.4,
+   "start": 76.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.71,
+   "tries": 1,
+   "text": "But this decoder takes the class name from a Kafka message header."
+  },
+  {
+   "cue": 80.34,
+   "start": 80.34,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.24,
+   "tries": 1,
+   "text": "The build can't know it."
+  },
+  {
+   "cue": 83.07,
+   "start": 83.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.44,
+   "tries": 1,
+   "text": "On the J V M, Class.forName finds PaymentAuthorized on the class path and loads it."
+  },
+  {
+   "cue": 89.53,
+   "start": 89.53,
+   "late": 0.0,
+   "tempo": 1.048,
+   "secs": 2.18,
+   "tries": 1,
+   "text": "The native binary can't load classes."
+  },
+  {
+   "cue": 91.93,
+   "start": 91.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.42,
+   "tries": 1,
+   "text": "Nobody told the build about PaymentAuthorized, so the call throws MissingReflectionRegistrationError."
+  },
+  {
+   "cue": 98.47,
+   "start": 98.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.91,
+   "tries": 1,
+   "text": "It's an Error: don't catch it."
+  },
+  {
+   "cue": 101.3,
+   "start": 101.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.79,
+   "tries": 1,
+   "text": "You tell the build in reachability-metadata.json, on the class path."
+  },
+  {
+   "cue": 105.94,
+   "start": 105.94,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.85,
+   "tries": 1,
+   "text": "An entry names the type and the members your code uses."
+  },
+  {
+   "cue": 109.9,
+   "start": 109.9,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.79,
+   "tries": 1,
+   "text": "A constructor is called init."
+  },
+  {
+   "cue": 111.82,
+   "start": 111.84,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 4.95,
+   "tries": 1,
+   "text": "Parameter types are fully qualified, and every method lists them, even when there are none."
+  },
+  {
+   "cue": 117.67,
+   "start": 117.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.84,
+   "tries": 1,
+   "text": "The condition turns the entry on only once EventDecoder is reached."
+  },
+  {
+   "cue": 123.6,
+   "start": 123.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.33,
+   "tries": 1,
+   "text": "Now PaymentAuthorized decodes as it did on the J V M."
+  },
+  {
+   "cue": 127.44,
+   "start": 127.44,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.95,
+   "tries": 1,
+   "text": "RefundIssued isn't listed, so it still fails."
+  },
+  {
+   "cue": 131.03,
+   "start": 131.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "In a Quarkus app you rarely write this file."
+  },
+  {
+   "cue": 133.92,
+   "start": 133.92,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.29,
+   "tries": 1,
+   "text": "Extensions know what their libraries reflect on, and Quarkus generates the jay-son."
+  },
+  {
+   "cue": 139.17,
+   "start": 139.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.13,
+   "tries": 1,
+   "text": "For classes only your code knows about, you add RegisterForReflection."
+  }
+ ]
+}
