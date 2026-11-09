@@ -1,0 +1,129 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.980
+A started JVM is still cold.
+
+2
+00:00:04.980 --> 00:00:10.841
+A fresh JVM ran the same 20,000 card-number checks, ten rounds in a row.
+
+3
+00:00:11.033 --> 00:00:13.522
+Round one took about 29 ms.
+
+4
+00:00:13.522 --> 00:00:17.669
+From round six on, each round took 2 to 3 ms.
+
+5
+00:00:17.669 --> 00:00:19.789
+The code didn't change.
+
+6
+00:00:19.789 --> 00:00:20.895
+The JVM did.
+
+7
+00:00:21.667 --> 00:00:27.098
+A fresh JVM starts in the interpreter and counts how often each method runs.
+
+8
+00:00:27.098 --> 00:00:30.456
+When a method gets hot, C1 compiles it quickly.
+
+9
+00:00:30.456 --> 00:00:34.529
+If it stays hot, C2 compiles it again, using the profile.
+
+10
+00:00:35.300 --> 00:00:36.948
+That climb is warm-up.
+
+11
+00:00:36.948 --> 00:00:43.164
+Every new JVM makes it again, on every pod, after every deploy and every scale-out.
+
+12
+00:00:43.967 --> 00:00:48.265
+CRaC, Coordinated Restore at Checkpoint, takes a different route.
+
+13
+00:00:48.265 --> 00:00:51.439
+A checkpoint writes a warm, running JVM to disk.
+
+14
+00:00:51.439 --> 00:00:54.547
+A restore starts a new process from that image.
+
+15
+00:00:54.733 --> 00:00:56.592
+On Linux, CRaC uses CRIU.
+
+16
+00:00:56.592 --> 00:01:06.629
+It freezes the process and writes its memory pages, each thread's CPU registers, and the kernel state it can describe into image files.
+
+17
+00:01:06.833 --> 00:01:11.682
+The restored process continues at the instruction where the old one stopped.
+
+18
+00:01:11.682 --> 00:01:16.148
+The heap, the loaded classes and the JIT's compiled code are all back.
+
+19
+00:01:16.933 --> 00:01:20.056
+You start the JVM with a checkpoint directory.
+
+20
+00:01:20.056 --> 00:01:24.536
+After warm-up traffic, jcmd writes the image and ends the process.
+
+21
+00:01:24.536 --> 00:01:27.727
+Then you restore from it, as often as you like.
+
+22
+00:01:28.500 --> 00:01:40.603
+In the CRaC project's 2020 tests, Spring Boot's first operation took 3,898 ms after a normal start, and 38 ms restored.
+
+23
+00:01:41.433 --> 00:01:43.524
+But some state can't be saved.
+
+24
+00:01:43.524 --> 00:01:50.215
+A TCP connection also lives on the other machine, and the card issuer dropped its side long ago.
+
+25
+00:01:50.400 --> 00:01:55.384
+So by default, CRaC fails the checkpoint while files or sockets are open.
+
+26
+00:01:55.384 --> 00:01:56.749
+Close them yourself.
+
+27
+00:01:57.533 --> 00:02:00.794
+Your code takes part through org.crac's Resource.
+
+28
+00:02:00.794 --> 00:02:04.587
+The ledger pool registers itself with the global context.
+
+29
+00:02:04.767 --> 00:02:08.884
+Before the checkpoint, beforeCheckpoint closes every connection.
+
+30
+00:02:08.884 --> 00:02:11.521
+After a restore, afterRestore reconnects.
+
+31
+00:02:12.333 --> 00:02:17.278
+The context calls beforeCheckpoint newest first, and afterRestore oldest first.
+
+32
+00:02:17.278 --> 00:02:22.160
+The Kafka consumer writes through the pool, so it stops first and starts last.
