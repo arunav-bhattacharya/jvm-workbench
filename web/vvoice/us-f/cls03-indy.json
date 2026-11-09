@@ -1,0 +1,277 @@
+{
+ "slug": "cls03-indy",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "Here is one lambda, in Java and in Kotlin."
+  },
+  {
+   "cue": 5.42,
+   "start": 5.42,
+   "late": 0.0,
+   "tempo": 1.06,
+   "secs": 1.92,
+   "tries": 1,
+   "text": "It captures fee and adds it to x."
+  },
+  {
+   "cue": 7.57,
+   "start": 7.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.88,
+   "tries": 1,
+   "text": "You get an object that implements an interface, yet the compiler writes no class file for it."
+  },
+  {
+   "cue": 13.8,
+   "start": 13.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 8.57,
+   "tries": 1,
+   "text": "java C turns the lambda into two things: an invokedynamic instruction where the lambda was, and a private static method that holds its body."
+  },
+  {
+   "cue": 23.47,
+   "start": 23.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.05,
+   "tries": 1,
+   "text": "The body method takes the captured fee first, then the lambda's own x."
+  },
+  {
+   "cue": 27.93,
+   "start": 27.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.06,
+   "tries": 1,
+   "text": "Read the call site type as a factory."
+  },
+  {
+   "cue": 30.24,
+   "start": 30.24,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.72,
+   "tries": 1,
+   "text": "Give it the captured int, and it gives you an IntUnaryOperator."
+  },
+  {
+   "cue": 34.37,
+   "start": 34.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.52,
+   "tries": 1,
+   "text": "Other invoke instructions name the method they call."
+  },
+  {
+   "cue": 37.84,
+   "start": 37.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.68,
+   "tries": 1,
+   "text": "invokedynamic names only a name, a type, and a bootstrap method that will choose the target."
+  },
+  {
+   "cue": 43.97,
+   "start": 43.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.43,
+   "tries": 1,
+   "text": "For a lambda, that is LambdaMetafactory, with three static arguments."
+  },
+  {
+   "cue": 49.4,
+   "start": 49.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.96,
+   "tries": 1,
+   "text": "The first time the instruction runs, the J V M calls the bootstrap method."
+  },
+  {
+   "cue": 54.05,
+   "start": 54.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.52,
+   "tries": 1,
+   "text": "It passes a Lookup, which carries your class's access rights, plus the name, the type and the static arguments."
+  },
+  {
+   "cue": 61.4,
+   "start": 61.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.99,
+   "tries": 1,
+   "text": "LambdaMetafactory spins a hidden class that implements IntUnaryOperator."
+  },
+  {
+   "cue": 66.08,
+   "start": 66.08,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.38,
+   "tries": 1,
+   "text": "It's a nestmate of your class, so it may call the private body method."
+  },
+  {
+   "cue": 70.83,
+   "start": 70.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.24,
+   "tries": 1,
+   "text": "It returns a ConstantCallSite holding a method handle, a typed reference to a method that the J V M can call directly."
+  },
+  {
+   "cue": 79.29,
+   "start": 79.29,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.15,
+   "tries": 1,
+   "text": "The J V M links the instruction to it."
+  },
+  {
+   "cue": 82.1,
+   "start": 82.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.37,
+   "tries": 1,
+   "text": "Every later run calls that target directly, and the bootstrap method never runs again."
+  },
+  {
+   "cue": 87.14,
+   "start": 87.14,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.71,
+   "tries": 1,
+   "text": "The target can't change, so the jit can inline straight through it."
+  },
+  {
+   "cue": 91.87,
+   "start": 91.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.74,
+   "tries": 1,
+   "text": "This lambda captures fee, so each time the expression runs you get a new small object."
+  },
+  {
+   "cue": 97.31,
+   "start": 97.31,
+   "late": 0.0,
+   "tempo": 1.124,
+   "secs": 1.56,
+   "tries": 1,
+   "text": "All of them share one class."
+  },
+  {
+   "cue": 99.08,
+   "start": 99.08,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.05,
+   "tries": 1,
+   "text": "A lambda that captures nothing gets one shared instance."
+  },
+  {
+   "cue": 103.43,
+   "start": 103.43,
+   "late": 0.0,
+   "tempo": 1.019,
+   "secs": 4.5,
+   "tries": 1,
+   "text": "Kotlin compiles a lambda the same way, by default since Kotlin two point zero."
+  },
+  {
+   "cue": 108.16,
+   "start": 108.16,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.92,
+   "tries": 1,
+   "text": "Its interface is Functionone, whose invoke is erased to Object."
+  },
+  {
+   "cue": 112.46,
+   "start": 112.46,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.09,
+   "tries": 1,
+   "text": "So the third bootstrap argument tells the metafactory to insert boxing and casts."
+  },
+  {
+   "cue": 118.37,
+   "start": 118.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "A Kotlin function reference is different."
+  },
+  {
+   "cue": 121.05,
+   "start": 121.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.85,
+   "tries": 1,
+   "text": "In the lesson's demo it still compiled to an ordinary generated class."
+  },
+  {
+   "cue": 126.47,
+   "start": 126.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.94,
+   "tries": 1,
+   "text": "Here is a check."
+  },
+  {
+   "cue": 127.66,
+   "start": 127.66,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.53,
+   "tries": 1,
+   "text": "plus is called one thousand times with one thousand different fees."
+  },
+  {
+   "cue": 131.61,
+   "start": 131.61,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "How many lambda classes, and how many objects?"
+  },
+  {
+   "cue": 135.8,
+   "start": 135.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.34,
+   "tries": 1,
+   "text": "One class, linked once at that call site, and one thousand objects, because each one captures its own fee."
+  }
+ ]
+}
