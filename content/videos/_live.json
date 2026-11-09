@@ -8,9 +8,12 @@
     "co05-cancel",
     "co07-cold",
     "conc03-race",
+    "conc05-wait-loop",
     "conc06-deadlock",
+    "conc08-cas-loop",
     "dop03-exhaustive",
     "exec02-pool-rules",
+    "exec06-compose",
     "gen03-invariance",
     "gen04-out",
     "gen05-in",
@@ -32,6 +35,7 @@
     "perf04-false-sharing",
     "rx01-contract",
     "rx03-flatmap",
-    "vt02-carriers"
+    "vt02-carriers",
+    "vt04-pinning"
   ]
 }

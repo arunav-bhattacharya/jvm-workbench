@@ -109,29 +109,29 @@ Each one parks and unmounts too.
 Now the carriers are free, and they run VT 5 and 6.
 
 28
-00:01:46.900 --> 00:01:53.045
+00:01:46.900 --> 00:01:52.779
 When the rate arrives, VT 1 mounts again on a free carrier, stores the rate and unlocks.
 
 29
-00:01:53.045 --> 00:01:54.721
-Then VT 2 gets the lock.
+00:01:52.779 --> 00:01:56.855
+Then VT 2 gets the lock, and mounts on the last free carrier.
 
 30
-00:01:55.733 --> 00:01:58.378
+00:01:58.667 --> 00:02:01.312
 JDK 24 fixed this with JEP 491.
 
 31
-00:01:58.378 --> 00:02:10.922
+00:02:01.312 --> 00:02:13.855
 A virtual thread can now take, hold and release a monitor independently of its carrier, so synchronized and Object.wait unmount like ReentrantLock.
 
 32
-00:02:10.922 --> 00:02:14.761
+00:02:13.855 --> 00:02:17.695
 JDK 25 is the first LTS release with the fix.
 
 33
-00:02:14.967 --> 00:02:19.474
+00:02:17.900 --> 00:02:22.407
 So on JDK 25, leave working synchronized code alone.
 
 34
-00:02:19.474 --> 00:02:24.068
+00:02:22.407 --> 00:02:27.001
 On JDK 21, put a ReentrantLock around blocking calls.

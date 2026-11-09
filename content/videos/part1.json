@@ -5,6 +5,10 @@
     {"slug": "jmm01-stop-loop", "lesson": "jmm-01", "section": 2, "title": "Why the stop loop spins: the caches agree, the store buffer drains, the JIT keeps stop in a register"},
     {"slug": "jmm02-volatile-edge", "lesson": "jmm-02", "section": 1, "title": "A volatile write and a read of the same field make a happens-before edge; a different field makes none"},
     {"slug": "exec02-pool-rules", "lesson": "exec-02", "section": 0, "title": "Seven tasks through the four rules of ThreadPoolExecutor, then an unbounded queue that makes max useless"},
-    {"slug": "vt02-carriers", "lesson": "vt-02", "section": 1, "title": "Virtual threads mount on carriers, unmount at a blocking call, and come back on any carrier"}
+    {"slug": "vt02-carriers", "lesson": "vt-02", "section": 1, "title": "Virtual threads mount on carriers, unmount at a blocking call, and come back on any carrier"},
+    {"slug": "conc05-wait-loop", "lesson": "conc-05", "section": 1, "title": "Two consumers, one payment: notifyAll wakes both, so a woken thread must check again in a while loop"},
+    {"slug": "conc08-cas-loop", "lesson": "conc-08", "section": 1, "title": "Two threads read 41, one compare-and-set wins, the other fails, reads 42 and retries"},
+    {"slug": "exec06-compose", "lesson": "exec-06", "section": 1, "title": "thenApply maps, thenCompose flattens a future of a future, thenCombine waits for two futures started side by side"},
+    {"slug": "vt04-pinning", "lesson": "vt-04", "section": 0, "title": "On JDK 21 to 23 a virtual thread pinned inside synchronized blocks its carrier; with ReentrantLock it unmounts"}
   ]
 }
