@@ -9,6 +9,8 @@
     {"slug": "pat11-breaker", "lesson": "pat-11", "section": 3, "title": "A circuit breaker's three states live in one AtomicReference, and compare-and-set picks the single probe"},
     {"slug": "kt01-inline", "lesson": "kt-01", "section": 0, "title": "Kotlin's inline pastes the function body and its lambda into the caller: no Function0, no interface call, no unboxing"},
     {"slug": "kt03-delegated", "lesson": "kt-03", "section": 1, "title": "A delegated property is a hidden delegate field plus a getter and setter that call getValue and setValue"},
-    {"slug": "cap3-tour", "lesson": "cap3-01", "section": 0, "title": "A tour of the event library: a sealed model behind one parsing edge, a typed bus, and an API for Kotlin and Java"}
+    {"slug": "cap3-tour", "lesson": "cap3-01", "section": 0, "title": "A tour of the event library: a sealed model behind one parsing edge, a typed bus, and an API for Kotlin and Java"},
+    {"slug": "kt02-value-class", "lesson": "kt-02", "section": 0, "title": "A value class is its own type to the compiler and a plain long at run time, boxed whenever it is used as another type"},
+    {"slug": "gen07-star", "lesson": "gen-07", "section": 0, "title": "List<*> is a list of one type you don't know: reads give Any?, nothing goes in, and the star follows the declared variance"}
   ]
 }

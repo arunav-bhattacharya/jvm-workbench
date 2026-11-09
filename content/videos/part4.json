@@ -12,6 +12,8 @@
     {"slug": "cls03-indy", "lesson": "cls-03", "section": 0, "title": "A lambda is a body method plus an invokedynamic that LambdaMetafactory links once"},
     {"slug": "perf06-flame-graph", "lesson": "perf-06", "section": 2, "title": "Reading a flame graph: counted stacks where width is samples, left to right is the alphabet, and the tops are where the CPU was"},
     {"slug": "mem01-object-layout", "lesson": "mem-01", "section": 1, "title": "The 40 bytes of a Payment: a 12-byte header, fields in the JVM's order, padding to 8, and 4-byte compressed references"},
-    {"slug": "cap4-tour", "lesson": "cap4-01", "section": 0, "title": "A tour of the container: wiring by reflection, interceptors through proxies, then the same wiring generated at build time"}
+    {"slug": "cap4-tour", "lesson": "cap4-01", "section": 0, "title": "A tour of the container: wiring by reflection, interceptors through proxies, then the same wiring generated at build time"},
+    {"slug": "boot03-closed-world", "lesson": "boot-03", "section": 0, "title": "Native image builds a closed world: only code reachable from main gets in, so a class named at run time needs a metadata entry"},
+    {"slug": "boot04-crac", "lesson": "boot-04", "section": 1, "title": "A started JVM is still cold: CRaC saves a warm process to disk and restores it, once your resources let go"}
   ]
 }

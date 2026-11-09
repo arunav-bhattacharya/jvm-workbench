@@ -97,21 +97,21 @@ Parameter types are fully qualified, and every method lists them, even when ther
 The condition turns the entry on only once EventDecoder is reached.
 
 25
-00:02:03.567 --> 00:02:07.404
+00:02:03.600 --> 00:02:07.438
 Now PaymentAuthorized decodes as it did on the JVM.
 
 26
-00:02:07.404 --> 00:02:10.791
+00:02:07.438 --> 00:02:10.824
 RefundIssued isn't listed, so it still fails.
 
 27
-00:02:11.000 --> 00:02:13.888
+00:02:11.033 --> 00:02:13.922
 In a Quarkus app you rarely write this file.
 
 28
-00:02:13.888 --> 00:02:19.140
+00:02:13.922 --> 00:02:19.173
 Extensions know what their libraries reflect on, and Quarkus generates the JSON.
 
 29
-00:02:19.140 --> 00:02:23.735
+00:02:19.173 --> 00:02:23.768
 For classes only your code knows about, you add RegisterForReflection.

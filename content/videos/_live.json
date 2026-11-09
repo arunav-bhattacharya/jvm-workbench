@@ -1,6 +1,8 @@
 {
   "live": [
     "boot02-aot-cache",
+    "boot03-closed-world",
+    "boot04-crac",
     "cap1-tour",
     "cap2-tour",
     "cls01-loading",
@@ -22,6 +24,7 @@
     "gen03-invariance",
     "gen04-out",
     "gen05-in",
+    "gen07-star",
     "gen08-reified",
     "io02-selector",
     "io03-pipeline",
@@ -31,6 +34,7 @@
     "jmm02-volatile-edge",
     "jmm04-publication",
     "kt01-inline",
+    "kt02-value-class",
     "kt03-delegated",
     "mem01-object-layout",
     "mem04-g1-regions",

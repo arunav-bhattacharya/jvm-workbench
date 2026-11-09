@@ -82,8 +82,9 @@ def arr(a, b, color=GREY_B, sw=3):
 
 
 def pulse(m, color, scale=1.08):
-    """Draw the eye to a card: it swells and its border flashes (Indicate would paint its opaque fill)."""
-    return AnimationGroup(m.animate(rate_func=there_and_back).scale(scale), flash(m[0], color))
+    """Draw the eye to a card: it swells and its border flashes (Indicate would paint its opaque fill).
+    ScaleInPlace reads the card when it starts, so a card lit earlier in the same beat stays lit."""
+    return AnimationGroup(ScaleInPlace(m, scale, rate_func=there_and_back), flash(m[0], color))
 
 
 def light(*ms, op=1):
@@ -108,7 +109,7 @@ def path_run(points, color, run_time):
 
 
 def flash(m, color=YELLOW_M):
-    return ShowPassingFlash(m.copy().set_fill(opacity=0).set_stroke(color, 7), time_width=0.6)
+    return ShowPassingFlash(m.copy().set_fill(opacity=0).set_stroke(color, 7, opacity=1), time_width=0.6)
 
 
 def focus_on(m):
@@ -233,7 +234,7 @@ class Cap4Tour(Beat):
         icpt = VGroup(ib, it, chain, jdk, sub)
         a_ci = arr(cont.get_bottom() + DOWN * 0.06, np.array([cont.get_x(), ib.get_top()[1] + 0.06, 0]))
 
-        arch = card("AppCDS, AOT cache", S3, 3.0, 0.9, size=24, mono=False, sub="archived classes").move_to([-3.6, YC, 0])
+        arch = card("AppCDS, AOT cache", S3, 3.4, 0.9, size=24, mono=False, sub="archived classes").move_to([-3.6, YC, 0])
         gen = card("RegistryGenerator", S3, 3.0, 0.9, size=22, sub="at build time").move_to([1.2, YC, 0])
         reg = card("Registry", S3, 3.3, 0.9, size=22, sub="holders and new").move_to([4.8, YC, 0])
         a_gg = arr(np.array([graph.get_x(), graph.get_bottom()[1] - 0.06, 0]),
