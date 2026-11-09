@@ -1,0 +1,241 @@
+{
+ "slug": "cap1-tour",
+ "voice": "us-f",
+ "max_late": 0.28,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.09,
+   "secs": 4.29,
+   "tries": 1,
+   "text": "Over three sittings you build one program: a payment ledger in memory."
+  },
+  {
+   "cue": 7.21,
+   "start": 7.21,
+   "late": 0.0,
+   "tempo": 1.002,
+   "secs": 4.78,
+   "tries": 1,
+   "text": "Many threads move money at once, and not one cent may be lost or created."
+  },
+  {
+   "cue": 12.13,
+   "start": 12.14,
+   "late": 0.01,
+   "tempo": 1.15,
+   "secs": 1.43,
+   "tries": 1,
+   "text": "Here it is, finished."
+  },
+  {
+   "cue": 13.44,
+   "start": 13.72,
+   "late": 0.28,
+   "tempo": 1.0,
+   "secs": 3.05,
+   "tries": 1,
+   "text": "Each request gets a virtual thread that screens the transfer."
+  },
+  {
+   "cue": 17.23,
+   "start": 17.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.0,
+   "tries": 1,
+   "text": "Then a bounded pool writes it to a journal and applies it to the accounts."
+  },
+  {
+   "cue": 22.07,
+   "start": 22.07,
+   "late": 0.0,
+   "tempo": 1.007,
+   "secs": 1.87,
+   "tries": 1,
+   "text": "You build it from the inside out."
+  },
+  {
+   "cue": 24.07,
+   "start": 24.09,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 3.38,
+   "tries": 1,
+   "text": "Each part comes from an earlier lesson, named under the diagram."
+  },
+  {
+   "cue": 28.2,
+   "start": 28.2,
+   "late": 0.0,
+   "tempo": 1.083,
+   "secs": 2.28,
+   "tries": 1,
+   "text": "Sitting one, in Java, builds the core."
+  },
+  {
+   "cue": 30.7,
+   "start": 30.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.78,
+   "tries": 1,
+   "text": "Each account has its own lock, and a transfer always locks the smaller id first, so opposite transfers can't deadlock."
+  },
+  {
+   "cue": 39.1,
+   "start": 39.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.26,
+   "tries": 1,
+   "text": "The balance check sits inside both locks, with the debit and the credit."
+  },
+  {
+   "cue": 43.73,
+   "start": 43.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.59,
+   "tries": 1,
+   "text": "A transfer is an immutable record, so any thread sees it whole."
+  },
+  {
+   "cue": 47.9,
+   "start": 47.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.63,
+   "tries": 1,
+   "text": "And a stress test of eight threads tries hard to break it."
+  },
+  {
+   "cue": 51.73,
+   "start": 51.73,
+   "late": 0.0,
+   "tempo": 1.036,
+   "secs": 7.85,
+   "tries": 1,
+   "text": "Sitting two, still in Java, runs the ledger on a pool you can defend: eight threads and eighty queue slots, from Little's law."
+  },
+  {
+   "cue": 59.81,
+   "start": 59.81,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.52,
+   "tries": 1,
+   "text": "When it is full, the caller gets a five hundred three."
+  },
+  {
+   "cue": 62.73,
+   "start": 62.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.58,
+   "tries": 1,
+   "text": "Each task writes the journal before it applies."
+  },
+  {
+   "cue": 65.64,
+   "start": 65.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.25,
+   "tries": 1,
+   "text": "On shutdown the pool drains, and hands back every transfer that never started."
+  },
+  {
+   "cue": 70.7,
+   "start": 70.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.29,
+   "tries": 1,
+   "text": "A snapshot takes every lock in id order, and publishes an immutable copy through a volatile field."
+  },
+  {
+   "cue": 77.83,
+   "start": 77.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.0,
+   "tries": 1,
+   "text": "Sitting three adds the front, in Kotlin, over the same Java ledger."
+  },
+  {
+   "cue": 82.13,
+   "start": 82.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.22,
+   "tries": 1,
+   "text": "Every request gets a new virtual thread, because requests mostly wait."
+  },
+  {
+   "cue": 87.13,
+   "start": 87.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.71,
+   "tries": 1,
+   "text": "The slow fraud service sits behind one shared semaphore of twenty permits."
+  },
+  {
+   "cue": 92.33,
+   "start": 92.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.11,
+   "tries": 1,
+   "text": "Each request has one deadline of three hundred milliseconds."
+  },
+  {
+   "cue": 95.72,
+   "start": 95.72,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.79,
+   "tries": 1,
+   "text": "When it runs out, the fraud call is interrupted, so its permit comes back."
+  },
+  {
+   "cue": 100.93,
+   "start": 100.93,
+   "late": 0.0,
+   "tempo": 1.095,
+   "secs": 2.09,
+   "tries": 1,
+   "text": "Fraud and limits run side by side."
+  },
+  {
+   "cue": 103.23,
+   "start": 103.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.85,
+   "tries": 1,
+   "text": "The first no wins, and no check outlives its request."
+  },
+  {
+   "cue": 107.53,
+   "start": 107.53,
+   "late": 0.0,
+   "tempo": 1.02,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "Through every sitting, one rule holds."
+  },
+  {
+   "cue": 110.17,
+   "start": 110.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.02,
+   "tries": 1,
+   "text": "Money moves only inside apply, under both account locks, so the sum of all balances never changes."
+  }
+ ]
+}

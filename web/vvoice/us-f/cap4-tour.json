@@ -1,0 +1,250 @@
+{
+ "slug": "cap4-tour",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.33,
+   "tries": 1,
+   "text": "A payment service builds its objects by hand in main, each one after the objects its constructor needs."
+  },
+  {
+   "cue": 9.67,
+   "start": 9.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.61,
+   "tries": 1,
+   "text": "A dependency injection container does that for you."
+  },
+  {
+   "cue": 12.87,
+   "start": 12.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.77,
+   "tries": 3,
+   "text": "Here is the one you'll build."
+  },
+  {
+   "cue": 15.3,
+   "start": 15.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.56,
+   "tries": 1,
+   "text": "At start-up it finds the components, orders them, and builds each singleton once."
+  },
+  {
+   "cue": 20.62,
+   "start": 20.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.08,
+   "tries": 1,
+   "text": "Timed and Retry methods get a proxy."
+  },
+  {
+   "cue": 22.98,
+   "start": 22.98,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.02,
+   "tries": 1,
+   "text": "A generator can write the same wiring at build time, for a faster start."
+  },
+  {
+   "cue": 27.97,
+   "start": 27.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.59,
+   "tries": 1,
+   "text": "Lesson one, in Java, wires classes by reflection."
+  },
+  {
+   "cue": 32.0,
+   "start": 32.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.78,
+   "tries": 1,
+   "text": "The scanner loads each class without initializing it, so no static initializer runs."
+  },
+  {
+   "cue": 37.67,
+   "start": 37.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.81,
+   "tries": 1,
+   "text": "It never guesses a constructor, and it skips the synthetic ones Kotlin adds."
+  },
+  {
+   "cue": 42.5,
+   "start": 42.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.04,
+   "tries": 1,
+   "text": "A depth-first walk orders the graph, and names any cycle at start-up."
+  },
+  {
+   "cue": 47.13,
+   "start": 47.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.49,
+   "tries": 1,
+   "text": "Each singleton gets a cell with double-checked locking: one instance, even when eight threads ask at once."
+  },
+  {
+   "cue": 53.97,
+   "start": 53.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.82,
+   "tries": 1,
+   "text": "Lesson two, in Kotlin, adds Timed and Retry."
+  },
+  {
+   "cue": 57.53,
+   "start": 57.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.33,
+   "tries": 1,
+   "text": "Interceptors run around each call, with Timed outside Retry."
+  },
+  {
+   "cue": 61.9,
+   "start": 61.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.26,
+   "tries": 1,
+   "text": "A component with an interface gets a J D K proxy around its target."
+  },
+  {
+   "cue": 67.0,
+   "start": 67.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.95,
+   "tries": 1,
+   "text": "A class without one gets a Byte Buddy subclass."
+  },
+  {
+   "cue": 70.12,
+   "start": 70.12,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.89,
+   "tries": 1,
+   "text": "A subclass can't override what Kotlin leaves final, so the container refuses that at start-up."
+  },
+  {
+   "cue": 76.57,
+   "start": 76.57,
+   "late": 0.0,
+   "tempo": 1.045,
+   "secs": 3.75,
+   "tries": 1,
+   "text": "Lesson three, in Java, measures it and makes it start fast."
+  },
+  {
+   "cue": 80.53,
+   "start": 80.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.79,
+   "tries": 1,
+   "text": "Per call, J M H counts two hundred eight bytes for a J D K proxy, and one hundred sixty for a subclass."
+  },
+  {
+   "cue": 88.33,
+   "start": 88.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.76,
+   "tries": 1,
+   "text": "At start-up, the app loads two thousand two hundred seven classes."
+  },
+  {
+   "cue": 92.6,
+   "start": 92.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.59,
+   "tries": 1,
+   "text": "A class histogram and a heap dump show what the container keeps alive."
+  },
+  {
+   "cue": 97.27,
+   "start": 97.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.05,
+   "tries": 1,
+   "text": "Then a generator runs the same graph at build time, and writes a holder class per singleton."
+  },
+  {
+   "cue": 103.99,
+   "start": 103.99,
+   "late": 0.0,
+   "tempo": 1.136,
+   "secs": 2.28,
+   "tries": 1,
+   "text": "The start drops to nine hundred ninety-one classes."
+  },
+  {
+   "cue": 106.5,
+   "start": 106.5,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.92,
+   "tries": 1,
+   "text": "It writes Java."
+  },
+  {
+   "cue": 107.61,
+   "start": 107.61,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.67,
+   "tries": 1,
+   "text": "In Kotlin, an object is the same kind of holder."
+  },
+  {
+   "cue": 111.37,
+   "start": 111.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.94,
+   "tries": 1,
+   "text": "AppCDS and the A O T cache then archive what is left."
+  },
+  {
+   "cue": 115.73,
+   "start": 115.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.72,
+   "tries": 1,
+   "text": "One rule holds throughout: never guess, never skip in silence."
+  },
+  {
+   "cue": 119.64,
+   "start": 119.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.45,
+   "tries": 1,
+   "text": "What the classes alone can tell, the container checks before the first call, at start-up, or in the build."
+  }
+ ]
+}

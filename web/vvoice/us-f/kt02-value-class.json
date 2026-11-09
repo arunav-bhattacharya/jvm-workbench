@@ -1,0 +1,349 @@
+{
+ "slug": "kt02-value-class",
+ "voice": "us-f",
+ "max_late": 0.34,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.2,
+   "tries": 1,
+   "text": "A Long parameter named amountMinor will take an order id without complaint."
+  },
+  {
+   "cue": 7.62,
+   "start": 7.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.73,
+   "tries": 1,
+   "text": "Both are Long, so the compiler can't tell them apart."
+  },
+  {
+   "cue": 11.3,
+   "start": 11.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "The classic fix is a small wrapper class."
+  },
+  {
+   "cue": 13.89,
+   "start": 13.89,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.67,
+   "tries": 1,
+   "text": "It works, but every amount is now an extra object on the heap."
+  },
+  {
+   "cue": 18.6,
+   "start": 18.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.32,
+   "tries": 1,
+   "text": "Kotlin's value class keeps the type safety, and wherever it can, it drops the object."
+  },
+  {
+   "cue": 24.65,
+   "start": 24.65,
+   "late": 0.0,
+   "tempo": 1.084,
+   "secs": 4.27,
+   "tries": 1,
+   "text": "You write @JvmInline value class, with exactly one property."
+  },
+  {
+   "cue": 29.13,
+   "start": 29.13,
+   "late": 0.0,
+   "tempo": 1.052,
+   "secs": 2.28,
+   "tries": 1,
+   "text": "To the compiler, Cents is its own type."
+  },
+  {
+   "cue": 31.64,
+   "start": 31.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.84,
+   "tries": 1,
+   "text": "Hand charge a plain Long, and the call does not compile."
+  },
+  {
+   "cue": 36.07,
+   "start": 36.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.0,
+   "tries": 1,
+   "text": "At run time, most of it is gone."
+  },
+  {
+   "cue": 38.3,
+   "start": 38.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.74,
+   "tries": 1,
+   "text": "Here is the Kotlin, next to what java P shows the compiler built."
+  },
+  {
+   "cue": 43.0,
+   "start": 43.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.64,
+   "tries": 1,
+   "text": "charge takes a plain long, under a name with a hash on the end."
+  },
+  {
+   "cue": 47.1,
+   "start": 47.1,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.9,
+   "tries": 1,
+   "text": "Cents(one hundred fifty) calls a static method, constructor-impl."
+  },
+  {
+   "cue": 50.82,
+   "start": 51.15,
+   "late": 0.34,
+   "tempo": 1.0,
+   "secs": 3.06,
+   "tries": 1,
+   "text": "It runs your init block and hands back the same long."
+  },
+  {
+   "cue": 54.68,
+   "start": 54.68,
+   "late": 0.0,
+   "tempo": 1.108,
+   "secs": 1.32,
+   "tries": 1,
+   "text": "No object is created."
+  },
+  {
+   "cue": 56.21,
+   "start": 56.21,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.79,
+   "tries": 1,
+   "text": "plus became a static method that adds two longs."
+  },
+  {
+   "cue": 60.47,
+   "start": 60.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.16,
+   "tries": 1,
+   "text": "So this whole call runs on plain longs."
+  },
+  {
+   "cue": 63.14,
+   "start": 63.14,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.8,
+   "tries": 1,
+   "text": "No Cents object is ever made."
+  },
+  {
+   "cue": 65.93,
+   "start": 65.93,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.45,
+   "tries": 1,
+   "text": "So when is a box needed?"
+  },
+  {
+   "cue": 67.58,
+   "start": 67.58,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.11,
+   "tries": 1,
+   "text": "A value class is boxed whenever it is used as another type."
+  },
+  {
+   "cue": 71.83,
+   "start": 71.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.05,
+   "tries": 1,
+   "text": "Here is a second value class, Amount."
+  },
+  {
+   "cue": 74.36,
+   "start": 74.36,
+   "late": 0.0,
+   "tempo": 1.002,
+   "secs": 2.24,
+   "tries": 1,
+   "text": "It implements an interface, Priced."
+  },
+  {
+   "cue": 76.74,
+   "start": 76.75,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.41,
+   "tries": 1,
+   "text": "Take one amount, a."
+  },
+  {
+   "cue": 78.23,
+   "start": 78.31,
+   "late": 0.07,
+   "tempo": 1.0,
+   "secs": 4.27,
+   "tries": 1,
+   "text": "In an Invoice, it is used as an Amount, so the field is a plain long."
+  },
+  {
+   "cue": 82.87,
+   "start": 82.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.67,
+   "tries": 1,
+   "text": "Pass it to asGeneric, and it is used as a T."
+  },
+  {
+   "cue": 85.86,
+   "start": 85.86,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.5,
+   "tries": 1,
+   "text": "So the compiler calls box-impl first, and a real Amount object appears on the heap."
+  },
+  {
+   "cue": 91.7,
+   "start": 91.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.63,
+   "tries": 1,
+   "text": "A nullable Amount has to be able to hold null, and a long can't."
+  },
+  {
+   "cue": 96.06,
+   "start": 96.06,
+   "late": 0.0,
+   "tempo": 1.028,
+   "secs": 1.19,
+   "tries": 1,
+   "text": "So that boxes too."
+  },
+  {
+   "cue": 97.47,
+   "start": 97.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.53,
+   "tries": 1,
+   "text": "Used as the interface Priced, it boxes."
+  },
+  {
+   "cue": 100.15,
+   "start": 100.15,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.33,
+   "tries": 1,
+   "text": "Used as Any, it boxes, and that covers every collection and println."
+  },
+  {
+   "cue": 105.63,
+   "start": 105.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.09,
+   "tries": 1,
+   "text": "Here are the same calls as Java, read back from the bytecode."
+  },
+  {
+   "cue": 109.88,
+   "start": 109.88,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.21,
+   "tries": 1,
+   "text": "Each time, Amount.box-impl runs right before the call that needs the object."
+  },
+  {
+   "cue": 115.37,
+   "start": 115.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.91,
+   "tries": 1,
+   "text": "It is the same rule Java uses for the primitive long and the boxed Long."
+  },
+  {
+   "cue": 120.16,
+   "start": 120.16,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.5,
+   "tries": 1,
+   "text": "So a List of Amount holds one Amount object per element."
+  },
+  {
+   "cue": 124.67,
+   "start": 124.67,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.77,
+   "tries": 1,
+   "text": "Now that name."
+  },
+  {
+   "cue": 125.61,
+   "start": 125.61,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.75,
+   "tries": 1,
+   "text": "The compiler adds a hash to every function that takes a value class."
+  },
+  {
+   "cue": 130.19,
+   "start": 130.19,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.68,
+   "tries": 1,
+   "text": "A dash can't appear in a Java method name, so Java can't call charge."
+  },
+  {
+   "cue": 135.03,
+   "start": 135.03,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.03,
+   "tries": 1,
+   "text": "@JvmName gives it a name Java can call."
+  },
+  {
+   "cue": 138.0,
+   "start": 138.21,
+   "late": 0.21,
+   "tempo": 1.0,
+   "secs": 5.35,
+   "tries": 1,
+   "text": "But Java passes a raw long, so the init block never runs, and minus five cents gets charged."
+  }
+ ]
+}

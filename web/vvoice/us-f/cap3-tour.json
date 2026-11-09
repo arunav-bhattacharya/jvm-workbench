@@ -1,0 +1,259 @@
+{
+ "slug": "cap3-tour",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.54,
+   "tries": 1,
+   "text": "A payments service reads events from Kafka as raw strings."
+  },
+  {
+   "cue": 6.39,
+   "start": 6.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.74,
+   "tries": 1,
+   "text": "When each handler parses them itself, a bad amount fails in the ledger, after audit has already logged it."
+  },
+  {
+   "cue": 13.37,
+   "start": 13.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "This capstone builds one library that stops that."
+  },
+  {
+   "cue": 16.53,
+   "start": 16.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.72,
+   "tries": 1,
+   "text": "Here it is, finished."
+  },
+  {
+   "cue": 19.13,
+   "start": 19.13,
+   "late": 0.0,
+   "tempo": 1.038,
+   "secs": 4.84,
+   "tries": 1,
+   "text": "A raw record crosses one edge, and comes out as a typed event, or a rejection."
+  },
+  {
+   "cue": 24.19,
+   "start": 24.19,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.98,
+   "tries": 1,
+   "text": "The bus runs its middleware, then the event's handlers."
+  },
+  {
+   "cue": 27.76,
+   "start": 27.76,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.6,
+   "tries": 1,
+   "text": "Kotlin and Java code each get a door in."
+  },
+  {
+   "cue": 30.57,
+   "start": 30.57,
+   "late": 0.0,
+   "tempo": 1.034,
+   "secs": 3.65,
+   "tries": 1,
+   "text": "Lesson one, in Kotlin, builds the model and the edge."
+  },
+  {
+   "cue": 34.43,
+   "start": 34.43,
+   "late": 0.0,
+   "tempo": 1.066,
+   "secs": 4.89,
+   "tries": 1,
+   "text": "A sealed interface lists every event, so a when with no else must handle them all."
+  },
+  {
+   "cue": 39.53,
+   "start": 39.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.87,
+   "tries": 1,
+   "text": "Ids and amounts are value classes, which check themselves when they're built."
+  },
+  {
+   "cue": 44.47,
+   "start": 44.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.89,
+   "tries": 1,
+   "text": "And parseEvent turns raw fields into an event, or into Rejected."
+  },
+  {
+   "cue": 49.1,
+   "start": 49.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.05,
+   "tries": 1,
+   "text": "It never throws."
+  },
+  {
+   "cue": 50.5,
+   "start": 50.5,
+   "late": 0.0,
+   "tempo": 1.09,
+   "secs": 1.92,
+   "tries": 1,
+   "text": "Lesson two builds the bus."
+  },
+  {
+   "cue": 52.63,
+   "start": 52.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.16,
+   "tries": 1,
+   "text": "It finds handlers by the event's class, then by each event supertype, nearest first."
+  },
+  {
+   "cue": 58.27,
+   "start": 58.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.1,
+   "tries": 1,
+   "text": "A handler only takes events in, so Handler is declared in."
+  },
+  {
+   "cue": 62.04,
+   "start": 62.04,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.28,
+   "tries": 1,
+   "text": "One audit handler fits every subscription."
+  },
+  {
+   "cue": 64.97,
+   "start": 64.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.45,
+   "tries": 1,
+   "text": "Each subscription returns a handle, and one failing handler can't stop the others."
+  },
+  {
+   "cue": 70.2,
+   "start": 70.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.01,
+   "tries": 1,
+   "text": "Logging and dropping duplicates run once per event, as a chain."
+  },
+  {
+   "cue": 74.5,
+   "start": 74.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.36,
+   "tries": 1,
+   "text": "Timing one handler is a decorator around it."
+  },
+  {
+   "cue": 77.7,
+   "start": 77.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.9,
+   "tries": 1,
+   "text": "Lesson three adds the A P I."
+  },
+  {
+   "cue": 80.17,
+   "start": 80.17,
+   "late": 0.0,
+   "tempo": 1.03,
+   "secs": 2.3,
+   "tries": 1,
+   "text": "Kotlin code gets a subscription DSL."
+  },
+  {
+   "cue": 82.69,
+   "start": 82.69,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.99,
+   "tries": 1,
+   "text": "It subscribes everything at once, when the block ends."
+  },
+  {
+   "cue": 86.7,
+   "start": 86.7,
+   "late": 0.0,
+   "tempo": 1.07,
+   "secs": 3.82,
+   "tries": 1,
+   "text": "Its on function is reified, so it knows each event's class."
+  },
+  {
+   "cue": 90.73,
+   "start": 90.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.49,
+   "tries": 1,
+   "text": "Java code gets Class overloads, and a facade that still builds the value classes, so every check runs."
+  },
+  {
+   "cue": 97.77,
+   "start": 97.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.03,
+   "tries": 1,
+   "text": "The lab is Kotlin, plus one Java class that uses the library the way a Java team would."
+  },
+  {
+   "cue": 104.2,
+   "start": 104.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.44,
+   "tries": 1,
+   "text": "One rule holds through all three lessons."
+  },
+  {
+   "cue": 106.83,
+   "start": 106.83,
+   "late": 0.0,
+   "tempo": 1.01,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "Raw fields are parsed once, at the edge."
+  },
+  {
+   "cue": 109.4,
+   "start": 109.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.77,
+   "tries": 1,
+   "text": "Past that line, no handler reads a string, and every event is valid."
+  }
+ ]
+}

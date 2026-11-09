@@ -44,7 +44,22 @@ def n2w(n):
     return n2w(n // 1000) + " thousand" + (" " + n2w(n % 1000) if n % 1000 else "")
 
 
+def code_symbols(t):
+    """Captions show code; say it the way a person reads it aloud."""
+    import html
+    t = html.unescape(t)
+    t = re.sub(r"<(cl)?init>", lambda m: ("clinit" if m[1] else "init"), t)
+    t = t.replace("Any?", "nullable Any")
+    t = re.sub(r"\?\s+(extends|super)\b", r"question mark \1", t)
+    t = re.sub(r"<\s*\*\s*>", " of star", t)
+    t = re.sub(r"<\s*\?\s*>", " of question mark", t)
+    t = re.sub(r"<([^<>]{1,40})>", r" of \1", t)
+    t = t.replace(" -> ", " to ")
+    return t
+
+
 def words(t):
+    t = code_symbols(t)
     for pat, rep in SAY:
         t = re.sub(pat, rep, t)
     t = t.replace("&", " and ").replace("->", " to ")
