@@ -1,5 +1,6 @@
 {
   "live": [
+    "boot02-aot-cache",
     "cls01-loading",
     "cls04-proxy",
     "co01-statemachine",
@@ -23,9 +24,12 @@
     "kt03-delegated",
     "mem04-g1-regions",
     "mem04-generations",
+    "mem07-dominator-tree",
     "pat05-decorator",
     "pat11-breaker",
     "perf01-tiers",
+    "perf03-dead-code",
+    "perf04-false-sharing",
     "rx01-contract",
     "rx03-flatmap",
     "vt02-carriers"

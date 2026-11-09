@@ -213,12 +213,14 @@ class Vt04Pinning(VoiceScene):
             (lambda: [vts["VT 6"].animate.move_to(vt_spot(1)), FadeIn(run6)], 0.9))
         st1 = st_pos(T("stores the rate, unlocks", 22, WHITE), 2)
         rl2 = lock_box("ReentrantLock:", "held by VT 2").move_to(rl)
+        st2 = st_pos(T("has the lock", 22, WHITE), 3)
         seq(self, "When the rate arrives, VT 1 mounts again on a free carrier, stores the rate and unlocks. "
-                  "Then VT 2 gets the lock.",
+                  "Then VT 2 gets the lock, and mounts on the last free carrier.",
             0.6, (lambda: [vts["VT 1"].animate.move_to(vt_spot(2)), FadeOut(hn["VT 1"]), FadeIn(st1)], 1.0), 2.8,
-            ([Transform(rl, rl2)], 0.7))
-        self.play(FadeOut(VGroup(qbox, qlab, cars, clab, hbox, hlab, tag, rl, run5, run6, st1,
-                                 *vts.values(), hn["VT 2"], hn["VT 3"], hn["VT 4"])), run_time=0.8)
+            ([Transform(rl, rl2)], 0.7), 0.4,
+            (lambda: [vts["VT 2"].animate.move_to(vt_spot(3)), FadeOut(hn["VT 2"]), FadeIn(st2)], 1.0))
+        self.play(FadeOut(VGroup(qbox, qlab, cars, clab, hbox, hlab, tag, rl, run5, run6, st1, st2,
+                                 *vts.values(), hn["VT 3"], hn["VT 4"])), run_time=0.8)
 
         # ---- JDK 24: JEP 491 ----
         r21 = VGroup(T("JDK 21 to 23", 30, RED_M),
@@ -228,10 +230,12 @@ class Vt04Pinning(VoiceScene):
                      T("synchronized and Object.wait unmount, like ReentrantLock.", 28),
                      T("JDK 25 is the first LTS release with the fix.", 28, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.22)
         card = VGroup(r21, r24).arrange(DOWN, aligned_edge=LEFT, buff=0.7).move_to(UP * 0.35)
-        self.beat("JDK 24 fixed this with JEP 491. A virtual thread can now take, hold and release a monitor "
+        self.play(FadeIn(r21, shift=UP * 0.15), run_time=0.8)
+        seq(self, "JDK 24 fixed this with JEP 491. A virtual thread can now take, hold and release a monitor "
                   "independently of its carrier, so synchronized and Object.wait unmount like ReentrantLock. "
                   "JDK 25 is the first LTS release with the fix.",
-                  FadeIn(r21, shift=UP * 0.15), FadeIn(r24, shift=UP * 0.15), run_time=1.6)
+            ([FadeIn(r24[0], shift=UP * 0.15)], 0.8), 3.0, ([FadeIn(r24[1], shift=UP * 0.15)], 0.8), 4.6,
+            ([FadeIn(r24[2], shift=UP * 0.15)], 0.8))
         rare = T("A few rarer cases still pin: the next section shows them.", 24, GREY_B).next_to(card, DOWN, buff=0.6)
         self.beat("So on JDK 25, leave working synchronized code alone. On JDK 21, put a ReentrantLock around blocking calls.",
                   Indicate(r21[2], color=WHITE, scale_factor=1.04), FadeIn(rare), run_time=1.2)

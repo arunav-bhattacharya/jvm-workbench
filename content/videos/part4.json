@@ -4,6 +4,10 @@
     {"slug": "cls04-proxy", "lesson": "cls-04", "section": 0, "title": "A dynamic proxy: every call becomes one invoke with a Method and an Object array"},
     {"slug": "mem04-generations", "lesson": "mem-04", "section": 0, "title": "Most objects die young: eden, survivor copies and promotion to the old generation"},
     {"slug": "mem04-g1-regions", "lesson": "mem-04", "section": 3, "title": "G1 cuts the heap into equal regions and collects the most garbage first"},
-    {"slug": "perf01-tiers", "lesson": "perf-01", "section": 0, "title": "From the interpreter to C1 to C2, and back when a bet loses"}
+    {"slug": "perf01-tiers", "lesson": "perf-01", "section": 0, "title": "From the interpreter to C1 to C2, and back when a bet loses"},
+    {"slug": "perf03-dead-code", "lesson": "perf-03", "section": 0, "title": "A nanoTime loop measures the optimizer: dead code, constant folding, and the loop JMH builds instead"},
+    {"slug": "perf04-false-sharing", "lesson": "perf-04", "section": 1, "title": "False sharing: two threads, two fields, one cache line bouncing between cores"},
+    {"slug": "boot02-aot-cache", "lesson": "boot-02", "section": 2, "title": "Leyden's AOT cache: train, assemble, then start with the classes already loaded and linked"},
+    {"slug": "mem07-dominator-tree", "lesson": "mem-07", "section": 1, "title": "From a heap dump to the leak: retained size and the dominator tree"}
   ]
 }

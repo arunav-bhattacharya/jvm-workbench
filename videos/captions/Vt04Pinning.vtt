@@ -1,173 +1,137 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:06.279
+00:00:02.700 --> 00:00:06.015
 Here is the FX rate cache from this lesson's lab.
 
 2
-00:00:06.279 --> 00:00:11.344
-On a miss it fetches the rate, and that fetch is a 100 ms socket read.
+00:00:06.015 --> 00:00:11.155
+On a miss, it does a 100 ms socket read, while it holds the cache's monitor.
 
 3
-00:00:11.533 --> 00:00:16.453
-The method is synchronized, so the read runs while the cache's monitor is held.
-
-4
-00:00:16.453 --> 00:00:20.315
+00:00:11.155 --> 00:00:15.349
 In Kotlin, the Synchronized annotation makes the same monitor.
 
-5
-00:00:21.067 --> 00:00:25.469
+4
+00:00:16.167 --> 00:00:20.569
 The JDK runs virtual threads on carrier threads, one per core.
 
-6
-00:00:25.469 --> 00:00:26.819
+5
+00:00:20.569 --> 00:00:21.919
 Say there are four.
 
+6
+00:00:22.133 --> 00:00:24.006
+VT 1 to 4 call rate.
+
 7
-00:00:27.000 --> 00:00:31.540
-VT 1 to VT 4 call rate for a pair that isn't cached yet.
+00:00:24.006 --> 00:00:27.096
+VT 5 and 6 never touch the cache.
 
 8
-00:00:31.540 --> 00:00:36.080
-VT 5 and VT 6 serve requests that never touch the cache.
-
-9
-00:00:37.200 --> 00:00:42.388
+00:00:27.300 --> 00:00:32.488
 VT 1 mounts on carrier 1, enters rate, and takes the monitor.
 
-10
-00:00:42.388 --> 00:00:47.916
+9
+00:00:32.488 --> 00:00:38.016
 On JDK 21 to 23, the JVM records a monitor's owner per OS thread.
 
-11
-00:00:47.916 --> 00:00:50.127
+10
+00:00:38.016 --> 00:00:40.227
 So the owner is carrier 1.
 
-12
-00:00:50.333 --> 00:00:52.547
+11
+00:00:40.433 --> 00:00:42.647
 Now VT 1 starts the socket read.
 
-13
-00:00:52.547 --> 00:00:56.074
+12
+00:00:42.647 --> 00:00:46.174
 A blocking read normally unmounts a virtual thread.
 
-14
-00:00:56.074 --> 00:01:00.293
+13
+00:00:46.174 --> 00:00:50.393
 But while VT 1 holds the monitor, it can't leave its carrier.
 
-15
-00:01:00.293 --> 00:01:03.267
+14
+00:00:50.393 --> 00:00:53.367
 It is pinned, and carrier 1 blocks with it.
 
+15
+00:00:53.600 --> 00:00:56.013
+VT 2, 3 and 4 mount and call rate.
+
 16
-00:01:03.467 --> 00:01:06.564
-VT 2 mounts on carrier 2 and calls rate.
+00:00:56.013 --> 00:01:00.909
+The monitor is taken, so each one blocks, and each one is pinned too.
 
 17
-00:01:06.564 --> 00:01:09.274
-The monitor is taken, so it blocks.
+00:01:01.133 --> 00:01:04.920
+All four carriers are stuck, and the CPU does nothing.
 
 18
-00:01:09.274 --> 00:01:10.591
-It is pinned too.
+00:01:04.920 --> 00:01:12.773
+Four callers of rate have stopped every virtual thread in the JVM, even VT 5 and 6, which never touch the cache.
 
 19
-00:01:10.800 --> 00:01:13.601
-VT 3 and VT 4 do the same.
+00:01:14.600 --> 00:01:16.794
+Now use a ReentrantLock instead.
 
 20
-00:01:13.933 --> 00:01:18.961
-Now all four carriers are stuck, waiting, while the CPU does nothing.
+00:01:16.794 --> 00:01:20.565
+In Kotlin, withLock writes the try and finally for you.
 
 21
-00:01:18.961 --> 00:01:24.208
-VT 5 and VT 6 never touch the cache, but no carrier is free to run them.
-
-22
-00:01:24.400 --> 00:01:30.615
-With four carriers, four callers of rate are enough to stop every virtual thread in the JVM.
-
-23
-00:01:32.400 --> 00:01:35.376
-Now replace the monitor with a ReentrantLock.
-
-24
-00:01:35.376 --> 00:01:39.411
-In Kotlin, withLock writes the lock, try and finally for you.
-
-25
-00:01:41.000 --> 00:01:44.654
+00:01:22.167 --> 00:01:25.821
 Again, VT 1 to VT 4 mount and call rate.
 
-26
-00:01:44.654 --> 00:01:47.029
+22
+00:01:25.821 --> 00:01:28.196
 VT 1 takes the lock first.
 
-27
-00:01:47.200 --> 00:01:49.203
-VT 1 starts the socket read.
+23
+00:01:28.400 --> 00:01:29.913
+VT 1 starts the read.
 
-28
-00:01:49.203 --> 00:01:53.568
-ReentrantLock parks threads the normal way, so VT 1 unmounts.
+24
+00:01:29.913 --> 00:01:37.480
+ReentrantLock parks the thread the normal way, so VT 1 unmounts to the heap, and it still holds the lock.
 
-29
-00:01:53.568 --> 00:01:57.503
-Its frames go to the heap, and it still holds the lock.
+25
+00:01:37.700 --> 00:01:40.173
+VT 2, 3 and 4 ask for the lock.
 
-30
-00:01:57.733 --> 00:02:00.921
-VT 2, VT 3 and VT 4 ask for the lock.
-
-31
-00:02:00.921 --> 00:02:03.677
+26
+00:01:40.173 --> 00:01:42.727
 Each one parks and unmounts too.
 
-32
-00:02:03.933 --> 00:02:05.532
-The carriers are free.
+27
+00:01:42.933 --> 00:01:46.695
+Now the carriers are free, and they run VT 5 and 6.
 
-33
-00:02:05.532 --> 00:02:08.801
-Carrier 1 runs VT 5, and carrier 2 runs VT 6.
-
-34
-00:02:08.801 --> 00:02:13.596
-Nothing sits on a carrier waiting for the network or for the lock.
-
-35
-00:02:13.867 --> 00:02:20.012
+28
+00:01:46.900 --> 00:01:53.045
 When the rate arrives, VT 1 mounts again on a free carrier, stores the rate and unlocks.
 
-36
-00:02:20.012 --> 00:02:21.688
+29
+00:01:53.045 --> 00:01:54.721
 Then VT 2 gets the lock.
 
-37
-00:02:22.667 --> 00:02:25.634
-JDK 24 fixed this case, with JEP 491.
+30
+00:01:55.733 --> 00:01:58.378
+JDK 24 fixed this with JEP 491.
 
-38
-00:02:25.634 --> 00:02:34.377
-Monitors were reworked so that a virtual thread can take, hold and release them independently of its carrier.
+31
+00:01:58.378 --> 00:02:10.922
+A virtual thread can now take, hold and release a monitor independently of its carrier, so synchronized and Object.wait unmount like ReentrantLock.
 
-39
-00:02:34.377 --> 00:02:39.671
-synchronized and Object.wait now unmount, like ReentrantLock does.
-
-40
-00:02:39.671 --> 00:02:43.280
+32
+00:02:10.922 --> 00:02:14.761
 JDK 25 is the first LTS release with the fix.
 
-41
-00:02:43.467 --> 00:02:47.529
+33
+00:02:14.967 --> 00:02:19.474
 So on JDK 25, leave working synchronized code alone.
 
-42
-00:02:47.529 --> 00:02:51.670
+34
+00:02:19.474 --> 00:02:24.068
 On JDK 21, put a ReentrantLock around blocking calls.
-
-43
-00:02:51.670 --> 00:02:56.436
-A few rarer cases still pin, and the next section shows them.

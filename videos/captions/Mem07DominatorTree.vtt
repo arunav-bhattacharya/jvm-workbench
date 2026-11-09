@@ -1,125 +1,125 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:13.315
+00:00:02.700 --> 00:00:13.282
 A class histogram after 20,000 requests shows what fills the heap: 43 MB of byte arrays, and 20,000 cached responses nobody meant to keep.
 
 2
-00:00:13.315 --> 00:00:15.845
+00:00:13.282 --> 00:00:15.812
 It can't tell you who holds them.
 
 3
-00:00:16.533 --> 00:00:17.703
+00:00:16.600 --> 00:00:17.770
 A heap dump can.
 
 4
-00:00:17.703 --> 00:00:23.332
+00:00:17.770 --> 00:00:23.398
 It is a file with every object on the heap, and every reference between them.
 
 5
-00:00:23.332 --> 00:00:29.545
+00:00:23.398 --> 00:00:29.612
 jcmd writes one from a running JVM, or the JVM writes one when it runs out of memory.
 
 6
-00:00:30.333 --> 00:00:32.361
+00:00:30.400 --> 00:00:32.427
 Here is the graph inside it.
 
 7
-00:00:32.361 --> 00:00:34.460
+00:00:32.427 --> 00:00:34.527
 A static field holds the map.
 
 8
-00:00:34.460 --> 00:00:41.266
+00:00:34.527 --> 00:00:41.333
 The map holds a table, the table holds 20,000 nodes, and each node holds a key and a response.
 
 9
-00:00:41.266 --> 00:00:43.800
+00:00:41.333 --> 00:00:43.867
 Each response holds a 2 KB receipt.
 
 10
-00:00:43.933 --> 00:00:51.407
+00:00:44.033 --> 00:00:51.507
 A currency catalog, another GC root, holds a shared EUR string, which the responses point to as well.
 
 11
-00:00:51.600 --> 00:00:56.510
+00:00:51.733 --> 00:00:56.643
 An object stays alive while a path of references reaches it from a GC root.
 
 12
-00:00:56.510 --> 00:00:58.867
+00:00:56.643 --> 00:00:59.000
 The collector frees everything else.
 
 13
-00:00:59.067 --> 00:01:00.986
+00:00:59.200 --> 00:01:01.120
 Every object has two sizes.
 
 14
-00:01:00.986 --> 00:01:05.323
+00:01:01.120 --> 00:01:05.457
 Its shallow size is its own bytes, the header and its fields.
 
 15
-00:01:05.323 --> 00:01:07.599
+00:01:05.457 --> 00:01:07.732
 The map itself is only 64 bytes.
 
 16
-00:01:07.733 --> 00:01:11.234
+00:01:07.933 --> 00:01:11.434
 Its retained size is what would be freed if it went away.
 
 17
-00:01:11.234 --> 00:01:15.043
+00:01:11.434 --> 00:01:15.243
 That is the object, plus everything reachable only through it.
 
 18
-00:01:15.267 --> 00:01:21.879
+00:01:15.467 --> 00:01:22.079
 Cut the map loose, and the table, the nodes, the keys, the responses and every receipt become garbage.
 
 19
-00:01:21.879 --> 00:01:26.352
+00:01:22.079 --> 00:01:26.552
 The shared EUR string does not, because the catalog still reaches it.
 
 20
-00:01:27.267 --> 00:01:28.296
+00:01:27.467 --> 00:01:28.496
 Add it up.
 
 21
-00:01:28.296 --> 00:01:37.350
+00:01:28.496 --> 00:01:37.550
 20,000 receipts at 2,064 bytes, keys at 80, responses at 32, nodes at 32, and the table.
 
 22
-00:01:37.350 --> 00:01:41.260
+00:01:37.550 --> 00:01:41.460
 About 44 MB, held by a 64-byte object.
 
 23
-00:01:41.400 --> 00:01:47.176
+00:01:41.633 --> 00:01:47.410
 Every path from a root to a receipt goes through the map, so the map dominates the receipts.
 
 24
-00:01:47.176 --> 00:01:51.760
+00:01:47.410 --> 00:01:51.993
 EUR has a second path, from the catalog, so the map does not dominate it.
 
 25
-00:01:52.733 --> 00:01:58.928
+00:01:52.900 --> 00:01:59.095
 Eclipse MAT turns the graph into a dominator tree, sorted by retained size, biggest first.
 
 26
-00:01:58.928 --> 00:02:03.264
+00:01:59.095 --> 00:02:03.431
 For this dump, the map should sit at the top, with about 44 MB.
 
 27
-00:02:03.400 --> 00:02:10.148
+00:02:03.633 --> 00:02:10.381
 Follow its path to a GC root, and it ends at the field that holds it: the static IDEMPOTENCY_CACHE.
 
 28
-00:02:10.933 --> 00:02:13.615
+00:02:11.200 --> 00:02:13.882
 In Java and in Kotlin, it is one line.
 
 29
-00:02:13.615 --> 00:02:17.709
+00:02:13.882 --> 00:02:17.976
 Every request adds an entry, and nothing ever removes one.
 
 30
-00:02:17.867 --> 00:02:19.871
+00:02:18.167 --> 00:02:20.171
 The histogram said byte arrays.
 
 31
-00:02:19.871 --> 00:02:23.299
+00:02:20.171 --> 00:02:23.599
 The dominator tree says this map, held by this field.
