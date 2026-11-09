@@ -6,6 +6,7 @@
     "cls04-proxy",
     "co01-statemachine",
     "co03-tree",
+    "co04-dispatchers",
     "co05-cancel",
     "co07-cold",
     "conc03-race",
@@ -41,6 +42,7 @@
     "perf06-flame-graph",
     "rx01-contract",
     "rx03-flatmap",
+    "rx07-overflow",
     "vt02-carriers",
     "vt04-pinning"
   ]
