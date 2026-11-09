@@ -11,6 +11,7 @@
     {"slug": "io05-context", "lesson": "io-05", "section": 0, "title": "A Vert.x context runs a verticle's handlers on one event-loop thread, so never block it"},
     {"slug": "io08-zero-copy", "lesson": "io-08", "section": 0, "title": "Zero-copy with transferTo, then readiness (epoll) versus completion (io_uring)"},
     {"slug": "rx07-overflow", "lesson": "rx-07", "section": 2, "title": "When the source can't slow down, buffer, drop, latest or error decide what the slow subscriber loses"},
-    {"slug": "co04-dispatchers", "lesson": "co-04", "section": 0, "title": "A dispatcher picks the thread: Default for CPU work, IO for blocking calls, and withContext hops between them"}
+    {"slug": "co04-dispatchers", "lesson": "co-04", "section": 0, "title": "A dispatcher picks the thread: Default for CPU work, IO for blocking calls, and withContext hops between them"},
+    {"slug": "cap2-tour", "lesson": "cap2-01", "section": 0, "title": "The quote service you build, sitting by sitting: a Netty shell, a coroutine fan-out, guards under load, and the earlier lesson behind each part"}
   ]
 }

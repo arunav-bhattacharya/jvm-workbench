@@ -187,7 +187,7 @@ class Boot04Crac(VoiceScene):
         self.say("The restored process continues at the instruction where the old one stopped. "
                  "The heap, the loaded classes and the JIT's compiled code are all back.",
                  [(0, [FadeIn(pc, shift=UP * 0.1)], 0.7),
-                  (1, [LaggedStart(*[TransformFromCopy(files, p) for p in rparts[:3]], lag_ratio=0.4)], 1.6),
+                  (1, [travel(ra, WARM, 0.6)], 0.6), (1, [LaggedStart(*[FadeIn(p, shift=RIGHT * 0.3) for p in rparts[:3]], lag_ratio=0.4)], 1.2),
                   (1, [FadeIn(rparts[3])], 0.4), (1, [Indicate(rest, color=WARM, scale_factor=1.04)], 0.8)])
         self.play(FadeOut(VGroup(crac_t, warm, parts, img, img_dir, files, rest, rparts, ca, ra, ca_l, ra_l, criu, pc)), run_time=0.6)
 
@@ -296,10 +296,10 @@ class Boot04Crac(VoiceScene):
         kg = VGroup(T("Kotlin", 22, GREY_B), kc).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
         code = VGroup(jg, kg).arrange(RIGHT, buff=0.9, aligned_edge=UP)
         code.scale(min(1, 12.6 / code.width)).move_to(DOWN * 0.05)
-        rect = lambda m, c: SurroundingRectangle(m, color=c, buff=0.07, corner_radius=0.05)
+        rect = lambda m, c: SurroundingRectangle(m, color=c, buff=0.08, corner_radius=0.05)
         reg = VGroup(rect(VGroup(jc[2], jc[3]), WARM), rect(VGroup(kc[2], kc[3]), WARM))
-        bef = VGroup(rect(VGroup(jc[5], jc[6], jc[7], jc[8]), BAD), rect(VGroup(kc[5], kc[6], kc[7]), BAD))
-        aft = VGroup(rect(VGroup(jc[9], jc[10], jc[11], jc[12]), CONN), rect(VGroup(kc[9], kc[10], kc[11]), CONN))
+        bef = VGroup(rect(VGroup(jc[5], jc[6], jc[7]), BAD), rect(VGroup(kc[5], kc[6], kc[7]), BAD))
+        aft = VGroup(rect(VGroup(jc[9], jc[10], jc[11]), CONN), rect(VGroup(kc[9], kc[10], kc[11]), CONN))
         self.say("Your code takes part through org.crac's Resource. The ledger pool registers itself with the global context.",
                  [(0, [FadeIn(code, shift=UP * 0.15)], 1.0), (1, [Create(reg)], 0.8)])
         self.say("Before the checkpoint, beforeCheckpoint closes every connection. After a restore, afterRestore reconnects.",

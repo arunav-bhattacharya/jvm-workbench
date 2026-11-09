@@ -86,6 +86,12 @@ def pulse(m, color, scale=1.08):
     return AnimationGroup(m.animate(rate_func=there_and_back).scale(scale), flash(m[0], color))
 
 
+def light(*ms, op=1):
+    """One opacity animation per part. A new VGroup passed to .animate would be re-added to the scene and could
+    drag a container box into the moving layer, drawn over its own (static) contents for that play."""
+    return [m.animate.set_opacity(op) for m in ms]
+
+
 def dot_run(a, b, color, run_time):
     """A dot that runs from point a to point b and fades."""
     d = Dot(radius=0.09, color=color).move_to(a).set_z_index(30)
@@ -278,12 +284,12 @@ class Cap3Tour(Beat):
 
         lab2 = uses("Value classes and what they compile to")
         self.seq("Ids and amounts are value classes, which check themselves when they're built.",
-                 [(0, [VGroup(vals, l_mv).animate.set_opacity(1), Transform(f, focus_on(vals)),
+                 [(0, [*light(vals, l_mv), Transform(f, focus_on(vals)),
                        FadeOut(lab), FadeIn(lab2, shift=UP * 0.1)], 0.7)])
 
         lab3 = uses("Data-oriented programming, and Project Valhalla")
         self.seq("And parseEvent turns raw fields into an event, or into Rejected. It never throws.",
-                 [(0, [VGroup(raw, parse, rej, a_rp, a_pm, a_pr).animate.set_opacity(1),
+                 [(0, [*light(raw, parse, rej, a_rp, a_pm, a_pr),
                        Transform(f, focus_on(VGroup(parse, rej))), FadeOut(lab2), FadeIn(lab3, shift=UP * 0.1)], 0.7),
                   (0, [dot_run(pr0, pr1, GREY_B, 0.5)], 0.55),
                   (0, [dot_run(pe, model.get_left(), EV, 0.5), dot_run(parse.get_bottom(), rej.get_top(), RED_M, 0.5)], 0.55)])
@@ -292,17 +298,17 @@ class Cap3Tour(Beat):
         h2 = heading(2, "A typed event bus", "in Kotlin", S2)
         self.seq("Lesson 2 builds the bus.",
                  [(0, [FadeOut(h1), FadeIn(h2, shift=DOWN * 0.1), FadeOut(f), FadeOut(lab3),
-                       VGroup(bus, bus_t).animate.set_opacity(1)], 0.8)])
+                       *light(bus, bus_t)], 0.8)])
 
         f = focus_on(disp)
         lab = uses("KClass, Class and type tokens")
         self.seq("It finds handlers by the event's class, then by each event supertype, nearest first.",
-                 [(0, [VGroup(disp, chips, fan).animate.set_opacity(1), Create(f), FadeIn(lab, shift=UP * 0.1)], 0.8),
+                 [(0, [*light(disp, chips, fan), Create(f), FadeIn(lab, shift=UP * 0.1)], 0.8),
                   (0, [AnimationGroup(*[dot_run(a.get_start(), a.get_end(), EV, 0.6) for a in fan])], 0.75)])
 
         lab2 = uses("Contravariance with in: consumers")
         self.seq("A handler only takes events in, so Handler is declared in. One audit handler fits every subscription.",
-                 [(0, [VGroup(brace, hin).animate.set_opacity(1), Transform(f, focus_on(VGroup(chips, hin))),
+                 [(0, [*light(brace, hin), Transform(f, focus_on(VGroup(chips, hin))),
                        FadeOut(lab), FadeIn(lab2, shift=UP * 0.1)], 0.8),
                   (1, [pulse(chips[1], S2, 1.12)], 0.8)])
 
@@ -316,13 +322,13 @@ class Cap3Tour(Beat):
 
         lab4 = uses("State and Chain of Responsibility")
         self.seq("Logging and dropping duplicates run once per event, as a chain.",
-                 [(0, [FadeOut(boom), VGroup(mw, a_mb, a_md).animate.set_opacity(1), Transform(f, focus_on(mw)),
+                 [(0, [FadeOut(boom), *light(mw, a_mb, a_md), Transform(f, focus_on(mw)),
                        FadeOut(lab3), FadeIn(lab4, shift=UP * 0.1)], 0.7),
                   (0, [path_run([model.get_right(), mw.get_left(), mw.get_right(), disp.get_left()], EV, 0.9)], 0.95)])
 
         lab5 = uses("Decorator and Proxy")
         self.seq("Timing one handler is a decorator around it.",
-                 [(0, [VGroup(ring, timed).animate.set_opacity(1), Transform(f, focus_on(VGroup(ring, timed))),
+                 [(0, [*light(ring, timed), Transform(f, focus_on(VGroup(ring, timed))),
                        FadeOut(lab4), FadeIn(lab5, shift=UP * 0.1)], 0.7),
                   (0, [flash(ring, S2)], 0.7)])
 
@@ -334,7 +340,7 @@ class Cap3Tour(Beat):
         f = focus_on(kdoor)
         lab = uses("Type-safe DSLs with lambdas with receivers")
         self.seq("Kotlin code gets a subscription DSL. It subscribes everything at once, when the block ends.",
-                 [(0, [VGroup(kdoor, a_k).animate.set_opacity(1), Create(f), FadeIn(lab, shift=UP * 0.1)], 0.8),
+                 [(0, [*light(kdoor, a_k), Create(f), FadeIn(lab, shift=UP * 0.1)], 0.8),
                   (1, [dot_run(a_k.get_start(), a_k.get_end(), S3, 0.6)], 0.65)])
 
         lab2 = uses("Type erasure and reified type parameters")
@@ -343,7 +349,7 @@ class Cap3Tour(Beat):
 
         lab3 = uses("Value classes and what they compile to")
         self.seq("Java code gets Class overloads, and a facade that still builds the value classes, so every check runs.",
-                 [(0, [VGroup(jdoor, a_j).animate.set_opacity(1), Transform(f, focus_on(jdoor)),
+                 [(0, [*light(jdoor, a_j), Transform(f, focus_on(jdoor)),
                        FadeOut(lab2), FadeIn(lab3, shift=UP * 0.1)], 0.8),
                   (0, [dot_run(a_j.get_start(), a_j.get_end(), S3, 0.6)], 0.65),
                   (0, [pulse(vals, S1)], 0.8)])

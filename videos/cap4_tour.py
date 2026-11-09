@@ -86,6 +86,12 @@ def pulse(m, color, scale=1.08):
     return AnimationGroup(m.animate(rate_func=there_and_back).scale(scale), flash(m[0], color))
 
 
+def light(*ms, op=1):
+    """One opacity animation per part. A new VGroup passed to .animate would be re-added to the scene and could
+    drag a container box into the moving layer, drawn over its own (static) contents for that play."""
+    return [m.animate.set_opacity(op) for m in ms]
+
+
 def dot_run(a, b, color, run_time):
     """A dot that runs from point a to point b and fades."""
     d = Dot(radius=0.09, color=color).move_to(a).set_z_index(30)
@@ -268,19 +274,19 @@ class Cap4Tour(Beat):
 
         lab2 = uses("Reading bytecode: javap, the operand stack and Kotlin's output")
         self.seq("It never guesses a constructor, and it skips the synthetic ones Kotlin adds.",
-                 [(0, [VGroup(ctor, a1).animate.set_opacity(1), Transform(f, focus_on(ctor)),
+                 [(0, [*light(ctor, a1), Transform(f, focus_on(ctor)),
                        FadeOut(lab), FadeIn(lab2, shift=UP * 0.1)], 0.7)])
 
         lab3 = uses("new in this lesson: a depth-first walk", plain=True)
         cyc = M("Dependency cycle: Payouts -> Statements -> Payouts", 20, RED_M).move_to([-2.85, 0.65, 0])
         self.seq("A depth-first walk orders the graph, and names any cycle at start-up.",
-                 [(0, [VGroup(graph, a2).animate.set_opacity(1), Transform(f, focus_on(graph)),
+                 [(0, [*light(graph, a2), Transform(f, focus_on(graph)),
                        FadeOut(lab2), FadeIn(lab3, shift=UP * 0.1)], 0.7),
                   (0, [flash(graph[0], RED_M), FadeIn(cyc, shift=UP * 0.1)], 0.7)])
 
         lab4 = uses("Lazy init done right: double-checked locking and holders")
         self.seq("Each singleton gets a cell with double-checked locking: one instance, even when eight threads ask at once.",
-                 [(0, [VGroup(cont, a3).animate.set_opacity(1), Transform(f, focus_on(cont)),
+                 [(0, [*light(cont, a3), Transform(f, focus_on(cont)),
                        FadeOut(lab3), FadeOut(cyc), FadeIn(lab4, shift=UP * 0.1)], 0.7),
                   (0, [path_run(row, FL, 1.6)], 1.65), (0, [pulse(cont, S1)], 0.6)])
 
@@ -288,7 +294,7 @@ class Cap4Tour(Beat):
         h2 = heading(2, "Add interceptors with proxies", "in Kotlin", S2)
         self.seq("Lesson 2, in Kotlin, adds Timed and Retry.",
                  [(0, [FadeOut(h1), FadeIn(h2, shift=DOWN * 0.1), FadeOut(f), FadeOut(lab4),
-                       VGroup(ib, it, a_ci).animate.set_opacity(1)], 0.8)])
+                       *light(ib, it, a_ci)], 0.8)])
 
         f = focus_on(chain)
         lab = uses("Decorator and Proxy")
@@ -350,7 +356,7 @@ class Cap4Tour(Beat):
         lab4 = uses("Class loading: loaders, delegation, linking and initialization")
         self.seq("Then a generator runs the same graph at build time, and writes a holder class per singleton. "
                  "The start drops to 991 classes.",
-                 [(0, [VGroup(gen, reg, a_gg, same, a_gr).animate.set_opacity(1), Transform(f, focus_on(VGroup(gen, reg))),
+                 [(0, [*light(gen, reg, a_gg, same, a_gr), Transform(f, focus_on(VGroup(gen, reg))),
                        FadeOut(lab3), FadeIn(lab4, shift=UP * 0.1)], 0.8),
                   (0, [dot_run(a_gg.get_start(), a_gg.get_end(), S3, 0.8)], 0.85),
                   (0, [dot_run(a_gr.get_start(), a_gr.get_end(), S3, 0.5)], 0.55),
@@ -381,7 +387,7 @@ class Cap4Tour(Beat):
         f = focus_on(arch)
         rest = VGroup(*[m for m in everything if m is not arch])
         self.seq("AppCDS and the AOT cache then archive what is left.",
-                 [(0, [FadeOut(snip), rest.animate.set_opacity(1), panel.animate.set_opacity(1)], 0.8),
+                 [(0, [FadeOut(snip), *light(*rest), panel.animate.set_opacity(1)], 0.8),
                   (0, [arch.animate.set_opacity(1), Create(f), FadeIn(lab5, shift=UP * 0.1)], 0.7)])
 
         # ---- the rule

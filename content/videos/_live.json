@@ -1,6 +1,8 @@
 {
   "live": [
     "boot02-aot-cache",
+    "cap1-tour",
+    "cap2-tour",
     "cls01-loading",
     "cls03-indy",
     "cls04-proxy",
