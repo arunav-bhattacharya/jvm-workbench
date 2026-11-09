@@ -101,33 +101,33 @@ Read it back, and getStatus calls getValue.
 The value comes back as T, so the getter casts it to String.
 
 26
-00:01:37.933 --> 00:01:40.055
+00:01:37.933 --> 00:01:40.019
 That hidden field is the price.
 
 27
-00:01:40.055 --> 00:01:44.642
-Every delegated property costs one extra object, in every instance.
+00:01:40.019 --> 00:01:45.132
+A delegate like Audited is one extra object per property, in every instance.
 
 28
-00:01:44.642 --> 00:01:47.106
+00:01:45.132 --> 00:01:47.554
 Three orders, three Audited objects.
 
 29
-00:01:47.106 --> 00:01:50.803
+00:01:47.554 --> 00:01:51.187
 The KProperty array is made once, for the whole class.
 
 30
-00:01:51.567 --> 00:01:52.525
+00:01:51.933 --> 00:01:52.892
 Java has no by.
 
 31
-00:01:52.525 --> 00:01:57.383
+00:01:52.892 --> 00:01:57.749
 There you write the same forwarding yourself, and pass the name as a string.
 
 32
-00:01:57.600 --> 00:02:00.876
+00:01:57.967 --> 00:02:01.243
 From the outside, both are a plain getter and setter.
 
 33
-00:02:00.876 --> 00:02:05.080
+00:02:01.243 --> 00:02:05.447
 A setter that logs or validates looks exactly like one that doesn't.
