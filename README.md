@@ -1,6 +1,6 @@
 # JVM Workbench
 
-A 130-lesson course on how Java and Kotlin really run: concurrency, async servers, generics and design, and the JVM itself. One lesson a day, about 35 minutes each, with real code to write and tests that tell you when it works. Live at https://jvm-workbench.ai-arunav.workers.dev.
+A 138-lesson course on how Java and Kotlin really run: concurrency, async servers, generics and design, and the JVM itself. One lesson a day, about 35 minutes each, with real code to write and tests that tell you when it works. Live at https://jvm-workbench.ai-arunav.workers.dev.
 
 The course has four parts. Each one ends with a capstone: three sittings that build one working program from everything the part taught.
 
@@ -16,6 +16,7 @@ The course has four parts. Each one ends with a capstone: three sittings that bu
 | | Servers and event loops: NIO, Netty, Vert.x and Jetty | 8 | `labs/nio` |
 | | Capstone: a non-blocking quote service | 3 | `labs/quotes` |
 | 3. Types and design | Kotlin generics, properly | 11 | `labs/generics` |
+| | Functional programming in Kotlin | 8 | `labs/functional` |
 | | Design patterns in Java and Kotlin | 11 | `labs/patterns` |
 | | Modern Java data modeling | 4 | `labs/modernjava` |
 | | Advanced Kotlin | 6 | `labs/kotlin` |
@@ -37,7 +38,7 @@ The site also has:
 - **Plan**: lessons laid out as Week N, Day N at 3 to 7 study days a week (no calendar dates, so missing a day never makes you "late"), and copy/paste sync between devices.
 - **Cheat sheets** and a **glossary** for when you need the answer, not the lesson.
 - A **35-minute focus timer**: 10 minutes review, 12 learning, 13 practice.
-- **Concept videos**: 21 narrated animations (1440p, with captions) at the top of the sections they explain, from the `count++` race to G1's regions. Pick the narrator voice and speed under any video; the choice applies to all of them.
+- **Concept videos**: 53 narrated animations (1440p, with captions) at the top of the sections they explain, from the `count++` race to G1's regions. Pick the narrator voice and speed under any video; the choice applies to all of them.
 
 There is no sign-in. Progress is saved in the browser (`localStorage`); to move it between devices, use "Copy my progress" and "Import" on the Plan page.
 
