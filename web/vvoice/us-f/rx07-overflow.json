@@ -1,0 +1,331 @@
+{
+ "slug": "rx07-overflow",
+ "voice": "us-f",
+ "max_late": 1.64,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.43,
+   "tries": 1,
+   "text": "In Reactor, demand travels up the chain."
+  },
+  {
+   "cue": 5.31,
+   "start": 5.31,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.09,
+   "tries": 1,
+   "text": "The subscriber calls request(n), which means I can take n more."
+  },
+  {
+   "cue": 9.42,
+   "start": 9.42,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.45,
+   "tries": 1,
+   "text": "A source like Flux.range sends at most n, then waits."
+  },
+  {
+   "cue": 13.1,
+   "start": 13.1,
+   "late": 0.0,
+   "tempo": 1.085,
+   "secs": 1.09,
+   "tries": 1,
+   "text": "A ticker can't wait."
+  },
+  {
+   "cue": 14.4,
+   "start": 14.4,
+   "late": 0.0,
+   "tempo": 1.064,
+   "secs": 3.73,
+   "tries": 1,
+   "text": "Flux.interval ticks once a millisecond, whatever you request."
+  },
+  {
+   "cue": 18.36,
+   "start": 18.36,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.11,
+   "tries": 1,
+   "text": "Behind it, a screen asks for one tick at a time, and takes ten milliseconds to draw it."
+  },
+  {
+   "cue": 24.03,
+   "start": 24.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.58,
+   "tries": 1,
+   "text": "Tick one comes before anyone asked for it, and the stream fails."
+  },
+  {
+   "cue": 28.13,
+   "start": 28.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.68,
+   "tries": 1,
+   "text": "The onBackpressure operators let you choose what happens instead."
+  },
+  {
+   "cue": 32.24,
+   "start": 32.24,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.09,
+   "tries": 1,
+   "text": "Each one requests unbounded, so the source never overflows, and then decides what to do with the ticks nobody asked for."
+  },
+  {
+   "cue": 40.03,
+   "start": 40.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.87,
+   "tries": 1,
+   "text": "onBackpressureBuffer with no size keeps every tick in a queue."
+  },
+  {
+   "cue": 44.36,
+   "start": 44.36,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 4.44,
+   "tries": 1,
+   "text": "The screen gets zero, one, two, three, all in order."
+  },
+  {
+   "cue": 47.3,
+   "start": 48.94,
+   "late": 1.64,
+   "tempo": 1.2,
+   "secs": 2.37,
+   "tries": 1,
+   "text": "But after twenty frames, the ticker is at two hundred four."
+  },
+  {
+   "cue": 50.47,
+   "start": 51.46,
+   "late": 0.99,
+   "tempo": 1.0,
+   "secs": 4.64,
+   "tries": 1,
+   "text": "More than one hundred eighty ticks wait in memory, and the backlog grows until the heap runs out."
+  },
+  {
+   "cue": 57.37,
+   "start": 57.37,
+   "late": 0.0,
+   "tempo": 1.148,
+   "secs": 1.9,
+   "tries": 1,
+   "text": "Give the buffer a size, like ten."
+  },
+  {
+   "cue": 59.48,
+   "start": 59.48,
+   "late": 0.0,
+   "tempo": 1.035,
+   "secs": 3.37,
+   "tries": 1,
+   "text": "While the screen draws tick zero, ticks one to ten fill it."
+  },
+  {
+   "cue": 63.07,
+   "start": 63.07,
+   "late": 0.0,
+   "tempo": 1.017,
+   "secs": 1.47,
+   "tries": 1,
+   "text": "Then a tick finds no room."
+  },
+  {
+   "cue": 64.77,
+   "start": 64.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.27,
+   "tries": 1,
+   "text": "The buffer cancels the source and fails."
+  },
+  {
+   "cue": 67.47,
+   "start": 67.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.33,
+   "tries": 1,
+   "text": "The error waits behind the buffered ticks."
+  },
+  {
+   "cue": 70.12,
+   "start": 70.12,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.87,
+   "tries": 1,
+   "text": "The screen still gets zero to eleven, in order, and then the error."
+  },
+  {
+   "cue": 75.03,
+   "start": 75.03,
+   "late": 0.0,
+   "tempo": 1.021,
+   "secs": 1.9,
+   "tries": 1,
+   "text": "onBackpressureDrop keeps nothing."
+  },
+  {
+   "cue": 77.15,
+   "start": 77.15,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.33,
+   "tries": 1,
+   "text": "Each tick that arrives while nobody is asking is thrown away."
+  },
+  {
+   "cue": 81.13,
+   "start": 81.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.73,
+   "tries": 1,
+   "text": "So the screen sees ticks about eleven apart, and in twenty frames about two hundred are dropped."
+  },
+  {
+   "cue": 87.53,
+   "start": 87.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.47,
+   "tries": 1,
+   "text": "onBackpressureLatest keeps one slot, and each new tick replaces the one before."
+  },
+  {
+   "cue": 92.49,
+   "start": 92.49,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.8,
+   "tries": 1,
+   "text": "When the screen asks, it gets the newest: about every tenth tick."
+  },
+  {
+   "cue": 97.3,
+   "start": 97.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.93,
+   "tries": 1,
+   "text": "onBackpressureError fails at once, at the first tick nobody asked for."
+  },
+  {
+   "cue": 102.93,
+   "start": 102.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.02,
+   "tries": 1,
+   "text": "None of these slows the source down."
+  },
+  {
+   "cue": 105.21,
+   "start": 105.21,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.64,
+   "tries": 1,
+   "text": "They only decide what to lose."
+  },
+  {
+   "cue": 107.1,
+   "start": 107.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.52,
+   "tries": 1,
+   "text": "Real backpressure needs a source that honours request(n)."
+  },
+  {
+   "cue": 111.4,
+   "start": 111.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.47,
+   "tries": 1,
+   "text": "So pick by the kind of feed."
+  },
+  {
+   "cue": 113.26,
+   "start": 113.26,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.67,
+   "tries": 1,
+   "text": "Prices, positions and statuses want latest, because newer replaces older."
+  },
+  {
+   "cue": 118.1,
+   "start": 118.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.03,
+   "tries": 1,
+   "text": "Samples and metrics can be dropped."
+  },
+  {
+   "cue": 120.42,
+   "start": 120.42,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.65,
+   "tries": 1,
+   "text": "Card authorizations and audit events must not be lost, so they get a bounded buffer that fails loudly."
+  },
+  {
+   "cue": 127.18,
+   "start": 127.18,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.74,
+   "tries": 1,
+   "text": "Error is for feeds where falling behind is a bug."
+  },
+  {
+   "cue": 130.43,
+   "start": 130.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "And the unbounded buffer suits almost nothing."
+  },
+  {
+   "cue": 134.2,
+   "start": 134.2,
+   "late": 0.0,
+   "tempo": 1.049,
+   "secs": 3.54,
+   "tries": 1,
+   "text": "In Kotlin Flow, a slow collector simply suspends the emitter."
+  },
+  {
+   "cue": 137.97,
+   "start": 137.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 8.21,
+   "tries": 1,
+   "text": "When a buffer sits between them, conflate keeps the newest, like onBackpressureLatest, and a full buffer suspends the emitter instead of failing."
+  }
+ ]
+}

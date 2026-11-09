@@ -1,0 +1,516 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+LAB = "labs/functional/src"
+read = lambda p: (ROOT / p).read_text()
+RUN = "./gradlew :functional:demo -Pmain="
+PKG = "workbench.functional.l01.demo"
+
+
+def kdemo(name, alt=True):
+    path = f"{LAB}/demo/kotlin/workbench/functional/l01/demo/{name}.kt"
+    d = {"lang": "kotlin", "title": f"{name}.kt", "src": read(path), "run": f"{RUN}{PKG}.{name}Kt", "file": path}
+    if alt:
+        d["alt"] = jdemo(name + "Java")
+    return d
+
+
+def jdemo(name):
+    path = f"{LAB}/demo/java/workbench/functional/l01/demo/{name}.java"
+    return {"lang": "java", "title": f"{name}.java", "src": read(path), "run": f"{RUN}{PKG}.{name}", "file": path}
+
+
+def box(x, y, w, label, cls="box", h=38, tcls="t-s t-code"):
+    return (f'<rect class="{cls}" x="{x}" y="{y}" width="{w}" height="{h}" rx="8"/>'
+            f'<text class="{tcls}" x="{x + w // 2}" y="{y + h // 2 + 5}" text-anchor="middle">{label}</text>')
+
+
+FIG = (
+    '<svg viewBox="0 0 680 300" role="img" aria-label="Functional core, imperative shell. The shell reads the clock, the config and the request, '
+    'passes them as plain values to the pure core, payoutFee and auditLine, and then performs the effects: write the audit line and return the fee.">'
+    '<rect class="box-dim" x="10" y="10" width="660" height="280" rx="8"/>'
+    '<text class="t-s t-m" x="340" y="34" text-anchor="middle">imperative shell: reads inputs, performs effects, almost no branches</text>'
+    '<text class="t-s t-m" x="115" y="66" text-anchor="middle">read the inputs</text>'
+    + box(30, 78, 170, "LocalTime.now(clock)")
+    + box(30, 138, 170, "FeeConfig.rates")
+    + box(30, 198, 170, "amount (request)")
+    + '<rect class="box-a" x="250" y="88" width="190" height="122" rx="8"/>'
+    '<text class="t" x="345" y="116" text-anchor="middle">functional core</text>'
+    '<text class="t-s t-code" x="345" y="146" text-anchor="middle">payoutFee(...)</text>'
+    '<text class="t-s t-code" x="345" y="170" text-anchor="middle">auditLine(...)</text>'
+    '<text class="t-s t-m" x="345" y="194" text-anchor="middle">values in, values out</text>'
+    '<text class="t-s t-m" x="570" y="66" text-anchor="middle">do the effects</text>'
+    + box(490, 98, 160, "audit.info(line)", "box-b")
+    + box(490, 158, 160, "return fee", "box-b")
+    + '<line class="ln-a" x1="200" y1="97" x2="246" y2="126" marker-end="url(#arr)"/>'
+    '<line class="ln-a" x1="200" y1="157" x2="246" y2="150" marker-end="url(#arr)"/>'
+    '<line class="ln-a" x1="200" y1="217" x2="246" y2="176" marker-end="url(#arr)"/>'
+    '<line class="ln-a" x1="440" y1="130" x2="486" y2="117" marker-end="url(#arr)"/>'
+    '<line class="ln-a" x1="440" y1="168" x2="486" y2="177" marker-end="url(#arr)"/>'
+    '<text class="t-s t-ok" x="345" y="236" text-anchor="middle">many unit tests with plain values</text>'
+    '<text class="t-s t-m" x="340" y="272" text-anchor="middle">a couple of tests with Clock.fixed cover the shell</text>'
+    '</svg>'
+)
+
+S1 = """Here is a payout fee calculator. Something like it lives in every payments service.
+
+```java
+static BigDecimal quotePayoutFee(BigDecimal amount) {
+    FeeRates rates = FeeConfig.rates;                  // a global that an admin endpoint can change
+    LocalTime now = LocalTime.now();                   // the wall clock
+    BigDecimal fee = amount.multiply(rates.percent()).setScale(2, RoundingMode.HALF_EVEN);
+    if (fee.compareTo(rates.minimum()) < 0) fee = rates.minimum();
+    if (!now.isBefore(rates.cutoff())) fee = fee.add(rates.lateSurcharge());
+    audit.info("payout fee " + fee + " on " + amount + " at " + now);
+    return fee;
+}
+```
+
+```kotlin
+fun quotePayoutFee(amount: BigDecimal): BigDecimal {
+    val rates = FeeConfig.rates                        // a global that an admin endpoint can change
+    val now = LocalTime.now()                          // the wall clock
+    var fee = amount.multiply(rates.percent).setScale(2, RoundingMode.HALF_EVEN)
+    if (fee < rates.minimum) fee = rates.minimum
+    if (!now.isBefore(rates.cutoff)) fee += rates.lateSurcharge
+    audit.info("payout fee $fee on $amount at $now")
+    return fee
+}
+```
+
+The signature says it takes an amount and returns a fee. That isn't the whole truth. It also takes the current time and whatever `FeeConfig.rates` holds at that moment, and it writes to the audit log. Those two inputs and that one output are hidden. You can't see them at the call site, and a test can't pass them in.
+
+So every test of it is fragile. `assertEquals(new BigDecimal("3.00"), quotePayoutFee(new BigDecimal("200.00")))` passes at 10:00 on your laptop. The nightly build runs at 17:00, after the 16:00 cut-off, and gets 4.00. Another test sets a premium merchant's rate on `FeeConfig` and forgets to put it back, and now your test fails only when JUnit happens to run that one first. And every call writes a real audit line, so a test that wants to check it has to capture logging output.
+
+The usual fixes add machinery. You inject a `Clock` and pass `Clock.fixed(...)` in tests. You reset `FeeConfig` in `@BeforeEach`. You install a log appender. All of that works. All of it exists only because the function reaches outside its own parameters.
+
+There is a simpler fix: make every input a parameter, and make the return value the only output. The rest of this lesson shows why that one change pays off so much."""
+
+S2 = """A **pure function** follows two rules. Its result depends only on its arguments, so two calls with the same values give the same answer. And calling it changes nothing outside it. Break either rule and the function is impure.
+
+Anything a call does besides hand back its value is a **side effect**: writing a database row, charging a card, sending a Kafka message, logging, changing a field or the contents of a parameter. The first rule has a half that people forget. Reading something that can change also breaks purity: `LocalTime.now()`, `Random.nextInt()`, a mutable global, a cache that another thread fills. These are **hidden inputs**. The answer depends on them, so the same arguments can give different answers.
+
+Here is the fee rule with every input moved into the parameter list:
+
+```java
+static BigDecimal payoutFee(BigDecimal amount, FeeRates rates, LocalTime requestedAt) {
+    BigDecimal base = amount.multiply(rates.percent()).setScale(2, RoundingMode.HALF_EVEN);
+    BigDecimal atLeastMinimum = base.max(rates.minimum());
+    boolean late = !requestedAt.isBefore(rates.cutoff());
+    return late ? atLeastMinimum.add(rates.lateSurcharge()) : atLeastMinimum;
+}
+```
+
+```kotlin
+fun payoutFee(amount: BigDecimal, rates: FeeRates, requestedAt: LocalTime): BigDecimal {
+    val base = amount.multiply(rates.percent).setScale(2, RoundingMode.HALF_EVEN)
+    val atLeastMinimum = base.max(rates.minimum)
+    val late = !requestedAt.isBefore(rates.cutoff)
+    return if (late) atLeastMinimum + rates.lateSurcharge else atLeastMinimum
+}
+```
+
+`FeeRates` is a record in Java and a data class with `val`s in Kotlin, so it's a plain value that can't change under you. The time arrives as a `LocalTime` value, not as a clock to ask. Nothing gets logged. Now the test:
+
+```java
+assertEquals(new BigDecimal("4.00"), payoutFee(new BigDecimal("200.00"), STANDARD, LocalTime.of(16, 0)));
+```
+
+```kotlin
+assertEquals(BigDecimal("4.00"), payoutFee(BigDecimal("200.00"), STANDARD, LocalTime.of(16, 0)))
+```
+
+No fake clock, no reset, no mocks. You can test 15:59:59 and 16:00 in two lines, run the tests in any order, and run them on eight threads at once. Nothing is shared, so nothing can race.
+
+Purity is a property of what a function does, not of the language. Kotlin has no `pure` keyword, and neither compiler checks it. The clues are in the signature: plain value parameters, a real return type instead of `Unit` or `void`, and no clock, repository or logger among the dependencies."""
+
+S3 = """Pure functions have a property with a long name and a simple meaning. **Referential transparency** means you can replace a call with the value it returns, and the program does exactly the same thing.
+
+```java
+long total = fee(20_000) + fee(20_000);
+long f = fee(20_000);
+long same = f + f;                        // always equal to total
+```
+
+```kotlin
+val total = fee(20_000) + fee(20_000)
+val f = fee(20_000)
+val same = f + f                          // always equal to total
+```
+
+You make this kind of change every day without thinking about it: extract a variable, inline a variable, move a call out of a loop. It's only safe when the call is pure. Try the same move on a call with a side effect:
+
+```java
+String c = provider.charge(card, 20_000);
+List<String> receipts = List.of(c, c);                        // one charge
+List<String> inlined = List.of(provider.charge(card, 20_000),
+                               provider.charge(card, 20_000)); // two charges
+```
+
+```kotlin
+val c = provider.charge(card, 20_000)
+val receipts = listOf(c, c)                                    // one charge
+val inlined = listOf(provider.charge(card, 20_000),
+                     provider.charge(card, 20_000))            // two charges
+```
+
+Inlining the variable charged the customer twice. Nothing in the syntax warned you. Both versions look like the same expression, and only what you know about `charge` tells them apart.
+
+That is what purity buys you in practice: the call site tells you everything. You can reorder pure calls, because no call depends on another one's effects. You can cache the result, because the same arguments always give the same answer (lesson 3 of this track builds `memoize` on exactly this). You can retry after a timeout, because a second call can't do anything twice. You can run it on many threads, because it touches nothing shared. With an impure function, each of those moves first needs you to read its body, and often the bodies of everything it calls."""
+
+S4 = """Pure code computes values instead of changing variables. Kotlin helps more than Java here, because `if`, `when` and `try` are **expressions**: they produce a value that you can assign or return. In Java, `if` and `try` are statements. They do something, and produce nothing.
+
+This is the habit both languages allow, a variable declared first and assigned in branches:
+
+```java
+AuthStatus status;
+if (httpCode == 200) status = AuthStatus.APPROVED;
+else if (httpCode == 402) status = AuthStatus.DECLINED;
+else status = AuthStatus.ERROR;
+```
+
+```kotlin
+var status: AuthStatus
+if (httpCode == 200) status = AuthStatus.APPROVED
+else if (httpCode == 402) status = AuthStatus.DECLINED
+else status = AuthStatus.ERROR
+```
+
+And this is the expression form:
+
+```java
+AuthStatus status = switch (httpCode) {       // switch expression, JDK 14
+    case 200 -> AuthStatus.APPROVED;
+    case 402 -> AuthStatus.DECLINED;
+    default -> AuthStatus.ERROR;
+};
+```
+
+```kotlin
+val status = when (httpCode) {
+    200 -> AuthStatus.APPROVED
+    402 -> AuthStatus.DECLINED
+    else -> AuthStatus.ERROR
+}
+```
+
+The expression version is a `val`, so nothing can reassign it later. It also can't be left without a value. Delete the `else` branch and Kotlin refuses to compile it: `'when' expression must be exhaustive. Add an 'else' branch.` When the subject is an enum or a sealed type, you can list every case and leave out `else`. Then adding a new case to the type breaks every `when` that doesn't handle it yet, which is exactly the reminder you want.
+
+`try` works the same way in Kotlin. Its value is the last expression of the `try` block, or of the `catch` block that ran:
+
+```java
+long cents;
+try { cents = Long.parseLong(raw); } catch (NumberFormatException e) { cents = -1; }
+```
+
+```kotlin
+val cents = try { raw.toLong() } catch (e: NumberFormatException) { -1 }
+```
+
+Java has no `try` expression, so you assign in each block or return from each block. (Returning -1 for bad input only keeps the example short. Lesson 7 of this track shows better ways to return a failure.)
+
+You can't write a whole service as expressions, and you shouldn't try. Inside the core, though, expressions push you toward pure code: each line computes one value from the values before it."""
+
+S5 = """A real service can't be pure. It has to read the clock, load rates from the database, write the audit log and call the payout API. Pure functions don't remove those effects. They let you push them to the edges.
+
+The shape has a name, **functional core, imperative shell**, usually credited to Gary Bernhardt's Destroy All Software screencasts. The core holds the decisions and is pure. The shell does the I/O, and it stays so thin that it has almost no decisions left in it.
+
+For the payout fee, the shell is three steps:
+
+```java
+static BigDecimal quotePayoutFee(BigDecimal amount, Clock clock) {
+    FeeRates rates = FeeConfig.rates;                  // 1. gather the inputs
+    LocalTime now = LocalTime.now(clock);
+    BigDecimal fee = payoutFee(amount, rates, now);    // 2. decide, purely
+    audit.info(auditLine(amount, fee, now));           // 3. do the effects
+    return fee;
+}
+```
+
+```kotlin
+fun quotePayoutFee(amount: BigDecimal, clock: Clock): BigDecimal {
+    val rates = FeeConfig.rates                        // 1. gather the inputs
+    val now = LocalTime.now(clock)
+    val fee = payoutFee(amount, rates, now)            // 2. decide, purely
+    audit.info(auditLine(amount, fee, now))            // 3. do the effects
+    return fee
+}
+```
+
+Look at `auditLine`. Deciding what to log is a decision, so it moves into the core as a pure function that returns a `String`. Writing the line is an effect, so it stays in the shell.
+
+The payoff shows up in where the tests go. The core has all the branches: rounding, the minimum, the cut-off, and later every merchant tier. It gets many fast unit tests with plain values. The shell has no branches, so two tests with `Clock.fixed` cover it. You still need a fake clock, but in two tests instead of twenty.
+
+This is the target shape for the whole track. Function values, higher-order functions, collection pipelines and errors as values are all tools for making the core bigger and the shell smaller. The last lesson of the track refactors a whole settlement job into this shape."""
+
+L = {
+    "id": "fp-01",
+    "title": "Pure functions: the idea everything else builds on",
+    "minutes": 35,
+    "goal": "By the end you can tell a pure function from an impure one, name its hidden inputs and side effects, and pull the pure rule out of code that reads the clock and global config so it can be tested with plain values.",
+    "warmup": {
+        "q": "`quotePayoutFee(amount)` reads a global `FeeConfig.rates` and `LocalTime.now()`. A test calls `quotePayoutFee(BigDecimal(\"200.00\"))` and expects `3.00`. It passes on your laptop at 10:00. What can make the same test fail with no code change?",
+        "options": [
+            "Nothing: same argument, same answer",
+            "Only a JDK upgrade that changes how BigDecimal rounds",
+            "The time of day the build runs, and the order the tests run in",
+            "Only running the test class twice in a row"
+        ],
+        "answer": 2,
+        "why": "The function has two inputs that are not in its parameter list: the clock and the global. The test controls only the argument. At 17:00 in the nightly build, the late surcharge appears. After a test that set a premium rate and forgot to reset it, the percentage is different. A function whose every input is a parameter can't fail this way."
+    },
+    "sections": [
+        {
+            "h": "This fee function has three inputs, and only one is a parameter",
+            "body": S1,
+            "try": {
+                "title": "Two tests, one global",
+                "minutes": 3,
+                "steps": [
+                    "Open `OrderDependentTests.kt` (or its Java twin, `OrderDependentTestsJava.java`). It runs two little tests that share one global rate. Both pass in the order they are written. Predict what happens if you swap the order.",
+                    "Run it with the command below. Then run it again with `-Pargs=reverse` added.",
+                    "Find the line that makes `standardFee` fail. Notice that it isn't in `standardFeeTest`."
+                ],
+                "code": kdemo("OrderDependentTests"),
+                "expect": "In the written order both tests print `pass`. Reversed, `premiumMerchant` still passes, but `standardFee` prints `FAIL (expected 3.00, got 5.00)`. The cause is in the other test, which set `Config.percent` and never reset it. `feeFor` can't protect itself, because the rate is not one of its inputs."
+            }
+        },
+        {
+            "h": "A pure function depends only on its arguments and changes nothing",
+            "body": S2,
+            "try": {
+                "title": "Pure or not?",
+                "minutes": 3,
+                "steps": [
+                    "For each function, decide pure or impure. For the impure ones, name the hidden input or the side effect. Write your answers down before you read the expected result.",
+                    "1: `fun vat(cents: Long) = cents * VAT_PERCENT / 100`, where `VAT_PERCENT` is a `const val`.",
+                    "2: `fun isExpired(card: Card) = card.expiry < YearMonth.now()`.",
+                    "3: `fun total(lines: MutableList<Line>): Long { lines.sortBy { it.sku }; return lines.sumOf { it.cents } }`.",
+                    "4: `fun newIdempotencyKey() = UUID.randomUUID().toString()`.",
+                    "5: `fun maskPan(pan: String) = \"**** \" + pan.takeLast(4)`.",
+                    "6: `fun fee(cents: Long): Long { metrics.counter(\"fee.calls\").increment(); return cents * 15 / 1000 }`."
+                ],
+                "expect": "Pure: 1 (a `const val` can never change) and 5. Impure: 2 reads the clock, a hidden input. 3 sorts the caller's list in place, a side effect the caller can see, even though the sum is right. 4 reads a random source, so two calls never agree. 6 returns the right fee but bumps a counter on every call, a side effect. If you hesitated on 3, that's the one that bites in practice: the caller's list comes back reordered."
+            }
+        },
+        {
+            "h": "Replace the call with its value",
+            "body": S3,
+            "try": {
+                "title": "One charge or two",
+                "minutes": 4,
+                "steps": [
+                    "Run `ReplaceTheCall` (or `ReplaceTheCallJava`). Before you read the output, predict how many times the fake provider is called in each half.",
+                    "Add `println(\"computing fee\")` as the first line of `fee` (in Java, `System.out.println(...)`). Predict how many times it prints, then run again.",
+                    "Is `fee` still pure? Decide before you read the expected result."
+                ],
+                "code": kdemo("ReplaceTheCall"),
+                "expect": "The pure half prints 600 twice. The charge half shows one provider call for `listOf(c, c)`, which holds the same receipt twice, and two calls for the inlined version, `[ch_1, ch_2]`. After you add the print, `computing fee` appears three times: once for `val f`, twice for `fee(20000) + fee(20000)`. Printing is a side effect, so `fee` is no longer strictly pure: inlining `f` would now change the output. A debug print is harmless, but it is the same mechanism as the double charge."
+            }
+        },
+        {
+            "h": "In Kotlin, if, when and try are expressions",
+            "body": S4,
+            "try": {
+                "title": "Let the compiler catch the missing branch",
+                "minutes": 4,
+                "steps": [
+                    "Run `Expressions` (or `ExpressionsJava`). Check that the statement and expression versions agree for 200, 402 and 503.",
+                    "In `statusOf`, delete the `else ->` line (in Java, the `default ->` line). Run the demo again and read the compiler error.",
+                    "Put the line back. In `statusStatement`, delete the last `else status = ...` line and run once more. Predict first: will the statement version compile?"
+                ],
+                "code": kdemo("Expressions"),
+                "expect": "Step 2 fails to compile in both languages. Kotlin: `'when' expression must be exhaustive. Add an 'else' branch.` javac: `the switch expression does not cover all possible input values`. Step 3 fails too: Kotlin says `variable 'status' must be initialized`, javac says `variable status might not have been initialized`. Both compilers track the missing value either way. The expression form reports it where you made the mistake, and leaves you a `val` that nobody can reassign afterwards."
+            },
+            "refs": [
+                {"title": "Conditions and loops: if and when expressions (Kotlin docs)", "url": "https://kotlinlang.org/docs/control-flow.html", "kind": "docs"},
+                {"title": "Exceptions: try is an expression (Kotlin docs)", "url": "https://kotlinlang.org/docs/exceptions.html", "kind": "docs"},
+                {"title": "JEP 361: Switch Expressions", "url": "https://openjdk.org/jeps/361", "kind": "read"}
+            ]
+        },
+        {
+            "h": "Functional core, imperative shell",
+            "body": S5,
+            "figure": {"svg": FIG, "caption": "The shell gathers the inputs, hands them to the pure core as values, and performs whatever the core decided."}
+        }
+    ],
+    "analogy": "A pure function is a printed fee table taped to the counter. Look up the amount and the time, read off the fee. Two clerks reading the same row get the same number, and reading it changes nothing. The impure version is a clerk who phones head office for today's rate, glances at the wall clock and writes in the ledger every time someone asks. The answer depends on who picked up the phone and when, and asking twice leaves two ledger lines. The analogy breaks in one place: a table can only hold the rows someone printed, while a pure function computes the answer for any amount, to the cent.",
+    "in_your_world": "Temporal already forces this shape on you. Workflow code must be deterministic, so it can't call `System.currentTimeMillis()` or `UUID.randomUUID()` directly. The SDK gives you `Workflow.currentTimeMillis()` and `Workflow.randomUUID()` instead, and all I/O goes into activities. A workflow that branches on a payout fee is happiest calling a pure `payoutFee` with the time it got from the SDK. The same split works in a Quarkus REST resource or a Kafka consumer: the resource or the listener gathers the request, the rates and `clock.instant()`, calls a pure `decide(...)`, and only then writes the row and publishes the event.",
+    "mistake": "The most common mistake is to think a function became pure because its dependencies are injected. A `FeeService(clock, ratesRepo, audit)` with a `quote(amount)` method is testable, but it isn't pure. Each call still reads a clock and a repository and writes a log, so every test needs fakes, and two calls with the same amount can still disagree. Injection moves the hidden inputs into the constructor; it doesn't remove them. Go one step further: let the service gather the inputs and pass them as values to `payoutFee(amount, rates, now)`, and keep the fakes for the two or three tests of the service itself.",
+    "compare": {
+        "title": "The same core and shell in Java and Kotlin",
+        "java": {
+            "title": "PayoutFees.java",
+            "src": "record FeeRates(BigDecimal percent, BigDecimal minimum, BigDecimal lateSurcharge, LocalTime cutoff) {}\n\nfinal class PayoutFees {\n    // core: static, every input is a parameter, the result is the only output\n    static BigDecimal payoutFee(BigDecimal amount, FeeRates rates, LocalTime requestedAt) {\n        BigDecimal base = amount.multiply(rates.percent()).setScale(2, RoundingMode.HALF_EVEN);\n        BigDecimal atLeastMinimum = base.max(rates.minimum());\n        return requestedAt.isBefore(rates.cutoff())\n                ? atLeastMinimum\n                : atLeastMinimum.add(rates.lateSurcharge());\n    }\n\n    static String auditLine(BigDecimal amount, BigDecimal fee, LocalTime at) {\n        return \"payout fee \" + fee + \" on \" + amount + \" at \" + at;\n    }\n\n    // shell: gather, decide, act\n    static BigDecimal quotePayoutFee(BigDecimal amount, Clock clock, Audit audit) {\n        FeeRates rates = FeeConfig.rates;\n        LocalTime now = LocalTime.now(clock);\n        BigDecimal fee = payoutFee(amount, rates, now);\n        audit.write(auditLine(amount, fee, now));\n        return fee;\n    }\n}"
+        },
+        "kotlin": {
+            "title": "PayoutFees.kt",
+            "src": "data class FeeRates(val percent: BigDecimal, val minimum: BigDecimal, val lateSurcharge: BigDecimal, val cutoff: LocalTime)\n\n// core: a top-level function, every input is a parameter, the result is the only output\nfun payoutFee(amount: BigDecimal, rates: FeeRates, requestedAt: LocalTime): BigDecimal {\n    val base = amount.multiply(rates.percent).setScale(2, RoundingMode.HALF_EVEN)\n    val atLeastMinimum = base.max(rates.minimum)\n    return if (requestedAt.isBefore(rates.cutoff)) atLeastMinimum\n    else atLeastMinimum + rates.lateSurcharge\n}\n\nfun auditLine(amount: BigDecimal, fee: BigDecimal, at: LocalTime) = \"payout fee $fee on $amount at $at\"\n\n// shell: gather, decide, act\nfun quotePayoutFee(amount: BigDecimal, clock: Clock, audit: Audit): BigDecimal {\n    val rates = FeeConfig.rates\n    val now = LocalTime.now(clock)\n    val fee = payoutFee(amount, rates, now)\n    audit.write(auditLine(amount, fee, now))\n    return fee\n}"
+        },
+        "note": "The idea is the same in both languages, and so is the risk: neither compiler checks purity, so a Java method or a Kotlin function can call `LocalTime.now()` and nothing complains. Kotlin makes pure code a little easier to write. `val` and data classes make values the default, top-level functions need no holder class, and `if`, `when` and `try` produce values, so you rarely need a temporary `var`. Java gets close with records (JDK 16), switch expressions (JDK 14) and the ternary operator, but `if` and `try` stay statements. Kotlin also lets you write `+` on `BigDecimal` because the stdlib defines it as an operator for `add`."
+    },
+    "worked": {
+        "title": "Pull a pure refund decision out of a refund handler",
+        "steps": [
+            {
+                "say": "A refund handler loads the payment, checks two rules and refunds. Before reading on, list every hidden input and every side effect in it.",
+                "code": "fun refund(paymentId: String) {\n    val payment = repo.load(paymentId)\n    val now = Instant.now()\n    if (payment.status != Status.SETTLED) { log.warn(\"$paymentId: not settled\"); return }\n    if (Duration.between(payment.settledAt, now) > Duration.ofDays(30)) { log.warn(\"$paymentId: too old\"); return }\n    psp.refund(payment.id, payment.amountCents)\n    repo.markRefunded(payment.id)\n}",
+                "lang": "kotlin",
+                "alt_lang": "java",
+                "alt_code": "void refund(String paymentId) {\n    Payment payment = repo.load(paymentId);\n    Instant now = Instant.now();\n    if (payment.status() != Status.SETTLED) { log.warn(paymentId + \": not settled\"); return; }\n    if (Duration.between(payment.settledAt(), now).compareTo(Duration.ofDays(30)) > 0) { log.warn(paymentId + \": too old\"); return; }\n    psp.refund(payment.id(), payment.amountCents());\n    repo.markRefunded(payment.id());\n}"
+            },
+            {
+                "say": "Hidden inputs: `repo.load` and `Instant.now()`. Side effects: two `log.warn` calls, `psp.refund` and `repo.markRefunded`. The decision is tangled with all of them. 1. Give the decision a type, so the core can return it as a value instead of acting on it.",
+                "code": "sealed interface RefundDecision {\n    data class Refund(val paymentId: String, val amountCents: Long) : RefundDecision\n    data class Reject(val paymentId: String, val reason: String) : RefundDecision\n}",
+                "lang": "kotlin",
+                "alt_lang": "java",
+                "alt_code": "sealed interface RefundDecision {\n    record Refund(String paymentId, long amountCents) implements RefundDecision {}\n    record Reject(String paymentId, String reason) implements RefundDecision {}\n}"
+            },
+            {
+                "say": "2. Write the core. The payment and the time come in as values, the decision goes out as a value. Self-check: how many tests does it need, and which fakes? (Three, one per branch, and no fakes at all.)",
+                "code": "fun decideRefund(payment: Payment, now: Instant): RefundDecision = when {\n    payment.status != Status.SETTLED ->\n        RefundDecision.Reject(payment.id, \"not settled\")\n    Duration.between(payment.settledAt, now) > Duration.ofDays(30) ->\n        RefundDecision.Reject(payment.id, \"too old\")\n    else -> RefundDecision.Refund(payment.id, payment.amountCents)\n}",
+                "lang": "kotlin",
+                "alt_lang": "java",
+                "alt_code": "static RefundDecision decideRefund(Payment payment, Instant now) {\n    if (payment.status() != Status.SETTLED)\n        return new RefundDecision.Reject(payment.id(), \"not settled\");\n    if (Duration.between(payment.settledAt(), now).compareTo(Duration.ofDays(30)) > 0)\n        return new RefundDecision.Reject(payment.id(), \"too old\");\n    return new RefundDecision.Refund(payment.id(), payment.amountCents());\n}"
+            },
+            {
+                "say": "3. The shell gathers, calls the core and carries out the decision. Its `when` has no business rules, only one branch per kind of decision, and because `RefundDecision` is sealed the compiler checks that every kind is handled.",
+                "code": "fun refund(paymentId: String) {\n    val payment = repo.load(paymentId)                          // 1. gather\n    when (val d = decideRefund(payment, clock.instant())) {     // 2. decide\n        is RefundDecision.Refund -> {                            // 3. act\n            psp.refund(d.paymentId, d.amountCents)\n            repo.markRefunded(d.paymentId)\n        }\n        is RefundDecision.Reject -> log.warn(\"${d.paymentId}: ${d.reason}\")\n    }\n}",
+                "lang": "kotlin",
+                "alt_lang": "java",
+                "alt_code": "void refund(String paymentId) {\n    Payment payment = repo.load(paymentId);                        // 1. gather\n    switch (decideRefund(payment, clock.instant())) {              // 2. decide\n        case RefundDecision.Refund r -> {                          // 3. act\n            psp.refund(r.paymentId(), r.amountCents());\n            repo.markRefunded(r.paymentId());\n        }\n        case RefundDecision.Reject r -> log.warn(r.paymentId() + \": \" + r.reason());\n    }\n}"
+            }
+        ]
+    },
+    "lab": {
+        "title": "Pull the pure fee rule out of quotePayoutFee",
+        "minutes": 12,
+        "files": ["labs/functional/src/main/kotlin/workbench/functional/l01/Fees.kt"],
+        "run": "./gradlew :functional:test --tests 'workbench.functional.l01.*'",
+        "steps": [
+            "Run the tests. Six fail with `NotImplementedError`. Three already pass: they pin the behaviour of the old `quotePayoutFee`, which you are about to refactor, and they must stay green.",
+            "Write `payoutFee` from the rules in its KDoc. Use only its three arguments: no `FeeConfig`, no clock, no `AuditLog`. Try to write it with `val`s and one `if` expression.",
+            "Write `auditLine`. Match the format exactly: `payout fee 3.00 on 200.00 at 15:30`.",
+            "Rewrite the body of `quotePayoutFee` as a three-step shell: read `FeeConfig.rates` and the time from `clock`, call `payoutFee`, add `auditLine(...)` to `AuditLog.lines`, return the fee.",
+            "Run the tests until all nine pass. Then open `PureFeeTest.kt` and notice which tests need the `@BeforeEach` reset and `Clock.fixed`. None of the core tests do."
+        ],
+        "hints": [
+            "`BigDecimal.max(other)` returns the larger of the two values, which applies the minimum in one call.",
+            "`!requestedAt.isBefore(rates.cutoff)` is true at the cut-off and after it. `requestedAt.isAfter(rates.cutoff)` would miss 16:00 exactly, and one test checks that.",
+            "`43.00 x 0.015 = 0.645`. `setScale(2, RoundingMode.HALF_EVEN)` gives 0.64; `HALF_UP` would give 0.65 and fail the rounding test."
+        ],
+        "done_when": "All nine tests in `PureFeeTest` pass, and `quotePayoutFee` has no fee arithmetic left in it."
+    },
+    "drill": {
+        "title": "Write a core and its shell from memory",
+        "minutes": 5,
+        "prompt": "Close this page. Write a pure function `lateFee(invoice, today)`: 5.00 when the invoice is unpaid and `today` is after its due date, otherwise zero. Then write a shell `apply(invoiceId)` that loads the invoice, gets today's date from an injected `Clock`, and saves the fee when there is one. Finally, write one test of the core. Which of the three pieces needs a fake?",
+        "answer": {
+            "lang": "kotlin",
+            "src": "data class Invoice(val id: String, val dueDate: LocalDate, val paid: Boolean)\n\n// core: pure\nfun lateFee(invoice: Invoice, today: LocalDate): BigDecimal =\n    if (!invoice.paid && today.isAfter(invoice.dueDate)) BigDecimal(\"5.00\") else BigDecimal.ZERO\n\n// shell: gather, decide, act\nclass LateFees(private val repo: InvoiceRepo, private val clock: Clock) {\n    fun apply(invoiceId: String) {\n        val invoice = repo.load(invoiceId)\n        val fee = lateFee(invoice, LocalDate.now(clock))\n        if (fee.signum() > 0) repo.addFee(invoiceId, fee)\n    }\n}\n\n// a core test: no clock, no repository, no reset\n// assertEquals(BigDecimal(\"5.00\"), lateFee(Invoice(\"inv_1\", LocalDate.of(2026, 3, 1), paid = false), LocalDate.of(2026, 3, 2)))\n// Only tests of LateFees need a fake repository and Clock.fixed.",
+            "alt": {
+                "lang": "java",
+                "src": "record Invoice(String id, LocalDate dueDate, boolean paid) {}\n\n// core: pure\nstatic BigDecimal lateFee(Invoice invoice, LocalDate today) {\n    return !invoice.paid() && today.isAfter(invoice.dueDate()) ? new BigDecimal(\"5.00\") : BigDecimal.ZERO;\n}\n\n// shell: gather, decide, act\nclass LateFees {\n    private final InvoiceRepo repo;\n    private final Clock clock;\n    LateFees(InvoiceRepo repo, Clock clock) { this.repo = repo; this.clock = clock; }\n\n    void apply(String invoiceId) {\n        Invoice invoice = repo.load(invoiceId);\n        BigDecimal fee = lateFee(invoice, LocalDate.now(clock));\n        if (fee.signum() > 0) repo.addFee(invoiceId, fee);\n    }\n}\n\n// a core test: no clock, no repository, no reset\n// assertEquals(new BigDecimal(\"5.00\"), lateFee(new Invoice(\"inv_1\", LocalDate.of(2026, 3, 1), false), LocalDate.of(2026, 3, 2)));"
+            }
+        }
+    },
+    "recap": [
+        "A pure function's result depends only on its arguments, and calling it changes nothing outside it.",
+        "Hidden inputs (the clock, `Random`, a mutable global) break purity just as side effects (I/O, logging, mutation) do.",
+        "Referential transparency: a pure call can be replaced by its value. Only then are extract, inline, cache, retry and parallel calls safe without reading the body.",
+        "In Kotlin, `if`, `when` and `try` are expressions. Compute a `val` from them instead of assigning a `var` in branches.",
+        "Functional core, imperative shell: decisions in pure functions with many plain-value tests, I/O in a thin shell with a few."
+    ],
+    "quiz": [
+        {
+            "q": "Which of these functions is pure?",
+            "options": [
+                "`fun fee(cents: Long) = cents * rateCache.current() / 10_000`, where a background thread refreshes `rateCache`",
+                "`fun fee(cents: Long, basisPoints: Int) = cents * basisPoints / 10_000`",
+                "`fun fee(cents: Long): Long { log.debug(\"fee for $cents\"); return cents * 15 / 1000 }`",
+                "`fun fee(cents: Long) = if (LocalTime.now().hour >= 16) cents * 20 / 1000 else cents * 15 / 1000`"
+            ],
+            "answer": 1,
+            "why": "Only the second depends on nothing but its arguments and changes nothing. The first reads a hidden input that another thread changes. The third returns the right number but writes a log line on every call, which is a side effect. The fourth reads the clock, so the same amount gives two different fees in one day."
+        },
+        {
+            "q": "`val key = UUID.randomUUID().toString(); val keys = listOf(key, key)`. A teammate inlines the variable: `listOf(UUID.randomUUID().toString(), UUID.randomUUID().toString())`. What changed?",
+            "options": [
+                "Nothing: inlining a `val` never changes behaviour",
+                "Nothing, because `UUID` objects are immutable",
+                "The list used to hold one key twice; now it holds two different keys",
+                "It no longer compiles, because `randomUUID` can't be called twice in one expression"
+            ],
+            "answer": 2,
+            "why": "`randomUUID` reads a random source, so it isn't referentially transparent: the call and its value are not interchangeable. Inlining is only safe for pure calls. The tempting answer is the first one, which is true only when the call is pure. Immutability of the result doesn't help; the call itself gives a different value each time."
+        },
+        {
+            "q": "What does `r` hold? `val r = try { \"12x\".toLong() } catch (e: NumberFormatException) { -1L } finally { println(\"done\") }`",
+            "options": [
+                "`-1`, and it prints `done`",
+                "`Unit`, because `finally` runs last",
+                "It doesn't compile: `try` is a statement",
+                "`12`, because `toLong` stops at the first bad character"
+            ],
+            "answer": 0,
+            "why": "In Kotlin, `try` is an expression. Its value is the last expression of the `try` block, or of the `catch` block that ran, here `-1L`. `finally` always runs, but it doesn't change the value. In Java the same code would need a variable assigned in each block, because Java's `try` is a statement."
+        },
+        {
+            "q": "A payout service has 14 business rules and calls three external systems (the ledger, the PSP, the audit service). With functional core, imperative shell, where do most of the unit tests go?",
+            "options": [
+                "In the shell, with a mock for each external system",
+                "Split evenly between the shell and the core",
+                "Neither: only end-to-end tests catch real bugs",
+                "In the pure core, called with plain values and no mocks"
+            ],
+            "answer": 3,
+            "why": "The core holds all 14 rules, so it holds almost all the branches, and pure functions are tested with plain values in a line each. The shell gathers inputs and carries out decisions with almost no branches, so a couple of integration tests with fakes cover it. Testing the rules through the shell is what makes mock-heavy test suites."
+        },
+        {
+            "q": "From the race conditions lesson: eight Quarkus worker threads call `payoutFee(amount, rates, now)` at the same time, each with its own arguments. `FeeRates` is a data class with only `val`s of immutable types. What do you need to make the calls thread-safe?",
+            "options": [
+                "A `synchronized` block around each call",
+                "Nothing: the function reads only its arguments and writes nothing shared",
+                "An `AtomicReference` to hold the result",
+                "A `ThreadLocal` copy of the rates for each thread"
+            ],
+            "answer": 1,
+            "why": "A race needs shared state that at least one thread writes: read-modify-write or check-then-act on something both threads can see. A pure function writes nothing outside itself, and the immutable `FeeRates` can't change under a reader, so there is nothing to race on. A lock would only make the threads wait in line for no reason.",
+            "from": "conc-03"
+        }
+    ],
+    "flashcards": [
+        {"front": "What two rules make a function pure?", "back": "Its result depends only on its arguments, and calling it changes nothing outside it: no I/O, no writes to shared state, no logging."},
+        {"front": "Why does calling `LocalTime.now()` make a function impure?", "back": "The clock is a hidden input. The same arguments can give a different answer at a different time."},
+        {"front": "What is referential transparency?", "back": "You can replace a call with the value it returns without changing what the program does. Only pure calls have it."},
+        {"front": "`val c = charge(card, 10); listOf(c, c)` vs `listOf(charge(card, 10), charge(card, 10))`: how many charges each?", "back": "One, then two. Inlining a variable is only safe when the call is pure."},
+        {"front": "What does Kotlin 2.4 say about `val s = when (code) { 200 -> A; 402 -> B }` with an `Int` subject?", "back": "It won't compile: `'when' expression must be exhaustive. Add an 'else' branch.`"},
+        {"front": "What is the value of a Kotlin `try { ... } catch (...) { ... }` expression?", "back": "The last expression of the `try` block, or of the `catch` block that ran. `finally` runs but doesn't change the value."},
+        {"front": "In functional core, imperative shell, what belongs in the shell?", "back": "Reading inputs (clock, database, config) and performing effects (writes, calls, logs), with as few decisions as possible."}
+    ],
+    "terms": [
+        {"term": "Pure function", "plain": "A function whose result depends only on its arguments, and whose call changes nothing outside it."},
+        {"term": "Side effect", "plain": "Anything a call does besides return its value: writing, sending, logging, changing shared state."},
+        {"term": "Hidden input", "plain": "Something a function reads that isn't a parameter: the clock, a random source, a mutable global."},
+        {"term": "Referential transparency", "plain": "A call can be replaced by its value without changing the program."},
+        {"term": "Expression", "plain": "Code that produces a value. In Kotlin, `if`, `when` and `try` are expressions."},
+        {"term": "Functional core, imperative shell", "plain": "A design where pure functions make the decisions and a thin outer layer does the I/O."}
+    ],
+    "explain_back": {
+        "prompt": "A teammate says: \"`quotePayoutFee` is already testable, we inject a `Clock`.\" In your own words, explain why pulling out `payoutFee(amount, rates, requestedAt)` is still worth doing.",
+        "answer": "Injecting a `Clock` makes the time controllable, but `quotePayoutFee` still has other hidden inputs and effects. It reads the global rates, so every test has to reset them or depend on test order, and it writes an audit line, so tests have to capture or ignore the log. Each test of a rule also needs a fixed clock built just right. If I pull the rule into `payoutFee(amount, rates, requestedAt)`, every input is a parameter and the fee is the only output. I can test each rule in one line with plain values, in any order, on any number of threads. The old function becomes a three-step shell (read, decide, write), and two tests with `Clock.fixed` are enough for it."
+    },
+    "deeper": {
+        "minutes": 10,
+        "body": "Purity has fuzzy edges, and it helps to know where they are.\n\nAllocation is a change to the heap, but nobody calls a function impure because it creates a `BigDecimal`. What counts is whether a caller can observe the change. The same goes for a cache inside a function: `memoize` in lesson 3 stores results in a map, yet from the outside the function still returns the same answer for the same arguments, so callers can treat it as pure.\n\nThrowing is the contested case. `require(amount.signum() > 0)` makes a function partial: it has no answer for some inputs. Many people still call it pure, because the same bad input always throws the same way. What hurts is using exceptions for expected outcomes, like a declined card, because the signature no longer tells you what can come back. Lesson 7 of this track returns those outcomes as values.\n\nKotlin can't check purity, but it can catch the most common bug with pure functions: calling one and dropping the result. Compile with `-Xreturn-value-checker=full` and Kotlin 2.4.21 warns on a call like `withFee(amountCents, 300)` on a line of its own:\n\n```kotlin\nfun withFee(amountCents: Long, feeCents: Long): Long = amountCents + feeCents\n\nfun total(amountCents: Long): Long {\n    withFee(amountCents, 300)     // warning: unused return value of 'withFee'.\n    return amountCents\n}\n```\n\n```java\nstatic long withFee(long amountCents, long feeCents) { return amountCents + feeCents; }\n\nstatic long total(long amountCents) {\n    withFee(amountCents, 300);    // javac says nothing\n    return amountCents;\n}\n```\n\nIn a quick test the warning covered Kotlin functions, including stdlib ones like `map`, but not Java methods: a dropped `amount.add(fee)` on a `BigDecimal` got no warning. That one stays a code-review catch."
+    },
+    "sources": [
+        {"title": "Conditions and loops (Kotlin docs)", "url": "https://kotlinlang.org/docs/control-flow.html"},
+        {"title": "Exceptions (Kotlin docs)", "url": "https://kotlinlang.org/docs/exceptions.html"},
+        {"title": "Functions: single-expression functions (Kotlin docs)", "url": "https://kotlinlang.org/docs/functions.html"},
+        {"title": "JEP 361: Switch Expressions", "url": "https://openjdk.org/jeps/361"}
+    ]
+}
+
+out = ROOT / "content/lessons/fp-01.json"
+out.write_text(json.dumps(L, indent=2, ensure_ascii=False) + "\n")
+print("wrote", out)

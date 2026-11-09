@@ -1,0 +1,398 @@
+{
+ "id": "fp-06",
+ "title": "Scope functions: let, run, with, apply and also, on purpose",
+ "minutes": 38,
+ "goal": "By the end you can pick `let`, `run`, `with`, `apply` or `also` by answering two questions, spot the four scope-function bugs that compile without a warning, and handle nulls with `?.`, `?:`, `takeIf` and `requireNotNull` instead of reaching for `Optional`.",
+ "warmup": {
+  "q": "`payment.status` is `AUTHORIZED`. After `val captured = payment.also { it.copy(status = Status.CAPTURED) }`, what is `captured.status`?",
+  "options": [
+   "`CAPTURED`",
+   "`AUTHORIZED`",
+   "It doesn't compile: the block of `also` must return `Unit`",
+   "It throws, because data classes are immutable"
+  ],
+  "answer": 1,
+  "why": "`also` runs the block and then returns the object it was called on. Its block has the type `(T) -> Unit`, so the copy the block makes is thrown away. Kotlin 2.4.21 compiles this without a warning. `payment.let { it.copy(...) }`, or simply `payment.copy(...)`, gives you the copy."
+ },
+ "sections": [
+  {
+   "h": "A scope function is a two-line function you could write yourself",
+   "body": "Here is code that builds a gateway request and logs it. It is how most of us write it on day one:\n\n```kotlin\nval request = PaymentRequest()\nrequest.amount = Money(1_999, \"EUR\")\nrequest.merchantId = \"m-42\"\nrequest.reference = order.id\nlog.info(\"sending {}\", request)\n```\n\n```java\nPaymentRequest request = new PaymentRequest();\nrequest.setAmount(new Money(1_999, \"EUR\"));\nrequest.setMerchantId(\"m-42\");\nrequest.setReference(order.id());\nlog.info(\"sending {}\", request);\n```\n\nNothing is wrong with it. It repeats `request.` on every line, and nothing marks where the setup ends. Kotlin code often says the same thing like this:\n\n```kotlin\nval request = PaymentRequest().apply {\n    amount = Money(1_999, \"EUR\")\n    merchantId = \"m-42\"\n    reference = order.id\n}.also { log.info(\"sending {}\", it) }\n```\n\n```java\n// Java equivalent: a helper that takes a Consumer and returns the object\nPaymentRequest request = apply(new PaymentRequest(), r -> {\n    r.setAmount(new Money(1_999, \"EUR\"));\n    r.setMerchantId(\"m-42\");\n    r.setReference(order.id());\n});\nlog.info(\"sending {}\", request);\n```\n\n`apply` and `also` look like keywords. They are ordinary functions in the standard library, a couple of lines each. Here are `let` and `apply` written by hand:\n\n```kotlin\nfun <T, R> T.myLet(block: (T) -> R): R = block(this)                 // object in as `it`, block's result out\nfun <T> T.myApply(block: T.() -> Unit): T { block(); return this }   // object is `this` inside, object out\n```\n\n```java\nstatic <T, R> R let(T value, Function<T, R> block) { return block.apply(value); }\nstatic <T> T apply(T value, Consumer<T> block) { block.accept(value); return value; }\n```\n\nBoth are extension functions on any type `T`. The difference is the type of `block`. `(T) -> R` is a plain function type: the object arrives as the lambda's parameter, `it`. `T.() -> Unit` is a function type with a receiver, which \"Function types, lambdas and closures\" showed briefly: inside the lambda the object is `this`, so `amount = ...` means `this.amount = ...`. Java has no lambdas with a receiver, which is why the Java helper needs `r.` on every line.\n\nThe real `let` in the Kotlin 2.4.21 standard library is that same line plus two things:\n\n```kotlin solo\n@kotlin.internal.InlineOnly\npublic inline fun <T, R> T.let(block: (T) -> R): R {\n    contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }\n    return block(this)\n}\n```\n\n`inline` makes the compiler paste the block into your code, so no lambda object exists at run time (\"Higher-order functions: functions in, functions out\" explained why). The contract is the next section's topic. So every scope function has one of these shapes, and the five differ in exactly two ways: whether the block sees the object as `this` or as `it`, and whether the call returns **the object** or **the block's result**.",
+   "try": {
+    "title": "One block, five functions, two answers",
+    "minutes": 3,
+    "steps": [
+     "Open `ScopeReturns.kt`. The same block, `amountMinor * 2`, runs through all five scope functions. Write down what each line prints before you run it.",
+     "Run it.",
+     "On the `also` line, change `also` to `let`. Predict the output, then run it.",
+     "Read `ScopeReturnsJava.java`: what does Java write for each one?"
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "ScopeReturns.kt",
+     "src": "package workbench.functional.l06\n\ndata class Charge(val id: String, val amountMinor: Long, val currency: String)\n\nclass ChargeRequest {\n    var amountMinor: Long = 0\n    var currency: String = \"\"\n    override fun toString() = \"ChargeRequest($amountMinor $currency)\"\n}\n\n// The two shapes, written by hand. A scope function is nothing more than this.\nfun <T, R> T.myLet(block: (T) -> R): R = block(this)          // object as `it`, returns the block's result\nfun <T> T.myApply(block: T.() -> Unit): T { block(); return this }   // object as `this`, returns the object\n\nfun main() {\n    val charge = Charge(\"ch_1\", 1_999, \"EUR\")\n\n    // the same block, five ways: what comes back?\n    println(\"let   -> ${charge.let { it.amountMinor * 2 }}\")\n    println(\"run   -> ${charge.run { amountMinor * 2 }}\")\n    println(\"with  -> ${with(charge) { amountMinor * 2 }}\")\n    println(\"also  -> ${charge.also { it.amountMinor * 2 }}\")\n    println(\"apply -> ${charge.apply { amountMinor * 2 }}\")\n\n    // the hand-written versions behave the same way\n    println(\"myLet   -> ${charge.myLet { it.amountMinor * 2 }}\")\n    println(\"myApply -> ${ChargeRequest().myApply { amountMinor = 1_999; currency = \"EUR\" }}\")\n}\n",
+     "run": "./gradlew :functional:demo -Pmain=workbench.functional.l06.ScopeReturnsKt",
+     "file": "labs/functional/src/demo/kotlin/workbench/functional/l06/ScopeReturns.kt",
+     "alt": {
+      "lang": "java",
+      "title": "ScopeReturnsJava.java",
+      "src": "package workbench.functional.l06;\n\nimport java.util.function.Consumer;\nimport java.util.function.Function;\n\n/**\n * Java has no scope functions and no lambdas with a receiver. This is what each one stands in for,\n * plus the two shapes written as static methods.\n */\npublic class ScopeReturnsJava {\n    record Charge(String id, long amountMinor, String currency) {}\n\n    static class ChargeRequest {\n        long amountMinor;\n        String currency = \"\";\n        @Override public String toString() { return \"ChargeRequest(\" + amountMinor + \" \" + currency + \")\"; }\n    }\n\n    // let: hand the value to a function, return what it returns\n    static <T, R> R let(T value, Function<T, R> block) { return block.apply(value); }\n\n    // apply/also: hand the value to a block, return the value itself\n    static <T> T apply(T value, Consumer<T> block) { block.accept(value); return value; }\n\n    public static void main(String[] args) {\n        Charge charge = new Charge(\"ch_1\", 1_999, \"EUR\");\n\n        // let, run and with all compute something from the object\n        System.out.println(\"computed -> \" + charge.amountMinor() * 2);\n        // also and apply keep the object, whatever the block did\n        System.out.println(\"kept     -> \" + charge);\n\n        System.out.println(\"let      -> \" + let(charge, c -> c.amountMinor() * 2));\n        // no receiver: the block must name its parameter and write r. on every line\n        System.out.println(\"apply    -> \" + apply(new ChargeRequest(), r -> { r.amountMinor = 1_999; r.currency = \"EUR\"; }));\n    }\n}\n",
+      "run": "./gradlew :functional:demo -Pmain=workbench.functional.l06.ScopeReturnsJava",
+      "file": "labs/functional/src/demo/java/workbench/functional/l06/ScopeReturnsJava.java"
+     }
+    },
+    "expect": "`let`, `run` and `with` print `3998`, because they return the block's result. `also` and `apply` print the `Charge` itself: they run the block and drop its result. `myLet` and `myApply` behave the same, because that is all the real ones do. Changing `also` to `let` changes the value of the whole expression from the `Charge` to `3998`. In Java, \"compute something\" is a plain expression and \"keep the object\" needs a helper that takes a `Consumer`."
+   }
+  },
+  {
+   "h": "Two questions pick the function",
+   "body": "Because the five differ in only two ways, two questions pick one.\n\nFirst, **what should the expression give back?** If you want the same object (to keep chaining it, return it or assign it), use `apply` or `also`. If you want something new, a computed value or a different object, use `let`, `run` or `with`.\n\nSecond, how does the block use the object? If it mostly sets or calls the object's own members, a receiver reads best: `apply`, `run`, `with`. If it passes the object to other functions, or it also needs the `this` of the class around it, use an argument: `also`, `let`.\n\nThe figure puts the answers in a grid. The Kotlin docs give the same advice as a list of purposes, and each purpose lands in one cell:\n\n| You want to | Use | Payments example |\n|---|---|---|\n| configure an object | `apply` | `PaymentRequest().apply { amount = total; merchantId = id }` |\n| do something extra and keep the object | `also` | `authorize(req).also { audit.record(it) }` |\n| run code on a non-null value, or scope a temporary | `let` | `card.token?.let { vault.lookup(it) }` |\n| configure and compute a result | `run` | `client.run { timeoutMs = 800; charge(req) }` |\n| run statements where an expression is needed | `run { }` | `val limit = run { val base = tier.limit(); base + overdraft }` |\n| group calls on an object you already have | `with` | `with(settlement) { \"$merchantId paid $amount on $date\" }` |\n\n`run` and `with` do the same job. `with(x) { }` reads well on a line of its own; `x.run { }` is the one that fits in a chain and after `?.`. There is no `?.with`.\n\nThe five share one more property, and it explains code that looks like it shouldn't compile:\n\n```kotlin\nval authCode: String\nval auth = gateway.authorize(request).also { authCode = it.code }   // compiles\n```\n\n```java\n// Java equivalent: a lambda can't assign a local at all, so this is a plain statement\nAuthorization auth = gateway.authorize(request);\nfinal String authCode = auth.code();\n```\n\nA `val` may be assigned only once, and here the assignment sits inside a lambda. The compiler accepts it because `also` declares a **contract**, `callsInPlace(block, InvocationKind.EXACTLY_ONCE)`: a promise that the block runs right here, exactly one time. All five scope functions declare it. Write your own `also` without the contract and the same line fails with `Captured values cannot be initialized because of possible reassignments.` Contracts are an Experimental API that the compiler trusts and never checks. The Advanced Kotlin track covers them in \"Contracts and context parameters\".\n\nBecause the five are `inline`, a bare `return` inside the block returns from the function around it, not from the block. In `payment?.let { if (it.isTest) return; ledger.post(it) }`, a test payment leaves the whole function.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 640 300\" role=\"img\" aria-label=\"A two by two grid. Columns: returns the block result, or returns the object itself. Rows: the object is this, or the object is it. run and with: this, block result. apply: this, the object. let: it, block result. also: it, the object.\"><text class=\"t\" x=\"300\" y=\"40\" text-anchor=\"middle\">returns the block's result</text><text class=\"t\" x=\"500\" y=\"40\" text-anchor=\"middle\">returns the object itself</text><text class=\"t\" x=\"100\" y=\"106\" text-anchor=\"middle\">object is this</text><text class=\"t-s t-m\" x=\"100\" y=\"126\" text-anchor=\"middle\">(receiver)</text><text class=\"t\" x=\"100\" y=\"196\" text-anchor=\"middle\">object is it</text><text class=\"t-s t-m\" x=\"100\" y=\"216\" text-anchor=\"middle\">(argument)</text><rect class=\"box-a\" x=\"210\" y=\"70\" width=\"180\" height=\"70\" rx=\"8\"/><text class=\"t t-code\" x=\"300\" y=\"100\" text-anchor=\"middle\">run, with</text><text class=\"t-s\" x=\"300\" y=\"124\" text-anchor=\"middle\">compute from members</text><rect class=\"box-b\" x=\"410\" y=\"70\" width=\"180\" height=\"70\" rx=\"8\"/><text class=\"t t-code\" x=\"500\" y=\"100\" text-anchor=\"middle\">apply</text><text class=\"t-s\" x=\"500\" y=\"124\" text-anchor=\"middle\">configure an object</text><rect class=\"box-a\" x=\"210\" y=\"160\" width=\"180\" height=\"70\" rx=\"8\"/><text class=\"t t-code\" x=\"300\" y=\"190\" text-anchor=\"middle\">let</text><text class=\"t-s\" x=\"300\" y=\"214\" text-anchor=\"middle\">transform, null check</text><rect class=\"box-b\" x=\"410\" y=\"160\" width=\"180\" height=\"70\" rx=\"8\"/><text class=\"t t-code\" x=\"500\" y=\"190\" text-anchor=\"middle\">also</text><text class=\"t-s\" x=\"500\" y=\"214\" text-anchor=\"middle\">side effect, keep the value</text><text class=\"t-s t-m\" x=\"320\" y=\"262\" text-anchor=\"middle\">Non-extension run { } has no object: a block where an expression is needed.</text><text class=\"t-s t-m\" x=\"320\" y=\"284\" text-anchor=\"middle\">All five are inline and run the block exactly once, right there.</text></svg>",
+    "caption": "Two questions: is the object this or it inside the block, and does the call give back the block's result or the object?"
+   },
+   "try": {
+    "title": "Assign a val inside a block",
+    "minutes": 4,
+    "steps": [
+     "Run `ValInit.kt`. Both `val`s are assigned inside a block.",
+     "Uncomment the two `plainAlso` lines at the end of `main` and run it again. Read the compiler error, then comment them out again.",
+     "In `contractAlso`, delete the `contract { ... }` line but keep `inline`. Predict: is `inline` enough on its own? Run it.",
+     "Uncomment the two lines in `ValInitJava.java` and run it. Read javac's error."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "ValInit.kt",
+     "src": "package workbench.functional.l06\n\nimport kotlin.contracts.ExperimentalContracts\nimport kotlin.contracts.InvocationKind\nimport kotlin.contracts.contract\n\ndata class Authorization(val code: String, val amountMinor: Long)\n\nfun authorize(amountMinor: Long) = Authorization(\"A-${amountMinor % 997}\", amountMinor)\n\n// a hand-written also: not inline, no contract\nfun <T> T.plainAlso(block: (T) -> Unit): T { block(this); return this }\n\n// the same plus what the stdlib adds: inline and an EXACTLY_ONCE contract\n@OptIn(ExperimentalContracts::class)\ninline fun <T> T.contractAlso(block: (T) -> Unit): T {\n    contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }\n    block(this)\n    return this\n}\n\nfun main() {\n    val code1: String\n    val auth1 = authorize(1_999).also { code1 = it.code }          // the stdlib's also: compiles\n    println(\"also:         $code1 for ${auth1.amountMinor}\")\n\n    val code2: String\n    val auth2 = authorize(4_250).contractAlso { code2 = it.code }  // yours, with the contract: compiles\n    println(\"contractAlso: $code2 for ${auth2.amountMinor}\")\n\n    // Uncomment the next two lines and run again. The compiler can't know how often plainAlso calls the block.\n    // val code3: String\n    // authorize(700).plainAlso { code3 = it.code }\n}\n",
+     "run": "./gradlew :functional:demo -Pmain=workbench.functional.l06.ValInitKt",
+     "file": "labs/functional/src/demo/kotlin/workbench/functional/l06/ValInit.kt",
+     "alt": {
+      "lang": "java",
+      "title": "ValInitJava.java",
+      "src": "package workbench.functional.l06;\n\nimport java.util.function.Consumer;\n\n/** Java equivalent: a Java lambda can't assign a local variable at all, so the assignment is a plain statement. */\npublic class ValInitJava {\n    record Authorization(String code, long amountMinor) {}\n\n    static Authorization authorize(long amountMinor) { return new Authorization(\"A-\" + amountMinor % 997, amountMinor); }\n\n    public static void main(String[] args) {\n        final String code1;\n        Authorization auth1 = authorize(1_999);\n        code1 = auth1.code();                                   // a statement, outside any lambda\n        System.out.println(\"statement:    \" + code1 + \" for \" + auth1.amountMinor());\n\n        // Uncomment the next two lines and run again. javac rejects any assignment to a local inside a lambda.\n        // String code3;\n        // Consumer<Authorization> keep = a -> code3 = a.code();\n    }\n}\n",
+      "run": "./gradlew :functional:demo -Pmain=workbench.functional.l06.ValInitJava",
+      "file": "labs/functional/src/demo/java/workbench/functional/l06/ValInitJava.java"
+     }
+    },
+    "expect": "The first run prints `also: A-5 for 1999` and `contractAlso: A-262 for 4250`. With `plainAlso`, the build fails with `Captured values cannot be initialized because of possible reassignments.`, because the compiler can't see how often the block runs. Without the contract, `inline` is not enough: the errors are `'val' cannot be reassigned.` and `Variable 'code2' must be initialized.` The contract is what carries the promise. javac says `local variables referenced from a lambda expression must be final or effectively final`: Java never lets a lambda assign a local."
+   },
+   "refs": [
+    {
+     "title": "Scope functions (Kotlin docs)",
+     "url": "https://kotlinlang.org/docs/scope-functions.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Four bugs that compile without a warning",
+   "body": "Scope functions are inlined, so they cost nothing at run time. Their cost is in reading. Each of these four compiles on Kotlin 2.4.21 without a warning, and each one looks fine in a code review.\n\nThe first is `?.let { } ?: run { }` used as if/else. Here it fronts a cache:\n\n```kotlin\nfun settle(cached: Payment?, ledger: Ledger, fetch: () -> Payment): String? =\n    cached?.let { ledger.post(it) }          // post returns null for a duplicate\n        ?: run { ledger.post(fetch()) }\n```\n\n```java\nString settle(Payment cached, Ledger ledger, Supplier<Payment> fetch) {\n    return Optional.ofNullable(cached).map(ledger::post)   // map turns a null result into empty\n            .orElseGet(() -> ledger.post(fetch.get()));\n}\n```\n\nIt reads as \"if cached, post it, else fetch and post\". But `?:` tests the value on its left, and that value is the result of the `let` block, not `cached`. `ledger.post` returns `null` for a payment it has already seen, so a cache hit on a duplicate **runs both branches**: one database fetch and a second post. Java's `Optional.map(...).orElseGet(...)` has exactly the same trap. Write the branch you mean with `if` or `when`, or decide the value first: `val payment = cached ?: fetch()`, then post once.\n\nThe second is `also` or `apply` used to compute. `payment.also { it.copy(status = CAPTURED) }` returns the original payment, because the block's type is `(T) -> Unit` and the copy is dropped. `payments.apply { sumOf { it.amountMinor } }` returns the list, not the total. A declared type catches the second one (`val total: Long = ...` fails with `Initializer type mismatch: expected 'Long', actual 'List<Payment>'.`). Nothing catches the first. When you want the block's result, use `let` or `run`.\n\nThe third is nested receivers. In `form.apply { fx.apply { amount = 500 } }`, the bare `amount` binds to the innermost receiver that has one, `fx`. Delete `amount` from `Fx` a year later and the same line still compiles, and now it writes `form.amount`. A change in one class has changed code in another. Java's double-brace initialization follows the same rule and has the same trap. Don't nest `apply`; write the target (`fx.amount = 500`).\n\nThe fourth is a nested `it`. In `merchants[id]?.let { schedules[it.scheduleId]?.let { \"${it.name}: ${it.rateBps} bps\" } }`, the second `it.name` is the schedule's name, not the merchant's. Java can't make this mistake: it makes you name both lambda parameters and refuses to reuse a name. In Kotlin, name them, or better, flatten the chain:\n\n```kotlin\nval merchant = merchants[id] ?: return \"$id: no fee schedule\"\nval schedule = schedules[merchant.scheduleId] ?: return \"$id: no fee schedule\"\nreturn \"${merchant.name}: ${schedule.rateBps} bps\"\n```\n\n```java\nMerchant merchant = merchants.get(id);\nif (merchant == null) return id + \": no fee schedule\";\nFeeSchedule schedule = schedules.get(merchant.scheduleId());\nif (schedule == null) return id + \": no fee schedule\";\nreturn merchant.name() + \": \" + schedule.rateBps() + \" bps\";\n```",
+   "try": {
+    "title": "Run the four bugs",
+    "minutes": 5,
+    "steps": [
+     "Read `ScopeBugs.kt`. For each of the four numbered parts, predict what it prints.",
+     "Run it.",
+     "In `class Fx`, delete `var amount: Long = 0`. In part 3, change the `println` to print only `form.amount`. Predict the value, then run.",
+     "Run `ScopeBugsJava.java`. Which of the four bugs does Java share, and which can't it have?"
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "ScopeBugs.kt",
+     "src": "package workbench.functional.l06\n\nenum class PayStatus { AUTHORIZED, CAPTURED }\n\ndata class Pay(val id: String, val amountMinor: Long, val status: PayStatus)\n\nclass MiniLedger {\n    private val posted = mutableSetOf<String>()\n    /** Returns a ledger entry id, or null when this payment was posted before. */\n    fun post(p: Pay): String? = if (posted.add(p.id)) \"LE-${p.id}\" else null\n}\n\nfun settleCached(cached: Pay?, ledger: MiniLedger, fetch: () -> Pay): String? =\n    cached?.let { ledger.post(it) } ?: run {\n        println(\"    cache miss, fetching from the database\")\n        ledger.post(fetch())\n    }\n\nclass Fx { var amount: Long = 0 }\nclass Form { var amount: Long = 0; val fx = Fx() }\n\ndata class Shop(val name: String, val scheduleId: String)\ndata class Schedule(val name: String, val rateBps: Int)\n\nfun main() {\n    val p = Pay(\"p1\", 1_999, PayStatus.AUTHORIZED)\n\n    println(\"1. ?.let { } ?: run { }\")\n    val ledger = MiniLedger()\n    println(\"  first settle:  ${settleCached(p, ledger) { p }}\")\n    println(\"  second settle: ${settleCached(p, ledger) { p }}\")\n\n    println(\"2. also and apply drop the block's result\")\n    val captured = p.also { it.copy(status = PayStatus.CAPTURED) }\n    println(\"  status after also { copy }: ${captured.status}\")\n    val total = listOf(p, p).apply { sumOf { it.amountMinor } }\n    println(\"  total from apply { sumOf }: $total\")\n\n    println(\"3. nested apply\")\n    val form = Form().apply { fx.apply { amount = 500 } }\n    println(\"  form.amount = ${form.amount}, form.fx.amount = ${form.fx.amount}\")\n\n    println(\"4. nested it\")\n    val shops = mapOf(\"m-1\" to Shop(\"Acme Books\", \"eu-std\"))\n    val schedules = mapOf(\"eu-std\" to Schedule(\"standard-eu\", 290))\n    val label = shops[\"m-1\"]?.let { schedules[it.scheduleId]?.let { \"${it.name}: ${it.rateBps} bps\" } }\n    println(\"  label: $label\")\n}\n",
+     "run": "./gradlew :functional:demo -Pmain=workbench.functional.l06.ScopeBugsKt",
+     "file": "labs/functional/src/demo/kotlin/workbench/functional/l06/ScopeBugs.kt",
+     "alt": {
+      "lang": "java",
+      "title": "ScopeBugsJava.java",
+      "src": "package workbench.functional.l06;\n\nimport java.util.HashSet;\nimport java.util.Map;\nimport java.util.Optional;\nimport java.util.Set;\nimport java.util.function.Supplier;\nimport java.util.stream.Stream;\n\n/** The same four bugs, as close as Java gets. Two of them exist in Java too; one Java's compiler prevents. */\npublic class ScopeBugsJava {\n    enum Status { AUTHORIZED, CAPTURED }\n\n    record Pay(String id, long amountMinor, Status status) {\n        Pay withStatus(Status s) { return new Pay(id, amountMinor, s); }\n    }\n\n    static class MiniLedger {\n        private final Set<String> posted = new HashSet<>();\n        /** Returns a ledger entry id, or null when this payment was posted before. */\n        String post(Pay p) { return posted.add(p.id()) ? \"LE-\" + p.id() : null; }\n    }\n\n    static String settleCached(Pay cached, MiniLedger ledger, Supplier<Pay> fetch) {\n        // Optional.map turns a null result into empty, so orElseGet runs: the same trap as ?.let ?: run\n        return Optional.ofNullable(cached).map(ledger::post).orElseGet(() -> {\n            System.out.println(\"    cache miss, fetching from the database\");\n            return ledger.post(fetch.get());\n        });\n    }\n\n    static class Fx { long amount; }\n    static class Form { long amount; Fx fx = new Fx(); }\n\n    record Shop(String name, String scheduleId) {}\n    record Schedule(String name, int rateBps) {}\n\n    public static void main(String[] args) {\n        Pay p = new Pay(\"p1\", 1_999, Status.AUTHORIZED);\n\n        System.out.println(\"1. Optional.map(...).orElseGet(...)\");\n        MiniLedger ledger = new MiniLedger();\n        System.out.println(\"  first settle:  \" + settleCached(p, ledger, () -> p));\n        System.out.println(\"  second settle: \" + settleCached(p, ledger, () -> p));\n\n        System.out.println(\"2. peek drops the block's result, like also\");\n        Pay captured = Stream.of(p).peek(x -> x.withStatus(Status.CAPTURED)).findFirst().orElseThrow();\n        System.out.println(\"  status after peek { withStatus }: \" + captured.status());\n\n        System.out.println(\"3. double-brace initialization, Java's nested apply\");\n        Form form = new Form() {{ fx = new Fx() {{ amount = 500; }}; }};\n        System.out.println(\"  form.amount = \" + form.amount + \", form.fx.amount = \" + form.fx.amount);\n\n        System.out.println(\"4. Java makes you name both lambda parameters, and refuses to reuse a name\");\n        Map<String, Shop> shops = Map.of(\"m-1\", new Shop(\"Acme Books\", \"eu-std\"));\n        Map<String, Schedule> schedules = Map.of(\"eu-std\", new Schedule(\"standard-eu\", 290));\n        String label = Optional.ofNullable(shops.get(\"m-1\"))\n                .flatMap(shop -> Optional.ofNullable(schedules.get(shop.scheduleId()))\n                        .map(schedule -> shop.name() + \": \" + schedule.rateBps() + \" bps\"))\n                .orElse(null);\n        System.out.println(\"  label: \" + label);\n    }\n}\n",
+      "run": "./gradlew :functional:demo -Pmain=workbench.functional.l06.ScopeBugsJava",
+      "file": "labs/functional/src/demo/java/workbench/functional/l06/ScopeBugsJava.java"
+     }
+    },
+    "expect": "The second settle prints `cache miss, fetching from the database` and then `null`, although the payment was in the cache: the `let` block returned `null`, so `run` ran too. `also { copy }` leaves the status `AUTHORIZED`, and `apply { sumOf }` prints the list. The nested `apply` gives `form.amount = 0, form.fx.amount = 500`; after you delete `Fx.amount`, the unchanged line sets `form.amount = 500` and the compiler says nothing. The label is `standard-eu: 290 bps`, the schedule's name. Java shares the first three (`orElseGet`, `peek`, double-brace initialization) and gets the label right, because both parameters have names."
+   },
+   "refs": [
+    {
+     "title": "This expressions: qualified this (Kotlin docs)",
+     "url": "https://kotlinlang.org/docs/this-expressions.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Nulls are values: ?., ?:, takeIf and requireNotNull",
+   "body": "A Java developer new to Kotlin often reaches for `Optional`. You don't need it. A nullable type `T?` is not a wrapper. In the words of the Kotlin docs, \"at runtime, objects of nullable types and objects of non-nullable types are treated the same\": the checks all happen at compile time. The operators do what `Optional`'s methods do, with no extra object:\n\n| Java `Optional` | Kotlin |\n|---|---|\n| `opt.map(f)` | `x?.let(f)` or `x?.f()` |\n| `opt.orElse(d)` | `x ?: d` |\n| `opt.orElseGet(() -> ...)` | `x ?: run { ... }`, also lazy |\n| `opt.orElseThrow()` | `x ?: throw ...` or `requireNotNull(x)` |\n| `opt.filter(p)` | `x?.takeIf(p)` |\n| `opt.ifPresent(c)` | `x?.let(c)` or `x?.also(c)` |\n\nThe right side of `?:` can `return` or `throw`, because both are expressions in Kotlin. That turns a guard clause into one line, and every line after it works with a non-null value:\n\n```kotlin\nval token = card?.token ?: return Declined(\"no card token\")\n```\n\n```java\nString token = card == null ? null : card.token();\nif (token == null) return new Declined(\"no card token\");\n```\n\n`takeIf { }` is a filter for one value: the object if the predicate holds, `null` if not. It earns its place inside a chain, as in `amount.takeIf { it > 0 }?.let(::charge)`. As a guard on its own, a plain `if` reads better. The predicate always runs, so keep side effects out of it. For collections, `mapNotNull { }` maps and drops the nulls in one pass.\n\nWhen a `null` means somebody broke a rule, fail loudly and say why. `requireNotNull(x) { \"...\" }` throws `IllegalArgumentException`, for bad input from a caller. `checkNotNull(x) { \"...\" }` throws `IllegalStateException`, for our own broken state. Both carry a contract that tells the compiler `x` is not null afterwards, so `x` is smart-cast from the next line on. `!!` throws a `NullPointerException` with no message at all. Java's `Objects.requireNonNull(x, \"...\")` takes a message but still throws `NullPointerException`.\n\nSmart casts have one limit you will hit. A `var` property is never smart-cast, because other code could change it between the check and the use. `if (pendingRefund != null) send(pendingRefund)` fails with `Smart cast to 'Long' is impossible, because 'pendingRefund' is a mutable property that could be mutated concurrently.` This is where `?.let` is the right tool: `pendingRefund?.let(send)` reads the property once. `val refund = pendingRefund ?: return` works too.\n\nArrow, the library in the next lesson, gives the same advice about its own `Option` type: \"Typically, when working in Kotlin, you should prefer working with nullable types over Option as it is more idiomatic.\" It keeps `Option` for nested nullability in generic code and for libraries such as Reactor that forbid `null`.",
+   "try": {
+    "title": "Four null tools, two languages",
+    "minutes": 4,
+    "steps": [
+     "Run `NullTools.kt`, then `NullToolsJava.java`. Compare the exception each null check throws.",
+     "In `Checkout.process`, uncomment the `if` line and run. Read the error, then comment it out again.",
+     "Change the first line of `tokenFor` to `val token = requireNotNull(card?.token) { \"no card token\" }`. Predict what happens to the second call in `main`. Is that better or worse here?"
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "NullTools.kt",
+     "src": "package workbench.functional.l06\n\ndata class CardOnFile(val token: String?, val country: String)\n\ndata class RefundLine(val paymentId: String, val amountMinor: Long?, val reason: String?)\n\nclass Checkout {\n    var pendingRefund: Long? = null\n\n    fun process(send: (Long) -> Unit) {\n        // Uncomment the next line and run: a var property is never smart-cast, even right after the check.\n        // if (pendingRefund != null) send(pendingRefund)\n        pendingRefund?.let(send)        // reads the property once, then works with that value\n    }\n}\n\nfun tokenFor(card: CardOnFile?): String {\n    val token = card?.token ?: return \"declined: no card token\"   // ?. chains, ?: can return\n    return \"charge with ${token.take(4)}...\"\n}\n\nfun main() {\n    println(tokenFor(CardOnFile(\"tok_4242424242\", \"NL\")))\n    println(tokenFor(CardOnFile(null, \"NL\")))\n    println(tokenFor(null))\n\n    // takeIf: a filter for one value; the result is nullable\n    val amount = 1_999L\n    println(\"takeIf positive: ${amount.takeIf { it > 0 }}, takeIf over 5,000: ${amount.takeIf { it > 5_000 }}\")\n\n    // requireNotNull and checkNotNull: a message, the right exception, and a smart cast afterwards\n    val line = RefundLine(\"p9\", null, \"duplicate\")\n    try {\n        val cents = requireNotNull(line.amountMinor) { \"refund ${line.paymentId} has no amount\" }\n        println(cents)\n    } catch (e: IllegalArgumentException) {\n        println(\"requireNotNull: ${e::class.simpleName}: ${e.message}\")\n    }\n    val ledgerSession: String? = null\n    try {\n        checkNotNull(ledgerSession) { \"ledger session not opened\" }\n    } catch (e: IllegalStateException) {\n        println(\"checkNotNull:   ${e::class.simpleName}: ${e.message}\")\n    }\n\n    // mapNotNull: transform and drop the nulls in one step\n    val lines = listOf(line, RefundLine(\"p10\", 500, null), RefundLine(\"p11\", 1_200, \"fraud\"))\n    println(\"reasons: ${lines.mapNotNull { it.reason }}\")\n\n    val checkout = Checkout().apply { pendingRefund = 700 }\n    checkout.process { println(\"sending refund of $it\") }\n}\n",
+     "run": "./gradlew :functional:demo -Pmain=workbench.functional.l06.NullToolsKt",
+     "file": "labs/functional/src/demo/kotlin/workbench/functional/l06/NullTools.kt",
+     "alt": {
+      "lang": "java",
+      "title": "NullToolsJava.java",
+      "src": "package workbench.functional.l06;\n\nimport java.util.List;\nimport java.util.Objects;\nimport java.util.Optional;\n\n/** The same null handling with Optional and Objects. Note which exception each check throws. */\npublic class NullToolsJava {\n    record CardOnFile(String token, String country) {}\n    record RefundLine(String paymentId, Long amountMinor, String reason) {}\n\n    static String tokenFor(CardOnFile card) {\n        Optional<String> token = Optional.ofNullable(card).map(CardOnFile::token);\n        if (token.isEmpty()) return \"declined: no card token\";\n        return \"charge with \" + token.get().substring(0, 4) + \"...\";\n    }\n\n    public static void main(String[] args) {\n        System.out.println(tokenFor(new CardOnFile(\"tok_4242424242\", \"NL\")));\n        System.out.println(tokenFor(new CardOnFile(null, \"NL\")));\n        System.out.println(tokenFor(null));\n\n        // Optional.filter is the closest thing to takeIf\n        long amount = 1_999L;\n        System.out.println(\"filter positive: \" + Optional.of(amount).filter(a -> a > 0).orElse(null)\n                + \", filter over 5,000: \" + Optional.of(amount).filter(a -> a > 5_000).orElse(null));\n\n        // Objects.requireNonNull throws NullPointerException; Kotlin's requireNotNull throws IllegalArgumentException\n        RefundLine line = new RefundLine(\"p9\", null, \"duplicate\");\n        try {\n            Objects.requireNonNull(line.amountMinor(), \"refund \" + line.paymentId() + \" has no amount\");\n        } catch (NullPointerException e) {\n            System.out.println(\"requireNonNull: \" + e.getClass().getSimpleName() + \": \" + e.getMessage());\n        }\n\n        // mapNotNull: map, then drop the nulls\n        List<RefundLine> lines = List.of(line, new RefundLine(\"p10\", 500L, null), new RefundLine(\"p11\", 1_200L, \"fraud\"));\n        System.out.println(\"reasons: \" + lines.stream().map(RefundLine::reason).filter(Objects::nonNull).toList());\n    }\n}\n",
+      "run": "./gradlew :functional:demo -Pmain=workbench.functional.l06.NullToolsJava",
+      "file": "labs/functional/src/demo/java/workbench/functional/l06/NullToolsJava.java"
+     }
+    },
+    "expect": "Kotlin prints `IllegalArgumentException: refund p9 has no amount` and `IllegalStateException: ledger session not opened`; Java's `Objects.requireNonNull` prints `NullPointerException: refund p9 has no amount`. The `if` line fails with the smart-cast error, because `pendingRefund` is a `var` property. With `requireNotNull`, the second call stops `main` with an `IllegalArgumentException`. That is worse here: a card without a token is an expected outcome (a decline), not a bug, so it belongs in the return value. The next lesson makes that line its whole topic."
+   },
+   "refs": [
+    {
+     "title": "Null safety (Kotlin docs)",
+     "url": "https://kotlinlang.org/docs/null-safety.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "A checklist you can run in five seconds",
+   "body": "When your fingers are about to type a scope function, run down this list and stop at the first line that settles it.\n\n1. Do you need one at all? A plain call, `a?.b()`, an `if` on a local `val`, or `val x = y ?: return` is often clearer. Detekt ships `UnnecessaryLet` and `UnnecessaryApply` rules for exactly this case.\n2. What should the expression give back? The same object: `apply` or `also`. Something new: `let`, `run` or `with`.\n3. How does the block use the object? Its own members: `apply`, `run`, `with`. Passed to other functions, or the outer `this` must stay visible: `also`, `let`.\n4. Is the value nullable? Use `?.let`, `?.run`, `?.also` or `?.apply`, never `with`. If you add `?: something`, make sure the block on the left can never produce `null`. If it can, write `if` or `when`.\n5. Is the block nested, longer than about five lines, or the third link in a chain? Extract a function or use named `val`s. The Kotlin docs ask you not to nest scope functions, because \"it's easy to get confused about the current context object and value of `this` or `it`\".\n\nTry the list on one line: `PaymentRequest().apply { reference = order.id }.also { log.info(\"sending {}\", it) }`. Line 1 has something to say about the `apply`: a block with a single assignment is exactly what detekt's `UnnecessaryApply` flags. Line 2 approves of the `also`: it is a side step, and the request flows on unchanged."
+  }
+ ],
+ "analogy": "Think of a post office counter. You hand over a parcel. With `apply`, the clerk works on the parcel itself, adds stamps and a label, and hands the same parcel back. With `also`, the clerk photographs it for the records and hands it back untouched. With `let` or `run`, the clerk weighs it and hands you a receipt with the price: you get something new back, and the parcel drops out of the conversation. `this` or `it` is whether the clerk opens the parcel and works inside it, or treats it as one item to pass along. The analogy breaks in one place: a real clerk who promised you a receipt can't secretly repackage your parcel too. A `run` block can change the object and return something else, and none of the five stops you from doing the wrong kind of work inside the block.",
+ "in_your_world": "Scope functions show up all over a Quarkus payments service. `ProducerRecord(topic, key, value).apply { headers().add(\"idempotency-key\", key.toByteArray()) }` configures a Kafka record before `send`. `.also { meter.counter(\"payments.sent\").increment() }` counts it without touching it. Panache entities are where the null rules bite: their fields are `var` properties, so `entity.cardToken` is never smart-cast, and `entity.cardToken?.let { vault.lookup(it) }` or a local `val` is the right tool. And look hard at every `?.let { ... } ?: run { ... }` around a repository or a map lookup. `HashMap.put` returns the previous value, which is `null` the first time, so `found?.let { cache.put(id, it) } ?: run { log.warn(\"missing\") }` warns on every first insert.",
+ "mistake": "The most common real mistake is reading `x?.let { A } ?: run { B }` as \"if x, then A, else B\". People write it because it looks like `Optional.map(...).orElseGet(...)` or Swift's `if let`, and in the happy path it behaves that way. But `?:` checks the value of the whole left side, which is the result of block A. Whenever A ends in a call that can return `null` (a repository `find`, `map[key]`, `HashMap.put`, a `save()` that returns an optional id), B runs as well, after A already did its work. In payments that means a second fetch, a second post or a misleading log line. The fix is to write the branch you mean: `if (x != null) A else B`, or a `when`. If A is only a side effect, `x?.also { A } ?: B` is safe, because `also` returns `x` itself, which is not null.",
+ "compare": {
+  "title": "Configure, log and compute: scope functions vs plain Java",
+  "java": {
+   "title": "Checkout.java",
+   "src": "PaymentRequest request = new PaymentRequest();      // configure: a variable and setters\nrequest.setAmount(order.total());\nrequest.setMerchantId(order.merchantId());\nrequest.setReference(order.id());\nlog.info(\"sending {}\", request);                     // a side step is just a statement\n\nlong risk = riskModel.score(request.getAmount(), request.getMerchantId());   // compute\n\nString token = Optional.ofNullable(card).map(Card::token)                     // null check with a message\n        .orElseThrow(() -> new IllegalArgumentException(\"no card token\"));"
+  },
+  "kotlin": {
+   "title": "Checkout.kt",
+   "src": "val request = PaymentRequest().apply {                // configure: this, returns the request\n    amount = order.total\n    merchantId = order.merchantId\n    reference = order.id\n}.also { log.info(\"sending {}\", it) }                 // side step: it, returns the request\n\nval risk = request.run { riskModel.score(amount, merchantId) }   // compute: this, returns the score\n\nval token = requireNotNull(card?.token) { \"no card token\" }      // null check with a message"
+  },
+  "note": "At run time the two are the same. Every scope function is inlined, so the bytecode is the same local variable, setter calls and statements the Java version has. What differs is what the code tells the reader and what the compiler can check. `apply` puts the whole setup in one block, so the request is finished when the block ends, and `also` marks the log line as a side step that can't change the value flowing through. Java needs an `Optional` object to chain a null check; Kotlin's `?.` and `requireNotNull` exist only at compile time, and `requireNotNull` smart-casts what follows. Java lambdas have no receiver and can't assign locals. That is why Java has no `apply` and no `val`-inside-`also`, and also why it can't have the nested-receiver bug."
+ },
+ "worked": {
+  "title": "Untangle a refund handler",
+  "steps": [
+   {
+    "say": "A refund handler written as one expression. `gateway.refund` returns `null` when the acquirer rejects the refund. Before reading on, find every outcome that ends up in the wrong place.",
+    "code": "fun handleRefund(cmd: RefundCommand): RefundOutcome =\n    payments.find(cmd.paymentId)?.let {\n        it.takeIf { it.status == Status.CAPTURED }?.let {\n            gateway.refund(it.id, cmd.amount)\n        }?.let { RefundOutcome.Accepted(it) }\n    } ?: run { RefundOutcome.NotRefundable(cmd.paymentId) }",
+    "lang": "kotlin",
+    "alt_lang": "java",
+    "alt_code": "RefundOutcome handleRefund(RefundCommand cmd) {\n    return payments.find(cmd.paymentId())                     // Optional<Payment>\n            .filter(p -> p.status() == Status.CAPTURED)\n            .map(p -> gateway.refund(p.id(), cmd.amount()))   // null when rejected: map makes it empty\n            .<RefundOutcome>map(RefundOutcome.Accepted::new)\n            .orElseGet(() -> new RefundOutcome.NotRefundable(cmd.paymentId()));\n}"
+   },
+   {
+    "code": "",
+    "lang": "",
+    "say": "Three different failures come out as one. A payment that doesn't exist, a payment that isn't captured, and a refund the acquirer rejected all become `null` somewhere in the chain, so `?: run` reports all three as `NotRefundable`. Support will tell the merchant to stop retrying a refund that only failed at the acquirer. And there are four `it`s with three meanings."
+   },
+   {
+    "say": "Rewrite it top to bottom. 1. Load, and leave early if it's missing. 2. Check the business rule. 3. Do the work, and name its failure. 4. Put the happy path last. Each failure now has its own outcome, and no line depends on which `it` is in scope.",
+    "code": "fun handleRefund(cmd: RefundCommand): RefundOutcome {\n    val payment = payments.find(cmd.paymentId)            // 1. load\n        ?: return RefundOutcome.NotFound(cmd.paymentId)\n    if (payment.status != Status.CAPTURED)                // 2. check the rule\n        return RefundOutcome.NotRefundable(payment.id, payment.status)\n    val refundId = gateway.refund(payment.id, cmd.amount) // 3. act\n        ?: return RefundOutcome.Rejected(payment.id)\n    return RefundOutcome.Accepted(refundId)               // 4. the happy path, last\n}",
+    "lang": "kotlin",
+    "alt_lang": "java",
+    "alt_code": "RefundOutcome handleRefund(RefundCommand cmd) {\n    Payment payment = payments.find(cmd.paymentId()).orElse(null);   // 1. load\n    if (payment == null) return new RefundOutcome.NotFound(cmd.paymentId());\n    if (payment.status() != Status.CAPTURED)                         // 2. check the rule\n        return new RefundOutcome.NotRefundable(payment.id(), payment.status());\n    RefundId refundId = gateway.refund(payment.id(), cmd.amount());  // 3. act\n    if (refundId == null) return new RefundOutcome.Rejected(payment.id());\n    return new RefundOutcome.Accepted(refundId);                     // 4. the happy path, last\n}"
+   },
+   {
+    "say": "A scope function still has a place here: a side step that must not change the result. `also` logs the outcome and returns it unchanged, which is what the reader expects from the word.",
+    "code": "    return RefundOutcome.Accepted(refundId)\n        .also { log.info(\"refund accepted: {}\", it) }     // side step: the value flows through",
+    "lang": "kotlin",
+    "alt_lang": "java",
+    "alt_code": "    RefundOutcome outcome = new RefundOutcome.Accepted(refundId);\n    log.info(\"refund accepted: {}\", outcome);              // Java: just a statement\n    return outcome;"
+   }
+  ]
+ },
+ "lab": {
+  "title": "Fix four scope-function bugs at the settlement desk",
+  "minutes": 13,
+  "files": [
+   "labs/functional/src/main/kotlin/workbench/functional/l06/SettlementDesk.kt",
+   "labs/functional/src/main/kotlin/workbench/functional/l06/Model.kt"
+  ],
+  "run": "./gradlew :functional:test --tests 'workbench.functional.l06.*'",
+  "steps": [
+   "Run the tests. Four of ten fail, one for each function in `SettlementDesk.kt`. Read each failure message before you read the code. `Model.kt` holds the types and needs no changes.",
+   "`settle`: a cache hit on an already-posted payment must not fetch or post again. Rewrite it without `?: run`.",
+   "`capture`: return the captured copy.",
+   "`buildRequest`: the order id belongs in `request.reference`, not `metadata.reference`.",
+   "`feeLabel`: show the merchant's name, not the schedule's. Use named values instead of `it`.",
+   "Run the tests until all ten pass. Then run the five-second checklist over your four functions."
+  ],
+  "hints": [
+   "For `settle`, decide the payment first (`cached ?: fetch()`), then post it once. `?: return` handles the duplicate.",
+   "`capture` is a two-branch `if` expression. It needs no scope function.",
+   "In `buildRequest`, a nested `apply` with one line inside can become `metadata.channel = \"ecom\"`.",
+   "In `feeLabel`, two `val`s, each with `?: return \"...\"`, read top to bottom and can't mix up the merchant and the schedule."
+  ],
+  "done_when": "All ten tests in `ScopeFunctionsTest` pass."
+ },
+ "drill": {
+  "title": "The grid from memory",
+  "minutes": 4,
+  "prompt": "Close this page. Draw the 2x2 grid (`this` or `it`, the object or the block's result) and put the five functions in it. Then write one payments line for each, and next to it, what the whole expression evaluates to. Check your grid against the figure.",
+  "answer": {
+   "lang": "kotlin",
+   "src": "//            returns the object | returns the block's result\n// this:      apply              | run, with\n// it:        also               | let\n\nval req = PaymentRequest().apply { amount = total; merchantId = \"m-42\" }   // the request\nval auth = gateway.authorize(req).also { audit.record(it) }               // the authorization\nval risk = req.run { riskModel.score(amount, merchantId) }                // the score\nval line = with(auth) { \"$code for $amountMinor\" }                        // the String\nval entry = card.token?.let { vault.lookup(it) }                          // the lookup result, or null",
+   "alt": {
+    "lang": "java",
+    "src": "// Java has no scope functions; each line is the plain Java it stands for\nPaymentRequest req = new PaymentRequest(); req.setAmount(total); req.setMerchantId(\"m-42\");\nAuthorization auth = gateway.authorize(req); audit.record(auth);\nlong risk = riskModel.score(req.getAmount(), req.getMerchantId());\nString line = auth.code() + \" for \" + auth.amountMinor();\nVaultEntry entry = card.token() == null ? null : vault.lookup(card.token());"
+   }
+  }
+ },
+ "recap": [
+  "A scope function is a tiny inline function: it runs a block with the object as `this` (`run`, `with`, `apply`) or `it` (`let`, `also`), and returns the object (`apply`, `also`) or the block's result (`let`, `run`, `with`).",
+  "Pick by two questions: what should the expression give back, and does the block use the object's members or pass the object along?",
+  "All five are inline and declare `callsInPlace(block, EXACTLY_ONCE)`: no lambda objects, a `val` can be assigned inside, and a bare `return` leaves the enclosing function.",
+  "`x?.let { A } ?: B` runs B whenever A evaluates to null, not only when x is null. When A can be null, write `if` or `when`.",
+  "`also` and `apply` drop the block's result, and nested receivers and nested `it` quietly pick the innermost one. None of these gets a warning.",
+  "Nullable types replace `Optional`: `?.` maps, `?:` defaults, returns or throws, `takeIf` filters, and `requireNotNull`/`checkNotNull` fail with a message and smart-cast."
+ ],
+ "quiz": [
+  {
+   "q": "You build a Kafka `ProducerRecord`, add two headers to it, and pass the record on in the same chain. Which scope function fits?",
+   "options": [
+    "`let`",
+    "`apply`",
+    "`run`",
+    "`with`"
+   ],
+   "answer": 1,
+   "why": "You want the same record back (so the chain continues) and the block works on the record's own members (`headers()`): that is the `this`, returns-the-object cell. `let` and `run` would return whatever the last header call returned. `with` can't sit in a chain."
+  },
+  {
+   "q": "`val rate = merchant?.let { schedules[it.scheduleId]?.rate } ?: DEFAULT_RATE`. The merchant exists, but its schedule is missing from the map. What is `rate`?",
+   "options": [
+    "`DEFAULT_RATE`",
+    "`null`",
+    "It throws a NullPointerException",
+    "It doesn't compile, because `let` can't return null"
+   ],
+   "answer": 0,
+   "why": "`?:` checks the result of the `let` block, which is `null` because the schedule is missing, so you get `DEFAULT_RATE`. Here that is what you want. It's the same mechanism that makes `?.let { } ?: run { }` run both branches when the left block can return null for a reason you didn't mean."
+  },
+  {
+   "q": "What does `val total: Long = refunds.apply { sumOf { it.amountMinor } }` do?",
+   "options": [
+    "Sets `total` to the sum of the refunds",
+    "Sets `total` to 0",
+    "Throws ClassCastException at run time",
+    "Fails to compile: `Initializer type mismatch: expected 'Long', actual 'List<Refund>'.`"
+   ],
+   "answer": 3,
+   "why": "`apply` returns the object it was called on, the list, and drops the block's result. The declared `Long` type makes the compiler catch it. Without the type, `total` would silently be the list. `run { sumOf { ... } }`, or just `sumOf { }`, returns the sum."
+  },
+  {
+   "q": "A Panache entity has `var cardToken: String?`. Which line compiles and uses the token you checked?",
+   "options": [
+    "`if (entity.cardToken != null) vault.lookup(entity.cardToken)`",
+    "`with(entity.cardToken) { vault.lookup(this) }`",
+    "`entity.cardToken?.let { vault.lookup(it) }`",
+    "`entity.cardToken.takeIf { it != null }.let { vault.lookup(it) }`"
+   ],
+   "answer": 2,
+   "why": "`?.let` reads the property once and gives the block a non-null `it`. The `if` version fails: a `var` property is never smart-cast. Inside `with`, `this` is still `String?`. `takeIf` returns `String?`, and the plain `.let` hands that nullable value to `lookup`, which doesn't compile either."
+  },
+  {
+   "q": "From the sequences lesson: `val all = allSettlements(api)` is a `sequence { }` that fetches pages. The code runs `all.also { log.info(\"{} settlements\", it.count()) }.first { it.amountCents > 50_000 }`. What does the API see?",
+   "options": [
+    "Only the pages `first` needs",
+    "Every page for `count()`, then the pages from page 0 again for `first`",
+    "Nothing, because `also` doesn't run on a sequence",
+    "One pass, then an IllegalStateException on the second read"
+   ],
+   "answer": 1,
+   "why": "`also` runs its block right away, and `count()` is a terminal operation that reads the whole sequence. Then `also` returns the same sequence, a recipe, and `first` runs it again from page 0. The `sequence { }` builder can be read twice, so nothing throws; it just fetches twice.",
+   "from": "fp-05"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "Which scope functions return the object itself?",
+   "back": "`apply` and `also`. `let`, `run` and `with` return the block's result."
+  },
+  {
+   "front": "In which scope functions is the object `this`?",
+   "back": "`run`, `with` and `apply`, whose blocks are lambdas with a receiver. In `let` and `also` it is `it`."
+  },
+  {
+   "front": "`x?.let { f(it) } ?: g()`: x is not null but `f(x)` returns null. Does `g()` run?",
+   "back": "Yes. `?:` tests the result of the `let` block, not `x`."
+  },
+  {
+   "front": "Why does `val code: String; auth.also { code = it.code }` compile?",
+   "back": "`also` declares the contract `callsInPlace(block, EXACTLY_ONCE)`, so the compiler knows the block runs exactly once, right there. `inline` alone isn't enough."
+  },
+  {
+   "front": "What does `payment.also { it.copy(status = CAPTURED) }` return?",
+   "back": "The original payment. The block's type is `(T) -> Unit`, so the copy is thrown away."
+  },
+  {
+   "front": "`requireNotNull`, `checkNotNull` or `!!`?",
+   "back": "`requireNotNull`: IllegalArgumentException with your message (bad input). `checkNotNull`: IllegalStateException (bad state). `!!`: NullPointerException, no message. The first two smart-cast afterwards."
+  },
+  {
+   "front": "Why does `if (prop != null) use(prop)` fail when `prop` is a `var` property?",
+   "back": "A `var` property is never smart-cast: it could change between the check and the use. Use `prop?.let(::use)` or copy it into a local `val`."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Scope function",
+   "plain": "One of `let`, `run`, `with`, `apply`, `also`: a small inline function that runs a block with an object in scope."
+  },
+  {
+   "term": "Context object",
+   "plain": "The object a scope function is called on. Inside the block it is `this` or `it`."
+  },
+  {
+   "term": "Lambda with receiver",
+   "plain": "A lambda of type `T.() -> R`. Inside it, the `T` value is `this`, so its members need no prefix."
+  },
+  {
+   "term": "Contract",
+   "plain": "A promise a function makes to the compiler, such as \"I call this block exactly once\". The compiler trusts it and doesn't check it."
+  },
+  {
+   "term": "Smart cast",
+   "plain": "The compiler treating a value as a narrower type (for example non-null) after a check, when it can prove nothing changed in between."
+  },
+  {
+   "term": "Elvis operator",
+   "plain": "`a ?: b`: the value of `a` if it isn't null, otherwise `b`. `b` can be `return` or `throw`."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A teammate writes `repo.find(id)?.let { cache.put(id, it) } ?: run { log.warn(\"missing $id\") }` and says it means \"cache it if found, warn if not\". `cache` is a `HashMap`. Explain when it does something else, and what you'd write instead.",
+  "answer": "The Elvis operator doesn't look at what `find` returned. It looks at the value of the whole left side, which is the result of the `let` block, and that is whatever `cache.put` returned. `HashMap.put` returns the previous value for the key, which is null the first time. So every time an entity is found and cached for the first time, the block returns null and the warning runs too: \"missing\" gets logged for entities that were found. It only behaves as intended when an older value was already cached. I'd write the branch I mean: `val entity = repo.find(id); if (entity != null) cache[id] = entity else log.warn(\"missing $id\")`. Or, since caching is only a side effect, `repo.find(id)?.also { cache[id] = it } ?: log.warn(...)`, because `also` returns the entity itself, which is not null."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "Two things are changing around scope functions, and one tool can enforce the checklist for you.\n\n**The return-value checker.** Kotlin 2.3.0 added an Experimental checker that warns when you ignore a function's result. It is off by default; `-Xreturn-value-checker=check` reports ignored results of functions the standard library marks, and `full` treats every function as marked. In Kotlin 2.4.21, all six scope functions (the five plus non-extension `run`) carry `@IgnorableReturnValue`, so `payment.let { it.copy(status = CAPTURED) }` as a bare statement is not reported. `takeIf` and `takeUnless` don't carry it. On the standard library's main branch, after 2.4.21, `let`, `run` and `with` have dropped `@IgnorableReturnValue` for a new `returnsResultOf(block)` contract, which Kotlin 2.4.0 introduced as Experimental. With it, the checker can tell `x?.let { builder.append(it) }` (fine to ignore) from `x?.let { \"kotlin.$it\" }` (a value you computed and dropped). Which release will ship that change isn't known yet. `apply` and `also` keep `@IgnorableReturnValue`, so the `also { it.copy() }` bug stays invisible to the checker.\n\n**Labels for nested receivers.** When you can't avoid a nested receiver, `this@label` says which one you mean. Two nested `apply` blocks share the implicit label `@apply`, so you need your own: `form.apply outer@{ fx.apply { this@outer.amount = 500 } }`. If you need a label, that is usually a sign to flatten the code instead.\n\n**Detekt.** Detekt 1.23.8, the current stable release, has rules for most of the checklist: `UnnecessaryLet`, `UnnecessaryApply` (active by default since 1.16.0), `AlsoCouldBeApply` and `UseLet` in the style rule set, and `NestedScopeFunctions` in the complexity rule set. Apart from `UnnecessaryApply`, they are off until you enable them. `UseLet` pulls the other way from `UnnecessaryLet`: it wants `if (x != null) f(x) else null` written as `x?.let { f(it) }`. A rule of thumb that satisfies both: use `?.let` when the non-null value flows into an expression, and use `if` on a local `val` for control flow and for branches with more than one statement."
+ },
+ "sources": [
+  {
+   "title": "Scope functions (Kotlin docs)",
+   "url": "https://kotlinlang.org/docs/scope-functions.html"
+  },
+  {
+   "title": "Null safety (Kotlin docs)",
+   "url": "https://kotlinlang.org/docs/null-safety.html"
+  },
+  {
+   "title": "Standard.kt, Kotlin 2.4.21 stdlib source",
+   "url": "https://github.com/JetBrains/kotlin/blob/v2.4.21/libraries/stdlib/src/kotlin/util/Standard.kt"
+  },
+  {
+   "title": "Nullable and Option, Arrow docs source",
+   "url": "https://github.com/arrow-kt/arrow-website/blob/main/content/docs/learn/typed-errors/wrappers/nullable-and-option.md"
+  },
+  {
+   "title": "NestedScopeFunctions rule, detekt 1.23.8 source",
+   "url": "https://github.com/detekt/detekt/blob/v1.23.8/detekt-rules-complexity/src/main/kotlin/io/gitlab/arturbosch/detekt/rules/complexity/NestedScopeFunctions.kt"
+  }
+ ]
+}

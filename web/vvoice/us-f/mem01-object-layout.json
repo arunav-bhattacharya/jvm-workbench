@@ -1,0 +1,277 @@
+{
+ "slug": "mem01-object-layout",
+ "voice": "us-f",
+ "max_late": 0.3,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.75,
+   "tries": 1,
+   "text": "Here is a payment class with six fields, in Java and in Kotlin."
+  },
+  {
+   "cue": 6.81,
+   "start": 6.81,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.93,
+   "tries": 1,
+   "text": "How many bytes does one Payment take?"
+  },
+  {
+   "cue": 9.43,
+   "start": 9.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.38,
+   "tries": 1,
+   "text": "JOL, OpenJDK's object layout tool, prints the real answer on J D K twenty-one: forty bytes, for both."
+  },
+  {
+   "cue": 19.23,
+   "start": 19.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.74,
+   "tries": 1,
+   "text": "Every object starts with a header."
+  },
+  {
+   "cue": 21.56,
+   "start": 21.56,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.71,
+   "tries": 1,
+   "text": "The mark word is eight bytes."
+  },
+  {
+   "cue": 23.27,
+   "start": 23.42,
+   "late": 0.15,
+   "tempo": 1.0,
+   "secs": 5.69,
+   "tries": 1,
+   "text": "It holds the identity hash code, the G C age, and the lock bits that synchronized uses."
+  },
+  {
+   "cue": 29.33,
+   "start": 29.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.78,
+   "tries": 1,
+   "text": "Then a class pointer, compressed to four bytes, says which class this is."
+  },
+  {
+   "cue": 33.68,
+   "start": 33.68,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "That's a twelve-byte header."
+  },
+  {
+   "cue": 35.5,
+   "start": 35.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.19,
+   "tries": 1,
+   "text": "The fields come next, but not in the order you wrote them."
+  },
+  {
+   "cue": 39.07,
+   "start": 39.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.98,
+   "tries": 1,
+   "text": "The long can't start at twelve, because a long must start at a multiple of eight."
+  },
+  {
+   "cue": 44.3,
+   "start": 44.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.13,
+   "tries": 1,
+   "text": "So it goes to sixteen, and the J V M puts the int in the gap at twelve."
+  },
+  {
+   "cue": 48.77,
+   "start": 48.77,
+   "late": 0.0,
+   "tempo": 1.003,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "The boolean and the byte take one byte each."
+  },
+  {
+   "cue": 51.6,
+   "start": 51.61,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 3.39,
+   "tries": 1,
+   "text": "After a two-byte gap come the references, four bytes each."
+  },
+  {
+   "cue": 55.2,
+   "start": 55.2,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.17,
+   "tries": 1,
+   "text": "That's thirty-six bytes."
+  },
+  {
+   "cue": 56.41,
+   "start": 56.52,
+   "late": 0.11,
+   "tempo": 1.0,
+   "secs": 3.97,
+   "tries": 1,
+   "text": "Objects start at multiples of eight, so the size rounds up to forty."
+  },
+  {
+   "cue": 61.23,
+   "start": 61.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.42,
+   "tries": 1,
+   "text": "The rule: header, plus the fields, rounded up to eight."
+  },
+  {
+   "cue": 65.33,
+   "start": 65.33,
+   "late": 0.0,
+   "tempo": 1.029,
+   "secs": 3.18,
+   "tries": 1,
+   "text": "twelve plus twenty-two is thirty-four, which rounds up to forty."
+  },
+  {
+   "cue": 68.73,
+   "start": 68.73,
+   "late": 0.0,
+   "tempo": 1.011,
+   "secs": 3.48,
+   "tries": 1,
+   "text": "A reference on a sixty-four-bit machine should take eight bytes."
+  },
+  {
+   "cue": 72.42,
+   "start": 72.42,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.86,
+   "tries": 1,
+   "text": "Here each one takes four, thanks to compressed oops: an oop is an ordinary object pointer."
+  },
+  {
+   "cue": 79.5,
+   "start": 79.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.47,
+   "tries": 1,
+   "text": "Every object starts at a multiple of eight, so the last three bits of its address are always zero."
+  },
+  {
+   "cue": 85.5,
+   "start": 85.5,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "So the J V M drops them."
+  },
+  {
+   "cue": 87.08,
+   "start": 87.38,
+   "late": 0.3,
+   "tempo": 1.0,
+   "secs": 4.97,
+   "tries": 1,
+   "text": "It stores a thirty-two-bit number, and shifts it left by three bits when it follows the reference."
+  },
+  {
+   "cue": 93.43,
+   "start": 93.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.28,
+   "tries": 1,
+   "text": "two to the thirty-two slots, times eight bytes, is thirty-two GB."
+  },
+  {
+   "cue": 99.63,
+   "start": 99.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.98,
+   "tries": 1,
+   "text": "Give the J V M a heap of thirty-two GB or more, and it turns compressed oops off."
+  },
+  {
+   "cue": 105.23,
+   "start": 105.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.12,
+   "tries": 1,
+   "text": "References grow to eight bytes, and Payment to forty-eight."
+  },
+  {
+   "cue": 109.07,
+   "start": 109.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.5,
+   "tries": 1,
+   "text": "An ArrayList of one thousand Integers grows by twenty-four percent."
+  },
+  {
+   "cue": 112.99,
+   "start": 112.99,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.68,
+   "tries": 1,
+   "text": "So a forty GB heap holds less data than its size suggests."
+  },
+  {
+   "cue": 119.8,
+   "start": 119.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.98,
+   "tries": 1,
+   "text": "On J D K twenty-five, the flag UseCompactObjectHeaders moves the class pointer into the mark word, so the header is eight bytes."
+  },
+  {
+   "cue": 128.97,
+   "start": 128.97,
+   "late": 0.0,
+   "tempo": 1.11,
+   "secs": 2.5,
+   "tries": 1,
+   "text": "JOL's simulation puts Payment at thirty-two."
+  },
+  {
+   "cue": 131.68,
+   "start": 131.68,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.9,
+   "tries": 1,
+   "text": "Each object saves eight bytes, or nothing, because of padding."
+  }
+ ]
+}

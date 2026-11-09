@@ -1,0 +1,286 @@
+{
+ "slug": "jmm04-publication",
+ "voice": "us-f",
+ "max_late": 1.44,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.86,
+   "tries": 1,
+   "text": "Publishing an object means putting a reference where another thread can find it."
+  },
+  {
+   "cue": 7.36,
+   "start": 7.36,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.02,
+   "tries": 1,
+   "text": "Here a loader builds a rate card, and publishes it in a shared field."
+  },
+  {
+   "cue": 13.0,
+   "start": 13.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.04,
+   "tries": 1,
+   "text": "That's three steps."
+  },
+  {
+   "cue": 14.36,
+   "start": 14.36,
+   "late": 0.0,
+   "tempo": 1.004,
+   "secs": 5.24,
+   "tries": 1,
+   "text": "The J V M allocates the object, every field at its default: zero, false or null."
+  },
+  {
+   "cue": 19.73,
+   "start": 19.75,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 1.77,
+   "tries": 1,
+   "text": "The constructor writes the fields."
+  },
+  {
+   "cue": 22.17,
+   "start": 22.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.36,
+   "tries": 1,
+   "text": "Then the reference is stored."
+  },
+  {
+   "cue": 24.47,
+   "start": 24.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.26,
+   "tries": 1,
+   "text": "But a reader of a plain field has no edge to these writes."
+  },
+  {
+   "cue": 28.17,
+   "start": 28.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.46,
+   "tries": 1,
+   "text": "The jit may store the reference first, and an ARM C P U may make stores visible in any order."
+  },
+  {
+   "cue": 34.2,
+   "start": 34.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.4,
+   "tries": 1,
+   "text": "So the reader finds a card, and still reads a null currency."
+  },
+  {
+   "cue": 37.88,
+   "start": 37.88,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.99,
+   "tries": 1,
+   "text": "That's a partially constructed object, and no line you wrote creates one."
+  },
+  {
+   "cue": 43.27,
+   "start": 43.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.99,
+   "tries": 1,
+   "text": "It's not theory."
+  },
+  {
+   "cue": 44.62,
+   "start": 44.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.31,
+   "tries": 1,
+   "text": "A jcstress sample does exactly this, with four int fields."
+  },
+  {
+   "cue": 49.55,
+   "start": 49.55,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 7.06,
+   "tries": 1,
+   "text": "On xeighty-six_sixty-four, readers saw zeros in about one eight zero zero zero of two hundred nineteen million samples."
+  },
+  {
+   "cue": 55.33,
+   "start": 56.76,
+   "late": 1.44,
+   "tempo": 1.2,
+   "secs": 3.71,
+   "tries": 1,
+   "text": "On AArchsixty-four, almost every mix of zeros and real values."
+  },
+  {
+   "cue": 60.13,
+   "start": 60.62,
+   "late": 0.49,
+   "tempo": 1.15,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "xeighty-six keeps its stores in order."
+  },
+  {
+   "cue": 62.62,
+   "start": 62.74,
+   "late": 0.12,
+   "tempo": 1.0,
+   "secs": 2.42,
+   "tries": 1,
+   "text": "So on xeighty-six, the jit did the reordering."
+  },
+  {
+   "cue": 66.57,
+   "start": 66.57,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.77,
+   "tries": 2,
+   "text": "Two ways out."
+  },
+  {
+   "cue": 67.48,
+   "start": 67.49,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 13.68,
+   "tries": 1,
+   "text": "First, publish through a happens-before edge, so the reference and the state travel together: a static initializer, a volatile field or AtomicReference, a final field, a lock, or a java.util.concurrent handoff."
+  },
+  {
+   "cue": 83.63,
+   "start": 83.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.33,
+   "tries": 1,
+   "text": "Second, make the object safe to see even through a race."
+  },
+  {
+   "cue": 87.23,
+   "start": 87.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.58,
+   "tries": 1,
+   "text": "That's what final fields do."
+  },
+  {
+   "cue": 89.23,
+   "start": 89.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.86,
+   "tries": 1,
+   "text": "When a constructor writes a final field, HotSpot's C two compiler puts a store-store barrier at its end."
+  },
+  {
+   "cue": 95.41,
+   "start": 95.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.98,
+   "tries": 1,
+   "text": "Every write before it completes before any store after it, and the publishing store comes after."
+  },
+  {
+   "cue": 101.53,
+   "start": 101.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.38,
+   "tries": 1,
+   "text": "On xeighty-six the barrier compiles to nothing: it only stops the jit."
+  },
+  {
+   "cue": 106.29,
+   "start": 106.29,
+   "late": 0.0,
+   "tempo": 1.048,
+   "secs": 1.92,
+   "tries": 1,
+   "text": "On ARM it's a real fence."
+  },
+  {
+   "cue": 108.43,
+   "start": 108.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.87,
+   "tries": 1,
+   "text": "So the rule says: a thread that sees the reference only after the constructor finished sees the final fields as the constructor set them."
+  },
+  {
+   "cue": 117.34,
+   "start": 117.34,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.41,
+   "tries": 1,
+   "text": "Even through a data race."
+  },
+  {
+   "cue": 119.17,
+   "start": 119.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.15,
+   "tries": 1,
+   "text": "In the jcstress sample, four final fields removed every partial result, on both machines."
+  },
+  {
+   "cue": 126.67,
+   "start": 126.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.47,
+   "tries": 1,
+   "text": "But final fields don't make the reference visible."
+  },
+  {
+   "cue": 129.82,
+   "start": 129.82,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.12,
+   "tries": 1,
+   "text": "A reader spinning on a plain field may never see the card."
+  },
+  {
+   "cue": 133.47,
+   "start": 133.47,
+   "late": 0.0,
+   "tempo": 1.138,
+   "secs": 2.56,
+   "tries": 1,
+   "text": "So do both: final fields and a safe publish."
+  },
+  {
+   "cue": 136.25,
+   "start": 136.25,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.95,
+   "tries": 1,
+   "text": "And don't let this escape the constructor."
+  }
+ ]
+}

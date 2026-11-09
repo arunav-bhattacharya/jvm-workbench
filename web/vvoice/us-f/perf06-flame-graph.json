@@ -1,0 +1,304 @@
+{
+ "slug": "perf06-flame-graph",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.6,
+   "tries": 1,
+   "text": "You want to know where feeSlow spends its C P U time, without changing its code."
+  },
+  {
+   "cue": 8.4,
+   "start": 8.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.58,
+   "tries": 1,
+   "text": "Here is the thread's call stack."
+  },
+  {
+   "cue": 10.38,
+   "start": 10.38,
+   "late": 0.0,
+   "tempo": 1.107,
+   "secs": 2.13,
+   "tries": 1,
+   "text": "Thread.run is the root, at the bottom."
+  },
+  {
+   "cue": 12.74,
+   "start": 12.74,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.7,
+   "tries": 1,
+   "text": "Each method sits on top of the one that called it."
+  },
+  {
+   "cue": 15.83,
+   "start": 15.83,
+   "late": 0.0,
+   "tempo": 1.022,
+   "secs": 2.65,
+   "tries": 3,
+   "text": "The top frame is where the C P U is right now."
+  },
+  {
+   "cue": 18.7,
+   "start": 18.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.91,
+   "tries": 1,
+   "text": "The stack changes all the time."
+  },
+  {
+   "cue": 20.91,
+   "start": 20.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.14,
+   "tries": 1,
+   "text": "A sampling profiler is a loop: every ten ms, it takes a snapshot of the stack."
+  },
+  {
+   "cue": 28.3,
+   "start": 28.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.84,
+   "tries": 1,
+   "text": "Then it counts identical stacks."
+  },
+  {
+   "cue": 30.41,
+   "start": 30.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.26,
+   "tries": 1,
+   "text": "One line per stack, with its count: this text is what every flame graph tool reads."
+  },
+  {
+   "cue": 36.1,
+   "start": 36.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.67,
+   "tries": 1,
+   "text": "To draw a flame graph, the tool first sorts the stacks alphabetically, by full class name."
+  },
+  {
+   "cue": 42.31,
+   "start": 42.31,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.64,
+   "tries": 1,
+   "text": "Not by time: the sample from twenty ms ends up on the right."
+  },
+  {
+   "cue": 46.4,
+   "start": 46.4,
+   "late": 0.0,
+   "tempo": 1.025,
+   "secs": 5.25,
+   "tries": 1,
+   "text": "Then identical frames at the same depth, under the same parent, merge into one box."
+  },
+  {
+   "cue": 51.87,
+   "start": 51.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.84,
+   "tries": 1,
+   "text": "When each sample was taken is gone."
+  },
+  {
+   "cue": 54.4,
+   "start": 54.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.02,
+   "tries": 1,
+   "text": "So each box is one frame, and its width is the number of samples with that frame on the stack."
+  },
+  {
+   "cue": 60.78,
+   "start": 60.78,
+   "late": 0.0,
+   "tempo": 1.11,
+   "secs": 2.18,
+   "tries": 1,
+   "text": "String.format was on four of the nine."
+  },
+  {
+   "cue": 63.17,
+   "start": 63.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.98,
+   "tries": 1,
+   "text": "feeSlow was on all nine, so it spans the whole width."
+  },
+  {
+   "cue": 66.87,
+   "start": 66.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.82,
+   "tries": 1,
+   "text": "And left to right is the alphabet, not a timeline."
+  },
+  {
+   "cue": 70.44,
+   "start": 70.44,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.88,
+   "tries": 1,
+   "text": "flamegraph.pl's own header says it: the ordering on the x-axis has no meaning."
+  },
+  {
+   "cue": 76.23,
+   "start": 76.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.28,
+   "tries": 1,
+   "text": "Now look at the tops."
+  },
+  {
+   "cue": 77.67,
+   "start": 77.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.59,
+   "tries": 1,
+   "text": "The part of a box with nothing above it is self time: the C P U was in that frame's own code."
+  },
+  {
+   "cue": 83.89,
+   "start": 83.89,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.47,
+   "tries": 2,
+   "text": "Wide tops are where to start."
+  },
+  {
+   "cue": 86.07,
+   "start": 86.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.77,
+   "tries": 1,
+   "text": "feeSlow is wide, but covered by its children."
+  },
+  {
+   "cue": 89.0,
+   "start": 89.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.99,
+   "tries": 1,
+   "text": "It does little itself and calls expensive things, so the fix is usually in one of them."
+  },
+  {
+   "cue": 95.53,
+   "start": 95.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.51,
+   "tries": 1,
+   "text": "This is feeSlow in a real C P U profile of the same fee code, zoomed in."
+  },
+  {
+   "cue": 103.33,
+   "start": 103.33,
+   "late": 0.0,
+   "tempo": 1.108,
+   "secs": 4.54,
+   "tries": 1,
+   "text": "It covered five thousand seven hundred forty-seven of eight thousand five samples: seventy-one point eight%."
+  },
+  {
+   "cue": 108.1,
+   "start": 108.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.84,
+   "tries": 1,
+   "text": "Walk up from that wide plateau."
+  },
+  {
+   "cue": 110.92,
+   "start": 110.92,
+   "late": 0.0,
+   "tempo": 1.042,
+   "secs": 8.9,
+   "tries": 1,
+   "text": "Its widest children are String.format, with twenty-three point three% of all samples, and Pattern.compile, with seventeen point six%."
+  },
+  {
+   "cue": 120.03,
+   "start": 120.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.62,
+   "tries": 1,
+   "text": "Then toPlainString, with eleven point five%, and the BigDecimal constructor, with seven point nine%."
+  },
+  {
+   "cue": 127.87,
+   "start": 127.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.05,
+   "tries": 1,
+   "text": "Pattern.compile builds a regex on every call."
+  },
+  {
+   "cue": 131.25,
+   "start": 131.25,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.09,
+   "tries": 1,
+   "text": "Move it into a static final field, and that whole tower, about eighteen percent of the samples, goes away."
+  },
+  {
+   "cue": 138.43,
+   "start": 138.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.01,
+   "tries": 1,
+   "text": "Width is samples."
+  },
+  {
+   "cue": 139.67,
+   "start": 139.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "Left to right is the alphabet."
+  },
+  {
+   "cue": 141.84,
+   "start": 141.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 3,
+   "text": "And the tops are where the C P U was."
+  }
+ ]
+}
