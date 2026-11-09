@@ -395,6 +395,46 @@
       ]
     },
     {
+      "id": "fp",
+      "lab": "functional",
+      "title": "Functional programming in Kotlin",
+      "short": "Pure functions, function types, higher-order functions, collections and sequences, scope functions, errors as values and immutable data.",
+      "lessons": [
+        {
+          "id": "fp-01",
+          "title": "Pure functions: the idea everything else builds on"
+        },
+        {
+          "id": "fp-02",
+          "title": "Function types, lambdas and closures"
+        },
+        {
+          "id": "fp-03",
+          "title": "Higher-order functions: functions in, functions out"
+        },
+        {
+          "id": "fp-04",
+          "title": "Collections without loops: map, filter, fold and friends"
+        },
+        {
+          "id": "fp-05",
+          "title": "Sequences: lazy pipelines, and where Java Streams fit"
+        },
+        {
+          "id": "fp-06",
+          "title": "Scope functions: let, run, with, apply and also, on purpose"
+        },
+        {
+          "id": "fp-07",
+          "title": "Errors as values: sealed results, Result and Either"
+        },
+        {
+          "id": "fp-08",
+          "title": "Immutable data and a functional core"
+        }
+      ]
+    },
+    {
       "id": "pat",
       "lab": "patterns",
       "title": "Design patterns in Java and Kotlin",
@@ -702,9 +742,10 @@
     {
       "id": "p3",
       "title": "Types and design",
-      "short": "Kotlin generics, design patterns, modern Java data modeling and advanced Kotlin.",
+      "short": "Kotlin generics, functional programming, design patterns, modern Java data modeling and advanced Kotlin.",
       "tracks": [
         "gen",
+        "fp",
         "pat",
         "dop",
         "kt",

@@ -5,3 +5,4 @@ rootProject.name = "jvm-workbench-labs"
 include("concurrency", "jmm", "executors", "vthreads", "generics", "reactive", "coroutines", "patterns")
 include("memory", "performance", "bytecode", "nio", "startup", "kotlin", "modernjava")
 include("ledger", "quotes", "events", "container")
+include("functional")

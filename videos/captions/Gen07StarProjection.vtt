@@ -1,19 +1,19 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.401
+00:00:02.700 --> 00:00:05.367
 A logging helper has to take every list.
 
 2
-00:00:05.401 --> 00:00:06.868
+00:00:05.367 --> 00:00:06.835
 A list of payment ids.
 
 3
-00:00:06.868 --> 00:00:08.669
+00:00:06.835 --> 00:00:08.635
 A list of amounts in cents.
 
 4
-00:00:08.669 --> 00:00:11.336
+00:00:08.635 --> 00:00:11.303
 It never needs to know the element type.
 
 5
@@ -21,141 +21,129 @@ It never needs to know the element type.
 Kotlin says that with a star projection: logAll takes a List&lt;*&gt;, and both lists fit.
 
 6
-00:00:17.600 --> 00:00:21.880
+00:00:17.600 --> 00:00:21.962
 Read List&lt;*&gt; as a list of one specific type, and you don't know which.
 
 7
-00:00:21.880 --> 00:00:24.081
-Here star points at the list of ids.
+00:00:21.962 --> 00:00:27.632
+Here star points at the list of ids, but the compiler only knows it is a list of something.
 
 8
-00:00:24.081 --> 00:00:27.139
-The compiler only knows it is a list of something.
-
-9
-00:00:27.139 --> 00:00:28.912
+00:00:27.632 --> 00:00:29.439
 It could be the list of ints.
 
-10
-00:00:29.067 --> 00:00:30.179
+9
+00:00:29.633 --> 00:00:30.746
 Reading is safe.
 
-11
-00:00:30.179 --> 00:00:35.949
+10
+00:00:30.746 --> 00:00:36.516
 Whatever the list holds, each element comes out typed as Any?, which fits anything.
 
-12
-00:00:36.667 --> 00:00:37.996
+11
+00:00:37.233 --> 00:00:38.562
 Writing is not safe.
 
-13
-00:00:37.996 --> 00:00:41.651
+12
+00:00:38.562 --> 00:00:42.217
 star might be the list of ints, so no String may go in.
 
-14
-00:00:42.400 --> 00:00:47.271
+13
+00:00:42.900 --> 00:00:47.771
 Kotlin doesn't even let null in, because the unknown type might be non-nullable.
 
-15
-00:00:48.000 --> 00:00:53.895
+14
+00:00:48.500 --> 00:00:54.395
 Everything that doesn't take an element still works: size, isEmpty, removeAt and clear.
 
-16
-00:00:53.895 --> 00:00:58.232
+15
+00:00:54.395 --> 00:00:58.732
 So a function that empties any buffer can take a MutableList&lt;*&gt;.
 
-17
-00:00:59.000 --> 00:01:03.825
+16
+00:00:59.533 --> 00:01:04.358
 Java writes the same idea as List&lt;?&gt;, the unbounded wildcard.
 
-18
-00:01:03.825 --> 00:01:06.672
+17
+00:01:04.358 --> 00:01:07.205
 Each element comes out as an Object.
 
-19
-00:01:06.800 --> 00:01:09.455
+18
+00:01:07.400 --> 00:01:10.055
 A String can't go in on either side.
 
-20
-00:01:09.455 --> 00:01:17.715
+19
+00:01:10.055 --> 00:01:18.315
 Java is more relaxed about null: add(null) compiles on a List&lt;?&gt;, because every Java reference type allows null.
 
-21
-00:01:18.467 --> 00:01:21.521
+20
+00:01:19.100 --> 00:01:22.155
 What the star stands for depends on the declaration.
 
-22
-00:01:21.521 --> 00:01:24.517
+21
+00:01:22.155 --> 00:01:25.151
 Take Source, declared out T, with the bound Number.
 
-23
-00:01:24.733 --> 00:01:28.857
+22
+00:01:25.333 --> 00:01:29.457
 A Source&lt;*&gt; might be a Source&lt;Int&gt;, or a Source&lt;BigDecimal&gt;.
 
-24
-00:01:29.000 --> 00:01:31.790
+23
+00:01:29.667 --> 00:01:32.457
 Whichever it is, next returns some Number.
 
-25
-00:01:31.790 --> 00:01:35.776
+24
+00:01:32.457 --> 00:01:36.443
 So reads keep the bound: Source&lt;*&gt; means Source&lt;out Number&gt;.
 
-26
-00:01:36.533 --> 00:01:38.614
+25
+00:01:37.233 --> 00:01:39.314
 Now take Sink, declared in T.
 
-27
-00:01:38.614 --> 00:01:42.989
+26
+00:01:39.314 --> 00:01:43.689
 A Sink&lt;*&gt; might be a Sink&lt;String&gt;, or a Sink&lt;CardAuthorized&gt;.
 
-28
-00:01:43.200 --> 00:01:45.227
+27
+00:01:43.900 --> 00:01:45.927
 A String fits only the first.
 
-29
-00:01:45.227 --> 00:01:48.163
+28
+00:01:45.927 --> 00:01:48.863
 A card authorization fits only the second.
 
-30
-00:01:48.333 --> 00:01:53.085
+29
+00:01:49.067 --> 00:01:53.818
 No value is accepted by every one of them, so the compiler allows none.
 
-31
-00:01:53.085 --> 00:01:56.497
+30
+00:01:53.818 --> 00:01:57.231
 Nothing is Kotlin's name for a type with no values.
 
-32
-00:01:56.497 --> 00:01:58.572
+31
+00:01:57.231 --> 00:01:59.305
 Sink&lt;*&gt; means Sink&lt;in Nothing&gt;.
 
-33
-00:01:59.333 --> 00:02:04.055
+32
+00:02:00.100 --> 00:02:04.821
 So a star is shorthand for the safest projection the declaration allows.
 
-34
-00:02:04.200 --> 00:02:06.649
+33
+00:02:05.033 --> 00:02:07.482
 An invariant Box gets both rules.
 
-35
-00:02:06.649 --> 00:02:11.324
+34
+00:02:07.482 --> 00:02:12.158
 A Box&lt;*&gt; reads as Box&lt;out Any?&gt;, and writes as Box&lt;in Nothing&gt;.
 
-36
-00:02:11.324 --> 00:02:16.593
+35
+00:02:12.158 --> 00:02:17.427
 Assign to its item, and the compiler names the type it wanted: Nothing.
 
+36
+00:02:18.233 --> 00:02:25.837
+Java's question mark follows the same rules: the bound survives it, and a String can't go into a Sink&lt;?&gt;.
+
 37
-00:02:17.467 --> 00:02:20.601
-Java's question mark follows the same rules.
-
-38
-00:02:20.601 --> 00:02:24.020
-The bound survives it, so peek returns a Number.
-
-39
-00:02:24.020 --> 00:02:26.370
-A String can't go into a Sink&lt;?&gt;.
-
-40
-00:02:26.370 --> 00:02:29.291
+00:02:25.837 --> 00:02:28.807
 Only null gets through, and only in Java.
