@@ -1,0 +1,133 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.275
+Here is a helper that every service has.
+
+2
+00:00:05.275 --> 00:00:08.559
+It runs a block of code, and logs how long it took.
+
+3
+00:00:08.767 --> 00:00:09.777
+Here is a call.
+
+4
+00:00:09.777 --> 00:00:14.625
+The lambda uses amountMinor from outside its braces, so it is a closure.
+
+5
+00:00:14.833 --> 00:00:16.489
+Count what one call costs.
+
+6
+00:00:16.489 --> 00:00:21.012
+Here is the call site, read back from the bytecode and written as Java.
+
+7
+00:00:21.200 --> 00:00:25.465
+First, invokedynamic builds a small object, a Function0.
+
+8
+00:00:25.465 --> 00:00:27.827
+It holds a copy of amountMinor.
+
+9
+00:00:28.000 --> 00:00:30.505
+Then the call goes to timedNotInline.
+
+10
+00:00:30.505 --> 00:00:36.056
+Inside it, block() calls that object's invoke method, a call through an interface.
+
+11
+00:00:36.267 --> 00:00:41.428
+The helper is generic, so the result comes back as an Object, a boxed Long.
+
+12
+00:00:41.428 --> 00:00:43.561
+It has to be unboxed to a long.
+
+13
+00:00:43.561 --> 00:00:48.447
+That is one object, one interface call and one unboxing, on every call.
+
+14
+00:00:49.300 --> 00:00:51.080
+Now mark the helper inline.
+
+15
+00:00:51.080 --> 00:00:54.113
+The body stays the same, and so does the call.
+
+16
+00:00:54.333 --> 00:01:01.871
+At every call site, the compiler copies the function's body, and the body of the lambda you passed, instead of making a call.
+
+17
+00:01:02.100 --> 00:01:06.330
+Here is that call site read back from the bytecode, as Java.
+
+18
+00:01:06.330 --> 00:01:09.856
+There is no Function0, no invoke, and no unboxing.
+
+19
+00:01:09.856 --> 00:01:15.496
+The multiply sits right inside the caller, between two calls to System.nanoTime.
+
+20
+00:01:15.667 --> 00:01:18.270
+Read a bit further and you see the price.
+
+21
+00:01:18.270 --> 00:01:24.939
+The finally block is in the bytecode twice: once for the normal exit, and once for the exit by exception.
+
+22
+00:01:25.167 --> 00:01:27.228
+Every caller carries that copy.
+
+23
+00:01:27.228 --> 00:01:30.620
+So inline is for small functions that take lambdas.
+
+24
+00:01:30.620 --> 00:01:33.080
+The standard library is full of them.
+
+25
+00:01:33.867 --> 00:01:35.568
+Java gets none of this.
+
+26
+00:01:35.568 --> 00:01:37.862
+javac can't inline Kotlin code.
+
+27
+00:01:37.862 --> 00:01:46.815
+To Java, timed is an ordinary static method that takes a Function0, and the Java lambda becomes an object like any other.
+
+28
+00:01:47.600 --> 00:01:48.552
+One last rule.
+
+29
+00:01:48.552 --> 00:01:53.992
+Pasting only works when the lambda runs right there, inside the inline function.
+
+30
+00:01:54.200 --> 00:01:58.403
+Store the lambda in a list, and the compiler asks for noinline.
+
+31
+00:01:58.403 --> 00:02:00.805
+That one lambda stays a real object.
+
+32
+00:02:01.033 --> 00:02:04.764
+Call it from inside a Runnable, and it asks for crossinline.
+
+33
+00:02:04.764 --> 00:02:11.479
+The body is still pasted, into a class generated for that call site, and a bare return is not allowed in it.

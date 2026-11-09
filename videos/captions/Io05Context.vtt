@@ -1,0 +1,93 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.198
+Vert.x runs on Netty.
+
+2
+00:00:04.198 --> 00:00:12.399
+A Vert.x instance starts a group of Netty event loops, by default twice the number of cores: 8 on a 4-core machine.
+
+3
+00:00:12.600 --> 00:00:16.685
+What Vert.x adds is a rule on top of those loops: the context.
+
+4
+00:00:16.685 --> 00:00:22.021
+A context is the home of a piece of code, and it decides the thread that runs it.
+
+5
+00:00:22.233 --> 00:00:27.947
+Each verticle you deploy gets its own context, tied to one event loop for life.
+
+6
+00:00:27.947 --> 00:00:34.023
+Every handler it registers, for HTTP, timers or the event bus, runs on that context.
+
+7
+00:00:35.433 --> 00:00:39.269
+So a verticle's code runs on one thread, one task at a time.
+
+8
+00:00:39.269 --> 00:00:42.721
+Three events for verticle A arrive at the same moment.
+
+9
+00:00:42.933 --> 00:00:46.429
+The loop runs them one after another, never at once.
+
+10
+00:00:46.429 --> 00:00:48.984
+So A's field, approved, needs no lock.
+
+11
+00:00:49.800 --> 00:00:52.010
+The catch: that thread is shared.
+
+12
+00:00:52.010 --> 00:00:54.891
+Verticle B's context sits on the same loop.
+
+13
+00:00:55.100 --> 00:00:59.914
+Now A's handler makes a 500 millisecond JDBC call, right on the loop.
+
+14
+00:00:59.914 --> 00:01:06.612
+The loop can do nothing else until it returns, so B's requests wait, though B did nothing wrong.
+
+15
+00:01:07.433 --> 00:01:11.304
+executeBlocking moves the blocking part to a worker thread.
+
+16
+00:01:11.304 --> 00:01:14.977
+A's handler returns at once, and the loop is free for B.
+
+17
+00:01:15.200 --> 00:01:20.369
+When the query is done, the Future completes back on A's context, on loop 0.
+
+18
+00:01:20.369 --> 00:01:25.197
+So the reply runs on A's own thread, and A's state still needs no lock.
+
+19
+00:01:26.100 --> 00:01:32.806
+One catch: executeBlocking is ordered by default, so calls from one context still run one at a time.
+
+20
+00:01:32.806 --> 00:01:35.287
+Pass false when they are independent.
+
+21
+00:01:36.100 --> 00:01:43.189
+In the lesson's demo, four 500 millisecond queries took 2 seconds ordered, and half a second with false.
+
+22
+00:01:44.000 --> 00:01:47.868
+Vert.x calls this the golden rule: don't block the event loop.
+
+23
+00:01:47.868 --> 00:01:54.168
+A checker thread looks every second, and warns when one task has held a loop for more than 2 seconds.

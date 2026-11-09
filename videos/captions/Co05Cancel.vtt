@@ -1,0 +1,125 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.317
+A coroutine scores two million card transactions in a CPU loop.
+
+2
+00:00:07.317 --> 00:00:11.055
+Java has no coroutines, so this one is Kotlin only.
+
+3
+00:00:11.267 --> 00:00:15.455
+Halfway through, the service shuts down and calls cancel on the job.
+
+4
+00:00:16.267 --> 00:00:17.413
+Here is the loop.
+
+5
+00:00:17.413 --> 00:00:21.933
+Halfway, cancel arrives, and the job's state changes to cancelling.
+
+6
+00:00:22.000 --> 00:00:23.788
+But the loop does not stop.
+
+7
+00:00:23.788 --> 00:00:26.237
+It scores every row, to the very end.
+
+8
+00:00:26.467 --> 00:00:29.346
+That is because cancel doesn't stop anything.
+
+9
+00:00:29.346 --> 00:00:31.650
+It only marks the job as cancelling.
+
+10
+00:00:31.650 --> 00:00:34.465
+The coroutine has to notice the mark itself.
+
+11
+00:00:34.667 --> 00:00:38.484
+Compare a second coroutine, waiting in delay for ten seconds.
+
+12
+00:00:38.484 --> 00:00:40.675
+It is cancelled at the same moment.
+
+13
+00:00:40.767 --> 00:00:44.091
+delay is a suspension point, and it checks the mark.
+
+14
+00:00:44.091 --> 00:00:48.055
+The coroutine is resumed at once with a CancellationException.
+
+15
+00:00:48.267 --> 00:00:53.884
+The exception unwinds the stack, finally blocks run, and the job ends as cancelled.
+
+16
+00:00:54.100 --> 00:00:59.888
+withContext, await, join, yield, and a channel's send and receive check the same way.
+
+17
+00:01:00.100 --> 00:01:05.745
+The scan loop only calls score, a plain function, so it never reaches such a point.
+
+18
+00:01:05.745 --> 00:01:11.185
+A blocking call, like Thread.sleep or a JDBC query, never reads the mark either.
+
+19
+00:01:12.100 --> 00:01:14.283
+This is cooperative cancellation.
+
+20
+00:01:14.283 --> 00:01:17.724
+Cancel is a request, and your code has to notice it.
+
+21
+00:01:18.433 --> 00:01:20.813
+So a CPU loop checks now and then.
+
+22
+00:01:20.813 --> 00:01:25.572
+ensureActive throws CancellationException once the job is cancelled.
+
+23
+00:01:26.400 --> 00:01:27.987
+Cancel at the same point.
+
+24
+00:01:27.987 --> 00:01:32.557
+The next check, at most a thousand rows later, sees the mark and throws.
+
+25
+00:01:32.633 --> 00:01:35.417
+finally runs, and the job ends as cancelled.
+
+26
+00:01:35.417 --> 00:01:38.833
+The loop stopped within a thousand rows of the cancel.
+
+27
+00:01:39.767 --> 00:01:42.036
+ensureActive is one of three tools.
+
+28
+00:01:42.036 --> 00:01:46.444
+isActive gives you a Boolean, for a loop that wants to stop quietly.
+
+29
+00:01:46.444 --> 00:01:51.371
+yield checks too, and also lets other coroutines on the same dispatcher run.
+
+30
+00:01:51.600 --> 00:01:56.102
+A check is only a read of the job's state, so it costs almost nothing.
+
+31
+00:01:56.102 --> 00:01:58.547
+Once every few hundred rows is plenty.

@@ -1,0 +1,125 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:09.383
+flatMap takes a function that returns a publisher, called the inner, like this Mono from a fraud service.
+
+2
+00:00:09.383 --> 00:00:15.748
+For each id, flatMap subscribes to the inner right away, without waiting for earlier ones to finish.
+
+3
+00:00:16.567 --> 00:00:20.267
+Three ids arrive together: 3, 1 and 2.
+
+4
+00:00:20.267 --> 00:00:27.375
+Id 3 takes 300 milliseconds to score, id 1 takes 100, and id 2 takes 200.
+
+5
+00:00:27.600 --> 00:00:33.132
+flatMap subscribes to all three at time zero, so the three calls run at the same time.
+
+6
+00:00:33.200 --> 00:00:37.367
+Call 1 finishes first, and flatMap passes it on at once.
+
+7
+00:00:37.367 --> 00:00:38.483
+Then 2, then 3.
+
+8
+00:00:38.700 --> 00:00:40.310
+The output is 1, 2, 3.
+
+9
+00:00:40.310 --> 00:00:48.505
+flatMap merges results in the order they arrive, not in input order, and everything is done at 300 milliseconds.
+
+10
+00:00:48.733 --> 00:00:50.699
+flatMap creates no threads.
+
+11
+00:00:50.699 --> 00:00:57.323
+These calls overlap only because each inner is asynchronous, like a non-blocking HTTP call.
+
+12
+00:00:58.233 --> 00:01:01.266
+By default, up to 256 inners run at once.
+
+13
+00:01:01.266 --> 00:01:05.777
+When the calls hit a shared service, pass a limit, such as 4.
+
+14
+00:01:06.000 --> 00:01:08.004
+The limit is also its demand.
+
+15
+00:01:08.004 --> 00:01:13.672
+flatMap asks the source for four ids, then for one more each time a call finishes.
+
+16
+00:01:14.500 --> 00:01:18.494
+When order matters, concatMap subscribes to one inner at a time.
+
+17
+00:01:18.494 --> 00:01:22.364
+It asks for the next id only when the current inner completes.
+
+18
+00:01:22.433 --> 00:01:25.713
+3 runs first, for 300 milliseconds.
+
+19
+00:01:25.713 --> 00:01:27.119
+Then 1, then 2.
+
+20
+00:01:30.667 --> 00:01:32.305
+Input order: 3, 1, 2.
+
+21
+00:01:32.305 --> 00:01:36.675
+But the times add up, so it is done at 600 milliseconds.
+
+22
+00:01:37.600 --> 00:01:44.839
+flatMapSequential subscribes to all three at once, like flatMap, but it hands the results on in input order.
+
+23
+00:01:44.933 --> 00:01:47.915
+1 and 2 finish early, so they wait in a buffer.
+
+24
+00:01:47.915 --> 00:01:50.707
+When 3 finishes, all three go out, in order.
+
+25
+00:01:51.667 --> 00:01:54.459
+Input order, and done at 300 milliseconds.
+
+26
+00:01:54.459 --> 00:02:00.576
+The price is memory for the buffer, and one slow first call holds back everything behind it.
+
+27
+00:02:01.500 --> 00:02:03.434
+Same input, three operators.
+
+28
+00:02:03.434 --> 00:02:10.132
+Use concatMap when each call must wait for the previous one, like postings to one ledger account.
+
+29
+00:02:10.333 --> 00:02:12.971
+Kotlin Flow starts from the other side.
+
+30
+00:02:12.971 --> 00:02:15.947
+It is sequential by default, like concatMap.
+
+31
+00:02:15.947 --> 00:02:21.020
+You opt in to overlap with flatMapMerge, and Flow has no flatMapSequential.

@@ -1,0 +1,85 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.343
+This Kotlin function returns a Flow of ledger entries.
+
+2
+00:00:06.343 --> 00:00:10.863
+Its body asks the ledger service for a page, then emits each entry.
+
+3
+00:00:11.667 --> 00:00:13.577
+Call it, and nothing happens.
+
+4
+00:00:13.577 --> 00:00:15.883
+Not one request reaches the ledger.
+
+5
+00:00:16.100 --> 00:00:19.436
+A Flow is a description of the work, like a recipe.
+
+6
+00:00:19.436 --> 00:00:22.641
+Calling the function only writes the recipe down.
+
+7
+00:00:22.867 --> 00:00:24.828
+Operators don't run it either.
+
+8
+00:00:24.828 --> 00:00:28.621
+filter and map take a flow and return a new flow, at once.
+
+9
+00:00:28.621 --> 00:00:30.844
+They only add steps to the recipe.
+
+10
+00:00:31.067 --> 00:00:34.781
+Work starts only with a terminal operator, such as collect.
+
+11
+00:00:34.781 --> 00:00:40.509
+collect is a suspend function, and it runs the body right there, in the caller's coroutine.
+
+12
+00:00:40.600 --> 00:00:46.698
+Each emit pushes one entry through filter and map into your lambda, and waits until that is done.
+
+13
+00:00:46.698 --> 00:00:49.339
+Only then does the body make the next one.
+
+14
+00:00:49.567 --> 00:00:51.257
+Now collect a second time.
+
+15
+00:00:51.257 --> 00:00:55.937
+The body runs again, from the top, and the ledger gets a second request.
+
+16
+00:00:57.300 --> 00:00:58.817
+That is what cold means.
+
+17
+00:00:58.817 --> 00:01:02.924
+Every collector gets its own run of the producer, from the start.
+
+18
+00:01:03.833 --> 00:01:06.525
+A Reactor Flux is cold in the same way.
+
+19
+00:01:06.525 --> 00:01:09.009
+Nothing happens until you subscribe.
+
+20
+00:01:09.233 --> 00:01:14.615
+To share one run between collectors, you need a hot flow, StateFlow or SharedFlow.
+
+21
+00:01:14.615 --> 00:01:16.649
+That is lesson 8 of this track.

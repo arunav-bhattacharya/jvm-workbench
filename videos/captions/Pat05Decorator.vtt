@@ -1,0 +1,169 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.368
+Java's own streams are built in layers.
+
+2
+00:00:05.368 --> 00:00:07.214
+Start with the real stream.
+
+3
+00:00:07.214 --> 00:00:12.960
+Wrap it in a GZIPOutputStream, then a BufferedOutputStream, then a DataOutputStream.
+
+4
+00:00:13.167 --> 00:00:15.374
+Each wrapper is an OutputStream too.
+
+5
+00:00:15.374 --> 00:00:19.360
+Each one adds one behavior: typed writes, buffering, compression.
+
+6
+00:00:19.360 --> 00:00:22.488
+Then it passes the bytes on to the stream it wraps.
+
+7
+00:00:22.667 --> 00:00:24.560
+That is the decorator pattern.
+
+8
+00:00:24.560 --> 00:00:28.219
+A decorator has the same interface as the object it wraps.
+
+9
+00:00:28.219 --> 00:00:31.185
+It does one extra thing, and forwards the call.
+
+10
+00:00:31.185 --> 00:00:34.213
+The caller can't tell how many layers there are.
+
+11
+00:00:34.433 --> 00:00:38.920
+Fees fit the same shape, because a fee is a base rule plus adjustments.
+
+12
+00:00:39.133 --> 00:00:42.189
+The base rule is 2.9 percent of the amount.
+
+13
+00:00:42.189 --> 00:00:44.320
+Then each adjustment wraps it.
+
+14
+00:00:44.320 --> 00:00:45.244
+Add 30 cents.
+
+15
+00:00:45.244 --> 00:00:49.081
+Add 1 percent more for a payment from outside Germany.
+
+16
+00:00:49.081 --> 00:00:51.071
+Then cap the fee at 5 euros.
+
+17
+00:00:51.233 --> 00:00:54.492
+Each call in the chain wraps everything to its left.
+
+18
+00:00:54.492 --> 00:00:57.625
+So the last one, cappedAt, ends up on the outside.
+
+19
+00:00:57.833 --> 00:01:00.567
+Now charge a French payment of 1,000 euros.
+
+20
+00:01:00.567 --> 00:01:03.173
+The call goes to the outside layer first.
+
+21
+00:01:03.173 --> 00:01:07.432
+Each layer calls the one it wraps, all the way in to the base rule.
+
+22
+00:01:07.633 --> 00:01:10.191
+The base rule returns 29 euros.
+
+23
+00:01:10.191 --> 00:01:15.965
+On the way back out, each layer does its one thing: 29.30, then 39.30.
+
+24
+00:01:15.965 --> 00:01:19.429
+The cap comes last, so the fee is 5 euros.
+
+25
+00:01:19.600 --> 00:01:22.236
+Now move cappedAt in front of crossBorder.
+
+26
+00:01:22.236 --> 00:01:24.371
+Same layers, in a different order.
+
+27
+00:01:24.600 --> 00:01:26.291
+Run the same payment.
+
+28
+00:01:26.291 --> 00:01:27.499
+29, then 29.30.
+
+29
+00:01:27.499 --> 00:01:29.755
+The cap brings it down to 5.
+
+30
+00:01:29.755 --> 00:01:34.909
+Then the surcharge lands after the cap, and the fee is 15 euros.
+
+31
+00:01:35.067 --> 00:01:36.458
+Both chains compile.
+
+32
+00:01:36.458 --> 00:01:40.840
+Only a test with a large cross-border payment tells them apart.
+
+33
+00:01:41.767 --> 00:01:44.380
+Behavior decorators have the same issue.
+
+34
+00:01:44.380 --> 00:01:47.974
+Put retry outside logging, and every attempt is logged.
+
+35
+00:01:47.974 --> 00:01:52.091
+Swap them, and you log one call, however many attempts it took.
+
+36
+00:01:52.333 --> 00:01:55.049
+Pick the order you want, and pin it in a test.
+
+37
+00:01:55.967 --> 00:02:00.096
+In Java, each decorator is a default method on the interface.
+
+38
+00:02:00.096 --> 00:02:04.428
+It returns a new lambda, and that lambda is a FeeCalculator too.
+
+39
+00:02:04.633 --> 00:02:07.919
+The lambda calls feeMinor on the calculator it wraps.
+
+40
+00:02:07.919 --> 00:02:10.833
+Then it does its one extra thing, here the cap.
+
+41
+00:02:11.033 --> 00:02:15.551
+In Kotlin, the decorator is an extension function on a fun interface.
+
+42
+00:02:15.551 --> 00:02:21.116
+Either way, each call returns a new calculator, and the one it wraps stays as it was.

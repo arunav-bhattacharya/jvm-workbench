@@ -1,0 +1,121 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.290
+Every time a JVM starts, it redoes the same work.
+
+2
+00:00:06.290 --> 00:00:13.103
+The first time code touches a class, the JVM loads it, links it, and resolves its references.
+
+3
+00:00:13.300 --> 00:00:15.741
+The first call of a lambda does more.
+
+4
+00:00:15.741 --> 00:00:21.548
+Its invokedynamic instruction runs a bootstrap method that generates the lambda's class.
+
+5
+00:00:21.767 --> 00:00:31.907
+On JDK 25, one start of a 300-class app took 431 ms of wall time, and the next start pays it all again.
+
+6
+00:00:32.733 --> 00:00:36.281
+Project Leyden moves that work out of production runs.
+
+7
+00:00:36.281 --> 00:00:40.683
+Its first result is the AOT cache, which you build in three phases.
+
+8
+00:00:40.900 --> 00:00:42.634
+First, a training run.
+
+9
+00:00:42.634 --> 00:00:46.339
+You run the app with a representative workload.
+
+10
+00:00:46.339 --> 00:00:55.640
+The JVM records what the app loaded and linked into an AOT configuration file, and on JDK 25 also its method profiles.
+
+11
+00:00:55.867 --> 00:00:57.094
+Second, assembly.
+
+12
+00:00:57.094 --> 00:00:59.908
+The JVM turns that file into the cache.
+
+13
+00:00:59.908 --> 00:01:02.073
+Your application does not run.
+
+14
+00:01:02.233 --> 00:01:03.416
+Third, production.
+
+15
+00:01:03.416 --> 00:01:05.980
+Every start after that names the cache.
+
+16
+00:01:06.167 --> 00:01:11.911
+On JDK 25, one command with AOTCacheOutput does the first two phases.
+
+17
+00:01:11.911 --> 00:01:16.740
+It trains, then starts a second JVM to assemble the cache.
+
+18
+00:01:17.833 --> 00:01:22.127
+The cache stores the results of start-up work from the training run.
+
+19
+00:01:22.127 --> 00:01:24.274
+Classes already loaded and linked.
+
+20
+00:01:24.274 --> 00:01:27.810
+Symbolic references already resolved to the real method.
+
+21
+00:01:27.810 --> 00:01:30.020
+Lambda call sites already resolved.
+
+22
+00:01:30.200 --> 00:01:35.172
+Objects the JVM would build at start-up, such as its module graph.
+
+23
+00:01:35.172 --> 00:01:40.069
+And on JDK 25, the method profiles that tell the JIT what is hot.
+
+24
+00:01:41.667 --> 00:01:47.379
+In production, the JVM loads and links every cached class before main even starts.
+
+25
+00:01:47.379 --> 00:01:50.235
+Then main runs without stopping for them.
+
+26
+00:01:50.433 --> 00:01:57.190
+For the 300-class app, wall time fell from 431 ms to 98.
+
+27
+00:01:57.190 --> 00:02:05.273
+CPU time fell from 504 ms to 81, and peak memory from 64 to 42 MiB.
+
+28
+00:02:05.467 --> 00:02:08.864
+Code the training run never touched gets none of this.
+
+29
+00:02:08.864 --> 00:02:10.940
+It is resolved lazily, as before.
+
+30
+00:02:10.940 --> 00:02:14.212
+So train with a workload that looks like production.

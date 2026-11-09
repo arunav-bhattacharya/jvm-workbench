@@ -1,0 +1,141 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.175
+Here is the benchmark almost everyone writes first.
+
+2
+00:00:06.175 --> 00:00:11.695
+Read the clock, call Math.sqrt a hundred million times, and read the clock again.
+
+3
+00:00:11.900 --> 00:00:13.784
+Each result is thrown away.
+
+4
+00:00:14.000 --> 00:00:15.990
+It runs five rounds.
+
+5
+00:00:15.990 --> 00:00:20.566
+Round one printed 0.0301 nanoseconds per call.
+
+6
+00:00:20.566 --> 00:00:22.356
+Round two, 0.1299.
+
+7
+00:00:22.356 --> 00:00:25.440
+Every later round printed zero.
+
+8
+00:00:25.600 --> 00:00:28.495
+No CPU takes a square root in zero time.
+
+9
+00:00:28.495 --> 00:00:32.838
+A second loop adds each result to a sum, and prints the sum.
+
+10
+00:00:32.838 --> 00:00:36.095
+It settles at about 1.9 nanoseconds per call.
+
+11
+00:00:37.667 --> 00:00:40.905
+While the program runs, C2 compiles the hot loop.
+
+12
+00:00:40.905 --> 00:00:44.869
+It looks at the call to sqrt, and asks who reads the result.
+
+13
+00:00:45.067 --> 00:00:45.995
+Nobody does.
+
+14
+00:00:45.995 --> 00:00:48.859
+Work whose result nobody uses can go.
+
+15
+00:00:48.859 --> 00:00:51.103
+That's dead-code elimination.
+
+16
+00:00:51.267 --> 00:00:54.758
+Now the loop has an empty body, so the loop can go too.
+
+17
+00:00:54.758 --> 00:00:57.424
+Between the two clock reads, nothing runs.
+
+18
+00:00:57.600 --> 00:01:00.636
+So the loop measured the optimizer, not your code.
+
+19
+00:01:01.467 --> 00:01:03.947
+Constant inputs are the second trap.
+
+20
+00:01:03.947 --> 00:01:08.563
+Say the input is a static final constant, or a const val in Kotlin.
+
+21
+00:01:08.767 --> 00:01:11.516
+The compiler copies the 2.0 into the call.
+
+22
+00:01:11.516 --> 00:01:17.079
+Then C2 computes the square root while it compiles, and puts the answer in its place.
+
+23
+00:01:17.267 --> 00:01:20.333
+Your benchmark now times the load of one number.
+
+24
+00:01:20.333 --> 00:01:21.867
+That's constant folding.
+
+25
+00:01:22.700 --> 00:01:26.935
+A broken loop can also print a number that looks fine.
+
+26
+00:01:26.935 --> 00:01:34.777
+With Math.log instead of sqrt, C2 on JDK 21 kept the call, and the loop reported 7 to 9 nanoseconds.
+
+27
+00:01:34.777 --> 00:01:38.933
+It still measures an accident of how C2 compiles log.
+
+28
+00:01:39.733 --> 00:01:44.884
+JMH, the OpenJDK benchmark harness, builds the measuring loop for you.
+
+29
+00:01:44.884 --> 00:01:48.195
+You write one method, and mark it @Benchmark.
+
+30
+00:01:48.400 --> 00:01:54.922
+At compile time, JMH generates the loop around your method, written to defeat these tricks.
+
+31
+00:01:54.922 --> 00:01:59.293
+It runs it in fresh JVMs, and throws away the warm-up rounds.
+
+32
+00:01:59.500 --> 00:02:02.203
+Return the result, and JMH consumes it.
+
+33
+00:02:02.203 --> 00:02:07.193
+The JIT has to treat a consumed value as used, so the square root stays.
+
+34
+00:02:07.400 --> 00:02:10.564
+With more than one result, pass each one to a Blackhole.
+
+35
+00:02:11.367 --> 00:02:16.771
+And read the input from a field that isn't final, so C2 can't fold it into a constant.

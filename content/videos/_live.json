@@ -4,6 +4,8 @@
     "cls04-proxy",
     "co01-statemachine",
     "co03-tree",
+    "co05-cancel",
+    "co07-cold",
     "conc03-race",
     "conc06-deadlock",
     "dop03-exhaustive",
@@ -14,12 +16,14 @@
     "gen08-reified",
     "io02-selector",
     "io03-pipeline",
+    "io05-context",
     "jmm01-stop-loop",
     "jmm02-volatile-edge",
     "mem04-g1-regions",
     "mem04-generations",
     "perf01-tiers",
     "rx01-contract",
+    "rx03-flatmap",
     "vt02-carriers"
   ]
 }

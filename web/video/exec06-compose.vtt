@@ -1,0 +1,157 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.590
+An authorization makes three remote calls.
+
+2
+00:00:05.590 --> 00:00:10.061
+It looks up the card, in 40 ms, and scores the fraud risk, in 60.
+
+3
+00:00:10.061 --> 00:00:15.221
+Then it sends both to the issuer, whose client returns a CompletableFuture.
+
+4
+00:00:15.433 --> 00:00:19.116
+Each call hands you a future, a box that gets its value later.
+
+5
+00:00:19.116 --> 00:00:24.343
+You attach the next step to a future, and you pick the method by the shape of that step.
+
+6
+00:00:25.267 --> 00:00:32.469
+thenApply takes a plain function, from one value to another: here, from the issuer's response to a decision.
+
+7
+00:00:32.469 --> 00:00:34.603
+It returns a new future at once.
+
+8
+00:00:34.833 --> 00:00:40.045
+When the response arrives, the function runs on it, and the new future gets the decision.
+
+9
+00:00:40.267 --> 00:00:43.665
+If you know Optional or streams: thenApply is map.
+
+10
+00:00:44.567 --> 00:00:47.106
+Now the next step is the issuer call.
+
+11
+00:00:47.106 --> 00:00:49.646
+authorize does not return a response.
+
+12
+00:00:49.646 --> 00:00:51.499
+It returns a future of one.
+
+13
+00:00:51.700 --> 00:00:57.829
+Attach it with thenApply, and the new future holds whatever authorize returns: another future.
+
+14
+00:00:58.033 --> 00:01:01.263
+The outer one completes as soon as authorize returns.
+
+15
+00:01:01.263 --> 00:01:05.407
+The answer arrives later, in the inner one, and no one waits for it.
+
+16
+00:01:05.633 --> 00:01:09.049
+A declared result type makes the compiler catch this.
+
+17
+00:01:09.049 --> 00:01:10.660
+Without one, it compiles.
+
+18
+00:01:10.867 --> 00:01:12.705
+thenCompose is for this shape.
+
+19
+00:01:12.705 --> 00:01:19.200
+It takes the future the function returns, and hands you one flat future that completes when that one does.
+
+20
+00:01:19.433 --> 00:01:22.046
+When the issuer answers, it completes.
+
+21
+00:01:22.046 --> 00:01:23.628
+thenCompose is flatMap.
+
+22
+00:01:24.533 --> 00:01:26.634
+thenCombine waits for two futures.
+
+23
+00:01:26.634 --> 00:01:30.526
+The card lookup and the fraud score don't depend on each other.
+
+24
+00:01:30.526 --> 00:01:35.839
+Both calls started on their own lines, with supplyAsync, before anything was attached.
+
+25
+00:01:36.067 --> 00:01:37.827
+So they run side by side.
+
+26
+00:01:37.827 --> 00:01:39.446
+The card is back at 40.
+
+27
+00:01:39.446 --> 00:01:40.995
+The fraud score at 60.
+
+28
+00:01:40.995 --> 00:01:44.797
+Then thenCombine calls your function with both values.
+
+29
+00:01:45.000 --> 00:01:48.351
+The slow part takes 60 ms, the longer of the two.
+
+30
+00:01:48.351 --> 00:01:53.205
+The speed comes from starting both futures early, not from thenCombine.
+
+31
+00:01:53.433 --> 00:01:59.774
+Start the fraud call inside thenCompose instead, and it begins only when the card is back.
+
+32
+00:01:59.774 --> 00:02:02.663
+That takes 100 ms, and nothing warns you.
+
+33
+00:02:03.567 --> 00:02:06.997
+Put together, the authorization is three lines.
+
+34
+00:02:06.997 --> 00:02:09.260
+Kotlin calls the same Java API.
+
+35
+00:02:09.260 --> 00:02:11.523
+Only the lambda syntax changes.
+
+36
+00:02:11.733 --> 00:02:13.732
+Pick by the shape of the step.
+
+37
+00:02:13.732 --> 00:02:16.931
+Two futures and a function of both: thenCombine.
+
+38
+00:02:17.133 --> 00:02:20.191
+A step that returns a future: thenCompose.
+
+39
+00:02:20.400 --> 00:02:23.095
+Plain code on one value: thenApply.

@@ -1,0 +1,137 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.100
+Two threads each add one to their own counter, 25 million times.
+
+2
+00:00:07.100 --> 00:00:09.369
+The card thread only writes card.
+
+3
+00:00:09.369 --> 00:00:11.637
+The SEPA thread only writes sepa.
+
+4
+00:00:11.833 --> 00:00:15.595
+They share no data, so there is nothing to lock, and no race.
+
+5
+00:00:15.800 --> 00:00:19.165
+Yet in one run, this took 1,220 ms.
+
+6
+00:00:19.165 --> 00:00:24.645
+With the two fields padded apart, the same work took 247.
+
+7
+00:00:25.433 --> 00:00:27.856
+The reason is in the hardware.
+
+8
+00:00:27.856 --> 00:00:31.248
+Your CPU never reads one long from memory.
+
+9
+00:00:31.248 --> 00:00:34.883
+It moves a whole cache line, 64 bytes on x86.
+
+10
+00:00:35.067 --> 00:00:36.972
+This object is 32 bytes.
+
+11
+00:00:36.972 --> 00:00:43.322
+After a 12-byte header and a 4-byte gap, card sits at offset 16, and sepa at 24.
+
+12
+00:00:43.322 --> 00:00:46.180
+Both counters live on the same line.
+
+13
+00:00:47.667 --> 00:00:53.135
+Each core has its own L1 and L2 caches, small fast memories right next to it.
+
+14
+00:00:53.135 --> 00:00:57.468
+Core 1 runs the card thread, and core 2 runs the SEPA thread.
+
+15
+00:00:57.468 --> 00:00:59.953
+Both cores keep a copy of the line.
+
+16
+00:01:00.633 --> 00:01:04.433
+To write to a line, a core needs the only valid copy.
+
+17
+00:01:04.433 --> 00:01:08.519
+So when core 1 writes card, core 2's copy is invalidated.
+
+18
+00:01:08.700 --> 00:01:12.273
+Core 2's next write has to take the line back first.
+
+19
+00:01:12.273 --> 00:01:14.815
+Now core 1's copy is the invalid one.
+
+20
+00:01:15.033 --> 00:01:20.309
+The line bounces between the cores on almost every write, and both threads slow down.
+
+21
+00:01:20.533 --> 00:01:21.997
+This is false sharing.
+
+22
+00:01:21.997 --> 00:01:23.794
+The program shares nothing.
+
+23
+00:01:23.794 --> 00:01:25.524
+The hardware shares a lot.
+
+24
+00:01:26.333 --> 00:01:31.665
+The fix is to keep at least 64 bytes between fields that different threads write.
+
+25
+00:01:31.665 --> 00:01:34.496
+Padding pushes sepa onto a line of its own.
+
+26
+00:01:34.667 --> 00:01:36.839
+Now each core keeps its own line.
+
+27
+00:01:36.839 --> 00:01:39.736
+Both threads write, and no line has to move.
+
+28
+00:01:40.533 --> 00:01:46.855
+On the course's shared 4-vCPU VM, one run showed a clear gap in all three rounds.
+
+29
+00:01:47.067 --> 00:01:53.039
+But an earlier, more careful JMH experiment on the same VM could not show any effect.
+
+30
+00:01:53.039 --> 00:02:01.331
+If the two threads land on hyperthreads of one physical core, they share its L1 and L2, so there is no line to bounce.
+
+31
+00:02:01.533 --> 00:02:03.114
+The mechanism is certain.
+
+32
+00:02:03.114 --> 00:02:07.477
+The size of the effect is not, so measure on the hardware you run on.
+
+33
+00:02:08.200 --> 00:02:11.669
+And every count still ends at exactly 25 million.
+
+34
+00:02:11.669 --> 00:02:14.784
+False sharing costs time, never correctness.

@@ -1,0 +1,133 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.647
+Every change to an order's status must be logged.
+
+2
+00:00:05.647 --> 00:00:09.255
+You want that logging written once, in a small helper class.
+
+3
+00:00:09.255 --> 00:00:13.344
+By hand, the property forwards its getter and setter to that helper.
+
+4
+00:00:13.533 --> 00:00:17.789
+::status is a reference to the property itself, a KProperty.
+
+5
+00:00:17.789 --> 00:00:22.400
+It knows its name, so the helper can log status without a string.
+
+6
+00:00:22.633 --> 00:00:24.481
+That forwarding is all by does.
+
+7
+00:00:24.481 --> 00:00:28.535
+Write by, and the compiler writes the getter and the setter for you.
+
+8
+00:00:28.733 --> 00:00:30.907
+The helper is called the delegate.
+
+9
+00:00:30.907 --> 00:00:34.933
+It needs two functions with fixed names: getValue and setValue.
+
+10
+00:00:35.133 --> 00:00:39.961
+Each gets the owning object, and the KProperty, which carries the property's name.
+
+11
+00:00:40.967 --> 00:00:45.325
+Here is what the compiler writes for that one line, read back as Java.
+
+12
+00:00:45.533 --> 00:00:48.523
+First, a hidden field, status$delegate.
+
+13
+00:00:48.523 --> 00:00:51.819
+It holds the delegate, the object after by.
+
+14
+00:00:52.000 --> 00:00:54.119
+The getter calls getValue on it.
+
+15
+00:00:54.119 --> 00:00:56.237
+The setter calls setValue on it.
+
+16
+00:00:56.433 --> 00:01:00.631
+Both calls pass this, the order, and a KProperty for status.
+
+17
+00:01:00.631 --> 00:01:08.116
+The compiler builds those KProperty objects once per class, in a static array called $$delegatedProperties.
+
+18
+00:01:08.900 --> 00:01:10.069
+Now watch it run.
+
+19
+00:01:10.069 --> 00:01:14.332
+Each Order holds its own Audited object, in that hidden field.
+
+20
+00:01:14.533 --> 00:01:15.545
+Set the status.
+
+21
+00:01:15.545 --> 00:01:18.512
+In the bytecode that is a call to setStatus.
+
+22
+00:01:18.512 --> 00:01:24.580
+setStatus calls setValue on the delegate, with the order, the KProperty and the new value.
+
+23
+00:01:24.800 --> 00:01:30.204
+The delegate takes the name from the KProperty, prints the change, and keeps the new value.
+
+24
+00:01:30.433 --> 00:01:33.182
+Read it back, and getStatus calls getValue.
+
+25
+00:01:33.182 --> 00:01:37.017
+The value comes back as T, so the getter casts it to String.
+
+26
+00:01:37.933 --> 00:01:40.055
+That hidden field is the price.
+
+27
+00:01:40.055 --> 00:01:44.642
+Every delegated property costs one extra object, in every instance.
+
+28
+00:01:44.642 --> 00:01:47.106
+Three orders, three Audited objects.
+
+29
+00:01:47.106 --> 00:01:50.803
+The KProperty array is made once, for the whole class.
+
+30
+00:01:51.567 --> 00:01:52.525
+Java has no by.
+
+31
+00:01:52.525 --> 00:01:57.383
+There you write the same forwarding yourself, and pass the name as a string.
+
+32
+00:01:57.600 --> 00:02:00.876
+From the outside, both are a plain getter and setter.
+
+33
+00:02:00.876 --> 00:02:05.080
+A setter that logs or validates looks exactly like one that doesn't.

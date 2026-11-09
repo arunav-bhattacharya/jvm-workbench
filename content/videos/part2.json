@@ -4,6 +4,10 @@
     {"slug": "co01-statemachine", "lesson": "co-01", "section": 2, "title": "A suspend function becomes a state machine with one small continuation object"},
     {"slug": "co03-tree", "lesson": "co-03", "section": 1, "title": "In the job tree, failure goes up and cancellation goes down"},
     {"slug": "io02-selector", "lesson": "io-02", "section": 2, "title": "A thread per connection versus one thread asking a Selector what is ready"},
-    {"slug": "io03-pipeline", "lesson": "io-03", "section": 1, "title": "Netty's event loop and pipeline: reads flow in, writes flow out, never block"}
+    {"slug": "io03-pipeline", "lesson": "io-03", "section": 1, "title": "Netty's event loop and pipeline: reads flow in, writes flow out, never block"},
+    {"slug": "rx03-flatmap", "lesson": "rx-03", "section": 1, "title": "flatMap emits in completion order; concatMap and flatMapSequential keep input order"},
+    {"slug": "co05-cancel", "lesson": "co-05", "section": 0, "title": "Cancellation is a request: a coroutine stops only at a suspension point or a check"},
+    {"slug": "co07-cold", "lesson": "co-07", "section": 0, "title": "A cold Flow is a recipe: nothing runs until collect, and each collector runs it again"},
+    {"slug": "io05-context", "lesson": "io-05", "section": 0, "title": "A Vert.x context runs a verticle's handlers on one event-loop thread, so never block it"}
   ]
 }

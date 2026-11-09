@@ -4,6 +4,10 @@
     {"slug": "gen04-out", "lesson": "gen-04", "section": 0, "title": "A producer only hands values out, so the subtype arrow keeps its direction"},
     {"slug": "gen05-in", "lesson": "gen-05", "section": 0, "title": "A consumer only takes values in, so the subtype arrow flips"},
     {"slug": "gen08-reified", "lesson": "gen-08", "section": 1, "title": "Erasure removes T, and inline with reified writes the real class into each call site"},
-    {"slug": "dop03-exhaustive", "lesson": "dop-03", "section": 0, "title": "Add a subtype: the pattern switch stops compiling, the instanceof chain stays silent"}
+    {"slug": "dop03-exhaustive", "lesson": "dop-03", "section": 0, "title": "Add a subtype: the pattern switch stops compiling, the instanceof chain stays silent"},
+    {"slug": "pat05-decorator", "lesson": "pat-05", "section": 0, "title": "A decorator wraps the same interface: the call goes in layer by layer, and the order of the layers changes the fee"},
+    {"slug": "pat11-breaker", "lesson": "pat-11", "section": 3, "title": "A circuit breaker's three states live in one AtomicReference, and compare-and-set picks the single probe"},
+    {"slug": "kt01-inline", "lesson": "kt-01", "section": 0, "title": "Kotlin's inline pastes the function body and its lambda into the caller: no Function0, no interface call, no unboxing"},
+    {"slug": "kt03-delegated", "lesson": "kt-03", "section": 1, "title": "A delegated property is a hidden delegate field plus a getter and setter that call getValue and setValue"}
   ]
 }

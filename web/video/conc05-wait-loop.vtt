@@ -1,0 +1,173 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.310
+This consumer takes payments from a queue.
+
+2
+00:00:05.310 --> 00:00:07.299
+If the queue is empty, it waits.
+
+3
+00:00:07.299 --> 00:00:09.909
+When it wakes up, it takes the first item.
+
+4
+00:00:10.133 --> 00:00:12.165
+With one consumer, this works.
+
+5
+00:00:12.165 --> 00:00:15.279
+With two, it can throw NoSuchElementException.
+
+6
+00:00:15.279 --> 00:00:17.513
+To see why, look inside the lock.
+
+7
+00:00:18.733 --> 00:00:20.898
+Every Java object has a monitor.
+
+8
+00:00:20.898 --> 00:00:25.701
+One thread at a time owns it: the thread inside the synchronized block.
+
+9
+00:00:25.933 --> 00:00:29.004
+Threads that want the lock wait in the entry set.
+
+10
+00:00:29.004 --> 00:00:30.320
+They show as BLOCKED.
+
+11
+00:00:30.533 --> 00:00:33.596
+Threads that called wait sit in the wait set.
+
+12
+00:00:33.596 --> 00:00:36.115
+They show as WAITING, and use no CPU.
+
+13
+00:00:36.933 --> 00:00:40.343
+Consumer 1 takes the lock and checks the queue.
+
+14
+00:00:40.343 --> 00:00:41.213
+It is empty.
+
+15
+00:00:41.433 --> 00:00:42.488
+So it calls wait.
+
+16
+00:00:42.488 --> 00:00:46.396
+wait gives back the lock, and parks the thread in the wait set.
+
+17
+00:00:46.600 --> 00:00:48.287
+Consumer 2 does the same.
+
+18
+00:00:48.287 --> 00:00:50.987
+It finds the queue empty, and waits too.
+
+19
+00:00:51.200 --> 00:00:56.625
+Now a producer takes the lock, adds one payment to the queue, and calls notifyAll.
+
+20
+00:00:56.833 --> 00:01:00.914
+notifyAll wakes every waiter, but it does not hand over the lock.
+
+21
+00:01:00.914 --> 00:01:05.999
+Both consumers move to the entry set, and compete for the lock like any newcomer.
+
+22
+00:01:06.200 --> 00:01:09.257
+When the producer leaves its block, the lock is free.
+
+23
+00:01:09.467 --> 00:01:11.105
+Consumer 1 gets it first.
+
+24
+00:01:11.105 --> 00:01:14.643
+Its wait returns, it takes the payment, and it leaves.
+
+25
+00:01:14.867 --> 00:01:18.326
+Then consumer 2 gets the lock, and its wait returns too.
+
+26
+00:01:18.326 --> 00:01:21.537
+But the if checked the queue once, before it waited.
+
+27
+00:01:21.537 --> 00:01:24.935
+The next line takes the first item from an empty queue.
+
+28
+00:01:25.167 --> 00:01:27.498
+The payment it was woken for is gone.
+
+29
+00:01:27.498 --> 00:01:29.767
+Another consumer got the lock first.
+
+30
+00:01:30.000 --> 00:01:34.956
+Now write while instead of if, and replay the moment consumer 2 gets the lock.
+
+31
+00:01:35.167 --> 00:01:37.164
+wait returns inside the loop.
+
+32
+00:01:37.164 --> 00:01:39.642
+So consumer 2 tests the queue again.
+
+33
+00:01:39.642 --> 00:01:44.187
+It is empty, so it calls wait again and goes back to the wait set.
+
+34
+00:01:44.187 --> 00:01:45.220
+Nothing breaks.
+
+35
+00:01:45.433 --> 00:01:47.099
+There is a second reason.
+
+36
+00:01:47.099 --> 00:01:54.093
+The Javadoc for Object.wait says a thread can wake up without being notified, interrupted, or timing out.
+
+37
+00:01:54.093 --> 00:01:56.291
+That is called a spurious wakeup.
+
+38
+00:01:56.500 --> 00:01:58.410
+It is rare, but it is allowed.
+
+39
+00:01:58.410 --> 00:02:02.295
+The loop handles it the same way: test again, and wait again.
+
+40
+00:02:03.300 --> 00:02:09.195
+That is all a guarded block is: a while loop around wait, with the condition as the loop test.
+
+41
+00:02:09.400 --> 00:02:13.267
+Every wait sits inside a while loop that tests the condition.
+
+42
+00:02:13.267 --> 00:02:17.640
+Treat an if around wait as a bug, even in code that has never failed.
+
+43
+00:02:17.640 --> 00:02:20.556
+It has just never had two waiters at once yet.
