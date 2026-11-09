@@ -197,8 +197,8 @@ class Gen07StarProjection(Beat):
         self.seq("Writing is not safe. star might be the list of ints, so no String may go in.",
                  [(0, [FadeIn(wr, shift=UP * 0.1), FadeIn(p3, scale=0.7)], 0.7),
                   (1, [Indicate(VGroup(to_cents, maybe), color=PURPLE_M, scale_factor=1.05)], 0.9),
-                  (1, [p3.animate.move_to([-0.75, 1.2, 0])], 0.6),
-                  (1, [FadeIn(stop, scale=0.5), p3.animate.set_opacity(0.35), FadeIn(werr, shift=UP * 0.1)], 0.7)])
+                  (1, [p3.animate.move_to([-0.75, 1.2, 0]).set_opacity(0.45)], 0.7),
+                  (1, [FadeIn(stop, scale=0.5), FadeIn(werr, shift=UP * 0.1)], 0.7)])
         self.play(FadeOut(VGroup(wr, werr, p3, stop)), run_time=0.5)
 
         # null: the unknown type might be non-nullable
@@ -209,8 +209,8 @@ class Gen07StarProjection(Beat):
         stop2 = tick(False, 0.3).move_to([-0.75, 1.2, 0])
         self.seq("Kotlin doesn't even let null in, because the unknown type might be non-nullable.",
                  [(0, [FadeIn(nl, shift=UP * 0.1), FadeIn(pn, scale=0.7)], 0.7),
-                  (0, [pn.animate.move_to([-0.75, 1.2, 0])], 0.6),
-                  (0, [FadeIn(stop2, scale=0.5), pn.animate.set_opacity(0.35), FadeIn(nerr, shift=UP * 0.1)], 0.8)])
+                  (0, [pn.animate.move_to([-0.75, 1.2, 0]).set_opacity(0.45)], 0.7),
+                  (0, [FadeIn(stop2, scale=0.5), FadeIn(nerr, shift=UP * 0.1)], 0.7)])
         self.play(FadeOut(VGroup(nl, nerr, pn, stop2)), run_time=0.5)
 
         # clear: takes no element, still allowed
