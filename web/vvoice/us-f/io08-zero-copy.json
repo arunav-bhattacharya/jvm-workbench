@@ -1,0 +1,313 @@
+{
+ "slug": "io08-zero-copy",
+ "voice": "us-f",
+ "max_late": 0.06,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.23,
+   "tries": 1,
+   "text": "Sending a file the obvious way passes every byte through your process twice."
+  },
+  {
+   "cue": 7.8,
+   "start": 7.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.02,
+   "tries": 1,
+   "text": "The kernel keeps recently used file pages in memory, in its page cache."
+  },
+  {
+   "cue": 12.8,
+   "start": 12.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.14,
+   "tries": 1,
+   "text": "Your loop calls read, and the kernel copies the bytes up into your buffer."
+  },
+  {
+   "cue": 17.24,
+   "start": 17.24,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.86,
+   "tries": 1,
+   "text": "That's one copy, and one system call: a switch into the kernel and back."
+  },
+  {
+   "cue": 21.77,
+   "start": 21.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.06,
+   "tries": 1,
+   "text": "Then it calls write, and the kernel copies them back down into the socket's send buffer."
+  },
+  {
+   "cue": 27.16,
+   "start": 27.16,
+   "late": 0.0,
+   "tempo": 1.022,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "A second copy, and a second system call."
+  },
+  {
+   "cue": 29.6,
+   "start": 29.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.13,
+   "tries": 1,
+   "text": "Only then does the network card send them."
+  },
+  {
+   "cue": 32.37,
+   "start": 32.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.44,
+   "tries": 1,
+   "text": "A heap ByteBuffer adds one more copy per call, through a temporary direct buffer."
+  },
+  {
+   "cue": 37.7,
+   "start": 37.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.98,
+   "tries": 1,
+   "text": "And sixty-four MiB through a sixty-four KiB buffer is one thousand twenty-four rounds of this."
+  },
+  {
+   "cue": 44.43,
+   "start": 44.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.5,
+   "tries": 1,
+   "text": "FileChannel.transferTo asks the kernel to do the whole move."
+  },
+  {
+   "cue": 48.62,
+   "start": 48.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.95,
+   "tries": 1,
+   "text": "On Linux, with a socket as the target, it becomes one sendfile call."
+  },
+  {
+   "cue": 53.57,
+   "start": 53.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.81,
+   "tries": 1,
+   "text": "The kernel sends pages from the page cache straight to the socket."
+  },
+  {
+   "cue": 57.77,
+   "start": 57.77,
+   "late": 0.0,
+   "tempo": 1.103,
+   "secs": 2.01,
+   "tries": 1,
+   "text": "The bytes never enter your process."
+  },
+  {
+   "cue": 59.99,
+   "start": 59.99,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.16,
+   "tries": 1,
+   "text": "That's zero-copy."
+  },
+  {
+   "cue": 61.83,
+   "start": 61.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.64,
+   "tries": 1,
+   "text": "Counted with strace, transferTo made one sendfile call."
+  },
+  {
+   "cue": 66.95,
+   "start": 66.95,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.51,
+   "tries": 1,
+   "text": "The copy made two thousand one hundred nineteen reads and one thousand thirty-seven writes."
+  },
+  {
+   "cue": 71.67,
+   "start": 71.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.56,
+   "tries": 1,
+   "text": "transferTo may move fewer bytes than you asked for."
+  },
+  {
+   "cue": 74.9,
+   "start": 74.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.38,
+   "tries": 1,
+   "text": "It returns how many it moved, so call it in a loop, in Java or in Kotlin."
+  },
+  {
+   "cue": 79.73,
+   "start": 79.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.79,
+   "tries": 1,
+   "text": "One condition: the bytes must leave exactly as they sit in the file."
+  },
+  {
+   "cue": 85.0,
+   "start": 85.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.11,
+   "tries": 1,
+   "text": "TLS or compression inside the J V M rules zero-copy out."
+  },
+  {
+   "cue": 89.97,
+   "start": 89.97,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.51,
+   "tries": 1,
+   "text": "Now, who does the read?"
+  },
+  {
+   "cue": 91.61,
+   "start": 91.63,
+   "late": 0.03,
+   "tempo": 1.0,
+   "secs": 3.01,
+   "tries": 1,
+   "text": "E poll answers one question: which sockets are ready?"
+  },
+  {
+   "cue": 95.53,
+   "start": 95.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.12,
+   "tries": 1,
+   "text": "Then your loop makes the read call itself, one more call per ready socket."
+  },
+  {
+   "cue": 100.13,
+   "start": 100.13,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "I O uring works by completion."
+  },
+  {
+   "cue": 102.06,
+   "start": 102.12,
+   "late": 0.06,
+   "tempo": 1.0,
+   "secs": 3.51,
+   "tries": 1,
+   "text": "Your program and the kernel share two ring buffers in memory."
+  },
+  {
+   "cue": 106.3,
+   "start": 106.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.0,
+   "tries": 1,
+   "text": "You put a request on the submission ring: read up to sixteen KiB from this socket."
+  },
+  {
+   "cue": 111.91,
+   "start": 111.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.32,
+   "tries": 1,
+   "text": "The kernel does the read, and puts the result on the completion ring: done, four thousand ninety-six bytes."
+  },
+  {
+   "cue": 118.53,
+   "start": 118.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.31,
+   "tries": 1,
+   "text": "One system call can submit and collect many operations, and the kernel moves the bytes."
+  },
+  {
+   "cue": 125.0,
+   "start": 125.0,
+   "late": 0.0,
+   "tempo": 1.074,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "The J D K's selector and poller use E poll."
+  },
+  {
+   "cue": 128.07,
+   "start": 128.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.49,
+   "tries": 1,
+   "text": "I O uring comes through Netty, first-class since four point two."
+  },
+  {
+   "cue": 132.23,
+   "start": 132.23,
+   "late": 0.0,
+   "tempo": 1.035,
+   "secs": 0.79,
+   "tries": 1,
+   "text": "Is it faster?"
+  },
+  {
+   "cue": 133.24,
+   "start": 133.24,
+   "late": 0.0,
+   "tempo": 1.051,
+   "secs": 6.21,
+   "tries": 1,
+   "text": "Not reliably. In the lesson's demo, E poll took eighteen milliseconds and I O uring took sixty-five."
+  },
+  {
+   "cue": 139.65,
+   "start": 139.65,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.03,
+   "tries": 1,
+   "text": "So measure your own workload."
+  },
+  {
+   "cue": 141.89,
+   "start": 141.89,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.58,
+   "tries": 1,
+   "text": "The switch is one factory and one channel class."
+  }
+ ]
+}
