@@ -1,0 +1,153 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.620
+A Long parameter named amountMinor will take an order id without complaint.
+
+2
+00:00:07.620 --> 00:00:11.097
+Both are Long, so the compiler can't tell them apart.
+
+3
+00:00:11.300 --> 00:00:13.895
+The classic fix is a small wrapper class.
+
+4
+00:00:13.895 --> 00:00:17.820
+It works, but every amount is now an extra object on the heap.
+
+5
+00:00:18.600 --> 00:00:24.648
+Kotlin's value class keeps the type safety, and wherever it can, it drops the object.
+
+6
+00:00:24.648 --> 00:00:28.917
+You write @JvmInline value class, with exactly one property.
+
+7
+00:00:29.133 --> 00:00:31.644
+To the compiler, Cents is its own type.
+
+8
+00:00:31.644 --> 00:00:35.248
+Hand charge a plain Long, and the call does not compile.
+
+9
+00:00:36.067 --> 00:00:38.304
+At run time, most of it is gone.
+
+10
+00:00:38.304 --> 00:00:42.779
+Here is the Kotlin, next to what javap shows the compiler built.
+
+11
+00:00:43.000 --> 00:00:46.868
+charge takes a plain long, under a name with a hash on the end.
+
+12
+00:00:47.100 --> 00:00:50.818
+Cents(150) calls a static method, constructor-impl.
+
+13
+00:00:50.818 --> 00:00:54.683
+It runs your init block and hands back the same long.
+
+14
+00:00:54.683 --> 00:00:56.214
+No object is created.
+
+15
+00:00:56.214 --> 00:00:59.713
+plus became a static method that adds two longs.
+
+16
+00:01:00.467 --> 00:01:03.142
+So this whole call runs on plain longs.
+
+17
+00:01:03.142 --> 00:01:05.131
+No Cents object is ever made.
+
+18
+00:01:05.933 --> 00:01:07.584
+So when is a box needed?
+
+19
+00:01:07.584 --> 00:01:11.643
+A value class is boxed whenever it is used as another type.
+
+20
+00:01:11.833 --> 00:01:14.357
+Here is a second value class, Amount.
+
+21
+00:01:14.357 --> 00:01:16.744
+It implements an interface, Priced.
+
+22
+00:01:16.744 --> 00:01:18.040
+Take one amount, a.
+
+23
+00:01:18.233 --> 00:01:22.656
+In an Invoice, it is used as an Amount, so the field is a plain long.
+
+24
+00:01:22.867 --> 00:01:25.857
+Pass it to asGeneric, and it is used as a T.
+
+25
+00:01:25.857 --> 00:01:31.499
+So the compiler calls box-impl first, and a real Amount object appears on the heap.
+
+26
+00:01:31.700 --> 00:01:36.056
+A nullable Amount has to be able to hold null, and a long can't.
+
+27
+00:01:36.056 --> 00:01:37.281
+So that boxes too.
+
+28
+00:01:37.467 --> 00:01:40.154
+Used as the interface Priced, it boxes.
+
+29
+00:01:40.154 --> 00:01:44.840
+Used as Any, it boxes, and that covers every collection and println.
+
+30
+00:01:45.633 --> 00:01:49.876
+Here are the same calls as Java, read back from the bytecode.
+
+31
+00:01:49.876 --> 00:01:55.161
+Each time, Amount.box-impl runs right before the call that needs the object.
+
+32
+00:01:55.367 --> 00:02:00.162
+It is the same rule Java uses for the primitive long and the boxed Long.
+
+33
+00:02:00.162 --> 00:02:03.892
+So a List of Amount holds one Amount object per element.
+
+34
+00:02:04.667 --> 00:02:05.610
+Now that name.
+
+35
+00:02:05.610 --> 00:02:10.192
+The compiler adds a hash to every function that takes a value class.
+
+36
+00:02:10.192 --> 00:02:14.841
+A dash can't appear in a Java method name, so Java can't call charge.
+
+37
+00:02:15.033 --> 00:02:18.001
+@JvmName gives it a name Java can call.
+
+38
+00:02:18.001 --> 00:02:24.775
+But Java passes a raw long, so the init block never runs, and minus 5 cents gets charged.

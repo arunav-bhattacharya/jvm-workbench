@@ -456,9 +456,22 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
 .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 14px; }
 
 /* ---------- focus timer ---------- */
-.timer { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px)); z-index: 55; width: min(320px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--rule); border-radius: 16px; padding: 14px 16px; display: grid; gap: 10px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12); font-family: var(--body); }
-.timer .tt { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.timer .big { font: 400 36px/1 var(--display); font-variant-numeric: tabular-nums; }
+.timer { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px)); z-index: 55; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; align-items: center; gap: 6px 6px; padding: 7px 6px 8px 8px; min-width: 196px; background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12); font-family: var(--body); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.timer:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+.timer.dragging { cursor: grabbing; box-shadow: 0 16px 44px rgba(0, 0, 0, 0.22); }
+.timer .grip { width: 6px; height: 16px; background-image: radial-gradient(circle, var(--faint) 1.1px, transparent 1.3px); background-size: 3px 4px; opacity: .9; }
+.timer .tph { display: inline-flex; align-items: center; gap: 6px; font: 600 10.5px/1 "Inter", system-ui, sans-serif; letter-spacing: .07em; text-transform: uppercase; color: var(--mute); }
+.timer .tph .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ember); }
+.timer.paused .tph .dot { background: var(--faint); }
+.timer .big { justify-self: end; padding: 0 4px 0 10px; font: 400 24px/1 var(--display); font-variant-numeric: tabular-nums; color: var(--fg); }
+.timer.paused .big { color: var(--mute); }
+.timer .ibtn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: none; color: var(--mute); cursor: pointer; }
+.timer .ibtn:hover { background: var(--tint); color: var(--fg); }
+.timer .ibtn[hidden] { display: none; }
+.timer .tbar { grid-column: 1 / -1; display: grid; gap: 3px; padding: 0 2px; }
+.timer .tbar i { display: block; height: 3px; border-radius: 2px; background: var(--tint); overflow: hidden; }
+.timer .tbar b { display: block; height: 100%; background: var(--faint); }
+.timer .tbar b.cur { background: var(--ember); }
 .phases { display: grid; gap: 3px; }
 .phases div { display: grid; gap: 4px; }
 .phases i { height: 6px; border-radius: 99px; background: var(--tint); overflow: hidden; display: block; }

@@ -1,0 +1,105 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.207
+Over three sittings you build one program: a payment ledger in memory.
+
+2
+00:00:07.207 --> 00:00:11.908
+Many threads move money at once, and not one cent may be lost or created.
+
+3
+00:00:12.133 --> 00:00:13.440
+Here it is, finished.
+
+4
+00:00:13.440 --> 00:00:17.235
+Each request gets a virtual thread that screens the transfer.
+
+5
+00:00:17.235 --> 00:00:21.839
+Then a bounded pool writes it to a journal and applies it to the accounts.
+
+6
+00:00:22.067 --> 00:00:24.074
+You build it from the inside out.
+
+7
+00:00:24.074 --> 00:00:27.968
+Each part comes from an earlier lesson, named under the diagram.
+
+8
+00:00:28.200 --> 00:00:30.697
+Sitting 1, in Java, builds the core.
+
+9
+00:00:30.697 --> 00:00:38.880
+Each account has its own lock, and a transfer always locks the smaller id first, so opposite transfers can't deadlock.
+
+10
+00:00:39.100 --> 00:00:43.501
+The balance check sits inside both locks, with the debit and the credit.
+
+11
+00:00:43.733 --> 00:00:47.687
+A transfer is an immutable record, so any thread sees it whole.
+
+12
+00:00:47.900 --> 00:00:51.000
+And a stress test of 8 threads tries hard to break it.
+
+13
+00:00:51.733 --> 00:00:59.806
+Sitting 2, still in Java, runs the ledger on a pool you can defend: 8 threads and 80 queue slots, from Little's law.
+
+14
+00:00:59.806 --> 00:01:02.520
+When it is full, the caller gets a 503.
+
+15
+00:01:02.733 --> 00:01:05.642
+Each task writes the journal before it applies.
+
+16
+00:01:05.642 --> 00:01:10.469
+On shutdown the pool drains, and hands back every transfer that never started.
+
+17
+00:01:10.700 --> 00:01:17.128
+A snapshot takes every lock in id order, and publishes an immutable copy through a volatile field.
+
+18
+00:01:17.833 --> 00:01:22.134
+Sitting 3 adds the front, in Kotlin, over the same Java ledger.
+
+19
+00:01:22.134 --> 00:01:26.913
+Every request gets a new virtual thread, because requests mostly wait.
+
+20
+00:01:27.133 --> 00:01:32.132
+The slow fraud service sits behind one shared semaphore of 20 permits.
+
+21
+00:01:32.333 --> 00:01:35.719
+Each request has one deadline of 300 milliseconds.
+
+22
+00:01:35.719 --> 00:01:40.731
+When it runs out, the fraud call is interrupted, so its permit comes back.
+
+23
+00:01:40.933 --> 00:01:43.231
+Fraud and limits run side by side.
+
+24
+00:01:43.231 --> 00:01:46.813
+The first no wins, and no check outlives its request.
+
+25
+00:01:47.533 --> 00:01:50.166
+Through every sitting, one rule holds.
+
+26
+00:01:50.166 --> 00:01:56.955
+Money moves only inside apply, under both account locks, so the sum of all balances never changes.

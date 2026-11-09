@@ -1,0 +1,241 @@
+{
+ "slug": "co04-dispatchers",
+ "voice": "us-f",
+ "max_late": 0.5,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.6,
+   "tries": 1,
+   "text": "A coroutine runs on some thread, but suspend doesn't say which."
+  },
+  {
+   "cue": 6.92,
+   "start": 6.92,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.46,
+   "tries": 1,
+   "text": "The dispatcher in its context picks it, each time the coroutine starts or resumes."
+  },
+  {
+   "cue": 12.4,
+   "start": 12.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.85,
+   "tries": 1,
+   "text": "This is Kotlin only: Java has no coroutines."
+  },
+  {
+   "cue": 16.17,
+   "start": 16.17,
+   "late": 0.0,
+   "tempo": 1.059,
+   "secs": 4.44,
+   "tries": 1,
+   "text": "When you name no dispatcher, launch and async use Dispatchers.Default."
+  },
+  {
+   "cue": 20.83,
+   "start": 20.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.49,
+   "tries": 1,
+   "text": "It has one thread per core, and at least two."
+  },
+  {
+   "cue": 23.83,
+   "start": 23.83,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.69,
+   "tries": 1,
+   "text": "On a four-core pod that's four threads, for C P U work."
+  },
+  {
+   "cue": 27.17,
+   "start": 27.67,
+   "late": 0.5,
+   "tempo": 1.033,
+   "secs": 6.49,
+   "tries": 1,
+   "text": "Run a two hundred millisecond JDBC query there, and the thread sleeps for two hundred milliseconds, doing nothing."
+  },
+  {
+   "cue": 34.37,
+   "start": 34.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.22,
+   "tries": 1,
+   "text": "Four requests doing that take every thread, and all C P U work waits."
+  },
+  {
+   "cue": 40.1,
+   "start": 40.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 12.24,
+   "tries": 1,
+   "text": "In the lesson's lab, thirty-two such calls take about one thousand six hundred milliseconds, eight rounds of four, and a tiny C P U task waits about one thousand five hundred milliseconds to start."
+  },
+  {
+   "cue": 53.6,
+   "start": 53.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.62,
+   "tries": 1,
+   "text": "Blocking calls belong on Dispatchers.I O, which runs up to sixty-four at once."
+  },
+  {
+   "cue": 58.84,
+   "start": 58.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.12,
+   "tries": 1,
+   "text": "Those threads mostly sleep, waiting for Oracle, so sixty-four on four cores is fine."
+  },
+  {
+   "cue": 65.2,
+   "start": 65.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.72,
+   "tries": 1,
+   "text": "There, the thirty-two calls take about two hundred twenty milliseconds, and the tiny task starts within a few milliseconds."
+  },
+  {
+   "cue": 73.53,
+   "start": 73.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.79,
+   "tries": 1,
+   "text": "I O and Default share one pool of worker threads."
+  },
+  {
+   "cue": 76.56,
+   "start": 76.56,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.8,
+   "tries": 1,
+   "text": "The split gives them separate budgets: blocking work can fill I O, and Default still has a thread for every core."
+  },
+  {
+   "cue": 83.83,
+   "start": 83.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.89,
+   "tries": 1,
+   "text": "To move one piece of work, use withContext."
+  },
+  {
+   "cue": 87.12,
+   "start": 87.12,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.62,
+   "tries": 1,
+   "text": "Loading the rows is a blocking JDBC call."
+  },
+  {
+   "cue": 90.26,
+   "start": 90.26,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "Rendering the PDF is C P U work."
+  },
+  {
+   "cue": 92.77,
+   "start": 92.82,
+   "late": 0.06,
+   "tempo": 1.084,
+   "secs": 3.43,
+   "tries": 1,
+   "text": "withContext suspends the caller and runs the block on I O."
+  },
+  {
+   "cue": 96.48,
+   "start": 96.48,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.13,
+   "tries": 1,
+   "text": "Often the same worker keeps going, now counted against I O's limit, and Default's place goes to another thread."
+  },
+  {
+   "cue": 103.87,
+   "start": 103.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.57,
+   "tries": 1,
+   "text": "The query sleeps for two hundred milliseconds, and Default's four threads keep doing C P U work."
+  },
+  {
+   "cue": 110.2,
+   "start": 110.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.72,
+   "tries": 1,
+   "text": "When the block is done, the caller resumes on its own dispatcher, Default, with the rows."
+  },
+  {
+   "cue": 115.85,
+   "start": 115.85,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.96,
+   "tries": 1,
+   "text": "Rendering is C P U work, so it runs there too."
+  },
+  {
+   "cue": 119.57,
+   "start": 119.57,
+   "late": 0.0,
+   "tempo": 1.057,
+   "secs": 7.66,
+   "tries": 1,
+   "text": "So never block on Default: wrap each blocking call in withContext(Dispatchers.I O), inside the function that blocks."
+  },
+  {
+   "cue": 127.44,
+   "start": 127.44,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.6,
+   "tries": 1,
+   "text": "Calls that already suspend, like delay, need no switch."
+  },
+  {
+   "cue": 131.93,
+   "start": 131.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 8.38,
+   "tries": 1,
+   "text": "When one resource needs its own budget, limitedParallelism makes a view of I O with its own limit, like twenty for a card issuer with twenty connections."
+  },
+  {
+   "cue": 141.94,
+   "start": 141.94,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.75,
+   "tries": 1,
+   "text": "A view owns no threads, and it adds to I O's sixty-four instead of taking a share."
+  }
+ ]
+}

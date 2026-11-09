@@ -1,0 +1,117 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:07.286
+Over three sittings you build one program: a quote service.
+
+2
+00:00:07.286 --> 00:00:15.696
+A client sends a line like 7 EURUSD, and within 300 milliseconds it gets the best price from three providers.
+
+3
+00:00:15.867 --> 00:00:17.294
+Here it is, finished.
+
+4
+00:00:17.294 --> 00:00:19.333
+A Netty server reads the line.
+
+5
+00:00:19.333 --> 00:00:26.809
+A coroutine service asks Northbank, Eastgate and Fjord at once, and the best price goes back with the same id.
+
+6
+00:00:27.000 --> 00:00:29.000
+You build it from the outside in.
+
+7
+00:00:29.000 --> 00:00:32.880
+Each part comes from an earlier lesson, named under the diagram.
+
+8
+00:00:33.067 --> 00:00:35.573
+Sitting 1, in Java, is the Netty shell.
+
+9
+00:00:35.573 --> 00:00:41.035
+One event-loop thread runs every handler of its channels, so the handler never waits.
+
+10
+00:00:41.035 --> 00:00:43.156
+It hands the future back at once.
+
+11
+00:00:43.333 --> 00:00:48.567
+The reply is written later, back on the same loop, so the handler's state needs no lock.
+
+12
+00:00:48.733 --> 00:00:56.207
+Lines are capped at 64 bytes, and the loop reads only while the client keeps up and fewer than 16 requests wait.
+
+13
+00:00:56.933 --> 00:00:59.533
+Sitting 2 writes the service in Kotlin.
+
+14
+00:00:59.533 --> 00:01:05.331
+Three async calls start together, so a request costs the slowest provider, not the sum.
+
+15
+00:01:05.467 --> 00:01:11.020
+Each call gets the deadline with withTimeoutOrNull, so a late provider just drops out.
+
+16
+00:01:11.600 --> 00:01:15.468
+In a supervisorScope, a provider that fails, fails alone.
+
+17
+00:01:16.000 --> 00:01:20.201
+When nobody answers, the last good price goes out, marked stale.
+
+18
+00:01:20.201 --> 00:01:21.645
+That rule is new here.
+
+19
+00:01:22.133 --> 00:01:25.577
+And scope.future gives the Java handler its future.
+
+20
+00:01:25.577 --> 00:01:29.763
+When a client hangs up, cancelling it cancels all three calls.
+
+21
+00:01:30.467 --> 00:01:33.568
+Sitting 3, still Kotlin, holds it up under load.
+
+22
+00:01:33.568 --> 00:01:38.672
+Each provider gets its own bulkhead, sized from its contract with Little's law.
+
+23
+00:01:38.867 --> 00:01:42.003
+Only idempotent calls are retried, with jitter.
+
+24
+00:01:42.003 --> 00:01:44.405
+Fjord's firm quotes are called once.
+
+25
+00:01:44.600 --> 00:01:51.327
+Northbank's slow tail gets a hedge: a second call after 80 milliseconds, and the first answer wins.
+
+26
+00:01:51.467 --> 00:01:58.556
+At the door, admission turns away what it can't answer in time with ERR busy, and shutdown stops everything in order.
+
+27
+00:01:59.267 --> 00:02:01.134
+All of it rests on one rule.
+
+28
+00:02:01.134 --> 00:02:02.935
+The event loop never waits.
+
+29
+00:02:02.935 --> 00:02:06.604
+The waiting happens in coroutines, inside the deadline.

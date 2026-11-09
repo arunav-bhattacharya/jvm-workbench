@@ -1,0 +1,113 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:05.871
+A payment service wires itself by hand, in main.
+
+2
+00:00:05.871 --> 00:00:12.539
+Each object is built after the ones its constructor needs: the config first, the payment service last.
+
+3
+00:00:12.733 --> 00:00:16.326
+A dependency injection container does that wiring for you.
+
+4
+00:00:16.326 --> 00:00:18.741
+Here is the one you'll build, finished.
+
+5
+00:00:18.933 --> 00:00:26.166
+At start-up it finds the components, picks their constructors, orders the graph, and builds each singleton once.
+
+6
+00:00:26.166 --> 00:00:28.491
+Timed and Retry methods get a proxy.
+
+7
+00:00:28.491 --> 00:00:33.140
+A generator can write the same wiring at build time, for a faster start.
+
+8
+00:00:33.467 --> 00:00:37.292
+Lesson 1, in Java, wires classes by reflection.
+
+9
+00:00:37.467 --> 00:00:42.913
+The scanner loads each class without initializing it, so no static initializer runs.
+
+10
+00:00:43.133 --> 00:00:47.748
+It never guesses a constructor, and it skips the synthetic ones Kotlin adds.
+
+11
+00:00:47.933 --> 00:00:52.335
+A depth-first walk orders the graph, and names any cycle at start-up.
+
+12
+00:00:52.600 --> 00:00:59.199
+Each singleton gets a cell with double-checked locking: one instance, even when eight threads ask at once.
+
+13
+00:00:59.400 --> 00:01:02.756
+Lesson 2, in Kotlin, adds Timed and Retry.
+
+14
+00:01:02.933 --> 00:01:09.404
+Interceptors run around each call, with Timed outside Retry, so the time covers every attempt.
+
+15
+00:01:09.667 --> 00:01:14.537
+A component with an interface gets a JDK proxy around its target.
+
+16
+00:01:14.733 --> 00:01:17.852
+A class without one gets a Byte Buddy subclass.
+
+17
+00:01:17.852 --> 00:01:24.091
+A subclass can't override what Kotlin leaves final, so the container refuses that at start-up.
+
+18
+00:01:24.267 --> 00:01:28.028
+Lesson 3, in Java, measures it and makes it start fast.
+
+19
+00:01:28.200 --> 00:01:35.780
+Per call, JMH counts 208 bytes for a JDK proxy, and 160 for a subclass.
+
+20
+00:01:36.000 --> 00:01:40.039
+At start-up, the app loads 2,207 classes.
+
+21
+00:01:40.267 --> 00:01:44.732
+A class histogram and a heap dump show what the container keeps alive.
+
+22
+00:01:44.933 --> 00:01:51.661
+Then a generator runs the same graph at build time, and writes a holder class per singleton.
+
+23
+00:01:51.661 --> 00:01:53.928
+The start drops to 991 classes.
+
+24
+00:01:54.133 --> 00:01:55.244
+It writes Java.
+
+25
+00:01:55.244 --> 00:01:58.797
+In Kotlin, an object is the same kind of holder.
+
+26
+00:01:59.067 --> 00:02:03.212
+AppCDS and the AOT cache then archive what is left.
+
+27
+00:02:03.400 --> 00:02:07.523
+One rule holds throughout: never guess, and never skip in silence.
+
+28
+00:02:07.523 --> 00:02:14.144
+What the classes alone can tell, the container checks before the first call, at start-up, or in the build.

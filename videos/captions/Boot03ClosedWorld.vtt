@@ -1,0 +1,117 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:10.163
+A JVM with the AOT cache still maps classes, links, interprets, and waits for the JIT.
+
+2
+00:00:10.163 --> 00:00:15.023
+In Quarkus's benchmark, its first request took 1,859 ms.
+
+3
+00:00:15.200 --> 00:00:21.223
+A native image answered in 581 ms, because it did that work in the build.
+
+4
+00:00:22.033 --> 00:00:24.427
+The native-image builder starts at main.
+
+5
+00:00:24.427 --> 00:00:31.071
+It follows every method call and field access it can see, and works out which classes can show up at each call.
+
+6
+00:00:31.267 --> 00:00:36.799
+Code it never reaches is left out, and so are the JDK classes nothing uses.
+
+7
+00:00:39.000 --> 00:00:44.166
+It runs static initializers where it can, and saves their objects in the image heap.
+
+8
+00:00:44.166 --> 00:00:47.611
+Then it compiles every reachable method to machine code.
+
+9
+00:00:47.800 --> 00:00:53.686
+The binary needs no class loading, no bytecode verification, no interpreter and no JIT.
+
+10
+00:00:53.686 --> 00:00:59.909
+This is the closed-world assumption: everything the program will run is known at build time.
+
+11
+00:01:00.700 --> 00:01:09.261
+The price is what the analysis can't see: reflection, proxies, resources loaded by name, JNI and serialization.
+
+12
+00:01:09.967 --> 00:01:11.211
+Constants are fine.
+
+13
+00:01:11.211 --> 00:01:16.188
+Class.forName with a literal name just works, because the build can read it.
+
+14
+00:01:16.400 --> 00:01:20.337
+But this decoder takes the class name from a Kafka message header.
+
+15
+00:01:20.337 --> 00:01:21.768
+The build can't know it.
+
+16
+00:01:23.067 --> 00:01:29.303
+On the JVM, Class.forName finds PaymentAuthorized on the class path and loads it.
+
+17
+00:01:29.533 --> 00:01:31.929
+The native binary can't load classes.
+
+18
+00:01:31.929 --> 00:01:38.469
+Nobody told the build about PaymentAuthorized, so the call throws MissingReflectionRegistrationError.
+
+19
+00:01:38.469 --> 00:01:40.412
+It's an Error: don't catch it.
+
+20
+00:01:41.300 --> 00:01:45.942
+You tell the build in reachability-metadata.json, on the class path.
+
+21
+00:01:45.942 --> 00:01:49.697
+An entry names the type and the members your code uses.
+
+22
+00:01:49.900 --> 00:01:51.822
+A constructor is called &lt;init&gt;.
+
+23
+00:01:51.822 --> 00:01:57.465
+Parameter types are fully qualified, and every method lists them, even when there are none.
+
+24
+00:01:57.667 --> 00:02:02.153
+The condition turns the entry on only once EventDecoder is reached.
+
+25
+00:02:03.567 --> 00:02:07.404
+Now PaymentAuthorized decodes as it did on the JVM.
+
+26
+00:02:07.404 --> 00:02:10.791
+RefundIssued isn't listed, so it still fails.
+
+27
+00:02:11.000 --> 00:02:13.888
+In a Quarkus app you rarely write this file.
+
+28
+00:02:13.888 --> 00:02:19.140
+Extensions know what their libraries reflect on, and Quarkus generates the JSON.
+
+29
+00:02:19.140 --> 00:02:23.735
+For classes only your code knows about, you add RegisterForReflection.

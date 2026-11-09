@@ -148,6 +148,9 @@
     catch (e) { toast("Copy is blocked here. Select the text and copy it by hand."); }
   }
   const icon = {
+    close: '<svg width="15" height="15" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    pause: '<svg width="15" height="15" viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4.5v11M13 4.5v11" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    play: '<svg width="15" height="15" viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 4.2v11.6L16 10z" fill="currentColor"/></svg>',
     toc: '<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5h13M3.5 10h13M3.5 15h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
     collapse: '<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M8 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     search: '<svg width="17" height="17" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12.6 12.6 17 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
@@ -938,22 +941,72 @@
   const TOTAL = PHASES.reduce((a, b) => a + b[1], 0) * 60000;
   let tick;
   function elapsed() { const tm = S.timer; if (!tm) return 0; return Math.min(TOTAL, tm.acc + (tm.run ? Date.now() - tm.run : 0)); }
+  /* a small floating pill you can drag anywhere; its place is remembered */
+  function placeTimer(el, x, y) {
+    const r = el.getBoundingClientRect(), m = 8;
+    const nx = clamp(x, m, Math.max(m, innerWidth - r.width - m)), ny = clamp(y, m, Math.max(m, innerHeight - r.height - m));
+    Object.assign(el.style, { left: nx + "px", top: ny + "px", right: "auto", bottom: "auto" });
+    return [nx, ny];
+  }
   function timerRender() {
     const slot = $("#timer-slot"); if (!slot) return;
     clearInterval(tick);
     if (!S.timer) { slot.innerHTML = ""; return; }
+    if (!slot.querySelector(".timer")) {
+      slot.innerHTML = `<div class="timer" role="timer" tabindex="0" aria-label="Focus timer. Drag, or use the arrow keys, to move it." title="Drag to move">
+        <span class="grip" aria-hidden="true"></span>
+        <span class="tph"><i class="dot"></i><span class="lbl"></span></span>
+        <span class="big tnum"></span>
+        <button class="ibtn tp" data-act="timer-pause"></button>
+        <button class="ibtn" data-act="timer-stop" aria-label="Close the timer" title="Close">${icon.close}</button>
+        <span class="tbar" style="grid-template-columns:${PHASES.map((p) => p[1] + "fr").join(" ")}">${PHASES.map(([n, m]) => `<i title="${n}, ${m} min"><b></b></i>`).join("")}</span></div>`;
+    }
+    const el = slot.querySelector(".timer");
     const draw = () => {
       const e = elapsed(); const left = Math.max(0, TOTAL - e);
       let acc = 0, cur = PHASES.length - 1;
-      const bars = PHASES.map(([n, m], i) => { const a = acc; acc += m * 60000; const f = clamp((e - a) / (m * 60000), 0, 1); if (e >= a && e < acc) cur = i; return { n, f, i }; });
-      slot.innerHTML = `<div class="timer" role="timer"><div class="tt"><div><span class="label">${left ? `Now: ${PHASES[cur][0]}` : "Session done"}</span><div class="big tnum">${Math.floor(left / 60000)}:${pad(Math.floor((left % 60000) / 1000))}</div></div>
-        <div class="row" style="gap:6px">${left ? `<button class="btn ghost sm" data-act="timer-pause">${S.timer.run ? "Pause" : "Resume"}</button>` : ""}<button class="btn ghost sm" data-act="timer-stop">Close</button></div></div>
-        <div class="phases" style="grid-template-columns:${PHASES.map((p) => p[1] + "fr").join(" ")}">${bars.map((b) => `<div class="${b.i === cur && left ? "cur" : ""}"><i><b style="width:${Math.round(b.f * 100)}%"></b></i><span>${b.n} ${PHASES[b.i][1]}</span></div>`).join("")}</div></div>`;
+      const fills = PHASES.map(([, m], i) => { const a0 = acc; acc += m * 60000; if (e >= a0 && e < acc) cur = i; return clamp((e - a0) / (m * 60000), 0, 1); });
+      el.querySelector(".lbl").textContent = left ? PHASES[cur][0] : "Done";
+      el.querySelector(".big").textContent = `${Math.floor(left / 60000)}:${pad(Math.floor((left % 60000) / 1000))}`;
+      el.classList.toggle("paused", !!left && !S.timer.run);
+      const pb = el.querySelector(".tp");
+      pb.hidden = !left;
+      pb.innerHTML = S.timer.run ? icon.pause : icon.play;
+      pb.setAttribute("aria-label", S.timer.run ? "Pause the timer" : "Resume the timer"); pb.title = S.timer.run ? "Pause" : "Resume";
+      el.querySelectorAll(".tbar b").forEach((b, i) => { b.style.width = Math.round(fills[i] * 100) + "%"; b.classList.toggle("cur", i === cur && !!left); });
       if (!left && S.timer.run) { S.timer.acc = TOTAL; S.timer.run = null; save(); }
     };
     draw();
+    if (S.timerPos) placeTimer(el, S.timerPos.x, S.timerPos.y);
     if (S.timer.run) tick = setInterval(draw, 1000);
   }
+  let tdrag = null;
+  document.addEventListener("pointerdown", (ev) => {
+    const t = ev.target.closest && ev.target.closest(".timer");
+    if (!t || ev.target.closest("button") || ev.button > 0) return;
+    const r = t.getBoundingClientRect();
+    tdrag = { el: t, dx: ev.clientX - r.left, dy: ev.clientY - r.top, id: ev.pointerId };
+    try { t.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
+    t.classList.add("dragging"); ev.preventDefault();
+  });
+  document.addEventListener("pointermove", (ev) => { if (tdrag && ev.pointerId === tdrag.id) placeTimer(tdrag.el, ev.clientX - tdrag.dx, ev.clientY - tdrag.dy); });
+  const endTimerDrag = () => {
+    if (!tdrag) return;
+    tdrag.el.classList.remove("dragging");
+    const r = tdrag.el.getBoundingClientRect(); S.timerPos = { x: Math.round(r.left), y: Math.round(r.top) }; save(); tdrag = null;
+  };
+  document.addEventListener("pointerup", endTimerDrag);
+  document.addEventListener("pointercancel", endTimerDrag);
+  document.addEventListener("keydown", (ev) => {
+    const t = ev.target.classList && ev.target.classList.contains("timer") ? ev.target : null;
+    if (!t || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home"].includes(ev.key)) return;
+    ev.preventDefault();
+    if (ev.key === "Home") { S.timerPos = null; save(); Object.assign(t.style, { left: "", top: "", right: "", bottom: "" }); return; }
+    const r = t.getBoundingClientRect(), step = ev.shiftKey ? 80 : 20;
+    const [x, y] = placeTimer(t, r.left + (ev.key === "ArrowLeft" ? -step : ev.key === "ArrowRight" ? step : 0), r.top + (ev.key === "ArrowUp" ? -step : ev.key === "ArrowDown" ? step : 0));
+    S.timerPos = { x, y }; save();
+  });
+  addEventListener("resize", () => { const t = $(".timer"); if (t && S.timerPos) placeTimer(t, S.timerPos.x, S.timerPos.y); });
 
   /* ---------------- events ---------------- */
   document.addEventListener("click", (ev) => {

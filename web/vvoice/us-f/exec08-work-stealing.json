@@ -1,0 +1,331 @@
+{
+ "slug": "exec08-work-stealing",
+ "voice": "us-f",
+ "max_late": 0.54,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.65,
+   "tries": 1,
+   "text": "Say you need the fees for two thousand,zero ledger entries, and you have four workers."
+  },
+  {
+   "cue": 7.53,
+   "start": 7.53,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.9,
+   "tries": 1,
+   "text": "A RecursiveTask splits the job."
+  },
+  {
+   "cue": 9.58,
+   "start": 9.58,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.49,
+   "tries": 1,
+   "text": "If its range is small enough, it just loops."
+  },
+  {
+   "cue": 12.48,
+   "start": 12.48,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.41,
+   "tries": 1,
+   "text": "If not, it cuts it in half, into two smaller tasks."
+  },
+  {
+   "cue": 16.07,
+   "start": 16.07,
+   "late": 0.0,
+   "tempo": 1.125,
+   "secs": 3.29,
+   "tries": 1,
+   "text": "The lesson's demo uses a threshold of five zero zero zero zero."
+  },
+  {
+   "cue": 19.57,
+   "start": 19.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.89,
+   "tries": 1,
+   "text": "Six rounds of halving give sixty-four leaves."
+  },
+  {
+   "cue": 23.33,
+   "start": 23.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.75,
+   "tries": 1,
+   "text": "In code: fork the left half, compute the right half on this thread, then join the left half."
+  },
+  {
+   "cue": 30.8,
+   "start": 30.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.4,
+   "tries": 1,
+   "text": "A ThreadPoolExecutor has one shared queue."
+  },
+  {
+   "cue": 33.54,
+   "start": 33.54,
+   "late": 0.0,
+   "tempo": 1.032,
+   "secs": 4.63,
+   "tries": 1,
+   "text": "A ForkJoinPool gives every worker its own deque: a queue with two ends."
+  },
+  {
+   "cue": 38.4,
+   "start": 38.4,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.81,
+   "tries": 1,
+   "text": "The job starts on worker one."
+  },
+  {
+   "cue": 40.02,
+   "start": 40.36,
+   "late": 0.34,
+   "tempo": 1.015,
+   "secs": 5.95,
+   "tries": 1,
+   "text": "Each split forks the left half onto the top of its own deque, and the worker goes on with the right half."
+  },
+  {
+   "cue": 46.53,
+   "start": 46.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.46,
+   "tries": 1,
+   "text": "It also pops from the top."
+  },
+  {
+   "cue": 48.19,
+   "start": 48.19,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.44,
+   "tries": 1,
+   "text": "So it works on its newest task: the smallest one, whose data is still in its cache."
+  },
+  {
+   "cue": 53.7,
+   "start": 53.7,
+   "late": 0.0,
+   "tempo": 1.004,
+   "secs": 2.61,
+   "tries": 1,
+   "text": "Worker two has nothing to do, so it steals."
+  },
+  {
+   "cue": 56.45,
+   "start": 56.46,
+   "late": 0.01,
+   "tempo": 1.016,
+   "secs": 6.61,
+   "tries": 1,
+   "text": "It takes the bottom task of worker one's deque: the oldest one, forked highest up, so the biggest piece."
+  },
+  {
+   "cue": 63.3,
+   "start": 63.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.05,
+   "tries": 1,
+   "text": "Half the whole job."
+  },
+  {
+   "cue": 64.8,
+   "start": 64.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.17,
+   "tries": 1,
+   "text": "The thief splits it on its own deque, and stays busy for a long time."
+  },
+  {
+   "cue": 69.18,
+   "start": 69.18,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.03,
+   "tries": 1,
+   "text": "Workers three and four do the same."
+  },
+  {
+   "cue": 71.17,
+   "start": 71.36,
+   "late": 0.19,
+   "tempo": 1.021,
+   "secs": 2.15,
+   "tries": 1,
+   "text": "Three steals, and all four are busy."
+  },
+  {
+   "cue": 73.74,
+   "start": 73.74,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.16,
+   "tries": 1,
+   "text": "That's why the demo needs only a handful of steals for sixty-four leaves."
+  },
+  {
+   "cue": 78.6,
+   "start": 78.6,
+   "late": 0.0,
+   "tempo": 1.04,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "And join doesn't just park."
+  },
+  {
+   "cue": 80.32,
+   "start": 80.32,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.03,
+   "tries": 1,
+   "text": "If nobody stole the task, the worker runs it itself."
+  },
+  {
+   "cue": 83.64,
+   "start": 83.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.92,
+   "tries": 1,
+   "text": "If a thief has it, the worker runs other pending tasks while it waits."
+  },
+  {
+   "cue": 89.03,
+   "start": 89.03,
+   "late": 0.0,
+   "tempo": 1.023,
+   "secs": 0.77,
+   "tries": 1,
+   "text": "Now the order."
+  },
+  {
+   "cue": 90.02,
+   "start": 90.02,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.53,
+   "tries": 2,
+   "text": "Fork the left half, so a thief can take it."
+  },
+  {
+   "cue": 93.07,
+   "start": 93.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.48,
+   "tries": 1,
+   "text": "Compute the right half here."
+  },
+  {
+   "cue": 95.05,
+   "start": 95.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.07,
+   "tries": 1,
+   "text": "Then join. The halves overlap."
+  },
+  {
+   "cue": 97.31,
+   "start": 97.31,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.76,
+   "tries": 1,
+   "text": "On four free cores, the demo runs three to four times faster than one thread."
+  },
+  {
+   "cue": 102.5,
+   "start": 102.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.33,
+   "tries": 1,
+   "text": "Swap the last two steps, and the worker waits for the left half before it even starts the right one."
+  },
+  {
+   "cue": 108.23,
+   "start": 108.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.89,
+   "tries": 1,
+   "text": "Usually it pops the left half and runs it itself, then the right half."
+  },
+  {
+   "cue": 112.63,
+   "start": 112.63,
+   "late": 0.0,
+   "tempo": 1.031,
+   "secs": 2.05,
+   "tries": 1,
+   "text": "At every split, one after the other."
+  },
+  {
+   "cue": 114.9,
+   "start": 114.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.85,
+   "tries": 1,
+   "text": "So the sum takes about as long as on one thread."
+  },
+  {
+   "cue": 118.83,
+   "start": 118.83,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 4.44,
+   "tries": 1,
+   "text": "left.compute() + right.compute() is the same thing, written honestly."
+  },
+  {
+   "cue": 123.33,
+   "start": 123.42,
+   "late": 0.09,
+   "tempo": 1.0,
+   "secs": 3.73,
+   "tries": 1,
+   "text": "All of them give the right total, so the bug survives code review."
+  },
+  {
+   "cue": 127.87,
+   "start": 127.87,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "So: fork, compute, join."
+  },
+  {
+   "cue": 129.68,
+   "start": 130.21,
+   "late": 0.54,
+   "tempo": 1.0,
+   "secs": 1.85,
+   "tries": 1,
+   "text": "Or let invokeAll do it for you."
+  }
+ ]
+}
