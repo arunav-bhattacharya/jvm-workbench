@@ -1,0 +1,196 @@
+{
+ "slug": "co07-cold",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.42,
+   "tries": 1,
+   "text": "This Kotlin function returns a Flow of ledger entries."
+  },
+  {
+   "cue": 6.34,
+   "start": 6.34,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.8,
+   "tries": 1,
+   "text": "Its body asks the ledger service for a page, then emits each entry."
+  },
+  {
+   "cue": 11.67,
+   "start": 11.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "Call it, and nothing happens."
+  },
+  {
+   "cue": 13.58,
+   "start": 13.58,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.14,
+   "tries": 1,
+   "text": "Not one request reaches the ledger."
+  },
+  {
+   "cue": 16.1,
+   "start": 16.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.91,
+   "tries": 1,
+   "text": "A Flow is a description of the work, like a recipe."
+  },
+  {
+   "cue": 19.44,
+   "start": 19.44,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.62,
+   "tries": 1,
+   "text": "Calling the function only writes the recipe down."
+  },
+  {
+   "cue": 22.87,
+   "start": 22.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.61,
+   "tries": 1,
+   "text": "Operators don't run it either."
+  },
+  {
+   "cue": 24.83,
+   "start": 24.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.58,
+   "tries": 1,
+   "text": "filter and map take a flow and return a new flow, at once."
+  },
+  {
+   "cue": 28.62,
+   "start": 28.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.04,
+   "tries": 1,
+   "text": "They only add steps to the recipe."
+  },
+  {
+   "cue": 31.07,
+   "start": 31.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.21,
+   "tries": 1,
+   "text": "Work starts only with a terminal operator, such as collect."
+  },
+  {
+   "cue": 34.78,
+   "start": 34.78,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.13,
+   "tries": 1,
+   "text": "collect is a suspend function, and it runs the body right there, in the caller's coroutine."
+  },
+  {
+   "cue": 40.6,
+   "start": 40.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.99,
+   "tries": 1,
+   "text": "Each emit pushes one entry through filter and map into your lambda, and waits until that is done."
+  },
+  {
+   "cue": 46.7,
+   "start": 46.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "Only then does the body make the next one."
+  },
+  {
+   "cue": 49.57,
+   "start": 49.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "Now collect a second time."
+  },
+  {
+   "cue": 51.26,
+   "start": 51.26,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.04,
+   "tries": 1,
+   "text": "The body runs again, from the top, and the ledger gets a second request."
+  },
+  {
+   "cue": 57.3,
+   "start": 57.3,
+   "late": 0.0,
+   "tempo": 1.017,
+   "secs": 1.3,
+   "tries": 1,
+   "text": "That is what cold means."
+  },
+  {
+   "cue": 58.82,
+   "start": 58.82,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.63,
+   "tries": 1,
+   "text": "Every collector gets its own run of the producer, from the start."
+  },
+  {
+   "cue": 63.83,
+   "start": 63.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "A Reactor Flux is cold in the same way."
+  },
+  {
+   "cue": 66.53,
+   "start": 66.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.02,
+   "tries": 1,
+   "text": "Nothing happens until you subscribe."
+  },
+  {
+   "cue": 69.23,
+   "start": 69.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.8,
+   "tries": 1,
+   "text": "To share one run between collectors, you need a hot flow, StateFlow or SharedFlow."
+  },
+  {
+   "cue": 74.61,
+   "start": 74.61,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.06,
+   "tries": 1,
+   "text": "That is lesson eight of this track."
+  }
+ ]
+}

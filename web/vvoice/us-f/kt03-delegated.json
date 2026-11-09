@@ -1,0 +1,304 @@
+{
+ "slug": "kt03-delegated",
+ "voice": "us-f",
+ "max_late": 0.47,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.73,
+   "tries": 1,
+   "text": "Every change to an order's status must be logged."
+  },
+  {
+   "cue": 5.65,
+   "start": 5.65,
+   "late": 0.0,
+   "tempo": 1.06,
+   "secs": 3.39,
+   "tries": 1,
+   "text": "You want that logging written once, in a small helper class."
+  },
+  {
+   "cue": 9.26,
+   "start": 9.26,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.81,
+   "tries": 1,
+   "text": "By hand, the property forwards its getter and setter to that helper."
+  },
+  {
+   "cue": 13.53,
+   "start": 13.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.45,
+   "tries": 1,
+   "text": "::status is a reference to the property itself, a KProperty."
+  },
+  {
+   "cue": 17.79,
+   "start": 17.79,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.38,
+   "tries": 1,
+   "text": "It knows its name, so the helper can log status without a string."
+  },
+  {
+   "cue": 22.63,
+   "start": 22.63,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.66,
+   "tries": 1,
+   "text": "That forwarding is all by does."
+  },
+  {
+   "cue": 24.48,
+   "start": 24.48,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.03,
+   "tries": 1,
+   "text": "Write by, and the compiler writes the getter and the setter for you."
+  },
+  {
+   "cue": 28.73,
+   "start": 28.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.72,
+   "tries": 1,
+   "text": "The helper is called the delegate."
+  },
+  {
+   "cue": 30.91,
+   "start": 30.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.95,
+   "tries": 1,
+   "text": "It needs two functions with fixed names: getValue and setValue."
+  },
+  {
+   "cue": 35.13,
+   "start": 35.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.5,
+   "tries": 1,
+   "text": "Each gets the owning object, and the KProperty, which carries the property's name."
+  },
+  {
+   "cue": 40.97,
+   "start": 40.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.07,
+   "tries": 1,
+   "text": "Here is what the compiler writes for that one line, read back as Java."
+  },
+  {
+   "cue": 45.53,
+   "start": 45.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.75,
+   "tries": 1,
+   "text": "First, a hidden field, status$delegate."
+  },
+  {
+   "cue": 48.52,
+   "start": 48.52,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.71,
+   "tries": 1,
+   "text": "It holds the delegate, the object after by."
+  },
+  {
+   "cue": 52.0,
+   "start": 52.0,
+   "late": 0.0,
+   "tempo": 1.055,
+   "secs": 1.9,
+   "tries": 1,
+   "text": "The getter calls getValue on it."
+  },
+  {
+   "cue": 54.12,
+   "start": 54.12,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.18,
+   "tries": 1,
+   "text": "The setter calls setValue on it."
+  },
+  {
+   "cue": 56.43,
+   "start": 56.45,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 3.78,
+   "tries": 1,
+   "text": "Both calls pass this, the order, and a KProperty for status."
+  },
+  {
+   "cue": 60.63,
+   "start": 60.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.11,
+   "tries": 1,
+   "text": "The compiler builds those KProperty objects once per class, in a static array called $$delegatedProperties."
+  },
+  {
+   "cue": 68.9,
+   "start": 68.9,
+   "late": 0.0,
+   "tempo": 1.038,
+   "secs": 0.94,
+   "tries": 1,
+   "text": "Now watch it run."
+  },
+  {
+   "cue": 70.07,
+   "start": 70.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.44,
+   "tries": 1,
+   "text": "Each Order holds its own Audited object, in that hidden field."
+  },
+  {
+   "cue": 74.53,
+   "start": 74.53,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.87,
+   "tries": 1,
+   "text": "Set the status."
+  },
+  {
+   "cue": 75.55,
+   "start": 75.56,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 2.67,
+   "tries": 1,
+   "text": "In the bytecode that is a call to setStatus."
+  },
+  {
+   "cue": 78.51,
+   "start": 78.51,
+   "late": 0.0,
+   "tempo": 1.021,
+   "secs": 6.08,
+   "tries": 1,
+   "text": "setStatus calls setValue on the delegate, with the order, the KProperty and the new value."
+  },
+  {
+   "cue": 84.8,
+   "start": 84.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.95,
+   "tries": 1,
+   "text": "The delegate takes the name from the KProperty, prints the change, and keeps the new value."
+  },
+  {
+   "cue": 90.43,
+   "start": 90.43,
+   "late": 0.0,
+   "tempo": 1.052,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "Read it back, and getStatus calls getValue."
+  },
+  {
+   "cue": 93.18,
+   "start": 93.18,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.23,
+   "tries": 1,
+   "text": "The value comes back as T, so the getter casts it to String."
+  },
+  {
+   "cue": 97.93,
+   "start": 97.93,
+   "late": 0.0,
+   "tempo": 1.025,
+   "secs": 1.86,
+   "tries": 1,
+   "text": "That hidden field is the price."
+  },
+  {
+   "cue": 100.02,
+   "start": 100.02,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.53,
+   "tries": 1,
+   "text": "A delegate like Audited is one extra object per property, in every instance."
+  },
+  {
+   "cue": 105.13,
+   "start": 105.13,
+   "late": 0.0,
+   "tempo": 1.051,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "Three orders, three Audited objects."
+  },
+  {
+   "cue": 107.55,
+   "start": 107.55,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.79,
+   "tries": 1,
+   "text": "The KProperty array is made once, for the whole class."
+  },
+  {
+   "cue": 111.93,
+   "start": 111.93,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.28,
+   "tries": 1,
+   "text": "Java has no by."
+  },
+  {
+   "cue": 112.89,
+   "start": 113.36,
+   "late": 0.47,
+   "tempo": 1.0,
+   "secs": 3.91,
+   "tries": 1,
+   "text": "There you write the same forwarding yourself, and pass the name as a string."
+  },
+  {
+   "cue": 117.97,
+   "start": 117.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.09,
+   "tries": 1,
+   "text": "From the outside, both are a plain getter and setter."
+  },
+  {
+   "cue": 121.24,
+   "start": 121.24,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.77,
+   "tries": 1,
+   "text": "A setter that logs or validates looks exactly like one that doesn't."
+  }
+ ]
+}

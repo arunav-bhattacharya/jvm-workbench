@@ -1,0 +1,214 @@
+{
+ "slug": "io05-context",
+ "voice": "us-f",
+ "max_late": 0.23,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.58,
+   "tries": 1,
+   "text": "Vert X runs on Netty."
+  },
+  {
+   "cue": 4.2,
+   "start": 4.43,
+   "late": 0.23,
+   "tempo": 1.0,
+   "secs": 7.62,
+   "tries": 1,
+   "text": "A Vert X instance starts a group of Netty event loops, by default twice the number of cores: eight on a four-core machine."
+  },
+  {
+   "cue": 12.6,
+   "start": 12.6,
+   "late": 0.0,
+   "tempo": 1.029,
+   "secs": 3.86,
+   "tries": 1,
+   "text": "What Vert X adds is a rule on top of those loops: the context."
+  },
+  {
+   "cue": 16.68,
+   "start": 16.68,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.1,
+   "tries": 1,
+   "text": "A context is the home of a piece of code, and it decides the thread that runs it."
+  },
+  {
+   "cue": 22.23,
+   "start": 22.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.15,
+   "tries": 1,
+   "text": "Each verticle you deploy gets its own context, tied to one event loop for life."
+  },
+  {
+   "cue": 27.95,
+   "start": 27.95,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.95,
+   "tries": 1,
+   "text": "Every handler it registers, for HTTP, timers or the event bus, runs on that context."
+  },
+  {
+   "cue": 35.43,
+   "start": 35.43,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.73,
+   "tries": 1,
+   "text": "So a verticle's code runs on one thread, one task at a time."
+  },
+  {
+   "cue": 39.27,
+   "start": 39.32,
+   "late": 0.05,
+   "tempo": 1.093,
+   "secs": 3.39,
+   "tries": 1,
+   "text": "Three events for verticle A arrive at the same moment."
+  },
+  {
+   "cue": 42.93,
+   "start": 42.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "The loop runs them one after another, never at once."
+  },
+  {
+   "cue": 46.43,
+   "start": 46.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.28,
+   "tries": 1,
+   "text": "So A's field, approved, needs no lock."
+  },
+  {
+   "cue": 49.8,
+   "start": 49.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.95,
+   "tries": 1,
+   "text": "The catch: that thread is shared."
+  },
+  {
+   "cue": 52.01,
+   "start": 52.01,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.76,
+   "tries": 1,
+   "text": "Verticle B's context sits on the same loop."
+  },
+  {
+   "cue": 55.1,
+   "start": 55.1,
+   "late": 0.0,
+   "tempo": 1.137,
+   "secs": 4.61,
+   "tries": 1,
+   "text": "Now A's handler makes a five hundred millisecond JDBC call, right on the loop."
+  },
+  {
+   "cue": 59.91,
+   "start": 59.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.97,
+   "tries": 1,
+   "text": "The loop can do nothing else until it returns, so B's requests wait, though B did nothing wrong."
+  },
+  {
+   "cue": 67.43,
+   "start": 67.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.12,
+   "tries": 1,
+   "text": "executeBlocking moves the blocking part to a worker thread."
+  },
+  {
+   "cue": 71.3,
+   "start": 71.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.13,
+   "tries": 1,
+   "text": "A's handler returns at once, and the loop is free for B."
+  },
+  {
+   "cue": 75.2,
+   "start": 75.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.48,
+   "tries": 1,
+   "text": "When the query is done, the Future completes back on A's context, on loop zero."
+  },
+  {
+   "cue": 80.37,
+   "start": 80.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.71,
+   "tries": 1,
+   "text": "So the reply runs on A's own thread, and A's state still needs no lock."
+  },
+  {
+   "cue": 86.1,
+   "start": 86.1,
+   "late": 0.0,
+   "tempo": 1.102,
+   "secs": 6.49,
+   "tries": 1,
+   "text": "One catch: executeBlocking is ordered by default, so calls from one context still run one at a time."
+  },
+  {
+   "cue": 92.81,
+   "start": 92.81,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.98,
+   "tries": 1,
+   "text": "Pass false when they are independent."
+  },
+  {
+   "cue": 96.1,
+   "start": 96.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.73,
+   "tries": 1,
+   "text": "In the lesson's demo, four five hundred millisecond queries took two seconds ordered, and half a second with false."
+  },
+  {
+   "cue": 104.0,
+   "start": 104.0,
+   "late": 0.0,
+   "tempo": 1.041,
+   "secs": 3.65,
+   "tries": 1,
+   "text": "Vert X calls this the golden rule: don't block the event loop."
+  },
+  {
+   "cue": 107.87,
+   "start": 107.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.99,
+   "tries": 1,
+   "text": "A checker thread looks every second, and warns when one task has held a loop for more than two seconds."
+  }
+ ]
+}

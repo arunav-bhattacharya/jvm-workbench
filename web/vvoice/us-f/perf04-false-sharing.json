@@ -1,0 +1,313 @@
+{
+ "slug": "perf04-false-sharing",
+ "voice": "us-f",
+ "max_late": 0.39,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.067,
+   "secs": 4.18,
+   "tries": 1,
+   "text": "Two threads each add one to their own counter, twenty-five million times."
+  },
+  {
+   "cue": 7.1,
+   "start": 7.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.02,
+   "tries": 1,
+   "text": "The card thread only writes card."
+  },
+  {
+   "cue": 9.37,
+   "start": 9.37,
+   "late": 0.0,
+   "tempo": 1.045,
+   "secs": 2.24,
+   "tries": 1,
+   "text": "The SEPA thread only writes sepa."
+  },
+  {
+   "cue": 11.83,
+   "start": 11.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.58,
+   "tries": 1,
+   "text": "They share no data, so there is nothing to lock, and no race."
+  },
+  {
+   "cue": 15.8,
+   "start": 15.8,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.61,
+   "tries": 1,
+   "text": "Yet in one run, this took one thousand two hundred twenty ms."
+  },
+  {
+   "cue": 19.16,
+   "start": 19.56,
+   "late": 0.39,
+   "tempo": 1.0,
+   "secs": 4.52,
+   "tries": 1,
+   "text": "With the two fields padded apart, the same work took two hundred forty-seven."
+  },
+  {
+   "cue": 25.43,
+   "start": 25.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.65,
+   "tries": 2,
+   "text": "The reason is in the hardware."
+  },
+  {
+   "cue": 27.86,
+   "start": 27.86,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.89,
+   "tries": 1,
+   "text": "Your C P U never reads one long from memory."
+  },
+  {
+   "cue": 31.25,
+   "start": 31.25,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.75,
+   "tries": 1,
+   "text": "It moves a whole cache line, sixty-four bytes on xeighty-six."
+  },
+  {
+   "cue": 35.07,
+   "start": 35.15,
+   "late": 0.09,
+   "tempo": 1.15,
+   "secs": 1.75,
+   "tries": 1,
+   "text": "This object is thirty-two bytes."
+  },
+  {
+   "cue": 36.97,
+   "start": 37.05,
+   "late": 0.08,
+   "tempo": 1.125,
+   "secs": 6.06,
+   "tries": 1,
+   "text": "After a twelve-byte header and a four-byte gap, card sits at offset sixteen, and sepa at twenty-four."
+  },
+  {
+   "cue": 43.32,
+   "start": 43.32,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.92,
+   "tries": 1,
+   "text": "Both counters live on the same line."
+  },
+  {
+   "cue": 47.67,
+   "start": 47.67,
+   "late": 0.0,
+   "tempo": 1.003,
+   "secs": 5.33,
+   "tries": 1,
+   "text": "Each core has its own Lone and Ltwo caches, small fast memories right next to it."
+  },
+  {
+   "cue": 53.13,
+   "start": 53.15,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 4.12,
+   "tries": 1,
+   "text": "Core one runs the card thread, and core two runs the SEPA thread."
+  },
+  {
+   "cue": 57.47,
+   "start": 57.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.33,
+   "tries": 1,
+   "text": "Both cores keep a copy of the line."
+  },
+  {
+   "cue": 60.63,
+   "start": 60.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.57,
+   "tries": 1,
+   "text": "To write to a line, a core needs the only valid copy."
+  },
+  {
+   "cue": 64.43,
+   "start": 64.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.0,
+   "tries": 1,
+   "text": "So when core one writes card, core two's copy is invalidated."
+  },
+  {
+   "cue": 68.7,
+   "start": 68.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.18,
+   "tries": 1,
+   "text": "Core two's next write has to take the line back first."
+  },
+  {
+   "cue": 72.27,
+   "start": 72.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.4,
+   "tries": 1,
+   "text": "Now core one's copy is the invalid one."
+  },
+  {
+   "cue": 75.03,
+   "start": 75.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.19,
+   "tries": 1,
+   "text": "The line bounces between the cores on almost every write, and both threads slow down."
+  },
+  {
+   "cue": 80.53,
+   "start": 80.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.11,
+   "tries": 1,
+   "text": "This is false sharing."
+  },
+  {
+   "cue": 82.0,
+   "start": 82.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.5,
+   "tries": 1,
+   "text": "The program shares nothing."
+  },
+  {
+   "cue": 83.79,
+   "start": 83.79,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.35,
+   "tries": 1,
+   "text": "The hardware shares a lot."
+  },
+  {
+   "cue": 86.33,
+   "start": 86.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.44,
+   "tries": 1,
+   "text": "The fix is to keep at least sixty-four bytes between fields that different threads write."
+  },
+  {
+   "cue": 91.66,
+   "start": 91.66,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.39,
+   "tries": 1,
+   "text": "Padding pushes sepa onto a line of its own."
+  },
+  {
+   "cue": 94.67,
+   "start": 94.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "Now each core keeps its own line."
+  },
+  {
+   "cue": 96.84,
+   "start": 96.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.58,
+   "tries": 1,
+   "text": "Both threads write, and no line has to move."
+  },
+  {
+   "cue": 100.53,
+   "start": 100.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.7,
+   "tries": 1,
+   "text": "On the course's shared four-vCPU VM, one run showed a clear gap in all three rounds."
+  },
+  {
+   "cue": 107.07,
+   "start": 107.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.18,
+   "tries": 1,
+   "text": "But an earlier, more careful J M H experiment on the same VM could not show any effect."
+  },
+  {
+   "cue": 113.04,
+   "start": 113.04,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.89,
+   "tries": 1,
+   "text": "If the two threads land on hyperthreads of one physical core, they share its Lone and Ltwo, so there is no line to bounce."
+  },
+  {
+   "cue": 121.53,
+   "start": 121.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.29,
+   "tries": 1,
+   "text": "The mechanism is certain."
+  },
+  {
+   "cue": 123.11,
+   "start": 123.11,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.53,
+   "tries": 1,
+   "text": "The size of the effect is not, so measure on the hardware you run on."
+  },
+  {
+   "cue": 128.2,
+   "start": 128.2,
+   "late": 0.0,
+   "tempo": 1.08,
+   "secs": 3.24,
+   "tries": 1,
+   "text": "And every count still ends at exactly twenty-five million."
+  },
+  {
+   "cue": 131.67,
+   "start": 131.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.01,
+   "tries": 1,
+   "text": "False sharing costs time, never correctness."
+  }
+ ]
+}

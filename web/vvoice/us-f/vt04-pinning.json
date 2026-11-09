@@ -1,0 +1,313 @@
+{
+ "slug": "vt04-pinning",
+ "voice": "us-f",
+ "max_late": 0.68,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.49,
+   "tries": 1,
+   "text": "Here is the FX rate cache from this lesson's lab."
+  },
+  {
+   "cue": 6.01,
+   "start": 6.01,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.56,
+   "tries": 1,
+   "text": "On a miss, it does a one hundred ms socket read, while it holds the cache's monitor."
+  },
+  {
+   "cue": 11.15,
+   "start": 11.15,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.94,
+   "tries": 1,
+   "text": "In Kotlin, the Synchronized annotation makes the same monitor."
+  },
+  {
+   "cue": 16.17,
+   "start": 16.17,
+   "late": 0.0,
+   "tempo": 1.051,
+   "secs": 4.18,
+   "tries": 1,
+   "text": "The J D K runs virtual threads on carrier threads, one per core."
+  },
+  {
+   "cue": 20.57,
+   "start": 20.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.12,
+   "tries": 1,
+   "text": "Say there are four."
+  },
+  {
+   "cue": 22.13,
+   "start": 22.13,
+   "late": 0.0,
+   "tempo": 1.005,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "VT one to four call rate."
+  },
+  {
+   "cue": 24.01,
+   "start": 24.01,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 2.51,
+   "tries": 1,
+   "text": "VT five and six never touch the cache."
+  },
+  {
+   "cue": 27.3,
+   "start": 27.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.83,
+   "tries": 1,
+   "text": "VT one mounts on carrier one, enters rate, and takes the monitor."
+  },
+  {
+   "cue": 32.49,
+   "start": 32.49,
+   "late": 0.0,
+   "tempo": 1.12,
+   "secs": 5.31,
+   "tries": 1,
+   "text": "On J D K twenty-one to twenty-three, the J V M records a monitor's owner per O S thread."
+  },
+  {
+   "cue": 38.02,
+   "start": 38.02,
+   "late": 0.0,
+   "tempo": 1.006,
+   "secs": 2.28,
+   "tries": 1,
+   "text": "So the owner is carrier one."
+  },
+  {
+   "cue": 40.43,
+   "start": 40.45,
+   "late": 0.01,
+   "tempo": 1.15,
+   "secs": 2.18,
+   "tries": 1,
+   "text": "Now VT one starts the socket read."
+  },
+  {
+   "cue": 42.65,
+   "start": 42.77,
+   "late": 0.12,
+   "tempo": 1.0,
+   "secs": 2.94,
+   "tries": 1,
+   "text": "A blocking read normally unmounts a virtual thread."
+  },
+  {
+   "cue": 46.17,
+   "start": 46.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.83,
+   "tries": 1,
+   "text": "But while VT one holds the monitor, it can't leave its carrier."
+  },
+  {
+   "cue": 50.39,
+   "start": 50.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.73,
+   "tries": 1,
+   "text": "It is pinned, and carrier one blocks with it."
+  },
+  {
+   "cue": 53.6,
+   "start": 53.6,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.94,
+   "tries": 1,
+   "text": "VT two, three and four mount and call rate."
+  },
+  {
+   "cue": 56.01,
+   "start": 56.69,
+   "late": 0.68,
+   "tempo": 1.0,
+   "secs": 4.21,
+   "tries": 1,
+   "text": "The monitor is taken, so each one blocks, and each one is pinned too."
+  },
+  {
+   "cue": 61.13,
+   "start": 61.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.52,
+   "tries": 1,
+   "text": "All four carriers are stuck, and the C P U does nothing."
+  },
+  {
+   "cue": 64.92,
+   "start": 64.92,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.12,
+   "tries": 1,
+   "text": "Four callers of rate have stopped every virtual thread in the J V M, even VT five and six, which never touch the cache."
+  },
+  {
+   "cue": 74.6,
+   "start": 74.6,
+   "late": 0.0,
+   "tempo": 1.04,
+   "secs": 1.98,
+   "tries": 1,
+   "text": "Now use a ReentrantLock instead."
+  },
+  {
+   "cue": 76.79,
+   "start": 76.79,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.23,
+   "tries": 1,
+   "text": "In Kotlin, withLock writes the try and finally for you."
+  },
+  {
+   "cue": 82.17,
+   "start": 82.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.93,
+   "tries": 1,
+   "text": "Again, VT one to VT four mount and call rate."
+  },
+  {
+   "cue": 85.82,
+   "start": 85.82,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.23,
+   "tries": 1,
+   "text": "VT one takes the lock first."
+  },
+  {
+   "cue": 88.4,
+   "start": 88.4,
+   "late": 0.0,
+   "tempo": 1.144,
+   "secs": 1.3,
+   "tries": 1,
+   "text": "VT one starts the read."
+  },
+  {
+   "cue": 89.91,
+   "start": 89.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.49,
+   "tries": 1,
+   "text": "ReentrantLock parks the thread the normal way, so VT one unmounts to the heap, and it still holds the lock."
+  },
+  {
+   "cue": 97.7,
+   "start": 97.7,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.52,
+   "tries": 1,
+   "text": "VT two, three and four ask for the lock."
+  },
+  {
+   "cue": 100.17,
+   "start": 100.37,
+   "late": 0.19,
+   "tempo": 1.0,
+   "secs": 1.9,
+   "tries": 1,
+   "text": "Each one parks and unmounts too."
+  },
+  {
+   "cue": 102.93,
+   "start": 102.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.26,
+   "tries": 1,
+   "text": "Now the carriers are free, and they run VT five and six."
+  },
+  {
+   "cue": 106.9,
+   "start": 106.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.01,
+   "tries": 1,
+   "text": "When the rate arrives, VT one mounts again on a free carrier, stores the rate and unlocks."
+  },
+  {
+   "cue": 112.78,
+   "start": 112.78,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.51,
+   "tries": 1,
+   "text": "Then VT two gets the lock, and mounts on the last free carrier."
+  },
+  {
+   "cue": 118.67,
+   "start": 118.67,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.92,
+   "tries": 1,
+   "text": "J D K twenty-four fixed this with JEP four hundred ninety-one."
+  },
+  {
+   "cue": 121.31,
+   "start": 121.74,
+   "late": 0.43,
+   "tempo": 1.0,
+   "secs": 9.34,
+   "tries": 1,
+   "text": "A virtual thread can now take, hold and release a monitor independently of its carrier, so synchronized and Object.wait unmount like ReentrantLock."
+  },
+  {
+   "cue": 133.85,
+   "start": 133.85,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.69,
+   "tries": 1,
+   "text": "J D K twenty-five is the first LTS release with the fix."
+  },
+  {
+   "cue": 137.9,
+   "start": 137.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.15,
+   "tries": 1,
+   "text": "So on J D K twenty-five, leave working synchronized code alone."
+  },
+  {
+   "cue": 142.41,
+   "start": 142.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.26,
+   "tries": 1,
+   "text": "On J D K twenty-one, put a ReentrantLock around blocking calls."
+  }
+ ]
+}

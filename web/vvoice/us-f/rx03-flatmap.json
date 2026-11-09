@@ -1,0 +1,286 @@
+{
+ "slug": "rx03-flatmap",
+ "voice": "us-f",
+ "max_late": 0.86,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.37,
+   "tries": 1,
+   "text": "flatMap takes a function that returns a publisher, called the inner, like this Mono from a fraud service."
+  },
+  {
+   "cue": 9.38,
+   "start": 9.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.03,
+   "tries": 1,
+   "text": "For each id, flatMap subscribes to the inner right away, without waiting for earlier ones to finish."
+  },
+  {
+   "cue": 16.57,
+   "start": 16.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.28,
+   "tries": 1,
+   "text": "Three ids arrive together: three, one and two."
+  },
+  {
+   "cue": 20.27,
+   "start": 20.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.27,
+   "tries": 1,
+   "text": "Id three takes three hundred milliseconds to score, id one takes one hundred, and id two takes two hundred."
+  },
+  {
+   "cue": 27.6,
+   "start": 27.6,
+   "late": 0.0,
+   "tempo": 1.058,
+   "secs": 5.4,
+   "tries": 1,
+   "text": "flatMap subscribes to all three at time zero, so the three calls run at the same time."
+  },
+  {
+   "cue": 33.2,
+   "start": 33.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.13,
+   "tries": 1,
+   "text": "Call one finishes first, and flatMap passes it on at once."
+  },
+  {
+   "cue": 37.37,
+   "start": 37.37,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.41,
+   "tries": 1,
+   "text": "Then two, then three."
+  },
+  {
+   "cue": 38.7,
+   "start": 38.92,
+   "late": 0.22,
+   "tempo": 1.15,
+   "secs": 2.09,
+   "tries": 1,
+   "text": "The output is one, two, three."
+  },
+  {
+   "cue": 40.31,
+   "start": 41.17,
+   "late": 0.86,
+   "tempo": 1.0,
+   "secs": 6.98,
+   "tries": 1,
+   "text": "flatMap merges results in the order they arrive, not in input order, and everything is done at three hundred milliseconds."
+  },
+  {
+   "cue": 48.73,
+   "start": 48.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.78,
+   "tries": 1,
+   "text": "flatMap creates no threads."
+  },
+  {
+   "cue": 50.7,
+   "start": 50.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.86,
+   "tries": 1,
+   "text": "These calls overlap only because each inner is asynchronous, like a non-blocking HTTP call."
+  },
+  {
+   "cue": 58.23,
+   "start": 58.23,
+   "late": 0.0,
+   "tempo": 1.124,
+   "secs": 2.82,
+   "tries": 1,
+   "text": "By default, up to two hundred fifty-six inners run at once."
+  },
+  {
+   "cue": 61.27,
+   "start": 61.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.64,
+   "tries": 1,
+   "text": "When the calls hit a shared service, pass a limit, such as four."
+  },
+  {
+   "cue": 66.0,
+   "start": 66.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "The limit is also its demand."
+  },
+  {
+   "cue": 68.0,
+   "start": 68.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.1,
+   "tries": 1,
+   "text": "flatMap asks the source for four ids, then for one more each time a call finishes."
+  },
+  {
+   "cue": 74.5,
+   "start": 74.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.79,
+   "tries": 1,
+   "text": "When order matters, concatMap subscribes to one inner at a time."
+  },
+  {
+   "cue": 78.49,
+   "start": 78.49,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.66,
+   "tries": 1,
+   "text": "It asks for the next id only when the current inner completes."
+  },
+  {
+   "cue": 82.43,
+   "start": 82.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.68,
+   "tries": 1,
+   "text": "three runs first, for three hundred milliseconds."
+  },
+  {
+   "cue": 85.71,
+   "start": 85.71,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.71,
+   "tries": 1,
+   "text": "Then one, then two."
+  },
+  {
+   "cue": 90.67,
+   "start": 90.67,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "Input order: three, one, two."
+  },
+  {
+   "cue": 92.31,
+   "start": 93.16,
+   "late": 0.86,
+   "tempo": 1.0,
+   "secs": 3.67,
+   "tries": 1,
+   "text": "But the times add up, so it is done at six hundred milliseconds."
+  },
+  {
+   "cue": 97.6,
+   "start": 97.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.02,
+   "tries": 1,
+   "text": "flatMapSequential subscribes to all three at once, like flatMap, but it hands the results on in input order."
+  },
+  {
+   "cue": 104.93,
+   "start": 104.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.74,
+   "tries": 1,
+   "text": "one and two finish early, so they wait in a buffer."
+  },
+  {
+   "cue": 107.91,
+   "start": 107.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.24,
+   "tries": 1,
+   "text": "When three finishes, all three go out, in order."
+  },
+  {
+   "cue": 111.67,
+   "start": 111.67,
+   "late": 0.0,
+   "tempo": 1.045,
+   "secs": 2.58,
+   "tries": 1,
+   "text": "Input order, and done at three hundred milliseconds."
+  },
+  {
+   "cue": 114.46,
+   "start": 114.46,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.2,
+   "tries": 1,
+   "text": "The price is memory for the buffer, and one slow first call holds back everything behind it."
+  },
+  {
+   "cue": 121.5,
+   "start": 121.5,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "Same input, three operators."
+  },
+  {
+   "cue": 123.43,
+   "start": 123.48,
+   "late": 0.05,
+   "tempo": 1.0,
+   "secs": 5.37,
+   "tries": 1,
+   "text": "Use concatMap when each call must wait for the previous one, like postings to one ledger account."
+  },
+  {
+   "cue": 130.33,
+   "start": 130.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.38,
+   "tries": 1,
+   "text": "Kotlin Flow starts from the other side."
+  },
+  {
+   "cue": 132.97,
+   "start": 132.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.67,
+   "tries": 1,
+   "text": "It is sequential by default, like concatMap."
+  },
+  {
+   "cue": 135.95,
+   "start": 135.95,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.84,
+   "tries": 1,
+   "text": "You opt in to overlap with flatMapMerge, and Flow has no flatMapSequential."
+  }
+ ]
+}

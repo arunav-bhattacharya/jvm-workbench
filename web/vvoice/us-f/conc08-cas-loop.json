@@ -1,0 +1,403 @@
+{
+ "slug": "conc08-cas-loop",
+ "voice": "us-f",
+ "max_late": 1.66,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.5,
+   "tries": 1,
+   "text": "Two threads add one to a shared counter."
+  },
+  {
+   "cue": 5.75,
+   "start": 5.75,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.94,
+   "tries": 1,
+   "text": "It holds forty-one."
+  },
+  {
+   "cue": 6.87,
+   "start": 6.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.21,
+   "tries": 1,
+   "text": "Each thread reads the value, adds one, and writes the result back."
+  },
+  {
+   "cue": 11.3,
+   "start": 11.3,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.62,
+   "tries": 1,
+   "text": "Thread one writes forty-two."
+  },
+  {
+   "cue": 12.7,
+   "start": 13.07,
+   "late": 0.37,
+   "tempo": 1.15,
+   "secs": 1.86,
+   "tries": 1,
+   "text": "Then thread two writes forty-two too."
+  },
+  {
+   "cue": 14.77,
+   "start": 15.08,
+   "late": 0.31,
+   "tempo": 1.0,
+   "secs": 2.5,
+   "tries": 1,
+   "text": "Two increments, and the counter went up by one."
+  },
+  {
+   "cue": 18.43,
+   "start": 18.43,
+   "late": 0.0,
+   "tempo": 1.012,
+   "secs": 1.51,
+   "tries": 1,
+   "text": "The second write was blind."
+  },
+  {
+   "cue": 20.17,
+   "start": 20.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.13,
+   "tries": 1,
+   "text": "It never checked whether the value had changed since its read."
+  },
+  {
+   "cue": 24.15,
+   "start": 24.15,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "One update is lost."
+  },
+  {
+   "cue": 26.37,
+   "start": 26.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.02,
+   "tries": 1,
+   "text": "Compare-and-set makes the write conditional."
+  },
+  {
+   "cue": 29.03,
+   "start": 29.03,
+   "late": 0.0,
+   "tempo": 1.119,
+   "secs": 3.26,
+   "tries": 1,
+   "text": "You pass the value you expect, and the value you want."
+  },
+  {
+   "cue": 32.5,
+   "start": 32.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.82,
+   "tries": 1,
+   "text": "If memory still holds the expected value, it stores the new one and returns true."
+  },
+  {
+   "cue": 37.98,
+   "start": 37.98,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.65,
+   "tries": 1,
+   "text": "If not, it changes nothing and returns false."
+  },
+  {
+   "cue": 41.23,
+   "start": 41.23,
+   "late": 0.0,
+   "tempo": 1.143,
+   "secs": 1.92,
+   "tries": 1,
+   "text": "It does all of this as one step."
+  },
+  {
+   "cue": 43.37,
+   "start": 43.37,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 5.5,
+   "tries": 1,
+   "text": "On xeighty-six, HotSpot compiles it to one lock cmpxchg instruction."
+  },
+  {
+   "cue": 47.36,
+   "start": 49.02,
+   "late": 1.66,
+   "tempo": 1.013,
+   "secs": 6.89,
+   "tries": 1,
+   "text": "While it runs, the core keeps the cache line to itself, so no other core can get in between the compare and the store."
+  },
+  {
+   "cue": 56.13,
+   "start": 56.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "Run the race again, with compareAndSet."
+  },
+  {
+   "cue": 59.29,
+   "start": 59.29,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.62,
+   "tries": 1,
+   "text": "Both threads read forty-one."
+  },
+  {
+   "cue": 60.99,
+   "start": 61.06,
+   "late": 0.07,
+   "tempo": 1.0,
+   "secs": 1.72,
+   "tries": 1,
+   "text": "Both want to store forty-two."
+  },
+  {
+   "cue": 63.0,
+   "start": 63.0,
+   "late": 0.0,
+   "tempo": 1.093,
+   "secs": 1.22,
+   "tries": 1,
+   "text": "Thread one goes first."
+  },
+  {
+   "cue": 64.43,
+   "start": 64.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.92,
+   "tries": 1,
+   "text": "Memory still holds forty-one, so the store happens, and thread one gets true."
+  },
+  {
+   "cue": 70.03,
+   "start": 70.03,
+   "late": 0.0,
+   "tempo": 1.014,
+   "secs": 3.56,
+   "tries": 1,
+   "text": "Now thread two asks for the same thing, forty-one to forty-two."
+  },
+  {
+   "cue": 73.81,
+   "start": 73.81,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.79,
+   "tries": 1,
+   "text": "But memory holds forty-two now."
+  },
+  {
+   "cue": 75.74,
+   "start": 75.75,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 2.64,
+   "tries": 1,
+   "text": "So nothing changes, and thread two gets false."
+  },
+  {
+   "cue": 79.5,
+   "start": 79.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.05,
+   "tries": 1,
+   "text": "Its decision was based on old data."
+  },
+  {
+   "cue": 82.2,
+   "start": 82.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "So it throws it away, and starts again."
+  },
+  {
+   "cue": 85.21,
+   "start": 85.21,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.11,
+   "tries": 1,
+   "text": "It reads forty-two."
+  },
+  {
+   "cue": 86.37,
+   "start": 86.47,
+   "late": 0.1,
+   "tempo": 1.15,
+   "secs": 2.01,
+   "tries": 1,
+   "text": "It asks for forty-two to forty-three."
+  },
+  {
+   "cue": 88.12,
+   "start": 88.62,
+   "late": 0.5,
+   "tempo": 1.0,
+   "secs": 3.44,
+   "tries": 1,
+   "text": "This time memory still holds forty-two, so the store happens."
+  },
+  {
+   "cue": 92.83,
+   "start": 92.83,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.99,
+   "tries": 1,
+   "text": "forty-one, then forty-two, then forty-three."
+  },
+  {
+   "cue": 94.98,
+   "start": 95.97,
+   "late": 0.99,
+   "tempo": 1.2,
+   "secs": 1.19,
+   "tries": 1,
+   "text": "Both increments count."
+  },
+  {
+   "cue": 97.23,
+   "start": 97.31,
+   "late": 0.08,
+   "tempo": 1.0,
+   "secs": 1.17,
+   "tries": 1,
+   "text": "Nothing is lost."
+  },
+  {
+   "cue": 99.9,
+   "start": 99.9,
+   "late": 0.0,
+   "tempo": 1.14,
+   "secs": 1.51,
+   "tries": 1,
+   "text": "In code, this is a loop."
+  },
+  {
+   "cue": 101.62,
+   "start": 101.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "Here it is in Java and in Kotlin."
+  },
+  {
+   "cue": 104.2,
+   "start": 104.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.98,
+   "tries": 1,
+   "text": "Read the value."
+  },
+  {
+   "cue": 105.73,
+   "start": 105.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.97,
+   "tries": 1,
+   "text": "Store seen plus one, but only if the counter still holds seen."
+  },
+  {
+   "cue": 109.97,
+   "start": 109.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.61,
+   "tries": 1,
+   "text": "If that returns false, someone changed it."
+  },
+  {
+   "cue": 112.82,
+   "start": 112.82,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.72,
+   "tries": 1,
+   "text": "Go round, and read again."
+  },
+  {
+   "cue": 115.23,
+   "start": 115.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.88,
+   "tries": 1,
+   "text": "Any read-modify-write fits this shape: read, decide, then store only if nothing changed."
+  },
+  {
+   "cue": 121.73,
+   "start": 121.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.23,
+   "tries": 1,
+   "text": "The lab's max tracker is the same loop."
+  },
+  {
+   "cue": 124.31,
+   "start": 124.31,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.25,
+   "tries": 1,
+   "text": "Its decide step is one more line: if the amount is not bigger, there is nothing to store, so it returns."
+  },
+  {
+   "cue": 131.4,
+   "start": 131.4,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.73,
+   "tries": 1,
+   "text": "A failed C A S costs a retry, not a wait."
+  },
+  {
+   "cue": 133.91,
+   "start": 134.28,
+   "late": 0.37,
+   "tempo": 1.147,
+   "secs": 2.07,
+   "tries": 1,
+   "text": "With little contention, retries are rare."
+  },
+  {
+   "cue": 136.56,
+   "start": 136.56,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.19,
+   "tries": 1,
+   "text": "With many threads on one variable, they keep failing and re-reading, and the cache line bounces from core to core."
+  }
+ ]
+}

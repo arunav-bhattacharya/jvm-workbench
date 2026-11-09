@@ -1,0 +1,286 @@
+{
+ "slug": "co05-cancel",
+ "voice": "us-f",
+ "max_late": 0.03,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.57,
+   "tries": 1,
+   "text": "A coroutine scores two million card transactions in a C P U loop."
+  },
+  {
+   "cue": 7.32,
+   "start": 7.32,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.49,
+   "tries": 1,
+   "text": "Java has no coroutines, so this one is Kotlin only."
+  },
+  {
+   "cue": 11.27,
+   "start": 11.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.59,
+   "tries": 1,
+   "text": "Halfway through, the service shuts down and calls cancel on the job."
+  },
+  {
+   "cue": 16.27,
+   "start": 16.27,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.02,
+   "tries": 3,
+   "text": "Here is the loop."
+  },
+  {
+   "cue": 17.41,
+   "start": 17.44,
+   "late": 0.03,
+   "tempo": 1.0,
+   "secs": 3.85,
+   "tries": 1,
+   "text": "Halfway, cancel arrives, and the job's state changes to cancelling."
+  },
+  {
+   "cue": 22.0,
+   "start": 22.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.6,
+   "tries": 1,
+   "text": "But the loop does not stop."
+  },
+  {
+   "cue": 23.79,
+   "start": 23.79,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.27,
+   "tries": 1,
+   "text": "It scores every row, to the very end."
+  },
+  {
+   "cue": 26.47,
+   "start": 26.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "That is because cancel doesn't stop anything."
+  },
+  {
+   "cue": 29.35,
+   "start": 29.35,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.99,
+   "tries": 1,
+   "text": "It only marks the job as cancelling."
+  },
+  {
+   "cue": 31.65,
+   "start": 31.65,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.18,
+   "tries": 1,
+   "text": "The coroutine has to notice the mark itself."
+  },
+  {
+   "cue": 34.67,
+   "start": 34.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.23,
+   "tries": 1,
+   "text": "Compare a second coroutine, waiting in delay for ten seconds."
+  },
+  {
+   "cue": 38.48,
+   "start": 38.48,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.65,
+   "tries": 1,
+   "text": "It is cancelled at the same moment."
+  },
+  {
+   "cue": 40.77,
+   "start": 40.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.94,
+   "tries": 1,
+   "text": "delay is a suspension point, and it checks the mark."
+  },
+  {
+   "cue": 44.09,
+   "start": 44.09,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.57,
+   "tries": 1,
+   "text": "The coroutine is resumed at once with a CancellationException."
+  },
+  {
+   "cue": 48.27,
+   "start": 48.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.96,
+   "tries": 1,
+   "text": "The exception unwinds the stack, finally blocks run, and the job ends as cancelled."
+  },
+  {
+   "cue": 54.1,
+   "start": 54.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.87,
+   "tries": 1,
+   "text": "withContext, await, join, yield, and a channel's send and receive check the same way."
+  },
+  {
+   "cue": 60.1,
+   "start": 60.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.78,
+   "tries": 1,
+   "text": "The scan loop only calls score, a plain function, so it never reaches such a point."
+  },
+  {
+   "cue": 65.75,
+   "start": 65.75,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.36,
+   "tries": 1,
+   "text": "A blocking call, like Thread.sleep or a JDBC query, never reads the mark either."
+  },
+  {
+   "cue": 72.1,
+   "start": 72.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.7,
+   "tries": 1,
+   "text": "This is cooperative cancellation."
+  },
+  {
+   "cue": 74.28,
+   "start": 74.28,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.89,
+   "tries": 1,
+   "text": "Cancel is a request, and your code has to notice it."
+  },
+  {
+   "cue": 78.43,
+   "start": 78.43,
+   "late": 0.0,
+   "tempo": 1.084,
+   "secs": 2.15,
+   "tries": 3,
+   "text": "So a C P U loop checks now and then."
+  },
+  {
+   "cue": 80.81,
+   "start": 80.81,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.41,
+   "tries": 1,
+   "text": "ensureActive throws CancellationException once the job is cancelled."
+  },
+  {
+   "cue": 86.4,
+   "start": 86.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.43,
+   "tries": 1,
+   "text": "Cancel at the same point."
+  },
+  {
+   "cue": 87.99,
+   "start": 87.99,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.88,
+   "tries": 1,
+   "text": "The next check, at most a thousand rows later, sees the mark and throws."
+  },
+  {
+   "cue": 92.63,
+   "start": 92.63,
+   "late": 0.0,
+   "tempo": 1.066,
+   "secs": 2.56,
+   "tries": 1,
+   "text": "finally runs, and the job ends as cancelled."
+  },
+  {
+   "cue": 95.42,
+   "start": 95.42,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "The loop stopped within a thousand rows of the cancel."
+  },
+  {
+   "cue": 99.77,
+   "start": 99.77,
+   "late": 0.0,
+   "tempo": 1.105,
+   "secs": 2.05,
+   "tries": 1,
+   "text": "ensureActive is one of three tools."
+  },
+  {
+   "cue": 102.04,
+   "start": 102.04,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.62,
+   "tries": 1,
+   "text": "isActive gives you a Boolean, for a loop that wants to stop quietly."
+  },
+  {
+   "cue": 106.44,
+   "start": 106.44,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.41,
+   "tries": 1,
+   "text": "yield checks too, and also lets other coroutines on the same dispatcher run."
+  },
+  {
+   "cue": 111.6,
+   "start": 111.6,
+   "late": 0.0,
+   "tempo": 1.125,
+   "secs": 4.29,
+   "tries": 1,
+   "text": "A check is only a read of the job's state, so it costs almost nothing."
+  },
+  {
+   "cue": 116.1,
+   "start": 116.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.21,
+   "tries": 1,
+   "text": "Once every few hundred rows is plenty."
+  }
+ ]
+}

@@ -1,0 +1,259 @@
+{
+ "slug": "boot02-aot-cache",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.045,
+   "secs": 3.37,
+   "tries": 1,
+   "text": "Every time a J V M starts, it redoes the same work."
+  },
+  {
+   "cue": 6.29,
+   "start": 6.29,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.27,
+   "tries": 1,
+   "text": "The first time code touches a class, the J V M loads it, links it, and resolves its references."
+  },
+  {
+   "cue": 13.3,
+   "start": 13.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.25,
+   "tries": 1,
+   "text": "The first call of a lambda does more."
+  },
+  {
+   "cue": 15.74,
+   "start": 15.74,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.31,
+   "tries": 1,
+   "text": "Its invokedynamic instruction runs a bootstrap method that generates the lambda's class."
+  },
+  {
+   "cue": 21.77,
+   "start": 21.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 9.14,
+   "tries": 1,
+   "text": "On J D K twenty-five, one start of a three hundred-class app took four hundred thirty-one ms of wall time, and the next start pays it all again."
+  },
+  {
+   "cue": 32.73,
+   "start": 32.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.99,
+   "tries": 1,
+   "text": "Project Leyden moves that work out of production runs."
+  },
+  {
+   "cue": 36.28,
+   "start": 36.28,
+   "late": 0.0,
+   "tempo": 1.021,
+   "secs": 4.39,
+   "tries": 1,
+   "text": "Its first result is the A O T cache, which you build in three phases."
+  },
+  {
+   "cue": 40.9,
+   "start": 40.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.58,
+   "tries": 1,
+   "text": "First, a training run."
+  },
+  {
+   "cue": 42.63,
+   "start": 42.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.37,
+   "tries": 1,
+   "text": "You run the app with a representative workload."
+  },
+  {
+   "cue": 46.34,
+   "start": 46.34,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 8.65,
+   "tries": 1,
+   "text": "The J V M records what the app loaded and linked into an A O T configuration file, and on J D K twenty-five also its method profiles."
+  },
+  {
+   "cue": 55.87,
+   "start": 55.87,
+   "late": 0.0,
+   "tempo": 1.082,
+   "secs": 3.82,
+   "tries": 1,
+   "text": "Second, assembly. The J V M turns that file into the cache."
+  },
+  {
+   "cue": 59.91,
+   "start": 59.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.78,
+   "tries": 1,
+   "text": "Your application does not run."
+  },
+  {
+   "cue": 62.23,
+   "start": 62.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.75,
+   "tries": 1,
+   "text": "Third, production. Every start after that names the cache."
+  },
+  {
+   "cue": 66.17,
+   "start": 66.17,
+   "late": 0.0,
+   "tempo": 1.057,
+   "secs": 5.53,
+   "tries": 1,
+   "text": "On J D K twenty-five, one command with AOTCacheOutput does the first two phases."
+  },
+  {
+   "cue": 71.91,
+   "start": 71.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.59,
+   "tries": 1,
+   "text": "It trains, then starts a second J V M to assemble the cache."
+  },
+  {
+   "cue": 77.83,
+   "start": 77.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.99,
+   "tries": 1,
+   "text": "The cache stores the results of start-up work from the training run."
+  },
+  {
+   "cue": 82.13,
+   "start": 82.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.92,
+   "tries": 1,
+   "text": "Classes already loaded and linked."
+  },
+  {
+   "cue": 84.27,
+   "start": 84.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.87,
+   "tries": 1,
+   "text": "Symbolic references already resolved to the real method."
+  },
+  {
+   "cue": 87.81,
+   "start": 87.81,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.95,
+   "tries": 1,
+   "text": "Lambda call sites already resolved."
+  },
+  {
+   "cue": 90.2,
+   "start": 90.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.9,
+   "tries": 1,
+   "text": "Objects the J V M would build at start-up, such as its module graph."
+  },
+  {
+   "cue": 95.17,
+   "start": 95.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.7,
+   "tries": 1,
+   "text": "And on J D K twenty-five, the method profiles that tell the jit what is hot."
+  },
+  {
+   "cue": 101.67,
+   "start": 101.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.54,
+   "tries": 1,
+   "text": "In production, the J V M loads and links every cached class before main even starts."
+  },
+  {
+   "cue": 107.38,
+   "start": 107.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.9,
+   "tries": 1,
+   "text": "Then main runs without stopping for them."
+  },
+  {
+   "cue": 110.43,
+   "start": 110.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.45,
+   "tries": 1,
+   "text": "For the three hundred-class app, wall time fell from four hundred thirty-one ms to ninety-eight."
+  },
+  {
+   "cue": 117.19,
+   "start": 117.19,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.08,
+   "tries": 1,
+   "text": "C P U time fell from five hundred four ms to eighty-one, and peak memory from sixty-four to forty-two MiB."
+  },
+  {
+   "cue": 125.47,
+   "start": 125.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.63,
+   "tries": 1,
+   "text": "Code the training run never touched gets none of this."
+  },
+  {
+   "cue": 128.86,
+   "start": 128.86,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.92,
+   "tries": 1,
+   "text": "It is resolved lazily, as before."
+  },
+  {
+   "cue": 130.94,
+   "start": 130.94,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.79,
+   "tries": 1,
+   "text": "So train with a workload that looks like production."
+  }
+ ]
+}

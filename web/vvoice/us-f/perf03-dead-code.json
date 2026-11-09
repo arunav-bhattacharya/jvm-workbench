@@ -1,0 +1,313 @@
+{
+ "slug": "perf03-dead-code",
+ "voice": "us-f",
+ "max_late": 1.07,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.74,
+   "tries": 1,
+   "text": "Here is the benchmark almost everyone writes first."
+  },
+  {
+   "cue": 6.17,
+   "start": 6.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.97,
+   "tries": 1,
+   "text": "Read the clock, call Math.sqrt a hundred million times, and read the clock again."
+  },
+  {
+   "cue": 11.9,
+   "start": 11.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.57,
+   "tries": 1,
+   "text": "Each result is thrown away."
+  },
+  {
+   "cue": 14.0,
+   "start": 14.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.5,
+   "tries": 1,
+   "text": "It runs five rounds."
+  },
+  {
+   "cue": 15.99,
+   "start": 15.99,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.25,
+   "tries": 1,
+   "text": "Round one printed zero point zero three zero one nanoseconds per call."
+  },
+  {
+   "cue": 20.57,
+   "start": 20.57,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.71,
+   "tries": 1,
+   "text": "Round two, zero point one two nine nine."
+  },
+  {
+   "cue": 22.36,
+   "start": 23.43,
+   "late": 1.07,
+   "tempo": 1.0,
+   "secs": 1.76,
+   "tries": 1,
+   "text": "Every later round printed zero."
+  },
+  {
+   "cue": 25.6,
+   "start": 25.6,
+   "late": 0.0,
+   "tempo": 1.129,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "No C P U takes a square root in zero time."
+  },
+  {
+   "cue": 28.5,
+   "start": 28.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.22,
+   "tries": 1,
+   "text": "A second loop adds each result to a sum, and prints the sum."
+  },
+  {
+   "cue": 32.84,
+   "start": 32.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.29,
+   "tries": 1,
+   "text": "It settles at about one point nine nanoseconds per call."
+  },
+  {
+   "cue": 37.67,
+   "start": 37.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.01,
+   "tries": 1,
+   "text": "While the program runs, C two compiles the hot loop."
+  },
+  {
+   "cue": 40.91,
+   "start": 40.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.93,
+   "tries": 1,
+   "text": "It looks at the call to sqrt, and asks who reads the result."
+  },
+  {
+   "cue": 45.07,
+   "start": 45.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.53,
+   "tries": 1,
+   "text": "Nobody does. Work whose result nobody uses can go."
+  },
+  {
+   "cue": 48.86,
+   "start": 48.86,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.77,
+   "tries": 1,
+   "text": "That's dead-code elimination."
+  },
+  {
+   "cue": 51.27,
+   "start": 51.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.93,
+   "tries": 1,
+   "text": "Now the loop has an empty body, so the loop can go too."
+  },
+  {
+   "cue": 54.76,
+   "start": 54.76,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.33,
+   "tries": 1,
+   "text": "Between the two clock reads, nothing runs."
+  },
+  {
+   "cue": 57.6,
+   "start": 57.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.39,
+   "tries": 1,
+   "text": "So the loop measured the optimizer, not your code."
+  },
+  {
+   "cue": 61.47,
+   "start": 61.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.06,
+   "tries": 1,
+   "text": "Constant inputs are the second trap."
+  },
+  {
+   "cue": 63.95,
+   "start": 63.95,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.28,
+   "tries": 1,
+   "text": "Say the input is a static final constant, or a const val in Kotlin."
+  },
+  {
+   "cue": 68.77,
+   "start": 68.77,
+   "late": 0.0,
+   "tempo": 1.102,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "The compiler copies the two point zero into the call."
+  },
+  {
+   "cue": 71.52,
+   "start": 71.52,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.62,
+   "tries": 1,
+   "text": "Then C two computes the square root while it compiles, and puts the answer in its place."
+  },
+  {
+   "cue": 77.27,
+   "start": 77.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.55,
+   "tries": 1,
+   "text": "Your benchmark now times the load of one number."
+  },
+  {
+   "cue": 80.33,
+   "start": 80.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "That's constant folding."
+  },
+  {
+   "cue": 82.7,
+   "start": 82.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.6,
+   "tries": 1,
+   "text": "A broken loop can also print a number that looks fine."
+  },
+  {
+   "cue": 86.94,
+   "start": 86.94,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 7.81,
+   "tries": 1,
+   "text": "With Math.log instead of sqrt, C two on J D K twenty-one kept the call, and the loop reported seven to nine nanoseconds."
+  },
+  {
+   "cue": 94.78,
+   "start": 94.89,
+   "late": 0.12,
+   "tempo": 1.0,
+   "secs": 3.69,
+   "tries": 1,
+   "text": "It still measures an accident of how C two compiles log."
+  },
+  {
+   "cue": 99.73,
+   "start": 99.73,
+   "late": 0.0,
+   "tempo": 1.091,
+   "secs": 4.93,
+   "tries": 1,
+   "text": "J M H, the OpenJDK benchmark harness, builds the measuring loop for you."
+  },
+  {
+   "cue": 104.88,
+   "start": 104.88,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "You write one method, and mark it @Benchmark."
+  },
+  {
+   "cue": 108.4,
+   "start": 108.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.7,
+   "tries": 1,
+   "text": "At compile time, J M H generates the loop around your method, written to defeat these tricks."
+  },
+  {
+   "cue": 114.92,
+   "start": 114.92,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.69,
+   "tries": 1,
+   "text": "It runs it in fresh J V Ms, and throws away the warm-up rounds."
+  },
+  {
+   "cue": 119.5,
+   "start": 119.5,
+   "late": 0.0,
+   "tempo": 1.104,
+   "secs": 2.47,
+   "tries": 1,
+   "text": "Return the result, and J M H consumes it."
+  },
+  {
+   "cue": 122.2,
+   "start": 122.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.49,
+   "tries": 1,
+   "text": "The jit has to treat a consumed value as used, so the square root stays."
+  },
+  {
+   "cue": 127.4,
+   "start": 127.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.47,
+   "tries": 1,
+   "text": "With more than one result, pass each one to a Blackhole."
+  },
+  {
+   "cue": 131.37,
+   "start": 131.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.46,
+   "tries": 1,
+   "text": "And read the input from a field that isn't final, so C two can't fold it into a constant."
+  }
+ ]
+}

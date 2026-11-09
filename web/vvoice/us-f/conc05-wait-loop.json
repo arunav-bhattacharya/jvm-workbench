@@ -1,0 +1,385 @@
+{
+ "slug": "conc05-wait-loop",
+ "voice": "us-f",
+ "max_late": 0.03,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.08,
+   "tries": 1,
+   "text": "This consumer takes payments from a queue."
+  },
+  {
+   "cue": 5.31,
+   "start": 5.31,
+   "late": 0.0,
+   "tempo": 1.074,
+   "secs": 1.77,
+   "tries": 1,
+   "text": "If the queue is empty, it waits."
+  },
+  {
+   "cue": 7.3,
+   "start": 7.3,
+   "late": 0.0,
+   "tempo": 1.007,
+   "secs": 2.7,
+   "tries": 1,
+   "text": "When it wakes up, it takes the first item."
+  },
+  {
+   "cue": 10.13,
+   "start": 10.15,
+   "late": 0.02,
+   "tempo": 1.15,
+   "secs": 1.86,
+   "tries": 1,
+   "text": "With one consumer, this works."
+  },
+  {
+   "cue": 12.16,
+   "start": 12.16,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.89,
+   "tries": 1,
+   "text": "With two, it can throw NoSuchElementException."
+  },
+  {
+   "cue": 15.28,
+   "start": 15.28,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.08,
+   "tries": 1,
+   "text": "To see why, look inside the lock."
+  },
+  {
+   "cue": 18.73,
+   "start": 18.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.0,
+   "tries": 1,
+   "text": "Every Java object has a monitor."
+  },
+  {
+   "cue": 20.9,
+   "start": 20.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.0,
+   "tries": 1,
+   "text": "One thread at a time owns it: the thread inside the synchronized block."
+  },
+  {
+   "cue": 25.93,
+   "start": 25.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.74,
+   "tries": 1,
+   "text": "Threads that want the lock wait in the entry set."
+  },
+  {
+   "cue": 29.0,
+   "start": 29.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.33,
+   "tries": 1,
+   "text": "They show as BLOCKED."
+  },
+  {
+   "cue": 30.53,
+   "start": 30.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "Threads that called wait sit in the wait set."
+  },
+  {
+   "cue": 33.6,
+   "start": 33.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "They show as WAITING, and use no C P U."
+  },
+  {
+   "cue": 36.93,
+   "start": 36.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.53,
+   "tries": 1,
+   "text": "Consumer one takes the lock and checks the queue."
+  },
+  {
+   "cue": 40.34,
+   "start": 40.34,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.84,
+   "tries": 1,
+   "text": "It is empty."
+  },
+  {
+   "cue": 41.43,
+   "start": 41.43,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.94,
+   "tries": 2,
+   "text": "So it calls wait."
+  },
+  {
+   "cue": 42.49,
+   "start": 42.52,
+   "late": 0.03,
+   "tempo": 1.0,
+   "secs": 3.35,
+   "tries": 1,
+   "text": "wait gives back the lock, and parks the thread in the wait set."
+  },
+  {
+   "cue": 46.6,
+   "start": 46.6,
+   "late": 0.0,
+   "tempo": 1.047,
+   "secs": 1.47,
+   "tries": 1,
+   "text": "Consumer two does the same."
+  },
+  {
+   "cue": 48.29,
+   "start": 48.29,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.29,
+   "tries": 1,
+   "text": "It finds the queue empty, and waits too."
+  },
+  {
+   "cue": 51.2,
+   "start": 51.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.68,
+   "tries": 1,
+   "text": "Now a producer takes the lock, adds one payment to the queue, and calls notifyAll."
+  },
+  {
+   "cue": 56.83,
+   "start": 56.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.7,
+   "tries": 1,
+   "text": "notifyAll wakes every waiter, but it does not hand over the lock."
+  },
+  {
+   "cue": 60.91,
+   "start": 60.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.99,
+   "tries": 1,
+   "text": "Both consumers move to the entry set, and compete for the lock like any newcomer."
+  },
+  {
+   "cue": 66.2,
+   "start": 66.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.6,
+   "tries": 1,
+   "text": "When the producer leaves its block, the lock is free."
+  },
+  {
+   "cue": 69.47,
+   "start": 69.47,
+   "late": 0.0,
+   "tempo": 1.119,
+   "secs": 1.43,
+   "tries": 1,
+   "text": "Consumer one gets it first."
+  },
+  {
+   "cue": 71.11,
+   "start": 71.11,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.99,
+   "tries": 1,
+   "text": "Its wait returns, it takes the payment, and it leaves."
+  },
+  {
+   "cue": 74.87,
+   "start": 74.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.28,
+   "tries": 1,
+   "text": "Then consumer two gets the lock, and its wait returns too."
+  },
+  {
+   "cue": 78.33,
+   "start": 78.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.74,
+   "tries": 1,
+   "text": "But the if checked the queue once, before it waited."
+  },
+  {
+   "cue": 81.54,
+   "start": 81.54,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.7,
+   "tries": 1,
+   "text": "The next line takes the first item from an empty queue."
+  },
+  {
+   "cue": 85.17,
+   "start": 85.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "The payment it was woken for is gone."
+  },
+  {
+   "cue": 87.5,
+   "start": 87.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.01,
+   "tries": 1,
+   "text": "Another consumer got the lock first."
+  },
+  {
+   "cue": 90.0,
+   "start": 90.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.69,
+   "tries": 1,
+   "text": "Now write while instead of if, and replay the moment consumer two gets the lock."
+  },
+  {
+   "cue": 95.17,
+   "start": 95.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.78,
+   "tries": 1,
+   "text": "wait returns inside the loop."
+  },
+  {
+   "cue": 97.16,
+   "start": 97.16,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.32,
+   "tries": 1,
+   "text": "So consumer two tests the queue again."
+  },
+  {
+   "cue": 99.64,
+   "start": 99.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.6,
+   "tries": 1,
+   "text": "It is empty, so it calls wait again and goes back to the wait set."
+  },
+  {
+   "cue": 104.19,
+   "start": 104.19,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.45,
+   "tries": 1,
+   "text": "Nothing breaks. There is a second reason."
+  },
+  {
+   "cue": 107.1,
+   "start": 107.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.11,
+   "tries": 1,
+   "text": "The Javadoc for Object.wait says a thread can wake up without being notified, interrupted, or timing out."
+  },
+  {
+   "cue": 114.09,
+   "start": 114.09,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.12,
+   "tries": 1,
+   "text": "That is called a spurious wakeup."
+  },
+  {
+   "cue": 116.5,
+   "start": 116.5,
+   "late": 0.0,
+   "tempo": 1.038,
+   "secs": 1.69,
+   "tries": 1,
+   "text": "It is rare, but it is allowed."
+  },
+  {
+   "cue": 118.41,
+   "start": 118.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.17,
+   "tries": 1,
+   "text": "The loop handles it the same way: test again, and wait again."
+  },
+  {
+   "cue": 123.3,
+   "start": 123.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.69,
+   "tries": 1,
+   "text": "That is all a guarded block is: a while loop around wait, with the condition as the loop test."
+  },
+  {
+   "cue": 129.4,
+   "start": 129.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.54,
+   "tries": 1,
+   "text": "Every wait sits inside a while loop that tests the condition."
+  },
+  {
+   "cue": 133.27,
+   "start": 133.27,
+   "late": 0.0,
+   "tempo": 1.149,
+   "secs": 4.16,
+   "tries": 1,
+   "text": "Treat an if around wait as a bug, even in code that has never failed."
+  },
+  {
+   "cue": 137.64,
+   "start": 137.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.68,
+   "tries": 1,
+   "text": "It has just never had two waiters at once yet."
+  }
+ ]
+}

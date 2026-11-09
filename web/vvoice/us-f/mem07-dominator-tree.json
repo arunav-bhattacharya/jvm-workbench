@@ -1,0 +1,286 @@
+{
+ "slug": "mem07-dominator-tree",
+ "voice": "us-f",
+ "max_late": 1.13,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 11.56,
+   "tries": 1,
+   "text": "A class histogram after two zero zero zero zero requests shows what fills the heap: forty-three MB of byte arrays, and two zero zero zero zero cached responses nobody meant to keep."
+  },
+  {
+   "cue": 13.28,
+   "start": 14.41,
+   "late": 1.13,
+   "tempo": 1.0,
+   "secs": 1.69,
+   "tries": 2,
+   "text": "It can't tell you who holds them."
+  },
+  {
+   "cue": 16.6,
+   "start": 16.6,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.98,
+   "tries": 1,
+   "text": "A heap dump can."
+  },
+  {
+   "cue": 17.77,
+   "start": 17.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.89,
+   "tries": 1,
+   "text": "It is a file with every object on the heap, and every reference between them."
+  },
+  {
+   "cue": 23.4,
+   "start": 23.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.78,
+   "tries": 1,
+   "text": "J command writes one from a running J V M, or the J V M writes one when it runs out of memory."
+  },
+  {
+   "cue": 30.4,
+   "start": 30.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.46,
+   "tries": 1,
+   "text": "Here is the graph inside it."
+  },
+  {
+   "cue": 32.43,
+   "start": 32.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.53,
+   "tries": 1,
+   "text": "A static field holds the map."
+  },
+  {
+   "cue": 34.53,
+   "start": 34.53,
+   "late": 0.0,
+   "tempo": 1.013,
+   "secs": 6.59,
+   "tries": 1,
+   "text": "The map holds a table, the table holds two zero zero zero zero nodes, and each node holds a key and a response."
+  },
+  {
+   "cue": 41.33,
+   "start": 41.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.5,
+   "tries": 1,
+   "text": "Each response holds a two KB receipt."
+  },
+  {
+   "cue": 44.03,
+   "start": 44.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.37,
+   "tries": 1,
+   "text": "A currency catalog, another G C root, holds a shared EUR string, which the responses point to as well."
+  },
+  {
+   "cue": 51.73,
+   "start": 51.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.07,
+   "tries": 1,
+   "text": "An object stays alive while a path of references reaches it from a G C root."
+  },
+  {
+   "cue": 56.64,
+   "start": 56.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.85,
+   "tries": 1,
+   "text": "The collector frees everything else."
+  },
+  {
+   "cue": 59.2,
+   "start": 59.2,
+   "late": 0.0,
+   "tempo": 1.061,
+   "secs": 1.71,
+   "tries": 1,
+   "text": "Every object has two sizes."
+  },
+  {
+   "cue": 61.12,
+   "start": 61.12,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.73,
+   "tries": 1,
+   "text": "Its shallow size is its own bytes, the header and its fields."
+  },
+  {
+   "cue": 65.46,
+   "start": 65.46,
+   "late": 0.0,
+   "tempo": 1.071,
+   "secs": 2.26,
+   "tries": 1,
+   "text": "The map itself is only sixty-four bytes."
+  },
+  {
+   "cue": 67.93,
+   "start": 67.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.01,
+   "tries": 1,
+   "text": "Its retained size is what would be freed if it went away."
+  },
+  {
+   "cue": 71.43,
+   "start": 71.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.75,
+   "tries": 1,
+   "text": "That is the object, plus everything reachable only through it."
+  },
+  {
+   "cue": 75.47,
+   "start": 75.47,
+   "late": 0.0,
+   "tempo": 1.086,
+   "secs": 6.4,
+   "tries": 1,
+   "text": "Cut the map loose, and the table, the nodes, the keys, the responses and every receipt become garbage."
+  },
+  {
+   "cue": 82.08,
+   "start": 82.08,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.6,
+   "tries": 1,
+   "text": "The shared EUR string does not, because the catalog still reaches it."
+  },
+  {
+   "cue": 87.47,
+   "start": 87.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.7,
+   "tries": 1,
+   "text": "Add it up."
+  },
+  {
+   "cue": 88.5,
+   "start": 88.5,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 9.09,
+   "tries": 1,
+   "text": "two zero zero zero zero receipts at two thousand sixty-four bytes, keys at eighty, responses at thirty-two, nodes at thirty-two, and the table."
+  },
+  {
+   "cue": 97.55,
+   "start": 97.73,
+   "late": 0.18,
+   "tempo": 1.0,
+   "secs": 3.73,
+   "tries": 1,
+   "text": "About forty-four MB, held by a sixty-four-byte object."
+  },
+  {
+   "cue": 101.63,
+   "start": 101.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.79,
+   "tries": 1,
+   "text": "Every path from a root to a receipt goes through the map, so the map dominates the receipts."
+  },
+  {
+   "cue": 107.41,
+   "start": 107.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.95,
+   "tries": 1,
+   "text": "EUR has a second path, from the catalog, so the map does not dominate it."
+  },
+  {
+   "cue": 112.9,
+   "start": 112.9,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 5.99,
+   "tries": 1,
+   "text": "Eclipse MAT turns the graph into a dominator tree, sorted by retained size, biggest first."
+  },
+  {
+   "cue": 119.09,
+   "start": 119.09,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.34,
+   "tries": 1,
+   "text": "For this dump, the map should sit at the top, with about forty-four MB."
+  },
+  {
+   "cue": 123.63,
+   "start": 123.63,
+   "late": 0.0,
+   "tempo": 1.053,
+   "secs": 7.34,
+   "tries": 1,
+   "text": "Follow its path to a G C root, and it ends at the field that holds it: the static IDEMPOTENCY_CACHE."
+  },
+  {
+   "cue": 131.2,
+   "start": 131.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.32,
+   "tries": 1,
+   "text": "In Java and in Kotlin, it is one line."
+  },
+  {
+   "cue": 133.88,
+   "start": 133.88,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.18,
+   "tries": 1,
+   "text": "Every request adds an entry, and nothing ever removes one."
+  },
+  {
+   "cue": 138.17,
+   "start": 138.17,
+   "late": 0.0,
+   "tempo": 1.028,
+   "secs": 1.79,
+   "tries": 1,
+   "text": "The histogram said byte arrays."
+  },
+  {
+   "cue": 140.17,
+   "start": 140.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.24,
+   "tries": 1,
+   "text": "The dominator tree says this map, held by this field."
+  }
+ ]
+}

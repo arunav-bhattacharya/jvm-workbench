@@ -1,0 +1,322 @@
+{
+ "slug": "pat11-breaker",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.062,
+   "secs": 2.07,
+   "tries": 1,
+   "text": "The card issuer is having a bad day."
+  },
+  {
+   "cue": 4.98,
+   "start": 4.98,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.33,
+   "tries": 1,
+   "text": "Each charge waits two seconds for a timeout, then fails."
+  },
+  {
+   "cue": 8.53,
+   "start": 8.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.27,
+   "tries": 1,
+   "text": "Your callers wait for nothing, and the issuer gets no room to recover."
+  },
+  {
+   "cue": 13.17,
+   "start": 13.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.21,
+   "tries": 1,
+   "text": "A circuit breaker stops calling it for a while."
+  },
+  {
+   "cue": 15.96,
+   "start": 15.96,
+   "late": 0.0,
+   "tempo": 1.033,
+   "secs": 3.35,
+   "tries": 1,
+   "text": "It wraps every call to the issuer, the way a decorator does."
+  },
+  {
+   "cue": 19.53,
+   "start": 19.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "And it is always in one of three states."
+  },
+  {
+   "cue": 22.13,
+   "start": 22.13,
+   "late": 0.0,
+   "tempo": 1.035,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "Closed is the normal state."
+  },
+  {
+   "cue": 23.85,
+   "start": 23.85,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.93,
+   "tries": 1,
+   "text": "Calls pass through, and the breaker counts failures in a row."
+  },
+  {
+   "cue": 27.72,
+   "start": 27.72,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "A success sets the count back to zero."
+  },
+  {
+   "cue": 30.33,
+   "start": 30.33,
+   "late": 0.0,
+   "tempo": 1.042,
+   "secs": 3.9,
+   "tries": 1,
+   "text": "Now the issuer goes down again, and fails three times in a row."
+  },
+  {
+   "cue": 34.45,
+   "start": 34.45,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "The third failure trips the breaker."
+  },
+  {
+   "cue": 36.81,
+   "start": 36.81,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.13,
+   "tries": 1,
+   "text": "It opens, until thirty seconds from now."
+  },
+  {
+   "cue": 39.37,
+   "start": 39.37,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.56,
+   "tries": 1,
+   "text": "Open means calls fail fast."
+  },
+  {
+   "cue": 41.1,
+   "start": 41.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.62,
+   "tries": 1,
+   "text": "The breaker throws CallNotPermitted at once, with no network trip."
+  },
+  {
+   "cue": 45.34,
+   "start": 45.34,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.97,
+   "tries": 1,
+   "text": "Your callers get a quick answer, and the issuer gets room to recover."
+  },
+  {
+   "cue": 50.0,
+   "start": 50.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.62,
+   "tries": 1,
+   "text": "When the cool-down ends, the breaker goes half-open."
+  },
+  {
+   "cue": 53.15,
+   "start": 53.15,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.06,
+   "tries": 1,
+   "text": "It lets one trial call through, and that call decides."
+  },
+  {
+   "cue": 56.63,
+   "start": 56.63,
+   "late": 0.0,
+   "tempo": 1.082,
+   "secs": 2.11,
+   "tries": 1,
+   "text": "If it succeeds, the breaker closes."
+  },
+  {
+   "cue": 58.96,
+   "start": 58.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.91,
+   "tries": 1,
+   "text": "If it fails, the breaker opens again, for another thirty seconds."
+  },
+  {
+   "cue": 64.0,
+   "start": 64.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.61,
+   "tries": 1,
+   "text": "Every request thread shares this one breaker."
+  },
+  {
+   "cue": 66.92,
+   "start": 66.92,
+   "late": 0.0,
+   "tempo": 1.021,
+   "secs": 2.5,
+   "tries": 1,
+   "text": "So the state lives in one AtomicReference."
+  },
+  {
+   "cue": 69.64,
+   "start": 69.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.14,
+   "tries": 1,
+   "text": "Each state is a small immutable record, and the reference only changes by compare-and-set."
+  },
+  {
+   "cue": 75.7,
+   "start": 75.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.88,
+   "tries": 1,
+   "text": "Compare-and-set takes the record you read, and a new one."
+  },
+  {
+   "cue": 78.98,
+   "start": 78.98,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.3,
+   "tries": 1,
+   "text": "It swaps the new one in only if the reference still holds the one you read."
+  },
+  {
+   "cue": 84.0,
+   "start": 84.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.76,
+   "tries": 1,
+   "text": "The breaker opened with a thirty-second cool-down."
+  },
+  {
+   "cue": 87.09,
+   "start": 87.09,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.23,
+   "tries": 1,
+   "text": "In a test, an injected clock jumps thirty-one seconds ahead, and eight threads call at the same moment."
+  },
+  {
+   "cue": 93.67,
+   "start": 93.67,
+   "late": 0.0,
+   "tempo": 1.022,
+   "secs": 7.15,
+   "tries": 1,
+   "text": "Each one reads Open, sees that the cool-down is over, and calls compareAndSet, from that Open to HalfOpen."
+  },
+  {
+   "cue": 101.03,
+   "start": 101.03,
+   "late": 0.0,
+   "tempo": 1.11,
+   "secs": 2.11,
+   "tries": 1,
+   "text": "Exactly one wins, and runs the probe."
+  },
+  {
+   "cue": 103.36,
+   "start": 103.36,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.56,
+   "tries": 1,
+   "text": "For the other seven, the reference no longer holds the Open they read."
+  },
+  {
+   "cue": 107.77,
+   "start": 107.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.02,
+   "tries": 1,
+   "text": "Their compareAndSet fails, and they get CallNotPermitted."
+  },
+  {
+   "cue": 111.57,
+   "start": 111.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.45,
+   "tries": 1,
+   "text": "With a plain set, all eight would get through, to an issuer that may still be down."
+  },
+  {
+   "cue": 117.1,
+   "start": 117.1,
+   "late": 0.0,
+   "tempo": 1.022,
+   "secs": 3.88,
+   "tries": 1,
+   "text": "In code, it is a few lines, the same in Java and in Kotlin."
+  },
+  {
+   "cue": 121.2,
+   "start": 121.2,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.83,
+   "tries": 1,
+   "text": "Read the state."
+  },
+  {
+   "cue": 122.24,
+   "start": 122.24,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.46,
+   "tries": 1,
+   "text": "If it is Open and the time is up, try compareAndSet to HalfOpen, and throw if you lose."
+  },
+  {
+   "cue": 128.47,
+   "start": 128.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 9.37,
+   "tries": 1,
+   "text": "So the breaker is three patterns in one class: sealed states, a wrapper around every call, and one AtomicReference that changes only by compare-and-set."
+  }
+ ]
+}

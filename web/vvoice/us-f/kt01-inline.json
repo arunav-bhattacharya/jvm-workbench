@@ -1,0 +1,304 @@
+{
+ "slug": "kt01-inline",
+ "voice": "us-f",
+ "max_late": 0.01,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.19,
+   "tries": 1,
+   "text": "Here is a helper that every service has."
+  },
+  {
+   "cue": 5.28,
+   "start": 5.28,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.72,
+   "tries": 2,
+   "text": "It runs a block of code, and logs how long it took."
+  },
+  {
+   "cue": 8.77,
+   "start": 8.77,
+   "late": 0.0,
+   "tempo": 1.08,
+   "secs": 0.79,
+   "tries": 2,
+   "text": "Here is a call."
+  },
+  {
+   "cue": 9.78,
+   "start": 9.78,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.64,
+   "tries": 1,
+   "text": "The lambda uses amountMinor from outside its braces, so it is a closure."
+  },
+  {
+   "cue": 14.83,
+   "start": 14.83,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.51,
+   "tries": 1,
+   "text": "Count what one call costs."
+  },
+  {
+   "cue": 16.49,
+   "start": 16.5,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 3.64,
+   "tries": 1,
+   "text": "Here is the call site, read back from the bytecode and written as Java."
+  },
+  {
+   "cue": 21.2,
+   "start": 21.2,
+   "late": 0.0,
+   "tempo": 1.003,
+   "secs": 4.13,
+   "tries": 1,
+   "text": "First, invokedynamic builds a small object, a Functionzero."
+  },
+  {
+   "cue": 25.46,
+   "start": 25.48,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 1.74,
+   "tries": 1,
+   "text": "It holds a copy of amountMinor."
+  },
+  {
+   "cue": 28.0,
+   "start": 28.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.21,
+   "tries": 1,
+   "text": "Then the call goes to timedNotInline."
+  },
+  {
+   "cue": 30.5,
+   "start": 30.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.42,
+   "tries": 1,
+   "text": "Inside it, block() calls that object's invoke method, a call through an interface."
+  },
+  {
+   "cue": 36.27,
+   "start": 36.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.5,
+   "tries": 1,
+   "text": "The helper is generic, so the result comes back as an Object, a boxed Long."
+  },
+  {
+   "cue": 41.43,
+   "start": 41.43,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.98,
+   "tries": 1,
+   "text": "It has to be unboxed to a long."
+  },
+  {
+   "cue": 43.56,
+   "start": 43.56,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.67,
+   "tries": 1,
+   "text": "That is one object, one interface call and one unboxing, on every call."
+  },
+  {
+   "cue": 49.3,
+   "start": 49.3,
+   "late": 0.0,
+   "tempo": 1.053,
+   "secs": 1.56,
+   "tries": 1,
+   "text": "Now mark the helper inline."
+  },
+  {
+   "cue": 51.08,
+   "start": 51.08,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.53,
+   "tries": 1,
+   "text": "The body stays the same, and so does the call."
+  },
+  {
+   "cue": 54.33,
+   "start": 54.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.54,
+   "tries": 1,
+   "text": "At every call site, the compiler copies the function's body, and the body of the lambda you passed, instead of making a call."
+  },
+  {
+   "cue": 62.1,
+   "start": 62.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.31,
+   "tries": 1,
+   "text": "Here is that call site read back from the bytecode, as Java."
+  },
+  {
+   "cue": 66.33,
+   "start": 66.33,
+   "late": 0.0,
+   "tempo": 1.023,
+   "secs": 3.31,
+   "tries": 1,
+   "text": "There is no Functionzero, no invoke, and no unboxing."
+  },
+  {
+   "cue": 69.86,
+   "start": 69.86,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.34,
+   "tries": 1,
+   "text": "The multiply sits right inside the caller, between two calls to System.nanoTime."
+  },
+  {
+   "cue": 75.67,
+   "start": 75.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.37,
+   "tries": 2,
+   "text": "Read a bit further and you see the price."
+  },
+  {
+   "cue": 78.27,
+   "start": 78.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.82,
+   "tries": 1,
+   "text": "The finally block is in the bytecode twice: once for the normal exit, and once for the exit by exception."
+  },
+  {
+   "cue": 85.17,
+   "start": 85.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.8,
+   "tries": 1,
+   "text": "Every caller carries that copy."
+  },
+  {
+   "cue": 87.23,
+   "start": 87.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.01,
+   "tries": 1,
+   "text": "So inline is for small functions that take lambdas."
+  },
+  {
+   "cue": 90.62,
+   "start": 90.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.23,
+   "tries": 1,
+   "text": "The standard library is full of them."
+  },
+  {
+   "cue": 93.87,
+   "start": 93.87,
+   "late": 0.0,
+   "tempo": 1.12,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "Java gets none of this."
+  },
+  {
+   "cue": 95.57,
+   "start": 95.57,
+   "late": 0.0,
+   "tempo": 1.055,
+   "secs": 2.07,
+   "tries": 1,
+   "text": "java C can't inline Kotlin code."
+  },
+  {
+   "cue": 97.86,
+   "start": 97.86,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.42,
+   "tries": 1,
+   "text": "To Java, timed is an ordinary static method that takes a Functionzero, and the Java lambda becomes an object like any other."
+  },
+  {
+   "cue": 107.6,
+   "start": 107.6,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.75,
+   "tries": 1,
+   "text": "One last rule."
+  },
+  {
+   "cue": 108.55,
+   "start": 108.55,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.55,
+   "tries": 1,
+   "text": "Pasting only works when the lambda runs right there, inside the inline function."
+  },
+  {
+   "cue": 114.2,
+   "start": 114.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.55,
+   "tries": 1,
+   "text": "Store the lambda in a list, and the compiler asks for noinline."
+  },
+  {
+   "cue": 118.4,
+   "start": 118.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.36,
+   "tries": 1,
+   "text": "That one lambda stays a real object."
+  },
+  {
+   "cue": 121.03,
+   "start": 121.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.46,
+   "tries": 1,
+   "text": "Call it from inside a Runnable, and it asks for crossinline."
+  },
+  {
+   "cue": 124.76,
+   "start": 124.76,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.1,
+   "tries": 1,
+   "text": "The body is still pasted, into a class generated for that call site, and a bare return is not allowed in it."
+  }
+ ]
+}

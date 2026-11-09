@@ -1,0 +1,358 @@
+{
+ "slug": "exec06-compose",
+ "voice": "us-f",
+ "max_late": 0.09,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "An authorization makes three remote calls."
+  },
+  {
+   "cue": 5.59,
+   "start": 5.59,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.12,
+   "tries": 1,
+   "text": "It looks up the card, in forty ms, and scores the fraud risk, in sixty."
+  },
+  {
+   "cue": 10.06,
+   "start": 10.06,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.17,
+   "tries": 1,
+   "text": "Then it sends both to the issuer, whose client returns a CompletableFuture."
+  },
+  {
+   "cue": 15.43,
+   "start": 15.43,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.63,
+   "tries": 1,
+   "text": "Each call hands you a future, a box that gets its value later."
+  },
+  {
+   "cue": 19.12,
+   "start": 19.21,
+   "late": 0.09,
+   "tempo": 1.0,
+   "secs": 4.79,
+   "tries": 1,
+   "text": "You attach the next step to a future, and you pick the method by the shape of that step."
+  },
+  {
+   "cue": 25.27,
+   "start": 25.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.66,
+   "tries": 1,
+   "text": "thenApply takes a plain function, from one value to another: here, from the issuer's response to a decision."
+  },
+  {
+   "cue": 32.47,
+   "start": 32.47,
+   "late": 0.0,
+   "tempo": 1.002,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "It returns a new future at once."
+  },
+  {
+   "cue": 34.83,
+   "start": 34.84,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 4.86,
+   "tries": 1,
+   "text": "When the response arrives, the function runs on it, and the new future gets the decision."
+  },
+  {
+   "cue": 40.27,
+   "start": 40.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.82,
+   "tries": 1,
+   "text": "If you know Optional or streams: thenApply is map."
+  },
+  {
+   "cue": 44.57,
+   "start": 44.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.92,
+   "tries": 1,
+   "text": "Now the next step is the issuer call."
+  },
+  {
+   "cue": 47.11,
+   "start": 47.11,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "authorize does not return a response."
+  },
+  {
+   "cue": 49.65,
+   "start": 49.65,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.67,
+   "tries": 1,
+   "text": "It returns a future of one."
+  },
+  {
+   "cue": 51.7,
+   "start": 51.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.99,
+   "tries": 1,
+   "text": "Attach it with thenApply, and the new future holds whatever authorize returns: another future."
+  },
+  {
+   "cue": 58.03,
+   "start": 58.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.84,
+   "tries": 1,
+   "text": "The outer one completes as soon as authorize returns."
+  },
+  {
+   "cue": 61.26,
+   "start": 61.26,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.43,
+   "tries": 1,
+   "text": "The answer arrives later, in the inner one, and no one waits for it."
+  },
+  {
+   "cue": 65.63,
+   "start": 65.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.09,
+   "tries": 1,
+   "text": "A declared result type makes the compiler catch this."
+  },
+  {
+   "cue": 69.05,
+   "start": 69.05,
+   "late": 0.0,
+   "tempo": 1.037,
+   "secs": 1.6,
+   "tries": 1,
+   "text": "Without one, it compiles."
+  },
+  {
+   "cue": 70.87,
+   "start": 70.87,
+   "late": 0.0,
+   "tempo": 1.058,
+   "secs": 1.62,
+   "tries": 1,
+   "text": "thenCompose is for this shape."
+  },
+  {
+   "cue": 72.7,
+   "start": 72.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.39,
+   "tries": 1,
+   "text": "It takes the future the function returns, and hands you one flat future that completes when that one does."
+  },
+  {
+   "cue": 79.43,
+   "start": 79.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.44,
+   "tries": 1,
+   "text": "When the issuer answers, it completes."
+  },
+  {
+   "cue": 82.05,
+   "start": 82.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.79,
+   "tries": 1,
+   "text": "thenCompose is flatMap."
+  },
+  {
+   "cue": 84.53,
+   "start": 84.53,
+   "late": 0.0,
+   "tempo": 1.039,
+   "secs": 1.88,
+   "tries": 1,
+   "text": "thenCombine waits for two futures."
+  },
+  {
+   "cue": 86.63,
+   "start": 86.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.14,
+   "tries": 1,
+   "text": "The card lookup and the fraud score don't depend on each other."
+  },
+  {
+   "cue": 90.53,
+   "start": 90.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.62,
+   "tries": 1,
+   "text": "Both calls started on their own lines, with supplyAsync, before anything was attached."
+  },
+  {
+   "cue": 96.07,
+   "start": 96.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.53,
+   "tries": 1,
+   "text": "So they run side by side."
+  },
+  {
+   "cue": 97.83,
+   "start": 97.83,
+   "late": 0.0,
+   "tempo": 1.066,
+   "secs": 1.41,
+   "tries": 1,
+   "text": "The card is back at forty."
+  },
+  {
+   "cue": 99.45,
+   "start": 99.45,
+   "late": 0.0,
+   "tempo": 1.091,
+   "secs": 1.32,
+   "tries": 1,
+   "text": "The fraud score at sixty."
+  },
+  {
+   "cue": 101.0,
+   "start": 101.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.62,
+   "tries": 1,
+   "text": "Then thenCombine calls your function with both values."
+  },
+  {
+   "cue": 105.0,
+   "start": 105.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.94,
+   "tries": 1,
+   "text": "The slow part takes sixty ms, the longer of the two."
+  },
+  {
+   "cue": 108.35,
+   "start": 108.35,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.99,
+   "tries": 1,
+   "text": "The speed comes from starting both futures early, not from thenCombine."
+  },
+  {
+   "cue": 113.43,
+   "start": 113.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.62,
+   "tries": 1,
+   "text": "Start the fraud call inside thenCompose instead, and it begins only when the card is back."
+  },
+  {
+   "cue": 119.77,
+   "start": 119.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.96,
+   "tries": 1,
+   "text": "That takes one hundred ms, and nothing warns you."
+  },
+  {
+   "cue": 123.57,
+   "start": 123.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.93,
+   "tries": 1,
+   "text": "Put together, the authorization is three lines."
+  },
+  {
+   "cue": 127.0,
+   "start": 127.0,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.13,
+   "tries": 1,
+   "text": "Kotlin calls the same Java A P I."
+  },
+  {
+   "cue": 129.26,
+   "start": 129.28,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 2.24,
+   "tries": 1,
+   "text": "Only the lambda syntax changes."
+  },
+  {
+   "cue": 131.73,
+   "start": 131.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.68,
+   "tries": 1,
+   "text": "Pick by the shape of the step."
+  },
+  {
+   "cue": 133.73,
+   "start": 133.73,
+   "late": 0.0,
+   "tempo": 1.021,
+   "secs": 3.18,
+   "tries": 1,
+   "text": "Two futures and a function of both: thenCombine."
+  },
+  {
+   "cue": 137.13,
+   "start": 137.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.72,
+   "tries": 1,
+   "text": "A step that returns a future: thenCompose."
+  },
+  {
+   "cue": 140.4,
+   "start": 140.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "Plain code on one value: thenApply."
+  }
+ ]
+}

@@ -1,0 +1,385 @@
+{
+ "slug": "pat05-decorator",
+ "voice": "us-f",
+ "max_late": 1.44,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.36,
+   "tries": 1,
+   "text": "Java's own streams are built in layers."
+  },
+  {
+   "cue": 5.37,
+   "start": 5.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.57,
+   "tries": 1,
+   "text": "Start with the real stream."
+  },
+  {
+   "cue": 7.21,
+   "start": 7.21,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.02,
+   "tries": 1,
+   "text": "Wrap it in a GZIPOutputStream, then a BufferedOutputStream, then a DataOutputStream."
+  },
+  {
+   "cue": 13.17,
+   "start": 13.17,
+   "late": 0.0,
+   "tempo": 1.047,
+   "secs": 1.98,
+   "tries": 1,
+   "text": "Each wrapper is an OutputStream too."
+  },
+  {
+   "cue": 15.37,
+   "start": 15.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.74,
+   "tries": 1,
+   "text": "Each one adds one behavior: typed writes, buffering, compression."
+  },
+  {
+   "cue": 19.36,
+   "start": 19.36,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.91,
+   "tries": 1,
+   "text": "Then it passes the bytes on to the stream it wraps."
+  },
+  {
+   "cue": 22.67,
+   "start": 22.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.43,
+   "tries": 1,
+   "text": "That is the decorator pattern."
+  },
+  {
+   "cue": 24.56,
+   "start": 24.56,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.45,
+   "tries": 1,
+   "text": "A decorator has the same interface as the object it wraps."
+  },
+  {
+   "cue": 28.22,
+   "start": 28.22,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.53,
+   "tries": 1,
+   "text": "It does one extra thing, and forwards the call."
+  },
+  {
+   "cue": 31.18,
+   "start": 31.18,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "The caller can't tell how many layers there are."
+  },
+  {
+   "cue": 34.43,
+   "start": 34.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.78,
+   "tries": 1,
+   "text": "Fees fit the same shape, because a fee is a base rule plus adjustments."
+  },
+  {
+   "cue": 39.13,
+   "start": 39.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.57,
+   "tries": 1,
+   "text": "The base rule is two point nine percent of the amount."
+  },
+  {
+   "cue": 42.19,
+   "start": 42.19,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.95,
+   "tries": 1,
+   "text": "Then each adjustment wraps it."
+  },
+  {
+   "cue": 44.32,
+   "start": 44.32,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.96,
+   "tries": 1,
+   "text": "Add thirty cents."
+  },
+  {
+   "cue": 45.24,
+   "start": 45.43,
+   "late": 0.19,
+   "tempo": 1.0,
+   "secs": 2.91,
+   "tries": 1,
+   "text": "Add one percent more for a payment from outside Germany."
+  },
+  {
+   "cue": 49.08,
+   "start": 49.08,
+   "late": 0.0,
+   "tempo": 1.09,
+   "secs": 1.94,
+   "tries": 1,
+   "text": "Then cap the fee at five euros."
+  },
+  {
+   "cue": 51.23,
+   "start": 51.23,
+   "late": 0.0,
+   "tempo": 1.001,
+   "secs": 3.11,
+   "tries": 1,
+   "text": "Each call in the chain wraps everything to its left."
+  },
+  {
+   "cue": 54.49,
+   "start": 54.49,
+   "late": 0.0,
+   "tempo": 1.09,
+   "secs": 3.11,
+   "tries": 1,
+   "text": "So the last one, cappedAt, ends up on the outside."
+  },
+  {
+   "cue": 57.83,
+   "start": 57.83,
+   "late": 0.0,
+   "tempo": 1.053,
+   "secs": 2.52,
+   "tries": 1,
+   "text": "Now charge a French payment of one thousand euros."
+  },
+  {
+   "cue": 60.57,
+   "start": 60.57,
+   "late": 0.0,
+   "tempo": 1.052,
+   "secs": 2.39,
+   "tries": 1,
+   "text": "The call goes to the outside layer first."
+  },
+  {
+   "cue": 63.17,
+   "start": 63.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.1,
+   "tries": 1,
+   "text": "Each layer calls the one it wraps, all the way in to the base rule."
+  },
+  {
+   "cue": 67.63,
+   "start": 67.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.4,
+   "tries": 1,
+   "text": "The base rule returns twenty-nine euros."
+  },
+  {
+   "cue": 70.19,
+   "start": 70.19,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 5.95,
+   "tries": 1,
+   "text": "On the way back out, each layer does its one thing: twenty-nine point three zero, then thirty-nine point three zero."
+  },
+  {
+   "cue": 75.97,
+   "start": 76.29,
+   "late": 0.33,
+   "tempo": 1.0,
+   "secs": 2.85,
+   "tries": 1,
+   "text": "The cap comes last, so the fee is five euros."
+  },
+  {
+   "cue": 79.6,
+   "start": 79.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.25,
+   "tries": 1,
+   "text": "Now move cappedAt in front of crossBorder."
+  },
+  {
+   "cue": 82.24,
+   "start": 82.24,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.0,
+   "tries": 1,
+   "text": "Same layers, in a different order."
+  },
+  {
+   "cue": 84.6,
+   "start": 84.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.2,
+   "tries": 1,
+   "text": "Run the same payment."
+  },
+  {
+   "cue": 86.29,
+   "start": 86.29,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.5,
+   "tries": 1,
+   "text": "twenty-nine, then twenty-nine point three zero."
+  },
+  {
+   "cue": 87.5,
+   "start": 88.94,
+   "late": 1.44,
+   "tempo": 1.2,
+   "secs": 1.62,
+   "tries": 1,
+   "text": "The cap brings it down to five."
+  },
+  {
+   "cue": 89.75,
+   "start": 90.71,
+   "late": 0.95,
+   "tempo": 1.053,
+   "secs": 4.14,
+   "tries": 1,
+   "text": "Then the surcharge lands after the cap, and the fee is fifteen euros."
+  },
+  {
+   "cue": 95.07,
+   "start": 95.07,
+   "late": 0.0,
+   "tempo": 1.042,
+   "secs": 1.17,
+   "tries": 1,
+   "text": "Both chains compile."
+  },
+  {
+   "cue": 96.46,
+   "start": 96.46,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.85,
+   "tries": 1,
+   "text": "Only a test with a large cross-border payment tells them apart."
+  },
+  {
+   "cue": 101.77,
+   "start": 101.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.27,
+   "tries": 1,
+   "text": "Behavior decorators have the same issue."
+  },
+  {
+   "cue": 104.38,
+   "start": 104.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.93,
+   "tries": 1,
+   "text": "Put retry outside logging, and every attempt is logged."
+  },
+  {
+   "cue": 107.97,
+   "start": 107.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.87,
+   "tries": 1,
+   "text": "Swap them, and you log one call, however many attempts it took."
+  },
+  {
+   "cue": 112.33,
+   "start": 112.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.74,
+   "tries": 1,
+   "text": "Pick the order you want, and pin it in a test."
+  },
+  {
+   "cue": 115.97,
+   "start": 115.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.49,
+   "tries": 1,
+   "text": "In Java, each decorator is a default method on the interface."
+  },
+  {
+   "cue": 120.1,
+   "start": 120.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.76,
+   "tries": 1,
+   "text": "It returns a new lambda, and that lambda is a FeeCalculator too."
+  },
+  {
+   "cue": 124.63,
+   "start": 124.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.07,
+   "tries": 1,
+   "text": "The lambda calls feeMinor on the calculator it wraps."
+  },
+  {
+   "cue": 127.92,
+   "start": 127.92,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.82,
+   "tries": 1,
+   "text": "Then it does its one extra thing, here the cap."
+  },
+  {
+   "cue": 131.03,
+   "start": 131.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.74,
+   "tries": 1,
+   "text": "In Kotlin, the decorator is an extension function on a fun interface."
+  },
+  {
+   "cue": 135.55,
+   "start": 135.55,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.9,
+   "tries": 1,
+   "text": "Either way, each call returns a new calculator, and the one it wraps stays as it was."
+  }
+ ]
+}
