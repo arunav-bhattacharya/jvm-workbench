@@ -135,12 +135,13 @@ class Mem07DominatorTree(VoiceScene):
                  [(0, [FadeIn(dot)], 0.3), (0, [MoveAlongPath(dot, walk, rate_func=linear)], 2.2), (1, [FadeOut(dot)], 0.3)])
 
         # shallow and retained
-        sh_t = VGroup(T("shallow size:", 26, GREY_B), T("its own bytes", 26)).arrange(RIGHT, buff=0.2).move_to([0.6, 2.0, 0])
+        sh_t = VGroup(T("shallow size:", 26, GREY_B), T("its own bytes", 26)).arrange(RIGHT, buff=0.2)
+        sh_t.move_to([-0.75, 2.0, 0], aligned_edge=LEFT)
         self.say("Every object has two sizes. Its shallow size is its own bytes, the header and its fields. "
                  "The map itself is only 64 bytes.",
                  [(1, [FadeIn(sh_t)], 0.8), (2, [Indicate(mp, color=MAP_C, scale_factor=1.06)], 0.9)])
         rt_t = VGroup(T("retained size:", 26, RET_C), T("what would be freed", 26), T("if it went away", 26))
-        rt_t.arrange(DOWN, buff=0.12, aligned_edge=LEFT).move_to([0.55, 0.55, 0])
+        rt_t.arrange(DOWN, buff=0.12, aligned_edge=LEFT).move_to([-0.75, 0.55, 0], aligned_edge=LEFT)
         cut = tick(False, 0.28).move_to(arrs[0])
         below = VGroup(*chain[1:], *arrs[1:])
         self.say("Its retained size is what would be freed if it went away. "
@@ -157,7 +158,7 @@ class Mem07DominatorTree(VoiceScene):
         fit(sum_t, 12.4).move_to(DOWN * 3.05)
         brace = BraceBetweenPoints(mp.get_corner(UR) + RIGHT * 0.42, rec.get_corner(DR) + RIGHT * 0.42, RIGHT, color=RET_C)
         ret44 = VGroup(T("retained by the map:", 26, RET_C), T("about 44 MB", 34, RET_C)).arrange(DOWN, buff=0.12, aligned_edge=LEFT)
-        ret44.next_to(brace, RIGHT, buff=0.25).shift(DOWN * 0.3)
+        ret44.next_to(brace, RIGHT, buff=0.25).shift(UP * 0.3)
         self.play(FadeOut(cut), below.animate.set_opacity(1), eur_a.animate.set_opacity(1), eur_tip.animate.set_opacity(1),
                   FadeOut(VGroup(sh_t, rt_t)), run_time=0.7)
         self.say("Add it up. 20,000 receipts at 2,064 bytes, keys at 80, responses at 32, nodes at 32, and the table. "
@@ -205,14 +206,14 @@ class Mem07DominatorTree(VoiceScene):
         jl = listing("Java", ["static final Map<String, CachedResponse>", "    IDEMPOTENCY_CACHE = new ConcurrentHashMap<>();"], size=24)
         kl = listing("Kotlin", ["val IDEMPOTENCY_CACHE =", "    ConcurrentHashMap<String, CachedResponse>()"], size=24)
         code = VGroup(jl, kl).arrange(DOWN, buff=0.45, aligned_edge=LEFT)
-        code.scale(min(1, 12.4 / code.width)).move_to(DOWN * 1.0)
-        top_pg = pg.copy().move_to(UP * 2.5)
+        code.scale(min(1, 12.4 / code.width)).move_to(UP * 0.55)
+        top_pg = pg.copy().move_to(UP * 2.95)
         self.play(FadeOut(VGroup(dt_head, dt_note, cols, sep, hl, row1, rows, pa, pa_t)), run_time=0.6)
         self.say("In Java and in Kotlin, it is one line. Every request adds an entry, and nothing ever removes one.",
                  [(0, [pg.animate.move_to(top_pg), FadeIn(code, shift=UP * 0.15)], 1.0),
                   (1, [Indicate(VGroup(jl[1][1], kl[1][0]), color=YELLOW_M, scale_factor=1.04)], 1.0)])
         verdict = VGroup(T("histogram: byte arrays", 28, GREY_B), T("dominator tree: this map, held by this field", 28, ROOT_C))
-        verdict.arrange(DOWN, buff=0.2).move_to(DOWN * 3.0)
+        verdict.arrange(DOWN, buff=0.2).move_to(DOWN * 2.55)
         self.say("The histogram said byte arrays. The dominator tree says this map, held by this field.",
                  [(0, [FadeIn(verdict[0])], 0.7), (1, [FadeIn(verdict[1])], 0.8),
                   (1, [Indicate(pg, color=ROOT_C, scale_factor=1.04)], 0.9)])
