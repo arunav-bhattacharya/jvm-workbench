@@ -647,21 +647,19 @@ class Rx07Overflow(Narrated):
         self.play(FadeOut(table), run_time=0.5)
 
         # ---------- Kotlin Flow ----------
-        def col(title, lines, notes, color):
-            items = [T(title, 24, GREY_B)]
-            for ln, nt in zip(lines, notes):
-                items += [M(ln, 28), T(nt, 24, color)]
-            g = VGroup(*items).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
-            for i in (3,):
-                g[i].shift(DOWN * 0.3)
-                g[i + 1].shift(DOWN * 0.3)
-            return g
+        def col(title, lines, notes, x):
+            # every row sits on one baseline across both columns (bl adds a hidden descender)
+            items = [bl(title, 24, GREY_B), bl(lines[0], 28, mono=True), bl(notes[0], 24, GREY_B),
+                     bl(lines[1], 28, mono=True), bl(notes[1], 24, GREY_B)]
+            for m, y in zip(items, [0, -0.62, -1.08, -1.85, -2.31]):
+                m.move_to([x, y, 0], aligned_edge=LEFT + DOWN)
+            return VGroup(*items)
 
         java = col("Java, Reactor", ["ticks.onBackpressureLatest()", "events.onBackpressureBuffer(1_000)"],
-                   ["keep the newest", "hold 1,000, then fail"], GREY_B)
+                   ["keep the newest", "hold 1,000, then fail"], -6.2)
         kot = col("Kotlin, Flow", ["ticks.conflate()", "events.buffer(1_000)"],
-                  ["keep the newest", "hold 1,000, then the emitter suspends"], GREY_B)
-        pair = VGroup(java, kot).arrange(RIGHT, buff=1.0, aligned_edge=UP)
+                  ["keep the newest", "hold 1,000, then the emitter suspends"], java.get_right()[0] + 0.9)
+        pair = VGroup(java, kot)
         fit(pair, 12.6).move_to(UP * 0.5)
         flow_note = T("In Flow, a slow collector suspends the emitter, unless a buffer sits between them.", 26, GREY_B)
         fit(flow_note, 12.4).next_to(pair, DOWN, buff=0.7)

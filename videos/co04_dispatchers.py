@@ -127,9 +127,9 @@ class Co04Dispatchers(Narrated):
         disp = chip_t("dispatcher", DEF, 26)
         ctx = VGroup(T("its context holds a", 24, GREY_B), disp).arrange(DOWN, buff=0.15).next_to(coro, DOWN, buff=0.35)
         ly = [0.9, 0.3, -0.3, -0.9]
-        lanes1 = VGroup(*[DashedLine([0.2, y, 0], [6.2, y, 0], dash_length=0.08, stroke_width=1.5, color=GREY_D) for y in ly])
-        tl1 = VGroup(*[T(f"thread {i + 1}", 24, GREY_B).move_to([-0.1, y, 0], aligned_edge=RIGHT) for i, y in enumerate(ly)])
-        which = T("which thread?", 28, GREY_B).move_to([3.2, -1.8, 0])
+        lanes1 = VGroup(*[DashedLine([-0.6, y, 0], [5.0, y, 0], dash_length=0.08, stroke_width=1.5, color=GREY_D) for y in ly])
+        tl1 = VGroup(*[T(f"thread {i + 1}", 24, GREY_B).move_to([5.2, y, 0], aligned_edge=LEFT) for i, y in enumerate(ly)])
+        which = T("which thread?", 28, GREY_B).move_to([2.2, -1.8, 0])
         self.say("A coroutine runs on some thread, but suspend doesn't say which. "
                  "The dispatcher in its context picks it, each time the coroutine starts or resumes. "
                  "This is Kotlin only: Java has no coroutines.")
@@ -137,8 +137,8 @@ class Co04Dispatchers(Narrated):
         self.play(Create(lanes1), FadeIn(tl1), FadeIn(which), run_time=0.9)
         self.at(1)
         self.play(FadeIn(ctx, shift=UP * 0.1), FadeOut(which), run_time=0.7)
-        run1 = Rectangle(width=1.6, height=0.3, stroke_width=0).set_fill(CORO, 0.85).move_to([0.5, ly[1], 0], aligned_edge=LEFT)
-        run2 = Rectangle(width=1.9, height=0.3, stroke_width=0).set_fill(CORO, 0.85).move_to([3.4, ly[3], 0], aligned_edge=LEFT)
+        run1 = Rectangle(width=1.6, height=0.3, stroke_width=0).set_fill(CORO, 0.85).move_to([0.0, ly[1], 0], aligned_edge=LEFT)
+        run2 = Rectangle(width=1.9, height=0.3, stroke_width=0).set_fill(CORO, 0.85).move_to([2.4, ly[3], 0], aligned_edge=LEFT)
         s1 = T("starts", 24, CORO).next_to(run1, UP, buff=0.12)
         s2 = T("resumes", 24, CORO).next_to(run2, UP, buff=0.12)
         a1 = Arrow(disp.get_right(), run1.get_left(), buff=0.12, stroke_width=3, color=DEF, max_tip_length_to_length_ratio=0.08)
@@ -198,8 +198,8 @@ class Co04Dispatchers(Narrated):
                  "It has one thread per core, and at least two. On a 4-core pod that's 4 threads, for CPU work.")
         self.play(FadeIn(head_d), Create(lanes), FadeIn(names), FadeIn(axis), run_time=1.0)
         self.add(bars, cursor)
-        self.at(2)
-        self.play(tk.animate.set_value(70), run_time=2.2, rate_func=linear)
+        self.at(1)
+        self.play(tk.animate.set_value(70), run_time=4.0, rate_func=linear)
         cpu_lab = T("CPU work", 24, CPU).move_to([tl.X(35), LANE_Y[0] + 0.42, 0])
         self.play(FadeIn(cpu_lab), run_time=0.4)
         self.hold()
@@ -207,7 +207,7 @@ class Co04Dispatchers(Narrated):
         # ---------- a blocking query on Default ----------
         for lane in range(4):
             tl.segs.append((lane, cpu_until[lane], cpu_until[lane] + 200, "block"))
-        q_lab = T("JDBC query: asleep for 200 ms", 22, GREY_B).move_to([tl.X(86), LANE_Y[0], 0], aligned_edge=LEFT).set_z_index(2)
+        q_lab = T("asleep", 22, GREY_B).move_to([tl.X(88), LANE_Y[0], 0], aligned_edge=LEFT).set_z_index(2)
         arrivals = [160 + 8 * i for i in range(14)]
         qgrid = always_redraw(lambda: queue_grid(sum(1 for a in arrivals if a <= tk.get_value()), CPU))
         qcount = always_redraw(lambda: VGroup(
@@ -217,7 +217,8 @@ class Co04Dispatchers(Narrated):
         self.say("Run a 200 millisecond JDBC query there, and the thread sleeps for 200 milliseconds, doing nothing. "
                  "Four requests doing that take every thread, and all CPU work waits.")
         self.play(FadeOut(cpu_lab), tk.animate.set_value(100), run_time=1.0, rate_func=linear)
-        self.play(FadeIn(q_lab), tk.animate.set_value(125), run_time=1.2, rate_func=linear)
+        self.play(tk.animate.set_value(125), run_time=1.0, rate_func=linear)
+        self.play(FadeIn(q_lab), run_time=0.4)
         self.at(1)
         self.add(qgrid, qcount)
         self.play(tk.animate.set_value(268), run_time=3.6, rate_func=linear)
@@ -258,7 +259,7 @@ class Co04Dispatchers(Narrated):
 
         # ---------- Dispatchers.IO ----------
         head_io = VGroup(M("Dispatchers.IO", 28, IOC), T("up to 64 at once", 24, GREY_B)
-                         ).arrange(RIGHT, buff=0.4, aligned_edge=DOWN).move_to([-6.4, -1.55, 0], aligned_edge=LEFT)
+                         ).arrange(DOWN, buff=0.15, aligned_edge=LEFT).move_to([-6.4, (IO_TOP + IO_BOT) / 2, 0], aligned_edge=LEFT)
         io_box = Rectangle(width=X1 - X0, height=IO_TOP - IO_BOT, stroke_width=1.5, stroke_color=IOC
                            ).set_fill(dark(IOC, 0.12), 1).move_to([(X0 + X1) / 2, (IO_TOP + IO_BOT) / 2, 0]).set_z_index(-1)
         io_rows = VGroup(*[Line([X0, IO_TOP - 0.0234 * (r + 0.5), 0], [X1, IO_TOP - 0.0234 * (r + 0.5), 0],
@@ -307,7 +308,7 @@ class Co04Dispatchers(Narrated):
             col = {"cpu": CPU, "idle": GREY_M, "asleep": GREY_B}[state]
             fill = {"cpu": dark(CPU, 0.4), "idle": dark(GREY_M, 0.2), "asleep": dark(IOC, 0.3)}[state]
             r = RoundedRectangle(corner_radius=0.08, width=1.5, height=0.5, stroke_color=col, stroke_width=2.5).set_fill(fill, 1)
-            return VGroup(r, T(f"worker-{i}", 22).move_to(r).shift(RIGHT * 0.12)).set_z_index(2)
+            return VGroup(r, T(f"worker-{i}", 22).move_to(r).shift(RIGHT * 0.17)).set_z_index(2)
 
         pool = RoundedRectangle(corner_radius=0.15, width=12.8, height=4.1, stroke_color=GREY_D, stroke_width=2
                                 ).move_to([0, -1.15, 0])
@@ -338,10 +339,13 @@ class Co04Dispatchers(Narrated):
         L3 = "    return withContext(Dispatchers.Default) { renderer.render(rows) }"
         lines = VGroup(M(L1, 24), M(L2, 24, t2c={"Dispatchers.IO": IOC}), M(L3, 24, t2c={"Dispatchers.Default": DEF}),
                        M("}", 24)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+        cw = M("0123456789", 24).width / 10          # Text drops leading spaces, so indent by hand
+        lines[1].shift(RIGHT * 4 * cw)
+        lines[2].shift(RIGHT * 4 * cw)
         code = VGroup(T("Kotlin", 22, GREY_B), lines).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
         fit(code, 12.6).move_to([0, 0, 0]).align_to([0, 1.15, 0], DOWN)
-        dot = Dot(radius=0.12, color=CORO).set_z_index(3)
-        dot.add_updater(lambda d: d.move_to(W[1][0].get_left() + RIGHT * 0.22))
+        dot = Dot(radius=0.1, color=CORO).set_z_index(3)
+        dot.add_updater(lambda d: d.move_to(W[1][0].get_left() + RIGHT * 0.2))
         coro_lab = VGroup(Dot(radius=0.1, color=CORO), T("the coroutine running statementPdf", 22, CORO)
                           ).arrange(RIGHT, buff=0.15).move_to([6.2, YN, 0], aligned_edge=RIGHT)
         self.say("To move one piece of work, use withContext. Loading the rows is a blocking JDBC call. "

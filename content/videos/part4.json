@@ -9,6 +9,8 @@
     {"slug": "perf04-false-sharing", "lesson": "perf-04", "section": 1, "title": "False sharing: two threads, two fields, one cache line bouncing between cores"},
     {"slug": "boot02-aot-cache", "lesson": "boot-02", "section": 2, "title": "Leyden's AOT cache: train, assemble, then start with the classes already loaded and linked"},
     {"slug": "mem07-dominator-tree", "lesson": "mem-07", "section": 1, "title": "From a heap dump to the leak: retained size and the dominator tree"},
-    {"slug": "cls03-indy", "lesson": "cls-03", "section": 0, "title": "A lambda is a body method plus an invokedynamic that LambdaMetafactory links once"}
+    {"slug": "cls03-indy", "lesson": "cls-03", "section": 0, "title": "A lambda is a body method plus an invokedynamic that LambdaMetafactory links once"},
+    {"slug": "perf06-flame-graph", "lesson": "perf-06", "section": 2, "title": "Reading a flame graph: counted stacks where width is samples, left to right is the alphabet, and the tops are where the CPU was"},
+    {"slug": "mem01-object-layout", "lesson": "mem-01", "section": 1, "title": "The 40 bytes of a Payment: a 12-byte header, fields in the JVM's order, padding to 8, and 4-byte compressed references"}
   ]
 }
