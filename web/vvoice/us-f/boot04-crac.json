@@ -1,0 +1,295 @@
+{
+ "slug": "boot04-crac",
+ "voice": "us-f",
+ "max_late": 0.49,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.149,
+   "secs": 2.07,
+   "tries": 1,
+   "text": "A started J V M is still cold."
+  },
+  {
+   "cue": 4.98,
+   "start": 4.98,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.8,
+   "tries": 1,
+   "text": "A fresh J V M ran the same two zero zero zero zero card-number checks, ten rounds in a row."
+  },
+  {
+   "cue": 11.03,
+   "start": 11.03,
+   "late": 0.0,
+   "tempo": 1.051,
+   "secs": 2.26,
+   "tries": 1,
+   "text": "Round one took about twenty-nine ms."
+  },
+  {
+   "cue": 13.52,
+   "start": 13.52,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.37,
+   "tries": 1,
+   "text": "From round six on, each round took two to three ms."
+  },
+  {
+   "cue": 17.67,
+   "start": 17.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.47,
+   "tries": 1,
+   "text": "The code didn't change."
+  },
+  {
+   "cue": 19.79,
+   "start": 19.79,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.26,
+   "tries": 2,
+   "text": "The J V M did."
+  },
+  {
+   "cue": 21.67,
+   "start": 21.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.61,
+   "tries": 1,
+   "text": "A fresh J V M starts in the interpreter and counts how often each method runs."
+  },
+  {
+   "cue": 27.1,
+   "start": 27.1,
+   "late": 0.0,
+   "tempo": 1.062,
+   "secs": 3.14,
+   "tries": 1,
+   "text": "When a method gets hot, C one compiles it quickly."
+  },
+  {
+   "cue": 30.46,
+   "start": 30.46,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.94,
+   "tries": 1,
+   "text": "If it stays hot, C two compiles it again, using the profile."
+  },
+  {
+   "cue": 35.3,
+   "start": 35.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.35,
+   "tries": 1,
+   "text": "That climb is warm-up."
+  },
+  {
+   "cue": 36.95,
+   "start": 36.95,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.09,
+   "tries": 1,
+   "text": "Every new J V M makes it again, on every pod, after every deploy and every scale-out."
+  },
+  {
+   "cue": 43.97,
+   "start": 43.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.71,
+   "tries": 1,
+   "text": "crack, Coordinated Restore at Checkpoint, takes a different route."
+  },
+  {
+   "cue": 48.27,
+   "start": 48.27,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.14,
+   "tries": 1,
+   "text": "A checkpoint writes a warm, running J V M to disk."
+  },
+  {
+   "cue": 51.44,
+   "start": 51.55,
+   "late": 0.11,
+   "tempo": 1.0,
+   "secs": 2.91,
+   "tries": 1,
+   "text": "A restore starts a new process from that image."
+  },
+  {
+   "cue": 54.73,
+   "start": 54.73,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "On Linux, crack uses CRIU."
+  },
+  {
+   "cue": 56.59,
+   "start": 57.08,
+   "late": 0.49,
+   "tempo": 1.0,
+   "secs": 8.64,
+   "tries": 1,
+   "text": "It freezes the process and writes its memory pages, each thread's C P U registers, and the kernel state it can describe into image files."
+  },
+  {
+   "cue": 66.83,
+   "start": 66.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.66,
+   "tries": 1,
+   "text": "The restored process continues at the instruction where the old one stopped."
+  },
+  {
+   "cue": 71.68,
+   "start": 71.68,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.41,
+   "tries": 1,
+   "text": "The heap, the loaded classes and the jit's compiled code are all back."
+  },
+  {
+   "cue": 76.93,
+   "start": 76.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.78,
+   "tries": 1,
+   "text": "You start the J V M with a checkpoint directory."
+  },
+  {
+   "cue": 80.06,
+   "start": 80.06,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.06,
+   "tries": 1,
+   "text": "After warm-up traffic, J command writes the image and ends the process."
+  },
+  {
+   "cue": 84.54,
+   "start": 84.54,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.38,
+   "tries": 1,
+   "text": "Then you restore from it, as often as you like."
+  },
+  {
+   "cue": 88.5,
+   "start": 88.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 9.4,
+   "tries": 1,
+   "text": "In the crack project's two thousand twenty tests, Spring Boot's first operation took three thousand eight hundred ninety-eight ms after a normal start, and thirty-eight ms restored."
+  },
+  {
+   "cue": 101.43,
+   "start": 101.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.76,
+   "tries": 1,
+   "text": "But some state can't be saved."
+  },
+  {
+   "cue": 103.52,
+   "start": 103.52,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.89,
+   "tries": 1,
+   "text": "A TCP connection also lives on the other machine, and the card issuer dropped its side long ago."
+  },
+  {
+   "cue": 110.4,
+   "start": 110.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.58,
+   "tries": 1,
+   "text": "So by default, crack fails the checkpoint while files or sockets are open."
+  },
+  {
+   "cue": 115.38,
+   "start": 115.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.02,
+   "tries": 1,
+   "text": "Close them yourself."
+  },
+  {
+   "cue": 117.53,
+   "start": 117.53,
+   "late": 0.0,
+   "tempo": 1.029,
+   "secs": 3.05,
+   "tries": 1,
+   "text": "Your code takes part through org.crac's Resource."
+  },
+  {
+   "cue": 120.79,
+   "start": 120.79,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.05,
+   "tries": 1,
+   "text": "The ledger pool registers itself with the global context."
+  },
+  {
+   "cue": 124.77,
+   "start": 124.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.0,
+   "tries": 1,
+   "text": "Before the checkpoint, beforeCheckpoint closes every connection."
+  },
+  {
+   "cue": 128.88,
+   "start": 128.88,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.88,
+   "tries": 1,
+   "text": "After a restore, afterRestore reconnects."
+  },
+  {
+   "cue": 132.33,
+   "start": 132.33,
+   "late": 0.0,
+   "tempo": 1.041,
+   "secs": 4.74,
+   "tries": 1,
+   "text": "The context calls beforeCheckpoint newest first, and afterRestore oldest first."
+  },
+  {
+   "cue": 137.28,
+   "start": 137.28,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.64,
+   "tries": 1,
+   "text": "The Kafka consumer writes through the pool, so it stops first and starts last."
+  }
+ ]
+}
