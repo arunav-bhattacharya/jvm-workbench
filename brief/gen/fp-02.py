@@ -127,7 +127,7 @@ Since **Kotlin 2.0, lambdas compile to `invokedynamic`** by default, the mechani
 How many objects you get depends on what the lambda captures:
 
 ```java
-nonCapturing() == nonCapturing();       // true: one shared instance
+nonCapturing() == nonCapturing();       // true on HotSpot: one shared instance
 capturing(30) == capturing(30);         // false: a new object per evaluation
 ```
 
@@ -137,7 +137,7 @@ capturing(30) === capturing(30)         // false: a new object per evaluation
 capturing(30) == capturing(30)          // false: lambdas have no equals
 ```
 
-A **non-capturing** lambda uses nothing from outside its body, so one instance serves every call. A **capturing** lambda holds the values it uses (`feeCents` here), so each evaluation allocates a new object with those values inside.
+A **non-capturing** lambda uses nothing from outside its body, so one instance serves every call. (That is what both languages printed on JDK 21. Don't write code that depends on it.) A **capturing** lambda holds the values it uses (`feeCents` here), so each evaluation allocates a new object with those values inside.
 
 Function references are where Kotlin differs from Java. In Kotlin 2.4.21, `::addFee` and `m::withFee` still compile to real classes, `LambdaShapesKt$topLevelRef$1` and `LambdaShapesKt$boundRef$1`, which extend `kotlin.jvm.internal.FunctionReferenceImpl`. An unbound reference is a singleton held in a static `INSTANCE` field. A bound one is a new object each time, holding its receiver. Java method references go through `invokedynamic` like lambdas do, and leave no class file behind.
 
@@ -262,7 +262,7 @@ L = {
     ],
     "analogy": "A closure is a pocket calculator you take home from the office with a number still in its memory. The office, the function that made it, has closed for the day, but the number goes where the calculator goes. Two colleagues can each take their own calculator and keep separate totals. The trouble starts when two people share one calculator and both press M+ at the same moment: each reads the memory, adds, and writes back, and one press disappears. The analogy breaks because a real calculator takes one key press at a time. A `Ref` box has no such protection.",
     "in_your_world": "Rules as values fit the per-merchant configuration your payment service already has. Build a `Map<MerchantTier, List<Rule>>` once at startup in an `@ApplicationScoped` Quarkus bean, look up the list on each authorization, and run it. Kafka consumers are where closures bite. A `var processed = 0` captured by the handler lambda of a listener running with concurrency 4 is one `Ref` box shared by four threads, and your metric undercounts under load. Use a Micrometer counter or a `LongAdder` for shared counts, and keep per-message state inside the handler. A Temporal activity retried on another worker never sees the closure at all, so don't keep business state in one.",
-    "mistake": "The common mistake is changing a captured `var` from a lambda that runs somewhere else: a callback, a `CompletableFuture` stage, a pool task, a parallel stream. Kotlin compiles it without a word, because capturing a `var` is legal; the variable just becomes a `Ref` box with a plain field. Java stops you with the effectively-final error, and then people reach for `long[] total = {0}`, which is the same box with the same race. Don't accumulate through shared state. Return a value from each task and combine the values (`sum`, `fold`). If you really need one live shared count, capture a `val` that holds an `AtomicLong` or a `LongAdder`.",
+    "mistake": "The common mistake is changing a captured `var` from a lambda that runs somewhere else: a callback, a `CompletableFuture` stage, a pool task, a parallel stream. Kotlin compiles it without a word, because capturing a `var` is legal; the variable just becomes a `Ref` box with a plain field. Java stops you with the effectively-final error, and then people reach for `long[] total = {0}`, which is the same box with the same race. Don't accumulate through shared state. Return a value from each task and combine the values (`sum`, `fold`). If you do need one live shared count, capture a `val` that holds an `AtomicLong` or a `LongAdder`.",
     "compare": {
         "title": "Rules and closures with functional interfaces and with function types",
         "java": {
@@ -300,7 +300,7 @@ L = {
                 "alt_code": "static long settle(List<Payment> batch, ExecutorService pool) throws Exception {\n    List<Future<Long>> futures = new ArrayList<>();\n    for (List<Payment> chunk : chunks(batch, 500)) {\n        futures.add(pool.submit(() -> chunk.stream()                  // 1. each task returns a value\n                .mapToLong(p -> ledger.post(p) ? p.amountCents() : 0L)\n                .sum()));\n    }\n    long total = 0;\n    for (Future<Long> f : futures) total += f.get();                // 2. combine on one thread\n    return total;\n}"
             },
             {
-                "say": "3. If you really need a live shared number, say a progress gauge while the job runs, share a thread-safe object through a `val`, never a `var`. `LongAdder` spreads the contention over several cells and is cheaper than `AtomicLong` when many threads add at once.",
+                "say": "3. If you do need a live shared number, say a progress gauge while the job runs, share a thread-safe object through a `val`, never a `var`. `LongAdder` spreads the contention over several cells and is cheaper than `AtomicLong` when many threads add at once.",
                 "code": "val settledSoFar = LongAdder()                 // a val: the reference never changes\npool.submit { chunk.forEach { p -> if (ledger.post(p)) settledSoFar.add(p.amountCents) } }",
                 "lang": "kotlin",
                 "alt_lang": "java",
@@ -430,7 +430,7 @@ L = {
     ],
     "explain_back": {
         "prompt": "A teammate's Kotlin counter, a `var n = 0` captured by a lambda that four threads call, loses counts. They say: \"There's no shared field anywhere in my code.\" Explain what the compiler did and what you would change.",
-        "answer": "A local variable normally lives in the stack frame of the function that declares it, and the lambda outlives that frame. So when a lambda captures a `var`, Kotlin moves the variable into a small object on the heap, a `Ref$IntRef`, and both the function and the lambda use its `element` field. That field is the shared field: all four threads reach it through the same lambda. It's a plain field, so `n++` is a read, an add and a write that two threads can interleave, and increments get lost. Java would have refused to compile the capture. I'd stop sharing: have each thread or task count its own work and add the counts up at the end. If a live shared count is really needed, I'd capture a `val` holding a `LongAdder` or `AtomicLong` instead of a `var`."
+        "answer": "A local variable normally lives in the stack frame of the function that declares it, and the lambda outlives that frame. So when a lambda captures a `var`, Kotlin moves the variable into a small object on the heap, a `Ref$IntRef`, and both the function and the lambda use its `element` field. That field is the shared field: all four threads reach it through the same lambda. It's a plain field, so `n++` is a read, an add and a write that two threads can interleave, and increments get lost. Java would have refused to compile the capture. I'd stop sharing: have each thread or task count its own work and add the counts up at the end. If a live shared count is needed, I'd capture a `val` holding a `LongAdder` or `AtomicLong` instead of a `var`."
     },
     "deeper": {
         "minutes": 10,
