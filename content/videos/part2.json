@@ -8,6 +8,9 @@
     {"slug": "rx03-flatmap", "lesson": "rx-03", "section": 1, "title": "flatMap emits in completion order; concatMap and flatMapSequential keep input order"},
     {"slug": "co05-cancel", "lesson": "co-05", "section": 0, "title": "Cancellation is a request: a coroutine stops only at a suspension point or a check"},
     {"slug": "co07-cold", "lesson": "co-07", "section": 0, "title": "A cold Flow is a recipe: nothing runs until collect, and each collector runs it again"},
-    {"slug": "io05-context", "lesson": "io-05", "section": 0, "title": "A Vert.x context runs a verticle's handlers on one event-loop thread, so never block it"}
+    {"slug": "io05-context", "lesson": "io-05", "section": 0, "title": "A Vert.x context runs a verticle's handlers on one event-loop thread, so never block it"},
+    {"slug": "io08-zero-copy", "lesson": "io-08", "section": 0, "title": "Zero-copy with transferTo, then readiness (epoll) versus completion (io_uring)"},
+    {"slug": "rx07-overflow", "lesson": "rx-07", "section": 2, "title": "When the source can't slow down, buffer, drop, latest or error decide what the slow subscriber loses"},
+    {"slug": "co04-dispatchers", "lesson": "co-04", "section": 0, "title": "A dispatcher picks the thread: Default for CPU work, IO for blocking calls, and withContext hops between them"}
   ]
 }

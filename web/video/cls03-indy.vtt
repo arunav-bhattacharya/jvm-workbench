@@ -1,0 +1,121 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.425
+Here is one lambda, in Java and in Kotlin.
+
+2
+00:00:05.425 --> 00:00:07.566
+It captures fee and adds it to x.
+
+3
+00:00:07.566 --> 00:00:13.600
+You get an object that implements an interface, yet the compiler writes no class file for it.
+
+4
+00:00:13.800 --> 00:00:23.236
+javac turns the lambda into two things: an invokedynamic instruction where the lambda was, and a private static method that holds its body.
+
+5
+00:00:23.467 --> 00:00:27.719
+The body method takes the captured fee first, then the lambda's own x.
+
+6
+00:00:27.933 --> 00:00:30.243
+Read the call site type as a factory.
+
+7
+00:00:30.243 --> 00:00:34.176
+Give it the captured int, and it gives you an IntUnaryOperator.
+
+8
+00:00:34.367 --> 00:00:37.835
+Other invoke instructions name the method they call.
+
+9
+00:00:37.835 --> 00:00:43.971
+invokedynamic names only a name, a type, and a bootstrap method that will choose the target.
+
+10
+00:00:43.971 --> 00:00:48.573
+For a lambda, that is LambdaMetafactory, with three static arguments.
+
+11
+00:00:49.400 --> 00:00:54.047
+The first time the instruction runs, the JVM calls the bootstrap method.
+
+12
+00:00:54.047 --> 00:01:01.211
+It passes a Lookup, which carries your class's access rights, plus the name, the type and the static arguments.
+
+13
+00:01:01.400 --> 00:01:06.080
+LambdaMetafactory spins a hidden class that implements IntUnaryOperator.
+
+14
+00:01:06.080 --> 00:01:10.629
+It's a nestmate of your class, so it may call the private body method.
+
+15
+00:01:10.833 --> 00:01:19.293
+It returns a ConstantCallSite holding a method handle, a typed reference to a method that the JVM can call directly.
+
+16
+00:01:19.293 --> 00:01:21.919
+The JVM links the instruction to it.
+
+17
+00:01:22.100 --> 00:01:27.144
+Every later run calls that target directly, and the bootstrap method never runs again.
+
+18
+00:01:27.144 --> 00:01:31.073
+The target can't change, so the JIT can inline straight through it.
+
+19
+00:01:31.867 --> 00:01:37.305
+This lambda captures fee, so each time the expression runs you get a new small object.
+
+20
+00:01:37.305 --> 00:01:39.076
+All of them share one class.
+
+21
+00:01:39.076 --> 00:01:42.617
+A lambda that captures nothing gets one shared instance.
+
+22
+00:01:43.433 --> 00:01:48.159
+Kotlin compiles a lambda the same way, by default since Kotlin 2.0.
+
+23
+00:01:48.159 --> 00:01:52.461
+Its interface is Function1, whose invoke is erased to Object.
+
+24
+00:01:52.461 --> 00:01:58.173
+So the third bootstrap argument tells the metafactory to insert boxing and casts.
+
+25
+00:01:58.367 --> 00:02:01.051
+A Kotlin function reference is different.
+
+26
+00:02:01.051 --> 00:02:05.633
+In the lesson's demo it still compiled to an ordinary generated class.
+
+27
+00:02:06.467 --> 00:02:07.660
+Here is a check.
+
+28
+00:02:07.660 --> 00:02:11.611
+plus is called 1,000 times with 1,000 different fees.
+
+29
+00:02:11.611 --> 00:02:15.041
+How many lambda classes, and how many objects?
+
+30
+00:02:15.800 --> 00:02:22.676
+One class, linked once at that call site, and 1,000 objects, because each one captures its own fee.

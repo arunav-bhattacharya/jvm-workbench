@@ -9,6 +9,8 @@
     {"slug": "conc05-wait-loop", "lesson": "conc-05", "section": 1, "title": "Two consumers, one payment: notifyAll wakes both, so a woken thread must check again in a while loop"},
     {"slug": "conc08-cas-loop", "lesson": "conc-08", "section": 1, "title": "Two threads read 41, one compare-and-set wins, the other fails, reads 42 and retries"},
     {"slug": "exec06-compose", "lesson": "exec-06", "section": 1, "title": "thenApply maps, thenCompose flattens a future of a future, thenCombine waits for two futures started side by side"},
-    {"slug": "vt04-pinning", "lesson": "vt-04", "section": 0, "title": "On JDK 21 to 23 a virtual thread pinned inside synchronized blocks its carrier; with ReentrantLock it unmounts"}
+    {"slug": "vt04-pinning", "lesson": "vt-04", "section": 0, "title": "On JDK 21 to 23 a virtual thread pinned inside synchronized blocks its carrier; with ReentrantLock it unmounts"},
+    {"slug": "exec08-work-stealing", "lesson": "exec-08", "section": 1, "title": "Each worker forks onto the top of its own deque, an idle worker steals the biggest task from the bottom, and fork, compute, join keeps the halves parallel"},
+    {"slug": "jmm04-publication", "lesson": "jmm-04", "section": 0, "title": "Publishing is a write: a reader can see the reference before the constructor's field writes, unless an edge or final fields stop it"}
   ]
 }

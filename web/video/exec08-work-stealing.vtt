@@ -1,0 +1,149 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.315
+Say you need the fees for 2,000,000 ledger entries, and you have four workers.
+
+2
+00:00:07.533 --> 00:00:09.580
+A RecursiveTask splits the job.
+
+3
+00:00:09.580 --> 00:00:12.485
+If its range is small enough, it just loops.
+
+4
+00:00:12.485 --> 00:00:15.852
+If not, it cuts it in half, into two smaller tasks.
+
+5
+00:00:16.067 --> 00:00:19.574
+The lesson's demo uses a threshold of 50,000.
+
+6
+00:00:19.574 --> 00:00:22.459
+Six rounds of halving give 64 leaves.
+
+7
+00:00:23.333 --> 00:00:28.780
+In code: fork the left half, compute the right half on this thread, then join the left half.
+
+8
+00:00:30.800 --> 00:00:33.541
+A ThreadPoolExecutor has one shared queue.
+
+9
+00:00:33.541 --> 00:00:38.173
+A ForkJoinPool gives every worker its own deque: a queue with two ends.
+
+10
+00:00:38.400 --> 00:00:40.022
+The job starts on worker 1.
+
+11
+00:00:40.022 --> 00:00:46.328
+Each split forks the left half onto the top of its own deque, and the worker goes on with the right half.
+
+12
+00:00:46.533 --> 00:00:48.190
+It also pops from the top.
+
+13
+00:00:48.190 --> 00:00:53.480
+So it works on its newest task: the smallest one, whose data is still in its cache.
+
+14
+00:00:53.700 --> 00:00:56.453
+Worker 2 has nothing to do, so it steals.
+
+15
+00:00:56.453 --> 00:01:03.303
+It takes the bottom task of worker 1's deque: the oldest one, forked highest up, so the biggest piece.
+
+16
+00:01:03.303 --> 00:01:04.579
+Half the whole job.
+
+17
+00:01:04.800 --> 00:01:09.180
+The thief splits it on its own deque, and stays busy for a long time.
+
+18
+00:01:09.180 --> 00:01:10.957
+Workers 3 and 4 do the same.
+
+19
+00:01:11.167 --> 00:01:13.742
+Three steals, and all four are busy.
+
+20
+00:01:13.742 --> 00:01:18.391
+That's why the demo needs only a handful of steals for 64 leaves.
+
+21
+00:01:18.600 --> 00:01:20.324
+And join doesn't just park.
+
+22
+00:01:20.324 --> 00:01:23.644
+If nobody stole the task, the worker runs it itself.
+
+23
+00:01:23.644 --> 00:01:28.113
+If a thief has it, the worker runs other pending tasks while it waits.
+
+24
+00:01:29.033 --> 00:01:30.024
+Now the order.
+
+25
+00:01:30.024 --> 00:01:33.069
+Fork the left half, so a thief can take it.
+
+26
+00:01:33.069 --> 00:01:35.051
+Compute the right half here.
+
+27
+00:01:35.051 --> 00:01:35.759
+Then join.
+
+28
+00:01:35.967 --> 00:01:37.313
+The halves overlap.
+
+29
+00:01:37.313 --> 00:01:42.273
+On four free cores, the demo runs 3 to 4 times faster than one thread.
+
+30
+00:01:42.500 --> 00:01:48.032
+Swap the last two steps, and the worker waits for the left half before it even starts the right one.
+
+31
+00:01:48.233 --> 00:01:52.635
+Usually it pops the left half and runs it itself, then the right half.
+
+32
+00:01:52.635 --> 00:01:54.899
+At every split, one after the other.
+
+33
+00:01:54.899 --> 00:01:57.917
+So the sum takes about as long as on one thread.
+
+34
+00:01:58.833 --> 00:02:03.332
+left.compute() + right.compute() is the same thing, written honestly.
+
+35
+00:02:03.332 --> 00:02:07.636
+All of them give the right total, so the bug survives code review.
+
+36
+00:02:07.867 --> 00:02:09.678
+So: fork, compute, join.
+
+37
+00:02:09.678 --> 00:02:12.019
+Or let invokeAll do it for you.

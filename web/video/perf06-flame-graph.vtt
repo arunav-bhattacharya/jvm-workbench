@@ -1,0 +1,133 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.699
+You want to know where feeSlow spends its CPU time, without changing its code.
+
+2
+00:00:08.400 --> 00:00:10.382
+Here is the thread's call stack.
+
+3
+00:00:10.382 --> 00:00:12.737
+Thread.run is the root, at the bottom.
+
+4
+00:00:12.737 --> 00:00:15.834
+Each method sits on top of the one that called it.
+
+5
+00:00:15.834 --> 00:00:18.560
+The top frame is where the CPU is right now.
+
+6
+00:00:18.700 --> 00:00:20.914
+The stack changes all the time.
+
+7
+00:00:20.914 --> 00:00:26.415
+A sampling profiler is a loop: every 10 ms, it takes a snapshot of the stack.
+
+8
+00:00:28.300 --> 00:00:30.411
+Then it counts identical stacks.
+
+9
+00:00:30.411 --> 00:00:35.887
+One line per stack, with its count: this text is what every flame graph tool reads.
+
+10
+00:00:36.100 --> 00:00:42.315
+To draw a flame graph, the tool first sorts the stacks alphabetically, by full class name.
+
+11
+00:00:42.315 --> 00:00:46.183
+Not by time: the sample from 20 ms ends up on the right.
+
+12
+00:00:46.400 --> 00:00:51.871
+Then identical frames at the same depth, under the same parent, merge into one box.
+
+13
+00:00:51.871 --> 00:00:54.179
+When each sample was taken is gone.
+
+14
+00:00:54.400 --> 00:01:00.776
+So each box is one frame, and its width is the number of samples with that frame on the stack.
+
+15
+00:01:00.776 --> 00:01:02.947
+String.format was on 4 of the 9.
+
+16
+00:01:03.167 --> 00:01:06.651
+feeSlow was on all 9, so it spans the whole width.
+
+17
+00:01:06.867 --> 00:01:10.439
+And left to right is the alphabet, not a timeline.
+
+18
+00:01:10.439 --> 00:01:16.011
+flamegraph.pl's own header says it: the ordering on the x-axis has no meaning.
+
+19
+00:01:16.233 --> 00:01:17.669
+Now look at the tops.
+
+20
+00:01:17.669 --> 00:01:23.892
+The part of a box with nothing above it is self time: the CPU was in that frame's own code.
+
+21
+00:01:23.892 --> 00:01:25.875
+Wide tops are where to start.
+
+22
+00:01:26.067 --> 00:01:28.995
+feeSlow is wide, but covered by its children.
+
+23
+00:01:28.995 --> 00:01:34.656
+It does little itself and calls expensive things, so the fix is usually in one of them.
+
+24
+00:01:35.533 --> 00:01:43.331
+This is feeSlow in a real CPU profile of the same fee code, zoomed in.
+
+25
+00:01:43.331 --> 00:01:47.899
+It covered 5,747 of 8,005 samples: 71.8%.
+
+26
+00:01:48.100 --> 00:01:50.918
+Walk up from that wide plateau.
+
+27
+00:01:50.918 --> 00:01:59.825
+Its widest children are String.format, with 23.3% of all samples, and Pattern.compile, with 17.6%.
+
+28
+00:02:00.033 --> 00:02:07.635
+Then toPlainString, with 11.5%, and the BigDecimal constructor, with 7.9%.
+
+29
+00:02:07.867 --> 00:02:11.252
+Pattern.compile builds a regex on every call.
+
+30
+00:02:11.252 --> 00:02:18.248
+Move it into a static final field, and that whole tower, about 18% of the samples, goes away.
+
+31
+00:02:18.433 --> 00:02:19.667
+Width is samples.
+
+32
+00:02:19.667 --> 00:02:21.844
+Left to right is the alphabet.
+
+33
+00:02:21.844 --> 00:02:24.384
+And the tops are where the CPU was.

@@ -8,6 +8,7 @@
     {"slug": "perf03-dead-code", "lesson": "perf-03", "section": 0, "title": "A nanoTime loop measures the optimizer: dead code, constant folding, and the loop JMH builds instead"},
     {"slug": "perf04-false-sharing", "lesson": "perf-04", "section": 1, "title": "False sharing: two threads, two fields, one cache line bouncing between cores"},
     {"slug": "boot02-aot-cache", "lesson": "boot-02", "section": 2, "title": "Leyden's AOT cache: train, assemble, then start with the classes already loaded and linked"},
-    {"slug": "mem07-dominator-tree", "lesson": "mem-07", "section": 1, "title": "From a heap dump to the leak: retained size and the dominator tree"}
+    {"slug": "mem07-dominator-tree", "lesson": "mem-07", "section": 1, "title": "From a heap dump to the leak: retained size and the dominator tree"},
+    {"slug": "cls03-indy", "lesson": "cls-03", "section": 0, "title": "A lambda is a body method plus an invokedynamic that LambdaMetafactory links once"}
   ]
 }

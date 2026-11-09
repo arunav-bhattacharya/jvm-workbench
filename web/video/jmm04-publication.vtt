@@ -1,0 +1,125 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.358
+Publishing an object means putting a reference where another thread can find it.
+
+2
+00:00:07.358 --> 00:00:11.375
+Here a loader builds a rate card, and publishes it in a shared field.
+
+3
+00:00:13.000 --> 00:00:14.361
+That's three steps.
+
+4
+00:00:14.361 --> 00:00:19.734
+The JVM allocates the object, every field at its default: 0, false or null.
+
+5
+00:00:19.734 --> 00:00:22.170
+The constructor writes the fields.
+
+6
+00:00:22.170 --> 00:00:24.248
+Then the reference is stored.
+
+7
+00:00:24.467 --> 00:00:28.167
+But a reader of a plain field has no edge to these writes.
+
+8
+00:00:28.167 --> 00:00:33.973
+The JIT may store the reference first, and an ARM CPU may make stores visible in any order.
+
+9
+00:00:34.200 --> 00:00:37.882
+So the reader finds a card, and still reads a null currency.
+
+10
+00:00:37.882 --> 00:00:42.363
+That's a partially constructed object, and no line you wrote creates one.
+
+11
+00:00:43.267 --> 00:00:44.625
+It's not theory.
+
+12
+00:00:44.625 --> 00:00:49.551
+A jcstress sample does exactly this, with four int fields.
+
+13
+00:00:49.551 --> 00:00:55.326
+On x86_64, readers saw zeros in about 18,000 of 219 million samples.
+
+14
+00:00:55.326 --> 00:00:59.912
+On AArch64, almost every mix of zeros and real values.
+
+15
+00:01:00.133 --> 00:01:02.615
+x86 keeps its stores in order.
+
+16
+00:01:02.615 --> 00:01:05.757
+So on x86, the JIT did the reordering.
+
+17
+00:01:06.567 --> 00:01:07.485
+Two ways out.
+
+18
+00:01:07.485 --> 00:01:22.324
+First, publish through a happens-before edge, so the reference and the state travel together: a static initializer, a volatile field or AtomicReference, a final field, a lock, or a java.util.concurrent handoff.
+
+19
+00:01:23.633 --> 00:01:27.226
+Second, make the object safe to see even through a race.
+
+20
+00:01:27.226 --> 00:01:29.023
+That's what final fields do.
+
+21
+00:01:29.233 --> 00:01:35.409
+When a constructor writes a final field, HotSpot's C2 compiler puts a store-store barrier at its end.
+
+22
+00:01:35.409 --> 00:01:41.279
+Every write before it completes before any store after it, and the publishing store comes after.
+
+23
+00:01:41.533 --> 00:01:46.286
+On x86 the barrier compiles to nothing: it only stops the JIT.
+
+24
+00:01:46.286 --> 00:01:48.203
+On ARM it's a real fence.
+
+25
+00:01:48.433 --> 00:01:57.339
+So the rule says: a thread that sees the reference only after the constructor finished sees the final fields as the constructor set them.
+
+26
+00:01:57.339 --> 00:01:58.964
+Even through a data race.
+
+27
+00:01:59.167 --> 00:02:05.744
+In the jcstress sample, four final fields removed every partial result, on both machines.
+
+28
+00:02:06.667 --> 00:02:09.819
+But final fields don't make the reference visible.
+
+29
+00:02:09.819 --> 00:02:13.475
+A reader spinning on a plain field may never see the card.
+
+30
+00:02:13.475 --> 00:02:16.248
+So do both: final fields and a safe publish.
+
+31
+00:02:16.248 --> 00:02:18.896
+And don't let this escape the constructor.

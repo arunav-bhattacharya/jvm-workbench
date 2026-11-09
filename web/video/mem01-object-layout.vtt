@@ -1,0 +1,121 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.808
+Here is a payment class with six fields, in Java and in Kotlin.
+
+2
+00:00:06.808 --> 00:00:09.220
+How many bytes does one Payment take?
+
+3
+00:00:09.433 --> 00:00:18.400
+JOL, OpenJDK's object layout tool, prints the real answer on JDK 21: 40 bytes, for both.
+
+4
+00:00:19.233 --> 00:00:21.559
+Every object starts with a header.
+
+5
+00:00:21.559 --> 00:00:23.269
+The mark word is 8 bytes.
+
+6
+00:00:23.269 --> 00:00:29.152
+It holds the identity hash code, the GC age, and the lock bits that synchronized uses.
+
+7
+00:00:29.333 --> 00:00:33.680
+Then a class pointer, compressed to 4 bytes, says which class this is.
+
+8
+00:00:33.680 --> 00:00:35.171
+That's a 12-byte header.
+
+9
+00:00:35.500 --> 00:00:38.835
+The fields come next, but not in the order you wrote them.
+
+10
+00:00:39.067 --> 00:00:44.296
+The long can't start at 12, because a long must start at a multiple of 8.
+
+11
+00:00:44.296 --> 00:00:48.595
+So it goes to 16, and the JVM puts the int in the gap at 12.
+
+12
+00:00:48.767 --> 00:00:51.598
+The boolean and the byte take one byte each.
+
+13
+00:00:51.598 --> 00:00:55.009
+After a 2-byte gap come the references, 4 bytes each.
+
+14
+00:00:55.200 --> 00:00:56.409
+That's 36 bytes.
+
+15
+00:00:56.409 --> 00:01:01.016
+Objects start at multiples of 8, so the size rounds up to 40.
+
+16
+00:01:01.233 --> 00:01:05.330
+The rule: header, plus the fields, rounded up to 8.
+
+17
+00:01:05.330 --> 00:01:08.543
+12 plus 22 is 34, which rounds up to 40.
+
+18
+00:01:08.733 --> 00:01:12.425
+A reference on a 64-bit machine should take 8 bytes.
+
+19
+00:01:12.425 --> 00:01:18.603
+Here each one takes 4, thanks to compressed oops: an oop is an ordinary object pointer.
+
+20
+00:01:19.500 --> 00:01:25.267
+Every object starts at a multiple of 8, so the last 3 bits of its address are always zero.
+
+21
+00:01:25.500 --> 00:01:27.076
+So the JVM drops them.
+
+22
+00:01:27.076 --> 00:01:33.236
+It stores a 32-bit number, and shifts it left by 3 bits when it follows the reference.
+
+23
+00:01:33.433 --> 00:01:38.005
+2 to the 32 slots, times 8 bytes, is 32 GB.
+
+24
+00:01:39.633 --> 00:01:45.234
+Give the JVM a heap of 32 GB or more, and it turns compressed oops off.
+
+25
+00:01:45.234 --> 00:01:48.863
+References grow to 8 bytes, and Payment to 48.
+
+26
+00:01:49.067 --> 00:01:52.988
+An ArrayList of 1,000 Integers grows by 24%.
+
+27
+00:01:52.988 --> 00:01:57.891
+So a 40 GB heap holds less data than its size suggests.
+
+28
+00:01:59.800 --> 00:02:08.724
+On JDK 25, the flag UseCompactObjectHeaders moves the class pointer into the mark word, so the header is 8 bytes.
+
+29
+00:02:08.967 --> 00:02:11.684
+JOL's simulation puts Payment at 32.
+
+30
+00:02:11.684 --> 00:02:16.063
+Each object saves 8 bytes, or nothing, because of padding.

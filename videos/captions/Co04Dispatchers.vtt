@@ -1,0 +1,105 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:06.950
+A coroutine runs on some thread, but suspend doesn't say which.
+
+2
+00:00:06.950 --> 00:00:12.438
+The dispatcher in its context picks it, each time the coroutine starts or resumes.
+
+3
+00:00:12.438 --> 00:00:15.383
+This is Kotlin only: Java has no coroutines.
+
+4
+00:00:16.133 --> 00:00:20.797
+When you name no dispatcher, launch and async use Dispatchers.Default.
+
+5
+00:00:20.797 --> 00:00:23.795
+It has one thread per core, and at least two.
+
+6
+00:00:23.795 --> 00:00:26.927
+On a 4-core pod that's 4 threads, for CPU work.
+
+7
+00:00:27.067 --> 00:00:34.272
+Run a 200 millisecond JDBC query there, and the thread sleeps for 200 milliseconds, doing nothing.
+
+8
+00:00:34.272 --> 00:00:39.197
+Four requests doing that take every thread, and all CPU work waits.
+
+9
+00:00:39.933 --> 00:00:53.209
+In the lesson's lab, 32 such calls take about 1,600 milliseconds, 8 rounds of 4, and a tiny CPU task waits about 1,500 milliseconds to start.
+
+10
+00:00:53.400 --> 00:00:58.641
+Blocking calls belong on Dispatchers.IO, which runs up to 64 at once.
+
+11
+00:00:58.641 --> 00:01:04.187
+Those threads mostly sleep, waiting for Oracle, so 64 on 4 cores is fine.
+
+12
+00:01:04.933 --> 00:01:12.343
+There, the 32 calls take about 220 milliseconds, and the tiny task starts within a few milliseconds.
+
+13
+00:01:13.267 --> 00:01:16.291
+IO and Default share one pool of worker threads.
+
+14
+00:01:16.291 --> 00:01:23.349
+The split gives them separate budgets: blocking work can fill IO, and Default still has a thread for every core.
+
+15
+00:01:23.533 --> 00:01:26.824
+To move one piece of work, use withContext.
+
+16
+00:01:26.824 --> 00:01:29.962
+Loading the rows is a blocking JDBC call.
+
+17
+00:01:29.962 --> 00:01:32.257
+Rendering the PDF is CPU work.
+
+18
+00:01:32.400 --> 00:01:36.118
+withContext suspends the caller and runs the block on IO.
+
+19
+00:01:36.118 --> 00:01:43.293
+Often the same worker keeps going, now counted against IO's limit, and Default's place goes to another thread.
+
+20
+00:01:43.467 --> 00:01:49.575
+The query sleeps for 200 milliseconds, and Default's four threads keep doing CPU work.
+
+21
+00:01:49.733 --> 00:01:55.381
+When the block is done, the caller resumes on its own dispatcher, Default, with the rows.
+
+22
+00:01:55.381 --> 00:01:58.173
+Rendering is CPU work, so it runs there too.
+
+23
+00:01:59.067 --> 00:02:06.941
+So never block on Default: wrap each blocking call in withContext(Dispatchers.IO), inside the function that blocks.
+
+24
+00:02:06.941 --> 00:02:10.707
+Calls that already suspend, like delay, need no switch.
+
+25
+00:02:11.400 --> 00:02:21.403
+When one resource needs its own budget, limitedParallelism makes a view of IO with its own limit, like 20 for a card issuer with 20 connections.
+
+26
+00:02:21.403 --> 00:02:26.475
+A view owns no threads, and it adds to IO's 64 instead of taking a share.

@@ -1,0 +1,145 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.309
+In Reactor, demand travels up the chain.
+
+2
+00:00:05.309 --> 00:00:09.418
+The subscriber calls request(n), which means I can take n more.
+
+3
+00:00:09.418 --> 00:00:12.875
+A source like Flux.range sends at most n, then waits.
+
+4
+00:00:13.100 --> 00:00:14.398
+A ticker can't wait.
+
+5
+00:00:14.398 --> 00:00:18.356
+Flux.interval ticks once a millisecond, whatever you request.
+
+6
+00:00:18.356 --> 00:00:23.936
+Behind it, a screen asks for one tick at a time, and takes 10 milliseconds to draw it.
+
+7
+00:00:24.033 --> 00:00:27.901
+Tick 1 comes before anyone asked for it, and the stream fails.
+
+8
+00:00:28.133 --> 00:00:32.238
+The onBackpressure operators let you choose what happens instead.
+
+9
+00:00:32.238 --> 00:00:39.816
+Each one requests unbounded, so the source never overflows, and then decides what to do with the ticks nobody asked for.
+
+10
+00:00:40.033 --> 00:00:44.356
+onBackpressureBuffer with no size keeps every tick in a queue.
+
+11
+00:00:44.356 --> 00:00:47.215
+The screen gets 0, 1, 2, 3, all in order.
+
+12
+00:00:47.300 --> 00:00:50.469
+But after 20 frames, the ticker is at 204.
+
+13
+00:00:50.469 --> 00:00:56.657
+More than 180 ticks wait in memory, and the backlog grows until the heap runs out.
+
+14
+00:00:57.367 --> 00:00:59.476
+Give the buffer a size, like 10.
+
+15
+00:00:59.476 --> 00:01:02.969
+While the screen draws tick 0, ticks 1 to 10 fill it.
+
+16
+00:01:03.067 --> 00:01:04.770
+Then a tick finds no room.
+
+17
+00:01:04.770 --> 00:01:07.389
+The buffer cancels the source and fails.
+
+18
+00:01:07.467 --> 00:01:10.125
+The error waits behind the buffered ticks.
+
+19
+00:01:10.125 --> 00:01:13.923
+The screen still gets 0 to 11, in order, and then the error.
+
+20
+00:01:15.033 --> 00:01:17.150
+onBackpressureDrop keeps nothing.
+
+21
+00:01:17.150 --> 00:01:21.063
+Each tick that arrives while nobody is asking is thrown away.
+
+22
+00:01:21.133 --> 00:01:26.815
+So the screen sees ticks about 11 apart, and in 20 frames about 200 are dropped.
+
+23
+00:01:27.533 --> 00:01:32.491
+onBackpressureLatest keeps one slot, and each new tick replaces the one before.
+
+24
+00:01:32.491 --> 00:01:36.571
+When the screen asks, it gets the newest: about every tenth tick.
+
+25
+00:01:37.300 --> 00:01:41.765
+onBackpressureError fails at once, at the first tick nobody asked for.
+
+26
+00:01:42.933 --> 00:01:45.206
+None of these slows the source down.
+
+27
+00:01:45.206 --> 00:01:47.099
+They only decide what to lose.
+
+28
+00:01:47.099 --> 00:01:50.697
+Real backpressure needs a source that honours request(n).
+
+29
+00:01:51.400 --> 00:01:53.256
+So pick by the kind of feed.
+
+30
+00:01:53.256 --> 00:01:58.096
+Prices, positions and statuses want latest, because newer replaces older.
+
+31
+00:01:58.096 --> 00:02:00.417
+Samples and metrics can be dropped.
+
+32
+00:02:00.417 --> 00:02:07.179
+Card authorizations and audit events must not be lost, so they get a bounded buffer that fails loudly.
+
+33
+00:02:07.179 --> 00:02:10.428
+Error is for feeds where falling behind is a bug.
+
+34
+00:02:10.428 --> 00:02:13.477
+And the unbounded buffer suits almost nothing.
+
+35
+00:02:14.200 --> 00:02:17.969
+In Kotlin Flow, a slow collector simply suspends the emitter.
+
+36
+00:02:17.969 --> 00:02:26.928
+When a buffer sits between them, conflate keeps the newest, like onBackpressureLatest, and a full buffer suspends the emitter instead of failing.

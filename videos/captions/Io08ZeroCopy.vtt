@@ -1,0 +1,141 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.571
+Sending a file the obvious way passes every byte through your process twice.
+
+2
+00:00:07.800 --> 00:00:12.585
+The kernel keeps recently used file pages in memory, in its page cache.
+
+3
+00:00:12.800 --> 00:00:17.240
+Your loop calls read, and the kernel copies the bytes up into your buffer.
+
+4
+00:00:17.240 --> 00:00:21.560
+That's one copy, and one system call: a switch into the kernel and back.
+
+5
+00:00:21.767 --> 00:00:27.155
+Then it calls write, and the kernel copies them back down into the socket's send buffer.
+
+6
+00:00:27.155 --> 00:00:29.604
+A second copy, and a second system call.
+
+7
+00:00:29.604 --> 00:00:32.176
+Only then does the network card send them.
+
+8
+00:00:32.367 --> 00:00:37.493
+A heap ByteBuffer adds one more copy per call, through a temporary direct buffer.
+
+9
+00:00:37.700 --> 00:00:44.213
+And 64 MiB through a 64 KiB buffer is 1,024 rounds of this.
+
+10
+00:00:44.433 --> 00:00:48.620
+FileChannel.transferTo asks the kernel to do the whole move.
+
+11
+00:00:48.620 --> 00:00:53.364
+On Linux, with a socket as the target, it becomes one sendfile call.
+
+12
+00:00:53.567 --> 00:00:57.766
+The kernel sends pages from the page cache straight to the socket.
+
+13
+00:00:57.766 --> 00:00:59.993
+The bytes never enter your process.
+
+14
+00:00:59.993 --> 00:01:01.075
+That's zero-copy.
+
+15
+00:01:01.833 --> 00:01:06.953
+Counted with strace, transferTo made one sendfile call.
+
+16
+00:01:06.953 --> 00:01:10.956
+The copy made 2,119 reads and 1,037 writes.
+
+17
+00:01:11.667 --> 00:01:14.901
+transferTo may move fewer bytes than you asked for.
+
+18
+00:01:14.901 --> 00:01:19.531
+It returns how many it moved, so call it in a loop, in Java or in Kotlin.
+
+19
+00:01:19.733 --> 00:01:24.996
+One condition: the bytes must leave exactly as they sit in the file.
+
+20
+00:01:24.996 --> 00:01:29.176
+TLS or compression inside the JVM rules zero-copy out.
+
+21
+00:01:29.967 --> 00:01:31.606
+Now, who does the read?
+
+22
+00:01:31.606 --> 00:01:35.313
+epoll answers one question: which sockets are ready?
+
+23
+00:01:35.533 --> 00:01:39.871
+Then your loop makes the read call itself, one more call per ready socket.
+
+24
+00:01:40.133 --> 00:01:42.055
+io_uring works by completion.
+
+25
+00:01:42.055 --> 00:01:46.099
+Your program and the kernel share two ring buffers in memory.
+
+26
+00:01:46.300 --> 00:01:51.911
+You put a request on the submission ring: read up to 16 KiB from this socket.
+
+27
+00:01:51.911 --> 00:01:58.324
+The kernel does the read, and puts the result on the completion ring: done, 4,096 bytes.
+
+28
+00:01:58.533 --> 00:02:04.193
+One system call can submit and collect many operations, and the kernel moves the bytes.
+
+29
+00:02:05.000 --> 00:02:08.067
+The JDK's selector and poller use epoll.
+
+30
+00:02:08.067 --> 00:02:12.053
+io_uring comes through Netty, first-class since 4.2.
+
+31
+00:02:12.233 --> 00:02:13.238
+Is it faster?
+
+32
+00:02:13.238 --> 00:02:14.242
+Not reliably.
+
+33
+00:02:14.242 --> 00:02:19.651
+In the lesson's demo, epoll took 18 milliseconds and io_uring took 65.
+
+34
+00:02:19.651 --> 00:02:21.891
+So measure your own workload.
+
+35
+00:02:21.891 --> 00:02:25.600
+The switch is one factory and one channel class.
