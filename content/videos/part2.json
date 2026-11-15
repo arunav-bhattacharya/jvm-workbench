@@ -17,6 +17,7 @@
     {"slug": "rx06-schedulers", "lesson": "rx-06", "section": 1, "title": "publishOn moves everything after it; subscribeOn moves where the source runs, and the one nearest the source wins"},
     {"slug": "co08-state-shared", "lesson": "co-08", "section": 0, "title": "StateFlow keeps one latest value and skips what a slow collector missed; SharedFlow's buffer and replay decide which events get through"},
     {"slug": "rx02-subscribe", "lesson": "rx-02", "section": 1, "title": "Assembly only builds a chain of objects; subscribe travels up, request follows, data flows down, and a second subscribe runs it all again"},
-    {"slug": "io07-jetty", "lesson": "io-07", "section": 2, "title": "Jetty's acceptor, selectors and one thread pool: a ready socket becomes a task, and the handler's declaration picks the thread that runs it"}
+    {"slug": "io07-jetty", "lesson": "io-07", "section": 2, "title": "Jetty's acceptor, selectors and one thread pool: a ready socket becomes a task, and the handler's declaration picks the thread that runs it"},
+    {"slug": "co09-channels", "lesson": "co-09", "section": 0, "title": "A channel is a queue between coroutines: send suspends when it's full, receive when it's empty, and select takes whichever is ready first"}
   ]
 }

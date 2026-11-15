@@ -56,6 +56,10 @@
   "gen01-from-zero",
   "kt04-dsl",
   "pat06-composite",
-  "io07-jetty"
+  "io07-jetty",
+  "co06-supervisor",
+  "rx06-schedulers",
+  "co08-state-shared",
+  "co09-channels"
  ]
 }

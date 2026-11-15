@@ -1,0 +1,153 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.109
+One coroutine reads payment ids from a batch, fast.
+
+2
+00:00:06.109 --> 00:00:09.785
+Another settles each one, which takes 100 milliseconds.
+
+3
+00:00:09.785 --> 00:00:12.725
+How does the reader hand ids to the settler?
+
+4
+00:00:12.933 --> 00:00:16.316
+Put a channel between them: a queue with room for two.
+
+5
+00:00:16.316 --> 00:00:19.197
+send puts an id in, and receive takes one out.
+
+6
+00:00:19.400 --> 00:00:23.453
+The settler is already waiting, so id 1 goes straight to it.
+
+7
+00:00:23.453 --> 00:00:25.749
+Ids 2 and 3 wait in the two spots.
+
+8
+00:00:25.967 --> 00:00:29.407
+Now the reader sends id 4, and both spots are full.
+
+9
+00:00:29.407 --> 00:00:31.228
+What happens to the reader?
+
+10
+00:00:34.000 --> 00:00:34.860
+It suspends.
+
+11
+00:00:34.860 --> 00:00:39.733
+send waits for room, and the thread is free to run other coroutines.
+
+12
+00:00:39.733 --> 00:00:45.753
+When the settler finishes id 1 and takes id 2, a spot opens, and the reader goes on.
+
+13
+00:00:45.967 --> 00:00:51.737
+So the fast reader now runs at the settler's pace: one id every 100 milliseconds.
+
+14
+00:00:51.737 --> 00:00:57.223
+And when the queue is empty, it's receive that suspends, until an id arrives.
+
+15
+00:00:57.433 --> 00:01:00.305
+When the reader is done, it closes the channel.
+
+16
+00:01:00.305 --> 00:01:02.871
+The settler's loop ends after the last id.
+
+17
+00:01:02.871 --> 00:01:05.560
+Forget close, and the settler waits forever.
+
+18
+00:01:06.367 --> 00:01:09.069
+The default channel has no spots at all.
+
+19
+00:01:09.069 --> 00:01:13.121
+Each send waits until a receiver takes the id from its hand.
+
+20
+00:01:13.933 --> 00:01:15.860
+Channels chain into pipelines.
+
+21
+00:01:15.860 --> 00:01:18.301
+Four workers receive from one channel.
+
+22
+00:01:18.301 --> 00:01:23.311
+Each id goes to exactly one of them, so at most four settle calls run at once.
+
+23
+00:01:23.311 --> 00:01:27.293
+Their receipts go into a second channel, which one loop reads.
+
+24
+00:01:28.100 --> 00:01:31.111
+Sometimes you want whichever answer comes first.
+
+25
+00:01:31.111 --> 00:01:34.812
+Ask two acquirers for a quote, and let select wait on both.
+
+26
+00:01:35.033 --> 00:01:38.894
+North needs 300 milliseconds, east needs 120.
+
+27
+00:01:38.894 --> 00:01:41.553
+Which quote does select return?
+
+28
+00:01:44.333 --> 00:01:44.825
+East's.
+
+29
+00:01:44.825 --> 00:01:49.250
+select takes the first clause that is ready and drops the rest.
+
+30
+00:01:49.250 --> 00:01:52.621
+Stopping the loser is your job, so cancel north.
+
+31
+00:01:52.621 --> 00:01:57.608
+A timeout clause gives a default if nobody answers in 500 milliseconds.
+
+32
+00:01:58.433 --> 00:01:59.733
+This is Kotlin only.
+
+33
+00:01:59.733 --> 00:02:04.868
+A channel with room for two, a sender that closes it, and a loop that receives.
+
+34
+00:02:05.700 --> 00:02:09.295
+So a channel hands each element to exactly one receiver.
+
+35
+00:02:09.295 --> 00:02:16.551
+send suspends when it's full, receive suspends when it's empty, and select takes whichever clause is ready first.
+
+36
+00:02:16.767 --> 00:02:17.619
+Quick check.
+
+37
+00:02:17.619 --> 00:02:24.150
+A rendezvous channel, a fast sender, and a receiver that needs 100 milliseconds per element.
+
+38
+00:02:24.150 --> 00:02:26.067
+How often does send return?

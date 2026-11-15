@@ -122,7 +122,7 @@ class Co09Channels(Narrated):
         l_send = M("send", 22, READER).next_to(a_send, DOWN, buff=0.15)
         l_recv = M("receive", 22, SETTLE).next_to(a_recv, DOWN, buff=0.15)
         HAND = a_send.get_center() + UP * 0.45
-        SLOT = [s.get_center() for s in spots]
+        SLOT = [spots[1].get_center(), spots[0].get_center()]   # the oldest id waits nearest the settler
         AT_SETTLER = settler.get_center() + UP * 0.85
         track = Rectangle(width=2.2, height=0.16, stroke_color=SETTLE, stroke_width=1.5).move_to([5.0, Y - 0.75, 0])
         prog = ValueTracker(0)

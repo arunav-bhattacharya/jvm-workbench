@@ -14,6 +14,8 @@
     {"slug": "jmm04-publication", "lesson": "jmm-04", "section": 0, "title": "Publishing is a write: a reader can see the reference before the constructor's field writes, unless an edge or final fields stop it"},
     {"slug": "cap1-tour", "lesson": "cap1-01", "section": 0, "title": "The ledger you build, sitting by sitting: locks in id order, a bounded pool, a virtual-thread front, and the earlier lesson behind each part"},
     {"slug": "conc02-states", "lesson": "conc-02", "section": 0, "title": "A thread's six states as places on a map, the call behind each move, and interrupt as a note the thread must notice and put back"},
-    {"slug": "exec03-sizing", "lesson": "exec-03", "section": 2, "title": "Hashing stops getting faster at one thread per core, a thread that waits frees its core, and 400 requests a second for 250 ms keep 100 in flight"}
+    {"slug": "exec03-sizing", "lesson": "exec-03", "section": 2, "title": "Hashing stops getting faster at one thread per core, a thread that waits frees its core, and 400 requests a second for 250 ms keep 100 in flight"},
+    {"slug": "jmm03-volatile", "lesson": "jmm-03", "section": 1, "title": "volatile keeps every read fresh and every write visible, yet two threads still read 41 and both write 42: the fix is one atomic step"},
+    {"slug": "vt05-structured", "lesson": "vt-05", "section": 1, "title": "A scope owns its subtasks like a tree: the first failure cancels the sibling, join throws at once, close waits for every branch, and a scoped value is read down the tree"}
   ]
 }
