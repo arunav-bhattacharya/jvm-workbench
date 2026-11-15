@@ -334,9 +334,10 @@ class Co10Mutex(Narrated):
         hl = {"mutex.withLock": LOCK, "runTest": VIRT, "currentTime": VIRT, "fx.toEurCents": GREY_B}
 
         def code(lines):
-            g = VGroup(*[M(l.lstrip(), 24, t2c=hl) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
-            for i, l in enumerate(lines):
-                g[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+            # a hidden "|" starts every line, so all lines share one left edge and the columns line up
+            g = VGroup(*[M("|" + l, 24, t2c=hl) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
+            for t in g:
+                t[0].set_opacity(0)
             return g
 
         c1 = VGroup(T("Kotlin only: kotlinx.coroutines", 22, GREY_B),

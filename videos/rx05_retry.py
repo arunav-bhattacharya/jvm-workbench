@@ -433,9 +433,10 @@ class Rx05Retry(Narrated):
         cw = M("0123456789", 24).width / 10
 
         def code(head, lines):
-            g = VGroup(*[M(l.lstrip(), 24, t2c=hl) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
-            for i, l in enumerate(lines):
-                g[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+            # a hidden "|" starts every line, so all lines share one left edge and the columns line up
+            g = VGroup(*[M("|" + l, 24, t2c=hl) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
+            for t in g:
+                t[0].set_opacity(0)
             return VGroup(T(head, 22, GREY_B), g).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
 
         jv = code("Java", ["Mono.defer(() -> issuer.authorize(id))            // a fresh call per attempt",

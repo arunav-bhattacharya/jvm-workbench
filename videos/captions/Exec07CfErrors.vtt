@@ -1,0 +1,145 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.412
+A checkout is a chain: get the FX rate, convert, round to cents, charge.
+
+2
+00:00:07.412 --> 00:00:11.076
+Each stage runs when the one before it hands it a value.
+
+3
+00:00:11.300 --> 00:00:13.671
+Now the FX call fails with a 502.
+
+4
+00:00:13.671 --> 00:00:16.113
+Which of the next three steps run?
+
+5
+00:00:18.333 --> 00:00:18.671
+None.
+
+6
+00:00:18.671 --> 00:00:25.771
+The failure skips every thenApply: their functions never run, and their futures fail with the same cause.
+
+7
+00:00:26.000 --> 00:00:27.915
+It slides down to the handlers.
+
+8
+00:00:27.915 --> 00:00:30.510
+whenComplete only looks, and passes it on.
+
+9
+00:00:30.510 --> 00:00:34.959
+exceptionally catches it, but this late, all it can return is: declined.
+
+10
+00:00:35.867 --> 00:00:38.939
+Move exceptionally up, right after the FX call.
+
+11
+00:00:38.939 --> 00:00:44.627
+Now it returns the last known rate, and every later step runs as if nothing went wrong.
+
+12
+00:00:45.600 --> 00:00:48.038
+A future is only a box for the answer.
+
+13
+00:00:48.038 --> 00:00:50.989
+The work runs somewhere else, on an io thread.
+
+14
+00:00:51.200 --> 00:01:01.852
+With orTimeout of 200 ms, a timer fills the box with a TimeoutException at 200 ms, and it travels down the chain like any failure.
+
+15
+00:01:02.067 --> 00:01:04.230
+The call never hears about it.
+
+16
+00:01:04.230 --> 00:01:09.205
+It keeps its thread until 600 ms, and then its answer is thrown away.
+
+17
+00:01:09.433 --> 00:01:11.882
+A timeout ends the wait, not the work.
+
+18
+00:01:11.882 --> 00:01:14.396
+So give the client its own timeout too.
+
+19
+00:01:15.300 --> 00:01:20.192
+Now ask three FX providers at once, and wait for all three with allOf.
+
+20
+00:01:20.400 --> 00:01:22.580
+flaky fails at 50 ms.
+
+21
+00:01:22.580 --> 00:01:26.109
+alpha answers at 100, beta at 300.
+
+22
+00:01:26.333 --> 00:01:31.014
+allOf waits for all three, then fails, because one failed.
+
+23
+00:01:31.014 --> 00:01:35.776
+One bad answer at 50 ms fails the whole call, 300 ms later.
+
+24
+00:01:36.700 --> 00:01:39.378
+The fix: put a handle on each call first.
+
+25
+00:01:39.378 --> 00:01:43.753
+It turns a failure into an empty answer, so allOf can only succeed.
+
+26
+00:01:43.967 --> 00:01:52.272
+Now flaky's failure comes out of its handle as an empty answer, and at 300 ms the next step picks the lowest price.
+
+27
+00:01:52.500 --> 00:01:58.757
+Give each call its own orTimeout too, so a provider that hangs becomes one more empty answer.
+
+28
+00:01:59.767 --> 00:02:04.147
+In Java or Kotlin, each call gets its deadline, then its handle.
+
+29
+00:02:04.967 --> 00:02:05.548
+The rule.
+
+30
+00:02:05.548 --> 00:02:09.099
+A failure skips every stage until a handler catches it.
+
+31
+00:02:09.099 --> 00:02:12.069
+Catch it where you still have a useful answer.
+
+32
+00:02:12.300 --> 00:02:13.358
+Check yourself.
+
+33
+00:02:13.358 --> 00:02:19.281
+The first stage fails, then comes thenApply A, then exceptionally, then thenApply B.
+
+34
+00:02:19.281 --> 00:02:20.832
+Which of A and B runs?
+
+35
+00:02:23.533 --> 00:02:24.043
+Only B.
+
+36
+00:02:24.043 --> 00:02:27.536
+A is skipped, and exceptionally hands B a value.

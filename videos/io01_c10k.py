@@ -291,7 +291,10 @@ class Io01C10k(Narrated):
         hl = {"readLine()": THREAD, "pool.execute": SOCK}
 
         def code(head, lines):
-            g = VGroup(*[M(l, 26, t2c=hl) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+            # a hidden "|" starts every line, so all lines share one left edge and the columns line up
+            g = VGroup(*[M("|" + l, 26, t2c=hl) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+            for t in g:
+                t[0].set_opacity(0)
             return VGroup(T(head, 24, GREY_B), g).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
 
         jv = code("Java", ["pool.execute(() -> echo(socket));          // one task per connection",

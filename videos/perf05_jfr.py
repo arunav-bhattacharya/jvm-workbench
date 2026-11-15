@@ -141,7 +141,7 @@ class Perf05Jfr(VoiceScene):
                         (2, [FadeIn(lanes[1:]), FadeIn(lane_l[1:]), FadeIn(qs)], 0.9)])
 
         jfr_t = T("JDK Flight Recorder: timestamped events", 30, YELLOW_M).move_to([0.3, 2.85, 0])
-        self.say("s2", [(0, [FadeOut(logl), FadeIn(jfr_t)], 0.8), (1, [FadeOut(qs)], 0.4)])
+        self.say("s2", [(0, [FadeOut(logl)], 0.4), (0, [FadeIn(jfr_t)], 0.6), (1, [FadeOut(qs)], 0.4)])
 
         rng = np.random.default_rng(6)
         gc = VGroup(ev(-3.2, -2.85, LY[1], GC_C), ev(3.9, 4.25, LY[1], GC_C))

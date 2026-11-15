@@ -73,7 +73,7 @@ class Exec07CfErrors(VoiceScene):
 
         # =============== part 1: a failure slides down the chain ===============
         XS = [-5.375, -3.225, -1.075, 1.075, 3.225, 5.375]
-        SY, TY = 0.5, 1.5           # stage row, token row
+        SY, TY = 0.15, 1.15         # stage row, token row
         specs = [("FX rate", "supplyAsync", BLUE_M), ("convert", "thenApply", GREY_B), ("round", "thenApply", GREY_B),
                  ("charge", "thenApply", GREY_B), ("log", "whenComplete", PURPLE_M), ("recover", "exceptionally", GREEN_M)]
         st = [stage(a, b, c).move_to([x, SY, 0]) for (a, b, c), x in zip(specs, XS)]
@@ -85,42 +85,38 @@ class Exec07CfErrors(VoiceScene):
         def above(i):
             return np.array([XS[i], TY, 0])
 
-        self.beat("A checkout is a chain of stages. Get the FX rate, convert the amount, round it to cents, charge the card.",
-                  LaggedStart(*[FadeIn(s_) for s_ in st[:4]], lag_ratio=0.3), FadeIn(links[:3]), run_time=2.6)
-        self.beat("Then a stage that logs the outcome, and one that recovers from a failure.",
-                  FadeIn(st[4]), FadeIn(st[5]), FadeIn(links[3:]), run_time=1.2)
-
-        # a quick success pass
         ok = token("value", GOLD_M).move_to(above(0))
 
         def flash(i, color):
             return Indicate(st[i][0][1], color=color, scale_factor=1.15)
-        seq(self, "Each stage runs when the one before it completes with a value.",
-            ([FadeIn(ok, scale=0.6), flash(0, GOLD_M)], 0.5),
+        seq(self, "A checkout is a chain: get the FX rate, convert, round to cents, charge. "
+                  "Each stage runs when the one before it hands it a value.",
+            ([LaggedStart(*[FadeIn(s_) for s_ in st], lag_ratio=0.25), FadeIn(links)], 2.6), 1.0,
+            ([FadeIn(ok, scale=0.6), flash(0, GOLD_M)], 0.4),
             ([Succession(*[AnimationGroup(ok.animate.move_to(above(i)), flash(i, GOLD_M)) for i in range(1, 6)],
-                         run_time=3.0)], 3.0),
+                         run_time=2.6)], 2.6),
             ([FadeOut(ok)], 0.3))
 
         # the failure
         bad = token("502", RED_M).move_to(above(0))
-        q = T("which numbered steps run?", 26, YELLOW_M).move_to([0, -1.55, 0])
-        self.beat("Now the FX provider answers with a 502, and the first stage throws. Which of the next three steps run?",
+        q = T("which of the next three steps run?", 26, YELLOW_M).move_to([0, -1.75, 0])
+        self.beat("Now the FX call fails with a 502. Which of the next three steps run?",
                   FadeIn(bad, scale=0.6), st[0][0][0].animate.set_stroke(RED_M), FadeIn(q), run_time=1.4)
         self.wait(2.0)
         skips = VGroup(*[T("skipped", 24, GREY_B).next_to(st[i][1], DOWN, buff=0.15) for i in (1, 2, 3)])
 
         def skip(i):
             return [bad.animate.move_to(above(i)), st[i].animate.set_opacity(0.3), FadeIn(skips[i - 1])]
-        seq(self, "None of them. The failure skips every thenApply. Their functions never run, and each one's future "
-                  "fails with the same cause.",
+        seq(self, "None. The failure skips every thenApply: their functions never run, "
+                  "and their futures fail with the same cause.",
             ([FadeOut(q)], 0.4), 0.6,
             (lambda: skip(1), 0.8), 0.3, (lambda: skip(2), 0.8), 0.3, (lambda: skip(3), 0.8))
-        sees = T("sees it, passes it on", 24, PURPLE_M).next_to(st[4][1], DOWN, buff=0.15)
+        sees = T("passes it on", 24, PURPLE_M).next_to(st[4][1], DOWN, buff=0.15)
         dec = token("declined", GREEN_M).move_to(above(5))
-        res1 = T("result: declined: FX rate unavailable", 28, GREEN_M).move_to([0, -2.2, 0])
-        seq(self, "It slides down the chain until it reaches a handler. whenComplete sees it and passes it on. "
+        res1 = T("result: declined: FX rate unavailable", 28, GREEN_M).move_to([0, -2.3, 0])
+        seq(self, "It slides down to the handlers. whenComplete only looks, and passes it on. "
                   "exceptionally catches it, but this late, all it can return is: declined.",
-            1.2, ([bad.animate.move_to(above(4)), flash(4, PURPLE_M)], 0.8), ([FadeIn(sees)], 0.5), 1.4,
+            0.6, ([bad.animate.move_to(above(4)), flash(4, PURPLE_M)], 0.8), ([FadeIn(sees)], 0.5), 0.8,
             ([bad.animate.move_to(above(5)), flash(5, GREEN_M)], 0.8), 0.6,
             ([FadeOut(bad, scale=0.6), FadeIn(dec, scale=0.6)], 0.6), 1.0, ([FadeIn(res1)], 0.6))
 
@@ -130,33 +126,30 @@ class Exec07CfErrors(VoiceScene):
         new_x = [XS[0], XS[2], XS[3], XS[4], XS[5], XS[1]]       # recover goes second, the rest shift right
         arc = ArcBetweenPoints(st[5].get_center(), np.array([XS[1], SY, 0]), angle=PI * 0.5)
         moves = [st[i].animate.move_to([new_x[i], SY, 0]) for i in range(1, 5)]
-        seq(self, "Now move exceptionally up, right after the FX call.",
-            ([FadeOut(links)], 0.4),
-            ([MoveAlongPath(st[5], arc), *moves], 1.4),
-            ([FadeIn(links)], 0.4))
         order = [0, 5, 1, 2, 3, 4]                                 # stage index at each position
 
         def at(pos):
             return np.array([XS[pos], TY, 0])
         bad = token("502", RED_M).move_to(at(0))
         rate = token("1.0800", GOLD_M).move_to(at(1))
-        seq(self, "The failure reaches it at once, and it returns the last known rate.",
-            ([FadeIn(bad, scale=0.6), st[0][0][0].animate.set_stroke(RED_M)], 0.6),
-            ([bad.animate.move_to(at(1)), flash(5, GREEN_M)], 0.8), 0.4,
-            ([FadeOut(bad, scale=0.6), FadeIn(rate, scale=0.6)], 0.6))
         vals = ["108.000000", "108.00", "charged"]
         toks = [token(v, GOLD_M).move_to(at(p)) for v, p in zip(vals, (2, 3, 4))]
-        runs = VGroup(*[T("runs", 24, GOLD_M).next_to(st[order[p]][1], DOWN, buff=0.15) for p in (2, 3, 4)])
-        res2 = T("result: charged 108.00 USD", 28, GOLD_M).move_to([0, -2.2, 0])
-        sees2 = T("sees a success", 24, PURPLE_M).next_to(st[4][1], DOWN, buff=0.15)
-        seq(self, "Every step after it runs as if nothing went wrong, and the card is charged 108 USD.",
-            (lambda: [rate.animate.move_to(at(2)), flash(1, GOLD_M)], 0.6), (lambda: [Transform(rate, toks[0]), FadeIn(runs[0])], 0.4),
-            (lambda: [rate.animate.move_to(at(3)), flash(2, GOLD_M)], 0.6), (lambda: [Transform(rate, toks[1]), FadeIn(runs[1])], 0.4),
-            (lambda: [rate.animate.move_to(at(4)), flash(3, GOLD_M)], 0.6), (lambda: [Transform(rate, toks[2]), FadeIn(runs[2])], 0.4),
-            (lambda: [rate.animate.move_to(at(5)), flash(4, PURPLE_M), FadeIn(sees2)], 0.6), ([FadeIn(res2)], 0.6))
-        r1 = T("Recover as close to the failing call as you can.", 30).move_to([0, -3.0, 0])
-        self.beat("Recover as close to the failing call as you can.", FadeIn(r1, shift=UP * 0.15), run_time=1.0)
-        self.play(FadeOut(VGroup(*st, links, rate, runs, res2, sees2, r1)), run_time=0.7)
+        runs = VGroup(*[T("runs", 24, GOLD_M).next_to(st[0][1], DOWN, buff=0.15).set_x(XS[p]) for p in (2, 3, 4)])
+        res2 = T("result: charged 108.00 USD", 28, GOLD_M).move_to([0, -2.3, 0])
+
+        sees2 = T("sees success", 24, PURPLE_M).next_to(st[4][1], DOWN, buff=0.15).shift(RIGHT * (XS[5] - XS[4]))
+        seq(self, "Move exceptionally up, right after the FX call. Now it returns the last known rate, "
+                  "and every later step runs as if nothing went wrong.",
+            ([FadeOut(links)], 0.3),
+            ([MoveAlongPath(st[5], arc), *moves], 1.2),
+            ([FadeIn(links), FadeIn(bad, scale=0.6), st[0][0][0].animate.set_stroke(RED_M)], 0.4),
+            (lambda: [bad.animate.move_to(at(1)), flash(5, GREEN_M)], 0.6),
+            ([FadeOut(bad, scale=0.6), FadeIn(rate, scale=0.6)], 0.4), 0.6,
+            (lambda: [rate.animate.move_to(at(2)), flash(1, GOLD_M)], 0.45), (lambda: [Transform(rate, toks[0]), FadeIn(runs[0])], 0.3),
+            (lambda: [rate.animate.move_to(at(3)), flash(2, GOLD_M)], 0.45), (lambda: [Transform(rate, toks[1]), FadeIn(runs[1])], 0.3),
+            (lambda: [rate.animate.move_to(at(4)), flash(3, GOLD_M)], 0.45), (lambda: [Transform(rate, toks[2]), FadeIn(runs[2])], 0.3),
+            (lambda: [rate.animate.move_to(at(5)), flash(4, PURPLE_M), FadeIn(sees2)], 0.45), ([FadeIn(res2)], 0.5))
+        self.play(FadeOut(VGroup(*st, links, rate, runs, res2, sees2)), run_time=0.7)
 
         # =============== part 2: orTimeout fills the box, the work runs on ===============
         LX0, LX1 = -5.2, 1.4
@@ -179,22 +172,22 @@ class Exec07CfErrors(VoiceScene):
         tt = ValueTracker(0.0)
         cursor.add_updater(lambda m: m.set_x(lx(tt.get_value())))
         part = call.copy().stretch_to_fit_width(200 * PX, about_edge=LEFT)
-        self.beat("A future is only a box for the answer. The work that fills it runs somewhere else, here on an io thread.",
+        self.beat("A future is only a box for the answer. The work runs somewhere else, on an io thread.",
                   FadeIn(fut), FadeIn(fut_l), FadeIn(fut_v), FadeIn(io_l), FadeIn(axis), FadeIn(ticks), FadeIn(call_t), run_time=1.6)
         tok_to = token("TimeoutException", RED_M, size=22).move_to(timer)
         self.add(cursor)
-        seq(self, "Put orTimeout of 200 ms on the future. At 200 ms a timer fills the box with a TimeoutException, "
-                  "and that failure goes down the chain like any other.",
-            ([FadeIn(timer)], 0.6), 1.2,
+        seq(self, "With orTimeout of 200 ms, a timer fills the box with a TimeoutException at 200 ms, "
+                  "and it travels down the chain like any failure.",
+            ([FadeIn(timer)], 0.6), 0.6,
             ([GrowFromEdge(part, LEFT, rate_func=linear), tt.animate(rate_func=linear).set_value(200)], 2.2),
             ([FadeIn(tok_to, scale=0.6)], 0.4), ([tok_to.animate.move_to(fut), FadeOut(fut_v), fut.animate.set_stroke(RED_M)], 0.8))
         ans = token("1.0842", GOLD_M).move_to([lx(600), 1.05, 0])
-        lost = T("nobody is listening", 24, GREY_A).move_to([2.2, 1.75, 0])
-        seq(self, "But the call itself never hears about it. It keeps its thread until 600 ms, "
+        lost = T("nobody is listening", 24, GREY_A).move_to([1.4, -0.4, 0])
+        seq(self, "The call never hears about it. It keeps its thread until 600 ms, "
                   "and then its answer is thrown away.",
             ([Transform(part, call, rate_func=linear), tt.animate(rate_func=linear).set_value(600)], 3.0),
             ([FadeOut(cursor), FadeIn(ans, scale=0.6)], 0.4),
-            ([ans.animate.move_to([3.0, 1.05, 0]).set_opacity(0.25)], 0.8), ([FadeIn(lost)], 0.4))
+            ([ans.animate.move_to([2.2, 1.05, 0]).set_opacity(0.25)], 0.8), ([FadeIn(lost)], 0.4))
         cursor.clear_updaters()
         r2 = T("A timeout ends the wait, not the work.", 30).move_to([0, -2.2, 0])
         r2b = T("give the client its own timeout too", 24, GREY_B).move_to([0, -2.8, 0])
@@ -225,7 +218,7 @@ class Exec07CfErrors(VoiceScene):
         tt = ValueTracker(0.0)
         cursor.add_updater(lambda m: m.set_x(fx(tt.get_value())))
 
-        self.beat("Now a fan-out. Ask three FX providers at once and wait for all of them with allOf.",
+        self.beat("Now ask three FX providers at once, and wait for all three with allOf.",
                   FadeIn(names), FadeIn(allof), FadeIn(allof_l), FadeIn(axis), FadeIn(ticks), run_time=1.4)
         lane_n = VGroup(T("fails at 50 ms", 22, GREY_A).next_to(names[0], DOWN, buff=0.08, aligned_edge=LEFT),
                         T("answers at 100 ms", 22, GREY_A).next_to(names[1], DOWN, buff=0.08, aligned_edge=LEFT),
@@ -274,9 +267,9 @@ class Exec07CfErrors(VoiceScene):
         seq(self, "flaky fails at 50 ms. alpha answers at 100, beta at 300.",
             ([FadeIn(lane_n)], 0.6), (s1, RT), (s2, 0.75))
         fail = token("fails: 503", RED_M).move_to([AX, -2.45, 0])
-        seq(self, "allOf waits for every one of them, then fails, because one of them failed. "
+        seq(self, "allOf waits for all three, then fails, because one failed. "
                   "One bad answer at 50 ms fails the whole call, 300 ms later.",
-            1.6, ([allof.animate.set_stroke(RED_M), FadeIn(fail, shift=DOWN * 0.2)], 0.8), 1.4,
+            1.2, ([allof.animate.set_stroke(RED_M), FadeIn(fail, shift=DOWN * 0.2)], 0.8), 1.4,
             ([Indicate(tk[0][1], color=RED_M, scale_factor=1.3)], 1.0))
 
         # ---- the safe version: handle on each call turns a failure into "no answer" ----
@@ -296,12 +289,12 @@ class Exec07CfErrors(VoiceScene):
         s1, s2 = lanes(tk2, through=(HX, [emp, None, None]))
         best = token("1.0842", TEAL_M).move_to([AX, -2.45, 0])
         best_l = T("lowest price", 22, GREY_A).next_to(best, RIGHT, buff=0.2)
-        seq(self, "Run it again. flaky's failure comes out of its handle as an empty answer. At 300 ms allOf has "
-                  "two prices and one empty, and the next step picks the lowest.",
-            0.8, (s1, RT), (s2, 1.15), 0.3,
+        seq(self, "Now flaky's failure comes out of its handle as an empty answer, "
+                  "and at 300 ms the next step picks the lowest price.",
+            0.3, (s1, RT), (s2, 1.15), 0.2,
             ([allof.animate.set_stroke(GREEN_M), FadeIn(best, shift=DOWN * 0.2), FadeIn(best_l)], 0.8))
         clocks = VGroup(*[M("orTimeout", 20, RED_M).next_to(h, UP, buff=0.08) for h in handles])
-        self.beat("Give each call its own orTimeout before the handle, too. A provider that hangs becomes one more empty answer.",
+        self.beat("Give each call its own orTimeout too, so a provider that hangs becomes one more empty answer.",
                   LaggedStart(*[FadeIn(c) for c in clocks], lag_ratio=0.25), run_time=1.4)
         cursor.clear_updaters()
         self.play(FadeOut(VGroup(names, lane_n, *bars, *tk2, handles, clocks, allof, allof_l, axis, ticks, cursor, best, best_l)),
@@ -317,7 +310,7 @@ class Exec07CfErrors(VoiceScene):
         cg = VGroup(titled("Java", jc), titled("Kotlin", kc)).arrange(DOWN, aligned_edge=LEFT, buff=0.45)
         cg.scale(min(1, 12.4 / cg.width)).move_to([0, 0.4, 0])
         note = T("then allOf over the safe futures, and pick from what came back", 24, GREY_B).next_to(cg, DOWN, buff=0.45)
-        self.beat("In code, each call gets its deadline and its handle. The same chain works from Kotlin.",
+        self.beat("In Java or Kotlin, each call gets its deadline, then its handle.",
                   FadeIn(cg, shift=UP * 0.2), FadeIn(note), run_time=1.4)
         self.play(FadeOut(VGroup(cg, note)), run_time=0.6)
         rule = T("A failure skips every stage until a handler catches it.", 32).move_to([0, 2.2, 0])
@@ -331,8 +324,8 @@ class Exec07CfErrors(VoiceScene):
         self.beat("Check yourself. The first stage fails, then comes thenApply A, then exceptionally, then thenApply B. "
                   "Which of A and B runs?", FadeIn(chk), FadeIn(chk2), run_time=1.2)
         self.wait(2.5)
-        ans = T("only B: A is skipped, exceptionally recovers, B gets its value", 28, GOLD_M).move_to([0, -1.9, 0])
+        ans = T("only B: A is skipped, and exceptionally hands B a value", 28, GOLD_M).move_to([0, -1.9, 0])
         ans.scale(min(1, 12 / ans.width))
-        self.beat("Only B. A is skipped, exceptionally recovers, and B runs on the value it returns.",
+        self.beat("Only B. A is skipped, and exceptionally hands B a value.",
                   FadeIn(ans, shift=UP * 0.15), run_time=0.8)
         self.wait(0.8)
