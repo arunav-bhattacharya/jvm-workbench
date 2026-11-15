@@ -158,7 +158,7 @@ class Jmm05Dcl(VoiceScene):
                   rows[5].animate.move_to([AX, y5, 0], aligned_edge=LEFT).set_color(WHITE),
                   lk2.animate.set_color(GREY_B), lockbox.animate.set_stroke(GREY_B), run_time=0.9)
         rel_t = T("release", 24, OK_C).move_to([-1.55, -1.75, 0])
-        acq_t = T("acquire", 22, OK_C).move_to([1.85, 2.45, 0])
+        acq_t = T("acquire", 22, OK_C).move_to([1.95, 2.5, 0])
         seq(self, "The fix is one word: make table volatile. Now writing table is a release: "
                   "everything A wrote before it is visible first.",
             ([Transform(fld_lab, vol), fld.animate.set_stroke(OK_C)], 0.8), 2.0,

@@ -26,6 +26,7 @@
     {"slug": "conc07-locks", "lesson": "conc-07", "section": 0, "title": "ReentrantLock is the same room with controls on the door: tryLock with a timeout and lockInterruptibly let a waiter leave, each Condition is its own waiting room, and readers share while the writer waits for an empty room"},
     {"slug": "conc11-confine", "lesson": "conc-11", "section": 0, "title": "A race needs state that is shared and changing: take away either one, and there is nothing to lock"},
     {"slug": "exec04-cancel", "lesson": "exec-04", "section": 1, "title": "cancel(true) only raises the interrupt flag: a task blocked in sleep stops, a loop that checks the flag stops, a loop that never looks runs on, and every Future says cancelled at once"},
-    {"slug": "exec07-cf-errors", "lesson": "exec-07", "section": 0, "title": "A failure skips every stage until a handler catches it, orTimeout fills the future but leaves the call running, and a handle on each call keeps one bad answer from failing allOf"}
+    {"slug": "exec07-cf-errors", "lesson": "exec-07", "section": 0, "title": "A failure skips every stage until a handler catches it, orTimeout fills the future but leaves the call running, and a handle on each call keeps one bad answer from failing allOf"},
+    {"slug": "jmm05-dcl", "lesson": "jmm-05", "section": 0, "title": "Without volatile, a reader on the lock-free fast path can see the reference before the constructor's write; volatile adds the release and acquire, and a holder class lets class initialization do the locking"}
   ]
 }

@@ -96,6 +96,10 @@
   "co02-builders",
   "io01-c10k",
   "rx05-retry",
-  "co10-mutex"
+  "co10-mutex",
+  "vt01-wall",
+  "exec04-cancel",
+  "exec07-cf-errors",
+  "jmm05-dcl"
  ]
 }
