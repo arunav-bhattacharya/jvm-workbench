@@ -1,0 +1,189 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:05.992
+You need FX quotes from three providers.
+
+2
+00:00:05.992 --> 00:00:12.266
+Northbank answers in 300 milliseconds, fjord-fx in 120, and tidewater in 200.
+
+3
+00:00:12.266 --> 00:00:17.644
+Ask them one after another, and the caller waits 620 milliseconds.
+
+4
+00:00:17.800 --> 00:00:20.118
+But the calls don't need each other.
+
+5
+00:00:20.118 --> 00:00:26.816
+Give each one its own lane, start them all at once, and you only wait for the slowest: 300 milliseconds.
+
+6
+00:00:27.600 --> 00:00:30.178
+In Kotlin, a builder starts each lane.
+
+7
+00:00:30.178 --> 00:00:34.250
+A builder is a plain function that starts a child coroutine.
+
+8
+00:00:34.250 --> 00:00:35.878
+The first one is launch.
+
+9
+00:00:35.878 --> 00:00:40.221
+It returns at once, with a Job: a handle you can join or cancel.
+
+10
+00:00:40.221 --> 00:00:41.713
+The caller carries on.
+
+11
+00:00:41.867 --> 00:00:43.486
+But a Job holds no value.
+
+12
+00:00:43.486 --> 00:00:48.472
+So launch is for work whose result you don't need, like writing an audit row.
+
+13
+00:00:49.200 --> 00:00:50.913
+For the quotes, use async.
+
+14
+00:00:50.913 --> 00:00:52.625
+It's launch with a result.
+
+15
+00:00:52.625 --> 00:00:58.159
+It also returns at once, with a Deferred: a ticket for a value that isn't there yet.
+
+16
+00:00:58.333 --> 00:00:59.459
+Now call awaitAll.
+
+17
+00:00:59.459 --> 00:01:03.148
+The caller suspends, and its thread is free for other work.
+
+18
+00:01:03.148 --> 00:01:05.649
+Each ticket fills when its call answers.
+
+19
+00:01:05.800 --> 00:01:08.497
+Done at 300 milliseconds, the slowest call.
+
+20
+00:01:08.497 --> 00:01:14.581
+All three can even share one thread, because none of them uses it while it waits for the network.
+
+21
+00:01:15.267 --> 00:01:16.561
+Now a small change.
+
+22
+00:01:16.561 --> 00:01:19.355
+Await each call right after you start it.
+
+23
+00:01:19.355 --> 00:01:20.855
+How long does it take?
+
+24
+00:01:23.667 --> 00:01:24.381
+620 again.
+
+25
+00:01:24.381 --> 00:01:27.595
+Each await ends before the next async starts.
+
+26
+00:01:27.595 --> 00:01:32.238
+It compiles, it passes the tests, and it runs one call at a time.
+
+27
+00:01:32.238 --> 00:01:36.024
+The overlap lives in the gap between async and await.
+
+28
+00:01:36.733 --> 00:01:38.481
+Every child needs a parent.
+
+29
+00:01:38.481 --> 00:01:41.394
+In a suspend function, that's coroutineScope.
+
+30
+00:01:41.394 --> 00:01:46.055
+It runs its block, then waits until every child it started has finished.
+
+31
+00:01:46.200 --> 00:01:52.146
+Here the block launches all three calls and awaits nothing, so its last line runs right away.
+
+32
+00:01:52.146 --> 00:01:54.192
+When does coroutineScope return?
+
+33
+00:01:57.000 --> 00:01:58.318
+At 300 milliseconds.
+
+34
+00:01:58.318 --> 00:02:03.789
+The scope can't close while a child is still running, even one that nobody awaited.
+
+35
+00:02:03.789 --> 00:02:08.007
+So when a suspend function returns, the work it started is done.
+
+36
+00:02:08.733 --> 00:02:10.910
+Failure takes the same path.
+
+37
+00:02:10.910 --> 00:02:19.459
+If fjord-fx throws at 120 milliseconds, the scope cancels the other two, waits for them to stop, and rethrows.
+
+38
+00:02:19.459 --> 00:02:21.169
+The call fails at 120.
+
+39
+00:02:21.933 --> 00:02:26.485
+This is Kotlin only: the builders come from kotlinx.coroutines.
+
+40
+00:02:26.485 --> 00:02:30.459
+Start every async inside coroutineScope, then awaitAll.
+
+41
+00:02:31.200 --> 00:02:34.819
+So launch and async start a child and return at once.
+
+42
+00:02:34.819 --> 00:02:36.595
+await waits for one value.
+
+43
+00:02:36.595 --> 00:02:40.351
+coroutineScope waits for every child before it returns.
+
+44
+00:02:40.533 --> 00:02:41.448
+Quick check.
+
+45
+00:02:41.448 --> 00:02:48.992
+Inside coroutineScope, you async a 300 millisecond quote, and launch a 500 millisecond audit write.
+
+46
+00:02:48.992 --> 00:02:50.897
+You await only the quote.
+
+47
+00:02:50.897 --> 00:02:52.955
+When does the scope return?
