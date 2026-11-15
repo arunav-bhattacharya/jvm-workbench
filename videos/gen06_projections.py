@@ -16,27 +16,27 @@ INT_C, DBL_C, ANY_C = GOLD_M, PURPLE_M, GREY_A      # what is in the list
 OUT_C, IN_C, ERR_C = BLUE_M, TEAL_M, RED_M          # the read view, the write view, a refusal
 
 N = {
-    "s1": "Here is a function that adds up amounts. It takes a MutableList of Number, and it only reads from it.",
+    "s1": "Here is a function that adds up amounts. It takes a MutableList of Number, and only reads it.",
     "s2": "You have cents, a MutableList<Int>. An Int is a Number. So does total(cents) compile?",
     "s3": "No. A MutableList<Int> is not a MutableList<Number>.",
     "s4": "A mutable list has two doors. get hands an element out. add takes one in.",
-    "s5": "If cents could pass as a list of Number, total could push 2.5 through the add door, into a list of ints.",
+    "s5": "If it could, total could push 2.5 through the add door, into a list of ints.",
     "s6": "The element type sits at both doors, so MutableList stays invariant.",
     "s7": "But total never uses the add door. So it asks for a view of the list with that door shut: MutableList<out Number>.",
     "s9": "Read it as: a list of some subtype of Number, and I don't know which. "
-          "Now cents fits, and so does rates, a list of Doubles. Every read comes out as a Number.",
+          "Now cents fits, and so does rates. Every read comes out as a Number.",
     "q1": "Now total calls amounts.add(0). Zero is an Int, and cents holds ints. Does it compile?",
     "s10": "No. Through the view, the compiler can't tell which list it has. It could be rates, and zero is not a Double.",
-    "s11": "javac calls that unknown element type CAP#1. Nothing you can write is known to fit it, so nothing goes in.",
+    "s11": "javac calls that unknown type CAP#1. Nothing is known to fit it, so nothing goes in.",
     "s12": "Calls that take no element, like clear, still work. The view limits types, not changes.",
     "s13": "Now flip it. padWithZeros only adds zeros. So it asks for the other view: MutableList<in Int>.",
     "s14": "A list of Int, of Number or of Any. Each one takes an Int, so add(0) is safe.",
-    "s15": "Reading is the side that gets weaker. The first element might be \"EUR\", so a read comes back typed only as Any?, which fits anything.",
-    "s16": "Writing out or in on one use of a type is called use-site variance. The view itself is a type projection.",
-    "s17": "Java has only this kind of variance. Its ? extends is the read view, and ? super is the write view. "
-           "Kotlin's out and in compile to exactly these wildcards.",
+    "s15": "Reading gets weaker. The first element might be \"EUR\", so a read is typed only as Any?, which fits anything.",
+    "s16": "Writing out or in on one use of a type is use-site variance. The view is a type projection.",
+    "s17": "Java has only this kind of variance. ? extends is its read view, and ? super its write view. "
+           "Kotlin's out and in compile to these wildcards.",
     "r": "The rule. A type that reads and writes T stays invariant. Only reads it: out, or ? extends. Only writes it: in, or ? super.",
-    "c": "Quick check. copyInto reads from one mutable list, and adds each item to another. Which parameter gets out, and which gets in?",
+    "c": "Quick check. copyInto reads one mutable list and adds to another. Which one gets out, and which gets in?",
     "a": "The from list gets out. The to list gets in.",
 }
 PAUSE = {"s2": 1.6, "q1": 2.2, "c": 2.4}
@@ -293,7 +293,7 @@ class Gen06Projections(VoiceScene):
         self.say("r", [(1, [FadeIn(rule[0], shift=UP * 0.1)], 0.8), (2, [FadeIn(rule[1], shift=UP * 0.1)], 0.7),
                        (3, [FadeIn(rule[2], shift=UP * 0.1)], 0.7)])
         chk = VGroup(T("Check: copyInto reads one mutable list and adds to another.", 28),
-                     T("Which parameter gets out, and which gets in?", 28)).arrange(DOWN, buff=0.2).move_to([0, -0.85, 0])
+                     T("Which one gets out, and which gets in?", 28)).arrange(DOWN, buff=0.2).move_to([0, -0.85, 0])
         fit(chk, 12.4)
         self.say("c", [(0, [FadeIn(chk, shift=UP * 0.1)], 0.8)])
         ans = one("fun <T> copyInto(from: MutableList<out T>, to: MutableList<in T>)", 24).move_to([0, -2.6, 0])
