@@ -64,6 +64,10 @@
   "fp06-scope",
   "fp05-sequences",
   "fp07-errors",
-  "fp08-core"
+  "fp08-core",
+  "fp01-pure",
+  "fp02-closures",
+  "fp03-hof",
+  "fp04-fold"
  ]
 }

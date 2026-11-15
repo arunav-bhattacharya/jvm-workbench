@@ -21,6 +21,10 @@
     {"slug": "fp05-sequences", "lesson": "fp-05", "section": 1, "title": "A List runs each step over every payment; a Sequence pulls one payment through the whole chain and stops early, but sorted() still reads everything"},
     {"slug": "fp06-scope", "lesson": "fp-06", "section": 1, "title": "Two questions pick a scope function: this or it, the object or the block's result, and why ?.let { } ?: run { } can run both blocks"},
     {"slug": "fp07-errors", "lesson": "fp-07", "section": 3, "title": "Errors as values: fail fast stops at the first error, collecting runs every check, and runCatching swallows the cancel"},
-    {"slug": "fp08-core", "lesson": "fp-08", "section": 3, "title": "A pure core decides from plain values, a thin shell does the I/O, and its inputs must not change underneath it"}
+    {"slug": "fp08-core", "lesson": "fp-08", "section": 3, "title": "A pure core decides from plain values, a thin shell does the I/O, and its inputs must not change underneath it"},
+    {"slug": "fp01-pure", "lesson": "fp-01", "section": 1, "title": "A fee function with a hidden clock and a log line is impure; a pure one depends only on its arguments, so a call can be swapped for its value"},
+    {"slug": "fp02-closures", "lesson": "fp-02", "section": 3, "title": "A lambda is a value that keeps the variables it uses, and a captured var becomes one shared Ref box where two threads lose an update"},
+    {"slug": "fp03-hof", "lesson": "fp-03", "section": 0, "title": "retry takes the call as a function, feeFor hands back a fee function, and three small functions compose into one price where the order matters"},
+    {"slug": "fp04-fold", "lesson": "fp-04", "section": 2, "title": "fold carries one accumulator down the list from a start value with a step; map and filter are the same walk, and reduce throws on an empty day"}
   ]
 }
