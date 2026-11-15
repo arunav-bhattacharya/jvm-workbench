@@ -1,0 +1,145 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.402
+A payment authorization takes 200 ms.
+
+2
+00:00:05.402 --> 00:00:09.711
+It calls the fraud service, the card issuer and the ledger.
+
+3
+00:00:09.933 --> 00:00:12.499
+Only 5 ms of it runs on a CPU.
+
+4
+00:00:12.499 --> 00:00:15.493
+The rest is waiting on the network.
+
+5
+00:00:15.700 --> 00:00:19.113
+Yet the request holds one thread for all 200 ms.
+
+6
+00:00:19.113 --> 00:00:22.881
+While it waits, no other request can use that thread.
+
+7
+00:00:24.400 --> 00:00:26.407
+Here is a pool of 200 threads.
+
+8
+00:00:26.407 --> 00:00:31.091
+Each square fills up as its request runs, then takes the next request.
+
+9
+00:00:31.300 --> 00:00:36.661
+At 800 requests a second, 160 are busy, and 40 sit idle.
+
+10
+00:00:36.867 --> 00:00:40.528
+Now traffic rises to 1,500 a second.
+
+11
+00:00:40.528 --> 00:00:41.851
+What happens?
+
+12
+00:00:44.067 --> 00:00:47.743
+The idle threads fill at once, and new requests start to queue.
+
+13
+00:00:48.000 --> 00:00:54.961
+Each thread finishes five requests a second, so 200 threads finish 1,000 a second, and not one more.
+
+14
+00:00:55.200 --> 00:00:57.647
+The other 500 a second pile up.
+
+15
+00:00:57.647 --> 00:01:00.568
+After ten seconds, 5,000 are waiting.
+
+16
+00:01:00.800 --> 00:01:01.617
+Freeze it.
+
+17
+00:01:01.617 --> 00:01:04.723
+Only about 5 threads are running code.
+
+18
+00:01:04.723 --> 00:01:07.583
+The other 195 are blocked, waiting.
+
+19
+00:01:07.800 --> 00:01:11.391
+You run out of threads long before you run out of CPU.
+
+20
+00:01:12.300 --> 00:01:16.424
+Now say the card issuer slows down to 1.2 seconds a call.
+
+21
+00:01:16.667 --> 00:01:23.393
+The same 200 threads now finish only 156 a second, and your code did not change.
+
+22
+00:01:25.400 --> 00:01:27.284
+Why not run 2,000 threads?
+
+23
+00:01:27.284 --> 00:01:31.920
+Each one is a platform thread: one Java thread is one OS thread.
+
+24
+00:01:32.133 --> 00:01:34.902
+Each reserves a 1 MB stack by default.
+
+25
+00:01:34.902 --> 00:01:41.896
+Starting one is a system call, and switching between thousands costs kernel time and CPU caches.
+
+26
+00:01:42.800 --> 00:01:49.861
+So a JVM is fine with hundreds, survives a few thousand, and fights the OS at tens of thousands.
+
+27
+00:01:49.861 --> 00:01:51.773
+A million is out of reach.
+
+28
+00:01:52.700 --> 00:01:55.040
+This is the thread-per-request wall.
+
+29
+00:01:55.040 --> 00:02:00.436
+In Java and Kotlin it looks harmless: a fixed pool, and each task keeps its thread.
+
+30
+00:02:01.267 --> 00:02:01.907
+The rule.
+
+31
+00:02:01.907 --> 00:02:08.811
+A blocked request still holds its thread, so threads divided by time per request is your ceiling.
+
+32
+00:02:09.033 --> 00:02:10.054
+Check yourself.
+
+33
+00:02:10.054 --> 00:02:13.454
+200 threads, and each request now takes 2 seconds.
+
+34
+00:02:13.454 --> 00:02:16.243
+How many can the service finish a second?
+
+35
+00:02:18.967 --> 00:02:19.413
+100.
+
+36
+00:02:19.413 --> 00:02:23.097
+200 threads divided by 2 seconds.

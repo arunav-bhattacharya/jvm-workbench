@@ -1,0 +1,157 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.396
+C2 is compiling a hot method, settle.
+
+2
+00:00:05.396 --> 00:00:08.239
+It calls a small helper, requireAmount.
+
+3
+00:00:08.433 --> 00:00:12.600
+To C2, a call is a wall: it can't see what happens inside.
+
+4
+00:00:12.833 --> 00:00:18.598
+Say settle always passes 1200, and the helper checks that the amount is in range.
+
+5
+00:00:18.598 --> 00:00:20.164
+Can C2 skip the check?
+
+6
+00:00:21.600 --> 00:00:23.012
+Not through the wall.
+
+7
+00:00:23.012 --> 00:00:24.963
+The check runs on every call.
+
+8
+00:00:25.167 --> 00:00:26.998
+Inlining removes the wall.
+
+9
+00:00:26.998 --> 00:00:32.071
+C2 pastes the helper's body into settle, and compiles them as one piece.
+
+10
+00:00:32.267 --> 00:00:37.739
+Now C2 sees 1200 meet the range check, and drops the check at compile time.
+
+11
+00:00:37.739 --> 00:00:39.491
+That's constant folding.
+
+12
+00:00:39.700 --> 00:00:41.988
+Saving the call is the small win.
+
+13
+00:00:41.988 --> 00:00:46.632
+The big one: escape analysis and loop unrolling now see both sides.
+
+14
+00:00:46.632 --> 00:00:48.851
+That's why inlining comes first.
+
+15
+00:00:49.633 --> 00:00:53.777
+But each call site gets a budget, in bytes of bytecode.
+
+16
+00:00:53.777 --> 00:00:59.654
+A site that runs on a quarter or more of the caller's calls is hot: 325 bytes.
+
+17
+00:00:59.654 --> 00:01:01.387
+Any other site gets 35.
+
+18
+00:01:02.567 --> 00:01:08.614
+This guard checks a refund amount, and builds its error message inline: 49 bytes.
+
+19
+00:01:08.614 --> 00:01:10.779
+Its site runs on 1 call in 8.
+
+20
+00:01:10.779 --> 00:01:12.123
+Will C2 inline it?
+
+21
+00:01:13.600 --> 00:01:13.840
+No.
+
+22
+00:01:13.840 --> 00:01:20.632
+49 is over 35, and the budget counts the message bytes, though they almost never run.
+
+23
+00:01:20.833 --> 00:01:23.429
+Move the message into its own method.
+
+24
+00:01:23.429 --> 00:01:26.095
+The guard drops to 21 bytes, and fits.
+
+25
+00:01:26.267 --> 00:01:27.910
+Here is C2's real log.
+
+26
+00:01:27.910 --> 00:01:30.675
+inline (hot) is just how it says yes.
+
+27
+00:01:31.467 --> 00:01:34.471
+Some JDK methods skip the budget.
+
+28
+00:01:34.471 --> 00:01:42.573
+Long.bitCount is 61 bytes of shifts and masks, but on x86 C2 uses one POPCNT instruction.
+
+29
+00:01:42.800 --> 00:01:50.380
+These are intrinsics: JDK methods the JIT swaps for hand-written code, so their bytecode size doesn't matter.
+
+30
+00:01:51.200 --> 00:01:54.354
+In code, the guard calls out for its message.
+
+31
+00:01:54.354 --> 00:01:58.979
+And Kotlin's countOneBits calls Long.bitCount, the same intrinsic.
+
+32
+00:01:59.767 --> 00:02:00.580
+The rule.
+
+33
+00:02:00.580 --> 00:02:07.263
+Inlining lets C2 see through calls, within 35 bytes, or 325 at a hot site.
+
+34
+00:02:07.263 --> 00:02:11.328
+Keep cold paths out, and call the JDK method.
+
+35
+00:02:11.500 --> 00:02:12.318
+Quick check.
+
+36
+00:02:12.318 --> 00:02:17.839
+A 40-byte method: is it inlined from a site that runs on half the caller's calls?
+
+37
+00:02:17.839 --> 00:02:20.224
+From one that runs on 1 call in 10?
+
+38
+00:02:22.400 --> 00:02:26.226
+Yes at the hot site: 40 is under 325.
+
+39
+00:02:26.226 --> 00:02:29.432
+No at the other: 40 is over 35.

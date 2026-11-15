@@ -1,0 +1,125 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:08.511
+A card terminal keeps a connection to your server open, and sends one request every ten seconds.
+
+2
+00:00:08.511 --> 00:00:11.417
+The server gives that connection its own thread.
+
+3
+00:00:11.417 --> 00:00:13.536
+What does the thread do in between?
+
+4
+00:00:13.767 --> 00:00:17.861
+One level down, the kernel keeps a receive buffer for each socket.
+
+5
+00:00:17.861 --> 00:00:20.777
+The thread calls read, and the buffer is empty.
+
+6
+00:00:20.777 --> 00:00:25.925
+So the kernel takes the thread off the CPU, and parks it on the socket's wait list.
+
+7
+00:00:26.133 --> 00:00:27.158
+A packet arrives.
+
+8
+00:00:27.158 --> 00:00:32.223
+The kernel puts its bytes in the buffer and wakes the thread, and read returns them.
+
+9
+00:00:32.223 --> 00:00:36.564
+The thread replies, calls read again, and parks for another ten seconds.
+
+10
+00:00:36.767 --> 00:00:40.861
+It's a real OS thread, with its own stack of about a megabyte.
+
+11
+00:00:40.861 --> 00:00:46.209
+And a thread dump calls it RUNNABLE, because the JVM sees it running native code.
+
+12
+00:00:47.133 --> 00:00:52.453
+Now ten thousand terminals connect, and each request takes 150 milliseconds.
+
+13
+00:00:52.453 --> 00:00:55.253
+How many threads are busy at any moment?
+
+14
+00:00:58.033 --> 00:01:00.674
+That's a thousand requests a second.
+
+15
+00:01:00.674 --> 00:01:04.489
+Times 0.15 seconds, Little's law says 150 in flight.
+
+16
+00:01:04.489 --> 00:01:10.725
+But the server holds ten thousand threads, and almost all of them sit parked in read.
+
+17
+00:01:10.933 --> 00:01:17.745
+In 1999, Dan Kegel called this the C10K problem: ten thousand clients at once.
+
+18
+00:01:17.967 --> 00:01:23.549
+The way out: make the sockets non-blocking, so a read on an empty buffer returns at once.
+
+19
+00:01:23.549 --> 00:01:27.751
+Then one thread asks the kernel: which sockets are ready right now?
+
+20
+00:01:27.967 --> 00:01:33.242
+select and poll take the whole list on every call, which gets slow with thousands.
+
+21
+00:01:33.242 --> 00:01:38.647
+epoll and kqueue keep the list inside the kernel, and hand back only the ready ones.
+
+22
+00:01:38.867 --> 00:01:41.659
+The thread serves those, then asks again.
+
+23
+00:01:41.659 --> 00:01:43.090
+That's an event loop.
+
+24
+00:01:43.090 --> 00:01:45.201
+Its price: it must never block.
+
+25
+00:01:46.133 --> 00:01:50.215
+Here is the line that parks a thread, in Java and in Kotlin.
+
+26
+00:01:52.600 --> 00:01:56.339
+So a blocking read holds a whole thread for the whole wait.
+
+27
+00:01:56.339 --> 00:02:00.711
+Thread-per-connection needs one thread per open socket, busy or idle.
+
+28
+00:02:00.711 --> 00:02:03.372
+Readiness lets one thread watch thousands.
+
+29
+00:02:03.600 --> 00:02:04.392
+Quick check.
+
+30
+00:02:04.392 --> 00:02:10.790
+Five hundred terminals each send one request every five seconds, and each takes 100 milliseconds.
+
+31
+00:02:10.790 --> 00:02:15.737
+How many threads does the server hold, and how many requests are in flight?

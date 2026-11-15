@@ -1,0 +1,193 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.219
+Here is a function that adds up amounts.
+
+2
+00:00:05.219 --> 00:00:08.495
+It takes a MutableList of Number, and only reads it.
+
+3
+00:00:08.700 --> 00:00:11.578
+You have cents, a MutableList&lt;Int&gt;.
+
+4
+00:00:11.578 --> 00:00:13.141
+An Int is a Number.
+
+5
+00:00:13.141 --> 00:00:15.525
+So does total(cents) compile?
+
+6
+00:00:17.100 --> 00:00:17.362
+No.
+
+7
+00:00:17.362 --> 00:00:21.551
+A MutableList&lt;Int&gt; is not a MutableList&lt;Number&gt;.
+
+8
+00:00:21.767 --> 00:00:23.901
+A mutable list has two doors.
+
+9
+00:00:23.901 --> 00:00:25.741
+get hands an element out.
+
+10
+00:00:25.741 --> 00:00:26.992
+add takes one in.
+
+11
+00:00:27.200 --> 00:00:32.881
+If cents could pass, total could push 2.5 through the add door, into a list of ints.
+
+12
+00:00:33.100 --> 00:00:37.587
+The element type sits at both doors, so MutableList stays invariant.
+
+13
+00:00:37.800 --> 00:00:39.935
+But total never uses the add door.
+
+14
+00:00:39.935 --> 00:00:44.896
+So it asks for a view of the list with that door shut: MutableList&lt;out Number&gt;.
+
+15
+00:00:45.100 --> 00:00:49.548
+Read it as: a list of some subtype of Number, and I don't know which.
+
+16
+00:00:49.548 --> 00:00:51.739
+Now cents fits, and so does rates.
+
+17
+00:00:51.739 --> 00:00:53.867
+Every read comes out as a Number.
+
+18
+00:00:54.033 --> 00:00:56.473
+Now total calls amounts.add(0).
+
+19
+00:00:56.473 --> 00:00:59.386
+Zero is an Int, and cents holds ints.
+
+20
+00:00:59.386 --> 00:01:00.645
+Does it compile?
+
+21
+00:01:02.833 --> 00:01:03.025
+No.
+
+22
+00:01:03.025 --> 00:01:06.865
+Through the view, the compiler can't tell which list it has.
+
+23
+00:01:06.865 --> 00:01:09.680
+It could be rates, and zero is not a Double.
+
+24
+00:01:10.367 --> 00:01:12.834
+javac calls that unknown type CAP#1.
+
+25
+00:01:12.834 --> 00:01:16.055
+Nothing is known to fit it, so nothing goes in.
+
+26
+00:01:16.267 --> 00:01:19.564
+Calls that take no element, like clear, still work.
+
+27
+00:01:19.564 --> 00:01:21.827
+The view limits types, not changes.
+
+28
+00:01:22.033 --> 00:01:22.946
+Now flip it.
+
+29
+00:01:22.946 --> 00:01:25.151
+padWithZeros only adds zeros.
+
+30
+00:01:25.151 --> 00:01:29.029
+So it asks for the other view: MutableList&lt;in Int&gt;.
+
+31
+00:01:29.233 --> 00:01:31.764
+A list of Int, of Number or of Any.
+
+32
+00:01:31.764 --> 00:01:34.729
+Each one takes an Int, so add(0) is safe.
+
+33
+00:01:35.033 --> 00:01:36.547
+Reading gets weaker.
+
+34
+00:01:36.547 --> 00:01:43.132
+The first element might be "EUR", so a read is typed only as Any?, which fits anything.
+
+35
+00:01:43.333 --> 00:01:47.481
+Writing out or in on one use of a type is use-site variance.
+
+36
+00:01:47.481 --> 00:01:49.555
+The view is a type projection.
+
+37
+00:01:50.467 --> 00:01:53.227
+Java has only this kind of variance.
+
+38
+00:01:53.227 --> 00:01:57.443
+? extends is its read view, and ? super its write view.
+
+39
+00:01:57.443 --> 00:02:01.047
+Kotlin's out and in compile to these wildcards.
+
+40
+00:02:01.833 --> 00:02:02.647
+The rule.
+
+41
+00:02:02.647 --> 00:02:06.893
+A type that reads and writes T stays invariant.
+
+42
+00:02:06.893 --> 00:02:09.875
+Only reads it: out, or ? extends.
+
+43
+00:02:09.875 --> 00:02:12.676
+Only writes it: in, or ? super.
+
+44
+00:02:12.867 --> 00:02:13.710
+Quick check.
+
+45
+00:02:13.710 --> 00:02:17.363
+copyInto reads one mutable list and adds to another.
+
+46
+00:02:17.363 --> 00:02:20.033
+Which one gets out, and which gets in?
+
+47
+00:02:22.433 --> 00:02:24.198
+The from list gets out.
+
+48
+00:02:24.198 --> 00:02:25.732
+The to list gets in.

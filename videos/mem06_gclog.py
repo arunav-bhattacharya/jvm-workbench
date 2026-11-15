@@ -17,20 +17,20 @@ N = {
           "Turn on -Xlog:gc, and the JVM prints one line per collection.",
     "s2": "Read one line as an event on a timeline. It happened 0.128 seconds after the JVM started.",
     "s3": "Collection zero, a young pause. Pause means every application thread stopped. Normal means only the young part of the heap.",
-    "s4": "The cause: eden was full. The heap went from 14 megabytes used to 1, of 256 committed.",
+    "s4": "Eden was full, and the heap went from 14 megabytes used to 1, of 256 committed.",
     "s5": "And 12.723 milliseconds is how long your threads stood still.",
     "s6": "Here are eight real lines from a busier G1 run. Which ones stopped your threads?",
-    "s7": "A pause line has Pause right after the GC number, and ends in milliseconds. It cuts across every thread.",
+    "s7": "A pause line has Pause right after the GC number, and ends in milliseconds.",
     "s8": "Concurrent Mark Cycle ends in milliseconds too. But it ran beside your threads.",
-    "s9": "Three more pauses. That's six of eight, and the longest is the full GC at the end: almost 47 milliseconds.",
+    "s9": "Three more pauses: six of eight. The longest is the full GC at the end, almost 47 milliseconds.",
     "s10": "And look closer at Full and Evacuation Failure. A healthy G1 service shows neither.",
     "s11": "How big is that heap? In a container, the JVM reads the memory limit, and with no heap flags it takes 25% of it.",
     "s12": "A pod with a 1 GiB limit gets a 256 MB heap. Why leave three quarters free?",
-    "s13": "Because the heap isn't the whole process. Metaspace, code cache, thread stacks, GC bookkeeping and direct buffers live outside it.",
+    "s13": "The heap isn't the whole process. Metaspace, code cache, thread stacks, GC bookkeeping and direct buffers live outside it.",
     "s14": "With MaxRAMPercentage=75, the same pod gets 768 MB, and the rest still fits.",
     "q": "Now set -Xmx1g, the whole limit. What happens once the heap fills?",
     "s15": "The rest goes past the limit, and the kernel kills the process. Exit code 137, no OutOfMemoryError.",
-    "s16": "In production, log to rotating files. These JVM flags work the same for Java and Kotlin services.",
+    "s16": "These JVM flags work the same for Java and Kotlin services.",
     "r": "The rule. Pause after the GC number means your threads stopped. Size the heap at 50 to 75% of the limit, never 100.",
     "c": "Quick check. A 4 GiB pod, no heap flags. How big is the max heap?",
     "a": "1 GiB: a quarter of the limit.",
@@ -166,8 +166,8 @@ class Mem06Gclog(VoiceScene):
         u1 = M("1M used", 24, HEAP_C).next_to(used1, RIGHT, buff=0.2)
         cause = T("cause: eden was full", 26, GREY_A).move_to([3.4, -0.6, 0])
         self.say("s4", [(0, [mark(part(line0[1], "(G1 Evacuation Pause)"), WHITE, 0.3), FadeIn(cause)], 1.0),
-                        (1, [mark(part(line0[1], "14M->1M(256M)"), HEAP_C, 0.4), FadeIn(gauge), FadeIn(gauge_l), FadeIn(used14), FadeIn(u14)], 1.0),
-                        (1, [Transform(used14, used1), Transform(u14, u1)], 0.9)])
+                        (0, [mark(part(line0[1], "14M->1M(256M)"), HEAP_C, 0.4), FadeIn(gauge), FadeIn(gauge_l), FadeIn(used14), FadeIn(u14)], 1.0),
+                        (0, [Transform(used14, used1), Transform(u14, u1)], 0.9)])
 
         dur = T("all threads stopped for 12.723 ms", 28, BAD_C).move_to([EV - 0.6, 2.05, 0])
         self.say("s5", [(0, [mark(part(line0[1], "12.723ms"), BAD_C, 0.4), FadeIn(dur, shift=DOWN * 0.1)], 1.0)])
@@ -216,12 +216,11 @@ class Mem06Gclog(VoiceScene):
             return anims
 
         band = block(X[1], X[4], GCY, 0.32, GC_C, 0.6)
-        band_l = T("Concurrent Mark Cycle: 53.866 ms, beside the threads", 22, GC_C).move_to([(X[1] + X[4]) / 2, 0.02, 0])
-        fit(band_l, X[4] - X[1] + 0.6)
+        band_l = T("53.866 ms, beside the threads", 22, GC_C).move_to([X[4] + 0.3, GCY, 0], aligned_edge=LEFT)
         self.say("s6", [(0, [Create(gc_lane), FadeIn(gc_l), Create(axis2), FadeIn(note)], 0.9)])
         self.say("s7", [(0, lambda: place(0), 0.8),
                         (0, lambda: [mark(part(shown[0][0], "Pause"), BAD_C, 0.4)], 1.0),
-                        (1, lambda: [Flash(blocks[0][0], color=BAD_C, flash_radius=0.8)], 0.6)])
+                        (0, lambda: [Flash(blocks[0][0], color=BAD_C, flash_radius=0.8)], 0.6)])
         self.say("s8", [(0, lambda: place(1), 0.7), (0, [GrowFromEdge(band, LEFT)], 1.0),
                         (1, lambda: place(2), 0.6), (1, lambda: place(3), 0.6),
                         (1, lambda: place(4), 0.6), (1, [FadeIn(band_l)], 0.5)])
@@ -282,7 +281,7 @@ class Mem06Gclog(VoiceScene):
                     M("-Xlog:gc*:file=gc.log:time,uptime,level,tags:filecount=5,filesize=20m", 24, NOTE_C),
                     M("-XX:MaxRAMPercentage=75", 26, HEAP_C)).arrange(DOWN, buff=0.45).move_to([0, 0.3, 0])
         fit(fl, 12.4)
-        self.say("s16", [(0, [FadeIn(fl[1], shift=UP * 0.1)], 0.8), (0, [FadeIn(fl[2], shift=UP * 0.1)], 0.7), (1, [FadeIn(fl[0])], 0.6)])
+        self.say("s16", [(0, [FadeIn(fl[1], shift=UP * 0.1), FadeIn(fl[2], shift=UP * 0.1)], 0.8), (0, [FadeIn(fl[0])], 0.6)])
         self.play(FadeOut(fl), run_time=0.6)
 
         # ---------- the rule and a check

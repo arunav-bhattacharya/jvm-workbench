@@ -1,7 +1,7 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:08.479
+00:00:02.700 --> 00:00:08.445
 A request hands a card charge to a pool, and waits up to 200 ms for the answer.
 
 2
@@ -13,119 +13,119 @@ The issuer takes 600.
 At 200 ms, get throws a TimeoutException, and the request reports a failure.
 
 4
-00:00:16.933 --> 00:00:18.668
+00:00:16.967 --> 00:00:18.701
 What happens to the charge?
 
 5
-00:00:20.867 --> 00:00:22.415
+00:00:20.933 --> 00:00:22.482
 Nothing stopped it.
 
 6
-00:00:22.415 --> 00:00:27.387
+00:00:22.482 --> 00:00:27.453
 At about 650 ms the issuer approves, and the card is charged.
 
 7
-00:00:27.600 --> 00:00:30.231
+00:00:27.667 --> 00:00:30.297
 A timeout ends your wait, not the task.
 
 8
-00:00:31.133 --> 00:00:33.586
+00:00:31.200 --> 00:00:33.653
 So you call cancel(true) on its Future.
 
 9
-00:00:33.586 --> 00:00:35.221
+00:00:33.653 --> 00:00:35.288
 Does that kill the thread?
 
 10
-00:00:36.600 --> 00:00:36.857
+00:00:36.700 --> 00:00:36.957
 No.
 
 11
-00:00:36.857 --> 00:00:40.112
+00:00:36.957 --> 00:00:40.212
 Java has no safe way to kill a thread.
 
 12
-00:00:40.267 --> 00:00:43.334
+00:00:40.433 --> 00:00:43.501
 cancel(true) calls interrupt on the task's thread.
 
 13
-00:00:43.334 --> 00:00:47.384
+00:00:43.501 --> 00:00:47.551
 And interrupt only sets a flag on that thread, from false to true.
 
 14
-00:00:48.867 --> 00:00:51.234
+00:00:49.067 --> 00:00:51.434
 Three tasks, on three pool threads.
 
 15
-00:00:51.234 --> 00:00:53.467
+00:00:51.434 --> 00:00:53.667
 The sleeper sleeps for 5 seconds.
 
 16
-00:00:53.733 --> 00:00:59.137
+00:00:53.933 --> 00:00:59.337
 The checker loops over slices of CPU work, and checks the flag before each slice.
 
 17
-00:00:59.467 --> 00:01:03.036
+00:00:59.633 --> 00:01:03.203
 The ignorer runs the same loop, and never looks at the flag.
 
 18
-00:01:03.333 --> 00:01:07.471
+00:01:03.500 --> 00:01:07.638
 At 100 ms, main calls cancel(true) on all three.
 
 19
-00:01:07.471 --> 00:01:08.851
+00:01:07.638 --> 00:01:09.017
 Which ones stop?
 
 20
-00:01:11.133 --> 00:01:12.673
+00:01:11.300 --> 00:01:12.839
 All three flags go up.
 
 21
-00:01:12.673 --> 00:01:14.492
+00:01:12.839 --> 00:01:14.659
 The sleeper stops at once.
 
 22
-00:01:14.492 --> 00:01:17.011
+00:01:14.659 --> 00:01:17.178
 The checker stops at its next check.
 
 23
-00:01:17.011 --> 00:01:18.691
+00:01:17.178 --> 00:01:18.857
 The ignorer keeps going.
 
 24
-00:01:19.067 --> 00:01:19.343
+00:01:19.133 --> 00:01:19.410
 Why?
 
 25
-00:01:19.343 --> 00:01:23.287
+00:01:19.410 --> 00:01:23.354
 The sleeper was blocked in sleep, which watches the flag.
 
 26
-00:01:23.287 --> 00:01:27.577
+00:01:23.354 --> 00:01:27.644
 It wakes up, clears the flag, and throws InterruptedException.
 
 27
-00:01:27.867 --> 00:01:31.692
+00:01:27.933 --> 00:01:31.759
 The checker looked at the flag before its next slice, and returned.
 
 28
-00:01:32.000 --> 00:01:33.776
+00:01:32.033 --> 00:01:33.809
 The ignorer never looks.
 
 29
-00:01:33.776 --> 00:01:38.733
+00:01:33.809 --> 00:01:38.767
 Nothing outside can stop a running loop, so it runs all 400 slices.
 
 30
-00:01:39.600 --> 00:01:40.614
+00:01:39.633 --> 00:01:40.647
 And the futures?
 
 31
-00:01:40.614 --> 00:01:45.304
+00:01:40.647 --> 00:01:45.338
 All three said cancelled the moment cancel was called, even the ignorer's.
 
 32
-00:01:45.304 --> 00:01:48.473
+00:01:45.338 --> 00:01:48.507
 If its work posted to a ledger, the post happened.
 
 33
@@ -137,33 +137,33 @@ So a long CPU loop should check the flag itself, in Java or in Kotlin.
 Blocking calls like sleep already do.
 
 35
-00:01:58.067 --> 00:01:58.680
+00:01:58.100 --> 00:01:58.713
 The rule.
 
 36
-00:01:58.680 --> 00:02:01.270
+00:01:58.713 --> 00:02:01.303
 cancel(true) is a request, not a kill.
 
 37
-00:02:01.270 --> 00:02:06.449
+00:02:01.303 --> 00:02:06.483
 A task stops only if it blocks in an interruptible call, or checks the flag.
 
 38
-00:02:06.600 --> 00:02:07.615
+00:02:06.700 --> 00:02:07.715
 Check yourself.
 
 39
-00:02:07.615 --> 00:02:12.827
+00:02:07.715 --> 00:02:12.927
 A task runs a CPU loop that never checks the flag, and you call cancel(true).
 
 40
-00:02:12.827 --> 00:02:16.753
+00:02:12.927 --> 00:02:16.853
 What does isCancelled return, and when does the task stop?
 
 41
-00:02:19.400 --> 00:02:20.346
+00:02:19.567 --> 00:02:20.513
 True, at once.
 
 42
-00:02:20.346 --> 00:02:23.253
+00:02:20.513 --> 00:02:23.420
 And the task stops only when its loop ends.

@@ -1,173 +1,165 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.442
-Your slowest requests just got slower.
+00:00:02.733 --> 00:00:05.105
+Your slowest requests got slower.
 
 2
-00:00:05.442 --> 00:00:08.793
+00:00:05.105 --> 00:00:08.482
 Is the garbage collector stopping your threads?
 
 3
-00:00:08.793 --> 00:00:13.569
-Turn on -Xlog:gc, and the JVM prints one line for every collection.
+00:00:08.482 --> 00:00:12.865
+Turn on -Xlog:gc, and the JVM prints one line per collection.
 
 4
-00:00:13.733 --> 00:00:17.261
+00:00:13.467 --> 00:00:17.002
 Read one line as an event on a timeline.
 
 5
-00:00:17.261 --> 00:00:22.024
-This one happened 0.128 seconds after the JVM started.
+00:00:17.002 --> 00:00:21.245
+It happened 0.128 seconds after the JVM started.
 
 6
-00:00:22.200 --> 00:00:25.066
-It's collection number zero, a young pause.
+00:00:21.400 --> 00:00:23.449
+Collection zero, a young pause.
 
 7
-00:00:25.066 --> 00:00:28.066
+00:00:23.449 --> 00:00:26.424
 Pause means every application thread stopped.
 
 8
-00:00:28.066 --> 00:00:31.799
-Normal means G1 cleaned only the young part of the heap.
+00:00:26.424 --> 00:00:29.399
+Normal means only the young part of the heap.
 
 9
-00:00:31.867 --> 00:00:33.848
+00:00:29.533 --> 00:00:31.614
 The cause: eden was full.
 
 10
-00:00:33.848 --> 00:00:38.920
-The heap went from 14 megabytes used to 1, out of 256 committed.
+00:00:31.614 --> 00:00:36.608
+The heap went from 14 megabytes used to 1, of 256 committed.
 
 11
-00:00:39.067 --> 00:00:43.809
+00:00:36.800 --> 00:00:41.543
 And 12.723 milliseconds is how long your threads stood still.
 
 12
-00:00:44.600 --> 00:00:49.124
-Here are eight real lines from a busier G1 run, under a second of time.
+00:00:42.333 --> 00:00:45.375
+Here are eight real lines from a busier G1 run.
 
 13
-00:00:49.124 --> 00:00:51.163
+00:00:45.375 --> 00:00:47.445
 Which ones stopped your threads?
 
 14
-00:00:52.733 --> 00:00:57.733
+00:00:48.867 --> 00:00:53.878
 A pause line has Pause right after the GC number, and ends in milliseconds.
 
 15
-00:00:57.733 --> 00:01:00.000
-Each one cuts across every thread.
+00:00:53.878 --> 00:00:55.749
+It cuts across every thread.
 
 16
-00:01:00.200 --> 00:01:03.103
+00:00:55.933 --> 00:00:58.962
 Concurrent Mark Cycle ends in milliseconds too.
 
 17
-00:01:03.103 --> 00:01:06.315
-But it ran beside your threads, not instead of them.
+00:00:58.962 --> 00:01:00.960
+But it ran beside your threads.
 
 18
-00:01:06.533 --> 00:01:08.355
-Three more pauses follow.
+00:01:01.467 --> 00:01:02.767
+Three more pauses.
 
 19
-00:01:08.355 --> 00:01:15.933
-So six of the eight lines are pauses, and the longest is the full GC at the end: almost 47 milliseconds.
+00:01:02.767 --> 00:01:09.053
+That's six of eight, and the longest is the full GC at the end: almost 47 milliseconds.
 
 20
-00:01:16.200 --> 00:01:20.545
-Two words deserve a closer look: Full, and Evacuation Failure.
+00:01:09.333 --> 00:01:12.606
+And look closer at Full and Evacuation Failure.
 
 21
-00:01:20.545 --> 00:01:22.997
+00:01:12.606 --> 00:01:15.043
 A healthy G1 service shows neither.
 
 22
-00:01:23.867 --> 00:01:25.908
-Now, how big is that heap?
+00:01:15.933 --> 00:01:17.554
+How big is that heap?
 
 23
-00:01:25.908 --> 00:01:29.598
-In a container, the JVM reads the memory limit.
+00:01:17.554 --> 00:01:24.501
+In a container, the JVM reads the memory limit, and with no heap flags it takes 25% of it.
 
 24
-00:01:29.598 --> 00:01:33.209
-With no heap flags, the max heap is 25% of it.
+00:01:24.667 --> 00:01:28.543
+A pod with a 1 GiB limit gets a 256 MB heap.
 
 25
-00:01:33.333 --> 00:01:37.417
-So a pod with a 1 GiB limit gets a 256 MB heap.
-
-26
-00:01:37.417 --> 00:01:40.024
+00:01:28.543 --> 00:01:31.187
 Why leave three quarters free?
 
-27
-00:01:41.000 --> 00:01:43.702
+26
+00:01:31.933 --> 00:01:34.731
 Because the heap isn't the whole process.
 
-28
-00:01:43.702 --> 00:01:51.019
-Metaspace, the code cache, a stack per thread, the GC's own bookkeeping and direct buffers all live outside it.
+27
+00:01:34.731 --> 00:01:40.736
+Metaspace, code cache, thread stacks, GC bookkeeping and direct buffers live outside it.
 
-29
-00:01:51.133 --> 00:01:59.588
+28
+00:01:40.867 --> 00:01:49.321
 With MaxRAMPercentage=75, the same pod gets 768 MB, and the rest still fits.
 
-30
-00:01:59.733 --> 00:02:02.387
+29
+00:01:49.467 --> 00:01:52.120
 Now set -Xmx1g, the whole limit.
 
-31
-00:02:02.387 --> 00:02:05.123
+30
+00:01:52.120 --> 00:01:54.856
 What happens once the heap fills?
 
+31
+00:01:56.600 --> 00:02:01.381
+The rest goes past the limit, and the kernel kills the process.
+
 32
-00:02:07.067 --> 00:02:12.331
-Everything else goes past the limit, and the kernel kills the process.
+00:02:01.381 --> 00:02:04.037
+Exit code 137, no OutOfMemoryError.
 
 33
-00:02:12.331 --> 00:02:13.383
-Exit code 137.
+00:02:04.867 --> 00:02:07.824
+In production, log to rotating files.
 
 34
-00:02:13.383 --> 00:02:15.940
-No OutOfMemoryError, no heap dump.
+00:02:07.824 --> 00:02:12.539
+These JVM flags work the same for Java and Kotlin services.
 
 35
-00:02:16.800 --> 00:02:22.050
-In production, log to rotating files, and size the heap with a percentage.
-
-36
-00:02:22.050 --> 00:02:26.733
-These are JVM flags, the same for a Java service and a Kotlin one.
-
-37
-00:02:27.533 --> 00:02:28.258
+00:02:13.267 --> 00:02:14.011
 The rule.
 
+36
+00:02:14.011 --> 00:02:18.393
+Pause after the GC number means your threads stopped.
+
+37
+00:02:18.393 --> 00:02:22.609
+Size the heap at 50 to 75% of the limit, never 100.
+
 38
-00:02:28.258 --> 00:02:33.006
-A line with Pause after the GC number stopped your threads.
-
-39
-00:02:33.006 --> 00:02:37.111
-Size the heap as 50 to 75% of the limit, never 100.
-
-40
-00:02:37.200 --> 00:02:38.130
+00:02:22.733 --> 00:02:23.712
 Quick check.
 
-41
-00:02:38.130 --> 00:02:41.930
-A pod with a 4 GiB limit runs with no heap flags.
+39
+00:02:23.712 --> 00:02:25.915
+A 4 GiB pod, no heap flags.
 
-42
-00:02:41.930 --> 00:02:43.791
+40
+00:02:25.915 --> 00:02:27.873
 How big is the max heap?
 
-43
-00:02:46.133 --> 00:02:48.295
+41
+00:02:30.067 --> 00:02:32.228
 1 GiB: a quarter of the limit.
