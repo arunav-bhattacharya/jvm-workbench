@@ -7,6 +7,19 @@ looking at. The look and the voice match the videos of the sister site ai-engine
 The pilot is `videos/conc03_race.py` (scene `RaceCount`). Watch how it is built before you start:
 render it, look at frames, read the captions. Match its pace and quality.
 
+## Build intuition first (the most important rule)
+
+The viewer should leave with a picture in their head they could redraw on a whiteboard, not a list of facts.
+- Open with the problem as something the viewer already knows: a payment, a queue at a counter, two people
+  writing on one sheet. Let them feel what goes wrong before any term appears.
+- One mental model per video, drawn as physical things that move: boxes, queues, tokens, conveyor belts,
+  arrows. Keep each thing's colour and place the same from start to end.
+- Ask the viewer to predict ("What happens when the second thread reads?"), hold a beat of silence, then show.
+- Name the concept only after the picture has done the work. Code comes last, short, as confirmation of what
+  they already saw, never as the main content.
+- Fewer, bigger elements beat dense screens. Slow down at the one moment that matters.
+- End on the rule in one sentence, then one quick check question the viewer can answer from the picture.
+
 ## Tools (already installed)
 
 - Manim Community 0.22 in a venv. Kokoro TTS model files. CMU Serif and CMU Typewriter fonts.
