@@ -60,6 +60,10 @@
   "co06-supervisor",
   "rx06-schedulers",
   "co08-state-shared",
-  "co09-channels"
+  "co09-channels",
+  "fp06-scope",
+  "fp05-sequences",
+  "fp07-errors",
+  "fp08-core"
  ]
 }

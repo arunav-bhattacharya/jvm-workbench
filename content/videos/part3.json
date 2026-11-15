@@ -17,6 +17,10 @@
     {"slug": "kt04-dsl", "lesson": "kt-04", "section": 2, "title": "A lambda with receiver runs inside its builder; a bare call goes to the nearest receiver that has it, and @DslMarker stops it there"},
     {"slug": "pat06-composite", "lesson": "pat-06", "section": 0, "title": "A group answers the same question as a single rule by asking its children, so one recursive function prices the whole fee plan"},
     {"slug": "pat09-chain-state", "lesson": "pat-09", "section": 2, "title": "A request runs along a chain of checks until one answers, and the order of the list is behavior; then a payment's state decides which event is legal"},
-    {"slug": "pat08-observer-command", "lesson": "pat-08", "section": 0, "title": "The ledger tells a list of listeners, each in its own try; a command is an object on an undo stack, pushed only after it worked"}
+    {"slug": "pat08-observer-command", "lesson": "pat-08", "section": 0, "title": "The ledger tells a list of listeners, each in its own try; a command is an object on an undo stack, pushed only after it worked"},
+    {"slug": "fp05-sequences", "lesson": "fp-05", "section": 1, "title": "A List runs each step over every payment; a Sequence pulls one payment through the whole chain and stops early, but sorted() still reads everything"},
+    {"slug": "fp06-scope", "lesson": "fp-06", "section": 1, "title": "Two questions pick a scope function: this or it, the object or the block's result, and why ?.let { } ?: run { } can run both blocks"},
+    {"slug": "fp07-errors", "lesson": "fp-07", "section": 3, "title": "Errors as values: fail fast stops at the first error, collecting runs every check, and runCatching swallows the cancel"},
+    {"slug": "fp08-core", "lesson": "fp-08", "section": 3, "title": "A pure core decides from plain values, a thin shell does the I/O, and its inputs must not change underneath it"}
   ]
 }
