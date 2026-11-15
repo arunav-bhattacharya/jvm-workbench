@@ -146,10 +146,10 @@ class Conc10Synchronizers(VoiceScene):
         starts = [-2.4, -1.6, -0.8, -2.0]
         workers = VGroup(*[dot(WAITER).move_to([starts[i], slots[i], 0]) for i in range(4)])
         day = T("day 1", 24, GREY_A).move_to([-1.2, YB + 0.9, 0])
-        act = VGroup(RoundedRectangle(corner_radius=0.1, width=2.6, height=0.5, stroke_color=COUNT, stroke_width=2.5)
+        act = VGroup(RoundedRectangle(corner_radius=0.1, width=2.2, height=0.5, stroke_color=COUNT, stroke_width=2.5)
                      .set_fill(BLACK, 1), T("barrier action", 22, COUNT))
         act[1].move_to(act[0])
-        act.move_to([4.95, YB + 0.62, 0])
+        act.move_to([5.15, YB + 0.62, 0])
         self.beat("Next, four workers simulate one day each. Nobody may start day two until all four finish.",
                   FadeIn(seps[0]), FadeIn(lab_b), FadeIn(workers), FadeIn(day), Create(g_b), FadeIn(c_b), run_time=1.6)
 
@@ -160,7 +160,7 @@ class Conc10Synchronizers(VoiceScene):
             1.8, (arrive(2, 1), 0.8), 0.4, (arrive(0, 2), 0.8), 0.4, (arrive(3, 3), 0.8))
         seq(self, "The fourth to arrive runs the barrier action once, here adding up the day. Then all four go on together.",
             (arrive(1, 4), 0.9), ([FadeIn(act, scale=0.9), Indicate(c_b[1], color=WHITE)], 0.9), 1.2,
-            ([opened(g_b), *[w.animate.move_to([3.0, slots[i], 0]) for i, w in enumerate(workers)]], 1.3))
+            ([opened(g_b), *[w.animate.move_to([3.4, slots[i], 0]) for i, w in enumerate(workers)]], 1.3))
         self.beat("Day two. Is the gate still open, like the latch?",
                   Transform(day, T("day 2", 24, GREY_A).move_to(day)), FadeOut(act),
                   *[w.animate.move_to([starts[i], slots[i], 0]) for i, w in enumerate(workers)],
@@ -174,7 +174,7 @@ class Conc10Synchronizers(VoiceScene):
                   "Each phase then waits only for the parties still registered.",
             1.4, ([workers[3].animate.shift(DOWN * 0.5 + LEFT * 0.4).set_opacity(0), recount(c_b, "0/3")], 1.0), 1.6,
             ([*[workers[i].animate.move_to([GX - 0.3, slots[i], 0]) for i in range(3)], recount(c_b, "3/3")], 1.0),
-            ([opened(g_b), *[workers[i].animate.move_to([3.0, slots[i], 0]) for i in range(3)]], 1.0))
+            ([opened(g_b), *[workers[i].animate.move_to([3.4, slots[i], 0]) for i in range(3)]], 1.0))
 
         # ---- semaphore ----
         area = RoundedRectangle(corner_radius=0.12, width=3.7, height=1.6, stroke_color=GREY_B, stroke_width=2.5)
@@ -247,7 +247,7 @@ class Conc10Synchronizers(VoiceScene):
             return Succession(arr[0], recount(c_b, "1/4", run_time=0.15), arr[1], recount(c_b, "2/4", run_time=0.15),
                               arr[2], recount(c_b, "3/4", run_time=0.15), arr[3], recount(c_b, "4/4", run_time=0.15),
                               AnimationGroup(g_b.animate.set_color(GREEN_M).set_stroke(width=4).set_opacity(0.8),
-                                             *[w.animate.move_to([3.0, slots[i], 0]) for i, w in enumerate(w2)], run_time=0.9),
+                                             *[w.animate.move_to([3.4, slots[i], 0]) for i, w in enumerate(w2)], run_time=0.9),
                               AnimationGroup(g_b.animate.set_color(RED_M).set_stroke(width=11).set_opacity(1), recount(c_b, "0/4"), run_time=0.4))
 
         def sem():
