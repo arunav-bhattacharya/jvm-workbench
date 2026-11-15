@@ -1,0 +1,169 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:10.310
+A merchant's settlement currency, EUR, sits in a box that holds anything: a box of Any, or Object in Java.
+
+2
+00:00:10.310 --> 00:00:11.961
+One function writes it.
+
+3
+00:00:11.961 --> 00:00:15.264
+Another team's function reads it, hours later.
+
+4
+00:00:15.467 --> 00:00:22.663
+One day, the writer stores 978, the numeric code for the euro, instead of the letters EUR.
+
+5
+00:00:22.867 --> 00:00:25.630
+The compiler is happy: an Int is an Any.
+
+6
+00:00:25.630 --> 00:00:28.256
+The writer returns, and nothing fails.
+
+7
+00:00:28.467 --> 00:00:32.143
+Later, the reader takes the value out, and casts it to a String.
+
+8
+00:00:32.367 --> 00:00:35.744
+Where does the program fail: at the write, or at the read?
+
+9
+00:00:37.533 --> 00:00:38.387
+At the read.
+
+10
+00:00:38.387 --> 00:00:42.368
+The cast throws a ClassCastException, inside the reader.
+
+11
+00:00:42.567 --> 00:00:44.498
+The stack trace names the reader.
+
+12
+00:00:44.498 --> 00:00:47.423
+The writer, where the bug is, is not in it at all.
+
+13
+00:00:47.423 --> 00:00:51.227
+The type check still happened, just late, and in the wrong place.
+
+14
+00:00:52.300 --> 00:00:54.326
+Now write the type on the label.
+
+15
+00:00:54.326 --> 00:00:56.985
+This box holds a String, and nothing else.
+
+16
+00:00:57.167 --> 00:00:59.206
+The writer tries 978 again.
+
+17
+00:00:59.206 --> 00:01:04.945
+This time the compiler rejects that very line, before the program ever runs.
+
+18
+00:01:05.167 --> 00:01:07.840
+The error sits at the write, where the bug is.
+
+19
+00:01:07.840 --> 00:01:11.153
+And the reader needs no cast: what comes out is a String.
+
+20
+00:01:12.067 --> 00:01:14.858
+You don't want a new box class for every type.
+
+21
+00:01:14.858 --> 00:01:18.437
+So write the box once, with a blank on its label, called T.
+
+22
+00:01:18.633 --> 00:01:20.517
+Each use fills in the blank.
+
+23
+00:01:20.517 --> 00:01:22.602
+A Box&lt;String&gt; for the currency.
+
+24
+00:01:22.602 --> 00:01:24.889
+A Box&lt;Long&gt; for a limit of 50,000.
+
+25
+00:01:24.889 --> 00:01:26.840
+A Box&lt;Payment&gt; for a payment.
+
+26
+00:01:26.840 --> 00:01:29.867
+The compiler checks each one as its own type.
+
+27
+00:01:32.300 --> 00:01:35.290
+How does the compiler check a call on limit?
+
+28
+00:01:35.290 --> 00:01:36.784
+It fills in the blank.
+
+29
+00:01:36.784 --> 00:01:40.725
+Limit is a Box&lt;Long&gt;, so every T inside Box reads as Long.
+
+30
+00:01:40.933 --> 00:01:45.075
+Now someone calls replace on limit, with the String USD.
+
+31
+00:01:45.075 --> 00:01:46.259
+Does it compile?
+
+32
+00:01:48.033 --> 00:01:48.249
+No.
+
+33
+00:01:48.249 --> 00:01:52.633
+For this box, replace takes a Long, and a String doesn't fit.
+
+34
+00:01:52.833 --> 00:01:55.524
+The blank, T, is called a type parameter.
+
+35
+00:01:55.524 --> 00:01:59.396
+The real type that fills it, here Long, is a type argument.
+
+36
+00:02:00.300 --> 00:02:03.183
+In code, the blank goes in angle brackets.
+
+37
+00:02:03.183 --> 00:02:08.950
+Kotlin works out the type argument from the value, and Java's diamond does the same.
+
+38
+00:02:08.950 --> 00:02:10.667
+Both reject the USD line.
+
+39
+00:02:11.467 --> 00:02:18.833
+The rule: write the type on the label once, and the compiler checks every value where it goes in, not where it comes out.
+
+40
+00:02:19.067 --> 00:02:20.084
+A quick check.
+
+41
+00:02:20.084 --> 00:02:22.992
+A Box&lt;Payment&gt; is handed the String EUR.
+
+42
+00:02:22.992 --> 00:02:26.191
+Compile error, or a crash later at the read?

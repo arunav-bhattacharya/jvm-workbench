@@ -1,0 +1,149 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:08.422
+A busy server holds thousands of open connections, and most of them are quiet at any moment.
+
+2
+00:00:08.422 --> 00:00:14.020
+A thread for each one would park thousands of threads, at about a megabyte of memory each.
+
+3
+00:00:14.233 --> 00:00:23.392
+Jetty splits the work into three jobs, and every thread comes from one pool: a QueuedThreadPool, with at least 8 threads and at most 200.
+
+4
+00:00:23.600 --> 00:00:26.391
+The connector leases a few of them for good.
+
+5
+00:00:26.391 --> 00:00:27.977
+One becomes the acceptor.
+
+6
+00:00:27.977 --> 00:00:30.895
+It calls accept, and hands each new socket on.
+
+7
+00:00:31.100 --> 00:00:33.748
+On 4 CPUs, two more become selectors.
+
+8
+00:00:33.748 --> 00:00:41.908
+Each one runs a select loop, epoll on Linux, and watches many sockets at once for readiness: up to thousands each.
+
+9
+00:00:42.100 --> 00:00:46.333
+The pool also keeps a few idle threads ready, called reserved threads.
+
+10
+00:00:46.333 --> 00:00:48.449
+And on the right sits your handler.
+
+11
+00:00:48.633 --> 00:00:49.949
+Follow one request.
+
+12
+00:00:49.949 --> 00:00:51.196
+A client connects.
+
+13
+00:00:51.196 --> 00:00:55.352
+The acceptor accepts the socket, and hands it to a selector.
+
+14
+00:00:55.533 --> 00:00:57.336
+The client sends its request.
+
+15
+00:00:57.336 --> 00:01:03.675
+The selector sees that socket is readable, and makes a task: parse the request, and call your handler.
+
+16
+00:01:03.900 --> 00:01:06.177
+Your handler is declared blocking.
+
+17
+00:01:06.177 --> 00:01:08.052
+Which thread runs that task?
+
+18
+00:01:10.033 --> 00:01:12.341
+Usually, the selector thread itself.
+
+19
+00:01:12.341 --> 00:01:15.419
+First a reserved thread takes over the watching.
+
+20
+00:01:15.419 --> 00:01:21.381
+Then the selector thread runs your handler, while the request is still warm in its CPU cache.
+
+21
+00:01:21.567 --> 00:01:24.560
+Jetty calls this Execute-Produce-Consume.
+
+22
+00:01:25.567 --> 00:01:31.782
+With no reserved thread free, the task goes into the pool's queue, and a pool thread picks it up.
+
+23
+00:01:31.782 --> 00:01:36.524
+That is Produce-Execute-Consume: a hand-off and cold caches, but no stall.
+
+24
+00:01:37.433 --> 00:01:41.413
+A handler that declares itself non-blocking skips the hand-off.
+
+25
+00:01:41.413 --> 00:01:45.836
+The selector thread runs it on the spot, just like a Netty event loop.
+
+26
+00:01:45.836 --> 00:01:47.352
+That is Produce-Consume.
+
+27
+00:01:47.533 --> 00:01:49.023
+But that is a promise.
+
+28
+00:01:49.023 --> 00:01:55.184
+Break it with a JDBC call, and every other socket on that selector waits behind your query.
+
+29
+00:01:56.567 --> 00:01:59.332
+The promise is your handler's superclass.
+
+30
+00:01:59.332 --> 00:02:02.637
+Handler.Abstract.NonBlocking says: I never block.
+
+31
+00:02:02.637 --> 00:02:04.998
+Handler.Abstract says: I may block.
+
+32
+00:02:04.998 --> 00:02:07.089
+Use it for anything that waits.
+
+33
+00:02:07.867 --> 00:02:16.289
+The rule: acceptors take connections, selectors notice ready sockets, and Jetty picks who runs your handler from what it declares.
+
+34
+00:02:16.289 --> 00:02:17.779
+So declare it honestly.
+
+35
+00:02:18.000 --> 00:02:18.920
+A quick check.
+
+36
+00:02:18.920 --> 00:02:22.997
+Set the reserved threads to zero, and call a blocking handler.
+
+37
+00:02:22.997 --> 00:02:24.377
+Which thread runs it?

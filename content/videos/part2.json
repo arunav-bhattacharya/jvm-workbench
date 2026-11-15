@@ -12,6 +12,11 @@
     {"slug": "io08-zero-copy", "lesson": "io-08", "section": 0, "title": "Zero-copy with transferTo, then readiness (epoll) versus completion (io_uring)"},
     {"slug": "rx07-overflow", "lesson": "rx-07", "section": 2, "title": "When the source can't slow down, buffer, drop, latest or error decide what the slow subscriber loses"},
     {"slug": "co04-dispatchers", "lesson": "co-04", "section": 0, "title": "A dispatcher picks the thread: Default for CPU work, IO for blocking calls, and withContext hops between them"},
-    {"slug": "cap2-tour", "lesson": "cap2-01", "section": 0, "title": "The quote service you build, sitting by sitting: a Netty shell, a coroutine fan-out, guards under load, and the earlier lesson behind each part"}
+    {"slug": "cap2-tour", "lesson": "cap2-01", "section": 0, "title": "The quote service you build, sitting by sitting: a Netty shell, a coroutine fan-out, guards under load, and the earlier lesson behind each part"},
+    {"slug": "co06-supervisor", "lesson": "co-06", "section": 2, "title": "Where a failure goes: up at once under a plain parent, kept with the child under a supervisor"},
+    {"slug": "rx06-schedulers", "lesson": "rx-06", "section": 1, "title": "publishOn moves everything after it; subscribeOn moves where the source runs, and the one nearest the source wins"},
+    {"slug": "co08-state-shared", "lesson": "co-08", "section": 0, "title": "StateFlow keeps one latest value and skips what a slow collector missed; SharedFlow's buffer and replay decide which events get through"},
+    {"slug": "rx02-subscribe", "lesson": "rx-02", "section": 1, "title": "Assembly only builds a chain of objects; subscribe travels up, request follows, data flows down, and a second subscribe runs it all again"},
+    {"slug": "io07-jetty", "lesson": "io-07", "section": 2, "title": "Jetty's acceptor, selectors and one thread pool: a ready socket becomes a task, and the handler's declaration picks the thread that runs it"}
   ]
 }

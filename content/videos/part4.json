@@ -14,6 +14,9 @@
     {"slug": "mem01-object-layout", "lesson": "mem-01", "section": 1, "title": "The 40 bytes of a Payment: a 12-byte header, fields in the JVM's order, padding to 8, and 4-byte compressed references"},
     {"slug": "cap4-tour", "lesson": "cap4-01", "section": 0, "title": "A tour of the container: wiring by reflection, interceptors through proxies, then the same wiring generated at build time"},
     {"slug": "boot03-closed-world", "lesson": "boot-03", "section": 0, "title": "Native image builds a closed world: only code reachable from main gets in, so a class named at run time needs a metadata entry"},
-    {"slug": "boot04-crac", "lesson": "boot-04", "section": 1, "title": "A started JVM is still cold: CRaC saves a warm process to disk and restores it, once your resources let go"}
+    {"slug": "boot04-crac", "lesson": "boot-04", "section": 1, "title": "A started JVM is still cold: CRaC saves a warm process to disk and restores it, once your resources let go"},
+    {"slug": "cls02-stack", "lesson": "cls-02", "section": 1, "title": "The JVM is a stack machine: feeMinor's seven instructions push and pop typed values, and a long takes two slots"},
+    {"slug": "mem02-tlab", "lesson": "mem-02", "section": 0, "title": "Each thread bumps a pointer in its own TLAB, and C2 removes an object that never leaves a hot method"},
+    {"slug": "mem05-zgc", "lesson": "mem-05", "section": 0, "title": "ZGC moves objects while threads run: colored references and a load barrier that fixes stale ones on the next load"}
   ]
 }

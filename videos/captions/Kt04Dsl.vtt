@@ -1,0 +1,149 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.133
+When you fill in a paper form, you don't write the form's name in every box.
+
+2
+00:00:07.133 --> 00:00:08.708
+You are already holding it.
+
+3
+00:00:08.933 --> 00:00:14.679
+A Java builder lambda gets the builder as a parameter, b, and names it on every line.
+
+4
+00:00:14.900 --> 00:00:18.453
+Kotlin can hand the builder to the lambda as its receiver.
+
+5
+00:00:18.453 --> 00:00:20.843
+Inside the braces, the builder is this.
+
+6
+00:00:20.843 --> 00:00:25.928
+So the calls need no prefix, as if you were writing a method of the builder itself.
+
+7
+00:00:26.700 --> 00:00:29.208
+One level down, nothing magic happens.
+
+8
+00:00:29.208 --> 00:00:35.675
+A lambda with receiver has the same type as a lambda that takes the builder as its first argument.
+
+9
+00:00:35.675 --> 00:00:37.522
+Both compile to a Function1.
+
+10
+00:00:37.522 --> 00:00:41.020
+Only the compiler treats that first argument as this.
+
+11
+00:00:41.833 --> 00:00:42.761
+Builders nest.
+
+12
+00:00:42.761 --> 00:00:48.196
+Inside paymentRequest, the payer block hands you a second builder, a PartyBuilder.
+
+13
+00:00:48.196 --> 00:00:51.709
+Now two receivers are in scope, one inside the other.
+
+14
+00:00:51.900 --> 00:00:55.389
+A bare call goes to the nearest receiver that has it.
+
+15
+00:00:55.389 --> 00:00:56.969
+Name lands on the party.
+
+16
+00:00:57.167 --> 00:01:00.545
+Now someone types payee inside payer, by mistake.
+
+17
+00:01:00.545 --> 00:01:02.613
+The PartyBuilder has no payee.
+
+18
+00:01:02.613 --> 00:01:03.992
+What does Kotlin do?
+
+19
+00:01:05.967 --> 00:01:07.606
+It keeps looking, outward.
+
+20
+00:01:07.606 --> 00:01:10.758
+The outer builder has payee, so the line compiles.
+
+21
+00:01:10.758 --> 00:01:13.091
+And it quietly builds a second party.
+
+22
+00:01:13.300 --> 00:01:17.926
+In the lesson's demo it fails only when it runs: iban required for oops.
+
+23
+00:01:17.926 --> 00:01:22.167
+Without a required field, you would simply send the wrong request.
+
+24
+00:01:22.400 --> 00:01:24.201
+The fix is one annotation.
+
+25
+00:01:24.201 --> 00:01:31.267
+Mark an annotation class with @DslMarker, and put it on every builder class: the receivers themselves.
+
+26
+00:01:31.467 --> 00:01:34.648
+Now only the nearest marked receiver is implicit.
+
+27
+00:01:34.648 --> 00:01:37.504
+The misplaced payee stops at the inner wall.
+
+28
+00:01:37.504 --> 00:01:38.932
+It no longer compiles.
+
+29
+00:01:39.100 --> 00:01:45.498
+You can still reach the outer builder on purpose, with a label: this@paymentRequest.currency.
+
+30
+00:01:45.498 --> 00:01:47.561
+Nobody types that by accident.
+
+31
+00:01:48.467 --> 00:01:54.229
+In Kotlin that is the whole fix: one marker annotation, placed on each builder class.
+
+32
+00:01:54.229 --> 00:01:55.720
+Java needs none of it.
+
+33
+00:01:55.720 --> 00:02:01.415
+Its lambdas name every builder, so reaching the outer one means typing r on purpose.
+
+34
+00:02:02.167 --> 00:02:09.939
+The rule: a bare call goes to the nearest receiver that has it, and @DslMarker on the builder classes stops it there.
+
+35
+00:02:10.167 --> 00:02:11.207
+A quick check.
+
+36
+00:02:11.207 --> 00:02:15.961
+Inside payer, someone writes currency equals GBP, with no label.
+
+37
+00:02:15.961 --> 00:02:18.635
+With the marker on, does it compile?
