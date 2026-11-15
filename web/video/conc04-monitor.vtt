@@ -93,77 +93,77 @@ Then one waiter gets it, and Java doesn't promise which.
 Here it's the auditor, and both lines are done.
 
 24
-00:01:13.400 --> 00:01:15.464
+00:01:13.400 --> 00:01:15.455
 The key carries a second promise.
 
 25
-00:01:15.464 --> 00:01:18.778
+00:01:15.455 --> 00:01:18.757
 The auditor still has an old copy of a in a register.
 
 26
-00:01:18.778 --> 00:01:24.407
-Taking the key rules it out: everything thread one wrote before its unlock is visible now.
+00:01:18.757 --> 00:01:24.300
+Taking the key rules it out: everything thread one wrote before it let go is visible now.
 
 27
-00:01:24.633 --> 00:01:29.557
-The memory model calls this a happens-before edge, from the unlock to the next lock.
+00:01:24.533 --> 00:01:29.436
+The memory model calls this a happens-before edge, from the release to the next lock.
 
 28
-00:01:29.557 --> 00:01:33.543
+00:01:29.436 --> 00:01:33.357
 The auditor at the start skipped the key, so it got neither promise.
 
 29
-00:01:34.967 --> 00:01:35.678
+00:01:34.767 --> 00:01:35.478
 Last rule.
 
 30
-00:01:35.678 --> 00:01:41.087
+00:01:35.478 --> 00:01:40.887
 Thread one holds the key in withdraw, which calls canCover on the same lock.
 
 31
-00:01:41.087 --> 00:01:42.795
+00:01:40.887 --> 00:01:42.595
 Does it wait for itself?
 
 32
-00:01:45.367 --> 00:01:45.588
+00:01:45.167 --> 00:01:45.388
 No.
 
 33
-00:01:45.588 --> 00:01:47.283
+00:01:45.388 --> 00:01:47.083
 Monitors are reentrant.
 
 34
-00:01:47.283 --> 00:01:51.853
+00:01:47.083 --> 00:01:51.653
 The JVM keeps a hold count: two inside canCover, one after it.
 
 35
-00:01:51.853 --> 00:01:56.423
+00:01:51.653 --> 00:01:56.223
 When withdraw exits, the count is zero, and the key goes back.
 
 36
-00:01:57.233 --> 00:02:00.695
+00:01:57.033 --> 00:02:00.495
 In code, the key is a private final lock object.
 
 37
-00:02:00.695 --> 00:02:07.764
+00:02:00.495 --> 00:02:07.564
 Java and Kotlin both compile synchronized to the same two bytecodes: monitorenter and monitorexit.
 
 38
-00:02:08.567 --> 00:02:12.810
+00:02:08.367 --> 00:02:12.507
 So give shared state one key, and make every reader and writer take it.
 
 39
-00:02:12.810 --> 00:02:17.113
-Each unlock hands its writes to the next thread that takes the same key.
+00:02:12.507 --> 00:02:16.764
+Each release hands its writes to the next thread that takes the same key.
 
 40
-00:02:17.333 --> 00:02:18.144
+00:02:16.967 --> 00:02:17.777
 Quick check.
 
 41
-00:02:18.144 --> 00:02:22.872
+00:02:17.777 --> 00:02:22.505
 Two threads update one balance, but each one locks its own new Object.
 
 42
-00:02:22.872 --> 00:02:24.628
+00:02:22.505 --> 00:02:24.261
 Does either one ever wait?
