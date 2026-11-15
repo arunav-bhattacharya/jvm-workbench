@@ -72,6 +72,14 @@
   "exec03-sizing",
   "rx02-subscribe",
   "vt05-structured",
-  "exec05-rate-delay"
+  "exec05-rate-delay",
+  "mem02-tlab",
+  "mem05-zgc",
+  "mem03-references",
+  "cls07-agents",
+  "pat07-strategy",
+  "cls02-stack",
+  "pat09-chain-state",
+  "pat08-observer-command"
  ]
 }

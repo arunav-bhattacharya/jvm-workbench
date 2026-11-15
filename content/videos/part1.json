@@ -17,6 +17,7 @@
     {"slug": "exec03-sizing", "lesson": "exec-03", "section": 2, "title": "Hashing stops getting faster at one thread per core, a thread that waits frees its core, and 400 requests a second for 250 ms keep 100 in flight"},
     {"slug": "jmm03-volatile", "lesson": "jmm-03", "section": 1, "title": "volatile keeps every read fresh and every write visible, yet two threads still read 41 and both write 42: the fix is one atomic step"},
     {"slug": "vt05-structured", "lesson": "vt-05", "section": 1, "title": "A scope owns its subtasks like a tree: the first failure cancels the sibling, join throws at once, close waits for every branch, and a scoped value is read down the tree"},
-    {"slug": "exec05-rate-delay", "lesson": "exec-05", "section": 1, "title": "After one 250 ms run, fixed rate runs the overdue tasks back to back while fixed delay shifts every later run, and a run that throws ends the schedule without a word"}
+    {"slug": "exec05-rate-delay", "lesson": "exec-05", "section": 1, "title": "After one 250 ms run, fixed rate runs the overdue tasks back to back while fixed delay shifts every later run, and a run that throws ends the schedule without a word"},
+    {"slug": "conc10-synchronizers", "lesson": "conc-10", "section": 0, "title": "A latch opens for good at zero, a barrier lets a full group through and closes again, and a semaphore hands out permits anyone can give back"}
   ]
 }

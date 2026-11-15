@@ -132,12 +132,12 @@ class Conc10Synchronizers(VoiceScene):
             1.4, (count_down(0, "2"), 0.9), 0.3, (count_down(1, "1"), 0.9), 0.3, (count_down(2, "0"), 0.9))
         seq(self, "At zero, the gate opens, and every thread waiting there goes on.",
             ([opened(g_l), Indicate(c_l[1], color=GREEN_M)], 0.8), ([opener.animate.move_to([4.0, YL - 0.35, 0])], 1.2))
-        late = dot(WAITER).move_to([-0.2, YL - 0.35, 0])
+        late = dot(WAITER).move_to([-0.2, YL - 0.7, 0])
         late_t = T("late", 24, WAITER).next_to(late, LEFT, buff=0.15)
         late_t.add_updater(lambda m: m.next_to(late, LEFT, buff=0.15))
         self.beat("Now a late thread calls await. Does it wait?", FadeIn(late), FadeIn(late_t), run_time=0.6, after=1.6)
         seq(self, "No. The gate stays open. The count never goes back up, and there is no reset. A latch is one-shot.",
-            ([late.animate.move_to([5.4, YL - 0.35, 0])], 1.3), 1.2, ([Indicate(c_l[1], color=COUNT, scale_factor=1.4)], 0.9))
+            ([late.animate.move_to([5.4, YL - 0.7, 0])], 1.3), 1.2, ([Indicate(c_l[1], color=COUNT, scale_factor=1.4)], 0.9))
 
         # ---- barrier ----
         g_b = gate(YB)
@@ -193,7 +193,7 @@ class Conc10Synchronizers(VoiceScene):
         def take(i, k, dest):
             """thread i walks to the tray, picks up permit k, and goes into the area with it."""
             def f():
-                return [Succession(thr[i].animate(run_time=0.5).move_to([GX - 0.35, perms[k].get_y(), 0]),
+                return [Succession(thr[i].animate(run_time=0.5).move_to([GX - 0.55, perms[k].get_y(), 0]),
                                    AnimationGroup(thr[i].animate(run_time=0.7).move_to(dest),
                                                   perms[k].animate(run_time=0.7).move_to(dest + UP * 0.32)))]
             return f
@@ -201,7 +201,7 @@ class Conc10Synchronizers(VoiceScene):
         seq(self, "acquire takes a permit. Only a thread with a permit calls the issuer.",
             0.4, (take(0, 0, inside[0]), 1.2), (take(1, 1, inside[1]), 1.2), (take(2, 2, inside[2]), 1.2))
         seq(self, "The fourth thread finds the tray empty, so it waits.",
-            ([thr[3].animate.move_to([GX - 0.35, YS - 0.05, 0])], 0.8), ([Indicate(tray, color=RED_M)], 0.8))
+            ([thr[3].animate.move_to([GX - 0.55, YS - 0.05, 0])], 0.8), ([Indicate(tray, color=RED_M)], 0.8))
         seq(self, "When a call finishes, release gives the permit back, and the waiting thread takes it.",
             ([thr[0].animate.move_to([6.0, YS - 0.3, 0]).set_opacity(0), perms[0].animate.move_to([GX, pslots[0], 0])], 1.1),
             0.6, (take(3, 0, inside[0]), 1.2))
@@ -217,7 +217,7 @@ class Conc10Synchronizers(VoiceScene):
                   "Now four threads fit, and the limit has quietly drifted.",
             (lambda: [rogue_t.clear_updaters(), FadeIn(extra, scale=2.0), FadeOut(rogue), FadeOut(rogue_t)][1:], 0.8), 1.4,
             ([FadeIn(newcomer)], 0.3),
-            ([Succession(newcomer.animate(run_time=0.6).move_to([GX - 0.35, pslots[1], 0]),
+            ([Succession(newcomer.animate(run_time=0.6).move_to([GX - 0.55, pslots[1], 0]),
                          AnimationGroup(newcomer.animate(run_time=0.7).move_to(inside4 + DOWN * 0.15),
                                         extra.animate(run_time=0.7).move_to(inside4 + UP * 0.17)))], 1.3),
             ([Indicate(area, color=RED_M, scale_factor=1.04)], 0.8))
@@ -253,10 +253,10 @@ class Conc10Synchronizers(VoiceScene):
         def sem():
             steps = []
             for i in range(3):
-                steps += [t2[i].animate(run_time=0.4).move_to([GX - 0.35, p2[i].get_y(), 0]),
+                steps += [t2[i].animate(run_time=0.4).move_to([GX - 0.55, p2[i].get_y(), 0]),
                           AnimationGroup(t2[i].animate.move_to(inside[i]), p2[i].animate.move_to(inside[i] + UP * 0.32),
                                          run_time=0.6)]
-            steps += [t2[3].animate(run_time=0.6).move_to([GX - 0.35, YS - 0.05, 0]), Indicate(tray, color=RED_M, run_time=0.8)]
+            steps += [t2[3].animate(run_time=0.6).move_to([GX - 0.55, YS - 0.05, 0]), Indicate(tray, color=RED_M, run_time=0.8)]
             return Succession(*steps)
 
         seq(self, "Side by side: a latch waits for events, once. A barrier waits for a group, every round. "

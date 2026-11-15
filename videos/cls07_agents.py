@@ -190,7 +190,7 @@ class Cls07Agents(VoiceScene):
         body[1].move_to(body[0])
         body.move_to(CB + DOWN * 0.35)
         clsg = VGroup(cbox, c_name, body)
-        self.play(FadeOut(rest), ReplacementTransform(VGroup(jvm, chips[2]), clsg), run_time=1.0)
+        self.play(FadeOut(rest), FadeTransform(VGroup(jvm, chips[2]), clsg), run_time=1.0)
         objs = VGroup(*[Circle(0.3, stroke_color=OBJ_C, stroke_width=3).set_fill(shade(OBJ_C, 0.4), 1).move_to([4.4, y, 0]) for y in (2.0, 0.85)])
         o_l = T("made at startup", 24, OBJ_C).next_to(objs, UP, buff=0.15)
         o_ar = VGroup(*[arrow(o.get_left(), cbox.get_right() + UP * (0.45 if i == 0 else -0.35), OBJ_C, buff=0.1) for i, o in enumerate(objs)])
@@ -207,8 +207,8 @@ class Cls07Agents(VoiceScene):
         newbar[1].move_to(newbar[0])
         newbar.move_to([3.0, LB, 0])
         self.say("r2", [(0, [FadeIn(objs), FadeIn(o_l), *[GrowArrow(a) for a in o_ar]], 0.8),
-                        (0, [FadeIn(lanes), Create(swap), FadeIn(swap_t)], 0.7), (0, [GrowFromEdge(newbar, LEFT)], 0.9),
-                        (1, [GrowFromEdge(oldbar, LEFT)], 1.2)])
+                        (0, [FadeIn(lanes), Create(swap), FadeIn(swap_t)], 0.7), (0, [GrowFromEdge(newbar[0], LEFT), FadeIn(newbar[1])], 0.9),
+                        (1, [GrowFromEdge(oldbar[0], LEFT), FadeIn(oldbar[1])], 1.2)])
         self.play(FadeOut(VGroup(lanes, swap, swap_t, oldbar, newbar)), run_time=0.5)
 
         # --- the limit: bodies only

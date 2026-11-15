@@ -44,23 +44,23 @@ def seq(scene, text, *steps, after=0.25):
 
 PROD, C1, C2, REC, PILLC = GOLD_M, BLUE_M, TEAL_M, GREEN_M, PURPLE_M
 QY = 0.2
-SLOT_X = [-2.14 + 1.07 * i for i in range(5)]   # slot 4 is the head, where take() removes
+SLOT_X = [-2.36 + 1.18 * i for i in range(5)]   # slot 4 is the head, where take() removes
 
 
 def actor(name, sub, color, pos, w=2.5):
     r = RoundedRectangle(corner_radius=0.12, width=w, height=1.05, stroke_color=color, stroke_width=3)
     r.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(color), 0.14), opacity=1)
-    g = VGroup(T(name, 28, color), T(sub, 20, GREY_B)).arrange(DOWN, buff=0.08)
+    g = VGroup(T(name, 30, color), T(sub, 22, GREY_B)).arrange(DOWN, buff=0.08)
     return VGroup(r, g.move_to(r)).move_to(pos)
 
 
 def record():
-    return Square(0.6, stroke_color=REC, stroke_width=2.5).set_fill(REC, 0.35).set_z_index(4)
+    return Square(0.66, stroke_color=REC, stroke_width=2.5).set_fill(REC, 0.35).set_z_index(4)
 
 
 def pill():
-    r = RoundedRectangle(corner_radius=0.2, width=0.86, height=0.44, stroke_width=0).set_fill(PILLC, 1)
-    return VGroup(r, M("PILL", 20)).set_z_index(4)
+    r = RoundedRectangle(corner_radius=0.22, width=0.94, height=0.48, stroke_width=0).set_fill(PILLC, 1)
+    return VGroup(r, M("PILL", 22)).set_z_index(4)
 
 
 class Conc12Classic(VoiceScene):
@@ -71,21 +71,21 @@ class Conc12Classic(VoiceScene):
     def construct(self):
         self.title_card("Producer and consumer", "a bounded queue, and a pill to stop")
 
-        prod = actor("producer", "Kafka reader", PROD, [-5.0, QY, 0])
-        w1 = actor("writer 1", "inserts into Oracle", C1, [5.0, 1.45, 0])
-        w2 = actor("writer 2", "inserts into Oracle", C2, [5.0, -1.05, 0])
+        prod = actor("producer", "Kafka reader", PROD, [-5.1, QY, 0], w=2.1)
+        w1 = actor("writer 1", "inserts into Oracle", C1, [5.0, 1.55, 0], w=2.8)
+        w2 = actor("writer 2", "inserts into Oracle", C2, [5.0, -1.15, 0], w=2.8)
         q = []                                  # items in the queue, q[0] is the head
 
-        def at(j, spacing=1.07):
+        def at(j, spacing=1.18):
             return np.array([SLOT_X[4] - spacing * j, QY, 0])
 
-        def put(item, spacing=1.07, src=None):
+        def put(item, spacing=1.18, src=None):
             item.move_to((src if src is not None else prod)[0].get_right() + RIGHT * 0.45)
             self.add(item)
             q.append(item)
             return item.animate.move_to(at(len(q) - 1, spacing))
 
-        def take(w, spacing=1.07):
+        def take(w, spacing=1.18):
             item = q.pop(0)
             anims = [Succession(item.animate(run_time=0.5).move_to(w[0].get_left() + LEFT * 0.5),
                                 FadeOut(item, run_time=0.25))]
@@ -114,22 +114,22 @@ class Conc12Classic(VoiceScene):
             *steps, ([Indicate(fill, color=RED_M)], 0.6))
 
         # ---- bound it ----
-        slots = VGroup(*[RoundedRectangle(corner_radius=0.1, width=0.95, height=0.8, stroke_color=GREY_B,
+        slots = VGroup(*[RoundedRectangle(corner_radius=0.1, width=1.05, height=0.86, stroke_color=GREY_B,
                                           stroke_width=2.5).move_to([x, QY, 0]) for x in SLOT_X])
-        q_lab = T("BlockingQueue, capacity 5", 24, GREY_B).next_to(slots, UP, buff=0.3)
+        q_lab = T("BlockingQueue, capacity 5", 26, GREY_B).next_to(slots, UP, buff=0.3)
         extra = q[5:]
         del q[5:]
         seq(self, "So bound the queue. Give it five slots.",
             ([FadeOut(VGroup(*extra), shift=LEFT * 0.3), FadeOut(heap), FadeOut(fill)], 0.6),
             ([Create(slots), FadeIn(q_lab), *[it.animate.move_to(at(j)) for j, it in enumerate(q)]], 1.0))
 
-        st_p = T("put waits", 24, RED_M).next_to(prod, DOWN, buff=0.25)
+        st_p = T("put waits", 26, RED_M).next_to(prod, DOWN, buff=0.25)
         newr = record()
 
         def try_put():
             newr.move_to(prod[0].get_right() + RIGHT * 0.45)
             self.add(newr)
-            return [newr.animate.move_to([SLOT_X[0] - 1.0, QY, 0]), FadeIn(st_p)]
+            return [newr.animate.move_to([SLOT_X[0] - 1.05, QY, 0]), FadeIn(st_p)]
 
         def finish_put():
             q.append(newr)
@@ -142,19 +142,19 @@ class Conc12Classic(VoiceScene):
                   Indicate(slots, color=WHITE, scale_factor=1.02))
 
         # ---- shutdown: the writers wait forever ----
-        done = T("done", 24, GREY_B).next_to(prod, DOWN, buff=0.25)
+        done = T("done", 26, GREY_B).next_to(prod, DOWN, buff=0.25)
         seq(self, "A second writer joins. Then the reader finishes its last batch. Three payments are still queued.",
             ([FadeIn(w2)], 0.6), 0.6, (lambda: take(w2), 0.8), 0.2, (lambda: take(w1), 0.8), 0.6,
             ([prod.animate.set_opacity(0.4), FadeIn(done)], 0.6))
         self.beat("The writers drain them. Then what happens?", after=1.5)
-        sw1 = T("take waits", 24, RED_M).next_to(w1, DOWN, buff=0.2)
-        sw2 = T("take waits", 24, RED_M).next_to(w2, DOWN, buff=0.2)
+        sw1 = T("take waits", 26, RED_M).next_to(w1, DOWN, buff=0.2)
+        sw2 = T("take waits", 26, RED_M).next_to(w2, DOWN, buff=0.2)
         seq(self, "They wait in take, forever. Only a put wakes a take, and nothing will put again. The shutdown hangs.",
             (lambda: take(w1), 0.8), (lambda: take(w2), 0.8), (lambda: take(w1), 0.8),
             ([FadeIn(sw1), FadeIn(sw2), w1[0].animate.set_stroke(RED_M), w2[0].animate.set_stroke(RED_M)], 0.8))
 
         # ---- the poison pill ----
-        coord = actor("coordinator", "after every producer", WHITE, [-5.0, -2.1, 0], w=2.9)
+        coord = actor("coordinator", "after every producer", WHITE, [-5.0, -2.1, 0], w=3.0)
         recs = [record().move_to(at(j)) for j in range(3)]
 
         def first_pill():
@@ -166,8 +166,8 @@ class Conc12Classic(VoiceScene):
               *[FadeIn(r, scale=0.8) for r in recs]], 0.8), 1.2,
             ([FadeIn(coord, shift=UP * 0.2)], 0.6), 1.0,
             (first_pill, 0.8), 0.2, (lambda: [put(pill(), src=coord)], 0.8))
-        stop1 = T("stopped", 24, GREY_B).next_to(w1, DOWN, buff=0.2)
-        stop2 = T("stopped", 24, GREY_B).next_to(w2, DOWN, buff=0.2)
+        stop1 = T("stopped", 26, GREY_B).next_to(w1, DOWN, buff=0.2)
+        stop2 = T("stopped", 26, GREY_B).next_to(w2, DOWN, buff=0.2)
         seq(self, "Each writer takes payments until it takes a pill, then stops. "
                   "No payment is left behind, and no writer is left waiting.",
             (lambda: take(w1), 0.7), (lambda: take(w2), 0.7), (lambda: take(w1), 0.7),
@@ -178,7 +178,7 @@ class Conc12Classic(VoiceScene):
         self.beat("What if the coordinator puts only one pill?",
                   FadeOut(stop1), FadeOut(stop2), w1.animate.set_opacity(1), w2.animate.set_opacity(1),
                   run_time=0.8, after=1.5)
-        sw2b = T("waits forever", 24, RED_M).next_to(w2, DOWN, buff=0.2)
+        sw2b = T("waits forever", 26, RED_M).next_to(w2, DOWN, buff=0.2)
         seq(self, "One writer stops. The other waits in take forever.",
             (lambda: [put(pill(), src=coord)], 0.8), (lambda: take(w1) + [w1.animate.set_opacity(0.4), FadeIn(stop1)], 0.8),
             ([FadeIn(sw2b), w2[0].animate.set_stroke(RED_M)], 0.6))
@@ -216,14 +216,14 @@ class Conc12Classic(VoiceScene):
         late = [record() for _ in range(5)]
         stuck = record()
         q.clear()
-        stA = T("stopped", 24, GREY_B).next_to(w1, DOWN, buff=0.2)
-        stB = T("stopped", 24, GREY_B).next_to(w2, DOWN, buff=0.2)
-        stP = T("put waits forever", 24, RED_M).next_to(prod, DOWN, buff=0.25)
+        stA = T("stopped", 26, GREY_B).next_to(w1, DOWN, buff=0.2)
+        stB = T("stopped", 26, GREY_B).next_to(w2, DOWN, buff=0.2)
+        stP = T("put waits forever", 26, RED_M).next_to(prod, DOWN, buff=0.25)
         seq(self, "The writers stop early. Then the queue fills, and the producer waits in put forever.",
             (lambda: [put(early[0], src=coord)], 0.5), (lambda: [put(early[1], src=coord)], 0.5),
             (lambda: take(w1) + [w1.animate.set_opacity(0.4), FadeIn(stA)], 0.6),
             (lambda: take(w2) + [w2.animate.set_opacity(0.4), FadeIn(stB)], 0.6),
             *[(lambda r=r: [put(r)], 0.35) for r in late],
-            (lambda: [stuck.move_to(prod[0].get_right() + RIGHT * 0.45).animate.move_to([SLOT_X[0] - 1.0, QY, 0])], 0.5),
+            (lambda: [stuck.move_to(prod[0].get_right() + RIGHT * 0.45).animate.move_to([SLOT_X[0] - 1.05, QY, 0])], 0.5),
             ([FadeIn(stP), prod[0].animate.set_stroke(RED_M)], 0.6))
         self.wait(0.8)

@@ -17,6 +17,8 @@
     {"slug": "boot04-crac", "lesson": "boot-04", "section": 1, "title": "A started JVM is still cold: CRaC saves a warm process to disk and restores it, once your resources let go"},
     {"slug": "cls02-stack", "lesson": "cls-02", "section": 1, "title": "The JVM is a stack machine: feeMinor's seven instructions push and pop typed values, and a long takes two slots"},
     {"slug": "mem02-tlab", "lesson": "mem-02", "section": 0, "title": "Each thread bumps a pointer in its own TLAB, and C2 removes an object that never leaves a hot method"},
-    {"slug": "mem05-zgc", "lesson": "mem-05", "section": 0, "title": "ZGC moves objects while threads run: colored references and a load barrier that fixes stale ones on the next load"}
+    {"slug": "mem05-zgc", "lesson": "mem-05", "section": 0, "title": "ZGC moves objects while threads run: colored references and a load barrier that fixes stale ones on the next load"},
+    {"slug": "mem03-references", "lesson": "mem-03", "section": 0, "title": "The GC keeps what the roots can reach: strong, soft, weak and phantom holds, and why weak and soft caches forget"},
+    {"slug": "cls07-agents", "lesson": "cls-07", "section": 0, "title": "A Java agent's transformer sees each class's bytes as the JVM defines it; retransformation swaps method bodies in a class already loaded"}
   ]
 }
