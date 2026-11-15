@@ -1,0 +1,129 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:09.295
+Eight ledger lookups go through JDBC, and each one blocks its thread for 100 milliseconds.
+
+2
+00:00:09.295 --> 00:00:18.747
+You add subscribeOn(boundedElastic) to get them off the caller's thread, and they still take 800 milliseconds, one after another.
+
+3
+00:00:18.747 --> 00:00:19.040
+Why?
+
+4
+00:00:19.867 --> 00:00:22.886
+Without a scheduler, Reactor doesn't switch threads.
+
+5
+00:00:22.886 --> 00:00:28.113
+You call subscribe from the main thread, and that call travels up the chain to the source.
+
+6
+00:00:28.113 --> 00:00:33.049
+The source emits, and each item flows down on the thread that emitted it: here, main.
+
+7
+00:00:33.267 --> 00:00:36.076
+Now put publishOn(single) in the middle.
+
+8
+00:00:36.076 --> 00:00:37.269
+Which steps move?
+
+9
+00:00:40.067 --> 00:00:42.027
+publishOn is a hand-off point.
+
+10
+00:00:42.027 --> 00:00:46.209
+Items wait in its queue, and a worker of single carries them on.
+
+11
+00:00:46.209 --> 00:00:47.908
+Everything after it moves.
+
+12
+00:00:47.908 --> 00:00:49.672
+Everything before it stays.
+
+13
+00:00:49.900 --> 00:00:54.029
+Now add subscribeOn(boundedElastic), written near the end.
+
+14
+00:00:54.029 --> 00:00:55.524
+What moves this time?
+
+15
+00:00:58.300 --> 00:01:00.355
+subscribeOn works on the way up.
+
+16
+00:01:00.355 --> 00:01:05.556
+The subscribe call starts on main, and switches to boundedElastic at subscribeOn.
+
+17
+00:01:05.556 --> 00:01:09.601
+So the source runs there, although subscribeOn is written last.
+
+18
+00:01:09.601 --> 00:01:12.812
+After publishOn, the items still change to single.
+
+19
+00:01:13.033 --> 00:01:16.914
+Now swap publishOn for a second subscribeOn, this one on single.
+
+20
+00:01:16.914 --> 00:01:21.644
+The call switches twice on the way up, and the switch nearest the source wins.
+
+21
+00:01:23.433 --> 00:01:24.847
+Back to the lookups.
+
+22
+00:01:24.847 --> 00:01:29.087
+fromCallable runs its JDBC call the moment it is subscribed.
+
+23
+00:01:29.087 --> 00:01:38.557
+With subscribeOn on the outer Flux, flatMap subscribes to every call on that one boundedElastic thread, so the calls block it in turn.
+
+24
+00:01:41.367 --> 00:01:44.077
+Move subscribeOn onto each inner Mono.
+
+25
+00:01:44.077 --> 00:01:51.065
+Each subscription now hops to its own boundedElastic thread: about 100 milliseconds for all eight.
+
+26
+00:01:51.867 --> 00:01:59.029
+In Java and in Kotlin, the wrapper is fromCallable, then subscribeOn(boundedElastic), on every inner Mono.
+
+27
+00:01:59.029 --> 00:02:02.205
+And cap the fan-out with flatMap's concurrency.
+
+28
+00:02:03.033 --> 00:02:05.378
+So publishOn moves everything after it.
+
+29
+00:02:05.378 --> 00:02:10.428
+subscribeOn moves where the source runs, and only the one nearest the source counts.
+
+30
+00:02:10.633 --> 00:02:11.435
+Quick check.
+
+31
+00:02:11.435 --> 00:02:17.517
+subscribeOn(single) right after the source, publishOn(parallel) just before the subscriber.
+
+32
+00:02:17.517 --> 00:02:19.656
+Where does a map in between run?

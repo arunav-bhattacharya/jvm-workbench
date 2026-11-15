@@ -1,0 +1,145 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:12.584
+A quote needs two answers: the customer from the CRM, which can take 2 seconds, and a credit limit check that fails after 100 ms.
+
+2
+00:00:12.800 --> 00:00:15.129
+Both run on a shared executor.
+
+3
+00:00:15.129 --> 00:00:19.555
+At 100 ms the limit check fails, and so does the request.
+
+4
+00:00:19.767 --> 00:00:21.949
+What happens to the CRM call?
+
+5
+00:00:24.167 --> 00:00:25.293
+Nothing stops it.
+
+6
+00:00:25.293 --> 00:00:30.857
+It runs for the full two seconds, holding a connection, and nobody reads its answer.
+
+7
+00:00:31.767 --> 00:00:36.096
+Now let the request own its subtasks, like a tree owns its branches.
+
+8
+00:00:36.096 --> 00:00:41.316
+The scope forks each one on its own virtual thread, then joins: it waits for them.
+
+9
+00:00:41.533 --> 00:00:43.920
+At 100 ms the limit check fails.
+
+10
+00:00:43.920 --> 00:00:46.754
+The scope cancels the sibling at once.
+
+11
+00:00:46.754 --> 00:00:52.348
+It interrupts the CRM call, which is blocked reading a socket, so it stops.
+
+12
+00:00:52.567 --> 00:00:55.840
+join throws that first failure at once.
+
+13
+00:00:55.840 --> 00:00:58.191
+At 100 ms, not at 2 seconds.
+
+14
+00:00:58.400 --> 00:01:01.605
+Then close waits until every branch has really ended.
+
+15
+00:01:01.605 --> 00:01:05.112
+When the block exits, nothing it started is still running.
+
+16
+00:01:05.333 --> 00:01:07.305
+That is structured concurrency.
+
+17
+00:01:07.305 --> 00:01:13.731
+A subtask can't outlive the block that started it, the way a local variable can't outlive its method.
+
+18
+00:01:15.533 --> 00:01:17.848
+Context can flow down the same tree.
+
+19
+00:01:17.848 --> 00:01:20.677
+Bind a scoped value, the tenant, at the top.
+
+20
+00:01:20.677 --> 00:01:22.991
+Each subtask reads that one binding.
+
+21
+00:01:22.991 --> 00:01:26.141
+Nobody can change it, and it ends with the block.
+
+22
+00:01:26.367 --> 00:01:29.662
+Check the JDK before you copy code.
+
+23
+00:01:29.662 --> 00:01:38.607
+StructuredTaskScope is a preview API in JDK 25, 26 and 27, so it needs the enable preview flag.
+
+24
+00:01:38.607 --> 00:01:41.149
+It becomes final in JDK 28.
+
+25
+00:01:41.367 --> 00:01:45.516
+Scoped values are already final, since JDK 25.
+
+26
+00:01:45.516 --> 00:01:47.140
+They need no flag.
+
+27
+00:01:48.067 --> 00:01:50.516
+Here it is in JDK 25 code.
+
+28
+00:01:50.516 --> 00:01:52.965
+Kotlin calls the same API.
+
+29
+00:01:53.767 --> 00:01:54.383
+The rule.
+
+30
+00:01:54.383 --> 00:01:57.876
+Every subtask ends before the block that forked it.
+
+31
+00:01:58.100 --> 00:01:59.337
+Check yourself.
+
+32
+00:01:59.337 --> 00:02:01.646
+One subtask fails at 100 ms.
+
+33
+00:02:01.646 --> 00:02:04.203
+The other would take 2 seconds.
+
+34
+00:02:04.203 --> 00:02:05.935
+When does join throw?
+
+35
+00:02:08.667 --> 00:02:10.001
+At about 100 ms.
+
+36
+00:02:10.001 --> 00:02:13.672
+The first failure cancels the other subtask.

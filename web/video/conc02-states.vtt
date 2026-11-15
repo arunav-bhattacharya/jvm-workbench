@@ -1,0 +1,209 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.283
+Your payment service stops answering.
+
+2
+00:00:05.283 --> 00:00:06.889
+You take a thread dump.
+
+3
+00:00:06.889 --> 00:00:10.101
+Next to every thread, the JVM prints one word.
+
+4
+00:00:10.333 --> 00:00:12.473
+Which of these threads is doing work?
+
+5
+00:00:13.967 --> 00:00:15.808
+Each word names a place.
+
+6
+00:00:15.808 --> 00:00:16.881
+There are six.
+
+7
+00:00:17.600 --> 00:00:19.462
+A new thread sits in NEW.
+
+8
+00:00:19.462 --> 00:00:20.728
+Nothing runs yet.
+
+9
+00:00:20.933 --> 00:00:23.425
+start hands it to the operating system.
+
+10
+00:00:23.425 --> 00:00:25.917
+Now it is RUNNABLE, and it gets a core.
+
+11
+00:00:26.133 --> 00:00:27.310
+But cores are few.
+
+12
+00:00:27.310 --> 00:00:30.904
+When another thread gets the core, ours waits its turn.
+
+13
+00:00:30.904 --> 00:00:32.276
+It is still RUNNABLE.
+
+14
+00:00:32.500 --> 00:00:36.112
+So RUNNABLE in a dump does not prove a thread is working.
+
+15
+00:00:36.333 --> 00:00:40.979
+Next, it reaches a synchronized block whose lock another thread holds.
+
+16
+00:00:40.979 --> 00:00:42.107
+Where does it go?
+
+17
+00:00:43.700 --> 00:00:44.603
+Up to BLOCKED.
+
+18
+00:00:44.603 --> 00:00:47.959
+When the lock comes free, it takes it and goes back.
+
+19
+00:00:48.533 --> 00:00:56.263
+wait, join or park, with no time limit, puts it in WAITING, until a notify, an unpark, or the joined thread ends.
+
+20
+00:00:56.467 --> 00:01:00.427
+Now it asks for a ReentrantLock that another thread holds.
+
+21
+00:01:00.427 --> 00:01:01.792
+Which box this time?
+
+22
+00:01:03.367 --> 00:01:03.950
+WAITING.
+
+23
+00:01:03.950 --> 00:01:07.958
+ReentrantLock is plain Java code that parks the thread.
+
+24
+00:01:07.958 --> 00:01:10.363
+BLOCKED is only for synchronized.
+
+25
+00:01:10.567 --> 00:01:16.001
+With a time limit, like sleep for two hundred milliseconds, it goes to TIMED_WAITING.
+
+26
+00:01:16.001 --> 00:01:17.983
+It sleeps here between retries.
+
+27
+00:01:18.200 --> 00:01:20.170
+Now the service shuts down.
+
+28
+00:01:20.170 --> 00:01:22.578
+Java cannot kill a thread safely.
+
+29
+00:01:22.578 --> 00:01:23.745
+It can only ask.
+
+30
+00:01:23.967 --> 00:01:28.112
+interrupt sticks a note on the thread: a flag that says, please stop.
+
+31
+00:01:28.333 --> 00:01:30.068
+The worker is asleep.
+
+32
+00:01:30.068 --> 00:01:31.141
+What happens?
+
+33
+00:01:32.633 --> 00:01:37.893
+sleep throws InterruptedException, and the worker runs again, in its catch block.
+
+34
+00:01:37.893 --> 00:01:40.101
+But sleep took the note off first.
+
+35
+00:01:40.101 --> 00:01:41.400
+The flag is cleared.
+
+36
+00:01:41.633 --> 00:01:45.008
+If the catch block only logs it, the request is gone.
+
+37
+00:01:45.008 --> 00:01:47.492
+The loop sleeps again, and never stops.
+
+38
+00:01:47.700 --> 00:01:48.190
+Rewind.
+
+39
+00:01:48.190 --> 00:01:51.340
+This time the catch block puts the note back.
+
+40
+00:01:51.567 --> 00:01:55.090
+The loop checks isInterrupted, sees the note, and returns.
+
+41
+00:01:55.090 --> 00:02:00.071
+A loop that never blocks must make this check itself, or the note just sits there.
+
+42
+00:02:00.300 --> 00:02:01.023
+run ends.
+
+43
+00:02:01.023 --> 00:02:02.630
+TERMINATED is final.
+
+44
+00:02:02.630 --> 00:02:05.120
+A thread can never start again.
+
+45
+00:02:06.133 --> 00:02:09.596
+In code, it is one line, in Java and in Kotlin.
+
+46
+00:02:09.800 --> 00:02:11.757
+The rule: interrupt only asks.
+
+47
+00:02:11.757 --> 00:02:14.955
+Whoever catches it puts the flag back, and stops.
+
+48
+00:02:16.700 --> 00:02:17.617
+Quick check.
+
+49
+00:02:17.617 --> 00:02:21.588
+A thread waits in tryLock with a one second timeout.
+
+50
+00:02:21.588 --> 00:02:22.352
+Which box?
+
+51
+00:02:24.833 --> 00:02:25.882
+TIMED_WAITING.
+
+52
+00:02:25.882 --> 00:02:29.028
+ReentrantLock parks it, with a time limit.

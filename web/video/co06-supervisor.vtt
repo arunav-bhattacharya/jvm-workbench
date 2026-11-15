@@ -1,0 +1,137 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.377
+A payment is captured.
+
+2
+00:00:04.377 --> 00:00:09.561
+Now three messages go out: an email, an SMS and a push notification.
+
+3
+00:00:09.767 --> 00:00:17.773
+Each one is an async child of one coroutineScope, and each async hands back a Deferred: a box for its result.
+
+4
+00:00:18.000 --> 00:00:20.961
+At 50 milliseconds the SMS call throws.
+
+5
+00:00:20.961 --> 00:00:23.086
+Nobody has called await yet.
+
+6
+00:00:23.086 --> 00:00:25.060
+What happens to the email?
+
+7
+00:00:27.833 --> 00:00:29.583
+The failure goes up at once.
+
+8
+00:00:29.583 --> 00:00:34.832
+A failed child tells its parent the moment it fails, and that is true for async too.
+
+9
+00:00:34.832 --> 00:00:36.707
+Nothing waits in the Deferred.
+
+10
+00:00:36.933 --> 00:00:44.019
+The parent cancels the email and the push, and coroutineScope throws the SMS exception to the caller.
+
+11
+00:00:44.019 --> 00:00:45.843
+The customer gets nothing.
+
+12
+00:00:46.067 --> 00:00:48.913
+But these messages don't need each other.
+
+13
+00:00:48.913 --> 00:00:51.691
+An SMS outage should not stop the email.
+
+14
+00:00:52.600 --> 00:00:56.106
+So give them a parent that lets a child fail alone.
+
+15
+00:00:56.106 --> 00:00:57.000
+Same failure.
+
+16
+00:00:57.000 --> 00:00:58.444
+Where does it go now?
+
+17
+00:01:01.233 --> 00:01:02.818
+It stays with the child.
+
+18
+00:01:02.818 --> 00:01:07.967
+The parent doesn't cancel anyone, and the exception waits in the SMS Deferred.
+
+19
+00:01:08.200 --> 00:01:12.772
+The push is sent at 100 milliseconds, and the email at 300.
+
+20
+00:01:13.000 --> 00:01:14.967
+Later the block calls await.
+
+21
+00:01:14.967 --> 00:01:22.976
+Each Deferred hands back what it holds, and for the SMS, await rethrows the IOException, where a try can catch it.
+
+22
+00:01:23.200 --> 00:01:26.663
+This parent is a supervisor: here, supervisorScope.
+
+23
+00:01:26.663 --> 00:01:31.213
+Its children fail alone, but cancelling it still stops every child.
+
+24
+00:01:32.133 --> 00:01:34.292
+With launch there is no Deferred.
+
+25
+00:01:34.292 --> 00:01:42.728
+A failed launch child of a supervisor hands its exception to the CoroutineExceptionHandler in its context, which can only log it.
+
+26
+00:01:43.733 --> 00:01:50.333
+Put that handler on a child of a plain parent, and it is never called: the child tells its parent first.
+
+27
+00:01:50.333 --> 00:01:54.712
+A handler works only at a root, or on a direct child of a supervisor.
+
+28
+00:01:55.633 --> 00:01:56.991
+This is Kotlin only.
+
+29
+00:01:56.991 --> 00:02:04.863
+Write supervisorScope inside a function, or put SupervisorJob and the handler in the constructor of a scope you own.
+
+30
+00:02:05.667 --> 00:02:08.551
+So a plain parent sends a failure up at once.
+
+31
+00:02:08.551 --> 00:02:14.384
+A supervisor keeps it with the child: in the Deferred for async, in the handler for launch.
+
+32
+00:02:14.600 --> 00:02:15.418
+Quick check.
+
+33
+00:02:15.418 --> 00:02:20.050
+A launch child of coroutineScope has its own handler, and it throws.
+
+34
+00:02:20.050 --> 00:02:21.617
+Who gets the exception?

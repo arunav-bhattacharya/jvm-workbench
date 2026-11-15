@@ -1,0 +1,153 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.470
+Many threads create objects at the same time.
+
+2
+00:00:05.470 --> 00:00:09.903
+All of them go into eden, one area of the heap that every thread shares.
+
+3
+00:00:10.100 --> 00:00:15.599
+If each new took memory straight from eden, every thread would need this one pointer.
+
+4
+00:00:15.599 --> 00:00:16.893
+One thread moves it.
+
+5
+00:00:16.893 --> 00:00:17.928
+The others wait.
+
+6
+00:00:18.967 --> 00:00:21.171
+How would you stop them fighting over it?
+
+7
+00:00:23.167 --> 00:00:25.658
+Give each thread its own piece of eden.
+
+8
+00:00:25.658 --> 00:00:27.383
+Now no thread needs a lock.
+
+9
+00:00:28.067 --> 00:00:31.935
+That piece is a TLAB: a thread-local allocation buffer.
+
+10
+00:00:33.967 --> 00:00:38.048
+To allocate, the thread checks that the object fits before the end.
+
+11
+00:00:38.048 --> 00:00:41.276
+Then it adds the size to top, and stores the new top.
+
+12
+00:00:41.467 --> 00:00:43.416
+A compare, an add and a store.
+
+13
+00:00:43.416 --> 00:00:46.664
+The JIT puts them right into your compiled method.
+
+14
+00:00:48.467 --> 00:00:51.311
+What happens when the next object doesn't fit?
+
+15
+00:00:53.600 --> 00:00:57.960
+The thread takes a fresh TLAB from eden, with one atomic update.
+
+16
+00:00:57.960 --> 00:01:01.229
+That happens once per TLAB, not once per object.
+
+17
+00:01:02.033 --> 00:01:04.306
+And sometimes new allocates nothing.
+
+18
+00:01:04.306 --> 00:01:08.408
+This loop builds a million Points, and only adds up their fields.
+
+19
+00:01:08.408 --> 00:01:11.312
+In the interpreter, each one is a real object.
+
+20
+00:01:11.833 --> 00:01:14.507
+Can anything outside the method ever see p?
+
+21
+00:01:16.500 --> 00:01:16.720
+No.
+
+22
+00:01:16.720 --> 00:01:25.153
+p never goes into a field or a collection, it's never returned, and it never goes to a call that C2 doesn't inline.
+
+23
+00:01:25.367 --> 00:01:29.020
+C2, the JIT for hot methods, checks exactly this.
+
+24
+00:01:29.020 --> 00:01:30.735
+That's escape analysis.
+
+25
+00:01:30.933 --> 00:01:34.752
+Then it skips the object, and keeps x and y in registers.
+
+26
+00:01:34.752 --> 00:01:36.493
+That's scalar replacement.
+
+27
+00:01:37.400 --> 00:01:39.325
+Count the bytes of each call.
+
+28
+00:01:39.325 --> 00:01:44.571
+The first rounds allocate megabytes, while the interpreter and C1 run the code.
+
+29
+00:01:44.571 --> 00:01:46.231
+From round 4 or so, zero.
+
+30
+00:01:46.400 --> 00:01:53.340
+With escape analysis off, every round allocates 32,000,000 bytes: a million 32-byte points.
+
+31
+00:01:53.567 --> 00:01:57.371
+So never assert that code allocates nothing in a unit test.
+
+32
+00:01:58.100 --> 00:02:02.544
+Java and Kotlin compile to the same new, so both behave the same.
+
+33
+00:02:03.367 --> 00:02:11.096
+The rule: new is a pointer bump in your own TLAB, and an object that never leaves a hot method may never be allocated.
+
+34
+00:02:11.300 --> 00:02:12.178
+Quick check.
+
+35
+00:02:12.178 --> 00:02:14.737
+The loop adds each Point to a list.
+
+36
+00:02:14.737 --> 00:02:16.931
+Does C2 remove the allocation?
+
+37
+00:02:19.300 --> 00:02:19.619
+No.
+
+38
+00:02:19.619 --> 00:02:21.959
+The list is a way out.

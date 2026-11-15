@@ -1,0 +1,153 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:03.428
+End of day.
+
+2
+00:00:03.428 --> 00:00:05.743
+The account starts at 10,000 cents.
+
+3
+00:00:05.743 --> 00:00:10.507
+Walk down the day's payments with a note that holds the running balance.
+
+4
+00:00:10.700 --> 00:00:16.872
+pay_1 settled for 1,500, so the note goes to 11,500.
+
+5
+00:00:17.100 --> 00:00:19.923
+pay_2 is still pending, so the note stays.
+
+6
+00:00:20.133 --> 00:00:24.214
+pay_3 settled for 2,000, but 500 of it was refunded.
+
+7
+00:00:24.214 --> 00:00:26.333
+What does the note say now?
+
+8
+00:00:27.933 --> 00:00:28.643
+13,000.
+
+9
+00:00:28.643 --> 00:00:34.215
+The failed payment changes nothing, and pay_5 adds 700.
+
+10
+00:00:34.215 --> 00:00:36.444
+The balance is 13,700.
+
+11
+00:00:36.633 --> 00:00:40.104
+Each step took the note and one payment, and wrote a new note.
+
+12
+00:00:40.104 --> 00:00:43.687
+You choose only two things: where the note starts, and the step.
+
+13
+00:00:43.900 --> 00:00:45.530
+This loop is called fold.
+
+14
+00:00:45.530 --> 00:00:48.073
+The note it carries is the accumulator.
+
+15
+00:00:49.067 --> 00:00:50.710
+Change what the note holds.
+
+16
+00:00:50.710 --> 00:00:54.300
+Start with an empty list, and let the step add each amount.
+
+17
+00:00:54.300 --> 00:00:56.916
+The walk builds exactly what map gives you.
+
+18
+00:00:57.833 --> 00:01:02.107
+Add a payment only when it settled, and the same walk gives you filter.
+
+19
+00:01:02.333 --> 00:01:07.145
+sumOf, count and maxByOrNull are folds too, already written and named.
+
+20
+00:01:07.145 --> 00:01:08.725
+Use them when they fit.
+
+21
+00:01:09.633 --> 00:01:13.259
+In code, the start and the step are the two arguments.
+
+22
+00:01:13.259 --> 00:01:17.220
+Java's reduce takes a third, used only by parallel streams.
+
+23
+00:01:18.000 --> 00:01:18.722
+Two traps.
+
+24
+00:01:18.722 --> 00:01:21.107
+On a quiet day the list is empty.
+
+25
+00:01:21.107 --> 00:01:23.780
+fold just hands back its start value.
+
+26
+00:01:23.967 --> 00:01:25.601
+reduce has no start value.
+
+27
+00:01:25.601 --> 00:01:27.675
+It begins with the first element.
+
+28
+00:01:27.675 --> 00:01:29.875
+What does it do when there is none?
+
+29
+00:01:31.467 --> 00:01:32.647
+It throws.
+
+30
+00:01:32.867 --> 00:01:35.648
+And associateBy keeps one element per key.
+
+31
+00:01:35.648 --> 00:01:39.224
+When a key repeats, the last one wins, without a word.
+
+32
+00:01:39.224 --> 00:01:41.079
+Java's toMap throws instead.
+
+33
+00:01:41.967 --> 00:01:45.244
+The rule: a loop that builds one result is a fold.
+
+34
+00:01:45.244 --> 00:01:48.849
+A start value, plus a step from one result to the next.
+
+35
+00:01:49.067 --> 00:01:49.937
+Quick check.
+
+36
+00:01:49.937 --> 00:01:52.547
+count is a fold that starts at zero.
+
+37
+00:01:52.547 --> 00:01:54.143
+What does its step do?
+
+38
+00:01:55.733 --> 00:01:57.724
+It adds one for each element.

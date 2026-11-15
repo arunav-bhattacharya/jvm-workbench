@@ -1,0 +1,137 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:09.960
+Three places in a payment service call something flaky: the card issuer, the ledger, and the FX rate service.
+
+2
+00:00:10.200 --> 00:00:14.838
+Each call sits inside the same loop: try up to three times, then give up.
+
+3
+00:00:14.838 --> 00:00:17.125
+Only the call in the middle changes.
+
+4
+00:00:17.367 --> 00:00:21.149
+How do you write that loop once, when the part that changes is a call?
+
+5
+00:00:22.733 --> 00:00:24.927
+Pass the call in, as a function.
+
+6
+00:00:24.927 --> 00:00:26.298
+retry owns the loop.
+
+7
+00:00:26.298 --> 00:00:30.412
+The call arrives as block, and retry decides when to run it.
+
+8
+00:00:30.633 --> 00:00:32.768
+Here the issuer times out twice.
+
+9
+00:00:32.768 --> 00:00:37.239
+retry runs block again, and the third try returns an authorization.
+
+10
+00:00:37.483 --> 00:00:40.072
+The ledger call plugs into the same socket.
+
+11
+00:00:40.072 --> 00:00:43.683
+A function that takes a function is a higher-order function.
+
+12
+00:00:44.517 --> 00:00:46.242
+It works the other way too.
+
+13
+00:00:46.242 --> 00:00:49.693
+feeFor takes a country, and hands back a fee function.
+
+14
+00:00:49.933 --> 00:00:51.899
+It looks up the Dutch rate once.
+
+15
+00:00:51.899 --> 00:00:56.752
+The function it returns keeps that number, and prices every payment after that.
+
+16
+00:00:57.583 --> 00:01:00.179
+Small functions also snap together.
+
+17
+00:01:00.179 --> 00:01:04.850
+Add a 25-cent scheme fee, take 10 percent off, cap at 10 euros.
+
+18
+00:01:05.083 --> 00:01:07.591
+Feed each result into the next.
+
+19
+00:01:07.591 --> 00:01:12.687
+That's composition: three functions become one pipeline, price.
+
+20
+00:01:12.687 --> 00:01:15.194
+1,200 cents comes out as 1,000.
+
+21
+00:01:15.433 --> 00:01:17.481
+Move the cap to the front.
+
+22
+00:01:17.481 --> 00:01:18.348
+Same price?
+
+23
+00:01:19.933 --> 00:01:20.291
+No.
+
+24
+00:01:20.291 --> 00:01:20.768
+922.
+
+25
+00:01:20.768 --> 00:01:24.583
+The order is part of the result.
+
+26
+00:01:25.417 --> 00:01:27.866
+In code, the call goes in as a lambda.
+
+27
+00:01:27.866 --> 00:01:30.252
+Java's Function has andThen built in.
+
+28
+00:01:30.252 --> 00:01:34.055
+Kotlin's function types don't, so you write it in one line.
+
+29
+00:01:34.883 --> 00:01:40.565
+The rule: write the shape of the work once, and pass in the part that changes as a function.
+
+30
+00:01:40.800 --> 00:01:41.655
+Quick check.
+
+31
+00:01:41.655 --> 00:01:44.863
+timed runs a block and logs how long it took.
+
+32
+00:01:44.863 --> 00:01:46.217
+Is it higher-order?
+
+33
+00:01:47.817 --> 00:01:48.143
+Yes.
+
+34
+00:01:48.143 --> 00:01:50.838
+It takes the block as a function.

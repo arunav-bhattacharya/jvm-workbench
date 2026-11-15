@@ -1,0 +1,205 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:06.514
+Before this service takes traffic, three caches must be warm.
+
+2
+00:00:06.514 --> 00:00:10.171
+The thread that opens the port must wait for three loaders.
+
+3
+00:00:10.333 --> 00:00:13.079
+A CountDownLatch is a gate with a counter.
+
+4
+00:00:13.079 --> 00:00:14.322
+It starts at three.
+
+5
+00:00:14.322 --> 00:00:17.329
+The opener calls await, and stops at the gate.
+
+6
+00:00:17.467 --> 00:00:20.292
+Each loader calls countDown when it is done.
+
+7
+00:00:20.292 --> 00:00:21.320
+Three, two, one.
+
+8
+00:00:22.400 --> 00:00:26.567
+At zero, the gate opens, and every thread waiting there goes on.
+
+9
+00:00:26.733 --> 00:00:29.035
+Now a late thread calls await.
+
+10
+00:00:29.035 --> 00:00:30.032
+Does it wait?
+
+11
+00:00:31.600 --> 00:00:31.827
+No.
+
+12
+00:00:31.827 --> 00:00:33.342
+The gate stays open.
+
+13
+00:00:33.342 --> 00:00:37.280
+The count never goes back up, and there is no reset.
+
+14
+00:00:37.280 --> 00:00:38.795
+A latch is one-shot.
+
+15
+00:00:39.000 --> 00:00:42.537
+Now four workers each simulate one day of exposure.
+
+16
+00:00:42.537 --> 00:00:46.352
+Nobody may start day two until all four finish day one.
+
+17
+00:00:46.533 --> 00:00:49.186
+A CyclicBarrier counts threads, not events.
+
+18
+00:00:49.186 --> 00:00:52.456
+Each worker calls await at the line, and waits there.
+
+19
+00:00:52.600 --> 00:00:57.468
+The fourth to arrive runs the barrier action once, here adding up the day.
+
+20
+00:00:57.468 --> 00:00:59.376
+Then all four go on together.
+
+21
+00:00:59.667 --> 00:01:00.246
+Day two.
+
+22
+00:01:00.246 --> 00:01:03.072
+Is the gate still open, like the latch?
+
+23
+00:01:04.667 --> 00:01:04.890
+No.
+
+24
+00:01:04.890 --> 00:01:06.980
+It closed again behind them.
+
+25
+00:01:06.980 --> 00:01:09.815
+The barrier resets itself every round.
+
+26
+00:01:09.815 --> 00:01:11.605
+That is the cyclic part.
+
+27
+00:01:11.800 --> 00:01:14.666
+A Phaser is a barrier whose group can change.
+
+28
+00:01:14.666 --> 00:01:16.767
+A party can deregister and leave.
+
+29
+00:01:16.767 --> 00:01:20.588
+Each phase then waits only for the parties still registered.
+
+30
+00:01:20.733 --> 00:01:24.442
+Last, the card issuer throttles above 20 calls at once.
+
+31
+00:01:24.442 --> 00:01:26.195
+A Semaphore holds permits.
+
+32
+00:01:26.195 --> 00:01:28.689
+Say three, to keep the picture small.
+
+33
+00:01:28.867 --> 00:01:30.402
+acquire takes a permit.
+
+34
+00:01:30.402 --> 00:01:33.808
+Only a thread holding a permit may call the issuer.
+
+35
+00:01:34.000 --> 00:01:37.228
+The fourth thread finds the tray empty, so it waits.
+
+36
+00:01:37.400 --> 00:01:42.207
+When a call finishes, release gives the permit back, and the waiting thread takes it.
+
+37
+00:01:42.400 --> 00:01:45.892
+Now a thread that never took a permit calls release.
+
+38
+00:01:45.892 --> 00:01:46.765
+What happens?
+
+39
+00:01:48.333 --> 00:01:50.527
+The semaphore just adds a permit.
+
+40
+00:01:50.527 --> 00:01:51.990
+Permits have no owner.
+
+41
+00:01:51.990 --> 00:01:55.713
+Now four threads fit, and the limit has quietly drifted.
+
+42
+00:01:57.267 --> 00:02:00.246
+Side by side: a latch waits for events, once.
+
+43
+00:02:00.246 --> 00:02:02.961
+A barrier waits for a group, every round.
+
+44
+00:02:02.961 --> 00:02:05.543
+A semaphore limits how many are inside.
+
+45
+00:02:06.533 --> 00:02:10.999
+In code, each one is a single constructor, in Java and in Kotlin.
+
+46
+00:02:11.133 --> 00:02:15.919
+The rule: count events with a latch, meet with a barrier, limit with a semaphore.
+
+47
+00:02:17.600 --> 00:02:18.394
+Quick check.
+
+48
+00:02:18.394 --> 00:02:24.879
+Four workers settle twelve monthly batches, and each month must finish before the next one starts.
+
+49
+00:02:24.879 --> 00:02:26.004
+Latch or barrier?
+
+50
+00:02:28.200 --> 00:02:28.884
+A barrier.
+
+51
+00:02:28.884 --> 00:02:32.032
+A latch would stay open after the first month.

@@ -1,0 +1,125 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:08.168
+A fraud check loads the reference in a merchant object, and follows it to a risk score.
+
+2
+00:00:08.400 --> 00:00:12.054
+To empty this region, the collector copies the risk score out.
+
+3
+00:00:12.054 --> 00:00:14.707
+But the merchant still holds the old address.
+
+4
+00:00:14.900 --> 00:00:21.840
+So the usual collector stops every thread, copies, fixes every reference, and only then lets them run.
+
+5
+00:00:22.667 --> 00:00:28.744
+In lesson 4's G1 log, that pause took 16 ms, almost all of it copying.
+
+6
+00:00:28.744 --> 00:00:37.165
+On a 32 GB heap, a full GC can stop for seconds: an outage for a fraud check with a 20 ms budget.
+
+7
+00:00:37.867 --> 00:00:41.457
+How could the collector move objects while the threads keep running?
+
+8
+00:00:44.133 --> 00:00:45.599
+ZGC adds two things.
+
+9
+00:00:45.599 --> 00:00:50.291
+Every reference in the heap carries a few extra bits: its color.
+
+10
+00:00:50.467 --> 00:00:54.554
+After every reference load, the JIT adds a check: the load barrier.
+
+11
+00:00:54.554 --> 00:00:58.885
+It compares that color with the one the collector calls good right now.
+
+12
+00:00:59.067 --> 00:01:02.124
+Nearly always they match: a test and a branch.
+
+13
+00:01:02.333 --> 00:01:08.057
+Now the collector changes the good color, and copies the risk score while the thread runs on.
+
+14
+00:01:08.267 --> 00:01:12.125
+The next load sees an old color, so the barrier takes the slow path.
+
+15
+00:01:12.125 --> 00:01:16.664
+It finds the new address, and writes the fixed reference back into the merchant.
+
+16
+00:01:16.867 --> 00:01:19.177
+The load after that is fast again.
+
+17
+00:01:20.000 --> 00:01:34.513
+So ZGC stops threads only to handle their roots: three pauses per collection, about 0.02 ms each in the demo, while the 0.052 s collection runs beside them.
+
+18
+00:01:35.233 --> 00:01:39.827
+The price: 8-byte references, so a 40-byte Payment takes 48.
+
+19
+00:01:39.827 --> 00:01:42.278
+CPU for GC threads and barriers.
+
+20
+00:01:42.278 --> 00:01:45.493
+And headroom, or allocating threads stall.
+
+21
+00:01:46.167 --> 00:01:48.153
+Most services stay on G1.
+
+22
+00:01:48.153 --> 00:01:53.714
+Pick ZGC when pauses must stay under about 10 ms, and cores are spare.
+
+23
+00:01:53.714 --> 00:01:56.256
+Shenandoah makes the same trade.
+
+24
+00:01:56.433 --> 00:02:02.840
+Serial fits 1 CPU, Parallel fits batch jobs, and Epsilon is only for tests.
+
+25
+00:02:04.267 --> 00:02:13.092
+The rule: ZGC moves objects while your threads run, because a barrier on every reference load fixes stale references.
+
+26
+00:02:13.092 --> 00:02:15.053
+You pay in CPU and memory.
+
+27
+00:02:15.233 --> 00:02:15.956
+Quick check.
+
+28
+00:02:15.956 --> 00:02:18.606
+The barrier just fixed the merchant's field.
+
+29
+00:02:18.606 --> 00:02:20.352
+What does the next load cost?
+
+30
+00:02:22.733 --> 00:02:24.233
+A test and a branch.
+
+31
+00:02:24.233 --> 00:02:26.032
+Its color is good again.

@@ -1,0 +1,149 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:09.619
+Here is a card fee in Java and Kotlin: the amount times the rate in basis points, over ten thousand.
+
+2
+00:00:09.833 --> 00:00:12.909
+javap shows what javac made of the Java one.
+
+3
+00:00:12.909 --> 00:00:16.124
+Seven instructions, and not one variable name.
+
+4
+00:00:16.124 --> 00:00:20.179
+It reads like noise, until you see the machine it runs on.
+
+5
+00:00:20.367 --> 00:00:21.917
+Each call gets a frame.
+
+6
+00:00:21.917 --> 00:00:24.613
+Numbered slots hold the local variables.
+
+7
+00:00:24.613 --> 00:00:31.352
+The operand stack is a pile: instructions pop their inputs off the top, and push their results back.
+
+8
+00:00:31.533 --> 00:00:35.751
+Call it with 125,000 cents and 290 basis points.
+
+9
+00:00:35.751 --> 00:00:40.144
+amountMinor is a long, and a long fills two slots.
+
+10
+00:00:40.333 --> 00:00:42.661
+So which slot does bps get?
+
+11
+00:00:42.661 --> 00:00:43.696
+Pause on it.
+
+12
+00:00:45.667 --> 00:00:46.235
+Slot 2.
+
+13
+00:00:46.235 --> 00:00:49.157
+That's why the listing says iload_2.
+
+14
+00:00:49.367 --> 00:00:50.239
+Now run it.
+
+15
+00:00:50.239 --> 00:00:55.788
+lload_0 copies the long from slot 0 onto the stack: the l is for long.
+
+16
+00:00:55.788 --> 00:00:59.989
+iload_2 copies the int from slot 2: the i is for int.
+
+17
+00:01:00.200 --> 00:01:03.691
+Next is a multiply, and lmul only takes two longs.
+
+18
+00:01:03.691 --> 00:01:05.856
+The top of the stack is an int.
+
+19
+00:01:05.856 --> 00:01:07.601
+What has to happen first?
+
+20
+00:01:09.567 --> 00:01:11.034
+i2l, int to long.
+
+21
+00:01:11.034 --> 00:01:16.300
+It pops the 290 and pushes it back as a long, two slots tall.
+
+22
+00:01:16.500 --> 00:01:19.600
+lmul pops both longs and pushes the product.
+
+23
+00:01:19.833 --> 00:01:25.419
+ldc2_w pushes the long 10,000 from the constant pool.
+
+24
+00:01:25.419 --> 00:01:29.319
+ldiv pops two longs and pushes 3,625.
+
+25
+00:01:29.500 --> 00:01:34.563
+lreturn pops it and returns it: 36 euros and 25 cents.
+
+26
+00:01:34.767 --> 00:01:39.255
+At its fullest, the stack held two longs, four slots.
+
+27
+00:01:39.255 --> 00:01:44.252
+javap -v prints that as stack=4, and the slots as locals=3.
+
+28
+00:01:45.033 --> 00:01:52.421
+kotlinc's version is almost the same: a public static final method, on a class named StackDemoKt.
+
+29
+00:01:52.633 --> 00:01:54.530
+Only the constant differs.
+
+30
+00:01:54.530 --> 00:01:58.395
+javac loads a ready-made long from the constant pool.
+
+31
+00:01:58.395 --> 00:02:04.230
+kotlinc writes 10,000 into the instruction with sipush, then widens it with i2l.
+
+32
+00:02:04.230 --> 00:02:05.908
+Same long on the stack.
+
+33
+00:02:06.667 --> 00:02:14.268
+The rule: every instruction pops typed inputs off the stack and pushes its result, and its first letter names the type.
+
+34
+00:02:15.000 --> 00:02:16.015
+A quick check.
+
+35
+00:02:16.015 --> 00:02:19.134
+Add plus 30 at the end of the Java version.
+
+36
+00:02:19.134 --> 00:02:21.889
+What appears between ldiv and lreturn?
+
+37
+00:02:23.833 --> 00:02:28.896
+ldc2_w pushes the long 30, then ladd adds the two longs.

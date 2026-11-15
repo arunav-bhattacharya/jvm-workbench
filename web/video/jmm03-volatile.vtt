@@ -1,0 +1,189 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.567
+This service counts retries to the card issuer.
+
+2
+00:00:05.567 --> 00:00:08.495
+The counter field is volatile, so it looks safe.
+
+3
+00:00:08.700 --> 00:00:11.703
+Four threads each add one, a million times.
+
+4
+00:00:11.703 --> 00:00:13.449
+What total do you expect?
+
+5
+00:00:15.033 --> 00:00:17.771
+One measured run ended near 3.7 million.
+
+6
+00:00:17.771 --> 00:00:22.151
+Over three hundred thousand retries vanished, and nothing threw.
+
+7
+00:00:22.367 --> 00:00:24.827
+First, take volatile away for a moment.
+
+8
+00:00:25.833 --> 00:00:32.624
+With a plain field, the JIT may keep a copy in a register, and thread 2 reads that copy again and again.
+
+9
+00:00:32.833 --> 00:00:34.352
+Thread 1 writes 42.
+
+10
+00:00:34.352 --> 00:00:36.431
+Thread 2 may never see it.
+
+11
+00:00:36.900 --> 00:00:38.925
+Put volatile back, and replay.
+
+12
+00:00:38.925 --> 00:00:43.719
+Every read now goes back to the field, so thread 2's next read sees 42.
+
+13
+00:00:43.933 --> 00:00:46.747
+And the write carries what came before it.
+
+14
+00:00:46.747 --> 00:00:51.904
+Plain writes thread 1 made before setting 42 are visible to whoever reads 42.
+
+15
+00:00:52.833 --> 00:00:54.932
+So the field is always fresh.
+
+16
+00:00:54.932 --> 00:00:57.175
+Now both threads run retries++.
+
+17
+00:00:57.175 --> 00:01:00.213
+That is three steps: read, add one, write.
+
+18
+00:01:00.933 --> 00:01:02.533
+Thread 1 reads 41.
+
+19
+00:01:02.533 --> 00:01:04.488
+A fresh volatile read.
+
+20
+00:01:04.700 --> 00:01:06.640
+Thread 2 reads too.
+
+21
+00:01:06.640 --> 00:01:08.681
+Also fresh, also 41.
+
+22
+00:01:08.900 --> 00:01:10.357
+Both add one.
+
+23
+00:01:10.357 --> 00:01:11.815
+Both hold 42.
+
+24
+00:01:12.033 --> 00:01:14.725
+Thread 1 writes 42, visible at once.
+
+25
+00:01:14.725 --> 00:01:16.221
+Now thread 2 writes.
+
+26
+00:01:16.221 --> 00:01:18.091
+What does the field hold?
+
+27
+00:01:19.667 --> 00:01:19.951
+42.
+
+28
+00:01:19.951 --> 00:01:22.987
+Two increments, and one is lost.
+
+29
+00:01:23.200 --> 00:01:25.879
+Every access was a correct volatile access.
+
+30
+00:01:25.879 --> 00:01:30.552
+volatile made each one visible, and did nothing about the gap between them.
+
+31
+00:01:31.567 --> 00:01:35.127
+The fix is one step that reads and writes together.
+
+32
+00:01:35.127 --> 00:01:38.129
+AtomicInteger.incrementAndGet is that step.
+
+33
+00:01:38.333 --> 00:01:42.234
+Thread 2 goes before it or after it, never inside.
+
+34
+00:01:42.234 --> 00:01:43.872
+The count ends at 43.
+
+35
+00:01:44.900 --> 00:01:45.865
+So which tool?
+
+36
+00:01:45.865 --> 00:01:51.932
+One writer, and readers want the latest value: volatile is enough, like a shutdown flag.
+
+37
+00:01:52.133 --> 00:01:56.759
+Many writers updating one variable from its old value: an atomic.
+
+38
+00:01:56.759 --> 00:01:59.464
+Several fields under one rule: a lock.
+
+39
+00:02:00.367 --> 00:02:04.533
+In code, that is an AtomicInteger, in Java and in Kotlin.
+
+40
+00:02:04.767 --> 00:02:09.019
+The rule: volatile makes each read and write visible and ordered.
+
+41
+00:02:09.019 --> 00:02:11.244
+It never joins them into one step.
+
+42
+00:02:12.167 --> 00:02:13.293
+Quick check.
+
+43
+00:02:13.293 --> 00:02:18.924
+Many threads run max = Math.max(max, x) on a volatile field.
+
+44
+00:02:18.924 --> 00:02:20.144
+Is that safe?
+
+45
+00:02:22.333 --> 00:02:22.565
+No.
+
+46
+00:02:22.565 --> 00:02:26.435
+It reads, decides, then writes, with the same gap.
+
+47
+00:02:26.435 --> 00:02:28.369
+Use an atomic, or a lock.

@@ -1,0 +1,153 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.504
+A card is declined, and authorize throws.
+
+2
+00:00:05.504 --> 00:00:08.239
+Nothing in its Kotlin signature says so.
+
+3
+00:00:08.239 --> 00:00:12.341
+A new endpoint forgets the try, and the customer gets a 500.
+
+4
+00:00:12.500 --> 00:00:14.384
+A decline happens every day.
+
+5
+00:00:14.384 --> 00:00:19.297
+Return it as a value: a result that holds either the value, or the error.
+
+6
+00:00:19.400 --> 00:00:22.964
+Chain the steps of a payment: validate, authorise, capture.
+
+7
+00:00:22.964 --> 00:00:28.160
+Each step keeps the payment on the success track, or switches it to the failure track.
+
+8
+00:00:28.200 --> 00:00:33.455
+A request for 500 cents passes all three steps, and comes out as Ok.
+
+9
+00:00:33.900 --> 00:00:36.246
+Now a request for 50,000 cents.
+
+10
+00:00:36.246 --> 00:00:38.970
+The issuer declines it at authorise.
+
+11
+00:00:38.970 --> 00:00:40.256
+Does capture run?
+
+12
+00:00:42.600 --> 00:00:42.800
+No.
+
+13
+00:00:42.800 --> 00:00:47.790
+The train switches to the failure track, and rides past capture to the end.
+
+14
+00:00:47.790 --> 00:00:51.118
+The first failure wins, and nothing after it runs.
+
+15
+00:00:51.118 --> 00:00:52.781
+That is called fail fast.
+
+16
+00:00:53.500 --> 00:00:58.067
+Fail fast suits a pipeline, where each step needs the one before.
+
+17
+00:00:58.067 --> 00:00:58.840
+Not a form.
+
+18
+00:00:58.840 --> 00:01:03.056
+A client sends an amount of minus 5 and an unknown currency.
+
+19
+00:01:03.100 --> 00:01:05.046
+Fail fast stops at the amount.
+
+20
+00:01:05.046 --> 00:01:12.244
+The currency check never runs, so the client fixes one field, sends again, and only then hears about the other.
+
+21
+00:01:12.600 --> 00:01:16.856
+To collect every error, run the independent checks side by side.
+
+22
+00:01:16.856 --> 00:01:19.781
+Both fail, and both errors land in one list.
+
+23
+00:01:19.900 --> 00:01:26.755
+In Arrow, zipOrAccumulate does this: every check runs, and the Amount is built only if all of them pass.
+
+24
+00:01:27.600 --> 00:01:29.320
+One trap sits at the edge.
+
+25
+00:01:29.320 --> 00:01:34.677
+runCatching catches every Throwable, and in a coroutine that includes the cancel.
+
+26
+00:01:34.677 --> 00:01:36.727
+Cancel this job while it waits.
+
+27
+00:01:36.727 --> 00:01:42.283
+The cancel becomes a failed Result, the job runs on, and the card is charged anyway.
+
+28
+00:01:42.300 --> 00:01:47.174
+Rethrow CancellationException in onFailure, and the cancel keeps going.
+
+29
+00:01:47.174 --> 00:01:48.479
+Nothing is charged.
+
+30
+00:01:49.200 --> 00:01:53.831
+In code, Arrow's either block fails fast, and zipOrAccumulate collects.
+
+31
+00:01:53.831 --> 00:01:57.811
+Java has no Arrow: you collect the errors in a list yourself.
+
+32
+00:01:59.500 --> 00:02:02.465
+So: fail fast when each step needs the one before.
+
+33
+00:02:02.465 --> 00:02:07.151
+Collect every error when the checks are independent, like the fields of a form.
+
+34
+00:02:07.300 --> 00:02:08.277
+A quick check.
+
+35
+00:02:08.277 --> 00:02:11.486
+A request for minus 1 cents rides the railway.
+
+36
+00:02:11.486 --> 00:02:13.997
+Which steps run, and what comes out?
+
+37
+00:02:16.300 --> 00:02:17.272
+Only validate.
+
+38
+00:02:17.272 --> 00:02:20.815
+It fails, and the result is an Err with the reason.

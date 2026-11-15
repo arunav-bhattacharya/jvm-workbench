@@ -1,0 +1,153 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.445
+Here is a small pipeline for card fees.
+
+2
+00:00:05.445 --> 00:00:09.668
+Take the numbers one to three, and multiply each one by 100.
+
+3
+00:00:10.700 --> 00:00:11.918
+The line has run.
+
+4
+00:00:11.918 --> 00:00:14.066
+Inside map there is a counter.
+
+5
+00:00:14.066 --> 00:00:16.501
+How many times has map run so far?
+
+6
+00:00:18.733 --> 00:00:19.092
+Zero.
+
+7
+00:00:19.092 --> 00:00:22.032
+Building the chain ran none of your code.
+
+8
+00:00:22.233 --> 00:00:26.119
+Flux.range made an object that knows how to count to three.
+
+9
+00:00:26.119 --> 00:00:30.795
+map made a second object that wraps the first and stores your function.
+
+10
+00:00:30.795 --> 00:00:32.507
+That is all assembly does.
+
+11
+00:00:32.507 --> 00:00:33.759
+It writes a recipe.
+
+12
+00:00:33.967 --> 00:00:36.811
+Now add a subscriber, and call subscribe.
+
+13
+00:00:37.033 --> 00:00:39.024
+Which end starts moving first?
+
+14
+00:00:41.233 --> 00:00:42.031
+The bottom.
+
+15
+00:00:42.031 --> 00:00:46.527
+The subscriber subscribes to map, and map subscribes to range.
+
+16
+00:00:46.527 --> 00:00:48.123
+The signal travels up.
+
+17
+00:00:48.333 --> 00:00:52.351
+Then a request for items travels up the same path, to the source.
+
+18
+00:00:52.567 --> 00:00:54.197
+Only now does range emit.
+
+19
+00:00:54.197 --> 00:00:59.087
+Each number flows down through map, which multiplies it, to the subscriber.
+
+20
+00:01:00.667 --> 00:01:03.361
+Then a completion signal follows them down.
+
+21
+00:01:03.967 --> 00:01:06.075
+Now call subscribe a second time.
+
+22
+00:01:06.075 --> 00:01:08.375
+What does the second subscriber get?
+
+23
+00:01:10.600 --> 00:01:12.883
+The whole run again, from the start.
+
+24
+00:01:12.883 --> 00:01:16.053
+Range counts again, and map runs three more times.
+
+25
+00:01:18.233 --> 00:01:21.429
+Each subscriber gets its own run, from the source.
+
+26
+00:01:21.429 --> 00:01:23.729
+That is what a cold publisher means.
+
+27
+00:01:23.933 --> 00:01:29.337
+So if the source were a Mono that charges a card, two subscribes would be two charges.
+
+28
+00:01:30.367 --> 00:01:33.316
+In code, the first statement only builds.
+
+29
+00:01:33.316 --> 00:01:35.258
+The subscribe line runs it.
+
+30
+00:01:35.258 --> 00:01:37.704
+Kotlin calls the same Reactor API.
+
+31
+00:01:38.533 --> 00:01:39.174
+The rule.
+
+32
+00:01:39.174 --> 00:01:41.096
+Assembly writes the recipe.
+
+33
+00:01:41.096 --> 00:01:44.441
+Every subscribe runs it again, from the source.
+
+34
+00:01:44.667 --> 00:01:45.651
+Check yourself.
+
+35
+00:01:45.651 --> 00:01:48.079
+This chain is subscribed three times.
+
+36
+00:01:48.079 --> 00:01:50.639
+How many times does map's function run?
+
+37
+00:01:53.367 --> 00:01:53.784
+Nine.
+
+38
+00:01:53.784 --> 00:01:56.708
+Three items, in each of three runs.

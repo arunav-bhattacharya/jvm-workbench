@@ -1,0 +1,145 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.590
+A charge request reaches your payment API.
+
+2
+00:00:05.590 --> 00:00:12.335
+Before anything charges the card, it passes three checks: logging, auth, and an idempotency check.
+
+3
+00:00:12.533 --> 00:00:18.065
+Each check either answers now, and the request goes no further, or hands it to the next one.
+
+4
+00:00:18.267 --> 00:00:21.038
+This one has a token and the key 7781.
+
+5
+00:00:21.038 --> 00:00:24.903
+Every check passes it on, and the charge answers 200.
+
+6
+00:00:24.903 --> 00:00:28.185
+On the way back out, logging writes its line.
+
+7
+00:00:28.400 --> 00:00:29.779
+Send it again.
+
+8
+00:00:29.779 --> 00:00:34.899
+Idempotency has seen 7781, so it answers 409 itself.
+
+9
+00:00:35.133 --> 00:00:39.386
+Key 7782 arrives with no token, and auth answers 401.
+
+10
+00:00:39.386 --> 00:00:44.683
+The client adds the token and retries, and this time it's charged.
+
+11
+00:00:45.500 --> 00:00:50.392
+That's a chain of responsibility: each link answers now, or calls the next.
+
+12
+00:00:50.600 --> 00:00:55.082
+Now swap auth and idempotency, and replay the last two requests.
+
+13
+00:00:55.082 --> 00:00:57.182
+What does the fixed retry get?
+
+14
+00:00:57.182 --> 00:00:58.023
+Pause on it.
+
+15
+00:01:00.200 --> 00:01:00.558
+409.
+
+16
+00:01:00.558 --> 00:01:10.127
+Idempotency took key 7782 before auth turned that request away, so the honest retry looks like a duplicate.
+
+17
+00:01:10.127 --> 00:01:12.631
+Order 7782 is never charged.
+
+18
+00:01:12.631 --> 00:01:15.672
+The order of the list is behavior.
+
+19
+00:01:16.633 --> 00:01:19.157
+State is the other half of this lesson.
+
+20
+00:01:19.157 --> 00:01:25.500
+A payment goes from Created to Authorized, Captured and Refunded, and a Decline can fail it early.
+
+21
+00:01:25.700 --> 00:01:29.571
+Each state accepts only some events, and picks the next state.
+
+22
+00:01:29.571 --> 00:01:32.255
+Authorize moves this payment to Authorized.
+
+23
+00:01:32.255 --> 00:01:34.253
+Capture moves it on to Captured.
+
+24
+00:01:34.433 --> 00:01:37.765
+A new payment, still Created, gets a Capture.
+
+25
+00:01:37.765 --> 00:01:38.728
+What happens?
+
+26
+00:01:38.728 --> 00:01:39.616
+Pause on it.
+
+27
+00:01:41.800 --> 00:01:42.490
+Rejected.
+
+28
+00:01:42.490 --> 00:01:46.933
+Created has no rule for Capture, so the transition throws.
+
+29
+00:01:47.867 --> 00:01:51.857
+In code, that's sealed states, sealed events, and one pure function.
+
+30
+00:01:51.857 --> 00:01:55.965
+It switches on the state, then on the event, and anything else throws.
+
+31
+00:01:56.767 --> 00:02:05.861
+The rule: a chain passes the request along until one link answers, and in a state machine, the current state decides what may happen next.
+
+32
+00:02:06.567 --> 00:02:07.603
+A quick check.
+
+33
+00:02:07.603 --> 00:02:11.598
+A Refund arrives for a payment that's only Authorized.
+
+34
+00:02:11.598 --> 00:02:12.560
+What happens?
+
+35
+00:02:14.500 --> 00:02:15.295
+Rejected.
+
+36
+00:02:15.295 --> 00:02:18.033
+Only Captured accepts a Refund.

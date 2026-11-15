@@ -1,0 +1,169 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:08.189
+32 hashing tasks, with no I/O and no locks, on a machine with four cores.
+
+2
+00:00:08.400 --> 00:00:12.481
+One thread works through them in 359 ms.
+
+3
+00:00:12.700 --> 00:00:15.264
+Two threads take 171.
+
+4
+00:00:15.264 --> 00:00:16.852
+Four take 92.
+
+5
+00:00:17.067 --> 00:00:19.164
+So how long will eight threads take?
+
+6
+00:00:21.367 --> 00:00:22.157
+96 ms.
+
+7
+00:00:22.157 --> 00:00:23.474
+No faster.
+
+8
+00:00:23.474 --> 00:00:26.635
+Sixteen threads take 98.
+
+9
+00:00:26.867 --> 00:00:29.046
+A core runs one thread at a time.
+
+10
+00:00:29.046 --> 00:00:33.139
+Thread five only gets a core by taking it from another thread.
+
+11
+00:00:33.139 --> 00:00:35.847
+That switch costs time, and adds no work.
+
+12
+00:00:36.067 --> 00:00:42.644
+This is CPU-bound work: about one thread per core, the number availableProcessors returns.
+
+13
+00:00:43.667 --> 00:00:45.708
+Most backend work waits.
+
+14
+00:00:45.708 --> 00:00:52.085
+An authorization computes for 20 ms, then waits 180 ms for the card issuer.
+
+15
+00:00:52.300 --> 00:00:54.990
+While it waits, the thread needs no CPU.
+
+16
+00:00:54.990 --> 00:00:57.881
+The core sits idle nine tenths of the time.
+
+17
+00:00:58.100 --> 00:01:01.264
+How many threads does it take to keep this one core busy?
+
+18
+00:01:03.467 --> 00:01:04.171
+About ten.
+
+19
+00:01:04.171 --> 00:01:09.803
+The wait is nine times the compute, so while one thread computes, nine can wait.
+
+20
+00:01:09.803 --> 00:01:11.423
+This is I/O-bound work.
+
+21
+00:01:12.333 --> 00:01:14.872
+Goetz's formula says the same.
+
+22
+00:01:14.872 --> 00:01:18.427
+Eight cores at 80 percent CPU: 64 threads.
+
+23
+00:01:19.233 --> 00:01:26.771
+From the traffic side: 400 authorizations arrive each second, and each one stays 250 ms.
+
+24
+00:01:27.000 --> 00:01:29.161
+How many are inside at any moment?
+
+25
+00:01:31.367 --> 00:01:32.728
+Follow the first one.
+
+26
+00:01:32.728 --> 00:01:36.033
+While it crosses, new ones keep arriving behind it.
+
+27
+00:01:36.033 --> 00:01:39.792
+When it leaves, 100 are inside, and the count stays there.
+
+28
+00:01:40.000 --> 00:01:41.657
+This is Little's law.
+
+29
+00:01:41.657 --> 00:01:45.445
+In flight equals arrival rate times time inside.
+
+30
+00:01:45.445 --> 00:01:48.128
+400 times a quarter second is 100.
+
+31
+00:01:48.128 --> 00:01:50.416
+One thread each: 100 threads.
+
+32
+00:01:51.933 --> 00:01:53.000
+Turn it around.
+
+33
+00:01:53.000 --> 00:01:59.541
+With only 50 threads, each finishing four requests a second, the pool finishes 200 a second.
+
+34
+00:01:59.767 --> 00:02:00.842
+But 400 arrive.
+
+35
+00:02:00.842 --> 00:02:08.015
+Each second, the other 200 wait in the queue, and the queue grows until memory or patience runs out.
+
+36
+00:02:09.100 --> 00:02:11.495
+Threads that compute: one per core.
+
+37
+00:02:11.495 --> 00:02:14.916
+Threads that wait: arrival rate times time inside.
+
+38
+00:02:15.133 --> 00:02:16.390
+Check yourself.
+
+39
+00:02:16.390 --> 00:02:19.910
+20 threads, and each request takes 100 ms.
+
+40
+00:02:19.910 --> 00:02:22.172
+How many requests a second?
+
+41
+00:02:24.900 --> 00:02:25.243
+200.
+
+42
+00:02:25.243 --> 00:02:28.156
+Each thread finishes ten a second.

@@ -1,0 +1,137 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:10.697
+A service caches FX rate tables, each behind a WeakReference, so that the GC can free them if memory runs low.
+
+2
+00:00:10.933 --> 00:00:13.963
+Under normal load, the cache keeps missing.
+
+3
+00:00:13.963 --> 00:00:16.429
+After each GC, the tables are gone.
+
+4
+00:00:16.600 --> 00:00:17.963
+Memory wasn't low.
+
+5
+00:00:17.963 --> 00:00:20.539
+So why did the GC throw them away?
+
+6
+00:00:23.133 --> 00:00:25.431
+The GC frees what nothing can reach.
+
+7
+00:00:25.431 --> 00:00:31.047
+It starts from the roots: thread stacks, static fields, and references from native code.
+
+8
+00:00:31.047 --> 00:00:34.365
+It follows every reference, and keeps what it finds.
+
+9
+00:00:34.365 --> 00:00:36.088
+Everything else is garbage.
+
+10
+00:00:36.867 --> 00:00:39.101
+Ordinary references are strong.
+
+11
+00:00:39.101 --> 00:00:41.552
+The GC leaves their objects alone.
+
+12
+00:00:41.800 --> 00:00:47.993
+A SoftReference may be cleared when memory gets tight, and must be cleared before an OutOfMemoryError.
+
+13
+00:00:48.200 --> 00:00:50.382
+A WeakReference holds nothing up.
+
+14
+00:00:50.382 --> 00:00:53.291
+The next GC that finds the object clears it.
+
+15
+00:00:53.467 --> 00:00:58.006
+A PhantomReference never gives you the object: get() always returns null.
+
+16
+00:00:58.006 --> 00:01:00.307
+It only tells you the object is gone.
+
+17
+00:01:00.467 --> 00:01:05.293
+Some time after clearing a reference, the GC can put it on a ReferenceQueue.
+
+18
+00:01:05.293 --> 00:01:07.008
+The spec gives no deadline.
+
+19
+00:01:07.133 --> 00:01:12.623
+So the weak cache forgets at every GC, which on a busy service is milliseconds away.
+
+20
+00:01:13.400 --> 00:01:16.214
+A soft cache fails the other way.
+
+21
+00:01:16.214 --> 00:01:24.400
+A 64 MB heap holds a 40 MB rate table behind a soft reference, and the code asks for 40 MB more.
+
+22
+00:01:24.600 --> 00:01:26.271
+What does the GC do?
+
+23
+00:01:28.067 --> 00:01:31.482
+A full GC keeps the table, and still finds no room.
+
+24
+00:01:31.482 --> 00:01:36.571
+A second full GC clears the soft reference, and the allocation goes through.
+
+25
+00:01:36.733 --> 00:01:41.455
+Now every request reloads the table at once, while the heap is under pressure.
+
+26
+00:01:42.200 --> 00:01:47.476
+So give your cache a maximum size and an expiry time, and size the heap for it.
+
+27
+00:01:48.200 --> 00:01:52.665
+In Java and in Kotlin, a weak reference with its queue looks like this.
+
+28
+00:01:53.400 --> 00:01:56.636
+The rule: the GC keeps what the roots can reach.
+
+29
+00:01:56.636 --> 00:02:02.096
+Soft holds until memory is tight, weak until the next GC, and phantom not at all.
+
+30
+00:02:02.267 --> 00:02:03.084
+Quick check.
+
+31
+00:02:03.084 --> 00:02:06.353
+A listener is held only through a WeakReference.
+
+32
+00:02:06.353 --> 00:02:08.260
+Does it survive the next GC?
+
+33
+00:02:10.600 --> 00:02:10.886
+No.
+
+34
+00:02:10.886 --> 00:02:13.173
+Nothing strong holds it.

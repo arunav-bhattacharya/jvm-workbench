@@ -1,0 +1,185 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.135
+Here is a fee function.
+
+2
+00:00:04.135 --> 00:00:07.193
+You hand it an amount, and it hands back the fee.
+
+3
+00:00:07.400 --> 00:00:10.847
+A test passes in 200.00 and expects 3.00.
+
+4
+00:00:10.847 --> 00:00:13.621
+At ten in the morning, it passes.
+
+5
+00:00:13.833 --> 00:00:17.573
+At five in the afternoon, the nightly build gets 4.00.
+
+6
+00:00:17.800 --> 00:00:19.387
+Same amount, same code.
+
+7
+00:00:19.387 --> 00:00:21.803
+Where did the extra euro come from?
+
+8
+00:00:23.300 --> 00:00:25.069
+It reads the wall clock.
+
+9
+00:00:25.069 --> 00:00:28.753
+After the 16:00 cut-off, it adds a late surcharge.
+
+10
+00:00:28.967 --> 00:00:33.091
+It also reads a global rate table that can change at any time.
+
+11
+00:00:33.300 --> 00:00:36.037
+And every call writes a line to the audit log.
+
+12
+00:00:36.267 --> 00:00:38.195
+The signature shows one input.
+
+13
+00:00:38.195 --> 00:00:40.894
+The clock and the rates are hidden inputs.
+
+14
+00:00:40.894 --> 00:00:46.036
+The log line is a side effect: something the call does besides return its value.
+
+15
+00:00:46.200 --> 00:00:47.352
+Now take them out.
+
+16
+00:00:47.352 --> 00:00:51.959
+The time and the rates come in as values, and the caller writes the log.
+
+17
+00:00:51.959 --> 00:00:53.943
+Every input is now a parameter.
+
+18
+00:00:54.133 --> 00:00:57.305
+At 15:59 it gives 3.00.
+
+19
+00:00:57.305 --> 00:00:59.373
+At 16:00, 4.00.
+
+20
+00:00:59.967 --> 00:01:02.696
+Run it again tonight, or on eight threads.
+
+21
+00:01:02.696 --> 00:01:03.671
+What comes out?
+
+22
+00:01:05.167 --> 00:01:06.521
+4.00, every time.
+
+23
+00:01:06.521 --> 00:01:09.468
+The real clock can spin all it likes.
+
+24
+00:01:09.700 --> 00:01:11.284
+That is a pure function.
+
+25
+00:01:11.284 --> 00:01:13.989
+Its result depends only on its arguments.
+
+26
+00:01:13.989 --> 00:01:16.760
+And calling it changes nothing outside it.
+
+27
+00:01:17.667 --> 00:01:20.367
+Here is a smaller fee function.
+
+28
+00:01:20.367 --> 00:01:22.544
+20,000 cents in, 300 out.
+
+29
+00:01:22.733 --> 00:01:25.550
+This line calls it twice and adds the answers.
+
+30
+00:01:25.550 --> 00:01:28.549
+Could you call it once, and use the answer twice?
+
+31
+00:01:30.033 --> 00:01:30.469
+Yes.
+
+32
+00:01:30.469 --> 00:01:35.913
+Swap each call for its value: 300 plus 300 is 600.
+
+33
+00:01:37.133 --> 00:01:39.292
+Now a call that charges a card.
+
+34
+00:01:39.292 --> 00:01:43.611
+Store the receipt in c, and put c in a list twice: one charge.
+
+35
+00:01:43.800 --> 00:01:45.082
+Now inline c.
+
+36
+00:01:45.082 --> 00:01:46.757
+How many charges?
+
+37
+00:01:48.233 --> 00:01:48.510
+Two.
+
+38
+00:01:48.510 --> 00:01:52.663
+The customer paid twice, and nothing in the code warned you.
+
+39
+00:01:53.467 --> 00:01:56.790
+This swap has a name: referential transparency.
+
+40
+00:01:56.790 --> 00:01:58.557
+Only pure calls allow it.
+
+41
+00:01:59.367 --> 00:02:04.195
+In Java and Kotlin, these two totals always agree, because fee is pure.
+
+42
+00:02:05.000 --> 00:02:11.684
+The rule: a pure function takes everything as parameters, and gives everything back as its return value.
+
+43
+00:02:11.900 --> 00:02:17.204
+Quick check: isExpired compares a card's expiry with YearMonth.now().
+
+44
+00:02:17.204 --> 00:02:17.588
+Pure?
+
+45
+00:02:19.067 --> 00:02:19.770
+Not pure.
+
+46
+00:02:19.770 --> 00:02:22.429
+The clock is a hidden input again.

@@ -1,0 +1,149 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:08.734
+A dashboard shows the euro to dollar rate, and drawing one rate takes 100 milliseconds.
+
+2
+00:00:08.734 --> 00:00:13.380
+While it draws 1.0809, three new rates arrive within a millisecond.
+
+3
+00:00:16.167 --> 00:00:16.694
+1.0813.
+
+4
+00:00:16.694 --> 00:00:21.890
+A StateFlow holds one value, and each new value replaces the old one.
+
+5
+00:00:21.890 --> 00:00:26.032
+A slow collector doesn't get a queue of what it missed.
+
+6
+00:00:26.032 --> 00:00:27.463
+It gets the latest.
+
+7
+00:00:27.463 --> 00:00:28.893
+That is conflation.
+
+8
+00:00:29.600 --> 00:00:31.347
+Now set 1.0813 again.
+
+9
+00:00:31.347 --> 00:00:32.679
+Nothing happens.
+
+10
+00:00:32.679 --> 00:00:38.004
+StateFlow compares with equals, and an equal value wakes nobody.
+
+11
+00:00:38.233 --> 00:00:39.135
+And it is hot.
+
+12
+00:00:39.135 --> 00:00:43.644
+The value sits there with no collector at all, and anyone can read it.
+
+13
+00:00:43.867 --> 00:00:45.336
+That's right for a rate.
+
+14
+00:00:45.336 --> 00:00:51.091
+It's wrong for an audit log of payment transitions, where a skipped value is a missing record.
+
+15
+00:00:51.800 --> 00:00:53.616
+A SharedFlow is for events.
+
+16
+00:00:53.616 --> 00:00:55.230
+It has no current value.
+
+17
+00:00:55.230 --> 00:01:00.609
+It hands every event to every subscriber, and its buffer decides what gets lost.
+
+18
+00:01:00.833 --> 00:01:07.034
+Make one with default settings, and call tryEmit five times while the audit subscriber is busy.
+
+19
+00:01:07.034 --> 00:01:12.452
+There is no buffer at all, so every tryEmit returns false, and the events are gone.
+
+20
+00:01:12.667 --> 00:01:15.272
+Now give it extraBufferCapacity of 2.
+
+21
+00:01:15.272 --> 00:01:17.032
+Which events get through?
+
+22
+00:01:19.800 --> 00:01:23.948
+Two events wait in the buffer until the slow subscriber takes them.
+
+23
+00:01:23.948 --> 00:01:27.600
+The third finds the buffer full, and tryEmit returns false.
+
+24
+00:01:27.833 --> 00:01:30.332
+With 64 slots, all five get through.
+
+25
+00:01:30.332 --> 00:01:34.844
+And emit, instead of tryEmit, waits for room, so nothing is lost.
+
+26
+00:01:35.767 --> 00:01:41.358
+replay is the other knob: it keeps the newest values for subscribers who come later.
+
+27
+00:01:41.358 --> 00:01:45.618
+Emit five with nobody listening, and the first three go nowhere.
+
+28
+00:01:45.618 --> 00:01:48.480
+A late subscriber to replay 2 starts at e4.
+
+29
+00:01:49.400 --> 00:01:50.839
+This is Kotlin only.
+
+30
+00:01:50.839 --> 00:01:53.213
+State goes in a MutableStateFlow.
+
+31
+00:01:53.213 --> 00:01:57.889
+Events go in a MutableSharedFlow, with a buffer sized for bursts.
+
+32
+00:01:58.700 --> 00:02:01.523
+So a StateFlow keeps only the latest value.
+
+33
+00:02:01.523 --> 00:02:07.759
+A SharedFlow hands every event to every subscriber, and keeps what its replay and buffer allow.
+
+34
+00:02:07.967 --> 00:02:08.827
+Quick check.
+
+35
+00:02:08.827 --> 00:02:10.260
+A StateFlow holds 0.
+
+36
+00:02:10.260 --> 00:02:14.989
+While its collector is busy, you set 1, 2 and 3, and then 3 again.
+
+37
+00:02:14.989 --> 00:02:16.996
+What does the collector see?

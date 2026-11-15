@@ -1,0 +1,165 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.113
+Here is a charge of 1999 cents.
+
+2
+00:00:05.113 --> 00:00:09.860
+You hand it to a small block of code that doubles the amount.
+
+3
+00:00:10.067 --> 00:00:14.713
+When the block is done, the call gives back one of two things.
+
+4
+00:00:14.713 --> 00:00:16.586
+The block's result, 3998.
+
+5
+00:00:16.586 --> 00:00:18.684
+Or the charge you handed in.
+
+6
+00:00:19.467 --> 00:00:23.052
+Inside the block, the charge shows up in one of two ways.
+
+7
+00:00:23.052 --> 00:00:27.330
+As this, the block runs inside the charge, so you write amountMinor.
+
+8
+00:00:27.330 --> 00:00:31.796
+As it, the charge comes in as a parameter, so you write it.amountMinor.
+
+9
+00:00:31.967 --> 00:00:34.005
+Two questions, two answers each.
+
+10
+00:00:34.005 --> 00:00:38.273
+That makes four cells, and Kotlin's five scope functions fill them.
+
+11
+00:00:38.500 --> 00:00:40.255
+Same block, five functions.
+
+12
+00:00:40.255 --> 00:00:42.140
+What does each one give back?
+
+13
+00:00:44.533 --> 00:00:47.414
+let, run and with give back 3998.
+
+14
+00:00:47.414 --> 00:00:50.557
+also and apply give back the charge.
+
+15
+00:00:50.557 --> 00:00:53.001
+Java has no scope functions.
+
+16
+00:00:53.700 --> 00:00:55.654
+Each cell has a typical job.
+
+17
+00:00:55.654 --> 00:00:59.772
+apply configures an object, and hands the same object back.
+
+18
+00:00:59.967 --> 00:01:05.179
+also does a side step, like a log line, and the object flows on unchanged.
+
+19
+00:01:05.400 --> 00:01:09.467
+let, after a safe call, runs only when the value is not null.
+
+20
+00:01:09.467 --> 00:01:11.600
+A missing token skips the block.
+
+21
+00:01:11.800 --> 00:01:16.500
+run and with compute something new from the object's members, like a risk score.
+
+22
+00:01:17.433 --> 00:01:18.302
+Now the trap.
+
+23
+00:01:18.302 --> 00:01:23.249
+It reads like if, else: post the cached payment, or fetch one and post it.
+
+24
+00:01:23.467 --> 00:01:28.977
+First call: the ledger is empty, post returns an entry id, and run is skipped.
+
+25
+00:01:29.600 --> 00:01:30.424
+Second call.
+
+26
+00:01:30.424 --> 00:01:34.959
+The payment is still cached, but the ledger has posted it already.
+
+27
+00:01:34.959 --> 00:01:36.127
+Which blocks run?
+
+28
+00:01:40.167 --> 00:01:42.389
+post returns null for a duplicate.
+
+29
+00:01:42.389 --> 00:01:45.461
+The Elvis operator tests the value on its left.
+
+30
+00:01:45.461 --> 00:01:49.383
+That is the result of the let block, not the cached payment.
+
+31
+00:01:49.383 --> 00:01:51.213
+It is null, so run runs too.
+
+32
+00:01:51.213 --> 00:01:55.069
+A cache miss, a fetch from the database, and a second post.
+
+33
+00:01:55.200 --> 00:01:56.679
+Both blocks ran.
+
+34
+00:01:57.600 --> 00:01:59.671
+Java's Optional has the same trap.
+
+35
+00:01:59.671 --> 00:02:04.909
+Write the branch you mean with if or when, or pick the payment first and post it once.
+
+36
+00:02:07.233 --> 00:02:12.317
+So: what should the call give back, and does the block see the object as this or as it?
+
+37
+00:02:12.533 --> 00:02:13.576
+A quick check.
+
+38
+00:02:13.576 --> 00:02:15.512
+The payment is authorized.
+
+39
+00:02:15.512 --> 00:02:17.225
+What status comes back?
+
+40
+00:02:19.633 --> 00:02:20.420
+Authorized.
+
+41
+00:02:20.420 --> 00:02:24.212
+also gives back the payment, and the copy is dropped.

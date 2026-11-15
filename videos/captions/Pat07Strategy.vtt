@@ -1,0 +1,165 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.489
+Three payment providers quote for one payment.
+
+2
+00:00:06.489 --> 00:00:09.536
+Northpay: 30 cents, 200 milliseconds.
+
+3
+00:00:09.536 --> 00:00:12.583
+Adyx: 25 cents, but 900 milliseconds.
+
+4
+00:00:12.583 --> 00:00:15.548
+Kestrel: 30 cents, 120 milliseconds.
+
+5
+00:00:15.700 --> 00:00:18.123
+Which one does the router try first?
+
+6
+00:00:18.123 --> 00:00:19.604
+Finance says cheapest.
+
+7
+00:00:19.604 --> 00:00:21.893
+The on-call engineer says fastest.
+
+8
+00:00:21.893 --> 00:00:24.047
+Next month, someone wants a mix.
+
+9
+00:00:24.200 --> 00:00:28.116
+You could write every opinion into the router, as an if-else chain.
+
+10
+00:00:28.116 --> 00:00:33.728
+Then each new one is another branch, in the same code that loops over the quotes and swaps them.
+
+11
+00:00:33.933 --> 00:00:39.990
+But ordering only ever asks one question, about two quotes at a time: which goes first?
+
+12
+00:00:39.990 --> 00:00:41.312
+The answer changes.
+
+13
+00:00:41.312 --> 00:00:42.913
+The looping never does.
+
+14
+00:00:43.100 --> 00:00:44.026
+So split them.
+
+15
+00:00:44.026 --> 00:00:48.788
+One general sort does the looping, and the answer plugs in from outside.
+
+16
+00:00:49.000 --> 00:00:52.135
+Plug in cheapest: Adyx moves to the front.
+
+17
+00:00:52.135 --> 00:00:54.450
+Swap in fastest: Kestrel leads.
+
+18
+00:00:54.450 --> 00:00:56.167
+The sort never changed.
+
+19
+00:00:56.367 --> 00:00:57.962
+That plug is a strategy.
+
+20
+00:00:57.962 --> 00:01:03.612
+The sort that uses it is the context, and the caller picks the strategy, at run time.
+
+21
+00:01:03.800 --> 00:01:06.946
+Now plug in cheapest, then fastest for ties.
+
+22
+00:01:06.946 --> 00:01:08.519
+What order do you get?
+
+23
+00:01:08.519 --> 00:01:10.092
+Pause and work it out.
+
+24
+00:01:12.467 --> 00:01:13.908
+Adyx first, at 25.
+
+25
+00:01:13.908 --> 00:01:19.755
+Northpay and Kestrel tie at 30, so speed decides: Kestrel, then Northpay.
+
+26
+00:01:19.967 --> 00:01:25.214
+In the 1994 Design Patterns book, each plug was a class with one method.
+
+27
+00:01:25.214 --> 00:01:29.879
+Since Java 8, a lambda or a method reference is the whole class.
+
+28
+00:01:30.567 --> 00:01:34.134
+In code, each plug is one line, in Java and in Kotlin.
+
+29
+00:01:34.134 --> 00:01:37.833
+The second call chains the tie-breaker behind the first.
+
+30
+00:01:38.533 --> 00:01:43.069
+A fee rule has the same shape: one method, from a payment to a fee.
+
+31
+00:01:43.069 --> 00:01:45.777
+Java names it with a one-line interface.
+
+32
+00:01:45.777 --> 00:01:48.281
+In Kotlin, a function type is enough.
+
+33
+00:01:49.000 --> 00:01:52.955
+Template Method, the other half of this lesson, has a hole too.
+
+34
+00:01:52.955 --> 00:01:56.596
+A base class fixes the steps, and a subclass fills one in.
+
+35
+00:01:56.596 --> 00:01:59.985
+Modern code passes that step in as a function instead.
+
+36
+00:02:00.767 --> 00:02:07.515
+The rule: keep the steps in one place, and pass in the one decision that varies, usually as a lambda.
+
+37
+00:02:08.233 --> 00:02:09.282
+A quick check.
+
+38
+00:02:09.282 --> 00:02:14.151
+A fourth provider, Bluefin, quotes 25 cents and 150 milliseconds.
+
+39
+00:02:14.151 --> 00:02:17.597
+With cheapest, then fastest, where does it go?
+
+40
+00:02:19.567 --> 00:02:20.089
+First.
+
+41
+00:02:20.089 --> 00:02:23.313
+It ties Adyx on fee, and it's faster.
