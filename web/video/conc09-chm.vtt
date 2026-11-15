@@ -1,0 +1,177 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.264
+Two threads settle payments for one merchant at once.
+
+2
+00:00:06.264 --> 00:00:10.299
+The totals live in a ConcurrentHashMap, the thread-safe map.
+
+3
+00:00:10.299 --> 00:00:12.384
+A adds 20 cents, and B adds 30.
+
+4
+00:00:12.600 --> 00:00:17.129
+Each one runs this line: get the total, add its cents, put the sum back.
+
+5
+00:00:17.333 --> 00:00:19.704
+A calls get, and reads 500.
+
+6
+00:00:19.704 --> 00:00:23.832
+Before A puts, B calls get, and also reads 500.
+
+7
+00:00:24.033 --> 00:00:25.033
+A puts 520.
+
+8
+00:00:25.033 --> 00:00:26.849
+Then B puts its sum.
+
+9
+00:00:26.849 --> 00:00:28.939
+What does the map hold?
+
+10
+00:00:31.533 --> 00:00:31.877
+530.
+
+11
+00:00:31.877 --> 00:00:33.768
+A's 20 cents are gone.
+
+12
+00:00:33.768 --> 00:00:36.003
+Each call was thread-safe.
+
+13
+00:00:36.003 --> 00:00:41.160
+The pair was not: it's the read, add, write race of count++.
+
+14
+00:00:42.467 --> 00:00:44.880
+To see why, look inside the map.
+
+15
+00:00:44.880 --> 00:00:46.539
+It's an array of bins.
+
+16
+00:00:46.539 --> 00:00:50.385
+A key's hash picks its bin, so m-17 lands in bin 3.
+
+17
+00:00:50.385 --> 00:00:52.648
+One bin can hold several keys.
+
+18
+00:00:52.867 --> 00:00:54.028
+Reads never lock.
+
+19
+00:00:54.028 --> 00:00:58.330
+A write locks only its own bin, for one call, and then lets go.
+
+20
+00:00:58.330 --> 00:01:02.700
+Into an empty bin, it uses compare-and-set, with no lock at all.
+
+21
+00:01:03.433 --> 00:01:08.090
+So get takes no lock, and put holds the bin only while it writes.
+
+22
+00:01:08.090 --> 00:01:13.751
+Between A's get and A's put, nothing holds bin 3, and B reads the same old 500.
+
+23
+00:01:16.333 --> 00:01:17.343
+Now use merge.
+
+24
+00:01:17.343 --> 00:01:21.163
+It reads, adds and writes inside one lock of the bin.
+
+25
+00:01:21.163 --> 00:01:26.209
+Its Javadoc says the entire method invocation is performed atomically.
+
+26
+00:01:26.433 --> 00:01:29.264
+A holds bin 3 in the middle of its merge.
+
+27
+00:01:29.264 --> 00:01:31.680
+B's merge arrives for the same key.
+
+28
+00:01:31.680 --> 00:01:32.853
+What will B read?
+
+29
+00:01:35.433 --> 00:01:37.322
+B waits at the bin.
+
+30
+00:01:37.322 --> 00:01:39.807
+A writes 520 and lets go.
+
+31
+00:01:39.807 --> 00:01:44.579
+Then B takes the bin, reads 520, and writes 550.
+
+32
+00:01:44.579 --> 00:01:46.169
+Nothing is lost.
+
+33
+00:01:46.400 --> 00:01:50.620
+Meanwhile, C updates m-42 in bin 6, and never meets A.
+
+34
+00:01:50.620 --> 00:01:53.668
+Only writes to the same bin take turns.
+
+35
+00:01:53.668 --> 00:01:56.169
+D reads m-5 with no lock at all.
+
+36
+00:01:57.000 --> 00:01:59.325
+In code, the two calls become one.
+
+37
+00:01:59.325 --> 00:02:04.797
+merge puts the cents in, or adds them to the old total, atomically for that key.
+
+38
+00:02:04.797 --> 00:02:07.943
+compute and computeIfAbsent work the same way.
+
+39
+00:02:08.767 --> 00:02:12.955
+So one call is atomic for its key, and two calls are two steps.
+
+40
+00:02:12.955 --> 00:02:16.545
+Do each read, modify, write on a key in a single call.
+
+41
+00:02:16.767 --> 00:02:17.569
+Quick check.
+
+42
+00:02:17.569 --> 00:02:20.713
+Two threads run: if the key is missing, put it.
+
+43
+00:02:20.713 --> 00:02:22.920
+Both run it for the same new key.
+
+44
+00:02:22.920 --> 00:02:24.324
+Can both of them put?

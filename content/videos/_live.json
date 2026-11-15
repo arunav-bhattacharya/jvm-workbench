@@ -84,6 +84,9 @@
   "conc02-states",
   "jmm03-volatile",
   "conc10-synchronizers",
-  "conc12-classic"
+  "conc12-classic",
+  "conc04-monitor",
+  "conc09-chm",
+  "conc07-locks"
  ]
 }

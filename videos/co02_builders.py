@@ -218,7 +218,8 @@ class Co02Builders(Narrated):
         self.play(*[VGroup(seq[i], seq_l[i]).animate.move_to([X(0) + 0.015, Y_LANES[i], 0], aligned_edge=LEFT) for i in range(3)],
                   run_time=1.6)
         self.at_text("and you wait")
-        self.play(Create(line300), FadeOut(res_seq), FadeIn(res_par, shift=UP * 0.1), run_time=0.8)
+        self.play(Create(line300), FadeOut(res_seq), run_time=0.5)
+        self.play(FadeIn(res_par, shift=UP * 0.1), run_time=0.5)
         self.hold()
         self.play(FadeOut(VGroup(*seq, *seq_l, line300, res_par)), run_time=0.6)
 
@@ -334,9 +335,9 @@ class Co02Builders(Narrated):
         segs[:] = [dict(kind="bar", y=Y_CALLER, t0=0, t1=12, color=CALLER), dict(kind="wait", y=Y_CALLER, t0=12, t1=120, color=WAIT)] + \
                   [dict(kind="bar", y=Y_LANES[i], t0=0, t1=MS[i], color=CHILD) for i in range(3)]
         tm.set_value(12)
-        boom = T("throws", 24, FAIL).move_to([X(120) + 0.2, Y_LANES[1], 0], aligned_edge=LEFT)
-        canc = [T("cancelled", 24, CANCEL).move_to([X(120) + 0.2, Y_LANES[i], 0], aligned_edge=LEFT) for i in (0, 2)]
-        st_re = T("rethrows", 24, FAIL).move_to([X(120) + 0.2, Y_CALLER, 0], aligned_edge=LEFT)
+        boom = T("throws", 24, FAIL).move_to([X(120) + 0.45, Y_LANES[1], 0], aligned_edge=LEFT)
+        canc = [T("cancelled", 24, CANCEL).move_to([X(120) + 0.45, Y_LANES[i], 0], aligned_edge=LEFT) for i in (0, 2)]
+        st_re = T("rethrows", 24, FAIL).move_to([X(120) + 0.45, Y_CALLER, 0], aligned_edge=LEFT)
         res_fail = T("the call fails at 120 ms", 28, FAIL).move_to([0.8, Y_RES, 0])
         self.say("fail")
         run(120, 2.0)
@@ -379,9 +380,11 @@ class Co02Builders(Narrated):
         self.play(FadeOut(code), run_time=0.6)
 
         # ================= the rule and a check =================
-        r1 = VGroup(M("launch", 30, CHILD), T("and", 32), M("async", 30, CHILD), T("start a child and return at once.", 32)).arrange(RIGHT, buff=0.2)
-        r2 = VGroup(M("await", 30, CALLER), T("waits for one value.", 32)).arrange(RIGHT, buff=0.2)
-        r3 = VGroup(M("coroutineScope", 30, SCOPE), T("waits for every child before it returns.", 32)).arrange(RIGHT, buff=0.2)
+        r1 = T("launch and async start a child and return at once.", 32, t2f={"launch": MONO, "async": MONO},
+               t2c={"launch": CHILD, "async": CHILD})
+        r2 = T("await waits for one value.", 32, t2f={"await": MONO}, t2c={"await": CALLER})
+        r3 = T("coroutineScope waits for every child before it returns.", 32, t2f={"coroutineScope": MONO},
+               t2c={"coroutineScope": SCOPE})
         rule = VGroup(r1, r2, r3).arrange(DOWN, buff=0.3).move_to(UP * 1.3)
         fit(rule, 12.4)
         q = VGroup(T("Check:", 28, YELLOW_M),

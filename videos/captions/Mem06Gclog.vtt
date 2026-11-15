@@ -1,0 +1,173 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:05.442
+Your slowest requests just got slower.
+
+2
+00:00:05.442 --> 00:00:08.793
+Is the garbage collector stopping your threads?
+
+3
+00:00:08.793 --> 00:00:13.569
+Turn on -Xlog:gc, and the JVM prints one line for every collection.
+
+4
+00:00:13.733 --> 00:00:17.261
+Read one line as an event on a timeline.
+
+5
+00:00:17.261 --> 00:00:22.024
+This one happened 0.128 seconds after the JVM started.
+
+6
+00:00:22.200 --> 00:00:25.066
+It's collection number zero, a young pause.
+
+7
+00:00:25.066 --> 00:00:28.066
+Pause means every application thread stopped.
+
+8
+00:00:28.066 --> 00:00:31.799
+Normal means G1 cleaned only the young part of the heap.
+
+9
+00:00:31.867 --> 00:00:33.848
+The cause: eden was full.
+
+10
+00:00:33.848 --> 00:00:38.920
+The heap went from 14 megabytes used to 1, out of 256 committed.
+
+11
+00:00:39.067 --> 00:00:43.809
+And 12.723 milliseconds is how long your threads stood still.
+
+12
+00:00:44.600 --> 00:00:49.124
+Here are eight real lines from a busier G1 run, under a second of time.
+
+13
+00:00:49.124 --> 00:00:51.163
+Which ones stopped your threads?
+
+14
+00:00:52.733 --> 00:00:57.733
+A pause line has Pause right after the GC number, and ends in milliseconds.
+
+15
+00:00:57.733 --> 00:01:00.000
+Each one cuts across every thread.
+
+16
+00:01:00.200 --> 00:01:03.103
+Concurrent Mark Cycle ends in milliseconds too.
+
+17
+00:01:03.103 --> 00:01:06.315
+But it ran beside your threads, not instead of them.
+
+18
+00:01:06.533 --> 00:01:08.355
+Three more pauses follow.
+
+19
+00:01:08.355 --> 00:01:15.933
+So six of the eight lines are pauses, and the longest is the full GC at the end: almost 47 milliseconds.
+
+20
+00:01:16.200 --> 00:01:20.545
+Two words deserve a closer look: Full, and Evacuation Failure.
+
+21
+00:01:20.545 --> 00:01:22.997
+A healthy G1 service shows neither.
+
+22
+00:01:23.867 --> 00:01:25.908
+Now, how big is that heap?
+
+23
+00:01:25.908 --> 00:01:29.598
+In a container, the JVM reads the memory limit.
+
+24
+00:01:29.598 --> 00:01:33.209
+With no heap flags, the max heap is 25% of it.
+
+25
+00:01:33.333 --> 00:01:37.417
+So a pod with a 1 GiB limit gets a 256 MB heap.
+
+26
+00:01:37.417 --> 00:01:40.024
+Why leave three quarters free?
+
+27
+00:01:41.000 --> 00:01:43.702
+Because the heap isn't the whole process.
+
+28
+00:01:43.702 --> 00:01:51.019
+Metaspace, the code cache, a stack per thread, the GC's own bookkeeping and direct buffers all live outside it.
+
+29
+00:01:51.133 --> 00:01:59.588
+With MaxRAMPercentage=75, the same pod gets 768 MB, and the rest still fits.
+
+30
+00:01:59.733 --> 00:02:02.387
+Now set -Xmx1g, the whole limit.
+
+31
+00:02:02.387 --> 00:02:05.123
+What happens once the heap fills?
+
+32
+00:02:07.067 --> 00:02:12.331
+Everything else goes past the limit, and the kernel kills the process.
+
+33
+00:02:12.331 --> 00:02:13.383
+Exit code 137.
+
+34
+00:02:13.383 --> 00:02:15.940
+No OutOfMemoryError, no heap dump.
+
+35
+00:02:16.800 --> 00:02:22.050
+In production, log to rotating files, and size the heap with a percentage.
+
+36
+00:02:22.050 --> 00:02:26.733
+These are JVM flags, the same for a Java service and a Kotlin one.
+
+37
+00:02:27.533 --> 00:02:28.258
+The rule.
+
+38
+00:02:28.258 --> 00:02:33.006
+A line with Pause after the GC number stopped your threads.
+
+39
+00:02:33.006 --> 00:02:37.111
+Size the heap as 50 to 75% of the limit, never 100.
+
+40
+00:02:37.200 --> 00:02:38.130
+Quick check.
+
+41
+00:02:38.130 --> 00:02:41.930
+A pod with a 4 GiB limit runs with no heap flags.
+
+42
+00:02:41.930 --> 00:02:43.791
+How big is the max heap?
+
+43
+00:02:46.133 --> 00:02:48.295
+1 GiB: a quarter of the limit.

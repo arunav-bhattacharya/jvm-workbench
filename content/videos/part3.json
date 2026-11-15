@@ -25,6 +25,7 @@
     {"slug": "fp01-pure", "lesson": "fp-01", "section": 1, "title": "A fee function with a hidden clock and a log line is impure; a pure one depends only on its arguments, so a call can be swapped for its value"},
     {"slug": "fp02-closures", "lesson": "fp-02", "section": 3, "title": "A lambda is a value that keeps the variables it uses, and a captured var becomes one shared Ref box where two threads lose an update"},
     {"slug": "fp03-hof", "lesson": "fp-03", "section": 0, "title": "retry takes the call as a function, feeFor hands back a fee function, and three small functions compose into one price where the order matters"},
-    {"slug": "fp04-fold", "lesson": "fp-04", "section": 2, "title": "fold carries one accumulator down the list from a start value with a step; map and filter are the same walk, and reduce throws on an empty day"}
+    {"slug": "fp04-fold", "lesson": "fp-04", "section": 2, "title": "fold carries one accumulator down the list from a start value with a step; map and filter are the same walk, and reduce throws on an empty day"},
+    {"slug": "gen06-projections", "lesson": "gen-06", "section": 0, "title": "A use-site projection shuts one door of an invariant MutableList: out reads and refuses add, in writes and reads only Any?"}
   ]
 }

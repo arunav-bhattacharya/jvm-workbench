@@ -1,0 +1,129 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:06.662
+Two credits hit one account at once: plus 50 and plus 30.
+
+2
+00:00:06.662 --> 00:00:12.176
+Each one reads the balance, converts with an FX call that suspends, then writes.
+
+3
+00:00:12.333 --> 00:00:18.266
+A common fix is to confine them to one thread, with a view like limitedParallelism(1).
+
+4
+00:00:18.266 --> 00:00:19.301
+Is that enough?
+
+5
+00:00:22.133 --> 00:00:25.622
+A reads 100 and suspends in the FX call.
+
+6
+00:00:25.622 --> 00:00:29.895
+The thread is free, so B runs, and reads 100 too.
+
+7
+00:00:29.895 --> 00:00:31.029
+A writes 150.
+
+8
+00:00:31.029 --> 00:00:33.907
+Then B writes 130, right over it.
+
+9
+00:00:33.907 --> 00:00:35.564
+A's credit is lost.
+
+10
+00:00:35.733 --> 00:00:39.121
+One thread keeps others out only between suspensions.
+
+11
+00:00:39.121 --> 00:00:42.573
+A suspension in the middle lets the next coroutine in.
+
+12
+00:00:43.333 --> 00:00:46.144
+A Mutex holds across the suspension.
+
+13
+00:00:46.144 --> 00:00:50.438
+A takes the lock, reads, and suspends still holding it.
+
+14
+00:00:50.438 --> 00:00:54.497
+B asks for the lock and suspends, holding no thread.
+
+15
+00:00:54.497 --> 00:00:56.449
+A writes 150 and unlocks.
+
+16
+00:00:56.449 --> 00:00:59.025
+Then B reads 150, and writes 180.
+
+17
+00:01:02.467 --> 00:01:09.444
+Or keep the view, and move the suspension out: convert first, then read and write with nothing in between.
+
+18
+00:01:09.444 --> 00:01:11.419
+The two FX calls even overlap.
+
+19
+00:01:14.000 --> 00:01:18.423
+Code like this waits a lot, and real waits make tests slow and flaky.
+
+20
+00:01:18.600 --> 00:01:20.339
+runTest swaps the clock.
+
+21
+00:01:20.339 --> 00:01:26.355
+Delays on the test dispatcher are skipped, and a virtual clock jumps ahead instead.
+
+22
+00:01:26.355 --> 00:01:30.993
+currentTime reads 0, 100 and 300, after a few real milliseconds.
+
+23
+00:01:31.133 --> 00:01:34.298
+Only the test dispatcher's delays are virtual.
+
+24
+00:01:34.298 --> 00:01:38.976
+A delay on Dispatchers.Default stays real, so inject the dispatcher.
+
+25
+00:01:39.733 --> 00:01:41.026
+This is Kotlin only.
+
+26
+00:01:41.026 --> 00:01:45.549
+withLock around the whole sequence, and a test that reads currentTime.
+
+27
+00:01:48.133 --> 00:01:52.574
+So a one-thread view keeps others out only between suspensions.
+
+28
+00:01:52.574 --> 00:01:54.406
+A Mutex holds across them.
+
+29
+00:01:54.406 --> 00:01:57.860
+And runTest jumps over delays on a virtual clock.
+
+30
+00:01:58.000 --> 00:01:58.772
+Quick check.
+
+31
+00:01:58.772 --> 00:02:04.558
+On a one-thread view, a credit reads and writes the balance with no suspension in between.
+
+32
+00:02:04.558 --> 00:02:06.937
+Can two credits still lose an update?

@@ -1,0 +1,149 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:05.205
+A rate cache holds two exchange rates.
+
+2
+00:00:05.205 --> 00:00:09.759
+Every few seconds, a refresher thread updates them, one put at a time.
+
+3
+00:00:09.759 --> 00:00:11.905
+Readers price payments with both.
+
+4
+00:00:12.067 --> 00:00:14.641
+The refresher writes the new EUR rate.
+
+5
+00:00:14.641 --> 00:00:17.487
+Before it writes GBP, a reader reads both.
+
+6
+00:00:17.487 --> 00:00:18.977
+What pair does it get?
+
+7
+00:00:21.600 --> 00:00:25.912
+The new EUR rate with the old GBP rate: a version that never existed.
+
+8
+00:00:25.912 --> 00:00:28.037
+Every put and get was thread-safe.
+
+9
+00:00:28.037 --> 00:00:30.537
+The map was shared, and it was changing.
+
+10
+00:00:31.333 --> 00:00:37.509
+A race needs both at once: state that more than one thread can reach, and a thread that changes it.
+
+11
+00:00:37.509 --> 00:00:40.691
+Take either one away, and there is nothing to lock.
+
+12
+00:00:41.467 --> 00:00:43.187
+First, take away the changes.
+
+13
+00:00:43.187 --> 00:00:46.925
+Each version of the map is built once, and never touched again.
+
+14
+00:00:46.925 --> 00:00:51.791
+The refresher builds the next version off to the side, where no reader can see it.
+
+15
+00:00:51.933 --> 00:00:54.774
+Then one volatile write points the field at it.
+
+16
+00:00:54.774 --> 00:01:00.213
+A reader that copied the field into a local before the swap keeps reading the old version.
+
+17
+00:01:00.213 --> 00:01:03.900
+Every reader sees one whole version, and nobody takes a lock.
+
+18
+00:01:04.667 --> 00:01:06.516
+Second, take away the sharing.
+
+19
+00:01:06.516 --> 00:01:11.387
+A local variable lives on one thread's stack, and no other thread can reach it.
+
+20
+00:01:11.387 --> 00:01:18.169
+A Kafka consumer can keep its partition's totals in a plain HashMap, because only its own thread touches them.
+
+21
+00:01:18.333 --> 00:01:21.716
+When work moves to another thread, ownership moves with it.
+
+22
+00:01:21.716 --> 00:01:24.640
+Put the batch in a queue, and never touch it again.
+
+23
+00:01:25.400 --> 00:01:28.120
+ThreadLocal gives each thread its own copy.
+
+24
+00:01:28.120 --> 00:01:31.725
+But a pool thread keeps its copy for as long as it lives.
+
+25
+00:01:31.725 --> 00:01:34.065
+Request one sets the tenant to alice.
+
+26
+00:01:34.065 --> 00:01:37.544
+Request two lands on the same thread, and sets nothing.
+
+27
+00:01:37.544 --> 00:01:38.745
+Who does it run as?
+
+28
+00:01:41.400 --> 00:01:41.806
+alice.
+
+29
+00:01:41.806 --> 00:01:45.256
+One merchant's context leaks into the next request.
+
+30
+00:01:45.256 --> 00:01:50.060
+So every set needs a remove in finally, and the thread goes back clean.
+
+31
+00:01:50.800 --> 00:01:55.249
+In code, the snapshot is a volatile field and an immutable copy.
+
+32
+00:01:55.249 --> 00:01:58.725
+Build it completely, then publish it in one write.
+
+33
+00:01:58.725 --> 00:02:00.185
+Readers take no lock.
+
+34
+00:02:00.933 --> 00:02:06.295
+So before you add a lock, ask which one you can take away: the sharing, or the changes.
+
+35
+00:02:06.467 --> 00:02:07.222
+Quick check.
+
+36
+00:02:07.222 --> 00:02:12.324
+A producer puts a batch in the queue, then clears it to reuse for the next batch.
+
+37
+00:02:12.324 --> 00:02:14.465
+Which corner is that batch in now?

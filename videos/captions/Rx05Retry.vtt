@@ -1,0 +1,133 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.735
+A fee job divides 8 by each amount: 1, 2, 0 and 4.
+
+2
+00:00:06.735 --> 00:00:11.012
+Time runs left to right, and each marble is one item.
+
+3
+00:00:11.233 --> 00:00:12.346
+8 over 1 is 8.
+
+4
+00:00:12.346 --> 00:00:13.458
+8 over 2 is 4.
+
+5
+00:00:13.458 --> 00:00:18.067
+Then the 0 throws, and an error signal goes down the line.
+
+6
+00:00:18.067 --> 00:00:19.815
+What happens to the 4?
+
+7
+00:00:22.600 --> 00:00:23.211
+Nothing.
+
+8
+00:00:23.211 --> 00:00:24.814
+An error is terminal.
+
+9
+00:00:24.814 --> 00:00:28.401
+It ended the source, so the 4 is never divided.
+
+10
+00:00:28.633 --> 00:00:34.742
+onErrorResume catches the error on its way down, and switches to a fallback, like cached fees.
+
+11
+00:00:34.742 --> 00:00:37.017
+It replaces the rest of the stream.
+
+12
+00:00:37.017 --> 00:00:38.381
+It doesn't resume it.
+
+13
+00:00:39.300 --> 00:00:41.279
+Now an issuer that keeps failing.
+
+14
+00:00:41.279 --> 00:00:44.277
+When the error reaches retry, it subscribes again.
+
+15
+00:00:44.277 --> 00:00:49.133
+The subscription travels up to the source, and the source calls the issuer again.
+
+16
+00:00:49.367 --> 00:00:56.413
+retry(3) does that three times, in the same millisecond: four calls, then the original error comes through.
+
+17
+00:00:56.633 --> 00:01:01.294
+Retry.backoff(3, 100 milliseconds) spreads them out.
+
+18
+00:01:01.294 --> 00:01:11.153
+With jitter off, the calls go at 0, 100, 300 and 700 milliseconds, then it fails with RetryExhaustedException.
+
+19
+00:01:11.867 --> 00:01:18.022
+This client calls the issuer when you call the method, and wraps the stored answer in Mono.error.
+
+20
+00:01:18.022 --> 00:01:20.307
+How many calls reach the issuer now?
+
+21
+00:01:23.100 --> 00:01:23.741
+Just one.
+
+22
+00:01:23.741 --> 00:01:29.442
+Each retry re-reads the stored error, because nothing runs at subscription time.
+
+23
+00:01:29.442 --> 00:01:32.933
+Mono.defer makes every subscription a fresh call.
+
+24
+00:01:34.133 --> 00:01:38.882
+An issuer that never answers sends no error, so retry never fires.
+
+25
+00:01:38.882 --> 00:01:45.069
+timeout(500 milliseconds) turns that silence into an error, and cancels the slow call.
+
+26
+00:01:45.300 --> 00:01:50.597
+Put it above retryWhen, and each new attempt gets its own 500 milliseconds.
+
+27
+00:01:51.500 --> 00:01:57.864
+In Java and in Kotlin: a fresh call per attempt, a timeout per attempt, and a filtered backoff.
+
+28
+00:02:00.033 --> 00:02:02.283
+So an error ends a stream for good.
+
+29
+00:02:02.283 --> 00:02:04.597
+Error operators replace what's left.
+
+30
+00:02:04.597 --> 00:02:09.739
+retry subscribes again from the source, and timeout turns silence into an error.
+
+31
+00:02:09.967 --> 00:02:10.847
+Quick check.
+
+32
+00:02:10.847 --> 00:02:17.080
+Retry.backoff(2, 50 milliseconds), jitter off, against a lazy call that always fails.
+
+33
+00:02:17.080 --> 00:02:21.187
+When is the issuer called, and when does the chain fail?

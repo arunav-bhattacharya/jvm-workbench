@@ -18,6 +18,8 @@
     {"slug": "co08-state-shared", "lesson": "co-08", "section": 0, "title": "StateFlow keeps one latest value and skips what a slow collector missed; SharedFlow's buffer and replay decide which events get through"},
     {"slug": "rx02-subscribe", "lesson": "rx-02", "section": 1, "title": "Assembly only builds a chain of objects; subscribe travels up, request follows, data flows down, and a second subscribe runs it all again"},
     {"slug": "io07-jetty", "lesson": "io-07", "section": 2, "title": "Jetty's acceptor, selectors and one thread pool: a ready socket becomes a task, and the handler's declaration picks the thread that runs it"},
-    {"slug": "co09-channels", "lesson": "co-09", "section": 0, "title": "A channel is a queue between coroutines: send suspends when it's full, receive when it's empty, and select takes whichever is ready first"}
+    {"slug": "co09-channels", "lesson": "co-09", "section": 0, "title": "A channel is a queue between coroutines: send suspends when it's full, receive when it's empty, and select takes whichever is ready first"},
+    {"slug": "co02-builders", "lesson": "co-02", "section": 2, "title": "launch and async return at once; coroutineScope returns only when every child it started has finished"},
+    {"slug": "io01-c10k", "lesson": "io-01", "section": 0, "title": "A blocked read parks a whole thread, so ten thousand idle connections hold ten thousand threads; readiness lets one thread watch them all"}
   ]
 }

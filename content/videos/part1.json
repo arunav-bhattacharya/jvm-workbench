@@ -19,6 +19,10 @@
     {"slug": "vt05-structured", "lesson": "vt-05", "section": 1, "title": "A scope owns its subtasks like a tree: the first failure cancels the sibling, join throws at once, close waits for every branch, and a scoped value is read down the tree"},
     {"slug": "exec05-rate-delay", "lesson": "exec-05", "section": 1, "title": "After one 250 ms run, fixed rate runs the overdue tasks back to back while fixed delay shifts every later run, and a run that throws ends the schedule without a word"},
     {"slug": "conc10-synchronizers", "lesson": "conc-10", "section": 0, "title": "A latch opens for good at zero, a barrier lets a full group through and closes again, and a semaphore hands out permits anyone can give back"},
-    {"slug": "conc12-classic", "lesson": "conc-12", "section": 0, "title": "A bounded queue makes the fast producer wait, and one poison pill per consumer, put after the last producer, stops every writer cleanly"}
+    {"slug": "conc12-classic", "lesson": "conc-12", "section": 0, "title": "A bounded queue makes the fast producer wait, and one poison pill per consumer, put after the last producer, stops every writer cleanly"},
+    {"slug": "conc04-monitor", "lesson": "conc-04", "section": 0, "title": "A monitor is a room with one key: one thread inside, the rest BLOCKED in the entry set, each unlock hands its writes to the next lock, and the owner can walk back in"},
+    {"slug": "conc09-chm", "lesson": "conc-09", "section": 0, "title": "get then put leaves a gap where a second thread reads the old total; merge reads, adds and writes under one bin lock, while writes to other bins run in parallel"},
+    {"slug": "vt01-wall", "lesson": "vt-01", "section": 0, "title": "A 200 ms request that waits 195 ms holds one platform thread the whole time, so 200 threads top out at 1,000 a second while most of them just wait"},
+    {"slug": "conc07-locks", "lesson": "conc-07", "section": 0, "title": "ReentrantLock is the same room with controls on the door: tryLock with a timeout and lockInterruptibly let a waiter leave, each Condition is its own waiting room, and readers share while the writer waits for an empty room"}
   ]
 }

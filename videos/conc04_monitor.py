@@ -22,8 +22,8 @@ N = {
     "a2": "Only 200. Thread one finishes and hangs up the key. Then one waiter gets it, and Java doesn't promise which. "
           "Here it's the auditor, and both lines are done.",
     "vis": "The key carries a second promise. The auditor still has an old copy of a in a register. "
-           "Taking the key rules it out: everything thread one wrote before its unlock is visible now.",
-    "hb": "The memory model calls this a happens-before edge, from the unlock to the next lock. "
+           "Taking the key rules it out: everything thread one wrote before it let go is visible now.",
+    "hb": "The memory model calls this a happens-before edge, from the release to the next lock. "
           "The auditor at the start skipped the key, so it got neither promise.",
     "re_q": "Last rule. Thread one holds the key in withdraw, which calls canCover on the same lock. "
             "Does it wait for itself?",
@@ -32,7 +32,7 @@ N = {
     "code": "In code, the key is a private final lock object. Java and Kotlin both compile synchronized "
             "to the same two bytecodes: monitorenter and monitorexit.",
     "rule": "So give shared state one key, and make every reader and writer take it. "
-            "Each unlock hands its writes to the next thread that takes the same key.",
+            "Each release hands its writes to the next thread that takes the same key.",
     "check": "Quick check. Two threads update one balance, but each one locks its own new Object. "
              "Does either one ever wait?",
 }
@@ -76,7 +76,7 @@ class Narrated(VoiceScene):
 
     def predict(self, secs=2.0):
         """A beat of silence for the viewer to guess, with a small on-screen prompt."""
-        tag = T("pause and predict", 24, GREY_B).move_to([6.5, 3.15, 0], aligned_edge=RIGHT)
+        tag = T("pause and predict", 24, GREY_B).move_to([-6.5, 3.15, 0], aligned_edge=LEFT)
         self.play(FadeIn(tag), run_time=0.3)
         self.wait(secs)
         self.play(FadeOut(tag), run_time=0.3)
@@ -97,10 +97,10 @@ def dim(color, k=0.14):
 T1C, AUD, T2C, KEY, BAD, GOOD = BLUE_M, TEAL_M, PURPLE_M, GOLD_M, RED_M, GREEN_M
 
 # the room (the monitor) and where things sit
-RL, RR, RB, RT = -0.4, 5.8, -0.8, 2.7
+RL, RR, RB, RT = -0.4, 5.8, -1.05, 2.7
 DOOR_LO, DOOR_HI, DOOR_Y = 0.35, 1.55, 0.95
 HOOK = np.array([-0.95, 2.2, 0])
-INSIDE = np.array([0.95, 1.4, 0])
+INSIDE = np.array([1.15, 1.4, 0])
 A_POS, B_POS = np.array([4.6, 1.75, 0]), np.array([4.6, 0.35, 0])
 SLOT1, SLOT2 = np.array([-2.35, DOOR_Y, 0]), np.array([-4.6, DOOR_Y, 0])
 
@@ -206,12 +206,13 @@ class Conc04Monitor(Narrated):
                        Line([RL - 0.15, DOOR_HI, 0], [RL + 0.15, DOOR_HI, 0])).set_stroke(GREY_A, 4)
         room_lab = VGroup(M("lock", 28), T("'s monitor", 28, GREY_A)).arrange(RIGHT, buff=0.06, aligned_edge=DOWN)
         room_lab.move_to([(RL + RR) / 2, RT + 0.42, 0])
-        peg = Dot(radius=0.06, color=GREY_B).move_to(HOOK + LEFT * 0.42)
+        peg = Dot(radius=0.08, color=GREY_A).move_to(HOOK + LEFT * 0.42)
         key = key_icon().move_to(HOOK)
         self.say("room")
         self.at(1)
-        self.play(Create(walls), Create(posts), run_time=1.2)
         self.play(FadeIn(room_lab), run_time=0.5)
+        self.at(2)
+        self.play(Create(walls), Create(posts), run_time=1.2)
         self.at_text("with one key")
         self.play(FadeIn(peg), FadeIn(key, scale=0.6), run_time=0.6)
         self.hold()
@@ -235,11 +236,11 @@ class Conc04Monitor(Narrated):
         def walk_in(ch, k):
             """chip goes to the hook, picks up the key, and walks through the door to the middle of the room."""
             at_hook = HOOK + LEFT * (ch.width / 2 + 0.5)
-            self.play(ch.animate.move_to(at_hook), run_time=0.7)
-            self.play(k.animate.move_to(at_hook + RIGHT * (ch.width / 2 + 0.5)), run_time=0.3)
+            self.play(ch.animate.move_to(at_hook), run_time=0.6)
+            self.play(k.animate.move_to(at_hook + RIGHT * (ch.width / 2 + 0.5)), run_time=0.25)
             door = np.array([RL - ch.width / 2 - 0.9, DOOR_Y, 0])
-            self.play(ch.animate.move_to(door), k.animate.move_to(door + RIGHT * (ch.width / 2 + 0.5)), run_time=0.6)
-            self.play(ch.animate.move_to(INSIDE), k.animate.move_to(INSIDE + RIGHT * (ch.width / 2 + 0.5)), run_time=0.8)
+            self.play(ch.animate.move_to(door), k.animate.move_to(door + RIGHT * (ch.width / 2 + 0.5)), run_time=0.5)
+            self.play(ch.animate.move_to(INSIDE), k.animate.move_to(INSIDE + RIGHT * (ch.width / 2 + 0.5)), run_time=0.6)
 
         self.say("in")
         walk_in(t1, key)
@@ -253,7 +254,7 @@ class Conc04Monitor(Narrated):
         t2 = chip("T2", T2C, size=28).move_to([-6.2, DOOR_Y, 0]).set_z_index(5)
         corridor = DashedVMobject(RoundedRectangle(corner_radius=0.15, width=5.3, height=1.5, stroke_color=GREY_B,
                                                    stroke_width=2.5).move_to([-3.75, DOOR_Y, 0]), num_dashes=60)
-        es_lab = T("entry set", 28, GREY_A).next_to(corridor, UP, buff=0.18)
+        es_lab = T("entry set", 28, GREY_A).next_to(corridor, UP, buff=0.18).align_to(corridor, LEFT).shift(RIGHT * 0.15)
         blk = T("BLOCKED", 24, GREY_B).next_to(corridor, DOWN, buff=0.15)
         self.say("wait")
         self.play(FadeIn(aud, shift=RIGHT * 0.3), run_time=0.5)
@@ -293,7 +294,7 @@ class Conc04Monitor(Narrated):
         # ================= the second promise: what the last owner wrote =================
         reg_lines = VGroup(M("a = 100", 24, GREY_B), M("b = 100", 24, GREY_B)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
         reg_box = RoundedRectangle(corner_radius=0.1, width=2.2, height=1.25, stroke_color=GREY_B, stroke_width=2)
-        reg_box.set_fill(BLACK, 1).move_to(INSIDE + DOWN * 1.3)
+        reg_box.set_fill(BLACK, 1).move_to(INSIDE + DOWN * 1.22)
         reg_lines.move_to(reg_box.get_center() + DOWN * 0.13)
         reg_tag = T("register (old)", 20, GREY_B).move_to(reg_box.get_top() + DOWN * 0.2)
         reg = VGroup(reg_box, reg_tag, reg_lines)
@@ -315,25 +316,26 @@ class Conc04Monitor(Narrated):
         self.hold()
 
         # the edge, drawn on a timeline
-        upper = VGroup(walls, posts, room_lab, peg, bal_a, bal_b, aud, key, reg, total, corridor, es_lab, blk, t2)
+        overlay = Rectangle(width=14.4, height=5.2).set_fill(BLACK, 0.72).set_stroke(width=0).move_to([0, 1.45, 0])
+        overlay.set_z_index(9)
         Y1, Y2, Y3 = -1.55, -2.35, -3.12
         lane_l = VGroup(T("T1", 24, T1C).move_to([-6.4, Y1, 0], aligned_edge=LEFT),
                         T("auditor", 24, AUD).move_to([-6.4, Y2, 0], aligned_edge=LEFT))
-        l1 = VGroup(tbox("lock", KEY).move_to([-4.8, Y1, 0]), tbox("a = 50", T1C).move_to([-3.3, Y1, 0]),
-                    tbox("b = 150", T1C).move_to([0.2, Y1, 0]), tbox("unlock", KEY).move_to([1.7, Y1, 0]))
-        l2 = VGroup(tbox("lock", KEY).move_to([3.0, Y2, 0]), tbox("read a, b", AUD).move_to([4.7, Y2, 0]))
+        l1 = VGroup(tbox("lock", KEY).move_to([-4.95, Y1, 0]), tbox("a = 50", T1C).move_to([-3.75, Y1, 0]),
+                    tbox("b = 150", T1C).move_to([0.5, Y1, 0]), tbox("release", KEY).move_to([2.15, Y1, 0]))
+        l2 = VGroup(tbox("lock", KEY).move_to([3.35, Y2, 0]), tbox("read a, b", AUD).move_to([5.0, Y2, 0]))
         edge = Arrow(l1[3].get_bottom(), l2[0].get_top(), buff=0.06, stroke_width=4, color=KEY,
                      max_tip_length_to_length_ratio=0.3)
-        hb_lab = T("happens-before", 24, KEY).move_to([3.65, Y1, 0])
+        hb_lab = T("happens-before", 24, KEY).move_to([4.15, Y1, 0])
         self.say("hb")
-        self.play(upper.animate.set_opacity(0.3), run_time=0.5)
+        self.play(FadeIn(overlay), run_time=0.5)
         self.play(FadeIn(lane_l), LaggedStart(*[FadeIn(b) for b in l1], lag_ratio=0.25), run_time=1.2)
         self.play(LaggedStart(*[FadeIn(b) for b in l2], lag_ratio=0.3), run_time=0.7)
         self.play(GrowArrow(edge), FadeIn(hb_lab), run_time=0.8)
         self.at(1)
         l3l = T("no lock", 24, BAD).move_to([-6.4, Y3, 0], aligned_edge=LEFT)
-        l3 = VGroup(tbox("read a", GREY_B).move_to([-2.0, Y3, 0]), tbox("read b", GREY_B).move_to([-0.7, Y3, 0]))
-        no_edge = T("no edge, no promise", 24, BAD).move_to([2.6, Y3, 0])
+        l3 = VGroup(tbox("read a", GREY_B).move_to([-2.4, Y3, 0]), tbox("read b", GREY_B).move_to([-0.95, Y3, 0]))
+        no_edge = T("no edge, no promise", 24, BAD).move_to([2.9, Y3, 0])
         self.play(FadeIn(l3l), FadeIn(l3), run_time=0.6)
         self.play(FadeIn(no_edge), run_time=0.5)
         self.hold()
@@ -341,14 +343,12 @@ class Conc04Monitor(Narrated):
         # ================= reentrancy: the owner walks back in =================
         self.play(FadeOut(VGroup(lane_l, l1, l2, edge, hb_lab, l3l, l3, no_edge)), FadeOut(VGroup(aud, reg, total, t2, blk)),
                   key.animate.move_to(HOOK), run_time=0.7)
-        self.play(VGroup(walls, posts, room_lab, peg, bal_a, bal_b, key, corridor, es_lab).animate.set_opacity(1),
-                  run_time=0.5)
-        # (the dashed corridor and the labels come back at full strength)
-        t1.move_to(HOOK + LEFT * (t1.width / 2 + 0.5) + UP * 0.05).set_opacity(1)
-        f_w = tbox("withdraw(cents)", T1C, 24).move_to([INSIDE[0] + 0.1, -0.3, 0])
-        f_c = tbox("canCover(cents)", T1C, 24).move_to([INSIDE[0] + 0.1, 0.32, 0])
+        self.play(FadeOut(overlay), run_time=0.5)
+        t1.move_to(HOOK + LEFT * (t1.width / 2 + 0.5) + UP * 0.05)
+        f_w = tbox("withdraw(cents)", T1C, 24).move_to([1.35, -0.3, 0])
+        f_c = tbox("canCover(cents)", T1C, 24).move_to([1.35, 0.32, 0])
         stack_lab = T("call stack", 20, GREY_B).next_to(f_w, DOWN, buff=0.1)
-        cnt_val = [M("holds: 1", 24, KEY)]
+        cnt_val = [M("hold count: 1", 24, KEY)]
 
         def count_at():
             return INSIDE + RIGHT * (t1.width / 2 + 0.5) + UP * 0.55
@@ -365,7 +365,7 @@ class Conc04Monitor(Narrated):
         f_c_pending = f_c.copy().set_opacity(0.35)
         self.play(FadeIn(f_c_pending, shift=UP * 0.1), run_time=0.5)
         self.at(1)
-        ghost = DashedVMobject(t1[0].copy(), num_dashes=24).set_stroke(T1C, 2.5).move_to(SLOT1)
+        ghost = DashedVMobject(t1[0].copy().set_fill(opacity=0), num_dashes=24).set_stroke(T1C, 2.5).move_to(SLOT1)
         ghost_t = VGroup(T("T1", 28, T1C).set_opacity(0.5).move_to(SLOT1), T("?", 30, T1C).next_to(ghost, RIGHT, buff=0.15))
         self.play(FadeIn(ghost), FadeIn(ghost_t), run_time=0.6)
         self.hold(after=0)
@@ -382,11 +382,11 @@ class Conc04Monitor(Narrated):
         self.at(1)
         self.play(Indicate(room_lab[0], color=KEY), run_time=0.8)
         self.at_text("two inside")
-        self.play(FadeOut(f_c_pending), FadeIn(f_c), *recount("holds: 2"), run_time=0.5)
+        self.play(FadeOut(f_c_pending), FadeIn(f_c), *recount("hold count: 2"), run_time=0.5)
         self.at_text("one after")
-        self.play(FadeOut(f_c, shift=UP * 0.15), *recount("holds: 1"), run_time=0.5)
+        self.play(FadeOut(f_c, shift=UP * 0.15), *recount("hold count: 1"), run_time=0.5)
         self.at(2)
-        self.play(FadeOut(f_w, shift=UP * 0.15), FadeOut(stack_lab), *recount("holds: 0"), run_time=0.5)
+        self.play(FadeOut(f_w, shift=UP * 0.15), FadeOut(stack_lab), *recount("hold count: 0"), run_time=0.5)
         self.at_text("and the key goes back")
         door1 = np.array([RL + 0.6, DOOR_Y, 0])
         self.play(FadeOut(cnt_val[0]), t1.animate.move_to(door1),
@@ -421,7 +421,7 @@ class Conc04Monitor(Narrated):
 
         # ================= the rule and a check =================
         r1 = T("Give shared state one key, and make every reader and writer take it.", 32)
-        r2 = T("Each unlock hands its writes to the next thread that takes the same key.", 32)
+        r2 = T("Each release hands its writes to the next thread that takes the same key.", 32)
         rule = VGroup(r1, r2).arrange(DOWN, buff=0.3).move_to(UP * 1.3)
         fit(rule, 12.4)
         qq = VGroup(T("Check:", 28, YELLOW_M),

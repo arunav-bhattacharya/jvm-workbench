@@ -20,7 +20,7 @@ N = {
     "s2": "You have cents, a MutableList<Int>. An Int is a Number. So does total(cents) compile?",
     "s3": "No. A MutableList<Int> is not a MutableList<Number>.",
     "s4": "A mutable list has two doors. get hands an element out. add takes one in.",
-    "s5": "If it could, total could push 2.5 through the add door, into a list of ints.",
+    "s5": "If cents could pass, total could push 2.5 through the add door, into a list of ints.",
     "s6": "The element type sits at both doors, so MutableList stays invariant.",
     "s7": "But total never uses the add door. So it asks for a view of the list with that door shut: MutableList<out Number>.",
     "s9": "Read it as: a list of some subtype of Number, and I don't know which. "
@@ -131,7 +131,7 @@ class Gen06Projections(VoiceScene):
         self.title_card("A view that only reads, or only writes", "use-site variance: out and in, ? extends and ? super")
 
         # ---------- the list: four slots, a read door on the left, a write door on the right
-        LY = 0.35
+        LY = 0.1
         slots = VGroup(*[slot() for _ in range(4)]).arrange(RIGHT, buff=0.12).move_to([0, LY, 0])
         frame = SurroundingRectangle(slots, buff=0.16, corner_radius=0.16, color=GREY_B, stroke_width=2.5)
         FL, FR = frame.get_left()[0], frame.get_right()[0]
@@ -145,7 +145,7 @@ class Gen06Projections(VoiceScene):
         cents_n = M("cents: MutableList<Int>", 26, INT_C).move_to([0, NAME_Y, 0])
         rates_n = M("rates: MutableList<Double>", 26, DBL_C).move_to([0, NAME_Y, 0])
         TICK_P = [FR + 0.7, NAME_Y + 0.05, 0]
-        BOT = -2.45
+        BOT = -2.55
 
         sig = one("fun total(amounts: MutableList<Number>): Double", 28).move_to([0, 2.85, 0])
         self.say("s1", [(0, [FadeIn(sig, shift=DOWN * 0.15)], 0.8), (1, [mark(part(sig, "MutableList<Number>"), WHITE, 0.6)], 1.4)])
@@ -159,8 +159,8 @@ class Gen06Projections(VoiceScene):
         # the two doors
         out_ar = Arrow([FL - 0.08, LY, 0], [FL - 1.5, LY, 0], buff=0, stroke_width=4, color=GREY_B, max_tip_length_to_length_ratio=0.18)
         in_ar = Arrow([FR + 1.5, LY, 0], [FR + 0.08, LY, 0], buff=0, stroke_width=4, color=GREY_B, max_tip_length_to_length_ratio=0.18)
-        out_l = M("get(i)", 26, GREY_B).next_to(out_ar, UP, buff=0.3).shift(LEFT * 0.2)
-        in_l = M("add(e)", 26, GREY_B).next_to(in_ar, UP, buff=0.3).shift(RIGHT * 0.2)
+        out_l = M("get(i)", 26, GREY_B).next_to(out_ar, UP, buff=0.3).shift(LEFT * 0.4)
+        in_l = M("add(e)", 26, GREY_B).next_to(in_ar, UP, buff=0.3).shift(RIGHT * 0.4)
         OUT_X, IN_X = FL - 2.3, FR + 2.3
         rd = cents[0].copy()
         self.say("s4", [(0, [FadeOut(err0), FadeOut(no)], 0.4),
@@ -209,7 +209,7 @@ class Gen06Projections(VoiceScene):
                         (1, [FadeOut(rates), FadeIn(cents2), FadeOut(rates_n), FadeIn(cents_n)], 0.7)])
 
         rates2 = contents([("2.5", DBL_C), ("1.5", DBL_C), ("4.75", DBL_C)])
-        stop = tick(False, 0.26).move_to([VR + 0.65, LY - 0.7, 0])
+        stop = tick(False, 0.26).move_to([VR + 0.8, LY - 0.8, 0])
         self.say("s10", [(1, [FadeOut(cents2), FadeIn(rates2), FadeOut(cents_n), FadeIn(rates_n)], 0.8),
                          (2, [zero.animate.move_to([VR + 0.6, LY, 0])], 0.6),
                          (2, [FadeIn(stop, scale=0.5), zero.animate.move_to([IN_X, LY, 0])], 0.6)])
@@ -218,7 +218,7 @@ class Gen06Projections(VoiceScene):
         e1 = VGroup(one("Kotlin: Receiver type 'MutableList<out Number>' contains out projection", 22, ERR_C),
                     one("        which prohibits the use of 'fun add(element: E): Boolean'.", 22, ERR_C),
                     one("Java:   incompatible types: int cannot be converted to CAP#1", 22, ERR_C)).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
-        fit(e1, 12.4).move_to([0, -2.55, 0])
+        fit(e1, 12.4).move_to([0, -2.7, 0])
         self.play(FadeOut(rates2), FadeOut(rates_n), FadeIn(cents), FadeIn(cents_n), FadeOut(call), run_time=0.5)
         self.say("s11", [(0, [FadeIn(cap, scale=0.8)], 0.6), (1, [FadeIn(e1, shift=UP * 0.1)], 0.8)])
 

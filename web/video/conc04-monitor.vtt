@@ -1,0 +1,169 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.805
+A transfer moves 50 from balance a to balance b, in two lines.
+
+2
+00:00:07.805 --> 00:00:08.958
+Take 50 off a.
+
+3
+00:00:08.958 --> 00:00:10.357
+Then add 50 to b.
+
+4
+00:00:12.033 --> 00:00:15.518
+Right then, an auditor thread adds up both balances.
+
+5
+00:00:15.518 --> 00:00:17.060
+What total does it see?
+
+6
+00:00:19.633 --> 00:00:22.204
+150, a total that never existed.
+
+7
+00:00:22.204 --> 00:00:25.577
+Then the credit lands, and it's 200 again.
+
+8
+00:00:26.500 --> 00:00:28.424
+The fix: one thread at a time.
+
+9
+00:00:28.424 --> 00:00:32.721
+Every Java object has a built-in lock for this, called its monitor.
+
+10
+00:00:32.721 --> 00:00:35.864
+Picture a room around the balances, with one key.
+
+11
+00:00:36.067 --> 00:00:38.595
+synchronized takes the key on the way in.
+
+12
+00:00:38.595 --> 00:00:42.480
+It hangs the key back on the way out, even if the block throws.
+
+13
+00:00:42.700 --> 00:00:46.184
+Thread one takes the key, goes in, and runs the debit.
+
+14
+00:00:46.400 --> 00:00:48.046
+Now the auditor locks too.
+
+15
+00:00:48.046 --> 00:00:51.213
+The key is gone, so it waits at the door, BLOCKED.
+
+16
+00:00:51.213 --> 00:00:52.796
+So does another transfer.
+
+17
+00:00:52.796 --> 00:00:55.899
+The waiting threads form the monitor's entry set.
+
+18
+00:00:56.100 --> 00:00:57.964
+Thread one is halfway through.
+
+19
+00:00:57.964 --> 00:00:59.889
+What total can the auditor see?
+
+20
+00:01:02.467 --> 00:01:03.068
+Only 200.
+
+21
+00:01:03.068 --> 00:01:05.808
+Thread one finishes and hangs up the key.
+
+22
+00:01:05.808 --> 00:01:09.550
+Then one waiter gets it, and Java doesn't promise which.
+
+23
+00:01:09.550 --> 00:01:12.691
+Here it's the auditor, and both lines are done.
+
+24
+00:01:13.400 --> 00:01:15.464
+The key carries a second promise.
+
+25
+00:01:15.464 --> 00:01:18.778
+The auditor still has an old copy of a in a register.
+
+26
+00:01:18.778 --> 00:01:24.407
+Taking the key rules it out: everything thread one wrote before its unlock is visible now.
+
+27
+00:01:24.633 --> 00:01:29.557
+The memory model calls this a happens-before edge, from the unlock to the next lock.
+
+28
+00:01:29.557 --> 00:01:33.543
+The auditor at the start skipped the key, so it got neither promise.
+
+29
+00:01:34.967 --> 00:01:35.678
+Last rule.
+
+30
+00:01:35.678 --> 00:01:41.087
+Thread one holds the key in withdraw, which calls canCover on the same lock.
+
+31
+00:01:41.087 --> 00:01:42.795
+Does it wait for itself?
+
+32
+00:01:45.367 --> 00:01:45.588
+No.
+
+33
+00:01:45.588 --> 00:01:47.283
+Monitors are reentrant.
+
+34
+00:01:47.283 --> 00:01:51.853
+The JVM keeps a hold count: two inside canCover, one after it.
+
+35
+00:01:51.853 --> 00:01:56.423
+When withdraw exits, the count is zero, and the key goes back.
+
+36
+00:01:57.233 --> 00:02:00.695
+In code, the key is a private final lock object.
+
+37
+00:02:00.695 --> 00:02:07.764
+Java and Kotlin both compile synchronized to the same two bytecodes: monitorenter and monitorexit.
+
+38
+00:02:08.567 --> 00:02:12.810
+So give shared state one key, and make every reader and writer take it.
+
+39
+00:02:12.810 --> 00:02:17.113
+Each unlock hands its writes to the next thread that takes the same key.
+
+40
+00:02:17.333 --> 00:02:18.144
+Quick check.
+
+41
+00:02:18.144 --> 00:02:22.872
+Two threads update one balance, but each one locks its own new Object.
+
+42
+00:02:22.872 --> 00:02:24.628
+Does either one ever wait?
