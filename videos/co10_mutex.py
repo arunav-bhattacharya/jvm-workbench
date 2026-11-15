@@ -16,7 +16,7 @@ N = {
             "A writes 150. Then B writes 130, right over it. A's credit is lost.",
     "rule1": "One thread keeps others out only between suspensions. A suspension in the middle lets the next coroutine in.",
     "mutex": "A Mutex holds across the suspension. A takes the lock, reads, and suspends still holding it. "
-             "B asks for the lock and suspends, holding no thread. A writes 150 and unlocks. Then B reads 150, and writes 180.",
+             "B asks for the lock and suspends, holding no thread. A writes 150 and releases the lock. Then B reads 150, and writes 180.",
     "move": "Or keep the view, and move the suspension out: convert first, then read and write with nothing in between. "
             "The two FX calls even overlap.",
     "test_q": "Code like this waits a lot, and real waits make tests slow and flaky.",

@@ -1,0 +1,161 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:07.455
+A BIN table takes 50 ms to load, so you build it on first use.
+
+2
+00:00:07.600 --> 00:00:12.151
+A synchronized getter is safe, but then every call takes the lock, forever.
+
+3
+00:00:12.867 --> 00:00:16.676
+Double-checked locking skips the lock once the table exists.
+
+4
+00:00:16.676 --> 00:00:18.136
+Check without the lock.
+
+5
+00:00:18.136 --> 00:00:20.929
+If it is null, lock, check again, and build.
+
+6
+00:00:21.067 --> 00:00:27.124
+Thread A finds null, takes the lock, checks again, and allocates the table, with ranges still null.
+
+7
+00:00:27.124 --> 00:00:31.896
+In the code, the constructor fills ranges, then the reference goes into table.
+
+8
+00:00:32.067 --> 00:00:35.880
+But B will read table outside the lock, with a plain read.
+
+9
+00:00:35.880 --> 00:00:39.628
+That read has no happens-before edge to anything A wrote.
+
+10
+00:00:39.628 --> 00:00:43.244
+So the JIT and the CPU may let the reference out first.
+
+11
+00:00:43.400 --> 00:00:44.509
+A writes table.
+
+12
+00:00:44.509 --> 00:00:47.171
+Right then, thread B calls binTable.
+
+13
+00:00:47.171 --> 00:00:51.386
+table is not null, so B skips the lock, and reads ranges.
+
+14
+00:00:51.386 --> 00:00:52.643
+What does it see?
+
+15
+00:00:54.867 --> 00:00:55.232
+null.
+
+16
+00:00:55.232 --> 00:00:58.301
+A table that is not null, and still empty.
+
+17
+00:00:58.301 --> 00:01:01.735
+A's write lands a moment later, too late for B.
+
+18
+00:01:01.933 --> 00:01:09.205
+A jcstress test on AArch64 saw this 1.8 million times in 2.3 billion samples.
+
+19
+00:01:09.205 --> 00:01:13.360
+On x86 it rarely shows, so it seems to work.
+
+20
+00:01:14.467 --> 00:01:17.272
+The fix is one word: make table volatile.
+
+21
+00:01:17.272 --> 00:01:22.608
+Now writing table is a release: everything A wrote before it is visible first.
+
+22
+00:01:22.800 --> 00:01:28.545
+And B's volatile read is an acquire: if it sees the reference, it sees ranges too.
+
+23
+00:01:29.667 --> 00:01:32.674
+For a static field there is a simpler way.
+
+24
+00:01:32.674 --> 00:01:34.608
+Let the JVM do the locking.
+
+25
+00:01:34.800 --> 00:01:40.905
+The JVM initializes a class right before its first use, once, under its own lock.
+
+26
+00:01:40.905 --> 00:01:46.181
+A's first call touches Holder, so the JVM builds the table right then.
+
+27
+00:01:46.181 --> 00:01:47.236
+B has to wait.
+
+28
+00:01:47.467 --> 00:01:51.969
+Then every thread that uses the class sees what the initializer wrote.
+
+29
+00:01:51.969 --> 00:01:54.541
+Your code needs no volatile and no lock.
+
+30
+00:01:55.533 --> 00:01:57.751
+In Java it is a nested class.
+
+31
+00:01:57.751 --> 00:02:01.115
+In Kotlin, an object, built on first access.
+
+32
+00:02:01.867 --> 00:02:02.444
+The rule.
+
+33
+00:02:02.444 --> 00:02:06.421
+A thread that skips the lock needs its own edge to the writes.
+
+34
+00:02:06.421 --> 00:02:10.527
+A volatile field gives it one, and so does class initialization.
+
+35
+00:02:10.667 --> 00:02:11.710
+Check yourself.
+
+36
+00:02:11.710 --> 00:02:15.606
+Thread B reads a non-null table without taking the lock.
+
+37
+00:02:15.606 --> 00:02:18.667
+Is it sure to see ranges with a plain field?
+
+38
+00:02:18.667 --> 00:02:20.059
+With a volatile one?
+
+39
+00:02:22.667 --> 00:02:24.778
+Plain: no, it can see null.
+
+40
+00:02:24.778 --> 00:02:26.499
+Volatile: yes, always.
