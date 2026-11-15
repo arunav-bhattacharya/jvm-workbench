@@ -68,6 +68,10 @@
   "fp01-pure",
   "fp02-closures",
   "fp03-hof",
-  "fp04-fold"
+  "fp04-fold",
+  "exec03-sizing",
+  "rx02-subscribe",
+  "vt05-structured",
+  "exec05-rate-delay"
  ]
 }
