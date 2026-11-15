@@ -87,6 +87,7 @@
   "conc12-classic",
   "conc04-monitor",
   "conc09-chm",
-  "conc07-locks"
+  "conc07-locks",
+  "conc11-confine"
  ]
 }

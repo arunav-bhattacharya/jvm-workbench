@@ -23,6 +23,7 @@
     {"slug": "conc04-monitor", "lesson": "conc-04", "section": 0, "title": "A monitor is a room with one key: one thread inside, the rest BLOCKED in the entry set, each unlock hands its writes to the next lock, and the owner can walk back in"},
     {"slug": "conc09-chm", "lesson": "conc-09", "section": 0, "title": "get then put leaves a gap where a second thread reads the old total; merge reads, adds and writes under one bin lock, while writes to other bins run in parallel"},
     {"slug": "vt01-wall", "lesson": "vt-01", "section": 0, "title": "A 200 ms request that waits 195 ms holds one platform thread the whole time, so 200 threads top out at 1,000 a second while most of them just wait"},
-    {"slug": "conc07-locks", "lesson": "conc-07", "section": 0, "title": "ReentrantLock is the same room with controls on the door: tryLock with a timeout and lockInterruptibly let a waiter leave, each Condition is its own waiting room, and readers share while the writer waits for an empty room"}
+    {"slug": "conc07-locks", "lesson": "conc-07", "section": 0, "title": "ReentrantLock is the same room with controls on the door: tryLock with a timeout and lockInterruptibly let a waiter leave, each Condition is its own waiting room, and readers share while the writer waits for an empty room"},
+    {"slug": "conc11-confine", "lesson": "conc-11", "section": 0, "title": "A race needs state that is shared and changing: take away either one, and there is nothing to lock"}
   ]
 }
