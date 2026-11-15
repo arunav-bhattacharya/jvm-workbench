@@ -79,6 +79,15 @@ The viewer should leave with a picture in their head they could redraw on a whit
 - Every scene ends clean: fade out what you no longer need before the next idea.
 - Poster: pass a poster time that shows the key picture of the video (not the title card).
 
+## Known Manim traps (found by earlier writers)
+
+- `FadeIn` inside a `Succession` shows its object from the start of the Succession, not at its turn. Add the
+  object at its turn instead (for example a small `UpdateFromFunc`, or split the Succession into beats).
+- `Indicate` on a filled box turns it into a solid block that hides its text. Indicate the outline or the text.
+- Chips that move between boxes cross other labels on the way. Route them around, or fade the label first.
+- Other writers add entries to the same `content/videos/partN.json`. Re-read the file right before each write
+  and only append your own entries.
+
 ## Check your work (required)
 
 After each render:
