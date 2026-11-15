@@ -50,7 +50,7 @@ def tx(ms):
 
 
 def run_block(start, dur, y, color=GOLD_M, h=0.5):
-    return Rectangle(width=max(dur * PX, 0.1), height=h).set_fill(color, 0.9).set_stroke(width=0).move_to([tx(start), y, 0], aligned_edge=LEFT)
+    return Rectangle(width=max(dur * PX, 0.1), height=h).set_fill(color, 1).set_stroke(BLACK, width=2).move_to([tx(start), y, 0], aligned_edge=LEFT)
 
 
 def flag(ms, y, color):
@@ -111,7 +111,7 @@ class Exec05RateDelay(VoiceScene):
                   FadeIn(ov), FadeIn(ov_lab), Indicate(VGroup(slots[2], slots[3]), color=RED_M), run_time=1.2)
         self.wait(2.0)
 
-        r3, r4 = run_block(350, 10, RY), run_block(360, 10, RY)
+        r3, r4 = run_block(350, 10, RY, YELLOW_M), run_block(360, 10, RY, YELLOW_M)
         b2b = Brace(VGroup(r3, r4), DOWN, buff=0.08, color=YELLOW_M)
         b2b_lab = T("back to back", 22, YELLOW_M).next_to(b2b, DOWN, buff=0.06)
         seq(self, "At 350, right away. A due time in the past means: run as soon as a thread is free. "

@@ -1,133 +1,133 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:09.263
+00:00:02.700 --> 00:00:09.229
 The card-issuer API takes 120 ms, and you want to time the client method that calls it.
 
 2
-00:00:09.263 --> 00:00:13.691
+00:00:09.229 --> 00:00:13.657
 But that client lives in a library jar you can't recompile.
 
 3
-00:00:13.867 --> 00:00:15.027
+00:00:13.833 --> 00:00:14.993
 A proxy won't do.
 
 4
-00:00:15.027 --> 00:00:20.280
+00:00:14.993 --> 00:00:20.247
 It needs an interface or an open class, and it only wraps objects you create.
 
 5
-00:00:21.067 --> 00:00:24.666
+00:00:21.033 --> 00:00:24.632
 Every class reaches the JVM as bytes from a jar.
 
 6
-00:00:24.666 --> 00:00:29.315
+00:00:24.632 --> 00:00:29.281
 A class loader hands them over, and the JVM defines the class.
 
 7
-00:00:29.533 --> 00:00:36.708
+00:00:29.467 --> 00:00:36.641
 Start the JVM with -javaagent, and before your main runs, it calls the agent's premain method.
 
 8
-00:00:36.933 --> 00:00:39.863
+00:00:36.867 --> 00:00:39.797
 premain registers a ClassFileTransformer.
 
 9
-00:00:39.863 --> 00:00:45.437
+00:00:39.797 --> 00:00:45.371
 From then on, the JVM passes it the bytes of every class it's about to define.
 
 10
-00:00:45.600 --> 00:00:48.455
+00:00:45.567 --> 00:00:48.421
 It returns new bytes, or null for no change.
 
 11
-00:00:48.455 --> 00:00:52.867
+00:00:48.421 --> 00:00:52.833
 Here it adds timing code to IssuerClient, and leaves the rest alone.
 
 12
-00:00:53.733 --> 00:00:56.785
+00:00:53.633 --> 00:00:56.685
 Now take a service that has run for an hour.
 
 13
-00:00:56.785 --> 00:01:00.809
+00:00:56.685 --> 00:01:00.709
 A tool attaches an agent, and the JVM calls its agentmain.
 
 14
-00:01:00.809 --> 00:01:02.820
+00:01:00.709 --> 00:01:02.720
 IssuerClient loaded long ago.
 
 15
-00:01:02.820 --> 00:01:05.387
+00:01:02.720 --> 00:01:05.287
 Will the new transformer ever see it?
 
 16
-00:01:07.467 --> 00:01:07.686
+00:01:07.400 --> 00:01:07.619
 No.
 
 17
-00:01:07.686 --> 00:01:15.139
+00:01:07.619 --> 00:01:15.072
 A transformer only sees classes defined after it's registered, and nothing defines IssuerClient again.
 
 18
-00:01:15.400 --> 00:01:18.045
+00:01:15.300 --> 00:01:17.945
 So the agent calls retransformClasses.
 
 19
-00:01:18.045 --> 00:01:26.677
+00:01:17.945 --> 00:01:26.577
 The JVM runs the transformers again on the class's current bytes, and puts the new method bodies into the same Class object.
 
 20
-00:01:27.867 --> 00:01:31.418
+00:01:27.767 --> 00:01:31.318
 Objects made at startup run the new code on their next call.
 
 21
-00:01:31.418 --> 00:01:34.792
+00:01:31.318 --> 00:01:34.692
 A call that was already running finishes on the old code.
 
 22
-00:01:35.533 --> 00:01:38.468
+00:01:35.400 --> 00:01:38.335
 One limit: only method bodies may change.
 
 23
-00:01:38.468 --> 00:01:46.629
+00:01:38.335 --> 00:01:46.496
 Retransformation must not add, remove or rename fields or methods, or change signatures, modifiers or inheritance.
 
 24
-00:01:46.629 --> 00:01:49.421
+00:01:46.496 --> 00:01:49.288
 So a call counter can't be a new field.
 
 25
-00:01:49.421 --> 00:01:51.283
+00:01:49.288 --> 00:01:51.149
 It lives in another class.
 
 26
-00:01:52.067 --> 00:01:58.559
+00:01:51.933 --> 00:01:58.425
 In code, that's two calls, the same in Java and in Kotlin, and the agent's manifest must allow it.
 
 27
-00:01:59.267 --> 00:02:04.348
+00:01:59.133 --> 00:02:04.215
 The rule: a transformer sees each class's bytes as the JVM defines it.
 
 28
-00:02:04.348 --> 00:02:11.099
+00:02:04.215 --> 00:02:10.965
 Retransformation swaps method bodies in place, for every object, but never the class's shape.
 
 29
-00:02:11.267 --> 00:02:12.081
+00:02:11.167 --> 00:02:11.981
 Quick check.
 
 30
-00:02:12.081 --> 00:02:16.900
+00:02:11.981 --> 00:02:16.800
 An agent retransforms IssuerClient while a thread is inside its method.
 
 31
-00:02:16.900 --> 00:02:19.479
+00:02:16.800 --> 00:02:19.379
 Which code does that thread finish on?
 
 32
-00:02:21.867 --> 00:02:22.835
+00:02:21.767 --> 00:02:22.735
 The old code.
 
 33
-00:02:22.835 --> 00:02:25.144
+00:02:22.735 --> 00:02:25.044
 Its next call runs the new one.

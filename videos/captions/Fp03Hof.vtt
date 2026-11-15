@@ -5,133 +5,133 @@ WEBVTT
 Three places in a payment service call something flaky: the card issuer, the ledger, and the FX rate service.
 
 2
-00:00:10.200 --> 00:00:14.838
+00:00:10.167 --> 00:00:14.805
 Each call sits inside the same loop: try up to three times, then give up.
 
 3
-00:00:14.838 --> 00:00:17.125
+00:00:14.805 --> 00:00:17.092
 Only the call in the middle changes.
 
 4
-00:00:17.367 --> 00:00:21.149
+00:00:17.300 --> 00:00:21.083
 How do you write that loop once, when the part that changes is a call?
 
 5
-00:00:22.733 --> 00:00:24.927
+00:00:22.667 --> 00:00:24.861
 Pass the call in, as a function.
 
 6
-00:00:24.927 --> 00:00:26.298
+00:00:24.861 --> 00:00:26.232
 retry owns the loop.
 
 7
-00:00:26.298 --> 00:00:30.412
+00:00:26.232 --> 00:00:30.345
 The call arrives as block, and retry decides when to run it.
 
 8
-00:00:30.633 --> 00:00:32.768
+00:00:30.533 --> 00:00:32.668
 Here the issuer times out twice.
 
 9
-00:00:32.768 --> 00:00:37.239
+00:00:32.668 --> 00:00:37.139
 retry runs block again, and the third try returns an authorization.
 
 10
-00:00:37.483 --> 00:00:40.072
+00:00:37.400 --> 00:00:39.988
 The ledger call plugs into the same socket.
 
 11
-00:00:40.072 --> 00:00:43.683
+00:00:39.988 --> 00:00:43.600
 A function that takes a function is a higher-order function.
 
 12
-00:00:44.517 --> 00:00:46.242
+00:00:44.400 --> 00:00:46.125
 It works the other way too.
 
 13
-00:00:46.242 --> 00:00:49.693
+00:00:46.125 --> 00:00:49.576
 feeFor takes a country, and hands back a fee function.
 
 14
-00:00:49.933 --> 00:00:51.899
+00:00:49.767 --> 00:00:51.732
 It looks up the Dutch rate once.
 
 15
-00:00:51.899 --> 00:00:56.752
+00:00:51.732 --> 00:00:56.585
 The function it returns keeps that number, and prices every payment after that.
 
 16
-00:00:57.583 --> 00:01:00.179
+00:00:57.367 --> 00:00:59.962
 Small functions also snap together.
 
 17
-00:01:00.179 --> 00:01:04.850
+00:00:59.962 --> 00:01:04.633
 Add a 25-cent scheme fee, take 10 percent off, cap at 10 euros.
 
 18
-00:01:05.083 --> 00:01:07.591
+00:01:04.833 --> 00:01:07.341
 Feed each result into the next.
 
 19
-00:01:07.591 --> 00:01:12.687
+00:01:07.341 --> 00:01:12.437
 That's composition: three functions become one pipeline, price.
 
 20
-00:01:12.687 --> 00:01:15.194
+00:01:12.437 --> 00:01:14.944
 1,200 cents comes out as 1,000.
 
 21
-00:01:15.433 --> 00:01:17.481
+00:01:15.167 --> 00:01:17.215
 Move the cap to the front.
 
 22
-00:01:17.481 --> 00:01:18.348
+00:01:17.215 --> 00:01:18.081
 Same price?
 
 23
-00:01:19.933 --> 00:01:20.291
+00:01:19.667 --> 00:01:20.024
 No.
 
 24
-00:01:20.291 --> 00:01:20.768
+00:01:20.024 --> 00:01:20.501
 922.
 
 25
-00:01:20.768 --> 00:01:24.583
+00:01:20.501 --> 00:01:24.316
 The order is part of the result.
 
 26
-00:01:25.417 --> 00:01:27.866
+00:01:25.133 --> 00:01:27.583
 In code, the call goes in as a lambda.
 
 27
-00:01:27.866 --> 00:01:30.252
+00:01:27.583 --> 00:01:29.968
 Java's Function has andThen built in.
 
 28
-00:01:30.252 --> 00:01:34.055
+00:01:29.968 --> 00:01:33.772
 Kotlin's function types don't, so you write it in one line.
 
 29
-00:01:34.883 --> 00:01:40.565
+00:01:34.567 --> 00:01:40.248
 The rule: write the shape of the work once, and pass in the part that changes as a function.
 
 30
-00:01:40.800 --> 00:01:41.655
+00:01:40.467 --> 00:01:41.322
 Quick check.
 
 31
-00:01:41.655 --> 00:01:44.863
+00:01:41.322 --> 00:01:44.530
 timed runs a block and logs how long it took.
 
 32
-00:01:44.863 --> 00:01:46.217
+00:01:44.530 --> 00:01:45.884
 Is it higher-order?
 
 33
-00:01:47.817 --> 00:01:48.143
+00:01:47.467 --> 00:01:47.793
 Yes.
 
 34
-00:01:48.143 --> 00:01:50.838
+00:01:47.793 --> 00:01:50.488
 It takes the block as a function.

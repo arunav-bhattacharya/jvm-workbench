@@ -1,0 +1,149 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.478
+A scheduler runs a task every 100 ms.
+
+2
+00:00:06.478 --> 00:00:08.623
+Most runs take 10 ms.
+
+3
+00:00:08.833 --> 00:00:10.632
+There are two ways to repeat it.
+
+4
+00:00:10.833 --> 00:00:15.888
+After each run, the executor queues the task again, with a new due time.
+
+5
+00:00:15.888 --> 00:00:18.556
+Fixed rate: the old due time plus 100.
+
+6
+00:00:18.556 --> 00:00:21.435
+Fixed delay: the end of the run plus 100.
+
+7
+00:00:21.667 --> 00:00:23.485
+Run 2 is slow.
+
+8
+00:00:23.485 --> 00:00:25.563
+It takes 250 ms.
+
+9
+00:00:25.767 --> 00:00:29.163
+Run 3 was due at 200, and run 4 at 300.
+
+10
+00:00:29.163 --> 00:00:31.167
+Both times have passed.
+
+11
+00:00:31.167 --> 00:00:33.083
+When does run 3 start?
+
+12
+00:00:35.300 --> 00:00:36.778
+At 350, right away.
+
+13
+00:00:36.778 --> 00:00:41.602
+A due time in the past means: run as soon as a thread is free.
+
+14
+00:00:41.602 --> 00:00:46.115
+Run 4 is overdue too, so it starts at 360, straight after.
+
+15
+00:00:46.333 --> 00:00:49.412
+Run 5, due at 400, is on time again.
+
+16
+00:00:49.633 --> 00:00:54.338
+That is fixed rate: overdue runs go back to back until it catches up.
+
+17
+00:00:54.338 --> 00:00:56.452
+Runs of one task never overlap.
+
+18
+00:00:56.667 --> 00:00:59.243
+Fixed delay has no timetable.
+
+19
+00:00:59.243 --> 00:01:06.707
+Run 3 starts 100 ms after the slow run ends, at 460, and everything after it shifts.
+
+20
+00:01:06.933 --> 00:01:10.991
+Use fixed rate for a heartbeat, where the timing is the point.
+
+21
+00:01:10.991 --> 00:01:17.208
+Use fixed delay for a call that can slow down, like an FX provider: no burst of catch-up calls.
+
+22
+00:01:18.233 --> 00:01:19.140
+Now the trap.
+
+23
+00:01:19.140 --> 00:01:23.324
+That re-queue step happens only when a run returns normally.
+
+24
+00:01:23.533 --> 00:01:28.514
+A health check runs every 100 ms, and its third run throws.
+
+25
+00:01:28.514 --> 00:01:30.203
+What happens at 300?
+
+26
+00:01:32.433 --> 00:01:33.690
+Nothing, ever again.
+
+27
+00:01:33.690 --> 00:01:37.773
+The exception goes into the ScheduledFuture, and nobody reads it.
+
+28
+00:01:37.773 --> 00:01:41.605
+The task never goes back in the queue, and nothing is logged.
+
+29
+00:01:41.833 --> 00:01:46.256
+The demo prints three health checks, then silence, and isDone is true.
+
+30
+00:01:47.267 --> 00:01:51.909
+The fix: catch inside the task, so no exception reaches the scheduler.
+
+31
+00:01:51.909 --> 00:01:54.363
+Log it, and the schedule keeps going.
+
+32
+00:01:55.167 --> 00:02:01.104
+Fixed rate catches up, fixed delay shifts, and a periodic task that throws stops for good.
+
+33
+00:02:01.333 --> 00:02:02.732
+Check yourself.
+
+34
+00:02:02.732 --> 00:02:04.783
+Fixed delay of 100 ms.
+
+35
+00:02:04.783 --> 00:02:07.766
+A run starts at 0 and takes 250.
+
+36
+00:02:07.766 --> 00:02:10.469
+When does the next one start?
+
+37
+00:02:13.200 --> 00:02:16.748
+350: the end of the run, plus 100.
