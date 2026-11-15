@@ -157,8 +157,8 @@ class Jmm05Dcl(VoiceScene):
                   rows[4].animate.move_to([AX, y4, 0], aligned_edge=LEFT).set_color(WHITE),
                   rows[5].animate.move_to([AX, y5, 0], aligned_edge=LEFT).set_color(WHITE),
                   lk2.animate.set_color(GREY_B), lockbox.animate.set_stroke(GREY_B), run_time=0.9)
-        rel_t = chip("release", OK_C, size=22).move_to([-2.78, R[5], 0])
-        acq_t = T("acquire", 22, OK_C).move_to([1.8, 2.6, 0])
+        rel_t = T("release", 24, OK_C).move_to([-1.55, -1.75, 0])
+        acq_t = T("acquire", 22, OK_C).move_to([1.85, 2.45, 0])
         seq(self, "The fix is one word: make table volatile. Now writing table is a release: "
                   "everything A wrote before it is visible first.",
             ([Transform(fld_lab, vol), fld.animate.set_stroke(OK_C)], 0.8), 2.0,
@@ -181,7 +181,7 @@ class Jmm05Dcl(VoiceScene):
                    max_tip_length_to_length_ratio=0.08)
         e2 = Arrow(fld.get_right() + RIGHT * 0.05, [BX - 0.4, R[0], 0], buff=0.05, stroke_width=3, color=OK_C,
                    max_tip_length_to_length_ratio=0.15)
-        good = T("ranges = 40 MB: complete", 26, OK_C).move_to([BX, R[3], 0], aligned_edge=LEFT)
+        good = T("sees the whole table", 26, OK_C).move_to([BX, R[3], 0], aligned_edge=LEFT)
         seq(self, "And B's volatile read is an acquire: if it sees the reference, it sees ranges too.",
             ([FadeIn(b_head)], 0.6),
             ([FadeIn(ptr_a), FadeIn(obj), FadeIn(obj_t), FadeIn(rng)], 0.5),
@@ -200,8 +200,8 @@ class Jmm05Dcl(VoiceScene):
         state = T("not initialized", 24, GREY_B).next_to(cls, DOWN, buff=0.2)
         ca = chip("A", A_COL, size=28).move_to([-5.4, 1.3, 0])
         cb = chip("B", B_COL, size=28).move_to([5.4, 1.3, 0])
-        jl = DashedVMobject(RoundedRectangle(corner_radius=0.2, width=6.2, height=2.3, stroke_color=JVM, stroke_width=2.5),
-                            num_dashes=80).move_to([0, 1.15, 0])
+        jl = DashedVMobject(RoundedRectangle(corner_radius=0.2, width=6.2, height=2.7, stroke_color=JVM, stroke_width=2.5),
+                            num_dashes=80).move_to([0, 1.0, 0])
         jl_t = T("the JVM's class init lock", 24, JVM).next_to(jl, UP, buff=0.12)
         self.beat("For a static field there is a simpler way. Let the JVM do the locking.",
                   FadeIn(cls), FadeIn(cls_t), FadeIn(cls_f), FadeIn(state), FadeIn(ca), FadeIn(cb), run_time=1.4)
@@ -210,7 +210,7 @@ class Jmm05Dcl(VoiceScene):
         obj_t = T("a BinTable", 24, GOLD_M).move_to(obj.get_top() + DOWN * 0.3)
         rng = M("ranges = 40 MB", 24, GOLD_M).move_to(obj.get_center() + DOWN * 0.18)
         st2 = T("initializing, by A", 24, A_COL).move_to(state)
-        inst = Arrow(cls_f.get_bottom() + RIGHT * 1.6, obj.get_top() + RIGHT * 1.0, buff=0.05, stroke_width=3, color=REF,
+        inst = Arrow(cls.get_bottom() + RIGHT * 1.6, obj.get_top() + RIGHT * 1.0, buff=0.05, stroke_width=3, color=REF,
                      max_tip_length_to_length_ratio=0.25)
         wait_b = T("waits", 24, B_COL).move_to([3.55, 0.75, 0])
         seq(self, "The JVM initializes a class right before its first use, once, under its own lock. "

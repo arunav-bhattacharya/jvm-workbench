@@ -92,6 +92,10 @@
   "gen06-projections",
   "perf02-inlining",
   "mem06-gclog",
-  "perf05-jfr"
+  "perf05-jfr",
+  "co02-builders",
+  "io01-c10k",
+  "rx05-retry",
+  "co10-mutex"
  ]
 }
