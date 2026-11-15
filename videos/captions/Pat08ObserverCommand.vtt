@@ -1,11 +1,11 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:07.838
+00:00:02.700 --> 00:00:07.804
 A card payment of 4.50 hits the ledger, and four parts of the service care.
 
 2
-00:00:07.838 --> 00:00:13.691
+00:00:07.804 --> 00:00:13.657
 If post calls all four directly, a broken analytics endpoint makes every posting fail.
 
 3
@@ -37,117 +37,117 @@ subscribe hands back a handle.
 Forget to close it, and the list holds that listener forever.
 
 10
-00:00:31.467 --> 00:00:33.966
+00:00:31.500 --> 00:00:33.999
 Now analytics is down, and it throws.
 
 11
-00:00:33.966 --> 00:00:37.951
+00:00:33.999 --> 00:00:37.984
 Does fraud scoring, after it, still hear about the posting?
 
 12
-00:00:37.951 --> 00:00:38.761
+00:00:37.984 --> 00:00:38.795
 Pause on it.
 
 13
-00:00:40.867 --> 00:00:43.911
+00:00:40.933 --> 00:00:43.978
 Only if each call sits in its own try and catch.
 
 14
-00:00:43.911 --> 00:00:48.414
+00:00:43.978 --> 00:00:48.481
 Without it, the exception ends the loop, and fraud scoring never hears.
 
 15
-00:00:48.414 --> 00:00:50.380
+00:00:48.481 --> 00:00:50.447
 With it, analytics fails alone.
 
 16
-00:00:51.533 --> 00:00:56.276
+00:00:51.700 --> 00:00:56.443
 And it's all on the posting thread, so one slow listener slows every posting.
 
 17
-00:00:57.200 --> 00:00:57.913
+00:00:57.367 --> 00:00:58.079
 Now undo.
 
 18
-00:00:57.913 --> 00:01:02.190
+00:00:58.079 --> 00:01:02.356
 Make each request an object: Deposit 100, Withdraw 30.
 
 19
-00:01:02.190 --> 00:01:06.863
+00:01:02.356 --> 00:01:07.029
 Each one knows how to apply itself, and how to undo itself.
 
 20
-00:01:07.133 --> 00:01:10.053
+00:01:07.233 --> 00:01:10.153
 Run applies it, then puts it on the stack.
 
 21
-00:01:10.053 --> 00:01:12.139
+00:01:10.153 --> 00:01:12.239
 After both, the balance is 70.
 
 22
-00:01:12.333 --> 00:01:15.839
+00:01:12.467 --> 00:01:15.972
 Withdraw 1,000 fails, and never reaches the stack.
 
 23
-00:01:16.000 --> 00:01:18.882
+00:01:16.200 --> 00:01:19.082
 Undo pops the top card and reverses it.
 
 24
-00:01:18.882 --> 00:01:20.877
+00:01:19.082 --> 00:01:21.077
 The balance is back to 100.
 
 25
-00:01:21.067 --> 00:01:25.086
+00:01:21.300 --> 00:01:25.319
 Now swap the two lines in run: record first, then apply.
 
 26
-00:01:25.086 --> 00:01:26.665
+00:01:25.319 --> 00:01:26.898
 Replay the same three.
 
 27
-00:01:26.665 --> 00:01:28.531
+00:01:26.898 --> 00:01:28.764
 What does one undo do now?
 
 28
-00:01:28.531 --> 00:01:29.392
+00:01:28.764 --> 00:01:29.625
 Pause on it.
 
 29
-00:01:33.133 --> 00:01:39.062
+00:01:33.300 --> 00:01:39.229
 It pops the failed withdrawal, and adds back 1,000 that never left: 1,070.
 
 30
-00:01:39.062 --> 00:01:42.107
+00:01:39.229 --> 00:01:42.273
 Record a command only after it worked.
 
 31
-00:01:42.800 --> 00:01:47.500
+00:01:43.067 --> 00:01:47.767
 In code, the rule is the order of two lines, in Java and in Kotlin.
 
 32
-00:01:48.333 --> 00:01:52.123
+00:01:48.500 --> 00:01:52.290
 So, Observer tells a list of listeners, each in its own try.
 
 33
-00:01:52.123 --> 00:01:56.987
+00:01:52.290 --> 00:01:57.153
 Command makes a request an object you can stack and undo, once it has worked.
 
 34
-00:01:57.600 --> 00:01:58.747
+00:01:57.833 --> 00:01:58.980
 A quick check.
 
 35
-00:01:58.747 --> 00:02:04.234
+00:01:58.980 --> 00:02:04.468
 Deposit 100, Withdraw 30, a failed Withdraw 1,000, then undo twice.
 
 36
-00:02:04.234 --> 00:02:05.791
+00:02:04.468 --> 00:02:06.024
 What's the balance?
 
 37
-00:02:07.733 --> 00:02:08.122
+00:02:07.967 --> 00:02:08.355
 Zero.
 
 38
-00:02:08.122 --> 00:02:11.075
+00:02:08.355 --> 00:02:11.308
 The failed one was never on the stack.

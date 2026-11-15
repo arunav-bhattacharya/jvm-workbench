@@ -158,7 +158,7 @@ class Vt05Structured(VoiceScene):
 
         def cancel_crm():
             stop_crm[0] = t.get_value()
-            return [FadeOut(f1), FadeIn(intr), MoveAlongPath(dot_up, Line(root.get_bottom(), crm.get_top()))]
+            return [FadeOut(f1), FadeOut(vt), FadeIn(intr), MoveAlongPath(dot_up, Line(root.get_bottom(), crm.get_top()))]
         seq(self, "At 100 ms the limit check fails. The scope cancels the sibling at once. "
                   "It interrupts the CRM call, which is blocked reading a socket, so it stops.",
             ([t.animate(rate_func=linear).set_value(LIM_MS)], 1.2),
@@ -174,7 +174,7 @@ class Vt05Structured(VoiceScene):
         seq(self, "Then close waits until every branch has really ended. When the block exits, nothing it started is still running.",
             1.8,
             ([FadeOut(VGroup(crm, lim, b_crm, b_lim, stopped, x_lim, intr, f2), target_position=root.get_center(), scale=0.3),
-              Uncreate(e1), Uncreate(e2), FadeOut(vt), FadeIn(closed)], 1.4))
+              Uncreate(e1), Uncreate(e2), FadeIn(closed)], 1.4))
         name = T("structured concurrency", 36).move_to([0, 0.5, 0])
         name2 = T("a subtask can't outlive the block that started it", 28, GREY_A).move_to([0, -0.25, 0])
         self.beat("That is structured concurrency. A subtask can't outlive the block that started it, "

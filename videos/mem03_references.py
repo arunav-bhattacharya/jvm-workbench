@@ -166,48 +166,49 @@ class Mem03References(VoiceScene):
         self.play(FadeOut(VGroup(roots, roots_t, keep_t, gar_t, *[nodes[k] for k in reached],
                                  *[allE[e] for e in allE if e[0] in reached or isinstance(e[0], int)])), run_time=0.6)
 
-        # --- the ladder: one root, four kinds of hold
-        RY = [2.3, 1.0, -0.3, -1.6]
-        SX, OX, NX = -2.2, 0.3, 1.75
-        root = chip("thread stack", ROOT_C, 24).move_to([-5.35, (RY[0] + RY[3]) / 2, 0])
+        # --- the ladder: one root, a bus down the left, four kinds of hold
+        RY = [2.0, 0.75, -0.5, -1.75]
+        BX, SX, OX, NX = -5.0, -3.6, 0.6, 2.0
+        root = chip("thread stack", ROOT_C, 24).move_to([BX, 3.05, 0])
+        bus = Line(root.get_bottom(), [BX, RY[3], 0], stroke_width=3, color=GREY_B)
         names = [("strong", STRONG_C), ("SoftReference", SOFT_C), ("WeakReference", WEAK_C), ("PhantomReference", PH_C)]
         refobj = VGroup(*[Square(0.4, stroke_color=c, stroke_width=3).set_fill(shade(c, 0.4), 1).move_to([SX, y, 0])
                           for (n, c), y in zip(names[1:], RY[1:])])
-        lbl = VGroup(*[T(n, 26, c).move_to([SX, y + 0.45, 0]) for (n, c), y in zip(names, RY)])
         objs = VGroup(*[table(w=2.0).move_to([OX, y, 0]) for y in RY])
-        strong = link(root.get_right(), objs[0].get_left(), "strong")
-        rlinks = VGroup(*[Arrow(root.get_right(), refobj[i].get_left(), buff=0.1, stroke_width=3, color=GREY_B,
-                                max_tip_length_to_length_ratio=0.08) for i in range(3)])
+        lbl = VGroup(*[T(n, 26, c).move_to([(SX + objs[0].get_left()[0]) / 2, y + 0.4, 0]) for (n, c), y in zip(names, RY)])
+        strong = link(np.array([BX, RY[0], 0]), objs[0].get_left(), "strong")
+        rlinks = VGroup(*[Arrow([BX, y, 0], refobj[i].get_left(), buff=0.06, stroke_width=3, color=GREY_B,
+                                max_tip_length_to_length_ratio=0.2) for i, y in enumerate(RY[1:])])
         holds = VGroup(link(refobj[0].get_right(), objs[1].get_left(), "soft"), link(refobj[1].get_right(), objs[2].get_left(), "weak"))
-        ph_get = M("get() = null", 24, PH_C).move_to([(SX + OX) / 2, RY[3] - 0.55, 0])
+        ph_get = M("get() = null", 24, PH_C).move_to([lbl[3].get_x(), RY[3] - 0.4, 0])
         notes = VGroup(T("the GC leaves it alone", 24, GREY_B), T("cleared when memory is tight", 24, GREY_B),
                        T("cleared by the next GC", 24, GREY_B), T("tells you it's gone", 24, GREY_B))
         for n_, y in zip(notes, RY):
             n_.move_to([NX, y, 0], aligned_edge=LEFT)
-        self.say("l0", [(0, [FadeIn(root), FadeIn(lbl[0]), FadeIn(objs[0])], 0.7), (0, [GrowArrow(strong)], 0.6),
+        self.say("l0", [(0, [FadeIn(root), Create(bus), FadeIn(objs[0])], 0.8), (0, [GrowArrow(strong), FadeIn(lbl[0])], 0.6),
                         (1, [FadeIn(notes[0])], 0.5)])
-        self.say("l1", [(0, [FadeIn(lbl[1]), FadeIn(refobj[0]), GrowArrow(rlinks[0]), FadeIn(objs[1])], 0.8),
-                        (0, [Create(holds[0])], 0.7), (0, [FadeIn(notes[1])], 0.6)])
-        self.say("l2", [(0, [FadeIn(lbl[2]), FadeIn(refobj[1]), GrowArrow(rlinks[1]), FadeIn(objs[2])], 0.8),
-                        (0, [Create(holds[1])], 0.7), (1, [FadeIn(notes[2])], 0.6)])
-        self.say("l3", [(0, [FadeIn(lbl[3]), FadeIn(refobj[2]), GrowArrow(rlinks[2]), FadeIn(objs[3])], 0.8),
+        self.say("l1", [(0, [GrowArrow(rlinks[0]), FadeIn(refobj[0]), FadeIn(objs[1])], 0.8),
+                        (0, [Create(holds[0]), FadeIn(lbl[1])], 0.7), (0, [FadeIn(notes[1])], 0.6)])
+        self.say("l2", [(0, [GrowArrow(rlinks[1]), FadeIn(refobj[1]), FadeIn(objs[2])], 0.8),
+                        (0, [Create(holds[1]), FadeIn(lbl[2])], 0.7), (1, [FadeIn(notes[2])], 0.6)])
+        self.say("l3", [(0, [GrowArrow(rlinks[2]), FadeIn(refobj[2]), FadeIn(objs[3]), FadeIn(lbl[3])], 0.8),
                         (0, [FadeIn(ph_get)], 0.6), (1, [FadeIn(notes[3])], 0.6)])
         # the GC runs: the weak and the phantom referents go, and their references are queued
         queue = VGroup(RoundedRectangle(corner_radius=0.12, width=3.3, height=0.62, stroke_color=PH_C, stroke_width=2.5).set_fill("#111111", 1),
                        T("ReferenceQueue", 24, PH_C))
         queue[1].move_to(queue[0])
-        queue.move_to([SX, -2.95, 0])
-        gc = chip("GC", GONE_C, 28).move_to([4.6, 3.1, 0])
+        queue.move_to([-1.5, -2.95, 0])
+        gc = chip("GC", GONE_C, 28).move_to([4.6, 3.05, 0])
         weak_copy = refobj[1].copy()
         ph_copy = refobj[2].copy()
         self.say("l4", [(0, [FadeIn(gc, scale=0.6)], 0.4),
-                        (0, [FadeOut(objs[2], scale=0.5), FadeOut(holds[1]), FadeOut(objs[3], scale=0.5)], 0.8),
+                        (0, [FadeOut(objs[2], scale=0.5), FadeOut(holds[1]), FadeOut(objs[3], scale=0.5), FadeOut(ph_get)], 0.8),
                         (0, [FadeIn(queue)], 0.4),
                         (0, [weak_copy.animate.move_to(queue.get_center() + LEFT * 0.6).scale(0.6).set_opacity(0),
                              ph_copy.animate.move_to(queue.get_center() + RIGHT * 0.6).scale(0.6).set_opacity(0)], 0.8),
                         (1, [Indicate(queue, color=PH_C, scale_factor=1.05)], 0.6)])
         self.remove(weak_copy, ph_copy)
-        ladder = VGroup(root, lbl, refobj, rlinks, strong, objs[0], objs[1], holds[0], notes, ph_get, queue, gc)
+        ladder = VGroup(root, bus, lbl, refobj, rlinks, strong, objs[0], objs[1], holds[0], notes, queue, gc)
 
         # --- back to the cache
         self.say("c1", [(0, [Indicate(VGroup(lbl[2], refobj[1], notes[2]), color=WEAK_C, scale_factor=1.06)], 1.0)])
@@ -233,9 +234,9 @@ class Mem03References(VoiceScene):
         self.say("q2", [])
         g1 = T("full GC 1: 42M -> 42M, the table stays, no room", 26, GREY_B).move_to([0, -2.75, 0])
         g2 = T("full GC 2: 42M -> 1M, soft reference cleared", 26, SOFT_C).move_to([0, -2.75, 0])
-        self.say("c3", [(0, [Flash(heap, color=GONE_C, flash_radius=6.2, line_length=0.3), FadeIn(g1)], 0.8),
+        self.say("c3", [(0, [Circumscribe(heap, color=GONE_C, buff=0.1), FadeIn(g1)], 0.8),
                         (0, [Indicate(tab, color=OBJ_C, scale_factor=1.03)], 0.6),
-                        (1, [ReplacementTransform(g1, g2), Flash(heap, color=GONE_C, flash_radius=6.2, line_length=0.3)], 0.8),
+                        (1, [ReplacementTransform(g1, g2), Circumscribe(heap, color=GONE_C, buff=0.1)], 0.8),
                         (1, [FadeOut(sl), FadeOut(sl_t), FadeOut(tab, scale=0.8)], 0.7),
                         (1, [req.animate.move_to([HX0 + 20 * mb, 0.4, 0])], 0.8)])
         reload_t = T("cache empty: every request reloads at once", 28, GONE_C).move_to([0, -2.75, 0])

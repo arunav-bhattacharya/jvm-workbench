@@ -60,7 +60,7 @@ def gate(yc):
 
 def counter(yc, text):
     r = RoundedRectangle(corner_radius=0.08, width=1.1, height=0.56, stroke_color=COUNT, stroke_width=2.5)
-    r.set_fill(BLACK, 1).move_to([GX, yc + 0.72, 0])
+    r.set_fill(BLACK, 1).move_to([GX + 0.8, yc + 0.62, 0])
     return VGroup(r, M(text, 30, COUNT).move_to(r))
 
 
@@ -149,7 +149,7 @@ class Conc10Synchronizers(VoiceScene):
         act = VGroup(RoundedRectangle(corner_radius=0.1, width=2.6, height=0.5, stroke_color=COUNT, stroke_width=2.5)
                      .set_fill(BLACK, 1), T("barrier action", 22, COUNT))
         act[1].move_to(act[0])
-        act.move_to([4.6, YB + 0.62, 0])
+        act.move_to([4.95, YB + 0.62, 0])
         self.beat("Next, four workers simulate one day each. Nobody may start day two until all four finish.",
                   FadeIn(seps[0]), FadeIn(lab_b), FadeIn(workers), FadeIn(day), Create(g_b), FadeIn(c_b), run_time=1.6)
 

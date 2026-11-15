@@ -197,7 +197,7 @@ class Fp04Fold(Beat):
                   (0, [Succession(f1, renote("11,500"))], 1.3)])
         _, f2 = fly(1, "+0", GREY_B)
         self.seq("pay_2 is still pending, so the note stays.",
-                 [(0, [dim(0), move_cur(1)], 0.5), (0, [Succession(f2, Indicate(note, color=GREY_B, scale_factor=1.0, run_time=0.35))], 1.3)])
+                 [(0, [dim(0), move_cur(1)], 0.5), (0, [Succession(f2, Indicate(held["note"], color=GREY_B, scale_factor=1.0, run_time=0.35))], 1.3)])
         q = M("?", 34, GREY_B).next_to(NOTE, RIGHT, buff=1.15)
         self.ask("pay_3 settled for 2,000, but 500 of it was refunded. What does the note say now?",
                  dim(1), move_cur(2), Indicate(cards[2][4], color=GOLD_M, scale_factor=1.1), FadeIn(q), run_time=1.2)
@@ -312,7 +312,8 @@ class Fp04Fold(Beat):
                  FadeIn(red_row), FadeIn(red_q), run_time=0.8)
         err = VGroup(M("UnsupportedOperationException:", 20, RED_M), M("Empty collection can't be reduced.", 20, RED_M))
         err.arrange(DOWN, aligned_edge=LEFT, buff=0.1).next_to(red_row, DOWN, buff=0.3).align_to(belt, LEFT).shift(RIGHT * 0.2)
-        self.seq("It throws.", [(0, [xfade(red_q, tick(False, 0.22).move_to(red_q)), FadeIn(err, shift=UP * 0.1)], 0.8)])
+        red_x = tick(False, 0.22).move_to(red_q)
+        self.seq("It throws.", [(0, [xfade(red_q, red_x), FadeIn(err, shift=UP * 0.1)], 0.8)])
 
         slot_r = RoundedRectangle(corner_radius=0.1, width=2.0, height=0.9, stroke_color=GREY_B, stroke_width=2.5).set_fill(BLACK, 1)
         key = M("acme", 26, GREY_A).next_to(slot_r, LEFT, buff=0.3)
@@ -341,7 +342,7 @@ class Fp04Fold(Beat):
                       Succession(Wait(0.9), Transform(t3, t3.copy().move_to(slot_r), run_time=0.7)))], 1.6),
                   (1, [FadeIn(gone, shift=UP * 0.1)], 0.5),
                   (2, [FadeIn(javaa, shift=UP * 0.1)], 0.5)])
-        self.play(FadeOut(VGroup(div, lh, rh, belt, belt_l, fold_row, fold_ok, red_row, red_q, err, slot, ab, c1, c3, t3, merch, gone, javaa)), run_time=0.7)
+        self.play(FadeOut(VGroup(div, lh, rh, belt, belt_l, fold_row, fold_ok, red_row, red_x, err, slot, ab, c1, c3, t3, merch, gone, javaa)), run_time=0.7)
         self.remove(t1)
 
         # ---------- the rule, then a check ----------

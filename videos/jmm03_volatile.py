@@ -187,9 +187,9 @@ class Jmm03Volatile(VoiceScene):
         dur, t0 = speak("And the write carries what came before it. Plain writes thread 1 made before setting 42 "
                         "are visible to whoever reads 42.")
         self.wait(1.4)
-        self.play(Indicate(g[1], color=WHITE, scale_factor=1.15), run_time=0.9)
+        self.play(Indicate(g[1][1], color=YELLOW_M, scale_factor=1.2), Circumscribe(g[1], color=YELLOW_M, buff=0.06), run_time=0.9)
         self.wait(0.8)
-        self.play(Indicate(g2[1], color=WHITE, scale_factor=1.15), run_time=0.9)
+        self.play(Indicate(g2[1][1], color=YELLOW_M, scale_factor=1.2), Circumscribe(g2[1], color=YELLOW_M, buff=0.06), run_time=0.9)
         finish(dur, t0)
         self.play(FadeOut(VGroup(g, g2[1], rd, wr, r2, rl2, rv2)), set_val(41), run_time=0.7)
 

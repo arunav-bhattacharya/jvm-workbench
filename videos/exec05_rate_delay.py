@@ -41,7 +41,7 @@ def seq(scene, text, *steps, after=0.25):
         scene.wait(after)
 
 
-X0, X1 = -5.0, 6.0
+X0, X1 = -5.0, 5.6
 PX = (X1 - X0) / 900
 
 

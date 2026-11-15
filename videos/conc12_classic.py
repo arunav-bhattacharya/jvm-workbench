@@ -136,7 +136,7 @@ class Conc12Classic(VoiceScene):
             return [newr.animate.move_to(at(4)), FadeOut(st_p)]
 
         seq(self, "The queue is full, so the next put waits. The reader stops until the writer takes one.",
-            1.2, (try_put, 0.8), ([Indicate(prod[0], color=RED_M, scale_factor=1.03)], 0.8), 1.0,
+            1.2, (try_put, 0.8), ([Indicate(prod[1][0], color=RED_M, scale_factor=1.15)], 0.8), 1.0,
             (lambda: take(w1), 0.8), (finish_put, 0.6))
         self.beat("The slow side now pushes back on the fast side, instead of filling memory.",
                   Indicate(slots, color=WHITE, scale_factor=1.02))

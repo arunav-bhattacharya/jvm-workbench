@@ -33,8 +33,8 @@ N = {
 }
 PAUSE = {"q1": 2.2, "c": 2.4}
 
-BELT_Y = 0.4
-SLOTS = [1.4, 0.4, -0.6]
+BELT_Y = -0.1
+SLOTS = [0.9, -0.1, -1.1]
 GATE_X = 0.4
 
 
@@ -103,7 +103,7 @@ class Cls07Agents(VoiceScene):
         tunnel = Rectangle(width=2.6, height=1.0, stroke_color=LOAD_C, stroke_width=3).move_to([-3.0, BELT_Y, 0])
         tunnel_t = T("class loader", 26, LOAD_C).next_to(tunnel, UP, buff=0.15)
         jvm = RoundedRectangle(corner_radius=0.15, width=3.6, height=3.8, stroke_color=JVM_C, stroke_width=3).set_fill(shade(JVM_C, 0.06), 1)
-        jvm.move_to([4.6, 0.3, 0])
+        jvm.move_to([4.6, -0.2, 0])
         jvm_t = T("JVM: defined classes", 26, JVM_C).next_to(jvm, UP, buff=0.15)
         names = ["Clock", "SettlementJob", "IssuerClient"]
         chips = [cls_chip(n).move_to([-3.0, BELT_Y, 0]) for n in names]
@@ -124,9 +124,9 @@ class Cls07Agents(VoiceScene):
         self.say("m1", [(0, [FadeIn(appjar), Create(belt), FadeIn(jvm), FadeIn(jvm_t)], 0.9),
                         (1, [FadeIn(tunnel), FadeIn(tunnel_t)], 0.5), (1, [flow(0)], 1.9)])
 
-        cmd = M("java -javaagent:agent.jar -jar app.jar", 24, AG_C).move_to([-2.4, 3.2, 0])
-        pre = chip("premain(args, inst)", AG_C, 24, mono=True).move_to([-2.4, 2.25, 0])
-        mainc = chip("main(args)", GREY_B, 24, mono=True).move_to([1.4, 2.25, 0])
+        cmd = M("java -javaagent:agent.jar -jar app.jar", 24, AG_C).move_to([-2.4, 2.85, 0])
+        pre = chip("premain(args, inst)", AG_C, 24, mono=True).move_to([-2.4, 1.9, 0])
+        mainc = chip("main(args)", GREY_B, 24, mono=True).move_to([1.4, 1.9, 0])
         pm = arrow(pre.get_right(), mainc.get_left(), GREY_B, buff=0.12)
         self.say("m2", [(0, [FadeIn(cmd, shift=DOWN * 0.1)], 0.7), (0, [FadeIn(pre, shift=DOWN * 0.1)], 0.6),
                         (0, [GrowArrow(pm), FadeIn(mainc)], 0.7)])
@@ -151,27 +151,27 @@ class Cls07Agents(VoiceScene):
         self.play(FadeOut(VGroup(cmd, pre, mainc, pm, gate, gate_t, cft, null_t)), run_time=0.6)
 
         # --- an hour later: an agent attached to a running JVM
-        later = T("another run: no agent at startup, an hour in", 26, GREY_B).move_to([-2.0, 3.2, 0])
+        later = T("another run: no agent at startup, an hour in", 26, GREY_B).move_to([-2.0, 2.85, 0])
         plain_ic = cls_chip("IssuerClient").move_to(chips[2])
-        agm = chip("agentmain(args, inst)", AG_C, 24, mono=True).move_to([-2.4, 2.25, 0])
+        agm = chip("agentmain(args, inst)", AG_C, 24, mono=True).move_to([-2.4, 1.9, 0])
         gate2 = Line([GATE_X, BELT_Y - 0.75, 0], [GATE_X, BELT_Y + 0.75, 0], stroke_width=8, color=AG_C)
         reg2 = Arrow(agm.get_bottom(), gate2.get_top(), buff=0.1, stroke_width=3, color=AG_C, max_tip_length_to_length_ratio=0.15)
         q = T("Will the new transformer see IssuerClient?", 30, YELLOW_M).move_to([-1.2, -2.6, 0])
         self.say("q1", [(0, [FadeIn(later), Transform(chips[2], plain_ic)], 0.8),
                         (1, [FadeIn(agm, shift=DOWN * 0.1)], 0.6), (1, [GrowArrow(reg2), Create(gate2)], 0.7),
                         (2, [Indicate(chips[2], color=WHITE, scale_factor=1.1)], 0.8), (3, [FadeIn(q, shift=UP * 0.1)], 0.6)])
-        only = T("it sees only classes defined from now on", 26, GREY_B).move_to([-1.2, -1.2, 0])
-        idle = Cross(stroke_color=BAD_C, stroke_width=5).scale(0.16).next_to(chips[2], RIGHT, buff=0.12)
+        only = T("it sees only classes defined from now on", 26, GREY_B).move_to([-1.2, -1.6, 0])
+        idle = Cross(stroke_color=BAD_C, stroke_width=5).scale(0.14).next_to(chips[2], LEFT, buff=0.08)
         self.say("a1", [(0, [FadeOut(q)], 0.3), (1, [FadeIn(only)], 0.6), (1, [Create(idle)], 0.5)])
 
         arc = ArcBetweenPoints(chips[2].get_left() + LEFT * 0.05, np.array([GATE_X, BELT_Y - 0.8, 0]), angle=-PI / 2.2)
-        arc_t = M("retransformClasses", 22, AG_C).move_to([1.0, -1.45, 0])
+        arc_t = M("retransformClasses", 22, AG_C).move_to([1.0, -1.95, 0])
         ret = CurvedArrow(chips[2].get_left() + LEFT * 0.05, np.array([GATE_X + 0.05, BELT_Y - 0.8, 0]), angle=-PI / 2.2, color=AG_C,
                           stroke_width=3, tip_length=0.2)
         trav = cls_chip("IssuerClient").scale(0.8).move_to(chips[2])
         trav.set_z_index(5)
         new_ic = cls_chip("IssuerClient", AG_C).move_to(chips[2])
-        same = VGroup(T("same Class object,", 24, AG_C), T("new method bodies", 24, AG_C)).arrange(DOWN, buff=0.08).move_to([4.6, -2.25, 0])
+        same = VGroup(T("same Class object,", 24, AG_C), T("new method bodies", 24, AG_C)).arrange(DOWN, buff=0.08).move_to([4.6, -2.75, 0])
         self.say("r1", [(0, [FadeOut(only), FadeOut(idle), Create(ret), FadeIn(arc_t)], 0.8),
                         (1, [MoveAlongPath(trav, arc)], 1.2),
                         (1, [trav.animate.set_color(AG_C), Flash(gate2, color=AG_C, flash_radius=0.8)], 0.5),

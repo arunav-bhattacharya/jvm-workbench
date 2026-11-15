@@ -288,8 +288,9 @@ class Pat08ObserverCommand(Beat):
         self.seq("Now undo. Make each request an object: Deposit 100, Withdraw 30. Each one knows how to apply itself, and how to undo itself.",
                  [(0, [FadeIn(VGroup(wal, wal_t, bal_m)), Create(well), FadeIn(well_t)], 0.8),
                   (1, [FadeIn(c_dep, shift=DOWN * 0.2), FadeIn(c_wd, shift=DOWN * 0.2)], 0.7),
-                  (2, [Indicate(VGroup(c_dep[2], c_wd[2]), color=WHITE, scale_factor=1.06)], 0.7),
-                  (2, [Indicate(VGroup(c_dep[3], c_wd[3]), color=UNDO, scale_factor=1.06)], 0.7)])
+                  # one Indicate per card: a VGroup of parts would linger in the scene and show them again later
+                  (2, [Indicate(c_dep[2], color=WHITE, scale_factor=1.06), Indicate(c_wd[2], color=WHITE, scale_factor=1.06)], 0.7),
+                  (2, [Indicate(c_dep[3], color=UNDO, scale_factor=1.06), Indicate(c_wd[3], color=UNDO, scale_factor=1.06)], 0.7)])
 
         self.seq("Run applies it, then puts it on the stack. After both, the balance is 70.",
                  [(0, lambda: run_ok("Deposit", 100, c_dep), 0),
@@ -330,7 +331,7 @@ class Pat08ObserverCommand(Beat):
         rule_bad = M("run: push, then apply", 26, BAD).move_to(rule_ok)
         self.seq("Now swap the two lines in run: record first, then apply. Replay the same three. What does one undo do now? Pause on it.",
                  [(0, [FadeIn(rule_ok)], 0.5),
-                  (0, [Transform(rule_ok, rule_bad), *[FadeOut(p) for p in pile], set_bal(0)], 0.7),
+                  (0, [Transform(rule_ok, rule_bad), FadeOut(VGroup(*pile)), set_bal(0)], 0.7),
                   (1, lambda: (pile.clear() or run_ok("Deposit", 100, record_first=True)), 0),
                   (1, lambda: run_ok("Withdraw", 30, record_first=True), 0),
                   (1, lambda: run_fail(1000, record_first=True), 0)], after=2.2)

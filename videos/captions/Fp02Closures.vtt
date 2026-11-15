@@ -9,141 +9,141 @@ Fraud screening runs each payment through a list of rules.
 Here, 900,000 cents trips the amount limit.
 
 3
-00:00:09.750 --> 00:00:12.171
+00:00:09.733 --> 00:00:12.155
 A rule here is a value, like a number.
 
 4
-00:00:12.171 --> 00:00:16.632
+00:00:12.155 --> 00:00:16.615
 It sits in a variable, it goes into a list, and it gets passed around.
 
 5
-00:00:16.632 --> 00:00:19.754
+00:00:16.615 --> 00:00:19.737
 A function written as a value is called a lambda.
 
 6
-00:00:20.683 --> 00:00:24.710
+00:00:20.600 --> 00:00:24.627
 A lambda can also use a variable from outside its braces.
 
 7
-00:00:24.710 --> 00:00:26.265
+00:00:24.627 --> 00:00:26.181
 This rule reads limit.
 
 8
-00:00:26.500 --> 00:00:29.742
+00:00:26.367 --> 00:00:29.609
 It carries that value along, wherever the rule goes.
 
 9
-00:00:29.742 --> 00:00:33.233
+00:00:29.609 --> 00:00:33.100
 Code plus the variables it captured is called a closure.
 
 10
-00:00:34.067 --> 00:00:36.458
+00:00:33.900 --> 00:00:36.292
 Now capture a var, one that changes.
 
 11
-00:00:36.458 --> 00:00:40.843
+00:00:36.292 --> 00:00:40.676
 makeCounter makes count, and returns a lambda that adds one to it.
 
 12
-00:00:41.083 --> 00:00:44.635
+00:00:40.867 --> 00:00:44.418
 When makeCounter returns, its local variables are gone.
 
 13
-00:00:44.635 --> 00:00:46.765
+00:00:44.418 --> 00:00:46.549
 But the lambda still needs count.
 
 14
-00:00:46.765 --> 00:00:48.186
+00:00:46.549 --> 00:00:47.969
 Where does count live?
 
 15
-00:00:49.783 --> 00:00:55.570
+00:00:49.567 --> 00:00:55.353
 The compiler moves count into a small object on the heap, a Ref box with one plain field.
 
 16
-00:00:55.570 --> 00:00:57.455
+00:00:55.353 --> 00:00:57.239
 The lambda points at the box.
 
 17
-00:00:57.700 --> 00:01:01.525
+00:00:57.433 --> 00:01:01.259
 Call the lambda three times, and the box counts one, two, three.
 
 18
-00:01:02.567 --> 00:01:05.597
+00:01:02.267 --> 00:01:05.297
 Now hand that lambda to two threads at once.
 
 19
-00:01:05.597 --> 00:01:10.281
+00:01:05.297 --> 00:01:09.981
 Each ++count is three steps: read the field, add one, write it back.
 
 20
-00:01:10.517 --> 00:01:12.195
+00:01:10.167 --> 00:01:11.845
 Both threads read 41.
 
 21
-00:01:12.195 --> 00:01:14.114
+00:01:11.845 --> 00:01:13.764
 What ends up in the box?
 
 22
-00:01:15.700 --> 00:01:15.970
+00:01:15.333 --> 00:01:15.604
 42.
 
 23
-00:01:15.970 --> 00:01:18.853
+00:01:15.604 --> 00:01:18.486
 Both add one, and both write 42.
 
 24
-00:01:18.853 --> 00:01:21.736
+00:01:18.486 --> 00:01:21.369
 Two increments, and one is lost.
 
 25
-00:01:21.967 --> 00:01:32.363
+00:01:21.567 --> 00:01:31.963
 In the lesson's run, four threads each added 250,000, and the total came out 669,421, not a million.
 
 26
-00:01:32.600 --> 00:01:34.765
+00:01:32.167 --> 00:01:34.332
 Nothing in the source looks shared.
 
 27
-00:01:34.765 --> 00:01:36.373
+00:01:34.332 --> 00:01:35.940
 The compiler made the box.
 
 28
-00:01:36.373 --> 00:01:40.641
+00:01:35.940 --> 00:01:40.208
 The fix: let each task count its own, and add the results at the end.
 
 29
-00:01:41.467 --> 00:01:47.977
+00:01:41.000 --> 00:01:47.510
 Java refuses to capture a local that changes, so you build the box yourself, a one-element array.
 
 30
-00:01:47.977 --> 00:01:51.400
+00:01:47.510 --> 00:01:50.933
 Kotlin builds the same box for you, without a word.
 
 31
-00:01:52.233 --> 00:01:55.338
+00:01:51.733 --> 00:01:54.838
 The rule: a lambda keeps the variables it uses.
 
 32
-00:01:55.338 --> 00:01:59.500
+00:01:54.838 --> 00:01:59.000
 A captured var is one shared box, so keep other threads off it.
 
 33
-00:01:59.750 --> 00:02:00.632
+00:01:59.233 --> 00:02:00.116
 Quick check.
 
 34
-00:02:00.632 --> 00:02:02.324
+00:02:00.116 --> 00:02:01.807
 Call makeCounter twice.
 
 35
-00:02:02.324 --> 00:02:04.677
+00:02:01.807 --> 00:02:04.160
 Do the two counters share a box?
 
 36
-00:02:06.267 --> 00:02:06.492
+00:02:05.733 --> 00:02:05.958
 No.
 
 37
-00:02:06.492 --> 00:02:11.293
+00:02:05.958 --> 00:02:10.760
 Each call makes its own count, so each counter gets its own box.
