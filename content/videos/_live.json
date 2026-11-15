@@ -80,6 +80,10 @@
   "pat07-strategy",
   "cls02-stack",
   "pat09-chain-state",
-  "pat08-observer-command"
+  "pat08-observer-command",
+  "conc02-states",
+  "jmm03-volatile",
+  "conc10-synchronizers",
+  "conc12-classic"
  ]
 }

@@ -191,20 +191,17 @@ class Conc10Synchronizers(VoiceScene):
                   *[FadeIn(t) for t in thr], run_time=1.6)
 
         def take(i, k, dest):
-            """thread i walks to the tray, picks up permit k, and goes into the area with it."""
-            def f():
-                return [Succession(thr[i].animate(run_time=0.5).move_to([GX - 0.55, perms[k].get_y(), 0]),
-                                   AnimationGroup(thr[i].animate(run_time=0.7).move_to(dest),
-                                                  perms[k].animate(run_time=0.7).move_to(dest + UP * 0.32)))]
-            return f
+            """two steps: thread i walks to the tray, then goes into the area carrying permit k."""
+            return [(lambda: [thr[i].animate.move_to([GX - 0.55, perms[k].get_y(), 0])], 0.5),
+                    (lambda: [thr[i].animate.move_to(dest), perms[k].animate.move_to(dest + UP * 0.32)], 0.7)]
 
         seq(self, "acquire takes a permit. Only a thread with a permit calls the issuer.",
-            0.4, (take(0, 0, inside[0]), 1.2), (take(1, 1, inside[1]), 1.2), (take(2, 2, inside[2]), 1.2))
+            0.4, *take(0, 0, inside[0]), *take(1, 1, inside[1]), *take(2, 2, inside[2]))
         seq(self, "The fourth thread finds the tray empty, so it waits.",
             ([thr[3].animate.move_to([GX - 0.55, YS - 0.05, 0])], 0.8), ([Indicate(tray, color=RED_M)], 0.8))
         seq(self, "When a call finishes, release gives the permit back, and the waiting thread takes it.",
             ([thr[0].animate.move_to([6.0, YS - 0.3, 0]).set_opacity(0), perms[0].animate.move_to([GX, pslots[0], 0])], 1.1),
-            0.6, (take(3, 0, inside[0]), 1.2))
+            0.6, *take(3, 0, inside[0]))
         rogue = dot(GREY_B).move_to([-1.0, YS - 0.3, 0])
         rogue_t = T("never acquired", 24, GREY_B).next_to(rogue, LEFT, buff=0.15)
         rogue_t.add_updater(lambda m: m.next_to(rogue, LEFT, buff=0.15))
@@ -217,9 +214,8 @@ class Conc10Synchronizers(VoiceScene):
                   "Now four threads fit, and the limit has quietly drifted.",
             (lambda: [rogue_t.clear_updaters(), FadeIn(extra, scale=2.0), FadeOut(rogue), FadeOut(rogue_t)][1:], 0.8), 1.4,
             ([FadeIn(newcomer)], 0.3),
-            ([Succession(newcomer.animate(run_time=0.6).move_to([GX - 0.55, pslots[1], 0]),
-                         AnimationGroup(newcomer.animate(run_time=0.7).move_to(inside4 + DOWN * 0.15),
-                                        extra.animate(run_time=0.7).move_to(inside4 + UP * 0.17)))], 1.3),
+            (lambda: [newcomer.animate.move_to([GX - 0.55, pslots[1], 0])], 0.6),
+            (lambda: [newcomer.animate.move_to(inside4 + DOWN * 0.15), extra.animate.move_to(inside4 + UP * 0.17)], 0.7),
             ([Indicate(area, color=RED_M, scale_factor=1.04)], 0.8))
 
         # ---- side by side, in motion ----
@@ -234,34 +230,37 @@ class Conc10Synchronizers(VoiceScene):
         t2 = [dot(WAITER).move_to([x, YS - 0.3, 0]) for x in (-2.4, -1.7, -1.0, -0.3)]
         self.play(FadeIn(VGroup(o2, ld2, w2, *p2, *t2)), run_time=0.5)
 
-        def lat():
-            return Succession(o2.animate(run_time=0.8).move_to([GX - 0.3, YL - 0.35, 0]),
-                              spark(ld2[0].get_center(), c_l.get_center(), rt=0.4), recount(c_l, "2", run_time=0.2),
-                              spark(ld2[1].get_center(), c_l.get_center(), rt=0.4), recount(c_l, "1", run_time=0.2),
-                              spark(ld2[2].get_center(), c_l.get_center(), rt=0.4), recount(c_l, "0", run_time=0.2),
-                              g_l.animate(run_time=0.4).set_color(GREEN_M).set_stroke(width=4).set_opacity(0.8),
-                              o2.animate(run_time=0.9).move_to([4.0, YL - 0.35, 0]))
+        sparks = []
 
-        def bar():
-            arr = [w2[i].animate(run_time=0.6).move_to([GX - 0.3, slots[i], 0]) for i in (2, 0, 3, 1)]
-            return Succession(arr[0], recount(c_b, "1/4", run_time=0.15), arr[1], recount(c_b, "2/4", run_time=0.15),
-                              arr[2], recount(c_b, "3/4", run_time=0.15), arr[3], recount(c_b, "4/4", run_time=0.15),
-                              AnimationGroup(g_b.animate.set_color(GREEN_M).set_stroke(width=4).set_opacity(0.8),
-                                             *[w.animate.move_to([3.4, slots[i], 0]) for i, w in enumerate(w2)], run_time=0.9),
-                              AnimationGroup(g_b.animate.set_color(RED_M).set_stroke(width=11).set_opacity(1), recount(c_b, "0/4"), run_time=0.4))
+        def spark_go(i):
+            d = Dot(radius=0.08, color=COUNT).move_to(ld2[i].get_center()).set_z_index(7)
+            self.add(d)
+            sparks.append(d)
+            return [d.animate.move_to(c_l[0].get_center())]
 
-        def sem():
-            steps = []
-            for i in range(3):
-                steps += [t2[i].animate(run_time=0.4).move_to([GX - 0.55, p2[i].get_y(), 0]),
-                          AnimationGroup(t2[i].animate.move_to(inside[i]), p2[i].animate.move_to(inside[i] + UP * 0.32),
-                                         run_time=0.6)]
-            steps += [t2[3].animate(run_time=0.6).move_to([GX - 0.55, YS - 0.05, 0]), Indicate(tray, color=RED_M, run_time=0.8)]
-            return Succession(*steps)
+        def spark_done(to):
+            return [FadeOut(sparks[-1]), recount(c_l, to)]
+
+        def b_arrive(i, n):
+            return [w2[i].animate.move_to([GX - 0.3, slots[i], 0]), recount(c_b, f"{n}/4")]
+
+        def s_tray(i):
+            return [t2[i].animate.move_to([GX - 0.55, p2[i].get_y(), 0])]
+
+        def s_in(i):
+            return [t2[i].animate.move_to(inside[i]), p2[i].animate.move_to(inside[i] + UP * 0.32)]
 
         seq(self, "Side by side: a latch waits for events, once. A barrier waits for a group, every round. "
                   "A semaphore limits how many are inside.",
-            ([lat(), bar(), sem()], 5.6))
+            (lambda: [o2.animate.move_to([GX - 0.3, YL - 0.35, 0]), *b_arrive(2, 1), *s_tray(0)], 0.7),
+            (lambda: [*spark_go(0), *b_arrive(0, 2), *s_in(0)], 0.7),
+            (lambda: [*spark_done("2"), *spark_go(1), *b_arrive(3, 3), *s_tray(1)], 0.7),
+            (lambda: [*spark_done("1"), *spark_go(2), *b_arrive(1, 4), *s_in(1)], 0.7),
+            (lambda: [*spark_done("0"), opened(g_l), opened(g_b),
+                      *[w.animate.move_to([3.4, slots[i], 0]) for i, w in enumerate(w2)], *s_tray(2)], 0.8),
+            (lambda: [o2.animate.move_to([4.0, YL - 0.35, 0]), closed(g_b), recount(c_b, "0/4"), *s_in(2)], 0.8),
+            (lambda: [t2[3].animate.move_to([GX - 0.55, YS - 0.05, 0])], 0.6),
+            ([Indicate(tray, color=RED_M)], 0.7))
 
         # ---- code ----
         lanes = VGroup(lab_l, lab_b, lab_s, seps, g_l, c_l, g_b, c_b, area, area_t, tray)
