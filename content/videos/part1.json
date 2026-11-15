@@ -25,6 +25,7 @@
     {"slug": "vt01-wall", "lesson": "vt-01", "section": 0, "title": "A 200 ms request that waits 195 ms holds one platform thread the whole time, so 200 threads top out at 1,000 a second while most of them just wait"},
     {"slug": "conc07-locks", "lesson": "conc-07", "section": 0, "title": "ReentrantLock is the same room with controls on the door: tryLock with a timeout and lockInterruptibly let a waiter leave, each Condition is its own waiting room, and readers share while the writer waits for an empty room"},
     {"slug": "conc11-confine", "lesson": "conc-11", "section": 0, "title": "A race needs state that is shared and changing: take away either one, and there is nothing to lock"},
-    {"slug": "exec04-cancel", "lesson": "exec-04", "section": 1, "title": "cancel(true) only raises the interrupt flag: a task blocked in sleep stops, a loop that checks the flag stops, a loop that never looks runs on, and every Future says cancelled at once"}
+    {"slug": "exec04-cancel", "lesson": "exec-04", "section": 1, "title": "cancel(true) only raises the interrupt flag: a task blocked in sleep stops, a loop that checks the flag stops, a loop that never looks runs on, and every Future says cancelled at once"},
+    {"slug": "exec07-cf-errors", "lesson": "exec-07", "section": 0, "title": "A failure skips every stage until a handler catches it, orTimeout fills the future but leaves the call running, and a handle on each call keeps one bad answer from failing allOf"}
   ]
 }

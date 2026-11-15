@@ -21,6 +21,7 @@
     {"slug": "mem03-references", "lesson": "mem-03", "section": 0, "title": "The GC keeps what the roots can reach: strong, soft, weak and phantom holds, and why weak and soft caches forget"},
     {"slug": "cls07-agents", "lesson": "cls-07", "section": 0, "title": "A Java agent's transformer sees each class's bytes as the JVM defines it; retransformation swaps method bodies in a class already loaded"},
     {"slug": "perf02-inlining", "lesson": "perf-02", "section": 0, "title": "A call is a wall to C2 until it inlines the callee, within a budget of 35 bytes or 325 at a hot site; intrinsics swap JDK methods for hand-written code"},
-    {"slug": "mem06-gclog", "lesson": "mem-06", "section": 0, "title": "Each GC log line is an event on a timeline: pause lines stop every thread, concurrent ones run beside them; in a container the max heap defaults to 25% of the limit"}
+    {"slug": "mem06-gclog", "lesson": "mem-06", "section": 0, "title": "Each GC log line is an event on a timeline: pause lines stop every thread, concurrent ones run beside them; in a container the max heap defaults to 25% of the limit"},
+    {"slug": "perf05-jfr", "lesson": "perf-05", "section": 0, "title": "JFR puts timestamped JVM events on one clock; a recording is a ring that keeps the newest within maxage or maxsize, and you read jfr summary first, then a view"}
   ]
 }

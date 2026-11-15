@@ -1,0 +1,161 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.337
+An authorization was slow.
+
+2
+00:00:04.337 --> 00:00:08.179
+Your log line says how long the issuer call took: one number.
+
+3
+00:00:08.179 --> 00:00:13.280
+It can't say whether a GC stopped every thread, or your thread waited for a lock.
+
+4
+00:00:13.500 --> 00:00:15.309
+JDK Flight Recorder can.
+
+5
+00:00:15.309 --> 00:00:21.641
+It's built into the JVM, and it writes events: small records, each with a timestamp.
+
+6
+00:00:21.833 --> 00:00:27.824
+GC pauses, JIT compilations, lock waits, sampled stacks and sampled allocations.
+
+7
+00:00:27.824 --> 00:00:30.295
+Your own code can add events too.
+
+8
+00:00:30.500 --> 00:00:33.161
+They all land on one timeline, on one clock.
+
+9
+00:00:33.161 --> 00:00:36.487
+So you can see what else happened during the slow call.
+
+10
+00:00:38.167 --> 00:00:39.578
+Where do the events go?
+
+11
+00:00:39.578 --> 00:00:44.303
+Into a recording, which keeps them in memory buffers and writes them to disk.
+
+12
+00:00:44.500 --> 00:00:45.978
+Picture it as a ring.
+
+13
+00:00:45.978 --> 00:00:48.089
+New events go in at the front.
+
+14
+00:00:48.089 --> 00:00:53.437
+Set maxage or maxsize, and once the ring is full, the oldest part falls off.
+
+15
+00:00:53.633 --> 00:00:58.824
+Set no limit, and the JVM picks one for you: 250 MB.
+
+16
+00:00:59.033 --> 00:01:04.642
+When something goes wrong, JFR.dump copies what the ring holds into a file.
+
+17
+00:01:04.642 --> 00:01:07.857
+The JVM keeps running, and keeps recording.
+
+18
+00:01:08.967 --> 00:01:10.228
+You have the file.
+
+19
+00:01:10.228 --> 00:01:11.839
+What do you read first?
+
+20
+00:01:13.633 --> 00:01:14.453
+jfr summary.
+
+21
+00:01:14.453 --> 00:01:18.758
+It lists every event type in the file, with its count and size.
+
+22
+00:01:18.758 --> 00:01:21.355
+Now you know what the recording holds.
+
+23
+00:01:22.233 --> 00:01:24.743
+Then ask a question with jfr view.
+
+24
+00:01:24.743 --> 00:01:27.473
+Each view is a query over the events.
+
+25
+00:01:27.667 --> 00:01:35.801
+allocation-by-site takes every allocation sample, groups the samples by the method at the top of the stack, and adds up their weight.
+
+26
+00:01:36.033 --> 00:01:41.295
+In the demo, one fee method made almost 41% of the allocation pressure.
+
+27
+00:01:41.295 --> 00:01:46.927
+Other views answer other questions: hot methods, GC pauses, lock contention.
+
+28
+00:01:47.700 --> 00:01:50.712
+You can also start a recording from code.
+
+29
+00:01:50.712 --> 00:01:53.945
+This one keeps the last hour, within 200 MB.
+
+30
+00:01:53.945 --> 00:01:56.957
+The API is the same from Java and Kotlin.
+
+31
+00:01:57.767 --> 00:01:58.396
+The rule.
+
+32
+00:01:58.396 --> 00:02:03.149
+JFR keeps a rolling window of timestamped events from the whole JVM.
+
+33
+00:02:03.149 --> 00:02:10.139
+Keep a recording on with limits, dump it when something is slow, then read the summary, then a view.
+
+34
+00:02:10.300 --> 00:02:11.135
+Quick check.
+
+35
+00:02:11.135 --> 00:02:13.223
+Your recording keeps one hour.
+
+36
+00:02:13.223 --> 00:02:16.007
+The slow payment happened two hours ago.
+
+37
+00:02:16.007 --> 00:02:17.260
+Is it in the dump?
+
+38
+00:02:19.633 --> 00:02:19.840
+No.
+
+39
+00:02:19.840 --> 00:02:21.289
+It fell off the ring.
+
+40
+00:02:21.289 --> 00:02:24.944
+Pick limits that match how far back you need to look.

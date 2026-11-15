@@ -21,6 +21,7 @@
     {"slug": "co09-channels", "lesson": "co-09", "section": 0, "title": "A channel is a queue between coroutines: send suspends when it's full, receive when it's empty, and select takes whichever is ready first"},
     {"slug": "co02-builders", "lesson": "co-02", "section": 2, "title": "launch and async return at once; coroutineScope returns only when every child it started has finished"},
     {"slug": "io01-c10k", "lesson": "io-01", "section": 0, "title": "A blocked read parks a whole thread, so ten thousand idle connections hold ten thousand threads; readiness lets one thread watch them all"},
-    {"slug": "co10-mutex", "lesson": "co-10", "section": 1, "title": "A one-thread view keeps other coroutines out only between suspensions; a Mutex holds across them, and runTest skips delays on a virtual clock"}
+    {"slug": "co10-mutex", "lesson": "co-10", "section": 1, "title": "A one-thread view keeps other coroutines out only between suspensions; a Mutex holds across them, and runTest skips delays on a virtual clock"},
+    {"slug": "rx05-retry", "lesson": "rx-05", "section": 2, "title": "An error ends a stream: onErrorResume replaces the rest, retry subscribes again from the source, and timeout turns silence into an error"}
   ]
 }

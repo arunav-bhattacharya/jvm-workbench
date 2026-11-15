@@ -88,6 +88,10 @@
   "conc04-monitor",
   "conc09-chm",
   "conc07-locks",
-  "conc11-confine"
+  "conc11-confine",
+  "gen06-projections",
+  "perf02-inlining",
+  "mem06-gclog",
+  "perf05-jfr"
  ]
 }
