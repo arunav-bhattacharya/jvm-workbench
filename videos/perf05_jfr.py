@@ -212,7 +212,7 @@ class Perf05Jfr(VoiceScene):
                        one("using maxsize=250MB as default.", 22, GREY_A)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
         part(start[1], "maxsize=250MB").set_color(BAD_C)
         start.move_to([0.8, -3.0, 0])
-        self.say("s7", [(0, [FadeIn(start, shift=UP * 0.1)], 0.8), (1, [mark(part(start[1], "maxsize=250MB"), BAD_C, 0.5)], 1.2)])
+        self.say("s7", [(0, [FadeIn(start, shift=UP * 0.1)], 0.8), (0, [mark(part(start[1], "maxsize=250MB"), BAD_C, 0.5)], 1.2)])
 
         fic = file_icon("pay.jfr", 1.4, 1.7).move_to([5.6, -1.75, 0])
         dump = one("jcmd <pid> JFR.dump name=pay filename=pay.jfr", 24, WHITE).move_to([0.6, -3.0, 0])

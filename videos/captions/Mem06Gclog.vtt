@@ -33,133 +33,121 @@ Pause means every application thread stopped.
 Normal means only the young part of the heap.
 
 9
-00:00:29.533 --> 00:00:31.614
-The cause: eden was full.
+00:00:29.533 --> 00:00:35.940
+Eden was full, and the heap went from 14 megabytes used to 1, of 256 committed.
 
 10
-00:00:31.614 --> 00:00:36.608
-The heap went from 14 megabytes used to 1, of 256 committed.
-
-11
-00:00:36.800 --> 00:00:41.543
+00:00:36.133 --> 00:00:40.876
 And 12.723 milliseconds is how long your threads stood still.
 
-12
-00:00:42.333 --> 00:00:45.375
+11
+00:00:41.667 --> 00:00:44.708
 Here are eight real lines from a busier G1 run.
 
-13
-00:00:45.375 --> 00:00:47.445
+12
+00:00:44.708 --> 00:00:46.779
 Which ones stopped your threads?
 
-14
-00:00:48.867 --> 00:00:53.878
+13
+00:00:48.200 --> 00:00:53.199
 A pause line has Pause right after the GC number, and ends in milliseconds.
 
-15
-00:00:53.878 --> 00:00:55.749
-It cuts across every thread.
-
-16
-00:00:55.933 --> 00:00:58.962
+14
+00:00:53.333 --> 00:00:56.362
 Concurrent Mark Cycle ends in milliseconds too.
 
-17
-00:00:58.962 --> 00:01:00.960
+15
+00:00:56.362 --> 00:00:58.360
 But it ran beside your threads.
 
+16
+00:00:58.867 --> 00:01:01.239
+Three more pauses: six of eight.
+
+17
+00:01:01.239 --> 00:01:05.835
+The longest is the full GC at the end, almost 47 milliseconds.
+
 18
-00:01:01.467 --> 00:01:02.767
-Three more pauses.
-
-19
-00:01:02.767 --> 00:01:09.053
-That's six of eight, and the longest is the full GC at the end: almost 47 milliseconds.
-
-20
-00:01:09.333 --> 00:01:12.606
+00:01:06.067 --> 00:01:09.339
 And look closer at Full and Evacuation Failure.
 
-21
-00:01:12.606 --> 00:01:15.043
+19
+00:01:09.339 --> 00:01:11.776
 A healthy G1 service shows neither.
 
-22
-00:01:15.933 --> 00:01:17.554
+20
+00:01:12.667 --> 00:01:14.288
 How big is that heap?
 
-23
-00:01:17.554 --> 00:01:24.501
+21
+00:01:14.288 --> 00:01:21.235
 In a container, the JVM reads the memory limit, and with no heap flags it takes 25% of it.
 
-24
-00:01:24.667 --> 00:01:28.543
+22
+00:01:21.400 --> 00:01:25.277
 A pod with a 1 GiB limit gets a 256 MB heap.
 
-25
-00:01:28.543 --> 00:01:31.187
+23
+00:01:25.277 --> 00:01:27.920
 Why leave three quarters free?
 
-26
-00:01:31.933 --> 00:01:34.731
-Because the heap isn't the whole process.
+24
+00:01:28.667 --> 00:01:30.980
+The heap isn't the whole process.
 
-27
-00:01:34.731 --> 00:01:40.736
+25
+00:01:30.980 --> 00:01:37.149
 Metaspace, code cache, thread stacks, GC bookkeeping and direct buffers live outside it.
 
-28
-00:01:40.867 --> 00:01:49.321
+26
+00:01:37.267 --> 00:01:45.721
 With MaxRAMPercentage=75, the same pod gets 768 MB, and the rest still fits.
 
-29
-00:01:49.467 --> 00:01:52.120
+27
+00:01:45.867 --> 00:01:48.520
 Now set -Xmx1g, the whole limit.
 
-30
-00:01:52.120 --> 00:01:54.856
+28
+00:01:48.520 --> 00:01:51.256
 What happens once the heap fills?
 
-31
-00:01:56.600 --> 00:02:01.381
+29
+00:01:53.000 --> 00:01:57.781
 The rest goes past the limit, and the kernel kills the process.
 
-32
-00:02:01.381 --> 00:02:04.037
+30
+00:01:57.781 --> 00:02:00.437
 Exit code 137, no OutOfMemoryError.
 
-33
-00:02:04.867 --> 00:02:07.824
-In production, log to rotating files.
-
-34
-00:02:07.824 --> 00:02:12.539
+31
+00:02:01.267 --> 00:02:06.180
 These JVM flags work the same for Java and Kotlin services.
 
-35
-00:02:13.267 --> 00:02:14.011
+32
+00:02:06.933 --> 00:02:07.677
 The rule.
 
-36
-00:02:14.011 --> 00:02:18.393
+33
+00:02:07.677 --> 00:02:12.059
 Pause after the GC number means your threads stopped.
 
-37
-00:02:18.393 --> 00:02:22.609
+34
+00:02:12.059 --> 00:02:16.276
 Size the heap at 50 to 75% of the limit, never 100.
 
-38
-00:02:22.733 --> 00:02:23.712
+35
+00:02:16.400 --> 00:02:17.379
 Quick check.
 
-39
-00:02:23.712 --> 00:02:25.915
+36
+00:02:17.379 --> 00:02:19.582
 A 4 GiB pod, no heap flags.
 
-40
-00:02:25.915 --> 00:02:27.873
+37
+00:02:19.582 --> 00:02:21.540
 How big is the max heap?
 
-41
-00:02:30.067 --> 00:02:32.228
+38
+00:02:23.733 --> 00:02:25.895
 1 GiB: a quarter of the limit.

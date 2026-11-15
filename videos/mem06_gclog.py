@@ -216,7 +216,7 @@ class Mem06Gclog(VoiceScene):
             return anims
 
         band = block(X[1], X[4], GCY, 0.32, GC_C, 0.6)
-        band_l = T("53.866 ms, beside the threads", 22, GC_C).move_to([X[4] + 0.3, GCY, 0], aligned_edge=LEFT)
+        band_l = T("53.866 ms, beside the threads", 22, GC_C).move_to([X[4] + 0.3, GCY + 0.24, 0], aligned_edge=LEFT)
         self.say("s6", [(0, [Create(gc_lane), FadeIn(gc_l), Create(axis2), FadeIn(note)], 0.9)])
         self.say("s7", [(0, lambda: place(0), 0.8),
                         (0, lambda: [mark(part(shown[0][0], "Pause"), BAD_C, 0.4)], 1.0),
