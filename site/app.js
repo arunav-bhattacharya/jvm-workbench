@@ -160,7 +160,8 @@
     moon: '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 12.4A7 7 0 0 1 7.6 3.5a7 7 0 1 0 8.9 8.9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
     timer: '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 7.5V11l2.4 1.6M8 2.2h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
   };
-  const brandMark = '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">' + [0, 1, 2].map((r) => ["var(--ember)", "color-mix(in srgb, var(--ember) 65%, var(--ink))", "color-mix(in srgb, var(--ember) 35%, var(--ink))"].map((c, k) => `<circle cx="${4 + k * 7}" cy="${4 + r * 7}" r="${r === 1 && k === 1 ? 2.1 : 1.35}" fill="${c}"/>`).join("")).join("") + '<circle cx="11" cy="11" r="6" fill="none" stroke="var(--ember)" stroke-opacity=".7" stroke-width=".9"/></svg>';
+  // the mark is the plan in miniature: a week done, one lesson more, and the saffron dot that is next
+  const brandMark = '<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">' + [0, 1, 2].map((c) => [0, 1, 2].map((r) => `<circle cx="${4 + c * 6}" cy="${4 + r * 6}" r="${c === 1 && r === 1 ? 2.3 : 1.9}" fill="${c === 0 || (c === 1 && r === 0) ? "var(--accent)" : c === 1 && r === 1 ? "var(--here)" : "var(--mark-off)"}"/>`).join("")).join("") + "</svg>";
   const vbadge = (id) => (L[id] && L[id].vid ? `<span class="vbadge" title="${L[id].vid === 1 ? "Has a video" : `Has ${L[id].vid} videos`}" aria-label="has a video">${icon.video}</span>` : "");
   const cells = (ids, big) => `<span class="draft" aria-hidden="true">${ids.map((id) => `<i class="cell${big ? " lg" : ""} ${cellState(id)}"></i>`).join("")}</span>`;
   function codeBox(c, title) {
@@ -188,7 +189,7 @@
   /* ---------------- frame ---------------- */
   const app = $("#app");
   let mobileOpen = false, deskOpen = true;
-  const effectiveTheme = () => S.theme || "light"; // light unless the learner picks dark
+  const effectiveTheme = () => S.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); // the system's theme until the learner picks one
   function frame() {
     const due = dueIds().length;
     app.innerHTML = `
@@ -201,7 +202,7 @@
         <kbd class="gs-k hide-sm">/</kbd><div class="gres" id="gres" role="listbox" hidden></div></div>
       <button class="chip ${due ? "" : "quiet"}" data-go="review" title="Spaced review"><span class="dot"></span><span class="tnum">${due}</span><span class="hide-sm">&nbsp;due</span></button>
       <button class="iconbtn" data-act="timer" aria-label="Focus timer" title="35-minute focus timer">${icon.timer}</button>
-      <button class="switch" data-act="theme" role="switch" aria-checked="${effectiveTheme() === "dark"}" aria-label="Dark mode" title="Dark mode"><span class="tr"></span><span class="kn"></span></button>
+      <button class="iconbtn" data-act="theme" role="switch" aria-checked="${effectiveTheme() === "dark"}" aria-label="Dark mode" title="Dark mode">${effectiveTheme() === "dark" ? icon.sun : icon.moon}</button>
     </header>
     <div class="scrim ${mobileOpen ? "on" : ""}" data-act="close-menu"></div>
     <nav class="side ${(isDesk() ? !deskOpen : !mobileOpen) ? "closed" : ""}" aria-label="Contents" id="side"></nav>
@@ -326,11 +327,11 @@
       if (filterText && !shown.length) continue;
       h += `<div class="trk"><button data-act="toggle-track" data-id="${t.id}" aria-expanded="${open}">
           <span class="tn">${pad(t.idx)}</span><span class="tt">${esc(t.title)}</span><span></span>${cells(t.lessons)}</button>
-        ${open ? `<ul><li><button data-go="track-${t.id}" class="${cur === "track-" + t.id ? "on" : ""}"><span class="cell" style="visibility:hidden"></span>Track overview</button></li>
+        ${open ? `<ul><li><button data-go="track-${t.id}" class="${cur === "track-" + t.id ? "on" : ""}"><span class="cell ghost"></span>Track overview</button></li>
           ${shown.map((id) => `<li><button data-go="${id}" class="${cur === id ? "on" : ""}"><i class="cell ${cellState(id)}"></i><span>${esc(L[id].title)}${vbadge(id)}</span></button></li>`).join("")}</ul>` : ""}
       </div>`;
     }
-    h += `<p class="label" style="padding:18px 20px 0;line-height:1.6">Progress is saved in this browser. Move it between devices from Plan and progress.</p>`;
+    h += `<p class="label sidenote">Progress is saved in this browser. Move it between devices from Plan and progress.</p>`;
     $("#side").innerHTML = h;
   }
   let filterText = "";
@@ -462,13 +463,13 @@
     const started = doneCount() > 0;
     return `
     <section class="hero">
-      <div class="row" style="justify-content:space-between"><span class="label">${ORDER.length} lessons · ${C.tracks.length} tracks${PARTS.length ? ` in ${PARTS.length} parts` : ""} · about 35 minutes a day</span><span class="label">${totalWeeks()} weeks at ${pace()} days a week</span></div>
+      <div class="row between"><span class="label">${ORDER.length} lessons · ${C.tracks.length} tracks${PARTS.length ? ` in ${PARTS.length} parts` : ""} · about 35 minutes a day</span><span class="label">${totalWeeks()} weeks at ${pace()} days a week</span></div>
       <h1>JVM <i>Workbench</i></h1>
       <p>${esc(C.tagline)} Every lesson ends with real code to write and tests that tell you when it works.</p>
       <div class="plate-wrap">${weekPlate()}</div>
       <div class="plate-legend">
-        <span><svg width="14" height="14" viewBox="-7 -7 14 14"><circle r="3.4" fill="var(--ember)"/></svg>Done</span>
-        <span><svg width="18" height="18" viewBox="-9 -9 18 18"><circle r="6" fill="none" stroke="var(--ember)" stroke-width="1.2" class="pulse"/><circle r="2.2" fill="var(--ember)"/></svg>Next</span>
+        <span><svg width="14" height="14" viewBox="-7 -7 14 14"><circle r="3.4" fill="var(--accent)"/></svg>Done</span>
+        <span><svg width="18" height="18" viewBox="-9 -9 18 18"><circle r="6" fill="none" stroke="var(--here)" stroke-width="1.2" class="pulse"/><circle r="2.2" fill="var(--here)"/></svg>Next</span>
         <span><svg width="14" height="14" viewBox="-7 -7 14 14"><circle r="2.2" fill="var(--mark-off)"/></svg>Later</span>
         <span>One column per week, one dot per study day. Tap a dot to open that lesson.</span>
       </div>
@@ -479,21 +480,21 @@
       <div class="panel step ${due ? "now" : ""}">
         <span class="n">1 · Review · about 10 min</span>
         <h3>${due ? `${due} card${due === 1 ? "" : "s"} due` : started ? "Nothing due" : "Your deck starts here"}</h3>
-        <p class="mute" style="margin:0;font-size:15.5px">${due ? "Answer from memory first, then check. This is the part that makes lessons stick. Short on time? Do only this." : started ? "Cards come back just before you would forget them. Check again tomorrow." : "Each finished lesson adds 5 to 7 cards. They come back on a schedule, just before you would forget them."}</p>
+        <p class="note">${due ? "Answer from memory first, then check. This is the part that makes lessons stick. Short on time? Do only this." : started ? "Cards come back just before you would forget them. Check again tomorrow." : "Each finished lesson adds 5 to 7 cards. They come back on a schedule, just before you would forget them."}</p>
         <div class="row">${due ? `<button class="btn hold" data-go="review">Start review</button>` : `<button class="btn ghost" data-go="practice" ${started ? "" : "disabled"}>Mixed practice</button>`}</div>
       </div>
       <div class="panel step ${!due && l ? "now" : ""}">
         <span class="n">2 · Learn and practice · about 25 min</span>
         ${l ? `<h3>${esc(l.title)}</h3>
           <span class="label">${wdLabel(l.id)} · ${esc(T[l.track].title)} · lesson ${l.n} of ${T[l.track].lessons.length}${l.minutes ? ` · ${l.minutes} min` : ""}</span>
-          ${l.ready ? `<p style="margin:0;font-size:16px">${l.goal}</p>` : `<p class="mute" style="margin:0;font-size:15.5px">This lesson is still being written.</p>`}
+          ${l.ready ? `<p class="goalline">${l.goal}</p>` : `<p class="note">This lesson is still being written.</p>`}
           <div class="row"><button class="btn" data-go="${l.id}">${started ? "Open lesson" : "Start the first lesson"}</button>${!S.seenSetup ? `<button class="btn ghost" data-go="setup">Set up the labs first</button>` : ""}</div>`
-        : `<h3>Every lesson is done</h3><p class="mute" style="margin:0">Keep your reviews going. Five minutes a day keeps all of it.</p>`}
+        : `<h3>Every lesson is done</h3><p class="note">Keep your reviews going. Five minutes a day keeps all of it.</p>`}
       </div>
       <div class="panel step">
         <span class="n">3 · Progress</span>
         <div class="stat tnum">${doneCount()}<small>of ${ORDER.length} done</small></div>
-        <div class="mute" style="font-size:15px">Studied <b class="tnum">${studiedLast7()}</b> of the last 7 days. ${l ? `You are in week <b class="tnum">${wd(l.id).w}</b> of ${totalWeeks()} at ${pace()} days a week.` : "Course finished."}</div>
+        <div class="note">Studied <b class="tnum">${studiedLast7()}</b> of the last 7 days. ${l ? `You are in week <b class="tnum">${wd(l.id).w}</b> of ${totalWeeks()} at ${pace()} days a week.` : "Course finished."}</div>
         <div class="row"><button class="btn ghost sm" data-go="plan">See the plan</button></div>
       </div>
     </section>
@@ -530,7 +531,7 @@
     ORDER.forEach((id, k) => {
       const x = x0 + Math.floor(k / days) * sx, y = y0 + (k % days) * sy;
       const st = S.done[id] ? "done" : id === nx ? "next" : "later";
-      const mark = st === "done" ? `<circle r="4.2" fill="var(--ember)"/>` : st === "next" ? `<circle r="7.4" fill="none" stroke="var(--ember)" stroke-width="1.3" class="pulse"/><circle r="2.8" fill="var(--ember)"/>` : `<circle r="2.8" fill="var(--mark-off)"/>`;
+      const mark = st === "done" ? `<circle r="3.6" fill="var(--accent)"/>` : st === "next" ? `<circle r="7.4" fill="none" stroke="var(--here)" stroke-width="1.3" class="pulse"/><circle r="3.2" fill="var(--here)"/>` : `<circle r="2.8" fill="var(--mark-off)"/>`;
       g += `<g transform="translate(${x} ${y})" data-go="${id}" role="link" aria-label="${wdLabel(id)}: ${esc(L[id].title)}"><title>${wdLabel(id)}: ${esc(L[id].title)}</title><circle r="11" fill="transparent"/>${mark}</g>`;
     });
     return `<svg class="plate-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Course plan: ${doneCount()} of ${ORDER.length} lessons done">${g}</svg>`;
@@ -545,7 +546,7 @@
     const t = T[l.track];
     const i = ORDER.indexOf(l.id);
     const prev = i > 0 ? L[ORDER[i - 1]] : null, next = i < ORDER.length - 1 ? L[ORDER[i + 1]] : null;
-    const crumb = `<div class="crumb"><span class="label" style="color:var(--hold-ink)">${wdLabel(l.id)}</span><button data-go="track-${t.id}">${trackTag(t)} · ${esc(t.title)}</button><span class="label">Lesson ${l.n} of ${t.lessons.length}${l.minutes ? ` · about ${l.minutes} min` : ""}</span></div>`;
+    const crumb = `<div class="crumb"><span class="label when">${wdLabel(l.id)}</span><button data-go="track-${t.id}">${trackTag(t)} · ${esc(t.title)}</button><span class="label">Lesson ${l.n} of ${t.lessons.length}${l.minutes ? ` · about ${l.minutes} min` : ""}</span></div>`;
     if (!l.ready) return `<article class="pending lhead">${crumb}<h1>${esc(l.title)}</h1><p class="goal">This lesson is still being written. It will appear here, at the same link, when it is ready.</p></article>${pager(prev, next)}`;
     if (l.remote && !l.sections) {
       loadLesson(l);
@@ -560,11 +561,11 @@
       </header>`;
     if (l.opening) {
       toc.push(["opening", "Introduction"]);
-      h += `<section class="block opening" id="opening" style="margin-top:0"><div class="prose lede">${l.opening}</div></section>`;
+      h += `<section class="block opening flush" id="opening"><div class="prose lede">${l.opening}</div></section>`;
     }
     if (l.warmup) {
       toc.push(["warmup", "Before you read"]);
-      h += `<section class="block" id="warmup" style="margin-top:${l.opening ? "28px" : "0"};margin-bottom:40px"><span class="label">Before you read · guess, no score</span>${mcqCard(l.warmup, "w:" + l.id, 0, { warm: true })}</section>`;
+      h += `<section class="block" id="warmup"><span class="label">Before you read · guess, no score</span>${mcqCard(l.warmup, "w:" + l.id, 0, { warm: true })}</section>`;
     }
     l.sections.forEach((s, si) => {
       toc.push([`s${si}`, s.h + (s.video ? `<span class="vbadge" title="Has a video">${icon.video}</span>` : ""), pad(si + 1)]);
@@ -602,24 +603,24 @@
         <ol>${lb.steps.map((s) => `<li>${s}</li>`).join("")}</ol>
         ${lb.hints.slice(0, shown).map((x, k) => `<div class="hint"><span class="label">Hint ${k + 1}</span>${x}</div>`).join("")}
         <div class="row">${shown < lb.hints.length ? `<button class="btn ghost sm" data-act="hint" data-id="${l.id}">${shown ? "Another hint" : "Stuck? Show a hint"}</button>` : ""}
-        <span class="mute" style="font-size:15px"><b>Done when:</b> ${lb.done}</span></div>
-        <p class="mute" style="margin:0;font-size:14.5px">The reference answer is in <code>src/solution</code> of the same package. Look only after the tests pass, or after 20 honest minutes.</p>
+        <span class="note"><b>Done when:</b> ${lb.done}</span></div>
+        <p class="note">The reference answer is in <code>src/solution</code> of the same package. Look only after the tests pass, or after 20 honest minutes.</p>
       </div></section>`;
     }
     if (l.drill) {
       toc.push(["drill", "From memory"]);
       h += `<section class="block" id="drill"><span class="label">Drill · from memory · ${l.drill.minutes} min</span><h2>${l.drill.title}</h2><div class="prose">${l.drill.prompt}</div>
-        <details class="reveal"><summary>Show the answer</summary><div style="margin-top:10px">${codePair(l.drill.answer, "Answer")}</div></details></section>`;
+        <details class="reveal"><summary>Show the answer</summary><div class="reveal-body">${codePair(l.drill.answer, "Answer")}</div></details></section>`;
     }
-    if (l.recap.length) h += `<section class="block"><div class="recap"><span class="label">Remember</span><ul class="prose" style="max-width:none">${l.recap.map((r) => `<li>${r}</li>`).join("")}</ul></div></section>`;
+    if (l.recap.length) h += `<section class="block"><div class="recap"><span class="label">Remember</span><ul class="prose">${l.recap.map((r) => `<li>${r}</li>`).join("")}</ul></div></section>`;
     if (l.closing) h += `<section class="block" id="closing"><aside class="call next"><span class="label">Where we go next</span><div class="prose">${l.closing}</div></aside></section>`;
     toc.push(["quiz", "Quiz"]);
     h += `<section class="block" id="quiz"><span class="label">Exit quiz · ${l.quiz.length} questions · ${Math.ceil(l.quiz.length * 0.8)} right marks the lesson done</span><h2>Check what stuck</h2>${quizBlock(l.quiz, l.id, "lesson")}</section>`;
     if (l.explain) {
       toc.push(["explain", "Explain it back"]);
-      h += `<section class="block" id="explain"><span class="label">Explain it back</span><div class="prose"><p style="font-size:19px">${l.explain.prompt}</p></div>
+      h += `<section class="block" id="explain"><span class="label">Explain it back</span><div class="prose"><p>${l.explain.prompt}</p></div>
         <textarea class="field" id="explain-${l.id}" rows="5" data-explain="${l.id}" placeholder="Write it in your own words. Rough is fine. It stays in this browser.">${esc(S.explain[l.id] || "")}</textarea>
-        <details class="reveal"><summary>Compare with a model answer</summary><div class="call analogy" style="margin-top:10px"><div class="prose">${l.explain.answer}</div></div></details></section>`;
+        <details class="reveal"><summary>Compare with a model answer</summary><div class="call analogy reveal-body"><div class="prose">${l.explain.answer}</div></div></details></section>`;
     }
     if (l.terms.length) {
       toc.push(["terms", "Key terms"]);
@@ -628,15 +629,15 @@
     if (l.cards.length) h += `<section class="block"><span class="label">${done ? "In your review deck" : "These cards join your review deck when you finish"}</span><div class="cards-preview">${l.cards.map((c) => `<div>${c.front}</div>`).join("")}</div></section>`;
     if (l.deeper || l.sources.length) {
       toc.push(["deeper", "Go deeper"]);
-      h += `<section class="block" id="deeper"><details class="reveal"><summary>Go deeper${l.deeper ? ` · optional · about ${l.deeper.minutes} min` : ""}</summary><div style="display:grid;gap:16px;margin-top:14px">
+      h += `<section class="block" id="deeper"><details class="reveal"><summary>Go deeper${l.deeper ? ` · optional · about ${l.deeper.minutes} min` : ""}</summary><div class="reveal-body stack">
         ${l.deeper ? `<div class="prose">${l.deeper.html}</div>` : ""}
         ${l.sources.length ? `<div class="refs"><span class="label">Sources</span>${l.sources.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${s.title}</a>`).join("")}</div>` : ""}</div></details></section>`;
     }
-    h += `<section class="block"><div class="score"><div><span class="label">Finished?</span><div style="font:400 24px var(--display)">${done ? "This lesson is done." : "Tick it off. The plan moves with you."}</div></div>
+    h += `<section class="block"><div class="score"><div><span class="label">Finished?</span><div class="say">${done ? "This lesson is done." : "Tick it off. The plan moves with you."}</div></div>
       ${done ? `<button class="btn ghost" data-act="undone" data-id="${l.id}">Mark not done</button>` : `<button class="btn" data-act="done" data-id="${l.id}">Mark lesson done</button>`}</div></section>`;
     h += pager(prev, next) + `</article>
       <button class="toc-open" data-act="toc-toggle" aria-label="Show the contents of this page" title="Show contents">${icon.toc}<span>Contents</span></button>
-      <aside class="toc" aria-label="On this page"><div class="toc-h"><span class="label">On this page</span><button class="toc-x" data-act="toc-toggle" aria-label="Hide the contents and widen the lesson" title="Hide contents">${icon.collapse}</button></div><ul>${toc.map(([id, label, n]) => `<li data-toc="${id}"><button data-act="scroll" data-id="${id}">${n ? `<span class="label" style="margin-right:6px">${n}</span>` : ""}${label}</button></li>`).join("")}</ul></aside></div>`;
+      <aside class="toc" aria-label="On this page"><div class="toc-h"><span class="label">On this page</span><button class="toc-x" data-act="toc-toggle" aria-label="Hide the contents and widen the lesson" title="Hide contents">${icon.collapse}</button></div><ul>${toc.map(([id, label, n]) => `<li data-toc="${id}"><button data-act="scroll" data-id="${id}">${n ? `<span class="label">${n}</span>` : ""}${label}</button></li>`).join("")}</ul></aside></div>`;
     return h;
   }
   // the web build ships lesson bodies as separate files (lessons/<id>.json); the preview inlines them
@@ -650,10 +651,10 @@
   const callout = (kind, title, html) => `<aside class="call ${kind}"><span class="label">${title}</span><div class="prose">${html}</div></aside>`;
   function tryIt(t) {
     return `<aside class="tryit"><div class="th"><span class="label">Try it</span><b>${t.title}</b><span class="mins">${t.minutes} min</span></div>
-      <ol class="prose" style="max-width:none">${t.steps.map((s) => `<li>${s}</li>`).join("")}</ol>
+      <ol class="prose">${t.steps.map((s) => `<li>${s}</li>`).join("")}</ol>
       ${t.code ? codePair(t.code) : ""}
-      ${t.code && t.code.file ? `<span class="label" style="text-transform:none;letter-spacing:.02em">In the repo: ${esc(t.code.file)}${t.code.alt && t.code.alt.file ? ` and ${esc(t.code.alt.file)}` : ""}</span>` : ""}
-      ${t.expect ? `<details class="reveal"><summary>What you should see</summary><div class="expect" style="margin-top:8px"><div class="prose">${t.expect}</div></div></details>` : ""}</aside>`;
+      ${t.code && t.code.file ? `<span class="label">In the repo: ${esc(t.code.file)}${t.code.alt && t.code.alt.file ? ` and ${esc(t.code.alt.file)}` : ""}</span>` : ""}
+      ${t.expect ? `<details class="reveal"><summary>What you should see</summary><div class="expect"><div class="prose">${t.expect}</div></div></details>` : ""}</aside>`;
   }
   function pager(prev, next) {
     return `<nav class="pager">${prev ? `<button data-go="${prev.id}"><span class="label">← Previous</span><b>${esc(prev.title)}</b></button>` : "<span></span>"}
@@ -680,7 +681,7 @@
     const src = q.from && L[q.from] ? `<span class="tag from">From: ${esc(L[q.from].title)}</span>` : "";
     const tags = src + (opt.lessonTag || "");
     return `<div class="qcard ${opt.num ? "numbered" : ""}" id="q-${esc(key)}-${qi}">
-      <div class="qhead">${opt.num ? `<span class="qno" aria-label="Question ${qi + 1}">${qi + 1}</span>` : ""}<div class="q prose" style="max-width:none">${q.q}${tags ? `<span class="qtags">${tags}</span>` : ""}</div></div>
+      <div class="qhead">${opt.num ? `<span class="qno" aria-label="Question ${qi + 1}">${qi + 1}</span>` : ""}<div class="q prose full">${q.q}${tags ? `<span class="qtags">${tags}</span>` : ""}</div></div>
       <div class="opts" role="radiogroup" aria-label="Answers">${q.options.map((o, k) => {
         const cls = answered ? (k === q.answer ? "right" : k === pick ? "wrong" : "fade") : "";
         const state = answered ? (k === q.answer ? (k === pick ? ", your answer, right" : ", the right answer") : k === pick ? ", your answer, wrong" : "") : "";
@@ -700,7 +701,7 @@
       const missed = qs.map((q, i) => (st[i] !== q.answer ? i : -1)).filter((i) => i >= 0);
       const need = Math.ceil(n * 0.8);
       h += `<div class="score"><div><span class="label">Score</span><div><b class="tnum">${right} / ${n}</b></div></div>
-        <div class="mute" style="max-width:46ch;font-size:15px">${missed.length ? `Missed ${missed.length}. They come back in tomorrow's review. Try them once more below while the explanation is fresh.` : "All right. Clean."}${kind === "lesson" ? (right >= need ? " The lesson is marked done." : ` You need ${need} to mark the lesson done. Reread the sections behind the ones you missed, then retake it.`) : ""}</div>
+        <div class="note">${missed.length ? `Missed ${missed.length}. They come back in tomorrow's review. Try them once more below while the explanation is fresh.` : "All right. Clean."}${kind === "lesson" ? (right >= need ? " The lesson is marked done." : ` You need ${need} to mark the lesson done. Reread the sections behind the ones you missed, then retake it.`) : ""}</div>
         <button class="btn ghost sm" data-act="retake" data-key="${esc(key)}">Retake</button></div>`;
       if (missed.length) {
         const rs = pageState.quiz[retryKey] || (pageState.quiz[retryKey] = {});
@@ -796,13 +797,13 @@
     const best = S.tquiz[t.id];
     return `<header class="lhead"><div class="crumb"><span class="label">${trackTag(t)} · ${t.lessons.length} lessons · labs/${esc(t.lab)}</span></div>
       <h1>${esc(t.title)}</h1><p class="goal">${esc(t.short)}</p>${cells(t.lessons, true)}</header>
-      ${t.intro ? `<div class="prose" style="margin-bottom:34px">${t.intro}</div>` : ""}
-      <section class="block" style="margin-top:0"><span class="label">Lessons</span><div class="plan-list">
+      ${t.intro ? `<div class="prose intro">${t.intro}</div>` : ""}
+      <section class="block flush"><span class="label">Lessons</span><div class="plan-list">
         ${t.lessons.map((id) => { const l = L[id]; return `<div class="pr"><span class="d">${wdShort(id)}</span><i class="cell ${cellState(id)}"></i><button data-go="${id}">${esc(l.title)}${vbadge(id)}${l.ready ? "" : ' <span class="label">being written</span>'}</button><span class="label">${S.quiz[id] != null ? `quiz ${S.quiz[id]}/5` : ""}</span></div>`; }).join("")}
       </div></section>
-      ${t.cheatsheet ? `<section class="block"><span class="label">Cheat sheet</span><h2>The track on one page</h2><div class="prose" style="max-width:none">${t.cheatsheet}</div></section>` : ""}
-      ${t.recap.length ? `<section class="block"><div class="recap"><span class="label">Remember from this track</span><ul class="prose" style="max-width:none">${t.recap.map((r) => `<li>${r}</li>`).join("")}</ul></div></section>` : ""}
-      ${t.quiz.length ? `<section class="block"><span class="label">Track quiz · ${t.quiz.length} questions${best != null ? ` · best ${best}/${t.quiz.length}` : ""}</span><h2>Mix it all together</h2><p class="mute" style="margin:0;max-width:60ch">Take it when you finish the track, and again a week later. Missed questions join your review deck.</p>${quizBlock(t.quiz, "t:" + t.id, "track")}</section>` : ""}`;
+      ${t.cheatsheet ? `<section class="block"><span class="label">Cheat sheet</span><h2>The track on one page</h2><div class="prose full">${t.cheatsheet}</div></section>` : ""}
+      ${t.recap.length ? `<section class="block"><div class="recap"><span class="label">Remember from this track</span><ul class="prose">${t.recap.map((r) => `<li>${r}</li>`).join("")}</ul></div></section>` : ""}
+      ${t.quiz.length ? `<section class="block"><span class="label">Track quiz · ${t.quiz.length} questions${best != null ? ` · best ${best}/${t.quiz.length}` : ""}</span><h2>Mix it all together</h2><p class="note">Take it when you finish the track, and again a week later. Missed questions join your review deck.</p>${quizBlock(t.quiz, "t:" + t.id, "track")}</section>` : ""}`;
   }
 
   /* ---------------- review ---------------- */
@@ -812,7 +813,7 @@
     if (rs.i >= rs.queue.length) {
       const nextDue = Object.values(S.cards).filter((c) => c.due > today()).map((c) => c.due).sort((a, b) => a - b)[0];
       const total = Object.keys(S.cards).length;
-      return `<div class="rv"><span class="label">Spaced review</span><h1 style="font-size:48px">${rs.done ? "Review done" : "Nothing due right now"}</h1>
+      return `<div class="rv"><span class="label">Spaced review</span><h1>${rs.done ? "Review done" : "Nothing due right now"}</h1>
         ${rs.done ? `<p class="mute">You reviewed ${rs.done} card${rs.done === 1 ? "" : "s"}${rs.again ? `, and ${rs.again} will come back tomorrow` : ""}. That is the most valuable ten minutes of the day.</p>` : ""}
         <div class="empty">${total ? `You have ${total} cards in your deck. ${nextDue ? `The next one is due ${inDays(nextDue - today())}.` : ""} Cards come back just before you would forget them, so an empty queue is the system working.` : "Your deck is empty. Each finished lesson adds 5 to 7 cards, and every quiz question you miss joins them. They start coming back the day after."}</div>
         <div class="row">${nextUp() ? `<button class="btn" data-go="${nextUp()}">Go to the next lesson</button>` : ""}${doneCount() ? `<button class="btn ghost" data-go="practice">Mixed practice</button>` : ""}</div></div>`;
@@ -820,25 +821,25 @@
     const id = rs.queue[rs.i];
     const c = S.cards[id], d = cardData(id);
     const src = d.lid ? L[d.lid] : null;
-    const meta = `<div class="row" style="justify-content:space-between"><span class="label">Card ${rs.i + 1} of ${rs.queue.length}${ids.length > rs.queue.length ? ` · ${ids.length - rs.queue.length} more wait for tomorrow` : ""}</span>${src ? `<button class="tag" style="cursor:pointer;background:none" data-go="${src.id}">${esc(src.title)}</button>` : d.tid ? `<span class="tag">${esc(T[d.tid].title)} quiz</span>` : ""}</div>
+    const meta = `<div class="row between"><span class="label">Card ${rs.i + 1} of ${rs.queue.length}${ids.length > rs.queue.length ? ` · ${ids.length - rs.queue.length} more wait for tomorrow` : ""}</span>${src ? `<button class="tag go" data-go="${src.id}">${esc(src.title)}</button>` : d.tid ? `<span class="tag">${esc(T[d.tid].title)} quiz</span>` : ""}</div>
       <div class="meter"><i style="width:${Math.round((rs.i / rs.queue.length) * 100)}%"></i></div>`;
     if (d.kind === "mcq") {
       const answered = rs.pick !== undefined;
-      return `<div class="rv">${meta}<div class="qcard"><span class="label">A question you missed before</span><div class="q prose" style="max-width:none">${d.q.q}</div>
+      return `<div class="rv">${meta}<div class="qcard"><span class="label">A question you missed before</span><div class="q prose full">${d.q.q}</div>
         <div class="opts" role="radiogroup" aria-label="Answers">${d.q.options.map((o, k) => `<button class="opt ${answered ? (k === d.q.answer ? "right" : k === rs.pick ? "wrong" : "fade") : ""}" role="radio" aria-checked="${k === rs.pick}" data-act="rv-pick" data-k="${k}" ${answered ? "disabled" : ""}><span class="ring" aria-hidden="true"></span><span class="ot">${o}${answered && k === d.q.answer ? '<span class="sr">, the right answer</span>' : ""}</span></button>`).join("")}</div>
         ${answered ? `<div class="why"><b>${rs.pick === d.q.answer ? "Right." : "Not this one. The right answer is marked."}</b> ${d.q.why}</div>` : ""}</div>
         ${answered ? `<div class="row"><button class="btn" data-act="rv-grade" data-g="${rs.pick === d.q.answer ? 3 : 1}">Next card</button></div>` : ""}</div>`;
     }
     const opts = [1, 2, 3, 4].map((g) => schedule(c, g, id, true).ivl);
     return `<div class="rv">${meta}
-      <div class="flash"><div class="front">${d.front}</div>${rs.shown ? `<div class="back prose" style="max-width:none">${d.back}</div>` : ""}</div>
+      <div class="flash"><div class="front">${d.front}</div>${rs.shown ? `<div class="back prose full">${d.back}</div>` : ""}</div>
       ${rs.shown ? `<div class="grades">
         <button class="g1" data-act="rv-grade" data-g="1">Forgot<small>${ivlLabel(opts[0])}</small></button>
         <button data-act="rv-grade" data-g="2">Hard<small>${ivlLabel(opts[1])}</small></button>
         <button class="g3" data-act="rv-grade" data-g="3">Got it<small>${ivlLabel(opts[2])}</small></button>
         <button data-act="rv-grade" data-g="4">Easy<small>${ivlLabel(opts[3])}</small></button></div>
-        <p class="mute" style="margin:0;font-size:14px">Be honest. "Got it" means you recalled it without peeking. The number is when you'll see the card again.</p>`
-        : `<div class="row"><button class="btn hold" data-act="rv-show">Show answer</button><span class="mute" style="font-size:14.5px">Say or write your answer first.</span></div>`}
+        <p class="note">Be honest. "Got it" means you recalled it without peeking. The number is when you'll see the card again.</p>`
+        : `<div class="row"><button class="btn hold" data-act="rv-show">Show answer</button><span class="note">Say or write your answer first.</span></div>`}
     </div>`;
   }
   function rvGrade(g) {
@@ -853,7 +854,7 @@
   /* ---------------- mixed practice ---------------- */
   function practicePage() {
     const doneIds = ORDER.filter((id) => S.done[id] && L[id].ready);
-    if (!doneIds.length) return `<div class="rv"><span class="label">Mixed practice</span><h1 style="font-size:48px">Mixed practice</h1><div class="empty">Finish a lesson or two first. This page mixes quiz questions from everything you have finished, so you practice telling similar ideas apart.</div></div>`;
+    if (!doneIds.length) return `<div class="rv"><span class="label">Mixed practice</span><h1>Mixed practice</h1><div class="empty">Finish a lesson or two first. This page mixes quiz questions from everything you have finished, so you practice telling similar ideas apart.</div></div>`;
     if (!pageState.mix) {
       const pool = [];
       for (const id of doneIds) L[id].quiz.forEach((q, qi) => pool.push({ key: id, qi, q, w: 1 + (today() - dayNum(new Date(S.done[id]))) / 7 }));
@@ -868,11 +869,11 @@
     const st = pageState.quiz.mix || {};
     const all = pageState.mix.every((_, i) => st[i] !== undefined);
     const right = pageState.mix.filter((x, i) => st[i] === x.q.answer).length;
-    return `<div class="rv" style="max-width:860px"><span class="label">Mixed practice · ${pageState.mix.length} questions from ${doneIds.length} finished lesson${doneIds.length === 1 ? "" : "s"}</span>
-      <h1 style="font-size:48px">Tell similar ideas apart</h1>
-      <p class="mute" style="margin:0">Questions come from all your finished lessons, older ones more often. Mixing topics feels harder than practicing one at a time. That difficulty is what helps you pick the right tool later.</p>
+    return `<div class="rv wider"><span class="label">Mixed practice · ${pageState.mix.length} questions from ${doneIds.length} finished lesson${doneIds.length === 1 ? "" : "s"}</span>
+      <h1>Tell similar ideas apart</h1>
+      <p class="mute">Questions come from all your finished lessons, older ones more often. Mixing topics feels harder than practicing one at a time. That difficulty is what helps you pick the right tool later.</p>
       <div class="quiz">${pageState.mix.map((x, i) => mcqCard(x.q, "mix", i, { num: true, lessonTag: `<span class="tag">${esc(L[x.key].title)}</span>` })).join("")}
-      ${all ? `<div class="score"><div><span class="label">Score</span><div><b>${right} / ${pageState.mix.length}</b></div></div><span class="mute" style="font-size:15px">Missed questions join your review deck.</span><button class="btn" data-act="new-mix">New set</button></div>` : ""}</div></div>`;
+      ${all ? `<div class="score"><div><span class="label">Score</span><div><b>${right} / ${pageState.mix.length}</b></div></div><span class="note">Missed questions join your review deck.</span><button class="btn" data-act="new-mix">New set</button></div>` : ""}</div></div>`;
   }
 
   /* ---------------- plan ---------------- */
@@ -891,23 +892,23 @@
     const left = ORDER.length - doneCount();
     return `<header class="lhead"><span class="label">Plan and progress</span><h1>Your plan</h1>
       <p class="goal">The plan counts course weeks and days, not dates. Skip a day and nothing is "late": you pick up at the next lesson. Change how many days a week you study and the weeks rearrange around it.</p></header>
-      <section class="kv" style="margin-bottom:34px">
+      <section class="kv">
         <div class="panel"><span class="label">Lessons done</span><div class="stat tnum">${doneCount()}<small>of ${ORDER.length}</small></div></div>
         <div class="panel"><span class="label">Current week</span><div class="stat tnum">${nx ? wd(nx).w : "Done"}<small>${nx ? `of ${weeks} · day ${wd(nx).d}` : ""}</small></div></div>
         <div class="panel"><span class="label">Still to go</span><div class="stat tnum">${Math.ceil(left / pace())}<small>weeks · ${left} lessons</small></div></div>
         <div class="panel"><span class="label">Cards in deck</span><div class="stat tnum">${cardsTotal}<small>${mature} long-term</small></div></div>
       </section>
-      <section class="block" style="margin-top:0"><div class="row" style="justify-content:space-between"><span class="label">${weeks} weeks · one row per week · one cell per study day</span>
-        <label class="row" style="gap:8px;font-size:15px" for="pace">Days a week <select class="field" id="pace" data-act="pace">${[3, 4, 5, 6, 7].map((n) => `<option value="${n}" ${pace() === n ? "selected" : ""}>${n}</option>`).join("")}</select></label></div>
+      <section class="block flush"><div class="row between"><span class="label">${weeks} weeks · one row per week · one cell per study day</span>
+        <label class="row" for="pace">Days a week <select class="field" id="pace" data-act="pace">${[3, 4, 5, 6, 7].map((n) => `<option value="${n}" ${pace() === n ? "selected" : ""}>${n}</option>`).join("")}</select></label></div>
         <div class="weeks">${grid}</div>
-        <span class="mute" style="font-size:14px">Filled cells are done, the saffron cell is your next lesson. Studied ${studiedLast7()} of the last 7 days. Aim for most days, not every day: one missed day costs almost nothing.</span></section>
-      ${leeches.length ? `<section class="block"><span class="label">Cards that keep slipping</span><p class="mute" style="margin:0">You've forgotten these 8 or more times. That usually means a gap in the lesson behind them. Reread the section, then keep going.</p>
+        <span class="note">Filled cells are done, the saffron cell is your next lesson. Studied ${studiedLast7()} of the last 7 days. Aim for most days, not every day: one missed day costs almost nothing.</span></section>
+      ${leeches.length ? `<section class="block"><span class="label">Cards that keep slipping</span><p class="note">You've forgotten these 8 or more times. That usually means a gap in the lesson behind them. Reread the section, then keep going.</p>
         <div class="plan-list">${leeches.map((id) => { const d = cardData(id); return d ? `<div class="pr"><span class="d">card</span><i class="cell"></i><button data-go="${d.lid || "track-" + d.tid}">${d.kind === "flash" ? d.front : d.q.q}</button><span></span></div>` : ""; }).join("")}</div></section>` : ""}
       <section class="block"><span class="label">Schedule</span><div class="plan-list">
-        ${Array.from({ length: weeks }, (_, k) => k + 1).map((w) => `<div class="ptrack">Week ${w}</div>` + ORDER.slice((w - 1) * pace(), w * pace()).map((id) => `<div class="pr"><span class="d">Day ${wd(id).d}</span><i class="cell ${cellState(id)}"></i><button data-go="${id}">${esc(L[id].title)} <span class="label" style="margin-left:6px">${esc(T[L[id].track].title)}</span></button><span class="label">${S.quiz[id] != null ? `quiz ${S.quiz[id]}/5` : ""}</span></div>`).join("")).join("")}
+        ${Array.from({ length: weeks }, (_, k) => k + 1).map((w) => `<div class="ptrack">Week ${w}</div>` + ORDER.slice((w - 1) * pace(), w * pace()).map((id) => `<div class="pr"><span class="d">Day ${wd(id).d}</span><i class="cell ${cellState(id)}"></i><button data-go="${id}">${esc(L[id].title)} <span class="label gap">${esc(T[L[id].track].title)}</span></button><span class="label">${S.quiz[id] != null ? `quiz ${S.quiz[id]}/5` : ""}</span></div>`).join("")).join("")}
       </div></section>
       <section class="block"><span class="label">Move your progress</span><h2>Phone and laptop</h2>
-        <p class="mute" style="margin:0;max-width:62ch">Progress lives in this browser. To move it, copy it here, then paste it on the other device and import. Importing merges: nothing you've done on either device is lost.</p>
+        <p class="note">Progress lives in this browser. To move it, copy it here, then paste it on the other device and import. Importing merges: nothing you've done on either device is lost.</p>
         <textarea class="field" id="sync-box" rows="4" placeholder="Paste progress from another device here"></textarea>
         <div class="row"><button class="btn ghost sm" data-act="export">Copy my progress</button><button class="btn sm" data-act="import">Import pasted progress</button></div></section>`;
   }
@@ -921,7 +922,7 @@
   function sheetsPage() {
     const have = C.tracks.filter((t) => t.cheatsheet);
     return `<header class="lhead"><span class="label">Reference</span><h1>Cheat sheets</h1><p class="goal">One page per track. Come back to these when you need the answer, not the lesson.</p></header>
-      ${have.length ? have.map((t) => `<section class="sheet" id="sheet-${t.id}"><span class="label">${trackTag(t)}</span><h2>${esc(t.title)}</h2><div class="prose" style="max-width:none">${t.cheatsheet}</div></section>`).join("") : `<div class="empty">Cheat sheets appear here as tracks are written.</div>`}`;
+      ${have.length ? have.map((t) => `<section class="sheet" id="sheet-${t.id}"><span class="label">${trackTag(t)}</span><h2>${esc(t.title)}</h2><div class="prose full">${t.cheatsheet}</div></section>`).join("") : `<div class="empty">Cheat sheets appear here as tracks are written.</div>`}`;
   }
   function glossaryPage() {
     const all = [];
@@ -931,7 +932,7 @@
     const shown = all.filter((x) => !q || (x.t.term + " " + x.t.plain).replace(/<[^>]+>/g, "").toLowerCase().includes(q));
     return `<header class="lhead"><span class="label">Reference · ${all.length} terms</span><h1>Glossary</h1>
       <input class="field" id="gloss-filter" type="search" placeholder="Filter terms" aria-label="Filter terms" value="${esc(pageState.gq || "")}" style="max-width:420px"></header>
-      <dl class="terms" style="max-width:none">${shown.map((x) => `<div><dt>${x.t.term}</dt><dd>${x.t.plain} <button class="tag" style="cursor:pointer;background:none;margin-left:4px" data-go="${x.id}">${esc(L[x.id].title)}</button></dd></div>`).join("") || `<div class="mute">No term matches.</div>`}</dl>`;
+      <dl class="terms">${shown.map((x) => `<div><dt>${x.t.term}</dt><dd>${x.t.plain} <button class="tag go" data-go="${x.id}">${esc(L[x.id].title)}</button></dd></div>`).join("") || `<div class="mute">No term matches.</div>`}</dl>`;
   }
   function setupPage() {
     if (!S.seenSetup) { S.seenSetup = true; save(); }
@@ -939,8 +940,8 @@
     const cb = (title, src, lang = "bash") => codeBox({ html: esc(src), lang }, title);
     return `<header class="lhead"><span class="label">Before lesson one · about 15 minutes, once</span><h1>Set up the labs</h1>
       <p class="goal">Every lesson has code you run and a lab you finish. They all live in one Gradle project, so you set it up once.</p></header>
-      <div class="prose" style="display:grid;gap:22px;max-width:860px">
-        <section class="block" style="margin-top:0"><h2>1. Install JDK 25</h2><p>JDK 25 is the current long-term-support release. The labs compile for Java 21, so any JDK from 21 up works, but 25 lets you run every example in the lessons. SDKMAN makes switching versions painless:</p>
+      <div class="prose setup">
+        <section class="block flush"><h2>1. Install JDK 25</h2><p>JDK 25 is the current long-term-support release. The labs compile for Java 21, so any JDK from 21 up works, but 25 lets you run every example in the lessons. SDKMAN makes switching versions painless:</p>
           ${cb("terminal", "curl -s \"https://get.sdkman.io\" | bash\nsdk install java 25-tem\njava -version")}</section>
         <section class="block"><h2>2. Get the repo</h2><p>The repo has this site's content and the <code>labs</code> folder.</p>
           ${cb("terminal", `git clone ${repo}.git\ncd jvm-workbench/labs\n./gradlew :concurrency:solutionTest`)}
@@ -1106,6 +1107,7 @@
   let wasDesk = isDesk();
   addEventListener("resize", () => { if (isDesk() !== wasDesk) { wasDesk = isDesk(); render(true); } });
   if (S.theme) document.documentElement.setAttribute("data-theme", S.theme);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!S.theme) render(true); });
   document.documentElement.setAttribute("data-code", S.code || "both");
   render();
   setTimeout(() => { const nx = nextUp(); if (nx && L[nx].remote && !L[nx].sections) loadLesson(L[nx]); }, 1200);

@@ -66,6 +66,8 @@ python3 site/build.py             # writes web/index.html
 
 `web/` is committed, so deploying needs no build step.
 
+To change only how the site looks (`site/style.css`, `site/app.js`, the fonts) without publishing lesson rewrites that are still in progress, run `python3 site/build.py --look`. It rebuilds the style, script and fonts in `web/` and leaves the published lessons as they are.
+
 ## Deploy to Cloudflare
 
 Step-by-step instructions are in [DEPLOY.md](DEPLOY.md). In short, the site is a static Cloudflare Worker (`wrangler.jsonc`, assets only). Either:
