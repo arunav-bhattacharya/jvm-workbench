@@ -11,17 +11,17 @@ public class MetricsDemo {
     public static void main(String[] args) throws InterruptedException {
         LongAdder rejected = new LongAdder();
         ThreadPoolExecutor pool = new ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(4),
-                Thread.ofPlatform().name("auth-", 0).factory(),
+                Thread.ofPlatform().name("orders-", 0).factory(),
                 (task, executor) -> {
                     rejected.increment();                                  // count it, then fail like AbortPolicy
-                    throw new RejectedExecutionException("auth pool full");
+                    throw new RejectedExecutionException("orders pool full");
                 });
 
         for (int i = 0; i < 10; i++) {
             try {
                 pool.execute(() -> sleep(300));
             } catch (RejectedExecutionException e) {
-                // the caller would answer 503 here
+                // the waiter would say "come back later" here
             }
         }
         System.out.println("  ms  threads  active  queued  done  rejected");

@@ -10,16 +10,16 @@ import java.util.concurrent.atomic.LongAdder
 fun main() {
     val rejected = LongAdder()
     val pool = ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, ArrayBlockingQueue(4),
-        Thread.ofPlatform().name("auth-", 0).factory()) { _, _ ->
+        Thread.ofPlatform().name("orders-", 0).factory()) { _, _ ->
         rejected.increment()                                              // count it, then fail like AbortPolicy
-        throw RejectedExecutionException("auth pool full")
+        throw RejectedExecutionException("orders pool full")
     }
 
     repeat(10) {
         try {
             pool.execute { Thread.sleep(300) }
         } catch (e: RejectedExecutionException) {
-            // the caller would answer 503 here
+            // the waiter would say "come back later" here
         }
     }
     println("  ms  threads  active  queued  done  rejected")

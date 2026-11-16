@@ -110,7 +110,7 @@ class Narrated(VoiceScene):
             self.wait(after)
 
     def predict(self, secs=2.4):
-        tag = T("pause and guess", 24, GREY_B).move_to([-6.4, 3.15, 0], aligned_edge=LEFT)
+        tag = T("pause and guess", 24, GREY_B).move_to([-6.4, -3.2, 0], aligned_edge=LEFT)
         self.play(FadeIn(tag), run_time=0.3)
         self.wait(secs)
         self.play(FadeOut(tag), run_time=0.3)
@@ -501,7 +501,6 @@ class Conc06Deadlock(Narrated):
                     ).arrange(DOWN, buff=0.2).move_to(DOWN * 1.75)
         fit(qq, 12.4)
         self.say("moral")
-        self.at(1)
         self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
         self.at(2)
         self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.6)

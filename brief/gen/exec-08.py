@@ -13,6 +13,10 @@ def demo(name):
                     "run": f"./gradlew :executors:demo -Pmain=workbench.executors.l08.{name}Kt",
                     "file": f"{lab}/demo/{KP}/{name}.kt"}}
 
+def pair(java, kotlin):
+    """A Java fence and its Kotlin twin, side by side, as the validator expects."""
+    return f"```java\n{java}\n```\n\n```kotlin\n{kotlin}\n```"
+
 def rect(cls, x, y, w, h, label, tcls="t t-code"):
     return (f'<rect class="{cls}" x="{x}" y="{y}" width="{w}" height="{h}" rx="8"/>'
             f'<text class="{tcls}" x="{x + w / 2:.0f}" y="{y + h / 2 + 5:.0f}" text-anchor="middle">{label}</text>')
@@ -40,13 +44,207 @@ SVG = ('<svg viewBox="0 0 680 300" role="img" aria-label="Work stealing: worker 
        + '<text class="t-s t-m" x="530" y="268" text-anchor="middle">one steal brings lots of work</text>'
        + '</svg>')
 
+# ---------------------------------------------------------------- opening
+OPENING = """At the end of the year, the restaurant's owner wants one number: the total card fees. Each time a customer pays by card, the bank keeps a small fee. There are two million payments, and each fee takes a little arithmetic. After closing, four cooks stay to help, so the owner splits the pile four ways.
+
+That sounds fair until one pile turns out slower, and three cooks stand around while the fourth works. A smarter kitchen lets each cook split their own pile: keep one half, and put the other half on top of their own stack. A cook who runs out takes the bottom of a busy cook's stack, where the biggest bundle waits.
+
+That trick is called work stealing, and Java's `ForkJoinPool` does it for you. The trap is one line in the wrong order, which makes four cooks exactly as fast as one, with the right total.
+
+The cooks in the last lesson waited on the phone, and these ones only compute. In this lesson, we'll split a big job, watch idle workers steal, meet parallel streams, and see one blocking call stall them all. Before we start, make a guess, and keep it in mind."""
+
+# ---------------------------------------------------------------- section 0
+J_SUM = """class SumTask extends RecursiveTask<Long> {
+    static final int THRESHOLD = 10_000;
+    final long[] a; final int from, to;
+
+    SumTask(long[] a, int from, int to) { this.a = a; this.from = from; this.to = to; }
+
+    @Override
+    protected Long compute() {
+        if (to - from <= THRESHOLD) {                   // 1. small enough: just loop
+            long sum = 0;
+            for (int i = from; i < to; i++) sum += a[i];
+            return sum;
+        }
+        int mid = (from + to) >>> 1;                    // 2. split at the middle
+        SumTask left = new SumTask(a, from, mid), right = new SumTask(a, mid, to);
+        left.fork();                                    // 3. let another worker take the left half
+        long r = right.compute();                       // 4. do the right half here
+        return left.join() + r;                         // 5. then collect the left half
+    }
+}
+
+long takings = ForkJoinPool.commonPool().invoke(new SumTask(amounts, 0, amounts.length));"""
+K_SUM = """class SumTask(val a: LongArray, val from: Int, val to: Int) : RecursiveTask<Long>() {
+    override fun compute(): Long {
+        if (to - from <= THRESHOLD) {                   // 1. small enough: just loop
+            var sum = 0L
+            for (i in from until to) sum += a[i]
+            return sum
+        }
+        val mid = (from + to) ushr 1                    // 2. split at the middle
+        val left = SumTask(a, from, mid)
+        val right = SumTask(a, mid, to)
+        left.fork()                                     // 3. let another worker take the left half
+        val r = right.compute()                         // 4. do the right half here
+        return left.join() + r                          // 5. then collect the left half
+    }
+
+    companion object { const val THRESHOLD = 10_000 }
+}
+
+val takings = ForkJoinPool.commonPool().invoke(SumTask(amounts, 0, amounts.size))"""
+
+S0 = """Let's start with the plain version. The year's payments sit in a `long[]` called `amounts`, two million of them, each in cents. One thread can add them up with a loop, and for the takings, the year's total sales, that loop is the whole program. Our question is how to share such a loop among several threads without a manager handing out the work.
+
+A **`ForkJoinPool`** (JDK 7) is a pool built for one shape of work: a big job of computation that splits itself into smaller jobs of the same kind. To **fork** a piece is to hand it to the pool, so that another worker can pick it up. To **join** it is to wait for that piece's answer. The pool's threads are called workers.
+
+You describe the job as a `RecursiveTask<V>`, which returns a value, or a `RecursiveAction`, which doesn't. Both have one method to write, `compute()`, and it nearly always has this shape:
+
+""" + pair(J_SUM, K_SUM) + """
+
+Read `compute()` from the top. If the range holds at most `THRESHOLD` amounts, we just loop over it and return the sum. Otherwise we split the range at the middle into two new tasks. We fork the left one, compute the right one ourselves, and then join the left one and add the two halves. (`(from + to) >>> 1` is a middle that can't overflow, even for huge arrays.) The order of those last three lines matters more than anything else here, and the next section shows why.
+
+The **threshold** is the one number you have to choose: the size below which a task stops splitting and loops. Too big, and there are only a few pieces, so some workers sit idle at the end. Too small, and the cost of making and scheduling task objects eats the gain. The `ForkJoinTask` Javadoc gives a very rough rule: a task should do more than 100 and fewer than 10,000 basic steps of computation. Then measure.
+
+`WorkStealingDemo`, in the Try it below, does a heavier job than adding: it works out the card fee on each of the two million payments and totals the fees. Its `fee()` method does a hundred rounds of arithmetic per payment, to stand in for real fee rules. It runs once on one thread and once on a `ForkJoinPool` with 4 workers, and it counts the leaves, the small pieces that each worker looped over. With the default threshold of 50,000, every split halves the range until a leaf holds 31,250 payments, so there are 64 leaves:
+
+```text
+one thread:  1,021 ms
+ForkJoinPool-1-worker-1    17 leaves
+ForkJoinPool-1-worker-2    12 leaves
+ForkJoinPool-1-worker-3    16 leaves
+ForkJoinPool-1-worker-4    19 leaves
+right order, threshold 50,000: 869 ms, 7 steals, same total: true
+most leaves running at the same moment: 4
+```
+
+Correctness first: `same total: true`, so the pool did exactly the work of the loop. Then speed, and here I have to be honest. This run was on a 4-core machine that was busy with other programs, which kept most of its cores, so the pool was only about 1.2 times faster than one thread. The last line is the neutral referee. It counts how many leaves were running at the same moment, and it said 4. All four workers really did compute side by side. With four free cores, expect close to four times the speed of one thread.
+
+Run it with a threshold of 500 and there are 4,096 leaves, still well spread and still fast. Run it with 1,000,000 and there are only 2 leaves, so only 2 workers ever get work, and the referee says 2.
+
+Fork/join is for computation on data you already have in memory: summing, sorting, searching, changing every element of a big array. Its tasks should not wait for a network, a disk or a lock, for reasons the last section shows.
+
+The demo printed one more number that deserves a question. Sixty-four leaves ended up spread across four workers, with only 7 steals. Who handed them out?"""
+
+# ---------------------------------------------------------------- section 1
+J_ORDER = """left.fork();                    // the left half becomes stealable
+long r = right.compute();       // this thread works while a thief can take the left half
+return left.join() + r;"""
+K_ORDER = """left.fork()                     // the left half becomes stealable
+val r = right.compute()         // this thread works while a thief can take the left half
+return left.join() + r"""
+
+S1 = """Nobody did. A `ThreadPoolExecutor` has one shared queue, the rail that every cook takes tickets from. A `ForkJoinPool` gives every worker a queue of its own, a **deque** (say "deck"), short for double-ended queue: a line you can add to or take from at either end.
+
+`fork()` pushes the task onto the top of the current worker's deque. The worker takes its own work from the top as well, so it always runs the task it forked most recently. That's the smallest piece, and its data is still in the worker's cache, the processor's small, fast copy of recently used memory.
+
+A worker whose deque is empty becomes a thief. It picks another worker and takes the task at the **bottom** of that worker's deque. That's the oldest task, the one forked highest up in the splitting, so it's the biggest piece of work there is. The thief splits it on its own deque and stays busy for a long time. That's why the demo needed only 7 steals for 64 leaves. Taking work this way from another worker's deque is **work stealing**.
+
+In the kitchen, each cook's deque is a personal stack of payment slips. Splitting means putting half your pile on top of your own stack and carrying on with the other half. A cook with nothing left takes the bottom bundle from a colleague's stack, the biggest one, so he won't need to come back for a while. The figure shows the same moment in code.
+
+`join()` doesn't simply put the thread to sleep, either. If the forked task is still on the worker's own deque, the worker pops it and runs it right there. If a thief took it, the worker helps by running other waiting tasks until the answer is ready. So a fork/join pool needs no spare thread for each task that waits for another.
+
+Now the order. Fork one half, compute the other on this thread, and only then join:
+
+""" + pair(J_ORDER, K_ORDER) + """
+
+Swap the last two steps, `left.fork(); left.join(); right.compute()`, and the worker waits for the left half before it even starts the right one. Run the demo with `wrong`:
+
+```text
+one thread:  905 ms
+ForkJoinPool-1-worker-1    14 leaves
+ForkJoinPool-1-worker-2    17 leaves
+ForkJoinPool-1-worker-3    17 leaves
+ForkJoinPool-1-worker-4    16 leaves
+wrong order, threshold 50,000: 1,002 ms, 29 steals, same total: true
+most leaves running at the same moment: 1
+```
+
+It compiles, it gives the right total, and it's a little slower than one cook. The leaves still landed on all four workers, and there were more steals than before, so at a glance the pool looks busy. The referee tells the truth: one leaf at a time.
+
+Let's trace a single split. The worker forks the left half, so the left half sits on its deque. Then it joins the left half at once. The right half doesn't exist yet, because `right.compute()` comes later. So there's nothing else to do. Either the worker runs the left half itself, or a thief steals it and the worker waits. Only when the left half is done does the right half start. That happens at every level of the splitting, so the whole job runs one leaf after another, hopping between workers.
+
+`left.compute() + right.compute()` is the same thing written honestly: plain sequential code with extra objects. All three versions give the right total, which is how this bug gets past code review. `invokeAll(left, right)` is the library's shortcut for the right order.
+
+**Fork one half, compute the other, then join. Any other order runs the halves one after the other.**
+
+You may never write a `RecursiveTask` yourself. You're much more likely to meet this pool through a single word: `parallel`."""
+
+# ---------------------------------------------------------------- section 2
+S2 = """`list.parallelStream()`, or `.parallel()` on any stream, splits its source into pieces and runs them as fork/join tasks. They run on the **common pool**, `ForkJoinPool.commonPool()`: one `ForkJoinPool` that the whole JVM shares, ready to use without creating anything. The thread that started the stream takes part too.
+
+The common pool has `availableProcessors() - 1` workers by default, so 3 on our 4-core machine. (You can change that with the system property `-Djava.util.concurrent.ForkJoinPool.common.parallelism`.) Many users share them. Every parallel stream runs there. So does every `CompletableFuture` step that names no executor, as CompletableFuture: composing async steps showed. And since JDK 25, so do tasks scheduled on the common pool, from Scheduled executors. In the kitchen, the common pool is the one team of helpers that every part of the restaurant borrows.
+
+Three mistakes cover most parallel stream bugs. The first is writing to shared state. `SharedStateDemo` sends the numbers 0 to 99,999 through a parallel stream twice. First, it adds each one to a plain `ArrayList` and to a shared `long[]` total. Then it lets the stream build the results itself, with `toList()` and `mapToLong().sum()`. Predict what the shared versions get. Here is a run of the Java version:
+
+```text
+shared ArrayList:   50,522 of 100,000 ids, in order: false
+toList():           100,000 of 100,000 ids, in order: true
+shared long[] sum:  4,999,950,000
+mapToLong().sum():  4,999,950,000
+threads that ran the first stream: [ForkJoinPool.commonPool-worker-1, ForkJoinPool.commonPool-worker-2, ForkJoinPool.commonPool-worker-3, main]
+```
+
+Half the ids are gone, and the shared sum came out right by pure luck. The Kotlin run straight after it was less lucky: `4,814,237,001`, off by about 185 million. Both are the read-modify-write races of Race conditions: why count++ lies. Four threads read the list's size, or the total, at the same moment, and some of their writes land on top of each other. Sometimes the `ArrayList` even throws an `ArrayIndexOutOfBoundsException`, because two threads grow its array at once.
+
+The fix is to let the stream build the result: `toList()`, `collect(...)`, `sum()`, `reduce(...)`. Each thread works on its own piece, and the stream combines the pieces at the end. The last line of the output shows who did the work: the three common pool workers and `main`.
+
+The second mistake is expecting order. `forEach` on a parallel stream runs in whatever order the threads reach the elements. `toList()` and `forEachOrdered` keep the order of the source, at some cost.
+
+The third is too little work, or a source that splits badly. Splitting, scheduling and combining all cost time, so a stream of 1,000 cheap elements is faster sequential. How a source splits matters too. An array or an `ArrayList` splits in half by index, in one step, and each half can go to another worker. A `LinkedList` has no middle to jump to. Its `Spliterator`, the object that does the splitting, walks the list from the front and copies the next 1,024 elements into an array, then the next 2,048, each batch a little bigger, all on the one thread that splits. `Stream.iterate` and `BufferedReader.lines()` split badly for the same reason. Measure both versions before you keep `parallel()`.
+
+**Never write to shared state from a parallel stream. Let the stream build the result.**
+
+Each of those mistakes stays inside your own stream. The last one reaches every other part of the program."""
+
+ASIDE2 = {
+    "title": "How do I measure whether parallel() helps?",
+    "body": "Timing a loop with `System.nanoTime()` is a start, but the first runs are slow while the JIT compiler, the part of the JVM that turns busy code into fast machine code, warms up. JMH, the Java Microbenchmark Harness from the OpenJDK project, does the careful version for you. It runs your code many times, warms it up first, keeps the JIT from removing work whose result you never use, and reports each time with a margin of error. Benchmark both versions on data the size of your real input. A gain that disappears inside the margin of error isn't a gain."
+}
+
+# ---------------------------------------------------------------- section 3
+S3 = """A `ForkJoinPool` tries to keep about `parallelism` threads running. When one of them blocks, in `Thread.sleep`, a network read or a database call, the pool normally doesn't know. That worker is simply gone until the call returns.
+
+The kitchen picture breaks here, and the break is the bug. In a real kitchen, a cook who spends ten minutes on the phone is easy to spot, and someone would share out his pile. The pool can't see that a worker is waiting.
+
+`StarvationDemo` shows what that costs. It runs 16 lookups in a parallel stream, each one a 300 ms call to the slow stock service from Sizing a pool, which tells you how many of a product are left. That's four rounds of work for the 3 common pool workers plus `main`. As soon as all four threads are busy, another thread hands the common pool a tiny task, through `supplyAsync` with no executor. The task does nothing but report its thread's name:
+
+```text
+   49 ms  blocking: common pool parallelism 3, 16 lookups of 300 ms
+ 1331 ms  tiny task waited 1202 ms, then ran on ForkJoinPool.commonPool-worker-3
+ 1335 ms  all lookups done
+```
+
+A task that takes microseconds waited 1.2 seconds, until the lookups were nearly done. Every helper in the restaurant was on hold with the stock service. In a real program, that tiny task is somebody else's request, from a part of the code that never heard of the stock service.
+
+The fix is to keep waiting off the common pool. Run blocking calls on an executor built for waiting, such as a bounded pool sized for the service you call, as Sizing a pool showed. Then combine the answers with `CompletableFuture`, as in the last lesson. That's the demo's `io` mode:
+
+```text
+   38 ms  io: common pool parallelism 3, 16 lookups of 300 ms
+  109 ms  tiny task waited 5 ms, then ran on ForkJoinPool.commonPool-worker-1
+  419 ms  all lookups done
+```
+
+All 16 lookups waited at the same time, so together they took little more than one lookup's 300 ms, and the tiny task waited 5 ms.
+
+There is also a patch for code you can't move. `ForkJoinPool.managedBlock(blocker)` tells the pool "this worker is about to block", and the pool may start a spare worker to keep its parallelism up. `CompletableFuture` uses it internally when a pool thread calls `join()`. In the demo's `managed` mode, the tiny task waited 8 ms and ran on `ForkJoinPool.commonPool-worker-16`, one of the spares. It is still a patch. Every blocked call costs a whole platform thread, an operating system thread with its own stack, and the number of spares is capped.
+
+You may read that a parallel stream started inside `customPool.submit(...)` runs on `customPool`. It does today, but that's how the implementation behaves, not something the specification promises. Don't build on it.
+
+**Keep blocking calls off the common pool. It belongs to the whole program.**
+
+That is the limit of this lesson's tool. Fork/join shines on computation and has nothing to offer a thread that waits. Waiting is cheap only when threads are cheap, and platform threads are not, a problem the virtual threads track takes on."""
+
 L = {
  "id": "exec-08",
  "title": "ForkJoinPool, work stealing and parallel streams",
  "minutes": 35,
  "goal": "By the end you can write a RecursiveTask that really runs in parallel, explain how work stealing keeps the workers busy, and say when a parallel stream helps and when it starves the whole JVM.",
+ "opening": OPENING,
  "warmup": {
-  "q": "In a `RecursiveTask`, `compute()` splits the range into `left` and `right`, then runs `left.fork(); long l = left.join(); long r = right.compute(); return l + r;`. On a 4-worker pool, how much faster than one thread is it?",
+  "q": "In a `RecursiveTask`, `compute()` splits the range into `left` and `right`, then runs `left.fork(); long l = left.join(); long r = right.compute(); return l + r;`. On a pool with 4 workers and 4 free cores, how much faster than one thread is it?",
   "options": [
    "About 4 times faster, because every split forks a task",
    "About 2 times faster, because only the top split runs in parallel",
@@ -54,131 +252,130 @@ L = {
    "It deadlocks, because a worker joins its own task"
   ],
   "answer": 2,
-  "why": "`join()` right after `fork()` waits for the left half before the right half starts, so the two halves of every split run one after the other. The worker usually just pops the task it forked and runs it itself, which is legal and doesn't deadlock. Put `right.compute()` between the fork and the join and the same code gets close to 4 times faster."
+  "why": "`join()` right after `fork()` waits for the left half before the right half even exists, so the two halves of every split run one after the other. The work may hop between workers, but only one piece runs at any moment. It doesn't deadlock: a worker that joins its own task usually just runs it. Put `right.compute()` between the fork and the join, and the same code can keep all four workers busy. The second section measures both."
  },
  "sections": [
   {
-   "h": "RecursiveTask: split until the piece is small, then loop",
-   "body": "`ForkJoinPool` (JDK 7) is a pool built for one shape of work: a big CPU job that splits itself into smaller jobs of the same kind. You describe the job as a `RecursiveTask<V>`, which returns a value, or a `RecursiveAction`, which doesn't. Both have one method to write, `compute()`, and it nearly always has this shape:\n\n```java\nclass SumTask extends RecursiveTask<Long> {\n    static final int THRESHOLD = 10_000;\n    final long[] a; final int from, to;\n\n    SumTask(long[] a, int from, int to) { this.a = a; this.from = from; this.to = to; }\n\n    @Override\n    protected Long compute() {\n        if (to - from <= THRESHOLD) {                   // 1. small enough: just loop\n            long sum = 0;\n            for (int i = from; i < to; i++) sum += a[i];\n            return sum;\n        }\n        int mid = (from + to) >>> 1;                    // 2. split\n        SumTask left = new SumTask(a, from, mid), right = new SumTask(a, mid, to);\n        left.fork();                                    // 3. let another worker take the left half\n        long r = right.compute();                       // 4. do the right half here\n        return left.join() + r;                         // 5. then collect the left half\n    }\n}\n\nlong total = ForkJoinPool.commonPool().invoke(new SumTask(amounts, 0, amounts.length));\n```\n\n```kotlin\nclass SumTask(val a: LongArray, val from: Int, val to: Int) : RecursiveTask<Long>() {\n    override fun compute(): Long {\n        if (to - from <= THRESHOLD) {                   // 1. small enough: just loop\n            var sum = 0L\n            for (i in from until to) sum += a[i]\n            return sum\n        }\n        val mid = (from + to) ushr 1                    // 2. split\n        val left = SumTask(a, from, mid)\n        val right = SumTask(a, mid, to)\n        left.fork()                                     // 3. let another worker take the left half\n        val r = right.compute()                         // 4. do the right half here\n        return left.join() + r                          // 5. then collect the left half\n    }\n\n    companion object { const val THRESHOLD = 10_000 }\n}\n\nval total = ForkJoinPool.commonPool().invoke(SumTask(amounts, 0, amounts.size))\n```\n\nThe threshold is the one number you have to choose. Too big, and there are only a few pieces, so some workers sit idle at the end. Too small, and the cost of creating and scheduling task objects eats the gain. The `ForkJoinTask` Javadoc gives a very rough rule: a task should do more than 100 and less than 10,000 basic computational steps. Then measure.\n\nForkJoin tasks are for CPU work on data you already have in memory: summing a ledger, sorting, searching, transforming a big array. They should not block on I/O or locks, for reasons the last section shows.",
+   "h": "One big pile, split in half until it's small: a RecursiveTask",
+   "body": S0,
    "try": {
     "title": "Change the threshold",
     "minutes": 4,
     "steps": [
-     "Run `WorkStealingDemo`. It totals fees over 2,000,000 ledger entries, first on one thread, then on a `ForkJoinPool` with 4 workers. Note the speed-up and how many leaves each worker ran.",
-     "Run it with `-Pargs=\"right 500\"`, then with `-Pargs=\"right 1000000\"`. Before each run, predict the number of leaves and how many workers will have any."
+     "Run `WorkStealingDemo`. It totals the card fees on 2,000,000 payments, first on one thread, then on a `ForkJoinPool` with 4 workers. Check `same total`, then note the speed-up, how many leaves each worker ran, and the last line.",
+     "Run it with `-Pargs=\"right 500\"`, then with `-Pargs=\"right 1000000\"`. Before each run, predict the number of leaves and the number on the last line."
     ],
     "code": demo("WorkStealingDemo"),
-    "expect": "With the default threshold of 50,000, all four workers run some of the 64 leaves, and the pool finishes about 3 to 4 times faster than one thread if your machine has 4 free cores. With 500 there are 4,096 leaves and it is still fast, a little slower from the extra tasks. With 1,000,000 there are only 2 leaves, so only 2 workers ever get work and the speed-up drops to about 2."
+    "expect": "With the default threshold of 50,000, all four workers run some of the 64 leaves, and the last line says 4. On a quiet machine with 4 free cores, the pool finishes close to 4 times faster than one thread; on a busy one, much less. With 500 there are 4,096 leaves, and it is about as fast. With 1,000,000 there are only 2 leaves, so only 2 workers ever get work, and the last line says 2."
    },
    "refs": [
     {"title": "ForkJoinTask (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ForkJoinTask.html", "kind": "docs"}
    ]
   },
   {
-   "h": "Work stealing, and why fork, compute, join is the only good order",
-   "body": "A `ThreadPoolExecutor` has one shared queue. A `ForkJoinPool` gives every worker its own double-ended queue, a deque. `fork()` pushes the task onto the top of the current worker's deque. The worker also pops from the top, so it always works on the task it forked most recently: the smallest one, whose data is still in its cache.\n\nA worker whose deque is empty becomes a thief. It picks another worker and takes the task at the **bottom** of that worker's deque. That is the oldest task, forked highest up in the recursion, so it is the biggest piece of work available. The thief splits it on its own deque and stays busy for a long time. That's why `WorkStealingDemo` reports only a handful of steals for 64 leaves.\n\n`join()` doesn't simply park the thread. If the task is still on the worker's own deque, the worker pops it and runs it. If a thief took it, the worker helps by running other pending tasks while it waits. A fork/join pool doesn't need a spare thread for every task that is waiting on another.\n\nNow the order. Fork one half, compute the other on this thread, and only then join:\n\n```java\nleft.fork();                    // the left half becomes stealable\nlong r = right.compute();       // this thread works while a thief can take the left half\nreturn left.join() + r;\n```\n\n```kotlin\nleft.fork()                     // the left half becomes stealable\nval r = right.compute()         // this thread works while a thief can take the left half\nreturn left.join() + r\n```\n\nSwap the last two steps, `left.fork(); left.join(); right.compute()`, and the worker waits for the left half before it even starts the right one. The two halves of every split run one after the other. `left.compute() + right.compute()` is the same thing written honestly: sequential code with extra objects. Both still give the right total, which is why the bug survives code review. `invokeAll(left, right)` is the library's shortcut for the correct order.",
+   "h": "Idle workers steal from the bottom: how work stealing works, and the order that keeps it parallel",
+   "body": S1,
    "figure": {"svg": SVG, "caption": "Each worker pushes and pops at the top of its own deque. An idle worker steals from the bottom, where the oldest and biggest task waits."},
    "try": {
     "title": "Join too early",
     "minutes": 3,
     "steps": [
      "Run `WorkStealingDemo` with `-Pargs=wrong`. It joins the left half before computing the right one.",
-     "Compare the time with the one-thread line, and look at how the leaves are spread. Why can leaves land on two workers when nothing runs in parallel?"
+     "Compare the time with the one-thread line, then read the last line. Why do leaves land on all four workers when only one runs at a time?"
     ],
     "code": demo("WorkStealingDemo"),
-    "expect": "The wrong order takes about as long as one thread, sometimes a little longer. Most leaves run on one worker, with a few on a second one: sometimes a thief steals the forked half in the moment between `fork` and `join`, but then the first worker just waits for it, so the work still happens one piece at a time."
+    "expect": "The wrong order takes about as long as one thread, sometimes a little longer, and the last line says 1. The leaves still spread across the workers, because thieves keep taking the forked half. But the worker that forked it just waits for the answer, and the right half doesn't start until then, so only one piece is ever computed at a time."
    }
   },
   {
-   "h": "Parallel streams run on the common pool, along with everything else",
-   "body": "`list.parallelStream()` splits its source into pieces and runs them as fork/join tasks on `ForkJoinPool.commonPool()`. The calling thread takes part too: in `SharedStateDemo`, `main` shows up next to the common pool workers.\n\nThe common pool has `availableProcessors() - 1` threads by default (you can change it with `-Djava.util.concurrent.ForkJoinPool.common.parallelism`). It is one pool for the whole JVM. Every parallel stream uses it, every `CompletableFuture` async method without an executor uses it (lesson 6 of this track), and from JDK 25 so does scheduling on the common pool (lesson 5). Whatever runs there competes with all of that.\n\nThree mistakes cover most parallel stream bugs.\n\n- Writing to shared state races. `forEach(p -> list.add(p))` on an `ArrayList`, or `forEach(x -> total[0] += x)`, runs the same read-modify-write races as any other threads. The demo loses about half the ids, and the sum comes out wrong by billions. Let the stream build the result: `toList()`, `collect(...)`, `sum()`, `reduce(...)`. Each thread works on its own piece, and the stream combines the pieces at the end.\n- Order isn't kept. `forEach` on a parallel stream runs in whatever order the threads get to the elements. `toList()` and `forEachOrdered` keep the source order, at some cost.\n- Too little work makes it slower. Splitting, scheduling and combining cost time. A stream of 1,000 cheap elements is faster sequential. Sources that split badly, such as a `LinkedList`, `Stream.iterate` or lines from a file, give the pool little to share out. That comes from how a stream splits its source. An array or an `ArrayList` splits in half by index, in one step, and each half can go to another worker. A `LinkedList` has no middle to jump to. Its `Spliterator`, the object that does the splitting, walks the list from the front and copies the next 1,024 elements into an array, then the next 2,048, and so on, all on the one thread that splits. Measure both versions, ideally with JMH (the OpenJDK harness for microbenchmarks), before you keep `parallel()`.",
+   "h": "Parallel streams: the same pool, shared with the whole program",
+   "body": S2,
+   "aside": ASIDE2,
    "try": {
     "title": "Collect from many threads",
     "minutes": 3,
     "steps": [
-     "Run `SharedStateDemo`. Before you do, predict the size of the shared list and whether the shared sum is right.",
+     "Run `SharedStateDemo`. Before you do, predict the size of the shared list, and whether the shared sum is right.",
      "Run it twice more. Which numbers change between runs, and which never do?"
     ],
     "code": demo("SharedStateDemo"),
-    "expect": "The shared `ArrayList` ends up with fewer than 100,000 ids, out of order (one run here kept 52,325), or the stream throws `ArrayIndexOutOfBoundsException`. The shared `long[]` sum is wrong. `toList()` always has all 100,000 in order and `mapToLong().sum()` always prints 4,999,950,000. The thread list shows `main` plus the common pool workers."
+    "expect": "The shared `ArrayList` ends up with fewer than 100,000 ids, out of order (one run here kept 50,522), or the stream throws `ArrayIndexOutOfBoundsException`. The shared `long[]` sum is usually wrong, and now and then right by luck. `toList()` always has all 100,000 in order, and `mapToLong().sum()` always prints 4,999,950,000. The thread list shows `main` plus the common pool workers."
    },
    "refs": [
     {"title": "java.util.stream package: parallelism and side effects (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/stream/package-summary.html", "kind": "docs"}
    ]
   },
   {
-   "h": "Blocking calls starve the common pool",
-   "body": "A `ForkJoinPool` tries to keep about `parallelism` threads running. When one of them blocks in `Thread.sleep`, a socket read or a JDBC call, the pool normally doesn't know, and that thread is simply gone until the call returns. With 7 workers on an 8-core pod, seven slow issuer lookups in a parallel stream take every common pool thread in the JVM.\n\n`StarvationDemo` runs four rounds of 300 ms lookups in a parallel stream. As soon as all the threads are busy, another thread submits a task that should take microseconds, through `supplyAsync` with no executor. It waits about 1.2 seconds, until the lookups are nearly done. In a service, that tiny task is somebody else's request.\n\nThe fix is to keep I/O off the common pool. Run blocking calls on an executor built for waiting: a bounded pool sized for the downstream, or virtual threads, which the next track covers. Then combine the results with `CompletableFuture`. In the demo's `io` mode, the lookups finish in about 300 ms and the tiny task waits about 2 ms.\n\nThere is also a patch for code you can't move. `ForkJoinPool.managedBlock(blocker)` tells the pool \"this worker is about to block\", and the pool may start a spare thread to keep its parallelism up. `CompletableFuture` uses it internally when a pool thread calls `join()`. In the demo's `managed` mode, spare workers appear (with names like `commonPool-worker-10`) and both numbers look good again. It is still a patch: every blocked call costs a whole platform thread, and the spares are capped.\n\nYou may read that a parallel stream started inside `customPool.submit(...)` runs on `customPool`. It does today, but it is how the implementation behaves, not something the specification promises. Don't build on it.",
+   "h": "A cook on the phone: how blocking calls starve the common pool",
+   "body": S3,
    "try": {
     "title": "Starve the common pool",
     "minutes": 4,
     "steps": [
-     "Run `StarvationDemo`. Note how long the tiny task waits and which thread finally runs it.",
+     "Run `StarvationDemo`. Note how long the tiny task waits, and which thread finally runs it.",
      "Run it with `-Pargs=io`, then with `-Pargs=managed`. Predict each time: how long do all the lookups take, and how long does the tiny task wait?"
     ],
     "code": demo("StarvationDemo"),
-    "expect": "In the default mode the lookups take about 1.2 s (four rounds of 300 ms on the common pool plus `main`), and the tiny task waits about as long, because every common pool thread is asleep. With `io` the lookups take about 300 ms and the tiny task waits a few milliseconds. With `managed` the pool adds spare workers, so both drop again, and the tiny task runs on one of the extra threads."
+    "expect": "In the default mode, the lookups take about 1.2 s on a 4-core machine (four rounds of 300 ms for the common pool and `main`), and the tiny task waits about as long, because every common pool worker is blocked. With `io`, the lookups take about 300 ms and the tiny task waits a few milliseconds. With `managed`, the pool adds spare workers, so both numbers drop again, and the tiny task runs on one of the extra threads."
    }
   }
  ],
- "analogy": "A fork/join pool is a team splitting a stack of 2,000 invoices to check. Each clerk keeps a personal pile. When you split your pile, you put half on top of it and keep working on the other half yourself. A clerk with nothing to do walks over and takes the bottom of somebody else's pile, which is the biggest bundle, so nobody has to walk over often. The analogy breaks when a clerk picks up the phone to a supplier for ten minutes: in an office you'd notice and share out the pile, but the pool usually can't tell a thread is waiting, so that clerk's desk just stands empty.",
- "in_your_world": "Good fork/join work in a payment service is CPU work on data already in memory: totalling fees over a day's ledger extract, building a settlement file, deduplicating a batch of idempotency keys, sorting a big reconciliation set. Bad work is anything that calls out: an issuer lookup, a database query or a Kafka send inside a `parallelStream()`. On an 8-core Quarkus pod that has 7 common pool threads shared by the whole service, and the stall shows up as unrelated `CompletableFuture` timeouts somewhere else. When you do turn on `parallel()`, check the container's CPU limit, because `availableProcessors()` follows it and a 2-CPU pod gets a common pool of one worker.",
- "mistake": "The most common mistake is putting blocking calls in a parallel stream: `ids.parallelStream().map(client::fetch).toList()`. It looks like a free speed-up and it is one in a laptop test, where nothing else needs the common pool. In production the calls hold the common pool's few threads, and every parallel stream and every executor-less `CompletableFuture` in the JVM waits behind them. People reach for it because `parallelStream()` is the shortest way to say \"do these at once\". For I/O, say it with an executor: `supplyAsync(() -> client.fetch(id), io)` for each id, then join them all at the edge.",
  "compare": {
   "title": "Divide and conquer: RecursiveTask vs coroutines",
-  "java": {"title": "CountOver.java (ForkJoinPool)", "src": "class CountOver extends RecursiveTask<Integer> {\n    final long[] a; final long limit; final int from, to;\n\n    CountOver(long[] a, long limit, int from, int to) {\n        this.a = a; this.limit = limit; this.from = from; this.to = to;\n    }\n\n    @Override\n    protected Integer compute() {\n        if (to - from <= 10_000) {\n            int n = 0;\n            for (int i = from; i < to; i++) if (a[i] > limit) n++;\n            return n;\n        }\n        int mid = (from + to) >>> 1;\n        CountOver left = new CountOver(a, limit, from, mid);\n        CountOver right = new CountOver(a, limit, mid, to);\n        left.fork();                       // stealable\n        int r = right.compute();           // work here\n        return left.join() + r;            // then collect\n    }\n}\n\nint flagged = ForkJoinPool.commonPool().invoke(new CountOver(amounts, 500_000, 0, amounts.length));"},
-  "kotlin": {"title": "CountOver.kt (kotlinx.coroutines)", "src": "suspend fun countOver(a: LongArray, limit: Long, from: Int, to: Int): Int =\n    if (to - from <= 10_000) {\n        (from until to).count { a[it] > limit }\n    } else coroutineScope {\n        val mid = (from + to) ushr 1\n        val left = async { countOver(a, limit, from, mid) }   // like fork()\n        val right = countOver(a, limit, mid, to)              // like compute()\n        left.await() + right                                  // like join()\n    }\n\nval flagged = runBlocking(Dispatchers.Default) { countOver(amounts, 500_000, 0, amounts.size) }"},
-  "note": "Kotlin can extend `RecursiveTask` exactly like Java (the Kotlin `WorkStealingDemo` does). The coroutine version keeps the same shape and the same order rule: start the left half with `async`, compute the right half in place, then `await`. Two things differ. `Dispatchers.Default` is kotlinx.coroutines' own shared thread pool, sized to the number of cores (at least two); it is not the common `ForkJoinPool`, so it doesn't compete with parallel streams. And `await()` suspends the coroutine instead of helping with other tasks, so the thread goes back to the dispatcher. Blocking calls are just as wrong on `Dispatchers.Default` as on the common pool; they belong on `Dispatchers.IO`."
+  "java": {"title": "CountOver.java (ForkJoinPool)", "src": "class CountOver extends RecursiveTask<Integer> {\n    final long[] a; final long limit; final int from, to;\n\n    CountOver(long[] a, long limit, int from, int to) {\n        this.a = a; this.limit = limit; this.from = from; this.to = to;\n    }\n\n    @Override\n    protected Integer compute() {\n        if (to - from <= 10_000) {\n            int n = 0;\n            for (int i = from; i < to; i++) if (a[i] > limit) n++;\n            return n;\n        }\n        int mid = (from + to) >>> 1;\n        CountOver left = new CountOver(a, limit, from, mid);\n        CountOver right = new CountOver(a, limit, mid, to);\n        left.fork();                       // stealable\n        int r = right.compute();           // work here\n        return left.join() + r;            // then collect\n    }\n}\n\n// how many payments were over 5,000.00?\nint big = ForkJoinPool.commonPool().invoke(new CountOver(amounts, 500_000, 0, amounts.length));"},
+  "kotlin": {"title": "CountOver.kt (kotlinx.coroutines)", "src": "suspend fun countOver(a: LongArray, limit: Long, from: Int, to: Int): Int =\n    if (to - from <= 10_000) {\n        (from until to).count { a[it] > limit }\n    } else coroutineScope {\n        val mid = (from + to) ushr 1\n        val left = async { countOver(a, limit, from, mid) }   // like fork()\n        val right = countOver(a, limit, mid, to)              // like compute()\n        left.await() + right                                  // like join()\n    }\n\n// how many payments were over 5,000.00?\nval big = runBlocking(Dispatchers.Default) { countOver(amounts, 500_000, 0, amounts.size) }"},
+  "note": "Kotlin can extend `RecursiveTask` exactly as Java does (the Kotlin `WorkStealingDemo` does). The coroutine version keeps the same shape and the same order rule: start the left half with `async`, compute the right half in place, then `await`. Coroutines are Kotlin's own light tasks, with a track of their own. Two things differ. `Dispatchers.Default` is the coroutine library's own shared pool of threads, sized to the number of cores (at least two). It isn't the common `ForkJoinPool`, so it doesn't compete with parallel streams. And `await()` suspends the coroutine instead of helping with other tasks, so the thread goes back to the dispatcher. Blocking calls are just as wrong on `Dispatchers.Default` as on the common pool; they belong on `Dispatchers.IO`."
  },
  "worked": {
-  "title": "Speed up a nightly fee report without breaking it",
+  "title": "Speed up the year's tip report without breaking it",
   "steps": [
-   {"say": "The report totals fees per merchant over 4 million payments. Someone made it parallel. Before reading on, find what breaks.",
-    "code": "Map<String, Long> feesByMerchant = new HashMap<>();\npayments.parallelStream().forEach(p ->\n        feesByMerchant.merge(p.merchant(), fee(p), Long::sum));   // one HashMap, many threads", "lang": "java",
-    "alt_code": "val feesByMerchant = HashMap<String, Long>()\npayments.parallelStream().forEach { p ->\n    feesByMerchant.merge(p.merchant, fee(p), Long::plus)       // one HashMap, many threads\n}", "alt_lang": "kotlin"},
-   {"say": "Many threads call `merge` on one `HashMap`. That loses updates, and a resize under concurrent writes can corrupt the map. Let the stream build the result instead: with `groupingBy`, each thread fills its own partial map and the stream merges them at the end.",
-    "code": "// 1. CPU work only, and the stream owns the result\nMap<String, Long> feesByMerchant = payments.parallelStream()\n        .collect(Collectors.groupingBy(Payment::merchant, Collectors.summingLong(this::fee)));", "lang": "java",
-    "alt_code": "// 1. CPU work only, and the stream owns the result\nval feesByMerchant: Map<String, Long> = payments.parallelStream()\n    .collect(Collectors.groupingBy({ it.merchant }, Collectors.summingLong(::fee)))", "alt_lang": "kotlin"},
-   {"say": "Next someone wants merchant names in the report, from a service that takes 20 ms per call. Calling it inside the parallel stream would block the common pool for 4 million calls. There are only about 3,000 merchants, so look the names up after the aggregation, once each, on an IO pool.",
-    "code": "// 2. IO goes to a pool built for waiting, once per merchant\nMap<String, CompletableFuture<String>> names = feesByMerchant.keySet().stream()\n        .collect(Collectors.toMap(id -> id, id -> CompletableFuture.supplyAsync(() -> merchants.name(id), io)));\n// 3. wait at the edge: the report job's own thread may block\nnames.forEach((id, name) -> report.line(name.join(), feesByMerchant.get(id)));", "lang": "java",
-    "alt_code": "// 2. IO goes to a pool built for waiting, once per merchant\nval names = feesByMerchant.keys.associateWith { id ->\n    CompletableFuture.supplyAsync({ merchants.name(id) }, io)\n}\n// 3. wait at the edge: the report job's own thread may block\nnames.forEach { (id, name) -> report.line(name.join(), feesByMerchant.getValue(id)) }", "alt_lang": "kotlin"},
-   {"say": "Last question: is `parallel()` worth keeping? Time both versions on production-sized data, with JMH or at least a few warm runs. With a cheap fee and a few thousand payments the sequential stream often wins. Keep `parallel()` only where the numbers say so, and remember that the pod's CPU limit sets the common pool's size."}
+   {"say": "The report totals the tips per waiter over the year's 400,000 sales. Someone made it parallel. Before reading on, find what breaks.",
+    "code": "Map<String, Long> tipsByWaiter = new HashMap<>();\nsales.parallelStream().forEach(s ->\n        tipsByWaiter.merge(s.waiter(), s.tipCents(), Long::sum));   // one HashMap, many threads", "lang": "java",
+    "alt_code": "val tipsByWaiter = HashMap<String, Long>()\nsales.parallelStream().forEach { s ->\n    tipsByWaiter.merge(s.waiter, s.tipCents, Long::plus)          // one HashMap, many threads\n}", "alt_lang": "kotlin"},
+   {"say": "Many threads call `merge` on one `HashMap`. That loses updates, and a resize under several writers can corrupt the map. Let the stream build the result instead: with `groupingBy`, each thread fills its own small map, and the stream merges them at the end.",
+    "code": "// 1. computation only, and the stream owns the result\nMap<String, Long> tipsByWaiter = sales.parallelStream()\n        .collect(Collectors.groupingBy(Sale::waiter, Collectors.summingLong(Sale::tipCents)));", "lang": "java",
+    "alt_code": "// 1. computation only, and the stream owns the result\nval tipsByWaiter: Map<String, Long> = sales.parallelStream()\n    .collect(Collectors.groupingBy({ it.waiter }, Collectors.summingLong { it.tipCents }))", "alt_lang": "kotlin"},
+   {"say": "Next, someone wants each waiter's full name in the report. The names come from the staff service, a slow web service that takes 20 ms per call. Calling it inside the parallel stream would block the common pool 400,000 times. There are only 40 waiters, so look the names up after adding up, once each, on a pool built for waiting.",
+    "code": "// 2. waiting goes to a pool built for it, once per waiter\nMap<String, CompletableFuture<String>> names = tipsByWaiter.keySet().stream()\n        .collect(Collectors.toMap(id -> id, id -> CompletableFuture.supplyAsync(() -> staff.name(id), io)));\n// 3. wait at the edge: the report job's own thread may block\nnames.forEach((id, name) -> report.line(name.join(), tipsByWaiter.get(id)));", "lang": "java",
+    "alt_code": "// 2. waiting goes to a pool built for it, once per waiter\nval names = tipsByWaiter.keys.associateWith { id ->\n    CompletableFuture.supplyAsync({ staff.name(id) }, io)\n}\n// 3. wait at the edge: the report job's own thread may block\nnames.forEach { (id, name) -> report.line(name.join(), tipsByWaiter.getValue(id)) }", "alt_lang": "kotlin"},
+   {"say": "Last question: is `parallel()` worth keeping? Adding up tips is cheap work, and for cheap work over a few hundred thousand elements, the sequential stream often wins. Time both versions on data of the real size, with a few warm-up runs or with JMH, and keep `parallel()` only if the numbers say so. Remember, too, that a container's CPU limit sets the size of the common pool, as Sizing a pool showed."}
   ]
  },
  "lab": {
-  "title": "Fork a ledger, then fix two parallel streams",
+  "title": "Fork the year's card fees, then fix two parallel streams",
   "minutes": 14,
-  "files": [f"{lab}/main/{P}/LedgerFees.java", f"{lab}/main/{P}/ParallelPitfalls.java", f"{lab}/main/{P}/FeeModel.java"],
+  "files": [f"{lab}/main/{P}/LedgerFees.java", f"{lab}/main/{P}/ParallelPitfalls.java", f"{lab}/main/{P}/FeeModel.java", f"{lab}/main/{P}/StockLookup.java"],
   "run": "./gradlew :executors:test --tests 'workbench.executors.l08.*'",
   "steps": [
-   "Run the tests. All six fail.",
-   "Write `LedgerFees.compute`. If `to - from <= threshold`, loop over the range and add up `fees.feeCents(amounts[i])`. Otherwise split at the midpoint into two new `LedgerFees` (use the private constructor), fork one half, compute the other, then join.",
-   "Fix `ParallelPitfalls.flaggedIds`: keep `parallelStream()`, drop the shared list, and let the stream collect the ids with `map(Payment::id).toList()`.",
-   "Fix `ParallelPitfalls.issuers`: start one `supplyAsync(() -> lookup.issuer(bin), io)` per BIN, collect the futures, then join them into the result map on the calling thread.",
+   "Meet the classes. `LedgerFees` is a `RecursiveTask<Long>` that totals the card fees on a ledger, a long array of payment amounts in cents. `FeeModel` works out the fee on one payment. `ParallelPitfalls` holds two parallel streams from the restaurant's back office, each with a bug. Run the tests: all six fail.",
+   "Write `LedgerFees.compute`. If `to - from <= threshold`, loop over the range and add up `fees.feeCents(amounts[i])`. Otherwise split at the middle into two new `LedgerFees` (use the private constructor), fork one half, compute the other, then join.",
+   "Fix `ParallelPitfalls.flaggedIds`, which returns the ids of the payments above a limit, in order. Keep `parallelStream()`, drop the shared list, and let the stream collect the ids with `map(Payment::id).toList()`.",
+   "Fix `ParallelPitfalls.stockLevels`, which asks the slow stock service how many of each product are left. Start one `supplyAsync(() -> stock.level(product), io)` per product, collect the futures, then join them into the result map on the calling thread.",
    "Run the tests until all six pass, then run them twice more."
   ],
   "hints": [
    "`runsHalvesInParallel` makes the first fee on each thread wait until a second thread arrives. If it times out, your two halves ran one after the other: compute the second half before you join the first.",
-   "`(from + to) >>> 1` is a midpoint that can't overflow.",
-   "In `issuers`, create every future before you join any of them. A single stream that maps to `supplyAsync` and then to `join` handles one element at a time, so each lookup finishes before the next one starts, and `issuersRunsAllAtOnce` times out."
+   "`(from + to) >>> 1` is a middle that can't overflow.",
+   "In `stockLevels`, create every future before you join any of them. A single stream that maps to `supplyAsync` and then to `join` handles one element at a time, so each lookup finishes before the next one starts, and `stockLevelsRunsAllAtOnce` times out."
   ],
   "done_when": "All six tests in `ForkJoinTest` pass, three runs in a row."
  },
  "drill": {
   "title": "A RecursiveTask from memory",
   "minutes": 5,
-  "prompt": "Close this page. Write a `RecursiveTask<Long>` that finds the largest amount in a `long[]`, with a threshold of 10,000, and the line that runs it on the common pool. Then compare. Is your `compute()` between the `fork()` and the `join()`?",
+  "prompt": "Close this page. Write a `RecursiveTask<Long>` that finds the largest payment of the year in a `long[]`, with a threshold of 10,000, and the line that runs it on the common pool. Then compare. Is your `compute()` between the `fork()` and the `join()`?",
   "answer": {"lang": "java", "title": "MaxAmount.java", "src": "class MaxAmount extends RecursiveTask<Long> {\n    final long[] a; final int from, to;\n\n    MaxAmount(long[] a, int from, int to) { this.a = a; this.from = from; this.to = to; }\n\n    @Override\n    protected Long compute() {\n        if (to - from <= 10_000) {\n            long max = Long.MIN_VALUE;\n            for (int i = from; i < to; i++) max = Math.max(max, a[i]);\n            return max;\n        }\n        int mid = (from + to) >>> 1;\n        MaxAmount left = new MaxAmount(a, from, mid);\n        MaxAmount right = new MaxAmount(a, mid, to);\n        left.fork();\n        long r = right.compute();\n        return Math.max(left.join(), r);\n    }\n}\n\nlong max = ForkJoinPool.commonPool().invoke(new MaxAmount(amounts, 0, amounts.length));",
    "alt": {"lang": "kotlin", "title": "MaxAmount.kt", "src": "class MaxAmount(val a: LongArray, val from: Int, val to: Int) : RecursiveTask<Long>() {\n    override fun compute(): Long {\n        if (to - from <= 10_000) {\n            var max = Long.MIN_VALUE\n            for (i in from until to) max = maxOf(max, a[i])\n            return max\n        }\n        val mid = (from + to) ushr 1\n        val left = MaxAmount(a, from, mid)\n        val right = MaxAmount(a, mid, to)\n        left.fork()\n        val r = right.compute()\n        return maxOf(left.join(), r)\n    }\n}\n\nval max = ForkJoinPool.commonPool().invoke(MaxAmount(amounts, 0, amounts.size))"}}
  },
  "recap": [
   "A `RecursiveTask` splits its range until it is below a threshold, then loops. The `ForkJoinTask` Javadoc suggests roughly 100 to 10,000 basic steps per leaf.",
-  "Fork one half, compute the other on this thread, then join. Joining before computing runs every split one half after the other.",
-  "Each worker pushes and pops at the top of its own deque; idle workers steal the oldest, biggest task from the bottom of someone else's. `join()` helps instead of just waiting.",
-  "Parallel streams run on `ForkJoinPool.commonPool()` plus the calling thread: cores minus one workers, shared with every default-executor `CompletableFuture` in the JVM.",
-  "Never write to shared state from a parallel stream. Let `toList()`, `collect`, `sum` or `reduce` build the result.",
-  "Blocking calls starve the common pool. Run I/O on an executor built for waiting; `ManagedBlocker` is a patch for code you can't move."
+  "Fork one half, compute the other on this thread, then join. Joining before computing runs every split one half after the other, with the right total.",
+  "Each worker pushes and pops at the top of its own deque. Idle workers steal the oldest, biggest task from the bottom of someone else's, and `join()` helps instead of just waiting.",
+  "Parallel streams run on `ForkJoinPool.commonPool()` plus the calling thread: cores minus one workers, shared with every `CompletableFuture` step that names no executor.",
+  "Never write to shared state from a parallel stream. Let `toList()`, `collect`, `sum` or `reduce` build the result, and measure before you keep `parallel()`.",
+  "The limit: fork/join is for computation. Blocking calls starve the common pool, so run them on an executor built for waiting; `ManagedBlocker` is only a patch."
  ],
+ "closing": "We started with two million payments and four cooks who split their own piles and stole from the bottom of each other's stacks. Fork, compute, join kept four leaves running at once, and one line in the wrong order kept it to one. Parallel streams borrow the same shared team, and one cook on the phone leaves everyone waiting.\n\nNow search your own code for `parallelStream()` and `.parallel()`. For each one, check two things: nothing inside writes to shared state, and nothing inside waits for a network, a disk or a lock.\n\nNext, we'll take our pools into production. When something goes wrong at the busiest hour, how do you tell which pool, which thread and which request?",
  "quiz": [
   {
    "q": "Which `compute()` body lets the two halves run at the same time?",
@@ -189,18 +386,18 @@ L = {
     "`long r = right.compute(); left.fork(); return left.join() + r;`"
    ],
    "answer": 2,
-   "why": "Only the third one makes the left half stealable and then keeps this thread busy with the right half while a thief can run the left. The first and last both wait for one half before the other is available, and the second never forks at all. All four give the right answer, which is why the bug is easy to miss."
+   "why": "Only the third one makes the left half stealable and then keeps this thread busy with the right half, while a thief can run the left. The first and the last both wait for one half before the other is available, and the second never forks at all. All four give the right answer, which is why the bug is easy to miss."
   },
   {
-   "q": "An 8-core pod runs `cardIds.parallelStream().map(issuer::lookup).toList()`, and each lookup takes 120 ms. What is the biggest risk?",
+   "q": "An 8-core machine runs `products.parallelStream().map(stock::level).toList()`, and each call to the stock service takes 120 ms. What is the biggest risk?",
    "options": [
     "None: parallel streams run on virtual threads",
-    "The lookups occupy the common pool's 7 workers, so other parallel streams and executor-less `CompletableFuture` tasks in the JVM wait behind them",
-    "The stream silently falls back to running sequentially because the calls block",
+    "The lookups take the common pool's 7 workers, so other parallel streams and `CompletableFuture` tasks with no executor wait behind them",
+    "The stream quietly falls back to running sequentially, because the calls block",
     "It throws, because blocking isn't allowed in a `ForkJoinPool`"
    ],
    "answer": 1,
-   "why": "Parallel streams use the common pool's platform workers, which the whole JVM shares, and the pool can't tell that a worker is blocked. Nothing throws and nothing falls back: everything else that needs the common pool just waits. Run the lookups on an IO executor instead."
+   "why": "Parallel streams use the common pool's platform workers, which the whole JVM shares, and the pool can't tell that a worker is blocked. Nothing throws and nothing falls back: everything else that needs the common pool just waits. Run the lookups on an executor built for waiting instead."
   },
   {
    "q": "`List<String> ids = new ArrayList<>(); payments.parallelStream().forEach(p -> ids.add(p.id()));` runs over 100,000 payments. What do you get, most of the time?",
@@ -211,21 +408,21 @@ L = {
     "A `ConcurrentModificationException`, every time"
    ],
    "answer": 0,
-   "why": "Several threads call `add` on one `ArrayList`, which isn't thread-safe: writes race on the size and the backing array, so ids get lost or the array index runs past the end. `ConcurrentModificationException` comes from iterating while modifying, not from this race. `payments.parallelStream().map(Payment::id).toList()` is correct and keeps the order."
+   "why": "Several threads call `add` on one `ArrayList`, which isn't thread-safe. Their writes race on the size and the backing array, so ids get lost, or the index runs past the end of the array. `ConcurrentModificationException` comes from changing a list while you iterate over it, not from this race. `payments.parallelStream().map(Payment::id).toList()` is correct and keeps the order."
   },
   {
-   "q": "Pick the tool for each job: (1) total the fees over 20 million ledger rows already in memory; (2) make 300 calls to a card-issuer API.",
+   "q": "Pick the tool for each job: (1) total the card fees on 20 million payments already in memory; (2) make 300 calls to the stock service.",
    "options": [
     "(1) virtual threads; (2) a parallel stream",
     "Both in one parallel stream",
     "(1) a single-thread executor; (2) `supplyAsync` without an executor",
-    "(1) a parallel stream or a `RecursiveTask`; (2) an IO executor or virtual threads, combined with `CompletableFuture`"
+    "(1) a parallel stream or a `RecursiveTask`; (2) a pool built for waiting, or virtual threads, combined with `CompletableFuture`"
    ],
    "answer": 3,
-   "why": "In-memory CPU work splits well and wants about one thread per core, which is what the common pool gives you. Waiting on an API wants many threads that are cheap to block, and they must not be the common pool's. `supplyAsync` without an executor would put those calls right back on the common pool."
+   "why": "Computation on data in memory splits well and wants about one thread per core, which is what the common pool gives you. Waiting on a web service wants many threads that are cheap to block, and they must not be the common pool's. `supplyAsync` without an executor would put those calls right back on the common pool."
   },
   {
-   "q": "From \"CompletableFuture: composing async steps\": one part of a service calls `supplyAsync(task)` with no executor, another uses `parallelStream()`. Do they compete for threads?",
+   "q": "From \"CompletableFuture: composing async steps\": one part of a program calls `supplyAsync(task)` with no executor, and another uses `parallelStream()`. Do they compete for threads?",
    "options": [
     "No: `CompletableFuture` has its own default pool",
     "Yes: both use `ForkJoinPool.commonPool()` (on JDK 25 always, on JDK 21 whenever its parallelism is at least 2)",
@@ -233,7 +430,7 @@ L = {
     "No: every parallel stream creates its own pool"
    ],
    "answer": 1,
-   "why": "The default async executor is the common pool, and so is the pool behind parallel streams. Before JDK 25 the one exception was a common pool with parallelism below 2, where `CompletableFuture` used a thread per task instead. Either way, a blocking task in one slows down the other.",
+   "why": "The default async executor is the common pool, and so is the pool behind parallel streams. Before JDK 25, the one exception was a common pool with parallelism below 2, where `CompletableFuture` used a new thread per task instead. Either way, a blocking task in one slows down the other.",
    "from": "exec-06"
   }
  ],
@@ -241,27 +438,27 @@ L = {
   {"front": "In `compute()`, what is the right order of fork, compute and join?", "back": "Fork one half, compute the other half on this thread, then join the forked half. Joining first runs the halves one after the other."},
   {"front": "Where does a ForkJoinPool worker take its own tasks from, and where does a thief steal from?", "back": "The owner pushes and pops at the top of its deque (newest first). A thief takes from the bottom (oldest, biggest task)."},
   {"front": "Default parallelism of `ForkJoinPool.commonPool()`?", "back": "`availableProcessors() - 1` (at least 1). Change it with `-Djava.util.concurrent.ForkJoinPool.common.parallelism`."},
-  {"front": "Which threads run a parallel stream?", "back": "Common pool workers plus the thread that started the stream."},
-  {"front": "Why is a blocking call inside a parallel stream a problem for the whole JVM?", "back": "It holds a common pool worker, and that pool is shared by every parallel stream and every executor-less CompletableFuture."},
-  {"front": "What does `ForkJoinPool.managedBlock` do?", "back": "Tells the pool that a worker is about to block, so the pool can start a spare thread to keep its parallelism up."},
-  {"front": "How big should a fork/join leaf be, by the ForkJoinTask Javadoc's rough rule?", "back": "More than about 100 and fewer than about 10,000 basic computational steps. Then measure."}
+  {"front": "Which threads run a parallel stream?", "back": "Common pool workers, plus the thread that started the stream."},
+  {"front": "Why is a blocking call inside a parallel stream a problem for the whole JVM?", "back": "It holds a common pool worker, and that pool is shared by every parallel stream and every CompletableFuture step with no executor."},
+  {"front": "What does `ForkJoinPool.managedBlock` do?", "back": "It tells the pool that a worker is about to block, so the pool can start a spare thread to keep its parallelism up."},
+  {"front": "How big should a fork/join leaf be, by the ForkJoinTask Javadoc's rough rule?", "back": "More than about 100 and fewer than about 10,000 basic steps of computation. Then measure."}
  ],
  "terms": [
-  {"term": "ForkJoinPool", "plain": "A pool where each worker has its own deque and idle workers steal tasks from busy ones."},
+  {"term": "ForkJoinPool", "plain": "A pool where each worker has its own deque, and idle workers steal tasks from busy ones."},
   {"term": "RecursiveTask", "plain": "A fork/join task that returns a value; RecursiveAction returns nothing."},
   {"term": "Work stealing", "plain": "An idle worker takes a task from the far end of another worker's deque."},
   {"term": "Deque", "plain": "A double-ended queue: the owner uses one end, thieves the other."},
   {"term": "Threshold", "plain": "The size below which a task stops splitting and just loops."},
-  {"term": "Common pool", "plain": "The JVM-wide ForkJoinPool behind parallel streams and default async tasks."},
+  {"term": "Common pool", "plain": "The ForkJoinPool the whole JVM shares, behind parallel streams and async steps with no executor."},
   {"term": "ManagedBlocker", "plain": "A way to tell a ForkJoinPool a worker will block, so it can add a spare thread."}
  ],
  "explain_back": {
-  "prompt": "Explain to a teammate how work stealing keeps four workers busy on a recursive ledger sum, and why `left.fork(); left.join(); right.compute()` gets no speed-up even though it forks.",
-  "answer": "Each worker has its own deque. When a task splits, it forks one half onto the top of its worker's deque and works on the other half itself. Idle workers steal from the bottom of a busy worker's deque, where the oldest and largest piece sits, split it on their own deques, and so the work spreads across all four with only a few steals. `join` either runs the task itself, if nobody stole it, or helps with other work while it waits. With `fork` immediately followed by `join`, the worker waits for the left half before it starts the right half. Even if a thief takes the left half, the forking worker just waits for it, so the two halves of every split never overlap and the total time is about the same as one thread."
+  "prompt": "Explain to a friend how work stealing keeps four workers busy on a recursive sum of the year's payments, and why `left.fork(); left.join(); right.compute()` gets no speed-up even though it forks.",
+  "answer": "Each worker has its own deque. When a task splits, it forks one half onto the top of its worker's deque and works on the other half itself. Idle workers steal from the bottom of a busy worker's deque, where the oldest and biggest piece sits, split it on their own deques, and so the work spreads across all four with only a few steals. `join` either runs the task itself, if nobody stole it, or helps with other work while it waits. With `fork` followed straight away by `join`, the worker waits for the left half before the right half even exists. A thief may take the left half, but the forking worker just waits for it, so the two halves of a split never overlap. Only one piece is computed at any moment, and the total time is about the same as one thread."
  },
  "deeper": {
   "minutes": 8,
-  "body": "The virtual thread scheduler that the next track covers is also a `ForkJoinPool`, a separate instance from the common pool. JEP 444 describes it as a work-stealing `ForkJoinPool` that operates in FIFO mode. FIFO mode exists for tasks that are submitted and never joined, like events or messages: you get it with the `asyncMode` argument of the four-argument `ForkJoinPool` constructor, and each worker then takes its own tasks oldest first instead of newest first.\n\nThe common pool has a few more knobs, all system properties read once when the pool starts: `java.util.concurrent.ForkJoinPool.common.parallelism`, `.threadFactory`, `.exceptionHandler` and `.maximumSpares`, which caps the spare threads that `managedBlock` can add. Calling `close()` or `shutdown()` on the common pool does nothing, so library code can't switch it off by accident.\n\nWhy does `availableProcessors() - 1` make sense? Because the thread that calls `invoke` or starts a parallel stream works too. Seven workers plus the caller keep eight cores busy. It also means that on a 2-CPU container the common pool has one worker, and before JDK 25 that was enough for `CompletableFuture` to stop using it (lesson 6).\n\nParallel streams don't use `RecursiveTask` internally. They use `CountedCompleter`, a `ForkJoinTask` that counts pending subtasks and runs a completion action when the count reaches zero, so no thread ever waits in `join()`. You rarely need to write one yourself, but it is the reason a parallel stream can split deep trees without stacking up joins."
+  "body": "The virtual thread scheduler, which the next track covers, is also a `ForkJoinPool`, a separate one from the common pool. JEP 444 describes it as a work-stealing `ForkJoinPool` that operates in FIFO mode, first in, first out. FIFO mode exists for tasks that are handed over and never joined, such as events or messages. You get it with the `asyncMode` argument of the four-argument `ForkJoinPool` constructor, and each worker then takes its own tasks oldest first instead of newest first.\n\nThe common pool has a few more settings, all system properties read once when the pool starts: `java.util.concurrent.ForkJoinPool.common.parallelism`, `.threadFactory`, `.exceptionHandler` and `.maximumSpares`, which caps the spare threads that `managedBlock` can add. Calling `close()` or `shutdown()` on the common pool does nothing, so library code can't switch it off by accident.\n\nWhy does `availableProcessors() - 1` make sense? Because the thread that calls `invoke` or starts a parallel stream works too. Seven workers plus the caller keep eight cores busy. It also means that a container limited to 2 CPUs gets a common pool of one worker, and before JDK 25 that was enough for `CompletableFuture` to stop using it (CompletableFuture: composing async steps).\n\nParallel streams don't use `RecursiveTask` inside. They use `CountedCompleter`, a `ForkJoinTask` that counts its pending subtasks and runs a completion action when the count reaches zero, so no thread ever waits in `join()`. You rarely need to write one yourself, but it's why a parallel stream can split deep trees without piling up joins."
  },
  "sources": [
   {"title": "ForkJoinPool (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ForkJoinPool.html"},

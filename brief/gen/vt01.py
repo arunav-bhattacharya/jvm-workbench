@@ -5,128 +5,364 @@ P = "java/workbench/vthreads/l01"
 K = "kotlin/workbench/vthreads/l01"
 read = lambda p: (ROOT / p).read_text()
 
+
+def demo(name):
+    return {"lang": "java", "title": f"{name}.java", "src": read(f"{lab}/demo/{P}/{name}.java"),
+            "run": f"./gradlew :vthreads:demo -Pmain=workbench.vthreads.l01.{name}",
+            "file": f"{lab}/demo/{P}/{name}.java",
+            "alt": {"lang": "kotlin", "title": f"{name}.kt", "src": read(f"{lab}/demo/{K}/{name}.kt"),
+                    "run": f"./gradlew :vthreads:demo -Pmain=workbench.vthreads.l01.{name}Kt",
+                    "file": f"{lab}/demo/{K}/{name}.kt"}}
+
+
+def pair(java, kotlin):
+    """A Java fence and its Kotlin twin, side by side, as the validator expects."""
+    return f"```java\n{java}\n```\n\n```kotlin\n{kotlin}\n```"
+
+
 FIG = (
-    '<svg viewBox="0 0 640 236" role="img" aria-label="Timeline of one 200 ms payment authorization: about 5 ms on the CPU and 195 ms blocked waiting for the fraud service, the card issuer and the ledger">'
-    '<text class="t" x="40" y="26">One authorization: 200 ms on one thread</text>'
-    '<text class="t-s t-m" x="43" y="62" text-anchor="middle">parse</text>'
+    '<svg viewBox="0 0 640 236" role="img" aria-label="Timeline of one 200 ms checkout: about 5 ms on the CPU and 195 ms blocked, waiting for the stock service, the bank and the database, while it keeps its thread">'
+    '<text class="t" x="40" y="26">One checkout: 200 ms on one thread</text>'
+    '<text class="t-s t-m" x="43" y="62" text-anchor="middle">read</text>'
     '<text class="t-s t-m" x="596" y="62" text-anchor="middle">reply</text>'
     '<rect class="box-a" x="40" y="70" width="6" height="44" rx="3"/>'
     '<rect class="box-dim" x="46" y="70" width="112" height="44" rx="8"/>'
-    '<text class="t-s" x="102" y="96" text-anchor="middle">fraud 40 ms</text>'
+    '<text class="t-s" x="102" y="96" text-anchor="middle">stock 40 ms</text>'
     '<rect class="box-dim" x="158" y="70" width="336" height="44" rx="8"/>'
-    '<text class="t-s" x="326" y="96" text-anchor="middle">card issuer 120 ms</text>'
+    '<text class="t-s" x="326" y="96" text-anchor="middle">bank 120 ms</text>'
     '<rect class="box-dim" x="494" y="70" width="98" height="44" rx="8"/>'
-    '<text class="t-s" x="543" y="96" text-anchor="middle">ledger 35 ms</text>'
+    '<text class="t-s" x="543" y="96" text-anchor="middle">database 35</text>'
     '<rect class="box-a" x="592" y="70" width="8" height="44" rx="3"/>'
     '<line class="ln" x1="40" y1="128" x2="600" y2="128"/>'
     '<text class="t-s t-m" x="40" y="146" text-anchor="middle">0</text>'
     '<text class="t-s t-m" x="320" y="146" text-anchor="middle">100 ms</text>'
     '<text class="t-s t-m" x="600" y="146" text-anchor="middle">200 ms</text>'
     '<rect class="box-a" x="40" y="164" width="16" height="16" rx="3"/>'
-    '<text class="t-s" x="64" y="177">running on a CPU: 5 ms</text>'
+    '<text class="t-s" x="64" y="177">running on the CPU: 5 ms</text>'
     '<rect class="box-dim" x="260" y="164" width="16" height="16" rx="3"/>'
     '<text class="t-s" x="284" y="177">blocked, still holding its thread: 195 ms</text>'
-    '<text class="t-s t-a" x="320" y="220" text-anchor="middle">200 threads / 0.2 s per request = at most 1,000 requests per second</text>'
+    '<text class="t-s t-a" x="320" y="220" text-anchor="middle">200 threads / 0.2 s per checkout = at most 1,000 checkouts a second</text>'
     '</svg>'
 )
+
+# ---------------------------------------------------------------- opening
+OPENING = """Picture a restaurant with an odd rule. Every table gets its own waiter, from the first menu to the bill. The waiter takes the order, then stands at the kitchen door until the food is ready. Most of a waiter's evening is spent admiring that door.
+
+The restaurant has 200 waiters. On a busy night, the 201st party waits outside, while nearly every waiter stands idle by the kitchen. Hiring is slow, because each new waiter needs a contract, a uniform and a locker.
+
+Many Java servers run like that restaurant. Each request gets one thread, one path of work through the program, for its whole life, and mostly the thread waits for other programs to answer. The trap is easy to fall into, because the code is the plainest kind there is. It passes every test and fails only at the busiest hour.
+
+Pools in production tuned our pools with care, and still a pool of waiting threads hits a wall. In this lesson, we'll find that wall with arithmetic, see why more threads can't fix it, weigh the old way around it and meet virtual threads. Before we start, make a guess, and keep it in mind."""
+
+# ---------------------------------------------------------------- section 0
+S0 = """Let's give the restaurant a program. A small shop sells online, and its website handles checkouts. To check out one basket, the program reads the request and asks the stock service whether the items are in the warehouse. Then it asks the bank to take the payment, saves the order in the shop's database and writes the reply.
+
+A **service** here is a program on another computer that answers questions over the network. The bank's is our old friend, the slow web service from Threads from zero, still taking 120 ms. A **database** is the program that stores the shop's data, such as its orders.
+
+Now add up one checkout. Reading the request takes 2 ms, the stock service 40 ms, the bank 120 ms, the database 35 ms and the reply 3 ms. That's 200 ms, and only 5 ms of it runs on the CPU, the processor. The other 195 ms is waiting. The figure below shows the shape.
+
+The program gives each checkout one thread from a pool of 200. A pool is a fixed team of threads that take tasks from a queue, a line of waiting tasks, like the kitchen in the executors track. The thread stays with its checkout from the first line to the reply. That style is called **thread-per-request**, and it's the restaurant's personal waiter.
+
+Each of those threads is a **platform thread**, the kind Java has always had. A platform thread is a Java thread backed by one thread of the operating system, the program that runs every other program and shares out the processor. We'll see what that costs in a moment.
+
+While the thread waits for the bank, it is **blocked**: it can't go on until the answer arrives. **A blocked thread does no work, but no other checkout can use it.**
+
+That one fact sets the wall. One thread finishes a checkout every 0.2 s, so 5 a second. 200 threads finish 1,000 a second, and not one more.
+
+At 800 checkouts a second, 160 threads are busy and 40 sit idle. Then traffic rises to 1,500 a second. The idle threads fill at once, and the other 500 checkouts each second wait in the pool's queue. After 10 seconds, 5,000 are waiting, and a new checkout waits 5 seconds before a thread even picks it up.
+
+And the processor? Each thread spends one fortieth of its time on the CPU, so at any moment only about 5 of the 200 threads are running code. A server with 16 cores, the parts of the processor that each run one thread at a time, has 11 cores with nothing to do. The dashboards show a slow shop on a bored machine.
+
+Let's watch the wall in a smaller model. `WallDemo`, in the Try it below, runs 2,000 fake checkouts that each just call `Thread.sleep` for 100 ms, standing in for the waits. First it runs them on a pool of 100 threads. Predict before you read on: 100 threads at 0.1 s each finish 1,000 a second, so 2,000 checkouts should take about 2 seconds. On this 4-core machine, while other heavy programs were running, the first line said:
+
+```text
+fixed pool of 100           2,000 requests in  2,229 ms  =      897 requests/s
+```
+
+That's the prediction, plus a little start-up time. The demo prints a second line too, and we'll come back to it in the last section.
+
+The wall comes from two numbers: how many threads there are, and how long each request holds one. That arithmetic has a name, and it works for much more than threads."""
+
+ASIDE0 = {
+    "title": "Is 200 threads a number anyone really uses?",
+    "body": "Yes, it's a common default. If you write web services in Java, a web server such as Tomcat, the program that receives each request and hands it to your code, runs it on a thread from a pool. Tomcat's pool stops at 200 threads unless you change it, and Spring Boot, a popular framework that runs on Tomcat, keeps the same default. So a plain Java web service often meets this wall at this very number. Since Spring Boot 3.2, the setting `spring.threads.virtual.enabled=true` runs requests on virtual threads instead. Lesson 6 of this track covers moving a service over.",
+}
+
+# ---------------------------------------------------------------- section 1
+S1 = """Sizing a pool met a law from ticket windows. It's worth meeting again, because this whole track leans on it. **Little's law** says that in any stable system, one where on average as many leave as arrive:
+
+```text
+L = λ × W
+inside at once = arrival rate × time each one spends inside
+```
+
+`L` is how many are inside at once. `λ` (the Greek letter lambda) is the **arrival rate**, how many arrive each second. `W` is how long each one stays, from arriving to leaving. For a request, that time is its **latency**.
+
+With thread-per-request, every checkout inside holds one thread, so L is also the number of threads we need. At 1,500 checkouts a second and 0.2 s each:
+
+```text
+L = 1,500/s × 0.2 s = 300 checkouts inside = 300 threads
+```
+
+We have 200. Turn the law around, and it gives the most a pool can finish each second, its **throughput**:
+
+```text
+λ max = L / W = 200 / 0.2 s = 1,000 checkouts per second
+```
+
+The formula gives the same wall as the last section, and now we can change the numbers in it.
+
+Say the bank has a slow afternoon. Its answers take 1.2 seconds instead of 120 ms, so W grows from 0.2 s to 1.28 s. The same 200 threads now finish at most 200 / 1.28 = 156 checkouts a second. Nobody changed a line of our code, and the shop just lost five sixths of its capacity.
+
+A slow service elsewhere brings down a thread-per-request program this way. Each waiting checkout holds its thread for longer, so the threads run out sooner, and the CPU has even less to do.
+
+`WallDemo` agrees. With a 300 ms sleep instead of 100 ms (`-Pargs='100 2000 300'`), the pool's time should triple, to about 6 seconds:
+
+```text
+fixed pool of 100           2,000 requests in  6,198 ms  =      323 requests/s
+```
+
+It did. When the work is mostly waiting, a pool's throughput is its threads divided by the latency, and faster cores wouldn't move it at all.
+
+**A slow service you call makes your own capacity smaller. Measure W on a bad day, not a good one.**
+
+That leaves two ways out. We can make W smaller, which we often can't, because the bank isn't ours. Or we can make each checkout cheaper to hold while it waits.
+
+The quickest-sounding way to do that is to hire more waiters. So why not run 2,000 threads?"""
+
+# ---------------------------------------------------------------- section 2
+S2 = """If waiting threads are the problem, the obvious fix is more of them. Make the pool 2,000 threads, and even the bank's slow afternoon is covered. The trouble is the kind of thread.
+
+Every thread in our pool is a platform thread, and the operating system does real work for each one. When you call `start()`, Java asks the operating system for a new thread. That's a **system call**, a request from a program to the operating system, and it isn't cheap.
+
+The operating system also reserves the thread's **stack**, the memory where a thread keeps the method calls it's in the middle of and their local variables. On 64-bit Linux, Java reserves 1 MB for each stack by default (the `-Xss` setting). The operating system hands out the memory only as the stack really grows, but the reservation and its bookkeeping stay for the thread's whole life.
+
+Then the operating system has to share out the cores. With thousands of threads, it spends more and more time switching between them, and each switch costs the CPU's caches, its small fast copies of memory.
+
+The contract, the uniform and the locker from the opening are these costs, and every waiter pays them, even one who only stands at the kitchen door.
+
+`ThreadCostDemo`, in the Try it below, measures them. It starts 4,000 platform threads that all stay alive until it lets them go. Then it does the same with 100,000 virtual threads, the new kind this lesson ends with. Which do you expect to finish first? On this busy machine, one run printed:
+
+```text
+platform   4,000 threads alive at once: started in 6,644 ms, all finished after 7,454 ms (1863.5 us per thread)
+virtual  100,000 threads alive at once: started in   585 ms, all finished after 2,571 ms (25.7 us per thread)
+```
+
+Twenty-five times as many virtual threads finished in a third of the time. The cost per platform thread swings with how busy the machine is: another run here gave 268 microseconds, not 1,864. It still stayed many times above the virtual threads' 19 to 26 microseconds.
+
+So a JVM is comfortable with hundreds of platform threads and survives a few thousand. At tens of thousands, it starts fighting the operating system's limits on threads and memory. A million is out of reach.
+
+**A platform thread is an operating system thread. You can have thousands, not millions.**
+
+Here the restaurant picture breaks, and not in our favor. A real waiter at the kitchen door might refill a glass on the way. A blocked platform thread can do nothing else at all until its answer arrives.
+
+So more threads can't carry us far. The next idea is older than virtual threads: stop holding a thread while we wait."""
+
+# ---------------------------------------------------------------- section 3
+J_BLOCK = """// blocking: one thread per checkout, held for all 200 ms
+Receipt checkout(Basket basket) {
+    Stock stock = warehouse.reserve(basket);         // 40 ms
+    Payment paid = bank.charge(basket, stock);       // 120 ms
+    return orders.save(basket, paid);                // 35 ms
+}
+
+// async: the thread goes back to the pool at every wait
+CompletableFuture<Receipt> checkoutAsync(Basket basket) {
+    return warehouse.reserveAsync(basket)
+        .thenCompose(stock -> bank.chargeAsync(basket, stock))
+        .thenCompose(paid -> orders.saveAsync(basket, paid));
+}"""
+K_BLOCK = """// blocking: one thread per checkout, held for all 200 ms
+fun checkout(basket: Basket): Receipt {
+    val stock = warehouse.reserve(basket)            // 40 ms
+    val paid = bank.charge(basket, stock)            // 120 ms
+    return orders.save(basket, paid)                 // 35 ms
+}
+
+// async: the thread goes back to the pool at every wait
+fun checkoutAsync(basket: Basket): CompletableFuture<Receipt> =
+    warehouse.reserveAsync(basket)
+        .thenCompose { stock -> bank.chargeAsync(basket, stock) }
+        .thenCompose { paid -> orders.saveAsync(basket, paid) }"""
+
+S3 = f"""The first way around the wall was to stop holding a thread during a wait. In the restaurant, that's one waiter running between many tables with a notepad. Table 4's soup is ready, so bring the bread. The bank said yes for table 9, so print the bill. Nobody stands at the door, and a few waiters serve every table.
+
+In code, the notepad is a chain of steps to run later. Here's the checkout both ways. Both versions make the same three calls in the same order:
+
+{pair(J_BLOCK, K_BLOCK)}
+
+A `CompletableFuture`, from the executors track, is a box for a result that arrives later. Read `thenCompose` as "when this box is filled, start the next step and hand me its box". No thread waits for the bank. When its answer comes, it starts the next step on whatever thread is free.
+
+A program built this way can keep thousands of checkouts in flight on a few threads. Often it has one **event loop** per core: a thread that runs many requests' small steps in turn and must never block. It works, and it's why async libraries, and reactive ones built on the same idea, became popular. The price is paid in the code.
+
+Every library on the checkout's path must be async too, including the one that talks to the database. One ordinary blocking call on an event loop stalls every request that shares that loop, and nothing warns you.
+
+The call stack stops telling the story. When the bank's step fails, the stack trace lists pool threads and lambdas, which is everything except what happened. A debugger can't step from one stage to the next.
+
+Control flow turns into method calls. A `try`/`catch` becomes `exceptionally`, and a loop with an early exit becomes a chain that calls itself. A `ThreadLocal` is a variable with a separate value for each thread. It doesn't follow the checkout from thread to thread, so anything kept in one, such as the current customer, gets lost on the way.
+
+Kotlin coroutines get closest to the blocking style. A `suspend` function, which the compiler can pause at a wait and resume later on any thread, reads top to bottom like `checkout`. But coroutines need libraries that suspend instead of block. A blocking database call inside a coroutine blocks a real thread, and we're back to sizing a pool: `Dispatchers.IO`, the coroutine library's shared pool for blocking calls.
+
+If your code is already async and works, keep it. Rewriting plain blocking code as chains just to save threads is a poor trade.
+
+Check yourself: an async service runs on 8 event loops, and someone adds a blocking 50 ms database call to one handler. How many of those requests can the service serve per second? At most 160. Each loop is stuck for the whole 50 ms of every call, so Little's law with L = 8 and W = 0.05 s gives 8 / 0.05 = 160, however fast the CPU is.
+
+Async code frees the thread by changing the code. What if, instead, threads were so cheap that a waiting one didn't matter?"""
+
+# ---------------------------------------------------------------- section 4
+J_PER = """try (ExecutorService perCheckout = Executors.newVirtualThreadPerTaskExecutor()) {
+    for (Basket basket : incoming) {
+        perCheckout.submit(() -> checkout(basket));   // blocking code, cheap thread
+    }
+}   // close() waits for every task"""
+K_PER = """Executors.newVirtualThreadPerTaskExecutor().use { perCheckout ->
+    for (basket in incoming) {
+        perCheckout.submit(Callable { checkout(basket) })   // blocking code, cheap thread
+    }
+}   // use {} closes the executor, and close() waits for every task"""
+
+S4 = f"""JDK 21 took the other way out: it made threads cheap. **Virtual threads** became a final feature in JDK 21, through JEP 444 (a JDK Enhancement Proposal, the design document for a change to Java).
+
+A **virtual thread** is a normal `java.lang.Thread` that the JDK schedules, instead of the operating system. It runs on a small pool of platform threads, about one per core. When it blocks, for example on a network read or a sleep, the JDK sets it aside. It keeps the thread's stack on the **heap**, the memory where Java keeps its objects, and lends the platform thread to another virtual thread. The next lesson, How virtual threads work, opens that up.
+
+In the restaurant, that's a waiter who costs next to nothing to hire. Every table can keep its personal waiter, and one standing at the kitchen door costs almost nothing.
+
+So we keep the blocking `checkout` method, and give every checkout its own virtual thread. Both versions start one new virtual thread per basket:
+
+{pair(J_PER, K_PER)}
+
+The executor starts a brand-new virtual thread for every task and keeps none around. Remember the second line of `WallDemo`? Here it is, from the same run as the first:
+
+```text
+fixed pool of 100           2,000 requests in  2,229 ms  =      897 requests/s
+virtual thread per task     2,000 requests in    268 ms  =    7,463 requests/s
+```
+
+All 2,000 checkouts slept at the same time, so the run took a little over one sleep. With the 300 ms sleep, it took 391 ms. The time follows the latency of one checkout, not the number of checkouts.
+
+Little's law still holds. At 1,500 checkouts a second and 0.2 s each, 300 are still inside at once. They just don't cost 300 operating system threads. When the bank slows to 1.2 s, 1,920 are inside, and that's fine too.
+
+Be clear about what virtual threads don't change:
+
+- One checkout is not faster. It still waits 200 ms. Virtual threads give scale (more checkouts waiting at once), not speed.
+- Work that computes gains nothing. With 16 cores, at most 16 threads compute at once, virtual or not.
+- Limits elsewhere stay. The shop's database still accepts 20 connections, open lines to it, at once. With the thread cap gone, 300 checkouts reach it together, and the queue moves there. Lesson 3 of this track puts a limit in front of it.
+
+A few kinds of code can also keep a virtual thread from letting go of its platform thread. Lesson 4 of this track covers them.
+
+**Virtual threads give scale, not speed. Each checkout waits as long as before, but many more can wait at once.**
+
+The restaurant picture breaks here too: the kitchen is still the kitchen. If the slow part is the cooking itself, or a grill with room for only 20 pans, cheaper waiters don't help.
+
+The lab turns the wall into something you can measure: the same blocking handler on a fixed pool, and on one virtual thread per task."""
+
+# ---------------------------------------------------------------- closing
+CLOSING = """We started with waiters who mostly stood at the kitchen door. The shop's checkout did the same: 195 of its 200 ms were waiting, so 200 threads stopped at 1,000 a second while most cores sat idle. More platform threads cost too much, and async code costs the plain style. Virtual threads keep the code and make the waiting cheap.
+
+Now pick a pool in your own code and write down its thread count and how long a request holds one of its threads. Divide the first by the second. That's your wall, in requests per second.
+
+Next, we'll open a virtual thread. How do 2,000 sleeping threads share four cores, and where does a waiting thread's stack go?"""
 
 L = {
  "id": "vt-01",
  "title": "The thread-per-request wall",
  "minutes": 35,
- "goal": "By the end you can use Little's law to say how many threads a blocking service needs, explain why platform threads cap its throughput, and say what virtual threads change and what they don't.",
+ "goal": "By the end you can use Little's law to say how many threads a waiting service needs, explain why platform threads cap its throughput, and say what virtual threads change and what they don't.",
+ "opening": OPENING,
  "warmup": {
-  "q": "A payments API runs on a pool of 200 worker threads. Each authorization takes 200 ms, almost all of it waiting on the card issuer. Traffic rises from 800 to 1,500 requests per second. What happens?",
+  "q": "A shop's website runs on a server with 16 cores. Every checkout gets its own thread from a pool of 200, and each checkout takes 200 ms, almost all of it waiting for the bank to answer. Traffic rises from 800 to 1,500 checkouts a second. What happens?",
   "options": [
-   "CPU climbs to 100% and every request gets a little slower",
-   "Throughput stops near 1,000 requests per second and latency keeps growing, while CPU stays low",
-   "The pool starts more threads to absorb the extra load",
-   "Nothing: 200 threads can handle any rate as long as requests are short"
+   "Every core gets busy, and each checkout gets a little slower",
+   "The shop finishes about 1,000 checkouts a second and no more, the line of waiting checkouts keeps growing, and most cores sit idle",
+   "The pool starts more threads to keep up",
+   "Nothing much: 200 threads can handle any rate, as long as each checkout is short"
   ],
   "answer": 1,
-  "why": "Each request holds a thread for 200 ms, so one thread finishes 5 requests per second and 200 threads finish 1,000. The other 500 requests per second wait in the pool's queue, and the queue grows every second. The CPU is idle most of that time, because the threads are blocked, not computing. A fixed pool never grows on its own."
+  "why": "Each checkout holds a thread for 200 ms, so one thread finishes 5 checkouts a second and 200 threads finish 1,000. The other 500 a second wait in the pool's queue, and that line grows every second. Most cores have nothing to do, because the threads are waiting, not computing. A fixed pool never adds threads on its own. The first two sections work through it."
  },
  "sections": [
   {
-   "h": "A platform thread is an OS thread, and you only get thousands",
-   "body": "Before JDK 21, every `java.lang.Thread` was a thin wrapper around one operating system thread. The JDK now calls these **platform threads**. The mapping is one to one: `new Thread(r).start()` asks the kernel for a thread, and the kernel schedules it.\n\nThat costs real resources. Each platform thread reserves a stack up front: 1 MB by default on 64-bit Linux (`-Xss`, or `ThreadStackSize` in `java -XX:+PrintFlagsFinal`). The kernel commits the pages lazily, but it still keeps the reservation, guard pages and its own bookkeeping per thread. Starting a thread is a system call. Switching between thousands of runnable threads costs the kernel time and costs you CPU caches.\n\nSo a JVM is comfortable with hundreds of platform threads, and survives a few thousand. Push to tens of thousands and you start fighting ulimits (the per-user limits the OS puts on processes and threads), memory and the scheduler. A million is out of reach.\n\nServers have used one style for decades anyway: **thread-per-request**. Tomcat, the Quarkus worker pool, and every JDBC-based service give each request one thread for its whole life. The code is easy to read. A stack trace tells you the whole story of a request. A debugger steps through it line by line. `ThreadLocal` context such as the logging MDC or the current transaction just works, because the request never changes threads.\n\nThe catch is in the phrase \"whole life\". The thread stays assigned to the request while the request waits for the database, the fraud service and the card issuer. A blocked thread does no work, but nobody else can use it. You run out of threads long before you run out of CPU.",
+   "h": "One checkout, one thread: why 200 threads stop at 1,000 a second",
+   "body": S0,
+   "figure": {"svg": FIG, "caption": "The thread is busy for 5 ms and blocked for 195 ms, but it belongs to this one checkout for all 200 ms."},
+   "aside": ASIDE0,
    "try": {
-    "title": "Count what a thread costs",
+    "title": "Predict the wall, then hit it",
     "minutes": 4,
     "steps": [
-     "Run `ThreadCostDemo` with the command below. It starts 4,000 platform threads that all stay alive until it releases them, then does the same with 100,000 virtual threads.",
-     "Before you look at the output, guess which run finishes first: 4,000 platform threads or 25 times as many virtual threads?",
-     "Try `-Pargs='5000 1000000'` for a million virtual threads. Leave the platform count at 5,000 or less on a laptop."
+     "Read `WallDemo`. It runs 2,000 fake checkouts that each sleep for 100 ms, first on a fixed pool of 100 threads. Write down how long you expect the pool to take.",
+     "Run it with the command below. Look only at the first line for now.",
+     "Predict again for a pool of 200, then run with `-Pargs='200 2000 100'`."
     ],
-    "code": {"lang": "java", "title": "ThreadCostDemo.java", "src": read(f"{lab}/demo/{P}/ThreadCostDemo.java"),
-             "run": "./gradlew :vthreads:demo -Pmain=workbench.vthreads.l01.ThreadCostDemo",
-             "file": f"{lab}/demo/{P}/ThreadCostDemo.java",
-             "alt": {"lang": "kotlin", "title": "ThreadCostDemo.kt", "src": read(f"{lab}/demo/{K}/ThreadCostDemo.kt"),
-                     "run": "./gradlew :vthreads:demo -Pmain=workbench.vthreads.l01.ThreadCostDemoKt",
-                     "file": f"{lab}/demo/{K}/ThreadCostDemo.kt"}},
-    "expect": "Each platform thread costs tens to hundreds of microseconds to start (one busy run here printed about 900 us per thread). Each virtual thread costs a few microseconds, so 100,000 of them finish sooner than 4,000 platform threads. A million virtual threads take a second or two and some heap. Nothing crashes."
+    "code": demo("WallDemo"),
+    "expect": "100 threads at 100 ms finish at most 1,000 checkouts a second, so 2,000 take about 2 s (busy runs here: 2,094 to 2,229 ms). 200 threads halve that to about 1 s (1,126 ms here). The pool's speed is its thread count divided by the time each checkout holds a thread."
    }
   },
   {
-   "h": "Little's law tells you how many threads you need",
-   "body": "One formula explains the wall. **Little's law** says that in any stable system:\n\n```text\nL = λ × W\nrequests in flight = arrival rate × time each request spends inside\n```\n\nIt holds for supermarkets, call centers and servers, whatever the details. With thread-per-request, every request in flight holds one thread, so L is also the number of threads you need.\n\nTake a payment authorization. It parses the request (2 ms of CPU), calls the fraud service (40 ms), calls the card issuer (120 ms), writes to the ledger (35 ms) and replies (3 ms). That is 200 ms per request, and only 5 ms of it uses a CPU. The figure below shows the shape.\n\nAt peak the service gets 1,500 authorizations per second:\n\n```text\nL = 1,500/s × 0.2 s = 300 requests in flight = 300 threads\n```\n\nThe worker pool has 200 threads. Turn the formula around to get the most it can serve:\n\n```text\nλ max = L / W = 200 / 0.2 s = 1,000 requests per second\n```\n\nThe other 500 requests per second wait in the pool's queue. The queue grows every second, so latency grows every second, and CPU sits at a few percent. Dashboards show a slow service with idle machines.\n\nNow the issuer has a bad day and its calls take 1,200 ms. W becomes 1.28 s and the same 200 threads cap you at 156 requests per second. A slow dependency shrinks your throughput even though your own code did not change. That is how one slow downstream service takes down a whole thread-per-request fleet.\n\nYou have two ways out. Make W smaller, which you often can't, because the issuer is not yours. Or make L cheaper: hold the request somewhere other than an expensive OS thread while it waits.",
-   "figure": {"svg": FIG, "caption": "The thread is busy for 5 ms and blocked for 195 ms, but it belongs to this one request for all 200 ms."},
+   "h": "Little's law: how many checkouts are inside at once",
+   "body": S1,
    "try": {
-    "title": "Predict the wall, then hit it",
-    "minutes": 5,
+    "title": "Size a service by hand, then check the demo",
+    "minutes": 4,
     "steps": [
-     "`WallDemo` runs 2,000 fake authorizations that each block for 100 ms, first on a fixed pool of 100 threads. Use Little's law to predict the pool's time before you run it.",
-     "Run it with the command below. Ignore the virtual thread line for now.",
-     "Predict again for a pool of 200, then run with `-Pargs='200 2000 100'`. Then try a 300 ms latency: `-Pargs='100 2000 300'`."
+     "A shop's search page gets 600 requests a second, and each one waits 250 ms for a slow service. How many requests are inside at once?",
+     "The page runs on a pool of 64 threads. What's the most it can finish per second, and how fast does the queue grow?",
+     "Predict the pool's time in `WallDemo` with a 300 ms sleep, then run `./gradlew :vthreads:demo -Pmain=workbench.vthreads.l01.WallDemo -Pargs='100 2000 300'`."
     ],
-    "code": {"lang": "java", "title": "WallDemo.java", "src": read(f"{lab}/demo/{P}/WallDemo.java"),
-             "run": "./gradlew :vthreads:demo -Pmain=workbench.vthreads.l01.WallDemo",
-             "file": f"{lab}/demo/{P}/WallDemo.java",
-             "alt": {"lang": "kotlin", "title": "WallDemo.kt", "src": read(f"{lab}/demo/{K}/WallDemo.kt"),
-                     "run": "./gradlew :vthreads:demo -Pmain=workbench.vthreads.l01.WallDemoKt",
-                     "file": f"{lab}/demo/{K}/WallDemo.kt"}},
-    "expect": "100 threads at 100 ms finish at most 1,000 requests per second, so 2,000 requests take about 2 s (one run here: 2,050 ms). 200 threads halve that to about 1 s. Tripling the latency to 300 ms triples the pool's time to about 6 s. The pool's throughput is threads divided by latency, exactly as the formula says."
+    "expect": "600 × 0.25 = 150 requests inside at once. 64 / 0.25 = 256 a second, far below 600, so the queue grows by about 344 requests every second. `WallDemo` with a 300 ms sleep takes about 6 s on the pool (6,198 ms here), three times the 100 ms run."
    },
    "refs": [
     {"title": "JEP 444: Virtual Threads (see the Little's law discussion in its motivation)", "url": "https://openjdk.org/jeps/444", "kind": "read"}
    ]
   },
   {
-   "h": "The async workaround, and what it costs",
-   "body": "The industry's first answer was to stop holding a thread while waiting. Async code hands the thread back at every wait and continues later on whatever thread is free:\n\n```java\n// blocking: one thread per request, held for all 200 ms\nReceipt authorize(Payment p) {\n    Risk risk = fraud.check(p);              // 40 ms\n    Auth auth = issuer.authorize(p, risk);   // 120 ms\n    return ledger.record(p, auth);           // 35 ms\n}\n\n// async: the thread goes back to the pool at every wait\nCompletableFuture<Receipt> authorizeAsync(Payment p) {\n    return fraud.checkAsync(p)\n        .thenCompose(risk -> issuer.authorizeAsync(p, risk))\n        .thenCompose(auth -> ledger.recordAsync(p, auth));\n}\n```\n\n```kotlin\n// blocking: one thread per request, held for all 200 ms\nfun authorize(p: Payment): Receipt {\n    val risk = fraud.check(p)                // 40 ms\n    val auth = issuer.authorize(p, risk)     // 120 ms\n    return ledger.record(p, auth)            // 35 ms\n}\n\n// async: the thread goes back to the pool at every wait\nfun authorizeAsync(p: Payment): CompletableFuture<Receipt> =\n    fraud.checkAsync(p)\n        .thenCompose { risk -> issuer.authorizeAsync(p, risk) }\n        .thenCompose { auth -> ledger.recordAsync(p, auth) }\n```\n\n`CompletableFuture`, Reactor's `Mono` and `Flux`, Vert.x and Quarkus's reactive stack all work this way. A handful of event-loop threads, about one per core, can keep thousands of requests in flight. It works, and it is why reactive stacks became popular.\n\nYou pay for it in the code.\n\nEvery library on the request path must be async too. JDBC is blocking, so you need a reactive driver. One blocking call on an event-loop thread stalls every request that shares that loop, and nothing warns you.\n\nThe call stack stops meaning anything. When `issuer.authorizeAsync` fails, the stack trace shows pool worker frames and lambda names, not `authorize` calling `issuer.authorize`. A debugger can't step from one stage to the next. A profiler shows time in the event loop.\n\nControl flow turns into operators. A `try/catch` becomes `exceptionally` or `onErrorResume`. A loop with an early exit becomes a recursive chain. `ThreadLocal` context (the MDC, the security context, the transaction) does not follow the request from thread to thread, so you need a context propagation library.\n\nKotlin coroutines get closest to the blocking style. A `suspend` function, which the compiler can pause at a wait and resume later on any thread, reads top to bottom. Coroutines still need suspend-aware libraries, though. A blocking JDBC call inside a coroutine blocks a real thread, and you are back to pool sizing with `Dispatchers.IO`, the coroutine library's shared pool for blocking calls.\n\nIf your code is already reactive and works, keep it. Most payment services are plain blocking code on a pool, and rewriting them as async chains to save threads is a poor trade.\n\nCheck yourself: an async service runs on 8 event-loop threads, and someone adds a blocking 50 ms JDBC call to one handler. How many of those requests can the service now serve per second? At most 160. Each loop thread is stuck for the whole 50 ms of every call, so Little's law with L = 8 and W = 0.05 s gives 8 / 0.05 = 160, however fast the CPU is. Every other request on those loops waits behind the blocked calls."
+   "h": "Why not more threads: what a platform thread costs",
+   "body": S2,
+   "try": {
+    "title": "Count what a thread costs",
+    "minutes": 4,
+    "steps": [
+     "Run `ThreadCostDemo` with the command below. It starts 4,000 platform threads that all stay alive until it releases them, then 100,000 virtual threads.",
+     "Before you look at the output, guess which run finishes first: 4,000 platform threads, or 25 times as many virtual threads?",
+     "Try `-Pargs='5000 1000000'` for a million virtual threads. Keep the platform count at 5,000 or less on a laptop."
+    ],
+    "code": demo("ThreadCostDemo"),
+    "expect": "Each platform thread costs tens to hundreds of microseconds to start, and more on a busy machine (268 and 1,864 microseconds in two runs here). Each virtual thread costs a few tens of microseconds or less, so 100,000 of them finish sooner than 4,000 platform threads. A million virtual threads take longer and use some heap, but nothing crashes."
+   }
   },
   {
-   "h": "Virtual threads: cheap threads, same blocking code",
-   "body": "JDK 21 took the other way out: make threads cheap. **Virtual threads** became a final feature in JDK 21 (JEP 444, the JDK Enhancement Proposal that defines them). A virtual thread is a normal `java.lang.Thread`, but the JDK schedules it, not the OS. It runs on a small pool of platform threads, about one per core. When it blocks on a socket read, a sleep or a lock, the JDK parks it, saves its stack on the heap, and lets another virtual thread use that platform thread. Lesson 2 of this track shows how.\n\nA virtual thread starts in a few microseconds and needs a small heap object that grows with its stack. A million of them fit on a laptop. So you keep the blocking `authorize` method and give every request its own virtual thread:\n\n```java\ntry (ExecutorService perRequest = Executors.newVirtualThreadPerTaskExecutor()) {\n    for (Payment p : incoming) {\n        perRequest.submit(() -> authorize(p));   // blocking code, cheap thread\n    }\n}   // close() waits for every task\n```\n\n```kotlin\nExecutors.newVirtualThreadPerTaskExecutor().use { perRequest ->\n    for (p in incoming) {\n        perRequest.submit(Callable { authorize(p) })   // blocking code, cheap thread\n    }\n}   // use {} closes the executor, and close() waits for every task\n```\n\nLittle's law still holds. At 1,500 requests per second and 200 ms you still have 300 requests in flight. They just don't cost 300 OS threads anymore. If the issuer slows to 1.2 s, you have 1,920 in flight, and that is fine too.\n\nBe clear about what virtual threads do not change:\n\n- One request is not faster. It still waits 200 ms. Virtual threads give you scale (more requests in flight), not speed.\n- CPU-bound work gains nothing. With 8 cores, at most 8 virtual threads compute at once.\n- Downstream limits stay. Your ledger database pool still has 20 connections. With the thread cap gone, 300 requests reach that pool at once, and the bottleneck moves there. Lessons 3 and 6 of this track deal with it.\n\nThe lab makes the wall measurable: the same blocking handler on a fixed pool and on one virtual thread per task.",
+   "h": "Giving the thread back while it waits: async code, and what it costs",
+   "body": S3
+  },
+  {
+   "h": "Virtual threads: cheap threads for the same blocking code",
+   "body": S4,
    "try": {
     "title": "Run the same wall on virtual threads",
     "minutes": 3,
     "steps": [
-     "Run `WallDemo` again and look at the second line this time.",
-     "Run `-Pargs='100 2000 300'`. Predict first: does the virtual thread time triple like the pool's did?",
-     "Run `-Pargs='100 5000 100'`. Predict both lines before you look."
+     "Run `WallDemo` again, and this time read the second line.",
+     "Run it with `-Pargs='100 2000 300'`. Predict first: does the virtual-thread time triple, like the pool's did?",
+     "Run it with `-Pargs='100 5000 100'`. Predict both lines before you look."
     ],
-    "expect": "The virtual line finishes 2,000 requests in a little over 100 ms (one run here: 165 ms), because all 2,000 sleep at the same time. With 300 ms latency it takes a little over 300 ms: the time follows the latency of one request, not the number of requests. With 5,000 requests the pool needs about 5 s and the virtual run still takes well under a second."
+    "expect": "The virtual line finishes 2,000 checkouts in a little over 100 ms (148 to 268 ms in busy runs here), because all 2,000 sleep at the same time. With a 300 ms sleep it takes a little over 300 ms (391 ms here): the time follows one checkout's latency, not the number of checkouts. With 5,000 checkouts the pool needs about 5 s (5,134 ms here), and the virtual run still takes well under a second (294 ms)."
    }
   }
  ],
- "analogy": "Picture a restaurant where each waiter is assigned to one table from the moment guests sit down until they pay. While the kitchen cooks, the waiter stands at the table and does nothing. With 20 waiters you serve 20 tables at once, however many seats are empty, and guests queue at the door. Async code is one waiter running between many tables with a notepad of what each table needs next. It works, but the notepad gets complicated. Virtual threads give every table its own waiter, and waiters cost almost nothing to hire. The analogy breaks in one place: the kitchen is still the kitchen. If the slow part is the cooking itself (CPU work) or a pantry with room for only 20 cooks (a connection pool), more waiters don't help.",
- "in_your_world": "Your Quarkus REST endpoints run on a worker pool with a fixed maximum size (`quarkus.thread-pool.max-threads`), and Little's law decides when it fills up. A card issuer that slows from 120 ms to 1.2 s during an incident cuts that pool's throughput by about ten times, even though your code didn't change. The same math applies to a Kafka consumer that calls a fraud API per record, and to Temporal activity workers, which run each activity on a thread from a fixed number of slots. When you see latency climbing with CPU at 5%, compute L = λ × W before you add pods.",
- "mistake": "The most common mistake is reading \"slow and idle\" as a CPU or code problem. Latency climbs, throughput flattens, CPU is at 5%, so the team adds pods or raises the pool to 2,000 threads. More threads does lift the cap for a while, but each one reserves 1 MB of stack and adds scheduling work, and the extra requests often just pile up on the database pool instead. Do the arithmetic first: measure W, compute L = λ × W for the peak rate, and compare L with your thread pool and with every pool behind it. Then fix the resource that is actually full.",
  "compare": {
-  "title": "Blocking code that scales: virtual threads vs coroutines",
-  "java": {"title": "Java 21+: virtual threads", "src": "// plain blocking code, one cheap virtual thread per payment\nList<Receipt> authorizeAll(List<Payment> batch) throws Exception {\n    try (ExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor()) {\n        List<Future<Receipt>> futures = new ArrayList<>();\n        for (Payment p : batch) futures.add(perTask.submit(() -> authorize(p)));\n        List<Receipt> receipts = new ArrayList<>();\n        for (Future<Receipt> f : futures) receipts.add(f.get());\n        return receipts;\n    }\n}\n\nReceipt authorize(Payment p) {\n    Risk risk = fraud.check(p);              // ordinary blocking HTTP call\n    Auth auth = issuer.authorize(p, risk);\n    return ledger.record(p, auth);           // ordinary JDBC\n}"},
-  "kotlin": {"title": "Kotlin: kotlinx.coroutines", "src": "// suspend functions: the compiler turns them into state machines\nsuspend fun authorizeAll(batch: List<Payment>): List<Receipt> = coroutineScope {\n    batch.map { p -> async { authorize(p) } }.awaitAll()\n}\n\nsuspend fun authorize(p: Payment): Receipt {\n    val risk = fraud.check(p)                // must itself suspend to free the thread\n    val auth = issuer.authorize(p, risk)\n    return ledger.record(p, auth)            // blocking JDBC here would block a real thread\n}"},
-  "note": "Both read top to bottom, and both keep thousands of payments in flight on a few OS threads. The difference is where the magic lives. Kotlin does it in the compiler: only `suspend` functions can give the thread back, so every waiting call on the path has to be suspend-aware, and a blocking JDBC call needs `withContext(Dispatchers.IO)`, which is a thread pool again. Virtual threads do it in the JDK at run time: any blocking JDK call (sockets, `sleep`, locks, `BlockingQueue`) parks the virtual thread, so existing JDBC drivers and HTTP clients work unchanged. You can mix the two: `Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher()` runs coroutines on virtual threads, which helps when they call blocking libraries."
+  "title": "Blocking code that scales: virtual threads and coroutines",
+  "java": {"title": "Java 21+: virtual threads", "src": "// plain blocking code, one cheap virtual thread per checkout\nList<Receipt> checkoutAll(List<Basket> baskets) throws Exception {\n    try (ExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor()) {\n        List<Future<Receipt>> futures = new ArrayList<>();\n        for (Basket b : baskets) futures.add(perTask.submit(() -> checkout(b)));\n        List<Receipt> receipts = new ArrayList<>();\n        for (Future<Receipt> f : futures) receipts.add(f.get());\n        return receipts;\n    }\n}\n\nReceipt checkout(Basket b) {\n    Stock stock = warehouse.reserve(b);      // an ordinary blocking call over the network\n    Payment paid = bank.charge(b, stock);\n    return orders.save(b, paid);             // an ordinary database call\n}"},
+  "kotlin": {"title": "Kotlin: kotlinx.coroutines", "src": "// suspend functions: the compiler turns them into steps it can pause between\nsuspend fun checkoutAll(baskets: List<Basket>): List<Receipt> = coroutineScope {\n    baskets.map { b -> async { checkout(b) } }.awaitAll()\n}\n\nsuspend fun checkout(b: Basket): Receipt {\n    val stock = warehouse.reserve(b)         // must itself suspend to free the thread\n    val paid = bank.charge(b, stock)\n    return orders.save(b, paid)              // a blocking database call here would block a real thread\n}"},
+  "note": "Both read top to bottom, and both keep thousands of checkouts in flight on a few operating system threads. The difference is where the pausing happens. Kotlin does it in the compiler: only `suspend` functions can give the thread back, so every waiting call on the path has to be suspend-aware, and a blocking database call needs `withContext(Dispatchers.IO)`, which is a thread pool again. Virtual threads do it in the JDK while the program runs: most blocking JDK calls (network reads, `sleep`, locks, a `BlockingQueue`) set the virtual thread aside, so existing database drivers and HTTP clients work unchanged. The two also mix: `Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher()` runs coroutines on virtual threads, which helps when they call blocking libraries."
  },
  "worked": {
-  "title": "Size the authorization service with Little's law",
+  "title": "Size the checkout service with Little's law",
   "steps": [
-   {"say": "Write down W for one request, stage by stage. Use p50 numbers from your traces for a first pass, and redo it with p99 for the bad day.", "code": "parse        2 ms  (CPU)\nfraud       40 ms  (HTTP, waiting)\nissuer     120 ms  (HTTP, waiting)\nledger      35 ms  (JDBC, waiting)\nreply        3 ms  (CPU)\nW          200 ms", "lang": "text"},
-   {"say": "Compute L at the peak rate. This is how many requests are in flight, so it is how many threads thread-per-request needs.", "code": "L = λ × W = 1,500/s × 0.200 s = 300 threads", "lang": "text"},
-   {"say": "Compare with the pool you have. 200 threads cap the service at 1,000 requests per second. At 1,500 arriving, the queue grows by 500 every second. After 10 s, 5,000 requests are queued, and a new one waits about 5 s before a thread even picks it up.", "code": "λ max = 200 / 0.200 s = 1,000/s\nqueue growth = 1,500 - 1,000 = 500 per second\nwait after 10 s = 5,000 / 1,000/s = 5 s", "lang": "text"},
-   {"say": "Apply the same law to every resource a request holds, not just threads. The ledger stage holds a database connection for 35 ms. With a pool of 20 connections, that stage alone caps you at 571 requests per second. Fixing the thread pool, with more platform threads or with virtual threads, would only move the queue to the connection pool.", "code": "connections needed = 1,500/s × 0.035 s = 53\nλ max (ledger)     = 20 / 0.035 s = 571/s   <- the real bottleneck", "lang": "text"},
-   {"say": "Decide. Raise the connection pool only if the database can take 53 concurrent writes. Then make threads cheap with virtual threads, and keep an explicit limit in front of the issuer and the database. Lesson 3 of this track shows that limit."}
+   {"say": "Write down W for one checkout, step by step. Use typical times for a first pass, and redo it later with the times from a bad day.", "code": "read request   2 ms  (CPU)\nstock         40 ms  (network, waiting)\nbank         120 ms  (network, waiting)\ndatabase      35 ms  (database, waiting)\nreply          3 ms  (CPU)\nW            200 ms", "lang": "text"},
+   {"say": "Work out L at the busiest hour. That's how many checkouts are inside at once, so it's how many threads thread-per-request needs.", "code": "L = λ × W = 1,500/s × 0.200 s = 300 threads", "lang": "text"},
+   {"say": "Compare with the pool you have. 200 threads cap the shop at 1,000 checkouts a second. With 1,500 arriving, the queue grows by 500 every second. After 10 s, 5,000 are queued, and a new checkout waits about 5 s before a thread even picks it up.", "code": "λ max = 200 / 0.200 s = 1,000/s\nqueue growth = 1,500 - 1,000 = 500 per second\nwait after 10 s = 5,000 / 1,000/s = 5 s", "lang": "text"},
+   {"say": "Apply the same law to everything a checkout holds, not just threads. The database step holds a connection, an open line to the database, for 35 ms. With 20 connections, that step alone caps the shop at 571 checkouts a second. More platform threads, or virtual threads, would only move the queue to the connections.", "code": "connections needed = 1,500/s × 0.035 s = 53\nλ max (database)   = 20 / 0.035 s = 571/s   <- the real bottleneck", "lang": "text"},
+   {"say": "Decide. Raise the connection count only if the database can take 53 at once. Then make threads cheap with virtual threads, and keep an explicit limit in front of the database. Lesson 3 of this track shows that limit."}
   ]
  },
  "lab": {
@@ -136,13 +372,13 @@ L = {
   "run": "./gradlew :vthreads:test --tests 'workbench.vthreads.l01.*'",
   "steps": [
    "Run the tests once. All five fail with `UnsupportedOperationException`.",
-   "Write `LittlesLaw.inFlight` (L = λ × W) and `LittlesLaw.maxThroughput` (λ = L / W). Convert the `Duration` to seconds as a `double` first.",
-   "Write `BlockingRunner.runOnFixedPool`: open `Executors.newFixedThreadPool(poolSize)` in try-with-resources, `execute` the handler `tasks` times, and count each finished task in an `AtomicInteger`. Return the count after the try block.",
-   "Write `runOnVirtualThreads` the same way with `Executors.newVirtualThreadPerTaskExecutor()`.",
-   "Run the tests again. The last one takes about 2.5 s: it runs 2,000 tasks of 100 ms on a 100-thread pool, then on virtual threads. Read its assertions to see why the pool can never beat 2 s."
+   "Write `LittlesLaw.inFlight` (L = λ × W) and `LittlesLaw.maxThroughput` (λ = L / W). Turn the `Duration` into seconds as a `double` first.",
+   "Write `BlockingRunner.runOnFixedPool`: open `Executors.newFixedThreadPool(poolSize)` in a try-with-resources block, `execute` the handler `tasks` times, and count each finished task in an `AtomicInteger`. Return the count after the try block.",
+   "Write `runOnVirtualThreads` the same way, with `Executors.newVirtualThreadPerTaskExecutor()`.",
+   "Run the tests again. The test's `FakeSlowCall` is the handler: it sleeps like a call to a slow service and counts how many calls run at once. The last test takes about 2.5 s: 2,000 calls of 100 ms on a 100-thread pool, then on virtual threads. Read its assertions to see why the pool can never beat 2 s."
   ],
   "hints": [
-   "`close()` on an `ExecutorService` (JDK 19+) calls `shutdown()` and then waits for every task. That is why the try-with-resources block makes your method wait.",
+   "`close()` on an `ExecutorService` (JDK 19 and later) calls `shutdown()` and then waits for every task. That's why the try-with-resources block makes your method wait.",
    "Count with an `AtomicInteger`, not an `int`: the tasks finish on many threads at once. The lesson \"Race conditions: why count++ lies\" shows what `count++` does there.",
    "`Duration.toNanos() / 1_000_000_000.0` gives seconds as a `double` without losing the milliseconds."
   ],
@@ -151,60 +387,62 @@ L = {
  "drill": {
   "title": "Little's law and the per-task executor, from memory",
   "minutes": 4,
-  "prompt": "Close this page. A Kafka consumer service handles 600 records per second, and each record waits 250 ms on a fraud API. (1) How many records are in flight? (2) A pool of 64 threads processes them: what is the most it can handle per second? (3) Write a method that runs a `Runnable` once per record, each on its own virtual thread, and returns when all are done.",
-  "answer": {"lang": "java", "src": "// (1) L = 600/s × 0.25 s = 150 in flight\n// (2) λ max = 64 / 0.25 s = 256 records per second, far below 600\n// (3)\nstatic void runAll(List<Runnable> perRecord) {\n    try (ExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor()) {\n        for (Runnable r : perRecord) perTask.execute(r);\n    }   // close() waits for all of them\n}",
-            "alt": {"lang": "kotlin", "src": "// (1) L = 600/s × 0.25 s = 150 in flight\n// (2) λ max = 64 / 0.25 s = 256 records per second, far below 600\n// (3)\nfun runAll(perRecord: List<Runnable>) {\n    Executors.newVirtualThreadPerTaskExecutor().use { perTask ->\n        perRecord.forEach { perTask.execute(it) }\n    }   // close() waits for all of them\n}"}}
+  "prompt": "Close this page. A shop's order-tracking page gets 400 requests a second, and each request waits 300 ms for the delivery company's web service. (1) How many requests are inside at once? (2) A pool of 50 threads serves them: what's the most it can finish per second? (3) Write a method that runs each `Runnable` in a list on its own virtual thread, and returns when all of them are done.",
+  "answer": {"lang": "java", "src": "// (1) L = 400/s × 0.3 s = 120 inside at once\n// (2) λ max = 50 / 0.3 s = about 167 requests per second, far below 400\n// (3)\nstatic void runAll(List<Runnable> tasks) {\n    try (ExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor()) {\n        for (Runnable r : tasks) perTask.execute(r);\n    }   // close() waits for all of them\n}",
+             "alt": {"lang": "kotlin", "src": "// (1) L = 400/s × 0.3 s = 120 inside at once\n// (2) λ max = 50 / 0.3 s = about 167 requests per second, far below 400\n// (3)\nfun runAll(tasks: List<Runnable>) {\n    Executors.newVirtualThreadPerTaskExecutor().use { perTask ->\n        tasks.forEach { perTask.execute(it) }\n    }   // close() waits for all of them\n}"}}
  },
  "recap": [
-  "A platform thread is one OS thread with a 1 MB stack reserved by default on 64-bit Linux. A JVM handles thousands of them, not millions.",
-  "Little's law: requests in flight = arrival rate × latency. With thread-per-request, that is also the number of threads you need.",
-  "A blocking service is capped at threads / latency requests per second. A slow dependency lowers that cap while CPU stays idle.",
-  "Async and reactive code free the thread while waiting, at the price of async-only libraries, broken stack traces and lost `ThreadLocal` context.",
-  "Virtual threads (final in JDK 21, JEP 444) make threads cheap, so plain blocking code can keep thousands of requests in flight.",
-  "They give scale, not speed: one request is no faster, CPU-bound work gains nothing, and downstream pools become the new limit."
+  "A platform thread is one operating system thread, with a 1 MB stack reserved by default on 64-bit Linux. A JVM handles thousands of them, not millions.",
+  "Thread-per-request gives each request one thread for its whole life, waits included. A blocked thread does no work, but nobody else can use it.",
+  "Little's law: requests inside = arrival rate × latency. Turned around, threads divided by latency is the most a blocking service can finish per second, and a slow service you call lowers it.",
+  "Async code gives the thread back at every wait, at the price of async-only libraries, stack traces without the story and lost `ThreadLocal` values.",
+  "Virtual threads (final in JDK 21, JEP 444) make threads cheap, so plain blocking code can keep thousands of requests waiting at once.",
+  "The limit: they give scale, not speed. One request is no faster, computing gains nothing, and limits elsewhere, such as a database's 20 connections, become the new wall."
  ],
+ "closing": CLOSING,
  "quiz": [
-  {"q": "A service receives 3,000 requests per second and each one takes 50 ms. How many requests are in flight on average?",
+  {"q": "A service receives 3,000 requests a second, and each one takes 50 ms. How many requests are inside at once, on average?",
    "options": ["60", "150", "600", "3,000"], "answer": 1,
-   "why": "L = λ × W = 3,000/s × 0.05 s = 150. Dividing instead of multiplying gives 60, a common slip. The 3,000 figure is a rate per second, not a count of requests in flight at one moment."},
-  {"q": "A 200-thread pool serves 1,000 requests per second at 200 ms each. The card issuer slows down and each request now takes 2 s. CPU drops to 3%. What is the most the service can finish per second now?",
-   "options": ["Still 1,000, since the CPU is idle", "500", "100", "20"], "answer": 2,
-   "why": "λ max = threads / W = 200 / 2 s = 100 requests per second. Idle CPU doesn't help: the limit is threads held while waiting, not computation. That is why one slow dependency can take down a thread-per-request service."},
-  {"q": "You move a blocking handler from a 200-thread pool to one virtual thread per request. At low traffic, how does one request's latency change? It spends 120 ms waiting on the issuer.",
-   "options": ["About the same: it still waits 120 ms for the issuer", "It drops to a few milliseconds, because virtual threads don't really block", "It halves, because virtual threads switch faster", "It doubles, because of the scheduling overhead"], "answer": 0,
-   "why": "Virtual threads give scale, not speed. The request still waits for the issuer. What changes is how many requests can wait at once without running out of threads, so at high traffic the queueing delay disappears."},
-  {"q": "Which workload gains the most from virtual threads?",
-   "options": ["A batch job that computes HMACs over 50 million ledger rows on 8 cores", "A low-traffic admin API that serves 5 requests per second", "A report that is slow because one SQL query takes 30 s", "A payments API that waits on HTTP and database calls for 190 ms of every 200 ms request"], "answer": 3,
-   "why": "Virtual threads help when many tasks are in flight and most of their time is spent blocked. The HMAC batch job is CPU-bound, so 8 cores is the limit either way. The admin API never runs out of threads. The slow query is one request that is still slow on any thread."},
-  {"q": "From the executors track: `Executors.newFixedThreadPool(200)` receives 1,500 tasks per second that each block for 200 ms. What happens to the tasks it can't start right away?",
-   "options": ["They are rejected with RejectedExecutionException", "The pool adds threads up to its maximum", "They wait in an unbounded queue, so the queue and the latency keep growing", "They run on the submitting thread"], "answer": 2,
-   "why": "`newFixedThreadPool` uses an unbounded `LinkedBlockingQueue`, and core and maximum size are both 200. Nothing is rejected and no thread is added. Tasks queue without limit, which is exactly the growing latency Little's law predicts.", "from": "exec-02"}
+   "why": "L = λ × W = 3,000/s × 0.05 s = 150. Dividing instead of multiplying gives 60, a common slip. Write the units down: requests per second times seconds gives requests. The 3,000 is a rate, not a count of requests inside at one moment."},
+  {"q": "A 200-thread pool serves 1,000 checkouts a second at 200 ms each. The bank slows down, and each checkout now takes 2 s. Most cores are idle. What is the most the shop can finish per second now?",
+   "options": ["Still 1,000, since the cores are idle", "500", "100", "20"], "answer": 2,
+   "why": "λ max = threads / W = 200 / 2 s = 100 checkouts a second. Idle cores don't help, because the limit is threads held while waiting, not computing. That's how one slow service can take down a thread-per-request program."},
+  {"q": "You move a blocking handler from a 200-thread pool to one virtual thread per request. Traffic is low. Each request spends 120 ms waiting for the bank. How does one request's latency change?",
+   "options": ["About the same: it still waits 120 ms for the bank", "It drops to a few milliseconds, because virtual threads don't really block", "It halves, because virtual threads switch faster", "It doubles, because of the extra scheduling work"], "answer": 0,
+   "why": "Virtual threads give scale, not speed. The request still waits for the bank. What changes is how many requests can wait at once without running out of threads, so at high traffic the time spent queuing for a thread disappears."},
+  {"q": "Which program gains the most from virtual threads?",
+   "options": ["A batch job that computes checksums over 50 million rows on 8 cores", "A small admin page that serves 5 requests a second", "A report that is slow because one database query takes 30 s", "A shop's checkout that waits for other services for 195 ms of every 200 ms request"], "answer": 3,
+   "why": "Virtual threads help when many tasks are in flight and most of their time is spent waiting. The checksum job is computing, so 8 cores is the limit either way. The admin page never runs out of threads. The slow query is one request that stays slow on any thread."},
+  {"q": "From \"Inside ThreadPoolExecutor: core, max, queue, rejection\": `Executors.newFixedThreadPool(200)` receives 1,500 tasks a second that each block for 200 ms. What happens to the tasks it can't start right away?",
+   "options": ["They are rejected with RejectedExecutionException", "The pool adds threads up to its maximum", "They wait in an unbounded queue, so the queue and the latency keep growing", "They run on the thread that submitted them"], "answer": 2,
+   "why": "`newFixedThreadPool` uses an unbounded `LinkedBlockingQueue`, and its core and maximum sizes are both 200. Nothing is rejected and no thread is added. Tasks queue without limit, which is exactly the growing latency Little's law predicts.", "from": "exec-02"}
  ],
  "flashcards": [
-  {"front": "State Little's law.", "back": "L = λ × W: the number of requests in flight equals the arrival rate times the time each request spends in the system."},
-  {"front": "1,500 requests per second, 200 ms each. How many threads does thread-per-request need?", "back": "300 (1,500 × 0.2)."},
-  {"front": "200 threads, each request holds one for 200 ms. What is the maximum throughput?", "back": "1,000 requests per second (200 / 0.2 s). Above that the queue grows, even with idle CPU."},
-  {"front": "What is a platform thread?", "back": "A `java.lang.Thread` backed one to one by an OS thread, with its own stack (1 MB reserved by default on 64-bit Linux)."},
-  {"front": "Do virtual threads make a single request faster?", "back": "No. They give scale (more requests in flight at once), not speed. Each request waits just as long."},
+  {"front": "State Little's law.", "back": "L = λ × W: the number of requests inside equals the arrival rate times the time each request spends inside."},
+  {"front": "1,500 requests a second, 200 ms each. How many threads does thread-per-request need?", "back": "300 (1,500 × 0.2)."},
+  {"front": "200 threads, and each request holds one for 200 ms. What is the most it can finish per second?", "back": "1,000 requests a second (200 / 0.2 s). Above that the queue grows, even with idle cores."},
+  {"front": "What is a platform thread?", "back": "A `java.lang.Thread` backed one to one by an operating system thread, with its own stack (1 MB reserved by default on 64-bit Linux)."},
+  {"front": "Do virtual threads make a single request faster?", "back": "No. They give scale (more requests waiting at once), not speed. Each request waits just as long."},
   {"front": "In which JDK did virtual threads become final, and under which JEP?", "back": "JDK 21, JEP 444."},
-  {"front": "What happens when a handler on an event-loop thread makes a blocking JDBC call?", "back": "It blocks the event-loop thread, so every other request on that loop stalls until the call returns."}
+  {"front": "What happens when code on an event loop makes a blocking database call?", "back": "It blocks the event loop's thread, so every other request on that loop stalls until the call returns."}
  ],
  "terms": [
-  {"term": "Platform thread", "plain": "A Java thread that is one OS thread. Expensive, so you get thousands."},
-  {"term": "Virtual thread", "plain": "A Java thread scheduled by the JDK on a few OS threads. Cheap, so you can have millions."},
+  {"term": "Platform thread", "plain": "A Java thread that is one operating system thread. Costly, so you get thousands."},
+  {"term": "Virtual thread", "plain": "A Java thread that the JDK schedules on a few platform threads. Cheap, so you can have millions."},
   {"term": "Thread-per-request", "plain": "A server style where each request gets one thread for its whole life."},
-  {"term": "Little's law", "plain": "In flight = arrival rate × time inside. L = λ × W."},
+  {"term": "Blocked thread", "plain": "A thread that can't go on until something it waits for arrives, such as an answer from another program."},
+  {"term": "Little's law", "plain": "Inside at once = arrival rate × time inside. L = λ × W."},
   {"term": "Throughput", "plain": "How many requests finish per second."},
   {"term": "Latency", "plain": "How long one request takes from start to end."},
-  {"term": "Event loop", "plain": "A thread that runs many requests' callbacks in turn and must never block."}
+  {"term": "Event loop", "plain": "A thread that runs many requests' small steps in turn and must never block."}
  ],
  "explain_back": {
-  "prompt": "Your manager asks why the payments API tops out at about 1,000 requests per second while CPU sits at 5%. Explain it with Little's law, and say what virtual threads would change and what they would not.",
-  "answer": "Each authorization takes about 200 ms, and almost all of that is waiting on the fraud service, the issuer and the ledger. With thread-per-request, a request holds a thread the whole time, so 200 threads can finish at most 200 / 0.2 s = 1,000 requests per second. Above that, requests queue for a thread, so latency climbs, while the CPU has almost nothing to do because the threads are blocked. Virtual threads make threads cheap, so we could keep 300 or 3,000 requests in flight without 3,000 OS threads, and the thread cap goes away. They would not make any single request faster, and the next limit would be the database pool and the issuer's own capacity, so we'd need explicit limits there."
+  "prompt": "A friend asks why the shop's website tops out at about 1,000 checkouts a second while most of its cores sit idle. Explain it with Little's law, and say what virtual threads would change and what they wouldn't.",
+  "answer": "Each checkout takes about 200 ms, and almost all of that is waiting for the stock service, the bank and the database. With thread-per-request, a checkout holds its thread the whole time, so 200 threads can finish at most 200 / 0.2 s = 1,000 checkouts a second. Above that, checkouts queue for a thread and latency climbs, while the cores have almost nothing to do, because the threads are waiting, not computing. Virtual threads make threads cheap, so we could keep 300 or 3,000 checkouts waiting at once without 3,000 operating system threads, and the thread cap goes away. They wouldn't make any single checkout faster, and the next limit would be the database's connections and the bank's own capacity, so we'd need explicit limits there."
  },
  "deeper": {
   "minutes": 10,
-  "body": "Little's law needs only one assumption: the system is stable, meaning requests leave as fast as they arrive over the long run. It says nothing about the shape of the traffic or the order of service, which is why it works for a payments API as well as for a supermarket.\n\nIt does not tell you what happens near the limit. As a pool approaches 100% busy, the queue does not grow smoothly. Short bursts above the average rate make requests wait, and the waits add up faster than the load. A pool that is busy 95% of the time has much longer queues than one at 80%, even though it is only a little busier. That is why capacity planning leaves headroom.\n\nIt also explains why thread-per-request held on for so long. If W is 5 ms (an in-memory lookup), 200 threads give you 40,000 requests per second, and nobody needs async code. The wall only appears when W is dominated by waiting on other systems, which describes most microservices. JEP 444's motivation section makes this exact argument: the number of threads limits throughput long before CPU or network do.\n\nOne honest question remains: why not shrink `-Xss` and run 20,000 platform threads? Some teams did. You still pay a system call per thread start, the kernel still schedules 20,000 threads, and too small a stack turns deep call chains into `StackOverflowError`. A virtual thread's stack lives on the heap and grows only as deep as the code actually goes, so you don't have to guess a size."
+  "body": "Little's law needs only one assumption: the system is stable, meaning that over the long run requests leave as fast as they arrive. It says nothing about the shape of the traffic or the order of service, which is why it works for a shop's checkout as well as for a supermarket.\n\nIt doesn't tell you what happens near the limit. As a pool gets close to 100% busy, the queue doesn't grow smoothly. Short bursts above the average rate make requests wait, and the waits add up faster than the load. A pool that is busy 95% of the time has much longer queues than one at 80%, even though it is only a little busier. That's why people who plan capacity leave room to spare.\n\nIt also explains why thread-per-request lasted so long. If W is 5 ms (a lookup in memory), 200 threads give you 40,000 requests a second, and nobody needs async code. The wall only appears when W is mostly waiting for other programs, which describes most services that call other services. The motivation section of JEP 444 makes this same argument: the number of threads limits throughput long before the CPU or the network do.\n\nOne honest question remains: why not shrink the stack with `-Xss` and run 20,000 platform threads? Some teams did. You still pay a system call for every thread you start, the operating system still has to schedule 20,000 threads, and a stack that's too small turns a deep chain of calls into a `StackOverflowError`. A virtual thread's stack lives on the heap and grows only as deep as the code really goes, so you don't have to guess a size."
  },
  "sources": [
   {"title": "JEP 444: Virtual Threads", "url": "https://openjdk.org/jeps/444"},

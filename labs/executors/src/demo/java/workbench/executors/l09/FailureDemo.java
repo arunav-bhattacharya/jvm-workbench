@@ -10,17 +10,17 @@ import java.util.concurrent.ThreadFactory;
 public class FailureDemo {
     public static void main(String[] args) throws Exception {
         ThreadFactory factory = Thread.ofPlatform()
-                .name("ledger-", 0)                                       // ledger-0, ledger-1, ...
+                .name("grill-", 0)                                       // grill-0, grill-1, ...
                 .uncaughtExceptionHandler((t, e) -> System.out.println("  handler: " + t.getName() + " died of " + e))
                 .factory();
         try (ExecutorService pool = Executors.newFixedThreadPool(1, factory)) {
             System.out.println("1. execute() a task that throws");
-            pool.execute(() -> { throw new IllegalStateException("ledger row locked"); });
+            pool.execute(() -> { throw new IllegalStateException("the grill went out"); });
             Thread.sleep(200);
             System.out.println("   the next task runs on " + pool.submit(() -> Thread.currentThread().getName()).get());
 
             System.out.println("2. submit() a task that throws");
-            Future<?> f = pool.submit(() -> { throw new IllegalStateException("negative amount"); });
+            Future<?> f = pool.submit(() -> { throw new IllegalStateException("a negative price"); });
             Thread.sleep(200);
             System.out.println("   (nothing printed) the next task runs on " + pool.submit(() -> Thread.currentThread().getName()).get());
             try {
