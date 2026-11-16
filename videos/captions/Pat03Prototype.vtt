@@ -1,0 +1,201 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:04.568
+Here is a cart called c1.
+
+2
+00:00:04.568 --> 00:00:08.165
+Its skus field holds a list with one item, sku-1.
+
+3
+00:00:08.400 --> 00:00:10.802
+Copy it, and change only the id.
+
+4
+00:00:10.802 --> 00:00:13.128
+Now there is a second cart, c2.
+
+5
+00:00:13.333 --> 00:00:16.292
+The copy takes each field's value as it is.
+
+6
+00:00:16.292 --> 00:00:18.907
+But the value of skus is not the list.
+
+7
+00:00:18.907 --> 00:00:20.764
+It is an arrow to the list.
+
+8
+00:00:20.764 --> 00:00:23.792
+So c2 gets a second arrow, to the same list.
+
+9
+00:00:23.867 --> 00:00:26.199
+Now add sku-2 to c2's list.
+
+10
+00:00:26.333 --> 00:00:28.217
+What does c1's list hold now?
+
+11
+00:00:30.000 --> 00:00:30.810
+Both items.
+
+12
+00:00:30.810 --> 00:00:32.135
+Nobody touched c1.
+
+13
+00:00:32.135 --> 00:00:36.185
+But there is only one list, and both carts point at it.
+
+14
+00:00:36.400 --> 00:00:37.917
+This is a shallow copy.
+
+15
+00:00:37.917 --> 00:00:41.875
+It copies the fields, and shares every object they point to.
+
+16
+00:00:42.000 --> 00:00:45.456
+Kotlin's copy() works this way, and its docs say so.
+
+17
+00:00:45.456 --> 00:00:49.245
+So does a Java record wither, and so does Object.clone().
+
+18
+00:00:50.200 --> 00:00:54.919
+So a copy is shallow until you make it deep, one nested object at a time.
+
+19
+00:00:54.919 --> 00:00:57.957
+The simple way: store a list that can't change.
+
+20
+00:00:58.067 --> 00:01:00.527
+Now c2 can't add to the shared list.
+
+21
+00:01:00.733 --> 00:01:05.896
+To change c2's items, you build a new list: the old items plus sku-2.
+
+22
+00:01:05.896 --> 00:01:07.467
+Only c2 points to it.
+
+23
+00:01:07.667 --> 00:01:09.580
+c1 still holds one item.
+
+24
+00:01:09.580 --> 00:01:11.733
+Two lists, and no surprise.
+
+25
+00:01:12.867 --> 00:01:17.354
+In Kotlin, make the field a read-only List and change it with plus.
+
+26
+00:01:17.354 --> 00:01:23.717
+In Java, wrap it with List.copyOf in the compact constructor, and let withers build a new list.
+
+27
+00:01:24.867 --> 00:01:26.297
+Copying is Prototype.
+
+28
+00:01:26.297 --> 00:01:29.634
+Building an object from scratch has its own trap.
+
+29
+00:01:29.634 --> 00:01:30.860
+Look at this call.
+
+30
+00:01:31.000 --> 00:01:32.777
+Which value is the timeout?
+
+31
+00:01:34.133 --> 00:01:35.339
+You have to count.
+
+32
+00:01:35.339 --> 00:01:37.684
+Nothing at the call site tells you.
+
+33
+00:01:37.684 --> 00:01:42.239
+The Java fix is a builder: a second class with one method per field.
+
+34
+00:01:42.467 --> 00:01:44.432
+Kotlin fixes it in the language.
+
+35
+00:01:44.432 --> 00:01:49.712
+Every argument can carry its parameter's name, and every parameter can have a default.
+
+36
+00:01:49.867 --> 00:01:55.313
+So the call sets the four values it needs, in any order, and the defaults fill the rest.
+
+37
+00:01:55.533 --> 00:01:57.606
+copy() gives you a changed copy.
+
+38
+00:01:57.606 --> 00:02:02.075
+And checks in an init block run on every construction, copy included.
+
+39
+00:02:02.267 --> 00:02:04.207
+Java has no named arguments.
+
+40
+00:02:04.207 --> 00:02:08.296
+If Java code calls the class a lot, give it a real builder.
+
+41
+00:02:09.600 --> 00:02:10.188
+The rule.
+
+42
+00:02:10.188 --> 00:02:13.256
+A copy shares every object its fields point to.
+
+43
+00:02:13.256 --> 00:02:18.217
+Keep those objects unchangeable, and build a new one when you need a change.
+
+44
+00:02:18.333 --> 00:02:19.338
+Quick check.
+
+45
+00:02:19.338 --> 00:02:22.772
+A Payment holds a MutableMap of metadata.
+
+46
+00:02:22.772 --> 00:02:28.048
+You make p2 with p1.copy(), then put a retry key into p2's map.
+
+47
+00:02:28.048 --> 00:02:29.304
+Does p1 see it?
+
+48
+00:02:31.667 --> 00:02:31.963
+Yes.
+
+49
+00:02:31.963 --> 00:02:34.703
+copy() copied the arrow, not the map.
+
+50
+00:02:34.703 --> 00:02:36.999
+Both payments point at one map.
