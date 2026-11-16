@@ -113,7 +113,7 @@ def bar_for(pad, color):
     r = pad[0]
     b = Rectangle(width=r.width - 0.2, height=0.1).set_fill(color, 1).set_stroke(width=0)
     b.move_to(r.get_bottom() + UP * 0.1)
-    b.stretch_to_fit_width(0.01).align_to(r.get_left() + RIGHT * 0.1, LEFT)
+    b.stretch_to_fit_width(0.01).align_to(r.get_left() + RIGHT * 0.1, LEFT).set_fill(opacity=0)
     return b
 
 
@@ -122,6 +122,7 @@ def grow(bar, pad, alpha):
     full = r.width - 0.2
     bar.stretch_to_fit_width(max(0.01, full * alpha))
     bar.align_to(r.get_left() + RIGHT * 0.1, LEFT)
+    bar.set_fill(opacity=0 if alpha < 0.01 else 1)
 
 
 class Conc01Threads(VoiceScene):
@@ -184,8 +185,9 @@ class Conc01Threads(VoiceScene):
         # the wish: cut the pile in four
         seq(self, "So why not cut the list into four, and add all four parts at once?",
             ([FadeOut(watchers), FadeOut(core_note), FadeOut(adding)], 0.5),
-            ([pile[0:2].animate.shift(LEFT * 0.75 + DOWN * 0.15), pile[2:4].animate.shift(LEFT * 0.25 + UP * 0.05),
-              pile[4:6].animate.shift(RIGHT * 0.25 + UP * 0.25), pile[6:9].animate.shift(RIGHT * 0.75 + UP * 0.45)], 1.0))
+            ([pile[0:2].animate.move_to([-3.4, 0.35, 0]).scale(0.7), pile[2:4].animate.move_to([-2.4, 0.35, 0]).scale(0.7),
+              pile[4:6].animate.move_to([-1.4, 0.35, 0]).scale(0.7), pile[6:9].animate.move_to([-0.4, 0.42, 0]).scale(0.7)],
+             1.0))
 
         # ---------------- the back room ----------------
         cab = cabinet()
@@ -197,7 +199,8 @@ class Conc01Threads(VoiceScene):
             ([Create(room), FadeIn(room_l), m0.animate.move_to([XM, FIG_Y, 0])], 1.2))
         workers = VGroup(*[clerk(WCOL[i]).move_to([XW[i], FIG_Y, 0]) for i in range(4)])
         seq(self, "The receipts sit in one filing cabinet that everyone shares.",
-            ([FadeIn(cab), ReplacementTransform(pile, rec[1]), FadeIn(rec[0])], 1.4),
+            ([FadeIn(cab)], 0.5),
+            (lambda: [self.bring_to_front(pile) and None or ReplacementTransform(pile, rec[1]), FadeIn(rec[0])], 1.0),
             ([LaggedStart(*[FadeIn(w, shift=UP * 0.2) for w in workers], lag_ratio=0.2)], 1.0))
         pads = VGroup(*[notepad("total = 0").move_to([x, PAD_Y, 0]) for x in [XM] + XW])
         seq(self, "Each clerk keeps a running total on a notepad of their own.",
@@ -210,14 +213,14 @@ class Conc01Threads(VoiceScene):
         l_pad = VGroup(T("notepad", 26, GREY_A), T("= stack", 30, PAD)).arrange(DOWN, buff=0.1).move_to([RX, -0.85, 0])
         self.beat("Let's map it. Each clerk is a thread: one path of work that follows the steps, one by one, "
                   "and always knows where it is.",
-                  FadeIn(l_clerk, shift=LEFT * 0.2), Indicate(VGroup(m0, workers), color=WHITE, scale_factor=1.08),
+                  FadeIn(l_clerk, shift=LEFT * 0.2), Indicate(m0, color=WHITE, scale_factor=1.12), *[Indicate(w, color=WHITE, scale_factor=1.12) for w in workers],
                   run_time=1.6)
         self.beat("The filing cabinet is the heap. Every object you create with new lives there, "
                   "and every thread can reach it.",
                   FadeIn(l_cab, shift=LEFT * 0.2), Circumscribe(cab[0], color=HEAP, buff=0.06), run_time=1.6)
         self.beat("The notepad is the thread's stack: its local variables, and the method calls it is in the "
                   "middle of. Only its owner writes on it.",
-                  FadeIn(l_pad, shift=LEFT * 0.2), Indicate(VGroup(*[p[0] for p in pads]), color=WHITE, scale_factor=1.06),
+                  FadeIn(l_pad, shift=LEFT * 0.2), *[Wiggle(p, scale_value=1.08, rotation_angle=0.015 * TAU) for p in pads],
                   run_time=1.6)
         room_l2 = VGroup(T("the back room", 26, GREY_A), T("= process", 30, WHITE)).arrange(DOWN, buff=0.1,
                                                                                             aligned_edge=LEFT)
@@ -253,9 +256,12 @@ class Conc01Threads(VoiceScene):
                   run_time=0.7)
 
         # ---------------- the threads you already have ----------------
+        hq = T("How many threads does the emptiest Java program have?", 34).move_to(UP * 0.6)
+        fit(hq, 12)
         self.beat("Before we hire anyone, one more surprise. How many threads does the emptiest Java program have? "
-                  "Pause and guess.")
-        think(self, 2.6, pos=(0, 0))
+                  "Pause and guess.", FadeIn(hq, shift=UP * 0.15), run_time=1.0)
+        think(self, 2.6, pos=(0, -0.8))
+        self.play(FadeOut(hq), run_time=0.4)
         names = ["Reference Handler", "Finalizer", "Common-Cleaner", "Signal Dispatcher", "main", "Notification Thread"]
         rows = VGroup(*[M(n, 28, MAIN if n == "main" else GREY_B) for n in names]).arrange(DOWN, aligned_edge=LEFT, buff=0.24)
         rows.move_to([-5.4, -0.25, 0], aligned_edge=LEFT)
@@ -265,7 +271,7 @@ class Conc01Threads(VoiceScene):
         seq(self, "The lesson's first demo asks the JVM, the program that runs your Java code. On JDK 21, the list has six.",
             ([FadeIn(box6), FadeIn(head)], 0.8), 1.6,
             ([LaggedStart(*[FadeIn(r, shift=RIGHT * 0.2) for r in rows], lag_ratio=0.2)], 1.8))
-        tag_m = T("runs your main method", 26, MAIN).next_to(box6, RIGHT, buff=0.45).match_y(rows[4])
+        tag_m = T("runs your main method", 26, MAIN).next_to(rows[4], RIGHT, buff=0.6)
         hk = VGroup(T("the other five:", 26, GREY_A), T("the JVM's housekeepers", 26, GREY_A)).arrange(DOWN, buff=0.1,
                                                                                                     aligned_edge=LEFT)
         hk.next_to(box6, RIGHT, buff=0.45).align_to(rows[0], UP)
@@ -328,7 +334,7 @@ class Conc01Threads(VoiceScene):
         fit(outs, 11.2)
         steps = [([FadeOut(run_l)], 0.3)]
         for i in range(4):
-            steps.append(([pm.animate(rate_func=linear).set_value(i + 1), FadeIn(outs[i])], 0.85))
+            steps.append((lambda i=i: [pm.animate(rate_func=linear).set_value(i + 1), FadeIn(outs[i])], 0.85))
         seq(self, "We printed the thread's name inside the work. Every line says: summed on main.", *steps)
         nev = VGroup(*[T("never ran", 22, GREY_B).next_to(pads[i + 1], DOWN, buff=0.12) for i in range(4)])
         self.beat("The total is right, the tests pass, and it is exactly as slow as before. "
@@ -383,7 +389,7 @@ class Conc01Threads(VoiceScene):
         think(self, 2.2)
         tot = VGroup(T("total:", 28, MAIN), T("about a quarter of the right answer", 28, RED_M)).arrange(RIGHT, buff=0.3)
         tot.move_to(con)
-        read_ar = Arrow(m0[1].get_top(), sl[1][0].get_left() + LEFT * 0.05, buff=0.1, stroke_width=3, color=MAIN,
+        read_ar = Arrow(m0[1].get_top(), sl[1][0].get_bottom() + DOWN * 0.02, buff=0.1, stroke_width=3, color=MAIN,
                         max_tip_length_to_length_ratio=0.1)
         tot2 = T("about three quarters", 28, RED_M).next_to(tot[0], RIGHT, buff=0.3)
         seq(self, "The lesson ran it five times. The first total came out at about a quarter of the right answer, "
@@ -397,8 +403,8 @@ class Conc01Threads(VoiceScene):
                   Indicate(read_ar, color=RED_M), FadeOut(tot), FadeIn(imp, shift=UP * 0.1), run_time=1.6)
 
         # ---------------- the wrong fix: sleep ----------------
-        sleep_l = M("Thread.sleep(100);", 30, WHITE).move_to(con).shift(LEFT * 1.6)
-        clk_c = np.array([2.6, -2.4, 0])
+        sleep_l = M("Thread.sleep(100);", 30, WHITE).move_to(con).shift(LEFT * 2.4)
+        clk_c = np.array([1.4, -2.4, 0])
         clk = Circle(radius=0.42, color=GREY_B, stroke_width=3).move_to(clk_c)
         hand = Line(clk_c, clk_c + UP * 0.34, stroke_width=4, color=WHITE)
         seq(self, "You might be thinking: just sleep for a hundred milliseconds, to give them time.",
@@ -427,21 +433,22 @@ class Conc01Threads(VoiceScene):
         fin = [0.55, 0.8, 0.7, 1.0]
         for i in range(4):
             prog[i] = (lambda i=i: min(1.0, gt.get_value() / fin[i]))
-        waits = [DashedLine(m0[1].get_right() + RIGHT * 0.05, workers[i][1].get_left() + LEFT * 0.05,
-                            dash_length=0.1, stroke_width=2.5, color=MAIN) for i in range(4)]
+        waits = [DashedVMobject(SurroundingRectangle(VGroup(workers[i], nm[i + 1]), buff=0.12, corner_radius=0.1,
+                                                     color=MAIN, stroke_width=3), num_dashes=28) for i in range(4)]
+        wl = [T(f"main waits in join() for worker {i}", 26, MAIN).move_to(con) for i in range(4)]
         ticks = VGroup(*[tick(True, 0.17).next_to(pads[i + 1], DOWN, buff=0.12) for i in range(4)])
         done = VGroup(T("total:", 28, MAIN), T("right, every time", 28, GREEN_M)).arrange(RIGHT, buff=0.3)
         done.move_to(con)
         seq(self, "So main starts all four, then joins all four, and only then adds up the slots. "
                   "Now the total is right, every time.",
             ([FadeOut(join_l)], 0.3),
-            ([gt.animate(rate_func=linear).set_value(0.55), Create(waits[0])], 1.1),
-            ([Create(ticks[0]), FadeOut(waits[0]), Create(waits[1])], 0.4),
-            ([gt.animate(rate_func=linear).set_value(0.8)], 0.5),
-            ([Create(ticks[1]), FadeOut(waits[1]), Create(waits[2])], 0.3),
-            ([Create(ticks[2]), FadeOut(waits[2]), Create(waits[3])], 0.3),
-            ([gt.animate(rate_func=linear).set_value(1.0)], 0.5),
-            ([Create(ticks[3]), FadeOut(waits[3])], 0.4),
+            (lambda: [gt.animate(rate_func=linear).set_value(0.55), Create(waits[0]), FadeIn(wl[0])], 1.1),
+            ([Create(ticks[0]), FadeOut(waits[0]), Create(waits[1]), FadeOut(wl[0]), FadeIn(wl[1])], 0.4),
+            (lambda: [gt.animate(rate_func=linear).set_value(0.8)], 0.5),
+            ([Create(ticks[1]), FadeOut(waits[1]), Create(waits[2]), FadeOut(wl[1]), FadeIn(wl[2])], 0.35),
+            ([Create(ticks[2]), FadeOut(waits[2]), Create(waits[3]), FadeOut(wl[2]), FadeIn(wl[3])], 0.35),
+            (lambda: [gt.animate(rate_func=linear).set_value(1.0)], 0.5),
+            ([Create(ticks[3]), FadeOut(waits[3]), FadeOut(wl[3])], 0.4),
             ([FadeIn(done, shift=UP * 0.1), Indicate(sl[1], color=GREEN_M, scale_factor=1.08)], 0.9))
         self.wait(0.8)
         for b in bars:
@@ -499,14 +506,14 @@ class Conc01Threads(VoiceScene):
         self.play(FadeOut(VGroup(ph, b1, b4, l1, l4, v1, v4)), run_time=0.6)
 
         # ---------------- moral ----------------
-        mc = clerk(WCOL[0], 1.5).move_to([-4.4, 1.0, 0])
+        mc = clerk(WCOL[0], 1.5).move_to([-4.4, 1.6, 0])
         mp = notepad("sum").scale(1.1).next_to(mc, DOWN, buff=0.3)
-        mcab = cabinet().scale(0.55).move_to([-4.4, -2.1, 0])
+        mcab = cabinet().scale(0.55).move_to([-4.4, -1.15, 0])
         ans = VGroup(T("A thread is one clerk:", 32, WHITE),
                      T("a path of work through your code,", 30, GREY_A),
                      T("with its own notepad (the stack),", 30, PAD),
                      T("sharing one cabinet (the heap).", 30, HEAP)).arrange(DOWN, aligned_edge=LEFT, buff=0.22)
-        ans.move_to([1.3, 0.9, 0])
+        ans.move_to([1.3, 1.25, 0])
         seq(self, "So, what is a thread? One clerk: a path of work that follows your code step by step, "
                   "with its own notepad, sharing one cabinet with everyone else.",
             ([FadeIn(mc, shift=UP * 0.2), FadeIn(ans[0])], 0.8), 1.4, ([FadeIn(ans[1])], 0.5), 1.0,

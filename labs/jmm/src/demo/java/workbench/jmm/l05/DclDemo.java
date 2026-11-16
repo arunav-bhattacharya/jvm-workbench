@@ -10,23 +10,23 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** Eight threads ask a hand-written double-checked lazy for the same value at the same moment. Edit it and rerun. */
 public class DclDemo {
 
-    static final class LazySigningKey {
-        private volatile Object key;                 // try: remove volatile
+    static final class LazyCardTable {
+        private volatile Object table;               // try: remove volatile
         private final AtomicInteger loads;
 
-        LazySigningKey(AtomicInteger loads) { this.loads = loads; }
+        LazyCardTable(AtomicInteger loads) { this.loads = loads; }
 
         Object get() {
-            Object k = key;                          // 1. fast path: one volatile read, no lock
-            if (k != null) return k;
+            Object t = table;                        // 1. fast path: one volatile read, no lock
+            if (t != null) return t;
             synchronized (this) {                    // 2. slow path: one thread at a time
-                k = key;                             // 3. check again: another thread may have won
-                if (k != null) return k;             //    (try deleting this line)
+                t = table;                           // 3. check again: another thread may have won
+                if (t != null) return t;             //    (try deleting this line)
                 loads.incrementAndGet();
-                sleep(50);                           // fetching a signing key from a vault
-                k = new Object();
-                key = k;                             // 4. volatile write publishes the key
-                return k;
+                sleep(50);                           // reading the card table from a big file
+                t = new Object();
+                table = t;                           // 4. volatile write publishes the table
+                return t;
             }
         }
     }
@@ -34,7 +34,7 @@ public class DclDemo {
     public static void main(String[] args) throws InterruptedException {
         for (int round = 1; round <= 3; round++) {
             AtomicInteger loads = new AtomicInteger();
-            LazySigningKey lazy = new LazySigningKey(loads);
+            LazyCardTable lazy = new LazyCardTable(loads);
             Set<Object> seen = ConcurrentHashMap.newKeySet();
             CountDownLatch ready = new CountDownLatch(8), go = new CountDownLatch(1);
             List<Thread> threads = new ArrayList<>();
@@ -50,7 +50,7 @@ public class DclDemo {
             ready.await();
             go.countDown();
             for (Thread t : threads) t.join();
-            System.out.printf("round %d: key loaded %d time(s), threads saw %d distinct key(s)%n", round, loads.get(), seen.size());
+            System.out.printf("round %d: table loaded %d time(s), threads saw %d distinct table(s)%n", round, loads.get(), seen.size());
         }
     }
 

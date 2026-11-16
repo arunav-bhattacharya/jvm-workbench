@@ -3,7 +3,8 @@ package workbench.jmm.l04;
 import java.util.Map;
 
 /**
- * Card-scheme fees for one currency, e.g. VISA -> 120 cents. Request threads share one RateCard.
+ * The fee a shop pays for each card brand, in one currency, e.g. VISA -> 120 cents a payment.
+ * Request threads share one RateCard.
  *
  * <p>Make it immutable, so it is safe to share even through a data race: a final class, final fields,
  * a defensive copy of the map in the constructor, and a getter that can't be used to change it.

@@ -5,7 +5,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 /**
- * A tiny in-process event bus. Like a compacted Kafka topic, it remembers the last event and
+ * A tiny event bus: a notice board inside the program. {@link #publish} pins up an event and every
+ * listener hears it. Like a board that keeps the last notice pinned up, it remembers the last event and
  * replays it to every new listener as soon as the listener registers. (Given; not part of the exercise.)
  */
 public final class EventBus {

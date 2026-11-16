@@ -3,7 +3,9 @@ package workbench.executors.l02;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
- * The pool that runs card authorizations. Build a {@link ThreadPoolExecutor} that meets this spec:
+ * The pool a shop's checkout uses for card authorizations: each task asks the customer's bank whether
+ * a card payment may go through, and mostly waits for the answer.
+ * Build a {@link ThreadPoolExecutor} that meets this spec:
  * <ul>
  *   <li>4 core threads, and at most 8 threads in a burst.</li>
  *   <li>A bounded queue that holds 16 waiting tasks (an {@code ArrayBlockingQueue}).</li>

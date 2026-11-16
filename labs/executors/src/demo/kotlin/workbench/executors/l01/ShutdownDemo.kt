@@ -8,21 +8,21 @@ private val T0 = System.nanoTime()
 
 private fun log(msg: String) = println("%5d ms  %s".format((System.nanoTime() - T0) / 1_000_000, msg))
 
-private fun settle(id: Int) = Runnable {
+private fun cook(id: Int) = Runnable {
     try {
-        Thread.sleep(300)                       // a 300 ms call to the ledger
-        log("settled batch $id")
+        Thread.sleep(300)                       // 300 ms to cook one order
+        log("cooked order $id")
     } catch (e: InterruptedException) {
-        log("batch $id interrupted")
+        log("order $id interrupted")
         Thread.currentThread().interrupt()
     }
 }
 
-/** shutdown, awaitTermination and shutdownNow on a pool of 2 threads with 6 queued 300 ms tasks. */
+/** shutdown, awaitTermination and shutdownNow on a kitchen of 2 cooks (threads) with 6 orders of 300 ms each. */
 fun main(args: Array<String>) {
     val now = args.firstOrNull() == "now"
     val pool = Executors.newFixedThreadPool(2)
-    for (i in 1..6) pool.execute(settle(i))
+    for (i in 1..6) pool.execute(cook(i))
 
     if (now) {
         Thread.sleep(100)
@@ -34,9 +34,9 @@ fun main(args: Array<String>) {
     }
 
     try {
-        pool.execute(settle(7))
+        pool.execute(cook(7))
     } catch (e: RejectedExecutionException) {
-        log("batch 7 rejected: the pool is shut down")
+        log("order 7 rejected: the kitchen is closed")
     }
 
     val done = pool.awaitTermination(5, TimeUnit.SECONDS)

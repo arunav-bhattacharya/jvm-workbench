@@ -2,7 +2,10 @@ package workbench.jmm.l04
 
 import kotlin.concurrent.thread
 
-/** A constructor that starts a thread before it has finished setting its properties. */
+/**
+ * A constructor that starts a thread before it has finished setting its properties.
+ * A heartbeat is a short "still running" message that one program sends another every few seconds.
+ */
 private class HeartbeatClient(endpointName: String) {
     val endpoint: String
 
@@ -17,13 +20,13 @@ private class HeartbeatClient(endpointName: String) {
 }
 
 fun main() {
-    val sender = HeartbeatClient("issuer-gateway")
+    val sender = HeartbeatClient("head-office")
     println("constructor finished, endpoint = ${sender.endpoint}")
     Thread.sleep(100)
 }
 
-// stands in for a DNS or service-registry lookup
+// stands in for a slow lookup of the address over the network
 private fun resolve(name: String): String {
     Thread.sleep(50)
-    return "https://$name.internal:8443"
+    return "https://$name.example.com"
 }

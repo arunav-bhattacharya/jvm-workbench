@@ -29,13 +29,179 @@ SVG = (
     '</svg>'
 )
 
+# ---------------------------------------------------------------- opening
+OPENING = """Picture two kitchens, each with four chopping boards. In the first, the work is all chopping, all day. In the second, every dish goes into an oven. A cook spends one minute getting it ready, then waits nine minutes while it bakes. How many cooks should each kitchen hire?
+
+The first kitchen needs four. A fifth cook would only stand around holding a knife, waiting for a board. The second needs about forty, because a cook waiting for the oven doesn't need a board.
+
+A thread pool faces the same question. Its cooks are threads, paths of work that run side by side. Its boards are cores, the parts of the processor that each run one thread at a time. Pool sizes often come from habit: ten because it sounds right, two hundred to be safe. Inside ThreadPoolExecutor showed how a pool uses its sizes, but not where they come from.
+
+In this lesson, we'll time a pool on pure computation and work out how many threads a waiting task needs. Then we'll count requests with a law from ticket windows, and find the limit that beats every formula. Before we start, make a guess, and keep it in mind."""
+
+# ---------------------------------------------------------------- section 0
+S0 = """Start with the first kitchen, where all the work is chopping. In a program, that's **CPU-bound** work: work that keeps a core of the CPU, the processor, busy from start to finish, with nothing to wait for.
+
+`CpuBoundDemo`, in the Try it below, has 32 such tasks. Each one computes a SHA-256 checksum of 16 MB of data. A checksum is a short fingerprint of the data that changes if any byte changes. You'd compute one to check that a big file arrived whole. It's pure arithmetic: no files, no network, no locks.
+
+The demo runs the 32 tasks on pools of 1, 2, 4, 8 and 16 threads. My guess, from Threads from zero: each doubling halves the time until the threads match the cores, and after that nothing improves. On a quiet 4-core machine, it printed:
+
+```text
+availableProcessors() = 4
+ 1 threads:   359 ms
+ 2 threads:   171 ms
+ 4 threads:    92 ms
+ 8 threads:    96 ms
+16 threads:    98 ms
+```
+
+(The demo also prints a checksum on each row, left out here. It was the same on every row.)
+
+Correctness first: the same checksum on every row means every pool did the same work. Then speed. The guess held. Two threads halved the time, four threads cut it to a quarter, and eight and sixteen threads were no faster than four.
+
+A core runs one thread at a time, so a fifth thread on four cores gets CPU time only by taking it from one of the other four.
+
+The extra threads add context switches, the operating system pausing one thread to resume another. They give the CPU's caches, its small fast copies of memory, more to juggle. And they get no extra work done. That's the fifth cook, holding a knife.
+
+So for CPU-bound work, size the pool to `Runtime.getRuntime().availableProcessors()`, the number of cores the JVM (the program that runs your Java code) may use.
+
+Brian Goetz's book *Java Concurrency in Practice* suggests one more than that. The extra thread keeps the cores busy when a thread stops for a moment, for example while the operating system brings some memory in from disk. Either is fine. Fifty threads for checksums is not.
+
+Ask the JVM, not the hardware spec. Many programs run in a **container**, a fenced-off space where the operating system limits how much CPU and memory one program may use. On Linux, the JVM reads that limit, so a container limited to 2 CPUs on a 64-core machine reports 2. That's the number you want, because it's all the CPU your program gets.
+
+What else the machine is doing matters too. On the same 4-core machine, while other heavy programs were running, one run printed 457, 282, 339, 434 and 339 ms. The best size was two threads, not four, because the pool only gets the CPU that nobody else is using.
+
+**CPU-bound work wants about one thread per core. More threads only take turns.**
+
+Chopping is the easy kitchen. Most programs spend their days in the other one, waiting for the oven."""
+
+# ---------------------------------------------------------------- section 1
+S1 = """Now the second kitchen. Most of what programs do looks like the oven, not the chopping board: a little work, then a long wait.
+
+Take a shop's website. To build one product page, our program works for 20 ms: it reads the request, finds the product and adds the tax. Then it asks a slow web service for the stock level, how many of the product are left, and waits 180 ms for the answer.
+
+A **web service** is a program on another computer that answers questions over the network. This is the slow one from Threads from zero, which took 120 ms there. Today it's having a slow afternoon.
+
+Work like this is **I/O-bound**, after input and output: it spends most of its time waiting for something outside the processor, such as the network or a disk. A thread that waits uses no core, just as a cook waiting for the oven doesn't need a board. So while one thread waits, another can use the core.
+
+Let's work out how many threads by hand, with one core. One page needs the core for 20 ms out of every 200, so the core sits idle nine tenths of the time unless other threads fill the gaps. Ten threads, each waiting nine parts and working one, keep the core busy. With four cores, that's forty.
+
+Goetz's book turns that reasoning into a formula:
+
+```text
+threads = cores x target CPU use x (1 + wait time / compute time)
+```
+
+The ratio of waiting to computing does the work. For our page, 180 / 20 = 9, and 1 + 9 gives 10 threads per core, as we found by hand.
+
+The **target CPU use** is how busy you want the cores to be, as a fraction. You rarely want 100 percent, because a core with no spare time makes every burst wait in line. On an 8-core machine at 80 percent, the page needs 8 x 0.8 x 10 = 64 threads.
+
+You'll also see the same idea written with the **blocking coefficient**, the fraction of a task's time spent waiting: threads = cores / (1 - blocking coefficient). Our page waits 180 ms out of 200, a coefficient of 0.9, and 1 / (1 - 0.9) = 10 again. It's the same formula, written another way.
+
+Here the kitchen picture breaks, and not in our favor. A real cook would chop onions while the dish bakes. A Java thread can't: it waits for its answer and does nothing else. That's why we need ten threads where one clever cook would do. Virtual threads, much lighter threads that a later track covers, make that waiting cheap.
+
+The formula is a starting point, and it can mislead you in three ways.
+
+First, you have to measure the waiting and the computing. Put a timer around the call to the web service to get the wait. The rest of the task's time is roughly the compute. A guess like "it's mostly waiting" gives a number that looks precise and isn't.
+
+Second, it assumes waiting is free. Waiting for another computer to answer is. Waiting for a lock, which lets one thread at a time into a piece of code, isn't. More threads just make a longer line for the same lock.
+
+Third, it sizes for the CPU and knows nothing else. It can't tell that the slow web service accepts only 50 connections (open lines of communication) from you at a time. It can't tell that your database, the program that stores your data, accepts only 20. Those limits often decide the answer, and the last section of this lesson is about them.
+
+**A task that waits nine parts and works one can share a core with nine others. Measure both parts before you trust the number.**
+
+The formula starts from the CPU: how many threads keep the cores busy. A busy shop asks from the other side. How many requests arrive, and how many does that put inside our program at once?"""
+
+# ---------------------------------------------------------------- section 2
+S2 = """Picture the ticket window at a cinema. On a busy evening, about 2 people join the line every minute. Each one spends about 5 minutes there, from joining the back of the line to walking away with a ticket.
+
+Look at the window at any moment: how many people do you expect to see? About 10. Two arrive each minute and each stays five, so ten are there at once.
+
+That multiplication is **Little's law**. It holds for any stable system, one where on average as many leave as arrive: a ticket window, a supermarket, a thread pool.
+
+```text
+L = λ x W
+```
+
+`L` is the average number of things inside. `λ` (the Greek letter lambda) is the **arrival rate**, how many arrive each second. `W` is the average time each one spends inside, from arriving to leaving. For a request, that time is its **latency**.
+
+Now take the whole shop website, every kind of page together. At its busiest it gets 400 requests a second, and a request takes 250 ms on average from arrival to answer. So 400 x 0.25 = 100 requests are inside at once, on average.
+
+If each one holds a thread for its whole stay, that's 100 busy threads. With fewer threads, the rest wait in the pool's queue, its line of waiting tasks, and that waiting counts as time inside too.
+
+Turn the law around, and it tells you what a pool can do. Solve for λ: a pool of 50 threads, where each request holds a thread for 250 ms, finishes at most 50 / 0.25 = 200 requests a second. If 400 arrive, the other 200 a second pile up in the queue.
+
+Waiting in the queue adds to W, so the line grows without limit until memory, or the customers' patience, runs out. That's the rail with no end from the last lesson, with numbers.
+
+Here the ticket window picture breaks. People who see a long line often walk away. An unbounded queue, one with no limit, never turns anyone away, so it just grows.
+
+Let's not take the law's word for it. `LittlesLawDemo`, in the Try it below, sends 200 requests through pools of 5, 10, 20 and 40 threads. Each request just waits 50 ms, standing in for a call to the slow web service. Little's law predicts the most each pool can finish: its threads divided by 0.05 s. Here's a run:
+
+```text
+ 5 threads:   96 req/s measured,  100 predicted by threads / W
+10 threads:  181 req/s measured,  200 predicted by threads / W
+20 threads:  389 req/s measured,  400 predicted by threads / W
+40 threads:  689 req/s measured,  800 predicted by threads / W
+```
+
+The first three rows land within about 10 percent of the prediction. The last falls further short, and the cause is the demo, not the law. For 40 threads, 200 requests are only five rounds, so starting the pool takes a bigger share of the run.
+
+When the work is mostly waiting, a pool's **throughput**, the work it finishes each second, is its thread count divided by the latency. Faster cores wouldn't help at all. More threads would, as long as threads are the scarce thing.
+
+JEP 444, the design document behind Java's virtual threads, makes this same argument, and it's why virtual threads exist. The virtual threads track picks it up.
+
+**Requests inside = arrival rate x time inside. Turned around, threads / latency is the most a pool can finish.**
+
+"As long as threads are the scarce thing" is doing a lot of work in that sentence. A request needs more than a thread."""
+
+# ---------------------------------------------------------------- section 3
+S3 = """Back in the second kitchen, suppose it has only two ovens. Forty cooks were right for four boards, but a dish can bake only when an oven is free. Each oven holds one dish for nine minutes, so the kitchen bakes at most two dishes every nine minutes, whatever its number of cooks. Extra cooks just stand in line for an oven.
+
+Programs have ovens too. Say each page also reads from the shop's database, where its products are stored. A database accepts only so many **connections**, open lines to it, at once. So a program usually keeps a **connection pool**: a fixed set of open connections that threads borrow and give back.
+
+With 20 connections, each held for 10 ms, the database path tops out at 20 / 0.01 = 2,000 reads a second, whatever your thread count. Threads beyond that line up for a connection instead of a core.
+
+`LittlesLawDemo` can show it. Run it with `db`, and every request must also hold one of only 10 connections while it waits:
+
+```text
+ 5 threads:   91 req/s measured,  100 predicted by threads / W
+10 threads:  195 req/s measured,  200 predicted by threads / W
+20 threads:  194 req/s measured,  400 predicted by threads / W
+40 threads:  189 req/s measured,  800 predicted by threads / W
+```
+
+Up to 10 threads, nothing changed. After that, the curve goes flat at about 200 a second, which is 10 connections divided by 0.05 s. The demo's connection pool is a `Semaphore`, a counter of permits that threads take and give back. It's the car park from Synchronizers, with 10 spaces, and the extra threads wait at its barrier.
+
+So size from the scarcest resource backwards. That may be the database's connection pool, the number of connections the slow web service allows you, or a limit on calls per second. When the bottleneck, the narrowest point, is further along the path, adding threads makes things worse.
+
+Picture a team that doubles a slow pool from 64 to 128 threads. The database still has 20 connections, so now 108 threads wait for one instead of 44, each holding a request in memory, and every request takes longer. Thread count is the easiest knob to turn, but here it's the wrong one.
+
+Limits also need walls between them. Say the shop's product pages, card payments and order history all share one pool of 64 threads.
+
+Card payments ask the bank, which usually answers in 200 ms. One evening the bank slows down to 3 seconds. Little's law fills all 64 threads with waiting payments within seconds, and order history pages, which never call the bank, start to fail because they wait too long.
+
+In the kitchen, the pizza oven has gone slow, and every cook is standing in front of it holding a pizza while nobody makes the salads.
+
+A **bulkhead** stops that. It's a separate limit for each slow thing your program calls, named after the walls inside a ship that keep one flooded compartment from sinking the whole ship.
+
+A bulkhead can be a separate pool for each one, or a `Semaphore` around the call, which is what you build in the lab. Give the bank 20 permits. When they're gone, new payments fail fast with a clear message, and the rest of the shop keeps its threads.
+
+**The smallest limit on the path is the real ceiling. Give each slow service its own wall.**
+
+We can size a pool from measurements now. But a pool full of waiting threads raises a new question. What if we want one of them to stop waiting, because the customer has gone home, or the bank is taking far too long?"""
+
+ASIDE3 = {
+    "title": "How big should a database connection pool be?",
+    "body": "If your program talks to a database from Java, its connection pool is often HikariCP, a widely used library, and its wiki has a page called About Pool Sizing. It makes this lesson's point from the database's side. A database can work on only so many queries at once, and more connections than it can serve make every query slower, not faster. The page suggests starting from a small formula, connections = (the database server's cores x 2) + the number of disks it can read from at once, and then testing under load. The answer is often small: tens of connections, not hundreds."
+}
+
 L = {
  "id": "exec-03",
  "title": "Sizing a pool: CPU-bound, IO-bound and Little's law",
  "minutes": 35,
- "goal": "By the end you can size a pool from measurements: one thread per core for CPU work, Goetz's formula for work that waits, Little's law for traffic, and the smallest downstream limit as the ceiling.",
+ "goal": "By the end you can size a pool from measurements: one thread per core for CPU work, Goetz's formula for work that waits, Little's law for traffic, and the smallest limit further along the path as the ceiling.",
+ "opening": OPENING,
  "warmup": {
-  "q": "Your service gets 400 authorizations a second, and each one takes 250 ms from start to finish, mostly waiting on the card issuer. With one thread per request, about how many threads are busy at any moment?",
+  "q": "A shop's website gets 400 requests a second at its busiest, and each one takes 250 ms from start to finish, mostly waiting for a slow web service. With one thread per request, about how many threads are busy at any moment?",
   "options": [
    "About 4, one per core",
    "About 100",
@@ -43,54 +209,55 @@ L = {
    "About 1,600"
   ],
   "answer": 1,
-  "why": "Little's law: requests in flight = arrival rate x time in system = 400 x 0.25 s = 100. Core count only matters for work that computes. Each request is in the system for a quarter of a second, so at any moment about a quarter of one second's arrivals are inside."
+  "why": "Little's law: requests inside = arrival rate x time inside = 400 x 0.25 s = 100. Each request stays a quarter of a second, so at any moment about a quarter of one second's arrivals are inside. The core count only matters for work that computes. The third section works through it."
  },
  "sections": [
   {
-   "h": "CPU-bound work wants about one thread per core",
-   "body": "Here is `CpuBoundDemo` on a 4-core machine. The job is 32 SHA-256 tasks with no I/O and no locks, run on pools of different sizes:\n\n```text\navailableProcessors() = 4\n 1 threads:   359 ms\n 2 threads:   171 ms\n 4 threads:    92 ms\n 8 threads:    96 ms\n16 threads:    98 ms\n```\n\nDoubling the threads halves the time until the thread count reaches the core count. After that, nothing improves. A core runs one thread at a time, so a fifth thread on four cores only gets CPU by taking it from one of the other four. You pay for context switches and colder caches and get no extra work done.\n\nSo for CPU-bound work, size the pool to `Runtime.getRuntime().availableProcessors()`. Goetz suggests one more than that, so the CPUs stay busy when a thread stalls on a page fault (a pause while the operating system fetches a page of memory). Either is fine. Fifty threads for hashing is not.\n\nAsk the JVM, not the hardware spec. On Linux the JVM's container support, on by default, reads the CPU limit from the container's cgroup (the kernel feature that enforces a pod's limits) when the JVM starts. So inside a container, `availableProcessors()` reports the CPU limit of the container, and a pod with a 2-CPU limit on a 64-core node sees 2. That is the number you want, because it's all the CPU the pod gets. You can override it with `-XX:ActiveProcessorCount=N`.\n\nIn a payment service, CPU-bound work is the minority: signing and verifying, encrypting card data, parsing a large settlement file, scoring a fraud model in-process. Most request handling spends its time waiting, and that needs a different rule.",
+   "h": "Cooks who chop all day: CPU-bound work wants one thread per core",
+   "body": S0,
    "try": {
     "title": "Find where the curve goes flat",
     "minutes": 3,
     "steps": [
      "Check how many cores your machine has. Predict the pool size after which `CpuBoundDemo` stops getting faster.",
-     "Run it with the command below."
+     "Run it with the command below, and check that the checksum is the same on every row."
     ],
     "code": demo("CpuBoundDemo"),
-    "expect": "The time roughly halves from 1 to 2 threads and from 2 to the core count, then stays flat or gets a little worse. If other programs are busy on the machine, or the laptop has slower efficiency cores, the curve flattens earlier: the pool only gets the CPU nobody else is using."
+    "expect": "The time roughly halves from 1 to 2 threads and from 2 to the core count, then stays flat or gets a little worse. If other programs are busy on the machine, or the laptop has slower power-saving cores, the curve flattens earlier: the pool only gets the CPU nobody else is using."
    }
   },
   {
-   "h": "Work that waits: N × U × (1 + W/C)",
-   "body": "Most backend tasks compute briefly and then wait: for the database, the card issuer, a Kafka acknowledgement. A waiting thread uses no CPU, so while it waits, another thread can use the core. That is why pools for I/O work need more threads than cores. Goetz's formula from *Java Concurrency in Practice* says how many:\n\n```text\nthreads = cores x target CPU utilization x (1 + wait time / compute time)\n```\n\nTake 8 cores, a target of 80 percent CPU, and an authorization that computes for 20 ms (parsing, validation, signing) and then waits 180 ms for the issuer: 8 x 0.8 x (1 + 180/20) = 64 threads. The ratio is what matters. A task that waits nine times longer than it computes leaves room for about ten such tasks per core.\n\nThe formula is a starting point, and it can mislead you in three ways.\n\nFirst, you have to measure W and C. A timer around the downstream call gives you W, and the rest of the task's time is roughly C. JFR shows the same split. A guess like \"it's mostly I/O\" gives a number that looks precise and isn't.\n\nSecond, it assumes waiting is free. Waiting on a remote call is. Waiting for a lock, or for a connection that every other thread also needs, is not: more threads just make a longer line for the same lock.\n\nThird, it sizes for CPU and knows nothing else. It can't tell that the issuer accepts only 50 concurrent connections from you, or that your database pool has 20. Those limits often decide the answer, and the last section of this lesson is about them.",
+   "h": "Cooks who wait for the oven: how many threads a waiting task needs",
+   "body": S1,
    "try": {
     "title": "Size two pools by hand",
     "minutes": 3,
     "steps": [
-     "A refund service runs on 4 cores, targets 50 percent CPU, and each refund computes for 5 ms and waits 95 ms on the ledger. Work out the pool size.",
-     "A report job on the same box computes for 40 ms and waits 10 ms per row. Work out its pool size too, then check both with `PoolSizing.ioBound` once you've done the lab."
+     "A refund service runs on 4 cores and aims for 50 percent CPU use. Each refund computes for 5 ms and waits 95 ms for the bank. Work out the pool size.",
+     "A report job on the same machine computes for 40 ms and waits 10 ms per row. Work out its pool size too. Once you've done the lab, check both with `PoolSizing.ioBound`."
     ],
-    "expect": "Refunds: 4 x 0.5 x (1 + 95/5) = 40 threads. Reports: 4 x 0.5 x (1 + 10/40) = 2.5, rounded up to 3. The report job is mostly CPU, so it gets about as many threads as the cores you're willing to give it."
+    "expect": "Refunds: 4 x 0.5 x (1 + 95/5) = 40 threads. Reports: 4 x 0.5 x (1 + 10/40) = 2.5, rounded up to 3. The report job is mostly computing, so it gets about as many threads as the cores you're willing to give it."
    }
   },
   {
-   "h": "Little's law: in flight = arrival rate × time in system",
-   "body": "Goetz's formula starts from CPUs. Little's law starts from traffic. It holds for any stable system, a supermarket or a thread pool:\n\n```text\nL = λ x W\n```\n\nL is the average number of requests inside, λ (lambda) is the arrival rate and W is the average time each request spends inside. Your payment API gets 400 authorizations a second at peak, and each takes 250 ms end to end, so 400 x 0.25 = 100 requests are in flight on average. With one thread per request, that is 100 busy threads. If you have fewer, the extra requests wait somewhere.\n\nTurn it around to see what a pool can do. Solve for λ: 50 threads at 250 ms each finish at most 50 / 0.25 = 200 requests a second. If 400 arrive, 200 a second pile up in the queue. The waiting adds to W, so the queue grows without limit until memory or patience runs out. That is the unbounded-queue story from lesson 2 of this track, with numbers.\n\n`LittlesLawDemo` checks the law with 200 requests that each wait 50 ms:\n\n```text\n 5 threads:   97 req/s measured,  100 predicted by threads / W\n10 threads:  191 req/s measured,  200 predicted by threads / W\n20 threads:  376 req/s measured,  400 predicted by threads / W\n```\n\nWhen the work is waiting, throughput is threads divided by latency. Faster CPUs would not help. More threads would, for as long as threads are the scarce thing. That argument, made in JEP 444 (the JDK Enhancement Proposal for virtual threads), is why virtual threads exist, and the \"Virtual threads\" track picks it up.",
+   "h": "Little's law: how many requests are inside at once",
+   "body": S2,
    "figure": {"svg": SVG, "caption": "Little's law: if 400 requests arrive each second and each stays 250 ms, about 100 are inside at any moment."},
    "try": {
     "title": "Check Little's law",
     "minutes": 3,
     "steps": [
      "Read `LittlesLawDemo`. Predict the throughput for 40 threads before you run it.",
-     "Run it with the command below and compare each row with its prediction."
+     "Run it with the command below, and compare each row with its prediction."
     ],
     "code": demo("LittlesLawDemo"),
-    "expect": "5, 10 and 20 threads land within a few percent of 100, 200 and 400 requests a second. 40 threads falls short of 800 (about 630 here), because 200 requests are only five rounds for 40 threads and the pool's start-up time is now a large part of the run."
+    "expect": "5, 10 and 20 threads land within about 10 percent of 100, 200 and 400 requests a second. 40 threads falls further short of 800 (about 630 to 690 in runs here), because 200 requests are only five rounds for 40 threads, so starting the pool is a large part of the run."
    }
   },
   {
-   "h": "The downstream decides: connection pools and bulkheads",
-   "body": "Little's law counts threads, but a request in flight holds other things too. Say every authorization writes to the ledger and holds one of your 20 database connections for 10 ms. The database path then tops out at 20 / 0.01 = 2,000 writes a second, whatever your thread count. Threads beyond that line up for a connection instead of a CPU. Run the demo with `db` and you see it: with only 10 connections, 20 and 40 threads are no faster than 10.\n\nSo size from the scarcest resource backwards: the database pool, the issuer's contract (say 50 concurrent connections per merchant client), a fraud API's rate limit. HikariCP, a widely used JDBC connection pool, makes the same point for databases on its wiki page about pool sizing. It starts from a small formula, connections = (cores x 2) + effective spindle count, and tells you to load-test from there, because more connections than the database can serve make every query slower.\n\nLimits also need isolation. Say authorizations, refunds and balance lookups share one pool of 64 threads, and the issuer slows from 120 ms to 3 s. Little's law fills all 64 threads with stuck issuer calls within seconds. Balance lookups, which never touch the issuer, now time out too.\n\nA **bulkhead** stops that. It is a separate limit per dependency, named after the walls that keep one flooded compartment from sinking a ship. It can be a separate pool per downstream, or a `Semaphore` around the call, which is what you build in the lab. The issuer gets 50 permits. When they are gone, new issuer calls fail fast, and the rest of the service keeps its threads.",
+   "h": "The smallest limit wins: connection pools and bulkheads",
+   "body": S3,
+   "aside": ASIDE3,
    "try": {
     "title": "Hit the connection ceiling",
     "minutes": 2,
@@ -98,36 +265,33 @@ L = {
      "Predict the four rows of `LittlesLawDemo` when every request also needs one of 10 connections.",
      "Run the demo again with `-Pargs=db`."
     ],
-    "expect": "5 threads still give about 100 requests a second and 10 threads about 200. 20 and 40 threads also stay near 200: ten connections at 50 ms each allow 10 / 0.05 = 200 a second, and the extra threads just wait in `connections.acquire()`."
+    "expect": "5 threads still give about 100 requests a second, and 10 threads about 200. 20 and 40 threads also stay near 200: ten connections at 50 ms each allow 10 / 0.05 = 200 a second, and the extra threads just wait in `connections.acquire()`."
    },
    "refs": [
     {"title": "About Pool Sizing (HikariCP wiki)", "url": "https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing", "kind": "read"}
    ]
   }
  ],
- "analogy": "Little's law is a supermarket. If 120 customers walk in every hour and each one spends half an hour inside, there are about 60 people in the shop at any moment. To serve more customers per hour without making anyone shop faster, you need room for more people inside, which for a pool means more threads. The checkouts are the downstream limit: add aisles all you like, and if there are four tills, people queue at the tills. The analogy breaks at the door. Shoppers who see a packed shop walk away. An unbounded queue in front of a pool never turns anyone away, so it fills up instead.",
- "in_your_world": "Write down the three numbers for your busiest path before you touch a pool setting: peak arrivals per second, average time per request, and the smallest limit it passes through. For card authorizations that is usually the issuer connection limit or the database pool, not CPU. Check what your Quarkus worker pool is set to (`quarkus.thread-pool.max-threads`) and what your datasource allows, and make sure the second is not far smaller than the first, or the extra worker threads only queue for connections. Temporal workers have a maximum number of concurrent activity executions. That is a pool size by another name, and the same arithmetic applies: activities per second times average duration. Put issuer calls behind their own bulkhead, so a slow issuer costs you authorizations and nothing else.",
- "mistake": "Raising the thread count when the bottleneck is downstream. Authorizations slow down, someone doubles the pool from 64 to 128 threads, and latency gets worse: the database pool still has 20 connections, so 108 threads now queue for them, each holding a request in memory. It happens because thread count is the knob that's easy to turn. Look at the scarce resource first (Hikari's pending-connections metric, the issuer's error rate), size the pool to that limit, and put a bulkhead in front of the slow dependency.",
  "compare": {
   "title": "A bulkhead in Java and with coroutines",
   "java": {"title": "Bulkhead.java (solution, core of call)", "src": "public <T> T call(Callable<T> work) throws Exception {\n    // a waiting caller blocks its platform thread here\n    if (!permits.tryAcquire(maxWait.toNanos(), TimeUnit.NANOSECONDS)) {\n        throw new BulkheadFullException(\"bulkhead '\" + name + \"' is full\");\n    }\n    try {\n        return work.call();\n    } finally {\n        permits.release();\n    }\n}"},
   "kotlin": {"title": "Bulkhead.kt (kotlinx.coroutines)", "src": "import kotlinx.coroutines.sync.Semaphore\nimport kotlinx.coroutines.sync.withPermit\n\nclass Bulkhead(private val name: String, maxConcurrent: Int) {\n    private val permits = Semaphore(maxConcurrent)\n\n    // fail fast, like Duration.ZERO in the Java version\n    suspend fun <T> tryCall(work: suspend () -> T): T {\n        if (!permits.tryAcquire()) throw BulkheadFullException(\"bulkhead '$name' is full\")\n        try {\n            return work()\n        } finally {\n            permits.release()\n        }\n    }\n\n    // wait for a permit: the coroutine suspends and holds no thread while it waits\n    suspend fun <T> call(work: suspend () -> T): T = permits.withPermit { work() }\n}"},
-  "note": "Both protect the issuer the same way: at most N calls in flight. The difference is what waiting costs. The Java version blocks a platform thread in `tryAcquire`, so a thousand waiting callers are a thousand parked threads, which is why it needs a short `maxWait`. The coroutine `Semaphore` suspends, so a thousand waiting callers are a thousand small objects. kotlinx's `Semaphore` has no timed acquire; wrap the waiting call in `withTimeout` if you need a deadline."
+  "note": "Both versions protect a slow service the same way: at most N calls at once. The difference is what waiting costs. The Java version blocks a platform thread, an ordinary operating-system thread, in `tryAcquire`. So a thousand waiting callers are a thousand parked threads, which is why it needs a short `maxWait`. The Kotlin version runs in coroutines, Kotlin's light tasks, and its `Semaphore` suspends: the waiting coroutine gives its thread back until a permit is free. So a thousand waiting callers are a thousand small objects. The kotlinx `Semaphore` has no timed acquire; wrap the waiting call in `withTimeout` if you need a deadline."
  },
  "worked": {
-  "title": "Size the authorization pool from measurements",
+  "title": "Size the product-page pool from measurements",
   "steps": [
-   {"say": "Measure first. Under a load test at the expected peak, the authorization path shows these numbers. Before reading on, estimate the pool size.",
-    "code": "peak arrivals        400 / s\nCPU per request      10 ms   (parse, validate, sign)\nwait per request     140 ms  (issuer call)\ncores                8\nissuer contract      50 concurrent connections", "lang": "text"},
-   {"say": "Little's law gives the concurrency the traffic needs: L = 400 x (0.010 + 0.140) = 400 x 0.15 = 60 requests in flight, so 60 threads if each request holds a thread for its whole life.",
+   {"say": "Measure first. In a test at the expected busiest hour, the product-page path of the shop's website shows these numbers. Before reading on, estimate the pool size.",
+    "code": "busiest hour             400 requests / s\nCPU per request          10 ms   (read the request, find the product, add tax)\nwait per request         140 ms  (the slow web service)\ncores                    8\nthe web service allows   50 connections from us at once", "lang": "text"},
+   {"say": "Little's law gives the number of requests the traffic puts inside: L = 400 x (0.010 + 0.140) = 400 x 0.15 = 60 requests inside at once. If each request holds a thread for its whole stay, that's 60 threads.",
     "code": "", "lang": ""},
-   {"say": "Check the CPU. 400 requests x 10 ms = 4 CPU-seconds every second, so 4 of the 8 cores are busy: 50 percent. Goetz's formula at that utilization agrees: 8 x 0.5 x (1 + 140/10) = 60. The box can carry the load.",
+   {"say": "Check the CPU. 400 requests x 10 ms = 4 CPU-seconds every second, so 4 of the 8 cores are busy: 50 percent. Goetz's formula at that CPU use agrees: 8 x 0.5 x (1 + 140/10) = 60. The machine can carry the load.",
     "code": "", "lang": ""},
-   {"say": "Now the downstream. The issuer allows 50 concurrent connections, and each call holds one for 140 ms, so the issuer path tops out at 50 / 0.14 = 357 authorizations a second. That is below the 400 peak. A pool of 60 would leave 10 threads queued on the issuer's connections.",
+   {"say": "Now the limit further along the path. The web service allows 50 connections, and each call holds one for 140 ms, so that path tops out at 50 / 0.14 = 357 requests a second. That's below the 400 at the busiest hour. A pool of 60 would leave 10 threads waiting for a connection.",
     "code": "", "lang": ""},
-   {"say": "So the real answer is: put issuer calls behind a bulkhead of 50, size the pool near 60 so the non-issuer work keeps moving, and treat 357 a second as the service's real capacity. Getting to 400 is now a business question (a bigger contract with the issuer, or a second merchant client), not a pool setting.",
-    "code": "Bulkhead issuer = new Bulkhead(\"issuer\", 50, Duration.ofMillis(100));\nExecutorService auth = Executors.newFixedThreadPool(60);", "lang": "java",
-    "alt_code": "val issuer = Bulkhead(\"issuer\", 50, Duration.ofMillis(100))\nval auth = Executors.newFixedThreadPool(60)", "alt_lang": "kotlin"}
+   {"say": "So the real answer is: put calls to the web service behind a bulkhead of 50, size the pool near 60 so that the other work keeps moving, and treat 357 a second as the page's real capacity. Getting to 400 is now a question for the web service's owners (more connections) or for a cache that remembers recent answers. It's not a pool setting.",
+    "code": "Bulkhead stock = new Bulkhead(\"stock-service\", 50, Duration.ofMillis(100));\nExecutorService pages = Executors.newFixedThreadPool(60);", "lang": "java",
+    "alt_code": "val stock = Bulkhead(\"stock-service\", 50, Duration.ofMillis(100))\nval pages = Executors.newFixedThreadPool(60)", "alt_lang": "kotlin"}
   ]
  },
  "lab": {
@@ -144,26 +308,28 @@ L = {
   "hints": [
    "One test expects `ioBound(3, 0.5, 10 ms, 30 ms)` to be 2. In floating point, 3 x 0.5 x (1 + 10/30) comes out as 2.0000000000000004, and `Math.ceil` turns that into 3. Subtract a tiny amount (say 1e-9) before rounding up.",
    "`Semaphore.tryAcquire(long timeout, TimeUnit unit)` with a zero timeout returns at once. It throws `InterruptedException`, which `call` may simply let through.",
-   "Don't wrap the work's exception. The test checks it gets the very same `IOException` back."
+   "Don't wrap the work's exception. The test checks that it gets the very same `IOException` back."
   ],
   "done_when": "All nine tests in `SizingTest` pass."
  },
  "drill": {
   "title": "Both laws from memory",
   "minutes": 4,
-  "prompt": "Close this page. Write Goetz's formula and Little's law. Then answer: (a) balance lookups arrive at 1,200 a second and take 40 ms; how many are in flight? (b) the lookup pool has 32 threads; what is its maximum throughput? (c) each lookup holds one of 20 database connections for 25 ms; what is the database path's limit?",
-  "answer": {"lang": "text", "src": "threads = cores x utilization x (1 + W/C)\nL = lambda x W\n\n(a) L = 1,200 x 0.040 = 48 in flight\n(b) lambda = L / W = 32 / 0.040 = 800 per second  (less than 1,200: the pool is too small)\n(c) 20 / 0.025 = 800 per second  (the database caps you at the same rate)\n\nSo 48 threads would not help on their own: raise the connection limit too, or cut the 25 ms."}
+  "prompt": "Close this page. Write Goetz's formula and Little's law. Then answer: (a) order history pages arrive at 1,200 a second and take 40 ms; how many are inside at once? (b) the pool for those pages has 32 threads; what is its maximum throughput? (c) each page holds one of 20 database connections for 25 ms; what is the limit of the database path?",
+  "answer": {"lang": "text", "src": "threads = cores x CPU use x (1 + W/C)\nL = lambda x W\n\n(a) L = 1,200 x 0.040 = 48 inside at once\n(b) lambda = L / W = 32 / 0.040 = 800 per second  (less than 1,200: the pool is too small)\n(c) 20 / 0.025 = 800 per second  (the database caps you at the same rate)\n\nSo 48 threads would not help on their own: raise the connection limit too, or cut the 25 ms."}
  },
  "recap": [
-  "CPU-bound pools want about one thread per core, from `availableProcessors()`, which respects container CPU limits.",
-  "Pools for work that waits use threads = cores x utilization x (1 + W/C), with W and C measured, not guessed.",
-  "Little's law, L = λ x W, gives the concurrency your traffic needs. Turned around, threads / latency is the most a pool can finish per second.",
-  "Every request also holds downstream resources. The smallest limit on the path (database pool, issuer connections, rate limit) is the real ceiling.",
-  "A bulkhead gives each dependency its own limit, so one slow dependency can't take every thread."
+  "CPU-bound pools want about one thread per core, from `availableProcessors()`, which respects a container's CPU limit.",
+  "Pools for work that waits use threads = cores x CPU use x (1 + W/C), with the wait W and the compute C measured, not guessed.",
+  "Little's law, L = λ x W, gives the number of requests your traffic puts inside. Turned around, threads / latency is the most a pool can finish per second.",
+  "Every request also holds other resources. The smallest limit on the path (a database's connection pool, a service's connection limit, a rate limit) is the real ceiling.",
+  "A bulkhead gives each slow service its own limit, so one slow service can't take every thread.",
+  "The limit: even a well-sized pool holds a thread for every waiting request, and nothing here can stop a task that waits too long. That's the next lesson."
  ],
+ "closing": "We started with two kitchens. One chops all day and needs a cook per board, and the other waits for the oven and needs ten times as many. The checksums showed the first, the slow web service the second, and Little's law counted the requests inside. Then two ovens, or 10 connections, capped them all.\n\nNow pick a pool in your own code and write down three numbers for it. They are the tasks per second at the busiest hour, the average time per task, and the smallest limit that every task passes through.\n\nNext, we'll learn to stop a task that waits too long. When we cancel a `Future`, what actually happens to the thread inside it?",
  "quiz": [
   {
-   "q": "A fraud-scoring job is pure CPU and runs on a pod with an 8-CPU limit. Someone raises its pool from 8 to 32 threads. What happens to throughput?",
+   "q": "A program that resizes photos is pure CPU work, and the JVM sees 8 cores. Someone raises its pool from 8 to 32 threads. What happens to throughput?",
    "options": [
     "It roughly quadruples",
     "About the same, or a little worse from context switching",
@@ -171,10 +337,10 @@ L = {
     "It deadlocks"
    ],
    "answer": 1,
-   "why": "Eight CPUs can run eight threads at a time. The other 24 threads only take turns on the same CPUs. For work that waits, more threads help; for pure computation they don't."
+   "why": "Eight cores run eight threads at a time. The other 24 threads only take turns on the same cores, and every switch costs a little. More threads help work that waits, not pure computation."
   },
   {
-   "q": "A refunds endpoint receives 300 requests a second, and each takes 400 ms. How many requests are in flight on average?",
+   "q": "A program receives 300 requests a second, and each one spends 400 ms inside it. How many requests are inside at once, on average?",
    "options": [
     "75",
     "750",
@@ -193,18 +359,18 @@ L = {
     "400"
    ],
    "answer": 0,
-   "why": "4 x 1.0 x (1 + 90/10) = 4 x 10 = 40. The tempting 36 comes from using W/C alone instead of 1 + W/C; the 1 accounts for the time each task spends on the CPU."
+   "why": "4 x 1.0 x (1 + 90/10) = 4 x 10 = 40, the second kitchen from the opening. The tempting 36 comes from using wait / compute alone instead of 1 + wait / compute. The 1 counts the time each task spends on the core."
   },
   {
-   "q": "Authorizations, refunds and balance lookups share one pool of 64 threads. When the card issuer slows down, balance lookups, which never call the issuer, start timing out. What is the best fix?",
+   "q": "A shop's product pages, card payments and order history share one pool of 64 threads. Card payments wait for the bank. When the bank slows down, order history pages, which never call the bank, start timing out. What is the best fix?",
    "options": [
     "Double the pool to 128 threads",
     "Switch the pool to an unbounded queue",
     "Use CallerRunsPolicy",
-    "Put issuer calls behind their own limit (a bulkhead), so they can't use every thread"
+    "Put calls to the bank behind their own limit (a bulkhead), so they can't take every thread"
    ],
    "answer": 3,
-   "why": "Slow issuer calls fill every shared thread, so unrelated work starves. A bulkhead caps how many threads issuer calls may hold. Doubling the pool only delays the problem: Little's law fills 128 threads as surely as 64 when each call takes 3 s."
+   "why": "Slow calls to the bank fill every shared thread, so unrelated work starves. A bulkhead caps how many threads those calls may hold. Doubling the pool only delays the problem: Little's law fills 128 threads as surely as 64 when each call takes 3 s."
   },
   {
    "q": "From \"Inside ThreadPoolExecutor: core, max, queue, rejection\": a pool is `new ThreadPoolExecutor(20, 200, 60, SECONDS, new LinkedBlockingQueue<>())`. Traffic is 400 requests a second at 250 ms each. What happens?",
@@ -215,35 +381,36 @@ L = {
     "It rejects the excess requests"
    ],
    "answer": 1,
-   "why": "With an unbounded queue the pool never grows past core, so 20 threads at 250 ms finish 20 / 0.25 = 80 a second. Little's law needs 100 in flight. The other 320 a second pile up in the queue, which never refuses, so nothing is ever rejected either.",
+   "why": "With an unbounded queue the pool never grows past its core size, so 20 threads at 250 ms finish 20 / 0.25 = 80 a second. Little's law needs 100 inside. The other 320 a second pile up in the queue, which never refuses, so nothing is ever rejected either.",
    "from": "exec-02"
   }
  ],
  "flashcards": [
   {"front": "How many threads for a pool doing pure CPU work?", "back": "About one per core: `Runtime.getRuntime().availableProcessors()` (Goetz suggests one more)."},
-  {"front": "Goetz's pool-size formula for tasks that wait?", "back": "threads = cores x target utilization x (1 + wait time / compute time)."},
-  {"front": "State Little's law.", "back": "L = λ x W: requests in flight = arrival rate x average time in the system."},
+  {"front": "Goetz's pool-size formula for tasks that wait?", "back": "threads = cores x target CPU use x (1 + wait time / compute time)."},
+  {"front": "State Little's law.", "back": "L = λ x W: requests inside = arrival rate x average time inside."},
   {"front": "50 threads, each request holds a thread for 250 ms. Maximum throughput?", "back": "50 / 0.25 = 200 requests per second."},
-  {"front": "Why don't threads beyond the database pool size speed up database-bound requests?", "back": "Each request needs a connection. The extra threads just wait in line for one."},
-  {"front": "What is a bulkhead?", "back": "A separate concurrency limit per dependency (its own pool or a Semaphore), so one slow dependency can't take every thread."},
-  {"front": "What does `availableProcessors()` return in a pod with a 2-CPU limit?", "back": "2. The JVM reads the container's CPU limit, not the host's core count."}
+  {"front": "Why don't threads beyond the size of the database's connection pool make database work faster?", "back": "Each request needs a connection. The extra threads just wait in line for one."},
+  {"front": "What is a bulkhead?", "back": "A separate limit on concurrent calls for each slow service (its own pool or a Semaphore), so one slow service can't take every thread."},
+  {"front": "What does `availableProcessors()` return inside a container limited to 2 CPUs?", "back": "2. The JVM reads the container's CPU limit, not the machine's core count."}
  ],
  "terms": [
   {"term": "CPU-bound", "plain": "Work limited by computation. More threads than cores don't help."},
-  {"term": "I/O-bound", "plain": "Work that mostly waits on the network or disk, so one core can serve many such tasks."},
-  {"term": "Little's law", "plain": "Requests in flight equal arrival rate times time spent in the system."},
+  {"term": "I/O-bound", "plain": "Work that mostly waits on the network or a disk, so one core can serve many such tasks."},
+  {"term": "Blocking coefficient", "plain": "The fraction of a task's time spent waiting. It decides how many threads one core can keep busy."},
+  {"term": "Little's law", "plain": "Requests inside equal the arrival rate times the time each one spends inside."},
   {"term": "Throughput", "plain": "Work finished per unit of time, such as requests per second."},
   {"term": "Latency", "plain": "How long one request takes from arrival to completion."},
-  {"term": "Bulkhead", "plain": "A per-dependency limit that keeps one slow dependency from using all the threads."},
-  {"term": "Wait/compute ratio", "plain": "How long a task waits divided by how long it computes. It decides how many threads one core can feed."}
+  {"term": "Connection pool", "plain": "A fixed set of open connections to a database that threads borrow and give back."},
+  {"term": "Bulkhead", "plain": "A separate limit for each slow service, so one slow service can't use all the threads."}
  ],
  "explain_back": {
-  "prompt": "Your manager asks why you can't just set every pool to 500 threads \"to be safe\". Explain, using the core count, Little's law and the database pool.",
-  "answer": "Threads only help while threads are the scarce thing. For CPU work the limit is the cores: beyond one thread per core, threads just take turns and add switching costs. For work that waits, Little's law tells us how many requests are in flight: arrival rate times latency. At 400 a second and 250 ms that is 100, so 500 threads would mostly sit idle, each with its own stack. And every request also needs things like a database connection. If the pool has 20 connections, threads beyond what 20 connections can serve just queue for them, holding memory and adding latency. So I size from the measured traffic, check CPU, cap it by the smallest downstream limit, and give slow dependencies their own bulkhead."
+  "prompt": "A friend wants to set every pool to 500 threads \"to be safe\". Explain why that doesn't help, using the core count, Little's law and the database's connection pool.",
+  "answer": "Threads only help while threads are the scarce thing. For work that computes, the limit is the cores: past one thread per core, threads just take turns and add switching costs. For work that waits, Little's law tells us how many requests are inside: arrival rate times latency. At 400 a second and 250 ms, that's 100, so 500 threads would mostly sit idle, each with its own stack. And every request also needs things like a database connection. If the connection pool has 20 connections, threads beyond what 20 connections can serve just wait in line for one, holding memory and making requests slower. So I'd size from the measured traffic, check the CPU, cap it by the smallest limit along the path, and give slow services their own bulkhead."
  },
  "deeper": {
   "minutes": 8,
-  "body": "Why aim for 80 percent CPU and not 100? Queueing theory has a short answer. In the simplest model of a single server with random arrivals (M/M/1), the average time in the system is W = S / (1 - ρ), where S is the service time and ρ is utilization. At 50 percent busy, a request spends 2 x S in the system. At 80 percent, 5 x S. At 90 percent, 10 x S. At 99 percent, 100 x S. Real systems are not M/M/1, but the shape holds: latency grows slowly at first and then very fast as you approach full use. Headroom is what keeps the 99th percentile sane during a burst.\n\nLittle's law has a subtle side that this lesson glossed over. The W in L = λ x W is the measured time in the system, including time spent queuing. If you add threads and requests now queue for a database connection instead of for a thread, W grows and throughput doesn't. That is exactly the debate on the loom-dev list before JEP 444 was finalized: more threads raise the ceiling only while threads are what requests wait for. Once the bottleneck moves downstream, the downstream sets λ.\n\nThe last tool is measurement. Time the queue wait and the run time of each task separately (lesson 9 of this track does this with `beforeExecute` and `afterExecute`). If queue wait dominates, the pool is too small for its traffic. If run time grew, look downstream."
+  "body": "Why aim for 80 percent CPU use and not 100? Queueing theory, the mathematics of waiting lines, has a short answer. In its simplest model, one server with customers arriving at random (called M/M/1), the average time in the system is W = S / (1 - ρ). S is the service time, and ρ (the Greek letter rho) is how busy the server is, as a fraction. At 50 percent busy, a request spends 2 x S in the system. At 80 percent, 5 x S. At 90 percent, 10 x S. At 99 percent, 100 x S. Real systems are not this simple, but the shape holds: latency grows slowly at first and then very fast as you get close to full use. Spare capacity is what keeps the slowest requests reasonable during a burst.\n\nLittle's law has a subtle side that this lesson only touched. The W in L = λ x W is the measured time in the system, including time spent waiting in line. If you add threads and requests now wait for a database connection instead of for a thread, W grows and throughput doesn't. More threads raise the ceiling only while threads are what requests wait for. Once the narrowest point moves further along the path, that later limit sets λ.\n\nTwo last tools. You can tell the JVM how many cores to report with `-XX:ActiveProcessorCount=N`, which helps when a container's limit isn't what you want your pools to see. And you can measure instead of guessing: time each task's wait in the queue and its run time separately (lesson 9 of this track does this with `beforeExecute` and `afterExecute`). If the wait in the queue dominates, the pool is too small for its traffic. If the run time grew, look further along the path."
  },
  "sources": [
   {"title": "Java Concurrency in Practice, Goetz et al., section 8.2 (sizing thread pools)", "url": "https://jcip.net/"},

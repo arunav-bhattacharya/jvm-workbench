@@ -4,7 +4,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 
 /**
- * 200 requests that each wait 50 ms on a downstream call, on pools of 5, 10, 20 and 40 threads.
+ * 200 requests that each wait 50 ms for a slow web service, on pools of 5, 10, 20 and 40 threads.
  * Little's law predicts throughput = threads / 0.05 s. Pass "db" to make every request also hold
  * one of only 10 database connections while it waits.
  */
@@ -21,7 +21,7 @@ fun main(args: Array<String>) {
                     try {
                         if (db) connections.acquire()
                         try {
-                            Thread.sleep(50)            // the downstream call
+                            Thread.sleep(50)            // the call to the slow web service
                         } finally {
                             if (db) connections.release()
                         }

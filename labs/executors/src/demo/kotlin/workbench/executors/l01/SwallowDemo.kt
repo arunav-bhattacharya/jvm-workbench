@@ -6,17 +6,17 @@ import java.util.concurrent.Executors
 /** The same failing task, sent once with execute and once with submit. Watch where the exception goes. */
 fun main() {
     Executors.newFixedThreadPool(1).use { pool ->
-        val charge = Runnable {
-            println("charging on " + Thread.currentThread().name)
-            throw IllegalStateException("card issuer returned 502")
+        val cook = Runnable {
+            println("cooking on " + Thread.currentThread().name)
+            throw IllegalStateException("out of eggs")
         }
 
         println("--- execute ---")
-        pool.execute(charge)
+        pool.execute(cook)
         Thread.sleep(200)                       // give the stack trace time to print
 
         println("--- submit ---")
-        val f = pool.submit(charge)
+        val f = pool.submit(cook)
         Thread.sleep(200)
         println("submit: nothing printed. isDone=" + f.isDone)
 

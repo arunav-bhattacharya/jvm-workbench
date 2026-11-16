@@ -60,9 +60,9 @@ public class LazyModesDemoJava {
 
     static void race(String name, LazyFactory factory) throws InterruptedException {
         AtomicInteger runs = new AtomicInteger();
-        Supplier<Object> signingKey = factory.make(() -> {
+        Supplier<Object> cardTable = factory.make(() -> {
             runs.incrementAndGet();
-            sleep(50);   // a slow initializer, like fetching a key from a vault
+            sleep(50);   // a slow initializer, like reading the card table from a big file
             return new Object();
         });
 
@@ -72,7 +72,7 @@ public class LazyModesDemoJava {
         for (int i = 0; i < 8; i++) {
             Thread t = new Thread(() -> {
                 try { go.await(); } catch (InterruptedException e) { return; }
-                seen.add(signingKey.get());
+                seen.add(cardTable.get());
             });
             t.start();
             threads.add(t);

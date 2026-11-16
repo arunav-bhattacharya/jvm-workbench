@@ -9,7 +9,7 @@ import java.util.concurrent.Future;
 
 /** The same CPU-bound job (32 hashing tasks) on pools of 1, 2, 4, 8 and 16 threads. */
 public class CpuBoundDemo {
-    // pure computation: SHA-256 over 16 MB, like signing a big settlement file. No I/O, no locks.
+    // pure computation: a SHA-256 checksum of 16 MB, like fingerprinting a big file. No waiting, no locks.
     static long hash(long seed) throws Exception {
         MessageDigest sha = MessageDigest.getInstance("SHA-256");
         byte[] block = new byte[16 * 1024];

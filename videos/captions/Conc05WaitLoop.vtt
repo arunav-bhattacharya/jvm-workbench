@@ -1,173 +1,377 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.310
-This consumer takes payments from a queue.
+00:00:02.733 --> 00:00:04.408
+Picture a restaurant kitchen.
 
 2
-00:00:05.310 --> 00:00:07.299
-If the queue is empty, it waits.
+00:00:04.408 --> 00:00:09.029
+Waiters write each order on a ticket and clip it to a metal bar called the rail.
 
 3
-00:00:07.299 --> 00:00:09.909
-When it wakes up, it takes the first item.
+00:00:09.029 --> 00:00:11.628
+Cooks take the oldest ticket off and cook it.
 
 4
-00:00:10.133 --> 00:00:12.165
-With one consumer, this works.
+00:00:11.800 --> 00:00:18.555
+In a program, each waiter and each cook is a thread, a line of work that runs side by side with the others.
 
 5
-00:00:12.165 --> 00:00:15.279
-With two, it can throw NoSuchElementException.
+00:00:18.555 --> 00:00:24.805
+The rail has one key, the lock from the last lesson: only the thread holding it may touch the rail.
 
 6
-00:00:15.279 --> 00:00:17.513
-To see why, look inside the lock.
+00:00:25.000 --> 00:00:26.602
+Now the rail is empty.
 
 7
-00:00:18.733 --> 00:00:20.898
-Every Java object has a monitor.
+00:00:26.602 --> 00:00:28.277
+How should a cook wait?
 
 8
-00:00:20.898 --> 00:00:25.701
-One thread at a time owns it: the thread inside the synchronized block.
+00:00:28.467 --> 00:00:30.739
+The quick answer is to keep asking.
 
 9
-00:00:25.933 --> 00:00:29.004
-Threads that want the lock wait in the entry set.
+00:00:30.739 --> 00:00:31.583
+Anything yet?
 
 10
-00:00:29.004 --> 00:00:30.320
-They show as BLOCKED.
+00:00:31.583 --> 00:00:32.428
+Anything yet?
 
 11
-00:00:30.533 --> 00:00:33.596
-Threads that called wait sit in the wait set.
+00:00:32.428 --> 00:00:37.752
+Like a kid in the back seat asking if we're there yet, millions of times a second.
 
 12
-00:00:33.596 --> 00:00:36.115
-They show as WAITING, and use no CPU.
+00:00:37.933 --> 00:00:39.502
+That's called a busy wait.
 
 13
-00:00:36.933 --> 00:00:40.343
-Consumer 1 takes the lock and checks the queue.
+00:00:39.502 --> 00:00:43.424
+It works, but it keeps a whole processor core busy doing nothing.
 
 14
-00:00:40.343 --> 00:00:41.213
-It is empty.
+00:00:43.424 --> 00:00:48.492
+In a test, waiting one second this way burned about a full second of processor time.
 
 15
-00:00:41.433 --> 00:00:42.488
-So it calls wait.
+00:00:48.667 --> 00:00:53.729
+What we want is a cook that sleeps until the rail changes, and a waiter who wakes it up.
 
 16
-00:00:42.488 --> 00:00:46.396
-wait gives back the lock, and parks the thread in the wait set.
+00:00:53.867 --> 00:00:56.337
+Java's kitchen has three more things.
 
 17
-00:00:46.600 --> 00:00:48.287
-Consumer 2 does the same.
+00:00:56.337 --> 00:00:59.675
+A line by the rail, for threads that want the key.
 
 18
-00:00:48.287 --> 00:00:50.987
-It finds the queue empty, and waits too.
+00:00:59.675 --> 00:01:01.010
+A bench at the back.
 
 19
-00:00:51.200 --> 00:00:56.625
-Now a producer takes the lock, adds one payment to the queue, and calls notifyAll.
+00:01:01.010 --> 00:01:01.744
+And a bell.
 
 20
-00:00:56.833 --> 00:01:00.914
-notifyAll wakes every waiter, but it does not hand over the lock.
+00:01:01.933 --> 00:01:05.881
+The cook takes the key and finds the rail empty, so it calls wait.
 
 21
-00:01:00.914 --> 00:01:05.999
-Both consumers move to the entry set, and compete for the lock like any newcomer.
+00:01:05.881 --> 00:01:09.231
+That hangs the key back, and sits the cook on the bench.
 
 22
-00:01:06.200 --> 00:01:09.257
-When the producer leaves its block, the lock is free.
+00:01:09.231 --> 00:01:13.239
+Later, when it's woken, it must get the key back before it goes on.
 
 23
-00:01:09.467 --> 00:01:11.105
-Consumer 1 gets it first.
+00:01:13.400 --> 00:01:17.394
+A waiter takes the key, clips a ticket on, and calls notifyAll.
 
 24
-00:01:11.105 --> 00:01:14.643
-Its wait returns, it takes the payment, and it leaves.
+00:01:17.394 --> 00:01:18.662
+That rings the bell.
 
 25
-00:01:14.867 --> 00:01:18.326
-Then consumer 2 gets the lock, and its wait returns too.
+00:01:18.662 --> 00:01:22.529
+Everyone on the bench gets up and joins the line for the key.
 
 26
-00:01:18.326 --> 00:01:21.537
-But the if checked the queue once, before it waited.
+00:01:22.667 --> 00:01:24.505
+The waiter hangs the key back.
 
 27
-00:01:21.537 --> 00:01:24.935
-The next line takes the first item from an empty queue.
+00:01:24.505 --> 00:01:27.447
+The cook gets it, sees the ticket, and takes it.
 
 28
-00:01:25.167 --> 00:01:27.498
-The payment it was woken for is gone.
+00:01:27.447 --> 00:01:30.388
+On the bench, the cook used no processor at all.
 
 29
-00:01:27.498 --> 00:01:29.767
-Another consumer got the lock first.
+00:01:31.333 --> 00:01:36.408
+With one cook, an if seems enough: if the rail is empty, wait, then take a ticket.
 
 30
-00:01:30.000 --> 00:01:34.956
-Now write while instead of if, and replay the moment consumer 2 gets the lock.
+00:01:36.408 --> 00:01:37.708
+It passes every test.
 
 31
-00:01:35.167 --> 00:01:37.164
-wait returns inside the loop.
+00:01:37.708 --> 00:01:40.184
+So here's the question we're shy to ask.
 
 32
-00:01:37.164 --> 00:01:39.642
-So consumer 2 tests the queue again.
+00:01:40.184 --> 00:01:42.721
+Why does everyone insist on a while loop?
 
 33
-00:01:39.642 --> 00:01:44.187
-It is empty, so it calls wait again and goes back to the wait set.
+00:01:42.721 --> 00:01:46.001
+If the bell woke me, the ticket must be there, right?
 
 34
-00:01:44.187 --> 00:01:45.220
-Nothing breaks.
+00:01:46.200 --> 00:01:47.885
+Let's hire a second cook.
 
 35
-00:01:45.433 --> 00:01:47.099
-There is a second reason.
+00:01:47.885 --> 00:01:50.445
+Both find the rail empty and sit down.
 
 36
-00:01:47.099 --> 00:01:54.093
-The Javadoc for Object.wait says a thread can wake up without being notified, interrupted, or timing out.
+00:01:50.445 --> 00:01:53.680
+A waiter clips one ticket on and rings the bell.
 
 37
-00:01:54.093 --> 00:01:56.291
-That is called a spurious wakeup.
+00:01:53.680 --> 00:01:55.229
+What happens to cook 2?
 
 38
-00:01:56.500 --> 00:01:58.410
-It is rare, but it is allowed.
+00:01:58.267 --> 00:02:00.677
+Both cooks get up and join the line.
 
 39
-00:01:58.410 --> 00:02:02.295
-The loop handles it the same way: test again, and wait again.
+00:02:00.677 --> 00:02:03.824
+Cook 1 gets the key first and takes the ticket.
 
 40
-00:02:03.300 --> 00:02:09.195
-That is all a guarded block is: a while loop around wait, with the condition as the loop test.
+00:02:03.824 --> 00:02:05.498
+Then cook 2 gets the key.
 
 41
-00:02:09.400 --> 00:02:13.267
-Every wait sits inside a while loop that tests the condition.
+00:02:05.498 --> 00:02:08.177
+Its if ran long ago, before it sat down.
 
 42
-00:02:13.267 --> 00:02:17.640
-Treat an if around wait as a bug, even in code that has never failed.
+00:02:08.177 --> 00:02:10.119
+So it grabs at an empty rail.
 
 43
-00:02:17.640 --> 00:02:20.556
-It has just never had two waiters at once yet.
+00:02:10.267 --> 00:02:11.794
+The demo printed this.
+
+44
+00:02:11.794 --> 00:02:18.182
+Cook 2 failed with NoSuchElementException, Java's complaint about taking from an empty list.
+
+45
+00:02:18.182 --> 00:02:20.473
+Who wins changes from run to run.
+
+46
+00:02:20.473 --> 00:02:21.792
+The ending doesn't.
+
+47
+00:02:21.933 --> 00:02:25.101
+So the wrong idea was this: woken means it's mine.
+
+48
+00:02:25.101 --> 00:02:27.952
+But the bell never says this ticket is yours.
+
+49
+00:02:27.952 --> 00:02:30.423
+It says something changed, go and look.
+
+50
+00:02:30.600 --> 00:02:33.285
+Change if to while, and cook 2 looks again.
+
+51
+00:02:33.285 --> 00:02:37.717
+The rail is empty, so it sits back down, and waits for the next ticket.
+
+52
+00:02:37.867 --> 00:02:39.786
+There's a stranger reason, too.
+
+53
+00:02:39.786 --> 00:02:43.564
+Java lets a thread get up from the bench with no bell at all.
+
+54
+00:02:43.564 --> 00:02:45.422
+It's called a spurious wakeup.
+
+55
+00:02:45.422 --> 00:02:47.466
+Java's cooks sometimes sleepwalk.
+
+56
+00:02:47.466 --> 00:02:49.633
+So even a lone cook needs the loop.
+
+57
+00:02:49.800 --> 00:02:50.658
+Now the names.
+
+58
+00:02:50.658 --> 00:02:54.273
+The line is the entry set, and its threads show as BLOCKED.
+
+59
+00:02:54.273 --> 00:02:57.889
+The bench is the wait set, and its threads show as WAITING.
+
+60
+00:02:57.889 --> 00:03:02.179
+And hold the key, check, wait until it's true: that's a guarded block.
+
+61
+00:03:02.333 --> 00:03:05.645
+The rule: being woken doesn't mean the state is right.
+
+62
+00:03:05.645 --> 00:03:07.424
+Check again, in a while loop.
+
+63
+00:03:07.600 --> 00:03:08.649
+One more change.
+
+64
+00:03:08.649 --> 00:03:11.206
+A real rail holds only so many tickets.
+
+65
+00:03:11.206 --> 00:03:13.698
+So when it's full, a waiter waits too.
+
+66
+00:03:13.698 --> 00:03:15.862
+At last, the waiters get to wait.
+
+67
+00:03:15.862 --> 00:03:22.353
+Now two kinds of threads share one bench: cooks waiting for a ticket, and waiters waiting for room.
+
+68
+00:03:22.533 --> 00:03:26.537
+So why ring for everyone, when one ticket needs one cook?
+
+69
+00:03:26.537 --> 00:03:29.698
+Java has notify, which wakes just one thread.
+
+70
+00:03:29.698 --> 00:03:30.612
+Let's try it.
+
+71
+00:03:30.612 --> 00:03:35.669
+Room for one ticket, two waiters, two cooks, and every bell is a notify.
+
+72
+00:03:35.669 --> 00:03:36.583
+What happens?
+
+73
+00:03:39.933 --> 00:03:42.841
+Both cooks find the rail empty and sit down.
+
+74
+00:03:43.000 --> 00:03:46.591
+Waiter 1 clips a ticket and wakes one thread, cook 1.
+
+75
+00:03:46.733 --> 00:03:51.412
+Before cook 1 gets the key, both waiters find the rail full and sit down.
+
+76
+00:03:51.600 --> 00:03:54.580
+Cook 1 takes the ticket and wakes one thread.
+
+77
+00:03:54.580 --> 00:03:56.435
+It's cook 2, the wrong kind.
+
+78
+00:03:56.600 --> 00:03:59.506
+Cook 2 finds no ticket and sits back down.
+
+79
+00:03:59.506 --> 00:04:03.035
+Then cook 1 comes back for more, and sits down too.
+
+80
+00:04:03.200 --> 00:04:06.624
+Now all four threads sit on the bench, waiting for a bell.
+
+81
+00:04:06.624 --> 00:04:09.635
+And everyone who could ring it is on the bench too.
+
+82
+00:04:10.400 --> 00:04:16.390
+In the demo, the kitchen stalled after 8 orders, with every thread WAITING.
+
+83
+00:04:16.390 --> 00:04:24.856
+With notifyAll, the same four threads cooked 136,000 to 139,000 orders in five seconds, and never stalled.
+
+84
+00:04:25.000 --> 00:04:30.599
+notifyAll wakes everyone, and each while loop sends back the threads that can't go on.
+
+85
+00:04:30.599 --> 00:04:37.109
+notify is safe only when every sleeper waits for the same thing, and one change lets just one go on.
+
+86
+00:04:37.800 --> 00:04:40.843
+In code, Java on the left and Kotlin on the right.
+
+87
+00:04:40.843 --> 00:04:45.408
+Hold the key, wait in a while loop, take the ticket, and ring for everyone.
+
+88
+00:04:46.200 --> 00:04:47.655
+So, why the while loop?
+
+89
+00:04:47.655 --> 00:04:49.679
+Because the bell is only a hint.
+
+90
+00:04:49.679 --> 00:04:51.260
+Woken doesn't mean ready.
+
+91
+00:04:51.260 --> 00:04:56.573
+Change the rail before you ring, ring for everyone, and check again in a while loop.
+
+92
+00:04:56.733 --> 00:04:57.543
+Quick check.
+
+93
+00:04:57.543 --> 00:05:01.051
+One cook, one waiter, and the cook waits with an if.
+
+94
+00:05:01.051 --> 00:05:02.535
+Can it still go wrong?

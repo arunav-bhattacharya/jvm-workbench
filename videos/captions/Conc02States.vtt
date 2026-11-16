@@ -1,209 +1,373 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.283
-Your payment service stops answering.
+00:00:02.733 --> 00:00:05.051
+Picture a program with a mail room.
 
 2
-00:00:05.283 --> 00:00:06.889
-You take a thread dump.
+00:00:05.051 --> 00:00:08.891
+Other parts of the program drop messages into an out tray.
 
 3
-00:00:06.889 --> 00:00:10.101
-Next to every thread, the JVM prints one word.
+00:00:09.067 --> 00:00:13.191
+A helper thread, the relay, empties the tray and sends what it finds.
 
 4
-00:00:10.333 --> 00:00:12.473
-Which of these threads is doing work?
+00:00:13.533 --> 00:00:16.548
+When the tray is empty, it naps, then looks again.
 
 5
-00:00:13.967 --> 00:00:15.808
-Each word names a place.
+00:00:16.733 --> 00:00:18.315
+One day you try to quit.
 
 6
-00:00:15.808 --> 00:00:16.881
-There are six.
+00:00:18.315 --> 00:00:21.611
+The main thread asks the relay to stop, and waits.
 
 7
-00:00:17.600 --> 00:00:19.462
-A new thread sits in NEW.
+00:00:21.800 --> 00:00:25.619
+The relay prints one line, relay interrupted, carrying on.
 
 8
-00:00:19.462 --> 00:00:20.728
-Nothing runs yet.
+00:00:25.619 --> 00:00:28.384
+And it carries on, until you press Ctrl+C.
 
 9
-00:00:20.933 --> 00:00:23.425
-start hands it to the operating system.
+00:00:28.667 --> 00:00:30.990
+Polite, honest, and no help at all.
 
 10
-00:00:23.425 --> 00:00:25.917
-Now it is RUNNABLE, and it gets a core.
+00:00:30.990 --> 00:00:33.779
+It heard the request, and then it lost it.
 
 11
-00:00:26.133 --> 00:00:27.310
-But cores are few.
+00:00:34.533 --> 00:00:37.013
+So, two questions you might be shy to ask.
 
 12
-00:00:27.310 --> 00:00:30.904
-When another thread gets the core, ours waits its turn.
+00:00:37.013 --> 00:00:39.434
+When a thread isn't running, where is it?
 
 13
-00:00:30.904 --> 00:00:32.276
-It is still RUNNABLE.
+00:00:39.434 --> 00:00:42.681
+And when you ask it to stop, where does the request go?
 
 14
-00:00:32.500 --> 00:00:36.112
-So RUNNABLE in a dump does not prove a thread is working.
+00:00:43.867 --> 00:00:45.917
+Think of the relay as a clerk.
 
 15
-00:00:36.333 --> 00:00:40.979
-Next, it reaches a synchronized block whose lock another thread holds.
+00:00:45.917 --> 00:00:48.445
+A clerk's day has a few places to be.
 
 16
-00:00:40.979 --> 00:00:42.107
-Where does it go?
+00:00:48.600 --> 00:00:49.450
+Not in yet.
 
 17
-00:00:43.700 --> 00:00:44.603
-Up to BLOCKED.
+00:00:49.450 --> 00:00:50.917
+At a desk, working.
 
 18
-00:00:44.603 --> 00:00:47.959
-When the lock comes free, it takes it and goes back.
+00:00:50.917 --> 00:00:52.926
+Napping with an alarm set.
 
 19
-00:00:48.533 --> 00:00:56.263
-wait, join or park, with no time limit, puts it in WAITING, until a notify, an unpark, or the joined thread ends.
+00:00:52.926 --> 00:00:54.857
+Waiting for the doorbell.
 
 20
-00:00:56.467 --> 00:01:00.427
-Now it asks for a ReentrantLock that another thread holds.
+00:00:54.857 --> 00:00:57.020
+Stuck outside a locked door.
 
 21
-00:01:00.427 --> 00:01:01.792
-Which box this time?
+00:00:57.020 --> 00:00:57.792
+Gone home.
 
 22
-00:01:03.367 --> 00:01:03.950
-WAITING.
+00:00:57.800 --> 00:01:00.207
+A thread has six places just like these.
 
 23
-00:01:03.950 --> 00:01:07.958
-ReentrantLock is plain Java code that parks the thread.
+00:01:00.207 --> 00:01:04.661
+Java calls them states, and getState() tells you which one a thread is in.
 
 24
-00:01:07.958 --> 00:01:10.363
-BLOCKED is only for synchronized.
+00:01:04.800 --> 00:01:11.121
+The clerk is the thread, and a desk is a core, the part of the processor that runs one thread at a time.
 
 25
-00:01:10.567 --> 00:01:16.001
-With a time limit, like sleep for two hundred milliseconds, it goes to TIMED_WAITING.
+00:01:11.267 --> 00:01:15.951
+new Thread gives us an object and nothing more: no real thread yet.
 
 26
-00:01:16.001 --> 00:01:17.983
-It sleeps here between retries.
+00:01:15.951 --> 00:01:16.720
+That's NEW.
 
 27
-00:01:18.200 --> 00:01:20.170
-Now the service shuts down.
+00:01:16.933 --> 00:01:21.416
+start() asks the operating system for a real thread, which calls run().
 
 28
-00:01:20.170 --> 00:01:22.578
-Java cannot kill a thread safely.
+00:01:21.416 --> 00:01:23.752
+Now the relay is RUNNABLE, at a desk.
 
 29
-00:01:22.578 --> 00:01:23.745
-It can only ask.
+00:01:24.000 --> 00:01:28.551
+RUNNABLE also covers a thread that's ready, but waiting for a free desk.
 
 30
-00:01:23.967 --> 00:01:28.112
-interrupt sticks a note on the thread: a flag that says, please stop.
+00:01:28.800 --> 00:01:33.476
+The tray is empty, so the relay calls sleep, for 200 milliseconds.
 
 31
-00:01:28.333 --> 00:01:30.068
-The worker is asleep.
+00:01:33.476 --> 00:01:34.680
+Where does it go?
 
 32
-00:01:30.068 --> 00:01:31.141
-What happens?
+00:01:37.333 --> 00:01:39.900
+TIMED_WAITING: a wait with a time limit.
 
 33
-00:01:32.633 --> 00:01:37.893
-sleep throws InterruptedException, and the worker runs again, in its catch block.
+00:01:39.900 --> 00:01:42.531
+When the time is up, it's RUNNABLE again.
 
 34
-00:01:37.893 --> 00:01:40.101
-But sleep took the note off first.
+00:01:42.733 --> 00:01:47.839
+Now say the relay reads from a queue, whose take() waits until there's something to take.
 
 35
-00:01:40.101 --> 00:01:41.400
-The flag is cleared.
+00:01:47.839 --> 00:01:52.773
+On an empty queue, there's no clock, only a doorbell: another thread adding a message.
 
 36
-00:01:41.633 --> 00:01:45.008
-If the catch block only logs it, the request is gone.
+00:01:53.000 --> 00:01:56.868
+That's WAITING, and join() with no time limit waits the same way.
 
 37
-00:01:45.008 --> 00:01:47.492
-The loop sleeps again, and never stops.
+00:01:57.067 --> 00:02:00.871
+So where was main, the whole time it sat in relay.join()?
 
 38
-00:01:47.700 --> 00:01:48.190
-Rewind.
+00:02:03.533 --> 00:02:06.207
+WAITING, right there, until the relay ends.
 
 39
-00:01:48.190 --> 00:01:51.340
-This time the catch block puts the note back.
+00:02:06.400 --> 00:02:08.540
+The relay goes back to its desk.
 
 40
-00:01:51.567 --> 00:01:55.090
-The loop checks isInterrupted, sees the note, and returns.
+00:02:08.733 --> 00:02:13.811
+It also writes each message into a shared logbook, inside a synchronized block.
 
 41
-00:01:55.090 --> 00:02:00.071
-A loop that never blocks must make this check itself, or the note just sits there.
+00:02:13.811 --> 00:02:16.960
+That block is a door with one key, called a lock.
 
 42
-00:02:00.300 --> 00:02:01.023
-run ends.
+00:02:17.133 --> 00:02:21.239
+If another thread holds the key, the relay waits outside the door.
 
 43
-00:02:01.023 --> 00:02:02.630
-TERMINATED is final.
+00:02:21.239 --> 00:02:22.173
+That's BLOCKED.
 
 44
-00:02:02.630 --> 00:02:05.120
-A thread can never start again.
+00:02:22.173 --> 00:02:25.345
+When the key comes free, it takes it and goes back.
 
 45
-00:02:06.133 --> 00:02:09.596
-In code, it is one line, in Java and in Kotlin.
+00:02:25.533 --> 00:02:28.485
+And when run() returns, the thread is TERMINATED.
 
 46
-00:02:09.800 --> 00:02:11.757
-The rule: interrupt only asks.
+00:02:28.485 --> 00:02:32.160
+That's final, and it's the one place our relay never gets to.
 
 47
-00:02:11.757 --> 00:02:14.955
-Whoever catches it puts the flag back, and stops.
+00:02:33.133 --> 00:02:35.326
+Let's not take my word for it.
 
 48
-00:02:16.700 --> 00:02:17.617
-Quick check.
+00:02:35.326 --> 00:02:39.713
+The lesson's ThreadStates demo asks getState() at each stop.
 
 49
-00:02:17.617 --> 00:02:21.588
-A thread waits in tryLock with a one second timeout.
+00:02:39.713 --> 00:02:41.687
+On JDK 21, it printed this.
 
 50
-00:02:21.588 --> 00:02:22.352
-Which box?
+00:02:41.867 --> 00:02:44.501
+Each state shows up where the walk said.
 
 51
-00:02:24.833 --> 00:02:25.882
-TIMED_WAITING.
+00:02:44.501 --> 00:02:48.453
+Notice the odd line out: waiter interrupted, flag now false.
 
 52
-00:02:25.882 --> 00:02:29.028
-ReentrantLock parks it, with a time limit.
+00:02:48.453 --> 00:02:49.375
+Hold on to it.
+
+53
+00:02:50.133 --> 00:02:53.251
+And our relay spends nearly its whole life asleep.
+
+54
+00:02:53.251 --> 00:02:54.498
+Honestly, relatable.
+
+55
+00:02:54.498 --> 00:02:58.239
+But it means a stop request has to reach it while it sleeps.
+
+56
+00:02:59.000 --> 00:03:02.162
+Java can't drag a thread away from its desk.
+
+57
+00:03:02.162 --> 00:03:03.312
+It can only ask.
+
+58
+00:03:03.312 --> 00:03:05.612
+relay.interrupt() is the asking.
+
+59
+00:03:05.800 --> 00:03:09.071
+Picture a note on the clerk's desk: please finish up.
+
+60
+00:03:09.267 --> 00:03:14.141
+If the clerk is napping, the note wakes them: sleep throws an InterruptedException.
+
+61
+00:03:14.141 --> 00:03:17.429
+If they're busy, they see it the next time they look up.
+
+62
+00:03:18.600 --> 00:03:20.406
+Here's the relay's catch block.
+
+63
+00:03:20.406 --> 00:03:23.435
+The note wakes the relay, and it lands in the catch.
+
+64
+00:03:23.600 --> 00:03:25.420
+Is the note still on the desk?
+
+65
+00:03:28.067 --> 00:03:28.277
+No.
+
+66
+00:03:28.277 --> 00:03:33.103
+Waking up tears the note off: sleep clears the flag before it throws.
+
+67
+00:03:33.103 --> 00:03:35.831
+That's the demo's line, flag now false.
+
+68
+00:03:36.000 --> 00:03:40.444
+So the relay prints, goes back to sleep, and nothing remembers the request.
+
+69
+00:03:40.600 --> 00:03:45.100
+Once you've caught the exception, you hold the only copy of the request.
+
+70
+00:03:45.100 --> 00:03:52.475
+So either let it travel up to your caller, or stick the note back on: Thread.currentThread().interrupt(), then return.
+
+71
+00:03:52.667 --> 00:03:55.781
+Put back, the note stays where the relay can see it.
+
+72
+00:03:55.781 --> 00:03:58.056
+Its proper name is the interrupt flag.
+
+73
+00:03:58.200 --> 00:04:02.741
+Now the relay sees the note, finishes the batch in hand, and returns.
+
+74
+00:04:02.741 --> 00:04:05.637
+TERMINATED at last, and main's join returns.
+
+75
+00:04:05.800 --> 00:04:07.588
+The relay goes home on time.
+
+76
+00:04:07.588 --> 00:04:09.760
+Somebody in that mail room should.
+
+77
+00:04:10.533 --> 00:04:12.998
+Here is the fix in Java and in Kotlin.
+
+78
+00:04:12.998 --> 00:04:17.928
+Kotlin doesn't force you to catch this exception, so add the try on purpose.
+
+79
+00:04:18.067 --> 00:04:20.605
+The rule: never swallow an interrupt.
+
+80
+00:04:20.605 --> 00:04:22.389
+Rethrow it, or restore it.
+
+81
+00:04:23.600 --> 00:04:24.566
+Two more traps.
+
+82
+00:04:24.566 --> 00:04:29.203
+A relay that's always busy never reaches sleep, so no exception arrives.
+
+83
+00:04:29.203 --> 00:04:33.775
+It must look for the note itself, once per batch, with isInterrupted().
+
+84
+00:04:33.933 --> 00:04:38.015
+And the static Thread.interrupted() reads the note, and tears it off.
+
+85
+00:04:40.000 --> 00:04:42.674
+So where is a thread when it isn't running?
+
+86
+00:04:42.674 --> 00:04:46.218
+In one of six places, and the call it made decides which.
+
+87
+00:04:46.218 --> 00:04:48.643
+And a stop request is a note on a desk.
+
+88
+00:04:48.643 --> 00:04:50.757
+It's easy to lose, so put it back.
+
+89
+00:04:50.933 --> 00:04:51.860
+Quick check.
+
+90
+00:04:51.860 --> 00:04:55.722
+A thread is inside wait, with a five second limit.
+
+91
+00:04:55.722 --> 00:04:56.649
+Which place?
+
+92
+00:04:59.467 --> 00:05:00.423
+TIMED_WAITING.
+
+93
+00:05:00.423 --> 00:05:05.069
+Same call, plus a time limit, and the thread moves to the other box.

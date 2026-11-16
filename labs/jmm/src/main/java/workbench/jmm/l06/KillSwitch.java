@@ -1,8 +1,8 @@
 package workbench.jmm.l06;
 
 /**
- * A one-way switch that stops new authorizations when a card issuer goes down. Any thread may call
- * {@link #trip}; request threads call {@link #isTripped()} on every authorization.
+ * A one-way switch that stops the program taking new card payments, for example when the bank's service
+ * goes down. Any thread may call {@link #trip}; request threads call {@link #isTripped()} before every payment.
  *
  * <p>Keep the reason in the plain field below and reach it through a static final VarHandle that you
  * look up yourself (copy the pattern from SettlementSlot). {@code trip} must be atomic: exactly one

@@ -6,7 +6,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
-/** shutdown, awaitTermination and shutdownNow on a pool of 2 threads with 6 queued 300 ms tasks. */
+/** shutdown, awaitTermination and shutdownNow on a kitchen of 2 cooks (threads) with 6 orders of 300 ms each. */
 public class ShutdownDemo {
     static final long T0 = System.nanoTime();
 
@@ -14,13 +14,13 @@ public class ShutdownDemo {
         System.out.printf("%5d ms  %s%n", (System.nanoTime() - T0) / 1_000_000, msg);
     }
 
-    static Runnable settle(int id) {
+    static Runnable cook(int id) {
         return () -> {
             try {
-                Thread.sleep(300);                  // a 300 ms call to the ledger
-                log("settled batch " + id);
+                Thread.sleep(300);                  // 300 ms to cook one order
+                log("cooked order " + id);
             } catch (InterruptedException e) {
-                log("batch " + id + " interrupted");
+                log("order " + id + " interrupted");
                 Thread.currentThread().interrupt();
             }
         };
@@ -29,7 +29,7 @@ public class ShutdownDemo {
     public static void main(String[] args) throws Exception {
         boolean now = args.length > 0 && args[0].equals("now");
         ExecutorService pool = Executors.newFixedThreadPool(2);
-        for (int i = 1; i <= 6; i++) pool.execute(settle(i));
+        for (int i = 1; i <= 6; i++) pool.execute(cook(i));
 
         if (now) {
             Thread.sleep(100);
@@ -41,9 +41,9 @@ public class ShutdownDemo {
         }
 
         try {
-            pool.execute(settle(7));
+            pool.execute(cook(7));
         } catch (RejectedExecutionException e) {
-            log("batch 7 rejected: the pool is shut down");
+            log("order 7 rejected: the kitchen is closed");
         }
 
         boolean done = pool.awaitTermination(5, TimeUnit.SECONDS);

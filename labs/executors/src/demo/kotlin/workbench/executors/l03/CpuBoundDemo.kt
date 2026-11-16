@@ -3,7 +3,7 @@ package workbench.executors.l03
 import java.security.MessageDigest
 import java.util.concurrent.Executors
 
-// pure computation: SHA-256 over 16 MB, like signing a big settlement file. No I/O, no locks.
+// pure computation: a SHA-256 checksum of 16 MB, like fingerprinting a big file. No waiting, no locks.
 private fun hash(seed: Long): Long {
     val sha = MessageDigest.getInstance("SHA-256")
     val block = ByteArray(16 * 1024)

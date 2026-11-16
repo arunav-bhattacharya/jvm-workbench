@@ -9,9 +9,9 @@ import kotlin.concurrent.thread
 fun main() {
     for (mode in LazyThreadSafetyMode.entries) {
         val runs = AtomicInteger()
-        val signingKey: Lazy<Any> = lazy(mode) {
+        val cardTable: Lazy<Any> = lazy(mode) {
             runs.incrementAndGet()
-            Thread.sleep(50)   // a slow initializer, like fetching a key from a vault
+            Thread.sleep(50)   // a slow initializer, like reading the card table from a big file
             Any()
         }
 
@@ -20,7 +20,7 @@ fun main() {
         val threads = List(8) {
             thread {
                 go.await()
-                seen += signingKey.value
+                seen += cardTable.value
             }
         }
         go.countDown()

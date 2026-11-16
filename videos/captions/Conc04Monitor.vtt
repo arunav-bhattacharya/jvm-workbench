@@ -1,389 +1,389 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:07.723
+00:00:02.700 --> 00:00:07.689
 Picture a small bank with two accounts, A and B, and 1,000 in each.
 
 2
-00:00:07.723 --> 00:00:09.659
+00:00:07.689 --> 00:00:09.625
 Together, they hold 2,000.
 
 3
-00:00:09.800 --> 00:00:12.928
+00:00:09.833 --> 00:00:12.961
 A transfer moves 50 from A to B in two steps.
 
 4
-00:00:12.928 --> 00:00:14.805
+00:00:12.961 --> 00:00:14.838
 First it takes 50 out of A.
 
 5
-00:00:14.805 --> 00:00:16.264
+00:00:14.838 --> 00:00:16.298
 Then it adds 50 to B.
 
 6
-00:00:16.264 --> 00:00:22.520
+00:00:16.298 --> 00:00:22.553
 A thread does this work: a line of work that runs side by side with others in one program.
 
 7
-00:00:22.667 --> 00:00:26.790
+00:00:22.767 --> 00:00:26.890
 A second thread, the checker, adds up both accounts now and then.
 
 8
-00:00:26.790 --> 00:00:30.659
+00:00:26.890 --> 00:00:30.759
 Money only moves around, so the total should always be 2,000.
 
 9
-00:00:30.800 --> 00:00:32.747
+00:00:30.967 --> 00:00:32.914
 But look between the two steps.
 
 10
-00:00:32.747 --> 00:00:35.699
+00:00:32.914 --> 00:00:35.866
 The 50 has left A, and it hasn't reached B yet.
 
 11
-00:00:35.699 --> 00:00:38.777
+00:00:35.866 --> 00:00:38.944
 It's in the transfer's hands, out in the hallway.
 
 12
-00:00:38.933 --> 00:00:42.980
+00:00:39.167 --> 00:00:43.213
 If the checker adds up right then, it gets 1,950.
 
 13
-00:00:42.980 --> 00:00:46.200
+00:00:43.213 --> 00:00:46.433
 Fifty missing, and nobody stole a cent.
 
 14
-00:00:46.333 --> 00:00:50.052
+00:00:46.667 --> 00:00:50.385
 We want nobody to see the books while a transfer is halfway done.
 
 15
-00:00:50.200 --> 00:00:52.756
+00:00:50.600 --> 00:00:53.156
 Banks solved that long ago with a vault.
 
 16
-00:00:52.756 --> 00:00:55.440
+00:00:53.156 --> 00:00:55.840
 One room, one door, and one key on a hook.
 
 17
-00:00:55.600 --> 00:00:56.427
+00:00:56.067 --> 00:00:56.894
 Let's map it.
 
 18
-00:00:56.427 --> 00:00:59.990
+00:00:56.894 --> 00:01:00.456
 The room is the code we guard, with the balances inside.
 
 19
-00:00:59.990 --> 00:01:03.552
+00:01:00.456 --> 00:01:04.019
 The key is a lock: only the thread holding it may go in.
 
 20
-00:01:03.552 --> 00:01:08.960
+00:01:04.019 --> 00:01:09.427
 It takes the key going in, and hangs it back going out, even if something goes wrong.
 
 21
-00:01:09.133 --> 00:01:12.547
+00:01:09.633 --> 00:01:13.047
 Any other thread that wants the key waits by the door.
 
 22
-00:01:12.547 --> 00:01:16.656
+00:01:13.047 --> 00:01:17.156
 Java calls that state BLOCKED: alive, but not allowed to run yet.
 
 23
-00:01:16.800 --> 00:01:19.804
+00:01:17.367 --> 00:01:20.371
 In Java, the word for all this is synchronized.
 
 24
-00:01:19.804 --> 00:01:23.576
+00:01:20.371 --> 00:01:24.143
 Every object has a built-in key, and synchronized takes it.
 
 25
-00:01:27.800 --> 00:01:30.561
+00:01:28.267 --> 00:01:31.027
 Now the question many of us are too shy to ask.
 
 26
-00:01:30.561 --> 00:01:33.908
+00:01:31.027 --> 00:01:34.375
 The checker only reads, and reading never broke anything.
 
 27
-00:01:33.908 --> 00:01:35.905
+00:01:34.375 --> 00:01:36.372
 So it doesn't need the key, right?
 
 28
-00:01:36.067 --> 00:01:37.038
+00:01:36.600 --> 00:01:37.572
 Let's test it.
 
 29
-00:01:37.038 --> 00:01:41.688
+00:01:37.572 --> 00:01:42.221
 The transfer moves 50 and back, 200,000 times, always with the key.
 
 30
-00:01:41.688 --> 00:01:45.505
+00:01:42.221 --> 00:01:46.038
 The checker adds up as fast as it can, without the key.
 
 31
-00:01:45.505 --> 00:01:47.656
+00:01:46.038 --> 00:01:48.189
 Will it ever see a wrong total?
 
 32
-00:01:50.667 --> 00:01:56.131
+00:01:51.167 --> 00:01:56.631
 In one run, the checker made about 41 million checks, and 2.8 million were wrong.
 
 33
-00:01:56.131 --> 00:01:58.424
+00:01:56.631 --> 00:01:58.924
 That's about one check in fifteen.
 
 34
-00:01:58.600 --> 00:02:00.807
+00:01:59.133 --> 00:02:01.340
 Well, that's a lot of missing money.
 
 35
-00:02:00.807 --> 00:02:02.339
+00:02:01.340 --> 00:02:02.872
 Here's what we got wrong.
 
 36
-00:02:02.339 --> 00:02:04.791
+00:02:02.872 --> 00:02:05.324
 The lock guards the door, not the money.
 
 37
-00:02:04.791 --> 00:02:07.181
+00:02:05.324 --> 00:02:07.715
 And the checker never came to the door.
 
 38
-00:02:07.333 --> 00:02:10.541
+00:02:07.933 --> 00:02:11.141
 In a real bank, you can't read the books from outside.
 
 39
-00:02:10.541 --> 00:02:12.501
+00:02:11.141 --> 00:02:13.101
 But Java's vault has glass walls.
 
 40
-00:02:12.501 --> 00:02:15.887
+00:02:13.101 --> 00:02:16.487
 Any thread can read straight through them, key or no key.
 
 41
-00:02:16.067 --> 00:02:18.308
+00:02:18.067 --> 00:02:20.308
 So the checker asks for the key too.
 
 42
-00:02:18.308 --> 00:02:22.480
+00:02:20.308 --> 00:02:24.480
 Now it waits in line, and it only looks when no transfer is inside.
 
 43
-00:02:22.933 --> 00:02:27.505
+00:02:24.733 --> 00:02:29.305
 Same test again: about 905,000 checks, and not one wrong total.
 
 44
-00:02:27.505 --> 00:02:31.715
+00:02:29.305 --> 00:02:33.515
 Fewer checks, though, because each one now waits its turn.
 
 45
-00:02:31.867 --> 00:02:32.808
+00:02:33.733 --> 00:02:34.674
 Now the names.
 
 46
-00:02:32.808 --> 00:02:36.841
+00:02:34.674 --> 00:02:38.708
 The built-in key on every Java object is called its monitor.
 
 47
-00:02:36.841 --> 00:02:38.320
+00:02:38.708 --> 00:02:40.187
 It makes two promises.
 
 48
-00:02:38.320 --> 00:02:41.883
+00:02:40.187 --> 00:02:43.750
 One thread inside at a time: that's mutual exclusion.
 
 49
-00:02:41.883 --> 00:02:46.791
+00:02:43.750 --> 00:02:48.657
 And the next thread to take the key sees every change: that's visibility.
 
 50
-00:02:46.933 --> 00:02:50.661
+00:02:48.867 --> 00:02:52.595
 But both promises go only to threads that take the same key.
 
 51
-00:02:50.661 --> 00:02:55.011
+00:02:52.595 --> 00:02:56.944
 A lock protects only the threads that take it, so readers take it too.
 
 52
-00:02:57.400 --> 00:02:58.211
+00:02:59.233 --> 00:03:00.045
 Next puzzle.
 
 53
-00:02:58.211 --> 00:03:04.432
+00:03:00.045 --> 00:03:06.265
 An account must never go below zero, so withdraw first asks canCover: is there enough money?
 
 54
-00:03:04.432 --> 00:03:05.920
+00:03:06.265 --> 00:03:07.753
 Both use the same key.
 
 55
-00:03:05.920 --> 00:03:09.165
+00:03:07.753 --> 00:03:10.999
 So the thread holding the key asks for it again.
 
 56
-00:03:09.165 --> 00:03:10.788
+00:03:10.999 --> 00:03:12.621
 Does it wait for itself?
 
 57
-00:03:13.800 --> 00:03:18.799
+00:03:15.600 --> 00:03:20.599
 If it did, it would wait forever, like searching the whole house for the glasses on your head.
 
 58
-00:03:18.933 --> 00:03:19.740
+00:03:20.800 --> 00:03:21.607
 It doesn't.
 
 59
-00:03:19.740 --> 00:03:25.386
+00:03:21.607 --> 00:03:27.253
 Java's monitors are reentrant: the thread holding the key just walks back in.
 
 60
-00:03:25.386 --> 00:03:26.779
+00:03:27.253 --> 00:03:28.646
 Java keeps a count.
 
 61
-00:03:26.779 --> 00:03:28.173
+00:03:28.646 --> 00:03:30.039
 Into withdraw, one.
 
 62
-00:03:28.173 --> 00:03:29.566
+00:03:30.039 --> 00:03:31.432
 Into canCover, two.
 
 63
-00:03:29.566 --> 00:03:30.592
+00:03:31.432 --> 00:03:32.459
 Back out, one.
 
 64
-00:03:30.592 --> 00:03:33.892
+00:03:32.459 --> 00:03:35.759
 Then zero, and the key goes back on the hook.
 
 65
-00:03:34.667 --> 00:03:36.651
+00:03:36.567 --> 00:03:38.551
 Which object should be the key?
 
 66
-00:03:36.651 --> 00:03:38.572
+00:03:38.551 --> 00:03:40.472
 Not the text "lock" in quotes.
 
 67
-00:03:38.572 --> 00:03:43.950
+00:03:40.472 --> 00:03:45.850
 Every class that writes "lock" shares that one object, like a key under the doormat.
 
 68
-00:03:43.950 --> 00:03:48.880
+00:03:45.850 --> 00:03:50.780
 In the demo, a class that never meant to share waited about 900 milliseconds.
 
 69
-00:03:49.067 --> 00:03:50.970
+00:03:51.000 --> 00:03:52.903
 Use a private final object.
 
 70
-00:03:50.970 --> 00:03:53.861
+00:03:52.903 --> 00:03:55.794
 Private, so no other class can borrow it.
 
 71
-00:03:53.861 --> 00:03:55.764
+00:03:55.794 --> 00:03:57.697
 Final, so it never changes.
 
 72
-00:03:56.533 --> 00:03:57.152
+00:03:58.500 --> 00:03:59.119
 Last one.
 
 73
-00:03:57.152 --> 00:04:02.449
+00:03:59.119 --> 00:04:04.416
 Before moving money, the bank asks a fraud check service on another computer.
 
 74
-00:04:02.449 --> 00:04:04.788
+00:04:04.416 --> 00:04:06.755
 Each answer takes 40 milliseconds.
 
 75
-00:04:04.933 --> 00:04:09.228
+00:04:06.967 --> 00:04:11.262
 Now picture a transfer in the vault with the key, phoning the fraud desk.
 
 76
-00:04:09.228 --> 00:04:13.288
+00:04:11.262 --> 00:04:15.321
 It's on hold, with the key in its pocket, and the line outside grows.
 
 77
-00:04:14.067 --> 00:04:16.358
+00:04:16.133 --> 00:04:18.424
 Eight threads make five transfers each.
 
 78
-00:04:16.358 --> 00:04:20.352
+00:04:18.424 --> 00:04:22.419
 With the check inside the lock, how long do those forty checks take?
 
 79
-00:04:23.400 --> 00:04:27.231
+00:04:25.400 --> 00:04:29.231
 One thread at a time means one check at a time.
 
 80
-00:04:27.231 --> 00:04:29.676
+00:04:29.231 --> 00:04:31.676
 Forty times 40 is about 1,600.
 
 81
-00:04:29.676 --> 00:04:32.692
+00:04:31.676 --> 00:04:34.692
 The demo measured 1,618 milliseconds.
 
 82
-00:04:32.692 --> 00:04:39.050
+00:04:34.692 --> 00:04:41.050
 Move the check outside the lock, and the checks overlap, five rounds of eight.
 
 83
-00:04:39.050 --> 00:04:40.436
+00:04:41.050 --> 00:04:42.436
 201 milliseconds.
 
 84
-00:04:40.600 --> 00:04:42.700
+00:04:42.667 --> 00:04:44.767
 So never go on hold with the key.
 
 85
-00:04:42.700 --> 00:04:44.800
+00:04:44.767 --> 00:04:46.866
 Do the slow work before or after.
 
 86
-00:04:44.800 --> 00:04:48.236
+00:04:46.866 --> 00:04:50.303
 Inside the lock, only read and write the shared state.
 
 87
-00:04:49.000 --> 00:04:53.029
+00:04:51.133 --> 00:04:55.163
 Here it is in code, Java on the left and Kotlin on the right.
 
 88
-00:04:53.029 --> 00:04:54.483
+00:04:55.163 --> 00:04:56.616
 One private final key.
 
 89
-00:04:54.483 --> 00:04:56.662
+00:04:56.616 --> 00:04:58.796
 The slow check, with no key held.
 
 90
-00:04:56.662 --> 00:05:00.824
+00:04:58.796 --> 00:05:02.957
 Then every read and write of the balances, under that same key.
 
 91
-00:05:01.600 --> 00:05:03.582
+00:05:03.767 --> 00:05:05.748
 So, does a reader need the key?
 
 92
-00:05:03.582 --> 00:05:03.837
+00:05:05.748 --> 00:05:06.004
 Yes.
 
 93
-00:05:03.837 --> 00:05:07.928
+00:05:06.004 --> 00:05:10.095
 Java's vault has glass walls, and the lock only guards the door.
 
 94
-00:05:07.928 --> 00:05:14.896
+00:05:10.095 --> 00:05:17.063
 Give the books one private key, make every reader and writer take it, and never go on hold while you hold it.
 
 95
-00:05:15.067 --> 00:05:15.996
+00:05:17.267 --> 00:05:18.196
 Quick check.
 
 96
-00:05:15.996 --> 00:05:20.878
+00:05:18.196 --> 00:05:23.078
 The checker locks, but on its own private key, not the vault's.
 
 97
-00:05:20.878 --> 00:05:22.660
+00:05:23.078 --> 00:05:24.860
 Can it still see 1,950?
