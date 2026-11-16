@@ -85,6 +85,8 @@ The viewer should leave with a picture in their head they could redraw on a whit
   object at its turn instead (for example a small `UpdateFromFunc`, or split the Succession into beats).
 - `Indicate` on a filled box turns it into a solid block that hides its text. Indicate the outline or the text.
 - Chips that move between boxes cross other labels on the way. Route them around, or fade the label first.
+- `TransformFromCopy` onto a chip can leave the chip invisible once another object in the scene has used
+  `set_z_index`. Move a copy of the object instead.
 - Other writers add entries to the same `content/videos/partN.json`. Re-read the file right before each write
   and only append your own entries.
 

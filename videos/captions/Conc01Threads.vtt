@@ -1,277 +1,161 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.321
-Picture your program as a page of code.
+00:00:02.700 --> 00:00:08.211
+Picture your program as a page of code, and something that walks through it, one line at a time.
 
 2
-00:00:05.467 --> 00:00:08.801
-Something has to walk through it, one line after another.
+00:00:08.433 --> 00:00:13.944
+It keeps its notes on a stack: one frame per call in progress, with its local variables.
 
 3
-00:00:09.000 --> 00:00:11.035
-It keeps its own notes on a stack.
-
-4
-00:00:11.035 --> 00:00:15.584
-Every call in progress gets a frame there, with that call's local variables.
-
-5
-00:00:15.733 --> 00:00:18.512
+00:00:14.167 --> 00:00:17.144
 Step into a call, and a frame goes on top.
 
+4
+00:00:17.144 --> 00:00:18.916
+Return, and it comes off.
+
+5
+00:00:19.133 --> 00:00:20.884
+This walker is a thread.
+
 6
-00:00:18.512 --> 00:00:21.357
-When the call returns, its frame comes off.
+00:00:20.884 --> 00:00:23.584
+The JVM starts this one, called main.
 
 7
-00:00:21.667 --> 00:00:26.448
-This walker, with its place in the code and its own stack, is a thread.
+00:00:24.200 --> 00:00:29.476
+It runs inside a process, one running JVM, with memory of its own.
 
 8
-00:00:26.448 --> 00:00:28.603
-The JVM starts this one for you.
+00:00:29.700 --> 00:00:33.760
+Every object you create with new lives in one part of it: the heap.
 
 9
-00:00:28.603 --> 00:00:29.815
-It is called main.
+00:00:33.967 --> 00:00:38.138
+A second thread, a worker, walks the same code with its own stack.
 
 10
-00:00:30.400 --> 00:00:32.204
-It runs inside a process.
+00:00:38.138 --> 00:00:41.297
+Both call settle, and each one gets its own frame.
 
 11
-00:00:32.204 --> 00:00:36.894
-A process is a running program with its own memory, like one JVM.
+00:00:41.500 --> 00:00:44.406
+But both can reach the same Payment on the heap.
 
 12
-00:00:36.894 --> 00:00:39.636
-No other process can read that memory.
+00:00:44.406 --> 00:00:51.007
+That is how threads share data with no copying, and how two of them can change one object at the same moment.
 
 13
-00:00:39.800 --> 00:00:45.695
-Objects you create with new, and static fields, live in one part of that memory: the heap.
+00:00:51.533 --> 00:00:53.871
+Main sets its local total to three.
 
 14
-00:00:45.867 --> 00:00:48.167
-Now start a second thread, a worker.
+00:00:53.871 --> 00:00:55.941
+Does the worker's total change?
 
 15
-00:00:48.167 --> 00:00:51.491
-It gets its own place in the code and its own stack.
+00:00:57.567 --> 00:00:57.782
+No.
 
 16
-00:00:52.067 --> 00:00:54.266
-Both threads call the same method.
+00:00:57.782 --> 00:01:00.660
+A local lives on its own thread's stack.
 
 17
-00:00:54.266 --> 00:00:57.243
-Each one gets its own frame, on its own stack.
+00:01:00.660 --> 00:01:02.387
+Only the heap is shared.
 
 18
-00:00:57.467 --> 00:00:59.032
-But they share the heap.
+00:01:03.300 --> 00:01:06.997
+A core of the CPU runs a thread, one thread at a time.
 
 19
-00:00:59.032 --> 00:01:01.576
-Both can reach the same Payment object.
+00:01:07.200 --> 00:01:14.685
+On one core, the operating system lets main run for a short slice, saves its registers, and switches to the worker.
 
 20
-00:01:01.733 --> 00:01:03.806
-That is what makes threads useful.
+00:01:14.685 --> 00:01:18.200
+That is a context switch, thousands of times a second.
 
 21
-00:01:03.806 --> 00:01:08.317
-One thread puts a payment in a map, and another reads it, with no copying.
+00:01:18.433 --> 00:01:20.953
+Both are in progress, taking turns.
 
 22
-00:01:08.467 --> 00:01:10.823
-It is also what makes them dangerous.
+00:01:20.953 --> 00:01:22.393
+That is concurrency.
 
 23
-00:01:10.823 --> 00:01:14.517
-Two threads can change the same object at the same moment.
+00:01:22.600 --> 00:01:25.274
+Two cores run both at the same instant.
 
 24
-00:01:15.067 --> 00:01:18.503
-Now main changes its local variable total to three.
+00:01:25.274 --> 00:01:26.645
+That is parallelism.
 
 25
-00:01:18.503 --> 00:01:20.861
-Does the worker's total change too?
+00:01:27.467 --> 00:01:32.039
+So on four cores, is a busy job faster on eight threads than on four?
 
 26
-00:01:22.800 --> 00:01:23.006
+00:01:33.567 --> 00:01:33.824
 No.
 
 27
-00:01:23.006 --> 00:01:27.808
-Each total lives on its own stack, where no other thread can reach it.
+00:01:33.824 --> 00:01:40.418
+In the lesson's demo, four threads took 121 milliseconds, and eight took 125.
 
 28
-00:01:27.808 --> 00:01:29.455
-Only the heap is shared.
+00:01:40.418 --> 00:01:45.128
+Once every core is busy, extra threads only take turns.
 
 29
-00:01:30.400 --> 00:01:32.956
-So what moves a thread along its code?
+00:01:45.933 --> 00:01:48.968
+Calling run on a thread is a plain method call.
 
 30
-00:01:32.956 --> 00:01:34.167
-A core of the CPU.
+00:01:48.968 --> 00:01:52.197
+Main steps into the task itself, on its own stack.
 
 31
-00:01:34.167 --> 00:01:36.521
-One core runs one thread at a time.
+00:01:52.400 --> 00:01:56.887
+No new thread exists, nothing fails, and the job is just as slow.
 
 32
-00:01:36.667 --> 00:01:38.134
-Two threads, one core.
+00:01:57.100 --> 00:02:02.653
+With start, the JVM asks the operating system for a new thread, with a new stack.
 
 33
-00:01:38.134 --> 00:01:43.336
-The scheduler in the operating system lets main run for a short slice of time.
+00:02:02.867 --> 00:02:05.945
+That thread calls run, and main goes on at once.
 
 34
-00:01:43.533 --> 00:01:47.288
-Then it saves main's registers, and switches to the worker.
-
-35
-00:01:47.288 --> 00:01:48.879
-That is a context switch.
-
-36
-00:01:48.879 --> 00:01:51.361
-It happens thousands of times a second.
-
-37
-00:01:51.533 --> 00:01:55.220
-Both threads are in progress, taking turns on one core.
-
-38
-00:01:55.220 --> 00:01:56.560
-That is concurrency.
-
-39
-00:01:56.733 --> 00:02:00.324
-Give them two cores, and both run at the same instant.
-
-40
-00:02:00.324 --> 00:02:01.653
-That is parallelism.
-
-41
-00:02:01.800 --> 00:02:04.868
-Concurrency is about how you split the work.
-
-42
-00:02:04.868 --> 00:02:06.891
-Parallelism needs real cores.
-
-43
-00:02:07.800 --> 00:02:11.735
-Now a busy job, all additions, on a machine with four cores.
-
-44
-00:02:11.735 --> 00:02:14.555
-Is it faster on eight threads than on four?
-
-45
-00:02:16.533 --> 00:02:26.311
-In one run of the demo in this lesson, it took 510 milliseconds on one thread, 257 on two, and 121 on four.
-
-46
-00:02:26.600 --> 00:02:27.996
-And 125 on eight.
-
-47
-00:02:27.996 --> 00:02:32.843
-Once every core is busy, the extra threads only take turns.
-
-48
-00:02:33.067 --> 00:02:37.414
-A thread that waits for a network reply uses no core while it waits.
-
-49
-00:02:37.414 --> 00:02:40.803
-So waiting work can use many more threads than cores.
-
-50
-00:02:41.733 --> 00:02:44.679
-Last question: how do you make a new thread?
-
-51
-00:02:44.679 --> 00:02:48.360
-Here is main, about to run a task on a thread object t.
-
-52
-00:02:48.533 --> 00:02:50.813
-Calling run is a plain method call.
-
-53
-00:02:50.813 --> 00:02:55.373
-Main steps into the task itself, and a frame goes on main's own stack.
-
-54
-00:02:55.600 --> 00:02:57.142
-No new thread exists.
-
-55
-00:02:57.142 --> 00:03:02.504
-Nothing fails, your tests pass, and the job is exactly as slow as before.
-
-56
-00:03:03.467 --> 00:03:05.330
-Calling start is different.
-
-57
-00:03:05.330 --> 00:03:10.093
-The JVM asks the operating system for a new thread, with a new stack.
-
-58
-00:03:10.267 --> 00:03:15.457
-The new thread calls run on its own stack, and main goes on to its next line at once.
-
-59
-00:03:16.333 --> 00:03:19.196
-In code it looks the same in Java and Kotlin.
-
-60
-00:03:19.196 --> 00:03:20.659
-start makes the thread.
-
-61
-00:03:20.659 --> 00:03:23.649
-join waits here until that thread has finished.
-
-62
-00:03:23.800 --> 00:03:28.415
-And run, called by you, runs the task on the thread you are already on.
-
-63
-00:03:29.333 --> 00:03:29.917
+00:02:06.867 --> 00:02:07.436
 The rule.
 
-64
-00:03:29.917 --> 00:03:35.491
-Every thread has its own stack and shares one heap, and only start makes a new thread.
+35
+00:02:07.436 --> 00:02:13.195
+Every thread has its own stack, they all share the heap, and only start makes a new thread.
 
-65
-00:03:35.667 --> 00:03:36.627
+36
+00:02:13.400 --> 00:02:14.413
 Check yourself.
 
-66
-00:03:36.627 --> 00:03:43.410
-A report is split into four slices, and you call run on a new thread for each one, on a four-core machine.
+37
+00:02:14.413 --> 00:02:19.477
+You split a report into four slices, and call run on a new thread for each.
 
-67
-00:03:43.410 --> 00:03:45.841
-How much faster is it than one thread?
+38
+00:02:19.477 --> 00:02:21.975
+On four cores, how much faster is it?
 
-68
-00:03:48.467 --> 00:03:49.713
-Not faster at all.
+39
+00:02:24.700 --> 00:02:25.570
+Not faster.
 
-69
-00:03:49.713 --> 00:03:55.669
-Each run is a plain call, so main does the four slices one after another, on one core.
+40
+00:02:25.570 --> 00:02:29.684
+Main runs the four slices itself, one after another.
