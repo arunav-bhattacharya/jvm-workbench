@@ -1,0 +1,358 @@
+{
+ "slug": "fp06-scope",
+ "voice": "us-f",
+ "max_late": 1.05,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.62,
+   "tries": 1,
+   "text": "Here is a charge of one thousand nine hundred ninety-nine cents."
+  },
+  {
+   "cue": 5.11,
+   "start": 5.47,
+   "late": 0.36,
+   "tempo": 1.0,
+   "secs": 3.15,
+   "tries": 1,
+   "text": "You hand it to a small block of code that doubles the amount."
+  },
+  {
+   "cue": 10.07,
+   "start": 10.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.16,
+   "tries": 1,
+   "text": "When the block is done, the call gives back one of two things."
+  },
+  {
+   "cue": 14.71,
+   "start": 14.71,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.77,
+   "tries": 1,
+   "text": "The block's result, three thousand nine hundred ninety-eight."
+  },
+  {
+   "cue": 16.59,
+   "start": 17.64,
+   "late": 1.05,
+   "tempo": 1.0,
+   "secs": 1.42,
+   "tries": 3,
+   "text": "Or the charge you handed in."
+  },
+  {
+   "cue": 19.47,
+   "start": 19.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.33,
+   "tries": 1,
+   "text": "Inside the block, the charge shows up in one of two ways."
+  },
+  {
+   "cue": 23.05,
+   "start": 23.05,
+   "late": 0.0,
+   "tempo": 1.013,
+   "secs": 4.05,
+   "tries": 1,
+   "text": "As this, the block runs inside the charge, so you write amountMinor."
+  },
+  {
+   "cue": 27.33,
+   "start": 27.33,
+   "late": 0.0,
+   "tempo": 1.091,
+   "secs": 4.42,
+   "tries": 1,
+   "text": "As it, the charge comes in as a parameter, so you write it.amountMinor."
+  },
+  {
+   "cue": 31.97,
+   "start": 31.97,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.88,
+   "tries": 1,
+   "text": "Two questions, two answers each."
+  },
+  {
+   "cue": 34.01,
+   "start": 34.01,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.9,
+   "tries": 1,
+   "text": "That makes four cells, and Kotlin's five scope functions fill them."
+  },
+  {
+   "cue": 38.5,
+   "start": 38.5,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "Same block, five functions."
+  },
+  {
+   "cue": 40.26,
+   "start": 40.38,
+   "late": 0.12,
+   "tempo": 1.0,
+   "secs": 1.76,
+   "tries": 1,
+   "text": "What does each one give back?"
+  },
+  {
+   "cue": 44.53,
+   "start": 44.53,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "let, run and with give back three thousand nine hundred ninety-eight."
+  },
+  {
+   "cue": 47.41,
+   "start": 47.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.25,
+   "tries": 1,
+   "text": "also and apply give back the charge."
+  },
+  {
+   "cue": 50.56,
+   "start": 50.56,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "Java has no scope functions."
+  },
+  {
+   "cue": 53.7,
+   "start": 53.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.65,
+   "tries": 1,
+   "text": "Each cell has a typical job."
+  },
+  {
+   "cue": 55.65,
+   "start": 55.65,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.62,
+   "tries": 1,
+   "text": "apply configures an object, and hands the same object back."
+  },
+  {
+   "cue": 59.97,
+   "start": 59.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.59,
+   "tries": 1,
+   "text": "also does a side step, like a log line, and the object flows on unchanged."
+  },
+  {
+   "cue": 65.4,
+   "start": 65.4,
+   "late": 0.0,
+   "tempo": 1.023,
+   "secs": 3.84,
+   "tries": 1,
+   "text": "let, after a safe call, runs only when the value is not null."
+  },
+  {
+   "cue": 69.47,
+   "start": 69.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.09,
+   "tries": 1,
+   "text": "A missing token skips the block."
+  },
+  {
+   "cue": 71.8,
+   "start": 71.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.61,
+   "tries": 1,
+   "text": "run and with compute something new from the object's members, like a risk score."
+  },
+  {
+   "cue": 77.43,
+   "start": 77.43,
+   "late": 0.0,
+   "tempo": 1.131,
+   "secs": 0.66,
+   "tries": 1,
+   "text": "Now the trap."
+  },
+  {
+   "cue": 78.3,
+   "start": 78.3,
+   "late": 0.0,
+   "tempo": 1.072,
+   "secs": 4.95,
+   "tries": 1,
+   "text": "It reads like if, else: post the cached payment, or fetch one and post it."
+  },
+  {
+   "cue": 83.47,
+   "start": 83.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.39,
+   "tries": 1,
+   "text": "First call: the ledger is empty, post returns an entry id, and run is skipped."
+  },
+  {
+   "cue": 89.6,
+   "start": 89.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.21,
+   "tries": 1,
+   "text": "Second call. The payment is still cached, but the ledger has posted it already."
+  },
+  {
+   "cue": 94.96,
+   "start": 94.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.88,
+   "tries": 1,
+   "text": "Which blocks run?"
+  },
+  {
+   "cue": 100.17,
+   "start": 100.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "post returns null for a duplicate."
+  },
+  {
+   "cue": 102.39,
+   "start": 102.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.92,
+   "tries": 1,
+   "text": "The Elvis operator tests the value on its left."
+  },
+  {
+   "cue": 105.46,
+   "start": 105.46,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.29,
+   "tries": 1,
+   "text": "That is the result of the let block, not the cached payment."
+  },
+  {
+   "cue": 109.38,
+   "start": 109.38,
+   "late": 0.0,
+   "tempo": 1.112,
+   "secs": 1.62,
+   "tries": 1,
+   "text": "It is null, so run runs too."
+  },
+  {
+   "cue": 111.21,
+   "start": 111.21,
+   "late": 0.0,
+   "tempo": 1.071,
+   "secs": 3.78,
+   "tries": 1,
+   "text": "A cache miss, a fetch from the database, and a second post."
+  },
+  {
+   "cue": 115.2,
+   "start": 115.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.16,
+   "tries": 1,
+   "text": "Both blocks ran."
+  },
+  {
+   "cue": 117.6,
+   "start": 117.6,
+   "late": 0.0,
+   "tempo": 1.027,
+   "secs": 1.86,
+   "tries": 1,
+   "text": "Java's Optional has the same trap."
+  },
+  {
+   "cue": 119.67,
+   "start": 119.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.02,
+   "tries": 1,
+   "text": "Write the branch you mean with if or when, or pick the payment first and post it once."
+  },
+  {
+   "cue": 127.23,
+   "start": 127.23,
+   "late": 0.0,
+   "tempo": 1.033,
+   "secs": 5.08,
+   "tries": 1,
+   "text": "So: what should the call give back, and does the block see the object as this or as it?"
+  },
+  {
+   "cue": 132.53,
+   "start": 132.53,
+   "late": 0.0,
+   "tempo": 1.057,
+   "secs": 0.83,
+   "tries": 2,
+   "text": "A quick check."
+  },
+  {
+   "cue": 133.58,
+   "start": 133.58,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.43,
+   "tries": 1,
+   "text": "The payment is authorized."
+  },
+  {
+   "cue": 135.51,
+   "start": 135.51,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.37,
+   "tries": 1,
+   "text": "What status comes back?"
+  },
+  {
+   "cue": 139.63,
+   "start": 139.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.72,
+   "tries": 1,
+   "text": "Authorized. also gives back the payment, and the copy is dropped."
+  }
+ ]
+}
