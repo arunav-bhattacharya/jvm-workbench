@@ -35,7 +35,7 @@ class QuoteAggregatorTest {
         t.setDaemon(true);
         return t;
     });
-    // a slow provider waits on this; it is released after each test
+    // a slow supplier waits on this; it is released after each test
     private final CountDownLatch never = new CountDownLatch(1);
     private final Map<String, Throwable> skipped = new ConcurrentHashMap<>();
 
@@ -48,22 +48,22 @@ class QuoteAggregatorTest {
     private static QuoteProvider provider(String name, Function<String, BigDecimal> quote) {
         return new QuoteProvider() {
             @Override public String name() { return name; }
-            @Override public BigDecimal quote(String pair) { return quote.apply(pair); }
+            @Override public BigDecimal quote(String item) { return quote.apply(item); }
         };
     }
 
     private static QuoteProvider fixed(String name, String price) {
-        return provider(name, pair -> new BigDecimal(price));
+        return provider(name, item -> new BigDecimal(price));
     }
 
     private QuoteProvider hanging(String name) {
-        return provider(name, pair -> {
+        return provider(name, item -> {
             try {
                 never.await();                      // far slower than the timeout
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            return new BigDecimal("0.0001");        // would win, if anyone still listened
+            return new BigDecimal("0.01");        // would win, if anyone still listened
         });
     }
 
@@ -72,60 +72,60 @@ class QuoteAggregatorTest {
     }
 
     @Test
-    @DisplayName("best picks the lowest quote among the providers")
+    @DisplayName("best picks the lowest quote among the suppliers")
     void picksLowest() throws Exception {
-        QuoteAggregator agg = aggregator(fixed("alpha", "1.0850"), fixed("beta", "1.0842"), fixed("gamma", "1.0861"));
-        assertThat(agg.best("EUR/USD").get(5, TimeUnit.SECONDS)).isEqualTo(new Quote("beta", new BigDecimal("1.0842")));
+        QuoteAggregator agg = aggregator(fixed("alpha", "21.50"), fixed("beta", "19.80"), fixed("gamma", "22.10"));
+        assertThat(agg.best("flour").get(5, TimeUnit.SECONDS)).isEqualTo(new Quote("beta", new BigDecimal("19.80")));
         assertThat(skipped).isEmpty();
     }
 
     @Test
-    @DisplayName("best asks every provider at the same time")
+    @DisplayName("best asks every supplier at the same time")
     void asksInParallel() throws Exception {
-        // each provider waits at the barrier for the other two; this only works if all three overlap
+        // each supplier waits at the barrier for the other two; this only works if all three overlap
         CyclicBarrier all = new CyclicBarrier(3);
-        Function<String, BigDecimal> meet = pair -> {
+        Function<String, BigDecimal> meet = item -> {
             try {
                 all.await(5, TimeUnit.SECONDS);
             } catch (InterruptedException | BrokenBarrierException | TimeoutException e) {
-                throw new IllegalStateException("the providers were not asked at the same time", e);
+                throw new IllegalStateException("the suppliers were not asked at the same time", e);
             }
-            return new BigDecimal("1.08");
+            return new BigDecimal("20.00");
         };
         QuoteAggregator agg = new QuoteAggregator(
                 List.of(provider("a", meet), provider("b", meet), provider("c", meet)), io, Duration.ofSeconds(10), skipped::put);
-        assertThat(agg.best("EUR/USD").get(10, TimeUnit.SECONDS).price()).isEqualTo(new BigDecimal("1.08"));
-        assertThat(skipped).as("skipped providers").isEmpty();
+        assertThat(agg.best("flour").get(10, TimeUnit.SECONDS).price()).isEqualTo(new BigDecimal("20.00"));
+        assertThat(skipped).as("skipped suppliers").isEmpty();
     }
 
     @Test
-    @DisplayName("a provider that throws is skipped and reported with its own exception, not a CompletionException")
+    @DisplayName("a supplier that throws is skipped and reported with its own exception, not a CompletionException")
     void skipsFailingProvider() throws Exception {
-        IllegalStateException down = new IllegalStateException("502 from flaky");
-        QuoteAggregator agg = aggregator(provider("flaky", pair -> { throw down; }), fixed("steady", "1.0900"));
+        IllegalStateException down = new IllegalStateException("flaky is closed today");
+        QuoteAggregator agg = aggregator(provider("flaky", item -> { throw down; }), fixed("steady", "20.40"));
 
-        assertThat(agg.best("EUR/USD").get(5, TimeUnit.SECONDS)).isEqualTo(new Quote("steady", new BigDecimal("1.0900")));
+        assertThat(agg.best("flour").get(5, TimeUnit.SECONDS)).isEqualTo(new Quote("steady", new BigDecimal("20.40")));
         assertThat(skipped).containsOnlyKeys("flaky");
         assertThat(skipped.get("flaky")).isSameAs(down);
     }
 
     @Test
-    @DisplayName("a provider slower than its timeout is skipped and reported with a TimeoutException")
+    @DisplayName("a supplier slower than its timeout is skipped and reported with a TimeoutException")
     void skipsSlowProvider() throws Exception {
-        QuoteAggregator agg = aggregator(hanging("slow"), fixed("steady", "1.0900"));
+        QuoteAggregator agg = aggregator(hanging("slow"), fixed("steady", "20.40"));
 
-        // without a per-provider timeout this never completes
-        assertThat(agg.best("EUR/USD").get(5, TimeUnit.SECONDS)).isEqualTo(new Quote("steady", new BigDecimal("1.0900")));
+        // without a per-supplier timeout this never completes
+        assertThat(agg.best("flour").get(5, TimeUnit.SECONDS)).isEqualTo(new Quote("steady", new BigDecimal("20.40")));
         assertThat(skipped).containsOnlyKeys("slow");
         assertThat(skipped.get("slow")).isInstanceOf(TimeoutException.class);
     }
 
     @Test
-    @DisplayName("when every provider is skipped, best fails with NoQuoteException")
+    @DisplayName("when every supplier is skipped, best fails with NoQuoteException")
     void failsWhenNobodyAnswers() {
-        QuoteAggregator agg = aggregator(provider("flaky", pair -> { throw new IllegalStateException("down"); }), hanging("slow"));
+        QuoteAggregator agg = aggregator(provider("flaky", item -> { throw new IllegalStateException("closed today"); }), hanging("slow"));
 
-        CompletableFuture<Quote> f = agg.best("EUR/USD");
+        CompletableFuture<Quote> f = agg.best("flour");
         assertThatThrownBy(() -> f.get(5, TimeUnit.SECONDS))
                 .isInstanceOf(ExecutionException.class)
                 .hasCauseInstanceOf(NoQuoteException.class);
@@ -134,21 +134,21 @@ class QuoteAggregatorTest {
     }
 
     @Test
-    @DisplayName("best returns at once, without waiting for the providers")
+    @DisplayName("best returns at once, without waiting for the suppliers")
     void doesNotBlockTheCaller() throws Exception {
         CountDownLatch release = new CountDownLatch(1);
-        QuoteProvider gated = provider("gated", pair -> {
+        QuoteProvider gated = provider("gated", item -> {
             try {
                 release.await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            return new BigDecimal("1.07");
+            return new BigDecimal("20.90");
         });
         QuoteAggregator agg = new QuoteAggregator(List.of(gated), io, Duration.ofSeconds(10), skipped::put);
 
-        CompletableFuture<Quote> f = agg.best("EUR/USD");     // must return while the provider is still blocked
-        assertThat(f.isDone()).as("done before the provider answered?").isFalse();
+        CompletableFuture<Quote> f = agg.best("flour");     // must return while the supplier is still blocked
+        assertThat(f.isDone()).as("done before the supplier answered?").isFalse();
         release.countDown();
         assertThat(f.get(5, TimeUnit.SECONDS).provider()).isEqualTo("gated");
     }

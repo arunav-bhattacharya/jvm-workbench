@@ -29,7 +29,7 @@ class ForkJoinTest {
     private final ForkJoinPool pool = new ForkJoinPool(4);
     private final AtomicInteger ids = new AtomicInteger();
     private final ExecutorService io = Executors.newFixedThreadPool(8, r -> {
-        Thread t = new Thread(r, "bin-io-" + ids.incrementAndGet());
+        Thread t = new Thread(r, "stock-io-" + ids.incrementAndGet());
         t.setDaemon(true);
         return t;
     });
@@ -102,35 +102,35 @@ class ForkJoinTest {
     }
 
     @Test
-    @DisplayName("issuers runs the blocking lookups on the io executor, not the common pool")
-    void issuersUsesIo() {
+    @DisplayName("stockLevels runs the blocking lookups on the io executor, not the common pool")
+    void stockLevelsUsesIo() {
         Set<String> threads = ConcurrentHashMap.newKeySet();
-        BinLookup lookup = bin -> {
+        StockLookup stock = product -> {
             threads.add(Thread.currentThread().getName());
-            return "bank-" + bin.charAt(0);
+            return product.length();
         };
-        List<String> bins = List.of("411111", "522222", "433333", "544444", "455555", "366666");
+        List<String> products = List.of("flour", "eggs", "butter", "milk", "sugar", "salt");
 
-        Map<String, String> result = ParallelPitfalls.issuers(bins, lookup, io);
+        Map<String, Integer> result = ParallelPitfalls.stockLevels(products, stock, io);
 
-        assertThat(result).isEqualTo(bins.stream().collect(Collectors.toMap(Function.identity(), b -> "bank-" + b.charAt(0))));
-        assertThat(threads).isNotEmpty().allMatch(name -> name.startsWith("bin-io-"), "runs on bin-io-* threads");
+        assertThat(result).isEqualTo(products.stream().collect(Collectors.toMap(Function.identity(), String::length)));
+        assertThat(threads).isNotEmpty().allMatch(name -> name.startsWith("stock-io-"), "runs on stock-io-* threads");
     }
 
     @Test
-    @DisplayName("issuers runs 8 lookups at the same time on an 8-thread io pool")
-    void issuersRunsAllAtOnce() {
+    @DisplayName("stockLevels runs 8 lookups at the same time on an 8-thread io pool")
+    void stockLevelsRunsAllAtOnce() {
         // every lookup waits until all eight are in flight; the common pool is too small for that on most machines
         CyclicBarrier allEight = new CyclicBarrier(8);
-        BinLookup lookup = bin -> {
+        StockLookup stock = product -> {
             try {
                 allEight.await(5, TimeUnit.SECONDS);
             } catch (InterruptedException | BrokenBarrierException | TimeoutException e) {
                 throw new IllegalStateException("the lookups did not run at the same time", e);
             }
-            return "bank-" + bin;
+            return 12;
         };
-        List<String> bins = IntStream.range(0, 8).mapToObj(i -> "4" + i + "0000").toList();
-        assertThat(ParallelPitfalls.issuers(bins, lookup, io)).hasSize(8).containsEntry("400000", "bank-400000");
+        List<String> products = IntStream.range(0, 8).mapToObj(i -> "product-" + i).toList();
+        assertThat(ParallelPitfalls.stockLevels(products, stock, io)).hasSize(8).containsEntry("product-0", 12);
     }
 }

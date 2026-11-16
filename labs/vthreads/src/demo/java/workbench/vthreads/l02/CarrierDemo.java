@@ -24,7 +24,7 @@ public class CarrierDemo {
         long t0 = System.nanoTime();
         for (int i = 0; i < n; i++) {
             int id = i;
-            threads.add(Thread.ofVirtual().name("payment-" + id).start(() -> {
+            threads.add(Thread.ofVirtual().name("checkout-" + id).start(() -> {
                 before[id] = Thread.currentThread().toString();
                 try {
                     Thread.sleep(50);                  // a blocking call: the thread unmounts here
@@ -53,7 +53,7 @@ public class CarrierDemo {
                 + ", daemon: " + threads.get(0).isDaemon());
     }
 
-    // "VirtualThread[#22,payment-0]/runnable@ForkJoinPool-1-worker-3" -> "ForkJoinPool-1-worker-3"
+    // "VirtualThread[#22,checkout-0]/runnable@ForkJoinPool-1-worker-3" -> "ForkJoinPool-1-worker-3"
     static String carrier(String s) {
         int at = s.lastIndexOf('@');
         return at < 0 ? "(not mounted)" : s.substring(at + 1);

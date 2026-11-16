@@ -13,8 +13,8 @@ import static org.assertj.core.api.Assertions.within;
 
 class ThreadPerRequestTest {
 
-    /** A fake blocking handler: it sleeps like a call to a card issuer and counts how many run at once. */
-    static final class FakeIssuerCall implements Runnable {
+    /** A fake blocking handler: it sleeps like a call to a slow web service and counts how many run at once. */
+    static final class FakeSlowCall implements Runnable {
         final Duration latency;
         final AtomicInteger inFlight = new AtomicInteger();
         final AtomicInteger peak = new AtomicInteger();
@@ -22,7 +22,7 @@ class ThreadPerRequestTest {
         final Set<Thread> threads = ConcurrentHashMap.newKeySet();
         final AtomicInteger onVirtual = new AtomicInteger();
 
-        FakeIssuerCall(Duration latency) { this.latency = latency; }
+        FakeSlowCall(Duration latency) { this.latency = latency; }
 
         @Override public void run() {
             Thread me = Thread.currentThread();
@@ -41,7 +41,7 @@ class ThreadPerRequestTest {
     }
 
     @Test
-    @DisplayName("Little's law: 1,500 authorizations/s at 200 ms each means 300 in flight")
+    @DisplayName("Little's law: 1,500 checkouts/s at 200 ms each means 300 in flight")
     void inFlight() {
         assertThat(LittlesLaw.inFlight(1_500, Duration.ofMillis(200))).isCloseTo(300.0, within(1e-9));
         assertThat(LittlesLaw.inFlight(40, Duration.ofSeconds(3))).isCloseTo(120.0, within(1e-9));
@@ -57,7 +57,7 @@ class ThreadPerRequestTest {
     @Test
     @DisplayName("Fixed pool runs every task, never more than poolSize at once, and waits for all of them")
     void fixedPoolCapsConcurrency() {
-        FakeIssuerCall call = new FakeIssuerCall(Duration.ofMillis(20));
+        FakeSlowCall call = new FakeSlowCall(Duration.ofMillis(20));
         int completed = BlockingRunner.runOnFixedPool(8, 200, call);
         assertThat(completed).as("tasks reported as completed").isEqualTo(200);
         assertThat(call.finished.get()).as("tasks that had finished when the method returned").isEqualTo(200);
@@ -69,7 +69,7 @@ class ThreadPerRequestTest {
     @Test
     @DisplayName("Virtual threads run every task on its own new virtual thread and wait for all of them")
     void oneVirtualThreadPerTask() {
-        FakeIssuerCall call = new FakeIssuerCall(Duration.ofMillis(20));
+        FakeSlowCall call = new FakeSlowCall(Duration.ofMillis(20));
         int completed = BlockingRunner.runOnVirtualThreads(500, call);
         assertThat(completed).isEqualTo(500);
         assertThat(call.finished.get()).as("tasks that had finished when the method returned").isEqualTo(500);
@@ -82,12 +82,12 @@ class ThreadPerRequestTest {
     void virtualThreadsBeatTheWall() {
         Duration latency = Duration.ofMillis(100);
 
-        FakeIssuerCall pooled = new FakeIssuerCall(latency);
+        FakeSlowCall pooled = new FakeSlowCall(latency);
         long t0 = System.nanoTime();
         assertThat(BlockingRunner.runOnFixedPool(100, 2_000, pooled)).isEqualTo(2_000);
         long poolMillis = (System.nanoTime() - t0) / 1_000_000;
 
-        FakeIssuerCall virtual = new FakeIssuerCall(latency);
+        FakeSlowCall virtual = new FakeSlowCall(latency);
         long t1 = System.nanoTime();
         assertThat(BlockingRunner.runOnVirtualThreads(2_000, virtual)).isEqualTo(2_000);
         long virtualMillis = (System.nanoTime() - t1) / 1_000_000;

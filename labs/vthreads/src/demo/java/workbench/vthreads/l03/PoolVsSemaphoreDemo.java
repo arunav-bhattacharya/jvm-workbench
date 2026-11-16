@@ -5,8 +5,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 
 /**
- * Each request calls the fraud service (60 ms, no limit) and then the ledger database
- * (10 ms, at most 20 at once). Two ways to respect the database limit:
+ * Each checkout calls the stock service (60 ms, no limit) and then saves the order in the
+ * shop's database (10 ms, at most 20 at once). Two ways to respect the database limit:
  * a pool of 20 virtual threads, or one virtual thread per request plus a Semaphore(20).
  */
 public class PoolVsSemaphoreDemo {
@@ -27,8 +27,8 @@ public class PoolVsSemaphoreDemo {
         try (ExecutorService pool = Executors.newFixedThreadPool(DB_LIMIT, Thread.ofVirtual().factory())) {
             for (int i = 0; i < REQUESTS; i++) {
                 pool.execute(() -> {
-                    sleep(60);                      // fraud check: needs no limit
-                    sleep(10);                      // ledger write: needs the limit
+                    sleep(60);                      // stock check: needs no limit
+                    sleep(10);                      // save the order: needs the limit
                 });
             }
         }
@@ -40,7 +40,7 @@ public class PoolVsSemaphoreDemo {
         try (ExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor()) {
             for (int i = 0; i < REQUESTS; i++) {
                 perTask.execute(() -> {
-                    sleep(60);                      // all 1,000 fraud checks overlap
+                    sleep(60);                      // all 1,000 stock checks overlap
                     try {
                         db.acquire();               // at most 20 inside the database
                     } catch (InterruptedException e) {

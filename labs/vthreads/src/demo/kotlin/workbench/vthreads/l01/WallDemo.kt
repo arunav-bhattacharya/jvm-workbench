@@ -4,7 +4,7 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 /**
- * Runs N fake "authorize a payment" requests that each block for a while,
+ * Runs N fake checkout requests that each block for a while,
  * first on a fixed pool, then with one virtual thread per request.
  *
  * Args: pool size, number of requests, latency in ms. Default: 100 2000 100.
@@ -14,9 +14,9 @@ fun main(args: Array<String>) {
     val requests = args.getOrNull(1)?.toInt() ?: 2_000
     val latency = Duration.ofMillis(args.getOrNull(2)?.toLong() ?: 100)
 
-    val authorize = Runnable {
+    val checkout = Runnable {
         try {
-            Thread.sleep(latency)              // stands in for the card issuer call
+            Thread.sleep(latency)              // stands in for the waits on the bank and the database
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
         }
@@ -24,13 +24,13 @@ fun main(args: Array<String>) {
 
     val t0 = System.nanoTime()
     Executors.newFixedThreadPool(poolSize).use { pool ->
-        repeat(requests) { pool.execute(authorize) }
+        repeat(requests) { pool.execute(checkout) }
     }                                          // use {} = try-with-resources: close() waits
     report("fixed pool of $poolSize", requests, t0)
 
     val t1 = System.nanoTime()
     Executors.newVirtualThreadPerTaskExecutor().use { perTask ->
-        repeat(requests) { perTask.execute(authorize) }
+        repeat(requests) { perTask.execute(checkout) }
     }
     report("virtual thread per task", requests, t1)
 }

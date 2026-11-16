@@ -9,7 +9,7 @@ import java.util.concurrent.ThreadFactory;
 public class BuildersDemo {
     static void show(String how) {
         Thread t = Thread.currentThread();
-        System.out.printf("%-34s name=%-10s virtual=%-5s daemon=%s%n", how, "'" + t.getName() + "'", t.isVirtual(), t.isDaemon());
+        System.out.printf("%-34s name=%-12s virtual=%-5s daemon=%s%n", how, "'" + t.getName() + "'", t.isVirtual(), t.isDaemon());
     }
 
     public static void main(String[] args) throws Exception {
@@ -18,7 +18,7 @@ public class BuildersDemo {
         a.join();
 
         // 2. the builder: name it, then start it
-        Thread b = Thread.ofVirtual().name("auth-7").start(() -> show("Thread.ofVirtual().name().start"));
+        Thread b = Thread.ofVirtual().name("checkout-7").start(() -> show("Thread.ofVirtual().name().start"));
         b.join();
 
         // 3. unstarted: create now, start later
@@ -27,7 +27,7 @@ public class BuildersDemo {
         c.join();
 
         // 4. a factory with numbered names, for code that wants a ThreadFactory
-        ThreadFactory factory = Thread.ofVirtual().name("ledger-", 0).factory();
+        ThreadFactory factory = Thread.ofVirtual().name("receipt-", 0).factory();
         try (ExecutorService named = Executors.newThreadPerTaskExecutor(factory)) {
             for (int i = 0; i < 2; i++) named.submit(() -> show("newThreadPerTaskExecutor(factory)"));
         }
@@ -36,7 +36,7 @@ public class BuildersDemo {
         try (ExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor()) {
             Future<String> f = perTask.submit(() -> {
                 show("newVirtualThreadPerTaskExecutor");
-                return "approved";
+                return "saved";
             });
             System.out.println("future result: " + f.get());
         }   // close() waits for every task submitted above

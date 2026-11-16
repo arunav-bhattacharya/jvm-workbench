@@ -17,7 +17,7 @@ fun main(args: Array<String>) {
     val after = arrayOfNulls<String>(n)
     val t0 = System.nanoTime()
     val threads = (0 until n).map { id ->
-        Thread.ofVirtual().name("payment-$id").start {
+        Thread.ofVirtual().name("checkout-$id").start {
             before[id] = Thread.currentThread().toString()
             try {
                 Thread.sleep(50)                 // a blocking call: the thread unmounts here
@@ -44,7 +44,7 @@ fun main(args: Array<String>) {
     println("Thread.currentThread().isVirtual() inside them: ${threads[0].isVirtual}, daemon: ${threads[0].isDaemon}")
 }
 
-// "VirtualThread[#22,payment-0]/runnable@ForkJoinPool-1-worker-3" -> "ForkJoinPool-1-worker-3"
+// "VirtualThread[#22,checkout-0]/runnable@ForkJoinPool-1-worker-3" -> "ForkJoinPool-1-worker-3"
 private fun carrierOf(s: String): String {
     val at = s.lastIndexOf('@')
     return if (at < 0) "(not mounted)" else s.substring(at + 1)

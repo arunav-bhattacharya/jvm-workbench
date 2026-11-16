@@ -3,7 +3,7 @@ package workbench.executors.l08;
 import java.util.concurrent.RecursiveTask;
 
 /**
- * Totals the fees of a ledger with fork/join.
+ * Totals the card fees on a ledger, a long array of payment amounts in cents, with fork/join.
  *
  * <p>Write {@link #compute}. If the range {@code [from, to)} holds at most {@code threshold}
  * entries, add up the fees with a plain loop. Otherwise split it in two halves and run them in

@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
-/** Two parallel-stream bugs from a payment service. Fix both. */
+/** Two parallel-stream bugs from the restaurant's back office. Fix both. */
 public final class ParallelPitfalls {
     private ParallelPitfalls() {}
 
@@ -25,14 +25,14 @@ public final class ParallelPitfalls {
     }
 
     /**
-     * The issuer of every BIN, looked up with {@code lookup}.
+     * How many of each product are left, asked from the stock service with {@code stock}.
      *
      * <p>Bug: the lookups block, and a parallel stream runs them on the common ForkJoinPool,
      * which the whole JVM shares and which has only (cores - 1) threads. Run every lookup on
      * {@code io} instead, all at once, and wait for them here.
      */
-    public static Map<String, String> issuers(List<String> bins, BinLookup lookup, ExecutorService io) {
-        return bins.parallelStream()
-                .collect(Collectors.toMap(bin -> bin, lookup::issuer));   // blocking calls in the common pool
+    public static Map<String, Integer> stockLevels(List<String> products, StockLookup stock, ExecutorService io) {
+        return products.parallelStream()
+                .collect(Collectors.toMap(product -> product, stock::level));   // blocking calls in the common pool
     }
 }

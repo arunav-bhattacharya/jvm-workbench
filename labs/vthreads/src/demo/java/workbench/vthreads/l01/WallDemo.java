@@ -5,7 +5,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Runs N fake "authorize a payment" requests that each block for a while,
+ * Runs N fake checkout requests that each block for a while,
  * first on a fixed pool, then with one virtual thread per request.
  *
  * <p>Args: pool size, number of requests, latency in ms. Default: 100 2000 100.
@@ -16,9 +16,9 @@ public class WallDemo {
         int requests = args.length > 1 ? Integer.parseInt(args[1]) : 2_000;
         Duration latency = Duration.ofMillis(args.length > 2 ? Long.parseLong(args[2]) : 100);
 
-        Runnable authorize = () -> {
+        Runnable checkout = () -> {
             try {
-                Thread.sleep(latency);          // stands in for the card issuer call
+                Thread.sleep(latency);          // stands in for the waits on the bank and the database
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -26,13 +26,13 @@ public class WallDemo {
 
         long t0 = System.nanoTime();
         try (ExecutorService pool = Executors.newFixedThreadPool(poolSize)) {
-            for (int i = 0; i < requests; i++) pool.execute(authorize);
+            for (int i = 0; i < requests; i++) pool.execute(checkout);
         }
         report("fixed pool of " + poolSize, requests, t0);
 
         long t1 = System.nanoTime();
         try (ExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor()) {
-            for (int i = 0; i < requests; i++) perTask.execute(authorize);
+            for (int i = 0; i < requests; i++) perTask.execute(checkout);
         }
         report("virtual thread per task", requests, t1);
     }

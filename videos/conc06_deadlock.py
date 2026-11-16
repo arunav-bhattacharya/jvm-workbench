@@ -123,9 +123,9 @@ def dim(color, k=0.14):
 # one colour per thing, for the whole video
 ANA, BEN, KEY, BAD, GOOD, OTH = BLUE_M, TEAL_M, GOLD_M, RED_M, GREEN_M, PURPLE_M
 
-SAFE_A, SAFE_B = np.array([-3.0, 2.55, 0]), np.array([3.0, 2.55, 0])
-HOOK_A, HOOK_B = np.array([-1.25, 2.55, 0]), np.array([1.25, 2.55, 0])
-ANA_POS, BEN_POS = np.array([-3.0, 0.3, 0]), np.array([3.0, 0.3, 0])
+SAFE_A, SAFE_B = np.array([-3.8, 2.45, 0]), np.array([3.8, 2.45, 0])
+HOOK_A, HOOK_B = np.array([-1.6, 2.45, 0]), np.array([1.6, 2.45, 0])
+ANA_POS, BEN_POS = np.array([-3.3, -0.1, 0]), np.array([3.3, -0.1, 0])
 STRIP = -2.55
 
 
@@ -138,26 +138,26 @@ def key_icon(color=KEY):
 
 
 def lkey(letter):
-    k = key_icon()
-    lab = M(letter, 24, KEY).next_to(k, LEFT, buff=0.1)
+    k = key_icon().scale(1.2)
+    lab = M(letter, 28, KEY).next_to(k, LEFT, buff=0.1)
     return VGroup(k, lab).set_z_index(7)
 
 
 def safe(letter, owner, num=None):
-    r = RoundedRectangle(corner_radius=0.12, width=2.3, height=0.9, stroke_color=GREY_A, stroke_width=3)
+    r = RoundedRectangle(corner_radius=0.12, width=2.4, height=1.0, stroke_color=GREY_A, stroke_width=3)
     r.set_fill(BLACK, 1)
-    lab = VGroup(M(letter, 32), T(owner, 24, GREY_B)).arrange(RIGHT, buff=0.3).move_to(r)
+    lab = VGroup(M(letter, 36), T(owner, 28, GREY_B)).arrange(RIGHT, buff=0.3).move_to(r)
     return VGroup(r, lab)
 
 
-def tch(text, color, size=24):
+def tch(text, color, size=28):
     return chip(text, color, size=size).set_z_index(5)
 
 
 def spoon():
     bowl = Ellipse(width=0.26, height=0.38, stroke_color=GREY_A, stroke_width=3).set_fill(GREY_C, 1)
     handle = Line([0, -0.19, 0], [0, -0.75, 0], stroke_color=GREY_A, stroke_width=5)
-    return VGroup(bowl, handle).set_z_index(6)
+    return VGroup(bowl, handle).scale(1.2).set_z_index(6)
 
 
 def code_block(src, size=22, hl=None):
@@ -221,8 +221,8 @@ class Conc06Deadlock(Narrated):
                               color=BAD, stroke_width=4, tip_length=0.22)
         want_dn = CurvedArrow(ben.get_left() + DOWN * 0.12, ana.get_right() + DOWN * 0.12, angle=-TAU / 6,
                               color=BAD, stroke_width=4, tip_length=0.22)
-        lab_up = T("wants key b", 24, BAD).move_to([0, 1.05, 0])
-        lab_dn = T("wants key a", 24, BAD).move_to([0, -0.5, 0])
+        lab_up = T("wants key b", 26, BAD).move_to([0, 0.85, 0])
+        lab_dn = T("wants key a", 26, BAD).move_to([0, -1.05, 0])
         self.say("trace")
         self.at(1)
         self.play(ka.animate.move_to(held_spot(ana)), run_time=0.7)
@@ -245,11 +245,11 @@ class Conc06Deadlock(Narrated):
 
         blk_a = T("BLOCKED", 22, GREY_B).next_to(ana, DOWN, buff=0.25)
         blk_b = T("BLOCKED", 22, GREY_B).next_to(ben, DOWN, buff=0.25)
-        dl = T("deadlock", 34, BAD).move_to([0, 0.28, 0])
-        pile = VGroup(*[tch(n, OTH, 22) for n in ("T3", "T4", "T5")])
-        pile[0].move_to([-4.9, -1.25, 0])
-        pile[1].move_to([4.9, -1.25, 0])
-        pile[2].move_to([-3.9, -1.25, 0])
+        dl = T("deadlock", 34, BAD).move_to([0, -0.1, 0])
+        pile = VGroup(*[tch(n, OTH, 24) for n in ("T3", "T4", "T5")])
+        pile[0].move_to([-5.4, -1.6, 0])
+        pile[1].move_to([5.4, -1.6, 0])
+        pile[2].move_to([-4.4, -1.6, 0])
         self.say("name1")
         self.play(FadeIn(dl, scale=0.8), run_time=0.6)
         self.at(1)
@@ -268,7 +268,7 @@ class Conc06Deadlock(Narrated):
         pic = VGroup(ana, ben, ka, kb, want_up, want_dn, lab_up, lab_dn, dl)
         self.say("conds")
         self.play(FadeOut(VGroup(sa, sb, blk_a, blk_b, pile, win)), run_time=0.6)
-        self.play(pic.animate.shift(UP * 1.25), run_time=0.8)
+        self.play(pic.animate.shift(UP * 1.0), run_time=0.8)
         self.hold()
 
         rows = []
@@ -276,7 +276,7 @@ class Conc06Deadlock(Narrated):
                                            ("holds one key, waits for another", "hold and wait"),
                                            ("nobody can take a key away", "no preemption"),
                                            ("the waiting goes round in a circle", "circular wait"))):
-            y = -0.45 - 0.62 * i
+            y = -0.65 - 0.6 * i
             rows.append(VGroup(T(f"{i + 1}.", 26, GREY_B).move_to([-5.9, y, 0], aligned_edge=LEFT),
                                T(plain, 26).move_to([-5.3, y, 0], aligned_edge=LEFT),
                                T(name, 26, YELLOW_M).move_to([1.6, y, 0], aligned_edge=LEFT)))
@@ -289,7 +289,7 @@ class Conc06Deadlock(Narrated):
             self.play(FadeIn(rows[i][2]), run_time=0.4)
             self.hold()
 
-        rule = T("A deadlock needs all four at once. Break any one.", 30).move_to([0, -3.15, 0])
+        rule = T("A deadlock needs all four at once. Break any one.", 30).move_to([0, -3.1, 0])
         self.say("rule")
         self.play(FadeIn(rule, shift=UP * 0.1), run_time=0.6)
         self.hold()
@@ -299,7 +299,7 @@ class Conc06Deadlock(Narrated):
         self.play(Indicate(rows[3], color=YELLOW_M, scale_factor=1.04), run_time=0.9)
         self.at(3)
         self.play(FadeOut(VGroup(*rows, rule, want_up, want_dn, lab_up, lab_dn, dl)), run_time=0.6)
-        self.play(pic[:4].animate.shift(DOWN * 1.25), run_time=0.6)
+        self.play(pic[:4].animate.shift(DOWN * 1.0), run_time=0.6)
         self.play(FadeIn(sa), FadeIn(sb), ka.animate.move_to(HOOK_A), kb.animate.move_to(HOOK_B), run_time=0.8)
         n1 = T("number 1", 24, GREY_B).next_to(sa, UP, buff=0.15)
         n2 = T("number 2", 24, GREY_B).next_to(sb, UP, buff=0.15)
@@ -315,25 +315,25 @@ class Conc06Deadlock(Narrated):
         self.say("order2")
         self.play(Create(reach_a), Create(reach_b), run_time=0.8)
         self.at(1)
-        self.play(FadeOut(reach_a), ka.animate.move_to(held_spot(ana) + LEFT * 0.65), run_time=0.7)
-        self.play(kb.animate.move_to(held_spot(ana) + RIGHT * 0.65), run_time=0.7)
+        self.play(FadeOut(reach_a), ka.animate.move_to(held_spot(ana) + LEFT * 0.75), run_time=0.7)
+        self.play(kb.animate.move_to(held_spot(ana) + RIGHT * 0.75), run_time=0.7)
         self.at(2)
         self.play(FadeIn(nothing), run_time=0.5)
         self.at(3)
         self.play(ka.animate.move_to(HOOK_A), kb.animate.move_to(HOOK_B), FadeOut(reach_b), run_time=0.7)
-        self.play(ka.animate.move_to(held_spot(ben) + LEFT * 0.65), FadeOut(nothing), run_time=0.6)
-        self.play(kb.animate.move_to(held_spot(ben) + RIGHT * 0.65), run_time=0.5)
+        self.play(ka.animate.move_to(held_spot(ben) + LEFT * 0.75), FadeOut(nothing), run_time=0.6)
+        self.play(kb.animate.move_to(held_spot(ben) + RIGHT * 0.75), run_time=0.5)
         self.at(4)
         self.play(ka.animate.move_to(HOOK_A), kb.animate.move_to(HOOK_B), run_time=0.6)
         self.hold()
 
         # ---- the test ----
-        tl1 = T("lock order", 26, GOOD).move_to([-6.0, -1.15, 0], aligned_edge=LEFT)
-        tv1 = T("every run finished: 33 to 50 ms, total still 2,000,000", 26).move_to([-2.7, -1.15, 0], aligned_edge=LEFT)
-        tl2 = T("argument order", 26, BAD).move_to([-6.0, -1.85, 0], aligned_edge=LEFT)
-        tv2 = T("hung on 5 runs out of 6", 26).move_to([-2.7, -1.85, 0], aligned_edge=LEFT)
-        tq = M("?", 30, GREY_B).move_to([0.0, -1.15, 0])
-        test_lab = T("200,000 transfers between a and b, half each way", 24, GREY_B).move_to([0, -0.5, 0])
+        tl1 = T("lock order", 26, GOOD).move_to([-6.0, -1.5, 0], aligned_edge=LEFT)
+        tv1 = T("every run finished: 33 to 50 ms, total still 2,000,000", 26).move_to([-2.7, -1.5, 0], aligned_edge=LEFT)
+        tl2 = T("argument order", 26, BAD).move_to([-6.0, -2.15, 0], aligned_edge=LEFT)
+        tv2 = T("hung on 5 runs out of 6", 26).move_to([-2.7, -2.15, 0], aligned_edge=LEFT)
+        tq = M("?", 30, GREY_B).move_to([0.0, -1.5, 0])
+        test_lab = T("200,000 transfers between a and b, half each way", 24, GREY_B).move_to([0, -0.9, 0])
         self.say("test_pred")
         self.play(FadeOut(order_rule), FadeIn(test_lab), run_time=0.6)
         self.at(1)
@@ -341,7 +341,7 @@ class Conc06Deadlock(Narrated):
         self.hold(after=0)
         self.predict()
 
-        hide = T("the sixth run finished: the same bug, hiding", 24, BAD).move_to([-2.7, -2.45, 0], aligned_edge=LEFT)
+        hide = T("the sixth run finished: the same bug, hiding", 24, BAD).move_to([-2.7, -2.75, 0], aligned_edge=LEFT)
         self.say("test_show")
         self.play(FadeOut(tq), FadeIn(tv1), run_time=0.6)
         self.at(1)
@@ -350,8 +350,8 @@ class Conc06Deadlock(Narrated):
         self.play(FadeIn(hide), run_time=0.5)
         self.hold()
 
-        d1 = T("The number: unique, and never changes.", 28).move_to([0, -1.3, 0])
-        d2 = T("Every caller follows the rule: write it once, in one helper.", 28).move_to([0, -2.0, 0])
+        d1 = T("The number: unique, and never changes.", 28).move_to([0, -1.5, 0])
+        d2 = T("Every caller follows the rule: write it once, in one helper.", 28).move_to([0, -2.2, 0])
         fit(d2, 12.4)
         self.say("guard1")
         self.play(FadeOut(VGroup(tl1, tv1, tl2, tv2, hide, test_lab)), run_time=0.5)
@@ -398,23 +398,23 @@ class Conc06Deadlock(Narrated):
                       run_time=0.6)
         self.at(1)
         self.play(FadeOut(VGroup(sa, sb, ka, kb, ana, ben, rest_a, rest_b)), run_time=0.6)
-        table = RoundedRectangle(corner_radius=0.2, width=4.0, height=1.4, stroke_color=GREY_B, stroke_width=3)
+        table = RoundedRectangle(corner_radius=0.2, width=4.8, height=1.7, stroke_color=GREY_B, stroke_width=3)
         table.set_fill(GREY_E, 1).move_to([0, 0.6, 0])
-        d_1 = tch("diner 1", ANA).move_to([-3.2, 0.6, 0])
-        d_2 = tch("diner 2", BEN).move_to([3.2, 0.6, 0])
+        d_1 = tch("diner 1", ANA).move_to([-3.8, 0.6, 0])
+        d_2 = tch("diner 2", BEN).move_to([3.8, 0.6, 0])
         sp = spoon().move_to([-1.2, 0.75, 0])
-        plates = VGroup(Circle(radius=0.32).move_to([-1.2, 0.5, 0]), Circle(radius=0.32).move_to([1.2, 0.5, 0]))
+        plates = VGroup(Circle(radius=0.4).move_to([-1.45, 0.5, 0]), Circle(radius=0.4).move_to([1.45, 0.5, 0]))
         plates.set_stroke(GREY_A, 2).set_fill(BLACK, 1)
-        sp.move_to(plates[0].get_center() + UP * 0.15 + RIGHT * 0.55)
+        sp.move_to(plates[0].get_center() + UP * 0.15 + RIGHT * 0.65)
         self.play(FadeIn(table), FadeIn(plates), FadeIn(d_1), FadeIn(d_2), FadeIn(sp), run_time=0.8)
         self.at(2)
-        self.play(sp.animate.move_to(plates[1].get_center() + UP * 0.15 + LEFT * 0.55), run_time=0.5)
-        self.play(sp.animate.move_to(plates[0].get_center() + UP * 0.15 + RIGHT * 0.55), run_time=0.5)
+        self.play(sp.animate.move_to(plates[1].get_center() + UP * 0.15 + LEFT * 0.65), run_time=0.5)
+        self.play(sp.animate.move_to(plates[0].get_center() + UP * 0.15 + RIGHT * 0.65), run_time=0.5)
         self.hold(after=0)
         self.predict()
 
-        left_sp = plates[0].get_center() + UP * 0.15 + RIGHT * 0.55
-        right_sp = plates[1].get_center() + UP * 0.15 + LEFT * 0.55
+        left_sp = plates[0].get_center() + UP * 0.15 + RIGHT * 0.65
+        right_sp = plates[1].get_center() + UP * 0.15 + LEFT * 0.65
         cnt = VGroup(T("spoon handed over:", 26, GREY_A), T("about 6 million times", 26, BAD)).arrange(RIGHT, buff=0.3)
         meals = VGroup(T("meals eaten:", 26, GREY_A), M("0", 28, BAD)).arrange(RIGHT, buff=0.3)
         tally = VGroup(cnt, meals).arrange(DOWN, aligned_edge=LEFT, buff=0.25).move_to([0, -1.55, 0])
@@ -446,9 +446,10 @@ class Conc06Deadlock(Narrated):
 
         # ---- starvation ----
         self.play(FadeOut(VGroup(table, plates, d_1, d_2, sp, rule3, tally2, ate, rnd)), run_time=0.6)
-        lockk = key_icon().scale(1.2).move_to([1.6, 0.9, 0])
-        fast = tch("fast", OTH).move_to([3.4, 0.9, 0])
-        slow = tch("unlucky", GREY_B).move_to([-1.6, 0.9, 0])
+        LHOME = np.array([1.8, 0.9, 0])
+        lockk = key_icon().scale(1.4).move_to(LHOME)
+        fast = tch("fast", OTH).move_to([3.9, 0.9, 0])
+        slow = tch("unlucky", GREY_B).move_to([-1.9, 0.9, 0])
         fair = VGroup(T("fair lock:", 26, GOOD), M("new ReentrantLock(true)", 26)).arrange(RIGHT, buff=0.3)
         fair_n = T("serves the longest waiter first, a little slower", 24, GREY_B)
         fg_ = VGroup(fair, fair_n).arrange(DOWN, buff=0.25).move_to([0, -1.6, 0])
@@ -457,7 +458,7 @@ class Conc06Deadlock(Narrated):
         self.play(FadeIn(lockk), FadeIn(fast), FadeIn(slow), FadeIn(st), run_time=0.6)
         for _ in range(3):
             self.play(lockk.animate.move_to(fast.get_top() + UP * 0.35), run_time=0.3)
-            self.play(lockk.animate.move_to([1.6, 0.9, 0]), Wiggle(slow, scale_value=1.04), run_time=0.4)
+            self.play(lockk.animate.move_to(LHOME), Wiggle(slow, scale_value=1.04), run_time=0.4)
         self.at(2)
         self.play(FadeIn(fg_, shift=UP * 0.1), run_time=0.6)
         self.play(lockk.animate.move_to(slow.get_top() + UP * 0.35), run_time=0.5)

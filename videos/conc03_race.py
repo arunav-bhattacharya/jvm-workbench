@@ -276,9 +276,9 @@ class Conc03Race(VoiceScene):
         self.beat("The mistake lives in the gap between the steps.", FadeIn(gap, shift=UP * 0.1), run_time=0.8)
         self.play(FadeOut(VGroup(steps, lost, gap)), run_time=0.5)
         nm1 = VGroup(T("read-modify-write", 32, WHITE),
-                     T("read a value, work out a new one, write it back", 26, GREY_A)).arrange(DOWN, buff=0.12)
+                     T("read, work out, write back", 26, GREY_A)).arrange(DOWN, buff=0.12)
         nm2 = VGroup(T("race condition", 32, WHITE),
-                     T("the result depends on how threads take turns", 26, GREY_A)).arrange(DOWN, buff=0.12)
+                     T("depends on how threads take turns", 26, GREY_A)).arrange(DOWN, buff=0.12)
         names = VGroup(nm1, nm2).arrange(DOWN, buff=0.4).move_to([0, -0.4, 0])
         fit(names, 6.0)
         self.beat("This pattern is read-modify-write. And a bug where the result depends on how threads "
@@ -374,7 +374,7 @@ class Conc03Race(VoiceScene):
         claim = M("putIfAbsent(#7)", 24, BLACK).move_to(p1[0]).shift(DOWN * 0.03)
         claim2 = M("putIfAbsent(#7)", 24, BLACK).move_to(p2[0]).shift(DOWN * 0.03)
         e1b = M("#7  claimed by 1", 24, T1C).move_to(book).shift(UP * 0.35)
-        x2 = T("2: already taken, skip", 24, RED_M).move_to(book).shift(DOWN * 0.35)
+        x2 = T("teller 2 skips", 24, RED_M).move_to(book).shift(DOWN * 0.35)
         seq(self, "The fix is one call that checks and acts together. putIfAbsent: claim this payment, "
                   "unless someone already has.",
             ([FadeOut(VGroup(e1, e2, twice, cta)), Transform(c1, claim), Transform(c2, claim2)], 0.8), 2.4,

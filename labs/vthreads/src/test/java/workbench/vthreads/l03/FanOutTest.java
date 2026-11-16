@@ -16,24 +16,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FanOutTest {
 
-    /** A fake card issuer: each call sleeps, and the fake records how many calls are inside it at once. */
-    static final class FakeIssuer {
+    /** A fake database: each call sleeps, and the fake records how many calls are inside it at once. */
+    static final class FakeDatabase {
         final Duration latency;
         final AtomicInteger inside = new AtomicInteger();
         final AtomicInteger peak = new AtomicInteger();
         final Set<Thread> threads = ConcurrentHashMap.newKeySet();
         final AtomicInteger virtualCalls = new AtomicInteger();
 
-        FakeIssuer(Duration latency) { this.latency = latency; }
+        FakeDatabase(Duration latency) { this.latency = latency; }
 
-        String authorize(String paymentId) throws InterruptedException {
+        String save(String orderId) throws InterruptedException {
             Thread me = Thread.currentThread();
             threads.add(me);
             if (me.isVirtual()) virtualCalls.incrementAndGet();
             peak.accumulateAndGet(inside.incrementAndGet(), Math::max);
             try {
                 Thread.sleep(latency);
-                return "auth:" + paymentId;
+                return "saved:" + orderId;
             } finally {
                 inside.decrementAndGet();
             }
@@ -42,7 +42,7 @@ class FanOutTest {
 
     static List<String> ids(int n) {
         List<String> ids = new ArrayList<>(n);
-        for (int i = 0; i < n; i++) ids.add("pay-" + i);
+        for (int i = 0; i < n; i++) ids.add("order-" + i);
         return ids;
     }
 
@@ -60,50 +60,50 @@ class FanOutTest {
     @Test
     @DisplayName("callAll runs 5,000 calls, each on its own new virtual thread")
     void oneVirtualThreadPerCall() throws Exception {
-        FakeIssuer issuer = new FakeIssuer(Duration.ofMillis(10));
-        List<String> out = FanOut.callAll(ids(5_000), issuer::authorize);
-        assertThat(out).hasSize(5_000).startsWith("auth:pay-0").endsWith("auth:pay-4999");
-        assertThat(issuer.virtualCalls.get()).as("calls that ran on a virtual thread").isEqualTo(5_000);
-        assertThat(issuer.threads).as("distinct threads: one per call, never reused").hasSize(5_000);
-        assertThat(issuer.peak.get()).as("calls in flight at once, with no limit").isGreaterThan(100);
+        FakeDatabase db = new FakeDatabase(Duration.ofMillis(10));
+        List<String> out = FanOut.callAll(ids(5_000), db::save);
+        assertThat(out).hasSize(5_000).startsWith("saved:order-0").endsWith("saved:order-4999");
+        assertThat(db.virtualCalls.get()).as("calls that ran on a virtual thread").isEqualTo(5_000);
+        assertThat(db.threads).as("distinct threads: one per call, never reused").hasSize(5_000);
+        assertThat(db.peak.get()).as("calls in flight at once, with no limit").isGreaterThan(100);
     }
 
     @Test
     @DisplayName("callAll reports a failed call as an ExecutionException that carries the original cause")
     void failureSurfaces() {
-        assertThatThrownBy(() -> FanOut.callAll(List.of("ok-1", "declined", "ok-2"), id -> {
-            if (id.equals("declined")) throw new IllegalStateException("issuer declined " + id);
+        assertThatThrownBy(() -> FanOut.callAll(List.of("order-1", "order-2", "order-3"), id -> {
+            if (id.equals("order-2")) throw new IllegalStateException("could not save " + id);
             return id;
         }))
                 .isInstanceOf(ExecutionException.class)
                 .hasCauseInstanceOf(IllegalStateException.class)
-                .cause().hasMessage("issuer declined declined");
+                .cause().hasMessage("could not save order-2");
     }
 
     @Test
-    @DisplayName("Bulkhead(20): 5,000 virtual threads, never more than 20 inside the issuer at once")
+    @DisplayName("Bulkhead(20): 5,000 virtual threads, never more than 20 inside the database at once")
     void bulkheadCapsInFlight() throws Exception {
-        FakeIssuer issuer = new FakeIssuer(Duration.ofMillis(4));
+        FakeDatabase db = new FakeDatabase(Duration.ofMillis(4));
         Bulkhead limit = new Bulkhead(20);
-        List<String> out = FanOut.callAll(ids(5_000), id -> limit.call(() -> issuer.authorize(id)));
+        List<String> out = FanOut.callAll(ids(5_000), id -> limit.call(() -> db.save(id)));
         assertThat(out).hasSize(5_000);
-        assertThat(issuer.peak.get()).as("most calls inside the issuer at once").isLessThanOrEqualTo(20);
+        assertThat(db.peak.get()).as("most calls inside the database at once").isLessThanOrEqualTo(20);
         // proves the calls overlap; the margin is wide so a busy machine can't fail it
-        assertThat(issuer.peak.get()).as("calls must still run in parallel up to the limit").isGreaterThanOrEqualTo(10);
+        assertThat(db.peak.get()).as("calls must still run in parallel up to the limit").isGreaterThanOrEqualTo(10);
         assertThat(limit.available()).as("free slots after everything finished").isEqualTo(20);
     }
 
     @Test
     @DisplayName("Bulkhead: two fan-outs at the same time share one limit of 20")
     void limitIsShared() throws Exception {
-        FakeIssuer issuer = new FakeIssuer(Duration.ofMillis(4));
+        FakeDatabase db = new FakeDatabase(Duration.ofMillis(4));
         Bulkhead limit = new Bulkhead(20);
         // two request handlers fan out at the same time through the same bulkhead
         List<List<String>> both = FanOut.callAll(List.of("a", "b"), batch ->
-                FanOut.callAll(ids(1_000), id -> limit.call(() -> issuer.authorize(batch + id))));
+                FanOut.callAll(ids(1_000), id -> limit.call(() -> db.save(batch + id))));
         assertThat(both.get(0)).hasSize(1_000);
         assertThat(both.get(1)).hasSize(1_000);
-        assertThat(issuer.peak.get()).as("most calls inside the issuer at once, across both").isLessThanOrEqualTo(20);
+        assertThat(db.peak.get()).as("most calls inside the database at once, across both").isLessThanOrEqualTo(20);
     }
 
     @Test

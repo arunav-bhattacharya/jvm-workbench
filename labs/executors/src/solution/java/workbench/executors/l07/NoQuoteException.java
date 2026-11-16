@@ -1,8 +1,8 @@
 package workbench.executors.l07;
 
-/** Thrown when no provider answered in time. */
+/** Thrown when no supplier answered in time. */
 public class NoQuoteException extends RuntimeException {
-    public NoQuoteException(String pair) {
-        super("no provider quoted " + pair + " in time");
+    public NoQuoteException(String item) {
+        super("no supplier quoted a price for " + item + " in time");
     }
 }

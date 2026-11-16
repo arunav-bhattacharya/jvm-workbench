@@ -47,8 +47,8 @@ class ToySchedulerTest {
             s.spawn(() -> {
                 carriers.add(Thread.currentThread());
                 return switch (pc[0]++) {
-                    case 0 -> Step.sleep(120);   // call the card issuer
-                    case 1 -> Step.sleep(30);    // write the ledger
+                    case 0 -> Step.sleep(120);   // wait for the bank
+                    case 1 -> Step.sleep(30);    // save the order
                     default -> { finished[0]++; yield Step.done(); }
                 };
             });

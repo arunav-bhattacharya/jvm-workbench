@@ -7,17 +7,17 @@ import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
 
 /**
- * Asks several FX providers for a quote and returns the lowest price.
+ * Asks several suppliers for a quote (a price offer) and returns the lowest price.
  *
  * <p>{@link #best} must return at once and complete later:
  * <ol>
- *   <li>Ask every provider at the same time, each on {@code io} (the calls block).</li>
- *   <li>Give each provider its own deadline of {@code timeout}. A provider that throws or misses
+ *   <li>Ask every supplier at the same time, each on {@code io} (the calls block).</li>
+ *   <li>Give each supplier its own deadline of {@code timeout}. A supplier that throws or misses
  *       its deadline is skipped: report it once with {@code onSkip.accept(providerName, cause)},
- *       where {@code cause} is the provider's own exception (or a {@code TimeoutException}),
+ *       where {@code cause} is the supplier's own exception (or a {@code TimeoutException}),
  *       never a {@code CompletionException} wrapper.</li>
- *   <li>Complete with the lowest quote among the providers that answered.</li>
- *   <li>If every provider was skipped, fail with {@link NoQuoteException}.</li>
+ *   <li>Complete with the lowest quote among the suppliers that answered.</li>
+ *   <li>If every supplier was skipped, fail with {@link NoQuoteException}.</li>
  * </ol>
  */
 public final class QuoteAggregator {
@@ -33,8 +33,8 @@ public final class QuoteAggregator {
         this.onSkip = onSkip;
     }
 
-    public CompletableFuture<Quote> best(String pair) {
-        throw new UnsupportedOperationException("TODO: supplyAsync per provider, orTimeout, handle, then allOf and pick the lowest");
+    public CompletableFuture<Quote> best(String item) {
+        throw new UnsupportedOperationException("TODO: supplyAsync per supplier, orTimeout, handle, then allOf and pick the lowest");
     }
 
     /**

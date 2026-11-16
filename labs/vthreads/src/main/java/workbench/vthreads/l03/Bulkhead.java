@@ -3,7 +3,7 @@ package workbench.vthreads.l03;
 import java.util.concurrent.Callable;
 
 /**
- * Guards one scarce downstream resource (a card issuer API, a database) so that at most
+ * Guards one scarce resource (a database, a slow web service) so that at most
  * {@code maxConcurrent} calls are inside it at once, however many threads call it.
  * Callers over the limit wait their turn.
  *

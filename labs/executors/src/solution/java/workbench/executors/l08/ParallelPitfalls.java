@@ -18,12 +18,12 @@ public final class ParallelPitfalls {
                 .toList();
     }
 
-    public static Map<String, String> issuers(List<String> bins, BinLookup lookup, ExecutorService io) {
+    public static Map<String, Integer> stockLevels(List<String> products, StockLookup stock, ExecutorService io) {
         // 1. start every blocking lookup on the IO pool; none of them touches the common pool
-        Map<String, CompletableFuture<String>> pending = bins.stream()
+        Map<String, CompletableFuture<Integer>> pending = products.stream()
                 .distinct()
                 .collect(Collectors.toMap(Function.identity(),
-                        bin -> CompletableFuture.supplyAsync(() -> lookup.issuer(bin), io)));
+                        product -> CompletableFuture.supplyAsync(() -> stock.level(product), io)));
         // 2. wait here, on the caller's thread, which is allowed to block
         return pending.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().join()));
