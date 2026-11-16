@@ -4,42 +4,255 @@ lab = "labs/concurrency/src"
 P = "java/workbench/concurrency/l03"
 K = "kotlin/workbench/concurrency/l03"
 read = lambda p: (ROOT / p).read_text()
+demo = lambda name: f"./gradlew :concurrency:demo -Pmain=workbench.concurrency.l03.{name}"
+def kt(name):
+    """The Kotlin twin of a Java demo: Foo.kt with a top-level main, class FooKt."""
+    return {"lang": "kotlin", "title": f"{name}.kt", "src": read(f"{lab}/demo/{K}/{name}.kt"),
+            "run": demo(f"{name}Kt"), "file": f"{lab}/demo/{K}/{name}.kt"}
+def jv(name):
+    return {"lang": "java", "title": f"{name}.java", "src": read(f"{lab}/demo/{P}/{name}.java"),
+            "run": demo(name), "file": f"{lab}/demo/{P}/{name}.java", "alt": kt(name)}
+def pair(java, kotlin):
+    """A Java fence and its Kotlin twin, side by side, as the validator expects."""
+    return f"```java\n{java}\n```\n\n```kotlin\n{kotlin}\n```"
+
+OPENING = """Picture the ledger service on a busy evening. Eight consumer threads read card payments from Kafka and add each one to the merchant's balance. The next morning, reconciliation finds the balance a few thousand dollars short.
+
+Every log line says its deposit went through. The logs are telling the truth, and so is the balance. They just don't agree.
+
+The line behind it is one you've written many times: `balanceCents += cents`. It looks like one step. On one thread it's correct, and it passes every unit test you'd think to write.
+
+A thread's life ended with a promise: two threads, one counter, and a wrong answer with no exception and no warning. This lesson keeps that promise, with money in it.
+
+We'll make a counter lose updates on purpose and look inside `count++` to see why. Then we'll find the same two shapes of race in the ledger and fix each with one atomic step. Before we start, make a guess, and keep it in mind."""
+
+S0 = f"""Let's shrink the ledger down to the smallest program that can go wrong. Two threads share one counter, and each adds one to it a million times. Both versions start the same two threads on the same loop:
+
+{pair('''static volatile int count = 0;
+
+Runnable work = () -> {
+    for (int i = 0; i < 1_000_000; i++) count++;
+};
+Thread a = new Thread(work), b = new Thread(work);
+a.start(); b.start();
+a.join(); b.join();
+System.out.println(count);   // 2,000,000? Let's see.''', '''@Volatile var count = 0
+
+val work = { repeat(1_000_000) { count++ } }
+val a = thread { work() }
+val b = thread { work() }
+a.join(); b.join()
+println(count)               // 2,000,000? Let's see.''')}
+
+Two things changed in Kotlin: `thread {{ }}` creates and starts each thread for us, and `@Volatile` is an annotation where Java has a keyword. Both join both threads before they print, and as A thread's life showed, a returned `join()` means `main` sees everything that thread wrote. So this prints the counter's real final value.
+
+I'd expect 2,000,000. Here's what `RaceDemo`, the same program in the labs, printed in five runs on a 4-core Linux machine:
+
+```text
+run 1: expected 2,000,000, got 1,282,924 (lost 717,076)
+run 2: expected 2,000,000, got 1,288,616 (lost 711,384)
+run 3: expected 2,000,000, got 1,324,641 (lost 675,359)
+run 4: expected 2,000,000, got 1,513,931 (lost 486,069)
+run 5: expected 2,000,000, got 2,000,000 (lost 0)
+```
+
+Four wrong answers and one right one, from the same code. Nothing crashed, and there was no exception, no warning and no log line. The program did its arithmetic wrong, by a different amount each time.
+
+That's a **race condition**: a bug where the result depends on how the threads happen to take turns. The fifth run deserves a second look. Sometimes the threads don't collide, and then a racy program prints the right answer.
+
+One word in the listing needs explaining: `volatile` is there only to keep the demo honest. Without it, the JIT compiler may keep `count` in a CPU register for the whole loop and write it back once at the end. Then some runs lose almost nothing, which hides the bug without fixing it. And `volatile` doesn't make `count++` safe either: it was on the field for all five runs.
+
+Now shrink the loop to 1,000 increments per thread. All five runs print exactly 2,000. The first thread finishes its thousand before the second has even started, so the two never overlap. A race is shy around small numbers, and that's why races pass unit tests and then fail under production traffic.
+
+**A test whose threads never collide proves nothing about thread safety. Make them collide.**
+
+So a line as short as `count++` can lose updates. It's short only in Java, though. Let's look at what the JVM actually runs."""
+
+S1 = """The total came out short because `count++` isn't one step, and the bytecode can prove it. Here is what `javac` produced for the loop body of `RaceDemo`, as `javap -c -p` prints it (trimmed):
+
+```text
+getstatic  count   // read the current value onto the stack
+iconst_1           // push 1
+iadd               // add them
+putstatic  count   // write the result back
+```
+
+Read it aloud: fetch `count`, add one, store the result back in `count`. That's a read, an add and a write (pushing the 1 only sets up the add). A thread can be paused between any two of those instructions. On a multicore machine, another thread can run the same instructions at the same moment.
+
+So let's trace the smallest case: two threads, one increment each, with `count` at 41.
+
+1. T1 reads `count`: 41.
+2. T2 reads `count`: 41.
+3. T1 adds one and writes 42.
+4. T2 adds one and writes 42.
+
+Two increments ran, and the counter moved by one. That's a **lost update**. A third thread that comes along later reads 42 and carries on, so nothing downstream ever learns an increment went missing.
+
+The pattern behind the lost update has a name: **read-modify-write**. You read a value, compute a new one from it, and write it back, assuming nobody changed it in between. Kotlin's `count++` on a `var` compiles to the same three steps, so it races in exactly the same way.
+
+The cure is to make the read, the add and the write happen as one step that no other thread can split. A step like that is **atomic**: other threads see it either not started or completely done, never halfway.
+
+In the simulator below, you are the scheduler. Try to end two increments with `count = 1`, then try for 2. Getting 2 means letting each thread finish its whole increment before the other starts, which is what an atomic step guarantees.
+
+To check the bytecode yourself, run the demo once, then run this from `labs/` and look inside `lambda$main$0`:
+
+```bash
+javap -c -p concurrency/build/classes/java/demo/workbench/concurrency/l03/RaceDemo.class
+```
+
+`count++` is a toy, though. The ledger runs the same three steps on money, and it keeps its balances in a map that calls itself thread-safe."""
+
+S2 = f"""The ledger's deposit is `count++` with money in it:
+
+{pair('''void deposit(long cents) {
+    balanceCents += cents;     // read, add, write
+}''', '''fun deposit(cents: Long) {
+    balanceCents += cents      // read, add, write
+}''')}
+
+`javap` shows `getfield`, `ladd` and `putfield` this time: the same three steps for a `long` field, with the same gaps. The usual next move is to keep the balances in something thread-safe, such as a `ConcurrentHashMap` keyed by account id. Let's put both ideas through one test.
+
+`LostDepositDemo` starts eight consumer threads, and each one posts 200,000 one-cent deposits to the same merchant account. It does that three times: with a plain field, with a `ConcurrentHashMap` and a `get` plus a `put`, and with the same map and one call:
+
+{pair('''balanceCents += 1;                                   // 1. Naive: a plain field
+balances.put(MERCHANT, balances.get(MERCHANT) + 1);  // 2. Naive: a thread-safe map, two calls
+balances.merge(MERCHANT, 1L, Long::sum);             // 3. Fixed: the same map, one call''', '''balanceCents += 1                                    // 1. Naive: a plain field
+balances[MERCHANT] = balances.getValue(MERCHANT) + 1 // 2. Naive: a thread-safe map, two calls
+balances.merge(MERCHANT, 1L, Long::plus)             // 3. Fixed: the same map, one call''')}
+
+Before you read the output, guess which of the three come out exact. One run printed:
+
+```text
+balanceCents += 1    expected 1,600,000 cents, got 440,684 (lost 1,159,316)
+put(get() + 1)       expected 1,600,000 cents, got 329,204 (lost 1,270,796)
+merge(1, Long::sum)  expected 1,600,000 cents, got 1,600,000 (lost 0)
+```
+
+The plain field lost more than two thirds of the deposits. With eight threads on four cores, collisions are the normal case.
+
+The second line is the setback, and the one that surprises people. `ConcurrentHashMap` is a fine tool, and every single call on it is thread-safe. The map kept every promise it makes. It never promised anything about two calls in a row.
+
+`put(get() + 1)` is two calls, and the gap between them belongs to nobody. Two consumers get the same old balance, both add a cent, and both put the result back.
+
+The third line is the fix. `merge(MERCHANT, 1L, Long::sum)` does what the three plain steps do: read the old balance, add the amount, put the result back. But the map runs all three as one atomic step on that key, so no other consumer can slip in between. Read it aloud as "add one cent to this balance, whatever it is right now".
+
+**A thread-safe class makes each call atomic. Two calls in a row are still a race.**
+
+Read-modify-write hides in arithmetic. The second shape of race hides in an `if`."""
+
+S3 = f"""The deposits add up now. The other thing a ledger must never do is post the same payment twice.
+
+With the usual Kafka setup, each event is processed at least once. After a consumer rebalance, a payment can arrive again while the first copy is still being handled. So the ledger keeps a map of the payments it has posted, and checks it first:
+
+{pair('''if (!postedBy.containsKey(paymentId)) {   // check
+    fraudCheck(payment);                  // a slow step
+    postedBy.put(paymentId, me);          // act
+    post(payment);                        // the money moves
+}''', '''if (!postedBy.containsKey(paymentId)) {   // check
+    fraudCheck(payment)                   // a slow step
+    postedBy[paymentId] = me              // act
+    post(payment)                         // the money moves
+}''')}
+
+`postedBy` is a `ConcurrentHashMap` again, and again every call on it is thread-safe. The code still posts payments twice. Two consumers can both check, both see "not posted yet", and both go on to post. The second `put` quietly replaces the first owner, and the money moves twice.
+
+This shape is **check-then-act**: you test a condition, then act on it, assuming it still holds. The gap between the check and the act is where the race lives, and the fraud check makes that gap wide. The figure shows two consumers inside it at the same time.
+
+`DoublePostingDemo` exaggerates the replay on purpose, so the gap is easy to see. Eight consumers all receive the same 1,000 payment events, and a short spin loop stands in for the fraud check. One run printed:
+
+```text
+payments: 1,000  postings: 2,579  duplicate postings: 1,579
+```
+
+Each customer paid once. The merchant was credited 2,579 times, which made for a very good evening.
+
+The same shape hides in two places you've probably written. An overdraft check, `if (balanceCents >= cents) balanceCents -= cents;`, lets two withdrawals both see enough money, and the account goes below zero. Lazy loading, `if (rates == null) rates = loadRates();`, can load twice.
+
+The fix is one call that does both the check and the act, so no gap is left:
+
+{pair('''if (postedBy.putIfAbsent(paymentId, me) == null) post(payment);   // Fixed: only one consumer sees null''', '''if (postedBy.putIfAbsent(paymentId, me) == null) post(payment)    // the same JDK call from Kotlin''')}
+
+Read `putIfAbsent` as "claim this key, unless someone already has". It returns the previous owner, or `null` if there was none, and only one caller can ever get that `null`. Inside, the map does the lookup and the insert as one step on that key's slot, as lesson 9 of this track shows.
+
+`computeIfAbsent`, `merge` and `Set.add` (which returns `false` if the element was already there) exist for the same reason. Across pods, the same idea becomes a unique key in the database: insert the payment id first, and let the second insert fail.
+
+**A check is out of date the moment it returns. Make the check and the act one call.**
+
+Both fixes so far came from the library: one call that does the whole job on one key. Before we meet a job that needs two keys, let's pin down what any fix has to do."""
+
+S4 = """We've met three races and fixed two. Both fixes did the same two jobs, and every fix you write will too.
+
+A fix makes the compound action **atomic**, so no other thread can run in the middle of it. It also makes the result **visible**, so the next thread to look sees the new value, not an old copy. Visibility gets its own track later, and every tool below gives you both.
+
+Here are the options, in the order I reach for them.
+
+The first is not to share at all. Give each thread its own counter and add them up after the joins, as the settlement job did with its `partial` array in Threads from zero. Or keep the state inside one thread, such as one Kafka partition per consumer. No sharing, no race.
+
+The second is one atomic call that the library already has: `merge`, `putIfAbsent`, `computeIfAbsent`, `Set.add`, or an atomic class such as `AtomicLong`. These calls are fast and hard to get wrong, and lesson 8 of this track opens them up.
+
+The third is a lock around the whole compound action. Mark a method `synchronized`, and only one thread at a time can run it. A lock works for any code, even a change to two balances at once. The price is that every caller waits in line.
+
+A lock comes with two conditions. It must cover the reads: a `synchronized` setter with a plain getter is still broken, because nothing promises the reader the latest value. And it must cover the whole action, since locking `containsKey` and `put` separately leaves the same gap between them.
+
+**Every access to shared state goes through the same lock or the same atomic. Guard the reads too.**
+
+For the counter, each fix is one line, and the Try it below has you make both. In five runs each on a 4-core machine, both printed 2,000,000 every time. The `AtomicInteger` version took 41 to 54 ms a run, close to the broken one.
+
+The `synchronized` version took anywhere from 28 to 220 ms. The JIT and the scheduler decide how long each thread keeps the lock before the other gets a turn, and that changes from run to run. So correctness is settled, and speed is something to measure more than once.
+
+That brings us to the limit of today's tools. Every fix so far protects one thing: one counter, one key, one balance. A transfer debits one account and credits another, and no one may see the money in flight.
+
+No single map call moves money between two keys, and two atomic calls in a row are just a new gap. That job needs a lock, and a lock has rules of its own."""
+
+FIG = (
+    '<svg viewBox="0 0 640 250" role="img" aria-label="Timeline: two consumers both check that payment p7 is not posted before either one records it, so both post it">'
+    '<text class="t-s t-m" x="20" y="24">time</text><line class="ln-d" x1="60" y1="20" x2="620" y2="20" marker-end="url(#arr)"/>'
+    '<text class="t" x="20" y="86">A</text><text class="t" x="20" y="176">B</text>'
+    '<rect class="box" x="60" y="62" width="150" height="36" rx="8"/><text class="t t-code" x="135" y="85" text-anchor="middle">containsKey(p7)</text>'
+    '<rect class="box" x="130" y="152" width="150" height="36" rx="8"/><text class="t t-code" x="205" y="175" text-anchor="middle">containsKey(p7)</text>'
+    '<text class="t-s t-ok" x="135" y="116" text-anchor="middle">false: new</text>'
+    '<text class="t-s t-ok" x="166" y="206" text-anchor="middle">false: new</text>'
+    '<rect class="box-a" x="330" y="62" width="130" height="36" rx="8"/><text class="t t-code" x="395" y="85" text-anchor="middle">put(p7, A)</text>'
+    '<rect class="box-bad" x="420" y="152" width="130" height="36" rx="8"/><text class="t t-code" x="485" y="175" text-anchor="middle">put(p7, B)</text>'
+    '<rect class="box-dim" x="215" y="40" width="110" height="170" rx="8"/><text class="t-s t-bad" x="270" y="132" text-anchor="middle">the gap</text>'
+    '<text class="t-s t-bad" x="485" y="230" text-anchor="middle">replaces A; p7 posted twice</text>'
+    '</svg>'
+)
 
 L = {
  "id": "conc-03",
  "title": "Race conditions: why count++ lies",
  "minutes": 35,
  "goal": "By the end you can spot the two shapes of race condition (read-modify-write and check-then-act) in real code, and fix each with one atomic step.",
+ "opening": OPENING,
  "warmup": {
   "q": "Two threads each run `count++` one million times on a shared `int count = 0`. What does `count` hold at the end, most of the time?",
   "options": ["Exactly 2,000,000", "Less than 2,000,000, and a different number each run", "More than 2,000,000", "The program throws a ConcurrentModificationException"],
   "answer": 1,
-  "why": "Each `count++` is a read, an add and a write. When both threads read the same old value, one of the two increments is lost. How many are lost depends on timing, so the result changes from run to run. Nothing throws: Java does not detect races for you."
+  "why": "Each `count++` is a read, an add and a write. When both threads read the same old value, one of the two increments is lost. How many get lost depends on timing, so the number changes from run to run. Nothing throws, because Java doesn't detect races for you. The first section runs exactly this program."
  },
  "sections": [
   {
-   "h": "Two threads, one counter, the wrong answer",
-   "body": "Here is the smallest broken program in this course. Two threads share one counter, and each adds one to it a million times.\n\n```java\nstatic volatile int count = 0;\n\nRunnable work = () -> {\n    for (int i = 0; i < 1_000_000; i++) count++;\n};\nThread a = new Thread(work), b = new Thread(work);\na.start(); b.start();\na.join(); b.join();\nSystem.out.println(count);   // 2,000,000? Usually not.\n```\n\n```kotlin\n@Volatile var count = 0\n\nval work = { repeat(1_000_000) { count++ } }\nval a = thread { work() }\nval b = thread { work() }\na.join(); b.join()\nprintln(count)               // 2,000,000? Usually not.\n```\n\nOn my laptop five runs printed 1,851,852, then 1,633,408, then 1,920,984, then 1,599,468, then 2,000,000. Four wrong answers and one right one, from the same code.\n\nThis is a **race condition**: the result depends on how the threads happen to interleave. Nothing crashed. No exception, no warning, no log line. The program just did arithmetic wrong, and it did it differently each time.\n\nTwo details are worth knowing now.\n\nThe field is `volatile` (`@Volatile` in Kotlin) only to keep the demo honest. Without it the JIT compiler may keep `count` in a CPU register for the whole loop and write it back once at the end, which makes the lost updates disappear on some runs. That does not fix anything. It just hides the bug. `volatile` does not make `count++` safe either; the memory model track shows exactly why.\n\nThe second detail matters more. Shrink the loop to 1,000 and every run prints the right answer. The first thread finishes before the second one even starts, so they never overlap. That is why races pass unit tests and fail under production traffic. A test that never makes threads collide proves nothing about thread safety.",
+   "h": "The smallest race: two threads add to one counter",
+   "body": S0,
    "try": {
-    "title": "Watch the counter lie",
+    "title": "Watch the counter lose updates",
     "minutes": 4,
     "steps": [
-     "Open `RaceDemo.java` (or its Kotlin twin, `RaceDemo.kt`) in the labs project. Before you run it, write down the number you expect.",
-     "Run it from `labs/` with the command below. Note how many updates each run loses.",
-     "Run it again with `-Pargs=1000` added. Predict first: will small loops lose updates?"
+     "Open `RaceDemo` (or its Kotlin twin) in the labs project. Before you run it, write down the total you expect.",
+     "Run it from `labs/` with the command below, and note how many updates each run loses.",
+     "Now add `-Pargs=1000` to the command. Predict first: will a thousand increments per thread lose any?"
     ],
     "code": {"lang": "java", "title": "RaceDemo.java", "src": read(f"{lab}/demo/{P}/RaceDemo.java"),
-             "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l03.RaceDemo",
-             "file": f"{lab}/demo/{P}/RaceDemo.java",
+             "run": demo("RaceDemo"), "file": f"{lab}/demo/{P}/RaceDemo.java",
              "alt": {"lang": "kotlin", "title": "RaceDemo.kt", "src": read(f"{lab}/demo/{K}/RaceDemo.kt"),
-                     "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l03.RaceDemoKt",
-                     "file": f"{lab}/demo/{K}/RaceDemo.kt"}},
-    "expect": "With a million per thread, most runs lose tens or hundreds of thousands of updates, and the number changes every run. With 1,000 per thread you almost always get exactly 2,000, because each thread finishes before the other gets going. Same bug, no symptom."
+                     "run": demo("RaceDemoKt"), "file": f"{lab}/demo/{K}/RaceDemo.kt"}},
+    "expect": "With a million per thread, most runs lose hundreds of thousands of updates, a different number each time, and now and then a run comes out right. With 1,000 per thread you'll almost always get exactly 2,000, because each thread finishes before the other gets going. Same bug, no symptom."
    }
   },
   {
-   "h": "count++ is three steps, not one",
-   "body": "`count++` looks like one operation. The JVM runs it as three. Here is the bytecode `javac` produces for it:\n\n```text\ngetstatic  count   // read the current value onto the stack\niconst_1           // push 1\niadd               // add them\nputstatic  count   // write the result back\n```\n\nA thread can be paused between any two of those instructions. The operating system can move it off the CPU, or another core can run the same instructions at the same moment. So this can happen:\n\n1. T1 reads `count`: 41.\n2. T2 reads `count`: 41.\n3. T1 adds one and writes 42.\n4. T2 adds one and writes 42.\n\nTwo increments ran. The counter moved by one. This is a **lost update**, and the pattern behind it has a name: **read-modify-write**. You read a value, compute a new one from it, and write it back, while assuming nobody changed it in between.\n\nOnce you know the shape, you see it everywhere:\n\n- `balance = balance - amount;`\n- `map.put(key, map.get(key) + 1);`\n- `total += invoice.amount();`\n- `list.add(x)` on an `ArrayList`, which does `size++` inside.\n\nNone of these is safe when two threads run it on shared data. The fix is always the same idea: the read and the write must happen as one step that no other thread can split. That property is called **atomic**.\n\nThe simulator below lets you play the scheduler. You pick which thread runs its next step. Try to make two increments end with `count = 1`. Then try to get 2. Notice that you need the threads to take turns on whole increments to get the right answer.",
+   "h": "Inside count++: a read, an add and a write",
+   "body": S1,
    "sim": {
     "title": "Two threads run count++",
     "intro": "You are the scheduler. Click a thread to run its next line. Can you end with count = 1?",
@@ -56,81 +269,77 @@ L = {
     ],
     "goal": {"var": "count", "eq": 1, "say": "Lost update. Both threads read 0 before either wrote, so two increments produced 1."}
    },
-   "try": {
-    "title": "See the three steps yourself",
-    "minutes": 3,
-    "steps": [
-     "Run the demo once (previous Try it) so Gradle compiles it.",
-     "From `labs/`, run the `javap` command below. It prints the bytecode of the class.",
-     "Find the lambda method (`lambda$main$0`) and the four lines that make up `count++`."
-    ],
-    "code": {"lang": "bash", "title": "terminal", "src": "javap -c -p concurrency/build/classes/java/demo/workbench/concurrency/l03/RaceDemo.class", "run": ""},
-    "expect": "Inside `lambda$main$0` you'll see `getstatic count`, `iconst_1`, `iadd`, `putstatic count`. A thread can be paused between any two of them."
-   },
    "refs": [
     {"title": "Thread interference (The Java Tutorials)", "url": "https://docs.oracle.com/javase/tutorial/essential/concurrency/interfere.html", "kind": "read"}
    ]
   },
   {
-   "h": "Check-then-act: the race inside an if",
-   "body": "The second shape of race hides in an `if`. You check a condition, then act on it, assuming the condition still holds.\n\n```java\nif (!owners.containsKey(seat)) {   // check\n    owners.put(seat, passenger);   // act\n    return true;\n}\nreturn false;\n```\n\n```kotlin\nif (!owners.containsKey(seat)) {   // check\n    owners[seat] = passenger       // act\n    return true\n}\nreturn false\n```\n\n`owners` is a `ConcurrentHashMap`. Every single call on it is thread-safe. The code still sells the same seat twice, because the gap between `containsKey` and `put` belongs to nobody. Two buyers can both see the seat as free, and both go on to buy it. The second `put` silently replaces the first owner, and both callers got `true`.\n\nThis is the point most people miss: **a thread-safe class does not make your code thread-safe.** Each method is atomic. Two calls in a row are not.\n\nThe gap is often much wider than one line. Here is a version you may have written:\n\n```java\nif (!processed.contains(msg.idempotencyKey())) {\n    ledger.charge(msg);                     // 80 ms call to the card issuer\n    processed.add(msg.idempotencyKey());\n}\n```\n\n```kotlin\nif (msg.idempotencyKey !in processed) {\n    ledger.charge(msg)                      // 80 ms call to the card issuer\n    processed += msg.idempotencyKey\n}\n```\n\nKafka redelivers a message after a consumer rebalance, and two consumer threads pick up both copies. Both check the set during the same 80 ms. The customer pays twice.\n\nLazy initialization is the same shape: `if (instance == null) instance = new Expensive();` can build two instances.\n\nThe fix is to let one operation do both the check and the act, so there is no gap:\n\n```java\nreturn owners.putIfAbsent(seat, passenger) == null;   // only one caller can see null\n```\n\n```kotlin\nreturn owners.putIfAbsent(seat, passenger) == null    // same JDK call from Kotlin\n```\n\nInside, the map does the lookup and the insert as one step on that key's slot, so no other thread can get in between. Lesson 9 of this track shows how. `putIfAbsent`, `computeIfAbsent`, `merge` and `Set.add` (which returns `false` when the element was already there) all exist for this reason. Across machines, the same idea is a unique constraint in the database: insert the key first, and let the second insert fail.",
-   "figure": {
-    "svg": "<svg viewBox=\"0 0 640 250\" role=\"img\" aria-label=\"Timeline: two buyers both check that seat 7 is free before either writes, so both buy it\"><text class=\"t-s t-m\" x=\"20\" y=\"24\">time</text><line class=\"ln-d\" x1=\"60\" y1=\"20\" x2=\"620\" y2=\"20\" marker-end=\"url(#arr)\"/><text class=\"t\" x=\"20\" y=\"86\">A</text><text class=\"t\" x=\"20\" y=\"176\">B</text><rect class=\"box\" x=\"60\" y=\"62\" width=\"150\" height=\"36\" rx=\"8\"/><text class=\"t t-code\" x=\"135\" y=\"85\" text-anchor=\"middle\">containsKey(7)</text><rect class=\"box\" x=\"130\" y=\"152\" width=\"150\" height=\"36\" rx=\"8\"/><text class=\"t t-code\" x=\"205\" y=\"175\" text-anchor=\"middle\">containsKey(7)</text><text class=\"t-s t-ok\" x=\"135\" y=\"116\" text-anchor=\"middle\">false: free</text><text class=\"t-s t-ok\" x=\"166\" y=\"206\" text-anchor=\"middle\">false: free</text><rect class=\"box-a\" x=\"330\" y=\"62\" width=\"130\" height=\"36\" rx=\"8\"/><text class=\"t t-code\" x=\"395\" y=\"85\" text-anchor=\"middle\">put(7, A)</text><rect class=\"box-bad\" x=\"420\" y=\"152\" width=\"130\" height=\"36\" rx=\"8\"/><text class=\"t t-code\" x=\"485\" y=\"175\" text-anchor=\"middle\">put(7, B)</text><rect class=\"box-dim\" x=\"215\" y=\"40\" width=\"110\" height=\"170\" rx=\"8\"/><text class=\"t-s t-bad\" x=\"270\" y=\"132\" text-anchor=\"middle\">the gap</text><text class=\"t-s t-bad\" x=\"485\" y=\"230\" text-anchor=\"middle\">overwrites A; both got true</text></svg>",
-    "caption": "Both buyers check before either one writes. The gap between check and act is where the race lives."
-   },
+   "h": "Lost deposits in the ledger, even on a thread-safe map",
+   "body": S2,
    "try": {
-    "title": "Double-book a concert",
-    "minutes": 5,
+    "title": "Lose deposits three ways",
+    "minutes": 4,
     "steps": [
-     "Run `DoubleBookingDemo` with the command below. Eight buyers race for 1,000 seats.",
-     "Change the check and the put into one call: `if (owners.putIfAbsent(seat, me) == null) sold.incrementAndGet()` in either version (keep the spin loop before it).",
-     "Run it again."
+     "Read `LostDepositDemo` (or its Kotlin twin). For each of the three lines it prints, write down whether you expect it to be exact.",
+     "Run it with the command below. Then run it twice more and compare the losses.",
+     "In version 2, replace the `put(get() + 1)` line with `balances.compute(MERCHANT, (k, v) -> v + 1)` (in Kotlin, `balances.compute(MERCHANT) { _, v -> (v ?: 0L) + 1 }`). Predict whether it comes out exact, then run it."
     ],
-    "code": {"lang": "java", "title": "DoubleBookingDemo.java", "src": read(f"{lab}/demo/{P}/DoubleBookingDemo.java"),
-             "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l03.DoubleBookingDemo",
-             "file": f"{lab}/demo/{P}/DoubleBookingDemo.java",
-             "alt": {"lang": "kotlin", "title": "DoubleBookingDemo.kt", "src": read(f"{lab}/demo/{K}/DoubleBookingDemo.kt"),
-                     "run": "./gradlew :concurrency:demo -Pmain=workbench.concurrency.l03.DoubleBookingDemoKt",
-                     "file": f"{lab}/demo/{K}/DoubleBookingDemo.kt"}},
-    "expect": "The first run sells a few hundred tickets too many (one run here printed 1,413 tickets for 1,000 seats). After the change it sells exactly 1,000, every run, with the same slow step still inside the loop."
+    "code": jv("LostDepositDemo"),
+    "expect": "The first two lines lose a large share of the 1,600,000 cents, a different amount every run. `merge` is exact every time. So is `compute`: like `merge`, it runs your function inside the map, as one step on that key, so no other consumer can change the balance halfway through."
    }
   },
   {
-   "h": "What a fix has to do",
-   "body": "Every fix for a race does two jobs. It makes the compound action **atomic**, so no other thread can run in the middle of it. And it makes the result **visible**, so the next thread to look sees the new value and not an old copy. Visibility gets its own track later. For now, know that the tools below give you both.\n\nHere are your options, in the order I reach for them:\n\n1. **Don't share.** Give each thread its own counter and add them up at the end. Or keep the state inside one thread, such as one Kafka partition handled by one consumer. No sharing, no race.\n2. **Use one atomic operation the library already has.** `AtomicInteger.incrementAndGet()`, `LongAdder.increment()`, `ConcurrentHashMap.merge(key, 1, Integer::sum)`, `putIfAbsent`, `Set.add`. These are fast and hard to get wrong. Lesson 8 shows how they work.\n3. **Lock the whole compound action.** Mark the method `synchronized` so only one thread at a time can run it. This works for any code, including the slow 80 ms charge, but every caller now waits in line. Lesson 4 is about `synchronized`.\n\nThe lock must cover the read too. A `synchronized` setter with an unsynchronized getter is still broken. Taking the same lock is what makes a thread see the last owner's writes, so a reader that skips it can keep using an old value, for example a copy the JIT kept in a register, as in the first section. And it must cover the whole action. Locking `containsKey` and `put` separately just gives you two atomic steps with the same gap between them.\n\nFor the counter, the cheapest correct fix is to put `count++` inside a `static synchronized void inc()` method, or to swap the `int` for an `AtomicInteger`. Either way the demo prints 2,000,000 on every run.",
+   "h": "Check-then-act: posting the same payment twice",
+   "body": S3,
+   "figure": {
+    "svg": FIG,
+    "caption": "Both consumers check before either one records the payment. The gap between check and act is where the race lives."
+   },
+   "try": {
+    "title": "Post a payment twice, then once",
+    "minutes": 4,
+    "steps": [
+     "Run `DoublePostingDemo` with the command below. Eight consumers race through the same 1,000 payments. Note the duplicate postings.",
+     "Replace the check and the put with one call: `if (postedBy.putIfAbsent(payment, me) == null) postings.incrementAndGet();` (in Kotlin, `if (postedBy.putIfAbsent(payment, \"consumer-$c\") == null) postings.incrementAndGet()`). Keep the spin loop just before it.",
+     "Run it three more times."
+    ],
+    "code": jv("DoublePostingDemo"),
+    "expect": "The first run posts hundreds or thousands of payments more than once (one run here: 2,579 postings for 1,000 payments). After the change it posts exactly 1,000, every run, with the slow step still inside the loop. Every consumer still runs the fraud check, but only one of them gets to post each payment."
+   }
+  },
+  {
+   "h": "What every fix has to do, and where one call stops",
+   "body": S4,
    "try": {
     "title": "Fix RaceDemo two ways",
     "minutes": 5,
     "steps": [
-     "In `RaceDemo`, add `static synchronized void inc() { count++; }` and call `inc()` in the loop. Run it.",
-     "Undo that. Change `count` to `static final AtomicInteger count = new AtomicInteger();`, call `count.incrementAndGet()`, reset it with `count.set(0)` and print `count.get()`. Run it.",
-     "Which one felt slower? Add `long t0 = System.nanoTime();` before the threads start and print the elapsed milliseconds after the joins to check."
+     "In `RaceDemo`, add `static synchronized void inc() { count++; }` and call `inc()` in the loop. (In Kotlin, add a top-level `private val lock = Any()` and write `synchronized(lock) { count++ }` in the loop.) Run it.",
+     "Undo that. Change `count` to `static final AtomicInteger count = new AtomicInteger();` (in Kotlin, `private val count = AtomicInteger()`), call `count.incrementAndGet()`, reset it with `count.set(0)` and print `count.get()`. Run it.",
+     "Which one felt slower? Add `long t0 = System.nanoTime();` before the threads start, print the elapsed milliseconds after the joins, and run each version a few times."
     ],
-    "expect": "Both versions print exactly 2,000,000 on all five runs. On a typical laptop the atomic version is faster than the synchronized one when two threads fight over the counter, though both are much slower than the broken version. Correct code that does real synchronization costs something."
+    "expect": "Both versions print exactly 2,000,000 on all five runs. The times jump around. On a 4-core Linux machine the atomic version took 41 to 54 ms a run, close to the broken one, and the synchronized one took anywhere from 28 to 220 ms. Get it correct first, then measure the speed, and measure more than once."
    }
   }
  ],
- "analogy": "Picture two cashiers sharing one paper tally sheet. Each reads the total, adds their sale on a scrap of paper, and writes the new total over the old one. If both read 41 before either writes, both write 42 and one sale disappears from the books. The fix is to pass a single pen: whoever holds it does read, add and write before handing it over. The analogy breaks in one way: cashiers would notice the sheet changed under them. A CPU never notices. It writes 42 without complaint.",
- "in_your_world": "Look for the daily spend limit check in a payment service: `if (spentToday + amount <= limit) { approve(); spentToday += amount; }`. Two authorizations for the same card arrive 3 ms apart on two Quarkus worker threads. Both read `spentToday` before either adds to it, and the card goes over its limit. The same shape appears in Kafka consumers with concurrency above 1, in in-memory metrics counters, and in Temporal activities that check \"already done?\" before doing work. Activities can be retried, so make that check a single atomic step, ideally a database insert guarded by a unique key.",
- "mistake": "The most common mistake is trusting a thread-safe collection to make compound logic safe. `ConcurrentHashMap`, `Collections.synchronizedMap` and `ConcurrentLinkedQueue` make each method call atomic. They say nothing about two calls in a row. Code like `if (!map.containsKey(k)) map.put(k, v)` or `map.put(k, map.get(k) + 1)` is still a race. Reach for the single method that does the whole job: `putIfAbsent`, `computeIfAbsent`, `merge` or `compute`.",
  "compare": {
   "title": "The same race and fix in Java and Kotlin",
-  "java": {"title": "HitCounter.java", "src": "public class HitCounter {\n    private int count;\n\n    // broken: count++ is read, add, write\n    public void hitBroken() { count++; }\n\n    // fixed: one thread at a time\n    public synchronized void hit() { count++; }\n    public synchronized int total() { return count; }\n}"},
-  "kotlin": {"title": "HitCounter.kt", "src": "class HitCounter {\n    private var count = 0\n\n    // broken: compiles to the same read, add, write\n    fun hitBroken() { count++ }\n\n    // fixed: Kotlin has no synchronized keyword; use the annotation\n    @Synchronized fun hit() { count++ }\n    @Synchronized fun total(): Int = count\n}"},
-  "note": "Kotlin's `count++` on a `var` property compiles to the same three bytecode steps, so it races in exactly the same way. Kotlin has no `synchronized` modifier. You write `@Synchronized` on a function, or call the standard library function `synchronized(lock) { ... }` with an explicit lock object. `java.util.concurrent.atomic` works the same from both languages."
+  "java": {"title": "MerchantBalance.java", "src": "public class MerchantBalance {\n    private long balanceCents;\n\n    // Naive: balanceCents += cents is a read, an add and a write\n    public void depositBroken(long cents) { balanceCents += cents; }\n\n    // Fixed: one thread at a time, and readers take the same lock\n    public synchronized void deposit(long cents) { balanceCents += cents; }\n    public synchronized long balance() { return balanceCents; }\n}"},
+  "kotlin": {"title": "MerchantBalance.kt", "src": "class MerchantBalance {\n    private var balanceCents = 0L\n\n    // Naive: compiles to the same read, add and write\n    fun depositBroken(cents: Long) { balanceCents += cents }\n\n    // Fixed: Kotlin has no synchronized modifier; the annotation does the same job\n    @Synchronized fun deposit(cents: Long) { balanceCents += cents }\n    @Synchronized fun balance(): Long = balanceCents\n}"},
+  "note": "Both classes have the same race and the same fix, and the Kotlin one is a direct translation. Two things differ. Kotlin has no `synchronized` modifier, so the fix is the `@Synchronized` annotation, which marks the compiled method as synchronized exactly as Java's modifier does. And `+=` on a Kotlin `var` property compiles to the same read, add and write as Java's, so it races in exactly the same way. `java.util.concurrent.atomic` and `ConcurrentHashMap.merge` work the same from both languages."
  },
  "worked": {
-  "title": "Find and fix the race in an idempotency check",
+  "title": "Find and fix the race in the ledger's idempotency check",
   "steps": [
-   {"say": "A payment handler skips messages it has already processed. It runs on four Kafka consumer threads. Read it and look for the shape before reading on.",
-    "code": "class PaymentHandler {\n    private final Set<String> seen = ConcurrentHashMap.newKeySet();\n\n    void handle(PaymentMessage m) {\n        if (seen.contains(m.idempotencyKey())) return;   // check\n        ledger.charge(m);                                 // 80 ms\n        seen.add(m.idempotencyKey());                     // act\n    }\n}", "lang": "java",
-    "alt_lang": "kotlin", "alt_code": "class PaymentHandler {\n    private val seen: MutableSet<String> = ConcurrentHashMap.newKeySet()\n\n    fun handle(m: PaymentMessage) {\n        if (m.idempotencyKey in seen) return             // check\n        ledger.charge(m)                                 // 80 ms\n        seen += m.idempotencyKey                         // act\n    }\n}"},
-   {"say": "It is check-then-act. Two copies of the same message, handled by two threads within the same 80 ms, both pass the `contains` check. Both charge the card. The set being concurrent does not help, because the race is between the calls, not inside them.", "code": "", "lang": ""},
-   {"say": "Claim the key first, in one atomic call. `Set.add` returns `false` if the key was already there, so only one thread gets past this line. If the charge fails, release the claim so a retry can try again.",
-    "code": "void handle(PaymentMessage m) {\n    if (!seen.add(m.idempotencyKey())) return;   // check and act in one step\n    try {\n        ledger.charge(m);\n    } catch (RuntimeException e) {\n        seen.remove(m.idempotencyKey());          // let a retry have another go\n        throw e;\n    }\n}", "lang": "java",
-    "alt_lang": "kotlin", "alt_code": "fun handle(m: PaymentMessage) {\n    // 1. claim the key: add() returns false if it was already there\n    if (!seen.add(m.idempotencyKey)) return\n    try {\n        ledger.charge(m)                         // 2. charge\n    } catch (e: RuntimeException) {\n        seen.remove(m.idempotencyKey)            // 3. release on failure\n        throw e\n    }\n}"},
-   {"say": "That fixes the race inside one JVM. It does not survive a restart, and it does not cover two pods. In production the claim belongs in the database: insert the key into a table with a unique constraint before charging, and treat a duplicate-key error as \"already processed\". It is the same idea, one atomic step, moved to the place that all instances share.",
-    "code": "INSERT INTO processed_payment (idempotency_key, received_at)\nVALUES (?, CURRENT_TIMESTAMP);   -- a second insert fails on the unique key", "lang": "sql"}
+   {"say": "The ledger's payment handler skips payments it has already posted. It runs on four consumer threads, and posting takes about 80 ms. Read it and find the shape before you read on.",
+    "code": "class PaymentHandler {\n    private final Set<String> posted = ConcurrentHashMap.newKeySet();\n\n    void handle(PaymentEvent e) {\n        if (posted.contains(e.idempotencyKey())) return;   // check\n        ledger.post(e);                                    // about 80 ms\n        posted.add(e.idempotencyKey());                    // act\n    }\n}", "lang": "java",
+    "alt_lang": "kotlin", "alt_code": "class PaymentHandler {\n    private val posted: MutableSet<String> = ConcurrentHashMap.newKeySet()\n\n    fun handle(e: PaymentEvent) {\n        if (e.idempotencyKey in posted) return             // check\n        ledger.post(e)                                     // about 80 ms\n        posted += e.idempotencyKey                         // act\n    }\n}"},
+   {"say": "It's check-then-act, with an 80 ms gap. Two copies of the same payment, handled by two threads within the same 80 ms, both pass the `contains` check, and both post. The set being concurrent doesn't help, because the race is between the calls, not inside them.", "code": "", "lang": ""},
+   {"say": "Claim the key first, in one atomic call. `Set.add` returns `false` if the key was already there, so only one thread gets past the first line. If posting fails, release the claim, so that a retry can have another go.",
+    "code": "void handle(PaymentEvent e) {\n    // 1. claim the key: add() returns false if it was already there\n    if (!posted.add(e.idempotencyKey())) return;\n    try {\n        ledger.post(e);                           // 2. post\n    } catch (RuntimeException ex) {\n        posted.remove(e.idempotencyKey());        // 3. release on failure\n        throw ex;\n    }\n}", "lang": "java",
+    "alt_lang": "kotlin", "alt_code": "fun handle(e: PaymentEvent) {\n    // 1. claim the key: add() returns false if it was already there\n    if (!posted.add(e.idempotencyKey)) return\n    try {\n        ledger.post(e)                            // 2. post\n    } catch (ex: RuntimeException) {\n        posted.remove(e.idempotencyKey)           // 3. release on failure\n        throw ex\n    }\n}"},
+   {"say": "That closes the race inside one JVM. It doesn't survive a restart, and it doesn't cover two pods, or a Temporal activity that is retried on another worker. In production the claim belongs in the database: insert the key into a table with a unique constraint before posting, and treat a duplicate-key error as \"already posted\". It's the same idea, one atomic step, moved to the place that every instance shares.",
+    "code": "INSERT INTO posted_payment (idempotency_key, received_at)\nVALUES (?, CURRENT_TIMESTAMP);   -- a second insert fails on the unique key", "lang": "sql"}
   ]
  },
  "lab": {
@@ -139,15 +348,15 @@ L = {
   "files": [f"{lab}/main/{P}/Hammer.java", f"{lab}/main/{P}/HitCounter.java", f"{lab}/main/{P}/SeatMap.java"],
   "run": "./gradlew :concurrency:test --tests 'workbench.concurrency.l03.*'",
   "steps": [
-   "Run the tests once. All five fail. Read the failure messages: the counter comes up short and seats are sold more than once.",
+   "Run the tests once. All five should fail. Read the messages: `Hammer` isn't written yet, the counter comes up short, and seats are sold more than once. (Once in a while the counter test passes on the broken code. The threads didn't collide that run, just as in the first section.)",
    "Write `Hammer.run`. Create a `CountDownLatch ready` of size `threads` and a `CountDownLatch go` of size 1. Each thread calls `ready.countDown()`, waits on `go.await()`, then runs the task. The caller waits on `ready`, calls `go.countDown()`, then joins every thread.",
    "Fix `HitCounter` so 8 threads x 200,000 hits always add up. Guard the read too.",
-   "Fix `SeatMap.book` without `synchronized`: replace the check and the put with one map call. Keep the call to `priceTheSeat()`.",
-   "Run the tests again until all five pass. Run them three more times. Race fixes must pass every time."
+   "Fix `SeatMap.book` without `synchronized`. It's the posted-payments check from this lesson, with concert seats in it: replace the check and the put with one map call. Keep the call to `priceTheSeat()`.",
+   "Run the tests again until all five pass. Then run them three more times. A race fix has to pass every time, not most of the time."
   ],
   "hints": [
-   "Why two latches in `Hammer`? `ready` tells the caller every thread exists and is parked. `go` releases them all at the same instant. Without `ready`, the first threads could finish before the last ones are created.",
-   "Inside a thread's lambda, `go.await()` throws `InterruptedException`. Catch it, restore the flag with `Thread.currentThread().interrupt()`, and return.",
+   "Why two latches in `Hammer`? `ready` tells the caller that every thread exists and is parked. `go` releases them all at the same instant. Without `ready`, the first threads could finish before the last ones are even created.",
+   "Inside a thread's lambda, `go.await()` throws `InterruptedException`. Catch it, restore the flag with `Thread.currentThread().interrupt()`, and return, as in A thread's life.",
    "`putIfAbsent` returns the previous value, or `null` if there was none. Only one caller can ever get `null` for a given key."
   ],
   "done_when": "All five tests in `RaceConditionsTest` pass, three runs in a row."
@@ -155,34 +364,35 @@ L = {
  "drill": {
   "title": "Write the start-line harness from memory",
   "minutes": 5,
-  "prompt": "Close this page and the lab. In a blank file, write a method `static void collide(int n, Runnable task)` that starts `n` threads, releases them at the same moment, and returns when all are done. Then compare with the answer. Did you remember to join?",
+  "prompt": "Close this page and the lab. In a blank file, write `static void collide(int n, Runnable task)`: it starts `n` threads, releases them at the same moment, and returns when all of them are done. Then compare with the answer. Did you remember the join?",
   "answer": {"lang": "java", "src": "static void collide(int n, Runnable task) throws InterruptedException {\n    CountDownLatch ready = new CountDownLatch(n);\n    CountDownLatch go = new CountDownLatch(1);\n    List<Thread> threads = new ArrayList<>();\n    for (int i = 0; i < n; i++) {\n        Thread t = new Thread(() -> {\n            ready.countDown();\n            try { go.await(); }\n            catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }\n            task.run();\n        });\n        t.start();\n        threads.add(t);\n    }\n    ready.await();      // all parked at the start line\n    go.countDown();     // starting gun\n    for (Thread t : threads) t.join();\n}",
-            "alt": {"lang": "kotlin", "src": "fun collide(n: Int, task: () -> Unit) {\n    val ready = CountDownLatch(n)\n    val go = CountDownLatch(1)\n    val threads = List(n) {\n        thread {\n            ready.countDown()\n            try { go.await() } catch (e: InterruptedException) { Thread.currentThread().interrupt(); return@thread }\n            task()\n        }\n    }\n    ready.await()      // all parked at the start line\n    go.countDown()     // starting gun\n    threads.forEach { it.join() }\n}"}}
+             "alt": {"lang": "kotlin", "src": "fun collide(n: Int, task: () -> Unit) {\n    val ready = CountDownLatch(n)\n    val go = CountDownLatch(1)\n    val threads = List(n) {\n        thread {\n            ready.countDown()\n            try { go.await() } catch (e: InterruptedException) { Thread.currentThread().interrupt(); return@thread }\n            task()\n        }\n    }\n    ready.await()      // all parked at the start line\n    go.countDown()     // starting gun\n    threads.forEach { it.join() }\n}"}}
  },
  "recap": [
-  "A race condition is a bug where the result depends on how threads interleave. It gives wrong answers silently.",
-  "Read-modify-write (`count++`, `balance -= x`, `put(k, get(k) + 1)`) loses updates when two threads read the same old value.",
-  "Check-then-act (`if (!contains) put`, `if (x == null) x = new ...`) breaks when another thread acts in the gap.",
-  "A thread-safe collection makes single calls atomic, never sequences of calls. Use `putIfAbsent`, `merge`, `computeIfAbsent` or `Set.add`.",
-  "Fixes, in order of preference: don't share, use one atomic library call, or lock the whole compound action including reads.",
-  "Races hide in small tests. Make threads collide on purpose, with a start latch, and run many iterations."
+  "A race condition is a bug where the result depends on how threads take turns. It gives wrong answers quietly, and small tests hide it, so make threads collide on purpose.",
+  "`count++`, `balanceCents += cents` and `put(k, get(k) + x)` are read-modify-write: when two threads read the same old value, one update is lost.",
+  "Check-then-act (`if (!containsKey) put`, `if (x == null) x = ...`) breaks when another thread acts in the gap between the check and the act.",
+  "A thread-safe collection makes each call atomic, never a sequence of calls. Use the one call that does the whole job: `merge`, `putIfAbsent`, `computeIfAbsent` or `Set.add`.",
+  "Fixes, in order of preference: don't share, use one atomic library call, or lock the whole compound action, reads included.",
+  "The limit: one atomic call protects one variable or one key. A change that spans two, like a transfer, needs a lock."
  ],
+ "closing": "We started with a ledger that came up short while every log line said yes. We watched `count++` lose updates and opened it into a read, an add and a write. Then we found the same shapes in the ledger's deposits and in its check for posted payments. Each fix was one atomic step on one key.\n\nNow search your own code for `containsKey(`. Any hit followed by a `put` on a map that several threads share is check-then-act, waiting for a busy evening.\n\nNext, we'll use `synchronized` to make a whole transfer one atomic step, and find out what a lock promises, and to whom.",
  "quiz": [
   {"q": "Two request threads run `account.balance = account.balance - amount;` on the same account at the same time. What can go wrong?",
    "options": ["Nothing, because one Java statement runs atomically", "One of the two debits can be lost, because both read the same starting balance", "The JVM throws an IllegalStateException", "The balance always goes negative"],
-   "answer": 1, "why": "It's read-modify-write. If both threads read 100 and debit 10, both write 90. One debit vanished. Java statements are not atomic just because they fit on one line."},
+   "answer": 1, "why": "It's read-modify-write. If both threads read 100 and debit 10, both write 90, and one debit is gone. A Java statement isn't atomic just because it fits on one line: `javap` shows a read, a subtract and a write."},
   {"q": "`counts` is a `ConcurrentHashMap<String, Integer>`. Many threads run `counts.put(k, counts.getOrDefault(k, 0) + 1)`. What is the smallest correct fix?",
    "options": ["Make the map field `volatile`", "Wrap the map with `Collections.synchronizedMap`", "Use `counts.merge(k, 1, Integer::sum)`", "Switch to a `HashMap`"],
-   "answer": 2, "why": "`merge` reads, computes and writes in one atomic operation on that key. `volatile` on the field only affects the reference to the map, and a synchronized wrapper still makes each call atomic on its own, leaving the gap between `get` and `put`."},
-  {"q": "A test runs 2 threads that each call `hit()` 1,000 times, and checks the total is 2,000. It passed 100 runs in a row. What does that tell you?",
+   "answer": 2, "why": "`merge` reads, computes and writes in one atomic step on that key. `volatile` on the field only affects the reference to the map. A synchronized wrapper still makes each call atomic on its own, so the gap between `get` and `put` stays open."},
+  {"q": "A test runs 2 threads that each call `hit()` 1,000 times, and checks that the total is 2,000. It passed 100 runs in a row. What does that tell you?",
    "options": ["The counter is thread-safe", "Very little: the threads probably never overlapped", "The JIT fixed the race", "The test should use 1 thread instead"],
-   "answer": 1, "why": "A thread can finish 1,000 increments before the second thread starts. With no overlap, a racy counter gives the right answer. Use more threads, more iterations and a start latch so they run at the same time."},
+   "answer": 1, "why": "A thread can finish 1,000 increments before the second thread starts. With no overlap, a racy counter gives the right answer every time. Use more threads, more iterations and a start latch, so that they really run at the same time."},
   {"q": "A cache does `if (cache.get(id) == null) cache.put(id, loadFromDb(id));` on a `ConcurrentHashMap`. Two threads ask for the same missing `id` together. What happens?",
    "options": ["Both may call `loadFromDb`, and the second `put` replaces the first value", "The second thread blocks until the first one finishes", "The map throws ConcurrentModificationException", "Only one thread can call `get` at a time, so it is safe"],
-   "answer": 0, "why": "It's check-then-act. Both see `null`, both load, both put. You pay for two database calls and callers may hold different objects. `computeIfAbsent(id, this::loadFromDb)` runs the loader at most once per key."},
+   "answer": 0, "why": "It's check-then-act. Both see `null`, both load, both put. You pay for two database calls, and callers may end up holding different objects. `computeIfAbsent(id, this::loadFromDb)` runs the loader at most once per key."},
   {"q": "From the last lesson: `main` starts thread `t`, which sets `result = 42`. When can `main` safely read `result`?",
    "options": ["Right after `t.start()` returns", "After `t.join()` returns", "After `Thread.sleep(100)`", "Any time, because `int` writes are atomic"],
-   "answer": 1, "why": "`join` waits for `t` to finish, and everything `t` wrote before it ended is visible to the thread whose `join` returned. `sleep` only makes it likely, not guaranteed. An atomic write still says nothing about when another thread sees it.",
+   "answer": 1, "why": "`join` waits for `t` to finish, and everything `t` wrote before it ended is visible to the thread whose `join` returned. `sleep` only makes that likely. An atomic write still says nothing about when another thread will see it.",
    "from": "conc-02"}
  ],
  "flashcards": [
@@ -190,7 +400,7 @@ L = {
   {"front": "Why is `count++` not atomic?", "back": "It runs as three steps: read `count`, add one, write it back. Another thread can run between them, so two increments can produce one."},
   {"front": "Name the two shapes of race condition.", "back": "Read-modify-write (`count++`, `balance -= x`) and check-then-act (`if (!map.containsKey(k)) map.put(k, v)`)."},
   {"front": "Is `if (!chm.containsKey(k)) chm.put(k, v)` safe on a ConcurrentHashMap?", "back": "No. Each call is atomic, but another thread can put between them. Use `chm.putIfAbsent(k, v)`."},
-  {"front": "Atomic fix for `map.put(k, map.get(k) + 1)` on a ConcurrentHashMap?", "back": "`map.merge(k, 1, Integer::sum)`"},
+  {"front": "Is `balances.put(id, balances.get(id) + cents)` safe on a ConcurrentHashMap?", "back": "No. It is read-modify-write across two calls, so deposits get lost. Use `balances.merge(id, cents, Long::sum)`."},
   {"front": "Why does a 2-thread x 1,000-iteration race test usually pass on broken code?", "back": "The first thread often finishes before the second starts, so they never overlap. Use a start latch and many iterations."}
  ],
  "terms": [
@@ -202,12 +412,12 @@ L = {
   {"term": "Critical section", "plain": "A piece of code that only one thread at a time may run, because it touches shared state."}
  ],
  "explain_back": {
-  "prompt": "A teammate says: \"Our seat map uses ConcurrentHashMap, so the booking code is thread-safe.\" Explain to them, in your own words, why that is wrong and what you would change.",
-  "answer": "ConcurrentHashMap makes each single call atomic, so `containsKey` and `put` are each safe on their own. The booking code runs them as two separate steps: check the seat, then take it. Another thread can take the seat between the two calls, so two buyers both see it free and both book it. The fix is to do the check and the act in one call, `putIfAbsent(seat, buyer) == null`, so only one caller can ever win. If many instances of the service share the seats, the same idea moves to a unique constraint in the database."
+  "prompt": "A teammate says: \"Our posted-payments map is a ConcurrentHashMap, so the consumer can't post a payment twice.\" Explain to them, in your own words, why that is wrong and what you would change.",
+  "answer": "ConcurrentHashMap makes each single call atomic, so `containsKey` and `put` are each safe on their own. The consumer runs them as two separate steps: check whether the payment was posted, then mark it posted. Another thread can run the same check between those two calls, so two consumers both see the payment as new and both post it. The fix is to do the check and the act in one call, `putIfAbsent(paymentId, me) == null`, so only one consumer can ever win. If several pods consume the same topic, the same idea moves into the database as a unique key."
  },
  "deeper": {
   "minutes": 10,
-  "body": "Two terms sound alike and mean different things.\n\nA **data race** is a precise term from the Java Language Specification, chapter 17. It happens when two threads access the same variable, at least one access is a write, and the two accesses are not ordered by a happens-before relationship. A program with a data race can see surprising values, because the compiler and CPU are allowed to reorder and cache unsynchronized accesses.\n\nA **race condition** is a logic bug: the program is wrong under some interleavings. You can have one without the other. The fixed `SeatMap` has no data race, but if the code first called `putIfAbsent` and then, in a separate step, charged a card and rolled back on failure, other threads could still observe a seat that is sold and then unsold. That is a race condition built entirely from thread-safe calls. Going the other way, `String.hashCode()` caches its result in a plain field that several threads may write at once. That is a data race, but a benign one: every thread computes the same value, and `int` writes cannot tear.\n\n`long` and `double` are the exception to that last point. JLS section 17.7 allows a write to a non-volatile `long` or `double` to happen as two separate 32-bit writes, so another thread could read half of an old value and half of a new one. 64-bit JVMs write them in one go in practice, but the spec does not promise it unless the field is `volatile`.\n\nYou'll meet happens-before properly in the memory model track. For now, the rule of thumb holds: every access to shared mutable state, reads included, goes through the same lock or the same atomic variable."
+  "body": "Two terms sound alike and mean different things.\n\nA **data race** is a precise term from the Java Language Specification, chapter 17. Two threads access the same variable, at least one of the accesses is a write, and nothing orders the two accesses by a happens-before relationship. A program with a data race can see surprising values, because the compiler and the CPU are allowed to reorder and cache unsynchronized accesses.\n\nA **race condition** is a logic bug: the program is wrong under some interleavings. You can have either one without the other. The fixed payment handler from the worked example has no data race, since every access goes through the concurrent set. But between the claim and the release on failure, other threads can see a payment that is posted and then unposted again. That's a race condition built entirely from thread-safe calls. Going the other way, `String.hashCode()` caches its result in a plain field that several threads may write at once. That's a data race, but a harmless one: every thread computes the same value, and an `int` write can't tear.\n\n`long` and `double` are the exception to that last point. JLS section 17.7 allows a write to a non-volatile `long` or `double` to happen as two separate 32-bit writes, so another thread could read half of an old value and half of a new one. 64-bit JVMs write them in one go in practice, but the specification only promises it when the field is `volatile`.\n\nYou'll meet happens-before properly in the memory model track. Until then, the rule from the last section holds: every access to shared mutable state, reads included, goes through the same lock or the same atomic variable."
  },
  "sources": [
   {"title": "Java Language Specification, chapter 17: Threads and Locks", "url": "https://docs.oracle.com/javase/specs/jls/se25/html/jls-17.html"},
