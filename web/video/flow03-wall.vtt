@@ -1,0 +1,121 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.409
+Here is the reader and the ledger writer from lesson 1.
+
+2
+00:00:06.409 --> 00:00:10.927
+As a plain flow, it prints read, posted, read, posted, all on main.
+
+3
+00:00:11.533 --> 00:00:16.181
+Now add one line: flowOn(io), a dispatcher with one thread, io-thread.
+
+4
+00:00:16.181 --> 00:00:18.837
+Each ledger write takes 30 milliseconds.
+
+5
+00:00:18.837 --> 00:00:21.559
+In what order do the six lines print now?
+
+6
+00:00:24.333 --> 00:00:28.026
+flowOn(io) changes the dispatcher, so it builds a wall.
+
+7
+00:00:28.026 --> 00:00:34.203
+Everything above it runs behind the wall, in a second coroutine on io-thread: a second cook.
+
+8
+00:00:34.433 --> 00:00:37.923
+In the wall sits a mailbox with 64 slots, a channel.
+
+9
+00:00:37.923 --> 00:00:42.084
+The second cook's emit now just drops a plate in, and returns.
+
+10
+00:00:42.300 --> 00:00:48.224
+In front of the wall, a loop on main takes the plates out, one at a time, and calls your collector.
+
+11
+00:00:48.224 --> 00:00:49.780
+The collector never moves.
+
+12
+00:00:50.000 --> 00:00:54.836
+So the reader runs ahead: all three reads print before the first posting is done.
+
+13
+00:00:54.836 --> 00:00:56.925
+Then the postings come out on main.
+
+14
+00:00:58.533 --> 00:01:00.109
+The mailbox can fill up.
+
+15
+00:01:00.109 --> 00:01:06.413
+With 64 plates in it and one in the diner's hands, the next send suspends until a slot frees up.
+
+16
+00:01:06.413 --> 00:01:08.252
+Backpressure didn't go away.
+
+17
+00:01:08.252 --> 00:01:12.192
+The reader now waits for a free slot, not for the collector.
+
+18
+00:01:13.100 --> 00:01:14.765
+Why build a wall at all?
+
+19
+00:01:14.765 --> 00:01:18.511
+Why not wrap the read and the emit in withContext(io)?
+
+20
+00:01:18.733 --> 00:01:21.362
+Remember, the collector runs inside emit.
+
+21
+00:01:21.362 --> 00:01:25.402
+An emit on io-thread would drag your collector behind the wall.
+
+22
+00:01:25.402 --> 00:01:29.121
+Your ledger code would run on a thread it never asked for.
+
+23
+00:01:29.333 --> 00:01:34.255
+So the inspector from lesson 2 sounds the alarm: Flow invariant is violated.
+
+24
+00:01:34.255 --> 00:01:41.443
+To move the reader and not the collector, you must break the call chain, with a second coroutine and a mailbox.
+
+25
+00:01:42.367 --> 00:01:49.541
+Here is the Kotlin, and its Java twin: a reader thread fills a 64 slot queue, and main empties it.
+
+26
+00:01:50.367 --> 00:01:56.188
+So flowOn moves the code above it behind a wall, with a 64 slot channel in between.
+
+27
+00:01:56.188 --> 00:01:58.572
+Your collector stays where it was.
+
+28
+00:01:58.800 --> 00:01:59.685
+Quick check.
+
+29
+00:01:59.685 --> 00:02:06.542
+Behind flowOn(io), a reader emits 100 lines at once, and the collector is stuck on the first.
+
+30
+00:02:06.542 --> 00:02:08.164
+How many emits return?

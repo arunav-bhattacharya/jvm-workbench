@@ -1,0 +1,145 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.065
+A reader needs 100 milliseconds to read each settlement line.
+
+2
+00:00:07.065 --> 00:00:10.643
+A ledger writer needs 300 milliseconds to post it.
+
+3
+00:00:10.643 --> 00:00:12.789
+A plain flow connects the two.
+
+4
+00:00:13.000 --> 00:00:16.542
+The reader emits the first line at 100 milliseconds.
+
+5
+00:00:16.542 --> 00:00:18.517
+When does it emit the second?
+
+6
+00:00:21.900 --> 00:00:23.989
+Picture one cook and one diner.
+
+7
+00:00:23.989 --> 00:00:27.764
+collect runs the flow block, and that block is the cook.
+
+8
+00:00:27.764 --> 00:00:30.325
+Reading a line takes 100 milliseconds.
+
+9
+00:00:30.533 --> 00:00:34.187
+Then the cook calls emit, and walks the plate to the table.
+
+10
+00:00:34.187 --> 00:00:37.159
+emit runs your collector's code right inside it.
+
+11
+00:00:37.159 --> 00:00:38.212
+That's the diner.
+
+12
+00:00:38.433 --> 00:00:41.677
+The diner posts to the ledger for 300 milliseconds.
+
+13
+00:00:41.677 --> 00:00:46.639
+And the cook stands at the table the whole time, because emit hasn't returned.
+
+14
+00:00:46.867 --> 00:00:51.183
+emit returns only when the box inside it closes, at 400.
+
+15
+00:00:51.183 --> 00:00:55.499
+Then the cook reads the next line, which takes 100 more.
+
+16
+00:00:55.499 --> 00:00:58.428
+So the second emit is at 500, not 200.
+
+17
+00:00:58.633 --> 00:01:01.406
+The same happens for every line.
+
+18
+00:01:01.406 --> 00:01:03.832
+Each one costs 100 plus 300.
+
+19
+00:01:03.832 --> 00:01:09.811
+Three lines take 1200 milliseconds, where the writer alone needs 900.
+
+20
+00:01:10.033 --> 00:01:12.549
+Two rules come out of this one picture.
+
+21
+00:01:12.549 --> 00:01:14.356
+First, a flow is sequential.
+
+22
+00:01:14.356 --> 00:01:20.613
+While emit(1) is open, the cook can't start line 2, and the diner never holds two plates at once.
+
+23
+00:01:20.833 --> 00:01:23.756
+Second, a slow collector slows the producer.
+
+24
+00:01:23.756 --> 00:01:27.211
+The reader could read a line every 100 milliseconds.
+
+25
+00:01:27.211 --> 00:01:31.130
+Here it reads one every 400, because it waits at the table.
+
+26
+00:01:31.130 --> 00:01:34.385
+That is backpressure, for free, with no protocol.
+
+27
+00:01:34.600 --> 00:01:36.607
+One thing the picture gets wrong.
+
+28
+00:01:36.607 --> 00:01:40.620
+The waiting cook is a suspended coroutine, and it holds no thread.
+
+29
+00:01:40.620 --> 00:01:45.180
+While your collector waits on the ledger, the thread runs other coroutines.
+
+30
+00:01:46.100 --> 00:01:48.188
+In code, nothing marks the wait.
+
+31
+00:01:48.188 --> 00:01:54.647
+Kotlin's emit and Java's accept are plain calls, and they return when the collector's code returns.
+
+32
+00:01:55.467 --> 00:01:58.320
+So emit is a direct call into the collector.
+
+33
+00:01:58.320 --> 00:02:02.989
+A plain flow handles one value at a time, at the speed of its collector.
+
+34
+00:02:03.200 --> 00:02:04.068
+Quick check.
+
+35
+00:02:04.068 --> 00:02:08.844
+A reader needs 50 milliseconds per line, and the writer needs 200.
+
+36
+00:02:08.844 --> 00:02:10.580
+When is the second emit?

@@ -109,6 +109,8 @@ def lesson(L, n, track):
                     "steps": [inline(x) for x in t.get("steps", [])], "code": code(t.get("code")),
                     "expect": md(t.get("expect", ""))} if t else None,
             "refs": [{"title": inline(r["title"]), "url": r["url"], "kind": r.get("kind", "read")} for r in s.get("refs", [])],
+            # optional sidebar: the question a reader is likely to ask at this point, answered in a few lines
+            "aside": {"title": inline(s["aside"].get("title", "")), "html": md(s["aside"].get("body", ""))} if s.get("aside") else None,
         })
     cmp_ = L.get("compare")
     lab = L.get("lab") or {}
@@ -116,6 +118,8 @@ def lesson(L, n, track):
         "id": L["id"], "track": track["id"], "n": n, "title": L["title"], "ready": True,
         "minutes": L.get("minutes", 35), "goal": inline(L.get("goal", "")),
         "warmup": mcq(L["warmup"]) if L.get("warmup") else None,
+        # optional book-style framing: a story that opens the lesson, and a bridge to the next one
+        "opening": md(L.get("opening", "")), "closing": md(L.get("closing", "")),
         "sections": secs,
         "analogy": md(L.get("analogy", "")), "world": md(L.get("in_your_world", "")), "mistake": md(L.get("mistake", "")),
         "compare": {"title": inline(cmp_.get("title", "")),

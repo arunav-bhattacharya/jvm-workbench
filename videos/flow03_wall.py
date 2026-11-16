@@ -282,16 +282,17 @@ class Flow03Wall(Narrated):
         self.play(FadeIn(wc, shift=DOWN * 0.1), run_time=0.7)
         self.hold()
 
-        ghost = VGroup(DashedVMobject(diner[0].copy().set_fill(opacity=0), num_dashes=40).set_stroke(ERR, 3),
-                       diner_t.copy().set_color(ERR))
-        ghost.set_z_index(6)
+        g_box = DashedVMobject(RoundedRectangle(corner_radius=0.12, width=2.0, height=1.2, stroke_color=ERR, stroke_width=3),
+                               num_dashes=34)
+        ghost = VGroup(g_box, VGroup(T("the diner", 26, ERR), M("post(id)", 22, ERR)).arrange(DOWN, buff=0.12).move_to(g_box))
+        ghost.move_to(diner).set_z_index(6)
         dragged = T("your collector, dragged onto io-thread", 24, ERR).move_to([-3.4, -0.75, 0])
         self.say("drag")
         self.play(Circumscribe(wc, color=ERR, buff=0.08), run_time=1.0)
-        self.play(VGroup(cook, cook_t, second).animate.shift(LEFT * 0.75), run_time=0.6)
+        self.play(VGroup(cook, cook_t, second).animate.shift(LEFT * 0.5), run_time=0.6)
         self.at(1)
         self.add(ghost)
-        self.play(ghost.animate.scale(0.92).move_to([-2.12, YK, 0]), diner.animate.set_opacity(0.35),
+        self.play(ghost.animate.move_to([-1.95, YK, 0]), diner.animate.set_opacity(0.35),
                   diner_t.animate.set_opacity(0.35), run_time=1.6)
         self.play(FadeIn(dragged, shift=UP * 0.1), run_time=0.5)
         self.at(2)
@@ -308,7 +309,7 @@ class Flow03Wall(Narrated):
         self.at(1)
         self.play(FadeOut(siren), FadeOut(ghost), FadeOut(dragged), FadeOut(wc), diner.animate.set_opacity(1),
                   diner_t.animate.set_opacity(1), run_time=0.8)
-        self.play(VGroup(cook, cook_t, second).animate.shift(RIGHT * 0.75), run_time=0.5)
+        self.play(VGroup(cook, cook_t, second).animate.shift(RIGHT * 0.5), run_time=0.5)
         self.at_text("with a second")
         self.play(FadeIn(mbox), FadeIn(cells), FadeIn(mbox_l), FadeIn(drain), FadeIn(drain_t), run_time=0.9)
         self.hold()

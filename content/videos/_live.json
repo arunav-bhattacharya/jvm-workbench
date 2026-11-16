@@ -138,6 +138,9 @@
   "cap1-limits",
   "cap3-java-surface",
   "cap2-hedge",
-  "cap4-build-time"
+  "cap4-build-time",
+  "flow01-inside-emit",
+  "flow02-inspector",
+  "flow03-wall"
  ]
 }

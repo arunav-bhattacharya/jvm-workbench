@@ -286,6 +286,11 @@ code, pre, kbd, .codebox, .sim ol { font-variant-ligatures: none; }
 .call.world > .label { color: var(--amber); }
 .call.mistake { background: color-mix(in srgb, var(--rose) 6%, transparent); border-color: color-mix(in srgb, var(--rose) 26%, transparent); }
 .call.mistake > .label { color: var(--rose); }
+.call.aside { background: color-mix(in srgb, var(--plum) 6%, transparent); border-color: color-mix(in srgb, var(--plum) 24%, transparent); }
+.call.aside > .label { color: var(--plum); }
+.call.next { background: var(--panel); border-color: var(--rule); }
+.call.next > .label { color: var(--gold); }
+.prose.lede { font-size: 1.06em; }
 
 .tryit { border-radius: 14px; padding: 14px 18px; display: grid; gap: 10px; background: color-mix(in srgb, var(--teal) 6%, transparent); border: 1px solid color-mix(in srgb, var(--teal) 28%, transparent); }
 .tryit .th { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font: 600 17px var(--read); }

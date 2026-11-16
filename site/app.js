@@ -538,6 +538,10 @@
         <div class="donebar">${done ? `<span class="done-pill">■ Done</span><button class="btn ghost sm" data-act="undone" data-id="${l.id}">Mark not done</button>` : `<button class="btn ghost sm" data-act="done" data-id="${l.id}">Mark lesson done</button>`}
         <button class="btn ghost sm" data-act="timer">Start a 35-minute session</button></div>
       </header>`;
+    if (l.opening) {
+      toc.push(["opening", "Introduction"]);
+      h += `<section class="block opening" id="opening" style="margin-top:0"><div class="prose lede">${l.opening}</div></section>`;
+    }
     if (l.warmup) {
       toc.push(["warmup", "Before you read"]);
       h += `<section class="block" id="warmup" style="margin-top:0;margin-bottom:40px"><span class="label">Before you read · guess, no score</span>${mcqCard(l.warmup, "w:" + l.id, 0, { warm: true })}</section>`;
@@ -547,6 +551,7 @@
       h += `<section class="lsec" id="s${si}"><div class="shead"><span class="sn">${pad(si + 1)}</span><h2>${s.h}</h2></div>
         ${s.video ? videoFig(s.video) : ""}
         <div class="prose">${s.html}</div>
+        ${s.aside ? callout("aside", s.aside.title || "You might be wondering", s.aside.html) : ""}
         ${s.figure ? `<figure class="fig"><div class="svg">${s.figure.svg}</div><figcaption><b>FIG ${pad(si + 1)}</b>${s.figure.caption}</figcaption></figure>` : ""}
         ${s.sim ? `<div class="sim" data-sim="${l.id}-${si}"></div>` : ""}
         ${si === 0 && l.analogy ? callout("analogy", "Picture it", l.analogy) : ""}
@@ -587,6 +592,7 @@
         <details class="reveal"><summary>Show the answer</summary><div style="margin-top:10px">${codePair(l.drill.answer, "Answer")}</div></details></section>`;
     }
     if (l.recap.length) h += `<section class="block"><div class="recap"><span class="label">Remember</span><ul class="prose" style="max-width:none">${l.recap.map((r) => `<li>${r}</li>`).join("")}</ul></div></section>`;
+    if (l.closing) h += `<section class="block" id="closing"><aside class="call next"><span class="label">Where we go next</span><div class="prose">${l.closing}</div></aside></section>`;
     toc.push(["quiz", "Quiz"]);
     h += `<section class="block" id="quiz"><span class="label">Exit quiz · ${l.quiz.length} questions · ${Math.ceil(l.quiz.length * 0.8)} right marks the lesson done</span><h2>Check what stuck</h2>${quizBlock(l.quiz, l.id, "lesson")}</section>`;
     if (l.explain) {
