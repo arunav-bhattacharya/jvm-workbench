@@ -16,9 +16,9 @@ N = {
     "output": "On JDK 25, three seconds later, the worker is still running. It never stops. "
               "No crash, no error, just a busy processor doing laps.",
     "shy": "So here's a question that feels too simple to ask. Main wrote true. Where is the worker reading false from?",
-    "usual": "Most people say: the cache. A core is the part of a processor that runs one thread, and beside each core sits "
-             "a cache, a small, fast memory that keeps copies of main memory. "
-             "The story goes: the worker's cache holds an old copy of stop, forever.",
+    "usual": "Most people say: the cache. Beside each core, the part of a processor that runs one thread, sits a cache: "
+             "a small, fast memory that keeps copies of main memory. "
+             "The story: the worker's cache holds an old copy of stop, forever.",
     "xint_q": "Let's test it. A switch, -Xint, turns off the JIT, the part of Java that turns busy code into fast machine code. "
               "The caches stay the same. Will the worker still hang?",
     "xint_a": "It stopped at once, after about 113 million laps. Only the JIT changed. "
@@ -39,7 +39,7 @@ N = {
             "Whoever reads last reads after both writes, so someone sees a 1. Both reading 0 should be impossible.",
     "count_q": "The demo runs this test 524,288 times. In how many trials do both threads read 0?",
     "count_a": "Run one: 240,989. Run two: 225,261. Run three: 171,281. For something impossible, it happens a lot.",
-    "why": "Here's how. Each thread drops its note in its own tray, then reads the other field from its photocopy. "
+    "why": "Each thread drops its note in its own tray, then reads the other field from its photocopy. "
            "Zero, and zero. Only then do the runners reach the board.",
     "xint2": "With the JIT off, it still happens: 44,000 to 110,000 times. So this one really is the hardware.",
     "vol1": "Make both fields volatile, a keyword for fields shared between threads, and the count is 0, every time. "
@@ -48,8 +48,7 @@ N = {
     "notepad": "One more thing sits on each desk: a notepad. Glancing down beats walking to the wall, "
                "so a clerk copies a number onto it. And no rule ever crosses a notepad out.",
     "jit": "Here's what the JIT did. After many thousands of laps, it compiled the loop. "
-           "Nothing in it writes stop, so it read stop once, and made the rest while true.",
-    "hoist_office": "In the office, the clerk copied the answer, no, onto her notepad once, and now reads only the notepad.",
+           "Nothing in it writes stop, so it copied stop onto the notepad once, and made the rest while true.",
     "hang": "Main writes true. The note leaves the tray. The board says true. Both photocopies say true. "
             "And the worker keeps reading its notepad.",
     "register": "The notepad is a register, a tiny storage slot inside a core. That's where the old value lives.",
@@ -102,14 +101,14 @@ class Narrated(VoiceScene):
         if rest > 0.02:
             self.wait(rest)
 
-    def hold(self, after=0.25):
+    def hold(self, after=0.15):
         rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def predict(self, secs=2.4):
+    def predict(self, secs=2.0):
         """A beat of silence for the viewer to guess, with a small on-screen prompt."""
         tag = T("pause and guess", 24, GREY_B).move_to([-6.4, 3.25, 0], aligned_edge=LEFT)
         self.play(FadeIn(tag), run_time=0.3)
@@ -323,7 +322,7 @@ class Jmm01StopLoop(Narrated):
         self.say("usual")
         self.at(1)
         self.play(FadeIn(VGroup(f0, h0)), FadeIn(VGroup(f1, h1)), run_time=0.8)
-        self.at_text("beside each core")
+        self.at_text("sits a cache")
         self.play(FadeIn(ca0), FadeIn(ca1), run_time=0.6)
         self.at_text("copies of main")
         self.play(FadeIn(ram), Create(w0), Create(w1), run_time=0.7)
@@ -476,7 +475,8 @@ class Jmm01StopLoop(Narrated):
         least = T("every shuffle: at least one read sees 1", 30).move_to([0, -1.45, 0])
         imp = T("both read 0?  impossible", 32, YELLOW_M).move_to([0, -2.35, 0])
         self.at(1)
-        self.play(Indicate(VGroup(p1[3], p2[3]), color=WHITE, scale_factor=1.05), run_time=0.8)
+        self.play(Circumscribe(VGroup(p1[3]), color=WHITE, buff=0.06), Circumscribe(VGroup(p2[3]), color=WHITE, buff=0.06),
+                  run_time=0.8)
         self.play(FadeIn(least, shift=UP * 0.1), run_time=0.6)
         self.at(2)
         self.play(FadeIn(imp, shift=UP * 0.1), run_time=0.6)
@@ -588,7 +588,7 @@ class Jmm01StopLoop(Narrated):
                        code_block(["if (!stop) {", "    while (true) { spins++; }", "}"], 26, OLD))
         for g in (left, right):
             g.arrange(DOWN, aligned_edge=LEFT, buff=0.25)
-        jit = VGroup(left, right).arrange(RIGHT, buff=1.7, aligned_edge=UP).move_to(UP * 1.0)
+        jit = VGroup(left, right).arrange(RIGHT, buff=2.4, aligned_edge=UP).move_to(UP * 1.0)
         fit(jit, 12.4)
         jarr = Arrow(left.get_right() + RIGHT * 0.05, right.get_left() + LEFT * 0.05, buff=0.1, color=GREY_B, stroke_width=3)
         jlab = T("the JIT", 24, GREY_B).next_to(jarr, UP, buff=0.1)
@@ -597,19 +597,14 @@ class Jmm01StopLoop(Narrated):
         self.play(FadeIn(left, shift=UP * 0.2), run_time=0.7)
         self.at(2)
         self.play(FadeIn(why_ok), run_time=0.6)
-        self.at_text("so it read")
+        self.at_text("so it copied")
         self.play(GrowArrow(jarr), FadeIn(jlab), FadeIn(right, shift=LEFT * 0.2), run_time=1.2)
         self.hold()
         self.play(FadeOut(VGroup(left, right, jarr, jlab, why_ok)), run_time=0.6)
 
-        self.say("hoist_office")
-        self.play(FadeIn(desks), FadeIn(dw.note), FadeIn(dm.note), run_time=0.7)
-        self.play(*dw.note.set(vcolor=OLD, color=OLD), run_time=0.5)
-        for _ in range(3):
-            self.fly([(dw.note.get_top(), dw.code.get_bottom())], WK, rt=0.4)
-        self.hold()
-
         self.say("hang")
+        self.play(FadeIn(desks), FadeIn(dw.note), FadeIn(dm.note), run_time=0.6)
+        self.play(*dw.note.set(vcolor=OLD, color=OLD), run_time=0.4)
         note = chip("stop = true", MN, size=22, mono=True).move_to(dm.code).set_z_index(7)
         self.play(FadeIn(note), run_time=0.25)
         self.play(note.animate.move_to(dm.out.get_right() + LEFT * 1.0), run_time=0.5)
@@ -643,7 +638,7 @@ class Jmm01StopLoop(Narrated):
 
         # the office as it stands: the worker's desk with a verdict on each row
         mdesk = VGroup(dm.frame, dm.head, dm.code, dm.note, dm.out, dm.copy, wr1)
-        newb = Cell("whiteboard (main memory)", "stop = true", color=WHITE, vcolor=NEWV, w=DESK_W, h=0.8, center=True)
+        newb = Cell("whiteboard", "stop = true", color=WHITE, vcolor=NEWV, w=DESK_W, h=0.8, center=True)
         newb.move_to([-DX, BOARD_Y, 0])
         v_note = T("stays old forever: the JIT's choice", 26, OLD).move_to([0.6, NOTE_Y, 0], aligned_edge=LEFT)
         v_out = T("delivers within nanoseconds", 26, TRAY).move_to([0.6, OUT_Y, 0], aligned_edge=LEFT)
@@ -710,7 +705,7 @@ class Jmm01StopLoop(Narrated):
         fd.note = Cell("notepad (register)", "stop = false", color=OLD, vcolor=OLD).move_to([-DX, NOTE_Y, 0])
         fd.out = Cell("outbox (store buffer)", "empty", vcolor=GREY_B).move_to([-DX, OUT_Y, 0])
         fd.copy = Cell("photocopy (cache)", "stop = true", vcolor=NEWV).move_to([-DX, COPY_Y, 0])
-        fb = Cell("whiteboard (main memory)", "stop = true", color=WHITE, vcolor=NEWV, w=DESK_W, h=0.8, center=True)
+        fb = Cell("whiteboard", "stop = true", color=WHITE, vcolor=NEWV, w=DESK_W, h=0.8, center=True)
         fb.move_to([-DX, BOARD_Y, 0])
         fw = Line(fd.copy.get_bottom(), [-DX, fb.get_top()[1], 0], stroke_width=2, color=GREY_D).set_z_index(-1)
         fdesk = VGroup(fd.frame, fd.head, fd.code, fd.note, fd.out, fd.copy, fb, fw)
@@ -773,4 +768,4 @@ class Jmm01StopLoop(Narrated):
         self.say("check")
         self.play(FadeIn(cq, shift=UP * 0.1), run_time=0.8)
         self.hold(after=0)
-        self.wait(3.0)
+        self.wait(2.5)

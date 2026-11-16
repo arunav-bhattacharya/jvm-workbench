@@ -1,149 +1,301 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.198
-Each request gets its own virtual thread.
+00:00:02.733 --> 00:00:07.316
+Last time, WallDemo gave 2,000 checkouts a virtual thread each.
 
 2
-00:00:05.198 --> 00:00:10.927
-Ten thousand requests means ten thousand threads, and most of them are waiting on the network.
+00:00:07.316 --> 00:00:15.099
+Every one of them slept for 100 milliseconds, and the whole run took about 150 milliseconds, on four cores.
 
 3
-00:00:11.133 --> 00:00:14.164
-Yet only a few OS threads run all of them.
+00:00:15.267 --> 00:00:18.327
+So here's the question that's easy to be shy about.
 
 4
-00:00:14.164 --> 00:00:15.029
-Here is how.
+00:00:18.327 --> 00:00:20.427
+A sleeping thread holds its thread.
 
 5
-00:00:15.833 --> 00:00:19.864
-The JDK runs virtual threads on a ForkJoinPool of its own.
+00:00:20.427 --> 00:00:22.648
+That was the whole problem last time.
 
 6
-00:00:19.864 --> 00:00:23.824
-Its workers are platform threads, called carrier threads.
+00:00:22.648 --> 00:00:25.768
+So with four cores, who was doing all that sleeping?
 
 7
-00:00:23.824 --> 00:00:26.118
-By default there is one per core.
+00:00:29.200 --> 00:00:32.517
+Let's go back to the restaurant, and run it a new way.
 
 8
-00:00:26.118 --> 00:00:27.785
-Say the machine has two.
+00:00:32.517 --> 00:00:34.176
+It keeps only four waiters.
 
 9
-00:00:28.000 --> 00:00:32.087
-A carrier takes a ready virtual thread from the queue and runs it.
+00:00:34.176 --> 00:00:39.951
+Each table's service is written on an order slip: what the table has had, and what comes next.
 
 10
-00:00:32.087 --> 00:00:33.573
-This is called mounting.
+00:00:40.133 --> 00:00:47.396
+When a table waits for the kitchen, the waiter clips its slip to the board by the kitchen door, and picks up a slip that's ready.
 
 11
-00:00:33.573 --> 00:00:37.599
-The thread's top stack frames now sit on the carrier's own stack.
+00:00:47.396 --> 00:00:52.520
+When the dish is ready, any free waiter takes that slip, and carries on from its last line.
 
 12
-00:00:37.800 --> 00:00:40.375
-Now VT 1 calls a socket read.
+00:00:52.667 --> 00:00:57.441
+Four waiters can serve two hundred tables, because nobody stands at the door.
 
 13
-00:00:40.375 --> 00:00:42.507
-No data has arrived yet.
+00:00:57.441 --> 00:00:59.488
+That door just lost all its fans.
 
 14
-00:00:42.733 --> 00:00:44.226
-So the JDK unmounts it.
+00:00:59.488 --> 00:01:03.332
+So the point is, the slips wait, and the waiters keep working.
 
 15
-00:00:44.226 --> 00:00:50.000
-It copies the frames into stack chunk objects on the heap, and the carrier is free again.
+00:01:03.467 --> 00:01:04.466
+Now the mapping.
 
 16
-00:00:50.233 --> 00:00:52.622
-The carrier does not wait for the network.
+00:01:04.466 --> 00:01:06.340
+Each slip is a virtual thread.
 
 17
-00:00:52.622 --> 00:00:54.897
-It mounts the next ready virtual thread.
+00:01:06.340 --> 00:01:11.960
+The waiters are carrier threads: real platform threads, one per core, that do the running.
 
 18
-00:00:55.100 --> 00:01:01.144
-VT 2 calls sleep, so it unmounts the same way, and carrier 2 picks up VT 4.
+00:01:11.960 --> 00:01:14.646
+The rail of ready slips is the ready queue.
 
 19
-00:01:01.367 --> 00:01:06.399
-Meanwhile, the JDK has registered the socket of VT 1 with a poller.
+00:01:14.646 --> 00:01:18.580
+The board is the heap, the memory where Java keeps its objects.
 
 20
-00:01:06.399 --> 00:01:12.559
-When data arrives, the poller unparks VT 1, and it goes back into the ready queue.
+00:01:18.580 --> 00:01:23.389
+And the manager, who decides which waiter takes which slip, is the scheduler.
 
 21
-00:01:12.767 --> 00:01:14.273
-It waits its turn.
+00:01:24.267 --> 00:01:25.971
+So what's written on a slip?
 
 22
-00:01:14.273 --> 00:01:20.631
-VT 4 then waits for a ReentrantLock and unmounts, and carrier 2 mounts VT 5.
+00:01:25.971 --> 00:01:32.057
+Every method call that hasn't finished has a frame: its local variables, and the line to go back to.
 
 23
-00:01:20.833 --> 00:01:24.957
-Then VT 3 finishes, and carrier 1 mounts VT 6.
+00:01:32.057 --> 00:01:39.117
+The slip holds all of the thread's frames, so the work can stop in the middle and carry on later from the same line.
 
 24
-00:01:25.167 --> 00:01:28.008
-VT 5 sends its reply and finishes.
+00:01:39.117 --> 00:01:41.552
+Work like that is called a continuation.
 
 25
-00:01:28.008 --> 00:01:31.519
-Now carrier 2 is free, and it mounts VT 1.
+00:01:41.733 --> 00:01:45.751
+Let's shrink it to two waiters, C1 and C2, and three slips.
 
 26
-00:01:31.519 --> 00:01:37.453
-The JDK copies its top frames back, and VT 1 carries on after the read.
+00:01:45.933 --> 00:01:49.944
+VT1 and VT2 are ready at the same moment.
 
 27
-00:01:37.667 --> 00:01:41.701
-VT 1 started on carrier 1 and now runs on carrier 2.
+00:01:49.944 --> 00:01:53.563
+C1 picks up VT1, and C2 picks up VT2.
 
 28
-00:01:41.701 --> 00:01:42.865
-That is normal.
+00:01:53.733 --> 00:01:56.390
+VT1 calls sleep, for 50 milliseconds.
 
 29
-00:01:42.865 --> 00:01:46.433
-A virtual thread can come back on any carrier.
+00:01:56.390 --> 00:02:00.915
+So its slip goes on the board, with its frames, and C1 is free.
 
 30
-00:01:47.467 --> 00:01:49.530
-Your code never sees the switch.
+00:02:01.067 --> 00:02:02.304
+VT3 arrives.
 
 31
-00:01:49.530 --> 00:01:54.819
-Thread.currentThread() returns the same virtual thread, before and after the read.
+00:02:02.304 --> 00:02:05.603
+C1 picks it up while VT1 sleeps.
 
 32
-00:01:55.033 --> 00:01:57.890
-The one place the carrier shows is toString.
+00:02:05.800 --> 00:02:07.976
+VT2 finishes, so C2 is free.
 
 33
-00:01:57.890 --> 00:02:00.227
-The part after the at sign names it.
+00:02:07.976 --> 00:02:13.493
+Then VT1's 50 milliseconds run out, and its slip goes back on the rail.
 
 34
-00:02:00.227 --> 00:02:02.045
-Use that for debugging only.
+00:02:13.667 --> 00:02:15.264
+VT1 started with C1.
 
 35
-00:02:02.045 --> 00:02:04.447
-The format is not specified anywhere.
+00:02:15.264 --> 00:02:17.819
+Which waiter carries on with it?
 
 36
-00:02:04.667 --> 00:02:08.389
-A parked virtual thread costs a little heap, not an OS thread.
+00:02:20.667 --> 00:02:22.724
+C2, because it's the free one.
 
 37
-00:02:08.389 --> 00:02:11.571
-That is how two carriers can serve thousands of them.
+00:02:22.724 --> 00:02:28.552
+VT1 carries on right after its sleep, on a different waiter, and its code can't tell.
+
+38
+00:02:28.733 --> 00:02:30.821
+Java has names for these two moves.
+
+39
+00:02:30.821 --> 00:02:34.816
+Picking up a slip is mounting: the carrier runs the virtual thread.
+
+40
+00:02:34.816 --> 00:02:43.047
+Clipping it to the board is unmounting: at a blocking call, the frames are copied to the heap, and the carrier goes back for the next one.
+
+41
+00:02:43.933 --> 00:02:45.477
+Does this really happen?
+
+42
+00:02:45.477 --> 00:02:50.750
+The lesson's CarrierDemo starts 8 virtual threads, named checkout-0 to checkout-7.
+
+43
+00:02:50.750 --> 00:02:55.445
+Each one prints its carrier, sleeps 50 milliseconds, and prints it again.
+
+44
+00:02:55.445 --> 00:02:58.339
+How many will wake up on a different carrier?
+
+45
+00:03:01.200 --> 00:03:07.156
+On a 4-core machine, they ran on 3 carriers, and 7 of the 8 woke up on a different one.
+
+46
+00:03:07.156 --> 00:03:11.263
+checkout-0 fell asleep on worker-1, and woke up on worker-3.
+
+47
+00:03:11.263 --> 00:03:12.975
+Not one of them was told.
+
+48
+00:03:13.733 --> 00:03:19.250
+So it's tempting to think, my thread lives on worker-1, so I can keep something there.
+
+49
+00:03:19.250 --> 00:03:20.469
+Java won't let you.
+
+50
+00:03:20.469 --> 00:03:31.375
+Thread.currentThread() always returns the virtual thread, never the carrier, and the carrier's own ThreadLocals, variables with a value for each thread, are out of reach.
+
+51
+00:03:31.533 --> 00:03:34.933
+Picture a waiter who keeps notes in his own pocket.
+
+52
+00:03:34.933 --> 00:03:39.467
+Table 4 orders dessert, he puts the slip down, and picks up table 9.
+
+53
+00:03:39.467 --> 00:03:41.400
+Now table 9 gets the dessert.
+
+54
+00:03:41.400 --> 00:03:43.400
+So the notes stay on the slip.
+
+55
+00:03:43.600 --> 00:03:47.740
+The one place the carrier shows is toString, after the at sign.
+
+56
+00:03:47.740 --> 00:03:49.448
+Use it for debugging only.
+
+57
+00:03:49.448 --> 00:03:51.748
+Its format isn't promised anywhere.
+
+58
+00:03:51.933 --> 00:03:57.515
+So the rule is: a virtual thread can come back on any carrier after every blocking call.
+
+59
+00:03:57.515 --> 00:03:59.925
+Never write code that cares which one.
+
+60
+00:04:00.667 --> 00:04:01.320
+One limit.
+
+61
+00:04:01.320 --> 00:04:04.130
+A slip is only put down at a blocking call.
+
+62
+00:04:04.130 --> 00:04:10.077
+A slip whose job is chopping onions stays in the waiter's hands until the chopping is done.
+
+63
+00:04:10.077 --> 00:04:13.344
+Virtual threads make waiting cheap, not computing.
+
+64
+00:04:14.133 --> 00:04:15.990
+Here it is in Java and Kotlin.
+
+65
+00:04:15.990 --> 00:04:19.084
+Read the current thread, sleep, and read it again.
+
+66
+00:04:19.084 --> 00:04:24.159
+It's the same virtual thread both times, even when the carrier changed underneath.
+
+67
+00:04:24.933 --> 00:04:27.220
+So, who was doing all that sleeping?
+
+68
+00:04:27.220 --> 00:04:27.665
+Nobody.
+
+69
+00:04:27.665 --> 00:04:33.001
+The slips slept on the board, while four waiters carried whichever slips were ready.
+
+70
+00:04:33.001 --> 00:04:35.605
+A virtual thread is a slip, not a waiter.
+
+71
+00:04:35.800 --> 00:04:36.572
+Quick check.
+
+72
+00:04:36.572 --> 00:04:39.788
+A virtual thread sleeps three times, then returns.
+
+73
+00:04:39.788 --> 00:04:44.033
+How many times is it put down, and how many times is it picked up?
+
+74
+00:04:47.067 --> 00:04:49.487
+Put down three times, once per sleep.
+
+75
+00:04:49.487 --> 00:04:53.608
+Picked up four times: once to start, and once after each sleep.

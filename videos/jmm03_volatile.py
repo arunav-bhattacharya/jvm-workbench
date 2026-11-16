@@ -3,332 +3,538 @@ import fg
 
 # Spoken forms only (captions keep the real words).
 fg.SAY[:0] = [
-    (r"3\.7 million", "three point seven million"),
-    (r"\bAtomicInteger\.incrementAndGet\b", "atomic integer dot increment and get"),
-    (r"\bAtomicInteger\b", "atomic integer"),
-    (r"max = Math\.max\(max, x\)", "max equals math dot max of max and x"),
+    (r"max = Math\.max\(max, x\)", "max equals math dot max of max and x"), (r"\bvisitors\+\+", "visitors plus plus"),
+    (r"\bincrementAndGet\b", "increment and get"), (r"\bAtomicInteger\b", "atomic integer"),
+    (r"\bLongAdder\b", "long adder"), (r"@Volatile", "at Volatile"),
 ]
 
-
-# ---- helpers for this file ----
-def code(lines, size=26, color=WHITE, ls=0.6):
-    """Monospace block that keeps indentation. Returns a VGroup with one sub-group per line."""
-    t = Text("\n".join(lines), font=MONO, font_size=size, color=color, line_spacing=ls)
-    out, i = VGroup(), 0
-    for ln in lines:
-        n = len(ln.replace(" ", ""))
-        out.add(VGroup(*t[i:i + n]))
-        i += n
-    return out
-
-
-def titled(label, block, buff=0.18):
-    return VGroup(T(label, 22, GREY_B), block).arrange(DOWN, aligned_edge=LEFT, buff=buff)
-
-
-def seq(scene, text, *steps, after=0.25):
-    """Speak one line and play several animation groups one after another inside it.
-    A step is (animations, run_time), (callable returning animations, run_time), or a bare number for a pause."""
-    path, dur = voice(text)
-    scene._cue(text, dur)
-    scene.add_sound(path)
-    used = 0
-    for st in steps:
-        if isinstance(st, (int, float)):
-            scene.wait(st); used += st
-        else:
-            anims, rt = st
-            if callable(anims):
-                anims = anims()
-            scene.play(*anims, run_time=rt); used += rt
-    if dur - used > 0.02:
-        scene.wait(dur - used)
-    if after:
-        scene.wait(after)
-
-
-T1C, T2C, VOL = BLUE_M, TEAL_M, GOLD_M
-
-
-def tpanel(name, color, pos):
-    r = RoundedRectangle(corner_radius=0.15, width=3.9, height=2.9, stroke_color=color, stroke_width=3)
-    r.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(color), 0.1), opacity=1).move_to(pos)
-    head = T(name, 30, color).move_to(r.get_top() + DOWN * 0.42)
-    return VGroup(r, head)
-
-
-def regbox(color):
-    r = RoundedRectangle(corner_radius=0.1, width=1.7, height=0.75, stroke_color=color, stroke_width=2.5)
-    r.set_fill(BLACK, opacity=1)
-    return r
-
-
-def vchip(text="volatile", size=24):
-    t = M(text, size, BLACK)
-    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.3, height=0.5, stroke_width=0).set_fill(VOL, 1)
-    return VGroup(r, t.move_to(r))
+# every spoken line, in order
+N = {
+    "open": "Picture a small museum with one front door and four gates. On the door hangs a sign, OPEN or CLOSED. "
+            "Beside it, a board shows today's visitor count.",
+    "rule": "The guards have one rule: never trust your memory, always read the board. "
+            "When someone comes in, the guard at that gate reads the count, and writes the number one higher.",
+    "program": "The museum's program works the same way. Four threads, one per gate, share two fields, open and visitors. "
+               "Both are volatile, the keyword that fixed the stop loop.",
+    "gives": "And volatile does its job well. Every read is fresh: no thread keeps an old copy on its notepad. "
+             "And every write is visible, in order. Switch on the lights before you turn the sign to OPEN, "
+             "and whoever reads OPEN finds the lights on.",
+    "shy": "So here's a question that feels too obvious to ask. If every read is fresh and every write is visible, "
+           "the count has to be right. Doesn't it?",
+    "predict": "Let's test it. Four gate threads each let in 1,000,000 visitors. That's 4,000,000 in all. "
+               "What does the volatile counter say at closing time?",
+    "show": "In one run: 3,348,221. About 650,000 visitors walked in, and the board never heard of them. "
+            "No error, no warning. Just a smaller number.",
+    "slow": "Let's slow it down to two visitors and two guards, with the count at 41.",
+    "trace": "Gate 1 reads the board: 41. Gate 2 reads the board: also 41. "
+             "Gate 1 adds one, and writes 42. Gate 2 adds one, and writes 42.",
+    "lost": "Two visitors came in, and the count moved by one. Every one of those four steps was a perfect volatile read "
+            "or write. And a guard who comes along later reads 42 and carries on. "
+            "Nothing in the program ever learns that someone went missing.",
+    "gap": "Here's what we got wrong. volatile makes the read fresh, and the write visible. "
+           "It does nothing about the gap between them. In that gap, another guard can walk up, read the same number, "
+           "and write over yours.",
+    "name": "This is called a lost update. visitors++ looks like one step, but it's three: read, add one, write. "
+            "That's a read-modify-write, and volatile never joins its steps together.",
+    "plain": "Here's the full run. The plain counter, with no volatile at all, says 3,987,596. Closer! "
+             "Shall we give it a medal? No. In a run of the Kotlin version, the plain counter came out exact, "
+             "and the volatile one lost 985,479. Both are broken, just in different patterns.",
+    "clicker": "What the museum needs is a clicker bolted to the board. One press reads the count, adds one, "
+               "and writes it back, as a single move. Nobody can press it halfway, "
+               "so a second guard goes before you or after you, never in between.",
+    "atomic": "In Java, that clicker is an AtomicInteger, and incrementAndGet is the press. "
+              "It's atomic: other threads see it either not started or completely done. "
+              "In the same run, it counted exactly 4,000,000.",
+    "adder": "For a busy counter you only read now and then, a LongAdder is faster still. "
+             "It spreads the additions over several cells, and adds them up when you ask. Also exactly 4,000,000.",
+    "guard": "The same trap hides in any group of steps that must happen together. Check, then act: "
+             "if the balance is big enough, take the money. Or keep the larger of two numbers. "
+             "Each one reads, decides, and writes, as separate steps.",
+    "seat": "Make every field volatile, and the museum can still sell the last seat on the evening tour twice. "
+            "One happy visitor, and one very confused one.",
+    "when": "So when is volatile enough? When one thread writes the field, and the new value doesn't depend on the old one. "
+            "The sign on the door is like that: one guard flips it, and nobody works out OPEN from the old value. "
+            "Many writers updating one number need an atomic. A rule across several fields needs a lock.",
+    "code": "Here's the counter in code, Java on the left and Kotlin on the right. "
+            "One AtomicInteger, and one incrementAndGet for each visitor.",
+    "moral": "So, if every read is fresh, why is the count wrong? Because fresh isn't the same as together. "
+             "volatile makes each read and each write visible. It never makes two of them one step.",
+    "check": "Quick check. Every gate thread runs max = Math.max(max, x) on a volatile field. Can it lose a value?",
+}
 
 
-class Jmm03Volatile(VoiceScene):
-    """jmm-03, section 1: what volatile gives (a fresh read every time, a write that carries the writes before it)
-    and what it does not (retries++ stays three steps: two fresh reads of 41, two visible writes of 42, one update
-    lost); incrementAndGet as one atomic step; volatile, atomic or lock; the rule and a check question."""
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
+
+    def say(self, key):
+        text = N[key]
+        path, dur = voice(text)
+        self._cue(text, dur)
+        self.add_sound(path)
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.15):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+        if after:
+            self.wait(after)
+
+    def predict(self, secs=2.2):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([-6.4, 3.25, 0], aligned_edge=LEFT)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def fly(self, pairs, color, rt=0.7, extra=()):
+        """Small dots run from each source to each target at the same time (a read or a write)."""
+        dots = [Dot(radius=0.09, color=color).move_to(a).set_z_index(8) for a, _ in pairs]
+        self.add(*dots)
+        self.play(*[d.animate.move_to(b) for d, (_, b) in zip(dots, pairs)], *extra, run_time=rt)
+        self.remove(*dots)
+
+
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
+
+
+# one colour per thing, for the whole video: one per gate thread
+G = [BLUE_M, TEAL_M, PURPLE_M, GOLD_M]
+GOOD, BAD, LIGHT = GREEN_M, RED_M, YELLOW_M
+
+
+def gate(i):
+    return chip(f"gate {i + 1}", G[i], size=26).set_z_index(5)
+
+
+def board_mob(n, w=4.2, h=1.35, label="visitors"):
+    r = RoundedRectangle(corner_radius=0.12, width=w, height=h, stroke_color=WHITE, stroke_width=4)
+    r.set_fill(BLACK, 1)
+    lab = T(label, 26, GREY_A).move_to(r).shift(LEFT * (w / 2 - 1.0))
+    num = M(f"{n:,}", 44).move_to(r).shift(RIGHT * 0.75)
+    return VGroup(r, lab, num)
+
+
+def renum(b, n, color=WHITE):
+    return Transform(b[2], M(f"{n:,}", 44, color).move_to(b[2]))
+
+
+def sign_mob(text, color):
+    r = RoundedRectangle(corner_radius=0.08, width=1.45, height=0.55, stroke_color=color, stroke_width=3)
+    r.set_fill(dim(color, 0.25), 1)
+    return VGroup(r, T(text, 26, WHITE).move_to(r)).set_z_index(4)
+
+
+def code_block(src, size=24, hl=None):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def medal():
+    c = Circle(radius=0.32, stroke_color=GOLD_M, stroke_width=4).set_fill(dim(GOLD_M, 0.35), 1)
+    r1 = Line([-0.12, 0.3, 0], [-0.25, 0.75, 0], stroke_color=BLUE_M, stroke_width=6)
+    r2 = Line([0.12, 0.3, 0], [0.25, 0.75, 0], stroke_color=BLUE_M, stroke_width=6)
+    return VGroup(r1, r2, c, T("1", 26, GOLD_M).move_to(c))
+
+
+class Jmm03Volatile(Narrated):
+    """jmm-03, section 1: the museum's door sign and visitor board, both volatile. What volatile gives (fresh reads,
+    visible ordered writes), and why visitors++ still loses visitors: two guards read 41 and both write 42
+    (VolatileCounterDemo: 3,348,221 of 4,000,000). The clicker (AtomicInteger, LongAdder), check-then-act, when
+    volatile is enough."""
 
     def construct(self):
-        self.title_card("volatile", "fresh and ordered, but not one step")
+        self.title_card("Fresh, but not together", "what volatile gives you, and what it doesn't")
 
-        # ---- the problem: a volatile counter that loses retries ----
-        board = RoundedRectangle(corner_radius=0.15, width=3.4, height=1.15, stroke_color=WHITE, stroke_width=3)
-        board.set_fill(BLACK, opacity=1).move_to([0, 2.2, 0])
-        b_lab = T("retries, in memory", 24, GREY_B).next_to(board, UP, buff=0.2)
-        val = M("0", 44).move_to(board)
-        tag = vchip().next_to(board, LEFT, buff=0.3)
+        # ================= the museum =================
+        door = RoundedRectangle(corner_radius=0.08, width=1.7, height=2.5, stroke_color=GREY_A, stroke_width=4)
+        door.move_to([-4.5, 1.55, 0])
+        knob = Dot(radius=0.07, color=GREY_A).move_to(door.get_right() + LEFT * 0.25)
+        door_l = T("front door", 22, GREY_B).next_to(door, DOWN, buff=0.15)
+        sg = sign_mob("OPEN", GOOD).move_to(door.get_center() + UP * 0.45)
+        bulb = Circle(radius=0.2, stroke_color=LIGHT, stroke_width=3).next_to(door, LEFT, buff=0.3).shift(UP * 0.8)
+        bulb_l = T("lights", 20, GREY_B).next_to(bulb, DOWN, buff=0.1)
+        board = board_mob(0).move_to([1.3, 1.9, 0])
+        gates = [gate(i).move_to([x, -1.05, 0]) for i, x in enumerate((-4.8, -1.6, 1.6, 4.8))]
+        self.say("open")
+        self.play(Create(door), FadeIn(knob), FadeIn(door_l), run_time=0.8)
+        self.play(FadeIn(sg, scale=0.8), run_time=0.4)
+        self.play(LaggedStart(*[FadeIn(g, shift=UP * 0.2) for g in gates], lag_ratio=0.2), run_time=1.0)
+        self.at(1)
+        self.play(Circumscribe(sg, color=GOOD, buff=0.08), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(board, shift=UP * 0.1), run_time=0.6)
+        self.hold()
 
-        ths = VGroup(*[box(f"thread {i}", GREY_B, w=2.2, h=0.75, size=26) for i in range(1, 5)]).arrange(RIGHT, buff=0.55)
-        ths.move_to([0, -0.2, 0])
-        ups = VGroup(*[Arrow(t.get_top(), board.get_bottom() + RIGHT * (t.get_x() * 0.25), buff=0.12, stroke_width=3,
-                             color=GREY_B, max_tip_length_to_length_ratio=0.12) for t in ths])
-        ups_l = T("each does retries++, a million times", 26, GREY_A).next_to(ths, DOWN, buff=0.4)
-        self.beat("This service counts retries to the card issuer. The counter field is volatile, so it looks safe.",
-                  FadeIn(VGroup(board, b_lab, val)), FadeIn(tag, shift=RIGHT * 0.2), run_time=1.4)
-        self.beat("Four threads each add one, a million times. What total do you expect?",
-                  LaggedStart(*[FadeIn(t, shift=UP * 0.2) for t in ths], lag_ratio=0.2), Create(ups), FadeIn(ups_l),
-                  run_time=2.2, after=1.6)
-        exp = VGroup(T("expected", 28, GREY_B), M("4,000,000", 30)).arrange(RIGHT, buff=0.4)
-        got = VGroup(T("one run", 28, GREY_B), M("3,681,731", 30, RED_M)).arrange(RIGHT, buff=0.4)
-        res = VGroup(exp, got).arrange(DOWN, aligned_edge=RIGHT, buff=0.3).move_to([0, -2.75, 0])
-        counter = ValueTracker(0)
-        val.add_updater(lambda m: m.become(M(f"{int(counter.get_value()):,}", 40, RED_M if counter.get_value() > 3.6e6 else WHITE).move_to(board)))
-        seq(self, "One measured run ended near 3.7 million. Over three hundred thousand retries vanished, and nothing threw.",
-            ([FadeIn(exp)], 0.5), ([counter.animate.set_value(3681731)], 2.4), ([FadeIn(got, shift=UP * 0.1)], 0.6))
-        val.clear_updaters()
-        self.beat("First, take volatile away for a moment.",
-                  FadeOut(VGroup(ths, ups, ups_l, res)), FadeOut(tag, shift=LEFT * 0.2), run_time=1.0)
+        self.say("rule")
+        self.at(1)
+        n = 0
+        for i in (0, 2, 1):
+            g = gates[i]
+            v = Dot(radius=0.11, color=WHITE).move_to(g.get_bottom() + DOWN * 0.15)
+            self.play(FadeIn(v, shift=UP * 1.0), run_time=0.4)
+            self.remove(v)
+            self.fly([(board.get_bottom(), g.get_top())], G[i], rt=0.45)
+            n += 1
+            self.fly([(g.get_top(), board.get_bottom())], G[i], rt=0.45, extra=[renum(board, n, G[i])])
+        self.hold()
 
-        # ---- plain field: a copy in a register ----
-        p1 = tpanel("Thread 1", T1C, [-4.45, -1.05, 0])
-        p2 = tpanel("Thread 2", T2C, [4.45, -1.05, 0])
-        r1, r2 = regbox(T1C).move_to(p1[0].get_center() + DOWN * 0.15), regbox(T2C).move_to(p2[0].get_center() + DOWN * 0.15)
-        rl1 = T("register", 22, GREY_B).next_to(r1, DOWN, buff=0.15)
-        rl2 = T("register", 22, GREY_B).next_to(r2, DOWN, buff=0.15)
-        rv1, rv2 = M("41", 30).move_to(r1).set_opacity(0), M("41", 30).move_to(r2).set_opacity(0)
-        rd = edge_arrow(board, p2[0], GREY_B)
-        wr = edge_arrow(p1[0], board, T1C)
+        f_open = M("volatile boolean open;", 24).move_to([-3.2, -2.6, 0])
+        f_vis = M("volatile int visitors;", 24).move_to([3.2, -2.6, 0])
+        self.say("program")
+        self.play(*[Transform(g[1], T(f"thread {i + 1}", 26).move_to(g[1])) for i, g in enumerate(gates)], run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(f_open), FadeIn(f_vis), run_time=0.6)
+        self.play(Circumscribe(sg, color=GOOD, buff=0.08), Circumscribe(board, color=WHITE, buff=0.08), run_time=0.8)
+        self.hold()
 
-        def set_val(v, color=WHITE):
-            return Transform(val, M(str(v), 44, color).move_to(board))
+        fresh = T("every read: fresh", 26, GOOD).move_to([3.3, 0.55, 0], aligned_edge=LEFT)
+        vis = T("every write: visible, in order", 26, GOOD).move_to([3.3, 0.55, 0], aligned_edge=LEFT)
+        VGroup(fresh, vis).arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to([1.3, 0.35, 0])
+        self.say("gives")
+        self.play(*[Transform(g[1], T(f"gate {i + 1}", 26).move_to(g[1])) for i, g in enumerate(gates)], run_time=0.5)
+        self.at(1)
+        self.fly([(board.get_bottom(), g.get_top()) for g in gates], GREY_A, rt=0.7)
+        self.play(FadeIn(fresh, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(vis, shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(bulb), FadeIn(bulb_l), Transform(sg, sign_mob("CLOSED", GREY_B).move_to(sg)), run_time=0.5)
+        self.play(bulb.animate.set_fill(LIGHT, 0.85), run_time=0.5)
+        self.play(Transform(sg, sign_mob("OPEN", GOOD).move_to(sg)), run_time=0.5)
+        self.at_text("whoever reads")
+        self.fly([(sg.get_bottom(), gates[0].get_top())], G[0], rt=0.6)
+        self.play(Indicate(bulb, color=LIGHT), run_time=0.6)
+        self.hold()
 
-        def set_reg(rv, reg, v, color=WHITE):
-            return Transform(rv, M(str(v), 30, color).move_to(reg))
+        # ================= the shy question =================
+        museum = VGroup(door, knob, door_l, sg, bulb, bulb_l, board, *gates, f_open, f_vis, fresh, vis)
+        qa = T("Every read is fresh. Every write is visible.", 38)
+        qb = T("So the count has to be right. Doesn't it?", 38, YELLOW_M)
+        qq = VGroup(qa, qb).arrange(DOWN, buff=0.35)
+        fit(qq, 12.4)
+        self.say("shy")
+        self.play(FadeOut(museum), run_time=0.6)
+        self.play(FadeIn(qa, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(qb, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(qq), run_time=0.5)
 
-        def fly(text, arr, color, extra=None, rt=0.9):
-            tok = M(text, 30, color).move_to(arr.get_start()).set_z_index(6)
-            grp = VGroup(tok) if extra is None else VGroup(tok, extra.next_to(tok, DOWN, buff=0.08))
-            self.add(grp)
-            self.play(grp.animate.move_to(arr.get_end()), run_time=rt)
-            return grp
+        # ================= predict, then show =================
+        thr = VGroup(*[chip(f"thread {i + 1}", G[i], size=24) for i in range(4)]).arrange(RIGHT, buff=0.45).move_to([0, 2.4, 0])
+        each = VGroup(*[M("+1,000,000", 22, G[i]).next_to(thr[i], DOWN, buff=0.2) for i in range(4)])
+        exp = VGroup(T("expected", 28, GREY_A), M("4,000,000", 36)).arrange(RIGHT, buff=0.4).move_to([0, 0.6, 0])
+        got_l = T("volatile counter", 28, GREY_A)
+        got_q = M("?", 40, GREY_B)
+        got = VGroup(got_l, got_q).arrange(RIGHT, buff=0.4).move_to([0, -0.5, 0])
+        got_n = M("3,348,221", 40, BAD).move_to(got_q, aligned_edge=LEFT)
+        miss = T("about 650,000 visitors never counted", 28, BAD).move_to([0, -1.6, 0])
+        self.say("predict")
+        self.play(LaggedStart(*[FadeIn(t, shift=DOWN * 0.1) for t in thr], lag_ratio=0.2), run_time=0.9)
+        self.at(1)
+        self.play(FadeIn(each), run_time=0.5)
+        self.play(FadeIn(exp), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(got), run_time=0.5)
+        self.hold(after=0)
+        self.predict()
 
-        self.play(Transform(val, M("41", 44).move_to(board)), FadeIn(p1), FadeIn(p2), FadeIn(VGroup(r2, rl2)),
-                  run_time=0.8)
-        self.add(rv2)
-        loop = Arc(radius=0.3, start_angle=PI / 2, angle=-1.6 * PI, color=T2C, stroke_width=3).add_tip(tip_length=0.14)
-        loop.next_to(r2, RIGHT, buff=0.2)
+        self.say("show")
+        self.play(FadeOut(got_q), FadeIn(got_n), run_time=0.6)
+        self.at_text("About", lead=0.3)
+        self.play(FadeIn(miss, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(VGroup(thr, each, exp, got_l, got_n, miss)), run_time=0.6)
 
-        def speak(text):
-            path, dur = voice(text)
-            self._cue(text, dur)
-            self.add_sound(path)
-            return dur, self.renderer.time
+        # ================= two visitors at 41: the walkthrough =================
+        tb = board_mob(41).move_to([0, 2.3, 0])
+        g1 = gate(0).move_to([-4.0, 0.55, 0])
+        g2 = gate(1).move_to([4.0, 0.55, 0])
+        hold1 = VGroup(T("holds", 22, GREY_B), M("-", 26, G[0])).arrange(RIGHT, buff=0.2).next_to(g1, DOWN, buff=0.25)
+        hold2 = VGroup(T("holds", 22, GREY_B), M("-", 26, G[1])).arrange(RIGHT, buff=0.2).next_to(g2, DOWN, buff=0.25)
 
-        def finish(dur, t0, after=0.25):
-            rest = dur - (self.renderer.time - t0)
-            if rest > 0.02:
-                self.wait(rest)
-            if after:
-                self.wait(after)
+        def rehold(h, txt, color):
+            return Transform(h[1], M(txt, 26, color).next_to(h[0], RIGHT, buff=0.2))
 
-        dur, t0 = speak("With a plain field, the JIT may keep a copy in a register, "
-                        "and thread 2 reads that copy again and again.")
-        self.play(GrowArrow(rd), run_time=0.6)
-        g = fly("41", rd, GREY_A)
-        self.play(FadeOut(g), set_reg(rv2, r2, "41"), run_time=0.4)
-        self.wait(0.6)
-        self.play(Create(loop), run_time=0.6)
-        self.play(Rotate(loop, -2 * PI, about_point=loop.get_center()),
-                  run_time=max(0.5, dur - (self.renderer.time - t0) - 0.1))
-        finish(dur, t0)
+        steps = [T("1. gate 1 reads 41", 26, G[0]), T("2. gate 2 reads 41", 26, G[1]),
+                 T("3. gate 1 writes 42", 26, G[0]), T("4. gate 2 writes 42", 26, G[1])]
+        for k, s in enumerate(steps):
+            s.move_to([-6.0, -1.15 - k * 0.55, 0], aligned_edge=LEFT)
+        v1 = Dot(radius=0.11, color=WHITE).next_to(g1, LEFT, buff=0.25)
+        v2 = Dot(radius=0.11, color=WHITE).next_to(g2, RIGHT, buff=0.25)
+        self.say("slow")
+        self.play(FadeIn(tb), run_time=0.5)
+        self.play(FadeIn(g1), FadeIn(g2), FadeIn(hold1), FadeIn(hold2), run_time=0.6)
+        self.play(FadeIn(v1, shift=RIGHT * 0.2), FadeIn(v2, shift=LEFT * 0.2), run_time=0.5)
+        self.hold()
 
-        dur, t0 = speak("Thread 1 writes 42. Thread 2 may never see it.")
-        self.play(GrowArrow(wr), run_time=0.5)
-        g = fly("42", wr, T1C, rt=0.8)
-        self.play(FadeOut(g), set_val(42, T1C), run_time=0.4)
-        self.play(Rotate(loop, -2 * PI, about_point=loop.get_center()), r2.animate.set_stroke(RED_M),
-                  rv2.animate.set_color(RED_M), run_time=max(0.6, dur - (self.renderer.time - t0) - 0.1))
-        finish(dur, t0, after=0.5)
+        self.say("trace")
+        self.fly([(tb.get_left() + DOWN * 0.3, g1.get_top())], G[0], rt=0.6)
+        self.play(rehold(hold1, "41", G[0]), FadeIn(steps[0]), run_time=0.4)
+        self.at(1)
+        self.fly([(tb.get_right() + DOWN * 0.3, g2.get_top())], G[1], rt=0.6)
+        self.play(rehold(hold2, "41", G[1]), FadeIn(steps[1]), run_time=0.4)
+        self.at(2)
+        self.play(rehold(hold1, "42", G[0]), run_time=0.4)
+        self.fly([(g1.get_top(), tb.get_left() + DOWN * 0.3)], G[0], rt=0.6,
+                 extra=[renum(tb, 42, G[0]), FadeIn(steps[2])])
+        self.at(3)
+        self.play(rehold(hold2, "42", G[1]), run_time=0.4)
+        self.fly([(g2.get_top(), tb.get_right() + DOWN * 0.3)], G[1], rt=0.6,
+                 extra=[renum(tb, 42, G[1]), FadeIn(steps[3])])
+        self.hold()
 
-        # ---- volatile: every read goes to the field; the write carries what came before ----
-        dur, t0 = speak("Put volatile back, and replay. Every read now goes back to the field, "
-                        "so thread 2's next read sees 42.")
-        self.play(FadeIn(tag, shift=RIGHT * 0.2), FadeOut(loop), set_val(41), r2.animate.set_stroke(T2C),
-                  set_reg(rv2, r2, "41"), run_time=0.9)
-        self.wait(0.5)
-        ride_t = T("earlier writes", 20)
-        ride = VGroup(RoundedRectangle(corner_radius=0.08, width=ride_t.width + 0.26, height=0.4, stroke_color=GREY_B,
-                                       stroke_width=2).set_fill(interpolate_color(ManimColor("#000000"), ManimColor(GREY_B), 0.25), 1),
-                      ride_t)
-        g = fly("42", wr, T1C, extra=ride, rt=1.1)
-        self.play(set_val(42, T1C), g.animate.next_to(board, DOWN, buff=0.12), run_time=0.5)
-        g2 = g.copy()
-        self.add(g2)
-        self.play(g2.animate.move_to(rd.get_end() + UP * 0.2), run_time=1.0)
-        self.play(FadeOut(g2[0]), set_reg(rv2, r2, "42", T2C), g2[1].animate.next_to(r2, UP, buff=0.1), run_time=0.5)
-        finish(dur, t0)
+        lost = T("two visitors in, count + 1", 30, BAD).move_to([3.4, -1.15, 0])
+        self.say("lost")
+        self.play(FadeIn(lost, shift=UP * 0.1), FadeOut(v1), FadeOut(v2), run_time=0.6)
+        self.at(1)
+        self.play(Indicate(VGroup(*steps), color=WHITE, scale_factor=1.04), run_time=0.9)
+        self.at(2)
+        g3 = gate(2).move_to([0, 0.55, 0])
+        self.play(FadeIn(g3, shift=UP * 0.2), run_time=0.4)
+        self.fly([(tb.get_bottom(), g3.get_top())], G[2], rt=0.6)
+        later = M("42", 26, G[2]).next_to(g3, DOWN, buff=0.25)
+        self.play(FadeIn(later), run_time=0.3)
+        self.hold()
+        self.play(FadeOut(g3), FadeOut(later), run_time=0.4)
 
-        dur, t0 = speak("And the write carries what came before it. Plain writes thread 1 made before setting 42 "
-                        "are visible to whoever reads 42.")
-        self.wait(1.4)
-        self.play(Indicate(g[1][1], color=YELLOW_M, scale_factor=1.2), Circumscribe(g[1], color=YELLOW_M, buff=0.06), run_time=0.9)
-        self.wait(0.8)
-        self.play(Indicate(g2[1][1], color=YELLOW_M, scale_factor=1.2), Circumscribe(g2[1], color=YELLOW_M, buff=0.06), run_time=0.9)
-        finish(dur, t0)
-        self.play(FadeOut(VGroup(g, g2[1], rd, wr, r2, rl2, rv2)), set_val(41), run_time=0.7)
+        br = Brace(VGroup(steps[0], steps[1], steps[2]), RIGHT, buff=0.25, color=G[0])
+        br_l = T("gate 1's gap", 24, G[0]).next_to(br, RIGHT, buff=0.15)
+        self.say("gap")
+        self.at(1)
+        self.play(Indicate(steps[0], color=GOOD, scale_factor=1.06), Indicate(steps[2], color=GOOD, scale_factor=1.06),
+                  run_time=0.9)
+        self.at(2)
+        self.play(GrowFromCenter(br), FadeIn(br_l), run_time=0.6)
+        self.at(3)
+        self.play(Indicate(steps[1], color=BAD, scale_factor=1.08), run_time=0.8)
+        self.play(Indicate(steps[3], color=BAD, scale_factor=1.08), run_time=0.8)
+        self.hold()
 
-        # ---- the race: retries++ is three steps ----
-        def row(p, k, text, color=WHITE):
-            m = M(text, 26, color)
-            return m.move_to([0, p[0].get_top()[1] - 1.05 - 0.55 * k, 0]).set_x(p[0].get_left()[0] + 0.5, LEFT)
+        rmw = VGroup(*[chip(t, GREY_A, size=24) for t in ("read", "add one", "write")]).arrange(RIGHT, buff=0.5)
+        arrs = VGroup(*[Arrow(rmw[k].get_right(), rmw[k + 1].get_left(), buff=0.06, stroke_width=3, color=GREY_B,
+                              max_tip_length_to_length_ratio=0.3) for k in range(2)])
+        rmw_g = VGroup(rmw, arrs)
+        pp = M("visitors++", 26).next_to(rmw_g, UP, buff=0.25)
+        rmw_name = T("a read-modify-write", 26, YELLOW_M).next_to(rmw_g, DOWN, buff=0.25)
+        name_box = VGroup(pp, rmw_g, rmw_name).move_to([3.4, -2.45, 0])
+        lu = T("a lost update", 30, YELLOW_M).move_to(lost)
+        self.say("name")
+        self.play(Transform(lost, lu), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(pp), run_time=0.4)
+        self.play(LaggedStart(FadeIn(rmw[0]), GrowArrow(arrs[0]), FadeIn(rmw[1]), GrowArrow(arrs[1]), FadeIn(rmw[2]),
+                              lag_ratio=0.35), run_time=1.4)
+        self.at(2)
+        self.play(FadeIn(rmw_name, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        trace_scene = VGroup(tb, g1, g2, hold1, hold2, *steps, br, br_l, lost, name_box)
+        self.play(FadeOut(trace_scene), run_time=0.6)
 
-        def ok(m, text):
-            c = VGroup(tick(True, 0.13), T(text, 20, GREEN_M)).arrange(RIGHT, buff=0.1)
-            return c.next_to(m, RIGHT, buff=0.25)
+        # ================= the full run: plain isn't better =================
+        ttl = T("four threads, 1,000,000 each: 4,000,000 expected", 30).move_to([0, 2.6, 0])
 
-        steps = VGroup(*[M(s, 30) for s in ("read", "add one", "write")]).arrange(RIGHT, buff=0.9).move_to([0, 0.35, 0])
-        seq(self, "So the field is always fresh. Now both threads run retries++. That is three steps: read, add one, write.",
-            2.6, ([LaggedStart(*[FadeIn(s, shift=UP * 0.15) for s in steps], lag_ratio=0.5)], 1.6))
-        self.play(steps.animate.scale(0.8).move_to([0, 0.05, 0]).set_color(GREY_B), run_time=0.5)
+        def row(label, value, y, vc):
+            l = M(label, 28, GREY_A).move_to([-5.4, y, 0], aligned_edge=LEFT)
+            v = M(value, 30, vc).move_to([2.6, y, 0], aligned_edge=RIGHT)
+            return VGroup(l, v)
+        r_plain = row("plain int", "3,987,596", 1.5, BAD)
+        r_vol = row("volatile int", "3,348,221", 0.75, BAD)
+        r_at = row("AtomicInteger", "4,000,000", 0.0, GOOD)
+        r_ad = row("LongAdder", "4,000,000", -0.75, GOOD)
+        md = medal().move_to([3.6, 1.6, 0])
+        no_md = tick(False, 0.35).move_to(md[2])
+        kt = T("Kotlin, one run: plain exact, @Volatile lost 985,479", 26, GREY_B).move_to([0, -2.1, 0])
+        broken = T("both broken, in different patterns", 28, BAD).move_to([0, -2.8, 0])
+        self.say("plain")
+        self.play(FadeIn(ttl), FadeIn(r_vol), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(r_plain), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(md, shift=DOWN * 0.2), run_time=0.5)
+        self.at(4)
+        self.play(Create(no_md), run_time=0.4)
+        self.at(5)
+        self.play(FadeIn(kt), run_time=0.6)
+        self.at(6)
+        self.play(FadeIn(broken, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(VGroup(md, no_md, kt, broken)), run_time=0.5)
+        table = VGroup(ttl, r_plain, r_vol)
+        self.play(FadeOut(table), run_time=0.5)
 
-        rd1, rd2 = edge_arrow(board, p1[0], GREY_B), edge_arrow(board, p2[0], GREY_B)
-        wr1, wr2 = edge_arrow(p1[0], board, T1C).shift(UP * 0.25 + RIGHT * 0.1), edge_arrow(p2[0], board, T2C).shift(UP * 0.25 + LEFT * 0.1)
-        a1, a2 = row(p1, 0, "read 41"), row(p2, 0, "read 41")
-        b1, b2 = row(p1, 1, "add one: 42"), row(p2, 1, "add one: 42")
-        c1, c2 = row(p1, 2, "write 42"), row(p2, 2, "write 42")
-        ok_a1, ok_a2 = ok(a1, "fresh"), ok(a2, "fresh")
-        ok_c1, ok_c2 = ok(c1, "visible"), ok(c2, "visible")
+        # ================= the clicker =================
+        tb = board_mob(41).move_to([-0.6, 2.0, 0])
+        clk = VGroup(RoundedRectangle(corner_radius=0.1, width=1.2, height=1.0, stroke_color=GOOD, stroke_width=4).set_fill(dim(GOOD, 0.2), 1),
+                     Circle(radius=0.18, stroke_color=GOOD, stroke_width=4).set_fill(GOOD, 0.6))
+        clk[1].move_to(clk[0])
+        clk.next_to(tb, RIGHT, buff=0.12)
+        clk_l = T("the clicker", 22, GOOD).next_to(clk, UP, buff=0.12)
+        g1 = gate(0).move_to([-4.0, 0.3, 0])
+        g2 = gate(1).move_to([4.0, 0.3, 0])
+        one = VGroup(*[chip(t, GOOD, size=22) for t in ("read", "add one", "write")]).arrange(RIGHT, buff=0.12)
+        one_box = SurroundingRectangle(one, color=GOOD, buff=0.12, corner_radius=0.1)
+        one_g = VGroup(one, one_box, T("one press", 24, GOOD).next_to(one_box, DOWN, buff=0.15)).move_to([0, -0.75, 0])
+        c1 = T("1. gate 1 presses: 41 to 42", 26, G[0]).move_to([-6.0, -2.15, 0], aligned_edge=LEFT)
+        c2 = T("2. gate 2 presses: 42 to 43", 26, G[1]).move_to([-6.0, -2.75, 0], aligned_edge=LEFT)
+        nev = T("before or after, never in between", 26, GOOD).move_to([3.0, -2.45, 0])
+        self.say("clicker")
+        self.play(FadeIn(tb), FadeIn(g1), FadeIn(g2), run_time=0.6)
+        self.play(FadeIn(clk, shift=LEFT * 0.2), FadeIn(clk_l), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(one_g, shift=UP * 0.1), run_time=0.7)
+        self.at(2)
+        self.fly([(g1.get_top(), clk.get_bottom())], G[0], rt=0.6)
+        self.play(clk[1].animate.scale(0.7), renum(tb, 42, G[0]), FadeIn(c1), run_time=0.3)
+        self.play(clk[1].animate.scale(1 / 0.7), run_time=0.2)
+        self.fly([(g2.get_top(), clk.get_bottom())], G[1], rt=0.6)
+        self.play(clk[1].animate.scale(0.7), renum(tb, 43, G[1]), FadeIn(c2), run_time=0.3)
+        self.play(clk[1].animate.scale(1 / 0.7), FadeIn(nev), run_time=0.3)
+        self.hold()
 
-        def readv(arr, rowm, okm, color):
-            def f():
-                g = M("41", 30, GREY_A).move_to(arr.get_start()).set_z_index(6)
-                self.add(g)
-                return [Succession(g.animate(run_time=0.8).move_to(arr.get_end()), FadeOut(g, run_time=0.2)),
-                        Succession(Wait(0.6), FadeIn(rowm), FadeIn(okm))]
-            return f
+        clk_l2 = M("incrementAndGet()", 22, GOOD).next_to(clk, DOWN, buff=0.15)
+        at_l = M("AtomicInteger", 24, GOOD).next_to(tb, UP, buff=0.12)
+        self.say("atomic")
+        self.play(Transform(clk_l, clk_l2), FadeIn(at_l), run_time=0.7)
+        self.at(1)
+        self.play(Indicate(one_g, color=GOOD, scale_factor=1.04), run_time=0.9)
+        self.at(2)
+        self.play(FadeOut(VGroup(tb, clk, clk_l, at_l, g1, g2, one_g, c1, c2, nev)), run_time=0.5)
+        self.play(FadeIn(table), FadeIn(r_at), run_time=0.6)
+        self.hold()
 
-        seq(self, "Thread 1 reads 41. A fresh volatile read.",
-            ([GrowArrow(rd1)], 0.5), (readv(rd1, a1, ok_a1, T1C), 1.0))
-        seq(self, "Thread 2 reads too. Also fresh, also 41.",
-            ([GrowArrow(rd2)], 0.5), (readv(rd2, a2, ok_a2, T2C), 1.0))
-        self.beat("Both add one. Both hold 42.", FadeIn(b1, shift=RIGHT * 0.1), FadeIn(b2, shift=RIGHT * 0.1), run_time=0.9)
+        self.say("adder")
+        self.at(1)
+        cells = VGroup(*[Square(0.42, stroke_color=GOOD, stroke_width=3) for _ in range(4)]).arrange(RIGHT, buff=0.1)
+        cells.move_to([4.6, -0.75, 0])
+        self.play(FadeIn(cells), run_time=0.5)
+        self.fly([(cells[k].get_center() + DOWN * 0.6, cells[k].get_center()) for k in range(4)], GOOD, rt=0.5)
+        self.at(2)
+        self.play(FadeIn(r_ad), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(VGroup(table, r_at, r_ad, cells)), run_time=0.6)
 
-        def writev(arr, rowm, okm, color, v):
-            def f():
-                g = M("42", 30, color).move_to(arr.get_start()).set_z_index(6)
-                self.add(g)
-                return [FadeIn(rowm), FadeIn(okm), Succession(g.animate(run_time=0.8).move_to(arr.get_end()), FadeOut(g, run_time=0.2))]
-            return f
+        # ================= guardrail: any group of steps =================
+        gt = T("Any group of steps that must happen together", 32).move_to([0, 2.6, 0])
+        ca = VGroup(T("check, then act", 26, GREY_A), M("if (balance >= amount) balance -= amount;", 24))
+        cb = VGroup(T("keep the larger", 26, GREY_A), M("max = Math.max(max, x);", 24))
+        for g, y in ((ca, 1.55), (cb, 0.45)):
+            g.arrange(DOWN, aligned_edge=LEFT, buff=0.15).move_to([-5.6, y, 0], aligned_edge=LEFT)
+        rdw = T("each one reads, decides, writes: separate steps", 28, BAD).move_to([0, -0.6, 0])
+        self.say("guard")
+        self.play(FadeIn(gt), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(ca, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(cb, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(rdw, shift=UP * 0.1), run_time=0.6)
+        self.hold()
 
-        seq(self, "Thread 1 writes 42, visible at once. Now thread 2 writes. What does the field hold?",
-            ([GrowArrow(wr1)], 0.4), (writev(wr1, c1, ok_c1, T1C, 42), 1.0), ([set_val(42, T1C)], 0.4), 1.2,
-            ([GrowArrow(wr2)], 0.4), after=1.6)
-        lost = T("two increments, one lost", 30, RED_M).move_to([0, -3.15, 0])
-        seq(self, "42. Two increments, and one is lost.",
-            (writev(wr2, c2, ok_c2, T2C, 42), 1.0), ([set_val(42, RED_M), Flash(board, color=RED_M, flash_radius=1.9)], 0.6),
-            ([FadeIn(lost, shift=UP * 0.15)], 0.6))
-        gap = Brace(VGroup(a2, c2), LEFT, color=RED_M, buff=0.12)
-        gap_t = T("the gap", 26, RED_M).next_to(gap, LEFT, buff=0.4)
-        seq(self, "Every access was a correct volatile access. volatile made each one visible, "
-                  "and did nothing about the gap between them.",
-            ([Indicate(VGroup(ok_a1, ok_a2, ok_c1, ok_c2), color=GREEN_M, scale_factor=1.2)], 1.2), 1.6,
-            ([GrowFromCenter(gap), FadeIn(gap_t)], 0.8))
+        seat = VGroup(RoundedRectangle(corner_radius=0.12, width=1.0, height=0.7, stroke_color=GREY_A, stroke_width=3),
+                      RoundedRectangle(corner_radius=0.08, width=1.0, height=0.25, stroke_color=GREY_A, stroke_width=3))
+        seat[1].next_to(seat[0], DOWN, buff=0.04)
+        seat.move_to([0, -2.2, 0])
+        seat_l = T("the last seat on the evening tour", 24, GREY_B).next_to(seat, UP, buff=0.15)
+        tk1 = chip("ticket", G[0], size=22).move_to([-4.0, -2.2, 0])
+        tk2 = chip("ticket", G[1], size=22).move_to([4.0, -2.2, 0])
+        sold = T("sold twice", 28, BAD).move_to([0, -3.15, 0])
+        self.say("seat")
+        self.play(FadeOut(rdw), FadeIn(seat), FadeIn(seat_l), run_time=0.6)
+        self.play(FadeIn(tk1), FadeIn(tk2), run_time=0.4)
+        self.play(tk1.animate.next_to(seat, LEFT, buff=0.15), tk2.animate.next_to(seat, RIGHT, buff=0.15), run_time=0.8)
+        self.play(FadeIn(sold, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(VGroup(gt, ca, cb, seat, seat_l, tk1, tk2, sold)), run_time=0.6)
 
-        # ---- the fix: one atomic step ----
-        self.play(FadeOut(VGroup(a1, a2, b1, b2, c1, c2, ok_a1, ok_a2, ok_c1, ok_c2, gap, gap_t, lost, rd1, rd2, wr1, wr2, steps)),
-                  FadeOut(tag), set_val(41), run_time=0.8)
-        f1 = VGroup(M("incrementAndGet()", 24, GREEN_M), T("41 to 42, one step", 24)).arrange(DOWN, buff=0.18)
-        f2 = VGroup(M("incrementAndGet()", 24, GREEN_M), T("42 to 43, one step", 24)).arrange(DOWN, buff=0.18)
-        f1.move_to(p1[0].get_center() + DOWN * 0.25)
-        f2.move_to(p2[0].get_center() + DOWN * 0.25)
-        atom = Text("AtomicInteger", font=MONO, font_size=26, color=GREEN_M).next_to(board, LEFT, buff=0.3)
+        # ================= when volatile is enough =================
+        wt = T("When is volatile enough?", 34).move_to([0, 2.6, 0])
 
-        def one_step(p, f, v, color):
-            def go():
-                pa = board.get_bottom() + (LEFT if p is p1 else RIGHT) * 0.6
-                pb = p[0].get_top() + DOWN * 0.05 + (RIGHT if p is p1 else LEFT) * 0.6
-                loop_path = VMobject().set_points_smoothly([pa, (pa + pb) / 2 + (LEFT if p is p1 else RIGHT) * 0.3, pb,
-                                                            (pa + pb) / 2 + (RIGHT if p is p1 else LEFT) * 0.3, pa])
-                d = Dot(radius=0.11, color=color).move_to(pa)
-                self.add(d)
-                return [FadeIn(f), MoveAlongPath(d, loop_path, rate_func=smooth),
-                        board.animate.set_stroke(color), Succession(Wait(1.0), FadeOut(d, run_time=0.2))]
-            return go
+        def wrow(a, b, y, color):
+            l = T(a, 28).move_to([-6.0, y, 0], aligned_edge=LEFT)
+            r = M(b, 28, color).move_to([6.0, y, 0], aligned_edge=RIGHT)
+            return VGroup(l, r)
+        w1 = wrow("one writer, new value not based on the old one", "volatile", 1.4, GOOD)
+        w1n = T("like the sign on the door: one guard flips it", 24, GREY_B).move_to([-5.6, 0.85, 0], aligned_edge=LEFT)
+        w2 = wrow("many writers, one number", "an atomic", -0.05, YELLOW_M)
+        w3 = wrow("one rule across several fields", "a lock", -1.0, YELLOW_M)
+        door_s = sign_mob("OPEN", GOOD).move_to([3.0, 0.85, 0])
+        self.say("when")
+        self.play(FadeIn(wt), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(w1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(w1n), FadeIn(door_s), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(w2, shift=UP * 0.1), run_time=0.6)
+        self.at(4)
+        self.play(FadeIn(w3, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(VGroup(wt, w1, w1n, w2, w3, door_s)), run_time=0.6)
 
-        seq(self, "The fix is one step that reads and writes together. AtomicInteger.incrementAndGet is that step.",
-            ([FadeIn(atom, shift=RIGHT * 0.2)], 0.7), 1.6, (one_step(p1, f1, 42, T1C), 1.2), ([set_val(42, T1C)], 0.4))
-        seq(self, "Thread 2 goes before it or after it, never inside. The count ends at 43.",
-            (one_step(p2, f2, 43, T2C), 1.2), ([set_val(43, GREEN_M), board.animate.set_stroke(GREEN_M)], 0.5),
-            ([Indicate(val, color=GREEN_M, scale_factor=1.2)], 0.8))
-        self.play(FadeOut(VGroup(board, b_lab, val, atom, p1, p2, f1, f2)), run_time=0.8)
+        # ================= the code =================
+        hl = {"AtomicInteger": GOOD, "incrementAndGet": GOOD}
+        jc = code_block(["private final AtomicInteger visitors =", "        new AtomicInteger();", "",
+                         "void onVisitor() {", "    visitors.incrementAndGet();", "}"], 24, hl)
+        kc = code_block(["private val visitors =", "        AtomicInteger()", "",
+                         "fun onVisitor() {", "    visitors.incrementAndGet()", "}"], 24, hl)
+        cols = VGroup(VGroup(T("Java", 24, GREY_B), jc).arrange(DOWN, aligned_edge=LEFT, buff=0.2),
+                      VGroup(T("Kotlin", 24, GREY_B), kc).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
+                      ).arrange(RIGHT, buff=0.9, aligned_edge=UP)
+        cols.move_to(UP * 0.4)
+        self.say("code")
+        self.play(FadeIn(cols, shift=UP * 0.15), run_time=0.9)
+        self.at(1)
+        self.play(Indicate(VGroup(jc[4], kc[4]), color=GOOD, scale_factor=1.04), run_time=1.0)
+        self.hold()
+        self.play(FadeOut(cols), run_time=0.6)
 
-        # ---- which tool ----
-        title = T("Which tool?", 40).to_edge(UP, buff=0.7)
-
-        def trow(shape, eg, tool, color):
-            left = VGroup(T(shape, 28), T(eg, 22, GREY_B)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-            c = chip(tool, color, size=26, mono=True)
-            return VGroup(left, c)
-
-        rows = [trow("one writer, readers want the latest", "a shutdown flag, a heartbeat time", "volatile", VOL),
-                trow("many writers, one variable", "a retry counter, a running total", "AtomicInteger, LongAdder", GREEN_M),
-                trow("two or more fields under one rule", "status and captured amount", "a lock", PURPLE_M)]
-        for i, r in enumerate(rows):
-            r[0].move_to([-6.0, 1.45 - 1.45 * i, 0], aligned_edge=LEFT)
-            r[1].move_to([1.4, r[0].get_center()[1], 0], aligned_edge=LEFT)
-        ax = max(r[0].get_right()[0] for r in rows) + 0.25
-        arrs = VGroup(*[Arrow(np.array([ax, r[1].get_center()[1], 0]), r[1].get_left() + LEFT * 0.08, buff=0, stroke_width=3,
-                              color=GREY_B, max_tip_length_to_length_ratio=0.2) for r in rows])
-        seq(self, "So which tool? One writer, and readers want the latest value: volatile is enough, like a shutdown flag.",
-            ([Write(title)], 0.8), 0.6, ([FadeIn(rows[0][0]), GrowArrow(arrs[0]), FadeIn(rows[0][1])], 1.0))
-        seq(self, "Many writers updating one variable from its old value: an atomic. Several fields under one rule: a lock.",
-            ([FadeIn(rows[1][0]), GrowArrow(arrs[1]), FadeIn(rows[1][1])], 1.0), 1.6,
-            ([FadeIn(rows[2][0]), GrowArrow(arrs[2]), FadeIn(rows[2][1])], 1.0))
-        self.play(FadeOut(VGroup(title, *rows, arrs)), run_time=0.7)
-
-        # ---- code ----
-        title = T("One step, not three", 40).to_edge(UP, buff=0.7)
-        jc = code(["private final AtomicInteger retries = new AtomicInteger();",
-                   "retries.incrementAndGet();   // one atomic step"], 26)
-        kc = code(["private val retries = AtomicInteger()",
-                   "retries.incrementAndGet()    // one atomic step"], 26)
-        for b in (jc, kc):
-            b[1][:25].set_color(GREEN_M)
-        cols = VGroup(titled("Java", jc), titled("Kotlin", kc)).arrange(DOWN, aligned_edge=LEFT, buff=0.5)
-        cols.scale(min(1, 12 / cols.width)).next_to(title, DOWN, buff=0.6)
-        self.beat("In code, that is an AtomicInteger, in Java and in Kotlin.",
-                  Write(title), FadeIn(cols, shift=UP * 0.2), run_time=1.6)
-        rule = T("volatile: each access fresh and ordered, never two accesses as one step", 26, VOL)
-        rule.scale(min(1, 12 / rule.width)).next_to(cols, DOWN, buff=0.7)
-        self.beat("The rule: volatile makes each read and write visible and ordered. It never joins them into one step.",
-                  FadeIn(rule, shift=UP * 0.15), run_time=1.0)
-        self.play(FadeOut(VGroup(title, cols, rule)), run_time=0.7)
-
-        # ---- check question ----
-        q = M("max = Math.max(max, x);", 36).move_to(UP * 0.6)
-        qv = VGroup(vchip(), M("int max;", 30)).arrange(RIGHT, buff=0.3).next_to(q, UP, buff=0.6)
-        qn = T("many threads run this", 26, GREY_B).next_to(q, DOWN, buff=0.45)
-        self.beat("Quick check. Many threads run max = Math.max(max, x) on a volatile field. Is that safe?",
-                  FadeIn(qv), FadeIn(q, shift=UP * 0.15), FadeIn(qn), run_time=1.2, after=2.2)
-        rd_u = Underline(q[4:19], color=GREY_A, buff=0.1)
-        wr_u = Underline(q[0:3], color=RED_M, buff=0.1)
-        ans = T("reads, decides, then writes: the same gap", 28, RED_M).next_to(qn, DOWN, buff=0.45)
-        seq(self, "No. It reads, decides, then writes, with the same gap. Use an atomic, or a lock.",
-            ([Create(rd_u)], 0.5), ([Create(wr_u)], 0.5), ([FadeIn(ans, shift=UP * 0.1)], 0.7))
-        self.wait(0.8)
+        # ================= the moral and a check =================
+        mq = T("If every read is fresh, why is the count wrong?", 34, YELLOW_M).move_to(UP * 2.5)
+        fit(mq, 12.4)
+        m1 = T("Fresh isn't the same as together.", 34)
+        m2 = T("volatile makes each read and each write visible.", 30)
+        m3 = T("It never makes two of them one step.", 30, BAD)
+        moral = VGroup(m1, m2, m3).arrange(DOWN, buff=0.35).move_to(UP * 0.7)
+        fit(moral, 12.4)
+        cq = VGroup(T("Check: every gate thread runs", 28, YELLOW_M), M("max = Math.max(max, x);", 26, YELLOW_M),
+                    T("on a volatile field. Can it lose a value?", 28, YELLOW_M)).arrange(DOWN, buff=0.18).move_to(DOWN * 2.2)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(m3, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.say("check")
+        self.play(FadeIn(cq, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.wait(2.5)

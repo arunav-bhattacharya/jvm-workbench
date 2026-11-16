@@ -1,529 +1,385 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:03.801
+00:00:02.700 --> 00:00:03.768
 Picture an office.
 
 2
-00:00:03.801 --> 00:00:08.488
+00:00:03.768 --> 00:00:08.454
 When it's time to go home, the manager writes it on the whiteboard by the door.
 
 3
-00:00:08.488 --> 00:00:12.759
+00:00:08.454 --> 00:00:12.725
 Everyone glances at the board now and then, and leaves when it says yes.
 
 4
-00:00:13.200 --> 00:00:14.836
-A program can do the same.
+00:00:13.133 --> 00:00:14.705
+A program does the same.
 
 5
-00:00:14.836 --> 00:00:19.995
-A worker thread, one path of work running beside others, loops through small jobs.
+00:00:14.705 --> 00:00:21.252
+A worker thread, one path of work beside others, checks a shared field, stop, before each small job.
 
 6
-00:00:19.995 --> 00:00:23.392
-Before each one, it checks a shared field called stop.
-
-7
-00:00:23.392 --> 00:00:26.475
+00:00:21.252 --> 00:00:24.460
 One second in, the main thread sets stop to true.
 
+7
+00:00:24.567 --> 00:00:29.186
+On JDK 25, three seconds later, the worker is still running.
+
 8
-00:00:26.667 --> 00:00:29.721
-Here's what the demo printed on JDK 25.
-
-9
-00:00:29.721 --> 00:00:31.444
-Main set stop to true.
-
-10
-00:00:31.444 --> 00:00:35.282
-Three seconds later, is the worker still running?
-
-11
-00:00:35.282 --> 00:00:35.674
-True.
-
-12
-00:00:35.674 --> 00:00:36.849
+00:00:29.186 --> 00:00:30.341
 It never stops.
 
-13
-00:00:36.849 --> 00:00:41.000
+9
+00:00:30.341 --> 00:00:34.421
 No crash, no error, just a busy processor doing laps.
 
-14
-00:00:41.133 --> 00:00:44.817
-So here's a question that feels almost too simple to ask.
+10
+00:00:34.533 --> 00:00:37.733
+So here's a question that feels too simple to ask.
 
-15
-00:00:44.817 --> 00:00:45.851
+11
+00:00:37.733 --> 00:00:38.756
 Main wrote true.
 
+12
+00:00:38.756 --> 00:00:41.252
+Where is the worker reading false from?
+
+13
+00:00:41.867 --> 00:00:43.659
+Most people say: the cache.
+
+14
+00:00:43.659 --> 00:00:52.420
+Beside each core, the part of a processor that runs one thread, sits a cache: a small, fast memory that keeps copies of main memory.
+
+15
+00:00:52.420 --> 00:00:56.735
+The story: the worker's cache holds an old copy of stop, forever.
+
 16
-00:00:45.851 --> 00:00:48.565
-So where is the worker reading false from?
-
-17
-00:00:48.565 --> 00:00:50.504
-Where does the old value live?
-
-18
-00:00:51.200 --> 00:00:53.188
-Most people answer: the cache.
-
-19
-00:00:53.188 --> 00:00:57.629
-A core is the part of the processor that runs one thread at a time.
-
-20
-00:00:57.629 --> 00:01:03.329
-Next to each core sits a cache, a small, fast memory that keeps copies of recent data.
-
-21
-00:01:03.329 --> 00:01:06.245
-Main memory is about a hundred times slower.
-
-22
-00:01:06.400 --> 00:01:08.323
-So the story goes like this.
-
-23
-00:01:08.323 --> 00:01:14.094
-The worker's core has an old copy of stop in its cache, and reads that copy forever.
-
-24
-00:01:14.094 --> 00:01:15.193
-It sounds right.
-
-25
-00:01:15.193 --> 00:01:16.155
+00:00:56.867 --> 00:00:57.906
 Let's test it.
 
-26
-00:01:16.333 --> 00:01:26.315
-Java has a switch, -Xint, that turns off the JIT compiler, the part of Java that turns busy code into fast machine code while the program runs.
+17
+00:00:57.906 --> 00:01:05.107
+A switch, -Xint, turns off the JIT, the part of Java that turns busy code into fast machine code.
 
-27
-00:01:26.315 --> 00:01:28.479
-The caches don't change at all.
+18
+00:01:05.107 --> 00:01:06.963
+The caches stay the same.
 
-28
-00:01:28.479 --> 00:01:32.527
-So if the cache is to blame, the worker should still hang.
+19
+00:01:06.963 --> 00:01:08.968
+Will the worker still hang?
 
-29
-00:01:32.527 --> 00:01:33.085
-Will it?
-
-30
-00:01:36.133 --> 00:01:39.681
+20
+00:01:11.567 --> 00:01:15.168
 It stopped at once, after about 113 million laps.
 
+21
+00:01:15.168 --> 00:01:16.711
+Only the JIT changed.
+
+22
+00:01:16.711 --> 00:01:22.296
+So the cache has an alibi: it was there in both runs, and only one run hung.
+
+23
+00:01:23.000 --> 00:01:25.627
+Back to the office, to find the real place.
+
+24
+00:01:25.627 --> 00:01:29.415
+The whiteboard holds the numbers everyone shares: main memory.
+
+25
+00:01:29.415 --> 00:01:32.897
+Each desk is a core, and whoever works there is a thread.
+
+26
+00:01:33.000 --> 00:01:37.713
+Walking to the wall is slow, so each desk keeps a photocopy of the board.
+
+27
+00:01:37.713 --> 00:01:39.456
+The photocopy is the cache.
+
+28
+00:01:39.567 --> 00:01:40.821
+And one strict rule.
+
+29
+00:01:40.821 --> 00:01:48.971
+When anyone changes a number on the board, every photocopy of it is crossed out at once, and the next look goes back to the board.
+
+30
+00:01:48.971 --> 00:01:51.918
+Processors do this in hardware, in nanoseconds.
+
 31
-00:01:39.681 --> 00:01:43.445
-Same machine, same caches, and only the JIT changed.
+00:01:51.918 --> 00:01:53.673
+It's called cache coherence.
 
 32
-00:01:43.445 --> 00:01:45.327
-So the cache has an alibi.
+00:01:53.800 --> 00:01:55.737
+But one place lets a write wait.
 
 33
-00:01:45.327 --> 00:01:48.875
-It was there in both runs, and only one run hung.
-
-34
-00:01:49.667 --> 00:01:54.067
-To find the real place, let's go back to the office and look at the desks.
-
-35
-00:01:54.067 --> 00:01:56.981
-The whiteboard holds the numbers everyone shares.
-
-36
-00:01:56.981 --> 00:01:58.110
-That's main memory.
-
-37
-00:01:58.110 --> 00:02:01.619
-Each desk is a core, and the one working at it is a thread.
-
-38
-00:02:01.800 --> 00:02:07.598
-Walking to the wall is slow, so each desk keeps a photocopy of the part of the board it uses.
-
-39
-00:02:07.598 --> 00:02:09.344
-That photocopy is the cache.
-
-40
-00:02:09.533 --> 00:02:11.610
-And the office has one strict rule.
-
-41
-00:02:11.610 --> 00:02:16.830
-When anyone changes a number on the board, every photocopy of it is crossed out at once.
-
-42
-00:02:16.830 --> 00:02:19.025
-The next look goes back to the board.
-
-43
-00:02:19.200 --> 00:02:21.711
-Processors follow that rule in hardware.
-
-44
-00:02:21.711 --> 00:02:27.046
-It's called cache coherence, and it works within nanoseconds, billionths of a second.
-
-45
-00:02:27.046 --> 00:02:29.055
-So a photocopy can't stay wrong.
-
-46
-00:02:29.200 --> 00:02:31.874
-But there is one place where a write can wait.
-
-47
-00:02:31.874 --> 00:02:33.560
+00:01:55.737 --> 00:01:57.493
 Each desk has an outbox tray.
 
-48
-00:02:33.560 --> 00:02:39.663
-When a clerk has a new number for the board, she drops a note in her tray and goes on with her next task.
+34
+00:01:57.493 --> 00:02:03.911
+A clerk drops her new number in it and goes on working, and a runner takes it to the board a moment later.
 
-49
-00:02:39.663 --> 00:02:42.453
-A runner carries it to the board a moment later.
+35
+00:02:04.033 --> 00:02:09.004
+That tray is a store buffer: a small queue where writes wait on their way to the cache.
 
-50
-00:02:42.600 --> 00:02:51.183
-That tray is called a store buffer: a small queue inside each core where writes wait on their way to the cache, so the core never stands around.
+36
+00:02:09.004 --> 00:02:13.689
+The catch: her next read can finish first, so her write and her read look swapped.
 
-51
-00:02:51.333 --> 00:02:52.334
-Notice the catch.
+37
+00:02:13.800 --> 00:02:15.804
+Let's catch it in the act.
 
-52
-00:02:52.334 --> 00:02:57.752
-If her next task is to read a different number, she may read it before her own note arrives.
+38
+00:02:15.804 --> 00:02:18.269
+Two fields, x and y, start at 0.
 
-53
-00:02:57.752 --> 00:03:00.932
-To everyone else, her write and her read look swapped.
-
-54
-00:03:01.067 --> 00:03:04.650
-Let's catch that with the smallest test there is.
-
-55
-00:03:04.650 --> 00:03:07.357
-Two fields, x and y, both start at 0.
-
-56
-00:03:07.357 --> 00:03:10.209
+39
+00:02:18.269 --> 00:02:21.275
 Thread A writes 1 into x, then reads y.
 
-57
-00:03:10.209 --> 00:03:13.061
+40
+00:02:21.275 --> 00:02:24.280
 Thread B writes 1 into y, then reads x.
 
-58
-00:03:13.800 --> 00:03:15.148
-Play it by hand first.
+41
+00:02:25.000 --> 00:02:29.698
+Shuffle the four steps like two decks of cards, keeping each thread's order.
 
-59
-00:03:15.148 --> 00:03:22.928
-Shuffle the four steps any way you like, but keep each thread's two steps in order, like shuffling two decks of cards together.
+42
+00:02:29.698 --> 00:02:33.653
+Whoever reads last reads after both writes, so someone sees a 1.
 
-60
-00:03:22.928 --> 00:03:26.052
-Whoever reads second reads after the other's write.
-
-61
-00:03:26.052 --> 00:03:28.012
-So at least one thread sees a 1.
-
-62
-00:03:28.012 --> 00:03:30.217
+43
+00:02:33.653 --> 00:02:35.879
 Both reading 0 should be impossible.
 
-63
-00:03:31.000 --> 00:03:34.958
+44
+00:02:36.600 --> 00:02:40.558
 The demo runs this test 524,288 times.
 
-64
-00:03:34.958 --> 00:03:39.333
+45
+00:02:40.558 --> 00:02:44.933
 In how many trials do both threads read 0?
 
-65
-00:03:42.400 --> 00:03:44.440
+46
+00:02:47.533 --> 00:02:50.043
 Run one: 240,989.
 
-66
-00:03:44.440 --> 00:03:46.480
+47
+00:02:50.043 --> 00:02:52.552
 Run two: 225,261.
 
-67
-00:03:46.480 --> 00:03:48.761
+48
+00:02:52.552 --> 00:02:55.357
 Run three: 171,281.
 
-68
-00:03:48.761 --> 00:03:54.041
-That's a third to nearly half of all trials.
-
-69
-00:03:54.041 --> 00:03:59.201
+49
+00:02:55.357 --> 00:03:01.704
 For something impossible, it happens a lot.
 
-70
-00:04:00.533 --> 00:04:01.289
-Here's how.
+50
+00:03:02.933 --> 00:03:08.890
+Each thread drops its note in its own tray, then reads the other field from its photocopy.
 
-71
-00:04:01.289 --> 00:04:07.404
-Thread A drops its note for x in its tray, and Thread B drops its note for y in its tray.
-
-72
-00:04:07.404 --> 00:04:11.183
-Then each one reads the other field from its photocopy.
-
-73
-00:04:11.183 --> 00:04:12.214
+51
+00:03:08.890 --> 00:03:09.883
 Zero, and zero.
 
-74
-00:04:12.214 --> 00:04:15.031
+52
+00:03:09.883 --> 00:03:12.596
 Only then do the runners reach the board.
 
-75
-00:04:15.800 --> 00:04:23.350
-Turn the JIT off again, and the count drops, but stays well above zero: 44,000 to 110,000 in our runs.
+53
+00:03:13.300 --> 00:03:18.267
+With the JIT off, it still happens: 44,000 to 110,000 times.
 
-76
-00:04:23.350 --> 00:04:26.385
-The interpreter doesn't reorder anything.
+54
+00:03:18.267 --> 00:03:21.164
+So this one really is the hardware.
 
-77
-00:04:26.385 --> 00:04:29.345
-So this time, it really is the hardware.
+55
+00:03:21.267 --> 00:03:28.653
+Make both fields volatile, a keyword for fields shared between threads, and the count is 0, every time.
 
-78
-00:04:29.533 --> 00:04:35.441
-Now make both fields volatile, a keyword that marks a field as shared between threads.
+56
+00:03:28.653 --> 00:03:33.099
+On x86 chips, Java empties the tray after each volatile write.
 
-79
-00:04:35.441 --> 00:04:37.295
-The count is 0, every time.
+57
+00:03:33.200 --> 00:03:36.255
+And the tray always empties within nanoseconds.
 
-80
-00:04:37.295 --> 00:04:46.705
-On x86 chips, the kind in most laptops, Java follows each volatile write with an instruction that empties the tray before any later read.
-
-81
-00:04:46.867 --> 00:04:49.494
-So the tray can swap a write and a read.
-
-82
-00:04:49.494 --> 00:04:52.319
-But it always delivers, within nanoseconds.
-
-83
-00:04:52.319 --> 00:04:54.355
+58
+00:03:36.255 --> 00:03:38.270
 It can't hold stop for an hour.
 
-84
-00:04:54.355 --> 00:04:56.195
+59
+00:03:38.270 --> 00:03:40.089
 The outbox has an alibi too.
 
-85
-00:04:56.933 --> 00:04:59.760
-There's one more thing on each desk: a notepad.
+60
+00:03:40.800 --> 00:03:43.645
+One more thing sits on each desk: a notepad.
 
-86
-00:04:59.760 --> 00:05:06.738
-To work with a number, a clerk copies it onto her notepad, because a glance down is quicker than a walk to the wall.
+61
+00:03:43.645 --> 00:03:48.559
+Glancing down beats walking to the wall, so a clerk copies a number onto it.
 
-87
-00:05:06.738 --> 00:05:10.948
-The notepad has no crossing-out rule, and nobody else can write on it.
+62
+00:03:48.559 --> 00:03:51.081
+And no rule ever crosses a notepad out.
 
-88
-00:05:11.733 --> 00:05:13.386
-Now here's what the JIT did.
+63
+00:03:51.800 --> 00:03:53.288
+Here's what the JIT did.
 
-89
-00:05:13.386 --> 00:05:17.046
-Once the loop had run many thousands of times, it compiled it.
+64
+00:03:53.288 --> 00:03:56.451
+After many thousands of laps, it compiled the loop.
 
-90
-00:05:17.046 --> 00:05:21.178
-It saw that nothing in the loop writes stop or talks to other threads.
+65
+00:03:56.451 --> 00:04:02.465
+Nothing in it writes stop, so it copied stop onto the notepad once, and made the rest while true.
 
-91
-00:05:21.178 --> 00:05:25.605
-So it read stop once, before the loop, and turned the rest into while true.
-
-92
-00:05:26.400 --> 00:05:34.343
-In the office, it's as if the clerk copied the answer, no, onto her notepad once, and from then on reads only the notepad.
-
-93
-00:05:34.533 --> 00:05:35.704
+66
+00:04:03.167 --> 00:04:04.338
 Main writes true.
 
-94
-00:05:35.704 --> 00:05:37.427
+67
+00:04:04.338 --> 00:04:06.060
 The note leaves the tray.
 
-95
-00:05:37.427 --> 00:05:38.804
+68
+00:04:06.060 --> 00:04:07.438
 The board says true.
 
-96
-00:05:38.804 --> 00:05:40.596
+69
+00:04:07.438 --> 00:04:09.229
 Both photocopies say true.
 
-97
-00:05:40.596 --> 00:05:43.420
+70
+00:04:09.229 --> 00:04:12.053
 And the worker keeps reading its notepad.
 
-98
-00:05:43.600 --> 00:05:50.136
-The notepad is a register, a tiny storage slot inside a core, the fastest place a value can live.
+71
+00:04:12.167 --> 00:04:16.259
+The notepad is a register, a tiny storage slot inside a core.
 
-99
-00:05:50.136 --> 00:05:52.360
+72
+00:04:16.259 --> 00:04:18.473
 That's where the old value lives.
 
-100
-00:05:52.533 --> 00:05:55.256
-It's the most focused worker in the building.
+73
+00:04:18.600 --> 00:04:23.597
+The most focused worker in the building: it never looks up, so it never goes home.
 
-101
-00:05:55.256 --> 00:05:57.736
-It never looks up, so it never goes home.
+74
+00:04:23.597 --> 00:04:26.400
+No rule in the hardware can reach its notepad.
 
-102
-00:05:57.736 --> 00:06:03.604
-Jokes aside, the compiled loop never reads memory again, so no rule in the hardware can reach it.
+75
+00:04:26.500 --> 00:04:28.375
+So, the office as it stands.
 
-103
-00:06:03.800 --> 00:06:06.019
-So here's the office as it stands.
+76
+00:04:28.375 --> 00:04:31.589
+The photocopy, the cache, agrees in nanoseconds.
 
-104
-00:06:06.019 --> 00:06:09.412
-The photocopy, the cache, agrees within nanoseconds.
+77
+00:04:31.589 --> 00:04:35.204
+The outbox, the store buffer, delivers in nanoseconds.
 
-105
-00:06:09.412 --> 00:06:14.762
-The outbox, the store buffer, holds a write for nanoseconds, then always delivers.
+78
+00:04:35.204 --> 00:04:38.217
+The notepad, the register, stays old forever.
 
-106
-00:06:14.762 --> 00:06:20.765
-The notepad, the register, can hold an old value forever, but only because the JIT chose it.
+79
+00:04:38.333 --> 00:04:40.254
+The picture breaks in one place.
 
-107
-00:06:20.933 --> 00:06:23.495
-And here's where the office picture breaks.
+80
+00:04:40.254 --> 00:04:42.655
+A clerk chooses where to look each time.
 
-108
-00:06:23.495 --> 00:06:26.354
-A clerk decides where to look, glance by glance.
+81
+00:04:42.655 --> 00:04:47.036
+The JIT chooses once, and the core repeats that choice billions of times.
 
-109
-00:06:26.354 --> 00:06:32.311
-The JIT decides once, when it compiles the loop, and the core repeats that choice billions of times.
-
-110
-00:06:32.311 --> 00:06:34.336
-That's why the hang lasts forever.
-
-111
-00:06:35.133 --> 00:06:35.957
+82
+00:04:47.767 --> 00:04:48.633
 One warning.
 
-112
-00:06:35.957 --> 00:06:38.358
-Chips differ in how much they swap.
+83
+00:04:48.633 --> 00:04:53.832
+x86 chips, in most laptops, only let a later read pass an earlier write.
 
-113
-00:06:38.358 --> 00:06:43.091
-x86 chips only let a later read pass an earlier write, like our test.
+84
+00:04:53.832 --> 00:05:00.331
+ARM chips, in phones and many servers, also swap reads with reads, and writes with writes.
 
-114
-00:06:43.091 --> 00:06:49.197
-ARM chips, in phones and many servers, also let reads pass reads, and writes pass writes.
-
-115
-00:06:49.333 --> 00:06:53.344
-So code that never fails on your laptop can fail on a server.
-
-116
-00:06:53.344 --> 00:06:57.354
+85
+00:05:00.433 --> 00:05:04.434
 A clean run on your laptop only proves your laptop is polite.
 
-117
-00:06:57.354 --> 00:07:00.839
-Write to Java's rules instead: the Java Memory Model.
+86
+00:05:04.434 --> 00:05:12.436
+So write to Java's rules, the Java Memory Model: another thread's write is promised only when something links the threads.
 
-118
-00:07:00.839 --> 00:07:07.216
-It promises visibility, one thread seeing another's write, only when something links the threads.
-
-119
-00:07:08.000 --> 00:07:10.912
+87
+00:05:13.167 --> 00:05:16.006
 For our flag, the link is one word: volatile.
 
-120
-00:07:10.912 --> 00:07:16.282
-The JIT may not keep a volatile field on the notepad, so every pass reads it again.
+88
+00:05:16.006 --> 00:05:22.759
+The JIT can't keep a volatile field on the notepad, so every pass reads it again, and the worker goes home.
 
-121
-00:07:16.282 --> 00:07:20.035
-The photocopy says true, and the worker finally goes home.
+89
+00:05:23.467 --> 00:05:29.148
+Java on the left, Kotlin on the right, where the annotation @Volatile does the same job.
 
-122
-00:07:20.035 --> 00:07:24.176
-And Java promises that main's write becomes visible to the loop.
+90
+00:05:29.867 --> 00:05:33.448
+So the old value never lived in the cache, or the outbox.
 
-123
-00:07:24.933 --> 00:07:28.345
-Here it is, Java on the left and Kotlin on the right.
+91
+00:05:33.448 --> 00:05:37.217
+It lived on the notepad, because nothing linked the threads.
 
-124
-00:07:28.345 --> 00:07:34.461
-In Kotlin, the annotation @Volatile marks the field volatile, so the compiled code is the same.
+92
+00:05:37.217 --> 00:05:39.919
+A shared plain field comes with no promise.
 
-125
-00:07:35.200 --> 00:07:37.463
-So, where does the old value live?
+93
+00:05:39.919 --> 00:05:40.987
+Make it volatile.
 
-126
-00:07:37.463 --> 00:07:41.389
-Not in the cache: the photocopies agree within nanoseconds.
-
-127
-00:07:41.389 --> 00:07:44.982
-Not in the outbox: it delivers within nanoseconds too.
-
-128
-00:07:44.982 --> 00:07:50.106
-It lives on the notepad, a register, because the JIT chose to read stop once.
-
-129
-00:07:50.106 --> 00:07:52.236
-volatile takes the notepad away.
-
-130
-00:07:52.400 --> 00:07:53.227
+94
+00:05:41.100 --> 00:05:41.927
 Quick check.
 
-131
-00:07:53.227 --> 00:07:57.157
+95
+00:05:41.927 --> 00:05:45.857
 A loop hangs with the JIT on, and stops with the JIT off.
 
-132
-00:07:57.157 --> 00:07:59.225
+96
+00:05:45.857 --> 00:05:47.925
 Photocopy, outbox, or notepad?
