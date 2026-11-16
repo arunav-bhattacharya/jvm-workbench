@@ -1,137 +1,337 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.015
-Here is the FX rate cache from this lesson's lab.
+00:00:02.700 --> 00:00:06.713
+Back to the restaurant with four waiters and a board of order slips.
 
 2
-00:00:06.015 --> 00:00:11.155
-On a miss, it does a 100 ms socket read, while it holds the cache's monitor.
+00:00:06.713 --> 00:00:13.146
+When a slip has to wait, its waiter clips it to the board by the kitchen door, and picks up one that's ready.
 
 3
-00:00:11.155 --> 00:00:15.349
-In Kotlin, the Synchronized annotation makes the same monitor.
+00:00:13.146 --> 00:00:15.093
+Four waiters, two hundred tables.
 
 4
-00:00:16.167 --> 00:00:20.569
-The JDK runs virtual threads on carrier threads, one per core.
+00:00:15.200 --> 00:00:19.277
+In Java words, a slip is a virtual thread, a cheap Java thread.
 
 5
-00:00:20.569 --> 00:00:21.919
-Say there are four.
+00:00:19.277 --> 00:00:23.484
+A waiter is a carrier, one of the few real threads that run them.
 
 6
-00:00:22.133 --> 00:00:24.006
-VT 1 to 4 call rate.
+00:00:23.484 --> 00:00:30.409
+Clipping a slip to the board is unmounting: its saved stack goes to the heap, where Java keeps its objects.
 
 7
-00:00:24.006 --> 00:00:27.096
-VT 5 and 6 never touch the cache.
+00:00:30.533 --> 00:00:33.412
+Here's a question that's easy to be shy about.
 
 8
-00:00:27.300 --> 00:00:32.488
-VT 1 mounts on carrier 1, enters rate, and takes the monitor.
+00:00:33.412 --> 00:00:38.355
+If waiting slips always go on the board, can four waiters ever freeze the room?
 
 9
-00:00:32.488 --> 00:00:38.016
-On JDK 21 to 23, the JVM records a monitor's owner per OS thread.
+00:00:41.733 --> 00:00:44.369
+Let's find out with a cache from our shop.
 
 10
-00:00:38.016 --> 00:00:40.227
-So the owner is carrier 1.
+00:00:44.369 --> 00:00:52.088
+The checkout shows each price in the customer's own money, so it needs exchange rates, like how many dollars one euro buys.
 
 11
-00:00:40.433 --> 00:00:42.647
-Now VT 1 starts the socket read.
+00:00:52.088 --> 00:00:58.991
+A rates service on another computer answers in about 100 milliseconds, so the shop keeps each rate it fetches.
 
 12
-00:00:42.647 --> 00:00:46.174
-A blocking read normally unmounts a virtual thread.
+00:00:59.100 --> 00:01:02.941
+Many virtual threads ask at once, so the cache needs a lock.
 
 13
-00:00:46.174 --> 00:00:50.393
-But while VT 1 holds the monitor, it can't leave its carrier.
+00:01:02.941 --> 00:01:05.246
+Most of us would write synchronized.
 
 14
-00:00:50.393 --> 00:00:53.367
-It is pinned, and carrier 1 blocks with it.
+00:01:05.246 --> 00:01:11.456
+It takes the lock every Java object has built in, called a monitor: one thread at a time gets in.
 
 15
-00:00:53.600 --> 00:00:56.013
-VT 2, 3 and 4 mount and call rate.
+00:01:11.456 --> 00:01:14.849
+The code is correct, and the lab's first test passes.
 
 16
-00:00:56.013 --> 00:01:00.909
-The monitor is taken, so each one blocks, and each one is pinned too.
+00:01:15.567 --> 00:01:17.369
+Now give one dish a hot pan.
 
 17
-00:01:01.133 --> 00:01:04.920
-All four carriers are stuck, and the CPU does nothing.
+00:01:17.369 --> 00:01:23.486
+A waiter holding a hot pan can't clip his slip to the board, because he can't put the pan down.
 
 18
-00:01:04.920 --> 00:01:12.773
-Four callers of rate have stopped every virtual thread in the JVM, even VT 5 and 6, which never touch the cache.
+00:01:23.486 --> 00:01:26.641
+So he stands at the stove until the dish is done.
 
 19
-00:01:14.600 --> 00:01:16.794
-Now use a ReentrantLock instead.
+00:01:26.641 --> 00:01:29.860
+Nobody has made a board you can hang a hot pan on.
 
 20
-00:01:16.794 --> 00:01:20.565
-In Kotlin, withLock writes the try and finally for you.
+00:01:29.860 --> 00:01:30.891
+Not yet, anyway.
 
 21
-00:01:22.167 --> 00:01:25.821
-Again, VT 1 to VT 4 mount and call rate.
+00:01:30.891 --> 00:01:32.887
+So the slip stays in his hands.
 
 22
-00:01:25.821 --> 00:01:28.196
-VT 1 takes the lock first.
+00:01:33.000 --> 00:01:35.310
+Now let all four waiters hold pans.
 
 23
-00:01:28.400 --> 00:01:29.913
-VT 1 starts the read.
+00:01:35.310 --> 00:01:40.127
+Every slip on the board waits, even one that only needs a glass of water.
 
 24
-00:01:29.913 --> 00:01:37.480
-ReentrantLock parks the thread the normal way, so VT 1 unmounts to the heap, and it still holds the lock.
+00:01:40.127 --> 00:01:41.447
+The room goes still.
 
 25
-00:01:37.700 --> 00:01:40.173
-VT 2, 3 and 4 ask for the lock.
+00:01:43.067 --> 00:01:44.425
+Here's the mapping.
 
 26
-00:01:40.173 --> 00:01:42.727
-Each one parks and unmounts too.
+00:01:44.425 --> 00:01:46.068
+The pan is the monitor.
 
 27
-00:01:42.933 --> 00:01:46.695
-Now the carriers are free, and they run VT 5 and 6.
+00:01:46.068 --> 00:01:53.501
+It's in the waiter's hands because on JDK 21 to 23, the JVM recorded the carrier as the monitor's owner.
 
 28
-00:01:46.900 --> 00:01:52.779
-When the rate arrives, VT 1 mounts again on a free carrier, stores the rate and unlocks.
+00:01:53.501 --> 00:01:57.432
+The slip stays off the board: the thread can't unmount.
 
 29
-00:01:52.779 --> 00:01:56.855
-Then VT 2 gets the lock, and mounts on the last free carrier.
+00:01:57.432 --> 00:02:01.148
+And the waiter stands still: the carrier is blocked.
 
 30
-00:01:58.667 --> 00:02:01.312
-JDK 24 fixed this with JEP 491.
+00:02:01.267 --> 00:02:02.308
+Why the carrier?
 
 31
-00:02:01.312 --> 00:02:13.855
-A virtual thread can now take, hold and release a monitor independently of its carrier, so synchronized and Object.wait unmount like ReentrantLock.
+00:02:02.308 --> 00:02:07.907
+If the slip left, the pan would seem to belong to the next slip that waiter picked up.
 
 32
-00:02:13.855 --> 00:02:17.695
-JDK 25 is the first LTS release with the fix.
+00:02:07.907 --> 00:02:08.753
+So both stay.
 
 33
-00:02:17.900 --> 00:02:22.407
-So on JDK 25, leave working synchronized code alone.
+00:02:08.867 --> 00:02:15.755
+That's called pinning: a virtual thread reaches a blocking call, but can't let go of its carrier.
 
 34
-00:02:22.407 --> 00:02:27.001
-On JDK 21, put a ReentrantLock around blocking calls.
+00:02:15.755 --> 00:02:20.016
+On JDK 21 to 23, even a slip waiting for the pan was pinned.
+
+35
+00:02:20.733 --> 00:02:22.701
+Let's shrink it to one waiter.
+
+36
+00:02:22.701 --> 00:02:25.653
+The lesson's PinningDemo runs on one carrier.
+
+37
+00:02:25.653 --> 00:02:30.441
+A small virtual thread, the ticker, notes the time every 50 milliseconds.
+
+38
+00:02:30.441 --> 00:02:36.739
+Three others each take the lock and sleep 100 milliseconds inside it, in place of the slow call.
+
+39
+00:02:37.467 --> 00:02:45.051
+If nothing pins, the ticker keeps its rhythm, and the longest gap between ticks stays near 50 milliseconds.
+
+40
+00:02:45.051 --> 00:02:46.611
+What will JDK 21 show?
+
+41
+00:02:49.400 --> 00:02:53.037
+343 milliseconds, about three sleeps in a row.
+
+42
+00:02:53.037 --> 00:03:00.784
+Each sleeper held the only carrier for its whole 100 milliseconds, and the JVM counted three pins.
+
+43
+00:03:00.900 --> 00:03:01.371
+Well...
+
+44
+00:03:01.371 --> 00:03:03.659
+That's a long silence for a clock.
+
+45
+00:03:03.659 --> 00:03:06.552
+And the ticker never even touched the lock.
+
+46
+00:03:06.667 --> 00:03:12.299
+Now swap the monitor for a ReentrantLock, a lock class from java.util.concurrent.
+
+47
+00:03:12.299 --> 00:03:20.435
+It records the virtual thread as its owner, and it waits by parking: setting the thread aside until someone wakes it.
+
+48
+00:03:20.435 --> 00:03:21.965
+So it always unmounts.
+
+49
+00:03:21.965 --> 00:03:23.077
+It's a cool pan.
+
+50
+00:03:23.200 --> 00:03:25.740
+Same three sleepers, same one carrier.
+
+51
+00:03:25.740 --> 00:03:27.544
+What's the longest gap now?
+
+52
+00:03:30.333 --> 00:03:35.424
+102 milliseconds on this busy machine, and 51 on the next run, with no pins.
+
+53
+00:03:35.424 --> 00:03:41.653
+The sleepers still took turns with the lock, but on the board, so the ticker kept its waiter.
+
+54
+00:03:42.367 --> 00:03:44.209
+And slow is the mild case.
+
+55
+00:03:44.209 --> 00:03:49.878
+In 2024, engineers at Netflix described Java 21 services that stopped answering.
+
+56
+00:03:49.878 --> 00:03:55.335
+Every carrier was pinned by a thread waiting to enter one synchronized block.
+
+57
+00:03:55.335 --> 00:04:01.145
+The thread next in line for that lock was unmounted, and never got a free carrier.
+
+58
+00:04:01.267 --> 00:04:09.641
+In the restaurant, four waiters wait at the stove for the pan, while the slip that must take it next hangs on the board, waiting for a waiter.
+
+59
+00:04:09.641 --> 00:04:12.472
+Everyone waits, very politely, and nobody cooks.
+
+60
+00:04:12.472 --> 00:04:16.305
+The carriers wait for the lock, and the lock waits for a carrier.
+
+61
+00:04:17.033 --> 00:04:19.176
+Then JDK 24 made that hook.
+
+62
+00:04:19.176 --> 00:04:26.953
+Its design document, JEP 491, changed monitors so the JVM records the virtual thread as the owner.
+
+63
+00:04:26.953 --> 00:04:31.874
+So synchronized and Object.wait unmount, like a ReentrantLock.
+
+64
+00:04:31.874 --> 00:04:34.255
+The pan travels with its slip.
+
+65
+00:04:34.967 --> 00:04:41.086
+JDK 25, the first long-term-support release with the fix, gets updates for years.
+
+66
+00:04:41.086 --> 00:04:47.055
+There, the same demo with synchronized shows a 52 millisecond gap, and no pins.
+
+67
+00:04:47.767 --> 00:04:49.078
+Which lock, then?
+
+68
+00:04:49.078 --> 00:04:50.852
+It depends on your JDK.
+
+69
+00:04:50.852 --> 00:04:58.333
+On JDK 21 to 23, blocking while holding a monitor pins, so put a ReentrantLock around slow calls.
+
+70
+00:04:58.333 --> 00:05:02.112
+On JDK 25, leave working synchronized code alone.
+
+71
+00:05:02.112 --> 00:05:07.896
+A few pans stay hot even there, and the next part of the lesson shows them.
+
+72
+00:05:08.600 --> 00:05:10.888
+Here's the fix in Java and Kotlin.
+
+73
+00:05:10.888 --> 00:05:14.791
+Java locks on the line before try, and unlocks in finally.
+
+74
+00:05:14.791 --> 00:05:17.348
+Kotlin's withLock writes that for you.
+
+75
+00:05:17.348 --> 00:05:19.165
+Each rate still loads once.
+
+76
+00:05:19.867 --> 00:05:22.877
+So, could four waiters freeze the room?
+
+77
+00:05:22.877 --> 00:05:30.211
+On JDK 21 to 23, yes: a slip holding a monitor can't go on the board, so its carrier waits too.
+
+78
+00:05:30.211 --> 00:05:36.079
+A ReentrantLock, or JDK 24 and later, lets it go on the board, lock and all.
+
+79
+00:05:36.200 --> 00:05:37.101
+Quick check.
+
+80
+00:05:37.101 --> 00:05:38.603
+JDK 21, one carrier.
+
+81
+00:05:38.603 --> 00:05:43.934
+A virtual thread sleeps 100 milliseconds while holding a ReentrantLock.
+
+82
+00:05:43.934 --> 00:05:46.787
+Can the ticker tick during that sleep?
+
+83
+00:05:49.767 --> 00:05:50.031
+Yes.
+
+84
+00:05:50.031 --> 00:05:56.905
+The lock doesn't pin, so the sleeper unmounts, lock and all, and the only waiter is free for the ticker.
