@@ -16,8 +16,12 @@ notes and your memory disagree, trust the notes or check the primary source.
 
 ## Who the learner is
 
-One person: a senior backend engineer. They write Kotlin and Java every day, on
-services built with Quarkus, Temporal, Oracle and Kafka, mostly in payments.
+Anyone who can read basic Java or Kotlin. The site is open to everyone, so write for a
+newcomer to the topic: someone who knows the syntax of both languages but has never worked
+with frameworks, servers or industry tools, and knows none of their jargon (see "Write for a
+complete newcomer" in the venkat-voice skill and brief/VOICE.md). The person who asked for the
+course is a backend engineer, so real-world tools may appear, but only after the idea, as a
+short, clearly labeled aside, and never as something the reader must know first.
 They know the syntax of both languages. They do not yet have a deep, lasting model
 of concurrency, the memory model, reactive code, coroutines, generics variance
 or design patterns. Earlier attempts to learn generics "did not stick", so the
@@ -82,10 +86,13 @@ Follow the human-writing skill at
 - Use "you". Contractions are fine.
 - Never refer to the schedule with calendar dates or weekdays. Refer to other lessons by
   title or as "lesson N of this track".
-- Concrete, made-up examples from the learner's world: payment authorizations,
-  ledger balances, idempotency keys, a Kafka consumer, a card-issuer API that
-  takes 120 ms, a connection pool with 20 connections. All company names, people
-  and numbers are invented.
+- Concrete, made-up examples from everyday life that anyone understands: a bank account
+  and its balance, deposits and transfers, a shop and its sales, a ticket window with a
+  queue, a kitchen with several cooks, a to-do list, a printer queue, a slow web service
+  that takes 120 ms to answer. Set each example up in plain words before using it. Avoid
+  industry jargon (settlement, reconciliation, outbox, idempotency key) and tool names
+  (Kafka, Quarkus, Kubernetes) unless the lesson is about that tool; if one appears,
+  explain it first. All company names, people and numbers are invented.
 
 ## Accuracy rules
 
@@ -223,7 +230,7 @@ java, kotlin, bash, text, json, properties, xml). Tables are allowed.
     }
   ],
   "analogy": "One paragraph. End by saying where the analogy breaks.",
-  "in_your_world": "One paragraph tying the idea to the learner's services (payments, Kafka, Quarkus, Temporal).",
+  "in_your_world": "One paragraph tying the idea to real programs: web servers, background jobs, apps. Explain any tool you name.",
   "mistake": "The most common real mistake, why people make it, and the fix.",
   "compare": {
     "title": "...",
