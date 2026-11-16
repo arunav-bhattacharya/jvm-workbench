@@ -201,7 +201,7 @@ def check_lesson(path):
     track = TRACK_OF[lid]
     lab = track["lab"]
     num = lid.split("-")[1]
-    # Book-voice lessons (with an `opening`, see .claude/skills/venkat-voice) weave the analogy, the link to the
+    # Book-voice lessons (with an `opening`, see brief/VOICE.md) weave the analogy, the link to the
     # learner's services and the common mistake into the prose, so those three callouts become optional there.
     callouts = [] if L.get("opening") else ["analogy", "in_your_world", "mistake"]
     need(L, ["minutes", "goal", "warmup", "sections", *callouts, "worked", "lab", "drill",
