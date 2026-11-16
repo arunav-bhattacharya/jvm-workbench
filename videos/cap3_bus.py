@@ -160,7 +160,7 @@ class Cap3Bus(VoiceScene):
         # exact class only
         self.beat("The bus from the generics workshop looks up one key: the event's own class. "
                   "Predict. Which handlers run?", Indicate(ev[0][1], color=EV), run_time=1.2)
-        self.wait(1.4)
+        self.wait(1.2)
         tok = Dot(radius=0.13, color=EV).set_z_index(5).move_to(ev.get_right())
         p1 = keys[0].get_left() + LEFT * 0.05
         seq(self, "Only ledger and receipts.",
@@ -217,7 +217,7 @@ class Cap3Bus(VoiceScene):
               FadeIn(kc[2], shift=DOWN * 0.2)], 0.8))
         sib = VGroup(t_aut, t_dec, t_ref)
         self.beat("Three keys, nearest first. Siblings like PaymentRefunded are never touched.",
-                  sib.animate.set_opacity(0.3), Indicate(VGroup(*kc), color=WHITE, scale_factor=1.04), run_time=1.4)
+                  sib.animate.set_opacity(0.3), Indicate(VGroup(*[k_[1] for k_ in kc]), color=WHITE, scale_factor=1.06), run_time=1.4)
         cache = SurroundingRectangle(VGroup(*kc), buff=0.14, corner_radius=0.14, color=GREY_A, stroke_width=2)
         c_l = T("cached per class: walked once", 22, GREY_A).next_to(cache, UP, buff=0.12).align_to(cache, RIGHT)
         self.beat("A class's keys never change, so the bus caches them, once per class.", Create(cache), FadeIn(c_l), run_time=1.2)
@@ -262,7 +262,7 @@ class Cap3Bus(VoiceScene):
         aud.move_to([3.2, 0.6, 0])
         gives = T("hands it captures only", 22, CAP).move_to([-0.15, 1.35, 0])
         takes = T("takes any PaymentEvent", 22, EVT).next_to(aud, DOWN, buff=0.2)
-        seq(self, "Now audit itself. It's a Handler of PaymentEvent. Can it subscribe under PaymentCaptured, where "
+        seq(self, "Audit is a Handler of PaymentEvent. Can it subscribe under PaymentCaptured, where "
                   "the bus expects a Handler of PaymentCaptured?",
             ([FadeIn(aud)], 0.8), 1.2, ([FadeIn(line, shift=DOWN * 0.2)], 1.0))
         self.wait(1.4)
@@ -310,8 +310,8 @@ class Cap3Bus(VoiceScene):
                     titled("Kotlin", kc_)).arrange(DOWN, buff=0.45, aligned_edge=LEFT)
         cg.scale(min(1, 12.4 / cg.width)).move_to([0, 0.35, 0])
         note = T("found is a LinkedHashSet: it keeps the nearest-first order", 22, GREY_B).next_to(cg, DOWN, buff=0.4)
-        self.beat("Here is one step of the walk, in Java and Kotlin.", FadeIn(cg, shift=UP * 0.2), FadeIn(note), run_time=1.4)
-        self.wait(1.6)
+        self.beat("One step of the walk, in Java and Kotlin.", FadeIn(cg, shift=UP * 0.2), FadeIn(note), run_time=1.4)
+        self.wait(1.3)
         self.play(FadeOut(VGroup(cg, note)), run_time=0.6)
 
         # ---------------- rule and check ----------------

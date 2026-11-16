@@ -45,153 +45,149 @@ Predict.
 Which handlers run?
 
 12
-00:00:29.833 --> 00:00:31.717
+00:00:29.633 --> 00:00:31.517
 Only ledger and receipts.
 
 13
-00:00:31.967 --> 00:00:33.963
+00:00:31.767 --> 00:00:33.763
 Movements and audit never run.
 
 14
-00:00:33.963 --> 00:00:38.423
+00:00:33.763 --> 00:00:38.223
 An event's run-time class is never an interface like MoneyMovement.
 
 15
-00:00:39.233 --> 00:00:41.835
+00:00:39.033 --> 00:00:41.635
 So the bus works out which keys to look up.
 
 16
-00:00:41.835 --> 00:00:46.009
+00:00:41.635 --> 00:00:45.809
 PaymentCaptured implements MoneyMovement, which extends PaymentEvent.
 
 17
-00:00:46.233 --> 00:00:49.568
+00:00:46.033 --> 00:00:49.368
 The walk starts at the event's own class: the first key.
 
 18
-00:00:49.800 --> 00:00:53.753
+00:00:49.600 --> 00:00:53.553
 Then it asks that class for its interfaces and its superclass.
 
 19
-00:00:53.967 --> 00:00:56.698
+00:00:53.767 --> 00:00:56.498
 Object is not an event, so it's skipped.
 
 20
-00:00:56.698 --> 00:00:58.951
+00:00:56.498 --> 00:00:58.751
 MoneyMovement is: the second key.
 
 21
-00:00:59.167 --> 00:01:01.925
+00:00:58.967 --> 00:01:01.725
 Its supertype, PaymentEvent, is the third.
 
 22
-00:01:02.133 --> 00:01:03.892
+00:01:01.933 --> 00:01:03.692
 Three keys, nearest first.
 
 23
-00:01:03.892 --> 00:01:07.139
+00:01:03.692 --> 00:01:06.939
 Siblings like PaymentRefunded are never touched.
 
 24
-00:01:07.367 --> 00:01:11.811
+00:01:07.167 --> 00:01:11.611
 A class's keys never change, so the bus caches them, once per class.
 
 25
-00:01:13.433 --> 00:01:16.007
+00:01:13.233 --> 00:01:15.807
 Now publish visits just those keys.
 
 26
-00:01:16.007 --> 00:01:18.801
+00:01:15.807 --> 00:01:18.601
 Captures first: ledger, then receipts.
 
 27
-00:01:18.801 --> 00:01:19.904
+00:01:18.601 --> 00:01:19.704
 Then movements.
 
 28
-00:01:19.904 --> 00:01:20.713
+00:01:19.704 --> 00:01:20.513
 Then audit.
 
 29
-00:01:21.300 --> 00:01:26.725
+00:01:21.100 --> 00:01:26.525
 Specific handlers run before general ones, and within one key, in subscription order.
 
 30
-00:01:27.533 --> 00:01:28.634
-Now audit itself.
+00:01:27.333 --> 00:01:29.571
+Audit is a Handler of PaymentEvent.
 
 31
-00:01:28.634 --> 00:01:30.642
-It's a Handler of PaymentEvent.
-
-32
-00:01:30.642 --> 00:01:36.535
+00:01:29.571 --> 00:01:35.389
 Can it subscribe under PaymentCaptured, where the bus expects a Handler of PaymentCaptured?
 
-33
-00:01:38.167 --> 00:01:40.297
+32
+00:01:37.000 --> 00:01:39.131
 A handler only takes events in.
 
-34
-00:01:40.297 --> 00:01:43.321
+33
+00:01:39.131 --> 00:01:42.155
 Audit takes any event, so captures are fine.
 
-35
-00:01:43.533 --> 00:01:48.212
+34
+00:01:42.367 --> 00:01:47.045
 So Handler is declared in, and one general handler fits any subscription.
 
-36
-00:01:48.433 --> 00:01:51.704
+35
+00:01:47.267 --> 00:01:50.537
 Delete the in, and the same line fails to compile.
 
-37
-00:01:51.933 --> 00:01:55.437
+36
+00:01:50.767 --> 00:01:54.270
 Java writes ? super E at each use instead.
 
-38
-00:01:55.437 --> 00:01:59.691
+37
+00:01:54.270 --> 00:01:58.524
 kotlinc puts that wildcard in for Java callers too.
 
-39
-00:02:00.500 --> 00:02:03.877
-Here is one step of the walk, in Java and Kotlin.
+38
+00:01:59.333 --> 00:02:02.263
+One step of the walk, in Java and Kotlin.
 
-40
-00:02:06.300 --> 00:02:06.888
+39
+00:02:04.367 --> 00:02:04.955
 The rule.
 
-41
-00:02:06.888 --> 00:02:11.331
+40
+00:02:04.955 --> 00:02:09.398
 Look up the event's class, then each event supertype, nearest first.
 
-42
-00:02:11.331 --> 00:02:14.533
+41
+00:02:09.398 --> 00:02:12.600
 A handler only takes events in, so declare it in.
 
-43
-00:02:14.767 --> 00:02:15.800
+42
+00:02:12.833 --> 00:02:13.867
 Check yourself.
 
-44
-00:02:15.800 --> 00:02:17.936
+43
+00:02:13.867 --> 00:02:16.003
 A PaymentDeclined is published.
 
-45
-00:02:17.936 --> 00:02:20.141
+44
+00:02:16.003 --> 00:02:18.208
 Which keys does the bus look up?
 
-46
-00:02:22.867 --> 00:02:23.198
+45
+00:02:20.933 --> 00:02:21.265
 Two.
 
-47
-00:02:23.198 --> 00:02:26.100
+46
+00:02:21.265 --> 00:02:24.166
 PaymentDeclined, then PaymentEvent.
 
-48
-00:02:26.100 --> 00:02:27.011
+47
+00:02:24.166 --> 00:02:25.078
 Audit runs.
 
-49
-00:02:27.011 --> 00:02:30.659
+48
+00:02:25.078 --> 00:02:28.725
 Movements doesn't: a decline moves no money.

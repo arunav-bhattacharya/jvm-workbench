@@ -245,6 +245,12 @@
       "lesson": "dop-04",
       "section": 0,
       "title": "One optional-field class allows 48 shapes and 3 make sense; three records under a sealed interface allow only those 3, one parse at the edge lets nothing else in, and the logic lives in functions over the data"
+    },
+    {
+      "slug": "cap3-bus",
+      "lesson": "cap3-02",
+      "section": 0,
+      "title": "One publish looks up the event's class, then each event supertype, nearest first, and a Handler declared in lets one general handler fit any subscription"
     }
   ]
 }

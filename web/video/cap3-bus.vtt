@@ -1,0 +1,193 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:03.902
+A capture comes in.
+
+2
+00:00:03.902 --> 00:00:07.065
+The bus must hand it to everyone who asked for it.
+
+3
+00:00:07.267 --> 00:00:09.715
+Each handler subscribes under a type.
+
+4
+00:00:09.715 --> 00:00:11.965
+Ledger and receipts want captures.
+
+5
+00:00:11.965 --> 00:00:14.281
+Movements wants any money movement.
+
+6
+00:00:14.281 --> 00:00:15.869
+Audit wants every event.
+
+7
+00:00:16.100 --> 00:00:17.983
+Refunds wants refunds only.
+
+8
+00:00:17.983 --> 00:00:20.913
+They all sit in a map, keyed by that type.
+
+9
+00:00:21.133 --> 00:00:26.340
+The bus from the generics workshop looks up one key: the event's own class.
+
+10
+00:00:26.340 --> 00:00:26.896
+Predict.
+
+11
+00:00:26.896 --> 00:00:28.215
+Which handlers run?
+
+12
+00:00:29.633 --> 00:00:31.517
+Only ledger and receipts.
+
+13
+00:00:31.767 --> 00:00:33.763
+Movements and audit never run.
+
+14
+00:00:33.763 --> 00:00:38.223
+An event's run-time class is never an interface like MoneyMovement.
+
+15
+00:00:39.033 --> 00:00:41.635
+So the bus works out which keys to look up.
+
+16
+00:00:41.635 --> 00:00:45.809
+PaymentCaptured implements MoneyMovement, which extends PaymentEvent.
+
+17
+00:00:46.033 --> 00:00:49.368
+The walk starts at the event's own class: the first key.
+
+18
+00:00:49.600 --> 00:00:53.553
+Then it asks that class for its interfaces and its superclass.
+
+19
+00:00:53.767 --> 00:00:56.498
+Object is not an event, so it's skipped.
+
+20
+00:00:56.498 --> 00:00:58.751
+MoneyMovement is: the second key.
+
+21
+00:00:58.967 --> 00:01:01.725
+Its supertype, PaymentEvent, is the third.
+
+22
+00:01:01.933 --> 00:01:03.692
+Three keys, nearest first.
+
+23
+00:01:03.692 --> 00:01:06.939
+Siblings like PaymentRefunded are never touched.
+
+24
+00:01:07.167 --> 00:01:11.611
+A class's keys never change, so the bus caches them, once per class.
+
+25
+00:01:13.233 --> 00:01:15.807
+Now publish visits just those keys.
+
+26
+00:01:15.807 --> 00:01:18.601
+Captures first: ledger, then receipts.
+
+27
+00:01:18.601 --> 00:01:19.704
+Then movements.
+
+28
+00:01:19.704 --> 00:01:20.513
+Then audit.
+
+29
+00:01:21.100 --> 00:01:26.525
+Specific handlers run before general ones, and within one key, in subscription order.
+
+30
+00:01:27.333 --> 00:01:29.571
+Audit is a Handler of PaymentEvent.
+
+31
+00:01:29.571 --> 00:01:35.389
+Can it subscribe under PaymentCaptured, where the bus expects a Handler of PaymentCaptured?
+
+32
+00:01:37.000 --> 00:01:39.131
+A handler only takes events in.
+
+33
+00:01:39.131 --> 00:01:42.155
+Audit takes any event, so captures are fine.
+
+34
+00:01:42.367 --> 00:01:47.045
+So Handler is declared in, and one general handler fits any subscription.
+
+35
+00:01:47.267 --> 00:01:50.537
+Delete the in, and the same line fails to compile.
+
+36
+00:01:50.767 --> 00:01:54.270
+Java writes ? super E at each use instead.
+
+37
+00:01:54.270 --> 00:01:58.524
+kotlinc puts that wildcard in for Java callers too.
+
+38
+00:01:59.333 --> 00:02:02.263
+One step of the walk, in Java and Kotlin.
+
+39
+00:02:04.367 --> 00:02:04.955
+The rule.
+
+40
+00:02:04.955 --> 00:02:09.398
+Look up the event's class, then each event supertype, nearest first.
+
+41
+00:02:09.398 --> 00:02:12.600
+A handler only takes events in, so declare it in.
+
+42
+00:02:12.833 --> 00:02:13.867
+Check yourself.
+
+43
+00:02:13.867 --> 00:02:16.003
+A PaymentDeclined is published.
+
+44
+00:02:16.003 --> 00:02:18.208
+Which keys does the bus look up?
+
+45
+00:02:20.933 --> 00:02:21.265
+Two.
+
+46
+00:02:21.265 --> 00:02:24.166
+PaymentDeclined, then PaymentEvent.
+
+47
+00:02:24.166 --> 00:02:25.078
+Audit runs.
+
+48
+00:02:25.078 --> 00:02:28.725
+Movements doesn't: a decline moves no money.

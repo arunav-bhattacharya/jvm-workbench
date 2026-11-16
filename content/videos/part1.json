@@ -35,6 +35,7 @@
     {"slug": "jmm06-varhandles", "lesson": "jmm-06", "section": 1, "title": "A VarHandle puts the memory mode on each access: plain, opaque, release/acquire and volatile as a ladder, where a release hands everything written before it to the acquire that sees it"},
     {"slug": "conc13-testing", "lesson": "conc-13", "section": 0, "title": "Two test threads that never overlap catch nothing: a start latch, more threads than cores and many rounds make them collide, a latch with a deadline replaces the sleep, and jcstress counts every outcome"},
     {"slug": "vt06-migrate", "lesson": "vt-06", "section": 0, "title": "A fixed pool of 10 also kept the database to 10 callers; virtual threads drop that limit and 300 requests hit 10 connections, a semaphore writes it back, and Little's law shows where requests wait"},
-    {"slug": "cap1-snapshot", "lesson": "cap1-02", "section": 2, "title": "A balance sum read one locked account at a time is torn; copy every balance under every lock into an immutable snapshot and publish it with one volatile write, so readers see old or new, never a mix"}
+    {"slug": "cap1-snapshot", "lesson": "cap1-02", "section": 2, "title": "A balance sum read one locked account at a time is torn; copy every balance under every lock into an immutable snapshot and publish it with one volatile write, so readers see old or new, never a mix"},
+    {"slug": "cap1-limits", "lesson": "cap1-03", "section": 0, "title": "One request through every limit: its own virtual thread, one 300 ms deadline for every wait, a shared 20-permit bulkhead for the fraud check that gets its permit back on interrupt, the stand-in rule, and the 8 + 80 ledger pool"}
   ]
 }
