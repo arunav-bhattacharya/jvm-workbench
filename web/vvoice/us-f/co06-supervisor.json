@@ -1,0 +1,295 @@
+{
+ "slug": "co06-supervisor",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.29,
+   "tries": 1,
+   "text": "A payment is captured."
+  },
+  {
+   "cue": 4.38,
+   "start": 4.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.61,
+   "tries": 1,
+   "text": "Now three messages go out: an email, an SMS and a push notification."
+  },
+  {
+   "cue": 9.77,
+   "start": 9.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.04,
+   "tries": 1,
+   "text": "Each one is an async child of one coroutineScope, and each async hands back a Deferred: a box for its result."
+  },
+  {
+   "cue": 18.0,
+   "start": 18.0,
+   "late": 0.0,
+   "tempo": 1.019,
+   "secs": 2.73,
+   "tries": 1,
+   "text": "At fifty milliseconds the SMS call throws."
+  },
+  {
+   "cue": 20.96,
+   "start": 20.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.69,
+   "tries": 1,
+   "text": "Nobody has called await yet."
+  },
+  {
+   "cue": 23.09,
+   "start": 23.09,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.29,
+   "tries": 1,
+   "text": "What happens to the email?"
+  },
+  {
+   "cue": 27.83,
+   "start": 27.83,
+   "late": 0.0,
+   "tempo": 1.075,
+   "secs": 1.54,
+   "tries": 1,
+   "text": "The failure goes up at once."
+  },
+  {
+   "cue": 29.58,
+   "start": 29.58,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.42,
+   "tries": 1,
+   "text": "A failed child tells its parent the moment it fails, and that is true for async too."
+  },
+  {
+   "cue": 34.83,
+   "start": 34.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.54,
+   "tries": 1,
+   "text": "Nothing waits in the Deferred."
+  },
+  {
+   "cue": 36.93,
+   "start": 36.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.45,
+   "tries": 1,
+   "text": "The parent cancels the email and the push, and coroutineScope throws the SMS exception to the caller."
+  },
+  {
+   "cue": 44.02,
+   "start": 44.02,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "The customer gets nothing."
+  },
+  {
+   "cue": 46.07,
+   "start": 46.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.3,
+   "tries": 1,
+   "text": "But these messages don't need each other."
+  },
+  {
+   "cue": 48.91,
+   "start": 48.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "An SMS outage should not stop the email."
+  },
+  {
+   "cue": 52.6,
+   "start": 52.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.84,
+   "tries": 1,
+   "text": "So give them a parent that lets a child fail alone."
+  },
+  {
+   "cue": 56.11,
+   "start": 56.11,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.19,
+   "tries": 1,
+   "text": "Same failure. Where does it go now?"
+  },
+  {
+   "cue": 61.23,
+   "start": 61.23,
+   "late": 0.0,
+   "tempo": 1.043,
+   "secs": 1.37,
+   "tries": 1,
+   "text": "It stays with the child."
+  },
+  {
+   "cue": 62.82,
+   "start": 62.82,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.32,
+   "tries": 1,
+   "text": "The parent doesn't cancel anyone, and the exception waits in the SMS Deferred."
+  },
+  {
+   "cue": 68.2,
+   "start": 68.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.21,
+   "tries": 1,
+   "text": "The push is sent at one hundred milliseconds, and the email at three hundred."
+  },
+  {
+   "cue": 73.0,
+   "start": 73.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.63,
+   "tries": 1,
+   "text": "Later the block calls await."
+  },
+  {
+   "cue": 74.97,
+   "start": 74.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.84,
+   "tries": 1,
+   "text": "Each Deferred hands back what it holds, and for the SMS, await rethrows the IOException, where a try can catch it."
+  },
+  {
+   "cue": 83.2,
+   "start": 83.2,
+   "late": 0.0,
+   "tempo": 1.021,
+   "secs": 3.24,
+   "tries": 1,
+   "text": "This parent is a supervisor: here, supervisorScope."
+  },
+  {
+   "cue": 86.66,
+   "start": 86.66,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.98,
+   "tries": 1,
+   "text": "Its children fail alone, but cancelling it still stops every child."
+  },
+  {
+   "cue": 92.13,
+   "start": 92.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.71,
+   "tries": 1,
+   "text": "With launch there is no Deferred."
+  },
+  {
+   "cue": 94.29,
+   "start": 94.29,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.84,
+   "tries": 1,
+   "text": "A failed launch child of a supervisor hands its exception to the CoroutineExceptionHandler in its context, which can only log it."
+  },
+  {
+   "cue": 103.73,
+   "start": 103.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.84,
+   "tries": 1,
+   "text": "Put that handler on a child of a plain parent, and it is never called: the child tells its parent first."
+  },
+  {
+   "cue": 110.33,
+   "start": 110.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.26,
+   "tries": 1,
+   "text": "A handler works only at a root, or on a direct child of a supervisor."
+  },
+  {
+   "cue": 115.63,
+   "start": 115.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.14,
+   "tries": 1,
+   "text": "This is Kotlin only."
+  },
+  {
+   "cue": 116.99,
+   "start": 116.99,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.25,
+   "tries": 1,
+   "text": "Write supervisorScope inside a function, or put SupervisorJob and the handler in the constructor of a scope you own."
+  },
+  {
+   "cue": 125.67,
+   "start": 125.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.48,
+   "tries": 1,
+   "text": "So a plain parent sends a failure up at once."
+  },
+  {
+   "cue": 128.55,
+   "start": 128.55,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.06,
+   "tries": 1,
+   "text": "A supervisor keeps it with the child: in the Deferred for async, in the handler for launch."
+  },
+  {
+   "cue": 134.6,
+   "start": 134.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.16,
+   "tries": 1,
+   "text": "Quick check. A launch child of coroutineScope has its own handler, and it throws."
+  },
+  {
+   "cue": 140.05,
+   "start": 140.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.28,
+   "tries": 1,
+   "text": "Who gets the exception?"
+  }
+ ]
+}

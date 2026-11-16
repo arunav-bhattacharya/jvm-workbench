@@ -1,0 +1,313 @@
+{
+ "slug": "co08-state-shared",
+ "voice": "us-f",
+ "max_late": 0.81,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.02,
+   "tries": 1,
+   "text": "A dashboard shows the euro to dollar rate, and drawing one rate takes one hundred milliseconds."
+  },
+  {
+   "cue": 8.73,
+   "start": 8.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.98,
+   "tries": 1,
+   "text": "While it draws one point zero eight zero nine, three new rates arrive within a millisecond."
+  },
+  {
+   "cue": 16.17,
+   "start": 16.17,
+   "late": 0.0,
+   "tempo": 1.147,
+   "secs": 5.5,
+   "tries": 1,
+   "text": "one point zero eight one three. A StateFlow holds one value, and each new value replaces the old one."
+  },
+  {
+   "cue": 21.89,
+   "start": 21.89,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.88,
+   "tries": 1,
+   "text": "A slow collector doesn't get a queue of what it missed."
+  },
+  {
+   "cue": 26.03,
+   "start": 26.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.11,
+   "tries": 1,
+   "text": "It gets the latest."
+  },
+  {
+   "cue": 27.46,
+   "start": 27.46,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.16,
+   "tries": 1,
+   "text": "That is conflation."
+  },
+  {
+   "cue": 29.6,
+   "start": 29.6,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "Now set one point zero eight one three again."
+  },
+  {
+   "cue": 31.35,
+   "start": 32.16,
+   "late": 0.81,
+   "tempo": 1.0,
+   "secs": 5.2,
+   "tries": 1,
+   "text": "Nothing happens. StateFlow compares with equals, and an equal value wakes nobody."
+  },
+  {
+   "cue": 38.23,
+   "start": 38.23,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.83,
+   "tries": 2,
+   "text": "And it is hot."
+  },
+  {
+   "cue": 39.13,
+   "start": 39.21,
+   "late": 0.08,
+   "tempo": 1.0,
+   "secs": 3.72,
+   "tries": 1,
+   "text": "The value sits there with no collector at all, and anyone can read it."
+  },
+  {
+   "cue": 43.87,
+   "start": 43.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.12,
+   "tries": 3,
+   "text": "That's right for a rate."
+  },
+  {
+   "cue": 45.34,
+   "start": 45.34,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.21,
+   "tries": 1,
+   "text": "It's wrong for an audit log of payment transitions, where a skipped value is a missing record."
+  },
+  {
+   "cue": 51.8,
+   "start": 51.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.63,
+   "tries": 1,
+   "text": "A SharedFlow is for events."
+  },
+  {
+   "cue": 53.62,
+   "start": 53.62,
+   "late": 0.0,
+   "tempo": 1.085,
+   "secs": 1.39,
+   "tries": 1,
+   "text": "It has no current value."
+  },
+  {
+   "cue": 55.23,
+   "start": 55.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.6,
+   "tries": 1,
+   "text": "It hands every event to every subscriber, and its buffer decides what gets lost."
+  },
+  {
+   "cue": 60.83,
+   "start": 60.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.15,
+   "tries": 1,
+   "text": "Make one with default settings, and call tryEmit five times while the audit subscriber is busy."
+  },
+  {
+   "cue": 67.03,
+   "start": 67.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.53,
+   "tries": 1,
+   "text": "There is no buffer at all, so every tryEmit returns false, and the events are gone."
+  },
+  {
+   "cue": 72.67,
+   "start": 72.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.39,
+   "tries": 1,
+   "text": "Now give it extraBufferCapacity of two."
+  },
+  {
+   "cue": 75.27,
+   "start": 75.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.11,
+   "tries": 1,
+   "text": "Which events get through?"
+  },
+  {
+   "cue": 79.8,
+   "start": 79.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.09,
+   "tries": 1,
+   "text": "Two events wait in the buffer until the slow subscriber takes them."
+  },
+  {
+   "cue": 83.95,
+   "start": 83.95,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.62,
+   "tries": 1,
+   "text": "The third finds the buffer full, and tryEmit returns false."
+  },
+  {
+   "cue": 87.83,
+   "start": 87.83,
+   "late": 0.0,
+   "tempo": 1.108,
+   "secs": 2.28,
+   "tries": 1,
+   "text": "With sixty-four slots, all five get through."
+  },
+  {
+   "cue": 90.33,
+   "start": 90.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.28,
+   "tries": 1,
+   "text": "And emit, instead of tryEmit, waits for room, so nothing is lost."
+  },
+  {
+   "cue": 95.77,
+   "start": 95.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.82,
+   "tries": 1,
+   "text": "replay is the other knob: it keeps the newest values for subscribers who come later."
+  },
+  {
+   "cue": 101.36,
+   "start": 101.36,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.57,
+   "tries": 1,
+   "text": "Emit five with nobody listening, and the first three go nowhere."
+  },
+  {
+   "cue": 105.62,
+   "start": 105.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.91,
+   "tries": 1,
+   "text": "A late subscriber to replay two starts at efour."
+  },
+  {
+   "cue": 109.4,
+   "start": 109.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.14,
+   "tries": 1,
+   "text": "This is Kotlin only."
+  },
+  {
+   "cue": 110.84,
+   "start": 110.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.76,
+   "tries": 1,
+   "text": "State goes in a MutableStateFlow."
+  },
+  {
+   "cue": 113.21,
+   "start": 113.21,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.43,
+   "tries": 1,
+   "text": "Events go in a MutableSharedFlow, with a buffer sized for bursts."
+  },
+  {
+   "cue": 118.7,
+   "start": 118.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.51,
+   "tries": 1,
+   "text": "So a StateFlow keeps only the latest value."
+  },
+  {
+   "cue": 121.52,
+   "start": 121.52,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.77,
+   "tries": 1,
+   "text": "A SharedFlow hands every event to every subscriber, and keeps what its replay and buffer allow."
+  },
+  {
+   "cue": 127.97,
+   "start": 127.97,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.11,
+   "tries": 1,
+   "text": "Quick check. A StateFlow holds zero."
+  },
+  {
+   "cue": 130.26,
+   "start": 130.26,
+   "late": 0.0,
+   "tempo": 1.055,
+   "secs": 4.5,
+   "tries": 1,
+   "text": "While its collector is busy, you set one, two and three, and then three again."
+  },
+  {
+   "cue": 134.99,
+   "start": 134.99,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.29,
+   "tries": 1,
+   "text": "What does the collector see?"
+  }
+ ]
+}
