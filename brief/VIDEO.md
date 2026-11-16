@@ -1,11 +1,27 @@
 # Video brief: narrated concept videos
 
-Each video explains ONE key concept of one lesson, in 60 to 150 seconds, the way a 3Blue1Brown
+Each video explains ONE key concept of one lesson, in 2 to 6 minutes, the way a 3Blue1Brown
 segment does: a black screen, a few shapes that move, and a calm voice that says what you are
 looking at. The look and the voice match the videos of the sister site ai-engineer-from-zero.
 
 The pilot is `videos/conc03_race.py` (scene `RaceCount`). Watch how it is built before you start:
 render it, look at frames, read the captions. Match its pace and quality.
+
+## Teaching style: the venkat-style-video skill
+
+New videos and remakes follow the **venkat-style-video** skill (in the user's Claude profile; load it with
+the Skill tool as `anthropic-skills:venkat-style-video`, and read its `references/teaching-arcs.md`,
+`analogy-bank.md`, `humor-and-voice.md` and `script-template.md` before scripting). In short: open with the
+question a learner is shy to ask, start from something familiar, make the pain felt, map an everyday analogy
+part by part out loud, shrink the problem, predict then show, break the wrong model on purpose, name the
+concept only after it is understood, add the guardrail, and end on the moral. One light moment every one to
+two minutes, at pivots and payoffs, never inside a walkthrough, each cashed back into the idea. Invent every
+analogy and joke; never reuse the speaker's own.
+
+The viewer is a complete newcomer (see brief/VOICE.md): everyday examples set up in plain words before use,
+no tool names or industry jargon, every term defined when it first appears. The video follows the lesson's
+own running example (the shop's sales, the mail room, the bank, the kitchen rail) so text and video tell
+one story.
 
 ## Build intuition first (the most important rule)
 
@@ -66,7 +82,7 @@ The viewer should leave with a picture in their head they could redraw on a whit
 - Code on screen: keep it to a few lines. When code appears, show the Java and the Kotlin version
   side by side (as the pilot's last screen does), unless the concept only exists in one language
   (Kotlin coroutines, Kotlin variance keywords, Java-only APIs); then say which language it is.
-- 60 to 150 seconds. Under a minute is fine for a small idea. Never pad.
+- 2 to 6 minutes (the user prefers a longer video that builds intuition over a short one that rushes). Never pad.
 
 ## Visual rules (check every one before you hand in)
 
