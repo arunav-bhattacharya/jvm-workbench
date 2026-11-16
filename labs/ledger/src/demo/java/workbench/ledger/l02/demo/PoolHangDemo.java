@@ -17,8 +17,8 @@ public class PoolHangDemo {
         int seconds = args.length > 0 ? Integer.parseInt(args[0]) : 4;
         ThreadPoolExecutor pool = new ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(100), Thread.ofPlatform().name("ledger-", 0).factory());
-        for (String merchant : List.of("m-001", "m-002", "m-003")) {
-            pool.submit(() -> statement(pool, merchant));
+        for (String account : List.of("acc-01", "acc-02", "acc-03")) {
+            pool.submit(() -> statement(pool, account));
         }
         long pid = ProcessHandle.current().pid();
         System.out.printf("pid %d, hanging for %d s. In another terminal: jcmd %d Thread.print -l%n", pid, seconds, pid);
@@ -28,12 +28,12 @@ public class PoolHangDemo {
         pool.shutdownNow();                                   // interrupts the two get() calls that will never return
     }
 
-    static String statement(ExecutorService pool, String merchant) throws Exception {
-        Future<Long> balance = pool.submit(() -> balanceOf(merchant));   // queued behind the other statements
-        return merchant + ": " + balance.get();                          // waits for a thread that is never free
+    static String statement(ExecutorService pool, String account) throws Exception {
+        Future<Long> balance = pool.submit(() -> balanceOf(account));   // queued behind the other statements
+        return account + ": " + balance.get();                          // waits for a thread that is never free
     }
 
-    static long balanceOf(String merchant) {
+    static long balanceOf(String account) {
         return 4_200;                                         // fast: the problem is not speed
     }
 }

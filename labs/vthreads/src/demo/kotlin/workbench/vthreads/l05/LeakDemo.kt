@@ -5,60 +5,61 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 
 /**
- * A quote handler fans out two calls: a slow CRM lookup (2 s) and a credit-limit check
- * that fails after 100 ms. Watch what happens to the slow call once the request has failed.
+ * A checkout asks two services at the same time: the bank, which takes 2 s on a bad day,
+ * and the stock service, which says "sold out" after 100 ms. Once the stock check has failed,
+ * the bank's answer is useless. Watch what happens to the bank call anyway.
  */
 @Volatile
 private var t0 = 0L
 
 private fun log(what: String) = println("%,7d ms  %s".format((System.nanoTime() - t0) / 1_000_000, what))
 
-private fun customer(): String = try {
-    Thread.sleep(2_000)                                         // the slow CRM call
-    log("customer: call finished, nobody needs the result")
-    "ACME Ltd"
+private fun bank(): String = try {
+    Thread.sleep(2_000)                                         // the bank, on a bad day
+    log("bank: answered, but nobody needs the answer")
+    "approved"
 } catch (e: InterruptedException) {
-    log("customer: interrupted, stopped early")
+    log("bank: interrupted, stopped early")
     throw e
 }
 
-private fun limit(): String {
+private fun stock(): String {
     Thread.sleep(100)
-    throw IllegalStateException("credit limit service: 503")
+    throw IllegalStateException("stock service: sold out")
 }
 
-// A: an executor per request, closed by use {}
-private fun quoteA(): String =
+// A: an executor per checkout, closed by use {}
+private fun checkoutA(): String =
     Executors.newVirtualThreadPerTaskExecutor().use { perTask ->
-        val customer = perTask.submit(Callable { customer() })
-        val limit = perTask.submit(Callable { limit() })
-        limit.get() + " " + customer.get()                      // throws at 100 ms...
-    }                                                           // ...but close() waits for the CRM call
+        val bank = perTask.submit(Callable { bank() })
+        val stock = perTask.submit(Callable { stock() })
+        stock.get() + " " + bank.get()                          // throws at 100 ms...
+    }                                                           // ...but close() waits for the bank
 
 private val shared = Executors.newVirtualThreadPerTaskExecutor()
 
-// B: one long-lived executor for the whole service
-private fun quoteB(): String {
-    val customer = shared.submit(Callable { customer() })
-    val limit = shared.submit(Callable { limit() })
-    return limit.get() + " " + customer.get()                   // throws at 100 ms, and returns
+// B: one long-lived executor for the whole shop
+private fun checkoutB(): String {
+    val bank = shared.submit(Callable { bank() })
+    val stock = shared.submit(Callable { stock() })
+    return stock.get() + " " + bank.get()                       // throws at 100 ms, and returns
 }
 
 fun main() {
-    println("A: executor per request, closed by use {}")
+    println("A: an executor per checkout, closed by use {}")
     t0 = System.nanoTime()
     try {
-        quoteA()
+        checkoutA()
     } catch (e: ExecutionException) {
-        log("request failed: ${e.cause?.message}")
+        log("checkout failed: ${e.cause?.message}")
     }
 
     println("B: one shared executor")
     t0 = System.nanoTime()
     try {
-        quoteB()
+        checkoutB()
     } catch (e: ExecutionException) {
-        log("request failed: ${e.cause?.message}")
+        log("checkout failed: ${e.cause?.message}")
     }
     Thread.sleep(2_500)                                         // stay alive to see what B left behind
     shared.close()

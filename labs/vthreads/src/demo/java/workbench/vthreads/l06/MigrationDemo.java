@@ -12,7 +12,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 300 quote requests arrive at once. Each borrows a connection from a 10-connection pool for a
- * 5 ms query (the pool gives up after 30 ms of waiting), then makes a 100 ms FX call.
+ * 5 ms query (the pool gives up after 30 ms of waiting), then makes a 100 ms call to the
+ * exchange-rate service.
  * The same handler runs three ways: the old fixed pool, a plain swap to virtual threads,
  * and virtual threads with a Semaphore in front of the database.
  */
@@ -21,8 +22,8 @@ public class MigrationDemo {
     static final int CONNECTIONS = 10;
 
     static final Semaphore pool = new Semaphore(CONNECTIONS);   // the fake connection pool
-    static final AtomicInteger fxInFlight = new AtomicInteger();
-    static final AtomicInteger fxPeak = new AtomicInteger();
+    static final AtomicInteger ratesInFlight = new AtomicInteger();
+    static final AtomicInteger ratesPeak = new AtomicInteger();
 
     static String query() throws InterruptedException {
         if (!pool.tryAcquire(30, TimeUnit.MILLISECONDS)) {
@@ -36,20 +37,20 @@ public class MigrationDemo {
         }
     }
 
-    static String fxRate() throws InterruptedException {
-        fxPeak.accumulateAndGet(fxInFlight.incrementAndGet(), Math::max);
+    static String rateCall() throws InterruptedException {
+        ratesPeak.accumulateAndGet(ratesInFlight.incrementAndGet(), Math::max);
         try {
-            Thread.sleep(100);                                   // the FX call
+            Thread.sleep(100);                                   // the call to the exchange-rate service
             return "1.0842";
         } finally {
-            fxInFlight.decrementAndGet();
+            ratesInFlight.decrementAndGet();
         }
     }
 
     interface Handler { String handle() throws Exception; }
 
     static void run(String label, ExecutorService executor, Handler handler) throws InterruptedException {
-        fxPeak.set(0);
+        ratesPeak.set(0);
         int ok = 0, failed = 0;
         long t0 = System.nanoTime();
         try (executor) {
@@ -64,18 +65,18 @@ public class MigrationDemo {
                 }
             }
         }
-        System.out.printf("%-34s %,6d ms   ok %3d   failed %3d   FX calls in flight at peak %3d%n",
-                label, (System.nanoTime() - t0) / 1_000_000, ok, failed, fxPeak.get());
+        System.out.printf("%-34s %,6d ms   ok %3d   failed %3d   rate calls in flight at peak %3d%n",
+                label, (System.nanoTime() - t0) / 1_000_000, ok, failed, ratesPeak.get());
     }
 
     public static void main(String[] args) throws InterruptedException {
         // A: today: 10 platform threads, sized to the pool
         run("A: fixed pool of 10", Executors.newFixedThreadPool(10),
-                () -> query() + fxRate());
+                () -> query() + rateCall());
 
         // B: the one-line migration: nothing limits the database any more
         run("B: virtual threads", Executors.newVirtualThreadPerTaskExecutor(),
-                () -> query() + fxRate());
+                () -> query() + rateCall());
 
         // C: virtual threads, and the limit made explicit around the database call only
         Semaphore dbPermits = new Semaphore(CONNECTIONS, true);
@@ -87,7 +88,7 @@ public class MigrationDemo {
             } finally {
                 dbPermits.release();
             }
-            return tier + fxRate();
+            return tier + rateCall();
         });
     }
 }

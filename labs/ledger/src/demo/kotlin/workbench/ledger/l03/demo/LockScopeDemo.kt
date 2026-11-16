@@ -3,22 +3,22 @@ package workbench.ledger.l03.demo
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-private val merchantMonitor = Any()                  // a hot merchant account, guarded by a monitor...
-private val merchantLock = ReentrantLock()           // ...or by a ReentrantLock
-private var merchantBalance = 0L
+private val shopMonitor = Any()                      // a busy shop's account, guarded by a monitor...
+private val shopLock = ReentrantLock()               // ...or by a ReentrantLock
+private var shopBalance = 0L
 
 private fun journalWrite() = Thread.sleep(20)        // 20 ms of blocking I/O
 
 /**
- * One carrier thread. 20 virtual threads pay a hot merchant account while a ticker tries to tick
+ * One carrier thread. 20 virtual threads pay a busy shop's account while a ticker tries to tick
  * every 10 ms. Where the journal write sits decides whether the carrier stays free.
  */
 fun main() {
     System.setProperty("jdk.virtualThreadScheduler.parallelism", "1")   // before the first virtual thread
     println("JDK ${Runtime.version()}, 1 carrier thread")
-    runVariant("journal inside synchronized   ") { synchronized(merchantMonitor) { journalWrite(); merchantBalance += 100 } }
-    runVariant("journal inside ReentrantLock  ") { merchantLock.withLock { journalWrite(); merchantBalance += 100 } }
-    runVariant("journal first, then the lock  ") { journalWrite(); merchantLock.withLock { merchantBalance += 100 } }
+    runVariant("journal inside synchronized   ") { synchronized(shopMonitor) { journalWrite(); shopBalance += 100 } }
+    runVariant("journal inside ReentrantLock  ") { shopLock.withLock { journalWrite(); shopBalance += 100 } }
+    runVariant("journal first, then the lock  ") { journalWrite(); shopLock.withLock { shopBalance += 100 } }
 }
 
 private fun runVariant(label: String, transfer: () -> Unit) {

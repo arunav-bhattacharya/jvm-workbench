@@ -1,189 +1,776 @@
 from fg import *
+import fg
+
+# Spoken forms only (captions keep the real words).
+fg.SAY[:0] = [
+    (r"-Xint\b", "dash X int"), (r"\bx86\b", "x eighty-six"), (r"\bARM\b", "arm"),
+    (r"\bThread A\b", "Thread eigh"), (r"@Volatile", "at Volatile"), (r"\bspins\+\+", "spins plus plus"),
+]
+
+# every spoken line, in order
+N = {
+    "open": "Picture an office. When it's time to go home, the manager writes it on the whiteboard by the door. "
+            "Everyone glances at the board now and then, and leaves when it says yes.",
+    "program": "A program does the same. A worker thread, one path of work beside others, checks a shared field, stop, "
+               "before each small job. One second in, the main thread sets stop to true.",
+    "output": "On JDK 25, three seconds later, the worker is still running. It never stops. "
+              "No crash, no error, just a busy processor doing laps.",
+    "shy": "So here's a question that feels too simple to ask. Main wrote true. Where is the worker reading false from?",
+    "usual": "Most people say: the cache. A core is the part of a processor that runs one thread, and beside each core sits "
+             "a cache, a small, fast memory that keeps copies of main memory. "
+             "The story goes: the worker's cache holds an old copy of stop, forever.",
+    "xint_q": "Let's test it. A switch, -Xint, turns off the JIT, the part of Java that turns busy code into fast machine code. "
+              "The caches stay the same. Will the worker still hang?",
+    "xint_a": "It stopped at once, after about 113 million laps. Only the JIT changed. "
+              "So the cache has an alibi: it was there in both runs, and only one run hung.",
+    "office": "Back to the office, to find the real place. The whiteboard holds the numbers everyone shares: main memory. "
+              "Each desk is a core, and whoever works there is a thread.",
+    "copy": "Walking to the wall is slow, so each desk keeps a photocopy of the board. The photocopy is the cache.",
+    "rule": "And one strict rule. When anyone changes a number on the board, every photocopy of it is crossed out at once, "
+            "and the next look goes back to the board. Processors do this in hardware, in nanoseconds. "
+            "It's called cache coherence.",
+    "tray": "But one place lets a write wait. Each desk has an outbox tray. "
+            "A clerk drops her new number in it and goes on working, and a runner takes it to the board a moment later.",
+    "sb": "That tray is a store buffer: a small queue where writes wait on their way to the cache. "
+          "The catch: her next read can finish first, so her write and her read look swapped.",
+    "test": "Let's catch it in the act. Two fields, x and y, start at 0. "
+            "Thread A writes 1 into x, then reads y. Thread B writes 1 into y, then reads x.",
+    "hand": "Shuffle the four steps like two decks of cards, keeping each thread's order. "
+            "Whoever reads last reads after both writes, so someone sees a 1. Both reading 0 should be impossible.",
+    "count_q": "The demo runs this test 524,288 times. In how many trials do both threads read 0?",
+    "count_a": "Run one: 240,989. Run two: 225,261. Run three: 171,281. For something impossible, it happens a lot.",
+    "why": "Here's how. Each thread drops its note in its own tray, then reads the other field from its photocopy. "
+           "Zero, and zero. Only then do the runners reach the board.",
+    "xint2": "With the JIT off, it still happens: 44,000 to 110,000 times. So this one really is the hardware.",
+    "vol1": "Make both fields volatile, a keyword for fields shared between threads, and the count is 0, every time. "
+            "On x86 chips, Java empties the tray after each volatile write.",
+    "tray_alibi": "And the tray always empties within nanoseconds. It can't hold stop for an hour. The outbox has an alibi too.",
+    "notepad": "One more thing sits on each desk: a notepad. Glancing down beats walking to the wall, "
+               "so a clerk copies a number onto it. And no rule ever crosses a notepad out.",
+    "jit": "Here's what the JIT did. After many thousands of laps, it compiled the loop. "
+           "Nothing in it writes stop, so it read stop once, and made the rest while true.",
+    "hoist_office": "In the office, the clerk copied the answer, no, onto her notepad once, and now reads only the notepad.",
+    "hang": "Main writes true. The note leaves the tray. The board says true. Both photocopies say true. "
+            "And the worker keeps reading its notepad.",
+    "register": "The notepad is a register, a tiny storage slot inside a core. That's where the old value lives.",
+    "loyal": "The most focused worker in the building: it never looks up, so it never goes home. "
+             "No rule in the hardware can reach its notepad.",
+    "names": "So, the office as it stands. The photocopy, the cache, agrees in nanoseconds. "
+             "The outbox, the store buffer, delivers in nanoseconds. "
+             "The notepad, the register, stays old forever.",
+    "breaks": "The picture breaks in one place. A clerk chooses where to look each time. "
+              "The JIT chooses once, and the core repeats that choice billions of times.",
+    "chips": "One warning. x86 chips, in most laptops, only let a later read pass an earlier write. "
+             "ARM chips, in phones and many servers, also swap reads with reads, and writes with writes.",
+    "polite": "A clean run on your laptop only proves your laptop is polite. So write to Java's rules, the Java Memory Model: "
+              "another thread's write is promised only when something links the threads.",
+    "fix": "For our flag, the link is one word: volatile. The JIT can't keep a volatile field on the notepad, "
+           "so every pass reads it again, and the worker goes home.",
+    "code": "Java on the left, Kotlin on the right, where the annotation @Volatile does the same job.",
+    "moral": "So the old value never lived in the cache, or the outbox. It lived on the notepad, "
+             "because nothing linked the threads. A shared plain field comes with no promise. Make it volatile.",
+    "check": "Quick check. A loop hangs with the JIT on, and stops with the JIT off. Photocopy, outbox, or notepad?",
+}
 
 
-# ---- helpers for this file ----
-def code(lines, size=26, color=WHITE, ls=0.6):
-    """Monospace block that keeps indentation. Returns a VGroup with one sub-group per line."""
-    t = Text("\n".join(lines), font=MONO, font_size=size, color=color, line_spacing=ls)
-    out, i = VGroup(), 0
-    for ln in lines:
-        n = len(ln.replace(" ", ""))
-        out.add(VGroup(*t[i:i + n]))
-        i += n
-    return out
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
+
+    def say(self, key):
+        text = N[key]
+        path, dur = voice(text)
+        self._cue(text, dur)
+        self.add_sound(path)
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.25):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+        if after:
+            self.wait(after)
+
+    def predict(self, secs=2.4):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([-6.4, 3.25, 0], aligned_edge=LEFT)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def fly(self, pairs, color, rt=0.7, extra=()):
+        """Small dots run from each source to each target at the same time (a read or a write)."""
+        dots = [Dot(radius=0.09, color=color).move_to(a).set_z_index(8) for a, _ in pairs]
+        self.add(*dots)
+        self.play(*[d.animate.move_to(b) for d, (_, b) in zip(dots, pairs)], *extra, run_time=rt)
+        self.remove(*dots)
+
+    def glide(self, paths, color, rt=0.7):
+        """Dots that run along polylines (routed around boxes) at the same time."""
+        dots, anims = [], []
+        for pts in paths:
+            pl = VMobject().set_points_as_corners([np.array(x, dtype=float) for x in pts])
+            d = Dot(radius=0.09, color=color).move_to(pts[0]).set_z_index(8)
+            dots.append(d)
+            anims.append(MoveAlongPath(d, pl, rate_func=smooth))
+        self.add(*dots)
+        self.play(*anims, run_time=rt)
+        self.remove(*dots)
 
 
-def titled(label, block, buff=0.18):
-    return VGroup(T(label, 22, GREY_B), block).arrange(DOWN, aligned_edge=LEFT, buff=buff)
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def seq(scene, text, *steps, after=0.25):
-    """Speak one line and play several animation groups one after another inside it."""
-    path, dur = voice(text)
-    scene._cue(text, dur)
-    scene.add_sound(path)
-    used = 0
-    for st in steps:
-        if isinstance(st, (int, float)):
-            scene.wait(st); used += st
-        else:
-            anims, rt = st
-            scene.play(*anims, run_time=rt); used += rt
-    if dur - used > 0.02:
-        scene.wait(dur - used)
-    if after:
-        scene.wait(after)
+# one colour per thing, for the whole video
+WK, MN, OLD, NEWV, TRAY, COH, GOOD = BLUE_M, TEAL_M, RED_M, TEAL_M, GOLD_M, GOLD_M, GREEN_M
+
+# the office layout
+DX, DESK_Y, DESK_W, DESK_H = 3.35, 0.62, 6.0, 3.95
+HEAD_Y, CODE_Y, NOTE_Y, OUT_Y, COPY_Y, BOARD_Y = 2.28, 1.8, 1.05, 0.15, -0.75, -2.42
+CW = 5.3
 
 
-def cell(text, color=WHITE, w=4.4, h=0.7, size=24):
-    """A box inside a core: left-aligned label."""
-    r = RoundedRectangle(corner_radius=0.1, width=w, height=h, stroke_color=color, stroke_width=2.5)
-    hexc = ManimColor(color).to_hex().upper()
-    plain = hexc in (ManimColor(WHITE).to_hex().upper(), ManimColor(GREY_B).to_hex().upper())
-    r.set_fill(BLACK if plain else interpolate_color(ManimColor("#000000"), ManimColor(color), 0.14), opacity=1)
-    t = T(text, size, WHITE if plain else color)
-    t.move_to(r).align_to(r, LEFT).shift(RIGHT * 0.25)
-    return VGroup(r, t)
+def plain(c):
+    return ManimColor(c).to_hex().upper() in (ManimColor(GREY_B).to_hex().upper(), ManimColor(WHITE).to_hex().upper())
 
 
-class Jmm01StopLoop(VoiceScene):
-    """jmm-01, section 2: coherent caches, store buffers, and the JIT hoisting a plain read; volatile as the fix."""
+class Cell(VGroup):
+    """A box with a serif label and a monospace value, left aligned: 'photocopy (cache):  stop = false'."""
+
+    def __init__(self, label, value, color=GREY_B, vcolor=WHITE, w=CW, h=0.66, center=False):
+        r = RoundedRectangle(corner_radius=0.1, width=w, height=h, stroke_color=color, stroke_width=2.5)
+        r.set_fill(BLACK if plain(color) else dim(color), 1)
+        super().__init__(r)
+        self.center_text = center
+        self.add(self._row(label, value, vcolor))
+        self.label, self.value, self.vcolor = label, value, vcolor
+
+    def _row(self, label, value, vcolor):
+        lab = T(label + ":", 24, GREY_A)
+        val = M(value, 22, vcolor)
+        row = VGroup(lab, val).arrange(RIGHT, buff=0.22)
+        row.move_to(self[0])
+        if not self.center_text:
+            row.align_to(self[0], LEFT).shift(RIGHT * 0.25)
+        return row
+
+    def set(self, label=None, value=None, vcolor=None, color=None):
+        self.label = label if label is not None else self.label
+        self.value = value if value is not None else self.value
+        self.vcolor = vcolor if vcolor is not None else self.vcolor
+        anims = [Transform(self[1], self._row(self.label, self.value, self.vcolor))]
+        if color is not None:
+            anims.append(self[0].animate.set_stroke(color).set_fill(BLACK if plain(color) else dim(color), 1))
+        return anims
+
+
+def strike(c):
+    """A red line through a cell's value: the photocopy is crossed out."""
+    v = c[1][1]
+    return Line(v.get_left() + LEFT * 0.12, v.get_right() + RIGHT * 0.12, stroke_width=5, color=OLD).set_z_index(6)
+
+
+class Desk:
+    def __init__(self, cx, color, title, code):
+        self.cx, self.color = cx, color
+        self.frame = RoundedRectangle(corner_radius=0.15, width=DESK_W, height=DESK_H, stroke_color=color, stroke_width=3)
+        self.frame.move_to([cx, DESK_Y, 0])
+        self.head = T(title, 26, color).move_to([cx, HEAD_Y, 0])
+        self.code = M(code, 22, color).move_to([cx, CODE_Y, 0])
+        self.note = Cell("notepad", "empty", vcolor=GREY_B).move_to([cx, NOTE_Y, 0])
+        self.out = Cell("outbox", "empty", vcolor=GREY_B).move_to([cx, OUT_Y, 0])
+        self.copy = Cell("photocopy", "stop = false").move_to([cx, COPY_Y, 0])
+
+    def retitle(self, title, code):
+        return [Transform(self.head, T(title, 26, self.color).move_to([self.cx, HEAD_Y, 0])),
+                Transform(self.code, M(code, 22, self.color).move_to([self.cx, CODE_Y, 0]))]
+
+
+def side(d, a, b):
+    """A route from cell a up or down to cell b along the desk's right inner strip, so dots never cross a box."""
+    x = d.cx + 2.83
+    return [a.get_right(), [x, a.get_y(), 0], [x, b.get_y(), 0], b.get_right()]
+
+
+def code_block(src, size=24, color=WHITE, hl=None):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, color, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def card(text, color):
+    r = RoundedRectangle(corner_radius=0.08, width=2.6, height=0.58, stroke_color=color, stroke_width=2.5)
+    r.set_fill(dim(color, 0.2), 1)
+    return VGroup(r, M(text, 24).move_to(r))
+
+
+def figure(color=GREY_A):
+    head = Circle(radius=0.17, stroke_color=color, stroke_width=3).set_fill(BLACK, 1)
+    body = RoundedRectangle(corner_radius=0.18, width=0.55, height=0.6, stroke_color=color, stroke_width=3)
+    body.next_to(head, DOWN, buff=0.05)
+    return VGroup(head, body)
+
+
+class Jmm01StopLoop(Narrated):
+    """jmm-01, section 2: the office whiteboard; a stop flag the loop never sees. The cache story broken by -Xint;
+    photocopies (caches) kept in agreement; the outbox tray (store buffer) and the x/y test; the notepad (register)
+    the JIT reads from; x86 vs ARM; volatile."""
 
     def construct(self):
-        self.title_card("Why the loop never stops", "caches, store buffers and the JIT")
+        self.title_card("Where does the old value live?", "a stop flag, the caches, the outbox and the notepad")
 
-        # ---- the bug ----
-        jc = code(["static boolean stop;  // plain field", "", "// worker thread", "while (!stop) {", "    spins++;", "}",
-                   "", "// main thread, a second later", "stop = true;"], 24)
-        kc = code(["var stop = false      // plain", "", "// worker thread", "while (!stop) {", "    spins++", "}",
-                   "", "// main thread, a second later", "stop = true"], 24)
-        for blk in (jc, kc):
-            for i in (2, 7):
-                blk[i].set_color(GREY_B)
-        java, kt = titled("Java", jc), titled("Kotlin", kc)
-        pair = VGroup(java, kt).arrange(RIGHT, buff=1.0, aligned_edge=UP)
-        pair.scale(min(1, 12 / pair.width)).move_to(ORIGIN)
-        self.beat("A worker thread spins in a loop until a plain boolean called stop turns true. "
-                  "A second later, the main thread sets it to true.",
-                  FadeIn(pair, shift=UP * 0.2), run_time=1.6)
-        self.beat("On JDK 21 or 25, the worker never stops. Not after a second, not after an hour.",
-                  Indicate(VGroup(jc[3:6], kc[3:6]), color=RED_M, scale_factor=1.03))
-        self.beat("The usual story blames the CPU cache. Each core keeps its own copy of stop, and the worker's copy goes stale. "
-                  "Here is what the hardware really does.")
-        self.play(FadeOut(pair), run_time=0.6)
+        # ================= the office, then the program =================
+        wb = RoundedRectangle(corner_radius=0.1, width=6.4, height=2.2, stroke_color=GREY_A, stroke_width=4).move_to([0, 1.0, 0])
+        ledge = Line([-2.6, -0.18, 0], [2.6, -0.18, 0], stroke_width=6, color=GREY_B)
+        wb_lab = T("the whiteboard by the door", 24, GREY_B).next_to(wb, UP, buff=0.2)
+        q1 = T("time to go home?", 40).move_to([-0.55, 1.0, 0])
+        ans = T("no", 40, OLD).next_to(q1, RIGHT, buff=0.35)
+        people = VGroup(*[figure() for _ in range(3)]).arrange(RIGHT, buff=1.6).move_to([0, -1.75, 0])
+        looks = VGroup(*[DashedLine(p[0].get_top() + UP * 0.05, wb.get_bottom() + RIGHT * (p.get_x() * 0.4) + DOWN * 0.05,
+                                    dash_length=0.08).set_stroke(GREY_C, 2) for p in people])
+        self.say("open")
+        self.play(Create(wb), FadeIn(wb_lab), FadeIn(ledge), run_time=1.0)
+        self.play(Write(q1), FadeIn(ans), run_time=1.0)
+        self.at(2)
+        self.play(FadeIn(people, shift=UP * 0.2), run_time=0.6)
+        self.play(Create(looks), run_time=0.6)
+        self.at_text("leaves when", lead=0.1)
+        self.play(Transform(ans, T("yes", 40, GOOD).next_to(q1, RIGHT, buff=0.35)), FadeOut(looks), run_time=0.6)
+        self.play(people.animate.shift(RIGHT * 2.5).set_opacity(0), run_time=1.2, rate_func=rush_into)
+        self.remove(people)
+        self.hold()
 
-        # ---- the hardware ----
-        def core(title, line, color, cx, off):
-            frame = RoundedRectangle(corner_radius=0.15, width=5.8, height=4.3, stroke_color=color, stroke_width=3).move_to([cx, 0.75, 0])
-            head = T(title, 26, color).move_to([cx, 2.5, 0])
-            src = M(line, 22, color).move_to([cx, 2.0, 0])
-            x = cx + off
-            reg = cell("register: stop = false", GREY_B).move_to([x, 1.2, 0])
-            sb = cell("store buffer: empty", GREY_B).move_to([x, 0.25, 0])
-            l1 = cell("L1 cache: stop = false").move_to([x, -0.7, 0])
-            return frame, head, src, reg, sb, l1
+        # the board becomes a shared field
+        mem = Cell("shared field", "stop = false", w=5.4, h=0.8, center=True).move_to([0, 0.15, 0])
+        wk = chip("worker thread", WK).move_to([-4.3, 2.55, 0])
+        wk_c = M("while (!stop) spins++;", 22, WK).next_to(wk, DOWN, buff=0.25)
+        mn = chip("main thread", MN).move_to([4.3, 2.55, 0])
+        mn_c = M("stop = true;", 22, MN).next_to(mn, DOWN, buff=0.25)
+        self.say("program")
+        self.play(FadeOut(VGroup(wb, ledge, wb_lab, q1, ans)), FadeIn(mem), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(wk, shift=RIGHT * 0.2), FadeIn(wk_c), run_time=0.6)
+        for _ in range(2):
+            self.fly([(mem.get_top(), wk_c.get_bottom())], WK, rt=0.55)
+        self.at(2)
+        self.play(FadeIn(mn, shift=LEFT * 0.2), FadeIn(mn_c), run_time=0.6)
+        self.fly([(mn_c.get_bottom(), mem.get_top())], MN, rt=0.6)
+        self.play(*mem.set(value="stop = true", vcolor=NEWV), run_time=0.4)
+        self.hold()
 
-        f0, h0, c0, reg0, sb0, l10 = core("Core 0: worker thread", "while (!stop) spins++;", BLUE_M, -3.4, 0.5)
-        f1, h1, c1, reg1, sb1, l11 = core("Core 1: main thread", "stop = true;", TEAL_M, 3.4, -0.5)
-        reg1.become(cell("registers", GREY_B).move_to(reg1))
-        shared = cell("shared L3 cache and RAM: stop = false", WHITE, w=12.6, h=0.75, size=26).move_to([0, -2.5, 0])
-        shared[1].move_to(shared[0])
-        wire0 = Line(l10.get_bottom(), [l10.get_x(), shared.get_top()[1], 0], stroke_width=2, color=GREY_D)
-        wire1 = Line(l11.get_bottom(), [l11.get_x(), shared.get_top()[1], 0], stroke_width=2, color=GREY_D)
-        hw = VGroup(f0, h0, c0, reg0, sb0, l10, f1, h1, c1, reg1, sb1, l11, shared, wire0, wire1)
-        self.beat("Each core has registers, a small store buffer, and its own cache. Below them sits a shared cache and main memory. "
-                  "Right now, stop is false everywhere.",
-                  LaggedStart(FadeIn(VGroup(f0, h0, c0, reg0, sb0, l10)), FadeIn(VGroup(f1, h1, c1, reg1, sb1, l11)),
-                              FadeIn(VGroup(shared, wire0, wire1)), lag_ratio=0.4), run_time=2.4)
+        term = RoundedRectangle(corner_radius=0.1, width=9.6, height=1.5, stroke_color=GREY_D, stroke_width=2).move_to([0, -2.0, 0])
+        o1 = M("main set stop = true", 24, GREY_A)
+        o2 = M("worker still running 3 s later? true", 24, t2c={"true": OLD})
+        outp = VGroup(o1, o2).arrange(DOWN, aligned_edge=LEFT, buff=0.22).move_to(term)
+        self.say("output")
+        self.play(FadeIn(term), FadeIn(o1), run_time=0.6)
+        self.play(FadeIn(o2), run_time=0.6)
+        self.at(1)
+        self.play(Indicate(o2[-4:], color=OLD, scale_factor=1.2), run_time=0.8)
+        self.at(2)
+        for _ in range(3):
+            self.fly([(mem.get_top() + LEFT * 2.0, wk_c.get_bottom())], WK, rt=0.4)
+        self.hold()
 
-        def set_cell(c, text, color=WHITE, **kw):
-            new = cell(text, color, w=c[0].width, h=c[0].height, **kw).move_to(c)
-            if c is shared:
-                new[1].move_to(new[0])
-            return Transform(c, new)
+        qa = T("main wrote true.", 40)
+        qb = T("Where is the worker reading false from?", 40, YELLOW_M)
+        qq = VGroup(qa, qb).arrange(DOWN, buff=0.35).move_to(UP * 0.3)
+        fit(qq, 12.4)
+        self.say("shy")
+        self.play(FadeOut(VGroup(mem, wk, wk_c, mn, mn_c, term, outp)), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(qa, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(qb, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(qq), run_time=0.5)
 
-        # main writes: into the store buffer
-        chip = M("stop = true", 22, TEAL_M).move_to(c1)
-        seq(self, "The main thread writes true. The core does not wait for the cache. "
-                  "It puts the write in its store buffer, and runs on to its next instruction.",
-            2.0,
-            ([chip.animate.move_to(sb1)], 0.9),
-            ([FadeOut(chip), set_cell(sb1, "store buffer: stop = true", TEAL_M)], 0.5))
-        self.beat("For a moment, only this core knows about the write. That is how a store buffer lets a core run ahead. "
-                  "A later read of another field can finish before this write leaves the queue.",
-                  Indicate(sb1[1], color=TEAL_M, scale_factor=1.06))
-        # drains to the cache, then the shared level
-        d1 = M("true", 22, TEAL_M).move_to(sb1)
-        seq(self, "But the queue drains within nanoseconds. The write lands in the cache.",
-            1.4,
-            ([d1.animate.move_to(l11)], 0.7),
-            ([FadeOut(d1), set_cell(sb1, "store buffer: empty", GREY_B), set_cell(l11, "L1 cache: stop = true", TEAL_M)], 0.5),
-            ([set_cell(shared, "shared L3 cache and RAM: stop = true", WHITE, size=26)], 0.5))
-        coh = Arrow([l10.get_x(), shared.get_top()[1], 0], l10.get_bottom(), buff=0.05, stroke_width=4, color=GOLD_M,
-                    max_tip_length_to_length_ratio=0.3)
-        coh_lab = T("coherence", 24, GOLD_M).next_to(coh, LEFT, buff=0.15)
-        seq(self, "Caches run a coherence protocol. When one core writes, the other cores' copies are updated or thrown away. "
-                  "So core 0's cache soon says true as well.",
-            1.6,
-            ([GrowArrow(coh), FadeIn(coh_lab)], 0.8),
-            2.0,
-            ([set_cell(l10, "L1 cache: stop = true", TEAL_M)], 0.6))
-        self.beat("The caches agree. No cache keeps an old value forever. So why does the worker still spin?",
-                  Indicate(VGroup(l10[1], l11[1]), color=TEAL_M, scale_factor=1.06))
-        self.beat("Look at its register. The compiled loop read stop once, into a register. It never reads memory again.",
-                  set_cell(reg0, "register: stop = false", RED_M), run_time=1.0)
-        self.play(FadeOut(hw), FadeOut(coh), FadeOut(coh_lab), run_time=0.7)
+        # ================= the usual story: a stale cache =================
+        def core(cx, color, title, val, vcol):
+            fr = RoundedRectangle(corner_radius=0.15, width=5.4, height=2.2, stroke_color=color, stroke_width=3).move_to([cx, 1.75, 0])
+            hd = T(title, 26, color).move_to([cx, 2.48, 0])
+            ca = Cell("cache", val, vcolor=vcol, w=4.6).move_to([cx, 1.75, 0])
+            return fr, hd, ca
+        f0, h0, ca0 = core(-3.3, WK, "core 0: the worker", "stop = false", WHITE)
+        f1, h1, ca1 = core(3.3, MN, "core 1: main", "stop = true", NEWV)
+        ram = Cell("main memory", "stop = true", vcolor=NEWV, w=12.0, h=0.62, center=True).move_to([0, 0.0, 0])
+        w0 = Line(ca0.get_bottom(), [ca0.get_x(), ram.get_top()[1], 0], stroke_width=2, color=GREY_D).set_z_index(-1)
+        w1 = Line(ca1.get_bottom(), [ca1.get_x(), ram.get_top()[1], 0], stroke_width=2, color=GREY_D).set_z_index(-1)
+        slow = T("about a hundred times slower than a cache", 22, GREY_B).next_to(ram, DOWN, buff=0.18)
+        self.say("usual")
+        self.at(1)
+        self.play(FadeIn(VGroup(f0, h0)), FadeIn(VGroup(f1, h1)), run_time=0.8)
+        self.at_text("beside each core")
+        self.play(FadeIn(ca0), FadeIn(ca1), run_time=0.6)
+        self.at_text("copies of main")
+        self.play(FadeIn(ram), Create(w0), Create(w1), run_time=0.7)
+        self.play(FadeIn(slow), run_time=0.4)
+        self.at(2)
+        self.play(*ca0.set(vcolor=OLD, color=OLD), run_time=0.6)
+        for _ in range(2):
+            self.fly([(ca0.get_top(), h0.get_bottom())], WK, rt=0.45)
+        self.hold()
 
-        # ---- the JIT hoists the read ----
-        left = titled("what you wrote", code(["while (!stop) {", "    spins++;", "}"], 26))
-        right = titled("what the compiled code may do", code(["if (!stop) {", "    while (true) { spins++; }", "}"], 26, RED_M))
-        jit = VGroup(left, right).arrange(RIGHT, buff=1.6, aligned_edge=UP).move_to(UP * 1.2)
-        jit.scale(min(1, 12 / jit.width))
-        arr = Arrow(left.get_right() + RIGHT * 0.1, right.get_left() + LEFT * 0.1, buff=0.1, color=GREY_B, stroke_width=3)
-        arr_lab = T("C2", 24, GREY_B).next_to(arr, UP, buff=0.1)
-        self.beat("After the loop has run many thousands of times, the JIT compiles it. HotSpot's C2 compiler turns it into machine code.",
-                  FadeIn(left, shift=UP * 0.2), run_time=1.0)
-        self.beat("C2 sees that nothing inside the loop writes stop. So it reads stop once, before the loop, and runs the rest forever.",
-                  GrowArrow(arr), FadeIn(arr_lab), FadeIn(right, shift=LEFT * 0.2), run_time=1.6)
-        legal = T("legal for a plain field: nothing links the two threads", 26, GREY_B).move_to(DOWN * 0.8)
-        self.beat("That is allowed. For a plain field, the memory model gives no promise about another thread's write. "
-                  "So the compiler may assume that no other thread changes it.",
-                  FadeIn(legal, shift=UP * 0.2), run_time=1.0)
-        xint = VGroup(M("java -Xint StopFlag.java", 26, YELLOW_M), T("JIT off, same caches:", 24, GREY_B),
-                      T("worker saw stop", 26, GREEN_M)).arrange(RIGHT, buff=0.4).move_to(DOWN * 2.2)
-        xint.scale(min(1, 12 / xint.width))
-        self.beat("You can check where the bug lives. Turn the JIT off with one flag, and run it again. "
-                  "The caches are the same, and the worker stops at once.",
-                  FadeIn(xint, shift=UP * 0.2), run_time=1.4)
-        self.play(FadeOut(VGroup(left, right, arr, arr_lab, legal, xint)), run_time=0.7)
+        r_on = VGroup(T("JIT on:", 26, GREY_A), M("worker still running 3 s later? true", 24, t2c={"true": OLD}))
+        r_off = VGroup(T("JIT off (-Xint):", 26, GREY_A), M("?", 26, GREY_B))
+        for row, y in ((r_on, -1.45), (r_off, -2.3)):
+            row.arrange(RIGHT, buff=0.35).move_to([-6.2, y, 0], aligned_edge=LEFT)
+        res = M("worker saw stop after 113,153,939 spins", 24, GOOD).move_to(r_off[1], aligned_edge=LEFT)
+        self.say("xint_q")
+        self.at(1)
+        self.play(FadeIn(r_on), run_time=0.6)
+        self.play(FadeIn(r_off), run_time=0.6)
+        self.at(2)
+        self.play(Indicate(VGroup(ca0[1], ca1[1]), color=WHITE, scale_factor=1.06), run_time=0.9)
+        self.hold(after=0)
+        self.predict()
 
-        # ---- the fix ----
-        title = T("The fix: make the field volatile", 40).to_edge(UP, buff=0.8)
-        fj = titled("Java", code(["static volatile boolean stop;"], 28, GREEN_M))
-        fk = titled("Kotlin", code(["@Volatile var stop = false"], 28, GREEN_M))
-        fix = VGroup(fj, fk).arrange(RIGHT, buff=1.2, aligned_edge=UP)
-        fix.scale(min(1, 12 / fix.width)).move_to(UP * 0.9)
-        self.beat("The fix is one word. Declare the field volatile.", Write(title), FadeIn(fix, shift=UP * 0.2), run_time=1.6)
-        self.beat("The JIT can't keep a volatile field in a register, or move its read out of the loop. "
-                  "Every pass reads it again.")
-        self.play(FadeOut(VGroup(title, fix)), run_time=0.6)
+        alibi = chip("alibi", COH, size=24).move_to([ca0.get_right()[0] - 0.5, 1.02, 0])
+        self.say("xint_a")
+        self.play(Transform(r_off[1], res), run_time=0.7)
+        self.at(1)
+        self.play(Indicate(VGroup(ca0[1], ca1[1]), color=WHITE, scale_factor=1.06), run_time=0.8)
+        self.at(2)
+        self.play(*ca0.set(vcolor=WHITE, color=GREY_B), FadeIn(alibi, scale=1.3), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
 
-        # back to the core: every pass reads the cache
-        reg0.become(cell("register: reloaded each pass", GREY_B).move_to(reg0))
-        l10.become(cell("L1 cache: stop = true", TEAL_M).move_to(l10))
-        sb0.become(cell("store buffer: empty", GREY_B).move_to(sb0))
-        core0 = VGroup(f0, h0, c0, reg0, sb0, l10).shift(RIGHT * 2.8)
-        xl = f0.get_left()[0] + 0.55
-        p0 = c0.get_left() + LEFT * 0.12
-        rd = VGroup(Line(p0, [xl, p0[1], 0], stroke_width=4, color=GREEN_M),
-                    Line([xl, p0[1], 0], [xl, l10.get_y(), 0], stroke_width=4, color=GREEN_M),
-                    Arrow([xl - 0.05, l10.get_y(), 0], l10.get_left(), buff=0.02, stroke_width=4, color=GREEN_M,
-                          max_tip_length_to_length_ratio=0.5))
-        rd_lab = T("reads every pass", 24, GREEN_M).next_to(f0, LEFT, buff=0.3).set_y(0.65)
-        saw = T("worker saw stop", 30, GREEN_M).next_to(f0, RIGHT, buff=0.4).set_y(0.65)
-        self.beat("Now each pass of the loop goes to the cache. The cache already says true, so the worker sees main's write, "
-                  "and the loop ends.",
-                  FadeIn(core0), Create(rd), FadeIn(rd_lab), run_time=2.2)
-        self.beat("And the memory model guarantees that main's volatile write becomes visible to the worker.",
-                  FadeIn(saw, shift=UP * 0.2), run_time=1.0)
-        self.wait(0.8)
+        # ================= the office desks =================
+        board = Cell("whiteboard", "stop = false", color=WHITE, w=12.7, h=0.8, center=True).move_to([0, BOARD_Y, 0])
+        dw = Desk(-DX, WK, "the worker's desk", "while (!stop) spins++;")
+        dm = Desk(DX, MN, "main's desk", "stop = true;")
+        self.say("office")
+        self.play(FadeIn(board), run_time=0.6)
+        self.at_text("main memory")
+        self.play(*board.set(label="whiteboard (main memory)"), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(VGroup(dw.frame, dw.head, dw.code)), FadeIn(VGroup(dm.frame, dm.head, dm.code)), run_time=0.8)
+        self.play(*dw.retitle("the worker's desk (core 0)", "while (!stop) spins++;"),
+                  *dm.retitle("main's desk (core 1)", "stop = true;"), run_time=0.6)
+        self.hold()
+
+        def wire(d):
+            return Line(d.copy.get_bottom(), [d.cx, board.get_top()[1], 0], stroke_width=2, color=GREY_D).set_z_index(-1)
+        wr0, wr1 = wire(dw), wire(dm)
+        self.say("copy")
+        self.play(FadeIn(dw.copy), FadeIn(dm.copy), Create(wr0), Create(wr1), run_time=0.8)
+        self.fly([(board.get_top() + LEFT * DX, dw.copy.get_bottom()), (board.get_top() + RIGHT * DX, dm.copy.get_bottom())],
+                 GREY_A, rt=0.6)
+        self.at(1)
+        self.play(*dw.copy.set(label="photocopy (cache)"), *dm.copy.set(label="photocopy (cache)"), run_time=0.6)
+        self.hold()
+
+        self.say("rule")
+        self.at(1)
+        self.glide([[dm.code.get_left(), [0, CODE_Y, 0], [0, board.get_top()[1], 0]]], MN, rt=0.9)
+        self.play(*board.set(value="stop = true", vcolor=NEWV), run_time=0.4)
+        s0, s1 = strike(dw.copy), strike(dm.copy)
+        self.play(Create(s0), Create(s1), run_time=0.5)
+        self.at_text("the next look")
+        self.fly([(board.get_top() + LEFT * DX, dw.copy.get_bottom()), (board.get_top() + RIGHT * DX, dm.copy.get_bottom())],
+                 GREY_A, rt=0.6)
+        self.play(FadeOut(s0), FadeOut(s1), *dw.copy.set(value="stop = true", vcolor=NEWV),
+                  *dm.copy.set(value="stop = true", vcolor=NEWV), run_time=0.5)
+        coh = T("cache coherence: every copy agrees within nanoseconds", 24, COH).move_to([0, -3.2, 0])
+        self.at(2)
+        self.play(wr0.animate.set_stroke(COH, 3), wr1.animate.set_stroke(COH, 3), run_time=0.6)
+        self.at_text("cache coherence", lead=0.3)
+        self.play(FadeIn(coh, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+
+        # ================= the outbox tray =================
+        self.say("tray")
+        self.play(FadeOut(coh), wr0.animate.set_stroke(GREY_D, 2), wr1.animate.set_stroke(GREY_D, 2),
+                  *board.set(value="stop = false", vcolor=WHITE), *dw.copy.set(value="stop = false", vcolor=WHITE),
+                  *dm.copy.set(value="stop = false", vcolor=WHITE), run_time=0.7)
+        rewind = T("rewind", 22, GREY_B).move_to([0, -3.2, 0])
+        self.play(FadeIn(rewind), run_time=0.3)
+        self.at(1)
+        self.play(FadeIn(dw.out), FadeIn(dm.out), FadeOut(rewind), run_time=0.6)
+        self.at(2)
+        note = chip("stop = true", MN, size=22, mono=True).move_to(dm.code).set_z_index(7)
+        self.play(FadeIn(note), run_time=0.3)
+        self.play(note.animate.move_to(dm.out.get_right() + LEFT * 1.0), run_time=0.7)
+        self.play(FadeOut(note), *dm.out.set(value="stop = true", vcolor=NEWV, color=TRAY), run_time=0.4)
+        nxt = T("next task...", 22, GREY_B).next_to(dm.code, RIGHT, buff=0.2)
+        self.play(FadeIn(nxt, shift=RIGHT * 0.1), run_time=0.4)
+        self.at_text("a runner")
+        self.fly([(dm.out.get_bottom(), dm.copy.get_top())], TRAY, rt=0.4)
+        self.play(*dm.out.set(value="empty", vcolor=GREY_B, color=GREY_B), *dm.copy.set(value="stop = true", vcolor=NEWV),
+                  run_time=0.3)
+        self.fly([(dm.copy.get_bottom(), board.get_top() + RIGHT * DX)], TRAY, rt=0.4)
+        self.play(*board.set(value="stop = true", vcolor=NEWV), run_time=0.3)
+        s0 = strike(dw.copy)
+        self.play(Create(s0), run_time=0.3)
+        self.fly([(board.get_top() + LEFT * DX, dw.copy.get_bottom())], GREY_A, rt=0.4)
+        self.play(FadeOut(s0), *dw.copy.set(value="stop = true", vcolor=NEWV), run_time=0.3)
+        self.hold()
+
+        catch = T("her write waits in the tray, and her next read goes ahead", 24, TRAY).move_to([0, -3.2, 0])
+        self.say("sb")
+        self.play(*dw.out.set(label="outbox (store buffer)"), *dm.out.set(label="outbox (store buffer)"), run_time=0.7)
+        self.at(1)
+        self.play(Indicate(dm.out[1], color=TRAY, scale_factor=1.05), run_time=0.8)
+        self.play(FadeIn(catch, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+
+        # ================= the smallest test =================
+        self.say("test")
+        self.play(FadeOut(catch), FadeOut(nxt), run_time=0.4)
+        self.at(1)
+        self.play(*board.set(value="x = 0, y = 0", vcolor=WHITE), *dw.copy.set(value="x = 0, y = 0", vcolor=WHITE),
+                  *dm.copy.set(value="x = 0, y = 0", vcolor=WHITE), run_time=0.7)
+        self.at(2)
+        self.play(*dw.retitle("thread A's desk", "x = 1;   r1 = y;"), run_time=0.7)
+        self.at(3)
+        self.play(*dm.retitle("thread B's desk", "y = 1;   r2 = x;"), run_time=0.7)
+        self.hold()
+
+        desks = VGroup(board, dw.frame, dw.head, dw.code, dw.out, dw.copy, dm.frame, dm.head, dm.code, dm.out, dm.copy, wr0, wr1)
+        self.play(FadeOut(desks), run_time=0.6)
+
+        # shuffle two decks
+        A1, A2, B1, B2 = card("A: x = 1", WK), card("A: r1 = y", WK), card("B: y = 1", MN), card("B: r2 = x", MN)
+        for c, y in ((A1, 1.9), (A2, 1.25), (B1, 0.2), (B2, -0.45)):
+            c.move_to([-5.15, y, 0])
+        decks = VGroup(A1, A2, B1, B2)
+        slots = [1.9, 1.25, 0.6, -0.05]
+        self.say("hand")
+        self.play(FadeIn(decks, shift=RIGHT * 0.2), run_time=0.6)
+        self.at(1)
+        p1 = [A1.copy(), B1.copy(), A2.copy(), B2.copy()]
+        for c, y in zip(p1, slots):
+            self.play(c.animate.move_to([-1.55, y, 0]), run_time=0.35)
+        r11 = T("sees 1", 24, GOOD).next_to(p1[2], RIGHT, buff=0.2)
+        r12 = T("sees 1", 24, GOOD).next_to(p1[3], RIGHT, buff=0.2)
+        self.play(FadeIn(r11), FadeIn(r12), run_time=0.4)
+        p2 = [A1.copy(), A2.copy(), B1.copy(), B2.copy()]
+        for c, y in zip(p2, slots):
+            self.play(c.animate.move_to([2.75, y, 0]), run_time=0.35)
+        r21 = T("sees 0", 24, OLD).next_to(p2[1], RIGHT, buff=0.2)
+        r22 = T("sees 1", 24, GOOD).next_to(p2[3], RIGHT, buff=0.2)
+        self.play(FadeIn(r21), FadeIn(r22), run_time=0.4)
+        least = T("every shuffle: at least one read sees 1", 30).move_to([0, -1.45, 0])
+        imp = T("both read 0?  impossible", 32, YELLOW_M).move_to([0, -2.35, 0])
+        self.at(1)
+        self.play(Indicate(VGroup(p1[3], p2[3]), color=WHITE, scale_factor=1.05), run_time=0.8)
+        self.play(FadeIn(least, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(imp, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(VGroup(decks, *p1, *p2, r11, r12, r21, r22, least, imp)), run_time=0.6)
+
+        # the counts
+        ttl = T("both threads read 0, out of 524,288 trials", 32).move_to([0, 2.55, 0])
+
+        def row(label, value, y, vc=OLD):
+            l = T(label, 28, GREY_A).move_to([-5.6, y, 0], aligned_edge=LEFT)
+            v = M(value, 28, vc).move_to([5.6, y, 0], aligned_edge=RIGHT)
+            return VGroup(l, v)
+        run1, run2, run3 = (row("plain fields, run 1", "240,989", 1.55), row("plain fields, run 2", "225,261", 0.9),
+                            row("plain fields, run 3", "171,281", 0.25))
+        q_mark = M("?", 32, GREY_B).move_to(run1[1], aligned_edge=RIGHT)
+        self.say("count_q")
+        self.play(FadeIn(ttl), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(run1[0]), FadeIn(q_mark), run_time=0.5)
+        self.hold(after=0)
+        self.predict()
+
+        self.say("count_a")
+        self.play(FadeOut(q_mark), FadeIn(run1[1]), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(run2), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(run3), run_time=0.5)
+        self.at(3)
+        self.play(Indicate(VGroup(run1[1], run2[1], run3[1]), color=OLD, scale_factor=1.08), run_time=0.9)
+        self.hold()
+        table = VGroup(ttl, run1, run2, run3)
+        self.play(FadeOut(table), run_time=0.5)
+
+        # how: both notes sit in the trays while each thread reads
+        self.play(FadeIn(desks), run_time=0.6)
+        na = chip("x = 1", WK, size=22, mono=True).move_to(dw.code).set_z_index(7)
+        nb = chip("y = 1", MN, size=22, mono=True).move_to(dm.code).set_z_index(7)
+        ra = M("r1 = 0", 26, OLD).move_to([-DX, NOTE_Y, 0])
+        rb = M("r2 = 0", 26, OLD).move_to([DX, NOTE_Y, 0])
+        self.say("why")
+        self.play(FadeIn(na), FadeIn(nb), run_time=0.3)
+        self.play(na.animate.move_to(dw.out.get_right() + LEFT * 0.9), nb.animate.move_to(dm.out.get_right() + LEFT * 0.9),
+                  run_time=0.8)
+        self.play(FadeOut(na), FadeOut(nb), *dw.out.set(value="x = 1", vcolor=WK, color=TRAY),
+                  *dm.out.set(value="y = 1", vcolor=MN, color=TRAY), run_time=0.4)
+        self.at_text("then reads")
+        self.glide([side(dw, dw.copy, ra), side(dm, dm.copy, rb)], GREY_A, rt=0.8)
+        self.at(1)
+        self.play(FadeIn(ra), FadeIn(rb), run_time=0.4)
+        self.at(2)
+        self.fly([(dw.out.get_bottom(), board.get_top() + LEFT * DX), (dm.out.get_bottom(), board.get_top() + RIGHT * DX)],
+                 TRAY, rt=0.8)
+        self.play(*dw.out.set(value="empty", vcolor=GREY_B, color=GREY_B), *dm.out.set(value="empty", vcolor=GREY_B, color=GREY_B),
+                  *board.set(value="x = 1, y = 1", vcolor=NEWV), run_time=0.4)
+        s0, s1 = strike(dw.copy), strike(dm.copy)
+        self.play(Create(s0), Create(s1), run_time=0.3)
+        self.play(FadeOut(s0), FadeOut(s1), *dw.copy.set(value="x = 1, y = 1", vcolor=NEWV),
+                  *dm.copy.set(value="x = 1, y = 1", vcolor=NEWV), run_time=0.4)
+        late = T("too late: both reads already said 0", 24, OLD).move_to([0, -3.2, 0])
+        self.play(FadeIn(late), run_time=0.4)
+        self.hold()
+        self.play(FadeOut(desks), FadeOut(ra), FadeOut(rb), FadeOut(late), run_time=0.6)
+
+        offr = row("plain fields, JIT off (-Xint)", "44,000 to 110,000", -0.75)
+        volr = row("volatile fields", "0, every run", -1.4, GOOD)
+        self.say("xint2")
+        self.play(FadeIn(table), run_time=0.6)
+        self.play(FadeIn(offr), run_time=0.6)
+        self.hold()
+
+        self.say("vol1")
+        self.play(FadeIn(volr[0]), run_time=0.5)
+        self.at_text("the count is 0")
+        self.play(FadeIn(volr[1]), run_time=0.5)
+        self.hold()
+
+        always = T("the tray always empties within nanoseconds", 28, TRAY).move_to([0, -2.45, 0])
+        alibi2 = chip("alibi", COH, size=24).next_to(always, RIGHT, buff=0.35)
+        self.say("tray_alibi")
+        self.play(FadeIn(always, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(alibi2, scale=1.3), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(VGroup(table, offr, volr, always, alibi2)), run_time=0.6)
+
+        # ================= the notepad =================
+        dw = Desk(-DX, WK, "the worker's desk (core 0)", "while (!stop) spins++;")
+        dm = Desk(DX, MN, "main's desk (core 1)", "stop = true;")
+        for d in (dw, dm):
+            d.out = Cell("outbox (store buffer)", "empty", vcolor=GREY_B).move_to([d.cx, OUT_Y, 0])
+            d.copy = Cell("photocopy (cache)", "stop = false").move_to([d.cx, COPY_Y, 0])
+        board = Cell("whiteboard (main memory)", "stop = false", color=WHITE, w=12.7, h=0.8, center=True).move_to([0, BOARD_Y, 0])
+        desks = VGroup(board, dw.frame, dw.head, dw.code, dw.out, dw.copy, dm.frame, dm.head, dm.code, dm.out, dm.copy, wr0, wr1)
+        self.say("notepad")
+        self.play(FadeIn(desks), run_time=0.7)
+        self.play(FadeIn(dw.note), FadeIn(dm.note), run_time=0.6)
+        self.at(1)
+        self.glide([side(dw, dw.copy, dw.note)], GREY_A, rt=0.8)
+        self.play(*dw.note.set(value="stop = false", vcolor=WHITE), run_time=0.4)
+        self.at(2)
+        self.play(Indicate(dw.note[1], color=WHITE, scale_factor=1.05), run_time=0.8)
+        self.hold()
+        self.play(FadeOut(desks), FadeOut(dw.note), FadeOut(dm.note), run_time=0.6)
+
+        left = VGroup(T("what you wrote", 24, GREY_B), code_block(["while (!stop) {", "    spins++;", "}"], 26))
+        right = VGroup(T("what the compiled loop may do", 24, GREY_B),
+                       code_block(["if (!stop) {", "    while (true) { spins++; }", "}"], 26, OLD))
+        for g in (left, right):
+            g.arrange(DOWN, aligned_edge=LEFT, buff=0.25)
+        jit = VGroup(left, right).arrange(RIGHT, buff=1.7, aligned_edge=UP).move_to(UP * 1.0)
+        fit(jit, 12.4)
+        jarr = Arrow(left.get_right() + RIGHT * 0.05, right.get_left() + LEFT * 0.05, buff=0.1, color=GREY_B, stroke_width=3)
+        jlab = T("the JIT", 24, GREY_B).next_to(jarr, UP, buff=0.1)
+        why_ok = T("nothing in the loop writes stop or talks to other threads", 26, GREY_B).move_to(DOWN * 1.3)
+        self.say("jit")
+        self.play(FadeIn(left, shift=UP * 0.2), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(why_ok), run_time=0.6)
+        self.at_text("so it read")
+        self.play(GrowArrow(jarr), FadeIn(jlab), FadeIn(right, shift=LEFT * 0.2), run_time=1.2)
+        self.hold()
+        self.play(FadeOut(VGroup(left, right, jarr, jlab, why_ok)), run_time=0.6)
+
+        self.say("hoist_office")
+        self.play(FadeIn(desks), FadeIn(dw.note), FadeIn(dm.note), run_time=0.7)
+        self.play(*dw.note.set(vcolor=OLD, color=OLD), run_time=0.5)
+        for _ in range(3):
+            self.fly([(dw.note.get_top(), dw.code.get_bottom())], WK, rt=0.4)
+        self.hold()
+
+        self.say("hang")
+        note = chip("stop = true", MN, size=22, mono=True).move_to(dm.code).set_z_index(7)
+        self.play(FadeIn(note), run_time=0.25)
+        self.play(note.animate.move_to(dm.out.get_right() + LEFT * 1.0), run_time=0.5)
+        self.play(FadeOut(note), *dm.out.set(value="stop = true", vcolor=NEWV, color=TRAY), run_time=0.3)
+        self.at(1)
+        self.fly([(dm.out.get_bottom(), dm.copy.get_top())], TRAY, rt=0.35,
+                 extra=[*dm.out.set(value="empty", vcolor=GREY_B, color=GREY_B)])
+        self.play(*dm.copy.set(value="stop = true", vcolor=NEWV), run_time=0.25)
+        self.fly([(dm.copy.get_bottom(), board.get_top() + RIGHT * DX)], TRAY, rt=0.35)
+        self.play(*board.set(value="stop = true", vcolor=NEWV), run_time=0.3)
+        self.at(3)
+        s0 = strike(dw.copy)
+        self.play(Create(s0), run_time=0.25)
+        self.fly([(board.get_top() + LEFT * DX, dw.copy.get_bottom())], GREY_A, rt=0.35)
+        self.play(FadeOut(s0), *dw.copy.set(value="stop = true", vcolor=NEWV), run_time=0.3)
+        self.at(4)
+        for _ in range(3):
+            self.fly([(dw.note.get_top(), dw.code.get_bottom())], WK, rt=0.4)
+        self.hold()
+
+        self.say("register")
+        self.play(*dw.note.set(label="notepad (register)"), *dm.note.set(label="notepad (register)"), run_time=0.7)
+        self.at(1)
+        self.play(Indicate(dw.note[1][1], color=OLD, scale_factor=1.15), run_time=0.9)
+        self.hold()
+
+        self.say("loyal")
+        for _ in range(2):
+            self.fly([(dw.note.get_top(), dw.code.get_bottom())], WK, rt=0.4)
+        self.hold()
+
+        # the office as it stands: the worker's desk with a verdict on each row
+        mdesk = VGroup(dm.frame, dm.head, dm.code, dm.note, dm.out, dm.copy, wr1)
+        newb = Cell("whiteboard (main memory)", "stop = true", color=WHITE, vcolor=NEWV, w=DESK_W, h=0.8, center=True)
+        newb.move_to([-DX, BOARD_Y, 0])
+        v_note = T("stays old forever: the JIT's choice", 26, OLD).move_to([0.6, NOTE_Y, 0], aligned_edge=LEFT)
+        v_out = T("delivers within nanoseconds", 26, TRAY).move_to([0.6, OUT_Y, 0], aligned_edge=LEFT)
+        v_copy = T("agrees within nanoseconds", 26, GOOD).move_to([0.6, COPY_Y, 0], aligned_edge=LEFT)
+        v_head = T("where a value can wait", 28, GREY_A).move_to([0.6, HEAD_Y, 0], aligned_edge=LEFT)
+        self.say("names")
+        self.play(FadeOut(mdesk), Transform(board, newb), run_time=0.7)
+        self.play(FadeIn(v_head), run_time=0.4)
+        self.at(1)
+        self.play(FadeIn(v_copy, shift=LEFT * 0.2), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(v_out, shift=LEFT * 0.2), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(v_note, shift=LEFT * 0.2), run_time=0.5)
+        self.hold()
+
+        b1 = VGroup(T("a clerk chooses where to look,", 26), T("every time", 26)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        b2 = VGroup(T("the JIT chooses once, when it compiles;", 26, OLD),
+                    T("the core repeats it billions of times", 26, OLD)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        b1.move_to([0.6, 1.0, 0], aligned_edge=LEFT)
+        b2.move_to([0.6, -0.4, 0], aligned_edge=LEFT)
+        bh = T("where the office picture breaks", 28, GREY_A).move_to([0.6, HEAD_Y, 0], aligned_edge=LEFT)
+        self.say("breaks")
+        self.play(FadeOut(VGroup(v_note, v_out, v_copy)), Transform(v_head, bh), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(b1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(b2, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= guardrail: chips differ =================
+        ch_t = T("Chips differ in how much they swap", 34).move_to([0, 2.55, 0])
+        x86 = VGroup(mbox("x86", WHITE, w=1.6, size=26), T("most laptops and servers", 22, GREY_B))
+        arm = VGroup(mbox("ARM", WHITE, w=1.6, size=26), T("phones, many servers", 22, GREY_B))
+        for g in (x86, arm):
+            g.arrange(DOWN, buff=0.15)
+        x86.move_to([-5.0, 1.15, 0])
+        arm.move_to([-5.0, -0.55, 0])
+        x86_r = T("a later read may pass an earlier write", 28).move_to([-3.6, 1.3, 0], aligned_edge=LEFT)
+        arm_r = VGroup(T("that, and also:", 28), T("reads pass reads, writes pass writes", 28)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        arm_r.move_to([-3.6, -0.45, 0], aligned_edge=LEFT)
+        self.say("chips")
+        self.play(FadeIn(ch_t), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(x86), FadeIn(x86_r), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(arm), FadeIn(arm_r), run_time=0.7)
+        self.hold()
+
+        pol = T("Write to Java's rules, not to your chip.", 32, YELLOW_M).move_to([0, -2.1, 0])
+        jmm = T("the Java Memory Model: a write is promised only when something links the threads", 24, GREY_B).move_to([0, -2.8, 0])
+        fit(jmm, 12.4)
+        self.say("polite")
+        self.at(1)
+        self.play(FadeIn(pol, shift=UP * 0.1), run_time=0.6)
+        self.at_text("the Java Memory", lead=0.4)
+        self.play(FadeIn(jmm), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(VGroup(ch_t, x86, arm, x86_r, arm_r, pol, jmm)), run_time=0.6)
+
+        # ================= the fix =================
+        fd = Desk(-DX, WK, "the worker's desk (core 0)", "while (!stop) spins++;")
+        fd.note = Cell("notepad (register)", "stop = false", color=OLD, vcolor=OLD).move_to([-DX, NOTE_Y, 0])
+        fd.out = Cell("outbox (store buffer)", "empty", vcolor=GREY_B).move_to([-DX, OUT_Y, 0])
+        fd.copy = Cell("photocopy (cache)", "stop = true", vcolor=NEWV).move_to([-DX, COPY_Y, 0])
+        fb = Cell("whiteboard (main memory)", "stop = true", color=WHITE, vcolor=NEWV, w=DESK_W, h=0.8, center=True)
+        fb.move_to([-DX, BOARD_Y, 0])
+        fw = Line(fd.copy.get_bottom(), [-DX, fb.get_top()[1], 0], stroke_width=2, color=GREY_D).set_z_index(-1)
+        fdesk = VGroup(fd.frame, fd.head, fd.code, fd.note, fd.out, fd.copy, fb, fw)
+        vt = T("volatile", 44, GOOD).move_to([3.3, 2.0, 0])
+        v1 = T("no notepad for a volatile field", 26).move_to([3.3, 1.05, 0])
+        v2 = T("every pass reads it again", 26).move_to([3.3, 0.4, 0])
+        saw = M("worker saw stop", 28, GOOD).move_to([3.3, -0.8, 0])
+        path = VMobject().set_points_as_corners([fd.copy.get_left() + LEFT * 0.05, [-DX - 2.83, COPY_Y, 0], [-DX - 2.83, CODE_Y, 0],
+                                                 fd.code.get_left() + LEFT * 0.1]).set_stroke(GOOD, 3)
+        self.say("fix")
+        self.play(FadeIn(fdesk), FadeIn(vt), run_time=0.8)
+        self.at(1)
+        sn = strike(fd.note)
+        self.play(Create(sn), FadeIn(v1), run_time=0.6)
+        self.play(FadeOut(sn), *fd.note.set(value="not used", vcolor=GREY_B, color=GREY_B), run_time=0.4)
+        self.at_text("so every pass")
+        self.play(Create(path), FadeIn(v2), run_time=0.7)
+        for _ in range(2):
+            dot = Dot(radius=0.09, color=GOOD).set_z_index(8)
+            self.play(MoveAlongPath(dot, path.copy()), run_time=0.6)
+            self.remove(dot)
+        self.play(FadeIn(saw, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(VGroup(fdesk, vt, v1, v2, saw, path)), run_time=0.6)
+
+        hl = {"volatile": GOOD, "@Volatile": GOOD}
+        jc = code_block(["static volatile boolean stop;", "", "while (!stop) {", "    spins++;", "}"], 26, hl=hl)
+        kc = code_block(["@Volatile var stop = false", "", "while (!stop) {", "    spins++", "}"], 26, hl=hl)
+        cols = VGroup(VGroup(T("Java", 24, GREY_B), jc).arrange(DOWN, aligned_edge=LEFT, buff=0.25),
+                      VGroup(T("Kotlin", 24, GREY_B), kc).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
+                      ).arrange(RIGHT, buff=1.3, aligned_edge=UP)
+        fit(cols, 12.4).move_to(UP * 0.4)
+        self.say("code")
+        self.play(FadeIn(cols, shift=UP * 0.15), run_time=0.9)
+        self.play(Indicate(VGroup(jc[0], kc[0]), color=GOOD, scale_factor=1.04), run_time=0.9)
+        self.hold()
+        self.play(FadeOut(cols), run_time=0.6)
+
+        # ================= the moral and a check =================
+        mq = T("Where did the old value live?", 36, YELLOW_M).move_to(UP * 2.6)
+        m1 = T("Not in the cache. Not in the outbox.", 30)
+        m2 = T("On the notepad, a register, because nothing linked the threads.", 30, OLD)
+        m3 = T("A shared plain field comes with no promise.", 30)
+        m4 = T("Make it volatile.", 30, GOOD)
+        moral = VGroup(m1, m2, m3, m4).arrange(DOWN, buff=0.3).move_to(UP * 0.75)
+        fit(moral, 12.4)
+        cq = VGroup(T("Check: a loop hangs with the JIT on, and stops with the JIT off.", 28, YELLOW_M),
+                    T("Photocopy, outbox, or notepad?", 28, YELLOW_M)).arrange(DOWN, buff=0.2).move_to(DOWN * 2.3)
+        fit(cq, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(m3, shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(m4, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.say("check")
+        self.play(FadeIn(cq, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.wait(3.0)

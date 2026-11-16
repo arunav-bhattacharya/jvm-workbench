@@ -15,22 +15,22 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
-/** 400 requests a second for 3 seconds, each on its own virtual thread. Pass "outage" to slow the fraud service to 2 s. */
-public class FraudOutageDemoJava {
+/** 400 requests a second for 3 seconds, each on its own virtual thread. Pass "outage" to slow the safety service to 2 s. */
+public class SafetyOutageDemoJava {
     static final long BUDGET_NANOS = 300_000_000L;          // every request answers within 300 ms
-    static final long STAND_IN_CENTS = 5_000L;              // stand-in limit: up to 50.00 goes through unchecked
-    static final Semaphore permits = new Semaphore(20);     // the fraud bulkhead
+    static final long SMALL_AMOUNT_CENTS = 5_000L;          // the small-amount rule: up to 50.00 is let through
+    static final Semaphore permits = new Semaphore(20);     // the safety bulkhead
     static final AtomicInteger inFlight = new AtomicInteger(), mostInFlight = new AtomicInteger();
     static final Map<String, LongAdder> verdicts = new ConcurrentHashMap<>();
     static final AtomicLong slowestMs = new AtomicLong();
 
-    // the fraud call, on its own virtual thread: a permit first, then the remote call
-    static boolean fraudCall(long latencyMs, long deadline) throws Exception {
+    // the safety call, on its own virtual thread: a permit first, then the remote call
+    static boolean safetyCall(long latencyMs, long deadline) throws Exception {
         if (!permits.tryAcquire(deadline - System.nanoTime(), TimeUnit.NANOSECONDS)) throw new TimeoutException("no permit");
         try {
             mostInFlight.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
             try {
-                Thread.sleep(latencyMs);                    // the fraud service; an interrupt ends it early
+                Thread.sleep(latencyMs);                    // the safety service; an interrupt ends it early
             } finally {
                 inFlight.decrementAndGet();
             }
@@ -43,7 +43,7 @@ public class FraudOutageDemoJava {
     static String screen(long cents, long latencyMs) throws InterruptedException {
         long deadline = System.nanoTime() + BUDGET_NANOS;
         try (ExecutorService perCall = Executors.newVirtualThreadPerTaskExecutor()) {
-            Future<Boolean> call = perCall.submit(() -> fraudCall(latencyMs, deadline));
+            Future<Boolean> call = perCall.submit(() -> safetyCall(latencyMs, deadline));
             try {
                 return call.get(deadline - System.nanoTime(), TimeUnit.NANOSECONDS) ? "approved" : "declined";
             } catch (TimeoutException e) {                  // our deadline passed first
@@ -56,7 +56,7 @@ public class FraudOutageDemoJava {
     }
 
     static String fallback(long cents) {
-        return cents <= STAND_IN_CENTS ? "stand-in" : "timed out";
+        return cents <= SMALL_AMOUNT_CENTS ? "let through" : "timed out";
     }
 
     public static void main(String[] args) throws InterruptedException {
@@ -78,7 +78,7 @@ public class FraudOutageDemoJava {
                 Thread.sleep(10);
             }
         }
-        System.out.printf("fraud service takes %d ms: %s%n", latencyMs, new TreeMap<>(verdicts));
-        System.out.printf("most fraud calls in flight: %d, slowest reply: %d ms%n", mostInFlight.get(), slowestMs.get());
+        System.out.printf("safety service takes %d ms: %s%n", latencyMs, new TreeMap<>(verdicts));
+        System.out.printf("most safety calls in flight: %d, slowest reply: %d ms%n", mostInFlight.get(), slowestMs.get());
     }
 }

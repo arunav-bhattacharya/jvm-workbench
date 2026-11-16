@@ -6,7 +6,8 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * Caches FX rates ("EURUSD" -> 1.0842). A miss calls the rates service, which takes about 100 ms.
+ * Caches exchange rates (FX rates), such as how many dollars one euro buys: "EURUSD" -> 1.0842.
+ * A miss calls the rates service, which takes about 100 ms.
  * Many virtual threads call {@link #rate} at once, and each pair must be loaded only once.
  *
  * <p>This version holds a monitor ({@code synchronized}) during the slow call. On JDK 21 to 23 that

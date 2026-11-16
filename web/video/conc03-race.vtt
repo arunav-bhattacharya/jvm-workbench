@@ -1,129 +1,345 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:04.763
-Here is one line of Java.
+00:00:02.700 --> 00:00:04.303
+Picture a bank on payday.
 
 2
-00:00:04.763 --> 00:00:05.423
-count++.
+00:00:04.303 --> 00:00:10.969
+Deposits pour in, so its program handles them on eight threads at once, like eight tellers at a counter.
 
 3
-00:00:05.423 --> 00:00:07.733
-It looks like a single step.
+00:00:11.200 --> 00:00:13.260
+The next morning, someone checks.
 
 4
-00:00:08.533 --> 00:00:10.867
-But the CPU runs it as three.
+00:00:13.260 --> 00:00:19.128
+Every log line says its deposit went through, yet the balance is a few thousand dollars short.
 
 5
-00:00:10.867 --> 00:00:13.361
-Read the value into a register.
+00:00:19.933 --> 00:00:22.415
+The line behind it looks like one step.
 
 6
-00:00:13.361 --> 00:00:14.004
-Add one.
+00:00:22.633 --> 00:00:25.806
+So here's the question you might be shy to ask.
 
 7
-00:00:14.004 --> 00:00:15.131
-Write it back.
+00:00:25.806 --> 00:00:26.751
+It's one line.
 
 8
-00:00:15.333 --> 00:00:18.625
-Between any two of those steps, another thread can run.
+00:00:26.751 --> 00:00:28.776
+How can one line be half done?
 
 9
-00:00:19.467 --> 00:00:21.568
-Two threads share one counter.
+00:00:30.100 --> 00:00:33.931
+Let's shrink the bank to the smallest program that can go wrong.
 
 10
-00:00:21.568 --> 00:00:22.829
-It starts at zero.
+00:00:33.931 --> 00:00:38.241
+Two threads share one counter, and each adds one to it, a million times.
 
 11
-00:00:22.829 --> 00:00:25.140
-Each thread has its own register.
+00:00:38.467 --> 00:00:40.225
+That should make two million.
 
 12
-00:00:25.367 --> 00:00:27.507
-Thread A reads the counter.
+00:00:40.225 --> 00:00:41.680
+Pause, and make a guess.
 
 13
-00:00:27.507 --> 00:00:28.537
-It sees zero.
+00:00:44.500 --> 00:00:49.051
+Here's what the lesson's demo printed, in five runs on a four-core machine.
 
 14
-00:00:29.267 --> 00:00:33.412
-Before A writes anything, the scheduler switches to thread B.
+00:00:49.267 --> 00:00:53.054
+Four wrong answers, and one right one, from the same code.
 
 15
-00:00:33.412 --> 00:00:34.635
-B also reads zero.
+00:00:53.054 --> 00:00:55.339
+No crash, no exception, no warning.
 
 16
-00:00:35.367 --> 00:00:36.346
-A adds one.
+00:00:55.567 --> 00:00:58.581
+If it were wrong every time, at least we would notice.
 
 17
-00:00:36.346 --> 00:00:38.751
-Its register now holds one.
+00:00:58.800 --> 00:01:00.813
+That fifth run is the sneaky one.
 
 18
-00:00:38.967 --> 00:00:40.350
-B adds one too.
+00:01:00.813 --> 00:01:05.939
+Sometimes the threads don't collide, and the broken program prints the right answer.
 
 19
-00:00:40.350 --> 00:00:42.009
-It also holds one.
+00:01:06.167 --> 00:01:14.544
+Shrink the loop to a thousand each, and every run prints exactly 2,000, because the first thread finishes before the second starts.
 
 20
-00:00:42.233 --> 00:00:43.904
-A writes one to memory.
+00:01:14.544 --> 00:01:16.335
+That's why small tests pass.
 
 21
-00:00:44.633 --> 00:00:46.859
-Then B writes one, right over it.
+00:01:17.567 --> 00:01:20.752
+To see why, go back to a bank before computers.
 
 22
-00:00:47.667 --> 00:00:48.976
-Two increments ran.
+00:01:20.752 --> 00:01:22.785
+The balance lives on one card.
 
 23
-00:00:48.976 --> 00:00:50.422
-The counter says one.
+00:01:23.000 --> 00:01:29.428
+To add a deposit, a teller reads the card, works out the new number on scratch paper, and writes it back.
 
 24
-00:00:50.422 --> 00:00:53.660
-One update is lost, and nothing threw an error.
+00:01:29.633 --> 00:01:30.620
+Let's map it.
 
 25
-00:00:53.867 --> 00:00:55.438
-This is a race condition.
+00:01:30.620 --> 00:01:32.441
+Each teller is a thread.
 
 26
-00:00:55.438 --> 00:00:59.147
-The result depends on how the threads happen to interleave.
+00:01:32.667 --> 00:01:36.236
+The card is the field in memory that every thread shares.
 
 27
-00:00:59.147 --> 00:01:04.553
-Run it a million times on two threads, and the total comes up short almost every time.
+00:01:36.467 --> 00:01:42.575
+The scratch paper is the teller's own, like a register, a tiny storage slot inside the core.
 
 28
-00:01:05.467 --> 00:01:11.041
-The fix is to make read, add and write happen as one step that no other thread can split.
+00:01:42.800 --> 00:01:46.583
+And read, add, write is exactly what count++ does.
 
 29
-00:01:11.267 --> 00:01:15.475
-An AtomicInteger does it with one compare and swap instruction.
+00:01:47.700 --> 00:01:49.971
+The JVM's own instructions agree.
 
 30
-00:01:15.475 --> 00:01:17.680
-The same class works from Kotlin.
+00:01:49.971 --> 00:01:55.201
+Bytecode is the list of simple steps the Java compiler turns your code into.
 
 31
-00:01:17.900 --> 00:01:22.344
-Or hold a lock, so only one thread at a time can run the three steps.
+00:01:55.433 --> 00:02:01.072
+For count++, it says: read count, load the number one, add, and write count back.
 
 32
-00:01:22.567 --> 00:01:25.645
-Either way, the counter now adds up, every run.
+00:02:02.200 --> 00:02:05.001
+Now two tellers, one card, at 41.
+
+33
+00:02:05.233 --> 00:02:07.117
+Teller one reads 41.
+
+34
+00:02:07.333 --> 00:02:10.753
+Before she writes, teller two reads it too: 41.
+
+35
+00:02:10.967 --> 00:02:13.683
+Teller one adds one, and writes 42.
+
+36
+00:02:13.900 --> 00:02:15.322
+Teller two adds one.
+
+37
+00:02:15.322 --> 00:02:17.241
+What does the card say now?
+
+38
+00:02:19.867 --> 00:02:20.144
+42.
+
+39
+00:02:20.144 --> 00:02:23.848
+Two deposits, and the card moved by one.
+
+40
+00:02:24.067 --> 00:02:25.673
+That's a lost update.
+
+41
+00:02:25.900 --> 00:02:28.084
+Both tellers did every step right.
+
+42
+00:02:28.084 --> 00:02:30.460
+Each would pass a performance review.
+
+43
+00:02:30.460 --> 00:02:31.680
+The bank would not.
+
+44
+00:02:31.900 --> 00:02:34.744
+The mistake lives in the gap between the steps.
+
+45
+00:02:35.467 --> 00:02:37.596
+This pattern is read-modify-write.
+
+46
+00:02:37.596 --> 00:02:42.669
+And a bug where the result depends on how threads take turns is a race condition.
+
+47
+00:02:42.900 --> 00:02:44.879
+So how can one line be half done?
+
+48
+00:02:44.879 --> 00:02:49.975
+To the machine, it's three steps, and another thread can run between any two of them.
+
+49
+00:02:51.200 --> 00:02:52.379
+Back to the bank.
+
+50
+00:02:52.379 --> 00:03:00.493
+The usual next move is a thread-safe map, one that's safe to use from many threads, like the JDK's ConcurrentHashMap.
+
+51
+00:03:00.700 --> 00:03:06.591
+The lesson's payday demo has eight tellers each make 200,000 one-cent deposits.
+
+52
+00:03:06.591 --> 00:03:07.709
+Three versions.
+
+53
+00:03:07.709 --> 00:03:09.723
+Guess which come out exact.
+
+54
+00:03:12.533 --> 00:03:15.333
+The plain field lost more than two thirds.
+
+55
+00:03:15.333 --> 00:03:17.667
+The thread-safe map lost even more.
+
+56
+00:03:17.900 --> 00:03:19.958
+Every single call on it is safe.
+
+57
+00:03:19.958 --> 00:03:25.103
+But get, and then put, is two calls, and the gap between them belongs to nobody.
+
+58
+00:03:25.333 --> 00:03:33.191
+merge does the read, the add and the write as one step on that key, like a teller who keeps a hand on the card from read to write.
+
+59
+00:03:33.400 --> 00:03:36.969
+A step that no other thread can split is called atomic.
+
+60
+00:03:38.200 --> 00:03:40.725
+The second shape of race hides in an if.
+
+61
+00:03:40.725 --> 00:03:45.458
+A customer taps Pay on a slow network, and the app sends the payment again.
+
+62
+00:03:45.458 --> 00:03:47.415
+Two tellers get the two copies.
+
+63
+00:03:47.633 --> 00:03:50.613
+Each checks the book: recorded yet?
+
+64
+00:03:50.613 --> 00:03:50.868
+No.
+
+65
+00:03:51.100 --> 00:03:54.733
+Each does a slow check that it's genuine, and each records it.
+
+66
+00:03:54.967 --> 00:04:03.272
+In the lesson's demo, eight tellers got the same 1,000 payments, and one run recorded them 2,579 times.
+
+67
+00:04:03.500 --> 00:04:05.498
+Each customer paid once.
+
+68
+00:04:05.498 --> 00:04:10.575
+The shops were paid 2,579 times, and nobody there complained.
+
+69
+00:04:10.800 --> 00:04:12.219
+That's check-then-act.
+
+70
+00:04:12.219 --> 00:04:15.123
+A check is out of date the moment it returns.
+
+71
+00:04:15.333 --> 00:04:18.472
+The fix is one call that checks and acts together.
+
+72
+00:04:18.472 --> 00:04:22.237
+putIfAbsent: claim this payment, unless someone already has.
+
+73
+00:04:22.467 --> 00:04:25.037
+Only one teller can win the claim.
+
+74
+00:04:25.037 --> 00:04:27.003
+Now it's 1,000, every run.
+
+75
+00:04:28.233 --> 00:04:31.376
+Here are both fixes, in Java and in Kotlin.
+
+76
+00:04:31.600 --> 00:04:35.892
+A thread-safe class makes each call atomic, never two calls in a row.
+
+77
+00:04:35.892 --> 00:04:38.256
+Test with threads that really collide.
+
+78
+00:04:38.256 --> 00:04:44.228
+And one call protects one key: moving money between two accounts needs a lock, which comes next.
+
+79
+00:04:45.433 --> 00:04:51.985
+So, count++ is a read, an add and a write, and the gaps belong to whoever gets there first.
+
+80
+00:04:51.985 --> 00:04:54.001
+Make the whole job one step.
+
+81
+00:04:55.133 --> 00:04:55.897
+Quick check.
+
+82
+00:04:55.897 --> 00:04:59.400
+If the balance is at least the amount, take the amount.
+
+83
+00:04:59.400 --> 00:05:01.374
+Two withdrawals run it at once.
+
+84
+00:05:01.374 --> 00:05:02.520
+What can go wrong?
+
+85
+00:05:05.533 --> 00:05:10.073
+Both see enough money, both take it, and the account goes below zero.
+
+86
+00:05:10.073 --> 00:05:11.520
+Check-then-act, again.

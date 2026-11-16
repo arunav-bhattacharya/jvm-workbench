@@ -57,17 +57,17 @@ ExecutorService grill = Executors.newFixedThreadPool(4, named);"""
 K_NAMED = """val named = Thread.ofPlatform().name("grill-", 0).factory()            // JDK 21+: grill-0, grill-1, ...
 val grill = Executors.newFixedThreadPool(4, named)"""
 
-S0 = """Start with the name tags. A thread's name shows up in log lines, in profilers (tools that show where a program spends its time) and in thread dumps. A **thread dump** is a snapshot of every thread in a running JVM, the Java Virtual Machine that runs your program, with its name, its state and the line of code it is on. You can take one with `jcmd <pid> Thread.print`, where `<pid>` is the number the operating system gave the program.
+S0 = """A thread's name, its name tag, shows up in log lines, in profilers (tools that show where a program spends its time) and in thread dumps. A **thread dump** is a snapshot of every thread in a running JVM, the Java Virtual Machine that runs your program, with its name, its state and the line of code it is on. You can take one with `jcmd <pid> Thread.print`, where `<pid>` is the number the operating system gave the program.
 
 The ready-made pools from `Executors` name their threads `pool-3-thread-7`, the seventh thread of the third pool. In a dump of a program with eight pools, that tells you nothing. A **thread factory** is the object a pool asks for each new thread. Hand the pool one that names its threads:
 
 """ + pair(J_NAMED, K_NAMED) + """
 
-Before JDK 21, you write a small `ThreadFactory` of your own.
+Before JDK 21 (version 21 of Java's development kit), you write a small `ThreadFactory` of your own.
 
 Now failures. The first lesson of this track showed that `execute` and `submit` treat a failing task in opposite ways. In production, that difference decides whether you ever hear about it.
 
-`FailureDemo`, in the Try it below, makes a pool with one thread. The factory names it `grill-0` and gives it an **`UncaughtExceptionHandler`**, the method the JVM calls when an exception escapes a thread. This one prints a line. Then the demo sends one failing task through each method. Predict what each half prints:
+`FailureDemo`, in the Try it below, makes a pool with one thread. The factory names it `grill-0` and gives it an **`UncaughtExceptionHandler`**, the method the JVM calls when an exception escapes a thread. This one prints a line. Then it sends one failing task through each method. Predict what each half prints:
 
 ```text
 1. execute() a task that throws
@@ -116,7 +116,7 @@ K_WRAP = """fun withRequestId(task: Runnable): Runnable {
     }
 }"""
 
-S1 = """A **request id** is a short label, such as `req-42`, that a program gives each request it handles and prints on every log line about it. With it, you can find the twenty lines of one request among millions. Programs often keep it in a **`ThreadLocal`**: a variable that has a separate value for each thread, as Don't share: immutability, confinement, ThreadLocal showed. Any code on that thread can read it without passing it around.
+S1 = """A **request id** is a short label, such as `req-42`, that a program gives each request it handles and prints on every log line about it. Programs often keep it in a **`ThreadLocal`**: a variable that has a separate value for each thread, as Don't share: immutability, confinement, ThreadLocal showed. Any code on that thread can read it without passing it around.
 
 The trouble starts at the hand-off. Picture a note about table 4, "nut allergy", pinned to the jacket of the waiter who took the order instead of clipped to the order itself. The order goes to the grill, and the note stays with the waiter. The grill cook sees no note at all. Or he still has an old note pinned to his own jacket, from the last order he cooked.
 
@@ -140,7 +140,7 @@ The capture must happen in the method that runs on the submitting thread, which 
 
 Here the picture breaks. A paper note falls off sooner or later. A `ThreadLocal` value stays on its thread until some code removes it.
 
-Don't make every caller remember to wrap. Wrap once, in the executor that everyone uses, as the lab's `ProductionPool` does.
+Don't make every caller remember: wrap once, in the executor everyone uses, as the lab's `ProductionPool` does.
 
 Virtual threads, the subject of the next track, don't change any of this: a new thread starts with empty `ThreadLocal`s, except inheritable ones, which copy their value from the thread that starts them. Scoped values, final in JDK 25 (JEP 506, the design document behind them), are the newer tool for request context, and that track covers them too.
 
@@ -162,7 +162,7 @@ The active count, `getActiveCount()`, compared with the maximum, says how many c
 
 The rejections are the tasks the pool turned away. `ThreadPoolExecutor` doesn't count them for you. Wrap the `RejectedExecutionHandler`, the code a pool calls when it refuses a task (Inside ThreadPoolExecutor), in one that adds to a counter and then throws.
 
-The time in queue is how long each task waited before a thread picked it up. The caller feels that wait, and the task itself never measures it. Record the time when a task is submitted, in the same wrapper that carries the context, and compare it when the task starts.
+The time in queue is how long each task waited for a thread. The caller feels that wait, and the task never measures it. Record the time when a task is submitted, in the same wrapper that carries the context, and compare it when the task starts.
 
 `MetricsDemo` sends a burst of 10 tasks of 300 ms each to a pool of 2 threads, named `orders-`, with a queue of 4 and a counting handler. Then it prints the board every 200 ms. Predict the first row before you read it:
 
@@ -180,7 +180,7 @@ Two tasks run, four wait in the queue, and four are rejected at once, since 2 + 
 
 Picture the same burst on `newFixedThreadPool(2)`, whose queue has no limit. The board would show `rejected 0` and a queue of 8. Every task is accepted, and the last two wait 1.2 seconds before a thread even picks them up. Only the time in queue would show the trouble. That's why it belongs on the board.
 
-The getters are approximate, as the Javadoc says, because the threads change the numbers while you read them. That's fine for a dashboard and wrong for program logic. If your program already sends numbers to a dashboard, a metrics library such as Micrometer can read most of these from a pool for you.
+The getters are approximate, as their Javadoc, the official documentation, says, because the threads change the numbers while you read them. That's fine for a dashboard and wrong for program logic. If your program already sends numbers to a dashboard, a metrics library such as Micrometer can read most of these from a pool for you.
 
 Of the four, time in queue and rejections are what your customers feel. A pool with an empty queue and no rejections is healthy, however busy its threads look.
 
@@ -221,7 +221,7 @@ Both threads are active, the two fetches are queued, and nothing has completed. 
 
 Unlike the lock deadlock of Deadlock, livelock and starvation, the CPU drops to zero, nothing throws, and a thread dump has no "deadlock found" line, because no lock is involved: every thread is simply `WAITING` in `FutureTask.get`. The figure shows the moment.
 
-There are three fixes, and I'd try them in this order:
+Here are three fixes, in the order I'd try them:
 
 1. Don't block inside the pool. Compose: `supplyAsync(() -> orders.lines(t), pool).thenApply(lines -> render(t, lines))`. The render step runs as a callback, code that runs when the fetch completes, so no thread waits. Only the caller joins at the end. The demo's `fixed` mode does this and prints both bills at once, on the same two threads.
 2. Don't split what doesn't need splitting. If the bill task only waits for the fetch, do the fetch inline, in the same task.
@@ -259,9 +259,9 @@ STOP_KOTLIN = """fun stop() {
     }
 }"""
 
-S4 = """A good restaurant closes in a fixed order. First someone locks the front door, so no new guests come in. Then the kitchen finishes the orders it has, starting with the stations that feed the others. Only then do the lights go off, and all of it has to fit before the night's deadline.
+S4 = """A good restaurant closes in a fixed order. First someone locks the front door to new guests. Then the kitchen finishes the orders it has, starting with the stations that feed the others. Only then do the lights go off, and all of it must fit before a deadline.
 
-A program is told to stop in much the same way. As the first lesson of this track described, the system that runs a service usually sends a polite signal first. After a grace period, 30 seconds by a common default, it stops the program by force. Everything in flight has to finish inside that window, or be written down as lost.
+A program stops the same way. As the first lesson of this track described, the system that runs a service usually sends a polite signal first. After a grace period, 30 seconds by a common default, it stops the program by force. Everything in flight has to finish inside that window, or be written down as lost.
 
 Here is a stop method for a program with two pools. The kitchen pool's tasks cook dishes, and each finished dish is handed to the billing pool, which adds it to the table's bill:
 

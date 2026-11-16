@@ -35,7 +35,7 @@ fun main(args: Array<String>) {
             }
             accepted++
         } catch (e: RejectedExecutionException) {
-            // an HTTP handler would answer 503 with Retry-After here
+            // a web server would answer "busy, try again soon" (status 503) here
         }
     }
     val submitMs = (System.nanoTime() - t0) / 1_000_000

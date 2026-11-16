@@ -6,7 +6,7 @@ import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Formats the timestamp printed on payment receipts, in UTC: {@code 2026-03-14T09:26:53.589Z}.
+ * Formats the timestamp printed on the shop's receipts, in UTC: {@code 2026-03-14T09:26:53.589Z}.
  *
  * <p>{@link SimpleDateFormat} is not thread-safe, so this version keeps one per thread in a
  * {@link ThreadLocal}. That worked as a cache on a 200-thread pool. With one virtual thread per

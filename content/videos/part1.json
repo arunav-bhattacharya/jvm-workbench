@@ -1,6 +1,6 @@
 {
   "videos": [
-    {"slug": "conc03-race", "lesson": "conc-03", "section": 1, "title": "Why count++ lies: three steps, two threads, one lost update"},
+    {"slug": "conc03-race", "lesson": "conc-03", "section": 1, "title": "Why count++ lies: a read, an add and a write, lost deposits on a thread-safe map, and a payment recorded twice"},
     {"slug": "conc06-deadlock", "lesson": "conc-06", "section": 0, "title": "Ana and Ben pay each other at the same moment: two keys taken in opposite orders freeze for good, one lock order breaks the circle, and a lock that gives up needs a random rest"},
     {"slug": "jmm01-stop-loop", "lesson": "jmm-01", "section": 2, "title": "Why the stop loop spins: the caches agree, the store buffer drains, the JIT keeps stop in a register"},
     {"slug": "jmm02-volatile-edge", "lesson": "jmm-02", "section": 1, "title": "A volatile write and a read of the same field make a happens-before edge; a different field makes none"},
@@ -31,7 +31,7 @@
     {"slug": "vt03-semaphore", "lesson": "vt-03", "section": 3, "title": "A virtual thread per payment is cheap but the database has 20 connections: a shared Semaphore hands out 20 permits, waiters park for the price of a heap object, and release wakes the next one"},
     {"slug": "exec01-pools", "lesson": "exec-01", "section": 0, "title": "A new platform thread per tiny task costs far more than the task, a pool reuses a few workers that loop on one queue, shutdown lets the queue drain, shutdownNow hands it back and interrupts, and only awaitTermination waits"},
     {"slug": "exec09-production", "lesson": "exec-09", "section": 2, "title": "Payments outrun two threads: an unbounded queue accepts everything while time in queue climbs, a queue of four rejects at once, and four dashboard numbers plus named threads show what is happening"},
-    {"slug": "conc01-threads", "lesson": "conc-01", "section": 0, "title": "A thread is one walker through your code with its own stack, all threads share one heap, cores take turns or run at once, and only start() makes a new thread"},
+    {"slug": "conc01-threads", "lesson": "conc-01", "section": 0, "title": "A thread is a clerk with its own notepad (the stack) and a shared filing cabinet (the heap); run() is a plain call, start() makes a thread, join() waits for it"},
     {"slug": "jmm06-varhandles", "lesson": "jmm-06", "section": 1, "title": "A VarHandle puts the memory mode on each access: plain, opaque, release/acquire and volatile as a ladder, where a release hands everything written before it to the acquire that sees it"},
     {"slug": "conc13-testing", "lesson": "conc-13", "section": 0, "title": "Two test threads that never overlap catch nothing: a start latch, more threads than cores and many rounds make them collide, a latch with a deadline replaces the sleep, and jcstress counts every outcome"},
     {"slug": "vt06-migrate", "lesson": "vt-06", "section": 0, "title": "A fixed pool of 10 also kept the database to 10 callers; virtual threads drop that limit and 300 requests hit 10 connections, a semaphore writes it back, and Little's law shows where requests wait"},

@@ -22,8 +22,8 @@ public class PinningDemo {
     static final Object MONITOR = new Object();
     static final ReentrantLock LOCK = new ReentrantLock();
 
-    // a class whose static initializer blocks, like one that loads config over the network
-    static class SlowRatesTable {
+    // a class whose static initializer blocks, like one that loads the shop's price list over the network
+    static class SlowPriceList {
         static final boolean READY;
         static {
             sleep(200);
@@ -40,7 +40,7 @@ public class PinningDemo {
         if (only.equals("all") || only.equals("lock"))
             run("ReentrantLock + sleep", () -> { LOCK.lock(); try { sleep(100); } finally { LOCK.unlock(); } });
         if (only.equals("all") || only.equals("init"))
-            run("class init that sleeps", () -> { boolean ready = SlowRatesTable.READY; });
+            run("class init that sleeps", () -> { boolean ready = SlowPriceList.READY; });
     }
 
     static void run(String label, Runnable blocker) throws Exception {

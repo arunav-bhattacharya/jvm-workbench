@@ -26,13 +26,13 @@ class FailFastScopeTest {
     @DisplayName("join() returns when every subtask succeeded, and each handle gives its result")
     void allSucceed() throws Exception {
         try (FailFastScope scope = new FailFastScope()) {
-            Supplier<String> customer = scope.fork(() -> after(60, "ACME Ltd"));
-            Supplier<String> rate = scope.fork(() -> after(30, "1.0842"));
-            Supplier<Integer> fee = scope.fork(() -> 25);
+            Supplier<String> bank = scope.fork(() -> after(60, "approved"));
+            Supplier<String> stock = scope.fork(() -> after(30, "in stock"));
+            Supplier<Integer> points = scope.fork(() -> 25);
             scope.join();
-            assertThat(customer.get()).isEqualTo("ACME Ltd");
-            assertThat(rate.get()).isEqualTo("1.0842");
-            assertThat(fee.get()).isEqualTo(25);
+            assertThat(bank.get()).isEqualTo("approved");
+            assertThat(stock.get()).isEqualTo("in stock");
+            assertThat(points.get()).isEqualTo(25);
         }
     }
 
@@ -55,10 +55,10 @@ class FailFastScopeTest {
     @DisplayName("get() before join() throws IllegalStateException")
     void getBeforeJoin() throws Exception {
         try (FailFastScope scope = new FailFastScope()) {
-            Supplier<String> rate = scope.fork(() -> "1.0842");
-            assertThatThrownBy(rate::get).isInstanceOf(IllegalStateException.class);
+            Supplier<String> stock = scope.fork(() -> "in stock");
+            assertThatThrownBy(stock::get).isInstanceOf(IllegalStateException.class);
             scope.join();
-            assertThat(rate.get()).isEqualTo("1.0842");
+            assertThat(stock.get()).isEqualTo("in stock");
         }
     }
 
@@ -71,7 +71,7 @@ class FailFastScopeTest {
             try (FailFastScope scope = new FailFastScope()) {
                 scope.fork(() -> {
                     try {
-                        return after(10_000, "customer");      // a slow call nobody needs any more
+                        return after(10_000, "approved");      // a slow bank call nobody needs any more
                     } catch (InterruptedException e) {
                         slowWasInterrupted.countDown();
                         throw e;
@@ -79,11 +79,11 @@ class FailFastScopeTest {
                 });
                 scope.fork(() -> {
                     Thread.sleep(50);
-                    throw new IllegalStateException("issuer declined");
+                    throw new IllegalStateException("sold out");
                 });
                 assertThatThrownBy(scope::join)
                         .isInstanceOf(ExecutionException.class)
-                        .cause().isInstanceOf(IllegalStateException.class).hasMessage("issuer declined");
+                        .cause().isInstanceOf(IllegalStateException.class).hasMessage("sold out");
             }
             long ms = (System.nanoTime() - t0) / 1_000_000;
             // the sibling sleeps 10 s; a fail-fast scope ends long before that (generous margin for busy machines)
@@ -97,7 +97,7 @@ class FailFastScopeTest {
     void handlesAfterFailure() throws Exception {
         try (FailFastScope scope = new FailFastScope()) {
             Supplier<String> slow = scope.fork(() -> after(10_000, "never"));
-            Supplier<String> bad = scope.fork(() -> { throw new IllegalArgumentException("bad pair"); });
+            Supplier<String> bad = scope.fork(() -> { throw new IllegalArgumentException("unknown product"); });
             assertThatThrownBy(scope::join).isInstanceOf(ExecutionException.class);
             assertThatThrownBy(slow::get).isInstanceOf(IllegalStateException.class);
             assertThatThrownBy(bad::get).isInstanceOf(IllegalStateException.class);
@@ -141,13 +141,13 @@ class FailFastScopeTest {
             try (FailFastScope scope = new FailFastScope()) {
                 scope.fork(() -> {
                     try {
-                        return after(10_000, "customer");
+                        return after(10_000, "approved");
                     } catch (InterruptedException e) {
                         siblingInterrupted.countDown();
                         throw e;
                     }
                 });
-                scope.fork(() -> { throw new IllegalStateException("issuer declined"); });
+                scope.fork(() -> { throw new IllegalStateException("sold out"); });
                 // the sibling was interrupted, so the scope is cancelled by now
                 assertThat(siblingInterrupted.await(5, TimeUnit.SECONDS)).as("sibling interrupted").isTrue();
                 Supplier<String> late = scope.fork(() -> {
@@ -155,7 +155,7 @@ class FailFastScopeTest {
                     return "late";
                 });
                 assertThatThrownBy(scope::join).isInstanceOf(ExecutionException.class)
-                        .cause().hasMessage("issuer declined");
+                        .cause().hasMessage("sold out");
                 assertThatThrownBy(late::get).isInstanceOf(IllegalStateException.class);
             }
         });

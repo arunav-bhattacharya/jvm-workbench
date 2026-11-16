@@ -17,8 +17,8 @@ enum class Verdict {
     /** Both checks passed in time. */
     APPROVED,
 
-    /** The deadline passed, and the amount is small enough to accept without the checks (stand-in). */
-    STAND_IN,
+    /** The deadline passed, and the amount is small enough to let through without the checks. */
+    LET_THROUGH,
 
     /** A check said no, or failed. */
     DECLINED,
@@ -28,7 +28,7 @@ enum class Verdict {
 }
 
 /**
- * Screens one transfer. The fraud check (slow, behind [fraudBulkhead]) and the limits check (fast)
+ * Screens one transfer. The safety check (slow, behind [safetyBulkhead]) and the limits check (fast)
  * run at the same time, each on its own virtual thread, inside one deadline of [budget].
  *
  * Rules the tests check:
@@ -39,26 +39,26 @@ enum class Verdict {
  * - When [screen] returns, no thread it started is still running.
  */
 class Screening(
-    private val fraud: Check,
+    private val safety: Check,
     private val limits: Check,
-    private val fraudBulkhead: Bulkhead,
+    private val safetyBulkhead: Bulkhead,
     private val budget: Duration,
-    private val standInLimitCents: Long,
+    private val smallAmountCents: Long,
 ) {
     fun screen(t: Transfer): Verdict {
         val deadline = System.nanoTime() + budget.toNanos()                 // 1. one deadline for both checks
         val perTask = Executors.newVirtualThreadPerTaskExecutor()
         try {
             val done = ExecutorCompletionService<Boolean>(perTask)
-            done.submit { fraudBulkhead.call(deadline - System.nanoTime()) { fraud.passes(t) } }   // 2. fork both
+            done.submit { safetyBulkhead.call(deadline - System.nanoTime()) { safety.passes(t) } }   // 2. fork both
             done.submit { limits.passes(t) }
             repeat(2) {
                 val next = done.poll(deadline - System.nanoTime(), TimeUnit.NANOSECONDS)
-                    ?: return fallback(t)                                    // 3. deadline passed: stand-in rule
+                    ?: return fallback(t)                                    // 3. deadline passed: small-amount rule
                 val passed = try {
                     next.get()
                 } catch (e: ExecutionException) {
-                    if (e.cause is TimeoutException) return fallback(t)      //    no fraud permit in time
+                    if (e.cause is TimeoutException) return fallback(t)      //    no safety permit in time
                     return Verdict.DECLINED                                  // 4. a check failed: fail fast
                 }
                 if (!passed) return Verdict.DECLINED                         // 4. a check said no: fail fast
@@ -70,7 +70,7 @@ class Screening(
         }
     }
 
-    /** The stand-in rule: when the checks can't answer in time, small transfers go through and large ones are turned away. */
+    /** The small-amount rule: when the checks can't answer in time, small transfers go through and large ones are turned away. */
     private fun fallback(t: Transfer): Verdict =
-        if (t.cents() <= standInLimitCents) Verdict.STAND_IN else Verdict.TIMED_OUT
+        if (t.cents() <= smallAmountCents) Verdict.LET_THROUGH else Verdict.TIMED_OUT
 }

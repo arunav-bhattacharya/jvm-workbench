@@ -10,10 +10,10 @@ import java.util.function.Supplier;
  *
  * <pre>{@code
  * try (var scope = new FailFastScope()) {
- *     Supplier<Customer> customer = scope.fork(() -> crm.find(id));
- *     Supplier<Rate> rate = scope.fork(() -> fx.rate("EURUSD"));
+ *     Supplier<Stock> stock = scope.fork(() -> stockService.check(order));
+ *     Supplier<Approval> bank = scope.fork(() -> theBank.approve(order));
  *     scope.join();                                  // throws if any subtask failed
- *     return new Quote(customer.get(), rate.get());
+ *     return new Checkout(stock.get(), bank.get());
  * }                                                  // no subtask outlives this block
  * }</pre>
  *

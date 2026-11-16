@@ -91,7 +91,7 @@ class TransferServerTest {
     @Test
     fun `the bulkhead gives its permit back when the call throws or is interrupted`() {
         val bulkhead = Bulkhead(2)
-        assertThatThrownBy { bulkhead.call(1_000_000_000) { throw IllegalStateException("fraud service: 503") } }
+        assertThatThrownBy { bulkhead.call(1_000_000_000) { throw IllegalStateException("safety service: down") } }
             .isInstanceOf(IllegalStateException::class.java)
         assertThat(bulkhead.available()).isEqualTo(2)
 
@@ -113,40 +113,40 @@ class TransferServerTest {
 
     @Test
     fun `a check that says no declines at once and interrupts the other one`() {
-        val fraud = Stuck()
-        val screening = Screening(fraud, { false }, Bulkhead(5), Duration.ofSeconds(60), 5_000)
+        val safety = Stuck()
+        val screening = Screening(safety, { false }, Bulkhead(5), Duration.ofSeconds(60), 5_000)
         val verdict = assertTimeoutPreemptively(Duration.ofSeconds(10)) { screening.screen(small) }
         assertThat(verdict).isEqualTo(Verdict.DECLINED)
-        assertThat(fraud.interrupted.await(5, TimeUnit.SECONDS)).`as`("the stuck fraud call was interrupted").isTrue()
+        assertThat(safety.interrupted.await(5, TimeUnit.SECONDS)).`as`("the stuck safety call was interrupted").isTrue()
     }
 
     @Test
     fun `a check that throws declines at once and interrupts the other one`() {
-        val fraud = Stuck()
-        val screening = Screening(fraud, { throw IllegalStateException("limits service: 503") }, Bulkhead(5),
+        val safety = Stuck()
+        val screening = Screening(safety, { throw IllegalStateException("limits service: down") }, Bulkhead(5),
             Duration.ofSeconds(60), 5_000)
         val verdict = assertTimeoutPreemptively(Duration.ofSeconds(10)) { screening.screen(small) }
         assertThat(verdict).isEqualTo(Verdict.DECLINED)
-        assertThat(fraud.interrupted.await(5, TimeUnit.SECONDS)).`as`("the stuck fraud call was interrupted").isTrue()
+        assertThat(safety.interrupted.await(5, TimeUnit.SECONDS)).`as`("the stuck safety call was interrupted").isTrue()
     }
 
     @Test
-    fun `at the deadline small transfers go through in stand-in and large ones time out`() {
-        for ((cents, expected) in listOf(1_000L to Verdict.STAND_IN, 50_000L to Verdict.TIMED_OUT)) {
-            val fraud = Stuck()
+    fun `at the deadline small transfers are let through and large ones time out`() {
+        for ((cents, expected) in listOf(1_000L to Verdict.LET_THROUGH, 50_000L to Verdict.TIMED_OUT)) {
+            val safety = Stuck()
             val bulkhead = Bulkhead(3)
-            val screening = Screening(fraud, { true }, bulkhead, Duration.ofMillis(100), 5_000)
+            val screening = Screening(safety, { true }, bulkhead, Duration.ofMillis(100), 5_000)
             val verdict = assertTimeoutPreemptively(Duration.ofSeconds(10)) {
                 screening.screen(Transfer("t-$cents", "alice", "bob", cents))
             }
             assertThat(verdict).`as`("verdict for $cents cents").isEqualTo(expected)
-            assertThat(fraud.interrupted.await(5, TimeUnit.SECONDS)).`as`("the stuck fraud call was interrupted").isTrue()
+            assertThat(safety.interrupted.await(5, TimeUnit.SECONDS)).`as`("the stuck safety call was interrupted").isTrue()
             assertThat(bulkhead.available()).`as`("its permit came back").isEqualTo(3)
         }
     }
 
     @Test
-    fun `a full bulkhead falls back without calling the fraud service`() {
+    fun `a full bulkhead falls back without calling the safety service`() {
         val bulkhead = Bulkhead(1)
         val holding = CountDownLatch(1)
         val release = CountDownLatch(1)
@@ -158,8 +158,8 @@ class TransferServerTest {
             val called = AtomicBoolean()
             val screening = Screening({ called.set(true); true }, { true }, bulkhead, Duration.ofMillis(100), 5_000)
             val verdict = assertTimeoutPreemptively(Duration.ofSeconds(10)) { screening.screen(small) }
-            assertThat(verdict).isEqualTo(Verdict.STAND_IN)
-            assertThat(called.get()).`as`("the fraud service was called without a permit").isFalse()
+            assertThat(verdict).isEqualTo(Verdict.LET_THROUGH)
+            assertThat(called.get()).`as`("the safety service was called without a permit").isFalse()
         } finally {
             release.countDown()
             holder.join(5_000)
@@ -196,23 +196,23 @@ class TransferServerTest {
     }
 
     @Test
-    fun `10,000 concurrent requests keep the books exact and the fraud bulkhead at its limit`() {
+    fun `10,000 concurrent requests keep the books exact and the safety bulkhead at its limit`() {
         val opening = accounts(50, 100_000)                     // 5,000,000 cents
         val ledger = Ledger(opening)
         val service = LedgerService.start(ledger, Journal.NONE, PoolPlan(4, 20_000))
         val inside = AtomicInteger()
         val most = AtomicInteger()
-        val fraud = Check { t ->
+        val safety = Check { t ->
             most.accumulateAndGet(inside.incrementAndGet(), ::maxOf)
             try {
                 Thread.sleep(ThreadLocalRandom.current().nextLong(3))
-                !t.id().endsWith("7")                           // about one in ten looks like fraud
+                !t.id().endsWith("7")                           // about one in ten looks unsafe
             } finally {
                 inside.decrementAndGet()
             }
         }
         val bulkhead = Bulkhead(50)
-        val server = TransferServer(service, Screening(fraud, { true }, bulkhead, Duration.ofSeconds(10), 2_000))
+        val server = TransferServer(service, Screening(safety, { true }, bulkhead, Duration.ofSeconds(10), 2_000))
         val requests = List(10_000) { randomTransfer(ledger.accountIds(), "r$it", 20_000) }
 
         val replies = server.serveAll(requests)
@@ -231,8 +231,8 @@ class TransferServerTest {
         assertThat(end.balances()).`as`("balances replayed from the replies").isEqualTo(expected)
         assertThat(end.total()).isEqualTo(5_000_000)
         assertThat(end.balances().values).allMatch { it >= 0 }
-        assertThat(replies.count { it.status == Status.DECLINED }).`as`("fraud declines").isPositive()
-        assertThat(most.get()).`as`("most fraud calls in flight").isLessThanOrEqualTo(50).isGreaterThanOrEqualTo(2)
+        assertThat(replies.count { it.status == Status.DECLINED }).`as`("safety declines").isPositive()
+        assertThat(most.get()).`as`("most safety calls in flight").isLessThanOrEqualTo(50).isGreaterThanOrEqualTo(2)
         assertThat(bulkhead.available()).isEqualTo(50)
     }
 }
