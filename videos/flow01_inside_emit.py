@@ -220,7 +220,7 @@ class Flow01InsideEmit(Narrated):
         k_trk = Rectangle(width=BAR_K[1] - BAR_K[0], height=0.2, stroke_color=COOK, stroke_width=1.5).move_to(
             [(BAR_K[0] + BAR_K[1]) / 2, BAR_K[2], 0])
         k_bar = always_redraw(lambda: Rectangle(width=max(0.001, (BAR_K[1] - BAR_K[0]) * kf.get_value()), height=0.2, stroke_width=0)
-                              .set_fill(COOK, 0.85).move_to([BAR_K[0], BAR_K[2], 0], aligned_edge=LEFT))
+                              .set_fill(COOK, 0.85 if kf.get_value() > 0.01 else 0).move_to([BAR_K[0], BAR_K[2], 0], aligned_edge=LEFT))
 
         def emit_box(n):
             box = frame(-5.95, 0.05, 0.85, -2.8, EMIT, k=0.12)
@@ -237,7 +237,8 @@ class Flow01InsideEmit(Narrated):
             return VGroup(box, lab, code, trk, ms)
 
         d_bar = always_redraw(lambda: Rectangle(width=max(0.001, (BAR_D[1] - BAR_D[0]) * df.get_value()), height=0.2, stroke_width=0)
-                              .set_fill(DINER, 0.85).move_to([BAR_D[0], BAR_D[2], 0], aligned_edge=LEFT).set_z_index(3))
+                              .set_fill(DINER, 0.85 if df.get_value() > 0.01 else 0).move_to([BAR_D[0], BAR_D[2], 0], aligned_edge=LEFT)
+                              .set_z_index(3))
 
         self.say("cook")
         self.add(cook_wait, cook_work, eat)

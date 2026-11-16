@@ -1,0 +1,137 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:06.546
+An FX quote flow emits a cached rate, then calls a provider.
+
+2
+00:00:06.546 --> 00:00:12.202
+A catch below it emits a fallback rate, and the collector writes each rate to the ledger.
+
+3
+00:00:12.202 --> 00:00:14.935
+Picture a pipe, with the source at the top.
+
+4
+00:00:15.067 --> 00:00:17.334
+The provider throws an IOException.
+
+5
+00:00:17.334 --> 00:00:22.257
+It falls from above, lands in the net, and catch emits the fallback instead.
+
+6
+00:00:22.257 --> 00:00:23.812
+The caller sees nothing.
+
+7
+00:00:23.933 --> 00:00:29.935
+A withTimeout that fires up there lands in the net too, even though it is a CancellationException.
+
+8
+00:00:30.067 --> 00:00:31.843
+Now the ledger write fails.
+
+9
+00:00:31.843 --> 00:00:33.619
+That happens below the net.
+
+10
+00:00:33.619 --> 00:00:35.527
+Does catch emit the fallback?
+
+11
+00:00:38.000 --> 00:00:38.180
+No.
+
+12
+00:00:38.180 --> 00:00:42.435
+The rock was dropped below the net, so it falls straight to the caller.
+
+13
+00:00:42.435 --> 00:00:47.769
+catch can tell, because it remembers every exception that comes back out of its own emit.
+
+14
+00:00:48.400 --> 00:00:53.565
+One thing from above passes the net on purpose: the cancellation of your own job.
+
+15
+00:00:53.565 --> 00:00:56.243
+A caller that leaves stops the whole pipe.
+
+16
+00:00:57.333 --> 00:00:59.342
+Now swap the net for retry(3).
+
+17
+00:00:59.342 --> 00:01:03.561
+The settlement feed sends payment 1 and payment 2, then resets.
+
+18
+00:01:03.561 --> 00:01:05.503
+What does the ledger receive?
+
+19
+00:01:08.000 --> 00:01:12.572
+A retry collects the upstream again from the top, like a rewound tape.
+
+20
+00:01:12.572 --> 00:01:15.446
+Payments 1 and 2 play again, then payment 3.
+
+21
+00:01:15.446 --> 00:01:20.607
+Two payments are posted twice, so the ledger must skip ids it has already seen.
+
+22
+00:01:21.467 --> 00:01:24.810
+Last, a provider that has stopped answering.
+
+23
+00:01:24.810 --> 00:01:33.321
+Each call gets 300 milliseconds, the retry waits 100, 200 and 400 between attempts, and then a fallback answers.
+
+24
+00:01:33.321 --> 00:01:34.841
+When does it answer?
+
+25
+00:01:37.333 --> 00:01:43.511
+Calls start at 0, 400, 900 and 1600, and each is cut at 300.
+
+26
+00:01:43.511 --> 00:01:49.997
+At 1900 the primary gives up, and the fallback answers at 1930.
+
+27
+00:01:50.067 --> 00:01:53.683
+Each timeout falls from above, so the retry sees it.
+
+28
+00:01:53.683 --> 00:01:59.595
+But a timeout is a cancellation, not an IOException, so your retry rule must list it.
+
+29
+00:02:00.400 --> 00:02:04.289
+Here is the chain in Kotlin, with the Reactor version below it.
+
+30
+00:02:07.067 --> 00:02:10.871
+So catch and retry only handle what falls from above them.
+
+31
+00:02:10.871 --> 00:02:13.757
+And a retry replays the stream from the top.
+
+32
+00:02:13.867 --> 00:02:14.691
+Quick check.
+
+33
+00:02:14.691 --> 00:02:17.647
+catch sits above a map, and the map throws.
+
+34
+00:02:17.647 --> 00:02:19.433
+Who handles the exception?

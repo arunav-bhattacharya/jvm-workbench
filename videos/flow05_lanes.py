@@ -89,7 +89,7 @@ OUTER, FEE, CUT, NOTE, WAIT = BLUE_M, GOLD_M, RED_M, GREY_B, GREY_M
 
 YH, YP, YO, YA, YN = 3.15, 2.2, -1.45, -2.3, -3.05
 YL = [1.2, 0.4, -0.4]
-X0, K = -4.6, 10.5 / 800
+X0, K = -4.6, 10.3 / 800
 LX = X0 - 0.35          # right edge of the row labels
 
 
@@ -133,7 +133,7 @@ class Flow05Lanes(Narrated):
         for ms in range(0, 801, 100):
             axis.add(Line([X(ms), YA - 0.07, 0], [X(ms), YA + 0.07, 0], stroke_width=1.5, color=GREY_D))
             axis.add(T(str(ms), 22, NOTE).move_to([X(ms), YA - 0.33, 0]))
-        axis.add(T("ms", 22, NOTE).move_to([X(800) + 0.45, YA - 0.33, 0]))
+        axis.add(T("ms", 22, NOTE).move_to([X(800) + 0.5, YA - 0.33, 0]))
 
         def row_line(y):
             return DashedLine([X(0), y, 0], [X(800), y, 0], dash_length=0.06, stroke_width=1.2, color=GREY_D)
@@ -209,7 +209,7 @@ class Flow05Lanes(Narrated):
         g2 = ghost("2", PICK[2]).move_to([X(100), YP, 0])
         self.play(FadeIn(g2), run_time=0.3)
         self.at_text("so the outer")
-        w_lab = T("outer waits inside emit", 22, NOTE).move_to([X(100), YP + 0.55, 0])
+        w_lab = T("outer waits inside emit", 22, NOTE).move_to([X(160), YP - 0.47, 0])
         self.play(FadeIn(w_lab), run_time=0.4)
         to(200, speed=150)
         o = out("1b", 200, PICK[1])
@@ -326,7 +326,7 @@ class Flow05Lanes(Narrated):
             return g, bar_label(a, b, name, y)
 
         r_disp, l_disp = row_line(YP), row_lab("dispatcher", YP, OUTER)
-        l_disp2 = T("runs your lambda", 20, NOTE).move_to([LX, YP - 0.42, 0], aligned_edge=RIGHT)
+        l_disp2 = T("your lambda", 20, NOTE).move_to([LX, YP - 0.42, 0], aligned_edge=RIGHT)
         r_l1, r_l2 = row_line(YL[0]), row_line(YL[1])
         l_l1, l_l2 = row_lab("lane 1", YL[0]), row_lab("lane 2", YL[1])
         r_out2, l_out2 = row_line(YO), row_lab("fees out", YO)
@@ -338,7 +338,7 @@ class Flow05Lanes(Narrated):
         self.play(Create(r_disp), FadeIn(l_disp), FadeIn(l_disp2), Create(r_l1), FadeIn(l_l1), Create(r_l2), FadeIn(l_l2),
                   Create(r_out2), FadeIn(l_out2), run_time=0.9)
         self.at(3)
-        slow_code = M("{ m -> val fee = lookup(m); flowOf(fee) }", 24, t2c={"lookup(m)": FEE}).move_to([0.6, YN, 0])
+        slow_code = M("{ m -> val fee = lookup(m); flowOf(fee) }", 24, t2c={"lookup(m)": FEE}).move_to([0.6, YN - 0.08, 0])
         self.play(FadeIn(slow_code), run_time=0.5)
         self.hold(after=0)
         self.predict()
@@ -367,7 +367,7 @@ class Flow05Lanes(Narrated):
         self.play(FadeOut(VGroup(*s_bars, s_labs, s_outs, idle)), run_time=0.5)
         tm.set_value(0)
 
-        fast_code = M("{ m -> flow { emit(lookup(m)) } }", 24, t2c={"lookup(m)": FEE}).move_to([0.6, YN, 0])
+        fast_code = M("{ m -> flow { emit(lookup(m)) } }", 24, t2c={"lookup(m)": FEE}).move_to([0.6, YN - 0.08, 0])
         lanes = [("m1", 0, 300, 0), ("m2", 0, 100, 1), ("m3", 100, 300, 1), ("m4", 300, 350, 0), ("m5", 300, 450, 1)]
         f_bars, f_labs = [], VGroup()
         self.say("fee_fast")

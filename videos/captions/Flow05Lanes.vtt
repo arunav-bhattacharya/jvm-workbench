@@ -1,0 +1,145 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.719
+Three picks reach a search box, 100 milliseconds apart.
+
+2
+00:00:06.719 --> 00:00:12.493
+Each pick starts an inner flow: part a after 50 milliseconds, part b 150 later.
+
+3
+00:00:12.493 --> 00:00:15.051
+The flatMaps differ in their lanes.
+
+4
+00:00:15.667 --> 00:00:17.544
+flatMapConcat has one lane.
+
+5
+00:00:17.544 --> 00:00:20.117
+When does the outer flow emit pick 2?
+
+6
+00:00:22.600 --> 00:00:23.431
+Not at 100.
+
+7
+00:00:23.431 --> 00:00:30.156
+The inner flow runs inside the outer's emit, so the outer is stuck until inner 1 is done.
+
+8
+00:00:30.156 --> 00:00:32.498
+Only then does its delay start.
+
+9
+00:00:32.498 --> 00:00:35.747
+Pick 2 comes at 300, and the run takes 800.
+
+10
+00:00:36.467 --> 00:00:40.481
+flatMapMerge gives each inner flow its own lane.
+
+11
+00:00:40.481 --> 00:00:47.003
+Picks come at 0, 100 and 200, and values come out as they finish: 1b after 2a.
+
+12
+00:00:47.003 --> 00:00:48.007
+Done at 400.
+
+13
+00:00:48.733 --> 00:00:51.409
+flatMapLatest has one lane and a switch.
+
+14
+00:00:51.409 --> 00:00:57.364
+A new pick cancels the inner flow in the lane, waits for it to stop, and starts the next.
+
+15
+00:00:57.364 --> 00:00:58.902
+1b and 2b never arrive.
+
+16
+00:00:58.902 --> 00:01:01.645
+That is the shape for search as you type.
+
+17
+00:01:02.467 --> 00:01:03.933
+Now a fee fan-out.
+
+18
+00:01:03.933 --> 00:01:12.326
+Five lookups take 300, 100, 200, 50 and 150 milliseconds, and the fee service allows two calls at once.
+
+19
+00:01:12.326 --> 00:01:16.807
+A teammate calls the lookup in the flatMapMerge lambda.
+
+20
+00:01:16.807 --> 00:01:18.600
+How long does it take?
+
+21
+00:01:21.100 --> 00:01:23.605
+800 milliseconds, one call at a time.
+
+22
+00:01:23.605 --> 00:01:29.562
+The lambda runs in the one coroutine that reads the merchants, before any lane is taken.
+
+23
+00:01:29.562 --> 00:01:34.233
+Picture a toll plaza where the dispatcher inspects every car himself.
+
+24
+00:01:34.233 --> 00:01:35.655
+The booths sit empty.
+
+25
+00:01:36.267 --> 00:01:39.264
+Move the lookup inside the flow you return.
+
+26
+00:01:39.264 --> 00:01:44.283
+Now the dispatcher only waves cars in, and the lookups run in the lanes.
+
+27
+00:01:44.283 --> 00:01:46.166
+Two at a time, done at 450.
+
+28
+00:01:46.166 --> 00:01:49.093
+Results come out as they finish, m2 first.
+
+29
+00:01:49.900 --> 00:01:52.831
+The slow call goes inside the returned flow.
+
+30
+00:01:52.831 --> 00:01:58.425
+Reactor has the same trap: block in the mapper, and flatMap runs one call at a time.
+
+31
+00:01:59.900 --> 00:02:03.689
+So flatMapConcat runs one lane and makes the outer wait.
+
+32
+00:02:03.689 --> 00:02:06.734
+flatMapMerge gives each returned flow a lane.
+
+33
+00:02:06.734 --> 00:02:10.117
+flatMapLatest keeps one lane and cuts the old one.
+
+34
+00:02:10.233 --> 00:02:11.102
+Quick check.
+
+35
+00:02:11.102 --> 00:02:17.620
+Ten merchants, 100 milliseconds each, four lanes, and the lookup inside the returned flow.
+
+36
+00:02:17.620 --> 00:02:19.213
+How long does it take?

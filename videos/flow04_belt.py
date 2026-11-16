@@ -313,8 +313,7 @@ class Flow04Belt(Narrated):
         self.play(FadeOut(t1, shift=UP * 0.3), *status(writer, "free", WRITER), run_time=0.4)
         self.play(last.animate.move_to(W_HAND), run_time=0.6)
         self.at(2, lead=0.1)
-        seen2 = VGroup(M("1", 34, VAL), M(",", 34, VAL), M("200", 34, VAL)).arrange(RIGHT, buff=0.12)
-        seen2.move_to(seen.get_left(), aligned_edge=LEFT)
+        seen2 = VGroup(M("1, 200", 34, VAL)).move_to(seen.get_left(), aligned_edge=LEFT)
         self.play(FadeIn(seen_g), run_time=0.4)
         self.play(Transform(seen, seen2), run_time=0.5)
         self.play(Circumscribe(seen_g, color=VAL, buff=0.12), run_time=1.0)
@@ -323,7 +322,7 @@ class Flow04Belt(Narrated):
         st.clear()
 
         # ================= collectLatest: cancel, then join =================
-        X0, K = -4.4, 10.6 / 700
+        X0, K = -4.4, 10.0 / 700
 
         def X(ms):
             return X0 + K * ms
@@ -336,7 +335,7 @@ class Flow04Belt(Narrated):
         for ms in range(0, 701, 100):
             axis.add(Line([X(ms), YA - 0.07, 0], [X(ms), YA + 0.07, 0], stroke_width=1.5, color=GREY_D))
             axis.add(T(str(ms), 22, NOTE).move_to([X(ms), YA - 0.35, 0]))
-        axis.add(T("ms", 22, NOTE).move_to([X(700) + 0.42, YA - 0.35, 0]))
+        axis.add(T("ms", 22, NOTE).move_to([X(700) + 0.55, YA - 0.35, 0]))
         rows = VGroup(DashedLine([X(0), YF, 0], [X(700), YF, 0], dash_length=0.06, stroke_width=1.2, color=GREY_D),
                       DashedLine([X(0), YB, 0], [X(700), YB, 0], dash_length=0.06, stroke_width=1.2, color=GREY_D))
         facts = VGroup(T("a tick every 100 ms", 24, READER), T("repricing 300 ms", 24, WRITER),
@@ -434,7 +433,7 @@ class Flow04Belt(Narrated):
 
         self.say("why")
         b3 = grow(400, 700, WRITER, "3, done", speed=330)
-        g600 = DashedLine([X(600), YB + 0.45, 0], [X(600), YB - 0.45, 0], dash_length=0.06, stroke_width=2.5, color=NOTE)
+        g600 = DashedLine([X(600), YB + 0.45, 0], [X(600), YB - 0.27, 0], dash_length=0.06, stroke_width=2.5, color=NOTE)
         l600 = T("600", 22, NOTE).next_to(g600, UP, buff=0.08)
         end = T("ends at 700", 26, WRITER).move_to([X(700), YB - 0.62, 0], aligned_edge=RIGHT)
         self.remove(cursor)
@@ -447,9 +446,13 @@ class Flow04Belt(Narrated):
         jv = ["postings.limitRate(64)", "rates.onBackpressureLatest()", "rates.switchMap(fx::reprice)"]
         hl = {"buffer": WRITER, "conflate": VAL, "collectLatest": WRITER, "limitRate": WRITER,
               "onBackpressureLatest": VAL, "switchMap": WRITER}
-        colk = VGroup(T("Kotlin", 26, NOTE), *[M(s, 26, t2c=hl) for s in kt]).arrange(DOWN, aligned_edge=LEFT, buff=0.5)
-        colj = VGroup(T("Java, Reactor", 26, NOTE), *[M(s, 26, t2c=hl) for s in jv]).arrange(DOWN, aligned_edge=LEFT, buff=0.5)
-        code = VGroup(colk, colj).arrange(RIGHT, buff=0.8, aligned_edge=UP)
+        colk = VGroup(T("Kotlin", 26, NOTE), *[M(s, 26, t2c=hl) for s in kt])
+        colj = VGroup(T("Java, Reactor", 26, NOTE), *[M(s, 26, t2c=hl) for s in jv])
+        xk, xj = -6.3, colk[3].width - 6.3 + 0.8
+        for i in range(4):          # one row per choice, both columns on the same line
+            colk[i].move_to([xk, 1.6 - 0.85 * i, 0], aligned_edge=LEFT)
+            colj[i].move_to([xj, 1.6 - 0.85 * i, 0], aligned_edge=LEFT)
+        code = VGroup(colk, colj)
         fit(code, 12.6).move_to(ORIGIN)
         self.say("code")
         self.play(FadeIn(colk, shift=UP * 0.1), run_time=0.7)
