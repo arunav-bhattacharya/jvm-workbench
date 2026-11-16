@@ -18,7 +18,7 @@ private fun show(label: String, f: CompletableFuture<*>) {
 
 /** Which exception does each handler see? Predict every line before you run it. */
 fun main() {
-    val down = IllegalStateException("502")
+    val down = IllegalStateException("the steak burned")
     Executors.newFixedThreadPool(2, Thread.ofPlatform().name("io-", 1).factory()).use { io ->
         val supplied = CompletableFuture.supplyAsync<String>({ throw down }, io)
         val completed = CompletableFuture<String>()

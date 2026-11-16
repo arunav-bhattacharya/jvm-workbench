@@ -1,15 +1,13 @@
 package workbench.executors.l07;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** The FX call fails. Which steps still run? Pass "early" to recover the rate right after the call. */
+/** The steak burns at the grill. Which steps still run? Pass "early" to recover right after the grill. */
 public class ErrorPathDemo {
-    static BigDecimal liveRate() {
-        throw new IllegalStateException("FX provider returned 502");
+    static String grill() {
+        throw new IllegalStateException("the steak burned");
     }
 
     static <T> T step(String what, T value) {
@@ -19,23 +17,23 @@ public class ErrorPathDemo {
 
     public static void main(String[] args) {
         boolean early = args.length > 0 && args[0].equals("early");
-        try (ExecutorService io = Executors.newFixedThreadPool(1, Thread.ofPlatform().name("io-", 1).factory())) {
-            CompletableFuture<BigDecimal> rate = CompletableFuture.supplyAsync(ErrorPathDemo::liveRate, io);
+        try (ExecutorService kitchen = Executors.newFixedThreadPool(1, Thread.ofPlatform().name("cook-", 1).factory())) {
+            CompletableFuture<String> steak = CompletableFuture.supplyAsync(ErrorPathDemo::grill, kitchen);
             if (early) {
-                rate = rate.exceptionally(ex -> {                  // recover the rate itself
+                steak = steak.exceptionally(ex -> {                  // recover the steak itself
                     System.out.println("exceptionally sees: " + ex);
-                    return new BigDecimal("1.0800");               // the last known rate
+                    return "the spare steak";                        // kept warm for nights like this
                 });
             }
-            CompletableFuture<String> result = rate
-                    .thenApply(r -> step("1. convert at " + r, new BigDecimal("100.00").multiply(r)))
-                    .thenApply(usd -> step("2. round to cents", usd.setScale(2, RoundingMode.HALF_EVEN)))
-                    .thenApply(usd -> step("3. charge " + usd + " USD", "charged " + usd + " USD"))
+            CompletableFuture<String> result = steak
+                    .thenApply(s -> step("1. pour the sauce on " + s, s + " with pepper sauce"))
+                    .thenApply(s -> step("2. plate " + s, "a plate of " + s))
+                    .thenApply(s -> step("3. carry it to table 4", "table 4 got " + s))
                     .whenComplete((v, ex) -> System.out.println("whenComplete sees: " + (ex == null ? v : ex)));
             if (!early) {
-                result = result.exceptionally(ex -> {              // recover at the end instead
+                result = result.exceptionally(ex -> {                // recover at the pass instead
                     System.out.println("exceptionally sees: " + ex);
-                    return "declined: FX rate unavailable";
+                    return "table 4 got an apology and the menu";
                 });
             }
             System.out.println("result: " + result.join());

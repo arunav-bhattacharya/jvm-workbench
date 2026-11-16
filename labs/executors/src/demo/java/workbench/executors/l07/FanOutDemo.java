@@ -8,7 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** flaky fails at 50 ms, alpha answers at 100 ms, beta at 300 ms. Pass any, all or safe. */
+/** Three suppliers quote a sack of flour: corner fails at 50 ms, market answers at 100 ms, mill at 300 ms. Pass any, all or safe. */
 public class FanOutDemo {
     static final long T0 = System.nanoTime();
 
@@ -21,7 +21,7 @@ public class FanOutDemo {
             sleep(ms);
             if (price == null) {
                 log(name + " fails");
-                throw new IllegalStateException(name + " returned 503");
+                throw new IllegalStateException(name + " is closed today");
             }
             log(name + " answers " + price);
             return new BigDecimal(price);
@@ -32,7 +32,7 @@ public class FanOutDemo {
         String mode = args.length > 0 ? args[0] : "all";
         try (ExecutorService io = Executors.newFixedThreadPool(3, Thread.ofPlatform().name("io-", 1).factory())) {
             List<CompletableFuture<BigDecimal>> asks = List.of(
-                    ask("flaky", 50, null, io), ask("alpha", 100, "1.0850", io), ask("beta", 300, "1.0842", io));
+                    ask("corner", 50, null, io), ask("market", 100, "21.50", io), ask("mill", 300, "19.80", io));
             CompletableFuture<?> result = switch (mode) {
                 // the first future to complete wins, even when it completes with a failure
                 case "any" -> CompletableFuture.anyOf(asks.toArray(CompletableFuture[]::new));

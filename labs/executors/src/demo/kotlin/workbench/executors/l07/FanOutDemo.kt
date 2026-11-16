@@ -15,17 +15,17 @@ private fun ask(name: String, ms: Long, price: String?, io: ExecutorService): Co
         Thread.sleep(ms)
         if (price == null) {
             log("$name fails")
-            throw IllegalStateException("$name returned 503")
+            throw IllegalStateException("$name is closed today")
         }
         log("$name answers $price")
         BigDecimal(price)
     }, io)
 
-/** flaky fails at 50 ms, alpha answers at 100 ms, beta at 300 ms. Pass any, all or safe. */
+/** Three suppliers quote a sack of flour: corner fails at 50 ms, market answers at 100 ms, mill at 300 ms. Pass any, all or safe. */
 fun main(args: Array<String>) {
     val mode = args.firstOrNull() ?: "all"
     Executors.newFixedThreadPool(3, Thread.ofPlatform().name("io-", 1).factory()).use { io ->
-        val asks = listOf(ask("flaky", 50, null, io), ask("alpha", 100, "1.0850", io), ask("beta", 300, "1.0842", io))
+        val asks = listOf(ask("corner", 50, null, io), ask("market", 100, "21.50", io), ask("mill", 300, "19.80", io))
         val result: CompletableFuture<*> = when (mode) {
             // the first future to complete wins, even when it completes with a failure
             "any" -> CompletableFuture.anyOf(*asks.toTypedArray())

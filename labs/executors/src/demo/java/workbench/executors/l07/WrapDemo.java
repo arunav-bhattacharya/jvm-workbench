@@ -20,7 +20,7 @@ public class WrapDemo {
     }
 
     public static void main(String[] args) {
-        IllegalStateException down = new IllegalStateException("502");
+        IllegalStateException down = new IllegalStateException("the steak burned");
         try (ExecutorService io = Executors.newFixedThreadPool(2, Thread.ofPlatform().name("io-", 1).factory())) {
             CompletableFuture<String> supplied = CompletableFuture.supplyAsync(() -> { throw down; }, io);
             CompletableFuture<String> completed = new CompletableFuture<>();

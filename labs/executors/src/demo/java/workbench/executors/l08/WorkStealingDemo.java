@@ -5,11 +5,14 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveTask;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 
-/** Fees over 2,000,000 ledger entries on a 4-worker ForkJoinPool. Args: [right|wrong] [threshold]. */
+/** Card fees on 2,000,000 payments, on a 4-worker ForkJoinPool. Args: [right|wrong] [threshold]. */
 public class WorkStealingDemo {
     static final Map<String, LongAdder> LEAVES = new ConcurrentHashMap<>();
+    static final AtomicInteger RUNNING = new AtomicInteger();          // leaves running right now
+    static final AtomicInteger MOST_AT_ONCE = new AtomicInteger();     // the most that ever ran at the same moment
 
     static long fee(long amountCents) {
         long h = amountCents;
@@ -34,9 +37,14 @@ public class WorkStealingDemo {
         protected Long compute() {
             if (to - from <= threshold) {
                 LEAVES.computeIfAbsent(Thread.currentThread().getName(), k -> new LongAdder()).increment();
-                long sum = 0;
-                for (int i = from; i < to; i++) sum += fee(amounts[i]);
-                return sum;
+                MOST_AT_ONCE.accumulateAndGet(RUNNING.incrementAndGet(), Math::max);
+                try {
+                    long sum = 0;
+                    for (int i = from; i < to; i++) sum += fee(amounts[i]);
+                    return sum;
+                } finally {
+                    RUNNING.decrementAndGet();
+                }
             }
             int mid = (from + to) >>> 1;
             Fees left = new Fees(amounts, from, mid, threshold, wrong);
@@ -69,6 +77,7 @@ public class WorkStealingDemo {
             new TreeMap<>(LEAVES).forEach((thread, n) -> System.out.printf("%-24s %4d leaves%n", thread, n.sum()));
             System.out.printf("%s order, threshold %,d: %,d ms, %d steals, same total: %b%n",
                     wrong ? "wrong" : "right", threshold, ms, pool.getStealCount(), total == expected);
+            System.out.printf("most leaves running at the same moment: %d%n", MOST_AT_ONCE.get());
         }
     }
 }

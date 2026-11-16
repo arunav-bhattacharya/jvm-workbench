@@ -1,37 +1,35 @@
 package workbench.executors.l07
 
-import java.math.BigDecimal
-import java.math.RoundingMode
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 
-private fun liveRate(): BigDecimal = throw IllegalStateException("FX provider returned 502")
+private fun grill(): String = throw IllegalStateException("the steak burned")
 
 private fun <T> step(what: String, value: T): T {
     println(what)
     return value
 }
 
-/** The FX call fails. Which steps still run? Pass "early" to recover the rate right after the call. */
+/** The steak burns at the grill. Which steps still run? Pass "early" to recover right after the grill. */
 fun main(args: Array<String>) {
     val early = args.firstOrNull() == "early"
-    Executors.newFixedThreadPool(1, Thread.ofPlatform().name("io-", 1).factory()).use { io ->
-        var rate = CompletableFuture.supplyAsync(::liveRate, io)
+    Executors.newFixedThreadPool(1, Thread.ofPlatform().name("cook-", 1).factory()).use { kitchen ->
+        var steak = CompletableFuture.supplyAsync(::grill, kitchen)
         if (early) {
-            rate = rate.exceptionally { ex ->                    // recover the rate itself
+            steak = steak.exceptionally { ex ->                  // recover the steak itself
                 println("exceptionally sees: $ex")
-                BigDecimal("1.0800")                             // the last known rate
+                "the spare steak"                                // kept warm for nights like this
             }
         }
-        var result = rate
-            .thenApply { r -> step("1. convert at $r", BigDecimal("100.00") * r) }
-            .thenApply { usd -> step("2. round to cents", usd.setScale(2, RoundingMode.HALF_EVEN)) }
-            .thenApply { usd -> step("3. charge $usd USD", "charged $usd USD") }
+        var result = steak
+            .thenApply { s -> step("1. pour the sauce on $s", "$s with pepper sauce") }
+            .thenApply { s -> step("2. plate $s", "a plate of $s") }
+            .thenApply { s -> step("3. carry it to table 4", "table 4 got $s") }
             .whenComplete { v, ex -> println("whenComplete sees: ${ex ?: v}") }
         if (!early) {
-            result = result.exceptionally { ex ->                // recover at the end instead
+            result = result.exceptionally { ex ->                // recover at the pass instead
                 println("exceptionally sees: $ex")
-                "declined: FX rate unavailable"
+                "table 4 got an apology and the menu"
             }
         }
         println("result: ${result.join()}")

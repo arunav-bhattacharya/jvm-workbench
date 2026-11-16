@@ -9,7 +9,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
-/** Blocking BIN lookups in a parallel stream while a tiny task needs the common pool. Args: [blocking|managed|io]. */
+/** Blocking stock lookups in a parallel stream while a tiny task needs the common pool. Args: [blocking|managed|io]. */
 public class StarvationDemo {
     static final long T0 = System.nanoTime();
     static final int PARALLELISM = ForkJoinPool.getCommonPoolParallelism();
@@ -22,7 +22,7 @@ public class StarvationDemo {
 
     static void lookup() {
         if (STARTED.incrementAndGet() == PARALLELISM + 1) ALL_BUSY.countDown();   // the common pool and main are all busy
-        sleep(300);                                              // a remote call
+        sleep(300);                                              // a call to the slow stock service
     }
 
     static void managedLookup() {
@@ -53,7 +53,7 @@ public class StarvationDemo {
         int lookups = (PARALLELISM + 1) * 4;                     // four rounds of work for the common pool and main
         log(mode + ": common pool parallelism " + PARALLELISM + ", " + lookups + " lookups of 300 ms");
 
-        Thread fx = new Thread(() -> {
+        Thread tiny = new Thread(() -> {
             try {
                 ALL_BUSY.await();                                // start once the lookups are under way
             } catch (InterruptedException e) {
@@ -63,7 +63,7 @@ public class StarvationDemo {
             String who = CompletableFuture.supplyAsync(() -> Thread.currentThread().getName()).join();   // a tiny task
             log("tiny task waited " + (System.nanoTime() - t) / 1_000_000 + " ms, then ran on " + who);
         });
-        fx.start();
+        tiny.start();
 
         if (mode.equals("io")) {
             try (ExecutorService io = Executors.newFixedThreadPool(lookups)) {
@@ -80,7 +80,7 @@ public class StarvationDemo {
             });
         }
         log("all lookups done");
-        fx.join();
+        tiny.join();
     }
 
     static void sleep(long ms) {

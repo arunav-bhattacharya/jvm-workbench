@@ -17,7 +17,7 @@ private fun log(msg: String) = println("%5d ms  %s".format((System.nanoTime() - 
 
 private fun lookup() {
     if (started.incrementAndGet() == parallelism + 1) allBusy.countDown()   // the common pool and main are all busy
-    Thread.sleep(300)                                            // a remote call
+    Thread.sleep(300)                                            // a call to the slow stock service
 }
 
 private fun managedLookup() {
@@ -33,13 +33,13 @@ private fun managedLookup() {
     })
 }
 
-/** Blocking BIN lookups in a parallel stream while a tiny task needs the common pool. Args: [blocking|managed|io]. */
+/** Blocking stock lookups in a parallel stream while a tiny task needs the common pool. Args: [blocking|managed|io]. */
 fun main(args: Array<String>) {
     val mode = args.firstOrNull() ?: "blocking"
     val lookups = (parallelism + 1) * 4                          // four rounds of work for the common pool and main
     log("$mode: common pool parallelism $parallelism, $lookups lookups of 300 ms")
 
-    val fx = thread {
+    val tiny = thread {
         allBusy.await()                                          // start once the lookups are under way
         val t = System.nanoTime()
         val who = CompletableFuture.supplyAsync { Thread.currentThread().name }.join()   // a tiny task
@@ -56,5 +56,5 @@ fun main(args: Array<String>) {
         IntStream.range(0, lookups).parallel().forEach { if (managed) managedLookup() else lookup() }
     }
     log("all lookups done")
-    fx.join()
+    tiny.join()
 }

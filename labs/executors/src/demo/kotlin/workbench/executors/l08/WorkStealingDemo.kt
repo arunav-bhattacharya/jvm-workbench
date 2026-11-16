@@ -4,9 +4,12 @@ import java.util.TreeMap
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.RecursiveTask
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.LongAdder
 
 private val leaves = ConcurrentHashMap<String, LongAdder>()
+private val running = AtomicInteger()                  // leaves running right now
+private val mostAtOnce = AtomicInteger()               // the most that ever ran at the same moment
 
 private fun fee(amountCents: Long): Long {
     var h = amountCents
@@ -20,9 +23,14 @@ private class Fees(
     override fun compute(): Long {
         if (to - from <= threshold) {
             leaves.computeIfAbsent(Thread.currentThread().name) { LongAdder() }.increment()
-            var sum = 0L
-            for (i in from until to) sum += fee(amounts[i])
-            return sum
+            mostAtOnce.accumulateAndGet(running.incrementAndGet(), ::maxOf)
+            try {
+                var sum = 0L
+                for (i in from until to) sum += fee(amounts[i])
+                return sum
+            } finally {
+                running.decrementAndGet()
+            }
         }
         val mid = (from + to) ushr 1
         val left = Fees(amounts, from, mid, threshold, wrong)
@@ -37,7 +45,7 @@ private class Fees(
     }
 }
 
-/** Fees over 2,000,000 ledger entries on a 4-worker ForkJoinPool. Args: [right|wrong] [threshold]. */
+/** Card fees on 2,000,000 payments, on a 4-worker ForkJoinPool. Args: [right|wrong] [threshold]. */
 fun main(args: Array<String>) {
     val wrong = args.getOrNull(0) == "wrong"
     val threshold = args.getOrNull(1)?.toInt() ?: 50_000
@@ -55,5 +63,6 @@ fun main(args: Array<String>) {
         TreeMap(leaves).forEach { (thread, n) -> println("%-24s %4d leaves".format(thread, n.sum())) }
         println("%s order, threshold %,d: %,d ms, %d steals, same total: %b".format(
             if (wrong) "wrong" else "right", threshold, ms, pool.stealCount, total == expected))
+        println("most leaves running at the same moment: ${mostAtOnce.get()}")
     }
 }
