@@ -105,7 +105,7 @@
       "file": "labs/concurrency/src/demo/kotlin/workbench/concurrency/l05/NotifyStall.kt"
      }
     },
-    "expect": "With `notify()` it stalls almost at once (after 1 to 5 items in runs here), with all four threads `WAITING`. With `notifyAll()` it never stalls, and moves roughly 28,000 items a second for the full five seconds. Your counts will differ. On a rare run `notify()` survives the five seconds; run it again and it won't be so lucky."
+    "expect": "With `notify()` it stalls almost at once (after 1 to 5 items in runs here), with all four threads `WAITING`. With `notifyAll()` it never stalls, and moves roughly 28,000 items a second for the full five seconds. Your counts will differ. On a rare run `notify()` survives the five seconds; run it again, and it almost always stalls."
    }
   },
   {
@@ -136,7 +136,7 @@
     "alt_lang": "kotlin"
    },
    {
-    "say": "It's the `if` bug in a new shape. A spurious wakeup, or a `notifyAll()` meant for some other condition on the same lock, makes `wait()` return early with `fileArrived` still false: after 2 seconds, say, instead of 30. Just moving `wait(30_000)` into a `while` loop is wrong too, because every wake-up would start a fresh 30 seconds. The fix is to fix the deadline once and wait only for what's left of it.",
+    "say": "It's the `if` bug in a new shape. A spurious wakeup, or a `notifyAll()` meant for some other condition on the same lock, makes `wait()` return early with `fileArrived` still false: after 2 seconds, say, instead of 30. Just moving `wait(30_000)` into a `while` loop is wrong too, because every wake-up would start a fresh 30 seconds. The cure is to set the deadline once and wait only for what's left of it.",
     "code": "",
     "lang": ""
    },
@@ -204,7 +204,7 @@
   "`notify()` wakes one waiter of the JVM's choosing. With two kinds of waiters on one monitor it can wake the wrong kind and stall everything, so default to `notifyAll()`.",
   "The limit: a monitor has one wait set, so every `notifyAll()` wakes every kind of waiter. A `Condition` gives each kind its own (lesson 7), and `ArrayBlockingQueue` does the whole job for you (lesson 9)."
  ],
- "closing": "We started with a settlement worker that had nothing to do but wait. We gave it a guarded block, a `while` loop for the second worker and `notifyAll()` for the bounded queue, and built the buffer that holds all three.\n\nNow search your own code for `.wait(` and `.await(`. Each one should sit in a `while` loop that tests a state. An `if`, or a wait with no condition, passes every test until the evening a second worker joins in.\n\nHere, the stalled threads waited with the lock free. Next, we'll meet threads that stop while holding locks: two ledger transfers, each holding one account and waiting for the other. How does that happen, and how do you make sure it can't?",
+ "closing": "We started with a settlement worker with nothing to do but wait. We gave it a guarded block, a `while` loop for the second worker and `notifyAll()` for the bounded queue, and built the buffer that holds them.\n\nNow search your own code for `.wait(` and `.await(`. Each should sit in a `while` loop that tests a state. An `if`, or a wait with no condition, passes every test until the evening a second worker joins in.\n\nHere, the stalled threads waited with the lock free. Next, we'll meet threads that stop while holding locks: two ledger transfers, each holding one account and waiting for the other. How does that happen, and how do you make sure it can't?",
  "quiz": [
   {
    "q": "What happens when this runs on its own?\n\n```java\nObject lock = new Object();\nlock.notifyAll();\n```",

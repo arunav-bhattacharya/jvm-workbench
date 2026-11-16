@@ -201,11 +201,9 @@ Let's trace the smallest case. Thread 1 runs `transfer(a, b, 100)` and locks `a`
 
 Those two threads will wait for each other forever: that's a **deadlock**. Nothing throws, and nothing logs. Both threads sit in `BLOCKED`, CPU drops to zero, and every request that needs either account piles up behind them.
 
-The nasty part is timing. Both threads must take their first lock inside the same tiny window, so a test that runs one transfer at a time never sees it. Under load, with thousands of transfers a second between the same busy accounts, it's only a matter of when. The Try it below widens the window with a 300 ms sleep, so it freezes every time.
+The nasty part is timing. Both threads must take their first lock inside the same tiny window, so a test that runs one transfer at a time never sees it. Under load, with thousands of transfers a second between the same busy accounts, it's only a matter of when. The simulator below lets you play the scheduler and find the freeze by hand.
 
-The simulator below lets you play the scheduler and find the freeze by hand.
-
-The demo's last lines come from asking the JVM which threads are deadlocked, and the JVM answers with names. On a real pod, you'd ask from outside, before anyone restarts it. That's next."""
+The Try it widens the window with a 300 ms sleep, so it freezes every time. Its last lines come from asking the JVM which threads are deadlocked, and the JVM answers with names. On a real pod, you'd ask from outside, before anyone restarts it. That's next."""
 
 # ---------------------------------------------------------------- section 1
 S1 = """A frozen pod tempts everyone to restart it. Take a thread dump first. The restart brings the service back, and it throws away the only record of why it stopped:
@@ -268,7 +266,7 @@ S3 = """Circular wait needs two threads that disagree about which lock comes fir
 
 """ + pair(J_ORDER, K_ORDER) + """
 
-Read the first two lines as a sentence: the first lock is the account with the lower id, and the second is the other one. Now `transfer(a, b)` and `transfer(b, a)` both lock `a` first. Whoever gets `a` runs. The other waits for `a` while holding nothing, which is plain contention: it waits its turn, then goes.
+Read the two lines that pick the locks as a sentence: the first lock is the account with the lower id, and the second is the other one. Now `transfer(a, b)` and `transfer(b, a)` both lock `a` first. Whoever gets `a` runs. The other waits for `a` while holding nothing, which is plain contention: it waits its turn, then goes.
 
 The Try it below runs the exact traffic that froze the naive version: 200,000 transfers between the same two accounts, half in each direction. Correctness first: the total stayed at 2,000,000. Then time: it finished in 33 to 50 ms on runs here. With the locks put back in argument order, it hung on five runs out of six, anywhere from about 1,500 to 53,000 transfers in. The sixth run finished, which is the same bug, hiding.
 
@@ -444,7 +442,7 @@ L = {
   "`jcmd <pid> Thread.print` (or `jstack`) names the threads and locks in a Java-level deadlock, on monitors and on `ReentrantLock`. Take it before you restart.",
   "The limit: the detector sees only Java locks, so pool deadlocks show up only in the stacks, and `synchronized` can't time out. Timeouts need the explicit locks of the next lesson."
  ],
- "closing": "We started with a ledger that gave each account its own lock and froze on a busy evening without a word. We froze two transfers, asked the JVM what happened, found the four conditions behind it, and broke them twice: with one lock order, and with a lock that gives up.\n\nNow search your own code for a lock taken inside another: a nested `synchronized`, or `withLock` inside `withLock`. For each pair, ask what decides the order. If the answer is \"whichever argument comes first\", that pair can freeze exactly the way our two transfers did.\n\nNext, we'll look properly at the lock that gives up. What can `ReentrantLock` do that `synchronized` can't, and what does it ask of you in return?",
+ "closing": "We started with a ledger that gave each account its own lock and froze on a busy evening without a word. We froze two transfers, asked the JVM what happened, found the four conditions behind it, and broke them twice: with one lock order, and with a lock that gives up.\n\nNow search your own code for a lock taken inside another: a nested `synchronized`, or `withLock` inside `withLock`. For each pair, ask what decides the order. If the answer is \"whichever argument comes first\", that pair can freeze just as our transfers did.\n\nNext, we'll look properly at the lock that gives up. What can `ReentrantLock` do that `synchronized` can't, and what does it ask of you in return?",
  "quiz": [
   {"q": "Which change makes `transfer(from, to)` safe from deadlock when transfers run in both directions?",
    "options": ["Mark the field that holds each balance `volatile`", "Always lock the account with the lower id first, then the other", "Add `Thread.sleep(1)` between the two locks", "Make `transfer` a `synchronized` instance method on each account"],
