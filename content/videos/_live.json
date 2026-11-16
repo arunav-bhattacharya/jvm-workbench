@@ -141,6 +141,9 @@
   "cap4-build-time",
   "flow01-inside-emit",
   "flow02-inspector",
-  "flow03-wall"
+  "flow03-wall",
+  "flow04-belt",
+  "flow05-lanes",
+  "flow06-upstream"
  ]
 }

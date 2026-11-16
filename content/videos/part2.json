@@ -34,6 +34,7 @@
     {"slug": "flow05-lanes", "lesson": "flow-05", "section": 1, "title": "flatMapConcat has one lane and makes the outer wait, flatMapMerge gives each returned flow its own lane, and flatMapLatest cuts the old lane; a slow call in the lambda never gets a lane"},
     {"slug": "flow01-inside-emit", "lesson": "flow-01", "section": 3, "title": "The collector runs inside emit, so the cook waits at the table: a flow handles one value at a time, and with a 100 ms reader and a 300 ms collector the second emit comes at 500 ms, not 200"},
     {"slug": "flow06-upstream", "lesson": "flow-06", "section": 0, "title": "catch is a net under the upstream: what falls from above lands in it, what the collector throws goes past it to the caller, and retry replays the stream from the top"},
-    {"slug": "flow03-wall", "lesson": "flow-03", "section": 1, "title": "flowOn(io) builds a wall with a mailbox slot: the code above it runs in a second coroutine on the IO thread, a 64-slot channel lets it read ahead, and the collector never moves, which is why withContext around emit sets off the alarm"}
+    {"slug": "flow03-wall", "lesson": "flow-03", "section": 1, "title": "flowOn(io) builds a wall with a mailbox slot: the code above it runs in a second coroutine on the IO thread, a 64-slot channel lets it read ahead, and the collector never moves, which is why withContext around emit sets off the alarm"},
+    {"slug": "flow04-belt", "lesson": "flow-04", "section": 0, "title": "buffer(n) puts a belt with n slots between two coroutines, so the reader runs n + 1 ahead; conflate keeps only the newest value, and collectLatest waits for the cancelled block's cleanup"}
   ]
 }
