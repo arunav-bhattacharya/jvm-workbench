@@ -3,10 +3,13 @@
 
   python3 site/build.py            -> web/index.html (+ web/art) for Cloudflare
                                       and build/preview.html (one self-contained file)
+  python3 site/build.py --look     -> only the look: the style, script and fonts in web/ are
+                                      rebuilt, and the lessons already published there stay as
+                                      they are (use it while content/ holds unpublished rewrites)
 
 Needs: pip install markdown pygments
 """
-import base64, html, json, pathlib, re, sys
+import base64, html, json, pathlib, re, sys, urllib.parse
 
 import markdown
 from pygments import highlight
@@ -199,13 +202,15 @@ def compile_course():
     return out
 
 
-# the faces of AI Engineer from Zero, served with the site (web) or inlined (preview); code uses the
-# reader's SF Mono (Apple's licence doesn't allow bundling it), with GitHub's fallback list
+# the faces, served with the site (web) or inlined (preview), all under the SIL Open Font License:
+# Literata for reading, IBM Plex Sans for headings and controls, JetBrains Mono for code, and
+# CMU Serif inside the figures, where it matches the lettering of the videos
 FONTS = [
-    ("Instrument Serif", "normal", 400, "instrument-serif-400.woff2"), ("Instrument Serif", "italic", 400, "instrument-serif-400i.woff2"),
-    ("Newsreader", "normal", 400, "newsreader-400.woff2"), ("Newsreader", "italic", 400, "newsreader-400i.woff2"),
-    ("Newsreader", "normal", 600, "newsreader-600.woff2"), ("Newsreader", "italic", 600, "newsreader-600i.woff2"),
-    ("Inter", "normal", 400, "inter-400.woff2"), ("Inter", "normal", 500, "inter-500.woff2"), ("Inter", "normal", 600, "inter-600.woff2"),
+    ("Literata", "normal", 400, "literata-400.woff2"), ("Literata", "italic", 400, "literata-400i.woff2"),
+    ("Literata", "normal", 600, "literata-600.woff2"), ("Literata", "italic", 600, "literata-600i.woff2"),
+    ("IBM Plex Sans", "normal", 400, "ibm-plex-sans-400.woff2"), ("IBM Plex Sans", "normal", 500, "ibm-plex-sans-500.woff2"),
+    ("IBM Plex Sans", "normal", 600, "ibm-plex-sans-600.woff2"),
+    ("JetBrains Mono", "normal", 400, "jetbrains-mono-400.woff2"), ("JetBrains Mono", "normal", 600, "jetbrains-mono-600.woff2"),
     ("CMU Serif", "normal", 400, "cmu-serif-400.woff2"), ("CMU Serif", "italic", 400, "cmu-serif-400i.woff2"),
 ]
 
@@ -214,15 +219,21 @@ def font_css(inline):
     out = []
     for fam, style, weight, f in FONTS:
         src = ("data:font/woff2;base64," + base64.b64encode((SITE / "fonts" / f).read_bytes()).decode()) if inline else f"/fonts/{f}"
-        adj = "size-adjust:98%;" if fam == "Newsreader" else ""
-        out.append(f"@font-face{{font-family:'{fam}';font-style:{style};font-weight:{weight};font-display:swap;{adj}src:url({src}) format('woff2')}}")
+        out.append(f"@font-face{{font-family:'{fam}';font-style:{style};font-weight:{weight};font-display:swap;src:url({src}) format('woff2')}}")
     return "".join(out)
 
 
-def page(course, mode):
+# the tab icon is the brand mark: a week done, one lesson more, and the saffron dot that is next
+ICON = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" rx="3" fill="#fdfdfb"/>'
+        + "".join(f'<circle cx="{3.5 + c * 4.5}" cy="{3.5 + r * 4.5}" r="1.5" fill="{"#23488f" if c == 0 or (c, r) == (1, 0) else "#d3921a" if (c, r) == (1, 1) else "#c9c8c0"}"/>'
+                  for c in range(3) for r in range(3)) + "</svg>")
+
+
+def page(course, mode, data=None):
+    """data: the course JSON already serialised for the page (the --look build reuses the published one)."""
     css = (SITE / "style.css").read_text()
     js = (SITE / "app.js").read_text()
-    data = json.dumps(course, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    data = data or json.dumps(course, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     fonts = f"<style>{font_css(mode == 'preview')}</style>"
     body = (f'<title>JVM Workbench</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n'
             f'<meta name="description" content="{html.escape(course["tagline"])}">\n{fonts}\n<style>{css}</style>\n'
@@ -234,7 +245,7 @@ def page(course, mode):
         return body
     return ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
-            '<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%23ffffff%22/%3E%3Ccircle cx=%224%22 cy=%224%22 r=%221.4%22 fill=%22%231f5fc4%22/%3E%3Ccircle cx=%228%22 cy=%224%22 r=%221.4%22 fill=%22%235b8bd6%22/%3E%3Ccircle cx=%2212%22 cy=%224%22 r=%221.4%22 fill=%22%239bb8e8%22/%3E%3Ccircle cx=%224%22 cy=%228%22 r=%221.4%22 fill=%22%231f5fc4%22/%3E%3Ccircle cx=%228%22 cy=%228%22 r=%222.1%22 fill=%22%231f5fc4%22/%3E%3Ccircle cx=%2212%22 cy=%228%22 r=%221.4%22 fill=%22%239bb8e8%22/%3E%3Ccircle cx=%224%22 cy=%2212%22 r=%221.4%22 fill=%22%231f5fc4%22/%3E%3Ccircle cx=%228%22 cy=%2212%22 r=%221.4%22 fill=%22%235b8bd6%22/%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%221.4%22 fill=%22%239bb8e8%22/%3E%3C/svg%3E">\n'
+            f'<link rel="icon" href="data:image/svg+xml,{urllib.parse.quote(ICON)}">\n'
             + body.replace("</title>", "</title>", 1).split("\n<div id=\"app\">")[0]
             + '\n</head>\n<body>\n<div id="app"></div>\n'
             + body.split('<div id="app"></div>\n', 1)[1]
@@ -323,18 +334,36 @@ def split(course):
     return out, bodies
 
 
-def main():
-    course = compile_course()
-    ready = sum(1 for l in course["lessons"].values() if l["ready"])
-    WEB.mkdir(exist_ok=True)
-    import shutil
-    shutil.rmtree(WEB / "art", ignore_errors=True)  # the old cover plate is no longer used
+def copy_fonts():
     (WEB / "fonts").mkdir(exist_ok=True)
     for old in (WEB / "fonts").glob("*.woff2"):  # drop faces the site no longer uses
         if old.name not in {f for *_, f in FONTS}:
             old.unlink()
     for _, _, _, f in FONTS:
         (WEB / "fonts" / f).write_bytes((SITE / "fonts" / f).read_bytes())
+
+
+def look_only():
+    """Rebuild the style, script and fonts of the published site and leave its lessons alone:
+    the course data already in web/index.html goes back in byte for byte."""
+    old = (WEB / "index.html").read_text()
+    m = re.search(r'<script type="application/json" id="course">(.*?)</script>', old, flags=re.S)
+    if not m:
+        sys.exit("web/index.html has no course data; run a full build first")
+    copy_fonts()
+    (WEB / "index.html").write_text(page(json.loads(m.group(1)), "web", data=m.group(1)))
+    print(f"look only: web/index.html {round((WEB / 'index.html').stat().st_size / 1024)} KB, published lessons unchanged")
+
+
+def main():
+    if "--look" in sys.argv[1:]:
+        return look_only()
+    course = compile_course()
+    ready = sum(1 for l in course["lessons"].values() if l["ready"])
+    WEB.mkdir(exist_ok=True)
+    import shutil
+    shutil.rmtree(WEB / "art", ignore_errors=True)  # the old cover plate is no longer used
+    copy_fonts()
     core, bodies = split(course)
     les = WEB / "lessons"
     les.mkdir(exist_ok=True)
