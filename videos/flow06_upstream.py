@@ -15,7 +15,7 @@ N = {
           "The caller sees nothing.",
     "timeout": "A withTimeout that fires up there lands in the net too, even though it is a CancellationException.",
     "ledger_q": "Now the ledger write fails. That happens below the net. Does catch emit the fallback?",
-    "ledger": "No. The rock was dropped below the net, so it falls straight to the caller. "
+    "ledger": "No. It starts below the net, so it falls straight to the caller. "
               "catch can tell, because it remembers every exception that comes back out of its own emit.",
     "cancel": "One thing from above passes the net on purpose: the cancellation of your own job. "
               "A caller that leaves stops the whole pipe.",
@@ -399,9 +399,10 @@ class Flow06Upstream(Narrated):
         r2 = T("A retry replays the stream from the top.", 32)
         rule = VGroup(r1, r2).arrange(DOWN, buff=0.32).move_to(UP * 1.3)
         fit(rule, 12.4)
-        qq = VGroup(T("Check:", 28, YELLOW_M),
-                    VGroup(M("catch", 26, NET), T("sits above a", 28), M("map", 26), T(", and the", 28), M("map", 26),
-                           T("throws.", 28)).arrange(RIGHT, buff=0.15),
+        q_line = VGroup(M("catch", 26, NET), T("sits above a", 28), M("map", 26), T(", and the", 28), M("map", 26),
+                        T("throws.", 28)).arrange(RIGHT, buff=0.15)
+        VGroup(*q_line[3:]).shift(LEFT * 0.11)          # the comma sits right after "map"
+        qq = VGroup(T("Check:", 28, YELLOW_M), q_line,
                     T("Who handles the exception?", 28)).arrange(DOWN, buff=0.2).move_to(DOWN * 1.7)
         fit(qq, 12.4)
         self.say("rule")
