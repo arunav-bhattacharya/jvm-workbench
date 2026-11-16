@@ -17,8 +17,8 @@ enum class Verdict {
     /** Both checks passed in time. */
     APPROVED,
 
-    /** The deadline passed, and the amount is small enough to accept without the checks (stand-in). */
-    STAND_IN,
+    /** The deadline passed, and the amount is small enough to let through without the checks. */
+    LET_THROUGH,
 
     /** A check said no, or failed. */
     DECLINED,
@@ -28,7 +28,7 @@ enum class Verdict {
 }
 
 /**
- * Screens one transfer. The fraud check (slow, behind [fraudBulkhead]) and the limits check (fast)
+ * Screens one transfer. The safety check (slow, behind [safetyBulkhead]) and the limits check (fast)
  * run at the same time, each on its own virtual thread, inside one deadline of [budget].
  *
  * Rules the tests check:
@@ -39,18 +39,18 @@ enum class Verdict {
  * - When [screen] returns, no thread it started is still running.
  */
 class Screening(
-    private val fraud: Check,
+    private val safety: Check,
     private val limits: Check,
-    private val fraudBulkhead: Bulkhead,
+    private val safetyBulkhead: Bulkhead,
     private val budget: Duration,
-    private val standInLimitCents: Long,
+    private val smallAmountCents: Long,
 ) {
     /**
      * TODO:
      * 1. One deadline for both checks: `val deadline = System.nanoTime() + budget.toNanos()`.
      * 2. Create `Executors.newVirtualThreadPerTaskExecutor()` and wrap it in an
-     *    `ExecutorCompletionService<Boolean>`. Submit the fraud check as
-     *    `fraudBulkhead.call(deadline - System.nanoTime()) { fraud.passes(t) }`, and the limits check as it is.
+     *    `ExecutorCompletionService<Boolean>`. Submit the safety check as
+     *    `safetyBulkhead.call(deadline - System.nanoTime()) { safety.passes(t) }`, and the limits check as it is.
      * 3. Twice: `poll` the next finished check with the time left. `null` means the deadline passed:
      *    return [fallback]. Otherwise call `get()`. An `ExecutionException` whose cause is a
      *    `TimeoutException` (no permit in time) also means [fallback]. Any other failure, or `false`,
@@ -62,7 +62,7 @@ class Screening(
         TODO("fan out both checks on virtual threads, fail fast, fall back at the deadline")
     }
 
-    /** The stand-in rule: when the checks can't answer in time, small transfers go through and large ones are turned away. */
+    /** The small-amount rule: when the checks can't answer in time, small transfers go through and large ones are turned away. */
     private fun fallback(t: Transfer): Verdict =
-        if (t.cents() <= standInLimitCents) Verdict.STAND_IN else Verdict.TIMED_OUT
+        if (t.cents() <= smallAmountCents) Verdict.LET_THROUGH else Verdict.TIMED_OUT
 }

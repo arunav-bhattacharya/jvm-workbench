@@ -371,7 +371,7 @@ class Conc02States(VoiceScene):
                   "Thread.currentThread().interrupt(), then return.",
             3.4, ([FadeOut(jc[2:]), FadeIn(fc[2:]), FadeOut(outl)], 1.0), 1.2,
             ([Indicate(fc[2], color=GREEN_M, scale_factor=1.03)], 1.0))
-        flag_l = T("the interrupt flag", 26, YELLOW_M).move_to(SPOT + RIGHT * 0.65, aligned_edge=LEFT)
+        flag_l = T("the interrupt flag", 26, YELLOW_M).move_to([-1.6, SPOT[1] + 0.62, 0], aligned_edge=LEFT)
         st_r2 = M("RUNNABLE", 26, C_RUN).move_to(st)
         seq(self, "Put back, the note stays where the relay can see it. Its proper name is the interrupt flag.",
             (lambda: wake() + [Transform(st, st_r2), FadeIn(nt, scale=1.3)], 0.8), 2.2,

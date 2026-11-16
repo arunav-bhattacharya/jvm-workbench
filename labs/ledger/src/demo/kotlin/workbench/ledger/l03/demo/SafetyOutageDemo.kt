@@ -13,20 +13,20 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.LongAdder
 
 private const val BUDGET_NANOS = 300_000_000L        // every request answers within 300 ms
-private const val STAND_IN_CENTS = 5_000L            // stand-in limit: up to 50.00 goes through unchecked
-private val permits = Semaphore(20)                  // the fraud bulkhead
+private const val SMALL_AMOUNT_CENTS = 5_000L        // the small-amount rule: up to 50.00 is let through
+private val permits = Semaphore(20)                  // the safety bulkhead
 private val inFlight = AtomicInteger()
 private val mostInFlight = AtomicInteger()
 private val verdicts = ConcurrentHashMap<String, LongAdder>()
 private val slowestMs = AtomicLong()
 
-// the fraud call, on its own virtual thread: a permit first, then the remote call
-private fun fraudCall(latencyMs: Long, deadline: Long): Boolean {
+// the safety call, on its own virtual thread: a permit first, then the remote call
+private fun safetyCall(latencyMs: Long, deadline: Long): Boolean {
     if (!permits.tryAcquire(deadline - System.nanoTime(), TimeUnit.NANOSECONDS)) throw TimeoutException("no permit")
     try {
         mostInFlight.accumulateAndGet(inFlight.incrementAndGet(), ::maxOf)
         try {
-            Thread.sleep(latencyMs)                  // the fraud service; an interrupt ends it early
+            Thread.sleep(latencyMs)                  // the safety service; an interrupt ends it early
         } finally {
             inFlight.decrementAndGet()
         }
@@ -39,7 +39,7 @@ private fun fraudCall(latencyMs: Long, deadline: Long): Boolean {
 private fun screen(cents: Long, latencyMs: Long): String {
     val deadline = System.nanoTime() + BUDGET_NANOS
     Executors.newVirtualThreadPerTaskExecutor().use { perCall ->
-        val call = perCall.submit(Callable { fraudCall(latencyMs, deadline) })
+        val call = perCall.submit(Callable { safetyCall(latencyMs, deadline) })
         return try {
             if (call.get(deadline - System.nanoTime(), TimeUnit.NANOSECONDS)) "approved" else "declined"
         } catch (e: TimeoutException) {              // our deadline passed first
@@ -51,9 +51,9 @@ private fun screen(cents: Long, latencyMs: Long): String {
     }
 }
 
-private fun fallback(cents: Long) = if (cents <= STAND_IN_CENTS) "stand-in" else "timed out"
+private fun fallback(cents: Long) = if (cents <= SMALL_AMOUNT_CENTS) "let through" else "timed out"
 
-/** 400 requests a second for 3 seconds, each on its own virtual thread. Pass "outage" to slow the fraud service to 2 s. */
+/** 400 requests a second for 3 seconds, each on its own virtual thread. Pass "outage" to slow the safety service to 2 s. */
 fun main(args: Array<String>) {
     val latencyMs = if (args.firstOrNull() == "outage") 2_000L else 20L
     Executors.newVirtualThreadPerTaskExecutor().use { perRequest ->
@@ -69,6 +69,6 @@ fun main(args: Array<String>) {
             Thread.sleep(10)
         }
     }
-    println("fraud service takes $latencyMs ms: ${verdicts.toSortedMap()}")
-    println("most fraud calls in flight: ${mostInFlight.get()}, slowest reply: ${slowestMs.get()} ms")
+    println("safety service takes $latencyMs ms: ${verdicts.toSortedMap()}")
+    println("most safety calls in flight: ${mostInFlight.get()}, slowest reply: ${slowestMs.get()} ms")
 }

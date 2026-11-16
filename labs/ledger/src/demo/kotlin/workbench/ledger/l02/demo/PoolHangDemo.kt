@@ -15,8 +15,8 @@ fun main(args: Array<String>) {
     val seconds = args.firstOrNull()?.toInt() ?: 4
     val pool = ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS,
         ArrayBlockingQueue(100), Thread.ofPlatform().name("ledger-", 0).factory())
-    for (merchant in listOf("m-001", "m-002", "m-003")) {
-        pool.submit(Callable { statement(pool, merchant) })
+    for (account in listOf("acc-01", "acc-02", "acc-03")) {
+        pool.submit(Callable { statement(pool, account) })
     }
     val pid = ProcessHandle.current().pid()
     println("pid $pid, hanging for $seconds s. In another terminal: jcmd $pid Thread.print -l")
@@ -25,9 +25,9 @@ fun main(args: Array<String>) {
     pool.shutdownNow()                                        // interrupts the two get() calls that will never return
 }
 
-private fun statement(pool: ExecutorService, merchant: String): String {
-    val balance = pool.submit(Callable { balanceOf(merchant) })   // queued behind the other statements
-    return "$merchant: ${balance.get()}"                           // waits for a thread that is never free
+private fun statement(pool: ExecutorService, account: String): String {
+    val balance = pool.submit(Callable { balanceOf(account) })   // queued behind the other statements
+    return "$account: ${balance.get()}"                           // waits for a thread that is never free
 }
 
-private fun balanceOf(merchant: String): Long = 4_200                // fast: the problem is not speed
+private fun balanceOf(account: String): Long = 4_200                // fast: the problem is not speed

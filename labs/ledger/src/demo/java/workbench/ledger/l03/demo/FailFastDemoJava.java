@@ -15,13 +15,13 @@ public class FailFastDemoJava {
     }
 
     // the slow check: answers after 500 ms, unless it is interrupted first
-    static boolean fraudCheck() throws InterruptedException {
+    static boolean safetyCheck() throws InterruptedException {
         try {
             Thread.sleep(500);
-            System.out.printf("  %4d ms  fraud check answered%n", ms());
+            System.out.printf("  %4d ms  safety check answered%n", ms());
             return true;
         } catch (InterruptedException e) {
-            System.out.printf("  %4d ms  fraud check interrupted%n", ms());
+            System.out.printf("  %4d ms  safety check interrupted%n", ms());
             throw e;
         }
     }
@@ -33,12 +33,12 @@ public class FailFastDemoJava {
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.println("in order: get() the fraud check, then the limits check");
+        System.out.println("in order: get() the safety check, then the limits check");
         t0 = System.nanoTime();
         try (ExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor()) {
-            Future<Boolean> fraud = perTask.submit(FailFastDemoJava::fraudCheck);
+            Future<Boolean> safety = perTask.submit(FailFastDemoJava::safetyCheck);
             Future<Boolean> limits = perTask.submit(FailFastDemoJava::limitsCheck);
-            String verdict = fraud.get() && limits.get() ? "approved" : "declined";
+            String verdict = safety.get() && limits.get() ? "approved" : "declined";
             System.out.printf("  %4d ms  verdict: %s%n", ms(), verdict);
         }
 
@@ -47,7 +47,7 @@ public class FailFastDemoJava {
         ExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor();
         try {
             CompletionService<Boolean> done = new ExecutorCompletionService<>(perTask);
-            done.submit(FailFastDemoJava::fraudCheck);
+            done.submit(FailFastDemoJava::safetyCheck);
             done.submit(FailFastDemoJava::limitsCheck);
             String verdict = "approved";
             for (int i = 0; i < 2; i++) {

@@ -10,20 +10,20 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 
 /**
- * 10,000 requests, one named virtual thread each, all stuck behind a fraud service that hangs.
+ * 10,000 requests, one named virtual thread each, all stuck behind a safety service that hangs.
  * Take a JSON thread dump while they are parked. Arg: seconds to stay parked (default 3).
  */
 public class ParkedRequestsDemoJava {
-    static final Semaphore fraudPermits = new Semaphore(20);       // the fraud bulkhead: 20 calls at once
-    static final CountDownLatch fraudDown = new CountDownLatch(1); // the fraud service hangs until this opens
+    static final Semaphore safetyPermits = new Semaphore(20);      // the safety bulkhead: 20 calls at once
+    static final CountDownLatch safetyDown = new CountDownLatch(1); // the safety service hangs until this opens
 
     static String handle(int id) throws InterruptedException {
-        fraudPermits.acquire();                                    // 9,980 requests park here...
+        safetyPermits.acquire();                                   // 9,980 requests park here...
         try {
-            fraudDown.await();                                     // ...and 20 park here, inside the "fraud call"
+            safetyDown.await();                                    // ...and 20 park here, inside the "safety call"
             return "request " + id + ": ok";
         } finally {
-            fraudPermits.release();
+            safetyPermits.release();
         }
     }
 
@@ -41,7 +41,7 @@ public class ParkedRequestsDemoJava {
             System.out.printf("pid %d: 10,000 requests parked for %d s. In another terminal:%n", pid, seconds);
             System.out.printf("  jcmd %d Thread.dump_to_file -format=json /tmp/requests.json%n", pid);
             Thread.sleep(seconds * 1_000L);
-            fraudDown.countDown();                                 // the fraud service comes back
+            safetyDown.countDown();                                // the safety service comes back
             for (Future<String> f : replies) f.get();
         }
         System.out.printf("all 10,000 answered after %d ms%n", (System.nanoTime() - t0) / 1_000_000);

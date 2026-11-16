@@ -3,7 +3,7 @@ package workbench.ledger.l01;
 /**
  * One request to move {@code cents} from account {@code from} to account {@code to}.
  *
- * <p>A transfer is built on one thread (an importer, an HTTP handler) and read on others (the
+ * <p>A transfer is built on one thread (a file importer, a web request) and read on others (the
  * ledger, the journal, the logs). It must never change after it is built, and a record gives you
  * that: final fields, no setters.
  *

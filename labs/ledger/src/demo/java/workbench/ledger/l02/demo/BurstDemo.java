@@ -36,7 +36,7 @@ public class BurstDemo {
                 });
                 accepted++;
             } catch (RejectedExecutionException e) {
-                // an HTTP handler would answer 503 with Retry-After here
+                // a web server would answer "busy, try again soon" (status 503) here
             }
         }
         long submitMs = (System.nanoTime() - t0) / 1_000_000;
