@@ -1,0 +1,161 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:08.211
+Picture your program as a page of code, and something that walks through it, one line at a time.
+
+2
+00:00:08.433 --> 00:00:13.944
+It keeps its notes on a stack: one frame per call in progress, with its local variables.
+
+3
+00:00:14.167 --> 00:00:17.144
+Step into a call, and a frame goes on top.
+
+4
+00:00:17.144 --> 00:00:18.916
+Return, and it comes off.
+
+5
+00:00:19.133 --> 00:00:20.884
+This walker is a thread.
+
+6
+00:00:20.884 --> 00:00:23.584
+The JVM starts this one, called main.
+
+7
+00:00:24.200 --> 00:00:29.476
+It runs inside a process, one running JVM, with memory of its own.
+
+8
+00:00:29.700 --> 00:00:33.760
+Every object you create with new lives in one part of it: the heap.
+
+9
+00:00:33.967 --> 00:00:38.138
+A second thread, a worker, walks the same code with its own stack.
+
+10
+00:00:38.138 --> 00:00:41.297
+Both call settle, and each one gets its own frame.
+
+11
+00:00:41.500 --> 00:00:44.406
+But both can reach the same Payment on the heap.
+
+12
+00:00:44.406 --> 00:00:51.007
+That is how threads share data with no copying, and how two of them can change one object at the same moment.
+
+13
+00:00:51.533 --> 00:00:53.871
+Main sets its local total to three.
+
+14
+00:00:53.871 --> 00:00:55.941
+Does the worker's total change?
+
+15
+00:00:57.567 --> 00:00:57.782
+No.
+
+16
+00:00:57.782 --> 00:01:00.660
+A local lives on its own thread's stack.
+
+17
+00:01:00.660 --> 00:01:02.387
+Only the heap is shared.
+
+18
+00:01:03.300 --> 00:01:06.997
+A core of the CPU runs a thread, one thread at a time.
+
+19
+00:01:07.200 --> 00:01:14.685
+On one core, the operating system lets main run for a short slice, saves its registers, and switches to the worker.
+
+20
+00:01:14.685 --> 00:01:18.200
+That is a context switch, thousands of times a second.
+
+21
+00:01:18.433 --> 00:01:20.953
+Both are in progress, taking turns.
+
+22
+00:01:20.953 --> 00:01:22.393
+That is concurrency.
+
+23
+00:01:22.600 --> 00:01:25.274
+Two cores run both at the same instant.
+
+24
+00:01:25.274 --> 00:01:26.645
+That is parallelism.
+
+25
+00:01:27.467 --> 00:01:32.039
+So on four cores, is a busy job faster on eight threads than on four?
+
+26
+00:01:33.567 --> 00:01:33.824
+No.
+
+27
+00:01:33.824 --> 00:01:40.418
+In the lesson's demo, four threads took 121 milliseconds, and eight took 125.
+
+28
+00:01:40.418 --> 00:01:45.128
+Once every core is busy, extra threads only take turns.
+
+29
+00:01:45.933 --> 00:01:48.968
+Calling run on a thread is a plain method call.
+
+30
+00:01:48.968 --> 00:01:52.197
+Main steps into the task itself, on its own stack.
+
+31
+00:01:52.400 --> 00:01:56.887
+No new thread exists, nothing fails, and the job is just as slow.
+
+32
+00:01:57.100 --> 00:02:02.653
+With start, the JVM asks the operating system for a new thread, with a new stack.
+
+33
+00:02:02.867 --> 00:02:05.945
+That thread calls run, and main goes on at once.
+
+34
+00:02:06.867 --> 00:02:07.436
+The rule.
+
+35
+00:02:07.436 --> 00:02:13.195
+Every thread has its own stack, they all share the heap, and only start makes a new thread.
+
+36
+00:02:13.400 --> 00:02:14.413
+Check yourself.
+
+37
+00:02:14.413 --> 00:02:19.477
+You split a report into four slices, and call run on a new thread for each.
+
+38
+00:02:19.477 --> 00:02:21.975
+On four cores, how much faster is it?
+
+39
+00:02:24.700 --> 00:02:25.570
+Not faster.
+
+40
+00:02:25.570 --> 00:02:29.684
+Main runs the four slices itself, one after another.

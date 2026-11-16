@@ -128,6 +128,8 @@
   "gen09-tokens",
   "dop01-records",
   "kt05-contracts",
-  "dop04-parse"
+  "dop04-parse",
+  "conc01-threads",
+  "jmm06-varhandles"
  ]
 }
