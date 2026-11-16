@@ -11,6 +11,8 @@ CHEAT = """## The one rule
 
 A write is guaranteed visible to a read in another thread only if the write **happens-before** the read. Without that edge you have a data race: values that are stale and may never update, writes that seem to arrive out of order, and `long` and `double` values that arrive in two halves.
 
+Picture it with the three scenes from lessons 1 to 3. Shared memory is the office whiteboard, and each core works from its own notepad and outbox tray, so a note on the whiteboard is not seen until someone looks up. Happens-before is the cashier's key: whoever takes the same key next is promised to see what was left in the cabinet. `volatile` is the museum's OPEN/CLOSED sign: everyone checks it at the door, but changing it and counting visitors are two separate trips.
+
 ## The edges you use
 
 | The writer does | The reader does | Edge? |
