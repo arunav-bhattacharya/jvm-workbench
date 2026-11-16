@@ -153,213 +153,213 @@ How many threads does the emptiest Java program have?
 Pause and guess.
 
 39
-00:02:12.233 --> 00:02:18.394
+00:02:12.633 --> 00:02:18.794
 The lesson's first demo asks the JVM, the program that runs your Java code.
 
 40
-00:02:18.394 --> 00:02:20.695
+00:02:18.794 --> 00:02:21.095
 On JDK 21, the list has six.
 
 41
-00:02:20.900 --> 00:02:24.404
+00:02:21.300 --> 00:02:24.804
 One is main, the thread that runs your main method.
 
 42
-00:02:24.404 --> 00:02:31.068
+00:02:24.804 --> 00:02:31.468
 The other five are the JVM's housekeepers, mostly cleaning up after objects nobody uses any more.
 
 43
-00:02:31.300 --> 00:02:34.124
+00:02:31.700 --> 00:02:34.524
 So your programs had several threads all along.
 
 44
-00:02:34.124 --> 00:02:36.348
+00:02:34.524 --> 00:02:36.748
 You just never met the cleaning crew.
 
 45
-00:02:38.267 --> 00:02:40.252
+00:02:38.667 --> 00:02:40.652
 Now let's hire four clerks.
 
 46
-00:02:40.252 --> 00:02:44.296
+00:02:40.652 --> 00:02:44.696
 We make four Thread objects, named sales-worker-0 to 3.
 
 47
-00:02:44.500 --> 00:02:53.595
+00:02:44.900 --> 00:02:53.995
 Each one gets work to do: a lambda that sums one slice of the sales, and puts the result in its own slot of an array, here in the cabinet.
 
 48
-00:02:53.800 --> 00:02:55.759
+00:02:54.200 --> 00:02:56.159
 Then we call run() on each one.
 
 49
-00:02:55.759 --> 00:02:57.844
+00:02:56.159 --> 00:02:58.244
 Which thread will sum each slice?
 
 50
-00:02:57.844 --> 00:02:58.855
+00:02:58.244 --> 00:02:59.255
 Pause and guess.
 
 51
-00:03:01.667 --> 00:03:04.692
+00:03:02.067 --> 00:03:05.092
 We printed the thread's name inside the work.
 
 52
-00:03:04.692 --> 00:03:06.843
+00:03:05.092 --> 00:03:07.243
 Every line says: summed on main.
 
 53
-00:03:07.133 --> 00:03:12.061
+00:03:07.533 --> 00:03:12.461
 The total is right, the tests pass, and it is exactly as slow as before.
 
 54
-00:03:12.061 --> 00:03:14.251
+00:03:12.461 --> 00:03:14.651
 Main did all four slices itself.
 
 55
-00:03:14.467 --> 00:03:15.174
+00:03:14.867 --> 00:03:15.574
 Here's why.
 
 56
-00:03:15.174 --> 00:03:21.086
+00:03:15.574 --> 00:03:21.486
 run() is an ordinary method call, so the work runs right here, on the thread that called it.
 
 57
-00:03:21.086 --> 00:03:24.300
+00:03:21.486 --> 00:03:24.700
 Named honestly, it would be called do it yourself.
 
 58
-00:03:24.533 --> 00:03:27.132
+00:03:24.933 --> 00:03:27.532
 The call that makes a thread is start().
 
 59
-00:03:27.132 --> 00:03:32.589
+00:03:27.532 --> 00:03:32.989
 The JVM asks the operating system for a new thread, and that new thread calls run().
 
 60
-00:03:32.800 --> 00:03:37.670
+00:03:33.200 --> 00:03:38.070
 So we change run() to start(), and add up the four slots right after the loop.
 
 61
-00:03:37.670 --> 00:03:39.107
+00:03:38.070 --> 00:03:39.507
 Is the total right now?
 
 62
-00:03:41.533 --> 00:03:43.302
+00:03:41.933 --> 00:03:43.702
 The lesson ran it five times.
 
 63
-00:03:43.302 --> 00:03:49.888
+00:03:43.702 --> 00:03:50.288
 The first total came out at about a quarter of the right answer, and the other four at about three quarters.
 
 64
-00:03:50.100 --> 00:03:53.509
+00:03:50.500 --> 00:03:53.909
 Main added up the slots while the clerks were still adding.
 
 65
-00:03:53.509 --> 00:03:55.127
+00:03:53.909 --> 00:03:55.527
 Call it the impatient total.
 
 66
-00:03:55.333 --> 00:03:59.905
+00:03:55.733 --> 00:04:00.305
 You might be thinking: just sleep for a hundred milliseconds, to give them time.
 
 67
-00:04:00.133 --> 00:04:04.443
+00:04:00.533 --> 00:04:04.843
 That passes on your laptop, and fails one day on a busier computer.
 
 68
-00:04:04.443 --> 00:04:06.116
+00:04:04.843 --> 00:04:06.516
 Sleep only lets time pass.
 
 69
-00:04:06.116 --> 00:04:08.239
+00:04:06.516 --> 00:04:08.639
 It's a guess with a number on it.
 
 70
-00:04:08.467 --> 00:04:11.065
+00:04:08.867 --> 00:04:11.465
 What we want is to wait for each clerk.
 
 71
-00:04:11.065 --> 00:04:12.064
+00:04:11.465 --> 00:04:12.464
 That is join().
 
 72
-00:04:12.267 --> 00:04:15.886
+00:04:12.667 --> 00:04:16.286
 t.join() makes the caller wait until thread t has ended.
 
 73
-00:04:15.886 --> 00:04:20.152
+00:04:16.286 --> 00:04:20.552
 And once it returns, the caller sees everything that thread wrote.
 
 74
-00:04:20.367 --> 00:04:25.633
+00:04:20.767 --> 00:04:26.033
 So main starts all four, then joins all four, and only then adds up the slots.
 
 75
-00:04:25.633 --> 00:04:27.996
+00:04:26.033 --> 00:04:28.396
 Now the total is right, every time.
 
 76
-00:04:29.733 --> 00:04:32.057
+00:04:30.133 --> 00:04:32.457
 Here it is in Java and in Kotlin.
 
 77
-00:04:32.057 --> 00:04:33.535
+00:04:32.457 --> 00:04:33.935
 Notice the two loops.
 
 78
-00:04:33.535 --> 00:04:36.985
+00:04:33.935 --> 00:04:37.385
 Start every worker first, then join every worker.
 
 79
-00:04:37.200 --> 00:04:42.862
+00:04:37.600 --> 00:04:43.262
 Join inside the first loop, and main would wait for worker 0 before starting worker 1.
 
 80
-00:04:42.862 --> 00:04:44.573
+00:04:43.262 --> 00:04:44.973
 One clerk at a time again.
 
 81
-00:04:44.800 --> 00:04:51.015
+00:04:45.200 --> 00:04:51.415
 In Kotlin, thread with braces makes the thread and starts it for you, so the run() mistake is hard to make.
 
 82
-00:04:52.233 --> 00:04:53.278
+00:04:52.633 --> 00:04:53.678
 Does it pay?
 
 83
-00:04:53.278 --> 00:05:03.553
+00:04:53.678 --> 00:05:03.953
 On a bigger job of the same shape, on four cores, the lesson's timing demo took 510 ms on one thread, and 121 on four.
 
 84
-00:05:04.667 --> 00:05:06.037
+00:05:05.067 --> 00:05:06.437
 So, what is a thread?
 
 85
-00:05:06.037 --> 00:05:14.131
+00:05:06.437 --> 00:05:14.531
 One clerk: a path of work that follows your code step by step, with its own notepad, sharing one cabinet with everyone else.
 
 86
-00:05:14.333 --> 00:05:19.652
+00:05:14.733 --> 00:05:20.052
 Start every worker, then join every worker, and read nothing before the last join.
 
 87
-00:05:21.067 --> 00:05:22.049
+00:05:21.467 --> 00:05:22.449
 Check yourself.
 
 88
-00:05:22.049 --> 00:05:28.137
+00:05:22.449 --> 00:05:28.537
 A friend splits a slow report into four parts, and calls run() on a new thread for each part.
 
 89
-00:05:28.137 --> 00:05:30.559
+00:05:28.537 --> 00:05:30.959
 On four cores, how much faster is it?
 
 90
-00:05:33.367 --> 00:05:34.618
+00:05:33.767 --> 00:05:35.018
 Not faster at all.
 
 91
-00:05:34.618 --> 00:05:38.649
+00:05:35.018 --> 00:05:39.049
 run() is a plain call, so main does all four parts itself.

@@ -17,7 +17,7 @@ private fun priceEur(): BigDecimal {
 }
 
 private fun eurToUsd(): BigDecimal {
-    Thread.sleep(300)                                    // the FX provider
+    Thread.sleep(300)                                    // the exchange-rate service
     log("rate is 1.0842")
     return BigDecimal("1.0842")
 }

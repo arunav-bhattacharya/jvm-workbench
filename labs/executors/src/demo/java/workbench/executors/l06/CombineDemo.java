@@ -21,7 +21,7 @@ public class CombineDemo {
     }
 
     static BigDecimal eurToUsd() {
-        sleep(300);                                        // the FX provider
+        sleep(300);                                        // the exchange-rate service
         log("rate is 1.0842");
         return new BigDecimal("1.0842");
     }

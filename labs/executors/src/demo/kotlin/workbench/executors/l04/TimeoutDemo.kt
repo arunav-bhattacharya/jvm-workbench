@@ -14,14 +14,14 @@ fun main(args: Array<String>) {
     val cancel = args.firstOrNull() == "cancel"
     Executors.newFixedThreadPool(1).use { pool ->
         val auth = pool.submit<String> {
-            log("calling the issuer")
+            log("asking the bank to charge the card")
             try {
-                Thread.sleep(600)                       // the issuer is slow today
+                Thread.sleep(600)                       // the bank is slow today
             } catch (e: InterruptedException) {
-                log("interrupted: giving up on the issuer")
+                log("interrupted: giving up on the bank")
                 throw e
             }
-            log("issuer answered: APPROVED (and the charge went through)")
+            log("bank answered: APPROVED (the card was charged)")
             "APPROVED"
         }
         try {

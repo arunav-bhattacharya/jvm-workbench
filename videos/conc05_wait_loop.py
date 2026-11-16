@@ -131,7 +131,7 @@ BENCH_Y = -1.2
 SEATS = [np.array([x, -0.72, 0]) for x in (-4.5, -2.7, -0.9, 0.9)]
 BELL_POS = np.array([4.4, 2.35, 0])
 TSLOTS = [np.array([x, 2.08, 0]) for x in (0.0, 0.95, 1.9)]
-HOME_W = [np.array([5.4, 0.55, 0]), np.array([5.4, -0.35, 0])]
+HOME_W = [np.array([5.4, 0.2, 0]), np.array([5.4, -0.7, 0])]
 STRIP = -2.55          # first line of the notes strip at the bottom
 
 

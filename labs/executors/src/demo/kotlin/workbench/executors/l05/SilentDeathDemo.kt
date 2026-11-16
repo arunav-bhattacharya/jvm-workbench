@@ -13,7 +13,7 @@ fun main(args: Array<String>) {
     val check = Runnable {
         val n = runs.incrementAndGet()
         println("health check $n")
-        if (n == 3) throw IllegalStateException("ledger ping timed out")
+        if (n == 3) throw IllegalStateException("bank did not answer")
     }
     val task = if (!safe) check else Runnable {
         try {

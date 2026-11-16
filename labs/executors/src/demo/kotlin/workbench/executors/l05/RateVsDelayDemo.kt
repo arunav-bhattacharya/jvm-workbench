@@ -15,7 +15,7 @@ fun main(args: Array<String>) {
     val sync = Runnable {
         val n = runs.incrementAndGet()
         val start = (System.nanoTime() - t0) / 1_000_000
-        val work = if (n == 2) 250L else 10L               // run 2 hits a slow ledger
+        val work = if (n == 2) 250L else 10L               // run 2 is slow: the rate service took its time
         try { Thread.sleep(work) } catch (e: InterruptedException) { Thread.currentThread().interrupt() }
         println("run %d started at %4d ms, took %3d ms".format(n, start, work))
         sevenRuns.countDown()

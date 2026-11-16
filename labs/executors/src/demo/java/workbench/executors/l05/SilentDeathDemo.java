@@ -16,7 +16,7 @@ public class SilentDeathDemo {
         Runnable check = () -> {
             int n = runs.incrementAndGet();
             System.out.println("health check " + n);
-            if (n == 3) throw new IllegalStateException("ledger ping timed out");
+            if (n == 3) throw new IllegalStateException("bank did not answer");
         };
         Runnable task = !safe ? check : () -> {
             try {

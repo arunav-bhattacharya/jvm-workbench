@@ -18,14 +18,14 @@ public class TimeoutDemo {
         boolean cancel = args.length > 0 && args[0].equals("cancel");
         try (ExecutorService pool = Executors.newFixedThreadPool(1)) {
             Future<String> auth = pool.submit(() -> {
-                log("calling the issuer");
+                log("asking the bank to charge the card");
                 try {
-                    Thread.sleep(600);                    // the issuer is slow today
+                    Thread.sleep(600);                    // the bank is slow today
                 } catch (InterruptedException e) {
-                    log("interrupted: giving up on the issuer");
+                    log("interrupted: giving up on the bank");
                     throw e;
                 }
-                log("issuer answered: APPROVED (and the charge went through)");
+                log("bank answered: APPROVED (the card was charged)");
                 return "APPROVED";
             });
             try {
