@@ -1,0 +1,322 @@
+{
+ "slug": "mem02-tlab",
+ "voice": "us-f",
+ "max_late": 0.18,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.025,
+   "secs": 2.56,
+   "tries": 1,
+   "text": "Many threads create objects at the same time."
+  },
+  {
+   "cue": 5.47,
+   "start": 5.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.94,
+   "tries": 1,
+   "text": "All of them go into eden, one area of the heap that every thread shares."
+  },
+  {
+   "cue": 10.1,
+   "start": 10.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.73,
+   "tries": 1,
+   "text": "If each new took memory straight from eden, every thread would need this one pointer."
+  },
+  {
+   "cue": 15.6,
+   "start": 15.6,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.17,
+   "tries": 1,
+   "text": "One thread moves it."
+  },
+  {
+   "cue": 16.89,
+   "start": 16.92,
+   "late": 0.03,
+   "tempo": 1.0,
+   "secs": 0.82,
+   "tries": 1,
+   "text": "The others wait."
+  },
+  {
+   "cue": 18.97,
+   "start": 18.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.99,
+   "tries": 1,
+   "text": "How would you stop them fighting over it?"
+  },
+  {
+   "cue": 23.17,
+   "start": 23.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.18,
+   "tries": 1,
+   "text": "Give each thread its own piece of eden."
+  },
+  {
+   "cue": 25.66,
+   "start": 25.66,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.76,
+   "tries": 1,
+   "text": "Now no thread needs a lock."
+  },
+  {
+   "cue": 28.07,
+   "start": 28.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.84,
+   "tries": 1,
+   "text": "That piece is a T lab: a thread-local allocation buffer."
+  },
+  {
+   "cue": 33.97,
+   "start": 33.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.41,
+   "tries": 1,
+   "text": "To allocate, the thread checks that the object fits before the end."
+  },
+  {
+   "cue": 38.05,
+   "start": 38.05,
+   "late": 0.0,
+   "tempo": 1.097,
+   "secs": 3.2,
+   "tries": 1,
+   "text": "Then it adds the size to top, and stores the new top."
+  },
+  {
+   "cue": 41.47,
+   "start": 41.47,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "A compare, an add and a store."
+  },
+  {
+   "cue": 43.42,
+   "start": 43.58,
+   "late": 0.16,
+   "tempo": 1.0,
+   "secs": 2.57,
+   "tries": 1,
+   "text": "The jit puts them right into your compiled method."
+  },
+  {
+   "cue": 48.47,
+   "start": 48.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.39,
+   "tries": 1,
+   "text": "What happens when the next object doesn't fit?"
+  },
+  {
+   "cue": 53.6,
+   "start": 53.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.74,
+   "tries": 1,
+   "text": "The thread takes a fresh T lab from eden, with one atomic update."
+  },
+  {
+   "cue": 57.96,
+   "start": 57.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.13,
+   "tries": 1,
+   "text": "That happens once per T lab, not once per object."
+  },
+  {
+   "cue": 62.03,
+   "start": 62.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.11,
+   "tries": 1,
+   "text": "And sometimes new allocates nothing."
+  },
+  {
+   "cue": 64.31,
+   "start": 64.31,
+   "late": 0.0,
+   "tempo": 1.033,
+   "secs": 3.88,
+   "tries": 1,
+   "text": "This loop builds a million Points, and only adds up their fields."
+  },
+  {
+   "cue": 68.41,
+   "start": 68.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.51,
+   "tries": 1,
+   "text": "In the interpreter, each one is a real object."
+  },
+  {
+   "cue": 71.83,
+   "start": 71.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.65,
+   "tries": 1,
+   "text": "Can anything outside the method ever see p?"
+  },
+  {
+   "cue": 76.5,
+   "start": 76.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.48,
+   "tries": 1,
+   "text": "No. p never goes into a field or a collection, it's never returned, and it never goes to a call that C two doesn't inline."
+  },
+  {
+   "cue": 85.37,
+   "start": 85.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.28,
+   "tries": 1,
+   "text": "C two, the jit for hot methods, checks exactly this."
+  },
+  {
+   "cue": 89.02,
+   "start": 89.02,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.42,
+   "tries": 1,
+   "text": "That's escape analysis."
+  },
+  {
+   "cue": 90.93,
+   "start": 90.93,
+   "late": 0.0,
+   "tempo": 1.01,
+   "secs": 3.7,
+   "tries": 1,
+   "text": "Then it skips the object, and keeps x and y in registers."
+  },
+  {
+   "cue": 94.75,
+   "start": 94.79,
+   "late": 0.04,
+   "tempo": 1.0,
+   "secs": 1.4,
+   "tries": 1,
+   "text": "That's scalar replacement."
+  },
+  {
+   "cue": 97.4,
+   "start": 97.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.75,
+   "tries": 1,
+   "text": "Count the bytes of each call."
+  },
+  {
+   "cue": 99.33,
+   "start": 99.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.52,
+   "tries": 1,
+   "text": "The first rounds allocate megabytes, while the interpreter and C one run the code."
+  },
+  {
+   "cue": 104.57,
+   "start": 104.57,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.86,
+   "tries": 1,
+   "text": "From round four or so, zero."
+  },
+  {
+   "cue": 106.4,
+   "start": 106.58,
+   "late": 0.18,
+   "tempo": 1.081,
+   "secs": 6.78,
+   "tries": 1,
+   "text": "With escape analysis off, every round allocates three two zero zero zero,zero bytes: a million thirty-two-byte points."
+  },
+  {
+   "cue": 113.57,
+   "start": 113.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.27,
+   "tries": 1,
+   "text": "So never assert that code allocates nothing in a unit test."
+  },
+  {
+   "cue": 118.1,
+   "start": 118.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.86,
+   "tries": 1,
+   "text": "Java and Kotlin compile to the same new, so both behave the same."
+  },
+  {
+   "cue": 123.37,
+   "start": 123.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.39,
+   "tries": 1,
+   "text": "The rule: new is a pointer bump in your own T lab, and an object that never leaves a hot method may never be allocated."
+  },
+  {
+   "cue": 131.3,
+   "start": 131.3,
+   "late": 0.0,
+   "tempo": 1.001,
+   "secs": 3.29,
+   "tries": 1,
+   "text": "Quick check. The loop adds each Point to a list."
+  },
+  {
+   "cue": 134.74,
+   "start": 134.74,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "Does C two remove the allocation?"
+  },
+  {
+   "cue": 139.3,
+   "start": 139.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.04,
+   "tries": 1,
+   "text": "No. The list is a way out."
+  }
+ ]
+}
