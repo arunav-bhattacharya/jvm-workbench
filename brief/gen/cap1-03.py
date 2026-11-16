@@ -156,7 +156,7 @@ Run it on a pool you can reason about gave the journal a pool with a reason for 
  "sections": [
   {
    "h": "One request, one virtual thread, and every limit written down",
-   "body": """Let's follow one request through the server. It spends almost all its time waiting: on the safety service, on the daily-limit check, on the ledger pool. The thread-per-request wall gave us the number for that: requests in flight = rate x time. At 2,000 requests a second and 150 ms each, 300 requests are in flight. When the safety service slows to 2 s, 4,000 are. A **platform thread** is a thread the operating system runs. One per request would mean 4,000 of them, each reserving about 1 MB for its stack, created at the worst moment.
+   "body": """Let's follow one request through the server. It spends almost all its time waiting: on the safety service, on the daily-limit check, on the ledger pool. The thread-per-request wall gave us the number for that: requests in flight = rate x time. At 2,000 requests a second and 150 ms each, 300 requests are in flight. When the safety service slows to 2 s, 4,000 are. A platform thread is a thread the operating system runs. One per request would mean 4,000 of them, each reserving about 1 MB for its stack (the memory that holds its chain of method calls), created at the worst moment.
 
 That lesson's restaurant gave every table a personal waiter, who stood at the kitchen door the whole time. How virtual threads work kept only a few waiters, and clipped each table's order slip to a board while it waited. A **virtual thread** is that order slip: a thread the JVM manages itself. While it waits on a network call, a lock or a semaphore, it lets go of its **carrier**, the platform thread that runs it. Its stack waits on the heap, the memory where Java keeps its objects. So 4,000 waiting requests cost 4,000 small objects, not 4,000 operating-system threads.
 
@@ -190,7 +190,7 @@ Now the trap from the opening. Moving a blocking service to virtual threads warn
 - The journal: lesson 2's `ledger-` pool, 8 threads and 80 slots, which answers "busy" when it's full.
 - Each request: one deadline of 300 ms for all of its checks.
 
-The ledger pool stays a pool of platform threads on purpose. It isn't there to save threads; it's a limit with a queue and a rejection rule, around work we want bounded. Request threads wait for its answer with `future.get()`. A **future** is the takeaway ticket from Callable, Future, cancellation and interruption: a claim on a result that isn't ready yet. Waiting on one costs a virtual thread a little heap.
+The ledger pool stays a pool of platform threads on purpose. It isn't there to save threads; it's a limit with a queue and a rejection rule, around work we want bounded. Request threads wait for its answer with `future.get()`. A future is the takeaway ticket from Callable, Future, cancellation and interruption: a claim on a result that isn't ready yet. Waiting on one costs a virtual thread a little heap.
 
 **Threads are free, so every limit sits on a resource. Write each one down.**
 
@@ -216,7 +216,7 @@ Twenty permits keep the safety service from being flooded. They don't stop a req
   },
   {
    "h": "A shared limit and one deadline for the slow safety check",
-   "body": """The safety service is the slow, shared dependency, an outside program the bank can't do without. When it slows down, two things must not follow: every request waiting as long as it does, and every request piling onto it at once. A deadline stops the first, and the bulkhead stops the second.
+   "body": """The safety service is the slow, shared dependency. When it slows down, two things must not follow: every request waiting as long as it does, and every request piling onto it at once. A deadline stops the first, and the bulkhead stops the second.
 
 The bulkhead is the shared semaphore from Using virtual threads, with one change: the wait for a permit is bounded by the time the request has left.
 
@@ -254,7 +254,7 @@ So at the deadline, the request interrupts its own call. An **interrupt** is Jav
 
 Give the safety service's network client its own timeout of the same length as well, so a call that ignores the interrupt still ends.
 
-This section's demo sends 400 requests a second for 3 seconds. Two runs printed, first on a normal day and then on a bad one:
+This section's demo sends 400 requests a second for 3 seconds. Here are a normal day and a bad one:
 
 ```text
 safety service takes 20 ms: {approved=1200}
@@ -383,7 +383,7 @@ To check a running service, keep JFR's `jdk.VirtualThreadPinned` event switched 
 
 **Inside an account lock, touch the accounts and nothing else. Write the journal first.**
 
-Everything holds on paper now. When something does go wrong in a running server, though, we'll need to see 10,000 waiting threads at once.""",
+When something does go wrong in a running server, though, we'll need to see 10,000 waiting threads at once.""",
    "try": {
     "title": "Pin a carrier, then free it",
     "minutes": 4,
@@ -423,9 +423,9 @@ JDK 25 says more about each thread. The same demo on JDK 25 wrote this entry, tr
 """ + JSON_25 + """
 ```
 
-It tells us the thread is virtual, that it's waiting, and what it waits for: a `Semaphore`, our bulkhead.
+It says the thread is virtual and waiting, and what it waits for: a `Semaphore`, our bulkhead.
 
-Ten thousand stacks can't be read one at a time, so we group them. **jq** is a small, free command-line tool for picking values out of JSON. The first command below counts the threads in each container. The second finds, in each stack, the first line of our own code and the JDK line just above it, then counts how many threads share each pair:
+Ten thousand stacks can't be read one at a time, so we group them. The tool `jq` is a small, free command-line program for picking values out of JSON. The first command below counts the threads in each container. The second finds, in each stack, the first line of our own code and the JDK line just above it, then counts how many threads share each pair:
 
 ```bash
 """ + JQ + """

@@ -174,12 +174,16 @@ HEAD_Y, CODE_Y, NOTE_Y, OUT_Y, COPY_Y, BOARD_Y = 2.28, 1.8, 1.05, 0.15, -0.75, -
 CW = 5.3
 
 
+def plain(c):
+    return ManimColor(c).to_hex().upper() in (ManimColor(GREY_B).to_hex().upper(), ManimColor(WHITE).to_hex().upper())
+
+
 class Cell(VGroup):
     """A box with a serif label and a monospace value, left aligned: 'photocopy (cache):  stop = false'."""
 
     def __init__(self, label, value, color=GREY_B, vcolor=WHITE, w=CW, h=0.66, center=False):
         r = RoundedRectangle(corner_radius=0.1, width=w, height=h, stroke_color=color, stroke_width=2.5)
-        r.set_fill(BLACK if color in (GREY_B, WHITE) else dim(color), 1)
+        r.set_fill(BLACK if plain(color) else dim(color), 1)
         super().__init__(r)
         self.center_text = center
         self.add(self._row(label, value, vcolor))
@@ -200,7 +204,7 @@ class Cell(VGroup):
         self.vcolor = vcolor if vcolor is not None else self.vcolor
         anims = [Transform(self[1], self._row(self.label, self.value, self.vcolor))]
         if color is not None:
-            anims.append(self[0].animate.set_stroke(color).set_fill(BLACK if color in (GREY_B, WHITE) else dim(color), 1))
+            anims.append(self[0].animate.set_stroke(color).set_fill(BLACK if plain(color) else dim(color), 1))
         return anims
 
 

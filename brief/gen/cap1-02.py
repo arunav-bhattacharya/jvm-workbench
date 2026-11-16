@@ -115,11 +115,11 @@ The sizes come from Little's law, from Sizing a pool: CPU-bound, IO-bound and Li
 
 The queue gets the same law. A busy pool finishes 1,600 transfers a second, so 80 queued transfers drain in 80 / 1,600 = 50 ms. If 50 ms is the longest a transfer should wait for a thread, 80 slots is the most the queue should hold. A queue of 10,000 would hide six seconds of waiting, long after the customer's app has given up.
 
-A pool has a **core size**, the threads it keeps, and a **maximum size**, the most it may ever have. Core equals max here because, as Inside ThreadPoolExecutor showed, a pool adds threads past its core only when the queue is full. Extra threads would only add waiters on the same journal, so the right answer to a full queue is no.
+A pool has a core size, the threads it keeps, and a maximum size, the most it may ever have. Core equals max here because, as Inside ThreadPoolExecutor showed, a pool adds threads past its core only when the queue is full. Extra threads would only add waiters on the same journal, so the right answer to a full queue is no.
 
 That leaves the last decision: what happens to a transfer when the queue is full. That's the **rejection policy**. `DiscardPolicy` and `DiscardOldestPolicy` drop a transfer without telling anyone, so they are never right for money. `CallerRunsPolicy` makes the thread that submitted the transfer write the journal itself. That suits a nightly import, and it's wrong for a thread serving a customer who is waiting.
 
-So the lab counts and throws. The counting policy is the bank's doorman. When the waiting area is full, he turns the next customer away politely and makes a mark on his clipboard. The customer gets a fast "busy, try again in a moment" (web servers send it as status 503) and tries again with the same transfer id. The marks show up on the bank's dashboard.
+So the lab counts and throws. The counting policy is the bank's doorman. When the waiting area is full, he turns the next customer away politely and makes a mark on his clipboard. The customer gets a fast "busy, try again in a moment" (web servers send it as status 503) and tries again with the same transfer id. The marks show up on the bank's dashboard, the screen where its staff watch the program's numbers.
 
 The thread factory gives each thread a name tag, `ledger-0` to `ledger-7`, as Pools in production did for the kitchen's cooks. Those name tags will matter at the end of this lesson.
 
@@ -332,7 +332,7 @@ pool.submit(Callable {
 
 With 2 threads and 3 statements, the first two statements take both threads. Each one submits a balance lookup, which joins the queue behind the third statement. Now both threads wait for lookups that need a free thread, and no thread will ever be free. Pools in production called this pool-induced deadlock, and pictured it as cooks waiting for tickets that sit on the rail behind them. This section is about finding it in a running program.
 
-The tool is `jcmd`, which comes with the JDK and sends commands to a running Java program. One of its commands prints a **thread dump**: every thread's name, state and stack at one moment. Start `PoolHangDemo` with a long hang, then run this from a second terminal:
+The tool is `jcmd`, which comes with the JDK and sends commands to a running Java program. One of its commands prints a **thread dump**: every thread's name, state and stack (the chain of method calls it is in the middle of) at one moment. Start `PoolHangDemo` with a long hang, then run this from a second terminal:
 
 ```bash
 jcmd                          # lists running Java programs and their process ids

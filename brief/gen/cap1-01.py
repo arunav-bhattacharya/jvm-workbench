@@ -131,7 +131,7 @@ run 3: total 4,941,343 cents, expected 500,000, off by 4,441,343
 
 By the third run, the bank holds ten times the money its customers ever paid in. Generous, and very wrong.
 
-Race conditions: why count++ lies showed the cause. `balance[from] -= cents` is three steps: read the balance, subtract, write it back. Say account 3 holds 100. Thread 1 reads 100 to send 20, and at the same moment thread 2 reads 100 to send 30. Thread 1 writes 80. Thread 2 writes 70. Both transfers paid out, but only one debit stuck, so 20 cents now exist twice. That is a **lost update**, and a lost credit destroys money the same way.
+Race conditions: why count++ lies showed the cause. `balance[from] -= cents` is three steps: read the balance, subtract, write it back. Say account 3 holds 100. Thread 1 reads 100 to send 20, and at the same moment thread 2 reads 100 to send 30. Thread 1 writes 80. Thread 2 writes 70. Both transfers paid out, but only one debit stuck, so 20 cents now exist twice. That is a lost update, and a lost credit destroys money the same way.
 
 Before we fix it, let's decide what fixed means. An **invariant** is a rule about the data that must be true whenever another thread can look. Our ledger has three:
 
@@ -187,7 +187,7 @@ applied: 13,920 different lines, 48,394,607 cents, 40 rows mixing two lines
 
 The ledger applied 100,000 transfers built from only 13,920 different lines. Forty rows carried the id of one line and the amount of another. In another run, only 15 different lines arrived at all. The bank paid a handful of customers thousands of times and most of them never.
 
-Happens-before, the rules that matter, named the cause. **Happens-before** is the memory model's promise that one thread sees what another wrote before a handover. That lesson pictured the handover as a cashier who locks the cabinet and leaves the key for the night manager. Handing a task to a pool is such a handover, but it covers only what was written before `execute`. The importer's later writes to the same row have no handover at all. That's a **data race**: two threads use the same field, at least one of them writes, and no happens-before rule links them. The reader can see any mix of old and new values.
+Happens-before, the rules that matter, named the cause. Happens-before is the memory model's promise that one thread sees what another wrote before a handover. That lesson pictured the handover as a cashier who locks the cabinet and leaves the key for the night manager. Handing a task to a pool is such a handover, but it covers only what was written before `execute`. The importer's later writes to the same row have no handover at all. That's a **data race**: two threads use the same field, at least one of them writes, and no happens-before rule links them. The reader can see any mix of old and new values.
 
 The fix is a value that can't change once it's built. A Java record, or a Kotlin `data class` with only `val` properties, has final fields and no setters:
 
