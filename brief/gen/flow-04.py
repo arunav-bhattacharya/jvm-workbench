@@ -1,0 +1,455 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/flows/src"
+P = "kotlin/workbench/flows/l04"
+J = "java/workbench/flows/l04"
+read = lambda p: (ROOT / p).read_text()
+demo = lambda name: f"{lab}/demo/{P}/{name}"
+jdemo = lambda name: f"{lab}/demo/{J}/{name}"
+run = lambda cls, extra="": f"./gradlew :flows:demo -Pmain=workbench.flows.l04.{cls}{extra}"
+API = "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/"
+
+
+def tryit(kt, java=None, extra_kt=""):
+    k = kt.replace(".kt", "")
+    code = {"lang": "kotlin", "title": kt, "src": read(demo(kt)), "run": run(k + "Kt", extra_kt), "file": demo(kt)}
+    if java:
+        j = java.replace(".java", "")
+        code["alt"] = {"lang": "java", "title": java, "src": read(jdemo(java)), "run": run(j), "file": jdemo(java)}
+    else:
+        code["solo"] = True
+    return code
+
+
+slots = ""
+for i in range(10):
+    x = 166 + i * 36
+    slots += (f'<rect class="box" x="{x}" y="56" width="32" height="38" rx="6"/>'
+              f'<text class="t-s" x="{x + 16}" y="80" text-anchor="middle">{i + 2}</text>')
+
+FIG = (
+    '<svg viewBox="0 0 680 300" role="img" aria-label="buffer(10) drawn as a belt. A reader coroutine on the left sends postings '
+    'onto a belt with ten slots, holding postings 2 to 11. The writer on the right holds posting 1, still inside emit. So 11 emits '
+    'have returned. Below, three small panels: a plain flow has no belt and 0 emits ahead, buffer(0) is a hand-over with 1 emit ahead, '
+    'and conflate() is a single plate stand where the newest value replaces the waiting one.">'
+    '<text class="t-s t-m" x="346" y="34" text-anchor="middle">buffer(10): a channel with 10 slots</text>'
+    '<rect class="box-a" x="20" y="50" width="120" height="50" rx="8"/>'
+    '<text class="t" x="80" y="72" text-anchor="middle">reader</text>'
+    '<text class="t-s" x="80" y="90" text-anchor="middle">coroutine 2</text>'
+    '<line class="ln" x1="140" y1="75" x2="158" y2="75" marker-end="url(#arr)"/>'
+    '<rect class="box-dim" x="160" y="48" width="364" height="54" rx="8"/>'
+    + slots +
+    '<line class="ln" x1="524" y1="75" x2="544" y2="75" marker-end="url(#arr)"/>'
+    '<rect class="box-b" x="546" y="50" width="114" height="50" rx="8"/>'
+    '<text class="t" x="603" y="72" text-anchor="middle">writer</text>'
+    '<text class="t-s" x="603" y="90" text-anchor="middle">holds posting 1</text>'
+    '<text class="t-s t-m" x="342" y="124" text-anchor="middle">send() returns while a slot is free</text>'
+    '<text class="t-s t-m" x="603" y="124" text-anchor="middle">emit(1) still running</text>'
+    '<text class="t t-a" x="340" y="156" text-anchor="middle">emits returned = 10 on the belt + 1 in hand = 11</text>'
+    '<rect class="box" x="20" y="186" width="200" height="90" rx="8"/>'
+    '<text class="t t-code" x="120" y="210" text-anchor="middle">flow { }</text>'
+    '<text class="t-s" x="120" y="234" text-anchor="middle">emit runs the writer\'s code</text>'
+    '<text class="t-s t-a" x="120" y="258" text-anchor="middle">0 emits ahead</text>'
+    '<rect class="box" x="240" y="186" width="200" height="90" rx="8"/>'
+    '<text class="t t-code" x="340" y="210" text-anchor="middle">buffer(0)</text>'
+    '<text class="t-s" x="340" y="234" text-anchor="middle">coroutine 2, a hand-over</text>'
+    '<text class="t-s t-a" x="340" y="258" text-anchor="middle">1 emit ahead</text>'
+    '<rect class="box" x="460" y="186" width="200" height="90" rx="8"/>'
+    '<text class="t t-code" x="560" y="210" text-anchor="middle">conflate()</text>'
+    '<text class="t-s" x="560" y="234" text-anchor="middle">one stand, newest replaces</text>'
+    '<text class="t-s t-bad" x="560" y="258" text-anchor="middle">never waits, drops</text>'
+    '</svg>'
+)
+
+S1 = """The settlement import reads postings from the acquirer's file and writes each one to the ledger. Today a row lock holds the writer on posting 1. The reader is a plain `flow { }` that counts how many of its `emit` calls have returned. Put a buffer between them and look at the counter while the writer waits:
+
+```kotlin
+var returned = 0
+val reader = flow { for (seq in 1..200) { emit(seq); returned = seq } }
+launch { reader.buffer(10).collect { posting -> ledger.post(posting) } }   // stuck on posting 1
+delay(100)
+println(returned)   // and with no buffer? buffer(0)? buffer()?
+```
+
+```java
+// Closest Java equivalent: a bounded queue between a reader thread and a writer thread
+BlockingQueue<Integer> belt = new ArrayBlockingQueue<>(10);
+Thread.ofPlatform().start(() -> { for (int seq = 1; seq <= 200; seq++) { putQuietly(belt, seq); returned.set(seq); } });
+Thread.ofPlatform().start(() -> { while (true) ledger.post(takeQuietly(belt)); });   // stuck on posting 1
+```
+
+Write your four guesses down. The answers are 0 with no buffer, 1 for `buffer(0)`, 11 for `buffer(10)` and 65 for `buffer()`. They come out the same on every run.
+
+The 0 is lesson 1 of this track: without a buffer, `emit` calls the writer's code, so it can't return while the writer is stuck. The other three numbers need a mechanism. The `buffer` KDoc sketches it in four lines, and it is worth writing out once:
+
+```kotlin
+fun <T> Flow<T>.handMadeBuffer(n: Int): Flow<T> = flow {
+    coroutineScope {
+        val channel = produce(capacity = n) { collect { send(it) } }   // coroutine 2 runs the upstream
+        channel.consumeEach { emit(it) }                               // our coroutine hands each value on
+    }
+}
+```
+
+```java
+// Closest Java equivalent: a second thread runs the upstream and puts into a queue with n slots
+static <T> void handMadeBuffer(List<T> upstream, int n, Consumer<T> downstream) throws InterruptedException {
+    BlockingQueue<T> belt = n == 0 ? new SynchronousQueue<>() : new ArrayBlockingQueue<>(n);
+    Thread producer = Thread.ofVirtual().start(() -> upstream.forEach(v -> putQuietly(belt, v)));
+    for (int i = 0; i < upstream.size(); i++) downstream.accept(belt.take());
+    producer.join();
+}
+```
+
+Read it as two rooms with a **belt with n slots** between them. `buffer(n)` moves everything above it into a second coroutine. In there, the reader's `emit` has become a `send` into a channel, and `send` returns as soon as a slot is free. Our own coroutine takes values off the belt and calls the real `emit`, which runs the writer. So while the writer holds posting 1, postings 2 to 11 sit on the belt. Eleven emits have returned: ten for the postings on the belt, and one for posting 1, which left the belt when the writer picked it up.
+
+`buffer(0)` has no slots. It is a hand-over where both hands must meet, which channels call a rendezvous. There is still a second coroutine, so exactly one emit returns. That one value of slack is why `buffer(0)` turns the 1,200 ms of the 100/300 ms model from lesson 9 of the coroutines track into 1,000 ms, the same as `buffer()`.
+
+`buffer()` with no argument means `Channel.BUFFERED`, which is -2 in the code and 64 slots on the JVM. Hence 65. The system property `kotlinx.coroutines.channels.defaultBuffer` changes that default for every channel in the process. It is `@DelicateCoroutinesApi`, and its KDoc calls it a "last-ditch effort" for hot fixes. Write the size at the call site instead.
+
+Check yourself before the Try it: what does the probe print for `buffer(1)`?"""
+
+S2 = """Everything so far used the default policy, `BufferOverflow.SUSPEND`. When the belt is full, `send` waits, so the reader waits. Nothing is lost, and the reader is never more than n + 1 ahead. The other two policies never wait. When the belt is full they throw a value away.
+
+Here are 200 FX ticks arriving while the repricer is stuck on tick 1:
+
+| Operator | The repricer sees | What the full belt did |
+|---|---|---|
+| `buffer(10)` | all 200 | made the feed wait |
+| `buffer(10, DROP_OLDEST)` | 1, then 191 to 200 | pushed the oldest plate off the far end |
+| `buffer(10, DROP_LATEST)` | 1 to 11 | dropped each new plate in the bin |
+| `conflate()` | 1 and 200 | one plate stand: each new plate replaces the one on it |
+
+Tick 1 is in every row because the repricer had it in its hands before the flood started.
+
+`conflate()` is `buffer(CONFLATED)`, and the library turns `CONFLATED` into capacity 0 with `DROP_OLDEST`. A drop policy can't work with zero slots, so the channel gets exactly one. That rule sets a trap. A teammate wants "the newest 64 if the ledger falls behind" and writes `buffer(onBufferOverflow = DROP_OLDEST)`. The capacity defaults to `BUFFERED`, and the `Channel` KDoc says what that means with a drop policy: "If a different BufferOverflow is specified, `Channel(BUFFERED)` creates a channel with a buffer of size 1". So the line is `conflate()` under another name, and the probe receives `[1, 200]`. If you mean 64, write `buffer(64, DROP_OLDEST)`.
+
+Conflation only loses values that arrive while the collector is busy. A repricer that takes 50 ms, behind a feed that ticks every 100 ms, sees every tick.
+
+So pick the policy by what a lost value costs. A stale FX rate is worth nothing once a newer one exists, so the repricer may conflate. A dropped ledger posting is money that reconciliation finds missing days later. Ledger postings get `SUSPEND`, always.
+
+Reactor makes the same trades under other names, and you used them in lesson 7 of the reactive track:
+
+```kotlin
+rates.conflate()
+rates.buffer(10, BufferOverflow.DROP_OLDEST)
+postings.buffer(10)                                   // full: the reader suspends
+```
+
+```java
+// Closest Java equivalent: Reactor's onBackpressure operators
+rates.onBackpressureLatest();
+rates.onBackpressureBuffer(10, r -> {}, BufferOverflowStrategy.DROP_OLDEST);
+postings.onBackpressureBuffer(10);                    // full: the stream fails
+```
+
+In the probe the first two match their Flow twins exactly: `[1, 200]` and `[1, 191..200]`. The third doesn't. Reactor's bounded buffer with no strategy cancels the source and fails with `OverflowException: The receiver is overrun by more signals than expected (bounded queue...)`. Flow's bounded buffer has no failure mode. It makes the producer wait.
+
+Check yourself: what does `buffer(0, DROP_LATEST)` deliver in the same probe?"""
+
+S3 = """`buffer(10).buffer(20)` doesn't build two belts. It builds one belt with 30 slots, and the probe counts 31 emits. Every operator that is built on a channel (`buffer`, `conflate`, `flowOn`, `channelFlow`, `produceIn`) first looks at the flow it was called on. If that is also a channel flow, it adds no coroutine. It merges its settings into the one that is already there. The library calls this fusion. Picture short belt segments snapped together into one belt with one sticker on it.
+
+The merge rules are short:
+
+- Two explicit sizes add up: 10 + 20 is 30.
+- `buffer()` without a size gives way to an explicit one, so `buffer(10).buffer()` has 10 slots and `buffer().buffer()` still has 64.
+- A policy other than `SUSPEND` replaces everything before it. `buffer(10).conflate()` is plain `conflate()`, and the 10 is thrown away. `conflate().buffer(10)` is a 10-slot belt that drops the oldest.
+- `flowOn` shares the channel too. `buffer(5).flowOn(Dispatchers.IO)` and `flowOn(Dispatchers.IO).buffer(5)` are both one channel, filled on IO, with 5 slots.
+
+You can watch it happen, because these channel flows print their settings in `toString()`:
+
+```text
+buffer(10).buffer(20)    ChannelFlowOperatorImpl[capacity=30]
+buffer(10).conflate()    ChannelFlowOperatorImpl[capacity=0, onBufferOverflow=DROP_OLDEST]
+conflate().buffer(10)    ChannelFlowOperatorImpl[capacity=10, onBufferOverflow=DROP_OLDEST]
+buffer(5).flowOn(IO)     ChannelFlowOperatorImpl[context=Dispatchers.IO, capacity=5]
+```
+
+Treat that string as a peek under the hood. It is a debug aid, not an API, and any release may change it. When it matters, test the behaviour instead: count the emits that return while the collector is stuck, as the lab does.
+
+One line in the docs reads the other way. The `conflate` KDoc says that if a buffer size was given before it, "the buffer size is unchanged". In 1.11.0, `buffer(10).conflate()` delivers `[1, 200]` in the probe, exactly like `conflate()`, and its `toString()` shows capacity 0. The `buffer` KDoc matches the code: a `buffer` call with a non-`SUSPEND` policy "overrides all immediately preceding buffering operators". I read the `conflate` sentence as ambiguous rather than wrong, and I don't rely on it. When I want ten slots that drop the oldest, I write it in one call: `buffer(10, DROP_OLDEST)`.
+
+Check yourself: what single channel does `buffer(10).buffer(5, DROP_LATEST)` become?"""
+
+S4 = """The FX repricer moves to `collectLatest`, so a new rate cancels the repricing in progress. Each cancelled repricing must release a quote lock first, which takes 50 ms that can't be cancelled. Ticks arrive every 100 ms and a repricing takes 300 ms. When does the feed emit tick 3?
+
+```kotlin
+rates.collectLatest { rate ->
+    try {
+        reprice(rate)                                                // 300 ms
+    } catch (e: CancellationException) {
+        withContext(NonCancellable) { quoteLocks.release(rate) }    // 50 ms
+        throw e
+    }
+}
+```
+
+```java
+// Closest Java equivalent: switchMap cancels the inner; a cancel is a signal, so the release can only be fired off
+rates.switchMap(rate -> reprice(rate)
+        .doOnCancel(() -> quoteLocks.releaseAsync(rate).subscribe()));
+```
+
+Most people say 300. The virtual clock says 350, and the run ends at 700 instead of 600:
+
+```text
+t=100 emit 1, start 1
+t=200 emit 2, cancelled 1 (ChildCancelledException)
+t=250 cleanup of 1 finished, start 2
+t=350 emit 3, cancelled 2
+t=400 cleanup of 2 finished, start 3
+t=700 done 3
+```
+
+`collectLatest` is `mapLatest(action).buffer(0).collect()`, and `mapLatest` is a thin wrapper over `transformLatest`. Its core is a short loop. A producer coroutine collects the upstream, and for each new value it cancels the previous block, joins it, and only then launches the new one:
+
+```kotlin solo
+flow.collect { value ->
+    previous?.apply { cancel(ChildCancelledException()); join() }    // wait until the old block has finished
+    previous = launch(start = CoroutineStart.UNDISPATCHED) { collector.transform(value) }
+}
+```
+
+The `join()` is the surprise. Tick 1's cleanup must finish before tick 2's repricing starts. And this loop body runs inside the upstream's `collect`, so the `join()` also sits inside the feed's `emit`. The feed can't start its next `delay(100)` until the old block has cleaned up. Picture a cashier tearing up a half-written receipt when a new order comes in. She finishes shredding before she starts the new receipt, and the cook waits at the hatch meanwhile. Reactor's `switchMap` gives emits at 100, 200 and 300 and ends at 600, because a Reactor cancel is a method call that returns at once and there is no suspending cleanup to wait for.
+
+Two rules follow. Keep the cancelled path short. And use the Latest family only for work you can throw away. Repricing a checkout is pure: a cancelled repricing costs nothing. Posting an FX revaluation entry per rate is a side effect: a cancelled block may have written half of it, and a skipped rate is never posted. That pipeline gets `buffer()`.
+
+Cancelling yourself behind a belt has its own surprise. A collector that never suspends calls `cancel()` on its own job at value 3. Behind `buffer()` it still receives 66 values in all, and behind `buffer(10)` it receives 12. The values already on the belt keep coming, because receiving from a channel that has elements doesn't suspend, and `emitAll` checks for cancellation once, before its loop. A collector that does I/O or calls `delay` sees the cancellation at its next suspension, so this bites only CPU-only collectors. Add `.cancellable()` after the buffer. It checks before every emit, and the count drops to 3."""
+
+L = {
+ "id": "flow-04",
+ "title": "Buffering: buffer, conflate, collectLatest and fusion",
+ "minutes": 35,
+ "goal": "By the end you can predict how far a producer runs ahead behind any buffer or conflate chain, which values it loses and why, what collectLatest waits for, and pick the right one for FX repricing and for ledger postings.",
+ "warmup": {
+  "q": "A settlement reader emits 200 postings into `.buffer(10)`. The ledger writer behind it is stuck on posting 1. How many of the reader's `emit` calls have returned?",
+  "options": [
+   "0: emit always waits for the collector",
+   "10: one per slot",
+   "11",
+   "200: the buffer lets the reader finish"
+  ],
+  "answer": 2,
+  "why": "`buffer(10)` runs the reader in a second coroutine that sends into a channel with 10 slots. Postings 2 to 11 fill the slots, and posting 1 left the channel when the writer took it. That is 10 + 1. Then the next `send` suspends. The answer 0 is right only without a buffer, where `emit` calls the writer's code directly."
+ },
+ "sections": [
+  {
+   "h": "A buffer is a second coroutine and a belt with n slots",
+   "body": S1,
+   "figure": {"svg": FIG, "caption": "With the default SUSPEND policy the producer gets n + 1 emits ahead: n on the belt, one in the collector's hands."},
+   "try": {
+    "title": "Count the emits that return",
+    "minutes": 4,
+    "steps": [
+     "Open `AheadProbe.kt`. Before you run it, write down a number for each of the seven lines, including `handMadeBuffer(10)`, the KDoc's sketch.",
+     "Run it with the command below and compare.",
+     "Run it again with `-Pargs=8` added. That sets `kotlinx.coroutines.channels.defaultBuffer` to 8 before any channel exists. Which line changes?",
+     "Run the Java twin, `AheadProbeJava`. It puts a `SynchronousQueue` or an `ArrayBlockingQueue` between two threads. Predict its four numbers first."
+    ],
+    "code": tryit("AheadProbe.kt", "AheadProbeJava.java"),
+    "expect": "Plain 0, `buffer(0)` 1, `buffer(1)` 2, `buffer(10)` 11, `handMadeBuffer(10)` 11, `buffer()` 65, `buffer(UNLIMITED)` 200, and every posting arrives. With `-Pargs=8`, only `buffer()` changes, to 9. The Java twin prints 1, 2, 11 and 65: the same counting, with a blocked thread where Kotlin has a suspended coroutine."
+   },
+   "refs": [
+    {"title": "buffer (kotlinx.coroutines API)", "url": API + "kotlinx.coroutines.flow/buffer.html", "kind": "docs"},
+    {"title": "Channel.BUFFERED (kotlinx.coroutines API)", "url": API + "kotlinx.coroutines.channels/-channel/-factory/-b-u-f-f-e-r-e-d.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "When the belt is full, the overflow policy decides who loses",
+   "body": S2,
+   "try": {
+    "title": "Flood a stuck repricer",
+    "minutes": 4,
+    "steps": [
+     "Open `DropPolicies.kt`. For each of the six lines, predict which ticks the repricer sees after it gets unstuck.",
+     "Run it. Look hardest at `buffer(onBufferOverflow = DROP_OLDEST)`.",
+     "Run the Reactor twin, `DropPoliciesJava`. Find the one line where Reactor and Flow disagree, and the line Flow has no exact twin for."
+    ],
+    "code": tryit("DropPolicies.kt", "DropPoliciesJava.java"),
+    "expect": "Flow: `buffer(10)` all 200, `DROP_OLDEST` `[1, 191..200]`, `DROP_LATEST` `[1..11]`, `conflate()` `[1, 200]`, `buffer(onBufferOverflow = DROP_OLDEST)` also `[1, 200]` (one slot), and `buffer(0, DROP_LATEST)` `[1, 2]`. Reactor matches the first three, `onBackpressureDrop()` gives just `[1]`, and `onBackpressureBuffer(10)` delivers 11 and then fails with \"The receiver is overrun by more signals than expected (bounded queue...)\"."
+   },
+   "refs": [
+    {"title": "BufferOverflow (kotlinx.coroutines API)", "url": API + "kotlinx.coroutines.channels/-buffer-overflow/", "kind": "docs"},
+    {"title": "conflate (kotlinx.coroutines API)", "url": API + "kotlinx.coroutines.flow/conflate.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "Buffers next to each other fuse into one channel",
+   "body": S3,
+   "try": {
+    "title": "Read the sticker",
+    "minutes": 3,
+    "steps": [
+     "Open `Fusion.kt`. For each chain, predict the capacity and policy the single channel ends up with, and the emits that return while the collector is stuck.",
+     "Run it. The middle column is `toString()`, the right column is the behaviour.",
+     "Add a line for `buffer(10).buffer(5, BufferOverflow.DROP_LATEST)` and check your answer to the section's question."
+    ],
+    "code": tryit("Fusion.kt"),
+    "expect": "`buffer()` and `buffer().buffer()` both show `capacity=-2` and 65 ahead. `buffer(10).buffer(20)` shows `capacity=30` and 31 ahead. `buffer(10).conflate()` shows `capacity=0, onBufferOverflow=DROP_OLDEST` and receives 2. `conflate().buffer(10)` shows `capacity=10` with `DROP_OLDEST` and receives 11. `buffer(5).flowOn(IO)` is one channel on IO with 5 slots, 6 ahead. Your extra line shows `capacity=5, onBufferOverflow=DROP_LATEST`."
+   },
+   "refs": [
+    {"title": "operators/Context.kt at tag 1.11.0 (buffer, conflate, flowOn and their fusion KDoc)", "url": "https://raw.githubusercontent.com/Kotlin/kotlinx.coroutines/1.11.0/kotlinx-coroutines-core/common/src/flow/operators/Context.kt", "kind": "read"}
+   ]
+  },
+  {
+   "h": "With collectLatest, a new value cancels the old block and waits for it",
+   "body": S4,
+   "try": {
+    "title": "Time the shredding",
+    "minutes": 4,
+    "steps": [
+     "Open `LatestJoin.kt`. It runs on virtual time. Predict the time of `emit 3` and of `done 3` before you run it.",
+     "Run it. Then change the cleanup's `delay(50)` to `delay(150)` and predict again.",
+     "Read the second half of the output: a collector that never suspends cancels itself at 3. Predict each count first.",
+     "Run `LatestJoinJava`, the `switchMap` twin, in real time."
+    ],
+    "code": tryit("LatestJoin.kt", "LatestJoinJava.java"),
+    "expect": "`emit 3` at 350 and `done 3` at 700. With a 150 ms cleanup, tick 2 starts at 350, the feed emits tick 3 at 450, and tick 3 is done at 900 ms. The CPU-only collector gets 0 extra values from `flow { }`, 9 behind `buffer(10)`, 63 behind `buffer()`, and 0 once `.cancellable()` follows the buffer. The Reactor twin emits at about 100, 200 and 300 ms and finishes at about 600 ms: its cancel doesn't wait for anything."
+   },
+   "refs": [
+    {"title": "collectLatest (kotlinx.coroutines API)", "url": API + "kotlinx.coroutines.flow/collect-latest.html", "kind": "docs"},
+    {"title": "cancellable (kotlinx.coroutines API)", "url": API + "kotlinx.coroutines.flow/cancellable.html", "kind": "docs"}
+   ]
+  }
+ ],
+ "analogy": "A kitchen and a dining room with a conveyor belt between them. Without a belt, the cook carries each plate to the table and stands there until the diner has eaten. `buffer(n)` hires a second cook and installs a belt with n slots: the cook keeps plating until the belt is full, so n plates wait and one is in the diner's hands. The overflow policy is what happens at a full belt: the cook waits (SUSPEND), the oldest plate is pushed off the far end (DROP_OLDEST), or the new plate goes in the bin (DROP_LATEST). `conflate()` swaps the belt for a single plate stand. The analogy breaks at fusion. Two real belts in a row hold the plates of both, and nothing on the second belt can erase the first. Two buffers in a row snap into one belt whose length is the sum, and a drop policy at the end replaces the belts before it.",
+ "in_your_world": "Your FX service reads ticks from a Kafka topic and reprices open checkouts. `conflate()` or `mapLatest` is right there: a quote at a rate that has already moved is worth nothing, and repricing has no side effects. The nightly settlement import reads the acquirer's file and posts to the Oracle ledger. When a long transaction holds a row lock for two seconds, `buffer(64)` lets the reader stay 65 postings ahead and then makes it wait, so memory stays flat and nothing is lost. Put a drop policy there and a lock wait becomes missing money that reconciliation finds days later. Check the Kafka side too: a consumer that bridges records into a flow through a `callbackFlow` already has a 64-slot channel inside, and the same fusion rules decide what a `buffer` after it does.",
+ "mistake": "Writing `buffer(onBufferOverflow = BufferOverflow.DROP_OLDEST)` and believing it keeps the newest 64 values. The default capacity is `BUFFERED`, and a `BUFFERED` channel with any drop policy has exactly one slot, so the line behaves like `conflate()`. People make this mistake because `buffer()` alone is 64, and adding a policy looks like it changes only what happens when those 64 are full. A close cousin is `buffer(10).conflate()`, which is also plain `conflate()`, because a drop policy overrides the buffers before it. The fix is to say both things in one call: `buffer(64, BufferOverflow.DROP_OLDEST)`. And before you pick any drop policy, ask what one lost value costs. For ledger postings the answer is always too much, so they get the default `SUSPEND`.",
+ "compare": {
+  "title": "The same loss policies in Kotlin Flow and in Reactor",
+  "java": {
+   "title": "Reactor",
+   "src": "Flux<Posting> everyPosting = postings.limitRate(64);                 // demand in batches of 64; nothing is dropped\nFlux<Rate> newestOnly = rates.onBackpressureLatest();                 // one slot, the newest replaces it\nFlux<Rate> lastTen = rates.onBackpressureBuffer(10, r -> {}, BufferOverflowStrategy.DROP_OLDEST);\nFlux<Rate> firstTen = rates.onBackpressureBuffer(10, r -> {}, BufferOverflowStrategy.DROP_LATEST);\nFlux<Rate> failFast = rates.onBackpressureBuffer(10);                 // full: OverflowException\nFlux<Quote> quotes = rates.switchMap(fx::reprice);                    // a new rate cancels the old call"
+  },
+  "kotlin": {
+   "title": "Kotlin Flow",
+   "src": "val everyPosting = postings.buffer(64)                                // full: the reader suspends\nval newestOnly = rates.conflate()                                     // one slot, the newest replaces it\nval lastTen = rates.buffer(10, BufferOverflow.DROP_OLDEST)\nval firstTen = rates.buffer(10, BufferOverflow.DROP_LATEST)\n// no failFast: a bounded Flow buffer never errors, it makes the producer wait\n@OptIn(ExperimentalCoroutinesApi::class)\nval quotes = rates.mapLatest { fx.reprice(it) }                      // cancels, joins, then starts the next"
+  },
+  "note": "The drop policies match one for one, and the probe gives the same lists in both. The machinery underneath differs. Reactor's backpressure is a number sent upstream with `request(n)`, so `limitRate` reshapes demand and `onBackpressureBuffer(n)` has to decide what to do when a source ignores it: by default it fails. A cold Kotlin flow can't overflow, because `emit` doesn't return until the collector is ready. Loss is possible only where something puts a channel between two coroutines, and that is exactly what `buffer`, `conflate` and `flowOn` do. Two more differences show up in this lesson. Adjacent Flow buffers fuse into one channel with combined settings. And `mapLatest` joins the cancelled block before it starts the next one, while `switchMap` just sends the cancel."
+ },
+ "worked": {
+  "title": "Pick the buffering for three pipelines in one service",
+  "steps": [
+   {"say": "The checkout service reprices open baskets from an FX feed. Ticks come every 100 ms, a repricing takes 300 ms, and only the newest rate matters. A repricing that has started may finish. That is conflation.",
+    "code": "val quotes: Flow<Quote> = rates\n    .conflate()                       // 1. one slot: a busy repricer skips to the newest rate\n    .map { fx.reprice(it) }           // 2. runs below the slot, in the collector's coroutine",
+    "lang": "kotlin", "alt_lang": "java",
+    "alt_code": "// Closest Java equivalent: keep the newest rate, reprice one at a time\nFlux<Quote> quotes = rates\n        .onBackpressureLatest()           // 1. one slot: a busy repricer skips to the newest rate\n        .concatMap(fx::reprice, 1);       // 2. one repricing at a time, asking for one rate at a time"},
+   {"say": "The basket page shows the price while the customer types an amount. A stale repricing should stop at once, and repricing has no side effects. Cancel it. In virtual time this finishes only the newest of three ticks, at 600 ms.",
+    "code": "@OptIn(ExperimentalCoroutinesApi::class)   // mapLatest is experimental in 1.11.0\nval shown: Flow<Quote> = amounts\n    .mapLatest { amount -> fx.reprice(amount) }   // a new amount cancels, joins, then starts again",
+    "lang": "kotlin", "alt_lang": "java",
+    "alt_code": "// Closest Java equivalent: switchMap cancels the inner call when a new amount arrives\nFlux<Quote> shown = amounts\n        .switchMap(fx::reprice);"},
+   {"say": "The settlement import posts every record to the ledger. Nothing may be lost, and memory must stay bounded when a row lock stalls the writer. The default policy does both. The reader can get 65 postings ahead, then it waits.",
+    "code": "settlementFile.postings()\n    .buffer(64)                       // SUSPEND: a full belt makes the reader wait\n    .collect { ledger.post(it) }      // nothing dropped, at most 64 waiting",
+    "lang": "kotlin", "alt_lang": "java",
+    "alt_code": "// Closest Java equivalent: a bounded queue between the reader thread and the writer\nBlockingQueue<Posting> belt = new ArrayBlockingQueue<>(64);\nThread.ofVirtual().start(() -> settlementFile.postings().forEach(p -> putQuietly(belt, p)));   // blocks when full\nwhile (true) ledger.post(belt.take());"},
+   {"say": "Review the teammate's version of the import, which was meant to \"keep the newest 64\". It keeps one. Under a two-second lock it posts posting 1 and the last one read, and silently drops the rest. Replace it with step 3.",
+    "code": "settlementFile.postings()\n    .buffer(onBufferOverflow = BufferOverflow.DROP_OLDEST)   // BUFFERED + a drop policy = ONE slot\n    .collect { ledger.post(it) }",
+    "lang": "kotlin", "alt_lang": "java",
+    "alt_code": "// Closest Java equivalent of the bug: Reactor's latest-only buffer\nsettlementFile.postingsFlux()\n        .onBackpressureLatest()                                // one slot, the newest replaces it\n        .concatMap(ledger::post, 1)\n        .blockLast();"}
+  ]
+ },
+ "lab": {
+  "title": "Build a belt by hand, then buffer FX ticks and ledger postings",
+  "minutes": 14,
+  "files": [
+   "labs/flows/src/main/kotlin/workbench/flows/l04/Belt.kt",
+   "labs/flows/src/main/kotlin/workbench/flows/l04/Buffering.kt",
+   "labs/flows/src/main/kotlin/workbench/flows/l04/Model.kt"
+  ],
+  "run": "./gradlew :flows:test --tests 'workbench.flows.l04.*'",
+  "steps": [
+   "Run the tests once. All 11 fail. Read the test names in `BufferingTest`: they are the spec, and every timing is in virtual milliseconds.",
+   "In `Belt.kt`, write `belt(capacity)` without calling `buffer()`: `flow { coroutineScope { ... } }` with a `Channel<T>(capacity)`, a `launch` that collects the upstream into it with `send` and closes it in a `finally`, and a `for` loop over the channel that calls `emit`.",
+   "In `Buffering.kt`, write `everyRate`, `latestRate` and `cancelStale`. Each is one operator and at most one `map`. Predict each test's virtual time before you run it.",
+   "Fix `towardsLedger`. The tests say the reader may run exactly 64 postings ahead and must never lose one.",
+   "Run the tests until all 11 pass, then run them once more."
+  ],
+  "hints": [
+   "If `belt(10)` reports 0 emits, the upstream still runs in the collector's coroutine. The `collect { slots.send(it) }` must be inside the `launch`.",
+   "If a `belt` test hangs and then times out, the `for` loop is waiting for more values. Close the channel when the upstream's `collect` returns, in a `finally`.",
+   "`mapLatest` needs `@OptIn(ExperimentalCoroutinesApi::class)` in 1.11.0. Without it the compiler warns but still builds.",
+   "For `towardsLedger`, the default policy is the right one. You only need the right number of slots."
+  ],
+  "done_when": "All 11 tests in `BufferingTest` pass, twice in a row."
+ },
+ "drill": {
+  "title": "Write buffer(n) from memory",
+  "minutes": 5,
+  "prompt": "Close this page and the lab. Write `fun <T> Flow<T>.myBuffer(n: Int): Flow<T>` with `flow { }`, `coroutineScope`, a `Channel` and `launch`. Then answer without running anything: behind `myBuffer(3)`, how many emits return while the collector is stuck on its first value? And behind `myBuffer(3).myBuffer(3)`, built from your function rather than the library's?",
+  "answer": {
+   "lang": "kotlin",
+   "src": "fun <T> Flow<T>.myBuffer(n: Int): Flow<T> = flow {\n    coroutineScope {\n        val slots = Channel<T>(n)\n        launch {                                   // 1. a second coroutine runs the upstream\n            try { collect { slots.send(it) } }     //    send waits only when all n slots are full\n            finally { slots.close() }              // 2. lets the loop below end\n        }\n        for (value in slots) emit(value)           // 3. our coroutine hands each value on\n    }\n}\n// myBuffer(3): 3 on the belt + 1 in hand = 4 emits return.\n// myBuffer(3).myBuffer(3): your function doesn't fuse, so it is two belts and three coroutines.\n// The middle coroutine holds one value too: 3 + 1 + 3 + 1 = 8. The library's buffer(3).buffer(3)\n// fuses into one channel of 6 slots, so 7.",
+   "alt": {
+    "lang": "java",
+    "src": "// Closest Java equivalent: a producer thread and a queue with n slots (n >= 1 here)\nstatic <T> void myBuffer(Iterable<T> upstream, int n, Consumer<T> downstream) throws InterruptedException {\n    BlockingQueue<Optional<T>> slots = new ArrayBlockingQueue<>(n);\n    Thread producer = Thread.ofVirtual().start(() -> {   // 1. a second thread runs the upstream\n        try {\n            for (T v : upstream) slots.put(Optional.of(v)); //    put blocks only when all n slots are full\n            slots.put(Optional.empty());                    // 2. the end marker lets the loop below end\n        } catch (InterruptedException e) { Thread.currentThread().interrupt(); }\n    });\n    for (Optional<T> v = slots.take(); v.isPresent(); v = slots.take()) downstream.accept(v.get());   // 3.\n    producer.join();\n}"
+   }
+  }
+ },
+ "recap": [
+  "`buffer(n)` runs the upstream in a second coroutine that sends into a channel with n slots. With the default `SUSPEND`, the producer gets n + 1 emits ahead: n on the belt and one in the collector's hands.",
+  "`buffer(0)` still adds a coroutine, so it is 1 ahead. `buffer()` is `Channel.BUFFERED`, 64 slots on the JVM, so 65 ahead.",
+  "`DROP_OLDEST`, `DROP_LATEST` and `conflate()` never wait; they drop. `buffer(onBufferOverflow = DROP_OLDEST)` has one slot. Ledger postings get `SUSPEND` only.",
+  "Adjacent channel operators fuse into one channel: explicit sizes add, and a drop policy replaces what came before. `buffer(10).conflate()` is `conflate()`. `toString()` shows the result, but test the behaviour.",
+  "`collectLatest` and `mapLatest` cancel the old block and join it, so a slow cleanup delays the next block and the producer. Use them only for work you can throw away.",
+  "A collector that never suspends and cancels itself behind a buffer keeps receiving what is on the belt. `.cancellable()` after the buffer stops it."
+ ],
+ "quiz": [
+  {"q": "Behind `buffer(10).buffer(20)` with the default policy, the collector is stuck on its first value. How many of the producer's emits have returned?",
+   "options": ["21: the second buffer wins", "32: two coroutines, each holding one", "31", "11: the first buffer is the one the producer sees"],
+   "answer": 2,
+   "why": "Adjacent buffers fuse into one channel, and two explicit sizes add up to 30. One channel means one extra coroutine, so it is 30 on the belt plus 1 in hand. 32 would be right for two separate belts, which is what a hand-written buffer without fusion gives you."},
+  {"q": "A teammate puts `buffer(onBufferOverflow = BufferOverflow.DROP_OLDEST)` between the settlement reader and the ledger writer, \"to keep the newest 64\". The writer stalls while 200 postings are read. How many get posted?",
+   "options": ["All 200", "Posting 1 and the newest 64", "64", "2: posting 1 and posting 200"],
+   "answer": 3,
+   "why": "The capacity defaults to `BUFFERED`, and a `BUFFERED` channel with a drop policy has one slot, so this is `conflate()`. The writer posts the one it held and the one standing on the slot at the end. For the ledger, no drop policy is acceptable: use `buffer(64)` with the default `SUSPEND`."},
+  {"q": "Ticks every 100 ms go into `collectLatest`. A repricing takes 300 ms, and a cancelled one runs a 50 ms `withContext(NonCancellable)` cleanup. When does the feed emit tick 3?",
+   "options": ["300 ms", "350 ms", "400 ms", "It never does: collectLatest stops the feed"],
+   "answer": 1,
+   "why": "`transformLatest` cancels the old block and then joins it, inside the feed's `emit`. Tick 2 at 200 waits 50 ms for tick 1's cleanup, so the feed's next `delay(100)` starts at 250 and tick 3 comes at 350. 300 is what you'd get with no cleanup, or with Reactor's `switchMap`, which doesn't wait."},
+  {"q": "A CPU-only collector (no I/O, no `delay`) reads from `flow { for (i in 1..100) emit(i) }.buffer()` and calls `cancel()` on its own job when it sees 3. It receives 66 values. What is the smallest fix?",
+   "options": ["Add `.cancellable()` after `buffer()`", "Add `.cancellable()` before `buffer()`", "Replace `flow { }` with `(1..100).asFlow()`", "Replace `cancel()` with `return@collect`"],
+   "answer": 0,
+   "why": "The values already on the belt keep coming because receiving from a channel that has elements doesn't suspend, and nothing checks cancellation per value on the collector's side. `.cancellable()` after the buffer checks before each emit, and the count drops to 3. Before the buffer it guards the producer, which `flow { }` already does. `asFlow()` checks less, not more. And `return@collect` only ends this one call of the lambda, so all 100 values arrive."},
+  {"q": "From the reactive track: Reactor's `onBackpressureBuffer(10)` with no strategy and Flow's `buffer(10)` both sit in front of a stuck subscriber while 200 items arrive. What happens in each?",
+   "options": ["Both drop the newest items once 10 are waiting", "Both make the source wait", "Reactor delivers 11 and then fails with an OverflowException; Flow makes the producer suspend and later delivers all 200", "Reactor makes the source wait; Flow fails with an exception"],
+   "answer": 2,
+   "why": "Reactor's bounded buffer with no strategy cancels the source and signals `OverflowException` (\"The receiver is overrun by more signals than expected\") when it overflows. A Flow buffer has no failure mode: with `SUSPEND`, a full channel makes `send` wait, so nothing is lost and nothing fails.",
+   "from": "rx-07"}
+ ],
+ "flashcards": [
+  {"front": "With the default policy, how many emits return behind `buffer(n)` while the collector is stuck on its first value?", "back": "n + 1: n wait on the belt (the channel), one is in the collector's hands."},
+  {"front": "What does `buffer(0)` still create, and how far ahead is the producer?", "back": "A second coroutine and a rendezvous hand-over. One emit returns: the value that was handed over."},
+  {"front": "How many slots does `buffer(onBufferOverflow = BufferOverflow.DROP_OLDEST)` have?", "back": "One. A `BUFFERED` channel with a drop policy is a one-slot channel, so it acts like `conflate()`. Write `buffer(64, DROP_OLDEST)` if you mean 64."},
+  {"front": "What is `buffer(10).conflate()`? And `conflate().buffer(10)`?", "back": "Plain `conflate()`: a drop policy overrides the buffers before it. `conflate().buffer(10)` is one 10-slot channel that drops the oldest."},
+  {"front": "What does `buffer(10).buffer(20)` build?", "back": "One fused channel with 30 slots, so the producer gets 31 ahead."},
+  {"front": "In `collectLatest`, what happens to the old block when a new value arrives?", "back": "It is cancelled (`ChildCancelledException`) and joined. Its cleanup finishes before the new block starts, and the producer's `emit` waits for it too."},
+  {"front": "Flow `buffer(10)` is full. Reactor `onBackpressureBuffer(10)` is full. What does each do?", "back": "Flow suspends the producer. Reactor cancels the source and fails with `OverflowException`."}
+ ],
+ "terms": [
+  {"term": "buffer (Flow operator)", "plain": "Runs everything above it in a second coroutine and puts a channel between that coroutine and the collector."},
+  {"term": "Capacity", "plain": "How many values can wait in the channel. With SUSPEND, the producer can get capacity + 1 emits ahead."},
+  {"term": "Overflow policy", "plain": "What a full buffer does with a new value: SUSPEND makes the sender wait, DROP_OLDEST discards the oldest waiting value, DROP_LATEST discards the new one."},
+  {"term": "Conflation", "plain": "Keeping only the newest waiting value. `conflate()` is a one-slot buffer that drops the oldest."},
+  {"term": "Rendezvous", "plain": "A channel with no slots. A send waits until a receiver takes the value."},
+  {"term": "Fusion", "plain": "Adjacent channel-based operators merging into one channel with combined settings, instead of one coroutine each."},
+  {"term": "ChildCancelledException", "plain": "The cancellation the Latest operators use to stop the previous block. Its message is \"Child of the scoped flow was cancelled\"."}
+ ],
+ "explain_back": {
+  "prompt": "A teammate asks why the settlement import uses `buffer(64)` while the FX repricer uses `conflate()`, and why `buffer(onBufferOverflow = DROP_OLDEST)` isn't a good middle ground for both. Explain it with the belt picture and the numbers from this lesson.",
+  "answer": "A buffer runs the upstream in a second coroutine and puts a belt between it and the collector. With `buffer(64)` and the default SUSPEND policy, the reader can get 65 postings ahead of a stuck ledger writer, 64 on the belt and one in the writer's hands, and then its `send` waits. Memory stays bounded and no posting is lost, which is what the ledger needs, because a dropped posting is missing money. The FX repricer is different: a quote at an old rate is worthless once a new rate exists, so `conflate()` is fine. It is a single plate stand where a new rate replaces the one waiting, and a repricing that has started still finishes. `buffer(onBufferOverflow = DROP_OLDEST)` looks like \"keep the newest 64\", but with the default BUFFERED capacity a drop policy gives a one-slot channel. Under a stall it posts posting 1 and the last one read, which is `conflate()` with a misleading name. It's wrong for the ledger, and for FX it just says `conflate()` in a confusing way."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "The class behind `buffer`, `conflate` and `flowOn` is `ChannelFlowOperatorImpl`, an internal subclass of `ChannelFlow`. Its `fuse` method does the merging. The new context is `context + this.context`, so for each context key the setting nearest the source wins, which is why two adjacent `flowOn` calls keep the first one. If the new policy is not `SUSPEND`, it overwrites the capacity and policy (the source comment says \"this additional buffer never suspends => overwrite preceding buffering configuration\"). Otherwise the capacities combine: `BUFFERED` gives way to an explicit size, two explicit sizes add up, and a sum that overflows `Int` becomes `UNLIMITED`.\n\n`buffer` checks its arguments with `require`. `buffer(-5)` fails with \"Buffer size should be non-negative, BUFFERED, or CONFLATED, but was -5\", and `buffer(Channel.CONFLATED, BufferOverflow.DROP_LATEST)` fails with \"CONFLATED capacity cannot be used with non-default onBufferOverflow\".\n\nOther operators are channel flows too, and they fuse with a `buffer` placed right after them. `channelFlow { }` prints as `ChannelFlowBuilder[capacity=-2]`, and `channelFlow { }.buffer(3)` resizes the builder's own channel. `mapLatest { }` prints as `ChannelFlowTransformLatest[capacity=-2]`, which is why its KDoc says it is \"buffered by default\". `flatMapMerge { }` prints as `ChannelFlowMerge[concurrency=16, capacity=-2]`; the next lesson takes it apart.\n\n`StateFlow` already behaves as if `conflate()` were applied, and the KDoc says applying `conflate` to it has no effect. Lesson 7 of this track looks at why.\n\nReactor's `limitRate(10)` looks like `buffer(10)` in the probe: the source got 10 ahead, where Flow's count is 11 because the Flow probe counts emits that returned. The mechanism is different: `limitRate` batches the demand it sends upstream. It asks for 10, then for 8 more each time 75 % of a batch has been used."
+ },
+ "sources": [
+  {"title": "buffer (kotlinx.coroutines API)", "url": API + "kotlinx.coroutines.flow/buffer.html"},
+  {"title": "conflate (kotlinx.coroutines API)", "url": API + "kotlinx.coroutines.flow/conflate.html"},
+  {"title": "collectLatest (kotlinx.coroutines API)", "url": API + "kotlinx.coroutines.flow/collect-latest.html"},
+  {"title": "The kotlinx.coroutines Flow guide at tag 1.11.0 (Buffering, Conflation, Processing the latest value)", "url": "https://raw.githubusercontent.com/Kotlin/kotlinx.coroutines/1.11.0/docs/topics/flow.md"},
+  {"title": "Flux.java in reactor-core 3.8 (onBackpressureBuffer, onBackpressureLatest)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/reactor-core/src/main/java/reactor/core/publisher/Flux.java"}
+ ]
+}
+out = ROOT / "content/lessons/flow-04.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)
