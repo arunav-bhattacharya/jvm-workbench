@@ -97,15 +97,15 @@ class Cap3JavaSurface(VoiceScene):
         jc = card(["Java caller"], JV, 2.8, 0.9, sizes=[26], mono=[False]).move_to([4.6, -1.1, 0])
         ka = Arrow(kc.get_top(), lib.get_left() + DOWN * 0.3, buff=0.12, stroke_width=3, color=KT,
                    max_tip_length_to_length_ratio=0.08)
-        self.beat("The event library is written in Kotlin. A Java team in the same service wants to call it too.",
+        self.beat("A Java team wants to call the Kotlin event library.",
                   FadeIn(lib), FadeIn(kc), GrowArrow(ka), FadeIn(jc), run_time=2.0)
         cfile = card(["the class files", "what kotlinc wrote"], CF, 3.0, 1.1, sizes=[24, 20], mono=[False, False])
         cfile.move_to([2.6, -1.1, 0])
         jc.generate_target(); jc.target.move_to([5.5, -2.6, 0])
         a1 = Arrow(lib.get_bottom() + RIGHT * 0.8, cfile.get_top(), buff=0.12, stroke_width=3, color=GREY_B,
                    max_tip_length_to_length_ratio=0.12)
-        seq(self, "javac can't read Kotlin. It reads the class files kotlinc wrote. Some Kotlin features look odd "
-                  "there, or aren't there at all.",
+        seq(self, "javac can't read Kotlin. It reads the class files kotlinc wrote, and some Kotlin features look odd "
+                  "there, or are missing.",
             ([MoveToTarget(jc)], 0.6), ([FadeIn(cfile), GrowArrow(a1)], 0.9), 0.3,
             (lambda: [GrowArrow(Arrow(jc.get_top(), cfile.get_bottom(), buff=0.12, stroke_width=3, color=JV,
                                       max_tip_length_to_length_ratio=0.15))], 0.7))
@@ -141,7 +141,7 @@ class Cap3JavaSurface(VoiceScene):
         a_jv = lines_at(["new PlainBus(\"refunds\");"], 24, JV, Y_JV + 0.15)
         a_ok, a_x = mark(True, a_kt), mark(False, a_jv)
         a_err = msg("no suitable constructor found for PlainBus(String)", BAD, a_jv)
-        seq(self, "Start with a constructor with default arguments. From Kotlin, PlainBus of refunds just works.",
+        seq(self, "First, default arguments. From Kotlin, PlainBus of refunds works.",
             ([FadeIn(frame), FadeIn(a_api)], 1.0), 1.4, ([FadeIn(a_kt), Create(a_ok)], 0.8))
         seq(self, "From Java, the same call fails: no suitable constructor found. The class file has only two: "
                   "the one with every default, and the full one.",
@@ -166,14 +166,14 @@ class Cap3JavaSurface(VoiceScene):
         b_jv = lines_at(["bus.subscribe(e -> { });"], 24, JV, Y_JV + 0.15)
         b_ok, b_x = mark(True, b_kt), mark(False, b_jv)
         b_err = msg("no suitable method found for subscribe((e)->{ })", BAD, b_jv)
-        seq(self, "Next, subscribe. Kotlin callers use the reified one. Java can't see it at all. It's compiled as a "
-                  "synthetic method, and javac ignores those.",
+        seq(self, "The reified subscribe is invisible to Java. It's compiled as a synthetic method, and javac ignores "
+                  "those.",
             ([FadeIn(b_api)], 0.8), 0.5, ([FadeIn(b_kt), Create(b_ok)], 0.7), 0.3,
             ([FadeIn(b_jv), Create(b_x), FadeIn(b_err)], 0.8), 0.5, ([FadeIn(b_cf[0])], 0.7))
         b_jv2 = lines_at(["bus.subscribe(JvmClassMappingKt.getKotlinClass(", "        PaymentCaptured.class), h);"], 24, JV,
                          Y_JV + 0.15)
         b_odd = msg("works, and reads badly", JV, b_jv2)
-        seq(self, "The KClass one works from Java, if Java converts the class by hand. It reads badly.",
+        seq(self, "The KClass one works, if Java converts the class by hand.",
             ([FadeIn(b_cf[1])], 0.6), ([FadeOut(b_x), FadeOut(b_err), FadeTransform(b_jv, b_jv2)], 0.8), 0.6,
             ([FadeIn(b_odd)], 0.5))
         b_api2 = api(["inline fun <reified E> subscribe(h: Handler<E>)",
@@ -186,7 +186,7 @@ class Cap3JavaSurface(VoiceScene):
         b_jv3 = lines_at(["bus.subscribe(PaymentCaptured.class, h);"], 24, JV, Y_JV + 0.15)
         b_ok2 = mark(True, b_jv3)
         b_fix = T("fix: a Class<E> overload", 26, FIX).move_to([0, -3.05, 0])
-        seq(self, "The fix is an overload that takes a Java Class, and converts it for you.",
+        seq(self, "The fix: an overload that takes a Java Class.",
             ([FadeTransform(b_api, b_api2), FadeTransform(b_cf, b_cf2), FadeIn(b_fix)], 1.0), 0.4,
             ([FadeOut(b_odd), FadeTransform(b_jv2, b_jv3), Create(b_ok2)], 0.8))
         self.play(FadeOut(VGroup(b_api2, b_cf2, b_kt, b_jv3, b_ok, b_ok2, b_fix)), run_time=0.5)
@@ -224,8 +224,7 @@ class Cap3JavaSurface(VoiceScene):
                     t2c={"init": PURPLE_M})
         d_kt = lines_at(["PaymentCaptured(PaymentId(\"pay_7781\"), Money(1_999))"], 24, KT, Y_KT + 0.15)
         d_ok = mark(True, d_kt)
-        self.beat("Last, the event itself. Its id and amount are value classes, and their init blocks check every "
-                  "value.", FadeIn(d_api), FadeIn(d_kt), Create(d_ok), run_time=1.6)
+        self.beat("Last, the event. Its id and amount are value classes, whose init blocks check every value.", FadeIn(d_api), FadeIn(d_kt), Create(d_ok), run_time=1.6)
         d_cf = lines_at(["private PaymentCaptured(String, long)", "getAmount-M68TK6M()"], 22, CF, Y_CF + 0.32)
         d_jv = lines_at(["new PaymentCaptured(new PaymentId(\"pay_7781\"), new Money(1_999));"], 22, JV, Y_JV + 0.15)
         d_x = mark(False, d_jv)
@@ -241,11 +240,11 @@ class Cap3JavaSurface(VoiceScene):
 
         # ---------------- the facade as a door that still checks ----------------
         TY, BY = 1.75, 0.2                      # token track, box row
-        j_b = card(["Java caller"], JV, 2.4, 1.0, sizes=[26], mono=[False]).move_to([-5.15, BY, 0])
-        f_b = card(["Events.captured", "(String, long)"], FIX, 3.3, 1.2, sizes=[24, 22]).move_to([-1.35, BY, 0])
-        g_b = card(["PaymentId(...)", "init: starts with pay_"], PURPLE_M, 3.0, 1.2, sizes=[24, 22], mono=[True, False])
-        g_b.move_to([2.15, BY, 0])
-        r_b = card(["PaymentCaptured"], GREEN_M, 2.7, 1.0, sizes=[24]).move_to([5.1, BY, 0])
+        j_b = card(["Java caller"], JV, 1.85, 1.0, sizes=[24], mono=[False]).move_to([-5.55, BY, 0])
+        f_b = card(["Events.captured", "(String, long)"], FIX, 3.0, 1.2, sizes=[24, 22]).move_to([-2.5, BY, 0])
+        g_b = card(["PaymentId(...)", "init: starts with pay_"], PURPLE_M, 3.3, 1.2, sizes=[24, 22], mono=[True, False])
+        g_b.move_to([1.2, BY, 0])
+        r_b = card(["PaymentCaptured"], GREEN_M, 2.85, 1.0, sizes=[24]).move_to([4.95, BY, 0])
         row = [j_b, f_b, g_b, r_b]
         ars = VGroup(*[Arrow(a.get_right(), b.get_left(), buff=0.06, stroke_width=3, color=GREY_B,
                              max_tip_length_to_length_ratio=0.3) for a, b in zip(row, row[1:])])
@@ -254,7 +253,8 @@ class Cap3JavaSurface(VoiceScene):
 
         def tokn(txt):
             t = M(txt, 22, WHITE)
-            return card([txt], JV, t.width + 0.35, 0.62, sizes=[22]).set_z_index(4).move_to([j_b.get_x(), TY, 0])
+            c = card([txt], JV, t.width + 0.35, 0.62, sizes=[22]).set_z_index(4)
+            return c.move_to([max(j_b.get_x(), -6.35 + c.width / 2), TY, 0])
         good = tokn("\"pay_7781\", 1_999")
         good[1][0].set_color(WHITE)
         stops = [f_b.get_x(), g_b.get_x(), min(r_b.get_x(), 6.35 - good.width / 2)]
@@ -268,7 +268,7 @@ class Cap3JavaSurface(VoiceScene):
         self.wait(1.4)
         thr = VGroup(M("IllegalArgumentException:", 22, BAD), M("invalid payment id: '7781'", 22, BAD))
         thr.arrange(DOWN, buff=0.1).next_to(g_b, DOWN, buff=0.45)
-        seq(self, "PaymentId's init throws, exactly as it would for a Kotlin caller.",
+        seq(self, "PaymentId's init throws, just as it would for Kotlin.",
             ([bad.animate.move_to([stops[0], TY, 0])], 0.6), ([bad.animate.move_to([stops[1], TY, 0])], 0.6),
             (lambda: [bad[0].animate.set_stroke(BAD), Flash(g_b, color=BAD, flash_radius=1.8), FadeIn(thr, shift=UP * 0.1)], 0.7))
         self.play(FadeOut(VGroup(j_b, f_b, g_b, r_b, ars, bad, thr)), run_time=0.6)
@@ -288,7 +288,7 @@ class Cap3JavaSurface(VoiceScene):
         note = T("PaymentId and Money run their init blocks on every Java call", 22, GREY_B).next_to(cg, DOWN, buff=0.45)
         self.beat("Here is the facade in Kotlin, and a Java caller.", FadeIn(cg, shift=UP * 0.2), FadeIn(note),
                   run_time=1.2)
-        self.wait(2.2)
+        self.wait(1.6)
         self.play(FadeOut(cg), FadeOut(note), run_time=0.6)
 
         # ---------------- rule and check ----------------
@@ -300,8 +300,7 @@ class Cap3JavaSurface(VoiceScene):
         chk = VGroup(T("No @JvmOverloads on PlainBus. Does this compile from Java?", 28),
                      M("new PlainBus(\"refunds\", true);", 28, JV)).arrange(DOWN, buff=0.3).move_to([0, -0.2, 0])
         chk.scale(min(1, 12 / chk.width))
-        self.beat("Check yourself. There's no @JvmOverloads on PlainBus. Does new PlainBus, with a name and a flag, "
-                  "compile from Java?", FadeIn(chk), run_time=1.2)
+        self.beat("Check yourself. Without @JvmOverloads, does new PlainBus with a name and a flag compile from Java?", FadeIn(chk), run_time=1.2)
         self.wait(2.5)
         ans = T("Yes. The full constructor is always there. Only the ones in between are missing.", 28, GOLD_M)
         ans.scale(min(1, 12 / ans.width)).move_to([0, -2.1, 0])

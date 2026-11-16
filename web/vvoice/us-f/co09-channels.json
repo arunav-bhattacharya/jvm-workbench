@@ -1,0 +1,322 @@
+{
+ "slug": "co09-channels",
+ "voice": "us-f",
+ "max_late": 0.03,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.15,
+   "tries": 1,
+   "text": "One coroutine reads payment ids from a batch, fast."
+  },
+  {
+   "cue": 6.11,
+   "start": 6.11,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.21,
+   "tries": 1,
+   "text": "Another settles each one, which takes one hundred milliseconds."
+  },
+  {
+   "cue": 9.79,
+   "start": 9.79,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.27,
+   "tries": 1,
+   "text": "How does the reader hand ids to the settler?"
+  },
+  {
+   "cue": 12.93,
+   "start": 12.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.03,
+   "tries": 1,
+   "text": "Put a channel between them: a queue with room for two."
+  },
+  {
+   "cue": 16.32,
+   "start": 16.32,
+   "late": 0.0,
+   "tempo": 1.015,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "send puts an id in, and receive takes one out."
+  },
+  {
+   "cue": 19.4,
+   "start": 19.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.15,
+   "tries": 1,
+   "text": "The settler is already waiting, so id one goes straight to it."
+  },
+  {
+   "cue": 23.45,
+   "start": 23.45,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.17,
+   "tries": 1,
+   "text": "Ids two and three wait in the two spots."
+  },
+  {
+   "cue": 25.97,
+   "start": 25.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.96,
+   "tries": 1,
+   "text": "Now the reader sends id four, and both spots are full."
+  },
+  {
+   "cue": 29.41,
+   "start": 29.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.25,
+   "tries": 1,
+   "text": "What happens to the reader?"
+  },
+  {
+   "cue": 34.0,
+   "start": 34.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.84,
+   "tries": 1,
+   "text": "It suspends. send waits for room, and the thread is free to run other coroutines."
+  },
+  {
+   "cue": 39.73,
+   "start": 39.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.18,
+   "tries": 1,
+   "text": "When the settler finishes id one and takes id two, a spot opens, and the reader goes on."
+  },
+  {
+   "cue": 45.97,
+   "start": 45.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.34,
+   "tries": 1,
+   "text": "So the fast reader now runs at the settler's pace: one id every one hundred milliseconds."
+  },
+  {
+   "cue": 51.74,
+   "start": 51.74,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.5,
+   "tries": 1,
+   "text": "And when the queue is empty, it's receive that suspends, until an id arrives."
+  },
+  {
+   "cue": 57.43,
+   "start": 57.43,
+   "late": 0.0,
+   "tempo": 1.09,
+   "secs": 2.65,
+   "tries": 1,
+   "text": "When the reader is done, it closes the channel."
+  },
+  {
+   "cue": 60.3,
+   "start": 60.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.39,
+   "tries": 1,
+   "text": "The settler's loop ends after the last id."
+  },
+  {
+   "cue": 62.87,
+   "start": 62.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.82,
+   "tries": 1,
+   "text": "Forget close, and the settler waits forever."
+  },
+  {
+   "cue": 66.37,
+   "start": 66.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.19,
+   "tries": 1,
+   "text": "The default channel has no spots at all."
+  },
+  {
+   "cue": 69.07,
+   "start": 69.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.11,
+   "tries": 1,
+   "text": "Each send waits until a receiver takes the id from its hand."
+  },
+  {
+   "cue": 73.93,
+   "start": 73.93,
+   "late": 0.0,
+   "tempo": 1.078,
+   "secs": 1.71,
+   "tries": 1,
+   "text": "Channels chain into pipelines."
+  },
+  {
+   "cue": 75.86,
+   "start": 75.86,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.19,
+   "tries": 1,
+   "text": "Four workers receive from one channel."
+  },
+  {
+   "cue": 78.3,
+   "start": 78.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.47,
+   "tries": 1,
+   "text": "Each id goes to exactly one of them, so at most four settle calls run at once."
+  },
+  {
+   "cue": 83.31,
+   "start": 83.31,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.19,
+   "tries": 1,
+   "text": "Their receipts go into a second channel, which one loop reads."
+  },
+  {
+   "cue": 88.1,
+   "start": 88.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.42,
+   "tries": 1,
+   "text": "Sometimes you want whichever answer comes first."
+  },
+  {
+   "cue": 91.11,
+   "start": 91.11,
+   "late": 0.0,
+   "tempo": 1.007,
+   "secs": 3.8,
+   "tries": 1,
+   "text": "Ask two acquirers for a quote, and let select wait on both."
+  },
+  {
+   "cue": 95.03,
+   "start": 95.06,
+   "late": 0.03,
+   "tempo": 1.0,
+   "secs": 3.46,
+   "tries": 1,
+   "text": "North needs three hundred milliseconds, east needs one hundred twenty."
+  },
+  {
+   "cue": 98.89,
+   "start": 98.89,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.89,
+   "tries": 1,
+   "text": "Which quote does select return?"
+  },
+  {
+   "cue": 104.33,
+   "start": 104.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.85,
+   "tries": 1,
+   "text": "East's. select takes the first clause that is ready and drops the rest."
+  },
+  {
+   "cue": 109.25,
+   "start": 109.25,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.9,
+   "tries": 1,
+   "text": "Stopping the loser is your job, so cancel north."
+  },
+  {
+   "cue": 112.62,
+   "start": 112.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.42,
+   "tries": 1,
+   "text": "A timeout clause gives a default if nobody answers in five hundred milliseconds."
+  },
+  {
+   "cue": 118.43,
+   "start": 118.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.14,
+   "tries": 1,
+   "text": "This is Kotlin only."
+  },
+  {
+   "cue": 119.73,
+   "start": 119.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.29,
+   "tries": 1,
+   "text": "A channel with room for two, a sender that closes it, and a loop that receives."
+  },
+  {
+   "cue": 125.7,
+   "start": 125.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.18,
+   "tries": 1,
+   "text": "So a channel hands each element to exactly one receiver."
+  },
+  {
+   "cue": 129.29,
+   "start": 129.29,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.83,
+   "tries": 1,
+   "text": "send suspends when it's full, receive suspends when it's empty, and select takes whichever clause is ready first."
+  },
+  {
+   "cue": 136.77,
+   "start": 136.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.25,
+   "tries": 1,
+   "text": "Quick check. A rendezvous channel, a fast sender, and a receiver that needs one hundred milliseconds per element."
+  },
+  {
+   "cue": 144.15,
+   "start": 144.15,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.4,
+   "tries": 1,
+   "text": "How often does send return?"
+  }
+ ]
+}
