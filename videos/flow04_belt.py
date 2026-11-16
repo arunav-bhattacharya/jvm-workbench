@@ -463,17 +463,15 @@ class Flow04Belt(Narrated):
 
         # ================= the rule and a check =================
         r1 = T("Pick by what one lost value costs.", 34)
-        r2 = VGroup(T("FX repricing may", 32), M("conflate", 30, VAL), T(".", 32)).arrange(RIGHT, buff=0.15)
+        r2 = VGroup(T("FX repricing may", 32), M("conflate.", 30, t2c={"conflate": VAL})).arrange(RIGHT, buff=0.15)
         r3 = VGroup(T("Ledger postings must never drop: a", 32), M("buffer", 30, WRITER), T("that waits.", 32)
                     ).arrange(RIGHT, buff=0.15)
-        r2[2].align_to(r2[0], DOWN).shift(LEFT * 0.11)       # the full stop sits right after the code word
         rule = VGroup(r1, r2, r3).arrange(DOWN, buff=0.32).move_to(UP * 1.3)
         fit(rule, 12.4)
         qq = VGroup(T("Check:", 28, YELLOW_M),
-                    VGroup(T("the writer is stuck on posting 1 behind", 28), M("buffer(1)", 26, WRITER), T(".", 28)
+                    VGroup(T("the writer is stuck on posting 1 behind", 28), M("buffer(1).", 26, t2c={"buffer(1)": WRITER})
                            ).arrange(RIGHT, buff=0.12),
                     T("How many emits have returned?", 28)).arrange(DOWN, buff=0.2).move_to(DOWN * 1.7)
-        qq[1][2].align_to(qq[1][0], DOWN).shift(LEFT * 0.08)
         fit(qq, 12.4)
         self.say("rule")
         self.play(FadeIn(r1, shift=UP * 0.1), run_time=0.7)
