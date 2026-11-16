@@ -56,7 +56,7 @@ N = {
               "50 milliseconds. What will JDK 21 show?",
     "demo_a": "343 milliseconds, about three sleeps in a row. "
               "Each sleeper held the only carrier for its whole 100 milliseconds, and the JVM counted three pins.",
-    "quiet": "Well... for a clock, that's a long silence. And the ticker never touched the lock. "
+    "quiet": "Well... That's a long silence for a clock. And the ticker never touched the lock. "
              "It just needed a waiter, and none was free.",
     "cool": "Now swap the monitor for a ReentrantLock, the lock class from java.util.concurrent. "
             "It records the virtual thread as its owner, and it waits by parking, "
@@ -246,7 +246,7 @@ class Vt04Pinning(Narrated):
         self.title_card("A hot pan you can't put down", "how a virtual thread got pinned, and the fix")
 
         # ================= the restaurant, as we left it =================
-        stove, burners, board, titles, waiters, held, on_board = stage()
+        stove, burners, board, titles, waiters, held, on_board = stage(((2, 5), (3, 8), (4, 11), (5, 2), (6, 6)))
         r14 = slip("table 14", size=20).scale(0.85).move_to(SLOTS[1])
         ready = tick(True, 0.13).next_to(r14, LEFT, buff=0.05).set_z_index(5)
         self.say("open")
@@ -255,8 +255,7 @@ class Vt04Pinning(Narrated):
         self.play(LaggedStart(*[FadeIn(h, shift=RIGHT * 0.15) for h in held], lag_ratio=0.12),
                   LaggedStart(*[FadeIn(b) for b in on_board], lag_ratio=0.1), FadeIn(r14), run_time=1.1)
         self.at(1)
-        self.play(held[0].animate.move_to(SLOTS[0] + DOWN * 0.0).shift(LEFT * 0.0), on_board[0].animate.move_to(SLOTS[7]),
-                  run_time=1.0)
+        self.play(held[0].animate.move_to(SLOTS[0]), run_time=1.0)
         self.play(Create(ready), run_time=0.4)
         self.play(FadeOut(ready), r14.animate.move_to([HAND_X, WY4[0], 0]), run_time=0.9)
         mlab = T("4 waiters, 200 tables", 28, NEXT).move_to([0, -2.6, 0])
@@ -303,6 +302,7 @@ class Vt04Pinning(Narrated):
         svc_n = T("another computer, about 100 ms", 22, GREY_A).next_to(svc, DOWN, buff=0.18)
         cache_n = T("keeps each rate after the first lookup", 22, GREY_A).next_to(cache, DOWN, buff=0.18)
         self.say("shop")
+        self.at(1)
         self.play(FadeIn(top1), run_time=0.7)
         self.at(2)
         self.play(FadeIn(top2, shift=UP * 0.1), run_time=0.6)
@@ -327,8 +327,8 @@ class Vt04Pinning(Narrated):
         self.at(2)
         self.play(FadeIn(mon, shift=UP * 0.1), run_time=0.6)
         self.at(3)
-        self.play(FadeIn(door), cks[0].animate.move_to(cache.get_left() + LEFT * 0.75 + UP * 0.0), run_time=0.8)
-        self.play(Indicate(cks[1:], color=GREY_B, scale_factor=1.04), run_time=0.7)
+        self.play(FadeIn(door), Indicate(cks[2], color=GOOD, scale_factor=1.08), run_time=0.8)
+        self.play(Indicate(cks[:2], color=GREY_B, scale_factor=1.04), run_time=0.7)
         self.at(4)
         self.play(FadeIn(ok, shift=UP * 0.1), run_time=0.7)
         self.hold()
@@ -390,9 +390,9 @@ class Vt04Pinning(Narrated):
         self.play(FadeIn(mrows[0]), Indicate(parts[0], color=NEXT, scale_factor=1.15), run_time=0.8)
         self.at(2)
         self.play(FadeIn(mrows[1]), Indicate(parts[1], color=NEXT, scale_factor=1.1), run_time=0.8)
-        self.at(4)
+        self.at(3)
         self.play(FadeIn(mrows[2]), Indicate(parts[2], color=NEXT, scale_factor=1.15), run_time=0.8)
-        self.at(5)
+        self.at(4)
         self.play(FadeIn(mrows[3]), Indicate(parts[3], color=NEXT, scale_factor=1.15), run_time=0.8)
         self.hold()
 
@@ -502,8 +502,9 @@ class Vt04Pinning(Narrated):
         self.hold()
 
         self.say("quiet")
-        self.play(Wiggle(gap1_l, scale_value=1.15), run_time=1.0)
         self.at(1)
+        self.play(Wiggle(gap1_l, scale_value=1.15), run_time=1.0)
+        self.at(2)
         self.play(Indicate(lab_k1, color=TICK, scale_factor=1.15), run_time=0.8)
         self.hold()
 
@@ -514,7 +515,7 @@ class Vt04Pinning(Narrated):
         cpan = pan(COOL, 0.9, hot=False).next_to(p2_t, RIGHT, buff=0.35)
         self.say("cool")
         self.play(FadeIn(p2_t), FadeIn(lab_k2), FadeIn(lab_s2), run_time=0.7)
-        self.at(4)
+        self.at(3)
         self.play(FadeIn(cpan, scale=0.5), run_time=0.6)
         self.hold()
         self.say("cool_q")
@@ -556,7 +557,7 @@ class Vt04Pinning(Narrated):
         pan2 = pan(PAN, 1.1).move_to([-5.7, 0.2, 0])
         w4 = VGroup(*[person(s=0.8).move_to([-4.3, y, 0]) for y in SY])
         s4 = VGroup(*[slip(f"VT {n}", PAN, size=20).scale(0.85).move_to([-2.9, y, 0]) for n, y in zip((31, 44, 58, 63), SY)])
-        pin4 = T("pinned, waiting to take the pan", 24, PAN).move_to([-4.0, -1.95, 0])
+        pin4 = T("pinned, waiting to take the pan", 24, PAN).move_to([-3.9, -1.95, 0])
         brd2 = RoundedRectangle(corner_radius=0.12, width=4.2, height=3.4).set_stroke(GREY_B, 2.5).set_fill(GREY_E, 1)
         brd2.move_to([3.9, 0.2, 0])
         brd2_l = T("the board", 24, GREY_A).next_to(brd2, UP, buff=0.15)
@@ -569,6 +570,7 @@ class Vt04Pinning(Narrated):
                        max_tip_length_to_length_ratio=0.08)
         nofree_l = T("no free waiter", 24, BAD).next_to(nofree, DOWN, buff=0.12)
         self.say("worse")
+        self.at(1)
         self.play(FadeIn(news), run_time=0.7)
         self.at(2)
         self.play(FadeIn(st2), FadeIn(st2_l), FadeIn(pan2), LaggedStart(*[FadeIn(w) for w in w4], lag_ratio=0.15),
@@ -603,7 +605,7 @@ class Vt04Pinning(Narrated):
         brd3 = RoundedRectangle(corner_radius=0.12, width=3.6, height=1.9).set_stroke(GREY_B, 2.5).set_fill(GREY_E, 1)
         brd3.move_to([3.8, 1.5, 0])
         brd3_l = T("the board", 24, GREY_A).next_to(brd3, UP, buff=0.15)
-        hk = hook(COOL).move_to([3.1, 2.0, 0])
+        hk = hook(COOL).move_to([2.9, 2.12, 0])
         hk_l = T("a hook for hot pans", 24, COOL).next_to(brd3, DOWN, buff=0.15)
         f1 = T("JDK 24, JEP 491: the JVM records the virtual thread as the owner", 28).move_to([0, -0.15, 0])
         fit(f1, 12.4)
@@ -614,11 +616,13 @@ class Vt04Pinning(Narrated):
         self.play(FadeIn(st3), FadeIn(w3), FadeIn(pan3), FadeIn(s3), FadeIn(brd3), FadeIn(brd3_l), run_time=0.8)
         self.play(Create(hk), FadeIn(hk_l), run_time=0.8)
         self.at(1)
-        self.play(FadeIn(f1, shift=UP * 0.1), FadeIn(jep), run_time=0.7)
+        self.play(FadeIn(jep), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(f1, shift=UP * 0.1), run_time=0.7)
         self.at(3)
         self.play(FadeIn(f2, shift=UP * 0.1), run_time=0.6)
         self.at(4)
-        self.play(VGroup(pan3, s3).animate.move_to([3.6, 1.35, 0]), run_time=1.3)
+        self.play(pan3.animate.move_to([2.9, 1.45, 0]), s3.animate.move_to([4.4, 1.45, 0]), run_time=1.3)
         self.play(FadeIn(free3), run_time=0.5)
         self.hold()
         self.play(FadeOut(VGroup(st3, w3, pan3, s3, brd3, brd3_l, hk, hk_l, f1, f2, jep, free3)), run_time=0.6)
@@ -651,8 +655,8 @@ class Vt04Pinning(Narrated):
             r.set_fill(dim(color, 0.1), 1)
             return VGroup(r, body.move_to(r)).move_to([x, 0.75, 0])
 
-        c21 = card("JDK 21 to 23", ["take the monitor out of the slow path:", "a ReentrantLock around slow calls"], PAN, -3.2)
-        c25 = card("JDK 25", ["leave working synchronized code alone:", "rewriting it buys you nothing"], GOOD, 3.2)
+        c21 = card("JDK 21 to 23", ["a ReentrantLock", "around slow calls"], PAN, -3.2)
+        c25 = card("JDK 25", ["leave working", "synchronized alone"], GOOD, 3.2)
         hot = VGroup(T("still hot on JDK 25: a class that loads something slow", 26, GREY_A),
                      T("while it sets itself up (the next part of the lesson)", 26, GREY_A)).arrange(DOWN, buff=0.12)
         hot.move_to([0, -1.55, 0])
@@ -697,7 +701,7 @@ class Vt04Pinning(Narrated):
         # ================= the moral and a check =================
         mo1 = T("Could four waiters freeze the room? On JDK 21 to 23, yes: hot pans.", 32)
         mo2 = T("A slip that holds a monitor can't go on the board, so its carrier waits.", 32)
-        mo3 = T("A ReentrantLock, or JDK 24 and later: the slip goes on the board, lock and all.", 32, NEXT)
+        mo3 = T("ReentrantLock, or JDK 24 and later: onto the board, lock and all.", 32, NEXT)
         moral = VGroup(mo1, mo2, mo3).arrange(DOWN, buff=0.3).move_to(UP * 1.9)
         for m in moral:
             fit(m, 12.4)
