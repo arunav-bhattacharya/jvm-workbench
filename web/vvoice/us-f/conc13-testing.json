@@ -1,0 +1,358 @@
+{
+ "slug": "conc13-testing",
+ "voice": "us-f",
+ "max_late": 0.89,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.71,
+   "tries": 1,
+   "text": "A refund ledger has a race."
+  },
+  {
+   "cue": 4.6,
+   "start": 4.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.63,
+   "tries": 1,
+   "text": "A test starts two threads, each makes one refund, and checks the total."
+  },
+  {
+   "cue": 9.58,
+   "start": 9.58,
+   "late": 0.0,
+   "tempo": 1.113,
+   "secs": 1.54,
+   "tries": 1,
+   "text": "It passes, every time."
+  },
+  {
+   "cue": 11.33,
+   "start": 11.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.89,
+   "tries": 1,
+   "text": "Starting a thread takes a while, and one refund is over in a moment."
+  },
+  {
+   "cue": 15.55,
+   "start": 15.55,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.74,
+   "tries": 1,
+   "text": "They never overlap, so the race never happens."
+  },
+  {
+   "cue": 18.63,
+   "start": 18.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.5,
+   "tries": 1,
+   "text": "How would you make them collide?"
+  },
+  {
+   "cue": 22.9,
+   "start": 22.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.81,
+   "tries": 1,
+   "text": "Hold every thread at a start latch, then release them all at once."
+  },
+  {
+   "cue": 27.1,
+   "start": 27.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.26,
+   "tries": 1,
+   "text": "Use more threads than cores, and many operations each, so they overlap for a long time."
+  },
+  {
+   "cue": 33.3,
+   "start": 33.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.82,
+   "tries": 1,
+   "text": "Run many rounds with fresh state."
+  },
+  {
+   "cue": 35.4,
+   "start": 35.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.77,
+   "tries": 1,
+   "text": "Each round is one sample of the interleavings."
+  },
+  {
+   "cue": 38.53,
+   "start": 38.53,
+   "late": 0.0,
+   "tempo": 1.008,
+   "secs": 2.17,
+   "tries": 1,
+   "text": "After join, check an invariant."
+  },
+  {
+   "cue": 40.84,
+   "start": 40.85,
+   "late": 0.02,
+   "tempo": 1.15,
+   "secs": 5.31,
+   "tries": 1,
+   "text": "Eight threads try two thousand one-cent refunds each, against one zero zero zero zero cents."
+  },
+  {
+   "cue": 45.89,
+   "start": 46.32,
+   "late": 0.42,
+   "tempo": 1.15,
+   "secs": 3.31,
+   "tries": 1,
+   "text": "A correct ledger approves exactly one zero zero zero zero."
+  },
+  {
+   "cue": 49.17,
+   "start": 49.77,
+   "late": 0.61,
+   "tempo": 1.2,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "The racy one approves one six zero zero zero."
+  },
+  {
+   "cue": 51.97,
+   "start": 52.78,
+   "late": 0.82,
+   "tempo": 1.059,
+   "secs": 4.16,
+   "tries": 1,
+   "text": "On the lesson's racy counter, the naive test failed at most six of twenty runs."
+  },
+  {
+   "cue": 57.16,
+   "start": 57.16,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.82,
+   "tries": 1,
+   "text": "The stress test failed all twenty."
+  },
+  {
+   "cue": 60.2,
+   "start": 60.2,
+   "late": 0.0,
+   "tempo": 1.028,
+   "secs": 6.38,
+   "tries": 1,
+   "text": "Next, waiting. This test submits a payment, sleeps fifty milliseconds, then checks that it settled."
+  },
+  {
+   "cue": 66.8,
+   "start": 66.8,
+   "late": 0.0,
+   "tempo": 1.092,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "On a busy CI machine, the work runs longer."
+  },
+  {
+   "cue": 69.56,
+   "start": 69.56,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.09,
+   "tries": 1,
+   "text": "The check comes too soon, and the test fails for no reason."
+  },
+  {
+   "cue": 73.57,
+   "start": 73.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.73,
+   "tries": 1,
+   "text": "In the lesson's runs, it failed about a quarter of the time."
+  },
+  {
+   "cue": 77.17,
+   "start": 77.17,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.66,
+   "tries": 1,
+   "text": "Instead, wait for the event."
+  },
+  {
+   "cue": 78.91,
+   "start": 78.98,
+   "late": 0.07,
+   "tempo": 1.0,
+   "secs": 5.63,
+   "tries": 1,
+   "text": "A latch counts down when the payment settles, and the test awaits it, with a deadline of ten seconds."
+  },
+  {
+   "cue": 85.37,
+   "start": 85.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.36,
+   "tries": 1,
+   "text": "Fast when the work is fast, patient when the machine is slow."
+  },
+  {
+   "cue": 89.31,
+   "start": 89.31,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.32,
+   "tries": 1,
+   "text": "It failed zero times."
+  },
+  {
+   "cue": 91.6,
+   "start": 91.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.94,
+   "tries": 1,
+   "text": "In Java and Kotlin, it is the same four lines."
+  },
+  {
+   "cue": 96.07,
+   "start": 96.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.47,
+   "tries": 1,
+   "text": "Some races need millions of tries."
+  },
+  {
+   "cue": 98.91,
+   "start": 98.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.26,
+   "tries": 1,
+   "text": "jcstress, the OpenJDK harness, does that."
+  },
+  {
+   "cue": 102.53,
+   "start": 102.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.22,
+   "tries": 1,
+   "text": "Two actors increment one counter, and record what they read."
+  },
+  {
+   "cue": 106.26,
+   "start": 106.26,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.76,
+   "tries": 1,
+   "text": "It runs this millions of times, and counts each outcome."
+  },
+  {
+   "cue": 109.97,
+   "start": 109.97,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.75,
+   "tries": 1,
+   "text": "one, two and two, one are acceptable."
+  },
+  {
+   "cue": 111.98,
+   "start": 112.87,
+   "late": 0.89,
+   "tempo": 1.2,
+   "secs": 3.11,
+   "tries": 1,
+   "text": "one, one means both read zero, so an increment was lost."
+  },
+  {
+   "cue": 115.59,
+   "start": 116.13,
+   "late": 0.54,
+   "tempo": 1.0,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "It is labeled interesting: the race you are looking for."
+  },
+  {
+   "cue": 119.7,
+   "start": 119.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.63,
+   "tries": 1,
+   "text": "Label an outcome forbidden, and one sighting fails the test."
+  },
+  {
+   "cue": 124.37,
+   "start": 124.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.65,
+   "tries": 1,
+   "text": "The rule. Make threads collide on purpose, wait for events instead of time, and read a pass as: not found this time."
+  },
+  {
+   "cue": 132.2,
+   "start": 132.2,
+   "late": 0.0,
+   "tempo": 1.016,
+   "secs": 5.97,
+   "tries": 1,
+   "text": "Check yourself. A test starts two threads, each makes one refund, and it has never failed."
+  },
+  {
+   "cue": 138.39,
+   "start": 138.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.05,
+   "tries": 2,
+   "text": "Is the ledger safe?"
+  },
+  {
+   "cue": 142.23,
+   "start": 142.23,
+   "late": 0.0,
+   "tempo": 1.088,
+   "secs": 0.83,
+   "tries": 1,
+   "text": "You can't tell."
+  },
+  {
+   "cue": 143.28,
+   "start": 143.28,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.19,
+   "tries": 1,
+   "text": "The refunds probably never overlapped."
+  },
+  {
+   "cue": 145.93,
+   "start": 145.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.4,
+   "tries": 1,
+   "text": "A pass only means this run found nothing."
+  }
+ ]
+}

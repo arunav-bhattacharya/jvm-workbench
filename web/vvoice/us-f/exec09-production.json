@@ -1,0 +1,331 @@
+{
+ "slug": "exec09-production",
+ "voice": "us-f",
+ "max_late": 0.22,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.17,
+   "tries": 1,
+   "text": "An authorization pool has two threads."
+  },
+  {
+   "cue": 5.05,
+   "start": 5.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.9,
+   "tries": 1,
+   "text": "Payments come in faster than two threads can finish them."
+  },
+  {
+   "cue": 8.8,
+   "start": 8.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.33,
+   "tries": 1,
+   "text": "It came from newFixedThreadPool, so its queue has no limit."
+  },
+  {
+   "cue": 12.83,
+   "start": 12.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "Below are four numbers a dashboard would show."
+  },
+  {
+   "cue": 15.7,
+   "start": 15.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.71,
+   "tries": 1,
+   "text": "What does a caller notice while the queue keeps growing?"
+  },
+  {
+   "cue": 20.23,
+   "start": 20.23,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.17,
+   "tries": 1,
+   "text": "At first, nothing."
+  },
+  {
+   "cue": 21.42,
+   "start": 21.56,
+   "late": 0.14,
+   "tempo": 1.049,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "Every task is accepted, and nothing fails."
+  },
+  {
+   "cue": 24.19,
+   "start": 24.19,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.22,
+   "tries": 1,
+   "text": "But each new task waits behind all the others, so time in queue keeps climbing."
+  },
+  {
+   "cue": 29.39,
+   "start": 29.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "Every queued task holds memory too."
+  },
+  {
+   "cue": 31.93,
+   "start": 31.93,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.87,
+   "tries": 1,
+   "text": "Nobody is told."
+  },
+  {
+   "cue": 32.96,
+   "start": 32.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.43,
+   "tries": 1,
+   "text": "Each caller just waits longer than the last."
+  },
+  {
+   "cue": 36.17,
+   "start": 36.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.52,
+   "tries": 1,
+   "text": "Now give the pool a bounded queue, with room for four."
+  },
+  {
+   "cue": 39.7,
+   "start": 39.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.05,
+   "tries": 1,
+   "text": "When it's full, the next task is rejected at once."
+  },
+  {
+   "cue": 43.16,
+   "start": 43.16,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.14,
+   "tries": 1,
+   "text": "The default, AbortPolicy, throws a RejectedExecutionException."
+  },
+  {
+   "cue": 47.7,
+   "start": 47.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.9,
+   "tries": 2,
+   "text": "That is what a bounded queue is for."
+  },
+  {
+   "cue": 50.05,
+   "start": 50.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.63,
+   "tries": 1,
+   "text": "The caller hears about the overload right away, and can answer with a fast five hundred three."
+  },
+  {
+   "cue": 55.19,
+   "start": 55.19,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.96,
+   "tries": 1,
+   "text": "And time in queue stays short."
+  },
+  {
+   "cue": 57.37,
+   "start": 57.37,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.32,
+   "tries": 1,
+   "text": "So watch these four."
+  },
+  {
+   "cue": 58.62,
+   "start": 58.84,
+   "late": 0.22,
+   "tempo": 1.0,
+   "secs": 3.6,
+   "tries": 1,
+   "text": "A queue that keeps growing means tasks arrive faster than they finish."
+  },
+  {
+   "cue": 63.23,
+   "start": 63.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.98,
+   "tries": 1,
+   "text": "A pool pinned at its maximum is usually waiting on something downstream."
+  },
+  {
+   "cue": 68.23,
+   "start": 68.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.9,
+   "tries": 1,
+   "text": "ThreadPoolExecutor does not count rejections for you."
+  },
+  {
+   "cue": 71.6,
+   "start": 71.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.53,
+   "tries": 1,
+   "text": "Wrap the handler so it counts, then throws."
+  },
+  {
+   "cue": 74.53,
+   "start": 74.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.63,
+   "tries": 1,
+   "text": "Of the four, time in queue and rejections are what your customers feel."
+  },
+  {
+   "cue": 79.17,
+   "start": 79.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.77,
+   "tries": 3,
+   "text": "One more thing."
+  },
+  {
+   "cue": 80.14,
+   "start": 80.14,
+   "late": 0.0,
+   "tempo": 1.146,
+   "secs": 2.97,
+   "tries": 1,
+   "text": "The threads are called pool-three-thread-one and so on."
+  },
+  {
+   "cue": 83.32,
+   "start": 83.32,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.31,
+   "tries": 1,
+   "text": "In a thread dump of a service with eight pools, that tells you nothing."
+  },
+  {
+   "cue": 87.93,
+   "start": 87.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.64,
+   "tries": 1,
+   "text": "Name them after the work they do."
+  },
+  {
+   "cue": 91.1,
+   "start": 91.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.42,
+   "tries": 1,
+   "text": "When the queue is full, you choose what happens."
+  },
+  {
+   "cue": 94.23,
+   "start": 94.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.95,
+   "tries": 1,
+   "text": "AbortPolicy throws. CallerRunsPolicy makes the submitting thread run the task itself, so the intake slows down."
+  },
+  {
+   "cue": 101.4,
+   "start": 101.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.29,
+   "tries": 1,
+   "text": "DiscardPolicy drops the task, and nobody ever hears about it."
+  },
+  {
+   "cue": 106.2,
+   "start": 106.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.1,
+   "tries": 1,
+   "text": "Here is the whole pool: two threads, a queue of four, named threads, and a handler that counts, then throws."
+  },
+  {
+   "cue": 113.5,
+   "start": 113.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.3,
+   "tries": 1,
+   "text": "The rule. Bound the queue, decide what a rejection does, name the threads, and watch time in queue and rejections."
+  },
+  {
+   "cue": 121.07,
+   "start": 121.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.42,
+   "tries": 1,
+   "text": "Check yourself. A pool from newFixedThreadPool falls behind during a spike."
+  },
+  {
+   "cue": 126.02,
+   "start": 126.02,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.91,
+   "tries": 1,
+   "text": "What does its rejection counter show?"
+  },
+  {
+   "cue": 131.2,
+   "start": 131.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.71,
+   "tries": 1,
+   "text": "Zero. Its queue has no limit, so nothing is ever rejected."
+  },
+  {
+   "cue": 135.21,
+   "start": 135.21,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.55,
+   "tries": 1,
+   "text": "Watch queue size and time in queue instead."
+  }
+ ]
+}

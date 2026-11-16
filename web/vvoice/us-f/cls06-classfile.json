@@ -1,0 +1,304 @@
+{
+ "slug": "cls06-classfile",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.68,
+   "tries": 1,
+   "text": "A class file is a byte array with a fixed layout."
+  },
+  {
+   "cue": 5.79,
+   "start": 5.79,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.61,
+   "tries": 1,
+   "text": "The first four bytes are always CAFEBABE."
+  },
+  {
+   "cue": 8.57,
+   "start": 8.57,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 5.42,
+   "tries": 1,
+   "text": "Then the minor and major version: zeroxforty-one is sixty-five, which means Java twenty-one."
+  },
+  {
+   "cue": 14.14,
+   "start": 14.14,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.94,
+   "tries": 1,
+   "text": "Then the size of the constant pool."
+  },
+  {
+   "cue": 17.3,
+   "start": 17.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.75,
+   "tries": 1,
+   "text": "In the pool, each entry starts with a tag, and the tag decides how many bytes follow."
+  },
+  {
+   "cue": 22.87,
+   "start": 22.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.99,
+   "tries": 1,
+   "text": "So to find anything after the pool, you walk every entry."
+  },
+  {
+   "cue": 26.67,
+   "start": 26.67,
+   "late": 0.0,
+   "tempo": 1.099,
+   "secs": 2.33,
+   "tries": 1,
+   "text": "And every J D K adds a major version."
+  },
+  {
+   "cue": 29.2,
+   "start": 29.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.32,
+   "tries": 1,
+   "text": "Frameworks shipped their own ASM, and a release for each one."
+  },
+  {
+   "cue": 33.8,
+   "start": 33.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.19,
+   "tries": 1,
+   "text": "Since J D K twenty-four, the J D K has its own library for it: the ClassFile A P I."
+  },
+  {
+   "cue": 41.4,
+   "start": 41.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.99,
+   "tries": 1,
+   "text": "Its parse method turns the bytes into a ClassModel: an immutable description of the class."
+  },
+  {
+   "cue": 47.13,
+   "start": 47.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.82,
+   "tries": 1,
+   "text": "A model is a sequence of elements: methods, fields and attributes."
+  },
+  {
+   "cue": 51.93,
+   "start": 51.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.94,
+   "tries": 1,
+   "text": "Open a method's code, and you get more elements: one typed object per instruction."
+  },
+  {
+   "cue": 57.6,
+   "start": 57.6,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.83,
+   "tries": 1,
+   "text": "And it's lazy."
+  },
+  {
+   "cue": 58.6,
+   "start": 58.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.23,
+   "tries": 1,
+   "text": "A part is parsed only when you open it."
+  },
+  {
+   "cue": 62.47,
+   "start": 62.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.27,
+   "tries": 1,
+   "text": "Building runs the other way."
+  },
+  {
+   "cue": 64.3,
+   "start": 64.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.83,
+   "tries": 1,
+   "text": "You pass lambdas, and each one gets a builder."
+  },
+  {
+   "cue": 67.53,
+   "start": 67.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.38,
+   "tries": 1,
+   "text": "The CodeBuilder has one method per instruction."
+  },
+  {
+   "cue": 70.49,
+   "start": 70.49,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.17,
+   "tries": 1,
+   "text": "Each call emits one element, and build turns them into bytes."
+  },
+  {
+   "cue": 75.23,
+   "start": 75.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.09,
+   "tries": 1,
+   "text": "To change a class, a transform hands each element of the old class to the new class's builder."
+  },
+  {
+   "cue": 81.6,
+   "start": 81.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.3,
+   "tries": 1,
+   "text": "Pass it through with builder.with, and it comes out unchanged."
+  },
+  {
+   "cue": 85.53,
+   "start": 85.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.4,
+   "tries": 1,
+   "text": "Call nothing, and it's dropped."
+  },
+  {
+   "cue": 87.67,
+   "start": 87.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.49,
+   "tries": 1,
+   "text": "A code transform does the same with instructions."
+  },
+  {
+   "cue": 91.96,
+   "start": 91.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.63,
+   "tries": 1,
+   "text": "Call other builder methods, and you replace it: ldc two hundred ninety becomes ldc three hundred ten."
+  },
+  {
+   "cue": 98.47,
+   "start": 98.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.4,
+   "tries": 1,
+   "text": "It's a flatMap: each element in, zero, one or more out."
+  },
+  {
+   "cue": 104.61,
+   "start": 104.61,
+   "late": 0.0,
+   "tempo": 1.033,
+   "secs": 6.66,
+   "tries": 1,
+   "text": "FeeRuleVtwo's fee now returns three thousand eight hundred seventy-five instead of three thousand six hundred twenty-five."
+  },
+  {
+   "cue": 111.47,
+   "start": 111.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.42,
+   "tries": 1,
+   "text": "In code, it's a lambda that gets the builder and one element."
+  },
+  {
+   "cue": 115.78,
+   "start": 115.78,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.52,
+   "tries": 1,
+   "text": "Kotlin calls the same Java A P I."
+  },
+  {
+   "cue": 119.13,
+   "start": 119.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.81,
+   "tries": 1,
+   "text": "The rule. A class is a sequence of elements."
+  },
+  {
+   "cue": 122.23,
+   "start": 122.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.15,
+   "tries": 1,
+   "text": "Parse reads them, build writes them, and a transform maps each one to zero or more."
+  },
+  {
+   "cue": 128.4,
+   "start": 128.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.01,
+   "tries": 1,
+   "text": "Quick check. For ldc two hundred ninety, a code transform calls with on the element, then ldc three hundred ten."
+  },
+  {
+   "cue": 136.11,
+   "start": 136.11,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "What does the new code hold?"
+  },
+  {
+   "cue": 141.13,
+   "start": 141.13,
+   "late": 0.0,
+   "tempo": 1.085,
+   "secs": 3.39,
+   "tries": 1,
+   "text": "Both. ldc two hundred ninety, then ldc three hundred ten."
+  },
+  {
+   "cue": 144.74,
+   "start": 144.74,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.87,
+   "tries": 1,
+   "text": "One element in, two out."
+  }
+ ]
+}

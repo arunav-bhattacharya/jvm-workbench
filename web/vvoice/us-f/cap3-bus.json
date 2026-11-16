@@ -1,0 +1,385 @@
+{
+ "slug": "cap3-bus",
+ "voice": "us-f",
+ "max_late": 0.02,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.069,
+   "secs": 0.98,
+   "tries": 1,
+   "text": "A capture comes in."
+  },
+  {
+   "cue": 3.9,
+   "start": 3.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.55,
+   "tries": 2,
+   "text": "The bus must hand it to everyone who asked for it."
+  },
+  {
+   "cue": 7.27,
+   "start": 7.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.23,
+   "tries": 1,
+   "text": "Each handler subscribes under a type."
+  },
+  {
+   "cue": 9.71,
+   "start": 9.71,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.05,
+   "tries": 1,
+   "text": "Ledger and receipts want captures."
+  },
+  {
+   "cue": 11.96,
+   "start": 11.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.94,
+   "tries": 1,
+   "text": "Movements wants any money movement."
+  },
+  {
+   "cue": 14.28,
+   "start": 14.28,
+   "late": 0.0,
+   "tempo": 1.107,
+   "secs": 1.6,
+   "tries": 1,
+   "text": "Audit wants every event."
+  },
+  {
+   "cue": 16.1,
+   "start": 16.1,
+   "late": 0.0,
+   "tempo": 1.104,
+   "secs": 1.66,
+   "tries": 1,
+   "text": "Refunds wants refunds only."
+  },
+  {
+   "cue": 17.98,
+   "start": 17.98,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.7,
+   "tries": 1,
+   "text": "They all sit in a map, keyed by that type."
+  },
+  {
+   "cue": 21.13,
+   "start": 21.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.36,
+   "tries": 1,
+   "text": "The bus from the generics workshop looks up one key: the event's own class."
+  },
+  {
+   "cue": 26.34,
+   "start": 26.34,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.2,
+   "tries": 1,
+   "text": "Predict. Which handlers run?"
+  },
+  {
+   "cue": 29.63,
+   "start": 29.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.94,
+   "tries": 1,
+   "text": "Only ledger and receipts."
+  },
+  {
+   "cue": 31.77,
+   "start": 31.77,
+   "late": 0.0,
+   "tempo": 1.134,
+   "secs": 1.77,
+   "tries": 1,
+   "text": "Movements and audit never run."
+  },
+  {
+   "cue": 33.76,
+   "start": 33.76,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.59,
+   "tries": 1,
+   "text": "An event's run-time class is never an interface like MoneyMovement."
+  },
+  {
+   "cue": 39.03,
+   "start": 39.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.44,
+   "tries": 3,
+   "text": "So the bus works out which keys to look up."
+  },
+  {
+   "cue": 41.63,
+   "start": 41.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.82,
+   "tries": 1,
+   "text": "PaymentCaptured implements MoneyMovement, which extends PaymentEvent."
+  },
+  {
+   "cue": 46.03,
+   "start": 46.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.03,
+   "tries": 1,
+   "text": "The walk starts at the event's own class: the first key."
+  },
+  {
+   "cue": 49.6,
+   "start": 49.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.58,
+   "tries": 1,
+   "text": "Then it asks that class for its interfaces and its superclass."
+  },
+  {
+   "cue": 53.77,
+   "start": 53.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.55,
+   "tries": 1,
+   "text": "Object is not an event, so it's skipped."
+  },
+  {
+   "cue": 56.5,
+   "start": 56.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.23,
+   "tries": 1,
+   "text": "MoneyMovement is: the second key."
+  },
+  {
+   "cue": 58.97,
+   "start": 58.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.7,
+   "tries": 1,
+   "text": "Its supertype, PaymentEvent, is the third."
+  },
+  {
+   "cue": 61.93,
+   "start": 61.93,
+   "late": 0.0,
+   "tempo": 1.09,
+   "secs": 1.54,
+   "tries": 1,
+   "text": "Three keys, nearest first."
+  },
+  {
+   "cue": 63.69,
+   "start": 63.69,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.98,
+   "tries": 1,
+   "text": "Siblings like PaymentRefunded are never touched."
+  },
+  {
+   "cue": 67.17,
+   "start": 67.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.14,
+   "tries": 1,
+   "text": "A class's keys never change, so the bus caches them, once per class."
+  },
+  {
+   "cue": 73.23,
+   "start": 73.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.26,
+   "tries": 1,
+   "text": "Now publish visits just those keys."
+  },
+  {
+   "cue": 75.81,
+   "start": 75.81,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.49,
+   "tries": 1,
+   "text": "Captures first: ledger, then receipts."
+  },
+  {
+   "cue": 78.6,
+   "start": 78.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "Then movements. Then audit."
+  },
+  {
+   "cue": 81.1,
+   "start": 81.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.78,
+   "tries": 1,
+   "text": "Specific handlers run before general ones, and within one key, in subscription order."
+  },
+  {
+   "cue": 87.33,
+   "start": 87.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.95,
+   "tries": 1,
+   "text": "Audit is a Handler of PaymentEvent."
+  },
+  {
+   "cue": 89.57,
+   "start": 89.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.65,
+   "tries": 1,
+   "text": "Can it subscribe under PaymentCaptured, where the bus expects a Handler of PaymentCaptured?"
+  },
+  {
+   "cue": 97.0,
+   "start": 97.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.93,
+   "tries": 1,
+   "text": "A handler only takes events in."
+  },
+  {
+   "cue": 99.13,
+   "start": 99.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.8,
+   "tries": 1,
+   "text": "Audit takes any event, so captures are fine."
+  },
+  {
+   "cue": 102.37,
+   "start": 102.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.24,
+   "tries": 1,
+   "text": "So Handler is declared in, and one general handler fits any subscription."
+  },
+  {
+   "cue": 107.27,
+   "start": 107.27,
+   "late": 0.0,
+   "tempo": 1.007,
+   "secs": 3.37,
+   "tries": 1,
+   "text": "Delete the in, and the same line fails to compile."
+  },
+  {
+   "cue": 110.77,
+   "start": 110.79,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 3.09,
+   "tries": 1,
+   "text": "Java writes question mark super E at each use instead."
+  },
+  {
+   "cue": 114.27,
+   "start": 114.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.12,
+   "tries": 1,
+   "text": "kotlinc puts that wildcard in for Java callers too."
+  },
+  {
+   "cue": 119.33,
+   "start": 119.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.79,
+   "tries": 1,
+   "text": "One step of the walk, in Java and Kotlin."
+  },
+  {
+   "cue": 124.37,
+   "start": 124.37,
+   "late": 0.0,
+   "tempo": 1.016,
+   "secs": 4.8,
+   "tries": 1,
+   "text": "The rule. Look up the event's class, then each event supertype, nearest first."
+  },
+  {
+   "cue": 129.4,
+   "start": 129.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.98,
+   "tries": 1,
+   "text": "A handler only takes events in, so declare it in."
+  },
+  {
+   "cue": 132.83,
+   "start": 132.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.81,
+   "tries": 1,
+   "text": "Check yourself. A PaymentDeclined is published."
+  },
+  {
+   "cue": 136.0,
+   "start": 136.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.8,
+   "tries": 1,
+   "text": "Which keys does the bus look up?"
+  },
+  {
+   "cue": 140.93,
+   "start": 140.93,
+   "late": 0.0,
+   "tempo": 1.005,
+   "secs": 3.1,
+   "tries": 1,
+   "text": "Two. PaymentDeclined, then PaymentEvent."
+  },
+  {
+   "cue": 144.17,
+   "start": 144.18,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 3.98,
+   "tries": 1,
+   "text": "Audit runs. Movements doesn't: a decline moves no money."
+  }
+ ]
+}

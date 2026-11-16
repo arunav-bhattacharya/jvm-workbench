@@ -1,0 +1,268 @@
+{
+ "slug": "cap4-build-time",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "Until the container is wired, no payment goes through."
+  },
+  {
+   "cue": 5.86,
+   "start": 5.86,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.06,
+   "tries": 1,
+   "text": "Here is one start, from the first line of main to the first payment done."
+  },
+  {
+   "cue": 10.37,
+   "start": 10.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.08,
+   "tries": 1,
+   "text": "The reflective container does everything now."
+  },
+  {
+   "cue": 13.25,
+   "start": 13.25,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.09,
+   "tries": 1,
+   "text": "It finds the components, reads their annotations, orders the graph, and has Byte Buddy write a subclass."
+  },
+  {
+   "cue": 20.13,
+   "start": 20.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "Ready after one thousand twenty-nine milliseconds."
+  },
+  {
+   "cue": 23.76,
+   "start": 23.76,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.81,
+   "tries": 1,
+   "text": "It loaded two thousand two hundred seven classes."
+  },
+  {
+   "cue": 27.8,
+   "start": 27.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.03,
+   "tries": 1,
+   "text": "The same app, wired by generated code, loads nine hundred ninety-one classes."
+  },
+  {
+   "cue": 33.4,
+   "start": 33.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.26,
+   "tries": 1,
+   "text": "So one thousand two hundred sixteen classes are pure machinery."
+  },
+  {
+   "cue": 37.37,
+   "start": 37.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.56,
+   "tries": 1,
+   "text": "eight hundred fourteen come from byte-buddy.jar: Byte Buddy's own machinery, loaded before it can write one subclass."
+  },
+  {
+   "cue": 45.33,
+   "start": 45.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.81,
+   "tries": 1,
+   "text": "Then the three classes it writes, thirty J D K proxy classes, and one hundred twenty-three hidden classes."
+  },
+  {
+   "cue": 52.5,
+   "start": 52.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.2,
+   "tries": 1,
+   "text": "Each one is found, parsed and verified, then run in the interpreter, because nothing is hot yet."
+  },
+  {
+   "cue": 59.53,
+   "start": 59.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.09,
+   "tries": 1,
+   "text": "None of this depends on anything but the classes, and those are fixed when you build."
+  },
+  {
+   "cue": 64.62,
+   "start": 64.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.62,
+   "tries": 1,
+   "text": "So run the same steps on the build machine, once."
+  },
+  {
+   "cue": 67.77,
+   "start": 67.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.59,
+   "tries": 1,
+   "text": "A cycle in the graph now fails the build instead of the deploy."
+  },
+  {
+   "cue": 71.83,
+   "start": 71.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.74,
+   "tries": 1,
+   "text": "The generator writes plain Java: a holder class for each singleton, and the interceptors as source, with the annotation values written in."
+  },
+  {
+   "cue": 80.97,
+   "start": 80.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.51,
+   "tries": 1,
+   "text": "Predict. What is left for each start to do?"
+  },
+  {
+   "cue": 85.8,
+   "start": 85.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.09,
+   "tries": 1,
+   "text": "Only the holders."
+  },
+  {
+   "cue": 87.1,
+   "start": 87.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.24,
+   "tries": 1,
+   "text": "The J V M initializes each one the first time get touches it, once, under the class initialization lock."
+  },
+  {
+   "cue": 95.13,
+   "start": 95.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.99,
+   "tries": 1,
+   "text": "Ready after two hundred sixty-six milliseconds, with nine hundred ninety-one classes, and no reflection."
+  },
+  {
+   "cue": 102.47,
+   "start": 102.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.32,
+   "tries": 1,
+   "text": "On a busy machine the times moved by a factor of two between runs, but the reflective start was always several times slower."
+  },
+  {
+   "cue": 111.23,
+   "start": 111.23,
+   "late": 0.0,
+   "tempo": 1.027,
+   "secs": 2.43,
+   "tries": 1,
+   "text": "Here is one holder, in Java and Kotlin."
+  },
+  {
+   "cue": 113.88,
+   "start": 113.88,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.14,
+   "tries": 1,
+   "text": "A plain new call, with its dependency's holder inside."
+  },
+  {
+   "cue": 117.77,
+   "start": 117.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.27,
+   "tries": 1,
+   "text": "The price. The set of components is fixed when you build."
+  },
+  {
+   "cue": 121.39,
+   "start": 121.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.57,
+   "tries": 1,
+   "text": "And a holder whose constructor throws stays failed until you restart."
+  },
+  {
+   "cue": 126.67,
+   "start": 126.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.27,
+   "tries": 1,
+   "text": "The rule. Work that depends only on the classes belongs at build time."
+  },
+  {
+   "cue": 131.48,
+   "start": 131.48,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.09,
+   "tries": 1,
+   "text": "A start should run only ordinary code."
+  },
+  {
+   "cue": 134.33,
+   "start": 134.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.53,
+   "tries": 1,
+   "text": "Check yourself. In the generated container, where does @Retry's three come from at run time?"
+  },
+  {
+   "cue": 143.07,
+   "start": 143.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.5,
+   "tries": 1,
+   "text": "From the generated source."
+  },
+  {
+   "cue": 144.8,
+   "start": 144.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.01,
+   "tries": 1,
+   "text": "The generator read @Retry at build time and wrote three into the code."
+  }
+ ]
+}

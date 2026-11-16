@@ -1,0 +1,304 @@
+{
+ "slug": "cap3-java-surface",
+ "voice": "us-f",
+ "max_late": 0.5,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.78,
+   "tries": 1,
+   "text": "A Java team wants to call the Kotlin event library."
+  },
+  {
+   "cue": 6.47,
+   "start": 6.47,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "java C can't read Kotlin."
+  },
+  {
+   "cue": 8.15,
+   "start": 8.15,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.14,
+   "tries": 1,
+   "text": "It reads the class files kotlinc wrote, and some Kotlin features look odd there, or are missing."
+  },
+  {
+   "cue": 15.73,
+   "start": 15.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.72,
+   "tries": 1,
+   "text": "First, default arguments."
+  },
+  {
+   "cue": 17.64,
+   "start": 17.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.6,
+   "tries": 1,
+   "text": "From Kotlin, PlainBus of refunds works."
+  },
+  {
+   "cue": 20.83,
+   "start": 20.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.57,
+   "tries": 1,
+   "text": "From Java, the same call fails: no suitable constructor found."
+  },
+  {
+   "cue": 24.76,
+   "start": 24.76,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.21,
+   "tries": 1,
+   "text": "The class file has only two: the one with every default, and the full one."
+  },
+  {
+   "cue": 29.67,
+   "start": 29.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.29,
+   "tries": 1,
+   "text": "@JvmOverloads tells kotlinc to write the ones in between."
+  },
+  {
+   "cue": 34.42,
+   "start": 34.42,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.88,
+   "tries": 1,
+   "text": "Now Java's call compiles."
+  },
+  {
+   "cue": 37.23,
+   "start": 37.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.64,
+   "tries": 1,
+   "text": "The reified subscribe is invisible to Java."
+  },
+  {
+   "cue": 40.41,
+   "start": 40.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.78,
+   "tries": 1,
+   "text": "It's compiled as a synthetic method, and java C ignores those."
+  },
+  {
+   "cue": 45.13,
+   "start": 45.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.35,
+   "tries": 1,
+   "text": "The KClass one works, if Java converts the class by hand."
+  },
+  {
+   "cue": 49.47,
+   "start": 49.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "The fix: an overload that takes a Java Class."
+  },
+  {
+   "cue": 53.23,
+   "start": 53.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.18,
+   "tries": 1,
+   "text": "From Java, an object member goes through INSTANCE, and a companion val through Companion and a getter."
+  },
+  {
+   "cue": 60.1,
+   "start": 60.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.59,
+   "tries": 1,
+   "text": "@JvmStatic makes publish a real static method."
+  },
+  {
+   "cue": 63.97,
+   "start": 63.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.17,
+   "tries": 1,
+   "text": "@JvmField makes SYSTEM a plain static field."
+  },
+  {
+   "cue": 68.37,
+   "start": 68.37,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.17,
+   "tries": 1,
+   "text": "Last, the event."
+  },
+  {
+   "cue": 69.5,
+   "start": 69.69,
+   "late": 0.19,
+   "tempo": 1.0,
+   "secs": 4.31,
+   "tries": 1,
+   "text": "Its id and amount are value classes, whose init blocks check every value."
+  },
+  {
+   "cue": 74.9,
+   "start": 74.9,
+   "late": 0.0,
+   "tempo": 1.046,
+   "secs": 3.14,
+   "tries": 1,
+   "text": "In the class file, a value class is just what it wraps."
+  },
+  {
+   "cue": 78.26,
+   "start": 78.26,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.0,
+   "tries": 1,
+   "text": "So Java sees a private constructor that takes a String and a long, and getters with mangled names."
+  },
+  {
+   "cue": 84.47,
+   "start": 84.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.29,
+   "tries": 1,
+   "text": "A @JvmName shortcut would let Java pass a raw long straight past init."
+  },
+  {
+   "cue": 89.59,
+   "start": 89.59,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.5,
+   "tries": 1,
+   "text": "The facade does the opposite."
+  },
+  {
+   "cue": 92.53,
+   "start": 92.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.89,
+   "tries": 1,
+   "text": "It takes plain values, and builds the value classes itself, so every init block runs."
+  },
+  {
+   "cue": 98.33,
+   "start": 98.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.26,
+   "tries": 1,
+   "text": "A good call goes through."
+  },
+  {
+   "cue": 101.47,
+   "start": 101.47,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 6.23,
+   "tries": 1,
+   "text": "Predict. A Java caller passes seven thousand seven hundred eighty-one, with no pay_ prefix."
+  },
+  {
+   "cue": 107.35,
+   "start": 107.85,
+   "late": 0.5,
+   "tempo": 1.0,
+   "secs": 0.83,
+   "tries": 1,
+   "text": "What happens?"
+  },
+  {
+   "cue": 110.37,
+   "start": 110.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.03,
+   "tries": 1,
+   "text": "PaymentId's init throws, just as it would for Kotlin."
+  },
+  {
+   "cue": 114.93,
+   "start": 114.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.66,
+   "tries": 1,
+   "text": "Here is the facade in Kotlin, and a Java caller."
+  },
+  {
+   "cue": 120.63,
+   "start": 120.63,
+   "late": 0.0,
+   "tempo": 1.02,
+   "secs": 2.77,
+   "tries": 1,
+   "text": "The rule. Java sees only the class file."
+  },
+  {
+   "cue": 123.63,
+   "start": 123.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.92,
+   "tries": 1,
+   "text": "Give it Class overloads, @JvmOverloads, statics, and a facade that still builds the value classes."
+  },
+  {
+   "cue": 131.4,
+   "start": 131.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.76,
+   "tries": 1,
+   "text": "Check yourself. Without @JvmOverloads, does new PlainBus with a name and a flag compile from Java?"
+  },
+  {
+   "cue": 141.87,
+   "start": 141.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.46,
+   "tries": 1,
+   "text": "Yes. The full constructor is always there."
+  },
+  {
+   "cue": 144.77,
+   "start": 144.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.89,
+   "tries": 1,
+   "text": "Only the ones in between are missing."
+  }
+ ]
+}

@@ -1,0 +1,313 @@
+{
+ "slug": "conc07-locks",
+ "voice": "us-f",
+ "max_late": 0.09,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.81,
+   "tries": 1,
+   "text": "A batch job holds a lock for one and a half seconds."
+  },
+  {
+   "cue": 6.24,
+   "start": 6.24,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.89,
+   "tries": 1,
+   "text": "An A P I thread needs the same lock, and it has a two hundred millisecond budget."
+  },
+  {
+   "cue": 11.37,
+   "start": 11.37,
+   "late": 0.0,
+   "tempo": 1.027,
+   "secs": 3.33,
+   "tries": 1,
+   "text": "With synchronized, the A P I thread can only wait at the door."
+  },
+  {
+   "cue": 14.91,
+   "start": 14.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.2,
+   "tries": 1,
+   "text": "It can't give up after a timeout, and an interrupt doesn't reach it until it gets in."
+  },
+  {
+   "cue": 20.23,
+   "start": 20.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.84,
+   "tries": 1,
+   "text": "ReentrantLock is the same room with the same rules: one owner, a release happens-before the next lock, and it's reentrant."
+  },
+  {
+   "cue": 28.0,
+   "start": 28.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.32,
+   "tries": 1,
+   "text": "What it adds is controls on the door."
+  },
+  {
+   "cue": 30.63,
+   "start": 30.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.47,
+   "tries": 1,
+   "text": "tryLock with a timeout waits at most two hundred milliseconds, then returns false, and the thread can answer busy."
+  },
+  {
+   "cue": 38.17,
+   "start": 38.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.06,
+   "tries": 1,
+   "text": "lockInterruptibly waits too, but an interrupt gets it out at once."
+  },
+  {
+   "cue": 44.43,
+   "start": 44.43,
+   "late": 0.0,
+   "tempo": 1.058,
+   "secs": 2.58,
+   "tries": 1,
+   "text": "Next, a buffer with room for two payments."
+  },
+  {
+   "cue": 47.23,
+   "start": 47.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.59,
+   "tries": 1,
+   "text": "A monitor has one wait set, so producers and consumers sleep in the same place, and notify can wake the wrong kind."
+  },
+  {
+   "cue": 55.1,
+   "start": 55.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.69,
+   "tries": 1,
+   "text": "A ReentrantLock can have one waiting room per reason, called a Condition."
+  },
+  {
+   "cue": 59.99,
+   "start": 59.99,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.64,
+   "tries": 1,
+   "text": "Consumers wait in notEmpty."
+  },
+  {
+   "cue": 61.8,
+   "start": 61.8,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "Producers wait in notFull."
+  },
+  {
+   "cue": 63.77,
+   "start": 63.79,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 1.12,
+   "tries": 1,
+   "text": "The buffer is empty."
+  },
+  {
+   "cue": 65.08,
+   "start": 65.08,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.97,
+   "tries": 1,
+   "text": "A consumer calls await on notEmpty."
+  },
+  {
+   "cue": 67.38,
+   "start": 67.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.83,
+   "tries": 1,
+   "text": "That gives back the lock, and parks it in its own room."
+  },
+  {
+   "cue": 70.99,
+   "start": 70.99,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "A second consumer does the same."
+  },
+  {
+   "cue": 73.3,
+   "start": 73.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.22,
+   "tries": 1,
+   "text": "A producer takes the lock, adds a payment, and calls signal on notEmpty."
+  },
+  {
+   "cue": 78.16,
+   "start": 78.16,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.22,
+   "tries": 1,
+   "text": "Which thread wakes up?"
+  },
+  {
+   "cue": 82.23,
+   "start": 82.23,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.58,
+   "tries": 1,
+   "text": "A consumer. Only consumers wait in that room."
+  },
+  {
+   "cue": 84.96,
+   "start": 84.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.21,
+   "tries": 1,
+   "text": "It goes back to the door for the lock, then checks the buffer again in its while loop."
+  },
+  {
+   "cue": 91.3,
+   "start": 91.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.31,
+   "tries": 1,
+   "text": "Last, an FX rate cache, read five thousand times a second and refreshed every five seconds."
+  },
+  {
+   "cue": 97.02,
+   "start": 97.02,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.02,
+   "tries": 1,
+   "text": "With a plain lock, readers wait for each other for nothing."
+  },
+  {
+   "cue": 101.47,
+   "start": 101.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.76,
+   "tries": 1,
+   "text": "A ReentrantReadWriteLock lets any number of readers in together."
+  },
+  {
+   "cue": 105.45,
+   "start": 105.45,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.78,
+   "tries": 1,
+   "text": "The writer needs the room empty, so it waits until the last reader leaves."
+  },
+  {
+   "cue": 110.05,
+   "start": 110.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.39,
+   "tries": 1,
+   "text": "Then it writes alone, and new readers wait."
+  },
+  {
+   "cue": 113.57,
+   "start": 113.57,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.05,
+   "tries": 1,
+   "text": "In code, nothing lets go for you."
+  },
+  {
+   "cue": 115.68,
+   "start": 115.77,
+   "late": 0.09,
+   "tempo": 1.0,
+   "secs": 3.29,
+   "tries": 1,
+   "text": "Call lock just before try, and release it first thing in finally."
+  },
+  {
+   "cue": 119.84,
+   "start": 119.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.46,
+   "tries": 1,
+   "text": "Kotlin's withLock writes that for you."
+  },
+  {
+   "cue": 123.1,
+   "start": 123.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.57,
+   "tries": 1,
+   "text": "Explicit locks keep the rules of synchronized."
+  },
+  {
+   "cue": 125.92,
+   "start": 125.92,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.17,
+   "tries": 1,
+   "text": "They add a door you can leave, a waiting room per condition, and a read mode many threads share."
+  },
+  {
+   "cue": 132.03,
+   "start": 132.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.54,
+   "tries": 1,
+   "text": "Quick check. Two consumers wait in notEmpty, and a producer waits in notFull."
+  },
+  {
+   "cue": 137.5,
+   "start": 137.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.56,
+   "tries": 1,
+   "text": "A consumer takes a payment and signals notFull."
+  },
+  {
+   "cue": 140.88,
+   "start": 140.88,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.78,
+   "tries": 2,
+   "text": "Who wakes up?"
+  }
+ ]
+}

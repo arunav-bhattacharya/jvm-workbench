@@ -1,0 +1,322 @@
+{
+ "slug": "conc01-threads",
+ "voice": "us-f",
+ "max_late": 0.02,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.89,
+   "tries": 1,
+   "text": "Picture your program as a page of code, and something that walks through it, one line at a time."
+  },
+  {
+   "cue": 8.43,
+   "start": 8.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.01,
+   "tries": 1,
+   "text": "It keeps its notes on a stack: one frame per call in progress, with its local variables."
+  },
+  {
+   "cue": 14.17,
+   "start": 14.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.34,
+   "tries": 1,
+   "text": "Step into a call, and a frame goes on top."
+  },
+  {
+   "cue": 17.14,
+   "start": 17.14,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.47,
+   "tries": 1,
+   "text": "Return, and it comes off."
+  },
+  {
+   "cue": 19.13,
+   "start": 19.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.36,
+   "tries": 1,
+   "text": "This walker is a thread."
+  },
+  {
+   "cue": 20.88,
+   "start": 20.88,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.57,
+   "tries": 1,
+   "text": "The J V M starts this one, called main."
+  },
+  {
+   "cue": 24.2,
+   "start": 24.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.83,
+   "tries": 1,
+   "text": "It runs inside a process, one running J V M, with memory of its own."
+  },
+  {
+   "cue": 29.7,
+   "start": 29.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.05,
+   "tries": 1,
+   "text": "Every object you create with new lives in one part of it: the heap."
+  },
+  {
+   "cue": 33.97,
+   "start": 33.97,
+   "late": 0.0,
+   "tempo": 1.082,
+   "secs": 3.95,
+   "tries": 1,
+   "text": "A second thread, a worker, walks the same code with its own stack."
+  },
+  {
+   "cue": 38.14,
+   "start": 38.14,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.59,
+   "tries": 1,
+   "text": "Both call settle, and each one gets its own frame."
+  },
+  {
+   "cue": 41.5,
+   "start": 41.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.47,
+   "tries": 2,
+   "text": "But both can reach the same Payment on the heap."
+  },
+  {
+   "cue": 44.41,
+   "start": 44.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.66,
+   "tries": 1,
+   "text": "That is how threads share data with no copying, and how two of them can change one object at the same moment."
+  },
+  {
+   "cue": 51.53,
+   "start": 51.53,
+   "late": 0.0,
+   "tempo": 1.009,
+   "secs": 2.21,
+   "tries": 1,
+   "text": "Main sets its local total to three."
+  },
+  {
+   "cue": 53.87,
+   "start": 53.89,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 1.67,
+   "tries": 1,
+   "text": "Does the worker's total change?"
+  },
+  {
+   "cue": 57.57,
+   "start": 57.57,
+   "late": 0.0,
+   "tempo": 1.023,
+   "secs": 2.88,
+   "tries": 1,
+   "text": "No. A local lives on its own thread's stack."
+  },
+  {
+   "cue": 60.66,
+   "start": 60.66,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.24,
+   "tries": 1,
+   "text": "Only the heap is shared."
+  },
+  {
+   "cue": 63.3,
+   "start": 63.3,
+   "late": 0.0,
+   "tempo": 1.044,
+   "secs": 3.69,
+   "tries": 1,
+   "text": "A core of the C P U runs a thread, one thread at a time."
+  },
+  {
+   "cue": 67.2,
+   "start": 67.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.85,
+   "tries": 1,
+   "text": "On one core, the operating system lets main run for a short slice, saves its registers, and switches to the worker."
+  },
+  {
+   "cue": 74.69,
+   "start": 74.69,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.12,
+   "tries": 1,
+   "text": "That is a context switch, thousands of times a second."
+  },
+  {
+   "cue": 78.43,
+   "start": 78.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.25,
+   "tries": 1,
+   "text": "Both are in progress, taking turns."
+  },
+  {
+   "cue": 80.95,
+   "start": 80.95,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.16,
+   "tries": 1,
+   "text": "That is concurrency."
+  },
+  {
+   "cue": 82.6,
+   "start": 82.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.12,
+   "tries": 1,
+   "text": "Two cores run both at the same instant."
+  },
+  {
+   "cue": 85.27,
+   "start": 85.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.26,
+   "tries": 1,
+   "text": "That is parallelism."
+  },
+  {
+   "cue": 87.47,
+   "start": 87.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.69,
+   "tries": 1,
+   "text": "So on four cores, is a busy job faster on eight threads than on four?"
+  },
+  {
+   "cue": 93.57,
+   "start": 93.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.7,
+   "tries": 1,
+   "text": "No. In the lesson's demo, four threads took one hundred twenty-one milliseconds, and eight took one hundred twenty-five."
+  },
+  {
+   "cue": 100.42,
+   "start": 100.42,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.48,
+   "tries": 1,
+   "text": "Once every core is busy, extra threads only take turns."
+  },
+  {
+   "cue": 105.93,
+   "start": 105.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.29,
+   "tries": 1,
+   "text": "Calling run on a thread is a plain method call."
+  },
+  {
+   "cue": 108.97,
+   "start": 108.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.27,
+   "tries": 1,
+   "text": "Main steps into the task itself, on its own stack."
+  },
+  {
+   "cue": 112.4,
+   "start": 112.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.17,
+   "tries": 1,
+   "text": "No new thread exists, nothing fails, and the job is just as slow."
+  },
+  {
+   "cue": 117.1,
+   "start": 117.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.4,
+   "tries": 1,
+   "text": "With start, the J V M asks the operating system for a new thread, with a new stack."
+  },
+  {
+   "cue": 122.87,
+   "start": 122.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.0,
+   "tries": 1,
+   "text": "That thread calls run, and main goes on at once."
+  },
+  {
+   "cue": 126.87,
+   "start": 126.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.95,
+   "tries": 1,
+   "text": "The rule. Every thread has its own stack, they all share the heap, and only start makes a new thread."
+  },
+  {
+   "cue": 133.4,
+   "start": 133.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.76,
+   "tries": 1,
+   "text": "Check yourself. You split a report into four slices, and call run on a new thread for each."
+  },
+  {
+   "cue": 139.48,
+   "start": 139.48,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.34,
+   "tries": 1,
+   "text": "On four cores, how much faster is it?"
+  },
+  {
+   "cue": 144.7,
+   "start": 144.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.01,
+   "tries": 1,
+   "text": "Not faster. Main runs the four slices itself, one after another."
+  }
+ ]
+}

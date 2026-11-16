@@ -1,0 +1,313 @@
+{
+ "slug": "cap2-hedge",
+ "voice": "us-f",
+ "max_late": 0.28,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.61,
+   "tries": 1,
+   "text": "Northbank answers a quote in forty milliseconds, most of the time."
+  },
+  {
+   "cue": 7.18,
+   "start": 7.18,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.07,
+   "tries": 1,
+   "text": "But one call in twenty takes six hundred, a garbage collection pause or a slow replica."
+  },
+  {
+   "cue": 13.03,
+   "start": 13.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.75,
+   "tries": 1,
+   "text": "So the pninety-nine, the time ninety-nine of one hundred requests beat, is six hundred milliseconds."
+  },
+  {
+   "cue": 20.03,
+   "start": 20.03,
+   "late": 0.0,
+   "tempo": 1.077,
+   "secs": 1.32,
+   "tries": 1,
+   "text": "A retry won't help."
+  },
+  {
+   "cue": 21.57,
+   "start": 21.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "Nothing failed. The call is just slow."
+  },
+  {
+   "cue": 25.4,
+   "start": 25.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.16,
+   "tries": 1,
+   "text": "Watch one request."
+  },
+  {
+   "cue": 26.88,
+   "start": 26.88,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.68,
+   "tries": 1,
+   "text": "By eighty milliseconds, nineteen calls in twenty have answered."
+  },
+  {
+   "cue": 31.1,
+   "start": 31.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.08,
+   "tries": 1,
+   "text": "A fast call answers at forty, and nothing else happens."
+  },
+  {
+   "cue": 35.1,
+   "start": 35.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.98,
+   "tries": 1,
+   "text": "Now the first call is a slow one."
+  },
+  {
+   "cue": 37.4,
+   "start": 37.4,
+   "late": 0.0,
+   "tempo": 1.052,
+   "secs": 2.01,
+   "tries": 1,
+   "text": "At eighty, it still hasn't answered."
+  },
+  {
+   "cue": 39.63,
+   "start": 39.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.73,
+   "tries": 1,
+   "text": "So send one more identical call: the hedge."
+  },
+  {
+   "cue": 42.83,
+   "start": 42.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.11,
+   "tries": 1,
+   "text": "Which answer comes first, and when?"
+  },
+  {
+   "cue": 46.47,
+   "start": 46.47,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.52,
+   "tries": 1,
+   "text": "The hedge, at one hundred twenty: eighty of waiting, plus forty."
+  },
+  {
+   "cue": 49.86,
+   "start": 50.14,
+   "late": 0.28,
+   "tempo": 1.0,
+   "secs": 1.97,
+   "tries": 1,
+   "text": "Take it, and cancel the slow call."
+  },
+  {
+   "cue": 53.13,
+   "start": 53.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.13,
+   "tries": 1,
+   "text": "Skip the cancel, and in Kotlin coroutineScope waits for every child."
+  },
+  {
+   "cue": 57.93,
+   "start": 57.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.83,
+   "tries": 1,
+   "text": "The request ends with the slow call, at six hundred."
+  },
+  {
+   "cue": 62.77,
+   "start": 62.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.47,
+   "tries": 1,
+   "text": "Back to all twenty calls."
+  },
+  {
+   "cue": 64.62,
+   "start": 64.62,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.71,
+   "tries": 1,
+   "text": "Only the slow one got a hedge, and it now ends at one hundred twenty."
+  },
+  {
+   "cue": 68.83,
+   "start": 68.83,
+   "late": 0.0,
+   "tempo": 1.009,
+   "secs": 6.89,
+   "tries": 1,
+   "text": "In the lesson's demo, two hundred quotes: the pninety-nine fell from six hundred to one hundred twenty milliseconds."
+  },
+  {
+   "cue": 75.81,
+   "start": 75.88,
+   "late": 0.06,
+   "tempo": 1.0,
+   "secs": 2.33,
+   "tries": 1,
+   "text": "The median, the pfifty, stayed at forty."
+  },
+  {
+   "cue": 79.17,
+   "start": 79.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.74,
+   "tries": 1,
+   "text": "The cost: two hundred ten calls instead of two hundred."
+  },
+  {
+   "cue": 82.18,
+   "start": 82.18,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.65,
+   "tries": 1,
+   "text": "Hedging at the ninety-fiveth percentile adds about five percent."
+  },
+  {
+   "cue": 87.8,
+   "start": 87.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.64,
+   "tries": 1,
+   "text": "A hedge is a duplicate request."
+  },
+  {
+   "cue": 89.97,
+   "start": 89.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.8,
+   "tries": 1,
+   "text": "Northbank's prices are indicative, so asking twice changes nothing."
+  },
+  {
+   "cue": 94.87,
+   "start": 94.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.36,
+   "tries": 1,
+   "text": "Fjord's quotes are firm."
+  },
+  {
+   "cue": 96.53,
+   "start": 96.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.19,
+   "tries": 1,
+   "text": "Each call reserves liquidity, so a hedge would reserve twice."
+  },
+  {
+   "cue": 100.77,
+   "start": 100.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.78,
+   "tries": 1,
+   "text": "Fjord gets exactly one call."
+  },
+  {
+   "cue": 102.93,
+   "start": 102.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.31,
+   "tries": 1,
+   "text": "And the hedge takes its own permit from Northbank's bulkhead."
+  },
+  {
+   "cue": 106.46,
+   "start": 106.46,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.55,
+   "tries": 1,
+   "text": "Under full load it waits for one, so it can't add to the queue that made Northbank slow."
+  },
+  {
+   "cue": 112.77,
+   "start": 112.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.86,
+   "tries": 1,
+   "text": "Here it is in Kotlin, the lab's language, with the Java equivalent in Reactor below it."
+  },
+  {
+   "cue": 120.77,
+   "start": 120.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 9.12,
+   "tries": 1,
+   "text": "The rule. Hedge only calls that are safe to repeat, only where the tail hurts, after about the pninety-five latency, and cancel the loser."
+  },
+  {
+   "cue": 130.37,
+   "start": 130.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.29,
+   "tries": 1,
+   "text": "Check yourself. You move the hedge to thirty milliseconds, below Northbank's normal forty."
+  },
+  {
+   "cue": 136.31,
+   "start": 136.31,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.04,
+   "tries": 1,
+   "text": "How many calls do two hundred quotes make?"
+  },
+  {
+   "cue": 141.5,
+   "start": 141.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.85,
+   "tries": 1,
+   "text": "four hundred. At thirty, every call is still running, so every request is hedged: twice the load."
+  }
+ ]
+}

@@ -1,0 +1,295 @@
+{
+ "slug": "exec07-cf-errors",
+ "voice": "us-f",
+ "max_late": 0.01,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.069,
+   "secs": 4.5,
+   "tries": 1,
+   "text": "A checkout is a chain: get the FX rate, convert, round to cents, charge."
+  },
+  {
+   "cue": 7.41,
+   "start": 7.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.99,
+   "tries": 1,
+   "text": "Each stage runs when the one before it hands it a value."
+  },
+  {
+   "cue": 11.3,
+   "start": 11.3,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.15,
+   "tries": 1,
+   "text": "Now the FX call fails with a five hundred two."
+  },
+  {
+   "cue": 13.67,
+   "start": 13.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.76,
+   "tries": 2,
+   "text": "Which of the next three steps run?"
+  },
+  {
+   "cue": 18.33,
+   "start": 18.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.35,
+   "tries": 1,
+   "text": "None. The failure skips every thenApply: their functions never run, and their futures fail with the same cause."
+  },
+  {
+   "cue": 26.0,
+   "start": 26.0,
+   "late": 0.0,
+   "tempo": 1.005,
+   "secs": 1.77,
+   "tries": 1,
+   "text": "It slides down to the handlers."
+  },
+  {
+   "cue": 27.91,
+   "start": 27.92,
+   "late": 0.01,
+   "tempo": 1.118,
+   "secs": 2.37,
+   "tries": 1,
+   "text": "whenComplete only looks, and passes it on."
+  },
+  {
+   "cue": 30.51,
+   "start": 30.51,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.0,
+   "tries": 1,
+   "text": "exceptionally catches it, but this late, all it can return is: declined."
+  },
+  {
+   "cue": 35.87,
+   "start": 35.87,
+   "late": 0.0,
+   "tempo": 1.051,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "Move exceptionally up, right after the FX call."
+  },
+  {
+   "cue": 38.94,
+   "start": 38.94,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.11,
+   "tries": 1,
+   "text": "Now it returns the last known rate, and every later step runs as if nothing went wrong."
+  },
+  {
+   "cue": 45.6,
+   "start": 45.6,
+   "late": 0.0,
+   "tempo": 1.131,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "A future is only a box for the answer."
+  },
+  {
+   "cue": 48.04,
+   "start": 48.04,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.52,
+   "tries": 1,
+   "text": "The work runs somewhere else, on an io thread."
+  },
+  {
+   "cue": 51.2,
+   "start": 51.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 8.54,
+   "tries": 1,
+   "text": "With orTimeout of two hundred ms, a timer fills the box with a TimeoutException at two hundred ms, and it travels down the chain like any failure."
+  },
+  {
+   "cue": 62.07,
+   "start": 62.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.41,
+   "tries": 2,
+   "text": "The call never hears about it."
+  },
+  {
+   "cue": 64.23,
+   "start": 64.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.96,
+   "tries": 1,
+   "text": "It keeps its thread until six hundred ms, and then its answer is thrown away."
+  },
+  {
+   "cue": 69.43,
+   "start": 69.43,
+   "late": 0.0,
+   "tempo": 1.043,
+   "secs": 2.24,
+   "tries": 1,
+   "text": "A timeout ends the wait, not the work."
+  },
+  {
+   "cue": 71.88,
+   "start": 71.88,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.38,
+   "tries": 1,
+   "text": "So give the client its own timeout too."
+  },
+  {
+   "cue": 75.3,
+   "start": 75.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.83,
+   "tries": 1,
+   "text": "Now ask three FX providers at once, and wait for all three with allOf."
+  },
+  {
+   "cue": 80.4,
+   "start": 80.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.0,
+   "tries": 1,
+   "text": "flaky fails at fifty ms."
+  },
+  {
+   "cue": 82.58,
+   "start": 82.58,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.24,
+   "tries": 1,
+   "text": "alpha answers at one hundred, beta at three hundred."
+  },
+  {
+   "cue": 86.33,
+   "start": 86.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.42,
+   "tries": 1,
+   "text": "allOf waits for all three, then fails, because one failed."
+  },
+  {
+   "cue": 91.01,
+   "start": 91.01,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.75,
+   "tries": 1,
+   "text": "One bad answer at fifty ms fails the whole call, three hundred ms later."
+  },
+  {
+   "cue": 96.7,
+   "start": 96.7,
+   "late": 0.0,
+   "tempo": 1.068,
+   "secs": 2.45,
+   "tries": 1,
+   "text": "The fix: put a handle on each call first."
+  },
+  {
+   "cue": 99.38,
+   "start": 99.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.98,
+   "tries": 1,
+   "text": "It turns a failure into an empty answer, so allOf can only succeed."
+  },
+  {
+   "cue": 103.97,
+   "start": 103.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.28,
+   "tries": 1,
+   "text": "Now flaky's failure comes out of its handle as an empty answer, and at three hundred ms the next step picks the lowest price."
+  },
+  {
+   "cue": 112.5,
+   "start": 112.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.68,
+   "tries": 1,
+   "text": "Give each call its own orTimeout too, so a provider that hangs becomes one more empty answer."
+  },
+  {
+   "cue": 119.77,
+   "start": 119.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.74,
+   "tries": 1,
+   "text": "In Java or Kotlin, each call gets its deadline, then its handle."
+  },
+  {
+   "cue": 124.97,
+   "start": 124.97,
+   "late": 0.0,
+   "tempo": 1.019,
+   "secs": 3.9,
+   "tries": 1,
+   "text": "The rule. A failure skips every stage until a handler catches it."
+  },
+  {
+   "cue": 129.1,
+   "start": 129.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.33,
+   "tries": 2,
+   "text": "Catch it where you still have a useful answer."
+  },
+  {
+   "cue": 132.3,
+   "start": 132.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.17,
+   "tries": 1,
+   "text": "Check yourself. The first stage fails, then comes thenApply A, then exceptionally, then thenApply B."
+  },
+  {
+   "cue": 139.28,
+   "start": 139.28,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.44,
+   "tries": 2,
+   "text": "Which of A and B runs?"
+  },
+  {
+   "cue": 143.53,
+   "start": 143.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.5,
+   "tries": 1,
+   "text": "Only B. A is skipped, and exceptionally hands B a value."
+  }
+ ]
+}

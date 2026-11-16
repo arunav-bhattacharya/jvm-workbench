@@ -1,0 +1,322 @@
+{
+ "slug": "conc11-confine",
+ "voice": "us-f",
+ "max_late": 0.02,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.1,
+   "secs": 2.26,
+   "tries": 1,
+   "text": "A rate cache holds two exchange rates."
+  },
+  {
+   "cue": 5.17,
+   "start": 5.17,
+   "late": 0.0,
+   "tempo": 1.021,
+   "secs": 4.33,
+   "tries": 1,
+   "text": "Every few seconds, a refresher thread updates them, one put at a time."
+  },
+  {
+   "cue": 9.72,
+   "start": 9.72,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.67,
+   "tries": 1,
+   "text": "Readers price payments with both."
+  },
+  {
+   "cue": 12.1,
+   "start": 12.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "The refresher writes the new EUR rate."
+  },
+  {
+   "cue": 14.68,
+   "start": 14.68,
+   "late": 0.0,
+   "tempo": 1.007,
+   "secs": 2.71,
+   "tries": 1,
+   "text": "Before it writes GBP, a reader reads both."
+  },
+  {
+   "cue": 17.52,
+   "start": 17.54,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 1.2,
+   "tries": 1,
+   "text": "What pair does it get?"
+  },
+  {
+   "cue": 21.6,
+   "start": 21.6,
+   "late": 0.0,
+   "tempo": 1.136,
+   "secs": 4.1,
+   "tries": 1,
+   "text": "The new EUR rate with the old GBP rate: a version that never existed."
+  },
+  {
+   "cue": 25.91,
+   "start": 25.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.84,
+   "tries": 1,
+   "text": "Every put and get was thread-safe."
+  },
+  {
+   "cue": 28.04,
+   "start": 28.04,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.01,
+   "tries": 1,
+   "text": "The map was shared, and it was changing."
+  },
+  {
+   "cue": 31.37,
+   "start": 31.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.81,
+   "tries": 1,
+   "text": "A race needs both at once: state that more than one thread can reach, and a thread that changes it."
+  },
+  {
+   "cue": 37.54,
+   "start": 37.54,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.5,
+   "tries": 1,
+   "text": "Take either one away, and there is nothing to lock."
+  },
+  {
+   "cue": 41.53,
+   "start": 41.53,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.54,
+   "tries": 1,
+   "text": "First, take away the changes."
+  },
+  {
+   "cue": 43.25,
+   "start": 43.25,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.48,
+   "tries": 1,
+   "text": "Each version of the map is built once, and never touched again."
+  },
+  {
+   "cue": 46.99,
+   "start": 46.99,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.69,
+   "tries": 1,
+   "text": "The refresher builds the next version off to the side, where no reader can see it."
+  },
+  {
+   "cue": 52.07,
+   "start": 52.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.49,
+   "tries": 1,
+   "text": "Then one volatile write points the field at it."
+  },
+  {
+   "cue": 54.91,
+   "start": 54.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.73,
+   "tries": 1,
+   "text": "A reader that copied the field into a local before the swap keeps reading the old version."
+  },
+  {
+   "cue": 60.35,
+   "start": 60.35,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.43,
+   "tries": 1,
+   "text": "Every reader sees one whole version, and nobody takes a lock."
+  },
+  {
+   "cue": 64.87,
+   "start": 64.87,
+   "late": 0.0,
+   "tempo": 1.123,
+   "secs": 1.62,
+   "tries": 1,
+   "text": "Second, take away the sharing."
+  },
+  {
+   "cue": 66.72,
+   "start": 66.72,
+   "late": 0.0,
+   "tempo": 1.043,
+   "secs": 4.65,
+   "tries": 1,
+   "text": "A local variable lives on one thread's stack, and no other thread can reach it."
+  },
+  {
+   "cue": 71.59,
+   "start": 71.59,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.25,
+   "tries": 1,
+   "text": "A Kafka consumer can keep its partition's totals in a plain HashMap, because only its own thread touches them."
+  },
+  {
+   "cue": 78.6,
+   "start": 78.6,
+   "late": 0.0,
+   "tempo": 1.007,
+   "secs": 3.25,
+   "tries": 1,
+   "text": "When work moves to another thread, ownership moves with it."
+  },
+  {
+   "cue": 81.98,
+   "start": 82.0,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 2.58,
+   "tries": 1,
+   "text": "Put the batch in a queue, and never touch it again."
+  },
+  {
+   "cue": 85.73,
+   "start": 85.73,
+   "late": 0.0,
+   "tempo": 1.044,
+   "secs": 2.5,
+   "tries": 1,
+   "text": "ThreadLocal gives each thread its own copy."
+  },
+  {
+   "cue": 88.45,
+   "start": 88.45,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.02,
+   "tries": 1,
+   "text": "But a pool thread keeps its copy for as long as it lives."
+  },
+  {
+   "cue": 92.06,
+   "start": 92.06,
+   "late": 0.0,
+   "tempo": 1.063,
+   "secs": 2.11,
+   "tries": 1,
+   "text": "Request one sets the tenant to alice."
+  },
+  {
+   "cue": 94.4,
+   "start": 94.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.18,
+   "tries": 1,
+   "text": "Request two lands on the same thread, and sets nothing."
+  },
+  {
+   "cue": 97.88,
+   "start": 97.88,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.13,
+   "tries": 2,
+   "text": "Who does it run as?"
+  },
+  {
+   "cue": 101.67,
+   "start": 101.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.46,
+   "tries": 1,
+   "text": "alice. One merchant's context leaks into the next request."
+  },
+  {
+   "cue": 105.52,
+   "start": 105.52,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.8,
+   "tries": 1,
+   "text": "So every set needs a remove in finally, and the thread goes back clean."
+  },
+  {
+   "cue": 111.13,
+   "start": 111.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.82,
+   "tries": 1,
+   "text": "In code, the snapshot is a volatile field and an immutable copy."
+  },
+  {
+   "cue": 115.58,
+   "start": 115.58,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.12,
+   "tries": 1,
+   "text": "Build it completely, then publish it in one write."
+  },
+  {
+   "cue": 119.06,
+   "start": 119.06,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.42,
+   "tries": 1,
+   "text": "Readers take no lock."
+  },
+  {
+   "cue": 121.33,
+   "start": 121.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.05,
+   "tries": 1,
+   "text": "So before you add a lock, ask which one you can take away: the sharing, or the changes."
+  },
+  {
+   "cue": 126.9,
+   "start": 126.9,
+   "late": 0.0,
+   "tempo": 1.065,
+   "secs": 5.63,
+   "tries": 1,
+   "text": "Quick check. A producer puts a batch in the queue, then clears it to reuse for the next batch."
+  },
+  {
+   "cue": 132.76,
+   "start": 132.76,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.7,
+   "tries": 1,
+   "text": "Which corner is that batch in now?"
+  }
+ ]
+}

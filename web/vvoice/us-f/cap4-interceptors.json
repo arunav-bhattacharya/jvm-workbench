@@ -1,0 +1,340 @@
+{
+ "slug": "cap4-interceptors",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.05,
+   "tries": 1,
+   "text": "Here is authorize."
+  },
+  {
+   "cue": 3.98,
+   "start": 3.98,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.3,
+   "tries": 1,
+   "text": "Two lines do the work."
+  },
+  {
+   "cue": 5.54,
+   "start": 5.54,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.57,
+   "tries": 1,
+   "text": "The other twelve time it and retry it."
+  },
+  {
+   "cue": 8.47,
+   "start": 8.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.48,
+   "tries": 1,
+   "text": "The same plumbing is copied into capture, refund and void."
+  },
+  {
+   "cue": 12.5,
+   "start": 12.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.47,
+   "tries": 1,
+   "text": "An interceptor is that plumbing, written once, for any method."
+  },
+  {
+   "cue": 17.4,
+   "start": 17.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.89,
+   "tries": 1,
+   "text": "It gets the call as one object: the method's name, its arguments, and proceed()."
+  },
+  {
+   "cue": 22.69,
+   "start": 22.69,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.48,
+   "tries": 1,
+   "text": "proceed() means carry on."
+  },
+  {
+   "cue": 25.87,
+   "start": 25.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.88,
+   "tries": 1,
+   "text": "Line up several and you have a chain."
+  },
+  {
+   "cue": 28.29,
+   "start": 28.29,
+   "late": 0.0,
+   "tempo": 1.048,
+   "secs": 1.62,
+   "tries": 1,
+   "text": "proceed() runs the next one."
+  },
+  {
+   "cue": 30.12,
+   "start": 30.12,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.75,
+   "tries": 1,
+   "text": "After the last, it runs the real method."
+  },
+  {
+   "cue": 33.27,
+   "start": 33.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.75,
+   "tries": 1,
+   "text": "Now the issuer is unavailable."
+  },
+  {
+   "cue": 35.38,
+   "start": 35.38,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.19,
+   "tries": 1,
+   "text": "The real call throws."
+  },
+  {
+   "cue": 36.85,
+   "start": 36.85,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.95,
+   "tries": 1,
+   "text": "Retry catches it, and calls proceed() again."
+  },
+  {
+   "cue": 40.57,
+   "start": 40.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.67,
+   "tries": 1,
+   "text": "Predict. What does the timer outside record?"
+  },
+  {
+   "cue": 45.4,
+   "start": 45.4,
+   "late": 0.0,
+   "tempo": 1.087,
+   "secs": 2.07,
+   "tries": 1,
+   "text": "One call, as long as both attempts."
+  },
+  {
+   "cue": 47.7,
+   "start": 47.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.01,
+   "tries": 1,
+   "text": "That's what the caller waited for, so @Timed goes outside @Retry."
+  },
+  {
+   "cue": 52.77,
+   "start": 52.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.09,
+   "tries": 1,
+   "text": "Who puts the chain in front of a component?"
+  },
+  {
+   "cue": 55.37,
+   "start": 55.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.87,
+   "tries": 1,
+   "text": "The container, through a proxy."
+  },
+  {
+   "cue": 57.47,
+   "start": 57.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.01,
+   "tries": 1,
+   "text": "With an interface, the J D K makes a proxy class that implements it."
+  },
+  {
+   "cue": 61.93,
+   "start": 61.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.81,
+   "tries": 1,
+   "text": "One handler runs the chain, then calls the target, a separate object."
+  },
+  {
+   "cue": 66.8,
+   "start": 66.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.02,
+   "tries": 1,
+   "text": "With no interface, Byte Buddy writes a subclass that runs the chain, then calls super."
+  },
+  {
+   "cue": 72.39,
+   "start": 72.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.7,
+   "tries": 1,
+   "text": "So a final class can't be intercepted, and Kotlin classes are final unless you open them."
+  },
+  {
+   "cue": 78.4,
+   "start": 78.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.08,
+   "tries": 1,
+   "text": "The container refuses them at start-up."
+  },
+  {
+   "cue": 81.73,
+   "start": 81.73,
+   "late": 0.0,
+   "tempo": 1.107,
+   "secs": 1.69,
+   "tries": 1,
+   "text": "Last: which call to retry."
+  },
+  {
+   "cue": 83.64,
+   "start": 83.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.53,
+   "tries": 1,
+   "text": "authorizeAndCapture is a default method."
+  },
+  {
+   "cue": 86.57,
+   "start": 86.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.22,
+   "tries": 1,
+   "text": "It calls authorize, then capture."
+  },
+  {
+   "cue": 89.2,
+   "start": 89.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.03,
+   "tries": 1,
+   "text": "The capture times out."
+  },
+  {
+   "cue": 90.71,
+   "start": 90.71,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.74,
+   "tries": 1,
+   "text": "Retry the whole method, and authorize runs again: a second hold on the card."
+  },
+  {
+   "cue": 96.17,
+   "start": 96.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.45,
+   "tries": 1,
+   "text": "With invokeDefault, each inner call has its own chain, so only the capture is retried."
+  },
+  {
+   "cue": 102.07,
+   "start": 102.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.48,
+   "tries": 1,
+   "text": "And only with an idempotency key, the same on every attempt, so the issuer can drop the repeat."
+  },
+  {
+   "cue": 108.93,
+   "start": 108.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "Here is the lab's timer, in Java and Kotlin."
+  },
+  {
+   "cue": 114.83,
+   "start": 114.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.14,
+   "tries": 1,
+   "text": "The rule. An interceptor runs around a call, and proceed() hands it on."
+  },
+  {
+   "cue": 119.47,
+   "start": 119.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.4,
+   "tries": 1,
+   "text": "Retry only the smallest call that is safe to repeat."
+  },
+  {
+   "cue": 123.13,
+   "start": 123.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.07,
+   "tries": 1,
+   "text": "Check yourself. @Timed sits inside @Retry, and the call works on the third attempt."
+  },
+  {
+   "cue": 128.75,
+   "start": 128.75,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "How many times does the timer record?"
+  },
+  {
+   "cue": 134.0,
+   "start": 134.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.4,
+   "tries": 1,
+   "text": "Three. Inside the retry, it records each attempt."
+  },
+  {
+   "cue": 137.72,
+   "start": 137.72,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.8,
+   "tries": 1,
+   "text": "Outside, it would record one."
+  }
+ ]
+}

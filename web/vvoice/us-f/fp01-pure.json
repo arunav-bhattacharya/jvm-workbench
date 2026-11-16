@@ -1,0 +1,394 @@
+{
+ "slug": "fp01-pure",
+ "voice": "us-f",
+ "max_late": 1.1,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.057,
+   "secs": 1.22,
+   "tries": 1,
+   "text": "Here is a fee function."
+  },
+  {
+   "cue": 4.13,
+   "start": 4.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.92,
+   "tries": 1,
+   "text": "You hand it an amount, and it hands back the fee."
+  },
+  {
+   "cue": 7.4,
+   "start": 7.4,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 4.39,
+   "tries": 1,
+   "text": "A test passes in two hundred point zero zero and expects three point zero zero."
+  },
+  {
+   "cue": 10.85,
+   "start": 11.94,
+   "late": 1.1,
+   "tempo": 1.089,
+   "secs": 1.66,
+   "tries": 1,
+   "text": "At ten in the morning, it passes."
+  },
+  {
+   "cue": 13.83,
+   "start": 13.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.8,
+   "tries": 1,
+   "text": "At five in the afternoon, the nightly build gets four point zero zero."
+  },
+  {
+   "cue": 17.8,
+   "start": 17.8,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "Same amount, same code."
+  },
+  {
+   "cue": 19.39,
+   "start": 19.44,
+   "late": 0.06,
+   "tempo": 1.0,
+   "secs": 1.92,
+   "tries": 1,
+   "text": "Where did the extra euro come from?"
+  },
+  {
+   "cue": 23.3,
+   "start": 23.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.42,
+   "tries": 1,
+   "text": "It reads the wall clock."
+  },
+  {
+   "cue": 25.07,
+   "start": 25.07,
+   "late": 0.0,
+   "tempo": 1.046,
+   "secs": 3.67,
+   "tries": 1,
+   "text": "After the sixteen:zero cut-off, it adds a late surcharge."
+  },
+  {
+   "cue": 28.97,
+   "start": 28.97,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.29,
+   "tries": 1,
+   "text": "It also reads a global rate table that can change at any time."
+  },
+  {
+   "cue": 33.3,
+   "start": 33.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "And every call writes a line to the audit log."
+  },
+  {
+   "cue": 36.27,
+   "start": 36.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.53,
+   "tries": 1,
+   "text": "The signature shows one input."
+  },
+  {
+   "cue": 38.2,
+   "start": 38.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "The clock and the rates are hidden inputs."
+  },
+  {
+   "cue": 40.89,
+   "start": 40.89,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.1,
+   "tries": 1,
+   "text": "The log line is a side effect: something the call does besides return its value."
+  },
+  {
+   "cue": 46.2,
+   "start": 46.2,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.11,
+   "tries": 3,
+   "text": "Now take them out."
+  },
+  {
+   "cue": 47.35,
+   "start": 47.46,
+   "late": 0.11,
+   "tempo": 1.0,
+   "secs": 4.04,
+   "tries": 1,
+   "text": "The time and the rates come in as values, and the caller writes the log."
+  },
+  {
+   "cue": 51.96,
+   "start": 51.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.87,
+   "tries": 1,
+   "text": "Every input is now a parameter."
+  },
+  {
+   "cue": 54.13,
+   "start": 54.13,
+   "late": 0.0,
+   "tempo": 1.137,
+   "secs": 2.97,
+   "tries": 1,
+   "text": "At fifteen:fifty-nine it gives three point zero zero."
+  },
+  {
+   "cue": 57.3,
+   "start": 57.3,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.58,
+   "tries": 1,
+   "text": "At sixteen:zero, four point zero zero."
+  },
+  {
+   "cue": 59.97,
+   "start": 60.04,
+   "late": 0.07,
+   "tempo": 1.15,
+   "secs": 2.5,
+   "tries": 1,
+   "text": "Run it again tonight, or on eight threads."
+  },
+  {
+   "cue": 62.7,
+   "start": 62.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.98,
+   "tries": 3,
+   "text": "What comes out?"
+  },
+  {
+   "cue": 65.17,
+   "start": 65.17,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.01,
+   "tries": 1,
+   "text": "four point zero zero, every time."
+  },
+  {
+   "cue": 66.52,
+   "start": 67.32,
+   "late": 0.8,
+   "tempo": 1.012,
+   "secs": 2.15,
+   "tries": 1,
+   "text": "The real clock can spin all it likes."
+  },
+  {
+   "cue": 69.7,
+   "start": 69.7,
+   "late": 0.0,
+   "tempo": 1.081,
+   "secs": 1.37,
+   "tries": 1,
+   "text": "That is a pure function."
+  },
+  {
+   "cue": 71.28,
+   "start": 71.28,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "Its result depends only on its arguments."
+  },
+  {
+   "cue": 73.99,
+   "start": 73.99,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.4,
+   "tries": 1,
+   "text": "And calling it changes nothing outside it."
+  },
+  {
+   "cue": 77.67,
+   "start": 77.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "Here is a smaller fee function."
+  },
+  {
+   "cue": 80.37,
+   "start": 80.37,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.73,
+   "tries": 1,
+   "text": "two zero zero zero zero cents in, three hundred out."
+  },
+  {
+   "cue": 82.73,
+   "start": 83.25,
+   "late": 0.51,
+   "tempo": 1.2,
+   "secs": 2.13,
+   "tries": 1,
+   "text": "This line calls it twice and adds the answers."
+  },
+  {
+   "cue": 85.55,
+   "start": 85.55,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.72,
+   "tries": 1,
+   "text": "Could you call it once, and use the answer twice?"
+  },
+  {
+   "cue": 90.03,
+   "start": 90.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.0,
+   "tries": 1,
+   "text": "Yes. Swap each call for its value: three hundred plus three hundred is six hundred."
+  },
+  {
+   "cue": 97.13,
+   "start": 97.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.78,
+   "tries": 1,
+   "text": "Now a call that charges a card."
+  },
+  {
+   "cue": 99.29,
+   "start": 99.29,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.21,
+   "tries": 1,
+   "text": "Store the receipt in c, and put c in a list twice: one charge."
+  },
+  {
+   "cue": 103.8,
+   "start": 103.8,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.26,
+   "tries": 1,
+   "text": "Now inline c."
+  },
+  {
+   "cue": 105.08,
+   "start": 105.21,
+   "late": 0.13,
+   "tempo": 1.0,
+   "secs": 1.06,
+   "tries": 1,
+   "text": "How many charges?"
+  },
+  {
+   "cue": 108.23,
+   "start": 108.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.8,
+   "tries": 1,
+   "text": "Two. The customer paid twice, and nothing in the code warned you."
+  },
+  {
+   "cue": 113.47,
+   "start": 113.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.07,
+   "tries": 1,
+   "text": "This swap has a name: referential transparency."
+  },
+  {
+   "cue": 116.79,
+   "start": 116.79,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.48,
+   "tries": 1,
+   "text": "Only pure calls allow it."
+  },
+  {
+   "cue": 119.37,
+   "start": 119.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.84,
+   "tries": 1,
+   "text": "In Java and Kotlin, these two totals always agree, because fee is pure."
+  },
+  {
+   "cue": 125.0,
+   "start": 125.0,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.82,
+   "tries": 1,
+   "text": "The rule: a pure function takes everything as parameters, and gives everything back as its return value."
+  },
+  {
+   "cue": 131.9,
+   "start": 131.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.59,
+   "tries": 1,
+   "text": "Quick check: isExpired compares a card's expiry with YearMonth.now()."
+  },
+  {
+   "cue": 137.2,
+   "start": 137.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.48,
+   "tries": 1,
+   "text": "Pure?"
+  },
+  {
+   "cue": 139.07,
+   "start": 139.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.73,
+   "tries": 1,
+   "text": "Not pure. The clock is a hidden input again."
+  }
+ ]
+}
