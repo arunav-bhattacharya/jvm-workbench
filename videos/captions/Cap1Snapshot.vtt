@@ -1,0 +1,161 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.159
+The ledger holds 50 accounts, 1,000 cents each.
+
+2
+00:00:06.159 --> 00:00:10.649
+Transfers move money between them, so the total stays 50,000.
+
+3
+00:00:10.867 --> 00:00:12.641
+A reader wants that total.
+
+4
+00:00:12.641 --> 00:00:14.962
+It walks the accounts in id order.
+
+5
+00:00:14.962 --> 00:00:17.351
+Lock one, read it, add it, move on.
+
+6
+00:00:17.667 --> 00:00:19.530
+It has passed account 3.
+
+7
+00:00:19.530 --> 00:00:24.187
+Now a transfer moves 300 cents from account 40 to account 3.
+
+8
+00:00:24.400 --> 00:00:26.220
+What total will the reader get?
+
+9
+00:00:27.633 --> 00:00:31.373
+It reads the rest, and gets 49,700.
+
+10
+00:00:31.733 --> 00:00:36.369
+It saw account 3 before the money came, and account 40 after it left.
+
+11
+00:00:36.600 --> 00:00:40.464
+Every read was locked, and no transfer broke the books.
+
+12
+00:00:40.464 --> 00:00:42.290
+The sum mixes two moments.
+
+13
+00:00:42.290 --> 00:00:43.063
+It is torn.
+
+14
+00:00:43.267 --> 00:00:52.575
+In one Java run of the lesson's demo, 7,241 of 9,456 sums were torn.
+
+15
+00:00:53.400 --> 00:00:55.217
+The fix: readers stop adding.
+
+16
+00:00:55.217 --> 00:00:59.728
+They read one field, latest, which points to the last finished snapshot.
+
+17
+00:00:59.933 --> 00:01:02.884
+Reader A reads it now, and holds version 1.
+
+18
+00:01:03.100 --> 00:01:08.610
+To build the next one, the ledger takes every lock, in the id order transfers use.
+
+19
+00:01:08.610 --> 00:01:10.559
+Now no transfer is half done.
+
+20
+00:01:10.767 --> 00:01:13.973
+A transfer that comes now waits, for microseconds.
+
+21
+00:01:14.700 --> 00:01:20.157
+It copies all 50 balances into a new record, with the total and a version number.
+
+22
+00:01:20.157 --> 00:01:22.649
+Once built, the record never changes.
+
+23
+00:01:22.867 --> 00:01:27.545
+Then one volatile write publishes it, and latest now points to version 2.
+
+24
+00:01:27.767 --> 00:01:31.869
+Then the locks go, in reverse order, and the waiting transfer runs.
+
+25
+00:01:32.100 --> 00:01:34.803
+Reader A read latest just before that write.
+
+26
+00:01:34.803 --> 00:01:35.847
+What does it see?
+
+27
+00:01:37.267 --> 00:01:38.770
+All of version 1.
+
+28
+00:01:38.770 --> 00:01:40.096
+Old, but whole.
+
+29
+00:01:40.300 --> 00:01:43.571
+Reader B comes after, and sees all of version 2.
+
+30
+00:01:43.800 --> 00:01:45.442
+Old or new, never a mix.
+
+31
+00:01:45.442 --> 00:01:49.616
+A snapshot never changes, and the pointer moves in one write.
+
+32
+00:01:50.833 --> 00:01:57.667
+Here it is in Java and Kotlin: every lock in id order, an immutable record, one volatile write.
+
+33
+00:01:59.500 --> 00:02:00.096
+The rule.
+
+34
+00:02:00.096 --> 00:02:06.191
+Build the whole snapshot while no transfer can run, then publish it with one volatile write.
+
+35
+00:02:06.400 --> 00:02:07.600
+Check yourself.
+
+36
+00:02:07.600 --> 00:02:13.919
+A reader asks for the latest snapshot in the middle of a transfer from 40 to 3.
+
+37
+00:02:13.919 --> 00:02:15.359
+Can it get 49,700?
+
+38
+00:02:18.067 --> 00:02:18.289
+No.
+
+39
+00:02:18.289 --> 00:02:22.225
+Every snapshot was copied with no transfer half done.
+
+40
+00:02:22.225 --> 00:02:26.087
+It gets 50,000, maybe from a slightly older version.

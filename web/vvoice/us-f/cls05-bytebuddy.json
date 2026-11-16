@@ -1,0 +1,286 @@
+{
+ "slug": "cls05-bytebuddy",
+ "voice": "us-f",
+ "max_late": 0.14,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.9,
+   "tries": 1,
+   "text": "SettlementService has two methods you want timed: settle and audit."
+  },
+  {
+   "cue": 7.05,
+   "start": 7.05,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.98,
+   "tries": 1,
+   "text": "Pasting a timer into each one, in every service, gets old fast."
+  },
+  {
+   "cue": 11.33,
+   "start": 11.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.52,
+   "tries": 1,
+   "text": "So you write a subclass."
+  },
+  {
+   "cue": 13.02,
+   "start": 13.02,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.47,
+   "tries": 1,
+   "text": "Its settle starts a clock, calls super.settle, and logs the time in a finally block."
+  },
+  {
+   "cue": 18.94,
+   "start": 18.94,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.73,
+   "tries": 1,
+   "text": "super.settle runs your original body, on the same object."
+  },
+  {
+   "cue": 23.17,
+   "start": 23.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.97,
+   "tries": 1,
+   "text": "Every method a subclass overrides is a place to run code before and after yours."
+  },
+  {
+   "cue": 28.9,
+   "start": 28.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.63,
+   "tries": 1,
+   "text": "A framework does this without you writing the class."
+  },
+  {
+   "cue": 32.17,
+   "start": 32.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.86,
+   "tries": 1,
+   "text": "Byte Buddy builds the bytes of a new class at run time: a subclass of SettlementService that overrides settle and audit."
+  },
+  {
+   "cue": 39.93,
+   "start": 39.93,
+   "late": 0.0,
+   "tempo": 1.07,
+   "secs": 4.27,
+   "tries": 1,
+   "text": "A class loader defines it, with a random suffix in its name on every run."
+  },
+  {
+   "cue": 44.41,
+   "start": 44.41,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.88,
+   "tries": 1,
+   "text": "The framework makes an instance, and your code just sees a SettlementService."
+  },
+  {
+   "cue": 49.83,
+   "start": 49.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.47,
+   "tries": 1,
+   "text": "Now a caller calls settle."
+  },
+  {
+   "cue": 51.78,
+   "start": 51.78,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 0.95,
+   "tries": 1,
+   "text": "What runs first?"
+  },
+  {
+   "cue": 54.77,
+   "start": 54.77,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.32,
+   "tries": 1,
+   "text": "The generated override."
+  },
+  {
+   "cue": 56.28,
+   "start": 56.28,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.63,
+   "tries": 1,
+   "text": "It calls an interceptor, and hands it the method being called and a handle to the original."
+  },
+  {
+   "cue": 62.5,
+   "start": 62.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.94,
+   "tries": 1,
+   "text": "The interceptor starts the clock, then calls the handle."
+  },
+  {
+   "cue": 66.03,
+   "start": 66.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.58,
+   "tries": 1,
+   "text": "That goes through an accessor method Byte Buddy added, into super.settle, and your body runs."
+  },
+  {
+   "cue": 72.1,
+   "start": 72.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.15,
+   "tries": 1,
+   "text": "When your body returns, the interceptor logs the time and passes your result back to the caller."
+  },
+  {
+   "cue": 78.83,
+   "start": 78.83,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.96,
+   "tries": 1,
+   "text": "Now call region."
+  },
+  {
+   "cue": 79.8,
+   "start": 79.94,
+   "late": 0.14,
+   "tempo": 1.013,
+   "secs": 2.6,
+   "tries": 1,
+   "text": "It's final, so the subclass couldn't override it."
+  },
+  {
+   "cue": 82.76,
+   "start": 82.76,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.87,
+   "tries": 1,
+   "text": "The call goes straight to your body, and nothing times it."
+  },
+  {
+   "cue": 86.93,
+   "start": 86.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.43,
+   "tries": 1,
+   "text": "A final class can't be subclassed at all."
+  },
+  {
+   "cue": 89.77,
+   "start": 89.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.59,
+   "tries": 1,
+   "text": "In Kotlin, classes and methods are final unless you write open, so Byte Buddy refuses a plain Kotlin class."
+  },
+  {
+   "cue": 97.16,
+   "start": 97.16,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.26,
+   "tries": 1,
+   "text": "The all-open compiler plugin opens the classes you mark."
+  },
+  {
+   "cue": 101.93,
+   "start": 101.93,
+   "late": 0.0,
+   "tempo": 1.024,
+   "secs": 4.44,
+   "tries": 1,
+   "text": "In code, you pick the class, the methods to override, and the interceptor."
+  },
+  {
+   "cue": 106.59,
+   "start": 106.59,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "make writes the bytes, and load defines the class."
+  },
+  {
+   "cue": 109.73,
+   "start": 109.73,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.77,
+   "tries": 1,
+   "text": "Kotlin uses the same builder."
+  },
+  {
+   "cue": 113.47,
+   "start": 113.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.68,
+   "tries": 1,
+   "text": "The rule: a generated proxy is a subclass written at run time."
+  },
+  {
+   "cue": 117.69,
+   "start": 117.69,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.61,
+   "tries": 1,
+   "text": "Its overrides run code before and after yours, and what it can't override, it can't intercept."
+  },
+  {
+   "cue": 124.3,
+   "start": 124.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.26,
+   "tries": 1,
+   "text": "Quick check. A Kotlin class is open, but one of its methods isn't."
+  },
+  {
+   "cue": 129.04,
+   "start": 129.04,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.36,
+   "tries": 1,
+   "text": "Is that method timed?"
+  },
+  {
+   "cue": 132.77,
+   "start": 132.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.58,
+   "tries": 1,
+   "text": "No. It's final, so the subclass can't override it."
+  }
+ ]
+}
