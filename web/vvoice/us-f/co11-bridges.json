@@ -1,0 +1,349 @@
+{
+ "slug": "co11-bridges",
+ "voice": "us-f",
+ "max_late": 0.3,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.94,
+   "tries": 1,
+   "text": "Your Kotlin service needs a fraud score, and the fraud client is Java."
+  },
+  {
+   "cue": 7.4,
+   "start": 7.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.09,
+   "tries": 1,
+   "text": "It returns a CompletableFuture."
+  },
+  {
+   "cue": 9.7,
+   "start": 9.7,
+   "late": 0.0,
+   "tempo": 1.113,
+   "secs": 1.22,
+   "tries": 1,
+   "text": "The quick way is get()."
+  },
+  {
+   "cue": 11.13,
+   "start": 11.13,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.05,
+   "tries": 3,
+   "text": "It works in a demo."
+  },
+  {
+   "cue": 12.32,
+   "start": 12.33,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 4.56,
+   "tries": 1,
+   "text": "But a thread sits blocked for the whole wait, and under load every call in flight holds one."
+  },
+  {
+   "cue": 18.27,
+   "start": 18.27,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.43,
+   "tries": 1,
+   "text": "Now the request is cancelled."
+  },
+  {
+   "cue": 20.2,
+   "start": 20.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.69,
+   "tries": 1,
+   "text": "What happens to the Java call?"
+  },
+  {
+   "cue": 24.03,
+   "start": 24.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.55,
+   "tries": 1,
+   "text": "Nothing. It keeps running, and the blocked thread waits for it anyway."
+  },
+  {
+   "cue": 28.45,
+   "start": 28.45,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "Cancellation stops at the bridge."
+  },
+  {
+   "cue": 31.4,
+   "start": 31.4,
+   "late": 0.0,
+   "tempo": 1.021,
+   "secs": 1.47,
+   "tries": 1,
+   "text": "await is the real bridge."
+  },
+  {
+   "cue": 33.09,
+   "start": 33.09,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.79,
+   "tries": 1,
+   "text": "The coroutine suspends, and no thread waits."
+  },
+  {
+   "cue": 36.07,
+   "start": 36.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.54,
+   "tries": 1,
+   "text": "The thread goes off and runs other coroutines."
+  },
+  {
+   "cue": 39.4,
+   "start": 39.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.05,
+   "tries": 1,
+   "text": "When the future completes, its value crosses, and the coroutine resumes."
+  },
+  {
+   "cue": 44.1,
+   "start": 44.1,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.53,
+   "tries": 1,
+   "text": "If it failed, await rethrows the real exception, not an ExecutionException."
+  },
+  {
+   "cue": 49.73,
+   "start": 49.73,
+   "late": 0.0,
+   "tempo": 1.028,
+   "secs": 1.69,
+   "tries": 1,
+   "text": "And cancellation crosses too."
+  },
+  {
+   "cue": 51.64,
+   "start": 51.64,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.78,
+   "tries": 1,
+   "text": "Cancel the coroutine, and await calls cancel(false) on the future."
+  },
+  {
+   "cue": 56.23,
+   "start": 56.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.29,
+   "tries": 1,
+   "text": "If the future must finish anyway, like a capture already sent to the issuer, call asDeferred, then await."
+  },
+  {
+   "cue": 62.78,
+   "start": 62.78,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.55,
+   "tries": 1,
+   "text": "That waits without cancelling it."
+  },
+  {
+   "cue": 65.77,
+   "start": 65.77,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 3.78,
+   "tries": 1,
+   "text": "The other way, future { } gives Java a CompletableFuture."
+  },
+  {
+   "cue": 69.4,
+   "start": 69.69,
+   "late": 0.3,
+   "tempo": 1.15,
+   "secs": 2.65,
+   "tries": 1,
+   "text": "Like async, it starts a coroutine in a scope."
+  },
+  {
+   "cue": 72.47,
+   "start": 72.49,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 7.45,
+   "tries": 1,
+   "text": "When the Java caller calls cancel(true), or an orTimeout fires, the future completes, and that cancels the coroutine."
+  },
+  {
+   "cue": 80.57,
+   "start": 80.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.81,
+   "tries": 1,
+   "text": "Give it a scope you own, so closing the facade cancels every call still in flight."
+  },
+  {
+   "cue": 86.37,
+   "start": 86.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.95,
+   "tries": 1,
+   "text": "Reactor gets the same kind of bridge."
+  },
+  {
+   "cue": 88.75,
+   "start": 88.75,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.58,
+   "tries": 1,
+   "text": "mono { } turns suspend code into a Mono."
+  },
+  {
+   "cue": 91.53,
+   "start": 91.53,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.7,
+   "tries": 1,
+   "text": "It is cold."
+  },
+  {
+   "cue": 92.31,
+   "start": 92.39,
+   "late": 0.07,
+   "tempo": 1.0,
+   "secs": 4.8,
+   "tries": 1,
+   "text": "Nothing runs until someone subscribes, and each subscriber starts its own coroutine."
+  },
+  {
+   "cue": 98.5,
+   "start": 98.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.15,
+   "tries": 1,
+   "text": "Dispose a subscription, and its coroutine is cancelled."
+  },
+  {
+   "cue": 102.9,
+   "start": 102.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.31,
+   "tries": 1,
+   "text": "Going back, awaitSingle waits for exactly one value, and throws if the Mono is empty."
+  },
+  {
+   "cue": 108.57,
+   "start": 108.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.95,
+   "tries": 1,
+   "text": "asFlow turns a Flux into a Flow, and cancelling the collector cancels the subscription."
+  },
+  {
+   "cue": 115.2,
+   "start": 115.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.54,
+   "tries": 1,
+   "text": "The bridges are Kotlin code."
+  },
+  {
+   "cue": 117.19,
+   "start": 117.19,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.96,
+   "tries": 1,
+   "text": "The Java side just sees an ordinary CompletableFuture or Mono."
+  },
+  {
+   "cue": 121.8,
+   "start": 121.8,
+   "late": 0.0,
+   "tempo": 1.119,
+   "secs": 1.9,
+   "tries": 1,
+   "text": "The rule. Use the real bridges."
+  },
+  {
+   "cue": 123.91,
+   "start": 123.91,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.94,
+   "tries": 1,
+   "text": "They suspend instead of blocking, and they carry cancellation both ways."
+  },
+  {
+   "cue": 129.8,
+   "start": 129.8,
+   "late": 0.0,
+   "tempo": 1.045,
+   "secs": 4.82,
+   "tries": 1,
+   "text": "Check yourself. A coroutine awaits a Java future, and its scope is cancelled."
+  },
+  {
+   "cue": 134.84,
+   "start": 134.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.35,
+   "tries": 1,
+   "text": "What happens to the future?"
+  },
+  {
+   "cue": 136.63,
+   "start": 136.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.54,
+   "tries": 3,
+   "text": "And how do you keep it running?"
+  },
+  {
+   "cue": 141.4,
+   "start": 141.4,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.37,
+   "tries": 1,
+   "text": "await cancels it, with cancel(false)."
+  },
+  {
+   "cue": 143.77,
+   "start": 143.92,
+   "late": 0.14,
+   "tempo": 1.0,
+   "secs": 3.04,
+   "tries": 1,
+   "text": "To keep it running, call asDeferred, then await."
+  }
+ ]
+}
