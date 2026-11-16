@@ -198,16 +198,17 @@ class Cap2Hedge(VoiceScene):
 
         # ---------------- only what is safe to repeat ----------------
         def card(title, col, lines, verdict, vcol, x):
-            r = RoundedRectangle(corner_radius=0.14, width=5.6, height=2.6, stroke_color=col, stroke_width=3)
+            r = RoundedRectangle(corner_radius=0.14, width=6.0, height=2.6, stroke_color=col, stroke_width=3)
             r.set_fill(dark(col), 1).move_to([x, 0.9, 0])
             body = VGroup(T(title, 28, col), *[T(s, 24, GREY_A) for s in lines], T(verdict, 26, vcol))
-            body.arrange(DOWN, buff=0.17).move_to(r)
+            body.arrange(DOWN, buff=0.17)
+            body.scale(min(1, 5.5 / body.width)).move_to(r)
             return VGroup(r, body)
 
         nb = card("Northbank", BLUE_M, ["indicative prices:", "asking twice changes nothing"], "may be hedged",
-                  GREEN_M, -3.15)
+                  GREEN_M, -3.2)
         fj = card("Fjord", PURPLE_M, ["firm quotes: each call reserves", "liquidity, so a hedge reserves twice"],
-                  "exactly one call", RED_M, 3.15)
+                  "exactly one call", RED_M, 3.2)
         self.beat("A hedge is a duplicate request. Northbank's prices are indicative, so asking twice changes nothing.",
                   FadeIn(nb, shift=UP * 0.15), run_time=1.2)
         self.beat("Fjord's quotes are firm. Each call reserves liquidity, so a hedge would reserve twice. Fjord gets "
