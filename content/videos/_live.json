@@ -100,6 +100,14 @@
   "vt01-wall",
   "exec04-cancel",
   "exec07-cf-errors",
-  "jmm05-dcl"
+  "jmm05-dcl",
+  "vt03-semaphore",
+  "exec01-pools",
+  "exec09-production",
+  "co11-bridges",
+  "gen02-bounds",
+  "gen10-recursive",
+  "pat02-factory",
+  "pat04-adapter"
  ]
 }

@@ -1,0 +1,286 @@
+{
+ "slug": "cls07-agents",
+ "voice": "us-f",
+ "max_late": 0.0,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.78,
+   "tries": 1,
+   "text": "The card-issuer A P I takes one hundred twenty ms, and you want to time the client method that calls it."
+  },
+  {
+   "cue": 9.23,
+   "start": 9.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.13,
+   "tries": 1,
+   "text": "But that client lives in a library jar you can't recompile."
+  },
+  {
+   "cue": 13.83,
+   "start": 13.83,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.96,
+   "tries": 1,
+   "text": "A proxy won't do."
+  },
+  {
+   "cue": 14.99,
+   "start": 14.99,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.42,
+   "tries": 1,
+   "text": "It needs an interface or an open class, and it only wraps objects you create."
+  },
+  {
+   "cue": 21.03,
+   "start": 21.03,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.14,
+   "tries": 1,
+   "text": "Every class reaches the J V M as bytes from a jar."
+  },
+  {
+   "cue": 24.63,
+   "start": 24.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.33,
+   "tries": 1,
+   "text": "A class loader hands them over, and the J V M defines the class."
+  },
+  {
+   "cue": 29.47,
+   "start": 29.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.4,
+   "tries": 1,
+   "text": "Start the J V M with -javaagent, and before your main runs, it calls the agent's premain method."
+  },
+  {
+   "cue": 36.87,
+   "start": 36.87,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.48,
+   "tries": 1,
+   "text": "premain registers a ClassFileTransformer."
+  },
+  {
+   "cue": 39.8,
+   "start": 39.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.33,
+   "tries": 1,
+   "text": "From then on, the J V M passes it the bytes of every class it's about to define."
+  },
+  {
+   "cue": 45.57,
+   "start": 45.57,
+   "late": 0.0,
+   "tempo": 1.042,
+   "secs": 2.65,
+   "tries": 1,
+   "text": "It returns new bytes, or null for no change."
+  },
+  {
+   "cue": 48.42,
+   "start": 48.42,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.76,
+   "tries": 1,
+   "text": "Here it adds timing code to IssuerClient, and leaves the rest alone."
+  },
+  {
+   "cue": 53.63,
+   "start": 53.63,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.25,
+   "tries": 2,
+   "text": "Now take a service that has run for an hour."
+  },
+  {
+   "cue": 56.69,
+   "start": 56.69,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.78,
+   "tries": 1,
+   "text": "A tool attaches an agent, and the J V M calls its agentmain."
+  },
+  {
+   "cue": 60.71,
+   "start": 60.71,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.85,
+   "tries": 1,
+   "text": "IssuerClient loaded long ago."
+  },
+  {
+   "cue": 62.72,
+   "start": 62.72,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.67,
+   "tries": 1,
+   "text": "Will the new transformer ever see it?"
+  },
+  {
+   "cue": 67.4,
+   "start": 67.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.93,
+   "tries": 1,
+   "text": "No. A transformer only sees classes defined after it's registered, and nothing defines IssuerClient again."
+  },
+  {
+   "cue": 75.3,
+   "start": 75.3,
+   "late": 0.0,
+   "tempo": 1.101,
+   "secs": 2.43,
+   "tries": 1,
+   "text": "So the agent calls retransformClasses."
+  },
+  {
+   "cue": 77.94,
+   "start": 77.94,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.67,
+   "tries": 1,
+   "text": "The J V M runs the transformers again on the class's current bytes, and puts the new method bodies into the same Class object."
+  },
+  {
+   "cue": 87.77,
+   "start": 87.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.21,
+   "tries": 1,
+   "text": "Objects made at startup run the new code on their next call."
+  },
+  {
+   "cue": 91.32,
+   "start": 91.32,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.7,
+   "tries": 1,
+   "text": "A call that was already running finishes on the old code."
+  },
+  {
+   "cue": 95.4,
+   "start": 95.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.48,
+   "tries": 1,
+   "text": "One limit: only method bodies may change."
+  },
+  {
+   "cue": 98.34,
+   "start": 98.34,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 7.45,
+   "tries": 1,
+   "text": "Retransformation must not add, remove or rename fields or methods, or change signatures, modifiers or inheritance."
+  },
+  {
+   "cue": 106.5,
+   "start": 106.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.24,
+   "tries": 1,
+   "text": "So a call counter can't be a new field."
+  },
+  {
+   "cue": 109.29,
+   "start": 109.29,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "It lives in another class."
+  },
+  {
+   "cue": 111.93,
+   "start": 111.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.73,
+   "tries": 1,
+   "text": "In code, that's two calls, the same in Java and in Kotlin, and the agent's manifest must allow it."
+  },
+  {
+   "cue": 119.13,
+   "start": 119.13,
+   "late": 0.0,
+   "tempo": 1.031,
+   "secs": 4.86,
+   "tries": 1,
+   "text": "The rule: a transformer sees each class's bytes as the J V M defines it."
+  },
+  {
+   "cue": 124.22,
+   "start": 124.22,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.38,
+   "tries": 1,
+   "text": "Retransformation swaps method bodies in place, for every object, but never the class's shape."
+  },
+  {
+   "cue": 131.17,
+   "start": 131.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.36,
+   "tries": 1,
+   "text": "Quick check. An agent retransforms IssuerClient while a thread is inside its method."
+  },
+  {
+   "cue": 136.8,
+   "start": 136.8,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.71,
+   "tries": 2,
+   "text": "Which code does that thread finish on?"
+  },
+  {
+   "cue": 141.77,
+   "start": 141.77,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.81,
+   "tries": 1,
+   "text": "The old code."
+  },
+  {
+   "cue": 142.74,
+   "start": 142.74,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.97,
+   "tries": 1,
+   "text": "Its next call runs the new one."
+  }
+ ]
+}

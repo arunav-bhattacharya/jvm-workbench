@@ -1,0 +1,181 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.676
+You build a card payment with a chain of calls.
+
+2
+00:00:05.676 --> 00:00:07.132
+amount, then cardToken.
+
+3
+00:00:07.132 --> 00:00:10.741
+amount lives in a base class, so every builder shares it.
+
+4
+00:00:10.933 --> 00:00:16.588
+Each call hands back an object, and the compiler only knows the type the call declares.
+
+5
+00:00:16.588 --> 00:00:18.797
+Watch that type as the chain runs.
+
+6
+00:00:19.000 --> 00:00:22.202
+PlainCardBuilder() gives you a PlainCardBuilder.
+
+7
+00:00:22.202 --> 00:00:23.536
+It has both setters.
+
+8
+00:00:23.767 --> 00:00:27.910
+But amount is declared in the base class, and it returns a PlainBuilder.
+
+9
+00:00:27.910 --> 00:00:30.500
+That's all the base class knows about itself.
+
+10
+00:00:30.700 --> 00:00:32.584
+Can you call cardToken now?
+
+11
+00:00:34.167 --> 00:00:34.389
+No.
+
+12
+00:00:34.389 --> 00:00:36.765
+A PlainBuilder has no cardToken.
+
+13
+00:00:36.765 --> 00:00:42.037
+The object is still a PlainCardBuilder, but the compiler has lost that.
+
+14
+00:00:43.200 --> 00:00:47.722
+The base class needs to say: I return whatever subclass I really am.
+
+15
+00:00:47.722 --> 00:00:51.512
+So give it a type parameter, B, and make amount return B.
+
+16
+00:00:51.700 --> 00:00:52.588
+B is a blank.
+
+17
+00:00:52.588 --> 00:00:58.049
+Each subclass fills it with its own name: CardBuilder is a Builder&lt;CardBuilder&gt;.
+
+18
+00:00:58.233 --> 00:00:59.272
+Now substitute.
+
+19
+00:00:59.272 --> 00:01:03.633
+For a CardBuilder, every B in the base class reads CardBuilder.
+
+20
+00:01:03.633 --> 00:01:05.848
+So amount returns a CardBuilder.
+
+21
+00:01:06.033 --> 00:01:07.019
+One more piece.
+
+22
+00:01:07.019 --> 00:01:10.500
+Inside the base class, this is a Builder&lt;B&gt;, not a B.
+
+23
+00:01:10.500 --> 00:01:14.836
+So amount returns self(), and each subclass writes self() as this.
+
+24
+00:01:14.836 --> 00:01:17.004
+The compiler checks that it fits.
+
+25
+00:01:18.067 --> 00:01:19.489
+Run the chain again.
+
+26
+00:01:19.489 --> 00:01:21.906
+CardBuilder() gives a CardBuilder.
+
+27
+00:01:21.906 --> 00:01:24.679
+amount returns B, and B is CardBuilder.
+
+28
+00:01:24.679 --> 00:01:26.456
+So cardToken is in reach.
+
+29
+00:01:27.933 --> 00:01:29.819
+Look at the bound itself.
+
+30
+00:01:29.819 --> 00:01:30.950
+B : Builder&lt;B&gt;.
+
+31
+00:01:30.950 --> 00:01:34.268
+The B inside points back to the B it bounds.
+
+32
+00:01:34.433 --> 00:01:37.369
+Read it as: B is a builder whose own B is B.
+
+33
+00:01:37.369 --> 00:01:41.039
+CardBuilder fits, because it is a Builder&lt;CardBuilder&gt;.
+
+34
+00:01:41.267 --> 00:01:43.539
+You've met this shape before.
+
+35
+00:01:43.539 --> 00:01:50.197
+T : Comparable&lt;T&gt; is a recursive bound too, and so is Java's Enum&lt;E extends Enum&lt;E&gt;&gt;.
+
+36
+00:01:51.367 --> 00:01:55.000
+In code, Java writes extends where Kotlin writes a colon.
+
+37
+00:01:55.000 --> 00:01:58.761
+In both, the subclass names itself, and the chain compiles.
+
+38
+00:01:59.933 --> 00:02:00.572
+The rule.
+
+39
+00:02:00.572 --> 00:02:08.373
+A recursive bound lets a base class return its own subclass, so a chain keeps the subclass's methods in reach.
+
+40
+00:02:08.600 --> 00:02:09.488
+Quick check.
+
+41
+00:02:09.488 --> 00:02:13.260
+Someone writes class Liar : Builder&lt;CardBuilder&gt;().
+
+42
+00:02:13.260 --> 00:02:14.444
+Does it compile?
+
+43
+00:02:16.600 --> 00:02:16.869
+Yes.
+
+44
+00:02:16.869 --> 00:02:20.236
+The bound only asks for some builder in the blank.
+
+45
+00:02:20.236 --> 00:02:23.468
+It can't force a subclass to write its own name.

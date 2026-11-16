@@ -1,0 +1,169 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.426
+Every payment has to write a row to the ledger database.
+
+2
+00:00:06.426 --> 00:00:10.884
+It has room for 20 connections, so it can serve 20 calls at a time.
+
+3
+00:00:11.100 --> 00:00:13.337
+You have a batch of 5,000 payments.
+
+4
+00:00:13.337 --> 00:00:16.852
+With virtual threads, each payment gets its own thread.
+
+5
+00:00:17.067 --> 00:00:18.374
+That part is cheap.
+
+6
+00:00:18.374 --> 00:00:21.816
+Each virtual thread is a small object on the heap.
+
+7
+00:00:22.033 --> 00:00:26.648
+So how many of them ask the database for a connection at the same moment?
+
+8
+00:00:28.667 --> 00:00:29.452
+All 5,000.
+
+9
+00:00:29.452 --> 00:00:32.435
+They all go straight for the database.
+
+10
+00:00:32.667 --> 00:00:35.789
+That is far more than the 20 it has room for.
+
+11
+00:00:35.789 --> 00:00:37.315
+The threads are cheap.
+
+12
+00:00:37.315 --> 00:00:38.703
+The database is not.
+
+13
+00:00:39.933 --> 00:00:42.763
+Think of the front desk of an office building.
+
+14
+00:00:42.763 --> 00:00:45.963
+It keeps 20 visitor badges, one for each connection.
+
+15
+00:00:46.167 --> 00:00:48.741
+To go in, a thread must take a badge.
+
+16
+00:00:48.741 --> 00:00:51.385
+The first 20 each take one, and go in.
+
+17
+00:00:51.633 --> 00:00:53.099
+Now the desk is empty.
+
+18
+00:00:53.099 --> 00:00:55.231
+What happens to the next thread?
+
+19
+00:00:57.033 --> 00:00:57.664
+It waits.
+
+20
+00:00:57.664 --> 00:01:01.025
+On a virtual thread, that wait parks the thread.
+
+21
+00:01:01.025 --> 00:01:03.476
+A parked thread holds no OS thread.
+
+22
+00:01:03.476 --> 00:01:08.239
+It stays a small object on the heap, so 5,000 waiters are cheap too.
+
+23
+00:01:08.467 --> 00:01:12.479
+When a call finishes, the thread hands its badge back on the way out.
+
+24
+00:01:12.479 --> 00:01:15.328
+That wakes one waiter, and it takes the badge in.
+
+25
+00:01:15.533 --> 00:01:18.721
+Calls finish, badges come back, waiters go in.
+
+26
+00:01:18.721 --> 00:01:21.285
+The database never sees more than 20.
+
+27
+00:01:24.167 --> 00:01:25.928
+This desk is a Semaphore.
+
+28
+00:01:25.928 --> 00:01:28.041
+Its badges are called permits.
+
+29
+00:01:28.267 --> 00:01:31.359
+acquire takes a permit, and waits if none is left.
+
+30
+00:01:31.359 --> 00:01:34.019
+release gives one back, and wakes a waiter.
+
+31
+00:01:35.033 --> 00:01:40.053
+In code, the semaphore is one field on the client, shared by every request.
+
+32
+00:01:40.267 --> 00:01:42.071
+acquire comes before the try.
+
+33
+00:01:42.071 --> 00:01:47.981
+If a thread is interrupted while it waits, it never got a permit, so it must not give one back.
+
+34
+00:01:48.200 --> 00:01:53.625
+release goes in finally, so the permit always comes back, even when the call throws.
+
+35
+00:01:53.833 --> 00:02:01.264
+And tryAcquire with a timeout returns false when no permit came in time, so you can answer with a fast 503.
+
+36
+00:02:02.167 --> 00:02:02.768
+The rule.
+
+37
+00:02:02.768 --> 00:02:08.580
+One virtual thread per task, and one shared semaphore in front of each scarce resource.
+
+38
+00:02:08.800 --> 00:02:09.805
+Check yourself.
+
+39
+00:02:09.805 --> 00:02:14.293
+A handler creates a new semaphore with 20 permits for each request.
+
+40
+00:02:14.293 --> 00:02:17.375
+How many calls can reach the database at once?
+
+41
+00:02:20.100 --> 00:02:22.119
+As many as there are requests.
+
+42
+00:02:22.119 --> 00:02:26.897
+Each request gets its own desk with 20 badges, so no thread ever waits.

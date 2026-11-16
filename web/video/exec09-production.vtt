@@ -1,0 +1,161 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.052
+An authorization pool has two threads.
+
+2
+00:00:05.052 --> 00:00:08.580
+Payments come in faster than two threads can finish them.
+
+3
+00:00:08.800 --> 00:00:12.625
+It came from newFixedThreadPool, so its queue has no limit.
+
+4
+00:00:12.833 --> 00:00:15.485
+Below are four numbers a dashboard would show.
+
+5
+00:00:15.700 --> 00:00:18.523
+What does a caller notice while the queue keeps growing?
+
+6
+00:00:20.233 --> 00:00:21.419
+At first, nothing.
+
+7
+00:00:21.419 --> 00:00:24.186
+Every task is accepted, and nothing fails.
+
+8
+00:00:24.186 --> 00:00:29.389
+But each new task waits behind all the others, so time in queue keeps climbing.
+
+9
+00:00:29.389 --> 00:00:31.695
+Every queued task holds memory too.
+
+10
+00:00:31.933 --> 00:00:32.956
+Nobody is told.
+
+11
+00:00:32.956 --> 00:00:35.957
+Each caller just waits longer than the last.
+
+12
+00:00:36.167 --> 00:00:39.480
+Now give the pool a bounded queue, with room for four.
+
+13
+00:00:39.700 --> 00:00:43.163
+When it's full, the next task is rejected at once.
+
+14
+00:00:43.163 --> 00:00:47.457
+The default, AbortPolicy, throws a RejectedExecutionException.
+
+15
+00:00:47.700 --> 00:00:50.046
+That is what a bounded queue is for.
+
+16
+00:00:50.046 --> 00:00:55.194
+The caller hears about the overload right away, and can answer with a fast 503.
+
+17
+00:00:55.194 --> 00:00:57.149
+And time in queue stays short.
+
+18
+00:00:57.367 --> 00:00:58.621
+So watch these four.
+
+19
+00:00:58.621 --> 00:01:03.012
+A queue that keeps growing means tasks arrive faster than they finish.
+
+20
+00:01:03.233 --> 00:01:08.019
+A pool pinned at its maximum is usually waiting on something downstream.
+
+21
+00:01:08.233 --> 00:01:11.597
+ThreadPoolExecutor does not count rejections for you.
+
+22
+00:01:11.597 --> 00:01:14.327
+Wrap the handler so it counts, then throws.
+
+23
+00:01:14.533 --> 00:01:18.956
+Of the four, time in queue and rejections are what your customers feel.
+
+24
+00:01:19.167 --> 00:01:20.140
+One more thing.
+
+25
+00:01:20.140 --> 00:01:23.322
+The threads are called pool-3-thread-1 and so on.
+
+26
+00:01:23.322 --> 00:01:27.931
+In a thread dump of a service with eight pools, that tells you nothing.
+
+27
+00:01:27.931 --> 00:01:30.073
+Name them after the work they do.
+
+28
+00:01:31.100 --> 00:01:34.229
+When the queue is full, you choose what happens.
+
+29
+00:01:34.229 --> 00:01:35.468
+AbortPolicy throws.
+
+30
+00:01:35.468 --> 00:01:41.401
+CallerRunsPolicy makes the submitting thread run the task itself, so the intake slows down.
+
+31
+00:01:41.401 --> 00:01:45.377
+DiscardPolicy drops the task, and nobody ever hears about it.
+
+32
+00:01:46.200 --> 00:01:52.585
+Here is the whole pool: two threads, a queue of four, named threads, and a handler that counts, then throws.
+
+33
+00:01:53.500 --> 00:01:54.086
+The rule.
+
+34
+00:01:54.086 --> 00:02:00.852
+Bound the queue, decide what a rejection does, name the threads, and watch time in queue and rejections.
+
+35
+00:02:01.067 --> 00:02:02.070
+Check yourself.
+
+36
+00:02:02.070 --> 00:02:06.015
+A pool from newFixedThreadPool falls behind during a spike.
+
+37
+00:02:06.015 --> 00:02:08.489
+What does its rejection counter show?
+
+38
+00:02:11.200 --> 00:02:11.552
+Zero.
+
+39
+00:02:11.552 --> 00:02:15.212
+Its queue has no limit, so nothing is ever rejected.
+
+40
+00:02:15.212 --> 00:02:18.239
+Watch queue size and time in queue instead.

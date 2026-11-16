@@ -1,0 +1,185 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.030
+Your service has 5,000 tiny tasks.
+
+2
+00:00:05.030 --> 00:00:09.348
+Run each one on a brand-new thread, and look at what one costs.
+
+3
+00:00:09.567 --> 00:00:16.677
+Starting a platform thread means a system call to the OS, a new stack, and an entry in the OS scheduler.
+
+4
+00:00:16.900 --> 00:00:19.624
+Then the task runs, for a few microseconds.
+
+5
+00:00:19.624 --> 00:00:21.777
+Then all of it is torn down again.
+
+6
+00:00:22.000 --> 00:00:25.484
+Most of that time goes to the thread, not the work.
+
+7
+00:00:25.484 --> 00:00:30.471
+Now do it 5,000 times, and compare four threads that are kept and reused.
+
+8
+00:00:30.471 --> 00:00:31.769
+How big is the gap?
+
+9
+00:00:33.400 --> 00:00:39.984
+On a 4-core machine: half a second to a second and a half with a new thread each time.
+
+10
+00:00:39.984 --> 00:00:42.587
+6 to 25 ms on four reused threads.
+
+11
+00:00:43.500 --> 00:00:45.097
+A thread pool fixes this.
+
+12
+00:00:45.097 --> 00:00:47.972
+It starts a few threads once, and keeps them.
+
+13
+00:00:48.200 --> 00:00:49.690
+Tasks go into a queue.
+
+14
+00:00:49.690 --> 00:00:53.888
+Each worker runs one loop: take a task, run it, take the next.
+
+15
+00:00:54.800 --> 00:00:57.694
+Four workers, so at most four tasks run at once.
+
+16
+00:00:57.694 --> 00:01:00.829
+When the queue is empty, take blocks, and they wait.
+
+17
+00:01:01.033 --> 00:01:02.839
+Now the service is stopping.
+
+18
+00:01:02.839 --> 00:01:05.676
+Five tasks are queued, and four are running.
+
+19
+00:01:05.900 --> 00:01:07.290
+main calls shutdown.
+
+20
+00:01:07.290 --> 00:01:09.305
+Does it wait for those tasks?
+
+21
+00:01:11.133 --> 00:01:11.377
+No.
+
+22
+00:01:11.377 --> 00:01:15.027
+shutdown closes the door and returns at once.
+
+23
+00:01:15.027 --> 00:01:16.892
+A new task is rejected.
+
+24
+00:01:17.100 --> 00:01:19.699
+The queued and running tasks still finish.
+
+25
+00:01:19.699 --> 00:01:23.535
+To wait for that, main calls awaitTermination, with a timeout.
+
+26
+00:01:23.767 --> 00:01:29.471
+When the last worker exits, the pool is terminated, and awaitTermination returns true.
+
+27
+00:01:29.471 --> 00:01:32.655
+If the timeout runs out first, it returns false.
+
+28
+00:01:33.667 --> 00:01:35.625
+shutdownNow is the hard stop.
+
+29
+00:01:35.625 --> 00:01:41.296
+It closes the door, empties the queue, and hands back the five tasks that never ran.
+
+30
+00:01:41.500 --> 00:01:44.039
+Then it interrupts the four running tasks.
+
+31
+00:01:44.039 --> 00:01:45.913
+An interrupt is only a request.
+
+32
+00:01:45.913 --> 00:01:49.057
+Three were blocked in calls that check it, and stop.
+
+33
+00:01:49.057 --> 00:01:52.321
+One is in a loop that never checks, and keeps running.
+
+34
+00:01:53.333 --> 00:01:55.547
+The usual idiom puts them together.
+
+35
+00:01:55.547 --> 00:01:59.341
+shutdown, wait a while, then shutdownNow for the stragglers.
+
+36
+00:01:59.567 --> 00:02:00.197
+The rule.
+
+37
+00:02:00.197 --> 00:02:03.840
+shutdown stops new work, and the queue still drains.
+
+38
+00:02:03.840 --> 00:02:07.273
+shutdownNow also drops the queue, and interrupts.
+
+39
+00:02:07.273 --> 00:02:08.533
+Neither one waits.
+
+40
+00:02:08.533 --> 00:02:10.075
+awaitTermination does.
+
+41
+00:02:10.900 --> 00:02:12.062
+Check yourself.
+
+42
+00:02:12.062 --> 00:02:16.480
+main returns, and nobody called shutdown on a fixed pool.
+
+43
+00:02:16.480 --> 00:02:17.875
+Does the JVM exit?
+
+44
+00:02:20.600 --> 00:02:20.827
+No.
+
+45
+00:02:20.827 --> 00:02:23.474
+Its workers are not daemon threads.
+
+46
+00:02:23.474 --> 00:02:27.255
+They wait in take forever, and keep the JVM alive.

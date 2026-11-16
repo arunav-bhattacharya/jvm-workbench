@@ -27,6 +27,9 @@
     {"slug": "conc11-confine", "lesson": "conc-11", "section": 0, "title": "A race needs state that is shared and changing: take away either one, and there is nothing to lock"},
     {"slug": "exec04-cancel", "lesson": "exec-04", "section": 1, "title": "cancel(true) only raises the interrupt flag: a task blocked in sleep stops, a loop that checks the flag stops, a loop that never looks runs on, and every Future says cancelled at once"},
     {"slug": "exec07-cf-errors", "lesson": "exec-07", "section": 0, "title": "A failure skips every stage until a handler catches it, orTimeout fills the future but leaves the call running, and a handle on each call keeps one bad answer from failing allOf"},
-    {"slug": "jmm05-dcl", "lesson": "jmm-05", "section": 0, "title": "Without volatile, a reader on the lock-free fast path can see the reference before the constructor's write; volatile adds the release and acquire, and a holder class lets class initialization do the locking"}
+    {"slug": "jmm05-dcl", "lesson": "jmm-05", "section": 0, "title": "Without volatile, a reader on the lock-free fast path can see the reference before the constructor's write; volatile adds the release and acquire, and a holder class lets class initialization do the locking"},
+    {"slug": "vt03-semaphore", "lesson": "vt-03", "section": 3, "title": "A virtual thread per payment is cheap but the database has 20 connections: a shared Semaphore hands out 20 permits, waiters park for the price of a heap object, and release wakes the next one"},
+    {"slug": "exec01-pools", "lesson": "exec-01", "section": 0, "title": "A new platform thread per tiny task costs far more than the task, a pool reuses a few workers that loop on one queue, shutdown lets the queue drain, shutdownNow hands it back and interrupts, and only awaitTermination waits"},
+    {"slug": "exec09-production", "lesson": "exec-09", "section": 2, "title": "Payments outrun two threads: an unbounded queue accepts everything while time in queue climbs, a queue of four rejects at once, and four dashboard numbers plus named threads show what is happening"}
   ]
 }

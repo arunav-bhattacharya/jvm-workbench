@@ -1,0 +1,165 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.396
+Your Kotlin service needs a fraud score, and the fraud client is Java.
+
+2
+00:00:07.396 --> 00:00:09.476
+It returns a CompletableFuture.
+
+3
+00:00:09.700 --> 00:00:11.135
+The quick way is get().
+
+4
+00:00:11.135 --> 00:00:12.321
+It works in a demo.
+
+5
+00:00:12.321 --> 00:00:18.061
+But a thread sits blocked for the whole wait, and under load every call in flight holds one.
+
+6
+00:00:18.267 --> 00:00:20.203
+Now the request is cancelled.
+
+7
+00:00:20.203 --> 00:00:22.205
+What happens to the Java call?
+
+8
+00:00:24.033 --> 00:00:24.545
+Nothing.
+
+9
+00:00:24.545 --> 00:00:28.448
+It keeps running, and the blocked thread waits for it anyway.
+
+10
+00:00:28.448 --> 00:00:30.560
+Cancellation stops at the bridge.
+
+11
+00:00:31.400 --> 00:00:33.092
+await is the real bridge.
+
+12
+00:00:33.092 --> 00:00:36.071
+The coroutine suspends, and no thread waits.
+
+13
+00:00:36.071 --> 00:00:39.185
+The thread goes off and runs other coroutines.
+
+14
+00:00:39.400 --> 00:00:44.098
+When the future completes, its value crosses, and the coroutine resumes.
+
+15
+00:00:44.098 --> 00:00:48.992
+If it failed, await rethrows the real exception, not an ExecutionException.
+
+16
+00:00:49.733 --> 00:00:51.639
+And cancellation crosses too.
+
+17
+00:00:51.639 --> 00:00:55.976
+Cancel the coroutine, and await calls cancel(false) on the future.
+
+18
+00:00:56.233 --> 00:01:02.785
+If the future must finish anyway, like a capture already sent to the issuer, call asDeferred, then await.
+
+19
+00:01:02.785 --> 00:01:04.844
+That waits without cancelling it.
+
+20
+00:01:05.767 --> 00:01:09.398
+The other way, future { } gives Java a CompletableFuture.
+
+21
+00:01:09.398 --> 00:01:12.265
+Like async, it starts a coroutine in a scope.
+
+22
+00:01:12.467 --> 00:01:20.324
+When the Java caller calls cancel(true), or an orTimeout fires, the future completes, and that cancels the coroutine.
+
+23
+00:01:20.567 --> 00:01:25.459
+Give it a scope you own, so closing the facade cancels every call still in flight.
+
+24
+00:01:26.367 --> 00:01:28.751
+Reactor gets the same kind of bridge.
+
+25
+00:01:28.751 --> 00:01:31.329
+mono { } turns suspend code into a Mono.
+
+26
+00:01:31.533 --> 00:01:32.315
+It is cold.
+
+27
+00:01:32.315 --> 00:01:38.288
+Nothing runs until someone subscribes, and each subscriber starts its own coroutine.
+
+28
+00:01:38.500 --> 00:01:41.963
+Dispose a subscription, and its coroutine is cancelled.
+
+29
+00:01:42.900 --> 00:01:48.568
+Going back, awaitSingle waits for exactly one value, and throws if the Mono is empty.
+
+30
+00:01:48.568 --> 00:01:54.369
+asFlow turns a Flux into a Flow, and cancelling the collector cancels the subscription.
+
+31
+00:01:55.200 --> 00:01:57.189
+The bridges are Kotlin code.
+
+32
+00:01:57.189 --> 00:02:01.592
+The Java side just sees an ordinary CompletableFuture or Mono.
+
+33
+00:02:01.800 --> 00:02:02.432
+The rule.
+
+34
+00:02:02.432 --> 00:02:03.908
+Use the real bridges.
+
+35
+00:02:03.908 --> 00:02:08.967
+They suspend instead of blocking, and they carry cancellation both ways.
+
+36
+00:02:09.800 --> 00:02:10.794
+Check yourself.
+
+37
+00:02:10.794 --> 00:02:14.836
+A coroutine awaits a Java future, and its scope is cancelled.
+
+38
+00:02:14.836 --> 00:02:16.626
+What happens to the future?
+
+39
+00:02:16.626 --> 00:02:18.680
+And how do you keep it running?
+
+40
+00:02:21.400 --> 00:02:23.774
+await cancels it, with cancel(false).
+
+41
+00:02:23.774 --> 00:02:26.853
+To keep it running, call asDeferred, then await.

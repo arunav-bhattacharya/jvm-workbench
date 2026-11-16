@@ -1,0 +1,189 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.578
+You want one function that returns the bigger of two values.
+
+2
+00:00:06.578 --> 00:00:08.776
+Amounts, currency codes, anything.
+
+3
+00:00:08.776 --> 00:00:11.168
+So you write it once, for any type T.
+
+4
+00:00:11.367 --> 00:00:14.662
+In Kotlin, a &gt; b means a.compareTo(b).
+
+5
+00:00:14.662 --> 00:00:16.223
+Does this compile?
+
+6
+00:00:18.000 --> 00:00:18.223
+No.
+
+7
+00:00:18.223 --> 00:00:22.315
+T has no bound, so the caller may pick any type at all.
+
+8
+00:00:22.315 --> 00:00:24.399
+An Int, a String, a Payment.
+
+9
+00:00:24.600 --> 00:00:28.460
+Inside, your code may only use what all of them share.
+
+10
+00:00:28.460 --> 00:00:32.248
+Kotlin's default bound is Any?, and Java's is Object.
+
+11
+00:00:32.248 --> 00:00:35.393
+Both give you toString, hashCode and equals.
+
+12
+00:00:35.600 --> 00:00:37.682
+And a Payment has no order.
+
+13
+00:00:37.682 --> 00:00:41.307
+Should it compare by amount, by time, or by id?
+
+14
+00:00:41.307 --> 00:00:43.620
+So the compiler refuses a &gt; b.
+
+15
+00:00:43.833 --> 00:00:46.119
+Java says it can't find compareTo.
+
+16
+00:00:46.119 --> 00:00:49.884
+Kotlin finds only String's compareTo, which doesn't fit.
+
+17
+00:00:50.067 --> 00:00:52.557
+The fix is to promise more about T.
+
+18
+00:00:52.557 --> 00:00:54.265
+Write T : Comparable&lt;T&gt;.
+
+19
+00:00:54.265 --> 00:00:58.748
+Read it as: T is something that can be compared with another T.
+
+20
+00:00:58.933 --> 00:01:01.502
+Now the bound is a gate at the call site.
+
+21
+00:01:01.502 --> 00:01:04.384
+Int and String are comparable, so they get in.
+
+22
+00:01:04.384 --> 00:01:06.953
+A call with a Payment no longer compiles.
+
+23
+00:01:07.167 --> 00:01:09.490
+Inside, the body gains a tool.
+
+24
+00:01:09.490 --> 00:01:13.516
+The bound guarantees a compareTo, so a &gt; b compiles.
+
+25
+00:01:13.700 --> 00:01:14.790
+That is the trade.
+
+26
+00:01:14.790 --> 00:01:19.452
+A bound lets fewer types in, and lets your code do more with the one it gets.
+
+27
+00:01:19.800 --> 00:01:22.084
+Now a function needs two abilities.
+
+28
+00:01:22.084 --> 00:01:26.716
+shortestLabel finds the shortest label, and breaks ties alphabetically.
+
+29
+00:01:26.716 --> 00:01:28.673
+It needs length and compareTo.
+
+30
+00:01:28.833 --> 00:01:31.212
+Angle brackets hold only one bound.
+
+31
+00:01:31.212 --> 00:01:35.561
+The second goes in a where clause, and T must pass both at once.
+
+32
+00:01:35.561 --> 00:01:36.512
+A String does.
+
+33
+00:01:36.700 --> 00:01:41.480
+An Int is comparable, but it has no characters, so it stops at the second gate.
+
+34
+00:01:41.480 --> 00:01:43.113
+Payment stops at the first.
+
+35
+00:01:43.333 --> 00:01:44.961
+What about a StringBuilder?
+
+36
+00:01:46.233 --> 00:01:47.087
+It gets in.
+
+37
+00:01:47.087 --> 00:01:50.657
+Since JDK 11, StringBuilder is comparable too.
+
+38
+00:01:50.657 --> 00:01:53.528
+Now the body may call length as well.
+
+39
+00:01:54.500 --> 00:02:00.757
+Java writes a bound with extends, even for an interface, and joins two bounds with an ampersand.
+
+40
+00:02:00.967 --> 00:02:06.627
+At most one bound may be a class, because a JVM class has only one superclass.
+
+41
+00:02:07.500 --> 00:02:08.097
+The rule.
+
+42
+00:02:08.097 --> 00:02:13.935
+A bound shuts some callers out, and in return your code may use what the bound promises.
+
+43
+00:02:14.133 --> 00:02:14.972
+Quick check.
+
+44
+00:02:14.972 --> 00:02:16.999
+lengthOf only reads x.length.
+
+45
+00:02:16.999 --> 00:02:21.193
+Which bound makes it compile, and can you still pass an Int?
+
+46
+00:02:22.967 --> 00:02:24.248
+T : CharSequence.
+
+47
+00:02:24.248 --> 00:02:28.847
+And no: an Int has no characters, so that call won't compile.

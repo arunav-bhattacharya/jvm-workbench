@@ -22,6 +22,10 @@
     {"slug": "co02-builders", "lesson": "co-02", "section": 2, "title": "launch and async return at once; coroutineScope returns only when every child it started has finished"},
     {"slug": "io01-c10k", "lesson": "io-01", "section": 0, "title": "A blocked read parks a whole thread, so ten thousand idle connections hold ten thousand threads; readiness lets one thread watch them all"},
     {"slug": "co10-mutex", "lesson": "co-10", "section": 1, "title": "A one-thread view keeps other coroutines out only between suspensions; a Mutex holds across them, and runTest skips delays on a virtual clock"},
-    {"slug": "rx05-retry", "lesson": "rx-05", "section": 2, "title": "An error ends a stream: onErrorResume replaces the rest, retry subscribes again from the source, and timeout turns silence into an error"}
+    {"slug": "rx05-retry", "lesson": "rx-05", "section": 2, "title": "An error ends a stream: onErrorResume replaces the rest, retry subscribes again from the source, and timeout turns silence into an error"},
+    {"slug": "rx04-combine", "lesson": "rx-04", "section": 0, "title": "The same two feeds through four combinators: merge passes items as they arrive, concat takes turns, zip pairs by position, combineLatest pairs each change with the latest of the other"},
+    {"slug": "rx08-hot-cold", "lesson": "rx-08", "section": 0, "title": "A cold feed runs again for each subscriber; share, replay and cache run it once and decide what a late subscriber gets, and a multicast sink is a hot source your own code pushes into"},
+    {"slug": "co11-bridges", "lesson": "co-11", "section": 0, "title": "get() blocks a thread and stops cancellation at the bridge; await() suspends and cancels the future, future { } cancels its coroutine when Java cancels, and a cold mono { } runs one coroutine per subscriber"},
+    {"slug": "io04-netty", "lesson": "io-04", "section": 0, "title": "A decoder frames bytes that arrive in chunks of any size, writability and auto-read stop a slow client from filling your memory, and a buffer nobody releases never goes back to the pool"}
   ]
 }
