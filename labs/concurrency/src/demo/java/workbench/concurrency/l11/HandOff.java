@@ -7,7 +7,7 @@ import java.util.concurrent.BlockingQueue;
 
 /**
  * A waiter writes tickets of 100 numbered dishes and hands each one to a cook through the rail,
- * a queue. Run with -Pargs=reuse to rub out and reuse one ticket instead of handing over a new one.
+ * a queue. Run with -Pargs=reuse to erase and reuse one ticket instead of handing over a new one.
  */
 public class HandOff {
     public static void main(String[] args) throws InterruptedException {
@@ -38,7 +38,7 @@ public class HandOff {
         List<Integer> shared = new ArrayList<>();
         for (int b = 0; b < tickets; b++) {
             List<Integer> ticket = reuse ? shared : new ArrayList<>(100);
-            ticket.clear();                                           // with reuse: rubs out a ticket the cook may be reading
+            ticket.clear();                                           // with reuse: erases a ticket the cook may be reading
             for (int i = 0; i < 100; i++) ticket.add(b * 100 + i);
             queue.put(ticket);                                        // hand it over, and never touch it again
         }
