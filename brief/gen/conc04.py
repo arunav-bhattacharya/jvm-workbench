@@ -52,7 +52,7 @@ The checker doesn't use the word, because it only reads, and reading never hurt 
 
 In this lesson, we'll put the transfer under a lock and see what `synchronized` promises, and to whom. Then we'll choose what to lock on, and keep slow calls out of the locked code. Before we start, make a guess, and keep it in mind."""
 
-S0 = """We'll start where the last lesson stopped. Left alone, a transfer is two read-modify-write steps in a row (read a balance, change it, write it back), and the last lesson showed how two threads lose updates in steps like those. So let's make the pair one step, with a lock. A **lock** is a guard on a piece of code. A thread takes the lock before it runs the code and gives it back after, and only one thread can hold it at a time.
+S0 = """We'll start where the last lesson stopped. Left alone, a transfer is two read-modify-write steps in a row (read a balance, change it, write it back), and we saw there how two threads lose updates in steps like those. So let's make the pair one step, with a lock. A **lock** is a guard on a piece of code. A thread takes the lock before it runs the code and gives it back after, and only one thread can hold it at a time.
 
 Every Java object carries a built-in lock, and `synchronized` takes it on the way in and gives it back on the way out:
 
