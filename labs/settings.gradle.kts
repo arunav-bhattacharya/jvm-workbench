@@ -6,3 +6,4 @@ include("concurrency", "jmm", "executors", "vthreads", "generics", "reactive", "
 include("memory", "performance", "bytecode", "nio", "startup", "kotlin", "modernjava")
 include("ledger", "quotes", "events", "container")
 include("functional")
+include("flows")
