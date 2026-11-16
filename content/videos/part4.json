@@ -27,6 +27,7 @@
     {"slug": "boot01-slow-start", "lesson": "boot-01", "section": 0, "title": "Every launch repeats the same work: create the VM, load, parse and verify about 1,500 classes, interpret until the JIT has profiles, then the framework's own start-up"},
     {"slug": "perf07-investigation", "lesson": "perf-07", "section": 0, "title": "One loop from symptom to proof: read the tail and the GC count, group JFR by your own line, fix one thing, profile again, then prove it with JMH and keep it with an allocation budget"},
     {"slug": "cls06-classfile", "lesson": "cls-06", "section": 0, "title": "A class file is bytes with a fixed layout; the ClassFile API parses them into elements, builds classes from builder lambdas, and transforms them as a flatMap: each element in, zero or more out"},
-    {"slug": "cap4-interceptors", "lesson": "cap4-02", "section": 0, "title": "An interceptor runs around a call and proceed() hands it on: a JDK proxy for a component with interfaces, a Byte Buddy subclass for one without, and retry only the smallest call that is safe to repeat"}
+    {"slug": "cap4-interceptors", "lesson": "cap4-02", "section": 0, "title": "An interceptor runs around a call and proceed() hands it on: a JDK proxy for a component with interfaces, a Byte Buddy subclass for one without, and retry only the smallest call that is safe to repeat"},
+    {"slug": "cap4-build-time", "lesson": "cap4-03", "section": 1, "title": "A reflective start finds components, reads annotations, orders the graph and has Byte Buddy write a subclass: 2,207 classes and 1,029 ms; the same wiring generated at build time leaves only holders: 991 classes and 266 ms"}
   ]
 }

@@ -1,0 +1,133 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.862
+Until the container is wired, no payment goes through.
+
+2
+00:00:05.862 --> 00:00:10.137
+Here is one start, from the first line of main to the first payment done.
+
+3
+00:00:10.367 --> 00:00:13.251
+The reflective container does everything now.
+
+4
+00:00:13.251 --> 00:00:19.916
+It finds the components, reads their annotations, orders the graph, and has Byte Buddy write a subclass.
+
+5
+00:00:20.133 --> 00:00:23.760
+Ready after 1,029 milliseconds.
+
+6
+00:00:23.760 --> 00:00:26.568
+It loaded 2,207 classes.
+
+7
+00:00:27.800 --> 00:00:33.183
+The same app, wired by generated code, loads 991 classes.
+
+8
+00:00:33.400 --> 00:00:37.161
+So 1,216 classes are pure machinery.
+
+9
+00:00:37.367 --> 00:00:45.117
+814 come from byte-buddy.jar: Byte Buddy's own machinery, loaded before it can write one subclass.
+
+10
+00:00:45.333 --> 00:00:52.295
+Then the 3 classes it writes, 30 JDK proxy classes, and 123 hidden classes.
+
+11
+00:00:52.500 --> 00:00:58.715
+Each one is found, parsed and verified, then run in the interpreter, because nothing is hot yet.
+
+12
+00:00:59.533 --> 00:01:04.616
+None of this depends on anything but the classes, and those are fixed when you build.
+
+13
+00:01:04.616 --> 00:01:07.547
+So run the same steps on the build machine, once.
+
+14
+00:01:07.767 --> 00:01:11.613
+A cycle in the graph now fails the build instead of the deploy.
+
+15
+00:01:11.833 --> 00:01:20.757
+The generator writes plain Java: a holder class for each singleton, and the interceptors as source, with the annotation values written in.
+
+16
+00:01:20.967 --> 00:01:21.558
+Predict.
+
+17
+00:01:21.558 --> 00:01:24.073
+What is left for each start to do?
+
+18
+00:01:25.800 --> 00:01:27.103
+Only the holders.
+
+19
+00:01:27.103 --> 00:01:34.923
+The JVM initializes each one the first time get touches it, once, under the class initialization lock.
+
+20
+00:01:35.133 --> 00:01:41.945
+Ready after 266 milliseconds, with 991 classes, and no reflection.
+
+21
+00:01:42.467 --> 00:01:50.431
+On a busy machine the times moved by a factor of two between runs, but the reflective start was always several times slower.
+
+22
+00:01:51.233 --> 00:01:53.878
+Here is one holder, in Java and Kotlin.
+
+23
+00:01:53.878 --> 00:01:57.540
+A plain new call, with its dependency's holder inside.
+
+24
+00:01:57.767 --> 00:01:58.413
+The price.
+
+25
+00:01:58.413 --> 00:02:01.388
+The set of components is fixed when you build.
+
+26
+00:02:01.388 --> 00:02:05.851
+And a holder whose constructor throws stays failed until you restart.
+
+27
+00:02:06.667 --> 00:02:07.295
+The rule.
+
+28
+00:02:07.295 --> 00:02:11.481
+Work that depends only on the classes belongs at build time.
+
+29
+00:02:11.481 --> 00:02:14.132
+A start should run only ordinary code.
+
+30
+00:02:14.333 --> 00:02:15.373
+Check yourself.
+
+31
+00:02:15.373 --> 00:02:20.363
+In the generated container, where does @Retry's 3 come from at run time?
+
+32
+00:02:23.067 --> 00:02:24.795
+From the generated source.
+
+33
+00:02:24.795 --> 00:02:29.181
+The generator read @Retry at build time and wrote 3 into the code.

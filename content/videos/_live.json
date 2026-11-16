@@ -137,6 +137,7 @@
   "cap1-snapshot",
   "cap1-limits",
   "cap3-java-surface",
-  "cap2-hedge"
+  "cap2-hedge",
+  "cap4-build-time"
  ]
 }
