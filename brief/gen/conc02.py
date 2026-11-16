@@ -32,14 +32,66 @@ FIG = (
     '</svg>'
 )
 
-OPENING = """Picture a rolling deploy of the payments service. Each old pod should stop in a second or two. One of them takes the full 30 seconds that Kubernetes allows, and then the kubelet kills it. Its shutdown code had asked the outbox relay to stop, then waited for it. The relay, the thread that moves payment events from an outbox table to Kafka, answered with one log line: `relay interrupted, carrying on`.
+OPENING = """Picture a rolling deploy of the payments service. Each old pod should stop in a second or two. One of them takes the full 30 seconds that Kubernetes allows, and then the kubelet kills it.
 
-The bug behind that line is easy to write. Java makes you catch `InterruptedException`, and logging it is the quickest way to keep the compiler happy. It even looks responsible. JDK engineers have shipped the same mistake.
+Its shutdown code had asked the outbox relay to stop, then waited for it. The relay, the thread that moves payment events from an outbox table to Kafka, replied with one polite log line: `relay interrupted, carrying on`. Then it carried on.
 
-In Threads from zero, every thread we started finished on its own. The relay runs until someone tells it to stop, and how to tell it is the question that lesson left open. In this lesson, we'll follow one thread from `NEW` to `TERMINATED`, weigh the ways to stop it, and fix the relay so the request isn't lost. Before we start, make a guess, and keep it in mind."""
+The bug behind that line is easy to write. Java makes you catch `InterruptedException`, and logging it is the quickest way to keep the compiler happy. JDK engineers have shipped the same mistake.
+
+In Threads from zero, every thread we started finished on its own. The relay runs until someone asks it to stop, and how to ask is the question that lesson left open. In this lesson, we'll follow the relay through the six states of a thread's life and find it in a thread dump. Then we'll weigh the ways to stop it, and fix it so the request isn't lost. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
-S0 = """Before we fix anything, let's look at the relay the way you would on a stuck pod: in a thread dump. Here it is, taken with `jcmd <pid> Thread.print` a moment after the lab's relay was interrupted (trimmed):
+J_NEW = """Thread relay = new Thread(new OutboxRelay(outbox, publisher, 200), "outbox-relay");
+System.out.println(relay.getState());   // NEW: only an object so far
+relay.start();                          // now a real OS thread, which calls run()"""
+K_NEW = """val relay = Thread(OutboxRelay(outbox, publisher, 200), "outbox-relay")
+println(relay.state)                    // NEW: only an object so far
+relay.start()                           // now a real OS thread, which calls run()"""
+
+S0 = """A thread is always in one of six states, and `t.getState()` tells you which. They're the six values of the `Thread.State` enum, and every thread dump prints the same names. The easiest way to learn them is to follow one thread through its whole life. Let's follow the relay, from the line that creates it to the moment it ends.
+
+The relay starts life as an ordinary object:
+
+""" + pair(J_NEW, K_NEW) + """
+
+Before `start()`, no operating system thread exists and nothing has run, so `getState()` returns `NEW`. (Kotlin reads `getState()` as the property `state`. Otherwise the two versions are the same.)
+
+`start()` is the call that moves the relay on, as we saw in Threads from zero. The JVM creates the OS thread, and that thread calls `run()`. The relay polls the outbox and publishes what it finds, and `getState()` now returns `RUNNABLE`.
+
+`RUNNABLE` covers two cases that the JVM doesn't tell apart: running on a core, and ready to run but waiting for one. It covers a third case too, which we'll meet in a thread dump.
+
+Sooner or later the outbox is empty. The relay calls `Thread.sleep(idleMillis)` and gives up its core until the time is up. A thread that waits with a time limit is `TIMED_WAITING`, and `wait(ms)` and `join(ms)` lead there too.
+
+When the time runs out, or an interrupt wakes it early (more on that soon), the relay is `RUNNABLE` again and polls once more.
+
+Waiting with no time limit is `WAITING`. Picture a relay fed by a `BlockingQueue` instead of a table. On an empty queue, `queue.take()` parks the thread, that is, puts it to sleep until another thread wakes it, here by adding an event.
+
+`Object.wait()` and `join()` wait the same way, with no time limit. In fact, the shutdown code from the opening was `WAITING` the whole time it sat in `relay.join()`.
+
+The fifth state is about a door. Say the relay marks rows as sent inside a `synchronized (outboxLock)` block, and a cleanup job is already inside a block on the same lock. Only one thread gets through that door at a time, so the relay waits outside it, `BLOCKED`. When the cleanup job leaves, the relay gets the lock and is `RUNNABLE` again.
+
+Last, `run()` returns or throws, and the relay is `TERMINATED`. That state is final. A second `start()` throws `IllegalThreadStateException`, so work that must run again needs a new thread, or better, a pool.
+
+The figure below draws that life as a map. `RUNNABLE` sits in the middle because the relay keeps coming back to it: it publishes, sleeps, wakes up `RUNNABLE` and publishes again. The three waiting states differ in what ends the wait: a lock for `BLOCKED`, another thread for `WAITING`, and another thread or the clock for `TIMED_WAITING`.
+
+That's a lot of claims, so let's not take my word for them. The `ThreadStates` demo in the Try it sends four small threads through the same moves, asks `getState()` at each stop and prints the answer. On JDK 21 it printed:
+
+```text
+before start():         NEW
+inside sleep(2000):     TIMED_WAITING
+in a busy loop:         RUNNABLE
+inside wait():          WAITING
+entering a held lock:   BLOCKED
+waiter interrupted, flag now false
+after join():           TERMINATED
+```
+
+Each state showed up where the walk said it would, though the demo visits them in its own order. The extra line about the waiter's flag is a clue for later, so hold on to it.
+
+`getState()` only works on a thread you hold a reference to. On a stuck pod you hold nothing, but you can still ask every thread at once."""
+
+# ---------------------------------------------------------------- section 1
+SD = """Back to the pod that wouldn't stop. A thread dump lists every thread in the JVM with its state and its stack, and `jcmd <pid> Thread.print` takes one. Here's the relay a moment after it was interrupted, trimmed to the lines that matter:
 
 ```text
 "outbox-relay" #19 prio=5 os_prio=0 ... waiting on condition
@@ -49,30 +101,21 @@ S0 = """Before we fix anything, let's look at the relay the way you would on a s
         at workbench.concurrency.l02.OutboxRelay.run(OutboxRelay.java:39)
 ```
 
-The interrupt arrived, the relay printed its line, and it went straight back to sleep. `TIMED_WAITING` is one of the six values of the `Thread.State` enum. `t.getState()` returns the same names that thread dumps print, so learning them once pays off every time you debug a stuck service.
+The dump says what the relay is doing in two places. The state line says `TIMED_WAITING (sleeping)`, and the stack says where: in `Thread.sleep`, called from line 39 of `OutboxRelay.run`. So the relay heard the interrupt, logged that it had heard it, and went straight back to bed.
 
-| State | What the thread is doing |
-|---|---|
-| `NEW` | Created, but `start()` has not been called. |
-| `RUNNABLE` | Running, or ready to run and waiting for a core. |
-| `BLOCKED` | Waiting to enter a `synchronized` block that another thread holds. |
-| `WAITING` | Waiting with no time limit: `Object.wait()`, `join()`, `LockSupport.park()`. |
-| `TIMED_WAITING` | The same with a time limit: `sleep(ms)`, `wait(ms)`, `join(ms)`. |
-| `TERMINATED` | `run()` has returned or thrown. |
+A state is a snapshot, so one dump can mislead. Take two or three, a few seconds apart, and compare them. A thread that shows the same state at the same line in all of them isn't just passing through.
 
-If the waiting states feel abstract, picture someone in an office. `BLOCKED` is standing at a locked door while somebody else is inside. `WAITING` is sitting by the phone until it rings. `TIMED_WAITING` is the same, with an alarm clock set. In Java terms, the locked door is a `synchronized` block and the alarm is the timeout. The phone call is a `notify`, an `unpark`, or the end of the thread you joined.
+Two states need care when you read a dump. The first is `RUNNABLE`, and here is the third case we put off. The Javadoc says a `RUNNABLE` thread is executing in the JVM "but it may be waiting for other resources from the operating system such as processor."
 
-Three of these states surprise people.
+So a thread stuck in a socket read from Oracle shows `RUNNABLE` too, because the JVM only sees that it's inside native code. A dump full of `RUNNABLE` threads can still be a service that does nothing.
 
-`RUNNABLE` doesn't mean "using a CPU". The Javadoc says the thread is executing in the JVM "but it may be waiting for other resources from the operating system such as processor." A thread waiting its turn for a core is `RUNNABLE`. So is a thread stuck in a socket read from Oracle, because the JVM only sees that it's inside native code. A dump full of `RUNNABLE` threads can still be a service that does nothing, so read the stacks, not just the states.
+The second is `BLOCKED`, which is only for `synchronized`. A thread waiting for a `ReentrantLock` (lesson 7 of this track) is parked by the lock's own Java code. So the dump shows it `WAITING`, with `LockSupport.park` near the top of its stack. Search a dump for `BLOCKED` to find lock contention, and you'll miss every explicit lock.
 
-`BLOCKED` is only for `synchronized`. A thread waiting for a `ReentrantLock` (lesson 7 of this track) is parked instead: the lock's own Java code puts it to sleep with `LockSupport.park()` until another thread wakes it, and the JVM reports that as `WAITING`. Search a dump for `BLOCKED` to find lock contention, and you'll miss every explicit lock.
+**A state is a hint. The stack is the evidence. Read both.**
 
-`TERMINATED` is final. A thread can't be restarted. If the work must run again, create a new thread, or better, hand the task to a pool.
+Our relay spends nearly all of its life in `TIMED_WAITING`, asleep. So the real question is how one thread can reach into another thread's sleep and ask it to stop. Java has offered more than one answer over the years."""
 
-Our relay spends nearly all of its life in `TIMED_WAITING`, asleep. So the real question is how one thread can reach into another thread's sleep and tell it to stop. Java has offered more than one answer over the years, so let's weigh them."""
-
-# ---------------------------------------------------------------- section 1
+# ---------------------------------------------------------------- section 2
 J_DAEMON = """Thread relay = new Thread(outboxRelay, "outbox-relay");
 relay.setDaemon(true);   // before start(), or you get IllegalThreadStateException
 relay.start();"""
@@ -80,27 +123,35 @@ K_DAEMON = """val relay = Thread(outboxRelay, "outbox-relay")
 relay.isDaemon = true    // before start(), or you get IllegalThreadStateException
 relay.start()            // or: thread(name = "outbox-relay", isDaemon = true) { outboxRelay.run() }"""
 
-S1 = """People try four ways to stop a thread like the relay. Let's take them in turn, oldest first.
+S1 = """We know where the relay spends its time: asleep, or busy publishing. Whatever we use to stop it has to reach it in both places. People try four ways, so let's take them in turn, oldest first.
 
-The oldest is `Thread.stop()`. It threw an error inside the target thread, wherever that thread happened to be. The thread unwound, released its locks and left half-updated objects behind for other threads to find: half a batch published, say, with the outbox rows not yet marked as sent. It was deprecated in Java 1.2, made to always throw `UnsupportedOperationException` in JDK 20, and removed in JDK 26. (`suspend()` and `resume()` went in JDK 23. Deprecation in Java is a long goodbye.) Old code that still calls `stop()` fails with `NoSuchMethodError` on JDK 26 and later. Strike that one.
+The oldest is `Thread.stop()`. It threw an error inside the target thread, wherever that thread happened to be. The thread unwound, released its locks and left half-updated objects behind: half a batch published, say, with the outbox rows not yet marked as sent.
 
-The second is to make the relay a **daemon thread**, one the JVM doesn't wait for. When the last non-daemon thread ends, the JVM exits, and daemon threads stop wherever they are. Their `finally` blocks don't run. A new thread starts with the daemon setting of the thread that created it, so you change it yourself, before `start()`:
+`stop()` was deprecated in Java 1.2, made to always throw `UnsupportedOperationException` in JDK 20, and removed in JDK 26. Its partners `suspend()` and `resume()` went in JDK 23. In Java, deprecation is a long goodbye.
+
+Old code that still calls `stop()` fails with `NoSuchMethodError` on JDK 26 and later. Strike that one.
+
+The second is to make the relay a **daemon thread**, one the JVM doesn't wait for. When the last non-daemon thread ends, the JVM exits, and daemon threads stop wherever they are, without running their `finally` blocks. A new thread copies the daemon setting of the thread that created it, so you change it yourself, before `start()`:
 
 """ + pair(J_DAEMON, K_DAEMON) + """
 
-That doesn't stop the relay so much as abandon it. The JVM can cut it off between publishing a message and marking it sent. Daemons suit work you can afford to lose halfway, such as a cache refresher or the metrics flusher in the Try it below. The JVM's own helpers from lesson 1, like `Finalizer` and `Signal Dispatcher`, are daemons for the same reason: nobody wants them to hold up an exit. For a relay that moves payment events, strike it too.
+A daemon doesn't stop the relay so much as abandon it. The JVM can cut it off between publishing a message and marking it sent. Daemons suit work you can afford to lose halfway: a cache refresher, the metrics flusher in the Try it below, or the JVM's own housekeepers from Threads from zero. For a relay that moves payment events, strike this one too.
 
-The third is a flag of our own: a `running` field that the owner sets to `false` and the loop checks on every pass. (It has to be `volatile`, for reasons the memory model track explains.) It works for a busy loop. But it can't wake a sleeping thread. Our relay would notice only when its current sleep ends, and a thread blocked in `queue.take()` on an empty queue would never notice at all. The executors you'll soon hand your tasks to don't know about your flag either.
+The third is a flag of our own, a `running` field that the owner sets to `false` and the loop checks on every pass. (It has to be `volatile`, for reasons the memory model track explains.) A flag works for a busy loop, but it can't wake a sleeping thread.
 
-The fourth is `interrupt()`, and it's the one Java builds on. `t.interrupt()` sets a flag inside `t`, called the **interrupt flag**. If `t` is blocked in `sleep`, `wait`, `join` or a blocking call such as `BlockingQueue.take()`, that call wakes up and throws `InterruptedException`. Otherwise nothing happens right away: the flag stays set until the thread looks at it. This is also how `ExecutorService.shutdownNow()` stops running tasks.
+Our relay would notice the flag only when its current sleep ends, and a relay parked in `queue.take()` would never notice it at all. The executors you'll soon hand your tasks to don't know about your flag either.
 
-So cancellation in Java is cooperative, and that's the only kind there is. The interrupt asks. The thread checks, finishes what it's doing, cleans up and returns, at a moment when its data makes sense.
+The fourth is `interrupt()`, and it's the one Java builds on. `t.interrupt()` sets a flag inside `t`, called the **interrupt flag**. If `t` is blocked in `sleep`, `wait`, `join` or a blocking call such as `BlockingQueue.take()`, that call wakes up and throws `InterruptedException`.
+
+If `t` is busy instead, nothing happens right away: the interrupt flag stays set until the thread looks at it. `ExecutorService.shutdownNow()` stops running tasks this same way.
+
+So stopping a thread in Java is cooperative. The interrupt asks. The thread checks, finishes what it's doing, cleans up and returns, at a moment when its data makes sense.
 
 **Java can't kill a thread. It can only ask, and the thread stops itself.**
 
-So interrupt is the right tool. But our relay *was* interrupted, and it carried on. Let's find out where the request went."""
+The interrupt is the right tool, then. But our relay *was* interrupted, and it carried on. Let's find out where the request went."""
 
-# ---------------------------------------------------------------- section 2
+# ---------------------------------------------------------------- section 3
 J_SWALLOW = """// Naive: the interrupt is "handled" by logging it
 try {
     Thread.sleep(idleMillis);
@@ -130,11 +181,15 @@ S2 = """Here's the part of the relay that answered the shutdown request, straigh
 
 """ + pair(J_SWALLOW, K_SWALLOW) + """
 
-It looks harmless. The exception was caught and a line was logged. Here's the detail that makes it a bug: methods that throw `InterruptedException` clear the interrupt flag before they throw. So inside the catch block the flag already reads `false`, which was the warm-up question. The relay logs, loops round and calls `sleep` again, and nothing anywhere remembers that someone asked it to stop.
+The catch block looks harmless: the exception was caught, and a line was logged. But methods that throw `InterruptedException` clear the interrupt flag before they throw. So inside the catch block the flag already reads `false`, which was the warm-up question.
 
-Think of an interrupt as a sticky note on a colleague's monitor that says "please wrap up". If they're asleep at their desk, the note wakes them. If they're busy typing, they see it the next time they look up. The trap is that waking up tears the note off. If they read it, shrug and doze off again, nobody can tell the request was ever made.
+Remember the waiter's line in `ThreadStates`, `flag now false`? That was the same clearing, caught in the act. The relay logs, loops round and calls `sleep` again, and nothing anywhere remembers that someone asked it to stop.
 
-So once you've caught the exception, you hold the only copy of the request, and you have two good options. Let the exception propagate, by declaring `throws InterruptedException`. Or stick the note back on, by restoring the flag before you do anything else:
+Think of an interrupt as a sticky note on a colleague's screen that says "please wrap up". If they're asleep at their desk, the note wakes them. If they're busy typing, they see it the next time they look up.
+
+The catch is that waking up tears the note off. The note is the interrupt flag, and `sleep` tears it off when it throws.
+
+Once you've caught the exception, then, you hold the only copy of the request. You have two good options. Let the exception propagate, by declaring `throws InterruptedException`. Or stick the note back on, by restoring the flag before you do anything else:
 
 """ + pair(J_RESTORE, K_RESTORE) + """
 
@@ -142,7 +197,9 @@ So once you've caught the exception, you hold the only copy of the request, and 
 
 If this feels like an easy mistake, you're in good company. JDK 23 fixed `ImageIcon.loadImage` to restore the flag, and JDK 24 fixed the same bug in `FileSystemPreferences.lockFile()`. From JDK 26, the `Thread` Javadoc has a section on interruption that spells out the rule above.
 
-The relay has a second, quieter way to miss the request. When the outbox is full, it publishes batch after batch and never reaches `sleep`, so no `InterruptedException` ever arrives. A loop like that must check the flag itself, once per batch, with `Thread.currentThread().isInterrupted()`. Be careful with the similar-looking static `Thread.interrupted()`: it reads the flag *and clears it*, so use it only when you mean to consume the request.
+The relay has a second, quieter way to miss the note. When the outbox is full, it publishes batch after batch and never reaches `sleep`, so no `InterruptedException` ever arrives. A loop like that must look for the note itself, once per batch, with `Thread.currentThread().isInterrupted()`.
+
+Be careful with the static `Thread.interrupted()`, which looks almost the same. It reads the flag *and clears it*, so use it only when you mean to take the note down for good.
 
 With both fixes in place, the relay stops when it's asked to. The code that asks still has one job left: wait for the relay to finish, and not forever."""
 
@@ -151,7 +208,7 @@ ASIDE2 = {
     "body": "Same idea, separate machinery. Cancelling a Kotlin coroutine is cooperative too: `delay()` and the other suspending functions in kotlinx.coroutines notice it and throw `CancellationException`. A `catch (e: Exception)` that swallows that exception can keep a cancelled coroutine running, much like a swallowed interrupt. But cancelling a coroutine doesn't interrupt the thread it runs on. When a coroutine must call blocking code that only listens to interrupts, wrap the call in `runInterruptible { }`, which turns cancellation into an interrupt. The coroutines track covers this in Cancellation and timeouts."
 }
 
-# ---------------------------------------------------------------- section 3
+# ---------------------------------------------------------------- section 4
 J_SLEEPWAIT = """// Naive: hopes two seconds is enough
 relay.interrupt();
 Thread.sleep(2_000);     // "should be enough"
@@ -177,51 +234,61 @@ You may be thinking, "Why wait at all? Interrupt it and close the producer." Bec
 
 """ + pair(J_SLEEPWAIT, K_SLEEPWAIT) + """
 
-`Thread.sleep(ms)` pauses the current thread for at least that long, and promises nothing about any other thread. On a quiet laptop the relay stops within a few milliseconds and the code works. On a node that's busy with three other deploys, it may not. Even when the relay has finished, the shutdown code isn't promised to see what it wrote. The language gives `sleep` no synchronization meaning, so the JIT may compile each thread as if the other didn't exist: it can keep a value in a register instead of memory, or move a read or a write. The memory model track shows a loop that never ends for exactly this reason.
+`Thread.sleep(ms)` pauses the current thread for at least that long, and it promises nothing about any other thread. On a quiet laptop the relay stops within a few milliseconds, and the code works. On a node that's busy with three other deploys, two seconds may not be enough.
 
-`join()` fixes both problems. It waits for the thread to end, and when it returns, you're guaranteed to see everything that thread wrote. The `java.util.concurrent` docs put it this way: "All actions in a thread happen-before any other thread successfully returns from a join on that thread." Happens-before is the memory model's name for that guarantee. It's also why the lab in Threads from zero could read the `partial` array after the joins with no locks at all.
+Even when the relay finishes in time, the shutdown code isn't promised to see what it wrote. The language gives `sleep` no synchronization meaning, so the JIT may compile each thread as if the other didn't exist. It can keep a value in a register instead of memory, or move a read or a write. The memory model track shows a loop that never ends for exactly this reason.
 
-The one weakness of plain `join()` is the one the deploy found: it waits as long as it takes. So give it a limit. `join(5_000)` waits up to five seconds and returns nothing, so you check `relay.isAlive()` afterwards. Since JDK 19, `join(Duration)` returns `true` if the thread ended:
+`join()` fixes both problems. It waits for the thread to end, and when it returns, you're guaranteed to see everything that thread wrote. The `java.util.concurrent` docs put it this way: "All actions in a thread happen-before any other thread successfully returns from a join on that thread."
+
+Happens-before is the memory model's name for that guarantee. The same guarantee is why, in Threads from zero, we could read the `partial` array after the joins with no locks at all.
+
+Plain `join()` has one weakness, and the deploy found it: it waits as long as it takes. So give it a limit.
+
+`join(5_000)` waits up to five seconds and returns nothing, so you check `relay.isAlive()` afterwards. Since JDK 19, `join(Duration)` returns `true` if the thread ended:
 
 """ + pair(J_TIMED, K_TIMED) + """
 
-A timed join returns as soon as the thread ends, so it costs nothing when the relay behaves. When it says `false`, you know you stopped waiting before the relay stopped running, and you can log it and decide what to do.
+A timed join returns as soon as the thread ends, so it costs nothing when the relay behaves. When it returns `false`, you know the relay is still running, and you can log it and decide what to do.
 
 Keep `sleep` for what it's for: a pause, such as a back-off between retries to the card issuer, or the relay's idle wait between polls. (Since JDK 19 you can write `Thread.sleep(Duration.ofMillis(200))`, if you like the unit in the type.)
 
 **Wait for the thread, not for the clock.**
 
-That completes a thread's life. We can start it, read its state, ask it to stop and wait for it to finish. Notice what all of it has in common, though: one thread coordinating with another by hand. None of it says anything about data that two threads change while both are running, and that's where most concurrency bugs live."""
+That completes a thread's life: we can start it, read its state, ask it to stop and wait for it to finish. But all of it is one thread coordinating with another by hand. None of it protects data that two threads change while both are running, and that's where most concurrency bugs live."""
 
 L = {
  "id": "conc-02",
  "title": "A thread's life: start, join, sleep, interrupt",
  "minutes": 35,
- "goal": "By the end you can read a thread's state, wait for a thread with `join()` instead of `sleep()`, and write a worker that stops cleanly when interrupted without losing the interrupt.",
+ "goal": "By the end you can name the six states a thread lives through and read them in a thread dump, wait for a thread with `join()` instead of `sleep()`, and write a worker that stops cleanly when interrupted without losing the interrupt.",
  "opening": OPENING,
  "warmup": {
   "q": "A worker is inside `Thread.sleep(10_000)`. Another thread calls `worker.interrupt()`. The worker catches the `InterruptedException`. Inside the catch block, what does `Thread.currentThread().isInterrupted()` return?",
   "options": ["true, because it was just interrupted", "false, because the flag was cleared when the exception was thrown", "It throws a second InterruptedException", "It depends on the JVM"],
   "answer": 1,
-  "why": "Methods that throw `InterruptedException` clear the interrupt flag first, so inside the catch block the flag already reads false. If the catch only logs, the stop request is gone for good. That's exactly what happened to the relay, and it's why the rule is to rethrow, or to put the flag back with `Thread.currentThread().interrupt()`. The third section takes it line by line."
+  "why": "Methods that throw `InterruptedException` clear the interrupt flag first, so inside the catch block the flag already reads false. If the catch only logs, the stop request is gone for good. That's exactly what happened to the relay, and it's why the rule is to rethrow, or to put the flag back with `Thread.currentThread().interrupt()`. The section on where the relay's interrupt went takes it line by line."
  },
  "sections": [
   {
-   "h": "Finding out what the relay is doing",
+   "h": "The six states a thread lives through",
    "body": S0,
-   "figure": {"svg": FIG, "caption": "A thread starts NEW, lives in RUNNABLE, leaves it to wait for a lock, a signal or a timer, and ends TERMINATED."},
+   "figure": {"svg": FIG, "caption": "The relay's life as a map: it starts NEW, lives in RUNNABLE, steps out to wait for a lock, another thread or the clock, and ends TERMINATED."},
    "try": {
     "title": "Put a thread in every state",
-    "minutes": 3,
+    "minutes": 4,
     "steps": [
-     "Read `ThreadStates` below. For each `show(...)` line, predict the state before you run it.",
-     "Run it with the command below and check your predictions.",
-     "Find the line the waiter prints when it's interrupted out of `wait()`. Hold on to it: it explains the relay's bug, and we'll come back to it when we get to interrupts."
+     "Read `ThreadStates` below. Each `show(...)` call sends a thread somewhere and asks `getState()`. Match each one to a box in the figure.",
+     "Run it with the command below, and compare with the output in this section. Then find the extra line the waiter prints when it's interrupted out of `wait()`. It explains the relay's bug, as you'll see in the section on interrupts.",
+     "Now give the waiter a time limit: change `monitor.wait()` to `monitor.wait(5_000)`. Predict the `inside wait():` line, then run it again."
     ],
     "code": {"lang": "java", "title": "ThreadStates.java", "src": read(f"{lab}/demo/{P}/ThreadStates.java"),
              "run": demo("ThreadStates"), "file": f"{lab}/demo/{P}/ThreadStates.java", "alt": kt("ThreadStates")},
-    "expect": "You'll see `NEW`, then `TIMED_WAITING` (in `sleep`), `RUNNABLE` (the busy loop), `WAITING` (in `wait()`), `BLOCKED` (main holds `monitor`, so the new thread can't get in) and finally `TERMINATED`. The waiter prints `waiter interrupted, flag now false`. The interrupt woke it, and the flag was cleared on the way out."
+    "expect": "The first run matches the section line for line: `NEW`, then `TIMED_WAITING` (the sleeper), `RUNNABLE` (the busy loop), `WAITING` (the waiter in `wait()`), `BLOCKED` (main holds `monitor`, so the new thread can't get in) and finally `TERMINATED`. The waiter prints `waiter interrupted, flag now false`: the interrupt woke it, and the flag was cleared on the way out. With `wait(5_000)`, the waiter's line reads `TIMED_WAITING`, after a pause of about two seconds, because `show` keeps polling for a `WAITING` that never comes and then prints what it sees. Same call plus a time limit, and the thread moves to the other box."
    }
+  },
+  {
+   "h": "Reading the states in a thread dump",
+   "body": SD
   },
   {
    "h": "Weighing the ways to stop a thread",
@@ -281,7 +348,7 @@ L = {
   "title": "An interruptible polling loop in Java and Kotlin",
   "java": {"title": "Java", "src": "Thread relay = new Thread(() -> {\n    Thread me = Thread.currentThread();\n    while (!me.isInterrupted()) {\n        // poll the outbox and publish here\n        try {\n            Thread.sleep(50);        // the compiler forces you to handle the checked exception\n        } catch (InterruptedException e) {\n            me.interrupt();          // restore the flag, so the loop condition sees it\n        }\n    }\n    System.out.println(\"relay stopped, flag = \" + me.isInterrupted());\n}, \"outbox-relay\");\nrelay.start();"},
   "kotlin": {"title": "KotlinRelay.kt", "src": read(f"{lab}/demo/{K}/KotlinRelay.kt")},
-  "note": "The Kotlin version is a direct translation, and the interesting difference is what Kotlin doesn't force on you. It has no checked exceptions, so `Thread.sleep(50)` compiles with no try at all, and that changes how the bug looks. In Java the usual mistake is a catch that swallows the interrupt. In Kotlin it's often no catch at all: the `InterruptedException` escapes the lambda, the thread dies with a stack trace on standard error, and any cleanup after the loop never runs. Neither is a clean stop. The protocol is the same in both languages: catch it where you can do something sensible, restore the flag, and leave. `isInterrupted` reads as a property in Kotlin, and the static `Thread.interrupted()` still clears the flag."
+  "note": "Both versions follow the same protocol, line for line: loop until the flag is set, sleep, and restore the flag in the catch block. Two things differ. First, Kotlin has no checked exceptions, so `Thread.sleep(50)` compiles with no try at all, and that changes how the bug looks. In Java the usual mistake is a catch that swallows the interrupt. In Kotlin it's often no catch at all: the `InterruptedException` escapes the lambda, the thread dies with a stack trace on standard error, and any cleanup after the loop never runs. Neither is a clean stop. Here Java's checked exception earns its keep: the compiler won't let you forget that interrupts exist, even if it can't make you handle them well. Second, `isInterrupted` reads as a property in Kotlin, while the static `Thread.interrupted()` still reads the flag and clears it."
  },
  "worked": {
   "title": "Make a retrying card-issuer call cancellable",
@@ -324,14 +391,14 @@ L = {
   "answer": {"lang": "java", "src": "Runnable poller = () -> {\n    try {\n        while (!Thread.currentThread().isInterrupted()) {\n            List<String> batch = source.get();\n            batch.forEach(System.out::println);\n            if (batch.isEmpty()) Thread.sleep(100);\n        }\n    } catch (InterruptedException e) {\n        Thread.currentThread().interrupt();   // sleep cleared it; put it back\n    }\n};", "alt": {"lang": "kotlin", "title": "Kotlin", "src": "val poller = Runnable {\n    try {\n        while (!Thread.currentThread().isInterrupted) {\n            val batch = source.get()\n            batch.forEach(::println)\n            if (batch.isEmpty()) Thread.sleep(100)\n        }\n    } catch (e: InterruptedException) {\n        Thread.currentThread().interrupt()   // sleep cleared it; put it back\n    }\n}"}}
  },
  "recap": [
-  "A thread is NEW, RUNNABLE, BLOCKED, WAITING, TIMED_WAITING or TERMINATED. RUNNABLE also covers waiting for a core and sitting in native I/O, so read the stack as well as the state.",
-  "BLOCKED is only for a `synchronized` monitor. A thread parked on a `ReentrantLock` shows WAITING.",
+  "A thread starts NEW, becomes RUNNABLE at `start()`, steps out of RUNNABLE to wait for a lock (BLOCKED), for another thread (WAITING) or for another thread or the clock (TIMED_WAITING), and ends TERMINATED when `run()` returns.",
+  "In a thread dump, read the stack as well as the state. RUNNABLE also covers waiting for a core and sitting in native I/O, and a thread parked on a `ReentrantLock` shows WAITING, because BLOCKED is only for `synchronized`.",
   "Java can't kill a thread (`Thread.stop()` was removed in JDK 26), and a daemon is abandoned, not stopped. `interrupt()` sets a flag, and blocking calls like `sleep`, `wait`, `join` and `take` throw `InterruptedException` and clear it.",
   "When you catch `InterruptedException`, rethrow it or call `Thread.currentThread().interrupt()`. A loop that never blocks must check `isInterrupted()` itself.",
   "`join()` waits for a thread to end and makes everything it wrote visible to you; give it a timeout when the wait must end. `sleep()` only passes time.",
   "The limit: start, interrupt and join coordinate one thread with another. They don't protect data that two running threads change at the same time."
  ],
- "closing": "We started with a pod that wouldn't stop and a relay that answered a shutdown request with a log line. We read its state in a thread dump, struck out `stop()`, daemons and home-made flags, and fixed the relay so the interrupt survives the catch block.\n\nNow search your own code for `catch (InterruptedException`. Every hit should either rethrow or call `Thread.currentThread().interrupt()`. Any hit that only logs is a relay waiting for its deploy.\n\nNext, we'll let two threads update one counter at the same time, and watch it come out wrong with no exception and no warning.",
+ "closing": "We started with a pod that wouldn't stop and a relay that answered a shutdown request with a log line. We walked the relay through its six states and caught it asleep in a thread dump. Then we struck out `stop()`, daemons and home-made flags, and fixed the relay so the interrupt survives the catch block.\n\nNow search your own code for `catch (InterruptedException`. Every hit should either rethrow or call `Thread.currentThread().interrupt()`. Any hit that only logs is a relay waiting for its deploy.\n\nNext, we'll let two RUNNABLE threads update one counter at the same time, and watch it come out wrong with no exception and no warning.",
  "quiz": [
   {"q": "A thread is stuck inside `ReentrantLock.lock()`, waiting for another thread to release it. What does `getState()` return?",
    "options": ["BLOCKED", "WAITING", "RUNNABLE", "TIMED_WAITING"],
@@ -361,6 +428,7 @@ L = {
  ],
  "terms": [
   {"term": "Thread state", "plain": "What a thread is doing right now, one of the six values of `Thread.State`."},
+  {"term": "Thread dump", "plain": "A list of every thread in a JVM with its state and stack, taken with `jcmd <pid> Thread.print`."},
   {"term": "join", "plain": "Wait for a thread to end. Afterwards you see everything it wrote."},
   {"term": "Interrupt flag", "plain": "A per-thread boolean that `interrupt()` sets to ask the thread to stop."},
   {"term": "InterruptedException", "plain": "Thrown by blocking calls when the thread is interrupted. The flag is cleared when it is thrown."},
