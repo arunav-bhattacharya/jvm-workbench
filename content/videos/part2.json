@@ -28,6 +28,7 @@
     {"slug": "co11-bridges", "lesson": "co-11", "section": 0, "title": "get() blocks a thread and stops cancellation at the bridge; await() suspends and cancels the future, future { } cancels its coroutine when Java cancels, and a cold mono { } runs one coroutine per subscriber"},
     {"slug": "io04-netty", "lesson": "io-04", "section": 0, "title": "A decoder frames bytes that arrive in chunks of any size, writability and auto-read stop a slow client from filling your memory, and a buffer nobody releases never goes back to the pool"},
     {"slug": "io06-quarkus", "lesson": "io-06", "section": 0, "title": "Every request arrives on an IO thread; the signature sends it to a worker, keeps it on the event loop, or gives it a virtual thread, and blocking code on the event loop stalls every connection behind it"},
-    {"slug": "cap2-fanout", "lesson": "cap2-02", "section": 0, "title": "One request, three providers, one deadline (Kotlin coroutines): start every call together, give each the deadline, let each fail alone, rethrow only your own cancel, and serve the last good quote marked stale"}
+    {"slug": "cap2-fanout", "lesson": "cap2-02", "section": 0, "title": "One request, three providers, one deadline (Kotlin coroutines): start every call together, give each the deadline, let each fail alone, rethrow only your own cancel, and serve the last good quote marked stale"},
+    {"slug": "cap2-hedge", "lesson": "cap2-03", "section": 2, "title": "Hedge the slow tail: when Northbank's first call hasn't answered by 80 ms, send one identical call, take the first answer and cancel the other; p99 falls from 600 to 120 ms for 5% more calls, and only safe-to-repeat calls may be hedged"}
   ]
 }

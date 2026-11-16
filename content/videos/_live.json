@@ -136,6 +136,7 @@
   "cap3-bus",
   "cap1-snapshot",
   "cap1-limits",
-  "cap3-java-surface"
+  "cap3-java-surface",
+  "cap2-hedge"
  ]
 }
