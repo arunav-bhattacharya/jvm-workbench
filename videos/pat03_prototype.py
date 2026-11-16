@@ -240,7 +240,7 @@ class Pat03Prototype(Beat):
 
         self.say("a5", [(0, [Pulse(k1[0], C1, 1.04)], 0.8)], after=1.8)
 
-        rd = M("c1.skus = [sku-1, sku-2]", 26, BAD).move_to([CX, 3.05, 0])
+        rd = M("c1.skus = [sku-1, sku-2]", 26, BAD).move_to([CX, 2.75, 0])
         self.say("a6", [(0, [run_dot(k1[5].get_center(), r1.get_end(), C1, 0.8)], 0.8),
                         (0, [FadeIn(rd, shift=DOWN * 0.1), Pulse(s1, BAD, 1.1), Pulse(s2, BAD, 1.1)], 0.8),
                         (2, [Pulse(r1, BAD, 1.03), Pulse(r2, BAD, 1.03)], 0.9)])
@@ -280,7 +280,7 @@ class Pat03Prototype(Beat):
                         (0, [FadeIn(L2), TransformFromCopy(s1, n1)], 0.9), (0, [FadeIn(n2, shift=LEFT * 0.2)], 0.5),
                         (1, [Transform(r2, r2_new)], 0.8), (1, [Pulse(L2[0], C2, 1.05)], 0.6)])
 
-        rd2 = M("c1.skus = [sku-1]", 26, OK).move_to([CX, 3.05, 0])
+        rd2 = M("c1.skus = [sku-1]", 26, OK).move_to([CX, 2.75, 0])
         self.say("b4", [(0, [run_dot(k1[5].get_center(), r1.get_end(), C1, 0.8)], 0.8), (0, [FadeIn(rd2, shift=DOWN * 0.1)], 0.6),
                         (1, [Pulse(L[0], C1, 1.04), Pulse(L2[0], C2, 1.04)], 0.8)], after=0.5)
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
