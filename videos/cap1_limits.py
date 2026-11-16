@@ -147,7 +147,7 @@ class Cap1Limits(VoiceScene):
             ([ring.animate.move_to(tok.get_right()), FadeIn(ok_f), left.animate.set_value(280)], 0.6),
             ([FadeOut(ring), FadeIn(pool), FadeIn(pool_t), FadeOut(VGroup(bar, bar_bg, cd))], 0.6),
             ([tok.animate.scale(0.6).move_to(POOL).set_opacity(0), FadeOut(vt), FadeOut(ok_l), FadeOut(ok_f),
-              FadeIn(appr)], 1.0))
+              FadeOut(l1), FadeOut(l3), FadeIn(appr)], 1.0))
         self.beat("That pool is a limit too: 8 threads and 80 slots, and a 503 when it's full.",
                   FadeIn(full, shift=UP * 0.1), Indicate(pool_t[1], color=BLUE_M), run_time=1.4)
         self.remove(tok)
@@ -167,7 +167,7 @@ class Cap1Limits(VoiceScene):
         wait_at = np.array([-3.35, 1.12, 0])
         seq(self, "A new request arrives, for 40.00. Its limits check passes. Its fraud call waits for a permit, but "
                   "only as long as its deadline allows.",
-            ([FadeIn(tok), FadeIn(vt), FadeIn(bar_bg), FadeIn(bar), FadeIn(cd)], 0.6),
+            ([FadeIn(tok), FadeIn(vt), FadeIn(bar_bg), FadeIn(bar), FadeIn(cd), Create(l1), Create(l3)], 0.6),
             ([FadeIn(ring), FadeIn(ldot)], 0.3),
             ([ldot.animate.move_to(LIM + LEFT * 1.1), ring.animate.move_to(wait_at), left.animate.set_value(290)], 0.8),
             ([ldot.animate.move_to(tok.get_right()), left.animate.set_value(282)], 0.6),
@@ -199,7 +199,8 @@ class Cap1Limits(VoiceScene):
         seq(self, "Then the stand-in rule decides. Up to 50.00 goes through without a fraud answer, so our 40.00 is "
                   "accepted. Larger amounts get a fast try again.",
             ([FadeIn(si[0], shift=UP * 0.1)], 0.6), 2.0,
-            ([FadeOut(VGroup(bar, bar_bg, cd, vt, ok_l)), tok.animate.scale(0.6).move_to(POOL).set_opacity(0)], 1.0), 0.6,
+            ([FadeOut(VGroup(bar, bar_bg, cd, vt, ok_l, l1, l3)), tok.animate.scale(0.6).move_to(POOL).set_opacity(0)],
+             1.0), 0.6,
             ([FadeIn(si[1], shift=UP * 0.1)], 0.6))
         self.remove(tok)
         demo = VGroup(T("demo, outage: every reply within about 320 ms", 24, GREY_A),

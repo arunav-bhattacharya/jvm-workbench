@@ -142,7 +142,7 @@ class Cap3JavaSurface(VoiceScene):
         a_ok, a_x = mark(True, a_kt), mark(False, a_jv)
         a_err = msg("no suitable constructor found for PlainBus(String)", BAD, a_jv)
         seq(self, "Start with a constructor with default arguments. From Kotlin, PlainBus of refunds just works.",
-            ([FadeIn(frame), FadeIn(a_api)], 1.0), 1.4, ([FadeIn(tags[1]), FadeIn(a_kt), Create(a_ok)], 0.8))
+            ([FadeIn(frame), FadeIn(a_api)], 1.0), 1.4, ([FadeIn(a_kt), Create(a_ok)], 0.8))
         seq(self, "From Java, the same call fails: no suitable constructor found. The class file has only two: "
                   "the one with every default, and the full one.",
             ([FadeIn(a_jv), Create(a_x), FadeIn(a_err)], 0.9), 2.0, ([FadeIn(a_cf)], 0.8))

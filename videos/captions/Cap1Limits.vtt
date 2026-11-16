@@ -1,0 +1,149 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.277
+A transfer request mostly waits.
+
+2
+00:00:05.277 --> 00:00:11.076
+At 2,000 requests a second and 150 milliseconds each, 300 are in flight.
+
+3
+00:00:11.300 --> 00:00:15.040
+If the fraud service slows to 2 seconds, 4,000 are.
+
+4
+00:00:15.267 --> 00:00:18.616
+Virtual threads make that many waiting threads cheap.
+
+5
+00:00:18.616 --> 00:00:22.661
+But unlimited threads mean unlimited calls to the fraud service.
+
+6
+00:00:23.367 --> 00:00:24.724
+Follow one request.
+
+7
+00:00:24.724 --> 00:00:31.295
+It gets its own virtual thread, and one deadline: 300 milliseconds for all of its screening.
+
+8
+00:00:31.500 --> 00:00:34.869
+It runs the fraud and limits checks at the same time.
+
+9
+00:00:34.869 --> 00:00:38.873
+Fraud is slow and shared, so each call needs one of 20 permits.
+
+10
+00:00:39.100 --> 00:00:42.345
+On a normal day, fraud answers in 20 milliseconds.
+
+11
+00:00:42.345 --> 00:00:47.796
+The permit goes back, both checks pass, and the transfer goes on to the ledger pool.
+
+12
+00:00:48.000 --> 00:00:53.404
+That pool is a limit too: 8 threads and 80 slots, and a 503 when it's full.
+
+13
+00:00:53.933 --> 00:00:54.993
+Now an outage.
+
+14
+00:00:54.993 --> 00:00:57.492
+Every fraud call takes 2 seconds.
+
+15
+00:00:57.492 --> 00:00:59.991
+Twenty calls hold all 20 permits.
+
+16
+00:01:00.200 --> 00:01:02.408
+A new request arrives, for 40.00.
+
+17
+00:01:02.408 --> 00:01:04.013
+Its limits check passes.
+
+18
+00:01:04.013 --> 00:01:09.031
+Its fraud call waits for a permit, but only as long as its deadline allows.
+
+19
+00:01:09.233 --> 00:01:11.403
+Another request runs out of time.
+
+20
+00:01:11.403 --> 00:01:17.058
+It interrupts its own fraud call, and that call's finally block hands the permit back.
+
+21
+00:01:17.058 --> 00:01:17.979
+Ours takes it.
+
+22
+00:01:18.200 --> 00:01:19.937
+Our clock keeps running.
+
+23
+00:01:19.937 --> 00:01:21.456
+What happens at zero?
+
+24
+00:01:22.867 --> 00:01:23.860
+The same thing.
+
+25
+00:01:23.860 --> 00:01:27.104
+It interrupts its call, and the permit goes back.
+
+26
+00:01:27.333 --> 00:01:29.359
+Then the stand-in rule decides.
+
+27
+00:01:29.359 --> 00:01:34.195
+Up to 50.00 goes through without a fraud answer, so our 40.00 is accepted.
+
+28
+00:01:34.195 --> 00:01:36.548
+Larger amounts get a fast try again.
+
+29
+00:01:37.167 --> 00:01:46.859
+In the lesson's demo, during the outage, every reply came within about 320 milliseconds, and fraud never saw more than 20 calls at once.
+
+30
+00:01:48.267 --> 00:01:53.941
+In code, the deadline is computed once, and the permit wait uses what is left of it.
+
+31
+00:01:53.941 --> 00:01:55.427
+Java and Kotlin match.
+
+32
+00:01:57.233 --> 00:01:57.889
+The rule.
+
+33
+00:01:57.889 --> 00:02:08.383
+Threads are free, so every limit sits on a resource: 20 permits for fraud, 8 threads and 80 slots for the journal, and one deadline per request.
+
+34
+00:02:08.600 --> 00:02:09.573
+Check yourself.
+
+35
+00:02:09.573 --> 00:02:11.842
+Drop the interrupt at the deadline.
+
+36
+00:02:11.842 --> 00:02:15.084
+During the outage, what happens to the 20 permits?
+
+37
+00:02:17.800 --> 00:02:25.551
+Orphaned fraud calls keep them for the full 2 seconds, so new requests get no permit, even for a call that would succeed.
