@@ -1,0 +1,331 @@
+{
+ "slug": "kt04-dsl",
+ "voice": "us-f",
+ "max_late": 0.01,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.07,
+   "tries": 1,
+   "text": "When you fill in a paper form, you don't write the form's name in every box."
+  },
+  {
+   "cue": 7.13,
+   "start": 7.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.38,
+   "tries": 1,
+   "text": "You are already holding it."
+  },
+  {
+   "cue": 8.93,
+   "start": 8.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.49,
+   "tries": 1,
+   "text": "A Java builder lambda gets the builder as a parameter, b, and names it on every line."
+  },
+  {
+   "cue": 14.9,
+   "start": 14.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.71,
+   "tries": 1,
+   "text": "Kotlin can hand the builder to the lambda as its receiver."
+  },
+  {
+   "cue": 18.45,
+   "start": 18.45,
+   "late": 0.0,
+   "tempo": 1.029,
+   "secs": 2.18,
+   "tries": 1,
+   "text": "Inside the braces, the builder is this."
+  },
+  {
+   "cue": 20.84,
+   "start": 20.84,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.12,
+   "tries": 1,
+   "text": "So the calls need no prefix, as if you were writing a method of the builder itself."
+  },
+  {
+   "cue": 26.7,
+   "start": 26.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.24,
+   "tries": 1,
+   "text": "One level down, nothing magic happens."
+  },
+  {
+   "cue": 29.21,
+   "start": 29.21,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.14,
+   "tries": 1,
+   "text": "A lambda with receiver has the same type as a lambda that takes the builder as its first argument."
+  },
+  {
+   "cue": 35.67,
+   "start": 35.67,
+   "late": 0.0,
+   "tempo": 1.08,
+   "secs": 1.62,
+   "tries": 1,
+   "text": "Both compile to a Functionone."
+  },
+  {
+   "cue": 37.52,
+   "start": 37.52,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.05,
+   "tries": 1,
+   "text": "Only the compiler treats that first argument as this."
+  },
+  {
+   "cue": 41.83,
+   "start": 41.83,
+   "late": 0.0,
+   "tempo": 1.018,
+   "secs": 6.14,
+   "tries": 1,
+   "text": "Builders nest. Inside paymentRequest, the payer block hands you a second builder, a PartyBuilder."
+  },
+  {
+   "cue": 48.2,
+   "start": 48.2,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.5,
+   "tries": 1,
+   "text": "Now two receivers are in scope, one inside the other."
+  },
+  {
+   "cue": 51.9,
+   "start": 51.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.56,
+   "tries": 1,
+   "text": "A bare call goes to the nearest receiver that has it."
+  },
+  {
+   "cue": 55.39,
+   "start": 55.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.31,
+   "tries": 1,
+   "text": "Name lands on the party."
+  },
+  {
+   "cue": 57.17,
+   "start": 57.17,
+   "late": 0.0,
+   "tempo": 1.048,
+   "secs": 3.16,
+   "tries": 1,
+   "text": "Now someone types payee inside payer, by mistake."
+  },
+  {
+   "cue": 60.55,
+   "start": 60.55,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.71,
+   "tries": 1,
+   "text": "The PartyBuilder has no payee."
+  },
+  {
+   "cue": 62.61,
+   "start": 62.61,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.16,
+   "tries": 1,
+   "text": "What does Kotlin do?"
+  },
+  {
+   "cue": 65.97,
+   "start": 65.97,
+   "late": 0.0,
+   "tempo": 1.094,
+   "secs": 1.43,
+   "tries": 1,
+   "text": "It keeps looking, outward."
+  },
+  {
+   "cue": 67.61,
+   "start": 67.61,
+   "late": 0.0,
+   "tempo": 1.085,
+   "secs": 2.94,
+   "tries": 1,
+   "text": "The outer builder has payee, so the line compiles."
+  },
+  {
+   "cue": 70.76,
+   "start": 70.76,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.05,
+   "tries": 1,
+   "text": "And it quietly builds a second party."
+  },
+  {
+   "cue": 73.3,
+   "start": 73.3,
+   "late": 0.0,
+   "tempo": 1.054,
+   "secs": 4.42,
+   "tries": 1,
+   "text": "In the lesson's demo it fails only when it runs: iban required for oops."
+  },
+  {
+   "cue": 77.93,
+   "start": 77.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.36,
+   "tries": 1,
+   "text": "Without a required field, you would simply send the wrong request."
+  },
+  {
+   "cue": 82.4,
+   "start": 82.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.53,
+   "tries": 1,
+   "text": "The fix is one annotation."
+  },
+  {
+   "cue": 84.2,
+   "start": 84.2,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 7.13,
+   "tries": 1,
+   "text": "Mark an annotation class with @DslMarker, and put it on every builder class: the receivers themselves."
+  },
+  {
+   "cue": 91.47,
+   "start": 91.48,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 2.78,
+   "tries": 1,
+   "text": "Now only the nearest marked receiver is implicit."
+  },
+  {
+   "cue": 94.65,
+   "start": 94.65,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.26,
+   "tries": 1,
+   "text": "The misplaced payee stops at the inner wall."
+  },
+  {
+   "cue": 97.5,
+   "start": 97.5,
+   "late": 0.0,
+   "tempo": 1.005,
+   "secs": 1.45,
+   "tries": 1,
+   "text": "It no longer compiles."
+  },
+  {
+   "cue": 99.1,
+   "start": 99.11,
+   "late": 0.01,
+   "tempo": 1.0,
+   "secs": 5.9,
+   "tries": 1,
+   "text": "You can still reach the outer builder on purpose, with a label: this@paymentRequest.currency."
+  },
+  {
+   "cue": 105.5,
+   "start": 105.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.75,
+   "tries": 1,
+   "text": "Nobody types that by accident."
+  },
+  {
+   "cue": 108.47,
+   "start": 108.47,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.1,
+   "tries": 1,
+   "text": "In Kotlin that is the whole fix: one marker annotation, placed on each builder class."
+  },
+  {
+   "cue": 114.23,
+   "start": 114.23,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.33,
+   "tries": 1,
+   "text": "Java needs none of it."
+  },
+  {
+   "cue": 115.72,
+   "start": 115.72,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.12,
+   "tries": 1,
+   "text": "Its lambdas name every builder, so reaching the outer one means typing r on purpose."
+  },
+  {
+   "cue": 122.17,
+   "start": 122.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.98,
+   "tries": 1,
+   "text": "The rule: a bare call goes to the nearest receiver that has it, and @DslMarker on the builder classes stops it there."
+  },
+  {
+   "cue": 130.17,
+   "start": 130.17,
+   "late": 0.0,
+   "tempo": 1.06,
+   "secs": 0.81,
+   "tries": 2,
+   "text": "A quick check."
+  },
+  {
+   "cue": 131.21,
+   "start": 131.21,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.19,
+   "tries": 1,
+   "text": "Inside payer, someone writes currency equals GBP, with no label."
+  },
+  {
+   "cue": 135.96,
+   "start": 135.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.05,
+   "tries": 1,
+   "text": "With the marker on, does it compile?"
+  }
+ ]
+}

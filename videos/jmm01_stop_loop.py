@@ -11,89 +11,64 @@ fg.SAY[:0] = [
 N = {
     "open": "Picture an office. When it's time to go home, the manager writes it on the whiteboard by the door. "
             "Everyone glances at the board now and then, and leaves when it says yes.",
-    "program": "A program can do the same. A worker thread, one path of work running beside others, loops through small jobs. "
-               "Before each one, it checks a shared field called stop. One second in, the main thread sets stop to true.",
-    "output": "Here's what the demo printed on JDK 25. Main set stop to true. Three seconds later, is the worker still running? "
-              "True. It never stops. No crash, no error, just a busy processor doing laps.",
-    "shy": "So here's a question that feels almost too simple to ask. Main wrote true. "
-           "So where is the worker reading false from? Where does the old value live?",
-    "usual": "Most people answer: the cache. A core is the part of the processor that runs one thread at a time. "
-             "Next to each core sits a cache, a small, fast memory that keeps copies of recent data. "
-             "Main memory is about a hundred times slower.",
-    "usual2": "So the story goes like this. The worker's core has an old copy of stop in its cache, and reads that copy forever. "
-              "It sounds right. Let's test it.",
-    "xint_q": "Java has a switch, -Xint, that turns off the JIT compiler, the part of Java that turns busy code into fast "
-              "machine code while the program runs. The caches don't change at all. "
-              "So if the cache is to blame, the worker should still hang. Will it?",
-    "xint_a": "It stopped at once, after about 113 million laps. Same machine, same caches, and only the JIT changed. "
-              "So the cache has an alibi. It was there in both runs, and only one run hung.",
-    "office": "To find the real place, let's go back to the office and look at the desks. "
-              "The whiteboard holds the numbers everyone shares. That's main memory. "
-              "Each desk is a core, and the one working at it is a thread.",
-    "copy": "Walking to the wall is slow, so each desk keeps a photocopy of the part of the board it uses. "
-            "That photocopy is the cache.",
-    "rule": "And the office has one strict rule. When anyone changes a number on the board, "
-            "every photocopy of it is crossed out at once. The next look goes back to the board.",
-    "coh": "Processors follow that rule in hardware. It's called cache coherence, and it works within nanoseconds, "
-           "billionths of a second. So a photocopy can't stay wrong.",
-    "tray": "But there is one place where a write can wait. Each desk has an outbox tray. "
-            "When a clerk has a new number for the board, she drops a note in her tray and goes on with her next task. "
-            "A runner carries it to the board a moment later.",
-    "sb": "That tray is called a store buffer: a small queue inside each core where writes wait on their way to the cache, "
-          "so the core never stands around.",
-    "swap": "Notice the catch. If her next task is to read a different number, she may read it before her own note arrives. "
-            "To everyone else, her write and her read look swapped.",
-    "test": "Let's catch that with the smallest test there is. Two fields, x and y, both start at 0. "
+    "program": "A program does the same. A worker thread, one path of work beside others, checks a shared field, stop, "
+               "before each small job. One second in, the main thread sets stop to true.",
+    "output": "On JDK 25, three seconds later, the worker is still running. It never stops. "
+              "No crash, no error, just a busy processor doing laps.",
+    "shy": "So here's a question that feels too simple to ask. Main wrote true. Where is the worker reading false from?",
+    "usual": "Most people say: the cache. A core is the part of a processor that runs one thread, and beside each core sits "
+             "a cache, a small, fast memory that keeps copies of main memory. "
+             "The story goes: the worker's cache holds an old copy of stop, forever.",
+    "xint_q": "Let's test it. A switch, -Xint, turns off the JIT, the part of Java that turns busy code into fast machine code. "
+              "The caches stay the same. Will the worker still hang?",
+    "xint_a": "It stopped at once, after about 113 million laps. Only the JIT changed. "
+              "So the cache has an alibi: it was there in both runs, and only one run hung.",
+    "office": "Back to the office, to find the real place. The whiteboard holds the numbers everyone shares: main memory. "
+              "Each desk is a core, and whoever works there is a thread.",
+    "copy": "Walking to the wall is slow, so each desk keeps a photocopy of the board. The photocopy is the cache.",
+    "rule": "And one strict rule. When anyone changes a number on the board, every photocopy of it is crossed out at once, "
+            "and the next look goes back to the board. Processors do this in hardware, in nanoseconds. "
+            "It's called cache coherence.",
+    "tray": "But one place lets a write wait. Each desk has an outbox tray. "
+            "A clerk drops her new number in it and goes on working, and a runner takes it to the board a moment later.",
+    "sb": "That tray is a store buffer: a small queue where writes wait on their way to the cache. "
+          "The catch: her next read can finish first, so her write and her read look swapped.",
+    "test": "Let's catch it in the act. Two fields, x and y, start at 0. "
             "Thread A writes 1 into x, then reads y. Thread B writes 1 into y, then reads x.",
-    "hand": "Play it by hand first. Shuffle the four steps any way you like, but keep each thread's two steps in order, "
-            "like shuffling two decks of cards together. Whoever reads second reads after the other's write. "
-            "So at least one thread sees a 1. Both reading 0 should be impossible.",
+    "hand": "Shuffle the four steps like two decks of cards, keeping each thread's order. "
+            "Whoever reads last reads after both writes, so someone sees a 1. Both reading 0 should be impossible.",
     "count_q": "The demo runs this test 524,288 times. In how many trials do both threads read 0?",
-    "count_a": "Run one: 240,989. Run two: 225,261. Run three: 171,281. "
-               "That's a third to nearly half of all trials. For something impossible, it happens a lot.",
-    "why": "Here's how. Thread A drops its note for x in its tray, and Thread B drops its note for y in its tray. "
-           "Then each one reads the other field from its photocopy. Zero, and zero. "
-           "Only then do the runners reach the board.",
-    "xint2": "Turn the JIT off again, and the count drops, but stays well above zero: 44,000 to 110,000 in our runs. "
-             "The interpreter doesn't reorder anything. So this time, it really is the hardware.",
-    "vol1": "Now make both fields volatile, a keyword that marks a field as shared between threads. "
-            "The count is 0, every time. On x86 chips, the kind in most laptops, "
-            "Java follows each volatile write with an instruction that empties the tray before any later read.",
-    "tray_alibi": "So the tray can swap a write and a read. But it always delivers, within nanoseconds. "
-                  "It can't hold stop for an hour. The outbox has an alibi too.",
-    "notepad": "There's one more thing on each desk: a notepad. To work with a number, a clerk copies it onto her notepad, "
-               "because a glance down is quicker than a walk to the wall. "
-               "The notepad has no crossing-out rule, and nobody else can write on it.",
-    "jit": "Now here's what the JIT did. Once the loop had run many thousands of times, it compiled it. "
-           "It saw that nothing in the loop writes stop or talks to other threads. "
-           "So it read stop once, before the loop, and turned the rest into while true.",
-    "hoist_office": "In the office, it's as if the clerk copied the answer, no, onto her notepad once, "
-                    "and from then on reads only the notepad.",
+    "count_a": "Run one: 240,989. Run two: 225,261. Run three: 171,281. For something impossible, it happens a lot.",
+    "why": "Here's how. Each thread drops its note in its own tray, then reads the other field from its photocopy. "
+           "Zero, and zero. Only then do the runners reach the board.",
+    "xint2": "With the JIT off, it still happens: 44,000 to 110,000 times. So this one really is the hardware.",
+    "vol1": "Make both fields volatile, a keyword for fields shared between threads, and the count is 0, every time. "
+            "On x86 chips, Java empties the tray after each volatile write.",
+    "tray_alibi": "And the tray always empties within nanoseconds. It can't hold stop for an hour. The outbox has an alibi too.",
+    "notepad": "One more thing sits on each desk: a notepad. Glancing down beats walking to the wall, "
+               "so a clerk copies a number onto it. And no rule ever crosses a notepad out.",
+    "jit": "Here's what the JIT did. After many thousands of laps, it compiled the loop. "
+           "Nothing in it writes stop, so it read stop once, and made the rest while true.",
+    "hoist_office": "In the office, the clerk copied the answer, no, onto her notepad once, and now reads only the notepad.",
     "hang": "Main writes true. The note leaves the tray. The board says true. Both photocopies say true. "
             "And the worker keeps reading its notepad.",
-    "register": "The notepad is a register, a tiny storage slot inside a core, the fastest place a value can live. "
-                "That's where the old value lives.",
-    "loyal": "It's the most focused worker in the building. It never looks up, so it never goes home. "
-             "Jokes aside, the compiled loop never reads memory again, so no rule in the hardware can reach it.",
-    "names": "So here's the office as it stands. The photocopy, the cache, agrees within nanoseconds. "
-             "The outbox, the store buffer, holds a write for nanoseconds, then always delivers. "
-             "The notepad, the register, can hold an old value forever, but only because the JIT chose it.",
-    "breaks": "And here's where the office picture breaks. A clerk decides where to look, glance by glance. "
-              "The JIT decides once, when it compiles the loop, and the core repeats that choice billions of times. "
-              "That's why the hang lasts forever.",
-    "chips": "One warning. Chips differ in how much they swap. x86 chips only let a later read pass an earlier write, "
-             "like our test. ARM chips, in phones and many servers, also let reads pass reads, and writes pass writes.",
-    "polite": "So code that never fails on your laptop can fail on a server. A clean run on your laptop only proves "
-              "your laptop is polite. Write to Java's rules instead: the Java Memory Model. "
-              "It promises visibility, one thread seeing another's write, only when something links the threads.",
-    "fix": "For our flag, the link is one word: volatile. The JIT may not keep a volatile field on the notepad, "
-           "so every pass reads it again. The photocopy says true, and the worker finally goes home. "
-           "And Java promises that main's write becomes visible to the loop.",
-    "code": "Here it is, Java on the left and Kotlin on the right. In Kotlin, the annotation @Volatile marks the field "
-            "volatile, so the compiled code is the same.",
-    "moral": "So, where does the old value live? Not in the cache: the photocopies agree within nanoseconds. "
-             "Not in the outbox: it delivers within nanoseconds too. It lives on the notepad, a register, "
-             "because the JIT chose to read stop once. volatile takes the notepad away.",
+    "register": "The notepad is a register, a tiny storage slot inside a core. That's where the old value lives.",
+    "loyal": "The most focused worker in the building: it never looks up, so it never goes home. "
+             "No rule in the hardware can reach its notepad.",
+    "names": "So, the office as it stands. The photocopy, the cache, agrees in nanoseconds. "
+             "The outbox, the store buffer, delivers in nanoseconds. "
+             "The notepad, the register, stays old forever.",
+    "breaks": "The picture breaks in one place. A clerk chooses where to look each time. "
+              "The JIT chooses once, and the core repeats that choice billions of times.",
+    "chips": "One warning. x86 chips, in most laptops, only let a later read pass an earlier write. "
+             "ARM chips, in phones and many servers, also swap reads with reads, and writes with writes.",
+    "polite": "A clean run on your laptop only proves your laptop is polite. So write to Java's rules, the Java Memory Model: "
+              "another thread's write is promised only when something links the threads.",
+    "fix": "For our flag, the link is one word: volatile. The JIT can't keep a volatile field on the notepad, "
+           "so every pass reads it again, and the worker goes home.",
+    "code": "Java on the left, Kotlin on the right, where the annotation @Volatile does the same job.",
+    "moral": "So the old value never lived in the cache, or the outbox. It lived on the notepad, "
+             "because nothing linked the threads. A shared plain field comes with no promise. Make it volatile.",
     "check": "Quick check. A loop hangs with the JIT on, and stops with the JIT off. Photocopy, outbox, or notepad?",
 }
 
@@ -279,7 +254,7 @@ class Jmm01StopLoop(Narrated):
         self.say("open")
         self.play(Create(wb), FadeIn(wb_lab), FadeIn(ledge), run_time=1.0)
         self.play(Write(q1), FadeIn(ans), run_time=1.0)
-        self.at(1)
+        self.at(2)
         self.play(FadeIn(people, shift=UP * 0.2), run_time=0.6)
         self.play(Create(looks), run_time=0.6)
         self.at_text("leaves when", lead=0.1)
@@ -298,10 +273,9 @@ class Jmm01StopLoop(Narrated):
         self.play(FadeOut(VGroup(wb, ledge, wb_lab, q1, ans)), FadeIn(mem), run_time=0.8)
         self.at(1)
         self.play(FadeIn(wk, shift=RIGHT * 0.2), FadeIn(wk_c), run_time=0.6)
-        self.at(2)
         for _ in range(2):
             self.fly([(mem.get_top(), wk_c.get_bottom())], WK, rt=0.55)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(mn, shift=LEFT * 0.2), FadeIn(mn_c), run_time=0.6)
         self.fly([(mn_c.get_bottom(), mem.get_top())], MN, rt=0.6)
         self.play(*mem.set(value="stop = true", vcolor=NEWV), run_time=0.4)
@@ -313,17 +287,16 @@ class Jmm01StopLoop(Narrated):
         outp = VGroup(o1, o2).arrange(DOWN, aligned_edge=LEFT, buff=0.22).move_to(term)
         self.say("output")
         self.play(FadeIn(term), FadeIn(o1), run_time=0.6)
-        self.at(2)
         self.play(FadeIn(o2), run_time=0.6)
-        self.at(3)
+        self.at(1)
         self.play(Indicate(o2[-4:], color=OLD, scale_factor=1.2), run_time=0.8)
-        self.at(4)
+        self.at(2)
         for _ in range(3):
             self.fly([(mem.get_top() + LEFT * 2.0, wk_c.get_bottom())], WK, rt=0.4)
         self.hold()
 
         qa = T("main wrote true.", 40)
-        qb = T("So where is the worker reading false from?", 40, YELLOW_M)
+        qb = T("Where is the worker reading false from?", 40, YELLOW_M)
         qq = VGroup(qa, qb).arrange(DOWN, buff=0.35).move_to(UP * 0.3)
         fit(qq, 12.4)
         self.say("shy")
@@ -350,15 +323,12 @@ class Jmm01StopLoop(Narrated):
         self.say("usual")
         self.at(1)
         self.play(FadeIn(VGroup(f0, h0)), FadeIn(VGroup(f1, h1)), run_time=0.8)
-        self.at(2)
+        self.at_text("beside each core")
         self.play(FadeIn(ca0), FadeIn(ca1), run_time=0.6)
-        self.at(3)
+        self.at_text("copies of main")
         self.play(FadeIn(ram), Create(w0), Create(w1), run_time=0.7)
         self.play(FadeIn(slow), run_time=0.4)
-        self.hold()
-
-        self.say("usual2")
-        self.at(1)
+        self.at(2)
         self.play(*ca0.set(vcolor=OLD, color=OLD), run_time=0.6)
         for _ in range(2):
             self.fly([(ca0.get_top(), h0.get_bottom())], WK, rt=0.45)
@@ -370,9 +340,10 @@ class Jmm01StopLoop(Narrated):
             row.arrange(RIGHT, buff=0.35).move_to([-6.2, y, 0], aligned_edge=LEFT)
         res = M("worker saw stop after 113,153,939 spins", 24, GOOD).move_to(r_off[1], aligned_edge=LEFT)
         self.say("xint_q")
+        self.at(1)
         self.play(FadeIn(r_on), run_time=0.6)
         self.play(FadeIn(r_off), run_time=0.6)
-        self.at(1)
+        self.at(2)
         self.play(Indicate(VGroup(ca0[1], ca1[1]), color=WHITE, scale_factor=1.06), run_time=0.9)
         self.hold(after=0)
         self.predict()
@@ -393,9 +364,9 @@ class Jmm01StopLoop(Narrated):
         dm = Desk(DX, MN, "main's desk", "stop = true;")
         self.say("office")
         self.play(FadeIn(board), run_time=0.6)
-        self.at(2)
+        self.at_text("main memory")
         self.play(*board.set(label="whiteboard (main memory)"), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(VGroup(dw.frame, dw.head, dw.code)), FadeIn(VGroup(dm.frame, dm.head, dm.code)), run_time=0.8)
         self.play(*dw.retitle("the worker's desk (core 0)", "while (!stop) spins++;"),
                   *dm.retitle("main's desk (core 1)", "stop = true;"), run_time=0.6)
@@ -418,17 +389,16 @@ class Jmm01StopLoop(Narrated):
         self.play(*board.set(value="stop = true", vcolor=NEWV), run_time=0.4)
         s0, s1 = strike(dw.copy), strike(dm.copy)
         self.play(Create(s0), Create(s1), run_time=0.5)
-        self.at(2)
+        self.at_text("the next look")
         self.fly([(board.get_top() + LEFT * DX, dw.copy.get_bottom()), (board.get_top() + RIGHT * DX, dm.copy.get_bottom())],
                  GREY_A, rt=0.6)
         self.play(FadeOut(s0), FadeOut(s1), *dw.copy.set(value="stop = true", vcolor=NEWV),
                   *dm.copy.set(value="stop = true", vcolor=NEWV), run_time=0.5)
-        self.hold()
-
         coh = T("cache coherence: every copy agrees within nanoseconds", 24, COH).move_to([0, -3.2, 0])
-        self.say("coh")
+        self.at(2)
+        self.play(wr0.animate.set_stroke(COH, 3), wr1.animate.set_stroke(COH, 3), run_time=0.6)
         self.at_text("cache coherence", lead=0.3)
-        self.play(FadeIn(coh, shift=UP * 0.1), wr0.animate.set_stroke(COH, 3), wr1.animate.set_stroke(COH, 3), run_time=0.7)
+        self.play(FadeIn(coh, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
         # ================= the outbox tray =================
@@ -447,7 +417,7 @@ class Jmm01StopLoop(Narrated):
         self.play(FadeOut(note), *dm.out.set(value="stop = true", vcolor=NEWV, color=TRAY), run_time=0.4)
         nxt = T("next task...", 22, GREY_B).next_to(dm.code, RIGHT, buff=0.2)
         self.play(FadeIn(nxt, shift=RIGHT * 0.1), run_time=0.4)
-        self.at(3)
+        self.at_text("a runner")
         self.fly([(dm.out.get_bottom(), dm.copy.get_top())], TRAY, rt=0.4)
         self.play(*dm.out.set(value="empty", vcolor=GREY_B, color=GREY_B), *dm.copy.set(value="stop = true", vcolor=NEWV),
                   run_time=0.3)
@@ -459,15 +429,11 @@ class Jmm01StopLoop(Narrated):
         self.play(FadeOut(s0), *dw.copy.set(value="stop = true", vcolor=NEWV), run_time=0.3)
         self.hold()
 
+        catch = T("her write waits in the tray, and her next read goes ahead", 24, TRAY).move_to([0, -3.2, 0])
         self.say("sb")
         self.play(*dw.out.set(label="outbox (store buffer)"), *dm.out.set(label="outbox (store buffer)"), run_time=0.7)
-        self.hold()
-
-        catch = T("her write waits in the tray, and her next read goes ahead", 24, TRAY).move_to([0, -3.2, 0])
-        self.say("swap")
         self.at(1)
         self.play(Indicate(dm.out[1], color=TRAY, scale_factor=1.05), run_time=0.8)
-        self.at(2)
         self.play(FadeIn(catch, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
@@ -507,13 +473,12 @@ class Jmm01StopLoop(Narrated):
         r21 = T("sees 0", 24, OLD).next_to(p2[1], RIGHT, buff=0.2)
         r22 = T("sees 1", 24, GOOD).next_to(p2[3], RIGHT, buff=0.2)
         self.play(FadeIn(r21), FadeIn(r22), run_time=0.4)
-        self.at(2)
-        self.play(Indicate(VGroup(p1[3], p2[3]), color=WHITE, scale_factor=1.05), run_time=0.8)
         least = T("every shuffle: at least one read sees 1", 30).move_to([0, -1.45, 0])
         imp = T("both read 0?  impossible", 32, YELLOW_M).move_to([0, -2.35, 0])
-        self.at(3)
+        self.at(1)
+        self.play(Indicate(VGroup(p1[3], p2[3]), color=WHITE, scale_factor=1.05), run_time=0.8)
         self.play(FadeIn(least, shift=UP * 0.1), run_time=0.6)
-        self.at(4)
+        self.at(2)
         self.play(FadeIn(imp, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.play(FadeOut(VGroup(decks, *p1, *p2, r11, r12, r21, r22, least, imp)), run_time=0.6)
@@ -559,8 +524,9 @@ class Jmm01StopLoop(Narrated):
                   run_time=0.8)
         self.play(FadeOut(na), FadeOut(nb), *dw.out.set(value="x = 1", vcolor=WK, color=TRAY),
                   *dm.out.set(value="y = 1", vcolor=MN, color=TRAY), run_time=0.4)
-        self.at(1)
+        self.at_text("then reads")
         self.glide([side(dw, dw.copy, ra), side(dm, dm.copy, rb)], GREY_A, rt=0.8)
+        self.at(1)
         self.play(FadeIn(ra), FadeIn(rb), run_time=0.4)
         self.at(2)
         self.fly([(dw.out.get_bottom(), board.get_top() + LEFT * DX), (dm.out.get_bottom(), board.get_top() + RIGHT * DX)],
@@ -585,16 +551,15 @@ class Jmm01StopLoop(Narrated):
 
         self.say("vol1")
         self.play(FadeIn(volr[0]), run_time=0.5)
-        self.at(1)
+        self.at_text("the count is 0")
         self.play(FadeIn(volr[1]), run_time=0.5)
         self.hold()
 
-        always = T("the tray always delivers, within nanoseconds", 28, TRAY).move_to([0, -2.45, 0])
+        always = T("the tray always empties within nanoseconds", 28, TRAY).move_to([0, -2.45, 0])
         alibi2 = chip("alibi", COH, size=24).next_to(always, RIGHT, buff=0.35)
         self.say("tray_alibi")
-        self.at(1)
         self.play(FadeIn(always, shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(alibi2, scale=1.3), run_time=0.5)
         self.hold()
         self.play(FadeOut(VGroup(table, offr, volr, always, alibi2)), run_time=0.6)
@@ -632,7 +597,7 @@ class Jmm01StopLoop(Narrated):
         self.play(FadeIn(left, shift=UP * 0.2), run_time=0.7)
         self.at(2)
         self.play(FadeIn(why_ok), run_time=0.6)
-        self.at(3)
+        self.at_text("so it read")
         self.play(GrowArrow(jarr), FadeIn(jlab), FadeIn(right, shift=LEFT * 0.2), run_time=1.2)
         self.hold()
         self.play(FadeOut(VGroup(left, right, jarr, jlab, why_ok)), run_time=0.6)
@@ -680,8 +645,8 @@ class Jmm01StopLoop(Narrated):
         mdesk = VGroup(dm.frame, dm.head, dm.code, dm.note, dm.out, dm.copy, wr1)
         newb = Cell("whiteboard (main memory)", "stop = true", color=WHITE, vcolor=NEWV, w=DESK_W, h=0.8, center=True)
         newb.move_to([-DX, BOARD_Y, 0])
-        v_note = T("old forever: the JIT's choice", 26, OLD).move_to([0.6, NOTE_Y, 0], aligned_edge=LEFT)
-        v_out = T("waits nanoseconds, then delivers", 26, TRAY).move_to([0.6, OUT_Y, 0], aligned_edge=LEFT)
+        v_note = T("stays old forever: the JIT's choice", 26, OLD).move_to([0.6, NOTE_Y, 0], aligned_edge=LEFT)
+        v_out = T("delivers within nanoseconds", 26, TRAY).move_to([0.6, OUT_Y, 0], aligned_edge=LEFT)
         v_copy = T("agrees within nanoseconds", 26, GOOD).move_to([0.6, COPY_Y, 0], aligned_edge=LEFT)
         v_head = T("where a value can wait", 28, GREY_A).move_to([0.6, HEAD_Y, 0], aligned_edge=LEFT)
         self.say("names")
@@ -695,8 +660,8 @@ class Jmm01StopLoop(Narrated):
         self.play(FadeIn(v_note, shift=LEFT * 0.2), run_time=0.5)
         self.hold()
 
-        b1 = VGroup(T("a clerk decides where to look,", 26), T("glance by glance", 26)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
-        b2 = VGroup(T("the JIT decides once, when it compiles;", 26, OLD),
+        b1 = VGroup(T("a clerk chooses where to look,", 26), T("every time", 26)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+        b2 = VGroup(T("the JIT chooses once, when it compiles;", 26, OLD),
                     T("the core repeats it billions of times", 26, OLD)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
         b1.move_to([0.6, 1.0, 0], aligned_edge=LEFT)
         b2.move_to([0.6, -0.4, 0], aligned_edge=LEFT)
@@ -725,17 +690,17 @@ class Jmm01StopLoop(Narrated):
         self.play(FadeIn(ch_t), run_time=0.6)
         self.at(1)
         self.play(FadeIn(x86), FadeIn(x86_r), run_time=0.7)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(arm), FadeIn(arm_r), run_time=0.7)
         self.hold()
 
         pol = T("Write to Java's rules, not to your chip.", 32, YELLOW_M).move_to([0, -2.1, 0])
-        jmm = T("the Java Memory Model: visibility only when something links the threads", 24, GREY_B).move_to([0, -2.8, 0])
+        jmm = T("the Java Memory Model: a write is promised only when something links the threads", 24, GREY_B).move_to([0, -2.8, 0])
         fit(jmm, 12.4)
         self.say("polite")
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(pol, shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at_text("the Java Memory", lead=0.4)
         self.play(FadeIn(jmm), run_time=0.6)
         self.hold()
         self.play(FadeOut(VGroup(ch_t, x86, arm, x86_r, arm_r, pol, jmm)), run_time=0.6)
@@ -761,8 +726,8 @@ class Jmm01StopLoop(Narrated):
         sn = strike(fd.note)
         self.play(Create(sn), FadeIn(v1), run_time=0.6)
         self.play(FadeOut(sn), *fd.note.set(value="not used", vcolor=GREY_B, color=GREY_B), run_time=0.4)
+        self.at_text("so every pass")
         self.play(Create(path), FadeIn(v2), run_time=0.7)
-        self.at(2)
         for _ in range(2):
             dot = Dot(radius=0.09, color=GOOD).set_z_index(8)
             self.play(MoveAlongPath(dot, path.copy()), run_time=0.6)
@@ -780,17 +745,16 @@ class Jmm01StopLoop(Narrated):
         fit(cols, 12.4).move_to(UP * 0.4)
         self.say("code")
         self.play(FadeIn(cols, shift=UP * 0.15), run_time=0.9)
-        self.at(1)
         self.play(Indicate(VGroup(jc[0], kc[0]), color=GOOD, scale_factor=1.04), run_time=0.9)
         self.hold()
         self.play(FadeOut(cols), run_time=0.6)
 
         # ================= the moral and a check =================
-        mq = T("Where does the old value live?", 36, YELLOW_M).move_to(UP * 2.6)
-        m1 = T("Not in the cache: the photocopies agree within nanoseconds.", 30)
-        m2 = T("Not in the outbox: it delivers within nanoseconds too.", 30)
-        m3 = T("On the notepad, a register, because the JIT read stop once.", 30, OLD)
-        m4 = T("volatile takes the notepad away.", 30, GOOD)
+        mq = T("Where did the old value live?", 36, YELLOW_M).move_to(UP * 2.6)
+        m1 = T("Not in the cache. Not in the outbox.", 30)
+        m2 = T("On the notepad, a register, because nothing linked the threads.", 30, OLD)
+        m3 = T("A shared plain field comes with no promise.", 30)
+        m4 = T("Make it volatile.", 30, GOOD)
         moral = VGroup(m1, m2, m3, m4).arrange(DOWN, buff=0.3).move_to(UP * 0.75)
         fit(moral, 12.4)
         cq = VGroup(T("Check: a loop hangs with the JIT on, and stops with the JIT off.", 28, YELLOW_M),
@@ -798,13 +762,12 @@ class Jmm01StopLoop(Narrated):
         fit(cq, 12.4)
         self.say("moral")
         self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
-        self.at(1)
         self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.5)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.5)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(m3, shift=UP * 0.1), run_time=0.5)
-        self.at(4)
+        self.at(3)
         self.play(FadeIn(m4, shift=UP * 0.1), run_time=0.5)
         self.hold()
         self.say("check")
