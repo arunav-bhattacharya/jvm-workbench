@@ -10,6 +10,8 @@ dependencies {
     implementation("io.projectreactor:reactor-core:${versions["reactor"]}")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${versions["coroutines"]}")
     testImplementation("io.projectreactor:reactor-test:${versions["reactor"]}")
+    // Turbine: the usual way to assert on a flow's items one by one in tests (lesson 8)
+    testImplementation("app.cash.turbine:turbine:1.2.1")
     // the virtual-time Try-it demos (runTest outside JUnit) need the test library too
     "demoImplementation"("org.jetbrains.kotlinx:kotlinx-coroutines-test:${versions["coroutines"]}")
 }

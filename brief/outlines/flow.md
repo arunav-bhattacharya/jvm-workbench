@@ -30,7 +30,7 @@ fits, use a `solo` fence (at most 3 per lesson, as the validator allows).
 
 Versions: Kotlin 2.4.21, kotlinx.coroutines 1.11.0 (core, test, reactive, reactor), Reactor 3.8.8, JUnit 6.1.3,
 AssertJ 3.27.7. Dependencies already in labs/flows/build.gradle.kts: kotlinx-coroutines-core, -reactive, -reactor,
-reactor-core, and for tests kotlinx-coroutines-test and reactor-test. Don't add others. Package per lesson:
+reactor-core, and for tests kotlinx-coroutines-test, reactor-test and Turbine 1.2.1. Don't add others. Package per lesson:
 workbench.flows.l01 .. l08. Tests must use virtual time (runTest, advanceTimeBy, currentTime) for anything about
 timing, and inject dispatchers instead of using Dispatchers.IO/Default inside runTest (the notes show
 flowOn(Dispatchers.Default) inside runTest runs on the real clock). Opt-ins (@OptIn(ExperimentalCoroutinesApi::class),
@@ -101,9 +101,11 @@ Lessons:
   made-up payment-gateway listener; Flow and Reactor: Publisher.asFlow, Flow.asPublisher, asFlux, Flux.asFlow, how
   request(n) maps to suspension, the default buffer, context; how Java code consumes a Kotlin Flow (as a Flux or
   Publisher). Testing flows: runTest and virtual time, backgroundScope, StandardTestDispatcher vs
-  UnconfinedTestDispatcher, collecting a StateFlow without missing values, toList with take. Turbine only if the
-  notes recommend it; it is not a dependency, so show it in prose as optional and test with plain
-  kotlinx-coroutines-test in the lab. Lab: wrap a listener API in callbackFlow (unregister on cancel, no lost
+  UnconfinedTestDispatcher, collecting a StateFlow without missing values, toList with take, the backgroundScope
+  traps the notes found (advanceUntilIdle skips it; advanceTimeBy(100) doesn't run a task due at exactly +100).
+  Turbine 1.2.1 is a test dependency of labs/flows (testImplementation only): teach test { awaitItem() ... } and
+  turbineScope, and say when not to use it (it collects eagerly, so it sees every StateFlow value and hides
+  conflation). Lab: wrap a listener API in callbackFlow (unregister on cancel, no lost
   events with a buffer), expose it to Java as a Flux, and test both with runTest and StepVerifier.
 
 Track file content/tracks/flow.json: intro (what the reader can do at the end; it assumes the coroutines track),
