@@ -52,12 +52,12 @@ The restaurant has 200 waiters. On a busy night, the 201st party waits outside, 
 
 Many Java servers run like that restaurant. Each request gets one thread, one path of work through the program, for its whole life, and mostly the thread waits for other programs to answer. The trap is easy to fall into, because the code is the plainest kind there is. It passes every test and fails only at the busiest hour.
 
-Pools in production tuned our pools with care, and still a pool of waiting threads hits a wall. In this lesson, we'll find that wall with arithmetic, see why more threads can't fix it, weigh the old way around it and meet virtual threads. Before we start, make a guess, and keep it in mind."""
+Pools in production tuned our thread pools with care, and still a pool of waiting threads hits a wall. In this lesson, we'll find that wall with arithmetic, see why more threads can't fix it, weigh the old way around it and meet virtual threads. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
 S0 = """Let's give the restaurant a program. A small shop sells online, and its website handles checkouts. To check out one basket, the program reads the request and asks the stock service whether the items are in the warehouse. Then it asks the bank to take the payment, saves the order in the shop's database and writes the reply.
 
-A **service** here is a program on another computer that answers questions over the network. The bank's is our old friend, the slow web service from Threads from zero, still taking 120 ms. A **database** is the program that stores the shop's data, such as its orders.
+A **service** here is a program on another computer that answers questions over the network. The bank's service is our old friend, the slow web service from Threads from zero, still taking 120 ms. A **database** is the program that stores the shop's data, such as its orders.
 
 Now add up one checkout. Reading the request takes 2 ms, the stock service 40 ms, the bank 120 ms, the database 35 ms and the reply 3 ms. That's 200 ms, and only 5 ms of it runs on the CPU, the processor. The other 195 ms is waiting. The figure below shows the shape.
 
@@ -71,7 +71,7 @@ That one fact sets the wall. One thread finishes a checkout every 0.2 s, so 5 a 
 
 At 800 checkouts a second, 160 threads are busy and 40 sit idle. Then traffic rises to 1,500 a second. The idle threads fill at once, and the other 500 checkouts each second wait in the pool's queue. After 10 seconds, 5,000 are waiting, and a new checkout waits 5 seconds before a thread even picks it up.
 
-And the processor? Each thread spends one fortieth of its time on the CPU, so at any moment only about 5 of the 200 threads are running code. A server with 16 cores, the parts of the processor that each run one thread at a time, has 11 cores with nothing to do. The dashboards show a slow shop on a bored machine.
+And the processor? Each thread spends one fortieth of its time on the CPU, so at any moment only about 5 of the 200 threads are running code. A server with 16 cores, the parts of the processor that each run one thread at a time, has 11 cores with nothing to do. Anyone watching the server sees a slow shop on a bored machine.
 
 Let's watch the wall in a smaller model. `WallDemo`, in the Try it below, runs 2,000 fake checkouts that each just call `Thread.sleep` for 100 ms, standing in for the waits. First it runs them on a pool of 100 threads. Predict before you read on: 100 threads at 0.1 s each finish 1,000 a second, so 2,000 checkouts should take about 2 seconds. On this 4-core machine, while other heavy programs were running, the first line said:
 
@@ -137,7 +137,7 @@ Every thread in our pool is a platform thread, and the operating system does rea
 
 The operating system also reserves the thread's **stack**, the memory where a thread keeps the method calls it's in the middle of and their local variables. On 64-bit Linux, Java reserves 1 MB for each stack by default (the `-Xss` setting). The operating system hands out the memory only as the stack really grows, but the reservation and its bookkeeping stay for the thread's whole life.
 
-Then the operating system has to share out the cores. With thousands of threads, it spends more and more time switching between them, and each switch costs the CPU's caches, its small fast copies of memory.
+Then the operating system has to share out the cores. With thousands of threads, it spends more and more time switching between them. Each switch also throws away part of the CPU's cache, its small fast copy of recently used memory.
 
 The contract, the uniform and the locker from the opening are these costs, and every waiter pays them, even one who only stands at the kitchen door.
 
@@ -193,7 +193,7 @@ In code, the notepad is a chain of steps to run later. Here's the checkout both 
 
 A `CompletableFuture`, from the executors track, is a box for a result that arrives later. Read `thenCompose` as "when this box is filled, start the next step and hand me its box". No thread waits for the bank. When its answer comes, it starts the next step on whatever thread is free.
 
-A program built this way can keep thousands of checkouts in flight on a few threads. Often it has one **event loop** per core: a thread that runs many requests' small steps in turn and must never block. It works, and it's why async libraries, and reactive ones built on the same idea, became popular. The price is paid in the code.
+A program built this way can keep thousands of checkouts going at once on a few threads. Often it has one **event loop** per core: a thread that runs many requests' small steps in turn and must never block. It works, and it's why async libraries, and the reactive ones built on the same idea (a later track covers them), became popular. The price is paid in the code.
 
 Every library on the checkout's path must be async too, including the one that talks to the database. One ordinary blocking call on an event loop stalls every request that shares that loop, and nothing warns you.
 
@@ -221,11 +221,11 @@ K_PER = """Executors.newVirtualThreadPerTaskExecutor().use { perCheckout ->
     }
 }   // use {} closes the executor, and close() waits for every task"""
 
-S4 = f"""JDK 21 took the other way out: it made threads cheap. **Virtual threads** became a final feature in JDK 21, through JEP 444 (a JDK Enhancement Proposal, the design document for a change to Java).
+S4 = f"""JDK 21 took the other way out: it made threads cheap. **Virtual threads** became a final feature in JDK 21, no longer an experiment you had to switch on. They came through JEP 444, a JDK Enhancement Proposal: the design document for a change to Java.
 
-A **virtual thread** is a normal `java.lang.Thread` that the JDK schedules, instead of the operating system. It runs on a small pool of platform threads, about one per core. When it blocks, for example on a network read or a sleep, the JDK sets it aside. It keeps the thread's stack on the **heap**, the memory where Java keeps its objects, and lends the platform thread to another virtual thread. The next lesson, How virtual threads work, opens that up.
+A **virtual thread** is a normal `java.lang.Thread` that the JDK schedules instead of the operating system. It runs on a small pool of platform threads, about one per core. When it blocks, for example on a network read or a sleep, the JDK sets it aside. It keeps the thread's stack on the **heap**, the memory where Java keeps its objects, and lends the platform thread to another virtual thread. The next lesson, How virtual threads work, opens that up.
 
-In the restaurant, that's a waiter who costs next to nothing to hire. Every table can keep its personal waiter, and one standing at the kitchen door costs almost nothing.
+In the restaurant, that's a waiter who costs next to nothing to hire. Every table can keep its personal waiter again, and a waiter standing at the kitchen door is no longer a waste.
 
 So we keep the blocking `checkout` method, and give every checkout its own virtual thread. Both versions start one new virtual thread per basket:
 
@@ -353,7 +353,7 @@ L = {
   "title": "Blocking code that scales: virtual threads and coroutines",
   "java": {"title": "Java 21+: virtual threads", "src": "// plain blocking code, one cheap virtual thread per checkout\nList<Receipt> checkoutAll(List<Basket> baskets) throws Exception {\n    try (ExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor()) {\n        List<Future<Receipt>> futures = new ArrayList<>();\n        for (Basket b : baskets) futures.add(perTask.submit(() -> checkout(b)));\n        List<Receipt> receipts = new ArrayList<>();\n        for (Future<Receipt> f : futures) receipts.add(f.get());\n        return receipts;\n    }\n}\n\nReceipt checkout(Basket b) {\n    Stock stock = warehouse.reserve(b);      // an ordinary blocking call over the network\n    Payment paid = bank.charge(b, stock);\n    return orders.save(b, paid);             // an ordinary database call\n}"},
   "kotlin": {"title": "Kotlin: kotlinx.coroutines", "src": "// suspend functions: the compiler turns them into steps it can pause between\nsuspend fun checkoutAll(baskets: List<Basket>): List<Receipt> = coroutineScope {\n    baskets.map { b -> async { checkout(b) } }.awaitAll()\n}\n\nsuspend fun checkout(b: Basket): Receipt {\n    val stock = warehouse.reserve(b)         // must itself suspend to free the thread\n    val paid = bank.charge(b, stock)\n    return orders.save(b, paid)              // a blocking database call here would block a real thread\n}"},
-  "note": "Both read top to bottom, and both keep thousands of checkouts in flight on a few operating system threads. The difference is where the pausing happens. Kotlin does it in the compiler: only `suspend` functions can give the thread back, so every waiting call on the path has to be suspend-aware, and a blocking database call needs `withContext(Dispatchers.IO)`, which is a thread pool again. Virtual threads do it in the JDK while the program runs: most blocking JDK calls (network reads, `sleep`, locks, a `BlockingQueue`) set the virtual thread aside, so existing database drivers and HTTP clients work unchanged. The two also mix: `Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher()` runs coroutines on virtual threads, which helps when they call blocking libraries."
+  "note": "Both read top to bottom, and both keep thousands of checkouts going at once on a few operating system threads. The difference is where the pausing happens. Kotlin does it in the compiler: only `suspend` functions can give the thread back, so every waiting call on the path has to be suspend-aware, and a blocking database call needs `withContext(Dispatchers.IO)`, which is a thread pool again. Virtual threads do it in the JDK while the program runs: most blocking JDK calls (network reads, `sleep`, locks, a `BlockingQueue`) set the virtual thread aside, so existing database drivers and HTTP clients (libraries that call web services) work unchanged. The two also mix: `Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher()` runs coroutines on virtual threads, which helps when they call blocking libraries."
  },
  "worked": {
   "title": "Size the checkout service with Little's law",

@@ -97,7 +97,7 @@ S0 = f"""Before we give every order its own thread, we need a way to make one. A
 
 Read them in order. The first starts a thread at once, with no name. The second gives it a name, and `name("checkout-", 0)` numbers its threads: the first is `checkout-0`, the next `checkout-1`. The third makes the thread now and starts it later. The fourth hands out a `ThreadFactory`, an object that makes threads on request, for code that wants one. A builder isn't safe to share between threads, so set it up in one place. The factory it returns is safe, so share that.
 
-The fifth is the one for normal code. It gives you a `Future` for each task, a handle on its result, its `close()` waits for every task, and most libraries already know how to take an `ExecutorService`. Use a builder when you start one long-lived thread, such as a helper that emails receipts all day, and want a name you can find in a thread dump, the list of every thread a running program has. Virtual threads have no name by default, which makes a dump of 50,000 of them hard to read.
+The fifth is the one for normal code. It gives you a `Future`, a handle on the task's result, for each task. Its `close()` waits for every task, and most libraries already know how to take an `ExecutorService`. Use a builder when you start one long-lived thread, such as a helper that emails receipts all day, and want a name you can find in a thread dump, the list of every thread a running program has. Virtual threads have no name by default, which makes a dump of 50,000 of them hard to read.
 
 All five give you ordinary `Thread` objects. `join`, `interrupt` and `isAlive` work as usual, and `isVirtual()` tells you which kind you have. `BuildersDemo`, in the Try it below, starts one of each and lets each one print from inside itself. Its run here began:
 
@@ -133,19 +133,19 @@ K_FAN = """fun saveAll(orders: List<Order>): List<Receipt> =
 
 S1 = f"""`newVirtualThreadPerTaskExecutor()` starts a brand-new virtual thread for every task you submit. It keeps no threads around and has no queue. Its Javadoc says it plainly: the number of threads it creates is unbounded.
 
-Since JDK 19, `ExecutorService` is `AutoCloseable`, so it works in try-with-resources. `close()` shuts the executor down and then waits until every submitted task has finished. That makes a **fan-out**, starting many calls at once and then collecting all their results, the size of one block. Both versions save every order on its own virtual thread:
+Since JDK 19, `ExecutorService` is `AutoCloseable`, so it works in try-with-resources. `close()` shuts the executor down and then waits until every submitted task has finished. So a **fan-out**, starting many calls at once and then collecting all their results, fits in one block. Both versions save every order on its own virtual thread:
 
 {pair(J_FAN, K_FAN)}
 
-Let's walk through it. First we submit every order, so all the saves start before we wait for any of them. Then we call `get()` on each future in the order we submitted them, so the receipts come back in the orders' order. Finally `close()`, at the end of the block, waits for anything still running. Read aloud, the method says: give every order its own thread, then collect the answers in order.
+Let's walk through it. First we submit every order, so all the saves start before we wait for any of them. Then we call `get()` on each future in the order we submitted them, so the receipts come back in the same order as the orders. Finally `close()`, at the end of the block, waits for anything still running. Read aloud, the method says: give every order its own thread, then collect the answers in order.
 
 Create the executor where the work starts, and let it end where the work ends. An executor per batch costs almost nothing, because it owns no threads. And when the method returns, no thread it started is still running. That promise gets a name and an API of its own in lesson 5 of this track.
 
-Two details trip people up. First, start every task before you call `get()` on any of them. A loop that submits one order and then waits for it saves the batch one order at a time, on 5,000 threads. With a 35 ms save, that's almost three minutes (5,000 × 0.035 s = 175 s) with one call in flight. That's Little's law from The thread-per-request wall (inside at once = arrival rate × time inside) with only one order ever inside, and 5,000 virtual threads didn't help at all.
+Two details trip people up. First, start every task before you call `get()` on any of them. A loop that submits one order and then waits for it saves the batch one order at a time, on 5,000 threads. With a 35 ms save, that's almost three minutes (5,000 × 0.035 s = 175 s), because only one call is ever in flight, started and not yet finished. Little's law, from The thread-per-request wall, says inside at once = arrival rate × time inside. Here only one order is ever inside, so 5,000 virtual threads didn't help at all.
 
 Second, `get()` reports a failed task as an `ExecutionException` whose cause is the real exception. The other tasks keep running when one fails, and `close()` still waits for them. Stopping them is also lesson 5's topic.
 
-Now look at what our fan-out does to the database. Nothing in the block limits how many orders are saved at once. A copy of the lab's test that prints its count sent 5,000 orders through it, at 10 ms per save. In one run, 3,069 of them were inside the fake database at the same moment, and in another, 4,772. The real database accepts 20.
+Now look at what our fan-out does to the database. Nothing in the block limits how many orders are saved at once. A copy of the lab's test, changed to print the count, sent 5,000 orders through it, at 10 ms per save. In one run, 3,069 of them were inside the fake database at the same moment, and in another, 4,772. The real database accepts 20.
 
 The executor isn't broken. It does exactly what it promises: one thread per task, no limit. The limit belongs somewhere else, and the first place people put it is the wrong one."""
 

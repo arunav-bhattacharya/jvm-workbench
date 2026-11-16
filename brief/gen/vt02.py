@@ -70,10 +70,10 @@ Before we name the first one, do a small job by hand. Suppose you had to stop a 
 
 That list already has a name. Each method call that hasn't returned yet has a **frame**, a small record of its local variables and of the line to go back to. The frames, piled one on another, make the thread's **stack**. To pause a thread, you save its frames. To resume it, you put them back.
 
-A **continuation** is exactly that: a piece of work that can stop in the middle and carry on later from the same line, with its frames intact. It's the order slip from the opening. The JDK has an internal class for it, `jdk.internal.vm.Continuation`, with two operations that matter here:
+A **continuation** is exactly that: a piece of work that can stop in the middle and carry on later from the same line, with its frames intact. It's the order slip from the opening. The JDK has an internal class for it, `jdk.internal.vm.Continuation`, with two operations that matter here. In outline (the real class also takes a scope argument, which we skip):
 
 ```text
-cont = new Continuation(scope, () -> { a(); yield(); b(); })
+cont = new Continuation(() -> { a(); yield(); b(); })
 cont.run()    // runs a(), stops at yield(), returns here
 cont.run()    // carries on with b()
 ```
@@ -129,7 +129,7 @@ So far our threads only slept. Which other calls let a thread put its slip down,
 
 ASIDE1 = {
     "title": "Can I see these threads in a thread dump?",
-    "body": "Partly. A thread dump is a snapshot of every thread and what it's doing, and A thread's life took one with `jcmd <pid> Thread.print`. That dump shows the carriers, as platform threads named `ForkJoinPool-1-worker-N`, but it doesn't list the virtual threads themselves. The JDK has a newer kind of dump for them: `jcmd <pid> Thread.dump_to_file -format=json threads.json` writes the virtual threads too, grouped by the executor that started them. (`jcmd` is a tool that comes with the JDK, and `<pid>` is the number the operating system gives your running program.) With 50,000 virtual threads that file gets long, which is one more reason to name the threads you care about.",
+    "body": "Partly. A thread dump is a snapshot of every thread and what it's doing, and the lesson A thread's life took one with `jcmd <pid> Thread.print`. That dump shows the carriers, as platform threads named `ForkJoinPool-1-worker-N`, but it doesn't list the virtual threads themselves. The JDK has a newer kind of dump for them: `jcmd <pid> Thread.dump_to_file -format=json threads.json` writes the virtual threads too, grouped by the executor that started them. (`jcmd` is a tool that comes with the JDK, and `<pid>` is the number the operating system gives your running program.) With 50,000 virtual threads that file gets long, which is one more reason to name the threads you care about.",
 }
 
 # ---------------------------------------------------------------- section 2
@@ -152,10 +152,10 @@ First the method notes the timeout and the thread's new state, and the JDK arran
 These operations unmount a virtual thread:
 
 - `Thread.sleep`, and `LockSupport.park` with everything built on it: `ReentrantLock`, `Semaphore`, `CountDownLatch`, `BlockingQueue.take` and `Future.get`.
-- Network reads and writes on sockets, including the JDK's `HttpClient` and database drivers that use plain sockets. The JDK switches the socket to a mode where it never blocks and hands it to a **poller**, a part of the JDK that watches many sockets at once. Then it parks the virtual thread until data arrives.
+- Network reads and writes on sockets, including the JDK's `HttpClient`, its class for calling web services, and database drivers that use plain sockets. The JDK switches the socket to a mode where it never blocks and hands it to a **poller**, a part of the JDK that watches many sockets at once. Then it parks the virtual thread until data arrives.
 - From JDK 24 (JEP 491), `synchronized` and `Object.wait()`. On JDK 21 to 23, these **pin** the virtual thread instead: it stays mounted, and its carrier blocks with it.
 
-Some operations can't unmount. Most file reads and writes block inside the operating system, so the virtual thread keeps its carrier for the whole call. The scheduler adds a temporary extra carrier to make up for it, up to 256 by default. Blocking while a native method, code written in C, or a class's static initializer is on the stack pins the carrier. Lesson 4 of this track is about pinning, and how to find it.
+Some operations can't unmount. Most file reads and writes block inside the operating system, so the virtual thread keeps its carrier for the whole call. The scheduler adds a temporary extra carrier to make up for it, up to 256 by default. Blocking while a native method (one written in C, say) or a class's static initializer, the code that sets up a class the first time it's used, is on the stack pins the carrier. Lesson 4 of this track is about pinning, and how to find it.
 
 The last rule surprises people. Let's replace the `sleep` in `CarrierDemo` with 50 ms of busy work, a loop that just watches the clock. Predict first: eight 50 ms loops on one carrier should take about 400 ms, and on four carriers about 100 ms. Here is the end of a one-carrier run, on the busy machine:
 
@@ -271,7 +271,7 @@ L = {
      "Run it with `-Pargs=1000` for depth 1,000, and compare with the 1 MB a platform thread reserves."
     ],
     "code": demo("StackOnHeapDemo"),
-    "expect": "At depth 1 each parked virtual thread costs about 2 KB of heap (2,184 to 2,344 bytes in runs here). At depth 200 it costs about 10 KB, depending on the JDK and on whether the JIT has compiled `descend` yet. Even at depth 1,000 it stays far below 1 MB (about 27 KB here). The heap grows with the real depth of the stack, nothing more. The numbers are rough, because `totalMemory - freeMemory` after `System.gc()` is a rough measure."
+    "expect": "At depth 1 each parked virtual thread costs about 2 KB of heap (2,184 to 2,344 bytes in runs here). At depth 200 it costs about 10 KB, depending on the JDK and on whether the JIT, the part of the JVM that compiles busy code while it runs, has compiled `descend` yet. Even at depth 1,000 it stays far below 1 MB (about 27 KB here). The heap grows with the real depth of the stack, nothing more. The numbers are rough, because `totalMemory - freeMemory` after `System.gc()` is a rough measure."
    }
   }
  ],
