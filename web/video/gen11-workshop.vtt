@@ -1,0 +1,185 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.921
+A payment carries a few extras.
+
+2
+00:00:04.921 --> 00:00:08.001
+The accepted currencies, a list of strings.
+
+3
+00:00:08.001 --> 00:00:10.437
+The retry delays, a list of longs.
+
+4
+00:00:10.437 --> 00:00:12.156
+The retry count, an int.
+
+5
+00:00:12.367 --> 00:00:16.556
+Put them in one map, keyed by name, and the map forgets the types.
+
+6
+00:00:16.556 --> 00:00:18.524
+To it, every value is just Any.
+
+7
+00:00:18.733 --> 00:00:20.430
+So every read needs a cast.
+
+8
+00:00:20.430 --> 00:00:23.760
+Pick the wrong type, and the compiler can't help you.
+
+9
+00:00:24.367 --> 00:00:25.614
+And names collide.
+
+10
+00:00:25.614 --> 00:00:28.177
+Two teams both pick the name retries.
+
+11
+00:00:28.400 --> 00:00:30.865
+The first team reads its delays back.
+
+12
+00:00:30.865 --> 00:00:31.997
+What does it get?
+
+13
+00:00:33.700 --> 00:00:36.903
+The retry count, an Int, where it expects a list.
+
+14
+00:00:36.903 --> 00:00:40.433
+It fails at run time, far from the line that wrote it.
+
+15
+00:00:41.267 --> 00:00:47.460
+The fix is a small key object that carries two things: a name, and the full type of its value.
+
+16
+00:00:47.667 --> 00:00:52.495
+In Kotlin, typeOf records that type when you make the key, list of string and all.
+
+17
+00:00:53.200 --> 00:00:55.372
+To write, you give a key and a value.
+
+18
+00:00:55.372 --> 00:00:58.483
+The compiler checks the value against the key's type.
+
+19
+00:00:58.700 --> 00:01:02.739
+Try to put 42 under the currencies key, and it doesn't compile.
+
+20
+00:01:03.367 --> 00:01:05.253
+To read, you give only the key.
+
+21
+00:01:05.253 --> 00:01:09.695
+Its type comes back with the value, so there is no cast at the call site.
+
+22
+00:01:10.300 --> 00:01:12.852
+And the name no longer decides alone.
+
+23
+00:01:12.852 --> 00:01:18.783
+Retries as a list of longs and retries as an int are two different keys, in two slots.
+
+24
+00:01:19.000 --> 00:01:21.008
+One cast is left, inside get.
+
+25
+00:01:21.008 --> 00:01:24.261
+It's safe, because only set can put a value in.
+
+26
+00:01:24.867 --> 00:01:25.934
+Last question.
+
+27
+00:01:25.934 --> 00:01:27.229
+Key is invariant.
+
+28
+00:01:27.229 --> 00:01:29.516
+What if you declared it out T?
+
+29
+00:01:29.733 --> 00:01:33.196
+Then a key for a list of strings is also a key for Any.
+
+30
+00:01:33.400 --> 00:01:37.311
+Writing 42 under it compiles, with T inferred as Any.
+
+31
+00:01:37.533 --> 00:01:39.801
+Predict the next read of the currencies.
+
+32
+00:01:41.833 --> 00:01:43.195
+ClassCastException.
+
+33
+00:01:43.195 --> 00:01:45.416
+Integer cannot be cast to List.
+
+34
+00:01:45.416 --> 00:01:49.501
+A key writes as well as reads, so it can't be a producer.
+
+35
+00:01:49.501 --> 00:01:50.863
+It stays invariant.
+
+36
+00:01:51.767 --> 00:01:53.970
+Here it is in Java and Kotlin.
+
+37
+00:01:53.970 --> 00:01:57.495
+Java gets the full type from a super type token.
+
+38
+00:01:57.495 --> 00:01:58.891
+Kotlin uses typeOf.
+
+39
+00:02:01.700 --> 00:02:02.278
+The rule.
+
+40
+00:02:02.278 --> 00:02:05.999
+Let the key carry the value's type, so reads need no cast.
+
+41
+00:02:05.999 --> 00:02:09.208
+And keep the key invariant, because it writes too.
+
+42
+00:02:09.433 --> 00:02:10.510
+Check yourself.
+
+43
+00:02:10.510 --> 00:02:16.039
+With Key declared out T, which line fails: the write of 42, or the next read?
+
+44
+00:02:18.767 --> 00:02:19.414
+The read.
+
+45
+00:02:19.414 --> 00:02:21.859
+The write compiles, with T as Any.
+
+46
+00:02:21.859 --> 00:02:24.376
+The read throws ClassCastException.

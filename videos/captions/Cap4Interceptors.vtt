@@ -1,0 +1,165 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:03.980
+Here is authorize.
+
+2
+00:00:03.980 --> 00:00:05.544
+Two lines do the work.
+
+3
+00:00:05.544 --> 00:00:08.245
+The other twelve time it and retry it.
+
+4
+00:00:08.467 --> 00:00:12.271
+The same plumbing is copied into capture, refund and void.
+
+5
+00:00:12.500 --> 00:00:16.197
+An interceptor is that plumbing, written once, for any method.
+
+6
+00:00:17.400 --> 00:00:22.693
+It gets the call as one object: the method's name, its arguments, and proceed().
+
+7
+00:00:22.693 --> 00:00:24.347
+proceed() means carry on.
+
+8
+00:00:25.867 --> 00:00:28.287
+Line up several and you have a chain.
+
+9
+00:00:28.287 --> 00:00:30.118
+proceed() runs the next one.
+
+10
+00:00:30.118 --> 00:00:32.735
+After the last, it runs the real method.
+
+11
+00:00:33.267 --> 00:00:35.375
+Now the issuer is unavailable.
+
+12
+00:00:35.375 --> 00:00:36.851
+The real call throws.
+
+13
+00:00:36.851 --> 00:00:39.943
+Retry catches it, and calls proceed() again.
+
+14
+00:00:40.567 --> 00:00:41.145
+Predict.
+
+15
+00:00:41.145 --> 00:00:43.673
+What does the timer outside record?
+
+16
+00:00:45.400 --> 00:00:47.697
+One call, as long as both attempts.
+
+17
+00:00:47.697 --> 00:00:51.963
+That's what the caller waited for, so @Timed goes outside @Retry.
+
+18
+00:00:52.767 --> 00:00:55.365
+Who puts the chain in front of a component?
+
+19
+00:00:55.365 --> 00:00:57.239
+The container, through a proxy.
+
+20
+00:00:57.467 --> 00:01:01.927
+With an interface, the JDK makes a proxy class that implements it.
+
+21
+00:01:01.927 --> 00:01:06.589
+One handler runs the chain, then calls the target, a separate object.
+
+22
+00:01:06.800 --> 00:01:12.394
+With no interface, Byte Buddy writes a subclass that runs the chain, then calls super.
+
+23
+00:01:12.394 --> 00:01:18.184
+So a final class can't be intercepted, and Kotlin classes are final unless you open them.
+
+24
+00:01:18.400 --> 00:01:20.924
+The container refuses them at start-up.
+
+25
+00:01:21.733 --> 00:01:23.638
+Last: which call to retry.
+
+26
+00:01:23.638 --> 00:01:26.568
+authorizeAndCapture is a default method.
+
+27
+00:01:26.568 --> 00:01:28.985
+It calls authorize, then capture.
+
+28
+00:01:29.200 --> 00:01:30.712
+The capture times out.
+
+29
+00:01:30.712 --> 00:01:35.933
+Retry the whole method, and authorize runs again: a second hold on the card.
+
+30
+00:01:36.167 --> 00:01:41.848
+With invokeDefault, each inner call has its own chain, so only the capture is retried.
+
+31
+00:01:42.067 --> 00:01:48.111
+And only with an idempotency key, the same on every attempt, so the issuer can drop the repeat.
+
+32
+00:01:48.933 --> 00:01:52.012
+Here is the lab's timer, in Java and Kotlin.
+
+33
+00:01:54.833 --> 00:01:55.430
+The rule.
+
+34
+00:01:55.430 --> 00:01:59.472
+An interceptor runs around a call, and proceed() hands it on.
+
+35
+00:01:59.472 --> 00:02:02.917
+Retry only the smallest call that is safe to repeat.
+
+36
+00:02:03.133 --> 00:02:04.160
+Check yourself.
+
+37
+00:02:04.160 --> 00:02:08.748
+@Timed sits inside @Retry, and the call works on the third attempt.
+
+38
+00:02:08.748 --> 00:02:11.281
+How many times does the timer record?
+
+39
+00:02:14.000 --> 00:02:14.465
+Three.
+
+40
+00:02:14.465 --> 00:02:17.723
+Inside the retry, it records each attempt.
+
+41
+00:02:17.723 --> 00:02:19.972
+Outside, it would record one.

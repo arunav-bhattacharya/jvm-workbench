@@ -1,0 +1,169 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:09.917
+Loading FxRates takes 20 ms, so you build it on first use: if the field is null, build one.
+
+2
+00:00:10.133 --> 00:00:11.537
+Thread A asks first.
+
+3
+00:00:11.537 --> 00:00:13.923
+It sees null, and starts building.
+
+4
+00:00:14.367 --> 00:00:17.123
+While A is still building, thread B asks.
+
+5
+00:00:17.123 --> 00:00:18.199
+What does B see?
+
+6
+00:00:19.867 --> 00:00:20.293
+Null.
+
+7
+00:00:20.293 --> 00:00:22.767
+A hasn't stored anything yet.
+
+8
+00:00:22.767 --> 00:00:24.473
+So B builds one too.
+
+9
+00:00:24.700 --> 00:00:26.234
+A stores its object.
+
+10
+00:00:26.234 --> 00:00:28.840
+Then B stores another one over it.
+
+11
+00:00:28.840 --> 00:00:30.757
+Two threads, two FxRates.
+
+12
+00:00:30.967 --> 00:00:33.915
+That's the same check-then-act race as count++.
+
+13
+00:00:33.915 --> 00:00:36.676
+Eight threads arriving together build eight.
+
+14
+00:00:37.533 --> 00:00:41.563
+The fix: one thread checks and builds, and the others wait.
+
+15
+00:00:41.563 --> 00:00:45.525
+The JVM already has a lock for that: class initialization.
+
+16
+00:00:45.700 --> 00:00:48.804
+Put the instance in a nested class, Holder.
+
+17
+00:00:48.804 --> 00:00:53.351
+The JVM initializes Holder once, on first use, under that lock.
+
+18
+00:00:53.567 --> 00:00:56.450
+A gets there first and takes the lock.
+
+19
+00:00:56.450 --> 00:00:57.057
+B waits.
+
+20
+00:00:57.567 --> 00:00:59.416
+A builds the one FxRates.
+
+21
+00:00:59.416 --> 00:01:03.041
+Then the lock opens, and B reads the same object.
+
+22
+00:01:03.267 --> 00:01:06.943
+Every later call is a plain static read, with no lock.
+
+23
+00:01:07.833 --> 00:01:11.893
+If the object is cheap, use an enum with one constant.
+
+24
+00:01:11.893 --> 00:01:14.524
+The JVM makes exactly one INSTANCE.
+
+25
+00:01:14.700 --> 00:01:21.576
+Kotlin's object compiles to a static INSTANCE, set when the class initializes: the holder's mechanism.
+
+26
+00:01:21.800 --> 00:01:26.659
+And Kotlin's by lazy takes a lock by default, and runs the initializer once.
+
+27
+00:01:26.659 --> 00:01:29.536
+It's double-checked locking, written for you.
+
+28
+00:01:30.433 --> 00:01:32.120
+But look at the caller.
+
+29
+00:01:32.120 --> 00:01:36.079
+PaymentPricer fetches FxRates itself, inside a method.
+
+30
+00:01:36.267 --> 00:01:39.700
+A test wants a rate of 1.10, and can't reach in.
+
+31
+00:01:39.700 --> 00:01:44.493
+And a change one test makes to the global leaks into the next test.
+
+32
+00:01:44.700 --> 00:01:47.928
+So pass it in through the constructor, as an interface.
+
+33
+00:01:48.133 --> 00:01:55.076
+In production, the container makes the one instance, like an @ApplicationScoped bean in Quarkus.
+
+34
+00:01:55.076 --> 00:01:57.896
+A test passes a fake that returns 1.10.
+
+35
+00:01:58.867 --> 00:01:59.525
+The rule.
+
+36
+00:01:59.525 --> 00:02:06.475
+Let the JVM or the container make the one instance, and pass it in, so a test can pass another.
+
+37
+00:02:06.667 --> 00:02:07.607
+Quick check.
+
+38
+00:02:07.607 --> 00:02:12.939
+One test sets object FxRates to a rate of 1.10, and never resets it.
+
+39
+00:02:12.939 --> 00:02:16.623
+A later test in another class prices a payment.
+
+40
+00:02:16.623 --> 00:02:18.427
+Which rate does it get?
+
+41
+00:02:20.800 --> 00:02:21.219
+1.10.
+
+42
+00:02:21.219 --> 00:02:28.600
+The object is one static INSTANCE per JVM, so the change outlives the test that made it.

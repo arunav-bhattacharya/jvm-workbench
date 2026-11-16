@@ -1,0 +1,145 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.785
+A class file is a byte array with a fixed layout.
+
+2
+00:00:05.785 --> 00:00:08.367
+The first four bytes are always CAFEBABE.
+
+3
+00:00:08.567 --> 00:00:14.138
+Then the minor and major version: 0x41 is 65, which means Java 21.
+
+4
+00:00:14.138 --> 00:00:17.092
+Then the size of the constant pool.
+
+5
+00:00:17.300 --> 00:00:22.661
+In the pool, each entry starts with a tag, and the tag decides how many bytes follow.
+
+6
+00:00:22.867 --> 00:00:26.436
+So to find anything after the pool, you walk every entry.
+
+7
+00:00:26.667 --> 00:00:29.199
+And every JDK adds a major version.
+
+8
+00:00:29.199 --> 00:00:33.613
+Frameworks shipped their own ASM, and a release for each one.
+
+9
+00:00:33.800 --> 00:00:40.527
+Since JDK 24, the JDK has its own library for it: the ClassFile API.
+
+10
+00:00:41.400 --> 00:00:46.911
+Its parse method turns the bytes into a ClassModel: an immutable description of the class.
+
+11
+00:00:47.133 --> 00:00:51.705
+A model is a sequence of elements: methods, fields and attributes.
+
+12
+00:00:51.933 --> 00:00:57.380
+Open a method's code, and you get more elements: one typed object per instruction.
+
+13
+00:00:57.600 --> 00:00:58.601
+And it's lazy.
+
+14
+00:00:58.601 --> 00:01:01.389
+A part is parsed only when you open it.
+
+15
+00:01:02.467 --> 00:01:04.304
+Building runs the other way.
+
+16
+00:01:04.304 --> 00:01:07.323
+You pass lambdas, and each one gets a builder.
+
+17
+00:01:07.533 --> 00:01:10.491
+The CodeBuilder has one method per instruction.
+
+18
+00:01:10.491 --> 00:01:14.331
+Each call emits one element, and build turns them into bytes.
+
+19
+00:01:15.233 --> 00:01:21.384
+To change a class, a transform hands each element of the old class to the new class's builder.
+
+20
+00:01:21.600 --> 00:01:25.319
+Pass it through with builder.with, and it comes out unchanged.
+
+21
+00:01:25.533 --> 00:01:27.439
+Call nothing, and it's dropped.
+
+22
+00:01:27.667 --> 00:01:31.957
+A code transform does the same with instructions.
+
+23
+00:01:31.957 --> 00:01:38.261
+Call other builder methods, and you replace it: ldc 290 becomes ldc 310.
+
+24
+00:01:38.467 --> 00:01:44.606
+It's a flatMap: each element in, zero, one or more out.
+
+25
+00:01:44.606 --> 00:01:50.299
+FeeRuleV2's fee now returns 3,875 instead of 3,625.
+
+26
+00:01:51.467 --> 00:01:55.776
+In code, it's a lambda that gets the builder and one element.
+
+27
+00:01:55.776 --> 00:01:57.965
+Kotlin calls the same Java API.
+
+28
+00:01:59.133 --> 00:01:59.781
+The rule.
+
+29
+00:01:59.781 --> 00:02:02.227
+A class is a sequence of elements.
+
+30
+00:02:02.227 --> 00:02:08.199
+Parse reads them, build writes them, and a transform maps each one to zero or more.
+
+31
+00:02:08.400 --> 00:02:09.529
+Quick check.
+
+32
+00:02:09.529 --> 00:02:16.112
+For ldc 290, a code transform calls with on the element, then ldc 310.
+
+33
+00:02:16.112 --> 00:02:18.745
+What does the new code hold?
+
+34
+00:02:21.133 --> 00:02:21.800
+Both.
+
+35
+00:02:21.800 --> 00:02:24.735
+ldc 290, then ldc 310.
+
+36
+00:02:24.735 --> 00:02:27.937
+One element in, two out.

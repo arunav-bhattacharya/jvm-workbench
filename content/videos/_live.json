@@ -116,6 +116,14 @@
   "rx08-hot-cold",
   "io04-netty",
   "io06-quarkus",
-  "boot01-slow-start"
+  "boot01-slow-start",
+  "perf07-investigation",
+  "gen11-workshop",
+  "cap2-fanout",
+  "cap4-interceptors",
+  "pat03-prototype",
+  "pat01-singleton",
+  "cls06-classfile",
+  "kt06-plugins"
  ]
 }

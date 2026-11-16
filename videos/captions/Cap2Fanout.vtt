@@ -1,0 +1,161 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.563
+One customer asks for a EURUSD price.
+
+2
+00:00:05.563 --> 00:00:07.807
+Three providers can quote it.
+
+3
+00:00:07.807 --> 00:00:09.355
+You want the lowest.
+
+4
+00:00:09.567 --> 00:00:14.075
+One after another, their times add up: 620 milliseconds.
+
+5
+00:00:14.300 --> 00:00:19.533
+Start all three together with async, and you wait only for the slowest: 300.
+
+6
+00:00:20.067 --> 00:00:23.913
+Give the request a deadline: 250 milliseconds.
+
+7
+00:00:24.133 --> 00:00:25.756
+Where does the timeout go?
+
+8
+00:00:25.756 --> 00:00:28.627
+Around the whole fan-out, or around each call?
+
+9
+00:00:30.233 --> 00:00:33.823
+Around the whole fan-out, the deadline cancels everything.
+
+10
+00:00:33.823 --> 00:00:37.969
+Northbank and Fjord had answered, and both answers are thrown away.
+
+11
+00:00:39.700 --> 00:00:44.261
+Around each call, with withTimeoutOrNull, only Eastgate is cut off.
+
+12
+00:00:44.261 --> 00:00:45.350
+It becomes null.
+
+13
+00:00:45.350 --> 00:00:48.957
+The answers that arrived still count, and Fjord wins.
+
+14
+00:00:49.867 --> 00:00:52.841
+Now a rougher run, with no tight deadline.
+
+15
+00:00:52.841 --> 00:00:55.320
+Northbank fails at 50 milliseconds.
+
+16
+00:00:55.533 --> 00:00:59.515
+Inside coroutineScope, the three calls are one unit of work.
+
+17
+00:00:59.515 --> 00:01:03.099
+One failure cancels the others, and the request fails.
+
+18
+00:01:03.700 --> 00:01:05.727
+A quote needs any one answer.
+
+19
+00:01:05.727 --> 00:01:08.663
+supervisorScope lets each call fail alone.
+
+20
+00:01:08.867 --> 00:01:12.917
+At 100 milliseconds, Fjord's own HTTP client gives up.
+
+21
+00:01:12.917 --> 00:01:18.693
+It throws TimeoutCancellationException, which is a CancellationException too.
+
+22
+00:01:18.900 --> 00:01:24.283
+Rethrow every cancel, the usual rule, and Fjord's timeout ends your whole request.
+
+23
+00:01:24.900 --> 00:01:27.982
+So ask first: was my own coroutine cancelled?
+
+24
+00:01:27.982 --> 00:01:32.572
+ensureActive throws only if it was, say because the client hung up.
+
+25
+00:01:32.800 --> 00:01:33.986
+Here it wasn't.
+
+26
+00:01:33.986 --> 00:01:38.253
+Fjord just has no answer, and Eastgate answers at 300.
+
+27
+00:01:40.367 --> 00:01:41.067
+Last case.
+
+28
+00:01:41.067 --> 00:01:43.027
+All three miss the deadline.
+
+29
+00:01:43.027 --> 00:01:46.808
+Waiting breaks the deadline, and failing helps nobody.
+
+30
+00:01:47.033 --> 00:01:51.578
+So serve the last good quote, marked stale, and let the client decide.
+
+31
+00:01:51.578 --> 00:01:53.916
+Only live answers refresh the cache.
+
+32
+00:01:54.833 --> 00:01:59.021
+Here it is in Kotlin, with the Java version in Reactor below it.
+
+33
+00:02:00.833 --> 00:02:01.432
+The rule.
+
+34
+00:02:01.432 --> 00:02:08.420
+Start every call together, give each the deadline, let each fail alone, and rethrow only your own cancel.
+
+35
+00:02:08.633 --> 00:02:09.726
+Check yourself.
+
+36
+00:02:09.726 --> 00:02:12.638
+You rethrow every CancellationException.
+
+37
+00:02:12.638 --> 00:02:15.915
+Fjord's client times out at 100 milliseconds.
+
+38
+00:02:15.915 --> 00:02:18.900
+What happens to Eastgate's answer at 300?
+
+39
+00:02:21.633 --> 00:02:22.811
+It never counts.
+
+40
+00:02:22.811 --> 00:02:28.111
+The request fails at 100 milliseconds with TimeoutCancellationException.

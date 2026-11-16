@@ -93,7 +93,7 @@ class Perf07Investigation(VoiceScene):
                           .set_fill(RED_M, 0.55).move_to([g, -1.5, 0]) for g in GCX])
         gc_n = T("130 GCs, 996 ms of GC time", 24, GREY_A).move_to([X0, -2.35, 0], aligned_edge=LEFT)
         self.beat("What do the slow ones have in common?")
-        self.wait(1.0)
+        self.wait(0.7)
         guides = VGroup(*[DashedLine([g, -1.2, 0], [g, -0.05, 0], dash_length=0.08, stroke_width=1.5, color=RED_M)
                           for g in GCX])
         self.beat("Each lands on a garbage collection pause.", FadeIn(gc_l), FadeIn(pauses, shift=UP * 0.2),
@@ -179,7 +179,7 @@ class Perf07Investigation(VoiceScene):
         for i, (n, c) in enumerate([("Formatter.parse", GREY_B), ("String.format", GREY_B),
                                     ("feeSlow, line 24", YELLOW_M)]):
             r = RoundedRectangle(corner_radius=0.1, width=4.2, height=0.62, stroke_color=c, stroke_width=2.5)
-            r.set_fill(dark(c) if c == YELLOW_M else BLACK, 1).move_to([PX + 0.3, 2.0 - 0.72 * i, 0])
+            r.set_fill(dark(YELLOW_M) if i == 2 else BLACK, 1).move_to([PX + 0.3, 2.0 - 0.72 * i, 0])
             fr.add(VGroup(r, M(n, 24, c).move_to(r)))
         tags = VGroup(T("JDK", 22, GREY_B).next_to(VGroup(fr[0], fr[1]), LEFT, buff=0.35),
                       T("yours", 22, YELLOW_M).next_to(fr[2], LEFT, buff=0.35))
@@ -192,16 +192,16 @@ class Perf07Investigation(VoiceScene):
         self.play(FadeOut(VGroup(stk_t, fr, tags, ptr)), run_time=0.5)
 
         # bar chart of allocation by your line
-        UNIT = 3.1 / 100
+        UNIT = 2.9 / 100
 
         def rows(data, top=2.35):
             g = VGroup()
             for k, (lab, pct, col) in enumerate(data):
                 y = top - 0.62 * k
                 l = M(lab, 22, col).move_to([-1.65, y, 0], aligned_edge=LEFT)
-                p = M(f"{pct:.1f}%", 22, col).move_to([3.05, y, 0], aligned_edge=RIGHT)
+                p = M(f"{pct:.1f}%", 22, col).move_to([3.4, y, 0], aligned_edge=RIGHT)
                 b = Rectangle(width=max(0.04, pct * UNIT), height=0.36, stroke_width=0).set_fill(col, 0.85)
-                b.move_to([3.25, y, 0], aligned_edge=LEFT)
+                b.move_to([3.55, y, 0], aligned_edge=LEFT)
                 g.add(VGroup(l, p, b))
             return g
 
@@ -225,14 +225,15 @@ class Perf07Investigation(VoiceScene):
         v0 = tvals("604,529", "< 13.6 ms", "130")
         self.play(*light(3), FadeIn(tiles), FadeIn(tlab), FadeIn(v0), run_time=0.8)
         fix1 = VGroup(M("static final Pattern, constants", 22, GREY_A), M("if (debugEnabled) debug(...)", 22, GREY_A))
-        fix1.arrange(DOWN, aligned_edge=LEFT, buff=0.14).move_to([PX, -0.05, 0])
+        fix1.arrange(DOWN, aligned_edge=LEFT, buff=0.14).move_to([PX, -0.4, 0])
         seq(self, "Round one fixes the three obvious costs. Build the pattern and the constants once. Format the log "
                   "line only when DEBUG is on.",
             ([FadeOut(lognote)], 0.4),
             ([*[r.animate.set_opacity(0.25) for r in (r0[0], r0[2], r0[3])], FadeIn(fix1)], 1.6))
         v1 = tvals("3,355,692", "< 35.6 μs", "79")
-        self.beat("Throughput goes from 600 thousand to 3.3 million calls a second. The tail drops from over 13 "
-                  "milliseconds to under 36 microseconds.", *[Transform(a, b) for a, b in zip(v0, v1)], run_time=1.6)
+        self.beat("The tail drops from over 13 milliseconds to under 36 microseconds.",
+                  LaggedStart(AnimationGroup(*[FadeOut(a, shift=UP * 0.15) for a in v0]),
+                              AnimationGroup(*[FadeIn(b, shift=UP * 0.15) for b in v1]), lag_ratio=1.0), run_time=1.2)
 
         # ---------------- profile again ----------------
         dot = Dot(radius=0.1, color=YELLOW_M).set_z_index(6)
@@ -241,7 +242,7 @@ class Perf07Investigation(VoiceScene):
         seq(self, "Now profile again. What leads?",
             ([*light(1), FadeOut(r0), FadeOut(fix1), MoveAlongPath(dot, path), Indicate(again_l, color=YELLOW_M)], 1.2),
             ([FadeOut(dot), FadeIn(qm)], 0.4))
-        self.wait(1.5)
+        self.wait(1.2)
         r1 = rows([("line 35  CCY.matcher", 75.4, MAT), ("line 36  new BigDecimal", 24.0, WORK)])
         mnote = T("a new Matcher on every call", 24, MAT).move_to([PX, 0.55, 0])
         self.beat("A Matcher, made on every call. It was there from the start, hidden under bigger costs.",
@@ -249,11 +250,12 @@ class Perf07Investigation(VoiceScene):
                   run_time=1.8)
 
         # ---------------- round 2 ----------------
-        fix2 = M("plain loop: 3 letters, A to Z", 22, GREY_A).move_to([PX, -0.05, 0])
+        fix2 = M("plain loop: 3 letters, A to Z", 22, GREY_A).move_to([PX, -0.4, 0])
         v2 = tvals("4,292,668", "< 28.4 μs", "37")
         seq(self, "Three letters don't need a regex. Round two uses a plain loop. Collections drop to 37.",
             ([*light(3), FadeOut(mnote), FadeIn(fix2), r1[0].animate.set_opacity(0.25)], 1.4),
-            ([*[Transform(a, b) for a, b in zip(v0, v2)]], 1.2))
+            ([LaggedStart(AnimationGroup(*[FadeOut(a, shift=UP * 0.15) for a in v1]),
+                          AnimationGroup(*[FadeIn(b, shift=UP * 0.15) for b in v2]), lag_ratio=1.0)], 1.0))
         dot2 = Dot(radius=0.1, color=YELLOW_M).set_z_index(6)
         r2 = rows([("new BigDecimal(amount)", 99.9, WORK)])
         wnote = T("parsing the amount: the real work, so stop", 24, WORK).move_to([PX, 1.25, 0])
@@ -261,7 +263,7 @@ class Perf07Investigation(VoiceScene):
             ([*light(1), FadeOut(r1), FadeOut(fix2), MoveAlongPath(dot2, path)], 1.2),
             ([FadeOut(dot2), FadeIn(r2, shift=RIGHT * 0.2)], 0.8), 0.6,
             ([FadeIn(wnote)], 0.6))
-        self.play(FadeOut(VGroup(ch_t, r2, wnote, tiles, tlab, v0)), run_time=0.6)
+        self.play(FadeOut(VGroup(ch_t, r2, wnote, tiles, tlab, v2)), run_time=0.6)
 
         # ---------------- JMH and the budget ----------------
         YB, S = -2.3, 1 / 120
@@ -277,7 +279,8 @@ class Perf07Investigation(VoiceScene):
         nlab = VGroup(*[T(n, 24, GREY_B).move_to([x, YB - 0.35, 0]) for n, x in zip(["before", "round 1", "round 2"], bx)])
         axis = Line([-0.4, YB, 0], [5.2, YB, 0], stroke_width=2, color=GREY_C)
         jt = T("JMH -prof gc: bytes per call", 26, GREY_A).move_to([PX, 3.05, 0])
-        self.beat("JMH, with its GC profiler, proves it: 2,032 bytes per call, then 200, then 72.",
+        vlab[2].move_to([bx[2], YB + 100 * S + 0.32, 0])
+        self.beat("JMH proves it: 2,032 bytes per call, then 200, then 72.",
                   *light(4), FadeIn(jt), Create(axis), *[GrowFromEdge(b, DOWN) for b in bars], FadeIn(nlab),
                   FadeIn(vlab), run_time=2.4)
         self.add(gap, cut)
@@ -286,14 +289,13 @@ class Perf07Investigation(VoiceScene):
         by = YB + 100 * S
         bline = DashedLine([-0.4, by, 0], [5.2, by, 0], dash_length=0.12, stroke_width=3, color=YELLOW_M)
         blab = T("budget: 100 B", 24, YELLOW_M).next_to(bline, LEFT, buff=0.15)
-        seq(self, "A test keeps it fixed. It counts the bytes a hundred thousand warm calls allocate, and fails above "
-                  "a budget.",
+        seq(self, "A test keeps it fixed. After warm-up, it fails if the bytes per call go over a budget.",
             ([*light(5), Create(bline), FadeIn(blab)], 1.4),
             ([bars[0].animate.set_fill(dark(RED_M, 0.6), 1).set_stroke(RED_M),
               bars[1].animate.set_fill(dark(RED_M, 0.6), 1).set_stroke(RED_M),
               bars[2].animate.set_fill(dark(GREEN_M, 0.7), 1).set_stroke(GREEN_M)], 1.0))
         jdkn = T("round 1: 200 B on JDK 21, 128 B on JDK 25", 24, GREY_A).move_to([PX, 2.3, 0])
-        self.beat("Leave a margin. Round one is 200 bytes on JDK 21, but 128 on JDK 25.", FadeIn(jdkn), run_time=1.0)
+        self.beat("Leave a margin. The numbers move between JDK versions.", FadeIn(jdkn), run_time=1.0)
         self.play(FadeOut(VGroup(jt, axis, bars, gap, cut, vlab, nlab, bline, blab, jdkn, st, downs, again, again_l)),
                   run_time=0.7)
 
@@ -311,13 +313,13 @@ class Perf07Investigation(VoiceScene):
         cg = VGroup(titled("Java", jc), titled("Kotlin", kc)).arrange(DOWN, buff=0.45, aligned_edge=LEFT)
         cg.scale(min(1, 12.4 / cg.width)).move_to([0, 0.1, 0])
         self.beat("Here's that test in Java and Kotlin.", FadeIn(cg, shift=UP * 0.2), run_time=1.2)
-        self.wait(2.5)
-        self.play(FadeOut(cg), run_time=0.6)
+        self.wait(1.0)
+        self.play(FadeOut(cg), run_time=0.5)
 
         # ---------------- rule and check ----------------
         for s in st:
             s[0].set_stroke(GREY_B, width=2.5); s[1].set_color(WHITE)
-        self.play(FadeIn(st), FadeIn(downs), FadeIn(again), FadeIn(again_l), run_time=0.8)
+        self.play(FadeIn(st), FadeIn(downs), FadeIn(again), FadeIn(again_l), run_time=0.6)
         rule = VGroup(T("Start from the tail. Find your line.", 30), T("Fix one thing. Profile again.", 30),
                       T("Stop when what's left is real work.", 30)).arrange(DOWN, buff=0.22).move_to([PX, 2.0, 0])
         self.beat("The rule. Start from the tail, find your line, fix one thing, profile again, and stop at real work.",

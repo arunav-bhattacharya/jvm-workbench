@@ -1,0 +1,129 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:12.627
+Quarkus, Spring and Hibernate add behavior with proxies: subclasses they generate, which override your methods to run code before and after them.
+
+2
+00:00:12.833 --> 00:00:18.730
+But Kotlin classes and methods are final unless you write open, so the subclass can't exist.
+
+3
+00:00:18.730 --> 00:00:21.551
+And nobody keeps writing open on every bean.
+
+4
+00:00:22.433 --> 00:00:27.517
+A compiler plugin is a jar that kotlinc loads, to change what it emits.
+
+5
+00:00:27.733 --> 00:00:33.595
+all-open opens each class that carries an annotation you configure, and its members.
+
+6
+00:00:33.595 --> 00:00:35.619
+Here, that is OpenForProxies.
+
+7
+00:00:35.800 --> 00:00:39.799
+javap on the output shows public class, with no final.
+
+8
+00:00:39.799 --> 00:00:41.872
+Now a proxy can subclass it.
+
+9
+00:00:42.067 --> 00:00:47.215
+Private members, backing fields, and classes without the annotation stay as they were.
+
+10
+00:00:47.433 --> 00:00:52.261
+kotlin-spring is the same plugin, with Spring's annotations already listed.
+
+11
+00:00:52.533 --> 00:00:54.485
+Hibernate needs something else.
+
+12
+00:00:54.485 --> 00:01:00.717
+It builds an entity with a constructor that takes no parameters, then sets the fields from the row.
+
+13
+00:01:00.717 --> 00:01:04.180
+A Kotlin class with val id in its constructor has none.
+
+14
+00:01:04.367 --> 00:01:07.686
+no-arg adds that constructor to the classes you mark.
+
+15
+00:01:07.686 --> 00:01:11.505
+It's hidden from Kotlin, but Java and reflection can call it.
+
+16
+00:01:11.700 --> 00:01:14.860
+The catch: it doesn't run your property initializers.
+
+17
+00:01:14.860 --> 00:01:18.497
+So note is null, though Kotlin declared it a non-null String.
+
+18
+00:01:18.700 --> 00:01:22.725
+For an entity, Hibernate fills the mapped columns right after.
+
+19
+00:01:22.725 --> 00:01:25.711
+For anything else, turn on invokeInitializers.
+
+20
+00:01:25.967 --> 00:01:33.568
+Most JSON libraries on the JVM use reflection: at run time they look at the class and guess how to fill it.
+
+21
+00:01:33.800 --> 00:01:36.308
+kotlinx.serialization doesn't guess.
+
+22
+00:01:36.308 --> 00:01:45.227
+For each @Serializable class, the plugin writes a serializer class at compile time, with real serialize and deserialize methods.
+
+23
+00:01:46.400 --> 00:01:47.075
+The rule.
+
+24
+00:01:47.075 --> 00:01:52.322
+A compiler plugin changes what kotlinc emits for the classes you mark.
+
+25
+00:01:52.322 --> 00:01:59.369
+all-open removes final, no-arg adds an empty constructor, and serialization adds a serializer.
+
+26
+00:01:59.567 --> 00:02:00.643
+Quick check.
+
+27
+00:02:00.643 --> 00:02:07.457
+Kotlin 2.4.21's quarkus preset lists the javax ApplicationScoped annotation.
+
+28
+00:02:07.457 --> 00:02:11.402
+Your Quarkus 3 bean carries the jakarta one.
+
+29
+00:02:11.402 --> 00:02:12.927
+Is the bean open?
+
+30
+00:02:15.300 --> 00:02:15.517
+No.
+
+31
+00:02:15.517 --> 00:02:20.011
+The jakarta name isn't on that list, so the class stays final.
+
+32
+00:02:20.011 --> 00:02:22.765
+List the jakarta annotations yourself.

@@ -197,6 +197,54 @@
       "lesson": "pat-04",
       "section": 0,
       "title": "An adapter has your port's shape on one side and the SDK's on the other and translates calls, answers and errors; a facade is one front door that owns the order of the steps and the undo"
+    },
+    {
+      "slug": "pat03-prototype",
+      "lesson": "pat-03",
+      "section": 3,
+      "title": "A copy copies the arrow, not the object: two carts share one list until the list can't change and a change builds a new one; named and default arguments replace most builders"
+    },
+    {
+      "slug": "gen09-tokens",
+      "lesson": "gen-09",
+      "section": 0,
+      "title": "An object carries only its class: KClass and Class are two views of it, and only a KType, written by the compiler at a call site, keeps the type arguments"
+    },
+    {
+      "slug": "pat01-singleton",
+      "lesson": "pat-01",
+      "section": 1,
+      "title": "Two threads that check a null field both build an FxRates; the holder idiom lets the JVM's class-init lock build exactly one, and a class that needs it takes it through its constructor so a test can pass a fake"
+    },
+    {
+      "slug": "gen11-workshop",
+      "lesson": "gen-11",
+      "section": 3,
+      "title": "Typed keys: the key carries its value's type, so a read needs no cast and same-named keys don't collide, and the key stays invariant because it writes too"
+    },
+    {
+      "slug": "dop01-records",
+      "lesson": "dop-01",
+      "section": 0,
+      "title": "A record is its components and javac writes the rest; the canonical constructor is the one door every instance passes, and immutability stops at the list a field points to"
+    },
+    {
+      "slug": "kt05-contracts",
+      "lesson": "kt-05",
+      "section": 0,
+      "title": "The compiler smart-casts only from what it can see and never opens a function you call; a contract writes the guarantee on the outside, and the compiler believes it without checking"
+    },
+    {
+      "slug": "kt06-plugins",
+      "lesson": "kt-06",
+      "section": 0,
+      "title": "A proxy must subclass your class, and Kotlin classes are final; a compiler plugin changes what kotlinc emits: all-open drops final, no-arg adds a hidden empty constructor, serialization writes a serializer class"
+    },
+    {
+      "slug": "dop04-parse",
+      "lesson": "dop-04",
+      "section": 0,
+      "title": "One optional-field class allows 48 shapes and 3 make sense; three records under a sealed interface allow only those 3, one parse at the edge lets nothing else in, and the logic lives in functions over the data"
     }
   ]
 }

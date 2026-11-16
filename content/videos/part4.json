@@ -24,6 +24,9 @@
     {"slug": "mem06-gclog", "lesson": "mem-06", "section": 0, "title": "Each GC log line is an event on a timeline: pause lines stop every thread, concurrent ones run beside them; in a container the max heap defaults to 25% of the limit"},
     {"slug": "perf05-jfr", "lesson": "perf-05", "section": 0, "title": "JFR puts timestamped JVM events on one clock; a recording is a ring that keeps the newest within maxage or maxsize, and you read jfr summary first, then a view"},
     {"slug": "cls05-bytebuddy", "lesson": "cls-05", "section": 0, "title": "Byte Buddy writes a subclass at run time: its override calls an interceptor that runs code before and after your method, and a final method is never intercepted"},
-    {"slug": "boot01-slow-start", "lesson": "boot-01", "section": 0, "title": "Every launch repeats the same work: create the VM, load, parse and verify about 1,500 classes, interpret until the JIT has profiles, then the framework's own start-up"}
+    {"slug": "boot01-slow-start", "lesson": "boot-01", "section": 0, "title": "Every launch repeats the same work: create the VM, load, parse and verify about 1,500 classes, interpret until the JIT has profiles, then the framework's own start-up"},
+    {"slug": "perf07-investigation", "lesson": "perf-07", "section": 0, "title": "One loop from symptom to proof: read the tail and the GC count, group JFR by your own line, fix one thing, profile again, then prove it with JMH and keep it with an allocation budget"},
+    {"slug": "cls06-classfile", "lesson": "cls-06", "section": 0, "title": "A class file is bytes with a fixed layout; the ClassFile API parses them into elements, builds classes from builder lambdas, and transforms them as a flatMap: each element in, zero or more out"},
+    {"slug": "cap4-interceptors", "lesson": "cap4-02", "section": 0, "title": "An interceptor runs around a call and proceed() hands it on: a JDK proxy for a component with interfaces, a Byte Buddy subclass for one without, and retry only the smallest call that is safe to repeat"}
   ]
 }

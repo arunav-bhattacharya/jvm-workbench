@@ -122,8 +122,8 @@ def tint(color, k=0.14):
 
 
 C1, C2, LST, BAD, OK, VAL = BLUE_M, TEAL_M, YELLOW_M, RED_M, GREEN_M, GOLD_M   # two carts, the list, trouble, fix, values
-CX, Y1, Y2 = -2.3, 1.75, -0.85      # cart column and the two rows
-LX, LY = 3.5, 0.45                  # the list
+CX, Y1, Y2 = -2.3, 1.45, -1.15      # cart column and the two rows
+LX, LY = 3.5, 0.15                  # the list
 CW, CH = 3.3, 1.5
 
 
@@ -176,19 +176,19 @@ N = {
     "a5": "What does c1's list hold now?",
     "a6": "Both items. Nobody touched c1. But there is only one list, and both carts point at it.",
     "a7": "This is a shallow copy. It copies the fields, and shares every object they point to.",
-    "a8": "Kotlin's copy() works this way, and its docs say so. So does a Java record wither, and so does Object.clone().",
+    "a8": "Kotlin's copy() works this way, and its docs say so. So does a Java record wither, and Object.clone().",
     "b1": "So a copy is shallow until you make it deep, one nested object at a time. The simple way: store a list that can't change.",
     "b2": "Now c2 can't add to the shared list.",
     "b3": "To change c2's items, you build a new list: the old items plus sku-2. Only c2 points to it.",
-    "b4": "c1 still holds one item. Two lists, and no surprise.",
+    "b4": "And c1 still holds one item.",
     "b5": "In Kotlin, make the field a read-only List and change it with plus. "
           "In Java, wrap it with List.copyOf in the compact constructor, and let withers build a new list.",
-    "c1": "Copying is Prototype. Building an object from scratch has its own trap. Look at this call.",
+    "c1": "Building an object from scratch has a different trap. Look at this call.",
     "c2": "Which value is the timeout?",
-    "c3": "You have to count. Nothing at the call site tells you. The Java fix is a builder: a second class with one method per field.",
-    "c4": "Kotlin fixes it in the language. Every argument can carry its parameter's name, and every parameter can have a default.",
+    "c3": "You have to count. The Java fix is a builder: a second class with one method per field.",
+    "c4": "Kotlin fixes it in the language. Arguments can carry names, and parameters can have defaults.",
     "c5": "So the call sets the four values it needs, in any order, and the defaults fill the rest.",
-    "c6": "copy() gives you a changed copy. And checks in an init block run on every construction, copy included.",
+    "c6": "copy() gives you a changed copy. And checks in init run on every construction, copy included.",
     "c7": "Java has no named arguments. If Java code calls the class a lot, give it a real builder.",
     "r": "The rule. A copy shares every object its fields point to. Keep those objects unchangeable, and build a new one when you need a change.",
     "q": "Quick check. A Payment holds a MutableMap of metadata. You make p2 with p1.copy(), then put a retry key into p2's map. Does p1 see it?",
@@ -245,13 +245,13 @@ class Pat03Prototype(Beat):
                         (0, [FadeIn(rd, shift=DOWN * 0.1), Pulse(s1, BAD, 1.1), Pulse(s2, BAD, 1.1)], 0.8),
                         (2, [Pulse(r1, BAD, 1.03), Pulse(r2, BAD, 1.03)], 0.9)])
 
-        lab = T("shallow copy", 34, BAD).move_to([LX, 2.55, 0])
+        lab = T("shallow copy", 34, BAD).move_to([LX, 2.3, 0])
         self.say("a7", [(0, [Write(lab)], 0.8), (1, [Pulse(k2[0], C2, 1.04)], 0.7),
                         (1, [Pulse(r1, WHITE, 1.03), Pulse(r2, WHITE, 1.03)], 0.8)])
 
         kt = VGroup(T("Kotlin", 22, GREY_B), M('val c2 = c1.copy(id = "c2")', 24)).arrange(RIGHT, buff=0.3)
         jv = VGroup(T("Java", 22, GREY_B), M('var c2 = c1.withId("c2");', 24)).arrange(RIGHT, buff=0.3)
-        trap = VGroup(kt, jv).arrange(RIGHT, buff=1.0).move_to([0, -2.75, 0])
+        trap = VGroup(kt, jv).arrange(RIGHT, buff=1.0).move_to([0, -2.95, 0])
         fit(trap, 12.4)
         self.say("a8", [(0, [FadeIn(kt, shift=UP * 0.1)], 0.6), (1, [FadeIn(jv, shift=UP * 0.1)], 0.6)], after=0.5)
 
@@ -276,13 +276,15 @@ class Pat03Prototype(Beat):
         n2 = item("sku-2", C2).move_to(slot_pt(L2, 1))
         r2_new = ref(k2, L2, 0.0, C2)
         L2[1].next_to(L2[0], DOWN, buff=0.18)
+        n1c = s1.copy()      # a copy that moves (TransformFromCopy hid this chip under the new box)
         self.say("b3", [(0, [FadeOut(bump), FadeOut(no)], 0.4),
-                        (0, [FadeIn(L2), TransformFromCopy(s1, n1)], 0.9), (0, [FadeIn(n2, shift=LEFT * 0.2)], 0.5),
+                        (0, [FadeIn(L2)], 0.5), (0, lambda: [self.add(n1c) and None or n1c.animate.move_to(n1)], 0.8),
+                        (0, [FadeIn(n2, shift=LEFT * 0.2)], 0.5),
                         (1, [Transform(r2, r2_new)], 0.8), (1, [Pulse(L2[0], C2, 1.05)], 0.6)])
 
         rd2 = M("c1.skus = [sku-1]", 26, OK).move_to([CX, 2.75, 0])
         self.say("b4", [(0, [run_dot(k1[5].get_center(), r1.get_end(), C1, 0.8)], 0.8), (0, [FadeIn(rd2, shift=DOWN * 0.1)], 0.6),
-                        (1, [Pulse(L[0], C1, 1.04), Pulse(L2[0], C2, 1.04)], 0.8)], after=0.5)
+                        (0, [Pulse(L[0], C1, 1.04), Pulse(L2[0], C2, 1.04)], 0.8)], after=0.5)
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
 
         # ---------- the code
@@ -307,7 +309,7 @@ class Pat03Prototype(Beat):
         self.say("b5", [(0, [FadeIn(kg, shift=UP * 0.15)], 0.7), (0, [mark(part(kl[2], "List<String>"), OK, 0.4)], 1.2),
                         (0, [mark(part(kl[5], 'c1.skus + "sku-2"'), OK, 0.4)], 1.2),
                         (1, [FadeIn(jg, shift=UP * 0.15)], 0.7), (1, [mark(part(jl[3], "List.copyOf(skus)"), OK, 0.4)], 1.2)],
-                 after=0.6)
+                 after=0.4)
         self.play(FadeOut(both), run_time=0.6)
 
         # ---------- builder: the telescoping call
@@ -317,12 +319,12 @@ class Pat03Prototype(Beat):
         val_parts = [part(tele, 'null', 0), part(tele, 'null', 1), part(tele, 'true'), part(tele, ' 2,'), part(tele, '30_000')]
         self.say("c1", [(1, [FadeIn(tele, shift=UP * 0.1)], 0.8)])
         self.say("c2", [(0, [LaggedStart(*[Indicate(p, color=VAL, scale_factor=1.15) for p in val_parts], lag_ratio=0.25)], 1.6)],
-                 after=1.4)
+                 after=1.2)
         bl = code(['ChargeRequest.builder(1_250, "EUR", "tok_42").maxRetries(2).build();'], 24)[0]
         fit(bl, 12.4).move_to([0, -0.4, 0])
         bnote = T("a second class, one method per field", 24, GREY_B).next_to(bl, DOWN, buff=0.3)
         self.say("c3", [(0, [mark(part(tele, '30_000'), BAD, 0.6)], 1.4),
-                        (2, [FadeIn(bl, shift=UP * 0.1)], 0.7), (2, [FadeIn(bnote)], 0.5)])
+                        (1, [FadeIn(bl, shift=UP * 0.1)], 0.7), (1, [FadeIn(bnote)], 0.5)])
 
         # ---------- named and default arguments
         kc = code(['ChargeRequest(amountMinor = 1_250, currency = "EUR",',
@@ -360,7 +362,7 @@ class Pat03Prototype(Beat):
                         (1, [mark(it, OK, 0.5)], 1.2)])
         jn = T("Java callers: no names, so give them a builder", 26, GREY_A)
         fit(jn, 6.0).next_to(side, DOWN, buff=0.7, aligned_edge=LEFT)
-        self.say("c7", [(0, [FadeIn(jn, shift=UP * 0.1)], 0.7)], after=0.6)
+        self.say("c7", [(0, [FadeIn(jn, shift=UP * 0.1)], 0.7)], after=0.4)
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
 
         # ---------- rule and check
@@ -375,4 +377,4 @@ class Pat03Prototype(Beat):
         ans = T("Yes. copy() copied the arrow, not the map: one map, two payments.", 28, OK)
         fit(ans, 12.4).move_to([0, -2.1, 0])
         self.say("ans", [(0, [FadeIn(ans, shift=UP * 0.1)], 0.7)])
-        self.wait(1.0)
+        self.wait(0.8)
