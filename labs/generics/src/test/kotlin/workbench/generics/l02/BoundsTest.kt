@@ -6,22 +6,22 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class BoundsTest {
-    // our own Comparable type: amounts compare by minor units (cents)
-    private data class Money(val cents: Long) : Comparable<Money> {
-        override fun compareTo(other: Money): Int = cents.compareTo(other.cents)
+    // our own Comparable type: a weight in grams
+    private data class Grams(val value: Int) : Comparable<Grams> {
+        override fun compareTo(other: Grams): Int = value.compareTo(other.value)
     }
 
     // a type that is BOTH a CharSequence and Comparable, so it fits the where clause
-    private class MerchantCode(private val raw: String) : CharSequence by raw, Comparable<MerchantCode> {
-        override fun compareTo(other: MerchantCode): Int = raw.compareTo(other.raw)
+    private class ShelfCode(private val raw: String) : CharSequence by raw, Comparable<ShelfCode> {
+        override fun compareTo(other: ShelfCode): Int = raw.compareTo(other.raw)
         override fun toString(): String = raw
     }
 
     @Test
     fun `maxOfAll works for any Comparable type`() {
         assertThat(maxOfAll(listOf(3, 41, 7))).isEqualTo(41)
-        assertThat(maxOfAll(listOf("EUR", "USD", "GBP"))).isEqualTo("USD")
-        assertThat(maxOfAll(listOf(Money(1_200), Money(99_000), Money(350)))).isEqualTo(Money(99_000))
+        assertThat(maxOfAll(listOf("fig", "pear", "kiwi"))).isEqualTo("pear")
+        assertThat(maxOfAll(listOf(Grams(180), Grams(240), Grams(150)))).isEqualTo(Grams(240))
         assertThat(maxOfAll(listOf(LocalDate.of(2026, 3, 1), LocalDate.of(2026, 1, 9)))).isEqualTo(LocalDate.of(2026, 3, 1))
     }
 
@@ -32,12 +32,12 @@ class BoundsTest {
 
     @Test
     fun `a Window contains its ends and what is between them`() {
-        val amounts = Window(Money(1_000), Money(50_000))
-        assertThat(Money(1_000) in amounts).isTrue()
-        assertThat(Money(50_000) in amounts).isTrue()
-        assertThat(Money(20_000) in amounts).isTrue()
-        assertThat(Money(999) in amounts).isFalse()
-        assertThat(Money(50_001) in amounts).isFalse()
+        val frontShelf = Window(Grams(150), Grams(250))
+        assertThat(Grams(150) in frontShelf).isTrue()
+        assertThat(Grams(250) in frontShelf).isTrue()
+        assertThat(Grams(200) in frontShelf).isTrue()
+        assertThat(Grams(149) in frontShelf).isFalse()
+        assertThat(Grams(251) in frontShelf).isFalse()
     }
 
     @Test
@@ -65,16 +65,16 @@ class BoundsTest {
 
     @Test
     fun `shortestLabel picks the shortest, then the smallest on a tie`() {
-        assertThat(shortestLabel(listOf("SEPA", "ACH", "BACS", "CHAPS"))).isEqualTo("ACH")
-        assertThat(shortestLabel(listOf("USD", "EUR", "GBPX"))).isEqualTo("EUR")
-        val codes = listOf(MerchantCode("MC-0042"), MerchantCode("MC-7"), MerchantCode("MC-1"))
-        assertThat(shortestLabel(codes).toString()).isEqualTo("MC-1")
+        assertThat(shortestLabel(listOf("pear", "fig", "kiwi", "mango"))).isEqualTo("fig")
+        assertThat(shortestLabel(listOf("yam", "fig", "plum"))).isEqualTo("fig")
+        val codes = listOf(ShelfCode("S-0042"), ShelfCode("S-7"), ShelfCode("S-1"))
+        assertThat(shortestLabel(codes).toString()).isEqualTo("S-1")
     }
 
     @Test
     fun `coalesce returns the first non-null value, typed as non-null`() {
-        val currency: String = coalesce(null, "EUR", "USD")   // String, not String?
-        assertThat(currency).isEqualTo("EUR")
+        val variety: String = coalesce(null, "Gala", "Fuji")   // String, not String?
+        assertThat(variety).isEqualTo("Gala")
         assertThat(coalesce<Int>(null, null, 3)).isEqualTo(3)
     }
 

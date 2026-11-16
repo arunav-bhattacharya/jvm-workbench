@@ -30,10 +30,10 @@ fun main() = runBlocking {
 
     // like switchMap: a new item cancels the block still running for the previous one
     val latest = flow {
-        emit("EUR"); delay(50)
-        emit("GBP"); delay(250)
-        emit("JPY")
-    }.mapLatest { ccy -> delay(100); "$ccy=quote" }.onEach { println("quote $it") }.toList()
+        emit("small"); delay(50)
+        emit("medium"); delay(250)
+        emit("large")
+    }.mapLatest { size -> delay(100); "$size=price" }.onEach { println("price $it") }.toList()
 
     println("flatMapMerge: $merged, map: $sequential, mapLatest: $latest")
 }

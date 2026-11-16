@@ -8,7 +8,7 @@ import java.time.Duration
 fun main() {
     println("1. synchronous inners:")
     Flux.range(1, 3)
-        .flatMap { i -> Mono.fromCallable { "score $i on ${Thread.currentThread().name}" } }
+        .flatMap { i -> Mono.fromCallable { "iced cake $i on ${Thread.currentThread().name}" } }
         .doOnNext { s -> println("  $s") }
         .blockLast()
 
@@ -16,7 +16,7 @@ fun main() {
     Flux.range(1, 3)
         .flatMap { i ->
             Mono.delay(Duration.ofMillis(100L * (4 - i)))
-                .map { "score $i on ${Thread.currentThread().name}" }
+                .map { "iced cake $i on ${Thread.currentThread().name}" }
         }
         .doOnNext { s -> println("  $s") }
         .blockLast()

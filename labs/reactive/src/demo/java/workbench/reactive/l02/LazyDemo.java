@@ -8,23 +8,23 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class LazyDemo {
     static final AtomicInteger calls = new AtomicInteger();
 
-    static String fetchFxRate() {
+    static String fetchFlourPrice() {
         calls.incrementAndGet();
-        return "EURUSD=1.08";
+        return "flour=1.20/kg";
     }
 
     public static void main(String[] args) {
-        run("just", () -> Mono.just(fetchFxRate()));
-        run("fromCallable", () -> Mono.fromCallable(LazyDemo::fetchFxRate));
-        run("defer", () -> Mono.defer(() -> Mono.just(fetchFxRate())));
+        run("just", () -> Mono.just(fetchFlourPrice()));
+        run("fromCallable", () -> Mono.fromCallable(LazyDemo::fetchFlourPrice));
+        run("defer", () -> Mono.defer(() -> Mono.just(fetchFlourPrice())));
     }
 
     static void run(String name, java.util.function.Supplier<Mono<String>> build) {
         calls.set(0);
-        Mono<String> rate = build.get();
+        Mono<String> price = build.get();
         int atAssembly = calls.get();
-        rate.block();
-        rate.block();
+        price.block();
+        price.block();
         System.out.printf("%-13s calls at assembly: %d, after 2 subscriptions: %d%n", name, atAssembly, calls.get());
     }
 }

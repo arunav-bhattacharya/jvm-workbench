@@ -433,12 +433,12 @@ class Vt05Structured(Narrated):
 
         s_bar = bar(Y0, P2, 0, 100, S_Y, STOCK, "stock check")
         b_bar = bar(Y0, P2, 0, 112, B_Y, BANK)
-        xs = tick(False, 0.17).move_to([x2(100) + 0.25, S_Y, 0])
-        first = T("throws: the first failure", 22, FAIL).move_to([x2(100) + 0.55, S_Y, 0], aligned_edge=LEFT)
+        xs = tick(False, 0.17).move_to([x2(100) - 0.22, S_Y, 0]).set_z_index(4)
+        first = T("throws: the first failure", 22, FAIL).move_to([x2(100) + 0.3, S_Y, 0], aligned_edge=LEFT)
         zz = VMobject(stroke_color=GOLD_M, stroke_width=4).set_points_as_corners(
-            [[x2(100) + 0.05, S_Y - 0.25, 0], [x2(100) + 0.2, S_Y - 0.42, 0], [x2(100) + 0.02, S_Y - 0.5, 0],
-             [x2(100) + 0.18, B_Y + 0.25, 0]])
-        intr = T("interrupt", 22, GOLD_M).move_to([x2(100) + 0.45, (S_Y + B_Y) / 2, 0], aligned_edge=LEFT)
+            [[x2(100) - 0.1, S_Y - 0.25, 0], [x2(100) - 0.25, S_Y - 0.42, 0], [x2(100) - 0.07, S_Y - 0.5, 0],
+             [x2(100) - 0.22, B_Y + 0.25, 0]])
+        intr = T("interrupt", 22, GOLD_M).move_to([x2(100) - 0.4, (S_Y + B_Y) / 2, 0], aligned_edge=RIGHT)
         stop_b = T("the bank wakes up and stops", 22, BANK).move_to([x2(112) + 0.55, B_Y, 0], aligned_edge=LEFT)
         self.say("trace")
         self.play(FadeOut(tq), GrowFromEdge(s_bar, LEFT), GrowFromEdge(b_bar, LEFT), run_time=1.0)

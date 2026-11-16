@@ -2,7 +2,7 @@ package workbench.generics.l02
 
 /**
  * A closed window of values from [start] to [endInclusive], both included.
- * Works for any comparable type: amounts, dates, version numbers, strings.
+ * Works for any comparable type: weights, dates, version numbers, strings.
  *
  * Write the bodies. Every comparison goes through the bound `T : Comparable<T>`.
  */

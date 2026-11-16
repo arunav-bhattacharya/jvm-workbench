@@ -6,17 +6,17 @@ import java.util.List;
 /** Java twin of ClassVsTypeDemo.kt. Classes exist at run time; types are what javac checks. */
 public class ClassVsTypeDemoJava {
     public static void main(String[] args) {
-        List<String> ids = new ArrayList<>(List.of("pay_1"));
-        List<Integer> amounts = new ArrayList<>(List.of(1200));
+        List<String> varieties = new ArrayList<>(List.of("Gala"));
+        List<Integer> weights = new ArrayList<>(List.of(180));
 
         // the JVM sees one class for both lists
-        System.out.println("same runtime class:  " + (ids.getClass() == amounts.getClass()) + "  (" + ids.getClass().getName() + ")");
+        System.out.println("same runtime class:  " + (varieties.getClass() == weights.getClass()) + "  (" + varieties.getClass().getName() + ")");
         // Java has one List interface; there is no read-only List type to compare it with
         System.out.println("List.class:  " + List.class);
 
         // Java types carry no nullability: every String variable may hold null
-        String maybe = ids.isEmpty() ? null : ids.get(0);
-        String sure = "EUR";
+        String maybe = varieties.isEmpty() ? null : varieties.get(0);
+        String sure = "Fuji";
         String widened = sure;
         System.out.println("maybe holds '" + maybe + "', widened holds '" + widened + "'");
 

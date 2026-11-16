@@ -1,6 +1,6 @@
-// Java equivalent of LeakedWork.kt: a request thread hands the refund to a shared pool.
-// Interrupting the request (the client gave up) does not reach the pool's task.
-// Pass "fixed" to run the refund in the request's own thread, so the interrupt stops it.
+// Java equivalent of LeakedWork.kt: the dinner thread hands the stock pot to a shared pool.
+// Interrupting the dinner (the guests called it off) does not reach the pool's task.
+// Pass "fixed" to simmer the stock in the dinner's own thread, so the interrupt stops it.
 package workbench.coroutines.l03;
 
 import java.util.concurrent.ExecutorService;
@@ -15,28 +15,28 @@ public class LeakedWorkJava {
     static long start;
     static long ms() { return (System.nanoTime() - start) / 1_000_000; }
 
-    static void refundSteps(String id) throws InterruptedException {
+    static void simmerStock(String pot) throws InterruptedException {
         for (int step = 0; step < 6; step++) {
             Thread.sleep(100);
-            System.out.printf("  [%d ms] refund %s: step %d%n", ms(), id, step);
+            System.out.printf("  [%d ms] %s: still simmering, step %d%n", ms(), pot, step);
         }
     }
 
     public static void main(String[] args) throws InterruptedException {
         boolean structured = args.length > 0 && args[0].equals("fixed");
         start = System.nanoTime();
-        Thread request = Thread.ofVirtual().start(() -> {
+        Thread dinner = Thread.ofVirtual().start(() -> {
             try {
-                if (structured) refundSteps("r-17");                 // part of the request
-                else SHARED.submit(() -> { refundSteps("r-17"); return null; }); // an orphan
-                Thread.sleep(10_000);                                // the request goes on to other things
+                if (structured) simmerStock("stock pot");                            // part of the dinner
+                else SHARED.submit(() -> { simmerStock("stock pot"); return null; }); // an orphan
+                Thread.sleep(10_000);                                                // the dinner goes on
             } catch (InterruptedException e) {
-                // the request was cancelled
+                // the dinner was cancelled
             }
         });
         Thread.sleep(250);
-        request.interrupt();
-        System.out.printf("[%d ms] request interrupted (client gave up)%n", ms());
+        dinner.interrupt();
+        System.out.printf("[%d ms] dinner interrupted (the guests called it off)%n", ms());
         Thread.sleep(500);
         System.out.printf("[%d ms] main done%n", ms());
     }

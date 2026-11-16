@@ -13,68 +13,68 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LazinessTest {
     private final AtomicInteger calls = new AtomicInteger();
 
-    private final IssuerApi issuer = paymentId -> {
+    private final OrderBook book = orderId -> {
         calls.incrementAndGet();
-        if (paymentId.equals("boom")) throw new IllegalStateException("issuer down");
-        if (paymentId.equals("unknown")) return null;
-        return "SETTLED:" + paymentId;
+        if (orderId.equals("boom")) throw new IllegalStateException("order book down");
+        if (orderId.equals("unknown")) return null;
+        return "READY:" + orderId;
     };
 
     @Test
-    @DisplayName("status() makes no issuer call until someone subscribes")
+    @DisplayName("status() makes no order book call until someone subscribes")
     void noCallAtAssembly() {
-        new PaymentLookup(issuer).status("p-1");
-        assertThat(calls).as("issuer calls after building the Mono").hasValue(0);
+        new OrderLookup(book).status("o-1");
+        assertThat(calls).as("order book calls after building the Mono").hasValue(0);
     }
 
     @Test
-    @DisplayName("status() calls the issuer once per subscription")
+    @DisplayName("status() calls the order book once per subscription")
     void oneCallPerSubscription() {
-        Mono<String> status = new PaymentLookup(issuer).status("p-1");
-        assertThat(status.block()).isEqualTo("SETTLED:p-1");
-        assertThat(status.block()).isEqualTo("SETTLED:p-1");
-        assertThat(calls).as("issuer calls after two subscriptions").hasValue(2);
+        Mono<String> status = new OrderLookup(book).status("o-1");
+        assertThat(status.block()).isEqualTo("READY:o-1");
+        assertThat(status.block()).isEqualTo("READY:o-1");
+        assertThat(calls).as("order book calls after two subscriptions").hasValue(2);
     }
 
     @Test
-    @DisplayName("an issuer failure arrives as onError, not as an exception from status()")
+    @DisplayName("an order book failure arrives as onError, not as an exception from status()")
     void failureIsASignal() {
-        Mono<String> status = new PaymentLookup(issuer).status("boom");   // must not throw here
+        Mono<String> status = new OrderLookup(book).status("boom");   // must not throw here
         StepVerifier.create(status)
-                .expectErrorMessage("issuer down")
+                .expectErrorMessage("order book down")
                 .verify();
     }
 
     @Test
-    @DisplayName("an unknown payment (issuer returns null) gives an empty Mono")
+    @DisplayName("an unknown order (the order book returns null) gives an empty Mono")
     void nullIsEmpty() {
-        StepVerifier.create(new PaymentLookup(issuer).status("unknown"))
+        StepVerifier.create(new OrderLookup(book).status("unknown"))
                 .verifyComplete();
     }
 
     @Test
-    @DisplayName("statuses() only calls the issuer for items the subscriber requests")
+    @DisplayName("statuses() only calls the order book for items the subscriber requests")
     void statusesAreLazy() {
-        var lookup = new PaymentLookup(issuer);
-        var all = lookup.statuses(List.of("p-1", "p-2", "p-3", "p-4", "p-5"));
-        assertThat(calls).as("issuer calls after building the Flux").hasValue(0);
+        var lookup = new OrderLookup(book);
+        var all = lookup.statuses(List.of("o-1", "o-2", "o-3", "o-4", "o-5"));
+        assertThat(calls).as("order book calls after building the Flux").hasValue(0);
 
         StepVerifier.create(all.take(2))
-                .expectNext("SETTLED:p-1", "SETTLED:p-2")
+                .expectNext("READY:o-1", "READY:o-2")
                 .verifyComplete();
-        assertThat(calls).as("issuer calls for take(2)").hasValue(2);
+        assertThat(calls).as("order book calls for take(2)").hasValue(2);
     }
 
     @Test
     @DisplayName("counted() counts every subscription and nothing else")
     void countsSubscriptions() {
         AtomicInteger subscriptions = new AtomicInteger();
-        Mono<String> mono = Subscriptions.counted(Mono.just("fx-rate"), subscriptions);
+        Mono<String> mono = Subscriptions.counted(Mono.just("price list"), subscriptions);
         assertThat(subscriptions).as("after building").hasValue(0);
 
-        assertThat(mono.block()).isEqualTo("fx-rate");
-        assertThat(mono.block()).isEqualTo("fx-rate");
-        StepVerifier.create(mono).expectNext("fx-rate").verifyComplete();
+        assertThat(mono.block()).isEqualTo("price list");
+        assertThat(mono.block()).isEqualTo("price list");
+        StepVerifier.create(mono).expectNext("price list").verifyComplete();
         assertThat(subscriptions).as("after three subscriptions").hasValue(3);
     }
 }

@@ -6,53 +6,53 @@ import java.util.concurrent.SubmissionPublisher
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
-private const val EVENTS = 100_000
+private const val LOAVES = 100_000
 
-/** A fast producer and a slow ledger writer, first with plain push, then with demand. */
+/** A fast oven and a slow packer, first with plain push, then with demand. */
 fun main() {
     pushWithoutDemand()
     pushWithDemand()
 }
 
-// Plain push: the producer hands every event to the writer's executor. Its queue has no limit.
+// Plain push: the oven hands every loaf to the packer's executor. Its queue has no limit.
 private fun pushWithoutDemand() {
-    val writer = Executors.newSingleThreadExecutor()
-    val written = AtomicLong()
+    val packer = Executors.newSingleThreadExecutor()
+    val boxed = AtomicLong()
     val t0 = System.nanoTime()
-    repeat(EVENTS) {
-        writer.execute { writeToLedger(); written.incrementAndGet() }
+    repeat(LOAVES) {
+        packer.execute { packLoaf(); boxed.incrementAndGet() }
     }
     val ms = (System.nanoTime() - t0) / 1_000_000
-    val w = written.get()
-    println("plain push:  producer done in %,5d ms, ledger wrote %,6d, %,6d events waiting in memory".format(ms, w, EVENTS - w))
-    writer.shutdownNow()
+    val b = boxed.get()
+    println("plain push:  oven done in %,5d ms, packer boxed %,7d, %,6d loaves waiting in memory".format(ms, b, LOAVES - b))
+    packer.shutdownNow()
 }
 
-// With demand: the writer asks for one event at a time. submit() blocks when the 256-slot buffer is full.
+// With demand: the packer asks for one loaf at a time. submit() blocks when the 256-slot buffer is full.
 private fun pushWithDemand() {
-    val written = AtomicLong()
+    val boxed = AtomicLong()
     var maxLag = 0L
     val t0 = System.nanoTime()
     SubmissionPublisher<Int>().use { publisher ->
         publisher.subscribe(object : Flow.Subscriber<Int> {
             private lateinit var s: Flow.Subscription
             override fun onSubscribe(s: Flow.Subscription) { this.s = s; s.request(1) }
-            override fun onNext(event: Int) { writeToLedger(); written.incrementAndGet(); s.request(1) }
+            override fun onNext(loaf: Int) { packLoaf(); boxed.incrementAndGet(); s.request(1) }
             override fun onError(t: Throwable) = t.printStackTrace()
             override fun onComplete() {}
         })
-        for (i in 0 until EVENTS) {
+        for (i in 0 until LOAVES) {
             publisher.submit(i)                                    // waits while the buffer is full
             maxLag = maxOf(maxLag, publisher.estimateMaximumLag().toLong())
         }
         val ms = (System.nanoTime() - t0) / 1_000_000
-        println("with demand: producer done in %,5d ms, ledger wrote %,6d, never more than %,d waiting".format(ms, written.get(), maxLag))
+        println("with demand: oven done in %,5d ms, packer boxed %,7d, never more than %,d waiting".format(ms, boxed.get(), maxLag))
     }
     TimeUnit.MILLISECONDS.sleep(50)
 }
 
-// stands in for a 10-microsecond ledger write
-private fun writeToLedger() {
+// stands in for 10 microseconds of packing one loaf
+private fun packLoaf() {
     val until = System.nanoTime() + 10_000
     while (System.nanoTime() < until) Thread.onSpinWait()
 }

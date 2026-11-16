@@ -11,8 +11,8 @@ import java.lang.reflect.WildcardType
  *
  * Kotlin keeps `out` and `in` in its own metadata, which plain Java reflection cannot read. But when
  * Kotlin compiles a parameter whose type is declared `out` (or `in`), it writes a Java wildcard into the
- * method's generic signature: a Kotlin `Feed<Payment>` parameter becomes `Feed<? extends Payment>` when
- * Feed is declared `out T`. These helpers read that signature, so a test can check your variance.
+ * method's generic signature: a Kotlin `Dispenser<Fruit>` parameter becomes `Dispenser<? extends Fruit>` when
+ * Dispenser is declared `out T`. These helpers read that signature, so a test can check your variance.
  */
 object JavaSignatures {
 
@@ -20,7 +20,7 @@ object JavaSignatures {
     fun param(className: String, method: String, index: Int = 0): Type =
         Class.forName(className).declaredMethods.single { it.name == method }.genericParameterTypes[index]
 
-    /** The generic Java parameter type rendered with simple names, such as `Feed<? extends Payment>`. */
+    /** The generic Java parameter type rendered with simple names, such as `Dispenser<? extends Fruit>`. */
     fun paramText(className: String, method: String, index: Int = 0): String = render(param(className, method, index))
 
     fun render(t: Type): String = when (t) {

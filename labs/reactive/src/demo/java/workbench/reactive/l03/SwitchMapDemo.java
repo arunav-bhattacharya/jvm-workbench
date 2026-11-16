@@ -4,7 +4,7 @@ import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 
-/** Card number lookup as the user types: each new prefix cancels the lookup for the previous one. */
+/** A search box on the bakery's website: each new prefix cancels the lookup for the previous one. */
 public class SwitchMapDemo {
     // a lookup that streams up to three suggestions, one every 60 ms
     static Flux<String> suggestions(String prefix) {
@@ -15,7 +15,7 @@ public class SwitchMapDemo {
     }
 
     public static void main(String[] args) {
-        Flux<String> typed = Flux.just("41", "4111").delayElements(Duration.ofMillis(100));   // at 100 ms and 200 ms
+        Flux<String> typed = Flux.just("cr", "cro").delayElements(Duration.ofMillis(100));   // at 100 ms and 200 ms
 
         var shown = typed
                 .switchMap(SwitchMapDemo::suggestions)

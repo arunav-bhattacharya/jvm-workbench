@@ -12,22 +12,22 @@ import java.util.Map;
  */
 public class InferenceDemoJava {
     public static void main(String[] args) {
-        var amounts = List.of(1200, 350, 99);
-        var mixed = List.of(1, 2.5);
-        var tags = Arrays.asList("card", null);
-        var fees = Map.of("EUR", 100, "USD", 250L);
-        var keys = new ArrayList<String>();             // Java has no buildList: say the type up front
-        keys.add("idem_1");
-        keys.add("idem_2");
-        var none = Collections.emptyList();             // no error in Java: what did it pick?
+        var weights = List.of(180, 150, 210);
+        var mixed = List.of(180, 2.5);
+        var tags = Arrays.asList("ripe", null);
+        var prices = Map.of("apple", 40, "mango", 250L);
+        var varieties = new ArrayList<String>();          // Java has no buildList: say the type up front
+        varieties.add("Gala");
+        varieties.add("Fuji");
+        var none = Collections.emptyList();               // no error in Java: what did it pick?
 
-        // int probe1 = amounts;
+        // int probe1 = weights;
         // int probe2 = mixed;
         // int probe3 = tags;
-        // int probe4 = fees;
-        // int probe5 = keys;
+        // int probe4 = prices;
+        // int probe5 = varieties;
         // int probe6 = none;
 
-        System.out.println("compiled: " + (amounts.size() + mixed.size() + tags.size() + fees.size() + keys.size() + none.size()) + " values");
+        System.out.println("compiled: " + (weights.size() + mixed.size() + tags.size() + prices.size() + varieties.size() + none.size()) + " values");
     }
 }

@@ -7,18 +7,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlin.system.measureTimeMillis
 
-private suspend fun quote(provider: String, latencyMs: Long): String {
-    delay(latencyMs) // stands in for a network call
-    return "$provider:${latencyMs}ms"
+private suspend fun price(grocer: String, latencyMs: Long): String {
+    delay(latencyMs) // stands in for a text message and its reply
+    return "$grocer:${latencyMs}ms"
 }
 
-private val latencies = listOf("northbank" to 300L, "fjord-fx" to 120L, "tidewater" to 200L)
+private val latencies = listOf("greengrocer" to 300L, "market" to 120L, "farm-stand" to 200L)
 
 suspend fun sequential(): List<String> =
-    latencies.map { (p, ms) -> quote(p, ms) }
+    latencies.map { (g, ms) -> price(g, ms) }
 
 suspend fun concurrent(): List<String> = coroutineScope {
-    latencies.map { (p, ms) -> async { quote(p, ms) } }.awaitAll()
+    latencies.map { (g, ms) -> async { price(g, ms) } }.awaitAll()
 }
 
 fun main() = runBlocking {

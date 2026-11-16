@@ -14,15 +14,15 @@ class Box<T>(var value: T) {
 fun <T> firstOrNull(items: List<T>): T? = if (items.isEmpty()) null else items[0]
 
 fun main() {
-    val currency = Box("EUR")          // Box<String>
-    val limit = Box(50_000L)           // Box<Long>
-    val old = currency.replace("USD")
-    println("currency was $old, now ${currency.value}")
-    println("limit is ${limit.value}")
-    println("first payment id: ${firstOrNull(listOf("pay_1", "pay_2"))}")
+    val variety = Box("Gala")          // Box<String>
+    val count = Box(12)                // Box<Int>
+    val old = variety.replace("Fuji")
+    println("variety was $old, now ${variety.value}")
+    println("count is ${count.value}")
+    println("first on the list: ${firstOrNull(listOf("Gala", "Fuji"))}")
 
     // Wrong moves. Uncomment ONE at a time, predict the error, then run.
-    // limit.replace("USD")
+    // count.replace("Fuji")
     // val wrong: Box<String> = Box(42)
-    // val id: String = firstOrNull(listOf("pay_1"))
+    // val first: String = firstOrNull(listOf("Gala"))
 }

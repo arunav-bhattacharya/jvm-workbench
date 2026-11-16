@@ -5,17 +5,17 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 class GenericsFromZeroTest {
-    private data class Payment(val id: String, val cents: Long)
+    private data class Apple(val variety: String, val grams: Int)
 
     @Test
     fun `pop returns items in the reverse order of push`() {
         val stack = Stack<String>()
-        stack.push("auth")
-        stack.push("capture")
-        stack.push("settle")
-        assertThat(stack.pop()).isEqualTo("settle")
-        assertThat(stack.pop()).isEqualTo("capture")
-        assertThat(stack.pop()).isEqualTo("auth")
+        stack.push("wash")
+        stack.push("sort")
+        stack.push("pack")
+        assertThat(stack.pop()).isEqualTo("pack")
+        assertThat(stack.pop()).isEqualTo("sort")
+        assertThat(stack.pop()).isEqualTo("wash")
     }
 
     @Test
@@ -33,11 +33,11 @@ class GenericsFromZeroTest {
 
     @Test
     fun `peek shows the top item without removing it, and is null when empty`() {
-        val stack = Stack<Payment>()
+        val stack = Stack<Apple>()
         assertThat(stack.peek()).isNull()
-        stack.push(Payment("pay_1", 1200))
-        val top: Payment? = stack.peek()          // typed as Payment?, no cast needed
-        assertThat(top).isEqualTo(Payment("pay_1", 1200))
+        stack.push(Apple("Gala", 180))
+        val top: Apple? = stack.peek()            // typed as Apple?, no cast needed
+        assertThat(top).isEqualTo(Apple("Gala", 180))
         assertThat(stack.size).isEqualTo(1)
     }
 
@@ -49,35 +49,35 @@ class GenericsFromZeroTest {
 
     @Test
     fun `firstMatching returns the first match, or null when nothing matches`() {
-        val payments = listOf(Payment("a", 500), Payment("b", 25_000), Payment("c", 90_000))
-        val big: Payment? = firstMatching(payments) { it.cents > 10_000 }
-        assertThat(big?.id).isEqualTo("b")
-        assertThat(firstMatching(payments) { it.cents < 0 }).isNull()
-        assertThat(firstMatching(listOf("EUR", "USD", "GBP")) { it.startsWith("U") }).isEqualTo("USD")
+        val apples = listOf(Apple("Gala", 150), Apple("Fuji", 210), Apple("Braeburn", 240))
+        val big: Apple? = firstMatching(apples) { it.grams > 200 }
+        assertThat(big?.variety).isEqualTo("Fuji")
+        assertThat(firstMatching(apples) { it.grams < 0 }).isNull()
+        assertThat(firstMatching(listOf("fig", "kiwi", "lime")) { it.startsWith("k") }).isEqualTo("kiwi")
     }
 
     @Test
     fun `indexBy keeps the first item for each key`() {
-        val payments = listOf(Payment("k1", 100), Payment("k2", 200), Payment("k1", 999))
-        val byId: Map<String, Payment> = indexBy(payments) { it.id }
-        assertThat(byId).hasSize(2)
-        assertThat(byId["k1"]).isEqualTo(Payment("k1", 100))
-        val byLength: Map<Int, String> = indexBy(listOf("EUR", "USDT", "GBP")) { it.length }
-        assertThat(byLength).containsExactlyEntriesOf(mapOf(3 to "EUR", 4 to "USDT"))
+        val apples = listOf(Apple("Gala", 150), Apple("Fuji", 210), Apple("Gala", 999))
+        val byVariety: Map<String, Apple> = indexBy(apples) { it.variety }
+        assertThat(byVariety).hasSize(2)
+        assertThat(byVariety["Gala"]).isEqualTo(Apple("Gala", 150))
+        val byLength: Map<Int, String> = indexBy(listOf("fig", "kiwi", "yam")) { it.length }
+        assertThat(byLength).containsExactlyEntriesOf(mapOf(3 to "fig", 4 to "kiwi"))
     }
 
     @Test
     fun `swap flips the values and the types`() {
-        val duo: Duo<String, Long> = Duo("pay_7", 4_200L)
-        val swapped: Duo<Long, String> = duo.swap()
-        assertThat(swapped).isEqualTo(Duo(4_200L, "pay_7"))
+        val duo: Duo<String, Int> = Duo("Gala", 180)
+        val swapped: Duo<Int, String> = duo.swap()
+        assertThat(swapped).isEqualTo(Duo(180, "Gala"))
     }
 
     @Test
     fun `mapSecond changes only the second value, and its type`() {
-        val duo = Duo("pay_7", 4_200L)
-        val shown: Duo<String, String> = duo.mapSecond { cents -> "%.2f EUR".format(java.util.Locale.ROOT, cents / 100.0) }
-        assertThat(shown).isEqualTo(Duo("pay_7", "42.00 EUR"))
+        val duo = Duo("Gala", 180)
+        val shown: Duo<String, String> = duo.mapSecond { grams -> "%.2f kg".format(java.util.Locale.ROOT, grams / 1000.0) }
+        assertThat(shown).isEqualTo(Duo("Gala", "0.18 kg"))
     }
 
     @Test

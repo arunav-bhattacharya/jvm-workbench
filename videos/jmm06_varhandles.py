@@ -195,6 +195,8 @@ def ladder():
     rails = VGroup(Line([-6.0, -3.05, 0], [-6.0, 2.65, 0]), Line([-3.3, -3.05, 0], [-3.3, 2.65, 0])).set_stroke(GREY_B, 4)
     rungs = VGroup(*[Line([-6.0, y, 0], [-3.3, y, 0], stroke_color=GREY_B, stroke_width=4) for y in RUNG_Y])
     chips = VGroup(*[chip(m, MODEC[k], size=24).move_to([-4.65, RUNG_Y[k], 0]).set_z_index(5) for k, m in enumerate(MODES)])
+    for k, c in enumerate(chips):
+        c[0].set_fill(dim(MODEC[k], 0.25), opacity=1)     # opaque, so the rung line doesn't show through
     return rails, rungs, chips
 
 
@@ -235,9 +237,11 @@ class Jmm06Varhandles(Narrated):
         self.play(LaggedStart(*[FadeIn(p, shift=RIGHT * 0.2) for p in ps], lag_ratio=0.15), run_time=0.7)
         self.at(1)
         order = [1, 0, 3, 2]
-        targets = [[4.2, 2.0 - 0.7 * k, 0] for k in range(4)]
+        targets = [[2.1 + 0.72 * k, -0.85, 0] for k in range(4)]
         self.play(*[ps[i].animate.move_to([1.0 + 0.7 * j, 1.6, 0]) for j, i in enumerate(order)], run_time=0.9)
         self.play(*[ps[i].animate.move_to(targets[j]) for j, i in enumerate(order)], run_time=0.9)
+        ooo = T("out of order", 22, GREY_B).next_to(VGroup(*ps), DOWN, buff=0.15)
+        self.play(FadeIn(ooo), run_time=0.4)
         self.hold()
 
         tagp = parcel(None, GOLD_M).move_to([-1.6, -1.9, 0])
@@ -257,15 +261,15 @@ class Jmm06Varhandles(Narrated):
         self.at(2)
         self.play(FadeIn(light, shift=UP * 0.1), run_time=0.6)
         self.hold()
-        self.play(FadeOut(VGroup(shop, rec, rec_l, cour, cour_l, ps, tagp, tag, sock, frag, no, light)), run_time=0.6)
+        self.play(FadeOut(VGroup(shop, rec, rec_l, cour, cour_l, ps, ooo, tagp, tag, sock, frag, no, light)), run_time=0.6)
 
         # ================= the map: reads and writes are parcels =================
         ta = chip_t("Thread A", TA, 26).move_to([-4.8, 2.4, 0])
         tb = chip_t("Thread B", TB, 26).move_to([4.8, 2.4, 0])
         p1 = VGroup(parcel(None, TA, 0.5), M("x = 1", 24, TA)).arrange(RIGHT, buff=0.15).move_to([-4.4, 1.5, 0])
         p2 = VGroup(parcel(None, TA, 0.5), M("read y", 24, TA)).arrange(RIGHT, buff=0.15).move_to([-4.4, 0.8, 0])
-        jit = chip_t("the JIT", COUR, 26).move_to([-1.9, -0.55, 0])
-        cpu = chip_t("the processor", COUR, 26).move_to([1.9, -0.55, 0])
+        jit = chip_t("the JIT", COUR, 26).move_to([-2.5, -0.55, 0])
+        cpu = chip_t("the processor", COUR, 26).move_to([2.5, -0.55, 0])
         cl = T("the courier", 26, COUR).move_to([0, 0.05, 0])
         jit_n = T("may move or skip reads and writes", 22, GREY_B).next_to(jit, DOWN, buff=0.2)
         cpu_n = T("may hold writes back", 22, GREY_B).next_to(cpu, DOWN, buff=0.2)
@@ -366,7 +370,7 @@ class Jmm06Varhandles(Narrated):
         # ================= the rungs =================
         txt = [rung_text(k) for k in range(4)]
         self.say("plain")
-        self.play(Indicate(chips[0], color=WHITE, scale_factor=1.08), FadeIn(txt[0][0]), run_time=0.7)
+        self.play(Indicate(chips[0][1], color=WHITE, scale_factor=1.15), FadeIn(txt[0][0]), run_time=0.7)
         self.at(1)
         self.play(FadeIn(txt[0][1], shift=LEFT * 0.1), run_time=0.5)
         self.at(3)
@@ -374,7 +378,7 @@ class Jmm06Varhandles(Narrated):
         self.hold()
 
         self.say("opaque")
-        self.play(Indicate(chips[1], color=MODEC[1], scale_factor=1.08), FadeIn(txt[1][0]), run_time=0.7)
+        self.play(Indicate(chips[1][1], color=MODEC[1], scale_factor=1.15), FadeIn(txt[1][0]), run_time=0.7)
         self.at(1)
         self.play(FadeIn(txt[1][1], shift=LEFT * 0.1), run_time=0.5)
         self.at(3)
@@ -382,7 +386,7 @@ class Jmm06Varhandles(Narrated):
         self.hold()
 
         self.say("relacq")
-        self.play(Indicate(chips[2], color=MODEC[2], scale_factor=1.08), FadeIn(txt[2][0]), run_time=0.7)
+        self.play(Indicate(chips[2][1], color=MODEC[2], scale_factor=1.15), FadeIn(txt[2][0]), run_time=0.7)
         self.at(1)
         self.play(FadeIn(txt[2][1], shift=LEFT * 0.1), run_time=0.5)
         self.at(2)
@@ -394,7 +398,7 @@ class Jmm06Varhandles(Narrated):
         self.hold()
 
         self.say("vol")
-        self.play(Indicate(chips[3], color=MODEC[3], scale_factor=1.08), FadeIn(txt[3][0]), run_time=0.7)
+        self.play(Indicate(chips[3][1], color=MODEC[3], scale_factor=1.15), FadeIn(txt[3][0]), run_time=0.7)
         self.play(FadeIn(txt[3][1], shift=LEFT * 0.1), run_time=0.5)
         self.at_text("like registered")
         self.play(FadeIn(txt[3][2], shift=LEFT * 0.1), run_time=0.5)
@@ -506,18 +510,21 @@ class Jmm06Varhandles(Narrated):
 
         # ================= the rule, the guardrail and testing =================
         rails, rungs, chips = ladder()
-        small = VGroup(rails, rungs, chips)
-        rule = VGroup(T("Each label adds one promise.", 32),
-                      T("Pick the lightest label whose promise you need,", 28, GOOD),
-                      T("and never a lighter one.", 28, BAD)).arrange(DOWN, aligned_edge=LEFT, buff=0.25).move_to([1.8, 0.4, 0])
+        up = Arrow([-6.4, -2.8, 0], [-6.4, 2.4, 0], buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.05)
+        txt = [rung_text(k) for k in range(4)]
+        full = VGroup(rails, rungs, chips, up, *txt)
+        rule = VGroup(T("Each label adds one promise.", 30),
+                      T("Pick the lightest whose promise you need, never a lighter one.", 30, GOOD)).arrange(RIGHT, buff=0.3)
+        fit(rule, 12.6)
+        rule.move_to([0, 3.12, 0])
         self.say("rule")
-        self.play(FadeIn(small), run_time=0.6)
+        self.play(FadeIn(VGroup(rails, rungs, chips, up, txt[0], txt[1], txt[3], txt[2][0], txt[2][1])), run_time=0.7)
+        self.play(FadeIn(txt[2][2], shift=LEFT * 0.1), Indicate(chips[2][1], color=MODEC[2], scale_factor=1.15), run_time=0.8)
         self.play(FadeIn(rule[0], shift=UP * 0.1), run_time=0.5)
         self.at(1)
         self.play(FadeIn(rule[1], shift=UP * 0.1), run_time=0.5)
-        self.play(FadeIn(rule[2], shift=UP * 0.1), run_time=0.5)
-        self.hold()
-        self.play(FadeOut(VGroup(small, rule)), run_time=0.6)
+        self.hold(after=1.5)
+        self.play(FadeOut(VGroup(full, rule)), run_time=0.6)
 
         gt = T("In everyday code, use:", 30).move_to([0, 2.6, 0])
         pref = VGroup(*[chip(t, GOOD, size=24) for t in ("a concurrent collection", "a volatile field", "an atomic class", "a lock")])

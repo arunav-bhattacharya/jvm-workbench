@@ -7,18 +7,18 @@ import java.util.concurrent.atomic.AtomicInteger
 fun main() {
     val mapped = AtomicInteger()
 
-    val fees: Flux<Int> = Flux.range(1, 3)
-        .map { cents ->
+    val pricesInCents: Flux<Int> = Flux.range(1, 3)
+        .map { euros ->
             mapped.incrementAndGet()
-            cents * 100
+            euros * 100
         }
     println("after assembly: map ran ${mapped.get()} times")
 
-    fees.subscribe { f -> println("fee $f") }
+    pricesInCents.subscribe { p -> println("price $p cents") }
     println("after subscribe: map ran ${mapped.get()} times")
 
     // A classic bug: the result of filter() is thrown away, so the filter is never part of the chain.
-    val amounts: Flux<Int> = Flux.just(5, 50, 500)
-    amounts.filter { a -> a > 10 }
-    amounts.subscribe { a -> println("amount $a") }
+    val orderSizes: Flux<Int> = Flux.just(5, 50, 500)
+    orderSizes.filter { loaves -> loaves > 10 }
+    orderSizes.subscribe { loaves -> println("big order: $loaves loaves") }
 }

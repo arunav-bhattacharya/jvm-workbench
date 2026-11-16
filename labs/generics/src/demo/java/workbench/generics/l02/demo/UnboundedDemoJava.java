@@ -12,8 +12,8 @@ public class UnboundedDemoJava {
     // static <T> T bigger(T a, T b) { return a.compareTo(b) >= 0 ? a : b; }
 
     public static void main(String[] args) {
-        System.out.println(describe("EUR"));
-        System.out.println(describe(978));
+        System.out.println(describe("Gala"));
+        System.out.println(describe(180));
         System.out.println(describe(null));       // any Java T accepts null
     }
 }

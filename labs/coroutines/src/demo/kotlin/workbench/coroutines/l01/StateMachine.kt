@@ -3,23 +3,23 @@ package workbench.coroutines.l01
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 
-suspend fun tokenize(pan: String): String {
-    delay(10) // pretend to call the vault
-    return "tok_" + pan.takeLast(4)
+suspend fun fryOnions(onions: String): String {
+    delay(10) // pretend the onions take a while to turn golden
+    return "golden $onions"
 }
 
-suspend fun authorize(token: String): String {
-    delay(10) // pretend to call the issuer
-    return "approved:$token"
+suspend fun simmer(base: String): String {
+    delay(10) // pretend the pot takes a while
+    return "sauce from $base"
 }
 
 /** Two suspension points, so the compiler builds a state machine with three states. */
-suspend fun chargeCard(pan: String): String {
-    val token = tokenize(pan)   // suspension point 1
-    val result = authorize(token) // suspension point 2
-    return result
+suspend fun makeSauce(onions: String): String {
+    val base = fryOnions(onions)   // suspension point 1
+    val sauce = simmer(base)       // suspension point 2
+    return sauce
 }
 
 fun main() = runBlocking {
-    println(chargeCard("4242424242424242"))
+    println(makeSauce("onions"))
 }

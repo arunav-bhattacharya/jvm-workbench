@@ -6,16 +6,16 @@ import reactor.core.publisher.Mono;
 /** A Flux and a Mono, subscribed with the three callbacks, with log() printing every signal. */
 public class FirstFluxDemo {
     public static void main(String[] args) {
-        Flux<String> authorizations = Flux.just("auth-1", "auth-2", "auth-3");
-        authorizations
+        Flux<String> loaves = Flux.just("rye-1", "rye-2", "rye-3");
+        loaves
                 .log()                                              // prints each signal that passes this point
                 .subscribe(
-                        a -> System.out.println("got " + a),         // onNext
+                        l -> System.out.println("got " + l),         // onNext
                         e -> System.out.println("failed: " + e),     // onError
                         () -> System.out.println("done"));           // onComplete
 
-        Mono<String> declined = Mono.error(new IllegalStateException("card declined"));
-        declined.subscribe(s -> System.out.println("got " + s));     // no error callback: watch what happens
+        Mono<String> cake = Mono.error(new IllegalStateException("out of flour"));
+        cake.subscribe(c -> System.out.println("got " + c));         // no error callback: watch what happens
         System.out.println("main carries on");
     }
 }

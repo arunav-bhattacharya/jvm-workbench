@@ -1,33 +1,34 @@
 package workbench.generics.l04.demo
 
-interface Payment { val id: String; val cents: Long }
-data class CardPayment(override val id: String, override val cents: Long, val last4: String) : Payment
-data class BankTransfer(override val id: String, override val cents: Long, val iban: String) : Payment
+// The shop's fruit, used by every demo of this lesson (the Java twins use these Kotlin types too)
+interface Fruit { val name: String; val grams: Int }
+data class Apple(override val name: String, override val grams: Int) : Fruit
+data class Lemon(override val name: String, override val grams: Int) : Fruit
 
 /** A producer: T only comes out. `out` tells the compiler so. */
-interface Source<out T> {
-    fun next(): T?                     // null when there is nothing left
+interface Dispenser<out T> {
+    fun next(): T?                     // null when it is empty
 }
 
-class ListSource<out T>(items: List<T>) : Source<T> {
+class ListDispenser<out T>(items: List<T>) : Dispenser<T> {
     private val it = items.iterator()
     override fun next(): T? = if (it.hasNext()) it.next() else null
 }
 
-/** Needs a Source<Payment>. Because Source is `out`, a Source<CardPayment> fits. */
-fun totalCents(source: Source<Payment>): Long {
-    var sum = 0L
+/** Needs a Dispenser<Fruit>. Because Dispenser is `out`, a Dispenser<Apple> fits. */
+fun totalGrams(dispenser: Dispenser<Fruit>): Int {
+    var sum = 0
     while (true) {
-        val p = source.next() ?: break
-        sum += p.cents
+        val fruit = dispenser.next() ?: break
+        sum += fruit.grams
     }
     return sum
 }
 
 fun main() {
-    val cards: Source<CardPayment> = ListSource(listOf(CardPayment("pay_1", 1_200, "4242"), CardPayment("pay_2", 350, "0005")))
-    println("card total: ${totalCents(cards)}")      // a Source<CardPayment> used as a Source<Payment>
+    val apples: Dispenser<Apple> = ListDispenser(listOf(Apple("Gala", 180), Apple("Fuji", 150)))
+    println("apple total: ${totalGrams(apples)} g")       // a Dispenser<Apple> used as a Dispenser<Fruit>
 
-    val anything: Source<Any> = ListSource(listOf("EUR"))   // Source<String> used as Source<Any>
-    println("first of anything: ${anything.next()}")
+    val anything: Dispenser<Any> = ListDispenser(listOf("a paper bag"))   // Dispenser<String> used as Dispenser<Any>
+    println("first from anything: ${anything.next()}")
 }

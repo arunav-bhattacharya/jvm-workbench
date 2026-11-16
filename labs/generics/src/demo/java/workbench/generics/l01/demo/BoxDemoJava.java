@@ -24,16 +24,16 @@ public class BoxDemoJava {
     }
 
     public static void main(String[] args) {
-        Box<String> currency = new Box<>("EUR");     // diamond: javac infers <String>
-        Box<Long> limit = new Box<>(50_000L);
-        String old = currency.replace("USD");
-        System.out.println("currency was " + old + ", now " + currency.get());
-        System.out.println("limit is " + limit.get());
-        System.out.println("first payment id: " + firstOrNull(List.of("pay_1", "pay_2")));
+        Box<String> variety = new Box<>("Gala");     // diamond: javac infers <String>
+        Box<Integer> count = new Box<>(12);
+        String old = variety.replace("Fuji");
+        System.out.println("variety was " + old + ", now " + variety.get());
+        System.out.println("count is " + count.get());
+        System.out.println("first on the list: " + firstOrNull(List.of("Gala", "Fuji")));
 
         // Wrong moves. Uncomment ONE at a time, predict the error, then run.
-        // limit.replace("USD");
+        // count.replace("Fuji");
         // Box<String> wrong = new Box<>(42);
-        // String id = firstOrNull(List.<String>of());
+        // String first = firstOrNull(List.<String>of());
     }
 }

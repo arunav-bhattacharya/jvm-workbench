@@ -9,21 +9,21 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class SequentialVsConcurrentJava {
-    static String quote(String provider, long latencyMs) {
-        try { Thread.sleep(latencyMs); } catch (InterruptedException e) { throw new RuntimeException(e); } // a network call
-        return provider + ":" + latencyMs + "ms";
+    static String price(String grocer, long latencyMs) {
+        try { Thread.sleep(latencyMs); } catch (InterruptedException e) { throw new RuntimeException(e); } // a message and its reply
+        return grocer + ":" + latencyMs + "ms";
     }
 
     static final List<Map.Entry<String, Long>> LATENCIES =
-        List.of(Map.entry("northbank", 300L), Map.entry("fjord-fx", 120L), Map.entry("tidewater", 200L));
+        List.of(Map.entry("greengrocer", 300L), Map.entry("market", 120L), Map.entry("farm-stand", 200L));
 
     static List<String> sequential() {
-        return LATENCIES.stream().map(e -> quote(e.getKey(), e.getValue())).toList();
+        return LATENCIES.stream().map(e -> price(e.getKey(), e.getValue())).toList();
     }
 
     static List<String> concurrent(ExecutorService vthreads) {
         List<CompletableFuture<String>> pending = LATENCIES.stream()
-            .map(e -> CompletableFuture.supplyAsync(() -> quote(e.getKey(), e.getValue()), vthreads)) // start all
+            .map(e -> CompletableFuture.supplyAsync(() -> price(e.getKey(), e.getValue()), vthreads)) // start all
             .toList();
         return pending.stream().map(CompletableFuture::join).toList();                                // then wait
     }

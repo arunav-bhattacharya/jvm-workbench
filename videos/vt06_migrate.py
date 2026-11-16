@@ -159,7 +159,7 @@ def stove():
     r = RoundedRectangle(corner_radius=0.12, width=3.4, height=2.0).set_stroke(BURNER, 2.5).set_fill(dim(BURNER, 0.08), 1)
     r.move_to(STOVE_C)
     bs = VGroup(*[Circle(radius=0.24).set_stroke(GREY_C, 2).set_fill(BLACK, 1) for _ in range(10)])
-    bs.arrange_in_grid(rows=2, cols=5, buff=(0.32, 0.36)).move_to(STOVE_C)
+    bs.arrange_in_grid(rows=2, cols=5, buff=(0.16, 0.36)).move_to(STOVE_C)
     lab = T("10 burners", 26, BURNER).next_to(r, UP, buff=0.15)
     return r, bs, lab
 
@@ -328,8 +328,7 @@ class Vt06Migrate(Narrated):
         self.at(4)
         apol = T("sorry", 22, BAD)
         self.play(*[c.animate.set_stroke(BAD, 2) for c in sorry], run_time=0.6)
-        self.play(*[c.animate.shift(LEFT * 0.25).set_opacity(0.35) for c in sorry], FadeIn(apol.next_to(crowd, DOWN, buff=0.25)),
-                  run_time=0.7)
+        self.play(*[c.animate.set_opacity(0.35) for c in sorry], FadeIn(apol.next_to(crowd, DOWN, buff=0.25)), run_time=0.7)
         self.hold()
 
         m_w = T("the 10 waiters  =  the pool's 10 threads", 26, NEXT).move_to([0, -2.3, 0])
@@ -504,22 +503,23 @@ class Vt06Migrate(Narrated):
         samples = ((268, 45), (822, 104), (1336, 169), (1851, 221))
         qbars, qlabs, tlabs = VGroup(), VGroup(), VGroup()
         for i, (t, q) in enumerate(samples):
-            x = -5.0 + 1.05 * i
-            b = Rectangle(width=0.7, height=q * 0.012, stroke_width=0).set_fill(BAD, 0.75)
+            x = -5.6 + 1.3 * i
+            b = Rectangle(width=0.8, height=q * 0.012, stroke_width=0).set_fill(BAD, 0.75)
             b.move_to([x, BASE + q * 0.006, 0])
             qbars.add(b)
             qlabs.add(T(str(q), 22, BAD).next_to(b, UP, buff=0.08))
             tlabs.add(T(f"{t:,} ms", 20, GREY_B).move_to([x, BASE - 0.3, 0]))
-        q_ax = Line([-5.55, BASE, 0], [-1.3, BASE, 0], stroke_width=2, color=GREY_B)
-        q_t = T("waiting for a database permit", 24, BAD).move_to([-3.4, 1.85, 0])
+        q_ax = Line([-6.2, BASE, 0], [-1.1, BASE, 0], stroke_width=2, color=GREY_B)
+        q_t = T("waiting for a database permit", 24, BAD).move_to([-3.65, 1.85, 0])
         # throughput gauge: flat under the ceiling
         tp_ax = Line([0.6, BASE, 0], [5.9, BASE, 0], stroke_width=2, color=GREY_B)
         ceil = DashedLine([0.6, BASE + 500 * 0.0045, 0], [5.9, BASE + 500 * 0.0045, 0], dash_length=0.1, color=TOKEN)
         ceil_l = T("ceiling: 500 a second", 22, TOKEN).next_to(ceil, UP, buff=0.1).align_to(ceil, RIGHT)
         arr_l = Line([0.6, BASE + 600 * 0.0045, 0], [5.9, BASE + 600 * 0.0045, 0], stroke_width=2, color=GREY_B)
         arr_t = T("arriving: 600 a second", 22, GREY_B).next_to(arr_l, UP, buff=0.1).align_to(arr_l, LEFT)
-        tp = Line([0.6, BASE + 462 * 0.0045, 0], [5.9, BASE + 462 * 0.0045, 0], stroke_width=5, color=GOOD)
-        tp_l = T("throughput: 462 a second", 22, GOOD).next_to(tp, DOWN, buff=0.12).align_to(tp, LEFT)
+        tp = Rectangle(width=4.0, height=462 * 0.0045, stroke_width=0).set_fill(GOOD, 0.55)
+        tp.move_to([3.25, BASE + 462 * 0.0045 / 2, 0])
+        tp_l = VGroup(T("throughput", 24, WHITE), T("462 a second", 24, WHITE)).arrange(DOWN, buff=0.1).move_to(tp)
         tp_t = T("finished per second", 24, GOOD).move_to([3.25, 1.85, 0])
         full = T("a rising queue with flat throughput: a full resource", 30, NEXT).move_to([0, -2.6, 0])
         named = T("the thread count said nothing; the queue named the database", 24, GREY_A).move_to([0, -3.15, 0])
@@ -529,7 +529,7 @@ class Vt06Migrate(Narrated):
                   run_time=2.4)
         self.at(1)
         self.play(FadeIn(tp_ax), FadeIn(tp_t), Create(ceil), FadeIn(ceil_l), FadeIn(arr_l), FadeIn(arr_t), run_time=0.7)
-        self.play(Create(tp), FadeIn(tp_l), run_time=0.8)
+        self.play(GrowFromEdge(tp, DOWN), FadeIn(tp_l), run_time=0.9)
         self.at(2)
         self.play(FadeIn(full, shift=UP * 0.1), run_time=0.6)
         self.at(3)

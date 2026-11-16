@@ -10,14 +10,14 @@ public class FlatMapThreadsDemo {
     public static void main(String[] args) {
         System.out.println("1. synchronous inners:");
         Flux.range(1, 3)
-                .flatMap(i -> Mono.fromCallable(() -> "score " + i + " on " + Thread.currentThread().getName()))
+                .flatMap(i -> Mono.fromCallable(() -> "iced cake " + i + " on " + Thread.currentThread().getName()))
                 .doOnNext(s -> System.out.println("  " + s))
                 .blockLast();
 
         System.out.println("2. asynchronous inners (Mono.delay runs on Reactor's parallel scheduler):");
         Flux.range(1, 3)
                 .flatMap(i -> Mono.delay(Duration.ofMillis(100L * (4 - i)))
-                        .map(t -> "score " + i + " on " + Thread.currentThread().getName()))
+                        .map(t -> "iced cake " + i + " on " + Thread.currentThread().getName()))
                 .doOnNext(s -> System.out.println("  " + s))
                 .blockLast();
 

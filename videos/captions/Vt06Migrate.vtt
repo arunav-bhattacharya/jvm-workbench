@@ -1,141 +1,325 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:08.659
-A quote service runs on a fixed pool of 10 threads, because the database has 10 connections.
+00:00:02.700 --> 00:00:06.447
+Picture a small restaurant run the old way, from lesson 1.
 
 2
-00:00:08.867 --> 00:00:14.036
-Each request queries the database, then calls an FX API for a rate.
+00:00:06.447 --> 00:00:10.064
+Each waiter stays with one table until its meal is done.
 
 3
-00:00:14.267 --> 00:00:18.305
-A burst of 300 arrives, and the pool takes 10 at a time.
+00:00:10.064 --> 00:00:13.294
+It has 10 waiters, and the kitchen has 10 burners.
 
 4
-00:00:18.533 --> 00:00:22.188
-So the database never sees more than 10 callers.
+00:00:13.294 --> 00:00:19.367
+Nobody planned it, but with 10 waiters, no more than 10 orders ever reach the burners at once.
 
 5
-00:00:22.188 --> 00:00:25.309
-The burst takes about 3,200 milliseconds.
+00:00:20.100 --> 00:00:22.223
+Our shop has a service like that.
 
 6
-00:00:25.533 --> 00:00:30.087
-The obvious migration is one line: a virtual thread per task.
+00:00:22.223 --> 00:00:27.693
+Before every checkout, it works out what the order costs in the customer's own money.
 
 7
-00:00:30.087 --> 00:00:31.879
-Now all 300 run at once.
+00:00:27.693 --> 00:00:35.864
+It looks up the customer's level in the shop's database: 5 milliseconds on a borrowed connection, an open line to the database.
 
 8
-00:00:31.879 --> 00:00:34.044
-What happens at the database?
+00:00:35.864 --> 00:00:41.076
+Then it asks lesson 4's exchange-rate service for today's rate: 100 milliseconds.
 
 9
-00:00:35.867 --> 00:00:41.646
-All 300 ask for a connection at once, and the pool waits only 30 milliseconds for one.
+00:00:41.200 --> 00:00:46.847
+The database has a connection pool: 10 connections that requests borrow and give back.
 
 10
-00:00:41.646 --> 00:00:44.200
-That timeout was tuned for 10 callers.
+00:00:46.847 --> 00:00:51.903
+A request that finds all 10 in use waits, and gives up after 30 milliseconds.
 
 11
-00:00:44.433 --> 00:00:46.488
-Most of them time out.
+00:00:51.903 --> 00:00:57.156
+The service itself runs on a fixed pool of 10 platform threads, the costly kind.
 
 12
-00:00:46.488 --> 00:00:50.783
-In one run, 71 requests worked and 229 failed.
+00:00:57.267 --> 00:01:03.926
+Now the move to virtual threads looks like one line: swap the fixed pool for a virtual thread per request.
 
 13
-00:00:52.100 --> 00:00:53.552
-The pool had two jobs.
+00:01:03.926 --> 00:01:06.251
+Every test with light traffic passes.
 
 14
-00:00:53.552 --> 00:00:57.513
-It ran the requests, and it kept the database to 10 callers.
+00:01:06.251 --> 00:01:11.025
+So here's the question we're shy to ask: what could one line possibly break?
 
 15
-00:00:57.513 --> 00:00:59.692
-Nobody wrote the second job down.
+00:01:13.800 --> 00:01:19.110
+The lesson's MigrationDemo sends a burst of 300 requests at once.
 
 16
-00:00:59.692 --> 00:01:03.455
-Virtual threads take over the first, and drop the second.
+00:01:19.110 --> 00:01:23.766
+Line A is the old pool: 3,200 milliseconds, all 300 fine.
 
 17
-00:01:05.167 --> 00:01:11.893
-So put the second job back, on purpose: a semaphore with 10 permits, around the database call only.
+00:01:23.766 --> 00:01:27.197
+That's 30 rounds of 10, at about 105 each.
 
 18
-00:01:12.100 --> 00:01:15.605
-Requests line up there, and the database gets 10 at a time.
+00:01:27.197 --> 00:01:29.893
+Now line B, with virtual threads.
 
 19
-00:01:16.833 --> 00:01:19.303
-The FX calls never needed a limit.
+00:01:29.893 --> 00:01:32.180
+How fast, and how many fine?
 
 20
-00:01:19.303 --> 00:01:23.588
-They now overlap freely: about 200 in flight instead of 10.
+00:01:34.967 --> 00:01:38.148
+173 milliseconds, and only 63 fine.
 
 21
-00:01:23.800 --> 00:01:28.457
-The burst now takes about 260 milliseconds, with no failures.
+00:01:38.148 --> 00:01:43.421
+The other 237 failed: no connection after 30 milliseconds.
 
 22
-00:01:29.367 --> 00:01:34.835
-Little's law tells you where requests wait: requests in flight equal throughput times time.
+00:01:43.421 --> 00:01:44.603
+Four in five.
 
 23
-00:01:35.067 --> 00:01:40.812
-400 a second, for 0.12 seconds each, is about 48 in flight.
+00:01:44.603 --> 00:01:48.967
+It's the fastest way yet to say no to customers.
 
 24
-00:01:41.033 --> 00:01:47.931
-Turn it around: 10 permits, held 20 milliseconds each, serve at most 500 requests a second.
+00:01:49.700 --> 00:01:51.143
+Back to the restaurant.
 
 25
-00:01:48.133 --> 00:01:50.529
-So what happens at 600 a second?
+00:01:51.143 --> 00:01:55.096
+The owner moves to order slips, cheap enough for one per table.
 
 26
-00:01:52.033 --> 00:01:57.565
-The queue on the semaphore grows on every reading, while throughput stays flat near 500.
+00:01:55.096 --> 00:01:56.979
+Drinks and bread come at once.
 
 27
-00:01:57.767 --> 00:02:02.189
-A rising queue with flat throughput is what a full downstream looks like.
+00:01:56.979 --> 00:02:02.752
+But at the first rush, 300 slips reach the kitchen together, and there are still 10 burners.
 
 28
-00:02:03.000 --> 00:02:03.631
-The rule.
+00:02:02.752 --> 00:02:05.136
+Most orders come back with an apology.
 
 29
-00:02:03.631 --> 00:02:06.015
-Removing the pool removes a limit.
+00:02:05.267 --> 00:02:06.138
+Let's map it.
 
 30
-00:02:06.015 --> 00:02:11.063
-Write it down: one semaphore per downstream, sized from that downstream.
+00:02:06.138 --> 00:02:08.753
+The 10 waiters were the pool's threads.
 
 31
-00:02:11.267 --> 00:02:12.342
-Check yourself.
+00:02:08.753 --> 00:02:11.703
+The burners are the 10 database connections.
 
 32
-00:02:12.342 --> 00:02:16.856
-To make it faster, someone raises the semaphore to 300 permits.
+00:02:11.703 --> 00:02:17.134
+The slips are virtual threads, and nothing stops 300 of them reaching 10 burners.
 
 33
-00:02:16.856 --> 00:02:19.579
-The database still has 10 connections.
+00:02:17.134 --> 00:02:21.961
+A pool tuned for 10 callers gave the rest 30 milliseconds, then said no.
 
 34
-00:02:19.579 --> 00:02:21.299
-What happens in a burst?
+00:02:22.667 --> 00:02:24.581
+So the old pool did two jobs.
 
 35
-00:02:24.000 --> 00:02:29.468
-The limit is gone again: 300 callers reach 10 connections, and most time out.
+00:02:24.581 --> 00:02:28.541
+It ran the requests, and it kept the database to 10 callers.
+
+36
+00:02:28.541 --> 00:02:30.720
+Nobody wrote the second job down.
+
+37
+00:02:30.720 --> 00:02:35.340
+Those 10 waiters did crowd control for years, and nobody thanked them.
+
+38
+00:02:35.340 --> 00:02:39.895
+Virtual threads take over the first job, and quietly drop the second.
+
+39
+00:02:40.500 --> 00:02:45.452
+So write the second job back, on purpose, around the one call that needs it.
+
+40
+00:02:45.452 --> 00:02:52.488
+It's lesson 3's grill tokens: 10 tokens by the burners, one per connection, and the slips wait on the board.
+
+41
+00:02:52.488 --> 00:02:58.483
+In Java, that's a Semaphore of 10, a counter of permits, held only around the database call.
+
+42
+00:02:59.200 --> 00:03:03.199
+Line C runs that version, with the same 300 requests.
+
+43
+00:03:03.199 --> 00:03:05.613
+How fast now, and how many fine?
+
+44
+00:03:08.400 --> 00:03:10.635
+283 milliseconds, all 300 fine.
+
+45
+00:03:10.635 --> 00:03:14.674
+Eleven times faster than the old pool, with no failures.
+
+46
+00:03:14.674 --> 00:03:24.697
+The requests still met the database 10 at a time, but they waited at the semaphore, where waiting is cheap and has no 30 millisecond limit.
+
+47
+00:03:24.800 --> 00:03:29.783
+And the rate calls, which never needed a limit, went from 10 at a time to 180.
+
+48
+00:03:29.783 --> 00:03:32.849
+So credit where it's due: the old pool was safe.
+
+49
+00:03:32.849 --> 00:03:37.065
+It was just slow, because it held back calls that needed no limit.
+
+50
+00:03:37.767 --> 00:03:41.019
+Why not give the database 300 connections instead?
+
+51
+00:03:41.019 --> 00:03:45.506
+Because a database can run only a few queries truly at the same time.
+
+52
+00:03:45.506 --> 00:03:49.279
+Past that, more connections add work inside it, not speed.
+
+53
+00:03:49.279 --> 00:03:52.791
+You don't add burners because you hired cheap waiters.
+
+54
+00:03:53.500 --> 00:03:55.738
+So how do you see where requests wait?
+
+55
+00:03:55.738 --> 00:03:59.742
+Not with the thread count: fifty thousand virtual threads is normal.
+
+56
+00:03:59.742 --> 00:04:03.333
+Watch the requests in flight, and the line at each semaphore.
+
+57
+00:04:03.467 --> 00:04:13.752
+Little's law ties them together: requests in flight equal throughput, the requests finished per second, times the time each one spends inside.
+
+58
+00:04:13.752 --> 00:04:24.110
+The lesson's MeasureDemo sends 400 a second, and each spends about 0.12 seconds inside: 20 milliseconds on the database, then 100 for the rate.
+
+59
+00:04:24.110 --> 00:04:26.428
+So about 48 should be in flight.
+
+60
+00:04:26.428 --> 00:04:27.515
+It measured 47.
+
+61
+00:04:27.633 --> 00:04:30.727
+Turn it around to find the bottleneck.
+
+62
+00:04:30.727 --> 00:04:38.787
+10 permits, each held for 20 milliseconds, serve at most 10 divided by 0.02: 500 requests a second.
+
+63
+00:04:38.787 --> 00:04:41.392
+So what happens at 600 a second?
+
+64
+00:04:44.867 --> 00:04:50.164
+The line at the semaphore grew on every sample: 45, 104, 169, 221.
+
+65
+00:04:50.164 --> 00:04:54.659
+Throughput stayed at 462 a second, however many arrived.
+
+66
+00:04:54.659 --> 00:05:00.359
+A rising queue with flat throughput is what a full resource looks like.
+
+67
+00:05:00.359 --> 00:05:03.650
+The thread count would have said nothing.
+
+68
+00:05:03.650 --> 00:05:05.977
+The queue named the database.
+
+69
+00:05:06.700 --> 00:05:15.239
+Here's the fix in Java and Kotlin: acquire on the line before try, and release in finally, around the database call only.
+
+70
+00:05:15.239 --> 00:05:18.909
+Kotlin wraps that in a small function, withDbPermit.
+
+71
+00:05:18.909 --> 00:05:20.885
+The rate call stays outside.
+
+72
+00:05:21.600 --> 00:05:23.529
+So, what could one line break?
+
+73
+00:05:23.529 --> 00:05:25.201
+A limit nobody wrote down.
+
+74
+00:05:25.201 --> 00:05:31.890
+Removing a pool removes a limit, so write it back: one semaphore per resource, sized from that resource.
+
+75
+00:05:31.890 --> 00:05:35.877
+Then count where requests wait, not how many threads you have.
+
+76
+00:05:36.000 --> 00:05:36.857
+Quick check.
+
+77
+00:05:36.857 --> 00:05:40.998
+To go faster, someone raises the semaphore to 300 permits.
+
+78
+00:05:40.998 --> 00:05:43.712
+The database still has 10 connections.
+
+79
+00:05:43.712 --> 00:05:45.925
+What happens in the next burst?
+
+80
+00:05:48.900 --> 00:05:50.625
+The limit is gone again.
+
+81
+00:05:50.625 --> 00:05:56.231
+300 callers reach 10 connections, and most of them time out, just like line B.

@@ -11,11 +11,11 @@ public class WhereDemoJava {
 
     // Wrong moves. Uncomment ONE at a time, predict the error, then run.
     // static <T extends Comparable<T> & CharSequence & Number> void tooMany(T t) {}
-    // static <T extends Number & Exception> void amountOrError(T t) {}
+    // static <T extends Number & Exception> void numberOrError(T t) {}
 
     public static void main(String[] args) {
-        System.out.println(sortedLabel("SEPA", "ACH"));
-        System.out.println(sortedLabel(new StringBuilder("iban"), new StringBuilder("bic")));   // compiles? predict first
+        System.out.println(sortedLabel("kiwi", "fig"));
+        System.out.println(sortedLabel(new StringBuilder("plum"), new StringBuilder("lime")));   // compiles? predict first
         // System.out.println(sortedLabel(42, 7));
     }
 }

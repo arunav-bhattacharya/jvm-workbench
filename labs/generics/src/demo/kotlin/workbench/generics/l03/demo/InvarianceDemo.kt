@@ -1,21 +1,26 @@
 package workbench.generics.l03.demo
 
-/** What would go wrong if MutableList<String> were a MutableList<Any>? Bypass the check and see. */
+// The shop's fruit, used by every Kotlin demo of this lesson
+interface Fruit { val name: String }
+data class Apple(override val name: String) : Fruit
+data class Lemon(override val name: String) : Fruit
+
+/** What would go wrong if a crate of apples could be used as a crate of any fruit? Bypass the check and see. */
 fun main() {
-    val ids: MutableList<String> = mutableListOf("pay_1")
+    val apples: MutableList<Apple> = mutableListOf(Apple("Gala"))
 
     // Step 1: uncomment this line and run. The compiler refuses it.
-    // val view: MutableList<Any> = ids
+    // val anyFruit: MutableList<Fruit> = apples
 
     // Step 2: force it with an unchecked cast. This compiles, with a warning.
     @Suppress("UNCHECKED_CAST")
-    val anything = ids as MutableList<Any>
-    anything.add(42)                       // fine for a MutableList<Any>
-    println("ids has ${ids.size} elements, and nothing failed yet")
+    val anyFruit = apples as MutableList<Fruit>
+    anyFruit.add(Lemon("Eureka"))              // fine for a crate of any fruit
+    println("the apple crate holds ${apples.size} items, and nothing failed yet")
 
     try {
-        val second: String = ids[1]        // the compiler inserted a cast to String here
-        println("second id: $second")
+        val second: Apple = apples[1]          // the compiler inserted a cast to Apple here
+        println("second apple: ${second.name}")
     } catch (e: ClassCastException) {
         println("ClassCastException: ${e.message}")
     }

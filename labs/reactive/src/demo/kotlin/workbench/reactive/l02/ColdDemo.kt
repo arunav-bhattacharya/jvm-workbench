@@ -3,21 +3,21 @@ package workbench.reactive.l02
 import reactor.core.publisher.Mono
 import java.util.concurrent.atomic.AtomicInteger
 
-private val charges = AtomicInteger()
+private val baked = AtomicInteger()
 
-/** A cold Mono does its work again for every subscriber. Here the work is a card charge. */
-private fun charge(paymentId: String): Mono<String> =
+/** A cold Mono does its work again for every subscriber. Here the work is baking a cake. */
+private fun bake(orderId: String): Mono<String> =
     Mono.fromCallable {
-        val n = charges.incrementAndGet()
-        println("  issuer: charging $paymentId (charge #$n)")
-        "receipt-$n"
+        val n = baked.incrementAndGet()
+        println("  oven: baking the cake for $orderId (cake #$n)")
+        "cake-$n"
     }
 
 fun main() {
-    val charge = charge("pay-42")
+    val cake = bake("order-42")
 
-    charge.subscribe { r -> println("audit log: $r") }   // subscriber 1
-    val receipt = charge.block()                         // subscriber 2
-    println("returned to caller: $receipt")
-    println("charges made: ${charges.get()}")
+    cake.subscribe { c -> println("shop log: $c") }      // subscriber 1
+    val handedOver = cake.block()                        // subscriber 2
+    println("handed to the customer: $handedOver")
+    println("cakes baked: ${baked.get()}")
 }
