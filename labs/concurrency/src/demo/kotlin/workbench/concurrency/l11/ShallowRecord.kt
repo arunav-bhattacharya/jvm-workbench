@@ -1,22 +1,22 @@
 package workbench.concurrency.l11
 
 // A data class's vals can't be reassigned. The objects they point to can still change.
-private data class LooseQuote(val pair: String, val tiers: List<String>, val signature: ByteArray)
+private data class LooseQuote(val item: String, val tiers: List<String>, val signature: ByteArray)
 
-private class SealedQuote(val pair: String, tiers: List<String>, signature: ByteArray) {
+private class SealedQuote(val item: String, tiers: List<String>, signature: ByteArray) {
     val tiers: List<String> = java.util.List.copyOf(tiers)    // copy in: unmodifiable even through a cast
     private val sig = signature.copyOf()
     val signature: ByteArray get() = sig.copyOf()             // copy out
 }
 
 fun main() {
-    val tiers = mutableListOf("up to 10k at 1.0842")
+    val tiers = mutableListOf("1 to 9 loaves at 2.50")
     val sig = byteArrayOf(7, 7, 7)
-    val loose = LooseQuote("EURUSD", tiers, sig)              // List<String> is read-only, not immutable
-    val sealed = SealedQuote("EURUSD", tiers, sig)
+    val loose = LooseQuote("bread", tiers, sig)              // List<String> is read-only, not immutable
+    val sealed = SealedQuote("bread", tiers, sig)
     val view = java.util.Collections.unmodifiableList(tiers)  // a read-only VIEW, not a copy
 
-    tiers.add("above 10k at 9.9999")                          // the caller keeps changing its list...
+    tiers.add("10 or more at 0.01")                            // the caller keeps changing its list...
     sig[0] = 0                                                // ...and its array
     loose.signature[1] = 0                                    // a reader scribbles on what it was given
     sealed.signature[1] = 0

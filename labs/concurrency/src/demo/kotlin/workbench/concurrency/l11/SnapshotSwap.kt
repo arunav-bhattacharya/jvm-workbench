@@ -3,9 +3,9 @@ package workbench.concurrency.l11
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
-// An FX rate table refreshed as a whole while readers price payments. Every refresh moves all
-// rates to the same new "version". A reader that sees two versions in one quote saw a half-done refresh.
-private val PAIRS = listOf("EURUSD", "GBPUSD", "USDJPY", "USDCHF")
+// A shop's price list, refreshed as a whole while the tills read it. Every refresh moves all
+// prices to the same new "version". A till that sees two versions in one look saw a half-done refresh.
+private val ITEMS = listOf("bread", "milk", "eggs", "apples")
 
 // 1. shared mutable map, refreshed in place (each put is thread-safe on its own)
 private val live = ConcurrentHashMap<String, Long>()
@@ -14,17 +14,17 @@ private val live = ConcurrentHashMap<String, Long>()
 
 @Volatile private var done = false
 
-private fun mixed(rates: Map<String, Long>): Boolean {
-    val first = rates[PAIRS[0]]
-    return PAIRS.any { rates[it] != first }
+private fun mixed(prices: Map<String, Long>): Boolean {
+    val first = prices[ITEMS[0]]
+    return ITEMS.any { prices[it] != first }
 }
 
 fun main() {
     val refresher = thread {
         var version = 1L
         while (!done) {
-            for (p in PAIRS) live[p] = version                       // readers can see a mix
-            snapshot = java.util.Map.copyOf(PAIRS.associateWith { version })   // build fully, then publish once
+            for (p in ITEMS) live[p] = version                       // readers can see a mix
+            snapshot = java.util.Map.copyOf(ITEMS.associateWith { version })   // build fully, then publish once
             version++
         }
     }

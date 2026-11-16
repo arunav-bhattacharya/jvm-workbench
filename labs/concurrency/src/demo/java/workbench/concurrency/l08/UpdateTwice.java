@@ -14,7 +14,7 @@ public class UpdateTwice {
             try { go.await(); } catch (InterruptedException e) { return; }
             for (int i = 0; i < 250_000; i++) {
                 balance.updateAndGet(b -> {
-                    calls.increment();          // a side effect: imagine this sent a notification
+                    calls.increment();          // a side effect: imagine this texted the customer
                     return b + 1;
                 });
             }

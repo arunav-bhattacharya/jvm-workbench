@@ -5,7 +5,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.thread
 import kotlin.concurrent.withLock
 
-// Four readers keep a rate table busy for 1.5 s, overlapping all the time. One writer wants in once.
+// Four readers keep the shop's price table busy for 1.5 s, overlapping all the time. One writer wants in once.
 // How long does it wait with a hand-written readers-first lock, and with ReentrantReadWriteLock?
 private interface RwLock { fun readLock(); fun readUnlock(); fun writeLock(); fun writeUnlock() }
 
@@ -41,7 +41,7 @@ private fun writerWaitMs(lock: RwLock): Long {
     }
     Thread.sleep(100)
     val t0 = System.nanoTime()
-    lock.writeLock()                                          // the refresh wants in
+    lock.writeLock()                                          // the owner wants to change the prices
     val waited = (System.nanoTime() - t0) / 1_000_000
     lock.writeUnlock()
     readers.forEach { it.join() }

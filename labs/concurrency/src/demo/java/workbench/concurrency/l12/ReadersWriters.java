@@ -3,7 +3,7 @@ package workbench.concurrency.l12;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * Four readers keep a rate table busy for 1.5 s, overlapping all the time. One writer wants in once.
+ * Four readers keep the shop's price table busy for 1.5 s, overlapping all the time. One writer wants in once.
  * How long does it wait with a hand-written readers-first lock, and with ReentrantReadWriteLock?
  */
 public class ReadersWriters {
@@ -46,7 +46,7 @@ public class ReadersWriters {
         }
         Thread.sleep(100);
         long t0 = System.nanoTime();
-        lock.writeLock();                                     // the refresh wants in
+        lock.writeLock();                                     // the owner wants to change the prices
         long waited = (System.nanoTime() - t0) / 1_000_000;
         lock.writeUnlock();
         for (Thread r : readers) r.join();

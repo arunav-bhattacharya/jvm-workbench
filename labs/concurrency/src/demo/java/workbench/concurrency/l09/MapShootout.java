@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 
-/** 8 threads count 800,000 payments over 1,000 merchants, three ways. Only one way is right. */
+/** 8 tellers count 800,000 deposits over 1,000 accounts, three ways. Only one way is right. */
 public class MapShootout {
     static void run(String label, Map<String, Integer> counts, Consumer<String> countOne) throws InterruptedException {
         CountDownLatch go = new CountDownLatch(1);
@@ -16,7 +16,7 @@ public class MapShootout {
             ts[i] = new Thread(() -> {
                 try {
                     go.await();
-                    for (int n = 0; n < 100_000; n++) countOne.accept("m-" + (n % 1_000));
+                    for (int n = 0; n < 100_000; n++) countOne.accept("acct-" + (n % 1_000));
                 } catch (Throwable e) {
                     error[0] = e.getClass().getSimpleName();
                 }

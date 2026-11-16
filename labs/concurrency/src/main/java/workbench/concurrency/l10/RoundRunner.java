@@ -4,8 +4,8 @@ import java.util.function.LongBinaryOperator;
 import java.util.function.LongConsumer;
 
 /**
- * Runs an end-of-day exposure simulation in rounds (one round per simulated day) on {@code workers}
- * threads. Each worker owns one slice of the accounts.
+ * Runs a job in rounds on {@code workers} threads, like the shop's tills added up one day at a time
+ * (one round per day). Each worker owns one share of the work, such as one till.
  *
  * <ul>
  *   <li>In each round, every worker computes its share: {@code step.applyAsLong(worker, round)}.</li>

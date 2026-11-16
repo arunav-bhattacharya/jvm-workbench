@@ -4,7 +4,7 @@ import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
-// 20 authorizations, 5 issuer permits, 100 ms per call. Then the bug that adds permits out of thin air.
+// 20 card checks, 5 permits, a slow web service that takes 120 ms per call. Then the bug that adds permits out of thin air.
 private inline fun <T> Semaphore.withPermit(block: () -> T): T {
     acquire()                                                          // before the try
     try {
@@ -15,15 +15,15 @@ private inline fun <T> Semaphore.withPermit(block: () -> T): T {
 }
 
 fun main() {
-    val issuer = Semaphore(5)
+    val bank = Semaphore(5)                                            // the bank's service allows 5 calls at once
     val inFlight = AtomicInteger()
     val peak = AtomicInteger()
     val t0 = System.nanoTime()
     val requests = List(20) {
         thread {
-            issuer.withPermit {
+            bank.withPermit {
                 peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max)
-                Thread.sleep(100)                                      // the call to the issuer
+                Thread.sleep(120)                                      // the call to the slow web service
                 inFlight.decrementAndGet()
             }
         }
@@ -32,7 +32,7 @@ fun main() {
     println("20 calls, peak in flight ${peak.get()}, took ${(System.nanoTime() - t0) / 1_000_000} ms")
 
     // permits belong to nobody: any thread can release, even one that never acquired
-    val pool = Semaphore(5)
-    pool.release()
-    println("new Semaphore(5), then one stray release(): ${pool.availablePermits()} permits")
+    val carPark = Semaphore(5)
+    carPark.release()
+    println("new Semaphore(5), then one stray release(): ${carPark.availablePermits()} permits")
 }

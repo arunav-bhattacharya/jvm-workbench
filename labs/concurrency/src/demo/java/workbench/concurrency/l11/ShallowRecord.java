@@ -7,9 +7,9 @@ import java.util.List;
 
 /** A record's fields are final. The objects they point to are not. */
 public class ShallowRecord {
-    record ShallowQuote(String pair, List<String> tiers, byte[] signature) {}
+    record ShallowQuote(String item, List<String> tiers, byte[] signature) {}
 
-    record DeepQuote(String pair, List<String> tiers, byte[] signature) {
+    record DeepQuote(String item, List<String> tiers, byte[] signature) {
         DeepQuote {
             tiers = List.copyOf(tiers);                        // copy in
             signature = signature.clone();
@@ -22,13 +22,13 @@ public class ShallowRecord {
     }
 
     public static void main(String[] args) {
-        List<String> tiers = new ArrayList<>(List.of("up to 10k at 1.0842"));
+        List<String> tiers = new ArrayList<>(List.of("1 to 9 loaves at 2.50"));
         byte[] sig = {7, 7, 7};
-        ShallowQuote shallow = new ShallowQuote("EURUSD", tiers, sig);
-        DeepQuote deep = new DeepQuote("EURUSD", tiers, sig);
+        ShallowQuote shallow = new ShallowQuote("bread", tiers, sig);
+        DeepQuote deep = new DeepQuote("bread", tiers, sig);
         List<String> view = Collections.unmodifiableList(tiers);   // a read-only VIEW, not a copy
 
-        tiers.add("above 10k at 9.9999");                      // the caller keeps changing its list...
+        tiers.add("10 or more at 0.01");                         // the caller keeps changing its list...
         sig[0] = 0;                                            // ...and its array
         shallow.signature()[1] = 0;                            // a reader scribbles on what it was given
         deep.signature()[1] = 0;

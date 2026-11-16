@@ -7,9 +7,10 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * 4 producers and 4 consumers move 20,000 items through a one-slot buffer, twice:
- * once with one Condition and signalAll(), once with notFull/notEmpty and signal().
- * A wake-up is "wasted" when the thread wakes, re-checks, and has to wait again.
+ * The kitchen's rail with room for one ticket. 4 waiters (producers) and 4 cooks (consumers)
+ * move 20,000 tickets through it, twice: once with one Condition and signalAll(), once with
+ * notFull/notEmpty and signal(). A wake-up is "wasted" when the thread wakes, re-checks,
+ * and has to wait again.
  */
 public class WakeupCount {
 

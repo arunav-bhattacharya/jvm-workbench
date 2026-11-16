@@ -4,8 +4,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Tracks refunds against captured payments. The rule: the total refunded for a payment may never
- * exceed what was captured. Support agents and an automatic chargeback job refund at the same time.
+ * Tracks refunds against payments. The rule: the total refunded for a payment may never exceed
+ * what was actually paid (the captured amount). Several threads refund at the same time.
  *
  * <p>This version is check-then-act on a {@link ConcurrentHashMap}: two refunds can both read the same
  * "already refunded" amount, both pass the check, and refund more than was captured. Make

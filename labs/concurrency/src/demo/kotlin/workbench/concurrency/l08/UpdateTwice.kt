@@ -15,7 +15,7 @@ fun main() {
             go.await()
             repeat(250_000) {
                 balance.updateAndGet { b ->
-                    calls.increment()           // a side effect: imagine this sent a notification
+                    calls.increment()           // a side effect: imagine this texted the customer
                     b + 1
                 }
             }

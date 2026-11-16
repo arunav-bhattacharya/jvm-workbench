@@ -5,50 +5,51 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 import kotlin.concurrent.withLock
 
-// A batch holds the ledger lock for 1.5 s. Three threads want in, each in a different way.
+// The end-of-day interest job holds the ledger lock for 1.5 s.
+// Three threads want in, each in a different way.
 private val ledger = ReentrantLock()
-private val monitor = Any()
+private val monitor = Any()                       // older code still guards the ledger with this
 
 fun main() {
-    val batch = thread(name = "batch") {
+    val interest = thread(name = "interest") {
         ledger.withLock {
-            synchronized(monitor) {               // the batch holds the lock AND a monitor
+            synchronized(monitor) {               // the job holds the lock AND the monitor
                 try { Thread.sleep(1_500) } catch (e: InterruptedException) { Thread.currentThread().interrupt() }
             }
         }
     }
-    Thread.sleep(100)                             // let the batch get in first
+    Thread.sleep(100)                             // let the interest job get in first
 
-    val api = thread(start = false, name = "api") {
+    val cashMachine = thread(start = false, name = "cash-machine") {
         val t0 = System.nanoTime()
         if (ledger.tryLock(200, TimeUnit.MILLISECONDS)) {          // wait at most 200 ms
-            try { println("api: got the lock") } finally { ledger.unlock() }
+            try { println("cash-machine: got the lock") } finally { ledger.unlock() }
         } else {
-            println("api: gave up after %d ms and answered 503".format((System.nanoTime() - t0) / 1_000_000))
+            println("cash-machine: gave up after %d ms, asked the customer to try again".format((System.nanoTime() - t0) / 1_000_000))
         }
     }
 
-    val report = thread(start = false, name = "report") {
+    val statement = thread(start = false, name = "statement") {
         try {
             ledger.lockInterruptibly()                             // an interrupt can cancel this wait
-            try { println("report: got the lock") } finally { ledger.unlock() }
+            try { println("statement: got the lock") } finally { ledger.unlock() }
         } catch (e: InterruptedException) {
-            println("report: interrupted while waiting, gave up cleanly")
+            println("statement: interrupted while waiting, gave up cleanly")
         }
     }
 
-    val legacy = thread(start = false, name = "legacy") {
+    val teller = thread(start = false, name = "teller") {
         synchronized(monitor) {                                    // no way to give up here
-            println("legacy: got the monitor at last, interrupted=${Thread.currentThread().isInterrupted}")
+            println("teller: got the monitor at last, interrupted=${Thread.currentThread().isInterrupted}")
         }
     }
 
-    api.start()
-    report.start()
-    legacy.start()
+    cashMachine.start()
+    statement.start()
+    teller.start()
     Thread.sleep(400)
-    println("states: report=${report.state}, legacy=${legacy.state}")
-    report.interrupt()
-    legacy.interrupt()
-    listOf(api, report, legacy, batch).forEach { it.join() }
+    println("states: statement=${statement.state}, teller=${teller.state}")
+    statement.interrupt()                         // the program is shutting down
+    teller.interrupt()
+    listOf(cashMachine, statement, teller, interest).forEach { it.join() }
 }

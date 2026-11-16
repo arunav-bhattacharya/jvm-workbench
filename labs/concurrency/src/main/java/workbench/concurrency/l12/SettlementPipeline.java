@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Moves settlement records from producer threads to consumer threads through one bounded queue,
+ * Moves records (plain strings) from producer threads to consumer threads through one bounded queue,
  * then shuts the consumers down with poison pills.
  *
  * <ul>

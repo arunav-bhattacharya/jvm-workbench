@@ -5,11 +5,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * An FX rate table refreshed as a whole while readers price payments. Every refresh moves all
- * rates to the same new "version". A reader that sees two versions in one quote saw a half-done refresh.
+ * A shop's price list, refreshed as a whole while the tills read it. Every refresh moves all
+ * prices to the same new "version". A till that sees two versions in one look saw a half-done refresh.
  */
 public class SnapshotSwap {
-    static final String[] PAIRS = {"EURUSD", "GBPUSD", "USDJPY", "USDCHF"};
+    static final String[] ITEMS = {"bread", "milk", "eggs", "apples"};
 
     // 1. shared mutable map, refreshed in place (each put is thread-safe on its own)
     static final Map<String, Long> live = new ConcurrentHashMap<>();
@@ -21,9 +21,9 @@ public class SnapshotSwap {
     public static void main(String[] args) throws InterruptedException {
         Thread refresher = new Thread(() -> {
             for (long version = 1; !done; version++) {
-                for (String p : PAIRS) live.put(p, version);          // readers can see a mix
+                for (String p : ITEMS) live.put(p, version);          // readers can see a mix
                 Map<String, Long> fresh = new HashMap<>();
-                for (String p : PAIRS) fresh.put(p, version);
+                for (String p : ITEMS) fresh.put(p, version);
                 snapshot = Map.copyOf(fresh);                         // build fully, then publish once
             }
         });
@@ -42,9 +42,9 @@ public class SnapshotSwap {
                 reads, mixedLive, mixedSnapshot);
     }
 
-    static boolean mixed(Map<String, Long> rates) {
-        Long first = rates.get(PAIRS[0]);
-        for (String p : PAIRS) if (!java.util.Objects.equals(rates.get(p), first)) return true;
+    static boolean mixed(Map<String, Long> prices) {
+        Long first = prices.get(ITEMS[0]);
+        for (String p : ITEMS) if (!java.util.Objects.equals(prices.get(p), first)) return true;
         return false;
     }
 }

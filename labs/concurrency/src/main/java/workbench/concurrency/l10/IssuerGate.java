@@ -7,8 +7,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Limits how many calls to the card-issuer API run at once. The issuer allows 4 concurrent
- * calls per client; a fifth gets throttled.
+ * Limits how many calls to a slow web service run at once: here the bank that checks card payments
+ * (the bank behind a card is called its issuer). The bank allows only {@code maxConcurrent} calls
+ * at once from one shop and refuses any more.
  *
  * <p>This version has the two classic permit bugs. Both hand out permits that were never taken,
  * so under load more than {@code maxConcurrent} calls run at once:

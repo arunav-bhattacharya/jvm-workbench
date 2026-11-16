@@ -4,33 +4,41 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-// A service warms three caches in parallel and opens for traffic when all three are loaded.
-// Run with -Pargs=stuck to make one warm-up hang.
+// A shop's program loads three lists in parallel and opens its doors when all three are loaded.
+// Run with -Pargs=sleep to open after a fixed 250 ms nap instead, or -Pargs=stuck to make one load hang.
 fun main(args: Array<String>) {
-    val stuck = args.firstOrNull() == "stuck"
-    val caches = listOf("bin-ranges" to 200L, "fx-rates" to 400L, "merchant-config" to if (stuck) 60_000L else 300L)
-    val warmedUp = CountDownLatch(caches.size)
+    val mode = args.firstOrNull() ?: "latch"
+    val lists = listOf("price list" to 200L, "stock counts" to 400L, "today's offers" to if (mode == "stuck") 60_000L else 300L)
+    val loaded = CountDownLatch(lists.size)
     val t0 = System.nanoTime()
 
-    for ((name, ms) in caches) {
-        thread(isDaemon = true, name = "warm-$name") {
+    for ((i, list) in lists.withIndex()) {
+        val (name, ms) = list
+        thread(isDaemon = true, name = "load-$i") {
             try {
                 Thread.sleep(ms)                                       // pretend to load
                 println("%5d ms  %s loaded".format((System.nanoTime() - t0) / 1_000_000, name))
             } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
             } finally {
-                warmedUp.countDown()                                   // count down even if loading failed
+                loaded.countDown()                                     // count down even if loading failed
             }
         }
     }
 
-    val ready = warmedUp.await(2, TimeUnit.SECONDS)                   // never wait forever at startup
-    println("%5d ms  ready=%s, count=%d".format((System.nanoTime() - t0) / 1_000_000, ready, warmedUp.count))
+    if (mode == "sleep") {                                             // Naive: a guess about how long loading takes
+        Thread.sleep(250)
+        println("%5d ms  doors open after a 250 ms nap, lists still loading: %d"
+            .format((System.nanoTime() - t0) / 1_000_000, loaded.count))
+        return
+    }
+
+    val ready = loaded.await(2, TimeUnit.SECONDS)                      // never wait forever at startup
+    println("%5d ms  ready=%s, count=%d".format((System.nanoTime() - t0) / 1_000_000, ready, loaded.count))
 
     // a latch is one-shot: once at zero, await() returns at once, forever
     if (ready) {
-        warmedUp.countDown()
-        println("after another countDown(): count=${warmedUp.count}, await returns at once: ${warmedUp.await(0, TimeUnit.MILLISECONDS)}")
+        loaded.countDown()
+        println("after another countDown(): count=${loaded.count}, await returns at once: ${loaded.await(0, TimeUnit.MILLISECONDS)}")
     }
 }

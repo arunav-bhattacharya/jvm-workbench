@@ -4,19 +4,19 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A service warms three caches in parallel and opens for traffic when all three are loaded.
- * Run with -Pargs=stuck to make one warm-up hang.
+ * A shop's program loads three lists in parallel and opens its doors when all three are loaded.
+ * Run with -Pargs=sleep to open after a fixed 250 ms nap instead, or -Pargs=stuck to make one load hang.
  */
 public class LatchDemo {
     public static void main(String[] args) throws InterruptedException {
-        boolean stuck = args.length > 0 && args[0].equals("stuck");
-        String[] caches = {"bin-ranges", "fx-rates", "merchant-config"};
-        long[] loadMs = {200, 400, stuck ? 60_000 : 300};
-        CountDownLatch warmedUp = new CountDownLatch(caches.length);
+        String mode = args.length > 0 ? args[0] : "latch";
+        String[] lists = {"price list", "stock counts", "today's offers"};
+        long[] loadMs = {200, 400, mode.equals("stuck") ? 60_000 : 300};
+        CountDownLatch loaded = new CountDownLatch(lists.length);
         long t0 = System.nanoTime();
 
-        for (int i = 0; i < caches.length; i++) {
-            String name = caches[i];
+        for (int i = 0; i < lists.length; i++) {
+            String name = lists[i];
             long ms = loadMs[i];
             Thread t = new Thread(() -> {
                 try {
@@ -25,21 +25,28 @@ public class LatchDemo {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } finally {
-                    warmedUp.countDown();                              // count down even if loading failed
+                    loaded.countDown();                                // count down even if loading failed
                 }
-            }, "warm-" + name);
+            }, "load-" + i);
             t.setDaemon(true);
             t.start();
         }
 
-        boolean ready = warmedUp.await(2, TimeUnit.SECONDS);          // never wait forever at startup
-        System.out.printf("%5d ms  ready=%s, count=%d%n", (System.nanoTime() - t0) / 1_000_000, ready, warmedUp.getCount());
+        if (mode.equals("sleep")) {                                    // Naive: a guess about how long loading takes
+            Thread.sleep(250);
+            System.out.printf("%5d ms  doors open after a 250 ms nap, lists still loading: %d%n",
+                    (System.nanoTime() - t0) / 1_000_000, loaded.getCount());
+            return;
+        }
+
+        boolean ready = loaded.await(2, TimeUnit.SECONDS);             // never wait forever at startup
+        System.out.printf("%5d ms  ready=%s, count=%d%n", (System.nanoTime() - t0) / 1_000_000, ready, loaded.getCount());
 
         // a latch is one-shot: once at zero, await() returns at once, forever
         if (ready) {
-            warmedUp.countDown();
-            System.out.println("after another countDown(): count=" + warmedUp.getCount()
-                    + ", await returns at once: " + warmedUp.await(0, TimeUnit.MILLISECONDS));
+            loaded.countDown();
+            System.out.println("after another countDown(): count=" + loaded.getCount()
+                    + ", await returns at once: " + loaded.await(0, TimeUnit.MILLISECONDS));
         }
     }
 }

@@ -21,7 +21,7 @@ def pair(java, kotlin):
     return f"```java\n{java}\n```\n\n```kotlin\n{kotlin}\n```"
 
 J_IDIOM = """private final ReentrantLock lock = new ReentrantLock();
-private final List<Entry> entries = new ArrayList<>();   // guarded by lock
+private final List<Entry> entries = new ArrayList<>();   // the ledger's entries, guarded by lock
 
 void post(Entry e) {
     lock.lock();               // before the try, never inside it
@@ -32,7 +32,7 @@ void post(Entry e) {
     }
 }"""
 K_IDIOM = """private val lock = ReentrantLock()
-private val entries = mutableListOf<Entry>()       // guarded by lock
+private val entries = mutableListOf<Entry>()       // the ledger's entries, guarded by lock
 
 fun post(e: Entry) {
     lock.withLock {            // kotlin.concurrent: lock(), try, finally unlock()
@@ -41,27 +41,27 @@ fun post(e: Entry) {
 }"""
 
 J_PUT = """private final ReentrantLock lock = new ReentrantLock();
-private final Condition notFull = lock.newCondition();    // producers wait here
-private final Condition notEmpty = lock.newCondition();   // consumers wait here
+private final Condition notFull = lock.newCondition();    // waiters wait here for a free slot
+private final Condition notEmpty = lock.newCondition();   // cooks wait here for a ticket
 
-public void put(T item) throws InterruptedException {
+public void put(T ticket) throws InterruptedException {
     lock.lock();
     try {
-        while (items.size() == capacity) notFull.await();   // releases the lock while waiting
-        items.addLast(item);
-        notEmpty.signal();                                   // wake one consumer
+        while (items.size() == capacity) notFull.await();   // lets go of the lock while waiting
+        items.addLast(ticket);
+        notEmpty.signal();                                   // wake one cook
     } finally {
         lock.unlock();
     }
 }"""
 K_PUT = """private val lock = ReentrantLock()
-private val notFull = lock.newCondition()      // producers wait here
-private val notEmpty = lock.newCondition()     // consumers wait here
+private val notFull = lock.newCondition()      // waiters wait here for a free slot
+private val notEmpty = lock.newCondition()     // cooks wait here for a ticket
 
-fun put(item: T) = lock.withLock {
-    while (items.size == capacity) notFull.await()   // releases the lock while waiting
-    items.addLast(item)
-    notEmpty.signal()                                 // wake one consumer
+fun put(ticket: T) = lock.withLock {
+    while (items.size == capacity) notFull.await()   // lets go of the lock while waiting
+    items.addLast(ticket)
+    notEmpty.signal()                                 // wake one cook
 }"""
 
 J_RW = """private final ReentrantReadWriteLock rw = new ReentrantReadWriteLock();
@@ -97,7 +97,8 @@ fun refresh(fresh: Map<String, BigDecimal>) = rw.write {   // waits until no rea
     rates.putAll(fresh)
 }"""
 
-J_UPGRADE = """rw.readLock().lock();
+J_UPGRADE = """// Naive: hangs the first time a pair is missing
+rw.readLock().lock();
 try {
     BigDecimal r = rates.get(pair);
     if (r != null) return r;
@@ -112,7 +113,8 @@ try {
 } finally {
     rw.readLock().unlock();
 }"""
-K_UPGRADE = """rw.readLock().lock()
+K_UPGRADE = """// Naive: hangs the first time a pair is missing
+rw.readLock().lock()
 try {
     val r = rates[pair]
     if (r != null) return r
@@ -126,30 +128,41 @@ try {
     rw.readLock().unlock()
 }"""
 
+DUMP = """"main" #1 ... waiting on condition
+   java.lang.Thread.State: WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@21.0.12.1/Native Method)
+	- parking to wait for  <0x0000000737818bc0> (a java.util.concurrent.locks.ReentrantReadWriteLock$NonfairSync)
+	...
+	at java.util.concurrent.locks.ReentrantReadWriteLock$WriteLock.lock(java.base@21.0.12.1/ReentrantReadWriteLock.java:959)
+	at workbench.concurrency.l07.UpgradeDeadlock.main(UpgradeDeadlock.java:22)
+
+   Locked ownable synchronizers:
+	- None"""
+
 J_OPT = """long stamp = lock.tryOptimisticRead();   // 1. no lock, just a version number
-long b = bid, a = ask;                   // 2. copy into locals
+long b = buy, s = sell;                  // 2. copy both prices into locals
 if (!lock.validate(stamp)) {             // 3. a writer got in: the copies may be torn
     stamp = lock.readLock();             // 4. fall back to a real read lock
-    try { b = bid; a = ask; } finally { lock.unlockRead(stamp); }
+    try { b = buy; s = sell; } finally { lock.unlockRead(stamp); }
 }
-return new Quote(b, a);                  // 5. use the locals only after validate"""
+return new EuroPrices(b, s);             // 5. use the locals only after validate"""
 K_OPT = """var stamp = lock.tryOptimisticRead()     // 1. no lock, just a version number
-var b = bid; var a = ask                 // 2. copy into locals
+var b = buy; var s = sell                // 2. copy both prices into locals
 if (!lock.validate(stamp)) {             // 3. a writer got in: the copies may be torn
     stamp = lock.readLock()              // 4. fall back to a real read lock
-    try { b = bid; a = ask } finally { lock.unlockRead(stamp) }
+    try { b = buy; s = sell } finally { lock.unlockRead(stamp) }
 }
-return Quote(b, a)                       // 5. use the locals only after validate"""
+return EuroPrices(b, s)                  // 5. use the locals only after validate"""
 
-J_CARD = """class CardLocks {
+J_ACCT = """class AccountLocks {
     private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
 
-    <T> T withCard(String cardId, Duration maxWait, Supplier<T> action) throws InterruptedException {
-        // 1. one lock per card, created at most once
-        ReentrantLock lock = locks.computeIfAbsent(cardId, id -> new ReentrantLock());
+    <T> T withAccount(String accountId, Duration maxWait, Supplier<T> action) throws InterruptedException {
+        // 1. one lock per account, created at most once
+        ReentrantLock lock = locks.computeIfAbsent(accountId, id -> new ReentrantLock());
         // 2. wait a bounded time; an interrupt also ends the wait
         if (!lock.tryLock(maxWait.toNanos(), TimeUnit.NANOSECONDS)) {
-            throw new CardBusyException(cardId);          // 3. busy: fail fast, the client retries
+            throw new AccountBusyException(accountId);    // 3. busy: give up, the caller tries again later
         }
         try {
             return action.get();                          // 4. critical section
@@ -158,15 +171,15 @@ J_CARD = """class CardLocks {
         }
     }
 }"""
-K_CARD = """class CardLocks {
+K_ACCT = """class AccountLocks {
     private val locks = ConcurrentHashMap<String, ReentrantLock>()
 
-    fun <T> withCard(cardId: String, maxWait: Duration, action: () -> T): T {
-        // 1. one lock per card, created at most once
-        val lock = locks.computeIfAbsent(cardId) { ReentrantLock() }
+    fun <T> withAccount(accountId: String, maxWait: Duration, action: () -> T): T {
+        // 1. one lock per account, created at most once
+        val lock = locks.computeIfAbsent(accountId) { ReentrantLock() }
         // 2. wait a bounded time; an interrupt also ends the wait
         if (!lock.tryLock(maxWait.toNanos(), TimeUnit.NANOSECONDS)) {
-            throw CardBusyException(cardId)               // 3. busy: fail fast, the client retries
+            throw AccountBusyException(accountId)         // 3. busy: give up, the caller tries again later
         }
         try {
             return action()                               // 4. critical section
@@ -180,13 +193,13 @@ J_STRIPE = """private final ReentrantLock[] stripes = new ReentrantLock[256];
     for (int i = 0; i < stripes.length; i++) stripes[i] = new ReentrantLock();
 }
 
-ReentrantLock lockFor(String cardId) {
-    return stripes[Math.floorMod(cardId.hashCode(), stripes.length)];   // two cards may share a stripe: fine
+ReentrantLock lockFor(String accountId) {
+    return stripes[Math.floorMod(accountId.hashCode(), stripes.length)];   // two accounts may share a stripe: fine
 }"""
 K_STRIPE = """private val stripes = Array(256) { ReentrantLock() }
 
-fun lockFor(cardId: String): ReentrantLock =
-    stripes[Math.floorMod(cardId.hashCode(), stripes.size)]          // two cards may share a stripe: fine"""
+fun lockFor(accountId: String): ReentrantLock =
+    stripes[Math.floorMod(accountId.hashCode(), stripes.size)]          // two accounts may share a stripe: fine"""
 
 J_DRILL = """class Buffer<T> {
     private final ReentrantLock lock = new ReentrantLock();
@@ -239,21 +252,21 @@ K_DRILL = """class Buffer<T>(private val capacity: Int) {
 }"""
 
 FIG = (
-    '<svg viewBox="0 0 680 250" role="img" aria-label="One ReentrantLock with an entry queue and two condition queues: producers wait on notFull, consumers wait on notEmpty">'
+    '<svg viewBox="0 0 680 250" role="img" aria-label="One ReentrantLock with a line of threads that want it and two condition queues: waiters wait on notFull, cooks wait on notEmpty">'
     '<rect class="box" x="40" y="20" width="240" height="60" rx="8"/>'
     '<text class="t" x="160" y="45" text-anchor="middle">entry queue</text>'
-    '<text class="t-s t-m" x="160" y="66" text-anchor="middle">T5, C2: want the lock</text>'
+    '<text class="t-s t-m" x="160" y="66" text-anchor="middle">W5, C2: want the lock</text>'
     '<rect class="box-a" x="400" y="20" width="240" height="60" rx="8"/>'
-    '<text class="t" x="520" y="45" text-anchor="middle">lock owner: P1</text>'
+    '<text class="t" x="520" y="45" text-anchor="middle">lock owner: W1</text>'
     '<text class="t-s t-m" x="520" y="66" text-anchor="middle">running put()</text>'
     '<line class="ln" x1="280" y1="50" x2="396" y2="50" marker-end="url(#arr)"/>'
     '<text class="t-s t-code" x="338" y="42" text-anchor="middle">lock()</text>'
     '<rect class="box-ok" x="40" y="170" width="260" height="60" rx="8"/>'
     '<text class="t t-code" x="170" y="195" text-anchor="middle">notEmpty</text>'
-    '<text class="t-s" x="170" y="216" text-anchor="middle">consumers C1, C3 wait here</text>'
+    '<text class="t-s" x="170" y="216" text-anchor="middle">cooks C1, C3 wait here</text>'
     '<rect class="box-b" x="380" y="170" width="260" height="60" rx="8"/>'
     '<text class="t t-code" x="510" y="195" text-anchor="middle">notFull</text>'
-    '<text class="t-s" x="510" y="216" text-anchor="middle">producers P2, P4 wait here</text>'
+    '<text class="t-s" x="510" y="216" text-anchor="middle">waiters W2, W4 wait here</text>'
     '<line class="ln-a" x1="560" y1="80" x2="560" y2="166" marker-end="url(#arr)"/>'
     '<text class="t-s t-a t-code" x="572" y="120">await()</text>'
     '<text class="t-s t-m" x="572" y="138">lets go, parks</text>'
@@ -263,92 +276,233 @@ FIG = (
     '</svg>'
 )
 
+OPENING = """Picture the bank at the end of the day. A batch job, a program that works through a long list in one go, adds the day's interest to every account. It runs on its own thread, one line of work among several in the program. For a second and a half, it holds the lock on the ledger, the bank's book of balances. A lock lets one thread at a time in.
+
+Just then, a customer at a cash machine asks for her balance. With `synchronized`, her request joins the line for the lock and stays there. It can't give up after 200 ms and ask her to try again, and even a shutdown can't call it back. So she watches a spinning wheel the whole time.
+
+Deadlock, livelock and starvation ended with a lock that can give up. `ReentrantLock` is that lock, and switching takes one line. It's almost too easy: unlike `synchronized`, it never lets go by itself.
+
+In this lesson, we'll wait for a busy lock three ways, give each kind of waiting thread its own waiting room, and let readers share a lock, or skip it. Before we start, make a guess, and keep it in mind."""
+
+# ---------------------------------------------------------------- section 0
+S0 = """In synchronized and intrinsic locks, we pictured a lock as the key to the bank's vault: one door, one key, and a line of threads outside. `synchronized` gives that line no choices. A thread that joins it waits until the key comes back, however long that takes. It can't give up after a timeout. An interrupt, another thread's request that it stop, doesn't reach it until it holds the key.
+
+`ReentrantLock`, from `java.util.concurrent.locks`, is the same vault with controls on the door. Like `synchronized`, it lets one thread in at a time, and the next owner sees every write the last owner made. It's reentrant too: the owner can take it again, and the lock counts the holds. Unlike `synchronized`, it gives a waiting thread choices:
+
+- `tryLock()` takes the lock only if it's free right now, and returns `false` otherwise.
+- `tryLock(200, MILLISECONDS)` waits at most 200 ms. The last lesson used it to break deadlocks, where threads wait for each other forever.
+- `lockInterruptibly()` waits, but leaves the line with `InterruptedException` when the thread is interrupted.
+- `new ReentrantLock(true)` makes a fair lock, which hands the lock to the thread that has waited longest.
+
+`TryLockDemo` plays out the evening from the opening. The `interest` thread holds the ledger lock for 1.5 seconds. Older code in the bank still guards the ledger with `synchronized`, so the job also holds that monitor, the built-in lock every Java object has. Three threads want in. The `cash-machine` waits with `tryLock(200 ms)`, the `statement` printer with `lockInterruptibly()`, and an old `teller` screen with `synchronized`. After 400 ms, the main thread prints two of their states and interrupts those two, as a shutdown would. Before you read the output, guess which of the three keeps waiting after it's interrupted:
+
+```text
+cash-machine: gave up after 200 ms, asked the customer to try again
+states: statement=WAITING, teller=BLOCKED
+statement: interrupted while waiting, gave up cleanly
+teller: got the monitor at last, interrupted=true
+```
+
+The cash machine waited exactly as long as we allowed, then gave its customer an answer. The statement printer left the line the moment it was interrupted. The teller heard nothing. It got the monitor after the full 1.5 seconds, and only then found out that someone had asked it to stop, more than a second earlier.
+
+The two states differ, too. A thread waiting for a `ReentrantLock` is parked, which means put to sleep until another thread wakes it, so it shows `WAITING`. A thread waiting for a monitor shows `BLOCKED`. Expect `WAITING (parking)` when you read a thread dump (the printout of every thread's state) of code that uses explicit locks.
+
+All that control has a price, the one the opening warned about. A `synchronized` block lets go when it exits, even when it throws. A `ReentrantLock` lets go only when you call `unlock()`. So every use follows one pattern. Here it guards the ledger's entries, the amounts paid in and out:
+
+""" + pair(J_IDIOM, K_IDIOM) + """
+
+Read the Java version aloud: take the lock; try the work; finally, whatever happens, give the lock back. In Kotlin, `withLock { }` writes the `lock()`, the `try` and the `finally` for you.
+
+Leave out the `finally`, and one rare exception, from a bad input say, skips the `unlock()`. The thread moves on with the lock still taken, and every thread after it parks in `lock()` for good. A thread dump then shows dozens of threads `WAITING`, while `jcmd <pid> Thread.print -l` names an owner that is busy somewhere else entirely.
+
+**A ReentrantLock lets go only when you tell it to. Put every `unlock()` in a finally.**
+
+My rule: use `synchronized` for a short, simple critical section (the code that runs under the lock), and switch to `ReentrantLock` when you need one of its controls. For ordinary code, the two cost about the same on current JDKs. One old reason to switch is mostly gone, too. A virtual thread is a very light thread that the JVM runs on top of an ordinary one. Before JDK 24, a virtual thread that blocked inside `synchronized` held on to that ordinary thread. JDK 24 fixed that in most cases (the change is called JEP 491), and the virtual threads track covers it.
+
+The cash machine can give up now. But a lock is also a place to wait for something to change, as the cooks did in wait, notify and guarded blocks. There, too, `ReentrantLock` has something better."""
+
+ASIDE0 = {
+    "title": "Why does lock() go before the try, and not inside it?",
+    "body": "Because the `finally` should run only when you really hold the lock. If `lock()` sat inside the `try` and something failed before the lock was taken, the `finally` would call `unlock()` on a lock you don't hold. `unlock()` then throws `IllegalMonitorStateException`, and that new exception hides the one that really went wrong. `lockInterruptibly()` is the call most likely to fail that way, when an interrupt arrives while it waits. The same goes for `tryLock`: call it before the `try`, and enter the `try` only when it returned `true`."
+}
+
+# ---------------------------------------------------------------- section 1
+S1 = """Remember the kitchen from wait, notify and guarded blocks. Waiters clip order tickets to a rail, and cooks take them off. When the rail is full, waiters wait for a free slot. When it's empty, cooks wait for a ticket. A monitor has only one wait set, the group of threads waiting on it, so both kinds sat on the same bench. A `notify()` meant for a cook could wake a waiter instead, and that stalled the kitchen. So we woke everyone with `notifyAll()` and let each `while` loop decide.
+
+A `ReentrantLock` can have as many benches as you like. Each one is a **Condition**: a queue of threads waiting for one particular change, made with `lock.newCondition()`. `await()` plays the part of `wait()`. It lets go of the lock, parks, and takes the lock back before it returns. `signal()` and `signalAll()` play `notify()` and `notifyAll()`.
+
+Let's rebuild the rail with two of them: `notFull`, where waiters wait for a free slot, and `notEmpty`, where cooks wait for a ticket. Here's the waiter's side, `put`:
+
+""" + pair(J_PUT, K_PUT) + """
+
+First we take the lock. While the rail is full, we wait on `notFull`, which lets go of the lock until a cook signals. Then we clip the ticket on and signal `notEmpty`. Only cooks ever wait there, and one new ticket lets exactly one cook go on. Those are the two conditions under which the kitchen lesson said a single `notify()` is safe, and now they hold on each bench. So `signal()` is enough, and the other waiters sleep on.
+
+Is it worth the trouble? `WakeupCount` measures it. Four waiters and four cooks move 20,000 tickets through a rail with room for one, twice. The first run uses one `Condition` with `signalAll()`, the kitchen lesson's design. The second uses two with `signal()`. Each run counts its wasted wake-ups, the times a thread woke, checked its loop, and had to wait again. One run printed:
+
+```text
+one condition, signalAll():        wasted wake-ups:    88,340   (2175 ms)
+notFull + notEmpty, signal():      wasted wake-ups:       375   (676 ms)
+```
+
+Both runs moved all 20,000 tickets. With one bench, every `signalAll()` woke all seven other threads, and most went straight back to sleep: 88,340 times. With two benches, that fell to 375, and the run took a third of the time. The Kotlin twin printed 93,684 against 3,155. The count isn't zero, because of barging: a running thread can grab the lock and the ticket before the signalled thread wakes up. That's why the `while` loop stays.
+
+The rules from the kitchen still hold:
+
+- Call `await()` and `signal()` only while you hold the lock, or you get `IllegalMonitorStateException`.
+- Wait in a `while` loop. The `Condition` Javadoc (the official API documentation) allows spurious wake-ups, wake-ups with no signal at all. And another thread can take the ticket between the signal and your return.
+- Don't call `wait()` or `notify()` on a `Condition`. It's an object like any other, so `notFull.wait()` compiles. It uses the condition's own monitor, which you don't hold, and throws.
+
+A `Condition` can also wait against a deadline. `awaitNanos(n)` waits at most `n` nanoseconds (billionths of a second) and returns the time left, so a loop can keep waiting for whatever remains. The lab's `offer(item, timeout)` uses it.
+
+**One kind of waiting thread per Condition lets signal() wake the right one. Keep the while loop anyway.**
+
+Waiters and cooks both change the rail, so they have to take turns. Many threads only read shared data, though, and readers never get in each other's way. Making them take turns anyway is a waste."""
+
+# ---------------------------------------------------------------- section 2
+S2 = """The bank keeps a table of exchange rates. For each currency pair, such as `EURUSD`, it says how many dollars one euro costs. Every cash machine and every teller reads it, about 5,000 times a second, and a refresh job replaces the rates every five seconds. Behind a plain lock, each reader waits for every other reader, though reading changes nothing.
+
+Picture a reading room in a library. Anyone may come in and read, as many people at once as like. Rearranging the shelves is different: the librarian waits until the room is empty, then works alone with the door shut. A `ReentrantReadWriteLock` is that room. It has two locks inside. Many threads can hold the read lock together. The write lock is exclusive: it waits until no reader and no writer is inside, and while it's held, nobody else gets in:
+
+""" + pair(J_RW, K_RW) + """
+
+Readers share the room, and the refresh works alone. The trap is a missing rate. The table is a cache, a store of answers kept close at hand, and a pair that isn't in it yet is called a cache miss. The natural code checks under the read lock and, if the rate is missing, takes the write lock to load it:
+
+""" + pair(J_UPGRADE, K_UPGRADE) + """
+
+Asking for the write lock while you still hold the read lock is called an **upgrade**, and `ReentrantReadWriteLock` doesn't support it. The write lock waits for every reader to leave. This thread is a reader, and it won't leave until it gets the write lock. So it waits, very patiently, for itself. In the reading room, it's a reader who decides to rearrange the shelves and waits inside for the room to empty. Two threads that try it at once wait for each other.
+
+The thread dump won't point it out, either. Run `UpgradeDeadlock` with `-Pargs=hang` and ask for a dump with `jcmd <pid> Thread.print -l`. On JDK 21, `main` looks like this, trimmed:
+
+```text
+""" + DUMP + """
+```
+
+There's no `Found one Java-level deadlock`, and the list of locks that `main` owns is empty. A read lock has no single owner, so the JVM's deadlock detector has no cycle to find. It's a deadlock with one thread in it, and nobody reports it.
+
+The fix has three steps: let go of the read lock, take the write lock, and check again. The check matters, because another thread may have loaded the rate while you held nothing. The lab's `FxRateCache` needs exactly that. Going the other way, a **downgrade**, is allowed: while holding the write lock, take the read lock, then let go of the write lock.
+
+**A read lock never turns into a write lock. Let go first, then check again under the write lock.**
+
+A read-write lock pays off when reads are frequent and take a while, and writes are rare. For a map lookup that takes 50 nanoseconds, its extra bookkeeping can cost more than it saves. And when the refresh replaces the whole table at once, a map that never changes, held in a `volatile` field (one whose reads always see the latest write), needs no lock at all. Lesson 11 of this track shows that pattern.
+
+The read lock still writes to memory, though: every reader adds one to its count on the way in. On a very busy path, that one write is the next cost to go."""
+
+# ---------------------------------------------------------------- section 3
+S3 = """Every reader of a read lock adds one to the lock's count, and takes one away on the way out. On a machine with many cores, that count lives in one cache line. A cache line is the small block of memory that a core copies into its own fast memory, its cache. A core must own the line before it can write to it. So every reader pulls the line over to its own core, and the line bounces from core to core.
+
+`StampedLock` (JDK 8) adds a mode that writes nothing at all, the **optimistic read**. Read it as "go ahead and read, then check whether anyone wrote while you did". The rate table shows two prices for the euro: the bank buys euros at one price and sells them 2 cents higher. A reader must never see a new buying price with an old selling price:
+
+""" + pair(J_OPT, K_OPT) + """
+
+`tryOptimisticRead()` returns a stamp, a version number of the lock (or 0 if a writer holds it). We copy both prices into locals with no lock held. Then `validate(stamp)` asks: did any writer get in since that stamp? If not, the two copies belong together. If one did, we throw them away and read again under a real read lock.
+
+Between the stamp and the check, the copies can be **torn**: half old and half new, such as a new buying price with an old selling price. The Javadoc promises sound values only if a later `validate` returns `true`. So the code in between must not act on them: no loops driven by them, no array index, no calls that could throw.
+
+**An optimistic read can be torn. Copy, validate, and only then use.**
+
+`OptimisticRead` checks that promise. A writer keeps moving both prices, and a reader reads them optimistically for one second. One run printed:
+
+```text
+reads: 843,481   failed validate(): 22,969   torn pairs caught: 12,960   torn pairs that passed validate(): 0
+```
+
+About one read in 37 failed to validate, and more than half of those had really caught a torn pair. Not one torn pair got past `validate()`.
+
+The speed comes without the safety rails of the other locks:
+
+- `StampedLock` is **not reentrant**. A thread that holds the write lock and asks for it again waits for itself, which makes it the second lock in this lesson that can.
+- It has no `Condition`s.
+- A stamp isn't tied to a thread, and you must pass the right stamp to `unlockRead` or `unlockWrite`.
+
+Use it for a few fields that are read on a very busy path and written rarely, like these two prices. Even then, wait until a profiler, a tool that measures where a program spends its time, shows that the read-write lock is the cost. For most code, `ReentrantReadWriteLock`, or no lock at all, is the better choice.
+
+That's where this lesson's tools stop. Each one still makes some thread wait for a lock, or fall back to one when its optimism fails. For a single number, such as one balance, there's a way to change it safely with no lock at all."""
+
 L = {
  "id": "conc-07",
  "title": "Explicit locks: ReentrantLock, Condition, ReadWriteLock",
  "minutes": 38,
- "goal": "By the end you can use `ReentrantLock` safely (try/finally, `tryLock`, `lockInterruptibly`), give each kind of waiter its own `Condition`, and use a read-write lock without the upgrade deadlock.",
+ "goal": "By the end you can use `ReentrantLock` safely (`unlock()` in a `finally`, `tryLock`, `lockInterruptibly`), give each kind of waiting thread its own `Condition`, and use a read-write lock without the upgrade that hangs.",
+ "opening": OPENING,
  "warmup": {
-  "q": "A thread holds the read lock of a `ReentrantReadWriteLock`. It then calls `writeLock().lock()` on the same lock. No other thread touches the lock. What happens?",
-  "options": ["It gets the write lock at once, because it is the only reader", "It waits forever: the write lock waits for every reader to leave, and this thread is one of them", "It throws `IllegalMonitorStateException`", "It gets the write lock and silently drops its read lock"],
+  "q": "A thread holds the read lock of a `ReentrantReadWriteLock`. Then it calls `writeLock().lock()` on the same lock. No other thread touches the lock. What happens?",
+  "options": ["It gets the write lock at once, because it is the only reader", "It waits forever: the write lock waits for every reader to leave, and this thread is one of them", "It throws `IllegalMonitorStateException`", "It gets the write lock and quietly drops its read lock"],
   "answer": 1,
-  "why": "`ReentrantReadWriteLock` does not support upgrading. The write lock needs zero readers, and the thread's own read lock counts. So the thread parks and never wakes. Nothing throws, and, as you'll see in this lesson, a thread dump does not even report it as a deadlock."
+  "why": "`ReentrantReadWriteLock` can't turn a read lock into a write lock. The write lock needs zero readers, and the thread's own read lock counts, so the thread parks and never wakes. Nothing throws, and, as the third section shows, a thread dump doesn't even report it as a deadlock. Kotlin's `write { }` helper behaves differently, and the comparison near the end shows how."
  },
  "sections": [
   {
-   "h": "ReentrantLock is synchronized with the controls exposed",
-   "body": "A thread waiting to enter `synchronized` has no way out. It can\'t give up after a timeout, and an interrupt doesn\'t reach it until it gets the monitor. When a batch job holds that monitor for 1.5 seconds, every API thread behind it waits 1.5 seconds too, and so does a shutdown that tries to interrupt them.\n\n`ReentrantLock` gives you the same guarantees as `synchronized`. Only one thread holds it at a time. Releasing it happens-before the next thread takes it, so the next owner sees every write the last owner made. And it is reentrant: the owner can take it again, and it counts the holds.\n\nWhat you give up is the automatic release. A `synchronized` block always lets go when it exits, even on an exception. A `ReentrantLock` lets go only when you call `unlock()`. So every use follows one idiom:\n\n" + pair(J_IDIOM, K_IDIOM) + "\n\n`lock()` goes right before the `try`, not inside it. If it were inside and something failed before the lock was taken, the `finally` would release a lock you don't hold, and `unlock()` throws `IllegalMonitorStateException`. In Kotlin, `withLock { }` writes the whole pattern for you.\n\nIn return you get controls that `synchronized` doesn't have:\n\n- `tryLock()` takes the lock only if it is free right now, and returns `false` otherwise.\n- `tryLock(200, MILLISECONDS)` waits at most 200 ms. You met it in the previous lesson as a deadlock breaker.\n- `lockInterruptibly()` waits, but gives up with `InterruptedException` when the thread is interrupted.\n- `new ReentrantLock(true)` makes a fair lock that hands over to the longest waiter.\n- `isHeldByCurrentThread()` and `getQueueLength()` let you assert and monitor.\n- Several `Condition`s per lock, which is the next section.\n\nA thread waiting in `lock()` is parked, so a thread dump shows it as `WAITING`, not `BLOCKED` (lesson 2 of this track). Expect that when you read dumps of services that use explicit locks.\n\nMy rule: use `synchronized` for a short, simple critical section, and switch to `ReentrantLock` when you need one of these controls. The old reason to switch, pinning of virtual threads inside `synchronized`, mostly went away in JDK 24 (JEP 491). The virtual threads track covers that.",
+   "h": "A lock that can give up: ReentrantLock, tryLock and lockInterruptibly",
+   "body": S0,
+   "aside": ASIDE0,
    "try": {
     "title": "Three ways to wait for a busy lock",
     "minutes": 4,
     "steps": [
-     "Read `TryLockDemo`. A batch thread holds the ledger lock (and a monitor) for 1.5 seconds. `api` uses `tryLock(200 ms)`, `report` uses `lockInterruptibly()`, and `legacy` waits on the monitor with `synchronized`.",
-     "Predict the order of the four output lines, and what `getState()` prints for `report` and `legacy`.",
-     "Run it. Then change `api` to wait 2 seconds instead of 200 ms and run it again."
+     "Read `TryLockDemo`. The `interest` thread holds the ledger lock and the old monitor for 1.5 seconds. `cash-machine` waits with `tryLock(200 ms)`, `statement` with `lockInterruptibly()`, and `teller` with `synchronized`.",
+     "Predict the order of the four output lines, and the states printed for `statement` and `teller`.",
+     "Run it. Then let the cash machine wait 2 seconds instead of 200 ms, and run it again."
     ],
     "code": code("TryLockDemo"),
-    "expect": "`api` gives up after about 200 ms. The states are `report=WAITING` (parked on the lock) and `legacy=BLOCKED` (waiting for a monitor). The interrupt ends `report`'s wait at once. `legacy` keeps waiting until the batch finishes, and only then sees `interrupted=true`. With a 2-second timeout, `api` gets the lock after the batch is done."
+    "expect": "The cash machine gives up after about 200 ms. The states are `statement=WAITING` (parked on the lock) and `teller=BLOCKED` (waiting for a monitor). The interrupt ends the statement printer's wait at once. The teller keeps waiting until the interest job finishes, and only then sees `interrupted=true`. With a 2-second wait, the cash machine gets the lock as soon as the job is done."
    },
    "refs": [
     {"title": "ReentrantLock (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/locks/ReentrantLock.html", "kind": "docs"}
    ]
   },
   {
-   "h": "Condition gives each reason to wait its own queue",
-   "body": "A monitor has one wait set. In lesson 5 of this track that forced `notifyAll()` on the bounded buffer: producers and consumers waited in the same place, so a single `notify()` could wake the wrong kind of thread and stall everything.\n\nA `ReentrantLock` can have as many wait sets as you like. Each call to `lock.newCondition()` makes one. `await()` plays the part of `wait()`: it releases the lock, parks, and takes the lock back before it returns. `signal()` and `signalAll()` play `notify()` and `notifyAll()`. Here is the producer side of the buffer:\n\n" + pair(J_PUT, K_PUT) + "\n\nOnly consumers ever wait on `notEmpty`, and one new item lets exactly one consumer proceed. Those are the two conditions under which lesson 5 said `notify()` is safe, and now they hold for each queue. So `signal()` is enough, and the other waiters stay asleep.\n\nThe rules from lesson 5 still apply:\n\n- You must hold the lock to call `await()` or `signal()`. Otherwise you get `IllegalMonitorStateException`.\n- Wait in a `while` loop. The `Condition` Javadoc allows spurious wake-ups, and another thread can take the item between the signal and your return from `await()`.\n- Don't call `wait()` or `notify()` on a `Condition`. In Java it is an object like any other, so `notFull.wait()` compiles. It uses the condition object's own monitor, which you don't hold, and throws `IllegalMonitorStateException`.\n\n`Condition` also has timed waits. `awaitNanos(n)` returns the time left, so a loop can keep waiting for the rest of a deadline. `offer(item, timeout)` in the lab uses it.",
-   "figure": {"svg": FIG, "caption": "One lock, one entry queue, and a separate wait queue per condition. await() leaves the lock and parks in its queue; signal() moves one waiter to the entry queue."},
+   "h": "One waiting room per reason to wait: Condition",
+   "body": S1,
+   "figure": {"svg": FIG, "caption": "One lock, one line of threads that want it, and a separate waiting room for each condition. await() lets go of the lock and parks in its room; signal() sends one thread from the room back to the line."},
    "try": {
     "title": "Count the wasted wake-ups",
     "minutes": 4,
     "steps": [
-     "Read `WakeupCount`. It moves 20,000 items through a one-slot buffer with 4 producers and 4 consumers. It does this twice: once with one `Condition` and `signalAll()`, once with two `Condition`s and `signal()`.",
-     "A wake-up is wasted when a thread wakes, re-checks its `while` condition, and has to wait again. Predict which version wastes more.",
+     "Read `WakeupCount`. Four waiters and four cooks move 20,000 tickets through a rail with room for one: once with one `Condition` and `signalAll()`, once with two `Condition`s and `signal()`.",
+     "A wake-up is wasted when a thread wakes, checks its `while` loop, and has to wait again. Predict which version wastes more, and roughly how many more.",
      "Run it twice and compare the counts and the times."
     ],
     "code": code("WakeupCount"),
-    "expect": "With one condition, tens of thousands of wake-ups are wasted (80,000 to 90,000 in runs here), because every `signalAll()` wakes all seven other threads and most of them go back to sleep. With two conditions, the count drops to hundreds or a few thousand, and the run is several times faster. It isn't zero, because of barging: a running thread can grab the lock and the item before the signalled thread wakes up. That is why the `while` loop stays."
+    "expect": "With one condition, tens of thousands of wake-ups are wasted (88,340 and 93,684 in runs here), because every `signalAll()` wakes all seven other threads and most of them go back to sleep. With two conditions, the count drops to hundreds or a few thousand, and the run takes about a third or a quarter of the time. It isn't zero, because a running thread can barge in and take the ticket before the signalled thread wakes. That's why the `while` loop stays."
    },
    "refs": [
     {"title": "Condition.java at jdk-25-ga (spurious wake-ups, await and signal)", "url": "https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/java/util/concurrent/locks/Condition.java", "kind": "read"}
    ]
   },
   {
-   "h": "ReadWriteLock lets readers share, and never lets them upgrade",
-   "body": "An FX rate cache is read 5,000 times a second and refreshed every 5 seconds. With a plain lock, every reader waits for every other reader, although readers never conflict. A `ReentrantReadWriteLock` has two locks inside: many threads can hold the read lock together, and the write lock is exclusive. It waits until no reader and no writer is inside.\n\n" + pair(J_RW, K_RW) + "\n\nThe trap is the cache miss. The natural code checks under the read lock and, if the rate is missing, takes the write lock to load it:\n\n" + pair(J_UPGRADE, K_UPGRADE) + "\n\nThat is a lock **upgrade**, and `ReentrantReadWriteLock` doesn't support it. The write lock waits for all readers to leave. This thread is a reader, and it won't leave until it gets the write lock. It waits forever, on its own. Two threads doing it at once wait for each other.\n\nWorse, the JVM's deadlock detector says nothing. Run the demo with `-Pargs=hang` and take a thread dump: `main` is `WAITING (parking)` in `WriteLock.lock`, there is no `Found one Java-level deadlock`, and `Thread.print -l` lists `Locked ownable synchronizers: None`. Read locks have no single owner, so the detector has no cycle to find.\n\nThe fix: release the read lock, take the write lock, and check again, because another thread may have loaded the rate while you held nothing. Going the other way, a **downgrade**, is allowed: while holding the write lock, take the read lock, then release the write lock.\n\nA read-write lock pays off when reads are frequent, take a while, and writes are rare. For a map lookup that takes 50 ns, the extra bookkeeping can cost more than it saves. When the cache is replaced as a whole, a `volatile` reference to an immutable map is simpler and faster still. Lesson 11 of this track shows that pattern.",
+   "h": "Many readers, one writer: ReadWriteLock, and the upgrade that hangs",
+   "body": S2,
    "try": {
     "title": "Upgrade, then downgrade",
     "minutes": 3,
     "steps": [
      "Run `UpgradeDeadlock`. It tries the upgrade with `tryLock(1, SECONDS)` so it can't hang, then does a downgrade.",
      "Run the Kotlin twin. Its last line puts `write { }` inside `read { }`. Predict: does it hang?",
-     "Optional: run the Java one with `-Pargs=hang`. In a second terminal run `jcmd <pid> Thread.print -l` with the printed PID and look at `main`. Stop it with Ctrl+C."
+     "Optional: run the Java one with `-Pargs=hang`. In a second terminal, run `jcmd <pid> Thread.print -l` with the printed PID and find `main`. Stop it with Ctrl+C."
     ],
     "code": code("UpgradeDeadlock"),
-    "expect": "`write lock while holding a read lock, after 1 s: false`, then `downgraded: write locked = false, read holds = 1`. The Kotlin `write { }` inside `read { }` does not hang: it prints `write locked = true, read holds = 0`, because Kotlin's `write` lets go of this thread's read locks first. With `-Pargs=hang`, the dump shows `main` parked in `WriteLock.lock` and no deadlock report."
+    "expect": "`write lock while holding a read lock, after 1 s: false`, then `downgraded: write locked = false, read holds = 1`. The Kotlin `write { }` inside `read { }` doesn't hang: it prints `write locked = true, read holds = 0`, because Kotlin's `write` lets go of this thread's read locks first. With `-Pargs=hang`, the dump shows `main` parked in `WriteLock.lock` and no deadlock report."
    },
    "refs": [
     {"title": "ReentrantReadWriteLock (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/locks/ReentrantReadWriteLock.html", "kind": "docs"}
    ]
   },
   {
-   "h": "StampedLock trades safety rails for speed",
-   "body": "Even a read lock writes to shared memory: every reader increments and decrements the lock's count. On a hot path with many cores, that one cache line (the small block of memory that caches copy between cores, and that a core must own before it can write to it) bounces between them. `StampedLock` (JDK 8) adds a mode with no write at all, the **optimistic read**:\n\n" + pair(J_OPT, K_OPT) + "\n\n`tryOptimisticRead()` returns a stamp, a version number of the lock (or 0 if a writer holds it). You read the fields into locals with no lock held. Then `validate(stamp)` asks: did any writer get in since that stamp? If not, your copies are consistent. If yes, you throw them away and read again under a real read lock.\n\nBetween steps 2 and 3, the copies can be garbage: a new bid with an old ask. The Javadoc only promises that writes happen-before your reads if a later `validate` returns `true`. So the code between the stamp and the validation must not act on the values. No loops driven by them, no array index, no calls that could throw. Copy, validate, then use.\n\nThe price of the speed is a list of things `StampedLock` doesn't do:\n\n- It is **not reentrant**. A thread that holds the write lock and asks for it again waits for itself.\n- It has no `Condition`s.\n- Stamps are not tied to a thread, and you must pass the right stamp to `unlockRead` or `unlockWrite`.\n\nUse it for a small group of fields that are read on a hot path and written rarely, such as a quote's bid and ask, and only after a profiler shows the read-write lock is the cost. For most code `ReentrantReadWriteLock`, or no lock at all, is the better choice.",
+   "h": "Reading with no lock at all: StampedLock and the optimistic read",
+   "body": S3,
    "try": {
     "title": "Catch torn reads with validate()",
     "minutes": 3,
     "steps": [
-     "Read `OptimisticRead`. A writer keeps updating a quote, and `ask` is always `bid + 2` once a write is done. The reader counts how many optimistic reads saw a quote where that isn't true.",
-     "Predict: will any torn quote get past `validate()`?",
-     "Run it. Then delete the `validate` check (treat every optimistic read as good) and count the torn quotes yourself."
+     "Read `OptimisticRead`. A writer keeps moving the bank's two euro prices, and once a write is done the selling price is always the buying price plus 2. The reader counts the optimistic reads that saw a pair where that isn't true.",
+     "Predict: will any torn pair get past `validate()`?",
+     "Run it. Then delete the `validate` check (treat every optimistic read as good) and count the torn pairs that would have reached the caller."
     ],
     "code": code("OptimisticRead"),
-    "expect": "Thousands of reads fail validation each second, and many of those saw a torn quote (a new bid with an old ask). The last number, torn quotes that passed `validate()`, is always 0. Without the check, those torn quotes would have gone to the caller."
+    "expect": "Tens of thousands of reads fail validation in the second (22,969 of 843,481 in one run here), and more than half of those saw a torn pair, a new buying price with an old selling price. The last number, torn pairs that passed `validate()`, is always 0. Without the check, every one of those torn pairs would have gone to the caller."
    }
   }
  ],
- "analogy": "A `ReentrantLock` is a meeting room with a screen outside. You can queue for the room (`lock`), glance at the screen and leave if it's busy (`tryLock`), queue for at most two minutes (`tryLock(timeout)`), or leave the queue when your phone rings (`lockInterruptibly`). Conditions are separate waiting areas: people waiting for a projector don't get woken when a chair frees up. A read-write lock is a museum gallery: many visitors at once, but the cleaner needs it empty. A visitor can't become the cleaner without walking out first, and if they wait inside for the room to empty, they wait forever. The analogy breaks in one place: a person in the room always leaves eventually. A thread that forgets `unlock()` holds the room for the life of the process.",
- "in_your_world": "A Quarkus payment service usually has two lock shapes. One is a per-key lock around a check-and-update, such as a card's daily spend, where `tryLock(50 ms)` lets a request fail fast with a retryable error instead of tying up a worker thread behind a stuck holder. The other is a read-mostly cache, such as FX rates or BIN ranges, refreshed by a scheduled job and read by every request. For the cache, a read-write lock works, but check whether the refresh replaces the whole map. If it does, a `volatile` reference to an immutable map needs no lock at all. In Kotlin services, prefer `withLock`, `read` and `write`, and remember that `write` inside `read` releases the read lock first, so re-check whatever made you decide to write.",
- "mistake": "The most common mistake is a `lock()` without a `finally`, or with code between `lock()` and `try` that can throw. One exception on a rare path, a validation error or a timeout from a downstream call, skips the `unlock()`. The lock is now held by a thread that has moved on. Every other thread parks in `ReentrantLock.lock()`, and a dump shows dozens of threads `WAITING (parking)` while `Thread.print -l` names an owner that is idle somewhere else. Nothing ever releases it. The fix is the idiom, every time: `lock()` on the line before `try`, `unlock()` as the first line of `finally`. In Kotlin, use `withLock { }` and the problem can't happen.",
  "compare": {
   "title": "A read-mostly cache in Java and Kotlin",
   "java": {"title": "Java", "src": """BigDecimal rate(String pair) {
@@ -361,44 +515,44 @@ L = {
     }
     rw.writeLock().lock();
     try {
-        return rates.computeIfAbsent(pair, loader);   // 3. re-check under the write lock
+        return rates.computeIfAbsent(pair, loader);   // 3. check again under the write lock
     } finally {
         rw.writeLock().unlock();
     }
 }"""},
   "kotlin": {"title": "Kotlin", "src": """fun rate(pair: String): BigDecimal = rw.read {
     rates[pair] ?: rw.write {
-        // write {} let go of our read lock first, so another thread may have loaded it: re-check
+        // write {} let go of our read lock first, so another thread may have loaded it: check again
         rates.getOrPut(pair) { loader(pair) }
     }
 }"""},
-  "note": "The Java version must release the read lock before taking the write lock, or it hangs. The Kotlin version looks like an upgrade, and it doesn't hang, because the standard library's `ReentrantReadWriteLock.write` releases every read lock this thread holds, takes the write lock, and takes the read locks back afterwards. Its documentation warns that this upgrade is not atomic: another thread can write in the gap, so anything you checked before `write` must be checked again inside it. That is why both versions re-check (`computeIfAbsent`, `getOrPut`). Kotlin's helpers remove the ceremony, not the reasoning."
+  "note": "The Java version must let go of the read lock before it takes the write lock, or it hangs. The Kotlin version looks like an upgrade, and it doesn't hang, because the standard library's `ReentrantReadWriteLock.write` releases every read lock this thread holds, takes the write lock, and takes the read locks back afterwards. Its documentation warns that this is not an atomic upgrade: another thread can write in the gap, so anything you checked before `write` must be checked again inside it. That's why both versions check again (`computeIfAbsent`, `getOrPut`). Kotlin's helpers remove the ceremony of `lock`, `try` and `finally`. They don't remove the reasoning."
  },
  "worked": {
-  "title": "A per-card lock that fails fast",
+  "title": "A lock per account that gives up",
   "steps": [
-   {"say": "Authorizations for one card must run one at a time, because each one checks and then updates that card's daily spend. Different cards must not wait for each other. And if one holder gets stuck, other requests for that card should fail fast with a retryable error instead of tying up worker threads. Read the solution and its subgoal labels.",
-    "code": J_CARD, "lang": "java", "alt_code": K_CARD, "alt_lang": "kotlin"},
+   {"say": "Each account's changes must run one at a time, because each one checks and then updates that account's balance. Changes to different accounts must not wait for each other. And if one thread gets stuck while holding an account, other requests for that account should give up after a short wait and ask the caller to try again, instead of piling up behind it. Read the solution and its subgoal labels.",
+    "code": J_ACCT, "lang": "java", "alt_code": K_ACCT, "alt_lang": "kotlin"},
    {"say": "Before reading on, explain to yourself: why does `tryLock` sit outside the `try`, when `unlock()` is inside the `finally`? Answer: if `tryLock` returns `false` or throws `InterruptedException`, this thread doesn't hold the lock. A `finally` that called `unlock()` would throw `IllegalMonitorStateException` and hide the real result. Only the code that runs while you hold the lock goes inside the `try`.",
     "code": "", "lang": ""},
-   {"say": "Why not `synchronized (cardId)`? Two `String`s with the same contents are often different objects, so two requests for the same card could each lock their own string and run together. Interned strings go the other way: unrelated code that locks the same literal shares your lock (lesson 4 of this track). And `synchronized` has no timeout. A map of real lock objects avoids all three problems.",
+   {"say": "Why not `synchronized (accountId)`? Two `String`s with the same letters are often different objects, so two requests for the same account could each lock their own string and run together. Interned strings, the single shared copy Java keeps of each string literal, go the other way: unrelated code that locks the same literal shares your lock, as synchronized and intrinsic locks showed. And `synchronized` has no timeout. A map of real lock objects avoids all three problems.",
     "code": "", "lang": ""},
-   {"say": "One problem remains: the map gains a lock for every card it ever sees, and never shrinks. With millions of cards that is memory you don't get back. Removing entries safely is harder than it looks, because a thread may be about to lock the entry you remove. The usual answer is **lock striping**: a fixed array of locks, chosen by hash.",
+   {"say": "One problem remains: the map gains a lock for every account it ever sees, and never shrinks. With millions of accounts, that's memory you don't get back. Removing entries safely is harder than it looks, because another thread may be about to lock the entry you remove. The usual answer is **lock striping**: a fixed array of locks, with each account mapped to one of them by its hash.",
     "code": J_STRIPE, "lang": "java", "alt_code": K_STRIPE, "alt_lang": "kotlin"},
-   {"say": "Two cards that share a stripe now wait for each other. That costs a little throughput and nothing in correctness. If you ever hold two card locks at once, for a transfer between cards, take the stripes in index order, as in lesson 6 of this track, and skip the second lock when both cards land on the same stripe.",
+   {"say": "Two accounts that share a stripe now wait for each other. That costs a little speed and nothing in correctness. If you ever hold two account locks at once, for a transfer, take the stripes in index order, as in Deadlock, livelock and starvation, and skip the second lock when both accounts land on the same stripe.",
     "code": "", "lang": ""}
   ]
  },
  "lab": {
-  "title": "A buffer with two conditions and a cache that doesn't hang",
+  "title": "A rail with two conditions and a rate table that doesn't hang",
   "minutes": 15,
   "files": [f"{lab}/main/{P}/LockBuffer.java", f"{lab}/main/{P}/FxRateCache.java"],
   "run": "./gradlew :concurrency:test --tests 'workbench.concurrency.l07.*'",
   "steps": [
-   "Run the tests. All eight fail. The five `LockBuffer` tests hit `UnsupportedOperationException`. Two `FxRateCache` tests time out (the upgrade hang), and the snapshot test reports mixed refreshes.",
-   "Part 1: write `LockBuffer` with one `ReentrantLock` and two `Condition`s, `notFull` and `notEmpty`. Check the capacity in the constructor. `put` and `take` follow the shape in the second section, with `signal()`.",
+   "Run the tests. All eight fail. The five `LockBuffer` tests hit `UnsupportedOperationException`. Two `FxRateCache` tests time out (the upgrade hang), and the snapshot test finds rates from two different refreshes mixed together.",
+   "Part 1: `LockBuffer` is the kitchen's rail from the second section, for any kind of item. Write it with one `ReentrantLock` and two `Condition`s, `notFull` and `notEmpty`. Check the capacity in the constructor. `put` and `take` follow the shape in the second section, with `signal()`.",
    "Write `offer(item, timeout)`: the same as `put`, but wait with `notFull.awaitNanos(remaining)` and return `false` when the time runs out.",
-   "Part 2: fix `FxRateCache.rate`. Release the read lock, take the write lock, and re-check before calling the loader, so the loader runs once per pair.",
+   "Part 2: `FxRateCache` is the bank's exchange-rate table from the third section. Fix `rate`: let go of the read lock, take the write lock, and check again before calling the loader, so the loader runs once per currency pair.",
    "Fix `snapshot` so it reads every pair under one read lock. Run the tests until all eight pass, then twice more."
   ],
   "hints": [
@@ -411,60 +565,62 @@ L = {
  "drill": {
   "title": "Two conditions from memory",
   "minutes": 5,
-  "prompt": "Close this page. Write a bounded buffer with a `ReentrantLock` and two `Condition`s: `put` waits while full, `take` waits while empty. Check: is every `unlock()` in a `finally`, every `await()` in a `while`, and does each method signal the other side's condition?",
+  "prompt": "Close this page. Write a bounded buffer, the kitchen's rail, with a `ReentrantLock` and two `Condition`s: `put` waits while it's full, `take` waits while it's empty. Then check your work: is every `unlock()` in a `finally`, every `await()` in a `while`, and does each method signal the other side's condition?",
   "answer": {"lang": "java", "src": J_DRILL, "alt": {"lang": "kotlin", "title": "Kotlin", "src": K_DRILL}}
  },
  "recap": [
-  "`ReentrantLock` gives the same exclusion and visibility as `synchronized`, but you release it yourself: `lock()` before `try`, `unlock()` first in `finally`, or Kotlin's `withLock`.",
-  "Reach for it when you need `tryLock`, a timeout, `lockInterruptibly`, fairness, or more than one condition.",
-  "Each `Condition` is its own wait queue. With one queue per kind of waiter, `signal()` is enough. Still wait in a `while` loop.",
-  "A read-write lock lets readers share. Upgrading from read to write hangs forever, and the deadlock detector won't report it. Release, take the write lock, re-check.",
-  "`StampedLock` optimistic reads take no lock at all. Copy into locals, `validate`, and only then use the values. It is not reentrant.",
-  "Threads waiting on explicit locks show as `WAITING (parking)` in a dump, not `BLOCKED`."
+  "`ReentrantLock` lets one thread in at a time and makes its writes visible, like `synchronized`, but you release it yourself: `lock()` right before `try`, `unlock()` first in `finally`, or Kotlin's `withLock`.",
+  "Reach for it when a waiting thread needs a choice: `tryLock` with a timeout, `lockInterruptibly`, a fair lock, or more than one condition.",
+  "Each `Condition` is its own waiting room. With one per kind of waiting thread, `signal()` is enough. Still wait in a `while` loop.",
+  "A read-write lock lets readers share. Asking for the write lock while you hold the read lock waits forever, and the deadlock detector won't report it. Let go, take the write lock, check again.",
+  "`StampedLock`'s optimistic read takes no lock: copy into locals, `validate`, and only then use the values. It isn't reentrant.",
+  "The limit: every tool here still makes threads wait for a lock, or fall back to one. For a single number, the next lesson changes it with no lock at all."
  ],
+ "closing": "We started with a customer at a cash machine, watching a spinning wheel while the interest job held the ledger. `ReentrantLock` let her request give up after 200 ms. `Condition` gave the kitchen's waiters and cooks a waiting room each. The read-write lock let readers share the rate table, as long as no reader tries to become a writer.\n\nNow search your own code for `.lock()`. Each one should sit right before a `try` whose `finally` starts with `unlock()`. A `lock()` with no `finally` is waiting for its first exception.\n\nNext, we'll take the optimistic idea further and change a balance with no lock at all. How can two threads update one number safely if neither ever waits?",
  "quiz": [
-  {"q": "A request handler needs the ledger lock, but must answer 503 if it can't get the lock within 50 ms. Which tool fits?",
+  {"q": "A cash machine's request needs the ledger lock, but it must ask the customer to try again if it can't get the lock within 50 ms. Which tool fits?",
    "options": ["`synchronized (ledger)`", "`ledger.lockInterruptibly()`", "`ledger.tryLock(50, TimeUnit.MILLISECONDS)`", "A `volatile boolean busy` flag checked before `lock()`"],
-   "answer": 2, "why": "`tryLock` with a timeout waits at most 50 ms and returns `false` if the lock is still taken. `lockInterruptibly` waits without a limit unless someone interrupts the thread. `synchronized` can't time out at all. A `volatile` flag checked before locking is check-then-act: the lock can be taken between the check and the `lock()` call."},
+   "answer": 2, "why": "`tryLock` with a timeout waits at most 50 ms and returns `false` if the lock is still taken. `lockInterruptibly` waits with no limit unless someone interrupts the thread, and `synchronized` can't time out at all. The flag is the tempting one, and it's check-then-act: another thread can take the lock between the check and the `lock()` call."},
   {"q": "Kotlin code: `rw.read { if (cache[k] == null) rw.write { cache[k] = load(k) } }`. Two threads ask for the same missing key. What can happen?",
-   "options": ["Both hang, because a read lock can't be upgraded", "`load(k)` can run twice, because `write { }` releases the read lock before it takes the write lock", "Nothing bad: `write { }` upgrades atomically", "It throws `IllegalMonitorStateException`"],
-   "answer": 1, "why": "Kotlin's `write` releases this thread's read locks, takes the write lock, and restores the read locks after. Both threads can see `null`, both release, and each then loads in turn. It doesn't hang, but it isn't atomic. Re-check inside `write`, for example with `getOrPut`."},
-  {"q": "From wait, notify and guarded blocks: a teammate merges `notFull` and `notEmpty` into one `Condition changed`, but keeps `changed.signal()` in both `put` and `take`. With several producers and consumers, what can happen?",
-   "options": ["Nothing changes: `signal()` always wakes the right kind of thread", "Items are lost", "It throws, because two methods can't share one Condition", "Everything can stall: a `signal()` meant for a consumer can wake a producer, which waits again, and no one signals the consumers"],
-   "answer": 3, "why": "With one queue for both kinds of waiter, `signal()` may pick the wrong kind. That thread re-checks, waits again, and the signal is gone. It is the same lost wake-up that made the one-monitor buffer need `notifyAll()`. With one condition, use `signalAll()`; with two, `signal()` is fine.",
+   "options": ["Both hang, because a read lock can't be upgraded", "`load(k)` can run twice, because `write { }` lets go of the read lock before it takes the write lock", "Nothing bad: `write { }` upgrades atomically", "It throws `IllegalMonitorStateException`"],
+   "answer": 1, "why": "Kotlin's `write` releases this thread's read locks, takes the write lock, and takes the read locks back afterwards. Both threads can see `null`, both let go, and each then loads in turn. It doesn't hang, as it would in Java, but it isn't atomic either. Check again inside `write`, for example with `getOrPut`."},
+  {"q": "From wait, notify and guarded blocks: a teammate merges `notFull` and `notEmpty` into one `Condition changed`, but keeps `changed.signal()` in both `put` and `take`. With several waiters and cooks, what can happen?",
+   "options": ["Nothing changes: `signal()` always wakes the right kind of thread", "Tickets are lost", "It throws, because two methods can't share one `Condition`", "The kitchen can stall: a `signal()` meant for a cook can wake a waiter, which waits again, and nobody signals the cooks"],
+   "answer": 3, "why": "With one queue for both kinds of waiting thread, `signal()` may pick the wrong kind. That thread checks its loop, waits again, and the signal is gone. It's the same lost wake-up that made the one-monitor rail need `notifyAll()`. With one condition, use `signalAll()`; with two, `signal()` is fine. No ticket is lost, which is why this bug hides in tests.",
    "from": "conc-05"},
-  {"q": "With `StampedLock`, you call `tryOptimisticRead()` and copy `bid` and `ask` into locals. What must happen before you use them?",
-   "options": ["Call `validate(stamp)`; if it returns false, read them again under `readLock()`", "Nothing: the stamp guarantees a consistent read", "Call `unlockRead(stamp)`", "Call `tryConvertToWriteLock(stamp)`"],
-   "answer": 0, "why": "An optimistic read takes no lock, so a writer can change the fields while you copy them. `validate` tells you whether a writer got in since the stamp. Only after it returns `true` are the copies known to be consistent. There is nothing to release, because nothing was locked."},
-  {"q": "A dump shows 40 worker threads `WAITING (parking)` in `ReentrantLock.lock()`. `Thread.print -l` says the lock is owned by `kafka-consumer-3`, whose stack shows it idle inside `poll()`. What is the most likely bug?",
-   "options": ["A deadlock between the workers", "The lock is unfair, so the workers are starving", "A code path in the consumer took the lock and left without `unlock()`, for example on an exception with no `finally`", "`poll()` holds the lock internally"],
-   "answer": 2, "why": "The owner isn't waiting for anything you'd expect, and it isn't in the critical section. It has moved on while still holding the lock, which happens when an exception or an early return skips the release. An unfair lock would still hand over now and then, and a deadlock needs the owner to wait for a lock too."}
+  {"q": "With `StampedLock`, you call `tryOptimisticRead()` and copy `buy` and `sell` into locals. What must happen before you use them?",
+   "options": ["Call `validate(stamp)`; if it returns false, read them again under `readLock()`", "Nothing: the stamp guarantees the two copies match", "Call `unlockRead(stamp)`", "Call `tryConvertToWriteLock(stamp)`"],
+   "answer": 0, "why": "An optimistic read takes no lock, so a writer can change the prices while you copy them. `validate` tells you whether a writer got in since the stamp, and only after it returns `true` do the copies belong together. There's nothing to release, because nothing was locked."},
+  {"q": "A dump shows 40 threads `WAITING (parking)` in `ReentrantLock.lock()`. `Thread.print -l` says the lock is owned by `interest`, the end-of-day job, whose stack shows it asleep in `Thread.sleep`, waiting for tomorrow's run, outside any code that uses the lock. What is the most likely bug?",
+   "options": ["A deadlock between the 40 threads", "The lock is unfair, so the 40 threads are starving", "A code path in the interest job took the lock and left without `unlock()`, for example on an exception with no `finally`", "`Thread.sleep` gives the lock back, so the dump is out of date"],
+   "answer": 2, "why": "The owner isn't waiting for anything that needs the lock, and it isn't in the critical section. It has moved on while still holding the lock, which happens when an exception or an early return skips the release. An unfair lock would still change hands now and then, a deadlock needs the owner to wait for a lock too, and `Thread.sleep` never gives back a lock."}
  ],
  "flashcards": [
-  {"front": "Where do `lock()` and `unlock()` go relative to `try`/`finally`?", "back": "`lock()` on the line right before `try`. `unlock()` as the first statement of `finally`. In Kotlin, `lock.withLock { }` does both."},
+  {"front": "Where do `lock()` and `unlock()` go relative to `try` and `finally`?", "back": "`lock()` on the line right before `try`. `unlock()` as the first statement of `finally`. In Kotlin, `lock.withLock { }` does both."},
   {"front": "What does `lock.tryLock(50, MILLISECONDS)` do when another thread holds the lock?", "back": "It waits up to 50 ms. It returns `true` (and you hold the lock) if it got it in time, `false` otherwise. It throws `InterruptedException` if interrupted while waiting."},
-  {"front": "A thread waits in `lockInterruptibly()` and another thread interrupts it. What happens? And for a thread waiting to enter `synchronized`?", "back": "`lockInterruptibly()` gives up at once with `InterruptedException`. The `synchronized` waiter keeps waiting until it gets the monitor; it only sees its interrupt flag afterwards."},
-  {"front": "Why can a bounded buffer with `notFull` and `notEmpty` conditions use `signal()` instead of `signalAll()`?", "back": "Each condition has only one kind of waiter, and one change (one item in, or one slot free) lets exactly one of them proceed."},
-  {"front": "A thread holding the read lock of a `ReentrantReadWriteLock` calls `writeLock().lock()`. What happens?", "back": "It waits forever. The write lock waits for every reader to leave, including this thread. Release the read lock first, then re-check under the write lock."},
+  {"front": "A thread waits in `lockInterruptibly()` and another thread interrupts it. What happens? And for a thread waiting to enter `synchronized`?", "back": "`lockInterruptibly()` gives up at once with `InterruptedException`. The `synchronized` waiter keeps waiting until it gets the monitor, and only sees its interrupt flag afterwards."},
+  {"front": "Why can a bounded buffer with `notFull` and `notEmpty` conditions use `signal()` instead of `signalAll()`?", "back": "Each condition has only one kind of waiting thread, and one change (one item in, or one slot free) lets exactly one of them go on."},
+  {"front": "A thread holding the read lock of a `ReentrantReadWriteLock` calls `writeLock().lock()`. What happens?", "back": "It waits forever. The write lock waits for every reader to leave, including this thread. Let go of the read lock first, then check again under the write lock."},
   {"front": "After `long s = lock.tryOptimisticRead()` and copying fields into locals, what must you do?", "back": "Call `lock.validate(s)`. If it returns false, a writer got in: read the fields again under `lock.readLock()`."},
-  {"front": "In Kotlin, what does `rw.write { }` do when called inside `rw.read { }`?", "back": "It releases this thread's read locks, takes the write lock, and restores the read locks afterwards. It doesn't hang, but it isn't atomic: re-check inside the block."}
+  {"front": "In Kotlin, what does `rw.write { }` do when called inside `rw.read { }`?", "back": "It releases this thread's read locks, takes the write lock, and takes the read locks back afterwards. It doesn't hang, but it isn't atomic: check again inside the block."}
  ],
  "terms": [
   {"term": "ReentrantLock", "plain": "An explicit lock with the same rules as `synchronized`, plus `tryLock`, timeouts, interruptible waits, fairness and conditions."},
   {"term": "Hold count", "plain": "How many times the owning thread has taken a reentrant lock. It must release it as many times."},
-  {"term": "Condition", "plain": "A wait queue tied to a lock. `await()` releases the lock and waits; `signal()` wakes one waiter."},
-  {"term": "Fair lock", "plain": "A lock that hands over to the longest-waiting thread instead of letting new arrivals barge in."},
-  {"term": "Read-write lock", "plain": "A pair of locks: many threads may hold the read lock together; the write lock is exclusive."},
-  {"term": "Lock upgrade", "plain": "Going from a read lock to a write lock while still holding the read lock. `ReentrantReadWriteLock` hangs if you try."},
-  {"term": "Optimistic read", "plain": "A `StampedLock` read that takes no lock and checks afterwards, with `validate`, that no writer got in."}
+  {"term": "Condition", "plain": "A waiting room tied to a lock. `await()` lets go of the lock and waits; `signal()` wakes one waiting thread."},
+  {"term": "Fair lock", "plain": "A lock that hands over to the longest-waiting thread instead of letting a newly arrived thread barge in."},
+  {"term": "Read-write lock", "plain": "A pair of locks: many threads may hold the read lock together; the write lock is held by one thread alone."},
+  {"term": "Lock upgrade", "plain": "Asking for the write lock while still holding the read lock. `ReentrantReadWriteLock` waits forever if you try."},
+  {"term": "Optimistic read", "plain": "A `StampedLock` read that takes no lock and checks afterwards, with `validate`, that no writer got in."},
+  {"term": "Torn read", "plain": "Copies of several fields that mix old and new values, because a writer ran while they were being read."}
  ],
  "explain_back": {
   "prompt": "A teammate asks: \"Should we replace all our `synchronized` blocks with `ReentrantLock`? I heard it's faster.\" Explain what you would tell them.",
-  "answer": "Not by default. Both give the same mutual exclusion and visibility, and on current JDKs their speed is similar for ordinary critical sections. `synchronized` can't leak: it releases on every exit. With `ReentrantLock` you must release in a `finally`, and one missed path holds the lock forever. I'd switch only where we need something `synchronized` can't do: give up after a timeout with `tryLock`, let an interrupt cancel the wait with `lockInterruptibly`, use a fair lock, or have separate conditions for different kinds of waiters. For read-mostly data I'd look at a read-write lock, or better, an immutable snapshot behind a `volatile` reference."
+  "answer": "Not by default. Both let one thread in at a time and make its writes visible to the next owner, and on current JDKs they cost about the same for ordinary code. `synchronized` can't leak: it lets go on every exit. With `ReentrantLock` you must release it in a `finally`, and one missed path holds the lock forever. I'd switch only where we need something `synchronized` can't do: give up after a timeout with `tryLock`, let an interrupt cancel the wait with `lockInterruptibly`, use a fair lock, or have separate conditions for different kinds of waiting threads. For data that is read far more than it's written, I'd look at a read-write lock, or better, a snapshot that never changes behind a `volatile` reference."
  },
  "deeper": {
   "minutes": 10,
-  "body": "`ReentrantLock`, `ReentrantReadWriteLock`, `Semaphore` and `CountDownLatch` are all built on one class, `AbstractQueuedSynchronizer` (AQS). It keeps one `int` of state and a queue of waiting threads. For `ReentrantLock` the state is the hold count; for a semaphore it is the number of permits left; for a latch it is the count. A thread that can't proceed joins the queue and parks with `LockSupport.park`. That is why it shows as `WAITING` in a dump, with a line like `parking to wait for <0x...> (a java.util.concurrent.locks.ReentrantLock$NonfairSync)`. A release unparks the next thread in the queue.\n\nIn non-fair mode, the default, a thread that arrives just as the lock is released can take it before the queued thread wakes. That is barging, and it is why the two-condition buffer in the second Try it still wasted some wake-ups. It is also why non-fair locks have much higher throughput: waking a parked thread takes microseconds, and a running thread can take and release the lock many times in that gap. Fair mode closes the gap and pays the wake-up cost on every hand-off. Even on a fair lock, the untimed `tryLock()` barges: its Javadoc says it does not honor the fairness setting.\n\n`ReentrantReadWriteLock` splits its 32-bit state into two 16-bit halves, one for read holds and one for write holds. That is why its Javadoc caps it at 65,535 recursive write locks and 65,535 read locks.\n\n`StampedLock` also has `tryConvertToWriteLock(stamp)`, which upgrades a read or optimistic stamp to a write stamp if no other thread is in the way, and returns 0 if it can't. It is the only upgrade in the JDK's locks, and it can fail, so you still need the fallback path.\n\nIf you ever build your own synchronizer, subclass AQS and implement `tryAcquire` and `tryRelease`; its Javadoc has a small `Mutex` example. First check `java.util.concurrent` for one that already exists. Lesson 10 of this track covers the common ones."
+  "body": "`ReentrantLock`, `ReentrantReadWriteLock`, `Semaphore` and `CountDownLatch` are all built on one class, `AbstractQueuedSynchronizer` (AQS). It keeps one `int` of state and a queue of waiting threads. For `ReentrantLock` the state is the hold count; for a semaphore it is the number of permits left; for a latch it is the count. A thread that can't go on joins the queue and parks with `LockSupport.park`. That's why it shows as `WAITING` in a dump, with a line like `parking to wait for <0x...> (a java.util.concurrent.locks.ReentrantLock$NonfairSync)`. A release unparks the next thread in the queue.\n\nIn non-fair mode, the default, a thread that arrives just as the lock is released can take it before the queued thread wakes. That's barging, and it's why the two-condition rail in the second Try it still wasted some wake-ups. It's also why non-fair locks get through far more work: waking a parked thread takes microseconds, and a running thread can take and release the lock many times in that gap. Fair mode closes the gap and pays the wake-up cost on every hand-off. Even on a fair lock, the untimed `tryLock()` barges: its Javadoc says it does not honor the fairness setting.\n\n`ReentrantReadWriteLock` splits its 32-bit state into two 16-bit halves, one for read holds and one for write holds. That's why its Javadoc caps it at 65,535 recursive write locks and 65,535 read locks.\n\n`StampedLock` also has `tryConvertToWriteLock(stamp)`, which upgrades a read or optimistic stamp to a write stamp if no other thread is in the way, and returns 0 if it can't. It's the only upgrade among the JDK's locks, and it can fail, so you still need the fallback path.\n\nIf you ever build your own synchronizer, subclass AQS and implement `tryAcquire` and `tryRelease`; its Javadoc has a small `Mutex` example. First check `java.util.concurrent` for one that already exists. Lesson 10 of this track covers the common ones."
  },
  "sources": [
   {"title": "ReentrantLock.java at jdk-25-ga (the try/finally idiom, fairness notes)", "url": "https://github.com/openjdk/jdk/blob/jdk-25-ga/src/java.base/share/classes/java/util/concurrent/locks/ReentrantLock.java"},

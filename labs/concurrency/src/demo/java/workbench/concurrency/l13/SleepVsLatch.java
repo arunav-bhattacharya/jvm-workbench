@@ -4,14 +4,14 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A test checks that a background worker settles a payment. One version sleeps 3 ms and hopes;
- * the other waits on a latch. Both run 100 times while 8 threads keep every core busy, like a CI box.
+ * A test checks that a background worker records a refund. One version sleeps 3 ms and hopes;
+ * the other waits on a latch. Both run 100 times while 8 threads keep every core busy, like a busy build server.
  */
 public class SleepVsLatch {
     static volatile boolean burn = true;
 
-    // the code under test: settles on another thread, about 2 ms of work
-    static Thread settleAsync(Runnable whenDone) {
+    // the code under test: records the refund on another thread, about 2 ms of work
+    static Thread recordAsync(Runnable whenDone) {
         Thread t = new Thread(() -> {
             long end = System.nanoTime() + 2_000_000;
             while (System.nanoTime() < end) Thread.onSpinWait();
@@ -29,16 +29,16 @@ public class SleepVsLatch {
         }
         int sleepFailed = 0, latchFailed = 0;
         for (int run = 0; run < 100; run++) {
-            boolean[] settled = {false};
-            Thread t = settleAsync(() -> settled[0] = true);
+            boolean[] recorded = {false};
+            Thread t = recordAsync(() -> recorded[0] = true);
             Thread.sleep(3);                                   // "should be enough"
-            if (!settled[0]) sleepFailed++;                    // (a racy read too, which is the point)
+            if (!recorded[0]) sleepFailed++;                    // (a racy read too, which is the point)
             t.join();
         }
         for (int run = 0; run < 100; run++) {
-            CountDownLatch settled = new CountDownLatch(1);
-            settleAsync(settled::countDown);
-            if (!settled.await(5, TimeUnit.SECONDS)) latchFailed++;   // waits exactly as long as needed
+            CountDownLatch recorded = new CountDownLatch(1);
+            recordAsync(recorded::countDown);
+            if (!recorded.await(5, TimeUnit.SECONDS)) latchFailed++;   // waits exactly as long as needed
         }
         burn = false;
         System.out.println("sleep(3) then assert:  failed " + sleepFailed + " of 100");

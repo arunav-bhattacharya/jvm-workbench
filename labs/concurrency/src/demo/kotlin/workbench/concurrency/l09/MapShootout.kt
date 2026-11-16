@@ -4,7 +4,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 
-// 8 threads count 800,000 payments over 1,000 merchants, three ways. Only one way is right.
+// 8 tellers count 800,000 deposits over 1,000 accounts, three ways. Only one way is right.
 private fun run(label: String, counts: MutableMap<String, Int>, countOne: (String) -> Unit) {
     val go = CountDownLatch(1)
     var error: String? = null
@@ -12,7 +12,7 @@ private fun run(label: String, counts: MutableMap<String, Int>, countOne: (Strin
         thread(isDaemon = true) {                       // a corrupted HashMap can even loop forever
             try {
                 go.await()
-                repeat(100_000) { n -> countOne("m-${n % 1_000}") }
+                repeat(100_000) { n -> countOne("acct-${n % 1_000}") }
             } catch (e: Throwable) {
                 error = e.javaClass.simpleName
             }

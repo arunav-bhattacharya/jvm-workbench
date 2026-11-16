@@ -3,7 +3,7 @@ package workbench.concurrency.l11;
 import java.util.function.Supplier;
 
 /**
- * Carries the current tenant (merchant group) through one request, so deep code can ask
+ * Carries the current tenant (the customer company a request works for) through one request, so deep code can ask
  * {@link #current()} instead of passing it everywhere. Request threads come from a pool and are reused.
  *
  * <p>This version leaks: a request without a tenant runs as whichever tenant the thread served last,

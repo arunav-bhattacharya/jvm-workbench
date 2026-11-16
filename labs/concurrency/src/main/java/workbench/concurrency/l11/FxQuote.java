@@ -4,7 +4,8 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * A signed FX quote that many request threads read at once, with no locks.
+ * A signed FX quote (FX is foreign exchange: changing money from one currency into another)
+ * that many request threads read at once, with no locks.
  * That is only safe if nobody can change it after it is built.
  *
  * <p>A record's fields are final, but this one is only shallowly immutable: it keeps the caller's
