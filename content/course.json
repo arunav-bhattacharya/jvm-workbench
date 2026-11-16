@@ -283,6 +283,46 @@
       ]
     },
     {
+      "id": "flow",
+      "lab": "flows",
+      "title": "Kotlin Flow in depth",
+      "short": "How Flow really works: two interfaces, what flow { } checks, flowOn and channels, buffering, flattening and combining, errors and retries, hot flows, bridges and tests.",
+      "lessons": [
+        {
+          "id": "flow-01",
+          "title": "A flow from scratch: two interfaces and a function call"
+        },
+        {
+          "id": "flow-02",
+          "title": "Inside flow { }: the three checks, and how operators are built"
+        },
+        {
+          "id": "flow-03",
+          "title": "Context and threads: flowOn, the invariant, and channelFlow"
+        },
+        {
+          "id": "flow-04",
+          "title": "Buffering: buffer, conflate, collectLatest and fusion"
+        },
+        {
+          "id": "flow-05",
+          "title": "Flattening and combining: flatMap, zip and combine"
+        },
+        {
+          "id": "flow-06",
+          "title": "Errors, completion, retries and timeouts"
+        },
+        {
+          "id": "flow-07",
+          "title": "Hot flows in depth: SharedFlow, StateFlow and sharing"
+        },
+        {
+          "id": "flow-08",
+          "title": "Bridges and tests: callbackFlow, Reactor and runTest"
+        }
+      ]
+    },
+    {
       "id": "io",
       "lab": "nio",
       "title": "Servers and event loops: NIO, Netty, Vert.x and Jetty",
@@ -735,10 +775,11 @@
     {
       "id": "p2",
       "title": "Async, reactive and servers",
-      "short": "Reactor, Kotlin coroutines, then the event loops under Netty, Vert.x and Jetty.",
+      "short": "Reactor, Kotlin coroutines and Flow in depth, then the event loops under Netty, Vert.x and Jetty.",
       "tracks": [
         "rx",
         "co",
+        "flow",
         "io",
         "cap2"
       ]
