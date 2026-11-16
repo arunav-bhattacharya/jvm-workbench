@@ -1,7 +1,7 @@
 package workbench.executors.l09;
 
 /**
- * A tiny stand-in for SLF4J's MDC: the id of the request the current thread is working for.
+ * A tiny stand-in for a logging library's MDC: the id of the request the current thread is working for.
  * It is a ThreadLocal, so a value set on one thread is invisible on every other thread.
  */
 public final class RequestContext {

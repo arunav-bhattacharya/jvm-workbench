@@ -17,321 +17,381 @@ Safe, but slow.
 A transfer between two friends waited behind one between two strangers.
 
 5
-00:00:15.755 --> 00:00:19.758
+00:00:15.733 --> 00:00:19.736
 So now each account gets its own small safe, with its own key.
 
 6
-00:00:19.758 --> 00:00:23.503
+00:00:19.736 --> 00:00:23.481
 A transfer takes both keys it needs, then moves the money.
 
 7
-00:00:23.503 --> 00:00:27.765
+00:00:23.481 --> 00:00:27.743
 Transfers between different accounts can finally run side by side.
 
 8
-00:00:28.015 --> 00:00:32.399
+00:00:27.967 --> 00:00:32.351
 Meet Ana and Ben, two friends who keep paying each other back.
 
 9
-00:00:32.399 --> 00:00:34.874
+00:00:32.351 --> 00:00:34.826
 Ana's account is a, and Ben's is b.
 
 10
-00:00:34.874 --> 00:00:36.853
+00:00:34.826 --> 00:00:36.805
 Ana sends Ben 100 for lunch.
 
 11
-00:00:36.853 --> 00:00:40.884
+00:00:36.805 --> 00:00:40.836
 At the very same moment, Ben sends Ana 50 for the cinema.
 
 12
-00:00:41.134 --> 00:00:44.899
+00:00:41.067 --> 00:00:44.832
 Each transfer is correct on its own, and both pass every test.
 
 13
-00:00:44.899 --> 00:00:47.268
+00:00:44.832 --> 00:00:47.201
 So here's a question that sounds silly.
 
 14
-00:00:47.268 --> 00:00:49.879
+00:00:47.201 --> 00:00:49.812
 Can two correct transfers break each other?
 
 15
-00:00:52.879 --> 00:00:54.152
+00:00:52.800 --> 00:00:54.073
 Let's slow it down.
 
 16
-00:00:54.152 --> 00:00:56.965
+00:00:54.073 --> 00:00:56.886
 Ana's transfer takes its first key, key a.
 
 17
-00:00:56.965 --> 00:01:01.119
+00:00:56.886 --> 00:01:01.039
 At the same moment, Ben's transfer takes its first key, key b.
 
 18
-00:01:01.119 --> 00:01:05.272
+00:01:01.039 --> 00:01:05.192
 Now Ana's transfer reaches for key b, but Ben's is holding it.
 
 19
-00:01:05.272 --> 00:01:09.425
+00:01:05.192 --> 00:01:09.345
 And Ben's transfer reaches for key a, but Ana's is holding it.
 
 20
-00:01:09.675 --> 00:01:13.957
+00:01:09.567 --> 00:01:13.849
 Each one gives back its first key only after it gets its second.
 
 21
-00:01:13.957 --> 00:01:15.363
+00:01:13.849 --> 00:01:15.255
 So neither ever will.
 
 22
-00:01:15.613 --> 00:01:16.278
+00:01:15.467 --> 00:01:16.132
 No error.
 
 23
-00:01:16.278 --> 00:01:17.164
+00:01:16.132 --> 00:01:17.018
 No log line.
 
 24
-00:01:17.164 --> 00:01:19.011
+00:01:17.018 --> 00:01:18.865
 The processor goes quiet.
 
 25
-00:01:19.011 --> 00:01:25.069
+00:01:18.865 --> 00:01:24.923
 Java threads are endlessly patient: they'll wait forever, and never once complain.
 
 26
-00:01:25.319 --> 00:01:29.033
+00:01:25.133 --> 00:01:28.848
 This is a deadlock: threads waiting for each other forever.
 
 27
-00:01:29.033 --> 00:01:32.936
+00:01:28.848 --> 00:01:32.751
 Both sit in BLOCKED, the state of a thread waiting for a lock.
 
 28
-00:01:32.936 --> 00:01:36.965
+00:01:32.751 --> 00:01:36.780
 And every other transfer that needs a or b piles up behind them.
 
 29
-00:01:37.215 --> 00:01:38.916
+00:01:37.000 --> 00:01:38.701
 The nasty part is timing.
 
 30
-00:01:38.916 --> 00:01:46.537
+00:01:38.701 --> 00:01:46.322
 Both first keys must be taken in the same tiny window, so a test that runs one transfer at a time never sees it.
 
 31
-00:01:46.537 --> 00:01:49.395
+00:01:46.322 --> 00:01:49.180
 On a busy day, it's only a matter of when.
 
 32
-00:01:49.645 --> 00:01:51.260
+00:01:49.400 --> 00:01:51.015
 So what does a freeze need?
 
 33
-00:01:51.260 --> 00:01:54.011
+00:01:51.015 --> 00:01:53.765
 Read the picture, and you'll find four things.
 
 34
-00:01:54.261 --> 00:01:54.583
+00:01:53.967 --> 00:01:54.289
 One.
 
 35
-00:01:54.583 --> 00:01:57.319
+00:01:54.289 --> 00:01:57.025
 Each key has one holder at a time.
 
 36
-00:01:57.319 --> 00:01:59.251
+00:01:57.025 --> 00:01:58.957
 That's mutual exclusion.
 
 37
-00:01:59.501 --> 00:01:59.797
+00:01:59.167 --> 00:01:59.462
 Two.
 
 38
-00:01:59.797 --> 00:02:03.643
+00:01:59.462 --> 00:02:03.308
 A transfer holds one key while it waits for another.
 
 39
-00:02:03.643 --> 00:02:05.196
+00:02:03.308 --> 00:02:04.861
 That's hold and wait.
 
 40
-00:02:05.446 --> 00:02:05.883
+00:02:05.067 --> 00:02:05.504
 Three.
 
 41
-00:02:05.883 --> 00:02:09.014
+00:02:05.504 --> 00:02:08.635
 Nobody can take a key away from its holder.
 
 42
-00:02:09.014 --> 00:02:10.543
+00:02:08.635 --> 00:02:10.164
 That's no preemption.
 
 43
-00:02:10.793 --> 00:02:11.152
+00:02:10.367 --> 00:02:10.725
 Four.
 
 44
-00:02:11.152 --> 00:02:17.606
+00:02:10.725 --> 00:02:17.179
 The waiting goes round in a circle: Ana's transfer waits for Ben's, which waits for Ana's.
 
 45
-00:02:17.606 --> 00:02:19.112
+00:02:17.179 --> 00:02:18.685
 That's circular wait.
 
 46
-00:02:19.362 --> 00:02:21.524
+00:02:18.900 --> 00:02:21.062
 A deadlock needs all four at once.
 
 47
-00:02:21.524 --> 00:02:23.749
+00:02:21.062 --> 00:02:23.287
 Break any one, and it can't happen.
 
 48
-00:02:23.999 --> 00:02:26.494
+00:02:23.500 --> 00:02:25.996
 The cheapest one to break is the circle.
 
 49
-00:02:26.494 --> 00:02:30.924
+00:02:25.996 --> 00:02:30.426
 A circle needs two transfers that disagree about which key comes first.
 
 50
-00:02:30.924 --> 00:02:32.484
+00:02:30.426 --> 00:02:31.985
 So let's make them agree.
 
 51
-00:02:32.484 --> 00:02:35.354
+00:02:31.985 --> 00:02:34.855
 Every account has a number that never changes.
 
 52
-00:02:35.354 --> 00:02:40.096
+00:02:34.855 --> 00:02:39.597
 The rule: always take the lower number first, whichever way the money moves.
 
 53
-00:02:40.346 --> 00:02:43.338
+00:02:39.800 --> 00:02:42.792
 Now both transfers reach for key a first.
 
 54
-00:02:43.338 --> 00:02:45.674
+00:02:42.792 --> 00:02:45.128
 Ana's gets it, then takes key b.
 
 55
-00:02:45.674 --> 00:02:48.521
+00:02:45.128 --> 00:02:47.975
 Ben's waits for key a, holding nothing.
 
 56
-00:02:48.521 --> 00:02:50.345
+00:02:47.975 --> 00:02:49.799
 That's just taking turns.
 
 57
-00:02:50.345 --> 00:02:51.878
+00:02:49.799 --> 00:02:51.332
 No circle, no freeze.
 
 58
-00:02:52.128 --> 00:03:00.358
+00:02:51.533 --> 00:02:59.763
 Let's test it on the exact traffic that froze the bank: 200,000 transfers between the same two accounts, half each way.
 
 59
-00:03:00.358 --> 00:03:01.741
+00:02:59.763 --> 00:03:01.147
 Will it ever freeze?
 
 60
-00:03:04.741 --> 00:03:11.585
+00:03:04.133 --> 00:03:10.977
 With the lock order, every run finished, in 33 to 50 milliseconds, and the total stayed at 2,000,000.
 
 61
-00:03:11.585 --> 00:03:16.395
+00:03:10.977 --> 00:03:15.787
 With the keys taken in argument order, it hung on five runs out of six.
 
 62
-00:03:16.395 --> 00:03:17.954
+00:03:15.787 --> 00:03:17.346
 The sixth run finished.
 
 63
-00:03:17.954 --> 00:03:19.851
+00:03:17.346 --> 00:03:19.243
 That's the same bug, hiding.
 
 64
-00:03:20.101 --> 00:03:21.845
+00:03:19.467 --> 00:03:21.211
 Two details make or break it.
 
 65
-00:03:21.845 --> 00:03:26.117
+00:03:21.211 --> 00:03:25.483
 The number must be unique and never change, so an account number works.
 
 66
-00:03:26.117 --> 00:03:28.825
+00:03:25.483 --> 00:03:28.191
 And every piece of code must follow the rule.
 
 67
-00:03:28.825 --> 00:03:32.976
+00:03:28.191 --> 00:03:32.342
 One method that takes the keys the other way builds the circle again.
 
 68
-00:03:32.976 --> 00:03:36.646
+00:03:32.342 --> 00:03:36.012
 So write the rule once, in one helper, and use it everywhere.
 
 69
-00:03:37.396 --> 00:03:40.107
+00:03:36.733 --> 00:03:39.444
 Sometimes you can't know both keys up front.
 
 70
-00:03:40.107 --> 00:03:44.727
+00:03:39.444 --> 00:03:44.065
 Then break a different condition, no preemption, with a lock that gives up.
 
 71
-00:03:44.727 --> 00:03:49.841
+00:03:44.065 --> 00:03:49.178
 ReentrantLock has tryLock, which waits at most, say, 10 milliseconds, then says no.
 
 72
-00:03:49.841 --> 00:03:55.940
+00:03:49.178 --> 00:03:55.277
 If a transfer can't get its second key in time, it puts the first one back, rests, and tries again.
 
 73
-00:03:56.190 --> 00:04:02.292
+00:03:55.500 --> 00:04:01.602
 But what if both transfers give up at the same moment, rest just as long, and try again together?
 
 74
-00:04:02.292 --> 00:04:05.186
+00:04:01.602 --> 00:04:04.496
 Picture two very polite diners with one spoon.
 
 75
-00:04:05.186 --> 00:04:08.206
+00:04:04.496 --> 00:04:07.516
 Each hands it over whenever the other is hungry.
 
 76
-00:04:08.206 --> 00:04:10.659
+00:04:07.516 --> 00:04:09.969
 How many meals get eaten in one second?
 
 77
-00:04:13.659 --> 00:04:18.649
+00:04:12.967 --> 00:04:17.956
 In the demo, the spoon changed hands about 6 million times in one second.
 
 78
-00:04:18.649 --> 00:04:19.400
+00:04:17.956 --> 00:04:18.708
 Nobody ate.
 
 79
-00:04:19.400 --> 00:04:23.433
+00:04:18.708 --> 00:04:22.740
 That's a livelock: everyone is busy, and nothing gets done.
 
 80
-00:04:23.433 --> 00:04:25.483
+00:04:22.740 --> 00:04:24.791
 Perfect manners, empty plates.
 
 81
-00:04:25.733 --> 00:04:27.706
+00:04:25.000 --> 00:04:26.972
 The fix is to break the step.
 
 82
-00:04:27.706 --> 00:04:30.630
+00:04:26.972 --> 00:04:29.896
 Rest for a random time before trying again.
 
 83
-00:04:30.630 --> 00:04:34.166
+00:04:29.896 --> 00:04:33.433
 Or add a rule: after three polite turns, eat anyway.
 
 84
-00:04:34.166 --> 00:04:38.859
+00:04:33.433 --> 00:04:38.125
 With that rule, the spoon changed hands 6 times, and both diners ate.
+
+85
+00:04:38.933 --> 00:04:41.604
+One last way to get stuck is starvation.
+
+86
+00:04:41.604 --> 00:04:45.744
+The program moves, but one unlucky thread never gets its turn.
+
+87
+00:04:45.744 --> 00:04:50.217
+A fair lock serves the longest waiter first, at some cost in speed.
+
+88
+00:04:51.033 --> 00:04:55.625
+Here's the lock order in code, Java on the left and Kotlin on the right.
+
+89
+00:04:55.625 --> 00:04:58.878
+Pick the account with the lower id, then the other.
+
+90
+00:04:58.878 --> 00:05:00.408
+Lock them in that order.
+
+91
+00:05:00.408 --> 00:05:01.684
+Then move the money.
+
+92
+00:05:02.500 --> 00:05:05.496
+So, can two correct transfers break each other?
+
+93
+00:05:05.496 --> 00:05:08.746
+Yes, if they take the same keys in opposite orders.
+
+94
+00:05:08.746 --> 00:05:11.997
+A deadlock needs four things at once, so break one.
+
+95
+00:05:11.997 --> 00:05:16.713
+The cheapest is the circle: one lock order, written once, used everywhere.
+
+96
+00:05:16.933 --> 00:05:17.729
+Quick check.
+
+97
+00:05:17.729 --> 00:05:20.913
+One method locks the customer, then the account.
+
+98
+00:05:20.913 --> 00:05:23.899
+Another locks the account, then the customer.
+
+99
+00:05:23.899 --> 00:05:24.960
+Can they freeze?

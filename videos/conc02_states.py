@@ -83,8 +83,8 @@ def place(name, phrase, color, w, h, pos):
     """A state drawn as a place: name on top, the everyday phrase under it, room for tokens below."""
     r = RoundedRectangle(corner_radius=0.15, width=w, height=h, stroke_color=color, stroke_width=3)
     r.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(color), 0.10), opacity=1).move_to(pos)
-    t = M(name, 26, color).move_to(r.get_top() + DOWN * 0.28)
-    p = fit(T(phrase, 22, GREY_A), w - 0.3).move_to(r.get_top() + DOWN * 0.68)
+    t = M(name, 26, color).move_to(r.get_top() + DOWN * 0.28).set_z_index(6)
+    p = fit(T(phrase, 22, GREY_A), w - 0.3).move_to(r.get_top() + DOWN * 0.68).set_z_index(6)
     return VGroup(r, t, p)
 
 
@@ -105,7 +105,7 @@ def edge(a, b):
 
 def lab(text, anchor, side, mono=False, color=GREY_A):
     m = (M(text, 22, color) if mono else T(text, 22, color))
-    return m.move_to(np.array([*anchor, 0]), aligned_edge=side)
+    return m.move_to(np.array([*anchor, 0]), aligned_edge=side).set_z_index(6)
 
 
 def go(tok, arr, dest, rt):
@@ -319,7 +319,7 @@ class Conc02States(VoiceScene):
         self.play(*nap(), run_time=0.6)
         mc = clerk(MAINC, 1.3).move_to([3.4, rc.get_y(), 0])
         mc_l = T("main", 26, MAINC).move_to([3.4, -0.25, 0])
-        nt = note().move_to(mc.get_center() + LEFT * 0.7 + UP * 0.3)
+        nt = note().move_to(mc.get_left() + LEFT * 0.75 + UP * 0.25)
         seq(self, "Java can't drag a thread away from its desk. It can only ask. relay.interrupt() is the asking.",
             ([FadeIn(mc, shift=LEFT * 0.2), FadeIn(mc_l)], 0.8), 3.0, ([FadeIn(nt, scale=0.6)], 0.6))
         seq(self, "Picture a note on the clerk's desk: please finish up.",
@@ -372,14 +372,15 @@ class Conc02States(VoiceScene):
             3.4, ([FadeOut(jc[2:]), FadeIn(fc[2:]), FadeOut(outl)], 1.0), 1.2,
             ([Indicate(fc[2], color=GREEN_M, scale_factor=1.03)], 1.0))
         flag_l = T("the interrupt flag", 26, YELLOW_M).move_to(SPOT + RIGHT * 0.65, aligned_edge=LEFT)
+        st_r2 = M("RUNNABLE", 26, C_RUN).move_to(st)
         seq(self, "Put back, the note stays where the relay can see it. Its proper name is the interrupt flag.",
-            ([FadeIn(nt, scale=1.3)], 0.8), 2.2, ([FadeIn(flag_l, shift=UP * 0.1)], 0.6))
+            (lambda: wake() + [Transform(st, st_r2), FadeIn(nt, scale=1.3)], 0.8), 2.2,
+            ([FadeIn(flag_l, shift=UP * 0.1)], 0.6))
         st_e = M("TERMINATED", 26, C_DIM).move_to(st)
         mw2 = M("RUNNABLE again", 22, C_RUN).move_to(mw)
         seq(self, "Now the relay sees the note, finishes the batch in hand, and returns. "
                   "TERMINATED at last, and main's join returns.",
-            (lambda: wake() + [FadeOut(flag_l)], 0.8), 0.6,
-            ([Indicate(nt, color=YELLOW_M, scale_factor=1.25)], 0.8), 0.6,
+            ([FadeOut(flag_l), Indicate(nt, color=YELLOW_M, scale_factor=1.25)], 0.8), 1.4,
             ([FadeOut(rc, shift=LEFT * 0.6), FadeOut(rc_l), FadeOut(nt), Transform(st, st_e)], 1.0), 0.4,
             ([Transform(mw, mw2)], 0.6))
         self.beat("The relay goes home on time. Somebody in that mail room should.", run_time=0.8)
