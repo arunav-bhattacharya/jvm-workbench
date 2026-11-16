@@ -1,6 +1,6 @@
 # JVM Workbench
 
-A 138-lesson course on how Java and Kotlin really run: concurrency, async servers, generics and design, and the JVM itself. One lesson a day, about 35 minutes each, with real code to write and tests that tell you when it works. Live at https://jvm-workbench.ai-arunav.workers.dev.
+A 139-lesson course on how Java and Kotlin really run: concurrency, async servers, generics and design, and the JVM itself. One lesson a day, about 35 minutes each, with real code to write and tests that tell you when it works. Live at https://jvm-workbench.ai-arunav.workers.dev.
 
 The course has four parts. Each one ends with a capstone: three sittings that build one working program from everything the part taught.
 
@@ -23,7 +23,7 @@ The course has four parts. Each one ends with a capstone: three sittings that bu
 | | Capstone: a typed event library | 3 | `labs/events` |
 | 4. Inside the JVM | Class loading, bytecode and dynamic proxies | 7 | `labs/bytecode` |
 | | Memory and garbage collection | 7 | `labs/memory` |
-| | JIT, profiling and benchmarking | 7 | `labs/performance` |
+| | JIT, profiling and benchmarking | 8 | `labs/performance` |
 | | Startup and footprint | 4 | `labs/startup` |
 | | Capstone: a tiny dependency injection container | 3 | `labs/container` |
 

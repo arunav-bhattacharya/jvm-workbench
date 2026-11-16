@@ -638,7 +638,7 @@
       "id": "perf",
       "lab": "performance",
       "title": "JIT, profiling and benchmarking",
-      "short": "Tiered compilation, inlining and deoptimization, JMH, false sharing, JFR, async-profiler and flame graphs.",
+      "short": "Tiered compilation, inlining and deoptimization, JMH, false sharing, JFR, async-profiler, flame graphs and thread dumps.",
       "lessons": [
         {
           "id": "perf-01",
@@ -667,6 +667,10 @@
         {
           "id": "perf-07",
           "title": "A performance investigation, start to finish"
+        },
+        {
+          "id": "perf-08",
+          "title": "Reading thread dumps: stuck, blocked and hot threads"
         }
       ]
     },
