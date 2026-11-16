@@ -1,0 +1,153 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:07.216
+Northbank answers a quote in 40 milliseconds, most of the time.
+
+2
+00:00:07.216 --> 00:00:12.837
+But one call in twenty takes 600, a garbage collection pause or a slow replica.
+
+3
+00:00:13.067 --> 00:00:19.857
+So the p99, the time 99 of 100 requests beat, is 600 milliseconds.
+
+4
+00:00:20.000 --> 00:00:21.541
+A retry won't help.
+
+5
+00:00:21.541 --> 00:00:22.758
+Nothing failed.
+
+6
+00:00:22.758 --> 00:00:24.543
+The call is just slow.
+
+7
+00:00:25.333 --> 00:00:26.810
+Watch one request.
+
+8
+00:00:26.810 --> 00:00:30.829
+By 80 milliseconds, 19 calls in 20 have answered.
+
+9
+00:00:31.000 --> 00:00:34.399
+A fast call answers at 40, and nothing else happens.
+
+10
+00:00:35.000 --> 00:00:37.301
+Now the first call is a slow one.
+
+11
+00:00:37.301 --> 00:00:39.532
+At 80, it still hasn't answered.
+
+12
+00:00:39.532 --> 00:00:42.529
+So send one more identical call: the hedge.
+
+13
+00:00:42.733 --> 00:00:44.852
+Which answer comes first, and when?
+
+14
+00:00:46.267 --> 00:00:49.658
+The hedge, at 120: 80 of waiting, plus 40.
+
+15
+00:00:49.658 --> 00:00:52.403
+Take it, and cancel the slow call.
+
+16
+00:00:52.667 --> 00:00:57.467
+Skip the cancel, and in Kotlin coroutineScope waits for every child.
+
+17
+00:00:57.467 --> 00:01:00.573
+The request ends with the slow call, at 600.
+
+18
+00:01:02.200 --> 00:01:04.054
+Back to all twenty calls.
+
+19
+00:01:04.054 --> 00:01:08.059
+Only the slow one got a hedge, and it now ends at 120.
+
+20
+00:01:08.200 --> 00:01:15.181
+In the lesson's demo, 200 quotes: the p99 fell from 600 to 120 milliseconds.
+
+21
+00:01:15.181 --> 00:01:18.304
+The median, the p50, stayed at 40.
+
+22
+00:01:18.467 --> 00:01:21.484
+The cost: 210 calls instead of 200.
+
+23
+00:01:21.484 --> 00:01:25.968
+Hedging at the 95th percentile adds about 5 percent.
+
+24
+00:01:27.000 --> 00:01:29.170
+A hedge is a duplicate request.
+
+25
+00:01:29.170 --> 00:01:33.861
+Northbank's prices are indicative, so asking twice changes nothing.
+
+26
+00:01:34.000 --> 00:01:35.667
+Fjord's quotes are firm.
+
+27
+00:01:35.667 --> 00:01:39.904
+Each call reserves liquidity, so a hedge would reserve twice.
+
+28
+00:01:39.904 --> 00:01:41.849
+Fjord gets exactly one call.
+
+29
+00:01:42.000 --> 00:01:45.525
+And the hedge takes its own permit from Northbank's bulkhead.
+
+30
+00:01:45.525 --> 00:01:50.611
+Under full load it waits for one, so it can't add to the queue that made Northbank slow.
+
+31
+00:01:51.800 --> 00:01:57.481
+Here it is in Kotlin, the lab's language, with the Java equivalent in Reactor below it.
+
+32
+00:01:59.733 --> 00:02:00.393
+The rule.
+
+33
+00:02:00.393 --> 00:02:09.112
+Hedge only calls that are safe to repeat, only where the tail hurts, after about the p95 latency, and cancel the loser.
+
+34
+00:02:09.267 --> 00:02:10.353
+Check yourself.
+
+35
+00:02:10.353 --> 00:02:15.207
+You move the hedge to 30 milliseconds, below Northbank's normal 40.
+
+36
+00:02:15.207 --> 00:02:17.671
+How many calls do 200 quotes make?
+
+37
+00:02:20.333 --> 00:02:20.637
+400.
+
+38
+00:02:20.637 --> 00:02:26.640
+At 30, every call is still running, so every request is hedged: twice the load.

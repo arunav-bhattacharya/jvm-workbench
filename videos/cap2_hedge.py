@@ -73,7 +73,7 @@ def axis(xt, y, upto, step, lab_step):
     tks = VGroup(*[Line([xt(v), y, 0], [xt(v), y - 0.1, 0], stroke_width=2, color=GREY_C)
                    for v in range(0, upto + 1, step)])
     labs = VGroup(*[T(str(v), 22, GREY_B).move_to([xt(v), y - 0.33, 0]) for v in range(0, upto + 1, lab_step)])
-    ms = T("ms", 22, GREY_B).move_to([xt(upto) + 0.4, y - 0.33, 0])
+    ms = T("ms", 22, GREY_B).move_to([xt(upto) + 0.35, y, 0], aligned_edge=LEFT)
     return VGroup(line, tks, labs, ms)
 
 
@@ -97,7 +97,7 @@ class Cap2Hedge(VoiceScene):
         ax = axis(WIDE, -1.65, 650, 100, 200)
         who = VGroup(T("Northbank,", 24, BLUE_M), T("20 calls", 24, GREY_B)).arrange(DOWN, buff=0.12)
         who.move_to([-5.65, 0.55, 0])
-        bars = [bar(clock, WIDE, 0, 600 if i == SLOW else 40, y, BLUE_M, 0.13) for i, y in enumerate(ROWS)]
+        bars = [bar(clock, WIDE, 0, 600 if i == SLOW else 40, y, BLUE_M, 0.1) for i, y in enumerate(ROWS)]
         self.add(*bars)
         l40 = T("40 ms", 22, GREY_B).move_to([WIDE(40) + 0.45, ROWS[0], 0])
         l600 = T("600 ms", 24, RED_M).move_to([WIDE(600) + 0.55, ROWS[SLOW], 0])
@@ -160,18 +160,18 @@ class Cap2Hedge(VoiceScene):
 
         # ---------------- the tail, and the cost ----------------
         clock.set_value(40)
-        rows = [bar(clock, WIDE, 0, 40, y, BLUE_M, 0.13) for i, y in enumerate(ROWS) if i != SLOW]
+        rows = [bar(clock, WIDE, 0, 40, y, BLUE_M, 0.1) for i, y in enumerate(ROWS) if i != SLOW]
         for b in rows:
             b.update(); b.clear_updaters()
         sy = ROWS[SLOW]
-        slow = Rectangle(width=600 * WIDE.s, height=0.13, stroke_width=2, stroke_color=BLUE_M).set_fill(BLUE_M, 0.4)
+        slow = Rectangle(width=600 * WIDE.s, height=0.1, stroke_width=2, stroke_color=BLUE_M).set_fill(BLUE_M, 0.4)
         slow.move_to([WIDE(0) + 300 * WIDE.s, sy, 0])
         ax = axis(WIDE, -1.65, 650, 100, 200)
         l600 = T("600 ms", 24, RED_M).move_to([WIDE(600) + 0.55, sy, 0])
         self.play(FadeIn(VGroup(*rows, slow, ax, who, l600)), run_time=0.6)
-        slow_new = Rectangle(width=120 * WIDE.s, height=0.13, stroke_width=2, stroke_color=GREY_D).set_fill(GREY_D, 0.4)
+        slow_new = Rectangle(width=120 * WIDE.s, height=0.1, stroke_width=2, stroke_color=GREY_D).set_fill(GREY_D, 0.4)
         slow_new.move_to([WIDE(0) + 60 * WIDE.s, sy, 0])
-        hedge_b = Rectangle(width=40 * WIDE.s, height=0.13, stroke_width=2, stroke_color=TEAL_M).set_fill(TEAL_M, 0.6)
+        hedge_b = Rectangle(width=40 * WIDE.s, height=0.1, stroke_width=2, stroke_color=TEAL_M).set_fill(TEAL_M, 0.6)
         hedge_b.move_to([WIDE(100), sy, 0])
         l120 = T("120 ms", 24, TEAL_M).move_to([WIDE(120) + 0.55, sy, 0])
         self.beat("Back to all twenty calls. Only the slow one got a hedge, and it now ends at 120.",
