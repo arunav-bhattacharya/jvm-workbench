@@ -1,161 +1,365 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:08.211
-Picture your program as a page of code, and something that walks through it, one line at a time.
+00:00:02.733 --> 00:00:06.473
+People say thread as if you already know what one is.
 
 2
-00:00:08.433 --> 00:00:13.944
-It keeps its notes on a stack: one frame per call in progress, with its local variables.
+00:00:06.473 --> 00:00:07.601
+Is it your code?
 
 3
-00:00:14.167 --> 00:00:17.144
-Step into a call, and a frame goes on top.
+00:00:07.601 --> 00:00:08.589
+The processor?
 
 4
-00:00:17.144 --> 00:00:18.916
-Return, and it comes off.
+00:00:08.589 --> 00:00:10.141
+Some object in memory?
 
 5
-00:00:19.133 --> 00:00:20.884
-This walker is a thread.
+00:00:10.333 --> 00:00:13.370
+If you have never been quite sure, you are not alone.
 
 6
-00:00:20.884 --> 00:00:23.584
-The JVM starts this one, called main.
+00:00:13.370 --> 00:00:15.317
+Let's find out, with a small shop.
 
 7
-00:00:24.200 --> 00:00:29.476
-It runs inside a process, one running JVM, with memory of its own.
+00:00:15.467 --> 00:00:17.202
+The shop records every sale.
 
 8
-00:00:29.700 --> 00:00:33.760
-Every object you create with new lives in one part of it: the heap.
+00:00:17.202 --> 00:00:22.221
+At the end of the year, the owner wants one number: the total of a million sales.
 
 9
-00:00:33.967 --> 00:00:38.138
-A second thread, a worker, walks the same code with its own stack.
+00:00:22.400 --> 00:00:25.244
+Our program adds them up, one after another.
 
 10
-00:00:38.138 --> 00:00:41.297
-Both call settle, and each one gets its own frame.
+00:00:25.400 --> 00:00:27.441
+The owner's laptop has four cores.
 
 11
-00:00:41.500 --> 00:00:44.406
-But both can reach the same Payment on the heap.
+00:00:27.441 --> 00:00:33.264
+A core is the part of the processor that does the work, and all four can work at the same moment.
 
 12
-00:00:44.406 --> 00:00:51.007
-That is how threads share data with no copying, and how two of them can change one object at the same moment.
+00:00:33.467 --> 00:00:37.292
+But while our program adds, one core works, and three sit idle.
 
 13
-00:00:51.533 --> 00:00:53.871
-Main sets its local total to three.
+00:00:37.467 --> 00:00:41.996
+It's like paying four clerks, and letting one do all the adding while three watch.
 
 14
-00:00:53.871 --> 00:00:55.941
-Does the worker's total change?
+00:00:42.133 --> 00:00:46.172
+So why not cut the list into four, and add all four parts at once?
 
 15
-00:00:57.567 --> 00:00:57.782
-No.
+00:00:47.000 --> 00:00:50.184
+Before computers, a shop gave this job to people.
 
 16
-00:00:57.782 --> 00:01:00.660
-A local lives on its own thread's stack.
+00:00:50.184 --> 00:00:52.133
+Picture clerks in a back room.
 
 17
-00:01:00.660 --> 00:01:02.387
-Only the heap is shared.
+00:00:52.333 --> 00:00:56.073
+The receipts sit in one filing cabinet that everyone shares.
 
 18
-00:01:03.300 --> 00:01:06.997
-A core of the CPU runs a thread, one thread at a time.
+00:00:56.267 --> 00:00:59.559
+Each clerk keeps a running total on a notepad of their own.
 
 19
-00:01:07.200 --> 00:01:14.685
-On one core, the operating system lets main run for a short slice, saves its registers, and switches to the worker.
+00:00:59.733 --> 00:01:00.634
+Let's map it.
 
 20
-00:01:14.685 --> 00:01:18.200
-That is a context switch, thousands of times a second.
+00:01:00.634 --> 00:01:07.981
+Each clerk is a thread: one path of work that follows the steps, one by one, and always knows where it is.
 
 21
-00:01:18.433 --> 00:01:20.953
-Both are in progress, taking turns.
+00:01:08.133 --> 00:01:10.010
+The filing cabinet is the heap.
 
 22
-00:01:20.953 --> 00:01:22.393
-That is concurrency.
+00:01:10.010 --> 00:01:14.611
+Every object you create with new lives there, and every thread can reach it.
 
 23
-00:01:22.600 --> 00:01:25.274
-Two cores run both at the same instant.
+00:01:14.800 --> 00:01:20.960
+The notepad is the thread's stack: its local variables, and the method calls it is in the middle of.
 
 24
-00:01:25.274 --> 00:01:26.645
-That is parallelism.
+00:01:20.960 --> 00:01:22.685
+Only its owner writes on it.
 
 25
-00:01:27.467 --> 00:01:32.039
-So on four cores, is a busy job faster on eight threads than on four?
+00:01:22.867 --> 00:01:28.249
+And the whole back room is the process: one running program, with memory of its own.
 
 26
-00:01:33.567 --> 00:01:33.824
-No.
+00:01:28.400 --> 00:01:29.219
+Quick guess.
 
 27
-00:01:33.824 --> 00:01:40.418
-In the lesson's demo, four threads took 121 milliseconds, and eight took 125.
+00:01:29.219 --> 00:01:32.424
+One clerk writes total equals 3 on her notepad.
 
 28
-00:01:40.418 --> 00:01:45.128
-Once every core is busy, extra threads only take turns.
+00:01:32.424 --> 00:01:34.948
+Does the next clerk's notepad change?
 
 29
-00:01:45.933 --> 00:01:48.968
-Calling run on a thread is a plain method call.
+00:01:37.800 --> 00:01:38.019
+No.
 
 30
-00:01:48.968 --> 00:01:52.197
-Main steps into the task itself, on its own stack.
+00:01:38.019 --> 00:01:41.589
+A local variable lives on its own thread's stack.
 
 31
-00:01:52.400 --> 00:01:56.887
-No new thread exists, nothing fails, and the job is just as slow.
+00:01:41.733 --> 00:01:45.606
+But both clerks can open the same drawer and reach the same sale.
 
 32
-00:01:57.100 --> 00:02:02.653
-With start, the JVM asks the operating system for a new thread, with a new stack.
+00:01:45.606 --> 00:01:49.597
+That is what makes threads useful: they share data with no copying.
 
 33
-00:02:02.867 --> 00:02:05.945
-That thread calls run, and main goes on at once.
+00:01:49.733 --> 00:01:55.457
+It is also what makes them risky, because two threads can change one object at the same moment.
 
 34
-00:02:06.867 --> 00:02:07.436
-The rule.
+00:01:55.600 --> 00:01:57.783
+So, locals belong to one thread.
 
 35
-00:02:07.436 --> 00:02:13.195
-Every thread has its own stack, they all share the heap, and only start makes a new thread.
+00:01:57.783 --> 00:01:59.965
+The heap belongs to all of them.
 
 36
-00:02:13.400 --> 00:02:14.413
-Check yourself.
+00:02:01.467 --> 00:02:04.162
+Before we hire anyone, one more surprise.
 
 37
-00:02:14.413 --> 00:02:19.477
-You split a report into four slices, and call run on a new thread for each.
+00:02:04.162 --> 00:02:07.646
+How many threads does the emptiest Java program have?
 
 38
-00:02:19.477 --> 00:02:21.975
-On four cores, how much faster is it?
+00:02:07.646 --> 00:02:08.697
+Pause and guess.
 
 39
-00:02:24.700 --> 00:02:25.570
-Not faster.
+00:02:11.533 --> 00:02:17.694
+The lesson's first demo asks the JVM, the program that runs your Java code.
 
 40
-00:02:25.570 --> 00:02:29.684
-Main runs the four slices itself, one after another.
+00:02:17.694 --> 00:02:19.995
+On JDK 21, the list has six.
+
+41
+00:02:20.133 --> 00:02:23.637
+One is main, the thread that runs your main method.
+
+42
+00:02:23.637 --> 00:02:30.301
+The other five are the JVM's housekeepers, mostly cleaning up after objects nobody uses any more.
+
+43
+00:02:30.467 --> 00:02:33.291
+So your programs had several threads all along.
+
+44
+00:02:33.291 --> 00:02:35.515
+You just never met the cleaning crew.
+
+45
+00:02:37.333 --> 00:02:39.319
+Now let's hire four clerks.
+
+46
+00:02:39.319 --> 00:02:43.363
+We make four Thread objects, named sales-worker-0 to 3.
+
+47
+00:02:43.533 --> 00:02:52.628
+Each one gets work to do: a lambda that sums one slice of the sales, and puts the result in its own slot of an array, here in the cabinet.
+
+48
+00:02:52.800 --> 00:02:54.759
+Then we call run() on each one.
+
+49
+00:02:54.759 --> 00:02:56.844
+Which thread will sum each slice?
+
+50
+00:02:56.844 --> 00:02:57.855
+Pause and guess.
+
+51
+00:03:00.667 --> 00:03:03.692
+We printed the thread's name inside the work.
+
+52
+00:03:03.692 --> 00:03:05.843
+Every line says: summed on main.
+
+53
+00:03:06.133 --> 00:03:11.061
+The total is right, the tests pass, and it is exactly as slow as before.
+
+54
+00:03:11.061 --> 00:03:13.251
+Main did all four slices itself.
+
+55
+00:03:13.400 --> 00:03:14.107
+Here's why.
+
+56
+00:03:14.107 --> 00:03:20.020
+run() is an ordinary method call, so the work runs right here, on the thread that called it.
+
+57
+00:03:20.020 --> 00:03:23.233
+Named honestly, it would be called do it yourself.
+
+58
+00:03:23.400 --> 00:03:25.999
+The call that makes a thread is start().
+
+59
+00:03:25.999 --> 00:03:31.456
+The JVM asks the operating system for a new thread, and that new thread calls run().
+
+60
+00:03:31.600 --> 00:03:36.470
+So we change run() to start(), and add up the four slots right after the loop.
+
+61
+00:03:36.470 --> 00:03:37.907
+Is the total right now?
+
+62
+00:03:40.333 --> 00:03:42.102
+The lesson ran it five times.
+
+63
+00:03:42.102 --> 00:03:48.688
+The first total came out at about a quarter of the right answer, and the other four at about three quarters.
+
+64
+00:03:48.933 --> 00:03:52.342
+Main added up the slots while the clerks were still adding.
+
+65
+00:03:52.342 --> 00:03:53.960
+Call it the impatient total.
+
+66
+00:03:54.133 --> 00:03:58.705
+You might be thinking: just sleep for a hundred milliseconds, to give them time.
+
+67
+00:03:58.933 --> 00:04:03.243
+That passes on your laptop, and fails one day on a busier computer.
+
+68
+00:04:03.243 --> 00:04:04.916
+Sleep only lets time pass.
+
+69
+00:04:04.916 --> 00:04:07.039
+It's a guess with a number on it.
+
+70
+00:04:07.267 --> 00:04:09.865
+What we want is to wait for each clerk.
+
+71
+00:04:09.865 --> 00:04:10.864
+That is join().
+
+72
+00:04:11.000 --> 00:04:14.619
+t.join() makes the caller wait until thread t has ended.
+
+73
+00:04:14.619 --> 00:04:18.885
+And once it returns, the caller sees everything that thread wrote.
+
+74
+00:04:19.067 --> 00:04:24.333
+So main starts all four, then joins all four, and only then adds up the slots.
+
+75
+00:04:24.333 --> 00:04:26.696
+Now the total is right, every time.
+
+76
+00:04:28.600 --> 00:04:30.923
+Here it is in Java and in Kotlin.
+
+77
+00:04:30.923 --> 00:04:32.402
+Notice the two loops.
+
+78
+00:04:32.402 --> 00:04:35.852
+Start every worker first, then join every worker.
+
+79
+00:04:36.000 --> 00:04:41.662
+Join inside the first loop, and main would wait for worker 0 before starting worker 1.
+
+80
+00:04:41.662 --> 00:04:43.373
+One clerk at a time again.
+
+81
+00:04:43.533 --> 00:04:49.748
+In Kotlin, thread with braces makes the thread and starts it for you, so the run() mistake is hard to make.
+
+82
+00:04:50.933 --> 00:04:51.978
+Does it pay?
+
+83
+00:04:51.978 --> 00:05:02.253
+On a bigger job of the same shape, on four cores, the lesson's timing demo took 510 ms on one thread, and 121 on four.
+
+84
+00:05:03.333 --> 00:05:04.704
+So, what is a thread?
+
+85
+00:05:04.704 --> 00:05:12.797
+One clerk: a path of work that follows your code step by step, with its own notepad, sharing one cabinet with everyone else.
+
+86
+00:05:13.000 --> 00:05:18.319
+Start every worker, then join every worker, and read nothing before the last join.
+
+87
+00:05:19.667 --> 00:05:20.649
+Check yourself.
+
+88
+00:05:20.649 --> 00:05:26.737
+A friend splits a slow report into four parts, and calls run() on a new thread for each part.
+
+89
+00:05:26.737 --> 00:05:29.159
+On four cores, how much faster is it?
+
+90
+00:05:32.000 --> 00:05:33.251
+Not faster at all.
+
+91
+00:05:33.251 --> 00:05:37.283
+run() is a plain call, so main does all four parts itself.

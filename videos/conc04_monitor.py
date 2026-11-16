@@ -306,7 +306,7 @@ class Conc04Monitor(Narrated):
             row[0].move_to([-6.2, y, 0], aligned_edge=LEFT)
             row[1].move_to([-1.5, y, 0], aligned_edge=LEFT)
         room_lab2 = T("the vault: the code we guard", 28, GREY_A).move_to(room_lab)
-        key_lab = T("lock", 26, KEY).move_to(HOOK + UP * 0.5)
+        key_lab = T("lock", 26, KEY).move_to(HOOK + UP * 0.62 + LEFT * 0.15)
         self.say("map")
         self.at(1)
         self.play(Transform(room_lab, room_lab2), run_time=0.6)
@@ -463,8 +463,8 @@ class Conc04Monitor(Narrated):
         self.play(FadeOut(VGroup(p1, p2, rule)), run_time=0.5)
         walk_out(chk, key)
         t1.move_to([-4.6, 2.0, 0])
-        f_w = tbox("withdraw()", T1C).move_to([-0.1, -0.45, 0])
-        f_c = tbox("canCover()", T1C).move_to([-0.1, 0.12, 0])
+        f_w = tbox("withdraw()", T1C).move_to([0.2, -0.52, 0])
+        f_c = tbox("canCover()", T1C).move_to([0.2, 0.05, 0])
         cnt = [M("count: 1", 24, KEY).move_to([-0.15, 1.6, 0])]
         ghost = DashedVMobject(t1[0].copy().set_fill(opacity=0), num_dashes=24).set_stroke(T1C, 2.5).move_to(SLOTS[0])
         ghost_t = VGroup(T("T1", 26, T1C).set_opacity(0.55).move_to(SLOTS[0]),
@@ -547,7 +547,7 @@ class Conc04Monitor(Narrated):
 
         # ================= on hold with the key =================
         key.move_to(HOOK)
-        key_lab2 = T("monitor", 26, KEY).move_to(HOOK + UP * 0.5)
+        key_lab2 = T("monitor", 26, KEY).move_to(HOOK + UP * 0.62 + LEFT * 0.15)
         acc_a2, acc_b2 = cell("A = 850").move_to(A_POS), cell("B = 1,150").move_to(B_POS)
         vault2 = VGroup(glass, pane, posts, room_lab, peg, key, key_lab2, acc_a2, acc_b2)
         desk = VGroup(chip("fraud check", GREY_B, size=22), T("40 ms each", 22, GREY_B))
