@@ -1,0 +1,157 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.218
+Here is a money value written by hand.
+
+2
+00:00:05.218 --> 00:00:07.471
+It lists its fields in six places.
+
+3
+00:00:08.633 --> 00:00:10.348
+Someone adds a currency.
+
+4
+00:00:10.348 --> 00:00:11.777
+Three places get it.
+
+5
+00:00:11.777 --> 00:00:14.349
+equals, hashCode and toString don't.
+
+6
+00:00:14.533 --> 00:00:17.932
+So is this euro amount equal to this dollar amount?
+
+7
+00:00:19.500 --> 00:00:19.851
+True.
+
+8
+00:00:19.851 --> 00:00:25.615
+equals still compares only the amount, and the log doesn't even show the currency.
+
+9
+00:00:26.433 --> 00:00:27.826
+A record says it once.
+
+10
+00:00:27.826 --> 00:00:33.145
+You list its components in the header, and javac writes the rest from that one list.
+
+11
+00:00:33.333 --> 00:00:40.529
+A private final field and an accessor for each, a canonical constructor, and equals, hashCode and toString.
+
+12
+00:00:40.733 --> 00:00:44.146
+Those last three aren't even written out.
+
+13
+00:00:44.146 --> 00:00:52.053
+javac hands the JDK the names, minor;currency, and the JDK builds each method on its first run.
+
+14
+00:00:52.967 --> 00:00:55.690
+Where do you check that an amount isn't negative?
+
+15
+00:00:55.690 --> 00:00:59.359
+Put the check in a static factory, and new walks straight past it.
+
+16
+00:00:59.567 --> 00:01:02.906
+A record has one door: the canonical constructor.
+
+17
+00:01:02.906 --> 00:01:09.244
+Other constructors must call it first, and so do factories, withers and Java deserialization.
+
+18
+00:01:09.467 --> 00:01:16.085
+Put the check there, in the compact constructor, and it holds for every instance.
+
+19
+00:01:16.085 --> 00:01:19.272
+It can fix values too: eur becomes EUR.
+
+20
+00:01:20.167 --> 00:01:22.421
+A record is only shallowly immutable.
+
+21
+00:01:22.421 --> 00:01:25.833
+Its fields are final, but what they point to can change.
+
+22
+00:01:26.033 --> 00:01:28.981
+A Batch holds the caller's list of payment ids.
+
+23
+00:01:28.981 --> 00:01:31.679
+A HashSet files the batch by its hash code.
+
+24
+00:01:31.867 --> 00:01:34.317
+Now the caller adds pay_3 to its list.
+
+25
+00:01:34.317 --> 00:01:36.509
+Does the set still find the batch?
+
+26
+00:01:38.300 --> 00:01:38.502
+No.
+
+27
+00:01:38.502 --> 00:01:41.468
+The hash code reads the list, so it changed.
+
+28
+00:01:41.468 --> 00:01:45.445
+The set looks in the wrong bucket, and contains says false.
+
+29
+00:01:45.633 --> 00:01:50.175
+The fix is one line in the compact constructor: List.copyOf.
+
+30
+00:01:50.175 --> 00:01:53.732
+Now the record holds its own unmodifiable copy.
+
+31
+00:01:54.633 --> 00:02:01.808
+In Kotlin, a data class gets the same methods, but its init block can only reject a value, not rewrite it.
+
+32
+00:02:02.633 --> 00:02:07.072
+The rule: a record is its components, and javac writes the rest.
+
+33
+00:02:07.072 --> 00:02:10.194
+The canonical constructor is the only way in.
+
+34
+00:02:10.194 --> 00:02:12.829
+And immutability stops one level down.
+
+35
+00:02:13.033 --> 00:02:13.815
+Quick check.
+
+36
+00:02:13.815 --> 00:02:18.177
+Someone edits a serialized Money and sets the amount to minus five.
+
+37
+00:02:18.177 --> 00:02:20.456
+What happens when you read it back?
+
+38
+00:02:22.433 --> 00:02:23.396
+It's rejected.
+
+39
+00:02:23.396 --> 00:02:28.484
+Deserialization calls the canonical constructor too, so your check throws.

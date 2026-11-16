@@ -124,6 +124,10 @@
   "pat03-prototype",
   "pat01-singleton",
   "cls06-classfile",
-  "kt06-plugins"
+  "kt06-plugins",
+  "gen09-tokens",
+  "dop01-records",
+  "kt05-contracts",
+  "dop04-parse"
  ]
 }

@@ -1,0 +1,145 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:05.869
+A payment request carries a currency that may be null.
+
+2
+00:00:05.869 --> 00:00:08.687
+You write a small function that throws if it is.
+
+3
+00:00:08.900 --> 00:00:12.044
+Call it, then use the currency on the next line.
+
+4
+00:00:12.044 --> 00:00:13.223
+Does this compile?
+
+5
+00:00:15.000 --> 00:00:15.249
+No.
+
+6
+00:00:15.249 --> 00:00:19.899
+The compiler still sees a String?, and refuses the call.
+
+7
+00:00:20.100 --> 00:00:20.875
+Here's why.
+
+8
+00:00:20.875 --> 00:00:28.135
+The compiler narrows a type, a smart cast, only from checks it can see in the function it is compiling.
+
+9
+00:00:28.333 --> 00:00:31.296
+It never opens the body of a function you call.
+
+10
+00:00:31.296 --> 00:00:34.448
+That body could change, or live in another module.
+
+11
+00:00:34.667 --> 00:00:37.222
+A contract puts that fact on the outside.
+
+12
+00:00:37.222 --> 00:00:42.147
+It's the first statement of the function: returns implies currency is not null.
+
+13
+00:00:42.333 --> 00:00:45.480
+The compiler reads the contract, never the body.
+
+14
+00:00:45.480 --> 00:00:49.412
+After the call, currency is a String, and the line compiles.
+
+15
+00:00:49.412 --> 00:00:52.231
+That's how require and requireNotNull work.
+
+16
+00:00:53.033 --> 00:00:55.893
+But nothing checks the contract against the body.
+
+17
+00:00:55.893 --> 00:00:58.636
+The compiler trusts a contract unconditionally.
+
+18
+00:00:58.867 --> 00:01:03.102
+So write one that says: if I return true, this event is Captured.
+
+19
+00:01:03.102 --> 00:01:05.579
+Then make the body always return true.
+
+20
+00:01:05.800 --> 00:01:07.571
+Call it on a Failed event.
+
+21
+00:01:07.571 --> 00:01:09.615
+It compiles without a warning.
+
+22
+00:01:09.615 --> 00:01:14.588
+Then the JVM checks the cast it was given, and throws ClassCastException.
+
+23
+00:01:15.667 --> 00:01:20.567
+One level down, javap shows no trace of the contract in the bytecode.
+
+24
+00:01:20.567 --> 00:01:25.254
+It lives in Kotlin metadata, which only the Kotlin compiler reads.
+
+25
+00:01:25.254 --> 00:01:27.100
+Java callers never see it.
+
+26
+00:01:28.033 --> 00:01:33.403
+Contracts are Kotlin only, and still Experimental in Kotlin 2.4, so you opt in.
+
+27
+00:01:33.403 --> 00:01:38.500
+Java doesn't track null in its types, so the question never comes up there.
+
+28
+00:01:39.567 --> 00:01:42.907
+The rule: the compiler learns only from what it can see.
+
+29
+00:01:42.907 --> 00:01:47.978
+A contract tells it what a function guarantees, and it believes you without checking.
+
+30
+00:01:47.978 --> 00:01:50.424
+So keep the body as small as the promise.
+
+31
+00:01:50.633 --> 00:01:51.407
+Quick check.
+
+32
+00:01:51.407 --> 00:01:57.017
+You change requireCurrency to log a warning instead of throwing, and keep the contract.
+
+33
+00:01:57.017 --> 00:01:58.952
+Does the caller still compile?
+
+34
+00:02:00.933 --> 00:02:01.217
+Yes.
+
+35
+00:02:01.217 --> 00:02:04.622
+The compiler reads the contract, never the body.
+
+36
+00:02:04.622 --> 00:02:09.657
+The promise is now a lie, and a null reaches the next line at run time.

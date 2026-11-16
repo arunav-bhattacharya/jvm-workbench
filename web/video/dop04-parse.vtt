@@ -1,0 +1,149 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:08.317
+A card issuer's reply arrives as one class: a status, and four optional fields.
+
+2
+00:00:08.533 --> 00:00:10.374
+Count the shapes it allows.
+
+3
+00:00:10.374 --> 00:00:14.328
+Three statuses, and four fields that are each set or null.
+
+4
+00:00:14.328 --> 00:00:15.487
+That's 48 shapes.
+
+5
+00:00:15.667 --> 00:00:17.487
+How many of them make sense?
+
+6
+00:00:19.067 --> 00:00:19.474
+Three.
+
+7
+00:00:19.474 --> 00:00:25.110
+The other 45 can still be built and passed around, like approved with no auth code.
+
+8
+00:00:25.110 --> 00:00:31.289
+Every consumer has to re-check, and one won't: the capture job sends null as the auth code.
+
+9
+00:00:31.500 --> 00:00:38.291
+Model the three outcomes instead, each with only its own fields: a sealed AuthResult with three records.
+
+10
+00:00:38.500 --> 00:00:40.212
+Now there are three shapes.
+
+11
+00:00:40.212 --> 00:00:43.761
+Approved with a decline code can't even be written down.
+
+12
+00:00:43.967 --> 00:00:52.074
+The checks that are left move into the constructors: an auth code is six letters or digits, and an approved amount is positive.
+
+13
+00:00:52.074 --> 00:00:55.521
+That's what make illegal states unrepresentable means.
+
+14
+00:00:56.500 --> 00:00:59.994
+The model only helps if raw data can't get in around it.
+
+15
+00:00:59.994 --> 00:01:04.300
+So the service parses input into the model in one place, at its edge.
+
+16
+00:01:04.500 --> 00:01:05.876
+parse never throws.
+
+17
+00:01:05.876 --> 00:01:08.772
+A good reply comes out as a model value.
+
+18
+00:01:08.772 --> 00:01:13.117
+One the model refuses comes back as Rejected, with a reason.
+
+19
+00:01:13.400 --> 00:01:15.830
+Behind the edge, nothing re-validates.
+
+20
+00:01:15.830 --> 00:01:22.288
+A method that takes an Approved knows its code is valid, because no other kind of Approved can exist.
+
+21
+00:01:23.233 --> 00:01:24.179
+And the logic?
+
+22
+00:01:24.179 --> 00:01:25.732
+The records stay plain.
+
+23
+00:01:25.732 --> 00:01:30.190
+Each operation is one function with a switch over the three kinds.
+
+24
+00:01:30.190 --> 00:01:33.905
+Brian Goetz calls this style data-oriented programming.
+
+25
+00:01:34.067 --> 00:01:37.913
+A new operation is a new function that touches nothing else.
+
+26
+00:01:37.913 --> 00:01:42.464
+The price: a new kind breaks every switch, and the compiler lists them.
+
+27
+00:01:43.433 --> 00:01:46.841
+In Java, that's a sealed interface and three records.
+
+28
+00:01:46.841 --> 00:01:50.248
+In Kotlin, a sealed interface and three data classes.
+
+29
+00:01:50.248 --> 00:01:52.499
+And one parse function at the edge.
+
+30
+00:01:53.567 --> 00:01:56.949
+The rule: make bad combinations impossible to build.
+
+31
+00:01:56.949 --> 00:01:59.811
+Parse raw input into them once, at the edge.
+
+32
+00:01:59.811 --> 00:02:02.803
+And keep the logic in functions over the data.
+
+33
+00:02:02.967 --> 00:02:03.717
+Quick check.
+
+34
+00:02:03.717 --> 00:02:06.467
+Behind the edge, a method takes an Approved.
+
+35
+00:02:06.467 --> 00:02:09.280
+Does it need to check the auth code for null?
+
+36
+00:02:11.233 --> 00:02:11.433
+No.
+
+37
+00:02:11.433 --> 00:02:17.028
+Every Approved went through its constructor, so no other kind of Approved can exist.

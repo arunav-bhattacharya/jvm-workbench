@@ -140,7 +140,7 @@ SROW = [1.45, 0.55, -0.35, -1.25]
 IN_X, IN_Y = -4.45, -1.55             # where a registration arrives
 
 KT_X, KT_Y = -4.3, [2.05, 1.15, 0.25]   # KType column (top to bottom)
-KC = np.array([0.5, 1.2, 0])            # KClass box
+KC = np.array([0.2, 1.2, 0])            # KClass box
 CJ = np.array([4.85, 1.2, 0])           # Class box
 BW, BH, CW = 3.0, 1.7, 3.2
 OBJ_Y, OA_X, OB_X = -2.15, 0.0, 3.4     # the two objects
@@ -175,10 +175,10 @@ class Gen09Tokens(Beat):
         slots = [slot(i) for i in range(3)]
         keys = [key_at(one("PaymentGateway", 26, CLS_C), 0), key_at(one("FraudCheck", 26, CLS_C), 1)]
         vals = [val_chip("gateway", GREY_B).move_to([VAL_X, SROW[0], 0]), val_chip("fraud check", GREY_B).move_to([VAL_X, SROW[1], 0])]
-        self.seq("A payment service keeps a registry. It maps a key to a service, and each key is a class. "
+        self.seq("A payment service keeps a registry that maps a class to a service. "
                  "PaymentGateway gets a slot, and so does FraudCheck.",
-                 [(0, [FadeIn(reg_t)], 0.6), (1, [FadeIn(hk), FadeIn(hv)], 0.6),
-                  (2, [LaggedStart(*[AnimationGroup(Create(slots[i]), FadeIn(keys[i]), FadeIn(vals[i])) for i in range(2)],
+                 [(0, [FadeIn(reg_t)], 0.6), (0, [FadeIn(hk), FadeIn(hv)], 0.6),
+                  (1, [LaggedStart(*[AnimationGroup(Create(slots[i]), FadeIn(keys[i]), FadeIn(vals[i])) for i in range(2)],
                                    lag_ratio=0.5)], 1.6)])
 
         def arrival(arg, color, name):
@@ -210,11 +210,6 @@ class Gen09Tokens(Beat):
                   (1, [v1.animate.shift(RIGHT * 0.6).set_opacity(0), v2.animate.move_to([VAL_X, SROW[2], 0]),
                        slots[2][0].animate.set_stroke(BAD_C)], 0.9),
                   (1, [FadeIn(gone)], 0.6)])
-        bad = one("Repository<Payment>::class", 26, WHITE).move_to([0, -2.45, 0])
-        err = one("Only classes are allowed on the left-hand side of a class literal.", 22, BAD_C).move_to([0, -3.05, 0])
-        fit(err, 12.4)
-        self.seq("You can't write a better key, either. The compiler refuses Repository<Payment>::class.",
-                 [(1, [FadeIn(bad)], 0.6), (1, [FadeIn(err)], 0.6)], after=0.5)
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
 
         # ---------------- one class, many types
@@ -226,10 +221,10 @@ class Gen09Tokens(Beat):
         fan = [Line([KT_X + 2.0, t.get_center()[1], 0], [KC[0] - BW / 2 - 0.05, KC[1] + 0.4 * (1 - i), 0],
                     stroke_color=GREY_B, stroke_width=2.5) for i, t in enumerate(tys)]
         code_lbl = T("types, in your code", 24, GREY_B).move_to([KT_X, 2.9, 0])
-        self.seq("The key lost Payment because a class is not a type. One class stands behind many types. "
-                 "The class ArrayList backs ArrayList<String>, ArrayList<String>? and ArrayList<Int>.",
+        self.seq("The key lost Payment because a class is not a type. "
+                 "One class, ArrayList, backs many types: ArrayList<String>, ArrayList<String>? and ArrayList<Int>.",
                  [(1, [Create(kc_box), FadeIn(kc_lbl)], 0.9),
-                  (2, [LaggedStart(*[AnimationGroup(Create(fan[i]), FadeIn(tys[i], shift=RIGHT * 0.2)) for i in (2, 1, 0)],
+                  (1, [LaggedStart(*[AnimationGroup(Create(fan[i]), FadeIn(tys[i], shift=RIGHT * 0.2)) for i in (2, 1, 0)],
                                    lag_ratio=0.6)], 2.6)])
         self.seq("The types live in your code. The compiler checks them, then erases the type arguments.",
                  [(0, [FadeIn(code_lbl)], 0.6),
@@ -257,18 +252,17 @@ class Gen09Tokens(Beat):
 
         def swap(n, o):
             return [FadeOut(VGroup(part(n[0], "ArrayList"), n[1])), FadeIn(o)]
-        self.seq("So at run time, an object carries only its class. Build an ArrayList<String> and an ArrayList<Int>. "
-                 "Both get the same stamp: class ArrayList.",
-                 [(0, [FadeIn(rt_lbl)], 0.6),
-                  (1, [FadeIn(na, shift=UP * 0.15)], 0.6), (1, drop(na, "String"), 0.6), (1, swap(na, oa), 0.7),
-                  (1, [FadeIn(nb, shift=UP * 0.15)], 0.6), (1, drop(nb, "Int"), 0.6), (1, swap(nb, ob), 0.7),
-                  (2, [Pulse(oa[1], WHITE, 1.12), Pulse(ob[1], WHITE, 1.12)], 0.8)])
+        self.seq("So at run time, an object carries only its class. "
+                 "An ArrayList<String> and an ArrayList<Int> get the same stamp: class ArrayList.",
+                 [(0, [FadeIn(rt_lbl), FadeIn(na, shift=UP * 0.15), FadeIn(nb, shift=UP * 0.15)], 0.8),
+                  (1, drop(na, "String") + drop(nb, "Int"), 0.7), (1, swap(na, oa) + swap(nb, ob), 0.8),
+                  (1, [Pulse(oa[1], WHITE, 1.12), Pulse(ob[1], WHITE, 1.12)], 0.8)])
 
         up_a = Arrow([OA_X + 0.2, OBJ_Y + 0.62, 0], [KC[0] - 0.25, KC[1] - BH / 2 - 0.02, 0], buff=0.05, stroke_width=3,
                      color=CLS_C, max_tip_length_to_length_ratio=0.1)
         up_b = Arrow([OB_X - 0.6, OBJ_Y + 0.62, 0], [KC[0] + 0.45, KC[1] - BH / 2 - 0.02, 0], buff=0.05, stroke_width=3,
                      color=CLS_C, max_tip_length_to_length_ratio=0.1)
-        up_l = one("x::class", 22, CLS_C).move_to([1.1, -0.62, 0])
+        up_l = one("x::class", 22, CLS_C).move_to([0.92, -0.62, 0])
         same = one("a::class == b::class   // true", 24).move_to([1.7, -3.2, 0])
         paint(same, "// true", GREEN_M)
         self.seq("Ask either one with x::class, and you get the same answer.",
@@ -283,7 +277,7 @@ class Gen09Tokens(Beat):
         jc = Arrow([OB_X + 0.75, OBJ_Y + 0.62, 0], [CJ[0], CJ[1] - BH / 2 - 0.02, 0], buff=0.05, stroke_width=3, color=CLS_C,
                    max_tip_length_to_length_ratio=0.1)
         jc_l = one("x.javaClass", 22, CLS_C).move_to([5.3, -1.15, 0])
-        self.seq("That answer is a KClass, Kotlin's object for a class. Java's object for it is a Class, and x.javaClass hands you that one.",
+        self.seq("That answer is a KClass, Kotlin's object for a class. Java's is a Class, from x.javaClass.",
                  [(0, [Transform(kc_lbl, kc_new)], 0.8),
                   (1, [Create(cj_box), FadeIn(cj_lbl)], 0.8), (1, [GrowArrow(jc), FadeIn(jc_l)], 0.8)])
 
@@ -296,12 +290,11 @@ class Gen09Tokens(Beat):
         k_l = one(".kotlin", 22).next_to(to_k, DOWN, buff=0.08)
         views = T("two views of one class", 28, CLS_C).move_to([(KC[0] + CJ[0]) / 2, 2.95, 0])
         noargs = T("no type arguments, never nullable", 24, GREY_B).move_to([(KC[0] + CJ[0]) / 2, 2.45, 0])
-        self.seq("They're two views of one class. On the JVM, every KClass wraps a Class. "
-                 "Use .java to hand it to a Java library, and .kotlin to come back. "
-                 "Neither view has type arguments, and neither is ever nullable.",
-                 [(0, [FadeIn(views)], 0.6), (1, [Pulse(kc_box, CLS_C, 1.04), Pulse(cj_box, CLS_C, 1.04)], 0.8),
-                  (2, [GrowArrow(to_j), FadeIn(j_l)], 0.6), (2, [GrowArrow(to_k), FadeIn(k_l)], 0.6),
-                  (3, [FadeIn(noargs)], 0.7)])
+        self.seq("They're two views of one class. On the JVM every KClass wraps a Class, and .java and .kotlin convert between them. "
+                 "Neither has type arguments, and neither is ever nullable.",
+                 [(0, [FadeIn(views), Pulse(kc_box, CLS_C, 1.04), Pulse(cj_box, CLS_C, 1.04)], 0.8),
+                  (1, [GrowArrow(to_j), FadeIn(j_l)], 0.6), (1, [GrowArrow(to_k), FadeIn(k_l)], 0.6),
+                  (2, [FadeIn(noargs)], 0.7)])
 
         # ---------------- KType keeps what KClass drops
         kfr = [frame(t, TYP_C, w=3.85, h=0.68) for t in tys]
@@ -314,7 +307,7 @@ class Gen09Tokens(Beat):
                   (1, [FadeIn(kt_sub)], 0.5),
                   (1, [LaggedStart(Pulse(part(tys[2], "ArrayList"), CLS_C, 1.12), Pulse(part(tys[2], "<String>"), STR_C, 1.12),
                                    Pulse(part(tys[1], "?"), WHITE, 1.5), lag_ratio=0.6)], 1.8)])
-        cl_l = T("classifier", 22, GREY_B).move_to([-1.75, -0.02, 0])
+        cl_l = T("classifier", 22, GREY_B).move_to([-1.72, -0.1, 0])
         self.seq("These three KTypes are all different, but their classifier is the same KClass.",
                  [(0, [LaggedStart(*[Pulse(f, TYP_C, 1.05) for f in kfr], lag_ratio=0.3)], 1.0),
                   (0, [FadeIn(cl_l), *[ShowPassingFlash(l.copy().set_stroke(CLS_C, 6), time_width=0.6) for l in fan]], 1.0)])
@@ -331,7 +324,7 @@ class Gen09Tokens(Beat):
         self.seq("And no object can hand you a KType. The compiler writes one down where it still knows the type, "
                  "at a call site: typeOf<ArrayList<String>>().",
                  [(0, [Create(no_path)], 0.7), (0, [Create(no_x)], 0.4),
-                  (1, [FadeIn(tof, shift=UP * 0.1)], 0.7), (1, [GrowArrow(tof_ar), FadeIn(tof_l)], 0.7)], after=0.6)
+                  (1, [FadeIn(tof, shift=UP * 0.1)], 0.7), (1, [GrowArrow(tof_ar), FadeIn(tof_l)], 0.7)], after=0.4)
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
 
         # ---------------- the registry, keyed by KType
@@ -341,18 +334,17 @@ class Gen09Tokens(Beat):
         slots2 = [slot(i) for i in range(4)]
         keys2 = [key_at(one("PaymentGateway", 26, CLS_C), 0), key_at(one("FraudCheck", 26, CLS_C), 1),
                  key_at(typed("Repository", "Payment", PAY_C, 26), 2), key_at(typed("Repository", "Refund", REF_C, 26), 3)]
-        kfr2 = [frame(k, TYP_C, buff=0.1).set_stroke(width=1.5) for k in keys2]
+        kfr2 = [frame(k, TYP_C, buff=0.1).set_stroke(width=1.5).set_fill(opacity=0) for k in keys2]
         vals2 = [val_chip("gateway", GREY_B), val_chip("fraud check", GREY_B), val_chip("payments repo", PAY_C),
                  val_chip("refunds repo", REF_C)]
         for i, v in enumerate(vals2):
             v.move_to([VAL_X, SROW[i], 0])
         base = VGroup(reg_t2, hk2, hv2, *[VGroup(slots2[i], kfr2[i], keys2[i], vals2[i]) for i in range(2)])
-        self.seq("So key the registry by KType. Repository<Payment> and Repository<Refund> are now two keys, "
-                 "and each repository keeps its own slot.",
+        self.seq("So key the registry by KType, and the two repositories get two slots.",
                  [(0, [FadeIn(base)], 0.8),
-                  (1, [LaggedStart(*[AnimationGroup(Create(slots2[i]), FadeIn(kfr2[i]), FadeIn(keys2[i], shift=RIGHT * 0.2),
+                  (0, [LaggedStart(*[AnimationGroup(Create(slots2[i]), FadeIn(kfr2[i]), FadeIn(keys2[i], shift=RIGHT * 0.2),
                                                     FadeIn(vals2[i], shift=RIGHT * 0.2)) for i in (2, 3)], lag_ratio=0.6)], 1.6),
-                  (1, [Pulse(VGroup(kfr2[2], kfr2[3]), TYP_C, 1.05)], 0.7)], after=0.5)
+                  (0, [Pulse(VGroup(kfr2[2], kfr2[3]), TYP_C, 1.05)], 0.7)], after=0.5)
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
 
         # ---------------- the code
@@ -373,11 +365,10 @@ class Gen09Tokens(Beat):
         jnote = T("Java has no KType. TypeRef is a super type token you write yourself.", 22, GREY_B)
         knote = T("KType and typeOf are Kotlin only.", 22, GREY_B)
         foot = VGroup(jnote, knote).arrange(DOWN, buff=0.12).move_to([0, -3.0, 0])
-        self.seq("In code, Java has Class but no KType. Its answer is a super type token: an anonymous subclass whose "
-                 "declared superclass keeps the type. It's the trick behind Jackson's TypeReference.",
-                 [(0, [FadeIn(note), FadeIn(jg, shift=UP * 0.1)], 0.9), (1, [Pulse(jc_[2], WHITE, 1.03), FadeIn(jnote)], 0.9)])
-        self.seq("Kotlin gives you all three: ::class, .java and typeOf.",
-                 [(0, [FadeIn(kg, shift=UP * 0.1), FadeIn(knote)], 0.9)], after=0.6)
+        self.seq("Java has Class, but no KType. Its closest answer is a super type token: an anonymous subclass whose "
+                 "declared superclass keeps the type. Kotlin has all three.",
+                 [(0, [FadeIn(note), FadeIn(jg, shift=UP * 0.1)], 0.9), (1, [FadeIn(jnote)], 0.6),
+                  (2, [FadeIn(kg, shift=UP * 0.1), FadeIn(knote)], 0.9)], after=0.8)
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
 
         # ---------------- rule and check
@@ -397,7 +388,6 @@ class Gen09Tokens(Beat):
         ans = VGroup(T("Same class: String::class.", 28, CLS_C),
                      T("Different types: a KType counts nullability.", 28, CLS_C)).arrange(DOWN, buff=0.15).move_to([0, -2.4, 0])
         fit(ans, 12.4)
-        self.seq("Same class: both come from String::class. Different types: a KType counts nullability, "
-                 "so the two KTypes are not equal.",
+        self.seq("Same class: String::class. Different types, because a KType counts nullability.",
                  [(0, [FadeIn(ans[0], shift=UP * 0.1)], 0.6), (1, [FadeIn(ans[1], shift=UP * 0.1)], 0.6)])
         self.wait(0.8)
