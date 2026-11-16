@@ -101,7 +101,7 @@ static <T> void handMadeBuffer(List<T> upstream, int n, Consumer<T> downstream) 
 }
 ```
 
-Read it as two rooms with a **belt with n slots** between them. `buffer(n)` moves everything above it into a second coroutine. In there, the reader's `emit` has become a `send` into a channel, and `send` returns as soon as a slot is free. Our own coroutine takes values off the belt and calls the real `emit`, which runs the writer. So while the writer holds posting 1, postings 2 to 11 sit on the belt. Eleven emits have returned: ten for the postings on the belt, and one for posting 1, which left the belt when the writer picked it up.
+Read it as two rooms with a **belt with n slots** between them. `buffer(n)` moves everything above it into a second coroutine. In there, the reader's `emit` has become a `send` into a channel, and `send` returns as soon as a slot is free. Our own coroutine takes values off the belt and calls the real `emit`, which runs the writer. So while the writer holds posting 1, postings 2 to 11 sit on the belt. Eleven emits have returned: ten for the postings on the belt, and one for posting 1, which left the belt when the writer picked it up. If this looks like the wall with a mailbox slot from lesson 3 of this track, it is the same machine: `flowOn` builds it to change the dispatcher, `buffer` builds it to change the size of the slot.
 
 `buffer(0)` has no slots. It is a hand-over where both hands must meet, which channels call a rendezvous. There is still a second coroutine, so exactly one emit returns. That one value of slack is why `buffer(0)` turns the 1,200 ms of the 100/300 ms model from lesson 9 of the coroutines track into 1,000 ms, the same as `buffer()`.
 
