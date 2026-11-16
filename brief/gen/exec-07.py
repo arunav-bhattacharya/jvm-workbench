@@ -47,9 +47,9 @@ SVG += (box("box-a", 565, 100, 125, 54, "allOf", "then min()")
         + '</svg>')
 
 # ---------------------------------------------------------------- opening
-OPENING = """Last lesson, an order moved through the kitchen like a tray from station to station, and each station was a stage of a `CompletableFuture`. Nobody stood by the grill waiting.
+OPENING = """Last lesson, an order moved through the kitchen like a tray from station to station. In code, the tray was a `CompletableFuture`, a claim ticket for a result that starts the next step by itself, and each station was a stage.
 
-Now the steak burns. The grill cook can't pass it on as if nothing happened, and the sauce cook has no business pouring sauce on charcoal. So the tray carries a note: "burned at the grill". Every later station passes it along untouched, until someone at the pass, the counter where dishes leave the kitchen, reads the note and decides what table 4 gets.
+Now the steak burns. The sauce cook has no business pouring sauce on charcoal, so the tray carries a note instead: "burned at the grill". Every later station passes it along untouched, until someone at the pass, the counter where dishes leave the kitchen, reads the note and decides what table 4 gets.
 
 `CompletableFuture` handles failure the same way, with three surprises. The note sometimes arrives in an envelope. A timer that tells the manager to stop waiting doesn't stop the cook. And waiting for three dishes at once fails the whole table when one of them burns. All three pass a quick test, because tests rarely burn the steak.
 
@@ -79,7 +79,7 @@ J_EC = """CompletableFuture<String> steak = grill.cookAsync(order)
 K_EC = """val steak: CompletableFuture<String> = grill.cookAsync(order)
     .exceptionallyCompose { spareGrill.cookAsync(order) }          // JDK 12+: the fallback is a future too"""
 
-S0 = """Let's put the kitchen into code. A **stage** is one step attached to a future, such as a `thenApply`, that runs when the step before it has finished. Our grill runs on a pool called `kitchen`, and three plain stages follow it, one per station. Then come two handlers, which we'll meet in a moment:
+S0 = """Let's put the kitchen into code. A future is a claim ticket for a result that isn't ready yet, and a `CompletableFuture` is one you can attach the next step to. A **stage** is one such step, such as a `thenApply`, that runs when the step before it has finished. Our grill runs on `kitchen`, a thread pool: a few threads, paths of work that run side by side, taking tasks from one queue. Three plain stages follow the grill, one per station. Then come two handlers, which we'll meet in a moment:
 
 """ + pair(J_PIPE, K_PIPE) + """
 
@@ -118,7 +118,7 @@ whenComplete sees: table 4 got a plate of the spare steak with pepper sauce
 
 **Recover as close to the failure as you can. Every step after the handler then runs as usual.**
 
-Sometimes the fallback takes time of its own. Cooking a new steak on the second grill returns a future, not a steak. For that case, use `exceptionallyCompose`. It is to `exceptionally` what `thenCompose` is to `thenApply`:
+Sometimes the fallback takes time of its own. Cooking a new steak on the second grill returns a future, not a steak. For that case, use `exceptionallyCompose`, added in JDK 12 (version 12 of Java's development kit). It is to `exceptionally` what `thenCompose` is to `thenApply`:
 
 """ + pair(J_EC, K_EC) + """
 
@@ -138,7 +138,7 @@ K_UNWRAP = """.exceptionally { ex ->
 
 S1 = """Handlers don't always get your exception. They get one of two things, by a rule that surprises everyone once.
 
-A **`CompletionException`** is an unchecked exception that `CompletableFuture` wraps around a failure, with your exception inside as its cause. It's the envelope.
+A **`CompletionException`** is an unchecked exception, one that Java doesn't make you catch, that `CompletableFuture` wraps around a failure, with your exception inside as its cause. It's the envelope.
 
 If the exception was thrown inside a stage, by a `supplyAsync` task or a `thenApply` function, the future stores it in an envelope. A handler on that future, or on any later stage, gets the `CompletionException`, and `getCause()` returns your exception. That's what our burned steak did.
 
@@ -155,7 +155,7 @@ If somebody completed the future by hand, with `completeExceptionally(ex)`, the 
 6. join() throws                           CompletionException <- IllegalStateException
 ```
 
-Lines 2 and 4 are bare, because someone completed those futures by hand. The last two lines are the blocking calls from the last lesson: `get()` throws `ExecutionException` and `join()` throws `CompletionException`, both with the original exception as the cause.
+Lines 2 and 4 are bare, because someone completed those futures by hand. The last two lines are the blocking calls from the last lesson, the ones that make a thread wait for the result: `get()` throws `ExecutionException` and `join()` throws `CompletionException`, both with the original exception as the cause.
 
 So a handler that checks `ex instanceof TimeoutException` can be right in one place and quietly wrong one stage further down. Open the envelope first, then decide:
 
@@ -189,7 +189,7 @@ JDK 9 gave `CompletableFuture` two such kitchen timers:
 
 """ + pair(J_TIMERS, K_TIMERS) + """
 
-Both change the future you call them on, and return it. If the future hasn't completed when the time is up, a timer thread inside the JDK completes it: `orTimeout` with a `TimeoutException`, `completeOnTimeout` with the value you gave it. The thread's name depends on the JDK. On JDK 21 it's `CompletableFutureDelayScheduler`, and on JDK 25 it's `ForkJoinPool.commonPool-delayScheduler`. Plain stages attached to the future then run on that thread, so keep them cheap.
+Both change the future you call them on, and return it. If the future hasn't completed when the time is up, a timer thread inside the JDK completes it: `orTimeout` with a `TimeoutException`, `completeOnTimeout` with the value you gave it. The thread's name depends on the JDK. On JDK 21 it's `CompletableFutureDelayScheduler`, and on JDK 25 it's `ForkJoinPool.commonPool-delayScheduler`. Plain stages attached to the future, the ones without `Async` in their name, then run on that thread, so keep them cheap.
 
 Now the trap. Neither timer touches the call. `KeepsRunningDemo` gives a 600 ms call to a slow supplier a deadline of 200 ms. On JDK 21 it printed this:
 
@@ -200,7 +200,7 @@ Now the trap. Neither timer touches the call. `KeepsRunningDemo` gives a 600 ms 
  702 ms  main                                   pool closed
 ```
 
-The future failed right on time. The call finished anyway, about 600 ms after it started, holding `io-1` the whole way, and `close()` had to wait for it. The answer went nowhere.
+The future failed right on time. The call finished anyway, about 600 ms after it started, holding `io-1` the whole way, and the pool's `close()` had to wait for it. The answer went nowhere.
 
 Maybe `cancel(true)` can hang up the phone? Run the demo with `cancel`:
 
@@ -210,7 +210,7 @@ Maybe `cancel(true)` can hang up the phone? Run the demo with `cancel`:
  773 ms  io-1                                   the supplier answered, but nobody is listening
 ```
 
-As far as the future knows, the cancel worked. The line `interrupted: the call stops here` never printed, though, so the call never noticed. The `CompletableFuture` Javadoc says the flag `mayInterruptIfRunning` "has no effect in this implementation because interrupts are not used to control processing."
+As far as the future knows, the cancel worked. The line `interrupted: the call stops here` never printed, though, so the call never noticed. The `CompletableFuture` Javadoc, its official documentation, says the flag `mayInterruptIfRunning` "has no effect in this implementation because interrupts are not used to control processing."
 
 The source code shows why. `supplyAsync` hands the pool a small task that points to the future. The future keeps no pointer back to that task, or to the thread that runs it. So `cancel` can only store a `CancellationException` as the result. There's no thread it could interrupt.
 
@@ -220,11 +220,11 @@ Here the kitchen picture breaks. A real manager could walk over and tell the coo
 
 Under load, that is how a pool fills up with nothing. Take a pool of 20 threads and a supplier that hangs for 30 seconds. Every request gets its `TimeoutException` after 300 ms, right on time. But every call holds its thread for 30 seconds. After 20 requests, all 20 cooks are on hold. New calls, even to healthy suppliers, wait in the pool's queue behind them and time out too.
 
-So every call to another computer needs two timeouts. The one on the future is the caller's deadline. The one inside the client, such as the request timeout of Java's HTTP client, makes the call itself give up, and that gives the thread back:
+So every call to another computer needs two timeouts. The one on the future is the caller's deadline. The one inside the client makes the call itself give up, and that gives the thread back. Java's HTTP client, the JDK's own tool for calling web services, takes it on the request:
 
 """ + pair(J_HTTP, K_HTTP) + """
 
-Set the client's timeout no longer than the future's. And give each supplier a limit of its own, a bulkhead from Sizing a pool, so one hung supplier can't take every thread.
+Set the client's timeout no longer than the future's. And give each supplier a limit of its own, a bulkhead from Sizing a pool, so one hung supplier can't take every thread. (A bulkhead is a separate cap on calls to each slow service.)
 
 **A timeout on the future frees the caller, not the thread. Give the call its own timeout too.**
 
@@ -284,7 +284,7 @@ So neither method does the errand on its own. The fix is to make each call unabl
 
 That's the mill's price, the cheapest, from the slowest supplier. The closed corner shop turned into an empty `Optional`, and it spoiled nothing.
 
-The deadline must sit on each call. Put one `orTimeout` on the `allOf` instead, and a single hung supplier throws away the two good answers along with its own silence.
+The deadline must sit on each call. Put one `orTimeout` on the `allOf` instead, and a single hung supplier throws away the two good answers.
 
 **Make each call unable to fail before you combine them. Then pick from what came back.**
 

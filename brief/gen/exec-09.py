@@ -45,11 +45,11 @@ SVG = ('<svg viewBox="0 0 680 270" role="img" aria-label="Pool-induced deadlock:
        + '</svg>')
 
 # ---------------------------------------------------------------- opening
-OPENING = """Picture the kitchen at nine on a Saturday night, when the orders stop coming out. The manager walks in with questions. Which cook is stuck? Every cook wears the same white jacket, and nobody has a name tag. Which table was the burned dish for? The note with the table number stayed with the waiter. How long has the rail been this full? Nobody kept count. And at closing time, someone turns off the lights with two dishes still in the oven.
+OPENING = """Picture the kitchen on a Saturday night, when the orders stop coming out. Which cook is stuck? Every cook wears the same white jacket and no name tag. Which table was the burned dish for? The note with the table number stayed with the waiter. How long has the rail been this full? Nobody kept count. And at closing time, someone turns off the lights with two dishes still in the oven.
 
-A pool in a real program meets the same questions, and its defaults answer none of them. Its threads are called `pool-3-thread-7`. A task sent with `submit` can fail without a word. The request's label stays on the thread that started the work. And `shutdown()`, as the first lesson showed, waits for nothing. None of this shows up in a test.
+A thread pool, the team of threads that runs a program's tasks, meets the same questions, and its defaults answer none of them. Its threads are called `pool-3-thread-7`. A task sent with `submit` can fail without a word. The request's label stays on the thread that started the work. And `shutdown()` waits for nothing. None of this shows up in a test.
 
-The last lesson split arithmetic among cooks who steal from each other. This one is about running any pool for real. In this lesson, we'll add name tags, catch every failure, carry each request's note along, read the numbers that warn of trouble, untangle a pool that waits for itself, and close the kitchen in order. Before we start, make a guess, and keep it in mind."""
+The last lesson split arithmetic among cooks who steal from each other, and this one runs pools for real. In this lesson, we'll add name tags, catch every failure, carry each request's note along, read the numbers that warn of trouble, untangle a pool that waits for itself, and close the kitchen in order. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
 J_NAMED = """ThreadFactory named = Thread.ofPlatform().name("grill-", 0).factory();   // JDK 21+: grill-0, grill-1, ...
@@ -57,13 +57,13 @@ ExecutorService grill = Executors.newFixedThreadPool(4, named);"""
 K_NAMED = """val named = Thread.ofPlatform().name("grill-", 0).factory()            // JDK 21+: grill-0, grill-1, ...
 val grill = Executors.newFixedThreadPool(4, named)"""
 
-S0 = """Start with the name tags. A thread's name shows up in log lines, in profilers and in thread dumps. A **thread dump** is a snapshot of every thread in a running JVM, with its name, its state and the line of code it is on. You can take one with `jcmd <pid> Thread.print`, where `<pid>` is the number the operating system gave the program.
+S0 = """Start with the name tags. A thread's name shows up in log lines, in profilers (tools that show where a program spends its time) and in thread dumps. A **thread dump** is a snapshot of every thread in a running JVM, the Java Virtual Machine that runs your program, with its name, its state and the line of code it is on. You can take one with `jcmd <pid> Thread.print`, where `<pid>` is the number the operating system gave the program.
 
-The pools from `Executors` name their threads `pool-3-thread-7`, the seventh thread of the third pool. In a dump of a program with eight pools, that tells you nothing. A **thread factory** is the object a pool asks for each new thread. Hand the pool one that names its threads:
+The ready-made pools from `Executors` name their threads `pool-3-thread-7`, the seventh thread of the third pool. In a dump of a program with eight pools, that tells you nothing. A **thread factory** is the object a pool asks for each new thread. Hand the pool one that names its threads:
 
 """ + pair(J_NAMED, K_NAMED) + """
 
-Before JDK 21, you write a small `ThreadFactory` with an `AtomicInteger` that counts, or use `ThreadFactoryBuilder` from Guava, a widely used library of Java helpers.
+Before JDK 21, you write a small `ThreadFactory` of your own.
 
 Now failures. The first lesson of this track showed that `execute` and `submit` treat a failing task in opposite ways. In production, that difference decides whether you ever hear about it.
 
@@ -78,9 +78,9 @@ Now failures. The first lesson of this track showed that `execute` and `submit` 
    only get() shows it: java.lang.IllegalStateException: a negative price
 ```
 
-With `execute`, the exception escaped the task. The worker `grill-0` died, the handler ran, and the pool started `grill-1` in its place. With `submit`, the `FutureTask` caught the exception and kept it. Nothing printed, and `grill-1` carried on. The grill going out at least made some noise. The negative price would have stayed quiet forever if the demo hadn't called `get()`, and in fire-and-forget code, nobody does.
+With `execute`, the exception escaped the task. The worker `grill-0` died, the handler ran, and the pool started `grill-1` in its place. With `submit`, the `FutureTask`, the wrapper that `submit` puts around a task, caught the exception and kept it. Nothing printed, and `grill-1` carried on. The grill going out at least made some noise. The negative price would have stayed quiet forever if the demo hadn't called `get()`. In fire-and-forget code, which hands over a task and never looks at its result, nobody does.
 
-The default handler doesn't help much either. It prints a stack trace to `System.err`, outside your logs, with no request id. So a handler on the thread factory covers only half the cases, and that half badly.
+The default handler prints a stack trace to `System.err`, outside your logs and with no request id. So a handler on the thread factory covers only half the cases, and that half badly.
 
 To cover both, catch failures in one place that every task passes through. `submit`, `invokeAll` and `CompletableFuture.supplyAsync(task, pool)` all end up calling `execute`. So a `ThreadPoolExecutor` subclass that overrides `execute` and wraps each task sees all of them.
 
@@ -88,7 +88,7 @@ The wrapper runs the task inside a `try`. A task from `execute` throws, and the 
 
 **`submit` hides failures and `execute` kills workers. Report both from one wrapper.**
 
-The wrapper reports a request id. That raises a fair question: whose request id does a pool thread have?"""
+That wrapper reports a request id, which raises a fair question: whose request id does a pool thread have?"""
 
 # ---------------------------------------------------------------- section 1
 J_WRAP = """static Runnable withRequestId(Runnable task) {
@@ -138,11 +138,11 @@ In the kitchen, that is copying the note onto the order ticket, pinning it on wh
 
 The capture must happen in the method that runs on the submitting thread, which is why it sits outside the lambda. Read the `ThreadLocal` inside the lambda instead, and you read the worker's value, which is the bug you set out to fix. The `finally` matters just as much. Pool threads are reused, so whatever a task leaves behind becomes the next task's context.
 
-Here the kitchen picture breaks, in an instructive way. A paper note falls off or gets thrown away. A `ThreadLocal` value never goes anywhere: it stays on the thread until some code removes it.
+Here the picture breaks. A paper note falls off sooner or later. A `ThreadLocal` value stays on its thread until some code removes it.
 
 Don't make every caller remember to wrap. Wrap once, in the executor that everyone uses, as the lab's `ProductionPool` does.
 
-Virtual threads, the subject of the next track, don't change any of this: a new thread starts with empty `ThreadLocal`s, except inheritable ones. Scoped values, final in JDK 25 (JEP 506), are the newer tool for request context, and that track covers them too.
+Virtual threads, the subject of the next track, don't change any of this: a new thread starts with empty `ThreadLocal`s, except inheritable ones, which copy their value from the thread that starts them. Scoped values, final in JDK 25 (JEP 506, the design document behind them), are the newer tool for request context, and that track covers them too.
 
 **A `ThreadLocal` belongs to a thread, not to a task. Capture it at the hand-off, and clean up after.**
 
@@ -154,11 +154,11 @@ ASIDE1 = {
 }
 
 # ---------------------------------------------------------------- section 2
-S2 = """A pool is a queue in front of a few threads, and it's often the first place a slow service shows up. A good kitchen keeps a board by the pass with a few numbers on it, and a pool needs one too. Four numbers tell you most of what you need.
+S2 = """A pool is a queue in front of a few threads, and it's often the first place a slow service shows up. A good kitchen keeps a board by the pass, and four numbers on a pool's board tell you most of what you need.
 
-The queue size, `getQueue().size()`, is the number of tickets on the rail. A queue that keeps growing means tasks arrive faster than they finish. Little's law, from Sizing a pool, says each task's wait grows with it.
+The queue size, `getQueue().size()`, is the number of tickets on the rail. A queue that keeps growing means tasks arrive faster than they finish. Little's law, from Sizing a pool (tasks inside = arrival rate x time each one stays), says each task's wait grows with it.
 
-The active count, `getActiveCount()`, compared with the maximum, says how many cooks are busy. A pool stuck at its maximum for minutes is saturated, and it's usually waiting on something further along the path, not working hard.
+The active count, `getActiveCount()`, compared with the maximum, says how many cooks are busy. A pool stuck at its maximum for minutes has no room left, and it's usually waiting on something further along the path, not working hard.
 
 The rejections are the tasks the pool turned away. `ThreadPoolExecutor` doesn't count them for you. Wrap the `RejectedExecutionHandler`, the code a pool calls when it refuses a task (Inside ThreadPoolExecutor), in one that adds to a counter and then throws.
 
@@ -176,11 +176,11 @@ The time in queue is how long each task waited before a thread picked it up. The
 1050        2       0       0     6         4
 ```
 
-Two tasks run, four wait in the queue, and four are rejected at once, since 2 + 4 = 6 is all the pool can hold. After that, every 300 ms two more finish. The queue goes 4, 2, 0, `done` climbs 0, 2, 4, 6, and `active` drops to 0 at about 900 ms. (The rows come every 200 ms, a little late on a busy machine, so they catch the 300 ms steps unevenly.) The rejected count stays at 4: four customers told to come back later, and told at once.
+Two tasks run, four wait in the queue, and four are rejected at once, since 2 + 4 = 6 is all the pool can hold. After that, every 300 ms two more finish. The queue goes 4, 2, 0, `done` climbs 0, 2, 4, 6, and `active` drops to 0 at about 900 ms. The rejected count stays at 4, and those four callers heard the bad news at once instead of waiting for it.
 
 Picture the same burst on `newFixedThreadPool(2)`, whose queue has no limit. The board would show `rejected 0` and a queue of 8. Every task is accepted, and the last two wait 1.2 seconds before a thread even picks them up. Only the time in queue would show the trouble. That's why it belongs on the board.
 
-The getters are approximate. The Javadoc says so, because the threads keep changing the numbers while you read them. That's fine for a dashboard and wrong for program logic. If your program already sends numbers to a dashboard, a metrics library such as Micrometer can read most of these from a pool for you.
+The getters are approximate, as the Javadoc says, because the threads change the numbers while you read them. That's fine for a dashboard and wrong for program logic. If your program already sends numbers to a dashboard, a metrics library such as Micrometer can read most of these from a pool for you.
 
 Of the four, time in queue and rejections are what your customers feel. A pool with an empty queue and no rejections is healthy, however busy its threads look.
 
@@ -217,17 +217,17 @@ after 300 ms: active=2, queued=2, completed=0
 no bill after 2 s: both threads wait for fetches that can never start
 ```
 
-Both threads are active, the two fetches are queued, and nothing has completed. Speed isn't the problem. The demo gives up after 2 seconds, but the pool would wait forever. This is **pool-induced deadlock**, which *Java Concurrency in Practice* calls thread starvation deadlock: every thread in a bounded pool waits for a task that is queued in that same pool.
+Both threads are active, the two fetches are queued, and nothing has completed. Speed isn't the problem. The demo gives up after 2 seconds, but the pool would wait forever. This is **pool-induced deadlock**, which *Java Concurrency in Practice* calls thread starvation deadlock: every thread in a bounded pool, one with a fixed number of threads, waits for a task that is queued in that same pool.
 
-It feels different from the lock deadlock of Deadlock, livelock and starvation. The CPU drops to zero. Nothing throws. A thread dump has no "deadlock found" line, because no lock is involved: every thread is simply `WAITING` in `FutureTask.get`. The figure shows the moment.
+Unlike the lock deadlock of Deadlock, livelock and starvation, the CPU drops to zero, nothing throws, and a thread dump has no "deadlock found" line, because no lock is involved: every thread is simply `WAITING` in `FutureTask.get`. The figure shows the moment.
 
 There are three fixes, and I'd try them in this order:
 
-1. Don't block inside the pool. Compose: `supplyAsync(() -> orders.lines(t), pool).thenApply(lines -> render(t, lines))`. The render step runs as a callback when the fetch completes, so no thread waits. Only the caller joins at the end. The demo's `fixed` mode does this and prints both bills at once, on the same two threads.
+1. Don't block inside the pool. Compose: `supplyAsync(() -> orders.lines(t), pool).thenApply(lines -> render(t, lines))`. The render step runs as a callback, code that runs when the fetch completes, so no thread waits. Only the caller joins at the end. The demo's `fixed` mode does this and prints both bills at once, on the same two threads.
 2. Don't split what doesn't need splitting. If the bill task only waits for the fetch, do the fetch inline, in the same task.
-3. Give each stage its own pool. Bill tasks may wait for a separate fetch pool, as long as fetch tasks never wait for the bill pool. That's a bulkhead, from Sizing a pool.
+3. Give each stage its own pool. Bill tasks may wait for a separate fetch pool, as long as fetch tasks never wait for the bill pool. That's a bulkhead from Sizing a pool, a separate limit for each stage.
 
-A cached pool, with no limit on threads, also makes the hang go away, by starting a thread for every waiting task. That only moves the problem to memory and to the database's connections. Calling `join()` inside a `CompletableFuture` stage is the same bug, which is why CompletableFuture: composing async steps warned against it.
+A cached pool, with no limit on threads, hides the hang by starting a thread for every waiting task, which moves the problem to memory and to the database. Calling `join()` inside a `CompletableFuture` stage is the same bug, which is why CompletableFuture: composing async steps warned against it.
 
 **No task may wait for another task in its own bounded pool. Compose, inline, or use a second pool.**
 
@@ -271,15 +271,15 @@ First we stop intake. In a web service, that means no longer accepting requests.
 
 Then we shut the pools down upstream first: the pool that hands work to the other one goes first. Get it backwards, and shut down `billingPool` first. The dishes still cooking in `kitchenPool` then get a `RejectedExecutionException` when they try to add themselves to the bill. They were cooked and served and never billed, a free dinner nobody planned.
 
-The whole sequence gets one deadline, shorter than the grace period, shared between the pools. When a pool misses it, `shutdownNow()` interrupts what is still running and returns the tasks that never started. Log them, with request ids if your wrapper keeps them, so somebody can run them again. Don't forget the schedulers from Scheduled executors: after `shutdown()`, their periodic tasks stop, which is what you want.
+The whole sequence gets one deadline, shorter than the grace period, shared between the pools. When a pool misses it, `shutdownNow()` interrupts what is still running and returns the tasks that never started. Log them, with request ids if your wrapper keeps them, so somebody can run them again.
 
-If your program runs inside a framework, it usually offers a hook that runs at shutdown, such as a method marked `@PreDestroy`. Put this code there. Never leave a pool for the garbage collector to clean up: its threads keep it alive.
+If your program runs inside a framework, it usually offers a hook that runs at shutdown, such as a method marked `@PreDestroy`, an annotation that means "run me before the program stops". Put this code there. Never leave a pool for the garbage collector, the JVM's memory cleaner, to clean up: its threads keep it alive.
 
-Check yourself: why does `stop()` share one 20-second deadline between the pools, instead of giving each pool 20 seconds? (Because the waits add up. Two pools at 20 seconds each can take 40, and the program is stopped by force at 30, in the middle of the billing pool's drain, before the `log.warn` line can say what was lost.)
+Check yourself: why one shared 20-second deadline, instead of 20 seconds for each pool? (The waits add up. Two pools at 20 seconds each can take 40, and the program is stopped by force at 30, before the `log.warn` line can say what was lost.)
 
 **Stop intake first, then drain pools upstream first, all within one deadline.**
 
-Look back over the whole track for its limit. Every pool we sized, named and drained holds one platform thread for each task that waits, and platform threads are costly. A pool of 200 threads stops at 200 waiting requests, however idle the CPU is."""
+Look back over the whole track for its limit. Every pool we sized, named and drained holds one platform thread, the ordinary kind that wraps a thread of the operating system, for each task that waits, and platform threads are costly. A pool of 200 threads stops at 200 waiting requests, however idle the CPU is."""
 
 L = {
  "id": "exec-09",
@@ -424,7 +424,7 @@ L = {
   "A task that blocks on another task in the same bounded pool can hang the pool forever. Compose instead, do the work inline, or give each stage its own pool. Shut down in order: intake first, then pools upstream first, within one deadline.",
   "The limit: every pool here holds one costly platform thread for each waiting task, so the thread count caps how many requests can wait at once."
  ],
- "closing": "We started with a stuck kitchen and questions nobody could answer. Now each one has an answer: name tags on every thread, one wrapper that reports every failure with its request id, a note that travels with the order, four numbers on the board, no cook waiting for a ticket behind him, and a closing routine that fits the deadline.\n\nNow find the places in your own code that create pools, and give each one a named thread factory. Then search for `.get()` and `.join()` inside tasks, and check that none of them waits on its own pool.\n\nNext, we'll start the virtual threads track with the thread-per-request wall. If every waiting request holds a costly platform thread, what happens when the requests outnumber the threads?",
+ "closing": "We started with a stuck kitchen and questions nobody could answer. Now each has an answer: name tags on every thread, one wrapper that reports every failure with its request id, a note that travels with the order, four numbers on the board, no cook waiting for a ticket behind him, and a closing routine that fits the deadline.\n\nNow find where your own code creates pools, and give each one a named thread factory. Then search for `.get()` and `.join()` inside tasks, and check that none waits on its own pool.\n\nNext, we'll start the virtual threads track with the thread-per-request wall. If every waiting request holds a costly platform thread, what happens when the requests outnumber the threads?",
  "quiz": [
   {
    "q": "A report job uses a fixed pool of 4. Each report task submits two smaller queries to the same pool and calls `get()` on both. It passes every test, then hangs on the busiest day with the CPU near zero. What happened?",
