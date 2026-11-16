@@ -92,7 +92,7 @@ class Conc13Testing(VoiceScene):
                   "so the race never happens.",
                   Create(gap), FadeIn(gap_l), Indicate(st2, color=WHITE, scale_factor=1.02), run_time=2.0)
         self.beat("How would you make them collide?")
-        self.wait(1.5)
+        self.wait(1.3)
         self.play(FadeOut(VGroup(nn, nax, nax_l, st1, rf1, st2, rf2, lab_s, lab_r, passed, gap, gap_l)), run_time=0.5)
         self.play(FadeIn(names[0]), FadeIn(names[1]), Create(axis), FadeIn(axis_l), run_time=0.5)
 
@@ -158,8 +158,8 @@ class Conc13Testing(VoiceScene):
         res = VGroup(T("lesson demo, racy counter:  naive test failed 0 to 6 of 20 runs", 28, GREY_B),
                      T("stress test failed 20 of 20", 28, GREEN_M)).arrange(DOWN, buff=0.22).move_to([-0.2, -2.75, 0])
         fit(res, 12)
-        self.beat("On the lesson's racy counter, the naive test failed at most 6 of 20 runs. The stress test failed all 20.",
-                  FadeOut(inv), FadeOut(got), FadeIn(res, shift=UP * 0.15), run_time=1.0)
+        seq(self, "On the lesson's racy counter, the naive test failed at most 6 of 20 runs. The stress test failed all 20.",
+            ([FadeOut(inv), FadeOut(got)], 0.4), ([FadeIn(res, shift=UP * 0.15)], 0.6))
         self.play(FadeOut(VGroup(names, axis, gate, gate_l, *starts, *waits, *longb, rnd, join, join_l, res)), run_time=0.7)
 
         # ---------------- sleep vs latch ----------------
@@ -228,7 +228,7 @@ class Conc13Testing(VoiceScene):
         cg = VGroup(titled("Java", jc), titled("Kotlin: the same Java class", kc)).arrange(DOWN, buff=0.55, aligned_edge=LEFT)
         cg.scale(min(1, 12 / cg.width)).move_to([0, 0.1, 0])
         self.beat("In Java and Kotlin, it is the same four lines.", FadeIn(cg, shift=UP * 0.2), run_time=1.2)
-        self.wait(0.5)
+        self.wait(0.3)
         self.play(FadeOut(cg), run_time=0.6)
 
         # ---------------- jcstress ----------------
@@ -237,7 +237,7 @@ class Conc13Testing(VoiceScene):
         a1 = VGroup(T("actor 1", 26, BLUE_M), M("r1 = ++refunds", 26, BLUE_M)).arrange(DOWN, buff=0.15)
         a2 = VGroup(T("actor 2", 26, TEAL_M), M("r2 = ++refunds", 26, TEAL_M)).arrange(DOWN, buff=0.15)
         actors = VGroup(a1, a2).arrange(DOWN, buff=0.6).move_to([-4.0, 0.4, 0])
-        self.beat("Some races need millions of tries to show up. jcstress, the OpenJDK harness, does exactly that.",
+        self.beat("Some races need millions of tries. jcstress, the OpenJDK harness, does that.",
                   FadeIn(head_j), FadeIn(jn), run_time=1.0)
         outs = [("1, 2", 3.6, GREEN_M, "acceptable"), ("2, 1", 3.3, GREEN_M, "acceptable"),
                 ("1, 1", 0.35, GOLD_M, "interesting: an increment lost")]
@@ -278,4 +278,4 @@ class Conc13Testing(VoiceScene):
         fit(ans, 12)
         self.beat("You can't tell. The refunds probably never overlapped. A pass only means this run found nothing.",
                   FadeIn(ans, shift=UP * 0.15), run_time=1.0)
-        self.wait(0.5)
+        self.wait(0.3)

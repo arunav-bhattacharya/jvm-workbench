@@ -1,0 +1,141 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:08.659
+A quote service runs on a fixed pool of 10 threads, because the database has 10 connections.
+
+2
+00:00:08.867 --> 00:00:14.036
+Each request queries the database, then calls an FX API for a rate.
+
+3
+00:00:14.267 --> 00:00:18.305
+A burst of 300 arrives, and the pool takes 10 at a time.
+
+4
+00:00:18.533 --> 00:00:22.188
+So the database never sees more than 10 callers.
+
+5
+00:00:22.188 --> 00:00:25.309
+The burst takes about 3,200 milliseconds.
+
+6
+00:00:25.533 --> 00:00:30.087
+The obvious migration is one line: a virtual thread per task.
+
+7
+00:00:30.087 --> 00:00:31.879
+Now all 300 run at once.
+
+8
+00:00:31.879 --> 00:00:34.044
+What happens at the database?
+
+9
+00:00:35.867 --> 00:00:41.646
+All 300 ask for a connection at once, and the pool waits only 30 milliseconds for one.
+
+10
+00:00:41.646 --> 00:00:44.200
+That timeout was tuned for 10 callers.
+
+11
+00:00:44.433 --> 00:00:46.488
+Most of them time out.
+
+12
+00:00:46.488 --> 00:00:50.783
+In one run, 71 requests worked and 229 failed.
+
+13
+00:00:52.100 --> 00:00:53.552
+The pool had two jobs.
+
+14
+00:00:53.552 --> 00:00:57.513
+It ran the requests, and it kept the database to 10 callers.
+
+15
+00:00:57.513 --> 00:00:59.692
+Nobody wrote the second job down.
+
+16
+00:00:59.692 --> 00:01:03.455
+Virtual threads take over the first, and drop the second.
+
+17
+00:01:05.167 --> 00:01:11.893
+So put the second job back, on purpose: a semaphore with 10 permits, around the database call only.
+
+18
+00:01:12.100 --> 00:01:15.605
+Requests line up there, and the database gets 10 at a time.
+
+19
+00:01:16.833 --> 00:01:19.303
+The FX calls never needed a limit.
+
+20
+00:01:19.303 --> 00:01:23.588
+They now overlap freely: about 200 in flight instead of 10.
+
+21
+00:01:23.800 --> 00:01:28.457
+The burst now takes about 260 milliseconds, with no failures.
+
+22
+00:01:29.367 --> 00:01:34.835
+Little's law tells you where requests wait: requests in flight equal throughput times time.
+
+23
+00:01:35.067 --> 00:01:40.812
+400 a second, for 0.12 seconds each, is about 48 in flight.
+
+24
+00:01:41.033 --> 00:01:47.931
+Turn it around: 10 permits, held 20 milliseconds each, serve at most 500 requests a second.
+
+25
+00:01:48.133 --> 00:01:50.529
+So what happens at 600 a second?
+
+26
+00:01:52.033 --> 00:01:57.565
+The queue on the semaphore grows on every reading, while throughput stays flat near 500.
+
+27
+00:01:57.767 --> 00:02:02.189
+A rising queue with flat throughput is what a full downstream looks like.
+
+28
+00:02:03.000 --> 00:02:03.631
+The rule.
+
+29
+00:02:03.631 --> 00:02:06.015
+Removing the pool removes a limit.
+
+30
+00:02:06.015 --> 00:02:11.063
+Write it down: one semaphore per downstream, sized from that downstream.
+
+31
+00:02:11.267 --> 00:02:12.342
+Check yourself.
+
+32
+00:02:12.342 --> 00:02:16.856
+To make it faster, someone raises the semaphore to 300 permits.
+
+33
+00:02:16.856 --> 00:02:19.579
+The database still has 10 connections.
+
+34
+00:02:19.579 --> 00:02:21.299
+What happens in a burst?
+
+35
+00:02:24.000 --> 00:02:29.468
+The limit is gone again: 300 callers reach 10 connections, and most time out.

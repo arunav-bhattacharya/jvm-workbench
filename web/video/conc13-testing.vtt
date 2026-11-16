@@ -1,0 +1,169 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.596
+A refund ledger has a race.
+
+2
+00:00:04.596 --> 00:00:09.581
+A test starts two threads, each makes one refund, and checks the total.
+
+3
+00:00:09.581 --> 00:00:11.125
+It passes, every time.
+
+4
+00:00:11.333 --> 00:00:15.553
+Starting a thread takes a while, and one refund is over in a moment.
+
+5
+00:00:15.553 --> 00:00:18.408
+They never overlap, so the race never happens.
+
+6
+00:00:18.633 --> 00:00:20.389
+How would you make them collide?
+
+7
+00:00:22.900 --> 00:00:26.875
+Hold every thread at a start latch, then release them all at once.
+
+8
+00:00:27.100 --> 00:00:32.696
+Use more threads than cores, and many operations each, so they overlap for a long time.
+
+9
+00:00:33.300 --> 00:00:35.400
+Run many rounds with fresh state.
+
+10
+00:00:35.400 --> 00:00:38.327
+Each round is one sample of the interleavings.
+
+11
+00:00:38.533 --> 00:00:40.838
+After join, check an invariant.
+
+12
+00:00:40.838 --> 00:00:45.894
+Eight threads try 2,000 one-cent refunds each, against 10,000 cents.
+
+13
+00:00:45.894 --> 00:00:48.943
+A correct ledger approves exactly 10,000.
+
+14
+00:00:49.167 --> 00:00:51.733
+The racy one approves 16,000.
+
+15
+00:00:51.967 --> 00:00:57.162
+On the lesson's racy counter, the naive test failed at most 6 of 20 runs.
+
+16
+00:00:57.162 --> 00:00:59.297
+The stress test failed all 20.
+
+17
+00:01:00.200 --> 00:01:01.142
+Next, waiting.
+
+18
+00:01:01.142 --> 00:01:06.592
+This test submits a payment, sleeps 50 milliseconds, then checks that it settled.
+
+19
+00:01:06.800 --> 00:01:09.558
+On a busy CI machine, the work runs longer.
+
+20
+00:01:09.558 --> 00:01:13.341
+The check comes too soon, and the test fails for no reason.
+
+21
+00:01:13.567 --> 00:01:16.944
+In the lesson's runs, it failed about a quarter of the time.
+
+22
+00:01:17.167 --> 00:01:18.915
+Instead, wait for the event.
+
+23
+00:01:18.915 --> 00:01:25.159
+A latch counts down when the payment settles, and the test awaits it, with a deadline of 10 seconds.
+
+24
+00:01:25.367 --> 00:01:29.312
+Fast when the work is fast, patient when the machine is slow.
+
+25
+00:01:29.312 --> 00:01:30.671
+It failed zero times.
+
+26
+00:01:31.600 --> 00:01:34.935
+In Java and Kotlin, it is the same four lines.
+
+27
+00:01:36.067 --> 00:01:38.906
+Some races need millions of tries.
+
+28
+00:01:38.906 --> 00:01:42.331
+jcstress, the OpenJDK harness, does that.
+
+29
+00:01:42.533 --> 00:01:46.259
+Two actors increment one counter, and record what they read.
+
+30
+00:01:46.259 --> 00:01:49.736
+It runs this millions of times, and counts each outcome.
+
+31
+00:01:49.967 --> 00:01:51.980
+1, 2 and 2, 1 are acceptable.
+
+32
+00:01:51.980 --> 00:01:55.591
+1, 1 means both read zero, so an increment was lost.
+
+33
+00:01:55.591 --> 00:01:59.480
+It is labeled interesting: the race you are looking for.
+
+34
+00:01:59.700 --> 00:02:03.547
+Label an outcome forbidden, and one sighting fails the test.
+
+35
+00:02:04.367 --> 00:02:04.962
+The rule.
+
+36
+00:02:04.962 --> 00:02:11.975
+Make threads collide on purpose, wait for events instead of time, and read a pass as: not found this time.
+
+37
+00:02:12.200 --> 00:02:13.243
+Check yourself.
+
+38
+00:02:13.243 --> 00:02:18.387
+A test starts two threads, each makes one refund, and it has never failed.
+
+39
+00:02:18.387 --> 00:02:19.708
+Is the ledger safe?
+
+40
+00:02:22.233 --> 00:02:23.278
+You can't tell.
+
+41
+00:02:23.278 --> 00:02:25.925
+The refunds probably never overlapped.
+
+42
+00:02:25.925 --> 00:02:28.781
+A pass only means this run found nothing.

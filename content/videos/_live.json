@@ -130,6 +130,8 @@
   "kt05-contracts",
   "dop04-parse",
   "conc01-threads",
-  "jmm06-varhandles"
+  "jmm06-varhandles",
+  "conc13-testing",
+  "vt06-migrate"
  ]
 }
