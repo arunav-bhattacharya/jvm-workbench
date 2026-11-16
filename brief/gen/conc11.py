@@ -301,7 +301,7 @@ The snapshot took away change. Records have a catch, though: they freeze less th
 
 ASIDE0 = {
  "title": "Isn't a new object for every change slow?",
- "body": "You may wonder whether building a whole new map for every refresh costs too much. For a price list that changes a few times an hour and is read thousands of times a second, it costs nothing you could measure. Making a small object in the JVM is cheap, often little more than moving a pointer, and short-lived objects are cheap to clean up. The JIT compiler, the part of the JVM that turns busy code into machine code, can sometimes remove the new object altogether. Where it does hurt is data that changes millions of times a second, such as a hit counter, and for that an atomic from Atomics and compare-and-set fits better."
+ "body": "You may wonder whether building a whole new map for every refresh costs too much. For a price list that changes a few times an hour and is read thousands of times a second, it costs nothing you could measure. Making a small object in the JVM, the program that runs your Java code, is cheap, often little more than moving a pointer, and short-lived objects are cheap to clean up. The JIT compiler, the part of the JVM that turns busy code into machine code, can sometimes remove the new object altogether. Where it does hurt is data that changes millions of times a second, such as a hit counter, and for that an atomic from Atomics and compare-and-set fits better."
 }
 
 # ---------------------------------------------------------------- section 1
@@ -361,7 +361,7 @@ new ticket each time: 5,000 tickets handed over, 0 damaged
 one ticket, reused: 5,000 tickets handed over, 447 damaged
 ```
 
-The reused ticket is a changing object shared by two threads with no synchronization at all, and the cook found 447 half-written tickets. Run it again and the number changes: runs here ranged from a few hundred to over 3,000. A lucky run could even show 0, which is exactly how this bug gets through testing.
+The reused ticket is a changing object shared by two threads with no synchronization at all, and the cook found 447 half-written tickets. Run it again and the number changes: runs here ranged from 10 to over 3,000. A lucky run could even show 0, which is exactly how this bug gets through testing.
 
 **A queue hands over the object, not a copy. After put, never touch it again.**
 
@@ -395,7 +395,7 @@ The first anonymous request ran as alice, and the next two ran as bob, whoever t
 
 """ + pair(J_TL, K_TL) + """
 
-Call `remove()`, not `set(null)`. `remove()` deletes the thread's entry, while `set(null)` keeps an entry that holds `null`. With the `finally` in place, the same six requests run as `null` whenever no user came in. The lab's `TenantScope`, which carries the customer company a request works for, goes one step further and puts back the previous value, so a call nested inside another hands the thread back exactly as it found it.
+Call `remove()`, not `set(null)`. `remove()` deletes the thread's entry, while `set(null)` keeps an entry that holds `null`. With the `finally` in place, the same six requests run as `null` whenever no user came in. The lab's `TenantScope` carries the customer company a request works for, and it goes one step further. It puts back the previous value, so a call nested inside another hands the thread back exactly as it found it.
 
 `ThreadLocal`'s other common use is a private copy of an object that isn't thread-safe, such as the old `SimpleDateFormat`. Prefer an immutable replacement there: `DateTimeFormatter` is immutable, so one shared instance does the job of a copy per thread. Per-thread copies also scale badly with virtual threads, the very light threads from JDK 21 that programs start one per task: every task gets a new thread, and so a new, empty copy. The virtual threads track goes into that.
 
@@ -403,7 +403,7 @@ For request context, JDK 25 made **scoped values** final (JEP 506). A scoped val
 
 """ + pair(J_SV, K_SV) + """
 
-That code needs JDK 25 or later. On JDK 21 to 24 the API is a preview, a feature you have to switch on with a flag and that may still change, so the labs, which compile for JDK 21, use `ThreadLocal`.
+That code needs JDK 25 or later. On JDK 21 to 24 the API is a preview, a feature you have to switch on with a flag and that may still change. The labs compile for JDK 21, so they use `ThreadLocal`.
 
 Each tool in this lesson took away one ingredient of a race. Immutability took away change, confinement and hand-over took away sharing, and `ThreadLocal` gave each thread a copy of its own. Their limit is state that is shared and changes by its nature, such as a bank balance. That state still needs the locks and atomics of earlier lessons, and the next lesson puts them to work on three classic problems."""
 
@@ -464,7 +464,7 @@ L = {
      "Run the `reuse` version a few times. Is the damage count the same each time?"
     ],
     "code": code("HandOff"),
-    "expect": "With a new ticket each time: 0 damaged. With `reuse`: some tickets arrive damaged (from about 450 to over 3,000 of the 5,000 in runs here), and the count changes every run. A lucky run could even show 0, which is exactly why this bug survives testing."
+    "expect": "With a new ticket each time: 0 damaged. With `reuse`: some tickets arrive damaged (from 10 to over 3,000 of the 5,000 in runs here), and the count changes every run. A lucky run could even show 0, which is exactly why this bug survives testing."
    }
   },
   {
