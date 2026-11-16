@@ -1,6 +1,13 @@
 {
-  // Static site on Cloudflare Workers: serves the web/ folder, no server code and no sign-in.
+  // Static site on Cloudflare Workers: serves the web/ folder, no sign-in.
+  // site/worker.js runs first only for the media folders, to answer byte-range requests
+  // (static assets always send the whole file, which breaks seeking in videos).
   "name": "jvm-workbench",
   "compatibility_date": "2026-10-01",
-  "assets": { "directory": "./web" }
+  "main": "site/worker.js",
+  "assets": {
+    "directory": "./web",
+    "binding": "ASSETS",
+    "run_worker_first": ["/video/*", "/vvoice/*"]
+  }
 }

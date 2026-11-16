@@ -271,6 +271,26 @@
     apply();
     return { apply, stop: () => { if (stop) stop(); video.pause(); } };
   }
+  // ← and → jump 10 s back or forward in the video that is playing (or the one that has focus).
+  // Runs in the capture phase so the browser's own 5 s step on a focused video doesn't add to it.
+  const SKIP = 10;
+  addEventListener("keydown", (ev) => {
+    if ((ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") || ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey) return;
+    const t = ev.target;
+    if (t.closest && t.closest("input,textarea,select,[contenteditable],.timer")) return;
+    const video = $$("figure.vid video").find((v) => !v.paused && !v.ended) || (t.tagName === "VIDEO" ? t : null);
+    if (!video) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const back = ev.key === "ArrowLeft", end = isFinite(video.duration) ? video.duration : Infinity;
+    video.currentTime = Math.min(Math.max(0, video.currentTime + (back ? -SKIP : SKIP)), end);
+    const fig = video.closest("figure.vid");
+    let badge = fig && fig.querySelector(".vskip");
+    if (fig && !badge) { badge = document.createElement("span"); badge.className = "vskip"; badge.setAttribute("aria-hidden", "true"); fig.appendChild(badge); }
+    if (badge) {
+      badge.textContent = back ? `« ${SKIP} s` : `${SKIP} s »`;
+      badge.classList.remove("on"); void badge.offsetWidth; badge.classList.add("on");
+    }
+  }, true);
 
   function sidebar(cur) {
     const curTrack = L[cur] ? L[cur].track : cur.startsWith("track-") ? cur.slice(6) : null;

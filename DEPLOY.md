@@ -1,6 +1,8 @@
 # Deploy to Cloudflare
 
-The site is a static Cloudflare Worker: `wrangler.jsonc` tells Cloudflare to serve the `web/` folder. There is no server code and no sign-in. `web/` is committed, so Cloudflare needs no build step.
+The site is a static Cloudflare Worker: `wrangler.jsonc` tells Cloudflare to serve the `web/` folder. There is no sign-in. `web/` is committed, so Cloudflare needs no build step.
+
+One small Worker script, `site/worker.js`, runs first for `/video/*` and `/vvoice/*` only. Cloudflare's static assets always send the whole file, even when a browser asks for one part of it (a `Range` request), and video players need those partial answers to seek. The script answers them with `206 Partial Content`. Every other file is served by the assets directly.
 
 The live site is https://jvm-workbench.ai-arunav.workers.dev.
 

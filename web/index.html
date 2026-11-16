@@ -515,7 +515,11 @@ svg .arrowhead { fill: #ffffff; fill-opacity: 0.85; }
 .parthead p { margin: 0; color: var(--mute); font-size: 17.5px; max-width: 46em; }
 
 /* narrated concept videos (Manim, 1080p, black like the figures) */
-figure.vid { margin: 4px 0 22px; display: grid; gap: 0; }
+figure.vid { margin: 4px 0 22px; display: grid; gap: 0; position: relative; }
+figure.vid .vskip { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); padding: 6px 12px; border-radius: 999px; background: rgba(0, 0, 0, .62); color: #fff; font: 600 14px/1 "Inter", system-ui, sans-serif; pointer-events: none; opacity: 0; }
+figure.vid .vskip.on { animation: vskip .9s ease-out; }
+@keyframes vskip { 0%, 45% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { figure.vid .vskip.on { animation-duration: 1.4s; } }
 figure.vid video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; border: 1px solid #1d2026; border-radius: 14px; }
 figure.vid figcaption { font: italic 16px/1.45 var(--read); color: var(--mute); padding: 10px 2px 0; display: flex; gap: 6px 10px; align-items: baseline; flex-wrap: wrap; }
 figure.vid .vt { flex: 1 1 260px; min-width: 0; }
@@ -853,6 +857,26 @@ figure.vid figcaption b { font: normal 600 12px/1 "Inter", system-ui, sans-serif
     apply();
     return { apply, stop: () => { if (stop) stop(); video.pause(); } };
   }
+  // ← and → jump 10 s back or forward in the video that is playing (or the one that has focus).
+  // Runs in the capture phase so the browser's own 5 s step on a focused video doesn't add to it.
+  const SKIP = 10;
+  addEventListener("keydown", (ev) => {
+    if ((ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") || ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey) return;
+    const t = ev.target;
+    if (t.closest && t.closest("input,textarea,select,[contenteditable],.timer")) return;
+    const video = $$("figure.vid video").find((v) => !v.paused && !v.ended) || (t.tagName === "VIDEO" ? t : null);
+    if (!video) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const back = ev.key === "ArrowLeft", end = isFinite(video.duration) ? video.duration : Infinity;
+    video.currentTime = Math.min(Math.max(0, video.currentTime + (back ? -SKIP : SKIP)), end);
+    const fig = video.closest("figure.vid");
+    let badge = fig && fig.querySelector(".vskip");
+    if (fig && !badge) { badge = document.createElement("span"); badge.className = "vskip"; badge.setAttribute("aria-hidden", "true"); fig.appendChild(badge); }
+    if (badge) {
+      badge.textContent = back ? `« ${SKIP} s` : `${SKIP} s »`;
+      badge.classList.remove("on"); void badge.offsetWidth; badge.classList.add("on");
+    }
+  }, true);
 
   function sidebar(cur) {
     const curTrack = L[cur] ? L[cur].track : cur.startsWith("track-") ? cur.slice(6) : null;
