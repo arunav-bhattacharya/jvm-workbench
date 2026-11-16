@@ -207,7 +207,8 @@ class Jmm03Volatile(Narrated):
         f_open = M("volatile boolean open;", 24).move_to([-3.2, -2.6, 0])
         f_vis = M("volatile int visitors;", 24).move_to([3.2, -2.6, 0])
         self.say("program")
-        self.play(*[Transform(g[1], T(f"thread {i + 1}", 26).move_to(g[1])) for i, g in enumerate(gates)], run_time=0.6)
+        self.play(*[Transform(g, chip(f"thread {i + 1}", G[i], size=26).set_z_index(5).move_to(g)) for i, g in enumerate(gates)],
+                  run_time=0.6)
         self.at(1)
         self.play(FadeIn(f_open), FadeIn(f_vis), run_time=0.6)
         self.play(Circumscribe(sg, color=GOOD, buff=0.08), Circumscribe(board, color=WHITE, buff=0.08), run_time=0.8)
@@ -217,7 +218,7 @@ class Jmm03Volatile(Narrated):
         vis = T("every write: visible, in order", 26, GOOD).move_to([3.3, 0.55, 0], aligned_edge=LEFT)
         VGroup(fresh, vis).arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to([1.3, 0.35, 0])
         self.say("gives")
-        self.play(*[Transform(g[1], T(f"gate {i + 1}", 26).move_to(g[1])) for i, g in enumerate(gates)], run_time=0.5)
+        self.play(*[Transform(g, gate(i).move_to(g)) for i, g in enumerate(gates)], run_time=0.5)
         self.at(1)
         self.fly([(board.get_bottom(), g.get_top()) for g in gates], GREY_A, rt=0.7)
         self.play(FadeIn(fresh, shift=UP * 0.1), run_time=0.5)

@@ -275,7 +275,7 @@ class Jmm02VolatileEdge(Narrated):
         hand_t = T("a handover: a promise", 26, GOOD).move_to([0, -2.6, 0])
         self.say("clock")
         self.play(FadeIn(clk), run_time=0.6)
-        self.play(Rotate(clk[1], -PI / 2, about_point=clk[0].get_center()), run_time=0.6)
+        self.play(Rotate(clk[1], -PI / 3, about_point=clk[0].get_center()), run_time=0.6)
         self.play(FadeIn(clk_t), run_time=0.5)
         self.at(3)
         self.play(FadeOut(clk), FadeOut(clk_t), FadeIn(hand_t), run_time=0.6)

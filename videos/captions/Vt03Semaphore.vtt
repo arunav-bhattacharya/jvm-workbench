@@ -1,169 +1,313 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.426
-Every payment has to write a row to the ledger database.
+00:00:02.700 --> 00:00:07.073
+Back to the restaurant with four waiters and a board of order slips.
 
 2
-00:00:06.426 --> 00:00:10.884
-It has room for 20 connections, so it can serve 20 calls at a time.
+00:00:07.073 --> 00:00:10.867
+Slips cost almost nothing, so every table gets a fresh one.
 
 3
-00:00:11.100 --> 00:00:13.337
-You have a batch of 5,000 payments.
+00:00:10.867 --> 00:00:15.883
+Then one evening a tour bus pulls up, and 5,000 orders arrive within a minute.
 
 4
-00:00:13.337 --> 00:00:16.852
-With virtual threads, each payment gets its own thread.
+00:00:16.100 --> 00:00:17.747
+The waiters stay calm.
 
 5
-00:00:17.067 --> 00:00:18.374
-That part is cheap.
+00:00:17.747 --> 00:00:19.095
+The grill doesn't.
 
 6
-00:00:18.374 --> 00:00:21.816
-Each virtual thread is a small object on the heap.
+00:00:19.095 --> 00:00:23.437
+It has room for 20 pans, and 5,000 orders want it at once.
 
 7
-00:00:22.033 --> 00:00:26.648
-So how many of them ask the database for a connection at the same moment?
+00:00:24.267 --> 00:00:26.361
+Our shop has the same evening.
 
 8
-00:00:28.667 --> 00:00:29.452
-All 5,000.
+00:00:26.361 --> 00:00:31.665
+Each order checks the stock, which takes 60 milliseconds and needs no limit.
 
 9
-00:00:29.452 --> 00:00:32.435
-They all go straight for the database.
+00:00:31.665 --> 00:00:34.945
+Then it saves the order in the database, in 10.
 
 10
-00:00:32.667 --> 00:00:35.789
-That is far more than the 20 it has room for.
+00:00:34.945 --> 00:00:39.692
+The database takes only 20 connections, open lines to it, at a time.
 
 11
-00:00:35.789 --> 00:00:37.315
-The threads are cheap.
+00:00:39.692 --> 00:00:47.788
+With a virtual thread per order and no limit, the lesson's test found 3,069 orders inside the fake database at once.
 
 12
-00:00:37.315 --> 00:00:38.703
-The database is not.
+00:00:48.000 --> 00:00:51.211
+So here's the question many of us would quietly ask.
 
 13
-00:00:39.933 --> 00:00:42.763
-Think of the front desk of an office building.
+00:00:51.211 --> 00:00:52.816
+Virtual threads are cheap.
 
 14
-00:00:42.763 --> 00:00:45.963
-It keeps 20 visitor badges, one for each connection.
+00:00:52.816 --> 00:00:57.385
+Can't we just make a pool of 20 of them, the way we always limited things?
 
 15
-00:00:46.167 --> 00:00:48.741
-To go in, a thread must take a badge.
+00:01:00.767 --> 00:01:02.736
+Let's be fair to that habit.
 
 16
-00:00:48.741 --> 00:00:51.385
-The first 20 each take one, and go in.
+00:01:02.736 --> 00:01:03.368
+It works.
 
 17
-00:00:51.633 --> 00:00:53.099
-Now the desk is empty.
+00:01:03.368 --> 00:01:09.064
+With 20 threads, the database never sees more than 20 orders, and nothing breaks.
 
 18
-00:00:53.099 --> 00:00:55.231
-What happens to the next thread?
+00:01:09.267 --> 00:01:15.531
+But each order keeps its pool thread for all 70 milliseconds, stock check included.
 
 19
-00:00:57.033 --> 00:00:57.664
-It waits.
+00:01:15.531 --> 00:01:19.908
+So 1,000 orders take 1,000 over 20, times 70 milliseconds.
 
 20
-00:00:57.664 --> 00:01:01.025
-On a virtual thread, that wait parks the thread.
+00:01:19.908 --> 00:01:21.191
+How long is that?
 
 21
-00:01:01.025 --> 00:01:03.476
-A parked thread holds no OS thread.
+00:01:23.967 --> 00:01:26.712
+About three and a half seconds.
 
 22
-00:01:03.476 --> 00:01:08.239
-It stays a small object on the heap, so 5,000 waiters are cheap too.
+00:01:26.712 --> 00:01:30.785
+The lesson's demo measured 3,628 milliseconds.
 
 23
-00:01:08.467 --> 00:01:12.479
-When a call finishes, the thread hands its badge back on the way out.
+00:01:31.000 --> 00:01:36.449
+In the restaurant, that's keeping only 20 slips, so each new table waits for a used one.
 
 24
-00:01:12.479 --> 00:01:15.328
-That wakes one waiter, and it takes the badge in.
+00:01:36.449 --> 00:01:38.926
+The grill never holds more than 20 pans.
 
 25
-00:01:15.533 --> 00:01:18.721
-Calls finish, badges come back, waiters go in.
+00:01:38.926 --> 00:01:42.394
+Neither does the salad bar, which has room for everyone.
 
 26
-00:01:18.721 --> 00:01:21.285
-The database never sees more than 20.
+00:01:42.394 --> 00:01:46.728
+The salad never touched the grill, and it still waited in line for it.
 
 27
-00:01:24.167 --> 00:01:25.928
-This desk is a Semaphore.
+00:01:46.933 --> 00:01:51.029
+So a pool caps the whole order, not just the one call that needs it.
 
 28
-00:01:25.928 --> 00:01:28.041
-Its badges are called permits.
+00:01:51.029 --> 00:01:52.655
+Never pool virtual threads.
 
 29
-00:01:28.267 --> 00:01:31.359
-acquire takes a permit, and waits if none is left.
+00:01:52.655 --> 00:01:55.124
+Put the limit on the thing that's scarce.
 
 30
-00:01:31.359 --> 00:01:34.019
-release gives one back, and wakes a waiter.
+00:01:55.333 --> 00:01:59.576
+So the kitchen hangs a hook beside the grill, with 20 metal tokens.
 
 31
-00:01:35.033 --> 00:01:40.053
-In code, the semaphore is one field on the client, shared by every request.
+00:01:59.576 --> 00:02:06.415
+Before an order goes on the grill, it takes a token, and when it comes off, the token goes back on the hook.
 
 32
-00:01:40.267 --> 00:01:42.071
-acquire comes before the try.
+00:02:06.415 --> 00:02:12.558
+An order that finds the hook empty waits on the board, which costs a slip of paper and no waiter.
 
 33
-00:01:42.071 --> 00:01:47.981
-If a thread is interrupted while it waits, it never got a permit, so it must not give one back.
+00:02:12.558 --> 00:02:14.837
+The salad bar needs no token at all.
 
 34
-00:01:48.200 --> 00:01:53.625
-release goes in finally, so the permit always comes back, even when the call throws.
+00:02:15.067 --> 00:02:18.780
+In Java, the hook is a Semaphore, a counter of permits.
 
 35
-00:01:53.833 --> 00:02:01.264
-And tryAcquire with a timeout returns false when no permit came in time, so you can answer with a fast 503.
+00:02:18.780 --> 00:02:20.535
+Ours holds 20: the tokens.
 
 36
-00:02:02.167 --> 00:02:02.768
-The rule.
+00:02:20.535 --> 00:02:23.910
+acquire takes a permit, and waits if none is left.
 
 37
-00:02:02.768 --> 00:02:08.580
-One virtual thread per task, and one shared semaphore in front of each scarce resource.
+00:02:23.910 --> 00:02:27.488
+release gives one back, and wakes one waiting thread.
 
 38
-00:02:08.800 --> 00:02:09.805
-Check yourself.
+00:02:27.488 --> 00:02:33.631
+And a virtual thread that waits in acquire is parked on the heap, like a slip on the board.
 
 39
-00:02:09.805 --> 00:02:14.293
-A handler creates a new semaphore with 20 permits for each request.
+00:02:33.631 --> 00:02:38.424
+5,000 waiting orders cost 5,000 small objects, and no platform threads.
 
 40
-00:02:14.293 --> 00:02:17.375
-How many calls can reach the database at once?
+00:02:39.333 --> 00:02:45.603
+Same 1,000 orders, one virtual thread each, and a Semaphore of 20 around the save alone.
 
 41
-00:02:20.100 --> 00:02:22.119
-As many as there are requests.
+00:02:45.603 --> 00:02:48.240
+Now all the stock checks run at once.
 
 42
-00:02:22.119 --> 00:02:26.897
-Each request gets its own desk with 20 badges, so no thread ever waits.
+00:02:48.240 --> 00:02:49.593
+How long this time?
+
+43
+00:02:52.367 --> 00:02:59.843
+60 milliseconds for every stock check together, then 50 rounds of 10 at the grill: about 560.
+
+44
+00:02:59.843 --> 00:03:01.612
+The demo measured 604.
+
+45
+00:03:01.612 --> 00:03:05.229
+Same limit on the database, six times faster.
+
+46
+00:03:06.033 --> 00:03:09.594
+Here's the pattern in Java and Kotlin, with three rules.
+
+47
+00:03:09.594 --> 00:03:13.599
+One: one semaphore per resource, in a field every order shares.
+
+48
+00:03:13.599 --> 00:03:16.142
+Two: acquire on the line before the try.
+
+49
+00:03:16.142 --> 00:03:21.292
+Three: release in the finally, so a save that throws still gives its permit back.
+
+50
+00:03:22.100 --> 00:03:25.728
+Now the restaurant picture breaks, and the break matters.
+
+51
+00:03:25.728 --> 00:03:27.828
+A real token is a thing you hold.
+
+52
+00:03:27.828 --> 00:03:29.419
+A permit is only a count.
+
+53
+00:03:29.419 --> 00:03:36.420
+The semaphore never checks who gives one back, so a release from a thread that never got one makes 21 permits.
+
+54
+00:03:36.420 --> 00:03:39.029
+That's why acquire stays outside the try.
+
+55
+00:03:39.833 --> 00:03:42.070
+Rule one fails just as quietly.
+
+56
+00:03:42.070 --> 00:03:47.047
+Picture a handler that makes a new Semaphore of 20 for every request.
+
+57
+00:03:47.047 --> 00:03:50.293
+Every table gets its own hook with 20 tokens.
+
+58
+00:03:50.293 --> 00:03:51.303
+Very generous.
+
+59
+00:03:51.303 --> 00:03:54.838
+Nobody ever waits, and all 5,000 reach the grill.
+
+60
+00:03:54.838 --> 00:03:58.156
+So the point is: one hook, shared by everyone.
+
+61
+00:03:58.967 --> 00:04:00.143
+How many permits?
+
+62
+00:04:00.143 --> 00:04:03.809
+Ask the resource, here the database's 20 connections.
+
+63
+00:04:03.809 --> 00:04:10.657
+Then check with Little's law: 20 permits on a 50 millisecond call allow at most 400 calls a second.
+
+64
+00:04:10.657 --> 00:04:15.015
+If orders come faster, the line on the board grows without end.
+
+65
+00:04:15.233 --> 00:04:18.313
+And a customer rarely wants to wait forever.
+
+66
+00:04:18.313 --> 00:04:26.433
+tryAcquire with a 200 millisecond timeout gives up if no permit comes in time, so the shop can say: busy, try again.
+
+67
+00:04:26.433 --> 00:04:30.143
+In the lesson's demo, 1,000 requests arrived at once.
+
+68
+00:04:30.143 --> 00:04:35.813
+100 were served, and the other 900 were turned away in about a third of a second.
+
+69
+00:04:35.813 --> 00:04:37.773
+That's called load shedding.
+
+70
+00:04:38.600 --> 00:04:41.256
+So, can't we just pool 20 virtual threads?
+
+71
+00:04:41.256 --> 00:04:44.229
+We can, but then the salad waits for the grill.
+
+72
+00:04:44.229 --> 00:04:46.948
+Threads are cheap, and the database is not.
+
+73
+00:04:46.948 --> 00:04:52.451
+Give every task its own virtual thread, and every scarce resource one shared semaphore.
+
+74
+00:04:52.667 --> 00:04:53.550
+Quick check.
+
+75
+00:04:53.550 --> 00:04:57.819
+20 permits, and each database call takes 100 milliseconds.
+
+76
+00:04:57.819 --> 00:05:00.175
+At most how many calls a second?
+
+77
+00:05:03.167 --> 00:05:03.537
+200.
+
+78
+00:05:03.537 --> 00:05:07.425
+20 permits divided by a tenth of a second.

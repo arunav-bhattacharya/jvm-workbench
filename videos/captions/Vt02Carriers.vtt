@@ -1,11 +1,11 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:07.316
+00:00:02.700 --> 00:00:07.282
 Last time, WallDemo gave 2,000 checkouts a virtual thread each.
 
 2
-00:00:07.316 --> 00:00:15.099
+00:00:07.282 --> 00:00:15.065
 Every one of them slept for 100 milliseconds, and the whole run took about 150 milliseconds, on four cores.
 
 3
@@ -25,15 +25,15 @@ That was the whole problem last time.
 So with four cores, who was doing all that sleeping?
 
 7
-00:00:29.200 --> 00:00:32.517
+00:00:29.167 --> 00:00:32.484
 Let's go back to the restaurant, and run it a new way.
 
 8
-00:00:32.517 --> 00:00:34.176
+00:00:32.484 --> 00:00:34.143
 It keeps only four waiters.
 
 9
-00:00:34.176 --> 00:00:39.951
+00:00:34.143 --> 00:00:39.917
 Each table's service is written on an order slip: what the table has had, and what comes next.
 
 10
@@ -45,257 +45,257 @@ When a table waits for the kitchen, the waiter clips its slip to the board by th
 When the dish is ready, any free waiter takes that slip, and carries on from its last line.
 
 12
-00:00:52.667 --> 00:00:57.441
+00:00:52.733 --> 00:00:57.508
 Four waiters can serve two hundred tables, because nobody stands at the door.
 
 13
-00:00:57.441 --> 00:00:59.488
+00:00:57.508 --> 00:00:59.554
 That door just lost all its fans.
 
 14
-00:00:59.488 --> 00:01:03.332
+00:00:59.554 --> 00:01:03.399
 So the point is, the slips wait, and the waiters keep working.
 
 15
-00:01:03.467 --> 00:01:04.466
+00:01:03.600 --> 00:01:04.599
 Now the mapping.
 
 16
-00:01:04.466 --> 00:01:06.340
+00:01:04.599 --> 00:01:06.473
 Each slip is a virtual thread.
 
 17
-00:01:06.340 --> 00:01:11.960
+00:01:06.473 --> 00:01:12.094
 The waiters are carrier threads: real platform threads, one per core, that do the running.
 
 18
-00:01:11.960 --> 00:01:14.646
+00:01:12.094 --> 00:01:14.779
 The rail of ready slips is the ready queue.
 
 19
-00:01:14.646 --> 00:01:18.580
+00:01:14.779 --> 00:01:18.714
 The board is the heap, the memory where Java keeps its objects.
 
 20
-00:01:18.580 --> 00:01:23.389
+00:01:18.714 --> 00:01:23.523
 And the manager, who decides which waiter takes which slip, is the scheduler.
 
 21
-00:01:24.267 --> 00:01:25.971
+00:01:24.433 --> 00:01:26.138
 So what's written on a slip?
 
 22
-00:01:25.971 --> 00:01:32.057
+00:01:26.138 --> 00:01:32.224
 Every method call that hasn't finished has a frame: its local variables, and the line to go back to.
 
 23
-00:01:32.057 --> 00:01:39.117
+00:01:32.224 --> 00:01:39.284
 The slip holds all of the thread's frames, so the work can stop in the middle and carry on later from the same line.
 
 24
-00:01:39.117 --> 00:01:41.552
+00:01:39.284 --> 00:01:41.719
 Work like that is called a continuation.
 
 25
-00:01:41.733 --> 00:01:45.751
+00:01:41.933 --> 00:01:45.951
 Let's shrink it to two waiters, C1 and C2, and three slips.
 
 26
-00:01:45.933 --> 00:01:49.944
+00:01:46.167 --> 00:01:50.177
 VT1 and VT2 are ready at the same moment.
 
 27
-00:01:49.944 --> 00:01:53.563
+00:01:50.177 --> 00:01:53.796
 C1 picks up VT1, and C2 picks up VT2.
 
 28
-00:01:53.733 --> 00:01:56.390
+00:01:54.000 --> 00:01:56.657
 VT1 calls sleep, for 50 milliseconds.
 
 29
-00:01:56.390 --> 00:02:00.915
+00:01:56.657 --> 00:02:01.181
 So its slip goes on the board, with its frames, and C1 is free.
 
 30
-00:02:01.067 --> 00:02:02.304
+00:02:01.400 --> 00:02:02.637
 VT3 arrives.
 
 31
-00:02:02.304 --> 00:02:05.603
+00:02:02.637 --> 00:02:05.936
 C1 picks it up while VT1 sleeps.
 
 32
-00:02:05.800 --> 00:02:07.976
+00:02:06.167 --> 00:02:08.343
 VT2 finishes, so C2 is free.
 
 33
-00:02:07.976 --> 00:02:13.493
+00:02:08.343 --> 00:02:13.860
 Then VT1's 50 milliseconds run out, and its slip goes back on the rail.
 
 34
-00:02:13.667 --> 00:02:15.264
+00:02:14.067 --> 00:02:15.664
 VT1 started with C1.
 
 35
-00:02:15.264 --> 00:02:17.819
+00:02:15.664 --> 00:02:18.219
 Which waiter carries on with it?
 
 36
-00:02:20.667 --> 00:02:22.724
+00:02:21.000 --> 00:02:23.057
 C2, because it's the free one.
 
 37
-00:02:22.724 --> 00:02:28.552
+00:02:23.057 --> 00:02:28.885
 VT1 carries on right after its sleep, on a different waiter, and its code can't tell.
 
 38
-00:02:28.733 --> 00:02:30.821
+00:02:29.100 --> 00:02:31.187
 Java has names for these two moves.
 
 39
-00:02:30.821 --> 00:02:34.816
+00:02:31.187 --> 00:02:35.183
 Picking up a slip is mounting: the carrier runs the virtual thread.
 
 40
-00:02:34.816 --> 00:02:43.047
+00:02:35.183 --> 00:02:43.413
 Clipping it to the board is unmounting: at a blocking call, the frames are copied to the heap, and the carrier goes back for the next one.
 
 41
-00:02:43.933 --> 00:02:45.477
+00:02:44.333 --> 00:02:45.877
 Does this really happen?
 
 42
-00:02:45.477 --> 00:02:50.750
+00:02:45.877 --> 00:02:51.150
 The lesson's CarrierDemo starts 8 virtual threads, named checkout-0 to checkout-7.
 
 43
-00:02:50.750 --> 00:02:55.445
+00:02:51.150 --> 00:02:55.845
 Each one prints its carrier, sleeps 50 milliseconds, and prints it again.
 
 44
-00:02:55.445 --> 00:02:58.339
+00:02:55.845 --> 00:02:58.739
 How many will wake up on a different carrier?
 
 45
-00:03:01.200 --> 00:03:07.156
+00:03:01.533 --> 00:03:07.489
 On a 4-core machine, they ran on 3 carriers, and 7 of the 8 woke up on a different one.
 
 46
-00:03:07.156 --> 00:03:11.263
+00:03:07.489 --> 00:03:11.597
 checkout-0 fell asleep on worker-1, and woke up on worker-3.
 
 47
-00:03:11.263 --> 00:03:12.975
+00:03:11.597 --> 00:03:13.308
 Not one of them was told.
 
 48
-00:03:13.733 --> 00:03:19.250
+00:03:14.133 --> 00:03:19.650
 So it's tempting to think, my thread lives on worker-1, so I can keep something there.
 
 49
-00:03:19.250 --> 00:03:20.469
+00:03:19.650 --> 00:03:20.869
 Java won't let you.
 
 50
-00:03:20.469 --> 00:03:31.375
+00:03:20.869 --> 00:03:31.775
 Thread.currentThread() always returns the virtual thread, never the carrier, and the carrier's own ThreadLocals, variables with a value for each thread, are out of reach.
 
 51
-00:03:31.533 --> 00:03:34.933
+00:03:32.000 --> 00:03:35.400
 Picture a waiter who keeps notes in his own pocket.
 
 52
-00:03:34.933 --> 00:03:39.467
+00:03:35.400 --> 00:03:39.933
 Table 4 orders dessert, he puts the slip down, and picks up table 9.
 
 53
-00:03:39.467 --> 00:03:41.400
+00:03:39.933 --> 00:03:41.867
 Now table 9 gets the dessert.
 
 54
-00:03:41.400 --> 00:03:43.400
+00:03:41.867 --> 00:03:43.867
 So the notes stay on the slip.
 
 55
-00:03:43.600 --> 00:03:47.740
+00:03:44.100 --> 00:03:48.240
 The one place the carrier shows is toString, after the at sign.
 
 56
-00:03:47.740 --> 00:03:49.448
+00:03:48.240 --> 00:03:49.948
 Use it for debugging only.
 
 57
-00:03:49.448 --> 00:03:51.748
+00:03:49.948 --> 00:03:52.248
 Its format isn't promised anywhere.
 
 58
-00:03:51.933 --> 00:03:57.515
+00:03:52.467 --> 00:03:58.048
 So the rule is: a virtual thread can come back on any carrier after every blocking call.
 
 59
-00:03:57.515 --> 00:03:59.925
+00:03:58.048 --> 00:04:00.459
 Never write code that cares which one.
 
 60
-00:04:00.667 --> 00:04:01.320
+00:04:01.267 --> 00:04:01.920
 One limit.
 
 61
-00:04:01.320 --> 00:04:04.130
+00:04:01.920 --> 00:04:04.730
 A slip is only put down at a blocking call.
 
 62
-00:04:04.130 --> 00:04:10.077
+00:04:04.730 --> 00:04:10.677
 A slip whose job is chopping onions stays in the waiter's hands until the chopping is done.
 
 63
-00:04:10.077 --> 00:04:13.344
+00:04:10.677 --> 00:04:13.944
 Virtual threads make waiting cheap, not computing.
 
 64
-00:04:14.133 --> 00:04:15.990
+00:04:14.767 --> 00:04:16.623
 Here it is in Java and Kotlin.
 
 65
-00:04:15.990 --> 00:04:19.084
+00:04:16.623 --> 00:04:19.717
 Read the current thread, sleep, and read it again.
 
 66
-00:04:19.084 --> 00:04:24.159
+00:04:19.717 --> 00:04:24.792
 It's the same virtual thread both times, even when the carrier changed underneath.
 
 67
-00:04:24.933 --> 00:04:27.220
+00:04:25.600 --> 00:04:27.887
 So, who was doing all that sleeping?
 
 68
-00:04:27.220 --> 00:04:27.665
+00:04:27.887 --> 00:04:28.332
 Nobody.
 
 69
-00:04:27.665 --> 00:04:33.001
+00:04:28.332 --> 00:04:33.668
 The slips slept on the board, while four waiters carried whichever slips were ready.
 
 70
-00:04:33.001 --> 00:04:35.605
+00:04:33.668 --> 00:04:36.272
 A virtual thread is a slip, not a waiter.
 
 71
-00:04:35.800 --> 00:04:36.572
+00:04:36.500 --> 00:04:37.272
 Quick check.
 
 72
-00:04:36.572 --> 00:04:39.788
+00:04:37.272 --> 00:04:40.488
 A virtual thread sleeps three times, then returns.
 
 73
-00:04:39.788 --> 00:04:44.033
+00:04:40.488 --> 00:04:44.733
 How many times is it put down, and how many times is it picked up?
 
 74
-00:04:47.067 --> 00:04:49.487
+00:04:47.700 --> 00:04:50.120
 Put down three times, once per sleep.
 
 75
-00:04:49.487 --> 00:04:53.608
+00:04:50.120 --> 00:04:54.241
 Picked up four times: once to start, and once after each sleep.

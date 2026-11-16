@@ -208,7 +208,6 @@ class Vt03Semaphore(Narrated):
         self.hold()
 
         g_r, g_pans, g_lab = grill_box()
-        g_small = VGroup(g_r, g_pans).copy()
         calm = T("calm", 24, GOOD).next_to(ws_l, DOWN, buff=0.15)
         self.say("grill")
         self.play(FadeIn(calm), Indicate(ws, color=WAITER, scale_factor=1.05), run_time=0.8)
@@ -338,13 +337,14 @@ class Vt03Semaphore(Narrated):
         self.hold()
 
         # ---- map it ----
-        m_hook = T("Semaphore(20)", 26, TOKEN).move_to(hook_l)
         m_hook = M("Semaphore(20)", 26, TOKEN).move_to(hook_l)
         m_tok = T("tokens = permits", 22, TOKEN).move_to(HOOK_C + DOWN * 0.3)
-        m_acq = T("take a token: acquire(), waits if none", 22, TOKEN)
-        m_rel = T("put it back: release(), wakes one", 22, TOKEN)
-        acq_rel = VGroup(m_acq, m_rel).arrange(DOWN, buff=0.12).move_to(HOOK_C + DOWN * 0.55)
-        m_board = T("parked on the heap: no platform thread", 22, GREY_A).next_to(b_r, DOWN, buff=0.15)
+        m_acq = T("take a token: acquire(), waits if none is left", 24, TOKEN)
+        m_rel = T("put it back: release(), wakes one waiting thread", 24, TOKEN)
+        acq_rel = VGroup(m_acq, m_rel).arrange(DOWN, buff=0.12).move_to([0, -2.72, 0])
+        m_board = VGroup(T("the board:", 22, GREY_A), T("parked on the heap,", 22, GREY_A),
+                         T("no platform thread", 22, GREY_A)).arrange(DOWN, aligned_edge=RIGHT, buff=0.08)
+        m_board.next_to(b_r, LEFT, buff=0.2)
         self.say("map")
         self.play(Transform(hook_l, m_hook), run_time=0.7)
         self.at(1)
@@ -356,16 +356,16 @@ class Vt03Semaphore(Narrated):
         # one pan finishes: its token goes back and wakes one slip on the board
         self.play(light(g_pans[4], False), toks[4].animate.move_to(HOOK_POS[4]), run_time=0.8)
         woke = parked[0]
-        self.play(woke.animate.move_to(HOOK_POS[4] + DOWN * 0.38).set_stroke(TOKEN, 2), run_time=0.7)
+        self.play(woke.animate.move_to(HOOK_POS[4] + LEFT * 0.4).set_stroke(TOKEN, 2), run_time=0.8)
         self.play(woke.animate.move_to(g_pans[4].get_center()).set_opacity(0), toks[4].animate.move_to(g_pans[4].get_center()),
                   light(g_pans[4]), run_time=0.8)
         self.at(4)
-        self.play(FadeIn(m_board), Indicate(parked[1:], color=WHITE, scale_factor=1.02), run_time=0.9)
+        self.play(Transform(b_l, m_board), Indicate(parked[1:], color=WHITE, scale_factor=1.02), run_time=0.9)
         self.hold()
 
         # ================= predict, then show =================
         kitchen = VGroup(s_r, s_lab, many_sal, free_n, g_r, g_pans, g_lab, hook_bar, hook_l, acq_rel, b_r, b_l,
-                         parked, m_board, *toks)
+                         parked, *toks)
         self.play(FadeOut(kitchen), run_time=0.7)
         X0, PXS = -5.8, 9.5 / 3628
         bar1 = Rectangle(width=3628 * PXS, height=0.5, stroke_width=0).set_fill(BAD, 0.75)
