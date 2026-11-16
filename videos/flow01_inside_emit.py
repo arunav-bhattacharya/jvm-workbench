@@ -116,7 +116,7 @@ COOK, EMIT, DINER, VAL, CLK = BLUE_M, PURPLE_M, TEAL_M, GOLD_M, GREY_B
 # the clock (a vertical timeline on the right: time runs downward)
 T0Y, T1Y = 2.35, -3.05
 K = (T0Y - T1Y) / 1200
-XC, XD, LW, XL = 1.3, 2.05, 0.34, 2.6
+XC, XD, LW, XL = 1.35, 2.3, 0.34, 2.85
 COOKS = [(0, 100), (400, 500), (800, 900)]
 WAITS = [(100, 400), (500, 800), (900, 1200)]
 
@@ -317,7 +317,7 @@ class Flow01InsideEmit(Narrated):
 
         # ================= rule 1: sequential =================
         bands = VGroup(*[Rectangle(width=XD - XC + LW + 0.2, height=K * (b - a), stroke_color=EMIT, stroke_width=2)
-                         .set_fill(EMIT, 0.16).move_to([(XC + XD) / 2, ty((a + b) / 2), 0]) for a, b in WAITS])
+                         .set_fill(EMIT, 0.16).move_to([(XC + XD) / 2, ty((a + b) / 2), 0]) for a, b in WAITS]).set_z_index(-1)
         r1 = VGroup(T("1. One value at a time", 32),
                     T("line 2 starts only after", 26, GREY_B),
                     row(M("emit(1)", 24, EMIT), T("has returned", 26, GREY_B)),

@@ -9,16 +9,16 @@ fg.SAY[:0] = [(r"\bcoroutine", "co-routine"), (r"\bflatMapConcat\b", "flat map c
 
 # every spoken line, in order
 N = {
-    "open": "Three picks reach a merchant search box, 100 milliseconds apart. Each pick starts an inner flow: "
-            "part a after 50 milliseconds, and part b 150 later. The three flatMaps differ in their lanes.",
+    "open": "Three picks reach a search box, 100 milliseconds apart. Each pick starts an inner flow: "
+            "part a after 50 milliseconds, part b 150 later. The flatMaps differ in their lanes.",
     "concat_q": "flatMapConcat has one lane. When does the outer flow emit pick 2?",
-    "concat": "Not at 100. The inner flow runs inside the outer's emit, so the outer is stuck there until inner 1 is done. "
-              "Only then does its 100 millisecond delay start. Pick 2 comes at 300, and the run takes 800.",
-    "merge": "flatMapMerge gives each inner flow its own lane. The picks come at 0, 100 and 200, the lanes overlap, "
-             "and values come out as they finish. 1b comes after 2a. Done at 400.",
+    "concat": "Not at 100. The inner flow runs inside the outer's emit, so the outer is stuck until inner 1 is done. "
+              "Only then does its delay start. Pick 2 comes at 300, and the run takes 800.",
+    "merge": "flatMapMerge gives each inner flow its own lane. Picks come at 0, 100 and 200, "
+             "and values come out as they finish: 1b after 2a. Done at 400.",
     "latest": "flatMapLatest has one lane and a switch. A new pick cancels the inner flow in the lane, waits for it to stop, "
               "and starts the next. 1b and 2b never arrive. That is the shape for search as you type.",
-    "fee_q": "Now a fee fan-out. Five merchants need a fee. The lookups take 300, 100, 200, 50 and 150 milliseconds, "
+    "fee_q": "Now a fee fan-out. Five lookups take 300, 100, 200, 50 and 150 milliseconds, "
              "and the fee service allows two calls at once. A teammate calls the lookup in the flatMapMerge lambda. "
              "How long does it take?",
     "fee_slow": "800 milliseconds, one call at a time. The lambda runs in the one coroutine that reads the merchants, "
@@ -26,7 +26,7 @@ N = {
                 "The booths sit empty.",
     "fee_fast": "Move the lookup inside the flow you return. Now the dispatcher only waves cars in, and the lookups run "
                 "in the lanes. Two at a time, done at 450. Results come out as they finish, m2 first.",
-    "code": "In code, the slow call goes inside the returned flow. Reactor has the same trap: "
+    "code": "The slow call goes inside the returned flow. Reactor has the same trap: "
             "block in the mapper, and flatMap runs one call at a time.",
     "rule": "So flatMapConcat runs one lane and makes the outer wait. flatMapMerge gives each returned flow a lane. "
             "flatMapLatest keeps one lane and cuts the old one.",
@@ -208,7 +208,7 @@ class Flow05Lanes(Narrated):
         to(100)
         g2 = ghost("2", PICK[2]).move_to([X(100), YP, 0])
         self.play(FadeIn(g2), run_time=0.3)
-        self.at_text("so the outer is stuck")
+        self.at_text("so the outer")
         w_lab = T("outer waits inside emit", 22, NOTE).move_to([X(100), YP + 0.55, 0])
         self.play(FadeIn(w_lab), run_time=0.4)
         to(200, speed=150)
@@ -265,7 +265,7 @@ class Flow05Lanes(Narrated):
                 d = lane_dot(ms, YL[n - 1])
                 self.play(FadeIn(o, scale=0.6), FadeIn(d), run_time=0.25)
                 stuff.add(d)
-        self.at_text("1b comes after")
+        self.at_text("1b after")
         self.play(Indicate(outs["2a"], color=WHITE, scale_factor=1.3), Indicate(outs["1b"], color=WHITE, scale_factor=1.3),
                   run_time=0.9)
         self.at_text("Done at")
