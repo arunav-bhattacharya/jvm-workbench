@@ -97,10 +97,9 @@ class Cap4BuildTime(VoiceScene):
         ax_l = T("from the first line of main to the first payment done", 22, GREY_B).move_to([1.4, 3.05, 0])
         lab1 = VGroup(T("run-time wiring", 24, RUN), T("on every start", 20, GREY_B)).arrange(DOWN, buff=0.08)
         lab1.move_to([0, Y1, 0]).align_to(np.array([X0 - 0.3, 0, 0]), RIGHT)
-        self.beat("A deploy starts fresh JVMs. Until the container has wired its components, no payment goes through.",
-                  Create(axis), FadeIn(ticks), FadeIn(tl), run_time=1.6)
-        self.beat("Here is one start, timed from the first line of main to the first payment done.",
-                  FadeIn(ax_l), FadeIn(lab1), run_time=1.2)
+        seq(self, "Until the container is wired, no payment goes through. Here is one start, from the first line of "
+                  "main to the first payment done.",
+            ([Create(axis), FadeIn(ticks), FadeIn(tl)], 1.6), 1.4, ([FadeIn(ax_l), FadeIn(lab1)], 1.0))
 
         steps1 = [step("find components", RUN), step("reflection", RUN), step("graph", RUN), step("Byte Buddy", BB)]
         row1, ars1 = chain(steps1, 0.55, X0 + 0.1, xt(1029))
@@ -158,8 +157,7 @@ class Cap4BuildTime(VoiceScene):
                         stroke_width=1.5, color=GREY_B)
         self.beat("So 1,216 classes are pure machinery.", GrowFromCenter(brace), FadeIn(br_l), Create(dl), run_time=1.0)
         bb_l = T("814 from byte-buddy.jar", 24, BB).move_to(big[5]).shift(UP * 0.62)
-        seq(self, "814 come from byte-buddy.jar. Byte Buddy loads its own type model, matchers and class writer before "
-                  "it can write one subclass.",
+        seq(self, "814 come from byte-buddy.jar: Byte Buddy's own machinery, loaded before it can write one subclass.",
             ([FadeIn(bb_l), Indicate(big[5], color=BB, scale_factor=1.04)], 1.2))
         callouts = VGroup()
         for k, (txt, col) in enumerate((("3 that Byte Buddy wrote", WR), ("30 JDK proxies: the issuer, annotations", PRX),
@@ -168,9 +166,8 @@ class Cap4BuildTime(VoiceScene):
             lbl = T(txt, 22, col).move_to([0, 3.05 - 0.45 * k, 0]).align_to(np.array([BX + CU * 1300, 0, 0]), RIGHT)
             ln = Line(lbl.get_right() + RIGHT * 0.08, [sgm.get_center()[0], YB1 + 0.3, 0], stroke_width=1.5, color=col)
             callouts.add(VGroup(lbl, ln))
-        seq(self, "Then the 3 classes it writes. 30 JDK proxy classes: one is the issuer proxy, and annotations read by "
-                  "reflection are proxies too. And 123 hidden classes for lambdas and method handles.",
-            ([FadeIn(callouts[0])], 0.6), 1.3, ([FadeIn(callouts[1])], 0.6), 2.2, ([FadeIn(callouts[2])], 0.6))
+        seq(self, "Then the 3 classes it writes, 30 JDK proxy classes, and 123 hidden classes.",
+            ([FadeIn(callouts[0])], 0.6), 0.6, ([FadeIn(callouts[1])], 0.6), 0.6, ([FadeIn(callouts[2])], 0.6))
 
         # one level down: what each class costs
         pipe = [step(s_, GREY_A, 22) for s_ in ("find", "parse", "verify", "interpret")]
@@ -226,8 +223,8 @@ class Cap4BuildTime(VoiceScene):
         var = T("JDK 21, a busy machine: times moved by a factor of two between runs; class counts barely moved", 20, GREY_B)
         var.scale(min(1, 12.4 / var.width)).move_to([0, -3.4, 0])
         self.play(FadeOut(tl), run_time=0.3)
-        self.beat("On a busy machine, the times moved by a factor of two between runs. The reflective start was always "
-                  "several times slower, and the class counts barely moved.", FadeIn(var), run_time=1.0)
+        self.beat("On a busy machine the times moved by a factor of two between runs, but the reflective start was "
+                  "always several times slower.", FadeIn(var), run_time=1.0)
         self.play(FadeOut(VGroup(axis, ticks, lab1, bar1, flag1, bld_l, row2, ars2, src, src_l, lab2, bar2, hold, flag2,
                                  var)), run_time=0.6)
 
@@ -266,6 +263,5 @@ class Cap4BuildTime(VoiceScene):
         ans = VGroup(T("From the generated source: the generator read the annotation", 28, GOLD_M),
                      T("at build time. Nothing reads an annotation at run time.", 28, GOLD_M)).arrange(DOWN, buff=0.14)
         ans.scale(min(1, 12 / ans.width)).move_to([0, -1.9, 0])
-        self.beat("From the generated source. The generator read the annotation at build time and wrote 3 into the "
-                  "code. Nothing reads an annotation at run time.", FadeIn(ans, shift=UP * 0.15), run_time=1.2)
+        self.beat("From the generated source. The generator read @Retry at build time and wrote 3 into the code.", FadeIn(ans, shift=UP * 0.15), run_time=1.2)
         self.wait(0.8)
