@@ -47,9 +47,9 @@ SVG += (box("box-a", 565, 100, 125, 54, "allOf", "then min()")
         + '</svg>')
 
 # ---------------------------------------------------------------- opening
-OPENING = """Last lesson, an order moved through the kitchen like a tray from station to station. In code, the tray was a `CompletableFuture`, a claim ticket for a result that starts the next step by itself, and each station was a stage.
+OPENING = """Last lesson, the ticket for table 4 carried its own instructions: when the steak and the sauce are ready, plate them. In code, that ticket was a `CompletableFuture`, a promise of a result that starts the next step by itself.
 
-Now the steak burns. The sauce cook has no business pouring sauce on charcoal, so the tray carries a note instead: "burned at the grill". Every later station passes it along untouched, until someone at the pass, the counter where dishes leave the kitchen, reads the note and decides what table 4 gets.
+Now the steak burns. The sauce cook has no business pouring sauce on charcoal, so a note goes on the ticket instead: "burned at the grill". Every later station passes the ticket along untouched, until someone at the pass, the counter where dishes leave the kitchen, reads the note and decides what table 4 gets.
 
 `CompletableFuture` handles failure the same way, with three surprises. The note sometimes arrives in an envelope. A timer that tells the manager to stop waiting doesn't stop the cook. And waiting for three dishes at once fails the whole table when one of them burns. All three pass a quick test, because tests rarely burn the steak.
 
@@ -93,7 +93,7 @@ exceptionally sees: java.util.concurrent.CompletionException: java.lang.IllegalS
 result: table 4 got an apology and the menu
 ```
 
-Not one numbered line. When a stage throws, its future **completes exceptionally**: it finishes with an exception instead of a value. Every `thenApply`, `thenCompose` and `thenCombine` after it is then skipped. Its function never runs, and its own future fails with the same cause. That's the note on the tray, passed from station to station.
+Not one numbered line. When a stage throws, its future **completes exceptionally**: it finishes with an exception instead of a value. Every `thenApply`, `thenCompose` and `thenCombine` after it is then skipped. Its function never runs, and its own future fails with the same cause. That's the note on the ticket, passed from station to station.
 
 The failure stops at the first **handler**, a stage that also runs when the step before it failed. There are four:
 
@@ -104,7 +104,7 @@ The failure stops at the first **handler**, a stage that also runs when the step
 | `whenComplete((value, ex) -> ...)` | success and failure | no, passes the outcome on |
 | `exceptionallyCompose(ex -> future)` | failure only | yes, with another future (JDK 12) |
 
-`whenComplete` is the manager who glances at every tray on its way past and writes in the log. It sees both outcomes and hands the same one on, so it suits logs and counters. (One detail: if its own action throws after a success, the result becomes that new failure. After a failure, the original failure wins.) `exceptionally` is the pass. It replaces the failure with a value, and everything after it sees a success.
+`whenComplete` is the manager who glances at every ticket on its way past and writes in the log. It sees both outcomes and hands the same one on, so it suits logs and counters. (One detail: if its own action throws after a success, the result becomes that new failure. After a failure, the original failure wins.) `exceptionally` is the pass. It replaces the failure with a value, and everything after it sees a success.
 
 Where you put the handler decides what you can still save. At the end, after the sauce, the plate and the walk to table 4 were all skipped, the only honest thing left is an apology. Move the handler up, right after the grill, and it can swap in a spare steak. Then every station after it works as if nothing had gone wrong. Run the demo with `early`, and it prints:
 

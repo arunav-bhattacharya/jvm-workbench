@@ -120,7 +120,7 @@ right order, threshold 50,000: 869 ms, 7 steals, same total: true
 most leaves running at the same moment: 4
 ```
 
-Correctness first: `same total: true`, so the pool did exactly the work of the loop. Then speed, and here I have to be honest. This run was on a machine with 4 cores, the parts of the processor that each run one thread at a time. Other programs were busy on it and kept most of the cores, so the pool was only about 1.2 times faster than one thread. The last line is the neutral referee. It counts how many leaves were running at the same moment, and it said 4. All four workers really did compute side by side. With four free cores, expect close to four times the speed of one thread.
+Correctness first: `same total: true`, so the pool did exactly the work of the loop. Then speed, and here I have to be honest. This run was on a machine with 4 cores, the parts of the processor that each run one thread at a time. Other programs were busy on it and kept most of the cores, so the pool was only about 1.2 times faster than one thread. The last line is the neutral referee. It counts how many leaves were running at the same moment, and it said 4. All four workers really did compute side by side. With four cores to itself, the pool could get close to four times faster. I couldn't measure that on this busy machine, so run it on yours and see how close you get.
 
 Run it with a threshold of 500 and there are 4,096 leaves, still well spread and still fast. Run it with 1,000,000 and there are only 2 leaves, so only 2 workers ever get work, and the referee says 2.
 
@@ -187,7 +187,7 @@ mapToLong().sum():  4,999,950,000
 threads that ran the first stream: [ForkJoinPool.commonPool-worker-1, ForkJoinPool.commonPool-worker-2, ForkJoinPool.commonPool-worker-3, main]
 ```
 
-Half the ids are gone, and the shared sum came out right by pure luck. The Kotlin run straight after it was less lucky: `4,814,237,001`, off by about 185 million. Both are the read-modify-write races of Race conditions: why count++ lies. Four threads read the list's size, or the total, at the same moment, and some of their writes land on top of each other. Sometimes the `ArrayList` even throws an `ArrayIndexOutOfBoundsException`, because two threads grow its array at once.
+Half the ids are gone, and the shared sum came out right by pure luck. The Kotlin run straight after it was less lucky: `4,814,237,001`, off by about 185 million. Both are the read-modify-write races of Race conditions: why count++ lies, where threads read a value, change it and write it back at the same moment. Four threads read the list's size, or the total, at the same moment, and some of their writes land on top of each other. Sometimes the `ArrayList` even throws an `ArrayIndexOutOfBoundsException`, because two threads grow its array at once.
 
 The fix is to let the stream build the result: `toList()`, `collect(...)`, `sum()`, `reduce(...)`. Each thread works on its own piece, and the stream combines the pieces at the end. The last line of the output shows who did the work: the three common pool workers and `main`.
 
@@ -219,7 +219,7 @@ The kitchen picture breaks here, and the break is the bug. In a real kitchen, a 
 
 A task that takes microseconds waited 1.2 seconds, until the lookups were nearly done. Every helper in the restaurant was on hold with the stock service. In a real program, that tiny task is somebody else's request, from a part of the code that never heard of the stock service.
 
-The fix is to keep waiting off the common pool. Run blocking calls on an executor built for waiting, such as a bounded pool sized for the service you call, as Sizing a pool showed. Then combine the answers with `CompletableFuture`, as in the last lesson. That's the demo's `io` mode:
+The fix is to keep waiting off the common pool. Run blocking calls on an executor built for waiting, such as a pool with a fixed number of threads, sized for the service you call, as Sizing a pool showed. Then combine the answers with `CompletableFuture`, as in the last lesson. That's the demo's `io` mode:
 
 ```text
    38 ms  io: common pool parallelism 3, 16 lookups of 300 ms
@@ -266,7 +266,7 @@ L = {
      "Run it with `-Pargs=\"right 500\"`, then with `-Pargs=\"right 1000000\"`. Before each run, predict the number of leaves and the number on the last line."
     ],
     "code": demo("WorkStealingDemo"),
-    "expect": "With the default threshold of 50,000, all four workers run some of the 64 leaves, and the last line says 4. On a quiet machine with 4 free cores, the pool finishes close to 4 times faster than one thread; on a busy one, much less. With 500 there are 4,096 leaves, and it is about as fast. With 1,000,000 there are only 2 leaves, so only 2 workers ever get work, and the last line says 2."
+    "expect": "With the default threshold of 50,000, all four workers run some of the 64 leaves, and the last line says 4. With 4 free cores, the pool can get close to 4 times faster than one thread; on a busy machine, much less. With 500 there are 4,096 leaves, and it is about as fast. With 1,000,000 there are only 2 leaves, so only 2 workers ever get work, and the last line says 2."
    },
    "refs": [
     {"title": "ForkJoinTask (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ForkJoinTask.html", "kind": "docs"}
