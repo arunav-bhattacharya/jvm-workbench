@@ -44,7 +44,7 @@ val b = thread { work() }
 a.join(); b.join()
 println(count)               // 2,000,000? Let's see.''')}
 
-Two things changed in Kotlin: `thread {{ }}` creates and starts each thread for us, and `@Volatile` is an annotation where Java has a keyword. Both join both threads before they print, and as A thread's life showed, a returned `join()` means `main` sees everything that thread wrote. So this prints the counter's real final value.
+Two things changed in Kotlin: `thread {{ }}` creates and starts each thread for us, and `@Volatile` is an annotation where Java has a keyword. Each version joins both threads before it prints. As A thread's life showed, once `join()` returns, `main` sees everything that thread wrote, so this prints the counter's real final value.
 
 I'd expect 2,000,000. Here's what `RaceDemo`, the same program in the labs, printed in five runs on a 4-core Linux machine:
 
@@ -170,7 +170,13 @@ The same shape hides in two places you've probably written. An overdraft check, 
 
 The fix is one call that does both the check and the act, so no gap is left:
 
-{pair('''if (postedBy.putIfAbsent(paymentId, me) == null) post(payment);   // Fixed: only one consumer sees null''', '''if (postedBy.putIfAbsent(paymentId, me) == null) post(payment)    // the same JDK call from Kotlin''')}
+{pair('''fraudCheck(payment);                                  // still slow, but no longer inside a gap
+if (postedBy.putIfAbsent(paymentId, me) == null) {    // Fixed: check and act in one call
+    post(payment);                                    // only one consumer gets here
+}''', '''fraudCheck(payment)                                   // still slow, but no longer inside a gap
+if (postedBy.putIfAbsent(paymentId, me) == null) {    // Fixed: the same JDK call from Kotlin
+    post(payment)                                     // only one consumer gets here
+}''')}
 
 Read `putIfAbsent` as "claim this key, unless someone already has". It returns the previous owner, or `null` if there was none, and only one caller can ever get that `null`. Inside, the map does the lookup and the insert as one step on that key's slot, as lesson 9 of this track shows.
 
@@ -348,7 +354,7 @@ L = {
   "files": [f"{lab}/main/{P}/Hammer.java", f"{lab}/main/{P}/HitCounter.java", f"{lab}/main/{P}/SeatMap.java"],
   "run": "./gradlew :concurrency:test --tests 'workbench.concurrency.l03.*'",
   "steps": [
-   "Run the tests once. All five should fail. Read the messages: `Hammer` isn't written yet, the counter comes up short, and seats are sold more than once. (Once in a while the counter test passes on the broken code. The threads didn't collide that run, just as in the first section.)",
+   "Run the tests once. All five should fail. Read the messages: `Hammer` isn't written yet, the counter comes up short, and seats are sold more than once. (The counter test runs five rounds, because one round on broken code can get lucky: the threads don't always collide, just as in the first section.)",
    "Write `Hammer.run`. Create a `CountDownLatch ready` of size `threads` and a `CountDownLatch go` of size 1. Each thread calls `ready.countDown()`, waits on `go.await()`, then runs the task. The caller waits on `ready`, calls `go.countDown()`, then joins every thread.",
    "Fix `HitCounter` so 8 threads x 200,000 hits always add up. Guard the read too.",
    "Fix `SeatMap.book` without `synchronized`. It's the posted-payments check from this lesson, with concert seats in it: replace the check and the put with one map call. Keep the call to `priceTheSeat()`.",

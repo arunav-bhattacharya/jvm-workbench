@@ -71,11 +71,15 @@ class RaceConditionsTest {
     }
 
     @Test
-    @DisplayName("HitCounter counts every hit from 8 threads x 200,000 hits")
+    @DisplayName("HitCounter counts every hit from 8 threads x 200,000 hits, five rounds in a row")
     void counterLosesNothing() throws Exception {
-        HitCounter counter = new HitCounter();
-        collide(THREADS, () -> { for (int i = 0; i < 200_000; i++) counter.hit(); });
-        assertThat(counter.total()).isEqualTo(THREADS * 200_000);
+        // A racy counter sometimes gets lucky in one round (the JIT can keep the field in a register, so the
+        // threads barely overlap). Five rounds make a lucky pass on broken code vanishingly rare.
+        for (int round = 1; round <= 5; round++) {
+            HitCounter counter = new HitCounter();
+            collide(THREADS, () -> { for (int i = 0; i < 200_000; i++) counter.hit(); });
+            assertThat(counter.total()).as("round " + round).isEqualTo(THREADS * 200_000);
+        }
     }
 
     @Test
