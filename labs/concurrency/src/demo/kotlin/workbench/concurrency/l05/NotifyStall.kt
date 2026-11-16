@@ -3,7 +3,7 @@ package workbench.concurrency.l05
 import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicLong
 
-// A one-slot buffer shared by 2 producers and 2 consumers. Uses notify(), or notifyAll() with -Pargs=all.
+// A rail with room for one order, shared by 2 waiters and 2 cooks. Uses notify(), or notifyAll() with -Pargs=all.
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
 private val lock = Object()
 private val slot = ArrayDeque<Int>()
@@ -14,7 +14,7 @@ private fun put(x: Int) {
     synchronized(lock) {
         while (!slot.isEmpty()) lock.wait()
         slot.addLast(x)
-        signal()                               // notify() wakes ONE waiter: maybe a consumer, maybe the other producer
+        signal()                               // notify() wakes ONE waiting thread: maybe a cook, maybe the other waiter
     }
 }
 
@@ -44,7 +44,7 @@ fun main(args: Array<String>) {
             } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
             }
-        }, (if (producer) "producer-" else "consumer-") + (i % 2)).apply {
+        }, (if (producer) "waiter-" else "cook-") + (i % 2)).apply {
             isDaemon = true
             start()
         }
@@ -54,13 +54,13 @@ fun main(args: Array<String>) {
         Thread.sleep(1_000)
         val now = moved.get()
         if (now == last) {
-            println("stalled after %,d items. Thread states:".format(now))
+            println("stalled after %,d orders. Thread states:".format(now))
             threads.forEach { println("  ${it.name}: ${it.state}") }
             return
         }
-        println("after %d s: %,d items moved".format(second, now))
+        println("after %d s: %,d orders cooked".format(second, now))
         last = now
     }
-    println(if (all) "no stall: notifyAll() wakes every waiter, so the right kind always gets a turn"
+    println(if (all) "no stall: notifyAll() wakes every waiting thread, so the right kind always gets a turn"
             else "no stall this time; it depends on timing, so run it again")
 }

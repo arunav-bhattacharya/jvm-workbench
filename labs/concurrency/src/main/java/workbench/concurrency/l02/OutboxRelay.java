@@ -5,9 +5,9 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * Moves messages from a transactional outbox to Kafka, on its own thread.
+ * Sends the messages waiting in an outbox (an out tray of messages to send), on its own thread.
  *
- * <p>The loop fetches a batch and publishes every message in it. When the outbox is empty
+ * <p>The loop fetches a batch and hands every message in it to the publisher. When the outbox is empty
  * it sleeps for {@code idleMillis} before polling again.
  *
  * <p>This version never stops: its owner calls {@code interrupt()} on shutdown and nothing happens.

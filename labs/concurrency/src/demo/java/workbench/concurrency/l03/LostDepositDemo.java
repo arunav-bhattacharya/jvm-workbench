@@ -3,11 +3,11 @@ package workbench.concurrency.l03;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Eight consumer threads post one-cent deposits to the same merchant account, three ways. */
+/** Eight teller threads put one-cent deposits into the same bank account, three ways. */
 public class LostDepositDemo {
     static final int THREADS = 8;
     static final int DEPOSITS = 200_000;                     // per thread, one cent each
-    static final String MERCHANT = "merchant-42";
+    static final String ACCOUNT = "account-42";
 
     // volatile only so the JIT re-reads the field every time, as in RaceDemo. It does NOT make += safe.
     static volatile long balanceCents;
@@ -15,27 +15,27 @@ public class LostDepositDemo {
 
     public static void main(String[] args) throws InterruptedException {
         balanceCents = 0;
-        post(() -> balanceCents += 1);                                     // 1. a plain field
+        runTellers(() -> balanceCents += 1);                                  // 1. a plain field
         report("balanceCents += 1", balanceCents);
 
-        balances.put(MERCHANT, 0L);
-        post(() -> balances.put(MERCHANT, balances.get(MERCHANT) + 1));   // 2. a thread-safe map, two calls
-        report("put(get() + 1)", balances.get(MERCHANT));
+        balances.put(ACCOUNT, 0L);
+        runTellers(() -> balances.put(ACCOUNT, balances.get(ACCOUNT) + 1));   // 2. a thread-safe map, two calls
+        report("put(get() + 1)", balances.get(ACCOUNT));
 
-        balances.put(MERCHANT, 0L);
-        post(() -> balances.merge(MERCHANT, 1L, Long::sum));              // 3. the same map, one call
-        report("merge(1, Long::sum)", balances.get(MERCHANT));
+        balances.put(ACCOUNT, 0L);
+        runTellers(() -> balances.merge(ACCOUNT, 1L, Long::sum));             // 3. the same map, one call
+        report("merge(1, Long::sum)", balances.get(ACCOUNT));
     }
 
-    static void post(Runnable deposit) throws InterruptedException {
-        Thread[] consumers = new Thread[THREADS];
+    static void runTellers(Runnable deposit) throws InterruptedException {
+        Thread[] tellers = new Thread[THREADS];
         for (int c = 0; c < THREADS; c++) {
-            consumers[c] = new Thread(() -> {
+            tellers[c] = new Thread(() -> {
                 for (int i = 0; i < DEPOSITS; i++) deposit.run();
-            }, "consumer-" + c);
-            consumers[c].start();
+            }, "teller-" + c);
+            tellers[c].start();
         }
-        for (Thread t : consumers) t.join();
+        for (Thread t : tellers) t.join();
     }
 
     static void report(String how, long cents) {

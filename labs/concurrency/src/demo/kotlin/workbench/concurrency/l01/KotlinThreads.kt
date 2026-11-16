@@ -9,7 +9,7 @@ fun main() {
     val chunk = amounts.size / partial.size
 
     val workers = List(partial.size) { w ->
-        thread(name = "ledger-worker-$w") {       // starts at once: start = true is the default
+        thread(name = "sales-worker-$w") {        // starts at once: start = true is the default
             var sum = 0L
             for (i in w * chunk until (w + 1) * chunk) sum += amounts[i]
             partial[w] = sum

@@ -3,7 +3,7 @@ package workbench.concurrency.l01;
 import java.util.List;
 
 /**
- * Adds up a day's settled payment amounts, in cents, using several worker threads.
+ * Adds up a list of money amounts in cents (say, a year of a shop's sales), using several worker threads.
  *
  * <p>Write {@link #total}:
  * <ol>
