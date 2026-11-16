@@ -47,7 +47,7 @@ fun main() {
         advanceTimeBy(5_000); runCurrent();  println("  after advanceTimeBy(5000) + runCurrent(): t=$currentTime polls=$polls")
     }
     runTest {
-        println("== 3. a StateFlow set twice in a row, collected three ways")
+        println("== 3. a StateFlow set twice in a row, collected two ways")
         val a = StatusTracker(); val standard = mutableListOf<String>()
         backgroundScope.launch { a.status.toList(standard) }
         runCurrent(); a.authorizeAndCapture(); runCurrent()

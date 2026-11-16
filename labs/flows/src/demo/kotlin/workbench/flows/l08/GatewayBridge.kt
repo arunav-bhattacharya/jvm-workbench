@@ -1,14 +1,10 @@
 package workbench.flows.l08
 
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.conflate
-import kotlinx.coroutines.flow.count
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -35,14 +31,6 @@ private fun DemoGateway.eventsWithoutAwaitClose(): Flow<PayEvent> = callbackFlow
     // forgot awaitClose
 }
 
-// n synchronous callbacks inside the block, while the collector is already waiting in receive()
-private fun burst(n: Int): Flow<Int> = callbackFlow {
-    var failed = 0
-    repeat(n) { if (trySend(it).isFailure) failed++ }
-    println("    trySend failures: $failed of $n")
-    awaitClose { }
-}
-
 private suspend fun DemoGateway.awaitRegistered() { while (listeners.isEmpty()) yield() }
 
 fun main() = runBlocking {
@@ -51,7 +39,8 @@ fun main() = runBlocking {
     val j0 = launch { gw0.events().collect { println("  got $it") } }
     yield()
     gw0.fire(PayEvent("p-0", "AUTHORIZED"))
-    println("  fired with listeners=${gw0.listeners.size}, so the event is lost")
+    println("  fired with listeners=${gw0.listeners.size}")
+    yield()                  // give the collector a turn to print what it got
     j0.cancelAndJoin()
 
     println("== 1. callbackFlow without awaitClose")
@@ -79,13 +68,7 @@ fun main() = runBlocking {
     val j4 = launch { println("  completed with " + gw4.events().toList()) }
     gw4.awaitRegistered(); gw4.fire(PayEvent("p-3", "REFUNDED")); gw4.close(); j4.join()
 
-    println("== 5. a burst of 200 callbacks before the collector can run")
-    println("  default buffer (64, SUSPEND):"); println("    collector got ${burst(200).take(64).count()}, then cancelled")
-    println("  buffer(Channel.UNLIMITED):"); println("    collector got ${burst(200).buffer(Channel.UNLIMITED).take(200).count()}")
-    println("  conflate():"); println("    collector got ${burst(200).conflate().take(2).toList()}")
-    println("  buffer(10, DROP_OLDEST):"); println("    collector got ${burst(200).buffer(10, BufferOverflow.DROP_OLDEST).take(11).toList()}")
-
-    println("== 6. trySend after the channel is closed")
+    println("== 5. trySend after the channel is closed")
     val ch = Channel<Int>(1); ch.close()
     val r = ch.trySend(1)
     println("  isSuccess=${r.isSuccess} isClosed=${r.isClosed} result=$r")

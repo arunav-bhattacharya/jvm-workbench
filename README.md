@@ -1,6 +1,6 @@
 # JVM Workbench
 
-A 139-lesson course on how Java and Kotlin really run: concurrency, async servers, generics and design, and the JVM itself. One lesson a day, about 35 minutes each, with real code to write and tests that tell you when it works. Live at https://jvm-workbench.ai-arunav.workers.dev.
+A 147-lesson course on how Java and Kotlin really run: concurrency, async servers, generics and design, and the JVM itself. One lesson a day, about 35 minutes each, with real code to write and tests that tell you when it works. Live at https://jvm-workbench.ai-arunav.workers.dev.
 
 The course has four parts. Each one ends with a capstone: three sittings that build one working program from everything the part taught.
 
@@ -13,6 +13,7 @@ The course has four parts. Each one ends with a capstone: three sittings that bu
 | | Capstone: a payment ledger under load | 3 | `labs/ledger` |
 | 2. Async, reactive and servers | Reactive programming | 8 | `labs/reactive` |
 | | Kotlin coroutines | 11 | `labs/coroutines` |
+| | Kotlin Flow in depth | 8 | `labs/flows` |
 | | Servers and event loops: NIO, Netty, Vert.x and Jetty | 8 | `labs/nio` |
 | | Capstone: a non-blocking quote service | 3 | `labs/quotes` |
 | 3. Types and design | Kotlin generics, properly | 11 | `labs/generics` |
