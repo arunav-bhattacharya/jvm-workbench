@@ -1,153 +1,313 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:04.504
-Thread 1 fills in a payment.
+00:00:02.700 --> 00:00:05.355
+Picture a small bank at the end of the day.
 
 2
-00:00:04.504 --> 00:00:07.855
-It writes the amount, then sets a flag called ready.
+00:00:05.355 --> 00:00:11.035
+The cashier writes the closing balance in the ledger, 12,000, and the number of entries, 41.
 
 3
-00:00:08.067 --> 00:00:10.626
-Thread 2 waits until ready is true.
+00:00:11.035 --> 00:00:16.160
+Then she locks the ledger in its cabinet, and leaves the key for the night manager.
 
 4
-00:00:10.626 --> 00:00:12.454
-Then it reads the amount.
+00:00:16.367 --> 00:00:21.382
+When the night manager opens that cabinet with that key, she can trust what she reads.
 
 5
-00:00:12.454 --> 00:00:14.209
-Is it sure to see 12000?
+00:00:21.382 --> 00:00:24.764
+Everything written before the cabinet was locked is there.
 
 6
-00:00:14.433 --> 00:00:15.849
-With plain fields, no.
+00:00:24.967 --> 00:00:27.780
+Threads need the same kind of handover.
 
 7
-00:00:15.849 --> 00:00:17.779
-Nothing links the two threads.
+00:00:27.780 --> 00:00:32.974
+Make the cashier a thread, T1, and the night manager another thread, T2.
 
 8
-00:00:17.779 --> 00:00:20.868
-Thread 2 may read the new amount, or an old one.
+00:00:32.974 --> 00:00:36.436
+T1 writes two plain fields, balance and entries.
 
 9
-00:00:20.868 --> 00:00:23.313
-It may even never see ready turn true.
+00:00:36.436 --> 00:00:37.879
+T2 reads them later.
 
 10
-00:00:23.533 --> 00:00:27.344
-The memory model answers with a relation called happens-before.
+00:00:38.100 --> 00:00:39.524
+But later isn't enough.
 
 11
-00:00:27.344 --> 00:00:32.485
-If a write happens-before a read, the read is sure to see that write, or a newer one.
+00:00:39.524 --> 00:00:45.406
+In the last lesson, main set a stop flag, and seconds later the worker still saw the old value.
 
 12
-00:00:32.700 --> 00:00:36.485
-Inside one thread, each action happens-before the next one.
+00:00:45.406 --> 00:00:49.183
+Clocks are great for meetings, and no help at all to threads.
 
 13
-00:00:36.485 --> 00:00:38.345
-That is called program order.
+00:00:49.183 --> 00:00:52.527
+A read is sure to see a write only through a handover.
 
 14
-00:00:38.567 --> 00:00:40.394
-Now make ready volatile.
+00:00:52.733 --> 00:00:54.300
+Java's cabinet is a lock.
 
 15
-00:00:40.394 --> 00:00:41.993
-Nothing else changes.
+00:00:54.300 --> 00:00:58.623
+Every Java object carries one, and the keyword synchronized takes it.
 
 16
-00:00:42.200 --> 00:00:49.887
-The volatile rule: a write to a volatile field happens-before every later read of that same field that sees the write.
+00:00:58.623 --> 00:01:03.134
+Leaving a synchronized block is locking the cabinet and leaving the key.
 
 17
-00:00:50.100 --> 00:00:52.017
-The write is called a release.
+00:01:03.134 --> 00:01:08.397
+Entering a synchronized block on the same lock is opening the cabinet with that key.
 
 18
-00:00:52.017 --> 00:00:54.764
-The read that sees it is called an acquire.
+00:01:08.600 --> 00:01:10.098
+Watch the handover.
 
 19
-00:00:54.967 --> 00:00:56.202
-Now chain the arrows.
+00:01:10.098 --> 00:01:12.699
+T1 writes, then leaves the block.
 
 20
-00:00:56.202 --> 00:00:59.201
-Writing the amount comes before the volatile write.
+00:01:12.699 --> 00:01:16.798
+T2 enters on the same lock, and reads 41 and 12,000.
 
 21
-00:00:59.201 --> 00:01:01.200
-The volatile read sees that write.
+00:01:16.798 --> 00:01:23.261
+Everything T1 wrote before it left, T2 sees after it enters, even in plain fields.
 
 22
-00:01:01.200 --> 00:01:03.847
-And the read comes before reading the amount.
+00:01:23.467 --> 00:01:26.757
+Now a question that sounds too silly to ask out loud.
 
 23
-00:01:04.067 --> 00:01:07.322
-So writing the amount happens-before reading it.
+00:01:26.757 --> 00:01:27.812
+A lock is a lock.
 
 24
-00:01:07.322 --> 00:01:11.120
-Thread 2 must see 12000, though amount is a plain field.
+00:01:27.812 --> 00:01:30.420
+Does it matter which one the reader takes?
 
 25
-00:01:11.333 --> 00:01:15.307
-One volatile field carries every write that came before it.
+00:01:31.133 --> 00:01:32.500
+Here's a real test.
 
 26
-00:01:15.307 --> 00:01:18.472
-A write made after ready = true is not covered.
+00:01:32.500 --> 00:01:37.463
+The writer sets balance to 12,000 inside synchronized on LEDGER_LOCK.
 
 27
-00:01:18.700 --> 00:01:20.570
-The rule says the same field.
+00:01:37.463 --> 00:01:44.368
+The reader spins, and on every pass, it locks a brand-new object of its own, then reads balance.
 
 28
-00:01:20.570 --> 00:01:26.372
-Say thread 2 reads a different volatile field, called checksum, and then reads the amount.
+00:01:44.368 --> 00:01:46.669
+Does the reader ever see 12,000?
 
 29
-00:01:26.600 --> 00:01:31.886
-Both fields are volatile, but the write was to ready, and the read is of checksum.
+00:01:49.667 --> 00:01:49.885
+No.
 
 30
-00:01:31.886 --> 00:01:32.789
-No edge forms.
+00:01:49.885 --> 00:01:52.862
+Three seconds later, it's still spinning.
 
 31
-00:01:32.789 --> 00:01:35.239
-Thread 2 may read an old amount again.
+00:01:52.862 --> 00:01:58.963
+Now the reader locks LEDGER_LOCK, the writer's own lock, and it sees 12,000 at once.
 
 32
-00:01:36.167 --> 00:01:38.380
-A lock gives the same kind of edge.
+00:01:58.963 --> 00:02:00.561
+Same field, same loop.
 
 33
-00:01:38.380 --> 00:01:41.352
-Leaving a synchronized block releases the lock.
+00:02:00.561 --> 00:02:02.159
+Only the lock changed.
 
 34
-00:01:41.352 --> 00:01:45.083
-Entering a synchronized block on the same lock acquires it.
+00:02:02.367 --> 00:02:06.238
+A brand-new object is a cabinet nobody else will ever open.
 
 35
-00:01:45.300 --> 00:01:47.743
-Here the two threads use different locks.
+00:02:06.238 --> 00:02:12.799
+Locking it is like buying a new padlock every morning, locking it to nothing, and feeling very safe.
 
 36
-00:01:47.743 --> 00:01:51.735
-Each block still runs one thread at a time, but no edge links them.
+00:02:12.799 --> 00:02:20.541
+The JIT even notices that no one else can take that lock, removes it, and reads balance once, just like the stop flag.
 
 37
-00:01:51.967 --> 00:01:57.997
-So for every field two threads share, name the edge: the same volatile field, or the same lock.
+00:02:21.367 --> 00:02:25.161
+There's a second kind of handover, one that makes nobody wait.
 
 38
-00:01:57.997 --> 00:02:00.791
-If you can't name one, you have a data race.
+00:02:25.161 --> 00:02:29.629
+When the cashier is done, she hangs a sign on the cabinet: ledger closed.
+
+39
+00:02:29.629 --> 00:02:35.381
+Anyone who reads the sign and sees closed is promised everything she wrote before she hung it.
+
+40
+00:02:35.600 --> 00:02:38.100
+In Java, the sign is a volatile field.
+
+41
+00:02:38.100 --> 00:02:40.929
+Hanging it is a write: closed becomes true.
+
+42
+00:02:40.929 --> 00:02:43.955
+Reading the sign is a read of that same field.
+
+43
+00:02:43.955 --> 00:02:48.100
+No key, no waiting, and any number of readers can look at once.
+
+44
+00:02:48.100 --> 00:02:51.719
+A volatile field works like a lock without the waiting.
+
+45
+00:02:51.933 --> 00:02:53.990
+And the word same matters here too.
+
+46
+00:02:53.990 --> 00:02:57.811
+A write to one volatile field and a read of another link nothing.
+
+47
+00:02:57.811 --> 00:03:02.748
+That's the night manager trusting the ledger because the broom cupboard says closed.
+
+48
+00:03:04.267 --> 00:03:05.159
+Now the names.
+
+49
+00:03:05.159 --> 00:03:08.665
+Locking the cabinet, or hanging the sign, is a release.
+
+50
+00:03:08.665 --> 00:03:12.299
+Opening with the key, or reading the sign, is an acquire.
+
+51
+00:03:12.299 --> 00:03:15.806
+And inside one thread, each step comes before the next.
+
+52
+00:03:15.806 --> 00:03:17.591
+That's called program order.
+
+53
+00:03:17.800 --> 00:03:18.836
+Chain the links.
+
+54
+00:03:18.836 --> 00:03:20.909
+Write the balance, then release.
+
+55
+00:03:20.909 --> 00:03:23.952
+The same lock's acquire, then read the balance.
+
+56
+00:03:23.952 --> 00:03:27.126
+The memory model calls this chain happens-before.
+
+57
+00:03:27.126 --> 00:03:31.529
+The write of balance happens-before its read, so T2 must see 12,000.
+
+58
+00:03:31.733 --> 00:03:36.063
+The cabinet picture breaks in one place: nothing is carried anywhere.
+
+59
+00:03:36.063 --> 00:03:38.384
+Both threads look at the same memory.
+
+60
+00:03:38.384 --> 00:03:41.773
+Without a handover, a reader often does see the write.
+
+61
+00:03:41.773 --> 00:03:43.216
+It just has no promise.
+
+62
+00:03:44.033 --> 00:03:48.022
+Every one of these rules says same, and that's where the bugs live.
+
+63
+00:03:48.022 --> 00:03:49.986
+Two different locks link nothing.
+
+64
+00:03:49.986 --> 00:03:56.416
+A synchronized setter with a plain getter links nothing: the writer releases, and the reader never acquires.
+
+65
+00:03:56.416 --> 00:03:58.975
+A lock on a brand-new object links nothing.
+
+66
+00:03:58.975 --> 00:04:01.773
+And two different volatile fields link nothing.
+
+67
+00:04:02.000 --> 00:04:09.004
+So for every field two threads share, check both sides, and name the one lock or the one volatile field they share.
+
+68
+00:04:09.833 --> 00:04:12.995
+In code, Java on the left and Kotlin on the right.
+
+69
+00:04:12.995 --> 00:04:17.612
+One lock object, LEDGER_LOCK, and both the writer and the reader take it.
+
+70
+00:04:18.433 --> 00:04:21.739
+So, does it matter which lock the reader takes?
+
+71
+00:04:21.739 --> 00:04:22.513
+Completely.
+
+72
+00:04:22.513 --> 00:04:27.577
+A lock or a volatile field links only the threads that use the same one.
+
+73
+00:04:27.577 --> 00:04:29.195
+Same key, same cabinet.
+
+74
+00:04:29.195 --> 00:04:30.883
+Same sign, same promise.
+
+75
+00:04:31.100 --> 00:04:32.040
+Quick check.
+
+76
+00:04:32.040 --> 00:04:35.329
+T1 writes a volatile field called version.
+
+77
+00:04:35.329 --> 00:04:40.028
+T2 reads a volatile field called checksum, then the balance.
+
+78
+00:04:40.028 --> 00:04:41.751
+Is T2 promised 12,000?

@@ -1,189 +1,301 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.567
-This service counts retries to the card issuer.
+00:00:02.700 --> 00:00:06.488
+Picture a small museum with one front door and four gates.
 
 2
-00:00:05.567 --> 00:00:08.495
-The counter field is volatile, so it looks safe.
+00:00:06.488 --> 00:00:09.165
+On the door hangs a sign, OPEN or CLOSED.
 
 3
-00:00:08.700 --> 00:00:11.703
-Four threads each add one, a million times.
+00:00:09.165 --> 00:00:12.235
+Beside it, a board shows today's visitor count.
 
 4
-00:00:11.703 --> 00:00:13.449
-What total do you expect?
+00:00:12.367 --> 00:00:16.694
+The guards have one rule: never trust your memory, always read the board.
 
 5
-00:00:15.033 --> 00:00:17.771
-One measured run ended near 3.7 million.
+00:00:16.694 --> 00:00:22.385
+When someone comes in, the guard at that gate reads the count, and writes the number one higher.
 
 6
-00:00:17.771 --> 00:00:22.151
-Over three hundred thousand retries vanished, and nothing threw.
+00:00:22.500 --> 00:00:24.985
+The museum's program works the same way.
 
 7
-00:00:22.367 --> 00:00:24.827
-First, take volatile away for a moment.
+00:00:24.985 --> 00:00:28.961
+Four threads, one per gate, share two fields, open and visitors.
 
 8
-00:00:25.833 --> 00:00:32.624
-With a plain field, the JIT may keep a copy in a register, and thread 2 reads that copy again and again.
+00:00:28.961 --> 00:00:32.440
+Both are volatile, the keyword that fixed the stop loop.
 
 9
-00:00:32.833 --> 00:00:34.352
-Thread 1 writes 42.
+00:00:32.567 --> 00:00:34.494
+And volatile does its job well.
 
 10
-00:00:34.352 --> 00:00:36.431
-Thread 2 may never see it.
+00:00:34.494 --> 00:00:38.473
+Every read is fresh: no thread keeps an old copy on its notepad.
 
 11
-00:00:36.900 --> 00:00:38.925
-Put volatile back, and replay.
+00:00:38.473 --> 00:00:40.773
+And every write is visible, in order.
 
 12
-00:00:38.925 --> 00:00:43.719
-Every read now goes back to the field, so thread 2's next read sees 42.
+00:00:40.773 --> 00:00:46.865
+Switch on the lights before you turn the sign to OPEN, and whoever reads OPEN finds the lights on.
 
 13
-00:00:43.933 --> 00:00:46.747
-And the write carries what came before it.
+00:00:46.967 --> 00:00:50.301
+So here's a question that feels too obvious to ask.
 
 14
-00:00:46.747 --> 00:00:51.904
-Plain writes thread 1 made before setting 42 are visible to whoever reads 42.
+00:00:50.301 --> 00:00:55.334
+If every read is fresh and every write is visible, the count has to be right.
 
 15
-00:00:52.833 --> 00:00:54.932
-So the field is always fresh.
+00:00:55.334 --> 00:00:56.053
+Doesn't it?
 
 16
-00:00:54.932 --> 00:00:57.175
-Now both threads run retries++.
+00:00:56.667 --> 00:00:57.617
+Let's test it.
 
 17
-00:00:57.175 --> 00:01:00.213
-That is three steps: read, add one, write.
+00:00:57.617 --> 00:01:00.945
+Four gate threads each let in 1,000,000 visitors.
 
 18
-00:01:00.933 --> 00:01:02.533
-Thread 1 reads 41.
+00:01:00.945 --> 00:01:02.574
+That's 4,000,000 in all.
 
 19
-00:01:02.533 --> 00:01:04.488
-A fresh volatile read.
+00:01:02.574 --> 00:01:06.037
+What does the volatile counter say at closing time?
 
 20
-00:01:04.700 --> 00:01:06.640
-Thread 2 reads too.
+00:01:08.833 --> 00:01:11.096
+In one run: 3,348,221.
 
 21
-00:01:06.640 --> 00:01:08.681
-Also fresh, also 41.
+00:01:11.096 --> 00:01:18.090
+About 650,000 visitors walked in, and the board never heard of them.
 
 22
-00:01:08.900 --> 00:01:10.357
-Both add one.
+00:01:18.090 --> 00:01:20.250
+No error, no warning.
 
 23
-00:01:10.357 --> 00:01:11.815
-Both hold 42.
+00:01:20.250 --> 00:01:22.513
+Just a smaller number.
 
 24
-00:01:12.033 --> 00:01:14.725
-Thread 1 writes 42, visible at once.
+00:01:23.233 --> 00:01:27.763
+Let's slow it down to two visitors and two guards, with the count at 41.
 
 25
-00:01:14.725 --> 00:01:16.221
-Now thread 2 writes.
+00:01:27.867 --> 00:01:30.338
+Gate 1 reads the board: 41.
 
 26
-00:01:16.221 --> 00:01:18.091
-What does the field hold?
+00:01:30.338 --> 00:01:33.268
+Gate 2 reads the board: also 41.
 
 27
-00:01:19.667 --> 00:01:19.951
-42.
+00:01:33.268 --> 00:01:36.106
+Gate 1 adds one, and writes 42.
 
 28
-00:01:19.951 --> 00:01:22.987
-Two increments, and one is lost.
+00:01:36.106 --> 00:01:38.944
+Gate 2 adds one, and writes 42.
 
 29
-00:01:23.200 --> 00:01:25.879
-Every access was a correct volatile access.
+00:01:39.067 --> 00:01:42.177
+Two visitors came in, and the count moved by one.
 
 30
-00:01:25.879 --> 00:01:30.552
-volatile made each one visible, and did nothing about the gap between them.
+00:01:42.177 --> 00:01:46.430
+Every one of those four steps was a perfect volatile read or write.
 
 31
-00:01:31.567 --> 00:01:35.127
-The fix is one step that reads and writes together.
+00:01:46.430 --> 00:01:50.112
+And a guard who comes along later reads 42 and carries on.
 
 32
-00:01:35.127 --> 00:01:38.129
-AtomicInteger.incrementAndGet is that step.
+00:01:50.112 --> 00:01:53.984
+Nothing in the program ever learns that someone went missing.
 
 33
-00:01:38.333 --> 00:01:42.234
-Thread 2 goes before it or after it, never inside.
+00:01:54.500 --> 00:01:55.978
+Here's what we got wrong.
 
 34
-00:01:42.234 --> 00:01:43.872
-The count ends at 43.
+00:01:55.978 --> 00:01:59.111
+volatile makes the read fresh, and the write visible.
 
 35
-00:01:44.900 --> 00:01:45.865
-So which tool?
+00:01:59.111 --> 00:02:01.652
+It does nothing about the gap between them.
 
 36
-00:01:45.865 --> 00:01:51.932
-One writer, and readers want the latest value: volatile is enough, like a shutdown flag.
+00:02:01.652 --> 00:02:06.559
+In that gap, another guard can walk up, read the same number, and write over yours.
 
 37
-00:01:52.133 --> 00:01:56.759
-Many writers updating one variable from its old value: an atomic.
+00:02:06.667 --> 00:02:08.573
+This is called a lost update.
 
 38
-00:01:56.759 --> 00:01:59.464
-Several fields under one rule: a lock.
+00:02:08.573 --> 00:02:13.110
+visitors++ looks like one step, but it's three: read, add one, write.
 
 39
-00:02:00.367 --> 00:02:04.533
-In code, that is an AtomicInteger, in Java and in Kotlin.
+00:02:13.110 --> 00:02:17.844
+That's a read-modify-write, and volatile never joins its steps together.
 
 40
-00:02:04.767 --> 00:02:09.019
-The rule: volatile makes each read and write visible and ordered.
+00:02:18.567 --> 00:02:20.475
+Here's the full run.
 
 41
-00:02:09.019 --> 00:02:11.244
-It never joins them into one step.
+00:02:20.475 --> 00:02:26.106
+The plain counter, with no volatile at all, says 3,987,596.
 
 42
-00:02:12.167 --> 00:02:13.293
-Quick check.
+00:02:26.106 --> 00:02:26.774
+Closer!
 
 43
-00:02:13.293 --> 00:02:18.924
-Many threads run max = Math.max(max, x) on a volatile field.
+00:02:26.774 --> 00:02:29.160
+Shall we give it a medal?
 
 44
-00:02:18.924 --> 00:02:20.144
-Is that safe?
-
-45
-00:02:22.333 --> 00:02:22.565
+00:02:29.160 --> 00:02:29.446
 No.
 
+45
+00:02:29.446 --> 00:02:38.990
+In a run of the Kotlin version, the plain counter came out exact, and the volatile one lost 985,479.
+
 46
-00:02:22.565 --> 00:02:26.435
-It reads, decides, then writes, with the same gap.
+00:02:38.990 --> 00:02:43.189
+Both are broken, just in different patterns.
 
 47
-00:02:26.435 --> 00:02:28.369
-Use an atomic, or a lock.
+00:02:44.300 --> 00:02:47.814
+What the museum needs is a clicker bolted to the board.
+
+48
+00:02:47.814 --> 00:02:52.543
+One press reads the count, adds one, and writes it back, as a single move.
+
+49
+00:02:52.543 --> 00:02:58.549
+Nobody can press it halfway, so a second guard goes before you or after you, never in between.
+
+50
+00:02:58.667 --> 00:03:03.756
+In Java, that clicker is an AtomicInteger, and incrementAndGet is the press.
+
+51
+00:03:03.756 --> 00:03:08.577
+It's atomic: other threads see it either not started or completely done.
+
+52
+00:03:08.577 --> 00:03:11.657
+In the same run, it counted exactly 4,000,000.
+
+53
+00:03:11.767 --> 00:03:16.585
+For a busy counter you only read now and then, a LongAdder is faster still.
+
+54
+00:03:16.585 --> 00:03:21.403
+It spreads the additions over several cells, and adds them up when you ask.
+
+55
+00:03:21.403 --> 00:03:22.880
+Also exactly 4,000,000.
+
+56
+00:03:23.600 --> 00:03:27.781
+The same trap hides in any group of steps that must happen together.
+
+57
+00:03:27.781 --> 00:03:31.594
+Check, then act: if the balance is big enough, take the money.
+
+58
+00:03:31.594 --> 00:03:33.685
+Or keep the larger of two numbers.
+
+59
+00:03:33.685 --> 00:03:37.067
+Each one reads, decides, and writes, as separate steps.
+
+60
+00:03:37.200 --> 00:03:43.315
+Make every field volatile, and the museum can still sell the last seat on the evening tour twice.
+
+61
+00:03:43.315 --> 00:03:46.152
+One happy visitor, and one very confused one.
+
+62
+00:03:46.867 --> 00:03:48.573
+So when is volatile enough?
+
+63
+00:03:48.573 --> 00:03:53.754
+When one thread writes the field, and the new value doesn't depend on the old one.
+
+64
+00:03:53.754 --> 00:04:00.072
+The sign on the door is like that: one guard flips it, and nobody works out OPEN from the old value.
+
+65
+00:04:00.072 --> 00:04:03.105
+Many writers updating one number need an atomic.
+
+66
+00:04:03.105 --> 00:04:05.759
+A rule across several fields needs a lock.
+
+67
+00:04:06.467 --> 00:04:10.958
+Here's the counter in code, Java on the left and Kotlin on the right.
+
+68
+00:04:10.958 --> 00:04:14.864
+One AtomicInteger, and one incrementAndGet for each visitor.
+
+69
+00:04:15.567 --> 00:04:18.783
+So, if every read is fresh, why is the count wrong?
+
+70
+00:04:18.783 --> 00:04:21.368
+Because fresh isn't the same as together.
+
+71
+00:04:21.368 --> 00:04:24.395
+volatile makes each read and each write visible.
+
+72
+00:04:24.395 --> 00:04:26.665
+It never makes two of them one step.
+
+73
+00:04:26.767 --> 00:04:27.827
+Quick check.
+
+74
+00:04:27.827 --> 00:04:33.659
+Every gate thread runs max = Math.max(max, x) on a volatile field.
+
+75
+00:04:33.659 --> 00:04:35.427
+Can it lose a value?
