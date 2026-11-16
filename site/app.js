@@ -544,7 +544,7 @@
     }
     if (l.warmup) {
       toc.push(["warmup", "Before you read"]);
-      h += `<section class="block" id="warmup" style="margin-top:0;margin-bottom:40px"><span class="label">Before you read · guess, no score</span>${mcqCard(l.warmup, "w:" + l.id, 0, { warm: true })}</section>`;
+      h += `<section class="block" id="warmup" style="margin-top:${l.opening ? "28px" : "0"};margin-bottom:40px"><span class="label">Before you read · guess, no score</span>${mcqCard(l.warmup, "w:" + l.id, 0, { warm: true })}</section>`;
     }
     l.sections.forEach((s, si) => {
       toc.push([`s${si}`, s.h + (s.video ? `<span class="vbadge" title="Has a video">${icon.video}</span>` : ""), pad(si + 1)]);

@@ -53,9 +53,9 @@ main
 Notification Thread (daemon)
 ```
 
-That's the output of the first Try it below, on JDK 21. `main` runs your code. The others are helpers the JVM starts for itself. The garbage collector and the JIT compiler have threads of their own as well, and those don't even show up in this list. (The JIT compiler is the part of the JVM that turns hot bytecode into machine code while your program runs.) So you've been writing multithreaded programs all along.
+That list comes from the first Try it below, run on JDK 21. `main` runs your code. The others are helpers the JVM starts for itself. The garbage collector and the JIT compiler have threads of their own as well, and those don't even show up in this list. (The JIT compiler is the part of the JVM that turns hot bytecode into machine code while your program runs.) So you've been writing multithreaded programs all along.
 
-Two words will carry us through this track. A **process** is a running program with its own memory. Your payment service in its container is one process, and no other process can read its memory. A **thread** is one path of execution inside a process. It runs one statement after another, calls methods, returns from them, and always knows where it is in the code.
+Two words will carry us through this track. A **process** is a running program with its own memory. Your payment service in its container is one process, and no other process can read its memory. A **thread** is one path of execution inside a process. It runs one statement after another, and always knows where it is in the code.
 
 The threads of one process split their memory in a simple way. Picture a restaurant kitchen. The cooks share one fridge and one set of counters, but each cook works from their own order ticket on their own cutting board. In programming terms, each cook is a thread. The fridge and counters are the **heap**: every object you create with `new` and every `static` field lives there, and any thread with a reference can reach it. The ticket and board are the thread's **stack**: its local variables, its parameters and the chain of calls in progress. No other thread can see them.
 
@@ -95,9 +95,9 @@ val workers = List(4) { w ->
 }
 workers.forEach { it.join() }        // only now is partial complete"""
 
-S1 = """Back to the settlement job. The plan is simple: cut the million amounts into four slices, give each slice to a thread, and add up the four partial sums at the end. Each worker writes only its own slot of a `long[]`, so no two threads ever write the same memory.
+S1 = """Back to the settlement job. The plan: cut the million amounts into four slices, give each slice to a thread, and add up the four partial sums at the end. Each worker writes only its own slot of a `long[]`, so no two threads ever write the same memory.
 
-A `Thread` needs two things from us: the work to do, as a `Runnable`, and a name. `Runnable` has a single method, `void run()`, so a lambda fits. (You can also subclass `Thread`, but I'd avoid it: the pools you'll meet later take a `Runnable`.) Here's the first version. It contains the most common first bug with threads, so let's make it once, on purpose:
+We hand a `Thread` the work to do, as a `Runnable`, and a name. `Runnable` has a single method, `void run()`, so a lambda fits. (You can also subclass `Thread`, but I'd avoid it: the pools you'll meet later take a `Runnable`.) Here's the first version. It contains the most common first bug with threads, so let's make it once, on purpose:
 
 """ + pair(J_NAIVE, K_NAIVE) + """
 
@@ -105,11 +105,11 @@ Let's print the thread name inside the lambda and run it on a million amounts. F
 
 So let's change `run()` to `start()`, and add up `partial` right after the loop. That brings out a second bug. We ran it five times in a row on the same million amounts. The total came out at about a quarter of the right answer the first time, and about three quarters the other four times. `main` added up the slots while the workers were still filling them.
 
-You may be tempted to add a `Thread.sleep(100)` "to give them time". It will pass on your laptop and fail on a busy CI agent, because `sleep` only lets time pass. The tool for waiting is `join()`. It blocks until the thread has ended, and it guarantees that the caller then sees everything that thread wrote:
+You may be tempted to add a `Thread.sleep(100)` "to give them time". It will pass on your laptop and fail one day on a busy CI agent, because `sleep` only lets time pass. The tool for waiting is `join()`. It blocks until the thread has ended, and it guarantees that the caller then sees everything that thread wrote:
 
 """ + pair(J_FIXED, K_FIXED) + """
 
-The Kotlin version is a direct translation, and a little safer: `thread { }` from `kotlin.concurrent` builds a `java.lang.Thread` and calls `start()` for you, so the `run()` mistake is hard to make. Notice the two loops in the Java version, too. Joining inside the first loop would wait for worker 0 before starting worker 1, and we'd be back to one slice at a time. We also gave every worker a name. In a thread dump at 2 a.m., `ledger-worker-2` tells you something, and `Thread-7` doesn't.
+The Kotlin version is a direct translation, and a little safer: `thread { }` from `kotlin.concurrent` builds a `java.lang.Thread` and calls `start()` for you, so the `run()` mistake is hard to make. Notice that both versions start every worker first and join afterwards. Joining inside the first loop would wait for worker 0 before starting worker 1, and we'd be back to one slice at a time. We also gave every worker a name. In a thread dump at 2 a.m., `ledger-worker-2` tells you something, and `Thread-7` doesn't.
 
 **Start every worker, then join every worker. Read nothing before the last join.**
 
@@ -121,11 +121,11 @@ ASIDE1 = {
 }
 
 # ---------------------------------------------------------------- section 2
-S2 = """Before we time anything, let's make a guess. The machine has four cores. So I expect two threads to take about half the time of one, four threads about a quarter, and eight threads no better than four.
+S2 = """Look back at the first line `HelloThreads` printed. Here it said `cores the JVM sees: 4`, and that number decides how much our four workers can buy.
 
 A CPU core runs one thread at a time. (Hyper-threading lets one physical core run two, each a little slower.) `Runtime.getRuntime().availableProcessors()` tells you how many the JVM may use. Inside a container it follows the CPU limit, so a pod with `cpu: 2` reports 2.
 
-Your service has far more threads than cores, and the operating system's scheduler makes that work. It lets a thread run for a short slice of time, saves its registers (the handful of values the core is working on) and switches to another thread. That's a **context switch**. It happens thousands of times a second, which is why 200 threads on 4 cores all seem to make progress. Back in the kitchen, the stoves are the cores. With more cooks than stoves, the cooks take turns. That's fine while most of them are waiting for water to boil, and pointless when every one of them needs a stove.
+Your service has far more threads than cores, and the operating system's scheduler makes that work. It lets a thread run for a short slice of time, then saves its registers and switches to another thread. (Registers are the handful of values a core is working on.) That's a **context switch**. It happens thousands of times a second, which is why 200 threads on 4 cores all seem to make progress. Back in the kitchen, the stoves are the cores. With more cooks than stoves, the cooks take turns. That's fine while most of them are waiting for water to boil, and pointless when every one of them needs a stove.
 
 Two words get mixed up here, so let's pin them down:
 
@@ -134,9 +134,11 @@ Two words get mixed up here, so let's pin them down:
 
 Our four settlement workers are concurrent on any machine. They run fully in parallel only when four cores are free for them.
 
-Now the measurement. Summing a million longs takes a few milliseconds, which is too quick to time honestly. And a real settlement job does far more work per payment than one addition. So the `ParallelSum` demo below stands in for that work with 400 million small sums of pure arithmetic, split over 1, 2, 4 and 8 threads. It runs a few warm-up rounds first, so that the JIT has compiled the loop before we time it. On a quiet 4-core Linux machine, one run printed 510 ms, 257 ms, 121 ms and 125 ms.
+So here's my guess before we time anything. Two threads should take about half the time of one, four threads about a quarter, and eight threads should be no better than four.
 
-Correctness first: every run printed the same checksum, so splitting the work lost nothing. Then speed. Two threads halved the time, and four threads cut it to about a quarter, as we guessed. (A hair better than four times, in fact. One short run is noisy, so don't read anything into the extra.) Eight threads were no faster than four. The extra four threads had no cores of their own, so they took turns on the same four.
+Now the measurement. Summing a million longs takes a few milliseconds, too quick to time honestly, and a real settlement job does far more work per payment anyway. So the `ParallelSum` demo below stands in for that work with 400 million small sums of pure arithmetic, split over 1, 2, 4 and 8 threads. It runs a few warm-up rounds first, so that the JIT has compiled the loop before we time it. On a 4-core Linux machine, one run printed 510 ms, 257 ms, 121 ms and 125 ms.
+
+Correctness first: every run printed the same checksum, so splitting the work lost nothing. Then speed. Two threads halved the time, and four threads cut it to about a quarter, as we guessed. (Slightly better than four times, which is just the noise of one short run.) Eight threads were no faster than four. The extra four threads had no cores of their own, so they took turns on the same four.
 
 That wall is for work that keeps a core busy. Waiting work is different. A thread waiting 120 ms for the card issuer uses no core while it waits. So a service that mostly waits can usefully run many more threads than it has cores.
 
@@ -155,7 +157,7 @@ Now back to the warm-up question. The JVM exits when the last **non-daemon** thr
 
 **Returning from `main` ends one thread, not the program.**
 
-That's the whole toolkit of this lesson, so let's be honest about where it stops. A new thread per task suits four long slices, and wastes a core on thousands of short tasks. A worker that fails dies alone: if its `run()` throws, the thread ends, its stack trace goes to standard error, and `main` isn't told, because `join()` simply returns. And while we can wait for a thread to finish, we have no way yet to ask a running thread to stop."""
+That's the whole toolkit of this lesson, so let's be honest about where it stops. A new thread per task suits four long slices. For thousands of short tasks, starting the threads can cost more than the work itself. A worker that fails dies alone: if its `run()` throws, the thread ends, its stack trace goes to standard error, and `main` isn't told, because `join()` simply returns. And while we can wait for a thread to finish, we have no way yet to ask a running thread to stop."""
 
 L = {
  "id": "conc-01",
@@ -215,7 +217,7 @@ L = {
     ],
     "code": {"lang": "java", "title": "ParallelSum.java", "src": read(f"{lab}/demo/{P}/ParallelSum.java"),
              "run": demo("ParallelSum"), "file": f"{lab}/demo/{P}/ParallelSum.java", "alt": kt("ParallelSum")},
-    "expect": "The bend in the curve sits at your core count. Each doubling roughly halves the time until the threads outnumber the cores, and after that the extra threads just take turns. If your machine is busy with something else, the curve flattens. On the same 4-core machine with other heavy builds running, one run printed 498, 422, 410 and 326 ms. Our threads were now sharing the cores with other programs, and eight threads even came out ahead, because the scheduler shares the cores out thread by thread, so more threads got more turns. Measure on a quiet machine, and run it more than once."
+    "expect": "The bend in the curve sits at your core count. Each doubling roughly halves the time until the threads outnumber the cores, and after that the extra threads just take turns. If your machine is busy with something else, the curve flattens. On a 4-core machine with other heavy builds running, one run printed 498, 422, 410 and 326 ms. Our threads were now sharing the cores with other programs, and eight threads even came out ahead, because the scheduler shares the cores out thread by thread, so more threads got more turns. Measure on a quiet machine, and run it more than once."
    }
   },
   {
@@ -231,7 +233,7 @@ L = {
     ],
     "code": {"lang": "java", "title": "MainEndsFirst.java", "src": read(f"{lab}/demo/{P}/MainEndsFirst.java"),
              "run": demo("MainEndsFirst"), "file": f"{lab}/demo/{P}/MainEndsFirst.java", "alt": kt("MainEndsFirst")},
-    "expect": "On a quiet machine, `ThreadCost` prints somewhere between tens and a couple of hundred microseconds per thread. A busy machine can be far slower: with heavy builds running alongside, the same 4-core machine printed 900 to 1,300. `MainEndsFirst` prints `main: returning from main()` first, then all five batches and `worker: all batches settled`. The JVM waited for the non-daemon worker, long after `main` was gone."
+    "expect": "`ThreadCost` prints tens to a couple of hundred microseconds per thread on most machines. Under heavy load it can be far more: with other builds running alongside, a 4-core Linux machine printed 900 to 1,300. `MainEndsFirst` prints `main: returning from main()` first, then all five batches and `worker: all batches settled`. The JVM waited for the non-daemon worker, long after `main` was gone."
    }
   }
  ],
@@ -290,9 +292,9 @@ L = {
   "`join()` waits for a thread to end and makes its writes visible to you. Start every worker, then join them all, then read the results.",
   "Concurrency is many tasks in progress; parallelism is many running at the same instant. CPU-bound work stops getting faster at about one thread per core, while a waiting thread uses no core.",
   "The JVM exits when the last non-daemon thread ends. Returning from `main` ends only the main thread.",
-  "The limit: a platform thread is an OS thread, with 1 MB of stack reserved by default on 64-bit Linux and a trip to the kernel to create, so a new thread per small task doesn't scale, and a worker that fails dies without telling anyone."
+  "The limit: a platform thread is an OS thread, with 1 MB of stack reserved by default on 64-bit Linux and a trip to the kernel to create. A new thread per small task doesn't scale, and a worker that fails dies without telling anyone."
  ],
- "closing": "We started with a settlement job on one thread and three idle cores. We found six threads before our first line of code, made the `run()` mistake and the impatient-total mistake, fixed both with `start()` and `join()`, and watched the speedup stop at the core count.\n\nNow open one of your own services and search for `new Thread(` (and `thread {` in Kotlin). For each hit, ask who waits for that thread, and how. If the answer is a `Thread.sleep`, or nobody, you've found an impatient total.\n\nNext, we'll follow one thread through its whole life, and answer the question this lesson left open: how do you stop a thread that doesn't want to finish?",
+ "closing": "We started with a settlement job on one thread and three idle cores. We found six threads before our first line of code. We made the `run()` mistake and the impatient-total mistake, fixed both with `start()` and `join()`, and watched the speedup stop at the core count.\n\nNow open one of your own services and search for `new Thread(` (and `thread {` in Kotlin). For each hit, ask who waits for that thread, and how. If the answer is a `Thread.sleep`, or nobody, you've found an impatient total.\n\nNext, we'll follow one thread through its whole life, and answer the question this lesson left open: how do you stop a thread that doesn't want to finish?",
  "quiz": [
   {"q": "What does this print?\n\n```java\nThread t = new Thread(() -> System.out.println(Thread.currentThread().getName()), \"audit\");\nt.run();\n```",
    "options": ["audit", "main", "Thread-0", "Nothing, because the thread was never started"],

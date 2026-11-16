@@ -144,6 +144,8 @@
   "flow03-wall",
   "flow04-belt",
   "flow05-lanes",
-  "flow06-upstream"
+  "flow06-upstream",
+  "flow07-pump",
+  "flow08-mailbox"
  ]
 }
