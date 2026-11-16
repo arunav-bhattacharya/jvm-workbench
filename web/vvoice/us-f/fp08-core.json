@@ -1,0 +1,322 @@
+{
+ "slug": "fp08-core",
+ "voice": "us-f",
+ "max_late": 0.32,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.79,
+   "tries": 1,
+   "text": "Here is a settlement job, written the usual way."
+  },
+  {
+   "cue": 6.02,
+   "start": 6.02,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 10.4,
+   "tries": 1,
+   "text": "One loop reads the clock, loads payments, skips refunds, holds recent ones, sums per merchant, computes fees, calls the payout A P I, and saves the ledger."
+  },
+  {
+   "cue": 16.8,
+   "start": 16.8,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 9.3,
+   "tries": 1,
+   "text": "It works. But to test one fee rule, you need a fixed clock, a fake store, a fake payout A P I, and checks on what the fakes recorded."
+  },
+  {
+   "cue": 25.93,
+   "start": 26.25,
+   "late": 0.32,
+   "tempo": 1.15,
+   "secs": 0.96,
+   "tries": 1,
+   "text": "Look at the colours."
+  },
+  {
+   "cue": 27.26,
+   "start": 27.36,
+   "late": 0.1,
+   "tempo": 1.108,
+   "secs": 1.47,
+   "tries": 1,
+   "text": "The teal lines only decide."
+  },
+  {
+   "cue": 29.06,
+   "start": 29.06,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.82,
+   "tries": 1,
+   "text": "The gold lines touch the world."
+  },
+  {
+   "cue": 31.12,
+   "start": 31.12,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.41,
+   "tries": 1,
+   "text": "Pull them apart: the decisions go into a core, and the I O wraps around it."
+  },
+  {
+   "cue": 36.23,
+   "start": 36.23,
+   "late": 0.0,
+   "tempo": 1.105,
+   "secs": 1.51,
+   "tries": 1,
+   "text": "The core is a pure function."
+  },
+  {
+   "cue": 37.96,
+   "start": 37.96,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.84,
+   "tries": 1,
+   "text": "It takes plain values, today's date included, and returns a plan: a value that says what should happen."
+  },
+  {
+   "cue": 44.33,
+   "start": 44.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.32,
+   "tries": 1,
+   "text": "This shape is called a functional core and an imperative shell."
+  },
+  {
+   "cue": 48.37,
+   "start": 48.37,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.43,
+   "tries": 1,
+   "text": "Here is the smallest one, from the lesson."
+  },
+  {
+   "cue": 51.08,
+   "start": 51.08,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.14,
+   "tries": 1,
+   "text": "Card authorizations older than seven days get voided."
+  },
+  {
+   "cue": 54.5,
+   "start": 54.5,
+   "late": 0.0,
+   "tempo": 1.051,
+   "secs": 5.57,
+   "tries": 1,
+   "text": "The shell reads the clock, and loads two: aone, eight days old, and atwo, thirty hours old."
+  },
+  {
+   "cue": 60.3,
+   "start": 60.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "It hands them to the core as values."
+  },
+  {
+   "cue": 62.95,
+   "start": 62.95,
+   "late": 0.0,
+   "tempo": 1.078,
+   "secs": 5.23,
+   "tries": 1,
+   "text": "The core returns two decisions: void aone, and keep atwo, with one hundred thirty-eight hours left."
+  },
+  {
+   "cue": 68.39,
+   "start": 68.39,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.08,
+   "tries": 1,
+   "text": "It called nothing, and read no clock."
+  },
+  {
+   "cue": 71.3,
+   "start": 71.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.39,
+   "tries": 1,
+   "text": "Then the shell carries out the plan: one call to the gateway."
+  },
+  {
+   "cue": 75.07,
+   "start": 75.07,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.76,
+   "tries": 1,
+   "text": "A test needs none of the shell."
+  },
+  {
+   "cue": 77.25,
+   "start": 77.25,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.62,
+   "tries": 1,
+   "text": "Call the core with a list and a date, one day later, and compare the result."
+  },
+  {
+   "cue": 82.6,
+   "start": 82.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.37,
+   "tries": 1,
+   "text": "atwo is still kept, now with one hundred fourteen hours left."
+  },
+  {
+   "cue": 86.43,
+   "start": 86.43,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.25,
+   "tries": 1,
+   "text": "All of this needs inputs that hold still."
+  },
+  {
+   "cue": 88.92,
+   "start": 88.92,
+   "late": 0.0,
+   "tempo": 1.01,
+   "secs": 2.23,
+   "tries": 1,
+   "text": "A read-only List does not promise that."
+  },
+  {
+   "cue": 91.28,
+   "start": 91.3,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 3.72,
+   "tries": 1,
+   "text": "Build a batch from the caller's list, and both point at the same list."
+  },
+  {
+   "cue": 95.7,
+   "start": 95.7,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 1.3,
+   "tries": 1,
+   "text": "The caller adds ptwo."
+  },
+  {
+   "cue": 97.16,
+   "start": 97.16,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.3,
+   "tries": 1,
+   "text": "The batch shows pone and ptwo: it changed under your feet."
+  },
+  {
+   "cue": 101.5,
+   "start": 101.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.14,
+   "tries": 1,
+   "text": "Copy at the boundary."
+  },
+  {
+   "cue": 103.04,
+   "start": 103.04,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.94,
+   "tries": 1,
+   "text": "With toList in Kotlin, or List.copyOf in Java, the batch keeps its own snapshot."
+  },
+  {
+   "cue": 109.7,
+   "start": 109.7,
+   "late": 0.0,
+   "tempo": 1.059,
+   "secs": 3.61,
+   "tries": 1,
+   "text": "In code, the shell is three steps: read, decide, act."
+  },
+  {
+   "cue": 113.53,
+   "start": 113.53,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.93,
+   "tries": 1,
+   "text": "The same in Kotlin and in Java."
+  },
+  {
+   "cue": 117.6,
+   "start": 117.6,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.36,
+   "tries": 1,
+   "text": "So: the core decides from plain values, and the shell does the I O around it."
+  },
+  {
+   "cue": 122.7,
+   "start": 122.7,
+   "late": 0.0,
+   "tempo": 1.109,
+   "secs": 0.79,
+   "tries": 2,
+   "text": "A quick check."
+  },
+  {
+   "cue": 123.7,
+   "start": 123.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.41,
+   "tries": 1,
+   "text": "A teammate reads the clock inside the core."
+  },
+  {
+   "cue": 126.77,
+   "start": 126.77,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.25,
+   "tries": 1,
+   "text": "Is it still pure?"
+  },
+  {
+   "cue": 130.4,
+   "start": 130.4,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.68,
+   "tries": 1,
+   "text": "No. The clock is a hidden input, so the same arguments can give a different plan."
+  },
+  {
+   "cue": 135.72,
+   "start": 135.72,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.35,
+   "tries": 1,
+   "text": "Read it in the shell, and pass today in."
+  }
+ ]
+}
