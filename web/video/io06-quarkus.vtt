@@ -1,0 +1,125 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.598
+A request for an account balance reaches a Quarkus service.
+
+2
+00:00:06.598 --> 00:00:11.817
+Every request is read on a Vert.x event loop, which Quarkus calls an IO thread.
+
+3
+00:00:11.817 --> 00:00:14.328
+One IO thread serves many connections.
+
+4
+00:00:14.328 --> 00:00:16.508
+So which thread runs your method?
+
+5
+00:00:16.500 --> 00:00:19.678
+Quarkus REST decides from your method's signature.
+
+6
+00:00:19.678 --> 00:00:21.776
+This one returns a plain Balance.
+
+7
+00:00:21.776 --> 00:00:22.920
+Where does it run?
+
+8
+00:00:25.033 --> 00:00:26.333
+On a worker thread.
+
+9
+00:00:26.333 --> 00:00:35.159
+The IO thread hands the call to a bounded pool, 200 threads on a 4-core machine, and goes straight back to its other connections.
+
+10
+00:00:35.567 --> 00:00:37.262
+This one returns a Uni.
+
+11
+00:00:37.262 --> 00:00:38.588
+Where does it run?
+
+12
+00:00:40.700 --> 00:00:43.301
+Right on the IO thread, with no hop.
+
+13
+00:00:43.301 --> 00:00:48.721
+A Uni, or a Kotlin suspend function, is a promise: this method won't block.
+
+14
+00:00:48.721 --> 00:00:50.021
+Quarkus trusts it.
+
+15
+00:00:50.033 --> 00:00:54.247
+Now someone wraps a JDBC call in a Uni, to make it reactive.
+
+16
+00:00:54.247 --> 00:00:56.916
+What happens to the other connections?
+
+17
+00:00:59.033 --> 00:01:02.089
+findById runs on the IO thread, and blocks it.
+
+18
+00:01:02.089 --> 00:01:04.879
+Every connection on that event loop waits.
+
+19
+00:01:04.879 --> 00:01:08.931
+After 2 seconds, Quarkus logs a warning with the stack trace.
+
+20
+00:01:09.033 --> 00:01:15.487
+On 4 cores, Quarkus runs 4 event loops, so one blocked loop stalls a quarter of your connections.
+
+21
+00:01:15.487 --> 00:01:20.012
+Keep the plain return type, add @Blocking, or use a reactive client.
+
+22
+00:01:20.133 --> 00:01:22.665
+The third choice is @RunOnVirtualThread.
+
+23
+00:01:22.665 --> 00:01:28.552
+Your code still blocks, but on a new virtual thread, so waiting doesn't hold a pooled thread.
+
+24
+00:01:29.267 --> 00:01:40.431
+In the lesson's demo, 200 calls of 100 milliseconds each took about a second on a pool of 20 workers, and 113 milliseconds on virtual threads.
+
+25
+00:01:41.500 --> 00:01:44.920
+Here are the three signatures, in Java and in Kotlin.
+
+26
+00:01:48.500 --> 00:01:50.766
+So the signature picks the thread.
+
+27
+00:01:50.766 --> 00:01:55.832
+Uni or suspend promises not to block, and Quarkus runs it on the event loop.
+
+28
+00:01:55.832 --> 00:01:59.699
+Blocking code belongs on a worker, or on a virtual thread.
+
+29
+00:01:59.800 --> 00:02:00.664
+Quick check.
+
+30
+00:02:00.664 --> 00:02:04.911
+A Kotlin suspend endpoint calls a JDBC repository directly.
+
+31
+00:02:04.911 --> 00:02:10.167
+Which thread runs it, and what do the other connections on that loop see?

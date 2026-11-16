@@ -111,6 +111,10 @@
   "pat04-adapter",
   "pat10-visitor",
   "dop02-sealed",
-  "cls05-bytebuddy"
+  "cls05-bytebuddy",
+  "rx04-combine",
+  "rx08-hot-cold",
+  "io04-netty",
+  "io06-quarkus"
  ]
 }

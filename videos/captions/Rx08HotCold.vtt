@@ -1,0 +1,145 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.665
+Two dashboards show live FX rates from one provider.
+
+2
+00:00:06.665 --> 00:00:13.145
+A subscribes at once, B joins 250 milliseconds later, and a new rate comes every 100.
+
+3
+00:00:13.267 --> 00:00:16.146
+First the feed is cold, like an HTTP call.
+
+4
+00:00:16.146 --> 00:00:20.533
+What does B get, and how many connections does the provider see?
+
+5
+00:00:22.533 --> 00:00:25.817
+A cold publisher runs again for every subscriber.
+
+6
+00:00:25.817 --> 00:00:30.039
+B gets its own connection, and its own run from the first rate.
+
+7
+00:00:30.039 --> 00:00:32.452
+The provider sends every tick twice.
+
+8
+00:00:33.167 --> 00:00:36.781
+share() makes it hot: one run, shared by everyone.
+
+9
+00:00:36.781 --> 00:00:37.937
+What does B get?
+
+10
+00:00:39.933 --> 00:00:43.918
+B joins late, so it gets only what comes after: 3 and 4.
+
+11
+00:00:43.918 --> 00:00:44.844
+It's live TV.
+
+12
+00:00:44.844 --> 00:00:47.761
+Switch on late, and you missed the start.
+
+13
+00:00:48.367 --> 00:00:52.891
+replay(1).refCount() also shares one run, but keeps the last item.
+
+14
+00:00:52.891 --> 00:00:54.604
+cache() keeps every item.
+
+15
+00:00:54.604 --> 00:00:56.387
+What does B get from each?
+
+16
+00:00:58.367 --> 00:01:02.768
+With replay(1), B gets 2 the moment it joins, then the live ones.
+
+17
+00:01:04.933 --> 00:01:07.161
+With cache, B gets 1 and 2 at once.
+
+18
+00:01:07.161 --> 00:01:10.788
+But cache keeps every item for as long as the Flux lives.
+
+19
+00:01:10.788 --> 00:01:12.697
+On a long feed, that's a leak.
+
+20
+00:01:13.300 --> 00:01:17.986
+Sometimes the values come from ordinary code, like a Kafka listener.
+
+21
+00:01:17.986 --> 00:01:25.153
+A sink lets it push them into a Flux: the listener calls tryEmitNext, and subscribers see sink.asFlux().
+
+22
+00:01:25.267 --> 00:01:30.012
+A multicast sink sends each item to the subscribers present at that moment.
+
+23
+00:01:30.012 --> 00:01:33.365
+So it's hot, and B misses what came before it joined.
+
+24
+00:01:34.133 --> 00:01:38.074
+Now two listener threads call tryEmitNext at the same moment.
+
+25
+00:01:38.074 --> 00:01:40.077
+What happens to the two events?
+
+26
+00:01:42.067 --> 00:01:42.927
+One goes in.
+
+27
+00:01:42.927 --> 00:01:47.943
+The other call gets FAIL_NON_SERIALIZED, and its event is not emitted.
+
+28
+00:01:47.943 --> 00:01:52.028
+If you ignore the result, events vanish with no log line.
+
+29
+00:01:52.133 --> 00:01:55.889
+So check every result, or call emitNext with busyLooping.
+
+30
+00:01:55.889 --> 00:01:59.315
+It spins until the sink is free, for up to a second.
+
+31
+00:02:00.100 --> 00:02:04.117
+Here are the shared feed and the sink, in Java and in Kotlin.
+
+32
+00:02:05.500 --> 00:02:08.458
+Cold runs the work again for each subscriber.
+
+33
+00:02:08.458 --> 00:02:14.045
+Hot runs it once and shares it, and the operator decides what a late subscriber gets.
+
+34
+00:02:14.045 --> 00:02:17.595
+A sink is a hot source that ordinary code pushes into.
+
+35
+00:02:17.700 --> 00:02:18.645
+Quick check.
+
+36
+00:02:18.645 --> 00:02:24.711
+With replay(2).refCount(), what does B get when it joins at 250 milliseconds?

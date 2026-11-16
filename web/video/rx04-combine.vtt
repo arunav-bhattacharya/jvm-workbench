@@ -1,0 +1,149 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.845
+Two feeds reach a payments service: card events and bank events.
+
+2
+00:00:06.845 --> 00:00:10.277
+Each marble is one item, and time runs left to right.
+
+3
+00:00:10.277 --> 00:00:13.451
+Reactor has four ways to make one stream of them.
+
+4
+00:00:13.567 --> 00:00:19.021
+merge subscribes to both at once, and passes on each item the moment it arrives.
+
+5
+00:00:19.021 --> 00:00:20.044
+What comes out?
+
+6
+00:00:22.333 --> 00:00:25.078
+Arrival order: 1, x, 2, y, 3, z.
+
+7
+00:00:25.078 --> 00:00:29.280
+It's done at 120, when both feeds have completed.
+
+8
+00:00:29.900 --> 00:00:31.247
+concat takes turns.
+
+9
+00:00:31.247 --> 00:00:35.217
+It subscribes to bank only after card completes, at 100.
+
+10
+00:00:35.217 --> 00:00:37.344
+Where do the bank events land?
+
+11
+00:00:39.633 --> 00:00:47.491
+Bank starts its own clock when it is subscribed, so its events come at 140, 180 and 220.
+
+12
+00:00:47.600 --> 00:00:53.495
+If card never completes, like a live Kafka feed, concat never subscribes to bank at all.
+
+13
+00:00:54.500 --> 00:00:58.464
+zip pairs by position: first with first, second with second.
+
+14
+00:00:58.464 --> 00:01:00.380
+When does each pair come out?
+
+15
+00:01:02.667 --> 00:01:05.860
+1 waits for x, and the pair goes out at 40.
+
+16
+00:01:05.860 --> 00:01:08.756
+Then 2 and y at 80, and 3 and z at 120.
+
+17
+00:01:08.756 --> 00:01:14.697
+zip completes when either side completes, and drops the extras of a longer side.
+
+18
+00:01:15.300 --> 00:01:17.834
+Now bank completes with nothing at all.
+
+19
+00:01:17.834 --> 00:01:19.068
+What does zip emit?
+
+20
+00:01:21.367 --> 00:01:21.964
+Nothing.
+
+21
+00:01:21.964 --> 00:01:23.681
+No value, and no error.
+
+22
+00:01:23.681 --> 00:01:28.384
+Bank has completed, so zip completes at once, and cancels card.
+
+23
+00:01:28.500 --> 00:01:30.062
+Mono.zip does the same.
+
+24
+00:01:30.062 --> 00:01:36.108
+One lookup finds no limit, and the whole quote completes empty, with nothing in the logs.
+
+25
+00:01:37.133 --> 00:01:40.894
+combineLatest also waits until each side has one item.
+
+26
+00:01:40.894 --> 00:01:45.420
+Then every new item goes out with the latest from the other side.
+
+27
+00:01:45.420 --> 00:01:46.604
+How many results?
+
+28
+00:01:48.900 --> 00:01:49.281
+Five.
+
+29
+00:01:49.281 --> 00:01:52.178
+2 pairs with x again, and then with y.
+
+30
+00:01:52.178 --> 00:01:56.067
+The latest value stays in use until it is replaced.
+
+31
+00:01:57.767 --> 00:02:05.347
+In code, give every zipped source an answer for empty: an error with switchIfEmpty, or a value with defaultIfEmpty.
+
+32
+00:02:07.133 --> 00:02:09.657
+So ask two questions about any combinator.
+
+33
+00:02:09.657 --> 00:02:11.940
+When does it subscribe to each source?
+
+34
+00:02:11.940 --> 00:02:15.665
+And what does it do when one source completes early, or empty?
+
+35
+00:02:16.367 --> 00:02:17.252
+Quick check.
+
+36
+00:02:17.252 --> 00:02:24.257
+Mono.zip of a write that completes empty after 20 milliseconds, and a rate call that takes 100.
+
+37
+00:02:24.257 --> 00:02:26.691
+What does the zip emit, and when?

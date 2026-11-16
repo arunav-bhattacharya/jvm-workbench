@@ -1,0 +1,161 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:09.699
+A card terminal sends payment messages over TCP: a 4-byte length, a type byte, and a body.
+
+2
+00:00:09.699 --> 00:00:13.743
+But TCP delivers bytes, cut into chunks of any size.
+
+3
+00:00:13.867 --> 00:00:19.734
+Netty's decoder keeps every byte so far in one buffer, and runs decode on each chunk.
+
+4
+00:00:19.734 --> 00:00:21.598
+The first chunk is 3 bytes.
+
+5
+00:00:21.598 --> 00:00:22.633
+What can it do?
+
+6
+00:00:24.800 --> 00:00:25.426
+Nothing.
+
+7
+00:00:25.426 --> 00:00:27.850
+3 bytes aren't even the length.
+
+8
+00:00:27.850 --> 00:00:29.492
+It returns and waits.
+
+9
+00:00:29.600 --> 00:00:31.177
+The next chunk brings 10.
+
+10
+00:00:31.177 --> 00:00:35.150
+decode peeks at the length, 5, without moving the reader index.
+
+11
+00:00:35.150 --> 00:00:41.268
+9 bytes are there, so it skips the length and passes the frame on, as a slice of the same memory.
+
+12
+00:00:41.400 --> 00:00:43.977
+The rest says 3, but there's no body yet.
+
+13
+00:00:43.977 --> 00:00:47.749
+So it returns again, and the last chunk completes the frame.
+
+14
+00:00:48.533 --> 00:00:50.278
+Replies go the other way.
+
+15
+00:00:50.278 --> 00:00:51.883
+ctx.write never blocks.
+
+16
+00:00:51.883 --> 00:00:59.071
+Netty queues the bytes in your own memory, and the socket drains them only as fast as the client reads.
+
+17
+00:00:59.200 --> 00:01:01.820
+This client sends fast and reads slowly.
+
+18
+00:01:01.820 --> 00:01:03.523
+What happens to the queue?
+
+19
+00:01:05.700 --> 00:01:09.875
+It keeps growing: past a megabyte in the lesson's demo.
+
+20
+00:01:09.875 --> 00:01:13.974
+So Netty marks two levels, 64 KiB high and 32 KiB low.
+
+21
+00:01:13.974 --> 00:01:17.389
+Past the high mark, isWritable() turns false.
+
+22
+00:01:17.500 --> 00:01:20.344
+Netty still takes your writes, so you act.
+
+23
+00:01:20.344 --> 00:01:25.219
+setAutoRead(false) stops reading from the client, and TCP slows it down.
+
+24
+00:01:25.219 --> 00:01:27.589
+Below the low mark, you read again.
+
+25
+00:01:28.367 --> 00:01:29.901
+Last, the memory itself.
+
+26
+00:01:29.901 --> 00:01:34.439
+Each ByteBuf comes from a pool of direct memory, and counts its owners.
+
+27
+00:01:34.439 --> 00:01:39.106
+It starts at 1, release takes one off, and at 0 it goes back to the pool.
+
+28
+00:01:39.106 --> 00:01:41.471
+The last one to touch it releases it.
+
+29
+00:01:41.600 --> 00:01:47.964
+This audit handler copies the message and passes the copy on, but never releases the original.
+
+30
+00:01:47.964 --> 00:01:49.251
+What happens to it?
+
+31
+00:01:51.433 --> 00:01:54.123
+Its count stays at 1, and nothing throws.
+
+32
+00:01:54.123 --> 00:01:58.978
+Every message leaks one more, until the service runs out of direct memory.
+
+33
+00:01:58.978 --> 00:02:01.864
+PARANOID leak detection in tests reports it.
+
+34
+00:02:02.733 --> 00:02:06.601
+The same three rules in code, Java first, then Kotlin.
+
+35
+00:02:09.600 --> 00:02:12.157
+So frame the bytes before you decode them.
+
+36
+00:02:12.157 --> 00:02:14.226
+Stop reading when you can't write.
+
+37
+00:02:14.226 --> 00:02:17.513
+And give every buffer one last owner, who releases it.
+
+38
+00:02:17.633 --> 00:02:18.507
+Quick check.
+
+39
+00:02:18.507 --> 00:02:23.310
+A frame's length field says 7, and it arrives as 2, 4 and 6 bytes.
+
+40
+00:02:23.310 --> 00:02:26.293
+After which chunk does decode pass it on?
