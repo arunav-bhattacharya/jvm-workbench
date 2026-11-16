@@ -1,0 +1,331 @@
+{
+ "slug": "fp07-errors",
+ "voice": "us-f",
+ "max_late": 0.66,
+ "groups": [
+  {
+   "cue": 2.7,
+   "start": 2.7,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.14,
+   "tries": 1,
+   "text": "A card is declined, and authorize throws."
+  },
+  {
+   "cue": 5.5,
+   "start": 5.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.49,
+   "tries": 1,
+   "text": "Nothing in its Kotlin signature says so."
+  },
+  {
+   "cue": 8.24,
+   "start": 8.24,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.76,
+   "tries": 1,
+   "text": "A new endpoint forgets the try, and the customer gets a five hundred."
+  },
+  {
+   "cue": 12.57,
+   "start": 12.57,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.67,
+   "tries": 1,
+   "text": "A decline happens every day."
+  },
+  {
+   "cue": 14.45,
+   "start": 14.45,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.34,
+   "tries": 1,
+   "text": "Return it as a value: a result that holds either the value, or the error."
+  },
+  {
+   "cue": 19.57,
+   "start": 19.57,
+   "late": 0.0,
+   "tempo": 1.057,
+   "secs": 3.35,
+   "tries": 1,
+   "text": "Chain the steps of a payment: validate, authorise, capture."
+  },
+  {
+   "cue": 23.13,
+   "start": 23.13,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.32,
+   "tries": 1,
+   "text": "Each step keeps the payment on the success track, or switches it to the failure track."
+  },
+  {
+   "cue": 28.5,
+   "start": 28.5,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.26,
+   "tries": 1,
+   "text": "A request for five hundred cents passes all three steps, and comes out as Ok."
+  },
+  {
+   "cue": 34.07,
+   "start": 34.07,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.86,
+   "tries": 1,
+   "text": "Now a request for five zero zero zero zero cents."
+  },
+  {
+   "cue": 36.41,
+   "start": 37.08,
+   "late": 0.66,
+   "tempo": 1.087,
+   "secs": 1.83,
+   "tries": 1,
+   "text": "The issuer declines it at authorise."
+  },
+  {
+   "cue": 39.14,
+   "start": 39.14,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.2,
+   "tries": 1,
+   "text": "Does capture run?"
+  },
+  {
+   "cue": 42.83,
+   "start": 42.83,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.81,
+   "tries": 1,
+   "text": "No. The train switches to the failure track, and rides past capture to the end."
+  },
+  {
+   "cue": 48.02,
+   "start": 48.02,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.58,
+   "tries": 1,
+   "text": "The first failure wins, and nothing after it runs."
+  },
+  {
+   "cue": 51.35,
+   "start": 51.35,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.09,
+   "tries": 1,
+   "text": "That is called fail fast."
+  },
+  {
+   "cue": 53.9,
+   "start": 53.9,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.71,
+   "tries": 1,
+   "text": "Fail fast suits a pipeline, where each step needs the one before."
+  },
+  {
+   "cue": 58.47,
+   "start": 58.47,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 0.64,
+   "tries": 3,
+   "text": "Not a form."
+  },
+  {
+   "cue": 59.24,
+   "start": 59.26,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 3.37,
+   "tries": 1,
+   "text": "A client sends an amount of minus five and an unknown currency."
+  },
+  {
+   "cue": 63.67,
+   "start": 63.67,
+   "late": 0.0,
+   "tempo": 1.052,
+   "secs": 1.73,
+   "tries": 1,
+   "text": "Fail fast stops at the amount."
+  },
+  {
+   "cue": 65.61,
+   "start": 65.61,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 6.63,
+   "tries": 1,
+   "text": "The currency check never runs, so the client fixes one field, sends again, and only then hears about the other."
+  },
+  {
+   "cue": 73.33,
+   "start": 73.33,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.9,
+   "tries": 1,
+   "text": "To collect every error, run the independent checks side by side."
+  },
+  {
+   "cue": 77.59,
+   "start": 77.59,
+   "late": 0.0,
+   "tempo": 1.006,
+   "secs": 2.98,
+   "tries": 1,
+   "text": "Both fail, and both errors land in one list."
+  },
+  {
+   "cue": 80.7,
+   "start": 80.72,
+   "late": 0.02,
+   "tempo": 1.0,
+   "secs": 6.78,
+   "tries": 1,
+   "text": "In Arrow, zipOrAccumulate does this: every check runs, and the Amount is built only if all of them pass."
+  },
+  {
+   "cue": 88.47,
+   "start": 88.47,
+   "late": 0.0,
+   "tempo": 1.046,
+   "secs": 1.49,
+   "tries": 1,
+   "text": "One trap sits at the edge."
+  },
+  {
+   "cue": 90.19,
+   "start": 90.19,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.19,
+   "tries": 1,
+   "text": "runCatching catches every Throwable, and in a coroutine that includes the cancel."
+  },
+  {
+   "cue": 95.54,
+   "start": 95.54,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.66,
+   "tries": 1,
+   "text": "Cancel this job while it waits."
+  },
+  {
+   "cue": 97.59,
+   "start": 97.59,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 5.34,
+   "tries": 1,
+   "text": "The cancel becomes a failed Result, the job runs on, and the card is charged anyway."
+  },
+  {
+   "cue": 103.3,
+   "start": 103.3,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 4.16,
+   "tries": 1,
+   "text": "Rethrow CancellationException in onFailure, and the cancel keeps going."
+  },
+  {
+   "cue": 108.17,
+   "start": 108.17,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 1.12,
+   "tries": 1,
+   "text": "Nothing is charged."
+  },
+  {
+   "cue": 110.3,
+   "start": 110.3,
+   "late": 0.0,
+   "tempo": 1.095,
+   "secs": 4.42,
+   "tries": 1,
+   "text": "In code, Arrow's either block fails fast, and zipOrAccumulate collects."
+  },
+  {
+   "cue": 114.93,
+   "start": 114.93,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.88,
+   "tries": 1,
+   "text": "Java has no Arrow: you collect the errors in a list yourself."
+  },
+  {
+   "cue": 120.7,
+   "start": 120.7,
+   "late": 0.0,
+   "tempo": 1.15,
+   "secs": 2.9,
+   "tries": 1,
+   "text": "So: fail fast when each step needs the one before."
+  },
+  {
+   "cue": 123.67,
+   "start": 123.75,
+   "late": 0.09,
+   "tempo": 1.0,
+   "secs": 4.39,
+   "tries": 1,
+   "text": "Collect every error when the checks are independent, like the fields of a form."
+  },
+  {
+   "cue": 128.57,
+   "start": 128.57,
+   "late": 0.0,
+   "tempo": 1.142,
+   "secs": 0.77,
+   "tries": 2,
+   "text": "A quick check."
+  },
+  {
+   "cue": 129.54,
+   "start": 129.54,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.69,
+   "tries": 1,
+   "text": "A request for minus one cents rides the railway."
+  },
+  {
+   "cue": 132.75,
+   "start": 132.75,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 2.09,
+   "tries": 1,
+   "text": "Which steps run, and what comes out?"
+  },
+  {
+   "cue": 137.67,
+   "start": 137.67,
+   "late": 0.0,
+   "tempo": 1.0,
+   "secs": 3.27,
+   "tries": 1,
+   "text": "Only validate. It fails, and the result is an Err with the reason."
+  }
+ ]
+}
