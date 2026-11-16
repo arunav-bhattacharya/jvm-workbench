@@ -50,7 +50,7 @@ class QuoteServiceTest {
         }
     }
 
-    /** A fake FX provider: each call sleeps, and the fake records threads and calls in flight. */
+    /** A fake exchange-rate service: each call sleeps, and the fake records threads and calls in flight. */
     class FakeFx(private val callMs: Long = 100) : FxApi {
         val inside = AtomicInteger()
         val peak = AtomicInteger()
@@ -85,11 +85,11 @@ class QuoteServiceTest {
     }
 
     @Test
-    fun `FX calls are no longer capped by the size of a thread pool`() {
+    fun `rate calls are no longer capped by the size of a thread pool`() {
         val fx = FakeFx()
         QuoteService(FakeDb(poolSize = 10), fx).use { it.quoteAll(requests(300)) }
         // the old pool allowed 10; the margin is wide so a busy machine can't fail it
-        assertThat(fx.peak.get()).describedAs("FX calls in flight at once").isGreaterThan(10)
+        assertThat(fx.peak.get()).describedAs("rate calls in flight at once").isGreaterThan(10)
     }
 
     @Test

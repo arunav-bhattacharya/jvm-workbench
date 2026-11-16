@@ -22,7 +22,7 @@ class QuoteService(private val db: CustomerDb, private val fx: FxApi) : AutoClos
 
     fun quote(request: QuoteRequest): Quote {
         val tier = withDbPermit { db.tier(request.customerId) }   // only the database call holds a permit
-        val rate = fx.rate(request.pair)                          // FX calls are no longer capped at 10
+        val rate = fx.rate(request.pair)                          // rate calls are no longer capped at 10
         return Quote(request.customerId, request.pair, rate, fee(tier, request.amount))
     }
 

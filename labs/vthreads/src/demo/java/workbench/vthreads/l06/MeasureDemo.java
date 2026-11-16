@@ -9,7 +9,7 @@ import java.util.concurrent.locks.LockSupport;
 
 /**
  * Requests arrive at a steady rate, one virtual thread each. A request waits for one of 10
- * database permits, runs a 20 ms query, then makes a 100 ms FX call. A sampler prints two
+ * database permits, runs a 20 ms query, then makes a 100 ms call to the exchange-rate service. A sampler prints two
  * gauges you would put on a dashboard, and the summary checks Little's law:
  * requests in flight = throughput x time in the system.
  *
@@ -32,7 +32,7 @@ public class MeasureDemo {
             } finally {
                 dbPermits.release();
             }
-            Thread.sleep(100);                                   // the FX call
+            Thread.sleep(100);                                   // the call to the exchange-rate service
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {

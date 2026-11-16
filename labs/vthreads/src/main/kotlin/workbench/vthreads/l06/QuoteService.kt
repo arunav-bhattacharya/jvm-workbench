@@ -7,8 +7,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
- * Quotes FX conversions. Each request looks up the customer's tier in the database, then asks
- * the FX provider for a rate.
+ * Prices an order in the customer's own money. Each request looks up the customer's tier
+ * (gold or standard) in the database, then asks the exchange-rate service for today's rate.
  *
  * This is the version running in production today. Request handling runs on a fixed pool of
  * 10 platform threads, sized to match the 10-connection database pool. Migrate it:

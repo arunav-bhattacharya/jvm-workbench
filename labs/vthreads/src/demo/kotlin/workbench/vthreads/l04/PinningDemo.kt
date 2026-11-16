@@ -17,8 +17,8 @@ import kotlin.concurrent.withLock
 private val monitor = Any()
 private val lock = ReentrantLock()
 
-// an object whose initializer blocks, like one that loads config over the network
-private object SlowFeeTable {
+// an object whose initializer blocks, like one that loads the shop's price list over the network
+private object SlowPriceList {
     val ready: Boolean
 
     init {
@@ -34,7 +34,7 @@ fun main(args: Array<String>) {
     // Kotlin's synchronized() is a monitor, exactly like Java's synchronized block
     if (only == "all" || only == "sync") runScenario("synchronized + sleep") { synchronized(monitor) { Thread.sleep(100) } }
     if (only == "all" || only == "lock") runScenario("ReentrantLock + sleep") { lock.withLock { Thread.sleep(100) } }
-    if (only == "all" || only == "init") runScenario("object init that sleeps") { SlowFeeTable.ready }
+    if (only == "all" || only == "init") runScenario("object init that sleeps") { SlowPriceList.ready }
 }
 
 private fun runScenario(label: String, blocker: () -> Unit) {

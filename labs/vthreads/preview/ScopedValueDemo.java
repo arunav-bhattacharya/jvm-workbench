@@ -6,37 +6,37 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ScopedValueDemo {
-    static final ThreadLocal<String> TENANT_TL = new ThreadLocal<>();
-    static final ScopedValue<String> TENANT = ScopedValue.newInstance();
+    static final ThreadLocal<String> CUSTOMER_TL = new ThreadLocal<>();
+    static final ScopedValue<String> CUSTOMER = ScopedValue.newInstance();
 
     // deep in the call chain: reads the context, never sets it
-    static String ledgerLookup() {
-        return "ThreadLocal=" + TENANT_TL.get() + ", ScopedValue=" + TENANT.orElse("unbound");
+    static String receiptLine() {
+        return "ThreadLocal=" + CUSTOMER_TL.get() + ", ScopedValue=" + CUSTOMER.orElse("unbound");
     }
 
     public static void main(String[] args) throws Exception {
         // 1. a ThreadLocal set on a pooled thread and never removed
         try (ExecutorService pool = Executors.newFixedThreadPool(1)) {
             pool.submit(() -> {
-                TENANT_TL.set("bank-a");                        // forgot TENANT_TL.remove()
-                return ledgerLookup();
+                CUSTOMER_TL.set("ann");                         // forgot CUSTOMER_TL.remove()
+                return receiptLine();
             }).get();
-            System.out.println("1. next task, same pool thread: " + pool.submit(ScopedValueDemo::ledgerLookup).get());
+            System.out.println("1. next task, same pool thread: " + pool.submit(ScopedValueDemo::receiptLine).get());
         }
 
         // 2. a scoped value is bound for one call, and gone afterwards
-        ScopedValue.where(TENANT, "bank-a").run(() -> System.out.println("2. inside run():   " + ledgerLookup()));
-        System.out.println("   after run():    " + ledgerLookup());
+        ScopedValue.where(CUSTOMER, "ann").run(() -> System.out.println("2. inside run():   " + receiptLine()));
+        System.out.println("   after run():    " + receiptLine());
 
         // 3. rebind for a nested call; the outer binding comes back when it returns
-        ScopedValue.where(TENANT, "bank-a").run(() -> {
-            ScopedValue.where(TENANT, "bank-b").run(() -> System.out.println("3. nested:         " + ledgerLookup()));
-            System.out.println("   outer again:    " + ledgerLookup());
+        ScopedValue.where(CUSTOMER, "ann").run(() -> {
+            ScopedValue.where(CUSTOMER, "ben").run(() -> System.out.println("3. nested:         " + receiptLine()));
+            System.out.println("   outer again:    " + receiptLine());
         });
 
         // 4. a thread you start yourself does not inherit the binding
-        ScopedValue.where(TENANT, "bank-a").run(() -> {
-            Thread child = Thread.ofVirtual().start(() -> System.out.println("4. plain thread:   " + ledgerLookup()));
+        ScopedValue.where(CUSTOMER, "ann").run(() -> {
+            Thread child = Thread.ofVirtual().start(() -> System.out.println("4. plain thread:   " + receiptLine()));
             try {
                 child.join();
             } catch (InterruptedException e) {

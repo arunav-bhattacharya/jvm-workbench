@@ -17,7 +17,7 @@ interface CustomerDb {
     fun tier(customerId: String): String
 }
 
-/** The FX provider's HTTP API. It takes about 100 ms and allows far more calls in flight than you'll send. */
+/** The exchange-rate service (FX is short for foreign exchange). It takes about 100 ms and allows far more calls in flight than you'll send. */
 fun interface FxApi {
     fun rate(pair: String): BigDecimal
 }

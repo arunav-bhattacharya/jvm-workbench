@@ -26,17 +26,22 @@ def preview(name, java_run, kt_jar, kt_flags, label):
                     "file": f"{PV}/{name}.kt"}}
 
 
+def pair(java, kotlin):
+    """A Java fence and its Kotlin twin, side by side, as the validator expects."""
+    return f"```java\n{java}\n```\n\n```kotlin\n{kotlin}\n```"
+
+
 FIG = (
-    '<svg viewBox="0 0 680 300" role="img" aria-label="Two timelines of the same quote request. With a shared executor, the request fails at 100 ms but its customer subtask keeps running until 2 seconds. With a scope, the failure cancels the customer subtask, and close waits for it, so nothing outlives the block.">'
-    '<text class="t-s t-m" x="20" y="22">A shared executor: the request ends, its subtask does not</text>'
+    '<svg viewBox="0 0 680 300" role="img" aria-label="Two timelines of the same checkout. With a shared executor, the checkout fails at 100 ms but its bank subtask keeps running until 2 seconds. With a scope, the failure cancels the bank subtask, and close waits for it, so nothing outlives the block.">'
+    '<text class="t-s t-m" x="20" y="22">A shared executor: the checkout ends, its subtask does not</text>'
     '<rect class="box" x="60" y="34" width="150" height="26" rx="8"/>'
-    '<text class="t-s" x="135" y="51" text-anchor="middle">request</text>'
+    '<text class="t-s" x="135" y="51" text-anchor="middle">checkout</text>'
     '<rect class="box-bad" x="60" y="66" width="150" height="26" rx="8"/>'
-    '<text class="t-s" x="135" y="83" text-anchor="middle">limit: fails</text>'
+    '<text class="t-s" x="135" y="83" text-anchor="middle">stock: fails</text>'
     '<rect class="box" x="60" y="98" width="150" height="26" rx="8"/>'
-    '<text class="t-s" x="135" y="115" text-anchor="middle">customer</text>'
+    '<text class="t-s" x="135" y="115" text-anchor="middle">bank</text>'
     '<rect class="box-bad" x="214" y="98" width="446" height="26" rx="8"/>'
-    '<text class="t-s t-bad" x="437" y="115" text-anchor="middle">customer keeps calling the CRM after the request failed</text>'
+    '<text class="t-s t-bad" x="437" y="115" text-anchor="middle">the bank call keeps going after the checkout failed</text>'
     '<line class="ln-d" x1="60" y1="138" x2="660" y2="138" marker-end="url(#arr)"/>'
     '<text class="t-s t-m" x="60" y="154" text-anchor="middle">0</text>'
     '<text class="t-s t-m" x="210" y="154" text-anchor="middle">100 ms</text>'
@@ -44,231 +49,299 @@ FIG = (
     '<text class="t-s t-m" x="20" y="182">A scope: no subtask outlives the block</text>'
     '<rect class="box-a" x="48" y="192" width="182" height="102" rx="8"/>'
     '<rect class="box" x="60" y="200" width="150" height="26" rx="8"/>'
-    '<text class="t-s" x="135" y="217" text-anchor="middle">request</text>'
+    '<text class="t-s" x="135" y="217" text-anchor="middle">checkout</text>'
     '<rect class="box-bad" x="60" y="232" width="150" height="26" rx="8"/>'
-    '<text class="t-s" x="135" y="249" text-anchor="middle">limit: fails</text>'
+    '<text class="t-s" x="135" y="249" text-anchor="middle">stock: fails</text>'
     '<rect class="box-ok" x="60" y="264" width="150" height="26" rx="8"/>'
-    '<text class="t-s" x="135" y="281" text-anchor="middle">customer: interrupted</text>'
-    '<text class="t-s" x="250" y="217">limit fails at 100 ms, so the scope cancels customer</text>'
-    '<text class="t-s" x="250" y="249">join() throws, and close() waits for customer to end</text>'
-    '<text class="t-s t-ok" x="250" y="281">the request ends with nothing left running</text>'
+    '<text class="t-s" x="135" y="281" text-anchor="middle">bank: interrupted</text>'
+    '<text class="t-s" x="250" y="217">stock fails at 100 ms, so the scope cancels the bank call</text>'
+    '<text class="t-s" x="250" y="249">join() throws, and close() waits for the bank call to end</text>'
+    '<text class="t-s t-ok" x="250" y="281">the checkout ends with nothing left running</text>'
     '</svg>'
 )
 
-S1 = """Here is the fan-out from lesson 3 of this track, inside a quote handler. It needs the customer record (a CRM call that takes 2 s on a bad day) and a credit limit check, which fails after 100 ms.
+OPENING = """Picture a big table at the restaurant, looked after by a head waiter. The table orders, and he sends three helpers at once: one to the kitchen for the soup, one to the bar for the drinks, one to the cellar for a bottle of wine. Then he stays at the table until all three are back, so nobody is forgotten.
 
-```java
-try (ExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor()) {
-    Future<Customer> customer = perTask.submit(() -> crm.find(id));   // up to 2 s
-    Future<Limit> limit = perTask.submit(() -> limits.check(id));     // fails at 100 ms
-    return new Quote(customer.get(), limit.get());
-}
+Now the cellar is out of that wine, and its helper comes straight back. The table changes its order. A careful head waiter calls the other two helpers back at once. A careless one lets them carry on, and a soup arrives for an order that no longer exists.
+
+Lesson 3's fan-out is the careless head waiter. It waits for every helper, which looks complete, so the trap is easy to miss. But when one helper fails, nothing calls the others back. Lesson 4 left a second gap: a `ThreadLocal` doesn't follow the work into the helpers.
+
+In this lesson, we'll watch a failed checkout keep working, build a scope that calls the helpers back, meet the JDK's own scope and pin a note to the order. Before we start, make a guess, and keep it in mind."""
+
+S0 = """Let's set up the example first. A **fan-out**, from lesson 3 of this track, starts several calls at once and then collects all their answers. Each call is a **subtask**: a piece of a bigger job that runs on a thread of its own, here a virtual thread, the cheap kind the JDK sets aside whenever it waits. To save time, the shop's checkout now asks two services at the same moment instead of one after the other. The stock service says whether the items are in the warehouse, and the bank says whether the payment is approved. If the items are sold out, the bank's answer is useless.
+
+Here is that fan-out in the lesson 3 shape. An **executor** is an object that runs tasks for you, and `submit` hands back a `Future`, a handle on a result that arrives later:
+
+""" + pair(
+"""try (ExecutorService perTask = Executors.newVirtualThreadPerTaskExecutor()) {
+    Future<Approval> bank = perTask.submit(() -> theBank.approve(order));    // 2 s on a bad day
+    Future<Stock> stock = perTask.submit(() -> stockService.check(order));   // fails at 100 ms: sold out
+    return new Receipt(stock.get(), bank.get());
+}""",
+"""Executors.newVirtualThreadPerTaskExecutor().use { perTask ->
+    val bank = perTask.submit(Callable { theBank.approve(order) })     // 2 s on a bad day
+    val stock = perTask.submit(Callable { stockService.check(order) }) // fails at 100 ms: sold out
+    Receipt(stock.get(), bank.get())
+}""") + """
+
+Predict when the checkout fails. The stock service says "sold out" after 100 ms, so a careful program would give up at 100 ms. `LeakDemo`, in the Try it below, runs this exact shape as variant A:
+
+```text
+A: an executor per checkout, closed by try-with-resources
+  2,027 ms  bank: answered, but nobody needs the answer
+  2,069 ms  checkout failed: stock service: sold out
 ```
 
-```kotlin
-Executors.newVirtualThreadPerTaskExecutor().use { perTask ->
-    val customer = perTask.submit(Callable { crm.find(id) })    // up to 2 s
-    val limit = perTask.submit(Callable { limits.check(id) })   // fails at 100 ms
-    Quote(customer.get(), limit.get())
-}
+The checkout was doomed at 100 ms, and it failed at 2 seconds. `stock.get()` threw at 100 ms, as it should. But leaving the try block runs `close()`, which waits for every task, and nothing told the bank call to stop. The bank, true to form, took its full two seconds to answer a question nobody was asking any more.
+
+Many programs keep one long-lived executor in a field instead. `LeakDemo` tries that too, as variant B:
+
+```text
+B: one shared executor
+    102 ms  checkout failed: stock service: sold out
+  2,001 ms  bank: answered, but nobody needs the answer
 ```
 
-The request is doomed at 100 ms, and it fails at 2 s. `customer.get()` waits the full 2 s before `limit.get()` gets to throw. Swap the two `get()` calls and it still takes 2 s, because `close()` waits for the CRM call and nothing tells that call to stop.
+Now the checkout fails fast, at 102 ms. But the bank call runs on for another two seconds, for a checkout that is long gone. It's the helper still in the cellar, fetching wine for a table that has left. A call like that holds a connection, and maybe a permit from lesson 3's semaphore. Under load these orphans pile up, and nothing in a thread dump, the list of every thread a program has, says which checkout they belonged to.
 
-Many services keep one executor in a field instead. Then the method fails at 100 ms, but the CRM call keeps running with nobody waiting for its answer. It holds an HTTP connection and maybe a semaphore permit. Under load these orphans pile up, and nothing in a thread dump says which request they belonged to.
+Three things are missing, and they are the same three in every fan-out:
 
-Three things are missing here:
+- A failure cancels nothing. To stop the others, you'd call `cancel(true)` on each future, in every fan-out, on every error path.
+- The subtasks' lives aren't tied to the code. A `Future` is a value you can store anywhere, so nothing promises that the threads a method started have ended when it returns.
+- The order's details don't follow the work. A `ThreadLocal` is a variable with a separate value for each thread, so one set by the checkout, such as the order id for the log, is empty in the subtasks.
 
-- Failure doesn't cancel anything. To stop the siblings you must call `cancel(true)` on each other future, in every fan-out, on every error path.
-- Lifetimes aren't tied to the code. A `Future` is a value you can store anywhere, so nothing promises that the threads a method started have ended when it returns.
-- Context doesn't follow the work. A `ThreadLocal` set by the handler, such as the request id in your logging MDC, is empty in the subtasks. `InheritableThreadLocal` copies it into every new thread, and the copy goes stale.
+**Structured concurrency** fixes the first two with one rule: a subtask can't outlive the block of code that started it, just as a local variable can't outlive its method. Scoped values, at the end of this lesson, fix the third.
 
-**Structured concurrency** fixes the first two with one rule: subtasks can't outlive the block that started them, the same way a local variable can't outlive its method. Scoped values, at the end of this lesson, fix the third."""
+**Waiting for every subtask is half the job. When one fails, the others must stop too.**
 
-S2 = """A structured scope has three operations, and the code always has the same shape:
+So we need a head waiter who calls the helpers back. Let's build one."""
 
-```java
-try (var scope = new FailFastScope()) {                  // this lesson's lab
-    Supplier<Customer> customer = scope.fork(() -> crm.find(id));
-    Supplier<Limit> limit = scope.fork(() -> limits.check(id));
-    scope.join();                                        // waits, or throws the first failure
-    return new Quote(customer.get(), limit.get());
-}                                                        // close(): no subtask is still running
-```
+S1 = """Here is the head waiter again, part by part. He is the **scope**: an object that starts subtasks and owns them. Sending a helper is **fork**, which starts a subtask on a new virtual thread. Waiting at the table is **join**, which waits for the subtasks. Calling the others back when one returns with bad news is **fail fast**: the first failure cancels the rest, and `join` reports it at once. And not leaving the table until every helper is back is **close**. When the block ends, every thread the scope started has ended, whether the block returned, threw or was interrupted.
 
-```kotlin
-FailFastScope().use { scope ->                           // this lesson's lab
-    val customer = scope.fork { crm.find(id) }
-    val limit = scope.fork { limits.check(id) }
-    scope.join()                                         // waits, or throws the first failure
-    Quote(customer.get(), limit.get())
-}                                                        // close(): no subtask is still running
-```
+In code the shape is always the same. Both versions use this lesson's lab class, `FailFastScope`, a small scope you build yourself on a plain executor:
 
-`fork` starts a subtask on a new virtual thread. `join` waits for the subtasks. `close` is the guarantee: when the block ends, every thread the scope started has ended, whether the block returned, threw or was interrupted. The policy here is **fail fast**: the first subtask to fail cancels the others, and `join` throws that failure at once.
+""" + pair(
+"""try (var scope = new FailFastScope()) {                                   // the head waiter
+    Supplier<Approval> bank = scope.fork(() -> theBank.approve(order));
+    Supplier<Stock> stock = scope.fork(() -> stockService.check(order));
+    scope.join();                                                         // waits, or throws the first failure
+    return new Receipt(stock.get(), bank.get());
+}                                                                         // close(): no subtask is still running""",
+"""FailFastScope().use { scope ->                                            // the head waiter
+    val bank = scope.fork { theBank.approve(order) }
+    val stock = scope.fork { stockService.check(order) }
+    scope.join()                                                          // waits, or throws the first failure
+    Receipt(stock.get(), bank.get())
+}                                                                         // close(): no subtask is still running""") + """
 
-You build exactly this in the lab, on a plain `newVirtualThreadPerTaskExecutor()`. Each forked task runs inside a wrapper. If the task throws, the wrapper records the failure with `AtomicReference.compareAndSet(null, failure)`, so only the first one wins, and then cancels everything else. Cancel means interrupt. That stops code blocked in `sleep`, socket reads, locks and queues, which covers almost all blocking on virtual threads. A loop that computes and never checks the interrupt flag keeps running.
+Read it aloud: send two helpers, wait for both or for the first bad news, and don't leave until they're back. `fork` returns a handle, a `Supplier` whose `get()` gives the subtask's result after `join`.
 
-Two details are easy to get wrong, and the tests check both.
+Let's trace the smallest case, with the stock check failing and the bank slow:
 
-The siblings you interrupt fail too, with an `InterruptedException`. Those failures must not replace the real one. The compare-and-set already handles it, because the real failure got there first.
+- At 0 ms, the scope forks both subtasks, each on a new virtual thread.
+- At 100 ms, the stock subtask throws. Its wrapper records the failure as the first one and cancels the scope.
+- Cancel means interrupt: a signal that wakes a waiting thread with an `InterruptedException`. The bank subtask, blocked in a network read, wakes up that way.
+- The bank subtask's failure arrives second, so it doesn't replace the first.
+- `join()` sees the first failure and throws it, at about 100 ms.
+- `close()` waits until the bank thread has really finished.
+- A subtask forked after the cancel never runs, and its handle throws if you ask for a result.
 
-`close()` must wait for threads, not for futures. `Future.cancel(true)` interrupts the thread and marks the future done at once. On JDK 21, `newVirtualThreadPerTaskExecutor` counts a task as finished as soon as its future is done, so `close()` can return while a cancelled task is still in its `finally` block, writing an audit row or releasing a permit. `executor.shutdownNow()` interrupts every thread and leaves the futures alone, so `close()` keeps waiting until each thread has really finished.
+How does the lab do this? Each forked task runs inside a small wrapper. If the task throws, the wrapper records the failure with `AtomicReference.compareAndSet(null, failure)`, read as "store it only if nobody stored one first", so exactly one failure wins. Then it calls `shutdownNow()` on the executor, which interrupts every running subtask and refuses new ones.
 
-That second bug looks right and passes most tests, which is the strongest argument for using the JDK's scope once you can. The figure shows the difference it makes.
+An interrupt stops code that waits in `sleep`, a network read, a lock or a queue, which covers almost all waiting on virtual threads. It doesn't stop a loop that computes and never checks the interrupt flag. In Java, cancelling is a request the code has to cooperate with. Here the head waiter picture breaks: a real helper hears his name called, but a subtask that never waits and never checks hears nothing.
 
-Check yourself: in your `FailFastScope`, the limit check fails at 100 ms. At that moment the customer call is blocked in a socket read, and a third subtask is in a 3-second loop that computes and never checks the interrupt flag. When does `join()` throw, and when does `close()` return? `join()` throws at about 100 ms with the limit failure. `close()` returns at about 3 seconds: the interrupt stops the socket read but not the loop, and `close()` waits for every thread."""
+One detail looks right and is wrong. You might cancel each sibling with `future.cancel(true)`. That interrupts the thread, but it also marks the future as done at once. On JDK 21, `newVirtualThreadPerTaskExecutor` counts a task as finished as soon as its future is done. So `close()` can return while the cancelled task still runs its `finally` block, giving back a permit, say. `shutdownNow()` interrupts without touching the futures, so `close()` keeps waiting until each thread has truly ended. The lab's `close()` test catches exactly this bug, which is a good reason to prefer the JDK's own scope once you can use it.
 
-S3 = """`StructuredTaskScope` is the JDK's version. Its current shape arrived in JDK 25 (JEP 505, the fifth preview). It is still a preview API in JDK 26 (JEP 525) and JDK 27 (JEP 533). JEP 543 makes it final in JDK 28, due in March 2027, with the JDK 27 API unchanged. Until then you need `--enable-preview`. A preview API is fully specified and implemented, but it can still change from one release to the next, which is why this course keeps it out of the Gradle labs.
+**A subtask must never outlive the block that forked it. Make the scope wait for threads, not for futures.**
 
-Here is the quote handler in the JDK 25 shape:
+Check yourself: in your `FailFastScope`, the stock check fails at 100 ms. The bank call is blocked in a network read, and a third subtask runs a 3-second loop that computes and never checks the interrupt flag. When does `join()` throw, and when does `close()` return? `join()` throws at about 100 ms with the stock failure. `close()` returns at about 3 seconds: the interrupt stops the network read but not the loop, and `close()` waits for every thread.
 
-```java
-Quote quote(String id) throws InterruptedException {
-    try (var scope = StructuredTaskScope.open()) {           // fail on the first failure
-        Subtask<Customer> customer = scope.fork(() -> crm.find(id));
-        Subtask<Limit> limit = scope.fork(() -> limits.check(id));
+We built a head waiter by hand. The JDK has one of its own, still a preview in JDK 25. Let's see what that means."""
+
+S2 = """`StructuredTaskScope`, in `java.util.concurrent`, is the JDK's scope. It's a **preview API**. An API is the set of classes and methods a library offers, and a preview one is finished and fully specified, and still allowed to change its mind in the next release. The compiler and the JVM refuse it unless you pass `--enable-preview`. Its current shape arrived in JDK 25 (JEP 505, the fifth preview). It stayed a preview in JDK 26 (JEP 525) and JDK 27 (JEP 533). JEP 543 makes it final in JDK 28, due in March 2027, with the JDK 27 API unchanged. So the Gradle labs, which must run on JDK 21, leave it out, and this lesson's demo lives in `labs/vthreads/preview/` as a single-file program for JDK 25.
+
+Here is the checkout in the JDK 25 shape:
+
+""" + pair(
+"""Receipt checkout(Order order) throws InterruptedException {
+    try (var scope = StructuredTaskScope.open()) {          // fail on the first failure
+        Subtask<Approval> bank = scope.fork(() -> theBank.approve(order));
+        Subtask<Stock> stock = scope.fork(() -> stockService.check(order));
         scope.join();               // JDK 25: throws StructuredTaskScope.FailedException
-        return new Quote(customer.get(), limit.get());
+        return new Receipt(stock.get(), bank.get());
     }                               // close(): cancels what is left and waits for it
-}
-```
-
-```kotlin
-fun quote(id: String): Quote =
-    StructuredTaskScope.open<Any>().use { scope ->              // fail on the first failure
-        val customer = scope.fork(Callable { crm.find(id) })
-        val limit = scope.fork(Callable { limits.check(id) })
+}""",
+"""fun checkout(order: Order): Receipt =
+    StructuredTaskScope.open<Any>().use { scope ->            // fail on the first failure
+        val bank = scope.fork(Callable { theBank.approve(order) })
+        val stock = scope.fork(Callable { stockService.check(order) })
         scope.join()               // JDK 25: throws StructuredTaskScope.FailedException
-        Quote(customer.get(), limit.get())
-    }                              // close(): cancels what is left and waits for it
+        Receipt(stock.get(), bank.get())
+    }                              // close(): cancels what is left and waits for it""") + """
+
+It has the same shape as `FailFastScope`, with stricter rules. Subtasks run on virtual threads. Calling `get()` before `join()` throws `IllegalStateException`. Scopes must nest like blocks, and the JDK checks that you close them in that order. And a thread dump written as JSON, a structured text format (`jcmd <pid> Thread.dump_to_file -format=json threads.json`), groups each scope's threads under it, so you can see which checkout a thread belongs to.
+
+`ScopeDemo`, in the Try it below, is `LeakDemo`'s checkout written this way. Predict the timeline first. On JDK 25, run from `labs/`, it printed:
+
+```text
+$ java --enable-preview --source 25 vthreads/preview/ScopeDemo.java
+    135 ms  [order-42] bank: interrupted, stopped early
+    165 ms  [order-42] checkout failed: stock service: sold out
+    165 ms  [-] done: the binding has ended, and no subtask is still running
 ```
 
-It is your `FailFastScope` with stricter rules. Subtasks run on virtual threads. `get()` before `join()` throws `IllegalStateException`. Scopes must nest like blocks, and the JDK checks that you close them in order. A JSON thread dump (`jcmd <pid> Thread.dump_to_file -format=json`) shows each scope's threads grouped under it, so you can see which request a thread belongs to.
+That's the careful head waiter. The stock failure cancelled the bank call, `join()` threw at once, and nothing was still running when the block ended. The times are a little over 100 ms because the first run also loads the classes it needs. The `[order-42]` on each line comes from a scoped value, the topic of the next section.
 
-The policy is a `Joiner` that you pass to `open`. JDK 25 has four:
+Leave out the flag, and javac, the Java compiler, stops at the first line that uses the API: `error: StructuredTaskScope is a preview API and is disabled by default`. Kotlin's compiler doesn't check for preview APIs, and on JDK 25 the Kotlin jar even ran without the flag here. Don't lean on that: the API can change in the next JDK, flag or no flag.
+
+The scope's policy is a **joiner**, an object you pass to `open` that decides when `join()` returns and what it gives back. JDK 25 has four built in:
 
 - `Joiner.awaitAllSuccessfulOrThrow()`, the default: fail fast, and `join()` returns `null`.
 - `Joiner.allSuccessfulOrThrow()`: fail fast, and `join()` returns the subtasks as a `Stream<Subtask<T>>`.
 - `Joiner.anySuccessfulResultOrThrow()`: the first success wins, and the scope cancels the rest.
 - `Joiner.awaitAll()`: wait for everything and never throw. You check each subtask's `state()`.
 
-A second argument configures the scope, for example a timeout:
+A second argument changes the scope's settings, such as a timeout. Here the shop asks two delivery companies for a price and takes whichever answers first:
 
-```java
-try (var scope = StructuredTaskScope.open(Joiner.<Rate>anySuccessfulResultOrThrow(),
+""" + pair(
+"""try (var scope = StructuredTaskScope.open(Joiner.<Price>anySuccessfulResultOrThrow(),
         cf -> cf.withTimeout(Duration.ofMillis(300)))) {
-    scope.fork(() -> fxPrimary.rate(pair));
-    scope.fork(() -> fxBackup.rate(pair));
-    return scope.join();        // the first rate back; the slower call is cancelled
-}
-```
-
-```kotlin
-StructuredTaskScope.open(Joiner.anySuccessfulResultOrThrow<Rate>()) { cf ->
+    scope.fork(() -> fastPost.price(parcel));
+    scope.fork(() -> cheapPost.price(parcel));
+    return scope.join();        // the first price back; the slower call is cancelled
+}""",
+"""StructuredTaskScope.open(Joiner.anySuccessfulResultOrThrow<Price>()) { cf ->
     cf.withTimeout(Duration.ofMillis(300))
 }.use { scope ->
-    scope.fork(Callable { fxPrimary.rate(pair) })
-    scope.fork(Callable { fxBackup.rate(pair) })
-    scope.join()               // the first rate back; the slower call is cancelled
-}
+    scope.fork(Callable { fastPost.price(parcel) })
+    scope.fork(Callable { cheapPost.price(parcel) })
+    scope.join()               // the first price back; the slower call is cancelled
+}""") + """
+
+If the 300 ms run out first, the scope cancels both calls, and `join()` throws `StructuredTaskScope.TimeoutException`.
+
+Expect small edits whenever you change JDKs, because that is what preview means. JDK 26 renamed `anySuccessfulResultOrThrow` to `anySuccessfulOrThrow`, and `allSuccessfulOrThrow` now returns a `List` of results. In JDK 27 the built-in joiners make `join()` throw the ordinary checked `ExecutionException`, like `Future.get()`, instead of `FailedException`. Your lab scope already behaves that way. And articles from the JDK 21 days show `new StructuredTaskScope.ShutdownOnFailure()` with `throwIfFailed()`. That API is gone, and it doesn't compile on JDK 25.
+
+**A preview API can change in the next release. Pin the JDK version, and keep preview code small and in one place.**
+
+The scope calls the helpers back. One gap from the first section is left: the order's own details, which a `ThreadLocal` failed to carry into the subtasks."""
+
+S3 = """A checkout carries details that many methods need but few should have to pass along: the order id for the log, or the customer's name for the receipt. The usual tool has been a `ThreadLocal`, the apron pocket from lesson 4 of this track. For this job the pocket has three problems:
+
+- Anyone can write in it. Any code can call `set()`, so the code that reads the value can't tell where it came from.
+- Nobody empties it unless someone calls `remove()`. On a pooled thread, a value one task forgot is still there for the next.
+- Its inheritance is a copy. An `InheritableThreadLocal` copies its values into every new thread, so that's one copy per subtask, and a later change in the parent never reaches the children.
+
+`ScopedValueDemo`, in the Try it below, shows the second problem first. A task on a one-thread pool sets the customer to `ann` and forgets to remove it. Then the next task on the same thread asks who its customer is:
+
+```text
+1. next task, same pool thread: ThreadLocal=ann, ScopedValue=unbound
 ```
 
-If the timeout expires first, the scope cancels both calls and `join()` throws `StructuredTaskScope.TimeoutException`.
+That task never set anything, and it believes it's serving Ann. On a receipt, that's a stranger's name.
 
-Expect small edits when you move JDKs. JDK 26 renamed `anySuccessfulResultOrThrow` to `anySuccessfulOrThrow`, and `allSuccessfulOrThrow` now returns a `List<T>` of results. In JDK 27 the built-in joiners make `join()` throw the ordinary checked `ExecutionException`, like `Future.get()`, instead of `FailedException`. Your lab scope already behaves that way. Articles from the JDK 21 era show `new StructuredTaskScope.ShutdownOnFailure()` and `throwIfFailed()`. That API is gone and doesn't compile on JDK 25."""
+A **scoped value** is the replacement. Picture a note pinned to the order: everyone who works on the order can read it, nobody can change it, and it comes off when the order closes. In code, you **bind** a value for the length of one call. Everything that call runs can read it, and nobody can change it. Scoped values are final in JDK 25 (JEP 506), so they need no flag:
 
-S4 = """Request context (a correlation id, a tenant, the authenticated merchant) travels down the call chain without being a parameter of every method. The usual tool is a `ThreadLocal`, and it has three problems:
+""" + pair(
+"""static final ScopedValue<String> CUSTOMER = ScopedValue.newInstance();
 
-- It is mutable. Any code can call `set()`, so the code that reads it can't tell where the value came from.
-- It lives as long as the thread unless someone calls `remove()`. On a pooled thread, a forgotten value leaks into the next request. That is how one tenant's log lines end up tagged with another tenant's id.
-- Its inheritance is a copy. `InheritableThreadLocal` copies values into each new thread. With a virtual thread per subtask, that's one copy per subtask, and a change in the parent never reaches the children.
-
-A **scoped value** is the replacement. It is final in JDK 25 (JEP 506), so it needs no flag. You bind it for the length of one call, everything inside that call can read it, and nobody can change it:
-
-```java
-static final ScopedValue<String> TENANT = ScopedValue.newInstance();
-
-void handle(Request req) {
-    ScopedValue.where(TENANT, req.tenant()).run(() -> process(req));   // bound only inside run()
+void handle(Order order) {
+    ScopedValue.where(CUSTOMER, order.customer()).run(() -> checkout(order));   // bound only inside run()
 }
 
-static String ledgerKey(String account) {
-    return TENANT.get() + ":" + account;     // NoSuchElementException if nobody bound it
+static String receiptLine(String item) {
+    return item + " for " + CUSTOMER.get();     // NoSuchElementException if nobody bound it
+}""",
+"""val CUSTOMER: ScopedValue<String> = ScopedValue.newInstance()
+
+fun handle(order: Order) {
+    ScopedValue.where(CUSTOMER, order.customer).run(Runnable { checkout(order) })   // bound only inside run()
 }
+
+fun receiptLine(item: String): String =
+    item + " for " + CUSTOMER.get()              // NoSuchElementException if nobody bound it""") + """
+
+Map it back to the note. Pinning the note is `where(...)`, the order being open is the call inside `run()`, reading the note is `get()`, and the note comes off when `run()` returns. There is no `set()`. To use another value for a nested call, bind again with `where(...).run(...)`, and the outer value comes back when that call returns. `isBound()` and `orElse(...)` let code handle the case where nothing is bound, and `call(...)` is the version that returns a value and may throw. The rest of the demo shows each rule:
+
+```text
+2. inside run():   ThreadLocal=null, ScopedValue=ann
+   after run():    ThreadLocal=null, ScopedValue=unbound
+3. nested:         ThreadLocal=null, ScopedValue=ben
+   outer again:    ThreadLocal=null, ScopedValue=ann
+4. plain thread:   ThreadLocal=null, ScopedValue=unbound
 ```
 
-```kotlin
-val TENANT: ScopedValue<String> = ScopedValue.newInstance()
+The fourth line is the rule to remember. A scoped value flows into subtasks forked in a `StructuredTaskScope`, as `[order-42]` did in `ScopeDemo`. The child doesn't get a copy: it reads the parent's binding, which is safe because nobody can change the binding, and the scope ends before the binding does. A thread you start yourself, or an executor task, could outlive the binding, so it gets nothing. Pass the value as an argument there.
 
-fun handle(req: Request) {
-    ScopedValue.where(TENANT, req.tenant).run(Runnable { process(req) })   // bound only inside run()
-}
+Here the note picture breaks a little. A paper note stays on the order for anyone who picks it up, even a helper borrowed from another table. A scoped value is visible only to code inside the call that bound it, and to that call's own scope.
 
-fun ledgerKey(account: String): String =
-    TENANT.get() + ":" + account              // NoSuchElementException if nobody bound it
-```
+On JDK 25 that gives a clear split. Use scoped values for new request details today, with no flag. Their flow into subtasks needs `StructuredTaskScope`, which is still a preview. Keep `ThreadLocal` where a library requires it, and clear it in a `finally`.
 
-There is no `set()`. To use another value for a nested call, bind again with `where(...).run(...)`. The outer value comes back when that call returns. `isBound()` and `orElse(...)` let library code handle the case where nothing is bound, and `call(...)` is the variant that returns a value and may throw.
+**Details that belong to one call should live as long as that call. Bind them with a scoped value, and let nobody change them.**
 
-Scoped values flow into subtasks forked in a `StructuredTaskScope`. The child doesn't get a copy. It reads the parent's binding, which is safe because the binding can't change and the scope ends before the binding does. They do not flow into threads you start yourself or into executor tasks, so pass the value as an argument there.
+In the lab you build the head waiter itself: `FailFastScope`, on a plain executor, with JDK 21 APIs only."""
 
-On JDK 25 that gives a clear split. Use scoped values for new request context today. Their flow into subtasks needs `StructuredTaskScope`, which is still preview. Keep `ThreadLocal` where a library requires it, like SLF4J's MDC, and clear it in a `finally`."""
+CLOSING = """We started with a head waiter who sends helpers and stays at the table until they're back. The executor fan-out stayed too, but it never called anyone back, so a sold-out checkout still waited two seconds for the bank. A scope adds the missing rule: the first failure cancels the rest, and nothing outlives the block. A scoped value is the note pinned to the order.
+
+Now search your own code for a list of `Future`s, and check what happens to the others when one `get()` throws.
+
+Next, we'll move a whole service to virtual threads. Its old pool of 10 threads also kept a limit that nobody wrote down. Which limit, and how do we write it back?"""
 
 L = {
  "id": "vt-05",
  "title": "Structured concurrency and scoped values",
  "minutes": 35,
- "goal": "By the end you can say what structured concurrency guarantees, build fail-fast fork and join on a plain executor, read the JDK 25 `StructuredTaskScope` API and what changes after it, and use scoped values instead of request-context ThreadLocals.",
+ "goal": "By the end you can say what structured concurrency guarantees, build fail-fast fork and join on a plain executor, read the JDK 25 `StructuredTaskScope` API and what changes after it, and use scoped values instead of ThreadLocals for a request's details.",
+ "opening": OPENING,
  "warmup": {
-  "q": "A handler submits two tasks to `newVirtualThreadPerTaskExecutor()` inside try-with-resources. Task A takes 2 s. Task B throws after 100 ms. The handler calls `b.get()` first. When does the handler's exception reach its caller?",
+  "q": "A checkout submits two tasks to `newVirtualThreadPerTaskExecutor()` inside try-with-resources. The bank task takes 2 s. The stock task throws after 100 ms. The checkout calls `stock.get()` first. When does its exception reach the caller?",
   "options": [
-   "After about 100 ms: `b.get()` throws, and the executor cancels A",
-   "After about 2 s: `b.get()` throws at 100 ms, but `close()` waits for A to finish",
-   "Never: the executor logs B's exception and returns `null`",
-   "After about 100 ms, and A is still running when the caller sees the exception"
+   "After about 100 ms: `stock.get()` throws, and the executor cancels the bank task",
+   "After about 2 s: `stock.get()` throws at 100 ms, but `close()` waits for the bank task to finish",
+   "Never: the executor logs the stock task's exception and returns `null`",
+   "After about 100 ms, and the bank task is still running when the caller sees the exception"
   ],
   "answer": 1,
-  "why": "`get()` throws at 100 ms, but leaving the try block runs `close()`, which waits for every task. Nothing cancels A, so the failed request still takes 2 s. The last option is what happens with a long-lived executor in a field: the method fails fast, and A keeps running with nobody waiting for it."
+  "why": "`get()` throws at 100 ms, but leaving the try block runs `close()`, which waits for every task. Nothing cancels the bank task, so the failed checkout still takes 2 s. The last option is what happens with a long-lived executor kept in a field: the method fails fast, and the bank task keeps running with nobody waiting for it. The first section runs both."
  },
  "sections": [
   {
-   "h": "A failed fan-out keeps working after nobody cares",
-   "body": S1,
+   "h": "A failed checkout keeps working: what an executor fan-out leaves out",
+   "body": S0,
    "try": {
     "title": "Watch the orphaned call",
     "minutes": 5,
     "steps": [
-     "Read `LeakDemo`. Variant A opens an executor per request in try-with-resources. Variant B uses one shared executor. For each, predict when the request fails and whether the CRM call finishes.",
+     "Read `LeakDemo`. Variant A opens an executor per checkout in try-with-resources. Variant B uses one shared executor. For each, predict when the checkout fails and whether the bank call finishes.",
      "Run it with the command below.",
-     "Fix variant A by hand. Wrap `limit.get()` in a try, call `customer.cancel(true)` in the `catch (ExecutionException e)`, then rethrow. Run it again."
+     "Fix variant A by hand. Wrap `stock.get()` in a `try`, call `bank.cancel(true)` in the `catch (ExecutionException e)`, then rethrow `e`. Run it again."
     ],
     "code": demo("LeakDemo"),
-    "expect": "A: the CRM call finishes at about 2,000 ms, and only then does the request fail, although the error was known at 100 ms. B: the request fails at about 100 ms, and the CRM call still finishes at about 2,000 ms, for a request that is long gone. After your fix, A prints `customer: interrupted, stopped early` and fails at about 100 ms. That fixes one fan-out. Every other fan-out in the service needs the same code on every error path."
+    "expect": "A: the bank call finishes at about 2,000 ms, and only then does the checkout fail, although the answer was known at 100 ms (2,027 and 2,069 ms in a run here). B: the checkout fails at about 100 ms (102 ms here), and the bank call still finishes at about 2,000 ms, for a checkout that is long gone. After your fix, A prints `bank: interrupted, stopped early` and fails at about 100 ms (128 ms here). That fixes one fan-out. Every other fan-out in the program needs the same code on every error path."
    },
    "refs": [
     {"title": "ExecutorService (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/ExecutorService.html", "kind": "docs"}
    ]
   },
   {
-   "h": "A scope ties every subtask to one block",
-   "body": S2,
-   "figure": {"svg": FIG, "caption": "With a shared executor the failed request leaves its customer call running. In a scope the failure cancels it, and close() waits until it has ended."}
+   "h": "The head waiter: a scope that owns its subtasks",
+   "body": S1,
+   "figure": {"svg": FIG, "caption": "With a shared executor, the failed checkout leaves its bank call running, like a helper still in the cellar. In a scope, the failure cancels it, and close() waits until it has ended."}
   },
   {
-   "h": "StructuredTaskScope: the JDK's scope, still preview",
-   "body": S3,
+   "h": "StructuredTaskScope: the JDK's own scope, still a preview in JDK 25",
+   "body": S2,
    "try": {
     "title": "Run the scope on JDK 25",
     "minutes": 6,
     "steps": [
-     "This one needs JDK 25 exactly, because `--enable-preview` only works for the JDK's own release. Check with `java -version`. It runs outside Gradle, as a single-file program, from `labs/`.",
-     "Run `ScopeDemo` and compare its timeline with `LeakDemo`. Look at the `[req-42]` on the customer's line: the subtask can read the request's scoped value.",
-     "Make `limit()` return `\"limit ok\"` after its sleep instead of throwing. Predict how long the request takes, then run it.",
+     "This one needs JDK 25 exactly, because `--enable-preview` works only for the JDK's own release. Check with `java -version`. It runs outside Gradle, as a single-file program, from `labs/`.",
+     "Run `ScopeDemo` and compare its timeline with `LeakDemo`'s. Look at the `[order-42]` on the bank's line: the subtask can read the checkout's scoped value.",
+     "Make `stock()` return `\"in stock\"` after its sleep instead of throwing. Predict how long the checkout takes, then run it.",
      "Now open the scope with a timeout: `StructuredTaskScope.open(Joiner.awaitAllSuccessfulOrThrow(), cf -> cf.withTimeout(Duration.ofMillis(500)))` (in Kotlin, `open(Joiner.awaitAllSuccessfulOrThrow<Any>()) { cf -> cf.withTimeout(Duration.ofMillis(500)) }`). Predict, then run."
     ],
     "code": preview("ScopeDemo", "java --enable-preview --source 25 vthreads/preview/ScopeDemo.java", "scope-demo.jar", "--enable-preview ", "JDK 25 preview"),
-    "expect": "First run: at about 100 ms the customer line says `interrupted, stopped early`, then `request failed: credit limit service: 503`, then the `done` line, with `[-]` because the binding has ended. When both succeed, the quote arrives after about 2,000 ms, since the default joiner waits for every subtask. With the 500 ms timeout, the customer is interrupted at about 500 ms and the request reports `request timed out`. In every case the `done` line comes last: the scope never leaves a subtask running."
+    "expect": "First run: a little after 100 ms the bank's line says `interrupted, stopped early`, then `checkout failed: stock service: sold out`, then the `done` line with `[-]`, because the binding has ended (135, 165 and 165 ms in a run here; the Kotlin jar printed 144, 172 and 173 ms). When both succeed, the checkout arrives after about 2,000 ms (2,078 ms here), since the default joiner waits for every subtask. With the 500 ms timeout, the bank is interrupted at about 500 ms and the checkout reports `checkout timed out` (551 ms here). In every case the `done` line comes last: the scope never leaves a subtask running."
    },
    "refs": [
     {"title": "JEP 505: Structured Concurrency (Fifth Preview)", "url": "https://openjdk.org/jeps/505", "kind": "read"},
@@ -276,47 +349,41 @@ L = {
    ]
   },
   {
-   "h": "Scoped values: request context with a lifetime",
-   "body": S4,
+   "h": "A note pinned to the order: scoped values replace request ThreadLocals",
+   "body": S3,
    "try": {
     "title": "ThreadLocal and ScopedValue side by side",
     "minutes": 4,
     "steps": [
      "You need JDK 25 or later. Scoped values are final there, so this runs without `--enable-preview`.",
      "Read `ScopedValueDemo` and predict its six lines of output before you run it.",
-     "Run it. Then, in part 1, move the work into a `try` and add `TENANT_TL.remove()` in a `finally`. Run it again."
+     "Run it. Then, in part 1, move the first task's work into a `try` and add `CUSTOMER_TL.remove()` in a `finally`. Run it again."
     ],
     "code": preview("ScopedValueDemo", "java vthreads/preview/ScopedValueDemo.java", "sv-demo.jar", "", "JDK 25"),
-    "expect": "Line 1 shows `ThreadLocal=bank-a` in a task that never set it: the value leaked from the previous task on the same pool thread. After your fix it shows `ThreadLocal=null`. The scoped value is `bank-a` inside `run()` and `unbound` after it, `bank-b` in the nested call and `bank-a` again after it. The plain virtual thread prints `unbound`, because only `StructuredTaskScope` forks see the parent's binding."
+    "expect": "Line 1 shows `ThreadLocal=ann` in a task that never set it: the value leaked from the previous task on the same pool thread. After your fix it shows `ThreadLocal=null`. The scoped value is `ann` inside `run()` and `unbound` after it, `ben` in the nested call and `ann` again after it. The plain virtual thread prints `unbound`, because only `StructuredTaskScope` forks see the parent's binding. The Java and Kotlin versions print the same six lines."
    },
    "refs": [
     {"title": "JEP 506: Scoped Values", "url": "https://openjdk.org/jeps/506", "kind": "read"}
    ]
   }
  ],
- "analogy": "A structured scope works like a function call for concurrent work. A local variable can't outlive the method that declared it, and a subtask can't outlive the block that forked it. A `ThreadLocal` is a whiteboard on the thread's wall: anyone can write on it, nobody has to wipe it, and the next person to use the room reads whatever was left. A scoped value is a sealed envelope handed down the call chain and shredded when the call returns. The analogy breaks for subtasks: a scope's forks don't get their own envelopes, they all read the parent's. That is safe only because nobody can change the envelope and the scope ends before the call does.",
- "in_your_world": "A quote or authorization endpoint in a Quarkus service often fans out to a CRM, a limits service and an FX provider. Today those calls usually go through `CompletableFuture` or an injected executor, and a failure in one leaves the others running and holding connections. On JDK 25 you can get fail-fast behavior now with a small scope like the lab's, and move to `StructuredTaskScope` when JDK 28 makes it final. The same rule fits a Temporal activity that fans out: when Temporal cancels or times out the activity, a scope makes sure its HTTP calls stop with it instead of finishing in the background. For context, look at your MDC: SLF4J's MDC is a `ThreadLocal`, so log lines written inside forked subtasks lose the correlation id unless you copy it in, and a pooled thread that skips `MDC.clear()` tags the next request with the wrong id.",
- "mistake": "The most common mistake is copying `StructuredTaskScope` code written for a different JDK. `new StructuredTaskScope.ShutdownOnFailure()` with `join().throwIfFailed()` is the JDK 21 to 24 API and doesn't compile on JDK 25. JDK 25 code that catches `FailedException` stops compiling on JDK 27, where `join()` throws `ExecutionException`. And `--enable-preview` only works with the JDK's own release, so a preview API ties the whole build to one JDK version. Pin the JDK version in any code that uses the preview, and keep that code small and in one place. For production services on JDK 25, use a plain executor with explicit cancellation (or a small scope like the lab's), and switch to the JDK's scope when JDK 28 makes it final.",
  "compare": {
-  "title": "Request context that follows the subtasks",
-  "java": {"title": "Java: ScopedValue plus a scope (JDK 25, scope in preview)", "src": "static final ScopedValue<String> TENANT = ScopedValue.newInstance();   // final in JDK 25\n\nStatement statement(Request req) throws Exception {\n    return ScopedValue.where(TENANT, req.tenant()).call(() -> {          // bound for this call\n        try (var scope = StructuredTaskScope.open()) {                   // preview in JDK 25\n            Subtask<Customer> customer = scope.fork(() -> crm.find(req.customerId()));\n            Subtask<Balance> balance = scope.fork(() -> ledger.balance(ledgerKey(req.account())));\n            scope.join();\n            return new Statement(customer.get(), balance.get());\n        }\n    });\n}\n\nstatic String ledgerKey(String account) {\n    return TENANT.get() + \":\" + account;   // the fork reads the parent's binding\n}"},
-  "kotlin": {"title": "Kotlin: a coroutine context element", "src": "// the coroutine carries the context, not the thread\nclass Tenant(val id: String) : AbstractCoroutineContextElement(Tenant) {\n    companion object Key : CoroutineContext.Key<Tenant>\n}\n\nsuspend fun statement(req: Request): Statement = withContext(Tenant(req.tenant)) {   // bound for this block\n    val customer = async { crm.find(req.customerId) }\n    val balance = async { ledger.balance(ledgerKey(req.account)) }      // children inherit the context\n    Statement(customer.await(), balance.await())\n}\n\nsuspend fun ledgerKey(account: String): String =\n    (currentCoroutineContext()[Tenant]?.id ?: error(\"no tenant\")) + \":\" + account"},
-  "note": "Both are immutable context that children inherit and that ends with the block. The difference is what carries it. A scoped value is bound to a thread's call stack, and only `StructuredTaskScope` forks inherit it. A coroutine context element is bound to the coroutine, so it survives a coroutine moving to another thread at a suspension point, and every child started with `launch` or `async` inherits it. That is why scoped values and `ThreadLocal`s are the wrong tool inside suspending code: a coroutine can resume on a different thread, where the binding isn't there. In Kotlin coroutine code, put context in the coroutine context. Use `ScopedValue` from Kotlin only in plain blocking code on threads."
+  "title": "Request details that follow the subtasks",
+  "java": {"title": "Java: ScopedValue plus a scope (JDK 25, scope in preview)", "src": "static final ScopedValue<String> CUSTOMER = ScopedValue.newInstance();   // final in JDK 25\n\nReceipt checkout(Order order) throws Exception {\n    return ScopedValue.where(CUSTOMER, order.customer()).call(() -> {     // bound for this call\n        try (var scope = StructuredTaskScope.open()) {                   // preview in JDK 25\n            Subtask<Approval> bank = scope.fork(() -> theBank.approve(order));\n            Subtask<String> line = scope.fork(() -> receiptLine(order.item()));\n            scope.join();\n            return new Receipt(line.get(), bank.get());\n        }\n    });\n}\n\nstatic String receiptLine(String item) {\n    return item + \" for \" + CUSTOMER.get();   // the fork reads the parent's binding\n}"},
+  "kotlin": {"title": "Kotlin: a coroutine context element", "src": "// the coroutine carries the details, not the thread\nclass Customer(val name: String) : AbstractCoroutineContextElement(Customer) {\n    companion object Key : CoroutineContext.Key<Customer>\n}\n\nsuspend fun checkout(order: Order): Receipt = withContext(Customer(order.customer)) {   // bound for this block\n    val bank = async { theBank.approve(order) }\n    val line = async { receiptLine(order.item) }        // children inherit the context\n    Receipt(line.await(), bank.await())\n}\n\nsuspend fun receiptLine(item: String): String =\n    item + \" for \" + (currentCoroutineContext()[Customer]?.name ?: error(\"no customer\"))"},
+  "note": "Both are read-only details that children inherit and that end with the block. The difference is what carries them. A scoped value is bound to a thread's call stack, and only `StructuredTaskScope` forks inherit it. A coroutine context element is bound to the coroutine, so it survives when the coroutine moves to another thread at a suspension point, and every child started with `launch` or `async` inherits it. That's why scoped values and `ThreadLocal`s are the wrong tool inside suspending code: a coroutine can resume on a different thread, where the binding isn't there. In Kotlin coroutine code, put the details in the coroutine context. Use `ScopedValue` from Kotlin only in plain blocking code on threads, as `ScopedValueDemo.kt` does."
  },
  "worked": {
-  "title": "Make an authorization fan-out fail fast",
+  "title": "Make the order page fail fast",
   "steps": [
-   {"say": "An authorization needs a fraud score and the card's open-to-buy amount. Both are blocking HTTP calls. The code runs on a shared executor field, and the request id lives in a `ThreadLocal` for logging. Read it and list what goes wrong when the fraud call fails.",
-    "code": "Auth authorize(Payment p) throws Exception {\n    REQUEST_ID.set(p.requestId());                                   // a ThreadLocal\n    Future<Score> fraud = shared.submit(() -> fraudApi.score(p));    // 300 ms\n    Future<Money> open = shared.submit(() -> cards.openToBuy(p));    // 80 ms\n    return decide(fraud.get(), open.get());\n}", "lang": "java",
-    "alt_lang": "kotlin", "alt_code": "fun authorize(p: Payment): Auth {\n    REQUEST_ID.set(p.requestId)                                       // a ThreadLocal\n    val fraud = shared.submit(Callable { fraudApi.score(p) })         // 300 ms\n    val open = shared.submit(Callable { cards.openToBuy(p) })         // 80 ms\n    return decide(fraud.get(), open.get())\n}"},
-   {"say": "Three problems. If the card call fails, `fraud.get()` still waits up to 300 ms first. If the fraud call fails, the card call keeps running after `authorize` has thrown. And both subtasks log without the request id, because `REQUEST_ID` is set on the handler's thread only. On a pooled handler thread it is also never cleared."},
-   {"say": "On JDK 25 without preview, use a scope that owns its threads, like the lab's `FailFastScope`, and pass the request id as an argument. Every subtask now ends before `authorize` returns, and the first failure cancels the other call.",
-    "code": "Auth authorize(Payment p) throws Exception {\n    try (var scope = new FailFastScope()) {                 // 1. open: owns the subtasks\n        String rid = p.requestId();                         // 2. context as a plain argument\n        Supplier<Score> fraud = scope.fork(() -> fraudApi.score(p, rid));\n        Supplier<Money> open = scope.fork(() -> cards.openToBuy(p, rid));\n        scope.join();                                       // 3. first failure cancels the other\n        return decide(fraud.get(), open.get());\n    }                                                       // 4. close: nothing left running\n}", "lang": "java",
-    "alt_lang": "kotlin", "alt_code": "fun authorize(p: Payment): Auth =\n    FailFastScope().use { scope ->                          // 1. open: owns the subtasks\n        val rid = p.requestId                               // 2. context as a plain argument\n        val fraud = scope.fork { fraudApi.score(p, rid) }\n        val open = scope.fork { cards.openToBuy(p, rid) }\n        scope.join()                                        // 3. first failure cancels the other\n        decide(fraud.get(), open.get())\n    }                                                       // 4. close: nothing left running"},
-   {"say": "On JDK 25 with `--enable-preview`, the JDK's scope does the same job, and a scoped value carries the request id into both forks. No method signature has to change.",
-    "code": "static final ScopedValue<String> REQUEST_ID = ScopedValue.newInstance();\n\nAuth authorize(Payment p) throws Exception {\n    return ScopedValue.where(REQUEST_ID, p.requestId()).call(() -> {     // 1. bind the context\n        try (var scope = StructuredTaskScope.open()) {                   // 2. fail-fast scope\n            Subtask<Score> fraud = scope.fork(() -> fraudApi.score(p));  //    forks read REQUEST_ID\n            Subtask<Money> open = scope.fork(() -> cards.openToBuy(p));\n            scope.join();                                                // 3. FailedException on JDK 25\n            return decide(fraud.get(), open.get());\n        }                                                                // 4. close: nothing left running\n    });\n}", "lang": "java",
-    "alt_lang": "kotlin", "alt_code": "val REQUEST_ID: ScopedValue<String> = ScopedValue.newInstance()\n\nfun authorize(p: Payment): Auth =\n    ScopedValue.where(REQUEST_ID, p.requestId).call<Auth, Exception> {   // 1. bind the context\n        StructuredTaskScope.open<Any>().use { scope ->                    // 2. fail-fast scope\n            val fraud = scope.fork(Callable { fraudApi.score(p) })        //    forks read REQUEST_ID\n            val open = scope.fork(Callable { cards.openToBuy(p) })\n            scope.join()                                                  // 3. FailedException on JDK 25\n            decide(fraud.get(), open.get())\n        }                                                                 // 4. close: nothing left running\n    }"},
-   {"say": "When you move to JDK 27 or 28, change the error handling where you call `authorize`: catch `ExecutionException` from `join()` instead of `StructuredTaskScope.FailedException`. The fork, join and close lines stay the same."}
+   {"say": "The shop's order page needs two answers: the delivery date from the delivery company's web service (300 ms) and the customer's loyalty points (80 ms). Both are blocking calls. The code runs on a shared executor kept in a field, and the order id lives in a `ThreadLocal` for the log. Read it, and list what goes wrong when one call fails.", "code": "OrderPage show(Order o) throws Exception {\n    ORDER_ID.set(o.id());                                                 // a ThreadLocal\n    Future<LocalDate> date = shared.submit(() -> delivery.estimate(o));   // 300 ms\n    Future<Integer> points = shared.submit(() -> loyalty.points(o));      // 80 ms\n    return new OrderPage(date.get(), points.get());\n}", "lang": "java",
+    "alt_lang": "kotlin", "alt_code": "fun show(o: Order): OrderPage {\n    ORDER_ID.set(o.id)                                                    // a ThreadLocal\n    val date = shared.submit(Callable { delivery.estimate(o) })           // 300 ms\n    val points = shared.submit(Callable { loyalty.points(o) })            // 80 ms\n    return OrderPage(date.get(), points.get())\n}"},
+   {"say": "Three problems. If the points call fails, `date.get()` still waits up to 300 ms first. If the delivery call fails, the points call keeps running after `show` has thrown. And both subtasks log without the order id, because `ORDER_ID` is set on the handler's thread only. On a pooled handler thread it is also never cleared."},
+   {"say": "On JDK 25 without preview, use a scope that owns its threads, like the lab's `FailFastScope`, and pass the order id as an argument. Every subtask now ends before `show` returns, and the first failure cancels the other call.", "code": "OrderPage show(Order o) throws Exception {\n    try (var scope = new FailFastScope()) {                  // 1. open: owns the subtasks\n        String id = o.id();                                  // 2. details as a plain argument\n        Supplier<LocalDate> date = scope.fork(() -> delivery.estimate(o, id));\n        Supplier<Integer> points = scope.fork(() -> loyalty.points(o, id));\n        scope.join();                                        // 3. first failure cancels the other\n        return new OrderPage(date.get(), points.get());\n    }                                                        // 4. close: nothing left running\n}", "lang": "java",
+    "alt_lang": "kotlin", "alt_code": "fun show(o: Order): OrderPage =\n    FailFastScope().use { scope ->                           // 1. open: owns the subtasks\n        val id = o.id                                        // 2. details as a plain argument\n        val date = scope.fork { delivery.estimate(o, id) }\n        val points = scope.fork { loyalty.points(o, id) }\n        scope.join()                                         // 3. first failure cancels the other\n        OrderPage(date.get(), points.get())\n    }                                                        // 4. close: nothing left running"},
+   {"say": "On JDK 25 with `--enable-preview`, the JDK's scope does the same job, and a scoped value carries the order id into both forks. No method signature has to change.", "code": "static final ScopedValue<String> ORDER_ID = ScopedValue.newInstance();\n\nOrderPage show(Order o) throws Exception {\n    return ScopedValue.where(ORDER_ID, o.id()).call(() -> {               // 1. bind the details\n        try (var scope = StructuredTaskScope.open()) {                   // 2. fail-fast scope\n            Subtask<LocalDate> date = scope.fork(() -> delivery.estimate(o));   // forks read ORDER_ID\n            Subtask<Integer> points = scope.fork(() -> loyalty.points(o));\n            scope.join();                                                // 3. FailedException on JDK 25\n            return new OrderPage(date.get(), points.get());\n        }                                                                // 4. close: nothing left running\n    });\n}", "lang": "java",
+    "alt_lang": "kotlin", "alt_code": "val ORDER_ID: ScopedValue<String> = ScopedValue.newInstance()\n\nfun show(o: Order): OrderPage =\n    ScopedValue.where(ORDER_ID, o.id).call<OrderPage, Exception> {      // 1. bind the details\n        StructuredTaskScope.open<Any>().use { scope ->                   // 2. fail-fast scope\n            val date = scope.fork(Callable { delivery.estimate(o) })     //    forks read ORDER_ID\n            val points = scope.fork(Callable { loyalty.points(o) })\n            scope.join()                                                 // 3. FailedException on JDK 25\n            OrderPage(date.get(), points.get())\n        }                                                                // 4. close: nothing left running\n    }"},
+   {"say": "When you move to JDK 27 or 28, change the error handling where you call `show`: catch `ExecutionException` from `join()` instead of `StructuredTaskScope.FailedException`. The fork, join and close lines stay the same."}
   ]
  },
  "lab": {
@@ -327,33 +394,33 @@ L = {
   "steps": [
    "Run the tests once. All seven fail with `UnsupportedOperationException`. Read the class comment in `FailFastScope`: it lists the rules the tests check.",
    "Add the state as fields: an `ExecutorService` from `Executors.newVirtualThreadPerTaskExecutor()`, a `CopyOnWriteArrayList<Future<?>>`, an `AtomicReference<Throwable>` for the first failure and a `volatile boolean joined`.",
-   "Write `fork`. Submit a `Callable` that runs `task.call()` in a try. In the catch, record the failure with `compareAndSet(null, failure)`; if that wins, call `executor.shutdownNow()` to interrupt the siblings. Rethrow. Add the future to the list and return a `Supplier` that throws `IllegalStateException` until `join()` has run, then returns `future.resultNow()`.",
-   "Handle a fork after cancellation: once the executor is shut down, `submit` throws `RejectedExecutionException`. Catch it and return a handle whose `get()` always throws `IllegalStateException`.",
+   "Write `fork`. Submit a `Callable` that runs `task.call()` in a `try`. In the `catch`, record the failure with `compareAndSet(null, failure)`, and if that wins, call `executor.shutdownNow()` to interrupt the siblings. Rethrow. Add the future to the list and return a `Supplier` that throws `IllegalStateException` until `join()` has run, then returns `future.resultNow()`.",
+   "Handle a fork after a cancel: once the executor is shut down, `submit` throws `RejectedExecutionException`. Catch it and return a handle whose `get()` always throws `IllegalStateException`.",
    "Write `join`: call `get()` on each future in order, ignore `ExecutionException` and `CancellationException`, and stop as soon as a failure is recorded. Set `joined`, then throw `new ExecutionException(failure)` if there was one. Write `close`: `shutdownNow()`, then `close()` on the executor.",
    "Run the tests until all seven pass, then run them twice more."
   ],
   "hints": [
-   "Why `compareAndSet`? The siblings you interrupt fail too, with `InterruptedException`. They fail after the real failure is recorded, so their `compareAndSet(null, ...)` returns `false` and they don't replace it.",
+   "Why `compareAndSet`? The siblings you interrupt fail too, with `InterruptedException`. They fail after the real failure is recorded, so their `compareAndSet(null, ...)` returns `false`, and they don't replace it.",
    "Don't cancel with `future.cancel(true)`. A cancelled future counts as done at once, and on JDK 21 the executor then stops waiting for that thread while its `finally` block still runs. The `close()` test catches exactly that. `shutdownNow()` interrupts the threads and leaves the futures alone.",
-   "`catch (Throwable failure) { ...; throw failure; }` compiles inside the submitted lambda: Java's precise rethrow knows `task.call()` can only throw an `Exception`.",
-   "`Future.resultNow()` (JDK 19 and later) returns the result of a task that succeeded and throws `IllegalStateException` for one that failed or was cancelled, which is what a handle needs after `join()`."
+   "`catch (Throwable failure) { ...; throw failure; }` compiles inside the submitted lambda: Java's precise rethrow knows that `task.call()` can only throw an `Exception`.",
+   "`Future.resultNow()` (JDK 19 and later) returns the result of a task that succeeded, and throws `IllegalStateException` for one that failed or was cancelled, which is what a handle needs after `join()`."
   ],
   "done_when": "All seven tests in `FailFastScopeTest` pass, three runs in a row."
  },
  "drill": {
   "title": "Write the JDK 25 scope from memory",
   "minutes": 4,
-  "prompt": "Close this page. Write `Quote quote(String id)` that loads a customer and a credit limit at the same time with `StructuredTaskScope` (JDK 25 preview), fails fast, and closes cleanly. Then write the catch clause a caller needs on JDK 25, and the one it needs on JDK 27.",
-  "answer": {"lang": "java", "src": "Quote quote(String id) throws InterruptedException {\n    try (var scope = StructuredTaskScope.open()) {                  // default: fail on the first failure\n        Subtask<Customer> customer = scope.fork(() -> crm.find(id));\n        Subtask<Limit> limit = scope.fork(() -> limits.check(id));\n        scope.join();                                               // throws if a subtask failed\n        return new Quote(customer.get(), limit.get());              // get() only after join()\n    }                                                               // close() waits for every subtask\n}\n\n// a caller on JDK 25\ntry {\n    return quote(id);\n} catch (StructuredTaskScope.FailedException e) {     // unchecked; the cause is the subtask's exception\n    throw new QuoteUnavailableException(e.getCause());\n}\n// on JDK 27 and later, join() throws the checked ExecutionException instead:\n// } catch (ExecutionException e) { throw new QuoteUnavailableException(e.getCause()); }",
-             "alt": {"lang": "kotlin", "src": "fun quote(id: String): Quote =\n    StructuredTaskScope.open<Any>().use { scope ->                 // default: fail on the first failure\n        val customer = scope.fork(Callable { crm.find(id) })\n        val limit = scope.fork(Callable { limits.check(id) })\n        scope.join()                                               // throws if a subtask failed\n        Quote(customer.get(), limit.get())                         // get() only after join()\n    }                                                              // close() waits for every subtask\n\n// a caller on JDK 25\ntry {\n    return quote(id)\n} catch (e: StructuredTaskScope.FailedException) {    // the cause is the subtask's exception\n    throw QuoteUnavailableException(e.cause)\n}\n// on JDK 27 and later, catch ExecutionException instead:\n// } catch (e: ExecutionException) { throw QuoteUnavailableException(e.cause) }"}}
+  "prompt": "Close this page. Write `Receipt checkout(Order order)` that asks the bank and the stock service at the same time with `StructuredTaskScope` (JDK 25 preview), fails fast and closes cleanly. Then write the catch clause a caller needs on JDK 25, and the one it needs on JDK 27.",
+  "answer": {"lang": "java", "src": "Receipt checkout(Order order) throws InterruptedException {\n    try (var scope = StructuredTaskScope.open()) {                  // default: fail on the first failure\n        Subtask<Approval> bank = scope.fork(() -> theBank.approve(order));\n        Subtask<Stock> stock = scope.fork(() -> stockService.check(order));\n        scope.join();                                               // throws if a subtask failed\n        return new Receipt(stock.get(), bank.get());                // get() only after join()\n    }                                                               // close() waits for every subtask\n}\n\n// a caller on JDK 25\ntry {\n    return checkout(order);\n} catch (StructuredTaskScope.FailedException e) {     // unchecked; the cause is the subtask's exception\n    throw new CheckoutFailedException(e.getCause());\n}\n// on JDK 27 and later, join() throws the checked ExecutionException instead:\n// } catch (ExecutionException e) { throw new CheckoutFailedException(e.getCause()); }",
+             "alt": {"lang": "kotlin", "src": "fun checkout(order: Order): Receipt =\n    StructuredTaskScope.open<Any>().use { scope ->                 // default: fail on the first failure\n        val bank = scope.fork(Callable { theBank.approve(order) })\n        val stock = scope.fork(Callable { stockService.check(order) })\n        scope.join()                                               // throws if a subtask failed\n        Receipt(stock.get(), bank.get())                           // get() only after join()\n    }                                                              // close() waits for every subtask\n\n// a caller on JDK 25\ntry {\n    return checkout(order)\n} catch (e: StructuredTaskScope.FailedException) {    // the cause is the subtask's exception\n    throw CheckoutFailedException(e.cause)\n}\n// on JDK 27 and later, catch ExecutionException instead:\n// } catch (e: ExecutionException) { throw CheckoutFailedException(e.cause) }"}}
  },
  "recap": [
   "An executor fan-out doesn't cancel the other tasks when one fails, and with a shared executor they outlive the request.",
   "Structured concurrency ties subtasks to a block: fork, join, and a close that guarantees every subtask has ended.",
   "Fail fast means the first failure interrupts the siblings and `join()` throws it. Built by hand, `close()` must wait for the threads, not for the futures.",
-  "`StructuredTaskScope` is preview in JDK 25 to 27: `open()`, a `Joiner` and `FailedException` in 25, `ExecutionException` from JDK 27. JDK 28 makes it final.",
+  "The limit: `StructuredTaskScope` is a preview in JDK 25 to 27 and needs `--enable-preview` (`open()`, a `Joiner` and `FailedException` in 25, `ExecutionException` from 27). JDK 28 makes it final.",
   "Scoped values are final in JDK 25: bound for one call with `where(...).run(...)`, read-only, gone afterwards, and inherited only by `StructuredTaskScope` forks.",
-  "A `ThreadLocal` used for context is mutable, leaks on pooled threads without `remove()`, and is copied by `InheritableThreadLocal`."
+  "A `ThreadLocal` used for a request's details can be changed by anyone, leaks on pooled threads without `remove()`, and is copied by `InheritableThreadLocal`."
  ],
  "quiz": [
   {"q": "You compile on JDK 25 with `--enable-preview`. Which fan-out compiles and fails fast?",
@@ -363,60 +430,62 @@ L = {
     "`try (var scope = StructuredTaskScope.open()) { ...; scope.join(); } catch (ExecutionException e) { ... }`",
     "`try (var scope = Executors.newStructuredTaskScope()) { ...; scope.join(); }`"
    ], "answer": 1,
-   "why": "JDK 25 (JEP 505) uses the static `open()` factory, and its default joiner makes `join()` throw the unchecked `FailedException`. `ShutdownOnFailure` is the JDK 21 to 24 API and no longer exists. Catching the checked `ExecutionException` is the JDK 27 shape; on JDK 25 nothing in the try block throws it, so javac rejects the catch. There is no `Executors.newStructuredTaskScope()`."},
+   "why": "JDK 25 (JEP 505) uses the static `open()` factory, and its default joiner makes `join()` throw the unchecked `FailedException`. `ShutdownOnFailure` is the JDK 21 to 24 API and no longer exists, which is why old articles mislead. Catching the checked `ExecutionException` is the JDK 27 shape: on JDK 25 nothing in the try block throws it, so javac rejects the catch. There is no `Executors.newStructuredTaskScope()`."},
   {"q": "What does this print on JDK 25?\n\n```java\nstatic final ScopedValue<String> ID = ScopedValue.newInstance();\n\nScopedValue.where(ID, \"a\").run(() -> {\n    ScopedValue.where(ID, \"b\").run(() -> System.out.print(ID.get()));\n    System.out.print(ID.get());\n});\nSystem.out.print(ID.orElse(\"-\"));\n```",
    "options": ["`bb-`", "`ab-`", "`ba-`", "`bab`"], "answer": 2,
-   "why": "The inner `where` rebinds `ID` to `b` for the nested call only. When it returns, the outer binding `a` is back, and after the outer `run()` nothing is bound, so `orElse` gives `-`. There is no `set()` that could leave `b` behind, which is the difference from a `ThreadLocal`."},
-  {"q": "Inside `ScopedValue.where(TENANT, \"bank-a\").run(...)`, a handler submits a task to `Executors.newVirtualThreadPerTaskExecutor()`. What does `TENANT.isBound()` return inside that task?",
+   "why": "The inner `where` binds `ID` to `b` for the nested call only. When it returns, the outer binding `a` is back, and after the outer `run()` nothing is bound, so `orElse` gives `-`. There is no `set()` that could leave `b` behind, which is the difference from a `ThreadLocal`."},
+  {"q": "Inside `ScopedValue.where(CUSTOMER, \"ann\").run(...)`, a handler submits a task to `Executors.newVirtualThreadPerTaskExecutor()`. What does `CUSTOMER.isBound()` return inside that task?",
    "options": [
     "`false`: only subtasks forked in a `StructuredTaskScope` see the parent's binding",
     "`true`: every virtual thread inherits its creator's scoped values",
     "`true`, but only if the task starts before `run()` returns",
     "It throws `IllegalStateException`, because scoped values can't be read on virtual threads"
    ], "answer": 0,
-   "why": "Scoped value bindings flow only into threads forked by a `StructuredTaskScope`, whose lifetime is guaranteed to fit inside the binding. A thread started by an executor could outlive the `run()` call, so it gets nothing. Pass the value as an argument there. The second option describes `InheritableThreadLocal`, which copies values into every new thread."},
-  {"q": "You want an FX rate from whichever of two providers answers first, and the slower call cancelled. Which tool fits?",
+   "why": "Bindings flow only into threads forked by a `StructuredTaskScope`, whose lives are sure to end inside the binding. A thread started by an executor could outlive the `run()` call, so it gets nothing. Pass the value as an argument there. The second option describes `InheritableThreadLocal`, which copies values into every new thread."},
+  {"q": "The shop asks two delivery companies for a price, wants whichever answers first, and wants the slower call cancelled. On JDK 25, which tool fits?",
    "options": [
-    "`CompletableFuture.anyOf(primary, backup)`",
+    "`CompletableFuture.anyOf(fast, cheap)`",
     "`StructuredTaskScope.open()` with the default joiner",
     "`StructuredTaskScope.open(Joiner.allSuccessfulOrThrow())`",
-    "`StructuredTaskScope.open(Joiner.anySuccessfulResultOrThrow())` (JDK 25 name)"
+    "`StructuredTaskScope.open(Joiner.anySuccessfulResultOrThrow())`"
    ], "answer": 3,
    "why": "`anySuccessfulResultOrThrow` (renamed `anySuccessfulOrThrow` in JDK 26) returns the first successful result and cancels the rest. `CompletableFuture.anyOf` completes with the first result but cancels nothing, so the slower call runs to the end. The default joiner and `allSuccessfulOrThrow` both wait for every subtask to succeed."},
-  {"q": "From the lesson \"Callable, Future, cancellation and interruption\": a fail-fast scope cancels a sibling that runs `while (true) { total = total.add(nextChunk(buffer)); }`, pure computation that never blocks and never checks the interrupt flag. What happens to that sibling?",
+  {"q": "From the lesson \"Callable, Future, cancellation and interruption\": a fail-fast scope cancels a sibling that runs `while (true) { total = total.add(nextChunk(buffer)); }`, pure computing that never blocks and never checks the interrupt flag. What happens to that sibling?",
    "options": [
     "It stops at once, because cancelling a subtask kills its thread",
-    "It keeps running: cancellation only interrupts, and this loop never looks",
+    "It keeps running: cancelling only interrupts, and this loop never looks",
     "It stops at its next loop iteration, because virtual threads check the flag automatically",
     "The JVM throws `InterruptedException` inside `add`"
    ], "answer": 1, "from": "exec-04",
-   "why": "Cancellation in Java is cooperative. `cancel(true)`, `shutdownNow()` and a scope's cancel all just set the interrupt flag. Blocking calls react by throwing `InterruptedException`; a loop that never blocks must check `Thread.currentThread().isInterrupted()` itself. A scope's `close()` would wait for this loop forever."}
+   "why": "Cancelling in Java is cooperative. `cancel(true)`, `shutdownNow()` and a scope's cancel all just set the interrupt flag. Blocking calls react by throwing `InterruptedException`, and a loop that never blocks must check `Thread.currentThread().isInterrupted()` itself. A scope's `close()` would wait for this loop forever."}
  ],
  "flashcards": [
   {"front": "What does structured concurrency guarantee when the block that opened a scope ends?", "back": "Every subtask forked in the scope has finished. None is still running, whether the block returned, threw or was interrupted."},
   {"front": "In a fail-fast scope, what happens to the other subtasks when one fails?", "back": "They are cancelled, which means interrupted. `join()` throws the first failure."},
   {"front": "What does `join()` throw on JDK 25 when a subtask fails in `StructuredTaskScope.open()`?", "back": "`StructuredTaskScope.FailedException` (unchecked), with the subtask's exception as its cause. From JDK 27 the built-in joiners throw `ExecutionException`."},
-  {"front": "Is `StructuredTaskScope` final in JDK 25?", "back": "No. It is a preview API in JDK 25, 26 and 27 and needs `--enable-preview`. JEP 543 makes it final in JDK 28."},
+  {"front": "Is `StructuredTaskScope` final in JDK 25?", "back": "No. It's a preview API in JDK 25, 26 and 27 and needs `--enable-preview`. JEP 543 makes it final in JDK 28."},
   {"front": "Are scoped values final in JDK 25?", "back": "Yes, since JDK 25 (JEP 506). They need no flag."},
-  {"front": "Which threads can read a scoped value's binding?", "back": "Code running inside `where(...).run(...)` or `call(...)`, and subtasks forked in a `StructuredTaskScope` opened there. Not threads you start yourself and not executor tasks."},
+  {"front": "Which threads can read a scoped value's binding?", "back": "Code running inside `where(...).run(...)` or `call(...)`, and subtasks forked in a `StructuredTaskScope` opened there. Not threads you start yourself, and not executor tasks."},
   {"front": "Why can't a hand-built scope cancel with `future.cancel(true)` and rely on `executor.close()` to wait?", "back": "A cancelled future is done at once, so on JDK 21 the executor stops waiting for that thread while it still runs its `finally`. Use `shutdownNow()`, which interrupts without completing the futures."}
  ],
  "terms": [
-  {"term": "Structured concurrency", "plain": "Concurrent subtasks are tied to the block that started them and can't outlive it."},
+  {"term": "Structured concurrency", "plain": "Subtasks are tied to the block that started them and can't outlive it."},
+  {"term": "Subtask", "plain": "One piece of a bigger job, running on a thread of its own."},
   {"term": "Scope", "plain": "The object that forks subtasks, joins them, and on close guarantees they have all ended."},
   {"term": "Fail fast", "plain": "The first failure cancels the remaining subtasks and is reported at once."},
-  {"term": "Joiner", "plain": "The policy you pass to `StructuredTaskScope.open`: when `join()` returns and what it returns or throws."},
+  {"term": "Joiner", "plain": "The policy you pass to `StructuredTaskScope.open`: when `join()` returns, and what it returns or throws."},
   {"term": "Scoped value", "plain": "A read-only value bound for the length of one call and visible to all the code that call runs."},
-  {"term": "Preview API", "plain": "A complete JDK API that is not final yet. It needs `--enable-preview` and can change in the next release."}
+  {"term": "Preview API", "plain": "A complete JDK API that isn't final yet. It needs `--enable-preview` and can change in the next release."}
  ],
  "explain_back": {
   "prompt": "A colleague says that try-with-resources around `newVirtualThreadPerTaskExecutor()` already gives you structured concurrency. Explain what it gives you, what it is missing, and what `StructuredTaskScope` and scoped values add.",
-  "answer": "It gives you half of it. When the block ends, `close()` waits for every task, so no task outlives the method. What it lacks is a failure policy: when one task fails, nothing cancels the others, so a failed request still waits for the slowest call, and you must write `cancel` calls on every error path yourself. Hand-built cancellation also has traps, such as `close()` not waiting for a task you cancelled with `cancel(true)`. `StructuredTaskScope` adds the policy (the first failure cancels the siblings, or another `Joiner` such as first success wins), timeouts, and checks that scopes nest properly, and its `close()` always waits for the threads. It is still preview until JDK 28. Scoped values, final in JDK 25, add context that flows into the scope's subtasks without copying, can't be changed by callees, and disappears when the call ends, unlike a `ThreadLocal`."
+  "answer": "It gives you half of it. When the block ends, `close()` waits for every task, so no task outlives the method. What it lacks is a failure policy: when one task fails, nothing cancels the others, so a failed checkout still waits for the slowest call, and you must write `cancel` calls on every error path yourself. Hand-made cancelling also has traps, such as `close()` not waiting for a task you cancelled with `cancel(true)`. `StructuredTaskScope` adds the policy (the first failure cancels the siblings, or another `Joiner`, such as first success wins), timeouts and checks that scopes nest properly, and its `close()` always waits for the threads. It's still a preview until JDK 28. Scoped values, final in JDK 25, add request details that flow into the scope's subtasks without copying, that called code can't change, and that disappear when the call ends, unlike a `ThreadLocal`."
  },
  "deeper": {
   "minutes": 10,
-  "body": "**Custom joiners.** A `Joiner` has two hooks, `onFork` and `onComplete`, and a `result()` method that `join()` calls at the end. `onComplete` returns `true` to cancel the scope. That is enough for policies the built-in joiners don't cover, such as \"stop once three of five ledger replicas agree\" or \"collect successes and ignore failures\". `onComplete` runs on the thread of the subtask that just finished, so a joiner's state must be thread-safe. Check the Javadoc of the exact JDK you use, because JDK 26 changed the hook signatures slightly.\n\n**Why `CompletableFuture` doesn't solve this.** `allOf` waits for everything even after one future fails, and `cancel(true)` on a `CompletableFuture` doesn't interrupt the thread doing the work: it only completes the future. The lesson \"CompletableFuture: errors, timeouts and fan-out\" builds fan-out that way; notice how much code its error handling needs compared with a scope.\n\n**Kotlin already has this.** In coroutine code, `coroutineScope { async { } }` gives the same guarantees without a preview flag: children can't outlive the scope, the first failure cancels the siblings, and cancellation reaches each child at its next suspension point. The coroutines track covers it. `StructuredTaskScope` matters most for Java code and for Kotlin code that blocks on threads.\n\n**Scoped values and virtual threads.** A `ThreadLocal` costs a map entry per thread, and with a million virtual threads that adds up, as lesson 4 of this track showed. A scoped value binding is attached to the call, not copied per thread, and its forks share it. That makes it the natural fit for one virtual thread per request with many short subtasks.\n\n**Old articles.** Before JDK 25 the API was `StructuredTaskScope.ShutdownOnFailure` and `ShutdownOnSuccess`, subclasses you created with `new`. Scoped values had static helpers such as `ScopedValue.runWhere`, which were removed during the previews. If a snippet uses either, it was written for an older preview."
+  "body": "**Joiners of your own.** A `Joiner` has two hooks, `onFork` and `onComplete`, and a `result()` method that `join()` calls at the end. `onComplete` returns `true` to cancel the scope. That's enough for policies the built-in joiners don't cover, such as \"stop once three of five price services agree\" or \"collect the successes and ignore the failures\". `onComplete` runs on the thread of the subtask that just finished, so a joiner's state must be thread-safe. Check the Javadoc of the exact JDK you use, because JDK 26 changed the hook signatures slightly.\n\n**Why `CompletableFuture` doesn't solve this.** `allOf` waits for everything even after one future fails, and `cancel(true)` on a `CompletableFuture` doesn't interrupt the thread doing the work: it only completes the future. The lesson \"CompletableFuture: errors, timeouts and fan-out\" builds a fan-out that way. Notice how much code its error handling needs compared with a scope.\n\n**Kotlin already has this.** In coroutine code, `coroutineScope { async { } }` gives the same guarantees without a preview flag: children can't outlive the scope, the first failure cancels the siblings, and cancelling reaches each child at its next suspension point. The coroutines track covers it. `StructuredTaskScope` matters most for Java code, and for Kotlin code that blocks on threads.\n\n**Scoped values and virtual threads.** A `ThreadLocal` costs a map entry per thread, and with a million virtual threads that adds up, as lesson 4 of this track showed. A scoped value's binding belongs to the call, not to each thread, and the scope's forks share it. That makes it a natural fit for one virtual thread per request with many short subtasks.\n\n**Old articles.** Before JDK 25 the API was `StructuredTaskScope.ShutdownOnFailure` and `ShutdownOnSuccess`, subclasses you created with `new`. Scoped values had static helpers such as `ScopedValue.runWhere`, which were removed during the previews. If a snippet uses either, it was written for an older preview."
  },
+ "closing": CLOSING,
  "sources": [
   {"title": "JEP 505: Structured Concurrency (Fifth Preview)", "url": "https://openjdk.org/jeps/505"},
   {"title": "JEP 506: Scoped Values", "url": "https://openjdk.org/jeps/506"},
