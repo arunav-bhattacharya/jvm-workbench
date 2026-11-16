@@ -206,7 +206,7 @@ collector got pay-1, thread=main
     at StackDemoKt$main$1.invokeSuspend      <- main, calling collect
 ```
 
-Read it from the bottom. `main` called `collect`. `collect` ran the block. The block called `emit`, and `emit` is your lambda. It is all one thread. The real `flow { }.map { }` gives a taller stack with the same shape (here I also dropped repeated frames):
+Read it from the bottom. `main` called `collect`. `collect` ran the block. The block called `emit`, and `emit` is your lambda. It is all one thread. The real `flow { }.map { }` gives a taller stack with the same shape (here I also dropped repeated frames and two helper frames):
 
 ```text
 collector got PAY-1, thread=main
