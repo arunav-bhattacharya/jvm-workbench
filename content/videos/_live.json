@@ -135,6 +135,7 @@
   "vt06-migrate",
   "cap3-bus",
   "cap1-snapshot",
-  "cap1-limits"
+  "cap1-limits",
+  "cap3-java-surface"
  ]
 }

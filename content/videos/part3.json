@@ -251,6 +251,12 @@
       "lesson": "cap3-02",
       "section": 0,
       "title": "One publish looks up the event's class, then each event supertype, nearest first, and a Handler declared in lets one general handler fit any subscription"
+    },
+    {
+      "slug": "cap3-java-surface",
+      "lesson": "cap3-03",
+      "section": 2,
+      "title": "Java sees only the class file: default arguments, a reified subscribe, object members and value classes each look odd or go missing there, and Class overloads, @JvmOverloads, @JvmStatic and a facade that still validates fix them"
     }
   ]
 }

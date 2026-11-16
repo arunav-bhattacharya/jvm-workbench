@@ -1,173 +1,149 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.244
-The event library is written in Kotlin.
+00:00:02.700 --> 00:00:06.248
+A Java team wants to call the Kotlin event library.
 
 2
-00:00:05.244 --> 00:00:08.656
-A Java team in the same service wants to call it too.
-
-3
-00:00:08.800 --> 00:00:10.444
+00:00:06.467 --> 00:00:08.155
 javac can't read Kotlin.
 
+3
+00:00:08.155 --> 00:00:14.907
+It reads the class files kotlinc wrote, and some Kotlin features look odd there, or are missing.
+
 4
-00:00:10.444 --> 00:00:13.115
-It reads the class files kotlinc wrote.
+00:00:15.733 --> 00:00:17.639
+First, default arguments.
 
 5
-00:00:13.115 --> 00:00:17.225
-Some Kotlin features look odd there, or aren't there at all.
+00:00:17.639 --> 00:00:20.611
+From Kotlin, PlainBus of refunds works.
 
 6
-00:00:18.000 --> 00:00:21.224
-Start with a constructor with default arguments.
-
-7
-00:00:21.224 --> 00:00:24.179
-From Kotlin, PlainBus of refunds just works.
-
-8
-00:00:24.333 --> 00:00:28.259
+00:00:20.833 --> 00:00:24.759
 From Java, the same call fails: no suitable constructor found.
 
-9
-00:00:28.259 --> 00:00:32.944
+7
+00:00:24.759 --> 00:00:29.444
 The class file has only two: the one with every default, and the full one.
 
-10
-00:00:33.133 --> 00:00:37.888
+8
+00:00:29.667 --> 00:00:34.421
 @JvmOverloads tells kotlinc to write the ones in between.
 
-11
-00:00:37.888 --> 00:00:39.973
+9
+00:00:34.421 --> 00:00:36.507
 Now Java's call compiles.
 
-12
-00:00:40.733 --> 00:00:41.960
-Next, subscribe.
+10
+00:00:37.233 --> 00:00:40.405
+The reified subscribe is invisible to Java.
 
-13
-00:00:41.960 --> 00:00:44.643
-Kotlin callers use the reified one.
-
-14
-00:00:44.643 --> 00:00:46.559
-Java can't see it at all.
-
-15
-00:00:46.559 --> 00:00:51.235
+11
+00:00:40.405 --> 00:00:44.905
 It's compiled as a synthetic method, and javac ignores those.
 
-16
-00:00:51.400 --> 00:00:56.448
-The KClass one works from Java, if Java converts the class by hand.
+12
+00:00:45.133 --> 00:00:49.257
+The KClass one works, if Java converts the class by hand.
 
-17
-00:00:56.448 --> 00:00:57.579
-It reads badly.
+13
+00:00:49.467 --> 00:00:52.524
+The fix: an overload that takes a Java Class.
 
-18
-00:00:57.800 --> 00:01:02.479
-The fix is an overload that takes a Java Class, and converts it for you.
-
-19
-00:01:03.200 --> 00:01:09.841
+14
+00:00:53.233 --> 00:00:59.875
 From Java, an object member goes through INSTANCE, and a companion val through Companion and a getter.
 
-20
-00:01:10.000 --> 00:01:13.867
+15
+00:01:00.100 --> 00:01:03.967
 @JvmStatic makes publish a real static method.
 
-21
-00:01:13.867 --> 00:01:17.565
+16
+00:01:03.967 --> 00:01:07.665
 @JvmField makes SYSTEM a plain static field.
 
-22
-00:01:18.267 --> 00:01:19.859
-Last, the event itself.
+17
+00:01:08.367 --> 00:01:09.500
+Last, the event.
 
-23
-00:01:19.859 --> 00:01:25.192
-Its id and amount are value classes, and their init blocks check every value.
+18
+00:01:09.500 --> 00:01:14.673
+Its id and amount are value classes, whose init blocks check every value.
 
-24
-00:01:25.333 --> 00:01:28.689
+19
+00:01:14.900 --> 00:01:18.256
 In the class file, a value class is just what it wraps.
 
-25
-00:01:28.689 --> 00:01:34.669
+20
+00:01:18.256 --> 00:01:24.236
 So Java sees a private constructor that takes a String and a long, and getters with mangled names.
 
-26
-00:01:34.867 --> 00:01:39.990
+21
+00:01:24.467 --> 00:01:29.590
 A @JvmName shortcut would let Java pass a raw long straight past init.
 
-27
-00:01:39.990 --> 00:01:42.112
+22
+00:01:29.590 --> 00:01:31.712
 The facade does the opposite.
 
-28
-00:01:42.867 --> 00:01:48.463
+23
+00:01:32.533 --> 00:01:38.129
 It takes plain values, and builds the value classes itself, so every init block runs.
 
-29
-00:01:48.600 --> 00:01:50.207
+24
+00:01:38.333 --> 00:01:39.940
 A good call goes through.
 
-30
-00:01:51.800 --> 00:01:52.656
+25
+00:01:41.467 --> 00:01:42.322
 Predict.
 
-31
-00:01:52.656 --> 00:01:57.683
+26
+00:01:42.322 --> 00:01:47.350
 A Java caller passes 7781, with no pay_ prefix.
 
-32
-00:01:57.683 --> 00:01:59.073
+27
+00:01:47.350 --> 00:01:48.740
 What happens?
 
-33
-00:02:00.667 --> 00:02:05.175
-PaymentId's init throws, exactly as it would for a Kotlin caller.
+28
+00:01:50.367 --> 00:01:54.107
+PaymentId's init throws, just as it would for Kotlin.
 
-34
-00:02:06.000 --> 00:02:09.271
+29
+00:01:54.933 --> 00:01:58.204
 Here is the facade in Kotlin, and a Java caller.
 
-35
-00:02:12.267 --> 00:02:12.959
+30
+00:02:00.633 --> 00:02:01.326
 The rule.
 
-36
-00:02:12.959 --> 00:02:15.266
+31
+00:02:01.326 --> 00:02:03.633
 Java sees only the class file.
 
-37
-00:02:15.266 --> 00:02:22.804
+32
+00:02:03.633 --> 00:02:11.171
 Give it Class overloads, @JvmOverloads, statics, and a facade that still builds the value classes.
 
-38
-00:02:23.000 --> 00:02:24.158
+33
+00:02:11.400 --> 00:02:12.600
 Check yourself.
 
-39
-00:02:24.158 --> 00:02:27.015
-There's no @JvmOverloads on PlainBus.
+34
+00:02:12.600 --> 00:02:19.157
+Without @JvmOverloads, does new PlainBus with a name and a flag compile from Java?
 
-40
-00:02:27.015 --> 00:02:31.724
-Does new PlainBus, with a name and a flag, compile from Java?
-
-41
-00:02:34.333 --> 00:02:34.617
+35
+00:02:21.867 --> 00:02:22.150
 Yes.
 
-42
-00:02:34.617 --> 00:02:37.237
+36
+00:02:22.150 --> 00:02:24.770
 The full constructor is always there.
 
-43
-00:02:37.237 --> 00:02:39.857
+37
+00:02:24.770 --> 00:02:27.391
 Only the ones in between are missing.
