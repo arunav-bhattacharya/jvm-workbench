@@ -151,10 +151,11 @@ class Cap2Hedge(VoiceScene):
             ([FadeIn(cut_l)], 0.5))
         for b in (f1, f2):
             b.clear_updaters()
+        self.play(FadeOut(cut_l), run_time=0.3)
         ghost = DashedLine([NEAR(120), L1, 0], [NEAR(200) + 0.2, L1, 0], dash_length=0.1, stroke_width=4, color=RED_M)
         ghost_l = T("no cancel: done at 600 ms", 24, RED_M).move_to([2.6, 0.6, 0])
         self.beat("Skip the cancel, and in Kotlin coroutineScope waits for every child. The request ends with the slow "
-                  "call, at 600.", FadeOut(cut_l), Create(ghost), FadeIn(ghost_l), run_time=1.6)
+                  "call, at 600.", Create(ghost), FadeIn(ghost_l), run_time=1.6)
         self.wait(0.3)
         self.play(FadeOut(VGroup(ghost, ghost_l, f1, f2, win, at, ax2, n1, n2, hl, hl_l, hl_n)), run_time=0.6)
 
