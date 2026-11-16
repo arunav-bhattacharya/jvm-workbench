@@ -1,145 +1,365 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.402
-A payment authorization takes 200 ms.
+00:00:02.700 --> 00:00:04.936
+Picture a restaurant with an odd rule.
 
 2
-00:00:05.402 --> 00:00:09.711
-It calls the fraud service, the card issuer and the ledger.
+00:00:04.936 --> 00:00:06.878
+Every table keeps its own waiter.
 
 3
-00:00:09.933 --> 00:00:12.499
-Only 5 ms of it runs on a CPU.
+00:00:06.878 --> 00:00:12.704
+The waiter takes the order to the kitchen, then stands at the kitchen door until the food is ready.
 
 4
-00:00:12.499 --> 00:00:15.493
-The rest is waiting on the network.
+00:00:12.933 --> 00:00:14.303
+It has 200 waiters.
 
 5
-00:00:15.700 --> 00:00:19.113
-Yet the request holds one thread for all 200 ms.
+00:00:14.303 --> 00:00:21.080
+On a busy night, the 201st party waits outside, while nearly every waiter stands by that door.
 
 6
-00:00:19.113 --> 00:00:22.881
-While it waits, no other request can use that thread.
+00:00:21.080 --> 00:00:23.748
+That door has never had so many fans.
 
 7
-00:00:24.400 --> 00:00:26.407
-Here is a pool of 200 threads.
+00:00:23.967 --> 00:00:27.131
+So here's a question that sounds too simple to ask.
 
 8
-00:00:26.407 --> 00:00:31.091
-Each square fills up as its request runs, then takes the next request.
+00:00:27.131 --> 00:00:29.737
+A waiter at the door isn't doing any work.
 
 9
-00:00:31.300 --> 00:00:36.661
-At 800 requests a second, 160 are busy, and 40 sit idle.
+00:00:29.737 --> 00:00:32.157
+So what's the harm in letting him wait?
 
 10
-00:00:36.867 --> 00:00:40.528
-Now traffic rises to 1,500 a second.
+00:00:34.933 --> 00:00:37.809
+Many Java servers work like that restaurant.
 
 11
-00:00:40.528 --> 00:00:41.851
-What happens?
+00:00:37.809 --> 00:00:39.442
+Take a small online shop.
 
 12
-00:00:44.067 --> 00:00:47.743
-The idle threads fill at once, and new requests start to queue.
+00:00:39.442 --> 00:00:48.983
+To check out a basket, its program reads the request and asks the stock service, a program on another computer, if the items are in the warehouse.
 
 13
-00:00:48.000 --> 00:00:54.961
-Each thread finishes five requests a second, so 200 threads finish 1,000 a second, and not one more.
+00:00:48.983 --> 00:00:56.891
+Then it asks the bank to take the payment, saves the order in its database, the program that keeps its data, and replies.
 
 14
-00:00:55.200 --> 00:00:57.647
-The other 500 a second pile up.
+00:00:57.100 --> 00:01:00.392
+One checkout takes 200 milliseconds.
 
 15
-00:00:57.647 --> 00:01:00.568
-After ten seconds, 5,000 are waiting.
+00:01:00.392 --> 00:01:02.496
+Reading the request, 2.
 
 16
-00:01:00.800 --> 00:01:01.617
-Freeze it.
+00:01:02.496 --> 00:01:04.508
+The stock service, 40.
 
 17
-00:01:01.617 --> 00:01:04.723
-Only about 5 threads are running code.
+00:01:04.508 --> 00:01:05.788
+The bank, 120.
 
 18
-00:01:04.723 --> 00:01:07.583
-The other 195 are blocked, waiting.
+00:01:05.788 --> 00:01:07.343
+The database, 35.
 
 19
-00:01:07.800 --> 00:01:11.391
-You run out of threads long before you run out of CPU.
+00:01:07.343 --> 00:01:08.532
+The reply, 3.
 
 20
-00:01:12.300 --> 00:01:16.424
-Now say the card issuer slows down to 1.2 seconds a call.
+00:01:08.733 --> 00:01:14.465
+Only 5 of them run on the processor, the part of the computer that does the work.
 
 21
-00:01:16.667 --> 00:01:23.393
-The same 200 threads now finish only 156 a second, and your code did not change.
+00:01:14.465 --> 00:01:17.579
+The other 195 are spent waiting for answers.
 
 22
-00:01:25.400 --> 00:01:27.284
-Why not run 2,000 threads?
+00:01:17.800 --> 00:01:18.916
+Now let's map it.
 
 23
-00:01:27.284 --> 00:01:31.920
-Each one is a platform thread: one Java thread is one OS thread.
+00:01:18.916 --> 00:01:20.491
+A table is one checkout.
 
 24
-00:01:32.133 --> 00:01:34.902
-Each reserves a 1 MB stack by default.
+00:01:20.491 --> 00:01:24.363
+A waiter is a thread, one path of work through the program.
 
 25
-00:01:34.902 --> 00:01:41.896
-Starting one is a system call, and switching between thousands costs kernel time and CPU caches.
+00:01:24.363 --> 00:01:27.054
+The kitchen door is waiting for the bank.
 
 26
-00:01:42.800 --> 00:01:49.861
-So a JVM is fine with hundreds, survives a few thousand, and fights the OS at tens of thousands.
+00:01:27.054 --> 00:01:33.289
+The 200 waiters are a pool of 200 threads, taking checkouts from a waiting line called a queue.
 
 27
-00:01:49.861 --> 00:01:51.773
-A million is out of reach.
+00:01:33.289 --> 00:01:36.571
+And the party outside is a checkout in that queue.
 
 28
-00:01:52.700 --> 00:01:55.040
-This is the thread-per-request wall.
+00:01:36.800 --> 00:01:39.731
+The thread stays with its checkout to the very end.
 
 29
-00:01:55.040 --> 00:02:00.436
-In Java and Kotlin it looks harmless: a fixed pool, and each task keeps its thread.
+00:01:39.731 --> 00:01:43.640
+While it waits, it's blocked: it can't go on until the answer comes.
 
 30
-00:02:01.267 --> 00:02:01.907
-The rule.
+00:01:43.867 --> 00:01:45.689
+And that answers our question.
 
 31
-00:02:01.907 --> 00:02:08.811
-A blocked request still holds its thread, so threads divided by time per request is your ceiling.
+00:01:45.689 --> 00:01:49.576
+A blocked thread does no work, but no other checkout can use it.
 
 32
-00:02:09.033 --> 00:02:10.054
-Check yourself.
+00:01:49.800 --> 00:01:51.633
+Shrink it to one thread.
 
 33
-00:02:10.054 --> 00:02:13.454
-200 threads, and each request now takes 2 seconds.
+00:01:51.633 --> 00:01:55.910
+It finishes a checkout every 0.2 seconds, so 5 a second.
 
 34
-00:02:13.454 --> 00:02:16.243
-How many can the service finish a second?
+00:01:55.910 --> 00:01:58.353
+How many can 200 threads finish?
 
 35
-00:02:18.967 --> 00:02:19.413
-100.
+00:02:00.933 --> 00:02:02.350
+1,000 a second.
 
 36
-00:02:19.413 --> 00:02:23.097
+00:02:02.350 --> 00:02:03.955
+And not one more.
+
+37
+00:02:05.467 --> 00:02:06.458
+Let's watch it.
+
+38
+00:02:06.458 --> 00:02:09.037
+Here's the pool, one square per thread.
+
+39
+00:02:09.037 --> 00:02:11.417
+A square fills as its checkout runs.
+
+40
+00:02:11.667 --> 00:02:17.623
+At 800 checkouts a second, 160 threads are busy and 40 sit idle.
+
+41
+00:02:17.623 --> 00:02:19.019
+So far so good.
+
+42
+00:02:19.267 --> 00:02:23.668
+Now traffic rises to 1,500 checkouts a second.
+
+43
+00:02:23.668 --> 00:02:24.912
+What happens?
+
+44
+00:02:27.500 --> 00:02:29.647
+The idle threads fill at once.
+
+45
+00:02:29.647 --> 00:02:35.300
+The pool still finishes 1,000 a second, so 500 more each second join the queue.
+
+46
+00:02:35.567 --> 00:02:42.827
+After ten seconds, 5,000 are waiting, and a new checkout waits 5 seconds before a thread even picks it up.
+
+47
+00:02:43.067 --> 00:02:45.663
+So the server must be working flat out, right?
+
+48
+00:02:45.663 --> 00:02:48.541
+Let's freeze it and count the threads running code.
+
+49
+00:02:48.767 --> 00:02:49.413
+About 5.
+
+50
+00:02:49.413 --> 00:02:53.939
+Each one spends a fortieth of its time on the processor.
+
+51
+00:02:53.939 --> 00:02:56.040
+The other 195 are blocked.
+
+52
+00:02:56.267 --> 00:03:02.061
+The server has 16 cores, the parts of the processor that each run one thread at a time.
+
+53
+00:03:02.061 --> 00:03:04.259
+So 11 of them have nothing to do.
+
+54
+00:03:04.467 --> 00:03:06.441
+A slow shop on a bored machine.
+
+55
+00:03:06.441 --> 00:03:10.136
+A faster processor would be a faster car in a traffic jam.
+
+56
+00:03:10.136 --> 00:03:13.831
+We run out of threads long before we run out of processor.
+
+57
+00:03:14.033 --> 00:03:19.933
+Now say the bank has a slow afternoon, and takes 1.2 seconds to answer.
+
+58
+00:03:19.933 --> 00:03:26.996
+A checkout now takes 1.28 seconds, and the same 200 threads finish only 156 a second.
+
+59
+00:03:27.233 --> 00:03:29.447
+We didn't change a line of our code.
+
+60
+00:03:29.447 --> 00:03:32.213
+The bank had a slow afternoon, and so did we.
+
+61
+00:03:32.213 --> 00:03:35.595
+So measure a slow service on a bad day, not a good one.
+
+62
+00:03:36.600 --> 00:03:38.858
+Does it hold on a real machine?
+
+63
+00:03:38.858 --> 00:03:45.923
+The lesson's WallDemo runs 2,000 fake checkouts that each sleep 100 milliseconds, on 100 threads.
+
+64
+00:03:45.923 --> 00:03:47.671
+How long should it take?
+
+65
+00:03:50.267 --> 00:03:53.660
+That's 1,000 a second, so about 2 seconds.
+
+66
+00:03:53.660 --> 00:04:01.011
+A busy 4-core machine took 2,229 milliseconds: the prediction, plus a little start-up time.
+
+67
+00:04:01.833 --> 00:04:04.258
+This arithmetic is called Little's law.
+
+68
+00:04:04.258 --> 00:04:10.103
+How many are inside at once equals how many arrive each second, times how long each one stays.
+
+69
+00:04:10.333 --> 00:04:17.048
+Turned around, threads divided by the time each one is held is the most a pool can finish.
+
+70
+00:04:17.048 --> 00:04:20.779
+That's 1,000 a second, or 156 on a slow afternoon.
+
+71
+00:04:21.000 --> 00:04:26.915
+And the style is called thread-per-request: one thread for a request's whole life, waits included.
+
+72
+00:04:26.915 --> 00:04:28.907
+The restaurant's personal waiter.
+
+73
+00:04:29.133 --> 00:04:31.307
+So why not hire more waiters?
+
+74
+00:04:31.307 --> 00:04:32.731
+Say, 2,000 threads?
+
+75
+00:04:32.933 --> 00:04:40.480
+Each one is a platform thread, backed by one thread of the operating system, the program that runs all the others.
+
+76
+00:04:40.480 --> 00:04:48.755
+Starting one is a request to the operating system, and each one reserves 1 MB for its stack, the memory for its method calls.
+
+77
+00:04:48.967 --> 00:04:54.596
+That's the waiter's contract and his locker, paid even for one who just stands at the door.
+
+78
+00:04:54.596 --> 00:04:58.431
+So one Java program runs thousands of them, but not a million.
+
+79
+00:04:59.233 --> 00:05:02.176
+And here the restaurant picture breaks, against us.
+
+80
+00:05:02.176 --> 00:05:05.406
+A real waiter at the door could at least refill a glass.
+
+81
+00:05:05.406 --> 00:05:07.829
+A blocked thread can't do anything at all.
+
+82
+00:05:08.533 --> 00:05:13.789
+Here's the checkout in Java and Kotlin: three plain calls on a pool of 200.
+
+83
+00:05:13.789 --> 00:05:17.784
+It passes every test, and fails only at the busiest hour.
+
+84
+00:05:18.600 --> 00:05:21.125
+So, what's the harm in a waiting thread?
+
+85
+00:05:21.125 --> 00:05:23.903
+It does no work, but nobody else can use it.
+
+86
+00:05:23.903 --> 00:05:29.521
+Threads divided by the time each one is held is your ceiling, however idle the processor.
+
+87
+00:05:29.733 --> 00:05:30.562
+Quick check.
+
+88
+00:05:30.562 --> 00:05:34.084
+200 threads, and each checkout now takes 2 seconds.
+
+89
+00:05:34.084 --> 00:05:36.708
+How many a second can the shop finish?
+
+90
+00:05:39.700 --> 00:05:40.147
+100.
+
+91
+00:05:40.147 --> 00:05:43.831
 200 threads divided by 2 seconds.
