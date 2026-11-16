@@ -1,145 +1,349 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:12.584
-A quote needs two answers: the customer from the CRM, which can take 2 seconds, and a credit limit check that fails after 100 ms.
+00:00:02.733 --> 00:00:05.826
+Our shop's checkout now asks two services at once.
 
 2
-00:00:12.800 --> 00:00:15.129
-Both run on a shared executor.
+00:00:05.826 --> 00:00:12.814
+The stock service says whether the items are in the warehouse, and the bank says whether the payment is approved.
 
 3
-00:00:15.129 --> 00:00:19.555
-At 100 ms the limit check fails, and so does the request.
+00:00:12.814 --> 00:00:14.793
+That's a fan-out, from lesson 3.
 
 4
-00:00:19.767 --> 00:00:21.949
-What happens to the CRM call?
+00:00:14.793 --> 00:00:19.123
+Each call is a subtask: a piece of the job, on its own virtual thread.
 
 5
-00:00:24.167 --> 00:00:25.293
-Nothing stops it.
+00:00:19.200 --> 00:00:22.113
+Here's a question that's easy to be shy about.
 
 6
-00:00:25.293 --> 00:00:30.857
-It runs for the full two seconds, holding a connection, and nobody reads its answer.
+00:00:22.113 --> 00:00:25.595
+The checkout waits for every subtask before it returns.
 
 7
-00:00:31.767 --> 00:00:36.096
-Now let the request own its subtasks, like a tree owns its branches.
+00:00:25.595 --> 00:00:27.241
+Isn't that careful enough?
 
 8
-00:00:36.096 --> 00:00:41.316
-The scope forks each one on its own virtual thread, then joins: it waits for them.
+00:00:30.067 --> 00:00:31.022
+Let's test it.
 
 9
-00:00:41.533 --> 00:00:43.920
-At 100 ms the limit check fails.
+00:00:31.022 --> 00:00:36.070
+The items are sold out, so the stock service fails after 100 milliseconds.
 
 10
-00:00:43.920 --> 00:00:46.754
-The scope cancels the sibling at once.
+00:00:36.070 --> 00:00:39.481
+The bank is having a bad day, and takes 2 seconds.
 
 11
-00:00:46.754 --> 00:00:52.348
-It interrupts the CRM call, which is blocked reading a socket, so it stops.
+00:00:39.481 --> 00:00:41.255
+Its answer is useless now.
 
 12
-00:00:52.567 --> 00:00:55.840
-join throws that first failure at once.
+00:00:41.255 --> 00:00:43.369
+So when does the checkout fail?
 
 13
-00:00:55.840 --> 00:00:58.191
-At 100 ms, not at 2 seconds.
+00:00:46.200 --> 00:00:53.519
+The lesson's LeakDemo ran it, with an executor, an object that runs tasks for you, made for each checkout.
 
 14
-00:00:58.400 --> 00:01:01.605
-Then close waits until every branch has really ended.
+00:00:53.519 --> 00:00:58.214
+It failed at 2,069 milliseconds: doomed at 100, failed at 2 seconds.
 
 15
-00:01:01.605 --> 00:01:05.112
-When the block exits, nothing it started is still running.
+00:00:58.214 --> 00:01:03.530
+Leaving the try block waits for every task, and nobody told the bank to stop.
 
 16
-00:01:05.333 --> 00:01:07.305
-That is structured concurrency.
+00:01:03.530 --> 00:01:09.053
+So it took its full two seconds to answer a question nobody was asking any more.
 
 17
-00:01:07.305 --> 00:01:13.731
-A subtask can't outlive the block that started it, the way a local variable can't outlive its method.
+00:01:09.133 --> 00:01:12.126
+Many programs share one executor instead.
 
 18
-00:01:15.533 --> 00:01:17.848
-Context can flow down the same tree.
+00:01:12.126 --> 00:01:21.030
+Then the checkout fails fast, at 102 milliseconds, but the bank call runs on until 2,001, for a checkout that's long gone.
 
 19
-00:01:17.848 --> 00:01:20.677
-Bind a scoped value, the tenant, at the top.
+00:01:21.030 --> 00:01:25.409
+Under load these orphans pile up, each holding a connection.
 
 20
-00:01:20.677 --> 00:01:22.991
-Each subtask reads that one binding.
+00:01:26.133 --> 00:01:27.306
+Now the restaurant.
 
 21
-00:01:22.991 --> 00:01:26.141
-Nobody can change it, and it ends with the block.
+00:01:27.306 --> 00:01:36.938
+A big table orders, and the head waiter sends three helpers at once: to the kitchen for the soup, to the bar for the drinks, and to the cellar for the wine.
 
 22
-00:01:26.367 --> 00:01:29.662
-Check the JDK before you copy code.
+00:01:36.938 --> 00:01:40.148
+Then he stays at the table until all three are back.
 
 23
-00:01:29.662 --> 00:01:38.607
-StructuredTaskScope is a preview API in JDK 25, 26 and 27, so it needs the enable preview flag.
+00:01:40.267 --> 00:01:42.426
+Now the cellar is out of that wine.
 
 24
-00:01:38.607 --> 00:01:41.149
-It becomes final in JDK 28.
+00:01:42.426 --> 00:01:46.374
+Its helper comes straight back, and the table changes its order.
 
 25
-00:01:41.367 --> 00:01:45.516
-Scoped values are already final, since JDK 25.
+00:01:46.374 --> 00:01:49.766
+A careful head waiter calls the other two back at once.
 
 26
-00:01:45.516 --> 00:01:47.140
-They need no flag.
+00:01:49.766 --> 00:01:55.256
+A careless one lets them carry on, and a soup arrives for an order that no longer exists.
 
 27
-00:01:48.067 --> 00:01:50.516
-Here it is in JDK 25 code.
+00:01:55.256 --> 00:01:56.490
+Someone will eat it.
 
 28
-00:01:50.516 --> 00:01:52.965
-Kotlin calls the same API.
+00:01:56.490 --> 00:01:57.971
+Probably the dishwasher.
 
 29
-00:01:53.767 --> 00:01:54.383
-The rule.
+00:01:58.067 --> 00:02:01.846
+So the point is: waiting for everyone is only half the job.
 
 30
-00:01:54.383 --> 00:01:57.876
-Every subtask ends before the block that forked it.
+00:02:01.846 --> 00:02:04.216
+When one fails, the others must stop.
 
 31
-00:01:58.100 --> 00:01:59.337
-Check yourself.
+00:02:04.216 --> 00:02:06.394
+Our executor was the careless one.
 
 32
-00:01:59.337 --> 00:02:01.646
-One subtask fails at 100 ms.
+00:02:06.394 --> 00:02:09.084
+Version A waited for a soup nobody wanted.
 
 33
-00:02:01.646 --> 00:02:04.203
-The other would take 2 seconds.
+00:02:09.084 --> 00:02:12.159
+Version B left while the soup was still cooking.
 
 34
-00:02:04.203 --> 00:02:05.935
-When does join throw?
+00:02:13.200 --> 00:02:16.768
+So let's hire the careful one, and map him part by part.
 
 35
-00:02:08.667 --> 00:02:10.001
-At about 100 ms.
+00:02:16.768 --> 00:02:21.546
+The head waiter is the scope, an object that starts subtasks and owns them.
 
 36
-00:02:10.001 --> 00:02:13.672
-The first failure cancels the other subtask.
+00:02:21.546 --> 00:02:25.369
+Sending a helper is fork, a subtask on a new virtual thread.
+
+37
+00:02:25.369 --> 00:02:27.217
+Waiting at the table is join.
+
+38
+00:02:27.217 --> 00:02:29.574
+Calling the others back is fail fast.
+
+39
+00:02:29.574 --> 00:02:32.632
+And staying until every helper is back is close.
+
+40
+00:02:33.333 --> 00:02:35.403
+Same checkout, now in a scope.
+
+41
+00:02:35.403 --> 00:02:40.716
+The stock check fails at 100 milliseconds, and the bank would take 2 seconds.
+
+42
+00:02:40.716 --> 00:02:42.441
+When does join throw now?
+
+43
+00:02:45.267 --> 00:02:47.061
+At 0, the scope forks both.
+
+44
+00:02:47.061 --> 00:02:50.118
+At 100 milliseconds, the stock subtask throws.
+
+45
+00:02:50.118 --> 00:02:54.372
+The scope keeps that as the first failure, and cancels the rest.
+
+46
+00:02:54.372 --> 00:03:00.353
+Cancel means interrupt: a signal that wakes a waiting thread with an InterruptedException.
+
+47
+00:03:00.353 --> 00:03:04.607
+So the bank subtask, waiting on the network, wakes up and stops.
+
+48
+00:03:04.733 --> 00:03:08.372
+So join throws the stock failure at about 100 milliseconds.
+
+49
+00:03:08.372 --> 00:03:12.011
+Then close waits until the bank thread has really finished.
+
+50
+00:03:12.011 --> 00:03:15.527
+When the block ends, nothing it started is still running.
+
+51
+00:03:16.200 --> 00:03:18.849
+That has a name: structured concurrency.
+
+52
+00:03:18.849 --> 00:03:26.069
+A subtask can't outlive the block of code that started it, just as a local variable can't outlive its method.
+
+53
+00:03:26.800 --> 00:03:28.357
+Here the picture breaks.
+
+54
+00:03:28.357 --> 00:03:30.693
+A real helper hears his name called.
+
+55
+00:03:30.693 --> 00:03:36.988
+A subtask hears the interrupt only while it waits: in a sleep, a network read, a lock or a queue.
+
+56
+00:03:36.988 --> 00:03:41.335
+A loop that only computes hears nothing, like a helper in earmuffs.
+
+57
+00:03:41.335 --> 00:03:44.775
+Cancelling is a request, and the code must cooperate.
+
+58
+00:03:45.467 --> 00:03:49.621
+The JDK has its own head waiter, StructuredTaskScope.
+
+59
+00:03:49.621 --> 00:03:59.106
+In JDK 25 it's a preview: finished, but allowed to change in the next release, so the compiler refuses it without a flag.
+
+60
+00:03:59.106 --> 00:04:01.849
+It's due to become final in JDK 28.
+
+61
+00:04:01.933 --> 00:04:06.706
+The lesson's ScopeDemo runs our checkout that way on JDK 25.
+
+62
+00:04:06.706 --> 00:04:15.058
+At 135 milliseconds the bank was interrupted, and at 165 the checkout failed, with nothing still running.
+
+63
+00:04:15.058 --> 00:04:19.831
+A little over 100, because the first run also loads classes.
+
+64
+00:04:20.733 --> 00:04:25.283
+One gap is left: the order's own details, like its number for the log.
+
+65
+00:04:25.283 --> 00:04:32.821
+A ThreadLocal, the apron pocket from lesson 4, doesn't follow the work into the helpers, and anyone can write in it.
+
+66
+00:04:32.933 --> 00:04:35.259
+So pin a note to the order instead.
+
+67
+00:04:35.259 --> 00:04:41.040
+Every helper can read it, nobody can change it, and it comes off when the order closes.
+
+68
+00:04:41.040 --> 00:04:47.684
+That's a scoped value: bound for one call with where and run, read with get, and with no set at all.
+
+69
+00:04:47.684 --> 00:04:50.475
+It's final in JDK 25, so it needs no flag.
+
+70
+00:04:51.200 --> 00:04:53.919
+It flows into the subtasks a scope forks.
+
+71
+00:04:53.919 --> 00:04:57.035
+That's the order-42 on every line of ScopeDemo.
+
+72
+00:04:57.035 --> 00:04:59.753
+A thread you start yourself gets nothing.
+
+73
+00:05:00.467 --> 00:05:04.968
+Here's the checkout in JDK 25, Java on top and Kotlin below.
+
+74
+00:05:04.968 --> 00:05:09.845
+Fork both, join, and let close make sure nothing is left running.
+
+75
+00:05:10.533 --> 00:05:13.569
+So, is waiting for every helper careful enough?
+
+76
+00:05:13.569 --> 00:05:13.763
+No.
+
+77
+00:05:13.763 --> 00:05:18.478
+A careful head waiter also calls the others back, and never leaves early.
+
+78
+00:05:18.478 --> 00:05:21.643
+A scope does both: no subtask outlives its block.
+
+79
+00:05:21.643 --> 00:05:25.841
+And the note on the order goes wherever the scope sends the work.
+
+80
+00:05:25.933 --> 00:05:26.718
+Quick check.
+
+81
+00:05:26.718 --> 00:05:29.464
+The stock check fails at 100 milliseconds.
+
+82
+00:05:29.464 --> 00:05:31.752
+The bank call waits on the network.
+
+83
+00:05:31.752 --> 00:05:36.459
+A third subtask runs a 3 second loop that never checks for an interrupt.
+
+84
+00:05:36.459 --> 00:05:39.663
+When does join throw, and when does close return?
+
+85
+00:05:42.867 --> 00:05:46.992
+Join throws at about 100 milliseconds, with the stock failure.
+
+86
+00:05:46.992 --> 00:05:49.188
+Close returns at about 3 seconds.
+
+87
+00:05:49.188 --> 00:05:55.111
+The interrupt stops the network wait, but not the loop, and close waits for every thread.

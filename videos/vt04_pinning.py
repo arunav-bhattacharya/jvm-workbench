@@ -12,91 +12,74 @@ fg.SAY[:0] = [
 # every spoken line, in order
 N = {
     "open": "Back to the restaurant with four waiters and a board of order slips. "
-            "When a slip has to wait for the kitchen, its waiter clips it to the board by the kitchen door, "
-            "and picks up a slip that's ready. That's how four waiters keep two hundred tables moving.",
-    "words": "In Java words, each slip is a virtual thread, a cheap Java thread. "
-             "The waiters are carrier threads, the few real threads that run them. "
-             "And clipping a slip to the board is unmounting: the thread's saved stack goes to the heap, "
-             "the memory where Java keeps its objects, and its carrier is free.",
-    "shyq": "So here's a question that's easy to be shy about. If a waiting slip always goes on the board, "
-            "can a waiter ever get stuck? Could four of them freeze the whole room?",
-    "shop": "Let's find out with a cache our shop really needs. The shop sells to customers abroad, "
-            "so the checkout shows each price in the customer's own money. "
-            "For that, it needs an exchange rate, such as how many dollars one euro buys. "
-            "A rates service on another computer answers in about 100 milliseconds. "
-            "Rates change only a few times a day, so the shop keeps each rate after the first lookup.",
-    "lock": "Many virtual threads ask the cache at once, so it needs a lock. "
-            "Most of us would write synchronized on the method. "
-            "That takes the lock every Java object has built in, called a monitor. "
-            "One thread at a time gets in, and the others wait at the door. "
-            "The code is correct. Each rate loads once, and the lab's first test passes.",
-    "pan": "Now back to the kitchen, and give one dish a hot pan. "
+            "When a slip has to wait, its waiter clips it to the board by the kitchen door, "
+            "and picks up one that's ready. Four waiters, two hundred tables.",
+    "words": "In Java words, a slip is a virtual thread, a cheap Java thread. "
+             "A waiter is a carrier, one of the few real threads that run them. "
+             "Clipping a slip to the board is unmounting: its saved stack goes to the heap, "
+             "where Java keeps its objects.",
+    "shyq": "Here's a question that's easy to be shy about. If waiting slips always go on the board, "
+            "can four waiters ever freeze the room?",
+    "shop": "Let's find out with a cache from our shop. The checkout shows each price in the customer's own money, "
+            "so it needs exchange rates, like how many dollars one euro buys. "
+            "A rates service on another computer answers in about 100 milliseconds, "
+            "so the shop keeps each rate it fetches.",
+    "lock": "Many virtual threads ask at once, so the cache needs a lock. Most of us would write synchronized. "
+            "It takes the lock every Java object has built in, called a monitor: one thread at a time gets in. "
+            "The code is correct, and the lab's first test passes.",
+    "pan": "Now give one dish a hot pan. "
            "A waiter holding a hot pan can't clip his slip to the board, because he can't put the pan down. "
-           "So he stands at the stove, holding both, until the dish is done. "
+           "So he stands at the stove until the dish is done. "
            "Nobody has made a board you can hang a hot pan on. Not yet, anyway. "
-           "So the point is: a slip that holds the pan stays in the waiter's hands.",
+           "So the slip stays in his hands.",
     "four": "Now let all four waiters hold pans. Every slip on the board waits, "
-            "even the ones that only need a glass of water. The whole room goes still.",
-    "map": "Here's the hot pan, part by part. The pan is the monitor. "
-           "It's in the waiter's hands, because on JDK 21 to 23, the JVM recorded the carrier as the monitor's owner, "
-           "not the virtual thread. The slip can't go on the board, because the virtual thread can't unmount. "
-           "And the waiter stands at the stove for the whole wait, because the carrier is blocked.",
-    "why": "Why can't the slip just leave? Picture it on the board, and the waiter picking up the next slip. "
-           "Now the pan seems to belong to that new slip, which never asked for it. "
-           "So the slip stays, and its waiter stays with it.",
-    "name": "That has a name: pinning. A pinned virtual thread reaches a blocking call, "
-            "but it can't let go of its carrier. And on JDK 21 to 23, a slip waiting to take the pan was pinned too, "
-            "so the waiters in line for the pan stood still as well.",
-    "demo": "Let's shrink it to one waiter, so a single pin stops everything. "
-            "The lesson's PinningDemo runs with one carrier. "
-            "A small virtual thread, the ticker, has one modest job: note the time every 50 milliseconds. "
-            "Three other virtual threads each take the lock and sleep 100 milliseconds inside it. "
-            "The sleep stands in for the slow call.",
+            "even one that only needs a glass of water. The room goes still.",
+    "map": "Here's the mapping. The pan is the monitor. "
+           "It's in the waiter's hands because on JDK 21 to 23, the JVM recorded the carrier as the monitor's owner. "
+           "The slip stays off the board: the thread can't unmount. "
+           "And the waiter stands still: the carrier is blocked.",
+    "why": "Why the carrier? If the slip left, the pan would seem to belong to the next slip that waiter picked up. "
+           "So both stay.",
+    "name": "That's called pinning: a virtual thread reaches a blocking call, but can't let go of its carrier. "
+            "On JDK 21 to 23, even a slip waiting for the pan was pinned.",
+    "demo": "Let's shrink it to one waiter. "
+            "The lesson's PinningDemo runs on one carrier. "
+            "A small virtual thread, the ticker, notes the time every 50 milliseconds. "
+            "Three others each take the lock and sleep 100 milliseconds inside it, in place of the slow call.",
     "demo_q": "If nothing pins, the ticker keeps its rhythm, and the longest gap between ticks stays near "
               "50 milliseconds. What will JDK 21 show?",
     "demo_a": "343 milliseconds, about three sleeps in a row. "
               "Each sleeper held the only carrier for its whole 100 milliseconds, and the JVM counted three pins.",
-    "quiet": "Well... That's a long silence for a clock. And the ticker never touched the lock. "
-             "It just needed a waiter, and none was free.",
-    "cool": "Now swap the monitor for a ReentrantLock, the lock class from java.util.concurrent. "
-            "It records the virtual thread as its owner, and it waits by parking, "
-            "the JDK's way of setting a thread aside until someone wakes it. So it has always unmounted. "
-            "It's a cool pan: the slip goes on the board, lock and all.",
+    "quiet": "Well... That's a long silence for a clock. And the ticker never even touched the lock.",
+    "cool": "Now swap the monitor for a ReentrantLock, a lock class from java.util.concurrent. "
+            "It records the virtual thread as its owner, and it waits by parking: "
+            "setting the thread aside until someone wakes it. So it always unmounts. It's a cool pan.",
     "cool_q": "Same three sleepers, same one carrier. What's the longest gap now?",
     "cool_a": "102 milliseconds on this busy machine, and 51 on the next run, with no pins. "
-              "The sleepers still took turns with the lock. But they waited on the board, and the ticker kept its waiter.",
-    "rule": "So on JDK 21 to 23, blocking while you hold a monitor pins the carrier. "
-            "There, put a ReentrantLock around slow calls.",
+              "The sleepers still took turns with the lock, but on the board, so the ticker kept its waiter.",
     "worse": "And slow is the mild case. In 2024, engineers at Netflix described Java 21 services "
-             "that stopped answering altogether. Every carrier was held by a virtual thread, "
-             "pinned while it waited to enter one synchronized block. "
-             "The virtual thread next in line for that lock was unmounted. "
-             "It needed a free carrier to take the lock and let the others through. None was free, and none ever would be.",
-    "worse_pic": "In the restaurant, four waiters stand at the stove, waiting for the pan. "
-                 "And the slip that must take it next hangs on the board, waiting for a waiter. "
-                 "Everyone is waiting for someone, very politely, and nobody is cooking. "
-                 "So the point is: the carriers wait for the lock, and the lock waits for a carrier.",
-    "fix": "Then JDK 24 made that hook for hot pans. JEP 491, the design document for the change, "
-           "rebuilt how monitors work. The JVM now records the virtual thread itself as the owner. "
-           "So synchronized and Object.wait unmount, just as a ReentrantLock does. "
-           "The pan travels with its slip, and the waiter is free.",
-    "jdk25": "Here's the same demo on JDK 25, the first long-term-support release with the fix, "
-             "the kind that gets updates for years. With synchronized, the longest gap was 52 milliseconds, "
-             "and there were no pins. The ticker kept time.",
-    "guard": "So which lock should you use? It depends on one thing: your JDK. "
-             "On JDK 21 to 23, take the monitor out of the slow path with a ReentrantLock. "
-             "On JDK 25, leave working synchronized code alone. Rewriting it buys you nothing. "
-             "A few pans stay hot even there, such as a class that loads something slow while it sets itself up. "
-             "The next part of the lesson shows those, and how to find a pin.",
-    "code": "Here's the fix in Java and Kotlin. Java takes the lock on the line before try, and unlocks in finally. "
-            "Kotlin's withLock writes the try and the finally for you. "
-            "Either way, one caller at a time still gets in, so each rate still loads once.",
-    "moral": "So, could four waiters freeze the room? On JDK 21 to 23, yes, if they hold hot pans. "
-             "A slip that holds a monitor can't go on the board, so its carrier waits with it. "
-             "A ReentrantLock, or JDK 24 and later, lets the slip go on the board, lock and all.",
-    "check": "Quick check. On JDK 21, with one carrier, a virtual thread sleeps 100 milliseconds "
-             "while it holds a ReentrantLock. Can the ticker tick during that sleep?",
-    "check_a": "Yes. The lock doesn't pin, so the sleeper unmounts. Its slip goes on the board, lock and all, "
+             "that stopped answering. Every carrier was pinned by a thread waiting to enter one synchronized block. "
+             "The thread next in line for that lock was unmounted, and never got a free carrier.",
+    "worse_pic": "In the restaurant, four waiters wait at the stove for the pan, while the slip that must take it next "
+                 "hangs on the board, waiting for a waiter. Everyone waits, very politely, and nobody cooks. "
+                 "The carriers wait for the lock, and the lock waits for a carrier.",
+    "fix": "Then JDK 24 made that hook. Its design document, JEP 491, changed monitors "
+           "so the JVM records the virtual thread as the owner. "
+           "So synchronized and Object.wait unmount, like a ReentrantLock. The pan travels with its slip.",
+    "jdk25": "JDK 25, the first long-term-support release with the fix, gets updates for years. "
+             "There, the same demo with synchronized shows a 52 millisecond gap, and no pins.",
+    "guard": "Which lock, then? It depends on your JDK. "
+             "On JDK 21 to 23, blocking while holding a monitor pins, so put a ReentrantLock around slow calls. "
+             "On JDK 25, leave working synchronized code alone. "
+             "A few pans stay hot even there, and the next part of the lesson shows them.",
+    "code": "Here's the fix in Java and Kotlin. Java locks on the line before try, and unlocks in finally. "
+            "Kotlin's withLock writes that for you. Each rate still loads once.",
+    "moral": "So, could four waiters freeze the room? On JDK 21 to 23, yes: a slip holding a monitor "
+             "can't go on the board, so its carrier waits too. "
+             "A ReentrantLock, or JDK 24 and later, lets it go on the board, lock and all.",
+    "check": "Quick check. JDK 21, one carrier. A virtual thread sleeps 100 milliseconds while holding a ReentrantLock. "
+             "Can the ticker tick during that sleep?",
+    "check_a": "Yes. The lock doesn't pin, so the sleeper unmounts, lock and all, "
                "and the only waiter is free for the ticker.",
 }
 
@@ -130,7 +113,7 @@ class Narrated(VoiceScene):
         if rest > 0.02:
             self.wait(rest)
 
-    def hold(self, after=0.25):
+    def hold(self, after=0.15):
         rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
@@ -304,13 +287,13 @@ class Vt04Pinning(Narrated):
         self.say("shop")
         self.at(1)
         self.play(FadeIn(top1), run_time=0.7)
-        self.at(2)
+        self.at_text("exchange rates", lead=0.3)
         self.play(FadeIn(top2, shift=UP * 0.1), run_time=0.6)
         self.play(FadeIn(cks), GrowArrow(a1), FadeIn(cache), run_time=0.8)
-        self.at(3)
+        self.at(2)
         self.play(GrowArrow(a2), FadeIn(svc), FadeIn(svc_n), run_time=0.8)
         self.play(travel(a2, SERVICE, 0.8))
-        self.at(4)
+        self.at_text("so the shop keeps each", lead=0.3)
         self.play(FadeIn(cache_n), run_time=0.6)
         self.hold()
 
@@ -326,10 +309,10 @@ class Vt04Pinning(Narrated):
         self.play(FadeIn(syn, shift=DOWN * 0.1), run_time=0.6)
         self.at(2)
         self.play(FadeIn(mon, shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at_text("one thread at a time", lead=0.3)
         self.play(FadeIn(door), Indicate(cks[2], color=GOOD, scale_factor=1.08), run_time=0.8)
         self.play(Indicate(cks[:2], color=GREY_B, scale_factor=1.04), run_time=0.7)
-        self.at(4)
+        self.at(3)
         self.play(FadeIn(ok, shift=UP * 0.1), run_time=0.7)
         self.hold()
         self.play(FadeOut(VGroup(top1, top2, cks, cache, svc, a1, a2, svc_n, cache_n, syn, mon, door, ok)), run_time=0.6)
@@ -373,14 +356,14 @@ class Vt04Pinning(Narrated):
         others = VGroup(*waiters[1:], *pans[1:], *held[1:], *on_board, hook_d, hook_q, titles, water, still)
         self.play(FadeOut(others), run_time=0.6)
         vig = VGroup(stove, burners, board, waiters[0], pans[0], held[0])
-        self.play(vig.animate.scale(0.6).move_to([0, 1.95, 0]), run_time=0.9)
+        self.play(vig.animate.scale(0.72).move_to([0, 1.9, 0]), run_time=0.9)
         rows_src = (("the pan", "the monitor"),
                     ("in his hands", "JDK 21 to 23 record the carrier as owner"),
                     ("slip not on the board", "the virtual thread can't unmount"),
                     ("standing at the stove", "the carrier is blocked"))
         mrows = VGroup()
         for i, (a, b) in enumerate(rows_src):
-            y = 0.25 - 0.72 * i
+            y = 0.0 - 0.7 * i
             mrows.add(VGroup(T(a, 26, GREY_A).move_to([-1.7, y, 0], aligned_edge=RIGHT),
                              T("=", 26, GREY_B).move_to([-1.3, y, 0]),
                              T(b, 26, NEXT).move_to([-0.9, y, 0], aligned_edge=LEFT)))
@@ -397,35 +380,36 @@ class Vt04Pinning(Narrated):
         self.hold()
 
         # why the slip can't just leave
-        slot_v = board.get_center() + np.array([-0.48, 0.45, 0])
+        slot_v = board.get_center() + np.array([-0.58, 0.9, 0])
         ghost = held[0].copy()
-        new_s = slip("table 9", COOL, size=20).scale(0.85 * 0.6).move_to(held[0])
-        whose = T("whose pan is it now?", 28, PAN).move_to([0, -0.2, 0])
-        why_n = T("if the slip left, the pan would seem to belong to the next slip", 26, GREY_A).move_to([0, -0.85, 0])
+        new_s = slip("table 9", COOL, size=20).scale(0.85 * 0.72).move_to(held[0])
+        whose = T("whose pan is it now?", 28, PAN).move_to([0, -0.45, 0])
+        why_n = T("if the slip left, the pan would seem to belong to the next slip", 26, GREY_A).move_to([0, -1.1, 0])
         self.say("why")
         self.play(FadeOut(mrows), run_time=0.5)
         self.at(1)
         self.play(ghost.animate.move_to(slot_v).set_opacity(0.5), held[0].animate.set_opacity(0), run_time=0.9)
         self.play(FadeIn(new_s, shift=LEFT * 0.2), run_time=0.6)
-        self.at(2)
+        self.at_text("seem to belong", lead=0.3)
         self.play(FadeIn(whose), Indicate(pans[0], color=PAN, scale_factor=1.2), run_time=0.8)
         self.play(FadeIn(why_n), run_time=0.5)
-        self.at(3)
+        self.at(2)
         self.play(FadeOut(new_s), ghost.animate.move_to(held[0]).set_opacity(1), run_time=0.9)
         self.remove(ghost)
         held[0].set_opacity(1)
         self.hold()
 
-        pin_w = T("pinning", 48, NEXT).move_to([0, -0.15, 0])
+        pin_w = T("pinning", 48, NEXT).move_to([0, -0.4, 0])
         pin_d = T("a virtual thread reaches a blocking call, but can't let go of its carrier", 28).move_to([0, -1.0, 0])
         fit(pin_d, 12.4)
-        pin_2 = T("JDK 21 to 23: a slip waiting to take the pan was pinned too", 26, GREY_A).move_to([0, -1.85, 0])
+        pin_d.move_to([0, -1.2, 0])
+        pin_2 = T("JDK 21 to 23: a slip waiting to take the pan was pinned too", 26, GREY_A).move_to([0, -2.0, 0])
         self.say("name")
         self.play(FadeOut(VGroup(whose, why_n)), run_time=0.4)
         self.play(Write(pin_w), run_time=0.9)
-        self.at(1)
+        self.at_text("a virtual thread reaches", lead=0.3)
         self.play(FadeIn(pin_d, shift=UP * 0.1), run_time=0.7)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(pin_2), run_time=0.6)
         self.hold()
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
@@ -449,7 +433,7 @@ class Vt04Pinning(Narrated):
         self.play(FadeIn(tk_s), FadeIn(tk_n), run_time=0.7)
         self.at(3)
         self.play(LaggedStart(*[FadeIn(s, shift=RIGHT * 0.1) for s in sl_s], lag_ratio=0.2), FadeIn(sl_n), run_time=1.0)
-        self.at(4)
+        self.at_text("in place of", lead=0.3)
         self.play(FadeIn(stands), run_time=0.6)
         self.hold()
         self.play(FadeOut(VGroup(hdr, one_w, one_l, tk_s, tk_n, sl_s, sl_n, stands)), run_time=0.6)
@@ -534,18 +518,9 @@ class Vt04Pinning(Narrated):
         self.play(FadeIn(nxt), run_time=0.4)
         self.at(1)
         self.play(Indicate(b2, color=WHITE, scale_factor=1.03), run_time=0.8)
-        self.at(2)
         self.play(FadeIn(brd_n), Indicate(dots2, color=TICK, scale_factor=1.2), run_time=0.8)
         self.hold()
 
-        rule = VGroup(T("On JDK 21 to 23, blocking while you hold a monitor pins the carrier.", 28),
-                      T("There, put a ReentrantLock around slow calls.", 28, NEXT)).arrange(DOWN, buff=0.14)
-        fit(rule, 12.4).move_to([0, -2.85, 0])
-        self.say("rule")
-        self.play(FadeIn(rule[0], shift=UP * 0.1), run_time=0.6)
-        self.at(1)
-        self.play(FadeIn(rule[1], shift=UP * 0.1), run_time=0.6)
-        self.hold()
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
 
         # ================= the stuck room =================
@@ -558,14 +533,14 @@ class Vt04Pinning(Narrated):
         w4 = VGroup(*[person(s=0.8).move_to([-4.3, y, 0]) for y in SY])
         s4 = VGroup(*[slip(f"VT {n}", PAN, size=20).scale(0.85).move_to([-2.9, y, 0]) for n, y in zip((31, 44, 58, 63), SY)])
         pin4 = T("pinned, waiting to take the pan", 24, PAN).move_to([-3.9, -1.95, 0])
-        brd2 = RoundedRectangle(corner_radius=0.12, width=4.2, height=3.4).set_stroke(GREY_B, 2.5).set_fill(GREY_E, 1)
-        brd2.move_to([3.9, 0.2, 0])
+        brd2 = RoundedRectangle(corner_radius=0.12, width=4.2, height=3.6).set_stroke(GREY_B, 2.5).set_fill(GREY_E, 1)
+        brd2.move_to([3.9, 0.1, 0])
         brd2_l = T("the board", 24, GREY_A).next_to(brd2, UP, buff=0.15)
         vt7 = slip("VT 7", NEXT, size=22).move_to([2.7, 1.2, 0])
         vt7_n = VGroup(T("next to take", 22, NEXT), T("the pan", 22, NEXT)).arrange(DOWN, buff=0.06).next_to(vt7, RIGHT, buff=0.25)
-        news_s = VGroup(*[slip("", GREY_B, w=0.8).scale(0.6) for _ in range(6)]).arrange(RIGHT, buff=0.1).move_to([3.9, -0.55, 0])
-        news_n = T("VT 90, 91, ...: new checkouts, also waiting", 22, GREY_A).next_to(news_s, DOWN, buff=0.18)
-        fit(news_n, 3.9)
+        news_s = VGroup(*[slip("", GREY_B, w=0.8).scale(0.6) for _ in range(6)]).arrange(RIGHT, buff=0.1).move_to([3.9, -0.35, 0])
+        news_n = VGroup(T("VT 90, 91, ...:", 22, GREY_A), T("new checkouts, also waiting", 22, GREY_A)).arrange(DOWN, buff=0.06)
+        news_n.next_to(news_s, DOWN, buff=0.15)
         nofree = Arrow([vt7.get_left()[0] - 0.1, 1.2, 0], [-2.05, 1.2, 0], buff=0, stroke_width=3.5, color=BAD,
                        max_tip_length_to_length_ratio=0.08)
         nofree_l = T("no free waiter", 24, BAD).next_to(nofree, DOWN, buff=0.12)
@@ -578,9 +553,8 @@ class Vt04Pinning(Narrated):
         self.play(FadeIn(pin4), run_time=0.5)
         self.at(3)
         self.play(FadeIn(brd2), FadeIn(brd2_l), FadeIn(vt7), FadeIn(vt7_n), run_time=0.8)
-        self.at(4)
+        self.at_text("and never got", lead=0.3)
         self.play(GrowArrow(nofree), FadeIn(nofree_l), run_time=0.8)
-        self.at(5)
         self.play(FadeIn(news_s, lag_ratio=0.1), FadeIn(news_n), run_time=0.8)
         self.hold()
 
@@ -588,10 +562,10 @@ class Vt04Pinning(Narrated):
         circ_j = T("the carriers wait for the lock, and the lock waits for a carrier", 28, NEXT).move_to([0, -2.75, 0])
         self.say("worse_pic")
         self.play(Indicate(VGroup(w4, s4), color=PAN, scale_factor=1.03), run_time=0.9)
-        self.at(1)
+        self.at_text("while the slip", lead=0.3)
         self.play(Indicate(vt7, color=NEXT, scale_factor=1.1), run_time=0.8)
         self.play(FadeIn(circ, shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(Transform(circ, circ_j), run_time=0.8)
         self.hold()
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
@@ -617,11 +591,11 @@ class Vt04Pinning(Narrated):
         self.play(Create(hk), FadeIn(hk_l), run_time=0.8)
         self.at(1)
         self.play(FadeIn(jep), run_time=0.5)
-        self.at(2)
+        self.at_text("so the JVM records", lead=0.3)
         self.play(FadeIn(f1, shift=UP * 0.1), run_time=0.7)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(f2, shift=UP * 0.1), run_time=0.6)
-        self.at(4)
+        self.at(3)
         self.play(pan3.animate.move_to([2.9, 1.45, 0]), s3.animate.move_to([4.4, 1.45, 0]), run_time=1.3)
         self.play(FadeIn(free3), run_time=0.5)
         self.hold()
@@ -639,7 +613,7 @@ class Vt04Pinning(Narrated):
         self.say("jdk25")
         self.play(FadeIn(axis3), FadeIn(p3_t), FadeIn(lab_k3), FadeIn(lab_s3), run_time=0.7)
         self.play(FadeIn(lts, shift=UP * 0.1), run_time=0.6)
-        self.at(2)
+        self.at(1)
         self.play(LaggedStart(*[GrowFromEdge(b, LEFT) for b in b3], lag_ratio=0.9),
                   LaggedStart(*[FadeIn(d, scale=0.5) for d in dots3], lag_ratio=0.3), run_time=1.8)
         self.play(FadeIn(res3), run_time=0.5)
@@ -667,7 +641,7 @@ class Vt04Pinning(Narrated):
         self.play(FadeIn(c21, shift=UP * 0.1), run_time=0.7)
         self.at(3)
         self.play(FadeIn(c25, shift=UP * 0.1), run_time=0.7)
-        self.at(5)
+        self.at(4)
         self.play(FadeIn(hot), FadeIn(hot_p), run_time=0.7)
         self.hold()
         self.play(FadeOut(VGroup(gq, c21, c25, hot, hot_p)), run_time=0.6)
@@ -700,16 +674,16 @@ class Vt04Pinning(Narrated):
 
         # ================= the moral and a check =================
         mo1 = T("Could four waiters freeze the room? On JDK 21 to 23, yes: hot pans.", 32)
-        mo2 = T("A slip that holds a monitor can't go on the board, so its carrier waits.", 32)
+        mo2 = T("A slip holding a monitor can't go on the board, so its carrier waits.", 32)
         mo3 = T("ReentrantLock, or JDK 24 and later: onto the board, lock and all.", 32, NEXT)
         moral = VGroup(mo1, mo2, mo3).arrange(DOWN, buff=0.3).move_to(UP * 1.9)
         for m in moral:
             fit(m, 12.4)
         self.say("moral")
         self.play(FadeIn(mo1, shift=UP * 0.1), run_time=0.7)
-        self.at(2)
+        self.at_text("a slip holding", lead=0.3)
         self.play(FadeIn(mo2, shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(mo3, shift=UP * 0.1), run_time=0.6)
         self.hold()
         qq = VGroup(T("Check:", 28, NEXT), T("JDK 21, one carrier, a sleep while holding a ReentrantLock.", 28)).arrange(RIGHT, buff=0.25)
@@ -725,4 +699,4 @@ class Vt04Pinning(Narrated):
         self.say("check_a")
         self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.7)
         self.hold(after=0)
-        self.wait(2.5)
+        self.wait(1.8)

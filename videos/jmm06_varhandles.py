@@ -1,277 +1,595 @@
 from fg import *
 import fg
 
-fg.SAY[:0] = [(r"\bVarHandles?\b", lambda m: "var handle" + ("s" if m.group(0).endswith("s") else "")),
-              (r"\bsetRelease\b", "set release"), (r"\bgetAcquire\b", "get acquire"),
-              (r"\bjcstress\b", "J C stress"), (r"\b1,250,000\b", "one million two hundred fifty thousand"),
-              (r"\bx86\b", "x eighty-six"), (r"\bARM\b", "arm"), (r"\bREADY\b", "ready")]
+# Spoken forms only (captions keep the real words).
+fg.SAY[:0] = [
+    (r"\bVarHandles?\b", lambda m: "var handle" + ("s" if m.group(0).endswith("s") else "")),
+    (r"\bsetOpaque\b", "set opaque"), (r"\bARM\b", "arm"), (r"0\.68 percent", "zero point six eight percent"),
+]
+
+# every spoken line, in order
+N = {
+    "open": "A shop sends its parcels through a courier. Most parcels carry no label, and the courier handles them however is quickest: "
+            "it may bundle them, hold some back, or deliver them out of order.",
+    "labels": "A few carry a label, like signature required. Each label costs the courier time, so nobody stamps fragile on a bag of socks. "
+              "A sensible shop uses the lightest label that keeps the parcel safe.",
+    "map": "Threads send each other parcels too: every read or write of a shared field is one. The courier is everything in between: "
+           "the JIT, which may move or skip your reads and writes, and the processor, which may hold writes back for a while. "
+           "The label on one read or write is called its access mode.",
+    "volatile": "You know one label already. A volatile field stamps the heaviest label on every read and write of that field, "
+                "whether it needs it or not.",
+    "pain": "Usually that's fine. But picture a mailbox where one thread hands another millions of payments a second. "
+            "On Intel and AMD processors, every volatile write waits for its outbox tray, the store buffer from the office, to empty. "
+            "Millions of times a second, that wait adds up.",
+    "varhandle": "Since JDK 9, a VarHandle lets you pick the label for each access instead. It's a handle to one field, "
+                 "with one pair of methods per label. There are four labels, and they form a ladder: "
+                 "each keeps every promise of the one below it, and adds one more.",
+    "shy": "Which raises a question people are shy to ask. Isn't a lighter label just volatile at a discount? Same promises, lower price?",
+    "plain": "The bottom rung is plain: no label, an ordinary field. It promises nothing about what other threads see, or when. "
+             "Plain might as well be called whenever. The JIT may read it once for a whole loop, "
+             "like the worker reading stop from its notepad. A long or a double can even arrive in two halves.",
+    "opaque": "One rung up is opaque. Its label says: deliver for sure, in order, in one piece. Every opaque read really happens, "
+              "so a spinning thread eventually sees the new value. But it orders nothing else. "
+              "A reader can see a flag before the data the flag was guarding. "
+              "On ARM, a stress test caught that in 0.68 percent of tries.",
+    "relacq": "Next comes release and acquire. A release write says: deliver everything I sent before this one, first. "
+              "A reader who signs for it with an acquire, and sees the new value, also sees everything written before the release. "
+              "That's a happens-before edge, like the cashier's key, built from one variable.",
+    "vol": "The top rung is volatile. It adds one more promise: every thread agrees on one order of all volatile reads and writes, "
+           "like registered mail, logged in one central book.",
+    "predict": "What does that last promise buy? Back to the test from the office. Thread A writes 1 into x, then reads y. "
+               "Thread B writes 1 into y, then reads x. With release and acquire, can both threads read 0?",
+    "show": "Here's one run of the demo, 262,144 tries per label. Plain: 97,635 tries where both read 0. Opaque: 94,344. "
+            "Release and acquire: 92,854. Volatile: 0.",
+    "discount": "Well, that's not a discount. That's a different product. Release keeps earlier writes before it, "
+                "and acquire keeps later reads after it. Neither stops a thread's read from going ahead of its own write, "
+                "while that write still waits in the outbox tray. Only the central book forbids it.",
+    "breaks": "And here the parcel picture breaks. Real labels cost more as they get stronger. On Intel and AMD, plain, opaque, "
+              "release and acquire all become ordinary reads and writes; those labels mostly hold back the JIT. "
+              "Only the volatile write adds an instruction, the one that empties the tray. "
+              "Three labels at one price, and a surcharge for the fourth.",
+    "rule": "So each label adds one promise. Pick the lightest label whose promise your code needs, and never a lighter one.",
+    "guard": "And in everyday code, you almost never pick at all. Use a ready-made concurrent collection, a volatile field, "
+             "an atomic class, or a lock. The lighter labels belong in low-level building blocks, like a fast queue, "
+             "after a measurement says volatile costs too much.",
+    "test": "Even then, a green test on your laptop only proves your laptop is polite. Intel and AMD never let one write pass another, "
+            "so many ordering bugs can't show there. You need a stress tester that runs millions of tries, ideally on ARM.",
+    "code": "In code, each label is a method on the handle. Java on the left, Kotlin on the right: "
+            "the release write and the acquire read from the test.",
+    "moral": "So, is release and acquire volatile at a discount? No. It's a lighter label with one promise fewer, "
+             "and that missing promise is exactly the both-zero result. Weaker, not cheaper.",
+    "check": "Quick check. A writer fills in a report, then sets ready with setOpaque. "
+             "Can a reader that sees ready find the report still empty?",
+}
 
 
-# ---- helpers for this file ----
-def code(lines, size=26, color=WHITE, ls=0.6):
-    """Monospace block that keeps indentation. Returns a VGroup with one sub-group per line."""
-    t = Text("\n".join(lines), font=MONO, font_size=size, color=color, line_spacing=ls)
-    out, i = VGroup(), 0
-    for ln in lines:
-        n = len(ln.replace(" ", ""))
-        out.add(VGroup(*t[i:i + n]))
-        i += n
-    return out
+# ---- local helpers (fg.py is shared, so they live here) ----
+class Narrated(VoiceScene):
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
+
+    def say(self, key):
+        text = N[key]
+        path, dur = voice(text)
+        self._cue(text, dur)
+        self.add_sound(path)
+        t0 = self.renderer.time
+        self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def hold(self, after=0.15):
+        rest = self._end - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+        if after:
+            self.wait(after)
+
+    def predict(self, secs=2.4):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([-6.4, 3.3, 0], aligned_edge=LEFT)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
+
+    def fly(self, pairs, color, rt=0.6):
+        dots = [Dot(radius=0.09, color=color).move_to(a).set_z_index(9) for a, _ in pairs]
+        self.add(*dots)
+        self.play(*[d.animate.move_to(b) for d, (_, b) in zip(dots, pairs)], run_time=rt)
+        self.remove(*dots)
 
 
-def titled(label, block, buff=0.18):
-    return VGroup(T(label, 22, GREY_B), block).arrange(DOWN, aligned_edge=LEFT, buff=buff)
-
-
-def seq(scene, text, *steps, after=0.25):
-    """Speak one line and play several animation groups one after another inside it."""
-    path, dur = voice(text)
-    scene._cue(text, dur)
-    scene.add_sound(path)
-    used = 0
-    for st in steps:
-        if isinstance(st, (int, float)):
-            scene.wait(st); used += st
-        else:
-            anims, rt = st
-            if rt is None:
-                rt = max(0.5, dur - used - 0.1)
-            scene.play(*anims, run_time=rt); used += rt
-    if dur - used > 0.02:
-        scene.wait(dur - used)
-    if after:
-        scene.wait(after)
-
-
-def dark(color, k=0.14):
+def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def tag(text, color, size=24):
-    t = M(text, size, color)
-    r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.3, height=t.height + 0.26, stroke_color=color, stroke_width=2)
-    r.set_fill(BLACK, 1)
-    return VGroup(r, t)
+# one colour per thing, for the whole video
+TA, TB, COUR, TAG, GOOD, BAD = BLUE_M, TEAL_M, PURPLE_M, YELLOW_M, GREEN_M, RED_M
+MODEC = [GREY_A, TEAL_M, BLUE_M, GOLD_M]     # plain, opaque, release/acquire, volatile
 
 
-class Jmm06Varhandles(VoiceScene):
-    """jmm-06, section 1: a VarHandle puts the memory mode on each access instead of on the field; the four
-    modes as a ladder (plain, opaque, acquire/release, volatile), shown on one writer/board/reader handoff;
-    release/acquire hands over everything written before the release to the acquire that sees it."""
+def person(color=GREY_A, s=1.0):
+    head = Circle(radius=0.22, stroke_color=color, stroke_width=3).set_fill(BLACK, 1)
+    body = RoundedRectangle(corner_radius=0.22, width=0.7, height=0.76, stroke_color=color, stroke_width=3)
+    body.set_fill(BLACK, 1).next_to(head, DOWN, buff=0.05)
+    return VGroup(head, body).scale(s).set_z_index(4)
+
+
+def parcel(label=None, color=GOLD_M, s=0.62):
+    b = Square(s, stroke_color=color, stroke_width=3).set_fill(dim(color, 0.25), 1)
+    tape = VGroup(Line(b.get_top(), b.get_bottom(), stroke_color=color, stroke_width=2),
+                  Line(b.get_left(), b.get_right(), stroke_color=color, stroke_width=2))
+    g = VGroup(b, tape)
+    if label:
+        g.add(T(label, 22, WHITE).move_to(b).set_z_index(3))
+    return g.set_z_index(2)
+
+
+def chip_t(text, color, size=24, mono=False):
+    return chip(text, color, size=size, mono=mono).set_z_index(5)
+
+
+def tray(color=GREY_A, w=1.6):
+    base = Line([-w / 2, 0, 0], [w / 2, 0, 0], stroke_color=color, stroke_width=4)
+    l = Line([-w / 2, 0, 0], [-w / 2 - 0.1, 0.35, 0], stroke_color=color, stroke_width=4)
+    r = Line([w / 2, 0, 0], [w / 2 + 0.1, 0.35, 0], stroke_color=color, stroke_width=4)
+    return VGroup(base, l, r)
+
+
+def book(color=GOLD_M):
+    cover = RoundedRectangle(corner_radius=0.05, width=0.9, height=1.1, stroke_color=color, stroke_width=3).set_fill(dim(color, 0.3), 1)
+    spine = Line(cover.get_corner(UL) + RIGHT * 0.15, cover.get_corner(DL) + RIGHT * 0.15, stroke_color=color, stroke_width=3)
+    lines = VGroup(*[Line(LEFT * 0.22, RIGHT * 0.22, stroke_color=color, stroke_width=2) for _ in range(3)]).arrange(DOWN, buff=0.14)
+    lines.move_to(cover).shift(RIGHT * 0.07)
+    return VGroup(cover, spine, lines)
+
+
+def code_block(src, size=24, hl=None):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def cell(name, val, color=WHITE, w=1.7):
+    r = RoundedRectangle(corner_radius=0.1, width=w, height=0.66, stroke_color=WHITE, stroke_width=3).set_fill(BLACK, 1)
+    row = VGroup(M(name, 26, GREY_A), M(val, 26, color)).arrange(RIGHT, buff=0.25).move_to(r)
+    return VGroup(r, row)
+
+
+def recell(c, name, val, color=WHITE):
+    return Transform(c[1], VGroup(M(name, 26, GREY_A), M(val, 26, color)).arrange(RIGHT, buff=0.25).move_to(c[0]))
+
+
+# the ladder: rails, rungs and the four mode chips
+RUNG_Y = [-2.45, -0.98, 0.49, 1.96]
+MODES = ["plain", "opaque", "release/acquire", "volatile"]
+RUNG_TXT = [
+    ("no label", "no promise about what others see, or when", "a loop may never see a new value; a long can arrive in halves", BAD),
+    ('"deliver for sure, in order, in one piece"', "each access really happens, so a spinner sees new values",
+     "a reader may see the flag before its data", BAD),
+    ('"deliver everything I sent before this one, first"', "what was written before the release, seen after the acquire",
+     "each thread may still read the other's old value", BAD),
+    ('"logged in one central book"', "one order of all volatile accesses, agreed by all", "nothing on this list", GOOD),
+]
+
+
+def ladder():
+    rails = VGroup(Line([-6.0, -3.05, 0], [-6.0, 2.65, 0]), Line([-3.3, -3.05, 0], [-3.3, 2.65, 0])).set_stroke(GREY_B, 4)
+    rungs = VGroup(*[Line([-6.0, y, 0], [-3.3, y, 0], stroke_color=GREY_B, stroke_width=4) for y in RUNG_Y])
+    chips = VGroup(*[chip(m, MODEC[k], size=24).move_to([-4.65, RUNG_Y[k], 0]).set_z_index(5) for k, m in enumerate(MODES)])
+    return rails, rungs, chips
+
+
+def rung_text(k):
+    tag, prom, risk, rc = RUNG_TXT[k]
+    y = RUNG_Y[k]
+    a = T(tag, 24, TAG).move_to([-2.8, y + 0.42, 0], aligned_edge=LEFT)
+    b = T(prom, 24, GOOD).move_to([-2.8, y, 0], aligned_edge=LEFT)
+    c = T("can still go wrong: " + risk, 22, rc).move_to([-2.8, y - 0.4, 0], aligned_edge=LEFT)
+    g = VGroup(a, b, c)
+    for m in g:
+        if m.get_right()[0] > 6.4:
+            m.scale((6.4 - m.get_left()[0]) / m.width, about_point=m.get_left())
+    return g
+
+
+class Jmm06Varhandles(Narrated):
+    """jmm-06, section 1: parcel labels. Every read or write is a parcel, the courier is the JIT and the processor, the label
+    is the access mode. volatile labels every access; a VarHandle picks one per access. The ladder plain, opaque,
+    release/acquire, volatile, each adding one promise. ModesDemo (JDK 21, x86): both read 0 in 97,635 / 94,344 / 92,854 /
+    0 of 262,144. Weaker, not cheaper. The x86 cost breaks the picture. Guardrail and jcstress on ARM."""
 
     def construct(self):
-        self.title_card("VarHandles and memory modes", "the rules go on each access, not on the field")
+        self.title_card("Lighter labels", "four access modes, and what each one promises")
 
-        # ---------------- the hook: rules on the field ----------------
-        fld = box("ready", WHITE, w=2.4, h=0.9, size=32).move_to([0, -0.3, 0])
-        prod = VGroup(Dot(radius=0.13, color=BLUE_M), T("producer", 30, BLUE_M)).arrange(DOWN, buff=0.2).move_to([-4.7, -0.3, 0])
-        cons = VGroup(Dot(radius=0.13, color=TEAL_M), T("consumer", 30, TEAL_M)).arrange(DOWN, buff=0.2).move_to([4.7, -0.3, 0])
-        vtag = tag("volatile", RED_M, 28).next_to(fld, UP, buff=0.12)
-        w_ar = Arrow(prod.get_right() + RIGHT * 0.1, fld.get_left(), buff=0.15, stroke_width=3, color=BLUE_M,
-                     max_tip_length_to_length_ratio=0.08)
-        r_ar = Arrow(fld.get_right(), cons.get_left() + LEFT * 0.1, buff=0.15, stroke_width=3, color=TEAL_M,
-                     max_tip_length_to_length_ratio=0.08)
-        self.beat("A producer hands millions of messages a second to a consumer through a volatile field.",
-                  FadeIn(prod), FadeIn(cons), FadeIn(fld), FadeIn(vtag), GrowArrow(w_ar), GrowArrow(r_ar), run_time=1.6)
+        # ================= the courier =================
+        shop = VGroup(RoundedRectangle(corner_radius=0.1, width=1.8, height=1.4, stroke_color=GREY_A, stroke_width=3).set_fill(BLACK, 1),
+                      T("shop", 24, GREY_A))
+        shop[1].move_to(shop[0])
+        shop.move_to([-5.2, 0.3, 0])
+        rec = person(GREY_A).move_to([5.3, 0.4, 0])
+        rec_l = T("receiver", 22, GREY_B).next_to(rec, DOWN, buff=0.12)
+        cour = person(COUR).move_to([0, 0.4, 0])
+        cour_l = T("courier", 22, COUR).next_to(cour, DOWN, buff=0.12)
+        ps = VGroup(*[parcel(str(k + 1)) for k in range(4)]).arrange(RIGHT, buff=0.12).next_to(shop, RIGHT, buff=0.3)
+        self.say("open")
+        self.play(FadeIn(shop), FadeIn(rec), FadeIn(rec_l), FadeIn(cour), FadeIn(cour_l), run_time=0.7)
+        self.play(LaggedStart(*[FadeIn(p, shift=RIGHT * 0.2) for p in ps], lag_ratio=0.15), run_time=0.7)
+        self.at(1)
+        order = [1, 0, 3, 2]
+        targets = [[4.2, 2.0 - 0.7 * k, 0] for k in range(4)]
+        self.play(*[ps[i].animate.move_to([1.0 + 0.7 * j, 1.6, 0]) for j, i in enumerate(order)], run_time=0.9)
+        self.play(*[ps[i].animate.move_to(targets[j]) for j, i in enumerate(order)], run_time=0.9)
+        self.hold()
 
-        pulses = [(Dot(radius=0.09, color=BLUE_M).move_to(w_ar.get_start()),
-                   T("store buffer drain", 24, RED_M).move_to([-2.45, -1.15, 0])) for _ in range(3)]
-        steps = []
-        for d, dr in pulses:
-            steps.append(([FadeIn(d, run_time=0.1)], 0.1))
-            steps.append(([d.animate.move_to(w_ar.get_end()), FadeIn(dr, shift=DOWN * 0.15)], 0.6))
-            steps.append(([FadeOut(d), FadeOut(dr), Flash(fld, color=RED_M, flash_radius=1.4)], 0.5))
-        seq(self, "Marking it volatile puts the rules on the field. Every write pays for the strongest rules: "
-                  "on x86, a drain of the store buffer.",
-            1.4, *steps)
-        ptag = T("plain field", 24, GREY_B).next_to(fld, DOWN, buff=0.2)
-        wt = tag("setRelease", GOLD_M).next_to(w_ar, UP, buff=0.15)
-        rt = tag("getAcquire", GOLD_M).next_to(r_ar, UP, buff=0.15)
-        seq(self, "A VarHandle moves the rules onto each access. The field stays plain, "
-                  "and each read or write picks its own mode.",
-            ([FadeOut(vtag, shift=UP * 0.3)], 0.6), ([FadeIn(ptag)], 0.5), 1.0,
-            ([FadeIn(wt, shift=DOWN * 0.2), FadeIn(rt, shift=DOWN * 0.2)], 0.9))
-        self.play(FadeOut(VGroup(fld, prod, cons, w_ar, r_ar, ptag, wt, rt)), run_time=0.6)
+        tagp = parcel(None, GOLD_M).move_to([-1.6, -1.9, 0])
+        tag = chip_t("signature required", TAG, 22).next_to(tagp, RIGHT, buff=0.2)
+        sock = VGroup(Ellipse(width=1.3, height=0.8, stroke_color=GREY_A, stroke_width=3).set_fill(dim(GREY_A, 0.2), 1),
+                      T("socks", 22, GREY_A))
+        sock[1].move_to(sock[0])
+        sock.move_to([-4.6, -1.9, 0])
+        frag = chip_t("FRAGILE", BAD, 22).next_to(sock, UP, buff=0.12)
+        no = tick(False, 0.3).move_to(frag).set_z_index(9)
+        light = T("the lightest label that keeps the parcel safe", 28, TAG).move_to([0, -3.0, 0])
+        self.say("labels")
+        self.play(FadeIn(tagp), FadeIn(tag, shift=LEFT * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(sock), FadeIn(frag), run_time=0.5)
+        self.play(Create(no), run_time=0.4)
+        self.at(2)
+        self.play(FadeIn(light, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(VGroup(shop, rec, rec_l, cour, cour_l, ps, tagp, tag, sock, frag, no, light)), run_time=0.6)
 
-        # ---------------- the handoff: writer, shared memory, reader ----------------
-        ROWS = {"total": 1.05, "count": 0.1, "ready": -0.85}
-        WX, BX, RX = -4.5, 0.0, 4.5
-        FS, BY, BH = 26, 0.1, 3.1
-        pad = RoundedRectangle(corner_radius=0.12, width=3.8, height=BH, stroke_color=BLUE_M, stroke_width=2.5)
-        pad.set_fill(dark(BLUE_M, 0.08), 1).move_to([WX, BY, 0])
-        pad_l = T("writer", 32, BLUE_M).move_to([WX, 2.1, 0])
-        wl = {k: M(f"{k} = {v}", FS, BLUE_M).move_to([WX, y, 0])
-              for (k, y), v in zip(ROWS.items(), ("1,250,000", "42", "true"))}
-        for k in wl:
-            wl[k].align_to(pad, LEFT).shift(RIGHT * 0.26)
-        board = RoundedRectangle(corner_radius=0.12, width=3.8, height=BH, stroke_color=WHITE, stroke_width=2.5)
-        board.set_fill(BLACK, 1).move_to([BX, BY, 0])
-        board_l = T("shared memory", 32).move_to([BX, 2.1, 0])
-        cells, cvals, clabs = {}, {}, {}
-        for k, y in ROWS.items():
-            clabs[k] = M(k, FS, GREY_A).move_to([BX - 1.15, y, 0])
-            cells[k] = RoundedRectangle(corner_radius=0.06, width=2.2, height=0.62, stroke_color=GREY_D, stroke_width=2).move_to([BX + 0.65, y, 0])
-            cvals[k] = M("false" if k == "ready" else "0", FS).move_to(cells[k])
-        rbox = RoundedRectangle(corner_radius=0.12, width=3.8, height=BH, stroke_color=TEAL_M, stroke_width=2.5)
-        rbox.set_fill(dark(TEAL_M, 0.08), 1).move_to([RX, BY, 0])
-        rbox_l = T("reader", 32, TEAL_M).move_to([RX, 2.1, 0])
-        rd_note = T("waits for ready, then reads total", 24, GREY_B).move_to([RX, -1.85, 0])
+        # ================= the map: reads and writes are parcels =================
+        ta = chip_t("Thread A", TA, 26).move_to([-4.8, 2.4, 0])
+        tb = chip_t("Thread B", TB, 26).move_to([4.8, 2.4, 0])
+        p1 = VGroup(parcel(None, TA, 0.5), M("x = 1", 24, TA)).arrange(RIGHT, buff=0.15).move_to([-4.4, 1.5, 0])
+        p2 = VGroup(parcel(None, TA, 0.5), M("read y", 24, TA)).arrange(RIGHT, buff=0.15).move_to([-4.4, 0.8, 0])
+        jit = chip_t("the JIT", COUR, 26).move_to([-1.9, -0.55, 0])
+        cpu = chip_t("the processor", COUR, 26).move_to([1.9, -0.55, 0])
+        cl = T("the courier", 26, COUR).move_to([0, 0.05, 0])
+        jit_n = T("may move or skip reads and writes", 22, GREY_B).next_to(jit, DOWN, buff=0.2)
+        cpu_n = T("may hold writes back", 22, GREY_B).next_to(cpu, DOWN, buff=0.2)
+        mode = VGroup(T("the label on one access:", 28), T("its access mode", 28, TAG)).arrange(RIGHT, buff=0.25).move_to([0, -2.7, 0])
+        self.say("map")
+        self.play(FadeIn(ta), FadeIn(tb), run_time=0.5)
+        self.play(FadeIn(p1, shift=RIGHT * 0.1), FadeIn(p2, shift=RIGHT * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(cl), FadeIn(jit), run_time=0.5)
+        self.play(FadeIn(jit_n), run_time=0.4)
+        self.at_text("and the processor")
+        self.play(FadeIn(cpu), FadeIn(cpu_n), run_time=0.5)
+        self.play(p1.animate.move_to([4.4, 1.5, 0]), p2.animate.move_to([4.4, 0.8, 0]), run_time=0.9)
+        self.at(2)
+        self.play(FadeIn(mode, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(VGroup(ta, tb, p1, p2, jit, cpu, cl, jit_n, cpu_n, mode)), run_time=0.6)
 
-        def rline(k, v, col=TEAL_M):
-            return M(f"{k}: {v}", FS, col).move_to([RX, ROWS[k], 0]).align_to(rbox, LEFT).shift(RIGHT * 0.25)
+        # ================= volatile: the heaviest label on everything =================
+        vf = M("volatile int x;", 30).move_to([0, 2.4, 0])
+        vf[0:8].set_color(MODEC[3])
+        accs = VGroup(*[VGroup(parcel(None, MODEC[3], 0.55), M(t, 24)).arrange(RIGHT, buff=0.15)
+                        for t in ("x = 1", "read x", "x = 2", "read x", "read x")]).arrange(RIGHT, buff=0.45).move_to([0, 0.6, 0])
+        fit(accs, 12.4)
+        stamps = VGroup(*[chip("volatile", MODEC[3], size=20).next_to(a[0], UP, buff=0.1).set_z_index(6) for a in accs])
+        need = T("whether it needs it or not", 26, GREY_A).move_to([0, -0.8, 0])
+        self.say("volatile")
+        self.play(FadeIn(vf), LaggedStart(*[FadeIn(a, shift=UP * 0.1) for a in accs], lag_ratio=0.12), run_time=1.0)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(s, shift=DOWN * 0.15) for s in stamps], lag_ratio=0.15), run_time=1.0)
+        self.play(FadeIn(need), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(VGroup(vf, accs, stamps, need)), run_time=0.6)
 
-        self.beat("Take one handoff. The writer sets total and count, then ready.",
-                  FadeIn(pad), FadeIn(pad_l), FadeIn(board), FadeIn(board_l), *[FadeIn(c) for c in cells.values()],
-                  *[FadeIn(c) for c in cvals.values()], *[FadeIn(c) for c in clabs.values()],
-                  LaggedStart(*[FadeIn(wl[k], shift=RIGHT * 0.2) for k in ROWS], lag_ratio=0.5), run_time=2.4)
-        self.beat("The reader waits for ready, then reads total.",
-                  FadeIn(rbox), FadeIn(rbox_l), FadeIn(rd_note), run_time=1.0)
+        # ================= the cost: a busy mailbox =================
+        prod = chip_t("producer", TA, 26).move_to([-4.8, 1.3, 0])
+        cons = chip_t("consumer", TB, 26).move_to([4.8, 1.3, 0])
+        box = VGroup(RoundedRectangle(corner_radius=0.1, width=1.6, height=1.1, stroke_color=WHITE, stroke_width=3).set_fill(BLACK, 1),
+                     Line(LEFT * 0.45, RIGHT * 0.45, stroke_color=WHITE, stroke_width=4))
+        box[1].move_to(box[0].get_top() + DOWN * 0.3)
+        box.move_to([0, 1.3, 0])
+        box_l = T("a one-item mailbox", 22, GREY_B).next_to(box, UP, buff=0.15)
+        tr = tray().move_to([-4.8, -0.4, 0])
+        tr_l = T("outbox tray (store buffer)", 22, GREY_B).next_to(tr, DOWN, buff=0.15)
+        wait = T("each volatile write waits for the tray to empty", 26, BAD).move_to([0, -2.0, 0])
+        mil = T("millions of times a second", 28, BAD).move_to([0, -2.7, 0])
+        self.say("pain")
+        self.play(FadeIn(prod), FadeIn(cons), FadeIn(box), FadeIn(box_l), run_time=0.6)
+        for _ in range(2):
+            self.fly([(prod.get_right(), box.get_left()), (box.get_right(), cons.get_left())], GOLD_M, rt=0.4)
+        self.at(1)
+        self.play(FadeIn(tr), FadeIn(tr_l), run_time=0.5)
+        for _ in range(2):
+            note = chip("pay", GOLD_M, size=20).move_to(tr.get_center() + UP * 0.3).set_z_index(6)
+            self.play(FadeIn(note, shift=DOWN * 0.3), run_time=0.3)
+            self.play(note.animate.move_to(box.get_center()), run_time=0.5)
+            self.play(FadeOut(note), run_time=0.15)
+        self.play(FadeIn(wait), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(mil, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(VGroup(prod, cons, box, box_l, tr, tr_l, wait, mil)), run_time=0.6)
 
-        head = T("plain", 36, GREY_B).move_to([0, 2.85, 0])
+        # ================= the VarHandle and the ladder =================
+        fld = VGroup(RoundedRectangle(corner_radius=0.1, width=2.2, height=0.7, stroke_color=WHITE, stroke_width=3).set_fill(BLACK, 1),
+                     M("int x", 26))
+        fld[1].move_to(fld[0])
+        fld.move_to([-3.0, 1.8, 0])
+        vh = chip_t("VarHandle", PURPLE_M, 26, mono=True).move_to([1.2, 1.8, 0])
+        vh_l = Line(fld.get_right(), vh.get_left(), stroke_color=PURPLE_M, stroke_width=3)
+        btns = VGroup(*[chip(m, MODEC[k], size=22) for k, m in enumerate(MODES)]).arrange(RIGHT, buff=0.25).move_to([0, 0.3, 0])
+        jdk = T("since JDK 9", 22, GREY_B).next_to(vh, RIGHT, buff=0.3)
+        self.say("varhandle")
+        self.play(FadeIn(fld), FadeIn(vh), Create(vh_l), FadeIn(jdk), run_time=0.7)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(b, shift=UP * 0.1) for b in btns], lag_ratio=0.2), run_time=0.9)
+        self.at(2)
+        rails, rungs, chips = ladder()
+        self.play(FadeOut(VGroup(fld, vh, vh_l, jdk)), run_time=0.4)
+        self.play(Create(rails), Create(rungs), *[ReplacementTransform(btns[k], chips[k]) for k in range(4)], run_time=1.2)
+        up = Arrow([-6.4, -2.8, 0], [-6.4, 2.4, 0], buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.05)
+        self.play(GrowArrow(up), run_time=0.5)
+        self.hold()
 
-        def set_head(text, col):
-            return Transform(head, T(text, 36, col).move_to([0, 2.85, 0]))
+        # ================= the shy question =================
+        qa = T("Isn't a lighter label just volatile at a discount?", 32, YELLOW_M).move_to([1.6, 0.4, 0])
+        qb = T("Same promises, lower price?", 32, YELLOW_M).next_to(qa, DOWN, buff=0.3)
+        qq = VGroup(qa, qb)
+        fit(qq, 8.6)
+        qq.move_to([1.6, 0.0, 0])
+        self.say("shy")
+        self.play(FadeIn(qa, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(qb, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(qq), run_time=0.5)
 
-        def chip_for(k):
-            v = {"total": "1,250,000", "count": "42", "ready": "true"}[k]
-            return M(v, FS, BLUE_M).move_to([wl[k].get_right()[0] - M(v, FS).width / 2, ROWS[k], 0])
+        # ================= the rungs =================
+        txt = [rung_text(k) for k in range(4)]
+        self.say("plain")
+        self.play(Indicate(chips[0], color=WHITE, scale_factor=1.08), FadeIn(txt[0][0]), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(txt[0][1], shift=LEFT * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(txt[0][2], shift=LEFT * 0.1), run_time=0.5)
+        self.hold()
 
-        def land(k, val, col=BLUE_M):
-            return Transform(cvals[k], M(val, FS, col).move_to(cells[k]))
+        self.say("opaque")
+        self.play(Indicate(chips[1], color=MODEC[1], scale_factor=1.08), FadeIn(txt[1][0]), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(txt[1][1], shift=LEFT * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(txt[1][2], shift=LEFT * 0.1), run_time=0.5)
+        self.hold()
 
-        # plain
-        r_ready = rline("ready", "false")
-        loop = Arc(radius=0.22, start_angle=0, angle=1.6 * PI, color=TEAL_M, stroke_width=3).add_tip(tip_length=0.12)
-        loop.next_to(r_ready, RIGHT, buff=0.3)
-        self.beat("Plain mode promises nothing about what the other thread sees, or when.",
-                  FadeIn(head), FadeIn(r_ready), run_time=1.0)
-        stuck = T("stuck", 28, RED_M).next_to(loop, UP, buff=0.15)
-        seq(self, "The JIT may read ready once for the whole loop. The reader spins forever.",
-            ([FadeIn(loop)], 0.4), ([Rotate(loop, angle=-4 * PI, about_point=loop.get_center(), rate_func=linear)], 2.4),
-            ([FadeIn(stuck)], 0.5))
-        self.play(FadeOut(VGroup(r_ready, loop, stuck)), run_time=0.4)
+        self.say("relacq")
+        self.play(Indicate(chips[2], color=MODEC[2], scale_factor=1.08), FadeIn(txt[2][0]), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(txt[2][1], shift=LEFT * 0.1), run_time=0.5)
+        self.at(2)
+        key = VGroup(Circle(radius=0.12, stroke_color=GOLD_M, stroke_width=4), Line([0.12, 0, 0], [0.5, 0, 0], stroke_color=GOLD_M, stroke_width=4))
+        key.next_to(txt[2][1], RIGHT, buff=0.25)
+        if key.get_right()[0] > 6.5:
+            key.next_to(txt[2][0], RIGHT, buff=0.25)
+        self.play(FadeIn(key), run_time=0.4)
+        self.hold()
 
-        # opaque
-        ch = {k: chip_for(k) for k in ROWS}
-        r_ready = rline("ready", "true")
-        r_total = rline("total", "0", RED_M)
-        seq(self, "Opaque makes every access really happen, so the reader does see ready turn true.",
-            ([set_head("opaque", PURPLE_M)], 0.6), 1.2,
-            ([ch["ready"].animate.move_to(cells["ready"]), cvals["ready"].animate.set_opacity(0)], 0.9),
-            ([FadeOut(ch["ready"]), land("ready", "true"), FadeIn(r_ready)], 0.5))
-        seq(self, "But it orders nothing else. ready can arrive before total, and the reader reads a total of zero.",
-            1.6, ([Indicate(cvals["total"], color=RED_M, scale_factor=1.3)], 0.8), ([FadeIn(r_total, shift=RIGHT * 0.2)], 0.6))
-        arm = VGroup(T("jcstress on ARM:", 24, PURPLE_M), T("0.68% of samples", 24, PURPLE_M)).arrange(DOWN, buff=0.1).move_to([RX, -2.0, 0])
-        seq(self, "On ARM, jcstress caught this in 0.68 percent of samples.",
-            ([FadeOut(rd_note), FadeIn(arm)], 0.6))
-        self.play(FadeOut(VGroup(r_ready, r_total, arm)), land("ready", "false", WHITE), run_time=0.6)
+        self.say("vol")
+        self.play(Indicate(chips[3], color=MODEC[3], scale_factor=1.08), FadeIn(txt[3][0]), run_time=0.7)
+        self.play(FadeIn(txt[3][1], shift=LEFT * 0.1), run_time=0.5)
+        self.at_text("like registered")
+        self.play(FadeIn(txt[3][2], shift=LEFT * 0.1), run_time=0.5)
+        self.hold()
+        lad = VGroup(rails, rungs, chips, up, *txt, key)
+        # (the ladder text for the risky rung, release/acquire, stays as the open question)
 
-        # release / acquire
-        env = RoundedRectangle(corner_radius=0.12, width=3.62, height=2.85, stroke_color=GOLD_M, stroke_width=3.5)
-        env.move_to([WX, BY, 0])
-        rel = M("ready: setRelease", 24, GOLD_M).next_to(pad, DOWN, buff=0.18)
-        bar = Line([WX - 1.7, -0.38, 0], [WX + 1.7, -0.38, 0], stroke_width=4, color=GOLD_M)
-        seq(self, "Now make the last write a release. Nothing written before it may move after it, "
-                  "like a sealed envelope that holds all of it.",
-            ([set_head("release / acquire", GOLD_M), wl["ready"].animate.set_color(GOLD_M), Create(bar), FadeIn(rel)], 1.4),
-            1.0, ([Create(env)], 1.0))
-        acq = M("ready: getAcquire", 24, GOLD_M).next_to(rbox, DOWN, buff=0.18)
-        r_ready = rline("ready", "true")
-        chips = VGroup(*[chip_for(k) for k in ROWS])
-        env2 = env.copy().set_fill(BLACK, 1)
-        moving = VGroup(env2, chips)
-        seq(self, "The release lands. The reader reads ready with an acquire, and sees true. What total can it read now?",
-            ([FadeIn(chips)], 0.2), ([moving.animate.move_to([BX, BY, 0])], 1.2), 0.6,
-            ([FadeIn(acq), FadeIn(r_ready)], 0.6))
-        self.wait(1.3)
-        r_total = rline("total", "1,250,000", GREEN_M)
-        r_count = rline("count", "42", GREEN_M)
-        for k in ROWS:
-            cvals[k].set_opacity(0)
-        seq(self, "Only 1,250,000. Everything the writer did before the release is visible after the acquire that sees it.",
-            ([FadeOut(moving), land("total", "1,250,000"), land("count", "42"), land("ready", "true")], 0.6),
-            ([FadeIn(r_total, shift=RIGHT * 0.2), FadeIn(r_count, shift=RIGHT * 0.2)], 0.7))
-        self.play(FadeOut(VGroup(pad, pad_l, *wl.values(), board, board_l, *cells.values(), *cvals.values(),
-                                 *clabs.values(), rbox, rbox_l, env, rel, bar, acq, r_ready, r_total, r_count, head)),
-                  run_time=0.7)
+        # ================= predict: the office test =================
+        self.play(lad.animate.set_opacity(0.0), run_time=0.6)
+        self.remove(lad)
+        bx = cell("x:", "0").move_to([-1.1, 2.45, 0])
+        by = cell("y:", "0").move_to([1.1, 2.45, 0])
+        board_l = T("memory", 22, GREY_B).next_to(VGroup(bx, by), UP, buff=0.12)
+        da = chip_t("Thread A", TA, 26).move_to([-4.4, 1.0, 0])
+        db = chip_t("Thread B", TB, 26).move_to([4.4, 1.0, 0])
+        sa = T("write 1 into x, then read y", 26, TA).next_to(da, DOWN, buff=0.25)
+        sb = T("write 1 into y, then read x", 26, TB).next_to(db, DOWN, buff=0.25)
+        q = T("With release and acquire: can both read 0?", 30, YELLOW_M).move_to([0, -2.6, 0])
+        self.say("predict")
+        self.play(FadeIn(bx), FadeIn(by), FadeIn(board_l), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(da), FadeIn(sa), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(db), FadeIn(sb), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(q, shift=UP * 0.1), run_time=0.5)
+        self.hold(after=0)
+        self.predict()
 
-        # ---------------- volatile: one order for everyone ----------------
-        head = T("volatile", 36, RED_M).move_to([0, 2.85, 0])
-        ta = VGroup(T("thread A", 34, BLUE_M), M("x = 1", 34, BLUE_M), M("read y", 34, BLUE_M)).arrange(DOWN, buff=0.35)
-        tb = VGroup(T("thread B", 34, TEAL_M), M("y = 1", 34, TEAL_M), M("read x", 34, TEAL_M)).arrange(DOWN, buff=0.35)
-        ta.move_to([-3.0, 1.0, 0]); tb.move_to([3.0, 1.0, 0])
-        both = T("both read 0?", 36, WHITE).move_to([0, -0.6, 0])
-        self.beat("Release and acquire still allow one odd result: each thread writes its own flag, "
-                  "reads the other's, and both read zero.",
-                  FadeIn(head), FadeIn(ta), FadeIn(tb), FadeIn(both), run_time=1.6)
-        ra_r = VGroup(T("release / acquire:", 32, GOLD_M), T("allowed (6.18% in one run)", 32, GOLD_M)).arrange(RIGHT, buff=0.2)
-        vo_r = VGroup(T("volatile:", 32, RED_M), T("never", 32, RED_M)).arrange(RIGHT, buff=0.2)
-        ra_r.move_to([0, -1.55, 0]); vo_r.move_to([0, -2.35, 0])
-        self.play(FadeIn(ra_r, shift=UP * 0.15), run_time=0.6)
-        self.beat("Volatile forbids it. All threads agree on one order of every volatile access, "
-                  "so at least one of them sees the other's write.", FadeIn(vo_r, shift=UP * 0.15), run_time=1.0)
-        self.play(FadeOut(VGroup(head, ta, tb, both, ra_r, vo_r)), run_time=0.6)
+        # ================= show: the demo's numbers =================
+        office = VGroup(bx, by, board_l, da, db, sa, sb)
+        ttl = T("both read 0, in 262,144 tries per label (one run)", 28).move_to([0, 2.6, 0])
+        vals = [("plain", "97,635", BAD), ("opaque", "94,344", BAD), ("release/acquire", "92,854", BAD), ("volatile", "0", GOOD)]
+        tab = VGroup()
+        for k, (a, b, c) in enumerate(vals):
+            y = 1.5 - k * 0.7
+            tab.add(VGroup(chip(a, MODEC[k], size=24).move_to([-3.0, y, 0]), M(b, 30, c).move_to([2.6, y, 0], aligned_edge=RIGHT)))
+        self.say("show")
+        self.play(FadeOut(office), FadeOut(q), FadeIn(ttl), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(tab[0]), run_time=0.4)
+        self.at(2)
+        self.play(FadeIn(tab[1]), run_time=0.4)
+        self.at(3)
+        self.play(FadeIn(tab[2]), run_time=0.4)
+        self.at(4)
+        self.play(FadeIn(tab[3]), run_time=0.4)
+        self.hold()
 
-        # ---------------- the ladder ----------------
-        rungs = [("plain", GREY_B, "no promise to other threads", "ordinary store"),
-                 ("opaque", PURPLE_M, "+ each access really happens", "ordinary store"),
-                 ("release / acquire", GOLD_M, "+ hands over earlier writes", "ordinary store"),
-                 ("volatile", RED_M, "+ one order for all threads", "store + drain")]
-        lad = VGroup()
-        for j, (nm, col, pr, cost) in enumerate(rungs):
-            y = -2.0 + j * 1.1
-            row = VGroup(T(nm, 30, col).move_to([-6.2, y, 0], aligned_edge=LEFT),
-                         T(pr, 28, WHITE).move_to([-2.4, y, 0], aligned_edge=LEFT),
-                         T(cost, 28, RED_M if j == 3 else GREY_B).move_to([6.3, y, 0], aligned_edge=RIGHT))
-            lad.add(row)
-        lines = VGroup(*[Line([-6.3, -2.55 + j * 1.1, 0], [6.4, -2.55 + j * 1.1, 0], stroke_width=1.5, color=GREY_D)
-                         for j in range(5)])
-        x86 = T("x86 write", 26, GREY_B).move_to([5.2, 2.3, 0])
-        self.beat("So the modes form a ladder. Each one keeps everything below it, and adds one promise.",
-                  Create(lines), LaggedStart(*[FadeIn(VGroup(r[0], r[1]), shift=UP * 0.15) for r in lad], lag_ratio=0.35),
-                  run_time=2.6)
-        self.beat("On x86, only the volatile write costs extra: it drains the store buffer. "
-                  "So a release write is cheaper.",
-                  FadeIn(x86), LaggedStart(*[FadeIn(r[2]) for r in lad], lag_ratio=0.3), run_time=2.0)
-        self.play(FadeOut(VGroup(lad, lines, x86)), run_time=0.6)
+        # ================= the break: weaker, not cheaper =================
+        dp = T("not a discount: a different product", 30, BAD).move_to([0, -1.6, 0])
+        bx = cell("x:", "0").move_to([-1.1, 2.45, 0])
+        by = cell("y:", "0").move_to([1.1, 2.45, 0])
+        da = chip_t("Thread A", TA, 26).move_to([-4.4, 1.3, 0])
+        db = chip_t("Thread B", TB, 26).move_to([4.4, 1.3, 0])
+        tra = tray().move_to([-4.4, -0.3, 0])
+        trb = tray().move_to([4.4, -0.3, 0])
+        tra_l = T("outbox tray", 22, GREY_B).next_to(tra, DOWN, buff=0.12)
+        trb_l = T("outbox tray", 22, GREY_B).next_to(trb, DOWN, buff=0.12)
+        ra = VGroup(T("reads y:", 26, TA), M("0", 28, BAD)).arrange(RIGHT, buff=0.2).move_to([-1.6, 0.5, 0])
+        rb = VGroup(T("reads x:", 26, TB), M("0", 28, BAD)).arrange(RIGHT, buff=0.2).move_to([1.6, 0.5, 0])
+        na = chip("x = 1", TA, size=22, mono=True).move_to(tra.get_center() + UP * 0.3).set_z_index(6)
+        nb = chip("y = 1", TB, size=22, mono=True).move_to(trb.get_center() + UP * 0.3).set_z_index(6)
+        bk = book().move_to([0, -1.75, 0])
+        bk_l = T("one central book: volatile only", 24, GOLD_M).next_to(bk, RIGHT, buff=0.3)
+        self.say("discount")
+        self.play(FadeIn(dp, shift=UP * 0.1), tab.animate.set_opacity(0.0), ttl.animate.set_opacity(0.0), run_time=0.6)
+        self.remove(tab, ttl)
+        self.at(1)
+        self.play(dp.animate.move_to([0, -3.1, 0]), FadeIn(bx), FadeIn(by), FadeIn(da), FadeIn(db), FadeIn(tra), FadeIn(trb),
+                  FadeIn(tra_l), FadeIn(trb_l), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(na, shift=DOWN * 0.3), FadeIn(nb, shift=DOWN * 0.3), run_time=0.5)
+        self.fly([(bx.get_bottom() + RIGHT * 2.2, ra.get_top()), (bx.get_bottom(), rb.get_top())], GREY_A, rt=0.6)
+        self.play(FadeIn(ra), FadeIn(rb), run_time=0.4)
+        self.at_text("while that write")
+        self.play(Indicate(na, color=TA, scale_factor=1.15), Indicate(nb, color=TB, scale_factor=1.15), run_time=0.8)
+        self.play(na.animate.move_to(bx), nb.animate.move_to(by), run_time=0.6)
+        self.play(FadeOut(na), FadeOut(nb), recell(bx, "x:", "1", TA), recell(by, "y:", "1", TB), run_time=0.3)
+        self.at(3)
+        self.play(FadeIn(bk), FadeIn(bk_l), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(VGroup(dp, bx, by, da, db, tra, trb, tra_l, trb_l, ra, rb, bk, bk_l)), run_time=0.6)
 
-        # ---------------- code ----------------
-        jc = code(["report.total = 1_250_000;",
-                   "READY.setRelease(report, true);",
-                   "",
-                   "if ((boolean) READY.getAcquire(report))",
-                   "    publish(report.total);"], 24)
-        kc = code(["report.total = 1_250_000",
-                   "READY.setRelease(report, true)",
-                   "",
-                   "if (READY.getAcquire(report) as Boolean)",
-                   "    publish(report.total)"], 24)
-        for b in (jc, kc):
-            b[0].set_color(BLUE_M); b[1].set_color(GOLD_M)
-            b[3].set_color(GOLD_M); b[4].set_color(TEAL_M)
-        cg = VGroup(titled("Java", jc), titled("Kotlin: the same JDK class", kc)).arrange(DOWN, buff=0.5, aligned_edge=LEFT)
-        cg.scale(min(1, 12 / cg.width)).move_to([0, 0.3, 0])
-        note = T("READY: a static final VarHandle for the plain field ready", 22, GREY_B).move_to([0, -3.05, 0])
-        self.beat("In code, READY is a VarHandle for the field ready. "
-                  "The writer calls setRelease. The reader calls getAcquire.",
-                  FadeIn(cg, shift=UP * 0.2), FadeIn(note), run_time=1.6)
-        self.play(FadeOut(VGroup(cg, note)), run_time=0.6)
+        # ================= where the parcel picture breaks: the price list =================
+        pt = T("On Intel and AMD", 30).move_to([0, 2.6, 0])
+        prices = VGroup()
+        for k, m in enumerate(MODES):
+            y = 1.5 - k * 0.75
+            c = chip(m, MODEC[k], size=24).move_to([-3.4, y, 0])
+            p = T("ordinary read or write" if k < 3 else "write also empties the tray", 26, GOOD if k < 3 else BAD)
+            p.move_to([-1.6, y, 0], aligned_edge=LEFT)
+            prices.add(VGroup(c, p))
+        br = Brace(VGroup(*[prices[k] for k in range(3)]), RIGHT, buff=0.3, color=GOOD)
+        br_l = T("one price", 26, GOOD).next_to(br, RIGHT, buff=0.2)
+        sur = T("surcharge", 26, BAD).next_to(prices[3], RIGHT, buff=0.4)
+        hold_jit = T("these labels mostly hold back the JIT", 24, GREY_A).move_to([0, -1.9, 0])
+        self.say("breaks")
+        self.play(FadeIn(pt), run_time=0.5)
+        self.at(2)
+        self.play(LaggedStart(*[FadeIn(prices[k], shift=UP * 0.05) for k in range(3)], lag_ratio=0.2), run_time=0.8)
+        self.play(FadeIn(hold_jit), run_time=0.4)
+        self.at(3)
+        self.play(FadeIn(prices[3], shift=UP * 0.05), run_time=0.5)
+        self.at(4)
+        self.play(GrowFromCenter(br), FadeIn(br_l), FadeIn(sur), run_time=0.7)
+        self.hold()
+        self.play(FadeOut(VGroup(pt, prices, br, br_l, sur, hold_jit)), run_time=0.6)
 
-        # ---------------- rule and check ----------------
-        rule = T("A release hands over everything written before it", 34).move_to([0, 2.3, 0])
-        rule2 = T("to the acquire that sees it, on the same variable.", 34, GOLD_M).move_to([0, 1.65, 0])
-        VGroup(rule, rule2).scale(min(1, 12 / rule2.width))
-        self.beat("The rule. A release write hands over everything written before it, to the acquire read that sees it, "
-                  "on the same variable.", FadeIn(rule, shift=UP * 0.15), FadeIn(rule2, shift=UP * 0.15), run_time=1.4)
-        chk = T("A field is declared volatile. A hot loop reads it with", 28).move_to([0, 0.2, 0])
-        chk2 = M("ITEM.get(this)", 28, GREY_B).move_to([0, -0.4, 0])
-        chk3 = T("Is that read volatile?", 28).move_to([0, -1.0, 0])
-        VGroup(chk, chk2, chk3).scale(min(1, 12 / chk.width))
-        self.beat("Check yourself. A volatile field is read in a hot loop, with a plain get on a VarHandle. "
-                  "Is that read volatile?", FadeIn(chk), FadeIn(chk2), FadeIn(chk3), run_time=1.2)
+        # ================= the rule, the guardrail and testing =================
+        rails, rungs, chips = ladder()
+        small = VGroup(rails, rungs, chips)
+        rule = VGroup(T("Each label adds one promise.", 32),
+                      T("Pick the lightest label whose promise you need,", 28, GOOD),
+                      T("and never a lighter one.", 28, BAD)).arrange(DOWN, aligned_edge=LEFT, buff=0.25).move_to([1.8, 0.4, 0])
+        self.say("rule")
+        self.play(FadeIn(small), run_time=0.6)
+        self.play(FadeIn(rule[0], shift=UP * 0.1), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(rule[1], shift=UP * 0.1), run_time=0.5)
+        self.play(FadeIn(rule[2], shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(VGroup(small, rule)), run_time=0.6)
+
+        gt = T("In everyday code, use:", 30).move_to([0, 2.6, 0])
+        pref = VGroup(*[chip(t, GOOD, size=24) for t in ("a concurrent collection", "a volatile field", "an atomic class", "a lock")])
+        pref.arrange(RIGHT, buff=0.3).move_to([0, 1.6, 0])
+        fit(pref, 12.4)
+        bb = T("lighter labels: low-level building blocks, like a fast queue,", 26, GREY_A).move_to([0, 0.4, 0])
+        bb2 = T("after a measurement says volatile costs too much", 26, GREY_A).move_to([0, -0.15, 0])
+        self.say("guard")
+        self.play(FadeIn(gt), run_time=0.5)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(p, shift=UP * 0.1) for p in pref], lag_ratio=0.2), run_time=0.9)
+        self.at(2)
+        self.play(FadeIn(bb), run_time=0.5)
+        self.play(FadeIn(bb2), run_time=0.5)
+        self.hold()
+
+        lap = VGroup(RoundedRectangle(corner_radius=0.08, width=1.6, height=1.0, stroke_color=GREY_A, stroke_width=3).set_fill(BLACK, 1),
+                     Line([-1.0, -0.6, 0], [1.0, -0.6, 0], stroke_color=GREY_A, stroke_width=4))
+        lap[0].shift(UP * 0.05)
+        lap.move_to([-4.2, -1.95, 0])
+        green = tick(True, 0.22).move_to(lap[0])
+        pol = T("proves your laptop is polite", 26, GREY_A).next_to(lap, RIGHT, buff=0.35)
+        arm = T("a stress tester, millions of tries, ideally on ARM", 26, TAG).move_to([0, -3.15, 0])
+        self.say("test")
+        self.play(FadeIn(lap), Create(green), run_time=0.6)
+        self.play(FadeIn(pol), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(arm, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(VGroup(gt, pref, bb, bb2, lap, green, pol, arm)), run_time=0.6)
+
+        # ================= the code =================
+        hl = {"setRelease": MODEC[2], "getAcquire": MODEC[2]}
+        jc = code_block(["// thread A", "X.setRelease(p, 1);", "int r1 = (int) Y.getAcquire(p);"], 26, hl)
+        kc = code_block(["// thread A", "X.setRelease(p, 1)", "val r1 = Y.getAcquire(p) as Int"], 26, hl)
+        jc[0].set_color(GREY_B); kc[0].set_color(GREY_B)
+        cols = VGroup(VGroup(T("Java", 24, GREY_B), jc).arrange(DOWN, aligned_edge=LEFT, buff=0.2),
+                      VGroup(T("Kotlin", 24, GREY_B), kc).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
+                      ).arrange(RIGHT, buff=1.0, aligned_edge=UP)
+        fit(cols, 12.4)
+        cols.move_to(UP * 0.9)
+        others = T("also get / set, getOpaque / setOpaque, getVolatile / setVolatile", 24, GREY_A).move_to([0, -1.2, 0])
+        fit(others, 12.4)
+        self.say("code")
+        self.play(FadeIn(cols, shift=UP * 0.15), run_time=0.9)
+        self.at(1)
+        self.play(Indicate(VGroup(jc[1], kc[1]), color=MODEC[2], scale_factor=1.04), run_time=0.8)
+        self.play(Indicate(VGroup(jc[2], kc[2]), color=MODEC[2], scale_factor=1.04), run_time=0.8)
+        self.play(FadeIn(others), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(VGroup(cols, others)), run_time=0.6)
+
+        # ================= the moral and a check =================
+        mq = T("Is release and acquire volatile at a discount?", 34, YELLOW_M).move_to(UP * 2.5)
+        fit(mq, 12.4)
+        m1 = T("No. It's a lighter label with one promise fewer,", 30)
+        m2 = T("and that missing promise is the both-zero result.", 30)
+        m3 = T("Weaker, not cheaper.", 34, BAD)
+        moral = VGroup(m1, m2, m3).arrange(DOWN, buff=0.3).move_to(UP * 0.8)
+        fit(moral, 12.4)
+        cq = VGroup(T("Check: a writer fills in a report, then sets ready with setOpaque.", 28, YELLOW_M),
+                    T("Can a reader that sees ready find the report still empty?", 28, YELLOW_M)).arrange(DOWN, buff=0.18)
+        cq.move_to(DOWN * 2.2)
+        fit(cq, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(m1, shift=UP * 0.1), FadeIn(m2, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(m3, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        self.say("check")
+        self.play(FadeIn(cq, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
         self.wait(2.5)
-        ans = T("No. The mode at the access wins: it is a plain read, and the JIT may read it once.", 28, GOLD_M)
-        ans.scale(min(1, 12 / ans.width)).move_to([0, -2.2, 0])
-        self.beat("No. The mode at the access wins. It is a plain read, and the JIT may read it once for the whole loop.",
-                  FadeIn(ans, shift=UP * 0.15), run_time=1.0)
-        self.wait(0.5)
