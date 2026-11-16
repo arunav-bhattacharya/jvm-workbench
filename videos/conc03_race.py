@@ -306,12 +306,16 @@ class Conc03Race(VoiceScene):
             l.move_to([BX0 - 0.35, y, 0], aligned_edge=RIGHT)
             v = M(f"{n:,}", 24, WHITE).next_to(b, RIGHT, buff=0.2)
             rl.append(l); rb.append(b); rv.append(v)
+        defn = VGroup(T("thread-safe:", 32, WHITE), T("safe to use from many threads at once", 30, GREY_A),
+                      M("ConcurrentHashMap", 30, CARD)).arrange(DOWN, buff=0.3).move_to([0, 0.2, 0])
         seq(self, "Back to the bank. The usual next move is a thread-safe map, one that's safe to use from many threads, "
                   "like the JDK's ConcurrentHashMap.",
-            ([FadeIn(head)], 0.8))
+            ([FadeIn(head)], 0.8), 0.8, ([FadeIn(defn[0], shift=UP * 0.1)], 0.5), 0.3,
+            ([FadeIn(defn[1], shift=UP * 0.1)], 0.6), 1.0, ([FadeIn(defn[2], shift=UP * 0.1)], 0.6))
         seq(self, "The lesson's payday demo has eight tellers each make 200,000 one-cent deposits. "
                   "Three versions. Guess which come out exact.",
-            2.4, ([LaggedStart(*[FadeIn(l, shift=RIGHT * 0.15) for l in rl], lag_ratio=0.3), Create(tgt)], 1.4))
+            ([FadeOut(defn)], 0.5), 1.9,
+            ([LaggedStart(*[FadeIn(l, shift=RIGHT * 0.15) for l in rl], lag_ratio=0.3), Create(tgt)], 1.4))
         think(self, 2.6, pos=(5.85, 2.1))
         seq(self, "The plain field lost more than two thirds. The thread-safe map lost even more.",
             ([GrowFromEdge(rb[0], LEFT), FadeIn(rv[0])], 0.7), 1.4, ([GrowFromEdge(rb[1], LEFT), FadeIn(rv[1])], 0.7))
@@ -354,12 +358,12 @@ class Conc03Race(VoiceScene):
             ([GrowArrow(qa), GrowArrow(qb)], 0.7), ([FadeIn(no1), FadeIn(no2)], 0.6))
         chk1 = ptext("checking...", p1)
         chk2 = ptext("checking...", p2)
-        e1 = M("#7  teller 1", 24, T1C).move_to(book).shift(UP * 0.35)
-        e2 = M("#7  teller 2", 24, T2C).move_to(book).shift(DOWN * 0.35)
+        e1 = M("#7  teller 1", 24, T1C).move_to(book)
+        e2 = M("#7  teller 2", 24, T2C).move_to(book)
         twice = T("money moved twice", 30, RED_M).next_to(book, DOWN, buff=0.35)
         seq(self, "Each does a slow check that it's genuine, and each records it.",
             ([FadeOut(qa), FadeOut(qb), FadeOut(no1), FadeOut(no2), Transform(c1, chk1), Transform(c2, chk2)], 0.7), 0.6,
-            ([FadeIn(e1, shift=RIGHT * 0.2)], 0.5), ([FadeIn(e2, shift=LEFT * 0.2)], 0.5),
+            ([FadeIn(e1, shift=RIGHT * 0.2)], 0.5), ([FadeOut(e1, shift=DOWN * 0.3), FadeIn(e2, shift=LEFT * 0.2)], 0.5),
             ([FadeIn(twice, shift=UP * 0.1)], 0.5))
         res = M("payments: 1,000   times recorded: 2,579", 26, WHITE).move_to([0, -2.95, 0])
         seq(self, "In the lesson's demo, eight tellers got the same 1,000 payments, and one run recorded them 2,579 times.",
@@ -377,7 +381,7 @@ class Conc03Race(VoiceScene):
         x2 = T("teller 2 skips", 24, RED_M).move_to(book).shift(DOWN * 0.35)
         seq(self, "The fix is one call that checks and acts together. putIfAbsent: claim this payment, "
                   "unless someone already has.",
-            ([FadeOut(VGroup(e1, e2, twice, cta)), Transform(c1, claim), Transform(c2, claim2)], 0.8), 2.4,
+            ([FadeOut(VGroup(e2, twice, cta)), Transform(c1, claim), Transform(c2, claim2)], 0.8), 2.4,
             ([FadeIn(e1b, shift=RIGHT * 0.2)], 0.6))
         once = T("1,000 recorded, every run", 30, GREEN_M).next_to(book, DOWN, buff=0.35)
         self.beat("Only one teller can win the claim. Now it's 1,000, every run.",
