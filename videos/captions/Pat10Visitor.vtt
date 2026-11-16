@@ -1,0 +1,165 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:08.658
+A payment service has three kinds of instruction: card, SEPA transfer and wallet payout.
+
+2
+00:00:08.658 --> 00:00:10.351
+They almost never change.
+
+3
+00:00:10.567 --> 00:00:14.451
+But new jobs for them keep coming: a fee, a bank export.
+
+4
+00:00:14.451 --> 00:00:17.364
+Each job needs its own code for each kind.
+
+5
+00:00:17.567 --> 00:00:21.430
+So picture a grid: one row per kind, one column per job.
+
+6
+00:00:21.430 --> 00:00:23.361
+Where should the cells live?
+
+7
+00:00:24.300 --> 00:00:29.619
+The usual answer is by row: each class holds its own fee and export methods.
+
+8
+00:00:29.833 --> 00:00:31.875
+Then someone asks for a report.
+
+9
+00:00:31.875 --> 00:00:34.839
+A new column means editing all three classes.
+
+10
+00:00:35.033 --> 00:00:37.577
+A visitor stores the grid by column.
+
+11
+00:00:37.577 --> 00:00:43.089
+Each job is one class, with one method per kind, behind one visitor interface.
+
+12
+00:00:43.300 --> 00:00:47.820
+A new report is one new class, and the instruction classes stay put.
+
+13
+00:00:47.820 --> 00:00:50.545
+Each just needs one small method: accept.
+
+14
+00:00:50.733 --> 00:00:54.082
+Your code holds a plain Instruction of unknown kind.
+
+15
+00:00:54.082 --> 00:00:58.718
+One Java call can only choose by the class of the object it's called on.
+
+16
+00:00:58.718 --> 00:01:00.972
+So how do you reach the right cell?
+
+17
+00:01:02.733 --> 00:01:05.472
+Hop one: call accept on the instruction.
+
+18
+00:01:05.472 --> 00:01:08.621
+It's a wallet payout, so Wallet's accept runs.
+
+19
+00:01:08.621 --> 00:01:09.921
+That picks the row.
+
+20
+00:01:10.133 --> 00:01:15.199
+Hop two: it calls visitWallet on the visitor, whose class picks the column.
+
+21
+00:01:15.199 --> 00:01:16.685
+Fee visitor, fee cell.
+
+22
+00:01:16.685 --> 00:01:18.644
+Export visitor, the next one.
+
+23
+00:01:18.800 --> 00:01:23.159
+That's double dispatch: accept picks the kind, visit picks the job.
+
+24
+00:01:23.967 --> 00:01:25.427
+The catch is a new row.
+
+25
+00:01:25.427 --> 00:01:30.444
+A voucher needs an accept, and every visitor ever written needs a visitVoucher.
+
+26
+00:01:30.633 --> 00:01:33.065
+That trade is the expression problem.
+
+27
+00:01:33.065 --> 00:01:36.154
+Methods in the classes make kinds cheap to add.
+
+28
+00:01:36.154 --> 00:01:37.928
+A visitor makes jobs cheap.
+
+29
+00:01:38.100 --> 00:01:42.442
+Today a sealed interface gives you the visitor's side with less code.
+
+30
+00:01:42.442 --> 00:01:46.092
+It lists all three kinds, so the compiler knows every row.
+
+31
+00:01:46.300 --> 00:01:48.883
+Each job is one function with a switch.
+
+32
+00:01:48.883 --> 00:01:51.797
+The switch checks the object's class itself.
+
+33
+00:01:51.797 --> 00:01:54.512
+One hop, no accept, no visitor interface.
+
+34
+00:01:54.700 --> 00:02:00.381
+Add a voucher, and every switch without a voucher case stops compiling, each one listed.
+
+35
+00:02:01.300 --> 00:02:05.701
+In Java that's a switch, in Kotlin a when, with no default branch.
+
+36
+00:02:09.033 --> 00:02:16.229
+The rule: to add jobs to a closed set of types, write one function per job that switches over a sealed type.
+
+37
+00:02:16.433 --> 00:02:17.259
+Quick check.
+
+38
+00:02:17.259 --> 00:02:20.425
+A new job every month, a new kind once a year.
+
+39
+00:02:20.425 --> 00:02:23.109
+Should rows or columns be cheap to add?
+
+40
+00:02:25.100 --> 00:02:25.714
+Columns.
+
+41
+00:02:25.714 --> 00:02:28.783
+So a visitor, or today, a sealed switch.

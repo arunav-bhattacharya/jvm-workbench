@@ -108,6 +108,9 @@
   "gen02-bounds",
   "gen10-recursive",
   "pat02-factory",
-  "pat04-adapter"
+  "pat04-adapter",
+  "pat10-visitor",
+  "dop02-sealed",
+  "cls05-bytebuddy"
  ]
 }

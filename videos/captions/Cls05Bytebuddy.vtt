@@ -1,0 +1,133 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.050
+SettlementService has two methods you want timed: settle and audit.
+
+2
+00:00:07.050 --> 00:00:11.140
+Pasting a timer into each one, in every service, gets old fast.
+
+3
+00:00:11.333 --> 00:00:13.024
+So you write a subclass.
+
+4
+00:00:13.024 --> 00:00:18.943
+Its settle starts a clock, calls super.settle, and logs the time in a finally block.
+
+5
+00:00:18.943 --> 00:00:22.959
+super.settle runs your original body, on the same object.
+
+6
+00:00:23.167 --> 00:00:28.699
+Every method a subclass overrides is a place to run code before and after yours.
+
+7
+00:00:28.900 --> 00:00:32.168
+A framework does this without you writing the class.
+
+8
+00:00:32.168 --> 00:00:39.708
+Byte Buddy builds the bytes of a new class at run time: a subclass of SettlementService that overrides settle and audit.
+
+9
+00:00:39.933 --> 00:00:44.415
+A class loader defines it, with a random suffix in its name on every run.
+
+10
+00:00:44.415 --> 00:00:49.141
+The framework makes an instance, and your code just sees a SettlementService.
+
+11
+00:00:49.833 --> 00:00:51.783
+Now a caller calls settle.
+
+12
+00:00:51.783 --> 00:00:52.983
+What runs first?
+
+13
+00:00:54.767 --> 00:00:56.284
+The generated override.
+
+14
+00:00:56.284 --> 00:01:02.289
+It calls an interceptor, and hands it the method being called and a handle to the original.
+
+15
+00:01:02.500 --> 00:01:06.033
+The interceptor starts the clock, then calls the handle.
+
+16
+00:01:06.033 --> 00:01:11.900
+That goes through an accessor method Byte Buddy added, into super.settle, and your body runs.
+
+17
+00:01:12.100 --> 00:01:18.016
+When your body returns, the interceptor logs the time and passes your result back to the caller.
+
+18
+00:01:18.833 --> 00:01:19.799
+Now call region.
+
+19
+00:01:19.799 --> 00:01:22.756
+It's final, so the subclass couldn't override it.
+
+20
+00:01:22.756 --> 00:01:26.256
+The call goes straight to your body, and nothing times it.
+
+21
+00:01:26.933 --> 00:01:29.767
+A final class can't be subclassed at all.
+
+22
+00:01:29.767 --> 00:01:37.163
+In Kotlin, classes and methods are final unless you write open, so Byte Buddy refuses a plain Kotlin class.
+
+23
+00:01:37.163 --> 00:01:41.033
+The all-open compiler plugin opens the classes you mark.
+
+24
+00:01:41.933 --> 00:01:46.586
+In code, you pick the class, the methods to override, and the interceptor.
+
+25
+00:01:46.586 --> 00:01:49.730
+make writes the bytes, and load defines the class.
+
+26
+00:01:49.730 --> 00:01:51.553
+Kotlin uses the same builder.
+
+27
+00:01:53.467 --> 00:01:57.694
+The rule: a generated proxy is a subclass written at run time.
+
+28
+00:01:57.694 --> 00:02:04.104
+Its overrides run code before and after yours, and what it can't override, it can't intercept.
+
+29
+00:02:04.300 --> 00:02:05.175
+Quick check.
+
+30
+00:02:05.175 --> 00:02:09.039
+A Kotlin class is open, but one of its methods isn't.
+
+31
+00:02:09.039 --> 00:02:10.571
+Is that method timed?
+
+32
+00:02:12.767 --> 00:02:12.995
+No.
+
+33
+00:02:12.995 --> 00:02:16.492
+It's final, so the subclass can't override it.
