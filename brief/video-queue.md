@@ -3,7 +3,8 @@
 Batch done (28 live, the last 4 conc/jmm ones still rendering): the 8 fp lessons, then conc-02, jmm-03, conc-10, conc-12, exec-03, rx-02, vt-05, exec-05,
 co-06, rx-06, co-08, co-09, gen-01, kt-04, pat-06, io-07, pat-07, cls-02, pat-09, pat-08, mem-02, mem-05, mem-03, cls-07.
 
-Tier 1 is done (16 live). Tier 2 is now in progress (4 writers, 4 videos each).
+Tier 1 and tier 2 are done (16 live each). Tier 3 is in progress in two waves: 16 videos now (4 writers),
+then the last 6 capstone lessons (cap1-02, cap1-03, cap2-03, cap3-02, cap3-03, cap4-03).
 
 The order: Tier 1 is a mechanism that is hard to picture from text; tier 2 helps but less;
 tier 3 is mostly API, reference or project steps, where a video adds the least.

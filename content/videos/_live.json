@@ -115,6 +115,7 @@
   "rx04-combine",
   "rx08-hot-cold",
   "io04-netty",
-  "io06-quarkus"
+  "io06-quarkus",
+  "boot01-slow-start"
  ]
 }

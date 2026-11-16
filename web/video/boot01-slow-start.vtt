@@ -1,0 +1,125 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.482
+A new pod joins under load.
+
+2
+00:00:04.482 --> 00:00:10.354
+Its main is a few lines, yet it takes a while to answer, then answers slowly for a while.
+
+3
+00:00:10.354 --> 00:00:11.872
+Where does the time go?
+
+4
+00:00:13.733 --> 00:00:23.169
+First the launcher loads the JVM library, which creates a VM: it reserves the heap, generates its interpreter, and starts its threads.
+
+5
+00:00:24.000 --> 00:00:25.658
+Then the classes.
+
+6
+00:00:25.658 --> 00:00:32.973
+A 300-class test app loads 1,537 of them on JDK 21, with class sharing off.
+
+7
+00:00:32.973 --> 00:00:39.508
+911 come from the JDK, and 325 are hidden classes made for lambdas.
+
+8
+00:00:39.508 --> 00:00:41.264
+Yours are a fifth.
+
+9
+00:00:41.433 --> 00:00:48.157
+For each one, the JVM finds the class file, parses it into metaspace, and verifies the bytecode.
+
+10
+00:00:48.157 --> 00:00:51.729
+It runs the static initializer later, on first use.
+
+11
+00:00:52.533 --> 00:00:56.296
+Your code starts in the interpreter, one bytecode at a time.
+
+12
+00:00:56.296 --> 00:01:03.320
+The JIT turns hot methods into machine code, but only once it has profiles: counts of what the code really does.
+
+13
+00:01:04.100 --> 00:01:11.723
+A framework adds its own work: scanning for annotations, wiring beans, generating proxies, parsing config.
+
+14
+00:01:12.433 --> 00:01:13.935
+Now restart the JVM.
+
+15
+00:01:13.935 --> 00:01:16.564
+How much of this work does it skip?
+
+16
+00:01:18.233 --> 00:01:19.141
+Almost none.
+
+17
+00:01:19.141 --> 00:01:26.556
+Nothing survives the process, except a default archive of about 1,300 JDK classes, already parsed.
+
+18
+00:01:26.556 --> 00:01:28.598
+Those are mapped from disk.
+
+19
+00:01:28.598 --> 00:01:30.868
+Everything else is done again.
+
+20
+00:01:31.800 --> 00:01:45.627
+A tiny HTTP server on JDK 21: the VM is ready at 30 milliseconds, the app logs started at 103, and the first 200 arrives at 179.
+
+21
+00:01:45.627 --> 00:01:49.840
+With the archive off, about 235 to 320.
+
+22
+00:01:50.033 --> 00:01:52.228
+Even then it isn't at full speed.
+
+23
+00:01:52.228 --> 00:01:56.020
+The fastest code comes only after a method has run often.
+
+24
+00:01:56.800 --> 00:01:59.439
+You can watch it with -Xlog:class+load.
+
+25
+00:01:59.439 --> 00:02:06.072
+Each line says where a class came from: the archive, the JDK, your jar, or the class that made it.
+
+26
+00:02:06.767 --> 00:02:10.917
+The rule: start-up is work the JVM repeats on every launch.
+
+27
+00:02:10.917 --> 00:02:14.716
+Every class, a cold JIT, and the framework's own work.
+
+28
+00:02:14.900 --> 00:02:15.689
+Quick check.
+
+29
+00:02:15.689 --> 00:02:17.857
+A hidden class has no class file.
+
+30
+00:02:17.857 --> 00:02:20.552
+Why can its source never start with file?
+
+31
+00:02:22.633 --> 00:02:27.824
+Because file names the jar a class was read from, and a hidden class never had one.
