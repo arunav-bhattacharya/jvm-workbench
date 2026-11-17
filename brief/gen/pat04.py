@@ -65,7 +65,7 @@ FIG = """<svg viewBox="0 0 700 270" role="img" aria-label="Callers make one call
 
 OPENING = """You arrive at a hotel in another country with a phone charger from home. The socket in the wall has the wrong shape, so you push a travel plug adapter into it. The socket stays the same, the charger stays the same, and the little block in between makes them fit. Downstairs, the reception desk does a different job. You ask for breakfast at seven and fresh towels, and the desk talks to the kitchen and to housekeeping for you.
 
-The corner shop has both problems. Its warehouse runs an old program, bought years ago, that speaks in item numbers and two-digit codes. And placing one order takes several steps across several parts of the program. The easy trap is to let the old program's codes leak into every class, and to let every caller repeat the steps in its own slightly different order.
+The corner shop needs both kinds of help. Its warehouse runs an old program, bought years ago, that speaks in item numbers and two-digit codes. And placing one order takes several steps across several parts of the program. The easy trap is to let the old program's codes leak into every class, and to let every caller repeat the steps in its own slightly different order.
 
 In the last lesson, we built our own objects. In this lesson, we'll fit someone else's: an adapter that keeps an old program's words to itself, Kotlin's extension functions as light adapters, and a facade, one front desk for a job with several steps. Before we start, make a guess, and keep it in mind."""
 
@@ -369,7 +369,7 @@ fun CourierUpdate.toEvent(): DeliveryEvent = when (type) {   // an open set of t
     "parcel.missed" -> DeliveryEvent.Missed(ref, info.lowercase())
     else -> DeliveryEvent.Ignored("unhandled courier update $type")
 }"""},
-  "note": "The courier's system sends a short status message whenever a parcel's state changes, in the courier's words. The translation is the same in both languages: their strings in, a sealed event of our own out. Kotlin writes it as an extension on their type, so call sites read `update.toEvent()`. Java needs a static method on a holder class, so call sites read `CourierUpdateAdapter.toEvent(update)`, and in bytecode the two are the same static method. Both use a catch-all branch on purpose. The courier's message types are an open set you don't control, unlike your own sealed types, where a missing case should break the build. Code that uses `DeliveryEvent` then switches over it with no default. Neither language makes Adapter unnecessary; Kotlin just makes the data-mapping kind cheaper to write."
+  "note": "The courier's system sends a short status message whenever a parcel's state changes, in the courier's words. The translation is the same in both languages: their strings in, a sealed event of our own out. Kotlin writes it as an extension on their type, so call sites read `update.toEvent()`. Java needs a static method on a holder class, so call sites read `CourierUpdateAdapter.toEvent(update)`, and in bytecode, the compiled form the JVM runs, the two are the same static method. Both use a catch-all branch on purpose. The courier's message types are an open set you don't control, unlike your own sealed types, where a missing case should break the build. Code that uses `DeliveryEvent` then switches over it with no default. Neither language makes Adapter unnecessary; Kotlin just makes the data-mapping kind cheaper to write."
  },
  "worked": {
   "title": "Wrap a map service behind a port, then test without it",

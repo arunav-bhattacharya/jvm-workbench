@@ -52,9 +52,9 @@ Kotlin flows have an operator for each part of that routine: `catch` for a dropp
 
 In Flattening and combining, one failing inner flow took all the others down. In this lesson, we'll find which failures a `catch` hears, what a retry cooks again, what the note at the end says, and where a time limit goes. Before we start, make a guess, and keep it in mind."""
 
-S1 = r"""Here is the bread course as a flow. The cook first sends out yesterday's loaf, then fetches a fresh one from the bakery inside `withTimeout(50)`, which cancels the call if it takes longer than 50 ms. A `catch` below sends out crackers if anything goes wrong. The bakery takes 100 ms today.
+S1 = r"""Here is the bread course as a flow, a recipe card for values. The cook, the producer, cooks it only when a diner, the collector, calls `collect`, and each `emit` hands one value to the diner. The cook first sends out yesterday's loaf, then fetches a fresh one from the bakery inside `withTimeout(50)`, which cancels the call if it takes longer than 50 ms. A `catch` below it, an operator (a helper on the way from the cook to the diner), sends out crackers if anything goes wrong. The bakery takes 100 ms today.
 
-Most people expect the timeout to fly straight past the `catch`. The reasoning sounds solid: a timeout is a **CancellationException**, the exception coroutines use to say "stop, you've been called off", and `catch` doesn't handle cancellation. Run it, and then run a second version where the caller's own **job**, the handle that can cancel the collecting coroutine, is cancelled instead:
+Most people expect the timeout to fly straight past the `catch`. The reasoning sounds solid: a timeout is a `CancellationException`, the exception a coroutine (a light piece of work that can pause without holding a thread) uses to say "stop, you've been called off", and `catch` doesn't handle cancellation. Run it, and then run a second version where the caller's own job, the handle that can cancel the collecting coroutine, is cancelled instead:
 
 ```kotlin
 flow { emit(oldLoaf); emit(withTimeout(50) { bakery.fresh() }) }   // the call takes 100 ms
@@ -69,7 +69,7 @@ Flux.concat(Flux.just(oldLoaf), bakery.fresh().timeout(Duration.ofMillis(50)))
     .subscribe(diner::eat);               // case 2: the subscription is disposed meanwhile
 ```
 
-Here is what the Try it prints for five ways the bread course can end:
+Here is what the Try it prints for five ways the bread course can end. (An `IOException` is Java's usual exception for a failed read, write or call, such as a dropped phone line.)
 
 | How it ends | The `catch` action runs | The caller sees |
 |---|---|---|
@@ -110,17 +110,17 @@ static <T> void myCatch(Consumer<Consumer<T>> upstream, Consumer<T> downstream, 
 
 Read it top to bottom. First it wraps the downstream `emit` and remembers anything that comes out of it. Then, when the whole `collect` fails, it asks two questions. Did this come from downstream? Rethrow it. Is it the cancellation of our own job? Rethrow that too. Everything else goes to your action.
 
-The library's `catch` keeps the same books. Picture a net strung under the **upstream**, everything above `catch` in the chain, while the **downstream** is everything below it, the collector included. Anything that falls from above lands in the net, even a `CancellationException` that the upstream throws while the job is still running. The job's own cancellation passes through on purpose. And a plate the diner drops falls below the net, straight to the caller.
+The library's `catch` keeps the same books. Picture a net strung under the **upstream**, everything above `catch` in the chain, while the downstream is everything below it, the collector included. Anything that falls from above lands in the net, even a `CancellationException` that the upstream throws while the job is still running. The job's own cancellation passes through on purpose. And a plate the diner drops falls below the net, straight to the caller.
 
 So `catch` ignores the cancellation of its collector, not every `CancellationException`. For a bakery call, that's usually what you want: a timeout becomes crackers. If it isn't, rethrow `CancellationException` in the action yourself.
 
-The net is generous, but it only covers what hangs above it. To put the serving under its protection, move it into `onEach` above the `catch` and call `collect()` with no lambda, or `launchIn(scope)`, which collects in a new coroutine of that scope. And a caught error still ends the upstream: `flowOf(1, 2, 3).map { fails on 2 }.catch { emit(-1) }` gives 1 and -1, and 3 is never made.
+The net is generous, but it only covers what hangs above it. To put the serving under its protection, move it into `onEach` above the `catch` and call `collect()` with no lambda, or `launchIn(scope)`, which collects in a new coroutine of that scope (the owner of a group of coroutines, which cancels them all when it is cancelled). And a caught error still ends the upstream: `flowOf(1, 2, 3).map { fails on 2 }.catch { emit(-1) }` gives 1 and -1, and 3 is never made.
 
 **catch hears only what falls from above it. Put the work it should cover above it.**
 
 Check yourself: `catch` sits above `map`, and `map` throws. Who handles it? The net can send out crackers. Sometimes you'd rather ring the bakery again."""
 
-S2 = r"""The grocer's van is back with the delivery note from Context and threads: flour, eggs and butter, read line by line. On the first attempt the reader loses its connection after line 2, with an `IOException`, Java's usual exception for a failed read or write. The pantry import wraps the note in `retry(3)`. What does the pantry receive?
+S2 = r"""The grocer's van is back with the delivery note from Context and threads: flour, eggs and butter, read line by line. On the first attempt the reader loses its connection after line 2, with an `IOException`. The pantry import wraps the note in `retry(3)`. What does the pantry receive?
 
 ```kotlin
 val received = note.retry(3).toList()
@@ -133,7 +133,7 @@ List<String> received = Flux.defer(grocer::note).retry(3).collectList().block();
 // [flour, eggs, flour, eggs, butter]
 ```
 
-Two lines went into the pantry twice. The flour doesn't mind, but the pantry book now lists it twice. `retryWhen`, the operator under `retry`, is a loop around the same books that `catch` keeps. When the upstream fails with an exception from above the net, it calls your **predicate**, a function that answers yes or no, with the cause and an attempt number. If the answer is yes, it collects the upstream again. A cold flow is a recipe card, and collecting it again cooks it again from the top. Values that were already emitted are emitted again.
+Two lines went into the pantry twice. The flour doesn't mind, but the pantry book now lists it twice. `retryWhen`, the operator under `retry`, is a loop around the same books that `catch` keeps. When the upstream fails with an exception from above the net, it calls your predicate, a function that answers yes or no, with the cause and an attempt number. If the answer is yes, it collects the upstream again. A cold flow is a recipe card, and collecting it again cooks it again from the top. Values that were already emitted are emitted again.
 
 The counting follows from the loop. `retry(n)` is `retryWhen { cause, attempt -> attempt < n && predicate(cause) }`, so `retry(2)` on a note that always fails collects it 3 times, and then the third exception comes out. `retry(0)` fails when you build the flow, with `Expected positive amount of retries, but had 0`. The default is `Long.MAX_VALUE`, which retries for ever. `attempt` is 0 on the first failure, and with `retry(n, predicate)` the predicate is no longer called once the attempts run out.
 
@@ -153,7 +153,7 @@ bakery.order("sourdough").retryWhen(Retry.backoff(3, Duration.ofMillis(100)).jit
         .filter(e -> e instanceof IOException));
 ```
 
-Against a bakery that never answers, both ring at 0, 100, 300 and 700 ms. Then they differ. Flow gives up by letting the original `IOException` out. Reactor wraps it in a `RetryExhaustedException` (`Retries exhausted: 3/3`, with the real error as its cause), and outside tests it adds **jitter**, a random spread on each wait so that many callers don't ring at the same moment (0.5 by default, from lesson 5 of the reactive track). Flow has no jitter, no cap and no exhaustion type. You write those yourself, which is what the lab does.
+Against a bakery that never answers, both ring at 0, 100, 300 and 700 ms. Then they differ. Flow gives up by letting the original `IOException` out. Reactor wraps it in a `RetryExhaustedException` (`Retries exhausted: 3/3`, with the real error as its cause), and outside tests it adds jitter, a random spread on each wait so that many callers don't ring at the same moment (0.5 by default, from lesson 5 of the reactive track). Flow has no jitter, no cap and no exhaustion type. You write those yourself, which is what the lab does.
 
 Like `catch`, a retry never fires for an exception the collector threw, or for the caller's own cancellation. It does fire for a `TimeoutCancellationException` from a `timeout()` above it, and the last section builds on that.
 
@@ -228,7 +228,7 @@ The `catch` at the end filters on `isTransient`, so moon bread, which nobody bak
 
 **Above the retry, a timeout limits one try. Below it, a timeout limits them all.**
 
-The cancellation nature bites when the flow runs in the background. A timeout that nobody catches inside `launch` or `launchIn` just ends that coroutine as cancelled. The scope's **CoroutineExceptionHandler**, its last-resort handler for failures that nobody caught, never runs, and the parent scope keeps going, because handlers ignore `CancellationException`. Your bread refresher stops, and nobody hears the egg timer. Translate the timeout at the edge: `.catch { e -> if (e is TimeoutCancellationException) throw BakeryTimeout(e) else throw e }`, and the handler gets `BakeryTimeout` with the timeout as its cause. Reactor's `timeout` signals `java.util.concurrent.TimeoutException`, an ordinary error, so the trap doesn't exist there.
+The cancellation nature bites when the flow runs in the background. A timeout that nobody catches inside `launch` or `launchIn` just ends that coroutine as cancelled. The scope's `CoroutineExceptionHandler`, its last-resort handler for failures that nobody caught, never runs, and the parent scope keeps going, because handlers ignore `CancellationException`. Your bread refresher stops, and nobody hears the egg timer. Translate the timeout at the edge: `.catch { e -> if (e is TimeoutCancellationException) throw BakeryTimeout(e) else throw e }`, and the handler gets `BakeryTimeout` with the timeout as its cause. Reactor's `timeout` signals `java.util.concurrent.TimeoutException`, an ordinary error, so the trap doesn't exist there.
 
 Two notes for tests. Under `runTest`, `withTimeout` words its message differently ("Timed out after 50ms of _virtual_ (kotlinx.coroutines.test) time..."), so assert on the exception's type, never its text. And `TimeoutCancellationException` has no public constructor, so produce one with a real `timeout()` under virtual time, as the lab does.
 

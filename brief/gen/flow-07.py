@@ -61,9 +61,9 @@ The diary keeper falls behind, and the waiter starts missing announcements, thou
 
 In Errors, completion, retries and timeouts, every collector cooked its own recipe. Hot flows share. In this lesson, we'll find who decides when the slate is full, write the exact rule for `emit` and `tryEmit`, read the menu board closely, and share one cooking session among many diners. Before we start, make a guess, and keep it in mind."""
 
-S1 = r"""A cold flow is a recipe card: every collector cooks it again from the top. A **hot flow** runs whether or not anyone collects it, and shares each value with whoever is listening at that moment. A `MutableSharedFlow` is a hot flow that you emit into by hand, and it is the house bell. Each collector of a hot flow is a **subscriber**.
+S1 = r"""A cold flow is a recipe card: every collector, the code that calls `collect` to receive its values, cooks it again from the top. A **hot flow** runs whether or not anyone collects it, and shares each value with whoever is listening at that moment. A `MutableSharedFlow` is a hot flow that you send values into by hand with `emit`, and it is the house bell. Each collector of a hot flow is a subscriber.
 
-A helper wired up the bell like this. The waiter is quick. The diary keeper needs a full second per line, so the helper picked `DROP_LATEST`: when the diary keeper falls behind, the bell should drop announcements while the waiter carries on.
+A helper wired up the bell like this, with one coroutine (a light piece of work that can pause without holding a thread) per listener. The waiter is quick. The diary keeper needs a full second per line, so the helper picked `DROP_LATEST`: when the diary keeper falls behind, the bell should drop announcements while the waiter carries on.
 
 ```kotlin
 val bell = MutableSharedFlow<Int>(extraBufferCapacity = 2, onBufferOverflow = BufferOverflow.DROP_LATEST)
@@ -80,7 +80,7 @@ bell.asFlux().subscribe(diaryThatRequestsOne); // slow: request(1), then nothing
 for (int a = 1; a <= 6; a++) bell.tryEmitNext(a);
 ```
 
-`extraBufferCapacity = 2` gives the slate room for two announcements, and `onBufferOverflow` says what to do when it is full. Predict what the waiter receives. Here is the output in virtual time, with the other two choices for comparison:
+`extraBufferCapacity = 2` gives the slate room for two announcements, and `onBufferOverflow` says what to do when it is full. Predict what the waiter receives. Here is the output in virtual time, the fake clock of `runTest` that skips over waits, with the other two choices for comparison:
 
 ```text
 DROP_LATEST   waiter got [1, 2, 3]            diary got [1, 2, 3]
@@ -90,13 +90,13 @@ DROP_OLDEST   waiter got [1, 2, 3, 4, 5, 6]   diary got [1, 5, 6]
 
 The waiter lost 4, 5 and 6, and he was never slow. To see why, look at the slate. There is **one slate** beside the bell, and every subscriber reads it at their own pace, keeping their place with a finger. A line can be wiped only when every listener has read it. So the slowest listener decides when the slate is full, for everyone. There is no slate per listener.
 
-Walk through it. The diary keeper takes 1 and starts a line that takes a second. Announcements 2 and 3 go onto the slate, which has room for exactly two. The waiter reads them at once, but that wipes nothing, because the diary keeper still needs them. Announcement 4 finds the slate full, and the **overflow policy**, what a full buffer does with a new value, decides what happens:
+Walk through it. The diary keeper takes 1 and starts a line that takes a second. Announcements 2 and 3 go onto the slate, which has room for exactly two. The waiter reads them at once, but that wipes nothing, because the diary keeper still needs them. Announcement 4 finds the slate full, and the overflow policy, what a full buffer does with a new value, decides what happens:
 
 - `SUSPEND`, the default: `emit(4)` waits until the diary keeper takes 2, at t=1000. The waiter has nothing new to read, so he waits as well.
 - `DROP_LATEST`: 4 is never chalked up. Nobody hears it, the waiter included.
 - `DROP_OLDEST`: 4 is chalked over 2, and the diary keeper's finger is pushed past the wiped line. Only the slow listener skips.
 
-That makes the overflow policy a choice about every subscriber at once. When no announcement may be lost and the waiter must not wait, keep `SUSPEND` and give the slow listener a shelf of its own. `bell.buffer(64).collect { ... }` puts a channel between the slate and the slow work (the shelf from Buffering), so the diary keeper copies each line off the slate at once. In the Try it, that version delivers all six to both, and every `emit` returns by t=50. The shelf has a size: once its 64 spots fill, the diary keeper stops taking from the slate, and everyone waits again.
+That makes the overflow policy a choice about every subscriber at once. When no announcement may be lost and the waiter must not wait, keep `SUSPEND` and give the slow listener a shelf of its own. `bell.buffer(64).collect { ... }` puts a channel, a queue between coroutines, between the slate and the slow work (the shelf from Buffering), so the diary keeper copies each line off the slate at once. In the Try it, that version delivers all six to both, and every `emit` returns by t=50. The shelf has a size: once its 64 spots fill, the diary keeper stops taking from the slate, and everyone waits again.
 
 **A SharedFlow has one buffer for all its subscribers. Give a slow subscriber a buffer of its own.**
 
@@ -156,7 +156,7 @@ soup.tryEmitNext("tomato");
 
 The busy reader looked up, saw tomato, and concluded that nothing had happened. As far as the board knows, nothing had. A diary built on a StateFlow loses exactly these changes. Use a StateFlow for state, and a SharedFlow for events.
 
-Writes go through **compare-and-set**, an update that succeeds only if nobody changed the value since you read it. `update { it + 1 }` is a loop: read the value, compute the next one, call `compareAndSet(prev, next)`, and go round again if another writer got in first. With 8 coroutines on `Dispatchers.Default` each adding 1 a hundred thousand times, the value ends at exactly 800,000, and the lambda ran more than that: 807,072 times in one run here, 1,405,098 in another. Any side effect inside `update { }`, such as a log line or a call, can run more than once. Compute inside the lambda and act after it.
+Writes go through **compare-and-set**, an update that succeeds only if nobody changed the value since you read it. `update { it + 1 }` is a loop: read the value, compute the next one, call `compareAndSet(prev, next)`, and go round again if another writer got in first. With 8 coroutines on `Dispatchers.Default`, which runs them on real threads, one per core, each adding 1 a hundred thousand times, the value ends at exactly 800,000, and the lambda ran more than that: 807,072 times in one run here, 1,405,098 in another. Any side effect inside `update { }`, such as a log line or a call, can run more than once. Compute inside the lambda and act after it.
 
 `compareAndSet` compares with `equals` as well, which gives one odd case: `compareAndSet(11, 11)` on a board that holds 11 returns `true`, changes nothing and wakes nobody. Java's `AtomicReference.compareAndSet` compares references instead, so a fresh `BigDecimal("10")` fails against the stored one.
 
@@ -166,7 +166,7 @@ One counter does not skip anything: `subscriptionCount`, the number of current s
 
 Check yourself: a busy collector last saw tomato, and the soup goes leek, then pea. What does it see when it's free? Both kinds of hot flow so far were filled by hand. Most hot flows in real programs are a cold flow, shared."""
 
-S4 = r"""`stateIn` and `shareIn` read like conversions, but each one launches a coroutine. `shareIn(scope, started, replay)` creates a `MutableSharedFlow` with that `replay`, an extra buffer that brings it up to at least 64 slots, and `SUSPEND`. Then it launches one coroutine in `scope`, the owner that cancels all its coroutines when it is cancelled, and that coroutine collects the upstream into the shared flow. `stateIn` does the same with a `MutableStateFlow(initialValue)`.
+S4 = r"""`stateIn` and `shareIn` read like conversions, but each one launches a coroutine. `shareIn(scope, started, replay)` creates a `MutableSharedFlow` with that `replay`, an extra buffer that brings it up to at least 64 slots, and `SUSPEND`. Then it launches one coroutine in `scope`, the owner that cancels all its coroutines when it is cancelled, and that coroutine collects the upstream, the cold flow above it, into the shared flow. `stateIn` does the same with a `MutableStateFlow(initialValue)`.
 
 Picture one cook and many diners. The **sharing coroutine** is the cook: she cooks the recipe once and serves every diner at the table. `started`, a `SharingStarted` value, decides when she works. `Eagerly` starts her at opening time, diners or not. `Lazily` lets the first diner get her started, and she never stops. `WhileSubscribed(5_000)` keeps her cooking while anyone is at the table and stops her 5 s after the last diner leaves, in case someone just stepped out.
 

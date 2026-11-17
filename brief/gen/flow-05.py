@@ -56,7 +56,7 @@ Kotlin has an operator for exactly this kitchen, `flatMapMerge`, and the first v
 
 In Buffering, each value travelled on its own across one shelf. Here each value opens a whole flow of its own. In this lesson, we'll find the line that makes the burners take turns, draw the three ways to run those flows, join two flows with `zip` and `combine`, and watch a slow screen make `combine` skip. Before we start, make a guess, and keep it in mind."""
 
-S1 = r"""Start with the ticket in code. A **flow** is a recipe card for values: it does nothing until a collector, the code that calls `collect`, asks for them. Each dish name on the ticket is one value of a flow, and `stove.cook(dish)` is a suspend call that takes 100 ms, a call that pauses its coroutine (a light piece of work that can wait without holding a thread, the worker that runs the code) and lets others run. A helper wrote this to cook the order four dishes at a time:
+S1 = r"""Start with the ticket in code. A flow is a recipe card for values: it does nothing until a collector, the code that calls `collect`, asks for them. Each dish name on the ticket is one value of a flow, and `stove.cook(dish)` is a suspend call that takes 100 ms, a call that pauses its coroutine (a light piece of work that can wait without holding a thread, the worker that runs the code) and lets others run. A helper wrote this to cook the order four dishes at a time:
 
 ```kotlin
 dishes.flatMapMerge(concurrency = 4) { dish ->
@@ -73,9 +73,9 @@ dishes.flatMap(dish -> {
 }, 4);
 ```
 
-`flatMapMerge` is an operator, a helper on the way from the cook to the diner: a function that takes a flow and returns a new one. It is a **flattening** operator. For each value of the **outer flow** (the ticket), your lambda returns an **inner flow**, a flow of its own, and the operator collects all those inner flows into one stream of plates. `concurrency` is how many inner flows it collects at the same time: the number of burners. So ten dishes of 100 ms should take 300 ms. The kitchen log says 1,000 ms, with one dish on the stove at a time.
+`flatMapMerge` is an operator, a helper on the way from the cook to the diner: a function that takes a flow and returns a new one. It is a **flattening** operator. For each value of the outer flow (the ticket), your lambda returns an **inner flow**, a flow of its own, and the operator collects all those inner flows into one stream of plates. `concurrency` is how many inner flows it collects at the same time: the number of burners. So ten dishes of 100 ms should take 300 ms. The kitchen log says 1,000 ms, with one dish on the stove at a time.
 
-To see why, build the operator yourself. It needs three parts: one coroutine that reads the outer flow, a **semaphore** with one permit per burner (a counter of permits: `acquire` takes one and waits while none is left, `release` gives it back), and one coroutine per inner flow. All of them send into one hatch, the small window with a shelf between the kitchen and the dining room. That is `channelFlow` from lesson 3 of this track, several cooks sharing one hatch:
+To see why, build the operator yourself. It needs three parts: one coroutine that reads the outer flow, a semaphore with one permit per burner (a counter of permits: `acquire` takes one and waits while none is left, `release` gives it back), and one coroutine per inner flow. All of them send into one hatch, the small window with a shelf between the kitchen and the dining room. That is `channelFlow` from lesson 3 of this track, several cooks sharing one hatch:
 
 ```kotlin
 fun <T, R> Flow<T>.mergeLanes(lanes: Int, transform: suspend (T) -> Flow<R>): Flow<R> = channelFlow {
@@ -102,7 +102,7 @@ static void mergeLanes(List<String> dishes, int lanes, BlockingQueue<Plate> out)
 }
 ```
 
-Read it in order. The `collect` loop takes one dish, calls `transform`, waits for a permit, and launches a coroutine, a **lane**, that collects the inner flow onto the hatch. Then it takes the next dish. The tricky line is the first one in the loop. `transform` runs inside the one coroutine that reads the outer flow, before it even asks for a permit.
+Read it in order. The `collect` loop takes one dish, calls `transform`, waits for a permit, and launches a coroutine, a lane, that collects the inner flow onto the hatch. Then it takes the next dish. The tricky line is the first one in the loop. `transform` runs inside the one coroutine that reads the outer flow, before it even asks for a permit.
 
 That one coroutine is our head cook at the pass. She reads a line, does whatever the lambda says, and only then hands the result to a burner. If the lambda cooks the dish, she cooks it, alone, while the helpers wait. Only the flow the lambda returns gets a burner of its own. So the slow call has to live inside that flow:
 
@@ -117,7 +117,7 @@ dishes.flatMap(dish -> stove.cook(dish), 4);   // cook returns a lazy Mono
 
 The Try it runs a smaller order on two burners: soup 300 ms, salad 100, roast 200, bread 50 and pie 150. The fixed version ends at 450 ms with two dishes on the stove at the busiest moment. The lambda version ends at 800 ms with one, the sum of all five, exactly what a plain `map { stove.cook(it) }` would take.
 
-The library's `flatMapMerge` is `map(transform).flattenMerge(concurrency)`, and `flattenMerge` has the same shape as `mergeLanes`: a producer coroutine, a `Semaphore(concurrency)`, a `launch` per inner flow, and one output **channel**, a queue between coroutines, with 64 slots. Its KDoc, the documentation in the library's source, says it "calls transform sequentially". Plates leave in **completion order**, the order they are ready: salad, soup, roast, bread, pie.
+The library's `flatMapMerge` is `map(transform).flattenMerge(concurrency)`, and `flattenMerge` has the same shape as `mergeLanes`: a producer coroutine, a `Semaphore(concurrency)`, a `launch` per inner flow, and one output channel, a queue between coroutines, with 64 slots. Its KDoc, the documentation in the library's source, says it "calls transform sequentially". Plates leave in completion order, the order they are ready: salad, soup, roast, bread, pie.
 
 **The lambda only builds the inner flow. Put the slow work inside it.**
 
@@ -170,15 +170,15 @@ Flux.combineLatest(readings, dial, (c, d) -> c + " of " + d);
 Flux.merge(tableOrders, takeawayOrders);
 ```
 
-`zip` shows two lines: "150 of 180" at 250 ms and "152 of 200" at 550 ms. Then it ends. **zip** pairs the first value of one flow with the first of the other, the second with the second, and stops at the end of the shorter flow, like the teeth of a zipper. The readings' `onCompletion`, a hook that runs once when a flow ends (the next lesson takes it apart), reports `AbortFlowException: Flow was aborted, no more elements needed`, the signed "no more, thanks" note from lesson 2 of this track.
+`zip` shows two lines: "150 of 180" at 250 ms and "152 of 200" at 550 ms. Then it ends. `zip` pairs the first value of one flow with the first of the other, the second with the second, and stops at the end of the shorter flow, like the teeth of a zipper. The readings' `onCompletion`, a hook that runs once when a flow ends (the next lesson takes it apart), reports `AbortFlowException: Flow was aborted, no more elements needed`, the signed "no more, thanks" note from lesson 2 of this track.
 
-Something else happened too: reading 152 came at 350 ms, not 200. `zip` collects its receiver, `readings`, in the caller's coroutine with no shelf at all. Only the other flow gets a producer coroutine, with a **rendezvous** channel between them, a hand-over where both hands must meet. So each reading's `emit` waits until there is a dial value to pair it with, and the slower side sets the pace. Reactor's `zip` produced the same two pairs, but its thermometer kept ticking every 100 ms, because Reactor asks its sources for values ahead of time. And Flow has only this two-flow `zip`.
+Something else happened too: reading 152 came at 350 ms, not 200. `zip` collects its receiver, `readings`, in the caller's coroutine with no shelf at all. Only the other flow gets a producer coroutine, with a rendezvous channel between them, a hand-over where both hands must meet. So each reading's `emit` waits until there is a dial value to pair it with, and the slower side sets the pace. Reactor's `zip` produced the same two pairs, but its thermometer kept ticking every 100 ms, because Reactor asks its sources for values ahead of time. And Flow has only this two-flow `zip`.
 
 Pairing the second reading with the second turn of the dial is the wrong question. The screen needs each reading against the latest dial setting. That is **combine**. Picture a slate with one line per flow. `combine` starts one coroutine per source, and each one writes its newest value on its own line. Nothing comes out until every line has a value. After that, every update produces one output.
 
 So the first line is "152 of 180" at 250 ms: reading 150 had already been wiped off the slate by 152 before the dial had a value. Then come 154, 156 and 158 of 180, then "158 of 200" the moment the dial moves at 550, then "160 of 200" at 600. A source that never emits means no output at all, and `combine` completes when all its sources have completed.
 
-**merge** is the third way to join flows: values come out as they arrive, from either source, like two queues sharing one door. Table orders every 100 ms and takeaway orders every 70 ms come out as takeaway-0 at 70, table-0 at 100, takeaway-1 at 140, and so on. The merged flow ends when the last source ends, and one source that fails cancels the others.
+`merge` is the third way to join flows: values come out as they arrive, from either source, like two queues sharing one door. Table orders every 100 ms and takeaway orders every 70 ms come out as takeaway-0 at 70, table-0 at 100, takeaway-1 at 140, and so on. The merged flow ends when the last source ends, and one source that fails cancels the others.
 
 **Pair by number with zip only when the n-th of one belongs with the n-th of the other. For "the latest of each", use combine.**
 

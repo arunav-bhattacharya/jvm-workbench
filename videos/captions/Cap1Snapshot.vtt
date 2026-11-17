@@ -1,161 +1,333 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.159
-The ledger holds 50 accounts, 1,000 cents each.
+00:00:02.733 --> 00:00:07.808
+It's payday lunchtime at our bank, and transfers arrive at 1,600 a second.
 
 2
-00:00:06.159 --> 00:00:10.649
-Transfers move money between them, so the total stays 50,000.
+00:00:07.808 --> 00:00:11.853
+The bank's app has a page that shows every balance at once.
 
 3
-00:00:10.867 --> 00:00:12.641
-A reader wants that total.
+00:00:11.853 --> 00:00:15.831
+And rule 1 says they must always add up to the same total.
 
 4
-00:00:12.641 --> 00:00:14.962
-It walks the accounts in id order.
+00:00:16.000 --> 00:00:20.895
+Let's shrink the ledger: 50 accounts, with 1,000 cents in each.
 
 5
-00:00:14.962 --> 00:00:17.351
-Lock one, read it, add it, move on.
+00:00:20.895 --> 00:00:22.371
+So 50,000 in total.
 
 6
-00:00:17.667 --> 00:00:19.530
-It has passed account 3.
+00:00:22.667 --> 00:00:25.152
+The obvious way to add them up is a walk.
 
 7
-00:00:19.530 --> 00:00:24.187
-Now a transfer moves 300 cents from account 40 to account 3.
+00:00:25.152 --> 00:00:27.818
+A reader goes through the accounts in order.
 
 8
-00:00:24.400 --> 00:00:26.220
-What total will the reader get?
+00:00:27.818 --> 00:00:32.607
+It takes one account's lock, reads the balance, adds it, lets go, and moves on.
 
 9
-00:00:27.633 --> 00:00:31.373
-It reads the rest, and gets 49,700.
+00:00:32.800 --> 00:00:36.170
+So here's a question that feels too obvious to ask.
 
 10
-00:00:31.733 --> 00:00:36.369
-It saw account 3 before the money came, and account 40 after it left.
+00:00:36.170 --> 00:00:40.663
+Every read held a lock, and every transfer keeps the books balanced.
 
 11
-00:00:36.600 --> 00:00:40.464
-Every read was locked, and no transfer broke the books.
+00:00:40.663 --> 00:00:42.447
+So the sum has to be right.
 
 12
-00:00:40.464 --> 00:00:42.290
-The sum mixes two moments.
+00:00:42.447 --> 00:00:43.173
+Doesn't it?
 
 13
-00:00:42.290 --> 00:00:43.063
-It is torn.
+00:00:43.333 --> 00:00:44.446
+Let's trace it.
 
 14
-00:00:43.267 --> 00:00:52.575
-In one Java run of the lesson's demo, 7,241 of 9,456 sums were torn.
+00:00:44.446 --> 00:00:47.414
+The reader has already passed account 3.
 
 15
-00:00:53.400 --> 00:00:55.217
-The fix: readers stop adding.
+00:00:47.414 --> 00:00:51.865
+Now a transfer moves 300 cents from account 40 to account 3.
 
 16
-00:00:55.217 --> 00:00:59.728
-They read one field, latest, which points to the last finished snapshot.
+00:00:52.000 --> 00:00:56.120
+The reader carries on, and reads the rest, account 40 included.
 
 17
-00:00:59.933 --> 00:01:02.884
-Reader A reads it now, and holds version 1.
+00:00:56.120 --> 00:00:57.624
+What total does it get?
 
 18
-00:01:03.100 --> 00:01:08.610
-To build the next one, the ledger takes every lock, in the id order transfers use.
+00:01:00.667 --> 00:01:01.218
+49,700.
 
 19
-00:01:08.610 --> 00:01:10.559
-Now no transfer is half done.
+00:01:01.218 --> 00:01:06.892
+It saw account 3 before the money arrived, and account 40 after it left.
 
 20
-00:01:10.767 --> 00:01:13.973
-A transfer that comes now waits, for microseconds.
+00:01:06.892 --> 00:01:11.225
+Three hundred cents went missing, and nobody took them.
 
 21
-00:01:14.700 --> 00:01:20.157
-It copies all 50 balances into a new record, with the total and a version number.
+00:01:11.400 --> 00:01:16.057
+Send the money the other way, and the reader counts the same 300 twice.
 
 22
-00:01:20.157 --> 00:01:22.649
-Once built, the record never changes.
+00:01:16.200 --> 00:01:19.641
+Every read held a lock, and no transfer broke a rule.
 
 23
-00:01:22.867 --> 00:01:27.545
-Then one volatile write publishes it, and latest now points to version 2.
+00:01:19.641 --> 00:01:21.783
+Still, the sum mixes two moments.
 
 24
-00:01:27.767 --> 00:01:31.869
-Then the locks go, in reverse order, and the waiting transfer runs.
+00:01:21.783 --> 00:01:26.652
+A sum like that is called torn: it matches no state the ledger was ever in.
 
 25
-00:01:32.100 --> 00:01:34.803
-Reader A read latest just before that write.
+00:01:26.800 --> 00:01:34.152
+In one Java run of the lesson's demo, 7,241 of 9,456 sums were torn.
 
 26
-00:01:34.803 --> 00:01:35.847
-What does it see?
+00:01:34.152 --> 00:01:38.909
+A busier machine tore fewer, but never none.
 
 27
-00:01:37.267 --> 00:01:38.770
-All of version 1.
+00:01:39.667 --> 00:01:41.634
+You've seen this on your phone.
 
 28
-00:01:38.770 --> 00:01:40.096
-Old, but whole.
+00:01:41.634 --> 00:01:47.091
+A panorama photo sweeps across the room one slice at a time, and every slice is sharp.
 
 29
-00:01:40.300 --> 00:01:43.571
-Reader B comes after, and sees all of version 2.
+00:01:47.091 --> 00:01:51.152
+But a friend who runs the same way as the camera shows up twice.
 
 30
-00:01:43.800 --> 00:01:45.442
-Old or new, never a mix.
+00:01:51.152 --> 00:01:53.880
+And one who walks the other way can vanish.
 
 31
-00:01:45.442 --> 00:01:49.616
-A snapshot never changes, and the pointer moves in one write.
+00:01:54.067 --> 00:01:57.998
+Great news for the friend who wanted to be in the picture twice.
 
 32
-00:01:50.833 --> 00:01:57.667
-Here it is in Java and Kotlin: every lock in id order, an immutable record, one volatile write.
+00:01:57.998 --> 00:01:59.349
+Less great for a bank.
 
 33
-00:01:59.500 --> 00:02:00.096
-The rule.
+00:01:59.533 --> 00:02:00.381
+Let's map it.
 
 34
-00:02:00.096 --> 00:02:06.191
-Build the whole snapshot while no transfer can run, then publish it with one volatile write.
+00:02:00.381 --> 00:02:04.361
+The sweep is our reader, going through the accounts in order.
 
 35
-00:02:06.400 --> 00:02:07.600
-Check yourself.
+00:02:04.361 --> 00:02:06.710
+Each sharp slice is one locked read.
 
 36
-00:02:07.600 --> 00:02:13.919
-A reader asks for the latest snapshot in the middle of a transfer from 40 to 3.
+00:02:06.710 --> 00:02:09.842
+And the friend who moves is money in a transfer.
 
 37
-00:02:13.919 --> 00:02:15.359
-Can it get 49,700?
+00:02:09.842 --> 00:02:15.844
+Our 300 cents walked from account 40 back to account 3, against the sweep, so they vanished.
 
 38
-00:02:18.067 --> 00:02:18.289
-No.
+00:02:16.000 --> 00:02:21.297
+What we want is an ordinary photo: one click, and everyone at the same instant.
 
 39
-00:02:18.289 --> 00:02:22.225
-Every snapshot was copied with no transfer half done.
+00:02:22.067 --> 00:02:26.599
+For the ledger, one instant means a moment when no transfer is half done.
 
 40
-00:02:22.225 --> 00:02:26.087
+00:02:26.599 --> 00:02:32.434
+So the snapshot takes every account's lock, lowest number first, the same order transfers use.
+
+41
+00:02:32.434 --> 00:02:35.911
+That way, a snapshot can never deadlock with a transfer.
+
+42
+00:02:36.067 --> 00:02:37.545
+Now no money can move.
+
+43
+00:02:37.545 --> 00:02:41.172
+A transfer that arrives waits, for a few microseconds.
+
+44
+00:02:41.172 --> 00:02:47.285
+The snapshot copies all 50 balances into a new record, with the total and a version number.
+
+45
+00:02:47.285 --> 00:02:50.173
+Once it's built, that record never changes.
+
+46
+00:02:50.333 --> 00:02:53.477
+Then one write to a field called latest publishes it.
+
+47
+00:02:53.477 --> 00:02:57.451
+The locks go back, in reverse order, and the waiting transfer runs.
+
+48
+00:02:57.600 --> 00:03:00.492
+That's the shop's price board from Don't share.
+
+49
+00:03:00.492 --> 00:03:03.445
+The owner never erases prices while people read.
+
+50
+00:03:03.445 --> 00:03:06.644
+She prints a new board, and hangs it up in one move.
+
+51
+00:03:06.800 --> 00:03:08.875
+So readers stop adding things up.
+
+52
+00:03:08.875 --> 00:03:12.207
+They read one field, latest, and take no lock at all.
+
+53
+00:03:12.207 --> 00:03:14.974
+Reader A read latest just before that write.
+
+54
+00:03:14.974 --> 00:03:16.043
+What does it see?
+
+55
+00:03:19.067 --> 00:03:20.375
+All of version 1.
+
+56
+00:03:20.375 --> 00:03:21.530
+Old, but whole.
+
+57
+00:03:21.530 --> 00:03:25.609
+Reader B reads just after, and sees all of version 2.
+
+58
+00:03:25.609 --> 00:03:27.456
+Old or new, never a mix.
+
+59
+00:03:28.333 --> 00:03:31.598
+Three pictures from the memory model make this safe.
+
+60
+00:03:31.598 --> 00:03:38.315
+The account locks are the cashier's key: whoever takes the same key next sees everything written before it.
+
+61
+00:03:38.315 --> 00:03:44.467
+latest is the museum's OPEN/CLOSED sign: a volatile field, whose every read sees the latest write.
+
+62
+00:03:44.467 --> 00:03:49.928
+And a finished snapshot is a letter in a sealed envelope, whole for anyone who gets it.
+
+63
+00:03:50.667 --> 00:03:51.368
+Is it free?
+
+64
+00:03:51.368 --> 00:03:54.239
+Not quite, and here the photo picture breaks.
+
+65
+00:03:54.239 --> 00:03:56.280
+A camera doesn't stop the party.
+
+66
+00:03:56.280 --> 00:04:01.829
+Our snapshot does, for a moment, because every transfer waits while it holds the locks.
+
+67
+00:04:02.000 --> 00:04:04.372
+For 50 accounts, that's microseconds.
+
+68
+00:04:04.372 --> 00:04:07.706
+For five million, it's a pause customers would feel.
+
+69
+00:04:07.706 --> 00:04:13.668
+So a real bank takes one snapshot every few hundred milliseconds, and every reader shares it.
+
+70
+00:04:14.467 --> 00:04:16.661
+Here it is in Java and Kotlin.
+
+71
+00:04:16.661 --> 00:04:18.197
+Every lock, in order.
+
+72
+00:04:18.197 --> 00:04:20.976
+Copy into a record that never changes.
+
+73
+00:04:20.976 --> 00:04:22.366
+One volatile write.
+
+74
+00:04:22.366 --> 00:04:24.121
+Then unlock, in reverse.
+
+75
+00:04:24.867 --> 00:04:27.347
+So, can a sum of locked reads be wrong?
+
+76
+00:04:27.347 --> 00:04:32.370
+Yes, when each read is locked on its own, like a panorama, one slice at a time.
+
+77
+00:04:32.370 --> 00:04:38.220
+Build the whole snapshot while no transfer can run, then publish it with one volatile write.
+
+78
+00:04:38.400 --> 00:04:39.365
+Quick check.
+
+79
+00:04:39.365 --> 00:04:45.719
+A reader asks for the latest snapshot in the middle of a transfer from 40 to 3.
+
+80
+00:04:45.719 --> 00:04:47.167
+Can it get 49,700?
+
+81
+00:04:49.600 --> 00:04:49.818
+No.
+
+82
+00:04:49.818 --> 00:04:54.033
+Every snapshot was copied while no transfer was half done.
+
+83
+00:04:54.033 --> 00:04:57.812
 It gets 50,000, maybe from a slightly older version.

@@ -57,14 +57,14 @@ Code makes objects all day, usually with `new`, which names the exact class ever
 In the last lesson, a private constructor and one `getInstance()` decided how many objects exist. In this lesson, we'll let a factory decide which object you get: static factories with names, factory methods passed around as functions, factories that return a sealed result instead of throwing, and an abstract factory for a set that must match. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
-S0 = """Start with the counter at the bakery. You say what you want, and the baker hands over something that fits. You never see the kitchen. A **static factory method** is that counter in code: a static method that returns an instance of its class, or of some class behind an interface. Effective Java opens with it (item 1: consider static factory methods instead of constructors), and the JDK is full of them: `List.of`, `Duration.ofMinutes`, `Integer.valueOf`, `Thread.ofVirtual`.
+S0 = """Start with the counter at the bakery. You say what you want, and the baker hands over something that fits. You never see the kitchen. A **static factory method** is that counter in code: a static method that returns an instance of its class, or of some class behind an interface. Effective Java, the best-known book of Java advice, opens with it (item 1: consider static factory methods instead of constructors). The JDK, the libraries that come with Java, is full of them: `List.of`, `Duration.ofMinutes`, `Integer.valueOf`, `Thread.ofVirtual`.
 
 A constructor can do one thing: make a new object of exactly its own class. A static factory can do four things a constructor can't.
 
 1. It has a name. `Duration.ofMinutes(2)` and `Duration.ofSeconds(2)` both take a `long`. Two constructors with the same parameter types can't exist, and `new Duration(2)` would say nothing anyway.
 2. It can return an object it made earlier. `Integer.valueOf(100)` hands back the same cached object every time.
 3. It can return any subtype, chosen from the input. `List.of(1)` and `List.of(1, 2, 3)` return two different private classes. `EnumSet.noneOf` picks a set backed by a single `long` when the enum has 64 constants or fewer, and a bigger one otherwise.
-4. The class it returns doesn't have to exist when the factory is written. JDBC, in `java.sql`, is Java's standard way to talk to a database, and each database company ships its own driver. `DriverManager.getConnection(url)` returns a connection from whichever driver on the classpath accepts the URL, and those drivers were written long after `java.sql`.
+4. The class it returns doesn't have to exist when the factory is written. JDBC, in `java.sql`, is Java's standard way to talk to a database, and each database company ships its own driver. `DriverManager.getConnection(url)` returns a connection from whichever driver on the classpath (the list of places the JVM loads classes from) accepts the URL, and those drivers were written long after `java.sql`.
 
 The warm-up was the third point. `FactoriesInTheJdk`, in the Try it, asks each factory what it handed back. On JDK 21 it printed:
 
@@ -77,7 +77,7 @@ EnumSet of scripts    -> JumboEnumSet (164 constants)
 
 Same method, different classes, and you can't write any of those class names in your own code. The factory is the only door.
 
-The downsides are small. A class with only private constructors can't have subclasses, which pushes you toward composition and costs little. Factories are also harder to spot than constructors, so stick to the usual names: `of`, `from`, `valueOf`, `parse`, `newX`, `create`.
+The downsides are small. A class with only private constructors can't have subclasses, which pushes you toward composition (building a class out of other objects instead of extending one) and costs little. Factories are also harder to spot than constructors, so stick to the usual names: `of`, `from`, `valueOf`, `parse`, `newX`, `create`.
 
 For the shop's own value types, make this the default. Picture a `Price` with a private constructor and two doors, `Price.ofCents(450)` and `Price.parse("4.50")`. With the constructor private, every `Price` in the program went through your checks. The compare block at the end of this lesson writes it out in both languages.
 
@@ -129,17 +129,17 @@ K_OF = """fun messengerOf(c: Channel): Messenger = when (c) {   // no else branc
 
 S1 = """Here's the problem in the shop. When an order leaves, the shop tells the customer, by text message (SMS) or by email. Tests use a fake messenger that sends nothing. The code that writes the notice shouldn't decide which messenger it gets, or every test run would text real customers.
 
-The GoF **Factory Method** is the book's answer. A class needs to create something, but it doesn't pick the concrete class. In the book's version, an abstract class declares a creation hook, the factory method, and subclasses override it:
+The **Factory Method** from the Gang of Four (GoF) book on design patterns is the classic answer. A class needs to create something, but it doesn't pick the concrete class. In the book's version, an abstract class declares a creation hook, the factory method, and subclasses override it:
 
 """ + pair(J_GOF, K_GOF) + """
 
-That works, and it's still a fair design when the subclass has other reasons to exist. But here it costs one subclass per product, just to pick a constructor. Since Java 8, a function does the same job. A `Supplier<Messenger>` (in Kotlin, a `() -> Messenger`) is a factory: call it, and you get a messenger. A constructor reference such as `FakeMessenger::new` is the shortest way to write one:
+That works, and it's still a fair design when the subclass has other reasons to exist. But here it costs one subclass per product, just to pick a constructor. Since Java 8, a function does the same job. A `Supplier<Messenger>` (in Kotlin, a `() -> Messenger`) is a factory: call it, and you get a messenger. A constructor reference such as `FakeMessenger::new`, read as "call this constructor", is the shortest way to write one:
 
 """ + pair(J_FN, K_FN) + """
 
 That's the bakery counter in code: `OrderNotices` asks for "a messenger" and never names a class. The real program and the test each hand in their own way to make one.
 
-When the choice depends on data, such as a setting or the customer's preference, put it in one static factory over a sealed family:
+When the choice depends on data, such as a setting or the customer's preference, put it in one static factory over a sealed family. A sealed interface lists every class that may implement it, so the compiler knows them all:
 
 """ + pair(J_OF, K_OF) + """
 
@@ -218,7 +218,7 @@ parse("FRI 23") -> we deliver from 8 to 19, not at 23
 parse("MOON 9") -> no such day 'MOON'
 ```
 
-Add a fourth result later, say `Closed` for a day the shop doesn't deliver, and every `when` without an `else` stops compiling until it handles it. Java 21 gives the same check with a sealed interface, records and a `switch` with type patterns, as the Java twin shows.
+Add a fourth result later, say `Closed` for a day the shop doesn't deliver, and every `when` without an `else` stops compiling until it handles it. Java 21 gives the same check with a sealed interface, records (classes that only carry data) and a `switch` whose cases match on the type, as the Java twin shows.
 
 **Throw for bugs and broken machinery. Return a sealed result for answers the caller must handle.**
 
@@ -400,7 +400,7 @@ val shown = when (val p = Price.parse(input)) {
     is Parsed.Ok -> "saved ${p.price}"
     is Parsed.Bad -> "try again: ${p.reason}"
 }"""},
-  "note": "The shape is the same in both: a private constructor, named factories, a sealed result and an exhaustive `switch` or `when` at the call site. Java 21 takes the result apart with record patterns (`case Price.Ok(Price p)`), and Kotlin smart-casts it after `is`. The real difference is where the factory lives. Kotlin has no `static`: `ofCents` is a function on the companion object, so Java callers would write `Price.Companion.ofCents(...)` without `@JvmStatic`. Kotlin also gives you `operator fun invoke` and top-level factory functions, and its named arguments remove a lot of the constructor confusion that pushes Java code toward factories in the first place."
+  "note": "The shape is the same in both: a private constructor, named factories, a sealed result and an exhaustive `switch` or `when` at the call site. Java 21 takes the result apart with record patterns (`case Price.Ok(Price p)`), and Kotlin smart-casts it, treating it as that type once `is` has checked it. The real difference is where the factory lives. Kotlin has no `static`: `ofCents` is a function on the companion object, so Java callers would write `Price.Companion.ofCents(...)` without `@JvmStatic`. Kotlin also gives you `operator fun invoke` and top-level factory functions, and its named arguments remove a lot of the constructor confusion that pushes Java code toward factories in the first place."
  },
  "worked": {
   "title": "Replace look-alike constructors with named factories",
@@ -501,7 +501,7 @@ record ToDoor(String orderId, int grams, String note) implements Delivery {
   "steps": [
    "Open the three files. `Parcel` is a parcel that knows its weight and its courier, `CourierServices` is the family of a courier company's two services, and `Shipping` books a parcel for an order.",
    "Run the tests. All nine fail with `NotImplementedError`, the error Kotlin's `TODO()` throws.",
-   "Write `Parcel.parse` in `Parcel.kt`. Apply the three checks from its KDoc comment in order, and return `ParcelResult.Invalid(reason)` with the exact reason strings. Only `parse` may call the private constructor.",
+   "Write `Parcel.parse` in `Parcel.kt`. Apply the three checks from its KDoc comment (Kotlin's documentation comment) in order, and return `ParcelResult.Invalid(reason)` with the exact reason strings. Only `parse` may call the private constructor.",
    "Write `CourierServices.forCourier`. One private class built from settings (courier, company name, prefix) can serve both families. Use `require` for the checks that refuse to mix couriers, and an exhaustive `when` with no `else`.",
    "Write `Shipping.ship` as a `when` over `Parcel.parse(weight)`. Call `servicesFor` only for a valid parcel.",
    "Run the tests until all nine pass."

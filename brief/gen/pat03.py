@@ -93,9 +93,9 @@ S0 = """Here's how the shop prints a parcel label today:
 
 Seven arguments, three of them `true` or `false`, and only their positions say what they mean. Even the author of `Label` has to count. Java classes like this often grow a **telescoping constructor**: one constructor per combination of optional parameters, each calling the next with one more default. That's the sandwich ordered in one breath.
 
-The Java fix is the **builder** from Effective Java (item 2): a helper object with one method per field and a `build()` at the end, as in `Label.builder("12 Mill Lane", "Anna").fragile(true).copies(2).build()`. It's the sandwich counter. You add one part at a time, and `build()` hands over the finished object. It works, and it costs a second class that repeats every field.
+The Java fix is the **builder** from Effective Java (item 2), the best-known book of Java advice: a helper object with one method per field and a `build()` at the end, as in `Label.builder("12 Mill Lane", "Anna").fragile(true).copies(2).build()`. It's the sandwich counter. You add one part at a time, and `build()` hands over the finished object. It works, and it costs a second class that repeats every field.
 
-Kotlin removes most of the problem in the language. Parameters can have defaults, and callers can name them:
+Kotlin removes most of the problem in the language. Parameters can have defaults, and callers can name them. Here's the label as a data class, a Kotlin class that gets `equals`, `toString` and `copy` for free. Its Java twin is a record, a class that only carries data:
 
 """ + pair_kj(K_NAMED, J_NAMED) + """
 
@@ -107,7 +107,9 @@ Java callers are the gap. Java has no named arguments, so it sees one constructo
 
 A rule of thumb for porting Java to Kotlin: if every call site of a Java builder sets two or three fields and leaves the rest alone, the Kotlin version is a data class with defaults and nothing else. If call sites build the object across a loop or an `if`, keep a builder, as the next section explains.
 
-Check yourself. In the Kotlin `Label`, what does `label.copy(copies = 0)` do, and why? (It throws `IllegalArgumentException`. `copy` builds the new object through the primary constructor, so the `init` block runs again.)"""
+Check yourself. In the Kotlin `Label`, what does `label.copy(copies = 0)` do, and why? (It throws `IllegalArgumentException`. `copy` builds the new object through the primary constructor, the one in the class header, so the `init` block runs again.)
+
+Named arguments cover the flat, simple cases. A builder is still the better tool in a few others, and the next section names them."""
 
 # ---------------------------------------------------------------- section 1
 J_REC = """record DeliveryRequest(String address, String speed, Map<String, String> notes, Duration window, int retries) {
@@ -218,9 +220,9 @@ That's the sandwich counter again, with a smaller counter inside it for the item
 
 """ + pair_kj(K_BUILDER, J_BUILDER) + """
 
-Read `OrderBuilder().apply(block)` as "make a builder, run the block with it as `this`, and hand the builder back". Gradle's Kotlin build files and the kotlinx.html library are built the same way. The builder is still a builder: `build()` is the one place that sees every field, so it checks them there.
+Read `OrderBuilder().apply(block)` as "make a builder, run the block with it as `this`, and hand the builder back". Gradle's Kotlin build files (the files that build this course's labs) and the kotlinx.html library, for writing web pages in Kotlin, are built the same way. The builder is still a builder: `build()` is the one place that sees every field, so it checks them there.
 
-There's one trap. Inside `items { }`, two receivers are in scope: the `ItemsBuilder` and the outer `OrderBuilder`. So `customer = "x"` written inside the inner block compiles, and quietly sets the outer field. The demo in the Try it shows this on a delivery round, a driver and a list of stops. Without protection, one innocent-looking line inside the stops block changed the driver:
+There's one trap. Inside `items { }`, two receivers, objects that `this` can refer to, are in scope: the `ItemsBuilder` and the outer `OrderBuilder`. So `customer = "x"` written inside the inner block compiles, and quietly sets the outer field. The demo in the Try it shows this on a delivery round, a driver and a list of stops. Without protection, one innocent-looking line inside the stops block changed the driver:
 
 ```text
 Round(driver=oops, stops=[Stop(orderId=o-101, parcels=2), Stop(orderId=o-102, parcels=3)])

@@ -69,12 +69,12 @@ The book was written for C++ and Smalltalk. Java at the time had no lambdas (sma
 In Java 21 and later, and in Kotlin 2, the 23 sort into three groups, as the figure shows.
 
 - The language absorbed some of them. A strategy, an algorithm you plug into other code, used to be an interface and three classes. Now it's a lambda. State and Visitor become a sealed type plus a `switch` or `when` that the compiler checks covers every case. Builder mostly becomes Kotlin's named and default arguments, and Singleton becomes an `enum` or a Kotlin `object`.
-- Libraries absorbed others. Observer, which tells interested code when something changes, is Kotlin's `Flow` or Reactor. Proxy, a stand-in that controls access to another object, is something the JDK can generate for you while the program runs.
+- Libraries absorbed others. Observer, which tells interested code when something changes, is Kotlin's `Flow` or the Reactor library, both from earlier tracks. Proxy, a stand-in that controls access to another object, is something the JDK (the kit of tools and libraries that comes with Java) can generate for you while the program runs.
 - You still design the rest by hand. Adapter, Facade, Composite, Bridge, Mediator and Flyweight are about how you cut up your own program, and no language feature does that for you.
 
 The intent of an absorbed pattern survives. Strategy still means "swap the algorithm without touching the caller". What changed is the price. When a strategy costs one lambda instead of four classes, you use it ten times as often and stop calling it a pattern.
 
-Brian Goetz, Java's language architect, gave the strongest version of this in a 2018 design note on pattern matching. With powerful enough pattern matching, he wrote, "the Visitor pattern is almost completely unnecessary". The same note says this doesn't make inheritance and virtual methods wrong. That's the position of this track too. **Learn the intent, then reach for the cheapest feature that delivers it.**
+Brian Goetz, Java's language architect, gave the strongest version of this in a 2018 design note on pattern matching. With powerful enough pattern matching, he wrote, "the Visitor pattern is almost completely unnecessary". The same note says this doesn't make inheritance, and methods that subclasses override, wrong. That's the position of this track too. **Learn the intent, then reach for the cheapest feature that delivers it.**
 
 To keep that promise honest, every pattern in this track gets two things: an everyday picture from one small town, and a job in one small program. The program is the order system of the town's corner shop. The shop sells groceries and household things, takes orders by phone and online, and delivers them around town by bike or by van. Its first job is small. Every part of the program needs to know what things cost, so the shop needs one price list that everybody shares."""
 
@@ -134,7 +134,7 @@ fun prices(): Map<String, Long> {
     }
 }"""
 
-S1 = """A **singleton** is a class with exactly one instance and one place to get it. The JDK has its own: the `Runtime` Javadoc says every Java application has a single instance of `Runtime`, and an application can't create its own. In the town, it's the town hall. In the shop's program, it's the price list: every part of the program asks it what a loaf of bread costs, and there should be only one.
+S1 = """A **singleton** is a class with exactly one instance and one place to get it. The JDK has its own: the `Runtime` Javadoc, Java's official documentation, says every Java application has a single instance of `Runtime`, and an application can't create its own. In the town, it's the town hall. In the shop's program, it's the price list: every part of the program asks it what a loaf of bread costs, and there should be only one.
 
 Making one is easy. Making one lazily, that is, only when somebody first asks, is where people slip. Loading the price list means reading the supplier's price file, which is slow, so we'd like to wait until we need it. Here's the version most of us write first:
 
@@ -155,7 +155,7 @@ Eight threads asked for the one price list and got eight. So much for one. The s
 
 """ + pair(J_SAFE, K_SAFE) + """
 
-The first is an `enum` with one constant. Effective Java (item 3), the best-known book of Java advice, calls it the preferred approach. The JVM, the program that runs your Java and Kotlin code, creates the constant once, and neither serialization nor reflection can make a second. Use it when the object is cheap, or needed at startup anyway, like the counter that hands out order numbers.
+The first is an `enum` with one constant. Effective Java (item 3), the best-known book of Java advice, calls it the preferred approach. The JVM, the program that runs your Java and Kotlin code, creates the constant once. Neither serialization (turning an object into bytes and back) nor reflection (code that inspects and calls classes while the program runs) can make a second. Use it when the object is cheap, or needed at startup anyway, like the counter that hands out order numbers.
 
 The second is the **holder idiom**, for an expensive object you want lazily. The JVM initializes a class, which means running the setup code of its static fields, the first time anyone uses it, and it does that exactly once. So `Holder` is set up on the first call to `getInstance()`, not before. The JVM is a strict doorkeeper here: the first thread in runs the setup, and every other thread waits politely at the door until it's done. After that, every call is a plain read of a static field.
 
@@ -261,7 +261,7 @@ Now the test has its pretend town hall: one lambda that says every product costs
 
 **One instance is a decision for the code that wires the program together. Pass it in.**
 
-A hand-written singleton still fits in a few places. Stateless objects, such as a comparator, are safe to share, because there's nothing to pin on their board. So are values with no data at all, such as a `data object` in a sealed hierarchy (lesson 9 of this track), and state the JVM itself owns, like `Runtime`. Anything that reads files, talks over the network or holds settings gets passed in.
+A hand-written singleton still fits in a few places. Stateless objects, such as a comparator that decides which of two values comes first, are safe to share, because there's nothing to pin on their board. So are values with no data at all, such as a Kotlin `data object` in a sealed hierarchy (lesson 9 of this track). So is state the JVM itself owns, like `Runtime`. Anything that reads files, talks over the network or holds settings gets passed in.
 
 The lab's `PriceList` follows that rule. It isn't a static singleton: its loader comes in through the constructor, so the tests can pass a slow pretend loader and count how often it runs. The program makes one `PriceList`, and double-checked locking inside keeps the lazy load safe when eight threads ask at once.
 
