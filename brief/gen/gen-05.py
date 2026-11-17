@@ -54,7 +54,7 @@ Look at which way that went. The bin for any fruit stood in for the bin for appl
 
 Covariance with out: producers ended with this bin. In this lesson, we'll write it in code with `in` and sort apples with one comparator for all fruit. Then we'll find the same flip inside function types, and finish with PECS, the rule Java programmers use to choose. Before we start, make a guess, and keep it in mind."""
 
-S1 = """A **consumer** is a type whose values of `T` only ever go in. (`T` is the type parameter, the blank on the label that each user of the type fills in.) The compost bin is a consumer. So are a scale that weighs whatever you put on it, a printer for price cards, and a `Comparator`, which takes two values and says which comes first. You hand a consumer a `T`, and it hands nothing typed `T` back.
+S1 = """A **consumer** is a type whose values of `T` only ever go in. (`T` is the type parameter, the blank on the label that each user of the type fills in.) The compost bin is a consumer. So is a `Comparator`, which takes two values and says which comes first. You hand a consumer a `T`, and it hands nothing typed `T` back.
 
 Here is the bin in code. `drop` puts an item in. The shop's fruit are the same as in the last lesson: a `Fruit` interface with a `name` and a weight in `grams`, and `Apple` and `Lemon` as data classes that implement it. `throwOut` is the helper's job. It needs a bin for apples, and drops each bruised apple into it:
 
@@ -82,9 +82,9 @@ throwOut(bruised, compost)               // fine: Bin is declared in
 val appleBin: Bin<Apple> = compost       // also fine
 ```
 
-Run the substitution test from lesson 3 of this track, the question the compiler asks on every assignment: if I secretly hand over one type where another is expected, can any allowed call go wrong? `throwOut` expects a bin for apples, and you hand it the compost bin. Every call `throwOut` can make drops an `Apple`. The compost bin takes every `Fruit`, so it takes those too. Nothing can go wrong, and `BinDemo` in the labs prints `compost: Gala, 180 g` and `compost: Fuji, 150 g`.
+Run the substitution test from lesson 3 of this track, the question the compiler asks on every assignment: if I secretly hand over one type where another is expected, can any allowed call go wrong? A type that passes is a **subtype** of the other. `throwOut` expects a bin for apples, and you hand it the compost bin. Every call `throwOut` can make drops an `Apple`, and the compost bin takes every `Fruit`, so nothing can go wrong. `BinDemo` in the labs prints `compost: Gala, 180 g` and `compost: Fuji, 150 g`.
 
-So for a consumer, the more general type is the one that stands in. A `Bin<Fruit>` can be used where a `Bin<Apple>` is expected. The subtype arrow **flips**: `Apple` is a subtype of `Fruit`, but `Bin<Fruit>` is a subtype of `Bin<Apple>`. This is **contravariance**, the mirror image of lesson 4's covariance, where the arrow kept its direction. Kotlin declares it on the type parameter with **`in`**. Java has no such keyword, so it writes it at each use with the wildcard **`? super Apple`**, which reads "`Apple` or some supertype of it". The figure puts the two cases side by side.
+So for a consumer, the more general type is the one that stands in. The subtype arrow flips: `Apple` is a subtype of `Fruit`, but `Bin<Fruit>` is a subtype of `Bin<Apple>`. This is **contravariance**, the mirror image of lesson 4's covariance, where the arrow kept its direction. Kotlin declares it on the type parameter with **`in`**. Java has no such keyword, so it writes it at each use with a **wildcard**, a `?` that stands for a type it doesn't name. `? super Apple` reads "`Apple`, or a type above it, such as `Fruit` or `Object`". The figure puts the two cases side by side.
 
 The other direction fails, and it should. A `Bin<Apple>` might be the pot for apple sauce, where the cook treats every item as an apple. Through a `Bin<Fruit>` view, someone could drop a lemon into the sauce. A lemon in the apple sauce is a mistake a kitchen only makes once:
 
@@ -94,6 +94,8 @@ error: initializer type mismatch: expected 'Bin<Fruit>', actual 'Bin<Apple>'.
 ```
 
 The rules for where `T` may appear are the mirror image of `out`, too. In a type declared `in T`, `T` may appear in parameters, which are in-positions, and not in return types or `val`s, which are out-positions. Add `fun last(): T` to `Bin`, and the compiler says `type parameter 'T' is declared as 'in' but occurs in 'out' position`. The reason mirrors lesson 4. Through a `Bin<Apple>` view of the compost bin, `last()` would promise an `Apple`, and the bin may be holding a lemon.
+
+That's also where the bin picture breaks. A real compost bin gets tipped out every week, and anyone can see what's inside. A `Bin<in T>` gives you no typed way to look: through `in`, values only travel one way.
 
 **A type that only takes `T` in can stand in wherever a narrower `T` is wanted. Say so with `in`.**
 
@@ -123,11 +125,11 @@ val strict: Comparator<Apple> = byWeight         // error: expected 'Comparator<
 
 `ComparatorDemo` sorts two apples and two lemons with the one `byWeight`, and prints `[Fuji 150 g, Gala 180 g]` and `[Eureka 95 g, Eureka 120 g]`.
 
-The last Kotlin line surprises people. If a comparator is a consumer, why isn't a `Comparator<Fruit>` simply a `Comparator<Apple>`, the way the compost bin was an apple bin? Because on the JVM, Kotlin's `Comparator` *is* `java.util.Comparator`, a Java interface. Java has nowhere to write variance on a declaration, so Java interfaces have none, and Kotlin treats `Comparator` as invariant, exactly as Java does. It isn't Kotlin being stubborn. Nobody ever wrote the `in` down.
+The last Kotlin line surprises people. If a comparator is a consumer, why isn't a `Comparator<Fruit>` simply a `Comparator<Apple>`, the way the compost bin was an apple bin? Because on the JVM, the machine that runs both Java and Kotlin code, Kotlin's `Comparator` *is* `java.util.Comparator`, a Java interface. Java has nowhere to write variance on a declaration, so Java interfaces have none. Kotlin treats `Comparator` as **invariant**, exactly as Java does: a `Comparator<Fruit>` and a `Comparator<Apple>` are simply unrelated types. It isn't Kotlin being stubborn. Nobody ever wrote the `in` down.
 
 So the flexibility comes from the use site, the place where the type is used. The standard library declares `sortedWith(comparator: Comparator<in T>)`. That `in` inside the angle brackets of one parameter is Kotlin's spelling of Java's `? super T`, for that parameter only. Lesson 6 of this track calls it a type projection, and gives it a full lesson.
 
-The JDK made the same choice everywhere. `List.sort`, `Collections.sort`, `Stream.sorted` and the `TreeMap` constructor all take a `Comparator<? super E>`. If you write your own ranking helper and forget the `? super` (or the `in`), it accepts only a comparator of the exact element type. The shop's shared `byWeight` no longer fits a list of apples, and the next person writes a second comparator that does the same thing.
+The JDK, Java's standard library, made the same choice everywhere. `List.sort`, `Collections.sort`, `Stream.sorted` and the `TreeMap` constructor all take a `Comparator<? super E>`. If you write your own ranking helper and forget the `? super` (or the `in`), it accepts only a comparator of the exact element type. The shop's shared `byWeight` no longer fits a list of apples, and the next person writes a second comparator that does the same thing.
 
 Kotlin's own `Comparable` is different. It's the interface for types with a natural order, such as `Int` and `String`, and it's declared `interface Comparable<in T>`, with the `in` on the declaration. That is why lesson 2 of this track could call `maxOf2` on two `LocalDate`s: a `LocalDate` is a `Comparable<ChronoLocalDate>`, and so it also counts as a `Comparable<LocalDate>`.
 
@@ -137,7 +139,7 @@ The lab's `highest(items: List<T>, comparator: Comparator<in T>)` is the shape t
 
 S3 = """A **function type** such as `(Fruit) -> String` is the type of a function value: a lambda you can store in a variable and call later. Behind the arrow notation, Kotlin writes it as `Function1<in P, out R>`. The function takes its parameter in, so it's a consumer of `P`. It hands its result out, so it's a producer of `R`. A function type is contravariant on the left of the arrow and covariant on the right.
 
-Picture the shop's scale. A scale that weighs any fruit can stand in for a scale that only weighs apples. A function that writes a price card for any fruit can stand in for one that writes cards for apples, and the `String` it returns is certainly an `Any`:
+Picture the shop's scale. A scale that weighs any fruit can stand in for a scale that only weighs apples. A function that writes a price card for any fruit can stand in for one that writes cards for apples. The `String` it returns is certainly an `Any`, too:
 
 ```java
 // Java's Consumer and Function are plain invariant interfaces, so say it at the use site:
@@ -209,7 +211,7 @@ copyInto(shelf, mutableListOf<Apple>())     // error: actual type is 'MutableLis
 
 `PecsDemo` prints `shelf = [Eureka, Gala, Fuji], anything = [a paper bag, Gala, Fuji]`. The last line fails, and it's the crate of lesson 3 again. Copying a shelf of mixed fruit into a crate of apples would drop the lemon into the crate.
 
-The Kotlin version needs only one `in`, on `to`. `from` is a read-only `List`, which is already declared `out`, so writing `List<out T>` would only earn a warning that the projection is redundant. Java needs both wildcards, because none of its types carries its own variance.
+The Kotlin version needs only one `in`, on `to`. `from` is a read-only `List`, which is already declared `out`, so writing `List<out T>` would only earn a warning that the `out` is redundant. Java needs both wildcards, because none of its types carries its own variance.
 
 When you design a signature, ask one question per parameter. Does this parameter *give* me values of `T`, *take* values of `T` from me, or both? Give: `out`, or `? extends`. Take: `in`, or `? super`. Both: plain `T`.
 

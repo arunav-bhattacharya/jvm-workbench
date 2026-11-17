@@ -16,14 +16,14 @@ fun main(args: Array<String>) = runBlocking {
     t0 = System.nanoTime()
     val budgetMs = args.firstOrNull()?.toLong() ?: 500
     val answer = coroutineScope {
-        val north = async { delay(300); "north: 1.80%" }
-        val east = async { delay(120); "east: 2.10%" }
+        val corner = async { delay(300); "corner bakery: one rye loaf left" }
+        val market = async { delay(120); "market bakery: plenty of sourdough" }
         val result = select {
-            north.onAwait { it }
-            east.onAwait { it }
-            onTimeout(budgetMs) { "no quote within $budgetMs ms: use the default acquirer" }
+            corner.onAwait { it }
+            market.onAwait { it }
+            onTimeout(budgetMs) { "nobody answered within $budgetMs ms: we bake our own bread" }
         }
-        north.cancel(); east.cancel() // stop the losers
+        corner.cancel(); market.cancel() // hang up on the others
         result
     }
     println("after ${ms()} ms: $answer")

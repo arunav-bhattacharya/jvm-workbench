@@ -15,8 +15,8 @@ fun printStack(label: String) {
 
 fun main() = runBlocking {
     println("=== the toy flow from ToyFlow.kt")
-    toyFlow { emit("pay-1") }.collect { printStack("collector got $it") }
+    toyFlow { emit("soup") }.collect { printStack("collector got $it") }
 
     println("=== kotlinx flow { } with map")
-    flow { emit("pay-1") }.map { it.uppercase() }.collect { printStack("collector got $it") }
+    flow { emit("soup") }.map { it.uppercase() }.collect { printStack("collector got $it") }
 }

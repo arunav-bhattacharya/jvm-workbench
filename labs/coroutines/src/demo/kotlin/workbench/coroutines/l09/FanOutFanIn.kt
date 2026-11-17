@@ -12,26 +12,26 @@ import kotlin.random.Random
 
 @OptIn(ExperimentalCoroutinesApi::class)
 fun main(args: Array<String>) = runBlocking {
-    val workers = args.firstOrNull()?.toInt() ?: 4
+    val helpers = args.firstOrNull()?.toInt() ?: 4
     val t0 = System.nanoTime()
     coroutineScope {
-        // 1. one producer: 20 refund ids, sent one at a time
-        val refunds = produce { for (i in 1..20) send("refund-$i") }
-        // 2. fan-out: each id goes to exactly one worker
-        val results = Channel<String>()
-        val pool = List(workers) { w ->
+        // 1. one cook puts 20 dishes through the hatch, one at a time
+        val hatch = produce { for (i in 1..20) send("dish-$i") }
+        // 2. fan-out: each dish goes to exactly one helper
+        val table = Channel<String>()
+        val team = List(helpers) { h ->
             launch {
-                for (id in refunds) {
-                    delay(Random.nextLong(50, 150)) // the issuer call
-                    results.send("$id by worker $w")
+                for (dish in hatch) {
+                    delay(Random.nextLong(50, 150)) // carrying it, serving it
+                    table.send("$dish by helper $h")
                 }
             }
         }
-        // 3. fan-in: close results when every worker is done
-        launch { pool.joinAll(); results.close() }
-        val perWorker = mutableMapOf<String, Int>()
-        for (r in results) perWorker.merge(r.substringAfter("by "), 1, Int::plus)
-        println("$workers workers: ${perWorker.toSortedMap()}")
+        // 3. fan-in: close the table channel when every helper is done
+        launch { team.joinAll(); table.close() }
+        val perHelper = mutableMapOf<String, Int>()
+        for (served in table) perHelper.merge(served.substringAfter("by "), 1, Int::plus)
+        println("$helpers helpers: ${perHelper.toSortedMap()}")
     }
-    println("20 refunds took ${(System.nanoTime() - t0) / 1_000_000} ms")
+    println("20 dishes took ${(System.nanoTime() - t0) / 1_000_000} ms")
 }

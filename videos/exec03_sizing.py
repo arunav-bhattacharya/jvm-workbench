@@ -17,7 +17,7 @@ N = {
             "So here's the question we rarely ask out loud. Are more threads always safer?",
     "answer": "The first kitchen needs four. A fifth cook would only stand around holding a knife, waiting for a board. "
               "The second kitchen needs about forty, because a cook waiting for the oven doesn't need a board at all.",
-    "map": "Let's map it. The cooks are threads. The boards are cores, the parts of the processor that each run "
+    "map": "Let's map it. The cooks are threads. The boards are cores, the parts of the processor, or CPU, that each run "
            "one thread at a time. And chopping is work that keeps a core busy from start to finish, "
            "with nothing to wait for. That's called CPU-bound work.",
     "cpu_q": "The lesson's demo tests the chopping kitchen: 32 checksums, short fingerprints of data, "
@@ -35,7 +35,7 @@ N = {
     "ten_a": "About ten. Each page needs the core for 20 milliseconds out of every 200, so while one thread works, "
              "nine can wait. With four cores, that's forty: the oven kitchen again.",
     "goetz": "Brian Goetz's book, Java Concurrency in Practice, writes it as a formula: cores, times the target CPU use, "
-             "times one plus the wait over the compute. On 8 cores at 80 percent, that's 8 times 0.8 times 10: 64 threads.",
+             "which is how busy you want the cores to be, times one plus the wait over the compute. On 8 cores at 80 percent, that's 8 times 0.8 times 10: 64 threads.",
     "break": "Here the kitchen picture breaks, and not in our favor. A real cook would chop onions while the dish bakes. "
              "A Java thread can't: it waits for its answer and does nothing else. "
              "That's why we need ten threads where one clever cook would do. "
@@ -57,8 +57,8 @@ N = {
     "demo_a": "Measured: 96, 181, 389 and 689. The first three land within about 10 percent. "
               "With 40 threads, 200 requests are only five rounds, so starting the pool weighs more.",
     "ovens": "One honest limit: a request needs more than a thread. Give the oven kitchen only two ovens, "
-             "and extra cooks just stand in line for them. In the demo, with only 10 database connections, "
-             "the rows go flat at about 200 a second.",
+             "and extra cooks just stand in line for them. In the demo, every request also needs one of only 10 connections "
+             "to a database, the program that keeps the data. And the rows go flat at about 200 a second.",
     "moral": "So, are more threads always safer? No. For chopping, one per core. For waiting, cores times one plus "
              "wait over compute. To count requests, arrival rate times time inside. "
              "More threads help only while threads are the scarce thing.",
@@ -576,7 +576,7 @@ class Exec03Sizing(Narrated):
         # ---- the demo ----
         dh = VGroup(M("LittlesLawDemo", 26), T("200 requests, each waits 50 ms", 26, GREY_A)).arrange(RIGHT, buff=0.3)
         dh.move_to([0, 2.85, 0])
-        DX0, DS = -3.6, 6.5 / 800
+        DX0, DS = -3.6, 5.5 / 800
         DY = [1.75, 0.8, -0.15, -1.1]
         thr_n = [5, 10, 20, 40]
         pred = [100, 200, 400, 800]
@@ -587,7 +587,8 @@ class Exec03Sizing(Narrated):
               .move_to([DX0 + p * DS / 2, y + 0.08, 0]) for p, y in zip(pred, DY)]
         pr_l = [T(f"{p} predicted", 22, GREY_B).next_to(r, RIGHT, buff=0.2) for p, r in zip(pred, pr)]
         ms = [hbar(m * DS, 0.4, THR).move_to([DX0 + m * DS / 2, y + 0.08, 0]) for m, y in zip(meas, DY)]
-        ms_l = [T(f"{m} measured", 22, THR).move_to(l, aligned_edge=LEFT).shift(DOWN * 0.0) for m, l in zip(meas, pr_l)]
+        ms_l = [VGroup(T(f"{m} measured", 22, THR), T(f"({p} predicted)", 22, GREY_B)).arrange(RIGHT, buff=0.15)
+                .move_to(l, aligned_edge=LEFT) for m, p, l in zip(meas, pred, pr_l)]
         self.say("demo_q")
         self.play(FadeOut(VGroup(sbox, sb_t, sb_f, ain, ain_l, aout, aout_l, wbr, wbr_l, tr1, tr2, tr3, rail, pile, noend)),
                   run_time=0.7)
@@ -609,8 +610,9 @@ class Exec03Sizing(Narrated):
         self.hold()
 
         db = [hbar(v * DS, 0.22, SCARCE).move_to([DX0 + v * DS / 2, y - 0.28, 0]) for v, y in zip(dbm, DY)]
-        db_l = [T(f"{v}", 22, SCARCE).next_to(b, RIGHT, buff=0.15) for v, b in zip(dbm, db)]
-        cap = DashedLine([DX0 + 200 * DS, DY[0] + 0.4, 0], [DX0 + 200 * DS, DY[3] - 0.5, 0], dash_length=0.08, color=SCARCE)
+        db_l = [T(f"{v}", 22, SCARCE).move_to([DX0 + 200 * DS + 0.15, y - 0.28, 0], aligned_edge=LEFT) for v, y in zip(dbm, DY)]
+        cap = VGroup(*[DashedLine([DX0 + 200 * DS, y - 0.43, 0], [DX0 + 200 * DS, y - 0.13, 0], dash_length=0.06, color=SCARCE)
+                       for y in DY])
         ovs = VGroup(oven(0.7, 0.6), oven(0.7, 0.6)).arrange(RIGHT, buff=0.15)
         two = VGroup(ovs, T("two ovens: extra cooks just stand in line", 26, SCARCE)).arrange(RIGHT, buff=0.3).move_to([0, -2.1, 0])
         dbt = T("with only 10 database connections: flat at about 200 a second", 26, SCARCE).move_to([0, -2.9, 0])

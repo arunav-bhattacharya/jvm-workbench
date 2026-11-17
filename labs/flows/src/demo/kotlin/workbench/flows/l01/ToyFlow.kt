@@ -23,7 +23,7 @@ fun <T, R> ToyFlow<T>.map(transform: suspend (T) -> R): ToyFlow<R> =
     toyFlow { this@map.collect { value -> emit(transform(value)) } }
 
 fun main() = runBlocking {
-    val payments = toyFlow {
+    val dishes = toyFlow {
         println("  [producer] start")
         for (id in 1..3) {
             println("  [producer] before emit($id)")
@@ -35,8 +35,8 @@ fun main() = runBlocking {
     println("built the flow, nothing ran yet")
 
     println("--- first collect, through map")
-    payments.map { it * 100 }.collect { v -> println("  [collector] got $v") }
+    dishes.map { it * 100 }.collect { v -> println("  [collector] got $v") }
 
     println("--- second collect: the body runs again")
-    payments.collect { v -> println("  [collector] got $v") }
+    dishes.collect { v -> println("  [collector] got $v") }
 }

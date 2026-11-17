@@ -6,17 +6,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-/** A producer sends 5 batch ids as fast as it can; the consumer needs 100 ms per id. */
-suspend fun run(label: String, channel: Channel<Int>) = coroutineScope {
+/** The cook puts 5 plates through the hatch as fast as she can; the helper needs 100 ms per plate. */
+suspend fun run(label: String, hatch: Channel<Int>) = coroutineScope {
     val t0 = System.nanoTime()
     fun ms() = (System.nanoTime() - t0) / 1_000_000
     val sendTimes = mutableListOf<Long>()
     launch {
-        for (id in 1..5) { channel.send(id); sendTimes += ms() }
-        channel.close() // no more ids: the consumer's for loop ends after the last one
+        for (plate in 1..5) { hatch.send(plate); sendTimes += ms() }
+        hatch.close() // no more plates: the helper's for loop ends after the last one
     }
     val received = mutableListOf<Int>()
-    for (id in channel) { delay(100); received += id }
+    for (plate in hatch) { delay(100); received += plate }
     println("%-12s send() returned at %-26s received %s".format(label, sendTimes.toString() + " ms", received))
 }
 

@@ -52,7 +52,7 @@ In code, that question is `is List<Int>`, and the compiler refuses it. Worse, a 
 
 Star projection: when you don't know the type ended at that refusal. In this lesson, we'll watch the label come off, then meet a clerk who copies it onto a note first. We'll see how Java passes the label by hand, and what the note can't hold. Before we start, make a guess, and keep it in mind."""
 
-S1 = """The last lesson hit a wall: `is List<Int>` doesn't compile. Here is why. Both compilers check type arguments, and then remove them. At run time, a list of variety names and a list of weights are the same kind of object:
+S1 = """The last lesson hit a wall: `is List<Int>` doesn't compile. Here is why. Both compilers check type arguments, the real types in the angle brackets, and then remove them. At run time, a list of variety names and a list of weights are the same kind of object:
 
 ```java
 List<String> varieties = new ArrayList<>();
@@ -66,9 +66,9 @@ val weights = ArrayList<Int>()
 println(varieties.javaClass == weights.javaClass)                  // true: both are java.util.ArrayList
 ```
 
-This is **type erasure**: the compiler checks each type argument, then leaves it out of the compiled code, so objects carry no record of it. It's the torn-off label. Kotlin compiles to the same JVM as Java and inherits the rule, so in both languages the `ArrayList` object has no field that says `String`.
+This is **type erasure**: the compiler checks each type argument, then leaves it out of the compiled code, so objects carry no record of it. It's the torn-off label. Kotlin compiles to the same JVM as Java, the machine that runs both, and inherits the rule. In both languages, the `ArrayList` object has no field that says `String`.
 
-Here is what both compilers leave in the class file. Each type parameter becomes its bound: a plain `T` becomes `Object`, and `T : Comparable<T>` becomes `Comparable`. So `List.get` returns an `Object`. Where your code needs a `String`, the compiler inserts a **`checkcast`** right after the call: a bytecode instruction that checks the object's class at run time, and throws `ClassCastException` if it's wrong. Run `javap -c`, the JDK tool that prints a class file's instructions, on any class that reads from a `List<String>`, and you'll see one. That inserted cast is the line that throws in the last example below.
+Here is what both compilers leave in the class file, the compiled form of a class that the JVM loads. Each type parameter becomes its bound, the limit from lesson 2: a plain `T` becomes `Object`, and `T : Comparable<T>` becomes `Comparable`. So `List.get` returns an `Object`. Where your code needs a `String`, the compiler inserts a **`checkcast`** right after the call: an instruction in the class file (its bytecode) that checks the object's class at run time, and throws `ClassCastException` if it's wrong. Run `javap -c`, the JDK tool that prints a class file's instructions, on any class that reads from a `List<String>`, and you'll see one. That inserted cast is the line that throws in the last example below.
 
 Three things follow, and each has an error you'll meet:
 
@@ -92,11 +92,11 @@ val first: String = lies[0]  // ClassCastException: Integer cannot be cast to St
 
 `ErasureDemo` prints `the cast worked, size = 2`, then `ClassCastException at the read: class java.lang.Integer cannot be cast to class java.lang.String`. The cast worked. It just didn't check anything. The list now claims to hold names and holds weights, a state called **heap pollution**. The exception appears at the first read that needs a `String`, which may be in another class, written much later.
 
-Some generic information does survive. The signatures of declarations (a field's type, a method's parameters, a class's superclass) stay in the class file, and reflection can read them: `Field.getGenericType()` on a `List<String>` field returns `java.util.List<java.lang.String>`. What erasure removes is the type argument of each object. Lesson 9 of this track puts the surviving part to work.
+Here the torn-label picture breaks a little, because not every label comes off. The signatures of declarations (a field's type, a method's parameters, a class's superclass) stay in the class file. Reflection, the API that lets code inspect classes while it runs, can read them: `Field.getGenericType()` on a `List<String>` field returns `java.util.List<java.lang.String>`. What erasure removes is the type argument of each object. Lesson 9 of this track puts the surviving part to work.
 
 **A cast to a generic type checks only the class. Don't trust it to check the elements.**
 
-So inside an ordinary generic function, `T` is gone. Kotlin has one way to bring it back."""
+So by the time an ordinary generic function runs, its `T` is gone. Kotlin has one way to bring it back."""
 
 ASIDE = {
     "title": "Why did Java choose erasure?",
@@ -165,7 +165,7 @@ val apple: Apple = defaultOf()          // T inferred from the expected type
 
 Both versions print `apple = Gala, lemon = Eureka, blank = ''`.
 
-Why can't Java call the wrapper? javac can't inline Kotlin code, so it has no way to fill in `T`. Kotlin still writes a method for the wrapper into the class file, but marks it **synthetic**, a flag that means "made by the compiler, not for callers". The Java compiler ignores synthetic methods. Read the error again. javac says `defaultOf` needs an argument, because the only `defaultOf` it can see is the Class-token one. A reified function with no such overload gives `cannot find symbol`.
+Why can't Java call the wrapper? javac, the Java compiler, can't inline Kotlin code, so it has no way to fill in `T`. Kotlin still writes a method for the wrapper into the class file, but marks it **synthetic**, a flag that means "made by the compiler, not for callers". javac ignores synthetic methods. Read the error again. javac says `defaultOf` needs an argument, because the only `defaultOf` it can see is the Class-token one. A reified function with no Class-token version beside it gives `cannot find symbol`.
 
 **If Java code will call your API, give it a `Class<T>` version. Make the reified one a one-line wrapper.**
 
@@ -325,7 +325,7 @@ L = {
              "lang": "kotlin",
              "alt_lang": "java",
              "alt_code": "// Java can't call the reified wrapper; it keeps using the token version:\nLemon l = load(text, Lemon.class);"},
-            {"say": "3. Check the limit before you rely on it. `load<List<Apple>>(text)` compiles, but it passes `List::class.java`. The reader has no element type to fill the list with (a JSON library such as Jackson fills it with maps), and the first `for (a: Apple in apples)` throws `ClassCastException`. For generic targets you need a token that keeps type arguments: `typeOf<List<Apple>>()` or a super type token, both in lesson 9."}
+            {"say": "3. Check the limit before you rely on it. `load<List<Apple>>(text)` compiles, but it passes `List::class.java`. The reader has no element type to fill the list with (a library for JSON, the common text format, such as Jackson, fills it with maps), and the first `for (a: Apple in apples)` throws `ClassCastException`. For generic targets you need a token that keeps type arguments: `typeOf<List<Apple>>()` or a super type token, both in lesson 9."}
         ]
     },
     "lab": {

@@ -26,9 +26,9 @@ class ToyFlowTest {
     @Test
     fun `every collect runs the body again from the top`() = runTest {
         var bodyRuns = 0
-        val payments = toyFlow { bodyRuns++; emit("pay-1"); emit("pay-2") }
-        assertThat(payments.toList()).containsExactly("pay-1", "pay-2")
-        assertThat(payments.toList()).containsExactly("pay-1", "pay-2")
+        val dinner = toyFlow { bodyRuns++; emit("soup"); emit("salad") }
+        assertThat(dinner.toList()).containsExactly("soup", "salad")
+        assertThat(dinner.toList()).containsExactly("soup", "salad")
         assertThat(bodyRuns).isEqualTo(2)
     }
 
@@ -92,7 +92,7 @@ class ToyFlowTest {
     @Test
     fun `take stops the producer after n values and runs its finally`() = runTest {
         val events = mutableListOf<String>()
-        val payments = toyFlow {
+        val dishes = toyFlow {
             try {
                 for (id in 1..5) {
                     events += "emit $id"
@@ -102,7 +102,7 @@ class ToyFlowTest {
                 events += "producer finally"
             }
         }
-        assertThat(payments.take(2).toList()).containsExactly(1, 2)
+        assertThat(dishes.take(2).toList()).containsExactly(1, 2)
         assertThat(events).containsExactly("emit 1", "emit 2", "producer finally")
     }
 

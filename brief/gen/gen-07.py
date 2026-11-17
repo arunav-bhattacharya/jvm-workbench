@@ -52,7 +52,7 @@ In code, that box is `List<*>`, a list of some type you don't know. The easy tra
 
 Use-site variance and type projections ended with a `'*'` in an error message. In this lesson, we'll see what a star allows, and what it means for `out`, `in` and invariant types. Then we'll tell it apart from `Any?` and from Java's raw types, and check a value whose type nobody wrote down. Before we start, make a guess, and keep it in mind."""
 
-S1 = """The shop's log printer has to accept every list in the shop: a `List<String>` of variety names, a `List<Int>` of weights, a `List<Apple>` from the storeroom. It never needs to know the element type. Kotlin's way to say that is a **star projection**, a `*` in place of the type argument:
+S1 = """The shop keeps a daily log, a running record of what happened. The helper that prints lists into it has to accept every list in the shop: a `List<String>` of variety names, a `List<Int>` of weights, a `List<Apple>` from the storeroom. It never needs to know the element type. Kotlin's way to say that is a **star projection**, a `*` in place of the type argument, the real type that normally goes in the angle brackets:
 
 ```java
 static void printAll(List<?> items) {
@@ -105,7 +105,7 @@ fun empty(crate: MutableList<*>): Int { val n = crate.size; crate.clear(); retur
 
 So far, the star has always meant `Any?` on the way out. That's because `List`'s type parameter has no bound. Give a type parameter a sign that says "fruit only", and the star remembers it."""
 
-S2 = """Here are three old friends from this track, each with a star. The `Dispenser` from lesson 4 hands fruit out, and this time its type parameter carries the "fruit only" bound from lesson 2. The `Bin` from lesson 5 takes items in. The `Box` from lesson 1 does both. What can you do with a `Dispenser<*>`, a `Bin<*>` and a `Box<*>`?
+S2 = """Here are three old friends from this track, each with a star. The `Dispenser` from lesson 4 hands fruit out. This time its type parameter carries the "fruit only" bound from lesson 2, a limit on which types `T` may be. The `Bin` from lesson 5 takes items in. The `Box` from lesson 1 does both, so it's invariant, declared neither `out` nor `in`. What can you do with a `Dispenser<*>`, a `Bin<*>` and a `Box<*>`?
 
 Take the dispenser first. A `Dispenser<*>` might be a `Dispenser<Apple>` or a `Dispenser<Lemon>`. Whichever it is, `next()` returns some `Fruit`, because the bound says so, and `Fruit` is the most the compiler can promise. The label is gone, but the "fruit only" sign was painted on the box itself, and it survives.
 
@@ -166,7 +166,7 @@ addPriceTag(varieties)    // error: actual type is 'MutableList<String>', but 'M
 
 The worn-off label and the "anything" label are different boxes. The drawer says what it holds, anything at all, so anything may go in. The worn box holds one kind of thing that nobody remembers, so nothing may go in.
 
-So choose by what the function does. If it adds arbitrary values, it needs a real `MutableList<Any?>`, and it can take only that. If it doesn't care about the element type, it takes `MutableList<*>`, and accepts every mutable list. For the read-only `List`, the difference disappears. `List` is covariant, so `List<Any?>` and `List<*>` accept the same arguments, and `StarVsAnyDemo` prints `a = [Gala], b = [Gala]`.
+So choose by what the function does. If it adds arbitrary values, it needs a real `MutableList<Any?>`, and it can take only that. If it doesn't care about the element type, it takes `MutableList<*>`, and accepts every mutable list. For the read-only `List`, the difference disappears. `List` is covariant (declared `out`), so `List<Any?>` and `List<*>` accept the same arguments, and `StarVsAnyDemo` prints `a = [Gala], b = [Gala]`.
 
 Java has a third option that Kotlin doesn't: the **raw type**, a generic type used with no type arguments at all. A raw `List` switches generic checking off. It exists so that code written before Java 5 added generics still compiles, and lesson 1 of this track watched one fail:
 
@@ -199,7 +199,7 @@ if (weights is List<Int>) println("a list of weights")
 error: cannot check for instance of erased type 'List<Int>'.
 ```
 
-At run time, a `List<Int>` and a `List<String>` are the same kind of `ArrayList` object, so the JVM can check the class and nothing more. That's the torn-off label that lesson 1 warned about, and lesson 8 of this track explains it in full. For now the rule is: check with a star, then check each element you use:
+At run time, a `List<Int>` and a `List<String>` are the same kind of `ArrayList` object. So the JVM, the machine that runs the code, can check the class and nothing more. That's the torn-off label that lesson 1 warned about, and lesson 8 of this track explains it in full. Here the worn-label picture breaks. In the storeroom, you could open the box, look at one apple, and know what the whole box holds. The JVM can look at each element, but the elements can't tell it the list's type: an empty list, or one that starts with an apple, says nothing about the rest. So the rule is: check with a star, then check each element you use:
 
 ```java
 static List<Integer> weightsIn(Object note) {

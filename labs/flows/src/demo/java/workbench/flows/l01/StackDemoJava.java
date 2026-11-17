@@ -21,7 +21,7 @@ public class StackDemoJava {
     }
 
     public static void main(String[] args) {
-        ToyFlow<String> payments = collector -> collector.emit("pay-1");
-        payments.collect(value -> printStack("collector got " + value));
+        ToyFlow<String> dinner = collector -> collector.emit("soup");
+        dinner.collect(value -> printStack("collector got " + value));
     }
 }

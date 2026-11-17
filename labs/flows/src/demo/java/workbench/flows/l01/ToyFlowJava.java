@@ -21,7 +21,7 @@ public class ToyFlowJava {
     }
 
     public static void main(String[] args) {
-        ToyFlow<Integer> payments = collector -> {
+        ToyFlow<Integer> dishes = collector -> {
             System.out.println("  [producer] start");
             for (int id = 1; id <= 3; id++) {
                 System.out.println("  [producer] before emit(" + id + ")");
@@ -33,9 +33,9 @@ public class ToyFlowJava {
         System.out.println("built the flow, nothing ran yet");
 
         System.out.println("--- first collect, through map");
-        payments.map(id -> id * 100).collect(v -> System.out.println("  [collector] got " + v));
+        dishes.map(id -> id * 100).collect(v -> System.out.println("  [collector] got " + v));
 
         System.out.println("--- second collect: the body runs again");
-        payments.collect(v -> System.out.println("  [collector] got " + v));
+        dishes.collect(v -> System.out.println("  [collector] got " + v));
     }
 }

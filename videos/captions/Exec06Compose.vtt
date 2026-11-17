@@ -1,19 +1,19 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.043
+00:00:02.700 --> 00:00:05.010
 thenApply, thenCompose, thenCombine.
 
 2
-00:00:05.043 --> 00:00:07.610
+00:00:05.010 --> 00:00:07.577
 Three methods with nearly the same name.
 
 3
-00:00:07.610 --> 00:00:09.022
+00:00:07.577 --> 00:00:08.988
 Which one do you pick?
 
 4
-00:00:09.022 --> 00:00:13.064
+00:00:08.988 --> 00:00:13.031
 And does it even matter, as long as everything is asynchronous?
 
 5
@@ -29,297 +29,297 @@ The steak goes on the grill and the sauce on the stove, at the same time.
 The ticket carries its own instructions: when the steak and the sauce are both ready, plate them and send them to table 4.
 
 8
-00:00:31.000 --> 00:00:33.734
+00:00:31.033 --> 00:00:33.768
 Nobody stands at the grill watching the steak.
 
 9
-00:00:33.734 --> 00:00:38.015
+00:00:33.768 --> 00:00:38.048
 A watched steak cooks no faster, and the watcher gets nothing else done.
 
 10
-00:00:38.015 --> 00:00:42.711
+00:00:38.048 --> 00:00:42.744
 Whichever cook finishes the last part reads the ticket, and does the next step.
 
 11
-00:00:42.867 --> 00:00:46.452
+00:00:42.967 --> 00:00:46.552
 The Future from two lessons ago had no room for instructions.
 
 12
-00:00:46.452 --> 00:00:48.686
+00:00:46.552 --> 00:00:48.786
 You could only wait on it, or read it.
 
 13
-00:00:48.686 --> 00:00:51.567
+00:00:48.786 --> 00:00:51.667
 And a thread that waits in get does nothing else.
 
 14
-00:00:51.567 --> 00:00:53.624
+00:00:51.667 --> 00:00:53.724
 That's the cook watching the steak.
 
 15
-00:00:53.800 --> 00:00:57.856
+00:00:53.933 --> 00:00:57.990
 A CompletableFuture is a ticket you can clip instructions to.
 
 16
-00:00:57.856 --> 00:01:01.048
+00:00:57.990 --> 00:01:01.182
 A ticket plus its instruction is called a stage.
 
 17
-00:01:01.048 --> 00:01:03.775
+00:01:01.182 --> 00:01:03.908
 You say: when this is done, do that next.
 
 18
-00:01:03.775 --> 00:01:05.304
+00:01:03.908 --> 00:01:05.437
 And then you walk away.
 
 19
-00:01:06.067 --> 00:01:07.635
+00:01:06.267 --> 00:01:07.835
 Here's the smallest one.
 
 20
-00:01:07.635 --> 00:01:09.595
+00:01:07.835 --> 00:01:09.795
 A ticket that already holds 6.
 
 21
-00:01:09.595 --> 00:01:13.646
+00:01:09.795 --> 00:01:13.846
 thenApply clips on, times 7, and you get a new ticket, for 42.
 
 22
-00:01:13.646 --> 00:01:16.456
+00:01:13.846 --> 00:01:16.656
 Every one of these methods works like that.
 
 23
-00:01:16.456 --> 00:01:21.225
+00:01:16.656 --> 00:01:21.425
 It takes a ticket, clips on one instruction, and hands back a new ticket.
 
 24
-00:01:21.933 --> 00:01:25.801
+00:01:22.133 --> 00:01:26.001
 Which one you use depends on the shape of the instruction.
 
 25
-00:01:25.801 --> 00:01:29.268
+00:01:26.001 --> 00:01:29.468
 Plain code, from one value to another, like times 7?
 
 26
-00:01:29.268 --> 00:01:30.401
+00:01:29.468 --> 00:01:30.601
 That's thenApply.
 
 27
-00:01:30.600 --> 00:01:37.390
+00:01:30.833 --> 00:01:37.623
 Now say the next step orders dessert from the pastry station, and the pastry station hands back its own ticket.
 
 28
-00:01:37.390 --> 00:01:41.428
+00:01:37.623 --> 00:01:41.661
 With thenApply, you'd get a ticket whose result is another ticket.
 
 29
-00:01:41.428 --> 00:01:44.914
+00:01:41.661 --> 00:01:45.148
 A ticket for a ticket, and nobody collects the inner one.
 
 30
-00:01:44.914 --> 00:01:49.869
+00:01:45.148 --> 00:01:50.103
 thenCompose flattens the two into one ticket, which is ready when the dessert is.
 
 31
-00:01:50.067 --> 00:01:55.599
+00:01:50.333 --> 00:01:55.865
 If you know Optional or streams: thenApply is map, and thenCompose is flatMap.
 
 32
-00:01:55.733 --> 00:01:57.497
+00:01:56.067 --> 00:01:57.831
 And the order for table 4?
 
 33
-00:01:57.497 --> 00:02:00.822
+00:01:57.831 --> 00:02:01.155
 Two tickets, and one instruction that needs both.
 
 34
-00:02:00.822 --> 00:02:02.111
+00:02:01.155 --> 00:02:02.444
 That's thenCombine.
 
 35
-00:02:02.867 --> 00:02:05.053
+00:02:03.267 --> 00:02:05.453
 Let's try it on the lesson's shop.
 
 36
-00:02:05.053 --> 00:02:07.046
+00:02:05.453 --> 00:02:07.446
 Its checkout needs two answers.
 
 37
-00:02:07.046 --> 00:02:12.254
+00:02:07.446 --> 00:02:12.654
 A price in euros from one service, and the exchange rate to dollars from another.
 
 38
-00:02:12.254 --> 00:02:14.054
+00:02:12.654 --> 00:02:14.454
 Each takes 300 milliseconds.
 
 39
-00:02:14.054 --> 00:02:19.391
+00:02:14.454 --> 00:02:19.791
 The price is the steak, the rate is the sauce, and multiplying them is the plating.
 
 40
-00:02:20.067 --> 00:02:26.722
+00:02:20.500 --> 00:02:27.155
 CombineDemo starts both with supplyAsync, on a pool called io, and joins them with thenCombine.
 
 41
-00:02:26.722 --> 00:02:29.104
+00:02:27.155 --> 00:02:29.537
 How long until the total is ready?
 
 42
-00:02:31.933 --> 00:02:33.476
+00:02:32.333 --> 00:02:33.876
 A little over 300.
 
 43
-00:02:33.476 --> 00:02:39.048
+00:02:33.876 --> 00:02:39.448
 main built the whole pipeline in 36 milliseconds and walked away.
 
 44
-00:02:39.048 --> 00:02:44.619
+00:02:39.448 --> 00:02:45.019
 The price arrived at 330, and the rate at 332, on two io threads.
 
 45
-00:02:44.619 --> 00:02:49.248
+00:02:45.019 --> 00:02:49.648
 The total, 108 dollars and 42 cents, was ready at 347.
 
 46
-00:02:49.248 --> 00:02:53.791
+00:02:49.648 --> 00:02:54.191
 And the multiply ran on whichever cook finished last.
 
 47
-00:02:53.933 --> 00:02:56.349
+00:02:54.400 --> 00:02:56.815
 Now a version that looks just as good.
 
 48
-00:02:56.349 --> 00:03:00.416
+00:02:56.815 --> 00:03:00.883
 It fetches the rate inside thenCompose, after the price arrives.
 
 49
-00:03:00.416 --> 00:03:04.294
+00:03:00.883 --> 00:03:04.760
 It's just as asynchronous, and main still walks away at once.
 
 50
-00:03:04.294 --> 00:03:05.501
+00:03:04.760 --> 00:03:05.968
 How long this time?
 
 51
-00:03:08.333 --> 00:03:10.173
+00:03:08.767 --> 00:03:10.606
 The price at 340.
 
 52
-00:03:10.173 --> 00:03:11.904
+00:03:10.606 --> 00:03:12.337
 The rate at 644.
 
 53
-00:03:11.904 --> 00:03:13.743
+00:03:12.337 --> 00:03:14.177
 The total at 661.
 
 54
-00:03:13.743 --> 00:03:17.747
+00:03:14.177 --> 00:03:18.180
 Twice as long, and nothing warned us.
 
 55
-00:03:17.933 --> 00:03:22.178
+00:03:18.400 --> 00:03:22.645
 Work starts when you call supplyAsync, not when you call thenCombine.
 
 56
-00:03:22.178 --> 00:03:29.438
+00:03:22.645 --> 00:03:29.904
 In the chain, the rate call sits inside an instruction, and an instruction runs only when the stage before it is done.
 
 57
-00:03:29.438 --> 00:03:35.221
+00:03:29.904 --> 00:03:35.687
 In the kitchen, that's putting the sauce on the stove only when the steak comes off the grill.
 
 58
-00:03:35.221 --> 00:03:38.973
+00:03:35.687 --> 00:03:39.440
 The steak goes cold, and table 4 starts looking at its watch.
 
 59
-00:03:39.133 --> 00:03:43.175
+00:03:39.667 --> 00:03:43.708
 So the point is, asynchronous isn't the same as side by side.
 
 60
-00:03:43.175 --> 00:03:46.421
+00:03:43.708 --> 00:03:46.955
 Start everything independent first, then combine.
 
 61
-00:03:47.133 --> 00:03:49.675
+00:03:47.667 --> 00:03:50.209
 Here's the checkout in Java and Kotlin.
 
 62
-00:03:49.675 --> 00:03:53.781
+00:03:50.209 --> 00:03:54.315
 Start both calls, then clip on one instruction that needs both.
 
 63
-00:03:54.467 --> 00:03:55.468
+00:03:55.033 --> 00:03:56.035
 Two guardrails.
 
 64
-00:03:55.468 --> 00:03:57.738
+00:03:56.035 --> 00:03:58.305
 First, pass a pool to supplyAsync.
 
 65
-00:03:57.738 --> 00:04:02.880
+00:03:58.305 --> 00:04:03.446
 Without one, the work goes to the common pool, one pool the whole JVM shares.
 
 66
-00:04:02.880 --> 00:04:10.024
+00:04:03.446 --> 00:04:10.591
 That's the shared kitchen that everyone borrows and nobody owns, and a few slow calls fill it for everyone.
 
 67
-00:04:10.800 --> 00:04:15.566
+00:04:11.400 --> 00:04:16.166
 Second, a plain step runs on whichever cook finished the stage before it.
 
 68
-00:04:15.566 --> 00:04:18.373
+00:04:16.166 --> 00:04:18.973
 So keep plain steps cheap, like a multiply.
 
 69
-00:04:18.373 --> 00:04:21.572
+00:04:18.973 --> 00:04:22.172
 For a slow step, name a pool with thenApplyAsync.
 
 70
-00:04:22.267 --> 00:04:23.204
+00:04:22.900 --> 00:04:23.838
 So, which one?
 
 71
-00:04:23.204 --> 00:04:25.683
+00:04:23.838 --> 00:04:26.316
 Pick by the shape of the instruction.
 
 72
-00:04:25.683 --> 00:04:27.156
+00:04:26.316 --> 00:04:27.790
 Plain code: thenApply.
 
 73
-00:04:27.156 --> 00:04:30.572
+00:04:27.790 --> 00:04:31.206
 A step that hands back its own ticket: thenCompose.
 
 74
-00:04:30.572 --> 00:04:34.056
+00:04:31.206 --> 00:04:34.689
 Two tickets and a step that needs both: thenCombine.
 
 75
-00:04:34.056 --> 00:04:37.539
+00:04:34.689 --> 00:04:38.172
 And start everything independent before you combine.
 
 76
-00:04:38.267 --> 00:04:39.047
+00:04:38.900 --> 00:04:39.680
 Quick check.
 
 77
-00:04:39.047 --> 00:04:41.519
+00:04:39.680 --> 00:04:42.152
 findAsync returns a ticket for a dish.
 
 78
-00:04:41.519 --> 00:04:45.226
+00:04:42.152 --> 00:04:45.859
 cookAsync takes a dish, and returns a ticket for a plate.
 
 79
-00:04:45.226 --> 00:04:49.259
+00:04:45.859 --> 00:04:49.892
 What do you get from findAsync, then thenApply with cookAsync?
 
 80
-00:04:52.267 --> 00:04:53.752
+00:04:52.867 --> 00:04:54.352
 A ticket for a ticket.
 
 81
-00:04:53.752 --> 00:04:57.464
+00:04:54.352 --> 00:04:58.064
 Use thenCompose, and you get one ticket, for the plate.

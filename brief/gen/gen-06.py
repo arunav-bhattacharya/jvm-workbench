@@ -54,7 +54,7 @@ In code, `MutableList` is that busy crate. It reads and writes, so it can't be d
 
 Contravariance with in: consumers ended with one `in` inside a parameter. In this lesson, we'll write take-only and drop-only views like that one and see what each allows. Then we'll line them up with Java's wildcards, and decide when to declare variance on the class instead. Before we start, make a guess, and keep it in mind."""
 
-S1 = """Lessons 4 and 5 of this track put the variance on the class. A `Dispenser<out T>` only hands values out, and a `Bin<in T>` only takes them in. Many types can't do that. `MutableList<E>` has `get(): E` and `add(element: E)`, and `Array<T>` has `get` and `set`. `T` sits in both positions, so the class must stay **invariant**: a `MutableList<Apple>` is a `MutableList<Fruit>` only if `Apple` and `Fruit` are the same type. Lesson 3 showed what goes wrong when Java arrays pretend otherwise.
+S1 = """Lessons 4 and 5 of this track put the variance on the class. Variance is the rule that decides whether a `C<Apple>` may stand in for a `C<Fruit>`, that is, whether it's a subtype. A `Dispenser<out T>` only hands values out, and a `Bin<in T>` only takes them in. Many types can't do that. `MutableList<E>` has `get(): E` and `add(element: E)`, and `Array<T>` has `get` and `set`. `T` sits in both positions, so the class must stay **invariant**: a `MutableList<Apple>` is a `MutableList<Fruit>` only if `Apple` and `Fruit` are the same type. Lesson 3 showed what goes wrong when Java arrays pretend otherwise.
 
 The trouble is that one function rarely uses both sides. Here is the copy example from the Kotlin docs, set in the shop. It puts the apples from one array into the shop window, an `Array<Fruit>` that holds two lemons. First, with no variance at all:
 
@@ -93,7 +93,7 @@ from[0] = Lemon("Eureka", 95)
 error: receiver type 'Array<out Fruit>' contains out projection which prohibits the use of 'fun set(index: Int, value: T): Unit'.
 ```
 
-Writing variance where a type is used is called **use-site variance**. Java's wildcards are the same idea, and they are the only kind of variance Java has. Arrays are the odd case on the Java side. Java has no wildcards for arrays, because every Java array has been covariant since Java 1.0, and the JVM checks each store at run time instead. Java arrays never got the clerk's instruction. They got a guard. `ArrayCopyDemoJava` shows the guard at work: its second copy compiles, then prints `ArrayStoreException: workbench.generics.l06.demo.Apple`.
+Writing variance where a type is used is called **use-site variance**. Java's wildcards, the `?` in `? extends` and `? super`, are the same idea, and they are the only kind of variance Java has. Arrays are the odd case on the Java side. Java has no wildcards for arrays, because every Java array has been covariant since Java 1.0: an `Apple[]` passes as a `Fruit[]`. Instead, the JVM, the machine that runs the code, checks each store at run time. Java arrays never got the clerk's instruction. They got a guard. `ArrayCopyDemoJava` shows the guard at work: its second copy compiles, then prints `ArrayStoreException: workbench.generics.l06.demo.Apple`.
 
 Kotlin's `Array<out Fruit>` compiles to a plain `Fruit[]`, so the projection costs nothing at run time. The figure shows the three ways to look at one invariant type: the plain view takes out and puts in, the out-projection only takes out, and the in-projection only puts in.
 
@@ -133,9 +133,9 @@ Kotlin: receiver type 'MutableList<out Fruit>' contains out projection which pro
 Java:   incompatible types: Apple cannot be converted to CAP#1
 ```
 
-Even a perfectly good apple is turned away, from a crate that really holds apples. The clerk isn't being rude. Through a take-only view, nobody can tell a crate of apples from a crate of lemons. `CAP#1` is javac's name for that unknown: a **captured type**, a placeholder for "the one real element type of this particular list". Kotlin prints it as `CapturedType(out Fruit)`, for example when you try `val a: Apple = crate[0]`. Nothing you can write is known to be a subtype of the placeholder, so nothing goes in.
+Even a perfectly good apple is turned away, from a crate that really holds apples. The clerk isn't being rude. Through a take-only view, nobody can tell a crate of apples from a crate of lemons. `CAP#1` is the name that javac, the Java compiler, gives that unknown: a **captured type**, a placeholder for "the one real element type of this particular list". Kotlin prints it as `CapturedType(out Fruit)`, for example when you try `val a: Apple = crate[0]`. Nothing you can write is known to be a subtype of the placeholder, so nothing goes in.
 
-Members that don't take an element still work. `size`, `isEmpty()`, `removeAt(0)` and `clear()` all compile through the view, as lesson 4 showed. The demo removes the Gala through a view and prints `after removeAt through the view: [Fuji]`. A projection limits which types flow in. It doesn't stop the crate from changing.
+Here the picture of the clerk's instruction breaks. A helper told "take-only" wouldn't tip the crate out on the floor, but a take-only view allows it. Members that don't take an element still work: `size`, `isEmpty()`, `removeAt(0)` and `clear()` all compile through the view, as lesson 4 showed. The demo removes the Gala through a view and prints `after removeAt through the view: [Fuji]`. A projection limits which types flow in. It doesn't stop the crate from changing.
 
 You need this only for invariant types. Kotlin's read-only `List`, the glass display case of lesson 3, is already declared `List<out E>`. So a plain `List<Fruit>` parameter accepts a `List<Apple>`. Write `List<out Fruit>` anyway, and the compiler warns that the projection is redundant. You'll see that warning in the Try-it.
 
@@ -165,7 +165,7 @@ restock(fruit, 2)        // a MutableList<Fruit>
 restock(anything, 2)     // a MutableList<Any>
 ```
 
-`MutableList<in Apple>` means "a mutable list of `Apple` or of some supertype of `Apple`". Every such list accepts an apple, so `add` is safe. `WriteViewDemo` prints `apples = [Fuji, Gala], fruit = [Eureka, Gala, Gala], anything = [a paper bag, Gala, Gala]`.
+`MutableList<in Apple>` means "a mutable list of `Apple`, or of a type above `Apple` such as `Fruit` or `Any`". Every such list accepts an apple, so `add` is safe. `WriteViewDemo` prints `apples = [Fuji, Gala], fruit = [Eureka, Gala, Gala], anything = [a paper bag, Gala, Gala]`.
 
 Taking things out is the side that gets weaker. The first item might be the Fuji, the Eureka lemon or the paper bag that was already there, and the demo prints all three. So the only thing the compiler can promise about a read is `Any?` (in Java, `Object`):
 
@@ -177,7 +177,7 @@ Java:   incompatible types: CAP#1 cannot be converted to Apple
 
 A `MutableList<Lemon>` is turned away at the call, because a crate of lemons can't take an apple: `argument type mismatch: actual type is 'MutableList<Lemon>', but 'MutableList<in Apple>' was expected.`
 
-The JDK's utility methods are written this way, and calling them from Kotlin is a good way to learn the mapping. Here are two of them from `java.util.Collections`, with the same contracts written in Kotlin:
+The JDK, Java's standard library, writes its utility methods this way, and calling them from Kotlin is a good way to learn the mapping. Here are two of them from `java.util.Collections`, with the same contracts written in Kotlin:
 
 ```java
 public static <T> void fill(List<? super T> list, T obj) { /* ... */ }

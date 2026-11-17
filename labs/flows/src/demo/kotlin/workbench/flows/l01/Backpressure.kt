@@ -7,7 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 
-// A producer that needs 100 ms per settlement line and a ledger writer that needs 300 ms per posting.
+// A cook who needs 100 ms to cook each dish and a diner who needs 300 ms to eat it.
 // runTest runs on virtual time: delay() moves a fake clock, so the numbers are exact and the
 // program finishes at once.
 fun main() = runTest {
@@ -22,7 +22,7 @@ fun main() = runTest {
         }
     }.collect { id ->
         delay(300)
-        println("  t=%4d posted %d".format(t(), id))
+        println("  t=%4d eaten  %d".format(t(), id))
     }
     val toyEnd = t()
     println("  total ${toyEnd} ms")
@@ -36,7 +36,7 @@ fun main() = runTest {
         }
     }.collect { id ->
         delay(300)
-        println("  t=%4d posted %d".format(t() - toyEnd, id))
+        println("  t=%4d eaten  %d".format(t() - toyEnd, id))
     }
     println("  total ${t() - toyEnd} ms")
 }

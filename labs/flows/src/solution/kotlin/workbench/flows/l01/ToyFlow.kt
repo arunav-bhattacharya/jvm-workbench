@@ -30,7 +30,7 @@ fun <T> ToyFlow<T>.filter(predicate: suspend (T) -> Boolean): ToyFlow<T> =
 fun <T> ToyFlow<T>.take(count: Int): ToyFlow<T> {
     require(count > 0) { "count must be positive, was $count" }   // checked when the flow is built
     return toyFlow {
-        val marker = Any()            // 1. this take's name on the red card
+        val marker = Any()            // 1. this take's name, to sign its "no more, thanks" note
         var seen = 0
         try {
             this@take.collect { value ->
@@ -38,7 +38,7 @@ fun <T> ToyFlow<T>.take(count: Int): ToyFlow<T> {
                 if (++seen == count) throw ToyAbortException(marker)   // 3. enough: stop the producer
             }
         } catch (e: ToyAbortException) {
-            if (e.owner !== marker) throw e   // 4. someone else's card: let it fly on
+            if (e.owner !== marker) throw e   // 4. someone else's note: let it fly on
         }
     }
 }

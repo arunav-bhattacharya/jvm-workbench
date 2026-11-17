@@ -9,21 +9,21 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import kotlin.system.measureTimeMillis
 
-/** Three FX ticks, 100 ms apart. */
-fun ticks(): Flow<Int> = flow {
+/** Three readings from the oven probe, 100 ms apart. */
+fun ovenReadings(): Flow<Int> = flow {
     for (i in 1..3) { delay(100); emit(i) }
 }
 
 fun main() = runBlocking {
-    // the collector takes 300 ms per tick (pricing a quote book)
-    val plain = measureTimeMillis { ticks().collect { delay(300); print("$it ") } }
+    // the collector takes 300 ms per reading (redrawing the screen on the fridge)
+    val plain = measureTimeMillis { ovenReadings().collect { delay(300); print("$it ") } }
     println(" plain:         $plain ms")
-    val buffered = measureTimeMillis { ticks().buffer().collect { delay(300); print("$it ") } }
+    val buffered = measureTimeMillis { ovenReadings().buffer().collect { delay(300); print("$it ") } }
     println(" buffer():      $buffered ms")
-    val conflated = measureTimeMillis { ticks().conflate().collect { delay(300); print("$it ") } }
+    val conflated = measureTimeMillis { ovenReadings().conflate().collect { delay(300); print("$it ") } }
     println(" conflate():    $conflated ms")
     val latest = measureTimeMillis {
-        ticks().collectLatest { print("start $it, "); delay(300); print("done $it ") }
+        ovenReadings().collectLatest { print("start $it, "); delay(300); print("done $it ") }
     }
     println(" collectLatest: $latest ms")
 }
