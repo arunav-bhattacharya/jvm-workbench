@@ -1,11 +1,11 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:10.724
+00:00:02.700 --> 00:00:10.691
 Back in the kitchen, the cook has pinned a rule to the fridge: if a diner sends a plate back, say sorry and bring the next dish.
 
 2
-00:00:10.724 --> 00:00:11.536
+00:00:10.691 --> 00:00:11.503
 Good manners.
 
 3
@@ -21,35 +21,35 @@ The diner sends a plate back by throwing an exception, and the catch says sorry 
 Tonight, the salad is too salty.
 
 6
-00:00:22.467 --> 00:00:25.406
+00:00:22.500 --> 00:00:25.440
 Here's a question that's easy to be shy about.
 
 7
-00:00:25.406 --> 00:00:29.177
+00:00:25.440 --> 00:00:29.210
 Catching an exception is the careful thing to do, isn't it?
 
 8
-00:00:29.177 --> 00:00:30.647
+00:00:29.210 --> 00:00:30.680
 So what could go wrong?
 
 9
-00:00:30.647 --> 00:00:33.395
+00:00:30.680 --> 00:00:33.428
 Soup, salad, roast: which dishes get eaten?
 
 10
-00:00:37.133 --> 00:00:40.137
+00:00:37.100 --> 00:00:40.104
 Here's what the lesson's TransparencyTrap prints.
 
 11
-00:00:40.137 --> 00:00:42.099
+00:00:40.104 --> 00:00:42.065
 Sorry for the salad, as planned.
 
 12
-00:00:42.099 --> 00:00:44.244
+00:00:42.065 --> 00:00:44.211
 Then a second sorry, for the roast.
 
 13
-00:00:44.244 --> 00:00:47.677
+00:00:44.211 --> 00:00:47.644
 And collect returned normally, with just the soup eaten.
 
 14
@@ -65,269 +65,269 @@ The diner went home after the soup.
 In a real program, that's a job that reports success with a hole in it, and a log line nobody reads.
 
 17
-00:00:59.733 --> 00:01:04.378
+00:00:59.767 --> 00:01:04.412
 Lesson 1's toy flow, and the same loop in Java, serve the soup and the roast.
 
 18
-00:01:04.378 --> 00:01:07.515
+00:01:04.412 --> 00:01:07.548
 So the real flow { } does something the toy doesn't.
 
 19
-00:01:07.515 --> 00:01:09.204
+00:01:07.548 --> 00:01:09.237
 Something refused the roast.
 
 20
-00:01:10.733 --> 00:01:17.032
+00:01:10.767 --> 00:01:17.066
 When you collect a flow { }, it first wraps your collector in a SafeCollector, and only then runs your block.
 
 21
-00:01:17.032 --> 00:01:20.731
+00:01:17.066 --> 00:01:20.764
 So every emit goes to that wrapper, never straight to the diner.
 
 22
-00:01:20.867 --> 00:01:24.603
+00:01:20.967 --> 00:01:24.703
 Picture an inspector in the kitchen doorway, with a clipboard.
 
 23
-00:01:24.603 --> 00:01:28.038
+00:01:24.703 --> 00:01:28.138
 Every plate passes the inspector on its way to the table.
 
 24
-00:01:28.038 --> 00:01:33.281
+00:01:28.138 --> 00:01:33.381
 The cook is your block, the inspector is the SafeCollector, and each plate is one emit.
 
 25
-00:01:34.200 --> 00:01:37.693
+00:01:34.300 --> 00:01:37.793
 The inspector asks three questions about every plate.
 
 26
-00:01:37.693 --> 00:01:39.275
+00:01:37.793 --> 00:01:39.375
 One: is dinner still on?
 
 27
-00:01:39.275 --> 00:01:42.768
+00:01:39.375 --> 00:01:42.868
 A coroutine can be cancelled, that is, asked to stop.
 
 28
-00:01:42.768 --> 00:01:47.645
+00:01:42.868 --> 00:01:47.745
 If the diner's coroutine was cancelled, emit throws CancellationException.
 
 29
-00:01:47.800 --> 00:01:50.927
+00:01:47.967 --> 00:01:51.094
 Two: is it the same kitchen, and the same cook?
 
 30
-00:01:50.927 --> 00:01:58.712
+00:01:51.094 --> 00:01:58.878
 A coroutine carries a context: a few settings, such as its dispatcher, which picks the thread, its name, and its job.
 
 31
-00:01:58.712 --> 00:02:02.970
+00:01:58.878 --> 00:02:03.137
 Every part but the job must be the very same as the collector's.
 
 32
-00:02:02.970 --> 00:02:05.299
+00:02:03.137 --> 00:02:05.465
 If not: Flow invariant is violated.
 
 33
-00:02:05.467 --> 00:02:08.510
+00:02:05.667 --> 00:02:08.710
 Three: did the diner send the last plate back?
 
 34
-00:02:08.510 --> 00:02:14.397
+00:02:08.710 --> 00:02:14.597
 If the previous emit threw, the next one throws: Flow exception transparency is violated.
 
 35
-00:02:14.533 --> 00:02:16.462
+00:02:14.800 --> 00:02:16.729
 Notice what's not on the list.
 
 36
-00:02:16.462 --> 00:02:18.776
+00:02:16.729 --> 00:02:19.043
 The inspector never tastes the food.
 
 37
-00:02:18.776 --> 00:02:19.997
+00:02:19.043 --> 00:02:20.264
 Strictly paperwork.
 
 38
-00:02:19.997 --> 00:02:25.397
+00:02:20.264 --> 00:02:25.664
 It never looks at your values, only at who is emitting, and how the last plate went.
 
 39
-00:02:26.867 --> 00:02:28.234
+00:02:27.167 --> 00:02:28.534
 Now replay the dinner.
 
 40
-00:02:28.234 --> 00:02:30.595
+00:02:28.534 --> 00:02:30.895
 The soup goes through, and gets eaten.
 
 41
-00:02:30.595 --> 00:02:32.769
+00:02:30.895 --> 00:02:33.069
 The salad goes out, and comes back.
 
 42
-00:02:32.769 --> 00:02:36.621
+00:02:33.069 --> 00:02:36.921
 The inspector writes it down, and the polite catch says sorry.
 
 43
-00:02:36.800 --> 00:02:38.704
+00:02:37.133 --> 00:02:39.037
 The cook carries out the roast.
 
 44
-00:02:38.704 --> 00:02:42.511
+00:02:39.037 --> 00:02:42.844
 The inspector stops her at the door: the last plate came back.
 
 45
-00:02:42.511 --> 00:02:46.932
+00:02:42.844 --> 00:02:47.265
 That refusal is an exception too, and the same polite catch swallows it.
 
 46
-00:02:47.067 --> 00:02:50.409
+00:02:47.467 --> 00:02:50.809
 That third check has a name: exception transparency.
 
 47
-00:02:50.409 --> 00:02:55.873
+00:02:50.809 --> 00:02:56.273
 A flow never hides an exception that came from downstream, and never emits after one.
 
 48
-00:02:55.873 --> 00:03:01.465
+00:02:56.273 --> 00:03:01.865
 And the diner's complaint survives only as text in the message, with no cause attached.
 
 49
-00:03:02.333 --> 00:03:04.489
+00:03:02.767 --> 00:03:04.922
 Not every flow has an inspector.
 
 50
-00:03:04.489 --> 00:03:14.729
+00:03:04.922 --> 00:03:15.162
 The library's own operators, like map, filter, onEach and take, and builders like flowOf and asFlow, are built on an internal builder called unsafeFlow.
 
 51
-00:03:14.729 --> 00:03:18.097
+00:03:15.162 --> 00:03:18.531
 It's lesson 1's toy builder, nearly word for word.
 
 52
-00:03:18.267 --> 00:03:23.224
+00:03:18.733 --> 00:03:23.690
 They're family helpers who come in by the side door, and nobody checks their hands.
 
 53
-00:03:23.224 --> 00:03:28.300
+00:03:23.690 --> 00:03:28.766
 The library trusts map, because your lambda in map gets a value, never the collector.
 
 54
-00:03:28.300 --> 00:03:30.211
+00:03:28.766 --> 00:03:30.678
 It can't emit at the wrong time.
 
 55
-00:03:30.211 --> 00:03:33.973
+00:03:30.678 --> 00:03:34.440
 transform hands you the collector, so it gets a real inspector.
 
 56
-00:03:34.133 --> 00:03:37.564
+00:03:34.667 --> 00:03:38.098
 The price: skipping the inspector also skips check one.
 
 57
-00:03:37.564 --> 00:03:42.679
+00:03:38.098 --> 00:03:43.213
 A collector that cancels itself and never pauses keeps getting values from asFlow.
 
 58
-00:03:42.679 --> 00:03:44.863
+00:03:43.213 --> 00:03:45.396
 cancellable() puts that check back.
 
 59
-00:03:45.533 --> 00:03:48.654
+00:03:46.100 --> 00:03:49.220
 And how does take(1) stop the cook after one dish?
 
 60
-00:03:48.654 --> 00:03:53.522
+00:03:49.220 --> 00:03:54.088
 A flow has no line back to the kitchen, only the emit the cook is standing in.
 
 61
-00:03:53.522 --> 00:04:00.636
+00:03:54.088 --> 00:04:01.203
 So take throws a note back up through emit: no more, thanks, signed with its own name, so only that take keeps it.
 
 62
-00:04:00.800 --> 00:04:03.566
+00:04:01.433 --> 00:04:04.200
 Now the polite rule has a second victim.
 
 63
-00:04:03.566 --> 00:04:06.540
+00:04:04.200 --> 00:04:07.174
 The catch around emit catches the note too.
 
 64
-00:04:06.540 --> 00:04:10.690
+00:04:07.174 --> 00:04:11.323
 The cook says sorry, emits again, and the inspector refuses.
 
 65
-00:04:10.690 --> 00:04:14.148
+00:04:11.323 --> 00:04:14.781
 Over 1,000 items, that loop logged 1,000 warnings.
 
 66
-00:04:14.148 --> 00:04:17.260
+00:04:14.781 --> 00:04:17.893
 A thousand apologies for one no more, thanks.
 
 67
-00:04:18.133 --> 00:04:19.531
+00:04:18.800 --> 00:04:20.197
 So the rule is simple.
 
 68
-00:04:19.531 --> 00:04:21.690
+00:04:20.197 --> 00:04:22.357
 Never put a try/catch around emit.
 
 69
-00:04:21.690 --> 00:04:23.722
+00:04:22.357 --> 00:04:24.389
 Catch where the failure happens.
 
 70
-00:04:23.722 --> 00:04:28.485
+00:04:24.389 --> 00:04:29.152
 If the diner may send a plate back, catch inside the collector, around eat.
 
 71
-00:04:28.667 --> 00:04:31.610
+00:04:29.367 --> 00:04:32.310
 Here's the fix in Kotlin, with Java beside it.
 
 72
-00:04:31.610 --> 00:04:35.450
+00:04:32.310 --> 00:04:36.150
 The flow is plain again, and the sorry lives with the diner.
 
 73
-00:04:35.450 --> 00:04:37.113
+00:04:36.150 --> 00:04:37.813
 The next dish still comes.
 
 74
-00:04:37.867 --> 00:04:40.529
+00:04:38.633 --> 00:04:41.296
 So, what could go wrong with a polite catch?
 
 75
-00:04:40.529 --> 00:04:46.519
+00:04:41.296 --> 00:04:47.286
 It wraps the diner, so it swallows the diner's complaint, the inspector's refusal, and take's note.
 
 76
-00:04:46.519 --> 00:04:53.780
+00:04:47.286 --> 00:04:54.547
 flow { } keeps every plate honest with three checks: dinner still on, same kitchen, and nothing after a plate came back.
 
 77
-00:04:53.933 --> 00:04:54.818
+00:04:54.767 --> 00:04:55.651
 Quick check.
 
 78
-00:04:54.818 --> 00:05:00.788
+00:04:55.651 --> 00:05:01.621
 A flow emits 1, then emits 2 inside withContext, with the coroutine name tasting.
 
 79
-00:05:00.788 --> 00:05:02.115
+00:05:01.621 --> 00:05:02.948
 No thread changes.
 
 80
-00:05:02.115 --> 00:05:04.179
+00:05:02.948 --> 00:05:05.012
 What does the collector see?
 
 81
-00:05:07.400 --> 00:05:08.105
+00:05:08.200 --> 00:05:08.905
 1 arrives.
 
 82
-00:05:08.105 --> 00:05:11.491
+00:05:08.905 --> 00:05:12.291
 Then collect throws: Flow invariant is violated.
 
 83
-00:05:11.491 --> 00:05:16.359
+00:05:12.291 --> 00:05:17.159
 The name is part of the context, and the inspector checks every part.
