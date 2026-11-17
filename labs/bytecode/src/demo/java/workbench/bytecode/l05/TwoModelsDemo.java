@@ -20,16 +20,17 @@ import static net.bytebuddy.matcher.ElementMatchers.named;
 public class TwoModelsDemo {
     static final List<String> LOG = new ArrayList<>();
 
-    public static class SettlementService {
+    /** Runs one lighting or sound cue. No interface: a JDK proxy can't stand in for it. */
+    public static class CueRunner {
         static int constructed;
-        public SettlementService() { constructed++; }
+        public CueRunner() { constructed++; }
 
-        public String settle(String batch) { return "settled " + batch + " (" + this.audit(batch) + ")"; }  // self-call
-        public String audit(String batch) { return "audited " + batch; }
-        public final String region() { return "eu-west"; }
+        public String run(String cue) { return "ran " + cue + " (" + this.check(cue) + ")"; }  // self-call
+        public String check(String cue) { return "checked " + cue; }
+        public final String stage() { return "main stage"; }
     }
 
-    /** ArC-style: the generated subclass instance is the bean; @SuperCall runs the original body on it. */
+    /** Quarkus ArC style: the generated subclass instance IS the object; @SuperCall runs the original body on it. */
     public static class InSubclass {
         @RuntimeType
         public Object intercept(@Origin Method m, @SuperCall Callable<?> original) throws Exception {
@@ -38,7 +39,7 @@ public class TwoModelsDemo {
         }
     }
 
-    /** Spring-style: the generated subclass forwards to a separate target object. */
+    /** Spring AOP style: the generated subclass forwards to a separate target object. */
     public static class Forwarding {
         private final Object target;
         public Forwarding(Object target) { this.target = target; }
@@ -60,24 +61,24 @@ public class TwoModelsDemo {
     }
 
     public static void main(String[] args) throws Exception {
-        Class<? extends SettlementService> sub = subclass(SettlementService.class, new InSubclass());
+        Class<? extends CueRunner> sub = subclass(CueRunner.class, new InSubclass());
         System.out.println("generated " + sub.getName());
         System.out.println("declares  " + Arrays.stream(sub.getDeclaredMethods()).map(Method::getName).sorted().toList());
 
-        SettlementService bean = sub.getDeclaredConstructor().newInstance();
-        System.out.println(bean.settle("B-17") + ", region " + bean.region());
+        CueRunner runner = sub.getDeclaredConstructor().newInstance();
+        System.out.println(runner.run("LX-14") + ", on the " + runner.stage());
         System.out.println("subclass model:   " + LOG);
         LOG.clear();
 
-        SettlementService.constructed = 0;
-        SettlementService target = new SettlementService();
-        SettlementService proxy = subclass(SettlementService.class, new Forwarding(target))
+        CueRunner.constructed = 0;
+        CueRunner target = new CueRunner();
+        CueRunner proxy = subclass(CueRunner.class, new Forwarding(target))
                 .getDeclaredConstructor().newInstance();
-        System.out.println(proxy.settle("B-18"));
-        System.out.println("forwarding model: " + LOG + ", constructors run: " + SettlementService.constructed);
+        System.out.println(proxy.run("LX-15"));
+        System.out.println("forwarding model: " + LOG + ", constructors run: " + CueRunner.constructed);
 
         try {
-            new ByteBuddy().subclass(KotlinFinalService.class).make();
+            new ByteBuddy().subclass(KotlinCueRunner.class).make();
         } catch (IllegalArgumentException e) {
             System.out.println("Kotlin class without open: " + e.getMessage());
         }

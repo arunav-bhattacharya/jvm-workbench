@@ -5,27 +5,27 @@ import java.util.function.Supplier;
 
 /** A small class whose constant pool holds nearly every kind of entry. */
 public class Fixture implements Comparable<Fixture> {
-    sealed interface Instrument permits Card, Wallet {}
-    record Card(String pan) implements Instrument {}
-    enum Wallet implements Instrument { APPLE_PAY }
+    sealed interface Seat permits Stalls, Box {}
+    record Stalls(String row) implements Seat {}
+    enum Box implements Seat { ROYAL }
 
-    long limitMinor = 9_000_000_000L;                    // Long: two pool indexes
-    double fxRate = 1.0842;                              // Double: two pool indexes
+    long runMillis = 9_000_000_000L;                     // Long: two pool indexes
+    double dimmer = 0.8642;                              // Double: two pool indexes
     float ratio = 0.25f;                                 // Float
     int bigCount = 1_000_000;                            // Integer
-    String currency = "EUR";                             // String
-    List<String> pairs = List.of("EURUSD", "GBPUSD");    // InterfaceMethodref
-    Supplier<String> label = () -> currency + " " + bigCount;   // InvokeDynamic, MethodHandle, MethodType
+    String venue = "Riverside";                          // String
+    List<String> acts = List.of("Act 1", "Act 2");       // InterfaceMethodref
+    Supplier<String> label = () -> venue + " " + bigCount;   // InvokeDynamic, MethodHandle, MethodType
 
-    static String describe(Instrument i) {
-        return switch (i) {                              // typeSwitch, plus a Dynamic entry for the enum label
-            case Card c -> "card " + c.pan();
-            case Wallet.APPLE_PAY -> "wallet";
+    static String describe(Seat s) {
+        return switch (s) {                              // typeSwitch, plus a Dynamic entry for the enum label
+            case Stalls st -> "stalls row " + st.row();
+            case Box.ROYAL -> "royal box";
         };
     }
 
     @Override
     public int compareTo(Fixture o) {
-        return Long.compare(limitMinor, o.limitMinor);
+        return Long.compare(runMillis, o.runMillis);
     }
 }

@@ -7,7 +7,7 @@ import net.bytebuddy.matcher.ElementMatchers.`is`
 import net.bytebuddy.matcher.ElementMatchers.named
 
 /** Final, like every Kotlin class without `open`: lesson 5's subclass proxies couldn't touch it. */
-class KFxClock {
+class KStageClock {
     fun now() = "tick"
 }
 
@@ -29,7 +29,7 @@ fun main(args: Array<String>) {
         relaunch(args[0])
         return
     }
-    val clock = KFxClock()
+    val clock = KStageClock()
     println("before: ${clock.now()}")
 
     val inst = ByteBuddyAgent.install()          // self-attach: JEP 451 warns unless allowed
@@ -37,7 +37,7 @@ fun main(args: Array<String>) {
     AgentBuilder.Default()
         .disableClassFormatChanges()
         .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
-        .type(`is`(KFxClock::class.java))
+        .type(`is`(KStageClock::class.java))
         .transform { builder, _, _, _, _ -> builder.visit(Advice.to(KTimingAdvice::class.java).on(named("now"))) }
         .installOn(inst)
 

@@ -58,13 +58,13 @@ class ObjectSizeTest {
     }
 
     @Test
-    @DisplayName("Payment is 40 bytes by default, 48 without compressed oops or with 16-byte alignment, 32 with compact headers")
-    void paymentInEveryMode() {
-        // the first three are JOL measurements on JDK 21; the last is JOL's simulation of compact headers
-        assertThat(ObjectSize.instanceSize(DEFAULT, Samples.Payment.class)).isEqualTo(40);
-        assertThat(ObjectSize.instanceSize(NO_COMPRESSED_OOPS, Samples.Payment.class)).isEqualTo(48);
-        assertThat(ObjectSize.instanceSize(ALIGN_16, Samples.Payment.class)).isEqualTo(48);
-        assertThat(ObjectSize.instanceSize(COMPACT_HEADERS, Samples.Payment.class)).isEqualTo(32);
+    @DisplayName("Thumbnail is 40 bytes by default, 48 without compressed oops or with 16-byte alignment, 32 with compact headers")
+    void thumbnailInEveryMode() {
+        // the first three are JOL measurements; the last is what JDK 25 allocates with -XX:+UseCompactObjectHeaders
+        assertThat(ObjectSize.instanceSize(DEFAULT, Samples.Thumbnail.class)).isEqualTo(40);
+        assertThat(ObjectSize.instanceSize(NO_COMPRESSED_OOPS, Samples.Thumbnail.class)).isEqualTo(48);
+        assertThat(ObjectSize.instanceSize(ALIGN_16, Samples.Thumbnail.class)).isEqualTo(48);
+        assertThat(ObjectSize.instanceSize(COMPACT_HEADERS, Samples.Thumbnail.class)).isEqualTo(32);
     }
 
     @Test
@@ -77,10 +77,10 @@ class ObjectSizeTest {
     @Test
     @DisplayName("superclass fields count, static fields don't")
     void superclassAndStatics() {
-        // CardPayment adds 6 bytes of fields to Payment, and they fit in Payment's 6 bytes of padding
-        assertThat(ObjectSize.instanceSize(DEFAULT, Samples.CardPayment.class)).isEqualTo(40);
-        assertThat(ObjectSize.instanceSize(NO_COMPRESSED_OOPS, Samples.CardPayment.class)).isEqualTo(56);
-        assertThat(ObjectSize.instanceSize(DEFAULT, Samples.FeeRule.class)).isEqualTo(16);
+        // WatermarkedThumbnail adds 6 bytes of fields to Thumbnail, and they fit in Thumbnail's 6 bytes of padding
+        assertThat(ObjectSize.instanceSize(DEFAULT, Samples.WatermarkedThumbnail.class)).isEqualTo(40);
+        assertThat(ObjectSize.instanceSize(NO_COMPRESSED_OOPS, Samples.WatermarkedThumbnail.class)).isEqualTo(56);
+        assertThat(ObjectSize.instanceSize(DEFAULT, Samples.ResizeRule.class)).isEqualTo(16);
     }
 
     @Test
@@ -97,8 +97,8 @@ class ObjectSizeTest {
     @DisplayName("your predictions match JOL in the JVM that runs these tests")
     void matchesJol() {
         Vm here = new Vm(VM.current().objectHeaderSize(), (int) VM.current().sizeOfField("oop"), VM.current().objectAlignment());
-        for (Class<?> c : List.of(Object.class, Integer.class, Long.class, String.class, Samples.Payment.class,
-                Samples.CardPayment.class, Samples.LedgerEntry.class, Samples.FeeRule.class, Samples.Money.class)) {
+        for (Class<?> c : List.of(Object.class, Integer.class, Long.class, String.class, Samples.Thumbnail.class,
+                Samples.WatermarkedThumbnail.class, Samples.Upload.class, Samples.ResizeRule.class, Samples.PhotoId.class)) {
             assertThat(ObjectSize.instanceSize(here, c)).as(c.getSimpleName()).isEqualTo(ClassLayout.parseClass(c).instanceSize());
         }
         assertThat(ObjectSize.arraySize(here, byte.class, 3)).as("byte[3]").isEqualTo(ClassLayout.parseInstance(new byte[3]).instanceSize());

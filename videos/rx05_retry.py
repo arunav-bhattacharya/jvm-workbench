@@ -122,6 +122,11 @@ def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
+def pulse(*ms, s=1.18):
+    """Grow and shrink back. (Indicate turns a filled chip into a solid block that hides its text.)"""
+    return AnimationGroup(*[m.animate(rate_func=there_and_back).scale(s) for m in ms])
+
+
 # one colour per thing, for the whole reactive track
 OVEN_C, PACK_C, SLIP_C, LOAF_C, BELL_C, BAD_C, CAKE_C = BLUE_M, TEAL_M, YELLOW_M, GOLD_M, GREEN_M, RED_M, PURPLE_M
 MILL_C = OVEN_C            # the mill is a source, like the oven
@@ -361,9 +366,9 @@ class Rx05Retry(Narrated):
         rule = T("Error operators replace what's left. They never resume it.", 28, SLIP_C).move_to([0, -3.2, 0])
         fit(rule, 12.4)
         self.say("replace")
-        self.play(Create(col), Indicate(src[3], color=WHITE, scale_factor=1.2), run_time=0.9)
+        self.play(Create(col), pulse(src[3], s=1.3), run_time=0.9)
         self.at(1)
-        self.play(Indicate(VGroup(*r1, *r2, *r3[:2]), color=WHITE, scale_factor=1.06), run_time=0.9)
+        self.play(pulse(*r1, *r2, *r3[:2], s=1.15), run_time=0.9)
         self.at(4)
         self.play(FadeIn(rule, shift=UP * 0.1), FadeOut(r3_l), run_time=0.6)
         self.hold()
@@ -434,7 +439,7 @@ class Rx05Retry(Narrated):
         self.play(again.animate.scale(0.8).move_to([4.2, RB + 0.24, 0]), run_time=1.0)
         self.play(FadeIn(twice), run_time=0.4)
         self.at(3)
-        self.play(Indicate(mrows[1], color=LOAF_C, scale_factor=1.05), run_time=0.8)
+        self.play(pulse(mrows[1][0], s=1.12), Indicate(mrows[1][1], color=LOAF_C, scale_factor=1.05), run_time=0.8)
         self.hold()
         self.play(FadeOut(VGroup(bl2, cr2, r1l, again, twice, chain, mrows[1], ml)), run_time=0.6)
 
@@ -487,7 +492,7 @@ class Rx05Retry(Narrated):
             self.play(GrowFromCenter(waits[i][0]), FadeIn(waits[i][1]), run_time=0.45)
             self.play(FadeIn(atts[i + 1], scale=0.6), run_time=0.3)
         self.at(1)
-        self.play(LaggedStart(*[Indicate(a, color=WHITE, scale_factor=1.25) for a in atts], lag_ratio=0.3), run_time=1.2)
+        self.play(LaggedStart(*[pulse(a, s=1.3) for a in atts], lag_ratio=0.3), run_time=1.2)
         self.hold()
 
         ex = VGroup(M("RetryExhaustedException: Retries exhausted: 3/3", 22, BAD_C),
@@ -554,7 +559,7 @@ class Rx05Retry(Narrated):
             new = T(f"subscriptions: {k + 1}", 24, SLIP_C).move_to(subs)
             self.play(d.animate.move_to(st_note.get_right()), run_time=0.4)
             self.remove(d)
-            self.play(Indicate(st_note, color=BAD_C, scale_factor=1.12), FadeOut(subs), FadeIn(new), run_time=0.35)
+            self.play(pulse(st_note, s=1.15), FadeOut(subs), FadeIn(new), run_time=0.35)
             subs = new
         self.play(FadeIn(out4), run_time=0.5)
         self.hold()

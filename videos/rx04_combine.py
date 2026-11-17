@@ -126,6 +126,11 @@ def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
+def pulse(*ms, s=1.18):
+    """Grow and shrink back. (Indicate turns a filled chip into a solid block that hides its text.)"""
+    return AnimationGroup(*[m.animate(rate_func=there_and_back).scale(s) for m in ms])
+
+
 # one colour per thing, for the whole reactive track
 OVEN_C, PACK_C, SLIP_C, LOAF_C, BELL_C, BAD_C, CAKE_C = BLUE_M, TEAL_M, YELLOW_M, GOLD_M, GREEN_M, RED_M, PURPLE_M
 JAM_C = "#E58FB4"          # the second belt: jam, web orders, the price per kilo
@@ -597,7 +602,7 @@ class Rx04Combine(Narrated):
         self.say("fanout2")
         self.play(FadeIn(ons), run_time=0.6)
         self.at_text("so the quote", lead=0.3)
-        self.play(*[Indicate(c, color=WHITE, scale_factor=1.1) for c in (cp, cf, cd)], run_time=0.6)
+        self.play(pulse(cp, cf, cd, s=1.12), run_time=0.6)
         self.play(FadeIn(quote, shift=DOWN * 0.15), run_time=0.5)
         self.play(GrowFromCenter(brace), FadeIn(b_l), run_time=0.6)
         self.at(1)
@@ -710,7 +715,7 @@ class Rx04Combine(Narrated):
             self.add(a, b)
             anims = [a.animate.move_to(res).set_opacity(0), b.animate.move_to(res).set_opacity(0), FadeIn(res, scale=0.7)]
             if flash is not None:
-                anims.append(Indicate(flash, color=WHITE, scale_factor=1.15))
+                anims.append(pulse(flash, s=1.15))
             self.play(*anims, run_time=0.6)
             self.remove(a, b)
             return res
@@ -747,9 +752,9 @@ class Rx04Combine(Narrated):
         self.say("board_joke")
         self.play(FadeIn(polite, shift=UP * 0.1), run_time=0.6)
         self.at(1)
-        self.play(Indicate(VGroup(c1, c2, c3, c4), color=WHITE, scale_factor=1.08), run_time=0.8)
+        self.play(pulse(c1, c2, c3, c4, s=1.15), run_time=0.8)
         self.at_text("zip shows", lead=0.3)
-        self.play(Indicate(VGroup(z1, z2), color=WHITE, scale_factor=1.08), run_time=0.8)
+        self.play(pulse(z1, z2, s=1.15), run_time=0.8)
         self.hold()
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
 

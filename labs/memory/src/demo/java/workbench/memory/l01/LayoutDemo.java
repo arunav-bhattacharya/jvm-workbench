@@ -17,13 +17,14 @@ import java.util.List;
  * -Pargs=-XX:-UseCompressedOops (the demo then reruns itself in a child JVM with those flags).
  */
 public class LayoutDemo {
-    static class Payment {
-        boolean captured;
-        long amountMinor;
-        byte status;
-        String currency;
-        int attempts;
-        Object metadata;
+    /** One thumbnail the service keeps in memory: a small preview picture and a few facts about it. */
+    static class Thumbnail {
+        boolean cached;
+        long createdAtMillis;
+        byte format;                // 1 = JPEG, 2 = PNG
+        String name;
+        int width;
+        byte[] pixels;
     }
 
     public static void main(String[] args) {
@@ -31,27 +32,27 @@ public class LayoutDemo {
             Jvm.run(Arrays.asList(args), LayoutDemo.class.getName());
             return;
         }
-        System.out.println(ClassLayout.parseClass(Payment.class).toPrintable());
+        System.out.println(ClassLayout.parseClass(Thumbnail.class).toPrintable());
 
         List<Integer> boxed = new ArrayList<>();
         for (int i = 0; i < 1_000; i++) boxed.add(i);
         System.out.printf("Object %d, Integer %d, Long %d, String shell %d bytes%n",
                 ClassLayout.parseClass(Object.class).instanceSize(), ClassLayout.parseClass(Integer.class).instanceSize(),
                 ClassLayout.parseClass(Long.class).instanceSize(), ClassLayout.parseClass(String.class).instanceSize());
-        System.out.printf("\"EUR\" with its byte[]: %d bytes%n", GraphLayout.parseInstance(new String("EUR")).totalSize());
+        System.out.printf("\"jpg\" with its byte[]: %d bytes%n", GraphLayout.parseInstance(new String("jpg")).totalSize());
         System.out.printf("ArrayList<Integer> of 0..999: %,d bytes, int[1000]: %,d bytes%n",
                 GraphLayout.parseInstance(boxed).totalSize(), GraphLayout.parseInstance((Object) new int[1_000]).totalSize());
 
         // JOL can also simulate a layout: here, an 8-byte compact header with compressed references
-        ClassLayout compact = ClassLayout.parseClass(Payment.class, new HotSpotLayouter(new Model64_Lilliput(true, 8, false), 25));
-        System.out.printf("Payment with compact headers (JOL simulation): %d bytes%n", compact.instanceSize());
+        ClassLayout compact = ClassLayout.parseClass(Thumbnail.class, new HotSpotLayouter(new Model64_Lilliput(true, 8, false), 25));
+        System.out.printf("Thumbnail with compact headers (JOL simulation): %d bytes%n", compact.instanceSize());
 
-        // and the JVM itself can tell you: count the bytes 10,000 new Payment objects take
+        // and the JVM itself can tell you: count the bytes 10,000 new Thumbnail objects take
         ThreadMXBean threads = (ThreadMXBean) ManagementFactory.getThreadMXBean();
-        Payment[] keep = new Payment[10_000];                     // allocate the array before we start counting
+        Thumbnail[] keep = new Thumbnail[10_000];                     // allocate the array before we start counting
         long before = threads.getCurrentThreadAllocatedBytes();
-        for (int i = 0; i < keep.length; i++) keep[i] = new Payment();
+        for (int i = 0; i < keep.length; i++) keep[i] = new Thumbnail();
         long bytes = threads.getCurrentThreadAllocatedBytes() - before;
-        System.out.printf("10,000 Payments allocated %,d bytes: %d per object in this JVM%n", bytes, bytes / keep.length);
+        System.out.printf("10,000 Thumbnails allocated %,d bytes: %d per object in this JVM%n", bytes, bytes / keep.length);
     }
 }

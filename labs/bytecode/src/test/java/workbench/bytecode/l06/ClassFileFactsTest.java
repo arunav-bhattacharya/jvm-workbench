@@ -53,7 +53,7 @@ class ClassFileFactsTest {
     @Test
     @DisplayName("header: bytes that aren't a class file are rejected because of the magic number")
     void badMagic() {
-        byte[] notAClass = "{\"amountMinor\": 1250}".getBytes(StandardCharsets.UTF_8);
+        byte[] notAClass = "{\"scene\": \"duel\"}".getBytes(StandardCharsets.UTF_8);
         assertThatThrownBy(() -> ClassFileFacts.header(notAClass))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("magic");

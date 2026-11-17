@@ -21,21 +21,21 @@ public class ClassFileForge {
     public static void main(String[] args) throws Throwable {
         ClassFile cf = ClassFile.of();
 
-        // 1. build: a class with fee(long) = amount * 290 / 10_000 and a debug method
-        byte[] feeRule = cf.build(ClassDesc.of("FeeRule"), clb -> clb
+        // 1. build: a class with seconds(long steps) = steps * 32 / 1_000 and a debug method
+        byte[] fade = cf.build(ClassDesc.of("Fade"), clb -> clb
                 .withFlags(ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL)
-                .withMethodBody("fee", MethodTypeDesc.of(CD_long, CD_long), ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, cob -> cob
-                        .lload(0)                 // push the amount (slots 0 and 1)
-                        .ldc(290L)                // push the rate in basis points
+                .withMethodBody("seconds", MethodTypeDesc.of(CD_long, CD_long), ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, cob -> cob
+                        .lload(0)                 // push the number of steps (slots 0 and 1)
+                        .ldc(32L)                 // push the length of one step, in milliseconds
                         .lmul()
-                        .ldc(10_000L)
+                        .ldc(1_000L)
                         .ldiv()
                         .lreturn())
                 .withMethodBody("debugTrace", MethodTypeDesc.of(CD_void, CD_String), ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, cob -> cob
                         .return_()));
-        System.out.println("built FeeRule: " + feeRule.length + " bytes, verify errors " + cf.verify(feeRule));
-        Class<?> c1 = MethodHandles.lookup().defineClass(feeRule);
-        System.out.println("FeeRule.fee(125000) = " + c1.getMethod("fee", long.class).invoke(null, 125_000L));
+        System.out.println("built Fade: " + fade.length + " bytes, verify errors " + cf.verify(fade));
+        Class<?> c1 = MethodHandles.lookup().defineClass(fade);
+        System.out.println("Fade.seconds(12500) = " + c1.getMethod("seconds", long.class).invoke(null, 12_500L));
 
         // 2. verify before you load: an int method that returns a String
         byte[] broken = cf.build(ClassDesc.of("Broken"), clb -> clb
@@ -43,21 +43,21 @@ public class ClassFileForge {
                         cob -> cob.ldc("forty-two").ireturn()));
         System.out.println("verify(Broken): " + cf.verify(broken));
 
-        // 3. transform: drop debug methods and change the 290 constant to 310, as a new class FeeRuleV2
-        ClassModel model = cf.parse(feeRule);
-        CodeTransform newRate = (cob, element) -> {
-            if (element instanceof ConstantInstruction ci && Long.valueOf(290L).equals(ci.constantValue())) {
-                cob.ldc(310L);            // replace this element
+        // 3. transform: drop debug methods and change the 32 constant to 40, as a new class FadeV2
+        ClassModel model = cf.parse(fade);
+        CodeTransform slower = (cob, element) -> {
+            if (element instanceof ConstantInstruction ci && Long.valueOf(32L).equals(ci.constantValue())) {
+                cob.ldc(40L);             // replace this element
             } else {
                 cob.with(element);        // pass everything else through unchanged
             }
         };
         ClassTransform transform = ClassTransform
                 .dropping(e -> e instanceof MethodModel m && m.methodName().stringValue().startsWith("debug"))
-                .andThen(ClassTransform.transformingMethodBodies(newRate));
-        byte[] v2 = cf.transformClass(model, ClassDesc.of("FeeRuleV2"), transform);
+                .andThen(ClassTransform.transformingMethodBodies(slower));
+        byte[] v2 = cf.transformClass(model, ClassDesc.of("FadeV2"), transform);
         Class<?> c2 = MethodHandles.lookup().defineClass(v2);
-        System.out.println("FeeRuleV2 methods " + cf.parse(v2).methods().stream().map(m -> m.methodName().stringValue()).toList()
-                + ", fee(125000) = " + c2.getMethod("fee", long.class).invoke(null, 125_000L));
+        System.out.println("FadeV2 methods " + cf.parse(v2).methods().stream().map(m -> m.methodName().stringValue()).toList()
+                + ", seconds(12500) = " + c2.getMethod("seconds", long.class).invoke(null, 12_500L));
     }
 }

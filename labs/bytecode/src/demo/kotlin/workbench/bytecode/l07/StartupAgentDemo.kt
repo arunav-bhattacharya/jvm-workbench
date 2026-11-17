@@ -31,15 +31,15 @@ object KCountingAgent {
     }
 }
 
-data class KPayment(val id: String, val amountMinor: Long)
+data class KTicket(val show: String, val seat: String)
 
 /** The program the startup agent watches. */
 object KAgentTarget {
     @JvmStatic
     fun main(args: Array<String>) {
         println("main: started")
-        val p = KPayment("p-1", 1_250)            // KPayment is loaded here, on first use
-        println("main: $p")
+        val t = KTicket("Hamlet", "B12")          // KTicket is loaded here, on first use
+        println("main: $t")
     }
 }
 
@@ -53,9 +53,9 @@ fun main() {
     }
     JarOutputStream(Files.newOutputStream(jar), manifest).use { }   // no entries needed
 
-    // 2. java -javaagent:<jar>=payments -cp <this class path> KAgentTarget
+    // 2. java -javaagent:<jar>=opening-night -cp <this class path> KAgentTarget
     val java = ProcessHandle.current().info().command().orElse("java")
-    val child = ProcessBuilder(java, "-javaagent:$jar=payments", "-cp", System.getProperty("java.class.path"),
+    val child = ProcessBuilder(java, "-javaagent:$jar=opening-night", "-cp", System.getProperty("java.class.path"),
         KAgentTarget::class.java.name)
         .redirectErrorStream(true)
         .start()

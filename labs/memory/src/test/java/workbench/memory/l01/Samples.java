@@ -5,34 +5,34 @@ final class Samples {
     private Samples() {}
 
     /** The same fields as the JOL printout in the lesson. */
-    static class Payment {
-        boolean captured;
-        long amountMinor;
-        byte status;
-        String currency;
-        int attempts;
-        Object metadata;
+    static class Thumbnail {
+        boolean cached;
+        long createdAtMillis;
+        byte format;
+        String name;
+        int width;
+        byte[] pixels;
     }
 
-    /** A subclass: its object holds Payment's fields too. */
-    static class CardPayment extends Payment {
-        String cardToken;
-        short networkCode;
+    /** A subclass: its object holds Thumbnail's fields too. */
+    static class WatermarkedThumbnail extends Thumbnail {
+        String watermark;
+        short opacity;
     }
 
-    static class LedgerEntry {
-        long amountMinor;
-        long balanceAfterMinor;
-        String accountId;
-        char sign;
+    static class Upload {
+        long sizeBytes;
+        long uploadedAtMillis;
+        String owner;
+        char status;
     }
 
     /** Static fields live with the class, so they add nothing to each object. */
-    static class FeeRule {
-        static final long MAX_FEE_MINOR = 5_000;
+    static class ResizeRule {
+        static final long MAX_PIXELS = 50_000_000;
         static int rulesLoaded;
-        int basisPoints;
+        int targetWidth;
     }
 
-    record Money(long amountMinor, String currency) {}
+    record PhotoId(long number, String album) {}
 }

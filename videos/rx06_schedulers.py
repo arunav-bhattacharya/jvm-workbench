@@ -121,6 +121,11 @@ def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
+def pulse(*ms, s=1.18):
+    """Grow and shrink back. (Indicate turns a filled chip into a solid block that hides its text.)"""
+    return AnimationGroup(*[m.animate(rate_func=there_and_back).scale(s) for m in ms])
+
+
 # one colour per thing, for the whole reactive track
 OVEN_C, PACK_C, SLIP_C, LOAF_C, BELL_C, BAD_C, CAKE_C = BLUE_M, TEAL_M, YELLOW_M, GOLD_M, GREEN_M, RED_M, PURPLE_M
 # one colour per team of workers
@@ -415,9 +420,9 @@ class Rx06Schedulers(Narrated):
         self.hold()
 
         self.say("sub_q")
-        self.play(Indicate(s_p, color=SINGLE_C), run_time=0.7)
+        self.play(pulse(s_p, s=1.12), run_time=0.7)
         self.at_text("and subscribeOn", lead=0.3)
-        self.play(Indicate(s_so, color=BE_C), FadeOut(form), run_time=0.7)
+        self.play(pulse(s_so, s=1.12), FadeOut(form), run_time=0.7)
         self.hold(after=0)
         self.predict()
 
@@ -462,7 +467,7 @@ class Rx06Schedulers(Narrated):
         self.play(Create(u3), run_time=0.5)
         win = tag("single-1", SINGLE_C, 22).next_to(s_r, DOWN, buff=0.2)
         win2 = T("everything on single-1", 24, SINGLE_C).move_to([0, -0.9, 0])
-        self.play(FadeIn(win), Indicate(s_s1, color=SINGLE_C), FadeIn(win2), run_time=0.7)
+        self.play(FadeIn(win), pulse(s_s1, s=1.12), FadeIn(win2), run_time=0.7)
         self.at(2)
         hop = T("only a trip on the way up", 22, BE_C).next_to(u2, UP, buff=0.12)
         self.play(FadeIn(hop), run_time=0.5)

@@ -18,9 +18,9 @@ public class StartupAgentDemo {
             // no entries needed
         }
 
-        // 2. java -javaagent:<jar>=payments -cp <this class path> AgentTarget
+        // 2. java -javaagent:<jar>=opening-night -cp <this class path> AgentTarget
         String java = ProcessHandle.current().info().command().orElse("java");
-        Process child = new ProcessBuilder(java, "-javaagent:" + jar + "=payments",
+        Process child = new ProcessBuilder(java, "-javaagent:" + jar + "=opening-night",
                 "-cp", System.getProperty("java.class.path"), AgentTarget.class.getName())
                 .redirectErrorStream(true)
                 .start();

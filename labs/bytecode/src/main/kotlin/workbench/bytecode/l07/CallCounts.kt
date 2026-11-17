@@ -4,7 +4,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Call counts by method name, such as `"workbench.bytecode.l07.SettlementJob.settle"`.
+ * Call counts by method name, such as `"workbench.bytecode.l07.SoundBoard.play"`.
  * Public on purpose: the advice code is copied INTO the instrumented class, and from there it
  * calls [hit], so this class must be visible to that class.
  */

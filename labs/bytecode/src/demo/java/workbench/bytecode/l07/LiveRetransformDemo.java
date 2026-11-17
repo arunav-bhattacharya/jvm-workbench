@@ -11,7 +11,7 @@ import static net.bytebuddy.matcher.ElementMatchers.named;
 
 /** Attach an agent to this running JVM and change a loaded class under a live object. */
 public class LiveRetransformDemo {
-    public static final class FxClock {           // final: lesson 5's subclass proxies couldn't touch it
+    public static final class StageClock {       // final: lesson 5's subclass proxies couldn't touch it
         public String now() { return "tick"; }
     }
 
@@ -32,7 +32,7 @@ public class LiveRetransformDemo {
             relaunch(args[0]);
             return;
         }
-        FxClock clock = new FxClock();
+        StageClock clock = new StageClock();
         System.out.println("before: " + clock.now());
 
         Instrumentation inst = ByteBuddyAgent.install();   // self-attach: JEP 451 warns unless allowed
@@ -40,7 +40,7 @@ public class LiveRetransformDemo {
         new AgentBuilder.Default()
                 .disableClassFormatChanges()
                 .with(AgentBuilder.RedefinitionStrategy.RETRANSFORMATION)
-                .type(is(FxClock.class))
+                .type(is(StageClock.class))
                 .transform((builder, type, loader, module, domain) ->
                         builder.visit(Advice.to(TimingAdvice.class).on(named("now"))))
                 .installOn(inst);

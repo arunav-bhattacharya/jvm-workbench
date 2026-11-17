@@ -20,22 +20,22 @@ fun main() {
     val cf = ClassFile.of()
     val static = ClassFile.ACC_PUBLIC or ClassFile.ACC_STATIC
 
-    // 1. build: a class with fee(long) = amount * 290 / 10_000 and a debug method
-    val feeRule = cf.build(ClassDesc.of("FeeRule")) { clb ->
+    // 1. build: a class with seconds(long steps) = steps * 32 / 1_000 and a debug method
+    val fade = cf.build(ClassDesc.of("Fade")) { clb ->
         clb.withFlags(ClassFile.ACC_PUBLIC or ClassFile.ACC_FINAL)
-        clb.withMethodBody("fee", MethodTypeDesc.of(CD_long, CD_long), static) { cob ->
-            cob.lload(0)                  // push the amount (slots 0 and 1)
-                .loadConstant(290L)       // push the rate in basis points (ldc2_w)
+        clb.withMethodBody("seconds", MethodTypeDesc.of(CD_long, CD_long), static) { cob ->
+            cob.lload(0)                  // push the number of steps (slots 0 and 1)
+                .loadConstant(32L)        // push the length of one step, in milliseconds (ldc2_w)
                 .lmul()
-                .loadConstant(10_000L)
+                .loadConstant(1_000L)
                 .ldiv()
                 .lreturn()
         }
         clb.withMethodBody("debugTrace", MethodTypeDesc.of(CD_void, CD_String), static) { cob -> cob.return_() }
     }
-    println("built FeeRule: ${feeRule.size} bytes, verify errors ${cf.verify(feeRule)}")
-    val c1 = MethodHandles.lookup().defineClass(feeRule)
-    println("FeeRule.fee(125000) = ${c1.getMethod("fee", Long::class.javaPrimitiveType).invoke(null, 125_000L)}")
+    println("built Fade: ${fade.size} bytes, verify errors ${cf.verify(fade)}")
+    val c1 = MethodHandles.lookup().defineClass(fade)
+    println("Fade.seconds(12500) = ${c1.getMethod("seconds", Long::class.javaPrimitiveType).invoke(null, 12_500L)}")
 
     // 2. verify before you load: an int method that returns a String
     val broken = cf.build(ClassDesc.of("Broken")) { clb ->
@@ -46,19 +46,19 @@ fun main() {
     }
     println("verify(Broken): ${cf.verify(broken)}")
 
-    // 3. transform: drop debug methods and change the 290 constant to 310, as a new class FeeRuleV2
-    val newRate = CodeTransform { cob, element ->
-        if (element is ConstantInstruction && element.constantValue().equals(290L)) {
-            cob.loadConstant(310L)        // replace this element
+    // 3. transform: drop debug methods and change the 32 constant to 40, as a new class FadeV2
+    val slower = CodeTransform { cob, element ->
+        if (element is ConstantInstruction && element.constantValue().equals(32L)) {
+            cob.loadConstant(40L)         // replace this element
         } else {
             cob.with(element)             // pass everything else through unchanged
         }
     }
     val transform = ClassTransform
         .dropping { it is MethodModel && it.methodName().stringValue().startsWith("debug") }
-        .andThen(ClassTransform.transformingMethodBodies(newRate))
-    val v2 = cf.transformClass(cf.parse(feeRule), ClassDesc.of("FeeRuleV2"), transform)
+        .andThen(ClassTransform.transformingMethodBodies(slower))
+    val v2 = cf.transformClass(cf.parse(fade), ClassDesc.of("FadeV2"), transform)
     val c2 = MethodHandles.lookup().defineClass(v2)
-    println("FeeRuleV2 methods ${cf.parse(v2).methods().map { it.methodName().stringValue() }}, " +
-        "fee(125000) = ${c2.getMethod("fee", Long::class.javaPrimitiveType).invoke(null, 125_000L)}")
+    println("FadeV2 methods ${cf.parse(v2).methods().map { it.methodName().stringValue() }}, " +
+        "seconds(12500) = ${c2.getMethod("seconds", Long::class.javaPrimitiveType).invoke(null, 12_500L)}")
 }

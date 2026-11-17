@@ -35,7 +35,7 @@ object TimingProxies {
             .load(type.classLoader)                              // a new child loader holds the generated class
             .loaded
             .getDeclaredConstructor()
-            .newInstance()                                       // runs FxQuoteService's constructor as usual
+            .newInstance()                                       // runs BoxOffice's constructor as usual
 
     private inline fun timed(clock: LongSupplier, sink: TimingSink, method: Method, call: () -> Any?): Any? {
         val name = "${method.declaringClass.simpleName}.${method.name}"

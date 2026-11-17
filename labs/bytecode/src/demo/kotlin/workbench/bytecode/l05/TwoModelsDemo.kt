@@ -13,23 +13,24 @@ import java.util.concurrent.Callable
 private val log = mutableListOf<String>()
 
 /** Final, like every Kotlin class without `open`. */
-class KotlinFinalService {
-    fun settle(batch: String) = "settled $batch"
+class KotlinCueRunner {
+    fun run(cue: String) = "ran $cue"
 }
 
-open class KSettlementService {
+/** Runs one lighting or sound cue. No interface: a JDK proxy can't stand in for it. */
+open class KCueRunner {
     init { constructed++ }
 
-    open fun settle(batch: String) = "settled $batch (${this.audit(batch)})"   // self-call
-    open fun audit(batch: String) = "audited $batch"
-    fun region() = "eu-west"                                                    // final: no `open`
+    open fun run(cue: String) = "ran $cue (${this.check(cue)})"   // self-call
+    open fun check(cue: String) = "checked $cue"
+    fun stage() = "main stage"                                    // final: no `open`
 
     companion object {
         var constructed = 0
     }
 }
 
-/** ArC-style: the generated subclass instance is the bean; @SuperCall runs the original body on it. */
+/** Quarkus ArC style: the generated subclass instance IS the object; @SuperCall runs the original body on it. */
 class KInSubclass {
     @RuntimeType
     fun intercept(@Origin m: Method, @SuperCall original: Callable<*>): Any? {
@@ -38,7 +39,7 @@ class KInSubclass {
     }
 }
 
-/** Spring-style: the generated subclass forwards to a separate target object. */
+/** Spring AOP style: the generated subclass forwards to a separate target object. */
 class KForwarding(private val target: Any) {
     @RuntimeType
     fun intercept(@Origin m: Method, @AllArguments args: Array<Any?>): Any? {
@@ -55,23 +56,23 @@ private fun <T : Any> subclass(type: Class<T>, interceptor: Any): Class<out T> =
 
 /** The same subclass proxy, two models: the proxy IS the object, or the proxy forwards to a target. */
 fun main() {
-    val sub = subclass(KSettlementService::class.java, KInSubclass())
+    val sub = subclass(KCueRunner::class.java, KInSubclass())
     println("generated ${sub.name}")
     println("declares  ${sub.declaredMethods.map { it.name }.sorted()}")
 
-    val bean = sub.getDeclaredConstructor().newInstance()
-    println("${bean.settle("B-17")}, region ${bean.region()}")
+    val runner = sub.getDeclaredConstructor().newInstance()
+    println("${runner.run("LX-14")}, on the ${runner.stage()}")
     println("subclass model:   $log")
     log.clear()
 
-    KSettlementService.constructed = 0
-    val target = KSettlementService()
-    val proxy = subclass(KSettlementService::class.java, KForwarding(target)).getDeclaredConstructor().newInstance()
-    println(proxy.settle("B-18"))
-    println("forwarding model: $log, constructors run: ${KSettlementService.constructed}")
+    KCueRunner.constructed = 0
+    val target = KCueRunner()
+    val proxy = subclass(KCueRunner::class.java, KForwarding(target)).getDeclaredConstructor().newInstance()
+    println(proxy.run("LX-15"))
+    println("forwarding model: $log, constructors run: ${KCueRunner.constructed}")
 
     try {
-        ByteBuddy().subclass(KotlinFinalService::class.java).make()
+        ByteBuddy().subclass(KotlinCueRunner::class.java).make()
     } catch (e: IllegalArgumentException) {
         println("Kotlin class without open: ${e.message}")
     }

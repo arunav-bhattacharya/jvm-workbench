@@ -296,7 +296,7 @@ class Conc08CasLoop(Narrated):
         self.play(FadeOut(ok), set_val(bd, 41), run_time=0.4)
         self.play(FadeIn(other, shift=RIGHT * 0.3), run_time=0.4)
         self.play(set_val(bd, 42, GREY_B), Indicate(other[1], color=WHITE), run_time=0.6)
-        self.play(Indicate(req, color=WHITE, scale_factor=1.05), run_time=0.6)
+        self.play(Indicate(req[1], color=YELLOW_M, scale_factor=1.05), run_time=0.6)
         self.play(Create(no), run_time=0.4)
         look = Arrow(you.get_right(), bd.get_left(), buff=0.2, stroke_width=3, color=GREY_B,
                      max_tip_length_to_length_ratio=0.08)
@@ -424,14 +424,14 @@ class Conc08CasLoop(Narrated):
         f4 = M("700 > 900? no: leave it", 24, GOOD).move_to([1.6, -1.75, 0], aligned_edge=LEFT)
         self.say("max_fix")
         self.play(FadeIn(scr2), FadeIn(scr2_lab), FadeIn(scr2_val), FadeIn(q2), run_time=0.7)
-        self.play(FadeIn(f1), Indicate(L1, color=WHITE, scale_factor=1.04), run_time=0.6)
+        self.play(FadeIn(f1), Circumscribe(L1, color=WHITE, buff=0.06), run_time=0.6)
         self.at(1)
-        self.play(Indicate(L3, color=CLERK, scale_factor=1.04), run_time=0.6)
+        self.play(Circumscribe(L3, color=CLERK, buff=0.06), run_time=0.6)
         self.at(2)
         self.play(FadeIn(f2), ShowPassingFlash(back.copy().set_stroke(BAD, 6), time_width=0.6), run_time=0.9)
         self.at(3)
-        self.play(FadeIn(f3), Indicate(L1, color=WHITE, scale_factor=1.04), run_time=0.6)
-        self.play(FadeIn(f4), Indicate(L2, color=WHITE, scale_factor=1.04), run_time=0.6)
+        self.play(FadeIn(f3), Circumscribe(L1, color=WHITE, buff=0.06), run_time=0.6)
+        self.play(FadeIn(f4), Circumscribe(L2, color=WHITE, buff=0.06), run_time=0.6)
         self.at(4)
         self.play(Indicate(scr2_val, color=T1C, scale_factor=1.2), run_time=0.8)
         self.hold()
@@ -542,8 +542,8 @@ class Conc08CasLoop(Narrated):
         self.play(FadeOut(r_q), FadeIn(r_val), run_time=0.5)
         self.at(2)
         for _ in range(3):
-            self.play(ShowPassingFlash(lback.copy().set_stroke(BAD, 6), time_width=0.6), Indicate(fbox[0], color=BAD,
-                      scale_factor=1.04), run_time=0.6)
+            self.play(ShowPassingFlash(lback.copy().set_stroke(BAD, 6), time_width=0.6), Indicate(fbox[1], color=BAD,
+                      scale_factor=1.1), run_time=0.6)
         self.hold()
 
         texts = T("294,839 extra runs: nearly 300,000 extra texts", 26, BAD).move_to([0, -2.85, 0])
