@@ -14,7 +14,7 @@ fun main() {
     while (work.isAlive) {
         Thread.sleep(10)
         for (t in Thread.getAllStackTraces().keys) {
-            if (!t.name.startsWith("fees-")) continue
+            if (!t.name.startsWith("report-")) continue
             val st = t.stackTrace                              // the JVM must pause t to walk its stack
             if (st.isEmpty()) continue
             val key = st.reversed().joinToString(";") { "${it.className}.${it.methodName}" }   // root first

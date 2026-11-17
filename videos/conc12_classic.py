@@ -254,8 +254,9 @@ class Conc12Classic(Narrated):
         for n in range(2, 6):
             put(ticket(n), waiters[n % 2], rt=0.4)
         self.at(3)
-        extra = ticket(6).move_to(waiters[0].get_right() + RIGHT * 0.6)
-        wait_l = T("put waits: rail full", 22, BAD).next_to(extra, DOWN, buff=0.15)
+        extra = ticket(6).move_to([-3.3, WPOS[0][1], 0])
+        wait_l = VGroup(T("rail full:", 22, BAD), T("put waits", 22, BAD)).arrange(DOWN, buff=0.06)
+        wait_l.next_to(extra, DOWN, buff=0.15)
         self.play(FadeIn(extra), FadeIn(wait_l), run_time=0.5)
         self.play(Wiggle(extra), run_time=0.7)
         self.at_text("That push back", lead=0.6)

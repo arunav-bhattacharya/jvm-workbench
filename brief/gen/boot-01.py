@@ -71,17 +71,17 @@ JDK 25.0.5.0.3+1-1-24.04.1-Ubuntu, flags []: 818 classes loaded
     793  shared objects file (the CDS archive)
 ```
 
-One class was ours. The other 817 belong to the JDK and to the machinery that runs Java. A bigger program tells the same story: a generated app with 300 classes of its own loaded 1,537 classes on JDK 21 with the JDK's archive turned off. Its own code was a fifth of the work.
+One class was ours. The other 817 belong to the JDK and to the machinery that runs Java. A bigger program tells the same story: a generated app with 300 classes of its own loaded 1,537 classes on JDK 21 with the JDK's archive turned off. Its own classes were a fifth of the total.
 
 Here's the morning routine, step by step. When you type `java`, a small native program called the launcher starts first. (Native means compiled for your machine, as C programs are, rather than for the JVM.) The launcher loads the JVM and asks it to create a VM, which is the shopkeeper unlocking the door and switching on the lights. The JVM reserves memory for the heap, the area where your objects will live. It generates its interpreter, starts its own helper threads, and sets up the core `java.lang` classes and the module system. Only then does it look for your main class.
 
-From there, each class goes through the same steps the first time something needs it. The JVM finds the class file and parses it into its own internal form, in **metaspace**, memory the JVM keeps for class data outside the heap. That's unpacking a box. Then it **verifies** the bytecode, which means it checks that every instruction is type-safe before any of them runs: the delivery note, checked item by item. Later it runs the class's static initializer, which the next section is about.
+From there, each class goes through the same steps the first time something needs it. The JVM finds the class file and parses it into its own internal form, in metaspace, memory the JVM keeps for class data outside the heap. That's unpacking a box. Then it **verifies** the bytecode, the instructions `javac` and `kotlinc` write into class files: it checks that every instruction is type-safe before any of them runs. That's the delivery note, checked item by item. Later it runs the class's static initializer, which the next section is about.
 
-Your code then runs in the **interpreter**, which executes bytecode one instruction at a time, like a shopkeeper looking up every price in the catalogue. The JIT compilers turn hot methods into machine code while the program runs, but first they wait for **profiles**: counts of which methods, branches and types the code really uses. That's the shopkeeper learning the popular items by heart, and it takes a while. A framework, a library that starts and wires your program for you, adds work of its own: it scans classes for annotations, creates objects by reflection and reads configuration.
+Your code then runs in the interpreter, which executes bytecode one instruction at a time, like a shopkeeper looking up every price in the catalogue. The JIT compilers turn hot methods, the ones that run often, into machine code while the program runs. First, though, they wait for profiles: counts of which methods, branches and types the code really uses. That's the shopkeeper learning the popular items by heart, and it takes a while. A framework, a library that starts and wires your program for you, adds work of its own. It scans classes for annotations, creates objects by reflection (code that finds classes and calls them by name) and reads configuration.
 
 Nothing of this survives the process. Stop the JVM, and the next launch unpacks, checks and learns it all again, with exactly the same care. There's one exception, and it's in the output above. A JDK build ships an archive of about 1,300 of its own classes, already parsed, and the JVM maps them from disk instead of unpacking them. Those are the 793 `shared objects file` lines. Lesson 2 of this track is about that archive and the bigger ones you can build.
 
-You can watch the unpacking yourself. `-Xlog:class+load` prints one line per class, and the end of each line says where the class came from. Four real lines from the same run, with the folder shortened:
+You can watch the unpacking yourself. `-Xlog:class+load` prints one line per class, and the end of each line says where the class came from. Four real lines from a run of the same work, with the folder shortened:
 
 ```text
 [0.063s][info][class,load] java.lang.Object source: shared objects file
@@ -90,7 +90,7 @@ You can watch the unpacking yourself. `-Xlog:class+load` prints one line per cla
 [0.171s][info][class,load] workbench.startup.l01.demo.ClassSourcesDemo$$Lambda/0x000000006f040210 source: workbench.startup.l01.demo.ClassSourcesDemo
 ```
 
-`shared objects file` means the class came ready-made from the archive. `jrt:/` means the JVM read it from the JDK's modules file, where the JDK keeps its classes, and parsed it on the spot. `file:` is your own class path. A class name as the source marks a **hidden class**, a class the JVM generates in memory while the program runs, with no class file behind it. Each lambda gets one.
+`shared objects file` means the class came ready-made from the archive. `jrt:/` means the JVM read it from the JDK's modules file, where the JDK keeps its classes, and parsed it on the spot. `file:` is your own class path, the list of folders and JAR files (zip files of classes) where the JVM looks for your code. A class name as the source marks a **hidden class**, a class the JVM generates in memory while the program runs, with no class file behind it. Each lambda gets one.
 
 Here the shop picture breaks, and the break matters. Our shopkeeper unpacks everything before she opens. The JVM doesn't: it unpacks a box only when someone first asks for something inside it.
 
@@ -140,7 +140,7 @@ Here's the first version, as the lab hands it to you:
 
 """ + pair(J_EAGER, K_EAGER) + """
 
-To see what's wrong, separate two events that sound alike. The JVM **loads** a class when something needs its definition. It **initializes** the class, which means it runs the class's static initializer, only on the class's first **active use**. The static initializer is a hidden method that the bytecode calls `<clinit>`. It holds every static field initializer and `static {}` block, in source order.
+To see what's wrong, separate two events that sound alike. The JVM loads a class when something needs its definition. It initializes the class, which means it runs the class's static initializer, only on the class's first **active use**. The static initializer is a hidden method that the bytecode calls `<clinit>`. It holds every static field initializer and `static {}` block, in source order.
 
 Active uses are `new`, a call to a static method, a read or write of a static field that isn't a compile-time constant, and reflection that asks for initialization. Initializing a class initializes its superclass first. Declaring a variable of the type doesn't count, and neither does `PostcodeTable.class`, which loads the class but runs nothing.
 
@@ -173,7 +173,7 @@ The second is the program's own log line, such as `started in 0.151s`. It's the 
 
 The third is **time to first request**: the time from launching the process to the first successful answer, measured from outside. A request is a message another program sends to ask for something, and a successful answer on the web carries status 200, the code for "OK". This is the first customer walking out with what they came for, and it's the only clock the street sees. A load balancer, a program that spreads incoming requests over several copies of a service, waits for it. So do your users.
 
-`FirstRequestTimer`, in the Try it below, reads all three. It starts the tracking service in a second JVM, asks `/track` every 2 ms from outside, and stops its clock at the first 200. On JDK 25.0.5, on a busy 4-core machine, one run printed:
+`FirstRequestTimer`, in the Try it below, reads all three. It starts the tracking service in a second JVM, asks `/track` every 2 ms from outside, and stops its clock at the first 200. On JDK 25.0.5, on a busy machine with 4 cores (a core is one of the processor's independent workers), one run printed:
 
 ```text
 log      : [0.056s][info][startuptime] Create VM, 0.0550112 secs
@@ -185,7 +185,7 @@ That's 55 ms, 151 ms and 429 ms. The service's own clock is honest; it simply st
 
 Even the first 200 isn't the end of the story. HotSpot, the JVM in most JDK builds, has two JIT compilers: C1 compiles quickly with simple optimizations, and C2 compiles slowly into much faster code. Early requests run in the interpreter or in C1's code, and C2 takes over a method only after it has run often. So a new copy of a service answers at once, but slowly for a while. Lesson 4 of this track comes back to that, and the performance track's first lesson, "From bytecode to machine code", covers the tiers.
 
-**A program's own start-up line starts late and stops early. Measure from outside, where your users are.**
+**Time start-up from outside the process. That's the clock your users read.**
 
 Before the Try it, predict this. `-Xshare:off` turns the JDK's archive off. Does it slow down `Create VM` too, or only the two later clocks? Think about which classes the JVM needs while it creates itself.
 
@@ -200,11 +200,11 @@ NMT      : Total: reserved=4904MB, committed=296MB
 NMT      : Java Heap (reserved=3420MB, committed=216MB)
 ```
 
-**Footprint** is how much memory a running program really takes. Native Memory Tracking (NMT) is the JVM's own accounting of its memory, and it says the JVM has **committed** 296 MB, 216 MB of it for the heap. Committed memory is memory the JVM has asked the operating system for. The operating system says the process has about 60 MB **resident**. RSS, the resident set size, is the memory of a process that is really in RAM.
+Footprint is how much memory a running program really takes. Native Memory Tracking (NMT) is the JVM's own accounting of its memory, and it says the JVM has **committed** 296 MB, 216 MB of it for the heap. Committed memory is memory the JVM has asked the operating system for. The operating system says the process has about 60 MB **resident**. RSS, the resident set size, is the memory of a process that is really in RAM.
 
 Both are right, and the shop explains why. Committed is the floor space you've booked; resident is the floor you've actually put shelves on. Memory comes in pages, small blocks of usually 4 KB, and a page becomes resident only when the program first touches it. A fresh heap is mostly untouched pages. Reserved is larger still: 4,904 MB of addresses set aside, most of them never even booked.
 
-RSS is the number a memory limit cares about, and it holds much more than the heap. It counts the touched heap pages and metaspace, the code cache where the JIT keeps its machine code, and the garbage collector's own tables. It also counts every thread's stack, the mapped archive from the first section, the JDK's modules file and the JVM itself. `RssAnon` is memory the process made for itself. `RssFile` is pages read from files, such as the modules file, which processes that map the same file can share.
+RSS is the number a memory limit cares about, and it holds much more than the heap. It counts the touched heap pages and metaspace, the code cache where the JIT keeps its machine code, and the tables of the garbage collector, the part of the JVM that frees memory no object uses anymore. It also counts every thread's stack, the mapped archive from the first section, the JDK's modules file and the JVM itself. `RssAnon` is memory the process made for itself. `RssFile` is pages read from files, such as the modules file, which processes that map the same file can share.
 
 You can read all of it with three commands:
 

@@ -7,7 +7,7 @@ data class Sample(val frames: List<String>, val count: Long)
  * The collapsed-stack format that async-profiler (`-o collapsed`) and flamegraph.pl use:
  *
  * ```
- * Thread.run;Worker.run;SlowFees.feeSlow;java/util/regex/Pattern.compile 645
+ * Thread.run;Worker.run;SlowReport.readingSeconds;java/util/regex/Pattern.compile 26
  * ```
  * Frames are separated by `;`, and the count follows the last space. Frame names can contain spaces.
  */

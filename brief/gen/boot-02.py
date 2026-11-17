@@ -57,9 +57,9 @@ The catch is that each one is easy to switch off by accident, and the JVM says s
 # ---------------------------------------------------------------- section 0
 S0 = """Start with the cost of an empty back room. Turn the JDK's archive off with `-Xshare:off`, and `java -version` alone makes the JVM find, parse and verify 411 classes before it prints a line. With the archive on, it loads 396, and 393 of them come ready-made. Lesson 1's tracking service felt the difference. Over nine runs on JDK 25.0.5, `Create VM` took 173 ms instead of 62, and the first answer came at 731 ms instead of 529.
 
-That archive is **class data sharing**, CDS for short: a file of classes the JVM has already parsed and verified, stored in the JVM's own internal form. Every JDK build since JDK 12 ships one (JEP 341), in `lib/server/classes.jsa`, with about 1,300 core JDK classes. In the shop, these are the shelves that came with the shop: the JDK's makers unpacked them before you ever opened.
+That archive is **class data sharing**, CDS for short: a file of classes the JVM has already parsed and verified, stored in the JVM's own internal form. Every JDK build since JDK 12 ships one, in `lib/server/classes.jsa`, with about 1,300 core JDK classes. (It came with JEP 341; a JEP, or JDK Enhancement Proposal, is the document that describes a new JDK feature.) In the shop, these are the shelves that came with the shop: the JDK's makers unpacked them before you ever opened.
 
-The file doesn't hold class files. It holds the structures the JVM would otherwise build in metaspace, laid out the way they sit in memory. At start-up the JVM **memory-maps** the file: it asks the operating system to make the file part of the program's memory. Each page is then read from disk only when it's first touched. Then it fixes up a few pointers and uses the classes as they are. All of that happens by default; `-Xshare:off` turns it off, which is mostly useful for lessons like this one.
+The file doesn't hold class files. It holds the structures the JVM would otherwise build in metaspace, laid out the way they sit in memory. At start-up the JVM **memory-maps** the file: it asks the operating system to make the file part of the program's memory. Each page is then read from disk only when it's first touched. The JVM fixes up a few pointers and uses the classes as they are. All of that happens by default; `-Xshare:off` turns it off, which is mostly useful for lessons like this one.
 
 There's more than one file in that folder, and the JVM picks the one that matches its settings. JDK 25 ships four. `classes_nocoops.jsa` is for a JVM running without compressed object pointers, the 32-bit object references it uses by default for heaps below 32 GB. The two `_coh` files are for compact object headers, a smaller layout for the hidden header every object carries. JEP 519 made them a product feature in JDK 25, still off by default.
 
@@ -123,7 +123,7 @@ Check yourself: you add `-XX:ArchiveClassesAtExit=app.jsa` while the class path 
 AppCDS saves the unpacking. But a class taken from the shelf still has to be linked, every lambda is still built on the spot, and the JIT still learns everything from scratch. That's the work Project Leyden goes after."""
 
 # ---------------------------------------------------------------- section 2
-S2 = """**Project Leyden** is the OpenJDK project that moves start-up work out of production runs, the real runs that serve your users. Its first result is the **AOT cache**, where AOT means ahead of time. It arrived one JEP at a time, and every piece of it is a final, standard feature: no preview flag and no special switch.
+S2 = """Project Leyden is the OpenJDK project that moves start-up work out of production runs, the real runs that serve your users. Its first result is the **AOT cache**, where AOT means ahead of time. It arrived one JEP at a time, and every piece of it is a final, standard feature: no preview flag and no special switch.
 
 | JDK | What arrived |
 |---|---|
@@ -135,7 +135,7 @@ S2 = """**Project Leyden** is the OpenJDK project that moves start-up work out o
 
 LTS means a long-term-support release, the kind most teams run in production, and JDK 25 is the current one.
 
-The `java` manual names three phases, and the shop has all three. In **training**, you run the program on a realistic workload, and the JVM writes what it loaded and linked into an AOT configuration file. That's an ordinary day, with a notebook on the counter. In **assembly**, the JVM turns that file into the cache, and your program doesn't run: the evening, spent writing up the notes. In **production**, every start uses the cache. On JDK 25, one command does the first two:
+The `java` manual names three phases, and the shop has all three. In training, you run the program on a realistic workload, and the JVM writes what it loaded and linked into an AOT configuration file. That's an ordinary day, with a notebook on the counter. In assembly, the JVM turns that file into the cache, and your program doesn't run: the evening, spent writing up the notes. In production, every start uses the cache. On JDK 25, one command does the first two:
 
 ```bash
 java -XX:AOTCacheOutput=app.aot -cp tracker.jar tracker.Main     # training and assembly, JDK 25+
@@ -163,7 +163,7 @@ A cache built from one day's notes fits that day's shop exactly. Change the stoc
 
 ASIDE2 = {
     "title": "Will my framework build the cache for me?",
-    "body": "Quarkus, a framework for Java services, does from version 3.40. With `quarkus.package.jar.aot.enabled=true`, it trains the cache while your integration tests run (tests that start the whole program and talk to it from outside) and writes `target/quarkus-app/app.aot`, which you use with `java -XX:AOTCache=app.aot -jar quarkus-run.jar`. Its `aot-jar` packaging leaves all class loading to the JDK's own class loaders, because Leyden doesn't support custom ones yet. The guide repeats the rule from this section: \"The more representative your integration tests are of production traffic, the more effective the AOT cache will be.\" On JDK 21, `quarkus.package.jar.aot.type=app-cds` builds an AppCDS archive instead."
+    "body": "Quarkus, a framework for Java services, does from version 3.40. With `quarkus.package.jar.aot.enabled=true`, it trains the cache while your integration tests run (tests that start the whole program and talk to it from outside) and writes `target/quarkus-app/app.aot`, which you use with `java -XX:AOTCache=app.aot -jar quarkus-run.jar`. Its `aot-jar` packaging leaves all class loading to the JDK's own class loaders, the objects that find and define classes, because Leyden doesn't support custom ones yet. The guide repeats the rule from this section: \"The more representative your integration tests are of production traffic, the more effective the AOT cache will be.\" On JDK 21, `quarkus.package.jar.aot.type=app-cds` builds an AppCDS archive instead."
 }
 
 # ---------------------------------------------------------------- section 3
@@ -186,7 +186,7 @@ Here's the surprise the opening promised. A cache the JVM can't use leaves you w
 
 The garbage collector matters on JDK 25 too. A garbage collector, or GC, is the part of the JVM that frees memory no object uses anymore, and you choose one with a flag. On 25.0.5, a cache trained under the default collector, G1, gave 0 archived classes under `-XX:+UseZGC`, and all 959 under the Parallel and Serial collectors. JDK 26's JEP 516 removes this limit. Until then, train with the collector you run.
 
-Module and agent options must match as well: `--module-path`, `--add-modules` and `--enable-native-access` should be the same in training and production. The manual also lists "certain JVMTI options" as incompatible. JVMTI is the JVM's tool interface, which monitoring agents use to rewrite classes as they load, so this matters the day someone adds one.
+Module and agent options must match as well: `--module-path`, `--add-modules` and `--enable-native-access` should be the same in training and production. The manual also lists "certain JVMTI options" as incompatible. JVMTI is the JVM's tool interface. Agents, add-ons loaded into the JVM to watch or change a program, use it to rewrite classes as they load, so this matters the day someone adds a monitoring agent.
 
 Two flags catch all of this. `-Xlog:aot` prints `Opened AOT cache app.aot.` when the cache works, and the reason when it doesn't. `-XX:AOTMode=on` (JDK 24 to 26; `required` from JDK 27) makes the JVM stop with `Unable to use AOT cache.` instead of running without it. Use that in your build's checks, and keep it out of production. The JDK 27 manual warns that your application "may fail to launch" if, for example, a cloud provider's monitoring agent adds an incompatible option.
 

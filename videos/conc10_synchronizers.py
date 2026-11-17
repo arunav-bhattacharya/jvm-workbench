@@ -445,7 +445,7 @@ class Conc10Synchronizers(Narrated):
         # one-shot
         late = clerk(DOOR, 0.6).move_to(DT_HOME + LEFT * 0.4)
         late_lab = T("a later await()", 22, DOOR).next_to(late, DOWN, buff=0.18)
-        noreset = T("no reset", 24, COUNT).move_to([GX - 1.25, 0.45, 0])
+        noreset = T("no reset", 24, COUNT).move_to([GX - 1.55, 0.08, 0])
         self.say("oneshot")
         self.play(FadeOut(dthread), run_time=0.4)
         self.play(Indicate(cnt[1], color=COUNT, scale_factor=1.3), run_time=0.7)

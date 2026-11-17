@@ -1,349 +1,349 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:08.468
+00:00:02.700 --> 00:00:08.435
 Picture the bank's book of accounts: one page per account number, with a balance on each page.
 
 2
-00:00:08.468 --> 00:00:13.166
+00:00:08.435 --> 00:00:13.133
 In a program, that book is a map, a collection that finds a value by its key.
 
 3
-00:00:13.166 --> 00:00:17.132
+00:00:13.133 --> 00:00:17.099
 Here the key is the account number, and the value is the balance.
 
 4
-00:00:17.267 --> 00:00:22.257
+00:00:17.300 --> 00:00:22.290
 On payday, eight tellers write in the book at once, each on its own thread.
 
 5
-00:00:22.257 --> 00:00:28.112
+00:00:22.290 --> 00:00:28.145
 Back in the lesson on count++, a ConcurrentHashMap and one call, merge, kept every cent.
 
 6
-00:00:28.112 --> 00:00:30.108
+00:00:28.145 --> 00:00:30.141
 We took the map's word for it.
 
 7
-00:00:30.867 --> 00:00:33.866
+00:00:30.967 --> 00:00:33.966
 So let's test three versions of the book.
 
 8
-00:00:33.866 --> 00:00:38.254
+00:00:33.966 --> 00:00:38.354
 Eight tellers record 800,000 deposits across 1,000 accounts.
 
 9
-00:00:38.254 --> 00:00:39.863
+00:00:38.354 --> 00:00:39.963
 First a plain HashMap.
 
 10
-00:00:39.863 --> 00:00:43.155
+00:00:39.963 --> 00:00:43.255
 Then a ConcurrentHashMap, with get, then put.
 
 11
-00:00:43.155 --> 00:00:45.788
+00:00:43.255 --> 00:00:45.888
 Then a ConcurrentHashMap with merge.
 
 12
-00:00:45.788 --> 00:00:47.909
+00:00:45.888 --> 00:00:48.009
 Which ones count all 800,000?
 
 13
-00:00:50.933 --> 00:00:54.737
+00:00:51.000 --> 00:00:54.803
 The plain HashMap kept about a quarter of the deposits.
 
 14
-00:00:54.737 --> 00:00:59.992
+00:00:54.803 --> 00:01:00.059
 It found 1,019 accounts in a bank that has 1,000, and it threw an exception.
 
 15
-00:01:00.133 --> 00:01:00.454
+00:01:00.267 --> 00:01:00.587
 Well.
 
 16
-00:01:00.454 --> 00:01:02.828
+00:01:00.587 --> 00:01:02.962
 Nineteen accounts that nobody opened.
 
 17
-00:01:02.828 --> 00:01:07.833
+00:01:02.962 --> 00:01:07.967
 That map was never built for more than one thread, and it never claimed to be.
 
 18
-00:01:08.000 --> 00:01:10.850
+00:01:08.200 --> 00:01:11.050
 The concurrent map with merge was exact.
 
 19
-00:01:10.850 --> 00:01:15.340
+00:01:11.050 --> 00:01:15.540
 But the concurrent map with get, then put, lost 2,232 deposits.
 
 20
-00:01:15.340 --> 00:01:18.190
+00:01:15.540 --> 00:01:18.390
 So here's the question we're shy to ask.
 
 21
-00:01:18.190 --> 00:01:20.827
+00:01:18.390 --> 00:01:21.027
 How can a thread-safe map lose money?
 
 22
-00:01:21.600 --> 00:01:23.563
+00:01:21.833 --> 00:01:23.797
 To answer it, let's look inside.
 
 23
-00:01:23.563 --> 00:01:30.435
+00:01:23.797 --> 00:01:30.669
 Picture the bank's old card files: a cabinet of drawers, each holding the cards for some of the account numbers.
 
 24
-00:01:30.435 --> 00:01:33.135
+00:01:30.669 --> 00:01:33.368
 A clerk who updates a card opens one drawer.
 
 25
-00:01:33.135 --> 00:01:36.694
+00:01:33.368 --> 00:01:36.927
 Another clerk can work in another drawer at the same time.
 
 26
-00:01:36.694 --> 00:01:39.639
+00:01:36.927 --> 00:01:39.872
 But two clerks can't work in one drawer at once.
 
 27
-00:01:39.800 --> 00:01:40.599
+00:01:40.100 --> 00:01:40.899
 Let's map it.
 
 28
-00:01:40.599 --> 00:01:44.041
+00:01:40.899 --> 00:01:44.341
 The cabinet is the map, and each drawer is called a bin.
 
 29
-00:01:44.041 --> 00:01:47.975
+00:01:44.341 --> 00:01:48.275
 A number computed from the key, its hash code, picks the drawer.
 
 30
-00:01:47.975 --> 00:01:53.629
+00:01:48.275 --> 00:01:53.929
 And a clerk is a thread: while it holds a bin's lock, no other thread can write to that bin.
 
 31
-00:01:53.800 --> 00:01:54.743
+00:01:54.133 --> 00:01:55.076
 Two more rules.
 
 32
-00:01:54.743 --> 00:01:57.887
+00:01:55.076 --> 00:01:58.220
 A write into an empty drawer takes no lock at all.
 
 33
-00:01:57.887 --> 00:02:02.351
+00:01:58.220 --> 00:02:02.684
 It uses compare and set, the clerk with the tally board from last time.
 
 34
-00:02:02.351 --> 00:02:03.671
+00:02:02.684 --> 00:02:04.004
 And reads never lock.
 
 35
-00:02:03.671 --> 00:02:08.072
+00:02:04.004 --> 00:02:08.405
 Anyone may read any card at any moment, even one a clerk is busy with.
 
 36
-00:02:08.072 --> 00:02:10.587
+00:02:08.405 --> 00:02:10.920
 That's where the cabinet picture breaks.
 
 37
-00:02:11.333 --> 00:02:13.082
+00:02:11.733 --> 00:02:13.482
 Now the lost deposits.
 
 38
-00:02:13.082 --> 00:02:15.228
+00:02:13.482 --> 00:02:15.628
 Say account 1042 holds 500.
 
 39
-00:02:15.228 --> 00:02:20.554
+00:02:15.628 --> 00:02:20.954
 Teller A deposits 20, and teller B deposits 30, at the same moment.
 
 40
-00:02:20.554 --> 00:02:24.608
+00:02:20.954 --> 00:02:25.008
 Each one calls get, adds its cents, then calls put.
 
 41
-00:02:24.800 --> 00:02:26.966
+00:02:25.233 --> 00:02:27.399
 A calls get, and reads 500.
 
 42
-00:02:26.966 --> 00:02:31.377
+00:02:27.399 --> 00:02:31.811
 Reads take no lock, so B calls get, and also reads 500.
 
 43
-00:02:31.377 --> 00:02:33.062
+00:02:31.811 --> 00:02:33.495
 A calls put with 520.
 
 44
-00:02:33.062 --> 00:02:36.351
+00:02:33.495 --> 00:02:36.784
 It locks the drawer, writes, and lets go.
 
 45
-00:02:36.351 --> 00:02:37.955
+00:02:36.784 --> 00:02:38.388
 Then B puts its sum.
 
 46
-00:02:37.955 --> 00:02:39.880
+00:02:38.388 --> 00:02:40.313
 What does the card show?
 
 47
-00:02:42.933 --> 00:02:43.230
+00:02:43.300 --> 00:02:43.597
 530.
 
 48
-00:02:43.230 --> 00:02:44.863
+00:02:43.597 --> 00:02:45.230
 A's 20 cents are gone.
 
 49
-00:02:44.863 --> 00:02:47.980
+00:02:45.230 --> 00:02:48.347
 Each call held the drawer only for itself.
 
 50
-00:02:47.980 --> 00:02:54.437
+00:02:48.347 --> 00:02:54.804
 Between A's get and A's put, nobody held anything, and B walked right through that gap.
 
 51
-00:02:54.600 --> 00:02:55.605
+00:02:55.033 --> 00:02:56.038
 Now use merge.
 
 52
-00:02:55.605 --> 00:02:59.982
+00:02:56.038 --> 00:03:00.415
 It reads, adds and writes, all inside one hold of the drawer.
 
 53
-00:02:59.982 --> 00:03:05.436
+00:03:00.415 --> 00:03:05.869
 Its documentation says the entire method invocation is performed atomically.
 
 54
-00:03:05.600 --> 00:03:08.845
+00:03:06.100 --> 00:03:09.345
 A is in the middle of its merge, holding the drawer.
 
 55
-00:03:08.845 --> 00:03:11.279
+00:03:09.345 --> 00:03:11.779
 B's merge arrives for the same account.
 
 56
-00:03:11.279 --> 00:03:12.340
+00:03:11.779 --> 00:03:12.840
 What will B read?
 
 57
-00:03:15.400 --> 00:03:17.472
+00:03:15.833 --> 00:03:17.905
 B waits at the drawer.
 
 58
-00:03:17.472 --> 00:03:19.826
+00:03:17.905 --> 00:03:20.260
 A writes 520 and lets go.
 
 59
-00:03:19.826 --> 00:03:24.629
+00:03:20.260 --> 00:03:25.063
 Then B takes the drawer, reads 520, and writes 550.
 
 60
-00:03:24.629 --> 00:03:26.136
+00:03:25.063 --> 00:03:26.569
 Nothing is lost.
 
 61
-00:03:26.333 --> 00:03:31.363
+00:03:26.800 --> 00:03:31.830
 Meanwhile, teller C updates an account in a different drawer, and never meets A.
 
 62
-00:03:31.363 --> 00:03:34.003
+00:03:31.830 --> 00:03:34.470
 Only writes to the same drawer take turns.
 
 63
-00:03:34.003 --> 00:03:37.084
+00:03:34.470 --> 00:03:37.551
 And teller D reads any card, with no lock at all.
 
 64
-00:03:37.867 --> 00:03:42.400
+00:03:38.367 --> 00:03:42.900
 So the map gives you one call for each whole read, modify and write.
 
 65
-00:03:42.400 --> 00:03:45.534
+00:03:42.900 --> 00:03:46.034
 putIfAbsent inserts only if the key is missing.
 
 66
-00:03:45.534 --> 00:03:49.201
+00:03:46.034 --> 00:03:49.701
 computeIfAbsent works out a value only if it's missing.
 
 67
-00:03:49.201 --> 00:03:52.868
+00:03:49.701 --> 00:03:53.368
 compute and merge replace the value, using the old one.
 
 68
-00:03:52.868 --> 00:03:57.335
+00:03:53.368 --> 00:03:57.835
 And replace with an expected value is compare and set, for one key.
 
 69
-00:03:57.533 --> 00:03:59.639
+00:03:58.067 --> 00:04:00.172
 One call is atomic for its key.
 
 70
-00:03:59.639 --> 00:04:01.269
+00:04:00.172 --> 00:04:01.802
 Two calls are two steps.
 
 71
-00:04:01.269 --> 00:04:04.529
+00:04:01.802 --> 00:04:05.063
 Do the whole read, modify and write in one call.
 
 72
-00:04:05.267 --> 00:04:06.229
+00:04:05.867 --> 00:04:06.829
 One guardrail.
 
 73
-00:04:06.229 --> 00:04:11.313
+00:04:06.829 --> 00:04:11.913
 The function you hand to merge or compute runs while the drawer is locked.
 
 74
-00:04:11.313 --> 00:04:12.481
+00:04:11.913 --> 00:04:13.081
 So keep it short.
 
 75
-00:04:12.481 --> 00:04:20.450
+00:04:13.081 --> 00:04:21.050
 If it called a slow service that takes 120 milliseconds, every write to that drawer would wait 120 milliseconds too.
 
 76
-00:04:20.450 --> 00:04:23.199
+00:04:21.050 --> 00:04:23.799
 And never change the map from inside it.
 
 77
-00:04:23.933 --> 00:04:27.978
+00:04:24.600 --> 00:04:28.645
 Here it is in code, Java on the left and Kotlin on the right.
 
 78
-00:04:27.978 --> 00:04:32.818
+00:04:28.645 --> 00:04:33.485
 A deposit is one merge: insert the cents, or add them to the old balance.
 
 79
-00:04:32.818 --> 00:04:37.393
+00:04:33.485 --> 00:04:38.060
 Opening an account is one putIfAbsent, and only one caller gets true.
 
 80
-00:04:38.133 --> 00:04:40.549
+00:04:38.867 --> 00:04:41.282
 So how can a thread-safe map lose money?
 
 81
-00:04:40.549 --> 00:04:43.931
+00:04:41.282 --> 00:04:44.664
 Each call is safe, but the gap between two calls is not.
 
 82
-00:04:43.931 --> 00:04:48.702
+00:04:44.664 --> 00:04:49.435
 The map locks one drawer per write, so tellers in different drawers never meet.
 
 83
-00:04:48.702 --> 00:04:52.688
+00:04:49.435 --> 00:04:53.421
 Give each change to an account one call, and keep that call short.
 
 84
-00:04:52.867 --> 00:04:53.648
+00:04:53.633 --> 00:04:54.414
 Quick check.
 
 85
-00:04:53.648 --> 00:04:56.642
+00:04:54.414 --> 00:04:57.409
 Two tellers open the same new account at once.
 
 86
-00:04:56.642 --> 00:05:00.678
+00:04:57.409 --> 00:05:01.445
 Each one checks that it's missing, then puts a page with zero.
 
 87
-00:05:00.678 --> 00:05:02.045
+00:05:01.445 --> 00:05:02.812
 Can both of them put?

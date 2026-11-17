@@ -17,7 +17,7 @@ public class PoorMansProfiler {
     public static void main(String[] args) throws Exception {
         long until = System.nanoTime() + 4_000_000_000L;
         Thread work = new Thread(() -> {
-            try { SlowFees.hammer(2, until); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            try { SlowReport.hammer(2, until); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         });
         work.start();
 
@@ -25,7 +25,7 @@ public class PoorMansProfiler {
         while (work.isAlive()) {
             Thread.sleep(10);
             for (Thread t : Thread.getAllStackTraces().keySet()) {
-                if (!t.getName().startsWith("fees-")) continue;
+                if (!t.getName().startsWith("report-")) continue;
                 StackTraceElement[] st = t.getStackTrace();         // the JVM must pause t to walk its stack
                 if (st.length == 0) continue;
                 List<String> frames = new ArrayList<>();

@@ -269,137 +269,137 @@ A barrier of 3 would wait for it forever.
 A phaser lets a party leave, like a guide crossing a name off the list: 3 parties, then 2.
 
 68
-00:04:01.833 --> 00:04:03.246
-Last, card payments.
+00:04:01.833 --> 00:04:03.291
+Last, paying by card.
 
 69
-00:04:03.246 --> 00:04:10.805
-The bank checks each one over the network, about 120 milliseconds a call, and it allows five calls at once.
+00:04:03.291 --> 00:04:11.688
+At the till, the bank checks each card over the network, about 120 milliseconds a call, and it allows five calls at once.
 
 70
-00:04:10.805 --> 00:04:16.104
+00:04:11.688 --> 00:04:16.893
 On a busy Saturday, twenty customers pay together, and fifteen are refused.
 
 71
-00:04:16.233 --> 00:04:21.042
+00:04:17.000 --> 00:04:21.809
 Think of a car park with five spaces, and a sign that shows how many are free.
 
 72
-00:04:21.042 --> 00:04:25.296
+00:04:21.809 --> 00:04:26.062
 A car that comes in takes a space, and one that leaves gives it back.
 
 73
-00:04:25.296 --> 00:04:28.008
+00:04:26.062 --> 00:04:28.775
 At zero, the next car waits at the entrance.
 
 74
-00:04:28.133 --> 00:04:29.502
+00:04:28.900 --> 00:04:30.268
 That's a Semaphore.
 
 75
-00:04:29.502 --> 00:04:31.734
+00:04:30.268 --> 00:04:32.501
 The spaces are permits, here 5.
 
 76
-00:04:31.734 --> 00:04:33.750
+00:04:32.501 --> 00:04:34.517
 acquire takes one, or waits.
 
 77
-00:04:33.750 --> 00:04:35.406
+00:04:34.517 --> 00:04:36.173
 release gives one back.
 
 78
-00:04:35.406 --> 00:04:37.639
+00:04:36.173 --> 00:04:38.405
 Each call to the bank is a car.
 
 79
-00:04:37.767 --> 00:04:41.743
+00:04:38.533 --> 00:04:42.509
 Twenty calls through five permits, 120 milliseconds each.
 
 80
-00:04:41.743 --> 00:04:44.393
+00:04:42.509 --> 00:04:45.160
 How many at once, and how long in all?
 
 81
-00:04:46.967 --> 00:04:51.432
+00:04:47.733 --> 00:04:52.199
 At most five, and 502 milliseconds: four waves of five.
 
 82
-00:04:51.533 --> 00:04:55.215
+00:04:52.300 --> 00:04:55.982
 Now a car that was never inside tells the sign it's leaving.
 
 83
-00:04:55.215 --> 00:04:56.688
+00:04:55.982 --> 00:04:57.455
 What does the sign show?
 
 84
-00:04:59.267 --> 00:05:02.341
+00:05:00.033 --> 00:05:03.108
 Six free spaces, in a car park built for five.
 
 85
-00:05:02.341 --> 00:05:04.413
+00:05:03.108 --> 00:05:05.180
 Good luck parking in the sixth.
 
 86
-00:05:04.413 --> 00:05:08.289
+00:05:05.180 --> 00:05:09.056
 Permits have no owner: release adds one, whoever calls it.
 
 87
-00:05:08.400 --> 00:05:14.150
-So a stray release, say from a payment cancelled while it waited, quietly raises the limit.
+00:05:09.167 --> 00:05:15.108
+So a stray release, say from a card check cancelled while it waited, quietly raises the limit.
 
 88
-00:05:14.150 --> 00:05:16.298
+00:05:15.108 --> 00:05:17.256
 Five drifts to eight, then twelve.
 
 89
-00:05:16.298 --> 00:05:18.447
+00:05:17.256 --> 00:05:19.405
 Release only the permits you took.
 
 90
-00:05:19.167 --> 00:05:23.212
+00:05:20.133 --> 00:05:24.179
 The latch in code, Java on the left and Kotlin on the right.
 
 91
-00:05:23.212 --> 00:05:24.695
+00:05:24.179 --> 00:05:25.662
 Count down in finally.
 
 92
-00:05:24.695 --> 00:05:27.123
+00:05:25.662 --> 00:05:28.089
 Wait two seconds at most, then open.
 
 93
-00:05:27.833 --> 00:05:28.987
+00:05:28.800 --> 00:05:29.954
 So, why four tools?
 
 94
-00:05:28.987 --> 00:05:31.599
+00:05:29.954 --> 00:05:32.566
 Because each waits for something different.
 
 95
-00:05:31.599 --> 00:05:33.482
+00:05:32.566 --> 00:05:34.449
 A latch waits for events, once.
 
 96
-00:05:33.482 --> 00:05:38.706
+00:05:34.449 --> 00:05:39.672
 A barrier waits for the whole group, every round, and a phaser lets that group change.
 
 97
-00:05:38.706 --> 00:05:40.831
+00:05:39.672 --> 00:05:41.798
 A semaphore waits for a free place.
 
 98
-00:05:40.831 --> 00:05:44.172
+00:05:41.798 --> 00:05:45.139
 Ask what you're waiting for, and the tool picks itself.
 
 99
-00:05:44.300 --> 00:05:45.108
+00:05:45.267 --> 00:05:46.075
 Quick check.
 
 100
-00:05:45.108 --> 00:05:51.708
+00:05:46.075 --> 00:05:52.675
 Three helpers move stock every day for a week, and nobody starts a new day until all three finish.
 
 101
-00:05:51.708 --> 00:05:52.853
+00:05:52.675 --> 00:05:53.820
 Latch or barrier?

@@ -1,117 +1,329 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:08.207
-This Kotlin suspend function waits twice: for the card vault, then for the issuer.
+00:00:02.733 --> 00:00:12.617
+Earlier in this lesson, one cook kept five pots going on one thread: five waits of 200 milliseconds, 358 milliseconds in all.
 
 2
-00:00:08.207 --> 00:00:11.161
-Java has no suspend, so this is Kotlin only.
+00:00:12.800 --> 00:00:15.676
+So here's a question that's easy to be shy about.
 
 3
-00:00:11.367 --> 00:00:13.401
-While it waits, it holds no thread.
+00:00:15.676 --> 00:00:18.082
+A function's locals live with its thread.
 
 4
-00:00:13.401 --> 00:00:16.713
-How can a function stop in the middle and carry on later?
+00:00:18.082 --> 00:00:22.015
+If the function pauses, and the thread walks off, where do they go?
 
 5
-00:00:16.967 --> 00:00:20.330
-The JVM has no special support for coroutines.
+00:00:25.667 --> 00:00:32.016
+A running function has a frame on its thread's stack: its local variables, and the line it's up to.
 
 6
-00:00:20.330 --> 00:00:23.401
-The Kotlin compiler rewrites the function.
+00:00:32.016 --> 00:00:33.491
+That's the cook's head.
 
 7
-00:00:24.233 --> 00:00:30.341
-It adds a hidden last parameter, a Continuation, and changes the return type to Object.
+00:00:33.491 --> 00:00:35.415
+Onions are in, simmer is next.
 
 8
-00:00:30.567 --> 00:00:37.720
-It returns the real result, or a marker, COROUTINE_SUSPENDED, which means: I paused, I will call you back.
+00:00:35.600 --> 00:00:39.383
+Now she walks over to the salad, and her head fills up with lettuce.
 
 9
-00:00:38.533 --> 00:00:41.637
-Then it cuts the body at each suspension point.
+00:00:39.383 --> 00:00:42.888
+Ask her how much salt went into the soup, and she'll say: some.
 
 10
-00:00:41.637 --> 00:00:45.864
-Two suspending calls give three states: label zero, one and two.
+00:00:43.067 --> 00:00:47.116
+A thread is the same: the next code it runs reuses that memory.
 
 11
-00:00:46.767 --> 00:00:53.344
-The state lives in one small object on the heap: the label, and every local that must survive a pause.
+00:00:47.116 --> 00:00:51.165
+So a pausing function must write its place down somewhere else.
 
 12
-00:00:53.567 --> 00:00:55.581
-Run it on a pool of threads.
+00:00:52.133 --> 00:00:54.025
+One fix is to never walk off.
 
 13
-00:00:55.581 --> 00:00:57.740
-worker-1 starts at label zero.
+00:00:54.025 --> 00:00:59.699
+That's Thread.sleep, the cook standing at the pot, which is what we came here to avoid.
 
 14
-00:00:57.967 --> 00:01:02.667
-It saves pan in the object, sets the label to one, and calls tokenize.
+00:00:59.867 --> 00:01:06.874
+Another fix: copy the whole stack, like the order slip that Java's virtual threads clip to the board.
 
 15
-00:01:02.900 --> 00:01:10.907
-tokenize must wait for the vault, so it returns COROUTINE_SUSPENDED, and chargeCard passes the marker straight up the stack.
+00:01:06.874 --> 00:01:12.423
+That needs the JVM's help, and Kotlin coroutines run on any JVM, and on Android.
 
 16
-00:01:11.133 --> 00:01:16.062
-worker-1 is now free, and goes back to the pool to run other coroutines.
+00:01:12.423 --> 00:01:15.545
+So the compiler writes the place down itself.
 
 17
-00:01:16.062 --> 00:01:19.211
-This payment holds no thread, only the object.
+00:01:16.333 --> 00:01:17.873
+The way a good cook does.
 
 18
-00:01:19.433 --> 00:01:20.662
-The vault answers.
+00:01:17.873 --> 00:01:25.384
+She puts a bookmark at the next step, sticks a note on the page, onions: measured, sets the kitchen timer, and walks away.
 
 19
-00:01:20.662 --> 00:01:26.807
-The dispatcher resumes the coroutine on whatever pool thread is free: this time, worker-3.
+00:01:25.384 --> 00:01:30.433
+When it rings, she opens the book at the bookmark, reads the note, and carries on.
 
 20
-00:01:27.033 --> 00:01:33.653
-resumeWith calls chargeCard again with the same object, and a switch on the label jumps to label one.
+00:01:30.600 --> 00:01:31.431
+Let's map it.
 
 21
-00:01:33.867 --> 00:01:39.044
-It keeps the token in the object, sets the label to two, and calls authorize.
+00:01:31.431 --> 00:01:33.605
+The recipe is the function's code.
 
 22
-00:01:39.044 --> 00:01:41.667
-That suspends too, and worker-3 leaves.
+00:01:33.605 --> 00:01:35.971
+The bookmark says which step is next.
 
 23
-00:01:41.900 --> 00:01:47.411
-When the issuer answers, worker-2 resumes it at label two, and it returns the result.
+00:01:35.971 --> 00:01:37.634
+The note holds the locals.
 
 24
-00:01:48.933 --> 00:01:54.324
-If a call does not need to wait, say on a cache hit, it returns the value directly.
+00:01:37.634 --> 00:01:41.087
+And the cook is the thread, free while the book waits.
 
 25
-00:01:54.324 --> 00:01:57.181
-Nothing is scheduled, and no thread changes.
+00:01:42.000 --> 00:01:44.021
+Let's shrink it to one function.
 
 26
-00:01:57.400 --> 00:02:00.945
-A paused coroutine costs one object, not a thread stack.
+00:01:44.021 --> 00:01:46.990
+makeSauce waits for fryOnions, then for simmer.
 
 27
-00:02:00.945 --> 00:02:03.920
-That is why you can have hundreds of thousands.
+00:01:46.990 --> 00:01:51.791
+Each call that may pause is called a suspension point, and this one has two.
 
 28
-00:02:04.733 --> 00:02:07.844
-And plain code cannot call a suspend function.
+00:01:51.933 --> 00:01:55.410
+First, the compiler quietly changes the function.
 
 29
-00:02:07.844 --> 00:02:10.144
-It has no continuation to pass in.
+00:01:55.410 --> 00:02:05.344
+javap, a JDK tool that prints what's inside a compiled class, shows makeSauce with one more parameter, a Continuation, and returning Object.
+
+30
+00:02:05.533 --> 00:02:15.204
+Object, because it now returns one of two things: the real sauce, or a marker, COROUTINE_SUSPENDED, which means: I've paused, I'll call you back.
+
+31
+00:02:15.400 --> 00:02:18.609
+A three line function grew a parameter nobody wrote.
+
+32
+00:02:18.609 --> 00:02:21.386
+If a teammate did that, you'd have questions.
+
+33
+00:02:21.386 --> 00:02:25.767
+Here, it's the trick: the hidden parameter is how the bookmark travels.
+
+34
+00:02:26.733 --> 00:02:30.599
+Next, the compiler cuts the body at each suspension point.
+
+35
+00:02:30.599 --> 00:02:31.799
+makeSauce has two.
+
+36
+00:02:31.799 --> 00:02:33.665
+How many steps will it make?
+
+37
+00:02:36.667 --> 00:02:40.358
+Three: up to fryOnions, up to simmer, and after simmer.
+
+38
+00:02:40.358 --> 00:02:42.506
+A label numbers them 0, 1 and 2.
+
+39
+00:02:42.506 --> 00:02:47.673
+Code with a counter like that, saying which step is next, is a state machine.
+
+40
+00:02:47.867 --> 00:02:58.519
+The bookmark is one small object the compiler writes for this function: an int called label, for the page, and two fields, L$0 and L$1, for the sticky note.
+
+41
+00:02:58.667 --> 00:03:00.301
+Let's follow one call.
+
+42
+00:03:00.301 --> 00:03:10.179
+The label is 0, so step 0 writes the onions on the note, in L$0, sets the label to 1, and calls fryOnions, handing over the bookmark.
+
+43
+00:03:10.333 --> 00:03:16.883
+fryOnions has to wait, so it returns COROUTINE_SUSPENDED, and makeSauce passes the marker straight up.
+
+44
+00:03:16.883 --> 00:03:20.672
+The cook's hands are empty, and she goes off to other work.
+
+45
+00:03:20.867 --> 00:03:23.591
+Notice what's left: no thread, no frame.
+
+46
+00:03:23.591 --> 00:03:26.384
+Just the bookmark, an object on the heap.
+
+47
+00:03:26.533 --> 00:03:32.326
+When the onions are golden, something calls resumeWith on the bookmark, with the golden onions.
+
+48
+00:03:32.326 --> 00:03:36.595
+That calls makeSauce again, and a switch on the label jumps to step 1.
+
+49
+00:03:36.733 --> 00:03:42.809
+Step 1 writes the golden onions on the note, in L$1, sets the label to 2, and calls simmer.
+
+50
+00:03:42.809 --> 00:03:45.813
+simmer waits too, so the thread leaves again.
+
+51
+00:03:46.000 --> 00:03:54.452
+When simmer answers, resumeWith runs once more, and step 2 returns the sauce to whoever was waiting: sauce from golden onions.
+
+52
+00:03:54.452 --> 00:03:56.061
+Nobody stood at the pan.
+
+53
+00:03:56.200 --> 00:03:57.707
+makeSauce paused twice.
+
+54
+00:03:57.707 --> 00:04:00.395
+So how many bookmark objects did it make?
+
+55
+00:04:03.400 --> 00:04:07.120
+One, made when the call starts, and reused at every pause.
+
+56
+00:04:07.120 --> 00:04:09.365
+Only the label and the note change.
+
+57
+00:04:10.267 --> 00:04:11.200
+Now the names.
+
+58
+00:04:11.200 --> 00:04:16.265
+The bookmark is a continuation: it knows how to carry on a paused coroutine.
+
+59
+00:04:16.265 --> 00:04:22.596
+It has a context, the coroutine's settings, and resumeWith: the wait is over, here's the value.
+
+60
+00:04:22.733 --> 00:04:28.656
+Passing what to do next as a hidden parameter is called continuation-passing style.
+
+61
+00:04:28.656 --> 00:04:32.795
+And javap agrees: one switch over the label, cases 0 to 2.
+
+62
+00:04:33.533 --> 00:04:38.975
+Compare the slip on the board, where the JVM copied every frame of a virtual thread.
+
+63
+00:04:38.975 --> 00:04:45.323
+A coroutine keeps one small bookmark per suspend function still running, with only its own fields.
+
+64
+00:04:45.467 --> 00:04:50.169
+That's why a paused coroutine is cheap: you can have hundreds of thousands.
+
+65
+00:04:50.169 --> 00:04:55.059
+And plain code can't call a suspend function: it has no bookmark to hand over.
+
+66
+00:04:55.800 --> 00:04:57.357
+Here the picture breaks.
+
+67
+00:04:57.357 --> 00:05:00.859
+A real cook hears the timer and walks back by herself.
+
+68
+00:05:00.859 --> 00:05:08.577
+A paused coroutine does nothing until something calls resumeWith: the library's timer, or the code that got the answer.
+
+69
+00:05:08.733 --> 00:05:12.147
+Forget to call it, and it waits forever, very politely.
+
+70
+00:05:12.147 --> 00:05:17.237
+So somebody has to ring the timer, and the last section shows who, for a callback.
+
+71
+00:05:18.000 --> 00:05:20.723
+Here's the Kotlin, with Java beside it.
+
+72
+00:05:20.723 --> 00:05:23.795
+In Kotlin, the compiler writes the bookmark.
+
+73
+00:05:23.795 --> 00:05:28.473
+In Java, a virtual thread blocks, and the JVM saves the whole slip.
+
+74
+00:05:29.267 --> 00:05:32.515
+So, where do the locals go when the thread walks off?
+
+75
+00:05:32.515 --> 00:05:35.763
+Onto a sticky note, in a bookmark the compiler wrote.
+
+76
+00:05:35.763 --> 00:05:41.831
+A suspended coroutine is a bookmark, not a thread, and something has to call resumeWith to wake it.
+
+77
+00:05:42.000 --> 00:05:42.862
+Quick check.
+
+78
+00:05:42.862 --> 00:05:45.090
+fryOnions waits once, on delay.
+
+79
+00:05:45.090 --> 00:05:48.036
+How many steps does the compiler give it?
+
+80
+00:05:51.067 --> 00:05:51.445
+Two.
+
+81
+00:05:51.445 --> 00:05:56.272
+Label 0 runs up to the delay, and label 1 after it.
+
+82
+00:05:56.272 --> 00:05:58.639
+javap shows cases 0 to 1.

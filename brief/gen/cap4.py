@@ -1,15 +1,36 @@
 import json, pathlib
 ROOT = pathlib.Path("/home/user/jvm-workbench")
 
-INTRO = """Across three sittings you build one program: a small dependency injection container for a payment app. Lesson 1 wires classes by reflection: it finds the components from a list or a class path scan, picks each constructor, orders the graph with a readable cycle error, and gives every singleton exactly one instance when eight threads ask at once. Lesson 2 adds `@Timed` and `@Retry`, through a JDK proxy for components with interfaces and a Byte Buddy subclass for the rest, and refuses at start-up what Kotlin's final classes would otherwise break in silence. Lesson 3 measures the result per call with JMH and at start-up with `-Xlog:class+load`, looks inside the running container with a class histogram and a heap dump, then generates the same wiring as plain Java at build time and archives what is left with AppCDS and the AOT cache. At the end you can defend, with numbers you measured, why Spring wires at run time and why Quarkus and Micronaut moved the work to the build.
+INTRO = """Across three sittings you build one small program: a dependency injection container, a small program that builds your objects and hands each one the other objects it needs, so classes don't build their own helpers. It wires the box office of the theatre company from the Class loading track: a seating plan, a price list, a sales book and a link to the city's booking service. Lesson 1 wires the parts by reflection, the way a front-of-house manager reads each desk's card before the doors open. It finds the components from a list or a class path scan, picks each constructor, puts the parts in order with a readable error for a loop, and builds each shared part once, even when eight threads ask at the same moment. Lesson 2 adds `@Timed` and `@Retry` through stand-ins, a JDK proxy for parts with an interface and a Byte Buddy subclass for the rest, and refuses at start-up what Kotlin's final classes would otherwise break in silence. Lesson 3 measures the result per call with JMH and at start-up with `-Xlog:class+load`, looks inside the running container with a class histogram and a heap dump, then generates the same wiring as plain Java at build time and archives what is left. At the end you can defend, with numbers you measured, why some frameworks wire at run time and others moved the work to the build.
 
-The capstone draws on every track of this part: class loading, reflection and proxies from *Class loading, bytecode and dynamic proxies*; escape analysis, histograms and heap dumps from *Memory and garbage collection*; JMH and the JIT tiers from *JIT, profiling and benchmarking*; class counts, CDS and the AOT cache from *Startup and footprint*. The holder idiom and double-checked locking come from the memory model track. Each lesson names the earlier lesson it leans on, so you can go back for a mechanism when you need it.
+The capstone draws on every track of this part and calls back its pictures: the theatre of *Class loading, bytecode and dynamic proxies* (the props team, the dress rehearsal, the stand-in at the stage door, the costume department, the printing press); the warehouse of *Memory and garbage collection* (the box that never leaves the desk, the cleaning crew's notes); the kitchen of *JIT, profiling and benchmarking* (the cook's first day, the fair taste test); and the corner shop of *Startup and footprint* (unpacking every box each morning, yesterday's shelves in the back room). The holder idiom and double-checked locking come from the memory model track. Each lesson names the earlier lesson it leans on, so you can go back for a mechanism when you need it.
 
-The labs live in `labs/container`, one package per lesson (`workbench.container.l01` to `l03`). Lessons 1 and 3 are Java; lesson 2 is Kotlin, on top of lesson 1's Java container. Each lesson's starter code contains the previous lesson's solution, so you can start any sitting fresh. The tests check behaviour, never time: creation order, cycle messages, one instance under concurrent first access, retry counts, proxy identity, and a generated registry that wires the same graph as the reflective container. Run `./gradlew :container:test --tests 'workbench.container.lNN.*'` from `labs/`, and `./gradlew :container:solutionTest` for the reference answers. The demos run the reference container from `src/solution`, so they work before you finish a lab. Lesson 3's demos start child JVMs and take about ten seconds; its AOT cache commands need JDK 25.0.4 or later and say so."""
+The labs live in `labs/container`, one package per lesson (`workbench.container.l01` to `l03`). Lessons 1 and 3 are Java; lesson 2 is Kotlin, on top of lesson 1's Java container. Each lesson's starter code contains the previous lesson's solution, so you can start any sitting fresh. The tests check behaviour, never time: creation order, the messages for loops, one instance under concurrent first access, retry counts, proxy identity, and a generated registry that wires the same graph as the reflective container. Run `./gradlew :container:test --tests 'workbench.container.lNN.*'` from `labs/`, and `./gradlew :container:solutionTest` for the reference answers. The demos run the reference container from `src/solution`, so they work before you finish a lab. Lesson 3's demos start child JVMs and take ten to twenty seconds; its AOT cache commands need JDK 25.0.4 or later and say so."""
 
 CHEAT = """## The program in one picture
 
 `ClassScanner` (or a list) finds the components, `Constructors` picks one constructor each, `BeanGraph` orders them depth first, `Container` builds them lazily in `SingletonCell`s, `Interception` wraps the ones with `@Timed` or `@Retry`, and `RegistryGenerator` writes all of it as Java at build time.
+
+## The pictures, part by part
+
+| Idea | Picture it | Lesson |
+|---|---|---|
+| container, components, constructors | the front-of-house manager reading each desk's card before the doors open | 1 |
+| class path scan with `forName(name, false, loader)` | asking the props team to fetch every prop in one box, without holding its dress rehearsal | 1 |
+| creation order; a loop | each desk set out after everything on its card; three cards that point in a circle (rota, cast list, rehearsal plan), refused before the doors open | 1 |
+| singleton; prototype | the one seating plan everyone shares; a fresh basket for each customer | 1 |
+| double-checked locking cell | the stockroom: look, and only if the door is shut, take the key and look again | 1 |
+| interceptor, `proceed()`, chain | helpers in a row at the stage door, each noting the time or trying again, then passing the request on | 2 |
+| JDK proxy and its target | the stand-in at the stage door, with the actor behind it | 2 |
+| Byte Buddy subclass; Kotlin's `final` | a full copy of the costume, sewn on the spot; a role nobody may copy | 2 |
+| a retry on the wrong call | one customer, two seats held | 2 |
+| JMH, B/op, escape analysis | the fair taste test in a warmed-up kitchen; the box that never leaves the desk | 3 |
+| start-up cost | the corner shop unpacking every box each morning; the cook's first day | 3 |
+| build-time registry, holder classes | the running order written the afternoon before; one dress rehearsal per holder | 3 |
+| class histogram, heap dump, GC roots | counting the warehouse's boxes by label; the cleaning crew's notes back to the desks | 3 |
+| AppCDS, AOT cache, native image | yesterday's shelves in the back room, with notes; a pop-up stall that sells only what the factory packed | 3 |
+
+Where the pictures break: a manager can improvise, but a container must refuse a card it can't read. A stand-in would notice a customer coming back twice for the same seat; an interceptor repeats whatever you annotate.
 
 ## Finding and building components
 
@@ -20,15 +41,15 @@ CHEAT = """## The program in one picture
 | Seeing `@Component` | `@Retention(RUNTIME)` | The default `CLASS` retention is invisible to reflection |
 | JARs | Need directory entries | A files-only JAR scans as empty, with no error |
 | Constructor | The `@Inject` one, or the only public one; never "the first" | Reflection gives no order to rely on |
-| Kotlin | Skip `isSynthetic()` constructors; don't default injected parameters | All-default parameters add a no-arg constructor that also gets `@Inject` |
+| Kotlin | Skip `isSynthetic()` constructors; don't give injected parameters defaults | All-default parameters add a no-arg constructor that also gets `@Inject` |
 | Parameters | By type, interface to its one implementation | Class files keep no parameter names without `-parameters` |
 
-## Order, cycles, scopes
+## Order, loops, scopes
 
 - Creation order: depth-first post-order; each component after everything it needs; shared ones once.
-- Cycle: keep the path you are inside; meeting a class on it again is the cycle. Report from the repeated class: `Dependency cycle: Payouts -> Statements -> Payouts`.
+- Loop: keep the path you are inside; meeting a class on it again is the loop. Report from the repeated class: `Dependency cycle: Rota -> CastList -> Rota`.
 - Check the whole graph in the container's constructor; create objects lazily.
-- Singleton: one per container. Not check-then-act on a map (duplicates), not recursive `computeIfAbsent` (`Recursive update`). A cell with double-checked locking on a `volatile` field; nested cell locks can't deadlock on an acyclic graph; a failed factory retries.
+- Singleton: one per container. Not check-then-act on a map (duplicates), not recursive `computeIfAbsent` (`Recursive update`). A cell with double-checked locking on a `volatile` field; nested cell locks can't deadlock on a graph without loops; a failed factory retries.
 - Prototype: new on every get; a singleton that depends on it keeps the one it got.
 
 ## Interception
@@ -39,14 +60,14 @@ CHEAT = """## The program in one picture
 | No interface | Byte Buddy subclass, built with the real constructor arguments | Intercepted | `final` classes, `final` or `private` methods (Kotlin's default) |
 
 - Handler, in order: `Object` methods by identity; defaults through `invokeDefault`; the chain ending in `method.invoke(target, args)`; unwrap `InvocationTargetException`.
-- Chain: `@Timed` outside `@Retry`, so the time includes every attempt. Retry only listed failures, rethrow the original, and only calls that carry an idempotency key. Nested retries multiply.
+- Chain: `@Timed` outside `@Retry`, so the time includes every attempt. Retry only listed failures, rethrow the original, and only calls that carry a booking reference (an idempotency key). Nested retries multiply.
 - Kotlin: `open` class and methods, all-open (or kotlin-spring), or an interface. Refuse the rest at start-up.
 
 ## Measure
 
-| Question | Tool | This app's numbers (JDK 21) |
+| Question | Tool | This app's numbers (JDK 21, busy machine) |
 |---|---|---|
-| Cost per call | JMH with `-prof gc`, read B/op | direct 0, generated 0, Byte Buddy 160, JDK proxy 208 |
+| Cost per call | JMH with `-prof gc`, read B/op | direct 0, generated 0, Byte Buddy 64 to 160, JDK proxy 208 |
 | Classes at start | `-Xlog:class+load`, count by `source:` | reflective 2,207, generated 991 |
 | Made at run time | `__dynamic_proxy__`, `__JVM_DefineClass__`, hidden classes | 30 proxies, 3 Byte Buddy classes, 123 hidden |
 | What is alive | `jcmd <pid> GC.class_histogram` | 13 `SingletonCell`, 1 `ByteArrayClassLoader`, 119 proxy objects |
@@ -54,10 +75,10 @@ CHEAT = """## The program in one picture
 
 ## Build time
 
-- Run the same graph code in the build; a cycle fails the build.
-- Holder class per singleton (lazy, thread-safe under the class init lock), factory per prototype, identity checks in `get`, interceptors written as source with chains from annotation values.
-- Costs: a generator in the build, a component set fixed per artifact, holders that fail with `NoClassDefFoundError` until restart if a constructor throws, checked-exception constructors need wrapping.
-- AppCDS and the AOT cache archive classes from JARs, not proxies (`Unsupported location`) or classes a custom loader defines. Generated wiring leaves almost nothing to make at start, and suits native image.
+- Run the same graph code in the build; a loop fails the build.
+- Holder class per singleton (lazy, thread-safe under the class initialization lock), factory per prototype, identity checks in `get`, interceptors written as source with chains from annotation values.
+- Costs: a generator in the build, a component set fixed per build, holders that fail with `NoClassDefFoundError` until restart if a constructor throws, and constructors with checked exceptions need wrapping.
+- AppCDS and the AOT cache archive classes from JARs, not proxies (`Unsupported location`) or classes a custom loader defines. Generated wiring leaves almost nothing to make at start-up, and suits native image.
 
 ## Review questions for any container
 
@@ -68,15 +89,15 @@ CHEAT = """## The program in one picture
 5. What fails at build time, what at start-up, and what on first use?"""
 
 RECAP = [
- "A container automates the wiring block of `main`: find the components, build each one from its constructor, and decide how many instances exist.",
+ "A container automates the wiring block of `main`, like a front-of-house manager reading each desk's card: find the components, build each one from its constructor, and decide how many instances exist.",
  "Scan with `getResources` and `Class.forName(name, false, loader)`; `@Component` needs `RUNTIME` retention, and every scanned class is loaded on every start.",
- "Pick the `@Inject` or only public constructor, skip Kotlin's synthetic ones, resolve by type, and order the graph depth-first post-order with a path that names any cycle.",
+ "Pick the `@Inject` or only public constructor, skip Kotlin's synthetic ones, match by type, and order the graph depth-first post-order with a path that names any loop.",
  "A singleton cell with double-checked locking on a `volatile` field builds one instance under concurrent first access; check-then-act and recursive `computeIfAbsent` don't.",
- "Interfaces get a JDK proxy (identity `equals`, `invokeDefault`, unwrap exceptions, annotations on the interface); classes get a Byte Buddy subclass that intercepts self-calls but not final members.",
+ "Interfaces get a JDK proxy (identity `equals`, `invokeDefault`, unwrapped exceptions, annotations on the interface); classes get a Byte Buddy subclass that intercepts self-calls but not final members.",
  "Kotlin is final by default: open the class and methods, use all-open, or add an interface, and let the container refuse what it can't intercept instead of skipping it.",
- "Per call, proxies cost a few hundred bytes at most (B/op is the stable number); at start-up the reflective container loaded 2,207 classes against 991 for generated wiring.",
- "Generated wiring does the graph work in the build and wires with holders and `new`; it gives up run-time flexibility and a failed holder stays failed until restart.",
- "A class histogram says what is alive, a heap dump says who holds it; the container held its beans and Byte Buddy's loader, while JDK proxy classes and annotation instances stay for the life of the app loader.",
+ "Per call, proxies cost a few hundred bytes at most, and B/op is far steadier than time; at start-up the reflective container loaded 2,207 classes against 991 for generated wiring.",
+ "Generated wiring does the graph work in the build and wires with holders and `new`; it gives up run-time flexibility, and a failed holder stays failed until restart.",
+ "A class histogram says what is alive, a heap dump says who holds it; the container held its parts and Byte Buddy's loader, while the JDK proxy class and annotation instances stay for the life of the application class loader.",
  "Archives and caches help most when little is made at run time: AppCDS skips proxies and custom-loader classes, so build-time wiring and an AOT cache work best together."
 ]
 
@@ -85,70 +106,70 @@ QUIZ = [
   "q": "A teammate's scanner finds no components in production, though the same code finds twelve in the IDE. Production runs from a JAR built by a custom packaging step. What do you check first?",
   "options": ["Whether `@Component` has `@Retention(RUNTIME)`", "Whether the JAR has directory entries for the package", "Whether the classes are compiled with `-parameters`", "Whether the JIT has compiled the scanner"],
   "answer": 1,
-  "why": "`getResources(\"com/acme/pay\")` finds a package in a JAR only through the directory's own entry. The IDE runs from a build directory, where every package is a real directory. A retention problem would fail in the IDE too.",
+  "why": "`getResources(\"com/acme/theatre\")` finds a package in a JAR only through the directory's own entry. The IDE runs from a build directory, where every package is a real directory. A retention problem, the tempting first option, would fail in the IDE too.",
   "from": "cap4-01"
  },
  {
-  "q": "Kotlin: `class FeeRules @Inject constructor(val bps: Int = 290, val currency: String = \"EUR\")`. What does the lab's `Constructors.pick` do?",
+  "q": "Kotlin: `class PriceRules @Inject constructor(val feePercent: Int = 3, val currency: String = \"EUR\")`. What does the lab's `Constructors.pick` do?",
   "options": ["Picks the primary constructor", "Picks the no-argument constructor", "Refuses: there are two `@Inject` constructors", "Picks the synthetic `DefaultConstructorMarker` constructor"],
   "answer": 2,
   "why": "When every parameter has a default, kotlinc adds a public no-argument constructor, and it copied `@Inject` onto it. The synthetic one is filtered out, but two real marked constructors remain. Don't give injected parameters defaults.",
   "from": "cap4-01"
  },
  {
-  "q": "Eight request threads call `get(FxRates.class)` on a fresh container at the same moment. Which implementation builds exactly one `FxRates`?",
+  "q": "Eight threads call `get(SeatingPlan.class)` on a fresh container at the same moment. Which implementation builds exactly one `SeatingPlan`?",
   "options": ["`if (map.get(t) == null) map.put(t, create(t))` on a `ConcurrentHashMap`", "A recursive `map.computeIfAbsent(t, this::create)`", "A per-component cell: volatile read, then lock, read again, create", "`synchronized` only around `map.put`"],
   "answer": 2,
-  "why": "Check-then-act lets every thread that saw `null` create one, and a lock around `put` alone keeps that gap. A recursive `computeIfAbsent` may throw `Recursive update` when keys share a bin. The cell re-checks under its lock, so only the first thread runs the factory.",
+  "why": "Check-then-act lets every thread that saw `null` create one, and a lock around `put` alone keeps that gap open. A recursive `computeIfAbsent` may throw `Recursive update` when keys share a bin. The cell checks again under its lock, so only the first thread runs the factory.",
   "from": "jmm-05"
  },
  {
-  "q": "`CardIssuerClient` is implemented by a final Kotlin class `HttpIssuerClient`, with `@Retry` on the interface method `authorize`. What does the lab's container do?",
+  "q": "`BookingClient` is implemented by a final Kotlin class `RemoteBookingClient`, with `@Retry` on the interface method `reserve`. What does the lab's container do?",
   "options": ["Refuses: the class is final", "Wraps it in a JDK proxy; finality doesn't matter, and retries work", "Builds a Byte Buddy subclass", "Creates it without interception"],
   "answer": 1,
-  "why": "A component with an interface gets a JDK proxy, which only needs the interface. Finality only matters for subclass proxies. The bean is then a `$ProxyN`, so callers must ask for `CardIssuerClient`, not `HttpIssuerClient`.",
+  "why": "A component with an interface gets a JDK proxy, which only needs the interface. Finality matters only for subclass proxies, which is why the first option tempts. The part is then a `$ProxyN`, so callers must ask for `BookingClient`, not `RemoteBookingClient`.",
   "from": "cap4-02"
  },
  {
   "q": "A forwarding proxy's handler sends `equals` to the target like every other method. What breaks?",
   "options": ["`proxy.equals(proxy)` is false, so `ArrayList.remove(proxy)` fails", "`hashCode` throws `UndeclaredThrowableException`", "Nothing, because collections compare references first", "The proxy class can't be generated"],
   "answer": 0,
-  "why": "The target is asked whether it equals the proxy, and it doesn't. `HashSet` happens to survive because `HashMap` compares references before calling `equals`; `ArrayList` doesn't. Answer `equals` and `hashCode` by proxy identity.",
+  "why": "The target is asked whether it equals the proxy, and it doesn't. `HashSet` happens to survive because `HashMap` compares references before calling `equals`, which makes the third option tempting; `ArrayList` doesn't. Answer `equals` and `hashCode` by proxy identity.",
   "from": "cls-04"
  },
  {
-  "q": "Kotlin `open class Payouts { @Timed fun pay(id: String) {} }` is wired by a container that builds Byte Buddy subclasses without a start-up check. What happens on `pay`?",
-  "options": ["Byte Buddy refuses the class", "It runs untimed, with no error, because `pay` is final", "It is timed, because the class is open", "A `VerifyError` when the subclass loads"],
+  "q": "Kotlin `open class Ushers { @Timed fun assign(seat: String) {} }` is wired by a container that builds Byte Buddy subclasses without a start-up check. What happens on `assign`?",
+  "options": ["Byte Buddy refuses the class", "It runs untimed, with no error, because `assign` is final", "It is timed, because the class is open", "A `VerifyError` when the subclass loads"],
   "answer": 1,
   "why": "`open` on a class doesn't open its members. A subclass can't override a final method, so Byte Buddy leaves it alone and the annotation does nothing. The lab's container checks intercepted methods for `final` and refuses at start-up.",
   "from": "cls-05"
  },
  {
-  "q": "Which number from `ProxyCallBench` belongs in a CI check that the issuer proxy hasn't become more expensive?",
+  "q": "Which number from `ProxyCallBench` belongs in a CI check that the booking stand-in hasn't become more expensive?",
   "options": ["ns/op of the JDK proxy row", "The ratio of the JDK proxy time to the direct time", "B/op (`gc.alloc.rate.norm`) with a small margin", "The number of JIT compilations"],
   "answer": 2,
-  "why": "On a shared machine the time error was larger than most scores, while bytes per operation came out the same on every run. Keep a margin, because a JDK upgrade or a longer chain can change what escape analysis removes.",
+  "why": "On a shared machine, the time error was larger than most scores and the JDK proxy's time ranged from about 110 ns to over 3,000 across runs, while its bytes per call stayed at 208 to 213. Keep a margin, because a JDK upgrade or a longer chain can change what escape analysis removes.",
   "from": "perf-03"
  },
  {
   "q": "With a dynamic AppCDS archive on JDK 21, the reflective container still logs 30 `__dynamic_proxy__` and 3 `__JVM_DefineClass__` classes at every start. Why?",
   "options": ["The archive was built with the wrong JDK", "Those classes are made at run time and have no location an archive can verify", "AppCDS only stores JDK classes", "The training run was too short"],
   "answer": 1,
-  "why": "At dump time JDK 21 skips each proxy class with `Unsupported location`, and Byte Buddy's subclass is defined from bytes by its own class loader. Classes from JARs, Byte Buddy's own included, do come from the archive.",
+  "why": "At dump time JDK 21 skips each proxy class with `Unsupported location`, and Byte Buddy's subclass is defined from bytes by its own class loader. Classes from JARs, Byte Buddy's own included, do come from the archive, so the third option is wrong.",
   "from": "boot-02"
  },
  {
   "q": "After the reflective container is dropped and a GC runs, which of these is still loaded?",
-  "options": ["The Byte Buddy subclass", "Byte Buddy's `ByteArrayClassLoader`", "The JDK proxy class for `CardIssuerClient`", "The `SingletonCell` objects"],
+  "options": ["The Byte Buddy subclass", "Byte Buddy's `ByteArrayClassLoader`", "The JDK proxy class for `BookingClient`", "The `SingletonCell` objects"],
   "answer": 2,
   "why": "Nothing outside the container pointed at the Byte Buddy object, its class or its loader, so the whole chain was collected. The JDK proxy class was defined in the application class loader and is cached by `Proxy` for that loader, so it stays as long as the application runs.",
   "from": "mem-07"
  },
  {
-  "q": "Design review: a service starts once a week, runs for days, and loads payment-method plugins from a directory chosen at start-up. Which wiring fits best?",
+  "q": "Design review: a program starts once a week, runs for days, and loads plugins (extra parts in separate JAR files) from a directory chosen at start-up. Which wiring fits best?",
   "options": ["Run-time wiring: the component set isn't known until start-up, and one slow start a week costs little", "Build-time wiring: it is always faster", "Native image: it starts fastest", "No container: wire everything by hand in `main`"],
   "answer": 0,
-  "why": "Build-time wiring needs the component set when you build, and plugins chosen at start-up break that. With one start a week, the 2,000-class start-up cost is paid rarely. Build-time wiring and native image pay off for services that start often or must meet a tight readiness budget.",
+  "why": "Build-time wiring needs the component set when you build, and plugins chosen at start-up break that. With one start a week, the cost of a 2,000-class start is paid rarely. Build-time wiring and native image pay off for programs that start often or must answer within a tight time after starting.",
   "from": "cap4-03"
  }
 ]

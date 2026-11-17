@@ -1,43 +1,82 @@
 from fg import *
 import fg
 
-# Kokoro misreads these; fix the spoken form only (captions keep the real words).
-fg.SAY[:0] = [(r"\breplay\(1\)\.refCount\(\)", "replay one, ref count,"), (r"\breplay\(2\)\.refCount\(\)", "replay two, ref count,"),
-              (r"\breplay\(1\)", "replay one"), (r"\bshare\(\)", "share"), (r"\bcache\(\)", "cache"),
-              (r"\bsink\.asFlux\(\)", "sink dot as Flux"), (r"\btryEmitNext\b", "try emit next"), (r"\bemitNext\b", "emit next"),
-              (r"\bFAIL_NON_SERIALIZED\b", "fail, non serialized"), (r"\bbusyLooping\b", "busy looping"), (r"\bFX\b", "F X")]
+# Spoken forms only (captions keep the written words).
+fg.SAY[:0] = [
+    (r"\breplay\(1\)\.refCount\(\)", "replay one, ref count"), (r"\breplay\(2\)\.refCount\(\)", "replay two, ref count"),
+    (r"\breplay\(1\)", "replay one"), (r"\brefCount\b", "ref count"), (r"\btryEmitNext\b", "try emit next"),
+    (r"\bemitNext\b", "emit next"), (r"\basFlux\b", "as flux"), (r"\bFAIL_NON_SERIALIZED\b", "fail, non serialized"),
+    (r"\bbusyLooping\b", "busy looping"), (r"\bScreen A\b", "Screen eigh"), (r"\bscreen A\b", "screen eigh"),
+    (r"\brule 1\.3\b", "rule one point three"),
+]
 
 # every spoken line, in order
 N = {
-    "open": "Two dashboards show live FX rates from one provider. A subscribes at once, B joins 250 milliseconds later, "
-            "and a new rate comes every 100.",
-    "cold_q": "First the feed is cold, like an HTTP call. What does B get, and how many connections does the provider see?",
-    "cold": "A cold publisher runs again for every subscriber. B gets its own connection, and its own run from the first rate. "
-            "The provider sends every tick twice.",
-    "share_q": "share() makes it hot: one run, shared by everyone. What does B get?",
-    "share": "B joins late, so it gets only what comes after: 3 and 4. It's live TV. Switch on late, and you missed the start.",
-    "replay_q": "replay(1).refCount() also shares one run, but keeps the last item. cache() keeps every item. "
-                "What does B get from each?",
-    "replay": "With replay(1), B gets 2 the moment it joins, then the live ones.",
-    "cache": "With cache, B gets 1 and 2 at once. But cache keeps every item for as long as the Flux lives. "
-             "On a long feed, that's a leak.",
-    "sink": "Sometimes the values come from ordinary code, like a Kafka listener. A sink lets it push them into a Flux: "
-            "the listener calls tryEmitNext, and subscribers see sink.asFlux().",
-    "sink_hot": "A multicast sink sends each item to the subscribers present at that moment. So it's hot, and B misses what came before it joined.",
-    "race_q": "Now two listener threads call tryEmitNext at the same moment. What happens to the two events?",
-    "race": "One goes in. The other call gets FAIL_NON_SERIALIZED, and its event is not emitted. "
-            "If you ignore the result, events vanish with no log line.",
-    "fix": "So check every result, or call emitNext with busyLooping. It spins until the sink is free, for up to a second.",
-    "code": "Here are the shared feed and the sink, in Java and in Kotlin.",
-    "rule": "Cold runs the work again for each subscriber. Hot runs it once and shares it, and the operator decides "
-            "what a late subscriber gets. A sink is a hot source that ordinary code pushes into.",
-    "check": "Quick check. With replay(2).refCount(), what does B get when it joins at 250 milliseconds?",
+    "open": "The bakery has started a little radio show. Every morning at seven, the head baker reads out the day's bread, live. "
+            "Switch on at five past, and you missed the rye. The bakery also keeps a recording of each show. "
+            "Anyone who presses play hears it from the first word.",
+    "two": "So the live show is shared, and goes on whether anyone listens. The recording starts again for each listener.",
+    "shy": "Reactor's publishers come in the same two kinds. And here's the question that's easy to be shy about: "
+           "when two screens subscribe to the same Flux, do they share one stream, or does each get its own?",
+    "setup": "Let's shrink it. The oven thermometer sends a reading every 100 milliseconds, five readings, 200 to 204. "
+             "Screen A, in the shop, subscribes at once. Screen B, in the kitchen, switches on 250 milliseconds later.",
+    "cold_q": "First, the plain feed. How many connections does the oven see, and what does screen B get?",
+    "cold_a": "Two connections. And B gets all five readings, 200 to 204, from the start, on its own copy. "
+              "It's the recording: each listener who presses play gets the show from the first word.",
+    "cold_name": "A publisher like that is called cold. It does its work again for every subscriber, "
+                 "like the birthday that needed two cakes. And with six screens on one thermometer, "
+                 "that's six connections to the oven, where one would do.",
+    "hot": "A hot publisher is the live show. It produces whether or not anyone listens, "
+           "and each subscriber hears what's sent from the moment it joins. "
+           "Reactor makes a cold feed hot with a few operators, and they differ in two things: "
+           "when they connect, and what a latecomer gets.",
+    "share_q": "The simplest is share: one connection, shared by everyone. Screen B joins at 250 milliseconds. "
+               "What does it get first?",
+    "share_a": "202, the reading sent at 300. Readings 200 and 201 went out before B switched on, "
+               "and nobody rewinds a live show for a late listener. The oven sees one connection.",
+    "blank": "For a screen, that's a blank face until the next reading. "
+             "With a thermometer that reads once a minute, that's up to a minute of nothing.",
+    "replay": "So let the show repeat its last announcement for anyone who tunes in. That's replay(1).refCount(). "
+              "B gets 201 the moment it joins, then the live ones. Still one connection.",
+    "cache": "And cache is a recorder that keeps the whole broadcast, and plays it to every newcomer from the start. "
+             "B gets all five, the two it missed at once. On a feed that never ends, cache keeps every reading forever. "
+             "That's our doorstep again, only this time we're piling up the loaves on purpose.",
+    "refcount": "The refCount part is the switch on the transmitter. It connects when the first listener arrives, "
+                "and switches off when the last one leaves. Here the radio picture breaks: "
+                "a real station keeps broadcasting to an empty room. "
+                "With refCount, the show stops, and the next listener starts it again.",
+    "guard": "One guardrail. A shared feed asks the source only for what every subscriber can take, "
+             "so one slow screen slows them all. Pair it with a loss policy from the packer's table.",
+    "bell": "Sometimes the values don't come from a publisher at all, but from ordinary code. "
+            "Each till in the shop rings a bell when an order is placed, and every screen in the kitchen hears it. "
+            "Someone who walks in later didn't hear the earlier rings.",
+    "sink": "A sink is Reactor's safe way to ring that bell from code. A till calls tryEmitNext with the order, "
+            "and the kitchen screens subscribe to asFlux. A multicast sink sends each order to whoever is subscribed "
+            "at that moment, so it's hot.",
+    "race_q": "Now two tills ring at exactly the same moment, on two threads. What happens to the two orders?",
+    "race_a": "One goes in. The other call gets back FAIL_NON_SERIALIZED, and its order is never sent. "
+              "That's rule 1.3 from the start of this track: a subscriber never gets two signals at once. "
+              "So the sink refuses the second ring.",
+    "race_num": "The lesson's demo let 8 threads ring 10,000 times each. The kitchen heard 11,679 of 80,000. "
+                "The sink said no 68,321 times, very politely, with a return value nobody read.",
+    "race_break": "And here the bell picture breaks. Two hands on a real bell rope still make a ring. "
+                  "The sink makes one of them let go.",
+    "fix": "So check every result, or ring with emitNext and a busyLooping handler, "
+           "which tries again until the sink is free, for up to a second. Then the kitchen heard all 80,000.",
+    "code": "Here it is in Java and Kotlin: the thermometer shared with replay(1), with a 5 second grace "
+            "before it disconnects, and a bell the tills ring safely.",
+    "moral": "So, do two screens share one Flux? Only if you make it hot. "
+             "Cold plays the recording from the start for each subscriber. "
+             "Hot is the live show, and the operator decides what a latecomer gets. "
+             "And a sink is a bell your own code rings. From many threads, ring it with a retry.",
+    "check": "Quick check. With replay(2).refCount(), what does screen B get when it joins at 250 milliseconds?",
+    "check_a": "200 and 201 at once, the last two readings. Then 202, 203 and 204, live.",
 }
 
 
 # ---- local helpers (fg.py is shared, so they live here) ----
 class Narrated(VoiceScene):
-    """say() starts a voice line; plays may follow; at_text() waits for a point in the line; hold() waits for its end."""
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
     def say(self, key):
         text = N[key]
@@ -46,6 +85,17 @@ class Narrated(VoiceScene):
         self.add_sound(path)
         t0 = self.renderer.time
         self._end, self._line = t0 + dur, (text, t0, dur)
+        sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
+        total = sum(len(x) for x in sents) or 1
+        self._st = []
+        for x in sents:
+            self._st.append(t0)
+            t0 += dur * len(x) / total
+
+    def at(self, i, lead=0.3):
+        rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
 
     def at_text(self, sub, lead=0.2):
         text, t0, dur = self._line
@@ -53,368 +103,667 @@ class Narrated(VoiceScene):
         if rest > 0.02:
             self.wait(rest)
 
-    def hold(self, after=0.15):
+    def hold(self, after=0.25):
         rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def predict(self, secs=1.4):
-        tag = T("pause and predict", 24, GREY_B).move_to([6.5, 3.2, 0], aligned_edge=RIGHT)
+    def predict(self, secs=2.4, pos=(6.4, -3.25), edge=RIGHT):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
         self.play(FadeIn(tag), run_time=0.3)
         self.wait(secs)
         self.play(FadeOut(tag), run_time=0.3)
 
 
-SUB_A, SUB_B, RATE, EVT, BAD, CNT = BLUE_M, GREEN_M, GOLD_M, PURPLE_M, RED_M, YELLOW_M
-Y_SRC, Y_A, Y_B, Y_AX, Y_NOTE = 1.5, 0.05, -1.35, -2.3, -3.0
-XL, XR, X0, K = -3.9, 6.3, -3.6, 9.5 / 700
-BX = -5.35          # the provider box column
-R = 0.3
-JOIN = 250
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def X(ms):
-    return X0 + K * ms
+def pulse(*ms, s=1.18):
+    """Grow and shrink back. (Indicate turns a filled chip into a solid block that hides its text.)"""
+    return AnimationGroup(*[m.animate(rate_func=there_and_back).scale(s) for m in ms])
 
 
-def marble(text, color, r=R):
-    c = Circle(radius=r, stroke_width=0).set_fill(color, opacity=1)
-    t = T(str(text), 28 if r > 0.25 else 22, BLACK).move_to(c)
-    return VGroup(c, t).set_z_index(4)
+# one colour per thing, for the whole reactive track
+OVEN_C, PACK_C, SLIP_C, LOAF_C, BELL_C, BAD_C, CAKE_C = BLUE_M, TEAL_M, YELLOW_M, GOLD_M, GREEN_M, RED_M, PURPLE_M
+REPLAY_C = PURPLE_M        # items handed over from memory, not live
+ORDER_C = GOLD_M           # an order event from a till
+TILL_C = GREY_A
+OK_C = GREEN_M
 
 
-def line_at(y, x0=XL, color=GREY_B):
-    return Arrow([x0, y, 0], [XR, y, 0], buff=0, stroke_width=3, color=color, max_tip_length_to_length_ratio=0.02)
+def person(color=PACK_C, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-def header(text, mono=None):
-    kw = {"t2f": {mono: MONO}, "t2c": {mono: TEAL_M}} if mono else {}
-    return T(text, 32, **kw).move_to([-6.4, 3.2, 0], aligned_edge=LEFT)
+def loaf(s=1.0, color=LOAF_C):
+    body = RoundedRectangle(corner_radius=0.2, width=1.05, height=0.46).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    cuts = VGroup(*[Line(LEFT * 0.07 + DOWN * 0.1, RIGHT * 0.07 + UP * 0.1, stroke_width=2.5, color=color)
+                    .move_to(body.get_center() + RIGHT * dx) for dx in (-0.26, 0, 0.26)])
+    return VGroup(body, cuts).scale(s)
+
+
+def code_block(src, size=22, hl=None):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def chip_n(text, color, size=22, mono=False):
+    t = (M if mono else T)(text, size, WHITE)
+    r = RoundedRectangle(corner_radius=0.08, width=max(0.62, t.width + 0.28), height=0.5).set_stroke(color, 2.5)
+    r.set_fill(dim(color, 0.3), 1)
+    return VGroup(r, t.move_to(r)).set_z_index(6)
+
+
+def token(n, color=LOAF_C, size=20):
+    """One reading as a small pill with its value."""
+    t = M(str(n), size, WHITE)
+    r = RoundedRectangle(corner_radius=0.17, width=t.width + 0.12, height=0.38).set_stroke(color, 2.5).set_fill(dim(color, 0.35), 1)
+    return VGroup(r, t.move_to(r)).set_z_index(5)
+
+
+def screen(s=1.0, color=PACK_C):
+    fr = RoundedRectangle(corner_radius=0.08, width=1.5, height=1.05).set_stroke(color, 3).set_fill(dim(color, 0.12), 1)
+    neck = Line(fr.get_bottom(), fr.get_bottom() + DOWN * 0.2, stroke_width=3, color=color)
+    base = Line(neck.get_end() + LEFT * 0.35, neck.get_end() + RIGHT * 0.35, stroke_width=3, color=color)
+    return VGroup(fr, neck, base).scale(s)
+
+
+def thermometer(s=1.0, color=OVEN_C):
+    tube = RoundedRectangle(corner_radius=0.17, width=0.36, height=1.7).set_stroke(color, 3).set_fill(dim(color, 0.12), 1)
+    merc = RoundedRectangle(corner_radius=0.05, width=0.13, height=1.05).set_stroke(width=0).set_fill(dim(LOAF_C, 0.75), 1)
+    merc.move_to(tube.get_bottom() + UP * 0.6)
+    bulb = Circle(radius=0.3).set_stroke(color, 3).set_fill(dim(LOAF_C, 0.75), 1).move_to(tube.get_bottom() + UP * 0.04)
+    ticks = VGroup(*[Line(ORIGIN, RIGHT * 0.14, stroke_width=2, color=color) for _ in range(4)]).arrange(DOWN, buff=0.22)
+    ticks.next_to(tube, RIGHT, buff=0.06).shift(UP * 0.2)
+    return VGroup(tube, merc, bulb, ticks).scale(s)
+
+
+def radio(s=1.0, color=OVEN_C):
+    body = RoundedRectangle(corner_radius=0.15, width=1.9, height=1.2).set_stroke(color, 3).set_fill(dim(color, 0.14), 1)
+    spk = Circle(radius=0.36).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1).move_to(body.get_center() + LEFT * 0.45)
+    grille = VGroup(*[Line(LEFT * 0.2, RIGHT * 0.2, stroke_width=1.5, color=color).shift(UP * (0.16 - 0.08 * k)) for k in range(5)])
+    grille.move_to(spk)
+    dial = Rectangle(width=0.62, height=0.22).set_stroke(color, 2).move_to(body.get_center() + RIGHT * 0.45 + UP * 0.22)
+    needle = Line(UP * 0.09, DOWN * 0.09, stroke_width=2.5, color=SLIP_C).move_to(dial.get_center() + RIGHT * 0.08)
+    knob = Circle(radius=0.12).set_stroke(color, 2.5).move_to(body.get_center() + RIGHT * 0.45 + DOWN * 0.25)
+    ant = Line(body.get_top() + RIGHT * 0.55, body.get_top() + RIGHT * 0.95 + UP * 0.55, stroke_width=3, color=color)
+    return VGroup(ant, body, spk, grille, dial, needle, knob).scale(s)
+
+
+def waves(m, color=OVEN_C, n=3):
+    arcs = VGroup(*[Arc(radius=0.2 + 0.17 * i, start_angle=-PI / 4, angle=PI / 2, stroke_width=3, color=color) for i in range(n)])
+    return arcs.next_to(m, RIGHT, buff=0.12)
+
+
+def tape(s=1.0, color=OVEN_C):
+    body = RoundedRectangle(corner_radius=0.1, width=1.8, height=1.1).set_stroke(color, 3).set_fill(dim(color, 0.14), 1)
+    win = RoundedRectangle(corner_radius=0.08, width=1.15, height=0.4).set_stroke(color, 2).move_to(body.get_center() + UP * 0.12)
+    reels = VGroup(*[Circle(radius=0.13).set_stroke(color, 2.5).move_to(win.get_center() + RIGHT * dx) for dx in (-0.33, 0.33)])
+    foot = Polygon([-0.55, -0.55, 0], [0.55, -0.55, 0], [0.42, -0.3, 0], [-0.42, -0.3, 0]).set_stroke(color, 2)
+    foot.move_to(body.get_bottom() + UP * 0.13)
+    return VGroup(body, win, reels, foot).scale(s)
+
+
+def play_btn(s=1.0, color=PACK_C):
+    c = Circle(radius=0.22).set_stroke(color, 2.5).set_fill(dim(color, 0.2), 1)
+    tri = Triangle().scale(0.1).rotate(-PI / 2).set_stroke(color, 2).set_fill(color, 1).move_to(c.get_center() + RIGHT * 0.02)
+    return VGroup(c, tri).scale(s)
+
+
+def bell(s=1.0, color=BELL_C):
+    body = VMobject().set_points_smoothly([[-0.3, -0.22, 0], [-0.24, 0.02, 0], [-0.17, 0.2, 0], [0, 0.27, 0],
+                                           [0.17, 0.2, 0], [0.24, 0.02, 0], [0.3, -0.22, 0]])
+    body.add_line_to(np.array([-0.3, -0.22, 0]))
+    body.set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    lip = Line([-0.36, -0.22, 0], [0.36, -0.22, 0], stroke_width=4, color=color)
+    clap = Dot([0, -0.3, 0], radius=0.06, color=color)
+    loop = Circle(radius=0.06, stroke_width=3, color=color).move_to([0, 0.33, 0])
+    return VGroup(body, lip, clap, loop).scale(s)
+
+
+def till(s=1.0, color=TILL_C):
+    body = RoundedRectangle(corner_radius=0.06, width=0.95, height=0.5).set_stroke(color, 2.5).set_fill(dim(color, 0.12), 1)
+    disp = Rectangle(width=0.42, height=0.24).set_stroke(color, 2).set_fill(dim(color, 0.25), 1)
+    disp.next_to(body, UP, buff=0.03).shift(RIGHT * 0.17)
+    keys = VGroup(*[Dot(radius=0.035, color=color) for _ in range(6)]).arrange_in_grid(2, 3, buff=0.1)
+    keys.move_to(body.get_center() + LEFT * 0.15)
+    return VGroup(body, disp, keys).scale(s)
+
+
+def cross_at(p, s=0.26, color=BAD_C):
+    return VGroup(Line([-1, -1, 0], [1, 1, 0]), Line([-1, 1, 0], [1, -1, 0])).set_stroke(color, 5).scale(s).move_to(p).set_z_index(8)
+
+
+# the timeline, as it sits on screen: the cold run spans 0 to 790 ms, the hot runs 0 to 560 ms on a wider scale
+SCALE = {"x0": -3.6, "k": 0.0125}   # x of 0 ms, units per ms
+AX_Y = 2.85
+ROW_Y = [2.15, 1.4, 0.65, -0.1, -0.85]
+LBL_X = -6.3
+
+
+def tx(ms):
+    return SCALE["x0"] + SCALE["k"] * ms
+
+
+def time_axis(end, step=100):
+    ax = VGroup(Line([tx(0), AX_Y, 0], [tx(end), AX_Y, 0], stroke_width=2, color=GREY_B))
+    for ms in range(0, end, step):
+        ax.add(Line([tx(ms), AX_Y - 0.08, 0], [tx(ms), AX_Y + 0.08, 0], stroke_width=2, color=GREY_B))
+        ax.add(M(str(ms), 20, GREY_B).move_to([tx(ms), AX_Y + 0.3, 0]))
+    ax.add(T("time, in ms", 20, GREY_B).move_to([LBL_X, AX_Y, 0], aligned_edge=LEFT))
+    return ax
 
 
 class Rx08HotCold(Narrated):
-    """rx-08 sections 0 and 1: a cold feed runs once per subscriber; share, replay and cache make it hot and decide what a
-    late subscriber gets; a multicast sink is a hot source that ordinary code pushes into, and tryEmitNext refuses overlap."""
+    """rx-08, section 0 (with section 1's sink): the radio show and its recording; one thermometer (200..204, every
+    100 ms), screen A at once, screen B at 250 ms; cold: 2 connections, B from 200; share(): 1 connection, B from 202;
+    replay(1).refCount(): 201 at once; cache(): all five; refCount as the transmitter switch; one slow screen slows them
+    all; the order bell as a multicast sink; two tills at once: FAIL_NON_SERIALIZED, 11,679 of 80,000; busyLooping; code."""
+
+    # ---- timeline helpers ----
+    def lane(self, y, label, color=GREY_A, mono=False, end=790):
+        ln = Line([tx(0), y, 0], [tx(end), y, 0], stroke_width=1.5, color=GREY_D)
+        lb = (M if mono else T)(label, 22, color).move_to([LBL_X, y, 0], aligned_edge=LEFT)
+        return VGroup(ln, lb)
+
+    def marks(self, tracker, items, fade=25.0):
+        """items: (ms, mobject). Each one appears as the playhead passes its time."""
+        for ms, m in items:
+            m.add_updater(lambda mob, ms=ms: mob.set_opacity(min(1.0, max(0.0, (tracker.get_value() - ms) / fade))))
+            self.add(m)
+
+    def unmark(self, items):
+        for _, m in items:
+            m.clear_updaters()
 
     def construct(self):
-        self.title_card("Hot and cold publishers", "a late subscriber, four ways, and where Sinks fit")
+        self.title_card("A live show and a recording", "hot and cold publishers, and a bell any till can ring")
 
-        # ---------------- the picture: one provider, two dashboards ----------------
-        pbox = RoundedRectangle(corner_radius=0.12, width=2.1, height=1.1, stroke_color=WHITE, stroke_width=3).set_fill(BLACK, 1)
-        pbox.move_to([BX, Y_SRC, 0])
-        pname = T("FX provider", 26).move_to([BX, Y_SRC + 0.2, 0])
-        conns = [0]
-        ctext = [T("connections: 0", 22, CNT).move_to([BX, Y_SRC - 0.25, 0])]
-
-        def set_conn(n):
-            conns[0] = n
-            new = T(f"connections: {n}", 22, CNT).move_to(ctext[0])
-            old = ctext[0]
-            ctext[0] = new
-            return [FadeOut(old, run_time=0.25), FadeIn(new, run_time=0.25), Flash(new, color=CNT, flash_radius=0.9, line_length=0.15)]
-
-        la = T("A", 32, SUB_A).move_to([XL - 0.3, Y_A, 0])
-        lb = T("B", 32, SUB_B).move_to([XL - 0.3, Y_B, 0])
-        a_line = line_at(Y_A)
-        b_wait = DashedLine([XL, Y_B, 0], [X(JOIN), Y_B, 0], dash_length=0.08, stroke_width=2, color=GREY_D)
-        b_line = line_at(Y_B, X(JOIN))
-        b_tick = Line([X(JOIN), Y_B - 0.3, 0], [X(JOIN), Y_B + 0.3, 0], stroke_width=4, color=SUB_B).set_z_index(3)
-        b_lab = T("B joins at 250 ms", 22, SUB_B).move_to([X(JOIN), Y_B + 0.62, 0])
-        axis = VGroup(Line([X(0), Y_AX, 0], [X(700), Y_AX, 0], stroke_width=1.5, color=GREY_D))
-        for ms in range(0, 701, 50):
-            axis.add(Line([X(ms), Y_AX - 0.06, 0], [X(ms), Y_AX + 0.06, 0], stroke_width=1.5, color=GREY_D))
-            if ms % 100 == 0 or ms == JOIN:
-                axis.add(T(f"{ms}", 20, GREY_B).move_to([X(ms), Y_AX - 0.3, 0]))
-        axis.add(T("ms", 20, GREY_B).move_to([X(700) + 0.45, Y_AX - 0.3, 0]))
-
-        tm = ValueTracker(0)
-        cur = always_redraw(lambda: Line([X(tm.get_value()), Y_SRC + 0.5, 0], [X(tm.get_value()), Y_B - 0.5, 0],
-                                         stroke_width=2, color=WHITE).set_opacity(0.28 if tm.get_value() > 0.5 else 0).set_z_index(1))
-
-        def to_t(t, speed=220.0):
-            dt = t - tm.get_value()
-            if dt > 0.5:
-                self.play(tm.animate.set_value(t), run_time=dt / speed, rate_func=linear)
-
+        # ================= the radio show and the recording =================
+        rd = radio(0.85).move_to([-5.0, 1.75, 0])
+        wv = waves(rd)
+        rd_l = T("live show, 7:00", 22, OVEN_C).next_to(rd, DOWN, buff=0.15)
+        la = person(PACK_C, 0.9).move_to([-1.2, 2.3, 0])
+        lb = person(PACK_C, 0.9).move_to([-1.2, 1.1, 0])
+        breads = ["rye", "spelt", "sourdough"]
+        heard_a = VGroup(*[chip_n(b, LOAF_C, 22) for b in breads]).arrange(RIGHT, buff=0.15).next_to(la, RIGHT, buff=0.35)
+        heard_b = VGroup(*[chip_n(b, LOAF_C, 22) for b in breads]).arrange(RIGHT, buff=0.15).next_to(lb, RIGHT, buff=0.35)
+        late = T("switched on at 7:05", 22, GREY_B).next_to(heard_b, RIGHT, buff=0.3)
+        missed = T("missed the rye", 22, BAD_C).next_to(heard_b[0], DOWN, buff=0.12)
+        tp = tape(0.85).move_to([-5.0, -1.55, 0])
+        tp_l = T("recording", 22, OVEN_C).next_to(tp, DOWN, buff=0.15)
+        lc = person(PACK_C, 0.9).move_to([-1.2, -1.0, 0])
+        ld = person(PACK_C, 0.9).move_to([-1.2, -2.2, 0])
+        pb = [play_btn(0.9).next_to(p, LEFT, buff=0.25) for p in (lc, ld)]
+        heard_c = VGroup(*[chip_n(b, LOAF_C, 22) for b in breads]).arrange(RIGHT, buff=0.15).next_to(lc, RIGHT, buff=0.35)
+        heard_d = VGroup(*[chip_n(b, LOAF_C, 22) for b in breads]).arrange(RIGHT, buff=0.15).next_to(ld, RIGHT, buff=0.35)
         self.say("open")
-        self.play(Create(pbox), FadeIn(pname), FadeIn(ctext[0]), run_time=0.8)
-        self.at_text("A subscribes")
-        self.play(FadeIn(la), GrowArrow(a_line), FadeIn(axis), run_time=0.8)
-        self.at_text("B joins 250")
-        self.play(FadeIn(lb), Create(b_wait), GrowArrow(b_line), FadeIn(b_tick), FadeIn(b_lab), run_time=0.9)
+        self.play(FadeIn(rd), FadeIn(rd_l), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(wv), FadeIn(la), run_time=0.5)
+        self.play(LaggedStart(*[FadeIn(c, shift=RIGHT * 0.3) for c in heard_a], lag_ratio=0.6), run_time=1.6)
+        self.at(2)
+        self.play(FadeIn(lb), FadeIn(late), run_time=0.5)
+        self.play(LaggedStart(*[FadeIn(c, shift=RIGHT * 0.3) for c in heard_b[1:]], lag_ratio=0.6), run_time=1.0)
+        heard_b[0].set_opacity(0.2)
+        self.play(FadeIn(heard_b[0]), FadeIn(missed), run_time=0.4)
+        self.at(3)
+        self.play(FadeIn(tp), FadeIn(tp_l), run_time=0.6)
+        self.at(4)
+        self.play(FadeIn(lc), FadeIn(pb[0]), run_time=0.4)
+        self.play(LaggedStart(*[FadeIn(c, shift=RIGHT * 0.3) for c in heard_c], lag_ratio=0.5), run_time=1.0)
+        self.play(FadeIn(ld), FadeIn(pb[1]), run_time=0.4)
+        self.play(LaggedStart(*[FadeIn(c, shift=RIGHT * 0.3) for c in heard_d], lag_ratio=0.5), run_time=1.0)
         self.hold()
-        self.add(cur)
 
-        # ---------------- cold: a run per subscriber ----------------
-        h = header("cold: every subscriber runs the feed")
-        wa = VMobject(stroke_color=SUB_A, stroke_width=3).set_points_as_corners(
-            [[BX + 0.3, Y_SRC - 0.55, 0], [BX + 0.3, Y_A, 0], [XL - 0.6, Y_A, 0]])
-        wb = VMobject(stroke_color=SUB_B, stroke_width=3).set_points_as_corners(
-            [[BX - 0.3, Y_SRC - 0.55, 0], [BX - 0.3, Y_B, 0], [XL - 0.6, Y_B, 0]])
+        sh_l = T("shared, and goes on anyway", 24, OVEN_C).move_to([4.6, 0.55, 0])
+        rc_l = T("starts again for each listener", 24, OVEN_C).move_to([4.6, -2.75, 0])
+        self.say("two")
+        self.play(FadeOut(late), FadeIn(sh_l), Wiggle(wv, scale_value=1.15), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(rc_l), pulse(*pb, s=1.25), run_time=0.8)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= the shy question =================
+        fl = RoundedRectangle(corner_radius=0.12, width=2.2, height=0.9).set_stroke(OVEN_C, 3).set_fill(dim(OVEN_C, 0.14), 1)
+        fl_g = VGroup(fl, M("one Flux", 26, OVEN_C).move_to(fl)).move_to([-3.2, 0.6, 0])
+        sa = screen(0.85).move_to([2.6, 1.6, 0])
+        sb = screen(0.85).move_to([2.6, -0.4, 0])
+        sa_l = T("screen A", 22, PACK_C).next_to(sa, RIGHT, buff=0.25)
+        sb_l = T("screen B", 22, PACK_C).next_to(sb, RIGHT, buff=0.25)
+        ar_a = Arrow(fl_g.get_right(), sa.get_left(), buff=0.15, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.08)
+        ar_b = Arrow(fl_g.get_right(), sb.get_left(), buff=0.15, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.08)
+        shy = T("One stream, shared? Or one each?", 32).move_to([0, -2.4, 0])
+        self.say("shy")
+        self.play(FadeIn(fl_g), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(sa), FadeIn(sb), FadeIn(sa_l), FadeIn(sb_l), GrowArrow(ar_a), GrowArrow(ar_b), run_time=0.9)
+        self.at_text("do they share", lead=0.3)
+        self.play(FadeIn(shy, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= the timeline: one thermometer, A at once, B at 250 ms =================
+        axis = time_axis(790)
+        src = self.lane(ROW_Y[0], "thermometer", OVEN_C)
+        ra = self.lane(ROW_Y[1], "screen A", PACK_C)
+        cp = self.lane(ROW_Y[2], "a copy for B", OVEN_C)
+        rb = self.lane(ROW_Y[3], "screen B", PACK_C)
+        bline = Line([tx(250), ROW_Y[2] + 0.38, 0], [tx(250), ROW_Y[3] - 0.38, 0], stroke_width=4, color=BAD_C)
+        bline_l = T("B joins at 250 ms", 22, BAD_C).next_to(bline, DOWN, buff=0.1)
+        self.say("setup")
+        self.play(FadeIn(axis), FadeIn(src), run_time=0.8)
+        pre = [token(200 + k).move_to([tx(100 * (k + 1)), ROW_Y[0], 0]) for k in range(5)]
+        self.play(LaggedStart(*[FadeIn(p, scale=0.6) for p in pre], lag_ratio=0.3), run_time=1.6)
+        self.at(2)
+        self.play(FadeIn(ra), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(rb), FadeIn(bline), FadeIn(bline_l), run_time=0.6)
+        self.hold()
+
         self.say("cold_q")
-        self.play(FadeIn(h, shift=DOWN * 0.1), run_time=0.6)
+        self.play(FadeOut(VGroup(*pre)), run_time=0.5)
         self.hold(after=0)
         self.predict()
 
-        self.say("cold")
-        self.play(Create(wa), *set_conn(1), run_time=0.6)
-        got = []
-
-        def arrive(v, color, t, y):
-            m = marble(v, color).move_to([X(t), y, 0])
-            got.append(m)
-            return FadeIn(m, scale=0.5)
-
-        events = [(100, "A", 1), (200, "A", 2), (JOIN, "join", 0), (300, "A", 3), (350, "B", 1), (400, "A", 4),
-                  (450, "B", 2), (550, "B", 3), (650, "B", 4)]
-        for t, who, v in events:
-            to_t(t)
-            if who == "join":
-                self.play(Create(wb), *set_conn(2), run_time=0.6)
-            elif who == "A":
-                self.play(arrive(v, RATE, t, Y_A), run_time=0.3)
-            else:
-                self.play(arrive(v, RATE, t, Y_B), run_time=0.3)
-        note = T("2 connections: B gets its own run, from the first rate", 26, GREY_B).move_to([0.6, Y_NOTE, 0])
-        self.play(FadeIn(note), run_time=0.5)
-        self.hold()
-        self.play(FadeOut(VGroup(*got, wa, wb, note, h)), *set_conn(0)[:2], run_time=0.6)
-        tm.set_value(0)
-
-        # ---------------- hot: one shared run ----------------
-        feed = line_at(Y_SRC, XL)
-        plink = Line([BX + 1.05, Y_SRC, 0], [XL, Y_SRC, 0], stroke_width=3, color=GREY_B)
-        flab = T("feed", 24, GREY_B).move_to([XL + 0.05, Y_SRC + 0.52, 0], aligned_edge=LEFT)
-
-        def run_hot(replayed=(), stacked=False, tag=None):
-            """One shared run of the feed: rates appear on the feed and drop to whoever is subscribed."""
-            items, src = [], {}
-            to_t(0.0)
-            for t in (100, 200, JOIN, 300, 400):
-                to_t(t)
-                if t == JOIN:
-                    anims = [Flash(b_tick.get_center(), color=SUB_B, flash_radius=0.45, line_length=0.15)]
-                    if replayed:
-                        if stacked:
-                            spots = [[X(JOIN), Y_B + 0.22 - 0.44 * i, 0] for i in range(len(replayed))]
-                            r = 0.22
-                        else:
-                            spots, r = [[X(JOIN), Y_B, 0]], R
-                        for v, p in zip(replayed, spots):
-                            c = src[v].copy()
-                            dst = marble(v, RATE, r=r).move_to(p)
-                            self.add(c)
-                            anims.append(Transform(c, dst))
-                            items.append(c)
-                    self.play(*anims, run_time=0.7)
-                    if tag:
-                        self.play(FadeIn(tag), run_time=0.3)
-                    continue
-                v = t // 100
-                f = marble(v, RATE).move_to([X(t), Y_SRC, 0])
-                src[v] = f
-                self.play(FadeIn(f, scale=0.5), run_time=0.25)
-                cs = [f.copy()]
-                anims = [cs[0].animate.move_to([X(t), Y_A, 0])]
-                if t > JOIN:
-                    cs.append(f.copy())
-                    anims.append(cs[1].animate.move_to([X(t), Y_B, 0]))
-                self.add(*cs)
-                self.play(*anims, run_time=0.4, rate_func=linear)
-                items += [f] + cs
-            return items
-
-        h2 = header("hot:  rates.share()", "rates.share()")
-        self.say("share_q")
-        self.play(FadeIn(h2, shift=DOWN * 0.1), Create(plink), GrowArrow(feed), FadeIn(flab), run_time=0.8)
-        self.at_text("one run")
-        self.play(*set_conn(1), run_time=0.6)
-        self.hold(after=0)
-        self.predict()
-        self.say("share")
-        items = run_hot()
-        note = T("1 connection: B gets only what comes after it joins", 26, GREY_B).move_to([0.6, Y_NOTE, 0])
-        self.play(FadeIn(note), Indicate(ctext[0], color=CNT), run_time=0.6)
-        self.hold()
-        self.play(FadeOut(VGroup(*items, note)), run_time=0.5)
-        tm.set_value(0)
-
-        # replay(1).refCount() and cache()
-        h3 = header("hot:  rates.replay(1).refCount()", "rates.replay(1).refCount()")
-        h4 = header("hot:  rates.cache()", "rates.cache()")
-        self.say("replay_q")
-        self.play(FadeOut(h2), FadeIn(h3), run_time=0.6)
-        self.at_text("cache() keeps")
-        self.play(FadeOut(h3), FadeIn(h4), run_time=0.6)
-        self.hold(after=0)
-        self.predict()
-        self.say("replay")
-        self.play(FadeOut(h4), FadeIn(h3), run_time=0.4)
-        tag1 = T("the last item, at once", 22, SUB_B).move_to([X(JOIN) - 0.4, Y_B - 0.55, 0], aligned_edge=RIGHT)
-        items = run_hot(replayed=(2,), tag=tag1)
-        self.hold()
-        self.play(FadeOut(VGroup(*items, tag1)), FadeOut(h3), FadeIn(h4), run_time=0.5)
-        tm.set_value(0)
-        self.say("cache")
-        tag2 = T("every item so far, at once", 22, SUB_B).move_to([X(JOIN) - 0.4, Y_B - 0.55, 0], aligned_edge=RIGHT)
-        items = run_hot(replayed=(1, 2), stacked=True, tag=tag2)
-        self.at_text("But cache")
-        note = T("cache() keeps every item for as long as the Flux lives", 26, BAD).move_to([0.6, Y_NOTE, 0])
-        self.play(FadeIn(note), run_time=0.6)
-        self.hold()
-        self.play(FadeOut(VGroup(*items, tag2, note, h4)), run_time=0.5)
-        tm.set_value(0)
-
-        # ---------------- Sinks: ordinary code pushes into a hot source ----------------
-        sbox = RoundedRectangle(corner_radius=0.12, width=2.1, height=1.1, stroke_color=EVT, stroke_width=3)
-        sbox.set_fill(interpolate_color(ManimColor("#000000"), ManimColor(EVT), 0.14), 1).move_to(pbox)
-        sname = VGroup(T("sink", 28), M("multicast", 22, GREY_B)).arrange(DOWN, buff=0.12).move_to(pbox)
-        lbox = box("Kafka listener", WHITE, w=2.3, h=0.7, size=24).move_to([BX + 0.1, 2.95, 0])
-        larr = Arrow([BX, lbox.get_bottom()[1], 0], sbox.get_top(), buff=0.05, stroke_width=3, color=EVT, max_tip_length_to_length_ratio=0.35)
-        lcall = M("sink.tryEmitNext(e)", 24, EVT).move_to([BX + 1.55, 2.95, 0], aligned_edge=LEFT)
-        flab2 = M("sink.asFlux()", 24, GREY_B).move_to(flab, aligned_edge=LEFT)
-        self.say("sink")
-        self.play(FadeOut(pname), FadeOut(ctext[0]), ReplacementTransform(pbox, sbox), FadeIn(sname), run_time=0.8)
-        self.at_text("the listener calls")
-        self.play(FadeIn(lbox), GrowArrow(larr), FadeIn(lcall), run_time=0.7)
-        self.at_text("and subscribers see")
-        self.play(ReplacementTransform(flab, flab2), Indicate(flab2, color=WHITE), run_time=0.8)
-        self.hold()
-
-        self.say("sink_hot")
+        # cold: B's subscription opens a second connection, its own copy from the first reading
+        tr = ValueTracker(0)
+        ph = Line([tx(0), AX_Y - 0.15, 0], [tx(0), ROW_Y[3] - 0.35, 0], stroke_width=2, color=GREY_A)
+        ph.add_updater(lambda m: m.put_start_and_end_on([tx(tr.get_value()), AX_Y - 0.15, 0], [tx(tr.get_value()), ROW_Y[3] - 0.35, 0]))
+        conn = T("connections: 1", 26, OVEN_C).move_to([-4.85, -1.15, 0])
+        conn2 = T("connections: 2", 26, BAD_C).move_to(conn)
         items = []
-        for t in (100, 200, JOIN, 300, 400):
-            to_t(t)
-            if t == JOIN:
-                self.play(Flash(b_tick.get_center(), color=SUB_B, flash_radius=0.45, line_length=0.15), run_time=0.4)
-                continue
-            v = t // 100
-            e = marble(v, EVT, r=0.22).move_to(lbox)
-            self.add(e)
-            self.play(e.animate.move_to(sbox.get_top() + DOWN * 0.15).scale(0.5).set_opacity(0), run_time=0.3, rate_func=linear)
-            self.remove(e)
-            f = marble(v, EVT).move_to([X(t), Y_SRC, 0])
-            self.play(FadeIn(f, scale=0.5), run_time=0.3)
-            cs = [f.copy()]
-            anims = [cs[0].animate.move_to([X(t), Y_A, 0])]
-            if t > JOIN:
-                cs.append(f.copy())
-                anims.append(cs[1].animate.move_to([X(t), Y_B, 0]))
-            self.add(*cs)
-            self.play(*anims, run_time=0.4, rate_func=linear)
-            items += [f] + cs
-        self.hold(after=0.1)
-        self.remove(cur)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
-        self.clear()
+        for k in range(5):
+            items += [(100 * (k + 1), token(200 + k).move_to([tx(100 * (k + 1)), ROW_Y[0], 0])),
+                      (100 * (k + 1), token(200 + k).move_to([tx(100 * (k + 1)), ROW_Y[1], 0])),
+                      (250 + 100 * (k + 1), token(200 + k).move_to([tx(250 + 100 * (k + 1)), ROW_Y[2], 0])),
+                      (250 + 100 * (k + 1), token(200 + k).move_to([tx(250 + 100 * (k + 1)), ROW_Y[3], 0]))]
+        cp_on = cp.copy()
+        items += [(250, cp_on), (250, conn2)]
+        self.say("cold_a")
+        self.add(ph)
+        self.play(FadeIn(conn), run_time=0.3)
+        conn.add_updater(lambda m: m.set_opacity(1 - min(1.0, max(0.0, (tr.get_value() - 250) / 25.0))))
+        self.marks(tr, items)
+        self.play(tr.animate.set_value(790), run_time=4.2, rate_func=linear)
+        self.unmark(items)
+        conn.clear_updaters()
+        self.remove(conn)
+        out = VGroup(M("1. cold   connections=2", 22), M("A=[200, 201, 202, 203, 204]", 22),
+                     M("B=[200, 201, 202, 203, 204]", 22)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+        out.move_to([-2.4, -1.65, 0], aligned_edge=LEFT)
+        self.play(FadeIn(out), FadeOut(ph), run_time=0.6)
+        self.hold()
 
-        # ---------------- two threads, one sink ----------------
-        sk = VGroup(RoundedRectangle(corner_radius=0.12, width=2.4, height=1.4, stroke_color=EVT, stroke_width=3)
-                    .set_fill(interpolate_color(ManimColor("#000000"), ManimColor(EVT), 0.14), 1),
-                    T("sink", 30)).move_to([1.2, 0.3, 0])
-        sk[1].move_to(sk[0])
-        t1 = box("listener thread 1", WHITE, w=3.3, h=0.8, size=26).move_to([-4.4, 1.7, 0])
-        t2 = box("listener thread 2", WHITE, w=3.3, h=0.8, size=26).move_to([-4.4, -1.1, 0])
-        sub = T("subscribers", 26, GREY_B).move_to([5.3, 0.3, 0])
-        out = Arrow(sk.get_right(), sub.get_left(), buff=0.15, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.15)
-        c1 = M("tryEmitNext(e7)", 24, EVT).next_to(t1, DOWN, buff=0.15)
-        c2 = M("tryEmitNext(e8)", 24, EVT).next_to(t2, DOWN, buff=0.15)
-        door = sk[0].get_left() + LEFT * 0.15
-        self.say("race_q")
-        self.play(FadeIn(sk), FadeIn(t1), FadeIn(t2), GrowArrow(out), FadeIn(sub), run_time=0.8)
-        self.play(FadeIn(c1), FadeIn(c2), run_time=0.5)
+        cold_t = T("cold: it does its work again for every subscriber", 28, SLIP_C).move_to([0, -2.95, 0])
+        cakes = T("one birthday, two cakes", 22, GREY_B).move_to([-4.85, -1.75, 0])
+        six = T("6 screens = 6 connections", 24, BAD_C).move_to([-4.85, -2.25, 0])
+        self.say("cold_name")
+        self.play(FadeIn(cold_t, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(cakes), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(six), FadeOut(cakes), run_time=0.5)
+        self.hold()
+        cold_tokens = [m for _, m in items]
+        self.play(FadeOut(VGroup(out, cold_t, six, conn2, cp_on, rb, bline, bline_l, axis, src, ra,
+                                 *[m for m in cold_tokens if m not in (cp_on, conn2)])), run_time=0.6)
+        SCALE["x0"], SCALE["k"] = -4.0, 0.0175
+        axis = time_axis(560)
+        src = self.lane(ROW_Y[0], "thermometer", OVEN_C, end=560)
+        ra = self.lane(ROW_Y[1], "screen A", PACK_C, end=560)
+
+        # ================= hot: share =================
+        hot_t = T("hot: the live show", 28, SLIP_C).move_to([0, -2.35, 0])
+        two_q = T("when does it connect?   what does a latecomer get?", 26, GREY_A).move_to([0, -2.95, 0])
+        self.say("hot")
+        self.play(FadeIn(axis), FadeIn(src), FadeIn(ra), run_time=0.6)
+        self.play(FadeIn(hot_t, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(two_q), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(hot_t), FadeOut(two_q), run_time=0.4)
+
+        rs = self.lane(ROW_Y[2], "B, share()", PACK_C, end=560)
+        bline2 = Line([tx(250), ROW_Y[2] + 0.38, 0], [tx(250), ROW_Y[4] - 0.38, 0], stroke_width=4, color=BAD_C)
+        bline2_l = T("B joins at 250 ms", 22, BAD_C).move_to([tx(250), ROW_Y[4] - 0.62, 0])
+        conn1 = T("connections: 1", 26, OVEN_C).move_to([-4.85, -1.75, 0])
+        self.say("share_q")
+        self.play(FadeIn(rs), FadeIn(bline2), FadeIn(bline2_l), run_time=0.6)
         self.hold(after=0)
         self.predict()
 
-        def ev(name, box_):
-            return marble(name, EVT, r=0.34).move_to(box_.get_right() + RIGHT * 0.45)
-
-        self.say("race")
-        e7, e8 = ev("e7", t1), ev("e8", t2)
-        self.play(FadeIn(e7), FadeIn(e8), run_time=0.3)
-        self.play(e7.animate.move_to(door + LEFT * 0.4 + UP * 0.25), e8.animate.move_to(door + LEFT * 0.4 + DOWN * 0.25), run_time=0.8)
-        self.play(e7.animate.move_to(sk[0].get_center()), run_time=0.35)
-        self.play(e7.animate.move_to(sub.get_left() + LEFT * 0.55), run_time=0.6)
-        self.at_text("The other call")
-        fail = M("FAIL_NON_SERIALIZED", 24, BAD).next_to(c2, DOWN, buff=0.2)
-        self.play(e8.animate.move_to(t2.get_right() + RIGHT * 0.45), sk[0].animate.set_stroke(BAD), run_time=0.6)
-        self.play(FadeIn(fail, shift=UP * 0.1), sk[0].animate.set_stroke(EVT), run_time=0.5)
-        self.at_text("its event is not")
-        lost = T("e8 is gone", 26, BAD).next_to(fail, DOWN, buff=0.2)
-        self.play(FadeOut(e8, scale=0.3), FadeIn(lost), run_time=0.7)
+        tr.set_value(0)
+        ph2 = Line(ORIGIN, UP, stroke_width=2, color=GREY_A)
+        ph2.add_updater(lambda m: m.put_start_and_end_on([tx(tr.get_value()), AX_Y - 0.15, 0], [tx(tr.get_value()), ROW_Y[2] - 0.35, 0]))
+        sh_items = []
+        for k in range(5):
+            sh_items += [(100 * (k + 1), token(200 + k).move_to([tx(100 * (k + 1)), ROW_Y[0], 0])),
+                         (100 * (k + 1), token(200 + k).move_to([tx(100 * (k + 1)), ROW_Y[1], 0]))]
+            if k >= 2:
+                sh_items.append((100 * (k + 1), token(200 + k).move_to([tx(100 * (k + 1)), ROW_Y[2], 0])))
+        self.say("share_a")
+        self.add(ph2)
+        self.marks(tr, sh_items)
+        self.play(tr.animate.set_value(560), run_time=2.6, rate_func=linear)
+        self.unmark(sh_items)
+        self.play(FadeOut(ph2), run_time=0.2)
+        self.at(1)
+        miss = VGroup(*[DashedVMobject(RoundedRectangle(corner_radius=0.17, width=0.55, height=0.38), num_dashes=14)
+                        .set_stroke(GREY_C, 2).move_to([tx(100 * (k + 1)), ROW_Y[2], 0]) for k in range(2)])
+        self.play(FadeIn(miss), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(conn1), run_time=0.5)
         self.hold()
 
-        # the fix: emitNext with a retrying handler
-        c2b = M("emitNext(e8, busyLooping(1 s))", 24, TEAL_M).move_to(c2, aligned_edge=LEFT)
-        self.say("fix")
-        self.play(FadeOut(VGroup(fail, lost, e7)), Transform(c2, c2b), run_time=0.7)
-        e7, e8 = ev("e7", t1), ev("e8", t2)
-        self.play(FadeIn(e7), FadeIn(e8), run_time=0.3)
-        self.play(e7.animate.move_to(door + LEFT * 0.4 + UP * 0.25), e8.animate.move_to(door + LEFT * 0.4 + DOWN * 0.25), run_time=0.8)
-        self.play(e7.animate.move_to(sk[0].get_center()), run_time=0.35)
-        spin = Arc(radius=0.48, start_angle=PI / 2, angle=1.6 * PI, color=CNT, stroke_width=4).move_to(e8)
-        self.at_text("It spins")
-        self.play(e7.animate.move_to(sub.get_left() + LEFT * 0.55), Rotate(spin, angle=2 * PI, about_point=e8.get_center()),
-                  run_time=1.0)
-        self.play(FadeOut(spin), e8.animate.move_to(sk[0].get_center()), run_time=0.4)
-        self.play(e8.animate.move_to(sub.get_left() + LEFT * 0.55 + DOWN * 0.75), run_time=0.6)
-        both = T("both delivered", 26, GREY_B).move_to([5.0, -1.4, 0])
-        self.play(FadeIn(both), run_time=0.4)
-        self.hold(after=0.1)
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
-        self.clear()
-
-        # ---------------- the code, last ----------------
-        hl = {"replay(1)": TEAL_M, ".refCount()": TEAL_M, "multicast()": EVT, "directBestEffort()": EVT, "emitNext": TEAL_M,
-              "busyLooping": TEAL_M}
-
-        def code(head, lines):
-            g = VGroup(*[M("|" + l, 24, t2c=hl) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
-            for t in g:
-                t[0].set_opacity(0)
-            return VGroup(T(head, 22, GREY_B), g).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-
-        jv = code("Java", ["Flux<Rate> rates = provider.rates().replay(1).refCount();",
-                           "Sinks.Many<PaymentEvent> sink =",
-                           "        Sinks.many().multicast().directBestEffort();",
-                           "sink.emitNext(e,",
-                           "        Sinks.EmitFailureHandler.busyLooping(Duration.ofSeconds(1)));"])
-        kt = code("Kotlin", ["val rates: Flux<Rate> = provider.rates().replay(1).refCount()",
-                             "val sink: Sinks.Many<PaymentEvent> =",
-                             "        Sinks.many().multicast().directBestEffort()",
-                             "sink.emitNext(e,",
-                             "        Sinks.EmitFailureHandler.busyLooping(Duration.ofSeconds(1)))"])
-        codes = VGroup(jv, kt).arrange(DOWN, aligned_edge=LEFT, buff=0.5)
-        fit(codes, 12.6).move_to(ORIGIN)
-        self.say("code")
-        self.play(FadeIn(jv, shift=UP * 0.15), run_time=0.7)
-        self.play(FadeIn(kt, shift=UP * 0.15), run_time=0.7)
-        self.hold(after=0.8)
-        self.play(FadeOut(codes), run_time=0.6)
-
-        # ---------------- the rule and a check ----------------
-        r1 = T("Cold runs the work again for each subscriber.", 30)
-        r2 = T("Hot runs it once and shares it,", 30, t2c={"Hot": RATE})
-        r3 = T("and the operator decides what a late subscriber gets.", 30)
-        r4 = T("A sink is a hot source that ordinary code pushes into.", 30, t2c={"sink": EVT})
-        rule = VGroup(r1, r2, r3, r4).arrange(DOWN, buff=0.25).move_to(UP * 0.9)
-        fit(rule, 12.4)
-        self.say("rule")
-        self.play(FadeIn(r1, shift=UP * 0.1), run_time=0.6)
-        self.at_text("Hot runs")
-        self.play(FadeIn(r2, shift=UP * 0.1), run_time=0.6)
-        self.at_text("and the operator")
-        self.play(FadeIn(r3, shift=UP * 0.1), run_time=0.6)
-        self.at_text("A sink is")
-        self.play(FadeIn(r4, shift=UP * 0.1), run_time=0.6)
+        gap = Line([tx(250) + 0.05, ROW_Y[2], 0], [tx(300) - 0.32, ROW_Y[2], 0], stroke_width=8, color=BAD_C)
+        gap_l = T("blank", 20, BAD_C).next_to(gap, UP, buff=0.12)
+        minute = T("a thermometer that reads once a minute: up to a minute of nothing", 24, GREY_A).move_to([1.3, -2.95, 0])
+        self.say("blank")
+        self.play(Create(gap), FadeIn(gap_l), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(minute), run_time=0.6)
         self.hold()
-        qq = VGroup(T("Check:", 30, YELLOW_M),
-                    T("rates.replay(2).refCount(), and B joins at 250 ms.", 28, t2f={"rates.replay(2).refCount()": MONO}),
-                    T("What does B get?", 28)).arrange(DOWN, buff=0.2).move_to(DOWN * 2.1)
-        fit(qq, 12.4)
-        self.say("check")
-        self.play(FadeIn(qq, shift=UP * 0.1), run_time=0.8)
+        self.play(FadeOut(minute), run_time=0.4)
+
+        # ================= replay(1) and cache =================
+        rr = self.lane(ROW_Y[3], "B, replay(1)", PACK_C, end=560)
+        rcch = self.lane(ROW_Y[4], "B, cache()", PACK_C, end=560)
+        rp_items = [(250, token(201, REPLAY_C).move_to([tx(250) + 0.3, ROW_Y[3], 0]))] + \
+                   [(100 * (k + 1), token(200 + k).move_to([tx(100 * (k + 1)), ROW_Y[3], 0])) for k in range(2, 5)]
+        mem_l = T("from memory", 20, REPLAY_C).move_to([tx(250) - 0.85, ROW_Y[3] + 0.22, 0])
+        self.say("replay")
+        self.play(FadeIn(rr), run_time=0.5)
+        self.at(1)
+        tr.set_value(200)
+        ph3 = Line(ORIGIN, UP, stroke_width=2, color=GREY_A)
+        ph3.add_updater(lambda m: m.put_start_and_end_on([tx(tr.get_value()), ROW_Y[3] + 0.35, 0], [tx(tr.get_value()), ROW_Y[3] - 0.35, 0]))
+        self.add(ph3)
+        self.marks(tr, rp_items)
+        self.play(tr.animate.set_value(560), run_time=2.2, rate_func=linear)
+        self.unmark(rp_items)
+        self.play(FadeOut(ph3), FadeIn(mem_l), run_time=0.4)
+        self.hold()
+
+        ch_items = [(250, token(200, REPLAY_C).move_to([tx(250) + 0.3, ROW_Y[4] + 0.2, 0])),
+                    (250, token(201, REPLAY_C).move_to([tx(250) + 0.3, ROW_Y[4] - 0.2, 0]))]
+        ch_items += [(100 * (k + 1), token(200 + k).move_to([tx(100 * (k + 1)), ROW_Y[4], 0])) for k in range(2, 5)]
+        tapes = VGroup(*[RoundedRectangle(corner_radius=0.05, width=0.6, height=0.18).set_stroke(REPLAY_C, 2)
+                         .set_fill(dim(REPLAY_C, 0.3), 1) for _ in range(8)]).arrange(UP, buff=0.04)
+        tapes.move_to([5.7, -2.6, 0])
+        forever = T("an endless feed: cache keeps every reading", 24, BAD_C).move_to([0.4, -2.95, 0])
+        door_l = T("the doorstep again, on purpose", 22, GREY_B).move_to([0.4, -2.45, 0])
+        self.say("cache")
+        self.play(FadeIn(rcch), run_time=0.5)
+        self.at(1)
+        tr.set_value(200)
+        ph4 = Line(ORIGIN, UP, stroke_width=2, color=GREY_A)
+        ph4.add_updater(lambda m: m.put_start_and_end_on([tx(tr.get_value()), ROW_Y[4] + 0.35, 0], [tx(tr.get_value()), ROW_Y[4] - 0.35, 0]))
+        self.add(ph4)
+        self.marks(tr, ch_items)
+        self.play(tr.animate.set_value(560), run_time=2.0, rate_func=linear)
+        self.unmark(ch_items)
+        self.play(FadeOut(ph4), run_time=0.2)
+        self.at(2)
+        self.play(FadeIn(forever), LaggedStart(*[FadeIn(t, shift=DOWN * 0.15) for t in tapes], lag_ratio=0.2), run_time=1.6)
+        self.at(3)
+        self.play(FadeIn(door_l), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= refCount: the switch on the transmitter =================
+        r1 = radio(0.8).move_to([-4.6, 1.2, 0])
+        w1 = waves(r1)
+        chairs = VGroup(*[RoundedRectangle(corner_radius=0.05, width=0.42, height=0.42).set_stroke(GREY_D, 2) for _ in range(3)])
+        chairs.arrange(RIGHT, buff=0.3).next_to(w1, RIGHT, buff=0.4)
+        real_l = T("a real station: on, to an empty room", 24, GREY_A).move_to([-3.4, -0.35, 0])
+        r2 = radio(0.8).move_to([2.2, 1.2, 0])
+        w2 = waves(r2)
+        sw_on = T("on", 26, OK_C).next_to(r2, UP, buff=0.2)
+        sw_off = T("off", 26, BAD_C).next_to(r2, UP, buff=0.2)
+        lis = [screen(0.5).move_to([4.6, 1.75, 0]), screen(0.5).move_to([4.6, 0.6, 0])]
+        lis2 = screen(0.5).move_to([5.8, 1.2, 0])
+        ref_l = T("refCount: off when the last one leaves", 24, PACK_C).move_to([3.4, -0.35, 0])
+        again = T("the next listener starts it again", 22, GREY_B).move_to([3.4, -0.9, 0])
+        self.say("refcount")
+        self.play(FadeIn(r2), FadeIn(sw_off), run_time=0.5)
+        self.at_text("It connects", lead=0.3)
+        self.play(FadeIn(lis[0], shift=LEFT * 0.2), FadeOut(sw_off), FadeIn(sw_on), FadeIn(w2), run_time=0.6)
+        self.play(FadeIn(lis[1], shift=LEFT * 0.2), run_time=0.4)
+        self.at_text("and switches off", lead=0.3)
+        self.play(FadeOut(lis[0], shift=RIGHT * 0.2), run_time=0.4)
+        self.play(FadeOut(lis[1], shift=RIGHT * 0.2), FadeOut(sw_on), FadeIn(sw_off), FadeOut(w2), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(r1), FadeIn(w1), FadeIn(chairs), FadeIn(real_l), run_time=0.7)
+        self.play(Wiggle(w1, scale_value=1.15), run_time=0.8)
+        self.at(3)
+        self.play(FadeIn(ref_l), run_time=0.5)
+        self.play(FadeIn(lis2, shift=LEFT * 0.2), FadeOut(sw_off), FadeIn(sw_on), FadeIn(w2), FadeIn(again), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= guardrail: the slowest screen sets the pace =================
+        th = thermometer(0.8).move_to([-5.4, 0.5, 0])
+        sh = RoundedRectangle(corner_radius=0.1, width=2.3, height=0.8).set_stroke(OVEN_C, 2.5).set_fill(dim(OVEN_C, 0.12), 1)
+        sh_g = VGroup(sh, T("one shared feed", 22, OVEN_C).move_to(sh)).move_to([-1.9, 0.5, 0])
+        scs = [screen(0.6).move_to([3.0, y, 0]) for y in (2.0, 0.5, -1.0)]
+        slips = [VGroup(RoundedRectangle(corner_radius=0.05, width=1.3, height=0.42).set_stroke(c, 2).set_fill(dim(c, 0.22), 1),
+                        T(t, 20, c)) for t, c in (("send 10", SLIP_C), ("send 10", SLIP_C), ("send 1", BAD_C))]
+        for s_, sc in zip(slips, scs):
+            s_[1].move_to(s_[0])
+            s_.next_to(sc, RIGHT, buff=0.3)
+        slow = T("slow", 22, BAD_C).next_to(scs[2], DOWN, buff=0.12)
+        ars = [Arrow(sh_g.get_right(), sc.get_left(), buff=0.12, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.08)
+               for sc in scs]
+        up1 = slips[2].copy()
+        g_l = T("one slow screen slows them all", 28, BAD_C).move_to([0, -2.35, 0])
+        pile = VGroup(*[RoundedRectangle(corner_radius=0.04, width=0.3, height=0.3).set_stroke(GREY_A, 2) for _ in range(5)]).arrange(RIGHT, buff=0.04)
+        pol = VGroup(pile, T("pair it with a loss policy: the packer's table", 24, GREY_A)).arrange(RIGHT, buff=0.3).move_to([0, -3.0, 0])
+        self.say("guard")
+        self.play(FadeIn(th), FadeIn(sh_g), *[FadeIn(s) for s in scs], *[GrowArrow(a) for a in ars], run_time=0.8)
+        self.at_text("A shared feed", lead=0.3)
+        self.play(*[FadeIn(s_, shift=LEFT * 0.1) for s_ in slips], FadeIn(slow), run_time=0.6)
+        self.play(up1.animate.next_to(th, RIGHT, buff=0.25).shift(UP * 0.9), run_time=1.0)
+        self.at_text("so one slow", lead=0.3)
+        self.play(FadeIn(g_l), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(pol, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= the order bell: a sink =================
+        tills = [till(1.0).move_to([-5.3, y, 0]) for y in (1.7, 0.4, -0.9)]
+        tl_l = T("tills in the shop", 22, TILL_C).next_to(tills[-1], DOWN, buff=0.25)
+        bl = bell(1.5).move_to([-1.6, 0.4, 0])
+        kit = [screen(0.6).move_to([2.6, y, 0]) for y in (1.7, 0.4, -0.9)]
+        kit_l = T("kitchen screens", 22, PACK_C).next_to(kit[-1], DOWN, buff=0.25)
+        newc = screen(0.6).move_to([5.4, 0.4, 0])
+        new_l = T("walks in later", 22, GREY_B).next_to(newc, DOWN, buff=0.15)
+        new_m = T("heard nothing yet", 20, GREY_B).next_to(new_l, DOWN, buff=0.08)
+
+        def ring(src, name, targets, rt=1.0):
+            c = chip_n(name, ORDER_C, 20).move_to(src.get_right() + RIGHT * 0.5)
+            copies = [chip_n(name, ORDER_C, 20).move_to(bl.get_center()) for _ in targets]
+            self.play(FadeIn(c, run_time=0.15))
+            self.play(c.animate.move_to(bl.get_center()), Wiggle(bl, scale_value=1.15), run_time=rt * 0.5)
+            self.remove(c)
+            self.add(*copies)
+            self.play(*[cp.animate.move_to(t.get_center()) for cp, t in zip(copies, targets)], run_time=rt * 0.5)
+            self.play(*[FadeOut(cp) for cp in copies], run_time=0.15)
+
+        self.say("bell")
+        self.at(1)
+        self.play(*[FadeIn(t) for t in tills], FadeIn(tl_l), FadeIn(bl), *[FadeIn(k) for k in kit], FadeIn(kit_l), run_time=0.8)
+        ring(tills[0], "order 41", kit)
+        ring(tills[2], "order 42", kit)
+        self.at(2)
+        self.play(FadeIn(newc, shift=LEFT * 0.3), FadeIn(new_l), run_time=0.6)
+        self.play(FadeIn(new_m), run_time=0.4)
+        self.hold()
+
+        sk = M("Sinks.many().multicast()", 22, BELL_C).next_to(bl, UP, buff=0.35)
+        emit = M("bell.tryEmitNext(order)", 22, TILL_C).move_to([-4.4, 2.75, 0])
+        asf = M("bell.asFlux()", 22, PACK_C).move_to([3.6, 2.75, 0])
+        hot_tag = T("hot: each order goes to whoever is there", 24, SLIP_C).move_to([0, -2.6, 0])
+        self.say("sink")
+        self.play(FadeIn(sk), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(emit), run_time=0.5)
+        self.at_text("and the kitchen", lead=0.3)
+        self.play(FadeIn(asf), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(hot_tag), run_time=0.5)
+        ring(tills[1], "order 43", kit + [newc], rt=1.2)
+        self.play(FadeOut(new_m), run_time=0.3)
+        self.hold()
+
+        # two tills at the same moment
+        self.play(FadeOut(hot_tag), FadeOut(new_l), run_time=0.4)
+        self.say("race_q")
+        th_l = [T("thread 1", 20, GREY_B).next_to(tills[0], UP, buff=0.08), T("thread 2", 20, GREY_B).next_to(tills[1], UP, buff=0.08)]
+        ca = chip_n("order 44", ORDER_C, 20).move_to(tills[0].get_right() + RIGHT * 0.55)
+        cb = chip_n("order 45", ORDER_C, 20).move_to(tills[1].get_right() + RIGHT * 0.55)
+        self.play(FadeIn(th_l[0]), FadeIn(th_l[1]), run_time=0.4)
+        self.play(FadeIn(ca), FadeIn(cb), run_time=0.4)
+        self.play(ca.animate.move_to(bl.get_center() + LEFT * 0.75 + UP * 0.45), cb.animate.move_to(bl.get_center() + LEFT * 0.75 + DOWN * 0.3),
+                  run_time=0.9)
         self.hold(after=0)
-        self.wait(1.5)
+        self.predict()
+
+        fail = M("FAIL_NON_SERIALIZED", 22, BAD_C).move_to([-2.0, -1.5, 0])
+        r13 = T("rule 1.3: never two signals at once", 24, GREY_A).move_to([0, -2.55, 0])
+        copies = [chip_n("order 44", ORDER_C, 20).move_to(bl.get_center()) for _ in kit + [newc]]
+        self.say("race_a")
+        self.play(ca.animate.move_to(bl.get_center()), Wiggle(bl, scale_value=1.15), run_time=0.6)
+        self.remove(ca)
+        self.add(*copies)
+        self.play(*[c.animate.move_to(t.get_center()) for c, t in zip(copies, kit + [newc])], run_time=0.7)
+        self.play(*[FadeOut(c) for c in copies], run_time=0.2)
+        self.at(1)
+        self.play(cb[0].animate.set_stroke(BAD_C).set_fill(dim(BAD_C, 0.3)), FadeIn(cross_at(cb.get_center())), run_time=0.4)
+        self.play(FadeIn(fail, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(r13), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= the numbers =================
+        BX0, BW = -5.0, 10.0
+        hdr = T("8 threads × 10,000 rings = 80,000 orders", 28).move_to([0, 2.6, 0])
+        frame1 = Rectangle(width=BW, height=0.6).set_stroke(GREY_B, 2).move_to([BX0 + BW / 2, 1.2, 0])
+        f1_l = M("tryEmitNext", 22, TILL_C).next_to(frame1, UP, buff=0.15).align_to(frame1, LEFT)
+        heard = Rectangle(width=BW * 11679 / 80000, height=0.6).set_stroke(width=0).set_fill(OK_C, 0.75)
+        heard.move_to(frame1.get_left(), aligned_edge=LEFT)
+        lost = Rectangle(width=BW * 68321 / 80000, height=0.6).set_stroke(width=0).set_fill(BAD_C, 0.35)
+        lost.move_to(heard.get_right(), aligned_edge=LEFT)
+        h_l = T("heard 11,679", 24, OK_C).next_to(frame1, DOWN, buff=0.15).align_to(frame1, LEFT)
+        l_l = T("68,321 refused, and nobody read the answer", 24, BAD_C).next_to(frame1, DOWN, buff=0.15).align_to(frame1, RIGHT)
+        self.say("race_num")
+        self.play(FadeIn(hdr), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(frame1), FadeIn(f1_l), GrowFromEdge(heard, LEFT), run_time=0.8)
+        self.play(FadeIn(h_l), run_time=0.4)
+        self.at(2)
+        self.play(GrowFromEdge(lost, LEFT), FadeIn(l_l), run_time=0.8)
+        self.hold()
+
+        rope_b = bell(1.0).move_to([-3.4, -1.6, 0])
+        rope = Line(rope_b.get_bottom() + DOWN * 0.05, rope_b.get_bottom() + DOWN * 1.0, stroke_width=4, color=GREY_A)
+        hands = VGroup(*[Circle(radius=0.12).set_stroke(GREY_A, 2.5).set_fill(dim(GREY_A, 0.4), 1).move_to(rope.point_from_proportion(p) + RIGHT * dx)
+                         for p, dx in ((0.45, -0.12), (0.8, 0.12))])
+        rb_l = T("a real bell: two hands, still a ring", 22, GREY_A).next_to(rope_b, RIGHT, buff=0.5).shift(UP * 0.1)
+        sb_l2 = T("a sink: one hand lets go", 22, BAD_C)
+        self.say("race_break")
+        self.play(FadeIn(rope_b), Create(rope), FadeIn(hands), run_time=0.7)
+        self.play(FadeIn(rb_l), Wiggle(rope_b, scale_value=1.15), run_time=0.8)
+        self.at(2)
+        self.play(FadeOut(rb_l), hands[1].animate.shift(RIGHT * 0.6 + DOWN * 0.3).set_stroke(BAD_C), FadeIn(sb_l2.next_to(hands, RIGHT, buff=0.9)),
+                  run_time=0.7)
+        self.hold()
+
+        frame2 = Rectangle(width=BW, height=0.6).set_stroke(GREY_B, 2).move_to([BX0 + BW / 2, -1.55, 0])
+        f2_l = M("emitNext(order, busyLooping(Duration.ofSeconds(1)))", 22, BELL_C).next_to(frame2, UP, buff=0.15).align_to(frame2, LEFT)
+        full = Rectangle(width=BW, height=0.6).set_stroke(width=0).set_fill(OK_C, 0.75).move_to(frame2)
+        all_l = T("heard 80,000 of 80,000", 24, OK_C).next_to(frame2, DOWN, buff=0.15).align_to(frame2, LEFT)
+        self.say("fix")
+        self.play(FadeOut(VGroup(rope_b, rope, hands, sb_l2)), run_time=0.4)
+        self.play(FadeIn(frame2), FadeIn(f2_l), run_time=0.6)
+        self.at(1)
+        self.play(GrowFromEdge(full, LEFT), run_time=1.0)
+        self.play(FadeIn(all_l), run_time=0.4)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= the code, last =================
+        jsrc = ["Flux<Reading> temperature = oven.readings()      // latecomers get the latest",
+                "        .replay(1).refCount(1, Duration.ofSeconds(5));",
+                "Sinks.Many<OrderEvent> bell = Sinks.many().multicast().directBestEffort();",
+                "void ring(OrderEvent e) {                        // any till, any thread",
+                "    bell.emitNext(e, EmitFailureHandler.busyLooping(Duration.ofSeconds(1)));",
+                "}"]
+        ksrc = ["val temperature: Flux<Reading> = oven.readings() // latecomers get the latest",
+                "    .replay(1).refCount(1, Duration.ofSeconds(5))",
+                "val bell: Sinks.Many<OrderEvent> = Sinks.many().multicast().directBestEffort()",
+                "fun ring(e: OrderEvent) =                        // any till, any thread",
+                "    bell.emitNext(e, EmitFailureHandler.busyLooping(Duration.ofSeconds(1)))"]
+        hl = {"replay(1)": REPLAY_C, ".refCount(1, Duration.ofSeconds(5))": PACK_C, "emitNext": BELL_C, "busyLooping": BELL_C}
+        jc, kc = code_block(jsrc, 22, hl), code_block(ksrc, 22, hl)
+        blk = VGroup(VGroup(T("Java", 24, GREY_B), jc).arrange(DOWN, aligned_edge=LEFT, buff=0.12),
+                     VGroup(T("Kotlin", 24, GREY_B), kc).arrange(DOWN, aligned_edge=LEFT, buff=0.12)).arrange(DOWN, aligned_edge=LEFT, buff=0.35)
+        fit(blk, 12.6).move_to([0, 0, 0])
+        self.say("code")
+        self.play(FadeIn(blk, shift=UP * 0.15), run_time=0.9)
+        self.at_text("the thermometer", lead=0.3)
+        self.play(Indicate(VGroup(jc[0:2], kc[0:2]), color=REPLAY_C, scale_factor=1.02), run_time=0.8)
+        self.at_text("and a bell", lead=0.3)
+        self.play(Indicate(VGroup(jc[2:], kc[2:]), color=BELL_C, scale_factor=1.02), run_time=0.8)
+        self.hold()
+        self.play(FadeOut(blk), run_time=0.6)
+
+        # ================= the moral and a check =================
+        mq = T("Do two screens share one Flux?", 32).move_to(UP * 2.8)
+        m0 = T("Only if you make it hot.", 28, SLIP_C)
+        m1 = VGroup(T("cold", 28, OVEN_C), T("the recording: from the start, for each subscriber", 28)).arrange(RIGHT, buff=0.3)
+        m2 = VGroup(T("hot", 28, OVEN_C), T("the live show: the operator decides what a latecomer gets", 28)).arrange(RIGHT, buff=0.3)
+        m3 = VGroup(T("a sink", 28, BELL_C), T("a bell your code rings: from many threads, with a retry", 28)).arrange(RIGHT, buff=0.3)
+        mg = VGroup(m0, m1, m2, m3).arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to(UP * 1.0)
+        fit(mg, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(m0, shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(m3, shift=UP * 0.1), run_time=0.5)
+        self.hold()
+        chk = VGroup(T("Check:", 28, SLIP_C), M("replay(2).refCount()", 26), T("and screen B joins at 250 ms.", 28)).arrange(RIGHT, buff=0.25)
+        chk2 = T("What does B get?", 28)
+        qg = VGroup(chk, chk2).arrange(DOWN, buff=0.2)
+        fit(qg, 12.4).move_to(DOWN * 1.55)
+        self.say("check")
+        self.play(FadeIn(qg, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.predict()
+        ans = VGroup(token(200, REPLAY_C), token(201, REPLAY_C), T("at once, then", 26, GREY_A),
+                     token(202), token(203), token(204), T("live", 26, GREY_A)).arrange(RIGHT, buff=0.2).move_to(DOWN * 2.75)
+        self.say("check_a")
+        self.play(FadeIn(ans[:3], shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(ans[3:], shift=UP * 0.1), run_time=0.6)
+        self.hold(after=0)
+        self.wait(2.5)

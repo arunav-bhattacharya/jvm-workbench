@@ -15,86 +15,78 @@ def demo(name):
                     "run": RUN + name + "Kt", "file": f"{lab}/demo/{K}/demo/{name}.kt"}}
 
 
-FIGURE = """<svg viewBox="0 0 700 300" role="img" aria-label="Left: a caller calls a JDK proxy, whose handler runs the chain and then calls the separate FakeIssuer target, whose own self-calls skip the proxy. Right: a caller calls the Byte Buddy subclass, which is the bean; its override runs the chain, then super.settle, whose call to this.audit goes back into the subclass's audit override.">
-<text class="t t-a" x="175" y="24" text-anchor="middle">interface: JDK proxy forwards</text>
-<text class="t t-a" x="530" y="24" text-anchor="middle">class: Byte Buddy subclass is the bean</text>
+FIGURE = """<svg viewBox="0 0 700 300" role="img" aria-label="Left: a caller calls a JDK proxy, whose handler runs the chain and then calls the separate FakeBooking target, whose own self-calls skip the proxy. Right: a caller calls the Byte Buddy subclass, which is the object itself; its close override runs the chain, then super.close, whose call to this.verify goes back into the subclass's verify override.">
+<text class="t t-a" x="175" y="24" text-anchor="middle">interface: a stand-in forwards</text>
+<text class="t t-a" x="530" y="24" text-anchor="middle">class: the costume copy is the object</text>
 <rect class="box" x="20" y="44" width="90" height="36" rx="8"/><text class="t" x="65" y="67" text-anchor="middle">caller</text>
 <rect class="box-a" x="160" y="44" width="170" height="36" rx="8"/><text class="t t-code" x="245" y="67" text-anchor="middle">$Proxy5</text>
 <rect class="box-a" x="160" y="114" width="170" height="36" rx="8"/><text class="t" x="245" y="137" text-anchor="middle">handler + chain</text>
-<rect class="box" x="160" y="194" width="170" height="36" rx="8"/><text class="t t-code" x="245" y="217" text-anchor="middle">FakeIssuer</text>
+<rect class="box" x="160" y="194" width="170" height="36" rx="8"/><text class="t t-code" x="245" y="217" text-anchor="middle">FakeBooking</text>
 <line class="ln" x1="110" y1="62" x2="158" y2="62" marker-end="url(#arr)"/>
 <line class="ln" x1="245" y1="80" x2="245" y2="112" marker-end="url(#arr)"/>
 <line class="ln" x1="245" y1="150" x2="245" y2="192" marker-end="url(#arr)"/>
 <text class="t-s t-m" x="300" y="176" text-anchor="middle">method.invoke(target)</text>
-<text class="t-s t-bad" x="245" y="252" text-anchor="middle">this.x() inside FakeIssuer</text>
+<text class="t-s t-bad" x="245" y="252" text-anchor="middle">this.x() inside FakeBooking</text>
 <text class="t-s t-bad" x="245" y="268" text-anchor="middle">never reaches the proxy</text>
 <rect class="box" x="370" y="44" width="90" height="36" rx="8"/><text class="t" x="415" y="67" text-anchor="middle">caller</text>
 <rect class="box-dim" x="490" y="36" width="200" height="206" rx="8"/>
-<rect class="box-a" x="500" y="44" width="180" height="36" rx="8"/><text class="t-s t-code" x="590" y="66" text-anchor="middle">settle() override, chain</text>
-<rect class="box" x="500" y="114" width="180" height="36" rx="8"/><text class="t-s t-code" x="590" y="136" text-anchor="middle">super.settle() body</text>
-<rect class="box-a" x="500" y="194" width="180" height="36" rx="8"/><text class="t-s t-code" x="590" y="216" text-anchor="middle">audit() override, chain</text>
+<rect class="box-a" x="500" y="44" width="180" height="36" rx="8"/><text class="t-s t-code" x="590" y="66" text-anchor="middle">close() override, chain</text>
+<rect class="box" x="500" y="114" width="180" height="36" rx="8"/><text class="t-s t-code" x="590" y="136" text-anchor="middle">super.close() body</text>
+<rect class="box-a" x="500" y="194" width="180" height="36" rx="8"/><text class="t-s t-code" x="590" y="216" text-anchor="middle">verify() override, chain</text>
 <line class="ln" x1="460" y1="62" x2="498" y2="62" marker-end="url(#arr)"/>
 <line class="ln" x1="590" y1="80" x2="590" y2="112" marker-end="url(#arr)"/>
 <line class="ln-a" x1="590" y1="150" x2="590" y2="192" marker-end="url(#arr)"/>
-<text class="t-s t-ok" x="590" y="176" text-anchor="end" dx="-6">this.audit()</text>
+<text class="t-s t-ok" x="590" y="176" text-anchor="end" dx="-6">this.verify()</text>
 <text class="t-s t-ok" x="590" y="262" text-anchor="middle">one object: the self-call is intercepted</text>
 </svg>"""
 
-L = {
- "id": "cap4-02",
- "title": "Add interceptors with proxies",
- "minutes": 38,
- "goal": "By the end you can add @Timed and @Retry to the container's components, through a JDK proxy for components with interfaces and a Byte Buddy subclass for the rest, with correct equals and hashCode, default methods retried call by call, and a start-up error instead of a silent skip when Kotlin's final classes get in the way.",
- "warmup": {
-  "q": "`settle(batch)` is annotated `@Retry(attempts = 3)` and calls `this.audit(batch)`, which is also `@Retry(attempts = 3)` and always throws a retryable exception. The bean is intercepted by a subclass proxy, so self-calls are intercepted. How many times does `audit`'s body run before `settle` gives up?",
-  "options": ["3", "9", "1", "6"],
-  "answer": 1,
-  "why": "Each attempt of `settle` calls `audit` through the subclass, and `audit`'s own retry runs its body three times before it throws. `settle`'s retry then catches that and tries again, three times in all: 3 x 3 = 9. Nested retries multiply. With a forwarding proxy the inner call would skip interception and run once per `settle` attempt, 3 in all."
- },
- "sections": [
-  {
-   "h": "An interceptor runs around a call, and proceed() is the call",
-   "body": """Here is what timing and retries look like when every method does them itself:
+OPENING = """The city's booking service runs in another building, and the box office reaches it over the network. Most calls come back in a few milliseconds. Now and then one gets no answer: the call times out, and the customer at the counter waits for nothing. So the theatre wants every booking call timed, and a call that timed out tried again.
+
+Writing a timer and a retry loop into every method works, and buries each line of real work under a dozen lines of plumbing. The stand-in at the stage door from the Class loading track did this job for an actor: it noted every request and tried again when the actor didn't answer. The trap is in what you try again. Retry the wrong call, and one customer ends up holding two seats.
+
+Last time, the container built each part from its constructor. In this lesson, it hands out stand-ins, objects called proxies that take each call first: a JDK proxy for a part with an interface, a Byte Buddy subclass for one without. Then we'll make Kotlin's final classes fail loudly and choose which call to retry. Before we start, make a guess, and keep it in mind."""
+
+S1 = """Here is what timing and retries look like when a method does them itself:
 
 ```java
-public String authorize(String pan, long amountMinor) {
+public String reserve(String seat, long priceCents) {
     long t0 = System.nanoTime();
     try {
         for (int attempt = 1; ; attempt++) {
-            try { return http.authorize(pan, amountMinor); }
-            catch (IssuerUnavailableException e) { if (attempt == 3) throw e; }
+            try { return remote.reserve(seat, priceCents); }        // the one line of real work
+            catch (BookingUnavailableException e) { if (attempt == 3) throw e; }
         }
     } finally {
-        metrics.record("authorize", System.nanoTime() - t0);
+        timings.record("reserve", System.nanoTime() - t0);
     }
 }
 ```
 
 ```kotlin
-fun authorize(pan: String, amountMinor: Long): String {
+fun reserve(seat: String, priceCents: Long): String {
     val t0 = System.nanoTime()
     try {
         var attempt = 1
         while (true) {
-            try { return http.authorize(pan, amountMinor) }
-            catch (e: IssuerUnavailableException) { if (attempt++ == 3) throw e }
+            try { return remote.reserve(seat, priceCents) }        // the one line of real work
+            catch (e: BookingUnavailableException) { if (attempt++ == 3) throw e }
         }
     } finally {
-        metrics.record("authorize", System.nanoTime() - t0)
+        timings.record("reserve", System.nanoTime() - t0)
     }
 }
 ```
 
-Two lines of business logic, twelve lines of plumbing, copied into `capture`, `refund` and `void`. *Decorator and Proxy* moved the plumbing into a class that wraps the client, but you still write one decorator per interface.
+One line of real work and a dozen lines of plumbing, copied into `confirm`, `cancel` and every method the booking service will ever grow. Decorator and Proxy moved that plumbing into a class that wraps the real one, but you still write one wrapper per interface. And the timer and the retry are tangled together, so changing one means reading both.
 
-An **interceptor** is the plumbing written once, for any method. It receives an `Invocation`: the method's name, its arguments, and `proceed()`, which means "carry on with the call". Here is the lab's timer:
+An **interceptor** is the plumbing written once, for any method. Think of the stand-in at the stage door with one routine: note the time, pass the request on, note the time again. The container hands each interceptor an `Invocation`, which carries the method's name, its arguments, and `proceed()`, which means "pass it on". Here is the lab's timer:
 
 ```java
 public Object intercept(Invocation inv) {
     long start = clock.getAsLong();
     boolean failed = true;
     try {
-        Object result = inv.proceed();
+        Object result = inv.proceed();         // pass it on
         failed = false;
         return result;
     } finally {
@@ -108,65 +100,69 @@ override fun intercept(inv: Invocation): Any? {
     val start = clock.asLong
     var failed = true
     try {
-        return inv.proceed().also { failed = false }
+        return inv.proceed().also { failed = false }   // pass it on
     } finally {
         log.record(inv.name, clock.asLong - start, failed)
     }
 }
 ```
 
-Several interceptors form a **chain**. `proceed()` runs the next one, and after the last one it runs the real method. A retry interceptor is a loop that calls `proceed()` again after a listed failure. CDI's `InvocationContext.proceed()` and Spring's `MethodInvocation.proceed()` have exactly this shape.
+Read it in order. First it notes the start time and assumes the worst. Then it passes the call on and, if nothing was thrown, marks it a success. Finally, whatever happened, it records the name, the time taken and the outcome. The `finally` is the tricky line: it runs on success and on failure, so a call that throws is timed too.
 
-The order of the chain changes what you measure. With `@Timed` outside `@Retry`, the timer sees one call that took as long as all the attempts together. With `@Timed` inside, it records every attempt separately. The lab puts `@Timed` first, because the caller waited for all of it. The annotations themselves only mark methods: they need `@Retention(RUNTIME)` so the container can read them with `getAnnotation`, as `@Component` did in lesson 1.""",
-   "try": {
-    "title": "Swap the order of two interceptors",
-    "minutes": 3,
-    "steps": [
-     "Read `ChainDemo` (or the Kotlin twin). The \"issuer\" fails twice and then answers. A third interceptor prints each time the chain reaches it.",
-     "Predict for each order: how many `->` lines, and how many entries in the log?",
-     "Run it. Then change `RetryInterceptor(3, ...)` to `RetryInterceptor(2, ...)` and predict what the first order prints."
-    ],
-    "code": demo("ChainDemo"),
-    "expect": "Both orders print three `->`/`<-` pairs, because the retry calls `proceed()` three times. With timed outside, the log has one entry, `failed=false`, 10 ms on the fake clock. With retry outside, it has three: two `failed=true`, one `failed=false`. With two attempts the call throws `IllegalStateException: issuer timed out` after two pairs, and the one log entry is recorded with `failed=true` on the way out."
-   }
-  },
-  {
-   "h": "A component with interfaces gets a JDK proxy, and the handler owes four answers",
-   "body": """The container now decides, for each component, how its interceptors will run. If the component implements an interface, it gets a JDK proxy: `Proxy.newProxyInstance` generates a class that implements the interfaces and sends every call to an `InvocationHandler`, as *Dynamic proxies with java.lang.reflect.Proxy* showed. The container creates the real object first, the **target**, and the proxy holds it. Spring Framework's documented rule is the same: "If the target object to be proxied implements at least one interface, a JDK dynamic proxy is used." (Spring Boot switches its default to subclasses, as *Generated proxies: Byte Buddy, Spring AOP and Quarkus interceptors* showed.)
+Several interceptors make a **chain**, like helpers standing in a row at the door. `proceed()` hands the call to the next helper, and after the last one it runs the real method. A retry interceptor is a loop that calls `proceed()` again after a failure it was told to retry. Real frameworks have the same shape: `InvocationContext.proceed()` in Jakarta, the standard set of Java server libraries, and `MethodInvocation.proceed()` in Spring are this method under other names.
 
-That lesson's handler rules come back as the four cases you write in the lab, in this order:
+The order of the chain changes what you measure. With the timer outside the retry, it sees one call that took as long as all the attempts together. With the timer inside, it records every attempt on its own. The demo sends one booking call that fails twice through both orders, with a fake clock that moves 10 ms per read. Its two result lines:
 
-1. `equals`, `hashCode` and `toString` arrive with `method.declaringClass == Object`. Answer them on the proxy, by identity. A handler that forwards `equals` to the target makes `proxy.equals(proxy)` false, and `listeners.remove(proxy)` quietly fails.
-2. A default method goes to `InvocationHandler.invokeDefault(proxy, method, args)`, so its body runs with `this` being the proxy and its inner calls come back through the handler.
-3. Every other method builds an `Invocation` with that method's chain and a target call, `method.invoke(target, args)`.
-4. That target call catches `InvocationTargetException` and rethrows its cause, so the caller sees the issuer's own `IssuerUnavailableException`.
+```text
+  result hold-C12 after 3 calls, log [Call(name=Booking.reserve, nanos=10000000, failed=false)]
+  result hold-C12 after 3 calls, log [Call(name=Booking.reserve, nanos=10000000, failed=true), Call(name=Booking.reserve, nanos=10000000, failed=true), Call(name=Booking.reserve, nanos=10000000, failed=false)]
+```
 
-Two consequences follow from "the proxy implements the interfaces". First, the bean is not a `FakeIssuer`. `get(CardIssuerClient.class)` works, but `get(FakeIssuer.class)` can't return a `$Proxy5`, so the lab's container refuses with a message naming the interface to ask for. Second, the handler only ever sees the interface's `Method`, so the annotations must be on the interface. `@Timed` on the class's method would never be read; the container refuses that at start-up too, rather than skipping it.
+The lab puts `@Timed` first, outside, because the customer waited for all of it. The annotations themselves only mark methods. Like `@Component` in lesson 1, they need `@Retention(RUNTIME)` so the container can read them with `getAnnotation`. Now the container has to put the chain in front of the real object, and how it does that depends on whether the part has an interface."""
 
-Kotlin's final-by-default doesn't matter on this path. `FakeIssuer` in the tests is a plain, final Kotlin class, and that's fine: the JDK only needs the interface.""",
-   "try": {
-    "title": "Equals on two proxies",
-    "minutes": 3,
-    "steps": [
-     "Read `ProxyIdentityDemo` (or the Kotlin twin). It compares the container's proxy with one whose handler forwards every method to the target.",
-     "Predict the three booleans on each line.",
-     "Run it, and read the last line."
-    ],
-    "code": demo("ProxyIdentityDemo"),
-    "expect": "The bean is `jdk.proxy2.$Proxy5` (the number depends on how many proxies the JVM made before, annotation instances included) and implements `[CardIssuerClient]`. The container's handler gives `true true true`. Forwarding everything gives `false false false`: the target was asked whether it equals the proxy, and said no. The last line is the container refusing `get(FlakyIssuer.class)`: `FlakyIssuer is behind a JDK proxy that implements [CardIssuerClient]; ask for one of those, not for the class`."
-   },
-   "refs": [
-    {"title": "InvocationHandler.invokeDefault (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/reflect/InvocationHandler.html", "kind": "docs"},
-    {"title": "Spring Framework reference: Proxying mechanisms", "url": "https://docs.spring.io/spring-framework/reference/core/aop/proxying.html", "kind": "docs"}
-   ]
-  },
-  {
-   "h": "A class without interfaces gets a Byte Buddy subclass, so final is fatal",
-   "body": """`SettlementService` has no interface, so the container generates a subclass with Byte Buddy, the "proxy is the object" model from *Generated proxies: Byte Buddy, Spring AOP and Quarkus interceptors*. Byte Buddy's `subclass(type)` copies the superclass's public constructors, so the container calls `SettlementService$ByteBuddy$...(SettlementLedger)` with the dependencies it resolved, and the original class is never instantiated on its own. There is one object. Each intercepted method is an override whose `@SuperCall` callable runs `super.settle(...)` at the end of the chain. A retry simply calls that callable again.
+S2 = """For each component, the container now decides how its interceptors will run. If the component implements an interface, it gets a JDK proxy. `Proxy.newProxyInstance` writes a class that implements the interfaces and sends every call to one `InvocationHandler`, as Dynamic proxies with java.lang.reflect.Proxy showed: the stand-in at the stage door, with the actor behind it. The container creates the real object first, the **target**, and the proxy holds it. Spring Framework documents the same rule for its own proxies: if the target implements at least one interface, it uses a JDK proxy. (Spring Boot, its quick-start layer, switches the default to subclasses, as Generated proxies: Byte Buddy, Spring AOP and Quarkus interceptors showed.)
 
-Because the subclass is the bean, a self-call goes through it. `settle` calls `this.audit(batch)`, `this` is the subclass, and `audit`'s override runs its own chain. The figure shows both models side by side.
+That lesson's rules for the handler come back as the four cases you write in the lab, in this order:
 
-A subclass can only intercept what it can override, and Kotlin makes that a daily problem. A Kotlin class is final unless you write `open`, and so is every member. On a final class Byte Buddy fails loudly: `Cannot subclass primitive, array or final types`. On an `open class` with a plain `fun`, it succeeds, and the method is simply not overridden. `@Timed` sits on it and does nothing. That silent case is why the lab's container calls `check(component)` for every component when it starts, and refuses a final class or a final or private intercepted method with a message that says what to change.
+1. `equals`, `hashCode` and `toString` arrive with `method.getDeclaringClass() == Object.class`. Answer them on the proxy itself, by identity. A handler that sends `equals` to the target makes `proxy.equals(proxy)` false, and `list.remove(proxy)` quietly fails.
+2. A default method, an interface method with a body, goes to `InvocationHandler.invokeDefault(proxy, method, args)`. Its body then runs with `this` being the proxy, so the calls inside it come back through the handler.
+3. Every other method gets an `Invocation` with that method's chain, ending in `method.invoke(target, args)`.
+4. That last call catches `InvocationTargetException` and throws its cause, so the caller sees the booking service's own `BookingUnavailableException`, not a wrapper around it.
+
+The demo puts the container's proxy next to one whose handler forwards every method, `equals` included:
+
+```text
+bean class: jdk.proxy2.$Proxy5 implements [BookingClient]
+container's handler  p.equals(p)=true  listeners.remove(p)=true  hashCode is identity=true
+forward everything   p.equals(p)=false  listeners.remove(p)=false  hashCode is identity=false
+```
+
+The forwarding stand-in asked the actor whether the actor was the stand-in, and the actor said no. Fair enough.
+
+Two consequences follow from "the proxy implements the interfaces", and both surprise people. First, the object you get back isn't a `FlakyBooking`. It's a `$Proxy5` that implements `BookingClient`. `get(BookingClient.class)` works, but `get(FlakyBooking.class)` can't return it, so the lab's container refuses with a message that names the interface to ask for:
+
+```text
+FlakyBooking is behind a JDK proxy that implements [BookingClient]; ask for one of those, not for the class
+```
+
+Second, the handler only ever sees the interface's `Method`, so the annotations must sit on the interface. `@Timed` on the class's method would never be read, and nothing would say so. The container refuses that case when it starts, rather than skip the timer in silence.
+
+Kotlin's final classes don't matter on this path. `FakeBooking` in the tests is a plain, final Kotlin class, and that's fine: the JDK needs only the interface. A part without an interface is a different story."""
+
+S3 = """`ShowCloser` closes the box office after the last show of the night. It checks the night's code, files the night in the archive, and returns a short note. It has no interface, so there is no job card for a stand-in to copy. Generated proxies: Byte Buddy, Spring AOP and Quarkus interceptors had the answer: the costume department sews a full copy of the costume, a subclass that extends the class and replaces some of its methods. Byte Buddy, a library that writes classes while your program runs, does the sewing.
+
+Byte Buddy's `subclass(type)` copies the class's public constructors. The container calls the generated `ShowCloser$ByteBuddy$...` constructor with the `ShowArchive` it resolved, and the original class is never created on its own. There is one object. Each intercepted method becomes an override whose `@SuperCall` callable, a small object that runs `super.close(...)`, sits at the end of the chain. A retry simply calls it again.
+
+Because the subclass is the object, a self-call, a call from one of the object's methods to another through `this`, goes through it too. `close` calls `this.verify(night)`. `this` is the subclass, so `verify`'s override runs its own chain. The Class loading track called this the understudy who plays the role, as against the lookalike at the door who passes requests to the actor. The figure shows both: the JDK proxy is the lookalike, and the actor's own calls never pass the door. The lab's test closes night N-17 and reads the log: `[ShowCloser.verify, ShowCloser.close]`. `verify` comes first because each timer records when its call ends, and `verify` ends inside `close`.
+
+A subclass can only intercept what it's allowed to override, and Kotlin makes that a daily problem. A Kotlin class is final unless you write `open`, and so is each of its members: a role nobody may copy. On a final class, Byte Buddy fails loudly: `Cannot subclass primitive, array or final types`. On an `open class` with a plain `fun`, it succeeds and simply leaves the method alone. `@Timed` sits on it and does nothing. That silent case is why the lab's container calls `check(component)` for every component when it starts. It refuses a final class, or a final or private intercepted method, with a message that says what to change. The demo tries two Kotlin classes with the same `@Timed` method, and the build opens only the second:
+
+```text
+KFinalPrices: class final=true, feeCents final=true
+  refused: KFinalPrices is final, so no subclass can intercept it: make it open, or give it an interface
+KOpenedPrices: class final=false, feeCents final=false
+  wired as KOpenedPrices$ByteBuddy$w7Szn3cT, timed calls [KOpenedPrices.feeCents]
+```
 
 There are three fixes. Write `open` on the class and on each intercepted method. Or let the all-open compiler plugin do it for classes that carry an annotation you choose; this lab's build opens classes marked `@OpenForProxies`:
 
@@ -176,23 +172,120 @@ plugins { kotlin("plugin.allopen") }
 allOpen { annotation("workbench.container.l02.demo.OpenForProxies") }
 ```
 
-`kotlin-spring` is the same plugin, preset to open `@Component` and its friends. The third fix is an interface, which moves the component to the JDK-proxy path where finality doesn't matter. Quarkus goes a fourth way: with `quarkus.arc.transform-unproxyable-classes`, on by default, it rewrites final classes at build time so it can subclass them.
+`kotlin-spring` is the same plugin, preset to open the classes Spring creates. The third fix is an interface, which moves the part to the JDK proxy path, where finality doesn't matter. (Quarkus goes a fourth way: by default it rewrites final classes while the program is built, so that it can subclass them.)
 
-Each Byte Buddy class also gets its own class loader, a `ByteArrayClassLoader`, unless you choose another loading strategy. Lesson 3 counts what that costs.""",
-   "figure": {"svg": FIGURE, "caption": "A JDK proxy forwards to a separate target, so the target's self-calls skip it. A subclass proxy is the bean, so a call to this.audit() goes back through the interceptors."},
+**An annotation only works if a proxy can reach the method. Make the container refuse what no proxy can reach.**
+
+Each class Byte Buddy writes also gets a class loader of its own, a `ByteArrayClassLoader`, unless you choose another loading strategy. Lesson 3 counts what that leaves behind."""
+
+ASIDE = {
+    "title": "Could an agent add the timer instead?",
+    "body": "Yes, and many monitoring tools do. Java agents and instrumentation pictured an agent as the stage manager who slips a note into the prompt book before rehearsal: it rewrites a method's bytecode as the class loads. Because the code itself changes, self-calls, final classes and private methods are all covered. The price is a flag on the command line, `-javaagent`, or a warning since JDK 21 when an agent attaches to a program that is already running. A container usually prefers proxies, because they need nothing from whoever starts the program.",
+}
+
+S4 = """A retry interceptor makes three promises. It only retries the failures the annotation lists: a `BookingUnavailableException` is worth another try, a seat that doesn't exist is not. It counts attempts in total, so `attempts = 3` means at most three calls. And when it gives up, the caller gets the original exception, not an `UndeclaredThrowableException` or an `InvocationTargetException` wrapped around it.
+
+The hard part is choosing which call to repeat. Selling a ticket takes two calls to the booking service: `reserve` holds the seat, and `confirm` turns the hold into a ticket. `reserveAndConfirm` is a default method that makes both:
+
+```java
+default String reserveAndConfirm(String seat, long priceCents) {
+    return confirm(reserve(seat, priceCents));
+}
+```
+
+```kotlin
+fun reserveAndConfirm(seat: String, priceCents: Long): String = confirm(reserve(seat, priceCents))
+```
+
+Say the first `confirm` times out. A handler that forwards the default method to the target, and retries it as a whole, repeats the reservation too. The demo's booking service keeps a list of every call it saw:
+
+```text
+container's proxy:  ticket-hold-C12, booking service saw [reserve, confirm (timed out), confirm]
+  timed calls: [BookingClient.reserve, BookingClient.confirm]
+retry the shell:    ticket-hold-C12, booking service saw [reserve, confirm (timed out), reserve, confirm]
+```
+
+Both halves print a ticket, and the second also held a second seat: one customer, two seats, and an empty one on the night that nobody else can buy. Through the container, `invokeDefault` runs the default body on the proxy, so each inner call carries its own `@Retry`, and the confirmation is retried as a confirmation. That's the rule for default methods from Dynamic proxies with java.lang.reflect.Proxy, and the lab tests it.
+
+Even a single call is only safe to repeat if the other side can spot the repeat. A timeout doesn't tell you the booking service didn't confirm. It tells you that you don't know. So retry `confirm` only if it carries a booking reference, the same one on every attempt, which the service uses to recognize a repeat and do the work once. The general name for such a reference is an idempotency key. The interceptor can't know whether a call carries one; the person who writes `@Retry` on the method has to.
+
+Retries also multiply when they nest. With a subclass proxy, a retried `close` that calls a retried `verify` runs `verify`'s body up to 3 x 3 = 9 times, as the warm-up asked.
+
+**A retry repeats whatever you annotate, harmful or not. Put `@Retry` on the smallest call that is safe to repeat, and only once along a chain of calls.**
+
+Here the stand-in picture breaks. A real stand-in would notice the same customer coming back twice for the same seat. An interceptor notices nothing. It does exactly what the annotation says, as many times as it says."""
+
+CLOSING = """We started with a booking service that sometimes doesn't answer, and plumbing copied into every method. Now two interceptors hold the plumbing, and the container hands out stand-ins: a JDK proxy for a part with an interface, a costume copy from Byte Buddy for one without. At start-up, it refuses any annotation no proxy could reach.
+
+Now look in your own code for a method with an annotation such as `@Transactional`, `@Retry` or `@Cacheable`. Check two things: can a proxy reach it (is it open and public?), and is it ever called through `this`?
+
+Next, we'll measure what these stand-ins cost. How many classes does one start load, and how much of that work could the build do instead?"""
+
+L = {
+ "id": "cap4-02",
+ "title": "Add interceptors with proxies",
+ "minutes": 40,
+ "goal": "By the end you can add @Timed and @Retry to the container's components, through a JDK proxy for components with interfaces and a Byte Buddy subclass for the rest, with correct equals and hashCode, default methods retried call by call, and a start-up error instead of a silent skip when Kotlin's final classes get in the way.",
+ "opening": OPENING,
+ "warmup": {
+  "q": "`close(night)` is annotated `@Retry(attempts = 3)` and calls `this.verify(night)`, which is also `@Retry(attempts = 3)` and always throws a failure that is worth retrying. The part is intercepted by a subclass proxy, so self-calls are intercepted. How many times does `verify`'s body run before `close` gives up?",
+  "options": ["3", "9", "1", "6"],
+  "answer": 1,
+  "why": "Each attempt of `close` calls `verify` through the subclass, and `verify`'s own retry runs its body three times before it throws. `close`'s retry then catches that and tries again, three times in all: 3 x 3 = 9. Nested retries multiply. With a forwarding proxy the inner call would skip interception and run once per `close` attempt, 3 in all, which is why 3 is the tempting answer."
+ },
+ "sections": [
+  {
+   "h": "An interceptor runs around a call, and proceed() passes it on",
+   "body": S1,
+   "try": {
+    "title": "Swap the order of two interceptors",
+    "minutes": 3,
+    "steps": [
+     "Read `ChainDemo` (or the Kotlin twin). The \"booking service\" fails twice and then answers. A third interceptor prints each time the chain reaches it.",
+     "Predict, for each order: how many `->` lines, and how many entries in the log?",
+     "Run it. Then change `RetryInterceptor(3, ...)` to `RetryInterceptor(2, ...)` and predict what the first order prints."
+    ],
+    "code": demo("ChainDemo"),
+    "expect": "Both orders print three `->`/`<-` pairs, because the retry calls `proceed()` three times. With the timer outside, the log has one entry, `failed=false`, 10 ms on the fake clock. With the retry outside, it has three: two `failed=true`, one `failed=false`. With two attempts, the call throws `IllegalStateException: booking service timed out` after two pairs, and the one log entry is recorded with `failed=true` on the way out."
+   }
+  },
+  {
+   "h": "A part with an interface gets a stand-in at the stage door: a JDK proxy",
+   "body": S2,
+   "try": {
+    "title": "Ask two proxies whether they equal themselves",
+    "minutes": 3,
+    "steps": [
+     "Read `ProxyIdentityDemo` (or the Kotlin twin). It compares the container's proxy with one whose handler forwards every method to the target.",
+     "Predict the three booleans on each line.",
+     "Run it, and read the last line."
+    ],
+    "code": demo("ProxyIdentityDemo"),
+    "expect": "The bean is `jdk.proxy2.$Proxy5` (the number depends on how many proxies the JVM made before, annotation instances included) and implements `[BookingClient]`. The container's handler gives `true true true`. Forwarding everything gives `false false false`: the target was asked whether it equals the proxy, and said no. The last line is the container refusing `get(FlakyBooking.class)`: `FlakyBooking is behind a JDK proxy that implements [BookingClient]; ask for one of those, not for the class`."
+   },
+   "refs": [
+    {"title": "InvocationHandler.invokeDefault (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/reflect/InvocationHandler.html", "kind": "docs"},
+    {"title": "Spring Framework reference: Proxying mechanisms", "url": "https://docs.spring.io/spring-framework/reference/core/aop/proxying.html", "kind": "docs"}
+   ]
+  },
+  {
+   "h": "A part without an interface gets a costume copy: a Byte Buddy subclass, so final is fatal",
+   "body": S3,
+   "aside": ASIDE,
+   "figure": {"svg": FIGURE, "caption": "A JDK proxy forwards to a separate target, so the target's self-calls skip it. A subclass proxy is the object itself, so a call to this.verify() goes back through the interceptors."},
    "try": {
     "title": "Watch a Kotlin class get refused, then opened",
     "minutes": 4,
     "steps": [
      "Read `FinalClassDemo.kt`: two identical classes with a `@Timed` method, one marked `@OpenForProxies`. The Java twin, `FinalClassDemoJava`, does the same with a Java `final class`.",
      "Predict the `final=` flags on each line, and which class the container refuses. Run it.",
-     "From `labs/`, run `javap -p container/build/classes/kotlin/demo/workbench/container/l02/demo/KOpenedFees.class` and compare it with `KFinalFees.class`."
+     "From `labs/`, run `javap -p container/build/classes/kotlin/demo/workbench/container/l02/demo/KOpenedPrices.class` and compare it with `KFinalPrices.class`."
     ],
     "code": {"lang": "kotlin", "title": "FinalClassDemo.kt", "src": read(f"{lab}/demo/{K}/demo/FinalClassDemo.kt"),
              "run": RUN + "FinalClassDemoKt", "file": f"{lab}/demo/{K}/demo/FinalClassDemo.kt",
              "alt": {"lang": "java", "title": "FinalClassDemoJava.java", "src": read(f"{lab}/demo/{J}/demo/FinalClassDemoJava.java"),
                      "run": RUN + "FinalClassDemoJava", "file": f"{lab}/demo/{J}/demo/FinalClassDemoJava.java"}},
-    "expect": "`KFinalFees: class final=true, feeMinor final=true`, then `refused: KFinalFees is final, so no subclass can intercept it: make it open, or give it an interface`. `KOpenedFees` has both flags `false`, is wired as `KOpenedFees$ByteBuddy$...` (random suffix) and logs `[KOpenedFees.feeMinor]`. The last line is Byte Buddy's own error for the final class. In the Java twin only the class is final (`feeMinor final=false`), because Java methods are open by default. In javap, `KFinalFees` is `public final class` with `public final long feeMinor(long)`, while `KOpenedFees` has neither `final`."
+    "expect": "`KFinalPrices: class final=true, feeCents final=true`, then `refused: KFinalPrices is final, so no subclass can intercept it: make it open, or give it an interface`. `KOpenedPrices` has both flags `false`, is wired as `KOpenedPrices$ByteBuddy$...` (a random suffix) and logs `[KOpenedPrices.feeCents]`. The last line is Byte Buddy's own error for the final class. In the Java twin only the class is final (`feeCents final=false`), because Java methods are open by default. In javap, `KFinalPrices` is `public final class` with `public final long feeCents(long)`, while `KOpenedPrices` has neither `final`."
    },
    "refs": [
     {"title": "All-open compiler plugin (Kotlin docs)", "url": "https://kotlinlang.org/docs/all-open-plugin.html", "kind": "docs"}
@@ -200,67 +293,58 @@ Each Byte Buddy class also gets its own class loader, a `ByteArrayClassLoader`, 
   },
   {
    "h": "Retry the smallest call that is safe to repeat",
-   "body": """A retry interceptor makes three promises. It only retries the exceptions the annotation lists: an `IssuerUnavailableException` is worth another try, a card number that fails the Luhn check is not. It counts attempts in total, so `attempts = 3` means at most three calls. And when it gives up, the caller gets the original exception, not an `UndeclaredThrowableException` or an `InvocationTargetException` wrapped around it.
-
-The hard part is choosing which call to repeat. `authorizeAndCapture` is a default method that calls `authorize` and then `capture`. If the handler forwards it to the target and retries it as a whole, a capture that times out repeats the authorization too: the issuer sees a second hold on the customer's card. With `invokeDefault`, the default body runs on the proxy, and each inner call carries its own `@Retry`. The capture is retried as a capture. That is the default-method rule from *Dynamic proxies with java.lang.reflect.Proxy*, and the lab tests it.
-
-Even a single call is only safe to repeat when the other side can recognize the repeat. A timeout doesn't tell you the issuer didn't capture; it tells you that you don't know. So retry a capture only if it carries an idempotency key, the same one on every attempt, which the issuer uses to drop duplicates. The interceptor can't know that; the person who writes `@Retry` on the method has to.
-
-Retries also nest. With a subclass proxy, a retried `settle` that calls a retried `audit` runs `audit`'s body up to 3 x 3 = 9 times, as the warm-up asked. Put `@Retry` on the outermost call that is safe to repeat, or on the innermost one, and not on both.""",
+   "body": S4,
    "try": {
-    "title": "Retry the capture, not the authorization",
+    "title": "Retry the confirmation, not the reservation",
     "minutes": 3,
     "steps": [
-     "Read `RetryDemo` (or the Kotlin twin). The issuer's first capture times out. The first half uses the container's proxy; the second uses a handler that retries every method as a whole.",
-     "Predict the list of calls the issuer sees in each half.",
+     "Read `RetryDemo` (or the Kotlin twin). The booking service's first confirmation times out. The first half uses the container's proxy; the second uses a handler that retries every method as a whole.",
+     "Predict the list of calls the booking service sees in each half.",
      "Run it."
     ],
     "code": demo("RetryDemo"),
-    "expect": "Both halves return `cap-auth-1111`. Through the container the issuer sees `[authorize, capture (timed out), capture]`, and the timed calls are `authorize` and `capture`: the default method itself is not timed. The naive handler gives `[authorize, capture (timed out), authorize, capture]`: one customer, two authorizations."
+    "expect": "Both halves return `ticket-hold-C12`. Through the container the booking service sees `[reserve, confirm (timed out), confirm]`, and the timed calls are `reserve` and `confirm`: the default method itself is not timed. The naive handler gives `[reserve, confirm (timed out), reserve, confirm]`: one customer, two seats held."
    }
   }
  ],
- "analogy": "A JDK proxy is a receptionist in front of a specialist's office. Every visitor goes through the receptionist, who logs the time and sends them back in if the specialist was busy, but when the specialist walks down the corridor to ask a colleague a question, no receptionist sees it. A Byte Buddy subclass is the specialist with a habit built in: they log their own time, even for questions they ask themselves. A final Kotlin class is a specialist who refuses to learn new habits, and the honest thing is to say so at hiring time. The analogy breaks at retries: a receptionist would notice a patient being sent in twice, while an interceptor repeats whatever you annotated, harmful or not.",
- "in_your_world": "This is the machinery under `@Transactional`, `@Retry` from SmallRye Fault Tolerance, Micrometer's `@Timed` and Spring's `@Cacheable`. In your Quarkus services ArC generates the subclass at build time and documents that self-calls are intercepted; in a Spring service the advice runs in a proxy in front of a separate target, and self-calls skip it. Before you put a retry on an issuer call, check that the request carries an idempotency key the issuer honours, and put the retry on the capture, not on a method that also authorizes. In Kotlin, make sure the class and the method are open: compile, run `javap -p`, and look for `final`.",
- "mistake": "The most common mistake is trusting that an annotation runs because it is on the method. Interception only happens when a call passes through generated code that can override or receive that method. A Kotlin method without `open`, a `private` method, a self-call on a forwarding proxy, an annotation placed on the class when the proxy only sees the interface: in each case the code compiles, the tests that call the class directly pass, and the timer or the retry never runs. People miss it because nothing fails. The fix is the lab's design: let the container check at start-up and refuse what it can't intercept, and test through the container with an assertion on the effect (a retry count, a log entry).",
  "compare": {
-  "title": "An interceptable class in Java and in Kotlin",
+  "title": "A part a subclass can intercept, in Java and in Kotlin",
   "java": {
-   "title": "SettlementService.java",
-   "src": "@Component\npublic class SettlementService {                // open unless you write final\n    private final SettlementLedger ledger;\n\n    public SettlementService(SettlementLedger ledger) {\n        this.ledger = ledger;\n    }\n\n    @Timed\n    public String settle(String batch) {          // overridable\n        audit(batch);                             // self-call: intercepted in a subclass\n        ledger.post(batch);\n        return \"settled \" + batch;\n    }\n\n    @Timed\n    public void audit(String batch) { /* ... */ }\n\n    public final String region() { return \"EU\"; }   // final on purpose: not intercepted\n}"
+   "title": "ShowCloser.java",
+   "src": "@Component\npublic class ShowCloser {                       // open unless you write final\n    private final ShowArchive archive;\n\n    public ShowCloser(ShowArchive archive) {\n        this.archive = archive;\n    }\n\n    @Timed\n    public String close(String night) {           // overridable\n        verify(night);                            // self-call: intercepted in a subclass\n        archive.file(night);\n        return \"closed \" + night;\n    }\n\n    @Timed\n    public void verify(String night) { /* ... */ }\n\n    public final String hall() { return \"Main hall\"; }   // final on purpose: not intercepted\n}"
   },
   "kotlin": {
-   "title": "SettlementService.kt",
-   "src": "@Component\nopen class SettlementService(private val ledger: SettlementLedger) {   // final without open\n    @Timed\n    open fun settle(batch: String): String {     // final without open\n        audit(batch)                             // self-call: intercepted in a subclass\n        ledger.post(batch)\n        return \"settled $batch\"\n    }\n\n    @Timed\n    open fun audit(batch: String) { /* ... */ }\n\n    fun region(): String = \"EU\"                  // final by default: not intercepted\n}"
+   "title": "ShowCloser.kt",
+   "src": "@Component\nopen class ShowCloser(private val archive: ShowArchive) {   // final without open\n    @Timed\n    open fun close(night: String): String {      // final without open\n        verify(night)                            // self-call: intercepted in a subclass\n        archive.file(night)\n        return \"closed $night\"\n    }\n\n    @Timed\n    open fun verify(night: String) { /* ... */ }\n\n    fun hall(): String = \"Main hall\"             // final by default: not intercepted\n}"
   },
   "note": "The two classes compile to the same shape only after you add `open` in Kotlin. Java's default is overridable, so `final` is the exception you write; Kotlin's default is final, so `open` is. That single difference decides whether a subclass proxy can work, and on an open class with a plain `fun` it fails silently. The all-open plugin flips Kotlin's default for classes with an annotation you choose. Nothing differs for JDK proxies: both languages compile interfaces to ordinary JVM interfaces, and Kotlin interface functions with a body become JVM default methods that `invokeDefault` can run."
  },
  "worked": {
-  "title": "Add a third interceptor: @Audited",
+  "title": "Add a third interceptor: @Recorded",
   "steps": [
    {
-    "say": "Compliance wants every refund recorded with its arguments. Start with the marker. It needs `RUNTIME` retention and targets methods, like `@Timed`.",
-    "code": "@Retention(RetentionPolicy.RUNTIME)\n@Target(ElementType.METHOD)\npublic @interface Audited {\n}",
+    "say": "The theatre wants every cancellation written down with its arguments, so that a customer's complaint can be checked later. Start with the marker. It needs `RUNTIME` retention and targets methods, like `@Timed`.",
+    "code": "@Retention(RetentionPolicy.RUNTIME)\n@Target(ElementType.METHOD)\npublic @interface Recorded {\n}",
     "lang": "java",
     "alt_lang": "kotlin",
-    "alt_code": "@Retention(AnnotationRetention.RUNTIME)\n@Target(AnnotationTarget.FUNCTION)\nannotation class Audited"
+    "alt_code": "@Retention(AnnotationRetention.RUNTIME)\n@Target(AnnotationTarget.FUNCTION)\nannotation class Recorded"
    },
    {
-    "say": "Write the interceptor. It records the call before it proceeds, so an attempt that throws is in the audit trail too. It doesn't catch anything: failures are the retry's business, or the caller's.",
-    "code": "public final class AuditInterceptor implements Interceptor {\n    private final List<String> trail;\n\n    public AuditInterceptor(List<String> trail) { this.trail = trail; }\n\n    @Override\n    public Object intercept(Invocation inv) {\n        trail.add(inv.getName() + Arrays.toString(inv.getArgs()));   // 1. record first\n        return inv.proceed();                                        // 2. then carry on\n    }\n}",
+    "say": "Write the interceptor. It writes the call down before it passes it on, so an attempt that throws is on the record too. It doesn't catch anything: failures are the retry's business, or the caller's.",
+    "code": "public final class RecordInterceptor implements Interceptor {\n    private final List<String> record;\n\n    public RecordInterceptor(List<String> record) { this.record = record; }\n\n    @Override\n    public Object intercept(Invocation inv) {\n        record.add(inv.getName() + Arrays.toString(inv.getArgs()));   // 1. write it down first\n        return inv.proceed();                                        // 2. then pass it on\n    }\n}",
     "lang": "java",
     "alt_lang": "kotlin",
-    "alt_code": "class AuditInterceptor(private val trail: MutableList<String>) : Interceptor {\n    override fun intercept(inv: Invocation): Any? {\n        trail += inv.name + inv.args.contentToString()             // 1. record first\n        return inv.proceed()                                        // 2. then carry on\n    }\n}"
+    "alt_code": "class RecordInterceptor(private val record: MutableList<String>) : Interceptor {\n    override fun intercept(inv: Invocation): Any? {\n        record += inv.name + inv.args.contentToString()            // 1. write it down first\n        return inv.proceed()                                        // 2. then pass it on\n    }\n}"
    },
    {
-    "say": "Decide where it goes in the chain. Outside `@Retry`, it records one entry per refund the caller asked for. Inside, it records every attempt. Compliance asked for every request sent to the issuer, so it goes inside: after the timer and the retry.",
-    "code": "List<Interceptor> chainFor(Method m) {\n    List<Interceptor> chain = new ArrayList<>();\n    if (m.isAnnotationPresent(Timed.class)) chain.add(new TimedInterceptor(log, clock));\n    Retry r = m.getAnnotation(Retry.class);\n    if (r != null) chain.add(new RetryInterceptor(r.attempts(), List.of(r.on())));\n    if (m.isAnnotationPresent(Audited.class)) chain.add(new AuditInterceptor(trail));   // 3. innermost\n    return chain;\n}",
+    "say": "Decide where it goes in the chain. Outside `@Retry`, it writes one entry per cancellation the customer asked for. Inside, it writes every attempt. The theatre asked for every request sent to the booking service, so it goes inside: after the timer and the retry.",
+    "code": "List<Interceptor> chainFor(Method m) {\n    List<Interceptor> chain = new ArrayList<>();\n    if (m.isAnnotationPresent(Timed.class)) chain.add(new TimedInterceptor(log, clock));\n    Retry r = m.getAnnotation(Retry.class);\n    if (r != null) chain.add(new RetryInterceptor(r.attempts(), List.of(r.on())));\n    if (m.isAnnotationPresent(Recorded.class)) chain.add(new RecordInterceptor(record));   // 3. innermost\n    return chain;\n}",
     "lang": "java",
     "alt_lang": "kotlin",
-    "alt_code": "fun chainFor(m: Method): List<Interceptor> = buildList {\n    if (m.isAnnotationPresent(Timed::class.java)) add(TimedInterceptor(log, clock))\n    m.getAnnotation(Retry::class.java)?.let { add(RetryInterceptor(it.attempts, it.on.map { k -> k.java })) }\n    if (m.isAnnotationPresent(Audited::class.java)) add(AuditInterceptor(trail))       // 3. innermost\n}"
+    "alt_code": "fun chainFor(m: Method): List<Interceptor> = buildList {\n    if (m.isAnnotationPresent(Timed::class.java)) add(TimedInterceptor(log, clock))\n    m.getAnnotation(Retry::class.java)?.let { add(RetryInterceptor(it.attempts, it.on.map { k -> k.java })) }\n    if (m.isAnnotationPresent(Recorded::class.java)) add(RecordInterceptor(record))     // 3. innermost\n}"
    },
    {
-    "say": "Teach the container that `@Audited` counts as intercepted, in `isIntercepted`, so `check` refuses a final audited method too. Then test through the container: a refund that times out once leaves two trail entries with the same idempotency key. If it leaves one, the interceptor is outside the retry; if it leaves none, the method was never overridden."
+    "say": "Teach the container that `@Recorded` counts as intercepted, in `isIntercepted`, so `check` refuses a final recorded method too. Then test through the container: a cancellation that times out once leaves two entries with the same booking reference. If it leaves one, the interceptor sits outside the retry; if it leaves none, the method was never overridden."
    }
   ]
  },
@@ -271,23 +355,23 @@ Retries also nest. With a subclass proxy, a retried `settle` that calls a retrie
    f"{lab}/main/{K}/Interceptors.kt",
    f"{lab}/main/{K}/InterceptingHandler.kt",
    f"{lab}/main/{K}/Interception.kt",
-   f"{lab}/main/{K}/SettlementService.kt"
+   f"{lab}/main/{K}/ShowCloser.kt"
   ],
   "run": "./gradlew :container:test --tests 'workbench.container.l02.*'",
   "steps": [
-   "Run the tests once. Eleven of twelve fail. The Java files in `src/main/java/.../l02` are lesson 1's solution; `Container` now hands every component to `Interception`. The Kotlin files are yours. The fixtures are in `src/test/kotlin/.../l02/Fixtures.kt`: a scripted fake issuer and a few classes the container must refuse.",
-   "Write `RetryInterceptor.intercept`: a loop around `inv.proceed()` that rethrows on the last attempt or on an exception that isn't an instance of anything in `retryOn`.",
+   "Run the tests once. Eleven of twelve fail. The Java files in `src/main/java/.../l02` are lesson 1's solution; `Container` now hands every component to `Interception`. The Kotlin files are yours. The fixtures are in `src/test/kotlin/.../l02/Fixtures.kt`: a scripted fake booking service and a few classes the container must refuse.",
+   "Write `RetryInterceptor.intercept`: a loop around `inv.proceed()` that rethrows on the last attempt, or on an exception that isn't an instance of anything in `retryOn`.",
    "Write `InterceptingHandler.invoke` with the four cases from its KDoc, in order. `args` is null for methods without parameters.",
    "Write the class half of `Interception.check`: refuse a final class that has intercepted methods, then an intercepted method that is private or final, with the messages from the comment.",
-   "Run the tests. Most now fail with your own message: `SettlementService is final, so no subclass can intercept it...`. Open `SettlementService` and its two `@Timed` methods. Leave `region()` final. Run until all twelve pass."
+   "Run the tests. Most now fail with your own message: `ShowCloser is final, so no subclass can intercept it...`. Open `ShowCloser` and its two `@Timed` methods. Leave `hall()` final. Run until all twelve pass."
   ],
   "hints": [
    "In Kotlin, `Any::class.java` is `java.lang.Object`. That is what `method.declaringClass` is for `equals`, `hashCode` and `toString`.",
    "`InvocationHandler.invokeDefault(proxy, method, *a)` needs a non-null array: use `args ?: emptyArray()` once at the top.",
    "If `gives up after the last attempt` sees `UndeclaredThrowableException`, your target call threw the `InvocationTargetException` itself. Throw `e.cause!!`.",
-   "If the self-call test logs only `settle`, `audit` is still final: `open` on the class doesn't open its members."
+   "If the self-call test logs only `close`, `verify` is still final: `open` on the class doesn't open its members."
   ],
-  "done_when": "All twelve tests in `InterceptionTest` pass, and `region()` is still final."
+  "done_when": "All twelve tests in `InterceptionTest` pass, and `hall()` is still final."
  },
  "drill": {
   "title": "The four-case handler from memory",
@@ -303,40 +387,41 @@ Retries also nest. With a subclass proxy, a retried `settle` that calls a retrie
   }
  },
  "recap": [
-  "An interceptor runs around a call and calls `proceed()` to go on; a chain of them ends in the real method. Retry calls `proceed()` again. `@Timed` outside `@Retry` times what the caller waited for.",
-  "A component with interfaces gets a JDK proxy around a separate target. The handler answers `equals`, `hashCode` and `toString` by identity, runs default methods with `invokeDefault`, runs the chain, and unwraps `InvocationTargetException`.",
-  "A JDK proxy is not an instance of the class, and only sees the interface's methods: ask for the interface, and put the annotations there.",
-  "A component without interfaces gets a Byte Buddy subclass, built with its real constructor arguments. It is the bean, so self-calls are intercepted, but it can't extend a final class or override a final or private method.",
-  "Kotlin is final by default. Open the class and the intercepted methods, use all-open (or kotlin-spring), or add an interface, and let the container refuse at start-up what it can't intercept.",
-  "Retry only listed failures, rethrow the original, retry the inner calls of a default method, and only repeat calls that carry an idempotency key. Nested retries multiply."
+  "An interceptor runs around a call and calls `proceed()` to pass it on; a chain of them ends in the real method. A retry calls `proceed()` again. `@Timed` outside `@Retry` times what the customer waited for.",
+  "A part with interfaces gets a JDK proxy around a separate target. The handler answers `equals`, `hashCode` and `toString` by identity, runs default methods with `invokeDefault`, runs the chain, and unwraps `InvocationTargetException`.",
+  "A JDK proxy is not an instance of the class and sees only the interface's methods: ask for the interface, and put the annotations there.",
+  "A part without interfaces gets a Byte Buddy subclass, built with its real constructor arguments. It is the object itself, so self-calls are intercepted, but it can't extend a final class or override a final or private method. Kotlin is final by default: open the class and the methods, use all-open, or add an interface.",
+  "Retry only listed failures, rethrow the original, retry the inner calls of a default method one by one, and repeat only calls that carry a booking reference. Nested retries multiply.",
+  "Where today's container stops: every stand-in is made while the program starts, by reflection and by Byte Buddy, and nobody has counted what that costs. Lesson 3 measures it."
  ],
+ "closing": CLOSING,
  "quiz": [
   {
-   "q": "A handler has no `isDefault` branch, so the default method `authorizeAndCapture` goes through an empty chain to `method.invoke(target, args)`. `capture` is `@Retry(attempts = 3)` on the interface, and its first call times out. What happens?",
+   "q": "A handler has no `isDefault` branch, so the default method `reserveAndConfirm` goes through an empty chain to `method.invoke(target, args)`. `confirm` is `@Retry(attempts = 3)` on the interface, and its first call times out. What happens?",
    "options": [
-    "One authorization, two captures: the retry still works",
-    "One authorization and one capture, then the timeout reaches the caller",
-    "Two authorizations and two captures",
+    "One reservation, two confirmations: the retry still works",
+    "One reservation and one confirmation, then the timeout reaches the caller",
+    "Two reservations and two confirmations",
     "`invokeDefault` throws `IllegalArgumentException`"
    ],
    "answer": 1,
-   "why": "Forwarded to the target, the default body runs with `this` being the target, so its call to `capture` is an ordinary call that never reaches the handler. No interceptor sees it, nothing retries it, and the exception goes straight out. Only `invokeDefault` makes the inner calls pass through the proxy.",
+   "why": "Forwarded to the target, the default body runs with `this` being the target, so its call to `confirm` is an ordinary call that never reaches the handler. No interceptor sees it, nothing retries it, and the timeout goes straight out. The first option is what you'd expect if annotations worked by themselves; only `invokeDefault` makes the inner calls pass through the proxy.",
    "from": "cls-04"
   },
   {
-   "q": "Kotlin, no compiler plugins: `open class Payouts { @Timed fun pay(id: String) { ... } }`. A container without a start-up check builds a Byte Buddy subclass of it. What happens when a caller runs `pay(\"p-1\")`?",
+   "q": "Kotlin, no compiler plugins: `open class Ushers { @Timed fun assign(seat: String) { ... } }`. A container without a start-up check builds a Byte Buddy subclass of it. What happens when a caller runs `assign(\"C12\")`?",
    "options": [
     "Byte Buddy throws `Cannot subclass primitive, array or final types`",
     "The call is timed, because the subclass overrides every method",
-    "`pay` runs normally and is never timed, with no error anywhere",
+    "`assign` runs normally and is never timed, with no error anywhere",
     "The JVM throws `VerifyError` when the subclass loads"
    ],
    "answer": 2,
-   "why": "The class is open, so subclassing works. `pay` has no `open`, so kotlinc made it final, and Byte Buddy can't override a final method; it skips it. The subclass inherits the original `pay`, which runs untimed. That silent case is why the lab's container checks intercepted methods for `final` when it starts.",
+   "why": "The class is open, so subclassing works, and the first option doesn't happen. `assign` has no `open`, so kotlinc made it final, and Byte Buddy can't override a final method; it leaves it alone. The subclass inherits the original `assign`, which runs untimed. That silent case is why the lab's container checks intercepted methods for `final` when it starts.",
    "from": "cls-05"
   },
   {
-   "q": "You want to run this container in a GraalVM native image. Which part is the real obstacle?",
+   "q": "You want to build this container into a GraalVM native image, a program compiled ahead of time into one machine-code file. Which part is the real obstacle?",
    "options": [
     "The JDK proxies: native image can't run `java.lang.reflect.Proxy` at all",
     "The singleton cells, because native image has no `volatile`",
@@ -344,61 +429,61 @@ Retries also nest. With a subclass proxy, a retried `settle` that calls a retrie
     "The Byte Buddy subclasses: they are classes defined from bytes at run time, which a closed world can't contain"
    ],
    "answer": 3,
-   "why": "Native image builds a closed world, so every class must exist at build time. JDK proxies work if the reachability metadata lists each proxy's interfaces in order. Classes generated at run time by Byte Buddy have no place in that world. That is one reason Quarkus generates its intercepted subclasses while the application builds.",
+   "why": "Native image builds a closed world, so every class must exist when the image is built. JDK proxies work if the reachability metadata lists each proxy's interfaces in order, so the first option is wrong. Classes that Byte Buddy writes while the program runs have no place in that world. That's one reason Quarkus generates its intercepted subclasses while the application is built.",
    "from": "boot-03"
   },
   {
    "q": "Every Byte Buddy subclass in the lab is defined by its own `ByteArrayClassLoader`. After a test drops its last reference to the container, what keeps one of those loaders alive?",
    "options": [
-    "Nothing it created: the loader can be collected with its class once no bean instance and no reference to the class is reachable",
+    "Nothing it created: the loader can be collected with its class once no instance and no reference to the class is reachable",
     "The application class loader, which holds every child loader forever",
     "The JIT's code cache, which pins every class it compiled",
     "Metaspace, which is never collected"
    ],
    "answer": 0,
-   "why": "A class keeps its loader alive and an object keeps its class alive, so the chain is: container, cell, bean, subclass, loader. Remove the root and the whole chain is unreachable, and a full GC can unload the class and free its metaspace. A class loader leak is the same chain with something long-lived (a static map, a thread local) still holding one link.",
+   "why": "A class keeps its loader alive and an object keeps its class alive, so the chain is: container, cell, part, subclass, loader. Remove the root and the whole chain is unreachable, and a full GC can unload the class and free its metaspace. A class loader leak is the same chain with something long-lived, such as a static map or a thread local, still holding one link.",
    "from": "mem-07"
   },
   {
-   "q": "A bean is intercepted by a subclass. `settle` is `@Timed` and calls `this.audit()`, which is also `@Timed`. In what order does the lab's `CallLog` record them?",
+   "q": "A part is intercepted by a subclass. `close` is `@Timed` and calls `this.verify()`, which is also `@Timed`. In what order does the lab's `CallLog` record them?",
    "options": [
-    "`settle`, then `audit`",
-    "`audit`, then `settle`",
-    "Only `settle`, because self-calls skip the proxy",
-    "Only `audit`"
+    "`close`, then `verify`",
+    "`verify`, then `close`",
+    "Only `close`, because self-calls skip the proxy",
+    "Only `verify`"
    ],
    "answer": 1,
-   "why": "The subclass is the bean, so `this.audit()` runs `audit`'s override and its timer. Each timer records in its `finally`, when its call ends, and `audit` ends first, inside `settle`. With a JDK proxy over a separate target, only `settle` would be recorded."
+   "why": "The subclass is the object, so `this.verify()` runs `verify`'s override and its timer. Each timer records in its `finally`, when its call ends, and `verify` ends first, inside `close`. With a JDK proxy over a separate target, only `close` would be recorded, which is the third option's model."
   }
  ],
  "flashcards": [
   {"front": "What does `proceed()` do in an interceptor chain?", "back": "It runs the next interceptor, or after the last one, the real method. A retry interceptor calls it again after a listed failure."},
   {"front": "Why put `@Timed` outside `@Retry` in the chain?", "back": "Then it records one call that includes every attempt: the time the caller really waited. Inside, it records each attempt separately."},
   {"front": "The four cases of a decorating `InvocationHandler`, in order?", "back": "`Object` methods by identity; default methods with `invokeDefault`; the chain ending in `method.invoke(target, args)`; unwrap `InvocationTargetException`."},
-  {"front": "Why can't a container return a JDK proxy for `get(FakeIssuer.class)`?", "back": "The proxy class extends `java.lang.reflect.Proxy` and implements only the interfaces, so it is not a `FakeIssuer`. Ask for the interface."},
-  {"front": "Kotlin `open class S { @Timed fun pay() }`: does a Byte Buddy subclass time `pay`?", "back": "No, silently. `pay` is final because it isn't `open`, so the subclass can't override it."},
+  {"front": "Why can't a container return a JDK proxy for `get(FakeBooking.class)`?", "back": "The proxy class extends `java.lang.reflect.Proxy` and implements only the interfaces, so it is not a `FakeBooking`. Ask for the interface."},
+  {"front": "Kotlin `open class S { @Timed fun close() }`: does a Byte Buddy subclass time `close`?", "back": "No, silently. `close` is final because it isn't `open`, so the subclass can't override it."},
   {"front": "Three ways to make a Kotlin class interceptable by a subclass proxy?", "back": "Write `open` on the class and the intercepted methods; use the all-open plugin (or kotlin-spring); or give it an interface and use a JDK proxy."},
-  {"front": "When is it safe for an interceptor to retry an issuer call?", "back": "When the failure is listed as retryable and the call carries an idempotency key, the same on every attempt, so the issuer can drop duplicates."}
+  {"front": "When is it safe for an interceptor to retry a booking call?", "back": "When the failure is listed as worth retrying and the call carries a booking reference (an idempotency key), the same on every attempt, so the service can spot a repeat."}
  ],
  "terms": [
   {"term": "Interceptor", "plain": "Code written once that runs around many method calls, such as a timer or a retry."},
   {"term": "Interceptor chain", "plain": "The interceptors for one method, in order; each calls proceed() to hand on to the next, and the last hands on to the method."},
   {"term": "Target", "plain": "The real object behind a forwarding proxy, which the handler calls when the chain ends."},
-  {"term": "Subclass proxy", "plain": "A generated subclass that overrides the intercepted methods and is itself the bean, so self-calls are intercepted."},
+  {"term": "Subclass proxy", "plain": "A generated subclass that overrides the intercepted methods and is itself the object, so self-calls are intercepted."},
   {"term": "all-open", "plain": "A Kotlin compiler plugin that makes classes with chosen annotations, and their members, open instead of final."},
-  {"term": "Idempotency key", "plain": "An ID sent with a request so the receiver can recognize a repeat and not do the work twice."}
+  {"term": "Idempotency key", "plain": "An ID sent with a request, such as a booking reference, so the receiver can recognize a repeat and not do the work twice."}
  ],
  "explain_back": {
   "prompt": "A teammate asks why the container uses two kinds of proxy instead of always generating a subclass with Byte Buddy. Explain what each kind gives up, and how the container decides.",
-  "answer": "A JDK proxy needs only an interface. It works on final Kotlin classes and costs no bytecode library, but it is a separate object in front of the target: the bean isn't an instance of the class, the annotations must be on the interface, and self-calls inside the target skip the interceptors. A subclass is the bean itself, so self-calls are intercepted and the object is an instance of the class, but it can only intercept what it can override: no final classes, no final or private methods, which in Kotlin means writing open or using all-open. The container uses the JDK proxy whenever the component implements an interface, because that path has fewer ways to fail silently, and a subclass only when there is no interface. In both cases it checks at start-up and refuses what it can't intercept."
+  "answer": "A JDK proxy needs only an interface. It works on final Kotlin classes and needs no bytecode library, but it's a separate object in front of the target: the part isn't an instance of the class, the annotations must be on the interface, and self-calls inside the target skip the interceptors. A subclass is the object itself, so self-calls are intercepted and the object is an instance of the class, but it can only intercept what it can override: no final classes, no final or private methods, which in Kotlin means writing open or using all-open. The container uses the JDK proxy whenever the component implements an interface, because that path has fewer ways to fail silently, and a subclass only when there is no interface. In both cases it checks at start-up and refuses what it can't intercept."
  },
  "deeper": {
   "minutes": 10,
-  "body": """Jakarta Interceptors, the spec behind CDI and Quarkus, has the same pieces under other names. An interceptor binding is an annotation like `@Timed` that is itself annotated `@InterceptorBinding`. The interceptor is a class with an `@AroundInvoke` method that takes an `InvocationContext` and calls `ctx.proceed()`. The order of the chain comes from `@Priority` on each interceptor class, with lower numbers running first. Spring AOP's equivalent is an AOP Alliance `MethodInterceptor`, whose `invoke(MethodInvocation)` also ends in `proceed()`, ordered by `@Order` or the `Ordered` interface.
+  "body": """Jakarta Interceptors, the standard behind CDI and Quarkus, has the same pieces under other names. An interceptor binding is an annotation like `@Timed` that is itself annotated `@InterceptorBinding`. The interceptor is a class with an `@AroundInvoke` method that takes an `InvocationContext` and calls `ctx.proceed()`. The order of the chain comes from `@Priority` on each interceptor class, with lower numbers running first. Spring AOP's equivalent is an AOP Alliance `MethodInterceptor`, whose `invoke(MethodInvocation)` also ends in `proceed()`, ordered by `@Order` or the `Ordered` interface.
 
-Annotations and proxies have a quieter interaction too. Java annotations are not inherited from interfaces: `@Timed` on `CardIssuerClient.authorize` is not visible through `FakeIssuer.class.getMethod("authorize", ...)`. A JDK proxy hands the handler the interface's `Method`, so the lab's container sees it. A subclass proxy looks at the class's methods, so an annotation that lives only on an interface method would not be found there. Spring papers over this with its own annotation search, which walks interfaces and superclasses. The lab refuses the ambiguous case instead: annotations on the class of an interface-proxied component are an error.
+Annotations and proxies have a quieter interaction too. Java annotations are not inherited from interfaces: `@Timed` on `BookingClient.reserve` is not visible through `FakeBooking.class.getMethod("reserve", ...)`. A JDK proxy hands the handler the interface's `Method`, so the lab's container sees it. A subclass proxy looks at the class's methods, so an annotation that lives only on an interface method would not be found there. Spring papers over this with its own annotation search, which walks interfaces and superclasses. The lab refuses the doubtful case instead: annotations on the class of an interface-proxied component are an error.
 
-Byte Buddy can also load a generated class without a new class loader. `ClassLoadingStrategy.UsingLookup` with a `MethodHandles.Lookup` from the bean's package defines the subclass in the same loader and package as its superclass, which lets it override package-private methods and avoids one loader per class. The default used in the lab is the simplest one, and lesson 3's histogram shows what it leaves behind."""
+Byte Buddy can also load a generated class without a new class loader. `ClassLoadingStrategy.UsingLookup`, with a `MethodHandles.Lookup` from the part's package, defines the subclass in the same loader and package as its superclass. That lets it override package-private methods and avoids one loader per class. The lab uses the default, the simplest strategy, and lesson 3's histogram shows what it leaves behind."""
  },
  "sources": [
   {"title": "Proxy (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/reflect/Proxy.html"},

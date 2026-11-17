@@ -1,21 +1,92 @@
 from fg import *
 import fg
 
-# Spoken forms only (captions keep the code): "request(n)" reads as "request n", "Flux.range" as "Flux range".
-fg.SAY[:0] = [(r"\brequest\(n\)", "request n"), (r"\brequest\(1\)", "request one"), (r"\bFlux\.(\w+)", r"Flux \1")]
+# Spoken forms only (captions keep the written words).
+fg.SAY[:0] = [
+    (r"\bonBackpressureBuffer\b", "on backpressure buffer"), (r"\bonBackpressureDrop\b", "on backpressure drop"),
+    (r"\bonBackpressureLatest\b", "on backpressure latest"), (r"\bonBackpressureError\b", "on backpressure error"),
+    (r"\bonBackpressure\b", "on backpressure"), (r"\bFlux\.interval\b", "flux dot interval"),
+]
+
+# every spoken line, in order
+N = {
+    "open": "Back at the end of the bakery line, the packer has a small table where loaves wait to be boxed. It holds ten. "
+            "As long as the oven waits for her slips, the table never overflows: "
+            "she writes send me 10 more only when there's room.",
+    "chatter": "But not everything in a bakery reads slips. The thermometer in the oven is a chatterbox. "
+               "It reports the temperature every millisecond, whether anyone is looking or not. "
+               "Nobody has ever asked it to slow down, and it wouldn't listen if they did.",
+    "screen": "Its readings go to a screen in the shop. The screen asks for one reading at a time, "
+              "and takes 10 milliseconds to draw each. In Reactor, Flux.interval plays the thermometer: "
+              "it sends a number, called a tick, every millisecond, whatever you request.",
+    "fail": "Reading 0 is asked for, and drawn. Reading 1 arrives before anyone asked for it, and the stream fails: "
+            "could not emit tick 1 due to lack of requests.",
+    "shy": "Reactor has a family of operators for this, with backpressure right in their names. "
+           "And here's the question that's easy to be shy about. "
+           "Backpressure means the slow side slows down the fast side. "
+           "So surely one of them makes the thermometer slow down?",
+    "buf_q": "Let's try the one everyone reaches for first: onBackpressureBuffer, with no size. "
+             "The screen takes twenty readings. What does it get?",
+    "buf_a": "Readings 0, 1, 2, all the way to 19. In order, and no error. It looks perfect. That's the problem.",
+    "buf_where": "When the screen drew reading 19, the thermometer was at reading 216. "
+                 "Nearly 200 readings were waiting in a queue with no limit, "
+                 "about 90 more every 100 milliseconds, for as long as the program runs.",
+    "doorstep": "It's our doorstep with fourteen loaves, back again, with more every second. "
+                "We fixed the smoke alarm by taking out the battery. The noise stopped. The fire didn't. "
+                "So no error doesn't mean no problem. The pile just moved into memory, where nobody looks.",
+    "table": "So, back to the packer's table. When a belt won't stop, the table fills, "
+             "and someone has to decide what happens to the next item. There are four honest answers. "
+             "Keep a small pile. Throw it in a bin. Keep only the newest. Or stop the line.",
+    "map": "Each onBackpressure operator is one of those answers. It asks the thermometer for everything, "
+           "so nothing overflows above it. Then it decides what happens to the readings nobody further down has asked for.",
+    "pile": "The small pile is onBackpressureBuffer with a size, say 10. While the screen draws reading 0, the pile fills up. "
+            "Then a reading finds no room, so the line stops: the thermometer is cut off, and an error is sent.",
+    "pile_q": "Does the screen still get the readings on the pile?",
+    "pile_a": "It does. The error waits its turn behind the pile. The screen got readings 0 to 11, in order, "
+              "and then: the receiver is overrun. Nothing vanished without a word.",
+    "bin": "The bin is onBackpressureDrop. A reading that arrives while the screen isn't asking goes straight in. "
+           "The screen saw 0, 11, 22, 34, and 202 readings went in the bin. Why 11 apart? "
+           "When the screen asks, the bin has nothing on hand, so it waits for the next one.",
+    "slot": "Keep only the newest is onBackpressureLatest. It has one slot, and each new reading pushes out the one before. "
+            "When the screen asks, the newest is ready: 0, 10, 20, 30, about every tenth.",
+    "stop": "And stop the line is onBackpressureError. It fails at the first reading nobody asked for. "
+            "That's for belts where falling behind is a bug.",
+    "name": "So, does any of them slow the thermometer down? Not one. "
+            "Honest names would be: keep a pile, use the bin, keep the newest, stop the line. "
+            "They're loss policies. They decide what to keep, and what to give up.",
+    "breaks": "And here the bakery picture breaks. A full table in a real bakery is hard to miss. "
+              "A buffer with no size is a table nobody can see, and it grows until the heap, "
+              "the memory where Java keeps its objects, runs out.",
+    "real": "Real backpressure needs a source that reads the slips, like the database cursor behind the nightly report, "
+            "which fetches only the rows it's asked for. That's backpressure for free, so pick a source like that when you can.",
+    "choose": "When you can't, ask what one missed item costs. A temperature is a value where newer replaces older. "
+              "A buffer here would show the oven's temperature from a minute ago, very accurately. So keep the newest.",
+    "choose2": "A sample, like one visitor count out of hundreds, can go in the bin, as long as you count the drops. "
+               "But an order from the website must never vanish. Give it a small pile that fails loudly, "
+               "and a way to ask the website for everything after the last saved order.",
+    "code": "Here it is in Java and Kotlin. The screen keeps the newest reading. "
+            "The web orders get a pile of 1,000, and the order that overflows is logged.",
+    "moral": "So, does onBackpressure slow the source down? No. Only a source that reads the slips slows down. "
+             "For one that can't, you choose what to lose when the table is full: "
+             "a small pile, a bin, the newest, or stop the line.",
+    "check": "Quick check. A screen in the shop shows the oven temperature. The thermometer sends 200 readings a second, "
+             "and the screen redraws 10 times a second. Which policy fits?",
+    "check_a": "Keep the newest: onBackpressureLatest. At every redraw, the screen wants the temperature now, "
+               "not the next old reading in a queue.",
+}
 
 
 # ---- local helpers (fg.py is shared, so they live here) ----
 class Narrated(VoiceScene):
-    """say() starts a voice line; any number of plays may follow; hold() waits for the line to end."""
+    """say() starts a voice line; plays may follow; at()/at_text() wait for a point in the line; hold() waits for its end."""
 
-    def say(self, text):
+    def say(self, key):
+        text = N[key]
         path, dur = voice(text)
         self._cue(text, dur)
         self.add_sound(path)
         t0 = self.renderer.time
-        self._end = t0 + dur
-        # start time of each sentence, split the same way as the captions
+        self._end, self._line = t0 + dur, (text, t0, dur)
         sents = [x for x in re.split(r"(?<=[.!?])\s+", text.strip()) if x]
         total = sum(len(x) for x in sents) or 1
         self._st = []
@@ -24,8 +95,13 @@ class Narrated(VoiceScene):
             t0 += dur * len(x) / total
 
     def at(self, i, lead=0.3):
-        """Wait until sentence i of the current line starts (minus a small lead)."""
         rest = self._st[i] - lead - self.renderer.time
+        if rest > 0.02:
+            self.wait(rest)
+
+    def at_text(self, sub, lead=0.2):
+        text, t0, dur = self._line
+        rest = t0 + dur * text.index(sub) / len(text) - lead - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
 
@@ -36,638 +112,745 @@ class Narrated(VoiceScene):
         if after:
             self.wait(after)
 
-
-def dark(color, a=0.14):
-    return interpolate_color(ManimColor("#000000"), ManimColor(color), a)
-
-
-def panel(color, w, h):
-    r = RoundedRectangle(corner_radius=0.12, width=w, height=h, stroke_color=color, stroke_width=3)
-    return r.set_fill(dark(color), opacity=1)
+    def predict(self, secs=2.4, pos=(6.4, -3.25), edge=RIGHT):
+        """A beat of silence for the viewer to guess, with a small on-screen prompt."""
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
+        self.play(FadeIn(tag), run_time=0.3)
+        self.wait(secs)
+        self.play(FadeOut(tag), run_time=0.3)
 
 
-def smooth01(x):
-    x = min(1.0, max(0.0, x))
-    return x * x * (3 - 2 * x)
+def dim(color, k=0.14):
+    return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def lerp(a, b, s):
-    return a + (b - a) * s
+def pulse(*ms, s=1.18):
+    """Grow and shrink back. (Indicate turns a filled chip into a solid block that hides its text.)"""
+    return AnimationGroup(*[m.animate(rate_func=there_and_back).scale(s) for m in ms])
 
 
-def bl(text, size=26, color=WHITE, mono=False):
-    """Text with a hidden trailing 'g', so texts aligned by their bottom edge share one baseline."""
-    t = (M if mono else T)(text + "g", size, color)
-    t[-1].set_opacity(0)
-    return t
+# one colour per thing, for the whole reactive track
+OVEN_C, PACK_C, SLIP_C, LOAF_C, BELL_C, BAD_C, CAKE_C = BLUE_M, TEAL_M, YELLOW_M, GOLD_M, GREEN_M, RED_M, PURPLE_M
+# one colour per loss policy
+PILE_C, BIN_C, NEW_C, STOP_C = GREY_A, GREY_B, PURPLE_M, RED_M
+OK_C = GREEN_M
 
 
-# one colour per thing, for the whole video
-TICK, SCR, DEM, ERR, LOST = BLUE_M, TEAL_M, YELLOW_M, RED_M, GREY_M
-
-# the stage: ticker on the left, the operator in the middle, the screen on the right
-YL = 1.2                                   # the line the ticks travel on
-P_SRC = np.array([-5.45, YL, 0])
-P_IN = np.array([-2.8, YL, 0])             # where a tick enters the operator
-P_SCR = np.array([5.45, YL, 0])
-P_GATE = np.array([-1.7, YL, 0])           # where drop throws a tick away
-P_LAT = np.array([1.5, YL, 0])             # latest's one slot
-FALL = np.array([0.3, -1.75, 0])
-T_IN, T_OUT, T_PASS, DRAW = 2.0, 1.2, 1.5, 10.0
-SLOT0, PITCH = 2.3, 0.48
-Y_TOP = 2.75
-Y_NOTE, Y_GOT = -2.05, -2.85
-TW, TH = 0.42, 0.36
+def person(color=PACK_C, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-def slot_pos(r):
-    return np.array([SLOT0 - PITCH * r, YL, 0])
+def oven(s=1.0):
+    body = RoundedRectangle(corner_radius=0.14, width=1.9, height=1.55).set_stroke(OVEN_C, 3).set_fill(dim(OVEN_C, 0.16), 1)
+    win = RoundedRectangle(corner_radius=0.1, width=1.3, height=0.62).set_stroke(OVEN_C, 2).set_fill(dim(LOAF_C, 0.5), 1)
+    win.move_to(body.get_center() + DOWN * 0.22)
+    knobs = VGroup(*[Circle(radius=0.07).set_stroke(OVEN_C, 2).set_fill(dim(OVEN_C, 0.5), 1) for _ in range(3)])
+    knobs.arrange(RIGHT, buff=0.18).move_to(body.get_top() + DOWN * 0.27)
+    return VGroup(body, win, knobs).scale(s)
 
 
-def heap_pos(i):
-    return np.array([-2.5 + (i % 26) * 0.2, 0.3 - (i // 26) * 0.2, 0])
+def loaf(label="", s=1.0, color=LOAF_C):
+    body = RoundedRectangle(corner_radius=0.2, width=1.05, height=0.46).set_stroke(color, 2.5).set_fill(dim(color, 0.3), 1)
+    cuts = VGroup(*[Line(LEFT * 0.07 + DOWN * 0.1, RIGHT * 0.07 + UP * 0.1, stroke_width=2.5, color=color)
+                    .move_to(body.get_center() + RIGHT * dx) for dx in (-0.26, 0, 0.26)])
+    return VGroup(body, cuts).scale(s).set_z_index(4)
 
 
-def simulate(policy, t_end, cap=10):
-    """One tick per ms; tick k reaches the operator at time k. The screen has asked for one tick before t = 0,
-    draws each tick for 10 ms, then asks for one more. At equal times an arrival is handled before a request."""
-    it, queue, qlist = {}, [], []
-    slot, demand, next_req = None, 1, None
-    cancel = err_at = None
-    reqs = []
-
-    def hand(k, T, wait):
-        nonlocal demand, next_req
-        it[k].update(fate="deliver", h=T, wait=wait)
-        demand -= 1
-        next_req = T + DRAW
-
-    for T in range(0, int(t_end) + 1):
-        if cancel is None:
-            k = T
-            it[k] = {"a": T}
-            if demand > 0 and not queue:
-                hand(k, T, "none")
-            elif policy == "buffer" or (policy == "buffer10" and len(queue) < cap):
-                queue.append(k)
-                qlist.append(k)
-                it[k].update(fate="queue", qi=len(qlist) - 1)
-            elif policy in ("buffer10", "error"):
-                it[k].update(fate="overflow")
-                cancel = T
-                if policy == "error":
-                    err_at = T
-            elif policy == "drop":
-                it[k].update(fate="drop")
-            elif policy == "latest":
-                if slot is not None:
-                    it[slot].update(fate="replaced", r=T)
-                slot = k
-                it[k].update(fate="slot")
-        if next_req is not None and next_req <= T:
-            reqs.append(next_req)
-            demand += 1
-            next_req = None
-            if queue:
-                k = queue.pop(0)
-                hand(k, T, "queue")
-                if policy == "buffer10" and cancel is not None and not queue:
-                    err_at = T
-            elif policy == "latest" and slot is not None:
-                hand(slot, T, "slot")
-                slot = None
-    last_h = max([d["h"] for d in it.values() if "h" in d] or [0])
-    err = None
-    if err_at is not None:
-        err = {"spawn": cancel + 1.0, "qi": len(qlist), "deliver": max(err_at, last_h + DRAW)}
-    q_hand = sorted(it[k]["h"] for k in qlist if "h" in it[k])
-    return {"policy": policy, "it": it, "reqs": reqs, "cancel": cancel, "err": err, "q_hand": q_hand}
+def belt(x0, x1, y):
+    """A conveyor belt: its top surface at y, rollers underneath."""
+    top = Line([x0, y, 0], [x1, y, 0], stroke_width=3, color=GREY_B)
+    bot = Line([x0, y - 0.24, 0], [x1, y - 0.24, 0], stroke_width=2, color=GREY_D)
+    n = int((x1 - x0) / 0.55)
+    rollers = VGroup(*[Circle(radius=0.08, stroke_width=1.5, color=GREY_C).move_to([x0 + 0.25 + i * (x1 - x0 - 0.5) / max(1, n - 1), y - 0.12, 0])
+                       for i in range(n)])
+    return VGroup(top, bot, rollers)
 
 
-class Stage:
-    """Everything that moves, drawn as a function of the simulated time t (ms)."""
-
-    def __init__(self, scene, tk, alpha):
-        self.scene, self.tk, self.alpha = scene, tk, alpha
-        self.sim = simulate("none", -1)
-        self.ff = False
-        self.tiles = {}
-        self.layer = VGroup()
-        self.err_tile = self._err_tile()
-        self.heap = VGroup(*[Square(0.15, stroke_width=0).set_fill(TICK, 0.85).move_to(heap_pos(i)) for i in range(260)])
-        self.heap.set_z_index(2)
-        self.dot = Dot(radius=0.09, color=DEM).set_z_index(4)
-        self.bar = Rectangle(width=0.01, height=0.08, stroke_width=0).set_fill(SCR, 1)
-        self.got, self.count, self.num = VGroup(), VGroup(), VGroup()
-        self.cache = {}
-        self.layer.add(self.err_tile, self.heap, self.dot, self.bar, self.got, self.count, self.num)
-        # the updater sits on the layer itself, so manim treats the whole layer as moving (never as a static backdrop)
-        self.layer.add_updater(lambda m: self.frame())
-        self.counter = None
-
-    # ---- mobjects ----
-    def _err_tile(self):
-        r = RoundedRectangle(corner_radius=0.06, width=TW, height=TH, stroke_color=ERR, stroke_width=2.5).set_fill(dark(ERR, 0.5), 1)
-        x = tick(False, 0.13).move_to(r)
-        return VGroup(r, x).set_z_index(3)
-
-    def tile(self, k):
-        if k not in self.tiles:
-            r = RoundedRectangle(corner_radius=0.06, width=TW, height=TH, stroke_width=0).set_fill(TICK, 1)
-            n = M(str(k), 20, BLACK).move_to(r)
-            if n.width > TW - 0.06:
-                n.scale((TW - 0.06) / n.width)
-            g = VGroup(r, n).set_z_index(2)
-            self.tiles[k] = g
-            self.layer.add(g)
-        return self.tiles[k]
-
-    def text(self, key, make):
-        if key not in self.cache:
-            self.cache[key] = make()
-        return self.cache[key]
-
-    @staticmethod
-    def show_in(holder, g, A):
-        """Put g in holder. The old text is made invisible too: manim keeps the list of moving mobjects it built
-        when a play started, so a text swapped out during the play would otherwise stay on screen."""
-        for old in holder.submobjects:
-            if old is not g:
-                old.set_opacity(0)
-        holder.submobjects = [g] if g is not None else []
-        if g is not None:
-            g.set_opacity(A)
-
-    # ---- state of one tick at time t: (position, opacity, colour) or None ----
-    def q_rank(self, qi, t):
-        c = sum(smooth01((t - h) / 0.5) for h in self.sim["q_hand"] if h <= t)
-        return qi - c
-
-    def q_target(self, rank):
-        if rank <= 10:
-            return slot_pos(rank), 1.0 if rank <= 9 else max(0.0, 10 - rank)
-        return heap_pos(int(round(rank)) - 10), 0.0
-
-    def at_screen(self, start, h, t):
-        if t < h + T_OUT:
-            return lerp(start, P_SCR, smooth01((t - h) / T_OUT)), 1.0, TICK
-        if t < h + DRAW:
-            return P_SCR, 1.0, TICK
-        if t < h + DRAW + 0.6:
-            s = (t - h - DRAW) / 0.6
-            return P_SCR + DOWN * 0.3 * s, 1 - s, TICK
-        return None
-
-    def state(self, k, d, t):
-        a = d["a"]
-        if t < a - T_IN:
-            return None
-        if t < a:
-            if self.ff:
-                return None
-            return lerp(P_SRC, P_IN, (t - a + T_IN) / T_IN), 1.0, TICK
-        f = d["fate"]
-        if f == "drop":
-            if t < a + 0.5:
-                return lerp(P_IN, P_GATE, smooth01((t - a) / 0.5)), 1.0, TICK
-            s = (t - a - 0.5) / 1.2
-            if s >= 1:
-                return None
-            return P_GATE + FALL * smooth01(s), 1 - s, interpolate_color(ManimColor(TICK), ManimColor(LOST), min(1, 3 * s))
-        if f == "overflow":
-            if t < a + 0.6:
-                return P_IN, 1.0, ERR
-            s = (t - a - 0.6) / 0.4
-            return (P_IN, 1 - s, ERR) if s < 1 else None
-        if f in ("slot", "replaced") or d.get("wait") == "slot":
-            h = d.get("h")
-            if h is not None and t >= h:
-                return self.at_screen(P_LAT, h, t)
-            r = d.get("r")
-            if r is not None and t >= r + 0.5:
-                s = (t - r - 0.5) / 1.2
-                if s >= 1:
-                    return None
-                return P_LAT + FALL * smooth01(s), 1 - s, interpolate_color(ManimColor(TICK), ManimColor(LOST), min(1, 3 * s))
-            return lerp(P_IN, P_LAT, smooth01((t - a) / 0.7)), 1.0, TICK
-        if f == "queue" or d.get("wait") == "queue":
-            h = d.get("h")
-            if h is not None and t >= h:
-                return self.at_screen(slot_pos(0), h, t)
-            target, op = self.q_target(self.q_rank(d["qi"], t))
-            s = smooth01((t - a) / 0.8)
-            if op == 0.0 and s >= 1:
-                return None
-            if self.ff and self.q_rank(d["qi"], t) > 9.5:
-                return None
-            return lerp(P_IN, target, s), (op if s >= 1 else lerp(1.0, op, s)), TICK
-        if f == "deliver":
-            h = d["h"]
-            if t < h + T_PASS:
-                return lerp(P_IN, P_SCR, smooth01((t - h) / T_PASS)), 1.0, TICK
-            return self.at_screen(P_SCR, h, t)
-        return None
-
-    # ---- one frame ----
-    def frame(self):
-        t = self.tk.get_value()
-        A = self.alpha.get_value()
-        sim, it = self.sim, self.sim["it"]
-        seen = set()
-        for k, d in it.items():
-            if t < d["a"] - T_IN:
-                continue
-            st = self.state(k, d, t)
-            if st is None:
-                continue
-            pos, op, col = st
-            g = self.tile(k)
-            g.move_to(pos)
-            g[0].set_fill(col, opacity=op * A)
-            g[1].set_opacity(op * A)
-            seen.add(k)
-        for k, g in self.tiles.items():
-            if k not in seen:
-                g[0].set_fill(opacity=0)
-                g[1].set_opacity(0)
-
-        # the error, waiting in line or travelling to the screen
-        e = sim["err"]
-        eop, epos = 0.0, P_IN
-        if e is not None and t >= e["spawn"]:
-            eop = min(1.0, (t - e["spawn"]) / 0.4)
-            if sim["policy"] == "error":
-                base = np.array([0.0, YL, 0])
-            else:
-                base = slot_pos(max(0.0, self.q_rank(e["qi"], t)))
-            if t >= e["deliver"]:
-                epos = lerp(base, P_SCR, smooth01((t - e["deliver"]) / T_OUT))
-            else:
-                epos = base
-        self.err_tile.move_to(epos)
-        self.err_tile[0].set_fill(opacity=eop * A).set_stroke(opacity=eop * A)
-        self.err_tile[1].set_stroke(opacity=eop * A)
-        err_shown = e is not None and t >= e["deliver"] + T_OUT
-
-        # the memory the unbounded buffer holds beyond its first 10
-        qn = 0
-        if sim["policy"] == "buffer":
-            qn = sum(1 for d in it.values() if d["fate"] == "queue" or d.get("wait") == "queue"
-                     if d["a"] <= t and (d.get("h") is None or d["h"] > t))
-        for i, sq in enumerate(self.heap):
-            sq.set_fill(opacity=0.85 * A if i < qn - 10 else 0)
-
-        # the screen's progress on the tick it is drawing
-        prog = 0.0
-        for d in it.values():
-            h = d.get("h")
-            if h is not None and h + T_OUT <= t < h + DRAW:
-                prog = (t - h) / DRAW
-        self.bar.become(Rectangle(width=max(0.01, 1.5 * prog), height=0.08, stroke_width=0)
-                        .set_fill(SCR, opacity=A if prog > 0 else 0)
-                        .move_to([P_SCR[0] - 0.75, YL - 0.36, 0], aligned_edge=LEFT))
-
-        # a request travelling up from the screen
-        dop, dpos = 0.0, ARR_R[0]
-        if not self.ff:
-            for q in sim["reqs"]:
-                if q <= t < q + 1.2:
-                    dop, dpos = 1.0, lerp(ARR_R[0], ARR_R[1], (t - q) / 1.2)
-        self.dot.move_to(dpos).set_opacity(dop * A)
-
-        # what the screen showed
-        shown = sorted((d["h"], k) for k, d in it.items() if d.get("h") is not None and d["h"] + DRAW <= t)
-        ks = [k for _, k in shown]
-        if len(ks) > 6:
-            s = f"{ks[0]}, {ks[1]}, {ks[2]}, ... {ks[-1]}"
-        else:
-            s = ", ".join(str(k) for k in ks)
-        key = ("got", s, err_shown)
-
-        def mk_got():
-            parts = [T("the screen showed", 26, GREY_B), M(s if s else " ", 26)]
-            if err_shown:
-                parts.append(M("then OverflowException", 26, ERR))
-            g = VGroup(*parts).arrange(RIGHT, buff=0.3)
-            return fit(g, 12.8).move_to([-6.4, Y_GOT, 0], aligned_edge=LEFT)
-        self.show_in(self.got, self.text(key, mk_got), A)
-
-        # a counter under the operator
-        g = None
-        if self.counter == "memory":
-            n = qn
-            g = self.text(("mem", n), lambda: VGroup(T("waiting in memory:", 28), M(str(n), 28, ERR if n > 10 else WHITE))
-                          .arrange(RIGHT, buff=0.25).move_to([0, Y_NOTE, 0]))
-        elif self.counter == "dropped":
-            n = sum(1 for d in it.values() if d["fate"] == "drop" and d["a"] <= t)
-            g = self.text(("drop", n), lambda: VGroup(T("dropped:", 28), M(str(n), 28, LOST))
-                          .arrange(RIGHT, buff=0.25).move_to([0, Y_NOTE, 0]))
-        self.show_in(self.count, g, A)
-
-        # the ticker's count, and whether it was cancelled
-        last = int(np.floor(t + T_IN))
-        if sim["cancel"] is not None:
-            last = min(last, sim["cancel"])
-        last = max([k for k in it if k <= last] or [-1])
-        cancelled = sim["cancel"] is not None and t >= sim["cancel"] + 0.6
-        if last >= 0:
-            g = self.text(("num", last, cancelled),
-                          lambda: M(str(last), 32, LOST if cancelled else TICK).move_to(P_SRC).set_z_index(4))
-            self.show_in(self.num, g, A)
-        else:
-            self.show_in(self.num, None, A)
-        self.cancelled = cancelled
-        self.err_shown = err_shown
+def slip(text, size=22, color=SLIP_C, w=None):
+    t = T(text, size, color)
+    r = RoundedRectangle(corner_radius=0.05, width=w or t.width + 0.36, height=0.5).set_stroke(color, 2.5)
+    r.set_fill(dim(color, 0.22), 1)
+    return VGroup(r, t.move_to(r)).set_z_index(6)
 
 
-ARR_R = (np.array([5.2, Y_TOP, 0]), np.array([2.1, Y_TOP, 0]))   # screen -> operator
-ARR_L = (np.array([-2.1, Y_TOP, 0]), np.array([-5.2, Y_TOP, 0]))  # operator -> ticker
+def code_block(src, size=22, hl=None):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def reading(n, color=LOAF_C, r=0.19, size=20):
+    """One thermometer reading: a numbered token on the belt."""
+    c = Circle(radius=r).set_stroke(color, 2.5).set_fill(dim(color, 0.35), 1)
+    if n == "":
+        return VGroup(c).set_z_index(5)
+    return VGroup(c, M(str(n), size, WHITE).move_to(c)).set_z_index(5)
+
+
+def thermometer(s=1.0, color=OVEN_C):
+    tube = RoundedRectangle(corner_radius=0.17, width=0.36, height=1.7).set_stroke(color, 3).set_fill(dim(color, 0.12), 1)
+    merc = RoundedRectangle(corner_radius=0.05, width=0.13, height=1.05).set_stroke(width=0).set_fill(dim(LOAF_C, 0.75), 1)
+    merc.move_to(tube.get_bottom() + UP * 0.6)
+    bulb = Circle(radius=0.3).set_stroke(color, 3).set_fill(dim(LOAF_C, 0.75), 1).move_to(tube.get_bottom() + UP * 0.04)
+    ticks = VGroup(*[Line(ORIGIN, RIGHT * 0.14, stroke_width=2, color=color) for _ in range(4)]).arrange(DOWN, buff=0.22)
+    ticks.next_to(tube, RIGHT, buff=0.06).shift(UP * 0.2)
+    return VGroup(tube, merc, bulb, ticks).scale(s)
+
+
+def chatter_arcs(m, color=OVEN_C):
+    arcs = VGroup(*[Arc(radius=0.16 + 0.15 * i, start_angle=-PI / 4, angle=PI / 2, stroke_width=3, color=color) for i in range(3)])
+    return arcs.next_to(m, RIGHT, buff=0.12).align_to(m, UP).shift(DOWN * 0.1)
+
+
+def screen(s=1.0, color=PACK_C):
+    fr = RoundedRectangle(corner_radius=0.08, width=1.5, height=1.05).set_stroke(color, 3).set_fill(dim(color, 0.12), 1)
+    neck = Line(fr.get_bottom(), fr.get_bottom() + DOWN * 0.2, stroke_width=3, color=color)
+    base = Line(neck.get_end() + LEFT * 0.35, neck.get_end() + RIGHT * 0.35, stroke_width=3, color=color)
+    return VGroup(fr, neck, base).scale(s)
+
+
+def cell(w=0.44, h=0.44, color=PILE_C):
+    return RoundedRectangle(corner_radius=0.05, width=w, height=h).set_stroke(color, 2).set_fill(dim(color, 0.06), 1)
+
+
+def bin_icon(s=1.0, color=BIN_C):
+    body = Polygon([-0.42, 0.35, 0], [0.42, 0.35, 0], [0.32, -0.42, 0], [-0.32, -0.42, 0]).set_stroke(color, 3)
+    body.set_fill(dim(color, 0.12), 1)
+    ribs = VGroup(*[Line([x, 0.22, 0], [x * 0.8, -0.3, 0], stroke_width=2, color=color) for x in (-0.16, 0, 0.16)])
+    return VGroup(body, ribs).scale(s)
+
+
+def stop_icon(s=1.0, color=STOP_C):
+    o = RegularPolygon(8, start_angle=PI / 8).scale(0.42).set_stroke(color, 3).set_fill(dim(color, 0.3), 1)
+    bar = Line(LEFT * 0.22, RIGHT * 0.22, stroke_width=7, color=WHITE)
+    return VGroup(o, bar).scale(s)
+
+
+def pile_icon(s=1.0, color=PILE_C, n_full=3):
+    cs = VGroup(*[cell(0.3, 0.3, color) for _ in range(5)]).arrange(RIGHT, buff=0.04)
+    dots = VGroup(*[Circle(radius=0.09).set_stroke(LOAF_C, 2).set_fill(dim(LOAF_C, 0.35), 1).move_to(cs[i]) for i in range(n_full)])
+    return VGroup(cs, dots).scale(s)
+
+
+def slot_icon(s=1.0, color=NEW_C):
+    c = cell(0.56, 0.56, color).set_stroke(width=3)
+    d = Circle(radius=0.16).set_stroke(LOAF_C, 2).set_fill(dim(LOAF_C, 0.35), 1).move_to(c)
+    return VGroup(c, d).scale(s)
+
+
+def flame(s=1.0):
+    f = VMobject().set_points_smoothly([[0, 0.55, 0], [0.18, 0.2, 0], [0.24, -0.1, 0], [0.12, -0.3, 0], [0, -0.34, 0],
+                                        [-0.12, -0.3, 0], [-0.24, -0.1, 0], [-0.18, 0.2, 0], [0, 0.55, 0]])
+    f.set_stroke(BAD_C, 3).set_fill(dim(BAD_C, 0.5), 1)
+    inner = f.copy().scale(0.5).set_stroke(GOLD_M, 2).set_fill(dim(GOLD_M, 0.6), 1).shift(DOWN * 0.1)
+    return VGroup(f, inner).scale(s)
+
+
+def cylinder(w=1.4, h=1.3, color=OVEN_C):
+    """A database drawn as a drum: a top ellipse, two sides and the lower half of the bottom ellipse."""
+    fill = Rectangle(width=w, height=h).set_stroke(width=0).set_fill(dim(color, 0.12), 1).move_to(DOWN * h / 2)
+    side = VGroup(Line(LEFT * w / 2, LEFT * w / 2 + DOWN * h), Line(RIGHT * w / 2, RIGHT * w / 2 + DOWN * h)).set_stroke(color, 3)
+    bot = Arc(radius=w / 2, start_angle=PI, angle=PI).stretch(0.36 / w, 1).shift(DOWN * h).set_stroke(color, 3)
+    bot_f = Ellipse(width=w, height=0.36).set_stroke(width=0).set_fill(dim(color, 0.12), 1).shift(DOWN * h)
+    top = Ellipse(width=w, height=0.36).set_stroke(color, 3).set_fill(dim(color, 0.25), 1)
+    return VGroup(bot_f, fill, side, bot, top).move_to(ORIGIN)
+
+
+def journey(m, pts, rt, fade_out=False):
+    """A token appears at pts[0] and moves along the corners pts; LaggedStart these for a stream."""
+    path = VMobject().set_points_as_corners([np.array(p) for p in pts])
+    m.move_to(pts[0])
+    parts = [FadeIn(m, run_time=0.06), MoveAlongPath(m, path, run_time=rt, rate_func=linear)]
+    if fade_out:
+        parts.append(FadeOut(m, run_time=0.12))
+    return Succession(*parts)
+
+
+def counter(holder, a, b, fmt, size, color, pos, rt, mono=False):
+    """Count a number up from a to b on screen, rebuilding the text each frame."""
+    mk = M if mono else T
+
+    def upd(m, alpha):
+        v = int(round(a + (b - a) * alpha))
+        m.become(mk(fmt.format(v), size, color).move_to(pos))
+    return UpdateFromAlphaFunc(holder, upd, run_time=rt, rate_func=linear)
+
+
+# the line, as it sits on screen
+BY = 1.15                      # belt surface
+TY = BY + 0.22                 # where a token rides
+SRC_X = -5.65                  # thermometer (and the oven at first)
+BELT_X0, BELT_X1 = -4.85, -1.35
+BELT_X2 = 3.75                 # the long belt, for the one-slot stations
+CELL_X = [-1.0 + 0.46 * i for i in range(10)]
+ST_X = 1.07                    # middle of the station
+SCR_X = 5.35
+SCR_P = np.array([SCR_X, BY + 0.55, 0])
+LANE_Y = BY + 1.45             # slips travel here
+OUT_Y1, OUT_Y2 = -0.55, -1.08  # output lines
+ICON_Y = -2.15
+ICON_X = [-4.8, -1.6, 1.6, 4.8]
 
 
 class Rx07Overflow(Narrated):
-    """rx-07 section 2 (with section 0's demand at the start): a ticker that can't slow down, and four loss policies."""
+    """rx-07, section 2: the packer's small table; the chatterbox thermometer (Flux.interval, 1 ms) and a 10 ms screen;
+    no strategy fails at tick 1; onBackpressureBuffer() looks perfect (0..19) while the thermometer is at 216 (the
+    doorstep again); four honest answers at a full table (pile, bin, newest, stop the line) run on the same thermometer
+    with the lesson's numbers; named loss policies; where the picture breaks; how to choose; the code."""
 
     def construct(self):
-        self.title_card("When the source can't slow down", "choose what to lose: buffer, drop, latest or error")
+        self.title_card("The packer's small table", "what to lose when the source can't slow down")
 
-        # ---------- demand travels up the chain ----------
-        src = panel(TICK, 1.9, 1.0).move_to(P_SRC).set_z_index(3)
-        scr = panel(SCR, 1.9, 1.0).move_to(P_SCR).set_z_index(0)
-
-        def under(name, note, x, side, name_mono=True, color=WHITE, note_color=GREY_B):
-            n = (M(name, 26, color) if name_mono else T(name, 28, color))
-            g = VGroup(n, T(note, 24, note_color)).arrange(DOWN, buff=0.12, aligned_edge=side)
-            return g.move_to([x, 0.2, 0], aligned_edge=side + UP * 0).align_to([0, 0.55, 0], UP)
-
-        src_lab = under("Flux.range", "sends at most n", -6.4, LEFT, color=TICK)
-        sub_lab = under("subscriber", "asks for more", 6.4, RIGHT, name_mono=False, color=SCR)
-        long_arr = Arrow([5.2, Y_TOP, 0], [-5.2, Y_TOP, 0], buff=0, stroke_width=3, color=DEM,
-                         max_tip_length_to_length_ratio=0.025)
-        req_lab = M("request(2)", 26, DEM).move_to([0, Y_TOP + 0.36, 0])
-        lane = DashedLine(P_SRC, P_SCR, dash_length=0.08, stroke_width=1.5, color=GREY_D).set_z_index(-1)
-
-        self.say("In Reactor, demand travels up the chain. The subscriber calls request(n), which means I can take n more. "
-                 "A source like Flux.range sends at most n, then waits.")
-        self.play(FadeIn(src), FadeIn(scr), FadeIn(src_lab), FadeIn(sub_lab), Create(lane), run_time=0.9)
-        self.play(GrowArrow(long_arr), FadeIn(req_lab), run_time=0.8)
-        d0 = Dot(radius=0.09, color=DEM).move_to(long_arr.get_start())
-        self.play(MoveAlongPath(d0, Line(long_arr.get_start(), long_arr.get_end())), run_time=1.3)
-        self.remove(d0)
-        sent = []
-        for n in (1, 2):
-            r = RoundedRectangle(corner_radius=0.06, width=TW, height=TH, stroke_width=0).set_fill(TICK, 1)
-            g = VGroup(r, M(str(n), 20, BLACK).move_to(r)).move_to(P_SRC).set_z_index(2)
-            sent.append(g)
-        self.add(*sent)
-        self.play(LaggedStart(*[g.animate.move_to(P_SCR + LEFT * (0.3 - 0.6 * i)) for i, g in enumerate(sent)], lag_ratio=0.35),
-                  run_time=1.6)
-        src_note2 = under("Flux.range", "sent 2, now waits", -6.4, LEFT, color=TICK)
-        cur = {"src": src_lab, "sub": sub_lab, "req": req_lab}
-
-        def swap(key, new):
-            old = cur[key]
-            cur[key] = new
-            return AnimationGroup(FadeOut(old), FadeIn(new))
-
-        self.play(swap("src", src_note2), run_time=0.6)
+        # ================= the table, when the oven reads slips =================
+        ov = oven(0.75).move_to([SRC_X, BY + 0.62, 0])
+        ov_l = T("oven", 22, OVEN_C).next_to(ov, DOWN, buff=0.15)
+        bl = belt(BELT_X0, BELT_X1, BY)
+        cells = VGroup(*[cell().move_to([x, BY + 0.24, 0]) for x in CELL_X])
+        top = Line([CELL_X[0] - 0.3, BY, 0], [CELL_X[-1] + 0.3, BY, 0], stroke_width=5, color=GREY_A)
+        legs = VGroup(Line([CELL_X[0] - 0.1, BY, 0], [CELL_X[0] - 0.1, BY - 0.6, 0]),
+                      Line([CELL_X[-1] + 0.1, BY, 0], [CELL_X[-1] + 0.1, BY - 0.6, 0])).set_stroke(GREY_B, 3)
+        table = VGroup(top, legs, cells)
+        tbl_l = T("her small table: room for ten", 22, GREY_A).move_to([ST_X, BY - 0.95, 0])
+        pk = person(PACK_C, 1.2).move_to([SCR_X, BY + 0.45, 0])
+        pk_l = T("packer", 22, PACK_C).next_to(pk, DOWN, buff=0.15)
+        self.say("open")
+        self.play(FadeIn(ov), FadeIn(ov_l), Create(bl), FadeIn(pk), FadeIn(pk_l), run_time=0.9)
+        self.play(FadeIn(table), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(tbl_l), LaggedStart(*[pulse(c, s=1.25) for c in cells], lag_ratio=0.08), run_time=1.0)
+        self.at_text("she writes", lead=0.6)
+        sl = slip("send me 10 more").move_to([SCR_X - 1.2, LANE_Y, 0])
+        self.play(FadeIn(sl), run_time=0.3)
+        self.play(sl.animate.move_to([SRC_X + 2.0, LANE_Y, 0]), run_time=1.1)
+        lv = [loaf(s=0.36) for _ in range(10)]
+        self.play(FadeOut(sl, run_time=0.2),
+                  LaggedStart(*[journey(l, [[BELT_X0 + 0.2, BY + 0.12, 0], [BELT_X1, BY + 0.12, 0], [CELL_X[9 - k], BY + 0.24, 0]], 1.0)
+                                for k, l in enumerate(lv)], lag_ratio=0.18), run_time=2.6)
         self.hold()
 
-        # ---------- a ticker can't wait ----------
-        src_lab2 = under("Flux.interval", "1 tick per ms", -6.4, LEFT, color=TICK)
-        scr_lab = under("screen", "10 ms per tick", 6.4, RIGHT, name_mono=False, color=SCR)
-        req1 = M("request(1)", 26, DEM).move_to([0, Y_TOP + 0.36, 0])
-        tk = ValueTracker(-3.0)
-        alpha = ValueTracker(1.0)
-        stage = Stage(self, tk, alpha)
-        self.say("A ticker can't wait. Flux.interval ticks once a millisecond, whatever you request. "
-                 "Behind it, a screen asks for one tick at a time, and takes 10 milliseconds to draw it.")
-        self.play(FadeOut(VGroup(*sent)), swap("src", src_lab2), swap("sub", scr_lab),
-                  swap("req", req1), run_time=0.9)
-        self.wait(1.2)
-        # tick 0 goes to the screen, which starts drawing it (the 'none' policy is a plain line, no operator)
-        t0 = RoundedRectangle(corner_radius=0.06, width=TW, height=TH, stroke_width=0).set_fill(TICK, 1)
-        t0 = VGroup(t0, M("0", 20, BLACK).move_to(t0)).move_to(P_SRC).set_z_index(2)
-        bar = Rectangle(width=0.01, height=0.08, stroke_width=0).set_fill(SCR, 1).move_to(
-            [P_SCR[0] - 0.75, YL - 0.36, 0], aligned_edge=LEFT)
-        num = M("0", 32, TICK).move_to(P_SRC).set_z_index(4)
-        d1 = Dot(radius=0.09, color=DEM).move_to(long_arr.get_start())
-        self.add(t0)
-        self.play(MoveAlongPath(d1, Line(long_arr.get_start(), long_arr.get_end())), run_time=1.0)
-        self.remove(d1)
-        self.play(FadeIn(num), t0.animate.move_to(P_SCR), run_time=1.0)
-        self.add(bar)
-        self.play(bar.animate.stretch_to_fit_width(0.12, about_edge=LEFT), run_time=0.4)
-        self.hold(after=0.1)
-
-        # ---------- tick 1 fails the stream ----------
-        t1 = RoundedRectangle(corner_radius=0.06, width=TW, height=TH, stroke_width=0).set_fill(ERR, 1)
-        t1 = VGroup(t1, M("1", 20, BLACK).move_to(t1)).move_to(P_SRC + RIGHT * 1.25).set_z_index(2)
-        num1 = M("1", 32, TICK).move_to(P_SRC).set_z_index(4)
-        errmsg = VGroup(M("OverflowException:", 26, ERR), M("Could not emit tick 1 due to lack of requests", 26, ERR)
-                        ).arrange(DOWN, buff=0.15, aligned_edge=LEFT).move_to([0, -1.6, 0])
-        fit(errmsg, 12.4)
-        src_fail = under("Flux.interval", "failed", -6.4, LEFT, color=TICK, note_color=ERR)
-        self.say("Tick 1 comes before anyone asked for it, and the stream fails.")
-        self.play(Transform(num, num1), FadeIn(t1, shift=RIGHT * 0.3), bar.animate.stretch_to_fit_width(0.3, about_edge=LEFT),
-                  run_time=0.7)
-        self.play(Flash(t1, color=ERR, flash_radius=0.5), FadeIn(errmsg, shift=UP * 0.15), swap("src", src_fail),
-                  run_time=0.9)
+        # ================= the chatterbox thermometer =================
+        th = thermometer(0.82).move_to([SRC_X, BY + 0.62, 0])
+        th_l = T("thermometer", 22, OVEN_C).move_to(ov_l)
+        ch = chatter_arcs(th)
+        bl_long = belt(BELT_X0, BELT_X2, BY)
+        self.say("chatter")
+        self.play(FadeOut(VGroup(*lv)), FadeOut(table), FadeOut(tbl_l), FadeOut(bl), FadeIn(bl_long), run_time=0.6)
+        self.at(1)
+        self.play(FadeOut(ov), FadeOut(ov_l), FadeIn(th), FadeIn(th_l), run_time=0.7)
+        self.at(2)
+        spray = [reading(i) for i in range(14)]
+        self.play(FadeIn(ch), LaggedStart(*[journey(t, [[BELT_X0 + 0.2, TY, 0], [4.2, TY, 0]], 1.3, fade_out=True)
+                                            for t in spray], lag_ratio=0.12), run_time=3.2)
+        self.at(3)
+        ask = slip("please slow down?").move_to([SCR_X - 1.4, LANE_Y, 0])
+        spray2 = [reading(i) for i in range(14, 28)]
+        self.play(FadeIn(ask), run_time=0.3)
+        self.play(ask.animate.move_to([SRC_X + 1.9, LANE_Y, 0]),
+                  LaggedStart(*[journey(t, [[BELT_X0 + 0.2, TY, 0], [4.2, TY, 0]], 1.3, fade_out=True) for t in spray2],
+                              lag_ratio=0.12), run_time=3.0)
+        self.play(FadeOut(ask, shift=UP * 0.3), Wiggle(ch, scale_value=1.2), run_time=0.6)
         self.hold()
 
-        # ---------- an operator in between ----------
-        op_box = panel(WHITE, 5.6, 1.6).move_to([0, YL + 0.3, 0]).set_z_index(0)
-        op_name = M("onBackpressure...", 28).move_to([0, YL + 0.72, 0]).set_z_index(1)
-        arr_r = Arrow(ARR_R[0], ARR_R[1], buff=0, stroke_width=3, color=DEM, max_tip_length_to_length_ratio=0.08)
-        arr_l = Arrow(ARR_L[0], ARR_L[1], buff=0, stroke_width=3, color=DEM, max_tip_length_to_length_ratio=0.08)
-        lab_r = M("request(1)", 26, DEM).move_to([(ARR_R[0][0] + ARR_R[1][0]) / 2, Y_TOP + 0.36, 0])
-        lab_l = M("request(unbounded)", 26, DEM).move_to([(ARR_L[0][0] + ARR_L[1][0]) / 2, Y_TOP + 0.36, 0])
-        src_ok = under("Flux.interval", "1 tick per ms", -6.4, LEFT, color=TICK)
-        self.say("The onBackpressure operators let you choose what happens instead. "
-                 "Each one requests unbounded, so the source never overflows, "
-                 "and then decides what to do with the ticks nobody asked for.")
-        self.play(FadeOut(VGroup(t1, t0, errmsg, num)), FadeOut(bar), swap("src", src_ok.copy()), run_time=0.6)
-        self.play(FadeIn(op_box), FadeIn(op_name), ReplacementTransform(long_arr, VGroup(arr_r, arr_l)),
-                  ReplacementTransform(cur["req"], lab_r), run_time=1.0)
-        self.wait(1.0)
-        dl = Dot(radius=0.09, color=DEM).move_to(ARR_L[0])
-        self.play(FadeIn(lab_l), MoveAlongPath(dl, Line(ARR_L[0], ARR_L[1])), run_time=1.2)
-        self.remove(dl)
-        stage.frame()
-        self.add(stage.layer)
+        # ================= the screen =================
+        scr = screen().move_to(SCR_P)
+        scr_l = T("screen", 22, PACK_C).next_to(scr, DOWN, buff=0.12)
+        scr_n = T("10 ms per reading", 20, GREY_B).next_to(scr_l, DOWN, buff=0.08)
+        code0 = M("Flux.interval(Duration.ofMillis(1))", 24, OVEN_C).move_to([0, 3.15, 0])
+        note0 = T("a tick every millisecond, whatever you request", 22, GREY_B).next_to(code0, DOWN, buff=0.12)
+        s1 = slip("send me 1").move_to([SCR_X - 1.5, LANE_Y, 0])
+        self.say("screen")
+        self.play(FadeOut(pk), FadeOut(pk_l), FadeIn(scr), FadeIn(scr_l), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(s1), FadeIn(scr_n), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(code0, shift=DOWN * 0.1), run_time=0.6)
+        self.play(FadeIn(note0), run_time=0.5)
         self.hold()
 
-        # ---------- running one policy ----------
-        cur["op"] = op_name
-
-        def name_to(text):
-            return swap("op", M(text, 28).move_to([0, YL + 0.72, 0]).set_z_index(1))
-
-        def run(to, rt):
-            self.play(tk.animate.set_value(to), run_time=rt, rate_func=linear)
-
-        def start(policy, t_end, counter=None):
-            stage.sim = simulate(policy, t_end)
-            stage.counter = counter
-            stage.ff = False
-            tk.set_value(-2.5)
-            stage.frame()
-
-        def clear(*extra):
-            self.play(alpha.animate.set_value(0), *[FadeOut(x) for x in extra], run_time=0.5)
-
-        def show_again():
-            alpha.set_value(1)
-            stage.frame()
-
-        # ---------- 1. buffer with no size ----------
-        start("buffer", 230, counter="memory")
-        self.say("onBackpressureBuffer with no size keeps every tick in a queue. The screen gets 0, 1, 2, 3, all in order.")
-        self.play(name_to("onBackpressureBuffer()"), run_time=0.6)
-        run(41, 41 * 0.1 + 0.25)
-        self.hold(after=0.1)
-
-        self.say("But after 20 frames, the ticker is at 204. More than 180 ticks wait in memory, "
-                 "and the backlog grows until the heap runs out.")
-        stage.ff = True
-        run(204, 3.2)
-        stage.ff = False
-        self.play(Circumscribe(stage.count, color=ERR, buff=0.12), run_time=1.0)
-        run(209, 1.0)
+        # ================= no strategy: it fails =================
+        r0, r1 = reading(0), reading(1)
+        shown = M("0", 40, PACK_C).move_to(scr[0])
+        err = M("Could not emit tick 1 due to lack of requests", 22, BAD_C).move_to([0, OUT_Y1, 0])
+        x1 = VGroup(Line([-1, -1, 0], [1, 1, 0]), Line([-1, 1, 0], [1, -1, 0])).set_stroke(BAD_C, 5).scale(0.26)
+        self.say("fail")
+        self.play(s1.animate.move_to([SRC_X + 1.6, LANE_Y, 0]), run_time=0.8)
+        self.play(FadeOut(s1, run_time=0.2), journey(r0, [[BELT_X0 + 0.2, TY, 0], [BELT_X2, TY, 0], SCR_P], 1.2))
+        self.play(FadeOut(r0), FadeIn(shown), run_time=0.3)
+        self.at(1)
+        self.play(journey(r1, [[BELT_X0 + 0.2, TY, 0], [BELT_X2 - 0.3, TY, 0]], 1.1))
+        x1.move_to(r1)
+        self.play(FadeIn(x1, scale=1.4), r1[0].animate.set_stroke(BAD_C), run_time=0.4)
+        self.at_text("could not", lead=0.4)
+        self.play(FadeIn(err, shift=UP * 0.1), scr[0].animate.set_stroke(BAD_C), run_time=0.6)
         self.hold()
 
-        # ---------- 2. a bounded buffer ----------
-        clear()
-        slots = VGroup(*[RoundedRectangle(corner_radius=0.06, width=TW + 0.04, height=TH + 0.04, stroke_color=GREY_D,
-                                          stroke_width=1.5).move_to(slot_pos(r)) for r in range(10)]).set_z_index(1)
-        start("buffer10", 125)
-        show_again()
-        self.say("Give the buffer a size, like 10. While the screen draws tick 0, ticks 1 to 10 fill it.")
-        self.play(name_to("onBackpressureBuffer(10)"), FadeIn(slots), run_time=0.7)
-        run(10.6, 4.0)
-        self.hold(after=0.1)
+        # ================= the shy question =================
+        self.play(FadeOut(VGroup(r1, x1, err, shown, code0, note0)), scr[0].animate.set_stroke(PACK_C), run_time=0.5)
+        names = VGroup(*[M(f"onBackpressure{n}", 28, t2c={"Backpressure": SLIP_C}) for n in ("Buffer()", "Drop()", "Latest()", "Error()")])
+        names.arrange_in_grid(rows=2, cols=2, buff=(0.8, 0.35)).move_to([0, -1.05, 0])
+        shy = T("Backpressure: the slow side slows down the fast side...", 28, GREY_A).move_to([0, -2.45, 0])
+        shy2 = T("so surely one of them slows the thermometer down?", 30).move_to([0, -3.0, 0])
+        self.say("shy")
+        self.play(LaggedStart(*[FadeIn(n, shift=UP * 0.1) for n in names], lag_ratio=0.25), run_time=1.4)
+        self.at(2)
+        self.play(FadeIn(shy), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(shy2), Wiggle(th, scale_value=1.1), run_time=0.8)
+        self.hold()
+        self.play(FadeOut(VGroup(names, shy, shy2)), run_time=0.5)
 
-        src_cxl = under("Flux.interval", "cancelled", -6.4, LEFT, color=TICK, note_color=ERR)
-        self.say("Then a tick finds no room. The buffer cancels the source and fails.")
-        run(12.1, 1.4)
-        self.play(Flash(P_IN, color=ERR, flash_radius=0.5), run_time=0.5)
-        run(13.6, 1.0)
-        self.play(swap("src", src_cxl.copy()), run_time=0.5)
-        self.hold(after=0.1)
+        # ================= the obvious fix: a buffer with no size =================
+        st_buf = VGroup(RoundedRectangle(corner_radius=0.1, width=3.4, height=0.8).set_stroke(GREY_A, 2.5).set_fill(dim(GREY_A, 0.08), 1),
+                        M("onBackpressureBuffer()", 22, GREY_A)).set_z_index(3)
+        st_buf[1].move_to(st_buf[0])
+        st_buf.move_to([ST_X, BY + 0.42, 0])
+        self.say("buf_q")
+        self.play(FadeIn(st_buf, scale=0.9), run_time=0.7)
+        self.hold(after=0)
+        self.predict()
 
-        self.say("The error waits behind the buffered ticks. The screen still gets 0 to 11, in order, and then the error.")
-        run(122.5, 5.5)
-        self.play(scr[0].animate.set_stroke(ERR), run_time=0.4)
+        IN_P = [st_buf.get_left()[0] + 0.1, TY, 0]
+        OUT_P = [st_buf.get_right()[0] - 0.1, TY, 0]
+        feed = [reading(i) for i in range(20, 44)]
+        out_tok = [reading(i) for i in range(1, 20)]
+        shown = M("0", 40, PACK_C).move_to(scr[0])
+        got = M("screen got  [0, 1, 2, 3, 4, 5, ... 19]", 22).move_to([-6.0, OUT_Y1, 0], aligned_edge=LEFT)
+        ok = VGroup(tick(True, 0.16), T("no error", 22, OK_C)).arrange(RIGHT, buff=0.15).next_to(got, RIGHT, buff=0.4)
+        self.say("buf_a")
+        self.add(shown)
+        self.play(LaggedStart(*[journey(t, [[BELT_X0 + 0.2, TY, 0], IN_P], 0.9, fade_out=True) for t in feed], lag_ratio=0.1),
+                  LaggedStart(*[journey(t, [OUT_P, SCR_P], 0.5, fade_out=True) for t in out_tok], lag_ratio=0.35),
+                  counter(shown, 0, 19, "{}", 40, PACK_C, scr[0].get_center(), 3.2, mono=True), run_time=3.4)
+        self.play(FadeIn(got), run_time=0.5)
+        self.play(FadeIn(ok), run_time=0.4)
         self.hold()
 
-        # ---------- 3. drop ----------
-        clear(slots)
-        self.play(swap("src", src_ok.copy()), scr[0].animate.set_stroke(SCR), run_time=0.4)
-        start("drop", 60, counter="dropped")
-        show_again()
-        self.say("onBackpressureDrop keeps nothing. Each tick that arrives while nobody is asking is thrown away.")
-        self.play(name_to("onBackpressureDrop()"), run_time=0.6)
-        run(34.5, 34.5 * 0.13)
-        self.hold(after=0.1)
-        many = T("in 20 frames: about 200 dropped", 26, GREY_B).move_to([0, Y_NOTE - 0.0, 0])
-        self.say("So the screen sees ticks about 11 apart, and in 20 frames about 200 are dropped.")
-        self.play(Indicate(stage.got, color=WHITE, scale_factor=1.04), run_time=1.2)
-        stage.counter = None
-        self.play(FadeIn(many, shift=UP * 0.1), run_time=0.6)
+        at_l = T("thermometer at reading 216", 24, OVEN_C).move_to([-2.4, LANE_Y + 0.15, 0])
+        at_n = T("thermometer at reading 20", 24, OVEN_C).move_to(at_l)
+        qbox = RoundedRectangle(corner_radius=0.12, width=8.2, height=1.55).set_stroke(BAD_C, 2.5).set_fill(dim(BAD_C, 0.08), 1)
+        qbox.move_to([1.2, -2.35, 0])
+        q_l = VGroup(T("queue with no limit", 24, BAD_C), T("+90 every 100 ms", 24, BAD_C)).arrange(DOWN, buff=0.12)
+        q_l.next_to(qbox, LEFT, buff=0.25)
+        grid = [np.array([-2.55 + c * 0.47, -1.85 - r * 0.48, 0]) for r in range(3) for c in range(15)]
+        self.say("buf_where")
+        self.play(FadeIn(at_n), run_time=0.3)
+        self.play(counter(at_n, 20, 216, "thermometer at reading {}", 24, OVEN_C, at_l.get_center(), 1.4), run_time=1.4)
+        self.at(1)
+        self.play(FadeIn(qbox), FadeIn(q_l), run_time=0.6)
+        piled = [reading("", BAD_C, r=0.17) for _ in grid]
+        self.play(LaggedStart(*[FadeIn(p.move_to(g), shift=DOWN * 0.15) for p, g in zip(piled, grid)], lag_ratio=0.08), run_time=3.2)
         self.hold()
 
-        # ---------- 4. latest ----------
-        clear(many)
-        one = RoundedRectangle(corner_radius=0.06, width=TW + 0.04, height=TH + 0.04, stroke_color=GREY_D,
-                               stroke_width=1.5).move_to(P_LAT).set_z_index(1)
-        start("latest", 60)
-        show_again()
-        self.say("onBackpressureLatest keeps one slot, and each new tick replaces the one before. "
-                 "When the screen asks, it gets the newest: about every tenth tick.")
-        self.play(name_to("onBackpressureLatest()"), FadeIn(one), run_time=0.6)
-        run(31.5, 31.5 * 0.15)
+        # ================= the doorstep, and the smoke alarm =================
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+        door = RoundedRectangle(corner_radius=0.05, width=1.2, height=2.1).set_stroke(GREY_A, 3).set_fill(GREY_E, 1)
+        door.move_to([-5.0, 0.9, 0])
+        knob = Dot(door.get_right() + LEFT * 0.18, radius=0.06, color=GREY_A)
+        step = Rectangle(width=5.3, height=0.2).set_stroke(GREY_B, 2).set_fill(GREY_D, 1).move_to([-2.95, -0.25, 0])
+        spots = [np.array([-3.75 + k * 0.7 + row * 0.35, 0.0 + row * 0.33, 0]) for row, n in enumerate((5, 4, 3, 2)) for k in range(n)]
+        dl = [loaf(s=0.62).move_to(p) for p in spots]
+        ds_l = T("fourteen loaves, and more every second", 24, BAD_C).move_to([-3.4, 2.55, 0])
+        alarm = VGroup(Circle(radius=0.75).set_stroke(GREY_A, 3).set_fill(GREY_E, 1),
+                       *[Dot(radius=0.05, color=GREY_B).move_to(on_circle(ORIGIN, 0.35, a)) for a in range(0, 360, 60)],
+                       Dot(radius=0.06, color=GREY_B)).move_to([3.0, 1.6, 0])
+        batt = VGroup(RoundedRectangle(corner_radius=0.05, width=0.9, height=0.4).set_stroke(GREY_A, 2.5).set_fill(dim(OK_C, 0.3), 1),
+                      Rectangle(width=0.08, height=0.16).set_stroke(GREY_A, 2).set_fill(GREY_A, 1)).set_z_index(3)
+        batt[1].next_to(batt[0], RIGHT, buff=0)
+        batt.move_to(alarm.get_center())
+        quiet = T("quiet", 26, GREY_B).next_to(alarm, UP, buff=0.2)
+        fl = flame(1.1).move_to([3.0, -0.35, 0])
+        rule = T("No error doesn't mean no problem.", 32, SLIP_C).move_to([0, -2.1, 0])
+        rule2 = T("The pile just moved into memory, where nobody looks.", 26, GREY_A).move_to([0, -2.75, 0])
+        self.say("doorstep")
+        self.play(FadeIn(VGroup(door, knob, step)), run_time=0.5)
+        self.play(LaggedStart(*[FadeIn(l, shift=DOWN * 0.25) for l in dl], lag_ratio=0.12), FadeIn(ds_l), run_time=1.8)
+        self.at(1)
+        self.play(FadeIn(alarm), FadeIn(batt), run_time=0.5)
+        self.play(batt.animate.shift(RIGHT * 2.3 + DOWN * 0.3).rotate(-0.4), run_time=0.8)
+        self.at(2)
+        self.play(FadeIn(quiet), run_time=0.4)
+        self.at(3)
+        self.play(FadeIn(fl, shift=UP * 0.2), run_time=0.5)
+        self.play(fl.animate(rate_func=there_and_back).scale(1.15), run_time=0.6)
+        self.at(4)
+        self.play(FadeIn(rule, shift=UP * 0.1), run_time=0.6)
+        self.at(5)
+        self.play(FadeIn(rule2, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= back to the table: four honest answers =================
+        th.move_to([SRC_X, BY + 0.62, 0])
+        th_l.move_to(ov_l)
+        bl = belt(BELT_X0, BELT_X1, BY)
+        cells = VGroup(*[cell().move_to([x, BY + 0.24, 0]) for x in CELL_X])
+        scr_n.next_to(scr_l, DOWN, buff=0.08)
+        self.say("table")
+        self.play(FadeIn(th), FadeIn(ch), FadeIn(th_l), FadeIn(bl), FadeIn(cells), FadeIn(scr), FadeIn(scr_l), FadeIn(scr_n), run_time=0.8)
+        fill = [reading(i) for i in range(1, 11)]
+        self.play(LaggedStart(*[journey(t, [[BELT_X0 + 0.2, TY, 0], [BELT_X1, TY, 0], [CELL_X[9 - k], BY + 0.24, 0]], 0.9)
+                                for k, t in enumerate(fill)], lag_ratio=0.15), run_time=2.2)
+        nxt = reading(11).move_to([BELT_X1 - 0.35, TY, 0])
+        qm = T("?", 36, SLIP_C).next_to(nxt, UP, buff=0.12)
+        self.play(FadeIn(nxt, shift=RIGHT * 0.3), run_time=0.4)
+        self.play(FadeIn(qm), run_time=0.4)
+        self.at(2)
+        icons = [pile_icon(1.0), bin_icon(0.85), slot_icon(1.0), stop_icon(1.0)]
+        words = ["keep a small pile", "throw it in a bin", "keep only the newest", "stop the line"]
+        cols = [PILE_C, BIN_C, NEW_C, STOP_C]
+        for ic, x in zip(icons, ICON_X):
+            ic.move_to([x, ICON_Y, 0])
+        wl = [T(w, 22, c).move_to([x, ICON_Y - 0.7, 0]) for w, c, x in zip(words, cols, ICON_X)]
+        for k in range(4):
+            self.at(3 + k, lead=0.25)
+            self.play(FadeIn(icons[k], shift=UP * 0.1), FadeIn(wl[k]), run_time=0.5)
         self.hold()
 
-        # ---------- 5. error ----------
-        clear(one)
-        start("error", 20)
-        show_again()
-        self.say("onBackpressureError fails at once, at the first tick nobody asked for.")
-        self.play(name_to("onBackpressureError()"), run_time=0.6)
-        run(1.2, 1.0)
-        self.play(Flash(P_IN, color=ERR, flash_radius=0.5), swap("src", src_cxl.copy()), run_time=0.6)
-        run(12.5, 2.2)
-        self.play(scr[0].animate.set_stroke(ERR), run_time=0.3)
+        # ================= map: each operator is one answer =================
+        ops = ["Buffer(10)", "Drop()", "Latest()", "Error()"]
+        opl = [VGroup(M("onBackpressure", 20, GREY_B), M(o, 20, c)).arrange(DOWN, buff=0.08).move_to([x, ICON_Y - 0.8, 0])
+               for o, c, x in zip(ops, cols, ICON_X)]
+        req = Arrow([ST_X, LANE_Y, 0], [SRC_X + 0.7, LANE_Y, 0], buff=0, stroke_width=3, color=SLIP_C, max_tip_length_to_length_ratio=0.03)
+        req_l = M("request(unbounded): send everything", 22, SLIP_C).next_to(req, UP, buff=0.12)
+        self.say("map")
+        self.play(*[FadeOut(w, shift=DOWN * 0.1) for w in wl], run_time=0.4)
+        self.play(LaggedStart(*[FadeIn(o, shift=UP * 0.1) for o in opl], lag_ratio=0.2), run_time=1.0)
+        self.at(1)
+        self.play(GrowArrow(req), FadeIn(req_l), run_time=0.9)
+        self.at(2)
+        self.play(pulse(nxt, s=1.3), qm.animate.set_color(WHITE), run_time=0.8)
         self.hold()
 
-        # ---------- the rule ----------
-        self.play(alpha.animate.set_value(0), FadeOut(VGroup(src, scr, cur["src"], cur["sub"], op_box, cur["op"], arr_r, arr_l,
-                                                               lab_r, lab_l, lane)), run_time=0.7)
-        self.remove(stage.layer)
-        rule = VGroup(T("None of these slows the source down.", 40),
-                      T("They only decide what to lose.", 32, GREY_B),
-                      VGroup(T("Real backpressure needs a source that honours", 32, DEM), M("request(n)", 30, DEM)
-                             ).arrange(RIGHT, buff=0.25)).arrange(DOWN, buff=0.4)
-        fit(rule, 12.4)
-        self.say("None of these slows the source down. They only decide what to lose. "
-                 "Real backpressure needs a source that honours request(n).")
-        self.play(FadeIn(rule[0], shift=UP * 0.15), run_time=0.8)
-        self.wait(1.2)
-        self.play(FadeIn(rule[1], shift=UP * 0.15), run_time=0.6)
-        self.wait(0.8)
-        self.play(FadeIn(rule[2], shift=UP * 0.15), run_time=0.7)
-        self.hold()
-        self.play(FadeOut(rule), run_time=0.5)
+        # ================= 1. a small pile =================
+        def focus(k):
+            return [icons[j].animate.set_opacity(1 if j == k else 0.25) for j in range(4)] + \
+                   [opl[j].animate.set_opacity(1 if j == k else 0.25) for j in range(4)]
 
-        # ---------- the table: which one for which feed ----------
-        rows = [("onBackpressureLatest()", "the newest, every 10th", "prices, positions, statuses", GREEN_M),
-                ("onBackpressureDrop()", "about every 11th tick", "samples, metrics", GREEN_M),
-                ("onBackpressureBuffer(10)", "0 to 11, then an error", "bursts you must not lose", GREEN_M),
-                ("onBackpressureError()", "an error, at once", "falling behind is a bug", GREEN_M),
-                ("onBackpressureBuffer()", "0 to 19, 184 waiting", "almost nothing", ERR)]
-        heads = [bl(h, 24, GREY_B) for h in ("operator", "the screen got", "pick it for")]
-        cells = [[bl(r[0], 24, mono=True), bl(r[1], 26), bl(r[2], 26, r[3])] for r in rows]
-        xs = [-6.3, -1.25, 2.55]
-        ys = [2.1] + [1.3 - 0.72 * i for i in range(5)]
-        for c, h in enumerate(heads):
-            h.move_to([xs[c], ys[0], 0], aligned_edge=LEFT + DOWN)
-        for r, row in enumerate(cells):
-            for c, m in enumerate(row):
-                m.move_to([xs[c], ys[r + 1] - 0.2, 0], aligned_edge=LEFT + DOWN)
-        rule2 = Line([-6.3, 1.9, 0], [6.4, 1.9, 0], stroke_width=1.5, color=GREY_D)
-        table = VGroup(*heads, rule2, *[m for row in cells for m in row])
-        self.say("So pick by the kind of feed. Prices, positions and statuses want latest, because newer replaces older. "
-                 "Samples and metrics can be dropped. Card authorizations and audit events must not be lost, "
-                 "so they get a bounded buffer that fails loudly. Error is for feeds where falling behind is a bug. "
-                 "And the unbounded buffer suits almost nothing.")
-        self.play(FadeIn(VGroup(*heads, rule2)), run_time=0.5)
-        for i in range(5):
-            self.at(i + 1)
-            self.play(FadeIn(VGroup(*cells[i]), shift=UP * 0.1), run_time=0.6)
-        self.hold()
-        self.play(FadeOut(table), run_time=0.5)
+        pile_l = M("onBackpressureBuffer(10)", 22, PILE_C).move_to([ST_X, BY + 0.85, 0])
+        self.play(FadeOut(VGroup(req, req_l, qm, nxt, *fill)), *focus(0), run_time=0.6)
+        r0 = reading(0)
+        shown = M("0", 40, PACK_C).move_to(scr[0])
+        pile = [reading(i) for i in range(1, 11)]
+        self.say("pile")
+        self.play(FadeIn(pile_l), run_time=0.5)
+        self.play(journey(r0, [[BELT_X0 + 0.2, TY, 0], [BELT_X1, TY, 0], [CELL_X[-1] + 0.6, TY, 0], SCR_P], 1.2))
+        self.play(FadeOut(r0), FadeIn(shown), run_time=0.3)
+        self.at(1)
+        self.play(LaggedStart(*[journey(t, [[BELT_X0 + 0.2, TY, 0], [BELT_X1, TY, 0], [CELL_X[9 - k], BY + 0.24, 0]], 0.8)
+                                for k, t in enumerate(pile)], lag_ratio=0.18), run_time=2.0)
+        # the screen finishes reading 0 and takes reading 1; reading 11 moves up into the gap
+        self.play(pile[0].animate.move_to(SCR_P), *[pile[k].animate.move_to([CELL_X[10 - k], BY + 0.24, 0]) for k in range(1, 10)],
+                  run_time=0.6)
+        self.remove(pile[0])
+        shown2 = M("1", 40, PACK_C).move_to(scr[0])
+        r11 = reading(11)
+        self.play(FadeOut(shown, run_time=0.1), FadeIn(shown2, run_time=0.1),
+                  journey(r11, [[BELT_X0 + 0.2, TY, 0], [BELT_X1, TY, 0], [CELL_X[0], BY + 0.24, 0]], 0.7))
+        self.at(2)
+        r12 = reading(12)
+        self.play(journey(r12, [[BELT_X0 + 0.2, TY, 0], [BELT_X1 - 0.3, TY, 0]], 0.7))
+        x2 = VGroup(Line([-1, -1, 0], [1, 1, 0]), Line([-1, 1, 0], [1, -1, 0])).set_stroke(BAD_C, 5).scale(0.26).move_to(r12)
+        cut = Line([BELT_X0 + 0.55, BY + 0.45, 0], [BELT_X0 + 0.55, BY - 0.4, 0], stroke_width=7, color=STOP_C)
+        errc = VGroup(RoundedRectangle(corner_radius=0.08, width=1.05, height=0.44).set_stroke(BAD_C, 2.5).set_fill(dim(BAD_C, 0.3), 1),
+                      T("error", 20, BAD_C)).set_z_index(6)
+        errc[1].move_to(errc[0])
+        errc.move_to([CELL_X[0] - 0.8, BY + 0.24, 0])
+        self.play(FadeIn(x2, scale=1.4), run_time=0.35)
+        self.at_text("the thermometer is cut", lead=0.3)
+        self.play(Create(cut), th.animate.set_opacity(0.35), FadeOut(r12), FadeOut(x2), run_time=0.6)
+        self.at_text("and an error", lead=0.3)
+        self.play(FadeIn(errc, shift=RIGHT * 0.2), run_time=0.5)
+        self.hold(after=0)
 
-        # ---------- Kotlin Flow ----------
-        def col(title, lines, notes, x):
-            # every row sits on one baseline across both columns (bl adds a hidden descender)
-            items = [bl(title, 24, GREY_B), bl(lines[0], 28, mono=True), bl(notes[0], 24, GREY_B),
-                     bl(lines[1], 28, mono=True), bl(notes[1], 24, GREY_B)]
-            for m, y in zip(items, [0, -0.62, -1.08, -1.85, -2.31]):
-                m.move_to([x, y, 0], aligned_edge=LEFT + DOWN)
-            return VGroup(*items)
+        self.say("pile_q")
+        self.play(Circumscribe(VGroup(*pile[1:], r11), color=SLIP_C, buff=0.08), run_time=1.0)
+        self.hold(after=0)
+        self.predict()
 
-        java = col("Java, Reactor", ["ticks.onBackpressureLatest()", "events.onBackpressureBuffer(1_000)"],
-                   ["keep the newest", "hold 1,000, then fail"], -6.2)
-        kot = col("Kotlin, Flow", ["ticks.conflate()", "events.buffer(1_000)"],
-                  ["keep the newest", "hold 1,000, then the emitter suspends"], java.get_right()[0] + 0.9)
-        pair = VGroup(java, kot)
-        fit(pair, 12.6).move_to(UP * 0.5)
-        flow_note = T("In Flow, a slow collector suspends the emitter, unless a buffer sits between them.", 26, GREY_B)
-        fit(flow_note, 12.4).next_to(pair, DOWN, buff=0.7)
-        self.say("In Kotlin Flow, a slow collector simply suspends the emitter. When a buffer sits between them, "
-                 "conflate keeps the newest, like onBackpressureLatest, and a full buffer suspends the emitter instead of failing.")
-        self.play(FadeIn(java, shift=UP * 0.15), run_time=0.8)
-        self.play(FadeIn(flow_note, shift=UP * 0.1), run_time=0.6)
-        self.wait(2.0)
-        self.play(FadeIn(kot, shift=UP * 0.15), run_time=0.8)
+        got1 = M("screen got  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]", 22).move_to([-6.0, OUT_Y1, 0], aligned_edge=LEFT)
+        got2 = M("then: The receiver is overrun by more signals than expected", 22, BAD_C).move_to([-6.0, OUT_Y2, 0], aligned_edge=LEFT)
+        rest = list(pile[1:]) + [r11]
+        self.say("pile_a")
+        self.at(1)
+        self.play(LaggedStart(*[t.animate.move_to(SCR_P).set_opacity(0) for t in rest], lag_ratio=0.25),
+                  counter(shown2, 2, 11, "{}", 40, PACK_C, scr[0].get_center(), 2.4, mono=True), run_time=2.6)
+        self.remove(*rest)
+        self.play(errc.animate.move_to(scr[0]), run_time=0.7)
+        self.play(scr[0].animate.set_stroke(BAD_C), FadeOut(shown2), run_time=0.3)
+        self.at(2)
+        self.play(FadeIn(got1), run_time=0.5)
+        self.play(FadeIn(got2), run_time=0.5)
         self.hold()
-        self.wait(0.8)
+
+        # ================= 2. the bin =================
+        self.play(FadeOut(VGroup(errc, got1, got2, pile_l, cells, cut, bl)), scr[0].animate.set_stroke(PACK_C),
+                  th.animate.set_opacity(1), *focus(1), run_time=0.6)
+        bl = belt(BELT_X0, BELT_X2, BY)
+        bn = bin_icon(1.0).move_to([ST_X, BY - 0.9, 0])
+        bn_l = M("onBackpressureDrop()", 22, BIN_C).move_to([ST_X, BY + 0.85, 0])
+        bin_n = T("in the bin: 0", 22, BIN_C).next_to(bn, RIGHT, buff=0.3)
+        bin_p = bin_n.get_center()
+        b0 = reading(0)
+        shown = M("0", 40, PACK_C).move_to(scr[0])
+        self.say("bin")
+        self.play(FadeIn(bl), FadeIn(bn), FadeIn(bn_l), FadeIn(bin_n), run_time=0.6)
+        self.play(journey(b0, [[BELT_X0 + 0.2, TY, 0], [BELT_X2, TY, 0], SCR_P], 1.0))
+        self.play(FadeOut(b0), FadeIn(shown), run_time=0.25)
+        drops = [reading(i) for i in range(1, 11)]
+        self.play(LaggedStart(*[journey(t, [[BELT_X0 + 0.2, TY, 0], [ST_X, TY, 0], bn.get_center() + UP * 0.1], 0.8, fade_out=True)
+                                for t in drops], lag_ratio=0.15),
+                  counter(bin_n, 0, 10, "in the bin: {}", 22, BIN_C, bin_p, 2.0), run_time=2.0)
+        self.at(2)
+        b11 = reading(11)
+        shown11 = M("11", 40, PACK_C).move_to(scr[0])
+        s_b = slip("1", 20).move_to([SCR_X - 1.0, LANE_Y, 0])
+        self.play(FadeIn(s_b), run_time=0.2)
+        self.play(s_b.animate.move_to([ST_X, LANE_Y, 0]), run_time=0.5)
+        self.play(journey(b11, [[BELT_X0 + 0.2, TY, 0], [BELT_X2, TY, 0], SCR_P], 0.9), FadeOut(s_b, run_time=0.3))
+        self.play(FadeOut(b11), FadeOut(shown), FadeIn(shown11), run_time=0.25)
+        gotb1 = M("screen got  [0, 11, 22, 34, 46, 57, 67, 79, 90, ...]", 22).move_to([-6.0, OUT_Y1, 0], aligned_edge=LEFT)
+        gotb2 = M("(202 readings dropped)", 22, BIN_C).move_to([-6.0, OUT_Y2, 0], aligned_edge=LEFT)
+        self.play(FadeIn(gotb1), counter(bin_n, 10, 202, "in the bin: {}", 22, BIN_C, bin_p, 1.2), run_time=1.2)
+        self.play(FadeIn(gotb2), run_time=0.4)
+        self.at(3)
+        s_b2 = slip("1", 20).move_to([SCR_X - 1.0, LANE_Y, 0])
+        empty = T("nothing on hand", 22, BIN_C).move_to([ST_X, LANE_Y + 0.55, 0])
+        self.at(4)
+        self.play(FadeIn(s_b2), run_time=0.2)
+        self.play(s_b2.animate.move_to([ST_X, LANE_Y, 0]), run_time=0.5)
+        self.play(FadeIn(empty), run_time=0.4)
+        b22 = reading(22)
+        self.play(journey(b22, [[BELT_X0 + 0.2, TY, 0], [BELT_X2, TY, 0], SCR_P], 1.0), FadeOut(s_b2, run_time=0.3))
+        self.play(FadeOut(b22), FadeOut(shown11), FadeIn(shown22 := M("22", 40, PACK_C).move_to(scr[0])), run_time=0.25)
+        self.hold()
+
+        # ================= 3. keep only the newest =================
+        self.play(FadeOut(VGroup(bn, bn_l, bin_n, gotb1, gotb2, empty, shown22)), *focus(2), run_time=0.6)
+        slot = cell(0.6, 0.6, NEW_C).set_stroke(width=3).move_to([ST_X, TY, 0]).set_z_index(1)
+        sl_l = M("onBackpressureLatest()", 22, NEW_C).move_to([ST_X, BY + 0.85, 0])
+        l0 = reading(0)
+        shown = M("0", 40, PACK_C).move_to(scr[0])
+        self.say("slot")
+        self.play(FadeIn(slot), FadeIn(sl_l), run_time=0.5)
+        self.play(journey(l0, [[BELT_X0 + 0.2, TY, 0], [BELT_X2, TY, 0], SCR_P], 1.0))
+        self.play(FadeOut(l0), FadeIn(shown), run_time=0.25)
+        self.at(1)
+        prev = None
+        for i in range(1, 11):
+            t = reading(i)
+            anims = [journey(t, [[ST_X - 1.6, TY, 0], [ST_X, TY, 0]], 0.28)]
+            if prev is not None:
+                anims.append(FadeOut(prev, shift=DOWN * 0.45, scale=0.6, run_time=0.28))
+            self.play(*anims)
+            prev = t
+        self.at(2)
+        s_l = slip("1", 20).move_to([SCR_X - 1.0, LANE_Y, 0])
+        self.play(FadeIn(s_l), run_time=0.2)
+        self.play(s_l.animate.move_to([ST_X, LANE_Y, 0]), run_time=0.5)
+        self.play(prev.animate.move_to(SCR_P), FadeOut(s_l), run_time=0.6)
+        self.play(FadeOut(prev), FadeOut(shown), FadeIn(shown10 := M("10", 40, PACK_C).move_to(scr[0])), run_time=0.25)
+        gotl = M("screen got  [0, 10, 20, 30, 40, 50, 60, 70, 81, ...]", 22).move_to([-6.0, OUT_Y1, 0], aligned_edge=LEFT)
+        self.play(FadeIn(gotl), run_time=0.5)
+        self.hold()
+
+        # ================= 4. stop the line =================
+        self.play(FadeOut(VGroup(slot, sl_l, gotl, shown10)), *focus(3), run_time=0.6)
+        stp = stop_icon(0.9).move_to([ST_X, BY + 0.95, 0])
+        sp_l = M("onBackpressureError()", 22, STOP_C).next_to(stp, RIGHT, buff=0.3)
+        e0 = reading(0)
+        shown = M("0", 40, PACK_C).move_to(scr[0])
+        self.say("stop")
+        self.play(FadeIn(stp), FadeIn(sp_l), run_time=0.5)
+        self.play(journey(e0, [[BELT_X0 + 0.2, TY, 0], [BELT_X2, TY, 0], SCR_P], 0.9))
+        self.play(FadeOut(e0), FadeIn(shown), run_time=0.25)
+        e1 = reading(1)
+        self.play(journey(e1, [[BELT_X0 + 0.2, TY, 0], [ST_X, TY, 0]], 0.7))
+        bar = Line([ST_X + 0.35, BY + 0.5, 0], [ST_X + 0.35, BY - 0.4, 0], stroke_width=7, color=STOP_C)
+        self.play(Create(bar), e1[0].animate.set_stroke(BAD_C), scr[0].animate.set_stroke(BAD_C), run_time=0.5)
+        stp_t = T("fails at the first reading nobody asked for", 24, STOP_C).move_to([0, OUT_Y1, 0])
+        self.play(FadeIn(stp_t), run_time=0.5)
+        self.hold()
+
+        # ================= name it: loss policies =================
+        keep = set(icons + opl)
+        self.play(FadeOut(Group(*[m for m in self.mobjects if m not in keep])), *[m.animate.set_opacity(1) for m in icons + opl],
+                  run_time=0.6)
+        row = VGroup(*[VGroup(i, o) for i, o in zip(icons, opl)])
+        self.play(row.animate.shift(UP * 2.7), run_time=0.7)
+        honest = [T(w, 24, c) for w, c in zip(["keep a pile", "use the bin", "keep the newest", "stop the line"], cols)]
+        for h, o in zip(honest, opl):
+            h.move_to(o[0])
+        q = T("Does any of them slow the thermometer down?", 30).move_to([0, 2.85, 0])
+        lp = T("loss policies", 44, SLIP_C).move_to([0, -1.45, 0])
+        lp2 = T("they decide what to keep, and what to give up", 28, GREY_A).next_to(lp, DOWN, buff=0.25)
+        nope = T("Not one.", 30, BAD_C).next_to(q, DOWN, buff=0.15)
+        self.say("name")
+        self.play(FadeIn(q), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(nope), run_time=0.4)
+        self.at(2)
+        self.play(LaggedStart(*[AnimationGroup(FadeOut(o[0], shift=UP * 0.15), FadeIn(h, shift=UP * 0.15)) for o, h in zip(opl, honest)],
+                              lag_ratio=0.45), run_time=2.6)
+        self.at(3)
+        self.play(FadeIn(lp, scale=1.1), run_time=0.6)
+        self.at(4)
+        self.play(FadeIn(lp2), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= where the picture breaks =================
+        real_cells = VGroup(*[cell(0.4, 0.4) for _ in range(10)]).arrange(RIGHT, buff=0.04)
+        real_toks = VGroup(*[reading("", r=0.15).move_to(c) for c in real_cells])
+        real_t = VGroup(real_cells, real_toks).move_to([-3.4, 1.7, 0])
+        real_l = T("a real table, full: hard to miss", 24, GREY_A).next_to(real_t, DOWN, buff=0.3)
+        ghost = DashedVMobject(RoundedRectangle(corner_radius=0.1, width=5.0, height=2.0), num_dashes=40).set_stroke(GREY_D, 2)
+        ghost.move_to([3.35, 1.45, 0])
+        ghost_l = T("a buffer with no size: a table nobody can see", 24, GREY_B).next_to(ghost, DOWN, buff=0.25)
+        gp = [np.array([1.25 + c * 0.42, 0.75 + r * 0.38, 0]) for r in range(4) for c in range(11)]
+        g_toks = [reading("", BAD_C, r=0.15).move_to(p).set_opacity(0.55) for p in gp]
+        heap = RoundedRectangle(corner_radius=0.1, width=9.0, height=0.5).set_stroke(GREY_A, 2.5).move_to([0.6, -1.85, 0])
+        heap_f = Rectangle(width=0.01, height=0.42).set_stroke(width=0).set_fill(BAD_C, 0.7).align_to(heap, LEFT).shift(RIGHT * 0.04)
+        heap_f.move_to([heap.get_left()[0] + 0.05, -1.85, 0], aligned_edge=LEFT)
+        heap_l = T("the heap: the memory where Java keeps its objects", 24, GREY_A).next_to(heap, DOWN, buff=0.25)
+        heap_name = T("heap", 26, GREY_A).next_to(heap, LEFT, buff=0.25)
+        oom = T("out of memory", 28, BAD_C).move_to(heap)
+        self.say("breaks")
+        self.at(1)
+        self.play(FadeIn(real_t), FadeIn(real_l), run_time=0.7)
+        self.at(2)
+        self.play(Create(ghost), FadeIn(ghost_l), run_time=0.7)
+        self.play(LaggedStart(*[FadeIn(t) for t in g_toks], lag_ratio=0.05), FadeIn(heap), FadeIn(heap_name), run_time=1.6)
+        self.at_text("the heap", lead=0.2)
+        self.play(FadeIn(heap_l), heap_f.animate.stretch_to_fit_width(8.9).align_to(heap, LEFT).shift(RIGHT * 0.05), run_time=2.4)
+        self.play(FadeIn(oom, scale=1.2), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= guardrail: a source that reads slips =================
+        db = cylinder().move_to([-4.6, 0.9, 0])
+        db_l = T("order book", 24, OVEN_C).next_to(db, DOWN, buff=0.2)
+        cur = T("a cursor fetches only the rows it's asked for", 24, GREY_A).move_to([1.2, 2.75, 0])
+        rep = VGroup(RoundedRectangle(corner_radius=0.06, width=1.3, height=1.6).set_stroke(GREY_A, 2.5)
+                     .set_fill(dim(GREY_A, 0.08), 1),
+                     *[Line(LEFT * 0.4, RIGHT * 0.4, stroke_width=2, color=GREY_B).shift(UP * (0.45 - 0.22 * k)) for k in range(5)])
+        rep.move_to([4.9, 0.9, 0])
+        rep_l = T("nightly report", 24, PACK_C).next_to(rep, DOWN, buff=0.2)
+        s100 = slip("send me 100").move_to([3.2, 1.75, 0])
+        rows = [RoundedRectangle(corner_radius=0.04, width=0.7, height=0.18).set_stroke(LOAF_C, 2).set_fill(dim(LOAF_C, 0.3), 1)
+                for _ in range(6)]
+        free = T("backpressure for free", 30, SLIP_C).move_to([0, -1.5, 0])
+        self.say("real")
+        self.play(FadeIn(db), FadeIn(db_l), FadeIn(rep), FadeIn(rep_l), run_time=0.7)
+        self.play(FadeIn(cur), run_time=0.5)
+        self.at_text("which fetches", lead=0.5)
+        self.play(FadeIn(s100), run_time=0.3)
+        self.play(s100.animate.move_to([-2.9, 1.75, 0]), run_time=0.9)
+        self.play(FadeOut(s100, run_time=0.2),
+                  LaggedStart(*[journey(r, [[-3.6, 0.6, 0], [3.9, 0.6, 0]], 1.1, fade_out=True) for r in rows], lag_ratio=0.2),
+                  run_time=2.0)
+        self.at(1)
+        self.play(FadeIn(free, scale=1.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= guardrail: what does one missed item cost? =================
+        cq = T("What does one missed item cost?", 32).move_to([0, 3.0, 0])
+        c1_th = thermometer(0.6)
+        c1 = VGroup(c1_th, T("a temperature", 26, OVEN_C), T("newer replaces older", 22, GREY_B)).arrange(DOWN, buff=0.2)
+        c1.move_to([-4.4, 1.0, 0])
+        c1_p = VGroup(slot_icon(0.9), T("keep the newest", 24, NEW_C)).arrange(DOWN, buff=0.15).move_to([-4.4, -1.5, 0])
+        mini = screen(0.8)
+        mini_t = T("a minute ago", 20, GREY_B).move_to(mini[0])
+        joke = VGroup(VGroup(mini, mini_t), T("a buffer: very accurate, a minute late", 22, GREY_B)).arrange(DOWN, buff=0.15)
+        joke.move_to([-4.4, -1.5, 0])
+        vis = VGroup(person(GREY_A, 0.9), M("+1", 26, GREY_A)).arrange(RIGHT, buff=0.15)
+        c2 = VGroup(vis, T("a visitor count", 26, GREY_A), T("one sample of hundreds", 22, GREY_B)).arrange(DOWN, buff=0.2)
+        c2.move_to([0, 1.0, 0])
+        c2_p = VGroup(bin_icon(0.75), T("the bin, and count the drops", 24, BIN_C)).arrange(DOWN, buff=0.15).move_to([0, -1.5, 0])
+        order = VGroup(RoundedRectangle(corner_radius=0.08, width=1.5, height=0.62).set_stroke(GOLD_M, 2.5).set_fill(dim(GOLD_M, 0.25), 1),
+                       T("order 41", 22, GOLD_M))
+        order[1].move_to(order[0])
+        c3 = VGroup(order, T("a web order", 26, GOLD_M), T("must never vanish", 22, GREY_B)).arrange(DOWN, buff=0.2)
+        c3.move_to([4.4, 1.0, 0])
+        c3_p = VGroup(pile_icon(0.9), T("a small pile that fails loudly", 24, PILE_C),
+                      T("then: ask again from the last saved order", 22, GREY_B)).arrange(DOWN, buff=0.15).move_to([4.4, -1.65, 0])
+        arrs = [Arrow(c.get_bottom(), p.get_top(), buff=0.15, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.2)
+                for c, p in ((c1, c1_p), (c2, c2_p), (c3, c3_p))]
+        self.say("choose")
+        self.play(FadeIn(cq), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(c1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(joke), GrowArrow(arrs[0]), run_time=0.6)
+        self.at(3)
+        self.play(FadeOut(joke), FadeIn(c1_p), run_time=0.6)
+        self.hold()
+        self.say("choose2")
+        self.play(FadeIn(c2, shift=UP * 0.1), run_time=0.6)
+        self.play(GrowArrow(arrs[1]), FadeIn(c2_p), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(c3, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(GrowArrow(arrs[2]), FadeIn(c3_p[0]), FadeIn(c3_p[1]), run_time=0.6)
+        self.at_text("and a way", lead=0.3)
+        self.play(FadeIn(c3_p[2]), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= the code, last =================
+        jsrc = ["Flux<Reading> screen = readings.onBackpressureLatest();     // the newest",
+                "Flux<WebOrder> kept = webOrders.onBackpressureBuffer(1_000, // a pile of 1,000",
+                "        o -> log.error(\"overflow at {}\", o.id()));       // that fails loudly"]
+        ksrc = ["val screen: Flux<Reading> = readings.onBackpressureLatest()  // the newest",
+                "val kept: Flux<WebOrder> = webOrders.onBackpressureBuffer(1_000) { o ->",
+                "    log.error(\"overflow at {}\", o.id) }                  // fails loudly"]
+        hl = {"onBackpressureLatest": NEW_C, "onBackpressureBuffer": PILE_C, "1_000": SLIP_C}
+        jc, kc = code_block(jsrc, 22, hl), code_block(ksrc, 22, hl)
+        blk = VGroup(VGroup(T("Java", 24, GREY_B), jc).arrange(DOWN, aligned_edge=LEFT, buff=0.15),
+                     VGroup(T("Kotlin", 24, GREY_B), kc).arrange(DOWN, aligned_edge=LEFT, buff=0.15)).arrange(DOWN, aligned_edge=LEFT, buff=0.4)
+        fit(blk, 12.6).move_to([0, 0.1, 0])
+        self.say("code")
+        self.play(FadeIn(blk, shift=UP * 0.15), run_time=0.9)
+        self.at(1)
+        self.play(Indicate(VGroup(jc[0], kc[0]), color=NEW_C, scale_factor=1.02), run_time=0.8)
+        self.at(2)
+        self.play(Indicate(VGroup(jc[1:], kc[1:]), color=SLIP_C, scale_factor=1.02), run_time=0.8)
+        self.hold()
+        self.play(FadeOut(blk), run_time=0.6)
+
+        # ================= the moral and a check =================
+        mq = T("Does onBackpressure slow the source down?", 32).move_to(UP * 2.75)
+        m1 = T("No. Only a source that reads the slips slows down.", 28, SLIP_C)
+        mrow = VGroup(*[VGroup(i.copy().set_opacity(1).scale(0.8), T(w, 22, c)).arrange(DOWN, buff=0.15)
+                        for i, w, c in zip(icons, ["a small pile", "a bin", "the newest", "stop the line"], cols)]).arrange(RIGHT, buff=1.0)
+        m2 = T("For one that can't, choose what to lose when the table is full:", 28)
+        mg = VGroup(m1, m2, mrow).arrange(DOWN, buff=0.35).move_to(UP * 0.85)
+        fit(mg, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.6)
+        self.play(LaggedStart(*[FadeIn(m, shift=UP * 0.1) for m in mrow], lag_ratio=0.3), run_time=1.4)
+        self.hold()
+        chk = T("Check: 200 readings a second, a screen that redraws 10 times a second.", 28)
+        chk2 = T("Which policy fits?", 28, SLIP_C)
+        qg = VGroup(chk, chk2).arrange(DOWN, buff=0.2)
+        fit(qg, 12.4).move_to(DOWN * 1.75)
+        self.say("check")
+        self.play(FadeIn(qg, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.predict()
+        ans = T("keep the newest: onBackpressureLatest, the temperature now", 28, NEW_C).move_to(DOWN * 2.85)
+        fit(ans, 12.4)
+        self.say("check_a")
+        self.play(FadeIn(ans, shift=UP * 0.1), Indicate(mrow[2], color=NEW_C, scale_factor=1.1), run_time=0.8)
+        self.hold(after=0)
+        self.wait(2.5)

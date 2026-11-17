@@ -16,33 +16,38 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class FlightRecorderTest {
-    private static final String NAME = "workbench.Authorization";
+    private static final String NAME = "workbench.Lookup";
 
     @TempDir
     Path dir;
 
-    // the issuer approves anything under 1,000.00 and takes 40 ms for merchant m_slow
-    private static final Issuer ISSUER = (merchant, cents) -> {
-        if (merchant.equals("m_slow")) {
+    // a tiny document store: three documents, and a basement shelf that takes 40 ms to answer
+    private static final DocumentStore STORE = (shelf, title) -> {
+        if (shelf.equals("basement")) {
             try { Thread.sleep(40); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         }
-        return cents < 100_000;
+        return switch (shelf + "/" + title) {
+            case "news/weather" -> "Rain in the morning, sun after lunch.";
+            case "books/chapter-1" -> "It was a quiet town, and nobody counted the words.";
+            case "basement/old-letters" -> "Dear Ana, the roof still leaks.";
+            default -> null;                               // this shelf doesn't have it
+        };
     };
 
-    // record a few authorizations in a real JFR recording, written to a real .jfr file
+    // record a few lookups in a real JFR recording, written to a real .jfr file
     private Path recordScenario() throws Exception {
-        Path file = dir.resolve("auth.jfr");
+        Path file = dir.resolve("lookups.jfr");
         try (Recording recording = new Recording()) {
             recording.enable(NAME);
             recording.enable("jdk.ThreadSleep").withThreshold(Duration.ZERO);   // other events in the file too
             recording.start();
-            Authorizer authorizer = new Authorizer(ISSUER);
-            authorizer.authorize("m_coffee", 450);
-            authorizer.authorize("m_coffee", 250_000);      // declined
-            authorizer.authorize("m_books", 1_999);
-            authorizer.authorize("m_slow", 5_000);          // 40 ms at the issuer
-            authorizer.authorize("m_books", 120_000);       // declined
-            authorizer.authorize("m_books", 990_000);       // declined
+            Librarian librarian = new Librarian(STORE);
+            librarian.lookup("news", "weather");
+            librarian.lookup("news", "yesterday");          // missing
+            librarian.lookup("books", "chapter-1");
+            librarian.lookup("basement", "old-letters");    // 40 ms at the store
+            librarian.lookup("books", "chapter-9");         // missing
+            librarian.lookup("books", "chapter-10");        // missing
             recording.stop();
             recording.dump(file);
         }
@@ -56,47 +61,55 @@ class FlightRecorderTest {
     }
 
     @Test
-    @DisplayName("Authorizer records one workbench.Authorization event per call, with merchant, amount and outcome")
-    void oneEventPerAuthorization() throws Exception {
+    @DisplayName("Librarian still returns the store's answer, text or null")
+    void returnsTheStoresAnswer() {
+        Librarian librarian = new Librarian(STORE);
+        assertThat(librarian.lookup("news", "weather")).isEqualTo("Rain in the morning, sun after lunch.");
+        assertThat(librarian.lookup("news", "yesterday")).isNull();
+    }
+
+    @Test
+    @DisplayName("Librarian records one workbench.Lookup event per call, with shelf, title and outcome")
+    void oneEventPerLookup() throws Exception {
         List<RecordedEvent> events = ours(recordScenario());
-        assertThat(events).as("workbench.Authorization events in the recording").hasSize(6);
-        assertThat(events).extracting(e -> e.getString("merchant"))
-                .containsExactly("m_coffee", "m_coffee", "m_books", "m_slow", "m_books", "m_books");
-        assertThat(events).extracting(e -> e.getLong("amountCents"))
-                .containsExactly(450L, 250_000L, 1_999L, 5_000L, 120_000L, 990_000L);
-        assertThat(events).extracting(e -> e.getBoolean("approved"))
+        assertThat(events).as("workbench.Lookup events in the recording").hasSize(6);
+        assertThat(events).extracting(e -> e.getString("shelf"))
+                .containsExactly("news", "news", "books", "basement", "books", "books");
+        assertThat(events).extracting(e -> e.getString("title"))
+                .containsExactly("weather", "yesterday", "chapter-1", "old-letters", "chapter-9", "chapter-10");
+        assertThat(events).extracting(e -> e.getBoolean("found"))
                 .containsExactly(true, false, true, true, false, false);
     }
 
     @Test
-    @DisplayName("the event type has a label and sits in a Payments category")
+    @DisplayName("the event type has a label and sits in a Reports category")
     void eventTypeIsDescribed() throws Exception {
         EventType type = ours(recordScenario()).get(0).getEventType();
         assertThat(type.getLabel()).as("@Label on the event class").isNotBlank();
-        assertThat(type.getCategoryNames()).as("@Category on the event class").contains("Payments");
-        assertThat(type.getField("amountCents").getLabel()).as("@Label on amountCents").isNotBlank();
+        assertThat(type.getCategoryNames()).as("@Category on the event class").contains("Reports");
+        assertThat(type.getField("title").getLabel()).as("@Label on title").isNotBlank();
     }
 
     @Test
-    @DisplayName("the event's duration covers the issuer call")
-    void durationCoversIssuerCall() throws Exception {
+    @DisplayName("the event's duration covers the store call")
+    void durationCoversStoreCall() throws Exception {
         RecordedEvent slow = ours(recordScenario()).stream()
-                .filter(e -> e.getString("merchant").equals("m_slow"))
+                .filter(e -> e.getString("shelf").equals("basement"))
                 .findFirst().orElseThrow();
-        assertThat(slow.getDuration()).as("duration of m_slow's authorization")
+        assertThat(slow.getDuration()).as("duration of the basement lookup")
                 .isGreaterThanOrEqualTo(Duration.ofMillis(35));
     }
 
     @Test
-    @DisplayName("AuthReport counts declines per merchant and ignores other event types")
-    void declinesPerMerchant() throws Exception {
-        Map<String, Long> declines = AuthReport.declinesByMerchant(recordScenario());
-        assertThat(declines).containsOnly(Map.entry("m_coffee", 1L), Map.entry("m_books", 2L));
+    @DisplayName("LookupReport counts missing documents per shelf and ignores other event types")
+    void missingPerShelf() throws Exception {
+        Map<String, Long> missing = LookupReport.missingByShelf(recordScenario());
+        assertThat(missing).containsOnly(Map.entry("news", 1L), Map.entry("books", 2L));
     }
 
     @Test
-    @DisplayName("AuthReport finds the merchant with the slowest authorization")
-    void slowestMerchant() throws Exception {
-        assertThat(AuthReport.slowestMerchant(recordScenario())).isEqualTo("m_slow");
+    @DisplayName("LookupReport finds the shelf with the slowest lookup")
+    void slowestShelf() throws Exception {
+        assertThat(LookupReport.slowestShelf(recordScenario())).isEqualTo("basement");
     }
 }
