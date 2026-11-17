@@ -25,11 +25,11 @@ import java.io.IOException
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-/** A payment whose status is set twice in a row, with no suspension in between. */
+/** A dish whose status is set twice in a row, with no suspension in between. */
 class TourTracker {
-    private val _status = MutableStateFlow("PENDING")
+    private val _status = MutableStateFlow("ORDERED")
     val status: StateFlow<String> = _status.asStateFlow()
-    fun authorizeAndCapture() { _status.value = "AUTHORIZED"; _status.value = "CAPTURED" }
+    fun cookAndServe() { _status.value = "COOKING"; _status.value = "SERVED" }
     fun statusFlux(): Flux<String> = status.asFlux()   // for the Java twin, StepVerifierTourTest
 }
 
@@ -42,9 +42,9 @@ class TurbineTourTest {
 
     @Test
     fun `1 items and completion are awaited in order`() = runTest {
-        flowOf("AUTHORIZED", "CAPTURED").test {
-            assertThat(awaitItem()).isEqualTo("AUTHORIZED")
-            assertThat(awaitItem()).isEqualTo("CAPTURED")
+        flowOf("COOKING", "SERVED").test {
+            assertThat(awaitItem()).isEqualTo("COOKING")
+            assertThat(awaitItem()).isEqualTo("SERVED")
             awaitComplete()
         }
     }
@@ -57,9 +57,9 @@ class TurbineTourTest {
 
     @Test
     fun `3 an error arrives as an event, not as a thrown exception`() = runTest {
-        flow { emit(1); throw IOException("issuer 503") }.test {
+        flow { emit(1); throw IOException("probe lost") }.test {
             assertThat(awaitItem()).isEqualTo(1)
-            assertThat(awaitError()).hasMessage("issuer 503")
+            assertThat(awaitError()).hasMessage("probe lost")
         }
     }
 
@@ -67,40 +67,40 @@ class TurbineTourTest {
     fun `4 Turbine sees every StateFlow value, a Standard collector does not`() = runTest {
         val tracker = TourTracker()
         tracker.status.test {
-            assertThat(awaitItem()).isEqualTo("PENDING")
-            tracker.authorizeAndCapture()
-            assertThat(awaitItem()).isEqualTo("AUTHORIZED") // Turbine collects on UnconfinedTestDispatcher
-            assertThat(awaitItem()).isEqualTo("CAPTURED")
+            assertThat(awaitItem()).isEqualTo("ORDERED")
+            tracker.cookAndServe()
+            assertThat(awaitItem()).isEqualTo("COOKING") // Turbine collects on UnconfinedTestDispatcher
+            assertThat(awaitItem()).isEqualTo("SERVED")
         }
         val other = TourTracker()
         val seen = mutableListOf<String>()
         backgroundScope.launch { other.status.toList(seen) } // StandardTestDispatcher, closer to production
         runCurrent()
-        other.authorizeAndCapture()
+        other.cookAndServe()
         runCurrent()
-        assertThat(seen).containsExactly("PENDING", "CAPTURED")
+        assertThat(seen).containsExactly("ORDERED", "SERVED")
     }
 
     @Test
     fun `5 Turbine never lets a callbackFlow buffer fill`() = runTest {
-        val gw = FakeGateway()
-        val defaultBuffer: Flow<GatewayEvent> = callbackFlow { // 64 slots, as callbackFlow has by default
-            val r = gw.register(object : GatewayListener {
-                override fun onEvent(event: GatewayEvent) { trySend(event) }
+        val probe = FakeProbe()
+        val defaultBuffer: Flow<ProbeReading> = callbackFlow { // 64 slots, as callbackFlow has by default
+            val r = probe.register(object : ProbeListener {
+                override fun onReading(reading: ProbeReading) { trySend(reading) }
                 override fun onError(error: Throwable) { close(error) }
                 override fun onClosed() { close() }
             })
             awaitClose { r.unregister() }
         }
         defaultBuffer.test {
-            gw.burst(500)
+            probe.burst(500)
             repeat(500) { awaitItem() } // all 500 arrive: each one was taken the moment it was sent
             cancelAndIgnoreRemainingEvents()
         }
-        val seen = mutableListOf<GatewayEvent>()
+        val seen = mutableListOf<ProbeReading>()
         backgroundScope.launch { defaultBuffer.collect { seen += it } }
         runCurrent()
-        gw.burst(500)
+        probe.burst(500)
         runCurrent()
         assertThat(seen).hasSize(65) // a Standard collector: 64 buffered plus 1 handed straight over
     }
@@ -108,7 +108,7 @@ class TurbineTourTest {
     @Test
     fun `6 a SharedFlow value emitted before test {} is lost`() = runTest {
         val events = MutableSharedFlow<String>()
-        events.emit("AUTHORIZED") // nobody is subscribed yet, and replay = 0
+        events.emit("SERVED") // nobody is subscribed yet, and replay = 0
         val failure = runCatching { events.test(timeout = 500.milliseconds) { awaitItem() } }.exceptionOrNull()
         assertThat(failure).hasMessage("No value produced in 500ms") // after 500 ms of REAL time
     }
@@ -124,12 +124,12 @@ class TurbineTourTest {
     @Test
     fun `8 several flows at once with turbineScope and testIn`() = runTest {
         turbineScope {
-            val rates = flowOf(1.0850, 1.0851).testIn(backgroundScope, name = "rates")
-            val alerts = flowOf("drift").testIn(backgroundScope, name = "alerts")
-            assertThat(rates.awaitItem()).isEqualTo(1.0850)
-            assertThat(alerts.awaitItem()).isEqualTo("drift")
-            assertThat(rates.awaitItem()).isEqualTo(1.0851)
-            rates.awaitComplete()
+            val readings = flowOf(180, 181).testIn(backgroundScope, name = "readings")
+            val alerts = flowOf("door open").testIn(backgroundScope, name = "alerts")
+            assertThat(readings.awaitItem()).isEqualTo(180)
+            assertThat(alerts.awaitItem()).isEqualTo("door open")
+            assertThat(readings.awaitItem()).isEqualTo(181)
+            readings.awaitComplete()
             alerts.awaitComplete()
         }
     }

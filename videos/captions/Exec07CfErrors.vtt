@@ -1,145 +1,389 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.412
-A checkout is a chain: get the FX rate, convert, round to cents, charge.
+00:00:02.700 --> 00:00:05.071
+Here's a question we rarely ask out loud.
 
 2
-00:00:07.412 --> 00:00:11.076
-Each stage runs when the one before it hands it a value.
+00:00:05.071 --> 00:00:09.352
+When the first step of a chain throws, what happens to the steps after it?
 
 3
-00:00:11.300 --> 00:00:13.671
-Now the FX call fails with a 502.
+00:00:09.352 --> 00:00:12.128
+Do they run anyway, with nothing in their hands?
 
 4
-00:00:13.671 --> 00:00:16.113
-Which of the next three steps run?
+00:00:12.833 --> 00:00:14.134
+Back to the kitchen.
 
 5
-00:00:18.333 --> 00:00:18.671
-None.
+00:00:14.134 --> 00:00:21.938
+Last time, the ticket for table 4 carried its own instructions: grill the steak, pour the sauce, plate it, carry it out.
 
 6
-00:00:18.671 --> 00:00:25.771
-The failure skips every thenApply: their functions never run, and their futures fail with the same cause.
+00:00:21.938 --> 00:00:26.165
+The ticket was a CompletableFuture, and each instruction a stage.
 
 7
-00:00:26.000 --> 00:00:27.915
-It slides down to the handlers.
+00:00:26.367 --> 00:00:27.633
+Now the steak burns.
 
 8
-00:00:27.915 --> 00:00:30.510
-whenComplete only looks, and passes it on.
+00:00:27.633 --> 00:00:31.241
+The sauce cook has no business pouring sauce on charcoal.
 
 9
-00:00:30.510 --> 00:00:34.959
-exceptionally catches it, but this late, all it can return is: declined.
+00:00:31.241 --> 00:00:34.407
+So a note goes on the ticket: burned at the grill.
 
 10
-00:00:35.867 --> 00:00:38.939
-Move exceptionally up, right after the FX call.
+00:00:34.407 --> 00:00:40.991
+Every later station passes it along, untouched, to the pass, the counter where dishes leave the kitchen.
 
 11
-00:00:38.939 --> 00:00:44.627
-Now it returns the last known rate, and every later step runs as if nothing went wrong.
+00:00:40.991 --> 00:00:44.789
+Someone there reads the note, and decides what table 4 gets.
 
 12
-00:00:45.600 --> 00:00:48.038
-A future is only a box for the answer.
+00:00:45.000 --> 00:00:45.921
+Let's map it.
 
 13
-00:00:48.038 --> 00:00:50.989
-The work runs somewhere else, on an io thread.
+00:00:45.921 --> 00:00:48.757
+Each station is a stage, like thenApply.
 
 14
-00:00:51.200 --> 00:01:01.852
-With orTimeout of 200 ms, a timer fills the box with a TimeoutException at 200 ms, and it travels down the chain like any failure.
+00:00:48.757 --> 00:00:50.600
+The note is the exception.
 
 15
-00:01:02.067 --> 00:01:04.230
-The call never hears about it.
+00:00:50.600 --> 00:00:56.483
+The pass is a handler, a stage that also runs after a failure: here, exceptionally.
 
 16
-00:01:04.230 --> 00:01:09.205
-It keeps its thread until 600 ms, and then its answer is thrown away.
+00:00:56.700 --> 00:00:59.503
+The lesson's ErrorPathDemo builds this line.
 
 17
-00:01:09.433 --> 00:01:11.882
-A timeout ends the wait, not the work.
+00:00:59.503 --> 00:01:02.178
+The grill always throws: the steak burned.
 
 18
-00:01:11.882 --> 00:01:14.396
-So give the client its own timeout too.
+00:01:02.178 --> 00:01:04.854
+Each numbered station prints what it does.
 
 19
-00:01:15.300 --> 00:01:20.192
-Now ask three FX providers at once, and wait for all three with allOf.
+00:01:04.854 --> 00:01:10.715
+Then whenComplete, the manager, glances at every ticket going past, and the pass comes last.
 
 20
-00:01:20.400 --> 00:01:22.580
-flaky fails at 50 ms.
+00:01:10.715 --> 00:01:12.435
+Which numbered lines print?
 
 21
-00:01:22.580 --> 00:01:26.109
-alpha answers at 100, beta at 300.
+00:01:15.233 --> 00:01:15.588
+None.
 
 22
-00:01:26.333 --> 00:01:31.014
-allOf waits for all three, then fails, because one failed.
+00:01:15.588 --> 00:01:17.079
+Their code never ran.
 
 23
-00:01:31.014 --> 00:01:35.776
-One bad answer at 50 ms fails the whole call, 300 ms later.
+00:01:17.079 --> 00:01:20.274
+The manager saw the failure and passed it on.
 
 24
-00:01:36.700 --> 00:01:39.378
-The fix: put a handle on each call first.
+00:01:20.274 --> 00:01:25.244
+The pass caught it, and returned: table 4 got an apology and the menu.
 
 25
-00:01:39.378 --> 00:01:43.753
-It turns a failure into an empty answer, so allOf can only succeed.
+00:01:25.467 --> 00:01:27.177
+Not the dinner they ordered.
 
 26
-00:01:43.967 --> 00:01:52.272
-Now flaky's failure comes out of its handle as an empty answer, and at 300 ms the next step picks the lowest price.
+00:01:27.177 --> 00:01:29.621
+But it beats charcoal with pepper sauce.
 
 27
-00:01:52.500 --> 00:01:58.757
-Give each call its own orTimeout too, so a provider that hangs becomes one more empty answer.
+00:01:29.621 --> 00:01:34.020
+So the point is, a failure skips every stage until it reaches a handler.
 
 28
-00:01:59.767 --> 00:02:04.147
-In Java or Kotlin, each call gets its deadline, then its handle.
+00:01:34.233 --> 00:01:37.699
+Where you put the handler decides what you can still save.
 
 29
-00:02:04.967 --> 00:02:05.548
-The rule.
+00:01:37.699 --> 00:01:42.120
+Move the pass up, right after the grill, and it can swap in a spare steak.
 
 30
-00:02:05.548 --> 00:02:09.099
-A failure skips every stage until a handler catches it.
+00:01:42.120 --> 00:01:45.645
+Then every station after it works as if nothing went wrong.
 
 31
-00:02:09.099 --> 00:02:12.069
-Catch it where you still have a useful answer.
+00:01:45.867 --> 00:01:48.753
+So recover as close to the failure as you can.
 
 32
-00:02:12.300 --> 00:02:13.358
-Check yourself.
+00:01:49.567 --> 00:01:52.439
+Now look at what the pass actually received.
 
 33
-00:02:13.358 --> 00:02:19.281
-The first stage fails, then comes thenApply A, then exceptionally, then thenApply B.
+00:01:52.439 --> 00:01:54.398
+Not our IllegalStateException.
 
 34
-00:02:19.281 --> 00:02:20.832
-Which of A and B runs?
+00:01:54.398 --> 00:01:57.010
+A CompletionException, with ours inside.
 
 35
-00:02:23.533 --> 00:02:24.043
-Only B.
+00:01:57.010 --> 00:01:59.556
+Our note arrived sealed in an envelope.
 
 36
-00:02:24.043 --> 00:02:27.536
+00:01:59.767 --> 00:02:04.807
+So if the pass asks, is this an IllegalStateException, the answer is no.
+
+37
+00:02:04.807 --> 00:02:05.997
+It's an envelope.
+
+38
+00:02:05.997 --> 00:02:07.957
+That check is quietly wrong.
+
+39
+00:02:08.767 --> 00:02:13.257
+The rule: an exception thrown inside a stage travels in an envelope.
+
+40
+00:02:13.257 --> 00:02:21.048
+A future completed by hand, with completeExceptionally or a timer, holds it bare, until the next stage seals it again.
+
+41
+00:02:21.048 --> 00:02:24.680
+So open the envelope with getCause, then test the type.
+
+42
+00:02:25.500 --> 00:02:26.481
+Now that timer.
+
+43
+00:02:26.481 --> 00:02:34.130
+The restaurant buys flour, and each supplier has a web service, a program on another computer that answers questions.
+
+44
+00:02:34.130 --> 00:02:39.360
+Asking for a price is a blocking call: it holds a thread until the answer comes.
+
+45
+00:02:39.360 --> 00:02:40.929
+So, a cook on the phone.
+
+46
+00:02:41.133 --> 00:02:43.318
+The manager sets a kitchen timer.
+
+47
+00:02:43.318 --> 00:02:45.040
+In code, that's orTimeout.
+
+48
+00:02:45.040 --> 00:02:50.470
+When it rings, the future fails with a TimeoutException, and the manager moves on.
+
+49
+00:02:50.470 --> 00:02:52.125
+What happens to the cook?
+
+50
+00:02:54.900 --> 00:03:01.310
+The lesson's KeepsRunningDemo gives a 600 millisecond call a deadline of 200.
+
+51
+00:03:01.310 --> 00:03:05.639
+The future fails right on time, at 236 milliseconds.
+
+52
+00:03:05.639 --> 00:03:06.721
+And the cook?
+
+53
+00:03:06.721 --> 00:03:07.887
+Still on hold.
+
+54
+00:03:07.887 --> 00:03:12.299
+The supplier answers at 695, and nobody is listening.
+
+55
+00:03:12.500 --> 00:03:17.732
+He's still listening to the supplier's hold music, the same four notes, over and over.
+
+56
+00:03:17.732 --> 00:03:23.329
+So the timer freed the manager, not the cook, and the thread stays busy until the call ends.
+
+57
+00:03:23.533 --> 00:03:24.627
+And cancel(true)?
+
+58
+00:03:24.627 --> 00:03:27.459
+It returns true, and the call never notices.
+
+59
+00:03:27.459 --> 00:03:29.004
+Here the picture breaks.
+
+60
+00:03:29.004 --> 00:03:32.865
+A real manager could walk over and tell the cook to hang up.
+
+61
+00:03:32.865 --> 00:03:37.241
+A CompletableFuture keeps no line back to the thread doing the work.
+
+62
+00:03:37.467 --> 00:03:40.623
+So a call to another computer needs two timeouts.
+
+63
+00:03:40.623 --> 00:03:43.136
+The one on the future frees the caller.
+
+64
+00:03:43.136 --> 00:03:50.287
+The one inside the client, such as a timeout on the HTTP request, makes the call give up, and frees the thread.
+
+65
+00:03:51.200 --> 00:03:56.831
+Now the manager wants three prices at once, from the corner shop, the market and the mill.
+
+66
+00:03:56.831 --> 00:03:58.520
+Three cooks phone together.
+
+67
+00:03:58.520 --> 00:04:03.337
+Sending several calls at once and collecting the answers is called a fan-out.
+
+68
+00:04:03.567 --> 00:04:10.139
+In FanOutDemo, the corner shop fails after 50 milliseconds, because it's closed today.
+
+69
+00:04:10.139 --> 00:04:15.719
+The market answers 21.50 after 100, and the mill answers 19.80 after 300.
+
+70
+00:04:15.719 --> 00:04:17.706
+allOf waits for all three.
+
+71
+00:04:17.706 --> 00:04:19.999
+What does it hand the manager?
+
+72
+00:04:27.800 --> 00:04:29.949
+A failure, at 336 milliseconds.
+
+73
+00:04:29.949 --> 00:04:33.830
+Two good prices came back, and the errand failed anyway.
+
+74
+00:04:33.830 --> 00:04:37.989
+If any future fails, allOf fails, after the slowest is done.
+
+75
+00:04:37.989 --> 00:04:40.970
+And anyOf, which takes the first to finish?
+
+76
+00:04:40.970 --> 00:04:43.535
+The first news here was the bad news.
+
+77
+00:04:43.767 --> 00:04:47.941
+The fix: make each call unable to fail before you combine them.
+
+78
+00:04:47.941 --> 00:04:54.831
+Each call gets its own deadline, then a handle, which turns a failure into no answer, an empty Optional.
+
+79
+00:04:55.033 --> 00:04:55.973
+Run it again.
+
+80
+00:04:55.973 --> 00:05:04.504
+The corner shop becomes no answer, and at 353 milliseconds the next step picks the lowest price: 19.80, from the mill.
+
+81
+00:05:04.504 --> 00:05:08.118
+The cheapest flour came from the slowest supplier.
+
+82
+00:05:08.118 --> 00:05:10.143
+Good thing we waited for it.
+
+83
+00:05:11.067 --> 00:05:13.599
+Here's one safe call in Java and Kotlin.
+
+84
+00:05:13.599 --> 00:05:15.561
+Keep the deadline on each call.
+
+85
+00:05:15.561 --> 00:05:20.815
+One deadline on allOf would let a single hung supplier throw away the good answers.
+
+86
+00:05:21.633 --> 00:05:24.031
+So, do the steps after a failure run?
+
+87
+00:05:24.031 --> 00:05:24.226
+No.
+
+88
+00:05:24.226 --> 00:05:29.216
+The note rides the ticket to the first handler, so recover close to the burn.
+
+89
+00:05:29.216 --> 00:05:32.002
+Open the envelope before you read the note.
+
+90
+00:05:32.002 --> 00:05:35.113
+A kitchen timer frees the manager, not the cook.
+
+91
+00:05:35.113 --> 00:05:38.548
+And make each call unable to fail before you combine.
+
+92
+00:05:39.267 --> 00:05:40.156
+Quick check.
+
+93
+00:05:40.156 --> 00:05:41.342
+The grill fails.
+
+94
+00:05:41.342 --> 00:05:45.790
+Then come thenApply A, then exceptionally, then thenApply B.
+
+95
+00:05:45.790 --> 00:05:47.421
+Which of A and B runs?
+
+96
+00:05:50.400 --> 00:05:50.909
+Only B.
+
+97
+00:05:50.909 --> 00:05:54.403
 A is skipped, and exceptionally hands B a value.

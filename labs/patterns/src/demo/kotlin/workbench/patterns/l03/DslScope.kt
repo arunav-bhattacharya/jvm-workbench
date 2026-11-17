@@ -1,39 +1,39 @@
 package workbench.patterns.l03
 
-// A tiny refund-batch DSL. @DslMarker stops an inner block from reaching the outer builder by accident.
+// A tiny delivery-round DSL. @DslMarker stops an inner block from reaching the outer builder by accident.
 
 @DslMarker
-annotation class RefundDsl
+annotation class RoundDsl
 
-data class Refund(val paymentId: String, val amountMinor: Long)
-data class RefundBatch(val reason: String, val refunds: List<Refund>)
+data class Stop(val orderId: String, val parcels: Int)
+data class Round(val driver: String, val stops: List<Stop>)
 
-@RefundDsl
-class RefundsBuilder {
-    private val refunds = mutableListOf<Refund>()
-    fun refund(paymentId: String, amountMinor: Long) { refunds += Refund(paymentId, amountMinor) }
-    fun build() = refunds.toList()
+@RoundDsl
+class StopsBuilder {
+    private val stops = mutableListOf<Stop>()
+    fun stop(orderId: String, parcels: Int) { stops += Stop(orderId, parcels) }
+    fun build() = stops.toList()
 }
 
-@RefundDsl
-class RefundBatchBuilder {
-    var reason: String = "unspecified"
-    private var refunds: List<Refund> = emptyList()
-    fun refunds(block: RefundsBuilder.() -> Unit) { refunds = RefundsBuilder().apply(block).build() }
-    fun build() = RefundBatch(reason, refunds)
+@RoundDsl
+class RoundBuilder {
+    var driver: String = "unassigned"
+    private var stops: List<Stop> = emptyList()
+    fun stops(block: StopsBuilder.() -> Unit) { stops = StopsBuilder().apply(block).build() }
+    fun build() = Round(driver, stops)
 }
 
-fun refundBatch(block: RefundBatchBuilder.() -> Unit): RefundBatch = RefundBatchBuilder().apply(block).build()
+fun round(block: RoundBuilder.() -> Unit): Round = RoundBuilder().apply(block).build()
 
 fun main() {
-    val batch = refundBatch {
-        reason = "duplicate charge"
-        refunds {
-            refund("p-101", 1_250)
-            refund("p-102", 990)
-            // reason = "oops"     // step 2 of the Try it: uncomment this line
+    val r = round {
+        driver = "Sam"
+        stops {
+            stop("o-101", 2)
+            stop("o-102", 3)
+            // driver = "oops"     // step 2 of the Try it: uncomment this line
         }
     }
-    println(batch)
-    println("total refunded: ${batch.refunds.sumOf { it.amountMinor }}")
+    println(r)
+    println("parcels on the van: ${r.stops.sumOf { it.parcels }}")
 }

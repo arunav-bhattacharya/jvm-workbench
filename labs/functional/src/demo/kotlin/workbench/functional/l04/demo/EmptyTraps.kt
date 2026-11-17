@@ -11,8 +11,8 @@ fun attempt(label: String, block: () -> Any?) {
 }
 
 fun main() {
-    val none = emptyList<Long>()                       // a quiet day: no payments at all
-    attempt("fold(0L) { a, b -> a + b }") { none.fold(0L) { a, b -> a + b } }
+    val none = emptyList<Int>()                        // a day when nothing was baked
+    attempt("fold(0) { a, b -> a + b }") { none.fold(0) { a, b -> a + b } }
     attempt("sum()") { none.sum() }
     attempt("reduceOrNull { a, b -> a + b }") { none.reduceOrNull { a, b -> a + b } }
     attempt("reduce { a, b -> a + b }") { none.reduce { a, b -> a + b } }

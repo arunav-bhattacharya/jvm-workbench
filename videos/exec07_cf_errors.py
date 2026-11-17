@@ -425,7 +425,7 @@ class Exec07CfErrors(Narrated):
         self.play(Indicate(bnote[1], color=WHITE, scale_factor=1.05), run_time=0.7)
         self.at(2)
         self.play(FadeIn(env, shift=UP * 0.2), run_time=0.6)
-        self.play(bnote.animate.move_to([-3.4, 0.82, 0]), run_time=0.8)
+        self.play(bnote.animate.move_to([-3.4, 0.0, 0]).align_to(env, UP).shift(UP * 0.2), run_time=0.8)
         self.at(3)
         self.play(Indicate(env[2], color=ENV, scale_factor=1.1), run_time=0.8)
         self.hold()
@@ -617,7 +617,7 @@ class Exec07CfErrors(Narrated):
 
         # ================= three cooks, three suppliers =================
         LY = [1.5, 0.3, -0.9]
-        F0, F1 = -2.9, 2.5
+        F0, F1 = -2.6, 2.5
         FPX = (F1 - F0) / 360
 
         def fx(ms):
@@ -625,7 +625,7 @@ class Exec07CfErrors(Narrated):
         names = ["corner shop", "market", "mill"]
         ckf = VGroup(*[cook_on_phone(0.8).move_to([-6.05, y, 0]) for y in LY])
         nm = VGroup(*[T(n, 26).move_to([-5.45, y + 0.12, 0], aligned_edge=LEFT) for n, y in zip(names, LY)])
-        subs = ["fails after 50 ms: closed", "21.50 after 100 ms", "19.80 after 300 ms"]
+        subs = ["fails at 50 ms", "21.50 at 100 ms", "19.80 at 300 ms"]
         sb = VGroup(*[T(s_, 20, GREY_B).next_to(nm[k], DOWN, buff=0.08, aligned_edge=LEFT) for k, s_ in enumerate(subs)])
         fan_l = T("fan-out: several calls at once, answers collected", 26, STEP).move_to([-0.6, 2.85, 0])
         AXX = 5.45
@@ -679,7 +679,7 @@ class Exec07CfErrors(Narrated):
             out = []
             for k in range(3):
                 t = times[k]
-                dt = (t - prev) / 360 * 3.4
+                dt = (t - prev) / 360 * 2.9
                 self.play(tv.animate.set_value(t),
                           *[UpdateFromAlphaFunc(grow[j], lambda m, a, j=j, p0=prev, t0=t: m.become(
                               bars[j].copy().stretch_to_fit_width(max(0.001, (min(times[j], p0 + (t0 - p0) * a)) * FPX),
@@ -745,11 +745,11 @@ class Exec07CfErrors(Narrated):
 
         # ================= the code =================
         jsrc = ["CompletableFuture<Optional<BigDecimal>> safe = ask(supplier)",
-                "        .orTimeout(200, TimeUnit.MILLISECONDS)          // this supplier's deadline",
-                "        .handle((price, ex) -> ex == null ? Optional.of(price) : Optional.empty());"]
+                "    .orTimeout(200, TimeUnit.MILLISECONDS)      // this supplier's deadline",
+                "    .handle((p, ex) -> ex == null ? Optional.of(p) : Optional.empty());"]
         ksrc = ["val safe: CompletableFuture<Optional<BigDecimal>> = ask(supplier)",
-                "    .orTimeout(200, TimeUnit.MILLISECONDS)              // this supplier's deadline",
-                "    .handle { price, ex -> if (ex == null) Optional.of(price) else Optional.empty() }"]
+                "    .orTimeout(200, TimeUnit.MILLISECONDS)      // this supplier's deadline",
+                "    .handle { p, ex -> if (ex == null) Optional.of(p) else Optional.empty() }"]
         jc, kc = code_block(jsrc, 22), code_block(ksrc, 22)
         for c_ in (jc, kc):
             c_[1].set_color(RULE)
@@ -804,4 +804,4 @@ class Exec07CfErrors(Narrated):
         self.play(cb_[1].animate.set_opacity(0.3), FadeIn(sk), FadeIn(rn), run_time=0.7)
         self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
-        self.wait(2.5)
+        self.wait(2.0)

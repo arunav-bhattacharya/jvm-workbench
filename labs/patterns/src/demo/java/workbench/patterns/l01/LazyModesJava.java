@@ -62,13 +62,13 @@ public class LazyModesJava {
         trial("PUBLICATION", PublicationLazy::new);
     }
 
-    static void trial(String mode, java.util.function.Function<Supplier<Map<String, Double>>, Lazy<Map<String, Double>>> make)
+    static void trial(String mode, java.util.function.Function<Supplier<Map<String, Long>>, Lazy<Map<String, Long>>> make)
             throws InterruptedException {
         AtomicInteger runs = new AtomicInteger();
-        Lazy<Map<String, Double>> rates = make.apply(() -> {
+        Lazy<Map<String, Long>> prices = make.apply(() -> {
             runs.incrementAndGet();
             try { Thread.sleep(20); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-            return Map.of("EUR/USD", 1.08);
+            return Map.of("BREAD", 450L);              // pretend to read a slow price file
         });
         Set<Object> seen = Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<>()));
         CountDownLatch go = new CountDownLatch(1);
@@ -76,7 +76,7 @@ public class LazyModesJava {
         for (int i = 0; i < ts.length; i++) {
             ts[i] = new Thread(() -> {
                 try { go.await(); } catch (InterruptedException e) { return; }
-                seen.add(rates.get());
+                seen.add(prices.get());
             });
             ts[i].start();
         }

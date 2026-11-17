@@ -16,9 +16,9 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 
-// An FX poller shared with stateIn. Each run of the upstream is numbered and emits
-// run * 100 + i every 1,000 ms, so you can see when a run starts over. Virtual time.
-private class Poller(private val clock: TestCoroutineScheduler) {
+// The oven thermometer, shared with stateIn. Each run of the upstream is numbered and emits
+// run * 100 + i every 1,000 ms (made-up readings), so you can see when a run starts over. Virtual time.
+private class Thermometer(private val clock: TestCoroutineScheduler) {
     var starts = 0
     @OptIn(ExperimentalCoroutinesApi::class)
     val flow: Flow<Int> = flow {
@@ -32,38 +32,38 @@ private class Poller(private val clock: TestCoroutineScheduler) {
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-private fun dashboard(started: SharingStarted) = runTest {
+private fun screen(started: SharingStarted) = runTest {
     println("== $started, initialValue = -1")
-    val poller = Poller(testScheduler)
-    val rate: StateFlow<Int> = poller.flow.stateIn(backgroundScope, started, initialValue = -1)
-    fun open() = backgroundScope.launch { rate.collect { println("  t=$currentTime: A got $it") } }
+    val thermometer = Thermometer(testScheduler)
+    val reading: StateFlow<Int> = thermometer.flow.stateIn(backgroundScope, started, initialValue = -1)
+    fun open() = backgroundScope.launch { reading.collect { println("  t=$currentTime: A got $it") } }
     var a = open()
     delay(2_500); a.cancel(); println("  t=$currentTime: A leaves")
     delay(1_500); println("  t=$currentTime: A comes back"); a = open()
     delay(2_000); a.cancel(); println("  t=$currentTime: A leaves")
     delay(8_000); println("  t=$currentTime: A comes back"); open()
-    delay(1_500); println("  t=$currentTime: end, upstream starts=${poller.starts}")
+    delay(1_500); println("  t=$currentTime: end, upstream starts=${thermometer.starts}")
 }
 
-// Request handlers that only read .value and never collect.
+// A board that people only glance at with .value. Nobody collects it.
 @OptIn(ExperimentalCoroutinesApi::class)
 private fun readOnly() = runTest {
-    println("== a cache that request handlers only read with .value")
+    println("== a hall board that people only read with .value")
     for (started in listOf(SharingStarted.WhileSubscribed(5_000), SharingStarted.Lazily, SharingStarted.Eagerly)) {
         var fetches = 0
-        val feed = flow { while (true) { fetches++; emit("1.08${50 + fetches}"); delay(1_000) } }
+        val feed = flow { while (true) { fetches++; emit(176 + fetches); delay(1_000) } }
         val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
-        val eurUsd: StateFlow<String?> = feed.stateIn(scope, started, initialValue = null)
+        val board: StateFlow<Int?> = feed.stateIn(scope, started, initialValue = null)
         delay(3_500)
-        println("  $started: three requests read ${List(3) { eurUsd.value }}, upstream fetches=$fetches")
+        println("  $started: three glances read ${List(3) { board.value }}, upstream fetches=$fetches")
         scope.cancel()
     }
 }
 
 fun main(args: Array<String>) {
     when (args.firstOrNull()) {
-        "expire" -> dashboard(SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0))
-        "stop0" -> dashboard(SharingStarted.WhileSubscribed())
-        else -> { dashboard(SharingStarted.WhileSubscribed(5_000)); readOnly() }
+        "expire" -> screen(SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0))
+        "stop0" -> screen(SharingStarted.WhileSubscribed())
+        else -> { screen(SharingStarted.WhileSubscribed(5_000)); readOnly() }
     }
 }

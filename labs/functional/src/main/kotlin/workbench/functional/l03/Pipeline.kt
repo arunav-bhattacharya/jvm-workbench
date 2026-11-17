@@ -1,24 +1,25 @@
 package workbench.functional.l03
 
-/** A fee adjustment takes a fee in cents and returns the adjusted fee in cents. */
-typealias Adjust = (Long) -> Long
+/** A step takes an amount in grams and returns the adjusted amount in grams. */
+typealias Step = (Int) -> Int
 
 // ---- Building blocks. These are finished: each one is a function that returns a function. ----
 
-/** Adds a flat amount, for example a 25-cent scheme fee. */
-fun addFlat(cents: Long): Adjust = { fee -> fee + cents }
+/** Adds a fixed amount, for example 20 g of flour to dust the table. */
+fun add(grams: Int): Step = { g -> g + grams }
 
-/** Takes [percent] off, rounding down. */
-fun discountPercent(percent: Int): Adjust = { fee -> fee * (100 - percent) / 100 }
+/** Takes [percent] off, rounding down. Plenty of cooks use 10 % less sugar than the recipe says. */
+fun percentLess(percent: Int): Step = { g -> g * (100 - percent) / 100 }
 
-/** Never more than [maxCents]. */
-fun capAt(maxCents: Long): Adjust = { fee -> minOf(fee, maxCents) }
+/** Never more than [maxGrams], for example what is left in the bag. */
+fun atMost(maxGrams: Int): Step = { g -> minOf(g, maxGrams) }
 
-/** Never less than [minCents]. */
-fun floorAt(minCents: Long): Adjust = { fee -> maxOf(fee, minCents) }
+/** Never less than [minGrams]. */
+fun atLeast(minGrams: Int): Step = { g -> maxOf(g, minGrams) }
 
-/** Base rates in basis points (1 bp = 0.01 %) per country. */
-val BASIS_POINTS: Map<String, Long> = mapOf("NL" to 140, "DE" to 150, "FR" to 160, "US" to 290)
+/** Roughly what one litre of each ingredient weighs, in grams. The jug gives millilitres; the scale wants grams. */
+val GRAMS_PER_LITRE: Map<String, Int> =
+    mapOf("water" to 1_000, "milk" to 1_030, "flour" to 530, "sugar" to 850, "honey" to 1_420)
 
 // ---- Your part ----
 
@@ -38,16 +39,16 @@ fun <T> pipeline(steps: List<(T) -> T>): (T) -> T =
     TODO("fold over the steps, starting from the function that returns its input")
 
 /**
- * TODO 4: partial application. Return the base fee function for [country]: amountCents * bps / 10_000.
- * Look the rate up NOW, once, not on every call. An unknown country is a configuration bug:
- * throw IllegalArgumentException("no rate for <country>") here, before any fee is computed.
+ * TODO 4: partial application. Return the jug-to-scale function for [ingredient]: ml * gramsPerLitre / 1000.
+ * Look the weight up NOW, once, not on every call. An unknown ingredient is a bug in the recipe:
+ * throw IllegalArgumentException("unknown ingredient <ingredient>") here, before anything is weighed.
  */
-fun feeFor(country: String): (Long) -> Long =
-    TODO("look up BASIS_POINTS[country] once, then return a lambda that uses it")
+fun gramsFor(ingredient: String): (Int) -> Int =
+    TODO("look up GRAMS_PER_LITRE[ingredient] once, then return a lambda that uses it")
 
-/** TODO 5: the full fee function for a merchant: the country's base fee, then each adjustment in order. */
-fun merchantFee(country: String, adjustments: List<Adjust>): (Long) -> Long =
-    TODO("feeFor, andThen, pipeline")
+/** TODO 5: what to weigh out for a measured volume: the ingredient's grams, then each step in order. */
+fun weighOut(ingredient: String, steps: List<Step>): (Int) -> Int =
+    TODO("gramsFor, andThen, pipeline")
 
 /** TODO 6: currying by hand. Turn a two-argument function into a chain of one-argument functions. */
 fun <A, B, C> ((A, B) -> C).curried(): (A) -> (B) -> C =

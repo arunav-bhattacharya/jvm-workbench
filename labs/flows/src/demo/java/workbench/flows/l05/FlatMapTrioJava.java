@@ -19,14 +19,14 @@ public class FlatMapTrioJava {
         if (!quiet) System.out.println(line);
     }
 
-    static Flux<Integer> picks() {
+    static Flux<Integer> orders() {
         return Flux.concat(Mono.just(1),
                         Mono.delay(Duration.ofMillis(100)).thenReturn(2),
                         Mono.delay(Duration.ofMillis(100)).thenReturn(3))
                 .doOnNext(n -> log("outer emits " + n));
     }
 
-    static Flux<String> details(int n) {
+    static Flux<String> dish(int n) {
         return Flux.concat(Mono.delay(Duration.ofMillis(50)).thenReturn(n + "-a"),
                         Mono.delay(Duration.ofMillis(150)).thenReturn(n + "-b"))
                 .doOnCancel(() -> log("  inner " + n + " cancelled"));
@@ -35,7 +35,7 @@ public class FlatMapTrioJava {
     static void timeline(String name, Function<Flux<Integer>, Flux<String>> op) {
         if (!quiet) System.out.println("== " + name);
         t0 = System.nanoTime();
-        op.apply(picks()).doOnNext(s -> log("    subscriber got " + s)).blockLast();
+        op.apply(orders()).doOnNext(s -> log("    subscriber got " + s)).blockLast();
         log("done");
     }
 
@@ -47,8 +47,8 @@ public class FlatMapTrioJava {
     }
 
     static void run() {
-        timeline("concatMap", f -> f.concatMap(FlatMapTrioJava::details));
-        timeline("flatMap", f -> f.flatMap(FlatMapTrioJava::details));
-        timeline("switchMap", f -> f.switchMap(FlatMapTrioJava::details));
+        timeline("concatMap", f -> f.concatMap(FlatMapTrioJava::dish));
+        timeline("flatMap", f -> f.flatMap(FlatMapTrioJava::dish));
+        timeline("switchMap", f -> f.switchMap(FlatMapTrioJava::dish));
     }
 }

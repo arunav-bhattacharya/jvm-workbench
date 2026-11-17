@@ -1,21 +1,21 @@
 package workbench.functional.l04.demo
 
-// The sample settlement day shared by the Kotlin demos of this lesson.
+// The sample baking day shared by the Kotlin demos of this lesson: five cookies on two trays.
 
-enum class Status { SETTLED, PENDING, FAILED }
+enum class Status { GOLDEN, RAW, BURNT }
 
-data class Payment(
+data class Cookie(
     val id: String,
-    val merchant: String,
-    val amountCents: Long,
+    val flavor: String,
+    val grams: Int,
     val status: Status,
-    val refundCents: Long? = null,
+    val nibbledGrams: Int? = null,      // someone took a bite
 )
 
 val sampleDay = listOf(
-    Payment("pay_1", "acme", 1_500, Status.SETTLED),
-    Payment("pay_2", "globex", 9_900, Status.PENDING),
-    Payment("pay_3", "acme", 2_000, Status.SETTLED, refundCents = 500),
-    Payment("pay_4", "initech", 12_000, Status.FAILED),
-    Payment("pay_5", "globex", 700, Status.SETTLED),
+    Cookie("c1", "oat", 45, Status.GOLDEN),
+    Cookie("c2", "chocolate", 90, Status.RAW),
+    Cookie("c3", "oat", 50, Status.GOLDEN, nibbledGrams = 10),
+    Cookie("c4", "ginger", 80, Status.BURNT),
+    Cookie("c5", "chocolate", 30, Status.GOLDEN),
 )

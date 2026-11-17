@@ -17,7 +17,7 @@ def tryit(kt, java):
             "alt": {"lang": "java", "title": java, "src": read(jdemo(java)), "run": run(j), "file": jdemo(java)}}
 
 
-# ---- the figure: the D1 timeline (virtual ms), one row per operator ----
+# ---- the figure: the three timelines (virtual ms), one row per operator ----
 X = lambda t: 165 + t * 0.54          # 0 ms -> 165, 800 ms -> 597
 rows = [
     ("flatMapConcat", 70, [0, 300, 600], [(50, "1a"), (200, "1b"), (350, "2a"), (500, "2b"), (650, "3a"), (800, "3b")], [], 800),
@@ -44,37 +44,45 @@ axis = f'<line class="ln" x1="{X(0)}" y1="300" x2="{X(800) + 10:.0f}" y2="300" m
 for t in (0, 200, 400, 600, 800):
     axis += f'<line class="ln" x1="{X(t):.0f}" y1="296" x2="{X(t):.0f}" y2="304"/>'
     axis += f'<text class="t-s t-m" x="{X(t):.0f}" y="320" text-anchor="middle">{t} ms</text>'
-FIG = ('<svg viewBox="0 0 680 335" role="img" aria-label="Virtual-time timeline of three flattening operators. The outer flow tries to emit '
-       '1, 2 and 3 a hundred milliseconds apart, and each inner emits part a after 50 ms and part b 150 ms later. flatMapConcat: '
-       'the outer is paused inside emit, so 2 comes at 300 and 3 at 600, and it ends at 800. flatMapMerge: outers at 0, 100 and 200, '
-       'inner values interleave by completion time, done at 400. flatMapLatest: each new outer value cuts the previous inner, so 1b and '
+FIG = ('<svg viewBox="0 0 680 335" role="img" aria-label="Virtual-time timeline of three flattening operators. The outer flow, three orders, '
+       'tries to emit 1, 2 and 3 a hundred milliseconds apart, and each inner flow emits part a after 50 ms and part b 150 ms later. flatMapConcat: '
+       'the outer is paused inside emit, so order 2 comes at 300 and order 3 at 600, and it ends at 800. flatMapMerge: orders at 0, 100 and 200, '
+       'inner values interleave by the time they are ready, done at 400. flatMapLatest: each new order cuts the previous inner, so 1b and '
        '2b never arrive, done at 400.">' + body + axis + '</svg>')
 
-S1 = """Ten merchants are waiting for their fees. The fee service allows 4 concurrent calls, and a lookup takes 100 ms. This code is supposed to fan out 4 at a time. The trace shows one call at a time, 1,000 ms in all:
+OPENING = """A table orders ten dishes on one ticket. Each dish has a small recipe card of its own. At the pass, the counter where orders come in, the head cook reads the ticket one line at a time and hands each dish to a helper at a free burner. The stove has four burners, so four dishes cook at once, and ten dishes take three rounds.
+
+Kotlin has an operator for exactly this kitchen, `flatMapMerge`, and the first version people write looks right and cooks one dish at a time. It takes more than three times as long. The trap is a single line: the head cook cooks each dish herself before she hands it over, while four helpers stand at four warm burners with empty pans.
+
+In Buffering, each value travelled on its own across one shelf. Here each value opens a whole flow of its own. In this lesson, we'll find the line that makes the burners take turns, draw the three ways to run those flows, join two flows with `zip` and `combine`, and watch a slow screen make `combine` skip. Before we start, make a guess, and keep it in mind."""
+
+S1 = r"""Start with the ticket in code. A **flow** is a recipe card for values: it does nothing until a collector, the code that calls `collect`, asks for them. Each dish name on the ticket is one value of a flow, and `stove.cook(dish)` is a suspend call that takes 100 ms, a call that pauses its coroutine (a light piece of work that can wait without holding a thread) and lets others run. A helper wrote this to cook the order four dishes at a time:
 
 ```kotlin
-merchants.flatMapMerge(concurrency = 4) { merchant ->
-    val fee = feeService.lookup(merchant)        // a suspend call, 100 ms
-    flowOf(fee)
+dishes.flatMapMerge(concurrency = 4) { dish ->
+    val plate = stove.cook(dish)        // a suspend call, 100 ms
+    flowOf(plate)
 }
 ```
 
 ```java
 // Closest Java equivalent: Reactor's flatMap with a blocking call in the mapper
-merchants.flatMap(merchant -> {
-    Fee fee = feeService.lookupBlocking(merchant);   // 100 ms on the calling thread
-    return Mono.just(fee);
+dishes.flatMap(dish -> {
+    Plate plate = stove.cookBlocking(dish);   // 100 ms on the calling thread
+    return Mono.just(plate);
 }, 4);
 ```
 
-To see why, build the operator yourself. It takes three parts: a coroutine that reads the outer flow, a semaphore with one permit per lane, and one coroutine per inner flow, all sending into one channel:
+`flatMapMerge` is an operator, a helper on the way from the cook to the diner: a function that takes a flow and returns a new one. It is a **flattening** operator. For each value of the **outer flow** (the ticket), your lambda returns an **inner flow**, a flow of its own, and the operator collects all those inner flows into one stream of plates. `concurrency` is how many inner flows it collects at the same time: the number of burners. So ten dishes of 100 ms should take 300 ms. The kitchen log says 1,000 ms, with one dish on the stove at a time.
+
+To see why, build the operator yourself. It needs three parts: one coroutine that reads the outer flow, a **semaphore** with one permit per burner (a counter of permits: `acquire` takes one and waits while none is left, `release` gives it back), and one coroutine per inner flow. All of them send into one hatch, which is `channelFlow` from lesson 3 of this track, several cooks sharing one hatch:
 
 ```kotlin
 fun <T, R> Flow<T>.mergeLanes(lanes: Int, transform: suspend (T) -> Flow<R>): Flow<R> = channelFlow {
     val permits = Semaphore(lanes)
     collect { value ->
         val inner = transform(value)          // runs here, one value at a time
-        permits.acquire()                     // wait for a free lane
+        permits.acquire()                     // wait for a free burner
         launch { try { inner.collect { send(it) } } finally { permits.release() } }
     }
 }
@@ -82,11 +90,11 @@ fun <T, R> Flow<T>.mergeLanes(lanes: Int, transform: suspend (T) -> Flow<R>): Fl
 
 ```java
 // Closest Java equivalent: one loop builds each task, a semaphore caps the lanes, one virtual thread per lane
-static void mergeLanes(List<String> merchants, int lanes, BlockingQueue<Fee> out) throws InterruptedException {
+static void mergeLanes(List<String> dishes, int lanes, BlockingQueue<Plate> out) throws InterruptedException {
     Semaphore permits = new Semaphore(lanes);
-    for (String m : merchants) {
-        Callable<Fee> inner = () -> feeService.lookupBlocking(m);   // built here, one merchant at a time
-        permits.acquire();                                         // wait for a free lane
+    for (String dish : dishes) {
+        Callable<Plate> inner = () -> stove.cookBlocking(dish);   // built here, one dish at a time
+        permits.acquire();                                       // wait for a free burner
         Thread.ofVirtual().start(() -> {
             try { out.put(inner.call()); } catch (Exception e) { /* omitted */ } finally { permits.release(); }
         });
@@ -94,122 +102,160 @@ static void mergeLanes(List<String> merchants, int lanes, BlockingQueue<Fee> out
 }
 ```
 
-Now read the bug again. `transform` runs inside the one coroutine that reads the outer flow, before it even asks for a permit. Whatever you do in the lambda happens one merchant at a time. Only the flow it returns gets a lane of its own. So the slow call has to live inside that flow: `flatMapMerge(4) { m -> flow { emit(feeService.lookup(m)) } }`. With five merchants of 300, 100, 200, 50 and 150 ms and two lanes, that version finishes at 450 ms with 2 in flight. The lambda version takes 800 ms, the same as a plain `map { lookup(it) }`.
+Read it in order. The `collect` loop takes one dish, calls `transform`, waits for a permit, and launches a coroutine, a **lane**, that collects the inner flow onto the hatch. Then it takes the next dish. The tricky line is the first one in the loop. `transform` runs inside the one coroutine that reads the outer flow, before it even asks for a permit.
 
-The library's `flatMapMerge` is `map(transform).flattenMerge(concurrency)`, and `flattenMerge` is the same shape as `mergeLanes`: a producer coroutine, a `Semaphore(concurrency)`, a `launch` per inner flow, and one output channel of 64 slots. Its KDoc says it "calls transform sequentially". Results come out in completion order: m2, m1, m3, m4, m5. Picture a toll plaza with N booths feeding one merge lane. One dispatcher at the entrance waves cars in, one at a time. If he inspects every car himself, the booths sit empty.
-
-Without a `concurrency` argument you get `DEFAULT_CONCURRENCY`, which is 16, read once from the property `kotlinx.coroutines.flow.defaultConcurrency`. Reactor's `flatMap` defaults to 256. In 1.11.0 `flatMapMerge` is `@ExperimentalCoroutinesApi` and `DEFAULT_CONCURRENCY` is `@FlowPreview`. Without an opt-in you get a compiler warning, not an error. Set the cap from the provider's contract, never from the default.
-
-Check yourself: in the fixed version with two lanes, at what time does the lambda run for m3?"""
-
-S2 = """A merchant search box gets three picks, 100 ms apart. For each pick, a details flow sends part a after 50 ms and part b 150 ms later. With `flatMapConcat`, at what time does the outer flow emit pick 2?
+That one coroutine is our head cook at the pass. She reads a line, does whatever the lambda says, and only then hands the result to a burner. If the lambda cooks the dish, she cooks it, alone, while the helpers wait. Only the flow the lambda returns gets a burner of its own. So the slow call has to live inside that flow:
 
 ```kotlin
-picks().flatMapConcat { n -> details(n) }     // also try flatMapMerge and flatMapLatest
+dishes.flatMapMerge(concurrency = 4) { dish -> flow { emit(stove.cook(dish)) } }
+```
+
+```java
+// Closest Java equivalent: the wait lives inside the returned Mono
+dishes.flatMap(dish -> stove.cook(dish), 4);   // cook returns a lazy Mono
+```
+
+The Try it runs a smaller order on two burners: soup 300 ms, salad 100, roast 200, bread 50 and pie 150. The fixed version ends at 450 ms with two dishes on the stove at the busiest moment. The lambda version ends at 800 ms with one, the sum of all five, exactly what a plain `map { stove.cook(it) }` would take.
+
+The library's `flatMapMerge` is `map(transform).flattenMerge(concurrency)`, and `flattenMerge` has the same shape as `mergeLanes`: a producer coroutine, a `Semaphore(concurrency)`, a `launch` per inner flow, and one output **channel**, a queue between coroutines, with 64 slots. Its KDoc, the documentation in the library's source, says it "calls transform sequentially". Plates leave in **completion order**, the order they are ready: salad, soup, roast, bread, pie.
+
+**The lambda only builds the inner flow. Put the slow work inside it.**
+
+Without a `concurrency` argument you get `DEFAULT_CONCURRENCY`, which is 16, read once from the system property `kotlinx.coroutines.flow.defaultConcurrency`. Reactor's `flatMap` defaults to 256. Set the number from what the stove can take, never from the default. In kotlinx.coroutines 1.11.0, `flatMapMerge` is `@ExperimentalCoroutinesApi` and `DEFAULT_CONCURRENCY` is `@FlowPreview`; without an opt-in you get a compiler warning, not an error.
+
+Check yourself: in the fixed version with two burners, when does the lambda run for roast, and when does roast start cooking? `flatMapMerge` runs inner flows side by side. It's one of three ways to run them, and the other two make different promises about time."""
+
+ASIDE = {
+ "title": "Do I need a flatMap operator at all?",
+ "body": "Often you don't. If each dish gives exactly one plate and the dishes may cook one after another, `dishes.map { stove.cook(it) }` does the job, and it's easier to read. The KDoc of `flatMapMerge` and `flatMapConcat` says the same: they are discouraged in ordinary application flows, because a suspend call in `map` is enough and straight-line code is easier to reason about. Reach for `flatMapMerge` when you need several at once with a cap, and for the other two when each value really opens a stream of its own."
+}
+
+S2 = r"""Now give each order a sub-recipe that takes a while. A table keeps changing its mind and sends three orders, 100 ms apart. Each order opens an inner flow in two parts: part a is ready after 50 ms and part b 150 ms later. The run uses **virtual time**, the fake clock of `runTest` that skips over waits, so the numbers come out the same on every run. With `flatMapConcat`, at what time does order 2 come in?
+
+```kotlin
+orders().flatMapConcat { n -> dish(n) }     // also try flatMapMerge and flatMapLatest
 ```
 
 ```java
 // Closest Java equivalent: concatMap (and flatMap, switchMap) on the same Flux timeline
-picks().concatMap(n -> details(n));
+orders().concatMap(n -> dish(n));
 ```
 
-Most people say 100. It is 300, and the whole run takes 800 ms. `flatMapConcat` is `map(transform).flattenConcat()`, and `flattenConcat` is one line: `collect { value -> emitAll(value) }`. No coroutine, no channel. The inner flow runs inside the outer's `emit`, so the outer's code is paused until the inner has finished, and its `delay(100)` only starts after that. Picture a single-lane bridge where the depot worker drives each truck across himself. No new truck gets loaded while one is on the bridge. Put `buffer()` in front, and the outer runs in its own coroutine and loads trucks into a parking lot. The run drops to 600 ms.
+Most people say 100. It is 300, and the whole run takes 800 ms. `flatMapConcat` is `map(transform).flattenConcat()`, and `flattenConcat` is one line: `collect { value -> emitAll(value) }`. There is no second coroutine and no channel. The inner flow runs inside the outer's `emit`, which lesson 1 of this track showed is the cook carrying a plate over and standing there while the diner eats. So the waiter who brings the orders stands at the pass until both parts of the dish are done, and his `delay(100)` before the next order starts only after that.
 
-Reactor's `concatMap` on the same timeline also finishes at 600 ms. It asks for one item at a time too, but the timers in its source kept running while no request was outstanding. A `flow { }` body can't do that: it is suspended in `emit`. If you want Reactor's timeline in Flow, add the `buffer()`.
+Put `buffer()` in front, and the waiter runs in his own coroutine and leaves orders on a shelf, the shelf from Buffering. The run drops to 600 ms. Reactor's `concatMap` on the same timeline also finishes at 600 ms. It asks for one order at a time too, but the timers in its source kept running while nobody was asking. A `flow { }` body can't do that, because it is suspended in `emit`.
 
-`flatMapMerge` gives each pick its own lane. The outer emits at 0, 100 and 200, the inner values interleave by completion time (1-b at 200 comes after 2-a at 150), and the run ends at 400.
+`flatMapMerge` gives each order its own burner. The orders come in at 0, 100 and 200, the parts arrive in completion order (part 1b at 200 comes after part 2a at 150), and the run ends at 400.
 
-`flatMapLatest` is a railway switch that drops the old lane. It is `transformLatest { emitAll(transform(it)) }`, the operator from lesson 4 of this track. Each new pick cancels the inner in flight with `ChildCancelledException` ("Child of the scoped flow was cancelled"), joins it, and starts the next. So 1-b and 2-b never arrive, and the run ends at 400. Reactor's `switchMap` gives the identical timeline. This is the shape for search-as-you-type: a new keystroke makes the old search worthless. Keep the cancelled inner's cleanup short, because the next one waits for it.
+`flatMapLatest` throws the old dish away. It is `transformLatest { emitAll(transform(it)) }`, from the same family as `collectLatest` in Buffering. Each new order cancels the inner flow in flight with `ChildCancelledException` ("Child of the scoped flow was cancelled"), waits for it to finish, and starts the next one. So parts 1b and 2b never arrive, and the run ends at 400. The table changed its mind twice, and the kitchen binned two half-made dishes without a word. Reactor's `switchMap` gives the same timeline. This is the shape for a search box that searches as you type, where a new letter makes the old search worthless. Keep the cancelled flow's cleanup short, because the next one waits for it.
 
-The figure shows all three, drawn from the virtual-time output of the Try it.
+The figure draws all three from the Try it's output.
 
-Check yourself: the outer is `for (n in 1..3) { emit(n); delay(100) }` and each inner is one value after 200 ms. How long does `flatMapConcat` take?"""
+The kitchen picture holds up well here, and it breaks in one useful place. A real waiter can walk back to the table while a dish cooks. In `flatMapConcat` he can't, because the inner flow runs inside his `emit`, so even his own walking waits.
 
-S3 = """Checkout prices arrive in USD every 100 ms, starting at 100 ms. The USD to EUR rate arrives at 250 ms (0.92) and at 550 ms (0.95). You want each price in EUR. A teammate writes `prices.zip(rates)`:
+Check yourself: the outer is `for (n in 1..3) { emit(n); delay(100) }`, and each inner is one value after 200 ms. How long does `flatMapConcat` take? All three operators start from one outer flow. Often there are two flows, each with its own clock."""
+
+S3 = r"""The oven door has a small screen that shows how far the oven still has to climb. Two flows feed it. The thermometer sends a reading every 100 ms, starting at 100 ms: 150, 152, 154 and so on up to 160 °C. The dial sends a value only when someone turns it: 180 at 250 ms, and 200 at 550 ms. A helper joins them with `zip`:
 
 ```kotlin
-prices.zip(rates) { cents, rate -> EurPrice(cents, rate) }       // a zipper
-combine(prices, rates) { cents, rate -> EurPrice(cents, rate) }  // a board of latest values
-merge(cardEvents, bankEvents)                                     // on-ramps onto one road
+readings.zip(dial) { c, d -> "$c of $d" }          // a zipper
+combine(readings, dial) { c, d -> "$c of $d" }     // a slate with the latest of each
+merge(tableOrders, takeawayOrders)                 // two queues into one door
 ```
 
 ```java
 // Closest Java equivalent: the same three Reactor operators
-Flux.zip(prices, rates, EurPrice::new);
-Flux.combineLatest(prices, rates, EurPrice::new);
-Flux.merge(cardEvents, bankEvents);
+Flux.zip(readings, dial, (c, d) -> c + " of " + d);
+Flux.combineLatest(readings, dial, (c, d) -> c + " of " + d);
+Flux.merge(tableOrders, takeawayOrders);
 ```
 
-`zip` gives two results: 1000 at 0.92 at 250 ms, and 1010 at 0.95 at 550 ms. Then it ends. It is a zipper: each price tooth must meet a rate tooth, by index, and it stops at the end of the shorter side. The price flow's `onCompletion` reports `AbortFlowException: Flow was aborted, no more elements needed`. Something else happened too: the second price was emitted at 350 ms, not 200. `zip` collects the receiver (`prices`) in the caller's coroutine with no buffer at all, and only the other flow gets a producer coroutine with a rendezvous channel. So each price `emit` waits until a rate is there to pair with. The slower side sets the pace. Reactor's `zip` produced the same two pairs, but its price feed kept ticking every 100 ms, because Reactor prefetches. Flow has only the two-flow `zip`.
+`zip` shows two lines: "150 of 180" at 250 ms and "152 of 200" at 550 ms. Then it ends. **zip** pairs the first value of one flow with the first of the other, the second with the second, and stops at the end of the shorter flow, like the teeth of a zipper. The readings' `onCompletion`, a hook that runs once when a flow ends (the next lesson takes it apart), reports `AbortFlowException: Flow was aborted, no more elements needed`, the signed "no more, thanks" note from lesson 2 of this track.
 
-Pairing the n-th price with the n-th rate is the wrong question for money. You want the latest rate. That is `combine`, which keeps a board with one slot per flow. It starts one coroutine per source. Nothing comes out until every slot has a value, and after that every update produces one output. The first result is 1010 at 0.92, at 250 ms: price 1000 was overwritten on the board before any rate existed. Then 1020, 1030 and 1040 at 0.92, then 1040 at 0.95 the moment the new rate lands at 550, then 1050 at 0.95. A source that never emits means no output at all, and `combine` completes when the other sources complete.
+Something else happened too: reading 152 came at 350 ms, not 200. `zip` collects its receiver, `readings`, in the caller's coroutine with no shelf at all. Only the other flow gets a producer coroutine, with a **rendezvous** channel between them, a hand-over where both hands must meet. So each reading's `emit` waits until there is a dial value to pair it with, and the slower side sets the pace. Reactor's `zip` produced the same two pairs, but its thermometer kept ticking every 100 ms, because Reactor asks its sources for values ahead of time. And Flow has only this two-flow `zip`.
 
-`merge` is on-ramps joining one road. Card events every 100 ms and bank events every 70 ms come out in arrival order: bank-0 at 70, card-0 at 100, bank-1 at 140, and so on. The merged flow ends when the last source ends, and one source that fails cancels the others.
+Pairing the second reading with the second turn of the dial is the wrong question. The screen needs each reading against the latest dial setting. That is **combine**. Picture a slate with one line per flow. `combine` starts one coroutine per source, and each one writes its newest value on its own line. Nothing comes out until every line has a value. After that, every update produces one output.
 
-Check yourself: what does `combine` emit if the rate flow sends 0.92 at 0 ms, before the first price?"""
+So the first line is "152 of 180" at 250 ms: reading 150 had already been wiped off the slate by 152 before the dial had a value. Then come 154, 156 and 158 of 180, then "158 of 200" the moment the dial moves at 550, then "160 of 200" at 600. A source that never emits means no output at all, and `combine` completes when all its sources have completed.
 
-S4 = """Put a slow collector behind `combine`. A price feed ticks every 10 ms, ten times, and is combined with one merchant config value. The dashboard that collects the result needs 100 ms per update. What does it see?
+**merge** is the third way to join flows: values come out as they arrive, from either source, like two queues sharing one door. Table orders every 100 ms and takeaway orders every 70 ms come out as takeaway-0 at 70, table-0 at 100, takeaway-1 at 140, and so on. The merged flow ends when the last source ends, and one source that fails cancels the others.
+
+**Pair by number with zip only when the n-th of one belongs with the n-th of the other. For "the latest of each", use combine.**
+
+Check yourself: what does `combine` show if the dial sends 180 at 0 ms, before the first reading? So far the screen drew each line at once. A slow screen changes what `combine` hands it."""
+
+S4 = r"""Put a slow screen behind `combine`. The thermometer ticks every 10 ms, ten times, and is combined with one dial value, 180. The screen needs 100 ms to draw each update. What does it show?
 
 ```kotlin
-combine(ticks, flowOf("cfg")) { i, cfg -> "$i/$cfg" }
-    .collect { render(it); delay(100) }        // the dashboard is slow
+combine(ticks, flowOf(180)) { i, d -> "$i/$d" }
+    .collect { screen.draw(it); delay(100) }        // the screen is slow
 ```
 
 ```java
 // Closest Java equivalent: combineLatest in front of a subscriber that takes one at a time
-Flux.combineLatest(ticks, Flux.just("cfg"), (i, cfg) -> i + "/" + cfg)
-    .concatMap(v -> render(v).delayElement(Duration.ofMillis(100)), 1);
+Flux.combineLatest(ticks, Flux.just(180), (i, d) -> i + "/" + d)
+    .concatMap(v -> screen.draw(v).delayElement(Duration.ofMillis(100)), 1);
 ```
 
-Flow delivers 1, 3, 5, 7, 9 and 10, at 10, 110, 210, 310, 410 and 510 ms. Reactor's `combineLatest` delivers all ten, at about 110, 210 and so on up to 1,010 ms. And there is a second effect in Flow: the feed itself slowed down. It needed about 330 ms to emit its ten values, not 100.
+Flow shows 1, 3, 5, 7, 9 and 10, at 10, 110, 210, 310, 410 and 510 ms. Reactor's `combineLatest` shows all ten, about 100 ms apart, the last at about 1,050 ms on a busy machine. And there is a second effect in Flow: the thermometer itself slowed down. It needed 330 ms to send its ten readings, not 100. The thermometer has never been slow in its life, and now it waits.
 
-The mechanism is the board's mailbox. Each source coroutine sends an update into a channel whose capacity equals the number of flows, here 2, and then calls `yield()`. The collecting loop takes updates in batches: it reads until it sees a second update from a source it already updated in this batch, overwriting that source's slot each time, and then calls your transform once for the batch. While the dashboard is busy, updates pile up. 2 is overwritten by 3 before anyone takes a photo of the board. Once the mailbox is full, the feed's next `send` suspends: value 4 waits in `send` from 40 ms. So `combine` backpressures its sources and skips values, both at once. Picture a scoreboard and a slow photographer. Updates that land between two photos blur into the last one, and the mailbox in front of the board holds only as many notes as there are slots, so fast sources queue at the mailbox. Reactor's photographer keeps every board state in a queue and develops them all.
+The mechanism is a small tray in front of the slate. Each source coroutine puts its update into a channel whose capacity equals the number of flows, here 2, and then calls `yield()`, a suspension point that lets other coroutines run. The loop that fills the slate takes updates in batches. It reads until it sees a second update from a source it already updated in this batch, rewriting that source's line each time, and then calls your lambda once for the batch.
 
-It is not plain conflation either. Pure latest-only would give 1 and then 10. If you care, say which one you want:
+While the screen is busy, updates pile up, and 2 is rewritten by 3 before anyone copies the slate. Once the tray is full, the thermometer's next `send` suspends: in the log, reading 4 is sent at 40 ms and reading 5 not until 120. So `combine` skips values and slows its sources, both at once. Reactor's screen keeps every state of the slate in a queue and draws them all.
 
-| After `combine(...)` | The dashboard sees |
+It isn't plain **conflation** (keeping only the newest waiting value) either. Pure latest-only would show 1 and then 10. If you care, say which one you want:
+
+| After `combine(...)` | The screen shows |
 |---|---|
-| nothing | 1, 3, 5, 7, 9, 10 and the feed slows |
+| nothing | 1, 3, 5, 7, 9, 10, and the thermometer slows |
 | `.conflate()` | 1 at 10 ms, then 10 at 110 ms |
 | `.buffer(Channel.UNLIMITED)` | all ten, the last at 1,010 ms |
 
-For FX on a dashboard, skipping is fine. For anything you must audit, every combination counts, and an unbounded buffer is a memory bill you must size yourself.
+For a screen, skipping is fine: nobody misses a temperature that was already old. For a cooking log, where every reading must be written next to its dial setting, every combination counts, and an unlimited buffer is a memory bill you size yourself.
 
-One more thing not to rely on. Two flows with no delays, `combine(flowOf("a0", "a1", "a2"), flowOf("b0", "b1", "b2"))`, give `a0b0, a1b1, a2b2` in Flow and `a2b0, a2b1, a2b2` in Reactor. With synchronous sources, the combinations you get depend on scheduling.
+One more thing not to rely on. Two flows with no waits at all, `combine(flowOf("a0", "a1", "a2"), flowOf("b0", "b1", "b2"))`, give `a0b0, a1b1, a2b2` in Flow and `a2b0, a2b1, a2b2` in Reactor. With sources that never suspend, which pairs you get depends on scheduling.
 
-Check yourself: with the dashboard at 100 ms per update, would `buffer(10)` instead of `UNLIMITED` keep all ten?"""
+Check yourself: with the screen at 100 ms per update, would `buffer(10)` instead of `UNLIMITED` keep all ten? Every operator in this lesson also shares one weakness: a single failing source or inner flow cancels all the others, and the whole flow ends."""
+
+CLOSING = """We started with a ticket of ten dishes and a head cook who cooked each one before handing it over. `flatMapMerge` runs only the returned flows side by side, `flatMapConcat` holds the outer inside `emit`, and `flatMapLatest` bins the old dish. `zip` pairs by number, `combine` keeps the latest of each, and a slow screen makes it skip.
+
+Now look in your own code for a `flatMapMerge` whose lambda calls a suspend function before it returns `flowOf(...)`. That call runs one value at a time.
+
+Next, we'll drop a plate on purpose. When a flow fails halfway, which `catch` hears it, and what does a retry cook again?"""
 
 L = {
  "id": "flow-05",
  "title": "Flattening and combining: flatMap, zip and combine",
  "minutes": 35,
- "goal": "By the end you can draw the timeline of flatMapConcat, flatMapMerge and flatMapLatest, put the slow call where flatMapMerge runs it concurrently, and choose between zip, combine and merge for prices and rates, including what combine drops for a slow collector.",
+ "goal": "By the end you can draw the timelines of flatMapConcat, flatMapMerge and flatMapLatest, put the slow call where flatMapMerge runs it side by side, and choose between zip, combine and merge for two flows with their own clocks, including what combine drops for a slow collector.",
+ "opening": OPENING,
  "warmup": {
-  "q": "`merchants.flatMapMerge(concurrency = 4) { m -> val fee = feeService.lookup(m); flowOf(fee) }` runs over 10 merchants. Each lookup suspends for 100 ms. How long does it take?",
+  "q": "`dishes.flatMapMerge(concurrency = 4) { d -> val plate = stove.cook(d); flowOf(plate) }` runs over 10 dishes. Each `cook` call suspends for 100 ms. How long does the order take?",
   "options": [
    "100 ms: all ten at once",
-   "300 ms: three waves of 4, 4 and 2",
-   "1,000 ms: one lookup at a time",
+   "300 ms: three rounds of 4, 4 and 2",
+   "1,000 ms: one dish at a time",
    "It doesn't compile: the lambda must not suspend"
   ],
   "answer": 2,
-  "why": "`flatMapMerge` calls the lambda sequentially, in the one coroutine that reads the outer flow, before it takes a lane. A lookup inside the lambda therefore runs one merchant at a time. Only the returned flows run concurrently, so `flow { emit(feeService.lookup(m)) }` would give the 300 ms you expected."
+  "why": "`flatMapMerge` calls the lambda in the one coroutine that reads the outer flow, one dish at a time, before a burner is taken. Cooking inside the lambda therefore adds up. Only the returned flows run side by side, so `flow { emit(stove.cook(d)) }` would give the 300 ms you expected."
  },
  "sections": [
   {
-   "h": "Your flatMapMerge lambda runs one value at a time",
+   "h": "The flatMapMerge lambda runs one dish at a time, before a burner is free",
    "body": S1,
+   "aside": ASIDE,
    "try": {
-    "title": "Watch the lanes fill",
+    "title": "Watch the burners fill",
     "minutes": 5,
     "steps": [
-     "Open `FeeFanOut.kt`. It runs on virtual time. For the first scenario, predict when `lambda called for m3` prints and when `start lookup m3` prints.",
-     "Run it. Compare the second scenario's total and `max in flight` with the first.",
+     "Open `Burners.kt`. It runs on virtual time. For the first scenario, predict when `lambda called for roast` prints and when `start cooking roast` prints.",
+     "Run it. Compare the second scenario's total and `most on the burners` with the first.",
      "The third scenario is `mergeLanes`, the hand-made version from this section. Check that its timeline is the same as the library's, line for line.",
-     "Run the Reactor twin, `FeeFanOutJava`, in real time. Find the same gotcha there."
+     "Run the Reactor twin, `BurnersJava`, in real time. Find the same trap there."
     ],
-    "code": tryit("FeeFanOut.kt", "FeeFanOutJava.java"),
-    "expect": "First scenario: the lambda runs for m1, m2 and m3 at 0 ms, but m3's lookup starts only at 100 ms, when m2 frees a lane. Results arrive m2, m1, m3, m4, m5 and the run ends at 450 ms with 2 in flight. The lambda version ends at 800 ms with 1 in flight. `mergeLanes` matches the first scenario exactly. Reactor gives about 450 ms with `Mono.delay` inside the returned `Mono`, and about 800 ms when the mapper blocks before returning `Mono.just`."
+    "code": tryit("Burners.kt", "BurnersJava.java"),
+    "expect": "First scenario: the lambda runs for soup, salad and roast at 0 ms, but roast starts cooking only at 100 ms, when salad frees a burner. Plates arrive salad, soup, roast, bread, pie, and the run ends at 450 ms with 2 on the burners. The lambda version ends at 800 ms with 1. `mergeLanes` matches the first scenario exactly. Reactor gives about 450 ms with `Mono.delay` inside the returned `Mono` (a little more on a busy machine), and about 800 ms when the mapper blocks before returning `Mono.just`."
    },
    "refs": [
     {"title": "flatMapMerge (kotlinx.coroutines API)", "url": API + "flat-map-merge.html", "kind": "docs"},
@@ -217,9 +263,9 @@ L = {
    ]
   },
   {
-   "h": "The outer flow waits in flatMapConcat, and flatMapLatest drops the old lane",
+   "h": "One at a time, side by side, or only the newest: flatMapConcat, flatMapMerge and flatMapLatest",
    "body": S2,
-   "figure": {"svg": FIG, "caption": "The same outer and inner flows under the three flattening operators, from the virtual-time run in the Try it."},
+   "figure": {"svg": FIG, "caption": "The same three orders and the same sub-recipes under the three flattening operators, from the virtual-time run in the Try it."},
    "try": {
     "title": "Draw the three timelines",
     "minutes": 4,
@@ -229,7 +275,7 @@ L = {
      "Run the Reactor twin, `FlatMapTrioJava`. Which of its three timelines differs from Flow's?"
     ],
     "code": tryit("FlatMapTrio.kt", "FlatMapTrioJava.java"),
-    "expect": "`flatMapConcat`: outer emits at 0, 300 and 600, done at 800. `flatMapMerge`: outer at 0, 100 and 200, done at 400. `flatMapLatest`: inners 1 and 2 cancelled at 100 and 200 with `ChildCancelledException`, 1-b and 2-b never arrive, done at 400. With `buffer()` in front, the outer emits at 0, 100 and 200 and `flatMapConcat` ends at 600. Reactor's `flatMap` and `switchMap` match Flow, and its `concatMap` ends at about 600 ms, like Flow with the buffer."
+    "expect": "`flatMapConcat`: the outer emits at 0, 300 and 600, done at 800. `flatMapMerge`: the outer at 0, 100 and 200, done at 400. `flatMapLatest`: inners 1 and 2 are cancelled at 100 and 200 with `ChildCancelledException`, 1-b and 2-b never arrive, done at 400. With `buffer()` in front, the outer emits at 0, 100 and 200 and `flatMapConcat` ends at 600. Reactor's `flatMap` and `switchMap` match Flow, and its `concatMap` ends at about 600 ms, like Flow with the buffer."
    },
    "refs": [
     {"title": "flatMapConcat (kotlinx.coroutines API)", "url": API + "flat-map-concat.html", "kind": "docs"},
@@ -237,18 +283,18 @@ L = {
    ]
   },
   {
-   "h": "A zipper for zip, a board of latest values for combine",
+   "h": "Pairs by number with zip, the latest of each with combine",
    "body": S3,
    "try": {
-    "title": "Convert prices two ways",
+    "title": "Feed the oven screen two ways",
     "minutes": 4,
     "steps": [
-     "Open `FxBoard.kt`. Predict how many EUR prices `zip` produces, and at what time the second price is emitted.",
-     "Run it. Then predict the first line `combine` prints, and when.",
-     "Read the third block: a rate feed that never emits. Then run the Reactor twin, `FxBoardJava`, and compare when its price feed ticks under `zip`."
+     "Open `OvenDial.kt`. Predict how many lines `zip` shows, and at what time the thermometer sends its second reading.",
+     "Run it. Then predict the first line `combine` shows, and when.",
+     "Read the third block: a dial that is never turned. Then run the Reactor twin, `OvenDialJava`, and compare when its thermometer ticks under `zip`."
     ],
-    "code": tryit("FxBoard.kt", "FxBoardJava.java"),
-    "expect": "`zip`: `1000@0.92` at 250 and `1010@0.95` at 550, with the second price emitted at 350, and the price flow ending with `AbortFlowException`. `combine`: `1010@0.92` at 250 first, then one line per update, ending with `1050@0.95` at 600. With an empty rate feed, `combine` prints nothing and completes at 600. Reactor's `zip` gives the same two pairs, but its prices keep coming every 100 ms; its `combineLatest` matches Flow's `combine`."
+    "code": tryit("OvenDial.kt", "OvenDialJava.java"),
+    "expect": "`zip`: `150 of 180` at 250 and `152 of 200` at 550, with the second reading sent at 350, and the readings ending with `AbortFlowException`. `combine`: `152 of 180` at 250 first, then one line per update, ending with `160 of 200` at 600. With a dial that is never turned, `combine` shows nothing and completes at 600. Reactor's `zip` gives the same two pairs, but its readings keep coming every 100 ms; its `combineLatest` matches Flow's `combine`."
    },
    "refs": [
     {"title": "zip (kotlinx.coroutines API)", "url": API + "zip.html", "kind": "docs"},
@@ -257,84 +303,81 @@ L = {
    ]
   },
   {
-   "h": "A slow collector makes combine skip values and slow its sources",
+   "h": "A slow screen makes combine skip values and slow the thermometer",
    "body": S4,
    "try": {
-    "title": "Photograph a busy board",
+    "title": "Draw from a busy slate",
     "minutes": 4,
     "steps": [
-     "Open `SlowBoard.kt`. Predict which values the slow dashboard sees in the first block, and when the feed emits 4.",
+     "Open `SlowBoard.kt`. Predict which values the slow screen shows in the first block, and when the thermometer sends 5.",
      "Run it. Then read the `conflate()` and `buffer(UNLIMITED)` blocks.",
      "Change `Channel.UNLIMITED` to `10` and run again, then to `3`. Predict each count first.",
      "Run `SlowBoardJava`, the `combineLatest` twin, in real time. Count its updates."
     ],
     "code": tryit("SlowBoard.kt", "SlowBoardJava.java"),
-    "expect": "Flow's dashboard sees 1, 3, 5, 7, 9 and 10, at 10, 110, 210, 310, 410 and 510 ms. The feed emits 4 at 40 ms and then waits: 5 comes at 120 and 10 at 330. With `conflate()` it sees 1 at 10 and 10 at 110. With `buffer(UNLIMITED)` it gets all ten, done at 1,010 ms. `buffer(10)` also keeps all ten, since ten values fit in 10 slots plus one in hand, while `buffer(3)` delivers eight (1 to 5, 7, 9, 10): once its slots are full, `combine` has a slow collector again. Reactor's `combineLatest` delivers all ten, about 100 ms apart, the last at about 1,050 ms."
+    "expect": "Flow's screen shows 1, 3, 5, 7, 9 and 10, at 10, 110, 210, 310, 410 and 510 ms. The thermometer sends 4 at 40 ms and then waits: 5 comes at 120 and 10 at 330. With `conflate()` the screen shows 1 at 10 and 10 at 110. With `buffer(UNLIMITED)` it gets all ten, done at 1,010 ms. `buffer(10)` also keeps all ten, since ten values fit in 10 slots plus one in hand, while `buffer(3)` delivers eight (1 to 5, 7, 9, 10): once its slots are full, `combine` has a slow collector again. Reactor's `combineLatest` delivers all ten, about 100 ms apart, the last at about 1,050 ms."
    },
    "refs": [
     {"title": "internal/Combine.kt at tag 1.11.0 (how combine and zip are built)", "url": RAW + "internal/Combine.kt", "kind": "read"}
    ]
   }
  ],
- "analogy": "Think of road traffic. `flatMapConcat` is a single-lane bridge where the depot worker drives every truck across himself, so the depot stops loading while a truck is on the bridge. `flatMapMerge` is a toll plaza: one dispatcher waves cars in one at a time, N booths work in parallel, and cars leave in the order they finish. `flatMapLatest` is a railway switch that sends the old train to a siding the moment a new one comes, and waits for the old one to stop. `zip` is a zipper, tooth for tooth. `combine` is a scoreboard with one slot per source. `merge` is on-ramps joining a highway. The picture breaks at speed: real traffic has no backpressure. On a Flow road, a slow collector at the end makes the cars upstream stop, and for `combine` it also blurs some cars into one.",
- "in_your_world": "Your payment service enriches each authorization with the merchant's fee schedule from a pricing service that allows 4 concurrent calls per client. `flatMapMerge(concurrency = 4) { m -> flow { emit(pricing.lookup(m)) }.catch { emit(defaultFee(m)) } }` respects that contract and keeps one 503 from cancelling the other lookups. The checkout page converts the basket into the customer's currency with `combine(basketTotals, fxRates)`, never `zip`, because the latest rate is what you quote. The merchant search box uses `flatMapLatest` so a stale query can't overwrite a fresh one. And the reconciliation job that merges card-network and bank events uses `merge`, knowing that one feed failing stops both.",
- "mistake": "Putting the slow suspend call in the `flatMapMerge` lambda and returning `flowOf(result)`. It looks concurrent and it compiles without a warning, but the lambda runs in the single coroutine that reads the outer flow, before a lane is taken, so the calls happen one at a time. People make the mistake because Reactor's `flatMap` reads the same way and the code looks like a map with a cap. In both libraries the fix is the same: the slow work goes inside the returned flow or publisher, `flow { emit(lookup(m)) }` in Kotlin, `Mono.fromCallable` or a non-blocking client call in Reactor. If you need one result per item and no concurrency, plain `map { lookup(it) }` is simpler, and the `flatMapMerge` KDoc itself recommends it.",
  "compare": {
   "title": "Flattening and combining in Kotlin Flow and in Reactor",
   "java": {
    "title": "Reactor",
-   "src": "Flux<Fee> fees     = merchants.flatMap(m -> pricing.lookup(m), 4);      // default concurrency 256\nFlux<Fee> inOrder  = merchants.concatMap(m -> pricing.lookup(m));      // source keeps its own timers\nFlux<Fee> ordered  = merchants.flatMapSequential(m -> pricing.lookup(m), 4);\nFlux<Hit> hits     = queries.switchMap(q -> search.find(q));\nFlux<Eur> byIndex  = Flux.zip(prices, rates, Eur::of);                  // prefetches both sides\nFlux<Eur> latest   = Flux.combineLatest(prices, rates, Eur::of);       // keeps every combination\nFlux<Evt> events   = Flux.merge(cardEvents, bankEvents);"
+   "src": "Flux<Plate> plates   = dishes.flatMap(d -> stove.cook(d), 4);          // default concurrency 256\nFlux<Plate> inOrder  = dishes.concatMap(d -> stove.cook(d));           // the source keeps its own timers\nFlux<Plate> ordered  = dishes.flatMapSequential(d -> stove.cook(d), 4);\nFlux<Hit> hits       = letters.switchMap(q -> recipes.search(q));\nFlux<Gap> byNumber   = Flux.zip(readings, dial, Gap::of);              // asks both sides ahead of time\nFlux<Gap> latest     = Flux.combineLatest(readings, dial, Gap::of);    // keeps every combination\nFlux<Order> orders   = Flux.merge(tableOrders, takeawayOrders);"
   },
   "kotlin": {
    "title": "Kotlin Flow",
-   "src": "@OptIn(ExperimentalCoroutinesApi::class)\nfun pipelines() {\n    val fees    = merchants.flatMapMerge(4) { m -> flow { emit(pricing.lookup(m)) } }   // default 16\n    val inOrder = merchants.flatMapConcat { m -> flow { emit(pricing.lookup(m)) } }  // outer paused in emit\n    // no flatMapSequential: see the worked example\n    val hits    = queries.flatMapLatest { q -> search.find(q) }                       // joins the old inner\n    val byIndex = prices.zip(rates) { p, r -> Eur.of(p, r) }                          // receiver unbuffered\n    val latest  = combine(prices, rates) { p, r -> Eur.of(p, r) }                     // may skip when slow\n    val events  = merge(cardEvents, bankEvents)\n}"
+   "src": "@OptIn(ExperimentalCoroutinesApi::class)\nfun pipelines() {\n    val plates   = dishes.flatMapMerge(4) { d -> flow { emit(stove.cook(d)) } }   // default 16\n    val inOrder  = dishes.flatMapConcat { d -> flow { emit(stove.cook(d)) } }  // outer paused in emit\n    // no flatMapSequential: see the worked example\n    val hits     = letters.flatMapLatest { q -> recipes.search(q) }             // waits for the old inner\n    val byNumber = readings.zip(dial) { c, d -> Gap.of(c, d) }                  // the receiver has no shelf\n    val latest   = combine(readings, dial) { c, d -> Gap.of(c, d) }             // may skip when slow\n    val orders   = merge(tableOrders, takeawayOrders)\n}"
   },
-  "note": "The operators line up one for one, and the virtual-time demos give the same timelines for `flatMap`/`flatMapMerge` and `switchMap`/`flatMapLatest`. The differences come from how each library moves values. In Flow, a value moves by a suspend call, so whatever is upstream of an `emit` waits for it: `flatMapConcat` pauses the outer's code (800 ms against Reactor's 600 on the same timeline), and `zip` slows its receiver to the other side's pace. Reactor moves values on demand and prefetches, so its sources keep their own timers. The defaults differ too: 16 lanes against 256. And with a slow subscriber, `combineLatest` queues every board state while `combine` skips some and makes its sources wait. Flow has no built-in `flatMapSequential`."
+  "note": "The operators line up one for one, and the virtual-time demos give the same timelines for `flatMap` and `flatMapMerge`, and for `switchMap` and `flatMapLatest`. The differences come from how each library moves values. In Flow, a value moves by a suspend call, so whatever is upstream of an `emit` waits for it: `flatMapConcat` pauses the outer's code (800 ms against Reactor's 600 on the same timeline), and `zip` slows its receiver to the other side's pace. Reactor moves values on demand and asks ahead of time, so its sources keep their own timers. The defaults differ too: 16 lanes against 256. And with a slow subscriber, `combineLatest` queues every state of the slate while `combine` skips some and makes its sources wait. Flow has no built-in `flatMapSequential`."
  },
  "worked": {
-  "title": "Fan out fee lookups under a provider contract",
+  "title": "Cook a ticket on four burners",
   "steps": [
-   {"say": "The pricing service allows 4 concurrent calls. Put the call inside the returned flow, so each merchant gets a lane, and set the cap from the contract. 10 lookups of 100 ms finish at 300 ms.",
-    "code": "@OptIn(ExperimentalCoroutinesApi::class)\nfun fees(merchants: Flow<String>): Flow<Fee> =\n    merchants.flatMapMerge(concurrency = 4) { m ->     // 1. the lambda only builds the inner flow\n        flow { emit(pricing.lookup(m)) }                // 2. the slow call runs in the lane\n    }",
+   {"say": "The stove has four burners. Put the cooking inside the returned flow, so each dish gets a lane, and set the cap from the stove. Ten dishes of 100 ms are ready at 300 ms.",
+    "code": "@OptIn(ExperimentalCoroutinesApi::class)\nfun cookAll(dishes: Flow<String>): Flow<Plate> =\n    dishes.flatMapMerge(concurrency = 4) { dish ->   // 1. the lambda only builds the inner flow\n        flow { emit(stove.cook(dish)) }               // 2. the slow cooking runs in the lane\n    }",
     "lang": "kotlin", "alt_lang": "java",
-    "alt_code": "// Closest Java equivalent: flatMap with a cap, the call inside the returned Mono\nFlux<Fee> fees(Flux<String> merchants) {\n    return merchants.flatMap(m -> pricing.lookup(m), 4);   // lookup returns a lazy Mono\n}"},
-   {"say": "One merchant's lookup fails with a 503. Catch it inside that merchant's inner flow, so only that lane ends with a default. With m1 = 300, m2 = 100 (fails) and m3 = 200 ms, the output is m2's default at 100, m3 at 200 and m1 at 300.",
-    "code": "merchants.flatMapMerge(concurrency = 4) { m ->\n    flow { emit(pricing.lookup(m)) }\n        .catch { e -> if (e is IOException) emit(defaultFee(m)) else throw e }   // 3. per lane\n}",
+    "alt_code": "// Closest Java equivalent: flatMap with a cap, the wait inside the returned Mono\nFlux<Plate> cookAll(Flux<String> dishes) {\n    return dishes.flatMap(dish -> stove.cook(dish), 4);   // cook returns a lazy Mono\n}"},
+   {"say": "The salad burns. Catch it inside that dish's own inner flow, so only that lane ends with a substitute. With soup at 300 ms, salad at 100 (burnt) and roast at 200, the plates are the salad's substitute at 100, roast at 200 and soup at 300.",
+    "code": "dishes.flatMapMerge(concurrency = 4) { dish ->\n    flow { emit(stove.cook(dish)) }\n        .catch { e -> if (e is Burnt) emit(substitute(dish)) else throw e }   // 3. per lane\n}",
     "lang": "kotlin", "alt_lang": "java",
-    "alt_code": "// Closest Java equivalent: handle the error inside each inner Mono\nmerchants.flatMap(m -> pricing.lookup(m)\n        .onErrorResume(IOException.class, e -> Mono.just(defaultFee(m))), 4);"},
-   {"say": "Compare a `catch` placed after `flatMapMerge`. The failing lane cancels its siblings first: m1 and m3 end with `JobCancellationException` and the caller sees `IOException: fee service 503 for m2` at 100 ms. A caught error still ends the upstream, so the `catch` can only add a fallback after everything else was lost.",
-    "code": "merchants.flatMapMerge(concurrency = 4) { m -> flow { emit(pricing.lookup(m)) } }\n    .catch { e -> emit(defaultFee(\"all\")) }      // too late: the other lanes are already cancelled",
+    "alt_code": "// Closest Java equivalent: handle the error inside each inner Mono\ndishes.flatMap(dish -> stove.cook(dish)\n        .onErrorResume(Burnt.class, e -> Mono.just(substitute(dish))), 4);"},
+   {"say": "Compare a `catch` placed after `flatMapMerge`. The burnt lane cancels its siblings first: soup and roast end with a `JobCancellationException`, and the `catch` sees `Burnt: burnt: salad` at 100 ms. A caught error still ends the upstream, so this `catch` can only send out a stand-in after every other dish was thrown away.",
+    "code": "dishes.flatMapMerge(concurrency = 4) { dish -> flow { emit(stove.cook(dish)) } }\n    .catch { emit(Plate(\"bread basket\", \"substitute\")) }   // too late: the other dishes are already off the stove",
     "lang": "kotlin", "alt_lang": "java",
-    "alt_code": "// Closest Java equivalent: onErrorResume after flatMap ends the whole stream\nmerchants.flatMap(m -> pricing.lookup(m), 4)\n        .onErrorResume(e -> Mono.just(defaultFee(\"all\")));"},
-   {"say": "The ledger wants the fees back in input order. Flow has no `flatMapSequential`. Start each call with `async`, keep up to n of them in flight with a buffer, and await them in order. The `buffer(n - 2)` counts the buffer's slots plus one `Deferred` being awaited and one being created, so n must be at least 2. 20 calls of 100 ms take 1,000 / 700 / 500 / 300 ms for n = 2 / 3 / 4 / 8, all in order.",
-    "code": "fun <T, R> Flow<T>.mapConcurrentOrdered(n: Int, f: suspend (T) -> R): Flow<R> = flow {\n    coroutineScope {\n        this@mapConcurrentOrdered\n            .map { value -> async { f(value) } }   // 4. start the call\n            .buffer(n - 2)                          // 5. at most n started and not yet emitted\n            .collect { emit(it.await()) }           // 6. emit in input order\n    }\n}",
+    "alt_code": "// Closest Java equivalent: onErrorResume after flatMap ends the whole stream\ndishes.flatMap(dish -> stove.cook(dish), 4)\n        .onErrorResume(e -> Mono.just(new Plate(\"bread basket\", \"substitute\")));"},
+   {"say": "The cooking log wants the plates in ticket order. Flow has no `flatMapSequential`. Start each dish with `async`, keep up to n of them in flight with a buffer, and wait for them in order. The `buffer(n - 2)` counts the buffer's slots plus one dish being awaited and one being started, so n must be at least 2. Twenty dishes of 100 ms take 1,000, 700, 500 and 300 ms for n = 2, 3, 4 and 8, always in ticket order.",
+    "code": "fun <T, R> Flow<T>.mapConcurrentOrdered(n: Int, f: suspend (T) -> R): Flow<R> = flow {\n    coroutineScope {\n        this@mapConcurrentOrdered\n            .map { value -> async { f(value) } }   // 4. start cooking\n            .buffer(n - 2)                          // 5. at most n started and not yet emitted\n            .collect { emit(it.await()) }           // 6. emit in ticket order\n    }\n}",
     "lang": "kotlin", "alt_lang": "java",
-    "alt_code": "// Closest Java equivalent: Reactor has it built in\nFlux<Fee> ordered = merchants.flatMapSequential(m -> pricing.lookup(m), 4);"}
+    "alt_code": "// Closest Java equivalent: Reactor has it built in\nFlux<Plate> ordered = dishes.flatMapSequential(dish -> stove.cook(dish), 4);"}
   ]
  },
  "lab": {
-  "title": "Fan out fee lookups and convert prices at the latest rate",
+  "title": "Cook a ticket on four burners and feed the oven screen",
   "minutes": 12,
   "files": [
    "labs/flows/src/main/kotlin/workbench/flows/l05/FanOut.kt",
-   "labs/flows/src/main/kotlin/workbench/flows/l05/Prices.kt",
+   "labs/flows/src/main/kotlin/workbench/flows/l05/OvenScreen.kt",
    "labs/flows/src/main/kotlin/workbench/flows/l05/Model.kt"
   ],
   "run": "./gradlew :flows:test --tests 'workbench.flows.l05.*'",
   "steps": [
-   "Run the tests once. All 7 fail. The `fees` tests print the evidence: 1,000 ms instead of 300, and 1 lookup in flight instead of 4.",
-   "Fix `fees` in `FanOut.kt` without changing the cap. Ask yourself which coroutine runs the lambda.",
-   "Write `feesOrDefault`: the same fan-out, but an `IOException` from one merchant's lookup becomes `default(merchant)` for that merchant only. Rethrow anything else.",
-   "Write `eurPrices` in `Prices.kt`. Before you run it, use the test's two flows to predict the first EUR price and its time.",
-   "Run the tests until all 7 pass."
+   "Run the tests once. All 8 fail. The `cookAll` tests print the evidence: 1 dish on the burners at the busiest moment instead of 4, and plates at 300, 400 and 600 ms instead of 100, 200 and 300.",
+   "Fix `cookAll` in `FanOut.kt` without changing the cap. Ask yourself which coroutine runs the lambda.",
+   "Write `cookAllOrSubstitute`: the same fan-out, but a `Burnt` from one dish becomes `substitute(dish)` for that dish only. Rethrow anything else; one test checks that a gas failure still reaches the caller.",
+   "Write `ovenGaps` in `OvenScreen.kt`. Before you run it, use the test's two flows to predict the first line and its time.",
+   "Run the tests until all 8 pass."
   ],
   "hints": [
-   "In `fees`, the lambda should return `flow { emit(service.lookup(merchant)) }` and do nothing else.",
-   "In `feesOrDefault`, a `catch` after `flatMapMerge` is too late: by then the failing lane has cancelled the other lanes. Put it on the inner flow.",
-   "`eurPrices` wants the latest of each, not pairs by index. The test that expects six results catches a `zip`.",
+   "In `cookAll`, the lambda should return `flow { emit(stove.cook(dish)) }` and do nothing else.",
+   "In `cookAllOrSubstitute`, a `catch` after `flatMapMerge` is too late: by then the burnt lane has cancelled the other lanes. Put it on the inner flow.",
+   "`ovenGaps` wants the latest of each, not pairs by number. The test that expects six lines catches a `zip`.",
    "`flatMapMerge` needs `@OptIn(ExperimentalCoroutinesApi::class)` in 1.11.0. Without it you only get a warning."
   ],
-  "done_when": "All 7 tests in `FlatteningTest` pass."
+  "done_when": "All 8 tests in `FlatteningTest` pass."
  },
  "drill": {
   "title": "Write a capped fan-out from memory",
@@ -342,7 +385,7 @@ L = {
   "prompt": "Close this page. Write `fun <T, R> Flow<T>.mergeLanes(lanes: Int, transform: suspend (T) -> Flow<R>): Flow<R>` with `channelFlow`, a `Semaphore` and `launch`. Then answer: in your version, which line runs one value at a time, and why must the slow call not be in `transform`?",
   "answer": {
    "lang": "kotlin",
-   "src": "fun <T, R> Flow<T>.mergeLanes(lanes: Int, transform: suspend (T) -> Flow<R>): Flow<R> = channelFlow {\n    val permits = Semaphore(lanes)\n    collect { value ->                          // 1. one coroutine reads the outer flow\n        val inner = transform(value)            // 2. ONE VALUE AT A TIME, before a permit\n        permits.acquire()                       // 3. wait for a free lane\n        launch {                                // 4. one coroutine per lane\n            try { inner.collect { send(it) } }  //    results go into one shared channel\n            finally { permits.release() }\n        }\n    }\n}\n// transform runs in the reading coroutine, so a slow call there blocks the next value from\n// being read at all. Only the flow it returns is collected inside a lane.",
+   "src": "fun <T, R> Flow<T>.mergeLanes(lanes: Int, transform: suspend (T) -> Flow<R>): Flow<R> = channelFlow {\n    val permits = Semaphore(lanes)\n    collect { value ->                          // 1. one coroutine reads the outer flow\n        val inner = transform(value)            // 2. ONE VALUE AT A TIME, before a permit\n        permits.acquire()                       // 3. wait for a free lane\n        launch {                                // 4. one coroutine per lane\n            try { inner.collect { send(it) } }  //    results go into one shared channel\n            finally { permits.release() }\n        }\n    }\n}\n// transform runs in the reading coroutine, so a slow call there stops the next value from\n// being read at all. Only the flow it returns is collected inside a lane.",
    "alt": {
     "lang": "java",
     "src": "// Closest Java equivalent: a reading loop, a Semaphore, and a virtual thread per lane\nstatic <T, R> void mergeLanes(Iterable<T> outer, int lanes, Function<T, Callable<R>> transform,\n                              BlockingQueue<R> out) throws InterruptedException {\n    Semaphore permits = new Semaphore(lanes);\n    for (T value : outer) {                       // 1. one thread reads the outer source\n        Callable<R> inner = transform.apply(value); // 2. one value at a time, before a permit\n        permits.acquire();                        // 3. wait for a free lane\n        Thread.ofVirtual().start(() -> {          // 4. one thread per lane\n            try { out.put(inner.call()); }\n            catch (Exception e) { Thread.currentThread().interrupt(); }\n            finally { permits.release(); }\n        });\n    }\n}"
@@ -350,61 +393,62 @@ L = {
   }
  },
  "recap": [
-  "`flatMapMerge` calls your lambda sequentially, in one producer coroutine, before it takes a lane. Only the returned flows run concurrently, so the slow call belongs inside them.",
-  "The cap defaults to 16 (`DEFAULT_CONCURRENCY`), against Reactor's 256. Set it from the provider's contract. Results come out in completion order.",
-  "`flatMapConcat` runs each inner inside the outer's `emit`, so the outer's own code pauses. `buffer()` in front lets it run ahead, which is Reactor's `concatMap` timeline.",
-  "`flatMapLatest` cancels the old inner, joins it and starts the new one. Use it for search-as-you-type, where stale results are worthless.",
-  "`zip` pairs by index, slows the receiver to the other side's pace and ends with the shorter flow. `combine` keeps the latest of each and emits once every source has a value. FX conversion is `combine`.",
-  "With a slow collector, `combine` skips intermediate values and suspends its sources. Add `conflate()` or `buffer()` to choose; Reactor's `combineLatest` keeps them all."
+  "`flatMapMerge` calls your lambda one value at a time, in the one coroutine that reads the outer flow, before it takes a lane. Only the returned flows run side by side, so the slow call belongs inside them.",
+  "The cap defaults to 16 (`DEFAULT_CONCURRENCY`), against Reactor's 256. Set it from what the slow resource can take. Results come out in completion order.",
+  "`flatMapConcat` runs each inner inside the outer's `emit`, so the outer's own code pauses. `buffer()` in front lets it run ahead, which gives Reactor's `concatMap` timeline. `flatMapLatest` cancels the old inner, waits for it and starts the new one.",
+  "`zip` pairs by number, slows its receiver to the other side's pace and ends with the shorter flow. `combine` keeps the latest of each and emits once every source has a value. A reading against the latest dial setting is `combine`.",
+  "With a slow collector, `combine` skips some values and suspends its sources. Add `conflate()` or `buffer()` to choose; Reactor's `combineLatest` keeps them all.",
+  "The limit: one failing inner flow or source cancels all the others and ends the whole flow. Choosing what a failure costs is the next lesson's job."
  ],
+ "closing": CLOSING,
  "quiz": [
-  {"q": "Which call runs with up to 4 in flight?\n\n```kotlin\nmerchants.flatMapMerge(4) { m ->\n    val rules = rulesCache.load(m)               // suspends 50 ms\n    flow { emit(pricing.lookup(m, rules)) }      // suspends 100 ms\n}\n```",
-   "options": ["Both: flatMapMerge makes the whole lambda concurrent", "Only `pricing.lookup`; `rulesCache.load` runs one merchant at a time", "Only `rulesCache.load`; the inner flow is collected later, one at a time", "Neither, because `flow { }` inside a lambda is cold"],
+  {"q": "Which call runs with up to 4 at once?\n\n```kotlin\ndishes.flatMapMerge(4) { d ->\n    val card = cookbook.open(d)                // suspends 50 ms\n    flow { emit(stove.cook(d, card)) }         // suspends 100 ms\n}\n```",
+   "options": ["Both: flatMapMerge makes the whole lambda run side by side", "Only `stove.cook`; `cookbook.open` runs one dish at a time", "Only `cookbook.open`; the inner flow is collected later, one at a time", "Neither, because `flow { }` inside a lambda is cold"],
    "answer": 1,
-   "why": "The lambda runs in the one coroutine that reads the outer flow, sequentially and before a lane is taken. Only the returned flow gets a lane. So the 50 ms loads add up one after another, while the lookups overlap. Move the load into the inner flow if it should run concurrently too."},
+   "why": "The lambda runs in the one coroutine that reads the outer flow, one dish at a time and before a lane is taken. Only the returned flow gets a lane. So the 50 ms `open` calls add up one after another, while the cooking overlaps. Move `open` into the inner flow if it should overlap too."},
   {"q": "The outer is `flow { for (n in 1..3) { emit(n); delay(100) } }` and each inner is one value after 200 ms. `flatMapConcat` takes 900 ms. How long with `.buffer()` before `flatMapConcat`?",
    "options": ["600 ms", "300 ms", "800 ms", "900 ms: buffer doesn't change a concat"],
    "answer": 0,
    "why": "Without the buffer, each inner runs inside the outer's `emit`, so the outer's `delay(100)` waits for it: 3 x (200 + 100). With the buffer, the outer runs ahead in its own coroutine and the three inners run back to back: 3 x 200 = 600 ms."},
-  {"q": "A checkout shows each basket total converted at the latest USD to EUR rate. The rate changes every few minutes; totals change whenever the customer edits the basket. Which operator fits?",
-   "options": ["`totals.zip(rates)`", "`merge(totals, rates)`", "`totals.flatMapLatest { rates }`", "`combine(totals, rates)`"],
+  {"q": "The oven screen shows each thermometer reading against the latest dial setting. Readings come every second; the dial changes now and then. Which operator fits?",
+   "options": ["`readings.zip(dial)`", "`merge(readings, dial)`", "`readings.flatMapLatest { dial }`", "`combine(readings, dial)`"],
    "answer": 3,
-   "why": "`combine` keeps the latest value of each flow and emits on every update of either, once both have a value. `zip` would pair the n-th total with the n-th rate and stall the totals until a new rate arrives. `merge` doesn't combine values at all. The `flatMapLatest` version restarts the rate flow on every basket edit and emits rates, not converted totals."},
-  {"q": "`combine(feed, flowOf(\"cfg\"))` feeds a dashboard that needs 100 ms per update. The feed emits 1 to 10, 10 ms apart. What happens?",
-   "options": ["The dashboard sees all ten, 100 ms apart", "The dashboard sees only 1 and 10", "The dashboard sees 1, 3, 5, 7, 9, 10, and the feed itself slows down", "combine fails with an overflow error"],
+   "why": "`combine` keeps the latest value of each flow and emits on every update of either, once both have a value. `zip` would pair the n-th reading with the n-th turn of the dial and hold the thermometer until the dial moves again. `merge` doesn't pair values at all. The `flatMapLatest` version restarts the dial flow on every reading and emits dial values, not readings against the dial."},
+  {"q": "`combine(ticks, flowOf(180))` feeds a screen that needs 100 ms per update. The ticks are 1 to 10, 10 ms apart. What happens?",
+   "options": ["The screen shows all ten, 100 ms apart", "The screen shows only 1 and 10", "The screen shows 1, 3, 5, 7, 9, 10, and the ticks themselves slow down", "combine fails with an overflow error"],
    "answer": 2,
-   "why": "`combine`'s mailbox holds one update per source. While the dashboard is busy, updates in the same batch overwrite each other, and once the mailbox is full the feed's `send` suspends. So it both skips and backpressures. All ten is Reactor's `combineLatest`, or Flow with `buffer(UNLIMITED)`. Only 1 and 10 is `conflate()`."},
+   "why": "`combine`'s tray holds one update per source. While the screen is busy, updates in the same batch overwrite each other, and once the tray is full the ticking source's `send` suspends. So it both skips and slows its source. All ten is Reactor's `combineLatest`, or Flow with `buffer(UNLIMITED)`. Only 1 and 10 is `conflate()`."},
   {"q": "From the reactive track: on the same timeline, Reactor's `concatMap` finished at 600 ms and Kotlin's `flatMapConcat` at 800 ms. Why?",
-   "options": ["Reactor's concatMap prefetches 32 items", "Flow's outer code is suspended inside `emit` while each inner runs, so its own delays start late; Reactor's source timers kept running", "flatMapConcat runs the inners on Dispatchers.Default", "Flow's flatMapConcat runs two inners at once"],
+   "options": ["Reactor's concatMap asks its source for 32 items ahead", "Flow's outer code is suspended inside `emit` while each inner runs, so its own delays start late; Reactor's source timers kept running", "flatMapConcat runs the inners on Dispatchers.Default", "Flow's flatMapConcat runs two inners at once"],
    "answer": 1,
-   "why": "`flatMapConcat` is `collect { emitAll(it) }`: no coroutine and no channel, so the outer's body waits in `emit`. Reactor 3.8's `concatMap` requests one at a time too (no prefetch), but its source's `Mono.delay` timers ran while no request was outstanding. `buffer()` before `flatMapConcat` gives Flow the same 600 ms.",
+   "why": "`flatMapConcat` is `collect { emitAll(it) }`: no coroutine and no channel, so the outer's body waits in `emit`. Reactor 3.8's `concatMap` asks for one at a time too, but its source's `Mono.delay` timers ran while no request was outstanding. `buffer()` before `flatMapConcat` gives Flow the same 600 ms.",
    "from": "rx-03"}
  ],
  "flashcards": [
-  {"front": "In `flatMapMerge`, does the lambda run concurrently?", "back": "No. It runs sequentially in the one coroutine that reads the outer flow, before a lane is taken. Only the flows it returns run concurrently."},
+  {"front": "In `flatMapMerge`, does the lambda run side by side for several values?", "back": "No. It runs one value at a time, in the one coroutine that reads the outer flow, before a lane is taken. Only the flows it returns run side by side."},
   {"front": "Default concurrency of `flatMapMerge`, and of Reactor's `flatMap`?", "back": "16 (`DEFAULT_CONCURRENCY`, from the property `kotlinx.coroutines.flow.defaultConcurrency`). Reactor: 256."},
   {"front": "What happens to the outer flow while a `flatMapConcat` inner runs?", "back": "Its code is paused inside `emit`: there is no extra coroutine or channel. `buffer()` before `flatMapConcat` lets it run ahead."},
-  {"front": "`flatMapLatest` gets a new value while an inner is running. What happens?", "back": "It cancels the inner with `ChildCancelledException`, joins it, then starts the inner for the new value."},
-  {"front": "How does `zip` pair values, and when does it end?", "back": "By index. It ends when the shorter flow ends and cancels the other. The receiver side has no buffer, so it waits for the other side."},
+  {"front": "`flatMapLatest` gets a new value while an inner is running. What happens?", "back": "It cancels the inner with `ChildCancelledException`, waits for it to finish, then starts the inner for the new value."},
+  {"front": "How does `zip` pair values, and when does it end?", "back": "By number: first with first, second with second. It ends when the shorter flow ends and cancels the other. Its receiver has no buffer, so it waits for the other side."},
   {"front": "When does `combine` emit its first value?", "back": "When every source has emitted at least once. After that, once per update of any source."},
-  {"front": "`combine` with a slow collector: what happens to fast updates?", "back": "Some are skipped (overwritten on the board) and the sources are suspended, since the mailbox holds one update per source. Reactor's `combineLatest` delivers them all."}
+  {"front": "`combine` with a slow collector: what happens to fast updates?", "back": "Some are skipped (overwritten on the slate) and the sources are suspended, since the tray holds one update per source. Reactor's `combineLatest` delivers them all."}
  ],
  "terms": [
   {"term": "Flattening", "plain": "Turning a flow of flows (one inner flow per outer value) into one flow of values."},
-  {"term": "Inner flow", "plain": "The flow your `flatMap*` lambda returns for one outer value."},
-  {"term": "Lane", "plain": "One inner flow being collected in its own coroutine. `concurrency` is the number of lanes."},
-  {"term": "Completion order", "plain": "Results leave in the order they finish, not the order their inputs arrived."},
+  {"term": "Inner flow", "plain": "The flow your `flatMap*` lambda returns for one outer value: a dish's own sub-recipe."},
+  {"term": "Lane", "plain": "One inner flow being collected in its own coroutine. `concurrency` is the number of lanes, the burners on the stove."},
+  {"term": "Completion order", "plain": "Results leave in the order they are ready, not the order their inputs arrived."},
   {"term": "zip", "plain": "Pairs the n-th value of one flow with the n-th value of another, and ends with the shorter."},
   {"term": "combine", "plain": "Keeps the latest value of each flow and emits a combination whenever any of them changes."},
-  {"term": "merge", "plain": "Interleaves several flows in arrival order and ends when the last one ends."}
+  {"term": "merge", "plain": "Passes on values from several flows in the order they arrive, and ends when the last one ends."}
  ],
  "explain_back": {
-  "prompt": "A teammate's fee fan-out uses `flatMapMerge(concurrency = 8)`, yet the trace shows one pricing call at a time. Explain why, how you'd fix it, and how you'd keep one failing merchant from cancelling the rest. Use the toll plaza picture.",
-  "answer": "`flatMapMerge` has one dispatcher at the entrance: a single coroutine reads the merchants and calls the lambda for each, one at a time, before it waves the result into a booth. The booths are the 8 lanes, and only the flow the lambda returns is collected in a booth. The teammate does the pricing call in the lambda itself and returns `flowOf(fee)`, so the dispatcher inspects every car himself and the booths stay empty: one call at a time. The fix is to return `flow { emit(pricing.lookup(m)) }`, so the call runs inside the lane. To keep a 503 for one merchant from taking the others down, put `catch` on that inner flow and emit a default fee there. A `catch` after `flatMapMerge` comes too late, because the failing lane has already cancelled all the other lanes."
+  "prompt": "A helper's order uses `flatMapMerge(concurrency = 8)`, yet the kitchen log shows one dish on the stove at a time. Explain why, how you'd fix it, and how you'd keep one burnt dish from ruining the rest. Use the head cook at the pass.",
+  "answer": "`flatMapMerge` has one head cook at the pass: a single coroutine reads the dishes and calls the lambda for each one, one at a time, before it hands the result to a burner. The burners are the 8 lanes, and only the flow the lambda returns is collected on a burner. The helper cooks the dish in the lambda itself and returns `flowOf(plate)`, so the head cook cooks every dish herself and the burners stay empty: one dish at a time. The fix is to return `flow { emit(stove.cook(dish)) }`, so the cooking runs in the lane. To keep one burnt dish from taking the others down, put `catch` on that dish's inner flow and emit a substitute there. A `catch` after `flatMapMerge` comes too late, because the burnt lane has already cancelled all the other lanes."
  },
  "deeper": {
   "minutes": 10,
-  "body": "How far does `flatMapMerge` run ahead of a slow collector? With 500 one-value inners and a collector stuck on its first value, 82 outer values had been pulled. A plausible split (my inference, not measured) is 64 results in the output channel, about 16 inners suspended on a full channel, and a couple in hand. With `.buffer(0)` after it the count was 18, and with `flatMapConcat` it was 1. So budget memory for up to 64 finished results plus `concurrency` inners. A `buffer` or `flowOn` after `flatMapMerge` fuses into the same channel: `flatMapMerge(4) { }.buffer(0)` prints as `ChannelFlowMerge[concurrency=4, capacity=0]`.\n\nEdge cases: `flatMapMerge(1)` returns plain `flattenConcat()`. `flatMapMerge(0)` throws `IllegalArgumentException: Expected positive concurrency level, but had 0` when you build the flow. Setting `-Dkotlinx.coroutines.flow.defaultConcurrency=0` makes the first read of `DEFAULT_CONCURRENCY` throw `ExceptionInInitializerError`, caused by `IllegalStateException: System property 'kotlinx.coroutines.flow.defaultConcurrency' should be in range 1..2147483647, but is '0'`. With `=4`, 40 lookups of 100 ms took 1,000 ms instead of 300.\n\n`flattenConcat()` and `flattenMerge()` are the same operators for a `Flow<Flow<T>>` you already have; `flatMapX(f)` is literally `map(f).flattenX()`.\n\nThe `flatMapMerge` and `flatMapConcat` KDoc both say they are discouraged in regular application flows, because \"suspending operation in map operator will be sufficient and linear transformations are much easier to reason about\". Take that at face value: reach for `flatMapMerge` when you need bounded concurrency, and for `map { suspendCall(it) }` when you don't.\n\n`combineTransform` is `combine` with a `FlowCollector` receiver, so the transform can emit zero or several values per board update. Failure works the same way in `combine` and `merge`: one source that throws cancels the others (they end with `JobCancellationException: Parent job is Cancelling`) and the caller gets the original exception."
+  "body": "How far does `flatMapMerge` run ahead of a slow collector? With 500 one-value inners and a collector stuck on its first value, 82 outer values had been pulled. A likely split (my inference, not measured) is 64 results in the output channel, about 16 inners suspended on a full channel, and a couple in hand. With `.buffer(0)` after it the count was 18, and with `flatMapConcat` it was 1. So budget memory for up to 64 finished results plus `concurrency` inners. A `buffer` or `flowOn` after `flatMapMerge` fuses into the same channel: `flatMapMerge(4) { }.buffer(0)` prints as `ChannelFlowMerge[concurrency=4, capacity=0]`.\n\nEdge cases: `flatMapMerge(1)` returns plain `flattenConcat()`. `flatMapMerge(0)` throws `IllegalArgumentException: Expected positive concurrency level, but had 0` when you build the flow. Setting `-Dkotlinx.coroutines.flow.defaultConcurrency=0` makes the first read of `DEFAULT_CONCURRENCY` throw `ExceptionInInitializerError`, caused by `IllegalStateException: System property 'kotlinx.coroutines.flow.defaultConcurrency' should be in range 1..2147483647, but is '0'`. With `=4`, 40 dishes of 100 ms took 1,000 ms instead of 300.\n\n`flattenConcat()` and `flattenMerge()` are the same operators for a `Flow<Flow<T>>` you already have; `flatMapX(f)` is literally `map(f).flattenX()`.\n\n`combineTransform` is `combine` with a `FlowCollector` receiver, so the lambda can emit zero or several values per update of the slate. Failure works the same way in `combine` and `merge`: one source that throws cancels the others (they end with `JobCancellationException: Parent job is Cancelling`) and the caller gets the original exception."
  },
  "sources": [
   {"title": "flatMapMerge (kotlinx.coroutines API)", "url": API + "flat-map-merge.html"},

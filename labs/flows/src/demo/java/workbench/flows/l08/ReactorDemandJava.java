@@ -9,13 +9,13 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-// Java equivalent: a Java caller consumes Kotlin flows through the Flux faces in LedgerFaces
+// Java equivalent: a Java caller consumes Kotlin flows through the Flux faces in PlateFaces
 // (ReactorDemand.kt). It sees only Reactor types. Reactor's own operators decide the demand.
 public class ReactorDemandJava {
 
     static void probe(String label, UnaryOperator<Flux<Integer>> operator) {
         List<String> requests = new ArrayList<>();
-        Flux<Integer> source = LedgerFaces.entries()   // 600 entries from a Kotlin flow
+        Flux<Integer> source = PlateFaces.plates()   // 600 plates from a Kotlin flow
                 .doOnRequest(n -> requests.add(n == Long.MAX_VALUE ? "MAX" : Long.toString(n)));
         operator.apply(source).blockLast();
         String shown = requests.size() > 6 ? requests.subList(0, 6) + " ... (" + requests.size() + " in all)" : requests.toString();
@@ -36,7 +36,7 @@ public class ReactorDemandJava {
             @Override protected void hookOnSubscribe(Subscription s) { request(2); }
             @Override protected void hookOnNext(Integer v) { received.add(v); }
         };
-        LedgerFaces.entriesTracked(returned).subscribe(subscriber);
+        PlateFaces.platesTracked(returned).subscribe(subscriber);
         System.out.println("  after request(2): received=" + received + ", emit() returned for " + returned);
         subscriber.request(3);
         System.out.println("  after request(3): received=" + received + ", emit() returned for " + returned);

@@ -3,42 +3,42 @@ package workbench.functional.l04
 // Write each function as one chain of collection operations: no `for`, no `var`.
 // Each TODO names the operation that fits. All of them must work on an empty list.
 
-/** TODO 1: every payment of every batch, in order. (flatMap) */
-fun allPayments(batches: List<Batch>): List<Payment> = TODO("flatMap")
+/** TODO 1: every cookie of every tray, in order. (flatMap) */
+fun allCookies(trays: List<Tray>): List<Cookie> = TODO("flatMap")
 
-/** TODO 2: the sum of amounts of SETTLED payments. 0 for none. (filter, sumOf) */
-fun settledCents(payments: List<Payment>): Long = TODO("filter, sumOf")
+/** TODO 2: the sum of grams of GOLDEN cookies. 0 for none. (filter, sumOf) */
+fun goldenGrams(cookies: List<Cookie>): Int = TODO("filter, sumOf")
 
-/** TODO 3: the sum of every refund that exists. Most payments have none. (mapNotNull, sum) */
-fun refundedCents(payments: List<Payment>): Long = TODO("mapNotNull, sum")
+/** TODO 3: the sum of every bite that was taken. Most cookies have none. (mapNotNull, sum) */
+fun nibbledGrams(cookies: List<Cookie>): Int = TODO("mapNotNull, sum")
 
 /**
- * TODO 4: for SETTLED payments only, amount minus refund, added up per merchant.
- * Merchants appear in the order they are first seen. (filter, groupBy, mapValues, sumOf)
+ * TODO 4: for GOLDEN cookies only, grams minus the bite, added up per flavor.
+ * Flavors appear in the order they are first seen. (filter, groupBy, mapValues, sumOf)
  */
-fun netByMerchant(payments: List<Payment>): Map<String, Long> = TODO("filter, groupBy, mapValues")
+fun netByFlavor(cookies: List<Cookie>): Map<String, Int> = TODO("filter, groupBy, mapValues")
 
-/** TODO 5: the ids of FAILED payments, in input order. (filter, map) */
-fun failedIds(payments: List<Payment>): List<String> = TODO("filter, map")
+/** TODO 5: the ids of BURNT cookies, in input order. (filter, map) */
+fun burntIds(cookies: List<Cookie>): List<String> = TODO("filter, map")
 
-/** TODO 6: the SETTLED payment with the biggest amount, or null when nothing settled. (filter, maxByOrNull) */
-fun largestSettled(payments: List<Payment>): Payment? = TODO("filter, maxByOrNull")
+/** TODO 6: the GOLDEN cookie with the most grams, or null when none came out golden. (filter, maxByOrNull) */
+fun largestGolden(cookies: List<Cookie>): Cookie? = TODO("filter, maxByOrNull")
 
 /**
- * TODO 7: the merchant account balance after the day. Start from [openingCents]; each SETTLED
- * payment adds its amount minus its refund; PENDING and FAILED payments change nothing. (fold)
+ * TODO 7: what the cookie jar holds after the day. Start from [startGrams], what is already in the jar;
+ * each GOLDEN cookie adds its grams minus its bite; RAW and BURNT cookies stay out of the jar. (fold)
  */
-fun closingBalance(openingCents: Long, payments: List<Payment>): Long = TODO("fold with a when inside")
+fun jarGrams(startGrams: Int, cookies: List<Cookie>): Int = TODO("fold with a when inside")
 
 /**
- * TODO 8: map each id to its payment. associateBy alone would keep the last payment for a repeated id
- * and say nothing. Instead, throw IllegalArgumentException("duplicate payment ids: pay_2, pay_7"):
+ * TODO 8: map each id to its cookie. associateBy alone would keep the last cookie for a repeated id
+ * and say nothing. Instead, throw IllegalArgumentException("duplicate cookie ids: c2, c7"):
  * each repeated id once, in the order first seen, joined with ", ". (groupingBy, eachCount, associateBy)
  */
-fun indexById(payments: List<Payment>): Map<String, Payment> = TODO("find duplicates first, then associateBy")
+fun indexById(cookies: List<Cookie>): Map<String, Cookie> = TODO("find duplicates first, then associateBy")
 
 /**
- * TODO 9: the whole report for one settlement day, built from the functions above.
- * A day with duplicate payment ids must be refused (call indexById). An empty day is a normal day.
+ * TODO 9: the whole report for one baking day, built from the functions above.
+ * A day with repeated cookie ids must be refused (call indexById). A day with no cookies is a normal day.
  */
-fun settlementReport(batches: List<Batch>): SettlementReport = TODO("allPayments, indexById, then the rest")
+fun bakeReport(trays: List<Tray>): BakeReport = TODO("allCookies, indexById, then the rest")

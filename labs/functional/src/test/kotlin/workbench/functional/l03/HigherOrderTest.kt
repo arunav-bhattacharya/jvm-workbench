@@ -5,8 +5,8 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 class HigherOrderTest {
-    private val addOne: (Long) -> Long = { it + 1 }
-    private val double: (Long) -> Long = { it * 2 }
+    private val addOne: (Int) -> Int = { it + 1 }
+    private val double: (Int) -> Int = { it * 2 }
 
     @Test
     fun `andThen runs the left function first, then the right one`() {
@@ -17,8 +17,8 @@ class HigherOrderTest {
     @Test
     fun `andThen can change the type at each step`() {
         val length: (String) -> Int = { it.length }
-        val label: (Int) -> String = { "$it chars" }
-        assertThat((length andThen label)("pay_123")).isEqualTo("7 chars")
+        val label: (Int) -> String = { "$it letters" }
+        assertThat((length andThen label)("pancakes")).isEqualTo("8 letters")
     }
 
     @Test
@@ -29,51 +29,52 @@ class HigherOrderTest {
 
     @Test
     fun `pipeline applies the steps in list order, and an empty pipeline changes nothing`() {
-        assertThat(pipeline(listOf(addFlat(25), capAt(100)))(90)).isEqualTo(100)
-        assertThat(pipeline(listOf(capAt(100), addFlat(25)))(90)).isEqualTo(115)
-        assertThat(pipeline(emptyList<Adjust>())(1_234)).isEqualTo(1_234)
+        assertThat(pipeline(listOf(add(25), atMost(100)))(90)).isEqualTo(100)
+        assertThat(pipeline(listOf(atMost(100), add(25)))(90)).isEqualTo(115)
+        assertThat(pipeline(emptyList<Step>())(1_234)).isEqualTo(1_234)
     }
 
     @Test
-    fun `feeFor builds the base fee for a country`() {
-        val nl = feeFor("NL")
-        assertThat(nl(100_000)).isEqualTo(1_400)
-        assertThat(nl(10_000)).isEqualTo(140)
-        assertThat(feeFor("US")(10_000)).isEqualTo(290)
+    fun `gramsFor builds the jug-to-scale function for an ingredient`() {
+        val flour = gramsFor("flour")
+        assertThat(flour(1_000)).isEqualTo(530)
+        assertThat(flour(500)).isEqualTo(265)
+        assertThat(gramsFor("honey")(250)).isEqualTo(355)
     }
 
     @Test
-    fun `feeFor fails for an unknown country when the function is built, not when it is called`() {
-        assertThatThrownBy { feeFor("XX") }
+    fun `gramsFor fails for an unknown ingredient when the function is built, not when it is called`() {
+        assertThatThrownBy { gramsFor("sand") }
             .isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessage("no rate for XX")
+            .hasMessage("unknown ingredient sand")
     }
 
     @Test
-    fun `merchantFee applies the base fee and then every adjustment in order`() {
-        val fee = merchantFee("NL", listOf(discountPercent(10), floorAt(50), capAt(1_000)))
-        assertThat(fee(100_000)).isEqualTo(1_000)   // 1,400 -> 1,260 -> 1,260 -> capped at 1,000
-        assertThat(fee(2_000)).isEqualTo(50)        // 28 -> 25 -> floored at 50
-        assertThat(fee(50_000)).isEqualTo(630)      // 700 -> 630
-        assertThat(merchantFee("DE", emptyList())(10_000)).isEqualTo(150)
+    fun `weighOut converts first and then applies every step in order`() {
+        val sugar = weighOut("sugar", listOf(percentLess(10), atLeast(50), atMost(300)))
+        assertThat(sugar(500)).isEqualTo(300)   // 425 -> 382 -> 382 -> at most 300
+        assertThat(sugar(50)).isEqualTo(50)     // 42 -> 37 -> at least 50
+        assertThat(sugar(300)).isEqualTo(229)   // 255 -> 229
+        assertThat(weighOut("milk", emptyList())(1_000)).isEqualTo(1_030)
     }
 
     @Test
     fun `curried turns a two-argument function into one-argument steps`() {
-        val fee: (String, Long) -> Long = { country, amount -> feeFor(country)(amount) }
-        val byCountry: (String) -> (Long) -> Long = fee.curried()
-        val germany: (Long) -> Long = byCountry("DE")
-        assertThat(germany(10_000)).isEqualTo(150)
-        assertThat(byCountry("FR")(10_000)).isEqualTo(160)
+        val grams: (String, Int) -> Int = { ingredient, ml -> gramsFor(ingredient)(ml) }
+        val byIngredient: (String) -> (Int) -> Int = grams.curried()
+        val sugar: (Int) -> Int = byIngredient("sugar")
+        assertThat(sugar(1_000)).isEqualTo(850)
+        assertThat(byIngredient("honey")(100)).isEqualTo(142)
     }
 
     @Test
     fun `memoize calls the function once per distinct argument`() {
         var calls = 0
-        val slowRate: (String) -> Long = { country -> calls++; BASIS_POINTS.getValue(country) }
-        val rate = memoize(slowRate)
-        assertThat(listOf(rate("NL"), rate("NL"), rate("DE"), rate("NL"), rate("DE"))).containsExactly(140L, 140L, 150L, 140L, 150L)
-        assertThat(calls).`as`("one call for NL and one for DE").isEqualTo(2)
+        val slowWeight: (String) -> Int = { ingredient -> calls++; GRAMS_PER_LITRE.getValue(ingredient) }
+        val weight = memoize(slowWeight)
+        assertThat(listOf(weight("flour"), weight("flour"), weight("honey"), weight("flour"), weight("honey")))
+            .containsExactly(530, 530, 1_420, 530, 1_420)
+        assertThat(calls).`as`("one call for flour and one for honey").isEqualTo(2)
     }
 
     @Test

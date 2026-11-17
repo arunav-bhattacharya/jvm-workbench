@@ -19,10 +19,10 @@ import reactor.core.publisher.Flux
 import reactor.util.context.Context
 
 // Faces for Java callers (the Java twin uses them): Java can't collect a Flow, so it gets a Flux.
-object LedgerFaces {
-    @JvmStatic fun entries(): Flux<Int> = (1..600).asFlow().asFlux()
+object PlateFaces {
+    @JvmStatic fun plates(): Flux<Int> = (1..600).asFlow().asFlux()
 
-    @JvmStatic fun entriesTracked(returned: MutableList<Int>): Flux<Int> =
+    @JvmStatic fun platesTracked(returned: MutableList<Int>): Flux<Int> =
         flow { for (i in 1..10) { emit(i); returned += i } }.asFlux()
 }
 
@@ -52,7 +52,7 @@ fun main() {
     val returned = mutableListOf<Int>()
     val received = mutableListOf<Int>()
     lateinit var subscription: Subscription
-    LedgerFaces.entriesTracked(returned).subscribe(object : BaseSubscriber<Int>() {
+    PlateFaces.platesTracked(returned).subscribe(object : BaseSubscriber<Int>() {
         override fun hookOnSubscribe(s: Subscription) { subscription = s; s.request(2) }
         override fun hookOnNext(v: Int) { received += v }
     })
@@ -70,7 +70,7 @@ fun main() {
     threads.asFlux().map { "$it | onNext on " + Thread.currentThread().name }.collectList().block()!!.forEach { println("  $it") }
 
     println("== 4. context: a Reactor Context reaches the flow as ReactorContext")
-    val traceId = flow { emit(currentCoroutineContext()[ReactorContext]?.context?.getOrDefault("traceId", "none") ?: "no ReactorContext") }
-    println("  with contextWrite: " + traceId.asFlux().contextWrite(Context.of("traceId", "t-123")).blockFirst())
-    println("  without:           " + traceId.asFlux().blockFirst())
+    val table = flow { emit(currentCoroutineContext()[ReactorContext]?.context?.getOrDefault("table", "none") ?: "no ReactorContext") }
+    println("  with contextWrite: " + table.asFlux().contextWrite(Context.of("table", "table-7")).blockFirst())
+    println("  without:           " + table.asFlux().blockFirst())
 }

@@ -7,31 +7,31 @@ import java.util.stream.Collectors;
 /** Java twin of DuplicateKeys.kt. Same data, different defaults: no key order, and toMap throws. */
 public class DuplicateKeysJava {
 
-    enum Status { SETTLED, PENDING, FAILED }
-    record Payment(String id, String merchant, long amountCents, Status status, Long refundCents) {}
+    enum Status { GOLDEN, RAW, BURNT }
+    record Cookie(String id, String flavor, int grams, Status status, Integer nibbledGrams) {}
 
-    static final List<Payment> DAY = List.of(
-            new Payment("pay_1", "acme", 1_500, Status.SETTLED, null),
-            new Payment("pay_2", "globex", 9_900, Status.PENDING, null),
-            new Payment("pay_3", "acme", 2_000, Status.SETTLED, 500L),
-            new Payment("pay_4", "initech", 12_000, Status.FAILED, null),
-            new Payment("pay_5", "globex", 700, Status.SETTLED, null));
+    static final List<Cookie> DAY = List.of(
+            new Cookie("c1", "oat", 45, Status.GOLDEN, null),
+            new Cookie("c2", "chocolate", 90, Status.RAW, null),
+            new Cookie("c3", "oat", 50, Status.GOLDEN, 10),
+            new Cookie("c4", "ginger", 80, Status.BURNT, null),
+            new Cookie("c5", "chocolate", 30, Status.GOLDEN, null));
 
     public static void main(String[] args) {
-        Map<String, List<String>> byMerchant = DAY.stream().collect(
-                Collectors.groupingBy(Payment::merchant, Collectors.mapping(Payment::id, Collectors.toList())));
-        System.out.println("groupingBy:   " + byMerchant);
-        System.out.println("map class:    " + byMerchant.getClass().getName());
+        Map<String, List<String>> byFlavor = DAY.stream().collect(
+                Collectors.groupingBy(Cookie::flavor, Collectors.mapping(Cookie::id, Collectors.toList())));
+        System.out.println("groupingBy:   " + byFlavor);
+        System.out.println("map class:    " + byFlavor.getClass().getName());
 
-        // One value per key. acme and globex each have two payments.
+        // One value per key. oat and chocolate each have two cookies.
         try {
-            System.out.println("toMap:        " + DAY.stream().collect(Collectors.toMap(Payment::merchant, Payment::id)));
+            System.out.println("toMap:        " + DAY.stream().collect(Collectors.toMap(Cookie::flavor, Cookie::id)));
         } catch (IllegalStateException e) {
             System.out.println("toMap:        threw " + e);
         }
 
         // Counting per key.
         System.out.println("counting:     " + DAY.stream().collect(
-                Collectors.groupingBy(Payment::merchant, Collectors.counting())));
+                Collectors.groupingBy(Cookie::flavor, Collectors.counting())));
     }
 }

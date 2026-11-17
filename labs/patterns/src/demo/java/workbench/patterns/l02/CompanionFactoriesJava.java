@@ -5,53 +5,62 @@ import java.util.List;
 /** The Java twin of CompanionFactories.kt: static factories, a cached instance, and a sealed result. */
 public class CompanionFactoriesJava {
 
-    static final class Iban {
-        final String country, digits;
-        private Iban(String country, String digits) { this.country = country; this.digits = digits; }
-        @Override public String toString() { return country + "****" + digits.substring(digits.length() - 4); }
+    static final class Slot {
+        private static final List<String> DAYS = List.of("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN");
+        final String day;
+        final int hour;
+        private Slot(String day, int hour) { this.day = day; this.hour = hour; }
+        @Override public String toString() { return day + " " + hour + ":00"; }
 
-        // 1. a named static factory: Iban.parse("...")
-        static IbanResult parse(String raw) {
-            String s = raw.replace(" ", "").toUpperCase();
-            if (s.length() < 15) return new TooShort(s.length());
-            if (!Character.isLetter(s.charAt(0)) || !Character.isLetter(s.charAt(1))) return new BadCountry(s.substring(0, 2));
-            return new Ok(new Iban(s.substring(0, 2), s.substring(2)));
+        // 1. a named static factory: Slot.parse("SAT 10")
+        static SlotResult parse(String raw) {
+            String[] parts = raw.trim().split(" ", 2);
+            String day = parts[0].toUpperCase();
+            int hour;
+            try {
+                hour = parts.length == 2 ? Integer.parseInt(parts[1].trim()) : -1;
+            } catch (NumberFormatException e) {
+                hour = -1;
+            }
+            if (!DAYS.contains(day)) return new BadDay(day);
+            if (hour < 8 || hour > 19) return new BadHour(hour);
+            return new Ok(new Slot(day, hour));
         }
     }
 
-    sealed interface IbanResult {}                     // permitted subtypes: the records in this file
-    record Ok(Iban iban) implements IbanResult {}
-    record TooShort(int length) implements IbanResult {}
-    record BadCountry(String prefix) implements IbanResult {}
+    sealed interface SlotResult {}                     // permitted subtypes: the records in this file
+    record Ok(Slot slot) implements SlotResult {}
+    record BadDay(String text) implements SlotResult {}
+    record BadHour(int hour) implements SlotResult {}
 
     static final class Fee {
-        private static final Fee STANDARD = new Fee(290);
-        final int bps;
-        private Fee(int bps) { this.bps = bps; }
+        private static final Fee STANDARD = new Fee(250);
+        final int cents;
+        private Fee(int cents) { this.cents = cents; }
         // 2. Java has no operator invoke, so the cached-instance factory needs a name
-        static Fee of(int bps) { return bps == 290 ? STANDARD : new Fee(bps); }
+        static Fee of(int cents) { return cents == 250 ? STANDARD : new Fee(cents); }
     }
 
-    interface Ledger {
-        void post(String entry);
+    interface OrderBook {
+        void record(String entry);
         // 3. a static factory on the interface returns a hidden implementation
-        static Ledger create() { return entry -> System.out.println("  ledger <- " + entry); }
+        static OrderBook create() { return entry -> System.out.println("  order book <- " + entry); }
     }
 
-    static String describe(IbanResult r) {
+    static String describe(SlotResult r) {
         return switch (r) {                               // no default: the compiler checks every case is here
-            case Ok ok -> "ok: " + ok.iban();
-            case TooShort t -> "too short (" + t.length() + " chars)";
-            case BadCountry b -> "bad country code '" + b.prefix() + "'";
+            case Ok ok -> "ok: " + ok.slot();
+            case BadDay b -> "no such day '" + b.text() + "'";
+            case BadHour h -> "we deliver from 8 to 19, not at " + h.hour();
         };
     }
 
     public static void main(String[] args) {
-        for (String raw : List.of("DE89 3704 0044 0532 0130 00", "DE89 3704", "12345678901234567890")) {
-            System.out.println("parse(\"" + raw + "\") -> " + describe(Iban.parse(raw)));
+        for (String raw : List.of("sat 10", "FRI 23", "MOON 9")) {
+            System.out.println("parse(\"" + raw + "\") -> " + describe(Slot.parse(raw)));
         }
-        System.out.println("Fee.of(290) == Fee.of(290)? " + (Fee.of(290) == Fee.of(290)));
-        System.out.println("Fee.of(150) == Fee.of(150)? " + (Fee.of(150) == Fee.of(150)));
-        Ledger.create().post("fee 29.00 EUR");
+        System.out.println("Fee.of(250) == Fee.of(250)? " + (Fee.of(250) == Fee.of(250)));
+        System.out.println("Fee.of(400) == Fee.of(400)? " + (Fee.of(400) == Fee.of(400)));
+        OrderBook.create().record("o-17 booked for SAT 10:00");
     }
 }

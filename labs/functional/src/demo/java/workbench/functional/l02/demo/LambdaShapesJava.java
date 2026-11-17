@@ -8,27 +8,27 @@ import java.util.function.LongUnaryOperator;
  */
 public class LambdaShapesJava {
 
-    static long addFee(long cents) { return cents + 30; }
+    static long addRest(long minutes) { return minutes + 10; }                     // let it rest 10 minutes
 
-    static LongUnaryOperator nonCapturing() { return c -> c + 30; }               // uses nothing from outside
-    static LongUnaryOperator capturing(long feeCents) { return c -> c + feeCents; } // captures feeCents
-    static LongUnaryOperator staticRef() { return LambdaShapesJava::addFee; }      // a method reference
+    static LongUnaryOperator nonCapturing() { return m -> m + 10; }                // uses nothing from outside
+    static LongUnaryOperator capturing(long extra) { return m -> m + extra; }      // captures extra
+    static LongUnaryOperator staticRef() { return LambdaShapesJava::addRest; }     // a method reference
 
-    static final class Shop {
-        private final long feeCents;
-        Shop(long feeCents) { this.feeCents = feeCents; }
-        long withFee(long cents) { return cents + feeCents; }
+    static final class ColdOven {                                                  // this oven runs a little cold
+        private final long extraMinutes;
+        ColdOven(long extraMinutes) { this.extraMinutes = extraMinutes; }
+        long adjust(long minutes) { return minutes + extraMinutes; }
     }
 
-    static LongUnaryOperator boundRef(Shop s) { return s::withFee; }              // bound to one object
+    static LongUnaryOperator boundRef(ColdOven o) { return o::adjust; }            // bound to one object
 
     public static void main(String[] args) {
-        Shop s = new Shop(30);
+        ColdOven oven = new ColdOven(5);
         System.out.println("non-capturing lambda: same object every time?  " + (nonCapturing() == nonCapturing()));
-        System.out.println("capturing lambda: same object every time?      " + (capturing(30) == capturing(30)));
-        System.out.println("capturing lambdas equal with equals?           " + capturing(30).equals(capturing(30)));
+        System.out.println("capturing lambda: same object every time?      " + (capturing(5) == capturing(5)));
+        System.out.println("capturing lambdas equal with equals?           " + capturing(5).equals(capturing(5)));
         System.out.println("static method ref: same object?                " + (staticRef() == staticRef()));
-        System.out.println("bound method ref s::withFee: same object?      " + (boundRef(s) == boundRef(s)));
+        System.out.println("bound method ref oven::adjust: same object?    " + (boundRef(oven) == boundRef(oven)));
         System.out.println();
         Class<?> lambda = nonCapturing().getClass();
         Class<?> ref = staticRef().getClass();

@@ -8,15 +8,16 @@ import java.util.function.Supplier;
  */
 public class RetryJava {
 
-    static final class FlakyIssuer {
+    // A fake recipe website that times out a few times, then answers.
+    static final class FlakySite {
         private int failuresLeft;
         int calls = 0;
-        FlakyIssuer(int failuresLeft) { this.failuresLeft = failuresLeft; }
+        FlakySite(int failuresLeft) { this.failuresLeft = failuresLeft; }
 
-        String authorize(String paymentId) {
+        String fetch(String recipe) {
             calls++;
-            if (failuresLeft-- > 0) throw new IllegalStateException("issuer timeout on call " + calls);
-            return "auth_" + paymentId;
+            if (failuresLeft-- > 0) throw new IllegalStateException("site timeout on call " + calls);
+            return "page:" + recipe;
         }
     }
 
@@ -45,13 +46,13 @@ public class RetryJava {
     }
 
     public static void main(String[] args) {
-        FlakyIssuer issuer = new FlakyIssuer(2);
-        String auth = timed("authorize with retry", () -> retry(3, () -> issuer.authorize("pay_42")));
-        System.out.println("result: " + auth + " after " + issuer.calls + " calls");
+        FlakySite site = new FlakySite(2);
+        String page = timed("fetch with retry", () -> retry(3, () -> site.fetch("pancakes")));
+        System.out.println("result: " + page + " after " + site.calls + " calls");
 
-        FlakyIssuer down = new FlakyIssuer(5);
+        FlakySite down = new FlakySite(5);
         try {
-            retry(3, () -> down.authorize("pay_43"));
+            retry(3, () -> down.fetch("waffles"));
         } catch (IllegalStateException e) {
             System.out.println("result: " + e.getMessage() + " (last cause: " + e.getCause().getMessage() + ")");
         }

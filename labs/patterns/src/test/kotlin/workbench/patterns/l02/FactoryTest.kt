@@ -6,101 +6,105 @@ import org.junit.jupiter.api.Test
 
 class FactoryTest {
 
-    private fun valid(raw: String): Card {
-        val r = Card.parse(raw)
-        assertThat(r).`as`("parse(\"$raw\")").isInstanceOf(CardResult.Valid::class.java)
-        return (r as CardResult.Valid).card
+    private fun valid(raw: String): Parcel {
+        val r = Parcel.parse(raw)
+        assertThat(r).`as`("parse(\"$raw\")").isInstanceOf(ParcelResult.Valid::class.java)
+        return (r as ParcelResult.Valid).parcel
     }
 
     private fun reason(raw: String): String {
-        val r = Card.parse(raw)
-        assertThat(r).`as`("parse(\"$raw\")").isInstanceOf(CardResult.Invalid::class.java)
-        return (r as CardResult.Invalid).reason
+        val r = Parcel.parse(raw)
+        assertThat(r).`as`("parse(\"$raw\")").isInstanceOf(ParcelResult.Invalid::class.java)
+        return (r as ParcelResult.Invalid).reason
     }
 
     @Test
-    fun `a Visa number with spaces parses to a Visa card`() {
-        val card = valid("4111 1111 1111 1111")
-        assertThat(card.network).isEqualTo(Network.VISA)
-        assertThat(card.last4).isEqualTo("1111")
+    fun `two and a half kilos parses to a bike parcel of 2500 grams`() {
+        val parcel = valid("2.5 kg")
+        assertThat(parcel.courier).isEqualTo(Courier.BIKE)
+        assertThat(parcel.grams).isEqualTo(2_500)
     }
 
     @Test
-    fun `51 to 55 and 2221 to 2720 prefixes are Mastercard`() {
-        assertThat(valid("5555 5555 5555 4444").network).isEqualTo(Network.MASTERCARD)
-        assertThat(valid("5105105105105100").network).isEqualTo(Network.MASTERCARD)
-        assertThat(valid("2223003122003222").network).isEqualTo(Network.MASTERCARD)
-        assertThat(valid("2223003122003222").last4).isEqualTo("3222")
+    fun `grams and kilograms both work, and 5 kg is the most a bike takes`() {
+        assertThat(valid("800 g").grams).isEqualTo(800)
+        assertThat(valid(" 800 g ").courier).isEqualTo(Courier.BIKE)
+        assertThat(valid("5 kg").courier).isEqualTo(Courier.BIKE)
+        assertThat(valid("5.5 kg").courier).isEqualTo(Courier.VAN)
+        assertThat(valid("30 kg").courier).isEqualTo(Courier.VAN)
+        assertThat(valid("30 kg").grams).isEqualTo(30_000)
     }
 
     @Test
     fun `bad input comes back as Invalid with a reason, in the documented order`() {
-        assertThat(reason("4111-1111-1111-1111")).isEqualTo("digits only")
-        assertThat(reason("4111 1111")).isEqualTo("length")
-        assertThat(reason("")).isEqualTo("length")
-        assertThat(reason("4111 1111 1111 1112")).isEqualTo("checksum")
-        assertThat(reason("378282246310005")).`as`("an Amex test number").isEqualTo("unsupported network")
-        assertThat(reason("6011111111111117")).`as`("a Discover test number").isEqualTo("unsupported network")
+        assertThat(reason("2.5kg")).isEqualTo("format")
+        assertThat(reason("two kg")).isEqualTo("format")
+        assertThat(reason("3 lb")).`as`("pounds are not a unit we take").isEqualTo("format")
+        assertThat(reason("")).isEqualTo("format")
+        assertThat(reason("0 g")).isEqualTo("weight")
+        assertThat(reason("-1 kg")).isEqualTo("weight")
+        assertThat(reason("31 kg")).isEqualTo("too heavy")
+        assertThat(reason("30001 g")).isEqualTo("too heavy")
     }
 
     @Test
-    fun `every network has a sandbox family that reports its own network`() {
-        for (n in Network.entries) {
-            assertThat(CardNetworkClients.sandbox(n).network).isEqualTo(n)
+    fun `every courier has a family that reports its own courier`() {
+        for (c in Courier.entries) {
+            assertThat(CourierServices.forCourier(c).courier).isEqualTo(c)
         }
-        assertThat(CardNetworkClients.sandbox(Network.VISA).baseUrl).isEqualTo("https://sandbox.visa.example")
-        assertThat(CardNetworkClients.sandbox(Network.MASTERCARD).baseUrl).isEqualTo("https://sandbox.mastercard.example")
+        assertThat(CourierServices.forCourier(Courier.BIKE).company).isEqualTo("Pedal Post")
+        assertThat(CourierServices.forCourier(Courier.VAN).company).isEqualTo("Big Blue Vans")
     }
 
     @Test
-    fun `a family's authorizer and refunder work together`() {
-        val visa = CardNetworkClients.sandbox(Network.VISA)
-        val auth = visa.authorizer().authorize(valid("4111 1111 1111 1111"), 1_250)
-        assertThat(auth).isEqualTo("V-AUTH-1111-1250")
-        assertThat(visa.refunder().refund(auth, 500)).isEqualTo("V-REFUND-500")
+    fun `a family's booker and tracker work together`() {
+        val bike = CourierServices.forCourier(Courier.BIKE)
+        val ref = bike.booker().book(valid("2.5 kg"), "o-17")
+        assertThat(ref).isEqualTo("PP-o-17-2500")
+        assertThat(bike.tracker().track(ref)).isEqualTo("Pedal Post: PP-o-17-2500 is on its way")
 
-        val mc = CardNetworkClients.sandbox(Network.MASTERCARD)
-        val mcAuth = mc.authorizer().authorize(valid("5555 5555 5555 4444"), 990)
-        assertThat(mcAuth).isEqualTo("M-AUTH-4444-990")
-        assertThat(mc.refunder().refund(mcAuth, 990)).isEqualTo("M-REFUND-990")
+        val van = CourierServices.forCourier(Courier.VAN)
+        val vanRef = van.booker().book(valid("12 kg"), "o-18")
+        assertThat(vanRef).isEqualTo("BB-o-18-12000")
+        assertThat(van.tracker().track(vanRef)).isEqualTo("Big Blue Vans: BB-o-18-12000 is on its way")
     }
 
     @Test
-    fun `families refuse to mix networks`() {
-        val visa = CardNetworkClients.sandbox(Network.VISA)
-        val mc = CardNetworkClients.sandbox(Network.MASTERCARD)
-        assertThatThrownBy { visa.authorizer().authorize(valid("5555 5555 5555 4444"), 100) }
+    fun `families refuse to mix couriers`() {
+        val bike = CourierServices.forCourier(Courier.BIKE)
+        val van = CourierServices.forCourier(Courier.VAN)
+        assertThatThrownBy { bike.booker().book(valid("12 kg"), "o-1") }
             .isInstanceOf(IllegalArgumentException::class.java)
-        assertThatThrownBy { mc.refunder().refund("V-AUTH-1111-100", 100) }
+        assertThatThrownBy { van.tracker().track("PP-o-17-2500") }
             .isInstanceOf(IllegalArgumentException::class.java)
     }
 
     @Test
-    fun `checkout pays through the family the factory returns for the card's network`() {
-        val asked = mutableListOf<Network>()
-        val checkout = Checkout { network -> asked += network; CardNetworkClients.sandbox(network) }
-        assertThat(checkout.pay("2223 0031 2200 3222", 4_200)).isEqualTo(PayResult.Paid("M-AUTH-3222-4200"))
-        assertThat(checkout.pay("4111 1111 1111 1111", 1_250)).isEqualTo(PayResult.Paid("V-AUTH-1111-1250"))
-        assertThat(asked).containsExactly(Network.MASTERCARD, Network.VISA)
+    fun `shipping books through the family the factory returns for the parcel's courier`() {
+        val asked = mutableListOf<Courier>()
+        val shipping = Shipping { courier -> asked += courier; CourierServices.forCourier(courier) }
+        assertThat(shipping.ship("o-21", "12 kg")).isEqualTo(ShipResult.Booked("BB-o-21-12000"))
+        assertThat(shipping.ship("o-22", "800 g")).isEqualTo(ShipResult.Booked("PP-o-22-800"))
+        assertThat(asked).containsExactly(Courier.VAN, Courier.BIKE)
     }
 
     @Test
-    fun `checkout rejects a bad number without ever calling the factory`() {
+    fun `shipping rejects a bad weight without ever calling the factory`() {
         var calls = 0
-        val checkout = Checkout { network -> calls++; CardNetworkClients.sandbox(network) }
-        assertThat(checkout.pay("4111 1111 1111 1112", 1_000)).isEqualTo(PayResult.Rejected("checksum"))
-        assertThat(checkout.pay("3782 822463 10005", 1_000)).isEqualTo(PayResult.Rejected("unsupported network"))
+        val shipping = Shipping { courier -> calls++; CourierServices.forCourier(courier) }
+        assertThat(shipping.ship("o-23", "lots")).isEqualTo(ShipResult.Rejected("format"))
+        assertThat(shipping.ship("o-24", "250 kg")).isEqualTo(ShipResult.Rejected("too heavy"))
         assertThat(calls).isZero()
     }
 
     @Test
-    fun `checkout works with any factory, including a fake one`() {
-        val fake = object : CardNetworkClients {
-            override val network = Network.VISA
-            override val baseUrl = "http://localhost:0"
-            override fun authorizer() = Authorizer { card, amount -> "FAKE-${card.last4}-$amount" }
-            override fun refunder() = Refunder { _, _ -> error("not used") }
+    fun `shipping works with any factory, including a fake one`() {
+        val fake = object : CourierServices {
+            override val courier = Courier.BIKE
+            override val company = "Test Courier"
+            override fun booker() = Booker { parcel, orderId -> "FAKE-$orderId-${parcel.grams}" }
+            override fun tracker() = Tracker { error("not used") }
         }
-        assertThat(Checkout { fake }.pay("4242 4242 4242 4242", 7)).isEqualTo(PayResult.Paid("FAKE-4242-7"))
+        assertThat(Shipping { fake }.ship("o-25", "7 g")).isEqualTo(ShipResult.Booked("FAKE-o-25-7"))
     }
 }

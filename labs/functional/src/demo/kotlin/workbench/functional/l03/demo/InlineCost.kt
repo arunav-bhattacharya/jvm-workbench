@@ -18,20 +18,20 @@ inline fun <T> measuredInline(block: () -> T): T {
     return result
 }
 
-fun totalWithLambda(amounts: List<Long>): Long {
+fun totalWithLambda(grams: List<Long>): Long {
     var total = 0L
-    measured { for (a in amounts) total += a }
+    measured { for (g in grams) total += g }
     return total
 }
 
-fun totalInlined(amounts: List<Long>): Long {
+fun totalInlined(grams: List<Long>): Long {
     var total = 0L
-    measuredInline { amounts.forEach { total += it } }
+    measuredInline { grams.forEach { total += it } }
     return total
 }
 
 fun main() {
-    val amounts = listOf(1_500L, 9_900L, 2_000L)
-    println("with a lambda object: ${totalWithLambda(amounts)}")
-    println("inlined:              ${totalInlined(amounts)}")
+    val grams = listOf(500L, 250L, 1_000L)             // flour, sugar and milk for one cake
+    println("with a lambda object: ${totalWithLambda(grams)}")
+    println("inlined:              ${totalInlined(grams)}")
 }

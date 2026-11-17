@@ -1,12 +1,12 @@
 package workbench.functional.l03.demo
 
-// A fake card issuer that times out a few times, then answers.
-class FlakyIssuer(private var failuresLeft: Int) {
+// A fake recipe website that times out a few times, then answers.
+class FlakySite(private var failuresLeft: Int) {
     var calls = 0
-    fun authorize(paymentId: String): String {
+    fun fetch(recipe: String): String {
         calls++
-        if (failuresLeft-- > 0) throw IllegalStateException("issuer timeout on call $calls")
-        return "auth_$paymentId"
+        if (failuresLeft-- > 0) throw IllegalStateException("site timeout on call $calls")
+        return "page:$recipe"
     }
 }
 
@@ -35,13 +35,13 @@ fun <T> timed(label: String, block: () -> T): T {
 }
 
 fun main() {
-    val issuer = FlakyIssuer(failuresLeft = 2)
-    val auth = timed("authorize with retry") { retry(3) { issuer.authorize("pay_42") } }
-    println("result: $auth after ${issuer.calls} calls")
+    val site = FlakySite(failuresLeft = 2)
+    val page = timed("fetch with retry") { retry(3) { site.fetch("pancakes") } }
+    println("result: $page after ${site.calls} calls")
 
-    val down = FlakyIssuer(failuresLeft = 5)
+    val down = FlakySite(failuresLeft = 5)
     try {
-        retry(3) { down.authorize("pay_43") }
+        retry(3) { down.fetch("waffles") }
     } catch (e: IllegalStateException) {
         println("result: ${e.message} (last cause: ${e.cause?.message})")
     }

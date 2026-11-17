@@ -21,10 +21,10 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Duration.Companion.milliseconds
 
-class StatusTracker {
-    private val _status = MutableStateFlow("PENDING")
+class DishTracker {
+    private val _status = MutableStateFlow("ORDERED")
     val status: StateFlow<String> = _status.asStateFlow()
-    fun authorizeAndCapture() { _status.value = "AUTHORIZED"; _status.value = "CAPTURED" } // no suspension between
+    fun cookAndServe() { _status.value = "COOKING"; _status.value = "SERVED" } // no suspension between
 }
 
 // The edges of the test clock. runTest is called from main here; in a test it is the body.
@@ -42,28 +42,28 @@ fun main() {
     runTest {
         println("== 2. advanceUntilIdle() stops once only backgroundScope work is left")
         var polls = 0
-        backgroundScope.launch { while (true) { delay(1_000); polls++ } } // a settlement poller
+        backgroundScope.launch { while (true) { delay(1_000); polls++ } } // a poller that never ends, like a thermometer
         advanceUntilIdle();                  println("  after advanceUntilIdle():               t=$currentTime polls=$polls")
         advanceTimeBy(5_000); runCurrent();  println("  after advanceTimeBy(5000) + runCurrent(): t=$currentTime polls=$polls")
     }
     runTest {
         println("== 3. a StateFlow set twice in a row, collected two ways")
-        val a = StatusTracker(); val standard = mutableListOf<String>()
+        val a = DishTracker(); val standard = mutableListOf<String>()
         backgroundScope.launch { a.status.toList(standard) }
-        runCurrent(); a.authorizeAndCapture(); runCurrent()
-        val b = StatusTracker(); val unconfined = mutableListOf<String>()
+        runCurrent(); a.cookAndServe(); runCurrent()
+        val b = DishTracker(); val unconfined = mutableListOf<String>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { b.status.toList(unconfined) }
-        b.authorizeAndCapture()
+        b.cookAndServe()
         println("  Standard collector:   $standard")
         println("  Unconfined collector: $unconfined")
     }
     println("== 4. take(3) on that StateFlow (runTest timeout 500 ms of REAL time)")
     try {
         runTest(timeout = 500.milliseconds) {
-            val t = StatusTracker()
+            val t = DishTracker()
             val three = async { t.status.take(3).toList() }
             runCurrent()
-            t.authorizeAndCapture()
+            t.cookAndServe()
             println("  got ${three.await()}")
         }
     } catch (e: Throwable) { println("  ${e::class.qualifiedName}: ${e.message?.lines()?.first()}") }

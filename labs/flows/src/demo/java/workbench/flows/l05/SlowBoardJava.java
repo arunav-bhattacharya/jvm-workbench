@@ -5,7 +5,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 
-// Closest Java equivalent: Reactor's combineLatest in front of a dashboard that needs 100 ms
+// Closest Java equivalent: Reactor's combineLatest in front of an oven-door screen that needs 100 ms
 // per update and asks for one at a time. Real time; the rounded column is the model.
 public class SlowBoardJava {
     static long t0;
@@ -17,7 +17,7 @@ public class SlowBoardJava {
 
     static Flux<String> board() {
         Flux<Long> ticks = Flux.interval(Duration.ofMillis(10)).map(i -> i + 1).take(10);
-        return Flux.combineLatest(ticks, Flux.just("cfg"), (i, c) -> i + "/" + c);
+        return Flux.combineLatest(ticks, Flux.just(180), (i, d) -> i + "/" + d);
     }
 
     public static void main(String[] args) {

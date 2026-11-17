@@ -6,22 +6,22 @@ import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flowOf
 
 /**
- * The fee of every merchant in [merchants], with at most 4 lookups in flight at once.
- * Output order is completion order. 10 lookups of 100 ms each must finish in 300 ms.
+ * Every dish of [dishes], cooked on [stove], with at most 4 dishes on the burners at once.
+ * Plates come out in the order they are ready. 10 dishes of 100 ms each must be ready in 300 ms.
  *
- * Bug: it looks concurrent, but the profile shows one lookup at a time, 1000 ms in all.
+ * Bug: it looks concurrent, but the kitchen log shows one dish at a time, 1,000 ms in all.
  */
 @OptIn(ExperimentalCoroutinesApi::class) // flatMapMerge is experimental in 1.11.0
-fun fees(merchants: Flow<String>, service: FeeService): Flow<Fee> =
-    merchants.flatMapMerge(concurrency = 4) { merchant ->
-        val fee = service.lookup(merchant)
-        flowOf(fee)
+fun cookAll(dishes: Flow<String>, stove: Stove): Flow<Plate> =
+    dishes.flatMapMerge(concurrency = 4) { dish ->
+        val plate = stove.cook(dish)
+        flowOf(plate)
     }
 
 /**
- * Like [fees], but a lookup that throws IOException must not take the others down:
- * that merchant gets `default(merchant)` instead, at the moment its lookup failed, and every
- * other lookup carries on. At most 4 in flight.
+ * Like [cookAll], but a dish that burns must not take the others down: that dish gets
+ * `substitute(dish)` instead, at the moment it burnt, and every other dish carries on.
+ * Any other failure is rethrown. At most 4 dishes on the burners.
  */
-fun feesOrDefault(merchants: Flow<String>, service: FeeService, default: (String) -> Fee): Flow<Fee> =
-    TODO("flatMapMerge, with the error handled inside each merchant's own flow")
+fun cookAllOrSubstitute(dishes: Flow<String>, stove: Stove, substitute: (String) -> Plate): Flow<Plate> =
+    TODO("flatMapMerge, with the burnt dish handled inside that dish's own flow")

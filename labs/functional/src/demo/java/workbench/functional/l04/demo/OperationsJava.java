@@ -8,33 +8,33 @@ import java.util.stream.Collectors;
 /** Java twin of Operations.kt: the same operations on streams. */
 public class OperationsJava {
 
-    enum Status { SETTLED, PENDING, FAILED }
-    record Payment(String id, String merchant, long amountCents, Status status, Long refundCents) {}
+    enum Status { GOLDEN, RAW, BURNT }
+    record Cookie(String id, String flavor, int grams, Status status, Integer nibbledGrams) {}
 
-    static final List<Payment> DAY = List.of(
-            new Payment("pay_1", "acme", 1_500, Status.SETTLED, null),
-            new Payment("pay_2", "globex", 9_900, Status.PENDING, null),
-            new Payment("pay_3", "acme", 2_000, Status.SETTLED, 500L),
-            new Payment("pay_4", "initech", 12_000, Status.FAILED, null),
-            new Payment("pay_5", "globex", 700, Status.SETTLED, null));
+    static final List<Cookie> DAY = List.of(
+            new Cookie("c1", "oat", 45, Status.GOLDEN, null),
+            new Cookie("c2", "chocolate", 90, Status.RAW, null),
+            new Cookie("c3", "oat", 50, Status.GOLDEN, 10),
+            new Cookie("c4", "ginger", 80, Status.BURNT, null),
+            new Cookie("c5", "chocolate", 30, Status.GOLDEN, null));
 
     public static void main(String[] args) {
-        System.out.println("map:         " + DAY.stream().map(Payment::amountCents).toList());
-        System.out.println("filter:      " + DAY.stream().filter(p -> p.status() == Status.SETTLED).map(Payment::id).toList());
-        System.out.println("mapNotNull:  " + DAY.stream().map(Payment::refundCents).filter(Objects::nonNull).toList());
+        System.out.println("map:         " + DAY.stream().map(Cookie::grams).toList());
+        System.out.println("filter:      " + DAY.stream().filter(c -> c.status() == Status.GOLDEN).map(Cookie::id).toList());
+        System.out.println("mapNotNull:  " + DAY.stream().map(Cookie::nibbledGrams).filter(Objects::nonNull).toList());
 
-        List<List<Payment>> batches = List.of(DAY.subList(0, 3), DAY.subList(3, 5));   // two acquirer files
-        System.out.println("flatMap:     " + batches.stream().flatMap(b -> b.stream().map(Payment::id)).toList());
+        List<List<Cookie>> trays = List.of(DAY.subList(0, 3), DAY.subList(3, 5));   // two trays out of the oven
+        System.out.println("flatMap:     " + trays.stream().flatMap(t -> t.stream().map(Cookie::id)).toList());
 
-        System.out.println("sumOf:       " + DAY.stream().mapToLong(Payment::amountCents).sum());
-        System.out.println("count:       " + DAY.stream().filter(p -> p.status() == Status.SETTLED).count());
-        System.out.println("any / all:   " + DAY.stream().anyMatch(p -> p.amountCents() > 10_000)
-                + " / " + DAY.stream().allMatch(p -> p.amountCents() > 0));
+        System.out.println("sumOf:       " + DAY.stream().mapToInt(Cookie::grams).sum());
+        System.out.println("count:       " + DAY.stream().filter(c -> c.status() == Status.GOLDEN).count());
+        System.out.println("any / all:   " + DAY.stream().anyMatch(c -> c.grams() > 75)
+                + " / " + DAY.stream().allMatch(c -> c.grams() > 0));
 
         Map<Boolean, List<String>> split = DAY.stream().collect(Collectors.partitioningBy(
-                p -> p.status() == Status.SETTLED, Collectors.mapping(Payment::id, Collectors.toList())));
+                c -> c.status() == Status.GOLDEN, Collectors.mapping(Cookie::id, Collectors.toList())));
         System.out.println("partition:   " + split.get(true) + " / " + split.get(false));
 
-        System.out.println("toList returns: " + DAY.stream().map(Payment::id).toList().getClass().getName());
+        System.out.println("toList returns: " + DAY.stream().map(Cookie::id).toList().getClass().getName());
     }
 }

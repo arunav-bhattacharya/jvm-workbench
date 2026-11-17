@@ -14,7 +14,7 @@ public class CompletionCausesJava {
     public static void main(String[] args) {
         System.out.println("== doFinally: how did the Flux end?");
         Flux.just(1, 2).doFinally(s -> System.out.println("  success:            " + s)).blockLast();
-        quietly(() -> Flux.concat(Flux.just(1), Flux.<Integer>error(new IOException("provider reset")))
+        quietly(() -> Flux.concat(Flux.just(1), Flux.<Integer>error(new IOException("line dropped")))
                 .doFinally(s -> System.out.println("  upstream failure:   " + s)).blockLast());
         Flux.just(1, 2, 3).doFinally(s -> System.out.println("  above take(1):      " + s))
                 .take(1).doFinally(s -> System.out.println("  below take(1):      " + s)).blockLast();

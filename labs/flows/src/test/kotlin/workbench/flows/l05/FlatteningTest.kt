@@ -11,26 +11,25 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class) // currentTime is experimental in kotlinx-coroutines-test 1.11.0
 class FlatteningTest {
 
-    /** A fake fee service on virtual time. It counts how many lookups are in flight at once. */
-    private class FakeFees(private val latencyMs: (String) -> Long, private val failFor: Set<String> = emptySet()) : FeeService {
-        var inFlight = 0
-        var maxInFlight = 0
+    /** A fake stove on virtual time. It counts how many dishes are on the burners at once. */
+    private class FakeStove(private val cookingMs: (String) -> Long, private val burns: Set<String> = emptySet()) : Stove {
+        var onBurners = 0
+        var mostOnBurners = 0
         var calls = 0
-        override suspend fun lookup(merchant: String): Fee {
+        override suspend fun cook(dish: String): Plate {
             calls++
-            inFlight++
-            maxInFlight = maxOf(maxInFlight, inFlight)
+            onBurners++
+            mostOnBurners = maxOf(mostOnBurners, onBurners)
             try {
-                delay(latencyMs(merchant))
-                if (merchant in failFor) throw IOException("fee service 503 for $merchant")
-                return Fee(merchant, 290)
+                delay(cookingMs(dish))
+                if (dish in burns) throw Burnt(dish)
+                return Plate(dish)
             } finally {
-                inFlight--
+                onBurners--
             }
         }
     }
@@ -42,85 +41,93 @@ class FlatteningTest {
         return seen
     }
 
-    // ---- fees: bounded fan-out ----
+    // ---- cookAll: a capped fan-out ----
 
     @Test
-    fun `fees runs 4 lookups at once, so 10 lookups of 100 ms take 300 ms`() = runTest {
-        val service = FakeFees({ 100 })
-        val merchants = (1..10).map { "m$it" }
-        val result = fees(merchants.asFlow(), service).toList()
-        assertThat(result.map { it.merchant }).containsExactlyInAnyOrderElementsOf(merchants)
-        assertThat(service.maxInFlight).`as`("lookups in flight at the busiest moment").isEqualTo(4)
-        assertThat(currentTime).`as`("virtual ms: three waves of 4, 4 and 2").isEqualTo(300)
+    fun `cookAll cooks 4 dishes at once, so 10 dishes of 100 ms take 300 ms`() = runTest {
+        val stove = FakeStove({ 100 })
+        val dishes = (1..10).map { "dish-$it" }
+        val plates = cookAll(dishes.asFlow(), stove).toList()
+        assertThat(plates.map { it.dish }).containsExactlyInAnyOrderElementsOf(dishes)
+        assertThat(stove.mostOnBurners).`as`("dishes on the burners at the busiest moment").isEqualTo(4)
+        assertThat(currentTime).`as`("virtual ms: three rounds of 4, 4 and 2").isEqualTo(300)
     }
 
     @Test
-    fun `fees never goes over the cap of 4, even with 40 merchants`() = runTest {
-        val service = FakeFees({ 100 })
-        val result = fees((1..40).map { "m$it" }.asFlow(), service).toList()
-        assertThat(result).hasSize(40)
-        assertThat(service.maxInFlight).isEqualTo(4)
+    fun `cookAll never uses more than 4 burners, even for 40 dishes`() = runTest {
+        val stove = FakeStove({ 100 })
+        val plates = cookAll((1..40).map { "dish-$it" }.asFlow(), stove).toList()
+        assertThat(plates).hasSize(40)
+        assertThat(stove.mostOnBurners).isEqualTo(4)
         assertThat(currentTime).isEqualTo(1000)
     }
 
     @Test
-    fun `fees passes results on in completion order`() = runTest {
-        val latency = mapOf("m1" to 300L, "m2" to 100L, "m3" to 200L)
-        val seen = timed(fees(latency.keys.asFlow(), FakeFees({ latency.getValue(it) })))
-        assertThat(seen.map { it.second.merchant to it.first })
-            .containsExactly("m2" to 100L, "m3" to 200L, "m1" to 300L)
+    fun `cookAll passes plates on in the order they are ready`() = runTest {
+        val cooking = mapOf("soup" to 300L, "salad" to 100L, "roast" to 200L)
+        val seen = timed(cookAll(cooking.keys.asFlow(), FakeStove({ cooking.getValue(it) })))
+        assertThat(seen.map { it.second.dish to it.first })
+            .containsExactly("salad" to 100L, "roast" to 200L, "soup" to 300L)
     }
 
-    // ---- feesOrDefault: one failure must not take the others down ----
+    // ---- cookAllOrSubstitute: one burnt dish must not take the others down ----
 
-    private val default = { merchant: String -> Fee(merchant, 350, "default") }
+    private val substitute = { dish: String -> Plate(dish, "substitute") }
 
     @Test
-    fun `feesOrDefault gives a failing merchant the default fee and keeps the others`() = runTest {
-        val latency = mapOf("m1" to 300L, "m2" to 100L, "m3" to 200L)
-        val service = FakeFees({ latency.getValue(it) }, failFor = setOf("m2"))
-        val seen = timed(feesOrDefault(latency.keys.asFlow(), service, default))
-        assertThat(seen.map { Triple(it.second.merchant, it.second.source, it.first) }).containsExactly(
-            Triple("m2", "default", 100L),
-            Triple("m3", "service", 200L),
-            Triple("m1", "service", 300L),
+    fun `cookAllOrSubstitute gives a burnt dish its substitute and keeps the others`() = runTest {
+        val cooking = mapOf("soup" to 300L, "salad" to 100L, "roast" to 200L)
+        val stove = FakeStove({ cooking.getValue(it) }, burns = setOf("salad"))
+        val seen = timed(cookAllOrSubstitute(cooking.keys.asFlow(), stove, substitute))
+        assertThat(seen.map { Triple(it.second.dish, it.second.madeBy, it.first) }).containsExactly(
+            Triple("salad", "substitute", 100L),
+            Triple("roast", "stove", 200L),
+            Triple("soup", "stove", 300L),
         )
     }
 
     @Test
-    fun `feesOrDefault still caps the lookups at 4`() = runTest {
-        val service = FakeFees({ 100 }, failFor = setOf("m3", "m7"))
-        val result = feesOrDefault((1..10).map { "m$it" }.asFlow(), service, default).toList()
-        assertThat(result.filter { it.source == "default" }.map { it.merchant }).containsExactlyInAnyOrder("m3", "m7")
-        assertThat(service.maxInFlight).isEqualTo(4)
+    fun `cookAllOrSubstitute still uses at most 4 burners`() = runTest {
+        val stove = FakeStove({ 100 }, burns = setOf("dish-3", "dish-7"))
+        val plates = cookAllOrSubstitute((1..10).map { "dish-$it" }.asFlow(), stove, substitute).toList()
+        assertThat(plates.filter { it.madeBy == "substitute" }.map { it.dish }).containsExactlyInAnyOrder("dish-3", "dish-7")
+        assertThat(stove.mostOnBurners).isEqualTo(4)
         assertThat(currentTime).isEqualTo(300)
     }
 
-    // ---- eurPrices: the latest of each ----
+    @Test
+    fun `cookAllOrSubstitute lets a failure that is not a burnt dish reach the caller`() = runTest {
+        val stove = Stove { dish -> delay(50); if (dish == "roast") error("the gas went out") else Plate(dish) }
+        val failure = runCatching { cookAllOrSubstitute(listOf("soup", "roast").asFlow(), stove, substitute).toList() }
+            .exceptionOrNull()
+        assertThat(failure).isInstanceOf(IllegalStateException::class.java).hasMessage("the gas went out")
+    }
 
-    /** USD prices 1000, 1010, ... 1050 cents, one every 100 ms from t=100. */
-    private fun prices(): Flow<Long> = flow { for (p in 1000L..1050L step 10) { delay(100); emit(p) } }
+    // ---- ovenGaps: the latest of each ----
 
-    /** The USD to EUR rate: 0.92 at t=250, 0.95 at t=550. */
-    private fun rates(): Flow<Double> = flow { delay(250); emit(0.92); delay(300); emit(0.95) }
+    /** Thermometer readings 150, 152, ... 160, one every 100 ms from t=100. */
+    private fun readings(): Flow<Int> = flow { for (c in 150..160 step 2) { delay(100); emit(c) } }
+
+    /** The dial: turned to 180 at t=250, then to 200 at t=550. */
+    private fun dial(): Flow<Int> = flow { delay(250); emit(180); delay(300); emit(200) }
 
     @Test
-    fun `eurPrices waits for a rate, then uses the latest price`() = runTest {
-        val first = timed(eurPrices(prices(), rates())).first()
-        assertThat(first.first).`as`("virtual ms of the first EUR price: when the first rate arrived").isEqualTo(250)
-        assertThat(first.second).isEqualTo(EurPrice(1010, 0.92, 929))
+    fun `ovenGaps waits for the dial, then uses the latest reading`() = runTest {
+        val first = timed(ovenGaps(readings(), dial())).first()
+        assertThat(first.first).`as`("virtual ms of the first line: when the dial was first set").isEqualTo(250)
+        assertThat(first.second).isEqualTo(OvenGap(152, 180, 28))
     }
 
     @Test
-    fun `eurPrices emits once per update of either flow`() = runTest {
-        val seen = timed(eurPrices(prices(), rates()))
-        assertThat(seen.map { it.first to "${it.second.usdCents}@${it.second.usdToEur}" }).containsExactly(
-            250L to "1010@0.92",
-            300L to "1020@0.92",
-            400L to "1030@0.92",
-            500L to "1040@0.92",
-            550L to "1040@0.95",
-            600L to "1050@0.95",
+    fun `ovenGaps shows one line per update of either flow`() = runTest {
+        val seen = timed(ovenGaps(readings(), dial()))
+        assertThat(seen.map { it.first to "${it.second.celsius}/${it.second.dial}" }).containsExactly(
+            250L to "152/180",
+            300L to "154/180",
+            400L to "156/180",
+            500L to "158/180",
+            550L to "158/200",
+            600L to "160/200",
         )
     }
 }

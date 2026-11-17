@@ -1,24 +1,24 @@
 package workbench.functional.l02.demo
 
-fun addFee(cents: Long): Long = cents + 30
+fun addRest(minutes: Long): Long = minutes + 10                   // let it rest 10 minutes
 
-fun nonCapturing(): (Long) -> Long = { it + 30 }               // uses nothing from outside
-fun capturing(feeCents: Long): (Long) -> Long = { it + feeCents } // captures feeCents
-fun topLevelRef(): (Long) -> Long = ::addFee                   // a function reference
+fun nonCapturing(): (Long) -> Long = { it + 10 }                  // uses nothing from outside
+fun capturing(extra: Long): (Long) -> Long = { it + extra }       // captures extra
+fun topLevelRef(): (Long) -> Long = ::addRest                     // a function reference
 
-class Merchant(private val feeCents: Long) {
-    fun withFee(cents: Long): Long = cents + feeCents
+class Oven(private val extraMinutes: Long) {                      // this oven runs a little cold
+    fun adjust(minutes: Long): Long = minutes + extraMinutes
 }
 
-fun boundRef(m: Merchant): (Long) -> Long = m::withFee          // a reference bound to one object
+fun boundRef(o: Oven): (Long) -> Long = o::adjust                 // a reference bound to one object
 
 fun main() {
-    val m = Merchant(30)
+    val oven = Oven(5)
     println("non-capturing lambda: same object every time?  ${nonCapturing() === nonCapturing()}")
-    println("capturing lambda: same object every time?      ${capturing(30) === capturing(30)}")
-    println("capturing lambdas equal with == ?              ${capturing(30) == capturing(30)}")
-    println("unbound reference ::addFee: same object?       ${topLevelRef() === topLevelRef()}")
-    println("bound reference m::withFee: same object?       ${boundRef(m) === boundRef(m)}")
+    println("capturing lambda: same object every time?      ${capturing(5) === capturing(5)}")
+    println("capturing lambdas equal with == ?              ${capturing(5) == capturing(5)}")
+    println("unbound reference ::addRest: same object?      ${topLevelRef() === topLevelRef()}")
+    println("bound reference oven::adjust: same object?     ${boundRef(oven) === boundRef(oven)}")
     println()
     val lambda = nonCapturing().javaClass
     val ref = topLevelRef().javaClass

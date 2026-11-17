@@ -13,7 +13,7 @@ import reactor.core.publisher.Sinks;
 // Reactor only conflates and de-duplicates if you ask for it with operators.
 public class NoticeBoardJava {
 
-    record FxQuote(String pair, BigDecimal mid) {}
+    record MenuItem(String name, BigDecimal price) {}
 
     static final class Busy extends BaseSubscriber<String> {
         final List<String> got = new ArrayList<>();
@@ -24,24 +24,24 @@ public class NoticeBoardJava {
     public static void main(String[] args) throws Exception {
         System.out.println("== A: equal values");
         System.out.println("  records with equal fields are equal: "
-                + new FxQuote("EURUSD", new BigDecimal("1.0850")).equals(new FxQuote("EURUSD", new BigDecimal("1.0850"))));
-        System.out.println("  1.0850 equals 1.08500? " + new BigDecimal("1.0850").equals(new BigDecimal("1.08500"))
-                + "; compareTo == 0? " + (new BigDecimal("1.0850").compareTo(new BigDecimal("1.08500")) == 0));
+                + new MenuItem("soup of the day", new BigDecimal("4.50")).equals(new MenuItem("soup of the day", new BigDecimal("4.50"))));
+        System.out.println("  4.50 equals 4.500? " + new BigDecimal("4.50").equals(new BigDecimal("4.500"))
+                + "; compareTo == 0? " + (new BigDecimal("4.50").compareTo(new BigDecimal("4.500")) == 0));
 
-        System.out.println("== B: AUTHORIZED -> CAPTURED -> AUTHORIZED while the subscriber is busy");
+        System.out.println("== B: tomato -> leek -> tomato while the subscriber is busy");
         for (boolean asStateFlow : new boolean[] {false, true}) {
-            Sinks.Many<String> status = Sinks.many().replay().latestOrDefault("AUTHORIZED");
+            Sinks.Many<String> soup = Sinks.many().replay().latestOrDefault("tomato");
             Busy busy = new Busy();
-            (asStateFlow ? status.asFlux().onBackpressureLatest().distinctUntilChanged() : status.asFlux()).subscribe(busy);
-            status.tryEmitNext("CAPTURED");
-            status.tryEmitNext("AUTHORIZED");
+            (asStateFlow ? soup.asFlux().onBackpressureLatest().distinctUntilChanged() : soup.asFlux()).subscribe(busy);
+            soup.tryEmitNext("leek");
+            soup.tryEmitNext("tomato");
             busy.request(Long.MAX_VALUE);   // no longer busy
             System.out.println("  " + (asStateFlow ? "with onBackpressureLatest().distinctUntilChanged(): " : "plain replay sink:                                  ") + busy.got);
         }
 
         System.out.println("== C: compareAndSet on AtomicReference compares references, not equals");
-        AtomicReference<BigDecimal> limit = new AtomicReference<>(new BigDecimal("10"));
-        System.out.println("  cas(new 10, 11) = " + limit.compareAndSet(new BigDecimal("10"), new BigDecimal("11")) + ", value " + limit.get());
+        AtomicReference<BigDecimal> price = new AtomicReference<>(new BigDecimal("10"));
+        System.out.println("  cas(new 10, 11) = " + price.compareAndSet(new BigDecimal("10"), new BigDecimal("11")) + ", value " + price.get());
 
         System.out.println("== D: updateAndGet from 8 threads x 100,000 (REAL threads)");
         AtomicInteger calls = new AtomicInteger();

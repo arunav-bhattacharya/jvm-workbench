@@ -1,34 +1,33 @@
 package workbench.patterns.l04;
 
-import java.math.BigDecimal;
-import java.util.Currency;
 import java.util.List;
 
 /** The Java twin of ExtensionAdapters.kt. Java has no extension functions, so the adapter is a static method. */
 public class ExtensionAdaptersJava {
-    // a vendor DTO from the issuer SDK, with its names and units
-    record VendorTxn(String txnRef, String amt, String ccyNum, String respCd) {}
+    // a row from a supplier's price list, with the supplier's names and units
+    record SupplierItem(String code, String qty, String unit, String avail) {}
 
-    // our domain type
-    record Receipt(String reference, long amountMinor, String currency, boolean approved) {}
+    // our own type
+    record Product(String code, long grams, boolean inStock) {}
 
-    // callers write toReceipt(txn), not txn.toReceipt(); the mapping still lives in one place
-    static Receipt toReceipt(VendorTxn txn) {
-        Currency currency = Currency.getAvailableCurrencies().stream()
-                .filter(c -> c.getNumericCode() == Integer.parseInt(txn.ccyNum()))
-                .findFirst().orElseThrow();
-        return new Receipt(
-                txn.txnRef(),
-                new BigDecimal(txn.amt()).movePointRight(currency.getDefaultFractionDigits()).longValueExact(),
-                currency.getCurrencyCode(),
-                txn.respCd().equals("00"));
+    // callers write toProduct(item), not item.toProduct(); the mapping still lives in one place
+    static Product toProduct(SupplierItem item) {
+        double perUnit = switch (item.unit()) {
+            case "KG" -> 1_000.0;
+            case "LB" -> 453.59237;                 // the supplier abroad still weighs in pounds
+            default -> throw new IllegalStateException("unknown unit " + item.unit());
+        };
+        return new Product(
+                item.code(),
+                Math.round(Double.parseDouble(item.qty()) * perUnit),
+                item.avail().equals("Y"));
     }
 
     public static void main(String[] args) {
-        List<VendorTxn> fromSdk = List.of(
-                new VendorTxn("T-1001", "12.50", "978", "00"),
-                new VendorTxn("T-1002", "1250", "392", "00"),
-                new VendorTxn("T-1003", "99.99", "840", "51"));
-        fromSdk.stream().map(ExtensionAdaptersJava::toReceipt).forEach(System.out::println);
+        List<SupplierItem> fromSupplier = List.of(
+                new SupplierItem("T-1001", "2.5", "KG", "Y"),
+                new SupplierItem("T-1002", "1.5", "LB", "Y"),
+                new SupplierItem("T-1003", "10", "KG", "N"));
+        fromSupplier.stream().map(ExtensionAdaptersJava::toProduct).forEach(System.out::println);
     }
 }

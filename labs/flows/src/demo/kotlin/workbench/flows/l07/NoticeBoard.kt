@@ -16,30 +16,30 @@ import kotlinx.coroutines.test.runTest
 import java.math.BigDecimal
 import java.util.concurrent.atomic.AtomicInteger
 
-data class Quote(val pair: String, val mid: BigDecimal)
+data class MenuItem(val name: String, val price: BigDecimal)
 
-// A StateFlow is a notice board with one slot. Parts A, B, C and E use virtual time.
+// A StateFlow is the menu board in the hall: one slot. Parts A, B, C and E use virtual time.
 @OptIn(ExperimentalCoroutinesApi::class)
 fun main() {
     runTest {
         println("== A: equal values")
-        val first = Quote("EURUSD", BigDecimal("1.0850"))
+        val first = MenuItem("soup of the day", BigDecimal("4.50"))
         val board = MutableStateFlow(first)
-        val seen = mutableListOf<Quote>()
+        val seen = mutableListOf<MenuItem>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { board.collect { seen += it } }
-        board.value = Quote("EURUSD", BigDecimal("1.0850"))   // equal fields
+        board.value = MenuItem("soup of the day", BigDecimal("4.50"))   // equal fields
         println("  after an equal set: board still holds the first object? ${board.value === first}")
-        board.value = Quote("EURUSD", BigDecimal("1.08500"))  // one more zero
-        println("  collector saw ${seen.map { it.mid }}")
+        board.value = MenuItem("soup of the day", BigDecimal("4.500"))  // one more zero
+        println("  collector saw ${seen.map { it.price }}")
     }
     runTest {
-        println("== B: AUTHORIZED -> CAPTURED -> AUTHORIZED while the collector is busy")
-        val status = MutableStateFlow("AUTHORIZED")
+        println("== B: tomato -> leek -> tomato while the collector is busy")
+        val soup = MutableStateFlow("tomato")
         val log = mutableListOf<String>()
-        backgroundScope.launch { status.collect { log += "t=$currentTime $it"; delay(100) } }
+        backgroundScope.launch { soup.collect { log += "t=$currentTime $it"; delay(100) } }
         runCurrent()
-        delay(10); status.value = "CAPTURED"
-        delay(10); status.value = "AUTHORIZED"
+        delay(10); soup.value = "leek"
+        delay(10); soup.value = "tomato"
         advanceTimeBy(500); runCurrent()
         println("  busy collector saw $log")
     }

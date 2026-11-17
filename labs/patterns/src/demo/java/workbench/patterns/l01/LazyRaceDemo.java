@@ -11,30 +11,30 @@ import java.util.function.Supplier;
 public class LazyRaceDemo {
     static final AtomicInteger built = new AtomicInteger();
 
-    static final class FxRates {
-        FxRates() {
+    static final class PriceList {
+        PriceList() {
             built.incrementAndGet();
-            try { Thread.sleep(20); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }  // a slow load
+            try { Thread.sleep(20); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }  // a slow load: reading the price file
         }
     }
 
     // broken: check-then-act on a plain static field
-    static FxRates racy;
-    static FxRates racyGet() {
-        if (racy == null) racy = new FxRates();
+    static PriceList racy;
+    static PriceList racyGet() {
+        if (racy == null) racy = new PriceList();
         return racy;
     }
 
     // initialization-on-demand holder: the JVM runs Holder's static init once, under its class-init lock
-    static final class Holder { static final FxRates INSTANCE = new FxRates(); }
-    static FxRates holderGet() { return Holder.INSTANCE; }
+    static final class Holder { static final PriceList INSTANCE = new PriceList(); }
+    static PriceList holderGet() { return Holder.INSTANCE; }
 
     public static void main(String[] args) throws InterruptedException {
         report("racy check-then-act", LazyRaceDemo::racyGet);
         report("holder idiom       ", LazyRaceDemo::holderGet);
     }
 
-    static void report(String name, Supplier<FxRates> get) throws InterruptedException {
+    static void report(String name, Supplier<PriceList> get) throws InterruptedException {
         built.set(0);
         Set<Object> seen = Collections.synchronizedSet(Collections.newSetFromMap(new IdentityHashMap<>()));
         CountDownLatch go = new CountDownLatch(1);

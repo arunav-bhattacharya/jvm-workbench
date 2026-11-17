@@ -8,7 +8,7 @@ package workbench.functional.l02
 fun makeCounter(): () -> Int = TODO("a local var, and a lambda that captures it")
 
 /**
- * A counter that many consumer threads share, for example to number the payments they handle.
+ * A counter that many threads share, for example to number the jars of jam they label.
  *
  * It is broken. `count` is a captured var, so the compiler moves it into a kotlin.jvm.internal.Ref.LongRef
  * box with a plain, non-volatile field. `++count` from two threads is a read, an add and a write, and

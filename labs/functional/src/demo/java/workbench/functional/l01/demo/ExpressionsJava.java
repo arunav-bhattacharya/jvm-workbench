@@ -5,40 +5,41 @@ import java.util.List;
 /** Java twin of Expressions.kt. Java's if and try are statements; the switch expression (JDK 14) is the expression form. */
 public class ExpressionsJava {
 
-    enum AuthStatus { APPROVED, DECLINED, ERROR }
+    // A recipe book marks each recipe with one, two or three stars.
+    enum Difficulty { EASY, MEDIUM, HARD }
 
     // Statement style: declare a variable, then assign it in every branch.
-    static AuthStatus statusStatement(int httpCode) {
-        AuthStatus status;
-        if (httpCode == 200) status = AuthStatus.APPROVED;
-        else if (httpCode == 402) status = AuthStatus.DECLINED;
-        else status = AuthStatus.ERROR;
-        return status;
+    static Difficulty difficultyStatement(int stars) {
+        Difficulty level;
+        if (stars == 1) level = Difficulty.EASY;
+        else if (stars == 2) level = Difficulty.MEDIUM;
+        else level = Difficulty.HARD;
+        return level;
     }
 
     // Expression style: the switch expression IS the value.
-    static AuthStatus statusOf(int httpCode) {
-        return switch (httpCode) {
-            case 200 -> AuthStatus.APPROVED;
-            case 402 -> AuthStatus.DECLINED;
-            default -> AuthStatus.ERROR;
+    static Difficulty difficultyOf(int stars) {
+        return switch (stars) {
+            case 1 -> Difficulty.EASY;
+            case 2 -> Difficulty.MEDIUM;
+            default -> Difficulty.HARD;
         };
     }
 
     // Java's try is a statement, so the value has to leave through a return in each block.
-    static long parseCents(String raw) {
+    static int parseGrams(String raw) {
         try {
-            return Long.parseLong(raw);
+            return Integer.parseInt(raw);
         } catch (NumberFormatException e) {
             return -1;
         }
     }
 
     public static void main(String[] args) {
-        for (int code : List.of(200, 402, 503)) {
-            System.out.println(code + " -> " + statusOf(code) + " (statement version: " + statusStatement(code) + ")");
+        for (int stars : List.of(1, 2, 3)) {
+            System.out.println(stars + " stars -> " + difficultyOf(stars) + " (statement version: " + difficultyStatement(stars) + ")");
         }
-        System.out.println("parseCents(\"1250\") = " + parseCents("1250"));
-        System.out.println("parseCents(\"12x\")  = " + parseCents("12x"));
+        System.out.println("parseGrams(\"250\") = " + parseGrams("250"));
+        System.out.println("parseGrams(\"25O\") = " + parseGrams("25O"));      // typed with a letter O
     }
 }

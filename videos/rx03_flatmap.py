@@ -304,7 +304,7 @@ class Rx03FlatMap(Narrated):
         for k, l in enumerate(lv):
             self.play(l.animate.move_to([0, BY + 0.25, 0]), run_time=0.45)
             c = cut(l)
-            self.play(Create(c), Indicate(sl[0], color=WHITE, scale_factor=1.04), run_time=0.35)
+            self.play(Create(c), Indicate(sl[1], color=WHITE, scale_factor=1.15), run_time=0.35)
             cuts.append(c)
             self.play(VGroup(l, c).animate.move_to([5.2 - 1.3 * k, BY + 0.25, 0]), run_time=0.5)
         oo = T("one in, one out, right away, in order", 26, GREY_B).move_to([0, -0.6, 0])
@@ -352,11 +352,11 @@ class Rx03FlatMap(Narrated):
         for k, c in enumerate(cakes):
             self.play(c.animate.move_to([0, BY + 0.38, 0]), run_time=0.4)
             f = form_icon("Mono").move_to(c)
-            self.play(FadeOut(c), FadeIn(f), Indicate(sl[0], color=WHITE, scale_factor=1.04), run_time=0.35)
+            self.play(FadeOut(c), FadeIn(f), Indicate(sl[1], color=WHITE, scale_factor=1.15), run_time=0.35)
             self.play(f.animate.move_to([5.2 - 1.3 * k, BY + 0.38, 0]), run_time=0.45)
             forms.append(f)
         self.at(2)
-        self.play(Indicate(VGroup(*forms), color=GREY_A, scale_factor=1.08), run_time=0.8)
+        self.play(Circumscribe(VGroup(*forms), color=GREY_A, buff=0.1), run_time=0.8)
         self.at(3)
         self.play(*[f[2].animate.set_color(SLIP_C) for f in forms], run_time=0.6)
         self.hold()
@@ -659,7 +659,7 @@ class Rx03FlatMap(Narrated):
         self.at(1)
         self.play(Create(buf), FadeIn(buf_l), run_time=0.7)
         self.at(2)
-        self.play(Indicate(sq[0], color=WHITE, scale_factor=1.25), run_time=0.9)
+        self.play(Circumscribe(sq[0], color=WHITE, shape=Circle, buff=0.06), run_time=0.9)
         self.at(3)
         self.play(FadeIn(hol, shift=UP * 0.1), run_time=0.6)
         self.hold()
@@ -680,7 +680,7 @@ class Rx03FlatMap(Narrated):
                 "// overlapping calls, output in input order", "ingredients.flatMapSequential(item -> supplier.stockOf(item), 4)"]
         ksrc = ["cakes.flatMap({ cake -> icing.ice(cake) }, 4)", "layers.concatMap { layer -> stacker.place(layer) }",
                 "ingredients.flatMapSequential({ item -> supplier.stockOf(item) }, 4)"]
-        hl = {"flatMapSequential": GOLD_M, "concatMap": GOLD_M, "flatMap": GOLD_M}
+        hl = {"flatMapSequential(": GOLD_M, "concatMap": GOLD_M, "flatMap(": GOLD_M}
         jc, kc = code_block(jsrc, 22, hl), code_block(ksrc, 22, hl)
         for i in (0, 2, 4):
             jc[i].set_color(GREY_B)

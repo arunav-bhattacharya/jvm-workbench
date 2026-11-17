@@ -253,7 +253,7 @@ class Cap1Tour(Narrated):
         self.play(Indicate(VGroup(jc[2:4], kc[2:4]), color=WHITE, scale_factor=1.04), run_time=0.8)
         self.hold()
 
-        BX0, BW = -3.9, 8.6
+        BX0, BW = -3.9, 7.6
         vals = [("expected", 500_000, GOOD), ("run 1", 1_306_080, BAD), ("run 2", 4_043_302, BAD), ("run 3", 4_941_343, BAD)]
         rows = []
         for k, (lab, v, col) in enumerate(vals):
@@ -279,7 +279,7 @@ class Cap1Tour(Narrated):
         self.at(2)
         self.play(FadeIn(rows[3][0]), GrowFromEdge(rows[3][1], LEFT), FadeIn(rows[3][2]), run_time=0.9)
         self.at(3)
-        ten = T("about ten times the money", 24, BAD).next_to(rows[3][2], UP, buff=0.12).align_to(rows[3][2], LEFT)
+        ten = T("ten times what its customers paid in", 24, BAD).move_to([BX0, -3.05, 0], aligned_edge=LEFT)
         self.play(Indicate(rows[3][1], color=BAD, scale_factor=1.03), FadeIn(ten), run_time=0.9)
         self.hold()
 
@@ -364,7 +364,7 @@ class Cap1Tour(Narrated):
             g = VGroup(T(n, 28, RULE), T(s, 28)).arrange(RIGHT, buff=0.2)
             g.move_to([panel.get_left()[0] + 0.45, 1.75 - k * 0.68, 0], aligned_edge=LEFT)
             rlines.add(g)
-        TL_Y = -1.55
+        TL_Y = -1.85
         tl = Line([-5.6, TL_Y, 0], [5.6, TL_Y, 0], stroke_color=GREY_B, stroke_width=3)
         tks = VGroup(*[Line([x, TL_Y - 0.12, 0], [x, TL_Y + 0.12, 0], stroke_color=GREY_B, stroke_width=3) for x in (-5.6, 0, 5.6)])
         tls = VGroup(T("opening", 22, GREY_B).next_to([-5.6, TL_Y, 0], DOWN, buff=0.25),
@@ -376,7 +376,7 @@ class Cap1Tour(Narrated):
         self.play(Create(tl), FadeIn(tks), FadeIn(tls), run_time=0.8)
         self.at(2)
         visits = [-3.7, 1.6, -0.9, 4.1]
-        drops = VGroup(*[auditor(0.45).move_to([x, TL_Y + 0.6, 0]) for x in visits])
+        drops = VGroup(*[auditor(0.45).move_to([x, TL_Y + 0.55, 0]) for x in visits])
         self.play(LaggedStart(*[FadeIn(d, shift=DOWN * 0.25) for d in drops], lag_ratio=0.35), run_time=1.6)
         self.play(FadeIn(panel), FadeIn(p_title), run_time=0.5)
         self.hold()
@@ -392,35 +392,32 @@ class Cap1Tour(Narrated):
 
         m1 = T("any other thread", 24, AUD).next_to(aud_l, DOWN, buff=0.12)
         m2 = T("the rules", 24, AUD).next_to(p_title, RIGHT, buff=0.3)
-        m3 = T("whenever another thread can look", 24, AUD).move_to([0, -2.45, 0])
+        m3 = T("whenever another thread can look", 24, AUD).move_to([0, -2.65, 0])
         self.say("map")
         self.at(1)
-        self.play(FadeIn(m1, shift=UP * 0.1), Indicate(aud, color=AUD, scale_factor=1.05), run_time=0.8)
+        self.play(FadeIn(m1, shift=UP * 0.1), Wiggle(aud, scale_value=1.06), run_time=0.8)
         self.at(2)
         self.play(FadeIn(m2, shift=LEFT * 0.1), run_time=0.6)
         self.at(3)
         self.play(FadeOut(tls[1]), FadeIn(m3, shift=UP * 0.1),
-                  LaggedStart(*[Indicate(d, color=AUD, scale_factor=1.15) for d in drops], lag_ratio=0.2), run_time=1.4)
+                  LaggedStart(*[Wiggle(d, scale_value=1.15) for d in drops], lag_ratio=0.2), run_time=1.4)
         self.hold()
 
         inv = VGroup(T("an invariant:", 30, RULE), T("true whenever another thread can look", 30)
-                     ).arrange(RIGHT, buff=0.25).move_to([0, -3.15, 0])
+                     ).arrange(RIGHT, buff=0.25).move_to([0, -3.2, 0])
         fit(inv, 12.4)
         self.say("name")
         self.play(FadeIn(inv[0], shift=UP * 0.1), run_time=0.6)
         self.play(FadeIn(inv[1], shift=UP * 0.1), run_time=0.7)
         self.hold()
-        keep_rules = rlines
-        self.play(FadeOut(VGroup(aud, aud_l, panel, p_title, m1, m2, m3, inv, tl, tks, tls[0], tls[2], drops)),
-                  keep_rules.animate.scale(0.75).arrange(DOWN, aligned_edge=LEFT, buff=0.14).move_to([3.3, 2.9, 0]),
-                  run_time=0.8)
+        self.play(FadeOut(VGroup(aud, aud_l, panel, p_title, rlines, m1, m2, m3, inv, tl, tks, tls[0], tls[2], drops)),
+                  run_time=0.7)
 
         # ================= the ledger that heals before closing =================
-        hdr = T("locks both accounts, but checks the balance first", 26).move_to([-1.6, 3.25, 0])
-        fit(hdr, 7.4)
-        hdr.move_to([-6.2, 3.25, 0], aligned_edge=LEFT)
+        hdr = T("A ledger that locks both accounts, but checks the balance first", 28).move_to([0, 3.3, 0])
+        fit(hdr, 12.4)
         endok = VGroup(T("at the end:", 26, GREY_B), T("total 500,000, no balance below zero", 26, GOOD)
-                       ).arrange(RIGHT, buff=0.2).move_to([-6.2, 2.0, 0], aligned_edge=LEFT)
+                       ).arrange(RIGHT, buff=0.2).move_to([-6.2, 2.65, 0], aligned_edge=LEFT)
         self.say("till_q")
         self.play(FadeIn(hdr), run_time=0.6)
         self.at(2)
@@ -428,28 +425,30 @@ class Cap1Tour(Narrated):
         self.hold(after=0)
         self.predict(pos=(-6.4, -3.3))
 
-        OX, OY, ZERO_Y = -5.6, -2.7, -1.45
+        OX, OY, ZERO_Y = -5.6, -2.45, -1.25
         X1 = 5.6
-        axis = VGroup(Line([OX, OY, 0], [OX, 1.2, 0], stroke_color=GREY_B, stroke_width=2.5),
+        axis = VGroup(Line([OX, OY, 0], [OX, 1.0, 0], stroke_color=GREY_B, stroke_width=2.5),
                       Line([OX, OY, 0], [X1, OY, 0], stroke_color=GREY_B, stroke_width=2.5))
         zero = DashedLine([OX, ZERO_Y, 0], [X1, ZERO_Y, 0], dash_length=0.1, stroke_width=2, color=GREY_B)
         zero_l = M("0", 22, GREY_B).next_to([OX, ZERO_Y, 0], LEFT, buff=0.15)
-        bal_l = T("one balance, a sketch", 20, GREY_B).next_to([OX, 1.2, 0], RIGHT, buff=0.15)
+        bal_l = T("one balance, a sketch", 20, GREY_B).next_to([OX, 1.0, 0], RIGHT, buff=0.15)
         xl = VGroup(T("opening", 20, GREY_B).move_to([OX + 0.6, OY - 0.3, 0]),
                     T("lunch", 20, GREY_B).move_to([-0.3, OY - 0.3, 0]),
                     T("closing", 20, GREY_B).move_to([X1 - 0.6, OY - 0.3, 0]))
-        pts = [[OX, 0.4, 0], [-3.4, 0.1, 0], [-1.6, -1.0, 0], [-0.9, -2.2, 0], [0.3, -2.3, 0], [1.1, -1.1, 0],
-               [2.8, -0.2, 0], [X1, 0.25, 0]]
+        pts = [[OX, 0.45, 0], [-3.4, 0.2, 0], [-1.6, -0.85, 0], [-0.9, -2.0, 0], [0.3, -2.1, 0], [1.1, -0.95, 0],
+               [2.8, -0.05, 0], [X1, 0.35, 0]]
         curve = VMobject(stroke_color=WHITE, stroke_width=4).set_points_smoothly(pts)
-        below = Polygon([-1.35, ZERO_Y, 0], [-0.9, -2.2, 0], [0.3, -2.3, 0], [0.92, ZERO_Y, 0], stroke_width=0)
-        below.set_fill(BAD, 0.35)
-        dip = T("2,129 debits below zero while it ran", 26, BAD).move_to([-6.2, 1.4, 0], aligned_edge=LEFT)
-        aud_end = auditor(0.45).move_to([X1 - 0.3, 0.85, 0])
+        low = [curve.point_from_proportion(a) for a in np.linspace(0, 1, 400)]
+        low = [p for p in low if p[1] < ZERO_Y]
+        below = Polygon(*([[low[0][0], ZERO_Y, 0]] + low + [[low[-1][0], ZERO_Y, 0]]), stroke_width=0)
+        below.set_fill(BAD, 0.4)
+        dip = T("2,129 debits below zero while it ran", 26, BAD).move_to([-6.2, 2.05, 0], aligned_edge=LEFT)
+        aud_end = auditor(0.45).move_to([X1 - 0.35, 0.95, 0])
         ok_end = tick(True, 0.18).next_to(aud_end, LEFT, buff=0.12)
-        aud_lun = auditor(0.45).move_to([-0.3, -0.55, 0])
+        aud_lun = auditor(0.45).move_to([-0.3, -0.45, 0])
         bad_lun = tick(False, 0.18).next_to(aud_lun, RIGHT, buff=0.12)
-        till = T("borrowed at lunch, put back before closing", 24, GREY_A).move_to([1.9, -0.2, 0]).align_to(dip, LEFT)
-        till.move_to([1.0, 0.45, 0], aligned_edge=LEFT)
+        till = VGroup(T("borrowed at lunch,", 22, GREY_A), T("put back before closing", 22, GREY_A)
+                      ).arrange(DOWN, aligned_edge=LEFT, buff=0.1).move_to([2.4, -1.85, 0], aligned_edge=LEFT)
         self.say("till_a")
         self.play(Create(axis), Create(zero), FadeIn(zero_l), FadeIn(bal_l), FadeIn(xl), run_time=0.7)
         self.play(Create(curve), run_time=1.4)
@@ -461,7 +460,7 @@ class Cap1Tour(Narrated):
         self.play(FadeIn(aud_lun), Create(bad_lun), run_time=0.8)
         self.hold()
         self.play(FadeOut(VGroup(hdr, endok, axis, zero, zero_l, bal_l, xl, curve, below, dip, aud_end, ok_end,
-                                 aud_lun, bad_lun, till, keep_rules)), run_time=0.6)
+                                 aud_lun, bad_lun, till)), run_time=0.6)
 
         # ================= the rules design the ledger =================
         SA, SB = np.array([-5.0, 2.45, 0]), np.array([-1.75, 2.45, 0])
@@ -479,9 +478,9 @@ class Cap1Tour(Narrated):
                  ("any moment", "a stress test checks every rule")]
         lst = []
         for k, (tag, txt) in enumerate(items):
-            y = 2.55 - k * 0.78
-            tg = T(tag, 22, RULE).move_to([LX, y + 0.17, 0], aligned_edge=LEFT)
-            tx = T(txt, 26).move_to([LX, y - 0.17, 0], aligned_edge=LEFT)
+            y = 2.6 - k * 0.92
+            tg = T(tag, 22, RULE).move_to([LX, y + 0.2, 0], aligned_edge=LEFT)
+            tx = T(txt, 26).move_to([LX, y - 0.18, 0], aligned_edge=LEFT)
             lst.append(VGroup(tg, tx))
         list_hdr = T("rule", 22, GREY_B)
         self.say("design")
@@ -512,8 +511,8 @@ class Cap1Tour(Narrated):
         self.play(Create(cross), run_time=0.6)
         self.at(1)
         self.play(FadeOut(cross), KA.animate.move_to(HOME_A), KB.animate.move_to(HOME_B), FadeIn(lst[1][0]), run_time=0.6)
-        self.play(KA.animate.next_to(ta, DOWN, buff=0.15).shift(LEFT * 0.5), run_time=0.5)
-        self.play(KB.animate.next_to(ta, DOWN, buff=0.15).shift(RIGHT * 0.5), FadeIn(lst[1][1]), run_time=0.5)
+        self.play(KA.animate.next_to(ta, DOWN, buff=0.15).shift(LEFT * 0.65), run_time=0.5)
+        self.play(KB.animate.next_to(ta, DOWN, buff=0.15).shift(RIGHT * 0.65), FadeIn(lst[1][1]), run_time=0.5)
         wn = T("waits, holding nothing", 22, GREY_B).next_to(tb, DOWN, buff=0.2)
         self.play(FadeIn(wn), run_time=0.4)
         self.hold()
@@ -554,14 +553,14 @@ class Cap1Tour(Narrated):
         self.play(FadeIn(lst[4][1]), FadeIn(aud2), run_time=0.5)
         self.at(2)
         for _ in range(3):
-            self.play(Indicate(aud2, color=AUD, scale_factor=1.2), run_time=0.4)
+            self.play(Wiggle(aud2, scale_value=1.2), run_time=0.4)
         self.hold()
 
         gd = VGroup(T("A test that finds nothing: believable, not proven.", 24, GREY_A),
                     T("The proof is an argument, rule by rule, from the code.", 24, GREY_A)
-                    ).arrange(DOWN, aligned_edge=LEFT, buff=0.14).move_to([LX, -1.9, 0], aligned_edge=LEFT)
+                    ).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
         fit(gd, 6.3)
-        gd.move_to([LX, -1.95, 0], aligned_edge=LEFT)
+        gd.move_to([LX, -2.3, 0], aligned_edge=LEFT)
         self.say("guard")
         self.play(FadeIn(gd[0], shift=UP * 0.1), run_time=0.6)
         self.at(1)

@@ -19,9 +19,9 @@ class StepVerifierTourTest {
     @Test
     @DisplayName("1. items and completion are expected in order")
     void itemsThenComplete() {
-        StepVerifier.create(Flux.just("AUTHORIZED", "CAPTURED"))
-                .expectNext("AUTHORIZED")
-                .expectNext("CAPTURED")
+        StepVerifier.create(Flux.just("COOKING", "SERVED"))
+                .expectNext("COOKING")
+                .expectNext("SERVED")
                 .expectComplete()
                 .verify(Duration.ofSeconds(1));
     }
@@ -37,9 +37,9 @@ class StepVerifierTourTest {
     @Test
     @DisplayName("3. an error is a signal you expect")
     void errorSignal() {
-        StepVerifier.create(Flux.concat(Flux.just(1), Flux.error(new IOException("issuer 503"))))
+        StepVerifier.create(Flux.concat(Flux.just(1), Flux.error(new IOException("probe lost"))))
                 .expectNext(1)
-                .expectErrorMessage("issuer 503")
+                .expectErrorMessage("probe lost")
                 .verify(Duration.ofSeconds(1));
     }
 
@@ -48,9 +48,9 @@ class StepVerifierTourTest {
     void stateFlowAsFlux() {
         TourTracker tracker = new TourTracker();
         StepVerifier.create(tracker.statusFlux())
-                .expectNext("PENDING")
-                .then(tracker::authorizeAndCapture)
-                .expectNext("AUTHORIZED", "CAPTURED")
+                .expectNext("ORDERED")
+                .then(tracker::cookAndServe)
+                .expectNext("COOKING", "SERVED")
                 .thenCancel()
                 .verify(Duration.ofSeconds(1));
     }
@@ -59,9 +59,9 @@ class StepVerifierTourTest {
     @DisplayName("5. a hot item emitted before anyone subscribed is gone")
     void hotBeforeSubscribe() {
         Sinks.Many<String> events = Sinks.many().multicast().directBestEffort();
-        assertThat(events.tryEmitNext("AUTHORIZED")).isEqualTo(Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER);
+        assertThat(events.tryEmitNext("SERVED")).isEqualTo(Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER);
         AssertionError failure = assertThrows(AssertionError.class, () ->
-                StepVerifier.create(events.asFlux()).expectNext("AUTHORIZED").thenCancel().verify(Duration.ofMillis(500)));
+                StepVerifier.create(events.asFlux()).expectNext("SERVED").thenCancel().verify(Duration.ofMillis(500)));
         assertThat(failure).hasMessageContaining("timed out");
     }
 

@@ -18,13 +18,13 @@ public class EmptyTrapsJava {
     }
 
     public static void main(String[] args) {
-        List<Long> none = List.of();                       // a quiet day: no payments at all
-        attempt("reduce(0L, Long::sum)", () -> none.stream().reduce(0L, Long::sum));
-        attempt("mapToLong(x -> x).sum()", () -> none.stream().mapToLong(x -> x).sum());
-        attempt("reduce(Long::sum)", () -> none.stream().reduce(Long::sum));
+        List<Integer> none = List.of();                    // a day when nothing was baked
+        attempt("reduce(0, Integer::sum)", () -> none.stream().reduce(0, Integer::sum));
+        attempt("mapToInt(x -> x).sum()", () -> none.stream().mapToInt(x -> x).sum());
+        attempt("reduce(Integer::sum)", () -> none.stream().reduce(Integer::sum));
         attempt("findFirst()", () -> none.stream().findFirst());
         attempt("findFirst().orElseThrow()", () -> none.stream().findFirst().orElseThrow());
         attempt("get(0)", () -> none.get(0));
-        attempt("max(Long::compare)", () -> none.stream().max(Long::compare));
+        attempt("max(Integer::compare)", () -> none.stream().max(Integer::compare));
     }
 }

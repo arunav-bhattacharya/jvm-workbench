@@ -1,31 +1,33 @@
 package workbench.patterns.l04
 
-import java.math.BigDecimal
-import java.util.Currency
+import kotlin.math.roundToLong
 
-// A vendor DTO from the issuer SDK, with its names and units.
-class VendorTxn(val txnRef: String, val amt: String, val ccyNum: String, val respCd: String)
+// A row from a supplier's price list, with the supplier's names and units.
+class SupplierItem(val code: String, val qty: String, val unit: String, val avail: String)
 
-// Our domain type.
-data class Receipt(val reference: String, val amountMinor: Long, val currency: String, val approved: Boolean)
+// Our own type.
+data class Product(val code: String, val grams: Long, val inStock: Boolean)
 
-// An extension function is a lightweight adapter: it reads like a method on the vendor type,
+// An extension function is a light adapter: it reads like a method on the supplier's type,
 // lives in our code, and keeps the mapping in one place.
-fun VendorTxn.toReceipt(): Receipt {
-    val currency = Currency.getAvailableCurrencies().first { it.numericCode == ccyNum.toInt() }
-    return Receipt(
-        reference = txnRef,
-        amountMinor = BigDecimal(amt).movePointRight(currency.defaultFractionDigits).longValueExact(),
-        currency = currency.currencyCode,
-        approved = respCd == "00",
+fun SupplierItem.toProduct(): Product {
+    val perUnit = when (unit) {
+        "KG" -> 1_000.0
+        "LB" -> 453.59237                       // the supplier abroad still weighs in pounds
+        else -> error("unknown unit $unit")
+    }
+    return Product(
+        code = code,
+        grams = (qty.toDouble() * perUnit).roundToLong(),
+        inStock = avail == "Y",
     )
 }
 
 fun main() {
-    val fromSdk = listOf(
-        VendorTxn("T-1001", "12.50", "978", "00"),
-        VendorTxn("T-1002", "1250", "392", "00"),
-        VendorTxn("T-1003", "99.99", "840", "51"),
+    val fromSupplier = listOf(
+        SupplierItem("T-1001", "2.5", "KG", "Y"),
+        SupplierItem("T-1002", "1.5", "LB", "Y"),
+        SupplierItem("T-1003", "10", "KG", "N"),
     )
-    fromSdk.map { it.toReceipt() }.forEach(::println)
+    fromSupplier.map { it.toProduct() }.forEach(::println)
 }

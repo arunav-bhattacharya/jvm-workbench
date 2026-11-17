@@ -2,8 +2,8 @@ package workbench.patterns.l04;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import workbench.patterns.l04.CardAuthorizer.AuthResult;
-import workbench.patterns.l04.CheckoutFacade.CheckoutResult;
+import workbench.patterns.l04.OrderDesk.OrderResult;
+import workbench.patterns.l04.Warehouse.StockResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,131 +13,131 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 class AdapterFacadeTest {
 
-    /** A fake vendor SDK: records what it was sent and answers with a canned response or exception. */
-    static final class FakeSdk extends LegacyIssuerSdk {
+    /** A fake warehouse program: records what it was sent and answers with a canned string or exception. */
+    static final class FakeWarehouse extends OldWarehouseSystem {
         final List<String> calls = new ArrayList<>();
-        String response = "00|A1111";
-        SdkException failure;
+        String answer = "00|H4711";
+        WarehouseException failure;
 
         @Override
-        public String auth(String pan, String amount, String currencyNumeric) throws SdkException {
-            calls.add(pan + " " + amount + " " + currencyNumeric);
+        public String hold(String itemNumber, String kilos) throws WarehouseException {
+            calls.add(itemNumber + " " + kilos);
             if (failure != null) throw failure;
-            return response;
+            return answer;
         }
     }
 
     @Test
-    @DisplayName("The adapter sends decimal amounts and numeric currency codes to the SDK")
+    @DisplayName("The adapter sends item numbers and kilograms to the old program")
     void translatesArguments() {
-        FakeSdk sdk = new FakeSdk();
-        CardAuthorizer auth = new IssuerSdkAdapter(sdk);
-        auth.authorize("4111111111111111", 1_250, "EUR");
-        auth.authorize("4111111111111111", 5, "EUR");
-        auth.authorize("4111111111111111", 1_250, "JPY");
-        assertThat(sdk.calls).containsExactly(
-                "4111111111111111 12.50 978",
-                "4111111111111111 0.05 978",
-                "4111111111111111 1250 392");
+        FakeWarehouse old = new FakeWarehouse();
+        Warehouse warehouse = new WarehouseAdapter(old);
+        warehouse.reserve("FLOUR", 1_250);
+        warehouse.reserve("FLOUR", 5);
+        warehouse.reserve("TEA", 250);
+        assertThat(old.calls).containsExactly(
+                "4711 1.250",
+                "4711 0.005",
+                "5150 0.250");
     }
 
     @Test
-    @DisplayName("Response 00 becomes Approved with the auth id")
-    void approved() {
-        FakeSdk sdk = new FakeSdk();
-        sdk.response = "00|A7Q2Z9";
-        assertThat(new IssuerSdkAdapter(sdk).authorize("4111111111111111", 100, "EUR"))
-                .isEqualTo(new AuthResult.Approved("A7Q2Z9"));
+    @DisplayName("Answer 00 becomes Reserved with the hold id")
+    void reserved() {
+        FakeWarehouse old = new FakeWarehouse();
+        old.answer = "00|H7Q2Z9";
+        assertThat(new WarehouseAdapter(old).reserve("SUGAR", 1_000))
+                .isEqualTo(new StockResult.Reserved("H7Q2Z9"));
     }
 
     @Test
-    @DisplayName("Decline codes become Declined with a reason in our words")
-    void declines() {
-        FakeSdk sdk = new FakeSdk();
-        CardAuthorizer auth = new IssuerSdkAdapter(sdk);
-        sdk.response = "51|";
-        assertThat(auth.authorize("4111111111111111", 100, "EUR")).isEqualTo(new AuthResult.Declined("insufficient funds"));
-        sdk.response = "05|";
-        assertThat(auth.authorize("4111111111111111", 100, "EUR")).isEqualTo(new AuthResult.Declined("do not honor"));
-        sdk.response = "14|";
-        assertThat(auth.authorize("4111111111111111", 100, "EUR")).isEqualTo(new AuthResult.Declined("issuer code 14"));
+    @DisplayName("Refusal codes become Refused with a reason in our words")
+    void refusals() {
+        FakeWarehouse old = new FakeWarehouse();
+        Warehouse warehouse = new WarehouseAdapter(old);
+        old.answer = "51|";
+        assertThat(warehouse.reserve("SUGAR", 1_000)).isEqualTo(new StockResult.Refused("out of stock"));
+        old.answer = "05|";
+        assertThat(warehouse.reserve("SUGAR", 1_000)).isEqualTo(new StockResult.Refused("discontinued"));
+        old.answer = "14|";
+        assertThat(warehouse.reserve("SUGAR", 1_000)).isEqualTo(new StockResult.Refused("warehouse code 14"));
     }
 
     @Test
-    @DisplayName("An SdkException becomes Unavailable and never escapes the adapter")
+    @DisplayName("A WarehouseException becomes Unavailable and never escapes the adapter")
     void vendorExceptionIsTranslated() {
-        FakeSdk sdk = new FakeSdk();
-        sdk.failure = new SdkException(503, "issuer timeout after 120 ms");
-        CardAuthorizer auth = new IssuerSdkAdapter(sdk);
-        assertThatCode(() -> auth.authorize("4111111111111111", 100, "EUR")).doesNotThrowAnyException();
-        assertThat(auth.authorize("4111111111111111", 100, "EUR"))
-                .isEqualTo(new AuthResult.Unavailable("issuer timeout after 120 ms"));
+        FakeWarehouse old = new FakeWarehouse();
+        old.failure = new WarehouseException(503, "warehouse line busy after 120 ms");
+        Warehouse warehouse = new WarehouseAdapter(old);
+        assertThatCode(() -> warehouse.reserve("SUGAR", 1_000)).doesNotThrowAnyException();
+        assertThat(warehouse.reserve("SUGAR", 1_000))
+                .isEqualTo(new StockResult.Unavailable("warehouse line busy after 120 ms"));
     }
 
     @Test
-    @DisplayName("The adapter works against the real sandbox SDK too")
-    void realSandbox() {
-        CardAuthorizer auth = new IssuerSdkAdapter(new LegacyIssuerSdk());
-        assertThat(auth.authorize("4111111111111111", 99_999, "EUR")).isEqualTo(new AuthResult.Approved("A1111"));
-        assertThat(auth.authorize("4111111111111111", 100_000, "EUR")).isEqualTo(new AuthResult.Declined("insufficient funds"));
+    @DisplayName("The adapter works against the real pretend warehouse too")
+    void realPretendWarehouse() {
+        Warehouse warehouse = new WarehouseAdapter(new OldWarehouseSystem());
+        assertThat(warehouse.reserve("FLOUR", 50_000)).isEqualTo(new StockResult.Reserved("H4711"));
+        assertThat(warehouse.reserve("FLOUR", 50_001)).isEqualTo(new StockResult.Refused("out of stock"));
     }
 
     // ---- facade ----
 
-    private final List<String> posted = new ArrayList<>();
+    private final List<String> recorded = new ArrayList<>();
     private final List<String> sent = new ArrayList<>();
-    private final CheckoutFacade.Ledger ledger = (order, amount, currency, code) -> posted.add(order + " " + amount + " " + currency + " " + code);
-    private final CheckoutFacade.Notifier notifier = (email, message) -> sent.add(email + ": " + message);
+    private final OrderDesk.OrderBook orderBook = (order, product, grams, hold) -> recorded.add(order + " " + product + " " + grams + " " + hold);
+    private final OrderDesk.Notifier notifier = (email, message) -> sent.add(email + ": " + message);
 
     @Test
-    @DisplayName("Approved: post to the ledger, send a receipt, return Paid")
-    void facadeApproved() {
-        CheckoutFacade facade = new CheckoutFacade((pan, amount, cur) -> new AuthResult.Approved("A1111"), ledger, notifier);
-        assertThat(facade.checkout("o-1", "4111111111111111", 1_250, "EUR", "anna@example.com"))
-                .isEqualTo(new CheckoutResult.Paid("A1111"));
-        assertThat(posted).containsExactly("o-1 1250 EUR A1111");
-        assertThat(sent).containsExactly("anna@example.com: Paid 12.50 EUR for order o-1");
+    @DisplayName("Reserved: write it in the order book, send a confirmation, return Placed")
+    void deskReserved() {
+        OrderDesk desk = new OrderDesk((product, grams) -> new StockResult.Reserved("H4711"), orderBook, notifier);
+        assertThat(desk.place("o-1", "FLOUR", 1_250, "anna@example.com"))
+                .isEqualTo(new OrderResult.Placed("H4711"));
+        assertThat(recorded).containsExactly("o-1 FLOUR 1250 H4711");
+        assertThat(sent).containsExactly("anna@example.com: Order o-1: 1.250 kg of FLOUR is on its way");
     }
 
     @Test
-    @DisplayName("Declined: no ledger post, a decline notice, return Declined")
-    void facadeDeclined() {
-        CheckoutFacade facade = new CheckoutFacade((pan, amount, cur) -> new AuthResult.Declined("insufficient funds"), ledger, notifier);
-        assertThat(facade.checkout("o-2", "4111111111111111", 1_250, "EUR", "anna@example.com"))
-                .isEqualTo(new CheckoutResult.Declined("insufficient funds"));
-        assertThat(posted).isEmpty();
-        assertThat(sent).containsExactly("anna@example.com: Payment declined: insufficient funds");
+    @DisplayName("Refused: nothing written, a sorry note, return Refused")
+    void deskRefused() {
+        OrderDesk desk = new OrderDesk((product, grams) -> new StockResult.Refused("out of stock"), orderBook, notifier);
+        assertThat(desk.place("o-2", "FLOUR", 1_250, "anna@example.com"))
+                .isEqualTo(new OrderResult.Refused("out of stock"));
+        assertThat(recorded).isEmpty();
+        assertThat(sent).containsExactly("anna@example.com: Sorry, order o-2 failed: out of stock");
     }
 
     @Test
-    @DisplayName("Unavailable: nothing posted, nothing sent, return RetryLater")
-    void facadeUnavailable() {
-        CheckoutFacade facade = new CheckoutFacade((pan, amount, cur) -> new AuthResult.Unavailable("timeout"), ledger, notifier);
-        assertThat(facade.checkout("o-3", "4111111111111111", 1_250, "EUR", "anna@example.com"))
-                .isEqualTo(new CheckoutResult.RetryLater());
-        assertThat(posted).isEmpty();
+    @DisplayName("Unavailable: nothing written, nothing sent, return RetryLater")
+    void deskUnavailable() {
+        OrderDesk desk = new OrderDesk((product, grams) -> new StockResult.Unavailable("line busy"), orderBook, notifier);
+        assertThat(desk.place("o-3", "FLOUR", 1_250, "anna@example.com"))
+                .isEqualTo(new OrderResult.RetryLater());
+        assertThat(recorded).isEmpty();
         assertThat(sent).isEmpty();
     }
 
     @Test
-    @DisplayName("A failing notifier does not fail a payment that was approved and posted")
+    @DisplayName("A failing notifier does not fail an order that was reserved and written down")
     void notifierFailureIsContained() {
-        CheckoutFacade.Notifier broken = (email, message) -> { throw new IllegalStateException("SMTP down"); };
-        CheckoutFacade facade = new CheckoutFacade((pan, amount, cur) -> new AuthResult.Approved("A1111"), ledger, broken);
-        assertThat(facade.checkout("o-4", "4111111111111111", 990, "EUR", "anna@example.com"))
-                .isEqualTo(new CheckoutResult.Paid("A1111"));
-        assertThat(posted).containsExactly("o-4 990 EUR A1111");
+        OrderDesk.Notifier broken = (email, message) -> { throw new IllegalStateException("mail server down"); };
+        OrderDesk desk = new OrderDesk((product, grams) -> new StockResult.Reserved("H4711"), orderBook, broken);
+        assertThat(desk.place("o-4", "FLOUR", 990, "anna@example.com"))
+                .isEqualTo(new OrderResult.Placed("H4711"));
+        assertThat(recorded).containsExactly("o-4 FLOUR 990 H4711");
     }
 
     @Test
-    @DisplayName("Facade plus adapter: a JPY payment goes through the SDK and onto the ledger")
+    @DisplayName("Desk plus adapter: a tea order goes through the old program and into the order book")
     void endToEnd() {
-        FakeSdk sdk = new FakeSdk();
-        sdk.response = "00|J0001";
-        CheckoutFacade facade = new CheckoutFacade(new IssuerSdkAdapter(sdk), ledger, notifier);
-        assertThat(facade.checkout("o-5", "4111111111111111", 1_250, "JPY", "kenji@example.com"))
-                .isEqualTo(new CheckoutResult.Paid("J0001"));
-        assertThat(sdk.calls).containsExactly("4111111111111111 1250 392");
-        assertThat(sent).containsExactly("kenji@example.com: Paid 1250 JPY for order o-5");
+        FakeWarehouse old = new FakeWarehouse();
+        old.answer = "00|T0001";
+        OrderDesk desk = new OrderDesk(new WarehouseAdapter(old), orderBook, notifier);
+        assertThat(desk.place("o-5", "TEA", 250, "kenji@example.com"))
+                .isEqualTo(new OrderResult.Placed("T0001"));
+        assertThat(old.calls).containsExactly("5150 0.250");
+        assertThat(sent).containsExactly("kenji@example.com: Order o-5: 0.250 kg of TEA is on its way");
     }
 }

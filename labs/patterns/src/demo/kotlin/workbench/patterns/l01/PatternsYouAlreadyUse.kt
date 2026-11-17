@@ -5,7 +5,7 @@ import java.util.Currency
 
 // Five patterns hiding in the JDK and the Kotlin standard library. Predict each line before you run it.
 
-private data class Payment(val id: String, val amountMinor: Long)
+private data class Order(val id: String, val totalCents: Long)
 
 fun main() {
     // Singleton: one Runtime per JVM, no public constructor
@@ -18,12 +18,12 @@ fun main() {
     println("4. EUR === EUR (Currency):      " + (Currency.getInstance("EUR") === Currency.getInstance("EUR")))
 
     // Proxy/decorator view: unmodifiableList reads through to the list it wraps
-    val ids = mutableListOf("p-1")
+    val ids = mutableListOf("o-1")
     val view: List<String> = Collections.unmodifiableList(ids)
-    ids += "p-2"
-    println("5. view after ids += \"p-2\":     $view")
+    ids += "o-2"
+    println("5. view after ids += \"o-2\":     $view")
 
     // Strategy: a Comparator is an algorithm you pass in; compareByDescending builds one from a lambda
-    val payments = listOf(Payment("p-9", 500), Payment("p-3", 12_000))
-    println("6. sorted by amount, desc:      " + payments.sortedWith(compareByDescending { it.amountMinor }).map { it.id })
+    val orders = listOf(Order("o-9", 500), Order("o-3", 12_000))
+    println("6. sorted by total, desc:       " + orders.sortedWith(compareByDescending { it.totalCents }).map { it.id })
 }

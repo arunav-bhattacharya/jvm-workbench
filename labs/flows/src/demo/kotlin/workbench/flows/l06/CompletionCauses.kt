@@ -22,12 +22,12 @@ fun main() = runTest {
     println("== onCompletion: how did the flow end?")
     flowOf(1, 2).onCompletion { println("  success:               ${cause(it)}") }.collect()
     runCatching {
-        flow<Int> { emit(1); throw IOException("provider reset") }
+        flow<Int> { emit(1); throw IOException("line dropped") }
             .onCompletion { println("  upstream failure:      ${cause(it)}") }.collect()
     }
     runCatching {
         flowOf(1, 2).onCompletion { println("  collector failure:     ${cause(it)}") }
-            .collect { error("ledger write failed") }
+            .collect { error("the diner dropped the plate") }
     }
     flowOf(1, 2).onCompletion { println("  failure caught below:  ${cause(it)}") }
         .map { error("map failed") }.catch { }.collect()

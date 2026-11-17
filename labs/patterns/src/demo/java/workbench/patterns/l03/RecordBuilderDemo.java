@@ -5,59 +5,59 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
-/** A record with a small builder: the record validates, the builder only collects. */
+/** A record with a small builder: the record checks, the builder only collects. */
 public class RecordBuilderDemo {
 
-    record IssuerCall(String url, String method, Map<String, String> headers, Duration timeout, int maxRetries) {
-        IssuerCall {                                         // every path to an IssuerCall runs this
-            Objects.requireNonNull(url, "url");
-            headers = Map.copyOf(headers);                   // really immutable
-            if (maxRetries < 0) throw new IllegalArgumentException("maxRetries must be >= 0, was " + maxRetries);
+    record DeliveryRequest(String address, String speed, Map<String, String> notes, Duration window, int retries) {
+        DeliveryRequest {                                    // every path to a DeliveryRequest runs this
+            Objects.requireNonNull(address, "address");
+            notes = Map.copyOf(notes);                       // really unmodifiable
+            if (retries < 0) throw new IllegalArgumentException("retries must be >= 0, was " + retries);
         }
 
-        IssuerCall withTimeout(Duration t) {                 // a hand-written "wither"
-            return new IssuerCall(url, method, headers, t, maxRetries);
+        DeliveryRequest withWindow(Duration w) {             // a hand-written "wither"
+            return new DeliveryRequest(address, speed, notes, w, retries);
         }
 
-        IssuerCall withMaxRetries(int n) {
-            return new IssuerCall(url, method, headers, timeout, n);
+        DeliveryRequest withRetries(int n) {
+            return new DeliveryRequest(address, speed, notes, window, n);
         }
 
-        static Builder builder(String url) { return new Builder(url); }
+        static Builder builder(String address) { return new Builder(address); }
 
         static final class Builder {
-            private final String url;
-            private String method = "GET";
-            private final Map<String, String> headers = new LinkedHashMap<>();
-            private Duration timeout = Duration.ofSeconds(2);
-            private int maxRetries = 0;
+            private final String address;
+            private String speed = "STANDARD";
+            private final Map<String, String> notes = new LinkedHashMap<>();
+            private Duration window = Duration.ofHours(2);
+            private int retries = 0;
 
-            private Builder(String url) { this.url = url; }
-            Builder method(String m) { method = m; return this; }
-            Builder header(String k, String v) { headers.put(k, v); return this; }
-            Builder timeout(Duration t) { timeout = t; return this; }
-            Builder maxRetries(int n) { maxRetries = n; return this; }
-            IssuerCall build() { return new IssuerCall(url, method, headers, timeout, maxRetries); }
+            private Builder(String address) { this.address = address; }
+            Builder speed(String s) { speed = s; return this; }
+            Builder note(String k, String v) { notes.put(k, v); return this; }
+            Builder window(Duration w) { window = w; return this; }
+            Builder retries(int n) { retries = n; return this; }
+            DeliveryRequest build() { return new DeliveryRequest(address, speed, notes, window, retries); }
         }
     }
 
     public static void main(String[] args) {
-        IssuerCall call = IssuerCall.builder("https://issuer.example/authorize")
-                .method("POST")
-                .header("Idempotency-Key", "auth-7731")
-                .maxRetries(2)
+        DeliveryRequest req = DeliveryRequest.builder("12 Mill Lane")
+                .speed("EXPRESS")
+                .note("door", "blue gate")
+                .retries(2)
                 .build();
-        System.out.println("built:        " + call);
-        System.out.println("faster copy:  " + call.withTimeout(Duration.ofMillis(800)).timeout());
+        System.out.println("built:        " + req);
+        System.out.println("narrower:     " + req.withWindow(Duration.ofMinutes(30)).window());
 
         try {
-            call.headers().put("X-Debug", "1");
+            req.notes().put("dog", "friendly");
         } catch (UnsupportedOperationException e) {
-            System.out.println("headers:      unmodifiable");
+            System.out.println("notes:        unmodifiable");
         }
 
         try {
-            call.withMaxRetries(-1);                          // the wither can't skip validation either
+            req.withRetries(-1);                              // the wither can't skip the check either
         } catch (IllegalArgumentException e) {
             System.out.println("wither:       " + e.getMessage());
         }

@@ -316,7 +316,7 @@ class Rx01Contract(Narrated):
 
         oom = T("out of memory", 34, BAD_C).move_to(qbox)
         self.say("memory")
-        self.play(Indicate(VGroup(*piled), color=BAD_C, scale_factor=1.05), run_time=1.0)
+        self.play(Wiggle(VGroup(*piled), scale_value=1.04), run_time=1.0)
         self.at_text("the memory runs")
         self.play(FadeOut(VGroup(*piled)), FadeIn(oom, scale=1.3), run_time=0.7)
         self.hold()
@@ -331,7 +331,8 @@ class Rx01Contract(Narrated):
         self.play(FadeIn(happy), Wiggle(ov, scale_value=1.06), run_time=0.9)
         self.at(2)
         self.play(FadeIn(out2), run_time=0.6)
-        self.play(out2[1].animate.set_color(BAD_C), Indicate(out2[1], color=BAD_C, scale_factor=1.05), run_time=1.0)
+        self.play(out2[1].animate.set_color(BAD_C), run_time=0.5)
+        self.play(Indicate(out2[1], color=BAD_C, scale_factor=1.05), run_time=0.8)
         self.hold()
 
         # ================= the slip =================
@@ -372,7 +373,7 @@ class Rx01Contract(Narrated):
         self.play(LaggedStart(*[FadeIn(l, shift=RIGHT * 0.2) for l in reversed(ready)], lag_ratio=0.2), FadeIn(ready_l),
                   run_time=1.0)
         self.at(2)
-        self.play(FadeIn(q3, shift=UP * 0.1), Indicate(ready[2], color=WHITE, scale_factor=1.12), run_time=0.9)
+        self.play(FadeIn(q3, shift=UP * 0.1), Circumscribe(ready[2], color=WHITE, buff=0.08), run_time=0.9)
         self.hold()
         self.play(FadeOut(VGroup(q3, s2b, *ready, ready_l, bl, bl_l, cr)), run_time=0.6)
 
@@ -498,7 +499,7 @@ class Rx01Contract(Narrated):
 
         qm = T("?", 60, WHITE).move_to([2.2, LOAF_Y + 0.15, 0])
         self.say("predict")
-        self.play(FadeIn(qm), Indicate(VGroup(*ready), color=WHITE, scale_factor=1.06), run_time=0.9)
+        self.play(FadeIn(qm), Circumscribe(VGroup(*ready), color=WHITE, buff=0.1), run_time=0.9)
         self.hold(after=0)
         self.predict()
 
@@ -517,14 +518,14 @@ class Rx01Contract(Narrated):
         self.at(2)
         send(1, "loaf-2", "a loaf", 0)
         self.at(4)
-        stay = T("ready, not sent", 22, GREY_B).next_to(ready[2], UP, buff=0.15)
+        stay = T("ready, not sent", 22, GREY_B).next_to(ready[2], UP, buff=0.15).shift(RIGHT * 0.5)
         self.play(Wiggle(ready[2], scale_value=1.1), FadeIn(stay), run_time=1.0)
         self.hold()
 
         rule = T("No slip, no loaf.", 32, SLIP_C).move_to([4.3, -2.35, 0])
         self.say("answer")
         self.at(1)
-        self.play(Indicate(ready[2], color=WHITE), run_time=0.8)
+        self.play(Circumscribe(ready[2], color=WHITE, buff=0.08), run_time=0.8)
         self.at(2)
         self.play(FadeIn(rule, shift=UP * 0.1), run_time=0.6)
         self.hold()

@@ -8,7 +8,7 @@ import java.util.Collections;
 
 /** Five patterns hiding in the JDK. Predict each line before you run it. */
 public class PatternsYouAlreadyUse {
-    record Payment(String id, long amountMinor) {}
+    record Order(String id, long totalCents) {}
 
     public static void main(String[] args) {
         // Singleton: one Runtime per JVM, no public constructor
@@ -21,14 +21,14 @@ public class PatternsYouAlreadyUse {
         System.out.println("4. EUR == EUR (Currency):       " + (Currency.getInstance("EUR") == Currency.getInstance("EUR")));
 
         // Proxy/decorator view: unmodifiableList reads through to the list it wraps
-        List<String> ids = new ArrayList<>(List.of("p-1"));
+        List<String> ids = new ArrayList<>(List.of("o-1"));
         List<String> view = Collections.unmodifiableList(ids);
-        ids.add("p-2");
-        System.out.println("5. view after ids.add(\"p-2\"):   " + view);
+        ids.add("o-2");
+        System.out.println("5. view after ids.add(\"o-2\"):   " + view);
 
         // Strategy: a Comparator is an algorithm you pass in, and a lambda is enough to make one
-        List<Payment> payments = new ArrayList<>(List.of(new Payment("p-9", 500), new Payment("p-3", 12_000)));
-        payments.sort(Comparator.comparing(Payment::amountMinor).reversed());
-        System.out.println("6. sorted by amount, desc:      " + payments.stream().map(Payment::id).toList());
+        List<Order> orders = new ArrayList<>(List.of(new Order("o-9", 500), new Order("o-3", 12_000)));
+        orders.sort(Comparator.comparing(Order::totalCents).reversed());
+        System.out.println("6. sorted by total, desc:       " + orders.stream().map(Order::id).toList());
     }
 }

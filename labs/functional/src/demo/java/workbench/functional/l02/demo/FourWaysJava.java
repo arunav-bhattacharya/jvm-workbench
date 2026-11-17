@@ -1,51 +1,51 @@
 package workbench.functional.l02.demo;
 
 import java.util.List;
-import java.util.function.LongConsumer;
+import java.util.function.IntConsumer;
 import java.util.function.Predicate;
 
 /**
  * Java twin of FourWays.kt. Java has no function types, so each value is an instance of a functional
- * interface, here Predicate<Long>. Java has no receiver types either: Kotlin's Long.() -> Boolean has no twin.
+ * interface, here Predicate<Integer>. Java has no receiver types either: Kotlin's Int.() -> Boolean has no twin.
  */
 public class FourWaysJava {
 
     // 1. A lambda.
-    static final Predicate<Long> OVER_LIMIT_LAMBDA = cents -> cents > 500_000;
+    static final Predicate<Integer> TOO_SLOW_LAMBDA = minutes -> minutes > 60;
 
     // 2. An anonymous class: the closest Java has to an anonymous function. `return` leaves test().
-    static final Predicate<Long> OVER_LIMIT_ANON = new Predicate<>() {
+    static final Predicate<Integer> TOO_SLOW_ANON = new Predicate<>() {
         @Override
-        public boolean test(Long cents) {
-            if (cents < 0) return true;            // a negative amount is suspicious too
-            return cents > 500_000;
+        public boolean test(Integer minutes) {
+            if (minutes < 0) return true;          // a negative time is a typo, so flag it too
+            return minutes > 60;
         }
     };
 
     // 3. A method reference to an ordinary method.
-    static boolean isOverLimit(Long cents) { return cents > 500_000; }
-    static final Predicate<Long> OVER_LIMIT_REF = FourWaysJava::isOverLimit;
+    static boolean isTooSlow(Integer minutes) { return minutes > 60; }
+    static final Predicate<Integer> TOO_SLOW_REF = FourWaysJava::isTooSlow;
 
     // 4. A class that implements the interface.
-    static final class OverLimit implements Predicate<Long> {
-        private final long limitCents;
-        OverLimit(long limitCents) { this.limitCents = limitCents; }
-        @Override public boolean test(Long cents) { return cents > limitCents; }
+    static final class TooSlow implements Predicate<Integer> {
+        private final int maxMinutes;
+        TooSlow(int maxMinutes) { this.maxMinutes = maxMinutes; }
+        @Override public boolean test(Integer minutes) { return minutes > maxMinutes; }
     }
 
     // An optional callback: Java can't say "nullable" in the type, so null is just allowed by convention.
-    static boolean check(long cents, Predicate<Long> rule, LongConsumer onHit) {
-        boolean hit = rule.test(cents);
-        if (hit && onHit != null) onHit.accept(cents);
+    static boolean check(int minutes, Predicate<Integer> rule, IntConsumer onHit) {
+        boolean hit = rule.test(minutes);
+        if (hit && onHit != null) onHit.accept(minutes);
         return hit;
     }
 
     public static void main(String[] args) {
-        List<Predicate<Long>> rules = List.of(OVER_LIMIT_LAMBDA, OVER_LIMIT_ANON, OVER_LIMIT_REF, new OverLimit(500_000));
-        for (long cents : new long[] {12_000L, 900_000L, -5L}) {
-            System.out.println(cents + " -> " + rules.stream().map(rule -> rule.test(cents)).toList());
+        List<Predicate<Integer>> rules = List.of(TOO_SLOW_LAMBDA, TOO_SLOW_ANON, TOO_SLOW_REF, new TooSlow(60));
+        for (int minutes : new int[] {45, 90, -5}) {
+            System.out.println(minutes + " -> " + rules.stream().map(rule -> rule.test(minutes)).toList());
         }
-        check(900_000, OVER_LIMIT_REF, c -> System.out.println("callback: " + c + " is over the limit"));
-        System.out.println("no callback given: " + check(900_000, OVER_LIMIT_REF, null));
+        check(90, TOO_SLOW_REF, m -> System.out.println("callback: " + m + " minutes is too slow"));
+        System.out.println("no callback given: " + check(90, TOO_SLOW_REF, null));
     }
 }

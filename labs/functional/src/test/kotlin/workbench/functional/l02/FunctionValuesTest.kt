@@ -6,76 +6,77 @@ import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 
 class FunctionValuesTest {
-    private val ok = Payment("pay_1", 12_000, "EUR", "NL")
+    private val soup = Dish("pumpkin soup", 40, "vegan", "pumpkin")
 
     @Test
-    fun `amountAtMost rejects amounts above the limit and lets the limit itself through`() {
-        val rule = amountAtMost(50_000)
-        assertThat(rule(ok.copy(amountCents = 50_000))).isNull()
-        assertThat(rule(ok.copy(id = "pay_2", amountCents = 50_001))).isEqualTo(Rejection("amount-limit", "pay_2"))
+    fun `readyWithin rejects slower dishes and lets the limit itself through`() {
+        val check = readyWithin(60)
+        assertThat(check(soup.copy(minutes = 60))).isNull()
+        assertThat(check(soup.copy(name = "stew", minutes = 61))).isEqualTo(Problem("too-slow", "stew"))
     }
 
     @Test
-    fun `two amount rules keep their own limits`() {
-        val small = amountAtMost(1_000)
-        val large = amountAtMost(1_000_000)
-        assertThat(small(ok)).isEqualTo(Rejection("amount-limit", "pay_1"))
-        assertThat(large(ok)).isNull()
+    fun `two time checks keep their own limits`() {
+        val quick = readyWithin(20)
+        val relaxed = readyWithin(240)
+        assertThat(quick(soup)).isEqualTo(Problem("too-slow", "pumpkin soup"))
+        assertThat(relaxed(soup)).isNull()
     }
 
     @Test
-    fun `countryServed rejects countries outside the served set`() {
-        assertThat(countryServed(ok)).isNull()
-        assertThat(countryServed(ok.copy(country = "US"))).isEqualTo(Rejection("country-not-served", "pay_1"))
+    fun `meatFree rejects dishes whose diet has meat`() {
+        assertThat(meatFree(soup)).isNull()
+        assertThat(meatFree(soup.copy(diet = "vegetarian"))).isNull()
+        assertThat(meatFree(soup.copy(diet = "meat"))).isEqualTo(Problem("has-meat", "pumpkin soup"))
     }
 
     @Test
-    fun `currencyRule and supportedCurrency agree`() {
-        val jpy = ok.copy(currency = "JPY")
-        assertThat(supportedCurrency(ok)).isNull()
-        assertThat(supportedCurrency(jpy)).isEqualTo(Rejection("currency-not-supported", "pay_1"))
-        assertThat(currencyRule(ok)).isNull()
-        assertThat(currencyRule(jpy)).isEqualTo(Rejection("currency-not-supported", "pay_1"))
+    fun `seasonCheck and inSeason agree`() {
+        val strawberry = soup.copy(main = "strawberry")
+        assertThat(inSeason(soup)).isNull()
+        assertThat(inSeason(strawberry)).isEqualTo(Problem("out-of-season", "pumpkin soup"))
+        assertThat(seasonCheck(soup)).isNull()
+        assertThat(seasonCheck(strawberry)).isEqualTo(Problem("out-of-season", "pumpkin soup"))
     }
 
     @Test
-    fun `firstRejection returns the first rejection in rule order, or null`() {
-        val rules = listOf(amountAtMost(50_000), countryServed, currencyRule)
-        assertThat(firstRejection(ok, rules)).isNull()
-        val bad = ok.copy(amountCents = 90_000, country = "US")
-        assertThat(firstRejection(bad, rules)).isEqualTo(Rejection("amount-limit", "pay_1"))
-        assertThat(firstRejection(bad, rules.reversed())).isEqualTo(Rejection("country-not-served", "pay_1"))
+    fun `firstProblem returns the first problem in check order, or null`() {
+        val checks = listOf(readyWithin(60), meatFree, seasonCheck)
+        assertThat(firstProblem(soup, checks)).isNull()
+        val bad = soup.copy(minutes = 90, diet = "meat")
+        assertThat(firstProblem(bad, checks)).isEqualTo(Problem("too-slow", "pumpkin soup"))
+        assertThat(firstProblem(bad, checks.reversed())).isEqualTo(Problem("has-meat", "pumpkin soup"))
     }
 
     @Test
-    fun `firstRejection stops at the first rejection`() {
-        var fraudApiCalls = 0
-        val fraudCheck: Rule = { fraudApiCalls++; null }
-        firstRejection(ok.copy(country = "US"), listOf(countryServed, fraudCheck))
-        assertThat(fraudApiCalls).`as`("rules after the first rejection must not run").isZero()
-        firstRejection(ok, listOf(countryServed, fraudCheck))
-        assertThat(fraudApiCalls).isEqualTo(1)
+    fun `firstProblem stops at the first problem`() {
+        var guestCalls = 0
+        val askTheGuest: Check = { guestCalls++; null }
+        firstProblem(soup.copy(diet = "meat"), listOf(meatFree, askTheGuest))
+        assertThat(guestCalls).`as`("checks after the first problem must not run").isZero()
+        firstProblem(soup, listOf(meatFree, askTheGuest))
+        assertThat(guestCalls).isEqualTo(1)
     }
 
     @Test
-    fun `allRejections collects every rejection in rule order`() {
-        val rules = listOf(amountAtMost(50_000), countryServed, currencyRule)
-        val bad = Payment("pay_9", 90_000, "JPY", "US")
-        assertThat(allRejections(bad, rules).map { it.rule })
-            .containsExactly("amount-limit", "country-not-served", "currency-not-supported")
-        assertThat(allRejections(ok, rules)).isEmpty()
+    fun `allProblems collects every problem in check order`() {
+        val checks = listOf(readyWithin(60), meatFree, seasonCheck)
+        val bad = Dish("beef roast", 150, "meat", "beef")
+        assertThat(allProblems(bad, checks).map { it.check })
+            .containsExactly("too-slow", "has-meat", "out-of-season")
+        assertThat(allProblems(soup, checks)).isEmpty()
     }
 
     @Test
-    fun `screen calls the optional callback only on rejection`() {
-        val rules = listOf(countryServed)
-        assertThat(screen(ok, rules)).isTrue()
-        assertThat(screen(ok.copy(country = "US"), rules)).`as`("no callback given: must not fail").isFalse()
+    fun `suits calls the optional callback only when there is a problem`() {
+        val checks = listOf(meatFree)
+        assertThat(suits(soup, checks)).isTrue()
+        assertThat(suits(soup.copy(diet = "meat"), checks)).`as`("no callback given: must not fail").isFalse()
 
-        val seen = mutableListOf<Rejection>()
-        assertThat(screen(ok, rules) { seen += it }).isTrue()
-        assertThat(screen(ok.copy(country = "US"), rules) { seen += it }).isFalse()
-        assertThat(seen).containsExactly(Rejection("country-not-served", "pay_1"))
+        val seen = mutableListOf<Problem>()
+        assertThat(suits(soup, checks) { seen += it }).isTrue()
+        assertThat(suits(soup.copy(diet = "meat"), checks) { seen += it }).isFalse()
+        assertThat(seen).containsExactly(Problem("has-meat", "pumpkin soup"))
     }
 
     @Test

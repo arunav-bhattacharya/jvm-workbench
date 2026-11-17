@@ -14,28 +14,28 @@ public class MemoizeJava {
         return a -> cache.computeIfAbsent(a, f);
     }
 
-    // Pure but slow: imagine it scans a large BIN table on every call.
-    static int binLookups = 0;
-    static String issuerCountry(String bin) {
-        binLookups++;
+    // Pure but slow: imagine it searches a long food table on every call.
+    static int tableLookups = 0;
+    static int kcalPer100g(String food) {
+        tableLookups++;
         try { Thread.sleep(50); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-        return bin.startsWith("4") ? "NL" : "DE";
+        return food.equals("oats") ? 389 : 304;
     }
 
-    // Impure: the exchange rate moves while the service runs.
-    static double eurUsd = 1.08;
-    static double fxRate(String pair) { return pair.equals("EURUSD") ? eurUsd : 1.0; }
+    // Impure: the number of eggs changes whenever someone cooks.
+    static int fridgeEggs = 6;
+    static int eggsIn(String place) { return place.equals("fridge") ? fridgeEggs : 0; }
 
     public static void main(String[] args) {
-        Function<String, String> country = memoize(MemoizeJava::issuerCountry);
-        List<String> bins = List.of("424242", "555555", "424242", "424242", "555555");
+        Function<String, Integer> kcal = memoize(MemoizeJava::kcalPer100g);
+        List<String> foods = List.of("oats", "honey", "oats", "oats", "honey");
         long start = System.nanoTime();
-        System.out.println(bins.stream().map(country).toList());
-        System.out.printf("lookups: %d for %d calls, %d ms%n", binLookups, bins.size(), (System.nanoTime() - start) / 1_000_000);
+        System.out.println(foods.stream().map(kcal).toList());
+        System.out.printf("lookups: %d for %d calls, %d ms%n", tableLookups, foods.size(), (System.nanoTime() - start) / 1_000_000);
 
-        Function<String, Double> rate = memoize(MemoizeJava::fxRate);
-        System.out.println("EURUSD now:                    " + rate.apply("EURUSD"));
-        eurUsd = 1.11;                                        // the market moves
-        System.out.println("EURUSD after the market moved: " + rate.apply("EURUSD") + "   (real rate: " + fxRate("EURUSD") + ")");
+        Function<String, Integer> eggs = memoize(MemoizeJava::eggsIn);
+        System.out.println("eggs in the fridge now:        " + eggs.apply("fridge"));
+        fridgeEggs = 2;                                       // someone makes an omelette
+        System.out.println("eggs after someone's omelette: " + eggs.apply("fridge") + "   (really: " + eggsIn("fridge") + ")");
     }
 }

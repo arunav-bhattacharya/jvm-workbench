@@ -20,20 +20,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SingletonTest {
     private static final int THREADS = 8;
-    private static final Map<String, String> NETWORKS = Map.of(
-            "VISA", "https://sandbox.visa.example",
-            "MASTERCARD", "https://sandbox.mc.example");
+    private static final Map<String, Long> PRICES = Map.of(
+            "BREAD", 450L,
+            "MILK", 120L);
 
-    /** A loader that counts its calls and takes 50 ms, like reading files and calling a config service. */
-    private static Supplier<Map<String, String>> slowLoader(AtomicInteger calls) {
+    /** A loader that counts its calls and takes 50 ms, like reading the supplier's price file. */
+    private static Supplier<Map<String, Long>> slowLoader(AtomicInteger calls) {
         return () -> {
             calls.incrementAndGet();
             sleep(50);
-            return new HashMap<>(NETWORKS);   // a fresh map each call, so two loads give two instances
+            return new HashMap<>(PRICES);   // a fresh map each call, so two loads give two instances
         };
     }
 
-    // the registry tests use their own start line, so a bug in your Contention doesn't hide their results
+    // the price list tests use their own start line, so a bug in your Contention doesn't hide their results
     private static void together(int threads, Runnable task) throws InterruptedException {
         CountDownLatch go = new CountDownLatch(1);
         Thread[] ts = new Thread[threads];
@@ -53,14 +53,14 @@ class SingletonTest {
     }
 
     @Test
-    @DisplayName("The registry loads nothing until the first lookup")
+    @DisplayName("The price list loads nothing until the first lookup")
     void lazy() {
         AtomicInteger calls = new AtomicInteger();
-        CardNetworkRegistry registry = new CardNetworkRegistry(slowLoader(calls));
-        assertThat(registry.isLoaded()).isFalse();
+        PriceList priceList = new PriceList(slowLoader(calls));
+        assertThat(priceList.isLoaded()).isFalse();
         assertThat(calls.get()).isZero();
-        assertThat(registry.sandboxUrl("VISA")).isEqualTo("https://sandbox.visa.example");
-        assertThat(registry.isLoaded()).isTrue();
+        assertThat(priceList.priceOf("BREAD")).isEqualTo(450);
+        assertThat(priceList.isLoaded()).isTrue();
         assertThat(calls.get()).isEqualTo(1);
     }
 
@@ -68,46 +68,46 @@ class SingletonTest {
     @DisplayName("8 threads doing the first lookup together run the loader exactly once")
     void loadsOnceUnderContention() throws Exception {
         AtomicInteger calls = new AtomicInteger();
-        CardNetworkRegistry registry = new CardNetworkRegistry(slowLoader(calls));
-        together(THREADS, () -> registry.sandboxUrl("MASTERCARD"));
+        PriceList priceList = new PriceList(slowLoader(calls));
+        together(THREADS, () -> priceList.priceOf("MILK"));
         assertThat(calls.get()).as("loader calls").isEqualTo(1);
     }
 
     @Test
-    @DisplayName("Every thread gets the same table instance")
-    void sameTableForEveryone() throws Exception {
-        CardNetworkRegistry registry = new CardNetworkRegistry(slowLoader(new AtomicInteger()));
-        AtomicReference<Map<String, String>> first = new AtomicReference<>();
+    @DisplayName("Every thread gets the same map instance")
+    void samePricesForEveryone() throws Exception {
+        PriceList priceList = new PriceList(slowLoader(new AtomicInteger()));
+        AtomicReference<Map<String, Long>> first = new AtomicReference<>();
         AtomicInteger different = new AtomicInteger();
         together(THREADS, () -> {
-            Map<String, String> t = registry.table();
-            if (!first.compareAndSet(null, t) && first.get() != t) different.incrementAndGet();
+            Map<String, Long> p = priceList.prices();
+            if (!first.compareAndSet(null, p) && first.get() != p) different.incrementAndGet();
         });
         assertThat(different.get()).as("threads that saw a different instance").isZero();
-        assertThat(registry.table()).isSameAs(first.get());
+        assertThat(priceList.prices()).isSameAs(first.get());
     }
 
     @Test
     @DisplayName("A failed load is not cached: the next call runs the loader again")
     void failedLoadRetries() {
         AtomicInteger calls = new AtomicInteger();
-        CardNetworkRegistry registry = new CardNetworkRegistry(() -> {
-            if (calls.incrementAndGet() == 1) throw new IllegalStateException("config service down");
-            return NETWORKS;
+        PriceList priceList = new PriceList(() -> {
+            if (calls.incrementAndGet() == 1) throw new IllegalStateException("price file not found");
+            return PRICES;
         });
-        assertThatThrownBy(() -> registry.sandboxUrl("VISA")).isInstanceOf(IllegalStateException.class);
-        assertThat(registry.isLoaded()).isFalse();
-        assertThat(registry.sandboxUrl("VISA")).isEqualTo("https://sandbox.visa.example");
+        assertThatThrownBy(() -> priceList.priceOf("BREAD")).isInstanceOf(IllegalStateException.class);
+        assertThat(priceList.isLoaded()).isFalse();
+        assertThat(priceList.priceOf("BREAD")).isEqualTo(450);
         assertThat(calls.get()).isEqualTo(2);
     }
 
     @Test
-    @DisplayName("An unknown network is an IllegalArgumentException")
-    void unknownNetwork() {
-        CardNetworkRegistry registry = new CardNetworkRegistry(() -> NETWORKS);
-        assertThatThrownBy(() -> registry.sandboxUrl("AMEX"))
+    @DisplayName("An unknown product is an IllegalArgumentException")
+    void unknownProduct() {
+        PriceList priceList = new PriceList(() -> PRICES);
+        assertThatThrownBy(() -> priceList.priceOf("CAVIAR"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("AMEX");
+                .hasMessageContaining("CAVIAR");
     }
 
     @Test
@@ -156,9 +156,9 @@ class SingletonTest {
     }
 
     @Test
-    @DisplayName("Your registry passes your harness: one table instance across 8 threads")
-    void registryPassesHarness() throws Exception {
-        CardNetworkRegistry registry = new CardNetworkRegistry(slowLoader(new AtomicInteger()));
-        assertThat(Contention.distinctInstances(THREADS, registry::table)).isEqualTo(1);
+    @DisplayName("Your price list passes your harness: one map instance across 8 threads")
+    void priceListPassesHarness() throws Exception {
+        PriceList priceList = new PriceList(slowLoader(new AtomicInteger()));
+        assertThat(Contention.distinctInstances(THREADS, priceList::prices)).isEqualTo(1);
     }
 }

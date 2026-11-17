@@ -1,43 +1,43 @@
 package workbench.functional.l04.demo
 
-// Payment, Status and sampleDay are in SampleDay.kt, next to this file.
+// Cookie, Status and sampleDay are in SampleDay.kt, next to this file.
 
 // The loop: four results built at once, and every line changes one of them.
-fun reportLoop(payments: List<Payment>): String {
-    var settled = 0L
-    val net = LinkedHashMap<String, Long>()
-    val failed = ArrayList<String>()
-    var largest = payments.first()
-    for (p in payments) {
-        when (p.status) {
-            Status.SETTLED -> {
-                settled += p.amountCents
-                net[p.merchant] = (net[p.merchant] ?: 0L) + p.amountCents - (p.refundCents ?: 0L)
-                if (p.amountCents > largest.amountCents) largest = p
+fun reportLoop(cookies: List<Cookie>): String {
+    var golden = 0
+    val net = LinkedHashMap<String, Int>()
+    val burnt = ArrayList<String>()
+    var largest = cookies.first()
+    for (c in cookies) {
+        when (c.status) {
+            Status.GOLDEN -> {
+                golden += c.grams
+                net[c.flavor] = (net[c.flavor] ?: 0) + c.grams - (c.nibbledGrams ?: 0)
+                if (c.grams > largest.grams) largest = c
             }
-            Status.FAILED -> failed.add(p.id)
-            Status.PENDING -> {}
+            Status.BURNT -> burnt.add(c.id)
+            Status.RAW -> {}
         }
     }
-    return "settled=$settled net=$net failed=$failed largest=${largest.id}"
+    return "golden=$golden net=$net burnt=$burnt largest=${largest.id}"
 }
 
 // The same report: one val per result, each computed from the list.
-fun reportChain(payments: List<Payment>): String {
-    val settledPayments = payments.filter { it.status == Status.SETTLED }
-    val settled = settledPayments.sumOf { it.amountCents }
-    val net = settledPayments.groupBy { it.merchant }
-        .mapValues { (_, ps) -> ps.sumOf { it.amountCents - (it.refundCents ?: 0L) } }
-    val failed = payments.filter { it.status == Status.FAILED }.map { it.id }
-    val largest = settledPayments.maxByOrNull { it.amountCents }
-    return "settled=$settled net=$net failed=$failed largest=${largest?.id}"
+fun reportChain(cookies: List<Cookie>): String {
+    val goldenCookies = cookies.filter { it.status == Status.GOLDEN }
+    val golden = goldenCookies.sumOf { it.grams }
+    val net = goldenCookies.groupBy { it.flavor }
+        .mapValues { (_, cs) -> cs.sumOf { it.grams - (it.nibbledGrams ?: 0) } }
+    val burnt = cookies.filter { it.status == Status.BURNT }.map { it.id }
+    val largest = goldenCookies.maxByOrNull { it.grams }
+    return "golden=$golden net=$net burnt=$burnt largest=${largest?.id}"
 }
 
 fun main(args: Array<String>) {
-    val payments = if (args.firstOrNull() == "empty") emptyList() else sampleDay
-    println("chain: ${reportChain(payments)}")
+    val cookies = if (args.firstOrNull() == "empty") emptyList() else sampleDay
+    println("chain: ${reportChain(cookies)}")
     try {
-        println("loop:  ${reportLoop(payments)}")
+        println("loop:  ${reportLoop(cookies)}")
     } catch (e: NoSuchElementException) {
         println("loop:  threw $e")
     }

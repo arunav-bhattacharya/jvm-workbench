@@ -30,30 +30,30 @@ private fun <T> Flow<T>.myCatch(action: suspend FlowCollector<T>.(Throwable) -> 
 
 private fun describe(e: Throwable?) = e?.let { "${it::class.simpleName}: ${it.message?.lineSequence()?.first()}" } ?: "nothing"
 
-// One FX rate request, five ways for it to end.
-private val cases: List<Pair<String, Flow<Double>>> = listOf(
-    "provider throws IOException" to flow { emit(0.92); throw IOException("provider reset") },
-    "provider throws CancellationException" to flow { emit(0.92); throw CancellationException("provider gave up") },
-    "withTimeout inside the provider call" to flow { emit(0.92); withTimeout(50) { delay(100) }; emit(0.93) },
-    "the collector's ledger write fails" to flow { emit(0.92); emit(0.93) },
-    "the caller's job is cancelled" to flow { emit(0.92); awaitCancellation() },
+// The bread course: yesterday's loaf goes out first, then a fresh one from the bakery. Five ways for it to end.
+private val cases: List<Pair<String, Flow<String>>> = listOf(
+    "the bakery call throws IOException" to flow { emit("old loaf"); throw IOException("line dropped") },
+    "the bakery call throws CancellationException" to flow { emit("old loaf"); throw CancellationException("bakery gave up") },
+    "withTimeout inside the bakery call" to flow { emit("old loaf"); withTimeout(50) { delay(100) }; emit("fresh loaf") },
+    "the diner drops a plate" to flow { emit("old loaf"); emit("fresh loaf") },
+    "the caller's job is cancelled" to flow { emit("old loaf"); awaitCancellation() },
 )
 
-private fun run(label: String, net: String, f: Flow<Double>) {
+private fun run(label: String, net: String, f: Flow<String>) {
     var caught: Throwable? = null
-    val netted = if (net == "catch") f.catch { caught = it; emit(-1.0) } else f.myCatch { caught = it; emit(-1.0) }
-    val got = mutableListOf<Double>()
+    val netted = if (net == "catch") f.catch { caught = it; emit("crackers") } else f.myCatch { caught = it; emit("crackers") }
+    val got = mutableListOf<String>()
     var callerSaw: Throwable? = null
     runBlocking {
         val job = launch {
             try {
-                netted.collect { got += it; if (label.startsWith("the collector") && it == 0.92) error("ledger write failed") }
+                netted.collect { got += it; if (label.startsWith("the diner") && it == "old loaf") error("the diner dropped the plate") }
             } catch (e: Throwable) { callerSaw = e; if (e !is CancellationException) Unit else throw e }
         }
         if (label.startsWith("the caller")) { delay(10); job.cancel() }
         job.join()
     }
-    println("  %-8s got %-12s net caught %-48s caller saw %s".format(net, got, describe(caught), describe(callerSaw)))
+    println("  %-8s got %-22s net caught %-48s caller saw %s".format(net, got, describe(caught), describe(callerSaw)))
 }
 
 fun main() {

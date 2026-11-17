@@ -8,27 +8,27 @@ fun <A : Any, R : Any> memoize(f: (A) -> R): (A) -> R {
     return { a -> cache.computeIfAbsent(a) { f(it) } }
 }
 
-// Pure but slow: imagine it scans a large BIN table on every call.
-var binLookups = 0
-fun issuerCountry(bin: String): String {
-    binLookups++
+// Pure but slow: imagine it searches a long food table on every call.
+var tableLookups = 0
+fun kcalPer100g(food: String): Int {
+    tableLookups++
     Thread.sleep(50)
-    return if (bin.startsWith("4")) "NL" else "DE"
+    return if (food == "oats") 389 else 304
 }
 
-// Impure: the exchange rate moves while the service runs.
-var eurUsd = 1.08
-fun fxRate(pair: String): Double = if (pair == "EURUSD") eurUsd else 1.0
+// Impure: the number of eggs changes whenever someone cooks.
+var fridgeEggs = 6
+fun eggsIn(place: String): Int = if (place == "fridge") fridgeEggs else 0
 
 fun main() {
-    val country = memoize(::issuerCountry)
-    val bins = listOf("424242", "555555", "424242", "424242", "555555")
+    val kcal = memoize(::kcalPer100g)
+    val foods = listOf("oats", "honey", "oats", "oats", "honey")
     val start = System.nanoTime()
-    println(bins.map(country))
-    println("lookups: $binLookups for ${bins.size} calls, %d ms".format((System.nanoTime() - start) / 1_000_000))
+    println(foods.map(kcal))
+    println("lookups: $tableLookups for ${foods.size} calls, %d ms".format((System.nanoTime() - start) / 1_000_000))
 
-    val rate = memoize(::fxRate)
-    println("EURUSD now:                    ${rate("EURUSD")}")
-    eurUsd = 1.11                                         // the market moves
-    println("EURUSD after the market moved: ${rate("EURUSD")}   (real rate: ${fxRate("EURUSD")})")
+    val eggs = memoize(::eggsIn)
+    println("eggs in the fridge now:        ${eggs("fridge")}")
+    fridgeEggs = 2                                        // someone makes an omelette
+    println("eggs after someone's omelette: ${eggs("fridge")}   (really: ${eggsIn("fridge")})")
 }

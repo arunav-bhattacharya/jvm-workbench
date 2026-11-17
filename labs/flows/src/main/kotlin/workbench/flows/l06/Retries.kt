@@ -6,8 +6,9 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * True for failures worth retrying: an IOException, or a TimeoutCancellationException from
- * timeout() or withTimeout. Note that a timeout is a CancellationException, not an IOException.
+ * True for failures worth retrying: an IOException (the phone line dropped), or a
+ * TimeoutCancellationException from timeout() or withTimeout (nobody answered in time).
+ * Note that a timeout is a CancellationException, not an IOException.
  */
 fun isTransient(e: Throwable): Boolean = TODO("IOException or TimeoutCancellationException")
 

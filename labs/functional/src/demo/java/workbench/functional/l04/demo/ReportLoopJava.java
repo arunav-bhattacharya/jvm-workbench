@@ -10,56 +10,56 @@ import java.util.stream.Collectors;
 /** Java twin of ReportLoop.kt: the report as one loop, then as streams. */
 public class ReportLoopJava {
 
-    enum Status { SETTLED, PENDING, FAILED }
-    record Payment(String id, String merchant, long amountCents, Status status, Long refundCents) {}
+    enum Status { GOLDEN, RAW, BURNT }
+    record Cookie(String id, String flavor, int grams, Status status, Integer nibbledGrams) {}
 
-    static final List<Payment> DAY = List.of(
-            new Payment("pay_1", "acme", 1_500, Status.SETTLED, null),
-            new Payment("pay_2", "globex", 9_900, Status.PENDING, null),
-            new Payment("pay_3", "acme", 2_000, Status.SETTLED, 500L),
-            new Payment("pay_4", "initech", 12_000, Status.FAILED, null),
-            new Payment("pay_5", "globex", 700, Status.SETTLED, null));
+    static final List<Cookie> DAY = List.of(
+            new Cookie("c1", "oat", 45, Status.GOLDEN, null),
+            new Cookie("c2", "chocolate", 90, Status.RAW, null),
+            new Cookie("c3", "oat", 50, Status.GOLDEN, 10),
+            new Cookie("c4", "ginger", 80, Status.BURNT, null),
+            new Cookie("c5", "chocolate", 30, Status.GOLDEN, null));
 
-    static long refundOf(Payment p) { return p.refundCents() == null ? 0 : p.refundCents(); }
+    static int biteOf(Cookie c) { return c.nibbledGrams() == null ? 0 : c.nibbledGrams(); }
 
     // The loop: four results built at once, and every line changes one of them.
-    static String reportLoop(List<Payment> payments) {
-        long settled = 0;
-        Map<String, Long> net = new LinkedHashMap<>();
-        List<String> failed = new ArrayList<>();
-        Payment largest = payments.get(0);
-        for (Payment p : payments) {
-            switch (p.status()) {
-                case SETTLED -> {
-                    settled += p.amountCents();
-                    net.merge(p.merchant(), p.amountCents() - refundOf(p), Long::sum);
-                    if (p.amountCents() > largest.amountCents()) largest = p;
+    static String reportLoop(List<Cookie> cookies) {
+        int golden = 0;
+        Map<String, Integer> net = new LinkedHashMap<>();
+        List<String> burnt = new ArrayList<>();
+        Cookie largest = cookies.get(0);
+        for (Cookie c : cookies) {
+            switch (c.status()) {
+                case GOLDEN -> {
+                    golden += c.grams();
+                    net.merge(c.flavor(), c.grams() - biteOf(c), Integer::sum);
+                    if (c.grams() > largest.grams()) largest = c;
                 }
-                case FAILED -> failed.add(p.id());
-                case PENDING -> { }
+                case BURNT -> burnt.add(c.id());
+                case RAW -> { }
             }
         }
-        return "settled=" + settled + " net=" + net + " failed=" + failed + " largest=" + largest.id();
+        return "golden=" + golden + " net=" + net + " burnt=" + burnt + " largest=" + largest.id();
     }
 
     // The same report with streams. groupingBy needs LinkedHashMap::new to keep first-seen order.
-    static String reportChain(List<Payment> payments) {
-        List<Payment> settledPayments = payments.stream().filter(p -> p.status() == Status.SETTLED).toList();
-        long settled = settledPayments.stream().mapToLong(Payment::amountCents).sum();
-        Map<String, Long> net = settledPayments.stream().collect(Collectors.groupingBy(
-                Payment::merchant, LinkedHashMap::new, Collectors.summingLong(p -> p.amountCents() - refundOf(p))));
-        List<String> failed = payments.stream().filter(p -> p.status() == Status.FAILED).map(Payment::id).toList();
-        String largest = settledPayments.stream()
-                .max(Comparator.comparingLong(Payment::amountCents))
-                .map(Payment::id).orElse(null);
-        return "settled=" + settled + " net=" + net + " failed=" + failed + " largest=" + largest;
+    static String reportChain(List<Cookie> cookies) {
+        List<Cookie> goldenCookies = cookies.stream().filter(c -> c.status() == Status.GOLDEN).toList();
+        int golden = goldenCookies.stream().mapToInt(Cookie::grams).sum();
+        Map<String, Integer> net = goldenCookies.stream().collect(Collectors.groupingBy(
+                Cookie::flavor, LinkedHashMap::new, Collectors.summingInt(c -> c.grams() - biteOf(c))));
+        List<String> burnt = cookies.stream().filter(c -> c.status() == Status.BURNT).map(Cookie::id).toList();
+        String largest = goldenCookies.stream()
+                .max(Comparator.comparingInt(Cookie::grams))
+                .map(Cookie::id).orElse(null);
+        return "golden=" + golden + " net=" + net + " burnt=" + burnt + " largest=" + largest;
     }
 
     public static void main(String[] args) {
-        List<Payment> payments = args.length > 0 && args[0].equals("empty") ? List.of() : DAY;
-        System.out.println("chain: " + reportChain(payments));
+        List<Cookie> cookies = args.length > 0 && args[0].equals("empty") ? List.of() : DAY;
+        System.out.println("chain: " + reportChain(cookies));
         try {
-            System.out.println("loop:  " + reportLoop(payments));
+            System.out.println("loop:  " + reportLoop(cookies));
         } catch (IndexOutOfBoundsException e) {
             System.out.println("loop:  threw " + e);
         }
