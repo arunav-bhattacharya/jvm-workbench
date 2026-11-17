@@ -44,7 +44,7 @@ FIG = ('<svg viewBox="0 0 700 270" role="img" aria-label="Left: ArrayList of Str
          '<text class="t-s t-m" x="350" y="254" text-anchor="middle">Erasure removes type arguments from objects. Inlining puts the known class back at each call site.</text>'
          '</svg>')
 
-OPENING = """Every box that comes into the storeroom passes the clerk at the door. The clerk reads its label, "Box of apples", checks that only apples go in, and nods it through. Then, as lesson 1 warned, the clerk tears the label off. On the shelves, a box of apples and a box of lemons look exactly alike, which is fine until someone wants a lemon.
+OPENING = """Every box that comes into the storeroom passes the clerk at the door. The clerk reads its label, "Box of apples", checks that only apples go in, and nods it through. Then, as lesson 1 warned, the clerk tears the label off. On the shelves, a box of apples and a box of lemons look alike, which is fine until someone wants a lemon.
 
 Usually nobody minds: whoever opens a box was told at the door what it holds. The trouble starts when someone asks a box "are you a box of apples?" There's no label left to read.
 
