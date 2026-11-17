@@ -1,149 +1,345 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.478
-A scheduler runs a task every 100 ms.
+00:00:02.700 --> 00:00:09.317
+Java gives you two ways to run a task over and over: scheduleAtFixedRate and scheduleWithFixedDelay.
 
 2
-00:00:06.478 --> 00:00:08.623
-Most runs take 10 ms.
+00:00:09.317 --> 00:00:13.486
+Give both 100 milliseconds, and they sound like the same thing.
 
 3
-00:00:08.833 --> 00:00:10.632
-There are two ways to repeat it.
+00:00:13.486 --> 00:00:15.669
+So what's the difference, really?
 
 4
-00:00:10.833 --> 00:00:15.888
-After each run, the executor queues the task again, with a new due time.
+00:00:16.567 --> 00:00:21.572
+Picture a restaurant that hires a cleaner to wipe the tables during dinner.
 
 5
-00:00:15.888 --> 00:00:18.556
-Fixed rate: the old due time plus 100.
+00:00:21.572 --> 00:00:24.576
+The manager can give one of two instructions.
 
 6
-00:00:18.556 --> 00:00:21.435
-Fixed delay: the end of the run plus 100.
+00:00:24.576 --> 00:00:27.780
+By the clock: start a round at 6:00, 6:10, 6:20.
 
 7
-00:00:21.667 --> 00:00:23.485
-Run 2 is slow.
+00:00:27.780 --> 00:00:32.785
+Or rest after each round: when you finish, rest ten minutes, then go again.
 
 8
-00:00:23.485 --> 00:00:25.563
-It takes 250 ms.
+00:00:33.000 --> 00:00:38.612
+On a quiet evening, a round takes about a minute, and you can't tell the two apart.
 
 9
-00:00:25.767 --> 00:00:29.163
-Run 3 was due at 200, and run 4 at 300.
+00:00:38.612 --> 00:00:42.061
+One second round starts at 6:10, the other at 6:11.
 
 10
-00:00:29.163 --> 00:00:31.167
-Both times have passed.
+00:00:42.061 --> 00:00:42.940
+Close enough.
 
 11
-00:00:31.167 --> 00:00:33.083
-When does run 3 start?
+00:00:43.167 --> 00:00:44.042
+Let's map it.
 
 12
-00:00:35.300 --> 00:00:36.778
-At 350, right away.
+00:00:44.042 --> 00:00:48.014
+The cleaner is a repeating task, and each round is one run.
 
 13
-00:00:36.778 --> 00:00:41.602
-A due time in the past means: run as soon as a thread is free.
+00:00:48.014 --> 00:00:50.437
+By the clock is scheduleAtFixedRate.
 
 14
-00:00:41.602 --> 00:00:46.115
-Run 4 is overdue too, so it starts at 360, straight after.
+00:00:50.437 --> 00:00:53.668
+Rest after each round is scheduleWithFixedDelay.
 
 15
-00:00:46.333 --> 00:00:49.412
-Run 5, due at 400, is on time again.
+00:00:53.668 --> 00:00:55.957
+And the ten minutes is the period.
 
 16
-00:00:49.633 --> 00:00:54.338
-That is fixed rate: overdue runs go back to back until it catches up.
+00:00:56.667 --> 00:01:02.185
+Then someone knocks over a pot of soup, and the second round takes 25 minutes.
 
 17
-00:00:54.338 --> 00:00:56.452
-Runs of one task never overlap.
+00:01:02.185 --> 00:01:04.307
+By the clock, it ends at 6:35.
 
 18
-00:00:56.667 --> 00:00:59.243
-Fixed delay has no timetable.
+00:01:04.307 --> 00:01:06.571
+The third round was due at 6:20.
 
 19
-00:00:59.243 --> 00:01:06.707
-Run 3 starts 100 ms after the slow run ends, at 460, and everything after it shifts.
+00:01:06.571 --> 00:01:07.915
+When does it start?
 
 20
-00:01:06.933 --> 00:01:10.991
-Use fixed rate for a heartbeat, where the timing is the point.
+00:01:10.700 --> 00:01:13.786
+At 6:35, the moment the soup round ends.
 
 21
-00:01:10.991 --> 00:01:17.208
-Use fixed delay for a call that can slow down, like an FX provider: no burst of catch-up calls.
+00:01:13.786 --> 00:01:18.569
+The 6:30 round is late too, so it starts right after, at 6:36.
 
 22
-00:01:18.233 --> 00:01:19.140
-Now the trap.
+00:01:18.569 --> 00:01:22.581
+Then comes 6:40, and the timetable is back on track.
 
 23
-00:01:19.140 --> 00:01:23.324
-That re-queue step happens only when a run returns normally.
+00:01:22.800 --> 00:01:28.931
+Two rounds back to back, like a cleaner jogging from table to table to make up for lost time.
 
 24
-00:01:23.533 --> 00:01:28.514
-A health check runs every 100 ms, and its third run throws.
+00:01:28.931 --> 00:01:30.579
+So fixed rate catches up.
 
 25
-00:01:28.514 --> 00:01:30.203
-What happens at 300?
+00:01:30.800 --> 00:01:34.677
+The resting cleaner has no timetable to catch up with.
 
 26
-00:01:32.433 --> 00:01:33.690
-Nothing, ever again.
+00:01:34.677 --> 00:01:38.052
+Its soup round starts at 6:11 and ends at 6:36.
 
 27
-00:01:33.690 --> 00:01:37.773
-The exception goes into the ScheduledFuture, and nobody reads it.
+00:01:38.052 --> 00:01:42.002
+Ten minutes of rest, and the next round starts at 6:46.
 
 28
-00:01:37.773 --> 00:01:41.605
-The task never goes back in the queue, and nothing is logged.
+00:01:42.002 --> 00:01:44.299
+Every later round moves with it.
 
 29
-00:01:41.833 --> 00:01:46.256
-The demo prints three health checks, then silence, and isDone is true.
+00:01:44.299 --> 00:01:46.382
+Fixed delay never catches up.
 
 30
-00:01:47.267 --> 00:01:51.909
-The fix: catch inside the task, so no exception reaches the scheduler.
+00:01:46.382 --> 00:01:47.459
+It just shifts.
 
 31
-00:01:51.909 --> 00:01:54.363
-Log it, and the schedule keeps going.
+00:01:47.667 --> 00:01:50.642
+Now swap ten minutes for 100 milliseconds.
 
 32
-00:01:55.167 --> 00:02:01.104
-Fixed rate catches up, fixed delay shifts, and a periodic task that throws stops for good.
+00:01:50.642 --> 00:01:54.680
+One slow run of 250 milliseconds, and every other run 10.
 
 33
-00:02:01.333 --> 00:02:02.732
-Check yourself.
+00:01:54.680 --> 00:01:59.356
+That's the lesson's model, and it gives exactly these start times.
 
 34
-00:02:02.732 --> 00:02:04.783
-Fixed delay of 100 ms.
+00:01:59.567 --> 00:02:01.008
+And on a real clock?
 
 35
-00:02:04.783 --> 00:02:07.766
-A run starts at 0 and takes 250.
+00:02:01.008 --> 00:02:06.343
+The lesson's RateVsDelayDemo ran the fixed rate version on a busy machine.
 
 36
-00:02:07.766 --> 00:02:10.469
-When does the next one start?
+00:02:06.343 --> 00:02:09.443
+Runs 3 and 4 started 18 milliseconds apart.
 
 37
-00:02:13.200 --> 00:02:16.748
-350: the end of the run, plus 100.
+00:02:09.443 --> 00:02:16.724
+From run 5, the starts are back on the 100 millisecond grid, give or take the machine's own lateness.
+
+38
+00:02:17.533 --> 00:02:18.912
+Why does this happen?
+
+39
+00:02:18.912 --> 00:02:21.143
+It's one rule inside the executor.
+
+40
+00:02:21.143 --> 00:02:26.722
+A repeating task goes back in its queue only when a run returns, with a new due time.
+
+41
+00:02:26.722 --> 00:02:29.806
+Fixed rate adds the period to the old due time.
+
+42
+00:02:29.806 --> 00:02:32.038
+Fixed delay adds the delay to now.
+
+43
+00:02:32.038 --> 00:02:36.304
+And a due time in the past means run as soon as a thread is free.
+
+44
+00:02:36.533 --> 00:02:38.616
+Here the cleaner picture breaks.
+
+45
+00:02:38.616 --> 00:02:41.934
+A real manager might send a second cleaner to help.
+
+46
+00:02:41.934 --> 00:02:43.431
+A scheduler never will.
+
+47
+00:02:43.431 --> 00:02:49.743
+The task isn't back in the queue until its run ends, so it never runs at the same time as itself.
+
+48
+00:02:49.743 --> 00:02:51.500
+A slow task just runs late.
+
+49
+00:02:52.333 --> 00:02:53.142
+So which one?
+
+50
+00:02:53.142 --> 00:03:01.473
+Fixed rate when the timing is the point, like a heartbeat, a short "still here" message that another program expects every 30 seconds.
+
+51
+00:03:01.473 --> 00:03:05.265
+Fixed delay when the task calls something that can slow down.
+
+52
+00:03:05.265 --> 00:03:10.301
+A service that just got over a slow spell doesn't need a burst of catch-up calls.
+
+53
+00:03:11.033 --> 00:03:12.171
+Back to the soup.
+
+54
+00:03:12.171 --> 00:03:16.857
+One evening, the cleaner slips on it, goes home, and never comes back.
+
+55
+00:03:16.857 --> 00:03:18.530
+Nobody tells the manager.
+
+56
+00:03:18.530 --> 00:03:20.404
+The tables just get dirtier.
+
+57
+00:03:21.133 --> 00:03:23.403
+Java's scheduler can do the same.
+
+58
+00:03:23.403 --> 00:03:32.481
+The lesson's SilentDeathDemo runs a health check every 100 milliseconds, and its third run throws an exception that nothing catches.
+
+59
+00:03:32.481 --> 00:03:33.719
+What happens next?
+
+60
+00:03:36.500 --> 00:03:40.984
+After one second, ten periods have passed, and three checks have run.
+
+61
+00:03:40.984 --> 00:03:41.959
+isDone is true.
+
+62
+00:03:41.959 --> 00:03:44.819
+Nothing was logged, and nothing was retried.
+
+63
+00:03:44.819 --> 00:03:46.639
+The schedule simply stopped.
+
+64
+00:03:47.467 --> 00:03:49.351
+It's the same rule as before.
+
+65
+00:03:49.351 --> 00:03:53.573
+The task goes back in the queue only when a run returns normally.
+
+66
+00:03:53.573 --> 00:04:02.214
+A run that throws leaves its exception inside the ScheduledFuture, the ticket the scheduler handed you, and the task never goes back.
+
+67
+00:04:02.214 --> 00:04:06.501
+The Javadoc says it plainly: subsequent executions are suppressed.
+
+68
+00:04:06.733 --> 00:04:08.984
+Our cleaner didn't even leave a note.
+
+69
+00:04:08.984 --> 00:04:12.573
+The only trace is in the ticket, and only get will show it.
+
+70
+00:04:12.573 --> 00:04:16.588
+And hardly anyone calls get on a task that's meant to run forever.
+
+71
+00:04:17.400 --> 00:04:22.597
+The fix is to catch inside the task, so no exception ever reaches the scheduler.
+
+72
+00:04:22.597 --> 00:04:26.430
+Wrap the body in a try, catch RuntimeException, and log it.
+
+73
+00:04:26.430 --> 00:04:33.121
+Run the demo that way, and the checks go on, about ten or eleven in the second, and isDone stays false.
+
+74
+00:04:33.933 --> 00:04:38.082
+Catch RuntimeException, not Throwable, which catches everything.
+
+75
+00:04:38.082 --> 00:04:45.732
+An Error, such as running out of memory, means the JVM itself is in trouble, so let it stop the task, and alert on it.
+
+76
+00:04:45.732 --> 00:04:47.677
+And check isDone now and then.
+
+77
+00:04:47.677 --> 00:04:51.048
+For a task that should run forever, done means dead.
+
+78
+00:04:51.767 --> 00:04:53.393
+So, what's the difference?
+
+79
+00:04:53.393 --> 00:04:57.270
+Fixed rate keeps the clock, and catches up after a slow round.
+
+80
+00:04:57.270 --> 00:05:00.709
+Fixed delay keeps the rest, and moves everything later.
+
+81
+00:05:00.709 --> 00:05:06.087
+And a run that throws sends the cleaner home without a word, so catch inside the task.
+
+82
+00:05:06.300 --> 00:05:07.115
+Quick check.
+
+83
+00:05:07.115 --> 00:05:12.072
+scheduleWithFixedDelay with a delay of 10 seconds, and every run takes 2.
+
+84
+00:05:12.072 --> 00:05:14.448
+When do the first three runs start?
+
+85
+00:05:17.433 --> 00:05:19.283
+At 0, 12 and 24 seconds.
+
+86
+00:05:19.283 --> 00:05:23.292
+Each start waits 10 seconds after the last run ends.
