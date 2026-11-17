@@ -30,7 +30,7 @@ public class HotThreadsJava {
     }
 
     public static void main(String[] args) throws InterruptedException {
-        Thread spinner = Thread.ofPlatform().daemon().name("fee-recalc").start(() -> {
+        Thread spinner = Thread.ofPlatform().daemon().name("index-rebuild").start(() -> {
             long x = 1;
             while (true) x = x * 31 + 7;
         });

@@ -33,25 +33,25 @@ FIGURE = """<svg viewBox="0 0 680 250" role="img" aria-label="A container with a
 <text class="t-s" x="320" y="198" text-anchor="middle">-XX:MaxRAMPercentage=75: heap, the rest and headroom fit</text>
 </svg>"""
 
-OPENING = """Every cleaning crew keeps a logbook. After each round, someone writes one line: when it was, what kind of round, why it started, how full the floor was before and after, and how long the workers had to wait. Months later, on the morning after a bad afternoon, that logbook is how you find out what happened.
+OPENING = """Every cleaning crew keeps a logbook. After each round, someone writes one line: when, what kind of round and why, how full the floor was before and after, and how long the workers waited. After a bad afternoon, that logbook is how you find out what happened.
 
-The JVM's collectors keep the same logbook, and the last lesson read a few of its entries. This lesson reads it properly. Then it moves the warehouse onto a rented plot: a container, a fenced-off part of a shared machine with a fixed memory limit.
+The JVM, the program that runs your Java and Kotlin, keeps the same logbook for its garbage collector, and the last lesson read a few entries; this one reads it properly. Then it moves the warehouse onto a rented plot: a container, a fenced-off part of a shared machine with a fixed memory limit.
 
-The surprise waits at the fence. A program started with `-Xmx` equal to its container's memory limit looks as if it fits. It runs for hours, then vanishes, and its own log doesn't say a word. The trap is believing that `-Xmx` is the size of the program.
+The surprise is at the fence. A program started with `-Xmx`, the largest heap it may use, equal to its container's memory limit looks as if it fits. It runs for hours, then vanishes, and its own log doesn't say a word. The trap is believing that `-Xmx` is the size of the program.
 
-In this lesson, we'll read GC log lines field by field, turn a log into a few numbers, watch the JVM size its heap from a limit, and see why the whole building has to fit the plot. Before we start, make a guess, and keep it in mind."""
+In this lesson, we'll read GC log lines, turn a log into a few numbers, watch the JVM size its heap from a limit, and see why the whole building must fit the plot. Before we start, make a guess, and keep it in mind."""
 
-S1 = """One flag makes the collector write a line for every collection. Since JDK 9 the flag is `-Xlog:gc`, part of the JVM's unified logging system (older guides show `-XX:+PrintGCDetails`, which JDK 9 replaced). Here's the first line of a G1 run on JDK 25, with the thumbnail service's stand-in load from lesson 4:
+S1 = """One flag makes the garbage collector (GC), the part of the JVM that frees objects nothing uses any more, write a line for every collection. Since JDK 9 the flag is `-Xlog:gc`, part of the JVM's unified logging system (older guides show `-XX:+PrintGCDetails`, which JDK 9 replaced). Here's the first line from G1, the default collector, on JDK 25, running the thumbnail service's stand-in load from lesson 4:
 
 ```text
 [0.440s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 28M->2M(214M) 8.692ms
 ```
 
-Read it left to right. `[0.440s]` is the time since the JVM started, `[info]` the log level and `[gc]` the tag, the topic of the line. `GC(0)` numbers the collection; a concurrent cycle gets a number of its own, and the pauses inside it reuse that number. `Pause Young` is the event. `(Normal)` says it's a young-only pause; `Concurrent Start`, `Prepare Mixed` and `Mixed` are the other kinds from lesson 4. `(G1 Evacuation Pause)` is the cause: eden, the area for new objects, was full. You'll also see `G1 Humongous Allocation` and `System.gc()` there.
+Read it left to right. `[0.440s]` is the time since the JVM started, `[info]` the log level and `[gc]` the tag, the topic of the line. `GC(0)` numbers the collection; a concurrent cycle, work the collector does while the program runs, gets a number of its own, and the pauses inside it reuse that number. `Pause Young` is the event. `(Normal)` says it's a young-only pause; `Concurrent Start`, `Prepare Mixed` and `Mixed` are the other kinds from lesson 4. `(G1 Evacuation Pause)` is the cause: eden, the area for new objects, was full. You'll also see `G1 Humongous Allocation` and `System.gc()` there.
 
-Then come the numbers. `28M->2M(214M)` is the heap in use before the pause, the heap in use after it, and the committed heap, the memory the operating system has really handed over. Last, `8.692ms` is how long every application thread was stopped. That's the line a person waiting on a request feels.
+Then come the numbers. `28M->2M(214M)` is the heap (the memory where objects live) in use before the pause, the heap in use after it, and the committed heap, the memory the operating system has really handed over. Last, `8.692ms` is how long every application thread, every path of work in the program, was stopped. That's the line a person waiting on a request feels.
 
-One label changed between versions. When G1 runs out of free regions to copy into, JDK 21 writes `(Evacuation Failure)`, and JDK 25 adds the reason, as in `(Evacuation Failure: Allocation)`. Search for `Evacuation Failure` and you'll find both.
+One label changed between versions. When G1 runs out of free regions (lesson 4's equal blocks of heap) to copy into, JDK 21 writes `(Evacuation Failure)`, and JDK 25 adds the reason, as in `(Evacuation Failure: Allocation)`. Search for `Evacuation Failure` and you'll find both.
 
 `-Xlog:gc*`, with the star, turns on every GC tag: phases, region counts, metaspace and CPU time. That's ten to fifteen lines per pause, the detail lessons 4 and 5 used.
 
@@ -75,13 +75,13 @@ S2 = """A few numbers say most of what a GC log knows:
 
 - the number of pauses and their total time; divided by the elapsed time, that's the share of time your threads were stopped;
 - the longest pause, which is what your slowest requests feel;
-- the number of full GCs and evacuation failures, which should be zero in a healthy G1 program;
+- the number of full GCs (collections of the whole heap, with every thread stopped) and evacuation failures, which should be zero in a healthy G1 program;
 - the heap after the last full GC, which is the **live set** at that moment, the objects really still in use, and the number you size a heap from;
 - the trend of the after-values of young pauses: a floor that keeps rising means the live set is growing.
 
-Computing them has two traps. The first is that not every line with a duration is a pause. `Concurrent Mark Cycle 25.055ms` ran beside the application. G1's `Evacuate Collection Set: 21.05ms` is one phase inside a pause the log already counted on its `Pause Young` line. ZGC's `Minor Collection ... 0.071s` is a whole concurrent collection. One rule works for every HotSpot collector: **a pause line has `Pause` right after `GC(id)` and ends with a duration in `ms`.** ZGC puts `y:`, `Y:` or `O:` between the two.
+Computing them has two traps. The first is that not every line with a duration is a pause. `Concurrent Mark Cycle 25.055ms` ran beside the application. G1's `Evacuate Collection Set: 21.05ms` is one phase inside a pause the log already counted on its `Pause Young` line. ZGC's `Minor Collection ... 0.071s` from lesson 5 is a whole concurrent collection. One rule works for every HotSpot collector: **a pause line has `Pause` right after `GC(id)` and ends with a duration in `ms`.** ZGC puts `y:`, `Y:` or `O:` between the two.
 
-The second trap is `(System.gc())`, which has parentheses inside its parentheses and breaks the obvious regular expression. The lab builds a parser with that rule, and tests it on lines copied from real JDK 21 and JDK 25 runs of all five collectors.
+The second trap is `(System.gc())`, which has parentheses inside its parentheses and breaks the obvious regular expression. The lab builds a parser with that rule, and tests it on lines copied from real runs: all five collectors on JDK 21, and G1 on JDK 25.
 
 Check yourself on a stretch of the demo's JDK 25 log, with the decorations cut off. It's a G1 cycle like the one in lesson 4:
 
@@ -103,7 +103,7 @@ S3 = """A **container** is a way to run a program in a fenced-off part of a shar
 
 The JVM reads that lease. `UseContainerSupport` is on by default in every JDK from 21 to 27, so the JVM sizes itself from the container's limits, not the whole machine's. Without heap flags, the max heap is 25% of the memory limit (`MaxRAMPercentage`, default 25). A container with a 1 GiB limit gets a 256 MB heap. That's a cautious default: three quarters of the plot stays free unless the program uses it outside the heap. Very small limits get a bigger share: with a 256 MB limit, JDK 25 picked a 126 MB heap, because `MinRAMPercentage` (50) applies there.
 
-`-XX:MaxRAMPercentage` changes the share. With 75, the same container gets 768 MB. Prefer it over a fixed `-Xmx`, because the heap then follows the limit when someone gives the container more memory. Watch the top end: in a 64 GB container, 75% is 48 GB, and compressed references switch off (lesson 1). `-XX:InitialRAMPercentage` sets the starting heap. It was 1.5625% on JDK 21 to 25; per the JDK source, it is 0 on JDK 26, where the JVM starts from a small minimum and grows.
+`-XX:MaxRAMPercentage` changes the share. With 75, the same container gets 768 MB. Prefer it over a fixed `-Xmx`, because the heap then follows the limit when someone gives the container more memory. Watch the top end: in a 64 GB container, 75% is 48 GB, and lesson 1's compressed references switch off, so every reference grows from 4 bytes to 8. `-XX:InitialRAMPercentage` sets the starting heap. It was 1.5625% on JDK 21 to 25; per the JDK source, it is 0 on JDK 26, where the JVM starts from a small minimum and grows.
 
 To see what the JVM detected, run `java -XshowSettings:system -version` inside the container. On the machine behind this lesson, JDK 25 printed `Provider: cgroupv1`, `Effective CPU Count: 4` and `Memory Limit: 13.35G`. `-Xlog:os+container=debug` shows the detection step by step, which helps when the numbers look wrong.
 
@@ -155,7 +155,7 @@ L = {
      "Run it, then open the newest file, `labs/memory/build/gc-logs/gc.log`, and find a `Pause Young` line with its date and time."
     ],
     "code": demo("GcLogFileDemo"),
-    "expect": "Two or three files: `gc.log.0` (and maybe `gc.log.1`), full at about 40 KB with the older lines, and `gc.log` with the newest. On JDK 25 the run behind this lesson found 2 `Pause Full` lines and 7 to 13 lines with `Evacuation Failure`, because this heap is too small for its cache on purpose. The first young pause goes `29M->2M`, and the last ones leave 120 to 245 MB behind: the floor rose as the cache filled. The counts change from run to run."
+    "expect": "Two or three files: `gc.log.0` (and maybe `gc.log.1`), full at about 40 KB with the older lines, and `gc.log` with the newest. On JDK 25 the run behind this lesson found 2 `Pause Full` lines and 7 to 13 lines with `Evacuation Failure`, because this heap is too small for its cache on purpose. The first young pause goes `29M->2M` (`14M->1M` on JDK 21), and the last ones leave 120 to 245 MB behind: the floor rose as the cache filled. JDK 21 shows more evacuation failures, about 20. The counts change from run to run."
    },
    "refs": [
     {"title": "The java command, JDK 25 man page source: -Xlog", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/java.base/share/man/java.md", "kind": "docs"}
@@ -175,7 +175,7 @@ L = {
     "steps": [
      "Predict the max heap for limits of 1, 2 and 4 GiB, with defaults and with `-XX:MaxRAMPercentage=75`.",
      "Run `HeapSizingDemo` (JDK 21 to 25). Each line comes from a child JVM started with `-XX:MaxRAM` as the limit.",
-     "If you have Docker, run `docker run --rm --memory=1g eclipse-temurin:25 java -XshowSettings:system -version` and find the memory limit it reports."
+     "If you have Docker, a common tool for running programs in containers, run `docker run --rm --memory=1g eclipse-temurin:25 java -XshowSettings:system -version` and find the memory limit it reports."
     ],
     "code": demo("HeapSizingDemo"),
     "expect": "256, 512 and 1,024 MB with defaults (25%), and 768, 1,536 and 3,072 MB with 75%, exactly as JDK 25 printed them for this lesson. In a container, `-XshowSettings:system` reports the limit you gave it, for example `Memory Limit: 1.00G`."

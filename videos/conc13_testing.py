@@ -40,7 +40,7 @@ N = {
     "guard": "Two more rules. Give every concurrency test a timeout, so a deadlock fails in seconds instead of "
              "hanging the whole test run for an hour. And read a pass for what it is: not found this time. Never: can't happen.",
     "sleep": "Tests also love a nap. Hand some work to a background thread, sleep a little, then check. "
-             "In the lesson, eight busy threads kept every core working, like a build server on a busy afternoon. "
+             "In the lesson, eight busy threads kept every core working, like a shared test machine on a busy afternoon. "
              "The work took about 2 milliseconds, and the test slept 3. How often did it fail?",
     "sleep2": "45 times out of 100. A nap half as long again as the work was a coin toss. "
               "The latch version waits for the event itself, with 5 seconds only as a deadline: "
@@ -290,22 +290,22 @@ class Conc13Testing(Narrated):
 
         rows = [("more customers than clerks", "more threads than cores"),
                 ("many returns each", "many operations per thread"),
-                ("many sale days", "many rounds, fresh state each time"),
+                ("many sale days", "many rounds, fresh state"),
                 ("the till must balance", "an invariant, checked after join()")]
         habits = VGroup()
         for k, (a, b) in enumerate(rows):
             y = -2.2 - 0.0 * k
             habits.add(VGroup(T(a, 24, GREY_A), T(b, 24, YELLOW_M)))
         self.say("map")
-        self.play(FadeOut(VGroup(cnt, latch_l, gate)), crowd.animate.shift(RIGHT * 1.4), desks.animate.shift(RIGHT * 1.4),
-                  d_l.animate.shift(RIGHT * 1.4), run_time=0.6)
+        self.play(FadeOut(VGroup(cnt, latch_l, gate)), crowd.animate.shift(RIGHT * 1.9), desks.animate.shift(RIGHT * 1.9),
+                  d_l.animate.shift(RIGHT * 1.9), run_time=0.6)
         tab = VGroup()
         for k, (a, b) in enumerate(habits):
             y = 2.5 - 0.95 * k
             a.move_to([-6.2, y, 0], aligned_edge=LEFT)
-            arr = Arrow([-2.75, y, 0], [-2.05, y, 0], buff=0, stroke_width=3, color=GREY_B,
+            arr = Arrow([-2.05, y, 0], [-1.5, y, 0], buff=0, stroke_width=3, color=GREY_B,
                         max_tip_length_to_length_ratio=0.3)
-            b.move_to([-1.85, y, 0], aligned_edge=LEFT)
+            b.move_to([-1.35, y, 0], aligned_edge=LEFT)
             tab.add(VGroup(a, arr, b))
         self.at(1)
         self.play(FadeIn(tab[0], shift=RIGHT * 0.1), run_time=0.6)
@@ -412,7 +412,7 @@ class Conc13Testing(Narrated):
         for s, x in ((s1, -3.2), (s2, 3.2)):
             s.arrange(DOWN, buff=0.3).move_to([x, 0.1, 0])
         s1q = M("? of 100 failed", 24, GREY_B).next_to(s1, DOWN, buff=0.25)
-        busy = T("8 busy threads, like a build server on a busy afternoon; the work takes about 2 ms", 22, GREY_B)
+        busy = T("8 busy threads, like a shared test machine on a busy afternoon; the work takes about 2 ms", 22, GREY_B)
         fit(busy, 12.4).move_to([0, 2.75, 0])
         self.say("sleep")
         self.at(1)

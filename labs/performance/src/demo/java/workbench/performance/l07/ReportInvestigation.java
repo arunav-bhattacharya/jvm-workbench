@@ -14,19 +14,19 @@ import java.util.Map;
 import java.util.function.ToLongFunction;
 
 /**
- * Runs one fee variant (slow, hoisted or noregex) on 4 threads for 3 seconds in a second JVM with
- * -Xmx256m and a JFR recording, prints latency percentiles and GC counts, then reads the recording
- * and prints allocation by source line in this package.  Usage: -Pargs=slow (or hoisted, noregex).
+ * Runs one version of the report step (slow, hoisted, scanned or noregex) on 4 threads for 3 seconds in a
+ * second JVM with -Xmx256m and a JFR recording, prints latency percentiles and GC counts, then reads the
+ * recording and prints allocation by source line in this package.  Usage: -Pargs=slow (or hoisted, ...).
  */
-public class FeeInvestigation {
+public class ReportInvestigation {
     public static void main(String[] args) throws Exception {
         String mode = args.length > 0 ? args[0] : "slow";
         if (args.length > 1 && args[1].equals("child")) { load(mode); return; }
-        Path file = Path.of("build", "fees-" + mode + ".jfr").toAbsolutePath();
+        Path file = Path.of("build", "report-" + mode + ".jfr").toAbsolutePath();
         String java = ProcessHandle.current().info().command().orElse("java");
         Process p = new ProcessBuilder(java, "-Xmx256m", "-Xlog:jfr+startup=warning",
                 "-XX:StartFlightRecording:filename=" + file + ",settings=profile",
-                "-cp", System.getProperty("java.class.path"), FeeInvestigation.class.getName(), mode, "child")
+                "-cp", System.getProperty("java.class.path"), ReportInvestigation.class.getName(), mode, "child")
                 .inheritIO().start();
         p.waitFor();
         allocationByLine(file);
@@ -34,12 +34,13 @@ public class FeeInvestigation {
 
     // the load: 4 threads, each timing every call into a fixed histogram (no allocation of its own)
     static void load(String mode) throws Exception {
-        ToLongFunction<FeeVariants.Payment> fee = switch (mode) {
-            case "slow" -> FeeVariants::feeSlow;
-            case "hoisted" -> FeeVariants::feeHoisted;
-            default -> FeeVariants::feeNoRegex;
+        ToLongFunction<ReportVariants.Document> step = switch (mode) {
+            case "slow" -> ReportVariants::slow;
+            case "hoisted" -> ReportVariants::hoisted;
+            case "scanned" -> ReportVariants::scanned;
+            default -> ReportVariants::noRegex;
         };
-        FeeVariants.Payment[] ps = FeeVariants.payments(4_096);
+        ReportVariants.Document[] ds = ReportVariants.documents(4_096);
         long end = System.nanoTime() + 3_000_000_000L;
         long[][] hist = new long[4][];
         List<Thread> threads = new ArrayList<>();
@@ -50,7 +51,7 @@ public class FeeInvestigation {
                 long sink = 0;
                 for (int i = id; System.nanoTime() < end; i++) {
                     long t0 = System.nanoTime();
-                    sink += fee.applyAsLong(ps[i & 4095]);
+                    sink += step.applyAsLong(ds[i & 4095]);
                     long d = System.nanoTime() - t0;
                     h[d < 1_000_000 ? (int) (d / 100) : (int) Math.min(20_000, 10_000 + (d - 1_000_000) / 100_000)]++;
                 }
@@ -90,7 +91,7 @@ public class FeeInvestigation {
         for (RecordedEvent e : RecordingFile.readAllEvents(file)) {
             if (!e.getEventType().getName().equals("jdk.ObjectAllocationSample") || e.getStackTrace() == null) continue;
             for (RecordedFrame f : e.getStackTrace().getFrames()) {
-                if (f.getMethod().getType().getName().startsWith("workbench.performance.l07.FeeVariants")) {
+                if (f.getMethod().getType().getName().startsWith("workbench.performance.l07.ReportVariants")) {
                     weight.merge(f.getMethod().getName() + " line " + f.getLineNumber(), e.getLong("weight"), Long::sum);
                     total += e.getLong("weight");
                     break;                          // the first frame in our code is the one to change
@@ -98,7 +99,7 @@ public class FeeInvestigation {
             }
         }
         long sum = total;
-        System.out.println("allocation by line in FeeVariants.java (from " + file.getFileName() + "):");
+        System.out.println("allocation by line in ReportVariants.java (from " + file.getFileName() + "):");
         weight.entrySet().stream().sorted(Map.Entry.<String, Long>comparingByValue().reversed()).limit(5)
               .forEach(en -> System.out.printf("  %5.1f%%  %s%n", 100.0 * en.getValue() / sum, en.getKey()));
     }

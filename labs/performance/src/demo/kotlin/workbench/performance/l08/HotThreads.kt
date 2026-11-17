@@ -18,7 +18,7 @@ fun hottest(millis: Long, n: Int): List<Hot> {
 }
 
 fun main() {
-    Thread.ofPlatform().daemon().name("fee-recalc").start {
+    Thread.ofPlatform().daemon().name("index-rebuild").start {
         var x = 1L
         while (true) x = x * 31 + 7
     }

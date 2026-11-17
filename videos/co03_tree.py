@@ -10,63 +10,61 @@ fg.SAY[:0] = [
 
 # every spoken line, in order
 N = {
-    "open": "In plain code, an exception has an easy path. A function throws, and the exception climbs back up "
-            "to whoever called it, one caller at a time, until someone catches it.",
+    "open": "In plain code, an exception has an easy path. A function throws, and the exception climbs back up to "
+            "whoever called it, one caller at a time, until someone catches it.",
     "shyq": "So here's a question that's easy to be shy about. A launched coroutine has no caller waiting for it. "
             "The line that started it moved on long ago. So when it throws, where does the exception go?",
-    "tree": "The answer is a picture we've been building. A dinner has courses, and a course has dishes. "
-            "In code, the dinner is the root coroutine. The main course is a coroutineScope inside it. "
-            "And the roast, the potatoes and the gravy are its children, each started with launch or async.",
-    "tree2": "Every coroutine you start becomes a child of the scope it starts in, so the work forms a tree. "
-             "And you know its first rule already: a parent can't finish until all of its children have. "
-             "The course doesn't go out until every dish is ready.",
-    "burn_q": "Now the roast burns. At 100 milliseconds, it throws BurnedException, an exception the demo made up "
-              "for a ruined dish. The potatoes would need a whole second. Should they keep cooking? "
-              "And when does the caller hear about it?",
-    "s1": "Here's what the tree does, in order. One: the roast fails, and reports the exception to its parent, the course.",
+    "tree": "The answer is a picture we've been building. A dinner has courses, and a course has dishes. The "
+            "dinner is the root coroutine, the main course is a coroutineScope inside it, and the roast, the "
+            "potatoes and the gravy are its children.",
+    "tree2": "Every coroutine becomes a child of the scope it starts in, so the work forms a tree. Its first rule "
+             "you know already: a parent can't finish until all of its children have.",
+    "burn_q": "Now the roast burns. At 100 milliseconds it throws BurnedException, an exception the demo made up. "
+              "The potatoes would need a whole second. Should they keep cooking? And when does the caller hear?",
+    "s1": "Here's what the tree does, in order. One: the roast fails, and reports the exception to its parent, "
+          "the course.",
     "s2": "Two: the course is cancelled with that exception, and a cancelled job cancels all of its children. "
           "The potatoes and the gravy come off the heat, and their finally blocks, the clean up code, run.",
     "s3": "Three: the course waits until they have really stopped.",
     "s4": "Four: coroutineScope throws the BurnedException to its caller, who can catch it like any exception. "
           "The family hears what happened.",
-    "sum": "So one failure takes down the whole course, and comes out as one exception, right where the work started. "
-           "It takes as long as the failure, about 100 milliseconds, not the slowest dish. Nothing is left cooking.",
-    "demo": "The lesson's FailureSpreads runs this with a roast and potatoes. The roast burned at 161 milliseconds. "
-            "The potatoes' finally block ran 2 milliseconds later, and the caller caught it 2 after that. "
-            "Potatoes: done, never printed.",
-    "demo_joke": "Why 161, and not 100? A JVM, the program that runs the code, is slow just after it starts. "
-                 "It was still finding its apron. "
-                 "That part is the machine, not the tree.",
-    "java": "Now, many of us carry a picture from Java's executors, the pools that run the tasks you hand them: "
-            "every task is on its own. Run the same dinner on one. An executor has no tree. "
-            "The roast fails, and the potatoes carry on to potatoes: done, at about 1,000 milliseconds, and close waits for them.",
-    "java_joke": "The roast is on fire, and the potatoes are still being lovingly peeled. So the point is: "
-                 "in Java, you cancel them by hand. With that one line, their finally ran at 198 milliseconds. "
-                 "coroutineScope does that step for you.",
+    "sum": "So one failure takes down the whole course, and comes out as one exception, where the work started, "
+           "after about 100 milliseconds. Nothing is left cooking.",
+    "demo": "The lesson's FailureSpreads runs this with a roast and potatoes. The roast burned at 161 "
+            "milliseconds. The potatoes' finally block ran 2 milliseconds later, and the caller caught it 2 after "
+            "that. Potatoes: done, never printed.",
+    "demo_joke": "Why 161, and not 100? A JVM, the program that runs the code, is slow just after it starts. It was "
+                 "still finding its apron. That part is the machine, not the tree.",
+    "java": "Many of us carry a picture from Java's executors, the pools that run tasks you hand them: every task "
+            "is on its own. On an executor, the roast fails, and the potatoes carry on to potatoes: done, at "
+            "about 1,000 milliseconds. close waits for them.",
+    "java_joke": "The roast is on fire, and the potatoes are still being lovingly peeled. So the point is: in Java, "
+                 "you cancel them by hand. With that one line, their finally ran at 198 milliseconds. coroutineScope "
+                 "does that step for you.",
     "cancel": "Now the other direction. The guests phone, and call the dinner off. That's a cancel, and it comes "
               "from the top. It travels down: the dinner is cancelled, then the course, then every dish below it.",
     "up_q": "And the other way? Say only the gravy is cancelled. Does the course stop?",
-    "up_a": "No. A cancel never goes up. A child that's cancelled, or that ends by throwing CancellationException, "
-            "the exception a cancelled coroutine throws, counts as cancelled, not failed. "
+    "up_a": "No. A cancel never goes up. A child that's cancelled, or that ends by throwing "
+            "CancellationException, the exception a cancelled coroutine throws, counts as cancelled, not failed. "
             "Its parent isn't told, and the roast and the potatoes carry on.",
-    "name": "This is structured concurrency: work that runs at the same time has the same nested shape as the code "
-            "that started it, and failures and cancels follow that shape. "
-            "A failure goes up the tree and stops the siblings. A cancel goes down, and stops there.",
-    "why": "It's the default because it's almost always what you want. If one dish is ruined, the course is off, "
-           "and finishing the others is wasted work. Sometimes you do want siblings to survive: a reminder sent "
-           "by text, by email and by phone, where any one is enough. For that, lesson 6 brings in a supervisor.",
+    "name": "This is structured concurrency: work that runs at the same time has the same nested shape as the "
+            "code that started it, and failures and cancels follow that shape. A failure goes up the tree and "
+            "stops the siblings. A cancel goes down, and stops there.",
+    "why": "This is the default because it's almost always what you want: if one dish is ruined, the course is "
+           "off. Sometimes you do want siblings to survive, like a reminder sent by text, email and phone, where "
+           "any one is enough. Lesson 6 brings in a supervisor for that.",
     "breaks": "And here the picture breaks, on timing. A real cook pulls the pans off at once. A coroutine hears "
-              "the cancel only at its next suspension point, the next place it could put a bookmark in. "
-              "A dish in the middle of a long calculation, or a blocking call, finishes that first. "
-              "Lesson 5 shows how to cooperate.",
-    "code": "Here's the demo's core in Kotlin, shortened, with the Java executor beside it. "
-            "In Kotlin, the scope cancels the potatoes for you. In Java, you write that line yourself.",
+              "the cancel only at its next suspension point, so a long calculation, or a blocking call, finishes "
+              "first. Lesson 5 shows how to cooperate.",
+    "code": "Here's the demo's core in Kotlin, shortened, with the Java executor beside it. In Kotlin, the scope "
+            "cancels the potatoes for you. In Java, you write that line yourself.",
     "moral": "So, where does a child's exception go? Up the tree, to its parent. The parent stops the siblings, "
-             "waits for them, and hands one exception to whoever started the work. A cancel only ever travels down.",
-    "check": "Quick check. Nobody calls off the dinner. Someone cancels just the potatoes. "
-             "What happens to the roast, the gravy and the course?",
-    "check_a": "Nothing changes for them. The potatoes count as cancelled, not failed, so the course isn't told. "
-               "The roast and the gravy keep cooking.",
+             "waits for them, and hands one exception to whoever started the work. A cancel only ever travels "
+             "down.",
+    "check": "Quick check. Nobody calls off the dinner. Someone cancels just the potatoes. What happens to the "
+             "roast, the gravy and the course?",
+    "check_a": "Nothing changes for them. The potatoes count as cancelled, not failed, so the course isn't told. The "
+               "roast and the gravy keep cooking.",
 }
 
 
@@ -265,11 +263,11 @@ class Co03FailureTree(Narrated):
         self.play(Create(e1), FadeIn(crs), run_time=0.7)
         self.play(*[Create(e) for e in e2], LaggedStart(*[FadeIn(d, shift=DOWN * 0.1) for d in dish], lag_ratio=0.2),
                   run_time=1.0)
-        self.at_text("the dinner is", lead=0.3)
+        self.at_text("The dinner is", lead=0.3)
         self.play(FadeIn(din_l), run_time=0.5)
-        self.at_text("The main course", lead=0.3)
+        self.at_text("the main course is", lead=0.3)
         self.play(FadeIn(crs_l), run_time=0.5)
-        self.at_text("And the roast", lead=0.3)
+        self.at_text("and the roast", lead=0.3)
         self.play(*[Indicate(d[1], color=d[1].get_color()) for d in dish], FadeIn(kids_l), run_time=1.0)
         self.hold()
 
@@ -279,7 +277,7 @@ class Co03FailureTree(Narrated):
         self.play(*[Create(s) for s in stm], run_time=0.8)
         self.at(1)
         self.play(FadeOut(kids_l), FadeIn(wait_l, shift=UP * 0.1), run_time=0.6)
-        self.at(2)
+        self.at_text("a parent can't", lead=0.3)
         self.play(Indicate(crs[0], color=COURSE, scale_factor=1.04), run_time=0.8)
         self.hold()
 
@@ -408,12 +406,14 @@ class Co03FailureTree(Narrated):
         self.say("java")
         self.play(FadeIn(ax), FadeIn(kt), GrowFromEdge(k_r, LEFT), GrowFromEdge(k_p, LEFT), FadeIn(k_rl), FadeIn(k_pl),
                   run_time=0.9)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(jt), run_time=0.5)
-        self.at(3)
+        self.at_text("the roast fails", lead=0.3)
         self.play(GrowFromEdge(j_r, LEFT), FadeIn(j_rl), run_time=0.6)
         self.play(GrowFromEdge(j_p, LEFT), run_time=1.4)
-        self.play(FadeIn(j_pl), FadeIn(cls), run_time=0.5)
+        self.play(FadeIn(j_pl), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(cls), run_time=0.5)
         self.hold()
 
         peel = T("on fire, and still being lovingly peeled", 24, BAD).move_to([2.0, -1.35, 0])
@@ -519,9 +519,9 @@ class Co03FailureTree(Narrated):
         sup = VGroup(T("a supervisor", 28, GREEN_M), T("lesson 6", 22, GREY_B)).arrange(DOWN, buff=0.1).next_to(rem, RIGHT, buff=0.8)
         self.say("why")
         self.play(FadeIn(wasted, shift=UP * 0.1), run_time=0.6)
-        self.at(2)
+        self.at(1)
         self.play(LaggedStart(*[FadeIn(r, shift=UP * 0.1) for r in rem], lag_ratio=0.2), FadeIn(any1), run_time=0.9)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(sup, shift=LEFT * 0.1), run_time=0.6)
         self.hold()
         self.play(FadeOut(VGroup(wasted, rem, any1, sup, nm, rules)), run_time=0.5)
@@ -538,7 +538,7 @@ class Co03FailureTree(Narrated):
         l5 = T("lesson 5: how to cooperate", 22, GREY_B).move_to([0, -2.5, 0])
         self.say("breaks")
         self.play(FadeIn(busy), FadeIn(busy_l), run_time=0.6)
-        self.at(1)
+        self.at_text("hears the cancel", lead=0.3)
         self.play(GrowArrow(ca), FadeIn(ca_l), run_time=0.6)
         self.at_text("next suspension point", lead=0.4)
         self.play(Create(sp), FadeIn(sp_l), run_time=0.6)

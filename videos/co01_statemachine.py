@@ -11,71 +11,67 @@ fg.SAY[:0] = [
 
 # every spoken line, in order
 N = {
-    "open": "Earlier in this lesson, one cook kept five pots going on one thread: five waits of 200 milliseconds, "
-            "358 milliseconds in all.",
+    "open": "Earlier in this lesson, one cook kept five pots going on one thread, in 358 milliseconds.",
     "shyq": "So here's a question that's easy to be shy about. A function's locals live with its thread. If the "
             "function pauses, and the thread walks off, where do they go?",
-    "frame": "A running function has a frame on its thread's stack: its local variables, and the line it's up to. "
-             "That's the cook's head. Onions are in, simmer is next.",
+    "frame": "A running function keeps a frame on its thread's stack: its local variables, and the line it's up "
+             "to. That's the cook's head: onions in, simmer next.",
     "salad": "Now she walks over to the salad, and her head fills up with lettuce. Ask her how much salt went into "
              "the soup, and she'll say: some.",
-    "salad2": "A thread is the same: the next code it runs reuses that memory. So a pausing function must write its "
-              "place down somewhere else.",
-    "fix1": "One fix is to never walk off. That's Thread.sleep, the cook standing at the pot, which is what we "
-            "came here to avoid.",
-    "fix2": "Another fix: copy the whole stack, like the order slip that Java's virtual threads clip to the "
-            "board. That needs help from the JVM, the program that runs the code, and Kotlin coroutines run on "
-            "any JVM, and on Android. So the compiler writes the place down itself.",
+    "salad2": "A thread is the same: the next code reuses that memory. So the place must be written down somewhere "
+              "else.",
+    "fix1": "One fix is to never walk off. That's Thread.sleep, the cook standing at the pot, which is what we're "
+            "avoiding.",
+    "fix2": "Another fix: copy the whole stack, like the order slip Java's virtual threads clip to the board. But "
+            "that needs help from the JVM, the program that runs the code, and Kotlin coroutines don't ask for "
+            "any. So the compiler writes the place down itself.",
     "book": "The way a good cook does. She puts a bookmark at the next step, sticks a note on the page, onions: "
             "measured, sets the kitchen timer, and walks away. When it rings, she opens the book at the bookmark, "
             "reads the note, and carries on.",
-    "map": "Let's map it. The recipe is the function's code. The bookmark says which step is next. The note "
-           "holds the locals. And the cook is the thread, free while the book waits.",
-    "shrink": "Let's shrink it to one function. makeSauce waits for fryOnions, then for simmer. Each call that may "
-              "pause is called a suspension point, and this one has two.",
-    "sig": "First, the compiler quietly changes the function. javap, a JDK tool that prints what's inside a "
-           "compiled class, shows makeSauce with one more parameter, a Continuation, and returning Object.",
-    "sig2": "Object, because it now returns one of two things: the real sauce, or a marker, COROUTINE_SUSPENDED, "
-            "which means: I've paused, I'll call you back.",
+    "map": "Let's map it. The recipe is the code. The bookmark says which step is next. The note holds the local "
+           "variables. And the cook is the thread, free while the book waits.",
+    "shrink": "Let's shrink it to one function. makeSauce waits for fryOnions, then for simmer: two calls that may "
+              "pause, called suspension points.",
+    "sig": "First, the compiler quietly changes the function. javap, a JDK tool for looking inside compiled "
+           "classes, shows one more parameter, a Continuation, and a return type of Object.",
+    "sig2": "So it returns either the real sauce, or a marker, COROUTINE_SUSPENDED, which means: I've paused, "
+            "I'll call you back.",
     "sigjoke": "A three line function grew a parameter nobody wrote. If a teammate did that, you'd have questions. "
-               "Here, it's the trick: the hidden parameter is how the bookmark travels.",
+               "Here, that hidden parameter is how the bookmark travels.",
     "states_q": "Next, the compiler cuts the body at each suspension point. makeSauce has two. How many steps will it "
                 "make?",
-    "states_a": "Three: up to fryOnions, up to simmer, and after simmer. A label numbers them 0, 1 and 2. Code with a "
-                "counter like that, saying which step is next, is a state machine.",
-    "object": "The bookmark is one small object the compiler writes for this function: an int called label, for the "
-              "page, and two fields, L$0 and L$1, for the sticky note.",
+    "states_a": "Three: up to fryOnions, up to simmer, and after simmer, numbered by a label: 0, 1 and 2. Code with a "
+                "counter like that is called a state machine.",
+    "object": "The bookmark is one small object the compiler writes: an int called label, for the page, and two "
+              "fields, L$0 and L$1, for the sticky note.",
     "t0": "Let's follow one call. The label is 0, so step 0 writes the onions on the note, in L$0, sets the "
           "label to 1, and calls fryOnions, handing over the bookmark.",
     "t1": "fryOnions has to wait, so it returns COROUTINE_SUSPENDED, and makeSauce passes the marker straight "
-          "up. The cook's hands are empty, and she goes off to other work.",
-    "t2": "Notice what's left: no thread, no frame. Just the bookmark, an object on the heap, the memory where "
-          "objects live.",
-    "t3": "When the onions are golden, something calls resumeWith on the bookmark, with the golden onions. That "
-          "calls makeSauce again, and a switch on the label jumps to step 1.",
-    "t4": "Step 1 writes the golden onions on the note, in L$1, sets the label to 2, and calls simmer. simmer "
-          "waits too, so the thread leaves again.",
-    "t5": "When simmer answers, resumeWith runs once more, and step 2 returns the sauce to whoever was waiting: "
-          "sauce from golden onions. Nobody stood at the pan.",
+          "up. Now there's no thread and no frame, just the bookmark, on the heap, the memory where objects "
+          "live.",
+    "t3": "When the onions are golden, something calls resumeWith on the bookmark, with the golden onions. "
+          "makeSauce runs again, and a switch on the label jumps to step 1.",
+    "t4": "Step 1 writes the golden onions in L$1, sets the label to 2, and calls simmer, which waits too. The "
+          "thread leaves again.",
+    "t5": "When simmer answers, resumeWith runs once more, and step 2 returns the sauce: sauce from golden "
+          "onions. Nobody stood at the pan.",
     "obj_q": "makeSauce paused twice. So how many bookmark objects did it make?",
     "obj_a": "One, made when the call starts, and reused at every pause. Only the label and the note change.",
     "name": "Now the names. The bookmark is a continuation: it knows how to carry on a paused coroutine. It has a "
             "context, the coroutine's settings, and resumeWith: the wait is over, here's the value.",
     "name2": "Passing what to do next as a hidden parameter is called continuation-passing style. And javap "
-             "agrees: one switch over the label, cases 0 to 2.",
-    "slip": "Compare the slip on the board, where the JVM copied every frame of a virtual thread. A coroutine "
-            "keeps one small bookmark per suspend function still running, with only its own fields.",
-    "cost": "That's why a paused coroutine is cheap: you can have hundreds of thousands. And plain code can't "
-            "call a suspend function: it has no bookmark to hand over.",
+             "agrees: cases 0 to 2.",
+    "slip": "Compare the slip on the board: the JVM copies every frame of a virtual thread. A coroutine keeps one "
+            "small bookmark per suspend function still running.",
+    "cost": "So a paused coroutine is cheap: you can have hundreds of thousands. And plain code can't call a "
+            "suspend function: it has no bookmark to hand over.",
     "breaks": "Here the picture breaks. A real cook hears the timer and walks back by herself. A paused coroutine "
-              "does nothing until something calls resumeWith: the library's timer, or the code that got the answer.",
-    "breaks2": "Forget to call it, and it waits forever, very politely. So somebody has to ring the timer, and the "
-               "last section shows who, for a callback.",
-    "code": "Here's the Kotlin, with Java beside it. In Kotlin, the compiler writes the bookmark. In Java, a "
-            "virtual thread blocks, and the JVM saves the whole slip.",
-    "moral": "So, where do the locals go when the thread walks off? Onto a sticky note, in a bookmark the compiler "
-             "wrote. A suspended coroutine is a bookmark, not a thread, and something has to call resumeWith to "
-             "wake it.",
+              "does nothing until something calls resumeWith: a library timer, or the code that got the answer.",
+    "breaks2": "Forget to call it, and it waits forever, very politely. So somebody has to ring the timer.",
+    "code": "Here's the Kotlin, with Java beside it. Kotlin's compiler writes a bookmark. Java's virtual thread "
+            "blocks, and the JVM saves the whole slip.",
+    "moral": "So, where do the locals go when the thread walks off? Onto a sticky note, in a bookmark. A suspended "
+             "coroutine is a bookmark, not a thread, and something has to call resumeWith to wake it.",
     "check": "Quick check. fryOnions waits once, on delay. How many steps does the compiler give it?",
     "check_a": "Two. Label 0 runs up to the delay, and label 1 after it. javap shows cases 0 to 1.",
 }
@@ -184,7 +180,7 @@ def sticky(lines, color=NOTE, size=20, w=1.5):
 
 
 def recipe_book(steps, title="Sauce"):
-    left = Rectangle(width=2.6, height=3.0).set_stroke(GREY_A, 2.5).set_fill("#141414", 1)
+    left = Rectangle(width=2.85, height=3.0).set_stroke(GREY_A, 2.5).set_fill("#141414", 1)
     right = left.copy().next_to(left, RIGHT, buff=0)
     head = T(title, 28).move_to(left.get_top() + DOWN * 0.45)
     rows = VGroup(*[T(f"{i + 1}   {s}", 23, GREY_A) for i, s in enumerate(steps)]).arrange(DOWN, aligned_edge=LEFT, buff=0.42)
@@ -244,7 +240,7 @@ class Co01StateMachine(Narrated):
         self.say("open")
         self.play(FadeIn(cook), FadeIn(cook_l), run_time=0.6)
         self.play(LaggedStart(*[FadeIn(p, shift=UP * 0.15) for p in pots], lag_ratio=0.15), FadeIn(pot_l), run_time=1.2)
-        self.at_text("five waits", lead=0.3)
+        self.at_text("in 358", lead=0.3)
         self.play(FadeIn(took, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
@@ -278,7 +274,7 @@ class Co01StateMachine(Narrated):
         self.play(FadeIn(f_sauce, shift=DOWN * 0.15), run_time=0.7)
         self.at(1)
         self.play(FadeIn(head_l), Create(link1), run_time=0.7)
-        self.at(2)
+        self.at_text("onions in", lead=0.3)
         self.play(Indicate(f_sauce[2], color=WHITE), run_time=0.9)
         self.hold()
 
@@ -328,7 +324,7 @@ class Co01StateMachine(Narrated):
         c2.arrange(DOWN, aligned_edge=LEFT, buff=0.15).move_to([-0.5, -1.75, 0], aligned_edge=LEFT)
         c2b = T("needs the JVM's help", 24, BAD).next_to(c2, DOWN, buff=0.15).align_to(c2, LEFT)
         x2 = cross(c2)
-        anyj = T("Kotlin coroutines: any JVM version, and Android", 26, YELLOW_M).move_to([0.2, -3.05, 0])
+        anyj = T("Kotlin coroutines need no help from the JVM", 26, YELLOW_M).move_to([0.2, -3.05, 0])
         self.say("fix2")
         self.play(FadeIn(board), FadeIn(vs, shift=DOWN * 0.15), FadeIn(c2), run_time=0.9)
         self.at(1)
@@ -368,7 +364,7 @@ class Co01StateMachine(Narrated):
         m_code = tag("the function's code", bk, DOWN, 0.25).shift(RIGHT * 0.3)
         m_tab = VGroup(T("which step", 24, MARK), T("comes next", 24, MARK)).arrange(DOWN, buff=0.08)
         m_tab.next_to(tab, LEFT, buff=0.2)
-        m_note = T("the local variables", 24, NOTE).move_to([1.85, note.get_y(), 0], aligned_edge=LEFT)
+        m_note = T("the local variables", 24, NOTE).move_to([2.3, note.get_y(), 0], aligned_edge=LEFT)
         m_cook = T("the thread", 24, COOK).next_to(cook, RIGHT, buff=0.25)
         self.say("map")
         self.at(1)
@@ -395,9 +391,9 @@ class Co01StateMachine(Narrated):
         sp_l = T("two suspension points", 26, YELLOW_M).next_to(kg, DOWN, buff=0.3)
         self.say("shrink")
         self.play(FadeIn(kg, shift=UP * 0.15), run_time=0.9)
-        self.at(2)
+        self.at_text("two calls", lead=0.3)
         self.play(Create(sp), run_time=0.7)
-        self.at_text("and this one", lead=0.3)
+        self.at_text("called suspension", lead=0.3)
         self.play(FadeIn(sp_l), run_time=0.5)
         self.hold()
 
@@ -409,7 +405,7 @@ class Co01StateMachine(Narrated):
         self.play(FadeOut(sp), FadeOut(sp_l), run_time=0.4)
         self.at(1)
         self.play(FadeIn(jl), run_time=0.4)
-        self.at_text("with one more", lead=0.3)
+        self.at_text("shows one more", lead=0.3)
         self.play(FadeIn(sig, shift=UP * 0.1), run_time=0.7)
         self.hold()
 
@@ -453,10 +449,10 @@ class Co01StateMachine(Narrated):
         self.play(FadeOut(qm), FadeOut(kg), run_time=0.5)
         self.play(LaggedStart(*[FadeIn(s, shift=DOWN * 0.15) for s in st], lag_ratio=0.35), run_time=1.4)
         self.play(GrowArrow(ar[0]), GrowArrow(ar[1]), run_time=0.6)
-        self.at(1)
+        self.at_text("numbered by", lead=0.3)
         self.play(*[Indicate(s[1][0], color=MARK, scale_factor=1.15) for s in st], run_time=0.9)
         sm = T("a state machine", 30, MARK).move_to([0, 0.9, 0])
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(sm, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
@@ -531,11 +527,9 @@ class Co01StateMachine(Narrated):
         self.play(susg.animate.shift(UP * 0.35).set_opacity(0), FadeOut(frame_box), run_time=0.8)
         self.at(1)
         self.play(go(WORK[0] - 1.2, WORK[1] + 0.1), run_time=1.1)
-        self.hold()
-
-        self.say("t2")
+        self.at_text("just the bookmark", lead=0.3)
         self.play(Indicate(obj_r, color=MARK, scale_factor=1.03), run_time=1.0)
-        self.at(1)
+        self.at_text("on the heap", lead=0.2)
         self.play(Indicate(heap_l, color=WHITE), run_time=0.7)
         self.hold()
 
@@ -561,7 +555,7 @@ class Co01StateMachine(Narrated):
         self.play(FadeOut(rw), FadeOut(rw_l), *setv(2, "\"golden onions\"", NOTE), run_time=0.7)
         self.at_text("sets the label", lead=0.3)
         self.play(*setv(0, "2", MARK), run_time=0.5)
-        self.at(1)
+        self.at_text("which waits", lead=0.3)
         self.play(FadeIn(sus2, shift=UP * 0.15), run_time=0.5)
         self.play(sus2.animate.shift(UP * 0.35).set_opacity(0), FadeOut(f1),
                   go(WORK[0] - 1.2, WORK[1] + 0.1), run_time=1.1)
@@ -582,12 +576,12 @@ class Co01StateMachine(Narrated):
         self.hold()
 
         # ================= one object? =================
-        oq = T("how many bookmark objects?", 28).move_to([2.8, -2.6, 0])
+        oq = T("how many bookmark objects?", 28).move_to([3.5, -2.6, 0])
         self.say("obj_q")
         self.play(FadeOut(VGroup(rw2, rw2_l, f2, out, other, other_l, tm)), FadeIn(oq), run_time=0.6)
         self.hold(after=0)
         self.predict()
-        one = T("one per call, reused at every pause", 26, MARK).move_to([2.8, -2.6, 0])
+        one = T("one per call, reused at every pause", 26, MARK).move_to([3.5, -2.6, 0])
         self.say("obj_a")
         self.play(FadeOut(oq), Indicate(obj_r, color=MARK, scale_factor=1.03), run_time=0.9)
         self.play(FadeIn(one, shift=UP * 0.1), run_time=0.5)
@@ -645,9 +639,12 @@ class Co01StateMachine(Narrated):
         sl_n = T("every frame, copied by the JVM", 22, GREY_A).next_to(brd, DOWN, buff=0.2)
 
         def mini(title, rows):
-            r = RoundedRectangle(corner_radius=0.08, width=3.2, height=1.05).set_stroke(MARK, 2.5).set_fill(dim(MARK, 0.12), 1)
-            t = M(title, 22, MARK).move_to(r.get_center() + UP * 0.22)
-            f = M(rows, 20, NOTE).move_to(r.get_center() + DOWN * 0.22)
+            t = M(title, 22, MARK)
+            f = M(rows, 20, NOTE)
+            r = RoundedRectangle(corner_radius=0.08, width=max(3.2, t.width + 0.5, f.width + 0.5), height=1.05)
+            r.set_stroke(MARK, 2.5).set_fill(dim(MARK, 0.12), 1)
+            t.move_to(r.get_center() + UP * 0.22)
+            f.move_to(r.get_center() + DOWN * 0.22)
             return VGroup(r, t, f)
 
         b1 = mini("simmer's bookmark", "label, L$0").move_to([3.4, 0.75, 0])
@@ -657,22 +654,22 @@ class Co01StateMachine(Narrated):
         co_n = T("one per suspend function still running", 22, GREY_A).next_to(b2, DOWN, buff=0.3)
         self.say("slip")
         self.play(FadeIn(brd), FadeIn(brd_l), FadeIn(slp), run_time=0.6)
-        self.at_text("copied every", lead=0.4)
+        self.at_text("copies every", lead=0.4)
         self.play(LaggedStart(*[FadeIn(f, shift=DOWN * 0.1) for f in frs], lag_ratio=0.3), FadeIn(sl_n), run_time=1.1)
         self.at(1)
         self.play(FadeIn(co_l), FadeIn(b2, shift=UP * 0.1), run_time=0.6)
         self.play(FadeIn(b1, shift=UP * 0.1), GrowArrow(bl), run_time=0.6)
-        self.at_text("with only", lead=0.3)
+        self.at_text("per suspend", lead=0.3)
         self.play(FadeIn(co_n), Indicate(VGroup(b1[2], b2[2]), color=NOTE), run_time=0.8)
         self.hold()
 
         cheap = T("cheap: hundreds of thousands can wait at once", 28, MARK).move_to([0, -2.65, 0])
         self.say("cost")
-        self.play(FadeOut(VGroup(brd, brd_l, slp, frs, sl_n)), VGroup(co_l, b1, b2, bl, co_n).animate.move_to([0, 0.75, 0]),
+        self.play(FadeOut(VGroup(brd, brd_l, slp, frs, sl_n)), VGroup(co_l, b1, b2, bl, co_n).animate.scale(0.85).move_to([0, 1.35, 0]),
                   run_time=0.9)
         self.play(FadeIn(cheap, shift=UP * 0.1), run_time=0.5)
         pl = VGroup(M("fun plain() = makeSauce(\"onions\")", 24), T("no bookmark to hand over", 24, BAD))
-        pl.arrange(RIGHT, buff=0.5).move_to([0, -1.7, 0])
+        pl.arrange(RIGHT, buff=0.5).move_to([0, -1.45, 0])
         fit(pl, 12.0)
         px = cross(pl[0], 0.18).move_to(pl[0].get_right() + RIGHT * 0.25)
         self.at(1)

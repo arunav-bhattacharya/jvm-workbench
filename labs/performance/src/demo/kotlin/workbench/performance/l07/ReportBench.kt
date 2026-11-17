@@ -2,8 +2,8 @@ package workbench.performance.l07
 
 import java.lang.management.ManagementFactory
 
-// FeeBench.java proves the fix with JMH, which needs Java classes in this lab. This Kotlin twin
-// proves it for the Kotlin versions in FeeInvestigation.kt with the per-thread allocation counter,
+// ReportBench.java proves the fix with JMH, which needs Java classes in this lab. This Kotlin twin
+// proves it for the Kotlin versions in ReportInvestigation.kt with the per-thread allocation counter,
 // the same measurement the lab's test uses: warm up, then bytes per call over 100,000 calls.
 
 private val counter = ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
@@ -20,9 +20,10 @@ private inline fun bytesPerCall(call: () -> Long): Double {   // inline: no boxi
 }
 
 fun main() {
-    val p = KtPayment("pay_123", "EUR", "1234.56", "m_7")
-    println("ktFeeSlow:    %8.1f B/call".format(bytesPerCall { ktFeeSlow(p) }))
-    println("ktFeeHoisted: %8.1f B/call".format(bytesPerCall { ktFeeHoisted(p) }))
-    println("ktFeeNoRegex: %8.1f B/call".format(bytesPerCall { ktFeeNoRegex(p) }))
+    val d = KtDocument("doc-7", "fr", "the rain came early and the river rose over the old stone")
+    println("ktSlow:    %8.1f B/call".format(bytesPerCall { ktSlow(d) }))
+    println("ktHoisted: %8.1f B/call".format(bytesPerCall { ktHoisted(d) }))
+    println("ktScanned: %8.1f B/call".format(bytesPerCall { ktScanned(d) }))
+    println("ktNoRegex: %8.1f B/call".format(bytesPerCall { ktNoRegex(d) }))
     println("(checksum $sink)")
 }

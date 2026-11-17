@@ -48,11 +48,11 @@ FIGURE = """<svg viewBox="0 0 680 300" role="img" aria-label="The leaking thumbn
 
 OPENING = """Back in the warehouse, the floor keeps filling, and the cleaning crew isn't to blame. It throws out every box that no note leads to, exactly as it should. The trouble is a list pinned to the noticeboard by the door, which someone started months ago and never stopped writing. Every shelf number on that list is a box the crew must keep. Nobody needs those boxes. Somebody still holds a note to them.
 
-That's a memory leak in Java, and it surprises anyone who learned the word in C, where a leak is memory nobody can reach any more. The last lesson showed the symptoms: a floor that rises in the GC log, or a container that grows until the kernel ends it. The easy trap is to reach for a heap dump every time. A heap dump photographs the floor, and it can't see the yard out back.
+That's a memory leak in Java, and it surprises anyone who learned the word in C, a language with no garbage collector, where a leak is memory nobody can reach any more. The last lesson showed the symptoms: a floor that rises in the GC log, or a container that grows until the kernel ends it. The easy trap is to reach for a heap dump every time. A heap dump photographs the floor, and it can't see the yard out back.
 
 In this lesson, we'll make the thumbnail service leak, count what piles up, photograph the floor to find the list, then measure the yard and give memory out there a return date. Before we start, make a guess, and keep it in mind."""
 
-S1 = """The garbage collector frees every object it can't reach from a GC root. (A GC root is a starting point it trusts: a local variable on a thread's stack, one of the workers' desks, or a static field, the noticeboard by the door.) So in Java, a **leak** is memory that stays reachable from a root after the program is done with it. The collector is doing its job. Your code still holds the reference.
+S1 = """The garbage collector, the JVM's cleaning crew, frees every object on the heap (the memory where objects live) that it can't reach from a GC root. (A GC root is a starting point it trusts: a local variable on a thread's stack, one of the workers' desks, or a static field, the noticeboard by the door.) So in Java, a **leak** is memory that stays reachable from a root after the program is done with it. The collector is doing its job. Your code still holds the reference.
 
 Here's the classic one, a thumbnail cache with no limit. It's a static map from an upload id to its thumbnail, so the service can send the same picture again without redoing the work:
 
@@ -75,14 +75,14 @@ private fun handle(uploadId: String) {
 }
 ```
 
-`FORMATS` is a static list of the picture formats the site accepts, and each thumbnail points at one of its strings; that will matter in the next section. Every upload adds an entry, and nothing ever removes one. Lesson 6 showed what that looks like in a GC log: the after-values of young pauses rise pass after pass, full GCs free less and less, and in the end the JVM throws `OutOfMemoryError` or spends its time in `Pause Full`.
+`FORMATS` is a static list of the picture formats the site accepts, and each thumbnail points at one of its strings; that will matter in the next section. Every upload adds an entry, and nothing ever removes one. Lesson 6 showed what that looks like in a GC log: the after-values of young pauses rise pass after pass, full GCs (collections of the whole heap) free less and less, and in the end the JVM throws `OutOfMemoryError` or spends its time in `Pause Full`.
 
 The same shape turns up in four places, over and over:
 
 - maps and caches with no limit and no expiry;
 - `ThreadLocal` values, a separate value per thread, set on the threads of a thread pool and never removed, so each pool thread keeps its last value forever (the threads track showed one);
 - listeners, objects registered to be called back when something happens, that nobody unregisters (lesson 3's weak registry is one fix);
-- class loaders, the parts of the JVM that load a program's classes, that can't be unloaded, which shows up as metaspace growth and collections with the cause `Metadata GC Threshold`.
+- class loaders, the parts of the JVM that load a program's classes, that can't be unloaded, which shows up as growth in metaspace, the back room where class plans live, and as collections with the cause `Metadata GC Threshold`.
 
 The first tool is a **class histogram**: a count of live objects, and their bytes, for every class. `jcmd <pid> GC.class_histogram` prints one after a full GC, so it counts only reachable objects. (`jcmd` is the JDK's tool for sending commands to a running JVM, and `<pid>` is its process id.) For the cache above, after 20,000 uploads on JDK 25, the top four rows were:
 
@@ -98,7 +98,7 @@ The first tool is a **class histogram**: a count of live objects, and their byte
 
 S2 = """A **heap dump** is a file with every object on the heap and every reference between them, in a format called HPROF. It's a photograph of every shelf, taken for a detective. You can take one three ways:
 
-- `jcmd <pid> GC.heap_dump /tmp/app.hprof` from a running JVM. Its help text says "Impact: High": it runs a full GC first (unless you pass `-all`) and stops the JVM while it writes. `-gz` compresses the file, and JDK 24 and later add `-parallel` for more writer threads.
+- `jcmd <pid> GC.heap_dump /tmp/app.hprof` from a running JVM. Its help text says "Impact: High": it runs a full GC first (unless you pass `-all`) and stops the JVM while it writes. `-gz` compresses the file, and on JDK 25 `-parallel` sets how many threads write it.
 - `-XX:+HeapDumpOnOutOfMemoryError` with `-XX:HeapDumpPath=...`, so the JVM writes one the moment it runs out of heap. It's off by default. It's a manageable flag, so `jcmd <pid> VM.set_flag HeapDumpOnOutOfMemoryError true` turns it on in a running JVM.
 - `HotSpotDiagnosticMXBean.dumpHeap(path, true)` from code, which is what the demo does.
 
@@ -130,7 +130,7 @@ S3 = """Sometimes the heap is fine and the process still grows. The GC log shows
 jcmd <pid> VM.native_memory summary scale=MB
 ```
 
-In the demo, a JDK 25 process with a 256 MB heap had committed 295 MB at startup. After it allocated one 64 MiB direct buffer and started 100 threads, it had committed 370 MB. NMT shows where the difference went. A category called `Other` appeared with 64 MB, the direct buffer. `Thread` went from 1 MB to 11 MB committed, with 120 MB reserved, because each new thread reserves about 1 MB for its stack but touches only a little of it.
+In the demo, a JDK 25 process with a 256 MB heap had committed 295 MB at startup (committed means the operating system has really handed it over). Then it allocated one 64 MiB direct buffer, memory outside the heap that `ByteBuffer.allocateDirect` asks for, and started 100 threads. Now it had committed 370 MB. NMT shows where the difference went. A category called `Other` appeared with 64 MB, the direct buffer. `Thread` went from 1 MB to 11 MB committed, with 120 MB reserved (addresses set aside, not yet used), because each new thread reserves about 1 MB for its stack but touches only a little of it.
 
 For a slow leak, take a baseline and compare later:
 
@@ -185,7 +185,7 @@ Arena.ofConfined().use { arena ->
 
 If code uses a segment after its arena is closed, it gets an `IllegalStateException` with the message `Already closed`. In C, the same mistake reads freed memory and may silently corrupt data.
 
-The accounting holds a surprise on JDK 25. NMT counts the confined arena's memory under `Other`: `Other (reserved=32MB, committed=32MB)` inside the arena, and `0MB` after `close()`. But the JDK's direct buffer pool, and with it `-XX:MaxDirectMemorySize`, counts only automatic arenas. JDK 25's source says why, in one line: an arena reserves direct memory only when its session is the GC-managed kind. That makes sense once you see it. An automatic arena waits for the GC, like a direct buffer, so it shares their limit; a confined arena is freed when you say so. With `-XX:MaxDirectMemorySize=16m`, the demo's confined 32 MiB worked, and its automatic 32 MiB failed with `Cannot reserve 33554432 bytes of direct buffer memory`.
+The accounting holds a surprise on JDK 25. NMT counts the confined arena's memory under `Other`: `Other (reserved=32MB, committed=32MB)` inside the arena, and `0MB` after `close()`. But the JDK's direct buffer pool, and with it `-XX:MaxDirectMemorySize`, counts only automatic arenas. In JDK 25's source, one line decides it: an arena counts its memory as direct memory only when the GC manages the arena's lifetime. That makes sense once you see it. An automatic arena waits for the GC, like a direct buffer, so it shares their limit; a confined arena is freed when you say so. With `-XX:MaxDirectMemorySize=16m`, the demo's confined 32 MiB worked, and its automatic 32 MiB failed with `Cannot reserve 33554432 bytes of direct buffer memory`.
 
 The labs compile for JDK 21, where FFM is still a preview, so this demo is a single file that runs outside Gradle on JDK 22 or later.
 
@@ -216,7 +216,7 @@ L = {
      "Run it."
     ],
     "code": demo("LeakDemo"),
-    "expect": "`[B` (byte arrays) tops the list with about 43 MB, then `String`, `ConcurrentHashMap$Node`, and exactly 20,000 `CachedThumbnail` objects at 32 bytes each. On JDK 25 a fifth row, `jdk.internal.vm.FillerElement`, is the JVM's filler for unused gaps in the heap; skip it. The dump `leak.hprof` is about 52 MB, in `labs/memory/build/heapdumps/`, and the last line says the cache kept about 44.5 MB alive. The second child prints `java.lang.OutOfMemoryError: Java heap space`, `Dumping heap to build/heapdumps/oom.hprof ...` and `Heap dump file created [...]` (about 72 MB), plus a line about the error being thrown again from the handler for uncaught exceptions."
+    "expect": "`[B` (byte arrays) tops the list with about 43 MB, then `String`, `ConcurrentHashMap$Node`, and exactly 20,000 `CachedThumbnail` objects (`KCachedThumbnail` in the Kotlin twin) at 32 bytes each. A fifth row, `jdk.internal.vm.FillerElement`, is the JVM's filler for unused gaps in the heap; skip it. The dump `leak.hprof` is about 52 MB, in `labs/memory/build/heapdumps/`, and the last line says the cache kept about 44.5 MB alive. The second child prints `java.lang.OutOfMemoryError: Java heap space`, `Dumping heap to build/heapdumps/oom.hprof ...` and `Heap dump file created [...]` (about 72 MB), plus a line about the error being thrown again from the handler for uncaught exceptions."
    },
    "refs": [
     {"title": "The jcmd command, JDK 25 man page source: GC.class_histogram and GC.heap_dump", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/jdk.jcmd/share/man/jcmd.md", "kind": "docs"}

@@ -53,8 +53,8 @@ N = {
                 "One gets a TimeoutException, which breaks the barrier, and the other a BrokenBarrierException. "
                 "So give await a timeout.",
     "phaser": "For a group that changes size, there's the Phaser. At the yearly stocktake, helper 2 only counts, "
-              "then goes home. A barrier of 3 would wait for it forever. A phaser lets a party leave, "
-              "like a guide crossing a name off the list: 3 parties, then 2.",
+              "then goes home. A barrier of 3 would wait for it forever. A phaser lets a party, one member of the group, "
+              "leave, like a guide crossing a name off the list: 3 parties, then 2.",
     "bank": "Last, paying by card. At the till, the bank checks each card over the network, about 120 milliseconds "
             "a call, and it allows five calls at once. On a busy Saturday, twenty customers pay together, "
             "and fifteen are refused.",

@@ -13,66 +13,63 @@ N = {
     "open": "Back at the end of the bakery line, the packer has a small table where loaves wait to be boxed. It holds ten. "
             "As long as the oven waits for her slips, the table never overflows: "
             "she writes send me 10 more only when there's room.",
-    "chatter": "But not everything in a bakery reads slips. The thermometer in the oven is a chatterbox. "
-               "It reports the temperature every millisecond, whether anyone is looking or not. "
-               "Nobody has ever asked it to slow down, and it wouldn't listen if they did.",
-    "screen": "Its readings go to a screen in the shop. The screen asks for one reading at a time, "
-              "and takes 10 milliseconds to draw each. In Reactor, Flux.interval plays the thermometer: "
-              "it sends a number, called a tick, every millisecond, whatever you request.",
+    "chatter": "But not everything in a bakery reads slips. The oven's thermometer is a chatterbox: it reports the temperature "
+               "every millisecond, whether anyone is looking or not. "
+               "Nobody ever asked it to slow down, and it wouldn't listen if they did.",
+    "screen": "Its readings go to a screen in the shop, which asks for one at a time and takes 10 milliseconds to draw each. "
+              "In Reactor, Flux.interval plays the thermometer: it sends a tick, a number, every millisecond, whatever you request.",
     "fail": "Reading 0 is asked for, and drawn. Reading 1 arrives before anyone asked for it, and the stream fails: "
             "could not emit tick 1 due to lack of requests.",
-    "shy": "Reactor has a family of operators for this, with backpressure right in their names. "
-           "And here's the question that's easy to be shy about. "
-           "Backpressure means the slow side slows down the fast side. "
-           "So surely one of them makes the thermometer slow down?",
+    "shy": "Reactor has a family of operators for this, with backpressure in their names. "
+           "Here's the question that's easy to be shy about: backpressure means the slow side slows down the fast side, "
+           "so surely one of them slows the thermometer down?",
     "buf_q": "Let's try the one everyone reaches for first: onBackpressureBuffer, with no size. "
              "The screen takes twenty readings. What does it get?",
     "buf_a": "Readings 0, 1, 2, all the way to 19. In order, and no error. It looks perfect. That's the problem.",
-    "buf_where": "When the screen drew reading 19, the thermometer was at reading 216. "
-                 "Nearly 200 readings were waiting in a queue with no limit, "
-                 "about 90 more every 100 milliseconds, for as long as the program runs.",
-    "doorstep": "It's our doorstep with fourteen loaves, back again, with more every second. "
-                "We fixed the smoke alarm by taking out the battery. The noise stopped. The fire didn't. "
-                "So no error doesn't mean no problem. The pile just moved into memory, where nobody looks.",
+    "buf_where": "When the screen drew reading 19, the thermometer was at 216. "
+                 "Nearly 200 readings were waiting in a queue with no limit, about 90 more every 100 milliseconds.",
+    "doorstep": "It's our doorstep with fourteen loaves, back again. "
+                "We fixed the smoke alarm by taking out the battery: the noise stopped, the fire didn't. "
+                "No error doesn't mean no problem. The pile just moved into memory, where nobody looks.",
     "table": "So, back to the packer's table. When a belt won't stop, the table fills, "
-             "and someone has to decide what happens to the next item. There are four honest answers. "
+             "and someone must decide what happens to the next item. Four honest answers. "
              "Keep a small pile. Throw it in a bin. Keep only the newest. Or stop the line.",
-    "map": "Each onBackpressure operator is one of those answers. It asks the thermometer for everything, "
-           "so nothing overflows above it. Then it decides what happens to the readings nobody further down has asked for.",
+    "map": "Each onBackpressure operator is one of those answers. It asks the thermometer for everything, so nothing overflows, "
+           "and then decides what happens to the readings nobody further down has asked for.",
     "pile": "The small pile is onBackpressureBuffer with a size, say 10. While the screen draws reading 0, the pile fills up. "
             "Then a reading finds no room, so the line stops: the thermometer is cut off, and an error is sent.",
     "pile_q": "Does the screen still get the readings on the pile?",
-    "pile_a": "It does. The error waits its turn behind the pile. The screen got readings 0 to 11, in order, "
-              "and then: the receiver is overrun. Nothing vanished without a word.",
-    "bin": "The bin is onBackpressureDrop. A reading that arrives while the screen isn't asking goes straight in. "
-           "The screen saw 0, 11, 22, 34, and 202 readings went in the bin. Why 11 apart? "
+    "pile_a": "It does. The error waits its turn behind the pile: readings 0 to 11, in order, "
+              "and then, the receiver is overrun. Nothing vanished without a word.",
+    "bin": "The bin is onBackpressureDrop. A reading that arrives while the screen isn't asking goes straight in: "
+           "the screen saw 0, 11, 22, 34, and 202 went in the bin. Why 11 apart? "
            "When the screen asks, the bin has nothing on hand, so it waits for the next one.",
     "slot": "Keep only the newest is onBackpressureLatest. It has one slot, and each new reading pushes out the one before. "
             "When the screen asks, the newest is ready: 0, 10, 20, 30, about every tenth.",
-    "stop": "And stop the line is onBackpressureError. It fails at the first reading nobody asked for. "
+    "stop": "And stop the line is onBackpressureError: it fails at the first reading nobody asked for. "
             "That's for belts where falling behind is a bug.",
     "name": "So, does any of them slow the thermometer down? Not one. "
             "Honest names would be: keep a pile, use the bin, keep the newest, stop the line. "
             "They're loss policies. They decide what to keep, and what to give up.",
-    "breaks": "And here the bakery picture breaks. A full table in a real bakery is hard to miss. "
+    "breaks": "Here the bakery picture breaks. A full table is hard to miss. "
               "A buffer with no size is a table nobody can see, and it grows until the heap, "
               "the memory where Java keeps its objects, runs out.",
     "real": "Real backpressure needs a source that reads the slips, like the database cursor behind the nightly report, "
-            "which fetches only the rows it's asked for. That's backpressure for free, so pick a source like that when you can.",
-    "choose": "When you can't, ask what one missed item costs. A temperature is a value where newer replaces older. "
+            "which fetches only the rows it's asked for. That's backpressure for free, so prefer it.",
+    "choose": "When you can't, ask what one missed item costs. A temperature: newer replaces older. "
               "A buffer here would show the oven's temperature from a minute ago, very accurately. So keep the newest.",
-    "choose2": "A sample, like one visitor count out of hundreds, can go in the bin, as long as you count the drops. "
-               "But an order from the website must never vanish. Give it a small pile that fails loudly, "
-               "and a way to ask the website for everything after the last saved order.",
-    "code": "Here it is in Java and Kotlin. The screen keeps the newest reading. "
-            "The web orders get a pile of 1,000, and the order that overflows is logged.",
+    "choose2": "A visitor count, one sample of hundreds, can go in the bin, if you count the drops. "
+               "A web order must never vanish: give it a small pile that fails loudly, "
+               "and a way to ask the website again from the last saved order.",
+    "code": "Here it is in Java and Kotlin: the screen keeps the newest reading, "
+            "and web orders get a pile of 1,000 that logs the order that overflows.",
     "moral": "So, does onBackpressure slow the source down? No. Only a source that reads the slips slows down. "
-             "For one that can't, you choose what to lose when the table is full: "
+             "For one that can't, choose what to lose when the table is full: "
              "a small pile, a bin, the newest, or stop the line.",
     "check": "Quick check. A screen in the shop shows the oven temperature. The thermometer sends 200 readings a second, "
              "and the screen redraws 10 times a second. Which policy fits?",
     "check_a": "Keep the newest: onBackpressureLatest. At every redraw, the screen wants the temperature now, "
-               "not the next old reading in a queue.",
+               "not an old one from a queue.",
 }
 
 
@@ -336,18 +333,17 @@ class Rx07Overflow(Narrated):
 
         # ================= the chatterbox thermometer =================
         th = thermometer(0.82).move_to([SRC_X, BY + 0.62, 0])
-        th_l = T("thermometer", 22, OVEN_C).move_to(ov_l)
+        th_l = T("thermometer", 22, OVEN_C).move_to([SRC_X, BY - 0.62, 0])
         ch = chatter_arcs(th)
         bl_long = belt(BELT_X0, BELT_X2, BY)
         self.say("chatter")
         self.play(FadeOut(VGroup(*lv)), FadeOut(table), FadeOut(tbl_l), FadeOut(bl), FadeIn(bl_long), run_time=0.6)
         self.at(1)
         self.play(FadeOut(ov), FadeOut(ov_l), FadeIn(th), FadeIn(th_l), run_time=0.7)
-        self.at(2)
         spray = [reading(i) for i in range(14)]
         self.play(FadeIn(ch), LaggedStart(*[journey(t, [[BELT_X0 + 0.2, TY, 0], [4.2, TY, 0]], 1.3, fade_out=True)
                                             for t in spray], lag_ratio=0.12), run_time=3.2)
-        self.at(3)
+        self.at(2)
         ask = slip("please slow down?").move_to([SCR_X - 1.4, LANE_Y, 0])
         spray2 = [reading(i) for i in range(14, 28)]
         self.play(FadeIn(ask), run_time=0.3)
@@ -361,14 +357,14 @@ class Rx07Overflow(Narrated):
         scr = screen().move_to(SCR_P)
         scr_l = T("screen", 22, PACK_C).next_to(scr, DOWN, buff=0.12)
         scr_n = T("10 ms per reading", 20, GREY_B).next_to(scr_l, DOWN, buff=0.08)
-        code0 = M("Flux.interval(Duration.ofMillis(1))", 24, OVEN_C).move_to([0, 3.15, 0])
+        code0 = M("Flux.interval(Duration.ofMillis(1))", 24, OVEN_C).move_to([-0.6, -0.55, 0])
         note0 = T("a tick every millisecond, whatever you request", 22, GREY_B).next_to(code0, DOWN, buff=0.12)
         s1 = slip("send me 1").move_to([SCR_X - 1.5, LANE_Y, 0])
         self.say("screen")
         self.play(FadeOut(pk), FadeOut(pk_l), FadeIn(scr), FadeIn(scr_l), run_time=0.7)
-        self.at(1)
+        self.at_text("which asks", lead=0.3)
         self.play(FadeIn(s1), FadeIn(scr_n), run_time=0.6)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(code0, shift=DOWN * 0.1), run_time=0.6)
         self.play(FadeIn(note0), run_time=0.5)
         self.hold()
@@ -376,7 +372,7 @@ class Rx07Overflow(Narrated):
         # ================= no strategy: it fails =================
         r0, r1 = reading(0), reading(1)
         shown = M("0", 40, PACK_C).move_to(scr[0])
-        err = M("Could not emit tick 1 due to lack of requests", 22, BAD_C).move_to([0, OUT_Y1, 0])
+        err = M("Could not emit tick 1 due to lack of requests", 22, BAD_C).move_to([-0.6, -1.85, 0])
         x1 = VGroup(Line([-1, -1, 0], [1, 1, 0]), Line([-1, 1, 0], [1, -1, 0])).set_stroke(BAD_C, 5).scale(0.26)
         self.say("fail")
         self.play(s1.animate.move_to([SRC_X + 1.6, LANE_Y, 0]), run_time=0.8)
@@ -398,15 +394,15 @@ class Rx07Overflow(Narrated):
         shy2 = T("so surely one of them slows the thermometer down?", 30).move_to([0, -3.0, 0])
         self.say("shy")
         self.play(LaggedStart(*[FadeIn(n, shift=UP * 0.1) for n in names], lag_ratio=0.25), run_time=1.4)
-        self.at(2)
+        self.at_text("backpressure means", lead=0.3)
         self.play(FadeIn(shy), run_time=0.6)
-        self.at(3)
+        self.at_text("so surely", lead=0.3)
         self.play(FadeIn(shy2), Wiggle(th, scale_value=1.1), run_time=0.8)
         self.hold()
         self.play(FadeOut(VGroup(names, shy, shy2)), run_time=0.5)
 
         # ================= the obvious fix: a buffer with no size =================
-        st_buf = VGroup(RoundedRectangle(corner_radius=0.1, width=3.4, height=0.8).set_stroke(GREY_A, 2.5).set_fill(dim(GREY_A, 0.08), 1),
+        st_buf = VGroup(RoundedRectangle(corner_radius=0.1, width=3.9, height=0.8).set_stroke(GREY_A, 2.5).set_fill(dim(GREY_A, 0.08), 1),
                         M("onBackpressureBuffer()", 22, GREY_A)).set_z_index(3)
         st_buf[1].move_to(st_buf[0])
         st_buf.move_to([ST_X, BY + 0.42, 0])
@@ -425,7 +421,7 @@ class Rx07Overflow(Narrated):
         self.say("buf_a")
         self.add(shown)
         self.play(LaggedStart(*[journey(t, [[BELT_X0 + 0.2, TY, 0], IN_P], 0.9, fade_out=True) for t in feed], lag_ratio=0.1),
-                  LaggedStart(*[journey(t, [OUT_P, SCR_P], 0.5, fade_out=True) for t in out_tok], lag_ratio=0.35),
+                  LaggedStart(*[journey(t, [OUT_P, SCR_P + LEFT * 0.6], 0.5, fade_out=True) for t in out_tok], lag_ratio=0.35),
                   counter(shown, 0, 19, "{}", 40, PACK_C, scr[0].get_center(), 3.2, mono=True), run_time=3.4)
         self.play(FadeIn(got), run_time=0.5)
         self.play(FadeIn(ok), run_time=0.4)
@@ -473,21 +469,21 @@ class Rx07Overflow(Narrated):
         self.at(1)
         self.play(FadeIn(alarm), FadeIn(batt), run_time=0.5)
         self.play(batt.animate.shift(RIGHT * 2.3 + DOWN * 0.3).rotate(-0.4), run_time=0.8)
-        self.at(2)
+        self.at_text("the noise", lead=0.2)
         self.play(FadeIn(quiet), run_time=0.4)
-        self.at(3)
+        self.at_text("the fire", lead=0.2)
         self.play(FadeIn(fl, shift=UP * 0.2), run_time=0.5)
         self.play(fl.animate(rate_func=there_and_back).scale(1.15), run_time=0.6)
-        self.at(4)
+        self.at(2)
         self.play(FadeIn(rule, shift=UP * 0.1), run_time=0.6)
-        self.at(5)
+        self.at(3)
         self.play(FadeIn(rule2, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
 
         # ================= back to the table: four honest answers =================
         th.move_to([SRC_X, BY + 0.62, 0])
-        th_l.move_to(ov_l)
+        th_l.move_to([SRC_X, BY - 0.62, 0])
         bl = belt(BELT_X0, BELT_X1, BY)
         cells = VGroup(*[cell().move_to([x, BY + 0.24, 0]) for x in CELL_X])
         scr_n.next_to(scr_l, DOWN, buff=0.08)
@@ -523,7 +519,7 @@ class Rx07Overflow(Narrated):
         self.play(LaggedStart(*[FadeIn(o, shift=UP * 0.1) for o in opl], lag_ratio=0.2), run_time=1.0)
         self.at(1)
         self.play(GrowArrow(req), FadeIn(req_l), run_time=0.9)
-        self.at(2)
+        self.at_text("and then decides", lead=0.2)
         self.play(pulse(nxt, s=1.3), qm.animate.set_color(WHITE), run_time=0.8)
         self.hold()
 
@@ -583,7 +579,7 @@ class Rx07Overflow(Narrated):
         self.remove(*rest)
         self.play(errc.animate.move_to(scr[0]), run_time=0.7)
         self.play(scr[0].animate.set_stroke(BAD_C), FadeOut(shown2), run_time=0.3)
-        self.at(2)
+        self.at_text("readings 0", lead=0.2)
         self.play(FadeIn(got1), run_time=0.5)
         self.play(FadeIn(got2), run_time=0.5)
         self.hold()
@@ -606,7 +602,7 @@ class Rx07Overflow(Narrated):
         self.play(LaggedStart(*[journey(t, [[BELT_X0 + 0.2, TY, 0], [ST_X, TY, 0], bn.get_center() + UP * 0.1], 0.8, fade_out=True)
                                 for t in drops], lag_ratio=0.15),
                   counter(bin_n, 0, 10, "in the bin: {}", 22, BIN_C, bin_p, 2.0), run_time=2.0)
-        self.at(2)
+        self.at_text("the screen saw", lead=0.6)
         b11 = reading(11)
         shown11 = M("11", 40, PACK_C).move_to(scr[0])
         s_b = slip("1", 20).move_to([SCR_X - 1.0, LANE_Y, 0])
@@ -618,10 +614,9 @@ class Rx07Overflow(Narrated):
         gotb2 = M("(202 readings dropped)", 22, BIN_C).move_to([-6.0, OUT_Y2, 0], aligned_edge=LEFT)
         self.play(FadeIn(gotb1), counter(bin_n, 10, 202, "in the bin: {}", 22, BIN_C, bin_p, 1.2), run_time=1.2)
         self.play(FadeIn(gotb2), run_time=0.4)
-        self.at(3)
         s_b2 = slip("1", 20).move_to([SCR_X - 1.0, LANE_Y, 0])
         empty = T("nothing on hand", 22, BIN_C).move_to([ST_X, LANE_Y + 0.55, 0])
-        self.at(4)
+        self.at(3)
         self.play(FadeIn(s_b2), run_time=0.2)
         self.play(s_b2.animate.move_to([ST_X, LANE_Y, 0]), run_time=0.5)
         self.play(FadeIn(empty), run_time=0.4)
@@ -661,8 +656,8 @@ class Rx07Overflow(Narrated):
 
         # ================= 4. stop the line =================
         self.play(FadeOut(VGroup(slot, sl_l, gotl, shown10)), *focus(3), run_time=0.6)
-        stp = stop_icon(0.9).move_to([ST_X, BY + 0.95, 0])
-        sp_l = M("onBackpressureError()", 22, STOP_C).next_to(stp, RIGHT, buff=0.3)
+        stp = stop_icon(0.9).move_to([ST_X, TY + 0.05, 0]).set_z_index(3)
+        sp_l = M("onBackpressureError()", 22, STOP_C).move_to([ST_X, BY + 0.85, 0])
         e0 = reading(0)
         shown = M("0", 40, PACK_C).move_to(scr[0])
         self.say("stop")
@@ -670,8 +665,8 @@ class Rx07Overflow(Narrated):
         self.play(journey(e0, [[BELT_X0 + 0.2, TY, 0], [BELT_X2, TY, 0], SCR_P], 0.9))
         self.play(FadeOut(e0), FadeIn(shown), run_time=0.25)
         e1 = reading(1)
-        self.play(journey(e1, [[BELT_X0 + 0.2, TY, 0], [ST_X, TY, 0]], 0.7))
-        bar = Line([ST_X + 0.35, BY + 0.5, 0], [ST_X + 0.35, BY - 0.4, 0], stroke_width=7, color=STOP_C)
+        self.play(journey(e1, [[BELT_X0 + 0.2, TY, 0], [ST_X - 0.75, TY, 0]], 0.7))
+        bar = Line([ST_X - 0.48, BY + 0.5, 0], [ST_X - 0.48, BY - 0.4, 0], stroke_width=7, color=STOP_C)
         self.play(Create(bar), e1[0].animate.set_stroke(BAD_C), scr[0].animate.set_stroke(BAD_C), run_time=0.5)
         stp_t = T("fails at the first reading nobody asked for", 24, STOP_C).move_to([0, OUT_Y1, 0])
         self.play(FadeIn(stp_t), run_time=0.5)
@@ -707,16 +702,16 @@ class Rx07Overflow(Narrated):
         # ================= where the picture breaks =================
         real_cells = VGroup(*[cell(0.4, 0.4) for _ in range(10)]).arrange(RIGHT, buff=0.04)
         real_toks = VGroup(*[reading("", r=0.15).move_to(c) for c in real_cells])
-        real_t = VGroup(real_cells, real_toks).move_to([-3.4, 1.7, 0])
+        real_t = VGroup(real_cells, real_toks).move_to([-3.4, 1.1, 0])
         real_l = T("a real table, full: hard to miss", 24, GREY_A).next_to(real_t, DOWN, buff=0.3)
         ghost = DashedVMobject(RoundedRectangle(corner_radius=0.1, width=5.0, height=2.0), num_dashes=40).set_stroke(GREY_D, 2)
-        ghost.move_to([3.35, 1.45, 0])
+        ghost.move_to([3.35, 0.85, 0])
         ghost_l = T("a buffer with no size: a table nobody can see", 24, GREY_B).next_to(ghost, DOWN, buff=0.25)
-        gp = [np.array([1.25 + c * 0.42, 0.75 + r * 0.38, 0]) for r in range(4) for c in range(11)]
+        gp = [np.array([1.25 + c * 0.42, 0.15 + r * 0.38, 0]) for r in range(4) for c in range(11)]
         g_toks = [reading("", BAD_C, r=0.15).move_to(p).set_opacity(0.55) for p in gp]
-        heap = RoundedRectangle(corner_radius=0.1, width=9.0, height=0.5).set_stroke(GREY_A, 2.5).move_to([0.6, -1.85, 0])
+        heap = RoundedRectangle(corner_radius=0.1, width=9.0, height=0.5).set_stroke(GREY_A, 2.5).move_to([0.6, -2.2, 0])
         heap_f = Rectangle(width=0.01, height=0.42).set_stroke(width=0).set_fill(BAD_C, 0.7).align_to(heap, LEFT).shift(RIGHT * 0.04)
-        heap_f.move_to([heap.get_left()[0] + 0.05, -1.85, 0], aligned_edge=LEFT)
+        heap_f.move_to([heap.get_left()[0] + 0.05, -2.2, 0], aligned_edge=LEFT)
         heap_l = T("the heap: the memory where Java keeps its objects", 24, GREY_A).next_to(heap, DOWN, buff=0.25)
         heap_name = T("heap", 26, GREY_A).next_to(heap, LEFT, buff=0.25)
         oom = T("out of memory", 28, BAD_C).move_to(heap)
@@ -733,26 +728,26 @@ class Rx07Overflow(Narrated):
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
 
         # ================= guardrail: a source that reads slips =================
-        db = cylinder().move_to([-4.6, 0.9, 0])
+        db = cylinder().move_to([-4.6, 0.4, 0])
         db_l = T("order book", 24, OVEN_C).next_to(db, DOWN, buff=0.2)
-        cur = T("a cursor fetches only the rows it's asked for", 24, GREY_A).move_to([1.2, 2.75, 0])
+        cur = T("a cursor fetches only the rows it's asked for", 24, GREY_A).move_to([0, 2.4, 0])
         rep = VGroup(RoundedRectangle(corner_radius=0.06, width=1.3, height=1.6).set_stroke(GREY_A, 2.5)
                      .set_fill(dim(GREY_A, 0.08), 1),
                      *[Line(LEFT * 0.4, RIGHT * 0.4, stroke_width=2, color=GREY_B).shift(UP * (0.45 - 0.22 * k)) for k in range(5)])
-        rep.move_to([4.9, 0.9, 0])
+        rep.move_to([4.9, 0.4, 0])
         rep_l = T("nightly report", 24, PACK_C).next_to(rep, DOWN, buff=0.2)
-        s100 = slip("send me 100").move_to([3.2, 1.75, 0])
+        s100 = slip("send me 100").move_to([3.2, 1.25, 0])
         rows = [RoundedRectangle(corner_radius=0.04, width=0.7, height=0.18).set_stroke(LOAF_C, 2).set_fill(dim(LOAF_C, 0.3), 1)
                 for _ in range(6)]
-        free = T("backpressure for free", 30, SLIP_C).move_to([0, -1.5, 0])
+        free = T("backpressure for free", 30, SLIP_C).move_to([0, -2.1, 0])
         self.say("real")
         self.play(FadeIn(db), FadeIn(db_l), FadeIn(rep), FadeIn(rep_l), run_time=0.7)
         self.play(FadeIn(cur), run_time=0.5)
         self.at_text("which fetches", lead=0.5)
         self.play(FadeIn(s100), run_time=0.3)
-        self.play(s100.animate.move_to([-2.9, 1.75, 0]), run_time=0.9)
+        self.play(s100.animate.move_to([-2.9, 1.25, 0]), run_time=0.9)
         self.play(FadeOut(s100, run_time=0.2),
-                  LaggedStart(*[journey(r, [[-3.6, 0.6, 0], [3.9, 0.6, 0]], 1.1, fade_out=True) for r in rows], lag_ratio=0.2),
+                  LaggedStart(*[journey(r, [[-3.6, 0.1, 0], [3.9, 0.1, 0]], 1.1, fade_out=True) for r in rows], lag_ratio=0.2),
                   run_time=2.0)
         self.at(1)
         self.play(FadeIn(free, scale=1.1), run_time=0.6)
@@ -763,12 +758,12 @@ class Rx07Overflow(Narrated):
         cq = T("What does one missed item cost?", 32).move_to([0, 3.0, 0])
         c1_th = thermometer(0.6)
         c1 = VGroup(c1_th, T("a temperature", 26, OVEN_C), T("newer replaces older", 22, GREY_B)).arrange(DOWN, buff=0.2)
-        c1.move_to([-4.4, 1.0, 0])
-        c1_p = VGroup(slot_icon(0.9), T("keep the newest", 24, NEW_C)).arrange(DOWN, buff=0.15).move_to([-4.4, -1.5, 0])
-        mini = screen(0.8)
-        mini_t = T("a minute ago", 20, GREY_B).move_to(mini[0])
-        joke = VGroup(VGroup(mini, mini_t), T("a buffer: very accurate, a minute late", 22, GREY_B)).arrange(DOWN, buff=0.15)
-        joke.move_to([-4.4, -1.5, 0])
+        c1.move_to([-4.3, 1.0, 0])
+        c1_p = VGroup(slot_icon(0.9), T("keep the newest", 24, NEW_C)).arrange(DOWN, buff=0.15).move_to([-4.3, -1.5, 0])
+        mini = screen(1.15)
+        mini_t = T("a minute ago", 20, GREY_A).move_to(mini[0])
+        joke = VGroup(VGroup(mini, mini_t), T("very accurate, and a minute late", 22, GREY_B)).arrange(DOWN, buff=0.15)
+        joke.move_to([-4.3, -1.6, 0])
         vis = VGroup(person(GREY_A, 0.9), M("+1", 26, GREY_A)).arrange(RIGHT, buff=0.15)
         c2 = VGroup(vis, T("a visitor count", 26, GREY_A), T("one sample of hundreds", 22, GREY_B)).arrange(DOWN, buff=0.2)
         c2.move_to([0, 1.0, 0])
@@ -777,9 +772,9 @@ class Rx07Overflow(Narrated):
                        T("order 41", 22, GOLD_M))
         order[1].move_to(order[0])
         c3 = VGroup(order, T("a web order", 26, GOLD_M), T("must never vanish", 22, GREY_B)).arrange(DOWN, buff=0.2)
-        c3.move_to([4.4, 1.0, 0])
+        c3.move_to([4.3, 1.0, 0])
         c3_p = VGroup(pile_icon(0.9), T("a small pile that fails loudly", 24, PILE_C),
-                      T("then: ask again from the last saved order", 22, GREY_B)).arrange(DOWN, buff=0.15).move_to([4.4, -1.65, 0])
+                      T("resend from the last saved order", 22, GREY_B)).arrange(DOWN, buff=0.15).move_to([4.3, -1.65, 0])
         arrs = [Arrow(c.get_bottom(), p.get_top(), buff=0.15, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.2)
                 for c, p in ((c1, c1_p), (c2, c2_p), (c3, c3_p))]
         self.say("choose")
@@ -796,7 +791,7 @@ class Rx07Overflow(Narrated):
         self.play(GrowArrow(arrs[1]), FadeIn(c2_p), run_time=0.6)
         self.at(1)
         self.play(FadeIn(c3, shift=UP * 0.1), run_time=0.6)
-        self.at(2)
+        self.at_text("give it", lead=0.3)
         self.play(GrowArrow(arrs[2]), FadeIn(c3_p[0]), FadeIn(c3_p[1]), run_time=0.6)
         self.at_text("and a way", lead=0.3)
         self.play(FadeIn(c3_p[2]), run_time=0.5)
@@ -817,9 +812,9 @@ class Rx07Overflow(Narrated):
         fit(blk, 12.6).move_to([0, 0.1, 0])
         self.say("code")
         self.play(FadeIn(blk, shift=UP * 0.15), run_time=0.9)
-        self.at(1)
+        self.at_text("the screen keeps", lead=0.3)
         self.play(Indicate(VGroup(jc[0], kc[0]), color=NEW_C, scale_factor=1.02), run_time=0.8)
-        self.at(2)
+        self.at_text("and web orders", lead=0.3)
         self.play(Indicate(VGroup(jc[1:], kc[1:]), color=SLIP_C, scale_factor=1.02), run_time=0.8)
         self.hold()
         self.play(FadeOut(blk), run_time=0.6)

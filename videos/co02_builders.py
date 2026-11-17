@@ -11,64 +11,61 @@ fg.SAY[:0] = [
 
 # every spoken line, in order
 N = {
-    "open": "Tonight, the cook texts three shops to ask who has the cheapest tomatoes. "
-            "The greengrocer takes 300 milliseconds to reply, the market 120, and the farm stand 200.",
-    "recap": "In code, each shop is a Grocer, and price suspends until the shop replies. async starts one question, "
-             "and hands back a Deferred at once: a pot with the lid on. await lifts the lid.",
-    "recap2": "Text all three first, then read the replies, and you wait only for the slowest shop: "
-              "300 milliseconds, not 620. The lesson's demo, on a busy machine, took 321 milliseconds, against 666.",
-    "launch": "Now a different job. The cook only wants to tell each shop: we'll order bread today. "
-              "She needs no replies, so she uses launch, which is async without the answer. "
-              "It starts a coroutine and returns a Job at once: a handle you can wait for or cancel, with no value inside.",
-    "shyq": "Which brings up a question that's easy to be shy about. launch returns at once, three times, "
-            "and nothing waits for the replies. So when does the function return? And if it returns at once, "
-            "who's still texting?",
-    "pain": "Let's entertain the scary answer. Say it returns at once. The caller thinks the job is done, and serves dinner, "
-            "while three texts are still out. If one of them fails, there's nobody left to tell.",
+    "open": "Tonight, the cook texts three shops to ask who has the cheapest tomatoes. The greengrocer takes 300 "
+            "milliseconds to reply, the market 120, and the farm stand 200.",
+    "recap": "In code, each shop is a Grocer, and price suspends until the shop replies. async starts one "
+             "question, and hands back a Deferred at once: a pot with the lid on. await lifts the lid.",
+    "recap2": "Text all three first, then read the replies, and you wait only for the slowest: 300 milliseconds, "
+              "not 620. The lesson's demo took 321, against 666.",
+    "launch": "Now a different job: telling each shop, we'll order bread today. No replies needed, so the cook uses "
+              "launch. It starts a coroutine and returns a Job at once: a handle to wait for or cancel, with no "
+              "value inside.",
+    "shyq": "Here's a question that's easy to be shy about. launch returns at once, three times, and nothing "
+            "waits for the replies. So when does the function return? And who's still texting?",
+    "pain": "Let's entertain the scary answer. Say it returns at once. The caller thinks the job is done, and "
+            "serves dinner, while three texts are still out. If one of them fails, there's nobody left to tell.",
     "drawer": "The cook is clearing the table, and her phone, in a drawer somewhere, is still texting the shops. "
-              "So we need someone whose job is to wait for every text.",
-    "course": "A kitchen already has that someone: the course. The starters don't go out until every dish in them is ready. "
-              "The cook can finish her own part early. The plate still waits for the slowest dish.",
-    "map": "In code, the course is coroutineScope. It runs its block, the cook's own part. "
-           "Every coroutine started inside becomes one of its dishes, a child. "
-           "And the course going out is coroutineScope returning.",
-    "pred_q": "So here's callAhead. Inside coroutineScope, it launches one text per grocer, and its block ends right away. "
-              "When does callAhead return?",
-    "pred_a": "At 300 milliseconds, when the slowest grocer has answered. The block was done at once, "
-              "but the scope waits for every child, even the ones nobody awaited.",
-    "value": "And if the block ends with a value, the value waits too. A scope that launches a 200 millisecond job, "
-             "and then says 42, returns 42 after 200 milliseconds.",
-    "promise": "That's the promise coroutineScope makes to your callers: when a suspend function returns, "
-               "the work it started is done. Nothing keeps running behind their back. No phone in a drawer.",
+              "Someone has to wait for every text.",
+    "course": "A kitchen already has that someone: the course. The starters don't go out until every dish in them "
+              "is ready. The cook can finish her own part early. The plate still waits for the slowest dish.",
+    "map": "In code, the course is coroutineScope. It runs its block, the cook's own part. Every coroutine "
+           "started inside becomes one of its dishes, a child. And the course going out is coroutineScope "
+           "returning.",
+    "pred_q": "So here's callAhead. Inside coroutineScope, it launches one text per grocer, and its block ends "
+              "right away. When does callAhead return?",
+    "pred_a": "At 300 milliseconds, when the slowest grocer has answered. The block was done at once, but the scope "
+              "waits for every child, even the ones nobody awaited.",
+    "value": "And if the block ends with a value, the value waits too. A scope that launches a 200 millisecond "
+             "job, and then says 42, returns 42 after 200 milliseconds.",
+    "promise": "That's the promise coroutineScope makes to your callers: when a suspend function returns, the work "
+               "it started is done. Nothing keeps running behind their back. No phone in a drawer.",
     "scope": "It's also why you can't call launch just anywhere. launch needs a scope: something that keeps track "
              "of the coroutines started in it, and becomes their parent. Here, that's the course.",
-    "fail_q": "Now one dish goes wrong. The market's reply fails at 120 milliseconds. "
-              "When does callAhead finish, and what happens to the other two texts?",
+    "fail_q": "Now one dish goes wrong. The market's reply fails at 120 milliseconds. When does callAhead finish, "
+              "and what happens to the other two texts?",
     "fail_a": "It fails at about 120 milliseconds. The scope cancels the other two texts, waits for them to stop, "
               "and then hands the market's exception to its caller. Nothing is left texting.",
-    "fail2": "Waiting for the children, and stopping the rest when one fails: the next lesson draws the family tree "
-             "behind both.",
-    "nest": "While it waits, coroutineScope suspends. It doesn't block, so the thread is free to cook something else. "
-            "And because it's a suspend function itself, it nests. The lab's priceList asks about tomatoes and basil, "
-            "each with allPrices and its own scope inside. Six questions at once, and the list is ready in 300 milliseconds.",
-    "g1": "A few rules keep this honest. Start everything, then await. An await straight after each async waits "
-          "before the next text goes out. In the demo, that took 627 milliseconds, the full sum, "
-          "and it still passed a test that only checked the answers.",
-    "g2": "Use launch when you don't need the value. An async that nobody awaits hides what you meant. "
-          "And keep runBlocking in main and tests. It waits for its children too, but it holds its thread the whole time: "
-          "the cook back at the pot. Eight 200 millisecond lookups on two threads took 858 milliseconds that way, "
-          "instead of 292.",
-    "limit": "One limit. The overlap comes from waiting. Three dishes that each need 300 milliseconds of chopping, "
-             "on one thread, take 900, async or not. async can't grow the cook more hands. "
-             "So the point is: it overlaps waits, not work.",
-    "code": "Here's callAhead in Kotlin, with its closest Java match. A Java executor in a try block waits, "
-            "when it closes, for every task it was given. But if one task fails, it doesn't stop the others. "
-            "coroutineScope does both.",
-    "moral": "So, what stops a function from returning while its work is still going? coroutineScope. "
-             "launch and async start the dishes and return at once. The course waits for every dish, "
-             "and if one fails, it stops the rest and tells the caller. A suspend function should return only when its work is done.",
-    "check": "Quick check. Inside coroutineScope, the cook awaits the greengrocer's price, 300 milliseconds, "
-             "and launches a 500 millisecond text to the farm stand that nobody awaits. When does the scope return?",
+    "fail2": "Waiting for the children, and stopping the rest when one fails: the next lesson draws the family "
+             "tree behind both.",
+    "nest": "While it waits, coroutineScope suspends, so the thread is free. And because it's a suspend function "
+            "itself, it nests. The lab's priceList asks about tomatoes and basil, each through allPrices with its "
+            "own scope: six questions at once, ready in 300 milliseconds.",
+    "g1": "A few rules. Start everything, then await. An await straight after each async took 627 milliseconds "
+          "in the demo, the full sum, and still passed a test that only checked the answers.",
+    "g2": "Use launch when you don't need the value: an async nobody awaits hides what you meant. And keep "
+          "runBlocking in main and tests. It holds its thread while it waits, the cook back at the pot: eight "
+          "lookups on two threads took 858 milliseconds that way, instead of 292.",
+    "limit": "One limit: the overlap comes from waiting. Three dishes that each need 300 milliseconds of chopping, "
+             "on one thread, take 900, async or not. async can't grow the cook more hands: it overlaps waits, not "
+             "work.",
+    "code": "Here's callAhead in Kotlin, and its closest Java match: an executor in a try block, which waits for "
+            "every task when it closes. But if one task fails, it doesn't stop the others. coroutineScope does "
+            "both.",
+    "moral": "So, what stops a function from returning early? coroutineScope. launch and async start the dishes "
+             "and return at once. The course waits for every dish, and stops the rest if one fails. A suspend "
+             "function should return only when its work is done.",
+    "check": "Quick check. Inside coroutineScope, the cook awaits a 300 millisecond price, and launches a 500 "
+             "millisecond text that nobody awaits. When does the scope return?",
     "check_a": "At 500 milliseconds. The price is in at 300, but the course waits for every dish.",
 }
 
@@ -257,7 +254,7 @@ class Co02Builders(Narrated):
         self.play(LaggedStart(*[FadeIn(p, shift=UP * 0.1) for p in pots], lag_ratio=0.2), FadeIn(d_l), run_time=0.9)
         self.at_text("await lifts", lead=0.3)
         self.play(pots[1][4].animate.shift(UP * 0.35).rotate(0.3), run_time=0.6)
-        val = T("149 cents", 22, MK).next_to(pots[1], RIGHT, buff=0.15)
+        val = T("149 cents", 22, MK).next_to(pots[1], DOWN, buff=0.15)
         self.play(FadeIn(val), run_time=0.4)
         self.hold()
 
@@ -336,7 +333,7 @@ class Co02Builders(Narrated):
                         for r in (0.12, 0.24)])
         need = T("someone has to wait for every text", 26, YELLOW_M).move_to([0, 2.4, 0])
         self.say("drawer")
-        self.play(FadeOut(VGroup(ln, ax2, ret0, *out, xb, nob, *shops, ph)), cook.animate.move_to([-3.5, 0.2, 0]), run_time=0.8)
+        self.play(FadeOut(VGroup(ln, ax2, ret0, *out, xb, nob, *shops, ph)), cook.animate.move_to([-4.4, 0.2, 0]), run_time=0.8)
         self.play(FadeIn(dr), FadeIn(dph, shift=UP * 0.2), run_time=0.6)
         self.play(Wiggle(dph, scale_value=1.15), FadeIn(buzz), run_time=1.0)
         self.at(1)
@@ -494,7 +491,7 @@ class Co02Builders(Narrated):
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
 
         # ================= suspends, and nests =================
-        fc = person(COOK, 1.0).move_to([-5.4, 2.0, 0])
+        fc = person(COOK, 1.0).move_to([-5.6, 2.45, 0])
         fc_l = T("thread: free", 22, COOK).next_to(fc, DOWN, buff=0.12)
         outer = RoundedRectangle(corner_radius=0.16, width=10.6, height=3.7).set_stroke(COURSE, 3).set_fill(dim(COURSE, 0.06), 1)
         outer.move_to([0.9, -0.85, 0])
@@ -517,10 +514,10 @@ class Co02Builders(Narrated):
         self.play(FadeIn(fc), FadeIn(fc_l), run_time=0.6)
         self.at(2)
         self.play(FadeIn(outer), FadeIn(outer_t), run_time=0.6)
-        self.at_text("each with", lead=0.4)
+        self.at_text("each through", lead=0.4)
         self.play(FadeIn(i1[:2]), FadeIn(i2[:2]), run_time=0.6)
         self.play(*[GrowFromEdge(b, LEFT) for b in (*i1[2], *i2[2])], run_time=1.0)
-        self.at_text("Six questions", lead=0.3)
+        self.at_text("six questions", lead=0.3)
         self.play(FadeIn(six, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.play(FadeOut(VGroup(fc, fc_l, outer, outer_t, i1, i2, six)), run_time=0.6)
@@ -545,7 +542,7 @@ class Co02Builders(Narrated):
         self.hold()
         self.say("g2")
         self.play(FadeIn(r2, shift=UP * 0.1), run_time=0.7)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(r3, shift=UP * 0.1), run_time=0.7)
         self.hold()
 
@@ -558,7 +555,7 @@ class Co02Builders(Narrated):
         self.play(rules.animate.shift(UP * 0.6), FadeIn(lim_t), run_time=0.6)
         self.at(1)
         self.play(LaggedStart(*[GrowFromEdge(b, LEFT) for b in chop], lag_ratio=0.9), FadeIn(chop_l), run_time=1.6)
-        self.at(3)
+        self.at_text("async can't", lead=0.3)
         self.play(FadeOut(lim_t), FadeIn(hands), run_time=0.6)
         self.hold()
         self.play(FadeOut(VGroup(rules, chop, chop_l, hands)), run_time=0.6)
@@ -579,9 +576,9 @@ class Co02Builders(Narrated):
         fit(cols, 12.6).move_to([0, 0.3, 0])
         self.say("code")
         self.play(FadeIn(cols, shift=UP * 0.15), run_time=0.9)
-        self.at(1)
+        self.at_text("which waits", lead=0.3)
         self.play(Indicate(j2[3], color=GREY_A, scale_factor=1.02), run_time=0.9)
-        self.at(3)
+        self.at(2)
         self.play(Indicate(k2[0], color=COURSE, scale_factor=1.03), run_time=0.9)
         self.hold()
         self.play(FadeOut(cols), run_time=0.6)

@@ -486,7 +486,7 @@ class Rx08HotCold(Narrated):
         mem_l = T("from memory", 20, REPLAY_C).move_to([tx(250) - 0.85, ROW_Y[3] + 0.22, 0])
         self.say("replay")
         self.play(FadeIn(rr), run_time=0.5)
-        self.at(1)
+        self.at(2)
         tr.set_value(200)
         ph3 = Line(ORIGIN, UP, stroke_width=2, color=GREY_A)
         ph3.add_updater(lambda m: m.put_start_and_end_on([tx(tr.get_value()), ROW_Y[3] + 0.35, 0], [tx(tr.get_value()), ROW_Y[3] - 0.35, 0]))

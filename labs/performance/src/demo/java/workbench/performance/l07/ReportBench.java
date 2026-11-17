@@ -17,25 +17,28 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.TimeUnit;
 
-/** The proof: the three fee versions under JMH with the GC profiler. Bytes per call is the number to keep. */
+/** The proof: each version of the report step under JMH with the GC profiler. Bytes per call is the number to keep. */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Warmup(iterations = 3, time = 300, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 5, time = 300, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 3, time = 300, timeUnit = TimeUnit.MILLISECONDS)
 @Fork(1)
-public class FeeBench {
-    FeeVariants.Payment payment = new FeeVariants.Payment("pay_123", "EUR", "1234.56", "m_7");   // non-final input
+public class ReportBench {
+    ReportVariants.Document doc = new ReportVariants.Document("doc-7", "fr",
+            "the rain came early and the river rose over the old stone");                   // non-final input
 
-    @Benchmark public long before() { return FeeVariants.feeSlow(payment); }
+    @Benchmark public long before() { return ReportVariants.slow(doc); }
 
-    @Benchmark public long after1Hoisted() { return FeeVariants.feeHoisted(payment); }
+    @Benchmark public long after1Hoisted() { return ReportVariants.hoisted(doc); }
 
-    @Benchmark public long after2NoRegex() { return FeeVariants.feeNoRegex(payment); }
+    @Benchmark public long after2Scanned() { return ReportVariants.scanned(doc); }
+
+    @Benchmark public long after3NoRegex() { return ReportVariants.noRegex(doc); }
 
     public static void main(String[] args) throws Exception {
         var options = new OptionsBuilder()
-                .include(FeeBench.class.getName())
+                .include(ReportBench.class.getName())
                 .addProfiler(GCProfiler.class)
                 .verbosity(VerboseMode.SILENT)
                 .build();

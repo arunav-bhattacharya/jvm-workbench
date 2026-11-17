@@ -43,13 +43,13 @@ Its log holds the first surprise. A line like `Minor Collection (Allocation Rate
 
 In this lesson, we'll watch ZGC move boxes under the workers' feet, add up what that costs, meet Shenandoah, and choose a collector with a table. Before we start, make a guess, and keep it in mind."""
 
-S1 = """In lesson 4, almost all of a G1 young pause was "Evacuate Collection Set": the collector copying live objects while every thread waited. (The heap is the memory where a Java program keeps its objects, and a thread is one path of work running through the program.) That pause grows with what survives. Give the thumbnail service a cache of many gigabytes, and every young pause has more to copy.
+S1 = """In lesson 4, almost all of a G1 young pause, the stop in which G1 cleans the area for new objects, was "Evacuate Collection Set": the collector copying live objects while every thread waited. (The heap is the memory where a Java program keeps its objects, the garbage collector is the part of the JVM that frees the objects nothing uses any more, and a thread is one path of work running through the program.) That pause grows with what survives. Give the thumbnail service a cache of many gigabytes, and every young pause has more to copy.
 
 **ZGC**, the Z Garbage Collector, moves objects while your threads keep running. It has been ready for production since JDK 15. The hard part is easy to state: a thread may be about to follow a reference, an object's address, to an object the collector has just moved. ZGC handles that with two tricks.
 
-The first trick is the **colored pointer**. Every reference stored in the heap carries a few extra bits, its color, which say whether the reference is up to date with the crew's current round of work. Picture a small colored sticker on every note. The bits need room, so ZGC doesn't compress references: each one takes 8 bytes. Lesson 1's `Thumbnail` takes 40 bytes under G1 on JDK 25 and 48 under ZGC. The allocation counter says so: 10,000 thumbnails, 480,000 bytes.
+The first trick is the **colored pointer**. Every reference stored in the heap carries a few extra bits, its color, which say whether the reference is up to date with the crew's current round of work. Picture a small colored sticker on every note. The bits need room, so ZGC doesn't use lesson 1's compressed 4-byte references: each one takes 8 bytes. Lesson 1's `Thumbnail` takes 40 bytes under G1 on JDK 25 and 48 under ZGC. The allocation counter says so: 10,000 thumbnails, 480,000 bytes.
 
-The second trick is the **load barrier**: a few instructions that the JIT compiler (the part of the JVM that turns busy bytecode into machine code) adds after every load of a reference from the heap. Here's what it adds, in spirit:
+The second trick is the **load barrier**: a few instructions added after every load of a reference from the heap. The JIT compiler puts them there; it's the part of the JVM, the program that runs your code, that turns busy bytecode into machine code. Here's what the barrier adds, in spirit:
 
 ```text
 thumb = cache.latest                        // the load you wrote
@@ -65,7 +65,7 @@ What's left for the pauses is small and fixed: switching the crew from one step 
 
 The flags changed along the way. JDK 21 added generational ZGC, with lesson 4's young and old generations, as an option (`-XX:+ZGenerational`, JEP 439). JDK 23 made it the default (JEP 474), and JDK 24 removed the old single-generation mode (JEP 490). On JDK 25, `-XX:+UseZGC` means generational ZGC, which also has a barrier on reference stores to track notes from old boxes to young ones, the job G1's cards do.
 
-Now read one collection from the log. These lines come from a JDK 25 run of the demo below, on a 4-core machine busy with other work (ZGC's own log reported a load of 26):
+Now read one collection from the log. These lines come from a JDK 25 run of the demo's load, logged with `-Xlog:gc*` and trimmed, on a 4-core machine busy with other work (ZGC's own log reported a load of 26):
 
 ```text
 GC(3) Minor Collection (Allocation Rate)
@@ -119,7 +119,7 @@ Across both runs, Serial, Parallel and G1 stopped the threads for 110 to 245 ms 
 
 Every crew makes a different trade, then. To choose one, you need to know which part of the bill your program can least afford."""
 
-S3 = """Before you choose, know what you get when you choose nothing. On JDK 21 to 26, the JVM picks G1 only on what it calls a server-class machine: at least 2 CPUs and at least 1,792 MB of memory, both as the JVM sees them inside a container. Anything smaller silently gets Serial. A small helper program next to the thumbnail service, in a container with 1 CPU or a 1 GiB memory limit, has run Serial all along unless someone named a collector. Per the JDK 27 source, JDK 27 picks G1 everywhere.
+S3 = """Before you choose, know what you get when you choose nothing. On JDK 21 to 26, the JVM picks G1 only on what it calls a server-class machine: at least 2 CPUs and at least 1,792 MB of memory, both as the JVM sees them inside a container. Anything smaller silently gets Serial, HotSpot's simplest collector: one GC thread does all the work while every application thread waits. (Parallel does the same with many GC threads.) A small helper program next to the thumbnail service, in a container with 1 CPU or a 1 GiB memory limit, has run Serial all along unless someone named a collector. Per the JDK 27 source, JDK 27 picks G1 everywhere.
 
 Then ask what hurts most. If long pauses hurt, because a person waits on every request, look at the low-pause crews. If total work per CPU hurts, because a job runs for hours and nobody waits on one step, look at Parallel. If memory hurts, because the container is small, remember that concurrent crews need headroom. These are my starting points, not benchmark results:
 
@@ -127,7 +127,7 @@ Then ask what hurts most. If long pauses hurt, because a person waits on every r
 |---|---|---|---|
 | Serial | one cleaner, pens down | 1 CPU and a heap up to a few hundred MB | full GCs that grow with the live data |
 | Parallel | many cleaners, pens down | batch jobs, where total time beats any single pause | long pauses on big heaps |
-| G1 | the crew with a stopwatch, from lesson 4 | most services: heaps from about 256 MB to tens of GB, pause budgets of tens of milliseconds | `Evacuation Failure`, `Pause Full`, humongous churn |
+| G1 | the crew with a stopwatch, from lesson 4 | most services: heaps from about 256 MB to tens of GB, pause budgets of tens of milliseconds | `Evacuation Failure`, `Pause Full`, many arrays over half a region |
 | ZGC | moves boxes while the workers work | pause budgets under about 10 ms, with cores to spare | CPU in small containers, `Allocation Stall`, 8-byte references |
 | Shenandoah | the same goal, another design | the same goals as ZGC, on a JDK that includes it | availability; generational mode only from JDK 24 |
 | Epsilon | never cleans at all | tests and benchmarks only | the JVM stops when the heap is full, by design |
@@ -151,9 +151,9 @@ S4 = """**Epsilon** is a collector that never collects. It hands out memory, and
 Terminating due to java.lang.OutOfMemoryError: Java heap space
 ```
 
-Epsilon is a cleaning crew that never shows up. In a running service, that's a short career. In a test, it's a measuring tool, because under Epsilon the heap size becomes an **allocation budget**: if a piece of code finishes under `-Xmx64m`, it allocated less than 64 MB in total, a few of which went to starting the JVM.
+Epsilon is a cleaning crew that never shows up. In a running service, that's a short career. In a test, it's a measuring tool, because under Epsilon the heap size becomes an **allocation budget**: if a piece of code finishes under `-Xmx64m`, a heap of at most 64 MB, it allocated less than 64 MB in total, a few of which went to starting the JVM.
 
-The demo puts lesson 2's upload report on that budget. It adds up the bytes that each of 500 users uploaded, over 5 million uploads, in two versions. Each version runs in its own JVM with Epsilon and a 64 MB heap. The `long[]` version finishes. The `Map<Integer, Long>` version dies. It dies even though C2's escape analysis may remove the temporary boxes for the key and the size, because every running sum is a new 24-byte `Long` that the map stores. Epsilon frees none of the old ones, and 5 million of them need at least 120 MB.
+The demo puts lesson 2's upload report on that budget. It adds up the bytes that each of 500 users uploaded, over 5 million uploads, in two versions. Each version runs in its own JVM with Epsilon and a 64 MB heap. The `long[]` version finishes. The `Map<Integer, Long>` version dies. It dies even though the JIT's escape analysis (lesson 2's trick of skipping objects that never leave a method) may remove the temporary boxes for the key and the size, because every running sum is a new 24-byte `Long` that the map stores. Epsilon frees none of the old ones, and 5 million of them need at least 120 MB.
 
 Epsilon has two other honest uses: benchmarks that must not be disturbed by GC pauses, and very short jobs that finish before they could fill the heap.
 
@@ -230,7 +230,7 @@ L = {
      "Predict what JDK 27 would print for the first command."
     ],
     "code": {"lang": "bash", "title": "terminal", "src": "java -XX:ActiveProcessorCount=1 -XX:+PrintFlagsFinal -version | grep -E ' Use(Serial|G1|Parallel|Z|Shenandoah)GC '\njava -XX:+PrintFlagsFinal -version | grep -E ' Use(Serial|G1)GC '", "run": ""},
-    "expect": "On JDK 25 the first command shows `UseSerialGC = true {ergonomic}` and `UseG1GC = false {default}`: one CPU is not a server-class machine. Without the flag, on a machine with 2 or more CPUs and enough memory, `UseG1GC = true {ergonomic}`. JDK 21 to 26 behave the same way. On JDK 27, per its source, both commands select G1."
+    "expect": "On JDK 25 the first command shows `UseSerialGC` as `true`, marked `{ergonomic}` (the JVM chose it), and `UseG1GC` as `false`: one CPU is not a server-class machine. Without the flag, on a machine with 2 or more CPUs and enough memory, `UseG1GC` is the one that's `true` and `{ergonomic}`. JDK 21 to 26 behave the same way. On JDK 27, per its source, both commands select G1."
    },
    "refs": [
     {"title": "gcConfig.cpp at jdk-25-ga: how the JVM picks a collector", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/hotspot/share/gc/shared/gcConfig.cpp", "kind": "read"}
@@ -245,10 +245,10 @@ L = {
     "steps": [
      "Read `EpsilonDemo`. Each version runs in a child JVM with Epsilon and a 64 MB heap.",
      "Predict which version finishes, then run it.",
-     "Change `UPLOADS` to 1,000,000 and run it a few times."
+     "Change `UPLOADS` to 1,000,000 and run it again, then to 2,000,000. Does the point where the boxed version breaks match 24 bytes per upload?"
     ],
     "code": demo("EpsilonDemo"),
-    "expect": "`primitive` prints `finished inside the budget, total 27487500000`. `boxed` prints `Terminating due to java.lang.OutOfMemoryError: Java heap space`: five million new `Long` sums need at least 120 MB, and nothing is ever freed. With 1,000,000 uploads the boxed run sits near the edge, so it may finish or fail depending on how soon the JIT removes the temporary boxes. That's why a budget test should leave a wide margin."
+    "expect": "`primitive` prints `finished inside the budget, total 27487500000`. `boxed` prints `Terminating due to java.lang.OutOfMemoryError: Java heap space`: five million new `Long` sums need at least 120 MB, and nothing is ever freed. On JDK 25, the boxed version finished with 1,000,000 uploads (at least 24 MB of sums) and failed every time with 2,000,000 (at least 48 MB, plus the JVM's own start-up and any temporary boxes the JIT didn't remove). A budget test should leave a wide margin for exactly that reason."
    }
   }
  ],
@@ -322,9 +322,9 @@ L = {
   "Epsilon never frees memory, so a heap size becomes an allocation budget. Put `-XX:+UnlockExperimentalVMOptions` first.",
   "The limit of low pauses: the work moves out of the pause, not out of the program. It comes back as CPU for GC threads and barriers, as headroom (or allocation stalls when there's too little), and, for ZGC, as 8-byte references."
  ],
- "closing": """We started with a crew that moves boxes while the workers keep working. ZGC does it with colored references and a load barrier, and Shenandoah with a design of its own. Both pay in CPU and headroom, and ZGC in bigger references too. G1 still suits most programs, and Epsilon measures them.
+ "closing": """We started with a crew that moves boxes while the workers keep working. ZGC does it with colored references and a load barrier, and Shenandoah with a design of its own. Both pay in CPU and headroom, ZGC in bigger references too. G1 still suits most programs, and Epsilon measures them.
 
-Now check a program of yours: which collector does it really run? Print the GC beans from the compare block at startup, or run `java -XX:+PrintFlagsFinal -version` inside its container.
+Now check a program of yours: which collector does it really run? Print the collector names with the compare block's three lines at startup, or run `java -XX:+PrintFlagsFinal -version` inside its container.
 
 Next, we'll read the crew's logbook line by line, and fit the whole warehouse onto the plot a container gives it. Why can a program whose heap fits its memory limit still be killed without a word?""",
  "quiz": [

@@ -26,7 +26,7 @@ object DumpReader {
      * - Stop at a thread that waits for nothing, or for a lock nobody holds (an idle pool thread waits for a
      *   condition, which has no owner).
      * - If a name comes back, you found a deadlock: add that name once more and stop, so the list reads
-     *   as a cycle, for example `[refund-A, refund-B, refund-A]`.
+     *   as a cycle, for example `[merge-A, merge-B, merge-A]`.
      * - Return an empty list when there is no thread called [threadName].
      */
     fun blockedChain(dump: ThreadDump, threadName: String): List<String> {

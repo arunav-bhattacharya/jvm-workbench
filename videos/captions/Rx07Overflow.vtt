@@ -1,145 +1,361 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.309
-In Reactor, demand travels up the chain.
+00:00:02.733 --> 00:00:08.768
+Back at the end of the bakery line, the packer has a small table where loaves wait to be boxed.
 
 2
-00:00:05.309 --> 00:00:09.418
-The subscriber calls request(n), which means I can take n more.
+00:00:08.768 --> 00:00:09.594
+It holds ten.
 
 3
-00:00:09.418 --> 00:00:12.875
-A source like Flux.range sends at most n, then waits.
+00:00:09.594 --> 00:00:17.089
+As long as the oven waits for her slips, the table never overflows: she writes send me 10 more only when there's room.
 
 4
-00:00:13.100 --> 00:00:14.398
-A ticker can't wait.
+00:00:17.600 --> 00:00:20.246
+But not everything in a bakery reads slips.
 
 5
-00:00:14.398 --> 00:00:18.356
-Flux.interval ticks once a millisecond, whatever you request.
+00:00:20.246 --> 00:00:22.953
+The thermometer in the oven is a chatterbox.
 
 6
-00:00:18.356 --> 00:00:23.936
-Behind it, a screen asks for one tick at a time, and takes 10 milliseconds to draw it.
+00:00:22.953 --> 00:00:27.815
+It reports the temperature every millisecond, whether anyone is looking or not.
 
 7
-00:00:24.033 --> 00:00:27.901
-Tick 1 comes before anyone asked for it, and the stream fails.
+00:00:27.815 --> 00:00:32.368
+Nobody has ever asked it to slow down, and it wouldn't listen if they did.
 
 8
-00:00:28.133 --> 00:00:32.238
-The onBackpressure operators let you choose what happens instead.
+00:00:32.533 --> 00:00:35.107
+Its readings go to a screen in the shop.
 
 9
-00:00:32.238 --> 00:00:39.816
-Each one requests unbounded, so the source never overflows, and then decides what to do with the ticks nobody asked for.
+00:00:35.107 --> 00:00:40.383
+The screen asks for one reading at a time, and takes 10 milliseconds to draw each.
 
 10
-00:00:40.033 --> 00:00:44.356
-onBackpressureBuffer with no size keeps every tick in a queue.
+00:00:40.383 --> 00:00:48.297
+In Reactor, Flux.interval plays the thermometer: it sends a number, called a tick, every millisecond, whatever you request.
 
 11
-00:00:44.356 --> 00:00:47.215
-The screen gets 0, 1, 2, 3, all in order.
+00:00:48.467 --> 00:00:50.754
+Reading 0 is asked for, and drawn.
 
 12
-00:00:47.300 --> 00:00:50.469
-But after 20 frames, the ticker is at 204.
+00:00:50.754 --> 00:00:58.421
+Reading 1 arrives before anyone asked for it, and the stream fails: could not emit tick 1 due to lack of requests.
 
 13
-00:00:50.469 --> 00:00:56.657
-More than 180 ticks wait in memory, and the backlog grows until the heap runs out.
+00:00:59.133 --> 00:01:04.211
+Reactor has a family of operators for this, with backpressure right in their names.
 
 14
-00:00:57.367 --> 00:00:59.476
-Give the buffer a size, like 10.
+00:01:04.211 --> 00:01:07.391
+And here's the question that's easy to be shy about.
 
 15
-00:00:59.476 --> 00:01:02.969
-While the screen draws tick 0, ticks 1 to 10 fill it.
+00:01:07.391 --> 00:01:10.939
+Backpressure means the slow side slows down the fast side.
 
 16
-00:01:03.067 --> 00:01:04.770
-Then a tick finds no room.
+00:01:10.939 --> 00:01:14.243
+So surely one of them makes the thermometer slow down?
 
 17
-00:01:04.770 --> 00:01:07.389
-The buffer cancels the source and fails.
+00:01:14.933 --> 00:01:20.196
+Let's try the one everyone reaches for first: onBackpressureBuffer, with no size.
 
 18
-00:01:07.467 --> 00:01:10.125
-The error waits behind the buffered ticks.
+00:01:20.196 --> 00:01:22.340
+The screen takes twenty readings.
 
 19
-00:01:10.125 --> 00:01:13.923
-The screen still gets 0 to 11, in order, and then the error.
+00:01:22.340 --> 00:01:23.444
+What does it get?
 
 20
-00:01:15.033 --> 00:01:17.150
-onBackpressureDrop keeps nothing.
+00:01:26.467 --> 00:01:29.363
+Readings 0, 1, 2, all the way to 19.
 
 21
-00:01:17.150 --> 00:01:21.063
-Each tick that arrives while nobody is asking is thrown away.
+00:01:29.363 --> 00:01:31.213
+In order, and no error.
 
 22
-00:01:21.133 --> 00:01:26.815
-So the screen sees ticks about 11 apart, and in 20 frames about 200 are dropped.
+00:01:31.213 --> 00:01:32.581
+It looks perfect.
 
 23
-00:01:27.533 --> 00:01:32.491
-onBackpressureLatest keeps one slot, and each new tick replaces the one before.
+00:01:32.581 --> 00:01:34.109
+That's the problem.
 
 24
-00:01:32.491 --> 00:01:36.571
-When the screen asks, it gets the newest: about every tenth tick.
+00:01:34.267 --> 00:01:39.242
+When the screen drew reading 19, the thermometer was at reading 216.
 
 25
-00:01:37.300 --> 00:01:41.765
-onBackpressureError fails at once, at the first tick nobody asked for.
+00:01:39.242 --> 00:01:48.680
+Nearly 200 readings were waiting in a queue with no limit, about 90 more every 100 milliseconds, for as long as the program runs.
 
 26
-00:01:42.933 --> 00:01:45.206
-None of these slows the source down.
+00:01:49.467 --> 00:01:54.298
+It's our doorstep with fourteen loaves, back again, with more every second.
 
 27
-00:01:45.206 --> 00:01:47.099
-They only decide what to lose.
+00:01:54.298 --> 00:01:57.584
+We fixed the smoke alarm by taking out the battery.
 
 28
-00:01:47.099 --> 00:01:50.697
-Real backpressure needs a source that honours request(n).
+00:01:57.584 --> 00:01:58.743
+The noise stopped.
 
 29
-00:01:51.400 --> 00:01:53.256
-So pick by the kind of feed.
+00:01:58.743 --> 00:01:59.774
+The fire didn't.
 
 30
-00:01:53.256 --> 00:01:58.096
-Prices, positions and statuses want latest, because newer replaces older.
+00:01:59.774 --> 00:02:02.093
+So no error doesn't mean no problem.
 
 31
-00:01:58.096 --> 00:02:00.417
-Samples and metrics can be dropped.
+00:02:02.093 --> 00:02:05.443
+The pile just moved into memory, where nobody looks.
 
 32
-00:02:00.417 --> 00:02:07.179
-Card authorizations and audit events must not be lost, so they get a bounded buffer that fails loudly.
+00:02:06.200 --> 00:02:08.338
+So, back to the packer's table.
 
 33
-00:02:07.179 --> 00:02:10.428
-Error is for feeds where falling behind is a bug.
+00:02:08.338 --> 00:02:15.030
+When a belt won't stop, the table fills, and someone has to decide what happens to the next item.
 
 34
-00:02:10.428 --> 00:02:13.477
-And the unbounded buffer suits almost nothing.
+00:02:15.030 --> 00:02:17.099
+There are four honest answers.
 
 35
-00:02:14.200 --> 00:02:17.969
-In Kotlin Flow, a slow collector simply suspends the emitter.
+00:02:17.099 --> 00:02:18.341
+Keep a small pile.
 
 36
-00:02:17.969 --> 00:02:26.928
-When a buffer sits between them, conflate keeps the newest, like onBackpressureLatest, and a full buffer suspends the emitter instead of failing.
+00:02:18.341 --> 00:02:19.583
+Throw it in a bin.
+
+37
+00:02:19.583 --> 00:02:21.031
+Keep only the newest.
+
+38
+00:02:21.031 --> 00:02:22.204
+Or stop the line.
+
+39
+00:02:22.400 --> 00:02:25.624
+Each onBackpressure operator is one of those answers.
+
+40
+00:02:25.624 --> 00:02:29.881
+It asks the thermometer for everything, so nothing overflows above it.
+
+41
+00:02:29.881 --> 00:02:34.687
+Then it decides what happens to the readings nobody further down has asked for.
+
+42
+00:02:35.467 --> 00:02:39.224
+The small pile is onBackpressureBuffer with a size, say 10.
+
+43
+00:02:39.224 --> 00:02:42.536
+While the screen draws reading 0, the pile fills up.
+
+44
+00:02:42.536 --> 00:02:48.777
+Then a reading finds no room, so the line stops: the thermometer is cut off, and an error is sent.
+
+45
+00:02:48.733 --> 00:02:51.535
+Does the screen still get the readings on the pile?
+
+46
+00:02:54.600 --> 00:02:55.150
+It does.
+
+47
+00:02:55.150 --> 00:02:57.969
+The error waits its turn behind the pile.
+
+48
+00:02:57.969 --> 00:03:03.264
+The screen got readings 0 to 11, in order, and then: the receiver is overrun.
+
+49
+00:03:03.264 --> 00:03:05.464
+Nothing vanished without a word.
+
+50
+00:03:06.200 --> 00:03:08.374
+The bin is onBackpressureDrop.
+
+51
+00:03:08.374 --> 00:03:13.446
+A reading that arrives while the screen isn't asking goes straight in.
+
+52
+00:03:13.446 --> 00:03:18.012
+The screen saw 0, 11, 22, 34, and 202 readings went in the bin.
+
+53
+00:03:18.012 --> 00:03:18.954
+Why 11 apart?
+
+54
+00:03:18.954 --> 00:03:24.751
+When the screen asks, the bin has nothing on hand, so it waits for the next one.
+
+55
+00:03:25.533 --> 00:03:28.563
+Keep only the newest is onBackpressureLatest.
+
+56
+00:03:28.563 --> 00:03:32.873
+It has one slot, and each new reading pushes out the one before.
+
+57
+00:03:32.873 --> 00:03:37.991
+When the screen asks, the newest is ready: 0, 10, 20, 30, about every tenth.
+
+58
+00:03:38.733 --> 00:03:41.240
+And stop the line is onBackpressureError.
+
+59
+00:03:41.240 --> 00:03:44.114
+It fails at the first reading nobody asked for.
+
+60
+00:03:44.114 --> 00:03:46.988
+That's for belts where falling behind is a bug.
+
+61
+00:03:48.467 --> 00:03:51.532
+So, does any of them slow the thermometer down?
+
+62
+00:03:51.532 --> 00:03:52.053
+Not one.
+
+63
+00:03:52.053 --> 00:03:57.271
+Honest names would be: keep a pile, use the bin, keep the newest, stop the line.
+
+64
+00:03:57.271 --> 00:03:58.705
+They're loss policies.
+
+65
+00:03:58.705 --> 00:04:01.705
+They decide what to keep, and what to give up.
+
+66
+00:04:02.467 --> 00:04:04.821
+And here the bakery picture breaks.
+
+67
+00:04:04.821 --> 00:04:07.915
+A full table in a real bakery is hard to miss.
+
+68
+00:04:07.915 --> 00:04:16.524
+A buffer with no size is a table nobody can see, and it grows until the heap, the memory where Java keeps its objects, runs out.
+
+69
+00:04:17.267 --> 00:04:26.367
+Real backpressure needs a source that reads the slips, like the database cursor behind the nightly report, which fetches only the rows it's asked for.
+
+70
+00:04:26.367 --> 00:04:30.613
+That's backpressure for free, so pick a source like that when you can.
+
+71
+00:04:31.400 --> 00:04:34.319
+When you can't, ask what one missed item costs.
+
+72
+00:04:34.319 --> 00:04:37.549
+A temperature is a value where newer replaces older.
+
+73
+00:04:37.549 --> 00:04:42.705
+A buffer here would show the oven's temperature from a minute ago, very accurately.
+
+74
+00:04:42.705 --> 00:04:43.885
+So keep the newest.
+
+75
+00:04:44.067 --> 00:04:50.277
+A sample, like one visitor count out of hundreds, can go in the bin, as long as you count the drops.
+
+76
+00:04:50.277 --> 00:04:53.258
+But an order from the website must never vanish.
+
+77
+00:04:53.258 --> 00:05:00.151
+Give it a small pile that fails loudly, and a way to ask the website for everything after the last saved order.
+
+78
+00:05:00.933 --> 00:05:02.885
+Here it is in Java and Kotlin.
+
+79
+00:05:02.885 --> 00:05:05.227
+The screen keeps the newest reading.
+
+80
+00:05:05.227 --> 00:05:10.105
+The web orders get a pile of 1,000, and the order that overflows is logged.
+
+81
+00:05:10.867 --> 00:05:13.816
+So, does onBackpressure slow the source down?
+
+82
+00:05:13.816 --> 00:05:14.012
+No.
+
+83
+00:05:14.012 --> 00:05:17.027
+Only a source that reads the slips slows down.
+
+84
+00:05:17.027 --> 00:05:24.760
+For one that can't, you choose what to lose when the table is full: a small pile, a bin, the newest, or stop the line.
+
+85
+00:05:24.933 --> 00:05:25.747
+Quick check.
+
+86
+00:05:25.747 --> 00:05:29.002
+A screen in the shop shows the oven temperature.
+
+87
+00:05:29.002 --> 00:05:34.833
+The thermometer sends 200 readings a second, and the screen redraws 10 times a second.
+
+88
+00:05:34.833 --> 00:05:36.053
+Which policy fits?
+
+89
+00:05:39.067 --> 00:05:41.421
+Keep the newest: onBackpressureLatest.
+
+90
+00:05:41.421 --> 00:05:47.059
+At every redraw, the screen wants the temperature now, not the next old reading in a queue.

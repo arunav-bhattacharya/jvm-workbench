@@ -1,28 +1,55 @@
 import json, pathlib
 ROOT = pathlib.Path("/home/user/jvm-workbench")
 
-INTRO = """By the end of this track you can say where every byte of a JVM process lives, predict what an object costs, measure what a piece of code allocates, and explain how G1 and ZGC find and move live objects. You can read a GC log line by line, choose and configure a collector for a service on JDK 21, 25 or 27, size a heap so a pod is not OOM-killed, and find a leak, on the heap with a histogram and a heap dump or outside it with Native Memory Tracking.
+INTRO = """By the end of this track you can say where every byte of a JVM process lives, predict what an object costs, measure what a piece of code allocates, and explain how G1 and ZGC find and move the objects still in use. You can read a GC log line by line, choose and configure a collector on JDK 21, 25 or 27, size a heap so a program in a container isn't killed by the kernel, and find a leak: on the heap with a histogram and a heap dump, or outside it with Native Memory Tracking.
 
-You don't need to know anything about garbage collection to start: lesson 1 begins with what the heap is. You do need to read Java and Kotlin, and two ideas from the threads track help: what a thread pool is, and why a `ThreadLocal` on a pool thread outlives the task. Install JDK 25, the current LTS. Defaults change between JDK 21, 25 and 27 (the collector a small container gets, the size of an object header, the ZGC flags), so the lessons always say which version a fact belongs to. JDK 26 and 27 behaviour comes from reading the JDK source, and the lessons say so.
+One picture runs through all seven lessons: a self-storage warehouse. The running program is the building, the heap is the shared storage floor, every object is a box, a reference is a shelf number written on a note, and the garbage collector is the cleaning crew. One example runs through them too: a thumbnail service for a photo site, which makes small preview pictures of uploaded photos and keeps recent ones in memory. You don't need to know anything about garbage collection to start; lesson 1 begins with what the heap is. You do need to read Java and Kotlin, and one idea from the threads track helps: why a `ThreadLocal` on a pool thread outlives the task. Install JDK 25, the current long-term-support release. Defaults change between JDK 21, 25 and 27 (the collector a small container gets, the size of an object header, the ZGC flags), so the lessons always say which version a fact belongs to. The JDK 26 and 27 details come from reading the JDK source, and the lessons say so.
 
-The labs live in `labs/memory`, one package per lesson (`workbench.memory.l01` to `l07`). Lessons 1, 3, 5 and 7 have Java labs; lessons 2, 4 and 6 are in Kotlin. Run `./gradlew :memory:test --tests 'workbench.memory.lNN.*'` from `labs/` until it passes. The tests are deterministic: they count allocated bytes with generous margins, wait for the GC with bounded loops on a `ReferenceQueue`, and count live objects with a class histogram. They need `System.gc()` to work, so never run them with `-XX:+DisableExplicitGC`. Many demos start a child JVM with the flags they want to show, so `./gradlew :memory:demo -Pmain=...` is all you type. Lesson 7's FFM demo needs JDK 22 or later and runs outside Gradle, from `labs/memory/jdk25`."""
+The labs live in `labs/memory`, one package per lesson (`workbench.memory.l01` to `l07`). Lessons 1, 3, 5 and 7 have Java labs; lessons 2, 4 and 6 are in Kotlin. Run `./gradlew :memory:test --tests 'workbench.memory.lNN.*'` from `labs/` until it passes. The tests give the same answer on every run: they count allocated bytes with generous margins, wait for the GC with bounded loops on a `ReferenceQueue`, and count live objects with a class histogram. They need `System.gc()` to work, so never run them with `-XX:+DisableExplicitGC`. Many demos start a child JVM with the flags they want to show, so `./gradlew :memory:demo -Pmain=...` is all you type. Lesson 7's arena demo needs JDK 22 or later and runs outside Gradle, from `labs/memory/jdk25`."""
 
-CHEATSHEET = """## What an object costs (64-bit HotSpot, bytes)
+CHEATSHEET = """## The warehouse, part by part
 
-Size = header + fields, rounded up to a multiple of 8. References are 4 bytes with compressed oops, 8 without.
+| JVM idea | Picture it | Lesson |
+|---|---|---|
+| the JVM process | the whole building | 1 |
+| the heap | the shared storage floor | 1 |
+| an object / a reference | a box / a shelf number written on a note | 1 |
+| a thread's stack | a worker's desk and notepad | 1 |
+| metaspace | the back room with the plans for every kind of box | 1 |
+| memory outside the heap (direct buffers, arenas) | the yard out back, which the floor plan doesn't show | 1, 7 |
+| the object header | the box's label: its kind, plus a housekeeping strip for hash, age and lock bits | 1 |
+| a TLAB | a stretch of shelf each worker reserves for their own new boxes | 2 |
+| escape analysis | a box that never leaves the desk, so it's never put on the floor | 2 |
+| GC roots | the desks, plus the noticeboard by the door (static fields) | 3 |
+| the garbage collector | the cleaning crew | 3, 4 |
+| a safepoint | "pens down!" | 4 |
+| eden / the old generation | the new-arrivals shelves / long-term storage | 4 |
+| card marking | ticking that stretch of shelf on the floor plan | 4 |
+| G1 | a crew with a stopwatch that splits the floor into equal bays and clears the messiest first | 4 |
+| ZGC | a crew that moves boxes while the workers keep working, leaving forwarding notes | 5 |
+| Epsilon | a crew that never shows up | 5 |
+| the GC log | the crew's logbook | 6 |
+| a container's memory limit | the fence around a rented plot: the whole building must fit | 6 |
+| a memory leak | a box nobody needs, still on a note | 7 |
+| a heap dump | a photo of every shelf, for detectives | 7 |
+| an FFM arena | a corner of the yard rented with a return date | 7 |
 
-| Object | JDK 21 to 26 default | heap of 32 GB or more, or ZGC | compact headers (JDK 25 flag, JDK 27 default) |
+## What an object costs (64-bit HotSpot, bytes, measured on JDK 25)
+
+Size = header + fields, rounded up to a multiple of 8. References are 4 bytes with compressed oops, 8 without. Count objects, not data.
+
+| Object | default (JDK 21 to 26) | max heap of 32 GB or more, or ZGC | compact headers (JDK 25 flag, JDK 27 default) |
 |---|---|---|---|
-| `new Object()` | 16 | 16 | 8 (JOL simulation) |
+| `new Object()` | 16 | 16 | 8 |
 | `Integer` | 16 | 16 | 16 |
 | `Long` | 24 | 24 | 16 |
 | `String` shell (plus its `byte[]`) | 24 | 32 | 24 |
-| `Payment` (boolean, long, byte, int, 2 refs) | 40 | 48 | 32 |
+| `Thumbnail` (boolean, long, byte, int, 2 refs) | 40 | 48 | 32 |
 | `HashMap$Node` | 32 | 40 | 24 |
-| `byte[3]` / `int[1000]` | 24 / 4,016 | 24 / 4,016 | |
-| `ArrayList<Integer>` of 1,000 | 20,976 | 25,920 | |
+| `byte[3]` / `int[1000]` | 24 / 4,016 | 24 / 4,016 | 16 / 4,016 |
+| `ArrayList<Integer>` of 1,000 | 20,976 | 25,920 | 20,976 |
 
-Header: an 8-byte mark word (hash, GC age, lock bits) plus a 4-byte compressed class pointer. Compact headers fold the class pointer into the mark word.
+Header: an 8-byte mark word (hash, GC age, lock bits) plus a 4-byte compressed class pointer. Compact headers fold the class pointer into the mark word, so the header is 8 bytes. Under ZGC with compact headers, the `Thumbnail` is 40.
 
 ## Versions
 
@@ -30,16 +57,16 @@ Header: an 8-byte mark word (hash, GC age, lock bits) plus a 4-byte compressed c
 |---|---|---|---|---|---|
 | Default GC, no flag | G1 if 2+ CPUs and 1,792+ MB, else Serial | same | same | same | G1 always |
 | Compact object headers | not available | experimental | `-XX:+UseCompactObjectHeaders` | same | on by default |
-| Generational ZGC | `-XX:+UseZGC -XX:+ZGenerational` | `-XX:+UseZGC` (only mode) | same | same | same |
+| Generational ZGC | `-XX:+UseZGC -XX:+ZGenerational` | `-XX:+UseZGC` (the only mode) | same | same | same |
 | Generational Shenandoah | not available | experimental | `-XX:ShenandoahGCMode=generational` | same | same |
 | `MaxRAMPercentage` | 25 | 25 | 25 | 25 | 25 |
 | `InitialRAMPercentage` | 1.5625 | 1.5625 | 1.5625 | 0 | 0 |
 | `MaxRAM` | works | works | works | deprecated | obsolete |
-| `finalize()` | deprecated for removal since 18; `--finalization=disabled` turns it off | | | | |
+| `finalize()` | deprecated for removal since JDK 18; `--finalization=disabled` turns it off | | | | |
 
-JDK 26 and 27 rows come from the JDK source, not from runs.
+Generational ZGC became the default on JDK 23. The JDK 26 and 27 rows come from the JDK source, not from runs.
 
-## Measuring
+## Measuring allocation
 
 ```java
 var threads = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
@@ -58,7 +85,7 @@ val bytes = threads.currentThreadAllocatedBytes - before          // measure twi
 Escape analysis can make that number 0 once C2 has compiled the code. Show it in demos; never assert it in tests.
 
 ```bash
-java -Xlog:gc*:file=gc.log:time,uptime,level,tags:filecount=5,filesize=20m ...   # production GC log
+java -Xlog:gc*:file=gc.log:time,uptime,level,tags:filecount=5,filesize=20m ...   # the production GC log
 java -XX:+PrintFlagsFinal -version | grep -E ' Use(Serial|G1|Parallel|Z|Shenandoah)GC '
 java -XshowSettings:system -version                               # what the JVM sees in a container
 jcmd <pid> GC.class_histogram                                     # live objects per class (full GC first)
@@ -70,26 +97,26 @@ jcmd <pid> VM.native_memory summary.diff scale=MB
 
 ## Reachability
 
-| Reference | Cleared | Use it for |
-|---|---|---|
-| strong (a plain field) | never, while reachable | everything |
-| `SoftReference` | before an `OutOfMemoryError`, otherwise no promise | almost nothing in services |
-| `WeakReference`, `WeakHashMap` keys | at the next GC that finds it | data attached to objects you don't own, listener registries |
-| `PhantomReference`, `Cleaner` | `get()` is always null; tells you it's gone | a safety net behind `close()` |
+| Reference | Cleared | Use it for | Picture it |
+|---|---|---|---|
+| strong (a plain field) | never, while reachable | everything | a shelf number on a note |
+| `SoftReference` | before an `OutOfMemoryError`, otherwise no promise | almost nothing in services | "keep it if there's room" |
+| `WeakReference`, `WeakHashMap` keys | at the next GC that finds it | data attached to objects you don't own, listener registries | "keep it while someone else holds it" |
+| `PhantomReference`, `Cleaner` | `get()` is always null; tells you it's gone | a safety net behind `close()` | "tell me after it's gone" |
 
 A `Cleaner` action must not refer to the object it cleans. A `WeakHashMap` value must not refer to its key.
 
 ## Reading a G1 log line
 
-`[0.128s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 14M->1M(256M) 12.723ms`: uptime, level, tag, collection id, event, kind, cause, heap used before -> after (committed), pause length.
+`[0.440s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 28M->2M(214M) 8.692ms` (JDK 25): uptime, level, tag, collection id, event, kind, cause, heap used before -> after (committed), pause length.
 
-A pause line has `Pause` right after `GC(id)` and ends in `ms`. `Concurrent ...` lines, G1 phase timings and ZGC's `Minor/Major Collection ... 0.052s` are not pauses. Check first: `Pause Full`, `(Evacuation Failure)` or ZGC `Allocation Stall`, and the floor of young pauses' after-values. A full GC's after-value is the live set.
+A pause line has `Pause` right after `GC(id)` and ends in `ms`. `Concurrent ...` lines, G1's phase timings and ZGC's `Minor/Major Collection ... 0.071s` are not pauses. Check first: `Pause Full`, `Evacuation Failure` (JDK 21 writes `(Evacuation Failure)`, JDK 25 `(Evacuation Failure: Allocation)`) or ZGC's `Allocation Stall`, and the floor of the young pauses' after-values. A full GC's after-value is the live set.
 
 ## G1 by numbers (JDK 25 source)
 
 | Rule | Value |
 |---|---|
-| Region size | max heap / 2048, clamped to 1 to 32 MB, rounded up to a power of two |
+| Region size | max heap / 2048, held between 1 and 32 MB, rounded up to a power of two |
 | Humongous | an object bigger than half a region: whole contiguous regions, no TLAB |
 | Concurrent cycle starts | old-generation occupancy above IHOP (45%, then adaptive) |
 | Mixed candidates | old regions under 85% live, best first, until the garbage left is within 5% of the heap |
@@ -98,81 +125,83 @@ A pause line has `Pause` right after `GC(id)` and ends in `ms`. `Concurrent ...`
 
 ## Choosing a collector
 
-| Collector | Pick it when | Watch out for |
-|---|---|---|
-| Serial | 1 CPU, heap up to a few hundred MB | full GCs grow with live data |
-| Parallel | batch jobs | long full-GC pauses on big heaps |
-| G1 | most services | evacuation failures, full GCs, humongous churn |
-| ZGC | GC pauses must stay under about 10 ms and there are spare cores | CPU, allocation stalls, 8-byte references |
-| Shenandoah | the same goals as ZGC, if your build has it | vendor availability |
-| Epsilon | allocation-budget tests and benchmarks | the JVM exits when the heap is full |
+| Collector | Picture it | Pick it when | Watch out for |
+|---|---|---|---|
+| Serial | one cleaner, pens down | 1 CPU, heap up to a few hundred MB | full GCs grow with the live data |
+| Parallel | many cleaners, pens down | batch jobs | long pauses on big heaps |
+| G1 | the crew with a stopwatch | most services | evacuation failures, full GCs, humongous churn |
+| ZGC | moves boxes while the workers work | pause budgets under about 10 ms, with cores to spare | CPU, allocation stalls, 8-byte references |
+| Shenandoah | the same goal, another design | the same goals as ZGC, if your JDK includes it | availability |
+| Epsilon | the crew that never shows up | allocation-budget tests and benchmarks | the JVM stops when the heap is full |
 
-## Sizing a pod
+Pick by the bill you can least afford (pauses, CPU or memory), then watch the log for that bill. In a ZGC log, the time on a `Collection` line is the concurrent work; the pauses are the `Pause Mark Start`, `Pause Mark End` and `Pause Relocate Start` lines.
 
-Process = heap + metaspace and code cache + thread stacks + GC bookkeeping + direct buffers + headroom. Use `-XX:MaxRAMPercentage` around 50 to 75 (never 100, never `-Xmx` equal to the limit), set `-XX:MaxDirectMemorySize` (it defaults to the max heap), and check with NMT under load. Over the limit means a kernel OOM kill: exit code 137, no `OutOfMemoryError`, no heap dump.
+## Sizing a container
+
+The process = heap + metaspace and code cache + thread stacks + GC bookkeeping + direct buffers + headroom. Picture it: `-Xmx` sizes the storage floor, and the whole building must fit inside the plot's fence. Use `-XX:MaxRAMPercentage` around 50 to 75 (never 100, never `-Xmx` equal to the limit), set `-XX:MaxDirectMemorySize` (it defaults to the max heap), and check with NMT under load. Over the limit means a kernel OOM kill: exit code 137, no `OutOfMemoryError`, no heap dump, nothing in the log.
 
 ## Hunting a leak
 
-Rising floor in the GC log: class histogram (what), heap dump and MAT's dominator tree (who), path to the GC root (which field). Flat floor but a growing pod: NMT baseline and `summary.diff`; `Other` is direct buffers or native code, `Thread` is threads, `Class` and `Metaspace` are class loaders. Usual culprits: unbounded caches, ThreadLocals on pool threads, listeners never removed, class loaders that can't unload. Off-heap memory with a lifetime: `Arena.ofConfined()` in try-with-resources (FFM, final in JDK 22)."""
+Rising floor in the GC log: a class histogram (what fills the floor), a heap dump and MAT's dominator tree (who holds it, by retained size), then the path to the GC root (which field). Flat floor but a growing process: NMT `baseline` and `summary.diff`; `Other` is direct buffers, arenas or native code, `Thread` is threads, `Class` and `Metaspace` are class loaders. Usual culprits: caches with no limit, ThreadLocals on pool threads, listeners never removed, class loaders that can't unload. Off-heap memory with a return date: `Arena.ofConfined()` in try-with-resources (FFM, final in JDK 22). On JDK 25 only automatic arenas count against `MaxDirectMemorySize`; confined and shared ones are yours to close."""
 
 RECAP = [
- "`-Xmx` caps only the heap. Metaspace, code cache, thread stacks, GC data and direct buffers come on top: 390 MB committed for a 256 MB heap in one measured process.",
- "An object costs a 12-byte header plus its fields, rounded up to 8. Compressed oops keep references at 4 bytes below 32 GB of heap; compact headers (JDK 25 opt-in, JDK 27 default) shrink the header to 8.",
- "Allocation is a pointer bump in a thread's TLAB; the allocation rate is what costs you. Count bytes with `getCurrentThreadAllocatedBytes`, and treat escape analysis as a bonus you show in demos, never assert in tests.",
- "The GC keeps what roots can reach. Soft references go before an OOM, weak ones at the next GC, and `Cleaner` (not `finalize()`) is the safety net behind `close()`.",
- "Generational collectors copy the few survivors out of eden; write barriers and card tables keep young collections small. G1 adds regions, humongous objects, concurrent marking and mixed collections.",
- "ZGC moves objects while the application runs, using colored pointers and load barriers, so its pauses stay far below a millisecond; it pays in CPU, headroom and 8-byte references.",
- "With no flag, JDK 21 to 26 pick Serial unless the JVM sees 2 CPUs and 1,792 MB; JDK 27 picks G1. Keep G1 for most services, ZGC for tight pause budgets with spare cores, Parallel for batch, Epsilon for allocation-budget tests.",
- "A GC log line gives cause, heap before and after, and pause length. A pause line has `Pause` after `GC(id)` and ends in ms; the floor of young pauses and the after-value of a full GC show the live set.",
- "In a container the default heap is 25% of the limit. Size with `MaxRAMPercentage`, cap direct memory, and remember that going over the limit is a kernel kill with no Java error.",
- "Find heap leaks with a histogram, a heap dump and the dominator tree; find native growth with NMT's baseline and diff; give off-heap memory a lifetime with an FFM arena."
+ "`-Xmx` caps only the heap, the storage floor. Thread stacks, metaspace, the code cache, the GC's bookkeeping and memory outside the heap come on top: a JDK 25 process with `-Xmx256m` committed 388 MB.",
+ "An object costs a 12-byte header plus its fields, rounded up to 8. Compressed oops keep references at 4 bytes below a 32 GB heap; compact headers (a JDK 25 flag, the JDK 27 default) shrink the header to 8, so each object saves 8 bytes or nothing.",
+ "Allocation is a pointer bump in a thread's TLAB, and the allocation rate is what costs you. Count bytes with `getCurrentThreadAllocatedBytes`, and treat escape analysis as a bonus you show in demos, never one you assert in tests.",
+ "The GC keeps what the roots can reach. Soft references go before an `OutOfMemoryError`, weak ones at the next GC, and `Cleaner` (not `finalize()`) is the safety net behind `close()`.",
+ "Generational collectors copy the few survivors out of eden, and write barriers with card tables keep young collections small. G1 adds equal regions, humongous objects, concurrent marking and mixed collections, but it stops every thread to move objects.",
+ "ZGC moves objects while the application runs, with colored references and a load barrier, so its pauses stay far below a millisecond. It pays in CPU, headroom and 8-byte references; Shenandoah makes the same trade with another design.",
+ "With no GC flag, JDK 21 to 26 pick Serial unless the JVM sees 2 CPUs and 1,792 MB; JDK 27 picks G1. Keep G1 for most services, ZGC for tight pause budgets with spare cores, Parallel for batch jobs, Epsilon for allocation-budget tests.",
+ "A GC log line gives the cause, the heap before and after, and the pause length. A pause line has `Pause` after `GC(id)` and ends in ms; the floor of the young pauses and a full GC's after-value show the live set.",
+ "In a container the default heap is 25% of the memory limit. Size it with `MaxRAMPercentage`, cap direct memory, and remember that going over the limit is a kernel kill with no Java error.",
+ "Find heap leaks with a histogram, a heap dump and the dominator tree; find growth outside the heap with NMT's baseline and diff; give off-heap memory a return date with a confined FFM arena."
 ]
 
 QUIZ = [
- {"q": "On a default JDK 21, how big is one `Settlement` object with fields `long amountMinor; int merchantId; String currency;`?",
+ {"q": "On a default JDK 25, how big is one `PhotoInfo` object with the fields `long sizeBytes; int width; String name;`?",
   "options": ["20 bytes", "24 bytes", "32 bytes", "40 bytes"], "answer": 2,
-  "why": "12-byte header + 8 + 4 + 4 = 28, rounded up to 32. 20 and 24 forget the header or count only part of it. 40 assumes 8-byte references, which you only get with compressed oops off."},
- {"q": "A team raises a batch job's heap from `-Xmx30g` to `-Xmx36g` to hold 20% more cached records. What actually happens?",
-  "options": ["It holds about 20% more records", "Compressed oops switch off, every reference grows to 8 bytes, and most of the extra space goes to bigger objects", "The JVM refuses to start", "G1 switches to 64 MB regions and fails"], "answer": 1,
-  "why": "From 32 GB of heap the JVM can't use 4-byte compressed references, so every reference field and array slot doubles. On JOL's numbers the same object graph grows by about a fifth, which eats most of the extra 6 GB. The JVM starts normally; it just chooses 8-byte references."},
- {"q": "You want a unit test that proves a settlement method doesn't box. Which assertion is deterministic?",
+  "why": "A 12-byte header + 8 + 4 + 4 = 28, rounded up to 32. 20 and 24 forget the header or count only part of it. 40 assumes 8-byte references, which you only get under ZGC or with a max heap of 32 GB or more. With compact headers it would be 8 + 16 = 24."},
+ {"q": "A team raises a nightly photo job's heap from `-Xmx30g` to `-Xmx36g` to hold 20% more cached data. What actually happens?",
+  "options": ["It holds about 20% more data", "Compressed oops switch off, every reference grows to 8 bytes, and most of the extra space goes to bigger objects", "The JVM refuses to start", "G1 switches to 64 MB regions and fails"], "answer": 1,
+  "why": "From a 32 GB heap up, the JVM can't use 4-byte compressed references, so every reference field and array slot doubles. On JOL's numbers the same objects grow by about a fifth, which eats most of the extra 6 GB. The JVM starts normally; it just chooses 8-byte references."},
+ {"q": "You want a unit test that proves lesson 2's upload report doesn't box. Which assertion gives the same answer on every run?",
   "options": [
    "After 10,000 warm-up calls, the method allocates exactly 0 bytes",
-   "On one call over 20,000 payments, after one tiny warm-up call, it allocates no more than its `long[500]` result plus a small margin",
+   "On one call over 20,000 uploads, after one tiny warm-up call, it allocates no more than its `long[500]` result plus a small margin",
    "The test finishes within 5 ms",
    "`System.gc()` frees less than 1 MB afterwards"],
   "answer": 1,
-  "why": "Comparing the bytes allocated with what the result itself needs works in the interpreter, in C1 and in C2, so it doesn't depend on timing. Asserting 0 depends on whether C2's escape analysis has compiled the method yet. Timings and GC results are not deterministic."},
- {"q": "A class wraps a native HSM session handle. Callers should close it, and you want a safety net for the ones who forget. Which tool fits?",
+  "why": "Comparing the bytes allocated with what the result itself needs holds in the interpreter, in C1 and in C2, so it doesn't depend on timing. Asserting 0 depends on whether C2's escape analysis has compiled the method yet. Timings and GC results change from run to run."},
+ {"q": "A class wraps a handle from a native image library. Callers should close it, and you want a safety net for the ones who forget. Which tool fits?",
   "options": ["Override `finalize()`", "`AutoCloseable` plus a shared `Cleaner` whose action holds only the handle", "Keep the handle in a `WeakHashMap`", "Wrap the object in a `SoftReference`"], "answer": 1,
   "why": "`close()` releases the handle at a known point, and a `Cleaner` action frees it if the object becomes unreachable without being closed. The action must not refer to the object, or it never runs. `finalize()` is deprecated for removal, and weak or soft references don't release anything themselves."},
- {"q": "A Quarkus service has an 8 GB heap with G1. Which object is humongous?",
-  "options": ["A 1.5 MB JSON response held in one `byte[]`", "A 2.5 MB settlement file held in one `byte[]`", "A `HashMap` with 100,000 entries", "A 1 MB direct ByteBuffer"], "answer": 1,
-  "why": "8 GB / 2048 is 4 MB, so regions are 4 MB and anything over 2 MB is humongous: the 2.5 MB array. 1.5 MB is under the threshold. A HashMap is many small objects plus a table array well under 2 MB, and a direct buffer's bytes aren't on the heap at all."},
- {"q": "A ZGC log says `GC(7) Major Collection (Allocation Rate) 342M(33%)->466M(46%) 0.119s`. What happened?",
+ {"q": "A service has an 8 GB heap with G1. Which object is humongous?",
+  "options": ["A 1.5 MB strip of thumbnails held in one `byte[]`", "A 2.5 MB photo held in one `byte[]`", "A `HashMap` with 100,000 entries", "A 1 MB direct ByteBuffer"], "answer": 1,
+  "why": "8 GB / 2048 is 4 MB, so regions are 4 MB and anything over 2 MB is humongous: the 2.5 MB photo. 1.5 MB is under the threshold. A HashMap is many small objects plus a table array well under 2 MB, and a direct buffer's bytes aren't on the heap at all."},
+ {"q": "A JDK 25 ZGC log says `GC(9) Major Collection (Allocation Rate) 258M(25%)->272M(27%) 0.078s`. What happened?",
   "options": [
-   "A 119 ms pause that made the heap grow",
-   "A concurrent collection of 119 ms; the heap ended fuller because the application kept allocating while it ran",
+   "A 78 ms pause that made the heap grow",
+   "A concurrent collection of 78 ms; the heap ended fuller because the application kept allocating while it ran",
    "A failed collection that will be retried",
-   "A memory leak of 124 MB"],
+   "A memory leak of 14 MB"],
   "answer": 1,
-  "why": "ZGC's collection lines show the concurrent cycle, not a pause; the pauses are separate `Pause ...` lines of hundredths of a millisecond. The application allocated during the cycle, which is why ZGC needs headroom. One line can't show a leak; the trend across many cycles can."},
- {"q": "A webhook relay runs on JDK 25 in a pod with 1 CPU and a 512 MiB limit, with no GC flag. Which collector does it run, and is that a problem?",
+  "why": "ZGC's collection lines show the concurrent work, not a pause; the pauses are separate `Pause ...` lines of hundredths of a millisecond. The application allocated during the collection, which is why ZGC needs headroom. One line can't show a leak; the trend across many collections can."},
+ {"q": "A small helper program runs on JDK 25 in a container with 1 CPU and a 512 MiB limit, with no GC flag. Which collector does it run, and is that a problem?",
   "options": [
    "G1, the default everywhere; fine",
-   "Serial, because the pod isn't server-class; often fine for a small single-CPU service",
+   "Serial, because the container isn't server-class; often fine for a small single-CPU program",
    "ZGC, because the heap is small",
    "Parallel, because it has one CPU"],
   "answer": 1,
-  "why": "On JDK 21 to 26 the JVM picks G1 only with 2 or more CPUs and at least 1,792 MB. This pod gets Serial without anyone noticing. With one CPU and a small heap, Serial is a reasonable choice: there is no spare core for concurrent GC threads anyway. JDK 27 would pick G1."},
- {"q": "A pod with a 2 GiB limit runs with `-Xmx2g`. After a few hours under load it restarts with exit code 137 and nothing in the log. What happened, and what is the fix?",
+  "why": "On JDK 21 to 26 the JVM picks G1 only with 2 or more CPUs and at least 1,792 MB. This container gets Serial without anyone noticing. With one CPU and a small heap, Serial is a reasonable choice: there's no spare core for concurrent GC threads anyway. JDK 27 would pick G1."},
+ {"q": "A container with a 2 GiB limit runs a service with `-Xmx2g`. After a few hours under load it restarts with exit code 137 and nothing in the log. What happened, and what is the fix?",
   "options": [
    "A heap leak; add `-XX:+HeapDumpOnOutOfMemoryError`",
    "The whole process went over the limit and the kernel killed it; size the heap with `-XX:MaxRAMPercentage` around 60 to 75 and cap direct memory",
    "The GC pause goal was too long; lower `MaxGCPauseMillis`",
-   "Kubernetes restarts JVMs after a fixed time"],
+   "Containers restart JVMs after a fixed time"],
   "answer": 1,
-  "why": "Exit code 137 is SIGKILL from the OOM killer. Heap plus metaspace, code cache, stacks, GC data and direct buffers outgrew 2 GiB, and it took hours because the heap touches its pages gradually. No `OutOfMemoryError` was thrown, so no heap dump would be written."},
+  "why": "Exit code 137 is SIGKILL from the kernel's OOM killer. Heap plus metaspace, code cache, stacks, GC data and direct buffers outgrew 2 GiB, and it took hours because the heap touches its pages gradually. No `OutOfMemoryError` was thrown, so no heap dump would be written."},
  {"q": "Young pauses end at 300, 340, 385, 430 and 470 MB over an hour, and a full GC goes `1400M->1180M(1536M)`. What do you do first?",
   "options": [
    "Turn on Native Memory Tracking",
@@ -181,12 +210,12 @@ QUIZ = [
    "Lower the pause goal"],
   "answer": 1,
   "why": "A rising floor and a full GC that frees little mean the live heap is growing: a heap leak. The histogram says which classes pile up, and the dominator tree with its path to a GC root says which field holds them. NMT is for growth outside the heap, with a flat floor. Changing collectors doesn't free reachable objects."},
- {"q": "A report generator needs 1 MiB of off-heap memory per report, released as soon as the report is uploaded. Which choice does that without waiting for a GC?",
+ {"q": "An album exporter needs 1 MiB of off-heap memory per album, released as soon as the album is uploaded. Which choice does that without waiting for a GC?",
   "options": [
-   "`ByteBuffer.allocateDirect` per report, then drop the reference",
+   "`ByteBuffer.allocateDirect` per album, then drop the reference",
    "A segment from `Arena.ofAuto()`",
    "A segment from `Arena.ofConfined()` in try-with-resources",
-   "One `Arena.global()` segment per report"],
+   "One `Arena.global()` segment per album"],
   "answer": 2,
   "why": "A confined arena frees its memory when `close()` runs at the end of the try block (FFM, final in JDK 22). A direct buffer and an automatic arena are freed only after the GC collects their owner, which a quiet heap may not do for a long time. The global arena never frees."}
 ]

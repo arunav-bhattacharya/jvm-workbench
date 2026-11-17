@@ -35,7 +35,8 @@ N = {
            "a field every thread always reads fresh.",
     "imm2": "A till that reads the field gets the old board or the new one, never half of each. "
             "Same demo, same second: zero mixed reads. And nobody took a lock.",
-    "shallow": "One catch. A record looks immutable, because its fields are final. But final only bolts the frame "
+    "shallow": "One catch. A record, Java's short way to write a class of final fields, looks immutable. "
+               "But final only bolts the frame "
                "to the wall. If the record holds the caller's list, the caller can still write on the paper.",
     "quote": "In the lesson, a quote for bread keeps the caller's list of price tiers. Then the caller adds a line: "
              "10 or more at 0.01. Our immutable quote now sells bread at a cent a loaf.",
@@ -55,7 +56,7 @@ N = {
     "tl_show": "Six requests ran on one pool thread. The first request with no user ran as alice, "
                "and the next two ran as bob. That's one customer seeing another customer's data.",
     "tl_fix": "The housekeeping is remove, in a finally block, so the thread goes back clean. "
-              "On JDK 25, scoped values clean up for you.",
+              "On JDK 25, scoped values, which last for one call only, clean up for you.",
     "limit": "Some state is shared and changing by its nature, like a bank balance. "
              "That still needs the locks and atomics from earlier lessons.",
     "code": "Here's the board swap in code, Java on top and Kotlin below. A volatile field. "
