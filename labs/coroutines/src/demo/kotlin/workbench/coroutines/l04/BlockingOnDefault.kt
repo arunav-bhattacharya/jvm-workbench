@@ -16,7 +16,7 @@ fun main(args: Array<String>) = runBlocking {
     var cpuWaitMs = 0L
     val took = measureTimeMillis {
         coroutineScope {
-            repeat(32) { launch(blockingDispatcher) { Thread.sleep(200) } } // JDBC-style blocking calls
+            repeat(32) { launch(blockingDispatcher) { Thread.sleep(200) } } // blocking calls, like waiting at the door
             delay(20) // let them start
             val asked = System.nanoTime()
             val heartbeat = async(Dispatchers.Default) { System.nanoTime() } // 1 microsecond of CPU work

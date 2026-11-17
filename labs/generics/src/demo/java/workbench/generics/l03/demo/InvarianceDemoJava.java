@@ -15,7 +15,7 @@ public class InvarianceDemoJava {
         List<Apple> apples = new ArrayList<>(List.of(new Apple("Gala")));
 
         // Step 1: uncomment this line and run. javac refuses it.
-        // List<Fruit> anyFruit = apples;
+        // List<Fruit> view = apples;
 
         // Step 2: force it through a wildcard cast. This compiles, with an unchecked warning.
         List<Fruit> anyFruit = (List<Fruit>) (List<?>) apples;

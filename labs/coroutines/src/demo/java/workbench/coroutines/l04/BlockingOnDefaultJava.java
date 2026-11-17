@@ -20,7 +20,7 @@ public class BlockingOnDefaultJava {
         long t0 = System.nanoTime();
         List<CompletableFuture<Void>> calls = new ArrayList<>();
         for (int i = 0; i < 32; i++) {
-            calls.add(CompletableFuture.runAsync(() -> sleep(200), blockingPool)); // JDBC-style blocking calls
+            calls.add(CompletableFuture.runAsync(() -> sleep(200), blockingPool)); // blocking calls, like waiting at the door
         }
         Thread.sleep(20);
         long asked = System.nanoTime();

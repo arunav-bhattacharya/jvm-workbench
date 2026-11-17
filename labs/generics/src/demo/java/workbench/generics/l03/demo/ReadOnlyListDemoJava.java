@@ -15,7 +15,7 @@ public class ReadOnlyListDemoJava {
         Integer[] weights = { 180, 150 };
 
         List<? extends Fruit> display = crate;      // compiles: a read-only view, spelled at the use site
-        System.out.println("as List<? extends Fruit>: " + display + ", first is a " + display.get(0).getClass().getSimpleName());
+        System.out.println("as List<? extends Fruit>: " + display + ", first item is an " + display.get(0).getClass().getSimpleName());
 
         // List<Fruit> anyCrate = crate;            // 1
         // Object[] anys = weights;                 // 2

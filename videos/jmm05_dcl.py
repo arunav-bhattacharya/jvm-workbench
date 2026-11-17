@@ -381,13 +381,13 @@ class Jmm05Dcl(Narrated):
         self.play(FadeOut(VGroup(st, nine, hook, key, hook_l, queue, key_l)), run_time=0.6)
 
         # ================= double-checked locking, step by step =================
-        steps = [fbox("1. glance at the door (no key)", A2, w=5.4, size=24), fbox("2. take the key", KEY, w=5.4, size=24),
-                 fbox("3. check again", A2, w=5.4, size=24), fbox("4. open the stockroom", A1, w=5.4, size=24)]
+        steps = [fbox("1. glance at the door (no key)", A2, w=6.0, size=24), fbox("2. take the key", KEY, w=6.0, size=24),
+                 fbox("3. check again", A2, w=6.0, size=24), fbox("4. open the stockroom", A1, w=6.0, size=24)]
         for k, b in enumerate(steps):
-            b.move_to([-3.0, 1.35 - k * 1.0, 0])
+            b.move_to([-3.3, 1.35 - k * 1.0, 0])
         sarr = VGroup(*[Arrow(steps[k].get_bottom(), steps[k + 1].get_top(), buff=0.05, stroke_width=3, color=GREY_B,
                               max_tip_length_to_length_ratio=0.35) for k in range(3)])
-        fastc = fbox("open? use it, no lock", GOOD, w=4.0, size=24).move_to([3.6, 1.35, 0])
+        fastc = fbox("open? use it, no lock", GOOD, w=4.4, size=24).move_to([3.75, 1.35, 0])
         fasta = Arrow(steps[0].get_right(), fastc.get_left(), buff=0.1, stroke_width=3, color=GOOD,
                       max_tip_length_to_length_ratio=0.15)
         fast_l = T("the fast path", 26, GOOD).next_to(fastc, UP, buff=0.15)
@@ -503,7 +503,7 @@ class Jmm05Dcl(Narrated):
         self.play(FadeOut(walk), FadeOut(dk), FadeOut(dk2), run_time=0.6)
 
         # ================= the real run =================
-        tt = T("a stress test on an ARM machine, about 2.3 billion tries", 28).move_to([0, 2.95, 0])
+        tt = T("a stress test on an ARM machine, about 2.3 billion tries", 28).move_to([0, 2.75, 0])
         fit(tt, 12.4)
         q = T("How often does a thread get an object with no data?", 30, YELLOW_M).move_to([0, 1.9, 0])
         fit(q, 12.4)

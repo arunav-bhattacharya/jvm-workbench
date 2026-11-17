@@ -10,7 +10,7 @@ fun main() {
     val apples: MutableList<Apple> = mutableListOf(Apple("Gala"))
 
     // Step 1: uncomment this line and run. The compiler refuses it.
-    // val anyFruit: MutableList<Fruit> = apples
+    // val view: MutableList<Fruit> = apples
 
     // Step 2: force it with an unchecked cast. This compiles, with a warning.
     @Suppress("UNCHECKED_CAST")

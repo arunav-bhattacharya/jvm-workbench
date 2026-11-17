@@ -19,7 +19,7 @@ suspend fun runBlockingCalls(label: String, dispatcher: CoroutineDispatcher) {
             repeat(400) {
                 launch(dispatcher) {
                     peak.accumulateAndGet(active.incrementAndGet(), ::maxOf)
-                    Thread.sleep(200) // a blocking issuer call
+                    Thread.sleep(200) // a blocking call, like a phone call on hold
                     active.decrementAndGet()
                 }
             }

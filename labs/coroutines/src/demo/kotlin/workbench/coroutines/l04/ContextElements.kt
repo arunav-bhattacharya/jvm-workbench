@@ -7,23 +7,23 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.ContinuationInterceptor
 
-private val requestId = ThreadLocal<String?>()
+private val guest = ThreadLocal<String?>()   // a note on the cook's apron, not on the dish
 
 fun main() = runBlocking {
     // 1. a context is a set of elements; + combines them, and the right side wins for the same key
-    val ctx = Dispatchers.IO + CoroutineName("capture")
-    val renamed = ctx + CoroutineName("refund")
+    val ctx = Dispatchers.IO + CoroutineName("soup")
+    val renamed = ctx + CoroutineName("salad")
     println("ctx[CoroutineName]     = ${ctx[CoroutineName]}")
     println("renamed[CoroutineName] = ${renamed[CoroutineName]}")
     println("dispatcher by its key  = ${renamed[ContinuationInterceptor]}")
 
     // 2. a ThreadLocal does not follow a coroutine to another thread
-    requestId.set("req-42")
-    println("main thread sees              ${requestId.get()}")
-    withContext(Dispatchers.Default) { println("on Default, plain ThreadLocal  ${requestId.get()}") }
+    guest.set("ana")
+    println("main thread sees              ${guest.get()}")
+    withContext(Dispatchers.Default) { println("on Default, plain ThreadLocal  ${guest.get()}") }
 
     // 3. asContextElement copies the value in and out whenever the coroutine runs on a thread
-    withContext(Dispatchers.Default + requestId.asContextElement()) {
-        println("on Default, asContextElement  ${requestId.get()}")
+    withContext(Dispatchers.Default + guest.asContextElement()) {
+        println("on Default, asContextElement  ${guest.get()}")
     }
 }

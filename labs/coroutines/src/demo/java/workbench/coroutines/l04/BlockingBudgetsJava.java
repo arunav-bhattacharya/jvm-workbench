@@ -15,7 +15,7 @@ public class BlockingBudgetsJava {
             for (int i = 0; i < 400; i++) {
                 pool.submit(() -> {
                     peak.accumulateAndGet(active.incrementAndGet(), Math::max);
-                    try { Thread.sleep(200); } catch (InterruptedException e) { return; }  // a blocking issuer call
+                    try { Thread.sleep(200); } catch (InterruptedException e) { return; }  // a blocking call, like a phone call on hold
                     active.decrementAndGet();
                 });
             }

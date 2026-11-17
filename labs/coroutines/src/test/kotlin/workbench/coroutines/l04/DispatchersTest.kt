@@ -34,55 +34,55 @@ class DispatchersTest {
         cpu.close()
     }
 
-    private class RecordingStore(val threads: MutableList<String>) : BlockingStatementStore {
-        override fun loadRows(accountId: String): List<LedgerRow> {
+    private class RecordingBook(val threads: MutableList<String>) : BlockingRecipeBook {
+        override fun loadSteps(dish: String): List<Step> {
             threads += "load:" + Thread.currentThread().name
-            return listOf(LedgerRow(accountId, -4_250, "card payment"), LedgerRow(accountId, 120_000, "salary"))
+            return listOf(Step(dish, "chop the onions"), Step(dish, "simmer for 20 minutes"))
         }
     }
 
-    private class RecordingRenderer(val threads: MutableList<String>) : StatementRenderer {
-        override fun render(rows: List<LedgerRow>): ByteArray {
+    private class RecordingPrinter(val threads: MutableList<String>) : CardPrinter {
+        override fun render(steps: List<Step>): ByteArray {
             threads += "render:" + Thread.currentThread().name
-            return rows.joinToString("\n") { "${it.description};${it.amountCents}" }.toByteArray()
+            return steps.joinToString("\n") { "${it.dish}: ${it.text}" }.toByteArray()
         }
     }
 
-    // ---- StatementService ----
+    // ---- RecipeCardService ----
 
     @Test
-    fun `statementPdf loads rows on the IO dispatcher and renders on the CPU dispatcher`() = runTest {
+    fun `printCard loads steps on the IO dispatcher and renders on the CPU dispatcher`() = runTest {
         val threads = CopyOnWriteArrayList<String>()
-        val service = StatementService(RecordingStore(threads), RecordingRenderer(threads), io, cpu)
+        val service = RecipeCardService(RecordingBook(threads), RecordingPrinter(threads), io, cpu)
 
-        val pdf = service.statementPdf("acc-77")
+        val card = service.printCard("soup")
 
-        assertThat(String(pdf)).isEqualTo("card payment;-4250\nsalary;120000")
+        assertThat(String(card)).isEqualTo("soup: chop the onions\nsoup: simmer for 20 minutes")
         assertThat(threads).containsExactly("load:test-io", "render:test-cpu")
     }
 
     @Test
-    fun `statementPdf hands the result back on the caller's thread`() = runBlocking<Unit> {
+    fun `printCard hands the result back on the caller's thread`() = runBlocking<Unit> {
         val threads = CopyOnWriteArrayList<String>()
-        val service = StatementService(RecordingStore(threads), RecordingRenderer(threads), io, cpu)
+        val service = RecipeCardService(RecordingBook(threads), RecordingPrinter(threads), io, cpu)
         val callerThread = Thread.currentThread().name
 
-        service.statementPdf("acc-77")
+        service.printCard("soup")
 
         assertThat(Thread.currentThread().name).isEqualTo(callerThread)
         assertThat(threads).doesNotContain("load:$callerThread", "render:$callerThread")
     }
 
-    // ---- issuerDispatcher ----
+    // ---- bakeryDispatcher ----
 
     @Test
-    fun `issuerDispatcher is named issuer`() {
-        assertThat(issuerDispatcher().toString()).isEqualTo("issuer")
+    fun `bakeryDispatcher is named bakery`() {
+        assertThat(bakeryDispatcher().toString()).isEqualTo("bakery")
     }
 
     @Test
-    fun `issuerDispatcher lets 20 blocking calls run at the same time`() = runBlocking<Unit> {
-        val dispatcher = issuerDispatcher()
+    fun `bakeryDispatcher lets 20 blocking calls run at the same time`() = runBlocking<Unit> {
+        val dispatcher = bakeryDispatcher()
         val allIn = CountDownLatch(20)
         val met = withTimeout(10.seconds) {
             (1..20).map {
@@ -96,8 +96,8 @@ class DispatchersTest {
     }
 
     @Test
-    fun `issuerDispatcher never runs more than 20 calls at once`() = runBlocking<Unit> {
-        val dispatcher = issuerDispatcher()
+    fun `bakeryDispatcher never runs more than 20 calls at once`() = runBlocking<Unit> {
+        val dispatcher = bakeryDispatcher()
         val active = AtomicInteger()
         val peak = AtomicInteger()
         withTimeout(10.seconds) {
@@ -106,7 +106,7 @@ class DispatchersTest {
                     launch(dispatcher) {
                         val now = active.incrementAndGet()
                         peak.accumulateAndGet(now, ::maxOf)
-                        Thread.sleep(30) // a blocking issuer call
+                        Thread.sleep(30) // a blocking call to the bakery
                         active.decrementAndGet()
                     }
                 }
@@ -118,31 +118,31 @@ class DispatchersTest {
     // ---- context elements ----
 
     @Test
-    fun `withPaymentTrace makes the trace id visible inside the block`() = runTest {
-        assertThat(currentTraceId()).isNull()
-        val seen = withPaymentTrace("tr-9f2") { currentTraceId() }
-        assertThat(seen).isEqualTo("tr-9f2")
-        assertThat(currentTraceId()).`as`("after the block").isNull()
+    fun `withGuest makes the guest visible inside the block`() = runTest {
+        assertThat(currentGuest()).isNull()
+        val seen = withGuest("ana") { currentGuest() }
+        assertThat(seen).isEqualTo("ana")
+        assertThat(currentGuest()).`as`("after the block").isNull()
     }
 
     @Test
-    fun `withPaymentTrace names the coroutine and child coroutines inherit both elements`() = runTest {
+    fun `withGuest names the coroutine and child coroutines inherit both elements`() = runTest {
         val seen = CopyOnWriteArrayList<String>()
-        withPaymentTrace("tr-9f2") {
+        withGuest("ana") {
             launch {
                 val ctx = currentCoroutineContext()
-                seen += "${ctx[PaymentTrace]?.traceId} ${ctx[CoroutineName]?.name}"
+                seen += "${ctx[ForGuest]?.name} ${ctx[CoroutineName]?.name}"
             }
         }
-        assertThat(seen).containsExactly("tr-9f2 payment-tr-9f2")
+        assertThat(seen).containsExactly("ana for-ana")
     }
 
     @Test
-    fun `a nested withPaymentTrace replaces the outer trace for its block only`() = runTest {
-        val seen = withPaymentTrace("outer") {
-            val inner = withPaymentTrace("inner") { currentTraceId() }
-            listOf(inner, currentTraceId())
+    fun `a nested withGuest replaces the outer guest for its block only`() = runTest {
+        val seen = withGuest("ana") {
+            val inner = withGuest("ben") { currentGuest() }
+            listOf(inner, currentGuest())
         }
-        assertThat(seen).containsExactly("inner", "outer")
+        assertThat(seen).containsExactly("ben", "ana")
     }
 }

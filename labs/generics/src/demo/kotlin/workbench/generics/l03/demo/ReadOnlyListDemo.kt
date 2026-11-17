@@ -6,7 +6,7 @@ fun main() {
     val weights: Array<Int> = arrayOf(180, 150)
 
     val display: List<Fruit> = crate          // compiles: List is read-only and covariant
-    println("as List<Fruit>: $display, first is a ${display[0]::class.simpleName}")
+    println("as List<Fruit>: $display, first item is an ${display[0]::class.simpleName}")
 
     // val anyCrate: MutableList<Fruit> = crate   // 1
     // val anys: Array<Any> = weights             // 2

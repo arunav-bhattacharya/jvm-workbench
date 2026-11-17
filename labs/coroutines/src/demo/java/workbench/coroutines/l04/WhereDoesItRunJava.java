@@ -22,7 +22,7 @@ public class WhereDoesItRunJava {
         CompletableFuture.supplyAsync(() -> 1, CompletableFuture.delayedExecutor(10, TimeUnit.MILLISECONDS))
             .thenAccept(x -> System.out.println("thenAccept after timer " + here()))
             .join();
-        try (ExecutorService single = Executors.newSingleThreadExecutor(r -> new Thread(r, "ledger-writer"))) {
+        try (ExecutorService single = Executors.newSingleThreadExecutor(r -> new Thread(r, "oven"))) {
             CompletableFuture.runAsync(() -> System.out.println("single-thread exec    " + here()), single).join();
         }
         try (ExecutorService vt = Executors.newVirtualThreadPerTaskExecutor()) {
