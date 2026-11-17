@@ -10,9 +10,9 @@ private fun suggestions(prefix: String): Flux<String> =
         .take(3)
         .doOnCancel { println("  cancelled lookup for $prefix") }
 
-/** Card number lookup as the user types: each new prefix cancels the lookup for the previous one. */
+/** A search box on the bakery's website: each new prefix cancels the lookup for the previous one. */
 fun main() {
-    val typed = Flux.just("41", "4111").delayElements(Duration.ofMillis(100))   // at 100 ms and 200 ms
+    val typed = Flux.just("cr", "cro").delayElements(Duration.ofMillis(100))   // at 100 ms and 200 ms
 
     val shown = typed
         .switchMap { prefix -> suggestions(prefix) }

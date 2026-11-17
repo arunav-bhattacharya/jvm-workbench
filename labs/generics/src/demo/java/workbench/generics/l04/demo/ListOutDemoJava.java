@@ -4,29 +4,29 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Java twin of ListOutDemo.kt. Java writes the read-only view as List<? extends Payment> at each use.
- * It also calls the Kotlin function sumCents: Kotlin compiled its List<Payment> parameter as
- * List<? extends Payment>, because Kotlin's List is declared `out`.
+ * Java twin of ListOutDemo.kt. Java writes the read-only view as List<? extends Fruit> at each use.
+ * It also calls the Kotlin function totalWeight: Kotlin compiled its List<Fruit> parameter as
+ * List<? extends Fruit>, because Kotlin's List is declared `out`. Fruit and Apple come from ProducerDemo.kt.
  */
 public class ListOutDemoJava {
 
-    static long sumCentsJava(List<? extends Payment> payments) {
-        long sum = 0;
-        for (Payment p : payments) sum += p.getCents();
+    static int totalWeightJava(List<? extends Fruit> fruit) {
+        int sum = 0;
+        for (Fruit f : fruit) sum += f.getGrams();
         return sum;
     }
 
-    static long sumCentsInvariant(List<Payment> payments) {
-        return sumCentsJava(payments);
+    static int totalWeightInvariant(List<Fruit> fruit) {
+        return totalWeightJava(fruit);
     }
 
     public static void main(String[] args) {
-        List<CardPayment> cards = new ArrayList<>(List.of(new CardPayment("pay_1", 1_200, "4242"), new CardPayment("pay_2", 350, "0005")));
-        System.out.println("sumCentsJava(cards) = " + sumCentsJava(cards));
-        System.out.println("Kotlin's sumCents(cards) from Java = " + ListOutDemoKt.sumCents(cards));
+        List<Apple> apples = new ArrayList<>(List.of(new Apple("Gala", 180), new Apple("Fuji", 150)));
+        System.out.println("totalWeightJava(apples) = " + totalWeightJava(apples));
+        System.out.println("Kotlin's totalWeight(apples) from Java = " + ListOutDemoKt.totalWeight(apples));
 
         // Wrong moves. Uncomment ONE at a time, predict the error, then run.
-        // System.out.println(sumCentsInvariant(cards));
-        // System.out.println(ListOutDemoKt.sumCentsMutable(cards));
+        // System.out.println(totalWeightInvariant(apples));
+        // System.out.println(ListOutDemoKt.totalWeightMutable(apples));
     }
 }

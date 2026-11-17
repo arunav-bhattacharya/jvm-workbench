@@ -14,7 +14,7 @@ public class PositionsDemoJava {
 
     public static void main(String[] args) {
         Producer<String> strings = new Producer<>() {
-            String last = "EUR";
+            String last = "Gala";
             public String produce() { return last; }
             public void consume(String item) { last = item; }
         };
@@ -23,6 +23,6 @@ public class PositionsDemoJava {
         System.out.println("produced " + out);
 
         // Wrong move. Uncomment, predict the error, then run.
-        // view.consume("USD");
+        // view.consume("Fuji");
     }
 }

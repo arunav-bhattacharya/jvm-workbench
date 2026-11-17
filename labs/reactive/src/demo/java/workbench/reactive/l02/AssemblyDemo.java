@@ -9,19 +9,19 @@ public class AssemblyDemo {
     public static void main(String[] args) {
         AtomicInteger mapped = new AtomicInteger();
 
-        Flux<Integer> fees = Flux.range(1, 3)
-                .map(cents -> {
+        Flux<Integer> pricesInCents = Flux.range(1, 3)
+                .map(euros -> {
                     mapped.incrementAndGet();
-                    return cents * 100;
+                    return euros * 100;
                 });
         System.out.println("after assembly: map ran " + mapped.get() + " times");
 
-        fees.subscribe(f -> System.out.println("fee " + f));
+        pricesInCents.subscribe(p -> System.out.println("price " + p + " cents"));
         System.out.println("after subscribe: map ran " + mapped.get() + " times");
 
         // A classic bug: the result of filter() is thrown away, so the filter is never part of the chain.
-        Flux<Integer> amounts = Flux.just(5, 50, 500);
-        amounts.filter(a -> a > 10);
-        amounts.subscribe(a -> System.out.println("amount " + a));
+        Flux<Integer> orderSizes = Flux.just(5, 50, 500);
+        orderSizes.filter(loaves -> loaves > 10);
+        orderSizes.subscribe(loaves -> System.out.println("big order: " + loaves + " loaves"));
     }
 }

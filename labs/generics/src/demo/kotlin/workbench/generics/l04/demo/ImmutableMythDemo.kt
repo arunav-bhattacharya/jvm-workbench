@@ -8,14 +8,14 @@ class Shelf<out T>(private val items: MutableList<T>) {   // a private MutableLi
 }
 
 fun main() {
-    val shelf: Shelf<Payment> = Shelf(mutableListOf(CardPayment("pay_1", 1_200, "4242"), CardPayment("pay_2", 350, "0005")))
-    println("took ${shelf.take().id}, ${shelf.size} left")
+    val shelf: Shelf<Fruit> = Shelf(mutableListOf(Apple("Gala", 180), Apple("Fuji", 150)))
+    println("took ${shelf.take().name}, ${shelf.size} left")
     shelf.clear()
     println("after clear: ${shelf.size} left")
 
     // The same is true of a use-site out projection: no add, but clear and removeAt still work.
-    val view: MutableList<out Payment> = mutableListOf(CardPayment("pay_3", 99, "1111"))
+    val view: MutableList<out Fruit> = mutableListOf(Apple("Braeburn", 200))
     view.removeAt(0)
     println("view after removeAt: ${view.size} left")
-    // view.add(CardPayment("pay_4", 10, "2222"))      // uncomment: which rule stops this?
+    // view.add(Apple("Pink Lady", 170))           // uncomment: which rule stops this?
 }

@@ -17,6 +17,6 @@ class Holder<out T>(val item: T, plain: T, private var hidden: T) {   // all thr
 // class Mutable<out T>(var item: T)                                    // 4
 
 fun main() {
-    val h: Holder<Any> = Holder("EUR", "x", "y")
+    val h: Holder<Any> = Holder("Gala", "x", "y")
     println("Holder<String> used as Holder<Any>: ${h.first()}")
 }

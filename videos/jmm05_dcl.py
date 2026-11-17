@@ -195,9 +195,16 @@ def fbox(text, color, w=4.6, h=0.62, size=22, fill=0.14):
     return VGroup(r, M(text, size).move_to(r))
 
 
+def code_line(s, size, hl):
+    """One code line with an invisible '|' at the end, so every line has the same height and the spacing is even."""
+    m = M(s + "|", size, t2c=hl or {})
+    m[-1].set_opacity(0)
+    return m
+
+
 def code_block(src, size=24, hl=None):
     cw = M("0123456789", size).width / 10
-    lines = VGroup(*[M(l.strip() or ".", size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
+    lines = VGroup(*[code_line(l.strip() or ".", size, hl) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
     for i, l in enumerate(src):
         if not l.strip():
             lines[i].set_opacity(0)
@@ -256,13 +263,14 @@ class Jmm05Dcl(Narrated):
         self.play(FadeOut(VGroup(st, keeper, keeper_l, cust, ask)), run_time=0.6)
 
         # ================= the card table =================
-        cardr = RoundedRectangle(corner_radius=0.2, width=3.8, height=2.3, stroke_color=GREY_A, stroke_width=3).set_fill(BLACK, 1)
-        cardr.move_to([-3.5, 0.9, 0])
-        num = M("4917 61xx xxxx xxxx", 28).move_to(cardr.get_center() + DOWN * 0.15)
+        cardr = RoundedRectangle(corner_radius=0.2, width=4.6, height=2.7, stroke_color=GREY_A, stroke_width=3).set_fill(BLACK, 1)
+        cardr.move_to([-3.6, 0.5, 0])
+        num = M("4917 61xx xxxx xxxx", 26).move_to(cardr.get_center() + DOWN * 0.1)
+        fit(num, 4.0)
         six_br = Brace(VGroup(*num[0:6]), DOWN, buff=0.08, color=YELLOW_M)
         six_l = T("which bank", 22, YELLOW_M).next_to(six_br, DOWN, buff=0.08)
-        tab = VGroup(RoundedRectangle(corner_radius=0.12, width=4.4, height=2.3, stroke_color=PURPLE_M, stroke_width=3)
-                     .set_fill(dim(PURPLE_M, 0.12), 1)).move_to([3.2, 0.9, 0])
+        tab = VGroup(RoundedRectangle(corner_radius=0.12, width=4.4, height=2.7, stroke_color=PURPLE_M, stroke_width=3)
+                     .set_fill(dim(PURPLE_M, 0.12), 1)).move_to([3.3, 0.5, 0])
         tab_t = M("CardBinTable", 24, PURPLE_M).move_to(tab.get_top() + DOWN * 0.35)
         rows = VGroup(M("491761  Bank A", 24), M("535522  Bank B", 24), M("...", 24, GREY_B)).arrange(DOWN, buff=0.15)
         rows.next_to(tab_t, DOWN, buff=0.22)
@@ -270,7 +278,7 @@ class Jmm05Dcl(Narrated):
                        max_tip_length_to_length_ratio=0.12)
         ms = T("about 50 ms to load, from a big file", 24, GREY_A).next_to(tab, DOWN, buff=0.25)
         lazy = VGroup(T("lazy initialization:", 30, YELLOW_M), T("build it the first time it's needed", 30)).arrange(RIGHT, buff=0.3)
-        lazy.move_to([0, -2.6, 0])
+        lazy.move_to([0, -2.75, 0])
         fit(lazy, 12.4)
         self.say("program")
         self.play(FadeIn(cardr), FadeIn(num), run_time=0.6)
@@ -304,7 +312,7 @@ class Jmm05Dcl(Narrated):
         self.fly([(a1.get_right(), st.door.get_left()), (a2.get_top() + UP * 0.1, st.door.get_left() + UP * 0.4)], GREY_A, rt=0.6)
         shut = T("shut!", 24, GREY_A).next_to(st.door, UP, buff=0.12).shift(LEFT * 0.2)
         self.play(FadeIn(shut), run_time=0.3)
-        self.play(a1.animate.move_to([-0.15, -1.0, 0]), a2.animate.move_to([-1.0, -1.0, 0]), FadeOut(a_l), run_time=0.8)
+        self.play(a1.animate.move_to([-0.5, -1.0, 0]), a2.animate.move_to([-1.45, -1.0, 0]), FadeOut(a_l), run_time=0.8)
         self.hold()
 
         t1 = chip_t("table #1", A1, 24).move_to([1.5, 2.3, 0])
@@ -405,7 +413,7 @@ class Jmm05Dcl(Narrated):
         self.play(Indicate(steps[0][1], color=YELLOW_M, scale_factor=1.05), Indicate(steps[2][1], color=YELLOW_M, scale_factor=1.05),
                   run_time=0.9)
         self.at(1)
-        self.play(Indicate(steps[1], color=KEY, scale_factor=1.03), Indicate(steps[2], color=KEY, scale_factor=1.03), run_time=0.8)
+        self.play(Indicate(steps[1][1], color=KEY, scale_factor=1.06), Indicate(steps[2][1], color=KEY, scale_factor=1.06), run_time=0.8)
         self.play(FadeIn(once, shift=UP * 0.1), run_time=0.5)
         self.hold()
         self.play(FadeOut(VGroup(name, *steps, sarr, fastc, fasta, fast_l, why2, once)), run_time=0.6)
@@ -435,7 +443,7 @@ class Jmm05Dcl(Narrated):
         self.play(*st.open_door(), FadeIn(opener), run_time=0.5)
         self.at(1)
         self.fly([(glancer.get_right(), st.doorway.get_left())], A2, rt=0.5)
-        self.play(glancer.animate.move_to(st.doorway.get_center() + LEFT * 0.75 + DOWN * 0.15),
+        self.play(glancer.animate.move_to(st.doorway.get_center() + LEFT * 1.25 + DOWN * 0.15),
                   cust.animate.move_to(st.doorway.get_center() + DOWN * 0.2), run_time=0.9)
         self.play(Indicate(key, color=GREY_B, scale_factor=1.15), run_time=0.6)
         self.at(2)
@@ -447,10 +455,10 @@ class Jmm05Dcl(Narrated):
         h1 = T("Thread 1, under the lock", 26, A1).move_to([-4.0, 2.95, 0])
         h2 = T("Thread 2, the fast path", 26, A2).move_to([4.0, 2.95, 0])
         L = [fbox("synchronized (lock) {", A1), fbox("if (table == null)", A1),
-             fbox("table = t;  // visible first", A1), fbox("t.rows = 3;  // seen later", A1)]
+             fbox("table = t; // seen first", A1), fbox("t.rows = 3; // seen later", A1)]
         for k, b in enumerate(L):
             b.move_to([-4.0, 2.05 - k * 0.85, 0])
-        R = [fbox("if (table != null)", A2), fbox("int rows = table.rows;", A2), fbox("lookUp(rows);  // rows = 0", BAD, fill=0.2)]
+        R = [fbox("if (table != null)", A2), fbox("int rows = table.rows;", A2), fbox("lookUp(rows); // 0 rows", BAD, fill=0.2)]
         for k, b in enumerate(R):
             b.move_to([4.0, 2.05 - k * 0.85, 0])
         mt = mem_cell("table", "null").move_to([0, 0.9, 0])
@@ -471,7 +479,7 @@ class Jmm05Dcl(Narrated):
         self.at(3)
         self.play(FadeIn(R[0]), run_time=0.4)
         self.fly([(mt.get_right(), R[0].get_left())], A2, rt=0.5)
-        x1 = tick(True, 0.15).next_to(R[0][0], RIGHT, buff=0.1)
+        x1 = tick(True, 0.15).move_to(R[0][0].get_right() + LEFT * 0.3).set_z_index(7)
         self.play(Create(x1), run_time=0.3)
         self.at_text("reads its rows")
         self.play(FadeIn(R[1]), run_time=0.4)
@@ -555,7 +563,7 @@ class Jmm05Dcl(Narrated):
         self.at(2)
         self.play(FadeIn(others), run_time=0.5)
         self.fly([(p.get_top(), sg.get_left()) for p in others], A2, rt=0.6)
-        self.play(Indicate(sg, color=SIGNC, scale_factor=1.1), run_time=0.6)
+        self.play(Indicate(sg[1], color=SIGNC, scale_factor=1.2), run_time=0.6)
         self.hold()
 
         rel = VGroup(M("volatile write", 24, A1), T("a release: sends everything written before it", 24)).arrange(RIGHT, buff=0.25)
@@ -563,7 +571,7 @@ class Jmm05Dcl(Narrated):
         rel.move_to([-6.2, -2.35, 0], aligned_edge=LEFT)
         acq.move_to([-6.2, -2.95, 0], aligned_edge=LEFT)
         self.say("edge")
-        self.play(FadeIn(rel, shift=UP * 0.1), Indicate(sg, color=A1, scale_factor=1.1), run_time=0.8)
+        self.play(FadeIn(rel, shift=UP * 0.1), Circumscribe(sg, color=A1, buff=0.06), run_time=0.8)
         self.at(1)
         self.play(FadeIn(acq, shift=UP * 0.1), run_time=0.6)
         self.hold()

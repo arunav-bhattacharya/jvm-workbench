@@ -6,74 +6,74 @@ import org.junit.jupiter.api.Test
 import workbench.generics.JavaSignatures
 
 class CovarianceTest {
-    private val c1 = CardPayment("pay_1", 1_200, "4242")
-    private val c2 = CardPayment("pay_2", 350, "0005")
-    private val t1 = BankTransfer("pay_3", 99_000, "DE89370400440532013000")
+    private val gala = Apple("Gala", 180)
+    private val fuji = Apple("Fuji", 150)
+    private val lemon = Lemon("Eureka", 120)
 
     @Test
-    fun `Feed hands out items in order and remembers the last one`() {
-        val feed = Feed(listOf<Payment>(c1, c2))
-        assertThat(feed.lastServed).isNull()
-        assertThat(feed.hasNext()).isTrue()
-        assertThat(feed.next()).isEqualTo(c1)
-        assertThat(feed.lastServed).isEqualTo(c1)
-        assertThat(feed.next()).isEqualTo(c2)
-        assertThat(feed.lastServed).isEqualTo(c2)
-        assertThat(feed.hasNext()).isFalse()
+    fun `Dispenser hands out items in order and remembers the last one`() {
+        val dispenser = Dispenser(listOf<Fruit>(gala, fuji))
+        assertThat(dispenser.lastServed).isNull()
+        assertThat(dispenser.hasNext()).isTrue()
+        assertThat(dispenser.next()).isEqualTo(gala)
+        assertThat(dispenser.lastServed).isEqualTo(gala)
+        assertThat(dispenser.next()).isEqualTo(fuji)
+        assertThat(dispenser.lastServed).isEqualTo(fuji)
+        assertThat(dispenser.hasNext()).isFalse()
     }
 
     @Test
-    fun `next on an empty feed throws NoSuchElementException`() {
-        val feed = Feed(emptyList<Payment>())
-        assertThatThrownBy { feed.next() }.isInstanceOf(NoSuchElementException::class.java)
+    fun `next on an empty dispenser throws NoSuchElementException`() {
+        val dispenser = Dispenser(emptyList<Fruit>())
+        assertThatThrownBy { dispenser.next() }.isInstanceOf(NoSuchElementException::class.java)
     }
 
     @Test
     fun `nextOr gives the next item, then the fallback`() {
-        val feed = Feed(listOf("EUR"))
-        assertThat(feed.nextOr("none")).isEqualTo("EUR")
-        assertThat(feed.nextOr("none")).isEqualTo("none")
+        val dispenser = Dispenser(listOf("Gala"))
+        assertThat(dispenser.nextOr("none")).isEqualTo("Gala")
+        assertThat(dispenser.nextOr("none")).isEqualTo("none")
     }
 
     @Test
-    fun `drainAll and totalCents empty the feed`() {
-        assertThat(drainAll(Feed(listOf<Payment>(c1, t1)))).containsExactly(c1, t1)
-        val feed = Feed(listOf<Payment>(c1, c2, t1))
-        assertThat(totalCents(feed)).isEqualTo(100_550)
-        assertThat(feed.hasNext()).isFalse()
+    fun `drainAll and totalGrams empty the dispenser`() {
+        assertThat(drainAll(Dispenser(listOf<Fruit>(gala, lemon)))).containsExactly(gala, lemon)
+        val dispenser = Dispenser(listOf<Fruit>(gala, fuji, lemon))
+        assertThat(totalGrams(dispenser)).isEqualTo(450)
+        assertThat(dispenser.hasNext()).isFalse()
     }
 
     @Test
-    fun `Feed is declared out, so Java sees drainAll taking Feed of extends Payment`() {
+    fun `Dispenser is declared out, so Java sees drainAll taking Dispenser of extends Fruit`() {
         // Kotlin writes a ? extends wildcard into a parameter only when the class is declared `out`
-        assertThat(JavaSignatures.paramText("workbench.generics.l04.FeedKt", "drainAll"))
-            .`as`("drainAll's parameter as Java sees it (add `out` to Feed's type parameter)")
-            .isEqualTo("Feed<? extends Payment>")
+        assertThat(JavaSignatures.paramText("workbench.generics.l04.DispenserKt", "drainAll"))
+            .`as`("drainAll's parameter as Java sees it (add `out` to Dispenser's type parameter)")
+            .isEqualTo("Dispenser<? extends Fruit>")
     }
 
     @Test
     fun `callers cannot set lastServed`() {
-        val publicSetters = Feed::class.java.methods.filter { it.name == "setLastServed" }
+        val publicSetters = Dispenser::class.java.methods.filter { it.name == "setLastServed" }
         assertThat(publicSetters).isEmpty()
     }
 
     @Test
-    fun `Page map transforms every item and keeps the cursor`() {
-        val page = Page(listOf(c1, c2), nextCursor = "cur_77")
-        val ids: Page<String> = page.map { it.id }
-        assertThat(ids).isEqualTo(Page(listOf("pay_1", "pay_2"), "cur_77"))
+    fun `Tray map transforms every item and keeps the label`() {
+        val tray = Tray(listOf(gala, fuji), label = "window display")
+        val names: Tray<String> = tray.map { it.name }
+        assertThat(names).isEqualTo(Tray(listOf("Gala", "Fuji"), "window display"))
     }
 
     @Test
-    fun `firstOnPage returns the first payment or null`() {
-        assertThat(firstOnPage(Page(listOf<Payment>(t1, c1), null))).isEqualTo(t1)
-        assertThat(firstOnPage(Page(emptyList(), null))).isNull()
+    fun `firstOnTray returns the first piece of fruit or null`() {
+        assertThat(firstOnTray(Tray(listOf<Fruit>(lemon, gala), null))).isEqualTo(lemon)
+        assertThat(firstOnTray(Tray(emptyList(), null))).isNull()
     }
 
     @Test
-    fun `Page is declared out, so Java sees firstOnPage taking Page of extends Payment`() {
-        assertThat(JavaSignatures.paramText("workbench.generics.l04.PageKt", "firstOnPage"))
-            .`as`("firstOnPage's parameter as Java sees it (add `out` to Page's type parameter)")
-            .isEqualTo("Page<? extends Payment>")
+    fun `Tray is declared out, so Java sees firstOnTray taking Tray of extends Fruit`() {
+        assertThat(JavaSignatures.paramText("workbench.generics.l04.TrayKt", "firstOnTray"))
+            .`as`("firstOnTray's parameter as Java sees it (add `out` to Tray's type parameter)")
+            .isEqualTo("Tray<? extends Fruit>")
     }
 }

@@ -15,67 +15,67 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 import kotlin.time.Duration.Companion.seconds
 
-/** A fake SDK. If [reply] is set, it answers on a separate thread, like the real one. */
-private class FakeIssuer(private val reply: ((AuthCallback) -> Unit)? = null) : CardIssuerClient {
-    val requests = CopyOnWriteArrayList<AuthRequest>()
+/** A fake bakery. If [reply] is set, it answers on a separate thread, like the real one. */
+private class FakeBakery(private val reply: ((OrderCallback) -> Unit)? = null) : BakeryClient {
+    val orders = CopyOnWriteArrayList<BreadOrder>()
     val cancels = AtomicInteger()
-    val callback = AtomicReference<AuthCallback>()
+    val callback = AtomicReference<OrderCallback>()
 
-    override fun authorize(request: AuthRequest, callback: AuthCallback): InFlight {
-        requests += request
+    override fun order(order: BreadOrder, callback: OrderCallback): PendingOrder {
+        orders += order
         this.callback.set(callback)
-        reply?.let { r -> thread(name = "issuer-sdk") { r(callback) } }
-        return InFlight { cancels.incrementAndGet() }
+        reply?.let { r -> thread(name = "bakery-library") { r(callback) } }
+        return PendingOrder { cancels.incrementAndGet() }
     }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SuspendFunctionsTest {
-    private val request = AuthRequest("tok_4242", 12_000)
-    private val approved = Authorization("A1B2C3", 12_000)
+    private val order = BreadOrder("sourdough", 2)
+    private val ready = Pickup("T-17", 2)
 
     @Test
-    fun `authorizeAwait returns the authorization the issuer approves`() = runTest(timeout = 10.seconds) {
-        val issuer = FakeIssuer { it.onApproved(approved) }
-        assertThat(issuer.authorizeAwait(request)).isEqualTo(approved)
-        assertThat(issuer.requests).containsExactly(request)
+    fun `orderAwait returns the pickup the bakery sends`() = runTest(timeout = 10.seconds) {
+        val bakery = FakeBakery { it.onReady(ready) }
+        assertThat(bakery.orderAwait(order)).isEqualTo(ready)
+        assertThat(bakery.orders).containsExactly(order)
     }
 
     @Test
-    fun `authorizeAwait throws the error the issuer reports`() = runTest(timeout = 10.seconds) {
-        val issuer = FakeIssuer { it.onFailed(IssuerDeclinedException("insufficient funds")) }
+    fun `orderAwait throws the error the bakery reports`() = runTest(timeout = 10.seconds) {
+        val bakery = FakeBakery { it.onFailed(SoldOutException("no sourdough left today")) }
         val thrown = try {
-            issuer.authorizeAwait(request)
+            bakery.orderAwait(order)
             null
-        } catch (e: IssuerDeclinedException) {
+        } catch (e: SoldOutException) {
             e
         }
         assertThat(thrown).isNotNull()
-        assertThat(thrown!!.reason).isEqualTo("insufficient funds")
+        assertThat(thrown!!.reason).isEqualTo("no sourdough left today")
     }
 
     @Test
-    fun `cancelling the caller cancels the request in flight`() = runTest(timeout = 10.seconds) {
-        val issuer = FakeIssuer(reply = null) // never answers on its own
-        val job = launch { issuer.authorizeAwait(request) }
-        runCurrent() // the coroutine starts, sends the request and suspends
-        assertThat(issuer.requests).hasSize(1)
+    fun `cancelling the caller cancels the order`() = runTest(timeout = 10.seconds) {
+        val bakery = FakeBakery(reply = null) // never answers on its own
+        val job = launch { bakery.orderAwait(order) }
+        runCurrent() // the coroutine starts, places the order and suspends
+        assertThat(bakery.orders).hasSize(1)
 
         job.cancelAndJoin() // hangs here if the wait is not cancellable
 
         assertThat(job.isCancelled).isTrue()
-        assertThat(issuer.cancels.get()).`as`("InFlight.cancel() calls").isEqualTo(1)
+        assertThat(bakery.cancels.get()).`as`("PendingOrder.cancel() calls").isEqualTo(1)
     }
 
     @Test
     fun `a late reply after cancellation is ignored`() = runTest(timeout = 10.seconds) {
-        val issuer = FakeIssuer(reply = null)
-        val job = launch { issuer.authorizeAwait(request) }
+        val bakery = FakeBakery(reply = null)
+        val job = launch { bakery.orderAwait(order) }
         runCurrent()
         job.cancelAndJoin()
 
         val lateError = AtomicReference<Throwable>()
-        thread { runCatching { issuer.callback.get().onApproved(approved) }.onFailure(lateError::set) }.join()
+        thread { runCatching { bakery.callback.get().onReady(ready) }.onFailure(lateError::set) }.join()
 
         assertThat(lateError.get()).`as`("exception from the late callback").isNull()
         assertThat(job.isCancelled).isTrue()

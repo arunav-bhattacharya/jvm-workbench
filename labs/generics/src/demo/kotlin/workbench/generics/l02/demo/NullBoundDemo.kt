@@ -9,10 +9,10 @@ class Cache<K, V> {
 
 fun main() {
     // V = String? is allowed, because the default bound of V is Any?
-    val lastError = Cache<String, String?>()
-    lastError.put("pay_1", null)          // "we checked, there was no error"
+    val problems = Cache<String, String?>()
+    problems.put("apples", null)          // "we checked the apples: no problem"
 
-    println("pay_1 -> ${lastError.get("pay_1")}")      // stored null
-    println("pay_9 -> ${lastError.get("pay_9")}")      // never stored
+    println("apples -> ${problems.get("apples")}")     // stored null
+    println("figs -> ${problems.get("figs")}")         // never checked
     println("Can you tell those two apart? Neither can the caller.")
 }

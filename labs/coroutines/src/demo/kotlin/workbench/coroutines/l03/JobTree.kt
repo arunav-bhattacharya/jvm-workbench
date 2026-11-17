@@ -18,17 +18,17 @@ fun Job.printTree(indent: String = "") {
     children.forEach { it.printTree("$indent    ") }
 }
 
-fun main() = runBlocking(CoroutineName("request")) {
-    val details = launch(CoroutineName("details")) {
+fun main() = runBlocking(CoroutineName("dinner")) {
+    val course = launch(CoroutineName("main-course")) {
         coroutineScope {
-            async(CoroutineName("account")) { delay(300) }
-            async(CoroutineName("ledger")) { delay(300) }
-            launch(CoroutineName("risk")) { delay(300) }
+            async(CoroutineName("roast")) { delay(300) }
+            async(CoroutineName("potatoes")) { delay(300) }
+            launch(CoroutineName("gravy")) { delay(300) }
             delay(100) // give the children time to start
-            println("tree at 100 ms, seen from the request coroutine:")
+            println("tree at 100 ms, seen from the dinner coroutine:")
             this@runBlocking.coroutineContext.job.printTree()
         }
     }
-    details.join()
-    println("after join: request has ${coroutineContext.job.children.count()} children")
+    course.join()
+    println("after join: dinner has ${coroutineContext.job.children.count()} children")
 }

@@ -5,15 +5,15 @@ import reactor.core.publisher.Mono
 
 /** A Flux and a Mono, subscribed with the three callbacks, with log() printing every signal. */
 fun main() {
-    val authorizations: Flux<String> = Flux.just("auth-1", "auth-2", "auth-3")
-    authorizations
+    val loaves: Flux<String> = Flux.just("rye-1", "rye-2", "rye-3")
+    loaves
         .log()                                              // prints each signal that passes this point
         .subscribe(
-            { a -> println("got $a") },                     // onNext
+            { l -> println("got $l") },                     // onNext
             { e -> println("failed: $e") },                 // onError
             { println("done") })                            // onComplete
 
-    val declined: Mono<String> = Mono.error(IllegalStateException("card declined"))
-    declined.subscribe { s -> println("got $s") }           // no error callback: watch what happens
+    val cake: Mono<String> = Mono.error(IllegalStateException("out of flour"))
+    cake.subscribe { c -> println("got $c") }               // no error callback: watch what happens
     println("main carries on")
 }

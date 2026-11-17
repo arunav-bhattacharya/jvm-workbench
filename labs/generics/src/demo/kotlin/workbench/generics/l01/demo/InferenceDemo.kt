@@ -6,19 +6,19 @@ package workbench.generics.l01.demo
  * Uncomment ONE probe at a time, run, read the message, comment it out again.
  */
 fun main() {
-    val amounts = listOf(1200, 350, 99)
-    val mixed = listOf(1, 2.5)
-    val tags = listOf("card", null)
-    val fees = mapOf("EUR" to 100, "USD" to 250L)
-    val keys = buildList { add("idem_1"); add("idem_2") }
+    val weights = listOf(180, 150, 210)
+    val mixed = listOf(180, 2.5)
+    val tags = listOf("ripe", null)
+    val prices = mapOf("apple" to 40, "mango" to 250L)
+    val varieties = buildList { add("Gala"); add("Fuji") }
     val none = emptyList<String>()
 
-    // val probe1: Int = amounts
+    // val probe1: Int = weights
     // val probe2: Int = mixed
     // val probe3: Int = tags
-    // val probe4: Int = fees
-    // val probe5: Int = keys
+    // val probe4: Int = prices
+    // val probe5: Int = varieties
     // val probe6 = emptyList()
 
-    println("compiled: ${amounts.size + mixed.size + tags.size + fees.size + keys.size + none.size} values")
+    println("compiled: ${weights.size + mixed.size + tags.size + prices.size + varieties.size + none.size} values")
 }

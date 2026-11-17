@@ -21,7 +21,7 @@ public class RunBlockingTrapJava {
 
     public static void main(String[] args) {
         boolean bad = args.length > 0 && args[0].equals("bad");
-        ExecutorService pool = Executors.newFixedThreadPool(2);   // a small request pool
+        ExecutorService pool = Executors.newFixedThreadPool(2);   // two cooks for eight dishes
         long t0 = System.nanoTime();
         List<CompletableFuture<Integer>> all = new ArrayList<>();
         for (int id = 0; id < 8; id++) {

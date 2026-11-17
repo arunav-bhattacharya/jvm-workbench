@@ -11,8 +11,8 @@ class SubtypingTest {
     private val string = Klass("String", listOf(charSequence, comparable))
     private val number = Klass("Number", listOf(any))
     private val int = Klass("Int", listOf(number, comparable))
-    private val payment = Klass("Payment", listOf(any))
-    private val cardPayment = Klass("CardPayment", listOf(payment))
+    private val fruit = Klass("Fruit", listOf(any))
+    private val apple = Klass("Apple", listOf(fruit))
     private val list = Klass("List", listOf(any), covariant = true)    // List<out E>
     private val mutableList = Klass("MutableList", listOf(list))       // MutableList<E>, invariant
     private val arrayList = Klass("ArrayList", listOf(mutableList))
@@ -42,8 +42,8 @@ class SubtypingTest {
 
     @Test
     fun `plain classes - a subclass is a subtype`() {
-        assertThat(t(cardPayment) isA t(payment)).isTrue()
-        assertThat(t(payment) isA t(cardPayment)).isFalse()
+        assertThat(t(apple) isA t(fruit)).isTrue()
+        assertThat(t(fruit) isA t(apple)).isFalse()
         assertThat(t(int) isA t(string)).isFalse()
     }
 
@@ -51,7 +51,7 @@ class SubtypingTest {
     fun `MutableList is invariant - MutableList of String is not a MutableList of Any`() {
         assertThat(t(mutableList, t(string)) isA t(mutableList, t(string))).isTrue()
         assertThat(t(mutableList, t(string)) isA t(mutableList, t(any))).isFalse()
-        assertThat(t(mutableList, t(cardPayment)) isA t(mutableList, t(payment))).isFalse()
+        assertThat(t(mutableList, t(apple)) isA t(mutableList, t(fruit))).isFalse()
         assertThat(t(mutableList, t(string)) isA t(mutableList, t(string).orNull())).isFalse()
     }
 
@@ -69,7 +69,7 @@ class SubtypingTest {
         assertThat(t(list, t(string)) isA t(list, t(string).orNull())).isTrue()
         assertThat(t(list, t(string).orNull()) isA t(list, t(string))).isFalse()
         assertThat(t(mutableList, t(string)) isA t(list, t(any))).isTrue()     // read-only view of a mutable list
-        assertThat(t(list, t(cardPayment)).orNull() isA t(list, t(payment)).orNull()).isTrue()
+        assertThat(t(list, t(apple)).orNull() isA t(list, t(fruit)).orNull()).isTrue()
     }
 
     @Test

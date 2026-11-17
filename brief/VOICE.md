@@ -1,7 +1,6 @@
 # Book voice for JVM Workbench lessons
 
-Part 1 (Concurrency on the JVM) and any lesson the user asks to read "like a real author" are written in
-the voice described by the **venkat-voice** skill (installed in the user's Claude profile, so it is
+Every lesson on the site is written in the voice described by the **venkat-voice** skill (installed in the user's Claude profile, so it is
 available in every session: use the Skill tool with `venkat-voice`). This file adds what is specific to
 this course: how the skill's moves map onto the lesson JSON, the course's house rules, and the examples
 Part 1 reuses.
@@ -75,6 +74,16 @@ in plain words the first time it appears in a lesson.
   timeouts, cancellation, virtual threads).
 
 Keep prose consistent with the labs and the Try-it demos on disk.
+
+## Everyday pictures for the other parts
+
+Each track outside Part 1 chooses one family of everyday pictures and one running example in its first
+lesson, sets them up in plain words, and carries them through the track (the track page's cheat sheet
+recalls them in a "Picture it" column, as content/tracks/jmm.json does). Pick situations everyone has
+lived: a kitchen, a shop, a post office, a library, a newspaper round, a factory line, a moving house,
+a toolbox, a recipe book. Reuse Part 1's restaurant or bank only when the topic really continues
+them (for example the capstones). The process for a rewrite is in brief/REWRITE.md; for a video remake,
+brief/REMAKE.md.
 
 ## Private research
 

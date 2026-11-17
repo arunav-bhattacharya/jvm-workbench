@@ -8,18 +8,18 @@ import kotlinx.coroutines.runBlocking
 /** Predict the order of the lines before you run it. Everything runs on one thread. */
 fun main() = runBlocking {
     println("A: before the builders")
-    val audit = launch {
-        println("C: audit starts")
+    val table = launch {
+        println("C: table: start setting it")
         delay(100)
-        println("F: audit written")
+        println("F: table: set")
     }
-    val price = async {
-        println("D: price lookup starts")
+    val oven = async {
+        println("D: oven: checking the temperature")
         delay(50)
-        1_084_512L
+        180
     }
-    println("B: builders returned, audit.isActive=${audit.isActive}")
-    println("E: price is ${price.await()}")
-    audit.join()
-    println("G: audit.isCompleted=${audit.isCompleted}")
+    println("B: builders returned, table.isActive=${table.isActive}")
+    println("E: oven is at ${oven.await()} degrees")
+    table.join()
+    println("G: table.isCompleted=${table.isCompleted}")
 }

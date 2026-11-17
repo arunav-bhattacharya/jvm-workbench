@@ -1,15 +1,15 @@
 package workbench.generics.l04.demo
 
-/** Kotlin's List is declared List<out E>, so a List<Payment> parameter accepts a List<CardPayment>. */
-fun sumCents(payments: List<Payment>): Long = payments.sumOf { it.cents }
+/** Kotlin's List is declared List<out E>, so a List<Fruit> parameter accepts a List<Apple>. */
+fun totalWeight(fruit: List<Fruit>): Int = fruit.sumOf { it.grams }
 
-/** MutableList is invariant: this one only accepts a MutableList<Payment>. */
-fun sumCentsMutable(payments: MutableList<Payment>): Long = payments.sumOf { it.cents }
+/** MutableList is invariant: this one only accepts a MutableList<Fruit>. */
+fun totalWeightMutable(fruit: MutableList<Fruit>): Int = fruit.sumOf { it.grams }
 
 fun main() {
-    val cards: MutableList<CardPayment> = mutableListOf(CardPayment("pay_1", 1_200, "4242"), CardPayment("pay_2", 350, "0005"))
-    println("sumCents(cards) = ${sumCents(cards)}")
+    val apples: MutableList<Apple> = mutableListOf(Apple("Gala", 180), Apple("Fuji", 150))
+    println("totalWeight(apples) = ${totalWeight(apples)}")
 
     // Wrong move. Uncomment, predict the error, then run.
-    // println(sumCentsMutable(cards))
+    // println(totalWeightMutable(apples))
 }

@@ -14,14 +14,14 @@ public class NullBoundDemoJava {
     }
 
     public static void main(String[] args) {
-        Cache<String, String> lastError = new Cache<>();
-        lastError.put("pay_1", null);          // "we checked, there was no error"
+        Cache<String, String> problems = new Cache<>();
+        problems.put("apples", null);          // "we checked the apples: no problem"
 
-        System.out.println("pay_1 -> " + lastError.get("pay_1"));   // stored null
-        System.out.println("pay_9 -> " + lastError.get("pay_9"));   // never stored
+        System.out.println("apples -> " + problems.get("apples"));   // stored null
+        System.out.println("figs -> " + problems.get("figs"));       // never checked
         System.out.println("Can you tell those two apart? Neither can the caller.");
 
         // Java's closest fix is a run-time check. Uncomment, run, and see where it fails.
-        // Objects.requireNonNull(null, "cached values must not be null");
+        // Objects.requireNonNull(null, "stored values must not be null");
     }
 }

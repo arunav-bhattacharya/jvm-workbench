@@ -21,7 +21,7 @@ suspend fun lookupGood(id: Int): Int {
 
 fun main(args: Array<String>) {
     val bad = args.firstOrNull() == "bad"
-    // a pool with only two threads, like a small request pool
+    // a pool with only two threads: two cooks for eight dishes
     Executors.newFixedThreadPool(2).asCoroutineDispatcher().use { pool ->
         val took = measureTimeMillis {
             runBlocking {

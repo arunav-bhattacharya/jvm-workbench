@@ -10,17 +10,21 @@ public class ZipDemo {
     public static void main(String[] args) {
         System.out.println("Flux.zip: " + Flux.zip(Flux.just(1, 2, 3), Flux.just("a", "b")).collectList().block());
 
-        Mono<String> fxRate = Mono.delay(Duration.ofMillis(200)).thenReturn("1.08")
-                .doOnCancel(() -> System.out.println("  fx rate call cancelled"));
-        Mono<String> fee = Mono.delay(Duration.ofMillis(100)).thenReturn("0.30");
-        Mono<String> limit = Mono.empty();                                   // no limit configured
+        Mono<String> price = Mono.delay(Duration.ofMillis(200)).thenReturn("24.00")
+                .doOnCancel(() -> System.out.println("  price lookup cancelled"));
+        Mono<String> deliveryFee = Mono.delay(Duration.ofMillis(100)).thenReturn("3.50");
+        Mono<String> discount = Mono.empty();                                // this customer has no discount
 
-        Mono.zip(fxRate, fee, limit)
+        Mono.zip(price, deliveryFee, discount)
                 .doOnSuccess(t -> System.out.println("Mono.zip result: " + t))  // null means "completed empty"
                 .block();
 
+        Mono.zip(price, deliveryFee, discount.defaultIfEmpty("0.00"))
+                .doOnSuccess(t -> System.out.println("with defaultIfEmpty: " + t))
+                .block();
+
         try {
-            Mono.zip(fxRate, fee, limit.switchIfEmpty(Mono.error(new IllegalStateException("missing limit"))))
+            Mono.zip(price, deliveryFee, discount.switchIfEmpty(Mono.error(new IllegalStateException("missing discount"))))
                     .block();
         } catch (IllegalStateException e) {
             System.out.println("with switchIfEmpty: " + e.getMessage());

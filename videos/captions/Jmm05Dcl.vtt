@@ -1,161 +1,333 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.421
-A BIN table takes 50 ms to load, so you build it on first use.
+00:00:02.700 --> 00:00:05.427
+A small shop keeps its stockroom at the back.
 
 2
-00:00:07.633 --> 00:00:12.184
-A synchronized getter is safe, but then every call takes the lock, forever.
+00:00:05.427 --> 00:00:11.125
+Opening it takes a while: find the key, switch on the lights, pull the covers off the shelves.
 
 3
-00:00:12.900 --> 00:00:16.709
-Double-checked locking skips the lock once the table exists.
+00:00:11.125 --> 00:00:16.459
+Most days nobody needs it, so the shopkeeper opens it only when the first customer asks.
 
 4
-00:00:16.709 --> 00:00:18.169
-Check without the lock.
+00:00:17.167 --> 00:00:21.631
+Every card number starts with six digits that say which bank issued it.
 
 5
-00:00:18.169 --> 00:00:20.963
-If it is null, lock, check again, and build.
+00:00:21.631 --> 00:00:26.032
+The shop's program keeps a table from those digits to the bank's name.
 
 6
-00:00:21.167 --> 00:00:27.224
-Thread A finds null, takes the lock, checks again, and allocates the table, with ranges still null.
+00:00:26.032 --> 00:00:32.634
+Loading it reads a big file, about 50 milliseconds, so the program builds it the first time someone asks.
 
 7
-00:00:27.224 --> 00:00:31.996
-In the code, the constructor fills ranges, then the reference goes into table.
+00:00:32.634 --> 00:00:34.772
+That's called lazy initialization.
 
 8
-00:00:32.200 --> 00:00:36.013
-But B will read table outside the lock, with a plain read.
+00:00:35.500 --> 00:00:39.811
+The first version checks, then acts: if the table is null, build it.
 
 9
-00:00:36.013 --> 00:00:39.761
-That read has no happens-before edge to anything A wrote.
+00:00:39.811 --> 00:00:42.156
+Now give the shop several assistants.
 
 10
-00:00:39.761 --> 00:00:43.377
-So the JIT and the CPU may let the reference out first.
+00:00:42.156 --> 00:00:46.023
+In Java, they're threads, paths of work running side by side.
 
 11
-00:00:43.600 --> 00:00:44.709
-A writes table.
+00:00:46.023 --> 00:00:48.368
+Two customers ask at the same moment.
 
 12
-00:00:44.709 --> 00:00:47.371
-Right then, thread B calls binTable.
+00:00:48.368 --> 00:00:51.981
+Two assistants see the door shut, and both go to open it.
 
 13
-00:00:47.371 --> 00:00:51.586
-table is not null, so B skips the lock, and reads ranges.
+00:00:52.100 --> 00:00:53.465
+Two tables get built.
 
 14
-00:00:51.586 --> 00:00:52.843
-What does it see?
+00:00:53.465 --> 00:00:55.609
+Here that wastes 50 milliseconds.
 
 15
-00:00:55.067 --> 00:00:55.432
-null.
+00:00:55.609 --> 00:01:00.483
+If opening meant connecting to another computer, one connection would leak.
 
 16
-00:00:55.432 --> 00:00:58.501
-A table that is not null, and still empty.
+00:01:01.200 --> 00:01:04.524
+The simple fix is one key on a hook by the counter.
 
 17
-00:00:58.501 --> 00:01:01.935
-A's write lands a moment later, too late for B.
+00:01:04.524 --> 00:01:08.566
+Every assistant takes the key before going near the stockroom.
 
 18
-00:01:02.167 --> 00:01:09.438
-A jcstress test on AArch64 saw this 1.8 million times in 2.3 billion samples.
+00:01:08.566 --> 00:01:13.585
+In Java, that's a synchronized method: its lock lets one thread in at a time.
 
 19
-00:01:09.438 --> 00:01:13.593
-On x86 it rarely shows, so it seems to work.
+00:01:13.585 --> 00:01:14.432
+It's correct.
 
 20
-00:01:14.700 --> 00:01:17.505
-The fix is one word: make table volatile.
+00:01:14.533 --> 00:01:19.979
+But every assistant takes the key on every visit, even when the door has stood open since nine.
 
 21
-00:01:17.505 --> 00:01:22.841
-Now writing table is a release: everything A wrote before it is visible first.
+00:01:19.979 --> 00:01:23.992
+By lunch, the queue for the key is longer than the queue for the till.
 
 22
-00:01:23.067 --> 00:01:28.812
-And B's volatile read is an acquire: if it sees the reference, it sees ranges too.
+00:01:23.992 --> 00:01:28.463
+Every call takes a lock, for a table that never changes after the first build.
 
 23
-00:01:29.833 --> 00:01:32.841
-For a static field there is a simpler way.
+00:01:28.567 --> 00:01:33.160
+Wouldn't it be nice to glance at the door first, and take the key only if it's shut?
 
 24
-00:01:32.841 --> 00:01:34.775
-Let the JVM do the locking.
+00:01:33.867 --> 00:01:35.064
+So here's the plan.
 
 25
-00:01:35.000 --> 00:01:41.105
-The JVM initializes a class right before its first use, once, under its own lock.
+00:01:35.064 --> 00:01:39.477
+Glance at the door first: if the table is there, use it, with no lock.
 
 26
-00:01:41.105 --> 00:01:46.381
-A's first call touches Holder, so the JVM builds the table right then.
+00:01:39.477 --> 00:01:40.801
+That's the fast path.
 
 27
-00:01:46.381 --> 00:01:47.436
-B has to wait.
+00:01:40.801 --> 00:01:46.537
+If not, take the key, and check again, because someone may have opened it while you waited.
 
 28
-00:01:47.667 --> 00:01:52.169
-Then every thread that uses the class sees what the initializer wrote.
+00:01:46.537 --> 00:01:48.428
+Only then, open the stockroom.
 
 29
-00:01:52.169 --> 00:01:54.741
-Your code needs no volatile and no lock.
+00:01:48.533 --> 00:01:53.294
+Checking once outside the lock and once inside is called double-checked locking.
 
 30
-00:01:55.767 --> 00:01:57.984
-In Java it is a nested class.
+00:01:53.294 --> 00:01:57.400
+The lock and the second check make sure only one table is ever built.
 
 31
-00:01:57.984 --> 00:02:01.348
-In Kotlin, an object, built on first access.
+00:01:58.133 --> 00:02:00.772
+Here's a question that feels silly to ask.
 
 32
-00:02:02.167 --> 00:02:02.744
-The rule.
+00:02:00.772 --> 00:02:03.411
+We check twice, and we build under a lock.
 
 33
-00:02:02.744 --> 00:02:06.721
-A thread that skips the lock needs its own edge to the writes.
+00:02:03.411 --> 00:02:05.044
+What could still go wrong?
 
 34
-00:02:06.721 --> 00:02:10.827
-A volatile field gives it one, and so does class initialization.
+00:02:05.667 --> 00:02:07.085
+Look at the fast path.
 
 35
-00:02:11.033 --> 00:02:12.077
-Check yourself.
+00:02:07.085 --> 00:02:13.017
+An assistant who glances, sees the door open, and walks a customer in never touches the key.
 
 36
-00:02:12.077 --> 00:02:15.973
-Thread B reads a non-null table without taking the lock.
+00:02:13.017 --> 00:02:17.079
+So nothing links that glance to the work the opener did inside.
 
 37
-00:02:15.973 --> 00:02:19.034
-Is it sure to see ranges with a plain field?
+00:02:17.800 --> 00:02:19.030
+Let's slow it down.
 
 38
-00:02:19.034 --> 00:02:20.425
-With a volatile one?
+00:02:19.030 --> 00:02:21.943
+Thread 1 holds the lock and builds the table.
 
 39
-00:02:23.133 --> 00:02:25.245
-Plain: no, it can see null.
+00:02:21.943 --> 00:02:31.784
+The JIT and the processor are free to let the reference out first, and the table's rows a moment later, like the envelope that arrived before its pages.
 
 40
-00:02:25.245 --> 00:02:26.965
-Volatile: yes, always.
+00:02:31.784 --> 00:02:33.661
+Thread 2 takes the fast path.
+
+41
+00:02:33.661 --> 00:02:37.545
+It sees a table that isn't null, reads its rows, and gets 0.
+
+42
+00:02:38.667 --> 00:02:41.163
+The door is open, and the lights are off.
+
+43
+00:02:41.163 --> 00:02:44.876
+Somewhere in the dark, a customer is choosing socks by touch.
+
+44
+00:02:44.876 --> 00:02:49.503
+In code, the reference isn't null, and the fields behind it are still empty.
+
+45
+00:02:50.233 --> 00:02:55.813
+A stress tester from the team that builds Java runs exactly this, on an ARM machine.
+
+46
+00:02:55.813 --> 00:03:01.326
+Two threads ask a broken double check for the same object, about 2.3 billion times.
+
+47
+00:03:01.326 --> 00:03:05.976
+How often does one get an object that isn't null, but carries no data?
+
+48
+00:03:08.967 --> 00:03:10.689
+About 1.8 million times.
+
+49
+00:03:10.689 --> 00:03:11.765
+Rare, and real.
+
+50
+00:03:11.765 --> 00:03:18.582
+And when the test made the data field final, there were no failures at all, on ARM or on Intel.
+
+51
+00:03:18.582 --> 00:03:28.556
+That's why the broken version so often seems to work: many objects have only final fields, and Intel and AMD machines rarely show the swap.
+
+52
+00:03:29.267 --> 00:03:34.641
+So checking twice without volatile can hand out an object that looks finished, and isn't.
+
+53
+00:03:34.641 --> 00:03:37.963
+The fast path needs an edge, and one word gives it one.
+
+54
+00:03:38.567 --> 00:03:43.450
+Make the field volatile, and the door gets a sign, like the museum's OPEN sign.
+
+55
+00:03:43.450 --> 00:03:49.754
+The assistant who opens the stockroom hangs OPEN last, after the lights are on and the covers are off.
+
+56
+00:03:49.754 --> 00:03:53.648
+Everyone else trusts the sign, never a glance through the door.
+
+57
+00:03:53.767 --> 00:03:59.914
+The volatile write that stores the table is a release: it sends everything written before it along.
+
+58
+00:03:59.914 --> 00:04:05.876
+The volatile read on the fast path is an acquire: when it sees the table, it receives all of it.
+
+59
+00:04:06.600 --> 00:04:11.372
+Where the picture breaks: in a real shop, you'd notice a dark room at once.
+
+60
+00:04:11.372 --> 00:04:15.381
+In the JVM, a half-built object looks just like a finished one.
+
+61
+00:04:16.000 --> 00:04:20.226
+Let's run the fixed version: eight threads ask at the same moment.
+
+62
+00:04:20.226 --> 00:04:22.980
+One load, and all eight get the same table.
+
+63
+00:04:22.980 --> 00:04:24.773
+Now delete the second check.
+
+64
+00:04:24.773 --> 00:04:25.797
+How many tables?
+
+65
+00:04:28.367 --> 00:04:30.677
+Eight loads, eight different tables.
+
+66
+00:04:30.677 --> 00:04:34.912
+Every assistant who queued for the key opened the stockroom again.
+
+67
+00:04:34.912 --> 00:04:36.131
+Both checks matter.
+
+68
+00:04:36.233 --> 00:04:39.225
+Put it back, and this time remove volatile.
+
+69
+00:04:39.225 --> 00:04:40.129
+What changes?
+
+70
+00:04:42.500 --> 00:04:43.068
+Nothing.
+
+71
+00:04:43.068 --> 00:04:45.410
+One load, one table, every round.
+
+72
+00:04:45.410 --> 00:04:51.301
+A test like this is a smoke alarm with no battery: calm, quiet, and no help at all.
+
+73
+00:04:51.301 --> 00:04:55.276
+On an Intel laptop, the missing edge almost never shows.
+
+74
+00:04:55.276 --> 00:04:58.896
+Only a stress tester, ideally on ARM, can catch it.
+
+75
+00:04:59.600 --> 00:05:03.749
+Here's the fixed version, Java on the left and Kotlin on the right.
+
+76
+00:05:03.749 --> 00:05:06.412
+Read the volatile field once, into a local.
+
+77
+00:05:06.412 --> 00:05:09.199
+If it's null, take the lock, and check again.
+
+78
+00:05:09.900 --> 00:05:12.222
+So what went wrong with checking twice?
+
+79
+00:05:12.222 --> 00:05:15.555
+The glance at the door takes no key, so it needs a sign.
+
+80
+00:05:15.555 --> 00:05:19.008
+volatile is that sign: the edge the fast path was missing.
+
+81
+00:05:19.133 --> 00:05:19.991
+Quick check.
+
+82
+00:05:19.991 --> 00:05:25.640
+Your double check has no volatile, and a thousand runs all pass on your laptop.
+
+83
+00:05:25.640 --> 00:05:26.641
+Is it correct?

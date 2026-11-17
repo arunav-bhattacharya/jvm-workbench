@@ -3,23 +3,28 @@ package workbench.generics.l03.demo;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Java twin of InvarianceDemo.kt. What would go wrong if List<String> were a List<Object>? */
+/** Java twin of InvarianceDemo.kt. What would go wrong if a List<Apple> were a List<Fruit>? */
 public class InvarianceDemoJava {
+
+    interface Fruit { String name(); }
+    record Apple(String name) implements Fruit {}
+    record Lemon(String name) implements Fruit {}
+
     @SuppressWarnings("unchecked")
     public static void main(String[] args) {
-        List<String> ids = new ArrayList<>(List.of("pay_1"));
+        List<Apple> apples = new ArrayList<>(List.of(new Apple("Gala")));
 
         // Step 1: uncomment this line and run. javac refuses it.
-        // List<Object> view = ids;
+        // List<Fruit> anyFruit = apples;
 
-        // Step 2: force it through a raw type. This compiles, with an unchecked warning.
-        List<Object> anything = (List<Object>) (List<?>) ids;
-        anything.add(42);                         // fine for a List<Object>
-        System.out.println("ids has " + ids.size() + " elements, and nothing failed yet");
+        // Step 2: force it through a wildcard cast. This compiles, with an unchecked warning.
+        List<Fruit> anyFruit = (List<Fruit>) (List<?>) apples;
+        anyFruit.add(new Lemon("Eureka"));         // fine for a list of any fruit
+        System.out.println("the apple crate holds " + apples.size() + " items, and nothing failed yet");
 
         try {
-            String second = ids.get(1);           // javac inserted a cast to String here
-            System.out.println("second id: " + second);
+            Apple second = apples.get(1);          // javac inserted a cast to Apple here
+            System.out.println("second apple: " + second.name());
         } catch (ClassCastException e) {
             System.out.println("ClassCastException: " + e.getMessage());
         }

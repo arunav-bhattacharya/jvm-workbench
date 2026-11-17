@@ -12,23 +12,23 @@ public class LaunchAndAsyncJava {
         ScheduledExecutorService loop = Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "loop"));
         loop.execute(() -> {
             System.out.println("A: before the tasks");
-            CompletableFuture<Void> audit = new CompletableFuture<>();
+            CompletableFuture<Void> table = new CompletableFuture<>();
             loop.execute(() -> {                       // like launch: queued behind the running task
-                System.out.println("C: audit starts");
-                loop.schedule(() -> { System.out.println("F: audit written"); audit.complete(null); }, 100, TimeUnit.MILLISECONDS);
+                System.out.println("C: table: start setting it");
+                loop.schedule(() -> { System.out.println("F: table: set"); table.complete(null); }, 100, TimeUnit.MILLISECONDS);
             });
-            CompletableFuture<Long> price = new CompletableFuture<>();
+            CompletableFuture<Integer> oven = new CompletableFuture<>();
             loop.execute(() -> {                       // like async
-                System.out.println("D: price lookup starts");
-                loop.schedule(() -> price.complete(1_084_512L), 50, TimeUnit.MILLISECONDS);
+                System.out.println("D: oven: checking the temperature");
+                loop.schedule(() -> oven.complete(180), 50, TimeUnit.MILLISECONDS);
             });
-            System.out.println("B: tasks queued, audit.isDone=" + audit.isDone());
-            price.thenAccept(p -> System.out.println("E: price is " + p))   // like await, written as a callback
-                 .thenCompose(x -> audit)                                   // like join
-                 .thenRun(() -> {
-                     System.out.println("G: audit.isDone=" + audit.isDone());
-                     loop.shutdown();
-                 });
+            System.out.println("B: tasks queued, table.isDone=" + table.isDone());
+            oven.thenAccept(t -> System.out.println("E: oven is at " + t + " degrees"))   // like await, written as a callback
+                .thenCompose(x -> table)                                               // like join
+                .thenRun(() -> {
+                    System.out.println("G: table.isDone=" + table.isDone());
+                    loop.shutdown();
+                });
         });
         loop.awaitTermination(5, TimeUnit.SECONDS);
     }

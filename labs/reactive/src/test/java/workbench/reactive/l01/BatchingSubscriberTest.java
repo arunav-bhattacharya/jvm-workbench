@@ -79,30 +79,30 @@ class BatchingSubscriberTest {
         BatchingSubscriber<String> subscriber = new BatchingSubscriber<>(8, s -> { });
         SubmissionPublisher<String> publisher = new SubmissionPublisher<>();
         publisher.subscribe(subscriber);
-        publisher.submit("auth-1");
-        publisher.closeExceptionally(new IllegalStateException("issuer feed down"));
+        publisher.submit("loaf-1");
+        publisher.closeExceptionally(new IllegalStateException("oven broke down"));
 
         assertThat(subscriber.await(3, TimeUnit.SECONDS)).as("stream finished").isTrue();
-        assertThat(subscriber.error()).hasMessage("issuer feed down");
+        assertThat(subscriber.error()).hasMessage("oven broke down");
     }
 
     @Test
     @DisplayName("A failing handler cancels the subscription, returns normally, and later items are ignored")
     void handlerFailureCancels() throws Exception {
         List<String> handled = new ArrayList<>();
-        BatchingSubscriber<String> subscriber = new BatchingSubscriber<>(4, row -> {
-            handled.add(row);
-            if (row.equals("bad-row")) throw new IllegalArgumentException("cannot parse " + row);
+        BatchingSubscriber<String> subscriber = new BatchingSubscriber<>(4, loaf -> {
+            handled.add(loaf);
+            if (loaf.equals("burnt-loaf")) throw new IllegalArgumentException("cannot box " + loaf);
         });
         FakeSubscription subscription = new FakeSubscription();
         subscriber.onSubscribe(subscription);
 
-        subscriber.onNext("row-1");
-        subscriber.onNext("bad-row");      // must not throw back into the publisher (rule 2.13)
-        subscriber.onNext("row-3");        // already requested, so it may still arrive (rule 2.8)
+        subscriber.onNext("loaf-1");
+        subscriber.onNext("burnt-loaf");      // must not throw back into the publisher (rule 2.13)
+        subscriber.onNext("loaf-3");        // already requested, so it may still arrive (rule 2.8)
 
         assertThat(subscription.cancelled).as("cancelled").isTrue();
-        assertThat(handled).containsExactly("row-1", "bad-row");
+        assertThat(handled).containsExactly("loaf-1", "burnt-loaf");
         assertThat(subscriber.error()).isInstanceOf(IllegalArgumentException.class);
         assertThat(subscriber.await(0, TimeUnit.SECONDS)).as("finished").isTrue();
     }

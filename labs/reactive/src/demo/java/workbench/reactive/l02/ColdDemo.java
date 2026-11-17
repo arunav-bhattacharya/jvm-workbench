@@ -4,24 +4,24 @@ import reactor.core.publisher.Mono;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** A cold Mono does its work again for every subscriber. Here the work is a card charge. */
+/** A cold Mono does its work again for every subscriber. Here the work is baking a cake. */
 public class ColdDemo {
-    static final AtomicInteger charges = new AtomicInteger();
+    static final AtomicInteger baked = new AtomicInteger();
 
-    static Mono<String> charge(String paymentId) {
+    static Mono<String> bake(String orderId) {
         return Mono.fromCallable(() -> {
-            int n = charges.incrementAndGet();
-            System.out.println("  issuer: charging " + paymentId + " (charge #" + n + ")");
-            return "receipt-" + n;
+            int n = baked.incrementAndGet();
+            System.out.println("  oven: baking the cake for " + orderId + " (cake #" + n + ")");
+            return "cake-" + n;
         });
     }
 
     public static void main(String[] args) {
-        Mono<String> charge = charge("pay-42");
+        Mono<String> cake = bake("order-42");
 
-        charge.subscribe(r -> System.out.println("audit log: " + r));   // subscriber 1
-        String receipt = charge.block();                                // subscriber 2
-        System.out.println("returned to caller: " + receipt);
-        System.out.println("charges made: " + charges.get());
+        cake.subscribe(c -> System.out.println("shop log: " + c));   // subscriber 1
+        String handedOver = cake.block();                           // subscriber 2
+        System.out.println("handed to the customer: " + handedOver);
+        System.out.println("cakes baked: " + baked.get());
     }
 }

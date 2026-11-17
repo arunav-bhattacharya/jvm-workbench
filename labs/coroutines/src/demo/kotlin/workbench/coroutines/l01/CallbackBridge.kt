@@ -9,26 +9,26 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.system.measureTimeMillis
 
-/** A fraud-scoring SDK with a callback API. It answers after 1 second on its own thread. */
-class FraudSdk {
-    private val pool = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "fraud-sdk").apply { isDaemon = true } }
+/** A bakery's ordering library with a callback API. It answers after 1 second, on its own thread. */
+class BakerySdk {
+    private val pool = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "bakery-sdk").apply { isDaemon = true } }
 
-    fun score(paymentId: String, onScore: (Int) -> Unit): () -> Unit {
-        val task = pool.schedule({ onScore(17) }, 1, TimeUnit.SECONDS)
-        return { println("  sdk: request for $paymentId cancelled"); task.cancel(false) }
+    fun order(bread: String, onReady: (String) -> Unit): () -> Unit {
+        val task = pool.schedule({ onReady("ticket 17: one $bread") }, 1, TimeUnit.SECONDS)
+        return { println("  bakery: order for $bread cancelled"); task.cancel(false) }
     }
 }
 
 // Wrapped with suspendCoroutine: works, but cancellation cannot reach it.
-suspend fun FraudSdk.scoreAwait(paymentId: String): Int = suspendCoroutine { cont ->
-    score(paymentId) { s -> cont.resume(s) }
+suspend fun BakerySdk.orderAwait(bread: String): String = suspendCoroutine { cont ->
+    order(bread) { ticket -> cont.resume(ticket) }
 }
 
 fun main() = runBlocking {
-    val sdk = FraudSdk()
+    val bakery = BakerySdk()
     val took = measureTimeMillis {
         try {
-            withTimeout(100) { sdk.scoreAwait("pay_981") }
+            withTimeout(100) { bakery.orderAwait("sourdough") }
         } catch (e: TimeoutCancellationException) {
             println("  timed out")
         }

@@ -1,19 +1,21 @@
 // Kotlin twin of ArrayStoreDemo.java. Kotlin arrays are invariant, so you need a cast to reach
 // the same trap. Once you do, the JVM's store check fires exactly as it does for Java.
+// Fruit, Apple and Lemon are the classes declared in InvarianceDemo.kt.
 package workbench.generics.l03.demo
 
 fun main() {
-    val currencies: Array<String> = arrayOf("EUR", "USD")
+    val crate: Array<Apple> = arrayOf(Apple("Gala"), Apple("Fuji"))
 
     // Step 2: uncomment the next line and run. Kotlin refuses it: arrays are invariant.
-    // val refused: Array<Any> = currencies
+    // val refused: Array<Fruit> = crate
 
-    val objects = currencies as Array<Any>     // forced: at run time a String[] really is an Object[]
+    @Suppress("UNCHECKED_CAST")
+    val anyFruit = crate as Array<Fruit>        // forced: at run time an Apple[] really is a Fruit[]
     try {
-        objects[0] = 978                        // compiles: an Int is an Any
-        println("stored 978")
+        anyFruit[0] = Lemon("Eureka")           // compiles: a Lemon is a Fruit
+        println("stored a lemon")
     } catch (e: ArrayStoreException) {
         println("ArrayStoreException: ${e.message}")
     }
-    println("currencies[0] is still ${currencies[0]}")
+    println("crate[0] is still ${crate[0].name}")
 }

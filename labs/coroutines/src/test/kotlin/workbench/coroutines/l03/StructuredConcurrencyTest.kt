@@ -14,94 +14,96 @@ import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
-import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
+
+/** A dish that went wrong. (Not an IllegalStateException: CancellationException is one of those.) */
+private class BurnedException(message: String) : Exception(message)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StructuredConcurrencyTest {
 
-    // ---- settleAll ----
+    // ---- cookCourse ----
 
     @Test
-    fun `settleAll returns only after every batch is settled`() = runTest {
-        val settled = CopyOnWriteArrayList<String>()
-        settleAll(listOf("b1", "b2", "b3")) { id -> delay(100L * id.last().digitToInt()); settled += id }
-        assertThat(settled).`as`("settled when settleAll returned").containsExactlyInAnyOrder("b1", "b2", "b3")
-        assertThat(currentTime).`as`("virtual ms: the slowest batch").isEqualTo(300)
+    fun `cookCourse returns only after every dish is done`() = runTest {
+        val done = CopyOnWriteArrayList<String>()
+        cookCourse(listOf("dish1", "dish2", "dish3")) { d -> delay(100L * d.last().digitToInt()); done += d }
+        assertThat(done).`as`("done when cookCourse returned").containsExactlyInAnyOrder("dish1", "dish2", "dish3")
+        assertThat(currentTime).`as`("virtual ms: the slowest dish").isEqualTo(300)
     }
 
     @Test
-    fun `a failing batch cancels the others and the caller gets the failure`() = runTest {
+    fun `a failing dish cancels the others and the caller gets the failure`() = runTest {
         val cancelled = CopyOnWriteArrayList<String>()
         var thrown: Throwable? = null
         try {
-            settleAll(listOf("ok-1", "bad", "ok-2")) { id ->
-                if (id == "bad") { delay(50); throw IOException("issuer file rejected") }
-                try { delay(1_000) } catch (e: CancellationException) { cancelled += id; throw e }
+            cookCourse(listOf("potatoes", "roast", "gravy")) { d ->
+                if (d == "roast") { delay(50); throw BurnedException("the roast burned") }
+                try { delay(1_000) } catch (e: CancellationException) { cancelled += d; throw e }
             }
-        } catch (e: IOException) {
+        } catch (e: BurnedException) {
             thrown = e
         }
-        assertThat(thrown).hasMessage("issuer file rejected")
-        assertThat(cancelled).containsExactlyInAnyOrder("ok-1", "ok-2")
-        assertThat(currentTime).`as`("failed at the failure, not after the slow batches").isEqualTo(50)
+        assertThat(thrown).hasMessage("the roast burned")
+        assertThat(cancelled).containsExactlyInAnyOrder("potatoes", "gravy")
+        assertThat(currentTime).`as`("failed at the failure, not after the slow dishes").isEqualTo(50)
     }
 
     @Test
-    fun `cancelling the caller cancels every batch`() = runTest {
+    fun `cancelling the caller cancels every dish`() = runTest {
         val finished = CopyOnWriteArrayList<String>()
-        val caller = launch { settleAll(listOf("b1", "b2")) { id -> delay(1_000); finished += id } }
+        val caller = launch { cookCourse(listOf("soup", "bread")) { d -> delay(1_000); finished += d } }
         advanceTimeBy(100)
         caller.cancelAndJoin()
         advanceUntilIdle()
-        assertThat(finished).`as`("batches that kept running after the caller left").isEmpty()
+        assertThat(finished).`as`("dishes that kept cooking after the caller left").isEmpty()
     }
 
-    // ---- BatchSettler ----
+    // ---- Oven ----
 
     @Test
-    fun `submit starts the batch in the background and returns at once`() = runTest {
-        val settled = CopyOnWriteArrayList<String>()
-        val settler = BatchSettler(StandardTestDispatcher(testScheduler)) { id -> delay(500); settled += id }
-        settler.submit("b1")
-        assertThat(settled).isEmpty()
+    fun `put starts baking in the background and returns at once`() = runTest {
+        val baked = CopyOnWriteArrayList<String>()
+        val oven = Oven(StandardTestDispatcher(testScheduler)) { tray -> delay(500); baked += tray }
+        oven.put("tray1")
+        assertThat(baked).isEmpty()
         advanceUntilIdle()
-        assertThat(settled).containsExactly("b1")
+        assertThat(baked).containsExactly("tray1")
     }
 
     @Test
-    fun `inFlight counts the batches still running`() = runTest {
-        val settler = BatchSettler(StandardTestDispatcher(testScheduler)) { id -> delay(100L * id.last().digitToInt()) }
-        listOf("b1", "b2", "b3").forEach { settler.submit(it) }
+    fun `inOven counts the trays still baking`() = runTest {
+        val oven = Oven(StandardTestDispatcher(testScheduler)) { tray -> delay(100L * tray.last().digitToInt()) }
+        listOf("tray1", "tray2", "tray3").forEach { oven.put(it) }
         runCurrent()
-        assertThat(settler.inFlight).isEqualTo(3)
+        assertThat(oven.inOven).isEqualTo(3)
         advanceTimeBy(150); runCurrent()
-        assertThat(settler.inFlight).isEqualTo(2)
+        assertThat(oven.inOven).isEqualTo(2)
         advanceUntilIdle()
-        assertThat(settler.inFlight).isEqualTo(0)
+        assertThat(oven.inOven).isEqualTo(0)
     }
 
     @Test
-    fun `shutdown cancels running batches and waits until they have stopped`() = runTest {
-        val settled = CopyOnWriteArrayList<String>()
+    fun `switchOff cancels the trays and waits until they have stopped`() = runTest {
+        val baked = CopyOnWriteArrayList<String>()
         val stopped = CopyOnWriteArrayList<String>()
-        val settler = BatchSettler(StandardTestDispatcher(testScheduler)) { id ->
-            try { delay(10_000); settled += id } finally { stopped += id }
+        val oven = Oven(StandardTestDispatcher(testScheduler)) { tray ->
+            try { delay(10_000); baked += tray } finally { stopped += tray }
         }
-        settler.submit("b1"); settler.submit("b2")
+        oven.put("tray1"); oven.put("tray2")
         runCurrent()
 
-        settler.shutdown()
+        oven.switchOff()
 
-        assertThat(stopped).`as`("stopped when shutdown returned").containsExactlyInAnyOrder("b1", "b2")
-        assertThat(settled).isEmpty()
+        assertThat(stopped).`as`("stopped when switchOff returned").containsExactlyInAnyOrder("tray1", "tray2")
+        assertThat(baked).isEmpty()
         assertThat(currentTime).isEqualTo(0)
     }
 
     @Test
-    fun `submit after shutdown is refused`() = runTest {
-        val settler = BatchSettler(StandardTestDispatcher(testScheduler)) { delay(10) }
-        settler.shutdown()
-        assertThatThrownBy { settler.submit("late") }.isInstanceOf(IllegalStateException::class.java)
+    fun `a tray put in after switchOff is refused`() = runTest {
+        val oven = Oven(StandardTestDispatcher(testScheduler)) { delay(10) }
+        oven.switchOff()
+        assertThatThrownBy { oven.put("late") }.isInstanceOf(IllegalStateException::class.java)
     }
 }
