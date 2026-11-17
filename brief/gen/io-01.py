@@ -112,7 +112,7 @@ platform thread per connection: 2,000 idle clients connected in 1,492 ms
 
 Two thousand customers, two thousand clerks, and not one of them doing anything. Now look at the state. A platform thread blocked in a socket read reports `RUNNABLE`, because the JVM sees it running native code (`SocketDispatcher.read0`) and can't tell waiting from working there.
 
-That's where the post office picture breaks. In a real post office, you can see a clerk standing still. In a thread dump, every idle clerk of an idle server reports `RUNNABLE`, which is generous of it.
+That's where the post office picture breaks. In a real post office, you can see a clerk standing still. A thread dump, the JVM's snapshot of every thread and what it's doing, lists each waiting thread of an idle server as `RUNNABLE`. That's a generous word for a clerk staring at an empty counter.
 
 **A blocked read holds a whole thread for the whole wait. Count the waits, not the work.**
 
@@ -135,7 +135,7 @@ Every extra platform thread costs a stack and a place in the scheduler. When man
 
 **Waiting threads are still threads. Size a blocking server with Little's law, not with the number of cores.**
 
-In 1999, those tens of thousands of connections got a name."""
+Those tens of thousands of connections already have a name."""
 
 ASIDE1 = {
     "title": "Is one thread per connection ever the right choice?",
@@ -186,7 +186,7 @@ The demo showed the effect: the same 2,000 blocked readers on 15 platform thread
 
 In the post office, these are cheap clerks: a clerk leaves a note at a slow customer's counter and serves someone else, and any free clerk comes back when the form is done.
 
-Neither way makes a single request faster. Event loops and virtual threads buy more waiting per megabyte, not speed. A request that waits 120 ms for the slow web service still takes 120 ms. Neither removes the limits behind your server, either. If 10,000 virtual threads all want one of 20 database connections, 9,980 of them wait in line. The virtual threads track showed how to cap that with a semaphore, a counter of permits that lets only so many threads in at once.
+Neither way makes a single request faster. A request that waits 120 ms for the slow web service still takes 120 ms. Neither removes the limits behind your server, either. If 10,000 virtual threads all want one of 20 database connections, 9,980 of them wait in line. The virtual threads track showed how to cap that with a semaphore, a counter of permits that lets only so many threads in at once.
 
 My default for a new blocking server is virtual threads. I'd move to an event-loop library when measurements say memory per connection is the problem, or when the server already lives on one. Most servers hit the limits of the services they call long before either wall.
 
@@ -433,7 +433,7 @@ L = {
 
 You can see the JVM's view with Native Memory Tracking. Start a JVM with `-XX:NativeMemoryTracking=summary` and run `jcmd <pid> VM.native_memory summary`, where `<pid>` is the number the operating system gives the running program. The `Thread` section shows how many threads exist and their reserved and committed stack memory. Run it on the demo while it holds 2,000 platform threads, and again during the virtual-thread part.
 
-The limit you hit first in production is often not memory. Machines and containers (sealed-off boxes that a program runs in) cap the number of processes and threads per user (`ulimit -u`, or the container's `pids.max`). When a JVM can't create a thread, it throws `OutOfMemoryError: unable to create native thread`, a confusing name for a limit on the number of threads.
+The limit a real server hits first is often not memory. Machines and containers (sealed-off boxes that a program runs in) cap the number of processes and threads per user (`ulimit -u`, or the container's `pids.max`). When a JVM can't create a thread, it throws `OutOfMemoryError: unable to create native thread`, a confusing name for a limit on the number of threads.
 
 Kegel's page sorted the ways out of C10K roughly like this: many clients per thread with level-triggered readiness (`select`, `poll`), the same with edge-triggered readiness (`kqueue`, `epoll` in edge mode), asynchronous IO that reports completion instead of readiness, and one client per thread. Lesson 2 meets level-triggered readiness, and lesson 8 compares readiness with completion (`io_uring` on Linux)."""
  },

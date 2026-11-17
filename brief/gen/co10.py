@@ -89,7 +89,7 @@ Pick the tool by the shape of the update.
 
 """ + pair(K_LOCK, J_LOCK) + """
 
-`withLock` takes the lock, runs the block in a `try`, and releases the lock in `finally`, the same idiom as Java's. The difference is what waiting costs. `Mutex.lock()` suspends the coroutine, so a helper waiting for the pen holds no thread. The KDoc gives the Mutex the memory rules of a `synchronized` block, and makes it fair: waiters get the lock in the order they asked.
+`withLock` takes the lock, runs the block in a `try`, and releases the lock in `finally`, the same idiom as Java's. The difference is what waiting costs. `Mutex.lock()` suspends the coroutine, so a helper waiting for the pen holds no thread. The KDoc, the documentation in the library's source, gives the Mutex the memory rules of a `synchronized` block, and makes it fair: waiters get the lock in the order they asked.
 
 Two warnings come with it. A `Mutex` is **not reentrant**: a coroutine that holds it and calls `withLock` again suspends forever, waiting for itself. Its KDoc gives it just two states, locked and unlocked, and it keeps no record of who holds it, unless you pass an `owner` token for debugging. (A `ReentrantLock` records the thread that holds it, which wouldn't work here, because a coroutine may resume on another thread.) So take the lock once, at the top. And the numbers above show the second warning: a lock or a dispatcher switch around every tiny increment costs about 20 times more than an atomic. Lock around a meaningful piece of work, or use an atomic for a single number.
 
@@ -168,7 +168,7 @@ void waitsBetweenAttempts() {
 
 S2 = """Tests of code with timers are slow in real time, and they wobble. Take **retry with backoff**: try again after a wait, and wait longer each time. Waits of 100, 200 and 400 ms cost 700 ms per test. On a busy build machine 700 becomes 1,500, and a timing check becomes a coin toss.
 
-A theatre solves the same problem with a rehearsal. Nobody waits three hours for the roast: the stage manager says "the roast is done" and the next scene starts. `runTest`, from the kotlinx-coroutines-test library, is that rehearsal. Every `delay` in the test's coroutines is skipped, and a **virtual clock**, a pretend clock that jumps forward instead of ticking, moves on to the next delay that is due, in the order the delays would have finished.
+A theatre solves the same problem with a rehearsal. Nobody waits three hours for the roast: the stage manager says "the roast is done" and the next scene starts. `runTest`, from the kotlinx-coroutines-test library, is that rehearsal. Every `delay` in the test's coroutines is skipped. Instead, a **virtual clock**, a pretend clock that jumps forward instead of ticking, moves on to the next delay that is due, in the order the delays would have finished.
 
 """ + pair(K_TEST, J_TEST) + """
 
@@ -187,7 +187,7 @@ whole runTest took 274 ms of real time
 withContext(Default) { delay(1_000) }: virtual 0 ms, real 1005 ms
 ```
 
-Three and a half seconds of dinner took about 20 real milliseconds once the library had loaded, in the right order. `runTest` runs the body in a `TestScope` on a single-threaded **test dispatcher**, a dispatcher tied to the virtual clock. You can also drive the clock by hand: `advanceTimeBy(ms)` runs everything due before that point, `runCurrent()` runs what is due now, and `advanceUntilIdle()` runs everything queued. At the end, `runTest` waits for every child coroutine, so a test can't pass with work still pending.
+Three and a half seconds of dinner took about 20 real milliseconds once the library had loaded, in the right order. `runTest` runs the body in a `TestScope`, a scope made for tests, on a single-threaded **test dispatcher**, a dispatcher tied to the virtual clock. You can also drive the clock by hand: `advanceTimeBy(ms)` runs everything due before that point, `runCurrent()` runs what is due now, and `advanceUntilIdle()` runs everything queued. At the end, `runTest` waits for every child coroutine, so a test can't pass with work still pending.
 
 Now the last line, where the picture breaks. In a rehearsal, the stage manager can skip only the scenes he runs. `runTest` can skip only delays on its own dispatcher. Code that moves to `Dispatchers.IO` or `Dispatchers.Default` waits in real time, and the virtual clock never sees it: one real second, and `currentTime` stayed at 0. That's why Dispatchers and the coroutine context injected the dispatchers: tests pass `StandardTestDispatcher(testScheduler)`, and the program passes the real ones.
 
@@ -211,7 +211,7 @@ StepVerifier.create(tracker.transitions())
 
 S3 = """`runTest` uses a `StandardTestDispatcher` by default. With it, `launch` only queues the new coroutine, and nothing runs until the test body suspends or moves the clock. Tests stay predictable, because you decide when each child runs. Real dispatchers don't run a new coroutine on the spot either, so this is also the more honest default.
 
-`UnconfinedTestDispatcher(testScheduler)` enters a new coroutine at once and runs it up to its first suspension. That's handy for a collector that must be listening before the next line emits, such as a test of the `DishTracker` from lesson 8 of this track, whose `transitions` is a SharedFlow with no replay:
+`UnconfinedTestDispatcher(testScheduler)` enters a new coroutine at once and runs it up to its first suspension. That's handy for a collector that must be listening before the next line emits. Take the `DishTracker` from lesson 8 of this track, whose `transitions` is a SharedFlow with no replay:
 
 """ + pair(K_UNCONF, J_UNCONF) + """
 

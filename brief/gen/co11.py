@@ -96,7 +96,7 @@ CompletableFuture<String> reply = door.cookAsync(new Order("soup", 4))
     .orTimeout(800, TimeUnit.MILLISECONDS)
     .thenApply(outcome -> "soup: " + outcome);"""
 
-S0 = """Most Java code that waits for something speaks `CompletableFuture`. A **future** is an object that stands for a result that isn't ready yet: the neighbour's ticket. kotlinx.coroutines crosses the fence in both directions with nothing extra on the classpath, since the old `kotlinx-coroutines-jdk8` artifact was merged into the core library in 1.7.
+S0 = """Most Java code that waits for something speaks `CompletableFuture`. A **future** is an object that stands for a result that isn't ready yet: the neighbour's ticket. kotlinx.coroutines crosses the fence in both directions with nothing extra to add to the build, since the old `kotlinx-coroutines-jdk8` artifact was merged into the core library in 1.7.
 
 Start with the way in. The bakery has a Java library whose `loavesLeft(bread)` returns a future at once, and the future completes later with the number of loaves left. Here is the naive bridge, which the lab's starting code uses, and the fixed one:
 
@@ -110,7 +110,7 @@ Now the way out. Our kitchen can hand the neighbour a ticket too:
 
 """ + pair(K_DOOR, J_DOOR) + """
 
-`future { }` is a builder like `async`: it starts a coroutine in the scope and hands its result back as a `CompletableFuture`. The link runs both ways. The KDoc says the coroutine is cancelled when the future "is cancelled or otherwise completed", so a Java caller's `cancel(true)`, or an `orTimeout` that fires, cancels the Kotlin coroutine. Give the door a scope it owns, as in Structured concurrency, so that closing the door cancels everything still cooking. `GlobalScope.future` also compiles, and it leaks in exactly the way that lesson described.
+`future { }` is a builder like `async`: it starts a coroutine in the scope and hands its result back as a `CompletableFuture`. The link runs both ways. The KDoc, the documentation in the library's source, says the coroutine is cancelled when the future "is cancelled or otherwise completed". So a Java caller's `cancel(true)`, or an `orTimeout` that fires, cancels the Kotlin coroutine. Give the door a scope it owns, as in Structured concurrency, so that closing the door cancels everything still cooking. `GlobalScope.future` also compiles, and it leaks in exactly the way that lesson described.
 
 Predict three lines before you run `FutureBridge`, in the Try it below:
 
@@ -198,7 +198,7 @@ Quick check: two Java callers wait for the kitchen through different doors, and 
 Three neighbours, three ways of cooking. Which one should a new program start with?"""
 
 # ---------------------------------------------------------------- section 3
-S3 = """All three solve the problem the virtual threads track opened with. A program that answers many requests at once spends most of its time waiting, for a database or for another web service, and an operating-system thread per waiting request is too expensive. They solve it at different layers. **Virtual threads**, final since JDK 21, are threads so cheap that a waiting one costs almost nothing: a helper at every pot, who simply stands there. Coroutines make waiting explicit with `suspend`, and add a tree of dishes with cancellation and Flow. Reactor turns a request into a line of stations, with backpressure.
+S3 = """All three solve the problem the virtual threads track opened with. A program that answers many requests at once spends most of its time waiting, for a database or for another web service, and an operating-system thread per waiting request is too expensive. They solve it at different layers. **Virtual threads**, final since JDK 21, are threads so cheap that a waiting one costs almost nothing: a helper at every pot, who simply stands there. Coroutines make waiting explicit with `suspend`, and add a tree of dishes with cancellation and Flow. Reactor turns a request into a line of stations, with **backpressure**: a slow consumer slows down a fast producer.
 
 `ThreeWays`, in the Try it below, cooks the same dinner each way: soup in 100 ms, the roast in 300 and the salad in 200, all started at once. Predict the times:
 
@@ -216,7 +216,7 @@ Each one takes as long as the slowest dish, and the Java twin's virtual threads 
 """ + TABLE + """
 Here is what I would do in a program that answers many requests and talks to a database through a blocking driver.
 
-- Start with virtual threads for request handling that is mostly blocking calls. Database drivers and many older libraries block anyway, and since JDK 24 (JEP 491) `synchronized` no longer pins a virtual thread to its carrier in most cases, so JDK 25 is a good base. Cap each slow neighbour with a semaphore, as Using virtual threads showed.
+- Start with virtual threads for request handling that is mostly blocking calls. Database drivers and many older libraries block anyway. Since JDK 24 (JEP 491), `synchronized` no longer pins a virtual thread to its carrier, the platform thread that runs it, in most cases, so JDK 25 is a good base. Cap each slow neighbour with a semaphore, a counter of permits, as Using virtual threads showed.
 - Use coroutines in Kotlin code that needs what virtual threads don't give you: several calls with one deadline, a cancel that reaches every child, Flow pipelines, StateFlow-style shared state. Blocking calls inside still go through `withContext(Dispatchers.IO)` or a virtual-thread dispatcher.
 - Keep Reactor where a reactive stack already exists, or where you stream with backpressure from end to end. Don't start a new program full of blocking calls on it.
 

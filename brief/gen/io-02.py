@@ -204,7 +204,7 @@ idle 300 ms, interest OP_READ           : 0 wakeups
 idle 300 ms, interest OP_READ | OP_WRITE: 374510 wakeups
 ```
 
-Zero against 374,510, on a connection that sent nothing. That's the clerk walking to a box, finding room for a reply nobody wrote, and walking back, more than a thousand times a millisecond. Under `strace`, a Linux tool that lists a program's system calls, the shape is just as clear: thousands of `epoll_wait` calls and a handful of `epoll_ctl`. In production, it looks like a server at 100% of one core with no traffic.
+Zero against 374,510, on a connection that sent nothing. That's the clerk walking to a box, finding room for a reply nobody wrote, and walking back, more than a thousand times a millisecond. Under `strace`, a Linux tool that lists a program's system calls, the shape is just as clear: thousands of `epoll_wait` calls and a handful of `epoll_ctl`. On a real server, it shows up as one core at 100% with no traffic at all.
 
 The fix is to register `OP_READ` by default and add `OP_WRITE` only while the connection has unsent bytes. When a write leaves bytes behind, arm it. When a later write drains them, drop it:
 

@@ -54,7 +54,7 @@ S0 = """Netty keeps the shape of the select loop we wrote by hand. Each piece fr
 
 """ + TABLE + """
 
-A few names first. A **channel** is Netty's object for one connection, with its socket and its handlers. A **handler** is a small object that reacts to that connection's events, such as "a message arrived". An **event loop** is one thread that runs a selector over many channels, plus a queue of tasks that other threads can hand it. It's the clerk, the row of boxes, and the clerk's in-tray. An **event loop group** is the team of clerks.
+A few names first. A **channel** is Netty's object for one connection, with its socket (its end of the network connection) and its handlers. A **handler** is a small object that reacts to that connection's events, such as "a message arrived". An **event loop** is one thread that runs a selector (the JDK object from lesson 2 that reports which connections are ready) over many channels, plus a queue of tasks that other threads can hand it. It's the clerk, the row of boxes, and the clerk's in-tray. An **event loop group** is the team of clerks.
 
 Our running example in this lesson is the post office's price desk. A client sends a line describing a letter or a parcel, and the server answers with a line of its own. In Netty 4.2 you build each group by naming its **IO handler**, the part that talks to the operating system:
 

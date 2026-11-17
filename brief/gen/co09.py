@@ -112,7 +112,7 @@ CONFLATED    send() returned at [3, 3, 3, 3, 3] ms         received [1, 5]
 
 With no shelf, the cook moved in step with the helper, one plate every 100 ms (the first 38 ms is the program warming up). With a shelf for two, three sends returned at once: two plates on the shelf, and one straight into the helper's hands. Then the cook waited. `UNLIMITED` never waited. `CONFLATED` never waited either, and only plates 1 and 5 were received, because each new plate replaced the one on the shelf.
 
-That waiting has a name. **Backpressure** is a slow receiver slowing down a fast sender, so work doesn't pile up between them. A rendezvous channel gives it for free, which is why it's the default. Add a small shelf to absorb bursts. Be suspicious of `UNLIMITED`, which turns a slow helper into an `OutOfMemoryError` some hours later.
+That waiting has a name. **Backpressure** is a slow receiver slowing down a fast sender, so work doesn't pile up between them. A rendezvous channel gives it for free, which is why it's the default. Add a small shelf to absorb bursts. Be suspicious of `UNLIMITED`: with a slow helper, plates pile up until the program runs out of memory, an `OutOfMemoryError` some hours later.
 
 Now the last plate. `for (dish in hatch)` ends only when the channel is closed and empty. Delete `hatch.close()` in the Try it, and the program never ends. The helper waits at the hatch, loyal to a fault, for a plate that will never come. Here the picture breaks: a real helper would see the cook take off her apron. A coroutine can't tell "later" from "never" until someone calls `close()`.
 
@@ -120,7 +120,7 @@ The `produce { }` builder does it for you. It starts a coroutine that sends into
 
 **A receiver stops only when the channel is closed. Close it, or let `produce` close it.**
 
-A channel is hot, like the board and the bell: plates sit on the shelf whether or not anyone takes them, and a coroutine suspended in `send` waits until someone does. For a stream with one consumer, a cold `Flow` is usually simpler. Channels earn their place when coroutines hand work to each other, and the first job worth handing out is more dishes than one helper can carry."""
+A channel is hot, like the board and the bell: plates sit on the shelf whether or not anyone takes them, and a coroutine suspended in `send` waits until someone does. For a stream with one consumer, a cold `Flow`, the recipe card of Flow basics that runs only when someone collects it, is usually simpler. Channels earn their place when coroutines hand work to each other, and the first job worth handing out is more dishes than one helper can carry."""
 
 # ---------------------------------------------------------------- section 1
 K_TEAM = """suspend fun cookAll(dishes: List<String>, helpers: Int, cook: suspend (String) -> String): Map<String, String> =
@@ -167,7 +167,7 @@ Twenty dishes of about 100 ms on four helpers should take about 500 ms, and 614 
 
 Everything sits inside `coroutineScope`, so the pipeline belongs to its caller's job tree, as in Structured concurrency. If one `cook` throws, the scope cancels the producer, the other helpers and the closer, then rethrows. No coroutine is left waiting at a hatch.
 
-Why not `dishes.map { async { cook(it) } }.awaitAll()`? Because that starts every call at once. Order 5,000 loaves that way, and the bakery gets 5,000 phone calls in the same second, and it will not thank you. The team caps them at N. It also gives each helper a natural home for its own things, such as one pan per helper, and it grows into a **pipeline**: stations in a row with a channel between each pair, such as shape, then bake, then pack, each with as many helpers as it needs. The worked example below builds one.
+Why not `dishes.map { async { cook(it) } }.awaitAll()`? Because that starts every call at once. Order 5,000 loaves that way, and the bakery gets 5,000 phone calls in the same second, and it will not thank you. The team caps them at N. It also gives each helper a natural home for its own things, such as one pan per helper. And it grows into a **pipeline**: stations in a row with a channel between each pair, such as shape, then bake, then pack, each with as many helpers as it needs. The worked example below builds one.
 
 **A fixed team on one channel caps the work at the team's size. Size the team to what the slow part can take.**
 

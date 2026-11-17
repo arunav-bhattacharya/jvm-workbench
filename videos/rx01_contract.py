@@ -13,69 +13,64 @@ fg.SAY[:0] = [
 
 # every spoken line, in order
 N = {
-    "open": "There are two ways to get your bread. You can walk to the bakery whenever you want a loaf. "
-            "Or the bakery can leave one on your doorstep, every morning, and nobody waits.",
-    "away": "But go away for two weeks, and you come home to fourteen loaves on the step. The oldest one is turning green. "
+    "open": "There are two ways to get your bread. You can walk to the bakery when you want a loaf, "
+            "or the bakery can leave one on your doorstep every morning.",
+    "away": "But go away for two weeks, and you come home to fourteen loaves on the step, the oldest one turning green. "
             "That's not breakfast any more, that's a science project. "
-            "So the point is: the bakery decides how much comes, and nobody asks if you're ready.",
-    "line": "Programs move data the same way. Picture a bakery line. An oven bakes loaves. "
-            "A belt carries them, one behind another. And at the end, a packer puts each loaf in a box.",
-    "fast": "Our oven bakes 10,000 loaves a second. The packer boxes 2,000. "
-            "The oven just keeps sending, and the extra loaves wait in a queue with no limit, 8,000 more every second.",
-    "memory": "Each waiting loaf is an object in memory. Nothing fails at first. Then the memory runs out, and the program dies.",
-    "demo": "The lesson's demo tried it with 100,000 loaves. The oven was done in 65 milliseconds, and went home happy. "
-            "The packer had boxed 3,193. The other 96,807 were still waiting in memory.",
-    "slip": "What we want is a note on the doorstep. On the bakery line, the packer sends a slip back up the belt: "
-            "send me 2 more. The oven sends 2, then waits for the next slip.",
-    "bp": "That's called backpressure. The slow side says how much it can take, and the fast side never sends more.",
-    "shy": "Now, a question that's easy to be shy about. The slip says 2. But the oven has 3 loaves ready, "
-           "right there, already baked. Surely it sends the third one too? Hold that thought.",
-    "agree": "A slip only works if both ends read it the same way. In Java, the oven and the packer are often written "
-             "by different people, in different libraries. So they all follow one short written contract, "
-             "called Reactive Streams. Four interfaces, and seven methods.",
-    "map": "Let's map it. The oven is a Publisher, the source of items. Its one method is subscribe. "
-           "The packer is a Subscriber. It has four methods, one for each thing the oven can tell it. "
+            "The bakery decides how much comes, and nobody asks if you're ready.",
+    "line": "Programs move data the same way. Picture a bakery line: an oven bakes loaves, a belt carries them, "
+            "and a packer at the end puts each one in a box.",
+    "fast": "The oven bakes 10,000 loaves a second, and the packer boxes 2,000. "
+            "So the extra loaves wait in a queue with no limit, 8,000 more every second.",
+    "memory": "Each one is an object in memory. Nothing fails at first, and then the memory runs out.",
+    "demo": "The lesson's demo tried 100,000 loaves. The oven was done in 65 milliseconds, and went home happy. "
+            "96,807 loaves were still waiting in memory.",
+    "slip": "What we want is a note on the doorstep. Here, the packer sends a slip back up the belt: send me 2 more. "
+            "The oven sends 2, then waits.",
+    "bp": "That's called backpressure: the slow side says how much it can take, and the fast side never sends more.",
+    "shy": "Now a question that's easy to be shy about. The slip says 2, but the oven has 3 loaves ready, already baked. "
+           "Surely the third one goes too? Hold that thought.",
+    "agree": "A slip only works if both ends read it the same way, and the oven and the packer often come from "
+             "different libraries. So they all follow one short contract, called Reactive Streams: "
+             "four interfaces, seven methods.",
+    "map": "Let's map it. The oven is a Publisher, the source of items, with one method: subscribe. "
+           "The packer is a Subscriber, with four methods, one for each thing the oven can tell it. "
            "And the pad of slips between them is a Subscription: request n, send me n more, and cancel, stop sending.",
-    "proc": "The fourth interface, Processor, is a station in the middle of the belt: a subscriber on one side, "
-            "and a publisher on the other. And notice, every method returns void. "
-            "So each call is a one-way message, called a signal. Nobody waits for an answer.",
+    "proc": "Processor, the fourth, is a station in the middle of the belt: a subscriber on one side, "
+            "a publisher on the other. And every method returns void, so each call is a one-way message, called a signal.",
     "setup": "Let's watch one conversation. Today, the oven has three loaves ready.",
     "sub": "The packer calls subscribe on the oven.",
-    "onsub": "The oven answers with onSubscribe, and hands over the pad of slips. And then, nothing. "
-             "The oven owes the packer zero loaves, so not one moves.",
+    "onsub": "The oven answers with onSubscribe, and hands over a pad of slips. Then, nothing. "
+             "The oven owes zero loaves, so not one moves.",
     "req": "The packer writes a slip: request 2. Now the oven owes it two.",
     "predict": "Three loaves are ready. How many come down the belt?",
     "show": "Two. onNext, loaf-1. onNext, loaf-2. Each one uses up one from the slip. "
-            "Now the oven owes zero, so loaf-3 stays put, ready and waiting.",
-    "answer": "So that's the answer to our shy question. Having loaves ready doesn't let the oven send them. Only a slip does.",
-    "req2": "The packer boxes both, then writes another slip for 2. Only loaf-3 is left, so the oven sends it, "
-            "and rings the end-of-day bell: onComplete. Sending fewer than asked is fine. "
-            "And if the oven had broken down instead, it would send onError.",
-    "order": "So every subscriber hears the same story. One onSubscribe. Then any number of onNext. "
-             "Then at most one ending: the bell, or the breakdown. The spec writes it like this. "
-             "The two endings are called terminal signals. After one of them, the stream is over, and nothing else arrives.",
-    "rules": "The contract has numbered rules. Here are the ones you'll meet. "
-             "Rule 1.1: never more onNext signals than were requested in total. "
-             "Rule 1.3: signals come one at a time, never on top of each other. "
-             "So a subscriber needs no lock for its own fields.",
-    "rules2": "Rule 2.13: a subscriber that wants to stop calls cancel. It never throws, "
-              "because its exception would land in the oven's code, which can't hand it back. "
+            "The oven owes zero now, so loaf-3 stays put.",
+    "answer": "That's our answer. Ready isn't enough. Only a slip lets a loaf go.",
+    "req2": "The packer boxes both and writes another slip for 2. Only loaf-3 is left, so the oven sends it, "
+            "and rings the end-of-day bell: onComplete. Fewer than asked is fine. "
+            "If the oven had broken down, it would send onError instead.",
+    "order": "So every subscriber hears the same story: one onSubscribe, any number of onNext, "
+             "then at most one ending, the bell or the breakdown. The spec writes it like this. "
+             "The endings are called terminal signals: after one, nothing else arrives.",
+    "rules": "The contract has numbered rules. Rule 1.1: never more onNext signals than requested in total. "
+             "Rule 1.3: signals come one at a time, so a subscriber's own fields need no lock to keep other threads out.",
+    "rules2": "Rule 2.13: to stop, a subscriber calls cancel. It never throws, "
+              "because the oven's code can't hand an exception back. "
               "And rule 3.9: a request for zero, or less, must end in onError.",
-    "rude_q": "Let's break that last rule on purpose. A packer named Rude writes a slip for zero. "
-              "We try it on two ovens: the JDK's own publisher, and Reactor's Flux.range, with three loaves. "
-              "What does each one do?",
-    "rude_a": "The JDK follows the rule: onError, with an IllegalArgumentException. Reactor sends nothing at all. "
-              "No loaf, no error, no bell. It writes a debug note that nobody sees by default, and the stream just stalls.",
+    "rude_q": "Let's break that last rule on purpose. A packer named Rude writes a slip for zero, "
+              "once to the JDK's own publisher, and once to Reactor's Flux.range. What does each one do?",
+    "rude_a": "The JDK follows the rule: onError, IllegalArgumentException. Reactor sends nothing at all: "
+              "no loaf, no error, no bell. Just a debug note nobody sees by default, and the stream stalls.",
     "rude_joke": "In Reactor, request zero might as well be called wait forever. "
                  "So if a stream goes quiet and never ends, look for a slip that was never written.",
-    "lunch": "And this is where the bakery picture breaks. A real packer who stops writing slips "
-             "would be missed by lunchtime. Code has no lunchtime. Unmet demand never times out by itself.",
-    "max": "One guardrail. A packer can write one slip for Long.MAX_VALUE, about nine quintillion loaves, "
-           "and the spec lets the oven read that as: send everything. But that isn't a slip any more. "
-           "That's the doorstep again, with fourteen loaves on it. Ask for what you can really handle.",
-    "rarely": "You'll rarely write these interfaces yourself. Reactor and other libraries do. "
-              "The rules are why one library's oven can serve another library's packer.",
-    "code": "Here's a packer in Java and Kotlin that asks for one loaf at a time. "
+    "lunch": "Here's where the bakery picture breaks. A real packer who stops writing slips would be missed by lunchtime. "
+             "Code has no lunchtime: unmet demand never times out by itself.",
+    "max": "One guardrail. A packer can ask for Long.MAX_VALUE, about nine quintillion loaves, "
+           "and the oven may read that as: send everything. That isn't a slip any more. "
+           "That's the doorstep again, with fourteen loaves on it.",
+    "code": "You'll rarely write one yourself, because libraries like Reactor do. "
+            "But here's a packer in Java and Kotlin that asks for one loaf at a time. "
             "The first slip goes in onSubscribe. In onNext, it boxes the loaf, and only then asks for the next.",
     "moral": "So, does the oven send a loaf just because it's ready? No. "
              "Demand is the only permission to send. No slip, no loaf.",
@@ -258,18 +253,16 @@ class Rx01Contract(Narrated):
         self.play(FadeIn(home), run_time=0.8)
         self.at_text("leave one", lead=0.4)
         self.play(FadeIn(loaves[0], shift=DOWN * 0.3), run_time=0.6)
-        self.at_text("nobody waits", lead=0.4)
-        self.play(Indicate(loaves[0], color=WHITE, scale_factor=1.1), run_time=0.8)
         self.hold()
 
         self.say("away")
         self.play(FadeIn(away), run_time=0.4)
         self.play(LaggedStart(*[FadeIn(l, shift=DOWN * 0.3) for l in loaves[1:]], lag_ratio=0.25), run_time=2.2)
         self.play(FadeIn(count, shift=UP * 0.1), run_time=0.4)
-        self.at(1)
+        self.at_text("the oldest", lead=0.3)
         self.play(loaves[0][0].animate.set_stroke(MOULD).set_fill(dim(MOULD, 0.45)), loaves[0][1].animate.set_color(MOULD),
                   run_time=1.0)
-        self.at(3)
+        self.at(1)
         self.play(Wiggle(VGroup(*loaves), scale_value=1.05), run_time=1.0)
         self.hold()
         doorstep = VGroup(home, *loaves)
@@ -286,9 +279,9 @@ class Rx01Contract(Narrated):
         self.say("line")
         self.at(1)
         self.play(FadeIn(ov), FadeIn(ov_l), run_time=0.6)
-        self.at(2)
+        self.at_text("a belt")
         self.play(Create(bl), FadeIn(bl_l), run_time=0.9)
-        self.at(3)
+        self.at_text("and a packer")
         self.play(FadeIn(pk), FadeIn(cr), FadeIn(pk_l), run_time=0.6)
         self.hold()
 
@@ -301,9 +294,9 @@ class Rx01Contract(Narrated):
         grid = [np.array([-1.65 + c * 0.76, -1.2 - r * 0.5, 0]) for r in range(4) for c in range(8)]
         self.say("fast")
         self.play(FadeIn(r1), FadeOut(bl_l), run_time=0.5)
-        self.at(1)
+        self.at_text("the packer boxes")
         self.play(FadeIn(r2), run_time=0.5)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(qbox), FadeIn(q_l), FadeIn(q_l2), run_time=0.6)
         piled = []
         for wave in range(4):
@@ -324,7 +317,7 @@ class Rx01Contract(Narrated):
         oom = T("out of memory", 34, BAD_C).move_to(qbox)
         self.say("memory")
         self.play(Indicate(VGroup(*piled), color=BAD_C, scale_factor=1.05), run_time=1.0)
-        self.at(2)
+        self.at_text("the memory runs")
         self.play(FadeOut(VGroup(*piled)), FadeIn(oom, scale=1.3), run_time=0.7)
         self.hold()
 
@@ -338,7 +331,6 @@ class Rx01Contract(Narrated):
         self.play(FadeIn(happy), Wiggle(ov, scale_value=1.06), run_time=0.9)
         self.at(2)
         self.play(FadeIn(out2), run_time=0.6)
-        self.at(3)
         self.play(out2[1].animate.set_color(BAD_C), Indicate(out2[1], color=BAD_C, scale_factor=1.05), run_time=1.0)
         self.hold()
 
@@ -364,7 +356,7 @@ class Rx01Contract(Narrated):
         fit(bp, 12.4)
         self.say("bp")
         self.play(FadeIn(bp[0], shift=UP * 0.1), run_time=0.6)
-        self.at(1)
+        self.at_text("the slow side")
         self.play(FadeIn(bp[1], shift=UP * 0.1), run_time=0.7)
         self.hold()
 
@@ -376,10 +368,10 @@ class Rx01Contract(Narrated):
         fit(q3, 12.4)
         self.say("shy")
         self.play(FadeOut(bp), FadeOut(waits), FadeIn(s2b, shift=LEFT * 0.3), run_time=0.6)
-        self.at(2)
+        self.at_text("3 loaves")
         self.play(LaggedStart(*[FadeIn(l, shift=RIGHT * 0.2) for l in reversed(ready)], lag_ratio=0.2), FadeIn(ready_l),
                   run_time=1.0)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(q3, shift=UP * 0.1), Indicate(ready[2], color=WHITE, scale_factor=1.12), run_time=0.9)
         self.hold()
         self.play(FadeOut(VGroup(q3, s2b, *ready, ready_l, bl, bl_l, cr)), run_time=0.6)
@@ -390,11 +382,11 @@ class Rx01Contract(Narrated):
         self.say("agree")
         self.play(ov.animate.scale(0.7).move_to([-4.55, ICON_Y, 0]), FadeOut(ov_l),
                   pk.animate.move_to([4.55, ICON_Y, 0]), FadeOut(pk_l), run_time=1.0)
-        self.at(2)
+        self.at_text("Reactive Streams")
         rs = T("Reactive Streams", 40, WHITE).move_to([0, 0.2, 0])
         rs2 = T("4 interfaces, 7 methods", 30, GREY_B).next_to(rs, DOWN, buff=0.3)
         self.play(Write(rs), run_time=1.0)
-        self.at(3)
+        self.at_text("four interfaces")
         self.play(FadeIn(rs2, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
@@ -404,18 +396,18 @@ class Rx01Contract(Narrated):
                      w=3.5, h=2.75).move_to([4.55, 0.0, 0])
         g_pub = T("the oven", 22, GREY_B).next_to(ov, RIGHT, buff=0.25)
         g_sbn = T("the pad of slips", 22, GREY_B).next_to(pd, RIGHT, buff=0.3)
-        g_sub = T("the packer", 22, GREY_B).next_to(pk, LEFT, buff=0.3)
+        g_sub = T("the packer", 22, GREY_B).next_to(pk, RIGHT, buff=0.3)
         self.say("map")
         self.play(FadeOut(rs), FadeOut(rs2), run_time=0.4)
         self.at(1)
         self.play(FadeIn(c_pub[0]), FadeIn(c_pub[1]), FadeIn(g_pub), run_time=0.6)
-        self.at(2)
+        self.at_text("one method")
         self.play(FadeIn(c_pub[2]), run_time=0.4)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(c_sub[0]), FadeIn(c_sub[1]), FadeIn(g_sub), run_time=0.6)
-        self.at(4)
+        self.at_text("four methods")
         self.play(LaggedStart(*[FadeIn(m) for m in c_sub[2]], lag_ratio=0.25), run_time=1.0)
-        self.at(5)
+        self.at(3)
         self.play(FadeIn(pd), FadeIn(g_sbn), FadeIn(c_sbn[0]), FadeIn(c_sbn[1]), run_time=0.6)
         self.at_text("request n", lead=0.3)
         self.play(FadeIn(c_sbn[2][0]), run_time=0.4)
@@ -433,7 +425,7 @@ class Rx01Contract(Narrated):
         self.play(FadeIn(p_l, shift=UP * 0.1), run_time=0.7)
         self.at(1)
         self.play(FadeIn(v_l, shift=UP * 0.1), run_time=0.6)
-        self.at(2)
+        self.at_text("a one-way")
         self.play(Indicate(v_l[0], color=WHITE, scale_factor=1.1), run_time=0.8)
         self.hold()
         self.play(FadeOut(VGroup(c_pub, c_sbn, c_sub, g_pub, g_sbn, g_sub, notes, pd)), run_time=0.6)
@@ -551,9 +543,9 @@ class Rx01Contract(Narrated):
         self.play(FadeOut(pd), FadeIn(bl_bell), FadeIn(log_row(7, "onComplete()", "the end-of-day bell", BELL_C, False)),
                   run_time=0.7)
         self.play(Wiggle(bl_bell, scale_value=1.25, rotation_angle=0.15 * TAU), run_time=1.0)
-        self.at(3)
+        self.at(2)
         self.play(Indicate(owed[0], color=SLIP_C, scale_factor=1.1), run_time=0.8)
-        self.at(4)
+        self.at(3)
         err = T("or onError(t): the oven broke down", 22, BAD_C).move_to([-2.0, LOG_Y0 - LOG_DY * 8, 0], aligned_edge=LEFT)
         self.play(FadeIn(err, shift=UP * 0.1), run_time=0.6)
         self.hold()
@@ -570,17 +562,17 @@ class Rx01Contract(Narrated):
         fit(term, 7.4)
         self.say("order")
         self.play(FadeOut(line_pic), *[rows[i].animate.set_opacity(0.3) for i in (0, 2, 5)], run_time=0.8)
-        self.at(1)
+        self.at_text("one onSubscribe")
         self.play(Indicate(rows[1][1], color=OVEN_C, scale_factor=1.08), run_time=0.7)
-        self.at(2)
+        self.at_text("any number")
         self.play(*[Indicate(rows[i][1], color=LOAF_C, scale_factor=1.08) for i in (3, 4, 6)], run_time=0.8)
-        self.at(3)
+        self.at_text("at most one")
         self.play(Indicate(rows[7][1], color=BELL_C, scale_factor=1.08), Indicate(err, color=BAD_C, scale_factor=1.05),
                   run_time=0.8)
-        self.at(4)
+        self.at(1)
         self.play(FadeIn(gram, shift=DOWN * 0.1), run_time=0.8)
         self.play(LaggedStart(*[FadeIn(n) for n in gn], lag_ratio=0.3), run_time=0.8)
-        self.at(5)
+        self.at(2)
         self.play(FadeIn(term, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.play(FadeOut(VGroup(*rows, err, gram, gn, term)), run_time=0.6)
@@ -600,14 +592,14 @@ class Rx01Contract(Narrated):
         rt = T("the rules you'll meet", 28, GREY_B).move_to([0, 2.7, 0])
         self.say("rules")
         self.play(FadeIn(rt), run_time=0.5)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(rr[0], shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(rr[1], shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.say("rules2")
         self.play(FadeIn(rr[2], shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(rr[3], shift=UP * 0.1), run_time=0.6)
         self.hold()
 
@@ -625,9 +617,9 @@ class Rx01Contract(Narrated):
         qR = T("?", 48).move_to([3.3, -1.2, 0])
         self.say("rude_q")
         self.play(FadeIn(rude), FadeIn(s0, shift=LEFT * 0.2), run_time=0.7)
-        self.at(2)
+        self.at_text("once to the JDK")
         self.play(FadeIn(colL), FadeIn(colR), Create(divider), run_time=0.8)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(qL), FadeIn(qR), run_time=0.4)
         self.hold(after=0)
         self.predict()
@@ -641,7 +633,7 @@ class Rx01Contract(Narrated):
         self.play(FadeOut(qL), FadeIn(aL, shift=UP * 0.1), run_time=0.7)
         self.at(1)
         self.play(FadeOut(qR), FadeIn(aR, shift=UP * 0.1), run_time=0.7)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(aR2), run_time=0.5)
         self.hold()
 
@@ -659,7 +651,7 @@ class Rx01Contract(Narrated):
         self.play(FadeOut(VGroup(colL, colR, divider, aL, aR, aR2, rn_new, rr[3])), run_time=0.6)
         self.at(1)
         self.play(rude.animate.move_to([-1.5, 1.75, 0]), FadeOut(s0), run_time=0.7)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(lunch, shift=UP * 0.1), run_time=0.7)
         self.hold()
         self.play(FadeOut(rude), FadeOut(lunch), run_time=0.5)
@@ -670,19 +662,14 @@ class Rx01Contract(Narrated):
         mini = VGroup(home, *loaves).scale(0.55).move_to([0, -1.35, 0])
         off = T("backpressure: off", 28, BAD_C).next_to(mini, RIGHT, buff=0.5)
         self.say("max")
+        self.at(1)
         self.play(FadeIn(big, shift=UP * 0.1), FadeIn(big_l), run_time=0.8)
-        self.at(2)
-        self.play(FadeIn(mini, shift=UP * 0.15), run_time=0.8)
         self.at(3)
+        self.play(FadeIn(mini, shift=UP * 0.15), run_time=0.8)
         self.play(FadeIn(off), run_time=0.5)
         self.hold()
 
-        libs = T("Reactor, RxJava and others implement these interfaces for you", 26, GREY_B).move_to([0, -3.0, 0])
-        fit(libs, 12.4)
-        self.say("rarely")
-        self.play(FadeIn(libs), run_time=0.6)
-        self.hold()
-        self.play(FadeOut(VGroup(big, big_l, mini, off, libs)), run_time=0.6)
+        self.play(FadeOut(VGroup(big, big_l, mini, off)), run_time=0.6)
 
         # ================= the code, last =================
         hl = {"request(1)": SLIP_C}
@@ -697,10 +684,11 @@ class Rx01Contract(Narrated):
         fit(cols, 12.8).move_to(UP * 0.45)
         note = T("Subscription is Flow.Subscription, from java.util.concurrent", 22, GREY_B).next_to(cols, DOWN, buff=0.45)
         self.say("code")
-        self.play(FadeIn(cols, shift=UP * 0.15), FadeIn(note), run_time=0.9)
         self.at(1)
-        self.play(Indicate(VGroup(jc[2], kc[2]), color=SLIP_C, scale_factor=1.05), run_time=1.0)
+        self.play(FadeIn(cols, shift=UP * 0.15), FadeIn(note), run_time=0.9)
         self.at(2)
+        self.play(Indicate(VGroup(jc[2], kc[2]), color=SLIP_C, scale_factor=1.05), run_time=1.0)
+        self.at(3)
         self.play(Indicate(VGroup(jc[5], kc[5]), color=LOAF_C, scale_factor=1.05), run_time=0.8)
         self.play(Indicate(VGroup(jc[6], kc[6]), color=SLIP_C, scale_factor=1.05), run_time=0.8)
         self.hold()

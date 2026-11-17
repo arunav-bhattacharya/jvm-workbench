@@ -268,7 +268,7 @@ Flux<Plate> both = Flux.create(sink -> {
 });
 ```
 
-In a run with real threads, on a busy machine, the builder block returned at t=37 ms. The four sends arrived from `DefaultDispatcher-worker-1`, every `collect` line printed on `main`, and the flow completed only at t=133 ms, after both cooks. The block may return early, and the flow still waits for every child. That's structured concurrency at work: the children belong to the producer coroutine's scope, and its channel closes only when that scope is done, so the collector's loop ends after the last `send`.
+In a run with real threads, on a busy machine, the builder block returned at t=37 ms. The four sends arrived from `DefaultDispatcher-worker-1`, every `collect` line printed on `main`, and the flow completed only at t=133 ms, after both cooks. The block may return early, and the flow still waits for every child. That's structured concurrency, the coroutines track's rule that a parent waits for its children. The cooks are children of the producer coroutine, and its channel closes only when all of them are done, so the collector's loop ends after the last `send`.
 
 `produceIn(scope)` is the hatch without the flow around it. It launches a coroutine in your scope that collects the flow, and at once returns the receiving end of the channel, a `ReceiveChannel`. The collecting starts at the caller's next suspension, whether or not anyone receives. It is **hot**, running whether anyone takes from it or not: in the demo the upstream started and emitted 1 before anyone called `receive`. Consume it fully or `cancel()` it, because the scope waits for that producer coroutine like any other child.
 
