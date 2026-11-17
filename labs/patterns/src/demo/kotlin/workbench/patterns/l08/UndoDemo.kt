@@ -2,50 +2,50 @@ package workbench.patterns.l08
 
 // Commands as data classes, an undo log, and the one rule that keeps undo honest.
 
-class Wallet { var balance = 0L }
+class StockShelf { var units = 0 }
 
-sealed interface WalletCommand {
-    fun apply(w: Wallet)
-    fun undo(w: Wallet)
+sealed interface StockCommand {
+    fun apply(s: StockShelf)
+    fun undo(s: StockShelf)
 
-    data class Deposit(val amount: Long) : WalletCommand {
-        override fun apply(w: Wallet) { w.balance += amount }
-        override fun undo(w: Wallet) { w.balance -= amount }
+    data class Restock(val units: Int) : StockCommand {
+        override fun apply(s: StockShelf) { s.units += units }
+        override fun undo(s: StockShelf) { s.units -= units }
     }
 
-    data class Withdraw(val amount: Long) : WalletCommand {
-        override fun apply(w: Wallet) {
-            check(w.balance >= amount) { "insufficient funds" }
-            w.balance -= amount
+    data class Sell(val units: Int) : StockCommand {
+        override fun apply(s: StockShelf) {
+            check(s.units >= units) { "not enough on the shelf" }
+            s.units -= units
         }
-        override fun undo(w: Wallet) { w.balance += amount }
+        override fun undo(s: StockShelf) { s.units += units }
     }
 }
 
 class CommandLog {
-    val history = ArrayDeque<WalletCommand>()
+    val history = ArrayDeque<StockCommand>()
 
-    fun run(c: WalletCommand, w: Wallet) {
-        c.apply(w)                   // 1. apply first
+    fun run(c: StockCommand, s: StockShelf) {
+        c.apply(s)                   // 1. apply first
         history.addFirst(c)          // 2. record only after it worked
     }
 
-    fun undoLast(w: Wallet) {
-        history.removeFirstOrNull()?.undo(w)
+    fun undoLast(s: StockShelf) {
+        history.removeFirstOrNull()?.undo(s)
     }
 }
 
 fun main() {
-    val wallet = Wallet()
+    val rye = StockShelf()
     val log = CommandLog()
-    log.run(WalletCommand.Deposit(100), wallet)
-    log.run(WalletCommand.Withdraw(30), wallet)
+    log.run(StockCommand.Restock(12), rye)
+    log.run(StockCommand.Sell(5), rye)
     try {
-        log.run(WalletCommand.Withdraw(1_000), wallet)
+        log.run(StockCommand.Sell(40), rye)
     } catch (e: IllegalStateException) {
         println("rejected: ${e.message}")
     }
-    println("balance ${wallet.balance}, history ${log.history}")
-    log.undoLast(wallet)
-    println("after one undo: balance ${wallet.balance}, history ${log.history}")
+    println("units ${rye.units}, history ${log.history}")
+    log.undoLast(rye)
+    println("after one undo: units ${rye.units}, history ${log.history}")
 }

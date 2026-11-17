@@ -11,95 +11,95 @@ import java.time.ZoneOffset
 class FunctionalCoreTest {
 
     private val today = LocalDate.of(2026, 3, 10)
-    private val merchants = mapOf(
-        "m-acme" to Merchant("m-acme", BigDecimal("0.029"), holdDays = 2),
-        "m-globex" to Merchant("m-globex", BigDecimal("0.015"), holdDays = 7),
+    private val shops = mapOf(
+        "s-market" to Shop("s-market", BigDecimal("0.029"), deliveryDays = 2),
+        "s-farm" to Shop("s-farm", BigDecimal("0.015"), deliveryDays = 7),
     )
 
-    private fun pay(id: String, merchant: String, euros: String, daysAgo: Long, refunded: Boolean = false) =
-        Payment(id, merchant, BigDecimal(euros), today.minusDays(daysAgo), refunded)
+    private fun item(id: String, shop: String, euros: String, inDays: Long, crossedOff: Boolean = false) =
+        Item(id, shop, BigDecimal(euros), today.plusDays(inDays), crossedOff)
 
     // ---- the core: plain values in, a plan out; no clock, no store, no fakes ----
 
     @Test
-    fun `due payments are summed per merchant with the fee rounded to cents`() {
-        val plan = planSettlement(listOf(pay("p1", "m-acme", "100.00", 3), pay("p2", "m-acme", "25.50", 2)), merchants, today)
+    fun `due items are summed per shop with the discount rounded to cents`() {
+        val plan = planShopping(listOf(item("i1", "s-market", "100.00", 1), item("i2", "s-market", "25.50", 2)), shops, today)
         // 125.50 * 0.029 = 3.63950, rounded HALF_EVEN to 3.64
-        assertThat(plan.payouts).containsExactly(Payout("m-acme", BigDecimal("125.50"), BigDecimal("3.64"), BigDecimal("121.86")))
+        assertThat(plan.orders).containsExactly(Order("s-market", BigDecimal("125.50"), BigDecimal("3.64"), BigDecimal("121.86")))
     }
 
     @Test
-    fun `payments still inside the hold period are held`() {
-        val plan = planSettlement(listOf(pay("p1", "m-acme", "10.00", 1), pay("p2", "m-acme", "20.00", 2)), merchants, today)
-        assertThat(plan.held).containsExactly("p1")
-        assertThat(plan.payouts.single().gross).isEqualTo(BigDecimal("20.00"))
+    fun `items needed after the delivery time are waiting`() {
+        val plan = planShopping(listOf(item("i1", "s-market", "10.00", 3), item("i2", "s-market", "20.00", 2)), shops, today)
+        assertThat(plan.waiting).containsExactly("i1")
+        assertThat(plan.orders.single().total).isEqualTo(BigDecimal("20.00"))
     }
 
     @Test
-    fun `refunded payments are skipped and unknown merchants are reported`() {
-        val plan = planSettlement(
-            listOf(pay("p1", "m-acme", "10.00", 5, refunded = true), pay("p2", "m-initech", "99.00", 5), pay("p3", "m-acme", "40.00", 5)),
-            merchants, today,
+    fun `crossed-off items are skipped and unknown shops are reported`() {
+        val plan = planShopping(
+            listOf(item("i1", "s-market", "10.00", 1, crossedOff = true), item("i2", "s-corner", "9.90", 1), item("i3", "s-market", "40.00", 1)),
+            shops, today,
         )
-        assertThat(plan.unknownMerchants).containsExactly("p2")
-        assertThat(plan.held).isEmpty()
-        assertThat(plan.payouts.map { it.gross }).containsExactly(BigDecimal("40.00"))
+        assertThat(plan.unknownShops).containsExactly("i2")
+        assertThat(plan.waiting).isEmpty()
+        assertThat(plan.orders.map { it.total }).containsExactly(BigDecimal("40.00"))
     }
 
     @Test
-    fun `payouts are ordered by merchant id`() {
-        val plan = planSettlement(listOf(pay("p1", "m-globex", "200.00", 9), pay("p2", "m-acme", "50.00", 9)), merchants, today)
-        assertThat(plan.payouts.map { it.merchantId }).containsExactly("m-acme", "m-globex")
-        assertThat(plan.payouts[1]).isEqualTo(Payout("m-globex", BigDecimal("200.00"), BigDecimal("3.00"), BigDecimal("197.00")))
+    fun `orders are sorted by shop id`() {
+        val plan = planShopping(listOf(item("i1", "s-market", "50.00", 1), item("i2", "s-farm", "200.00", 1)), shops, today)
+        assertThat(plan.orders.map { it.shopId }).containsExactly("s-farm", "s-market")
+        assertThat(plan.orders[0]).isEqualTo(Order("s-farm", BigDecimal("200.00"), BigDecimal("3.00"), BigDecimal("197.00")))
     }
 
     @Test
-    fun `an empty day gives an empty plan`() {
-        assertThat(planSettlement(emptyList(), merchants, today)).isEqualTo(SettlementPlan(emptyList(), emptyList(), emptyList()))
+    fun `an empty list gives an empty plan`() {
+        assertThat(planShopping(emptyList(), shops, today)).isEqualTo(ShoppingPlan(emptyList(), emptyList(), emptyList()))
     }
 
     @Test
-    fun `the date is an input, so a later day can release held money`() {
-        val payments = listOf(pay("p1", "m-globex", "80.00", 3))
-        assertThat(planSettlement(payments, merchants, today).held).containsExactly("p1")
-        assertThat(planSettlement(payments, merchants, today.plusDays(4)).held).isEmpty()
+    fun `the date is an input, so a later day can order a waiting item`() {
+        val items = listOf(item("i1", "s-farm", "80.00", 10))
+        assertThat(planShopping(items, shops, today).waiting).containsExactly("i1")
+        assertThat(planShopping(items, shops, today.plusDays(3)).waiting).isEmpty()
     }
 
     @Test
-    fun `posting returns a new ledger and leaves the old one alone`() {
-        val before = Ledger(persistentListOf(Entry("opening", BigDecimal("0.00"), "init")))
-        val after = before.posting(listOf(Payout("m-acme", BigDecimal("125.50"), BigDecimal("3.64"), BigDecimal("121.86"))), "settlement-2026-03-10")
+    fun `posting returns a new budget and leaves the old one alone`() {
+        val before = Budget(persistentListOf(Entry("opening", BigDecimal("0.00"), "init")))
+        val after = before.posting(listOf(Order("s-market", BigDecimal("125.50"), BigDecimal("3.64"), BigDecimal("121.86"))), "shopping-2026-03-10")
         assertThat(after.entries).containsExactly(
             Entry("opening", BigDecimal("0.00"), "init"),
-            Entry("payout:m-acme", BigDecimal("121.86"), "settlement-2026-03-10"),
-            Entry("fee-income", BigDecimal("3.64"), "settlement-2026-03-10"),
+            Entry("shop:s-market", BigDecimal("121.86"), "shopping-2026-03-10"),
+            Entry("discount-saved", BigDecimal("3.64"), "shopping-2026-03-10"),
         )
-        assertThat(before.entries).`as`("the ledger we posted to").containsExactly(Entry("opening", BigDecimal("0.00"), "init"))
+        assertThat(before.entries).`as`("the budget we posted to").containsExactly(Entry("opening", BigDecimal("0.00"), "init"))
     }
 
     // ---- the shell: one test with fakes checks the wiring ----
 
-    private class FakeStore(private val payments: List<Payment>, private val merchants: Map<String, Merchant>) : PaymentStore {
-        val saved = mutableListOf<Ledger>()
-        override fun capturedPayments() = payments
-        override fun merchants() = merchants
-        override fun loadLedger() = Ledger(persistentListOf())
-        override fun saveLedger(ledger: Ledger) { saved += ledger }
+    private class FakeStore(private val items: List<Item>, private val shops: Map<String, Shop>) : HomeStore {
+        val saved = mutableListOf<Budget>()
+        override fun shoppingList() = items
+        override fun shops() = shops
+        override fun loadBudget() = Budget(persistentListOf())
+        override fun saveBudget(budget: Budget) { saved += budget }
     }
 
     @Test
-    fun `the shell sends every payout and saves the ledger once`() {
-        val store = FakeStore(listOf(pay("p1", "m-globex", "200.00", 9), pay("p2", "m-acme", "50.00", 9), pay("p3", "m-acme", "5.00", 0)), merchants)
-        val sent = mutableListOf<Payout>()
+    fun `the shell sends every order and saves the budget once`() {
+        val store = FakeStore(listOf(item("i1", "s-market", "50.00", 1), item("i2", "s-farm", "200.00", 1), item("i3", "s-market", "5.00", 5)), shops)
+        val sent = mutableListOf<Order>()
         val clock = Clock.fixed(today.atStartOfDay().toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
 
-        val plan = SettlementJob(store, { sent += it }, clock).run()
+        val plan = ShoppingJob(store, { sent += it }, clock).run()
 
-        assertThat(sent).isEqualTo(plan.payouts)
-        assertThat(sent.map { it.merchantId }).containsExactly("m-acme", "m-globex")
-        assertThat(plan.held).containsExactly("p3")
-        assertThat(store.saved).`as`("ledger saves").hasSize(1)
-        assertThat(store.saved.single().entries.map { it.ref }.distinct()).containsExactly("settlement-2026-03-10")
+        assertThat(sent).isEqualTo(plan.orders)
+        assertThat(sent.map { it.shopId }).containsExactly("s-farm", "s-market")
+        assertThat(plan.waiting).containsExactly("i3")
+        assertThat(store.saved).`as`("budget saves").hasSize(1)
+        assertThat(store.saved.single().entries.map { it.ref }.distinct()).containsExactly("shopping-2026-03-10")
         assertThat(store.saved.single().entries).hasSize(4)
     }
 }

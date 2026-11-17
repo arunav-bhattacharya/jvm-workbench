@@ -4,43 +4,46 @@ import kotlinx.collections.immutable.PersistentList
 import java.math.BigDecimal
 import java.time.LocalDate
 
-// The types for the settlement job. Every one is a data class of vals holding immutable values.
+// The types for the shopping job. Every one is a data class of vals holding immutable values.
 // You don't need to change this file.
 
-data class Payment(
+/** One line on the shopping list. */
+data class Item(
     val id: String,
-    val merchantId: String,
-    val amount: BigDecimal,          // in euros, scale 2: BigDecimal("125.50")
-    val capturedOn: LocalDate,
-    val refunded: Boolean = false,
+    val shopId: String,
+    val price: BigDecimal,             // in euros, scale 2: BigDecimal("12.50")
+    val neededOn: LocalDate,           // the day a planned meal needs it
+    val crossedOff: Boolean = false,   // crossed off the list: we have it after all
 )
 
-/** [feeRate] is a fraction: 0.029 means 2.9%. Captured money is held for [holdDays] before it is paid out. */
-data class Merchant(val id: String, val feeRate: BigDecimal, val holdDays: Int)
+/** [discountRate] is a fraction: 0.029 means 2.9 % off. The shop needs [deliveryDays] to deliver. */
+data class Shop(val id: String, val discountRate: BigDecimal, val deliveryDays: Int)
 
-data class Payout(val merchantId: String, val gross: BigDecimal, val fee: BigDecimal, val net: BigDecimal)
+data class Order(val shopId: String, val total: BigDecimal, val discount: BigDecimal, val toPay: BigDecimal)
 
 /** What the job decided to do today. */
-data class SettlementPlan(
-    val payouts: List<Payout>,           // one per merchant with due payments, ordered by merchant id
-    val held: List<String>,              // ids of payments not yet due, in input order
-    val unknownMerchants: List<String>,  // ids of payments whose merchant we don't know, in input order
+data class ShoppingPlan(
+    val orders: List<Order>,         // one per shop with items due, sorted by shop id
+    val waiting: List<String>,       // ids of items not yet due to be ordered, in input order
+    val unknownShops: List<String>,  // ids of items whose shop we don't know, in input order
 )
 
 data class Entry(val account: String, val amount: BigDecimal, val ref: String)
 
-/** The ledger is a value: posting returns a new Ledger, and the old one stays as it was. */
-data class Ledger(val entries: PersistentList<Entry>)
+/** The household budget book is a value: posting returns a new Budget, and the old one stays as it was. */
+data class Budget(val entries: PersistentList<Entry>)
 
 // The shell's dependencies: everything that does I/O.
 
-interface PaymentStore {
-    fun capturedPayments(): List<Payment>
-    fun merchants(): Map<String, Merchant>
-    fun loadLedger(): Ledger
-    fun saveLedger(ledger: Ledger)
+/** The app's storage on the phone. */
+interface HomeStore {
+    fun shoppingList(): List<Item>
+    fun shops(): Map<String, Shop>
+    fun loadBudget(): Budget
+    fun saveBudget(budget: Budget)
 }
 
-fun interface PayoutApi {
-    fun send(payout: Payout)
+/** Sends an order to a shop's website. */
+fun interface ShopApi {
+    fun send(order: Order)
 }

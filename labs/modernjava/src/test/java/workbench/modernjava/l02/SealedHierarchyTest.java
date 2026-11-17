@@ -2,12 +2,12 @@ package workbench.modernjava.l02;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import workbench.modernjava.l02.PaymentMethod.BankTransfer;
-import workbench.modernjava.l02.PaymentMethod.Card;
-import workbench.modernjava.l02.PaymentMethod.PartnerMethod;
-import workbench.modernjava.l02.PaymentMethod.Sepa;
-import workbench.modernjava.l02.PaymentMethod.Swift;
-import workbench.modernjava.l02.PaymentMethod.Wallet;
+import workbench.modernjava.l02.LibraryItem.AudioCd;
+import workbench.modernjava.l02.LibraryItem.Book;
+import workbench.modernjava.l02.LibraryItem.Disc;
+import workbench.modernjava.l02.LibraryItem.Dvd;
+import workbench.modernjava.l02.LibraryItem.Magazine;
+import workbench.modernjava.l02.LibraryItem.PartnerItem;
 
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
@@ -25,48 +25,48 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SealedHierarchyTest {
 
-    // a partner team's own class, written outside the hierarchy's file
-    record GiftCard(String partnerId, int settlementDays) implements PartnerMethod {}
+    // a partner library's own class, written outside the hierarchy's file
+    record ArchiveBox(String partnerId, int loanDays) implements PartnerItem {}
 
     @Test
-    @DisplayName("PaymentMethod is sealed and permits exactly Card, BankTransfer, Wallet and PartnerMethod")
-    void paymentMethodIsSealed() {
-        assertThat(PaymentMethod.class.isSealed()).isTrue();
-        assertThat(PaymentMethod.class.getPermittedSubclasses())
-                .containsExactlyInAnyOrder(Card.class, BankTransfer.class, Wallet.class, PartnerMethod.class);
+    @DisplayName("LibraryItem is sealed and permits exactly Book, Disc, Magazine and PartnerItem")
+    void libraryItemIsSealed() {
+        assertThat(LibraryItem.class.isSealed()).isTrue();
+        assertThat(LibraryItem.class.getPermittedSubclasses())
+                .containsExactlyInAnyOrder(Book.class, Disc.class, Magazine.class, PartnerItem.class);
     }
 
     @Test
-    @DisplayName("BankTransfer is sealed too, with only Sepa and Swift")
-    void bankTransferIsSealed() {
-        assertThat(BankTransfer.class.isSealed()).isTrue();
-        assertThat(BankTransfer.class.getPermittedSubclasses()).containsExactlyInAnyOrder(Sepa.class, Swift.class);
+    @DisplayName("Disc is sealed too, with only Dvd and AudioCd")
+    void discIsSealed() {
+        assertThat(Disc.class.isSealed()).isTrue();
+        assertThat(Disc.class.getPermittedSubclasses()).containsExactlyInAnyOrder(Dvd.class, AudioCd.class);
     }
 
     @Test
-    @DisplayName("PartnerMethod stays open, and a partner's own class settles on its own schedule")
-    void partnerMethodIsOpen() {
-        assertThat(PartnerMethod.class.isSealed()).isFalse();
-        assertThat(Settlement.daysToSettle(new GiftCard("giftly", 5))).isEqualTo(5);
-        assertThat(Settlement.rail(new GiftCard("giftly", 5))).isEqualTo("partner:giftly");
+    @DisplayName("PartnerItem stays open, and a partner's own class sets its own loan period")
+    void partnerItemIsOpen() {
+        assertThat(PartnerItem.class.isSealed()).isFalse();
+        assertThat(Loans.loanDays(new ArchiveBox("city-archive", 5))).isEqualTo(5);
+        assertThat(Loans.returnBin(new ArchiveBox("city-archive", 5))).isEqualTo("partner:city-archive");
     }
 
     @Test
-    @DisplayName("daysToSettle: card 2, SEPA 1, SWIFT 3, wallet 0")
-    void daysToSettle() {
-        assertThat(Settlement.daysToSettle(new Card("VISA", "1111"))).isEqualTo(2);
-        assertThat(Settlement.daysToSettle(new Sepa("DE89370400440532013000"))).isEqualTo(1);
-        assertThat(Settlement.daysToSettle(new Swift("DEUTDEFF", "0532013000"))).isEqualTo(3);
-        assertThat(Settlement.daysToSettle(new Wallet("Paywave"))).isEqualTo(0);
+    @DisplayName("loanDays: book 21, DVD 7, audio CD 14, magazine 0")
+    void loanDays() {
+        assertThat(Loans.loanDays(new Book("9780441013593", "Dune"))).isEqualTo(21);
+        assertThat(Loans.loanDays(new Dvd("Paddington", 95))).isEqualTo(7);
+        assertThat(Loans.loanDays(new AudioCd("Birdsong of the Hills", 18))).isEqualTo(14);
+        assertThat(Loans.loanDays(new Magazine("Garden Monthly", 214))).isEqualTo(0);
     }
 
     @Test
-    @DisplayName("rail names the rail, with one answer for every kind of bank transfer")
-    void rail() {
-        assertThat(Settlement.rail(new Card("VISA", "1111"))).isEqualTo("card");
-        assertThat(Settlement.rail(new Sepa("DE89370400440532013000"))).isEqualTo("bank");
-        assertThat(Settlement.rail(new Swift("DEUTDEFF", "0532013000"))).isEqualTo("bank");
-        assertThat(Settlement.rail(new Wallet("Paywave"))).isEqualTo("wallet");
+    @DisplayName("returnBin names the bin, with one answer for every kind of disc")
+    void returnBin() {
+        assertThat(Loans.returnBin(new Book("9780441013593", "Dune"))).isEqualTo("books");
+        assertThat(Loans.returnBin(new Dvd("Paddington", 95))).isEqualTo("discs");
+        assertThat(Loans.returnBin(new AudioCd("Birdsong of the Hills", 18))).isEqualTo("discs");
+        assertThat(Loans.returnBin(new Magazine("Garden Monthly", 214))).isEqualTo("magazines");
     }
 
     @Test
@@ -74,16 +74,16 @@ class SealedHierarchyTest {
     void exhaustiveSwitchCompiles() throws IOException {
         List<String> errors = compile("Client", """
                 package client;
-                import workbench.modernjava.l02.PaymentMethod;
-                import workbench.modernjava.l02.PaymentMethod.*;
+                import workbench.modernjava.l02.LibraryItem;
+                import workbench.modernjava.l02.LibraryItem.*;
                 class Client {
-                    static String f(PaymentMethod m) {
-                        return switch (m) {
-                            case Card c -> "card";
-                            case Sepa s -> "sepa";
-                            case Swift s -> "swift";
-                            case Wallet w -> "wallet";
-                            case PartnerMethod p -> "partner";
+                    static String f(LibraryItem i) {
+                        return switch (i) {
+                            case Book b -> "book";
+                            case Dvd d -> "dvd";
+                            case AudioCd cd -> "cd";
+                            case Magazine m -> "magazine";
+                            case PartnerItem p -> "partner";
                         };
                     }
                 }
@@ -92,20 +92,20 @@ class SealedHierarchyTest {
     }
 
     @Test
-    @DisplayName("javac rejects a new payment method or a new bank transfer written outside the hierarchy")
+    @DisplayName("javac rejects a new kind of item or a new kind of disc written outside the hierarchy")
     void outsidersAreRejected() throws IOException {
-        List<String> crypto = compile("Crypto", """
+        List<String> vinyl = compile("Vinyl", """
                 package client;
-                final class Crypto implements workbench.modernjava.l02.PaymentMethod {}
+                final class Vinyl implements workbench.modernjava.l02.LibraryItem {}
                 """);
-        assertThat(crypto).as("javac errors for Crypto").singleElement()
+        assertThat(vinyl).as("javac errors for Vinyl").singleElement()
                 .asString().contains("not allowed to extend sealed class");
 
-        List<String> ach = compile("Ach", """
+        List<String> bluRay = compile("BluRay", """
                 package client;
-                final class Ach implements workbench.modernjava.l02.PaymentMethod.BankTransfer {}
+                final class BluRay implements workbench.modernjava.l02.LibraryItem.Disc {}
                 """);
-        assertThat(ach).as("javac errors for Ach").singleElement()
+        assertThat(bluRay).as("javac errors for BluRay").singleElement()
                 .asString().contains("not allowed to extend sealed class");
     }
 

@@ -3,56 +3,54 @@ package workbench.modernjava.l02.demo;
 /** Each branch of a sealed hierarchy ends as final, sealed or non-sealed. */
 public class NonSealedDemo {
 
-    sealed interface PaymentMethod permits Card, BankTransfer, PartnerMethod {}
+    sealed interface LibraryItem permits Book, Disc, PartnerItem {}
 
-    record Card(String network) implements PaymentMethod {}                     // final: a leaf
+    record Book(String title) implements LibraryItem {}                      // final: a leaf
 
-    sealed interface BankTransfer extends PaymentMethod permits Sepa, Swift {}  // sealed: closed below
+    sealed interface Disc extends LibraryItem permits Dvd, AudioCd {}       // sealed: closed below
 
-    record Sepa(String iban) implements BankTransfer {}
+    record Dvd(String title) implements Disc {}
 
-    record Swift(String bic) implements BankTransfer {}
+    record AudioCd(String title) implements Disc {}
 
-    non-sealed interface PartnerMethod extends PaymentMethod {                  // non-sealed: open below
+    non-sealed interface PartnerItem extends LibraryItem {                  // non-sealed: open below
         String partnerId();
     }
 
-    // partner code: allowed, because PartnerMethod is non-sealed
-    record GiftCard(String partnerId, String code) implements PartnerMethod {}
+    // a partner library's code: allowed, because PartnerItem is non-sealed
+    record ArchiveBox(String partnerId, String contents) implements PartnerItem {}
 
     // Step 3: delete "abstract" here and compile.
-    sealed abstract static class Fee permits Flat, Percent {}
+    sealed abstract static class Extension permits FixedDays, SameAgain {}
 
-    static final class Flat extends Fee {
-        final long minor;
-        Flat(long minor) { this.minor = minor; }
+    static final class FixedDays extends Extension {
+        final int days;
+        FixedDays(int days) { this.days = days; }
     }
 
-    static final class Percent extends Fee {
-        final int basisPoints;
-        Percent(int basisPoints) { this.basisPoints = basisPoints; }
-    }
+    static final class SameAgain extends Extension {}
 
-    static String describe(PaymentMethod m) {
-        return switch (m) {
-            case Card c -> "card " + c.network();
-            case BankTransfer t -> "bank transfer " + t;          // one case for the sealed branch
-            case PartnerMethod p -> "partner " + p.partnerId();   // one case for the open branch
+    static String describe(LibraryItem item) {
+        return switch (item) {
+            case Book b -> "book " + b.title();
+            case Disc d -> "disc " + d;                          // one case for the sealed branch
+            case PartnerItem p -> "partner " + p.partnerId();    // one case for the open branch
         };
     }
 
-    static long fee(Fee f, long amountMinor) {
-        return switch (f) {
-            case Flat flat -> flat.minor;
-            case Percent pct -> amountMinor * pct.basisPoints / 10_000;
+    // how many days a renewal adds to a loan
+    static int extraDays(Extension e, int loanDays) {
+        return switch (e) {
+            case FixedDays f -> f.days;
+            case SameAgain s -> loanDays;
         };
     }
 
     public static void main(String[] args) {
-        System.out.println(describe(new Card("VISA")));
-        System.out.println(describe(new Sepa("DE89370400440532013000")));
-        System.out.println(describe(new GiftCard("giftly", "GC-7731")));
-        System.out.println("PartnerMethod.isSealed(): " + PartnerMethod.class.isSealed());
-        System.out.println("fee: " + fee(new Percent(290), 10_000) + " and " + fee(new Flat(35), 10_000));
+        System.out.println(describe(new Book("Dune")));
+        System.out.println(describe(new Dvd("Paddington")));
+        System.out.println(describe(new ArchiveBox("city-archive", "old maps")));
+        System.out.println("PartnerItem.isSealed(): " + PartnerItem.class.isSealed());
+        System.out.println("renewal: " + extraDays(new FixedDays(7), 21) + " and " + extraDays(new SameAgain(), 21) + " extra days");
     }
 }

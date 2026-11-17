@@ -5,7 +5,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 /**
- * Every outbound PSP call must be timed and logged the same way. The classic answer is a Template
+ * Every call to a courier company must be timed and logged the same way. The classic answer is a Template
  * Method base class, {@link OutboundCall} below, which is given and works. Your job is the modern one:
  * an execute-around function that takes the varying step as a lambda.
  */

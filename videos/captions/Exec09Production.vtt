@@ -1,333 +1,337 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:04.941
+00:00:02.700 --> 00:00:04.907
 Here's a question we rarely ask.
 
 2
-00:00:04.941 --> 00:00:07.079
+00:00:04.907 --> 00:00:07.046
 Every thread in a pool is busy.
 
 3
-00:00:07.079 --> 00:00:09.217
+00:00:07.046 --> 00:00:09.184
 Is that good news, or bad news?
 
 4
-00:00:09.933 --> 00:00:14.081
+00:00:09.900 --> 00:00:14.048
 Picture the kitchen on a Saturday night, when orders stop coming out.
 
 5
-00:00:14.081 --> 00:00:15.284
+00:00:14.048 --> 00:00:15.251
 Which cook is stuck?
 
 6
-00:00:15.284 --> 00:00:17.448
+00:00:15.251 --> 00:00:17.415
 They all wear the same white jacket.
 
 7
-00:00:17.448 --> 00:00:19.612
+00:00:17.415 --> 00:00:19.579
 Which table was the burned dish for?
 
 8
-00:00:19.612 --> 00:00:21.536
+00:00:19.579 --> 00:00:21.503
 The note stayed with the waiter.
 
 9
-00:00:21.536 --> 00:00:23.761
+00:00:21.503 --> 00:00:23.727
 How long has the rail been this full?
 
 10
-00:00:23.761 --> 00:00:24.843
+00:00:23.727 --> 00:00:24.809
 Nobody kept count.
 
 11
-00:00:24.843 --> 00:00:28.931
+00:00:24.809 --> 00:00:28.897
 And at closing, the lights go off with two dishes still in the oven.
 
 12
-00:00:29.067 --> 00:00:33.745
+00:00:29.100 --> 00:00:33.779
 A thread pool meets the same questions, and its defaults answer none of them.
 
 13
-00:00:34.533 --> 00:00:35.649
+00:00:34.600 --> 00:00:35.715
 First, name tags.
 
 14
-00:00:35.649 --> 00:00:42.735
+00:00:35.715 --> 00:00:42.801
 A thread dump is a snapshot of every thread in a running program: its name, its state, and the line it's on.
 
 15
-00:00:42.735 --> 00:00:46.737
+00:00:42.801 --> 00:00:46.804
 The ready-made pools name their threads like pool-3-thread-7.
 
 16
-00:00:46.737 --> 00:00:51.264
+00:00:46.804 --> 00:00:51.331
 In a dump with eight pools, that tells you as much as a white jacket.
 
 17
-00:00:51.400 --> 00:00:59.641
+00:00:51.533 --> 00:00:59.775
 So give the pool a thread factory, the object it asks for new threads, that names them after the work: grill-0, grill-1.
 
 18
-00:01:00.333 --> 00:01:01.477
+00:01:00.500 --> 00:01:01.644
 Second, the note.
 
 19
-00:01:01.477 --> 00:01:08.342
+00:01:01.644 --> 00:01:08.509
 A request id is a short label, like req-42, that a program prints on every log line about one request.
 
 20
-00:01:08.342 --> 00:01:14.399
+00:01:08.509 --> 00:01:14.566
 Programs often keep it in a ThreadLocal, a variable with a separate value for each thread.
 
 21
-00:01:14.399 --> 00:01:19.581
+00:01:14.566 --> 00:01:19.748
 Picture a note pinned to the waiter's jacket instead of clipped to the order.
 
 22
-00:01:19.733 --> 00:01:22.489
+00:01:19.967 --> 00:01:22.722
 ContextDemo has a pool of one thread.
 
 23
-00:01:22.489 --> 00:01:25.691
+00:01:22.722 --> 00:01:25.924
 main sets req-42, then submits three tasks.
 
 24
-00:01:25.691 --> 00:01:28.372
+00:01:25.924 --> 00:01:28.605
 What does the first, plain task see?
 
 25
-00:01:31.200 --> 00:01:31.546
+00:01:31.400 --> 00:01:31.746
 null.
 
 26
-00:01:31.546 --> 00:01:33.832
+00:01:31.746 --> 00:01:34.032
 The note stayed on main's jacket.
 
 27
-00:01:33.832 --> 00:01:40.065
+00:01:34.032 --> 00:01:40.265
 And the third task sees req-7, an old note that an earlier task left pinned to the worker.
 
 28
-00:01:40.065 --> 00:01:45.883
+00:01:40.265 --> 00:01:46.083
 Now every log line blames request 7, which went home long ago and did nothing wrong.
 
 29
-00:01:46.067 --> 00:01:53.946
+00:01:46.300 --> 00:01:54.179
 The fix: copy the note onto the ticket at the hand-off, pin it on whichever cook takes it, and take it off when the dish leaves.
 
 30
-00:01:53.946 --> 00:01:57.024
+00:01:54.179 --> 00:01:57.257
 In code: capture, install, and restore in finally.
 
 31
-00:01:57.200 --> 00:01:58.785
+00:01:57.467 --> 00:01:59.051
 Here the picture breaks.
 
 32
-00:01:58.785 --> 00:02:01.360
+00:01:59.051 --> 00:02:01.626
 A paper note falls off sooner or later.
 
 33
-00:02:01.360 --> 00:02:05.057
+00:02:01.626 --> 00:02:05.324
 A ThreadLocal stays on its thread until code removes it.
 
 34
-00:02:05.057 --> 00:02:08.491
+00:02:05.324 --> 00:02:08.757
 So a ThreadLocal belongs to a thread, not to a task.
 
 35
-00:02:09.200 --> 00:02:10.997
+00:02:09.467 --> 00:02:11.264
 Third, the board by the pass.
 
 36
-00:02:10.997 --> 00:02:13.723
+00:02:11.264 --> 00:02:13.990
 Four numbers tell you most of what you need.
 
 37
-00:02:13.723 --> 00:02:15.954
+00:02:13.990 --> 00:02:16.221
 The queue size: tickets on the rail.
 
 38
-00:02:15.954 --> 00:02:19.672
+00:02:16.221 --> 00:02:19.938
 The active count: busy cooks, against the most you can have.
 
 39
-00:02:19.672 --> 00:02:23.204
+00:02:19.938 --> 00:02:23.470
 Rejections: orders turned away, which you count yourself.
 
 40
-00:02:23.204 --> 00:02:26.797
+00:02:23.470 --> 00:02:27.064
 And time in queue: how long each ticket waited for a cook.
 
 41
-00:02:27.467 --> 00:02:35.934
+00:02:27.767 --> 00:02:36.234
 MetricsDemo sends 10 tasks of 300 milliseconds to a pool of two threads, named orders, with room for four on the rail.
 
 42
-00:02:35.934 --> 00:02:38.445
+00:02:36.234 --> 00:02:38.745
 Predict the first row of the board.
 
 43
-00:02:41.267 --> 00:02:47.265
+00:02:41.533 --> 00:02:47.532
 Two active, four queued, four rejected at once, because two plus four is all it can hold.
 
 44
-00:02:47.265 --> 00:02:50.230
+00:02:47.532 --> 00:02:50.497
 Then every 300 milliseconds two more finish.
 
 45
-00:02:50.230 --> 00:02:53.937
+00:02:50.497 --> 00:02:54.204
 The queue goes four, two, zero, and done climbs to six.
 
 46
-00:02:54.133 --> 00:03:00.327
+00:02:54.433 --> 00:03:00.627
 Run the same burst on newFixedThreadPool, whose rail has no end, and rejected says zero.
 
 47
-00:03:00.327 --> 00:03:05.324
+00:03:00.627 --> 00:03:05.624
 The last two tickets wait 1.2 seconds before a cook even looks at them.
 
 48
-00:03:05.324 --> 00:03:07.295
+00:03:05.624 --> 00:03:07.595
 Only time in queue shows it.
 
 49
-00:03:07.467 --> 00:03:11.720
+00:03:07.800 --> 00:03:12.054
 So watch the queue, not just the threads, and count every rejection.
 
 50
-00:03:11.720 --> 00:03:17.037
+00:03:12.054 --> 00:03:17.371
 A pool with an empty queue and no rejections is healthy, however busy its cooks look.
 
 51
-00:03:17.800 --> 00:03:20.176
+00:03:18.200 --> 00:03:20.576
 Now a board where everything froze.
 
 52
-00:03:20.176 --> 00:03:25.744
+00:03:20.576 --> 00:03:26.144
 All threads active, the queue full and not moving, nothing done, and the CPU idle.
 
 53
-00:03:25.744 --> 00:03:26.695
+00:03:26.144 --> 00:03:27.095
 What happened?
 
 54
-00:03:26.867 --> 00:03:29.986
+00:03:27.300 --> 00:03:30.420
 At closing, a job prints every table's bill.
 
 55
-00:03:29.986 --> 00:03:36.297
+00:03:30.420 --> 00:03:36.730
 Each bill task submits a fetch of that table's orders to the same pool, and waits for it.
 
 56
-00:03:36.297 --> 00:03:44.380
+00:03:36.730 --> 00:03:44.813
 With 20 threads and 400 tables, the first 20 bills take every thread, and their 20 fetches queue behind 380 bills.
 
 57
-00:03:44.533 --> 00:03:50.324
+00:03:45.033 --> 00:03:51.067
 In the kitchen, every cook has pinned a ticket at the back of the rail and stands waiting for it.
 
 58
-00:03:50.324 --> 00:03:51.936
+00:03:51.067 --> 00:03:52.746
 No cook is left to take it.
 
 59
-00:03:51.936 --> 00:03:54.623
+00:03:52.746 --> 00:03:55.546
 Nothing throws, and nothing will ever finish.
 
 60
-00:03:54.800 --> 00:04:01.517
-That's pool-induced deadlock: every thread in a bounded pool waits for a task queued in that same pool.
+00:03:55.546 --> 00:04:01.828
+It's the politest jam a kitchen ever had: everyone waiting, nobody complaining, and no error to read.
 
 61
-00:04:01.517 --> 00:04:08.168
-DeadlockDemo's smallest case shows it on two threads: active two, queued two, completed zero, forever.
+00:04:02.033 --> 00:04:08.750
+That's pool-induced deadlock: every thread in a bounded pool waits for a task queued in that same pool.
 
 62
-00:04:08.333 --> 00:04:13.120
-The fixes: don't wait inside the pool, compose with thenApply instead.
+00:04:08.750 --> 00:04:15.401
+DeadlockDemo's smallest case shows it on two threads: active two, queued two, completed zero, forever.
 
 63
-00:04:13.120 --> 00:04:15.445
-Or fetch inline, in the same task.
+00:04:15.633 --> 00:04:20.420
+The fixes: don't wait inside the pool, compose with thenApply instead.
 
 64
-00:04:15.445 --> 00:04:17.633
-Or give each stage its own pool.
+00:04:20.420 --> 00:04:22.745
+Or fetch inline, in the same task.
 
 65
-00:04:18.400 --> 00:04:19.662
-Last, closing time.
+00:04:22.745 --> 00:04:24.933
+Or give each stage its own pool.
 
 66
-00:04:19.662 --> 00:04:27.565
-A good restaurant locks the front door first, then finishes its orders, upstream stations first, all before a deadline.
+00:04:25.733 --> 00:04:26.995
+Last, closing time.
 
 67
-00:04:27.733 --> 00:04:29.671
-In code: stop taking requests.
+00:04:26.995 --> 00:04:34.899
+A good restaurant locks the front door first, then finishes its orders, upstream stations first, all before a deadline.
 
 68
-00:04:29.671 --> 00:04:33.546
-Shut down the kitchen pool before the billing pool it feeds.
+00:04:35.100 --> 00:04:37.037
+In code: stop taking requests.
 
 69
-00:04:33.546 --> 00:04:37.937
-Give the whole thing one deadline inside the 30 second grace period.
+00:04:37.037 --> 00:04:40.912
+Shut down the kitchen pool before the billing pool it feeds.
 
 70
-00:04:37.937 --> 00:04:40.197
-And whatever didn't finish, log it.
+00:04:40.912 --> 00:04:45.304
+Give the whole thing one deadline inside the 30 second grace period.
 
 71
-00:04:40.867 --> 00:04:43.396
-Do it backwards, and billing closes first.
+00:04:45.304 --> 00:04:47.564
+And whatever didn't finish, log it.
 
 72
-00:04:43.396 --> 00:04:47.311
-The dishes still cooking get cooked and served, and never billed.
+00:04:48.267 --> 00:04:50.796
+Do it backwards, and billing closes first.
 
 73
-00:04:47.311 --> 00:04:49.057
-A free dinner nobody planned.
+00:04:50.796 --> 00:04:54.711
+The dishes still cooking get cooked and served, and never billed.
 
 74
-00:04:49.800 --> 00:04:52.687
-So, is a pool with every thread busy good news?
+00:04:54.711 --> 00:04:56.457
+A free dinner nobody planned.
 
 75
-00:04:52.687 --> 00:04:54.161
-It depends on the board.
+00:04:57.267 --> 00:05:00.154
+So, is a pool with every thread busy good news?
 
 76
-00:04:54.161 --> 00:04:59.321
-Name the cooks, clip the note to the ticket, and watch the queue and the rejections.
+00:05:00.154 --> 00:05:01.628
+It depends on the board.
 
 77
-00:04:59.321 --> 00:05:02.392
-And never let a cook wait for a ticket behind him.
+00:05:01.628 --> 00:05:06.787
+Name the cooks, clip the note to the ticket, and watch the queue and the rejections.
 
 78
-00:05:03.067 --> 00:05:03.995
-Quick check.
+00:05:06.787 --> 00:05:09.859
+And never let a cook wait for a ticket behind him.
 
 79
-00:05:03.995 --> 00:05:10.032
-The board says: active two of two, queued two, done zero, and the CPU is idle.
+00:05:10.567 --> 00:05:11.495
+Quick check.
 
 80
-00:05:10.032 --> 00:05:11.193
-Busy, or stuck?
+00:05:11.495 --> 00:05:17.532
+The board says: active two of two, queued two, done zero, and the CPU is idle.
 
 81
-00:05:14.200 --> 00:05:14.634
-Stuck.
+00:05:17.532 --> 00:05:18.693
+Busy, or stuck?
 
 82
-00:05:14.634 --> 00:05:15.863
-Nothing finishes.
+00:05:21.667 --> 00:05:22.101
+Stuck.
 
 83
-00:05:15.863 --> 00:05:20.129
+00:05:22.101 --> 00:05:23.330
+Nothing finishes.
+
+84
+00:05:23.330 --> 00:05:27.596
 Look for a task that waits on another task in its own pool.

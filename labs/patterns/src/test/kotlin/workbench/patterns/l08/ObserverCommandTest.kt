@@ -9,8 +9,8 @@ import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
-import workbench.patterns.l08.LedgerCommand.Deposit
-import workbench.patterns.l08.LedgerCommand.Withdraw
+import workbench.patterns.l08.ShelfCommand.Restock
+import workbench.patterns.l08.ShelfCommand.Sell
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ObserverCommandTest {
@@ -18,107 +18,107 @@ class ObserverCommandTest {
     // ---- observer ----
 
     @Test
-    fun `listeners hear every posting in order until they close their handle`() = runTest {
-        val ledger = ObservableLedger()
-        val heard = mutableListOf<Posted>()
-        val handle = ledger.subscribe { heard += it }
-        ledger.post("acc-1", 450)
-        ledger.post("acc-1", 450)
+    fun `listeners hear every order in turn until they close their handle`() = runTest {
+        val orders = ObservableOrders()
+        val heard = mutableListOf<Ordered>()
+        val handle = orders.subscribe { heard += it }
+        orders.place("Ana", "rye bread", 1)
+        orders.place("Ana", "rye bread", 1)
         handle.close()
-        ledger.post("acc-1", 900)
-        assertThat(heard).containsExactly(Posted("acc-1", 450), Posted("acc-1", 450))
+        orders.place("Ben", "jam", 2)
+        assertThat(heard).containsExactly(Ordered("Ana", "rye bread", 1), Ordered("Ana", "rye bread", 1))
     }
 
     @Test
-    fun `a listener that throws neither stops the others nor fails the posting`() = runTest {
-        val ledger = ObservableLedger()
+    fun `a listener that throws neither stops the others nor fails the order`() = runTest {
+        val orders = ObservableOrders()
         val heard = mutableListOf<String>()
-        ledger.subscribe { heard += "first" }
-        ledger.subscribe { throw IllegalStateException("analytics is down") }
-        ledger.subscribe { heard += "third" }
-        ledger.post("acc-1", 450)
+        orders.subscribe { heard += "first" }
+        orders.subscribe { throw IllegalStateException("the sales chart is down") }
+        orders.subscribe { heard += "third" }
+        orders.place("Ana", "rye bread", 1)
         assertThat(heard).containsExactly("first", "third")
-        assertThat(ledger.balance.value).isEqualTo(450L)
+        assertThat(orders.itemsToday.value).isEqualTo(1)
     }
 
     @Test
     fun `a listener may unsubscribe itself while it is being called`() = runTest {
-        val ledger = ObservableLedger()
-        val heard = mutableListOf<Long>()
+        val orders = ObservableOrders()
+        val heard = mutableListOf<Int>()
         lateinit var oneShot: AutoCloseable
-        oneShot = ledger.subscribe { heard += it.amountMinor; oneShot.close() }
-        ledger.subscribe { heard += it.amountMinor * 10 }
-        ledger.post("acc-1", 1)
-        ledger.post("acc-1", 2)
-        assertThat(heard).containsExactly(1L, 10L, 20L)
+        oneShot = orders.subscribe { heard += it.quantity; oneShot.close() }
+        orders.subscribe { heard += it.quantity * 10 }
+        orders.place("Ana", "tea", 1)
+        orders.place("Ben", "tea", 2)
+        assertThat(heard).containsExactly(1, 10, 20)
     }
 
     @Test
-    fun `a flow collector gets every posting, even two equal ones in a row`() = runTest {
-        val ledger = ObservableLedger()
-        val seen = mutableListOf<Posted>()
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { ledger.events.toList(seen) }
-        ledger.post("acc-1", 450)
-        ledger.post("acc-1", 450)
-        ledger.post("acc-2", -900)
-        assertThat(seen).containsExactly(Posted("acc-1", 450), Posted("acc-1", 450), Posted("acc-2", -900))
+    fun `a flow collector gets every order, even two equal ones in a row`() = runTest {
+        val orders = ObservableOrders()
+        val seen = mutableListOf<Ordered>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { orders.events.toList(seen) }
+        orders.place("Ana", "rye bread", 1)
+        orders.place("Ana", "rye bread", 1)
+        orders.place("Ben", "jam", 2)
+        assertThat(seen).containsExactly(Ordered("Ana", "rye bread", 1), Ordered("Ana", "rye bread", 1), Ordered("Ben", "jam", 2))
     }
 
     @Test
-    fun `balance starts at zero, holds the running total, and gives late collectors the latest value`() = runTest {
-        val ledger = ObservableLedger()
-        assertThat(ledger.balance.value).isEqualTo(0L)
-        ledger.post("acc-1", 450)
-        ledger.post("acc-2", 1_000)
-        ledger.post("acc-1", -200)
-        assertThat(ledger.balance.value).isEqualTo(1_250L)
-        assertThat(ledger.balance.first()).isEqualTo(1_250L)
+    fun `itemsToday starts at zero, holds the running total, and gives late collectors the latest value`() = runTest {
+        val orders = ObservableOrders()
+        assertThat(orders.itemsToday.value).isEqualTo(0)
+        orders.place("Ana", "rye bread", 1)
+        orders.place("Ben", "jam", 4)
+        orders.place("Cleo", "tea", 2)
+        assertThat(orders.itemsToday.value).isEqualTo(7)
+        assertThat(orders.itemsToday.first()).isEqualTo(7)
     }
 
     // ---- command ----
 
     @Test
     fun `a failing command changes nothing and cannot be undone`() {
-        val account = Account("acc-1")
-        val stack = CommandStack(account)
-        stack.run(Deposit(100))
-        stack.run(Withdraw(30))
-        assertThatThrownBy { stack.run(Withdraw(1_000)) }
+        val shelf = Shelf("rye bread")
+        val stack = CommandStack(shelf)
+        stack.run(Restock(12))
+        stack.run(Sell(5))
+        assertThatThrownBy { stack.run(Sell(40)) }
             .isInstanceOf(IllegalStateException::class.java)
-            .hasMessage("insufficient funds")
-        assertThat(account.balanceMinor).isEqualTo(70)
-        assertThat(stack.undoable).containsExactly(Withdraw(30), Deposit(100))
+            .hasMessage("not enough on the shelf")
+        assertThat(shelf.units).isEqualTo(7)
+        assertThat(stack.undoable).containsExactly(Sell(5), Restock(12))
     }
 
     @Test
     fun `undo walks back one command at a time and says when there is nothing left`() {
-        val account = Account("acc-1")
-        val stack = CommandStack(account)
-        stack.run(Deposit(100))
-        stack.run(Withdraw(30))
+        val shelf = Shelf("rye bread")
+        val stack = CommandStack(shelf)
+        stack.run(Restock(12))
+        stack.run(Sell(5))
         assertThat(stack.undo()).isTrue()
-        assertThat(account.balanceMinor).isEqualTo(100)
+        assertThat(shelf.units).isEqualTo(12)
         assertThat(stack.undo()).isTrue()
-        assertThat(account.balanceMinor).isEqualTo(0)
+        assertThat(shelf.units).isEqualTo(0)
         assertThat(stack.undo()).isFalse()
         assertThat(stack.undoable).isEmpty()
     }
 
     @Test
     fun `redo applies undone commands again, and a new command clears the redo history`() {
-        val account = Account("acc-1")
-        val stack = CommandStack(account)
-        stack.run(Deposit(100))
-        stack.run(Withdraw(30))
+        val shelf = Shelf("rye bread")
+        val stack = CommandStack(shelf)
+        stack.run(Restock(12))
+        stack.run(Sell(5))
         stack.undo()
         assertThat(stack.redo()).isTrue()
-        assertThat(account.balanceMinor).isEqualTo(70)
+        assertThat(shelf.units).isEqualTo(7)
         assertThat(stack.redo()).isFalse()
 
         stack.undo()
-        stack.run(Deposit(5))
+        stack.run(Restock(1))
         assertThat(stack.redo()).`as`("redo after a new command").isFalse()
-        assertThat(account.balanceMinor).isEqualTo(105)
-        assertThat(stack.undoable).containsExactly(Deposit(5), Deposit(100))
+        assertThat(shelf.units).isEqualTo(13)
+        assertThat(stack.undoable).containsExactly(Restock(1), Restock(12))
     }
 }

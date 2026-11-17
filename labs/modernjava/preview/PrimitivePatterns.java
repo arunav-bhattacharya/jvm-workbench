@@ -6,17 +6,17 @@
 public class PrimitivePatterns {
 
     // a switch on an int with type patterns and guards, not only constants
-    static String riskBand(int score) {
-        return switch (score) {
-            case 0 -> "no score";
-            case int s when s < 300 -> "high risk (" + s + ")";
-            case int s when s < 700 -> "medium risk (" + s + ")";
-            case int s -> "low risk (" + s + ")";
+    static String length(int pages) {
+        return switch (pages) {
+            case 0 -> "no pages";
+            case int p when p < 100 -> "short (" + p + " pages)";
+            case int p when p < 400 -> "medium (" + p + " pages)";
+            case int p -> "long (" + p + " pages)";
         };
     }
 
     public static void main(String[] args) {
-        System.out.println(riskBand(0) + ", " + riskBand(120) + ", " + riskBand(650) + ", " + riskBand(910));
+        System.out.println(length(0) + ", " + length(64) + ", " + length(288) + ", " + length(1_216));
 
         // instanceof with a primitive type asks "does this value fit exactly?"
         long small = 42L, big = 300L;

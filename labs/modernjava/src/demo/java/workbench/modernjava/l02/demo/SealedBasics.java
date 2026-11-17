@@ -5,23 +5,24 @@ import java.lang.reflect.Modifier;
 /** A sealed interface names its direct subtypes, and the JVM keeps that list. */
 public class SealedBasics {
 
-    sealed interface Command permits Authorize, Capture, Refund {}
+    // the three things a member can ask for at the desk
+    sealed interface Request permits Borrow, Renew, Return {}
 
-    record Authorize(String authCode, long amountMinor) implements Command {}   // records are final
+    record Borrow(String isbn, int days) implements Request {}   // records are final
 
-    record Capture() implements Command {}
+    record Renew(int extraDays) implements Request {}
 
-    record Refund(long amountMinor) implements Command {}
+    record Return() implements Request {}
 
     // Step 2: uncomment this line and compile.
-    // static final class Void implements Command {}
+    // static final class Donate implements Request {}
 
     public static void main(String[] args) {
-        System.out.println("Command.isSealed():  " + Command.class.isSealed());
-        for (Class<?> c : Command.class.getPermittedSubclasses()) {
-            System.out.println("permits:             " + c.getSimpleName()
+        System.out.println("Request.isSealed(): " + Request.class.isSealed());
+        for (Class<?> c : Request.class.getPermittedSubclasses()) {
+            System.out.println("permits:            " + c.getSimpleName()
                     + (Modifier.isFinal(c.getModifiers()) ? " (final)" : ""));
         }
-        System.out.println("Refund.isSealed():   " + Refund.class.isSealed());
+        System.out.println("Renew.isSealed():   " + Renew.class.isSealed());
     }
 }

@@ -1,28 +1,28 @@
 package workbench.patterns.l07
 
-// The same fee rules as a map of strategies and as a when. Add a payment method and watch which one tells you.
+// The same delivery prices as a map of strategies and as a when. Add a way to deliver and watch which one tells you.
 
-enum class PayMethod { CARD, SEPA, WALLET }
-data class Pay(val method: PayMethod, val amountMinor: Long)
+enum class Way { BIKE, VAN, PICKUP }
+data class Job(val way: Way, val grams: Int)
 
-// open set: one function per method, in a map that config or plug-ins could fill
-private val strategies: Map<PayMethod, (Pay) -> Long> = mapOf(
-    PayMethod.CARD to { p -> 30 + p.amountMinor * 290 / 10_000 },
-    PayMethod.SEPA to { _ -> 25L },
-    PayMethod.WALLET to { p -> p.amountMinor * 150 / 10_000 },
+// open set: one function per way, in a map that settings or plug-ins could fill
+private val strategies: Map<Way, (Job) -> Long> = mapOf(
+    Way.BIKE to { j -> 200L + j.grams * 30 / 1_000 },
+    Way.VAN to { _ -> 450L },
+    Way.PICKUP to { _ -> 0L },
 )
 
 // closed set: one when, checked by the compiler
-private fun feeWhen(p: Pay): Long = when (p.method) {
-    PayMethod.CARD -> 30 + p.amountMinor * 290 / 10_000
-    PayMethod.SEPA -> 25
-    PayMethod.WALLET -> p.amountMinor * 150 / 10_000
+private fun priceWhen(j: Job): Long = when (j.way) {
+    Way.BIKE -> 200L + j.grams * 30 / 1_000
+    Way.VAN -> 450
+    Way.PICKUP -> 0
 }
 
 fun main() {
-    for (m in PayMethod.entries) {
-        val p = Pay(m, 10_000)
-        print("%-7s when=%d".format(m, feeWhen(p)))
-        println("  map=%d".format(strategies.getValue(m)(p)))
+    for (w in Way.entries) {
+        val j = Job(w, 2_500)
+        print("%-7s when=%d".format(w, priceWhen(j)))
+        println("  map=%d".format(strategies.getValue(w)(j)))
     }
 }

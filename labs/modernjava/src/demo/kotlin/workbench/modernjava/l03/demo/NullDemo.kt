@@ -4,14 +4,14 @@ data class Spot(val x: Int, val y: Int)
 data class Segment(val from: Spot?, val to: Spot?)
 
 // in Kotlin the type says whether null can arrive, and when compares with equals: null never throws
-fun plainWhen(currency: String?): String = when (currency) {
-    "EUR" -> "euro"
+fun plainWhen(section: String?): String = when (section) {
+    "FIC" -> "fiction"
     else -> "other"                                 // null lands here
 }
 
-fun withNullWhen(currency: String?): String = when (currency) {
+fun withNullWhen(section: String?): String = when (section) {
     null -> "missing"
-    "EUR" -> "euro"
+    "FIC" -> "fiction"
     else -> "other"
 }
 

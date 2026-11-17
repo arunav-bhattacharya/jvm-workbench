@@ -1,44 +1,44 @@
 package workbench.modernjava.l03.demo;
 
-/** The same dispatch three ways: an instanceof chain, a guard clause, and a pattern switch. */
+/** The same sorting three ways: an instanceof chain, an early return, and a pattern switch. */
 public class PatternBasics {
 
-    sealed interface Method permits Card, Transfer, Wallet {}
+    sealed interface Item permits Book, Disc, Magazine {}
 
-    record Card(String network, String last4) implements Method {}
+    record Book(String title, String author) implements Item {}
 
-    record Transfer(String iban) implements Method {}
+    record Disc(String title, int minutes) implements Item {}
 
-    record Wallet(String provider) implements Method {}
+    record Magazine(String title, int issue) implements Item {}
 
-    // an if-chain: javac never checks that it covers every Method
-    static String viaChain(Method m) {
-        if (m instanceof Card c) return "card " + c.network() + " ****" + c.last4();
-        else if (m instanceof Transfer t) return "transfer from " + t.iban();
-        else if (m instanceof Wallet w) return "wallet " + w.provider();
+    // an if-chain: javac never checks that it covers every Item
+    static String viaChain(Item i) {
+        if (i instanceof Book b) return "book " + b.title() + " by " + b.author();
+        else if (i instanceof Disc d) return "disc " + d.title() + ", " + d.minutes() + " min";
+        else if (i instanceof Magazine m) return "magazine " + m.title() + " #" + m.issue();
         else throw new IllegalStateException("unreachable?");
     }
 
-    // a pattern switch: javac checks that every Method is covered
-    static String viaSwitch(Method m) {
-        return switch (m) {
-            case Card c -> "card " + c.network() + " ****" + c.last4();
-            case Transfer t -> "transfer from " + t.iban();
-            case Wallet w -> "wallet " + w.provider();
+    // a pattern switch: javac checks that every Item is covered
+    static String viaSwitch(Item i) {
+        return switch (i) {
+            case Book b -> "book " + b.title() + " by " + b.author();
+            case Disc d -> "disc " + d.title() + ", " + d.minutes() + " min";
+            case Magazine m -> "magazine " + m.title() + " #" + m.issue();
         };
     }
 
-    // flow scoping: after the negated test returns, c is in scope for the rest of the method
-    static String last4(Object o) {
-        if (!(o instanceof Card c)) return "not a card";
-        return "last four: " + c.last4();
+    // flow scoping: after the negated test returns, b is in scope for the rest of the method
+    static String author(Object o) {
+        if (!(o instanceof Book b)) return "not a book";
+        return "by " + b.author();
     }
 
     public static void main(String[] args) {
-        Method[] all = { new Card("VISA", "1111"), new Transfer("DE89370400440532013000"), new Wallet("Paywave") };
-        for (Method m : all) {
-            System.out.println(viaChain(m) + "  |  " + viaSwitch(m));
+        Item[] returns = { new Book("Emma", "Jane Austen"), new Disc("Paddington", 95), new Magazine("Garden Monthly", 214) };
+        for (Item i : returns) {
+            System.out.println(viaChain(i) + "  |  " + viaSwitch(i));
         }
-        System.out.println(last4(all[0]) + ", " + last4("4111"));
+        System.out.println(author(returns[0]) + ", " + author("Emma"));
     }
 }

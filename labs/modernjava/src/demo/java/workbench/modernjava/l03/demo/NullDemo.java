@@ -7,17 +7,17 @@ public class NullDemo {
 
     record Line(Point from, Point to) {}
 
-    static String plain(String currency) {
-        return switch (currency) {                 // the old rule: a null selector throws
-            case "EUR" -> "euro";
+    static String plain(String section) {
+        return switch (section) {                  // the old rule: a null selector throws
+            case "FIC" -> "fiction";
             default -> "other";
         };
     }
 
-    static String withNull(String currency) {
-        return switch (currency) {
+    static String withNull(String section) {
+        return switch (section) {
             case null -> "missing";                // opt in to null
-            case "EUR" -> "euro";
+            case "FIC" -> "fiction";
             default -> "other";
         };
     }

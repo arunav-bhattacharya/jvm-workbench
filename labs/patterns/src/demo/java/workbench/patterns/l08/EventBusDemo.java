@@ -26,16 +26,16 @@ public class EventBusDemo {
         }
     }
 
-    record Posted(String account, long amountMinor) {}
+    record Ordered(String customer, String item) {}
 
     public static void main(String[] args) throws Exception {
-        EventBus<Posted> bus = new EventBus<>();
-        bus.subscribe(e -> System.out.println("ledger view got  " + e));
-        bus.subscribe(e -> { throw new IllegalStateException("analytics dashboard is down"); });
+        EventBus<Ordered> bus = new EventBus<>();
+        bus.subscribe(e -> System.out.println("stock view got   " + e));
+        bus.subscribe(e -> { throw new IllegalStateException("the sales chart is down"); });
         AutoCloseable email = bus.subscribe(e -> System.out.println("email sender got " + e));
 
-        bus.publish(new Posted("acc-1", 450));
+        bus.publish(new Ordered("Ana", "rye bread"));
         email.close();                                            // unsubscribe
-        bus.publish(new Posted("acc-1", 900));
+        bus.publish(new Ordered("Ben", "jam"));
     }
 }

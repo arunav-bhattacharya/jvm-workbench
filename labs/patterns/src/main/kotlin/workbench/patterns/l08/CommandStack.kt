@@ -1,53 +1,53 @@
 package workbench.patterns.l08
 
-/** A ledger account. Given; don't change it. */
-class Account(val id: String) {
-    var balanceMinor: Long = 0
+/** One shelf in the shop, and how many units of its item are on it. Given; don't change it. */
+class Shelf(val item: String) {
+    var units: Int = 0
 }
 
-/** A request to change an account, as a value: it can be stored, logged, queued and undone. */
-sealed interface LedgerCommand {
-    fun apply(account: Account)
-    fun undo(account: Account)
+/** A request to change a shelf, as a value: it can be stored, logged, queued and undone. */
+sealed interface ShelfCommand {
+    fun apply(shelf: Shelf)
+    fun undo(shelf: Shelf)
 
-    /** Adds [amountMinor] to the balance. Undo takes it away again. */
-    data class Deposit(val amountMinor: Long) : LedgerCommand {
-        override fun apply(account: Account) {
-            TODO("add the amount")
+    /** Puts [units] more on the shelf. Undo takes them off again. */
+    data class Restock(val units: Int) : ShelfCommand {
+        override fun apply(shelf: Shelf) {
+            TODO("add the units")
         }
 
-        override fun undo(account: Account) {
-            TODO("take it away again")
+        override fun undo(shelf: Shelf) {
+            TODO("take them off again")
         }
     }
 
     /**
-     * Takes [amountMinor] from the balance, or throws IllegalStateException("insufficient funds")
-     * and changes nothing if the balance is too low. Undo puts the amount back.
+     * Takes [units] off the shelf, or throws IllegalStateException("not enough on the shelf")
+     * and changes nothing if there are too few. Undo puts them back.
      */
-    data class Withdraw(val amountMinor: Long) : LedgerCommand {
-        override fun apply(account: Account) {
-            TODO("check the balance first, then take the amount")
+    data class Sell(val units: Int) : ShelfCommand {
+        override fun apply(shelf: Shelf) {
+            TODO("check the shelf first, then take the units")
         }
 
-        override fun undo(account: Account) {
-            TODO("put the amount back")
+        override fun undo(shelf: Shelf) {
+            TODO("put them back")
         }
     }
 }
 
-/** Runs commands against one account and keeps what it needs for undo and redo. */
-class CommandStack(private val account: Account) {
+/** Runs commands against one shelf and keeps what it needs for undo and redo. */
+class CommandStack(private val shelf: Shelf) {
 
     /** The commands that can be undone, most recent first. */
-    val undoable: List<LedgerCommand>
+    val undoable: List<ShelfCommand>
         get() = TODO("a copy of the undo history")
 
     /**
      * Runs [cmd]. Only a command that succeeded can be undone: one that throws leaves no trace.
      * Running a new command clears the redo history.
      */
-    fun run(cmd: LedgerCommand) {
+    fun run(cmd: ShelfCommand) {
         TODO("apply first, record only after it worked, clear redo")
     }
 

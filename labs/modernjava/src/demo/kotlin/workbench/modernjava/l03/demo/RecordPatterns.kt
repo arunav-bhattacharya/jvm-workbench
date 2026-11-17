@@ -8,7 +8,7 @@ sealed interface Outcome<out T> {
     data class Err(val message: String, val cause: Throwable?) : Outcome<Nothing>
 }
 
-data class Payment(val id: String, val amountMinor: Long)
+data class Book(val title: String, val pages: Int)
 
 // Kotlin can't take records apart in a when branch: match the outer type, then read the properties
 fun describe(line: Line): String {
@@ -41,6 +41,6 @@ fun main() {
     }
 
     // destructuring goes by position, not by name: this compiles, with no warning, and swaps the values
-    val (amountMinor, id) = Payment("p1", 500)
-    println("swapped names: amountMinor=$amountMinor id=$id")
+    val (pages, title) = Book("Dune", 412)
+    println("swapped names: pages=$pages title=$title")
 }

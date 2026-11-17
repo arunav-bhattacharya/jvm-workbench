@@ -8,15 +8,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** Four flyweights: three from the JDK, one of our own. `==` asks "the same object?" */
 public class FlyweightDemo {
 
-    // our own: one shared instance per merchant category code
-    static final class Mcc {
-        private static final Map<String, Mcc> POOL = new ConcurrentHashMap<>();
+    // our own: one shared instance per product code in the shop's catalog
+    static final class Product {
+        private static final Map<String, Product> POOL = new ConcurrentHashMap<>();
         private static final AtomicInteger BUILT = new AtomicInteger();
         final String code;
 
-        private Mcc(String code) { this.code = code; BUILT.incrementAndGet(); }
+        private Product(String code) { this.code = code; BUILT.incrementAndGet(); }
 
-        static Mcc of(String code) { return POOL.computeIfAbsent(code, Mcc::new); }
+        static Product of(String code) { return POOL.computeIfAbsent(code, Product::new); }
         static int built() { return BUILT.get(); }
     }
 
@@ -26,12 +26,12 @@ public class FlyweightDemo {
         System.out.println("Integer 127 == 127: " + (a == b));
         System.out.println("Integer 128 == 128: " + (c == d) + "   equals: " + c.equals(d));
 
-        String parsed = new String("5411");                 // a fresh object, like a field parsed from a message
-        System.out.println("parsed == \"5411\": " + (parsed == "5411") + "   after intern(): " + (parsed.intern() == "5411"));
+        String parsed = new String("T-1001");               // a fresh object, like a code read from an order form
+        System.out.println("parsed == \"T-1001\": " + (parsed == "T-1001") + "   after intern(): " + (parsed.intern() == "T-1001"));
 
         System.out.println("Currency EUR == EUR: " + (Currency.getInstance("EUR") == Currency.getInstance("EUR")));
 
-        Mcc first = Mcc.of("5411"), second = Mcc.of("5411");
-        System.out.println("Mcc 5411 == 5411: " + (first == second) + "   instances built: " + Mcc.built());
+        Product first = Product.of("T-1001"), second = Product.of("T-1001");
+        System.out.println("Product T-1001 == T-1001: " + (first == second) + "   instances built: " + Product.built());
     }
 }

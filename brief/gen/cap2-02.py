@@ -61,16 +61,16 @@ FIG = (
 )
 
 K_FAN = """suspend fun allPrices(destination: String): List<Quote> = coroutineScope {
-    couriers.map { c -> async { c.quote(destination) } }   // 1. text all three
-        .awaitAll()                                       // 2. then read the replies: the slowest decides
+    providers.map { p -> async { p.quote(destination) } }   // 1. text all three
+        .awaitAll()                                         // 2. then read the replies: the slowest decides
 }"""
 J_FAN = """// Java equivalent with Reactor: Mono.zip subscribes to all three sources at once
 Mono<List<Quote>> allPrices(String destination) {
     return Mono.zip(northline.quote(destination), eastgate.quote(destination), fjord.quote(destination))
             .map(t -> List.of(t.getT1(), t.getT2(), t.getT3()));
 }"""
-K_DEADLINE = """couriers.map { c ->
-    async { withTimeoutOrNull(deadline) { c.quote(destination) } }   // null if c misses the deadline
+K_DEADLINE = """providers.map { p ->
+    async { withTimeoutOrNull(deadline) { p.quote(destination) } }   // null if p misses the deadline
 }"""
 J_DEADLINE = """// Java equivalent with Reactor: a timeout on each source, turned into "no answer"
 Mono<Optional<Quote>> inTime(Mono<Quote> call) {
@@ -147,7 +147,7 @@ That's a good day. On a bad day, a courier doesn't just run late. It fails.""", 
 
 S2 = fill("""The first draft of `BestQuote`, the starting code of this lesson's lab, uses `coroutineScope` and `withTimeout`. Both are wrong for a price, for reasons earlier lessons gave.
 
-`coroutineScope` treats its children as one unit of work. Structured concurrency: scopes, jobs and the tree put it as a kitchen rule: a course goes out only when all of its dishes are ready. So when Northline throws `IOException` at 50 ms, the scope cancels Eastgate and Fjord and rethrows, as Exceptions: launch vs async, SupervisorJob, handlers showed with the burnt gravy. That's right when a page needs all three answers. A price needs any one of them.
+`coroutineScope` treats its children as one unit of work. Structured concurrency: scopes, jobs and the tree put it as a kitchen rule: a course goes out only when all of its dishes are ready. So when Northline throws `IOException` at 50 ms, the scope cancels Eastgate and Fjord and rethrows, as Exceptions: launch vs async, SupervisorJob, handlers showed with the burnt gravy. That's the right rule when a request needs every answer. A price needs any one of them.
 
 `supervisorScope` is the bake sale from that lesson, where one burnt tray doesn't spoil the others. Each child fails alone. A failed `async` keeps its exception in its `Deferred`, and `await` hands it to you, where you turn it into "no answer".
 
@@ -193,7 +193,7 @@ S4 = fill("""Lesson 1's handler calls `quote` on the event loop, and it cancels 
 
 The service owns a scope, the object that starts coroutines and keeps track of them (1). `scope.future { }` starts a coroutine in that scope and returns a `CompletableFuture` at once (2), so the event loop never waits. Coroutines meet Java pictured this bridge as the neighbour's ticket, and here the ticket is tied to the coroutine in both directions. When the coroutine finishes, the future completes. When someone cancels the future, the coroutine is cancelled. Closing the service cancels whatever is left (3).
 
-The second direction is what ties a request to its connection. The client hangs up, `channelInactive` cancels the future, and the `future` coroutine is cancelled. The cancel then travels down the **job tree**, the parent and child links between running coroutines, to the `supervisorScope` and its three courier calls. The guests have called dinner off, and this time the news reaches every pot on the stove.
+The second direction is what ties a request to its connection. The client hangs up, `channelInactive` cancels the future, and the `future` coroutine is cancelled. The cancel then travels down the **job tree**, the parent and child links between running coroutines, to the `supervisorScope` and its three courier calls. The guests have called dinner off, and this time the news reaches every pot on the stove. The picture breaks at the stove, though. A pot comes off the heat the moment the cook lifts it, while a coroutine stops only at its next suspension point, so a courier client stuck in a blocking call keeps going until that call returns (Cancellation and timeouts).
 
 Why not give each connection its own scope and cancel it in `channelInactive`? That works too, and it's the shape to pick when the handler itself is written in Kotlin. Here, the Java handler from lesson 1 already keeps every pending future and cancels them on close, so a scope per connection would track the same requests twice. With `future { }`, the Java side holds the ticket, the Kotlin side holds the tree, and neither needs to know how the other works.
 

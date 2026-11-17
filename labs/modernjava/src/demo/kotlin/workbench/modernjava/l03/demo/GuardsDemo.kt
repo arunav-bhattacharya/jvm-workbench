@@ -1,31 +1,31 @@
 package workbench.modernjava.l03.demo
 
-enum class Network { VISA, MASTERCARD, AMEX }
+enum class Format { HARDBACK, PAPERBACK, LARGE_PRINT }
 
-sealed interface Charge {
-    data class Card(val network: Network, val corporate: Boolean, val amountMinor: Long) : Charge
-    data class Transfer(val instant: Boolean, val amountMinor: Long) : Charge
+sealed interface LoanItem {
+    data class Book(val format: Format, val newRelease: Boolean) : LoanItem
+    data class Disc(val boxSet: Boolean) : LoanItem
 }
 
 // guards in when branches (`is T if condition`) are stable since Kotlin 2.2
-fun fee(c: Charge): Long = when (c) {
-    is Charge.Card if c.network == Network.AMEX -> c.amountMinor * 350 / 10_000   // 1
-    is Charge.Card if c.corporate -> c.amountMinor * 290 / 10_000                 // 2
-    is Charge.Card -> c.amountMinor * 30 / 10_000                                 // 3
-    is Charge.Transfer if c.instant -> 50
-    is Charge.Transfer -> 20
+fun loanDays(i: LoanItem): Int = when (i) {
+    is LoanItem.Book if i.format == Format.LARGE_PRINT -> 42   // 1
+    is LoanItem.Book if i.newRelease -> 7                      // 2
+    is LoanItem.Book -> 21                                     // 3
+    is LoanItem.Disc if i.boxSet -> 14
+    is LoanItem.Disc -> 7
 }
 
 /** Branches are tried from the top, and the first one that matches wins. Guards decide the order. */
 fun main() {
-    val charges = listOf(
-        Charge.Card(Network.AMEX, false, 10_000),
-        Charge.Card(Network.AMEX, true, 10_000),
-        Charge.Card(Network.VISA, true, 10_000),
-        Charge.Card(Network.VISA, false, 10_000),
-        Charge.Transfer(true, 10_000),
+    val items = listOf(
+        LoanItem.Book(Format.LARGE_PRINT, false),
+        LoanItem.Book(Format.LARGE_PRINT, true),
+        LoanItem.Book(Format.HARDBACK, true),
+        LoanItem.Book(Format.PAPERBACK, false),
+        LoanItem.Disc(true),
     )
-    for (c in charges) {
-        println("%-62s fee %d".format(c, fee(c)))
+    for (i in items) {
+        println("%-42s %d days".format(i, loanDays(i)))
     }
 }

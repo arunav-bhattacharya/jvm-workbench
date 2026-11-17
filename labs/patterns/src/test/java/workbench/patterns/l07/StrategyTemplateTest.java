@@ -2,7 +2,7 @@ package workbench.patterns.l07;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import workbench.patterns.l07.Fees.Quote;
+import workbench.patterns.l07.DeliveryPrices.Quote;
 import workbench.patterns.l07.Outbound.CallRecord;
 
 import java.util.ArrayList;
@@ -15,61 +15,61 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class StrategyTemplateTest {
 
-    // ---- strategy: the router refactor, pinned to the legacy behavior ----
+    // ---- strategy: the pricer refactor, pinned to the legacy behavior ----
 
-    private static final long[] AMOUNTS = {0, 1, 999, 10_000, 123_456, 5_000_000};
-    private static final String[] COUNTRIES = {"DE", "FR", "US"};
+    private static final int[] WEIGHTS = {0, 1, 999, 2_500, 4_999, 5_000};
+    private static final String[] DISTRICTS = {"Old Town", "Hilltop", "Riverside"};
 
     @Test
-    @DisplayName("The strategy map has an entry for every payment method")
+    @DisplayName("The strategy map has an entry for every delivery method")
     void mapCoversEveryMethod() {
-        assertThat(Fees.strategies().keySet()).containsExactlyInAnyOrderElementsOf(EnumSet.allOf(Method.class));
+        assertThat(DeliveryPrices.strategies().keySet()).containsExactlyInAnyOrderElementsOf(EnumSet.allOf(DeliveryMethod.class));
     }
 
     @Test
-    @DisplayName("100.00 domestic: card 3.20, SEPA 0.25, wallet 1.50, in both refactors")
+    @DisplayName("2.5 kg in the Old Town: bike 2.75, van 4.50, pickup free, in both refactors")
     void fixedPoints() {
-        assertThat(Fees.feeByMap(new Payment(Method.CARD, 10_000, "DE"))).isEqualTo(320);
-        assertThat(Fees.feeByMap(new Payment(Method.SEPA, 10_000, "DE"))).isEqualTo(25);
-        assertThat(Fees.feeByMap(new Payment(Method.WALLET, 10_000, "DE"))).isEqualTo(150);
-        assertThat(Fees.feeBySwitch(new Payment(Method.CARD, 10_000, "DE"))).isEqualTo(320);
-        assertThat(Fees.feeBySwitch(new Payment(Method.SEPA, 10_000, "DE"))).isEqualTo(25);
-        assertThat(Fees.feeBySwitch(new Payment(Method.WALLET, 10_000, "DE"))).isEqualTo(150);
+        assertThat(DeliveryPrices.priceByMap(new Parcel(DeliveryMethod.BIKE, 2_500, "Old Town"))).isEqualTo(275);
+        assertThat(DeliveryPrices.priceByMap(new Parcel(DeliveryMethod.VAN, 2_500, "Old Town"))).isEqualTo(450);
+        assertThat(DeliveryPrices.priceByMap(new Parcel(DeliveryMethod.PICKUP, 2_500, "Old Town"))).isEqualTo(0);
+        assertThat(DeliveryPrices.priceBySwitch(new Parcel(DeliveryMethod.BIKE, 2_500, "Old Town"))).isEqualTo(275);
+        assertThat(DeliveryPrices.priceBySwitch(new Parcel(DeliveryMethod.VAN, 2_500, "Old Town"))).isEqualTo(450);
+        assertThat(DeliveryPrices.priceBySwitch(new Parcel(DeliveryMethod.PICKUP, 2_500, "Old Town"))).isEqualTo(0);
     }
 
     @Test
-    @DisplayName("A cross-border card pays 1% more; SEPA and wallet don't care about the country")
-    void crossBorder() {
-        assertThat(Fees.feeBySwitch(new Payment(Method.CARD, 10_000, "FR"))).isEqualTo(420);
-        assertThat(Fees.feeByMap(new Payment(Method.CARD, 10_000, "FR"))).isEqualTo(420);
-        assertThat(Fees.feeByMap(new Payment(Method.WALLET, 10_000, "US"))).isEqualTo(150);
+    @DisplayName("A bike outside the Old Town pays 0.10 more per kg; vans and pickup don't care where")
+    void outsideTheOldTown() {
+        assertThat(DeliveryPrices.priceBySwitch(new Parcel(DeliveryMethod.BIKE, 2_500, "Hilltop"))).isEqualTo(300);
+        assertThat(DeliveryPrices.priceByMap(new Parcel(DeliveryMethod.BIKE, 2_500, "Hilltop"))).isEqualTo(300);
+        assertThat(DeliveryPrices.priceByMap(new Parcel(DeliveryMethod.VAN, 2_500, "Riverside"))).isEqualTo(450);
     }
 
     @Test
-    @DisplayName("Both refactors agree with the legacy router on every method, amount and country")
+    @DisplayName("Both refactors agree with the legacy pricer on every method, weight and district")
     void parityWithLegacy() {
-        for (Method m : Method.values()) {
-            for (long amount : AMOUNTS) {
-                for (String country : COUNTRIES) {
-                    Payment p = new Payment(m, amount, country);
-                    long expected = LegacyRouter.fee(p);
-                    assertThat(Fees.feeByMap(p)).as("map: %s", p).isEqualTo(expected);
-                    assertThat(Fees.feeBySwitch(p)).as("switch: %s", p).isEqualTo(expected);
+        for (DeliveryMethod m : DeliveryMethod.values()) {
+            for (int grams : WEIGHTS) {
+                for (String district : DISTRICTS) {
+                    Parcel p = new Parcel(m, grams, district);
+                    long expected = LegacyPricer.priceCents(p);
+                    assertThat(DeliveryPrices.priceByMap(p)).as("map: %s", p).isEqualTo(expected);
+                    assertThat(DeliveryPrices.priceBySwitch(p)).as("switch: %s", p).isEqualTo(expected);
                 }
             }
         }
     }
 
     @Test
-    @DisplayName("PSPs are tried cheapest first, then fastest, then by name")
+    @DisplayName("Couriers are asked cheapest first, then fastest, then by name")
     void cheapestThenFastest() {
         List<Quote> quotes = new ArrayList<>(List.of(
-                new Quote("Northpay", 30, 200),
-                new Quote("Adyx", 25, 900),
-                new Quote("Kestrel", 30, 120),
-                new Quote("Bluefin", 30, 120)));
-        quotes.sort(Fees.cheapestThenFastest());
-        assertThat(quotes).extracting(Quote::psp).containsExactly("Adyx", "Bluefin", "Kestrel", "Northpay");
+                new Quote("Pedal Post", 450, 30),
+                new Quote("Big Blue Vans", 350, 90),
+                new Quote("Kestrel", 450, 20),
+                new Quote("Gull Express", 450, 20)));
+        quotes.sort(DeliveryPrices.cheapestThenFastest());
+        assertThat(quotes).extracting(Quote::courier).containsExactly("Big Blue Vans", "Gull Express", "Kestrel", "Pedal Post");
     }
 
     // ---- template method vs execute around ----
@@ -84,19 +84,19 @@ class StrategyTemplateTest {
     @DisplayName("timed returns the body's result and records ok with the time between two clock reads")
     void timedSuccess() {
         List<CallRecord> log = new ArrayList<>();
-        String auth = Outbound.timed("psp.authorize", ticking(), log, () -> "A-1250");
-        assertThat(auth).isEqualTo("A-1250");
-        assertThat(log).containsExactly(new CallRecord("psp.authorize", 5_000_000, "ok"));
+        String ref = Outbound.timed("courier.book", ticking(), log, () -> "PP-1250");
+        assertThat(ref).isEqualTo("PP-1250");
+        assertThat(log).containsExactly(new CallRecord("courier.book", 5_000_000, "ok"));
     }
 
     @Test
     @DisplayName("timed records the exception's simple name and rethrows the same exception")
     void timedFailure() {
         List<CallRecord> log = new ArrayList<>();
-        IllegalStateException boom = new IllegalStateException("PSP 503");
-        assertThatThrownBy(() -> Outbound.timed("psp.capture", ticking(), log, () -> { throw boom; }))
-                .isSameAs(boom);
-        assertThat(log).containsExactly(new CallRecord("psp.capture", 5_000_000, "IllegalStateException"));
+        IllegalStateException busy = new IllegalStateException("line busy");
+        assertThatThrownBy(() -> Outbound.timed("courier.cancel", ticking(), log, () -> { throw busy; }))
+                .isSameAs(busy);
+        assertThat(log).containsExactly(new CallRecord("courier.cancel", 5_000_000, "IllegalStateException"));
     }
 
     @Test
@@ -104,10 +104,10 @@ class StrategyTemplateTest {
     void sameAsTemplate() {
         List<CallRecord> viaFunction = new ArrayList<>();
         List<CallRecord> viaTemplate = new ArrayList<>();
-        Outbound.timed("psp.refund", ticking(), viaFunction, () -> 500L);
-        new Outbound.OutboundCall<Long>(ticking(), viaTemplate) {
-            @Override protected String name() { return "psp.refund"; }
-            @Override protected Long doCall() { return 500L; }
+        Outbound.timed("courier.track", ticking(), viaFunction, () -> "out for delivery");
+        new Outbound.OutboundCall<String>(ticking(), viaTemplate) {
+            @Override protected String name() { return "courier.track"; }
+            @Override protected String doCall() { return "out for delivery"; }
         }.execute();
         assertThat(viaFunction).isEqualTo(viaTemplate).hasSize(1);
     }

@@ -19,9 +19,9 @@ abstract class OutboundCall {
     abstract fun doCall(): String                  // hook
 }
 
-class ChargeCall(private val psp: String) : OutboundCall() {   // psp is a non-null String...
-    override fun name() = "charge via $psp"                    // ...and still reads as null here
-    override fun doCall() = "ch_1250"
+class BookingCall(private val courier: String) : OutboundCall() {   // courier is a non-null String...
+    override fun name() = "booking via $courier"                    // ...and still reads as null here
+    override fun doCall() = "PP-1250"
 }
 
 // execute around: the same skeleton as an inline function; the varying step is a lambda
@@ -35,6 +35,6 @@ inline fun <T> outbound(name: String, body: () -> T): T {
 }
 
 fun main() {
-    println("template: ${ChargeCall("northpay").execute()}")
-    println("function: ${outbound("outbound charge via northpay") { "ch_1250" }}")
+    println("template: ${BookingCall("Pedal Post").execute()}")
+    println("function: ${outbound("outbound booking via Pedal Post") { "PP-1250" }}")
 }

@@ -26,13 +26,13 @@ public class TemplateHookDemo {
         abstract String doCall();                   // hook
     }
 
-    static final class ChargeCall extends OutboundCall {
-        private final String psp;
+    static final class BookingCall extends OutboundCall {
+        private final String courier;
 
-        ChargeCall(String psp) { this.psp = psp; }  // runs AFTER OutboundCall() has called name()
+        BookingCall(String courier) { this.courier = courier; }  // runs AFTER OutboundCall() has called name()
 
-        String name() { return "charge via " + psp; }
-        String doCall() { return "ch_1250"; }
+        String name() { return "booking via " + courier; }
+        String doCall() { return "PP-1250"; }
     }
 
     // execute around: the same skeleton as a function; the varying step is a parameter
@@ -46,7 +46,7 @@ public class TemplateHookDemo {
     }
 
     public static void main(String[] args) {
-        System.out.println("template: " + new ChargeCall("northpay").execute());
-        System.out.println("function: " + outbound("outbound charge via northpay", () -> "ch_1250"));
+        System.out.println("template: " + new BookingCall("Pedal Post").execute());
+        System.out.println("function: " + outbound("outbound booking via Pedal Post", () -> "PP-1250"));
     }
 }

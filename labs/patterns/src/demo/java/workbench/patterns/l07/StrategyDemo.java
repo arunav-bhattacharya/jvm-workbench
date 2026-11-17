@@ -5,25 +5,25 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Three strategies for one decision: which PSP does the router try first? */
+/** Three strategies for one decision: which courier does the shop ask first? */
 public class StrategyDemo {
-    record Quote(String psp, long feeMinor, long p95Millis) {}
+    record Quote(String courier, long priceCents, long minutes) {}
 
     public static void main(String[] args) {
         List<Quote> quotes = List.of(
-                new Quote("Northpay", 30, 200),
-                new Quote("Adyx", 25, 900),
-                new Quote("Kestrel", 30, 120));
+                new Quote("Pedal Post", 450, 30),
+                new Quote("Big Blue Vans", 350, 90),
+                new Quote("Kestrel", 450, 20));
 
         // each value is a complete strategy: no class per algorithm
         Map<String, Comparator<Quote>> policies = new LinkedHashMap<>();
-        policies.put("cheapest", Comparator.comparingLong(Quote::feeMinor));
-        policies.put("fastest", Comparator.comparingLong(Quote::p95Millis));
+        policies.put("cheapest", Comparator.comparingLong(Quote::priceCents));
+        policies.put("fastest", Comparator.comparingLong(Quote::minutes));
         policies.put("cheapest, then fastest",
-                Comparator.comparingLong(Quote::feeMinor).thenComparingLong(Quote::p95Millis));
+                Comparator.comparingLong(Quote::priceCents).thenComparingLong(Quote::minutes));
 
         // sorted() is the context: it owns the algorithm and asks the strategy one question
         policies.forEach((name, order) ->
-                System.out.println(name + ": " + quotes.stream().sorted(order).map(Quote::psp).toList()));
+                System.out.println(name + ": " + quotes.stream().sorted(order).map(Quote::courier).toList()));
     }
 }

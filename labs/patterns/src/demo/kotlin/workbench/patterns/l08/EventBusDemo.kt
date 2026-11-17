@@ -23,15 +23,15 @@ class EventBus<E> {
     }
 }
 
-data class PostedEvent(val account: String, val amountMinor: Long)
+data class OrderedEvent(val customer: String, val item: String)
 
 fun main() {
-    val bus = EventBus<PostedEvent>()
-    bus.subscribe { println("ledger view got  $it") }
-    bus.subscribe { throw IllegalStateException("analytics dashboard is down") }
+    val bus = EventBus<OrderedEvent>()
+    bus.subscribe { println("stock view got   $it") }
+    bus.subscribe { throw IllegalStateException("the sales chart is down") }
     val email = bus.subscribe { println("email sender got $it") }
 
-    bus.publish(PostedEvent("acc-1", 450))
+    bus.publish(OrderedEvent("Ana", "rye bread"))
     email.close()                                                 // unsubscribe
-    bus.publish(PostedEvent("acc-1", 900))
+    bus.publish(OrderedEvent("Ben", "jam"))
 }

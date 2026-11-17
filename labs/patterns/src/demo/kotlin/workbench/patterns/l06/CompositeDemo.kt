@@ -1,34 +1,31 @@
 package workbench.patterns.l06
 
-// A fee plan as a tree. Leaves and groups share one sealed type, so one `when` prices them all.
+// The Saturday breakfast box as a tree. Items and boxes share one sealed type, so one `when` prices them all.
 
-sealed interface FeeRule {
-    data class Flat(val minor: Long) : FeeRule
-    data class Percent(val bps: Int) : FeeRule
-    class AllOf(rules: List<FeeRule>) : FeeRule {
-        val rules: List<FeeRule> = rules.toList()      // copy what we were given: the tree stays immutable
+sealed interface ShopGoods {
+    data class Item(val name: String, val cents: Long) : ShopGoods
+    class Box(contents: List<ShopGoods>) : ShopGoods {
+        val contents: List<ShopGoods> = contents.toList()   // copy what we were given: the tree stays immutable
     }
 }
 
-private fun fee(r: FeeRule, amountMinor: Long): Long = when (r) {   // no else: a new node type breaks the build
-    is FeeRule.Flat -> r.minor
-    is FeeRule.Percent -> amountMinor * r.bps / 10_000
-    is FeeRule.AllOf -> r.rules.sumOf { fee(it, amountMinor) }
+private fun price(g: ShopGoods): Long = when (g) {   // no else: a new node type breaks the build
+    is ShopGoods.Item -> g.cents
+    is ShopGoods.Box -> g.contents.sumOf { price(it) }
 }
 
-private fun describe(r: FeeRule): String = when (r) {
-    is FeeRule.Flat -> r.minor.toString()
-    is FeeRule.Percent -> "%d.%02d%%".format(r.bps / 100, r.bps % 100)
-    is FeeRule.AllOf -> r.rules.joinToString(" + ", "(", ")") { describe(it) }
+private fun describe(g: ShopGoods): String = when (g) {
+    is ShopGoods.Item -> "${g.name} %d.%02d".format(g.cents / 100, g.cents % 100)
+    is ShopGoods.Box -> g.contents.joinToString(" + ", "(", ")") { describe(it) }
 }
 
 fun main() {
-    val bundle = mutableListOf<FeeRule>(FeeRule.Flat(5))
-    val plan = FeeRule.AllOf(listOf(FeeRule.Flat(30), FeeRule.Percent(290), FeeRule.AllOf(bundle)))
-    println("plan: ${describe(plan)}")
-    println("fee on 100.00: ${fee(plan, 10_000)}")
-    println("fee on 1,000.00: ${fee(plan, 100_000)}")
+    val extras = mutableListOf<ShopGoods>(ShopGoods.Item("tea", 450))
+    val breakfast = ShopGoods.Box(listOf(ShopGoods.Item("bread", 250), ShopGoods.Item("jam", 300), ShopGoods.Box(extras)))
+    println("box: ${describe(breakfast)}")
+    println("price: ${price(breakfast)} cents")
+    println("a box of two breakfast boxes: ${price(ShopGoods.Box(listOf(breakfast, breakfast)))} cents")
 
-    bundle += FeeRule.Flat(1_000)                       // someone edits the list they passed in
-    println("after editing the source list: ${describe(plan)}")
+    extras += ShopGoods.Item("champagne", 3_000)          // someone edits the list they passed in
+    println("after editing the source list: ${describe(breakfast)}")
 }

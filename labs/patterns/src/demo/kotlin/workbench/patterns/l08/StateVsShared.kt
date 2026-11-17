@@ -7,10 +7,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 
-// The same three payment updates, observed through a StateFlow and through a SharedFlow.
+// The same three sales at the counter, observed through a StateFlow and through a SharedFlow.
 
 fun main() = runBlocking {
-    val state = MutableStateFlow("NEW")                 // state: the latest value; equal values are dropped
+    val state = MutableStateFlow("nothing yet")         // state: the latest value; equal values are dropped
     val events = MutableSharedFlow<String>()            // events: every value, to every collector
 
     val fromState = mutableListOf<String>()
@@ -20,7 +20,7 @@ fun main() = runBlocking {
         launch(start = CoroutineStart.UNDISPATCHED) { events.collect { fromEvents += it } },
     )
 
-    for (update in listOf("AUTHORIZED", "AUTHORIZED", "CAPTURED")) {
+    for (update in listOf("rye bread", "rye bread", "jam")) {   // two loaves sold, then a jar of jam
         state.value = update
         events.emit(update)                             // suspends until every collector has taken it
         yield()

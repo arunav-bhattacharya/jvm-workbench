@@ -3,34 +3,34 @@ package workbench.modernjava.l03.demo;
 /** Cases are tried from the top, and the first one that matches wins. Guards decide the order. */
 public class GuardsDemo {
 
-    enum Network { VISA, MASTERCARD, AMEX }
+    enum Format { HARDBACK, PAPERBACK, LARGE_PRINT }
 
-    sealed interface Charge permits CardCharge, TransferCharge {}
+    sealed interface Item permits Book, Disc {}
 
-    record CardCharge(Network network, boolean corporate, long amountMinor) implements Charge {}
+    record Book(Format format, boolean newRelease) implements Item {}
 
-    record TransferCharge(boolean instant, long amountMinor) implements Charge {}
+    record Disc(boolean boxSet) implements Item {}
 
-    static long fee(Charge c) {
-        return switch (c) {
-            case CardCharge(var net, var corp, var amt) when net == Network.AMEX -> amt * 350 / 10_000;   // 1
-            case CardCharge(var net, var corp, var amt) when corp -> amt * 290 / 10_000;                  // 2
-            case CardCharge(var net, var corp, var amt) -> amt * 30 / 10_000;                             // 3
-            case TransferCharge(var instant, var amt) when instant -> 50;
-            case TransferCharge t -> 20;
+    static int loanDays(Item item) {
+        return switch (item) {
+            case Book(var format, var isNew) when format == Format.LARGE_PRINT -> 42;   // 1
+            case Book(var format, var isNew) when isNew -> 7;                          // 2
+            case Book(var format, var isNew) -> 21;                                    // 3
+            case Disc(var boxSet) when boxSet -> 14;
+            case Disc d -> 7;
         };
     }
 
     public static void main(String[] args) {
-        Charge[] charges = {
-            new CardCharge(Network.AMEX, false, 10_000),
-            new CardCharge(Network.AMEX, true, 10_000),
-            new CardCharge(Network.VISA, true, 10_000),
-            new CardCharge(Network.VISA, false, 10_000),
-            new TransferCharge(true, 10_000),
+        Item[] items = {
+            new Book(Format.LARGE_PRINT, false),
+            new Book(Format.LARGE_PRINT, true),
+            new Book(Format.HARDBACK, true),
+            new Book(Format.PAPERBACK, false),
+            new Disc(true),
         };
-        for (Charge c : charges) {
-            System.out.printf("%-62s fee %d%n", c, fee(c));
+        for (Item i : items) {
+            System.out.printf("%-42s %d days%n", i, loanDays(i));
         }
     }
 }

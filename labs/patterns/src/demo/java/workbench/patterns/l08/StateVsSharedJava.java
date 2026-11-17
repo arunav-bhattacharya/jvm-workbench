@@ -32,7 +32,7 @@ public class StateVsSharedJava {
     }
 
     public static void main(String[] args) throws Exception {
-        LatestValue<String> state = new LatestValue<>("NEW");
+        LatestValue<String> state = new LatestValue<>("nothing yet");
         List<String> fromState = new CopyOnWriteArrayList<>();
         state.observe(fromState::add);
 
@@ -40,7 +40,7 @@ public class StateVsSharedJava {
         CompletableFuture<Void> done;
         try (SubmissionPublisher<String> events = new SubmissionPublisher<>()) {
             done = events.consume(fromEvents::add);     // a subscriber that gets every item
-            for (String update : List.of("AUTHORIZED", "AUTHORIZED", "CAPTURED")) {
+            for (String update : List.of("rye bread", "rye bread", "jam")) {   // two loaves sold, then a jar of jam
                 state.set(update);
                 events.submit(update);
             }

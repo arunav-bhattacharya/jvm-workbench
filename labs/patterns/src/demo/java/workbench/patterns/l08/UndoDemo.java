@@ -5,52 +5,52 @@ import java.util.Deque;
 
 /** Commands as records, an undo log, and the one rule that keeps undo honest. */
 public class UndoDemo {
-    static final class Wallet { long balance; }
+    static final class Shelf { int units; }
 
-    sealed interface Command permits Deposit, Withdraw {
-        void apply(Wallet w);
-        void undo(Wallet w);
+    sealed interface Command permits Restock, Sell {
+        void apply(Shelf s);
+        void undo(Shelf s);
     }
 
-    record Deposit(long amount) implements Command {
-        public void apply(Wallet w) { w.balance += amount; }
-        public void undo(Wallet w) { w.balance -= amount; }
+    record Restock(int units) implements Command {
+        public void apply(Shelf s) { s.units += units; }
+        public void undo(Shelf s) { s.units -= units; }
     }
 
-    record Withdraw(long amount) implements Command {
-        public void apply(Wallet w) {
-            if (w.balance < amount) throw new IllegalStateException("insufficient funds");
-            w.balance -= amount;
+    record Sell(int units) implements Command {
+        public void apply(Shelf s) {
+            if (s.units < units) throw new IllegalStateException("not enough on the shelf");
+            s.units -= units;
         }
-        public void undo(Wallet w) { w.balance += amount; }
+        public void undo(Shelf s) { s.units += units; }
     }
 
     static final class CommandLog {
         final Deque<Command> history = new ArrayDeque<>();
 
-        void run(Command c, Wallet w) {
-            c.apply(w);              // 1. apply first
+        void run(Command c, Shelf s) {
+            c.apply(s);              // 1. apply first
             history.push(c);         // 2. record only after it worked
         }
 
-        void undoLast(Wallet w) {
+        void undoLast(Shelf s) {
             Command c = history.poll();
-            if (c != null) c.undo(w);
+            if (c != null) c.undo(s);
         }
     }
 
     public static void main(String[] args) {
-        Wallet wallet = new Wallet();
+        Shelf rye = new Shelf();
         CommandLog log = new CommandLog();
-        log.run(new Deposit(100), wallet);
-        log.run(new Withdraw(30), wallet);
+        log.run(new Restock(12), rye);
+        log.run(new Sell(5), rye);
         try {
-            log.run(new Withdraw(1_000), wallet);
+            log.run(new Sell(40), rye);
         } catch (IllegalStateException e) {
             System.out.println("rejected: " + e.getMessage());
         }
-        System.out.println("balance " + wallet.balance + ", history " + log.history);
-        log.undoLast(wallet);
-        System.out.println("after one undo: balance " + wallet.balance + ", history " + log.history);
+        System.out.println("units " + rye.units + ", history " + log.history);
+        log.undoLast(rye);
+        System.out.println("after one undo: units " + rye.units + ", history " + log.history);
     }
 }

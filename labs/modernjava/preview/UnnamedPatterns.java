@@ -4,29 +4,29 @@
 
 public class UnnamedPatterns {
 
-    sealed interface Command permits Authorize, Capture, Refund, Decline {}
+    sealed interface Request permits Borrow, Return, Renew, Withdraw {}
 
-    record Authorize(String authCode, long amountMinor) implements Command {}
+    record Borrow(String memberId, int days) implements Request {}
 
-    record Capture() implements Command {}
+    record Return() implements Request {}
 
-    record Refund(long amountMinor) implements Command {}
+    record Renew(int extraDays) implements Request {}
 
-    record Decline(String reason) implements Command {}
+    record Withdraw(String reason) implements Request {}
 
-    // what may happen to a payment that is only Created so far
-    static String onCreated(Command c) {
-        return switch (c) {
-            case Authorize(var code, _) -> "authorize with " + code;   // _ : a component you don't need
-            case Decline(var reason) -> "fail: " + reason;
-            case Capture _, Refund _ -> "not allowed yet";            // several patterns, one arm
+    // what may happen to a copy that is on the shelf right now
+    static String onShelf(Request r) {
+        return switch (r) {
+            case Borrow(var member, _) -> "lend to " + member;         // _ : a component you don't need
+            case Withdraw(var reason) -> "take off the shelf: " + reason;
+            case Return _, Renew _ -> "not on loan";                   // several patterns, one arm
         };
     }
 
     public static void main(String[] args) {
-        System.out.println(onCreated(new Authorize("A1B2C3", 4_200)));
-        System.out.println(onCreated(new Decline("insufficient funds")));
-        System.out.println(onCreated(new Capture()));
-        System.out.println(onCreated(new Refund(100)));
+        System.out.println(onShelf(new Borrow("M-1042", 21)));
+        System.out.println(onShelf(new Withdraw("water damage")));
+        System.out.println(onShelf(new Return()));
+        System.out.println(onShelf(new Renew(14)));
     }
 }

@@ -6,14 +6,14 @@ import java.util.concurrent.atomic.AtomicInteger
 
 // Four flyweights: three from the JDK, one of our own. In Kotlin, `==` is equals(); `===` asks "the same object?"
 
-// our own: one shared instance per merchant category code
-class MccCode private constructor(val code: String) {
+// our own: one shared instance per product code in the shop's catalog
+class CatalogProduct private constructor(val code: String) {
     init { built.incrementAndGet() }
 
     companion object {
-        private val pool = ConcurrentHashMap<String, MccCode>()
+        private val pool = ConcurrentHashMap<String, CatalogProduct>()
         private val built = AtomicInteger()
-        fun of(code: String): MccCode = pool.computeIfAbsent(code) { MccCode(it) }
+        fun of(code: String): CatalogProduct = pool.computeIfAbsent(code) { CatalogProduct(it) }
         val instancesBuilt: Int get() = built.get()
     }
 }
@@ -27,12 +27,12 @@ fun main() {
     println("Integer 127 === 127: ${a === b}")
     println("Integer 128 === 128: ${c === d}   ==: ${c == d}")
 
-    val parsed = String(charArrayOf('5', '4', '1', '1'))   // a fresh object, like a field parsed from a message
-    println("parsed === \"5411\": ${parsed === "5411"}   after intern(): ${parsed.intern() === "5411"}")
+    val parsed = String("T-1001".toCharArray())            // a fresh object, like a code read from an order form
+    println("parsed === \"T-1001\": ${parsed === "T-1001"}   after intern(): ${parsed.intern() === "T-1001"}")
 
     println("Currency EUR === EUR: ${Currency.getInstance("EUR") === Currency.getInstance("EUR")}")
 
-    val first = MccCode.of("5411")
-    val second = MccCode.of("5411")
-    println("Mcc 5411 === 5411: ${first === second}   instances built: ${MccCode.instancesBuilt}")
+    val first = CatalogProduct.of("T-1001")
+    val second = CatalogProduct.of("T-1001")
+    println("Product T-1001 === T-1001: ${first === second}   instances built: ${CatalogProduct.instancesBuilt}")
 }
