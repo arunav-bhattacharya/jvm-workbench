@@ -317,11 +317,11 @@ class Conc07Locks(Narrated):
         c3 = ctl("lockInterruptibly()", "wait, but leave when interrupted", -2.85)
         self.say("controls")
         self.at(1)
-        self.play(FadeIn(c1, shift=UP * 0.1), run_time=0.5)
+        self.play(FadeIn(c1[0], shift=UP * 0.1), FadeIn(c1[1], shift=UP * 0.1), run_time=0.5)
         self.at(2)
-        self.play(FadeIn(c2, shift=UP * 0.1), run_time=0.5)
+        self.play(FadeIn(c2[0], shift=UP * 0.1), FadeIn(c2[1], shift=UP * 0.1), run_time=0.5)
         self.at(3)
-        self.play(FadeIn(c3, shift=UP * 0.1), run_time=0.5)
+        self.play(FadeIn(c3[0], shift=UP * 0.1), FadeIn(c3[1], shift=UP * 0.1), run_time=0.5)
         self.hold()
 
         # ================= three ways to wait =================
@@ -344,24 +344,27 @@ class Conc07Locks(Narrated):
         self.at(1)
         self.play(Indicate(intj[1], color=INT), run_time=0.7)
         self.at(2)
-        self.play(FadeOut(c1), ReplacementTransform(c2[0], lab_c), FadeOut(c2[1]), run_time=0.8)
+        self.play(FadeOut(c1), Transform(c2[0], lab_c), FadeOut(c2[1]), run_time=0.8)
+        lab_c = c2[0]
         self.at(3)
         self.play(FadeIn(stmt, shift=RIGHT * 0.3), run_time=0.4)
-        self.play(stmt.animate.move_to(ROWS[1]), ReplacementTransform(c3[0], lab_s), FadeOut(c3[1]), run_time=0.8)
+        self.play(stmt.animate.move_to(ROWS[1]), Transform(c3[0], lab_s), FadeOut(c3[1]), run_time=0.8)
+        lab_s = c3[0]
         self.at(4)
         self.play(FadeIn(tell, shift=RIGHT * 0.3), run_time=0.4)
         self.play(tell.animate.move_to(ROWS[2]), FadeIn(lab_t), run_time=0.8)
         self.hold()
 
         shut = VGroup(bolt(), T("shutdown", 24, YELLOW_M)).arrange(RIGHT, buff=0.2).move_to([-6.2, 2.75, 0], aligned_edge=LEFT)
-        q = T("?", 34, YELLOW_M)
+        qa = T("?", 34, YELLOW_M).next_to(tell, RIGHT, buff=0.2)
+        qb = T("?", 34, YELLOW_M).next_to(stmt, RIGHT, buff=0.2)
         self.say("predict")
         self.play(FadeIn(shut, shift=DOWN * 0.1), run_time=0.5)
         self.at(1)
-        self.play(FadeIn(q.next_to(tell, RIGHT, buff=0.2)), FadeIn(q.copy().next_to(stmt, RIGHT, buff=0.2)), run_time=0.4)
+        self.play(FadeIn(qa), FadeIn(qb), run_time=0.4)
         self.hold(after=0)
         self.predict()
-        self.remove(*[m for m in self.mobjects if isinstance(m, Text) and m.text == "?"])
+        self.play(FadeOut(qa), FadeOut(qb), run_time=0.3)
 
         def run_clock(a, b, rt, *extra):
             self.play(UpdateFromAlphaFunc(clock_val, lambda m, al: m.become(clock_text(a + (b - a) * al))), *extra,
@@ -376,7 +379,6 @@ class Conc07Locks(Narrated):
         bar_bg = Line(lab_c.get_corner(DL) + DOWN * 0.13, lab_c.get_corner(DR) + DOWN * 0.13).set_stroke(GREY_D, 4)
         bar = Line(bar_bg.get_start(), bar_bg.get_end()).set_stroke(CASH, 4)
         self.say("cash")
-        self.play(run_clock(0.0, 0.1, 0.4) or Wait(0.01), run_time=0.01) if False else None
         run_clock(0.0, 0.1, 0.4)
         self.add(bar_bg)
         run_clock(0.1, 0.3, 1.4, Create(bar))
@@ -411,7 +413,7 @@ class Conc07Locks(Narrated):
         self.at(2)
         note.clear_updaters()
         self.play(FadeIn(outs[3], shift=UP * 0.1), run_time=0.5)
-        self.play(Indicate(outs[3][-14:], color=YELLOW_M, scale_factor=1.08), run_time=0.8)
+        self.play(Indicate(outs[3][-16:], color=YELLOW_M, scale_factor=1.08), run_time=0.8)
         self.hold()
 
         self.say("joke")
@@ -420,12 +422,13 @@ class Conc07Locks(Narrated):
         self.say("states")
         self.play(FadeIn(outs[1], shift=UP * 0.1), run_time=0.5)
         self.at(1)
-        self.play(Indicate(outs[1][18:25], color=STMT, scale_factor=1.12), run_time=0.8)
+        self.play(Indicate(outs[1][17:24], color=STMT, scale_factor=1.12), run_time=0.8)
         self.at(2)
         self.play(Indicate(outs[1][-7:], color=TELL, scale_factor=1.12), run_time=0.8)
         self.hold()
 
         # ================= the price: it never lets go by itself =================
+        self.play(FadeOut(note), run_time=0.2)
         walk_out(tell, key, fade=False, rt=0.7)
         self.play(FadeOut(VGroup(tell, note, shut, clock_lab, clock_val, *outs)), run_time=0.6)
         pr1 = VGroup(M("synchronized", 24, GREY_A), T("gives the key back when its block ends, even on an error", 26))
@@ -469,7 +472,8 @@ class Conc07Locks(Narrated):
         wt = T("WAITING, for good", 24, GREY_B).move_to([LAB_X, ROWS[1][1], 0], aligned_edge=RIGHT)
         self.say("leak2")
         for p, r in zip(parked, ROWS):
-            self.play(FadeIn(p, shift=RIGHT * 0.3), p.animate.move_to(r), run_time=0.45)
+            p.move_to(r)
+            self.play(FadeIn(p, shift=RIGHT * 2.5), run_time=0.45)
         self.play(FadeIn(wt), Circumscribe(peg, color=BAD, shape=Circle, buff=0.15), run_time=0.8)
         self.hold()
 
@@ -479,7 +483,7 @@ class Conc07Locks(Narrated):
         ksrc = ["lock.withLock {", "    entries += e", "}", "", "// withLock writes the lock,", "// the try and the finally"]
         hl = {"lock()": KEY, "unlock()": KEY, "withLock": KEY, "finally": GOOD, "try": GOOD}
         jc, kc = code_block(jsrc, 24, hl), code_block(ksrc, 24, hl)
-        for c in (jc[0][-15:], jc[4][-22:], kc[4], kc[5]):
+        for c in (jc[0][-15:], jc[4][-20:], kc[4], kc[5]):
             c.set_color(GREY_B)
         cols = VGroup(VGroup(T("Java", 24, GREY_B), jc).arrange(DOWN, aligned_edge=LEFT, buff=0.25),
                       VGroup(T("Kotlin", 24, GREY_B), kc).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
@@ -496,7 +500,7 @@ class Conc07Locks(Narrated):
         self.at_text("try the work", lead=0.3)
         self.play(Indicate(jc[2], color=WHITE), run_time=0.6)
         self.at_text("finally, whatever", lead=0.3)
-        self.play(Indicate(jc[4][:18], color=KEY), run_time=0.7)
+        self.play(Indicate(jc[4][:14], color=KEY), run_time=0.7)
         self.at(4)
         self.play(FadeIn(cols[1], shift=LEFT * 0.2), run_time=0.7)
         self.hold()
@@ -555,8 +559,9 @@ class Conc07Locks(Narrated):
         sl = [np.array([x, BY + 0.48, 0]) for x in (LX - 1.0, LX + 1.0)]
         sr = [np.array([x, BY + 0.48, 0]) for x in (RX - 1.0, RX + 1.0)]
         self.say("benches")
+        WS = [np.array([-5.2, 1.75, 0]), np.array([-5.2, 0.95, 0])]
         self.play(ReplacementTransform(one, VGroup(bl, br)), FadeOut(one_lab),
-                  w1.animate.move_to(sl[0]), w2.animate.move_to(sl[1]), c1.animate.move_to(sr[0]), c2.animate.move_to(sr[1]),
+                  w1.animate.move_to(WS[0]), w2.animate.move_to(WS[1]), c1.animate.move_to(sr[0]), c2.animate.move_to(sr[1]),
                   ReplacementTransform(bell, VGroup(bell_l, bell_r)), run_time=1.4)
         self.at_text("Condition", lead=0.4)
         cond = T("Condition", 30, YELLOW_M).move_to([0, 0.55, 0])
@@ -571,7 +576,6 @@ class Conc07Locks(Narrated):
         tk = ticket(1).move_to(SLOT + UP * 0.4).set_opacity(0)
         sig = M("notEmpty.signal()", 22, YELLOW_M).move_to([2.6, 1.55, 0])
         aw = M("notFull.await()", 22, YELLOW_M).move_to([-2.6, 1.55, 0])
-        w3 = tch("waiter 3", W1C).move_to([-6.0, 1.55, 0])
         self.say("await")
         self.play(FadeOut(cond), run_time=0.3)
         self.play(w1.animate.move_to(STATION), kkey.animate.move_to(STATION + RIGHT * (w1.width / 2 + 0.45)), run_time=0.8)
@@ -582,15 +586,15 @@ class Conc07Locks(Narrated):
         self.play(Wiggle(bell_r, scale_value=1.2, rotation_angle=0.1 * TAU), Flash(bell_r.get_center(), color=BELL,
                   flash_radius=0.6, line_length=0.2), run_time=0.8)
         self.play(c1.animate.move_to([2.6, 0.55, 0]), run_time=0.6)
-        self.play(FadeOut(sig), w1.animate.move_to([-5.6, 2.5, 0]), kkey.animate.move_to(KHOOK), run_time=0.7)
-        self.play(FadeOut(w1), FadeIn(w3, shift=RIGHT * 0.3), run_time=0.4)
+        self.play(FadeOut(sig), w1.animate.move_to([-4.6, 2.6, 0]), kkey.animate.move_to(KHOOK), run_time=0.7)
+        self.play(FadeOut(w1, shift=LEFT * 0.5), run_time=0.3)
         self.at(2)
-        self.play(w3.animate.move_to(STATION), kkey.animate.move_to(STATION + RIGHT * (w3.width / 2 + 0.45)), run_time=0.7)
+        self.play(w2.animate.move_to(STATION), kkey.animate.move_to(STATION + RIGHT * (w2.width / 2 + 0.45)), run_time=0.7)
         self.play(Circumscribe(tk, color=WHITE, buff=0.1), run_time=0.6)
         self.play(FadeIn(aw), run_time=0.3)
         self.at(3)
         self.play(kkey.animate.move_to(KHOOK), run_time=0.5)
-        self.play(w3.animate.move_to(sl[0] + RIGHT * 0.0 + UP * 0.0), w2.animate.move_to(sl[1]), run_time=0.8)
+        self.play(w2.animate.move_to(sl[0]), run_time=0.8)
         self.hold()
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
 
@@ -656,7 +660,7 @@ class Conc07Locks(Narrated):
         q_lab = T("the exchange rate table", 26, GREY_A).move_to([(QL + QR) / 2, QT + 0.4, 0])
         spots = [np.array([x, y, 0]) for y in (1.6, 0.35) for x in (0.65, 2.3)]
         readers = [tch("reader", READ, 22).move_to(s) for s in spots]
-        count_t = lambda n: M(f"readers inside: {n}", 24, READ).move_to([1.5, -0.6, 0])
+        count_t = lambda n: M(f"readers inside: {n}", 24, READ).move_to([1.5, -0.45, 0])
         cnt = count_t(4)
         rate = T("5,000 reads a second, refreshed every 5 s", 24, GREY_B).move_to([0, -2.0, 0])
         self.say("rates")
@@ -677,13 +681,15 @@ class Conc07Locks(Narrated):
         self.at(2)
         self.play(FadeIn(lib, shift=RIGHT * 0.3), run_time=0.5)
         door_spot = np.array([QL - lib.width / 2 - 0.35, QD_Y, 0])
-        self.play(lib.animate.move_to(door_spot), run_time=0.5)
+        lib_wait = np.array([QL - lib.width / 2 - 0.35, -0.6, 0])
+        self.play(lib.animate.move_to(lib_wait), run_time=0.5)
         # readers finish one by one
         for i, r in enumerate(readers):
-            self.play(r.animate.move_to([QL + 0.05, QD_Y + 0.25 * (i % 2 * 2 - 1), 0]), run_time=0.25)
-            self.play(FadeOut(r, shift=LEFT * 0.5 + DOWN * 1.2), Transform(cnt, count_t(3 - i)), run_time=0.3)
+            self.play(r.animate.move_to([QL + 0.05, QD_Y, 0]), run_time=0.25)
+            self.play(FadeOut(r, shift=LEFT * 0.8 + UP * 1.0), Transform(cnt, count_t(3 - i)), run_time=0.3)
         shut = Line([QL, QD_LO, 0], [QL, QD_HI, 0]).set_stroke(WRITE, 5)
         inside = np.array([QL + 0.4 + lib.width / 2, QD_Y, 0])
+        self.play(lib.animate.move_to(door_spot), run_time=0.3)
         self.play(lib.animate.move_to(inside), run_time=0.5)
         self.play(Create(shut), run_time=0.3)
         self.play(Wiggle(shelf, scale_value=1.05), run_time=0.8)
@@ -716,7 +722,7 @@ class Conc07Locks(Narrated):
 
         loop = CurvedArrow(me.get_left() + DOWN * 0.1, cnt.get_left() + LEFT * 0.1 + UP * 0.05, angle=TAU / 4,
                            color=BAD, stroke_width=3)
-        wait_t = T("waits for readers inside: 0", 22, BAD).next_to(cnt, DOWN, buff=0.2)
+        wait_t = T("waits for readers inside: 0", 22, BAD).move_to([2.4, -1.5, 0])
         self.say("up_show")
         self.play(FadeIn(wait_t), run_time=0.5)
         self.at(1)
