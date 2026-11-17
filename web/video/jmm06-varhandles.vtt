@@ -1,161 +1,297 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:08.467
-A producer hands millions of messages a second to a consumer through a volatile field.
+00:00:02.700 --> 00:00:05.401
+A shop sends its parcels through a courier.
 
 2
-00:00:08.667 --> 00:00:11.971
-Marking it volatile puts the rules on the field.
+00:00:05.401 --> 00:00:14.447
+Most parcels carry no label, and the courier handles them however is quickest: it may bundle them, hold some back, or deliver them out of order.
 
 3
-00:00:11.971 --> 00:00:17.341
-Every write pays for the strongest rules: on x86, a drain of the store buffer.
+00:00:14.567 --> 00:00:17.568
+A few carry a label, like signature required.
 
 4
-00:00:17.567 --> 00:00:20.504
-A VarHandle moves the rules onto each access.
+00:00:17.568 --> 00:00:22.769
+Each label costs the courier time, so nobody stamps fragile on a bag of socks.
 
 5
-00:00:20.504 --> 00:00:24.748
-The field stays plain, and each read or write picks its own mode.
+00:00:22.769 --> 00:00:27.237
+A sensible shop uses the lightest label that keeps the parcel safe.
 
 6
-00:00:25.567 --> 00:00:26.765
-Take one handoff.
+00:00:27.967 --> 00:00:33.100
+Threads send each other parcels too: every read or write of a shared field is one.
 
 7
-00:00:26.765 --> 00:00:29.868
-The writer sets total and count, then ready.
+00:00:33.100 --> 00:00:42.552
+The courier is everything in between: the JIT, which may move or skip your reads and writes, and the processor, which may hold writes back for a while.
 
 8
-00:00:30.100 --> 00:00:32.944
-The reader waits for ready, then reads total.
+00:00:42.552 --> 00:00:46.120
+The label on one read or write is called its access mode.
 
 9
-00:00:33.167 --> 00:00:37.483
-Plain mode promises nothing about what the other thread sees, or when.
+00:00:46.833 --> 00:00:48.509
+You know one label already.
 
 10
-00:00:37.700 --> 00:00:40.564
-The JIT may read ready once for the whole loop.
+00:00:48.509 --> 00:00:55.273
+A volatile field stamps the heaviest label on every read and write of that field, whether it needs it or not.
 
 11
-00:00:40.564 --> 00:00:42.087
-The reader spins forever.
+00:00:56.000 --> 00:00:57.336
+Usually that's fine.
 
 12
-00:00:42.700 --> 00:00:47.592
-Opaque makes every access really happen, so the reader does see ready turn true.
+00:00:57.336 --> 00:01:02.880
+But picture a mailbox where one thread hands another millions of payments a second.
 
 13
-00:00:47.800 --> 00:00:49.477
-But it orders nothing else.
+00:01:02.880 --> 00:01:10.895
+On Intel and AMD processors, every volatile write waits for its outbox tray, the store buffer from the office, to empty.
 
 14
-00:00:49.477 --> 00:00:53.701
-ready can arrive before total, and the reader reads a total of zero.
+00:01:10.895 --> 00:01:13.968
+Millions of times a second, that wait adds up.
 
 15
-00:00:53.933 --> 00:00:58.911
-On ARM, jcstress caught this in 0.68 percent of samples.
+00:01:14.700 --> 00:01:19.548
+Since JDK 9, a VarHandle lets you pick the label for each access instead.
 
 16
-00:00:59.733 --> 00:01:01.724
-Now make the last write a release.
+00:01:19.548 --> 00:01:23.732
+It's a handle to one field, with one pair of methods per label.
 
 17
-00:01:01.724 --> 00:01:06.936
-Nothing written before it may move after it, like a sealed envelope that holds all of it.
+00:01:23.732 --> 00:01:31.104
+There are four labels, and they form a ladder: each keeps every promise of the one below it, and adds one more.
 
 18
-00:01:07.167 --> 00:01:08.311
-The release lands.
+00:01:31.233 --> 00:01:34.424
+Which raises a question people are shy to ask.
 
 19
-00:01:08.311 --> 00:01:11.743
-The reader reads ready with an acquire, and sees true.
+00:01:34.424 --> 00:01:37.892
+Isn't a lighter label just volatile at a discount?
 
 20
-00:01:11.743 --> 00:01:13.459
-What total can it read now?
+00:01:37.892 --> 00:01:39.765
+Same promises, lower price?
 
 21
-00:01:14.967 --> 00:01:16.158
-Only 1,250,000.
+00:01:40.367 --> 00:01:43.681
+The bottom rung is plain: no label, an ordinary field.
 
 22
-00:01:16.158 --> 00:01:23.065
-Everything the writer did before the release is visible after the acquire that sees it.
+00:01:43.681 --> 00:01:47.242
+It promises nothing about what other threads see, or when.
 
 23
-00:01:23.967 --> 00:01:32.037
-Release and acquire still allow one odd result: each thread writes its own flag, reads the other's, and both read zero.
+00:01:47.242 --> 00:01:49.636
+Plain might as well be called whenever.
 
 24
-00:01:32.867 --> 00:01:34.142
-Volatile forbids it.
+00:01:49.636 --> 00:01:55.099
+The JIT may read it once for a whole loop, like the worker reading stop from its notepad.
 
 25
-00:01:34.142 --> 00:01:40.773
-All threads agree on one order of every volatile access, so at least one of them sees the other's write.
+00:01:55.099 --> 00:01:58.107
+A long or a double can even arrive in two halves.
 
 26
-00:01:41.600 --> 00:01:43.319
-So the modes form a ladder.
+00:01:58.233 --> 00:01:59.698
+One rung up is opaque.
 
 27
-00:01:43.319 --> 00:01:46.947
-Each one keeps everything below it, and adds one promise.
+00:01:59.698 --> 00:02:03.494
+Its label says: deliver for sure, in order, in one piece.
 
 28
-00:01:47.167 --> 00:01:52.326
-On x86, only the volatile write costs extra: it drains the store buffer.
+00:02:03.494 --> 00:02:09.154
+Every opaque read really happens, so a spinning thread eventually sees the new value.
 
 29
-00:01:52.326 --> 00:01:54.476
-So a release write is cheaper.
+00:02:09.154 --> 00:02:10.952
+But it orders nothing else.
 
 30
-00:01:55.300 --> 00:01:58.640
-In code, READY is a VarHandle for the field ready.
+00:02:10.952 --> 00:02:15.081
+A reader can see a flag before the data the flag was guarding.
 
 31
-00:01:58.640 --> 00:02:00.511
-The writer calls setRelease.
+00:02:15.081 --> 00:02:19.009
+On ARM, a stress test caught that in 0.68 percent of tries.
 
 32
-00:02:00.511 --> 00:02:02.381
-The reader calls getAcquire.
+00:02:19.133 --> 00:02:21.006
+Next comes release and acquire.
 
 33
-00:02:03.200 --> 00:02:03.785
-The rule.
+00:02:21.006 --> 00:02:25.294
+A release write says: deliver everything I sent before this one, first.
 
 34
-00:02:03.785 --> 00:02:11.064
-A release write hands over everything written before it, to the acquire read that sees it, on the same variable.
+00:02:25.294 --> 00:02:32.241
+A reader who signs for it with an acquire, and sees the new value, also sees everything written before the release.
 
 35
-00:02:11.267 --> 00:02:12.306
-Check yourself.
+00:02:32.241 --> 00:02:36.952
+That's a happens-before edge, like the cashier's key, built from one variable.
 
 36
-00:02:12.306 --> 00:02:17.293
-A volatile field is read in a hot loop, with a plain get on a VarHandle.
+00:02:37.067 --> 00:02:38.800
+The top rung is volatile.
 
 37
-00:02:17.293 --> 00:02:18.817
-Is that read volatile?
+00:02:38.800 --> 00:02:48.643
+It adds one more promise: every thread agrees on one order of all volatile reads and writes, like registered mail, logged in one central book.
 
 38
-00:02:21.533 --> 00:02:21.736
-No.
+00:02:49.367 --> 00:02:51.565
+What does that last promise buy?
 
 39
-00:02:21.736 --> 00:02:23.624
-The mode at the access wins.
+00:02:51.565 --> 00:02:53.832
+Back to the test from the office.
 
 40
-00:02:23.624 --> 00:02:28.209
-It is a plain read, and the JIT may read it once for the whole loop.
+00:02:53.832 --> 00:02:56.512
+Thread A writes 1 into x, then reads y.
+
+41
+00:02:56.512 --> 00:02:59.191
+Thread B writes 1 into y, then reads x.
+
+42
+00:02:59.191 --> 00:03:02.627
+With release and acquire, can both threads read 0?
+
+43
+00:03:05.600 --> 00:03:13.071
+Here's one run of the demo, 262,144 tries per label.
+
+44
+00:03:13.071 --> 00:03:18.531
+Plain: 97,635 tries where both read 0.
+
+45
+00:03:18.531 --> 00:03:20.686
+Opaque: 94,344.
+
+46
+00:03:20.686 --> 00:03:24.709
+Release and acquire: 92,854.
+
+47
+00:03:24.709 --> 00:03:26.433
+Volatile: 0.
+
+48
+00:03:26.567 --> 00:03:28.189
+Well, that's not a discount.
+
+49
+00:03:28.189 --> 00:03:29.754
+That's a different product.
+
+50
+00:03:29.754 --> 00:03:34.332
+Release keeps earlier writes before it, and acquire keeps later reads after it.
+
+51
+00:03:34.332 --> 00:03:40.880
+Neither stops a thread's read from going ahead of its own write, while that write still waits in the outbox tray.
+
+52
+00:03:40.880 --> 00:03:42.792
+Only the central book forbids it.
+
+53
+00:03:43.500 --> 00:03:45.858
+And here the parcel picture breaks.
+
+54
+00:03:45.858 --> 00:03:48.754
+Real labels cost more as they get stronger.
+
+55
+00:03:48.754 --> 00:03:57.444
+On Intel and AMD, plain, opaque, release and acquire all become ordinary reads and writes; those labels mostly hold back the JIT.
+
+56
+00:03:57.444 --> 00:04:02.496
+Only the volatile write adds an instruction, the one that empties the tray.
+
+57
+00:04:02.496 --> 00:04:06.403
+Three labels at one price, and a surcharge for the fourth.
+
+58
+00:04:07.133 --> 00:04:09.067
+So each label adds one promise.
+
+59
+00:04:09.067 --> 00:04:13.995
+Pick the lightest label whose promise your code needs, and never a lighter one.
+
+60
+00:04:16.067 --> 00:04:19.326
+And in everyday code, you almost never pick at all.
+
+61
+00:04:19.326 --> 00:04:24.759
+Use a ready-made concurrent collection, a volatile field, an atomic class, or a lock.
+
+62
+00:04:24.759 --> 00:04:32.684
+The lighter labels belong in low-level building blocks, like a fast queue, after a measurement says volatile costs too much.
+
+63
+00:04:32.800 --> 00:04:37.689
+Even then, a green test on your laptop only proves your laptop is polite.
+
+64
+00:04:37.689 --> 00:04:43.516
+Intel and AMD never let one write pass another, so many ordering bugs can't show there.
+
+65
+00:04:43.516 --> 00:04:48.137
+You need a stress tester that runs millions of tries, ideally on ARM.
+
+66
+00:04:48.867 --> 00:04:51.822
+In code, each label is a method on the handle.
+
+67
+00:04:51.822 --> 00:04:57.733
+Java on the left, Kotlin on the right: the release write and the acquire read from the test.
+
+68
+00:04:58.433 --> 00:05:01.934
+So, is release and acquire volatile at a discount?
+
+69
+00:05:01.934 --> 00:05:02.144
+No.
+
+70
+00:05:02.144 --> 00:05:09.284
+It's a lighter label with one promise fewer, and that missing promise is exactly the both-zero result.
+
+71
+00:05:09.284 --> 00:05:10.684
+Weaker, not cheaper.
+
+72
+00:05:10.800 --> 00:05:11.580
+Quick check.
+
+73
+00:05:11.580 --> 00:05:15.414
+A writer fills in a report, then sets ready with setOpaque.
+
+74
+00:05:15.414 --> 00:05:19.119
+Can a reader that sees ready find the report still empty?

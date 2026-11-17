@@ -1,125 +1,333 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.358
-Publishing an object means putting a reference where another thread can find it.
+00:00:02.700 --> 00:00:05.058
+Picture writing a letter to a friend.
 
 2
-00:00:07.358 --> 00:00:11.375
-Here a loader builds a rate card, and publishes it in a shared field.
+00:00:05.058 --> 00:00:10.476
+You write three pages, fold them into an envelope, seal it, and hand it to a courier.
 
 3
-00:00:13.000 --> 00:00:14.361
-That's three steps.
+00:00:10.476 --> 00:00:13.472
+Your friend opens it and reads all three pages.
 
 4
-00:00:14.361 --> 00:00:19.734
-The JVM allocates the object, every field at its default: 0, false or null.
+00:00:14.200 --> 00:00:19.166
+Nobody worries that the courier might leave while page three is still on your desk.
 
 5
-00:00:19.734 --> 00:00:22.170
-The constructor writes the fields.
+00:00:19.166 --> 00:00:22.277
+If one ever did, you'd simply find a better courier.
 
 6
-00:00:22.170 --> 00:00:24.248
-Then the reference is stored.
+00:00:23.000 --> 00:00:25.590
+Programs do this between threads all day.
 
 7
-00:00:24.467 --> 00:00:28.167
-But a reader of a plain field has no edge to these writes.
+00:00:25.590 --> 00:00:28.812
+A thread is one path of work running beside others.
 
 8
-00:00:28.167 --> 00:00:33.973
-The JIT may store the reference first, and an ARM CPU may make stores visible in any order.
+00:00:28.812 --> 00:00:33.992
+Our shop keeps its card fees on a rate card: a currency, and a fee per card brand.
 
 9
-00:00:34.200 --> 00:00:37.882
-So the reader finds a card, and still reads a null currency.
+00:00:33.992 --> 00:00:40.563
+A loader thread builds a new card when fees change, and request threads, which handle payments, read it.
 
 10
-00:00:37.882 --> 00:00:42.363
-That's a partially constructed object, and no line you wrote creates one.
+00:00:40.667 --> 00:00:44.868
+The loader stores the new RateCard in a shared field, current.
 
 11
-00:00:43.267 --> 00:00:44.625
-It's not theory.
+00:00:44.868 --> 00:00:46.223
+Three things happen.
 
 12
-00:00:44.625 --> 00:00:49.551
-A jcstress sample does exactly this, with four int fields.
+00:00:46.223 --> 00:00:52.592
+The JVM, the program that runs Java code, makes the object with every field blank: null, or 0.
 
 13
-00:00:49.551 --> 00:00:55.326
-On x86_64, readers saw zeros in about 18,000 of 219 million samples.
+00:00:52.592 --> 00:00:55.235
+The constructor writes the real values.
 
 14
-00:00:55.326 --> 00:00:59.912
-On AArch64, almost every mix of zeros and real values.
+00:00:55.235 --> 00:01:00.113
+Then the reference, the value pointing at the object, goes into current.
 
 15
-00:01:00.133 --> 00:01:02.615
-x86 keeps its stores in order.
+00:01:00.233 --> 00:01:05.006
+In the letter's terms, the card is the envelope, and its fields are the pages.
 
 16
-00:01:02.615 --> 00:01:05.757
-So on x86, the JIT did the reordering.
+00:01:05.006 --> 00:01:07.025
+The constructor writes the pages.
 
 17
-00:01:06.567 --> 00:01:07.485
-Two ways out.
+00:01:07.025 --> 00:01:09.839
+Storing the reference hands the envelope over.
 
 18
-00:01:07.485 --> 00:01:22.324
-First, publish through a happens-before edge, so the reference and the state travel together: a static initializer, a volatile field or AtomicReference, a final field, a lock, or a java.util.concurrent handoff.
+00:01:09.839 --> 00:01:12.164
+And the request thread is your friend.
 
 19
-00:01:23.633 --> 00:01:27.226
-Second, make the object safe to see even through a race.
+00:01:12.267 --> 00:01:15.576
+So here's a question that feels too obvious to ask.
 
 20
-00:01:27.226 --> 00:01:29.023
-That's what final fields do.
+00:01:15.576 --> 00:01:18.950
+The constructor finished before the card was stored.
 
 21
-00:01:29.233 --> 00:01:35.409
-When a constructor writes a final field, HotSpot's C2 compiler puts a store-store barrier at its end.
+00:01:18.950 --> 00:01:21.611
+So whoever finds the card finds it whole.
 
 22
-00:01:35.409 --> 00:01:41.279
-Every write before it completes before any store after it, and the publishing store comes after.
+00:01:21.611 --> 00:01:22.000
+Right?
 
 23
-00:01:41.533 --> 00:01:46.286
-On x86 the barrier compiles to nothing: it only stops the JIT.
+00:01:22.633 --> 00:01:23.742
+Let's test that.
 
 24
-00:01:46.286 --> 00:01:48.203
-On ARM it's a real fence.
+00:01:23.742 --> 00:01:28.521
+A request thread reads current, finds a card, and reads its currency.
 
 25
-00:01:48.433 --> 00:01:57.339
-So the rule says: a thread that sees the reference only after the constructor finished sees the final fields as the constructor set them.
+00:01:28.521 --> 00:01:29.629
+What can it get?
 
 26
-00:01:57.339 --> 00:01:58.964
-Even through a data race.
+00:01:32.600 --> 00:01:33.658
+It can get null.
 
 27
-00:01:59.167 --> 00:02:05.744
-In the jcstress sample, four final fields removed every partial result, on both machines.
+00:01:33.658 --> 00:01:37.958
+A real rate card, with a blank page where the currency should be.
 
 28
-00:02:06.667 --> 00:02:09.819
-But final fields don't make the reference visible.
+00:01:37.958 --> 00:01:42.391
+Or a VISA fee of 0, which the card company won't find funny at all.
 
 29
-00:02:09.819 --> 00:02:13.475
-A reader spinning on a plain field may never see the card.
+00:01:43.100 --> 00:01:43.355
+Why?
 
 30
-00:02:13.475 --> 00:02:16.248
-So do both: final fields and a safe publish.
+00:01:43.355 --> 00:01:50.932
+A write is promised to another thread only when a happens-before edge links them, like the cashier's key from the bank.
 
 31
-00:02:16.248 --> 00:02:18.896
-And don't let this escape the constructor.
+00:01:50.932 --> 00:01:55.771
+Nothing links these two threads, so two layers are free to change the order.
+
+32
+00:01:55.900 --> 00:02:02.648
+The JIT, the compiler inside the JVM, may move the store of the reference ahead of the constructor's stores.
+
+33
+00:02:02.648 --> 00:02:09.709
+And the processor may show its stores to its other cores, the parts that each run a thread, in a different order.
+
+34
+00:02:09.709 --> 00:02:12.645
+ARM processors do this more than Intel and AMD.
+
+35
+00:02:12.767 --> 00:02:15.539
+So the reader sees the store to current first.
+
+36
+00:02:15.539 --> 00:02:19.578
+It finds a card that isn't null, reads the currency, and gets null.
+
+37
+00:02:19.578 --> 00:02:22.109
+The real currency shows up a moment later.
+
+38
+00:02:22.233 --> 00:02:32.300
+The courier delivered the envelope before the pages were inside, and there's no better courier to hire: it's the JIT and the processor, built into every machine.
+
+39
+00:02:32.300 --> 00:02:36.614
+Where the picture breaks: a real courier can't carry unwritten pages.
+
+40
+00:02:36.614 --> 00:02:39.491
+The JIT just moves your store, without a word.
+
+41
+00:02:40.200 --> 00:02:41.054
+Is it real?
+
+42
+00:02:41.054 --> 00:02:47.649
+The team that builds Java has a stress tester that runs tiny tests millions of times.
+
+43
+00:02:47.649 --> 00:02:54.788
+One test publishes an object with four fields, 1, 2, 3 and 4, and another thread reads them.
+
+44
+00:02:54.788 --> 00:03:00.685
+On an Intel or AMD machine, in 219 million tries, how often are pages blank?
+
+45
+00:03:03.667 --> 00:03:05.568
+Here's the recorded run.
+
+46
+00:03:05.568 --> 00:03:09.450
+Most readers saw no object yet, or the whole one.
+
+47
+00:03:09.450 --> 00:03:13.095
+But 18,306 times, some pages were still blank.
+
+48
+00:03:13.200 --> 00:03:14.569
+About one in 12,000.
+
+49
+00:03:14.569 --> 00:03:22.988
+Rare, but a busy shop takes a lot of card payments, and rare bugs have terrible manners: they wait until you're on holiday.
+
+50
+00:03:22.988 --> 00:03:27.300
+On ARM, the test saw almost every mix of zeros and real values.
+
+51
+00:03:28.033 --> 00:03:28.730
+But wait.
+
+52
+00:03:28.730 --> 00:03:39.334
+In the office, x86 processors, the Intel and AMD kind, kept their writes in order: notes left each outbox tray in the order they went in.
+
+53
+00:03:39.334 --> 00:03:40.960
+So who swapped these?
+
+54
+00:03:41.067 --> 00:03:42.237
+The test checks.
+
+55
+00:03:42.237 --> 00:03:49.845
+When it makes the JIT keep those writes in order, the half-built objects vanish on x86, and stay on ARM.
+
+56
+00:03:49.845 --> 00:03:51.821
+The processor has an alibi.
+
+57
+00:03:51.821 --> 00:03:54.235
+On x86, the JIT moved the stores.
+
+58
+00:03:54.967 --> 00:03:55.843
+Now the names.
+
+59
+00:03:55.843 --> 00:04:00.473
+Storing a reference where another thread can find it is called publishing.
+
+60
+00:04:00.473 --> 00:04:06.856
+An object seen before its fields is a partially constructed object, and no line you wrote creates one.
+
+61
+00:04:06.856 --> 00:04:09.735
+The rule: never publish through a plain field.
+
+62
+00:04:10.367 --> 00:04:11.685
+So seal the envelope.
+
+63
+00:04:11.685 --> 00:04:16.143
+Make current volatile, a field whose reads always see the latest write.
+
+64
+00:04:16.143 --> 00:04:20.977
+The volatile write is the seal: everything written before it travels with it.
+
+65
+00:04:20.977 --> 00:04:25.497
+A reader who reads the same field breaks the seal, and finds every page.
+
+66
+00:04:25.600 --> 00:04:30.033
+A lock, a static initializer, or a concurrent collection seal it too.
+
+67
+00:04:30.033 --> 00:04:34.851
+Like the cashier's key, a seal only counts if the reader uses the same one.
+
+68
+00:04:35.567 --> 00:04:40.823
+Final fields add one more promise: pages glued into the envelope at the factory.
+
+69
+00:04:40.823 --> 00:04:45.948
+Drop it in a puddle, lose it under the sofa, and those pages are still inside.
+
+70
+00:04:46.067 --> 00:04:55.100
+A thread that sees the object after its constructor finished sees its final fields as the constructor left them, even with no seal.
+
+71
+00:04:55.100 --> 00:05:01.099
+With all four fields final, the test found not one half-built object, on x86 or on ARM.
+
+72
+00:05:01.200 --> 00:05:03.078
+But glue doesn't post letters.
+
+73
+00:05:03.078 --> 00:05:12.654
+A reader looping on a plain field, waiting for the first card, may copy it onto its notepad once, like the stop flag in the office, and never look again.
+
+74
+00:05:12.654 --> 00:05:16.409
+So make the data final, and still publish it through a seal.
+
+75
+00:05:17.133 --> 00:05:23.092
+In code, Java on the left and Kotlin on the right: final fields, and a volatile current.
+
+76
+00:05:23.800 --> 00:05:27.180
+So how can a reader find the card without its currency?
+
+77
+00:05:27.180 --> 00:05:29.393
+Other threads don't read your lines.
+
+78
+00:05:29.393 --> 00:05:34.432
+They see writes, in whatever order they arrive, and a reference is one more write.
+
+79
+00:05:34.432 --> 00:05:35.539
+Seal the envelope.
+
+80
+00:05:35.667 --> 00:05:36.435
+Quick check.
+
+81
+00:05:36.435 --> 00:05:40.469
+Every field in RateCard is final, but current is a plain field.
+
+82
+00:05:40.469 --> 00:05:42.582
+Can a reader see a null currency?
+
+83
+00:05:42.582 --> 00:05:45.592
+And can a waiting reader miss the card forever?
