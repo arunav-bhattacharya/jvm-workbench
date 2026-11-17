@@ -1,149 +1,309 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.277
-A transfer request mostly waits.
+00:00:02.700 --> 00:00:04.884
+Picture the bank's app on a phone.
 
 2
-00:00:05.277 --> 00:00:11.076
-At 2,000 requests a second and 150 milliseconds each, 300 are in flight.
+00:00:04.884 --> 00:00:11.756
+A customer taps send, and a request, one message asking the bank to move money, reaches the bank's program.
 
 3
-00:00:11.300 --> 00:00:15.040
-If the fraud service slows to 2 seconds, 4,000 are.
+00:00:11.756 --> 00:00:14.261
+Thousands of customers do this at once.
 
 4
-00:00:15.267 --> 00:00:18.616
-Virtual threads make that many waiting threads cheap.
+00:00:14.433 --> 00:00:17.425
+Before money moves, the bank asks two questions.
 
 5
-00:00:18.616 --> 00:00:22.661
-But unlimited threads mean unlimited calls to the fraud service.
+00:00:17.425 --> 00:00:21.726
+An outside safety service says whether the transfer looks like theft.
 
 6
-00:00:23.367 --> 00:00:24.724
-Follow one request.
+00:00:21.726 --> 00:00:24.094
+It usually answers in 20 milliseconds.
 
 7
-00:00:24.724 --> 00:00:31.295
-It gets its own virtual thread, and one deadline: 300 milliseconds for all of its screening.
+00:00:24.094 --> 00:00:26.151
+On a bad day, it takes 2 seconds.
 
 8
-00:00:31.500 --> 00:00:34.869
-It runs the fraud and limits checks at the same time.
+00:00:26.151 --> 00:00:29.891
+And a quick check asks if the transfer fits the daily limit.
 
 9
-00:00:34.869 --> 00:00:38.873
-Fraud is slow and shared, so each call needs one of 20 permits.
+00:00:30.567 --> 00:00:34.182
+So a request spends almost all its time waiting.
 
 10
-00:00:39.100 --> 00:00:42.345
-On a normal day, fraud answers in 20 milliseconds.
+00:00:34.182 --> 00:00:41.940
+At 2,000 requests a second, and 150 milliseconds each, 300 are in flight: in progress at the same time.
 
 11
-00:00:42.345 --> 00:00:47.796
-The permit goes back, both checks pass, and the transfer goes on to the ledger pool.
+00:00:41.940 --> 00:00:45.179
+On the safety service's bad day, 4,000 are.
 
 12
-00:00:48.000 --> 00:00:53.404
-That pool is a limit too: 8 threads and 80 slots, and a 503 when it's full.
+00:00:45.867 --> 00:00:53.151
+One platform thread per request would be the restaurant's personal waiter, who stands at the kitchen door for the whole meal.
 
 13
-00:00:53.933 --> 00:00:54.993
-Now an outage.
+00:00:53.151 --> 00:00:57.580
+Each one is an operating system thread, with about a megabyte for its stack.
 
 14
-00:00:54.993 --> 00:00:57.492
-Every fraud call takes 2 seconds.
+00:00:57.580 --> 00:01:00.436
+Four thousand of them, hired at the worst moment.
 
 15
-00:00:57.492 --> 00:00:59.991
-Twenty calls hold all 20 permits.
+00:01:00.633 --> 00:01:07.725
+So we take the newer restaurant: a few waiters, and an order slip for each table, clipped to a board while it waits.
 
 16
-00:01:00.200 --> 00:01:02.408
-A new request arrives, for 40.00.
+00:01:07.725 --> 00:01:09.559
+A virtual thread is that slip.
 
 17
-00:01:02.408 --> 00:01:04.013
-Its limits check passes.
+00:01:09.559 --> 00:01:13.961
+While it waits, it lets go of its carrier, the real thread that runs it.
 
 18
-00:01:04.013 --> 00:01:09.031
-Its fraud call waits for a permit, but only as long as its deadline allows.
+00:01:13.961 --> 00:01:17.812
+Four thousand waiting requests are four thousand small objects.
 
 19
-00:01:09.233 --> 00:01:11.403
-Another request runs out of time.
+00:01:18.500 --> 00:01:21.611
+Which brings up a question we're a little shy to ask.
 
 20
-00:01:11.403 --> 00:01:17.058
-It interrupts its own fraud call, and that call's finally block hands the permit back.
+00:01:21.611 --> 00:01:24.956
+If threads are this cheap, why worry about limits at all?
 
 21
-00:01:17.058 --> 00:01:17.979
-Ours takes it.
+00:01:25.133 --> 00:01:28.052
+Here's what the old pool was quietly doing.
 
 22
-00:01:18.200 --> 00:01:19.937
-Our clock keeps running.
+00:01:28.052 --> 00:01:33.820
+A pool of, say, 200 threads let at most 200 requests call the safety service at once.
 
 23
-00:01:19.937 --> 00:01:21.456
-What happens at zero?
+00:01:33.820 --> 00:01:35.788
+Nobody wrote that limit down.
 
 24
-00:01:22.867 --> 00:01:23.860
-The same thing.
+00:01:35.788 --> 00:01:37.824
+It came free with the threads.
 
 25
-00:01:23.860 --> 00:01:27.104
-It interrupts its call, and the permit goes back.
+00:01:37.824 --> 00:01:44.068
+Take the pool away, and on the bad day all 4,000 call at once, and each one waits 2 seconds.
 
 26
-00:01:27.333 --> 00:01:29.359
-Then the stand-in rule decides.
+00:01:44.267 --> 00:01:48.304
+The safety service's bad day just became everyone's bad day.
 
 27
-00:01:29.359 --> 00:01:34.195
-Up to 50.00 goes through without a fraud answer, so our 40.00 is accepted.
+00:01:48.304 --> 00:01:52.408
+So the point is: threads are free, but what they call is not.
 
 28
-00:01:34.195 --> 00:01:36.548
-Larger amounts get a fast try again.
+00:01:53.100 --> 00:01:57.032
+So every scarce thing gets a limit, written down where we can see it.
 
 29
-00:01:37.167 --> 00:01:46.859
-In the lesson's demo, during the outage, every reply came within about 320 milliseconds, and fraud never saw more than 20 calls at once.
+00:01:57.500 --> 00:02:04.951
+First, the safety service gets the grill tokens: one shared semaphore, a counter of permits, with 20 on the hook.
 
 30
-00:01:48.267 --> 00:01:53.941
-In code, the deadline is computed once, and the permit wait uses what is left of it.
+00:02:04.951 --> 00:02:08.379
+A request holds a token only during its safety call.
 
 31
-00:01:53.941 --> 00:01:55.427
-Java and Kotlin match.
+00:02:08.379 --> 00:02:17.083
+A limit like this, on one slow outside service, is a bulkhead, named after the walls that keep one flooded room from sinking a ship.
 
 32
-00:01:57.233 --> 00:01:57.889
-The rule.
+00:02:17.267 --> 00:02:24.728
+Second, the journal: last sitting's 8 cooks and their rail of 80 slots, with the doorman who says busy when it's full.
 
 33
-00:01:57.889 --> 00:02:08.383
-Threads are free, so every limit sits on a resource: 20 permits for fraud, 8 threads and 80 slots for the journal, and one deadline per request.
+00:02:24.728 --> 00:02:26.436
+It stays a pool on purpose.
 
 34
-00:02:08.600 --> 00:02:09.573
-Check yourself.
+00:02:26.436 --> 00:02:28.396
+It isn't there to save threads.
 
 35
-00:02:09.573 --> 00:02:11.842
-Drop the interrupt at the deadline.
+00:02:28.396 --> 00:02:30.925
+It's a limit, with a rule for saying no.
 
 36
-00:02:11.842 --> 00:02:15.084
-During the outage, what happens to the 20 permits?
+00:02:31.100 --> 00:02:36.565
+Third, each request gets one deadline: 300 milliseconds for all of its checks.
 
 37
-00:02:17.800 --> 00:02:25.551
-Orphaned fraud calls keep them for the full 2 seconds, so new requests get no permit, even for a call that would succeed.
+00:02:36.565 --> 00:02:40.628
+Every wait inside the request uses whatever is left of it.
+
+38
+00:02:40.800 --> 00:02:42.764
+Now, Little's law at the hook.
+
+39
+00:02:42.764 --> 00:02:45.709
+Twenty tokens, each held for 20 milliseconds.
+
+40
+00:02:45.709 --> 00:02:48.393
+How many safety checks a second can pass?
+
+41
+00:02:51.367 --> 00:02:55.924
+Twenty divided by 0.02 seconds: 1,000 a second.
+
+42
+00:02:55.924 --> 00:02:59.124
+Plenty for 400 requests a second.
+
+43
+00:02:59.300 --> 00:03:05.425
+On the bad day, each token is held until the request's deadline, 300 milliseconds.
+
+44
+00:03:05.425 --> 00:03:06.396
+How many now?
+
+45
+00:03:08.967 --> 00:03:10.304
+About 67 a second.
+
+46
+00:03:10.304 --> 00:03:14.761
+The rest wait for a token until their own deadline runs out.
+
+47
+00:03:14.933 --> 00:03:20.148
+And here's the trap from the kitchen timer: a timeout ends the wait, not the work.
+
+48
+00:03:20.148 --> 00:03:23.963
+An abandoned safety call keeps running, and keeps its token.
+
+49
+00:03:23.963 --> 00:03:28.415
+On the bad day, abandoned calls hold all 20, and nobody else gets one.
+
+50
+00:03:28.600 --> 00:03:33.650
+So at the deadline, the request interrupts its own call: a polite request to stop.
+
+51
+00:03:33.650 --> 00:03:39.131
+The call's finally block hangs the token back on the hook, and the next request takes it.
+
+52
+00:03:39.300 --> 00:03:41.504
+Then a plain business rule decides.
+
+53
+00:03:41.504 --> 00:03:45.722
+Small transfers, up to 50.00, go through without the safety answer.
+
+54
+00:03:45.722 --> 00:03:47.800
+Larger ones get a fast try again.
+
+55
+00:03:47.800 --> 00:03:51.892
+Where to draw that line is a decision about risk, not about code.
+
+56
+00:03:52.067 --> 00:03:56.967
+The lesson's demo sends 400 requests a second for 3 seconds.
+
+57
+00:03:56.967 --> 00:04:00.235
+On a normal day, all 1,200 are approved.
+
+58
+00:04:00.235 --> 00:04:06.606
+On the bad day, 312 small ones are let through, and 888 are told to try again.
+
+59
+00:04:06.606 --> 00:04:14.365
+The safety service never sees more than 20 calls, and the slowest reply takes 326 milliseconds.
+
+60
+00:04:14.533 --> 00:04:20.513
+The safety service had a terrible afternoon, and no customer waited more than a third of a second.
+
+61
+00:04:20.700 --> 00:04:25.186
+One wait has no deadline at all: the takeaway ticket from the ledger pool.
+
+62
+00:04:25.186 --> 00:04:31.551
+Once the pool accepts a transfer, the money may move, and a timeout would end the wait, not the transfer.
+
+63
+00:04:32.433 --> 00:04:35.052
+Here's the bulkhead in Java and Kotlin.
+
+64
+00:04:35.052 --> 00:04:38.947
+Wait for a token, but only as long as the deadline allows.
+
+65
+00:04:38.947 --> 00:04:41.029
+Hold it only for the slow call.
+
+66
+00:04:41.029 --> 00:04:43.916
+And hand it back in finally, on every path.
+
+67
+00:04:44.700 --> 00:04:48.243
+Two more rules finish the front door, later in this lesson.
+
+68
+00:04:48.243 --> 00:04:52.146
+The first no wins, like the head waiter calling his helpers back.
+
+69
+00:04:52.146 --> 00:04:55.749
+And nothing slow happens under an account lock: the hot pan.
+
+70
+00:04:56.433 --> 00:04:58.684
+So, if threads are free, why limits?
+
+71
+00:04:58.684 --> 00:05:01.373
+Because the limit was never on the threads.
+
+72
+00:05:01.373 --> 00:05:02.811
+It's on what they call.
+
+73
+00:05:02.811 --> 00:05:08.001
+Give every request its own virtual thread, and write a limit on every scarce thing.
+
+74
+00:05:08.200 --> 00:05:09.001
+Quick check.
+
+75
+00:05:09.001 --> 00:05:11.337
+Drop the interrupt at the deadline.
+
+76
+00:05:11.337 --> 00:05:14.407
+On the bad day, what happens to the 20 tokens?
+
+77
+00:05:16.900 --> 00:05:23.819
+Abandoned calls keep them for the full 2 seconds, so new requests get none, even for a call that would succeed.
