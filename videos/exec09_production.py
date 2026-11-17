@@ -261,7 +261,9 @@ class Exec09Production(Narrated):
         self.at(2)
         self.play(LaggedStart(*[FadeIn(t_, shift=UP * 0.1) for t_ in tags_old], lag_ratio=0.25), run_time=0.9)
         self.at(3)
-        self.play(FadeIn(same), *[c_.animate.set_color(GREY_A) for c_ in cks], run_time=0.7)
+        cks_w = VGroup(*[cook(GREY_A, 1.2).move_to(c_) for c_ in cks])
+        self.play(FadeIn(same), *[ReplacementTransform(a_, b_) for a_, b_ in zip(cks, cks_w)], run_time=0.7)
+        cks = VGroup(*[cook(COOK, 1.2).move_to(c_) for c_ in cks_w])
         self.hold()
         tags_new = VGroup(*[name_tag(f"grill-{k}", COOK, 22).next_to(c_, DOWN, buff=0.18) for k, c_ in enumerate(cks)])
         code = VGroup(T("Java and Kotlin, JDK 21+:", 22, GREY_B),
@@ -272,7 +274,7 @@ class Exec09Production(Narrated):
         self.play(FadeIn(code, shift=UP * 0.1), run_time=0.6)
         self.at_text("grill-0", lead=0.4)
         self.play(*[ReplacementTransform(a_, b_) for a_, b_ in zip(tags_old, tags_new)],
-                  *[c_.animate.set_color(COOK) for c_ in cks], run_time=0.8)
+                  *[ReplacementTransform(a_, b_) for a_, b_ in zip(cks_w, cks)], run_time=0.8)
         self.hold()
         self.play(FadeOut(VGroup(h1, cks, tags_new, code)), run_time=0.5)
 
@@ -399,6 +401,9 @@ class Exec09Production(Narrated):
                 " 849        2       2       0     4         4",
                 "1050        2       0       0     6         4"]
         tbl = VGroup(hdr, *[M(d, 22) for d in data]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+        cw = M("0123456789", 22).width / 10
+        for ln, src in zip(tbl, ["  ms  threads  active  queued  done  rejected"] + data):
+            ln.shift(RIGHT * (len(src) - len(src.lstrip())) * cw)
         tbl.move_to([0.0, -1.35, 0])
         tk10 = [ticket("", 0.6, 0.42) for _ in range(10)]
         for k, t_ in enumerate(tk10):
@@ -460,7 +465,7 @@ class Exec09Production(Narrated):
 
         # two cooks, each holding a bill, each waiting for a fetch queued behind
         FY = 0.6
-        rl4 = rail(-6.0, -0.4, FY + 0.35)
+        rl4 = rail(-6.0, -0.4, FY + 0.42)
         fck = VGroup(*[cook(COOK, 1.1).move_to([1.6 + 2.6 * k, FY - 0.05, 0]) for k in range(2)])
         bills = VGroup(*[ticket(f"bill {k + 1}", 1.0, 0.48, 20).next_to(fck[k], RIGHT, buff=0.12) for k in range(2)])
         fetches = VGroup(*[ticket(f"fetch {k + 1}", 1.1, 0.48, 20, FETCH).move_to([-5.2 + 1.3 * k, FY, 0]) for k in range(2)])
@@ -476,7 +481,7 @@ class Exec09Production(Narrated):
         self.play(FadeIn(trace), run_time=0.7)
         self.hold()
 
-        waits = VGroup(*[DashedVMobject(ArcBetweenPoints(fck[k][2].get_top() + UP * 0.08, fetches[k].get_top() + UP * 0.08,
+        waits = VGroup(*[DashedVMobject(ArcBetweenPoints(fck[k][2].get_top() + UP * 0.08, fetches[k].get_top() + UP * 0.32,
                                                          angle=PI / 4), num_dashes=36).set_stroke(FETCH, 2.5) for k in range(2)])
         wl = VGroup(*[T("waiting", 22, FETCH).next_to(fck[k], DOWN, buff=0.12) for k in range(2)])
         self.say("freeze2")
@@ -533,7 +538,7 @@ class Exec09Production(Narrated):
         feed_l = T("feeds", 20, GREY_B).next_to(feed, UP, buff=0.08)
         o_l = T("2. upstream first", 22).move_to([-0.15, SY - 0.95, 0])
         clk = VGroup(Circle(radius=0.45).set_stroke(GREY_A, 3), Line(ORIGIN, UP * 0.3, stroke_width=3, color=RULE),
-                     Line(ORIGIN, RIGHT * 0.22, stroke_width=3, color=RULE)).move_to([4.9, SY, 0])
+                     Line(ORIGIN, RIGHT * 0.22, stroke_width=3, color=RULE)).move_to([4.75, SY, 0])
         c_l = VGroup(T("3. one deadline:", 22), T("20 s inside the 30 s grace period", 20, GREY_A)).arrange(DOWN, buff=0.06)
         c_l.next_to(clk, DOWN, buff=0.15)
         lost = VGroup(T("4. log what never ran:", 24), M("shutdownNow()", 24, GREY_A),
@@ -546,7 +551,7 @@ class Exec09Production(Narrated):
         self.at_text("upstream", lead=0.3)
         self.play(FadeIn(o_l), Indicate(kp[1], color=COOK, scale_factor=1.1), run_time=0.7)
         self.at_text("all before", lead=0.3)
-        self.play(FadeIn(c_l), Rotate(clk[1], -PI / 2, about_point=clk[0].get_center()), run_time=0.8)
+        self.play(FadeIn(c_l), Rotate(clk[1], -PI / 3, about_point=clk[0].get_center()), run_time=0.8)
         self.hold()
 
         self.say("close2")

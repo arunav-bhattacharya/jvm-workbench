@@ -1,35 +1,35 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:06.661
+00:00:02.700 --> 00:00:06.628
 Back on the bakery line, the belt now has stations along it.
 
 2
-00:00:06.661 --> 00:00:10.197
+00:00:06.628 --> 00:00:10.163
 A slicer takes each loaf, slices it, and puts it back.
 
 3
-00:00:10.197 --> 00:00:14.190
+00:00:10.163 --> 00:00:14.157
 One loaf in, one loaf out, right away, and in the same order.
 
 4
-00:00:14.190 --> 00:00:16.285
+00:00:14.157 --> 00:00:16.252
 In Reactor, that station is map.
 
 5
-00:00:17.000 --> 00:00:18.320
+00:00:16.967 --> 00:00:18.287
 Cakes are different.
 
 6
-00:00:18.320 --> 00:00:22.149
+00:00:18.287 --> 00:00:22.115
 Each one needs the icing machine, and icing takes a while.
 
 7
-00:00:22.149 --> 00:00:26.043
+00:00:22.115 --> 00:00:26.010
 So our function, icing.ice, doesn't hand back an iced cake.
 
 8
-00:00:26.043 --> 00:00:29.805
+00:00:26.010 --> 00:00:29.772
 It hands back a Mono that finishes when the cake is iced.
 
 9
@@ -61,297 +61,297 @@ What comes back is a Mono.
 And remember last time: a Mono is an order form, and nothing happens until someone signs it.
 
 16
-00:00:55.267 --> 00:00:59.841
+00:00:55.300 --> 00:00:59.874
 So we get a Flux of Monos: a belt full of unsigned order forms.
 
 17
-00:00:59.841 --> 00:01:00.567
+00:00:59.874 --> 00:01:00.600
 Very tidy.
 
 18
-00:01:00.567 --> 00:01:01.874
+00:01:00.600 --> 00:01:01.907
 Not one cake iced.
 
 19
-00:01:01.874 --> 00:01:08.989
+00:01:01.907 --> 00:01:09.023
 The compiler is happy, a test that counts items is happy, and the icing machine never switches on.
 
 20
-00:01:09.133 --> 00:01:14.333
+00:01:09.233 --> 00:01:14.433
 So the point is: if your function returns a Mono, map is the wrong station.
 
 21
-00:01:14.333 --> 00:01:15.996
+00:01:14.433 --> 00:01:16.096
 The type even tells you.
 
 22
-00:01:15.996 --> 00:01:18.839
+00:01:16.096 --> 00:01:18.939
 A Flux of Monos means you wanted flatMap.
 
 23
-00:01:19.600 --> 00:01:22.856
+00:01:19.767 --> 00:01:23.023
 So picture an icing room next to the belt, with a hatch.
 
 24
-00:01:22.856 --> 00:01:26.055
+00:01:23.023 --> 00:01:26.221
 Each cake goes through the hatch as soon as it arrives.
 
 25
-00:01:26.055 --> 00:01:27.916
+00:01:26.221 --> 00:01:28.082
 Several decorators work at once.
 
 26
-00:01:27.916 --> 00:01:31.637
+00:01:28.082 --> 00:01:31.804
 And iced cakes come back out in whatever order they're finished.
 
 27
-00:01:31.800 --> 00:01:32.647
+00:01:32.033 --> 00:01:32.880
 Let's map it.
 
 28
-00:01:32.647 --> 00:01:34.014
+00:01:32.880 --> 00:01:34.248
 The hatch is flatMap.
 
 29
-00:01:34.014 --> 00:01:39.160
+00:01:34.248 --> 00:01:39.393
 Each cake's trip, the Mono our function returns, is called the inner publisher.
 
 30
-00:01:39.160 --> 00:01:46.845
+00:01:39.393 --> 00:01:47.079
 flatMap subscribes to each inner right away, without waiting for the others, and merges what comes back onto one belt.
 
 31
-00:01:47.000 --> 00:01:48.161
+00:01:47.300 --> 00:01:48.461
 Let's shrink it.
 
 32
-00:01:48.161 --> 00:01:53.167
+00:01:48.461 --> 00:01:53.467
 Three cakes, numbered 3, 1 and 2, reach the hatch at the same moment.
 
 33
-00:01:53.167 --> 00:01:56.940
+00:01:53.467 --> 00:01:57.240
 Cake number i takes i times 100 milliseconds to ice.
 
 34
-00:01:57.133 --> 00:02:01.279
+00:01:57.467 --> 00:02:01.612
 What comes out of flatMap, in what order, and when is the last cake done?
 
 35
-00:02:04.333 --> 00:02:08.996
+00:02:04.600 --> 00:02:09.263
 Cake 1 is done at 100 milliseconds, and goes out at once.
 
 36
-00:02:08.996 --> 00:02:10.632
+00:02:09.263 --> 00:02:10.899
 Then cake 2, at 200.
 
 37
-00:02:10.632 --> 00:02:12.268
+00:02:10.899 --> 00:02:12.535
 Then cake 3, at 300.
 
 38
-00:02:12.268 --> 00:02:16.767
+00:02:12.535 --> 00:02:17.034
 So the output is 1, 2, 3, all done at 300 milliseconds.
 
 39
-00:02:16.767 --> 00:02:20.857
+00:02:17.034 --> 00:02:21.124
 The order follows finishing time, not input order.
 
 40
-00:02:21.000 --> 00:02:23.330
+00:02:21.333 --> 00:02:23.663
 Now let's break the picture a little.
 
 41
-00:02:23.330 --> 00:02:24.904
+00:02:23.663 --> 00:02:25.237
 Who are these decorators?
 
 42
-00:02:24.904 --> 00:02:28.871
+00:02:25.237 --> 00:02:29.204
 It's tempting to think flatMap hires them, one thread per cake.
 
 43
-00:02:29.067 --> 00:02:29.822
+00:02:29.433 --> 00:02:30.188
 It doesn't.
 
 44
-00:02:29.822 --> 00:02:34.421
+00:02:30.188 --> 00:02:34.788
 flatMap creates no threads, and the lesson's demo shows both cases.
 
 45
-00:02:34.421 --> 00:02:39.433
+00:02:34.788 --> 00:02:39.800
 With inners that finish right away, every cake is iced on main, in order.
 
 46
-00:02:39.433 --> 00:02:46.779
+00:02:39.800 --> 00:02:47.145
 With Mono.delay inners, timers that finish on Reactor's own threads, cake 3 comes out first, on parallel-3.
 
 47
-00:02:46.933 --> 00:02:52.251
+00:02:47.367 --> 00:02:52.684
 So the decorators are the inners themselves: a timer, or a call to another computer.
 
 48
-00:02:52.251 --> 00:02:54.973
+00:02:52.684 --> 00:02:55.406
 flatMap only subscribes to several at once.
 
 49
-00:02:54.973 --> 00:02:58.644
+00:02:55.406 --> 00:02:59.077
 It does none of the icing, and still takes all the credit.
 
 50
-00:02:59.333 --> 00:03:01.035
+00:02:59.800 --> 00:03:01.501
 And how many at once?
 
 51
-00:03:01.035 --> 00:03:02.331
+00:03:01.501 --> 00:03:02.797
 By default, 256.
 
 52
-00:03:02.331 --> 00:03:03.951
+00:03:02.797 --> 00:03:04.418
 flatMap is generous.
 
 53
-00:03:03.951 --> 00:03:08.974
+00:03:04.418 --> 00:03:09.440
 It would send 256 cakes to an icing machine with four nozzles.
 
 54
-00:03:08.974 --> 00:03:12.700
+00:03:09.440 --> 00:03:13.167
 Generous isn't the word the machine would use.
 
 55
-00:03:12.867 --> 00:03:15.587
+00:03:13.400 --> 00:03:16.121
 So pass a second number, the concurrency.
 
 56
-00:03:15.587 --> 00:03:19.038
+00:03:16.121 --> 00:03:19.571
 flatMap with 4 keeps at most 4 cakes at the machine.
 
 57
-00:03:19.038 --> 00:03:26.337
+00:03:19.571 --> 00:03:26.870
 And it does that with slips: its first request to the source is for 4, then one more each time a cake is done.
 
 58
-00:03:26.337 --> 00:03:31.645
+00:03:26.870 --> 00:03:32.179
 In the demo, with a limit of 2, the source saw a slip for 2, then 1, 1, 1 and 1.
 
 59
-00:03:31.800 --> 00:03:36.265
+00:03:32.400 --> 00:03:36.865
 So set the concurrency to what the other side can take, not to a feeling.
 
 60
-00:03:37.000 --> 00:03:39.559
+00:03:37.667 --> 00:03:40.226
 But sometimes order is the whole point.
 
 61
-00:03:39.559 --> 00:03:41.003
+00:03:40.226 --> 00:03:41.669
 How do we get it back?
 
 62
-00:03:41.200 --> 00:03:46.983
+00:03:41.900 --> 00:03:47.683
 concatMap is one decorator, who finishes each cake before taking the next.
 
 63
-00:03:46.983 --> 00:03:48.780
+00:03:47.683 --> 00:03:49.480
 Same cakes: 3, 1 and 2.
 
 64
-00:03:48.780 --> 00:03:52.063
+00:03:49.480 --> 00:03:52.763
 The output keeps the input order, 3, 1, 2.
 
 65
-00:03:52.063 --> 00:03:58.315
+00:03:52.763 --> 00:03:59.015
 But the times add up, 300, then 100, then 200, so it's done at 600 milliseconds.
 
 66
-00:03:58.467 --> 00:04:02.940
+00:03:59.233 --> 00:04:03.706
 flatMapSequential is the icing room with a clerk at the exit.
 
 67
-00:04:02.940 --> 00:04:05.726
+00:04:03.706 --> 00:04:06.493
 All three go in at once, like flatMap.
 
 68
-00:04:05.726 --> 00:04:09.759
+00:04:06.493 --> 00:04:10.526
 But the clerk holds cakes 1 and 2 until cake 3 is done.
 
 69
-00:04:09.759 --> 00:04:12.765
+00:04:10.526 --> 00:04:13.532
 Output 3, 1, 2, done at 300 milliseconds.
 
 70
-00:04:12.933 --> 00:04:14.385
+00:04:13.733 --> 00:04:15.185
 That speed has a price.
 
 71
-00:04:14.385 --> 00:04:16.974
+00:04:15.185 --> 00:04:17.774
 Cakes that finish early wait in a buffer.
 
 72
-00:04:16.974 --> 00:04:24.170
+00:04:17.774 --> 00:04:24.970
 And one slow cake at the front holds back every cake behind it, like one customer at the till, counting out coins.
 
 73
-00:04:24.170 --> 00:04:26.443
+00:04:24.970 --> 00:04:27.243
 That's called head-of-line blocking.
 
 74
-00:04:26.600 --> 00:04:27.409
+00:04:27.467 --> 00:04:28.276
 One warning.
 
 75
-00:04:27.409 --> 00:04:30.847
+00:04:28.276 --> 00:04:31.714
 flatMapSequential orders the results, not the work.
 
 76
-00:04:30.847 --> 00:04:37.521
+00:04:31.714 --> 00:04:38.388
 The layers of a tall cake need concatMap, because each layer must wait until the one below has set.
 
 77
-00:04:38.267 --> 00:04:40.293
+00:04:39.200 --> 00:04:41.226
 Here it is in Java and Kotlin.
 
 78
-00:04:40.293 --> 00:04:45.965
+00:04:41.226 --> 00:04:46.899
 In Kotlin, the lambda stays inside the parentheses when another argument follows it.
 
 79
-00:04:45.965 --> 00:04:52.111
+00:04:46.899 --> 00:04:53.044
 And Kotlin's own Flow starts from the other side: one at a time by default, like concatMap.
 
 80
-00:04:52.867 --> 00:04:55.529
+00:04:53.867 --> 00:04:56.529
 So, why a different station for slow work?
 
 81
-00:04:55.529 --> 00:04:59.459
+00:04:56.529 --> 00:05:00.459
 Because map passes the order form along, and flatMap signs it.
 
 82
-00:04:59.459 --> 00:05:03.833
+00:05:00.459 --> 00:05:04.833
 flatMap is the icing room: fast, in any order, with a cap you choose.
 
 83
-00:05:03.833 --> 00:05:07.827
+00:05:04.833 --> 00:05:08.827
 When order matters, pick one decorator, or a clerk at the exit.
 
 84
-00:05:08.000 --> 00:05:09.037
+00:05:09.033 --> 00:05:10.070
 Quick check.
 
 85
-00:05:09.037 --> 00:05:11.889
+00:05:10.070 --> 00:05:12.922
 Cakes A, B and C arrive together.
 
 86
-00:05:11.889 --> 00:05:16.642
+00:05:12.922 --> 00:05:17.675
 A takes 300 milliseconds, B takes 100, and C takes 200.
 
 87
-00:05:16.642 --> 00:05:18.629
+00:05:17.675 --> 00:05:19.663
 What does flatMap emit?
 
 88
-00:05:21.667 --> 00:05:22.910
+00:05:22.633 --> 00:05:23.877
 B, then C, then A.
 
 89
-00:05:22.910 --> 00:05:28.507
+00:05:23.877 --> 00:05:29.473
 Each one leaves as soon as it's iced, and the stream is done at 300 milliseconds.

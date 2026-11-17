@@ -5,116 +5,116 @@ import org.junit.jupiter.api.Test
 
 class LazyPipelinesTest {
 
-    // 200,000 payments; every fourth card (ids 1, 5, 9, ...) is foreign
-    private val feed = List(200_000) { i ->
-        Payment(
+    // 200,000 recipes; every fourth one (ids 1, 5, 9, ...) is vegetarian
+    private val book = List(200_000) { i ->
+        Recipe(
             id = i + 1L,
-            merchant = "merchant-${i % 40}",
-            amountCents = 500L + (i * 7_919L) % 120_000,
-            country = if (i % 4 == 0) "DE" else "NL",
+            title = "recipe-${i + 1}",
+            minutes = 10 + (i * 7) % 110,
+            vegetarian = i % 4 == 0,
         )
     }
 
-    // the fraud model flags four payments; 15,002 is domestic
-    private val flagged = setOf(4_217L, 9_001L, 12_345L, 15_002L)
+    // the matching service likes four recipes; 15,002 is not vegetarian
+    private val liked = setOf(4_217L, 9_001L, 12_345L, 15_002L)
 
-    private class CountingModel(private val flagged: Set<Long>) : (Payment) -> Int {
+    private class CountingService(private val liked: Set<Long>) : (Recipe) -> Int {
         var calls = 0
-        val domesticCalls get() = seen.count { it.country == "NL" }
-        private val seen = mutableListOf<Payment>()
-        override fun invoke(p: Payment): Int {
+        private val seen = mutableListOf<Recipe>()
+        val nonVegetarianCalls get() = seen.count { !it.vegetarian }
+        override fun invoke(r: Recipe): Int {
             calls++
-            if (p.country == "NL") seen += p
-            return if (p.id in flagged) 95 else (p.id % 89).toInt()
+            if (!r.vegetarian) seen += r
+            return if (r.id in liked) 95 else (r.id % 89).toInt()
         }
     }
 
     @Test
-    fun `firstSuspicious finds the first flagged payment`() {
-        val model = CountingModel(flagged)
-        assertThat(firstSuspicious(feed, model)?.id).isEqualTo(4_217L)
+    fun `firstMatch finds the first recipe the service likes`() {
+        val service = CountingService(liked)
+        assertThat(firstMatch(book, service)?.id).isEqualTo(4_217L)
     }
 
     @Test
-    fun `firstSuspicious scores only up to the first match`() {
-        val model = CountingModel(flagged)
-        firstSuspicious(feed, model)
-        assertThat(model.calls).`as`("risk model calls for a match at position 4,217").isEqualTo(4_217)
+    fun `firstMatch scores only up to the first match`() {
+        val service = CountingService(liked)
+        firstMatch(book, service)
+        assertThat(service.calls).`as`("matching service calls for a match at position 4,217").isEqualTo(4_217)
     }
 
     @Test
-    fun `firstSuspicious returns null and scores everything when nothing is flagged`() {
-        val model = CountingModel(emptySet())
-        assertThat(firstSuspicious(feed, model)).isNull()
-        assertThat(model.calls).isEqualTo(200_000)
+    fun `firstMatch returns null and scores everything when nothing matches`() {
+        val service = CountingService(emptySet())
+        assertThat(firstMatch(book, service)).isNull()
+        assertThat(service.calls).isEqualTo(200_000)
     }
 
     @Test
-    fun `firstSuspiciousForeign stops at the nth match and never scores a domestic card`() {
-        val model = CountingModel(flagged)
-        assertThat(firstSuspiciousForeign(feed, model, 2)).containsExactly(4_217L, 9_001L)
-        assertThat(model.domesticCalls).`as`("domestic payments sent to the model").isZero()
-        // foreign ids are 1, 5, 9, ... so 9,001 is the 2,251st foreign payment
-        assertThat(model.calls).`as`("risk model calls").isEqualTo(2_251)
+    fun `firstMatchesFor stops at the nth match and never scores a recipe that isn't vegetarian`() {
+        val service = CountingService(liked)
+        assertThat(firstMatchesFor(book, service, 2)).containsExactly(4_217L, 9_001L)
+        assertThat(service.nonVegetarianCalls).`as`("non-vegetarian recipes sent to the service").isZero()
+        // vegetarian ids are 1, 5, 9, ... so 9,001 is the 2,251st vegetarian recipe
+        assertThat(service.calls).`as`("matching service calls").isEqualTo(2_251)
     }
 
     @Test
-    fun `firstSuspiciousForeign returns fewer ids when the feed runs out`() {
-        val model = CountingModel(flagged)
-        assertThat(firstSuspiciousForeign(feed, model, 5)).containsExactly(4_217L, 9_001L, 12_345L)
-        assertThat(model.calls).isEqualTo(50_000)
+    fun `firstMatchesFor returns fewer ids when the book runs out`() {
+        val service = CountingService(liked)
+        assertThat(firstMatchesFor(book, service, 5)).containsExactly(4_217L, 9_001L, 12_345L)
+        assertThat(service.calls).isEqualTo(50_000)
     }
 
-    // ---- allSettlements: a paging sequence ----
+    // ---- allResults: a paging sequence ----
 
-    private class FakeApi(private val pages: List<List<Payment>>) : SettlementApi {
+    private class FakeSite(private val pages: List<List<Recipe>>) : RecipeSite {
         val fetched = mutableListOf<Int>()
-        override fun page(number: Int): List<Payment> {
+        override fun page(number: Int): List<Recipe> {
             fetched += number
-            return pages.getOrElse(number) { error("page $number does not exist: the client read past the empty page") }
+            return pages.getOrElse(number) { error("page $number does not exist: the app read past the empty page") }
         }
     }
 
-    private fun pay(id: Long, cents: Long) = Payment(id, "acme", cents, "NL")
+    private fun recipe(id: Long, minutes: Int) = Recipe(id, "recipe-$id", minutes, vegetarian = true)
 
-    private fun threePagesThenEmpty() = FakeApi(
+    private fun threePagesThenEmpty() = FakeSite(
         listOf(
-            listOf(pay(1, 1_000), pay(2, 2_000), pay(3, 3_000)),
-            listOf(pay(4, 80_000), pay(5, 5_000), pay(6, 6_000)),
-            listOf(pay(7, 7_000)),
+            listOf(recipe(1, 45), recipe(2, 30), recipe(3, 60)),
+            listOf(recipe(4, 10), recipe(5, 40), recipe(6, 25)),
+            listOf(recipe(7, 35)),
             emptyList(),
         )
     )
 
     @Test
-    fun `allSettlements fetches nothing until a terminal operation runs`() {
-        val api = threePagesThenEmpty()
-        val settlements = allSettlements(api).filter { it.amountCents > 0 }.map { it.id }
-        assertThat(api.fetched).`as`("pages fetched before anyone asked").isEmpty()
-        assertThat(settlements.first()).isEqualTo(1L)
-        assertThat(api.fetched).containsExactly(0)
+    fun `allResults fetches nothing until a terminal operation runs`() {
+        val site = threePagesThenEmpty()
+        val results = allResults(site).filter { it.minutes > 0 }.map { it.id }
+        assertThat(site.fetched).`as`("pages fetched before anyone asked").isEmpty()
+        assertThat(results.first()).isEqualTo(1L)
+        assertThat(site.fetched).containsExactly(0)
     }
 
     @Test
-    fun `allSettlements fetches only the pages it needs`() {
-        val api = threePagesThenEmpty()
-        assertThat(allSettlements(api).first { it.amountCents > 50_000 }.id).isEqualTo(4L)
-        assertThat(api.fetched).containsExactly(0, 1)
+    fun `allResults fetches only the pages it needs`() {
+        val site = threePagesThenEmpty()
+        assertThat(allResults(site).first { it.minutes <= 15 }.id).isEqualTo(4L)
+        assertThat(site.fetched).containsExactly(0, 1)
     }
 
     @Test
-    fun `allSettlements returns every payment in order and stops at the empty page`() {
-        val api = threePagesThenEmpty()
-        assertThat(allSettlements(api).map { it.id }.toList()).containsExactly(1L, 2L, 3L, 4L, 5L, 6L, 7L)
-        assertThat(api.fetched).containsExactly(0, 1, 2, 3)
+    fun `allResults returns every recipe in order and stops at the empty page`() {
+        val site = threePagesThenEmpty()
+        assertThat(allResults(site).map { it.id }.toList()).containsExactly(1L, 2L, 3L, 4L, 5L, 6L, 7L)
+        assertThat(site.fetched).containsExactly(0, 1, 2, 3)
     }
 
     @Test
-    fun `allSettlements starts again from page 0 each time it is iterated`() {
-        val api = threePagesThenEmpty()
-        val settlements = allSettlements(api)
-        assertThat(settlements.count()).isEqualTo(7)
-        assertThat(settlements.count()).isEqualTo(7)
-        assertThat(api.fetched).containsExactly(0, 1, 2, 3, 0, 1, 2, 3)
+    fun `allResults starts again from page 0 each time it is read`() {
+        val site = threePagesThenEmpty()
+        val results = allResults(site)
+        assertThat(results.count()).isEqualTo(7)
+        assertThat(results.count()).isEqualTo(7)
+        assertThat(site.fetched).containsExactly(0, 1, 2, 3, 0, 1, 2, 3)
     }
 }
