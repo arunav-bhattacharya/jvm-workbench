@@ -31,8 +31,8 @@ class FridgeJob(private val load: () -> List<Leftover>, private val remind: (Str
 fun main() {
     val now = Instant.parse("2026-03-10T09:00:00Z")
     val leftovers = listOf(
-        Leftover("l1", "soup", now.minus(Duration.ofDays(4))),
-        Leftover("l2", "rice", now.minus(Duration.ofHours(30))),
+        Leftover("l1", "soup", Instant.parse("2026-03-06T09:00:00Z")),   // cooked 4 days before now
+        Leftover("l2", "rice", Instant.parse("2026-03-09T03:00:00Z")),   // cooked 30 hours before now
     )
     println("core, called with plain values:")
     decideFridge(leftovers, now).forEach { println("  $it") }

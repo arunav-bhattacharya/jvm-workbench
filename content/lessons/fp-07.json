@@ -1,403 +1,406 @@
 {
- "id": "fp-07",
- "title": "Errors as values: sealed results, Result and Either",
- "minutes": 38,
- "goal": "By the end you can choose between an exception, a sealed result, `kotlin.Result` and Arrow's `Either` for a failure, and write both a fail-fast payment pipeline and a validation that reports every error at once.",
- "warmup": {
-  "q": "`fun authorize(p: Payment): AuthCode` throws `CardDeclinedException` when the issuer says no. A new Kotlin endpoint calls it and doesn't catch anything. What happens when a card is declined?",
-  "options": [
-   "The build fails until the caller handles the exception",
-   "The exception travels up to the HTTP layer, and the customer gets a 500",
-   "`authorize` returns null",
-   "Kotlin wraps the exception in a `Result` for the caller"
+  "id": "fp-07",
+  "title": "Errors as values: sealed results, Result and Either",
+  "minutes": 38,
+  "goal": "By the end you can choose between an exception, a sealed result, `kotlin.Result` and Arrow's `Either` for a failure, and write both a fail-fast pipeline of steps and a check that reports every error at once.",
+  "opening": "Picture a recipe step that goes wrong. The custard splits. A calm cook hands back a note: \"the custard split, let's serve the cake with cream instead\", and dinner goes on. An upset cook throws the pan across the room, and someone further away has to catch it, or the whole dinner stops.\n\nCode does both. An exception is the thrown pan: an object a function throws to say something failed, which flies up through every caller until some code catches it. A returned value is the note: the caller holds it and must read it. The easy trap is to throw the pan for failures that happen every week, like a jar that's out of flour, because nothing in a Kotlin signature says what might fly out.\n\nThe last lesson used null for \"nothing here\". Null can't say why.\n\nIn this lesson, we'll put expected failures into the return type with a sealed result, write a small result type of our own, see what `kotlin.Result` is for and what it swallows, and use Arrow's `Either` to stop at the first error or collect every one. Before we start, make a guess, and keep it in mind.",
+  "warmup": {
+    "q": "`fun takeFlour(grams: Int): Int` throws `NotEnoughFlourException` when the jar runs short. A new screen in the recipe app calls it and catches nothing. What happens on a day the jar is short?",
+    "options": [
+      "The build fails until the caller handles the exception",
+      "The exception flies up through every caller until something catches it, often a general handler that shows \"Something went wrong\"",
+      "`takeFlour` returns null",
+      "Kotlin wraps the exception in a `Result` for the caller"
+    ],
+    "answer": 1,
+    "why": "Kotlin has no checked exceptions, so nothing in the signature or the build tells the caller that a short jar is possible. The exception travels up until something catches it, usually a general handler that shows an error screen. In Java, a checked `throws NotEnoughFlourException` would have forced a `catch`. This lesson puts that information back, in the return type."
+  },
+  "sections": [
+    {
+      "h": "Exceptions hide the failures your caller has to handle",
+      "body": "Here's the recipe app's helper that takes flour from the jar, in both languages:\n\n```java\nint takeFlour(int grams) throws NotEnoughFlourException, PastBestBeforeException;\n```\n\n```kotlin\nfun takeFlour(grams: Int): Int   // throws NotEnoughFlourException, PastBestBeforeException\n```\n\nJava has **checked exceptions**: exceptions a method must list in its signature, so the compiler makes every caller deal with them. Kotlin has none. In the words of its docs, \"Kotlin treats all exceptions as unchecked by default.\" So the Kotlin signature says only `Int`, and nothing tells the caller that the jar runs short every few weeks. A new screen forgets the `try`. The exception flies up past every caller, and the cook sees \"Something went wrong\" because the flour ran out.\n\nThe real problem is that two kinds of failure share one mechanism. An empty jar, an old bag or an amount of -5 is **expected**: it happens in normal use, and the caller must decide what to do. A null pointer, a broken rule inside our own code or a full disk is a bug or a broken machine, and no caller can do anything useful about it on the spot. The Kotlin team draws the same line. The design notes for `kotlin.Result` say: \"Use nullable types or domain-specific classes to represent failures that need specific handling.\" The newer rich-errors proposal, KEEP-0441, says exceptions \"should be used for unrecoverable cases.\"\n\nSo put the expected failures in the return type, as values:\n\n```java\nsealed interface TakeResult {}\nrecord Taken(int leftGrams) implements TakeResult {}\nrecord Refused(JarFailure reason) implements TakeResult {}\nTakeResult takeFlour(int grams, int leftGrams, LocalDate bestBefore, LocalDate today);\n```\n\n```kotlin\nsealed interface TakeResult {\n    data class Taken(val leftGrams: Int) : TakeResult\n    data class Refused(val reason: JarFailure) : TakeResult\n}\nfun takeFlour(grams: Int, leftGrams: Int, bestBefore: LocalDate, today: LocalDate): TakeResult\n```\n\nThe jar's contents and today's date are parameters now, as the first lesson of this track taught: a pure function takes its inputs as arguments. And `sealed` means the compiler knows every subtype, so a `when` over them needs no `else`.\n\nThat pays off when someone adds a case. Add `JarMissing` to `JarFailure`, and every `when` that doesn't handle it stops compiling: `'when' expression must be exhaustive. Add the 'JarMissing' branch or an 'else' branch.` Java 21's sealed interfaces and pattern `switch` give the same check: `the switch expression does not cover all possible input values`. That error is the whole point.\n\n**A sealed result lists every expected failure, and the compiler checks each `when`. Never add `else` to a `when` over a sealed type.**\n\nExceptions keep their job for bugs. `require`, `check` and `error()` still belong wherever one of your own rules breaks.\n\nA sealed type for one step works well. Chain three of them, and every step needs a `when` to look at the step before.",
+      "try": {
+        "title": "Add a failure and let the compiler find the gaps",
+        "minutes": 4,
+        "steps": [
+          "Run `Exhaustive.kt`. Four attempts to take flour come out as four lines of advice.",
+          "Uncomment `JarMissing` in `JarFailure` and run it again. Read the error and note which `when` it points at.",
+          "Add a branch for it to `advice` (\"look in the other cupboard\" will do) and run again.",
+          "Do the same in `ExhaustiveJava.java`."
+        ],
+        "code": {
+          "lang": "kotlin",
+          "title": "Exhaustive.kt",
+          "src": "package workbench.functional.l07.demo\n\nimport java.time.LocalDate\n\n/** The expected ways taking flour from the jar can fail. A closed set: the compiler knows every case. */\nsealed interface JarFailure {\n    data class InvalidAmount(val grams: Int) : JarFailure\n    data object PastBestBefore : JarFailure\n    data class NotEnough(val shortByGrams: Int) : JarFailure\n    // Uncomment the next line and run again.\n    // data object JarMissing : JarFailure\n}\n\nsealed interface TakeResult {\n    data class Taken(val leftGrams: Int) : TakeResult\n    data class Refused(val reason: JarFailure) : TakeResult\n}\n\n/** The signature now says it can fail, and how. Nothing is thrown for a short jar. */\nfun takeFlour(grams: Int, leftGrams: Int, bestBefore: LocalDate, today: LocalDate): TakeResult = when {\n    grams <= 0 -> TakeResult.Refused(JarFailure.InvalidAmount(grams))\n    today.isAfter(bestBefore) -> TakeResult.Refused(JarFailure.PastBestBefore)\n    grams > leftGrams -> TakeResult.Refused(JarFailure.NotEnough(grams - leftGrams))\n    else -> TakeResult.Taken(leftGrams - grams)\n}\n\n/** The one place that knows what to tell the cook: an exhaustive when with no else branch. */\nfun advice(failure: JarFailure): String = when (failure) {\n    is JarFailure.InvalidAmount -> \"check the amount\"\n    JarFailure.PastBestBefore -> \"open a new bag\"\n    is JarFailure.NotEnough -> \"buy more flour\"\n}\n\nfun main() {\n    val today = LocalDate.of(2026, 3, 10)\n    val fresh = LocalDate.of(2026, 3, 31)\n    val old = LocalDate.of(2026, 2, 28)\n    val attempts = listOf(200 to fresh, -5 to fresh, 200 to old, 1_000 to fresh)\n    for ((grams, bestBefore) in attempts) {\n        val line = when (val result = takeFlour(grams, leftGrams = 700, bestBefore, today)) {\n            is TakeResult.Taken -> \"ok: ${result.leftGrams} g left\"\n            is TakeResult.Refused -> \"${advice(result.reason)}: ${result.reason}\"\n        }\n        println(line)\n    }\n}\n",
+          "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.demo.ExhaustiveKt",
+          "file": "labs/functional/src/demo/kotlin/workbench/functional/l07/demo/Exhaustive.kt",
+          "alt": {
+            "lang": "java",
+            "title": "ExhaustiveJava.java",
+            "src": "package workbench.functional.l07.demo;\n\nimport java.time.LocalDate;\nimport java.util.List;\nimport java.util.Map;\n\n/** The same closed set of failures with Java 21 sealed interfaces, records and an exhaustive switch. */\npublic class ExhaustiveJava {\n    sealed interface JarFailure {}\n    record InvalidAmount(int grams) implements JarFailure {}\n    record PastBestBefore() implements JarFailure {}\n    record NotEnough(int shortByGrams) implements JarFailure {}\n    // Uncomment the next line and run again.\n    // record JarMissing() implements JarFailure {}\n\n    sealed interface TakeResult {}\n    record Taken(int leftGrams) implements TakeResult {}\n    record Refused(JarFailure reason) implements TakeResult {}\n\n    static TakeResult takeFlour(int grams, int leftGrams, LocalDate bestBefore, LocalDate today) {\n        if (grams <= 0) return new Refused(new InvalidAmount(grams));\n        if (today.isAfter(bestBefore)) return new Refused(new PastBestBefore());\n        if (grams > leftGrams) return new Refused(new NotEnough(grams - leftGrams));\n        return new Taken(leftGrams - grams);\n    }\n\n    /** The one place that knows what to tell the cook: an exhaustive switch with no default branch. */\n    static String advice(JarFailure failure) {\n        return switch (failure) {\n            case InvalidAmount a -> \"check the amount\";\n            case PastBestBefore p -> \"open a new bag\";\n            case NotEnough n -> \"buy more flour\";\n        };\n    }\n\n    public static void main(String[] args) {\n        LocalDate today = LocalDate.of(2026, 3, 10);\n        LocalDate fresh = LocalDate.of(2026, 3, 31);\n        LocalDate old = LocalDate.of(2026, 2, 28);\n        List<Map.Entry<Integer, LocalDate>> attempts =\n                List.of(Map.entry(200, fresh), Map.entry(-5, fresh), Map.entry(200, old), Map.entry(1_000, fresh));\n        for (var a : attempts) {\n            String line = switch (takeFlour(a.getKey(), 700, a.getValue(), today)) {\n                case Taken t -> \"ok: \" + t.leftGrams() + \" g left\";\n                case Refused r -> advice(r.reason()) + \": \" + r.reason();\n            };\n            System.out.println(line);\n        }\n    }\n}\n",
+            "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.demo.ExhaustiveJava",
+            "file": "labs/functional/src/demo/java/workbench/functional/l07/demo/ExhaustiveJava.java"
+          }
+        },
+        "expect": "The first run prints `ok: 500 g left`, `check the amount: InvalidAmount(grams=-5)`, `open a new bag: PastBestBefore` and `buy more flour: NotEnough(shortByGrams=300)`. With the new case, Kotlin stops at `advice` with `'when' expression must be exhaustive. Add the 'JarMissing' branch or an 'else' branch.` The `when` in `main` still compiles, because it only looks at `TakeResult`. javac reports `the switch expression does not cover all possible input values` at the same spot. After you add the branch, both run again."
+      },
+      "refs": [
+        {
+          "title": "Sealed classes and interfaces (Kotlin docs)",
+          "url": "https://kotlinlang.org/docs/sealed-classes.html",
+          "kind": "docs"
+        }
+      ]
+    },
+    {
+      "h": "A result type you can write in ten lines",
+      "body": "One generic type can cover every step. It holds either a success with a value or a failure with an error:\n\n```java\nsealed interface Outcome<E, A> {\n    default <B> Outcome<E, B> andThen(Function<? super A, Outcome<E, B>> f) {\n        return switch (this) {\n            case Ok<E, A> ok -> f.apply(ok.value());\n            case Err<E, A> err -> new Err<>(err.error());\n        };\n    }\n}\nrecord Ok<E, A>(A value) implements Outcome<E, A> {}\nrecord Err<E, A>(E error) implements Outcome<E, A> {}\n```\n\n```kotlin\nsealed interface Outcome<out E, out A> {\n    data class Ok<A>(val value: A) : Outcome<Nothing, A>\n    data class Err<E>(val error: E) : Outcome<E, Nothing>\n}\n\ninline fun <E, A, B> Outcome<E, A>.andThen(f: (A) -> Outcome<E, B>): Outcome<E, B> =\n    when (this) { is Outcome.Ok -> f(value); is Outcome.Err -> this }\n```\n\n`andThen` runs the next step only if this one succeeded. An `Err` skips every later step and comes out at the end unchanged. Its sibling `map`, in the Try it, does the same for a plain function that can't fail, such as `uppercase()`. Making a loaf becomes one line: `checkBatter(b).andThen(::mix).andThen(::bake).map { it.uppercase() }`.\n\nPicture the kitchen line from the sequences lesson, with a side door. A good batter walks down the line, step by step. When a step fails, the batter leaves through the side door with a note pinned to it, and the note walks straight to the end of the line, past every step still waiting. Programmers draw the same idea as a railway with two tracks, success on top and failure below, which is why the style is called **railway-oriented programming**. The figure shows it.\n\nLook at the variance. `Outcome<out E, out A>` is covariant in both parameters: an `Outcome` of a subtype counts as an `Outcome` of its supertype (\"Covariance with out: producers\" in the generics track). And `Err` is an `Outcome<E, Nothing>`. `Nothing` is the type with no values at all, and it's a subtype of every type. So an `Err<BakeErr>` already *is* an `Outcome<BakeErr, String>`, an `Outcome<BakeErr, Loaf>`, an `Outcome<BakeErr, X>` for any `X`. That's why `is Outcome.Err -> this` compiles without building a new object. Java has no declaration-site variance (variance written once, on the type itself) and no `Nothing`, so the Java version builds a new `Err` at every step.\n\nThe kitchen picture breaks at one point. A cook who gets a note can still decide to carry on with a second-best dish; this line never does. Once a value is an `Err`, nothing after it runs, unless you write a step that looks for errors on purpose. Arrow, later in this lesson, calls that step `recover`.\n\nThat's all an **Either** is at heart: a value that holds one of two things, an error or a result. Libraries add more helpers, and a block syntax that makes chains read like straight-line code. Before we get there, the standard library ships one result type of its own, and it was built for a different job.",
+      "figure": {
+        "svg": "<svg viewBox=\"0 0 640 260\" role=\"img\" aria-label=\"A kitchen line drawn as two tracks. A batter moves along the success track through three steps: check, mix, bake. From each step a branch drops to the failure track with a note. Once on the failure track, the note travels to the end and no later step runs.\"><text class=\"t-s t-ok\" x=\"20\" y=\"84\">success</text><text class=\"t-s t-bad\" x=\"20\" y=\"194\">failure</text><line class=\"ln-a\" x1=\"80\" y1=\"80\" x2=\"600\" y2=\"80\" marker-end=\"url(#arr)\"/><line class=\"ln-bad\" x1=\"80\" y1=\"190\" x2=\"600\" y2=\"190\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"115\" y=\"60\" width=\"110\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"170\" y=\"85\" text-anchor=\"middle\">check</text><rect class=\"box\" x=\"275\" y=\"60\" width=\"110\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"330\" y=\"85\" text-anchor=\"middle\">mix</text><rect class=\"box\" x=\"435\" y=\"60\" width=\"110\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"490\" y=\"85\" text-anchor=\"middle\">bake</text><line class=\"ln-bad\" x1=\"200\" y1=\"100\" x2=\"250\" y2=\"186\" marker-end=\"url(#arr)\"/><line class=\"ln-bad\" x1=\"360\" y1=\"100\" x2=\"410\" y2=\"186\" marker-end=\"url(#arr)\"/><line class=\"ln-bad\" x1=\"520\" y1=\"100\" x2=\"570\" y2=\"186\" marker-end=\"url(#arr)\"/><text class=\"t-s t-bad\" x=\"250\" y=\"146\" text-anchor=\"middle\">Invalid</text><text class=\"t-s t-bad\" x=\"412\" y=\"146\" text-anchor=\"middle\">BowlTooSmall</text><text class=\"t-s t-bad\" x=\"574\" y=\"146\" text-anchor=\"middle\">Burnt</text><text class=\"t-s t-ok\" x=\"560\" y=\"56\" text-anchor=\"middle\">Ok(loaf)</text><text class=\"t-s t-bad\" x=\"520\" y=\"214\" text-anchor=\"middle\">Err(the first note)</text><text class=\"t-s t-m\" x=\"320\" y=\"248\" text-anchor=\"middle\">andThen runs a step only on the success track; map changes the value there</text></svg>",
+        "caption": "Each step either keeps the batter on the success track or switches it to the failure track, where its note rides to the end untouched."
+      },
+      "try": {
+        "title": "Walk a batter down the line",
+        "minutes": 3,
+        "steps": [
+          "Read `Outcome.kt`. Each step prints its name when it runs. For each of the three batters, predict which names print and what comes out.",
+          "Run it, then run `OutcomeJava.java`.",
+          "In `Outcome.kt`, change `is Outcome.Err -> this` in `map` to `is Outcome.Err -> Outcome.Err(error)`. Does it still compile? Why was `this` allowed?"
+        ],
+        "code": {
+          "lang": "kotlin",
+          "title": "Outcome.kt",
+          "src": "package workbench.functional.l07.demo\n\n/** A hand-written result type: a success holding a value, or a failure holding an error. */\nsealed interface Outcome<out E, out A> {\n    data class Ok<A>(val value: A) : Outcome<Nothing, A>\n    data class Err<E>(val error: E) : Outcome<E, Nothing>\n}\n\n/** Change the value on the success track; a failure passes through untouched. */\ninline fun <E, A, B> Outcome<E, A>.map(f: (A) -> B): Outcome<E, B> =\n    when (this) { is Outcome.Ok -> Outcome.Ok(f(value)); is Outcome.Err -> this }\n\n/** Run the next step that can fail, only on the success track. */\ninline fun <E, A, B> Outcome<E, A>.andThen(f: (A) -> Outcome<E, B>): Outcome<E, B> =\n    when (this) { is Outcome.Ok -> f(value); is Outcome.Err -> this }\n\nsealed interface BakeErr {\n    data class Invalid(val why: String) : BakeErr\n    data object BowlTooSmall : BakeErr\n}\n\ndata class Batter(val flourGrams: Int)\n\nfun checkBatter(b: Batter): Outcome<BakeErr, Batter> {\n    println(\"  check\")\n    return if (b.flourGrams > 0) Outcome.Ok(b) else Outcome.Err(BakeErr.Invalid(\"flour<=0\"))\n}\n\nfun mix(b: Batter): Outcome<BakeErr, String> {\n    println(\"  mix\")\n    return if (b.flourGrams <= 1_000) Outcome.Ok(\"dough\") else Outcome.Err(BakeErr.BowlTooSmall)\n}\n\nfun bake(dough: String): Outcome<BakeErr, String> {\n    println(\"  bake\")\n    return Outcome.Ok(\"loaf from $dough\")\n}\n\nfun makeLoaf(b: Batter) = checkBatter(b).andThen(::mix).andThen(::bake).map { it.uppercase() }\n\nfun main() {\n    for (b in listOf(Batter(500), Batter(-1), Batter(5_000))) {\n        println(\"$b:\")\n        println(\"  -> ${makeLoaf(b)}\")\n    }\n}\n",
+          "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.demo.OutcomeKt",
+          "file": "labs/functional/src/demo/kotlin/workbench/functional/l07/demo/Outcome.kt",
+          "alt": {
+            "lang": "java",
+            "title": "OutcomeJava.java",
+            "src": "package workbench.functional.l07.demo;\n\nimport java.util.List;\nimport java.util.function.Function;\n\n/** The same result type in Java 21. Without declaration-site variance and Nothing, Err must be rebuilt each step. */\npublic class OutcomeJava {\n    sealed interface Outcome<E, A> {\n        default <B> Outcome<E, B> map(Function<? super A, ? extends B> f) {\n            return switch (this) {\n                case Ok<E, A> ok -> new Ok<>(f.apply(ok.value()));\n                case Err<E, A> err -> new Err<>(err.error());      // a new Err with a new type\n            };\n        }\n\n        default <B> Outcome<E, B> andThen(Function<? super A, Outcome<E, B>> f) {\n            return switch (this) {\n                case Ok<E, A> ok -> f.apply(ok.value());\n                case Err<E, A> err -> new Err<>(err.error());\n            };\n        }\n    }\n    record Ok<E, A>(A value) implements Outcome<E, A> {}\n    record Err<E, A>(E error) implements Outcome<E, A> {}\n\n    sealed interface BakeErr {}\n    record Invalid(String why) implements BakeErr {}\n    record BowlTooSmall() implements BakeErr {}\n\n    record Batter(int flourGrams) {}\n\n    static Outcome<BakeErr, Batter> check(Batter b) {\n        System.out.println(\"  check\");\n        return b.flourGrams() > 0 ? new Ok<>(b) : new Err<>(new Invalid(\"flour<=0\"));\n    }\n\n    static Outcome<BakeErr, String> mix(Batter b) {\n        System.out.println(\"  mix\");\n        return b.flourGrams() <= 1_000 ? new Ok<>(\"dough\") : new Err<>(new BowlTooSmall());\n    }\n\n    static Outcome<BakeErr, String> bake(String dough) {\n        System.out.println(\"  bake\");\n        return new Ok<>(\"loaf from \" + dough);\n    }\n\n    static Outcome<BakeErr, String> makeLoaf(Batter b) {\n        return check(b).andThen(OutcomeJava::mix).andThen(OutcomeJava::bake).map(String::toUpperCase);\n    }\n\n    public static void main(String[] args) {\n        for (Batter b : List.of(new Batter(500), new Batter(-1), new Batter(5_000))) {\n            System.out.println(b + \":\");\n            System.out.println(\"  -> \" + makeLoaf(b));\n        }\n    }\n}\n",
+            "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.demo.OutcomeJava",
+            "file": "labs/functional/src/demo/java/workbench/functional/l07/demo/OutcomeJava.java"
+          }
+        },
+        "expect": "`Batter(flourGrams=500)` runs all three steps and gives `Ok(value=LOAF FROM DOUGH)`. `Batter(flourGrams=-1)` prints only `check` and gives `Err(error=Invalid(why=flour<=0))`. `Batter(flourGrams=5000)` prints `check` and `mix` and gives `Err(error=BowlTooSmall)`: `bake` never runs. Java prints the same steps. Both versions of the `Err` branch compile; `this` works because an `Outcome<E, Nothing>` is already an `Outcome<E, B>` for every `B`, so there's no need to build a new object."
+      }
+    },
+    {
+      "h": "kotlin.Result wraps code that throws, and swallows cancellation",
+      "body": "The standard library has one result type, `kotlin.Result<T>`, and `runCatching { }` makes one: it runs the block and catches whatever the block throws. `Result` isn't an `Either`. It has a single type parameter, and the failure is always a `Throwable`, the parent class of every exception and error on the JVM. Its design notes are blunt: \"The `Result` class is not designed to represent domain-specific error conditions.\" It was built mainly for the coroutine machinery: `Continuation.resumeWith` takes a `Result`.\n\nUse it at the edge, around code that throws when you'd rather have a value. Here the app reads a recipe file that a user imported, and falls back to an empty recipe when the file is broken:\n\n```java\nRecipe recipe;\ntry { recipe = importer.parse(file); }      // a Java library that throws\ncatch (Exception e) { recipe = Recipe.EMPTY; }\n```\n\n```kotlin\nval recipe = runCatching { importer.parse(file) }   // a Java library that throws\n    .getOrElse { Recipe.EMPTY }\n```\n\nTwo traps come with it. The first is that `runCatching` catches every `Throwable`. It catches everything you throw at it, including the message that tells it to stop. That covers `OutOfMemoryError` and `StackOverflowError`, and inside a coroutine it covers `CancellationException`, the exception that carries a cancel.\n\nA **coroutine** is a light task that can pause while it waits, without holding on to a thread, and you cancel one to say \"stop, nobody wants the answer any more\" (\"Cancellation and timeouts\" in the coroutines track). The Try it cancels a coroutine while it waits for the shop inside `runCatching`. The cancel turns into a failed `Result`. The coroutine runs on until its next suspension point, the next place where it could pause, and the line that places the order runs. An issue asking kotlinx.coroutines for a `runCatching` that rethrows `CancellationException` (#1814) has been open since February 2020. Until something ships, rethrow it yourself, as the lab asks:\n\n```java\n// Java equivalent: never swallow the interrupt that carries a stop request\ntry { return shop.ask(item); }\ncatch (InterruptedException e) { Thread.currentThread().interrupt(); throw new CancellationException(); }\n```\n\n```kotlin\nrunCatching { shop.ask(item) }                               // a suspend call that waits for the shop\n    .onFailure { if (it is CancellationException) throw it }   // a cancel keeps travelling\n```\n\nThe second trap is that `map` doesn't catch. `runCatching { \"12\".toInt() }.map { error(\"boom\") }` throws `IllegalStateException: boom` straight out of `map`. Only `mapCatching` turns it into `Failure(java.lang.IllegalStateException: boom)`. The library pairs `recover` and `recoverCatching` the same way. If a chain should be safe from end to end, every step that can throw needs the `Catching` variant.\n\nSo `Result` answers one question: did this throwing call work? It can't say which kitchen failure happened. `fun order(item: Ingredient): Result<Delivery>` tells the caller less than the sealed type from the first section.\n\n**Keep runCatching at the edge, around code that throws. Let CancellationException through.**\n\nFor our own failures we want the railway back, with a nicer shape. That's Arrow's `Either`, and it brings a second mode the railway never had.",
+      "try": {
+        "title": "Cancel an order inside runCatching",
+        "minutes": 4,
+        "steps": [
+          "Read part 1 of `RunCatchingTrap.kt`. The coroutine is cancelled after 50 ms, while it waits for the shop inside `runCatching`. Predict: does `placing the order anyway` print, and what's in `orders`?",
+          "Run it and compare part 1 with part 2.",
+          "Read part 3 and predict which line throws.",
+          "Run `RunCatchingTrapJava.java`, which makes the same mistake with a thread and `catch (Exception e)`."
+        ],
+        "code": {
+          "lang": "kotlin",
+          "title": "RunCatchingTrap.kt",
+          "src": "package workbench.functional.l07.demo\n\nimport kotlinx.coroutines.cancelAndJoin\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.isActive\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.runBlocking\nimport kotlin.coroutines.cancellation.CancellationException\n\nfun main() = runBlocking<Unit> {\n    println(\"1. runCatching around a suspend call, cancelled after 50 ms:\")\n    val placed = mutableListOf<String>()\n    val swallowing = launch {\n        val r = runCatching { delay(1_000); \"basket-1\" }          // waiting for the shop to answer\n        println(\"  runCatching returned: isFailure=${r.isFailure} ex=${r.exceptionOrNull()?.javaClass?.simpleName}\")\n        println(\"  isActive after swallow = $isActive\")\n        placed += \"placed the order\"\n        println(\"  placing the order anyway (code with no suspension point keeps running)\")\n        try {\n            delay(1)\n        } catch (e: CancellationException) {\n            println(\"  next suspension point throws: ${e.javaClass.simpleName}\")\n            throw e\n        }\n    }\n    delay(50)\n    swallowing.cancelAndJoin()\n    println(\"  orders: $placed\")\n\n    println(\"2. the same, with CancellationException rethrown:\")\n    val placed2 = mutableListOf<String>()\n    val rethrowing = launch {\n        val r = runCatching { delay(1_000); \"basket-1\" }.onFailure { if (it is CancellationException) throw it }\n        placed2 += \"placed the order ($r)\"\n    }\n    delay(50)\n    rethrowing.cancelAndJoin()\n    println(\"  cancelled=${rethrowing.isCancelled}, orders: $placed2\")\n\n    println(\"3. map rethrows, mapCatching captures:\")\n    val parsed = runCatching { \"12\".toInt() }\n    println(\"  mapCatching: ${parsed.mapCatching { error(\"boom\") }}\")\n    try {\n        parsed.map { error(\"boom\") }\n    } catch (e: IllegalStateException) {\n        println(\"  map threw: IllegalStateException: ${e.message}\")\n    }\n}\n",
+          "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.demo.RunCatchingTrapKt",
+          "file": "labs/functional/src/demo/kotlin/workbench/functional/l07/demo/RunCatchingTrap.kt",
+          "alt": {
+            "lang": "java",
+            "title": "RunCatchingTrapJava.java",
+            "src": "package workbench.functional.l07.demo;\n\nimport java.util.List;\nimport java.util.concurrent.CopyOnWriteArrayList;\n\n/**\n * Java equivalent of RunCatchingTrap.kt: a catch-everything block around a blocking call swallows the\n * interrupt, the thread's stop signal, and the code after it places the order anyway.\n */\npublic class RunCatchingTrapJava {\n    public static void main(String[] args) throws InterruptedException {\n        System.out.println(\"1. catch (Exception e) around sleep, interrupted after 50 ms:\");\n        List<String> placed = new CopyOnWriteArrayList<>();\n        Thread swallowing = new Thread(() -> {\n            try {\n                Thread.sleep(1_000);                                  // waiting for the shop\n            } catch (Exception e) {\n                System.out.println(\"  caught \" + e.getClass().getSimpleName() + \", carrying on\");\n            }\n            placed.add(\"placed the order\");\n        });\n        swallowing.start();\n        Thread.sleep(50);\n        swallowing.interrupt();\n        swallowing.join();\n        System.out.println(\"  orders: \" + placed);\n\n        System.out.println(\"2. the same, with the interrupt restored and the work stopped:\");\n        List<String> placed2 = new CopyOnWriteArrayList<>();\n        Thread stopping = new Thread(() -> {\n            try {\n                Thread.sleep(1_000);\n            } catch (InterruptedException e) {\n                Thread.currentThread().interrupt();                   // keep the signal\n                return;                                               // and stop\n            }\n            placed2.add(\"placed the order\");\n        });\n        stopping.start();\n        Thread.sleep(50);\n        stopping.interrupt();\n        stopping.join();\n        System.out.println(\"  orders: \" + placed2);\n    }\n}\n",
+            "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.demo.RunCatchingTrapJava",
+            "file": "labs/functional/src/demo/java/workbench/functional/l07/demo/RunCatchingTrapJava.java"
+          }
+        },
+        "expect": "Part 1 prints `runCatching returned: isFailure=true ex=JobCancellationException`, `isActive after swallow = false`, then `placing the order anyway`, and only the next `delay` throws. `orders` holds `placed the order`: work ran after the cancel. Part 2 rethrows, so the job ends `cancelled=true` with no orders. In part 3, `mapCatching` returns `Failure(java.lang.IllegalStateException: boom)` and `map` throws. Java's thread catches `InterruptedException`, carries on and places the order; restoring the interrupt flag and returning fixes it."
+      },
+      "refs": [
+        {
+          "title": "runCatching (Kotlin API reference)",
+          "url": "https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/run-catching.html",
+          "kind": "docs"
+        }
+      ]
+    },
+    {
+      "h": "Arrow's Either: stop at the first error, or collect every one",
+      "body": "Arrow is a functional programming library for Kotlin, and the lab uses `arrow-core` 2.3.0. Its `Either<E, A>` is the `Outcome` from earlier, `Left(error)` or `Right(value)`, plus an `either { }` block that replaces chains of `andThen`. Here's the lab's grocery order: reserve the ingredient at the shop, check that the delivery arrives in time, then book it:\n\n```java\n// Java equivalent: the hand-written Outcome from earlier, chained with andThen\nOutcome<KitchenError, Delivery> order(Ingredient ingredient, Shop shop) {\n    return shop.reserve(ingredient).andThen(basketId -> {\n        int minutes = shop.deliveryMinutes(basketId);\n        if (minutes >= LATEST_MINUTES) return new Err<>(new TooLate(minutes));\n        return shop.book(basketId).map(slotId -> new Delivery(basketId, slotId));\n    });\n}\n```\n\n```kotlin\nfun order(ingredient: Ingredient, shop: Shop): Either<KitchenError, Delivery> = either {\n    val basketId = shop.reserve(ingredient).bind()          // a Left ends the block here\n    val minutes = shop.deliveryMinutes(basketId)\n    ensure(minutes < LATEST_MINUTES) { KitchenError.TooLate(minutes) }\n    val slotId = shop.book(basketId).bind()\n    Delivery(basketId, slotId)\n}\n```\n\nInside `either { }`, `.bind()` unwraps a `Right`. On a `Left` it stops the block, and that `Left` becomes the result. `ensure(condition) { error }` stops the block when the condition is false. The code reads top to bottom like the happy path, and it is **fail-fast**: the first failure wins, and nothing after it runs.\n\nFail-fast is right for a line of steps where each needs the one before. It's wrong for a form. A cook who types an amount of -5 with the unit `oz` (the scale was left on ounces again) should hear about both at once, not one per try. `zipOrAccumulate` runs independent checks, collects every failure into a `NonEmptyList`, a list that always holds at least one item, and calls its last lambda only if all of them passed:\n\n```java\n// Java equivalent: run every check and collect the errors by hand\nValidated<Amount> accumulate(int a, String u) {\n    List<FormError> errors = new ArrayList<>();\n    if (a <= 0) errors.add(new InvalidAmount(a));\n    if (!UNITS.contains(u)) errors.add(new UnsupportedUnit(u));\n    return errors.isEmpty() ? new Valid<>(new Amount(a, u)) : new Invalid<>(List.copyOf(errors));\n}\n```\n\n```kotlin\nfun accumulate(a: Int, u: String): Either<NonEmptyList<FormError>, Amount> = either {\n    zipOrAccumulate({ validAmount(a) }, { validUnit(u) }) { amount, unit -> Amount(amount, unit) }\n}\n// accumulate(-5, \"oz\") is Either.Left([InvalidAmount(amount=-5), UnsupportedUnit(unit=oz)])\n```\n\n`validAmount` and `validUnit` are functions with a `Raise<FormError>` receiver, so the `ensure` inside them can stop whichever block called them. The same input through a plain `either { Amount(validAmount(-5), validUnit(\"oz\")) }` gives only `Either.Left(InvalidAmount(amount=-5))`.\n\n**Stop at the first error when each step needs the one before. Collect every error when the checks don't depend on each other.**\n\nFor code that throws, `Either.catch { }` is the safer cousin of `runCatching`. It turns an ordinary exception into a `Left`, but it rethrows `CancellationException` and fatal errors such as `OutOfMemoryError`.\n\nYou may have read that Kotlin is getting error unions, `fun load(): Recipe | NotFound`. That's a real proposal (KEEP-0441, with the detailed design in KEEP-0462), but it isn't in Kotlin 2.4.21: the compiler rejects `error class NotFound` with `Syntax error: Expecting a top level declaration.` Today the picker is short. Use a nullable type when absence needs no reason. Use a sealed type for a few outcomes of one function. Use `Either` when many steps chain or errors must be collected. Keep `Result` for code that throws, and exceptions for bugs.",
+      "try": {
+        "title": "Fail fast, then collect everything",
+        "minutes": 4,
+        "steps": [
+          "Read `EitherDemo.kt`. Predict what `failFast(-5, \"oz\")` and `accumulate(-5, \"oz\")` print.",
+          "Run it.",
+          "Change `accumulate(-5, \"oz\")` to `accumulate(250, \"oz\")`. Predict the result, then run it.",
+          "Run `EitherDemoJava.java` and compare how much code the Java version needs per rule."
+        ],
+        "code": {
+          "lang": "kotlin",
+          "title": "EitherDemo.kt",
+          "src": "package workbench.functional.l07.demo\n\nimport arrow.core.Either\nimport arrow.core.NonEmptyList\nimport arrow.core.raise.Raise\nimport arrow.core.raise.either\nimport arrow.core.raise.ensure\nimport arrow.core.raise.zipOrAccumulate\nimport kotlin.coroutines.cancellation.CancellationException\n\nsealed interface FormError {\n    data class InvalidAmount(val amount: Int) : FormError\n    data class UnsupportedUnit(val unit: String) : FormError\n}\n\ndata class Amount(val amount: Int, val unit: String)\n\nfun Raise<FormError>.validAmount(a: Int): Int {\n    ensure(a > 0) { FormError.InvalidAmount(a) }\n    return a\n}\n\nfun Raise<FormError>.validUnit(u: String): String {\n    ensure(u in setOf(\"g\", \"ml\", \"pcs\")) { FormError.UnsupportedUnit(u) }\n    return u\n}\n\n/** Stops at the first failure: the second check never runs. */\nfun failFast(a: Int, u: String): Either<FormError, Amount> = either {\n    Amount(validAmount(a), validUnit(u))\n}\n\n/** Runs every check and collects every failure. */\nfun accumulate(a: Int, u: String): Either<NonEmptyList<FormError>, Amount> = either {\n    zipOrAccumulate({ validAmount(a) }, { validUnit(u) }) { amount, unit -> Amount(amount, unit) }\n}\n\nfun main() {\n    println(\"fail fast:  ${failFast(-5, \"oz\")}\")\n    println(\"accumulate: ${accumulate(-5, \"oz\")}\")\n    println(\"all good:   ${accumulate(250, \"g\")}\")\n\n    println(\"Either.catch around code that throws:\")\n    println(\"  ${Either.catch { \"2OO\".toInt() }.mapLeft { it::class.simpleName }}\")   // the letter O, twice\n    try {\n        Either.catch { throw CancellationException(\"shopping cancelled\") }\n    } catch (e: CancellationException) {\n        println(\"  CancellationException rethrown, not captured\")\n    }\n}\n",
+          "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.demo.EitherDemoKt",
+          "file": "labs/functional/src/demo/kotlin/workbench/functional/l07/demo/EitherDemo.kt",
+          "alt": {
+            "lang": "java",
+            "title": "EitherDemoJava.java",
+            "src": "package workbench.functional.l07.demo;\n\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.Set;\n\n/** Java equivalent: the JDK has no Either. A small sealed result and a list of errors do both jobs by hand. */\npublic class EitherDemoJava {\n    sealed interface FormError {}\n    record InvalidAmount(int amount) implements FormError {}\n    record UnsupportedUnit(String unit) implements FormError {}\n\n    record Amount(int amount, String unit) {}\n\n    sealed interface Validated<A> {}\n    record Valid<A>(A value) implements Validated<A> {}\n    record Invalid<A>(List<FormError> errors) implements Validated<A> {}\n\n    static final Set<String> UNITS = Set.of(\"g\", \"ml\", \"pcs\");\n\n    /** Stops at the first failure: the second check never runs. */\n    static Validated<Amount> failFast(int a, String u) {\n        if (a <= 0) return new Invalid<>(List.of(new InvalidAmount(a)));\n        if (!UNITS.contains(u)) return new Invalid<>(List.of(new UnsupportedUnit(u)));\n        return new Valid<>(new Amount(a, u));\n    }\n\n    /** Runs every check and collects every failure. */\n    static Validated<Amount> accumulate(int a, String u) {\n        List<FormError> errors = new ArrayList<>();\n        if (a <= 0) errors.add(new InvalidAmount(a));\n        if (!UNITS.contains(u)) errors.add(new UnsupportedUnit(u));\n        return errors.isEmpty() ? new Valid<>(new Amount(a, u)) : new Invalid<>(List.copyOf(errors));\n    }\n\n    public static void main(String[] args) {\n        System.out.println(\"fail fast:  \" + failFast(-5, \"oz\"));\n        System.out.println(\"accumulate: \" + accumulate(-5, \"oz\"));\n        System.out.println(\"all good:   \" + accumulate(250, \"g\"));\n    }\n}\n",
+            "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.demo.EitherDemoJava",
+            "file": "labs/functional/src/demo/java/workbench/functional/l07/demo/EitherDemoJava.java"
+          }
+        },
+        "expect": "`fail fast:  Either.Left(InvalidAmount(amount=-5))`: the unit check never ran. `accumulate: Either.Left([InvalidAmount(amount=-5), UnsupportedUnit(unit=oz)])`. With a good amount, only `Either.Left([UnsupportedUnit(unit=oz)])` remains: still a list, now with one item. `Either.catch` turns `\"2OO\".toInt()`, typed with two letter Os, into `Either.Left(NumberFormatException)` and lets the `CancellationException` through. Java prints the same results with a hand-built list."
+      },
+      "refs": [
+        {
+          "title": "Working with typed errors, Arrow docs source",
+          "url": "https://github.com/arrow-kt/arrow-website/blob/main/content/docs/learn/typed-errors/working-with-typed-errors.md",
+          "kind": "read"
+        }
+      ]
+    }
   ],
-  "answer": 1,
-  "why": "Kotlin has no checked exceptions, so nothing in the signature or the build tells the caller that a decline is possible. The exception propagates until something catches it, usually a generic handler that turns it into a 500. In Java, a checked `throws CardDeclinedException` would have forced a `catch`. This lesson puts that information back, in the return type."
- },
- "sections": [
-  {
-   "h": "Exceptions hide the failures your caller has to handle",
-   "body": "Here is an authorization call from a checkout service, in both languages:\n\n```kotlin\nfun authorize(p: Payment): AuthCode   // throws CardDeclinedException, InsufficientFundsException\n```\n\n```java\nAuthCode authorize(Payment p) throws CardDeclinedException, InsufficientFundsException;\n```\n\nIn Java, checked exceptions put the failures in the signature, and the compiler makes every caller deal with them. Kotlin has none: \"Kotlin treats all exceptions as unchecked by default.\" So the Kotlin signature only says `AuthCode`, and nothing tells the caller that one card in twenty comes back declined. A new endpoint forgets the `try`. The decline travels up to the HTTP layer, the customer gets a 500, and the on-call engineer gets paged for a card that was simply out of money.\n\nThe real problem is that two kinds of failure share one mechanism. A declined card, an expired card or an unknown currency is **expected**: it happens every day, and the caller must decide what to do. A null pointer, a broken invariant or a lost database connection is a bug or an environment failure, and no caller can do anything useful about it on the spot. The Kotlin team draws the same line. The design notes for `kotlin.Result` say: \"Use nullable types or domain-specific classes to represent failures that need specific handling.\" The newer rich-errors proposal, KEEP-0441, says exceptions \"should be used for unrecoverable cases.\"\n\nSo put the expected failures in the return type, as values:\n\n```kotlin\nsealed interface AuthResult {\n    data class Approved(val code: String) : AuthResult\n    data class Refused(val reason: AuthFailure) : AuthResult\n}\nfun authorize(p: Payment): AuthResult\n```\n\n```java\nsealed interface AuthResult {}\nrecord Approved(String code) implements AuthResult {}\nrecord Refused(AuthFailure reason) implements AuthResult {}\nAuthResult authorize(Payment p);\n```\n\n`sealed` means the compiler knows every subtype, so a `when` over them needs no `else`. That pays off when someone adds a case. Add `FraudSuspected` to `AuthFailure` and every `when` that doesn't handle it stops compiling: `'when' expression must be exhaustive. Add the 'is FraudSuspected' branch or an 'else' branch.` Java 21's sealed interfaces and pattern `switch` give the same check: `the switch expression does not cover all possible input values`. That error is the whole point, so never write `else` on a sealed type. It throws the check away.\n\nExceptions keep their job for bugs. `require`, `check` and `error()` still belong wherever an invariant breaks.",
-   "try": {
-    "title": "Add a failure and let the compiler find the gaps",
-    "minutes": 4,
-    "steps": [
-     "Run `Exhaustive.kt`. Four authorizations come out as four HTTP status lines.",
-     "Uncomment `FraudSuspected` in `AuthFailure` and run it again. Read the error and note which `when` it points at.",
-     "Add a branch for it to `httpStatus` (403 is fine) and run again.",
-     "Do the same in `ExhaustiveJava.java`."
-    ],
-    "code": {
-     "lang": "kotlin",
-     "title": "Exhaustive.kt",
-     "src": "package workbench.functional.l07\n\n/** The expected ways an authorization can fail. A closed set: the compiler knows every case. */\nsealed interface AuthFailure {\n    data class InvalidAmount(val amountMinor: Long) : AuthFailure\n    data object CardExpired : AuthFailure\n    data class InsufficientFunds(val shortByMinor: Long) : AuthFailure\n    // Uncomment the next line and run again.\n    // data class FraudSuspected(val score: Int) : AuthFailure\n}\n\nsealed interface AuthResult {\n    data class Approved(val code: String) : AuthResult\n    data class Refused(val reason: AuthFailure) : AuthResult\n}\n\n/** The signature now says it can fail, and how. Nothing is thrown for a decline. */\nfun authorizeCard(amountMinor: Long, balanceMinor: Long, expiryYear: Int): AuthResult = when {\n    amountMinor <= 0 -> AuthResult.Refused(AuthFailure.InvalidAmount(amountMinor))\n    expiryYear < 2026 -> AuthResult.Refused(AuthFailure.CardExpired)\n    amountMinor > balanceMinor -> AuthResult.Refused(AuthFailure.InsufficientFunds(amountMinor - balanceMinor))\n    else -> AuthResult.Approved(\"A-${amountMinor % 997}\")\n}\n\n/** The one place that knows HTTP: an exhaustive when with no else branch. */\nfun httpStatus(failure: AuthFailure): Int = when (failure) {\n    is AuthFailure.InvalidAmount -> 400\n    AuthFailure.CardExpired -> 402\n    is AuthFailure.InsufficientFunds -> 402\n}\n\nfun main() {\n    val attempts = listOf(Triple(4_250L, 10_000L, 2028), Triple(-5L, 10_000L, 2028), Triple(4_250L, 10_000L, 2024), Triple(14_250L, 10_000L, 2028))\n    for ((amount, balance, expiry) in attempts) {\n        val line = when (val result = authorizeCard(amount, balance, expiry)) {\n            is AuthResult.Approved -> \"200 approved ${result.code}\"\n            is AuthResult.Refused -> \"${httpStatus(result.reason)} ${result.reason}\"\n        }\n        println(line)\n    }\n}\n",
-     "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.ExhaustiveKt",
-     "file": "labs/functional/src/demo/kotlin/workbench/functional/l07/Exhaustive.kt",
-     "alt": {
-      "lang": "java",
-      "title": "ExhaustiveJava.java",
-      "src": "package workbench.functional.l07;\n\nimport java.util.List;\n\n/** The same closed set of failures with Java 21 sealed interfaces, records and an exhaustive switch. */\npublic class ExhaustiveJava {\n    sealed interface AuthFailure {}\n    record InvalidAmount(long amountMinor) implements AuthFailure {}\n    record CardExpired() implements AuthFailure {}\n    record InsufficientFunds(long shortByMinor) implements AuthFailure {}\n    // Uncomment the next line and run again.\n    // record FraudSuspected(int score) implements AuthFailure {}\n\n    sealed interface AuthResult {}\n    record Approved(String code) implements AuthResult {}\n    record Refused(AuthFailure reason) implements AuthResult {}\n\n    static AuthResult authorizeCard(long amountMinor, long balanceMinor, int expiryYear) {\n        if (amountMinor <= 0) return new Refused(new InvalidAmount(amountMinor));\n        if (expiryYear < 2026) return new Refused(new CardExpired());\n        if (amountMinor > balanceMinor) return new Refused(new InsufficientFunds(amountMinor - balanceMinor));\n        return new Approved(\"A-\" + amountMinor % 997);\n    }\n\n    /** The one place that knows HTTP: an exhaustive switch with no default branch. */\n    static int httpStatus(AuthFailure failure) {\n        return switch (failure) {\n            case InvalidAmount a -> 400;\n            case CardExpired c -> 402;\n            case InsufficientFunds i -> 402;\n        };\n    }\n\n    public static void main(String[] args) {\n        List<long[]> attempts = List.of(new long[] {4_250, 10_000, 2028}, new long[] {-5, 10_000, 2028},\n                new long[] {4_250, 10_000, 2024}, new long[] {14_250, 10_000, 2028});\n        for (long[] a : attempts) {\n            String line = switch (authorizeCard(a[0], a[1], (int) a[2])) {\n                case Approved ok -> \"200 approved \" + ok.code();\n                case Refused r -> httpStatus(r.reason()) + \" \" + r.reason();\n            };\n            System.out.println(line);\n        }\n    }\n}\n",
-      "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.ExhaustiveJava",
-      "file": "labs/functional/src/demo/java/workbench/functional/l07/ExhaustiveJava.java"
-     }
+  "compare": {
+    "title": "A fail-fast grocery order: Java sealed result vs Kotlin either { }",
+    "java": {
+      "title": "Order.java",
+      "src": "sealed interface Outcome<E, A> { /* map and andThen as in section 2 */ }\nrecord Ok<E, A>(A value) implements Outcome<E, A> {}\nrecord Err<E, A>(E error) implements Outcome<E, A> {}\n\nOutcome<KitchenError, Delivery> order(Ingredient ingredient, Shop shop) {\n    return shop.reserve(ingredient).andThen(basketId -> {         // 1. reserve\n        int minutes = shop.deliveryMinutes(basketId);             // 2. check the time\n        if (minutes >= LATEST_MINUTES) return new Err<>(new TooLate(minutes));\n        return shop.book(basketId)                                // 3. book\n                .map(slotId -> new Delivery(basketId, slotId));\n    });\n}"
     },
-    "expect": "The first run prints `200 approved A-262`, `400 InvalidAmount(amountMinor=-5)`, `402 CardExpired` and `402 InsufficientFunds(shortByMinor=4250)`. With the new case, Kotlin stops at `httpStatus` with `'when' expression must be exhaustive. Add the 'is FraudSuspected' branch or an 'else' branch.` The `when` in `main` still compiles, because it only looks at `AuthResult`. javac reports `the switch expression does not cover all possible input values` at the same spot. After you add the branch, both run again."
-   },
-   "refs": [
-    {
-     "title": "Sealed classes and interfaces (Kotlin docs)",
-     "url": "https://kotlinlang.org/docs/sealed-classes.html",
-     "kind": "docs"
+    "kotlin": {
+      "title": "Order.kt",
+      "src": "fun order(ingredient: Ingredient, shop: Shop): Either<KitchenError, Delivery> = either {\n    val basketId = shop.reserve(ingredient).bind()                // 1. reserve\n    val minutes = shop.deliveryMinutes(basketId)                  // 2. check the time\n    ensure(minutes < LATEST_MINUTES) { KitchenError.TooLate(minutes) }\n    val slotId = shop.book(basketId).bind()                       // 3. book\n    Delivery(basketId, slotId)\n}"
+    },
+    "note": "Both are the same railway: the first `Err` or `Left` ends the pipeline and comes back unchanged, and the sealed error type keeps every `when` or `switch` over it exhaustive. The differences are in how it reads and what the library brings. Java nests a lambda per step, so a five-step pipeline drifts to the right, and every `Err` has to be rebuilt because Java has no `Nothing` and no declaration-site variance. Kotlin's `either { }` keeps the steps flat: `bind()` and `ensure` stop the block with the error, so the code reads like the happy path. Arrow also brings what the hand-written version lacks: `zipOrAccumulate` and `mapOrAccumulate` for collecting errors, `Either.catch` that lets cancellation through, and `mapLeft` and `recover` for translating errors between layers."
+  },
+  "worked": {
+    "title": "Layer the \"order it\" button: check everything, then stop at the first failure",
+    "steps": [
+      {
+        "say": "The cook types an ingredient line and taps \"order it\". 1. Check the line at the edge and collect every problem, so the cook fixes the whole line at once. The lab's `validate` returns `Either<NonEmptyList<KitchenError>, Ingredient>`.",
+        "code": "val checked: Either<NonEmptyList<KitchenError>, Ingredient> = validate(form)\n// IngredientForm(\"fl0ur\", -5, \"oz\", \"\") gives Left([InvalidName(name=fl0ur), InvalidAmount(amount=-5), UnsupportedUnit(unit=oz)])",
+        "lang": "kotlin",
+        "alt_lang": "java",
+        "alt_code": "Validated<Ingredient> checked = validate(form);   // every rule runs; the errors are collected\nif (checked instanceof Invalid<Ingredient> invalid) return showProblems(invalid.errors());"
+      },
+      {
+        "say": "2. Run the shop steps fail-fast, and give the two kinds of error one type so the button can show either. `mapLeft` changes the error side and leaves a `Right` alone.",
+        "code": "sealed interface ScreenError {\n    data class Invalid(val errors: NonEmptyList<KitchenError>) : ScreenError\n    data class Failed(val error: KitchenError) : ScreenError\n}\n\nfun orderIt(form: IngredientForm, shop: Shop): Either<ScreenError, Delivery> = either {\n    val ingredient = validate(form).mapLeft(ScreenError::Invalid).bind()   // every line error at once\n    order(ingredient, shop).mapLeft(ScreenError::Failed).bind()            // the first shop failure\n}",
+        "lang": "kotlin",
+        "alt_lang": "java",
+        "alt_code": "sealed interface ScreenError {}\nrecord InvalidLine(List<KitchenError> errors) implements ScreenError {}\nrecord Failed(KitchenError error) implements ScreenError {}\n\nOutcome<ScreenError, Delivery> orderIt(IngredientForm form, Shop shop) {\n    return switch (validate(form)) {\n        case Invalid<Ingredient> invalid -> new Err<>(new InvalidLine(invalid.errors()));   // every line error\n        case Valid<Ingredient> valid -> switch (order(valid.value(), shop)) {              // the first shop failure\n            case Ok<KitchenError, Delivery> ok -> new Ok<>(ok.value());\n            case Err<KitchenError, Delivery> err -> new Err<>(new Failed(err.error()));\n        };\n    };\n}"
+      },
+      {
+        "say": "3. At the outer edge, the shop's own client library throws when the network gives up. Turn the one failure that means something to the cook into a value, and let everything else fly. A `SocketTimeoutException` (the network call gave up waiting) becomes `ShopClosed`, which the screen can show; an `IllegalStateException` is a bug and must stay an exception.",
+        "code": "fun ShopClient.reserveSafely(body: String): Either<KitchenError, String> =\n    Either.catch { post(body) }                     // rethrows CancellationException and fatal errors\n        .mapLeft { e -> if (e is SocketTimeoutException) KitchenError.ShopClosed else throw e }",
+        "lang": "kotlin",
+        "alt_lang": "java",
+        "alt_code": "Outcome<KitchenError, String> reserveSafely(ShopClient client, String body) throws IOException {\n    try {\n        return new Ok<>(client.post(body));\n    } catch (SocketTimeoutException e) {\n        return new Err<>(new ShopClosed());            // the one failure that means something to the cook\n    }                                                  // other exceptions fly on: a bug stays a bug\n}"
+      },
+      {
+        "say": "4. Turn errors into screen messages in exactly one place, with an exhaustive `when` and no `else`. When someone adds a `KitchenError` case next year, this function stops compiling until they decide what the cook should read.",
+        "code": "fun message(error: ScreenError): String = when (error) {\n    is ScreenError.Invalid -> \"Please fix ${error.errors.size} things in this line\"\n    is ScreenError.Failed -> when (error.error) {\n        KitchenError.OutOfStock -> \"The shop is out of it\"\n        is KitchenError.TooLate -> \"It would arrive after your guests\"\n        KitchenError.ShopClosed -> \"The shop isn't answering, try later\"\n        is KitchenError.InvalidName, is KitchenError.InvalidAmount,\n        is KitchenError.UnsupportedUnit, is KitchenError.NoteTooLong -> \"Please check this line\"\n    }\n}",
+        "lang": "kotlin",
+        "alt_lang": "java",
+        "alt_code": "String message(ScreenError error) {\n    return switch (error) {\n        case InvalidLine i -> \"Please fix \" + i.errors().size() + \" things in this line\";\n        case Failed f -> switch (f.error()) {\n            case OutOfStock o -> \"The shop is out of it\";\n            case TooLate t -> \"It would arrive after your guests\";\n            case ShopClosed c -> \"The shop isn't answering, try later\";\n            case InvalidName n -> \"Please check this line\";\n            case InvalidAmount a -> \"Please check this line\";\n            case UnsupportedUnit u -> \"Please check this line\";\n            case NoteTooLong l -> \"Please check this line\";\n        };\n    };\n}"
+      }
+    ]
+  },
+  "lab": {
+    "title": "Check a line, order it, and keep cancellation working",
+    "minutes": 15,
+    "files": [
+      "labs/functional/src/main/kotlin/workbench/functional/l07/Validation.kt",
+      "labs/functional/src/main/kotlin/workbench/functional/l07/Pipeline.kt",
+      "labs/functional/src/main/kotlin/workbench/functional/l07/SafeCatching.kt",
+      "labs/functional/src/main/kotlin/workbench/functional/l07/Model.kt"
+    ],
+    "run": "./gradlew :functional:test --tests 'workbench.functional.l07.*'",
+    "steps": [
+      "Run the tests. Ten of twelve fail. The two that pass check `runCatchingCancellable` with a value and an ordinary exception, where plain `runCatching` already works. `Model.kt` holds the types and needs no changes.",
+      "In `Validation.kt`, write `checkName` and `checkNote` in the style of the two rules above them.",
+      "Write `validate` as `either { zipOrAccumulate(...) { ... } }`, with the four checks in the order the KDoc gives: name, amount, unit, note.",
+      "In `Pipeline.kt`, write `order` as one `either { }` block: `bind()` each shop call that returns an `Either`, and `ensure` the delivery time.",
+      "In `SafeCatching.kt`, make `runCatchingCancellable` rethrow `CancellationException`. The cancellation test runs on the virtual time of `kotlinx-coroutines-test`, a clock the test controls, so it finishes at once.",
+      "Run the tests until all twelve pass."
+    ],
+    "hints": [
+      "`zipOrAccumulate` takes up to nine lambdas and then a final lambda that receives their results. Inside each lambda you can call the `check...` functions directly, because the lambdas run in a `Raise` context.",
+      "In `order`, read the minutes into a `val` first, then `ensure(minutes < LATEST_MINUTES) { KitchenError.TooLate(minutes) }`.",
+      "Import `CancellationException` from `kotlin.coroutines.cancellation`. Catch it before the general `Throwable` clause and rethrow it, or use `runCatching { block() }.onFailure { if (it is CancellationException) throw it }`.",
+      "If `either` or `zipOrAccumulate` won't resolve, add `import arrow.core.raise.either` and `import arrow.core.raise.zipOrAccumulate`."
+    ],
+    "done_when": "All twelve tests in `ErrorsAsValuesTest` pass."
+  },
+  "drill": {
+    "title": "A railway from memory",
+    "minutes": 5,
+    "prompt": "Close this page. Write `Outcome<E, A>` with its two cases, `map` and `andThen`, with the variance that lets an error pass through unchanged. Then chain `checkBatter`, `mix` and `bake` with it. Check: does your `Err` branch need to build a new object?",
+    "answer": {
+      "lang": "kotlin",
+      "src": "sealed interface Outcome<out E, out A> {\n    data class Ok<A>(val value: A) : Outcome<Nothing, A>\n    data class Err<E>(val error: E) : Outcome<E, Nothing>\n}\n\ninline fun <E, A, B> Outcome<E, A>.map(f: (A) -> B): Outcome<E, B> =\n    when (this) { is Outcome.Ok -> Outcome.Ok(f(value)); is Outcome.Err -> this }   // Err<E> is an Outcome<E, B>\n\ninline fun <E, A, B> Outcome<E, A>.andThen(f: (A) -> Outcome<E, B>): Outcome<E, B> =\n    when (this) { is Outcome.Ok -> f(value); is Outcome.Err -> this }\n\nfun makeLoaf(b: Batter) = checkBatter(b).andThen(::mix).andThen(::bake)",
+      "alt": {
+        "lang": "java",
+        "src": "sealed interface Outcome<E, A> {\n    default <B> Outcome<E, B> map(Function<? super A, ? extends B> f) {\n        return switch (this) {\n            case Ok<E, A> ok -> new Ok<>(f.apply(ok.value()));\n            case Err<E, A> err -> new Err<>(err.error());          // Java must rebuild the Err\n        };\n    }\n    default <B> Outcome<E, B> andThen(Function<? super A, Outcome<E, B>> f) {\n        return switch (this) {\n            case Ok<E, A> ok -> f.apply(ok.value());\n            case Err<E, A> err -> new Err<>(err.error());\n        };\n    }\n}\nrecord Ok<E, A>(A value) implements Outcome<E, A> {}\nrecord Err<E, A>(E error) implements Outcome<E, A> {}\n\nOutcome<BakeErr, String> makeLoaf(Batter b) { return checkBatter(b).andThen(this::mix).andThen(this::bake); }"
+      }
     }
-   ]
   },
-  {
-   "h": "A result type you can write in ten lines",
-   "body": "A sealed result per function gets repetitive, and chaining them is clumsy, because every step needs a `when` to check the step before. One generic type covers every step:\n\n```kotlin\nsealed interface Outcome<out E, out A> {\n    data class Ok<A>(val value: A) : Outcome<Nothing, A>\n    data class Err<E>(val error: E) : Outcome<E, Nothing>\n}\n\ninline fun <E, A, B> Outcome<E, A>.andThen(f: (A) -> Outcome<E, B>): Outcome<E, B> =\n    when (this) { is Outcome.Ok -> f(value); is Outcome.Err -> this }\n```\n\n```java\nsealed interface Outcome<E, A> {\n    default <B> Outcome<E, B> andThen(Function<? super A, Outcome<E, B>> f) {\n        return switch (this) {\n            case Ok<E, A> ok -> f.apply(ok.value());\n            case Err<E, A> err -> new Err<>(err.error());\n        };\n    }\n}\nrecord Ok<E, A>(A value) implements Outcome<E, A> {}\nrecord Err<E, A>(E error) implements Outcome<E, A> {}\n```\n\n`andThen` runs the next step only if this one succeeded. An `Err` skips every later step and comes out at the end unchanged. Its sibling `map`, in the Try it, does the same for a plain function that can't fail, such as `uppercase()`. A payment becomes one line: `validate(r).andThen(::authorise).andThen(::capture).map { it.uppercase() }`.\n\nThe usual picture is a railway with two tracks, which is why this style is often called railway-oriented programming. Each step is a switch. On success the train stays on the top track. On failure it moves to the bottom track and stays there to the end, so nothing after the failure runs. The figure shows it.\n\nLook at the variance. `Outcome<out E, out A>` is covariant in both parameters (\"Covariance with out: producers\" in the generics track), and `Err` is an `Outcome<E, Nothing>`. `Nothing` is a subtype of every type, so an `Err<PayErr>` already *is* an `Outcome<PayErr, String>`, an `Outcome<PayErr, Receipt>`, an `Outcome<PayErr, X>` for any `X`. That is why `is Outcome.Err -> this` compiles without building a new object. Java has no declaration-site variance and no `Nothing`, so the Java version builds a new `Err` at every step.\n\nThat is all an `Either` is at heart. Libraries add more combinators and a block syntax that makes chains read like straight-line code, which is the last section.",
-   "figure": {
-    "svg": "<svg viewBox=\"0 0 640 260\" role=\"img\" aria-label=\"Railway diagram. A success track runs through three steps: validate, authorise, capture. From each step a branch drops to a failure track. Once on the failure track, the error travels to the end and no later step runs.\"><text class=\"t-s t-ok\" x=\"20\" y=\"84\">success</text><text class=\"t-s t-bad\" x=\"20\" y=\"194\">failure</text><line class=\"ln-a\" x1=\"80\" y1=\"80\" x2=\"600\" y2=\"80\" marker-end=\"url(#arr)\"/><line class=\"ln-bad\" x1=\"80\" y1=\"190\" x2=\"600\" y2=\"190\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"115\" y=\"60\" width=\"110\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"170\" y=\"85\" text-anchor=\"middle\">validate</text><rect class=\"box\" x=\"275\" y=\"60\" width=\"110\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"330\" y=\"85\" text-anchor=\"middle\">authorise</text><rect class=\"box\" x=\"435\" y=\"60\" width=\"110\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"490\" y=\"85\" text-anchor=\"middle\">capture</text><line class=\"ln-bad\" x1=\"200\" y1=\"100\" x2=\"250\" y2=\"186\" marker-end=\"url(#arr)\"/><line class=\"ln-bad\" x1=\"360\" y1=\"100\" x2=\"410\" y2=\"186\" marker-end=\"url(#arr)\"/><line class=\"ln-bad\" x1=\"520\" y1=\"100\" x2=\"570\" y2=\"186\" marker-end=\"url(#arr)\"/><text class=\"t-s t-bad\" x=\"250\" y=\"146\" text-anchor=\"middle\">Invalid</text><text class=\"t-s t-bad\" x=\"412\" y=\"146\" text-anchor=\"middle\">Declined</text><text class=\"t-s t-bad\" x=\"574\" y=\"146\" text-anchor=\"middle\">Unavailable</text><text class=\"t-s t-ok\" x=\"560\" y=\"56\" text-anchor=\"middle\">Ok(receipt)</text><text class=\"t-s t-bad\" x=\"520\" y=\"214\" text-anchor=\"middle\">Err(the first error)</text><text class=\"t-s t-m\" x=\"320\" y=\"248\" text-anchor=\"middle\">andThen runs a step only on the success track; map changes the value there</text></svg>",
-    "caption": "Each step either keeps the value on the success track or switches it to the failure track, where it rides to the end untouched."
-   },
-   "try": {
-    "title": "Ride the railway",
-    "minutes": 3,
-    "steps": [
-     "Read `Outcome.kt`. Each step prints its name when it runs. For each of the three requests, predict which names print and what comes out.",
-     "Run it, then run `OutcomeJava.java`.",
-     "In `Outcome.kt`, change `is Outcome.Err -> this` in `map` to `is Outcome.Err -> Outcome.Err(error)`. Does it still compile? Why was `this` allowed?"
-    ],
-    "code": {
-     "lang": "kotlin",
-     "title": "Outcome.kt",
-     "src": "package workbench.functional.l07\n\n/** A hand-written result type: a success holding a value, or a failure holding an error. */\nsealed interface Outcome<out E, out A> {\n    data class Ok<A>(val value: A) : Outcome<Nothing, A>\n    data class Err<E>(val error: E) : Outcome<E, Nothing>\n}\n\n/** Change the value on the success track; a failure passes through untouched. */\ninline fun <E, A, B> Outcome<E, A>.map(f: (A) -> B): Outcome<E, B> =\n    when (this) { is Outcome.Ok -> Outcome.Ok(f(value)); is Outcome.Err -> this }\n\n/** Run the next step that can fail, only on the success track. */\ninline fun <E, A, B> Outcome<E, A>.andThen(f: (A) -> Outcome<E, B>): Outcome<E, B> =\n    when (this) { is Outcome.Ok -> f(value); is Outcome.Err -> this }\n\nsealed interface PayErr {\n    data class Invalid(val why: String) : PayErr\n    data object Declined : PayErr\n}\n\ndata class Req(val amountMinor: Long, val currency: String)\n\nfun validateReq(r: Req): Outcome<PayErr, Req> {\n    println(\"  validate\")\n    return if (r.amountMinor > 0) Outcome.Ok(r) else Outcome.Err(PayErr.Invalid(\"amount<=0\"))\n}\n\nfun authoriseReq(r: Req): Outcome<PayErr, String> {\n    println(\"  authorise\")\n    return if (r.amountMinor < 10_000) Outcome.Ok(\"auth-1\") else Outcome.Err(PayErr.Declined)\n}\n\nfun captureAuth(auth: String): Outcome<PayErr, String> {\n    println(\"  capture\")\n    return Outcome.Ok(\"cap-of-$auth\")\n}\n\nfun payReq(r: Req) = validateReq(r).andThen(::authoriseReq).andThen(::captureAuth).map { it.uppercase() }\n\nfun main() {\n    for (r in listOf(Req(500, \"EUR\"), Req(-1, \"EUR\"), Req(50_000, \"EUR\"))) {\n        println(\"$r:\")\n        println(\"  -> ${payReq(r)}\")\n    }\n}\n",
-     "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.OutcomeKt",
-     "file": "labs/functional/src/demo/kotlin/workbench/functional/l07/Outcome.kt",
-     "alt": {
-      "lang": "java",
-      "title": "OutcomeJava.java",
-      "src": "package workbench.functional.l07;\n\nimport java.util.List;\nimport java.util.function.Function;\n\n/** The same result type in Java 21. Without declaration-site variance and Nothing, Err must be rebuilt each step. */\npublic class OutcomeJava {\n    sealed interface Outcome<E, A> {\n        default <B> Outcome<E, B> map(Function<? super A, ? extends B> f) {\n            return switch (this) {\n                case Ok<E, A> ok -> new Ok<>(f.apply(ok.value()));\n                case Err<E, A> err -> new Err<>(err.error());      // a new Err with a new type\n            };\n        }\n\n        default <B> Outcome<E, B> andThen(Function<? super A, Outcome<E, B>> f) {\n            return switch (this) {\n                case Ok<E, A> ok -> f.apply(ok.value());\n                case Err<E, A> err -> new Err<>(err.error());\n            };\n        }\n    }\n    record Ok<E, A>(A value) implements Outcome<E, A> {}\n    record Err<E, A>(E error) implements Outcome<E, A> {}\n\n    sealed interface PayErr {}\n    record Invalid(String why) implements PayErr {}\n    record Declined() implements PayErr {}\n\n    record Req(long amountMinor, String currency) {}\n\n    static Outcome<PayErr, Req> validate(Req r) {\n        System.out.println(\"  validate\");\n        return r.amountMinor() > 0 ? new Ok<>(r) : new Err<>(new Invalid(\"amount<=0\"));\n    }\n\n    static Outcome<PayErr, String> authorise(Req r) {\n        System.out.println(\"  authorise\");\n        return r.amountMinor() < 10_000 ? new Ok<>(\"auth-1\") : new Err<>(new Declined());\n    }\n\n    static Outcome<PayErr, String> capture(String auth) {\n        System.out.println(\"  capture\");\n        return new Ok<>(\"cap-of-\" + auth);\n    }\n\n    static Outcome<PayErr, String> pay(Req r) {\n        return validate(r).andThen(OutcomeJava::authorise).andThen(OutcomeJava::capture).map(String::toUpperCase);\n    }\n\n    public static void main(String[] args) {\n        for (Req r : List.of(new Req(500, \"EUR\"), new Req(-1, \"EUR\"), new Req(50_000, \"EUR\"))) {\n            System.out.println(r + \":\");\n            System.out.println(\"  -> \" + pay(r));\n        }\n    }\n}\n",
-      "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.OutcomeJava",
-      "file": "labs/functional/src/demo/java/workbench/functional/l07/OutcomeJava.java"
-     }
-    },
-    "expect": "`Req(500)` runs all three steps and gives `Ok(value=CAP-OF-AUTH-1)`. `Req(-1)` prints only `validate` and gives `Err(error=Invalid(why=amount<=0))`. `Req(50000)` prints `validate` and `authorise` and gives `Err(error=Declined)`: capture never runs. Java prints the same steps. Both versions of the `Err` branch compile; `this` works because an `Outcome<E, Nothing>` is already an `Outcome<E, B>` for every `B`, so there is no need to build a new object."
-   }
-  },
-  {
-   "h": "kotlin.Result wraps foreign code, and swallows cancellation",
-   "body": "The standard library has one result type, `kotlin.Result<T>`, and `runCatching { }` makes one. It is not an `Either`. It has a single type parameter, and the failure is always a `Throwable`. Its design notes are blunt: \"The `Result` class is not designed to represent domain-specific error conditions.\" It was built mainly for the coroutine machinery: `Continuation.resumeWith` takes a `Result`.\n\nUse it at the edge, around code that throws when you want a value back:\n\n```kotlin\nval rate = runCatching { fxClient.rate(\"EUR\", \"GBP\") }   // a Java HTTP client that throws\n    .getOrElse { cachedRate }\n```\n\n```java\nBigDecimal rate;\ntry { rate = fxClient.rate(\"EUR\", \"GBP\"); }\ncatch (Exception e) { rate = cachedRate; }\n```\n\nTwo traps come with it. The first is that `runCatching` catches every `Throwable`. That includes `OutOfMemoryError` and `StackOverflowError`, and inside a coroutine it includes `CancellationException`, the exception that carries a cancel (\"Cancellation and timeouts\" in the coroutines track). The Try it cancels a coroutine while it waits inside `runCatching`. The cancel turns into a failed `Result`, the coroutine runs on until its next suspension point, and the line that charges the card runs. An issue asking kotlinx.coroutines for a `runCatching` that rethrows `CancellationException` (#1814) has been open since February 2020. Until something ships, rethrow it yourself, as the lab asks:\n\n```kotlin\nrunCatching { issuer.authorize(req) }\n    .onFailure { if (it is CancellationException) throw it }   // a cancel keeps travelling\n```\n\n```java\n// Java equivalent: never swallow the interrupt that carries a cancel\ntry { return issuer.authorize(req); }\ncatch (InterruptedException e) { Thread.currentThread().interrupt(); throw new CancellationException(); }\n```\n\nThe second trap is that `map` doesn't catch. `runCatching { \"12\".toLong() }.map { error(\"boom\") }` throws `IllegalStateException: boom` straight out of `map`. Only `mapCatching` turns it into `Failure(java.lang.IllegalStateException: boom)`. The library pairs `recover` and `recoverCatching` the same way. If a chain should be safe end to end, every step that can throw needs the `Catching` variant.\n\nSo `Result` answers one question: did this throwing call work? It can't say which payment failure happened, so keep it out of your domain signatures. `fun capture(id: String): Result<Receipt>` tells the caller less than the sealed type from the first section.",
-   "try": {
-    "title": "Cancel a payment inside runCatching",
-    "minutes": 4,
-    "steps": [
-     "Read part 1 of `RunCatchingTrap.kt`. The coroutine is cancelled after 50 ms, while it waits inside `runCatching`. Predict: does `charging card anyway` print, and what is in the ledger?",
-     "Run it and compare part 1 with part 2.",
-     "Read part 3 and predict which line throws.",
-     "Run `RunCatchingTrapJava.java`, which makes the same mistake with a thread and `catch (Exception e)`."
-    ],
-    "code": {
-     "lang": "kotlin",
-     "title": "RunCatchingTrap.kt",
-     "src": "package workbench.functional.l07\n\nimport kotlinx.coroutines.cancelAndJoin\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.isActive\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.runBlocking\nimport kotlin.coroutines.cancellation.CancellationException\n\nfun main() = runBlocking<Unit> {\n    println(\"1. runCatching around a suspend call, cancelled after 50 ms:\")\n    val ledger = mutableListOf<String>()\n    val swallowing = launch {\n        val r = runCatching { delay(1_000); \"auth-1\" }\n        println(\"  runCatching returned: isFailure=${r.isFailure} ex=${r.exceptionOrNull()?.javaClass?.simpleName}\")\n        println(\"  isActive after swallow = $isActive\")\n        ledger += \"charged card\"\n        println(\"  charging card anyway (code with no suspension point keeps running)\")\n        try {\n            delay(1)\n        } catch (e: CancellationException) {\n            println(\"  next suspension point throws: ${e.javaClass.simpleName}\")\n            throw e\n        }\n    }\n    delay(50)\n    swallowing.cancelAndJoin()\n    println(\"  ledger: $ledger\")\n\n    println(\"2. the same, with CancellationException rethrown:\")\n    val ledger2 = mutableListOf<String>()\n    val rethrowing = launch {\n        val r = runCatching { delay(1_000); \"auth-1\" }.onFailure { if (it is CancellationException) throw it }\n        ledger2 += \"charged card ($r)\"\n    }\n    delay(50)\n    rethrowing.cancelAndJoin()\n    println(\"  cancelled=${rethrowing.isCancelled}, ledger: $ledger2\")\n\n    println(\"3. map rethrows, mapCatching captures:\")\n    val parsed = runCatching { \"12\".toLong() }\n    println(\"  mapCatching: ${parsed.mapCatching { error(\"boom\") }}\")\n    try {\n        parsed.map { error(\"boom\") }\n    } catch (e: IllegalStateException) {\n        println(\"  map threw: IllegalStateException: ${e.message}\")\n    }\n}\n",
-     "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.RunCatchingTrapKt",
-     "file": "labs/functional/src/demo/kotlin/workbench/functional/l07/RunCatchingTrap.kt",
-     "alt": {
-      "lang": "java",
-      "title": "RunCatchingTrapJava.java",
-      "src": "package workbench.functional.l07;\n\nimport java.util.List;\nimport java.util.concurrent.CopyOnWriteArrayList;\n\n/**\n * Java equivalent of RunCatchingTrap.kt: a catch-everything block around a blocking call swallows the\n * interrupt, the thread's cancel signal, and the code after it charges the card anyway.\n */\npublic class RunCatchingTrapJava {\n    public static void main(String[] args) throws InterruptedException {\n        System.out.println(\"1. catch (Exception e) around sleep, interrupted after 50 ms:\");\n        List<String> ledger = new CopyOnWriteArrayList<>();\n        Thread swallowing = new Thread(() -> {\n            try {\n                Thread.sleep(1_000);                                  // the issuer call\n            } catch (Exception e) {\n                System.out.println(\"  caught \" + e.getClass().getSimpleName() + \", carrying on\");\n            }\n            ledger.add(\"charged card\");\n        });\n        swallowing.start();\n        Thread.sleep(50);\n        swallowing.interrupt();\n        swallowing.join();\n        System.out.println(\"  ledger: \" + ledger);\n\n        System.out.println(\"2. the same, with the interrupt restored and the work stopped:\");\n        List<String> ledger2 = new CopyOnWriteArrayList<>();\n        Thread stopping = new Thread(() -> {\n            try {\n                Thread.sleep(1_000);\n            } catch (InterruptedException e) {\n                Thread.currentThread().interrupt();                   // keep the signal\n                return;                                               // and stop\n            }\n            ledger2.add(\"charged card\");\n        });\n        stopping.start();\n        Thread.sleep(50);\n        stopping.interrupt();\n        stopping.join();\n        System.out.println(\"  ledger: \" + ledger2);\n    }\n}\n",
-      "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.RunCatchingTrapJava",
-      "file": "labs/functional/src/demo/java/workbench/functional/l07/RunCatchingTrapJava.java"
-     }
-    },
-    "expect": "Part 1 prints `runCatching returned: isFailure=true ex=JobCancellationException`, `isActive after swallow = false`, then `charging card anyway`, and only the next `delay` throws. The ledger holds `charged card`: work ran after the cancel. Part 2 rethrows, so the job ends `cancelled=true` with an empty ledger. In part 3, `mapCatching` returns `Failure(java.lang.IllegalStateException: boom)` and `map` throws. Java's thread catches `InterruptedException`, carries on and charges the card; restoring the flag and returning fixes it."
-   },
-   "refs": [
+  "recap": [
+    "Expected failures, such as an empty jar or a unit the app doesn't know, belong in the return type as values. Bugs and broken machines stay exceptions.",
+    "A sealed result with an exhaustive `when` and no `else` makes the compiler list every case you forgot to handle.",
+    "A two-case result with `map` and `andThen` is a railway: each step runs only on the success track. `out` variance and `Nothing` let an error pass through unchanged.",
+    "`kotlin.Result` wraps code that throws. `runCatching` catches every `Throwable`, `CancellationException` included, and `map` doesn't catch: use `mapCatching`.",
+    "Arrow's `either { }` with `bind` and `ensure` is fail-fast; `zipOrAccumulate` runs every check and collects the errors in a `NonEmptyList`.",
+    "The limit: a returned error only helps if someone reads it. Kotlin 2.4.21 doesn't warn about an ignored return value by default, and error unions like `Recipe | NotFound` are still a proposal (KEEP-0441, KEEP-0462)."
+  ],
+  "closing": "We started with a custard that split and two cooks, one who hands back a note and one who throws the pan. Expected failures became notes: a sealed result the compiler checks, a railway where a note skips to the end of the line, and Arrow's `either { }`, which stops at the first error or, with `zipOrAccumulate`, collects them all. `runCatching` stayed at the edge, with cancellation let through.\n\nSearch your code for `catch (e: Exception)` and `runCatching`. Is each one catching a bug, an expected failure, or a cancel it should let go?\n\nNext, we'll finish the track with data that never changes. What do `val` and a read-only `List` really promise?",
+  "quiz": [
     {
-     "title": "runCatching (Kotlin API reference)",
-     "url": "https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/run-catching.html",
-     "kind": "docs"
-    }
-   ]
-  },
-  {
-   "h": "Arrow's Either: fail fast, or collect every error",
-   "body": "Arrow is a functional programming library for Kotlin, and the lab uses `arrow-core` 2.3.0. Its `Either<E, A>` is the `Outcome` from earlier, `Left(error)` or `Right(value)`, plus an `either { }` block that replaces the chains of `andThen`:\n\n```kotlin\nfun pay(p: ValidPayment): Either<PaymentError, Receipt> = either {\n    val auth = gateway.authorize(p).bind()                   // a Left ends the block here\n    val score = gateway.riskScore(auth)\n    ensure(score < 80) { PaymentError.FraudSuspected(score) }\n    val capture = gateway.capture(auth).bind()\n    Receipt(auth, capture)\n}\n```\n\n```java\n// Java equivalent: the hand-written Outcome from the last section, chained with andThen\nOutcome<PaymentError, Receipt> pay(ValidPayment p) {\n    return gateway.authorize(p).andThen(auth -> {\n        int score = gateway.riskScore(auth);\n        if (score >= 80) return new Err<>(new FraudSuspected(score));\n        return gateway.capture(auth).map(capture -> new Receipt(auth, capture));\n    });\n}\n```\n\nInside `either { }`, `.bind()` unwraps a `Right`. On a `Left` it stops the block, and that `Left` becomes the result. `ensure(condition) { error }` stops the block when the condition is false. The code reads top to bottom like the happy path, and it is **fail-fast**: the first failure wins, and nothing after it runs.\n\nFail-fast is right for a pipeline, where each step needs the one before. It is wrong for a form. A client that sends a negative amount and an unknown currency should hear about both at once, not one per round trip. `zipOrAccumulate` runs independent checks, collects every failure into a `NonEmptyList`, and calls its last lambda only if all of them passed:\n\n```kotlin\nfun validate(a: Long, c: String): Either<NonEmptyList<FormError>, Amount> = either {\n    zipOrAccumulate({ validAmount(a) }, { validCurrency(c) }) { amount, currency -> Amount(amount, currency) }\n}\n// validate(-5, \"XYZ\") is Either.Left([InvalidAmount(amountMinor=-5), UnsupportedCurrency(code=XYZ)])\n```\n\n```java\n// Java equivalent: run every check and collect the errors by hand\nValidated<Amount> validate(long a, String c) {\n    List<FormError> errors = new ArrayList<>();\n    if (a <= 0) errors.add(new InvalidAmount(a));\n    if (!CURRENCIES.contains(c)) errors.add(new UnsupportedCurrency(c));\n    return errors.isEmpty() ? new Valid<>(new Amount(a, c)) : new Invalid<>(List.copyOf(errors));\n}\n```\n\n`validAmount` and `validCurrency` are functions with a `Raise<FormError>` receiver that call `ensure`. The same input through a plain `either { Amount(validAmount(-5), validCurrency(\"XYZ\")) }` gives only `Either.Left(InvalidAmount(amountMinor=-5))`.\n\nFor foreign code, `Either.catch { }` is the safer cousin of `runCatching`. It turns an ordinary exception into a `Left`, but it rethrows `CancellationException` and fatal errors such as `OutOfMemoryError`.\n\nYou may have read that Kotlin is getting error unions, `fun load(): User | NotFound`. That is a real proposal (KEEP-0441, with the detailed design in KEEP-0462), but it is not in Kotlin 2.4.21: the compiler rejects `error class NotFound` with `Syntax error: Expecting a top level declaration.` Today the picker is short. Use a nullable type when absence needs no reason. Use a sealed type for a few outcomes of one function. Use `Either` when many steps chain or errors must accumulate. Keep `Result` for throwing foreign code, and exceptions for bugs.",
-   "try": {
-    "title": "Fail fast, then collect everything",
-    "minutes": 4,
-    "steps": [
-     "Read `EitherDemo.kt`. Predict what `failFast(-5, \"XYZ\")` and `accumulate(-5, \"XYZ\")` print.",
-     "Run it.",
-     "Change the `accumulate` call to `accumulate(4_250, \"XYZ\")`. Predict the result, then run it.",
-     "Run `EitherDemoJava.java` and compare how much code the Java version needs per rule."
-    ],
-    "code": {
-     "lang": "kotlin",
-     "title": "EitherDemo.kt",
-     "src": "package workbench.functional.l07\n\nimport arrow.core.Either\nimport arrow.core.NonEmptyList\nimport arrow.core.raise.Raise\nimport arrow.core.raise.either\nimport arrow.core.raise.ensure\nimport arrow.core.raise.zipOrAccumulate\nimport kotlin.coroutines.cancellation.CancellationException\n\nsealed interface FormError {\n    data class InvalidAmount(val amountMinor: Long) : FormError\n    data class UnsupportedCurrency(val code: String) : FormError\n}\n\ndata class Amount(val minor: Long, val currency: String)\n\nfun Raise<FormError>.validAmount(a: Long): Long {\n    ensure(a > 0) { FormError.InvalidAmount(a) }\n    return a\n}\n\nfun Raise<FormError>.validCurrency(c: String): String {\n    ensure(c in setOf(\"EUR\", \"USD\", \"GBP\")) { FormError.UnsupportedCurrency(c) }\n    return c\n}\n\n/** Stops at the first failure: the second check never runs. */\nfun failFast(a: Long, c: String): Either<FormError, Amount> = either {\n    Amount(validAmount(a), validCurrency(c))\n}\n\n/** Runs every check and collects every failure. */\nfun accumulate(a: Long, c: String): Either<NonEmptyList<FormError>, Amount> = either {\n    zipOrAccumulate({ validAmount(a) }, { validCurrency(c) }) { amount, currency -> Amount(amount, currency) }\n}\n\nfun main() {\n    println(\"fail fast:  ${failFast(-5, \"XYZ\")}\")\n    println(\"accumulate: ${accumulate(-5, \"XYZ\")}\")\n    println(\"all good:   ${accumulate(4_250, \"EUR\")}\")\n\n    println(\"Either.catch around foreign code:\")\n    println(\"  ${Either.catch { \"12x\".toLong() }.mapLeft { it::class.simpleName }}\")\n    try {\n        Either.catch { throw CancellationException(\"job cancelled\") }\n    } catch (e: CancellationException) {\n        println(\"  CancellationException rethrown, not captured\")\n    }\n}\n",
-     "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.EitherDemoKt",
-     "file": "labs/functional/src/demo/kotlin/workbench/functional/l07/EitherDemo.kt",
-     "alt": {
-      "lang": "java",
-      "title": "EitherDemoJava.java",
-      "src": "package workbench.functional.l07;\n\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.Set;\n\n/** Java equivalent: the JDK has no Either. A small sealed result and a list of errors do both jobs by hand. */\npublic class EitherDemoJava {\n    sealed interface FormError {}\n    record InvalidAmount(long amountMinor) implements FormError {}\n    record UnsupportedCurrency(String code) implements FormError {}\n\n    record Amount(long minor, String currency) {}\n\n    sealed interface Validated<A> {}\n    record Valid<A>(A value) implements Validated<A> {}\n    record Invalid<A>(List<FormError> errors) implements Validated<A> {}\n\n    static final Set<String> CURRENCIES = Set.of(\"EUR\", \"USD\", \"GBP\");\n\n    /** Stops at the first failure: the second check never runs. */\n    static Validated<Amount> failFast(long a, String c) {\n        if (a <= 0) return new Invalid<>(List.of(new InvalidAmount(a)));\n        if (!CURRENCIES.contains(c)) return new Invalid<>(List.of(new UnsupportedCurrency(c)));\n        return new Valid<>(new Amount(a, c));\n    }\n\n    /** Runs every check and collects every failure. */\n    static Validated<Amount> accumulate(long a, String c) {\n        List<FormError> errors = new ArrayList<>();\n        if (a <= 0) errors.add(new InvalidAmount(a));\n        if (!CURRENCIES.contains(c)) errors.add(new UnsupportedCurrency(c));\n        return errors.isEmpty() ? new Valid<>(new Amount(a, c)) : new Invalid<>(List.copyOf(errors));\n    }\n\n    public static void main(String[] args) {\n        System.out.println(\"fail fast:  \" + failFast(-5, \"XYZ\"));\n        System.out.println(\"accumulate: \" + accumulate(-5, \"XYZ\"));\n        System.out.println(\"all good:   \" + accumulate(4_250, \"EUR\"));\n    }\n}\n",
-      "run": "./gradlew :functional:demo -Pmain=workbench.functional.l07.EitherDemoJava",
-      "file": "labs/functional/src/demo/java/workbench/functional/l07/EitherDemoJava.java"
-     }
+      "q": "Running out of flour must be handled by every caller of `takeFlour`. Which signature says so in a way the compiler can check?",
+      "options": [
+        "`fun takeFlour(grams: Int): Int`, with a KDoc saying it throws `NotEnoughFlourException`",
+        "`fun takeFlour(grams: Int): Result<Int>`",
+        "`fun takeFlour(grams: Int): Int?`",
+        "`fun takeFlour(grams: Int): Either<JarFailure, Int>`, where `JarFailure` is sealed"
+      ],
+      "answer": 3,
+      "why": "Only the `Either` with a sealed error type names the possible failures, and a `when` over `JarFailure` is checked for every case. The exception is invisible to the compiler. `Result`'s failure is any `Throwable`, so it says nothing about flour. A nullable return drops the reason entirely."
     },
-    "expect": "`fail fast:  Either.Left(InvalidAmount(amountMinor=-5))`: the currency check never ran. `accumulate: Either.Left([InvalidAmount(amountMinor=-5), UnsupportedCurrency(code=XYZ)])`. With a good amount, only `Either.Left([UnsupportedCurrency(code=XYZ)])` remains: still a list, now with one element. `Either.catch` turns `\"12x\".toLong()` into `Either.Left(NumberFormatException)` and lets the `CancellationException` through. Java prints the same results with a hand-built list."
-   },
-   "refs": [
     {
-     "title": "Working with typed errors, Arrow docs source",
-     "url": "https://github.com/arrow-kt/arrow-website/blob/main/content/docs/learn/typed-errors/working-with-typed-errors.md",
-     "kind": "read"
+      "q": "Inside `launch`, a coroutine runs `val r = runCatching { shop.ask(item) }` (a suspend call) and then `orders.add(entry)`, which doesn't suspend. The job is cancelled while `ask` waits. What happens?",
+      "options": [
+        "`add` never runs: cancellation stops the coroutine at once",
+        "`r` is a failure holding a `CancellationException`, and `add` runs",
+        "`runCatching` rethrows `CancellationException` by itself",
+        "The cancel is ignored until `ask` returns its value"
+      ],
+      "answer": 1,
+      "why": "`runCatching` catches every `Throwable`, so the cancel becomes a failed `Result`. The coroutine is still cancelled, but code without a suspension point keeps running, so the order is added after the cancel. Rethrow `CancellationException`, or use `Either.catch`, which does it for you.",
+      "from": "co-05"
+    },
+    {
+      "q": "`runCatching { parse(text) }.map { toRecipe(it) }`. `parse` succeeds, but `toRecipe` throws `IllegalArgumentException` for a bad field. What does the expression do?",
+      "options": [
+        "Throws the `IllegalArgumentException` out of `map`",
+        "Returns a `Failure` holding the `IllegalArgumentException`",
+        "Returns the original `Success`",
+        "Returns `Success(null)`"
+      ],
+      "answer": 0,
+      "why": "`map` changes a success but doesn't catch exceptions from its lambda. Only `mapCatching` captures them as a `Failure`. A chain that should be safe from end to end needs the `Catching` variant on every step that can throw."
+    },
+    {
+      "q": "A form line has an amount of -5 and the unit `oz`. What does `either { Amount(validAmount(a), validUnit(u)) }` return?",
+      "options": [
+        "`Left` with both errors",
+        "It throws on the first error",
+        "`Left(InvalidAmount(...))` only",
+        "`Left(UnsupportedUnit(...))` only"
+      ],
+      "answer": 2,
+      "why": "`either { }` is fail-fast. Arguments are evaluated left to right, `validAmount` raises first, the block stops, and `validUnit` never runs. To report both, use `zipOrAccumulate`, which runs every check and returns `Left` with a `NonEmptyList` of all the errors."
+    },
+    {
+      "q": "From the scope functions lesson: `open?.let { menu.add(it) } ?: run { menu.add(suggest()) }` ran both branches when `add` returned null for a dish on the menu already. Now `add` returns `Either<MenuError, SlotId>`. Can both branches still run?",
+      "options": [
+        "Yes, whenever `add` returns a `Left`",
+        "No: an `Either` is never null, so `run` runs only when `open` is null",
+        "It no longer compiles",
+        "Only when `add` throws"
+      ],
+      "answer": 1,
+      "why": "`?:` fires only on `null`. An `Either` is always a value, `Left` or `Right`, so the left side is null only when no dish is open. Errors as values removed the accidental overlap between \"no result\" and \"nothing there\". The dish on the menu already is now a `Left` the caller can see and handle.",
+      "from": "fp-06"
     }
-   ]
-  }
- ],
- "analogy": "An exception is a fire alarm: it stops everything and sends people running to the exits, whatever they were doing. That is right for a fire. It is wrong for a declined card, which is more like a returned letter: it comes back in the normal post, in an envelope marked \"address unknown\", and whoever opens the mail decides what to do. Errors as values turn expected failures into returned letters, so they travel the same route as the good news and the reader can't miss them. The analogy breaks at the edges: a letter can be thrown away unread, and so can an `Either`. By default, Kotlin 2.4.21 doesn't warn about an ignored return value.",
- "in_your_world": "A payments service has failures at three levels, and this lesson gives each one a home. Request validation in a Quarkus REST endpoint should accumulate, so the client fixes the whole form at once: `Either<NonEmptyList<ValidationError>, PayCommand>`, turned into one 400 response. The business pipeline (authorize, risk check, capture, ledger) is fail-fast, an `either { }` block over `Either<PaymentError, Receipt>`. At the outbound edge, the adapter for the card network turns the few infrastructure failures that have a business meaning into values (a `SocketTimeoutException` becomes `ProviderUnavailable`, which a Temporal workflow can retry) and lets everything else propagate to the global handler and the alerting. A Kafka consumer that settles batches should never wrap its loop in plain `runCatching`: on shutdown it would keep processing after the cancel.",
- "mistake": "The most common mistake is wrapping a coroutine's work in `runCatching` \"so one failure doesn't kill the loop\". It reads like a safe `try/catch`, which is why people reach for it. But it catches every `Throwable`, including the `CancellationException` that a shutdown, a timeout or a cancelled parent sends. The coroutine stays cancelled, yet the code after `runCatching` keeps running until it hits a suspension point, and a loop can log a long list of \"failed\" items that never failed. The fix is to let cancellation through: rethrow `CancellationException` in `onFailure`, use a wrapper like the lab's `runCatchingCancellable`, use Arrow's `Either.catch`, or best of all catch only the exception types you expect from that call.",
- "compare": {
-  "title": "A fail-fast payment pipeline: Java sealed result vs Kotlin either { }",
-  "java": {
-   "title": "Payments.java",
-   "src": "sealed interface Outcome<E, A> { /* map and andThen as in section 2 */ }\nrecord Ok<E, A>(A value) implements Outcome<E, A> {}\nrecord Err<E, A>(E error) implements Outcome<E, A> {}\n\nOutcome<PaymentError, Receipt> pay(ValidPayment p) {\n    return gateway.authorize(p).andThen(auth -> {                 // 1. authorize\n        int score = gateway.riskScore(auth);                       // 2. risk check\n        if (score >= FRAUD_THRESHOLD) return new Err<>(new FraudSuspected(score));\n        return gateway.capture(auth)                               // 3. capture\n                .map(capture -> new Receipt(auth, capture));\n    });\n}"
+  ],
+  "flashcards": [
+    {
+      "front": "Exception or value: the jar is out of flour?",
+      "back": "A value. It's expected, and the caller must decide what to do. Keep exceptions for bugs and failures nobody can handle on the spot."
+    },
+    {
+      "front": "What does a sealed type plus a `when` with no `else` buy you?",
+      "back": "Adding a case breaks every `when` that doesn't handle it: `'when' expression must be exhaustive. Add the 'X' branch or an 'else' branch.`"
+    },
+    {
+      "front": "What does `runCatching` catch?",
+      "back": "Every `Throwable`: ordinary exceptions, `OutOfMemoryError`, `StackOverflowError`, and `CancellationException`, which breaks coroutine cancellation."
+    },
+    {
+      "front": "`Result.map` vs `Result.mapCatching`?",
+      "back": "`map` lets an exception from its lambda escape. `mapCatching` turns it into a `Failure`."
+    },
+    {
+      "front": "Two `ensure` calls inside `either { }` would both fail. What comes back?",
+      "back": "Only the first error: `either { }` is fail-fast. Use `zipOrAccumulate` to collect all of them."
+    },
+    {
+      "front": "Does Arrow's `Either.catch` capture a `CancellationException`?",
+      "back": "No. It rethrows `CancellationException` and fatal errors such as `OutOfMemoryError`, and captures ordinary exceptions as a `Left`."
+    },
+    {
+      "front": "Does Kotlin 2.4.21 compile `fun load(): Recipe | NotFound`?",
+      "back": "No. Rich errors are a proposal (KEEP-0441, KEEP-0462); 2.4.21 reports a syntax error."
+    }
+  ],
+  "terms": [
+    {
+      "term": "Exception",
+      "plain": "An object a function throws to say something failed. It travels up through the callers until some code catches it."
+    },
+    {
+      "term": "Checked exception",
+      "plain": "In Java, an exception a method must list in its signature, so the compiler makes callers handle it. Kotlin has none."
+    },
+    {
+      "term": "Error as a value",
+      "plain": "A failure returned in the result type, like any other value, instead of thrown."
+    },
+    {
+      "term": "Exhaustive when",
+      "plain": "A `when` over a sealed type that covers every subtype, so it needs no `else` and breaks when a subtype is added."
+    },
+    {
+      "term": "Railway-oriented programming",
+      "plain": "Chaining steps on a success track and a failure track: after the first failure, the later steps are skipped."
+    },
+    {
+      "term": "Either",
+      "plain": "Arrow's two-case type: `Left(error)` or `Right(value)`, with a typed error side."
+    },
+    {
+      "term": "Fail fast",
+      "plain": "Stop at the first error and return it; the remaining steps don't run."
+    },
+    {
+      "term": "Error accumulation",
+      "plain": "Run every independent check and return all the errors together, in Arrow as a `NonEmptyList`."
+    }
+  ],
+  "explain_back": {
+    "prompt": "A teammate proposes `fun order(item: Ingredient): Result<Delivery>` for the app's grocery feature, \"because Result is Kotlin's built-in way to return errors\". Explain why it's a poor fit, and what you'd use instead.",
+    "answer": "`Result` has one type parameter, and its failure side is always a `Throwable`, so the signature says \"this can fail somehow\" and nothing about how. The caller can't tell an empty shelf from a late delivery from a shop that isn't answering without inspecting exception classes, and the compiler won't check that every case is handled. The Kotlin team's own design notes say `Result` isn't meant for domain errors. It also comes from `runCatching`, which catches `CancellationException` and fatal errors unless you're careful. I'd model the expected failures as a sealed `KitchenError` (`OutOfStock`, `TooLate`, `ShopClosed`, ...) and return `Either<KitchenError, Delivery>`, or a sealed result type if we don't want Arrow. Then a `when` over the error is exhaustive, adding a case breaks the build where it must be handled, and real bugs stay exceptions for the general handler."
   },
-  "kotlin": {
-   "title": "Payments.kt",
-   "src": "fun pay(p: ValidPayment, gateway: Gateway): Either<PaymentError, Receipt> = either {\n    val auth = gateway.authorize(p).bind()                         // 1. authorize\n    val score = gateway.riskScore(auth)                            // 2. risk check\n    ensure(score < FRAUD_THRESHOLD) { PaymentError.FraudSuspected(score) }\n    val capture = gateway.capture(auth).bind()                     // 3. capture\n    Receipt(auth, capture)\n}"
+  "deeper": {
+    "minutes": 10,
+    "body": "Three parts of Arrow are worth knowing once `either { }` feels natural.\n\n**Raise without Either.** The lab's checks are functions with a `Raise<KitchenError>` receiver: they don't return an `Either`, they *raise* inside whatever block calls them. Kotlin 2.4.0 made context parameters Stable, and Arrow 2.3.0 ships matching versions of `ensure`, `raise` and `bind` in the `arrow.core.raise.context` package, so the same check can be written as `context(_: Raise<KitchenError>) fun checkUnit(unit: String): String`. With Kotlin 2.4.21 that compiles without any compiler flag. Arrow's own docs still show the extension-receiver style and describe context parameters as a future option, so expect both styles in code you read.\n\n**Collections and the experimental block.** `mapOrAccumulate` checks every element of a list and collects the failures: running it over the amounts `[10, -1, 20, -2]` gives `Either.Left([InvalidAmount(amount=-1), InvalidAmount(amount=-2)])`. There is also an `accumulate { ensureOrAccumulate(...) }` block that reads like a list of checks. In Arrow 2.3.0 it is still marked `@ExperimentalRaiseAccumulateApi`, so you opt in with `@OptIn(ExperimentalRaiseAccumulateApi::class)`; `zipOrAccumulate` is the stable choice.\n\n**Translating errors between layers.** `mapLeft` changes the error value and leaves a `Right` alone, as in the worked example. `recover` is more general: inside it you can run any computation that may itself raise, for example trying a second shop when the first returns `ShopClosed`. Use `mapLeft` to rename errors at a boundary, and `recover` to handle them."
   },
-  "note": "Both are the same railway: the first `Err` or `Left` ends the pipeline and comes back unchanged, and the sealed error type keeps every `when` or `switch` over it exhaustive. The differences are in how it reads and what the library brings. Java nests a lambda per step, so a five-step pipeline drifts to the right, and every `Err` has to be rebuilt because Java has no `Nothing` and no declaration-site variance. Kotlin's `either { }` keeps the steps flat: `bind()` and `ensure` stop the block with the error, so the code reads like the happy path. Arrow also brings what the hand-written version lacks: `zipOrAccumulate` and `mapOrAccumulate` for collecting errors, `Either.catch` that respects cancellation, and `mapLeft` and `recover` for translating errors between layers."
- },
- "worked": {
-  "title": "Layer a payment endpoint: validate everything, then fail fast",
-  "steps": [
-   {
-    "say": "A payment request arrives at a REST endpoint. 1. Validate it at the edge and collect every problem, because the client should fix the whole form in one round trip. The lab's `validate` returns `Either<NonEmptyList<PaymentError>, ValidPayment>`.",
-    "code": "val checked: Either<NonEmptyList<PaymentError>, ValidPayment> = validate(request)\n// PaymentRequest(-5, \"XYZ\", \"1\", \"r\") gives Left([InvalidAmount(amountMinor=-5), UnsupportedCurrency(code=XYZ), InvalidCardNumber(last4=1)])",
-    "lang": "kotlin",
-    "alt_lang": "java",
-    "alt_code": "Validated<ValidPayment> checked = validate(request);   // every rule runs; the errors are collected\nif (checked instanceof Invalid<ValidPayment> invalid) return badRequest(invalid.errors());"
-   },
-   {
-    "say": "2. Run the business steps fail-fast, and give the two kinds of error one type so the endpoint can return either. `mapLeft` translates the error side and leaves a `Right` alone.",
-    "code": "sealed interface ApiError {\n    data class Invalid(val errors: NonEmptyList<PaymentError>) : ApiError\n    data class Failed(val error: PaymentError) : ApiError\n}\n\nfun handle(request: PaymentRequest, gateway: Gateway): Either<ApiError, Receipt> = either {\n    val valid = validate(request).mapLeft(ApiError::Invalid).bind()   // every form error at once\n    pay(valid, gateway).mapLeft(ApiError::Failed).bind()               // the first business failure\n}",
-    "lang": "kotlin",
-    "alt_lang": "java",
-    "alt_code": "sealed interface ApiError {}\nrecord InvalidRequest(List<PaymentError> errors) implements ApiError {}\nrecord Failed(PaymentError error) implements ApiError {}\n\nOutcome<ApiError, Receipt> handle(PaymentRequest request, Gateway gateway) {\n    return switch (validate(request)) {\n        case Invalid<ValidPayment> invalid -> new Err<>(new InvalidRequest(invalid.errors()));   // every form error\n        case Valid<ValidPayment> valid -> switch (pay(valid.value(), gateway)) {                 // the first business failure\n            case Ok<PaymentError, Receipt> ok -> new Ok<>(ok.value());\n            case Err<PaymentError, Receipt> err -> new Err<>(new Failed(err.error()));\n        };\n    };\n}"
-   },
-   {
-    "say": "3. At the outbound edge, turn the one infrastructure failure that has a business meaning into a value, and let everything else propagate. A timeout becomes `ProviderUnavailable`, which a workflow can retry; an `IllegalStateException` is a bug and must stay an exception.",
-    "code": "fun Http.charge(body: String): Either<PaymentError, String> =\n    Either.catch { post(body) }                     // rethrows CancellationException and fatal errors\n        .mapLeft { e -> if (e is SocketTimeoutException) PaymentError.ProviderUnavailable else throw e }",
-    "lang": "kotlin",
-    "alt_lang": "java",
-    "alt_code": "Outcome<PaymentError, String> charge(Http http, String body) throws IOException {\n    try {\n        return new Ok<>(http.post(body));\n    } catch (SocketTimeoutException e) {\n        return new Err<>(new ProviderUnavailable());   // the one failure with a business meaning\n    }                                                  // other exceptions propagate: a bug stays a bug\n}"
-   },
-   {
-    "say": "4. Map errors to HTTP in exactly one place, with an exhaustive `when` and no `else`. When someone adds a `PaymentError` case next year, this function stops compiling until they decide its status code.",
-    "code": "fun httpStatus(error: ApiError): Int = when (error) {\n    is ApiError.Invalid -> 400\n    is ApiError.Failed -> when (error.error) {\n        PaymentError.CardDeclined, is PaymentError.FraudSuspected -> 402\n        PaymentError.ProviderUnavailable -> 503\n        is PaymentError.InvalidAmount, is PaymentError.UnsupportedCurrency,\n        is PaymentError.InvalidCardNumber, is PaymentError.ReferenceTooLong -> 400\n    }\n}",
-    "lang": "kotlin",
-    "alt_lang": "java",
-    "alt_code": "int httpStatus(ApiError error) {\n    return switch (error) {\n        case InvalidRequest i -> 400;\n        case Failed f -> switch (f.error()) {\n            case CardDeclined d -> 402;\n            case FraudSuspected s -> 402;\n            case ProviderUnavailable u -> 503;\n            case InvalidAmount a -> 400;\n            case UnsupportedCurrency c -> 400;\n            case InvalidCardNumber n -> 400;\n            case ReferenceTooLong r -> 400;\n        };\n    };\n}"
-   }
+  "sources": [
+    {
+      "title": "KEEP: Result (Kotlin stdlib design notes)",
+      "url": "https://github.com/Kotlin/KEEP/blob/master/proposals/stdlib/result.md"
+    },
+    {
+      "title": "KEEP-0441: Rich Errors, motivation and rationale",
+      "url": "https://github.com/Kotlin/KEEP/blob/main/proposals/KEEP-0441-rich-errors-motivation.md"
+    },
+    {
+      "title": "Validation, Arrow docs source",
+      "url": "https://github.com/arrow-kt/arrow-website/blob/main/content/docs/learn/typed-errors/validation.md"
+    },
+    {
+      "title": "kotlinx.coroutines issue 1814: a runCatching that rethrows CancellationException",
+      "url": "https://github.com/Kotlin/kotlinx.coroutines/issues/1814"
+    },
+    {
+      "title": "Exceptions (Kotlin docs)",
+      "url": "https://kotlinlang.org/docs/exceptions.html"
+    }
   ]
- },
- "lab": {
-  "title": "Validate everything, fail fast, and keep cancellation",
-  "minutes": 15,
-  "files": [
-   "labs/functional/src/main/kotlin/workbench/functional/l07/Validation.kt",
-   "labs/functional/src/main/kotlin/workbench/functional/l07/Pipeline.kt",
-   "labs/functional/src/main/kotlin/workbench/functional/l07/SafeCatching.kt",
-   "labs/functional/src/main/kotlin/workbench/functional/l07/Model.kt"
-  ],
-  "run": "./gradlew :functional:test --tests 'workbench.functional.l07.*'",
-  "steps": [
-   "Run the tests. Ten of twelve fail. The two that pass check `runCatchingCancellable` with a value and an ordinary exception, where plain `runCatching` already works. `Model.kt` holds the types and needs no changes.",
-   "In `Validation.kt`, write `checkCardNumber` and `checkReference` in the style of the two rules above them.",
-   "Write `validate` as `either { zipOrAccumulate(...) { ... } }`, with the four checks in the order the KDoc gives.",
-   "In `Pipeline.kt`, write `pay` as one `either { }` block: `bind()` each gateway call that returns an `Either`, and `ensure` the fraud score.",
-   "In `SafeCatching.kt`, make `runCatchingCancellable` rethrow `CancellationException`. The cancellation test runs on the virtual time of `kotlinx-coroutines-test`, so it finishes at once.",
-   "Run the tests until all twelve pass."
-  ],
-  "hints": [
-   "`zipOrAccumulate` takes up to nine lambdas and then a final lambda that receives their results. Inside each lambda you can call the `check...` functions directly, because the lambdas run in a `Raise` context.",
-   "In `pay`, read the score into a `val` first, then `ensure(score < FRAUD_THRESHOLD) { PaymentError.FraudSuspected(score) }`.",
-   "Import `CancellationException` from `kotlin.coroutines.cancellation`. Catch it before the general `Throwable` clause and rethrow it, or use `runCatching { block() }.onFailure { if (it is CancellationException) throw it }`.",
-   "If `either` or `zipOrAccumulate` won't resolve, add `import arrow.core.raise.either` and `import arrow.core.raise.zipOrAccumulate`."
-  ],
-  "done_when": "All twelve tests in `ErrorsAsValuesTest` pass."
- },
- "drill": {
-  "title": "A railway from memory",
-  "minutes": 5,
-  "prompt": "Close this page. Write `Outcome<E, A>` with its two cases, `map` and `andThen`, with the variance that lets an error pass through unchanged. Then chain `validate`, `authorise` and `capture` with it. Check: does your `Err` branch need to build a new object?",
-  "answer": {
-   "lang": "kotlin",
-   "src": "sealed interface Outcome<out E, out A> {\n    data class Ok<A>(val value: A) : Outcome<Nothing, A>\n    data class Err<E>(val error: E) : Outcome<E, Nothing>\n}\n\ninline fun <E, A, B> Outcome<E, A>.map(f: (A) -> B): Outcome<E, B> =\n    when (this) { is Outcome.Ok -> Outcome.Ok(f(value)); is Outcome.Err -> this }   // Err<E> is an Outcome<E, B>\n\ninline fun <E, A, B> Outcome<E, A>.andThen(f: (A) -> Outcome<E, B>): Outcome<E, B> =\n    when (this) { is Outcome.Ok -> f(value); is Outcome.Err -> this }\n\nfun pay(r: Req) = validate(r).andThen(::authorise).andThen(::capture)",
-   "alt": {
-    "lang": "java",
-    "src": "sealed interface Outcome<E, A> {\n    default <B> Outcome<E, B> map(Function<? super A, ? extends B> f) {\n        return switch (this) {\n            case Ok<E, A> ok -> new Ok<>(f.apply(ok.value()));\n            case Err<E, A> err -> new Err<>(err.error());          // Java must rebuild the Err\n        };\n    }\n    default <B> Outcome<E, B> andThen(Function<? super A, Outcome<E, B>> f) {\n        return switch (this) {\n            case Ok<E, A> ok -> f.apply(ok.value());\n            case Err<E, A> err -> new Err<>(err.error());\n        };\n    }\n}\nrecord Ok<E, A>(A value) implements Outcome<E, A> {}\nrecord Err<E, A>(E error) implements Outcome<E, A> {}\n\nOutcome<PayErr, String> pay(Req r) { return validate(r).andThen(this::authorise).andThen(this::capture); }"
-   }
-  }
- },
- "recap": [
-  "Expected failures, such as a decline or an unknown currency, belong in the return type as values. Bugs and broken infrastructure stay exceptions.",
-  "A sealed result with an exhaustive `when` and no `else` makes the compiler list every case you forgot to handle.",
-  "A two-case result with `map` and `andThen` is a railway: each step runs only on the success track. `out` variance and `Nothing` let an error pass through unchanged.",
-  "`kotlin.Result` wraps throwing foreign code. `runCatching` catches every `Throwable`, `CancellationException` included, and `map` doesn't catch: use `mapCatching`.",
-  "Arrow's `either { }` with `bind` and `ensure` is fail-fast; `zipOrAccumulate` runs every check and collects the errors in a `NonEmptyList`.",
-  "Error unions like `User | NotFound` are a proposal (KEEP-0441, KEEP-0462). Kotlin 2.4.21 rejects the syntax."
- ],
- "quiz": [
-  {
-   "q": "A card decline must be handled by every caller of `authorize`. Which signature says so in a way the compiler can check?",
-   "options": [
-    "`fun authorize(p: Payment): AuthCode`, with a KDoc saying it throws `CardDeclinedException`",
-    "`fun authorize(p: Payment): Result<AuthCode>`",
-    "`fun authorize(p: Payment): AuthCode?`",
-    "`fun authorize(p: Payment): Either<AuthError, AuthCode>`, where `AuthError` is sealed"
-   ],
-   "answer": 3,
-   "why": "Only the `Either` with a sealed error type names the possible failures, and a `when` over `AuthError` is checked for every case. The exception is invisible to the compiler. `Result`'s failure is any `Throwable`, so it says nothing about declines. A nullable return drops the reason entirely."
-  },
-  {
-   "q": "Inside `launch`, a coroutine runs `val r = runCatching { issuer.authorize(req) }` (a suspend call) and then `ledger.post(entry)`, which doesn't suspend. The job is cancelled while `authorize` waits. What happens?",
-   "options": [
-    "`post` never runs: cancellation stops the coroutine at once",
-    "`r` is a failure holding a `CancellationException`, and `post` runs",
-    "`runCatching` rethrows `CancellationException` by itself",
-    "The cancel is ignored until `authorize` returns its value"
-   ],
-   "answer": 1,
-   "why": "`runCatching` catches every `Throwable`, so the cancel becomes a failed `Result`. The coroutine is still cancelled, but code without a suspension point keeps running, so the ledger is written after the cancel. Rethrow `CancellationException`, or use `Either.catch`, which does it for you.",
-   "from": "co-05"
-  },
-  {
-   "q": "`runCatching { parse(body) }.map { toPayment(it) }`. `parse` succeeds, but `toPayment` throws `IllegalArgumentException` for a bad field. What does the expression do?",
-   "options": [
-    "Throws the `IllegalArgumentException` out of `map`",
-    "Returns a `Failure` holding the `IllegalArgumentException`",
-    "Returns the original `Success`",
-    "Returns `Success(null)`"
-   ],
-   "answer": 0,
-   "why": "`map` transforms a success but doesn't catch exceptions from its lambda. Only `mapCatching` captures them as a `Failure`. A chain that should be safe end to end needs the `Catching` variant on every step that can throw."
-  },
-  {
-   "q": "A request has a negative amount and an unknown currency. What does `either { Money(validAmount(a), validCurrency(c)) }` return?",
-   "options": [
-    "`Left` with both errors",
-    "It throws on the first error",
-    "`Left(InvalidAmount(...))` only",
-    "`Left(UnsupportedCurrency(...))` only"
-   ],
-   "answer": 2,
-   "why": "`either { }` is fail-fast. Arguments are evaluated left to right, `validAmount` raises first, the block stops, and `validCurrency` never runs. To report both, use `zipOrAccumulate`, which runs every check and returns `Left` with a `NonEmptyList` of all the errors."
-  },
-  {
-   "q": "From the scope functions lesson: `cache[id]?.let { ledger.post(it) } ?: run { fetchAndPost(id) }` used to run both branches when `post` returned null for a duplicate. Now `post` returns `Either<PostError, EntryId>`. Can both branches still run?",
-   "options": [
-    "Yes, whenever `post` returns a `Left`",
-    "No: an `Either` is never null, so `run` runs only when `cache[id]` is null",
-    "It no longer compiles",
-    "Only when `post` throws"
-   ],
-   "answer": 1,
-   "why": "`?:` fires only on `null`. An `Either` is always a value, `Left` or `Right`, so the left side is null only on a real cache miss. Errors as values removed the accidental overlap between \"no result\" and \"absent\". The duplicate is now a `Left` the caller can see and handle.",
-   "from": "fp-06"
-  }
- ],
- "flashcards": [
-  {
-   "front": "Exception or value: a card decline?",
-   "back": "A value. It's expected and the caller must decide what to do. Keep exceptions for bugs and failures nobody can handle on the spot."
-  },
-  {
-   "front": "What does a sealed type plus a `when` with no `else` buy you?",
-   "back": "Adding a case breaks every `when` that doesn't handle it: `'when' expression must be exhaustive. Add the 'is X' branch or an 'else' branch.`"
-  },
-  {
-   "front": "What does `runCatching` catch?",
-   "back": "Every `Throwable`: ordinary exceptions, `OutOfMemoryError`, `StackOverflowError`, and `CancellationException`, which breaks coroutine cancellation."
-  },
-  {
-   "front": "`Result.map` vs `Result.mapCatching`?",
-   "back": "`map` lets an exception from its lambda escape. `mapCatching` turns it into a `Failure`."
-  },
-  {
-   "front": "Two `ensure` calls inside `either { }` would both fail. What comes back?",
-   "back": "Only the first error: `either { }` is fail-fast. Use `zipOrAccumulate` to collect all of them."
-  },
-  {
-   "front": "Does Arrow's `Either.catch` capture a `CancellationException`?",
-   "back": "No. It rethrows `CancellationException` and fatal errors such as `OutOfMemoryError`, and captures ordinary exceptions as a `Left`."
-  },
-  {
-   "front": "Does Kotlin 2.4.21 compile `fun load(): User | NotFound`?",
-   "back": "No. Rich errors are a proposal (KEEP-0441, KEEP-0462); 2.4.21 reports a syntax error."
-  }
- ],
- "terms": [
-  {
-   "term": "Error as a value",
-   "plain": "A failure returned in the result type, like any other value, instead of thrown."
-  },
-  {
-   "term": "Exhaustive when",
-   "plain": "A `when` over a sealed type that covers every subtype, so it needs no `else` and breaks when a subtype is added."
-  },
-  {
-   "term": "Railway-oriented programming",
-   "plain": "Chaining steps on a success track and a failure track: after the first failure, the later steps are skipped."
-  },
-  {
-   "term": "kotlin.Result",
-   "plain": "The standard library's success-or-Throwable type, made by `runCatching`. For wrapping throwing code, not for domain errors."
-  },
-  {
-   "term": "Either",
-   "plain": "Arrow's two-case type: `Left(error)` or `Right(value)`, with a typed error side."
-  },
-  {
-   "term": "Fail fast",
-   "plain": "Stop at the first error and return it; the remaining steps don't run."
-  },
-  {
-   "term": "Error accumulation",
-   "plain": "Run every independent check and return all the errors together, in Arrow as a `NonEmptyList`."
-  }
- ],
- "explain_back": {
-  "prompt": "A teammate proposes `fun capture(paymentId: String): Result<Receipt>` for the new capture service, \"because Result is Kotlin's built-in way to return errors\". Explain why it's a poor fit, and what you would use instead.",
-  "answer": "`Result` has one type parameter, and its failure side is always a `Throwable`, so the signature says \"this can fail somehow\" and nothing about how. The caller can't tell a decline from an expired authorization from a provider outage without inspecting exception classes, and the compiler won't check that every case is handled. The Kotlin team's own design notes say `Result` isn't meant for domain errors. It also comes from `runCatching`, which catches `CancellationException` and fatal errors unless you're careful. I'd model the expected failures as a sealed `CaptureError` (`AuthorizationExpired`, `AlreadyCaptured`, `ProviderUnavailable`, ...) and return `Either<CaptureError, Receipt>`, or a sealed result type if we don't want Arrow. Then a `when` over the error is exhaustive, adding a case breaks the build where it must be handled, and real bugs stay exceptions for the global handler."
- },
- "deeper": {
-  "minutes": 10,
-  "body": "Three parts of Arrow are worth knowing once `either { }` feels natural.\n\n**Raise without Either.** The lab's checks are functions with a `Raise<PaymentError>` receiver: they don't return an `Either`, they *raise* inside whatever block calls them. Kotlin 2.4.0 made context parameters Stable, and Arrow 2.3.0 ships matching versions of `ensure`, `raise` and `bind` in the `arrow.core.raise.context` package, so the same check can be written as `context(_: Raise<PaymentError>) fun checkCurrency(code: String): String`. With Kotlin 2.4.21 that compiles without any compiler flag. Arrow's own docs still show the extension-receiver style and describe context parameters as a future option, so expect both styles in code you read.\n\n**Collections and the experimental DSL.** `mapOrAccumulate` validates every element of a list and collects the failures: running it over the amounts `[10, -1, 20, -2]` gives `Either.Left([InvalidAmount(amountMinor=-1), InvalidAmount(amountMinor=-2)])`. There is also an `accumulate { ensureOrAccumulate(...) }` block that reads like a list of checks. In Arrow 2.3.0 it is still marked `@ExperimentalRaiseAccumulateApi`, so you opt in with `@OptIn(ExperimentalRaiseAccumulateApi::class)`; `zipOrAccumulate` is the stable choice.\n\n**Translating errors between layers.** `mapLeft` changes the error value and leaves a `Right` alone, as in the worked example. `recover` is more general: inside it you can run any computation that may itself raise, for example falling back to a second acquirer when the first returns `ProviderUnavailable`. Use `mapLeft` to rename errors at a boundary, and `recover` to handle them."
- },
- "sources": [
-  {
-   "title": "KEEP: Result (Kotlin stdlib design notes)",
-   "url": "https://github.com/Kotlin/KEEP/blob/master/proposals/stdlib/result.md"
-  },
-  {
-   "title": "KEEP-0441: Rich Errors, motivation and rationale",
-   "url": "https://github.com/Kotlin/KEEP/blob/main/proposals/KEEP-0441-rich-errors-motivation.md"
-  },
-  {
-   "title": "Validation, Arrow docs source",
-   "url": "https://github.com/arrow-kt/arrow-website/blob/main/content/docs/learn/typed-errors/validation.md"
-  },
-  {
-   "title": "kotlinx.coroutines issue 1814: a runCatching that rethrows CancellationException",
-   "url": "https://github.com/Kotlin/kotlinx.coroutines/issues/1814"
-  },
-  {
-   "title": "Exceptions (Kotlin docs)",
-   "url": "https://kotlinlang.org/docs/exceptions.html"
-  }
- ]
 }

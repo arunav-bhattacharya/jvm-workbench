@@ -38,8 +38,8 @@ public class CoreShellJava {
     public static void main(String[] args) {
         Instant now = Instant.parse("2026-03-10T09:00:00Z");
         List<Leftover> leftovers = List.of(
-                new Leftover("l1", "soup", now.minus(Duration.ofDays(4))),
-                new Leftover("l2", "rice", now.minus(Duration.ofHours(30))));
+                new Leftover("l1", "soup", Instant.parse("2026-03-06T09:00:00Z")),    // cooked 4 days before now
+                new Leftover("l2", "rice", Instant.parse("2026-03-09T03:00:00Z")));   // cooked 30 hours before now
         System.out.println("core, called with plain values:");
         decideFridge(leftovers, now).forEach(d -> System.out.println("  " + d));
 
