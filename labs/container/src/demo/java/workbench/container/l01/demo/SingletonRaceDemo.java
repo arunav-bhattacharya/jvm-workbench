@@ -16,29 +16,29 @@ import java.util.function.Supplier;
 public class SingletonRaceDemo {
     static final AtomicInteger CONSTRUCTED = new AtomicInteger();
 
-    public static class FxRates {
-        public FxRates() {
+    public static class SeatingPlan {
+        public SeatingPlan() {
             CONSTRUCTED.incrementAndGet();
-            try { Thread.sleep(20); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }   // loads a rate table
+            try { Thread.sleep(20); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }   // reads the hall's map
         }
     }
 
     public static void main(String[] args) throws Exception {
         Map<Class<?>, Object> beans = new ConcurrentHashMap<>();
         race("check-then-act on a map", () -> {
-            Object bean = beans.get(FxRates.class);          // check
+            Object bean = beans.get(SeatingPlan.class);          // check
             if (bean == null) {
-                bean = new FxRates();                        // act: every thread that saw null gets here
-                beans.put(FxRates.class, bean);
+                bean = new SeatingPlan();                        // act: every thread that saw null gets here
+                beans.put(SeatingPlan.class, bean);
             }
             return bean;
         });
 
-        SingletonCell<FxRates> cell = new SingletonCell<>(FxRates::new);
+        SingletonCell<SeatingPlan> cell = new SingletonCell<>(SeatingPlan::new);
         race("SingletonCell", cell::get);
 
         // computeIfAbsent can't build a graph: the function must not touch the same map
-        for (String[] edge : new String[][] {{"paymentService", "feeCalculator"}, {"payouts", "ledger"}}) {
+        for (String[] edge : new String[][] {{"boxOffice", "priceList"}, {"boxOffice", "salesBook"}}) {
             Map<String, Object> byName = new ConcurrentHashMap<>();
             try {
                 byName.computeIfAbsent(edge[0], k -> List.of(byName.computeIfAbsent(edge[1], k2 -> new Object())));

@@ -5,24 +5,24 @@ import workbench.container.l01.ContainerException
 import workbench.container.l01.Inject
 
 // The same wiring with Kotlin classes, a cycle, and Kotlin's extra constructors.
-class GFxRates
-class GFeeCalculator(val rates: GFxRates)
-class GLedger
-class GPaymentService(val fees: GFeeCalculator, val ledger: GLedger)
+class GSeatingPlan
+class GPriceList(val plan: GSeatingPlan)
+class GSalesBook
+class GBoxOffice(val prices: GPriceList, val book: GSalesBook)
 
-class GPayouts(val statements: GStatements)
-class GStatements(val reconciler: GReconciler)
-class GReconciler(val payouts: GPayouts)
+class GRota(val cast: GCastList)
+class GCastList(val rehearsals: GRehearsalPlan)
+class GRehearsalPlan(val rota: GRota)
 
-class GFeeRules @Inject constructor(val bps: Int = 290)        // every parameter has a default
+class GPriceRules @Inject constructor(val feePercent: Int = 3)   // every parameter has a default
 
 fun main() {
-    val app = Container(listOf(GPaymentService::class.java, GLedger::class.java, GFeeCalculator::class.java, GFxRates::class.java))
+    val app = Container(listOf(GBoxOffice::class.java, GSalesBook::class.java, GPriceList::class.java, GSeatingPlan::class.java))
     println("creation order: " + app.creationOrder().map { it.simpleName })
-    println("same FeeCalculator: " + (app.get(GPaymentService::class.java).fees === app.get(GFeeCalculator::class.java)))
+    println("same PriceList: " + (app.get(GBoxOffice::class.java).prices === app.get(GPriceList::class.java)))
 
-    for (components in listOf(listOf(GPayouts::class.java, GStatements::class.java, GReconciler::class.java),
-                              listOf(GFeeRules::class.java))) {
+    for (components in listOf(listOf(GRota::class.java, GCastList::class.java, GRehearsalPlan::class.java),
+                              listOf(GPriceRules::class.java))) {
         try {
             Container(components)
         } catch (e: ContainerException) {

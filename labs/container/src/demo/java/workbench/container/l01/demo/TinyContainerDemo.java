@@ -4,20 +4,20 @@ import java.lang.reflect.Constructor;
 
 /** The smallest container that works: read a constructor, build its parameters first, then call it. */
 public class TinyContainerDemo {
-    public static class FxRates {
-        public FxRates() { System.out.println("  new FxRates"); }
+    public static class SeatingPlan {
+        public SeatingPlan() { System.out.println("  new SeatingPlan"); }
     }
 
-    public static class FeeCalculator {
-        public FeeCalculator(FxRates rates) { System.out.println("  new FeeCalculator"); }
+    public static class PriceList {
+        public PriceList(SeatingPlan plan) { System.out.println("  new PriceList"); }
     }
 
-    public static class QuoteService {
-        public QuoteService(FxRates rates) { System.out.println("  new QuoteService"); }
+    public static class SeatFinder {
+        public SeatFinder(SeatingPlan plan) { System.out.println("  new SeatFinder"); }
     }
 
-    public static class PaymentService {
-        public PaymentService(FeeCalculator fees, QuoteService quotes) { System.out.println("  new PaymentService"); }
+    public static class BoxOffice {
+        public BoxOffice(PriceList prices, SeatFinder finder) { System.out.println("  new BoxOffice"); }
     }
 
     static Object build(Class<?> type) throws ReflectiveOperationException {
@@ -30,10 +30,10 @@ public class TinyContainerDemo {
 
     public static void main(String[] args) throws Exception {
         System.out.println("by hand:");
-        FxRates rates = new FxRates();
-        new PaymentService(new FeeCalculator(rates), new QuoteService(rates));
+        SeatingPlan plan = new SeatingPlan();
+        new BoxOffice(new PriceList(plan), new SeatFinder(plan));
 
         System.out.println("by reflection:");
-        build(PaymentService.class);
+        build(BoxOffice.class);
     }
 }

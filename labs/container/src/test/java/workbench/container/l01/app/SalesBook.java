@@ -6,10 +6,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
-public class Ledger {
+public class SalesBook {
     private final List<String> lines = new ArrayList<>();
 
-    public synchronized void post(String line) {
+    public synchronized void add(String line) {
         lines.add(line);
     }
 

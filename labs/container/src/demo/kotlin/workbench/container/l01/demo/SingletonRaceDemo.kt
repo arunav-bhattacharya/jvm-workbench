@@ -11,24 +11,24 @@ import kotlin.concurrent.thread
 // Eight threads ask for the same singleton at the same moment, three ways.
 private val constructed = AtomicInteger()
 
-class RaceFxRates {
+class RaceSeatingPlan {
     init {
         constructed.incrementAndGet()
-        Thread.sleep(20)                                      // loads a rate table
+        Thread.sleep(20)                                      // reads the hall's map
     }
 }
 
 fun main() {
     val beans = ConcurrentHashMap<Class<*>, Any>()
     race("check-then-act on a map") {
-        beans[RaceFxRates::class.java] ?: RaceFxRates().also { beans[RaceFxRates::class.java] = it }   // check, then act
+        beans[RaceSeatingPlan::class.java] ?: RaceSeatingPlan().also { beans[RaceSeatingPlan::class.java] = it }   // check, then act
     }
 
-    val cell = SingletonCell { RaceFxRates() }
+    val cell = SingletonCell { RaceSeatingPlan() }
     race("SingletonCell") { cell.get() }
 
     // computeIfAbsent can't build a graph: the function must not touch the same map
-    for ((outer, inner) in listOf("paymentService" to "feeCalculator", "payouts" to "ledger")) {
+    for ((outer, inner) in listOf("boxOffice" to "priceList", "boxOffice" to "salesBook")) {
         val byName = ConcurrentHashMap<String, Any>()
         try {
             byName.computeIfAbsent(outer) { listOf(byName.computeIfAbsent(inner) { Any() }) }

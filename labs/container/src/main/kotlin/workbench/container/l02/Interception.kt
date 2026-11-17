@@ -54,9 +54,9 @@ class Interception @JvmOverloads constructor(
         }
         // A component without interfaces gets a Byte Buddy subclass. Refuse, with a ContainerException:
         // - a final class that has intercepted methods (declaredMethods with isIntercepted):
-        //   "FrozenFees is final, so no subclass can intercept it: make it open, or give it an interface"
+        //   "FrozenPrices is final, so no subclass can intercept it: make it open, or give it an interface"
         // - an intercepted method that is private or final (check private first):
-        //   "HalfOpen.region is final, so no subclass can intercept it: make it open"
+        //   "HalfOpen.hall is final, so no subclass can intercept it: make it open"
         // A final class with nothing to intercept is fine: it is created as it is.
         TODO("refuse final classes and final or private intercepted methods")
     }

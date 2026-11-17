@@ -1,10 +1,10 @@
 package workbench.container.l01.demo
 
 // The smallest container that works: read a constructor, build its parameters first, then call it.
-class KFxRates { init { println("  new KFxRates") } }
-class KFeeCalculator(rates: KFxRates) { init { println("  new KFeeCalculator") } }
-class KQuoteService(rates: KFxRates) { init { println("  new KQuoteService") } }
-class KPaymentService(fees: KFeeCalculator, quotes: KQuoteService) { init { println("  new KPaymentService") } }
+class KSeatingPlan { init { println("  new KSeatingPlan") } }
+class KPriceList(plan: KSeatingPlan) { init { println("  new KPriceList") } }
+class KSeatFinder(plan: KSeatingPlan) { init { println("  new KSeatFinder") } }
+class KBoxOffice(prices: KPriceList, finder: KSeatFinder) { init { println("  new KBoxOffice") } }
 
 fun build(type: Class<*>): Any {
     val constructor = type.constructors[0]                           // 1. the recipe is the constructor
@@ -14,9 +14,9 @@ fun build(type: Class<*>): Any {
 
 fun main() {
     println("by hand:")
-    val rates = KFxRates()
-    KPaymentService(KFeeCalculator(rates), KQuoteService(rates))
+    val plan = KSeatingPlan()
+    KBoxOffice(KPriceList(plan), KSeatFinder(plan))
 
     println("by reflection:")
-    build(KPaymentService::class.java)
+    build(KBoxOffice::class.java)
 }

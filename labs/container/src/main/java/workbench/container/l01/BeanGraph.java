@@ -62,7 +62,7 @@ public final class BeanGraph {
      * and skip components that are already in it. Keep the components you are still inside on a
      * path; meeting one of them again is a cycle. Throw a {@link ContainerException} whose message
      * names the cycle, starting and ending at the repeated class:
-     * {@code "Dependency cycle: Ledger -> AuditTrail -> Ledger"} (simple names).
+     * {@code "Dependency cycle: Rota -> CastList -> Rota"} (simple names).
      */
     public List<Class<?>> creationOrder() {
         throw new UnsupportedOperationException("TODO: depth-first, post-order, with cycle detection");

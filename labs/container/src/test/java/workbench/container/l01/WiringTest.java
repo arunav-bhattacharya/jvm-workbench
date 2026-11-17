@@ -2,17 +2,17 @@ package workbench.container.l01;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import workbench.container.l01.app.CardIssuerClient;
-import workbench.container.l01.app.FeeCalculator;
-import workbench.container.l01.app.FxRates;
-import workbench.container.l01.app.HttpIssuerClient;
+import workbench.container.l01.app.Basket;
+import workbench.container.l01.app.BookingClient;
+import workbench.container.l01.app.BookingConfig;
+import workbench.container.l01.app.BoxOffice;
 import workbench.container.l01.app.InitLog;
-import workbench.container.l01.app.IssuerConfig;
-import workbench.container.l01.app.Ledger;
 import workbench.container.l01.app.NotAComponent;
-import workbench.container.l01.app.PaymentAttempt;
-import workbench.container.l01.app.PaymentService;
+import workbench.container.l01.app.PriceList;
+import workbench.container.l01.app.RemoteBookingClient;
+import workbench.container.l01.app.SalesBook;
 import workbench.container.l01.app.ScanProbe;
+import workbench.container.l01.app.SeatingPlan;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,46 +25,46 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class WiringTest {
-    private static final List<Class<?>> APP = List.of(PaymentService.class, PaymentAttempt.class, Ledger.class,
-            FeeCalculator.class, FxRates.class, HttpIssuerClient.class, IssuerConfig.class);
+    private static final List<Class<?>> APP = List.of(BoxOffice.class, Basket.class, SalesBook.class,
+            PriceList.class, SeatingPlan.class, RemoteBookingClient.class, BookingConfig.class);
 
     // --- fixtures with cycles and slow constructors, listed explicitly instead of scanned -----------
 
-    public static class Payouts { public Payouts(Statements s) {} }
-    public static class Statements { public Statements(Reconciler r) {} }
-    public static class Reconciler { public Reconciler(Payouts p) {} }
-    public static class Dashboard { public Dashboard(Payouts p) {} }
+    public static class Rota { public Rota(CastList c) {} }
+    public static class CastList { public CastList(RehearsalPlan p) {} }
+    public static class RehearsalPlan { public RehearsalPlan(Rota r) {} }
+    public static class Noticeboard { public Noticeboard(Rota r) {} }
     public static class Selfish { public Selfish(Selfish s) {} }
 
     public static class TwoDoors {
         public TwoDoors() {}
-        public TwoDoors(FxRates rates) {}
+        public TwoDoors(SeatingPlan plan) {}
     }
 
     public static class Marked {
         public Marked() {}
-        @Inject public Marked(FxRates rates) {}
+        @Inject public Marked(SeatingPlan plan) {}
     }
 
-    public static class SlowRates {
+    public static class SlowPlan {
         static final AtomicInteger CREATED = new AtomicInteger();
-        public SlowRates() throws InterruptedException {
+        public SlowPlan() throws InterruptedException {
             CREATED.incrementAndGet();
             Thread.sleep(50);                       // a slow start, so racing threads overlap inside it
         }
     }
 
-    public static class RateQuoter {
+    public static class SeatFinder {
         static final AtomicInteger CREATED = new AtomicInteger();
-        final SlowRates rates;
-        public RateQuoter(SlowRates rates) {
+        final SlowPlan plan;
+        public SeatFinder(SlowPlan plan) {
             CREATED.incrementAndGet();
-            this.rates = rates;
+            this.plan = plan;
         }
     }
 
     public static class Exploding {
-        public Exploding() { throw new IllegalStateException("issuer key missing"); }
+        public Exploding() { throw new IllegalStateException("booking service key missing"); }
     }
 
     // --- constructors --------------------------------------------------------------------------
@@ -72,13 +72,13 @@ class WiringTest {
     @Test
     @DisplayName("pick returns the only public constructor")
     void picksTheOnlyConstructor() throws Exception {
-        assertThat(Constructors.pick(FeeCalculator.class)).isEqualTo(FeeCalculator.class.getConstructor(FxRates.class));
+        assertThat(Constructors.pick(PriceList.class)).isEqualTo(PriceList.class.getConstructor(SeatingPlan.class));
     }
 
     @Test
     @DisplayName("pick prefers the @Inject constructor, and refuses to guess between two unmarked ones")
     void injectWinsAndTwoIsAmbiguous() throws Exception {
-        assertThat(Constructors.pick(Marked.class)).isEqualTo(Marked.class.getConstructor(FxRates.class));
+        assertThat(Constructors.pick(Marked.class)).isEqualTo(Marked.class.getConstructor(SeatingPlan.class));
         assertThatThrownBy(() -> Constructors.pick(TwoDoors.class))
                 .isInstanceOf(ContainerException.class)
                 .hasMessage("TwoDoors has 2 public constructors; mark the one to use with @Inject");
@@ -87,19 +87,19 @@ class WiringTest {
     @Test
     @DisplayName("pick ignores Kotlin's synthetic constructor for default arguments")
     void kotlinSyntheticConstructor() throws Exception {
-        assertThat(KotlinFees.class.getConstructors()).hasSize(2);
-        assertThat(Constructors.pick(KotlinFees.class)).isEqualTo(KotlinFees.class.getConstructor(FxRates.class, int.class));
+        assertThat(KotlinPrices.class.getConstructors()).hasSize(2);
+        assertThat(Constructors.pick(KotlinPrices.class)).isEqualTo(KotlinPrices.class.getConstructor(SeatingPlan.class, int.class));
     }
 
     @Test
     @DisplayName("a Kotlin class whose parameters all have defaults has two real constructors, even with @Inject")
     void kotlinAllDefaults() {
-        assertThatThrownBy(() -> Constructors.pick(DefaultedFees.class))
+        assertThatThrownBy(() -> Constructors.pick(DefaultedPrices.class))
                 .isInstanceOf(ContainerException.class)
-                .hasMessage("DefaultedFees has 2 public constructors; mark the one to use with @Inject");
-        assertThatThrownBy(() -> Constructors.pick(InjectedFees.class))
+                .hasMessage("DefaultedPrices has 2 public constructors; mark the one to use with @Inject");
+        assertThatThrownBy(() -> Constructors.pick(InjectedPrices.class))
                 .isInstanceOf(ContainerException.class)
-                .hasMessage("InjectedFees has 2 @Inject constructors; keep one");
+                .hasMessage("InjectedPrices has 2 @Inject constructors; keep one");
     }
 
     // --- the graph -------------------------------------------------------------------------------
@@ -121,12 +121,12 @@ class WiringTest {
     @Test
     @DisplayName("a cycle is reported with its path, from the repeated class back to itself")
     void cycleMessage() {
-        assertThatThrownBy(() -> new BeanGraph(List.of(Payouts.class, Statements.class, Reconciler.class)).creationOrder())
+        assertThatThrownBy(() -> new BeanGraph(List.of(Rota.class, CastList.class, RehearsalPlan.class)).creationOrder())
                 .isInstanceOf(ContainerException.class)
-                .hasMessage("Dependency cycle: Payouts -> Statements -> Reconciler -> Payouts");
-        assertThatThrownBy(() -> new BeanGraph(List.of(Dashboard.class, Payouts.class, Statements.class, Reconciler.class)).creationOrder())
-                .as("the path starts at the cycle, not at Dashboard")
-                .hasMessage("Dependency cycle: Payouts -> Statements -> Reconciler -> Payouts");
+                .hasMessage("Dependency cycle: Rota -> CastList -> RehearsalPlan -> Rota");
+        assertThatThrownBy(() -> new BeanGraph(List.of(Noticeboard.class, Rota.class, CastList.class, RehearsalPlan.class)).creationOrder())
+                .as("the path starts at the cycle, not at Noticeboard")
+                .hasMessage("Dependency cycle: Rota -> CastList -> RehearsalPlan -> Rota");
         assertThatThrownBy(() -> new BeanGraph(List.of(Selfish.class)).creationOrder())
                 .hasMessage("Dependency cycle: Selfish -> Selfish");
     }
@@ -134,12 +134,12 @@ class WiringTest {
     @Test
     @DisplayName("the container checks the whole graph when it is built, before anyone asks for a bean")
     void failsFast() {
-        assertThatThrownBy(() -> new Container(List.of(Dashboard.class, Payouts.class, Statements.class, Reconciler.class)))
+        assertThatThrownBy(() -> new Container(List.of(Noticeboard.class, Rota.class, CastList.class, RehearsalPlan.class)))
                 .isInstanceOf(ContainerException.class)
                 .hasMessageContaining("Dependency cycle");
-        assertThatThrownBy(() -> new Container(List.of(PaymentService.class, Ledger.class)))
+        assertThatThrownBy(() -> new Container(List.of(BoxOffice.class, SalesBook.class)))
                 .isInstanceOf(ContainerException.class)
-                .hasMessage("PaymentService needs CardIssuerClient: No component provides CardIssuerClient");
+                .hasMessage("BoxOffice needs BookingClient: No component provides BookingClient");
     }
 
     // --- scopes --------------------------------------------------------------------------------
@@ -148,39 +148,39 @@ class WiringTest {
     @DisplayName("a singleton is created once and shared by everyone who needs it")
     void singletonsAreShared() {
         Container c = new Container(APP);
-        PaymentService payments = c.get(PaymentService.class);
-        assertThat(c.get(PaymentService.class)).isSameAs(payments);
-        assertThat(payments.fees()).isSameAs(c.get(FeeCalculator.class));
-        assertThat(payments.fees().rates()).isSameAs(c.get(FxRates.class));
-        assertThat(payments.issuer()).isInstanceOf(HttpIssuerClient.class).isSameAs(c.get(CardIssuerClient.class));
-        assertThat(((HttpIssuerClient) payments.issuer()).config()).isSameAs(c.get(IssuerConfig.class));
-        assertThat(payments.pay("4111111111111111", 12_000)).isEqualTo("auth-1111-12000");
-        assertThat(c.get(Ledger.class).lines()).containsExactly("auth-1111-12000 fee=348");
+        BoxOffice office = c.get(BoxOffice.class);
+        assertThat(c.get(BoxOffice.class)).isSameAs(office);
+        assertThat(office.prices()).isSameAs(c.get(PriceList.class));
+        assertThat(office.prices().plan()).isSameAs(c.get(SeatingPlan.class));
+        assertThat(office.booking()).isInstanceOf(RemoteBookingClient.class).isSameAs(c.get(BookingClient.class));
+        assertThat(((RemoteBookingClient) office.booking()).config()).isSameAs(c.get(BookingConfig.class));
+        assertThat(office.sell("C12", 12_000)).isEqualTo("hold-C12-12000");
+        assertThat(c.get(SalesBook.class).lines()).containsExactly("hold-C12-12000 fee=348");
     }
 
     @Test
     @DisplayName("a prototype is new on every get, while its singleton dependencies are shared")
     void prototypesAreNew() {
         Container c = new Container(APP);
-        PaymentAttempt first = c.get(PaymentAttempt.class);
-        PaymentAttempt second = c.get(PaymentAttempt.class);
+        Basket first = c.get(Basket.class);
+        Basket second = c.get(Basket.class);
         assertThat(first).isNotSameAs(second);
-        assertThat(first.fees()).isSameAs(second.fees()).isSameAs(c.get(FeeCalculator.class));
+        assertThat(first.prices()).isSameAs(second.prices()).isSameAs(c.get(PriceList.class));
     }
 
     @Test
     @DisplayName("eight threads asking for a new singleton at once get one instance, built once")
     void oneInstanceUnderConcurrentFirstAccess() throws Exception {
-        Container c = new Container(List.of(RateQuoter.class, SlowRates.class));
-        int ratesBefore = SlowRates.CREATED.get();
-        int quotersBefore = RateQuoter.CREATED.get();
+        Container c = new Container(List.of(SeatFinder.class, SlowPlan.class));
+        int plansBefore = SlowPlan.CREATED.get();
+        int findersBefore = SeatFinder.CREATED.get();
         CountDownLatch go = new CountDownLatch(1);
         Set<Object> seen = ConcurrentHashMap.newKeySet();
         List<Thread> threads = new ArrayList<>();
         for (int i = 0; i < 8; i++) {
             Thread t = new Thread(() -> {
                 try { go.await(); } catch (InterruptedException e) { return; }
-                seen.add(c.get(RateQuoter.class));
+                seen.add(c.get(SeatFinder.class));
             });
             t.start();
             threads.add(t);
@@ -188,8 +188,8 @@ class WiringTest {
         go.countDown();
         for (Thread t : threads) t.join();
         assertThat(seen).hasSize(1);
-        assertThat(SlowRates.CREATED.get() - ratesBefore).as("SlowRates constructor calls").isEqualTo(1);
-        assertThat(RateQuoter.CREATED.get() - quotersBefore).as("RateQuoter constructor calls").isEqualTo(1);
+        assertThat(SlowPlan.CREATED.get() - plansBefore).as("SlowPlan constructor calls").isEqualTo(1);
+        assertThat(SeatFinder.CREATED.get() - findersBefore).as("SeatFinder constructor calls").isEqualTo(1);
     }
 
     @Test
@@ -200,7 +200,7 @@ class WiringTest {
             assertThatThrownBy(() -> c.get(Exploding.class))
                     .isInstanceOf(ContainerException.class)
                     .hasMessageContaining("Exploding")
-                    .cause().isInstanceOf(IllegalStateException.class).hasMessage("issuer key missing");
+                    .cause().isInstanceOf(IllegalStateException.class).hasMessage("booking service key missing");
         }
     }
 
@@ -210,8 +210,8 @@ class WiringTest {
     @DisplayName("the scanner finds the @Component classes of one package without initializing them")
     void scanFindsComponents() {
         List<Class<?>> found = ClassScanner.scan(getClass().getClassLoader(), "workbench.container.l01.app");
-        assertThat(found).contains(PaymentService.class, HttpIssuerClient.class, ScanProbe.class)
-                .doesNotContain(NotAComponent.class, CardIssuerClient.class);
+        assertThat(found).contains(BoxOffice.class, RemoteBookingClient.class, ScanProbe.class)
+                .doesNotContain(NotAComponent.class, BookingClient.class);
         assertThat(InitLog.INITIALIZED).as("static initializers that ran").doesNotContain("ScanProbe");
     }
 }
