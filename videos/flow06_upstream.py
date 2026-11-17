@@ -284,7 +284,7 @@ class Flow06Upstream(Narrated):
         # ================= the bread course: the chain, with the code beside it =================
         cook = person(COOK, 1.0).move_to(COOK_P)
         cph = phone(0.42).next_to(cook, LEFT, buff=0.12).shift(UP * 0.1)
-        up_l = T("upstream", 22, NOTE).move_to(COOK_P + UP * 0.85)
+        up_l = T("upstream", 22, NOTE).move_to([4.6, 2.85, 0])
         nt = net()
         dn_l = T("downstream", 22, NOTE).move_to([-5.0, 0.42, 0])
         diner = person(DINER, 1.0).move_to(DINER_P)
@@ -351,15 +351,14 @@ class Flow06Upstream(Narrated):
 
         def row(k, ok, text):
             r = VGroup(tick(ok, 0.17), T(text, 22, WHITE if ok else BAD)).arrange(RIGHT, buff=0.25)
+            fit(r, 8.95)
             return r.move_to([LX, LY - 0.42 * k, 0], aligned_edge=LEFT)
 
         rows = [row(0, True, "the bakery throws IOException: crackers"),
                 row(1, True, "the bakery throws CancellationException: crackers"),
                 row(2, True, "withTimeout fires: crackers"),
-                row(3, False, "the diner drops a plate: the caller sees IllegalStateException"),
-                row(4, False, "the caller's job is cancelled: the caller sees JobCancellationException")]
-        for r in rows:
-            fit(r, 8.95)
+                row(3, False, "the diner drops a plate: IllegalStateException"),
+                row(4, False, "the caller's job is cancelled: JobCancellationException")]
 
         def drop_into_net(color):
             b = ball(color).move_to(COOK_P + DOWN * 0.5)
