@@ -1,301 +1,301 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:04.918
+00:00:02.700 --> 00:00:04.884
 Picture the bakery on a busy morning.
 
 2
-00:00:04.918 --> 00:00:09.169
+00:00:04.884 --> 00:00:09.135
 A few workers keep the belts moving, and none of them ever stands still.
 
 3
-00:00:09.169 --> 00:00:15.191
+00:00:09.135 --> 00:00:15.157
 Then someone puts a telephone at the slicer, and the old stock book has to be called about every loaf.
 
 4
-00:00:15.333 --> 00:00:17.080
+00:00:15.367 --> 00:00:17.113
 The stock book is in no hurry.
 
 5
-00:00:17.080 --> 00:00:22.728
+00:00:17.113 --> 00:00:22.761
 While the worker at the slicer waits with the phone at her ear, every loaf on her belt waits too.
 
 6
-00:00:22.867 --> 00:00:28.618
+00:00:22.967 --> 00:00:28.718
 In a program, the workers are threads: paths of work that each run one piece of code at a time.
 
 7
-00:00:28.618 --> 00:00:33.824
+00:00:28.718 --> 00:00:33.924
 And the phone is a blocking call, a call that holds its thread until the answer comes.
 
 8
-00:00:34.000 --> 00:00:39.447
+00:00:34.133 --> 00:00:39.580
 Reactor gives us two tools to move work between workers: publishOn and subscribeOn.
 
 9
-00:00:39.447 --> 00:00:42.859
+00:00:39.580 --> 00:00:42.993
 And here's the question that's easy to be shy about.
 
 10
-00:00:42.859 --> 00:00:44.894
+00:00:42.993 --> 00:00:45.027
 They sound like the same thing.
 
 11
-00:00:44.894 --> 00:00:46.272
+00:00:45.027 --> 00:00:46.405
 Which one moves what?
 
 12
-00:00:47.067 --> 00:00:50.617
+00:00:47.233 --> 00:00:50.784
 First, who works each station when we say nothing at all?
 
 13
-00:00:50.617 --> 00:00:55.911
+00:00:50.784 --> 00:00:56.078
 The worker who puts an item on the belt carries it through every station, to the end.
 
 14
-00:00:55.911 --> 00:01:01.081
+00:00:56.078 --> 00:01:01.248
 The demo ran a range, a map and a subscriber from main, and every step ran on main.
 
 15
-00:01:01.267 --> 00:01:05.974
+00:01:01.467 --> 00:01:06.174
 Put a timer in the chain, and the timer's own thread fires it: parallel-1.
 
 16
-00:01:05.974 --> 00:01:07.945
+00:01:06.174 --> 00:01:08.145
 The map after it ran there too.
 
 17
-00:01:07.945 --> 00:01:11.825
+00:01:08.145 --> 00:01:12.025
 So a chain runs on whatever thread delivered the last signal.
 
 18
-00:01:12.600 --> 00:01:16.582
+00:01:12.833 --> 00:01:16.815
 To choose the worker, you pass a scheduler: a team of threads.
 
 19
-00:01:16.582 --> 00:01:17.931
+00:01:16.815 --> 00:01:18.164
 single is one worker.
 
 20
-00:01:17.931 --> 00:01:26.536
+00:01:18.164 --> 00:01:26.770
 parallel has one per CPU core, the part of the processor that runs one thread at a time: a few quick hands who must never stand still.
 
 21
-00:01:26.536 --> 00:01:32.573
+00:01:26.770 --> 00:01:32.807
 And boundedElastic is a back room of up to ten per core, who are allowed to wait on the phone.
 
 22
-00:01:33.333 --> 00:01:34.579
+00:01:33.633 --> 00:01:34.879
 Now the first tool.
 
 23
-00:01:34.579 --> 00:01:38.052
+00:01:34.879 --> 00:01:38.352
 publishOn sits on the belt itself: a hand-over point.
 
 24
-00:01:38.052 --> 00:01:45.065
+00:01:38.352 --> 00:01:45.365
 Items arrive from above on any thread, wait in a small queue, and a worker of the new team carries them on.
 
 25
-00:01:45.200 --> 00:01:48.369
+00:01:45.567 --> 00:01:48.735
 Put publishOn(single) between two stations.
 
 26
-00:01:48.369 --> 00:01:49.843
+00:01:48.735 --> 00:01:50.209
 Which stations move?
 
 27
-00:01:52.867 --> 00:01:54.346
+00:01:53.200 --> 00:01:54.680
 Only the ones after it.
 
 28
-00:01:54.346 --> 00:01:56.212
+00:01:54.680 --> 00:01:56.545
 The source still ran on main.
 
 29
-00:01:56.212 --> 00:01:59.557
+00:01:56.545 --> 00:01:59.891
 After the hand-over point, the item was on single-1.
 
 30
-00:01:59.557 --> 00:02:02.131
+00:01:59.891 --> 00:02:02.464
 Everything before it stays where it was.
 
 31
-00:02:03.400 --> 00:02:05.821
+00:02:03.767 --> 00:02:06.188
 The second tool works on the other path.
 
 32
-00:02:05.821 --> 00:02:12.601
+00:02:06.188 --> 00:02:12.968
 When you subscribe, the subscription travels up the chain, from your end to the source: you sign the order form.
 
 33
-00:02:12.601 --> 00:02:16.839
+00:02:12.968 --> 00:02:17.205
 subscribeOn is a line on that form, saying which team starts the oven.
 
 34
-00:02:17.000 --> 00:02:23.532
+00:02:17.433 --> 00:02:23.966
 So here's publishOn(single) in the middle, and subscribeOn(boundedElastic) written at the very end.
 
 35
-00:02:23.532 --> 00:02:25.248
+00:02:23.966 --> 00:02:25.681
 Where does the source run?
 
 36
-00:02:28.267 --> 00:02:31.893
+00:02:28.667 --> 00:02:32.293
 On boundedElastic-1, although subscribeOn was written last.
 
 37
-00:02:31.893 --> 00:02:37.302
+00:02:32.293 --> 00:02:37.702
 The form is read before the oven starts, so it doesn't matter where you write that line.
 
 38
-00:02:37.302 --> 00:02:41.236
+00:02:37.702 --> 00:02:41.636
 And after the hand-over point, the item still moved to single-1.
 
 39
-00:02:42.000 --> 00:02:46.185
+00:02:42.467 --> 00:02:46.652
 What if the form has two of those lines, single and boundedElastic?
 
 40
-00:02:46.185 --> 00:02:48.184
+00:02:46.652 --> 00:02:48.651
 The one nearest the source wins.
 
 41
-00:02:48.184 --> 00:02:50.745
+00:02:48.651 --> 00:02:51.212
 The other only adds a trip on the way up.
 
 42
-00:02:50.933 --> 00:02:53.182
+00:02:51.433 --> 00:02:53.682
 Here the order form picture breaks.
 
 43
-00:02:53.182 --> 00:02:57.742
+00:02:53.682 --> 00:02:58.242
 A real form with two lines that disagree would go back to the customer.
 
 44
-00:02:57.742 --> 00:03:00.826
+00:02:58.242 --> 00:03:01.326
 Reactor quietly obeys the line nearest the oven.
 
 45
-00:03:00.826 --> 00:03:04.037
+00:03:01.326 --> 00:03:04.537
 So write subscribeOn once, right after the source.
 
 46
-00:03:04.800 --> 00:03:06.266
+00:03:05.367 --> 00:03:06.833
 Now, back to the phone.
 
 47
-00:03:06.266 --> 00:03:10.984
+00:03:06.833 --> 00:03:11.551
 stock.loavesLeft takes 100 milliseconds, and its thread does nothing else.
 
 48
-00:03:10.984 --> 00:03:16.212
+00:03:11.551 --> 00:03:16.779
 Make that call on parallel, and you take one of its few quick hands off the belts.
 
 49
-00:03:16.400 --> 00:03:17.131
+00:03:17.000 --> 00:03:17.731
 So wrap it.
 
 50
-00:03:17.131 --> 00:03:21.185
+00:03:17.731 --> 00:03:21.785
 fromCallable makes the call lazy, so it runs when subscribed.
 
 51
-00:03:21.185 --> 00:03:26.767
+00:03:21.785 --> 00:03:27.367
 And subscribeOn(boundedElastic) sends it to the back room, where waiting is allowed.
 
 52
-00:03:27.533 --> 00:03:29.235
+00:03:28.200 --> 00:03:29.901
 Eight shops, eight calls.
 
 53
-00:03:29.235 --> 00:03:38.558
+00:03:29.901 --> 00:03:39.224
 Here's the version that looks right: flatMap over the shops, each one a fromCallable, and one subscribeOn(boundedElastic) on the outside.
 
 54
-00:03:38.558 --> 00:03:40.055
+00:03:39.224 --> 00:03:40.721
 How long does it take?
 
 55
-00:03:43.067 --> 00:03:46.550
+00:03:43.700 --> 00:03:47.184
 813 milliseconds, on one thread, boundedElastic-1.
 
 56
-00:03:46.550 --> 00:03:48.014
+00:03:47.184 --> 00:03:48.647
 The calls took turns.
 
 57
-00:03:48.014 --> 00:03:56.932
+00:03:48.647 --> 00:03:57.565
 flatMap subscribes to each call on the thread it's running on, and fromCallable makes its call right there, as it is subscribed.
 
 58
-00:03:57.067 --> 00:04:02.066
+00:03:57.767 --> 00:04:02.766
 We booked the whole back room, then sent one worker in with a list of eight calls.
 
 59
-00:04:02.066 --> 00:04:04.504
+00:04:02.766 --> 00:04:05.204
 So put subscribeOn inside, on each call.
 
 60
-00:04:04.667 --> 00:04:10.477
+00:04:05.433 --> 00:04:11.243
 Now every subscription goes to its own worker: 116 milliseconds, on eight threads.
 
 61
-00:04:10.477 --> 00:04:13.523
+00:04:11.243 --> 00:04:14.290
 Same eight calls, about seven times faster.
 
 62
-00:04:13.523 --> 00:04:20.751
+00:04:14.290 --> 00:04:21.517
 And cap them with flatMap's concurrency, so a stock book that takes 20 connections isn't asked for 40.
 
 63
-00:04:21.533 --> 00:04:27.363
+00:04:22.333 --> 00:04:28.163
 So a blocking call needs fromCallable, and subscribeOn(boundedElastic), on its own Mono.
 
 64
-00:04:27.363 --> 00:04:32.597
+00:04:28.163 --> 00:04:33.397
 And never wait with block inside a chain on parallel: Reactor refuses it there.
 
 65
-00:04:33.267 --> 00:04:39.887
+00:04:34.100 --> 00:04:40.720
 Here it is in Java and Kotlin: one wrapped call, and the shops in order, at most 4 calls at a time.
 
 66
-00:04:40.667 --> 00:04:42.265
+00:04:41.533 --> 00:04:43.132
 So, which one moves what?
 
 67
-00:04:42.265 --> 00:04:46.932
+00:04:43.132 --> 00:04:47.799
 publishOn is a hand-over point on the belt: it moves everything after it.
 
 68
-00:04:46.932 --> 00:04:52.943
+00:04:47.799 --> 00:04:53.809
 subscribeOn is the line on the order form: it says who starts the oven, wherever you write it.
 
 69
-00:04:52.943 --> 00:04:56.907
+00:04:53.809 --> 00:04:57.773
 And a phone call goes to the back room, one wrapped call each.
 
 70
-00:04:57.067 --> 00:04:57.893
+00:04:58.000 --> 00:04:58.827
 Quick check.
 
 71
-00:04:57.893 --> 00:05:04.439
+00:04:58.827 --> 00:05:05.372
 subscribeOn(single) right after the source, and publishOn(parallel) just before the subscriber.
 
 72
-00:05:04.439 --> 00:05:06.644
+00:05:05.372 --> 00:05:07.577
 Where does a map in between run?
 
 73
-00:05:09.667 --> 00:05:10.422
+00:05:10.567 --> 00:05:11.322
 On single-1.
 
 74
-00:05:10.422 --> 00:05:14.890
+00:05:11.322 --> 00:05:15.790
 The source started there, and the map comes before the hand-over point.
 
 75
-00:05:14.890 --> 00:05:17.281
+00:05:15.790 --> 00:05:18.181
 Only the subscriber moves to parallel.

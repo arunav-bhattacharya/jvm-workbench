@@ -49,13 +49,13 @@ Two surprises wait for anyone who measures. A program started with `-Xmx256m` ca
 
 In this lesson, we'll walk through the warehouse, read the label on one box, and try two JVM settings that change its size. Before we start, make a guess, and keep it in mind."""
 
-S1 = """Let's set up the example for the whole track. A small photo-sharing site runs a **thumbnail service**. When someone uploads a photo, the service makes a thumbnail, a small preview picture, and keeps recent thumbnails in memory so it can send them again without redoing the work. It's an ordinary program, and the JVM (the Java Virtual Machine, the program that runs your compiled Java and Kotlin) gives it memory in several separate areas.
+S1 = """Let's set up the example for the whole track. A small photo-sharing site runs a thumbnail service. When someone uploads a photo, the service makes a thumbnail, a small preview picture, and keeps recent thumbnails in memory so it can send them again without redoing the work. It's an ordinary program, and the JVM (the Java Virtual Machine, the program that runs your compiled Java and Kotlin) gives it memory in several separate areas.
 
-The biggest area is the **heap**, the shared storage floor. Every object the service creates with `new` lives there: each thumbnail, its pixels, the strings for its file names. The **garbage collector** (GC) is the part of the JVM that finds objects nothing uses any more and reuses their memory. It's the warehouse's cleaning crew, and lesson 4 follows it at work. The `-Xmx` setting sets the largest size the heap may grow to.
+The biggest area is the **heap**, the shared storage floor. Every object the service creates with `new` lives there: each thumbnail, its pixels, the strings for its file names. The **garbage collector** (GC) is the part of the JVM that finds objects nothing uses any more and reuses their memory. It's the warehouse's cleaning crew, and lesson 4 follows it at work. The `-Xmx` option, given when the program starts, sets the largest size the heap may grow to.
 
-A **thread** is one path of work running through the program, and each thread is a worker with a desk. The desk is the thread's **stack**: the local variables, and the place to return to, of every method the thread is in the middle of. A local variable never holds an object itself. It holds a **reference**, the object's address on the heap, like a shelf number on the notepad.
+A thread is one path of work running through the program, and each thread is a worker with a desk. The desk is the thread's **stack**: the local variables, and the place to return to, of every method the thread is in the middle of. A local variable never holds an object itself. It holds a reference, the object's address on the heap, like a shelf number on the notepad. An ordinary thread is called a platform thread, because the operating system runs it, and its stack lives outside the heap.
 
-The plans live in **metaspace**: the JVM's description of every class it has loaded, with its fields, its methods and their bytecode. Next to it sits the **code cache**. The JIT compilers, the parts of the JVM that turn busy bytecode into machine code while the program runs, keep their output there.
+The plans live in **metaspace**: the JVM's description of every class it has loaded, with its fields, its methods and their bytecode (the instructions the compiler wrote into the class file). Next to it sits the code cache. The JIT compilers, the parts of the JVM that turn busy bytecode into machine code while the program runs, keep their output there.
 
 It's natural to read `-Xmx` as the size of the program. It isn't. Here's a JDK 25 program started with `-Xmx256m` and measured by Native Memory Tracking (NMT), the JVM's own accounting of its memory. The program holds 100 MB of arrays, 50 extra threads and 96 MB of memory outside the heap. Committed means memory the operating system has really handed over, as opposed to addresses only reserved for later:
 
@@ -69,19 +69,19 @@ It's natural to read `-Xmx` as the size of the program. It isn't. Here's a JDK 2
 | Thread stacks | 6 MB | one stack per platform thread (71 of them) |
 | Metaspace | 1 MB | the plans for the classes loaded from the program's own jars |
 
-The process committed 388 MB, and 172 MB of it lives outside the heap, where `-Xmx` limits none of it. In the warehouse, `-Xmx` caps the storage floor. The desks, the filing room and the yard out back come on top.
+The process committed 388 MB, and 172 MB of it lives outside the heap, where `-Xmx` limits none of it. In the warehouse, `-Xmx` caps the storage floor. The desks (stacks), the filing room (metaspace) and the yard out back (memory outside the heap) come on top.
 
-Three rows deserve a sentence each. Each platform thread reserves a 1 MB stack on Linux x64 but commits only the pages it touches, which is why 71 threads committed just 6 MB. Metaspace has no limit by default, so a program that keeps loading new classes keeps growing it. And a **direct buffer** is memory the program asks for outside the heap, often to read and write files and network data. The heap holds only a small object that points to it. (A virtual thread is the one exception to "stacks live outside the heap": while it waits, its frames sit in ordinary objects on the heap, as the virtual threads track showed.)
+Three rows deserve a sentence each. Each platform thread reserves a 1 MB stack on Linux x64 but commits only the pages it touches, which is why 71 threads committed just 6 MB. Metaspace has no limit by default, so a program that keeps loading new classes keeps growing it. And a direct buffer is memory the program asks for outside the heap, often to read and write files and network data. The heap holds only a small object that points to it. `Arena.allocate`, from the Foreign Function and Memory API (final since JDK 22), hands out the same kind of memory. (A virtual thread is the one exception to "stacks live outside the heap": while it waits, its frames sit in ordinary objects on the heap, as the virtual threads track showed.)
 
-Lesson 6 of this track fits all of these areas into a container's memory limit, and lesson 7 measures them with NMT. For now, let's step onto the floor and look at one box."""
+Lesson 6 of this track fits all of these areas into a fixed memory budget, and lesson 7 measures them with NMT. For now, let's step onto the floor and look at one box."""
 
 S2 = """`new Object()` has no fields at all, and it still takes 16 bytes of heap. Those bytes are the label. On a 64-bit HotSpot JVM (HotSpot is the JVM inside OpenJDK and most Java downloads), every object starts with a **header** of two parts.
 
-The **mark word**, 8 bytes, is the housekeeping strip. It holds the object's identity hash code, once something asks for one. It holds the GC age: how many cleanings the object has survived, in 4 bits, so at most 15. And it holds the bits that `synchronized` uses when a thread locks the object.
+The **mark word**, 8 bytes, is the housekeeping strip. It holds the object's identity hash code (the one `Object.hashCode()` returns when a class doesn't override it), once something asks for it. It holds the GC age: how many cleanings the object has survived, in 4 bits, so at most 15. And it holds the bits that `synchronized` uses when a thread locks the object.
 
 The **class pointer**, 4 bytes by default, says what kind of box this is. It points to the class's plan in metaspace.
 
-That's 12 bytes before the first field. After the fields comes **padding**: every object starts at a multiple of 8 bytes, so its size rounds up to the next multiple of 8. `new Object()` is 12 bytes of header plus 4 of padding. An `Integer` puts its 4-byte `int` where the padding would go, so it's 16 too. A `Long` needs 8 bytes for its value: 12 + 8 = 20, which rounds up to 24. That was the warm-up.
+That's 12 bytes before the first field. After the fields comes padding: every object starts at a multiple of 8 bytes, so its size rounds up to the next multiple of 8. `new Object()` is 12 bytes of header plus 4 of padding. An `Integer` puts its 4-byte `int` where the padding would go, so it's 16 too. A `Long` needs 8 bytes for its value: 12 + 8 = 20, which rounds up to 24. That was the warm-up.
 
 Here the warehouse picture breaks, and it's worth saying out loud. A paper label costs no shelf space. A Java header sits inside the box and takes 12 of its bytes, whether the box holds 4 bytes of data or 4,000.
 
@@ -109,7 +109,7 @@ class Thumbnail {
 }
 ```
 
-Kotlin compiles each `var` to the same JVM field as the Java line above it, so both classes get the same layout. JOL (Java Object Layout), a small OpenJDK tool, prints what the JVM really did with those fields. This is JOL on JDK 25 with default settings:
+Kotlin compiles each `var` to the same JVM field as the Java line above it, so both classes get the same layout. JOL (Java Object Layout), a small OpenJDK tool, prints what the JVM really did with those fields. In its printout, OFF is each part's offset, its distance in bytes from the start of the object, and SZ is its size. This is JOL on JDK 25 with default settings:
 
 ```text
 OFF  SZ               TYPE DESCRIPTION                 VALUE
@@ -156,7 +156,7 @@ There's a way past the cliff: `-XX:ObjectAlignmentInBytes=16`. With 16-byte slot
 
 The class pointer has its own compression, into a separate 1 GB space for class data. That's why the header stays at 12 bytes even when compressed oops are off. And since JDK 25, there's a supported way to make the header itself smaller."""
 
-S4 = """Project Lilliput, the OpenJDK project working on smaller object headers, shrank the label to 8 bytes. With **compact object headers**, the class pointer moves into the mark word itself, squeezed into 22 bits, and the separate class word disappears. The flag changed status on the way, so the version matters:
+S4 = """Project Lilliput, the OpenJDK project working on smaller object headers, shrank the label to 8 bytes. With **compact object headers**, the class pointer moves into the mark word itself, squeezed into 22 bits, and the separate class word disappears. The flag changed status on the way, each step described in a JEP (a JDK Enhancement Proposal, the document behind each new JDK feature), so the version matters:
 
 | JDK | Compact object headers |
 |---|---|
@@ -230,7 +230,7 @@ L = {
      "Compare the max heap it prints with your machine's memory. When you give no `-Xmx`, the JVM takes a quarter of it."
     ],
     "code": demo("MemoryAreasDemo"),
-    "expect": "Three heap pools (`G1 Eden Space`, `G1 Survivor Space`, `G1 Old Gen`) and several non-heap ones: `Metaspace`, `Compressed Class Space` and three `CodeHeap` pools for compiled code. The 64 MB buffer appears in none of them, only in the `direct` buffer pool, because it lives outside the heap. The max heap is 25% of your memory, or of the container's limit if you run in one: on the 13.4 GB machine behind this lesson, it printed 3,420 MB."
+    "expect": "Three heap pools (`G1 Eden Space`, `G1 Survivor Space`, `G1 Old Gen`) and several non-heap ones: `Metaspace`, `Compressed Class Space` and three `CodeHeap` pools for compiled code. The 64 MB buffer appears in none of them, only in the `direct` buffer pool, because it lives outside the heap. The max heap is 25% of your memory, or of the memory limit the program runs under, if it has one: on the 13.4 GB machine behind this lesson, it printed 3,420 MB."
    },
    "refs": [
     {"title": "The java command, JDK 25 manual (source of the man page)", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/java.base/share/man/java.md", "kind": "docs"}
@@ -337,7 +337,7 @@ L = {
    "`(size + alignment - 1) / alignment * alignment` rounds up. The solution uses the bit trick `(size + alignment - 1) & -alignment`, which only works for powers of two.",
    "`Modifier.isStatic(field.getModifiers())` tells you to skip a field. `Class.getSuperclass()` returns `null` after `Object`.",
    "`type.isPrimitive()` is false for `Integer.class` and for `int[].class`. Both are references when they appear as a field.",
-   "`WatermarkedThumbnail` adds a `String` and a `short` to `Thumbnail` and still takes 40 bytes. Summing the fields gets that right, because the 6 new bytes disappear into the rounding."
+   "`WatermarkedThumbnail` adds a `String` and a `short` to `Thumbnail` and still takes 40 bytes. Summing the fields gets that right: 12 + 22 + 6 = 40, the size the padding had already reached."
   ],
   "done_when": "All 8 tests in `ObjectSizeTest` pass."
  },

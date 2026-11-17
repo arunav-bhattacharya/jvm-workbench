@@ -12,20 +12,20 @@ class RecordingClassLoaderTest {
 
     @Test
     fun `loading a class without initializing it defines only that class`() {
-        Class.forName(FIXTURES + "FeeTable", false, loader)
-        assertThat(loader.defined()).containsExactly(FIXTURES + "FeeTable")
+        Class.forName(FIXTURES + "ZoneTable", false, loader)
+        assertThat(loader.defined()).containsExactly(FIXTURES + "ZoneTable")
     }
 
     @Test
     fun `initializing a class also defines what its static initializer touches`() {
-        Class.forName(FIXTURES + "FeeTable", true, loader)
-        assertThat(loader.defined()).containsExactlyInAnyOrder(FIXTURES + "FeeTable", FIXTURES + "FeeRules")
+        Class.forName(FIXTURES + "ZoneTable", true, loader)
+        assertThat(loader.defined()).containsExactlyInAnyOrder(FIXTURES + "ZoneTable", FIXTURES + "ZoneRules")
     }
 
     @Test
     fun `the class is the loader's own copy, not the parent's`() {
-        val mine = Class.forName(FIXTURES + "FeeTable", false, loader)
-        val parents = Class.forName(FIXTURES + "FeeTable", false, RecordingClassLoaderTest::class.java.classLoader)
+        val mine = Class.forName(FIXTURES + "ZoneTable", false, loader)
+        val parents = Class.forName(FIXTURES + "ZoneTable", false, RecordingClassLoaderTest::class.java.classLoader)
         assertThat(mine.classLoader).isSameAs(loader)
         assertThat(mine).isNotSameAs(parents)
     }
@@ -39,10 +39,10 @@ class RecordingClassLoaderTest {
 
     @Test
     fun `asking twice gives the same class, recorded once`() {
-        val first = loader.loadClass(FIXTURES + "Money")
-        val second = loader.loadClass(FIXTURES + "Money")
+        val first = loader.loadClass(FIXTURES + "Status")
+        val second = loader.loadClass(FIXTURES + "Status")
         assertThat(first).isSameAs(second)
-        assertThat(loader.defined()).containsExactly(FIXTURES + "Money")
+        assertThat(loader.defined()).containsExactly(FIXTURES + "Status")
     }
 
     @Test

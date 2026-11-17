@@ -1,11 +1,11 @@
 package workbench.startup.l04
 
-/** A small pool of connections to the card issuer that closes and reopens them around a checkpoint. */
-class IssuerConnectionPool(
+/** A small pool of connections to the depot's database that closes and reopens them around a checkpoint. */
+class DepotConnectionPool(
     private val network: FakeNetwork,
     private val size: Int,
     context: SimContext,
-    private val peer: String = "issuer.example:443",
+    private val peer: String = "depot-db.example:5432",
 ) : Resource {
     private val sockets = mutableListOf<FakeSocket>()
     private var next = 0

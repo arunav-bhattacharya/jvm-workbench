@@ -54,19 +54,19 @@ Most days that's exactly right. Then the thumbnail service caches its decoded ph
 
 Both traps are easy to fall into, because the names promise more than the contracts. In the last lesson, every box went onto the floor in a few instructions; this one asks when the crew may take it away. We'll follow the crew's notes from the start, try the three looser holds Java offers, and write a cleanup that really runs. Before we start, make a guess, and keep it in mind."""
 
-S1 = """The garbage collector doesn't free the objects you stopped using. It frees the objects nothing can reach. It starts from the **GC roots**, the places a running program holds references without any object around them. The roots are the local variables on every live thread's stack (the desks) and the static fields (the noticeboard by the door). References held by native code, which Java calls through JNI (the Java Native Interface), count as roots too. From the roots the collector follows every reference, and keeps whatever it finds. Everything else is garbage.
+S1 = """The garbage collector doesn't free the objects you stopped using. It frees the objects nothing can reach. It starts from the **GC roots**, the places where a running program holds references directly, not inside another object. The roots are the local variables on every live thread's stack (the desks) and the static fields (the noticeboard by the door). References held by native code (code written in a language such as C, which Java calls through JNI, the Java Native Interface) count as roots too. From the roots the collector follows every reference, and keeps whatever it finds. Everything else is garbage.
 
 That rule ignores how many references point at an object. A box that nobody's note leads to is garbage, even if a hundred other forgotten boxes point at it.
 
-The package `java.lang.ref` lets you point at an object without holding it as tightly as an ordinary reference does. Its documentation defines a ladder, from the firmest hold to none:
+The package `java.lang.ref` lets you point at an object without holding it as tightly as an ordinary reference does. A reference object, such as a `SoftReference`, points at another object, called its referent, and `get()` returns the referent while it's still there. The package's documentation defines a ladder, from the firmest hold to none:
 
 - An object is **strongly reachable** if a chain of ordinary references leads to it. The GC leaves it alone.
 - It is **softly reachable** if the only way to it goes through a `SoftReference`: "keep it if there's room". The GC may clear that reference when memory gets tight.
 - It is **weakly reachable** if the only way goes through a `WeakReference`: "keep it only while someone else holds it". The next collection that finds it clears the reference.
 - It is **phantom reachable** if only a `PhantomReference` is left. Its `get()` always returns `null`; it only tells you, afterwards, that the object is gone.
-- Otherwise it's **unreachable**, and its memory can be reused.
+- Otherwise it's unreachable, and its memory can be reused.
 
-Each reference object can carry a **ReferenceQueue**, a tray where the collector drops the slip. "Some time after" the GC sees the object drop to that rung, it clears the reference and puts it on the queue. That's the specification's own wording, and it promises no deadline:
+Each reference object can carry a ReferenceQueue, a tray where the collector drops the slip. "Some time after" the GC sees the object drop to that rung, it clears the reference and puts it on the queue. That's the specification's own wording, and it promises no deadline:
 
 ```java
 ReferenceQueue<byte[]> queue = new ReferenceQueue<>();
@@ -88,7 +88,7 @@ Here the warehouse picture breaks, and the break matters for everything in this 
 
 That missing "when" is the whole story of the first rung below strong."""
 
-S2 = """`SoftReference` sounds made for caches, and its Javadoc says so: "Soft references are most often used to implement memory-sensitive caches." The contract is thinner than it sounds. The JVM guarantees one thing: every soft reference to a softly reachable object is cleared before it throws an `OutOfMemoryError`. Otherwise, in the Javadoc's words, "no constraints are placed upon the time" of clearing. HotSpot ties it to a flag, `-XX:SoftRefLRUPolicyMSPerMB` (default 1000), described as the "number of milliseconds per MB of free space in the heap" that an unused soft referent may live.
+S2 = """`SoftReference` sounds made for caches, and its Javadoc says so: "Soft references are most often used to implement memory-sensitive caches." The contract is thinner than it sounds. The JVM guarantees one thing: every soft reference to a softly reachable object is cleared before it throws an `OutOfMemoryError`, the error that means the heap has no room left. Otherwise, in the Javadoc's words, "no constraints are placed upon the time" of clearing. HotSpot ties it to a flag, `-XX:SoftRefLRUPolicyMSPerMB` (default 1000), described as the "number of milliseconds per MB of free space in the heap" that an unused soft referent may live.
 
 So let's squeeze one. The thumbnail service decodes photos before it shrinks them, and a decoded photo is big. Here a 64 MB heap keeps one 40 MB decoded photo behind a soft reference, and then the service decodes a second one of the same size. This is the GC log on JDK 25, cut to the lines that matter:
 
@@ -99,7 +99,7 @@ GC(6) Pause Full (G1 Compaction Pause) 42M->1M(64M) 5.325ms
 after decoding a 40 MB dog photo: beach photo cached: false
 ```
 
-G1 ran a **full GC**, a collection of the whole heap with every thread stopped, and it kept the soft referent. There was still no room, so G1 ran a second full GC that cleared the soft reference, and the new photo fit. The cached photo is gone, and the next request for it has to decode it again.
+G1, the JVM's default collector, ran a **full GC**, a collection of the whole heap with every thread stopped, and it kept the soft referent. There was still no room, so G1 ran a second full GC that cleared the soft reference, and the new photo fit. The cached photo is gone, and the next request for it has to decode it again.
 
 That's the trouble with soft caches in a service. A soft cache keeps your things right up to the moment you need them most. It empties in bulk, when the heap is nearly full and the collector is already running full GCs. Then every request that misses the cache rebuilds its entry at the same moment, on a machine that is slow for the same reason. And a heap full of soft references always looks full, so you can't size it by watching it.
 
@@ -133,9 +133,9 @@ The catch is the mirror image. A lambda registered inline, with no other referen
 
 The last rung, phantom, holds nothing at all. Its only job is to say when an object is gone, so that something outside the heap can be cleaned up."""
 
-S4 = """Some objects own something the GC can't see. The service's image decoder hands out buffers of native memory, outside the heap, and each one must be given back exactly once. When the Java object that owns a buffer becomes garbage, the GC frees the object. The native memory stays taken, unless some code runs to free it.
+S4 = """Some objects own something the GC can't see. The service's image decoder, a native library written in C, hands out buffers of native memory, outside the heap, and each one must be given back exactly once. When the Java object that owns a buffer becomes garbage, the GC frees the object. The native memory stays taken, unless some code runs to free it.
 
-`finalize()` was the first way to run code when an object died. Java 9 deprecated it, and since JDK 18 it has been deprecated for removal (JEP 421). A finalizer can bring its own object back to life. Finalizers run on one JVM thread, in no set order and at no set time. And an object with a finalizer needs at least two collections before its memory is freed. You can check whether your program still depends on one: start it with `--finalization=disabled` (JDK 18 and later), and no finalizer runs. In the demo on JDK 25, 1,000 objects with a finalizer ran 1,000 finalizers by default and 0 with the flag.
+`finalize()` was the first way to run code when an object died. Java 9 deprecated it, and since JDK 18 it has been deprecated for removal (JEP 421, the JDK Enhancement Proposal behind that step). A finalizer can bring its own object back to life. Finalizers run on one JVM thread, in no set order and at no set time. And an object with a finalizer needs at least two collections before its memory is freed. You can check whether your program still depends on one: start it with `--finalization=disabled` (JDK 18 and later), and no finalizer runs. In the demo on JDK 25, 1,000 objects with a finalizer ran 1,000 finalizers by default and 0 with the flag.
 
 The replacement is `java.lang.ref.Cleaner`, built on phantom references. You register an object with a cleaning action. When the object becomes phantom reachable, the cleaner's thread runs the action. That thread is patient and literal: it runs the action when the slip arrives, and not a moment before. `register` returns a `Cleanable`, and its `clean()` runs the action at most once and unregisters it:
 

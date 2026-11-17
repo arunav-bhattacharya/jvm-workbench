@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * A toy checkpoint: three components register hooks in the order the service creates them.
- * Pass "leak" as an argument and the metrics reporter forgets to close its socket.
+ * Pass "leak" as an argument and the stats reporter forgets to close its socket.
  */
 public class HookOrderDemo {
     /** org.crac.Resource has the same two methods, each taking a Context argument. */
@@ -41,9 +41,9 @@ public class HookOrderDemo {
 
     public static void main(String[] args) {
         boolean leak = args.length > 0 && args[0].equals("leak");
-        new Component("ledger DB pool", false);         // created first: the others use it
-        new Component("Kafka consumer", false);
-        new Component("metrics reporter", leak);
+        new Component("database pool", false);         // created first: the others use it
+        new Component("scan listener", false);
+        new Component("stats reporter", leak);
 
         System.out.println("checkpoint requested");
         for (Resource r : registered.reversed()) r.beforeCheckpoint();         // last registered first

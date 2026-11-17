@@ -17,9 +17,9 @@ import kotlin.io.path.listDirectoryEntries
  */
 private object Anchor
 
-private data class Payment(val id: String, val amountMinor: Long, val currency: String)
+private data class Parcel(val id: String, val grams: Long, val depot: String)
 
-private enum class Status { AUTHORIZED, DECLINED }
+private enum class Size { LETTERBOX, PARCEL }
 
 fun main(args: Array<String>) {
     if (args.firstOrNull() == "--work") {
@@ -92,13 +92,13 @@ private fun packJar(classes: Path, jar: Path): Path {
 /** The "service" being started: a few classes, lambdas, regex, java.time and formatting. */
 private fun work() {
     val line = Regex("""(\w+);(\d+);([A-Z]{3})""")
-    val payments = listOf("p1;1250;EUR", "p2;990;EUR", "p3;150000;USD", "p4;20;GBP")
+    val parcels = listOf("px1;1250;NTH", "px2;990;NTH", "px3;15000;RIV", "px4;20;HIL")
         .mapNotNull { line.matchEntire(it)?.destructured }
-        .map { (id, amount, currency) -> Payment(id, amount.toLong(), currency) }
-    val withinLimit: (Payment) -> Boolean = { it.amountMinor <= 100_000 }
-    val byStatus = payments
-        .groupBy({ if (withinLimit(it)) Status.AUTHORIZED else Status.DECLINED }, { it.id })
+        .map { (id, grams, depot) -> Parcel(id, grams.toLong(), depot) }
+    val fitsLetterbox: (Parcel) -> Boolean = { it.grams <= 2_000 }
+    val bySize = parcels
+        .groupBy({ if (fitsLetterbox(it)) Size.LETTERBOX else Size.PARCEL }, { it.id })
         .toSortedMap()
-    val report = "%s %s".format(LocalDate.of(2026, 3, 2), byStatus)
+    val report = "%s %s".format(LocalDate.of(2026, 3, 2), bySize)
     check(report.isNotEmpty())
 }

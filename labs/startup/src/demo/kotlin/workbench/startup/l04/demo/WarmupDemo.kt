@@ -18,14 +18,14 @@ fun main(args: Array<String>) {
     ProcessBuilder(cmd).redirectErrorStream(true).inheritIO().start().waitFor()
 }
 
-/** Ten rounds of 20,000 Luhn checks on card numbers, the check every PAN field gets. */
+/** Ten rounds of 20,000 check-digit tests on 16-digit tracking numbers, the test every typed-in number gets. */
 private fun work() {
     var checksum = 0L
     for (round in 1..10) {
         val t0 = System.nanoTime()
         for (i in 0 until 20_000) {
-            val pan = "4000" + (1_000_003L * i + round).toString().padStart(12, '0')   // a 16-digit PAN
-            if (luhnValid(pan)) checksum += i
+            val number = "7000" + (1_000_003L * i + round).toString().padStart(12, '0')   // a 16-digit tracking number
+            if (checkDigitOk(number)) checksum += i
         }
         val us = (System.nanoTime() - t0) / 1_000
         println("round %2d: %,7d us".format(round, us))
@@ -33,11 +33,12 @@ private fun work() {
     if (checksum == 42L) println()                      // keeps the JIT from dropping the work
 }
 
-private fun luhnValid(pan: String): Boolean {
+/** The Luhn check: the last digit makes the weighted sum a multiple of 10, so most typos show. */
+private fun checkDigitOk(number: String): Boolean {
     var sum = 0
     var twice = false
-    for (i in pan.indices.reversed()) {
-        var d = pan[i] - '0'
+    for (i in number.indices.reversed()) {
+        var d = number[i] - '0'
         if (twice) {
             d *= 2
             if (d > 9) d -= 9

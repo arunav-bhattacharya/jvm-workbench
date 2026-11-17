@@ -47,13 +47,13 @@ That's how the JVM creates objects. In the last lesson, every box cost its label
 
 Two traps sit on either side of that. One says allocation is free, so never think about it. The other says allocation is slow, so reuse objects. Both are wrong, and in useful ways.
 
-In this lesson, we'll watch threads claim their stretches of shelf, count the bytes a piece of code allocates, catch the JIT skipping a box, and find where a program's bytes really come from. Before we start, make a guess, and keep it in mind."""
+In this lesson, we'll watch threads claim their stretches of shelf, count the bytes a piece of code allocates, catch the JVM's compiler skipping a box, and find where a program's bytes really come from. Before we start, make a guess, and keep it in mind."""
 
 S1 = """New objects go into **eden**, the part of the heap set aside for new arrivals. (Lesson 4 explains why the heap has a separate area for them.) Every thread shares eden. If each `new` took its memory straight from eden, every thread would have to update one shared "next free byte" pointer. They'd take turns, like workers queueing at the floor manager's desk.
 
 So each thread claims a chunk of eden for itself, its **TLAB** (thread-local allocation buffer), and allocates inside it with no locking at all. That's the reserved stretch of shelf. In the JDK 25 demo below, each chunk was about 500 KB, room for twelve thousand small arrays.
 
-Allocating inside a TLAB means moving a "top" pointer forward, which is called **bump-pointer allocation**. This is HotSpot's fast path, from the JDK 25 source:
+Allocating inside a TLAB means moving a "top" pointer forward, which is called bump-pointer allocation. This is HotSpot's fast path, from the JDK 25 source:
 
 ```text
 HeapWord* obj = top();
@@ -64,17 +64,17 @@ if (pointer_delta(end(), obj) >= size) {   // does the object fit?
 return nullptr;                            // no: take the slow path
 ```
 
-It's a compare, an add and a store. Then the JVM writes the object's header and zeroes its fields. Once a method is compiled, the JIT copies all of this into your code, so a `new` doesn't even make a call.
+It's a compare, an add and a store. Then the JVM writes the object's header and zeroes its fields. Once a method is compiled by the JIT (the part of the JVM that turns busy bytecode into machine code), these few instructions sit right inside your code, so a `new` doesn't even make a call.
 
-The slow path runs when the object doesn't fit. Usually the TLAB is simply full, and the thread claims a fresh one from eden with one atomic update. That's the only moment two threads' allocations can meet. Objects too big for a TLAB go straight into eden. G1, the JVM's default garbage collector, splits the heap into equal regions of 1 to 32 MB. An object bigger than half a region is **humongous**: a 3 MB photo in one `byte[]`, on a heap with 2 MB regions, skips TLABs and eden entirely. Lesson 4 shows why that costs more.
+The slow path runs when the object doesn't fit. Usually the TLAB is simply full, and the thread claims a fresh one from eden with one atomic update, a single step that no other thread can interrupt. That's the only moment two threads' allocations can meet. Objects too big for a TLAB go straight into eden. G1, the JVM's default garbage collector, splits the heap into equal regions of 1 to 32 MB. An object bigger than half a region is humongous: a 3 MB photo in one `byte[]`, on a heap with 2 MB regions, skips TLABs and eden entirely. Lesson 4 shows why that costs more.
 
-Here the warehouse picture breaks, and the break teaches something. In a warehouse, carrying a box to its shelf is the hard part. In the JVM, the bump costs a few instructions, and the bill comes later. Every TLAB a thread fills brings eden closer to full, and a full eden is what calls the cleaning crew: a **young collection**, the GC run that empties eden.
+Here the warehouse picture breaks, and the break teaches something. In a warehouse, carrying a box to its shelf is the hard part. In the JVM, the bump costs a few instructions, and the bill comes later. Every TLAB a thread fills brings eden closer to full, and a full eden is what calls the cleaning crew: a young collection, the GC run that empties eden.
 
-So what you pay for is the **allocation rate**, the bytes allocated per second. A service that allocates 1 GB a second fills a 500 MB eden twice a second, and with G1 each of those is a pause. The objects that are already dead cost almost nothing even then, because a young collection copies only the survivors. Kotlin compiles to the same `new` bytecode, so all of this is identical in both languages.
+So what you pay for is the **allocation rate**, the bytes allocated per second. A service that allocates 1 GB a second fills a 500 MB eden twice a second, and with G1 each of those is a pause, a moment when the program's threads stop while the collector works. The objects that are already dead cost almost nothing even then, because a young collection copies only the objects still alive. Kotlin compiles to the same `new` bytecode, so all of this is identical in both languages.
 
 The rate, then, is worth measuring. How many bytes does one piece of code allocate? You don't have to guess."""
 
-S2 = """HotSpot counts every byte each thread allocates. `com.sun.management.ThreadMXBean`, an extension of the standard `ThreadMXBean`, hands you the counter with `getCurrentThreadAllocatedBytes()` (since JDK 14). Read it, run the code, read it again:
+S2 = """HotSpot counts every byte each thread allocates. A `ThreadMXBean` is the JDK's management interface for facts about threads, and `com.sun.management.ThreadMXBean`, an extension of the standard one, hands you the counter with `getCurrentThreadAllocatedBytes()` (since JDK 14). Read it, run the code, read it again:
 
 ```java
 var threads = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
@@ -96,7 +96,7 @@ The counter has two traps, and the demo below walks into both.
 
 The first call to anything pays for one-time setup. The first `Long.valueOf` builds the JDK's cache of the 256 boxes from -128 to 127, and that cost 7,456 bytes on JDK 25. The first string concatenation sets itself up too: a thousand `"img-" + i` cost 100,480 bytes the first time and 48,000 the second, 48 bytes per name. Measure twice and trust the second number.
 
-The second trap is a virtual thread. There the counter returns -1, its polite way of saying "not here". Measure on a platform thread.
+The second trap is a virtual thread, the lightweight kind of thread that the JDK runs on top of a few platform threads. There the counter returns -1, its polite way of saying "not here". Measure on a platform thread.
 
 In a test, the pattern has three steps. Call the code once on tiny input, so its classes are loaded. Measure one call on real input. Then compare the bytes with what the result itself needs, plus a margin. A method that returns a `long[500]` needs 4,016 bytes. If it allocates 1.5 MB, something inside it is boxing. That comparison is deterministic, and it's exactly what the lab's tests do.
 
@@ -104,7 +104,7 @@ The counter answers questions like "which step of this request allocates?" For t
 
 Sometimes, though, the counter reports 0 for code that plainly says `new`."""
 
-S3 = """C2 is the JIT compiler that optimizes a program's hottest methods, and it pays close attention. First it does **inlining**: it copies the small methods a method calls into the method's own body. Then it runs **escape analysis**, which checks whether an object can be seen anywhere outside the method it's compiling. If it can't, C2 can skip the object and keep its fields in registers, the processor's own small storage slots. That step is called **scalar replacement**. In the warehouse, it's a worker noticing that a box never leaves the desk, and writing its contents on the notepad instead.
+S3 = """C2 is the JIT compiler that optimizes a program's hottest methods, and it pays close attention. First it does inlining: it copies the small methods a method calls into the method's own body. Then it runs **escape analysis**, which checks whether an object can be seen anywhere outside the method it's compiling. If it can't, C2 can skip the object and keep its fields in registers, the processor's own small storage slots. That step is called **scalar replacement**. In the warehouse, it's a worker noticing that a box never leaves the desk, and writing its contents on the notepad instead.
 
 Here's a loop that makes a million short-lived points:
 
@@ -147,7 +147,7 @@ round 9:            0 bytes
 
 Same code, same `new`, zero bytes. With `-XX:-DoEscapeAnalysis`, which switches the analysis off, every round allocated 32,000,000 bytes: a million 32-byte points.
 
-Now look at the first rounds. The interpreter, and C1 (the quick JIT compiler that runs first), create every object. The allocation only disappears once C2 has compiled the method, and when that happens depends on timing: one run of the Kotlin twin on JDK 21 reached 0 only at round 5. Here the warehouse picture breaks again. A person would notice the first time that a box never leaves the desk. C2 notices only after it has watched a method run thousands of times, and only inside the code it inlined.
+Now look at the first rounds. The interpreter (which runs bytecode one instruction at a time) and C1 (the quick JIT compiler that runs first) create every object. The allocation only disappears once C2 has compiled the method, and when that happens depends on timing: one run of the Kotlin twin on JDK 21 reached 0 only at round 5. Here the warehouse picture breaks again. A person would notice the first time that a box never leaves the desk. C2 notices only after it has watched a method run thousands of times, and only inside the code it inlined.
 
 **Escape analysis is a bonus, not a promise. Never assert "allocates nothing" in a unit test.** It can pass on your laptop and fail on a busier machine. The lab asserts only the allocations the code really needs.
 
@@ -186,7 +186,7 @@ The lab hands you the upload report's two methods. Both give the right answer, a
 
 ASIDE = {
     "title": "Should I reuse objects instead of creating new ones?",
-    "body": "For short-lived objects, no. A temporary object that dies in eden costs the collector almost nothing, because a young collection copies only survivors. A pooled object survives, so the collector copies it out of eden and later into the old generation, and every young object you store into it must be tracked by the write barrier from lesson 4. Pools also need locking and reset code, and a missed reset leaks one request's data into the next. Keep pools for things that are truly expensive to create: connections, threads and large buffers outside the heap."
+    "body": "For short-lived objects, no. A temporary object that dies in eden costs the collector almost nothing, because a young collection copies only survivors. A pooled object survives, so the collector copies it out of eden and later into the old generation, the heap's long-term storage, and every young object you store into it must be tracked by the write barrier from lesson 4. Pools also need locking and reset code, and a missed reset leaks one request's data into the next. Keep pools for things that are truly expensive to create: connections, threads and large buffers outside the heap."
 }
 
 L = {
@@ -196,7 +196,7 @@ L = {
  "goal": "By the end you can explain why `new` is cheap, count the bytes a piece of code allocates, say when escape analysis removes an allocation, and take the boxing out of a hot loop.",
  "opening": OPENING,
  "warmup": {
-  "q": "A loop runs `Point p = new Point(i, i + 1); sum += p.x() + p.y();` a million times, and `p` is never stored anywhere. Once the loop's method is hot and compiled by C2, how many bytes does one call allocate?",
+  "q": "A loop runs `Point p = new Point(i, i + 1); sum += p.x() + p.y();` a million times, and `p` is never stored anywhere. Once the method has run many times and the JVM's optimizing compiler (C2) has compiled it, how many bytes does one call allocate?",
   "options": ["32,000,000: a million 32-byte points", "16,000,000: only the fields", "0, usually", "It depends on the heap size"],
   "answer": 2,
   "why": "C2's escape analysis sees that `p` never leaves the method, so it keeps `x` and `y` in registers and never creates the object. In the lesson's JDK 25 run, the first three rounds allocated megabytes while the code ran in the interpreter and C1, and every later round allocated 0. With `-XX:-DoEscapeAnalysis`, every round allocated 32,000,000 bytes. The heap size plays no part."

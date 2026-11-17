@@ -101,22 +101,22 @@ public class ArchiveLadder {
 
     /** The "service" being started: a few classes, lambdas, a stream, regex, java.time and formatting. */
     static final class Work {
-        record Payment(String id, long amountMinor, String currency) { }
+        record Parcel(String id, long grams, String depot) { }
 
-        enum Status { AUTHORIZED, DECLINED }
+        enum Size { LETTERBOX, PARCEL }
 
         static void run() {
             Pattern line = Pattern.compile("(\\w+);(\\d+);([A-Z]{3})");
-            List<Payment> payments = Stream.of("p1;1250;EUR", "p2;990;EUR", "p3;150000;USD", "p4;20;GBP")
+            List<Parcel> parcels = Stream.of("px1;1250;NTH", "px2;990;NTH", "px3;15000;RIV", "px4;20;HIL")
                     .map(line::matcher)
                     .filter(m -> m.matches())
-                    .map(m -> new Payment(m.group(1), Long.parseLong(m.group(2)), m.group(3)))
+                    .map(m -> new Parcel(m.group(1), Long.parseLong(m.group(2)), m.group(3)))
                     .toList();
-            Predicate<Payment> withinLimit = p -> p.amountMinor() <= 100_000;
-            Map<Status, List<String>> byStatus = payments.stream().collect(Collectors.groupingBy(
-                    p -> withinLimit.test(p) ? Status.AUTHORIZED : Status.DECLINED,
-                    TreeMap::new, Collectors.mapping(Payment::id, Collectors.toList())));
-            String report = String.format("%s %s", LocalDate.of(2026, 3, 2), byStatus);
+            Predicate<Parcel> fitsLetterbox = p -> p.grams() <= 2_000;
+            Map<Size, List<String>> bySize = parcels.stream().collect(Collectors.groupingBy(
+                    p -> fitsLetterbox.test(p) ? Size.LETTERBOX : Size.PARCEL,
+                    TreeMap::new, Collectors.mapping(Parcel::id, Collectors.toList())));
+            String report = String.format("%s %s", LocalDate.of(2026, 3, 2), bySize);
             if (report.isEmpty()) throw new AssertionError();
         }
     }

@@ -109,13 +109,17 @@ def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def code_block(src, size=22, hl=None):
+def code_block(src, size=22, hl=None, buff=0.15):
+    """Code lines that keep their indentation. Each line is laid out after a "|" that is then dropped, so every
+    line's left edge is the same character cell, whatever letter it starts with."""
     cw = M("0123456789", size).width / 10
-    lines = VGroup(*[M(l.strip() or ".", size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
-    for i, l in enumerate(src):
+    rows = VGroup(*[M("|" + (l.strip() or "."), size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=buff)
+    lines = VGroup()
+    for l, r in zip(src, rows):
+        g = VGroup(*r[1:])
         if not l.strip():
-            lines[i].set_opacity(0)
-        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+            g.set_opacity(0)
+        lines.add(g.shift(RIGHT * (len(l) - len(l.lstrip())) * cw))
     return lines
 
 

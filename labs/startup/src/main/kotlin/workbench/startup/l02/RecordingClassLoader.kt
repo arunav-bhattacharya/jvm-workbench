@@ -6,8 +6,8 @@ package workbench.startup.l02
  * Every other class (java.*, kotlin.*, the lab's own classes) goes to the parent as usual.
  *
  * This "child-first for one package" shape is what plugin systems and app servers use. Leyden's
- * AOT cache does not support classes from custom class loaders yet, which is why Quarkus has a
- * separate aot-jar packaging that leaves all class loading to the JDK's own loaders.
+ * AOT cache does not support classes from custom class loaders yet, which is why some frameworks
+ * offer a separate packaging that leaves all class loading to the JDK's own loaders.
  *
  * TODO:
  * - `loadClass`: for a name outside [prefix], call `super.loadClass(name, resolve)`.

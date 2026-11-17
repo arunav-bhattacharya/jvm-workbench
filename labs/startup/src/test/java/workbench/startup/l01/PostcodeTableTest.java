@@ -11,10 +11,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class BinTableTest {
-    private static final String BIN_TABLE = "workbench.startup.l01.BinTable";
+class PostcodeTableTest {
+    private static final String TABLE = "workbench.startup.l01.PostcodeTable";
 
-    // a fresh loader per test: each test sees BinTable before anything has initialized it
+    // a fresh loader per test: each test sees PostcodeTable before anything has initialized it
     private FreshLoader loader;
 
     @BeforeEach
@@ -26,34 +26,34 @@ class BinTableTest {
     @Test
     @DisplayName("version() does not build the table")
     void versionIsCheap() throws Exception {
-        assertThat(loader.call(BIN_TABLE, "version")).isEqualTo("bins-2026.11");
+        assertThat(loader.call(TABLE, "version")).isEqualTo("postcodes-2026.11");
         assertThat(InitLog.events())
                 .as("calling version() must not run build(); move the table behind a holder")
                 .isEmpty();
     }
 
     @Test
-    @DisplayName("version() loads BinTable and no other lab class")
-    void versionLoadsOnlyBinTable() throws Exception {
-        loader.call(BIN_TABLE, "version");
+    @DisplayName("version() loads PostcodeTable and no other lab class")
+    void versionLoadsOnlyPostcodeTable() throws Exception {
+        loader.call(TABLE, "version");
         // class loading is lazy too: a holder nobody has touched is not even loaded
-        assertThat(loader.defined()).containsExactly(BIN_TABLE);
+        assertThat(loader.defined()).containsExactly(TABLE);
     }
 
     @Test
-    @DisplayName("the first issuerOf builds the table, later lookups reuse it")
+    @DisplayName("the first depotOf builds the table, later lookups reuse it")
     void firstLookupBuildsOnce() throws Exception {
         assertThat(InitLog.events()).isEmpty();
-        loader.call(BIN_TABLE, "issuerOf", "4123450000001111");
-        loader.call(BIN_TABLE, "issuerOf", "5000000000000009");
-        loader.call(BIN_TABLE, "version");
+        loader.call(TABLE, "depotOf", "412345");
+        loader.call(TABLE, "depotOf", "500000");
+        loader.call(TABLE, "version");
         assertThat(InitLog.events()).containsExactly("table-built");
     }
 
     @Test
     @DisplayName("8 threads doing their first lookup at once still build the table once")
     void concurrentFirstLookupBuildsOnce() throws Exception {
-        Class.forName(BIN_TABLE, false, loader);   // load it, but don't initialize it yet
+        Class.forName(TABLE, false, loader);   // load it, but don't initialize it yet
         CountDownLatch ready = new CountDownLatch(8);
         CountDownLatch go = new CountDownLatch(1);
         List<Throwable> failures = new CopyOnWriteArrayList<>();
@@ -63,7 +63,7 @@ class BinTableTest {
                 ready.countDown();
                 try {
                     go.await();
-                    loader.call(BIN_TABLE, "issuerOf", "4111110000001111");
+                    loader.call(TABLE, "depotOf", "411111");
                 } catch (Throwable e) {
                     failures.add(e);
                 }
@@ -81,11 +81,11 @@ class BinTableTest {
     }
 
     @Test
-    @DisplayName("issuerOf finds the issuer by the first six digits")
+    @DisplayName("depotOf finds the depot for a postcode")
     void lookupIsCorrect() throws Exception {
-        assertThat(loader.call(BIN_TABLE, "issuerOf", "4111110000001111")).isEqualTo("Northwind Bank");
-        assertThat(loader.call(BIN_TABLE, "issuerOf", "4123450000001111")).isEqualTo("Contoso Card Services");
-        assertThat(loader.call(BIN_TABLE, "issuerOf", "4123460000001111")).isEqualTo("Fabrikam Credit Union");
-        assertThat(loader.call(BIN_TABLE, "issuerOf", "9999990000001111")).isEqualTo("unknown");
+        assertThat(loader.call(TABLE, "depotOf", "411111")).isEqualTo("North depot");
+        assertThat(loader.call(TABLE, "depotOf", "412345")).isEqualTo("River depot");
+        assertThat(loader.call(TABLE, "depotOf", "412346")).isEqualTo("Hill depot");
+        assertThat(loader.call(TABLE, "depotOf", "999999")).isEqualTo("unknown");
     }
 }

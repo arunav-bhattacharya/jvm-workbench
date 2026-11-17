@@ -11,7 +11,7 @@ public class InitOrderDemo {
 
     static Map<String, String> build(String who) {
         LOG.add(who);                                    // the expensive part would go here
-        return new HashMap<>(Map.of("411111", "Northwind Bank"));
+        return new HashMap<>(Map.of("411111", "North depot"));
     }
 
     /** The table is a static field of the class itself: built on first use of Eager. */

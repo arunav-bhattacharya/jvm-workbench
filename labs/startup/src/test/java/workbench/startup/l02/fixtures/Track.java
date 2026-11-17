@@ -1,10 +1,10 @@
 package workbench.startup.l02.fixtures;
 
-final class Refund {
-    private Refund() {
+final class Track {
+    private Track() {
     }
 
     static String run(String request) {
-        return "REFUNDED " + Money.format(990);
+        return "PX-1042 " + Status.format(3);
     }
 }

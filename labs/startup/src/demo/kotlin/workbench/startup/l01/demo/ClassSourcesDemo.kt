@@ -44,7 +44,7 @@ private fun bucket(line: String): String {
 /** A small taste of what services do at start-up: config, regex, dates, collections, lambdas. */
 private fun work() {
     val line = Regex("""(\w+(?:\.\w+)*)\s*=\s*(.*)""")
-    val config = listOf("issuer.url = https://issuer.example", "pool.size = 20", "timeout.ms = 120")
+    val config = listOf("depot.url = https://depot.example", "pool.size = 20", "timeout.ms = 120")
         .mapNotNull { line.matchEntire(it)?.destructured }
         .associate { (key, value) -> key to value }
         .toSortedMap()

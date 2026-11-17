@@ -34,38 +34,38 @@ class SimContextTest {
 
     @Test
     fun `checkpoint runs in reverse registration order and restore in registration order`() {
-        listOf("pool", "consumer", "cache").forEach { context.register(Recording(it)) }
+        listOf("pool", "listener", "reporter").forEach { context.register(Recording(it)) }
         context.checkpointRestore()
         assertThat(log).containsExactly(
-            "before:cache", "before:consumer", "before:pool", "snapshot",
-            "after:pool", "after:consumer", "after:cache")
+            "before:reporter", "before:listener", "before:pool", "snapshot",
+            "after:pool", "after:listener", "after:reporter")
     }
 
     @Test
     fun `an open socket fails the checkpoint, nothing is snapshotted, and everyone is restored`() {
         context.register(Recording("pool"))
-        context.register(Recording("consumer", leaveOpen = true))
+        context.register(Recording("listener", leaveOpen = true))
         val e = assertThatThrownBy { context.checkpointRestore() }.isInstanceOf(CheckpointException::class.java)
         e.satisfies({ ex ->
             assertThat(ex.suppressed).hasSize(1)
-            assertThat(ex.suppressed[0]).isInstanceOf(IllegalStateException::class.java).hasMessageContaining("consumer.example")
+            assertThat(ex.suppressed[0]).isInstanceOf(IllegalStateException::class.java).hasMessageContaining("listener.example")
         })
         assertThat(log).doesNotContain("snapshot")
-        assertThat(log).containsExactly("before:consumer", "before:pool", "after:pool", "after:consumer")
+        assertThat(log).containsExactly("before:listener", "before:pool", "after:pool", "after:listener")
     }
 
     @Test
     fun `a failing beforeCheckpoint does not stop the others, and its exception is suppressed`() {
         context.register(Recording("pool"))
-        context.register(Recording("consumer", failBefore = true, leaveOpen = true))
+        context.register(Recording("listener", failBefore = true, leaveOpen = true))
         context.register(Recording("cache"))
         val e = assertThatThrownBy { context.checkpointRestore() }.isInstanceOf(CheckpointException::class.java)
         e.satisfies({ ex ->
-            assertThat(ex.suppressed.map { it.message }).contains("consumer could not flush")
+            assertThat(ex.suppressed.map { it.message }).contains("listener could not flush")
         })
         assertThat(log).containsExactly(
-            "before:cache", "before:consumer", "before:pool",
-            "after:pool", "after:consumer", "after:cache")
+            "before:cache", "before:listener", "before:pool",
+            "after:pool", "after:listener", "after:cache")
     }
 
     @Test

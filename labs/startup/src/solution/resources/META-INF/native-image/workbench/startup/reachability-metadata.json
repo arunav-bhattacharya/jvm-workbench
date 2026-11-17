@@ -3,16 +3,16 @@
   "reflection": [
     {
       "condition": { "typeReached": "workbench.startup.l03.EventDecoder" },
-      "type": "workbench.startup.l03.PaymentAuthorized",
+      "type": "workbench.startup.l03.ParcelScanned",
       "methods": [
         { "name": "<init>", "parameterTypes": ["java.lang.String", "java.lang.String", "long"] },
-        { "name": "paymentId", "parameterTypes": [] },
-        { "name": "currency", "parameterTypes": [] },
-        { "name": "amountMinor", "parameterTypes": [] }
+        { "name": "parcelId", "parameterTypes": [] },
+        { "name": "depot", "parameterTypes": [] },
+        { "name": "weightGrams", "parameterTypes": [] }
       ]
     },
     {
-      "type": { "proxy": ["workbench.startup.l03.CardIssuerClient", "java.lang.AutoCloseable"] }
+      "type": { "proxy": ["workbench.startup.l03.DepotClient", "java.lang.AutoCloseable"] }
     }
   ]
 }

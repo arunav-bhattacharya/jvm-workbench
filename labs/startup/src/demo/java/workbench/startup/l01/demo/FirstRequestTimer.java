@@ -42,10 +42,10 @@ public class FirstRequestTimer {
 
         // 1. warm up our own HTTP client (nothing listens yet), then start the clock and the service
         HttpClient client = HttpClient.newBuilder().proxy(HttpClient.Builder.NO_PROXY).build();
-        HttpRequest hello = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/hello"))
+        HttpRequest track = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/track"))
                 .timeout(Duration.ofSeconds(2)).build();
         try {
-            client.send(hello, HttpResponse.BodyHandlers.ofString());
+            client.send(track, HttpResponse.BodyHandlers.ofString());
         } catch (IOException expected) {
             // refused: good, the client's own classes are loaded now
         }
@@ -60,7 +60,7 @@ public class FirstRequestTimer {
         while (firstOk < 0 && System.nanoTime() - t0 < Duration.ofSeconds(5).toNanos()) {
             attempts++;
             try {
-                if (client.send(hello, HttpResponse.BodyHandlers.ofString()).statusCode() == 200) {
+                if (client.send(track, HttpResponse.BodyHandlers.ofString()).statusCode() == 200) {
                     firstOk = System.nanoTime() - t0;
                 }
             } catch (IOException notUpYet) {
@@ -109,11 +109,11 @@ public class FirstRequestTimer {
         return new String(ps.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim() + " kB (ps)";
     }
 
-    /** The service: one endpoint, and a Quarkus-style "started in" line, from the JVM's uptime. */
+    /** The service: one endpoint, and a framework-style "started in" line, from the JVM's uptime. */
     static void serve(int port) throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
-        server.createContext("/hello", exchange -> {
-            byte[] body = "{\"status\":\"AUTHORIZED\",\"amountMinor\":1250}".getBytes(StandardCharsets.UTF_8);
+        server.createContext("/track", exchange -> {
+            byte[] body = "{\"parcel\":\"PX-1042\",\"status\":\"OUT_FOR_DELIVERY\"}".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, body.length);
             exchange.getResponseBody().write(body);

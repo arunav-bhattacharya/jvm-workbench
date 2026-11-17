@@ -67,16 +67,16 @@ class MetadataFileTest {
     }
 
     @Test
-    @DisplayName("registers the constructor and the accessors EventDecoder calls on PaymentAuthorized")
+    @DisplayName("registers the constructor and the accessors EventDecoder calls on ParcelScanned")
     @SuppressWarnings("unchecked")
     void registersTheEventClass() throws Exception {
         // the code under test really works this way on the JVM
-        Object event = EventDecoder.decode(PaymentAuthorized.class.getName(), "pay_81", "EUR", 1250L);
-        assertThat(EventDecoder.describe(event)).containsEntry("amountMinor", 1250L);
+        Object event = EventDecoder.decode(ParcelScanned.class.getName(), "PX-1042", "North depot", 1250L);
+        assertThat(EventDecoder.describe(event)).containsEntry("weightGrams", 1250L);
 
         Map<String, Object> entry = reflection().stream()
-                .filter(e -> PaymentAuthorized.class.getName().equals(e.get("type")))
-                .findFirst().orElseThrow(() -> new AssertionError("no reflection entry with type " + PaymentAuthorized.class.getName()));
+                .filter(e -> ParcelScanned.class.getName().equals(e.get("type")))
+                .findFirst().orElseThrow(() -> new AssertionError("no reflection entry with type " + ParcelScanned.class.getName()));
         List<Map<String, Object>> methods = (List<Map<String, Object>>) entry.getOrDefault("methods", List.of());
         assertThat(methods).contains(
                 Map.of("name", "<init>", "parameterTypes", List.of("java.lang.String", "java.lang.String", "long")));
@@ -86,10 +86,10 @@ class MetadataFileTest {
     }
 
     @Test
-    @DisplayName("registers the proxy IssuerClients creates, with its interfaces in the same order")
+    @DisplayName("registers the proxy DepotClients creates, with its interfaces in the same order")
     @SuppressWarnings("unchecked")
     void registersTheProxy() {
-        CardIssuerClient client = IssuerClients.connect("https://issuer.example");
+        DepotClient client = DepotClients.connect("https://depot.example");
         assertThat(Proxy.isProxyClass(client.getClass())).isTrue();
         List<String> actual = Arrays.stream(client.getClass().getInterfaces()).map(Class::getName).toList();
 

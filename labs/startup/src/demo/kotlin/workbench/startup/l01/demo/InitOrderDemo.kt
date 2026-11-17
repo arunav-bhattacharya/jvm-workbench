@@ -5,41 +5,41 @@ private val log = mutableListOf<String>()
 
 private fun build(who: String): Map<String, String> {
     log += who                                           // the expensive part would go here
-    return mapOf("411111" to "Northwind Bank")
+    return mapOf("411111" to "North depot")
 }
 
-/** A companion's properties are static fields of Fees: built when Fees is initialized. */
-class Fees {
+/** A companion's properties are static fields of Postcodes: built when Postcodes is initialized. */
+class Postcodes {
     companion object {
-        val table = build("Fees companion: table built with the outer class")
-        fun version() = "fees-v1"
+        val table = build("Postcodes companion: table built with the outer class")
+        fun version() = "postcodes-v1"
     }
 }
 
 /** A nested object is its own class, with its own initializer: the Kotlin holder idiom. */
-object Bins {
-    fun version() = "bins-v1"
+object Depots {
+    fun version() = "depots-v1"
     fun table() = Holder.table
 
     private object Holder {
-        val table = build("Bins.Holder: table built")
+        val table = build("Depots.Holder: table built")
     }
 }
 
 /** by lazy: built on the first get, under a lock by default (LazyThreadSafetyMode.SYNCHRONIZED). */
-object Rates {
-    fun version() = "rates-v1"
-    val table by lazy { build("Rates lazy: table built") }
+object Routes {
+    fun version() = "routes-v1"
+    val table by lazy { build("Routes lazy: table built") }
 }
 
 fun main() {
     log += "main starts"
-    Fees.version()
-    Bins.version()
-    Rates.version()
+    Postcodes.version()
+    Depots.version()
+    Routes.version()
     log += "-- all three versions read --"
-    Bins.table()
-    Rates.table
-    log += "-- Bins.table() and Rates.table read --"
+    Depots.table()
+    Routes.table
+    log += "-- Depots.table() and Routes.table read --"
     log.forEach(::println)
 }

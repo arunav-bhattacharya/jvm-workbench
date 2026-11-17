@@ -50,7 +50,7 @@ public class ClassSourcesDemo {
     static void work() {
         Map<String, String> config = new TreeMap<>();
         Pattern line = Pattern.compile("(\\w+(?:\\.\\w+)*)\\s*=\\s*(.*)");
-        for (String l : List.of("issuer.url = https://issuer.example", "pool.size = 20", "timeout.ms = 120")) {
+        for (String l : List.of("depot.url = https://depot.example", "pool.size = 20", "timeout.ms = 120")) {
             var m = line.matcher(l);
             if (m.matches()) config.put(m.group(1), m.group(2));
         }

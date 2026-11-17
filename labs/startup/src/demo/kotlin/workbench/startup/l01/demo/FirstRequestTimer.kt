@@ -36,10 +36,10 @@ fun main(args: Array<String>) {
 
     // 1. warm up our own HTTP client (nothing listens yet), then start the clock and the service
     val client = HttpClient.newBuilder().proxy(HttpClient.Builder.NO_PROXY).build()
-    val hello = HttpRequest.newBuilder(URI.create("http://127.0.0.1:$port/hello"))
+    val track = HttpRequest.newBuilder(URI.create("http://127.0.0.1:$port/track"))
         .timeout(Duration.ofSeconds(2)).build()
     try {
-        client.send(hello, HttpResponse.BodyHandlers.ofString())
+        client.send(track, HttpResponse.BodyHandlers.ofString())
     } catch (expected: IOException) {
         // refused: good, the client's own classes are loaded now
     }
@@ -54,7 +54,7 @@ fun main(args: Array<String>) {
     while (firstOk < 0 && System.nanoTime() - t0 < Duration.ofSeconds(5).toNanos()) {
         attempts++
         try {
-            if (client.send(hello, HttpResponse.BodyHandlers.ofString()).statusCode() == 200) {
+            if (client.send(track, HttpResponse.BodyHandlers.ofString()).statusCode() == 200) {
                 firstOk = System.nanoTime() - t0
             }
         } catch (notUpYet: IOException) {
@@ -97,11 +97,11 @@ private fun rss(pid: Long): String {
     return ps.inputStream.readAllBytes().decodeToString().trim() + " kB (ps)"
 }
 
-/** The service: one endpoint, and a Quarkus-style "started in" line, from the JVM's uptime. */
+/** The service: one endpoint, and a framework-style "started in" line, from the JVM's uptime. */
 private fun serve(port: Int) {
     val server = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0)
-    server.createContext("/hello") { exchange ->
-        val body = """{"status":"AUTHORIZED","amountMinor":1250}""".toByteArray()
+    server.createContext("/track") { exchange ->
+        val body = """{"parcel":"PX-1042","status":"OUT_FOR_DELIVERY"}""".toByteArray()
         exchange.responseHeaders.add("Content-Type", "application/json")
         exchange.sendResponseHeaders(200, body.size.toLong())
         exchange.responseBody.write(body)

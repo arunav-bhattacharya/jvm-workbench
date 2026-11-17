@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * Measures time to first request from outside the process: keep asking until the service
- * answers 200. This is the clock a load balancer or a Kubernetes readiness probe sees.
+ * answers 200. This is the clock a load balancer or a health checker sees.
  */
 public final class FirstRequestProbe {
 

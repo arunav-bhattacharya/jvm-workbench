@@ -55,8 +55,8 @@ N = {
     "phaser": "For a group that changes size, there's the Phaser. At the yearly stocktake, helper 2 only counts, "
               "then goes home. A barrier of 3 would wait for it forever. A phaser lets a party leave, "
               "like a guide crossing a name off the list: 3 parties, then 2.",
-    "bank": "Last, card payments. The bank checks each one over the network, about 120 milliseconds a call, "
-            "and it allows five calls at once. On a busy Saturday, twenty customers pay together, "
+    "bank": "Last, paying by card. At the till, the bank checks each card over the network, about 120 milliseconds "
+            "a call, and it allows five calls at once. On a busy Saturday, twenty customers pay together, "
             "and fifteen are refused.",
     "park": "Think of a car park with five spaces, and a sign that shows how many are free. "
             "A car that comes in takes a space, and one that leaves gives it back. "
@@ -68,7 +68,7 @@ N = {
     "stray_q": "Now a car that was never inside tells the sign it's leaving. What does the sign show?",
     "stray": "Six free spaces, in a car park built for five. Good luck parking in the sixth. "
              "Permits have no owner: release adds one, whoever calls it.",
-    "drift": "So a stray release, say from a payment cancelled while it waited, quietly raises the limit. "
+    "drift": "So a stray release, say from a card check cancelled while it waited, quietly raises the limit. "
              "Five drifts to eight, then twelve. Release only the permits you took.",
     "code": "The latch in code, Java on the left and Kotlin on the right. Count down in finally. "
             "Wait two seconds at most, then open.",
@@ -135,13 +135,17 @@ def clerk(color, s=1.0):
     return VGroup(body, head).scale(s)
 
 
-def code_block(src, size=22, hl=None):
+def code_block(src, size=22, hl=None, buff=0.15):
+    """Code lines that keep their indentation. Each line is laid out after a "|" that is then dropped, so every
+    line's left edge is the same character cell, whatever letter it starts with."""
     cw = M("0123456789", size).width / 10
-    lines = VGroup(*[M(l.strip() or ".", size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
-    for i, l in enumerate(src):
+    rows = VGroup(*[M("|" + (l.strip() or "."), size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=buff)
+    lines = VGroup()
+    for l, r in zip(src, rows):
+        g = VGroup(*r[1:])
         if not l.strip():
-            lines[i].set_opacity(0)
-        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+            g.set_opacity(0)
+        lines.add(g.shift(RIGHT * (len(l) - len(l.lstrip())) * cw))
     return lines
 
 
@@ -441,7 +445,7 @@ class Conc10Synchronizers(Narrated):
         # one-shot
         late = clerk(DOOR, 0.6).move_to(DT_HOME + LEFT * 0.4)
         late_lab = T("a later await()", 22, DOOR).next_to(late, DOWN, buff=0.18)
-        noreset = T("no reset", 24, COUNT).next_to(cnt, LEFT, buff=0.3)
+        noreset = T("no reset", 24, COUNT).move_to([GX - 1.25, 0.45, 0])
         self.say("oneshot")
         self.play(FadeOut(dthread), run_time=0.4)
         self.play(Indicate(cnt[1], color=COUNT, scale_factor=1.3), run_time=0.7)
@@ -527,7 +531,7 @@ class Conc10Synchronizers(Narrated):
         d2w12 = VGroup(work(150, 250, 1, COLS[1]), work(150, 300, 2, COLS[2]))
         old = total_chip("old numbers", 200, BAD).shift(DOWN * 0.72)
         d3w0 = work(200, 250, 0, COLS[0]).set_fill(BAD, 0.95)
-        alone = T("day 3, alone", 22, BAD).next_to(d3w0, UP, buff=0.12)
+        alone = T("day 3, alone", 22, BAD).next_to(d3w0, RIGHT, buff=0.15)
         self.say("t_break")
         self.at(1)
         self.play(Indicate(latch_l, color=GOOD), run_time=0.8)
@@ -816,7 +820,7 @@ class Conc10Synchronizers(Narrated):
             y = 1.6 - 0.75 * k
             table.add(VGroup(M(a, 24, COUNT).move_to([-6.3, y, 0], aligned_edge=LEFT),
                              T(b, 24).move_to([-3.45, y, 0], aligned_edge=LEFT),
-                             T(c, 22, GREY_B).move_to([0.75, y, 0], aligned_edge=LEFT)))
+                             T(c, 22, GREY_B).move_to([1.2, y, 0], aligned_edge=LEFT)))
         fit(table, 12.6)
         qq = VGroup(T("Check:", 28, YELLOW_M),
                     T("three helpers move stock every day for a week, and nobody starts", 28),

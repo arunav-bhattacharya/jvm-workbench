@@ -6,22 +6,22 @@ import java.util.Map;
 
 /**
  * Turns a message into an event object by class name, and reads it back by accessor name, the
- * way JSON and Kafka serializers do. The class name comes from the message, so the native-image
- * analysis cannot see which class or members are used. Don't change this class.
+ * way JSON libraries and message readers do. The class name comes from the message, so the
+ * native-image analysis cannot see which class or members are used. Don't change this class.
  */
 public final class EventDecoder {
     /** The accessors {@link #describe} calls, by name. */
-    public static final List<String> ACCESSORS = List.of("paymentId", "currency", "amountMinor");
+    public static final List<String> ACCESSORS = List.of("parcelId", "depot", "weightGrams");
 
     private EventDecoder() {
     }
 
     /** Creates the event class named in the message header through its (String, String, long) constructor. */
-    public static Object decode(String typeName, String paymentId, String currency, long amountMinor)
+    public static Object decode(String typeName, String parcelId, String depot, long weightGrams)
             throws ReflectiveOperationException {
         Class<?> type = Class.forName(typeName);                       // a name from data, not a constant
         return type.getConstructor(String.class, String.class, long.class)
-                .newInstance(paymentId, currency, amountMinor);
+                .newInstance(parcelId, depot, weightGrams);
     }
 
     /** Reads the event's fields through its accessor methods, looked up by name. */

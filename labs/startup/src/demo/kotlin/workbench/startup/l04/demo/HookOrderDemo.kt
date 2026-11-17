@@ -2,7 +2,7 @@ package workbench.startup.l04.demo
 
 /**
  * A toy checkpoint: three components register hooks in the order the service creates them.
- * Pass "leak" as an argument and the metrics reporter forgets to close its socket.
+ * Pass "leak" as an argument and the stats reporter forgets to close its socket.
  */
 private interface Hooks {                               // org.crac.Resource: the same two methods, plus a Context argument
     fun beforeCheckpoint()
@@ -31,9 +31,9 @@ private class Component(val name: String, val leaks: Boolean) : Hooks {
 
 fun main(args: Array<String>) {
     val leak = args.firstOrNull() == "leak"
-    Component("ledger DB pool", false)                  // created first: the others use it
-    Component("Kafka consumer", false)
-    Component("metrics reporter", leak)
+    Component("database pool", false)                  // created first: the others use it
+    Component("scan listener", false)
+    Component("stats reporter", leak)
 
     println("checkpoint requested")
     registered.asReversed().forEach { it.beforeCheckpoint() }          // last registered first

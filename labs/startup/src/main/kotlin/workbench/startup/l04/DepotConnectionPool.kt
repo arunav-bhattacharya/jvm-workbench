@@ -1,7 +1,7 @@
 package workbench.startup.l04
 
 /**
- * A small pool of connections to the card issuer. It works, but it knows nothing about
+ * A small pool of connections to the depot's database. It works, but it knows nothing about
  * checkpoints: its sockets are still open when the JVM is checkpointed, so the checkpoint fails.
  *
  * TODO:
@@ -9,11 +9,11 @@ package workbench.startup.l04
  * - [beforeCheckpoint]: close every socket and empty the pool,
  * - [afterRestore]: open [size] new sockets to [peer].
  */
-class IssuerConnectionPool(
+class DepotConnectionPool(
     private val network: FakeNetwork,
     private val size: Int,
     context: SimContext,
-    private val peer: String = "issuer.example:443",
+    private val peer: String = "depot-db.example:5432",
 ) : Resource {
     private val sockets = mutableListOf<FakeSocket>()
     private var next = 0

@@ -31,7 +31,7 @@ for r, row in enumerate(GRID):
         cells.append(f'<rect class="{CLS[k]}" x="{x}" y="{y}" width="{w}" height="46" rx="8"/>')
         label = {"G": "O", ".": ""}.get(k, k)
         if k == "H":
-            label = "H: one 3 MiB array"
+            label = "H: one 3 MiB photo"
         if label:
             cells.append(f'<text class="{"t" if k != "H" else "t-s"}" x="{x + w / 2:.0f}" y="{y + 28}" text-anchor="middle">{label}</text>')
 legend = [("box-ok", "E: eden"), ("box-a", "S: survivor"), ("box", "O: old"), ("box-bad", "O: mostly garbage"), ("box-b", "H: humongous"), ("box-dim", "free")]
@@ -49,15 +49,37 @@ FIGURE = ('<svg viewBox="0 0 690 290" role="img" aria-label="A G1 heap as a grid
           '<text class="t-s" x="262" y="270" text-anchor="middle">emptied regions become free; any region can take any role next</text>'
           '</svg>')
 
-S1 = """A payment request allocates the parsed JSON, a few DTOs, some strings and the response, and all of it is garbage a few milliseconds later. A few objects live much longer: a cached merchant config, a pooled connection, the entries of an idempotency cache. That split has a name, the **weak generational hypothesis**: most objects die young. A real log shows how lopsided it is. In one generational ZGC minor collection on a test workload, eden held 27 MB of live objects and 470 MB of garbage.
+OPENING = """The warehouse's cleaning crew has a problem of scale. The floor holds thousands of boxes, and checking every one of them on every round would take all day. So the crew looks hardest where the mess is. Near the door sit the new-arrivals shelves, and most boxes there are thrown out within minutes: packing, wrapping, delivery slips. Long-term storage hardly changes.
 
-HotSpot's collectors split the heap to match. New objects go into eden, in the **young generation**. When eden fills, a **young collection** finds the few live objects there and copies them into a survivor space. Everything else in eden is reclaimed at once, and the collector never even looks at it. Each time an object survives, its age goes up by one; it lives in the 4 age bits of the mark word from lesson 1. After enough survivals (at most 15, set by `MaxTenuringThreshold`, and G1 lowers it when survivor space runs short), the object is **promoted** to the **old generation**, which is collected much less often.
+Java's garbage collectors are built on the same hunch. In the last lesson we saw which objects a collector may take away: everything the roots can't reach. This lesson watches it do the work, and the surprise is in the bill. A collector's work is measured by the objects it keeps, not by the garbage it throws away.
 
-The payoff is that a young collection costs time in proportion to what survives, not to what was allocated. A 500 MB eden with 5 MB of survivors gives a short pause. The same eden with 200 MB of survivors, for example a large batch held in memory while it's processed, gives a long one, and those objects then fill the old generation too.
+The easy trap is to treat the collector as a box with one dial, the heap size or the target pause time, and to turn it whenever the log looks bad. In this lesson, we'll see why the heap has generations and how a collector marks and moves objects. Then we'll watch G1 split the floor into regions and clean the messiest ones first. Before we start, make a guess, and keep it in mind."""
 
-That makes medium-lived objects the expensive kind. They survive a few young collections, get copied each time, get promoted, and then die in the old generation, where only a bigger collection can reclaim them. An idempotency cache with a 10-minute expiry is exactly that shape."""
+S1 = """A thumbnail request allocates a lot for a moment: the uploaded bytes, the decoded picture, the small thumbnail, a few strings and the response. All of it is garbage a few milliseconds later. A few objects live much longer: the cache of recent thumbnails, the service's settings, the map of uploads it has already done. That split has a name, the **weak generational hypothesis**: most objects die young.
 
-S2 = """A garbage collector needs two steps to be correct, and you can write both in a few lines. Here's a toy one. Its heap is a map from an object id to the ids that object's fields point to:
+The lesson's demo shows how lopsided it is. It runs a stand-in for the thumbnail service, with short-lived request objects and a slowly growing cache, and logs each young collection. In one JDK 25 run, the heap held 106 MB before a collection and 8 MB after it: 98 of the 106 MB were garbage.
+
+HotSpot's collectors split the heap to match. New objects go into eden, the area where every object starts life. Eden belongs to the **young generation**, the new-arrivals shelves. When eden fills, a young collection finds the few live objects there and copies them into a survivor space, a small short-stay area. Everything else in eden is reclaimed at once, and the collector never even looks at it. Each time an object survives, its age goes up by one. The age lives in the 4 age bits of the mark word from lesson 1, the housekeeping strip on the label.
+
+After enough survivals the object is **promoted**: copied into the **old generation**, long-term storage, which is collected much less often. The age at which that happens is the tenuring threshold. It's at most 15 (the `MaxTenuringThreshold` flag), and G1 lowers it when the survivor space runs short. The demo's age table, trimmed, shows both:
+
+```text
+GC(0) - age 1: 1755920 bytes
+GC(1) - age 2: 1754832 bytes
+GC(2) - age 3: 1754832 bytes
+GC(3) Desired survivor size 8388608 bytes, new threshold 2 (max threshold 15)
+GC(3) Old regions: 2->10
+```
+
+The same 1.75 MB of cache entries survived three collections, and its age went up by one each time. By GC(3) the survivors no longer fit the 8 MB of survivor space G1 wanted. So G1 dropped the threshold to 2, and everything that old went to long-term storage: the old generation grew from 2 regions to 10. (G1 counts its heap in regions, equal blocks of memory that a later section explains.)
+
+Here the warehouse picture breaks, and the break is the key idea. A real crew leaves a wanted box where it is and carries out the rubbish. A copying collector does the opposite. It carries out every box it keeps, and then declares the whole area empty. That's why a young collection costs time in proportion to what survives, not to what was allocated, which was the warm-up.
+
+It also makes medium-lived objects the expensive kind. They survive a few young collections, get copied each time, get promoted, and then die in the old generation, where only a bigger collection can reclaim them. A thumbnail cache whose entries live for ten minutes is exactly that shape.
+
+Two questions follow. How does the crew find the boxes to keep? And how can it move a box while a worker is using it?"""
+
+S2 = """A collector needs two steps to be correct, and you can write both in a few lines. Here's a toy one. Its heap is a map, `refs`, from an object's id to the ids that object's fields point to:
 
 ```java
 Set<Integer> mark(Collection<Integer> roots) {
@@ -97,69 +119,88 @@ fun sweep(live: Set<Int>): Set<Int> {
 }
 ```
 
-**Marking** follows references from the roots and remembers every object it reaches. **Sweeping** frees the rest. Two things follow from the code. A cycle of objects that point at each other, with no root pointing in, gets freed: a tracing collector asks only whether a root can reach an object, never how many references it has. And the sweep visits every object, dead or alive, so its cost grows with the heap. (The recursion is a toy shortcut: a chain of 200,000 objects overflows a thread's stack. A real collector keeps its own mark stack, and so will your lab.)
+**Marking** follows references from the roots and remembers every object it reaches: the crew putting a sticker on each box a note leads to. Sweeping frees the rest. Two things follow from the code. A cycle of objects that point at each other, with no root pointing in, gets freed. Marking asks only whether a root can reach an object, never how many references it has. And the sweep visits every object, dead or alive, so its cost grows with the heap. (The recursion is a toy shortcut. A chain of 200,000 objects would overflow a thread's stack. A real collector keeps its own list of objects still to visit, and so will your lab.)
 
-HotSpot replaces the sweep with better moves. **Copying**, also called evacuation, moves the live objects into empty space and then treats the whole old space as free. It never touches the dead objects, so its cost follows the live ones, and it compacts memory as a side effect. **Mark-compact** slides the live objects together inside the space they're in: no spare room needed, but several passes. Young collections copy, which is why G1 calls them evacuation pauses. G1's full GC is a mark-compact of the whole heap, the last resort.
+HotSpot replaces the sweep with better moves. **Copying**, which G1 calls evacuation, moves the live objects into empty space and then treats the whole old space as free. It never touches the dead objects, so its cost follows the live ones, and it leaves the live objects packed together. Mark-compact slides the live objects together inside the space they're already in, which needs no spare room but takes several passes. Young collections copy, and G1 names them evacuation pauses. G1's full GC is a mark-compact of the whole heap, the last resort.
 
-Moving an object is only safe while no thread is using it. So these steps run in a **stop-the-world pause** at a **safepoint**: a moment when every application thread is stopped at a known place, with its references where the collector can find and update them. Compiled code checks for a pending safepoint at method returns and in loops. Getting every thread there takes time of its own, and `-Xlog:safepoint` splits it out:
+Moving an object is only safe while no thread is using it, because every reference to it has to be rewritten with its new address. So these steps run in a stop-the-world pause at a **safepoint**. A safepoint is a moment when every application thread is stopped at a known place, with its references where the collector can find and update them. It's the crew calling "pens down!" so it can rewrite every note. Compiled code checks for a pending safepoint at method returns and in loops. Getting every thread to stop takes time of its own, and `-Xlog:safepoint` reports it separately. One line from JDK 25, on a busy 4-core machine:
 
 ```text
-Safepoint "G1CollectForAllocation", Time since last: 32350666 ns, Reaching safepoint: 3409 ns,
-Cleanup: 4274 ns, At safepoint: 1671830 ns, Leaving safepoint: 1364 ns, Total: 1680877 ns
+Safepoint "G1CollectForAllocation", Time since last: 109433088 ns, Reaching safepoint: 5101 ns,
+At safepoint: 2324371 ns, Leaving safepoint: 1536 ns, Total: 2331008 ns, Threads: 0 runnable, 10 total
 ```
 
-"Reaching safepoint" (3.4 microseconds here) is how long the slowest thread took to stop. "At safepoint" (1.67 ms) is the collector's work. When the first number is large, the collector is not your problem: some thread ran a long time without reaching a safepoint check."""
+"Reaching safepoint" (5.1 microseconds here) is how long the slowest thread took to put its pen down. "At safepoint" (2.3 ms) is the collector's work. When the first number is large, the collector isn't your problem: some thread ran a long time without reaching a safepoint check.
 
-S3 = """There's a catch in the young collection story. To decide which young objects are alive, the collector follows references from the roots. But old objects point at young ones all the time: the idempotency cache sitting in the old generation gets a new young entry with every request. If a young collection had to scan the whole old generation to find those pointers, it would cost as much as a full GC.
+One question from the young collection is still open. How does the crew know which young boxes are kept alive by notes inside long-term boxes, without walking all of long-term storage?"""
 
-The fix is to do the bookkeeping when the pointer is written. The heap is divided into **cards** of 512 bytes (G1 prints `CardTable entry size: 512` at startup), and the **card table** has one byte per card. Every time your code stores a reference into a field, it also runs a few extra instructions, the **write barrier**, that mark the card holding that field as dirty:
+S3 = """There's a catch in the young collection story. To decide which young objects are alive, the collector follows references from the roots. But old objects point at young ones all the time: the thumbnail cache sits in the old generation, and every new entry it gets is a young object. If a young collection had to scan the whole old generation to find those pointers, it would cost as much as a full GC, a collection of the whole heap.
+
+The fix is to do the bookkeeping at the moment the pointer is written. The heap is divided into **cards** of 512 bytes (G1 prints `CardTable entry size: 512` at start-up on JDK 25), and the **card table** has one byte per card. Every time your code stores a reference into a field, it also runs a few extra instructions, the **write barrier**, that mark the card holding that field as dirty. In the warehouse, it's a worker who writes a note inside a long-term box and also ticks that stretch of shelf on the floor plan:
 
 ```text
-cache.entries[i] = newEntry;                   // the store you wrote
+cache.entries[i] = thumbnail;                  // the store you wrote
 card_table[address_of(field) >> 9] = DIRTY;    // what the barrier adds (512 = 2^9)
 ```
 
-A young collection then scans the roots plus the dirty cards, not the whole old generation. G1 goes a step further: each region keeps a **remembered set**, the cards elsewhere in the heap that point into that region. "Merge Heap Roots" in G1's pause log is the step that folds those remembered sets into the roots for the pause.
+A young collection then scans the roots plus the dirty cards, not the whole old generation. G1 goes a step further. Each of its regions keeps a **remembered set**, the cards elsewhere in the heap that point into that region. "Merge Heap Roots" in G1's detailed pause log is the step that folds those remembered sets into the roots for the pause. (JDK 26 reworked how G1 processes the cards, in JEP 522; the barrier's job is the same.)
 
-G1 has a second barrier for its concurrent marking, which section 5 describes. While the application keeps running during marking, it can move a reference out of an object the marker hasn't visited into one it already has. To catch that, the barrier records the old value before a reference is overwritten, so the marker still finds every object that was live when marking began. The technique is called snapshot-at-the-beginning (SATB), and the comment on G1's barrier class in the JDK 25 source calls it "a logging barrier to support snapshot-at-the-beginning marking".
+G1 has a second barrier, for concurrent marking: marking that runs while the program keeps going, which the last section of this lesson describes. While the program keeps running during marking, it can move a reference out of an object the marker hasn't visited yet into one it already has. To catch that, the barrier records the old value before a reference is overwritten, so the marker still finds every object that was live when marking began. The technique is called snapshot-at-the-beginning (SATB), and the comment on G1's barrier class in the JDK 25 source calls it "a logging barrier to support snapshot-at-the-beginning marking".
 
-These barriers are the steady cost of a generational, concurrent collector: a few instructions on every reference store in your code, all the time. Lesson 5 shows that ZGC pays at reference loads instead.
+These barriers are the steady cost of a generational collector that works alongside your code: a few instructions on every reference store, all the time. Lesson 5 shows that ZGC, a collector built for very short pauses, pays at reference loads instead.
 
-Reason it through before you move on. A Kafka consumer keeps a long-lived map of the last offset per partition, so the map sits in the old generation. For every record it replaces one partition's value with a new boxed `Long`. Which cards does the barrier dirty, and what does the next young pause scan? (Only the few cards holding the map entries whose value changed. The pause scans those cards and the roots, finds the new `Long`s, and never reads the rest of the old generation.)"""
+Reason it through before you move on. The service keeps a long-lived map of each user's latest thumbnail, so the map sits in the old generation. For every new thumbnail it replaces one user's value with the new, young object. Which cards does the barrier dirty, and what does the next young pause scan? (Only the few cards holding the map entries whose value changed. The pause scans those cards and the roots, finds the new thumbnails, and never reads the rest of the old generation.)
 
-S4 = """G1, the default collector, doesn't keep one big eden and one big old space. It cuts the heap into equal **regions**, and each region has a role for a while: eden, survivor, old, humongous or free. The roles move around. After a young pause, the evacuated eden regions are free, and next time any of them can become anything.
+So far the heap has had fixed parts: eden, survivors, old. G1, the default collector, doesn't keep them fixed at all."""
 
-The region size comes from the max heap. In the JDK 25 source it's the max heap divided by 2048, clamped between 1 MB and 32 MB, then rounded up to a power of two. A 1 GB heap gets 1 MB regions, the 3.4 GB default heap on a 13 GB machine got 2 MB, and `-Xmx40g` gets 32 MB.
+S4 = """**G1** (short for Garbage-First) is HotSpot's default collector. On JDK 25 it's the default on any machine with at least two processors and about 1.8 GB of memory, and from JDK 27 everywhere. G1 doesn't keep one big eden and one big old space. It cuts the heap into equal **regions**, and each region has a role for a while: eden, survivor, old, humongous or free. The roles move around. After a young pause the evacuated eden regions are free, and next time any of them can become anything. In the warehouse, G1's crew divides the floor into equal bays and labels each bay with its current use.
 
-Regions explain one of G1's sharp edges. An object larger than half a region is **humongous**. It skips TLABs and eden and gets its own run of whole, contiguous regions, which count as old from the start. A 3 MiB `byte[]` is 3 MiB plus a 16-byte header, so with 1 MB regions it takes four regions, and nearly all of the fourth one is wasted. A burst of humongous allocations can start a concurrent cycle on its own (the log says `G1 Humongous Allocation`), and each one needs enough free regions in a row. G1 does reclaim dead humongous objects early: in the demo, the first young pause freed `Humongous regions: 12->0`.
+The region size comes from the maximum heap. In the JDK 25 source it's the max heap divided by 2048, held between 1 MB and 32 MB, then rounded up to a power of two. A 1 GB heap gets 1 MB regions, the 3.4 GB default heap on the machine behind this lesson got 2 MB, and `-Xmx40g` gets 32 MB.
 
-In payment services the humongous objects are usually whole payloads held in one array: a settlement file, a large JSON response, a PDF statement. If your log is full of `G1 Humongous Allocation`, stream those payloads instead of buffering them, or raise the region size with `-XX:G1HeapRegionSize` until they are under half a region."""
+Regions explain one of G1's sharp edges. An object larger than half a region is **humongous**. It skips TLABs (each thread's private chunk of eden, from lesson 2) and eden itself, and gets its own run of whole, contiguous regions, which count as old from the start. A 3 MiB photo in a `byte[]` is 3 MiB plus a 16-byte header, so with 1 MB regions it takes four regions, and nearly all of the fourth one is wasted. A burst of humongous allocations can start a concurrent marking cycle on its own (the next section's subject; the log gives the cause `G1 Humongous Allocation`), and each one needs enough free regions in a row. G1 does reclaim dead humongous objects early: in the demo on JDK 25, the first young pause freed `Humongous regions: 28->0`, seven dead photos at four regions each.
 
-S5 = """Most of the time G1 runs only young pauses. Each one evacuates all eden and survivor regions. In `Pause Young (Normal) (G1 Evacuation Pause) 14M->1M(256M) 12.723ms`, 14 MB was in use before, 1 MB after, the committed heap is 256 MB, and the stop-the-world pause took 12.7 ms.
+For the thumbnail service, the humongous objects are the photos themselves, whenever a whole upload sits in one array. If your log is full of `G1 Humongous Allocation`, stream those payloads instead of holding them whole (the compare block below shows how), or raise the region size with `-XX:G1HeapRegionSize` until they're under half a region.
 
-The old regions fill up slowly with promoted objects. When old-generation occupancy crosses the initiating heap occupancy percent (IHOP: 45% to begin with, then adapted from what G1 observes), G1 starts a **concurrent marking cycle**. Here's one from a 1 GB heap, verbatim:
+G1 also works to a time budget. By default it aims to keep each pause under 200 ms (`MaxGCPauseMillis`), and it plans how much to collect in each pause to stay inside that budget. Regions are what make the plan possible: G1 can clean part of the old generation without cleaning all of it, and it cleans the messiest bays first, the way anyone tidies a garage with only an hour to spare.
+
+To choose the messiest bays, though, G1 first has to know how much garbage each one holds."""
+
+S5 = """Most of the time G1 runs only young pauses, and each one evacuates every eden and survivor region. Here's the first one from a JDK 25 run of the stand-in service, in a 256 MB heap:
 
 ```text
-GC(20) Pause Young (Concurrent Start) (G1 Humongous Allocation) 556M->527M(1024M) 13.734ms
-GC(21) Concurrent Mark Cycle
-GC(21) Pause Remark 583M->583M(1024M) 0.835ms
-GC(21) Pause Cleanup 637M->637M(1024M) 0.379ms
-GC(21) Concurrent Mark Cycle 53.866ms
-GC(22) Pause Young (Prepare Mixed) (G1 Evacuation Pause) (Evacuation Failure) 996M->760M(1024M) 43.391ms
-GC(23) Pause Young (Mixed) (G1 Evacuation Pause) 981M->660M(1024M) 10.429ms
+GC(0) Pause Young (Normal) (G1 Evacuation Pause) 28M->2M(214M) 12.921ms
 ```
 
-The cycle starts inside a young pause (`Concurrent Start`). Marking then runs on a background thread for 54 ms while the application keeps working, with two short pauses to finish (`Remark`, `Cleanup`). Now G1 knows how much of each old region is live. The next young pause (`Prepare Mixed`) is the last young-only one. Then come the **mixed** pauses: all young regions plus a few old ones, the ones with the most garbage. That choice is where the name Garbage First comes from.
+Read it left to right. 28 MB was in use before, 2 MB after, the heap had 214 MB committed (memory the operating system has handed over; G1 grows it toward the 256 MB maximum as needed), and the stop-the-world pause took 12.9 ms on that busy 4-core machine. Your times will differ.
+
+The old regions fill up slowly with promoted objects. When old-generation occupancy crosses the initiating heap occupancy percent (IHOP: 45% to begin with, then adapted from what G1 observes), G1 starts a **concurrent marking cycle**: an inspector who walks the long-term bays while work goes on, noting how full each one is. Here's one from the same run, with the timestamps cut off:
+
+```text
+GC(21) Pause Young (Concurrent Start) (G1 Humongous Allocation) 181M->127M(256M) 4.034ms
+GC(22) Concurrent Mark Cycle
+GC(22) Pause Remark 153M->153M(256M) 0.721ms
+GC(22) Pause Cleanup 163M->163M(256M) 0.021ms
+GC(22) Concurrent Mark Cycle 25.873ms
+GC(23) Pause Young (Prepare Mixed) (G1 Evacuation Pause) (Evacuation Failure: Allocation) 253M->202M(256M) 4.001ms
+GC(24) Pause Young (Mixed) (G1 Evacuation Pause) 242M->144M(256M) 3.110ms
+```
+
+The cycle starts inside a young pause (`Concurrent Start`). Marking then runs on a background thread for 26 ms while the program keeps working, with two short pauses to finish (`Remark`, `Cleanup`). Now G1 knows how much of each old region is live. The next young pause (`Prepare Mixed`) is the last young-only one. Then come the **mixed** pauses: all the young regions plus a few old ones, the ones with the most garbage. That choice is where the name Garbage-First comes from, and the mixed pause freed 98 MB where the young pause before it freed 51.
 
 Which old regions? From the JDK 25 source: only regions less than 85% live are candidates (`G1MixedGCLiveThresholdPercent`). G1 sorts them by efficiency, best first. It drops the cheapest ones as long as the garbage it leaves behind stays within 5% of the heap (`G1HeapWastePercent`). And each mixed pause takes at least an eighth of the candidates, so the work is done in at most 8 mixed pauses (`G1MixedGCCountTarget`). The lab has you write these rules.
 
-Two phrases in the log mean trouble. `(Evacuation Failure)` means G1 ran out of free regions to copy into and had to leave objects where they were. `Pause Full (G1 Compaction Pause)` is the fallback: the whole heap, mark-compact, everything stopped. Both say the heap is too small for the live data plus the allocation rate, and the 200 ms pause goal (`MaxGCPauseMillis`) can't fix that."""
+Two phrases in the log mean trouble. `(Evacuation Failure: Allocation)` means G1 ran out of free regions to copy into, and had to leave objects where they were. (JDK 21 printed only `(Evacuation Failure)`; newer JDKs add the reason.) `Pause Full (G1 Compaction Pause)` is the fallback: the whole heap, mark-compact, every thread stopped. Both say the heap is too small for the live data plus the allocation rate.
+
+It's tempting to lower `-XX:MaxGCPauseMillis` to make them go away. The pause goal only steers how much work G1 plans per pause, such as how big eden gets and how many old regions a mixed pause takes. It can't create free regions, and a smaller goal usually means more, smaller pauses on the same full heap. **When G1 fails to copy, give it room or keep less alive. A smaller pause goal does neither.**
+
+Here the warehouse picture breaks for the last time. A real crew can carry boxes while people work around them. G1 marks while the program runs, but it stops every thread before it moves anything, and that stop is your pause."""
 
 L = {
  "id": "mem-04",
  "title": "How garbage collectors work: generations and G1",
  "minutes": 38,
  "goal": "By the end you can explain generations, copying and safepoints, say what write barriers and card tables are for, and read G1's young, concurrent and mixed collections in a real log.",
+ "opening": OPENING,
  "warmup": {
   "q": "Two young collections each start with a full 500 MB eden. In the first, 5 MB of objects survive. In the second, 200 MB survive. Which pause is longer?",
   "options": ["They take about the same time, because eden was the same size", "The first, because it frees more memory", "The second, because the collector copies every surviving object", "Neither: young collections don't pause the application"],
@@ -168,100 +209,95 @@ L = {
  },
  "sections": [
   {
-   "h": "Most objects die young, so the heap has generations",
+   "h": "Most boxes are thrown out young: why the heap has generations",
    "body": S1,
    "try": {
-    "title": "Watch survivors age",
+    "title": "Watch survivors age and move out",
     "minutes": 3,
     "steps": [
-     "Read `GenerationsDemo`. It runs the lesson's service load (`ServiceLoad.java`: short-lived request garbage plus a growing cache) for one second, with G1's age table logged.",
+     "Read `GenerationsDemo`. It runs the lesson's stand-in service (`ServiceLoad.java`: short-lived request objects plus a growing cache of thumbnails) for one second, with G1's age table logged.",
      "Run it. For each `Pause Young` line, compare the heap before and after the arrow.",
-     "Follow one number through the age table from GC(0) to GC(2)."
+     "Follow one number through the age table from GC(0) to GC(2). Then find the GC where the threshold drops, and look at `Old regions` on the same GC."
     ],
     "code": demo("GenerationsDemo"),
-    "expect": "Each young pause frees most of what it found: `54M->4M` means about 50 of the 54 MB were garbage. The age table shows the survivors getting older: the 812 KB at age 1 in GC(0) appears at age 2 in GC(1) and at age 3 in GC(2). Those are cache entries, the long-lived objects. Exact numbers change from run to run."
+    "expect": "Each young pause frees most of what it found: `106M->8M` means about 98 of the 106 MB were garbage. In the age table, the same group of cache entries (about 1.75 MB on JDK 25) moves from age 1 to age 2 to age 3. A little later a line says `new threshold 2 (max threshold 15)`, and on that GC `Old regions` jumps (2->10 in the run behind this lesson): those survivors were promoted. Exact numbers change from run to run, and JDK 21 shows smaller ones because its first eden is smaller."
    }
   },
   {
-   "h": "Collectors mark, copy or compact, and they stop the world to move objects",
+   "h": "How the crew works: mark, copy or compact, with every thread stopped",
    "body": S2,
    "try": {
     "title": "Separate stopping from collecting",
     "minutes": 3,
     "steps": [
-     "Run `SafepointDemo`. It logs every safepoint during one second of service load and prints the first five GC safepoints.",
+     "Run `SafepointDemo`. It logs every safepoint during one second of the stand-in service and prints the first five GC safepoints.",
      "For each line, compare \"Reaching safepoint\" with \"At safepoint\". Both are in nanoseconds."
     ],
     "code": demo("SafepointDemo"),
-    "expect": "Reaching the safepoint takes a few thousand nanoseconds (a few microseconds), and the GC work at the safepoint takes one to five million (one to five milliseconds). The threads in this load stop quickly because their loops are short. A long \"Reaching safepoint\" would point at a thread that runs a long time between safepoint checks."
+    "expect": "Reaching the safepoint takes a few thousand nanoseconds (a few microseconds), and the GC work at the safepoint takes a few million (a few milliseconds; 2.3 to 24 ms in the run behind this lesson, on a busy machine). The threads in this load stop quickly because their loops are short. A long \"Reaching safepoint\" would point at a thread that runs a long time between safepoint checks."
    }
   },
   {
-   "h": "Write barriers and card tables keep a young collection small",
+   "h": "Notes from old boxes to new ones: write barriers and card tables",
    "body": S3
   },
   {
-   "h": "G1 splits the heap into regions",
+   "h": "G1 divides the floor into equal regions",
    "body": S4,
    "figure": {"svg": FIGURE, "caption": "G1 gives each equal region a role. Young pauses evacuate every eden and survivor region; mixed pauses also take the old regions with the most garbage."},
    "try": {
-    "title": "Count the regions of a humongous object",
+    "title": "Count the regions of a humongous photo",
     "minutes": 3,
     "steps": [
-     "Read `HumongousDemo`. It runs a 1 GB G1 heap, so regions are 1 MB, and allocates 3 MiB arrays with ordinary garbage in between.",
-     "Predict how many regions each 3 MiB array takes, then run it."
+     "Read `HumongousDemo`. It runs a 1 GB G1 heap, so regions are 1 MB, and allocates 3 MiB photos with ordinary garbage in between.",
+     "Predict how many regions each photo takes, then run it."
     ],
     "code": demo("HumongousDemo"),
-    "expect": "`Heap Region Size: 1M`, then the first young pause reports `Humongous regions: 12->0`. Twelve regions held three arrays, four regions each, because 3 MiB plus a 16-byte header doesn't fit in three. All three were already dead, so the young pause reclaimed them right away."
+    "expect": "`Heap Region Size: 1M`, then the first young pause reports something like `Humongous regions: 28->0` on JDK 25. Every photo took four regions, because 3 MiB plus a 16-byte header doesn't fit in three, so 28 regions held seven photos. All of them were already dead, so the young pause reclaimed them right away. JDK 21 starts with a smaller eden, so its first pause finds fewer photos (12 regions, three photos)."
    },
    "refs": [
     {"title": "g1HeapRegion.cpp at jdk-25-ga: how G1 picks the region size", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/hotspot/share/gc/g1/g1HeapRegion.cpp", "kind": "read"}
    ]
   },
   {
-   "h": "G1's cycle: young pauses, concurrent marking, mixed collections",
+   "h": "G1's cycle: young pauses, concurrent marking and mixed collections",
    "body": S5,
    "try": {
     "title": "Squeeze G1 until it struggles",
     "minutes": 4,
     "steps": [
-     "Read `G1CycleDemo`. It runs the service load for 3 seconds in a 256 MB heap, with the cache growing to 60% of it. It counts each kind of GC event and prints the first line of each kind, in the order they happened.",
-     "Run it. Find the cycle from this section in the first lines: Concurrent Start, Remark, Cleanup, Prepare Mixed, Mixed.",
+     "Read `G1CycleDemo`. It runs the stand-in service for 3 seconds in a 256 MB heap, with the cache growing to 60% of it. It counts each kind of GC event and prints the first line of each kind, in the order they happened.",
+     "Run it. Find the cycle from this section among the first lines: Concurrent Start, Remark, Cleanup, Prepare Mixed, Mixed.",
      "Run it again and compare the counts."
     ],
     "code": demo("G1CycleDemo"),
-    "expect": "Dozens of concurrent cycles, each with a Remark and a Cleanup, more than a hundred mixed pauses, and a large number of evacuation failures. Most runs also show one or more `Pause Full (G1 Compaction Pause)`. The counts change on every run. This heap is too small for its live data on purpose: it is the \"bad config\" you want to recognize in your own logs."
+    "expect": "About 15 to 35 concurrent mark cycles, each with a Remark and a Cleanup, a dozen or more mixed pauses, and twenty or more pauses with an evacuation failure. Most runs also show one to three `Pause Full (G1 Compaction Pause)`. The counts change on every run, and JDK 21 shows more mixed pauses. This heap is too small for its live data on purpose: it's the \"bad config\" you want to recognize in your own logs."
    },
    "refs": [
     {"title": "g1CollectionSetChooser.cpp at jdk-25-ga: choosing mixed-collection candidates", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/hotspot/share/gc/g1/g1CollectionSetChooser.cpp", "kind": "read"}
    ]
   }
  ],
- "analogy": "G1 runs a warehouse of identical storage bays. New stock lands in the receiving bays. Every so often a crew moves the few boxes still wanted from receiving into long-term bays, then declares every receiving bay empty at once: that's a young pause. Now and then an inspector walks the long-term bays while work goes on and notes how full each one is: concurrent marking. Then the crew empties the emptiest long-term bays first, a few per shift, because they give back the most space for the least lifting: mixed pauses. A pallet too big for one bay gets several neighbouring bays to itself: a humongous object. Where it breaks: a real crew can move boxes while people work around them. G1 has to stop every thread before it moves anything, and that stop is your pause.",
- "in_your_world": "A Quarkus payment API in a container with a 1 GiB memory limit gets a 256 MB heap by default, and so 1 MB regions. Any payload over 512 KB held in one array is humongous there: a big merchant's settlement CSV, a base64 PDF statement inside a JSON response, a Kafka batch read into one buffer. And the idempotency cache, whose entries live for minutes, is the classic medium-lived structure: each entry survives several young pauses, gets promoted, and has to wait for marking and mixed collections to be freed. When the after-values of young pauses keep rising and you see `(Evacuation Failure)`, the heap is too small for that cache, or the cache has no bound (lesson 7).",
- "mistake": "Lowering `-XX:MaxGCPauseMillis` to get rid of `(Evacuation Failure)` and `Pause Full (G1 Compaction Pause)`. The pause goal only steers how much work G1 plans per pause: how big eden gets and how many old regions a mixed pause takes. It can't create free regions. Evacuation failures and full GCs mean the live data plus the allocation rate don't fit, and a smaller goal usually means more, smaller pauses on the same full heap. Read the after-values of the young pauses to find the live set, then give the heap room for it, bound or shrink what's live, and stream payloads that would be humongous.",
  "compare": {
-  "title": "Buffer a settlement file, or stream it",
-  "java": {"title": "SettlementImport.java", "src": "// buffers the whole 3 MB file: a humongous byte[] while reading, then a humongous String\nString csv = Files.readString(file);\nfor (String line : csv.split(\"\\n\")) settle(line);\n\n// streams it: one line at a time, only small objects\ntry (Stream<String> lines = Files.lines(file)) {\n    lines.forEach(this::settle);\n}"},
-  "kotlin": {"title": "SettlementImport.kt", "src": "// buffers the whole 3 MB file: a humongous byte[] while reading, then a humongous String\nval csv = file.readText()                       // kotlin.io.path.readText on a Path\ncsv.split(\"\\n\").forEach(::settle)\n\n// streams it: one line at a time, only small objects\nfile.useLines { lines -> lines.forEach(::settle) }"},
-  "note": "The GC sees the same thing from both languages: the buffered version creates objects of several megabytes, which are humongous on any heap with regions of 4 MB or less, and the streaming version never holds more than a line. The difference is only in the API. Java's `Files.lines` returns a `Stream` you must close yourself, so it goes in try-with-resources. Kotlin's `Path.useLines` opens the reader, hands you a `Sequence`, and closes it when the block ends."
+  "title": "Store an upload whole, or stream it",
+  "java": {"title": "StoreUpload.java", "src": "// holds the whole photo: a 3 MB photo is humongous on any heap with regions of 4 MB or less\nbyte[] photo = in.readAllBytes();\nFiles.write(target, photo);\n\n// streams it: copies through a small buffer, so only small objects are created\ntry (OutputStream out = Files.newOutputStream(target)) {\n    in.transferTo(out);\n}"},
+  "kotlin": {"title": "StoreUpload.kt", "src": "// holds the whole photo: a 3 MB photo is humongous on any heap with regions of 4 MB or less\nval photo = input.readBytes()\nFiles.write(target, photo)\n\n// streams it: copies through a small buffer, so only small objects are created\nFiles.newOutputStream(target).use { out -> input.copyTo(out) }"},
+  "note": "The GC sees the same thing from both languages. The first version creates one array as big as the photo, which is humongous whenever the photo is over half a region, and the second never holds more than a small buffer. The difference is only in the API. Java's `transferTo` copies from an `InputStream` to an `OutputStream`, and the stream goes in try-with-resources. Kotlin's `copyTo` is an extension that does the same, and `use {}` closes the stream when the block ends. Making the thumbnail itself still needs the decoded picture, so streaming helps most where the program only moves bytes along."
  },
  "worked": {
   "title": "Read a struggling G1 log",
   "steps": [
-   {"say": "A service has a 256 MB heap. These are the first lines of its `-Xlog:gc` output (verbatim from a test run). Before you read on, look at the number after each arrow.",
-    "code": "GC(0) Pause Young (Normal) (G1 Evacuation Pause) 14M->1M(256M) 1.641ms\nGC(1) Pause Young (Normal) (G1 Evacuation Pause) 55M->4M(256M) 3.176ms\nGC(2) Pause Young (Normal) (G1 Evacuation Pause) 129M->11M(256M) 8.132ms\nGC(4) Pause Young (Normal) (G1 Evacuation Pause) 168M->27M(256M) 11.684ms\nGC(8) Pause Young (Normal) (G1 Evacuation Pause) 195M->59M(256M) 8.157ms\nGC(12) Pause Young (Normal) (G1 Evacuation Pause) 228M->92M(256M) 7.601ms",
+   {"say": "The stand-in service runs in a 256 MB heap. These are some of the first lines of its `-Xlog:gc` output on JDK 25, with the timestamps cut off. Before you read on, look at the number after each arrow.",
+    "code": "GC(0) Pause Young (Normal) (G1 Evacuation Pause) 28M->2M(214M) 12.921ms\nGC(1) Pause Young (Normal) (G1 Evacuation Pause) 96M->7M(214M) 7.617ms\nGC(2) Pause Young (Normal) (G1 Evacuation Pause) 110M->13M(214M) 10.765ms\nGC(4) Pause Young (Normal) (G1 Evacuation Pause) 143M->28M(214M) 7.341ms\nGC(8) Pause Young (Normal) (G1 Evacuation Pause) 178M->58M(225M) 8.307ms\nGC(12) Pause Young (Normal) (G1 Evacuation Pause) 217M->88M(240M) 16.690ms",
     "lang": "text"},
-   {"say": "1. Read the floor. The after-values (1, 4, 11, 27, 59, 92 MB) are what's still live after each young pause, and they climb by about 8 MB every pause. Either the service is warming a cache, or something is leaking. Either way the old generation is filling.",
-    "code": "", "lang": ""},
-   {"say": "2. Find the turn. A few pauses later the heap is nearly full, copies start to fail, and G1 starts marking because of a humongous allocation.",
-    "code": "GC(13) Pause Young (Normal) (G1 Evacuation Pause) (Evacuation Failure) 240M->162M(256M) 7.055ms\nGC(14) Pause Young (Concurrent Start) (G1 Humongous Allocation) 195M->164M(256M) 4.194ms\nGC(15) Concurrent Mark Cycle\nGC(15) Pause Remark 186M->185M(256M) 0.343ms\nGC(15) Pause Cleanup 197M->197M(256M) 0.110ms\nGC(17) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 242M->176M(256M) 2.276ms\nGC(18) Pause Young (Mixed) (G1 Evacuation Pause) (Evacuation Failure) 242M->195M(256M) 4.411ms",
+   {"say": "1. Read the floor. The after-values (2, 7, 13, 28, 58, 88 MB) are what's still live after each young pause, and they climb by about 7 MB every pause. Either the service is warming a cache, or something is leaking. Either way the old generation is filling, and the committed heap grows from 214 MB toward its 256 MB maximum."},
+   {"say": "2. Find the turn. Two pauses later the heap is nearly full and copies start to fail. Humongous photos then start concurrent cycles. The first one that runs to the end tells G1 which old regions to clean, and the mixed pauses begin.",
+    "code": "GC(14) Pause Young (Normal) (G1 Evacuation Pause) (Evacuation Failure: Allocation) 234M->107M(256M) 16.851ms\nGC(21) Pause Young (Concurrent Start) (G1 Humongous Allocation) 181M->127M(256M) 4.034ms\nGC(22) Pause Remark 153M->153M(256M) 0.721ms\nGC(22) Pause Cleanup 163M->163M(256M) 0.021ms\nGC(23) Pause Young (Prepare Mixed) (G1 Evacuation Pause) (Evacuation Failure: Allocation) 253M->202M(256M) 4.001ms\nGC(24) Pause Young (Mixed) (G1 Evacuation Pause) 242M->144M(256M) 3.110ms\nGC(28) Pause Young (Mixed) (G1 Evacuation Pause) (Evacuation Failure: Allocation) 249M->156M(256M) 7.027ms",
     "lang": "text"},
-   {"say": "3. Read the verdict. Mixed pauses can't win: they free 40 to 60 MB each, and the heap is back near 240 MB a few milliseconds later. Then comes the fallback. The full GC brings the heap down to 94 MB, and that number is the live set: 94 MB of real data in a 256 MB heap, with a high allocation rate on top.",
-    "code": "GC(76) Pause Full (G1 Compaction Pause) 224M->94M(256M) 16.652ms",
+   {"say": "3. Read the verdict. The mixed pauses can't win. The first ones free about 95 MB each and later ones less and less (GC(40) freed 13 MB), and each time the heap is back near 250 MB a few milliseconds later. Then comes the fallback. The full GC brings the heap down to 95 MB, and that number is the live set at that moment: 95 MB of real data in a 256 MB heap, with a high allocation rate on top.",
+    "code": "GC(44) Pause Full (G1 Compaction Pause) 256M->95M(256M) 19.130ms",
     "lang": "text"},
-   {"say": "4. Decide. G1 copies, so it needs free regions to copy into. As a rule of thumb (mine, not G1's), give G1 a heap of two to three times the live set, so about 300 MB here, and then confirm with a new log that evacuation failures and full GCs are gone. If the floor keeps climbing even then, it's a leak, not a sizing problem, and lesson 7 finds it.",
-    "code": "", "lang": ""}
+   {"say": "4. Decide. G1 copies, so it needs free regions to copy into. As a rule of thumb (mine, not G1's), give it a heap of two to three times the live set, and more when the live data swings, as it does here: this load's cache grows to 60% of the heap before it sheds half. Or keep less alive, by putting a limit on the cache. Then confirm with a new log that the evacuation failures and full GCs are gone. If the floor keeps climbing even then, it's a leak, not a sizing problem, and lesson 7 finds it."}
   ]
  },
  "lab": {
@@ -275,13 +311,13 @@ L = {
   "run": "./gradlew :memory:test --tests 'workbench.memory.l04.*'",
   "steps": [
    "Run the tests. Fourteen of fifteen fail; the one that passes tests a helper you're given.",
-   "Start with the toy: write `ToyHeap.mark` without recursion. Keep an `ArrayDeque` of objects still to visit, pop one, mark it, push its references. Then write `sweep`. The `ToyHeapTest` tests should pass, including the unreachable cycle and the 200,000-object chain.",
-   "Now G1. Write `regionSize`: divide by 2048, clamp to 1 MB to 32 MB, then round up to a power of two. In that order. Each KDoc gives the rule from the JDK 25 source.",
+   "Start with the toy: write `ToyHeap.mark` without recursion. Keep an `ArrayDeque` of objects still to visit, take one off, mark it, and add its references. Then write `sweep`. The `ToyHeapTest` tests should pass, including the unreachable cycle and the 200,000-object chain.",
+   "Now G1. Write `regionSize`: divide by 2048, hold the result between 1 MB and 32 MB, then round up to a power of two. In that order. Each KDoc gives the rule from the JDK 25 source.",
    "Write `isHumongous` (strictly more than half a region) and `regionsFor` (whole regions, rounded up).",
-   "Write `mixedCandidates`: filter, sort, then prune from the end, using the given `minOldRegionsPerMixedGc`. Run the tests until all fifteen pass, then read the test for the 3 MiB settlement file and explain its numbers to yourself."
+   "Write `mixedCandidates`: filter, sort, then prune from the end, using the given `minOldRegionsPerMixedGc`. Run the tests until all fifteen pass, then read the test for the 3 MiB photo and explain its numbers to yourself."
   ],
   "hints": [
-   "In `mark`, skip an object that is already marked when you pop it. That one check ends cycles and avoids scanning anything twice.",
+   "In `mark`, skip an object that is already marked when you take it off the deque. That one check ends cycles and avoids scanning anything twice.",
    "`(a + b - 1) / b` rounds a division up, for positive numbers.",
    "`coerceIn(MB, 32 * MB)` clamps. For the power of two, start at 1 MB and double until you reach the wanted size.",
    "`compareByDescending { regionBytes - it.liveBytes }.thenBy { it.index }` sorts the candidates.",
@@ -292,28 +328,33 @@ L = {
  "drill": {
   "title": "Size G1's regions in your head",
   "minutes": 4,
-  "prompt": "Close the page. For a max heap of 6 GB: what region size does G1 pick? Is a 2.5 MB JSON response humongous there? How many regions does it take? Then write `regionSize` from memory.",
+  "prompt": "Close the page. For a max heap of 6 GB: what region size does G1 pick? Is a 2.5 MB photo humongous there? How many regions does it take? Then write `regionSize` from memory.",
   "answer": {
    "lang": "java",
-   "src": "// 6 GB / 2048 = 3 MB, clamped (already between 1 and 32 MB), rounded up to a power of two: 4 MB regions.\n// Humongous means more than half a region: 2.5 MB > 2 MB, so yes. It takes 1 region (2.5 MB <= 4 MB).\nstatic long regionSize(long maxHeapBytes) {\n    long mb = 1024 * 1024;\n    long wanted = Math.clamp(maxHeapBytes / 2048, mb, 32 * mb);   // Math.clamp is JDK 21\n    long size = mb;\n    while (size < wanted) size *= 2;\n    return size;\n}",
+   "src": "// 6 GB / 2048 = 3 MB, already between 1 and 32 MB, rounded up to a power of two: 4 MB regions.\n// Humongous means more than half a region: 2.5 MB > 2 MB, so yes. It takes 1 region (2.5 MB <= 4 MB).\nstatic long regionSize(long maxHeapBytes) {\n    long mb = 1024 * 1024;\n    long wanted = Math.clamp(maxHeapBytes / 2048, mb, 32 * mb);   // Math.clamp is JDK 21\n    long size = mb;\n    while (size < wanted) size *= 2;\n    return size;\n}",
    "alt": {
     "lang": "kotlin",
-    "src": "// 6 GB / 2048 = 3 MB, clamped (already between 1 and 32 MB), rounded up to a power of two: 4 MB regions.\n// Humongous means more than half a region: 2.5 MB > 2 MB, so yes. It takes 1 region (2.5 MB <= 4 MB).\nfun regionSize(maxHeapBytes: Long): Long {\n    val mb = 1024L * 1024\n    val wanted = (maxHeapBytes / 2048).coerceIn(mb, 32 * mb)\n    var size = mb\n    while (size < wanted) size *= 2\n    return size\n}"
+    "src": "// 6 GB / 2048 = 3 MB, already between 1 and 32 MB, rounded up to a power of two: 4 MB regions.\n// Humongous means more than half a region: 2.5 MB > 2 MB, so yes. It takes 1 region (2.5 MB <= 4 MB).\nfun regionSize(maxHeapBytes: Long): Long {\n    val mb = 1024L * 1024\n    val wanted = (maxHeapBytes / 2048).coerceIn(mb, 32 * mb)\n    var size = mb\n    while (size < wanted) size *= 2\n    return size\n}"
    }
   }
  },
  "recap": [
-  "Most objects die young. A young collection copies the few survivors out of eden, so it costs what survives, not what was allocated.",
-  "A collector marks what the roots can reach and frees the rest, so unreachable cycles go too. Copying costs what survives; moving objects needs a stop-the-world pause at a safepoint.",
+  "Most objects die young. A young collection copies the few survivors out of eden and frees the rest at once, so it costs what survives, not what was allocated. Survivors that age past the tenuring threshold are promoted to the old generation.",
+  "A collector marks what the roots can reach and frees the rest, so unreachable cycles go too. Copying costs what survives, and moving objects needs a stop-the-world pause at a safepoint.",
   "Write barriers mark 512-byte cards dirty on every reference store, so a young collection scans dirty cards instead of the whole old generation. G1's SATB barrier keeps concurrent marking correct.",
   "G1 cuts the heap into regions of 1 to 32 MB. Objects over half a region are humongous: they take whole contiguous regions and count as old from the start.",
-  "When old-generation occupancy crosses IHOP, G1 marks concurrently, then runs mixed pauses on old regions under 85% live, best first, in at most 8 pauses.",
-  "`(Evacuation Failure)` and `Pause Full (G1 Compaction Pause)` mean the heap is too small for the live data and allocation rate. The pause goal can't fix that."
+  "When old-generation occupancy crosses IHOP, G1 marks concurrently, then runs mixed pauses on old regions under 85% live, best first, in at most 8 pauses. `(Evacuation Failure: Allocation)` and `Pause Full (G1 Compaction Pause)` mean the heap is too small for what's live, and the pause goal can't fix that.",
+  "The limit of G1: it marks alongside your code but stops every thread to move objects, so its pauses grow with the live objects each pause copies."
  ],
+ "closing": """We started with a crew that looks hardest at the new-arrivals shelves, because most boxes there are thrown out young. G1 does the same with eden, copies the few survivors, tracks old-to-young notes with cards, and cleans the messiest old regions first, all while every thread waits.
+
+Now find a GC log from a program of yours, or run one with `-Xlog:gc`. Read the number after the arrow on each young pause, and watch whether that floor climbs.
+
+Next, we'll meet collectors that move boxes while the workers keep working: ZGC and Shenandoah. What does it cost to keep pauses under a millisecond, and how do you choose a collector?""",
  "quiz": [
   {
    "q": "A service runs on a 2 GB heap with G1 and default settings. Which of these is a humongous allocation?",
-   "options": ["`new byte[400_000]` for a receipt image", "A `HashMap` with 30,000 entries", "`new byte[700_000]` for a settlement file chunk", "A `String` of 300,000 Latin-1 characters"],
+   "options": ["`new byte[400_000]` for a thumbnail", "A `HashMap` with 30,000 entries", "`new byte[700_000]` for a chunk of an uploaded photo", "A `String` of 300,000 Latin-1 characters"],
    "answer": 2,
    "why": "2 GB / 2048 is exactly 1 MB, so regions are 1 MB and the humongous threshold is 512 KB. 700,000 bytes is over it. 400,000 bytes and a 300,000-character Latin-1 string (a 300 KB array) are under it. A `HashMap` is many small objects; with 30,000 entries its table has 65,536 slots, a 256 KB array."
   },
@@ -329,7 +370,7 @@ L = {
    "why": "Old-to-young pointers are normal, for example a cache in the old generation getting new entries. Every reference store runs a barrier that marks the 512-byte card it wrote to as dirty. A young pause scans the roots plus the dirty cards; in G1, remembered sets track which cards point into which region."
   },
   {
-   "q": "A G1 log shows `GC(42) Pause Young (Normal) (G1 Evacuation Pause) 1210M->1180M(1536M)`, then `(Evacuation Failure)` on the next pauses, then `Pause Full (G1 Compaction Pause) 1490M->1150M(1536M)`. What does it tell you?",
+   "q": "A JDK 25 log shows `GC(42) Pause Young (Normal) (G1 Evacuation Pause) 1210M->1180M(1536M)`, then `(Evacuation Failure: Allocation)` on the next pauses, then `Pause Full (G1 Compaction Pause) 1490M->1150M(1536M)`. What does it tell you?",
    "options": [
     "The pause goal is too high; set `-XX:MaxGCPauseMillis=50`",
     "About 1.15 GB is really live in a 1.5 GB heap, which leaves G1 too little room to copy",
@@ -340,7 +381,7 @@ L = {
    "why": "The full GC's after-value is the live set: 1,150 MB of 1,536 MB. A young pause that frees only 30 MB, and copies that fail for lack of free regions, say the same thing. A smaller pause goal can't create free regions. A `System.gc()` call would show `(System.gc())` as the cause."
   },
   {
-   "q": "In `Safepoint \"G1CollectForAllocation\" ... Reaching safepoint: 48000000 ns ... At safepoint: 2100000 ns`, where would you look first?",
+   "q": "In `Safepoint \"G1CollectForAllocation\" ... Reaching safepoint: 48000000 ns, At safepoint: 2100000 ns ...`, where would you look first?",
    "options": [
     "At the GC settings, because the collection took 48 ms",
     "At application code that runs a long time without a safepoint check",
@@ -348,18 +389,18 @@ L = {
     "At the number of GC worker threads"
    ],
    "answer": 1,
-   "why": "\"Reaching safepoint\" is the time the slowest thread took to stop: 48 ms here. The GC work itself, \"At safepoint\", took 2.1 ms. A long time-to-safepoint means some thread ran far without reaching a safepoint check, which no GC setting fixes."
+   "why": "\"Reaching safepoint\" is the time the slowest thread took to stop: 48 ms here. The GC work itself, \"At safepoint\", took 2.1 ms. A long time to safepoint means some thread ran far without reaching a safepoint check, which no GC setting fixes."
   },
   {
-   "q": "From lesson 2: why is a dead 3 MiB array cheaper for G1 than a 3 MiB array that survives several young pauses, even though both are humongous?",
+   "q": "From lesson 2: why is a dead 3 MiB photo cheaper for G1 than a 3 MiB photo that survives several young pauses, even though both are humongous?",
    "options": [
-    "Dead humongous objects can be reclaimed in a young pause without any copying; live ones keep their contiguous regions and fill the old generation",
+    "A dead humongous object can be reclaimed in a young pause without any copying; a live one keeps its contiguous regions and fills the old generation",
     "Live humongous objects are copied in every young pause",
     "Dead humongous objects go into a TLAB",
     "There is no difference; G1 treats all humongous objects alike"
    ],
    "answer": 0,
-   "why": "Humongous objects never go through TLABs or eden, and G1 never copies them. The demo showed a young pause freeing `Humongous regions: 12->0` because the arrays were already dead. A live one keeps its regions as part of the old generation until it dies and a collection finds it.",
+   "why": "Humongous objects never go through TLABs or eden, and G1 doesn't copy them in young pauses. The demo showed a young pause freeing `Humongous regions: 28->0` because the photos were already dead. A live one keeps its regions as part of the old generation until it dies and a collection finds it.",
    "from": "mem-02"
   }
  ],
@@ -367,7 +408,7 @@ L = {
   {"front": "What does the weak generational hypothesis say?", "back": "Most objects die young. Collectors use it by collecting a small young generation often and the old generation rarely."},
   {"front": "What does a young collection's pause time depend on?", "back": "Mostly on how much survives and must be copied, not on how much garbage there is."},
   {"front": "What does a write barrier do in a generational collector?", "back": "On every reference store, it marks the card (512 bytes in G1) that holds the field as dirty, so a young GC scans dirty cards instead of the whole old generation."},
-  {"front": "How does G1 pick its region size by default?", "back": "Max heap / 2048, clamped to 1 to 32 MB, rounded up to a power of two."},
+  {"front": "How does G1 pick its region size by default?", "back": "Max heap / 2048, held between 1 and 32 MB, rounded up to a power of two."},
   {"front": "When is an object humongous in G1?", "back": "When it is bigger than half a region. It gets whole contiguous regions and skips TLABs and eden."},
   {"front": "Which old regions can a G1 mixed collection take?", "back": "Regions under 85% live (`G1MixedGCLiveThresholdPercent`), best first, until the remaining garbage is within 5% of the heap."},
   {"front": "Two objects point at each other and nothing else points at them. Does a tracing GC free them?", "back": "Yes. Marking only asks whether a root can reach an object, so an unreachable cycle is never marked and gets freed."}
@@ -384,11 +425,11 @@ L = {
  ],
  "explain_back": {
   "prompt": "Explain to a new teammate, in your own words, what happens between G1's `Pause Young (Concurrent Start)` and its first `Pause Young (Mixed)`, and why G1 needs that step at all.",
-  "answer": "Young pauses only clean eden and survivor regions, so the old regions slowly fill with promoted objects. When old-generation occupancy crosses the IHOP threshold, the next young pause also starts a concurrent marking cycle. Marking runs on background threads while the application keeps going, and a write barrier records overwritten references so nothing live is missed. Two short pauses, Remark and Cleanup, finish it. Now G1 knows how much of each old region is live. After one more young-only pause (Prepare Mixed), the mixed pauses evacuate young regions plus the old regions with the most garbage, at least an eighth of the candidates each time. Without marking, G1 couldn't know which old regions are worth copying, and the old generation would only be cleaned by a full GC."
+  "answer": "Young pauses only clean eden and survivor regions, so the old regions slowly fill with promoted objects. When old-generation occupancy crosses the IHOP threshold, the next young pause also starts a concurrent marking cycle. Marking runs on background threads while the application keeps going, and a write barrier records overwritten references so nothing live is missed. Two short pauses, Remark and Cleanup, finish it. Now G1 knows how much of each old region is live. After one more young-only pause (Prepare Mixed), the mixed pauses evacuate the young regions plus the old regions with the most garbage, at least an eighth of the candidates each time. Without marking, G1 couldn't know which old regions are worth copying, and the old generation would only be cleaned by a full GC."
  },
  "deeper": {
   "minutes": 10,
-  "body": "The `-Xlog:gc*` version of a young pause shows where the time goes. From a 1 GB heap on JDK 21:\n\n```text\nGC(3) Using 4 workers of 4 for evacuation\nGC(3)   Pre Evacuate Collection Set: 0.32ms\nGC(3)   Merge Heap Roots: 0.04ms\nGC(3)   Evacuate Collection Set: 15.51ms\nGC(3)   Post Evacuate Collection Set: 0.25ms\nGC(3)   Other: 0.08ms\nGC(3) Eden regions: 120->0(199)\nGC(3) Survivor regions: 13->14(17)\nGC(3) Old regions: 2->9\nGC(3) Humongous regions: 8->0\nGC(3) Pause Young (Normal) (G1 Evacuation Pause) 141M->20M(1024M) 16.335ms\n```\n\nAlmost all of the 16 ms is \"Evacuate Collection Set\", the copying. \"Merge Heap Roots\" is the remembered-set work from section 3, tiny here. `Eden regions: 120->0(199)` means 120 eden regions before, none after, and a target of 199 for the next cycle: G1 resizes eden after every pause to meet its pause goal. `Old regions: 2->9` means 7 regions' worth of objects were promoted.\n\nThe G1 defaults behind this lesson, from the JDK 25 source: `InitiatingHeapOccupancyPercent` 45 with `G1UseAdaptiveIHOP` on, `G1MixedGCCountTarget` 8, `G1HeapWastePercent` 5, `G1MixedGCLiveThresholdPercent` 85 (an experimental flag), `G1ReservePercent` 10 (free space G1 tries to keep for copying), and `MaxTenuringThreshold` 15. `MaxGCPauseMillis` defaults to 200 once G1 is selected.\n\nOne more line you may meet: `Concurrent Undo Cycle`. It appears when a humongous allocation requested a concurrent start, but by the time marking would begin, occupancy was back under the threshold, so G1 abandoned the cycle. That reading comes from the logs, not from G1's documentation."
+  "body": "The `-Xlog:gc*` version of a young pause shows where the time goes. From a 1 GB heap on JDK 25:\n\n```text\nGC(2) Using 4 workers of 4 for evacuation\nGC(2)   Pre Evacuate Collection Set: 0.07ms\nGC(2)   Merge Heap Roots: 0.10ms\nGC(2)   Evacuate Collection Set: 21.05ms\nGC(2)   Post Evacuate Collection Set: 0.22ms\nGC(2)   Other: 0.06ms\nGC(2) Eden regions: 99->0(116)\nGC(2) Survivor regions: 8->12(14)\nGC(2) Old regions: 0->3\nGC(2) Humongous regions: 4->0\nGC(2) Pause Young (Normal) (G1 Evacuation Pause) 110M->14M(214M) 21.701ms\n```\n\nAlmost all of the 21.7 ms is \"Evacuate Collection Set\", the copying. \"Merge Heap Roots\" is the remembered-set work from section 3, tiny here. `Eden regions: 99->0(116)` means 99 eden regions before, none after, and a target of 116 for the next cycle: G1 resizes eden after every pause to meet its pause goal. `Old regions: 0->3` means three regions' worth of survivors were promoted, and `Humongous regions: 4->0` is one dead 3 MiB photo reclaimed without copying.\n\nThe G1 defaults behind this lesson, from the JDK 25 source: `InitiatingHeapOccupancyPercent` 45 with `G1UseAdaptiveIHOP` on, `G1MixedGCCountTarget` 8, `G1HeapWastePercent` 5, `G1MixedGCLiveThresholdPercent` 85 (an experimental flag), `G1ReservePercent` 10 (free space G1 tries to keep for copying), and `MaxTenuringThreshold` 15. `MaxGCPauseMillis` is 200 when G1 is the collector.\n\nOne more line you'll meet: `Concurrent Undo Cycle`. It appears when a humongous allocation asked for a concurrent start, but by the time marking would begin, occupancy was back under the threshold, so G1 abandoned the cycle. That reading comes from the logs, not from G1's documentation."
  },
  "sources": [
   {"title": "g1CollectedHeap.hpp at jdk-25-ga: humongous threshold", "url": "https://raw.githubusercontent.com/openjdk/jdk/jdk-25-ga/src/hotspot/share/gc/g1/g1CollectedHeap.hpp"},

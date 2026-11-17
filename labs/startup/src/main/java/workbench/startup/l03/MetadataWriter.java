@@ -17,9 +17,9 @@ public final class MetadataWriter {
     /**
      * One reflection entry that registers exactly the given constructors and methods of {@code type}:
      * <pre>
-     * {"type": "workbench.startup.l03.PaymentAuthorized",
+     * {"type": "workbench.startup.l03.ParcelScanned",
      *  "methods": [{"name": "&lt;init&gt;", "parameterTypes": ["java.lang.String", "long"]},
-     *              {"name": "paymentId", "parameterTypes": []}]}
+     *              {"name": "parcelId", "parameterTypes": []}]}
      * </pre>
      *
      * <p>TODO:
