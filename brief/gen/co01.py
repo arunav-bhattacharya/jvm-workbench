@@ -62,17 +62,17 @@ In this lesson, we'll share one thread among five pots, catch a `suspend` that c
 # ---------------------------------------------------------------- section 0
 K_SOUP = """suspend fun makeSoup(): Soup {
     val stock = boilStock()        // may pause here
-    return simmer(stock, veg)      // and here
+    return addVegetables(stock)    // and here
 }"""
 J_SOUP = """// Java equivalent: plain blocking calls on a virtual thread (JDK 21+); the JVM does the pausing
 Soup makeSoup() {
     Stock stock = boilStock();     // the virtual thread unmounts while it waits
-    return simmer(stock, veg);     // and here
+    return addVegetables(stock);   // and here
 }"""
 
 S0 = """Start with what a program does while it waits. Picture code that asks a slow web service, a program on another computer that answers over the network, for something. It waits 120 ms for the answer, then asks a second service and waits 30 ms more. Nearly all of its time is waiting.
 
-That code runs on a **thread**, one path of work through the program, with its own stack of method calls. A thread that waits in the usual way is **blocked**: it holds its memory and does nothing else until the answer comes. That's the cook standing at the pot. The Kotlin docs put the cost plainly: a thread usually needs a few megabytes of memory, and a JVM typically handles a few thousand of them at once.
+That code runs on a **thread**, one path of work through the program, with its own stack of method calls. A thread that waits in the usual way is **blocked**: it holds its memory and does nothing else until the answer comes. That's the cook standing at the pot. The Kotlin docs put the cost plainly: a thread usually needs a few megabytes of memory, and a JVM, the program that runs compiled Kotlin and Java code, typically handles a few thousand of them at once.
 
 Kotlin's answer is the **suspend function**, a function that can pause in the middle and carry on later, without holding its thread while it's paused:
 
@@ -86,7 +86,7 @@ You can call a suspend function only from another suspend function or from insid
 
 The waiting itself must be a suspending call. `delay(200)` suspends: the coroutine sets a timer and steps aside, and the thread is free. `Thread.sleep(200)` blocks: the thread stops, and every other coroutine that needs that thread waits too. The compiler accepts both without a word.
 
-Let's watch the difference. `SleepVsDelay`, in the Try it below, uses `runBlocking`, which runs coroutines on the one thread that called it, here `main`. That thread is our cook. It starts five coroutines, the pots, and each one waits 200 ms. Predict first: with `delay`, the five waits should overlap, so the run should take a little over 200 ms. On this 4-core machine, while other programs kept it busy, it printed:
+Let's watch the difference. `SleepVsDelay`, in the Try it below, uses `runBlocking`, which runs coroutines on the one thread that called it, here `main`. That thread is our cook. It starts five coroutines, the pots, and each one waits 200 ms. Predict first: with `delay`, the five waits should overlap, so the run should take a little over 200 ms. On this machine, while other programs kept it busy, it printed:
 
 ```text
 pot 0 starts simmering on main
@@ -97,7 +97,7 @@ pot 4 starts simmering on main
 5 pots of 200 ms with delay took 358 ms
 ```
 
-All five lines appeared at once, and the run took 358 ms, most of it start-up on a busy machine. Now change one word, and pass `sleep`:
+All five lines appeared at once, and the run took 358 ms: the 200 ms of waiting, plus start-up on a busy machine. Now change one word, and pass `sleep`:
 
 ```text
 5 pots of 200 ms with Thread.sleep took 1130 ms
@@ -147,7 +147,7 @@ dish 2 ran on worker-3 -> worker-4 -> worker-4 -> worker-4
 
 Two things follow for your code. A `ThreadLocal`, a variable with a separate value for each thread, isn't safe across a suspension point, because the thread that resumes you may hold someone else's value. It's a note pinned to the cook's apron: when another cook picks up the dish, the note stays with the first cook. Lesson 4 of this track shows the coroutine way to carry such a note.
 
-Memory visibility, on the other hand, is taken care of. Values a coroutine wrote before it paused are visible after it resumes, even on another thread, so you don't need `@Volatile` on its locals. The reason is the hand-off. To resume you on another thread, the dispatcher submits your coroutine to its pool as a task. The JDK's rule for executors, the pools that run submitted tasks, then applies: whatever a thread wrote before it submitted a task is visible to the thread that runs it. The memory model track calls that a happens-before edge. It covers one coroutine's own state. Two coroutines that share a variable still need a lock or an atomic, as lesson 10 of this track shows.
+Memory visibility, on the other hand, is taken care of. Values a coroutine wrote before it paused are visible after it resumes, even on another thread, so you don't need `@Volatile` on its locals. The reason is the hand-off. To resume you on another thread, the dispatcher submits your coroutine to its pool as a task. The JDK's rule for executors, the pools that run submitted tasks, then applies: whatever a thread wrote before it submitted a task is visible to the thread that runs it. The memory model track calls that a happens-before edge. It covers one coroutine's own state. Two coroutines that share a variable still need a lock or an atomic, the tools from the first track, as lesson 10 of this track shows.
 
 **`suspend` gives a function the right to pause, not a thread of its own. Move work to another thread on purpose.**
 
@@ -185,12 +185,12 @@ A **continuation** is the bookmark: an object that knows how to carry on a pause
 The body becomes a **state machine**, a class with a counter that says which step comes next. Each suspension point ends a state. For `makeSauce`, the compiler generates one small class, `StateMachineKt$makeSauce$1`. It has an `int label` for the next state and two fields, `L$0` and `L$1`, where local variables wait while the function is paused. Let's follow it:
 
 1. Label 0: save the locals in the object, set `label = 1`, and call `fryOnions(onions, this)`. If that returns `COROUTINE_SUSPENDED`, return the marker straight up the stack. The thread is now free.
-2. When the onions are golden, someone calls `resumeWith(base)`. That calls `makeSauce` again, with the same object. A `tableswitch`, the bytecode for a `switch` over a small range of `int`s, jumps on `label` to state 1, which picks up `base` and calls `simmer`.
+2. When the onions are golden, someone calls `resumeWith(base)`. That calls `makeSauce` again, with the same object. A `tableswitch`, the JVM's instruction for a `switch` over a small range of `int`s, jumps on `label` to state 1, which picks up `base` and calls `simmer`.
 3. Label 2: take the sauce and return it to whoever is waiting.
 
 If `fryOnions` doesn't suspend (the onions were fried earlier, say), it returns its value at once and the function carries on. Nothing is scheduled, and no thread changes.
 
-The bookmark from the opening is exactly that object. `label` is the page, and the `L$` fields are the sticky note of what's already measured. You met a bigger bookmark in How virtual threads work. There, the JVM copied a virtual thread's whole stack to the heap, every frame of it, like a full order slip clipped to the board. A coroutine's bookmark is smaller: one small object for each suspend function still running, holding only that function's own fields.
+The bookmark from the opening is exactly that object. `label` is the page, and the `L$` fields are the sticky note of what's already measured. You met a bigger bookmark in How virtual threads work. There, the JVM copied a virtual thread's whole stack to the heap, the memory where objects live, every frame of it, like a full order slip clipped to the board. A coroutine's bookmark is smaller: one small object for each suspend function still running, holding only that function's own fields.
 
 That explains both the cost and the rules. A suspended coroutine is a few small objects, not a thread's stack, so you can have hundreds of thousands. And plain code can't call a suspend function, because it has no continuation to pass in.
 
@@ -225,7 +225,7 @@ S3 = """Many libraries don't offer suspend functions. They take a **callback**, 
 
 """ + pair(K_WRAP, J_WRAP) + """
 
-Read the Kotlin version aloud: "pause here and place the order; when the bakery calls back, carry on with its ticket; if we're cancelled first, cancel the order." The `order` call returns a small function that cancels the order, and that's the `cancel` we keep.
+Read the Kotlin version aloud: "Pause here and place the order. When the bakery calls back, carry on with its ticket. If we're cancelled first, cancel the order." The `order` call returns a small function that cancels the order, and that's the `cancel` we keep.
 
 Why the long name? The standard library also has a plain `suspendCoroutine`, and it works fine until someone **cancels** the caller, that is, asks the coroutine to stop. Our caller uses `withTimeout(100)`, which cancels its block if it isn't done in 100 ms. `CallbackBridge`, in the Try it below, wraps the bakery with the plain version first. The bakery takes a full second, as bakeries do. Predict: when does `withTimeout(100)` return?
 

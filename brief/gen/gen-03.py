@@ -51,185 +51,242 @@ FIG = (
     '</svg>'
 )
 
-S1 = """`String` is a class. `String` and `String?` are two types. That difference is the whole lesson.
+OPENING = """The shop's apples arrive in a crate labeled "apples". A helper needs a crate of fruit to carry to the front, and the apple crate seems fine: every apple is a fruit. But the helper was told the crate holds fruit, so they top it up with a lemon. The next customer who reaches in for an apple bites into a lemon.
 
-A **class** is code: a declaration that exists at run time and that the JVM loads. A **type** is what the compiler checks: it says which values a variable may hold and which calls are allowed on it. Every class gives you at least two types, the plain one and the nullable one. A generic class gives you as many types as there are type arguments: `List<String>`, `List<Int>`, `List<Payment?>`, `List<List<String>>`.
+Kotlin refuses that hand-over in code. A `MutableList<String>` won't pass as a `MutableList<Any>`, although every `String` is an `Any`, and Java refuses the same for `List<String>` and `List<Object>`. Most people's first reaction is that the compiler is being fussy. It isn't.
 
-The two words have two matching relations, and they are not the same.
+Bounds and constraints wrote `T : Fruit` and read it as "Fruit or a subtype", without saying exactly what a subtype is. In this lesson, we'll pull classes and types apart and run the test the compiler runs on every assignment. Then we'll see what Java arrays do when they skip it, and why a read-only `List<String>` is a `List<Any>` after all. Before we start, make a guess, and keep it in mind."""
 
-**Subclassing** is about classes. `CardPayment : Payment` means the class `CardPayment` inherits from `Payment`. It is a fact about declarations.
+S1 = """Start with two words that sound alike. A **class** is code: a declaration such as `String` or `ArrayList` that exists at run time, and that the JVM, the program that runs your code, loads. A **type** is what the compiler checks: it says which values a variable may hold, and which calls are allowed on it.
 
-**Subtyping** is about types. `A` is a subtype of `B` when a value of type `A` can be used anywhere a `B` is expected, and nothing can go wrong. That is the substitution principle, and it is the test the compiler applies on every assignment and every argument.
+Every class gives you at least two types, the plain one and the nullable one. A generic class gives you as many types as there are type arguments, the real types you fill its blank with: `List<String>`, `List<Int>`, `List<Apple?>`, `List<List<String>>`.
 
-Usually the two agree. `CardPayment` is a subclass of `Payment`, and the type `CardPayment` is a subtype of the type `Payment`. Here are two cases where they come apart. The first one exists only in Kotlin, because Java types say nothing about null:
+The two words come with two relations, and they aren't the same.
+
+**Subclassing** is about classes. `class Apple : Fruit` means the class `Apple` inherits from `Fruit`. It's a fact about declarations.
+
+**Subtyping** is about types. A type `A` is a **subtype** of `B` when a value of type `A` can be used anywhere a `B` is expected, and nothing can go wrong. The compiler checks that with the **substitution test** on every assignment and every argument: "if I secretly hand over an `A` where a `B` is expected, can any allowed move go wrong?"
+
+Usually the two relations agree. `Apple` is a subclass of `Fruit`, and the type `Apple` is a subtype of the type `Fruit`. Here are two places where they come apart. The first exists only in Kotlin, because Java's types say nothing about null:
 
 ```java
-String sure = "EUR";
+String sure = "Fuji";
 String maybe = sure;          // Java has no String?: every String may be null
 String back = maybe;          // compiles, and may hand you a null later
 ```
 
 ```kotlin
-val sure: String = "EUR"
+val sure: String = "Fuji"
 val maybe: String? = sure      // fine: String is a subtype of String?
 val back: String = maybe       // error: expected 'String', actual 'String?'
 ```
 
 There is only one class here, yet one type is a subtype of the other. A `String` can stand in for a `String?`, because a `String?` variable is allowed to hold a string. The reverse fails, because the value might be `null`.
 
-The second case is the classic one. `MutableList<String>` and `MutableList<Any>` share a class, and the JVM can't tell them apart. `ids.javaClass == amounts.javaClass` is `true` for a list of ids and a list of amounts. Even `MutableList::class == List::class` is `true`, because both are the JVM interface `java.util.List`. The difference between those types lives only in the compiler. The next section shows that the compiler has a very good reason to keep them apart."""
-
-S2 = """Here is the question the compiler asks. If it let you use a `MutableList<String>` where a `MutableList<Any>` is expected, could anything go wrong? Run the substitution test. Java asks the same question about `List<String>` and `List<Object>`:
-
-```java
-List<String> ids = new ArrayList<>(List.of("pay_1"));
-List<Object> anything = ids;             // suppose this compiled
-anything.add(42);                        // legal on a List<Object>
-String second = ids.get(1);              // ClassCastException
-```
-
-```kotlin
-val ids: MutableList<String> = mutableListOf("pay_1")
-val anything: MutableList<Any> = ids    // suppose this compiled
-anything.add(42)                         // legal on a MutableList<Any>
-val second: String = ids[1]              // ClassCastException
-```
-
-`anything` and `ids` are the same list object. Through the `Any` view you can add an `Int`, and through the `String` view someone reads it as a `String`. So both compilers refuse the second line. javac says `incompatible types: List<String> cannot be converted to List<Object>`, and kotlinc says:
+The second place is the classic one. `MutableList<String>` and `MutableList<Int>` share a class, and the JVM can't tell them apart. `ClassVsTypeDemo` in the labs compares a list of variety names with a list of weights, and prints:
 
 ```text
-error: initializer type mismatch: expected 'MutableList<Any>', actual 'MutableList<String>'.
+same runtime class:  true  (java.util.ArrayList)
+MutableList::class == List::class:  true
+MutableList::class.java:  interface java.util.List
 ```
 
-This rule is called **invariance**. `MutableList<A>` is a subtype of `MutableList<B>` only when `A` and `B` are the same type. It does not matter that `String` is a subtype of `Any`. The subtype arrow between the elements does not carry over to the lists.
+Both lists are a plain `java.util.ArrayList` at run time. Even Kotlin's read-only `List` and its `MutableList` are one JVM interface, `java.util.List`. Those differences live only in the compiler. The next section shows that the compiler has a very good reason to keep them apart."""
 
-Every Java generic type is invariant in the same way. You can force the assignment anyway: in Java through a raw type, `(List<Object>) (List<?>) ids`, and in Kotlin with an unchecked cast, `ids as MutableList<Any>`. Kotlin warns with `unchecked cast of 'MutableList<String>' to 'MutableList<Any>'` and then does exactly what you asked. The `42` goes in, and the failure turns up later, on a read, as a `ClassCastException` in code that has no cast. That is the same late failure as lesson 1 of this track, and this time you switched off the compiler on purpose.
-
-Invariance annoys people in practice. You have a `MutableList<CardPayment>` and a function that takes `MutableList<Payment>`, and the call does not compile. The fix is never the cast. Ask what the function does with the list. If it only reads, it should take a `List<Payment>` (the last section explains why that works). If it adds, the compiler just caught a bug: it could have added a `BankTransfer` to your list of card payments."""
-
-S3 = """Java made the other choice for arrays, back in Java 1.0. A `String[]` *is* an `Object[]`:
+S2 = """Here is the opening's crate in code, with the shop's fruit: a `Fruit` interface, and `Apple` and `Lemon` as two data classes that implement it. Run the substitution test. If the compiler let you use a `MutableList<Apple>` where a `MutableList<Fruit>` is expected, could anything go wrong?
 
 ```java
-String[] currencies = { "EUR", "USD" };
-Object[] objects = currencies;     // compiles: arrays are covariant
-objects[0] = 978;                  // compiles: an Integer is an Object
-// java.lang.ArrayStoreException: java.lang.Integer
+List<Apple> apples = new ArrayList<>(List.of(new Apple("Gala")));
+List<Fruit> anyFruit = apples;           // suppose this compiled
+anyFruit.add(new Lemon("Eureka"));       // legal on a List<Fruit>
+Apple second = apples.get(1);            // ClassCastException
 ```
 
 ```kotlin
-val currencies: Array<String> = arrayOf("EUR", "USD")
-val objects: Array<Any> = currencies
-// error: initializer type mismatch: expected 'Array<Any>', actual 'Array<String>'.
-val forced = currencies as Array<Any>   // a cast gets you there...
-forced[0] = 978                          // ...and the same ArrayStoreException
+val apples: MutableList<Apple> = mutableListOf(Apple("Gala"))
+val anyFruit: MutableList<Fruit> = apples   // suppose this compiled
+anyFruit.add(Lemon("Eureka"))                // legal on a MutableList<Fruit>
+val second: Apple = apples[1]                // ClassCastException
 ```
 
-This is exactly the substitution that the previous section showed to be unsafe. Java allows it anyway and pays at run time. Every array remembers its element type, and the JVM checks every store into an array of references. When the value doesn't fit, it throws `ArrayStoreException`. The check costs a little on every store, and the error still comes at run time, possibly in a library far from the code that widened the array.
-
-That is why the rule is the way it is. An array knows its element type at run time, so the JVM can check late. A `List<String>` does not know its type argument at run time (lesson 8 of this track shows why), so nothing could check a late store. Java generics had to be invariant, and so are Kotlin's.
-
-Kotlin goes one step further and makes arrays invariant too, as the second snippet shows. `Array<T>` is a generic class like any other. So the `ArrayStoreException` can't happen in Kotlin code that uses `Array<T>`, unless you cast your way to it. If you really need to read an `Array<Int>` through an `Array<Any>` view, Kotlin has a safe way to say \"read only\", `Array<out Any>`, which lesson 6 of this track covers.
-
-You still meet covariant arrays from Kotlin, because Java APIs pass them around. `Arrays.asList`, varargs and `toArray` all hand out arrays whose runtime element type may be narrower than their static type. If a library writes into an `Object[]` you gave it, give it a real `Object[]`."""
-
-S4 = """After two sections of "no", here is a "yes" that seems to break the rule. Java needs a **wildcard** to say it: a `?` in the angle brackets, which means "some type I don't name". Kotlin says it with a plain `List<Any>`:
-
-```java
-List<String> ids = new ArrayList<>(List.of("pay_1"));
-List<? extends Object> view = ids;   // compiles: a read-only view, spelled at the use site
-```
-
-```kotlin
-val ids: MutableList<String> = mutableListOf("pay_1")
-val view: List<Any> = ids          // compiles
-```
-
-Run the substitution test again, on Kotlin's read-only `List`. What can a caller do with a `List<Any>`? Read elements, as `Any`. Ask the size. Iterate. There is no `add` and no `set`. Every element of a `List<String>` really is an `Any`, so every read through the `Any` view tells the truth. Nothing can go wrong, so the compiler allows it.
-
-That is the whole idea behind **covariance**: when a type only hands values out and never takes them in, its subtype arrow can follow the element type. Kotlin's `List` is declared as `List<out E>`, and the `out` is the promise that `E` only comes out. Lesson 4 of this track is about writing that promise yourself.
-
-Notice what `view` does not let you do. javac rejects `view.add(42)` with `int cannot be converted to CAP#1`. `CAP#1` is javac's name for the unknown type behind the `?`, and no `int` is known to fit it. Kotlin's `List` has no `add` at all:
+`anyFruit` and `apples` are two names for one list object: one crate with two labels. Through the "fruit" label, you may add a lemon. Through the "apples" label, someone reads it back as an apple. So both compilers refuse the second line. javac says `incompatible types: List<Apple> cannot be converted to List<Fruit>`, and kotlinc says:
 
 ```text
-view.add(42)
-// error: unresolved reference 'add' on receiver of type 'List<Any>'.
+error: initializer type mismatch: expected 'MutableList<Fruit>', actual 'MutableList<Apple>'.
 ```
 
-The list object is still mutable. `ids.add("pay_2")` works, and `view` sees the new element. The `List<Any>` type only removes the ways to write through *this* reference.
+The lesson's title is the same story with the widest types there are. Swap `Apple` for `String` and `Fruit` for `Object`, and the lemon becomes an `Integer`: through a `List<Object>` view, you could add `42` to a list of strings. That is why Java won't let a `List<String>` pass as a `List<Object>`, and Kotlin won't let a `MutableList<String>` pass as a `MutableList<Any>`.
 
-At run time `List` and `MutableList` are the same `java.util.List`, so all of this is checked at compile time and costs nothing. Java has no read-only `List` type, which is why Java code writes `List<? extends Object>` at each use instead. Lesson 6 of this track maps those wildcards onto Kotlin.
+This rule is called **invariance**. `MutableList<A>` is a subtype of `MutableList<B>` only when `A` and `B` are the same type. It doesn't matter that `Apple` is a subtype of `Fruit`: the subtype arrow between the elements doesn't carry over to the lists. Every Java generic type is invariant in the same way.
 
-You now have the three answers a generic type can give to "is `C<String>` a `C<Any>`?": yes (covariant, like `List`), no (invariant, like `MutableList` and every Java generic), and \"yes, then fail at run time\" (Java arrays). The rest of this track explains when each answer is safe and how you choose it."""
+You can force the assignment anyway, with an unchecked cast: a cast the compiler can't check, because the type argument is gone at run time. In Kotlin, `apples as MutableList<Fruit>` does it, with a warning: `unchecked cast of 'MutableList<Apple>' to 'MutableList<Fruit>'`. In Java, a cast through `List<?>`, a list of some unknown type, does it: `(List<Fruit>) (List<?>) apples`. Then the compiler does exactly what you asked. `InvarianceDemo` in the labs forces it and adds the lemon:
+
+```text
+the apple crate holds 2 items, and nothing failed yet
+ClassCastException: class workbench.generics.l03.demo.Lemon cannot be cast to class workbench.generics.l03.demo.Apple (...)
+```
+
+The lemon went in without a sound. The failure turned up later, on a read, as a `ClassCastException` on a line with no cast in it. It's the late failure from lesson 1 of this track, with the compiler switched off on purpose.
+
+The crate picture breaks in one place, and it's the important one. A real crate holds its apples in plain sight, and you'd spot the lemon when you opened it. At run time, the JVM spots nothing: the list doesn't know it was meant for apples, so nothing checks the lemon until someone reads it as an apple.
+
+**A list you can write to must match its element type exactly. Don't cast your way past it.**
+
+Invariance annoys people in practice. You have a `MutableList<Apple>` and a function that takes a `MutableList<Fruit>`, and the call doesn't compile. The fix is never the cast. Ask what the function does with the list. If it only reads, it should take a read-only `List<Fruit>`, and the last section shows why that works. If it adds, the compiler just caught a bug: the function could have dropped a lemon into your crate of apples.
+
+Java didn't always say no to this kind of hand-over, though. Its arrays said yes."""
+
+S3 = """Java made the other choice for arrays, back in Java 1.0. An `Apple[]` *is* a `Fruit[]`, and a `String[]` is an `Object[]`:
+
+```java
+Apple[] crate = { new Apple("Gala"), new Apple("Fuji") };
+Fruit[] anyFruit = crate;               // compiles: arrays are covariant
+anyFruit[0] = new Lemon("Eureka");      // compiles too: a Lemon is a Fruit
+// java.lang.ArrayStoreException: ...Lemon
+```
+
+```kotlin
+val crate: Array<Apple> = arrayOf(Apple("Gala"), Apple("Fuji"))
+val anyFruit: Array<Fruit> = crate
+// error: initializer type mismatch: expected 'Array<Fruit>', actual 'Array<Apple>'.
+val forced = crate as Array<Fruit>       // an unchecked cast gets you there...
+forced[0] = Lemon("Eureka")              // ...and to the same ArrayStoreException
+```
+
+Arrays whose subtype arrow follows their element type, as here, are called covariant. The last section explains the word properly. This is exactly the substitution the previous section showed to be unsafe, and Java allows it anyway, then pays at run time. Every array remembers its element type, and the JVM checks every store into an array of objects. Picture a guard posted at every array, who looks at each item that goes in. When the value doesn't fit, the guard shouts: the JVM throws `ArrayStoreException`. `ArrayStoreDemo` printed:
+
+```text
+ArrayStoreException: workbench.generics.l03.demo.ArrayStoreDemo$Lemon
+crate[0] is still Gala
+```
+
+The guard costs a little on every store. And the error still comes at run time, maybe in a library far from the code that passed the `Apple[]` on as a `Fruit[]`. Java arrays said yes in 1996, and the JVM has checked every store ever since.
+
+That is why the rule for generics is the way it is. An array knows its element type at run time, so the JVM can check late. A `List<Apple>` doesn't know its type argument at run time (lesson 8 of this track shows why), so nothing could check a late store. Java's generics had to be invariant, and so are Kotlin's.
+
+Kotlin goes one step further and makes arrays invariant too, as its half of the snippet shows. `Array<T>` is a generic class like any other. So the `ArrayStoreException` can't happen in Kotlin code that uses `Array<T>`, unless you cast your way to it. If you really need to read an `Array<Int>` through an `Array<Any>` view, Kotlin has a safe way to say "read only", `Array<out Any>`, which lesson 6 of this track covers.
+
+You still meet covariant arrays from Kotlin, because Java APIs pass them around. `Arrays.asList`, varargs and `toArray` all hand out arrays whose real element type may be narrower than their declared type. If a library writes into an `Object[]` you gave it, give it a real `Object[]`.
+
+So far, the answer has been "no" for lists you can write to, and "yes, with a guard" for Java arrays. There is one more answer."""
+
+ASIDE = {
+    "title": "Why did Java make arrays covariant at all?",
+    "body": "Because Java 1.0 had no generics. Without them, the only way to write one method that sorts or compares arrays of any kind of object was to take an `Object[]`, the way `Arrays.sort(Object[] a)` still does. For that method to accept a `String[]`, a `String[]` had to count as an `Object[]`. The guard on every store was the price of that convenience. When generics arrived in Java 5, type parameters could solve the same problem without a guard, as long as generic types stayed invariant."
+}
+
+S4 = """After two sections of "no", here is a "yes" that seems to break the rule. Picture the shop window. The apples sit in a glass display case: customers can see every one of them, but there's no way to put anything in. Calling it "a display of fruit" is honest, because everything you can see in it is fruit.
+
+Kotlin's read-only `List` is that display case. Java has no read-only `List` type, so it needs a **wildcard** to say the same thing: a `?` in the angle brackets, which means "some type I don't name". `? extends Fruit` reads as "some subtype of `Fruit`":
+
+```java
+List<Apple> crate = new ArrayList<>(List.of(new Apple("Gala")));
+List<? extends Fruit> display = crate;   // compiles: a read-only view, written where it is used
+```
+
+```kotlin
+val crate: MutableList<Apple> = mutableListOf(Apple("Gala"))
+val display: List<Fruit> = crate        // compiles
+```
+
+Run the substitution test again, on the read-only `List`. What can a caller do with a `List<Fruit>`? Read items, as `Fruit`. Ask the size. Go through them in a loop. There is no `add` and no `set`. Every item of a `List<Apple>` really is a `Fruit`, so every read through the `Fruit` view tells the truth. Nothing can go wrong, so the compiler allows it.
+
+That is the whole idea behind **covariance**: when a type only hands values out and never takes them in, its subtype arrow can follow the element type. `Apple` is a subtype of `Fruit`, so `List<Apple>` is a subtype of `List<Fruit>`, and `List<String>` is a subtype of `List<Any>`. Kotlin's `List` is declared as `List<out E>`, and the `out` is the promise that `E` only comes out. The next lesson is about writing that promise yourself.
+
+Notice what `display` doesn't let you do. Kotlin's `List` has no `add` at all:
+
+```text
+display.add(Lemon("Eureka"))
+// error: unresolved reference 'add' on receiver of type 'List<Fruit>'.
+```
+
+javac rejects `display.add(new Lemon("Eureka"))` with `Lemon cannot be converted to CAP#1`. `CAP#1` is javac's name for the unknown type behind the `?`, and no lemon is known to fit it. The arrow also points one way only. `val back: List<Apple> = display` fails with `expected 'List<Apple>', actual 'List<Fruit>'`, because a display of fruit might hold a lemon.
+
+Here the display case picture breaks. A glass case is closed to customers, but the shopkeeper, who has the key, can still change what's inside. The list object is still the mutable crate: `crate.add(Apple("Fuji"))` works, and `display` sees the new apple. The `List<Fruit>` type only removes the ways to write through *this* reference. Read-only isn't the same as unchanging.
+
+At run time, `List` and `MutableList` are the same `java.util.List`, so all of this is checked at compile time and costs nothing. Java writes `List<? extends Fruit>` at each use instead, and lesson 6 of this track maps those wildcards onto Kotlin.
+
+You now have the three answers a generic type can give to "is `C<Apple>` a `C<Fruit>`?". Yes, for a type that only hands values out, like `List`. No, for a type you can write to, like `MutableList` and every Java generic. And "yes, then a guard checks every store", for Java arrays.
+
+Here is today's limit. The compiler knows `List` is safe to widen only because the standard library declared it `out`. For a type of your own, a dispenser, say, it can't tell, so it plays safe and says no. Writing the promise is the next step."""
+
+CLOSING = """We started with a crate of apples and a helper who topped it up with a lemon. The compiler ran the substitution test and said no: a list you can write to must match its type exactly. Java's arrays said yes and posted a guard on every store. The read-only display case passes as a display of fruit, because nothing can go in.
+
+Now search your code for `as MutableList<` or `@Suppress("UNCHECKED_CAST")` near a list. Each one is a crate relabeled by hand. If the function on the other side only reads, give it a `List`.
+
+Next, we'll write the promise ourselves. What must a class of your own promise before a `Dispenser<Apple>` may stand in for a `Dispenser<Fruit>`?"""
 
 L = {
     "id": "gen-03",
     "title": "Subtyping, and why List<String> is not List<Object>",
     "minutes": 35,
-    "goal": "By the end you can tell subclassing from subtyping, use the substitution test to explain why `MutableList<String>` is not a `MutableList<Any>`, and explain why Java arrays throw `ArrayStoreException` while Kotlin's `List<String>` safely is a `List<Any>`.",
+    "goal": "By the end you can tell subclassing from subtyping, use the substitution test to explain why a `MutableList<Apple>` is not a `MutableList<Fruit>` (and `List<String>` is not `List<Object>`), and explain why Java arrays throw `ArrayStoreException` while Kotlin's read-only `List<String>` safely is a `List<Any>`.",
+    "opening": OPENING,
     "warmup": {
-        "q": "`val ids: MutableList<String> = mutableListOf(\"pay_1\")`. Which of these lines compiles?",
+        "q": "`val crate: MutableList<Apple> = mutableListOf(Apple(\"Gala\"))`, where `Apple` implements `Fruit`. Which of these lines compiles?",
         "options": [
-            "`val a: MutableList<Any> = ids`, because String is a subtype of Any",
-            "`val b: List<Any> = ids`",
+            "`val a: MutableList<Fruit> = crate`, because Apple is a subtype of Fruit",
+            "`val b: List<Fruit> = crate`",
             "Both of them",
             "Neither: generics never allow a different type argument"
         ],
         "answer": 1,
-        "why": "`MutableList` is invariant: if `MutableList<String>` were a `MutableList<Any>`, you could add an `Int` to a list of strings through it. Read-only `List` has no `add`, so reading strings as `Any` is always safe, and Kotlin declares it `List<out E>`."
+        "why": "`MutableList` is invariant: if `MutableList<Apple>` were a `MutableList<Fruit>`, you could add a `Lemon` to the crate of apples through it. Read-only `List` has no `add`, so reading apples as `Fruit` is always safe, and Kotlin declares it `List<out E>`."
     },
     "sections": [
         {
-            "h": "A class is not a type",
+            "h": "One class, many types: why a class is not a type",
             "body": S1,
             "try": {
                 "title": "One class, many types",
                 "minutes": 3,
                 "steps": [
-                    "Run `ClassVsTypeDemo` (or `ClassVsTypeDemoJava`) with the command below and read the comparisons.",
+                    "Run `ClassVsTypeDemo` (or `ClassVsTypeDemoJava`) with the command below, and read the comparisons.",
                     "Uncomment `val narrowed: String = maybe`. Predict the error, then run.",
-                    "Comment it out and uncomment `String?::class`. Why can't a class literal be nullable?"
+                    "Comment it out, and uncomment `String?::class`. Why can't a class literal be nullable?"
                 ],
                 "code": demo("kotlin/workbench/generics/l03/demo/ClassVsTypeDemo.kt", "ClassVsTypeDemo.kt", "workbench.generics.l03.demo.ClassVsTypeDemoKt", alt=jdemo("ClassVsTypeDemoJava")),
-                "expect": "It prints `same runtime class:  true  (java.util.ArrayList)`, `MutableList::class == List::class:  true` and `interface java.util.List`. The narrowing fails with `Initializer type mismatch: expected 'String', actual 'String?'.` The class literal fails with `Type in a class literal cannot be nullable.`: `?` belongs to the type, and a class literal names a class. In the Java twin, the narrowing compiles (Java has no `String?`), and `Class<List<String>> k = List.class` fails with `Class<List> cannot be converted to Class<List<String>>`: a class literal never carries type arguments."
+                "expect": "It prints `same runtime class:  true  (java.util.ArrayList)`, `MutableList::class == List::class:  true` and `interface java.util.List`. The narrowing fails with `Initializer type mismatch: expected 'String', actual 'String?'.` The class literal fails with `Type in a class literal cannot be nullable.`: the `?` belongs to the type, and a class literal names a class. In the Java twin, the narrowing compiles (Java has no `String?`), and `Class<List<String>> k = List.class` fails with `Class<List> cannot be converted to Class<List<String>>`: a class literal never carries type arguments."
             }
         },
         {
-            "h": "MutableList<String> is not a MutableList<Any>",
+            "h": "Why a crate of apples is not a crate of fruit: invariance",
             "body": S2,
-            "figure": {"svg": FIG, "caption": "Each arrow means \"is a subtype of\". The arrow from String to Any carries over to read-only List but not to MutableList."},
+            "figure": {"svg": FIG, "caption": "Each arrow means \"is a subtype of\". The arrow from String to Any carries over to read-only List but not to MutableList. Apple and Fruit follow the same arrows."},
             "try": {
-                "title": "Switch off the guard and watch it fail",
+                "title": "Switch off the check and watch it fail",
                 "minutes": 4,
                 "steps": [
                     "Uncomment the step 1 line in `InvarianceDemo` (or `InvarianceDemoJava`) and run. Read the error, then comment it out again.",
-                    "Run the demo as it is. It forces the same assignment with an unchecked cast.",
-                    "Find the line that throws. Is it the line that added `42`?"
+                    "Run the demo as it is. It forces the same assignment with an unchecked cast, then adds a lemon.",
+                    "Find the line that throws. Is it the line that added the lemon?"
                 ],
                 "code": demo("kotlin/workbench/generics/l03/demo/InvarianceDemo.kt", "InvarianceDemo.kt", "workbench.generics.l03.demo.InvarianceDemoKt", alt=jdemo("InvarianceDemoJava")),
-                "expect": "Step 1 fails with `Initializer type mismatch: expected 'MutableList<Any>', actual 'MutableList<String>'.` The forced version prints `ids has 2 elements, and nothing failed yet`, then a `ClassCastException` for `java.lang.Integer`. The add succeeded. The failure is at the read, where the compiler inserted a cast to `String`. The Java twin gives `List<String> cannot be converted to List<Object>` at step 1 and the same `ClassCastException` after the raw-type cast."
+                "expect": "Step 1 fails with `Initializer type mismatch: expected 'MutableList<Fruit>', actual 'MutableList<Apple>'.` The forced version prints `the apple crate holds 2 items, and nothing failed yet`, then `ClassCastException: class workbench.generics.l03.demo.Lemon cannot be cast to class workbench.generics.l03.demo.Apple`. The add succeeded. The failure is at the read, where the compiler inserted a cast to `Apple`. The Java twin gives `List<Apple> cannot be converted to List<Fruit>` at step 1, and the same `ClassCastException` (for its own nested `Lemon` and `Apple`) after the wildcard cast."
             }
         },
         {
-            "h": "Java arrays said yes, and check every store at run time",
+            "h": "Java arrays said yes, so the JVM checks every store",
             "body": S3,
+            "aside": ASIDE,
             "try": {
-                "title": "Store an Integer into a String[]",
+                "title": "Store a lemon in an apple array",
                 "minutes": 3,
                 "steps": [
-                    "Run `ArrayStoreDemo`. Before it runs, predict whether `objects[0] = 978` compiles and whether it runs.",
-                    "Uncomment `List<Object> objectList = names;` and run again. Compare the two answers Java gives.",
+                    "Run `ArrayStoreDemo`. Before it runs, predict whether `anyFruit[0] = new Lemon(\"Eureka\")` compiles, and whether it runs.",
+                    "Uncomment `List<Fruit> fruitList = apples;` and run again. Compare the two answers Java gives.",
                     "Run the Kotlin twin, `ArrayStoreDemo.kt`, then uncomment its `val refused` line. What did Kotlin need before it could fall into the same trap?"
                 ],
                 "code": demo("java/workbench/generics/l03/demo/ArrayStoreDemo.java", "ArrayStoreDemo.java", "workbench.generics.l03.demo.ArrayStoreDemo", "java",
                          alt=("kotlin/workbench/generics/l03/demo/ArrayStoreDemo.kt", "ArrayStoreDemo.kt", "workbench.generics.l03.demo.ArrayStoreDemoKt")),
-                "expect": "It prints `ArrayStoreException: java.lang.Integer` and then `currencies[0] is still EUR`: the array refused the store at run time. The list line does not compile: `incompatible types: List<String> cannot be converted to List<Object>`. Arrays check late, generics check early. The Kotlin twin prints the same `ArrayStoreException`, but only after a cast: its `val refused: Array<Any> = currencies` line fails with `Initializer type mismatch: expected 'Array<Any>', actual 'Array<String>'.`"
+                "expect": "It prints `ArrayStoreException: workbench.generics.l03.demo.ArrayStoreDemo$Lemon`, then `crate[0] is still Gala`: the array's guard refused the store at run time. The list line doesn't compile: `incompatible types: List<Apple> cannot be converted to List<Fruit>`. Arrays check late, generics check early. The Kotlin twin prints `ArrayStoreException: workbench.generics.l03.demo.Lemon`, but only after an unchecked cast. Its `val refused: Array<Fruit> = crate` line fails with `Initializer type mismatch: expected 'Array<Fruit>', actual 'Array<Apple>'.`"
             },
             "refs": [
                 {"title": "ArrayStoreException (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/ArrayStoreException.html", "kind": "docs"}
             ]
         },
         {
-            "h": "Why a read-only List<String> is a List<Any>",
+            "h": "The display case: why a read-only List<String> is a List<Any>",
             "body": S4,
             "try": {
                 "title": "Predict four lines",
@@ -239,34 +296,31 @@ L = {
                     "Uncomment each line on its own, run, and check your answer. Comment it out again before the next one."
                 ],
                 "code": demo("kotlin/workbench/generics/l03/demo/ReadOnlyListDemo.kt", "ReadOnlyListDemo.kt", "workbench.generics.l03.demo.ReadOnlyListDemoKt", alt=jdemo("ReadOnlyListDemoJava")),
-                "expect": "All four fail. 1: `expected 'MutableList<Any>', actual 'MutableList<String>'` (invariant). 2: `expected 'Array<Any>', actual 'Array<Int>'` (Kotlin arrays are invariant). 3: `Unresolved reference 'add' on receiver of type 'List<Any>'` (read-only). 4: `expected 'List<String>', actual 'List<Any>'`: covariance goes up the arrow, never down. The Java twin differs on line 2 only: `Object[] anys = ints` compiles, because Java arrays are covariant. Lines 3 and 4 fail with `cannot be converted to CAP#1` and `List<CAP#1> cannot be converted to List<String>`."
+                "expect": "The demo itself prints `as List<Fruit>: [Apple(name=Gala)], first item is an Apple`. All four lines fail. 1: `expected 'MutableList<Fruit>', actual 'MutableList<Apple>'` (invariant). 2: `expected 'Array<Any>', actual 'Array<Int>'` (Kotlin arrays are invariant). 3: `Unresolved reference 'add' on receiver of type 'List<Fruit>'` (read-only). 4: `expected 'List<Apple>', actual 'List<Fruit>'`: covariance goes up the arrow, never down. The Java twin differs on line 2 only: `Object[] anys = weights` compiles, because Java arrays are covariant. Lines 3 and 4 fail with `Lemon cannot be converted to CAP#1` and `List<CAP#1> cannot be converted to List<Apple>`."
             }
         }
     ],
-    "analogy": "Think of a shelf labeled \"fruit\". If I hand you a shelf of apples and you only take things off it, calling it a fruit shelf is honest: everything you take is fruit. If you are also allowed to put things on it, you might put a banana on my apple shelf, and the next person who expects an apple gets a banana. Read-only shelves can be relabeled upwards; read-write shelves can't. Java arrays are a shelf with a guard who checks every item you put on it and shouts when it is wrong. The analogy breaks at the label: on the JVM, a `List`'s label is gone at run time, so there is no guard to shout, and the compiler has to stop you before the program runs.",
-    "in_your_world": "You hit invariance whenever a service passes collections between layers. A Kafka consumer collects a `MutableList<CardAuthorized>`, and a shared audit helper takes `MutableList<PaymentEvent>`: the call does not compile. Do not cast. If the helper only reads (it logs, sums or forwards events), change its parameter to `List<PaymentEvent>` and every caller works. If it appends to the list, the compiler caught a real bug: it could have put a `RefundIssued` into your list of card authorizations. On the Java side of a Quarkus app, you'll see the same thing as `List<? extends PaymentEvent>` in method signatures.",
-    "mistake": "The usual mistake is reaching for `as MutableList<Payment>` (or a raw type in Java) when the compiler rejects a `MutableList<CardPayment>`. It compiles with an unchecked warning, works in the test, and lets the callee add a different subtype into a list the caller thinks is homogeneous. The `ClassCastException` turns up later, on a read with no cast in sight. The fix is to look at what the callee does: if it only reads, take `List<Payment>`; if it writes, keep the types apart or make the function generic over the element type.",
     "compare": {
         "title": "Invariance and arrays in Java and Kotlin",
         "java": {
             "title": "Variance.java",
-            "src": "import java.util.ArrayList;\nimport java.util.List;\n\nclass Variance {\n    static void demo() {\n        List<String> names = new ArrayList<>();\n        // List<Object> objects = names;       // error: invariant\n        List<? extends Object> view = names;   // OK: a read-only view, written at the use site\n        Object first = view.isEmpty() ? null : view.get(0);\n\n        String[] currencies = { \"EUR\" };\n        Object[] objects = currencies;         // OK: arrays are covariant\n        objects[0] = 978;                      // compiles, throws ArrayStoreException\n    }\n}"
+            "src": "import java.util.ArrayList;\nimport java.util.List;\n\nclass Variance {\n    static void demo() {\n        List<String> names = new ArrayList<>();\n        // List<Object> objects = names;       // error: invariant\n        List<? extends Object> view = names;   // OK: a read-only view, written at the use site\n        Object first = view.isEmpty() ? null : view.get(0);\n\n        String[] varieties = { \"Gala\" };\n        Object[] objects = varieties;          // OK: arrays are covariant\n        objects[0] = 42;                       // compiles, throws ArrayStoreException\n    }\n}"
         },
         "kotlin": {
             "title": "Variance.kt",
-            "src": "fun demo() {\n    val names: MutableList<String> = mutableListOf()\n    // val objects: MutableList<Any> = names  // error: invariant\n    val view: List<Any> = names               // OK: List is declared List<out E>\n    val first: Any? = view.firstOrNull()\n\n    val currencies: Array<String> = arrayOf(\"EUR\")\n    // val objects: Array<Any> = currencies    // error: Kotlin arrays are invariant\n    val readOnly: Array<out Any> = currencies  // OK: you can read, not write\n}"
+            "src": "fun demo() {\n    val names: MutableList<String> = mutableListOf()\n    // val objects: MutableList<Any> = names  // error: invariant\n    val view: List<Any> = names               // OK: List is declared List<out E>\n    val first: Any? = view.firstOrNull()\n\n    val varieties: Array<String> = arrayOf(\"Gala\")\n    // val objects: Array<Any> = varieties     // error: Kotlin arrays are invariant\n    val readOnly: Array<out Any> = varieties  // OK: you can read, not write\n}"
         },
         "note": "Both languages make generic types invariant, for the same reason: the type argument is gone at run time, so a bad write could not be caught later. The differences are in the exceptions to that rule. Java made arrays covariant and checks each store at run time. Kotlin makes arrays invariant like everything else. For the safe read-only case, Java asks you to write a wildcard (`List<? extends Object>`) at every use, while Kotlin's `List` declares `out` once, so a plain `List<Any>` parameter already accepts a `List<String>`. Kotlin's `List` and `MutableList` are the same `java.util.List` at run time; the split exists only for the compiler."
     },
     "worked": {
-        "title": "Why a list of card payments won't go into addProcessingFee",
+        "title": "Why a crate of apples won't go into addFreeLemon",
         "steps": [
-            {"say": "A settlement job builds a `MutableList<CardPayment>`. A shared helper adds a fee line to a batch. The call does not compile. Before reading on, run the substitution test yourself: what could the helper do to the caller's list?", "code": "interface Payment { val cents: Long }\ndata class CardPayment(override val cents: Long) : Payment\ndata class FeePayment(override val cents: Long) : Payment\n\nfun addProcessingFee(batch: MutableList<Payment>) {\n    batch.add(FeePayment(batch.sumOf { it.cents } / 100))\n}\n\nval cards: MutableList<CardPayment> = mutableListOf(CardPayment(1_200))\naddProcessingFee(cards)\n// error: argument type mismatch: actual type is 'MutableList<CardPayment>',\n//        but 'MutableList<Payment>' was expected.", "lang": "kotlin",
-             "alt_lang": "java", "alt_code": "interface Payment { long cents(); }\nrecord CardPayment(long cents) implements Payment {}\nrecord FeePayment(long cents) implements Payment {}\n\nstatic void addProcessingFee(List<Payment> batch) {\n    batch.add(new FeePayment(batch.stream().mapToLong(Payment::cents).sum() / 100));\n}\n\nList<CardPayment> cards = new ArrayList<>(List.of(new CardPayment(1_200)));\naddProcessingFee(cards);\n// error: incompatible types: List<CardPayment> cannot be converted to List<Payment>"},
-            {"say": "1. Imagine it compiled. The helper adds a `FeePayment` to the caller's list. The caller later reads `cards[1]` as a `CardPayment` and gets a `ClassCastException`. The compiler's \"no\" was right, and an unchecked cast would only hide it.", "code": "", "lang": ""},
-            {"say": "2. Split reading from writing. Computing the fee only reads, so that part takes a read-only `List<Payment>` (Java: `List<? extends Payment>`), which accepts the list of card payments. Adding the fee line is a decision the caller makes, with the right list.", "code": "fun processingFee(batch: List<Payment>): FeePayment =\n    FeePayment(batch.sumOf { it.cents } / 100)\n\nval fee = processingFee(cards)                 // compiles: List is covariant\nval ledgerLines: MutableList<Payment> = mutableListOf()\nledgerLines.addAll(cards)\nledgerLines.add(fee)                           // a list that is allowed to hold both", "lang": "kotlin",
-             "alt_lang": "java", "alt_code": "static FeePayment processingFee(List<? extends Payment> batch) {\n    return new FeePayment(batch.stream().mapToLong(Payment::cents).sum() / 100);\n}\n\nFeePayment fee = processingFee(cards);           // compiles: ? extends makes it a read-only view\nList<Payment> ledgerLines = new ArrayList<>();\nledgerLines.addAll(cards);\nledgerLines.add(fee);"},
-            {"say": "3. Check the result against the figure: `MutableList<CardPayment>` points to `List<CardPayment>`, which points to `List<Payment>`. Every arrow is a read-only one. The only list that receives a `FeePayment` is declared to hold any `Payment`.", "code": "", "lang": ""}
+            {"say": "Every order that leaves the shop gets a free lemon on top, and a shared helper adds it. A caller has a crate of apples, and the call doesn't compile. Before reading on, run the substitution test yourself: what could the helper do to the caller's crate?", "code": "interface Fruit { val grams: Int }\ndata class Apple(override val grams: Int) : Fruit\ndata class Lemon(override val grams: Int) : Fruit\n\nfun addFreeLemon(order: MutableList<Fruit>) {\n    order.add(Lemon(100))\n}\n\nval apples: MutableList<Apple> = mutableListOf(Apple(180))\naddFreeLemon(apples)\n// error: argument type mismatch: actual type is 'MutableList<Apple>',\n//        but 'MutableList<Fruit>' was expected.", "lang": "kotlin",
+             "alt_lang": "java", "alt_code": "interface Fruit { int grams(); }\nrecord Apple(int grams) implements Fruit {}\nrecord Lemon(int grams) implements Fruit {}\n\nstatic void addFreeLemon(List<Fruit> order) {\n    order.add(new Lemon(100));\n}\n\nList<Apple> apples = new ArrayList<>(List.of(new Apple(180)));\naddFreeLemon(apples);\n// error: incompatible types: List<Apple> cannot be converted to List<Fruit>"},
+            {"say": "1. Imagine it compiled. The helper drops a `Lemon` into the caller's crate. The caller later reads `apples[1]` as an `Apple`, and gets a `ClassCastException`. The compiler's \"no\" was right, and an unchecked cast would only hide it.", "code": "", "lang": ""},
+            {"say": "2. Split reading from writing. Weighing the order only reads, so that part takes a read-only `List<Fruit>` (Java: `List<? extends Fruit>`), which accepts the crate of apples. Adding the lemon needs a list that is allowed to hold any fruit, so the caller builds one: a bag for the whole order.", "code": "fun weightOf(order: List<Fruit>): Int = order.sumOf { it.grams }\n\nval weight = weightOf(apples)                  // compiles: List is covariant\nval bag: MutableList<Fruit> = mutableListOf()\nbag.addAll(apples)\naddFreeLemon(bag)                              // a list that may hold any fruit", "lang": "kotlin",
+             "alt_lang": "java", "alt_code": "static int weightOf(List<? extends Fruit> order) {\n    return order.stream().mapToInt(Fruit::grams).sum();\n}\n\nint weight = weightOf(apples);                 // compiles: ? extends makes it a read-only view\nList<Fruit> bag = new ArrayList<>();\nbag.addAll(apples);\naddFreeLemon(bag);"},
+            {"say": "3. Check the result against the figure's arrows, with `Apple` and `Fruit` in place of `String` and `Any`. `MutableList<Apple>` points to `List<Apple>`, which points to `List<Fruit>`. Every arrow is a read-only one. The only list that receives a lemon is declared to hold any `Fruit`.", "code": "", "lang": ""}
         ]
     },
     "lab": {
@@ -278,11 +332,11 @@ L = {
         ],
         "run": "./gradlew :generics:test --tests 'workbench.generics.l03.*'",
         "steps": [
-            "Run the tests once. All eleven fail. Read the test world at the top of `SubtypingTest`: it wires `String`, `List`, `MutableList` and `ArrayList` the way Kotlin does.",
-            "In `TypeModel.kt`, write `isSubclass`: the same class, or any of `sub.supers` is a subclass of `sup`. It only needs recursion.",
+            "Run the tests once. All eleven fail. Read the small world of classes at the top of `SubtypingTest`: it wires `String`, `Fruit`, `Apple`, `List`, `MutableList` and `ArrayList` the way Kotlin does, with `List` marked covariant.",
+            "In `TypeModel.kt`, write `isSubclass`: the same class, or any of `sub.supers` is a subclass of `sup`. It only needs recursion, a function that calls itself.",
             "Write `isSubtype` with the three rules from its KDoc, in order: nullability, then classes, then type arguments. Use `sup.klass.covariant` to pick between \"subtype\" and \"equal\" for each argument.",
             "Run the Kotlin tests. If the nested test fails, check that your covariant branch calls `isSubtype` again rather than comparing classes.",
-            "In `ArrayChecks.java`, write `canStore` by asking `array.getClass().getComponentType()`, and `widenSafely` with `Arrays.copyOf(names, names.length, Object[].class)`.",
+            "In `ArrayChecks.java`, write `canStore` by asking the array for its element type, `array.getClass().getComponentType()`, and write `widenSafely` with `Arrays.copyOf(names, names.length, Object[].class)`.",
             "Run the tests until all eleven pass."
         ],
         "hints": [
@@ -299,29 +353,30 @@ L = {
         "prompt": "Close this page. On paper, write the four-line snippet that shows why `MutableList<String>` must not be a `MutableList<Any>`: declare the list, assign it to the wider type, add a wrong value, read it back. Mark the line the compiler rejects and the line that would throw. Then write the same four lines in Java with `List<String>`, and the Java array version, and mark where each one throws.",
         "answer": {
             "lang": "kotlin",
-            "src": "val ids: MutableList<String> = mutableListOf(\"pay_1\")\nval anything: MutableList<Any> = ids   // rejected: MutableList is invariant\nanything.add(42)                        // would be legal on MutableList<Any>\nval second: String = ids[1]             // would throw ClassCastException\n\n// Java arrays: compiles, fails at the store\n// String[] currencies = { \"EUR\" };\n// Object[] objects = currencies;          // allowed: arrays are covariant\n// objects[0] = 978;                       // ArrayStoreException here",
-            "alt": {"lang": "java", "title": "Substitution.java", "src": "List<String> ids = new ArrayList<>(List.of(\"pay_1\"));\nList<Object> anything = ids;      // rejected: Java generics are invariant\nanything.add(42);                  // would be legal on List<Object>\nString second = ids.get(1);        // would throw ClassCastException\n\n// arrays: compiles, fails at the store\nString[] currencies = { \"EUR\" };\nObject[] objects = currencies;     // allowed: arrays are covariant\nobjects[0] = 978;                  // ArrayStoreException here"}
+            "src": "val varieties: MutableList<String> = mutableListOf(\"Gala\")\nval anything: MutableList<Any> = varieties   // rejected: MutableList is invariant\nanything.add(42)                              // would be legal on MutableList<Any>\nval second: String = varieties[1]             // would throw ClassCastException\n\n// Java arrays: compiles, fails at the store\n// String[] names = { \"Gala\" };\n// Object[] objects = names;               // allowed: arrays are covariant\n// objects[0] = 42;                        // ArrayStoreException here",
+            "alt": {"lang": "java", "title": "Substitution.java", "src": "List<String> varieties = new ArrayList<>(List.of(\"Gala\"));\nList<Object> anything = varieties;  // rejected: Java generics are invariant\nanything.add(42);                    // would be legal on List<Object>\nString second = varieties.get(1);    // would throw ClassCastException\n\n// arrays: compiles, fails at the store\nString[] names = { \"Gala\" };\nObject[] objects = names;            // allowed: arrays are covariant\nobjects[0] = 42;                     // ArrayStoreException here"}
         }
     },
     "recap": [
-        "A class is a runtime declaration. A type is what the compiler checks. One class gives many types: `String` and `String?`, `List<String>` and `List<Int>`.",
-        "`A` is a subtype of `B` when an `A` can be used anywhere a `B` is expected without anything going wrong (the substitution test).",
-        "`MutableList<String>` is not a `MutableList<Any>`: through the wider type you could add an `Int`. Generic types that you can write to are invariant, in Java and Kotlin.",
+        "A class is a declaration that exists at run time. A type is what the compiler checks. One class gives many types: `String` and `String?`, `List<String>` and `List<Int>`.",
+        "`A` is a subtype of `B` when an `A` can be used anywhere a `B` is expected without anything going wrong: the substitution test.",
+        "A `MutableList<Apple>` is not a `MutableList<Fruit>`, and a Java `List<String>` is not a `List<Object>`: through the wider type you could add a lemon, or an `Integer`. Generic types you can write to are invariant, in Java and Kotlin, and an unchecked cast only moves the failure to a later read.",
         "Java arrays are covariant and pay for it with a run-time check on every store (`ArrayStoreException`). Kotlin's `Array<T>` is invariant.",
-        "Read-only `List<String>` is a `List<Any>`, because a list you can only read can't receive a wrong value. Kotlin declares this with `List<out E>`.",
-        "An unchecked cast to the wider type compiles, and moves the failure to a later read."
+        "A read-only `List<Apple>` is a `List<Fruit>`, because a list you can only read can't receive a wrong value. Kotlin declares this with `List<out E>`, and Java spells it `List<? extends Fruit>` at each use.",
+        "The limit: the compiler widens `List` only because the library declared it `out`. For your own generic types, it says no until you make the same promise."
     ],
+    "closing": CLOSING,
     "quiz": [
         {
-            "q": "`fun audit(events: MutableList<PaymentEvent>)` only logs each event. A caller has a `MutableList<CardAuthorized>` (a subtype of `PaymentEvent`). What is the best fix for the compile error?",
+            "q": "`fun weigh(fruit: MutableList<Fruit>): Int` only adds up the weights. A caller has a `MutableList<Apple>`. What is the best fix for the compile error?",
             "options": [
-                "Cast at the call: `audit(cards as MutableList<PaymentEvent>)`",
-                "Change the parameter to `events: List<PaymentEvent>`",
+                "Cast at the call: `weigh(apples as MutableList<Fruit>)`",
+                "Change the parameter to `fruit: List<Fruit>`",
                 "Copy into an `ArrayList<Any>` first",
-                "Make `CardAuthorized` extend `MutableList`"
+                "Make `Apple` extend `MutableList`"
             ],
             "answer": 1,
-            "why": "The function only reads, so a read-only `List<PaymentEvent>` describes it honestly, and `List` is covariant. The cast compiles with a warning but would let a future version of `audit` add the wrong event type into the caller's list."
+            "why": "The function only reads, so a read-only `List<Fruit>` describes it honestly, and `List` is covariant. The cast compiles with a warning, but it would let a future version of `weigh` add a lemon to the caller's crate of apples."
         },
         {
             "q": "Java: `Number[] nums = new Integer[2]; nums[0] = 2.5;` What happens?",
@@ -332,28 +387,28 @@ L = {
                 "It compiles, then throws ClassCastException when you read `nums[0]`"
             ],
             "answer": 2,
-            "why": "Arrays are covariant, so `Integer[]` is a `Number[]` and a `Double` is a `Number`: both lines compile. The array still knows its element type is `Integer`, and the JVM checks the store. The failure is immediate, at the store, not later at a read."
+            "why": "Arrays are covariant, so `Integer[]` is a `Number[]`, and a `Double` is a `Number`: both lines compile. The array still knows its element type is `Integer`, and the JVM checks the store. The failure is immediate, at the store, not later at a read."
         },
         {
             "q": "Which statement about `String` and `String?` is true?",
             "options": [
-                "They are two classes, and `String` is a subclass of `String?`",
                 "They are one class and two types, and `String` is a subtype of `String?`",
+                "They are two classes, and `String` is a subclass of `String?`",
                 "They are one type; `?` only affects the compiler's warnings",
                 "`String?` is a subtype of `String`, because it can hold more values"
             ],
-            "answer": 1,
+            "answer": 0,
             "why": "There is one class, `String`. Nullability belongs to the type. A `String` can always stand in for a `String?`, but not the other way round, because a `String?` might be null. That is why `String?::class` is an error: a class literal names a class, not a type."
         },
         {
             "q": "`val ml: MutableList<List<String>> = mutableListOf()`. Does `val x: MutableList<List<Any>> = ml` compile?",
             "options": [
                 "Yes, because `List<String>` is a `List<Any>`",
-                "No, because the outer `MutableList` is invariant: its argument must match exactly",
                 "Yes, but only with `@Suppress`",
-                "No, because nested generics are not allowed in Kotlin"
+                "No, because nested generics are not allowed in Kotlin",
+                "No, because the outer `MutableList` is invariant: its argument must match exactly"
             ],
-            "answer": 1,
+            "answer": 3,
             "why": "The inner `List<String>` is a subtype of `List<Any>`, but `MutableList` needs equal arguments, not subtypes. Through `x` you could add a `List<Int>` to `ml`. A read-only `List<List<String>>` would be a `List<List<Any>>`, because covariance composes."
         },
         {
@@ -365,18 +420,18 @@ L = {
                 "Use a `where V : Any?` clause"
             ],
             "answer": 1,
-            "why": "With the default bound `Any?`, `V` can be `Instant?`, and then a stored null and a missing key look the same. `V : Any` makes nullable type arguments a compile error, so a null from `get` can only mean absent.",
+            "why": "With the default bound `Any?`, `V` can be `LocalDate?`, and then a stored null and a missing key look the same. `V : Any` makes nullable type arguments a compile error, so a null from `get` can only mean absent.",
             "from": "gen-02"
         }
     ],
     "flashcards": [
         {"front": "What is the difference between subclassing and subtyping?", "back": "Subclassing is about classes: one declaration inherits from another. Subtyping is about types: an `A` can be used wherever a `B` is expected."},
         {"front": "Is `String` a subtype of `String?`, or the reverse?", "back": "`String` is a subtype of `String?`. A `String?` might be null, so it can't stand in for a `String`."},
-        {"front": "Why can't a `MutableList<String>` be used as a `MutableList<Any>`?", "back": "Through the `MutableList<Any>` reference you could add an `Int`, and a reader of the original list would get a `ClassCastException`."},
+        {"front": "Why can't a `MutableList<Apple>` be used as a `MutableList<Fruit>`?", "back": "Through the `MutableList<Fruit>` reference you could add a `Lemon`, and a reader of the original list would get a `ClassCastException`."},
         {"front": "What does `Object[] o = new String[1]; o[0] = 1;` do?", "back": "Compiles (arrays are covariant), then throws `ArrayStoreException: java.lang.Integer` at the store."},
         {"front": "Is a Kotlin `Array<Int>` an `Array<Any>`?", "back": "No. Kotlin arrays are invariant: `initializer type mismatch: expected 'Array<Any>', actual 'Array<Int>'.`"},
         {"front": "Why is a Kotlin `List<String>` a `List<Any>`?", "back": "Read-only `List` has no `add` or `set`, so reading strings as `Any` can never go wrong. It is declared `List<out E>`."},
-        {"front": "`MutableList::class == List::class`?", "back": "`true`. Both are the JVM interface `java.util.List`; the read-only/mutable split exists only at compile time."}
+        {"front": "`MutableList::class == List::class`?", "back": "`true`. Both are the JVM interface `java.util.List`; the read-only and mutable split exists only at compile time."}
     ],
     "terms": [
         {"term": "Class", "plain": "A declaration that exists at run time, such as `String` or `ArrayList`."},
@@ -385,11 +440,12 @@ L = {
         {"term": "Substitution test", "plain": "Ask: if I secretly hand over a `C<A>` where a `C<B>` is expected, can any allowed call go wrong?"},
         {"term": "Invariant", "plain": "`C<A>` is a subtype of `C<B>` only when `A` and `B` are the same. `MutableList` and all Java generics."},
         {"term": "Covariant", "plain": "`C<A>` is a subtype of `C<B>` whenever `A` is a subtype of `B`. Kotlin's `List`, Java arrays."},
+        {"term": "Wildcard", "plain": "Java's `?` in angle brackets: a type it doesn't name. `? extends Fruit` means some subtype of `Fruit`."},
         {"term": "ArrayStoreException", "plain": "What the JVM throws when you store a value into an array whose real element type doesn't accept it."}
     ],
     "explain_back": {
         "prompt": "A colleague asks: \"String is a subtype of Any, so why won't Kotlin let me pass my MutableList<String> to a function that takes MutableList<Any>? And why does it accept a List<Any>?\" Explain it in your own words.",
-        "answer": "The compiler checks whether one type can safely stand in for another. A function that takes `MutableList<Any>` is allowed to add anything, say an `Int`. If you could pass your `MutableList<String>`, the `Int` would end up in your list of strings, and your next read would throw a `ClassCastException`. So mutable generic types are invariant: the type arguments must match exactly. A read-only `List<Any>` has no way to add. The function can only read, and every element of your list really is an `Any`, so passing a `List<String>` is safe. Kotlin marks this with `out` on `List`. Java arrays allow the unsafe version and check every store at run time instead."
+        "answer": "The compiler checks whether one type can safely stand in for another. A function that takes `MutableList<Any>` is allowed to add anything, say an `Int`. If you could pass your `MutableList<String>`, the `Int` would end up in your list of strings, like a lemon dropped into a crate of apples, and your next read would throw a `ClassCastException`. So mutable generic types are invariant: the type arguments must match exactly. A read-only `List<Any>` has no way to add. The function can only read, and every element of your list really is an `Any`, so passing a `List<String>` is safe. Kotlin marks this with `out` on `List`. Java arrays allow the unsafe version and check every store at run time instead."
     },
     "deeper": {
         "minutes": 8,

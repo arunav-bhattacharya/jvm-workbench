@@ -20,11 +20,11 @@ def pair(java, kotlin):
 
 
 # ---------------------------------------------------------------- opening
-OPENING = """There are two ways to get your bread. You can walk to the bakery when you want a loaf. You choose when, but if the shelf is empty, you stand at the counter and wait. Or the bakery can leave a loaf at your door every morning. Nobody waits, but the bakery decides how much comes. Go away for two weeks and you come home to fourteen loaves on the step, the oldest ones turning green.
+OPENING = """There are two ways to get your bread. You can walk to the bakery whenever you want a loaf, but if the shelf is empty, you stand at the counter and wait. Or the bakery can leave a loaf at your door every morning. Nobody waits, but the bakery decides how much comes. Go away for two weeks and you come home to fourteen loaves on the step, the oldest turning green.
 
-Programs move data in the same two ways, and the second way has the same flaw. A fast sender keeps sending, a slow receiver falls behind, and the extra items pile up in memory. It's an easy trap, because every test with ten items passes.
+Programs move data the same two ways, with the same flaw in the second. A fast sender keeps sending, a slow receiver falls behind, and the extra items pile up in memory. It's an easy trap: every test with ten items passes.
 
-Serve it with virtual threads ended Part 1 with a question: what if the receiver could tell the sender how much it can take, before it fills up? In this lesson, we'll watch a fast oven drown a slow packer and give the packer a way to say "send me 10 more". Then we'll read the short contract behind that note, and weigh what this style costs. Before we start, make a guess, and keep it in mind."""
+Serve it with virtual threads ended Part 1 with a ledger that said "busy" once its queue was full, and a question: what if the receiver could tell the sender how much it can take, before it fills up? In this lesson, we'll watch a fast oven drown a slow packer and give the packer a way to say "send me 10 more". Then we'll read the contract behind that note and weigh its costs. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
 J_PUSH = """// Naive: the oven never waits, so the packer's queue grows without limit
@@ -101,7 +101,7 @@ S1 = """A slip only works if both ends read it the same way. One library's oven 
 
 Each interface has a place on the bakery line. A **publisher** is the oven, the source of items. A **subscriber** is the packer, which receives them. A **subscription** is the pad of slips between one oven and one packer: it carries `request(n)`, "send me n more", and `cancel()`, "stop sending". A `Processor` is a station in the middle of the belt, a subscriber to what comes before it and a publisher to what comes after.
 
-Every method returns `void` (`Unit` in Kotlin), so every call is a one-way message: the caller never waits for an answer. Java's `Subscriber<? super T>` is Kotlin's `Subscriber<in T>`. Both say that a publisher of rye loaves also accepts a subscriber of any kind of bread, or even a `Subscriber<Object>` that logs everything.
+Every method returns `void` (`Unit` in Kotlin), so every call is a one-way message, called a **signal**: the caller never waits for an answer. Java's `Subscriber<? super T>` is Kotlin's `Subscriber<in T>`. Both say that a publisher of rye loaves also accepts a subscriber of any kind of bread, or even a `Subscriber<Object>` that logs everything.
 
 The figure below draws one conversation. The packer calls `subscribe` on the oven. The oven answers with `onSubscribe` and hands over the pad of slips. Nothing else happens until the packer writes a slip, say `request(2)`. Then the oven may call `onNext` twice, once per loaf, and no more. When the oven is out of loaves for good, it calls `onComplete`, the bell at the end of the day. If it breaks down, it calls `onError` instead.
 
@@ -110,7 +110,7 @@ The spec writes that order as `onSubscribe onNext* (onError | onComplete)?`. Rea
 Here are the rules you'll actually meet, each in plain words:
 
 - **1.1** A publisher never sends more `onNext` signals than were requested in total.
-- **1.3** Signals to one subscriber never overlap; they come one at a time. So a subscriber needs no locks for its own fields.
+- **1.3** Signals to one subscriber never overlap; they come one at a time. So a subscriber needs no locks, the guards from Part 1 that let one thread in at a time, for its own fields.
 - **1.9** `onSubscribe` comes before any other signal.
 - **2.13** Subscriber methods must return normally. The only exception allowed is a `NullPointerException` for a `null` argument. A subscriber that wants to stop must call `cancel()`, not throw. An exception from `onNext` lands inside the publisher's delivery code, which can't hand it back. So the spec has the publisher treat the subscription as cancelled and report the problem some other way, such as a log line.
 - **2.8** A subscriber must accept `onNext` calls that arrive after it cancelled, because loaves it already asked for may still be on the belt.
@@ -121,7 +121,7 @@ You will rarely write these interfaces by hand. Reactor, RxJava and some databas
 
 **Demand is the only permission to send. No slip, no loaf.**
 
-Rule 3.9 is a good place to see that a spec and a library can differ. `RequestZeroDemo`, in the Try it below, has a subscriber, named `Rude` for good reason, that asks for zero items. It subscribes once to the JDK's publisher and once to `Flux.range(1, 3)` from Reactor:
+Rule 3.9 is a good place to see that a spec and a library can differ. `RequestZeroDemo`, in the Try it below, has a subscriber named `Rude` that asks for zero items. It subscribes once to the JDK's publisher and once to `Flux.range(1, 3)` from Reactor:
 
 ```text
 JDK SubmissionPublisher: onError java.lang.IllegalArgumentException: non-positive subscription request

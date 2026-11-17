@@ -2,31 +2,50 @@ import json, pathlib
 ROOT = pathlib.Path("/home/user/jvm-workbench")
 lab = "labs/coroutines/src"
 P = "kotlin/workbench/coroutines/l03"
-read = lambda p: (ROOT / p).read_text()
-demo = lambda name: f"{lab}/demo/{P}/{name}"
 J = "java/workbench/coroutines/l03"
-jdemo = lambda name: f"{lab}/demo/{J}/{name}"
+read = lambda p: (ROOT / p).read_text()
 run = lambda cls, extra="": f"./gradlew :coroutines:demo -Pmain=workbench.coroutines.l03.{cls}{extra}"
 
+
+def demo(kt, java=None):
+    """A Kotlin demo and, when it has one, its runnable Java twin, read from disk so the lesson never drifts."""
+    k = kt.replace(".kt", "")
+    code = {"lang": "kotlin", "title": kt, "src": read(f"{lab}/demo/{P}/{kt}"), "run": run(k + "Kt"),
+            "file": f"{lab}/demo/{P}/{kt}"}
+    if java:
+        j = java.replace(".java", "")
+        code["alt"] = {"lang": "java", "title": java, "src": read(f"{lab}/demo/{J}/{java}"), "run": run(j),
+                       "file": f"{lab}/demo/{J}/{java}"}
+    else:
+        code["solo"] = True
+    return code
+
+
+def pair(kotlin, java):
+    """A Kotlin fence and its Java twin, side by side, as the validator expects."""
+    return f"```kotlin\n{kotlin}\n```\n\n```java\n{java}\n```"
+
+
 FIG = (
-    '<svg viewBox="0 0 680 300" role="img" aria-label="A coroutine tree: a request coroutine, a coroutineScope under it, and three children: account, ledger and risk. '
-    'Ledger throws; the scope cancels account and risk, then rethrows to the request. Cancellation goes down the tree, failure goes up.">'
+    '<svg viewBox="0 0 680 300" role="img" aria-label="A coroutine tree for a dinner: the dinner coroutine, a coroutineScope for the main course under it, and three children: potatoes, roast and gravy. '
+    'The roast throws; the scope cancels the potatoes and the gravy, then rethrows to the dinner. Cancellation goes down the tree, failure goes up.">'
     '<rect class="box" x="240" y="16" width="200" height="40" rx="8"/>'
-    '<text class="t" x="340" y="41" text-anchor="middle">request</text>'
+    '<text class="t" x="340" y="41" text-anchor="middle">dinner</text>'
     '<line class="ln" x1="340" y1="56" x2="340" y2="94"/>'
     '<rect class="box-a" x="240" y="96" width="200" height="40" rx="8"/>'
     '<text class="t t-code" x="340" y="121" text-anchor="middle">coroutineScope</text>'
+    '<text class="t-s t-m" x="460" y="121" text-anchor="start">the main course</text>'
     '<line class="ln" x1="340" y1="136" x2="130" y2="184"/>'
     '<line class="ln" x1="340" y1="136" x2="340" y2="184"/>'
     '<line class="ln" x1="340" y1="136" x2="550" y2="184"/>'
     '<rect class="box-dim" x="60" y="186" width="140" height="40" rx="8"/>'
-    '<text class="t" x="130" y="211" text-anchor="middle">account</text>'
+    '<text class="t" x="130" y="211" text-anchor="middle">potatoes</text>'
     '<text class="t-s t-m" x="130" y="244" text-anchor="middle">cancelled</text>'
     '<rect class="box-bad" x="270" y="186" width="140" height="40" rx="8"/>'
-    '<text class="t" x="340" y="211" text-anchor="middle">ledger</text>'
-    '<text class="t-s t-bad" x="340" y="244" text-anchor="middle">throws IOException</text>'
+    '<text class="t" x="340" y="211" text-anchor="middle">roast</text>'
+    '<text class="t-s t-bad" x="340" y="244" text-anchor="middle">burns: throws</text>'
     '<rect class="box-dim" x="480" y="186" width="140" height="40" rx="8"/>'
-    '<text class="t" x="550" y="211" text-anchor="middle">risk</text>'
+    '<text class="t" x="550" y="211" text-anchor="middle">gravy</text>'
     '<text class="t-s t-m" x="550" y="244" text-anchor="middle">cancelled</text>'
     '<text class="t-s t-a" x="30" y="84" text-anchor="middle">cancel</text>'
     '<text class="t-s t-a" x="30" y="100" text-anchor="middle">goes</text>'
@@ -39,37 +58,218 @@ FIG = (
     '</svg>'
 )
 
+# ---------------------------------------------------------------- opening
+OPENING = """A big dinner has a shape. The dinner has courses, and each course has dishes. The rule in every kitchen is simple: a course goes out only when all of its dishes are ready, and the dinner isn't over until every course has gone out.
+
+Now the roast burns. The main course is off, so the cook takes the potatoes and the gravy off the heat too, and tells the family what happened. And if the guests phone to call the dinner off, everything comes off the stove: every course, every pan.
+
+Coroutines follow the same rule, and it has a name, structured concurrency. The trap is stepping outside it without noticing, with one line that starts work nobody will ever wait for, like a pan left on in the neighbour's kitchen. In Builders, `coroutineScope` waited for its children and cancelled the rest when one failed. In this lesson, we'll draw the tree behind that, watch a failure travel up it and a cancel travel down, catch a leak, and give a class a scope it owns. Before we start, make a guess, and keep it in mind."""
+
+# ---------------------------------------------------------------- section 0
+K_TREE = """runBlocking(CoroutineName("dinner")) {                 // the root
+    launch(CoroutineName("main-course")) {              // a child of dinner
+        coroutineScope {                                // a node of its own
+            async(CoroutineName("roast")) { /* ... */ }
+            async(CoroutineName("potatoes")) { /* ... */ }
+            launch(CoroutineName("gravy")) { /* ... */ }
+        }
+    }
+}"""
+J_TREE = """// Java equivalent: StructuredTaskScope (preview in JDK 25, JEP 505; needs --enable-preview)
+try (var mainCourse = StructuredTaskScope.open()) {    // a node, like coroutineScope
+    mainCourse.fork(() -> roast());
+    mainCourse.fork(() -> potatoes());
+    mainCourse.fork(() -> gravy());
+    mainCourse.join();                                  // waits for all three subtasks
+}"""
+
+S0 = """Every coroutine you start with `launch` or `async` gets a **job**, a handle to its life that you can wait for or cancel. That job becomes a **child** of the job in the scope you started it in, and children can have children of their own. The result is a tree, and the tree is the whole idea behind **structured concurrency**: work that runs at the same time has the same nested shape as the code that started it.
+
+Here's the dinner as code, with a name on every coroutine:
+
+""" + pair(K_TREE, J_TREE) + """
+
+A **scope** is a coroutine context that holds a job. The **context** is the small set of settings that travels with a coroutine: its job, its name, its dispatcher (lesson 4 of this track takes it apart). `launch` reads the job from the scope's context and hangs the new coroutine under it. `coroutineScope` adds a node of its own, between its caller and the children started inside it.
+
+The first rule of the tree is the kitchen's rule: **a parent can't complete until all of its children have completed.** When a coroutine's body ends, its job waits in a state called "completing" until every child is done. That's why `coroutineScope` returns only after its slowest child, and why `runBlocking` doesn't return while anything below it still runs. Finished children leave the tree, so `job.children` lists only the work still going.
+
+`JobTree`, in the Try it below, prints the tree at 100 ms, while the three dishes are still cooking. Sketch the tree you expect first, then compare:
+
+```text
+tree at 100 ms, seen from the dinner coroutine:
+dinner  active=true  children=1
+    main-course  active=true  children=1
+        main-course  active=true  children=3
+            roast  active=true  children=0
+            potatoes  active=true  children=0
+            gravy  active=true  children=0
+after join: dinner has 0 children
+```
+
+`main-course` shows up twice. The second one is the `coroutineScope`, a node of its own, which copies its parent's context, name included. Under it sit the three dishes. After `join`, the dinner has no children left, because finished children leave the tree.
+
+The kotlinx.coroutines 1.11 docs spell out four rules for how lives in the tree affect each other. A parent waits for its children. Cancelling a parent cancels its children. A child that fails with an exception cancels its parent, unless the parent is a supervisor (lesson 6 of this track). And a child that ends with `CancellationException`, the exception a cancelled coroutine throws, counts as cancelled, not failed, so the parent isn't told.
+
+The middle two rules are where the kitchen gets busy."""
+
+# ---------------------------------------------------------------- section 1
+S1 = """Take the main course from the last section: roast, potatoes and gravy, three children of one `coroutineScope`. At 100 ms the roast burns and throws `BurnedException`, an exception the demo defines for a ruined dish. Here's what the tree does, in order:
+
+1. The roast child fails. It reports the exception to its parent, the scope.
+2. The scope's job is cancelled with that exception. A cancelled job cancels all of its children, so the potatoes and the gravy are cancelled, and their `finally` blocks run.
+3. The scope waits until those children have really stopped.
+4. `coroutineScope` rethrows the `BurnedException` to its caller, which can catch it like any exception.
+
+So one failure takes down the whole subtree it belongs to, then comes out as one exception at the place that started the work. The total time is the time to the failure, about 100 ms, not the time of the slowest dish. Nothing is left running in the background.
+
+`FailureSpreads`, in the Try it below, does this with two children: a roast that burns at 100 ms, and potatoes that would take a second. Predict which lines print, and when. On this busy machine it printed:
+
+```text
+[   6 ms] scope body finished; the scope now waits for its children
+[ 161 ms] roast: burned, throwing BurnedException
+[ 163 ms] potatoes: finally block runs
+[ 165 ms] caller caught: the roast burned
+```
+
+`potatoes: done` never printed. Two milliseconds after the roast burned, the potatoes were off the heat, and two more later the caller had the exception. (The first `delay` read 161 ms instead of 100 because a JVM, the program that runs the code, is slow just after it starts. That part is the machine, not the tree.)
+
+The Java twin is the honest contrast. An executor, Java's pool that runs submitted tasks, has no tree, so after the roast fails, the potatoes carry on to `potatoes: done` at about 1,000 ms, and `close()` waits for them. To stop them, you cancel them by hand, which is the step `coroutineScope` does for you.
+
+Cancellation only travels **down**. If the caller cancels the dinner, because the guests called it off or a timeout fired, every coroutine below it is cancelled. A child that's cancelled doesn't cancel its parent. A child whose block ends by throwing `CancellationException` is treated the same way: "cancelled", not "failed", and the parent carries on.
+
+**A failure goes up the tree and stops the siblings. A cancel goes down and stops there.**
+
+This is the default because it's almost always what you want. If one of the dishes for a course is ruined, the course is off, so finishing the other two is wasted work. Sometimes you do want siblings to survive each other's failures. Picture a reminder sent by text, by email and by phone, where any one of them is enough. Then you ask for it with a supervisor, the subject of lesson 6 of this track.
+
+The picture breaks on timing. A real cook pulls the pans off the heat at once. A coroutine hears the cancel only at its next suspension point, so a child busy with a long calculation or a blocking call finishes that first. Lesson 5 of this track shows how to cooperate.
+
+So a failure can't escape the tree. The trouble starts when the work was never in the tree at all."""
+
+# ---------------------------------------------------------------- section 2
+K_LEAK = """suspend fun startStock(pot: String) {
+    GlobalScope.launch { simmerStock(pot) }   // returns at once; the stock is an orphan
+}"""
+J_LEAK = """// Java equivalent: a task on a shared, app-wide pool; nothing ties it to the dinner
+void startStock(String pot) {
+    SHARED_POOL.submit(() -> simmerStock(pot));   // returns at once; the stock is an orphan
+}"""
+
+S2 = """`GlobalScope` is a scope with no job. A coroutine launched in it has no parent, so none of the rules above apply. Nothing waits for it, nothing cancels it, and its exception goes to the thread's uncaught exception handler, the code that runs when an exception escapes a thread. That usually means a log line nobody reads.
+
+""" + pair(K_LEAK, J_LEAK) + """
+
+The caller of `startStock` thinks the stock is part of its dinner. It isn't. When the guests call the dinner off and the dinner coroutine is cancelled, the stock keeps simmering. `LeakedWork`, in the Try it below, cancels the dinner at 250 ms. Predict how many more steps the stock prints:
+
+```text
+  [123 ms] stock pot: still simmering, step 0
+  [234 ms] stock pot: still simmering, step 1
+[266 ms] dinner cancelled (the guests called it off)
+  [335 ms] stock pot: still simmering, step 2
+  [436 ms] stock pot: still simmering, step 3
+  [537 ms] stock pot: still simmering, step 4
+  [637 ms] stock pot: still simmering, step 5
+[769 ms] main done
+```
+
+Four more steps, in a house where dinner was called off. This is a **leaked coroutine**: work that outlives everything that knows about it. In a test, it keeps running after the test has finished and may break the next one. When the program shuts down, it can still be writing to a file that's being closed. With `coroutineScope { launch { } }` instead, the stock is a child of the dinner, and nothing prints after the cancel but `main done`.
+
+kotlinx.coroutines marks `GlobalScope` with `@DelicateCoroutinesApi`, so you have to opt in, that is, add an annotation that says you know what you're doing. Its docs still call using it an antipattern, a habit that looks helpful and causes trouble. They also warn about the obvious workaround. `CoroutineScope(Dispatchers.IO).launch { }` inside a function creates a brand-new root scope on every call and has every one of the same problems. It just doesn't ask you to opt in.
+
+The fix depends on what you meant. If the caller should wait for the work, call it directly, or use `coroutineScope { launch { } }` when it runs alongside other work. If the work really should outlive the call, something with a longer life has to own it: an object with a scope of its own, which the next section builds. And if the work must survive the program stopping, a coroutine is the wrong home for it. Write it down somewhere that lasts, such as a file or a database, and let a background worker pick it up from there.
+
+There's one fair use of `GlobalScope`: a coroutine that lives exactly as long as the whole program, such as one started in `main` that reports statistics until the program ends.
+
+**A coroutine with no parent has no owner. Give every coroutine a scope that waits for it.**
+
+So who should own work that outlives a single call?"""
+
+# ---------------------------------------------------------------- section 3
+K_OVEN = """class Oven(context: CoroutineContext, private val bake: suspend (String) -> Unit) {
+    private val scope = CoroutineScope(context + Job())      // 1. the class's own root
+
+    fun put(tray: String): Job =
+        scope.launch { bake(tray) }                           // 2. every tray is a child
+
+    suspend fun switchOff() =
+        scope.coroutineContext.job.cancelAndJoin()            // 3. cancel them all, wait
+}"""
+J_OVEN = """// Java equivalent: the class owns an executor and shuts it down
+class Oven implements AutoCloseable {
+    private final ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();   // 1. the class's own pool
+    private final Consumer<String> bake;
+
+    Oven(Consumer<String> bake) { this.bake = bake; }
+
+    Future<?> put(String tray) {
+        return pool.submit(() -> bake.accept(tray));                                    // 2. every tray runs in it
+    }
+
+    @Override public void close() throws InterruptedException {
+        pool.shutdownNow();                                                             // 3. interrupt them all
+        pool.awaitTermination(30, TimeUnit.SECONDS);                                   //    and wait
+    }
+}"""
+
+S3 = """Some work really does outlive a single call. Picture an oven that bakes trays in the background while the program does other things, until the kitchen closes for the night. Or a loop that checks the pantry every 30 seconds. The structured way to write either one is a class that **owns** a scope: it creates the scope, launches into it, and cancels it when its own life ends.
+
+""" + pair(K_OVEN, J_OVEN) + """
+
+First the class builds its scope from the context it was given plus a fresh `Job()`. That job is the parent of every tray. Then `put` launches each tray into the scope and returns at once. Finally, `switchOff` cancels the parent job, which cancels every tray still baking, and waits for them to stop. One call reaches all of them, and `job.children` tells you what's still in the oven. The tree still exists. Its root is now the object, not a single call.
+
+A few rules keep this honest.
+
+Tie the scope to a real end of life: the moment the program shuts down, a window closes, or a test finishes. (JUnit, the usual Java test library, runs a method marked `@AfterEach` after every test.) An owned scope that nobody cancels is the stock pot from the last section with a nicer name.
+
+Create the scope once, as a field. A scope created inside a method is the orphan from the last section.
+
+Pass the dispatcher, or the whole context, in. A real program can pass `Dispatchers.IO`, and a test can pass a test dispatcher that runs on virtual time. The lab does exactly this.
+
+Choose `cancel` or `cancelAndJoin` on purpose. `scope.cancel()` isn't a suspend function, and it returns at once, while children may still be running their `finally` blocks. `cancelAndJoin()` waits until they've stopped, which is what you want before you close something they still use.
+
+`CoroutineScope(...)` adds a `Job()` for you if the context has none, but write it out, so readers see it. With a plain `Job`, one tray that fails cancels the whole oven. Lesson 6 of this track swaps it for a `SupervisorJob`, so one burned tray doesn't spoil the rest.
+
+**Work that outlives a call needs an owner with a scope. Close the scope when the owner's life ends.**
+
+Quick check: you call `scope.cancel()` and close the oven's log file on the next line, while three trays still have a `finally` that writes "tray out" to it. What can go wrong, and which one change fixes it? (`cancel()` returns before those `finally` blocks run, so they may write to a file that's already closed. `cancelAndJoin()` waits for them first.)"""
+
+# ---------------------------------------------------------------- closing
+CLOSING = """We started with a dinner where a course goes out only when all its dishes are ready. Coroutines keep the same tree: a parent waits for its children, a failure goes up and stops the siblings, and a cancel goes down. `GlobalScope` puts a pan on outside the tree, and an owned scope gives long-lived work a home with an off switch.
+
+Now search your own code for `GlobalScope`, and for `CoroutineScope(` inside a function body. Each hit is work that nobody waits for and nobody stops.
+
+Next, we'll look at what else the context carries. Which thread does a coroutine run on, and how do you send one step of it somewhere else?"""
+
 L = {
  "id": "co-03",
  "title": "Structured concurrency: scopes, jobs and the tree",
  "minutes": 35,
  "goal": "By the end you can draw the job tree for a piece of coroutine code, predict what a failure or a cancel does to it, spot leaked work, and give a class that starts background work a scope it owns and closes.",
+ "opening": OPENING,
  "warmup": {
-  "q": "A request coroutine calls `GlobalScope.launch { refund(id) }` and then the client disconnects, so the request coroutine is cancelled. What happens to the refund?",
+  "q": "A dinner coroutine calls `GlobalScope.launch { simmerStock() }`. Then the guests call the dinner off, so the dinner coroutine is cancelled. What happens to the stock?",
   "options": [
-   "It is cancelled too, because it was started from the request",
-   "It keeps running: it belongs to GlobalScope, not to the request",
-   "It is paused until the request is retried",
-   "The JVM throws IllegalStateException when the request is cancelled"
+   "It's cancelled too, because the dinner started it",
+   "It keeps simmering: it belongs to GlobalScope, not to the dinner",
+   "It pauses until the dinner starts again",
+   "The JVM throws `IllegalStateException` when the dinner is cancelled"
   ],
   "answer": 1,
-  "why": "Cancellation travels down a tree of parent and child jobs. `GlobalScope` has no job, so a coroutine launched there has no parent. The request being cancelled does not reach it, nobody waits for it, and nobody hears about its failure."
+  "why": "A cancel travels down a tree of parent and child jobs. `GlobalScope` has no job, so a coroutine launched there has no parent. Cancelling the dinner doesn't reach it, nobody waits for it, and nobody hears about its failure. It's a pan left on in the neighbour's kitchen."
  },
  "sections": [
   {
    "h": "Every coroutine has a parent, and a parent waits for its children",
-   "body": "Every coroutine you start with `launch` or `async` gets a `Job`, and that job becomes a **child** of the job in the scope you called it on. Children can have children. The result is a tree, and the tree is the whole idea behind **structured concurrency**: concurrent work has the same nested shape as the code that started it.\n\n```kotlin\nrunBlocking(CoroutineName(\"request\")) {          // root\n    launch(CoroutineName(\"details\")) {             // child of request\n        coroutineScope {                           // a node of its own\n            async(CoroutineName(\"account\")) { /* ... */ }\n            async(CoroutineName(\"ledger\")) { /* ... */ }\n            launch(CoroutineName(\"risk\")) { /* ... */ }\n        }\n    }\n}\n```\n\n```java\n// Java equivalent: nested StructuredTaskScope (preview in JDK 25, JEP 505; needs --enable-preview)\ntry (var details = StructuredTaskScope.open()) {      // a node, like coroutineScope\n    details.fork(() -> accounts.load(id));\n    details.fork(() -> ledger.recent(id, 20));\n    details.fork(() -> risk.flags(id));\n    details.join();                                     // waits for all three subtasks\n}\n```\n\nA **scope** is just a coroutine context that holds a job. The context is the small set of settings that travels with a coroutine: its job, its name, its dispatcher. Lesson 4 of this track takes it apart. `launch` reads the job from the scope's context and attaches the new coroutine to it. `coroutineScope` adds a node of its own between its caller and the children started inside it.\n\nThe first rule of the tree: **a parent cannot complete until all of its children have completed.** When the body of a coroutine finishes, its job enters a waiting state (\"completing\") until every child is done. That is why `coroutineScope` returns only after the slowest child, and why `runBlocking` doesn't return while anything below it is still running. Completed children leave the tree, so `job.children` lists only the work that is still going.\n\nThe kotlinx.coroutines 1.11 docs spell out four rules for how lifecycles interact. The parent waits for its children. Cancelling the parent cancels the children. A child that fails with an exception cancels its parent (unless the parent is a supervisor, lesson 6 of this track). And a child that ends with `CancellationException` counts as cancelled, so the parent is not told. The next section is about the middle two.",
+   "body": S0,
    "try": {
     "title": "Print the tree",
     "minutes": 4,
     "steps": [
-     "Read `JobTree.kt`. Before running it, sketch the tree you expect to see at 100 ms, with names.",
-     "Run it and compare with your sketch.",
-     "Why does `details` appear twice? (Hint: what does `coroutineScope` inherit from its parent?)"
+     "Read `JobTree.kt`. Before you run it, sketch the tree you expect to see at 100 ms, with names.",
+     "Run it and compare it with your sketch.",
+     "Why does `main-course` appear twice? (Hint: what does `coroutineScope` copy from its parent?)"
     ],
-    "code": {"lang": "kotlin", "title": "JobTree.kt", "src": read(demo("JobTree.kt")),
-             "run": run("JobTreeKt"), "file": demo("JobTree.kt"), "solo": True},
-    "expect": "`request` has one child, `details`. Under it sits a second node also called `details`: that is the `coroutineScope`, which inherits its parent's context, name included. It has three children: `account`, `ledger` and `risk`. After `join`, the request has 0 children, because finished children leave the tree."
+    "code": demo("JobTree.kt"),
+    "expect": "`dinner` has one child, `main-course`. Under it sits a second node, also called `main-course`: that's the `coroutineScope`, which copies its parent's context, name included. It has three children: `roast`, `potatoes` and `gravy`. After `join`, the dinner has 0 children, because finished children leave the tree."
    },
    "refs": [
     {"title": "coroutineScope (API reference)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/coroutine-scope.html", "kind": "docs"}
@@ -77,131 +277,124 @@ L = {
   },
   {
    "h": "Failure goes up, cancellation goes down",
-   "body": "Take the payment details endpoint from lesson 2 of this track: account, ledger and risk calls as three children of one `coroutineScope`. The ledger call throws `IOException` at 100 ms. Here is what the tree does, in order:\n\n1. The ledger child fails. It reports the exception to its parent, the scope.\n2. The scope's job is cancelled with that exception. A cancelled job cancels all of its children, so the account and risk calls are cancelled. Their `finally` blocks run.\n3. The scope waits until those children have actually stopped.\n4. `coroutineScope` rethrows the `IOException` to its caller, which can catch it like any exception.\n\nSo a single failure takes down the whole subtree it belongs to, and then surfaces as one exception at the place that started the work. The total time is the time to the failure, about 100 ms, not the time of the slowest call. Nothing is left running in the background holding a connection.\n\nCancellation only travels **down**. If the caller cancels the request (the client hung up, or a timeout fired), every coroutine below it is cancelled. A child that is cancelled does not cancel its parent. A child whose block ends by throwing `CancellationException` is treated the same way: it is \"cancelled\", not \"failed\", and the parent carries on.\n\nThis is the default because it is almost always what a request needs. If one of three calls needed to build the response has failed, there is no response, so the other two calls are wasted work. When you do want siblings to survive each other's failures (sending a notification to email, SMS and push), you ask for it explicitly with a supervisor. That is lesson 6 of this track.\n\nOne caution from the docs: cancellation reaches a coroutine only at a suspension point. A child stuck in a CPU loop or a blocking call finishes that first. Lesson 5 of this track shows how to cooperate.",
-   "figure": {"svg": FIG, "caption": "One child fails. The scope cancels its siblings, waits for them to stop, and rethrows the failure to its caller."},
+   "body": S1,
+   "figure": {"svg": FIG, "caption": "One dish fails. The scope cancels its siblings, waits for them to stop, and rethrows the failure to its caller."},
    "try": {
-    "title": "Watch one failure take down a scope",
+    "title": "Watch one burned dish stop a course",
     "minutes": 4,
     "steps": [
      "Read `FailureSpreads.kt`. Predict which lines print, and at roughly what times.",
      "Run it.",
-     "Run it with `-Pargs=ok`, so the ledger does not fail. Predict when `coroutineScope` returns.",
-     "Run the Java twin, then run it with `-Pargs=cancel`. Compare what happens to the risk task."
+     "Run it with `-Pargs=ok`, so the roast doesn't burn. Predict when `coroutineScope` returns.",
+     "Run the Java twin, then run it with `-Pargs=cancel`. Compare what happens to the potatoes."
     ],
-    "code": {"lang": "kotlin", "title": "FailureSpreads.kt", "src": read(demo("FailureSpreads.kt")),
-             "run": run("FailureSpreadsKt"), "file": demo("FailureSpreads.kt"),
-             "alt": {"lang": "java", "title": "FailureSpreadsJava.java", "src": read(jdemo("FailureSpreadsJava.java")),
-                     "run": run("FailureSpreadsJava"), "file": jdemo("FailureSpreadsJava.java")}},
-    "expect": "The scope body finishes first, at a few ms. At about 100 ms the ledger throws, and within a few ms the risk child's `finally` runs and the caller catches `ledger unavailable`. `risk: done` never prints. (The first `delay` can read 150 ms or so on a cold JVM.) With `-Pargs=ok`, `coroutineScope` returns at about 1,000 ms, after the slowest child. The Java twin is the honest contrast: an executor has no tree, so after the ledger fails the risk task runs to `risk: done` at about 1,000 ms, and `close()` waits for it. With `-Pargs=cancel` you cancel the sibling by hand and its `finally` runs at about 100 ms (the last two lines can come in either order). `coroutineScope` does that step for you."
+    "code": demo("FailureSpreads.kt", "FailureSpreadsJava.java"),
+    "expect": "The scope body finishes first, after a few ms. At about 100 ms the roast throws, and within a few ms the potatoes' `finally` runs and the caller catches `the roast burned`. `potatoes: done` never prints. (The first `delay` can read 150 ms or so on a JVM that has just started; 161 ms here.) With `-Pargs=ok`, `coroutineScope` returns at about 1,000 ms, after the slowest child. The Java twin is the honest contrast: an executor has no tree, so after the roast fails the potatoes run on to `potatoes: done` at about 1,000 ms, and `close()` waits for them. With `-Pargs=cancel` you cancel the sibling by hand, and its `finally` runs at once (198 ms here). `coroutineScope` does that step for you."
    }
   },
   {
    "h": "GlobalScope cuts work loose from the tree",
-   "body": "`GlobalScope` is a scope with no job. A coroutine launched in it has no parent, so none of the rules above apply. Nothing waits for it, nothing cancels it, and its exception goes to the thread's uncaught exception handler, which usually means a log line nobody reads.\n\n```kotlin\nsuspend fun startRefund(id: String) {\n    GlobalScope.launch { refundSteps(id) }   // returns at once; the refund is an orphan\n}\n```\n\n```java\n// Java equivalent: a task on a shared, app-wide pool; nothing ties it to the request\nvoid startRefund(String id) {\n    SHARED_POOL.submit(() -> refundSteps(id));   // returns at once; the refund is an orphan\n}\n```\n\nThe caller of `startRefund` thinks the refund is part of its request. It is not. When the client gives up and the request coroutine is cancelled, the refund keeps going. In a test, it keeps running after the test has finished and may fail the next one. At shutdown, it can still be writing when the connection pool closes. This is a **leaked coroutine**: work that outlives everything that knows about it.\n\nkotlinx.coroutines marks `GlobalScope` as `@DelicateCoroutinesApi`, so you have to opt in, and its docs call using it an antipattern. They also warn about the obvious workaround: `CoroutineScope(Dispatchers.IO).launch { }` inside a function creates a brand-new root scope on every call and has every one of the same problems. The opt-in warning just doesn't fire.\n\nThe fix depends on what you meant. If the caller should wait for the refund, call it directly, or use `coroutineScope { launch { } }` when it runs alongside other work. If the refund really should outlive the request, then something with a longer life has to own it: a component with its own scope, which the next section builds. In payments it often means something else again: write the refund to an outbox table or a Temporal workflow, so it survives a restart. An in-memory coroutine doesn't.\n\nThere is one legitimate use: a coroutine that lives exactly as long as the whole application, such as a metrics reporter started in `main`.",
+   "body": S2,
    "try": {
-    "title": "Cancel a request and watch the refund carry on",
+    "title": "Call off the dinner and watch the stock carry on",
     "minutes": 4,
     "steps": [
-     "Read `LeakedWork.kt`. The request is cancelled at 250 ms. Predict how many refund steps print after that.",
+     "Read `LeakedWork.kt`. The dinner is cancelled at 250 ms. Predict how many stock steps print after that.",
      "Run it.",
      "Run it with `-Pargs=fixed`, which uses the `coroutineScope` version. Predict first.",
-     "Run the Java twin both ways. It interrupts a request thread instead of cancelling a coroutine."
+     "Run the Java twin both ways. It interrupts the dinner's thread instead of cancelling a coroutine."
     ],
-    "code": {"lang": "kotlin", "title": "LeakedWork.kt", "src": read(demo("LeakedWork.kt")),
-             "run": run("LeakedWorkKt"), "file": demo("LeakedWork.kt"),
-             "alt": {"lang": "java", "title": "LeakedWorkJava.java", "src": read(jdemo("LeakedWorkJava.java")),
-                     "run": run("LeakedWorkJava"), "file": jdemo("LeakedWorkJava.java")}},
-    "expect": "With `GlobalScope`, steps 2 to 5 keep printing after `request cancelled`: the refund never heard about it. With `-Pargs=fixed`, the refund is a child of the request, so nothing prints after `request cancelled` except `main done`. The Java twin leaks the same way: interrupting the request thread does not reach a task on a shared pool. Its `fixed` version runs the refund on the request's own thread, so the interrupt stops it."
+    "code": demo("LeakedWork.kt", "LeakedWorkJava.java"),
+    "expect": "With `GlobalScope`, steps 2 to 5 keep printing after `dinner cancelled`: the stock never heard about it. With `-Pargs=fixed`, the stock is a child of the dinner, so nothing prints after `dinner cancelled` except `main done`. The Java twin leaks the same way: interrupting the dinner's thread doesn't reach a task on a shared pool. Its `fixed` version simmers the stock on the dinner's own thread, so the interrupt stops it."
    },
    "refs": [
     {"title": "GlobalScope (API reference: why it is delicate)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-global-scope/", "kind": "docs"}
    ]
   },
   {
-   "h": "A class that starts background work owns a scope and closes it",
-   "body": "Some work really does outlive a single call: a settler that works through card batches for one Kafka partition, an FX rate refresher, a cache warmer. The structured way to write it is a class that **owns** a scope, launches into it, and cancels it when its own life ends.\n\n```kotlin\nclass BatchSettler(context: CoroutineContext, private val settle: suspend (String) -> Unit) {\n    private val scope = CoroutineScope(context + Job())      // 1. the class's own root\n\n    fun submit(batchId: String): Job =\n        scope.launch { settle(batchId) }                      // 2. every batch is a child\n\n    suspend fun shutdown() =\n        scope.coroutineContext.job.cancelAndJoin()            // 3. cancel them all, wait\n}\n```\n\n```java\n// Java equivalent: the class owns an executor and shuts it down\nclass BatchSettler implements AutoCloseable {\n    private final ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();   // 1. the class's own pool\n    private final Consumer<String> settle;\n\n    BatchSettler(Consumer<String> settle) { this.settle = settle; }\n\n    Future<?> submit(String batchId) {\n        return pool.submit(() -> settle.accept(batchId));                               // 2. every batch runs in it\n    }\n\n    @Override public void close() throws InterruptedException {\n        pool.shutdownNow();                                                             // 3. interrupt them all\n        pool.awaitTermination(30, TimeUnit.SECONDS);                                   //    and wait\n    }\n}\n```\n\nThe scope's job is the parent of every batch. One call to `cancel` reaches all of them, and `job.children` tells you what is still running. The tree still exists. Its root is now the object, not a request.\n\nA few rules keep this honest.\n\nTie the scope to a real lifecycle. Cancel it in `@PreDestroy` in a Quarkus bean, in `onPartitionsRevoked` for a Kafka partition worker, or in `@AfterEach` in a test. An owned scope that nobody cancels is just `GlobalScope` with extra steps.\n\nCreate it once, as a field. A scope created inside a method is the orphan from the previous section.\n\nPass the dispatcher (or the whole context) in. Production can use `Dispatchers.IO`, and tests can pass a test dispatcher and run on virtual time. The lab does exactly this.\n\nChoose `cancel` or `cancelAndJoin` on purpose. `scope.cancel()` is not a suspend function and returns at once, while children are still running their `finally` blocks. `cancelAndJoin()` waits until they have stopped, which is what you want before closing a connection pool.\n\n`CoroutineScope(...)` adds a `Job()` for you if the context has none, but write it out so readers see it. With a plain `Job`, one failed batch cancels the whole settler. Lesson 6 of this track swaps it for a `SupervisorJob`, so batches can fail on their own.\n\nQuick check: you call `scope.cancel()` and close the connection pool on the next line, while three batches still have a `finally` that returns a connection. What can go wrong, and which one change fixes it? (`cancel()` returns before those `finally` blocks have run, so they may hand connections back to a pool that is already closed. `cancelAndJoin()` waits for them first.)"
+   "h": "A class that runs background work owns a scope and closes it",
+   "body": S3
   }
  ],
- "analogy": "A family on a day out. The parent won't leave the park until every child is back at the car. If one child gets hurt, the parent calls everyone back and the trip ends, and the parent then tells whoever is waiting at home what happened. If a child simply decides they've had enough and sits in the car, nobody panics. `GlobalScope` is a child who wandered off with no parent at all: nobody will look for them at closing time. An owned scope is a school trip: the school, not any one parent, brings everyone home at the end of the day. The analogy breaks on timing. Real children come back when they hear the call. A coroutine only hears it at its next suspension point, so a child busy in a CPU loop keeps going until it pauses.",
- "in_your_world": "Two places in a payments service need this most. First, request fan-out: a payment details or checkout endpoint that calls three services should do so inside `coroutineScope`, so a failure or a client disconnect cancels the other calls and releases their Oracle connections. Second, partition-scoped background work in a Kafka consumer. Give each assigned partition a worker with its own scope, launch the per-partition jobs into it, and call `shutdown()` (cancel and join) in `onPartitionsRevoked`, before the offsets are committed and the partition moves to another pod. If those jobs ran in `GlobalScope`, two pods could settle the same batch during a rebalance. Anything that must survive a pod restart belongs in an outbox table or a Temporal workflow, not in a coroutine.",
- "mistake": "The most common mistake is reaching for `GlobalScope.launch` (or `CoroutineScope(Dispatchers.IO).launch` inside a function) to \"run this in the background\" from a request. It compiles and seems to work, so it ships. The cost shows up later: work keeps running after the client has gone, tests interfere with each other, failures only appear as stray log lines, and shutdown races with in-flight writes. Decide who owns the work. If the caller should wait, use `coroutineScope`. If the work should outlive the call, give a long-lived component a scope it owns and cancels at the end of its life. If it must survive a restart, use durable storage, not a coroutine.",
  "compare": {
-  "title": "Fan-out that cannot leak: StructuredTaskScope vs coroutineScope",
-  "java": {"title": "PaymentDetails.java (preview in JDK 25, JEP 505: compile and run with --enable-preview)", "src": "Details details(PaymentId id) throws InterruptedException {\n    try (var scope = StructuredTaskScope.open()) {          // default: fail on the first failure\n        Subtask<Account> account = scope.fork(() -> accounts.load(id));\n        Subtask<List<Entry>> entries = scope.fork(() -> ledger.recent(id, 20));\n        scope.join();         // waits; throws StructuredTaskScope.FailedException if a subtask failed\n        return new Details(account.get(), entries.get());\n    }                         // close() cancels unfinished subtasks and waits for them\n}"},
-  "kotlin": {"title": "PaymentDetails.kt", "src": "suspend fun details(id: PaymentId): Details = coroutineScope {\n    val account = async { accounts.load(id) }\n    val entries = async { ledger.recent(id, 20) }\n    Details(account.await(), entries.await())\n}   // returns only when both children are done; a failure cancels the other"},
-  "note": "The idea is the same in both: subtasks cannot outlive the block that started them, the first failure cancels the siblings, and the caller gets one exception. In Java each subtask is a virtual thread running blocking code, and cancellation means interruption. In Kotlin each child is a coroutine, and cancellation reaches it at its next suspension point. The bigger practical difference is maturity. In JDK 25, `StructuredTaskScope` is a preview API that needs `--enable-preview`, and its shape has changed between previews (the JDK 21 to 24 previews used a different, subclass-based API). In Kotlin, every `launch` and `async` already joins the tree, including calls deep inside other suspend functions, and you get the guarantee without asking for it."
+  "title": "Work that can't leak: StructuredTaskScope vs coroutineScope",
+  "java": {"title": "MainCourse.java (preview in JDK 25, JEP 505: compile and run with --enable-preview)", "src": "Plate mainCourse() throws InterruptedException {\n    try (var scope = StructuredTaskScope.open()) {          // default: fail on the first failure\n        Subtask<Roast> roast = scope.fork(() -> kitchen.roast());\n        Subtask<Potatoes> potatoes = scope.fork(() -> kitchen.potatoes());\n        scope.join();         // waits; throws StructuredTaskScope.FailedException if a subtask failed\n        return new Plate(roast.get(), potatoes.get());\n    }                         // close() cancels unfinished subtasks and waits for them\n}"},
+  "kotlin": {"title": "MainCourse.kt", "src": "suspend fun mainCourse(): Plate = coroutineScope {\n    val roast = async { kitchen.roast() }\n    val potatoes = async { kitchen.potatoes() }\n    Plate(roast.await(), potatoes.await())\n}   // returns only when both children are done; a failure cancels the other"},
+  "note": "The idea is the same in both: subtasks can't outlive the block that started them, the first failure cancels the siblings, and the caller gets one exception. In Java each subtask is a virtual thread running blocking code, and cancelling means interrupting it. In Kotlin each child is a coroutine, and a cancel reaches it at its next suspension point. The bigger practical difference is maturity. In JDK 25, `StructuredTaskScope` is a preview API, one the JDK ships for trying out and may still change, and it needs `--enable-preview`, and its shape has changed between previews (the JDK 21 to 24 previews used a different API, based on subclasses). In Kotlin, every `launch` and `async` already joins the tree, including calls deep inside other suspend functions, and you get the guarantee without asking for it."
  },
  "worked": {
-  "title": "Give an FX rate refresher a scope it owns",
+  "title": "Give a pantry checker a scope it owns",
   "steps": [
-   {"say": "A Quarkus bean refreshes FX rates every 30 seconds. It was written with `GlobalScope`. After shutdown it keeps calling the rate provider against a closed connection pool, and in tests one instance's loop keeps running into the next test.",
-    "code": "class FxRateRefresher(private val rates: RateSource) {\n    @OptIn(DelicateCoroutinesApi::class)\n    fun start() {\n        GlobalScope.launch {\n            while (true) { rates.refresh(); delay(30.seconds) }\n        }\n    }\n}", "lang": "kotlin",
-    "alt_code": "// Java equivalent of the bug: a static scheduler that nobody shuts down\nclass FxRateRefresher {\n    private static final ScheduledExecutorService SHARED = Executors.newScheduledThreadPool(1);\n    private final RateSource rates;\n\n    void start() {\n        SHARED.scheduleWithFixedDelay(rates::refresh, 0, 30, TimeUnit.SECONDS);\n    }\n}", "alt_lang": "java"},
-   {"say": "Give the class its own scope, created once, with the dispatcher passed in so tests can use a test dispatcher. A `CoroutineName` makes it easy to spot in thread dumps and debug output.",
-    "code": "class FxRateRefresher(\n    private val rates: RateSource,\n    dispatcher: CoroutineDispatcher = Dispatchers.IO,\n) : AutoCloseable {\n    // 1. one scope per instance; its Job is the parent of everything we start\n    private val scope = CoroutineScope(dispatcher + Job() + CoroutineName(\"fx-refresher\"))", "lang": "kotlin",
-    "alt_code": "// Java equivalent: one scheduler per instance, with a named thread\nclass FxRateRefresher implements AutoCloseable {\n    private final RateSource rates;\n    // 1. the instance owns its scheduler\n    private final ScheduledExecutorService scheduler =\n        Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().name(\"fx-refresher\").factory());", "alt_lang": "java"},
-   {"say": "Launch into that scope. Catch failures of a single refresh inside the loop, so one bad response does not end the loop and, with a plain `Job`, cancel the whole scope. Rethrow `CancellationException` (lesson 5 of this track explains why).",
-    "code": "    // 2. the loop is a child of the scope\n    fun start(): Job = scope.launch {\n        while (true) {\n            try { rates.refresh() }\n            catch (e: CancellationException) { throw e }\n            catch (e: Exception) { log.warn(\"rate refresh failed\", e) }\n            delay(30.seconds)\n        }\n    }", "lang": "kotlin",
-    "alt_code": "    // 2. the refresh belongs to this instance's scheduler\n    ScheduledFuture<?> start() {\n        return scheduler.scheduleWithFixedDelay(() -> {\n            try { rates.refresh(); }\n            catch (Exception e) { log.warn(\"rate refresh failed\", e); }   // an escaping exception stops the schedule\n        }, 0, 30, TimeUnit.SECONDS);\n    }", "alt_lang": "java"},
-   {"say": "Close the scope when the owner's life ends: `@PreDestroy` in the bean, `@AfterEach` in a test. `cancel()` returns at once; use `cancelAndJoin()` from suspend code when you must wait for the loop to stop.",
-    "code": "    // 3. tie the scope to a real lifecycle\n    override fun close() = scope.cancel()\n}\n\n@ApplicationScoped\nclass RatesLifecycle(private val refresher: FxRateRefresher) {\n    @PreDestroy fun stop() = refresher.close()\n}", "lang": "kotlin",
-    "alt_code": "    // 3. tie the scheduler to a real lifecycle\n    @Override public void close() { scheduler.shutdownNow(); }\n}\n\n@ApplicationScoped\nclass RatesLifecycle {\n    @Inject FxRateRefresher refresher;\n    @PreDestroy void stop() { refresher.close(); }\n}", "alt_lang": "java"},
-   {"say": "Self-check: a colleague suggests `fun start() = CoroutineScope(Dispatchers.IO).launch { ... }` to avoid the opt-in warning. Why is that no better? (Each call makes a new root scope that nothing holds on to. Nobody can cancel it, so it leaks exactly like `GlobalScope`.)",
+   {"say": "A small app checks the pantry every 30 seconds and refreshes the shopping list. It was written with `GlobalScope`. After the app has closed its database, the loop keeps calling it, and in tests one instance's loop runs on into the next test.",
+    "code": "class PantryWatcher(private val pantry: Pantry) {\n    @OptIn(DelicateCoroutinesApi::class)\n    fun start() {\n        GlobalScope.launch {\n            while (true) { pantry.refresh(); delay(30.seconds) }\n        }\n    }\n}", "lang": "kotlin",
+    "alt_code": "// Java equivalent of the bug: a static scheduler that nobody shuts down\nclass PantryWatcher {\n    private static final ScheduledExecutorService SHARED = Executors.newScheduledThreadPool(1);\n    private final Pantry pantry;\n\n    void start() {\n        SHARED.scheduleWithFixedDelay(pantry::refresh, 0, 30, TimeUnit.SECONDS);\n    }\n}", "alt_lang": "java"},
+   {"say": "Give the class its own scope, created once, with the dispatcher passed in so a test can pass a test dispatcher. A `CoroutineName` makes the loop easy to spot in debug output.",
+    "code": "class PantryWatcher(\n    private val pantry: Pantry,\n    dispatcher: CoroutineDispatcher = Dispatchers.IO,\n) : AutoCloseable {\n    // 1. one scope per instance; its Job is the parent of everything we start\n    private val scope = CoroutineScope(dispatcher + Job() + CoroutineName(\"pantry-watcher\"))", "lang": "kotlin",
+    "alt_code": "// Java equivalent: one scheduler per instance, with a named thread\nclass PantryWatcher implements AutoCloseable {\n    private final Pantry pantry;\n    // 1. the instance owns its scheduler\n    private final ScheduledExecutorService scheduler =\n        Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().name(\"pantry-watcher\").factory());", "alt_lang": "java"},
+   {"say": "Launch into that scope. Catch the failure of a single refresh inside the loop, so that one bad check doesn't end the loop, and, with a plain `Job`, cancel the whole scope. Rethrow `CancellationException` (lesson 5 of this track explains why).",
+    "code": "    // 2. the loop is a child of the scope\n    fun start(): Job = scope.launch {\n        while (true) {\n            try { pantry.refresh() }\n            catch (e: CancellationException) { throw e }\n            catch (e: Exception) { log.warn(\"pantry check failed\", e) }\n            delay(30.seconds)\n        }\n    }", "lang": "kotlin",
+    "alt_code": "    // 2. the check belongs to this instance's scheduler\n    ScheduledFuture<?> start() {\n        return scheduler.scheduleWithFixedDelay(() -> {\n            try { pantry.refresh(); }\n            catch (Exception e) { log.warn(\"pantry check failed\", e); }   // an escaping exception stops the schedule\n        }, 0, 30, TimeUnit.SECONDS);\n    }", "alt_lang": "java"},
+   {"say": "Close the scope when the owner's life ends: when the app shuts down, and in `@AfterEach` in a test. `cancel()` returns at once; use `cancelAndJoin()` from suspend code when you must wait for the loop to stop.",
+    "code": "    // 3. tie the scope to a real end of life\n    override fun close() = scope.cancel()\n}\n\n// in a test\n@AfterEach fun stopWatcher() = watcher.close()", "lang": "kotlin",
+    "alt_code": "    // 3. tie the scheduler to a real end of life\n    @Override public void close() { scheduler.shutdownNow(); }\n}\n\n// in a test\n@AfterEach void stopWatcher() { watcher.close(); }", "alt_lang": "java"},
+   {"say": "Self-check: a friend suggests `fun start() = CoroutineScope(Dispatchers.IO).launch { ... }` to get rid of the opt-in annotation. Why is that no better? (Each call makes a new root scope that nothing holds on to. Nobody can cancel it, so it leaks exactly like `GlobalScope`.)",
     "code": "", "lang": ""}
   ]
  },
  "lab": {
-  "title": "Stop leaking settlement work",
+  "title": "Stop the dinner from leaking work",
   "minutes": 13,
-  "files": [f"{lab}/main/{P}/SettleAll.kt", f"{lab}/main/{P}/BatchSettler.kt"],
+  "files": [f"{lab}/main/{P}/CookCourse.kt", f"{lab}/main/{P}/Oven.kt"],
   "run": "./gradlew :coroutines:test --tests 'workbench.coroutines.l03.*'",
   "steps": [
-   "Run the tests. Five of seven fail. Read the messages: `settleAll` returns before anything is settled, and `shutdown` stops nothing.",
-   "Fix `settleAll`: replace `GlobalScope` with `coroutineScope` so every batch is a child of the call. The three `settleAll` tests should now pass.",
-   "In `BatchSettler`, add a private scope built from `context + Job()`, and make `submit` launch into it.",
-   "Write `inFlight` from the scope's job: `scope.coroutineContext.job.children.count()`.",
-   "Write `shutdown` so it cancels the scope's job and waits for the children to stop. Make `submit` throw `IllegalStateException` once the scope is no longer active.",
+   "Meet the code. `cookCourse` cooks every dish of a course at once, and `Oven` bakes trays in the background until the program calls `switchOff`. Both start their work in `GlobalScope`. Run the tests: five of seven fail. Read the messages: `cookCourse` returns before any dish is done, and `switchOff` stops nothing.",
+   "Fix `cookCourse`: replace `GlobalScope` with `coroutineScope`, so every dish is a child of the call. The three `cookCourse` tests should now pass.",
+   "In `Oven`, add a private scope built from `context + Job()`, and make `put` launch into it.",
+   "Write `inOven` from the scope's job: `scope.coroutineContext.job.children.count()`.",
+   "Write `switchOff` so it cancels the scope's job and waits for the children to stop. Make `put` throw `IllegalStateException` once the scope is no longer active.",
    "Run the tests until all seven pass."
   ],
   "hints": [
-   "`coroutineScope { for (id in batchIds) launch { settle(id) } }` is the whole fix for `settleAll`.",
-   "`check(scope.isActive) { \"settler is shut down\" }` throws `IllegalStateException` with that message. `isActive` on a scope comes from `kotlinx.coroutines.isActive`.",
+   "`coroutineScope { for (dish in dishes) launch { cook(dish) } }` is the whole fix for `cookCourse`.",
+   "`check(scope.isActive) { \"the oven is switched off\" }` throws `IllegalStateException` with that message. `isActive` on a scope comes from `kotlinx.coroutines.isActive`.",
    "`job` is an extension property on `CoroutineContext` (import `kotlinx.coroutines.job`). `cancelAndJoin()` is an extension on `Job`.",
-   "The tests pass `StandardTestDispatcher(testScheduler)` as the context, so your scope runs on virtual time and `shutdown` returns at virtual time 0."
+   "The tests pass `StandardTestDispatcher(testScheduler)` as the context, so your scope runs on virtual time, the test's pretend clock, and `switchOff` returns at virtual time 0."
   ],
   "done_when": "All seven tests in `StructuredConcurrencyTest` pass."
  },
  "drill": {
   "title": "An owned scope from memory",
   "minutes": 4,
-  "prompt": "Close this page. Write a class `AuditWriter(dispatcher: CoroutineDispatcher)` with `fun write(entry: String): Job` that writes in the background, and `suspend fun close()` that cancels every pending write and waits until they have stopped. Use a suspend function `persist(entry)` that you can assume exists.",
-  "answer": {"lang": "kotlin", "src": "class AuditWriter(dispatcher: CoroutineDispatcher) {\n    private val scope = CoroutineScope(dispatcher + Job())\n\n    fun write(entry: String): Job =\n        scope.launch { persist(entry) }\n\n    suspend fun close() {\n        scope.coroutineContext.job.cancelAndJoin()\n    }\n}",
-            "alt": {"lang": "java", "title": "Java equivalent", "src": "// Java equivalent: the writer owns an executor and shuts it down\nclass AuditWriter implements AutoCloseable {\n    private final ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();\n\n    Future<?> write(String entry) {\n        return pool.submit(() -> persist(entry));\n    }\n\n    @Override public void close() throws InterruptedException {\n        pool.shutdownNow();                          // interrupt pending writes\n        pool.awaitTermination(30, TimeUnit.SECONDS); // wait until they have stopped\n    }\n}"}}
+  "prompt": "Close this page. Write a class `Dishwasher(dispatcher: CoroutineDispatcher)` with `fun wash(load: String): Job`, which washes a load in the background, and `suspend fun close()`, which cancels every load still washing and waits until they have stopped. Assume a suspend function `runCycle(load)` exists.",
+  "answer": {"lang": "kotlin", "src": "class Dishwasher(dispatcher: CoroutineDispatcher) {\n    private val scope = CoroutineScope(dispatcher + Job())\n\n    fun wash(load: String): Job =\n        scope.launch { runCycle(load) }\n\n    suspend fun close() {\n        scope.coroutineContext.job.cancelAndJoin()\n    }\n}",
+             "alt": {"lang": "java", "title": "Java equivalent", "src": "// Java equivalent: the dishwasher owns an executor and shuts it down\nclass Dishwasher implements AutoCloseable {\n    private final ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();\n\n    Future<?> wash(String load) {\n        return pool.submit(() -> runCycle(load));\n    }\n\n    @Override public void close() throws InterruptedException {\n        pool.shutdownNow();                          // interrupt the loads still washing\n        pool.awaitTermination(30, TimeUnit.SECONDS); // wait until they have stopped\n    }\n}"}}
  },
  "recap": [
-  "Every `launch` and `async` makes a child of the scope's job, so concurrent work forms a tree that mirrors the code.",
+  "Every `launch` and `async` makes a child of the scope's job, so concurrent work forms a tree that matches the code.",
   "A parent completes only after all of its children complete; `coroutineScope` returns after its slowest child.",
-  "A child failure cancels the parent and all siblings, then surfaces as one exception at the scope. Cancellation only travels down, and a `CancellationException` from a child does not alarm the parent.",
-  "`GlobalScope` (or a new `CoroutineScope(...)` inside a function) creates orphans: nothing waits for them, cancels them or sees their failures.",
-  "Work that outlives a call belongs to a class that owns a scope, launches into it, and cancels it at the end of its lifecycle."
+  "A child's failure cancels the parent and all the siblings, then comes out as one exception at the scope. A cancel only travels down, and a child that ends with `CancellationException` doesn't alarm its parent.",
+  "`GlobalScope`, or a new `CoroutineScope(...)` inside a function, makes orphans: nothing waits for them, cancels them or sees their failures.",
+  "Work that outlives a call belongs to a class that owns a scope, launches into it, and cancels it when its own life ends.",
+  "The limit: the tree stops coroutines only at suspension points, and only while the program runs. A child busy computing finishes first, and nothing in memory survives a restart."
  ],
+ "closing": CLOSING,
  "quiz": [
   {"q": "What happens here?\n\n```kotlin\ncoroutineScope {\n    launch { delay(100); throw IOException(\"down\") }\n    launch { delay(1_000); println(\"done\") }\n}\n```",
-   "options": ["`done` prints at 1 s, then the scope throws `IOException`", "The `IOException` is printed by the uncaught handler and the scope returns normally", "At about 100 ms the second child is cancelled, `done` never prints, and the scope throws `IOException`", "The scope returns normally at 1 s, because `launch` swallows exceptions"],
+   "options": ["`done` prints at 1 s, then the scope throws `IOException`", "The `IOException` is printed by the uncaught handler, and the scope returns normally", "At about 100 ms the second child is cancelled, `done` never prints, and the scope throws `IOException`", "The scope returns normally at 1 s, because `launch` swallows exceptions"],
    "answer": 2,
    "why": "The failed child cancels the scope's job, which cancels its sibling. The scope waits for the sibling to stop, then rethrows the original exception to its caller. Nothing waits for the full second."},
   {"q": "A child coroutine ends by throwing `CancellationException`. What happens to its parent and its siblings?",
-   "options": ["Nothing: the child counts as cancelled, and the parent is not notified", "The parent is cancelled, and so are the siblings", "The parent rethrows the `CancellationException` to its caller", "The siblings are cancelled, but the parent keeps running"],
+   "options": ["Nothing: the child counts as cancelled, and the parent isn't told", "The parent is cancelled, and so are the siblings", "The parent rethrows the `CancellationException` to its caller", "The siblings are cancelled, but the parent keeps running"],
    "answer": 0,
    "why": "A `CancellationException` means \"I was cancelled\", not \"I failed\". The child cancels its own children, but the parent keeps going. Only other exceptions travel up. Lesson 5 of this track shows why that makes swallowing it dangerous."},
-  {"q": "A request handler calls `GlobalScope.launch { reconcile(batch) }` and returns. A minute later the service shuts down while the reconciliation is still running. What stops the reconciliation?",
-   "options": ["The request's scope, which cancels it when the response is sent", "Quarkus, which cancels all coroutines on shutdown", "`runBlocking` at the top of the call stack", "Nothing in coroutines: it runs until it finishes or the JVM exits"],
+  {"q": "A function calls `GlobalScope.launch { copyPhotos(album) }` and returns. A minute later the program shuts down while the copy is still running. What stops the copy?",
+   "options": ["The caller's scope, which cancels it when the function returns", "The JVM, which cancels every coroutine politely at shutdown", "`runBlocking` at the top of the call stack", "Nothing in coroutines: it runs until it finishes, or until the JVM exits"],
    "answer": 3,
-   "why": "A `GlobalScope` coroutine has no parent, so no lifecycle reaches it. It stops when it finishes, or when the JVM dies, possibly halfway through. If it must be stopped cleanly, it needs an owner with a scope that is cancelled on shutdown."},
-  {"q": "A Kafka partition worker starts a background flush loop when its partition is assigned. Where should the loop's coroutine live?",
-   "options": ["In `GlobalScope`, because it outlives any single record", "In a scope owned by the partition worker, cancelled and joined in `onPartitionsRevoked`", "In `runBlocking` on the consumer's poll thread", "In a new `CoroutineScope(Dispatchers.IO)` created inside the assignment callback"],
+   "why": "A `GlobalScope` coroutine has no parent, so no owner's end of life reaches it. It stops when it finishes, or when the JVM dies, possibly halfway through. If it must be stopped cleanly, it needs an owner with a scope that is cancelled at shutdown."},
+  {"q": "A kitchen timer screen in an app starts a ticking loop when it opens. Where should the loop's coroutine live?",
+   "options": ["In `GlobalScope`, because it outlives any single button click", "In a scope owned by the screen, cancelled when the screen closes", "In `runBlocking` on the screen's thread", "In a new `CoroutineScope(Dispatchers.IO)` created inside the code that opens the screen"],
    "answer": 1,
-   "why": "The loop lives exactly as long as the partition assignment, so the worker for that partition should own the scope and cancel it when the partition is revoked. A new scope created in the callback has no owner and leaks like `GlobalScope`. `runBlocking` would block the poll thread."},
+   "why": "The loop lives exactly as long as the screen, so the screen should own the scope and cancel it when it closes. A new scope created in the opening code has no owner and leaks like `GlobalScope`. `runBlocking` would freeze the screen's thread."},
   {"q": "From lesson 2 of this track: what does this return, and when?\n\n```kotlin\ncoroutineScope {\n    launch { delay(200) }\n    42\n}\n```",
    "options": ["42, at once, because `launch` returns immediately", "42, after about 200 ms, when the child finishes", "Unit, because the last expression is `launch`", "It never returns, because nobody joins the child"],
    "answer": 1,
@@ -210,27 +403,27 @@ L = {
  ],
  "flashcards": [
   {"front": "When does a parent coroutine complete?", "back": "Only after its own block and all of its children have completed."},
-  {"front": "In a regular `coroutineScope`, one child throws `IOException`. What happens?", "back": "The scope is cancelled, which cancels the other children. The scope waits for them to stop, then rethrows the `IOException` to its caller."},
-  {"front": "A child ends with `CancellationException`. Is its parent cancelled?", "back": "No. It counts as cancelled, not failed, so the parent is not notified."},
-  {"front": "Which direction does cancellation travel in the job tree?", "back": "Down only. Cancelling a parent cancels all of its children; cancelling a child leaves the parent alone."},
-  {"front": "Why is `GlobalScope.launch` in a request handler a leak?", "back": "The coroutine has no parent: nothing waits for it, nothing cancels it when the request ends, and its failure goes to the uncaught exception handler."},
-  {"front": "How should a class that starts background coroutines be structured?", "back": "Own one `CoroutineScope(context + Job())` as a field, launch into it, and cancel it (or `cancelAndJoin`) when the owner's lifecycle ends."}
+  {"front": "In a regular `coroutineScope`, one child throws an exception. What happens?", "back": "The scope is cancelled, which cancels the other children. The scope waits for them to stop, then rethrows the exception to its caller."},
+  {"front": "A child ends with `CancellationException`. Is its parent cancelled?", "back": "No. It counts as cancelled, not failed, so the parent isn't told."},
+  {"front": "Which way does cancellation travel in the job tree?", "back": "Down only. Cancelling a parent cancels all of its children; cancelling a child leaves the parent alone."},
+  {"front": "Why is `GlobalScope.launch` inside a function a leak?", "back": "The coroutine has no parent: nothing waits for it, nothing cancels it when the caller is cancelled, and its failure goes to the uncaught exception handler."},
+  {"front": "How should a class that starts background coroutines be built?", "back": "Own one `CoroutineScope(context + Job())` as a field, launch into it, and cancel it (or `cancelAndJoin` it) when the owner's life ends."}
  ],
  "terms": [
   {"term": "Structured concurrency", "plain": "Concurrent work forms a tree that matches the code: children can't outlive their parent, and failures and cancels follow the tree."},
-  {"term": "Parent job", "plain": "The job a new coroutine attaches to. It waits for its children and cancels them when it is cancelled."},
-  {"term": "Child coroutine", "plain": "A coroutine started in a scope. Its failure cancels its parent unless the parent is a supervisor."},
+  {"term": "Parent job", "plain": "The job a new coroutine attaches to. It waits for its children, and cancels them when it's cancelled."},
+  {"term": "Child coroutine", "plain": "A coroutine started in a scope. Its failure cancels its parent, unless the parent is a supervisor."},
   {"term": "Scope", "plain": "A coroutine context that holds a job. New coroutines started in it become that job's children."},
-  {"term": "GlobalScope", "plain": "A scope with no job. Coroutines started there have no parent and are not structured."},
-  {"term": "Leaked coroutine", "plain": "A coroutine that keeps running after everything that cared about it has gone."}
+  {"term": "GlobalScope", "plain": "A scope with no job. Coroutines started there have no parent and belong to no tree."},
+  {"term": "Leaked coroutine", "plain": "A coroutine that keeps running after everything that cared about it has gone, like a pan left on in an empty house."}
  ],
  "explain_back": {
-  "prompt": "A teammate wants to start a refund with `GlobalScope.launch` from a request handler, \"so the response is fast\". Explain what they lose, and what you would do instead.",
-  "answer": "A coroutine in GlobalScope has no parent, so it is outside the job tree. Nothing waits for it, nothing cancels it when the request is cancelled or the service shuts down, and if it fails, the exception goes to the uncaught handler instead of to anyone who can react. If the response really shouldn't wait for the refund, the refund needs a real owner: a component with its own scope that we cancel and join on shutdown. And because a refund must not be lost on a crash or a restart, the safest choice is to record it durably first (an outbox row or a Temporal workflow) and let a background worker with an owned scope process it."
+  "prompt": "A friend wants to start the stock with `GlobalScope.launch` inside `cookDinner()`, \"so dinner returns sooner\". Explain what they lose, and what you would do instead.",
+  "answer": "A coroutine in GlobalScope has no parent, so it's outside the job tree. Nothing waits for it, nothing cancels it when the dinner is cancelled or the program shuts down, and if it fails, the exception goes to the uncaught handler instead of to anyone who can react. If dinner really shouldn't wait for the stock, the stock needs a real owner: an object with its own scope, which we cancel and join when the kitchen closes. If dinner should wait, `coroutineScope { launch { ... } }` keeps it a child. And if the work must survive the program stopping, a coroutine is the wrong place for it: record it somewhere durable first, such as a database, and let a background worker with an owned scope pick it up."
  },
  "deeper": {
   "minutes": 10,
-  "body": "An owned scope does not have to be a separate root. `Job(parent)` creates a job that is a child of another one, so `CoroutineScope(dispatcher + Job(appJob))` gives you a component scope that is cancelled when the application job is cancelled. With a plain `Job`, the link also works upwards: a failure in the component cancels `appJob` too. That is usually not what you want for a long-lived component, which is one reason lesson 6 of this track reaches for `SupervisorJob(parent)`.\n\nThe tree is also how kotlinx.coroutines reports problems. When several children fail, the first exception wins, and the others are attached to it as suppressed exceptions. When you print a stack trace from a failed scope, look at the suppressed list before you conclude that only one thing went wrong.\n\nThe kotlinx-coroutines-debug module can dump the live coroutines of a running JVM with their states and creation stacks (`DebugProbes.dumpCoroutines()`). It is not on this lab's classpath, but it is the tool to reach for when you suspect a leak in a real service. Without it, the cheap trick from the Try it, walking `job.children` from a known root, already tells you how much work a component still has in flight. Exposing `inFlight` per partition worker on a health or metrics endpoint is a cheap way to spot a stuck consumer."
+  "body": "An owned scope doesn't have to be a separate root. `Job(parent)` creates a job that is a child of another one, so `CoroutineScope(dispatcher + Job(appJob))` gives you a scope for one part of the program that is cancelled when the application's job is cancelled. With a plain `Job`, the link also works upwards: a failure in that part cancels `appJob` too. That's usually not what you want for a long-lived part of a program, which is one reason lesson 6 of this track reaches for `SupervisorJob(parent)`.\n\nThe tree is also how kotlinx.coroutines reports problems. When several children fail, the first exception wins, and the others are attached to it as suppressed exceptions. When you print a stack trace from a failed scope, look at the suppressed list before you decide that only one thing went wrong.\n\nThe kotlinx-coroutines-debug module can print the live coroutines of a running JVM with their states and where each one was created (`DebugProbes.dumpCoroutines()`). It isn't on this lab's classpath, but it's the tool to reach for when you suspect a leak in a real program. Without it, the cheap trick from the Try it, walking `job.children` from a known root, already tells you how much work an object still has in flight. Showing a count like the lab's `inOven` on a status page is a cheap way to spot work that never finishes."
  },
  "sources": [
   {"title": "Coroutines basics: structured concurrency (Kotlin docs)", "url": "https://kotlinlang.org/docs/coroutines-basics.html"},

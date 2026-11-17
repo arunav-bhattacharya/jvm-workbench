@@ -13,7 +13,7 @@ import java.util.function.Consumer;
 
 public class CallbackBridgeJava {
     /** A bakery's ordering library with a callback API. It answers after 1 second, on its own thread. */
-    static final class Sdk {
+    static final class BakerySdk {
         private final ScheduledExecutorService pool = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "bakery-sdk");
             t.setDaemon(true);
@@ -30,14 +30,14 @@ public class CallbackBridgeJava {
     }
 
     // Wrapped as a future: the caller can time out, but nothing tells the bakery yet.
-    static CompletableFuture<String> orderAsync(Sdk bakery, String bread) {
+    static CompletableFuture<String> orderAsync(BakerySdk bakery, String bread) {
         CompletableFuture<String> result = new CompletableFuture<>();
         Runnable cancel = bakery.order(bread, result::complete);
         return result;
     }
 
     public static void main(String[] args) {
-        Sdk bakery = new Sdk();
+        BakerySdk bakery = new BakerySdk();
         long t0 = System.nanoTime();
         try {
             orderAsync(bakery, "sourdough").orTimeout(100, TimeUnit.MILLISECONDS).join();

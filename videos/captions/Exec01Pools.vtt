@@ -1,185 +1,345 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.030
-Your service has 5,000 tiny tasks.
+00:00:02.700 --> 00:00:05.475
+Picture a restaurant with a strange manager.
 
 2
-00:00:05.030 --> 00:00:09.348
-Run each one on a brand-new thread, and look at what one costs.
+00:00:05.475 --> 00:00:08.187
+For every order, he hires a brand-new cook.
 
 3
-00:00:09.567 --> 00:00:16.677
-Starting a platform thread means a system call to the OS, a new stack, and an entry in the OS scheduler.
+00:00:08.187 --> 00:00:12.917
+The cook signs a contract, puts on an apron, cooks one dish, and goes home.
 
 4
-00:00:16.900 --> 00:00:19.624
-Then the task runs, for a few microseconds.
+00:00:13.133 --> 00:00:16.418
+For a slow roast, all that paperwork hardly matters.
 
 5
-00:00:19.624 --> 00:00:21.777
-Then all of it is torn down again.
+00:00:16.418 --> 00:00:20.144
+For a side salad, the contract takes longer than the salad.
 
 6
-00:00:22.000 --> 00:00:25.484
-Most of that time goes to the thread, not the work.
+00:00:20.367 --> 00:00:27.575
+Plenty of Java code works like this manager: for each task, a piece of work to run, it starts a new thread.
 
 7
-00:00:25.484 --> 00:00:30.471
-Now do it 5,000 times, and compare four threads that are kept and reused.
+00:00:27.575 --> 00:00:28.518
+It's one line.
 
 8
-00:00:30.471 --> 00:00:31.769
-How big is the gap?
+00:00:28.518 --> 00:00:31.684
+So here's a question we're a little shy to ask.
 
 9
-00:00:33.400 --> 00:00:39.984
-On a 4-core machine: half a second to a second and a half with a new thread each time.
+00:00:31.684 --> 00:00:33.705
+How expensive can one line be?
 
 10
-00:00:39.984 --> 00:00:42.587
-6 to 25 ms on four reused threads.
+00:00:36.500 --> 00:00:37.765
+Let's map it first.
 
 11
-00:00:43.500 --> 00:00:45.097
-A thread pool fixes this.
+00:00:37.765 --> 00:00:43.024
+A cook is a thread, one path of work running beside others in the same program.
 
 12
-00:00:45.097 --> 00:00:47.972
-It starts a few threads once, and keeps them.
+00:00:43.024 --> 00:00:44.288
+An order is a task.
 
 13
-00:00:48.200 --> 00:00:49.690
-Tasks go into a queue.
+00:00:44.288 --> 00:00:47.151
+And hiring a cook is starting a new thread.
 
 14
-00:00:49.690 --> 00:00:53.888
-Each worker runs one loop: take a task, run it, take the next.
+00:00:47.367 --> 00:00:53.188
+An ordinary Java thread is a platform thread, which wraps one thread of the operating system.
 
 15
-00:00:54.800 --> 00:00:57.694
-Four workers, so at most four tasks run at once.
+00:00:53.188 --> 00:00:57.757
+Starting one is a trip into the kernel, the core of the operating system.
 
 16
-00:00:57.694 --> 00:01:00.829
-When the queue is empty, take blocks, and they wait.
+00:00:57.757 --> 00:01:03.202
+The new thread gets its own stack, the memory for its method calls, with 1 MB reserved.
 
 17
-00:01:01.033 --> 00:01:02.839
-Now the service is stopping.
+00:01:03.202 --> 00:01:07.959
+And it gets a place in the scheduler, which picks the thread that runs next.
 
 18
-00:01:02.839 --> 00:01:05.676
-Five tasks are queued, and four are running.
+00:01:08.167 --> 00:01:13.896
+That's the contract and the apron, and they're torn down and paid again for every dish.
 
 19
-00:01:05.900 --> 00:01:07.290
-main calls shutdown.
+00:01:13.896 --> 00:01:16.793
+The round trip takes about 130 microseconds.
 
 20
-00:01:07.290 --> 00:01:09.305
-Does it wait for those tasks?
+00:01:16.793 --> 00:01:21.007
+Our tasks are side salads, a few nanoseconds of arithmetic each.
 
 21
-00:01:11.133 --> 00:01:11.377
-No.
+00:01:21.007 --> 00:01:24.300
+So each task pays thousands of times its own cost.
 
 22
-00:01:11.377 --> 00:01:15.027
-shutdown closes the door and returns at once.
+00:01:24.533 --> 00:01:27.217
+What we want is the way real kitchens work.
 
 23
-00:01:15.027 --> 00:01:16.892
-A new task is rejected.
+00:01:27.217 --> 00:01:30.712
+They hire a team of cooks once, say four, and keep them.
 
 24
-00:01:17.100 --> 00:01:19.699
-The queued and running tasks still finish.
+00:01:30.933 --> 00:01:33.823
+Every order goes on a ticket, clipped to a rail.
 
 25
-00:01:19.699 --> 00:01:23.535
-To wait for that, main calls awaitTermination, with a timeout.
+00:01:33.823 --> 00:01:38.819
+A cook with free hands takes the next ticket, cooks it, and comes back for another.
 
 26
-00:01:23.767 --> 00:01:29.471
-When the last worker exits, the pool is terminated, and awaitTermination returns true.
+00:01:39.033 --> 00:01:40.305
+That's a thread pool.
 
 27
-00:01:29.471 --> 00:01:32.655
-If the timeout runs out first, it returns false.
+00:01:40.305 --> 00:01:45.331
+Each of its threads runs one loop: take a task from a queue, run it, take the next.
 
 28
-00:01:33.667 --> 00:01:35.625
-shutdownNow is the hard stop.
+00:01:45.331 --> 00:01:50.841
+The cooks are the threads, the rail is the queue, and the number of cooks is the pool size.
 
 29
-00:01:35.625 --> 00:01:41.296
-It closes the door, empties the queue, and hands back the five tasks that never ran.
+00:01:50.841 --> 00:01:53.929
+It also caps how many tasks run at the same moment.
 
 30
-00:01:41.500 --> 00:01:44.039
-Then it interrupts the four running tasks.
+00:01:54.133 --> 00:01:56.183
+So let's put a price on it.
 
 31
-00:01:44.039 --> 00:01:45.913
-An interrupt is only a request.
+00:01:56.183 --> 00:02:04.153
+The lesson's demo runs 5,000 tiny tasks on 4 cores, first with a new thread each, then on a pool of four.
 
 32
-00:01:45.913 --> 00:01:49.057
-Three were blocked in calls that check it, and stop.
+00:02:04.153 --> 00:02:06.734
+How many times faster is the pool?
 
 33
-00:01:49.057 --> 00:01:52.321
-One is in a loop that never checks, and keeps running.
+00:02:06.734 --> 00:02:07.189
+Twice?
 
 34
-00:01:53.333 --> 00:01:55.547
-The usual idiom puts them together.
+00:02:07.189 --> 00:02:07.948
+Ten times?
 
 35
-00:01:55.547 --> 00:01:59.341
-shutdown, wait a while, then shutdownNow for the stragglers.
+00:02:10.733 --> 00:02:13.832
+Here's one run, on a busy machine.
 
 36
-00:01:59.567 --> 00:02:00.197
-The rule.
+00:02:13.832 --> 00:02:17.295
+A new thread each: 2,635 milliseconds.
 
 37
-00:02:00.197 --> 00:02:03.840
-shutdown stops new work, and the queue still drains.
+00:02:17.295 --> 00:02:18.480
+The pool: 44.
 
 38
-00:02:03.840 --> 00:02:07.273
-shutdownNow also drops the queue, and interrupts.
+00:02:18.480 --> 00:02:25.224
+Over two rounds, that's 60 to 150 times faster, for exactly the same work.
 
 39
-00:02:07.273 --> 00:02:08.533
-Neither one waits.
+00:02:25.433 --> 00:02:29.088
+A quiet machine is faster at both, and the gap stays huge.
 
 40
-00:02:08.533 --> 00:02:10.075
-awaitTermination does.
+00:02:29.088 --> 00:02:32.807
+So yes, the contracts really did cost more than the salads.
 
 41
-00:02:10.900 --> 00:02:12.062
-Check yourself.
+00:02:33.033 --> 00:02:37.201
+There's a second cost, and it hides until the busiest hour.
 
 42
-00:02:12.062 --> 00:02:16.480
-main returns, and nobody called shutdown on a fixed pool.
+00:02:37.201 --> 00:02:39.532
+A thread per task has no ceiling.
 
 43
-00:02:16.480 --> 00:02:17.875
-Does the JVM exit?
+00:02:39.532 --> 00:02:43.912
+If 3,000 orders arrive at once, the manager hires 3,000 cooks.
 
 44
-00:02:20.600 --> 00:02:20.827
-No.
+00:02:44.133 --> 00:02:52.618
+Something runs out first: the operating system's limit on threads, memory for their stacks, or time spent switching between them.
 
 45
-00:02:20.827 --> 00:02:23.474
-Its workers are not daemon threads.
+00:02:52.618 --> 00:02:58.867
+In Java, the first sign is often an OutOfMemoryError that says: unable to create native thread.
 
 46
-00:02:23.474 --> 00:02:27.255
-They wait in take forever, and keep the JVM alive.
+00:02:59.100 --> 00:03:07.858
+With a pool, those 3,000 orders become 3,000 tickets on the rail, not 3,000 cooks squeezed into a kitchen with four stoves.
+
+47
+00:03:07.858 --> 00:03:11.490
+So a thread per tiny task costs more than the task.
+
+48
+00:03:11.490 --> 00:03:14.053
+Create threads once, and reuse them.
+
+49
+00:03:14.267 --> 00:03:15.937
+Every kitchen also closes.
+
+50
+00:03:15.937 --> 00:03:21.011
+The gentle way: lock the front door, but cook every ticket already on the rail.
+
+51
+00:03:21.011 --> 00:03:25.636
+The hard way: hand the waiting tickets back, and tell the cooks to stop.
+
+52
+00:03:25.867 --> 00:03:28.515
+Java's gentle close is called shutdown.
+
+53
+00:03:28.515 --> 00:03:37.207
+The lesson's demo gives two cooks six orders of 300 milliseconds each, then calls shutdown, and prints the time when it returns.
+
+54
+00:03:37.207 --> 00:03:38.089
+When is that?
+
+55
+00:03:40.867 --> 00:03:44.411
+At 115 milliseconds, before a single order is cooked.
+
+56
+00:03:44.411 --> 00:03:48.891
+Then a seventh order is turned away, because the kitchen is closed.
+
+57
+00:03:48.891 --> 00:03:54.241
+And the six on the rail still get cooked, two at a time, 300 milliseconds apart.
+
+58
+00:03:54.467 --> 00:03:57.136
+So shutdown locks the door and returns.
+
+59
+00:03:57.136 --> 00:03:58.574
+It waits for nothing.
+
+60
+00:03:58.574 --> 00:04:02.749
+Waiting is a separate call, awaitTermination, with a timeout.
+
+61
+00:04:02.749 --> 00:04:07.677
+Here it returned true at 1,007 milliseconds, right after the last order.
+
+62
+00:04:07.900 --> 00:04:09.776
+The hard close is shutdownNow.
+
+63
+00:04:09.776 --> 00:04:13.029
+In a second run, it's called after 100 milliseconds.
+
+64
+00:04:13.029 --> 00:04:18.032
+It hands back the four tickets that never started, and interrupts the two cooks.
+
+65
+00:04:18.233 --> 00:04:20.857
+An interrupt is a polite request to stop.
+
+66
+00:04:20.857 --> 00:04:26.232
+Orders 1 and 2 were waiting out their 300 milliseconds, so they woke up and stopped.
+
+67
+00:04:26.232 --> 00:04:28.280
+Here the kitchen picture breaks.
+
+68
+00:04:28.280 --> 00:04:30.392
+A real cook hears you shout stop.
+
+69
+00:04:30.392 --> 00:04:34.935
+A Java task hears it only if it checks, or waits in a method that does.
+
+70
+00:04:34.935 --> 00:04:37.431
+A loop that never checks keeps cooking.
+
+71
+00:04:37.633 --> 00:04:39.657
+And if you never close the pool?
+
+72
+00:04:39.657 --> 00:04:42.376
+Then you meet the most loyal cooks in town.
+
+73
+00:04:42.376 --> 00:04:47.625
+Its threads aren't daemon threads, the background helpers the JVM doesn't wait for.
+
+74
+00:04:47.625 --> 00:04:53.191
+So after main returns, they wait by the empty rail forever, and the program never exits.
+
+75
+00:04:53.400 --> 00:04:58.432
+In code, since JDK 19, put the pool in try-with-resources, or Kotlin's use.
+
+76
+00:04:58.432 --> 00:05:02.458
+At the end, close calls shutdown, then waits for every task.
+
+77
+00:05:02.458 --> 00:05:09.569
+With a deadline, call shutdown, then awaitTermination with a timeout, then shutdownNow for the stragglers.
+
+78
+00:05:09.800 --> 00:05:11.947
+So, how expensive can one line be?
+
+79
+00:05:11.947 --> 00:05:16.493
+A new thread per tiny task costs more than the task, and has no ceiling.
+
+80
+00:05:16.493 --> 00:05:23.943
+Hire the cooks once, give them one rail, and at closing time, lock the door, and then wait for the last cook to leave.
+
+81
+00:05:24.167 --> 00:05:25.022
+Quick check.
+
+82
+00:05:25.022 --> 00:05:28.941
+A pool of 4 has 10 tasks waiting, each one second long.
+
+83
+00:05:28.941 --> 00:05:31.650
+main calls shutdown, then prints done.
+
+84
+00:05:31.650 --> 00:05:33.217
+When does done appear?
+
+85
+00:05:36.200 --> 00:05:36.926
+Right away.
+
+86
+00:05:36.926 --> 00:05:42.144
+shutdown only locks the door, and the tasks keep running after done is printed.

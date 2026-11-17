@@ -48,9 +48,9 @@ One morning the counter opens the box for "today's apple" to write the sign, and
 
 A box declared to hold `Any` is a box with no label. The compiler lets anything in, and the mistake waits for whoever opens it. It's an easy trap, because `Any` feels flexible.
 
-Part 2 ended with a service that kept its promises about time. Part 3 starts with promises about types. In this lesson, we'll watch an unlabeled box fail far from its bug, label it with a type parameter, let the compiler fill in labels, and see how Java writes the same. Before we start, make a guess, and keep it in mind."""
+Part 2 ended with a service that answered every request inside its deadline, even under load. Those were promises about time. Part 3 starts with promises about types. In this lesson, we'll watch an unlabeled box fail far from its bug, label it with a type parameter, let the compiler fill in labels, and see how Java writes the same. Before we start, make a guess, and keep it in mind."""
 
-S1 = """Before generics arrived in Java 5, a container that could hold anything held `Object`, and Kotlin's version of that habit is `Any`. You put a value in, and you cast it back when you take it out. A **cast**, `(String)` in Java or `as String` in Kotlin, tells the compiler "trust me, this is a `String`". The real check happens later, while the program runs.
+S1 = """Java didn't always have generics, the feature this track is about: classes and functions with a blank where a type goes. Before Java 5, a container that could hold anything held `Object`, and Kotlin's version of that habit is `Any`. You put a value in, and you cast it back when you take it out. A **cast**, `(String)` in Java or `as String` in Kotlin, tells the compiler "trust me, this is a `String`". The real check happens later, while the program runs.
 
 Here is the storeroom from the opening, written that way. `restock` is the back room, filling the box before the shop opens. `signFor` is the counter, reading the box to write the sign for the day's apple:
 
@@ -187,7 +187,7 @@ A function can have several type parameters, separated by commas: `fun <T, K> in
 
 A method can also have a type parameter that its class doesn't have. In `fun <C> mapSecond(f: (B) -> C): Duo<A, C>` on a class `Duo<A, B>`, `A` and `B` belong to the class. `C` belongs to this one call, and the lambda you pass decides what it is. You'll write that method in the lab.
 
-Here the box picture breaks, and the break matters later. A real label stays on the box, and anyone can read it next week. On the JVM, the compiler checks the label and then tears it off. At run time there is only one `Box` class, and the `<String>` part is gone. Lesson 8 of this track, on type erasure, shows what that costs you.
+Here the box picture breaks, and the break matters later. A real label stays on the box, and anyone can read it next week. On the JVM, the program that runs compiled Kotlin and Java code, the compiler checks the label and then tears it off. At run time there is only one `Box` class, and the `<String>` part is gone. Lesson 8 of this track, on type erasure, shows what that costs you.
 
 Writing every label by hand would get tiring, though. Most of the time, the compiler fills in the blank for you."""
 
@@ -205,7 +205,7 @@ val box = Box("Gala")                            // Box<String>
 val prices = mapOf("apple" to 40, "mango" to 250L)  // Map<String, Long>
 ```
 
-Look at the last line in each. Kotlin sees `250L`, a `Long`, in the same map, and makes the literal `40` a `Long` too, so both prices fit one type. Java never changes a literal's type: `40` stays an `Integer`, and javac infers a long type for the values that you couldn't write yourself.
+Look at the last line in each. Kotlin sees `250L`, a `Long`, in the same map, and makes the literal `40` a `Long` too, so both prices fit one type. Java never changes a literal's type: `40` stays an `Integer`, so javac infers a long type for the values, one you couldn't write yourself.
 
 When the values really have different types, the compiler picks the closest type they share:
 
@@ -284,7 +284,7 @@ In a Java method, `<T>` comes before the return type: `static <T> T firstOrNull(
 
 Java needs the **diamond**, the empty `<>` in `new Box<>("Gala")`, which asks javac to infer the type argument. Leave it out, and `new Box("Gala")` is a **raw type**: `Box` with its generics switched off. Kotlin has no `new` and no raw types, so `Box("Gala")` is always a `Box<String>`.
 
-Java type arguments must be reference types, that is, classes, never the primitive types such as `int` or `double`. `List<int>` is an error (`unexpected type`, `required: reference`, `found: int`), so you write `List<Integer>`. In Kotlin you write `List<Int>`, and the compiler stores boxed `java.lang.Integer` objects for you.
+Java type arguments must be reference types, that is, classes, never the primitive types such as `int` or `double`. `List<int>` is an error (`unexpected type`, `required: reference`, `found: int`), so you write `List<Integer>`. In Kotlin you write `List<Int>`, and the compiler stores boxed `java.lang.Integer` objects for you, each number wrapped in a small object.
 
 Raw types are the unlabeled boxes Java kept, so that code from before Java 5 still compiles. A raw `List` accepts anything, and javac only warns. Here is a helper written the old way, from `RawTypeDemo` in the labs, with its Kotlin twin:
 
@@ -329,7 +329,7 @@ GALA
 ClassCastException: class java.lang.Integer cannot be cast to class java.lang.String (...)
 ```
 
-Why does the read fail and not the add? At run time the list holds plain `Object` references, so `add(42)` has nothing to check against. Where your code reads an element as a `String`, javac adds a hidden cast to `String`, and that cast is what throws. Lesson 8 of this track shows that cast in the bytecode. It is the `AnyBox` failure again, hidden inside a type that claims to be safe.
+Why does the read fail and not the add? At run time the list holds plain `Object` references, so `add(42)` has nothing to check against. Where your code reads an element as a `String`, javac adds a hidden cast to `String`, and that cast is what throws. Lesson 8 of this track shows that cast in the bytecode, the instructions the compilers write into class files. It is the `AnyBox` failure again, hidden inside a type that claims to be safe.
 
 So when a Kotlin program gets a `ClassCastException` on a line with no cast in it, look for a raw type or an unchecked cast in the code underneath.
 
@@ -545,10 +545,10 @@ L = {
             "options": [
                 "Make the field `seen` volatile",
                 "Replace `seen` with a `Collections.synchronizedSet`",
-                "Ship only after `seen.add(id)` returned true: `if (seen.add(id)) ship(order)`",
-                "Make `seen` a `MutableSet<Any>` so both copies fit"
+                "Make `seen` a `MutableSet<Any>` so both copies fit",
+                "Ship only after `seen.add(id)` returned true: `if (seen.add(id)) ship(order)`"
             ],
-            "answer": 2,
+            "answer": 3,
             "why": "This is check-then-act. Each set call is atomic on its own, but two calls in a row are not. `add` checks and inserts in one step and returns false for the second copy, so only one thread ships. `volatile` and a synchronized wrapper leave the gap between the two calls open.",
             "from": "conc-03"
         }
