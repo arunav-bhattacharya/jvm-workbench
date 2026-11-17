@@ -135,7 +135,7 @@ def dim(color, k=0.14):
 
 
 # one colour per thing (cook blue as in the coroutines track; failure red, cancellation yellow)
-COOK, DINER, BREAD, NETC, BAD, CANCEL, CALLER, NOTE = BLUE_M, GREEN_M, GOLD_M, TEAL_M, RED_M, YELLOW_M, GREY_A, GREY_B
+COOK, DINER, BREAD, NETC, BAD, CANCEL, CALLER, NOTE = BLUE_M, TEAL_M, GOLD_M, GREEN_M, RED_M, YELLOW_M, GREY_A, GREY_B
 
 
 def person(color=COOK, s=1.0):
@@ -323,7 +323,7 @@ class Flow06Upstream(Narrated):
         fit(q, 9.0)
         self.say("shyq")
         self.at_text("A timeout is", lead=0.3)
-        self.play(Indicate(c_flow[2][9:24], color=CANCEL), run_time=0.8)
+        self.play(Indicate(c_flow[2][5:20], color=CANCEL), run_time=0.8)
         self.at_text("And catch", lead=0.3)
         self.play(Indicate(c_catch, color=NETC, scale_factor=1.04), run_time=0.8)
         self.at_text("So doesn't", lead=0.3)

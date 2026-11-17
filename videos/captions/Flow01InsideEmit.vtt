@@ -1,15 +1,15 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.876
+00:00:02.700 --> 00:00:05.843
 Remember the home cook from the coroutines track?
 
 2
-00:00:05.876 --> 00:00:10.173
+00:00:05.843 --> 00:00:10.139
 Tonight, her recipe card lists three dishes: soup, salad and roast.
 
 3
-00:00:10.173 --> 00:00:12.353
+00:00:10.139 --> 00:00:12.320
 The card on its own cooks nothing.
 
 4
@@ -21,361 +21,361 @@ Then a diner sits down at the table and asks to be served.
 Only now does the cook start, at the top of the card.
 
 6
-00:00:19.467 --> 00:00:22.173
+00:00:19.533 --> 00:00:22.239
 Here's a question that's easy to be shy about.
 
 7
-00:00:22.173 --> 00:00:25.585
+00:00:22.239 --> 00:00:25.651
 In a Kotlin flow, the cook hands over each dish with emit.
 
 8
-00:00:25.585 --> 00:00:30.291
+00:00:25.651 --> 00:00:30.357
 So when she hands over the soup, does she put it down and get on with the salad?
 
 9
-00:00:30.291 --> 00:00:31.291
+00:00:30.357 --> 00:00:31.357
 Or does she wait?
 
 10
-00:00:34.867 --> 00:00:37.402
+00:00:34.833 --> 00:00:37.369
 First, let's map the kitchen onto code.
 
 11
-00:00:37.402 --> 00:00:41.043
+00:00:37.369 --> 00:00:41.010
 A flow is a stream of values, handed over one at a time.
 
 12
-00:00:41.043 --> 00:00:45.724
+00:00:41.010 --> 00:00:45.691
 flow { } is the recipe card: it stores the cooking, and runs none of it.
 
 13
-00:00:45.867 --> 00:00:49.048
+00:00:45.900 --> 00:00:49.081
 The cook is the producer, the code inside flow { }.
 
 14
-00:00:49.048 --> 00:00:52.540
+00:00:49.081 --> 00:00:52.574
 The diner is the collector, the code inside collect { }.
 
 15
-00:00:52.540 --> 00:00:55.596
+00:00:52.574 --> 00:00:55.630
 Calling collect is the diner asking to be served.
 
 16
-00:00:55.596 --> 00:00:57.904
+00:00:55.630 --> 00:00:57.937
 And emit hands one dish to the diner.
 
 17
-00:00:58.800 --> 00:01:01.393
+00:00:58.867 --> 00:01:01.460
 The lesson's DinnerOrder makes this visible.
 
 18
-00:01:01.393 --> 00:01:06.874
+00:01:01.460 --> 00:01:06.941
 The cook prints a line before and after each emit, and the diner prints a line for each dish.
 
 19
-00:01:06.874 --> 00:01:08.996
+00:01:06.941 --> 00:01:09.063
 In what order do the lines come out?
 
 20
-00:01:12.200 --> 00:01:13.813
+00:01:12.233 --> 00:01:13.846
 Two guesses are tempting.
 
 21
-00:01:13.813 --> 00:01:19.232
+00:01:13.846 --> 00:01:19.265
 One: all three cook lines come first, as if emit put each dish on a shelf for later.
 
 22
-00:01:19.400 --> 00:01:25.529
+00:01:19.467 --> 00:01:25.596
 Two: emit(soup) returned comes before eat soup, as if the cook handed the bowl over and walked off.
 
 23
-00:01:25.667 --> 00:01:27.415
+00:01:25.800 --> 00:01:27.548
 Here's what it really prints.
 
 24
-00:01:27.415 --> 00:01:31.273
+00:01:27.548 --> 00:01:31.406
 flow built comes first, so building the flow ran nothing at all.
 
 25
-00:01:31.273 --> 00:01:34.045
+00:01:31.406 --> 00:01:34.179
 And eat soup comes before emit(soup) returned.
 
 26
-00:01:34.045 --> 00:01:36.637
+00:01:34.179 --> 00:01:36.771
 The diner ate while emit was still running.
 
 27
-00:01:36.800 --> 00:01:40.721
+00:01:37.000 --> 00:01:40.921
 That first line is what cold means: no collect, no cooking.
 
 28
-00:01:40.721 --> 00:01:44.842
+00:01:40.921 --> 00:01:45.042
 And a second collect cooks the whole card again, from the top.
 
 29
-00:01:44.842 --> 00:01:46.437
+00:01:45.042 --> 00:01:46.637
 Two diners, two dinners.
 
 30
-00:01:46.437 --> 00:01:47.899
+00:01:46.637 --> 00:01:48.099
 Nobody gets leftovers.
 
 31
-00:01:48.800 --> 00:01:51.304
+00:01:49.000 --> 00:01:51.504
 So why can't the cook put the bowl down?
 
 32
-00:01:51.304 --> 00:01:54.872
+00:01:51.504 --> 00:01:55.072
 Look around: no counter, no shelf, not even a windowsill.
 
 33
-00:01:54.872 --> 00:01:58.252
+00:01:55.072 --> 00:01:58.452
 Whoever designed this kitchen never cooked for guests.
 
 34
-00:01:58.252 --> 00:02:01.883
+00:01:58.452 --> 00:02:02.083
 So the only place a dish can go is into the diner's hands.
 
 35
-00:02:02.067 --> 00:02:05.955
+00:02:02.300 --> 00:02:06.188
 In code, emit is a plain function call into the collector.
 
 36
-00:02:05.955 --> 00:02:11.787
+00:02:06.188 --> 00:02:12.020
 The diner's code runs inside emit, and emit returns only when the diner's code returns.
 
 37
-00:02:11.933 --> 00:02:14.781
+00:02:12.233 --> 00:02:15.081
 Draw each call that's still running as a box.
 
 38
-00:02:14.781 --> 00:02:15.983
+00:02:15.081 --> 00:02:16.283
 main calls collect.
 
 39
-00:02:15.983 --> 00:02:18.831
+00:02:16.283 --> 00:02:19.131
 collect runs the flow block: that's the cook.
 
 40
-00:02:18.831 --> 00:02:21.552
+00:02:19.131 --> 00:02:21.852
 The cook calls emit: her walk to the table.
 
 41
-00:02:21.552 --> 00:02:25.919
+00:02:21.852 --> 00:02:26.219
 And inside emit runs your collect lambda: the diner, eating the soup.
 
 42
-00:02:26.067 --> 00:02:30.530
+00:02:26.433 --> 00:02:30.897
 It's all one thread, the worker that runs the code, and one call stack.
 
 43
-00:02:30.530 --> 00:02:33.611
+00:02:30.897 --> 00:02:33.978
 emit can't return until the innermost box closes.
 
 44
-00:02:33.611 --> 00:02:35.623
+00:02:33.978 --> 00:02:35.989
 So the cook stands at the table.
 
 45
-00:02:36.533 --> 00:02:38.480
+00:02:36.900 --> 00:02:38.847
 Now let's put numbers on it.
 
 46
-00:02:38.480 --> 00:02:41.748
+00:02:38.847 --> 00:02:42.114
 The cook needs 100 milliseconds to cook a dish.
 
 47
-00:02:41.748 --> 00:02:44.737
+00:02:42.114 --> 00:02:45.104
 The diner needs 300 milliseconds to eat it.
 
 48
-00:02:44.737 --> 00:02:46.684
+00:02:45.104 --> 00:02:47.050
 The first emit comes at 100.
 
 49
-00:02:46.684 --> 00:02:48.769
+00:02:47.050 --> 00:02:49.136
 When does the second one come?
 
 50
-00:02:52.000 --> 00:02:57.910
+00:02:52.333 --> 00:02:58.243
 At 100, the cook calls emit with the soup, and stands at the table while the diner eats.
 
 51
-00:02:57.910 --> 00:03:01.805
+00:02:58.243 --> 00:03:02.139
 The diner finishes at 400, and only then does emit return.
 
 52
-00:03:02.000 --> 00:03:05.597
+00:03:02.367 --> 00:03:05.964
 Then the cook needs 100 more for the salad.
 
 53
-00:03:05.597 --> 00:03:09.027
+00:03:05.964 --> 00:03:09.394
 So the second emit comes at 500, not 200.
 
 54
-00:03:09.027 --> 00:03:13.796
+00:03:09.394 --> 00:03:14.163
 The roast goes out at 900, and the last bite is at 1,200.
 
 55
-00:03:13.933 --> 00:03:19.240
+00:03:14.367 --> 00:03:19.673
 The answer 200 pictures emit dropping the dish in a queue while the cook carries on.
 
 56
-00:03:19.240 --> 00:03:21.072
+00:03:19.673 --> 00:03:21.505
 A plain flow never does that.
 
 57
-00:03:21.667 --> 00:03:23.911
+00:03:22.133 --> 00:03:24.378
 Now read the rules off the picture.
 
 58
-00:03:23.911 --> 00:03:26.604
+00:03:24.378 --> 00:03:27.071
 A flow is sequential: one value at a time.
 
 59
-00:03:26.604 --> 00:03:32.055
+00:03:27.071 --> 00:03:32.521
 The salad can't start while emit(soup) is open, and the diner never holds two plates.
 
 60
-00:03:32.200 --> 00:03:34.871
+00:03:32.733 --> 00:03:35.405
 And a slow collector slows the producer.
 
 61
-00:03:34.871 --> 00:03:38.277
+00:03:35.405 --> 00:03:38.810
 The cook could serve a dish every 100 milliseconds.
 
 62
-00:03:38.277 --> 00:03:42.417
+00:03:38.810 --> 00:03:42.951
 Here she serves one every 400, because she waits at the table.
 
 63
-00:03:42.600 --> 00:03:44.620
+00:03:43.167 --> 00:03:45.186
 That has a name: backpressure.
 
 64
-00:03:44.620 --> 00:03:49.669
+00:03:45.186 --> 00:03:50.236
 A slow consumer slows the producer down, so values don't pile up in memory.
 
 65
-00:03:49.669 --> 00:03:53.372
+00:03:50.236 --> 00:03:53.939
 A plain flow gets it for free, with no extra machinery.
 
 66
-00:03:53.533 --> 00:03:56.504
+00:03:54.167 --> 00:03:57.137
 Cold, one at a time, and slowed by the diner.
 
 67
-00:03:56.504 --> 00:04:00.992
+00:03:57.137 --> 00:04:01.625
 Three rules, and all three come from one fact: emit is a plain call.
 
 68
-00:04:01.133 --> 00:04:02.647
+00:04:01.833 --> 00:04:03.347
 But free isn't fast.
 
 69
-00:04:02.647 --> 00:04:07.944
+00:04:03.347 --> 00:04:08.644
 Three dishes took 1,200 milliseconds, where the diner alone needs 900.
 
 70
-00:04:07.944 --> 00:04:13.015
+00:04:08.644 --> 00:04:13.715
 The times add up: each dish costs the cook's time plus the diner's.
 
 71
-00:04:13.200 --> 00:04:15.652
+00:04:13.933 --> 00:04:16.385
 And careful where you put a stopwatch.
 
 72
-00:04:15.652 --> 00:04:18.168
+00:04:16.385 --> 00:04:18.902
 Say the cook wraps a timer around emit.
 
 73
-00:04:18.168 --> 00:04:23.007
+00:04:18.902 --> 00:04:23.741
 It says 300 milliseconds per dish, so she goes shopping for a faster stove.
 
 74
-00:04:23.007 --> 00:04:25.782
+00:04:23.741 --> 00:04:26.515
 But a timer around emit measures the diner.
 
 75
-00:04:25.782 --> 00:04:27.847
+00:04:26.515 --> 00:04:28.580
 The stove was never the problem.
 
 76
-00:04:28.000 --> 00:04:32.949
+00:04:28.800 --> 00:04:33.749
 If you want the cook to work ahead, you need a shelf between the kitchen and the table.
 
 77
-00:04:32.949 --> 00:04:37.272
+00:04:33.749 --> 00:04:38.072
 Lesson 4 of this track adds one, called a buffer, and pays for it in memory.
 
 78
-00:04:38.200 --> 00:04:39.704
+00:04:39.000 --> 00:04:40.504
 Here the picture breaks.
 
 79
-00:04:39.704 --> 00:04:42.713
+00:04:40.504 --> 00:04:43.513
 A real cook at the table is lost to the kitchen.
 
 80
-00:04:42.713 --> 00:04:48.417
+00:04:43.513 --> 00:04:49.217
 But a coroutine, work that can pause and carry on later, holds no thread while it's paused.
 
 81
-00:04:48.600 --> 00:04:55.363
+00:04:49.433 --> 00:04:56.196
 So while the diner waits, say on a delay or a slow answer, the thread goes off and runs other coroutines.
 
 82
-00:04:55.363 --> 00:04:57.424
+00:04:56.196 --> 00:04:58.257
 Only this one dinner is held up.
 
 83
-00:04:58.333 --> 00:05:00.006
+00:04:59.167 --> 00:05:00.839
 Here's the dinner in code.
 
 84
-00:05:00.006 --> 00:05:03.479
+00:05:00.839 --> 00:05:04.312
 In Kotlin, emit sits in the middle of the cook's loop.
 
 85
-00:05:03.479 --> 00:05:11.004
+00:05:04.312 --> 00:05:11.837
 Java has no Flow, so the cook calls the diner's Consumer, and accept, like emit, returns only when the diner is done.
 
 86
-00:05:11.800 --> 00:05:14.948
+00:05:12.667 --> 00:05:15.815
 So, does the cook put the soup down and carry on?
 
 87
-00:05:14.948 --> 00:05:16.875
+00:05:15.815 --> 00:05:17.742
 No, there's nowhere to put it.
 
 88
-00:05:16.875 --> 00:05:18.867
+00:05:17.742 --> 00:05:19.733
 The collector runs inside emit.
 
 89
-00:05:18.867 --> 00:05:24.520
+00:05:19.733 --> 00:05:25.387
 So a plain flow is cold, serves one dish at a time, and moves at the speed of its diner.
 
 90
-00:05:24.667 --> 00:05:25.559
+00:05:25.600 --> 00:05:26.492
 Quick check.
 
 91
-00:05:25.559 --> 00:05:30.689
+00:05:26.492 --> 00:05:31.623
 The cook needs 50 milliseconds per dish, and the diner 200 to eat it.
 
 92
-00:05:30.689 --> 00:05:31.433
+00:05:31.623 --> 00:05:32.366
 No buffer.
 
 93
-00:05:31.433 --> 00:05:33.589
+00:05:32.366 --> 00:05:34.523
 How long do four dishes take?
 
 94
-00:05:36.800 --> 00:05:38.248
+00:05:37.700 --> 00:05:39.148
 1,000 milliseconds.
 
 95
-00:05:38.248 --> 00:05:44.728
+00:05:39.148 --> 00:05:45.628
 Each dish costs 50 plus 200, because the cook waits inside emit while the diner eats.

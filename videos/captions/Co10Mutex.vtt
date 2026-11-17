@@ -1,27 +1,27 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:09.350
+00:00:02.700 --> 00:00:09.317
 Earlier in this lesson, 100 helpers counted a million peas into one pot, all at the same time.
 
 2
-00:00:09.350 --> 00:00:12.377
+00:00:09.317 --> 00:00:12.344
 A plain variable lost about 17,000 of them.
 
 3
-00:00:12.377 --> 00:00:17.516
+00:00:12.344 --> 00:00:17.483
 Three tools counted every pea: an atomic, a Mutex, and a one-thread view.
 
 4
-00:00:17.667 --> 00:00:20.108
+00:00:17.700 --> 00:00:20.142
 That last one looks like the cheap fix.
 
 5
-00:00:20.108 --> 00:00:23.176
+00:00:20.142 --> 00:00:23.209
 So here's a question that's easy to be shy about.
 
 6
-00:00:23.176 --> 00:00:28.247
+00:00:23.209 --> 00:00:28.280
 If only one coroutine runs at a time, how can two of them still lose an addition?
 
 7
@@ -37,309 +37,309 @@ Before a big dinner, a shopping list hangs on the fridge, and helpers write down
 The house has one rule: only one person may hold the pen at a time.
 
 10
-00:00:43.533 --> 00:00:44.409
+00:00:43.567 --> 00:00:44.443
 Let's map it.
 
 11
-00:00:44.409 --> 00:00:50.069
+00:00:44.443 --> 00:00:50.102
 Each helper is a coroutine, a piece of work that can pause without holding a thread.
 
 12
-00:00:50.069 --> 00:00:52.023
+00:00:50.102 --> 00:00:52.056
 The list is the shared state.
 
 13
-00:00:52.023 --> 00:01:01.523
+00:00:52.056 --> 00:01:01.556
 And the house rule is a view like limitedParallelism(1), which runs one coroutine at a time: holding the pen means running on its one thread.
 
 14
-00:01:01.667 --> 00:01:02.847
+00:01:01.767 --> 00:01:02.947
 Now slow it down.
 
 15
-00:01:02.847 --> 00:01:05.001
+00:01:02.947 --> 00:01:05.101
 The list says flour, 200 grams.
 
 16
-00:01:05.001 --> 00:01:07.570
+00:01:05.101 --> 00:01:07.670
 Helper A takes the pen and reads 200.
 
 17
-00:01:07.570 --> 00:01:09.862
+00:01:07.670 --> 00:01:09.962
 How many grams is one more scoop?
 
 18
-00:01:09.862 --> 00:01:14.585
+00:01:09.962 --> 00:01:14.685
 She asks the recipe app, and while she waits, she puts the pen down.
 
 19
-00:01:14.733 --> 00:01:18.557
+00:01:14.900 --> 00:01:18.723
 Helper B picks it up, reads 200 too, and asks the app.
 
 20
-00:01:18.557 --> 00:01:23.159
+00:01:18.723 --> 00:01:23.325
 A gets her answer, 100 grams, takes the pen back, and writes 300.
 
 21
-00:01:23.159 --> 00:01:25.141
+00:01:23.325 --> 00:01:25.308
 Then B gets the same answer.
 
 22
-00:01:25.141 --> 00:01:26.557
+00:01:25.308 --> 00:01:26.724
 What does she write?
 
 23
-00:01:29.400 --> 00:01:30.688
+00:01:29.500 --> 00:01:30.788
 300, the same as A.
 
 24
-00:01:30.688 --> 00:01:33.062
+00:01:30.788 --> 00:01:33.162
 Two scoops needed, one on the list.
 
 25
-00:01:33.062 --> 00:01:37.199
+00:01:33.162 --> 00:01:37.299
 And nobody broke the rule: only one helper ever held the pen.
 
 26
-00:01:37.199 --> 00:01:42.013
+00:01:37.299 --> 00:01:42.113
 The rule was followed perfectly, and the cake will still come out flat.
 
 27
-00:01:42.200 --> 00:01:45.746
+00:01:42.333 --> 00:01:45.879
 So the point is, the rule guards the pen, not the addition.
 
 28
-00:01:45.746 --> 00:01:47.909
+00:01:45.879 --> 00:01:48.043
 And the pen went down in the middle.
 
 29
-00:01:48.800 --> 00:01:52.437
+00:01:48.967 --> 00:01:52.604
 Here's that addition, as the lab's ShoppingList starts out.
 
 30
-00:01:52.437 --> 00:01:54.040
+00:01:52.604 --> 00:01:54.207
 toGrams is the recipe app.
 
 31
-00:01:54.040 --> 00:02:02.239
+00:01:54.207 --> 00:02:02.405
 It's a suspend function, so the helper may pause there, at a suspension point, and while she's paused, the view runs the next helper.
 
 32
-00:02:02.400 --> 00:02:10.234
+00:02:02.633 --> 00:02:10.468
 The library's own documentation has a heading for this: limitedParallelism(1) is not a mutex, with an exclamation mark.
 
 33
-00:02:10.234 --> 00:02:13.592
+00:02:10.468 --> 00:02:13.825
 When the docs start shouting, it's worth listening.
 
 34
-00:02:14.333 --> 00:02:18.340
+00:02:14.633 --> 00:02:18.640
 The lesson's NotAMutex runs three helpers on a one-thread view.
 
 35
-00:02:18.340 --> 00:02:22.028
+00:02:18.640 --> 00:02:22.328
 Each prints read, waits 20 milliseconds, and prints write.
 
 36
-00:02:22.028 --> 00:02:24.572
+00:02:22.328 --> 00:02:24.872
 In what order do the six lines come out?
 
 37
-00:02:27.400 --> 00:02:29.733
+00:02:27.667 --> 00:02:30.000
 All three read before anyone wrote.
 
 38
-00:02:29.733 --> 00:02:32.000
+00:02:30.000 --> 00:02:32.267
 Three additions, and two are lost.
 
 39
-00:02:33.533 --> 00:02:37.604
+00:02:33.800 --> 00:02:37.870
 What we want is a helper who keeps the pen while she asks the app.
 
 40
-00:02:37.604 --> 00:02:39.762
+00:02:37.870 --> 00:02:40.029
 That's a Mutex, the coroutine lock.
 
 41
-00:02:39.762 --> 00:02:44.635
+00:02:40.029 --> 00:02:44.901
 withLock takes it, runs the block, and gives it back, even if the block throws.
 
 42
-00:02:44.635 --> 00:02:47.533
+00:02:44.901 --> 00:02:47.800
 The holder still pauses, but she keeps the pen.
 
 43
-00:02:47.733 --> 00:02:55.051
+00:02:48.033 --> 00:02:55.351
 The others wait without holding a thread, since waiting for a Mutex suspends, and they get the pen in the order they asked.
 
 44
-00:02:55.051 --> 00:02:59.096
+00:02:55.351 --> 00:02:59.396
 Under withLock, each helper reads and writes before the next begins.
 
 45
-00:03:02.133 --> 00:03:04.368
+00:03:02.200 --> 00:03:04.435
 The lab's solution goes one better.
 
 46
-00:03:04.368 --> 00:03:09.412
+00:03:04.435 --> 00:03:09.479
 Ask the app before you take the pen, then read and write with no pause between.
 
 47
-00:03:09.412 --> 00:03:11.711
+00:03:09.479 --> 00:03:11.777
 The lookups overlap, so it's faster.
 
 48
-00:03:12.467 --> 00:03:13.270
+00:03:12.600 --> 00:03:13.403
 Now the name.
 
 49
-00:03:13.270 --> 00:03:19.635
+00:03:13.403 --> 00:03:19.768
 Code that must run with nothing else touching the same state in the middle of it is a critical section.
 
 50
-00:03:19.635 --> 00:03:21.798
+00:03:19.768 --> 00:03:21.931
 And here's the rule for coroutines.
 
 51
-00:03:21.798 --> 00:03:26.680
+00:03:21.931 --> 00:03:26.813
 Every suspension point is a middle, even one hidden inside a function you call.
 
 52
-00:03:27.467 --> 00:03:28.370
+00:03:27.633 --> 00:03:28.536
 Two warnings.
 
 53
-00:03:28.370 --> 00:03:35.664
+00:03:28.536 --> 00:03:35.831
 A Mutex isn't reentrant: a helper who holds it and asks again waits forever, for the pen in her own hand.
 
 54
-00:03:35.664 --> 00:03:40.180
+00:03:35.831 --> 00:03:40.347
 In NotAMutex, the nested withLock gave up after 500 milliseconds.
 
 55
-00:03:40.333 --> 00:03:42.217
+00:03:40.567 --> 00:03:42.450
 And a lock has a price.
 
 56
-00:03:42.217 --> 00:03:47.949
+00:03:42.450 --> 00:03:48.182
 A lock for every single pea took 891 milliseconds, the atomic took 43.
 
 57
-00:03:47.949 --> 00:03:49.750
+00:03:48.182 --> 00:03:49.984
 One number: an atomic.
 
 58
-00:03:49.750 --> 00:03:52.371
+00:03:49.984 --> 00:03:52.604
 Several steps together: a Mutex.
 
 59
-00:03:53.133 --> 00:03:54.547
+00:03:53.433 --> 00:03:54.847
 The list is safe now.
 
 60
-00:03:54.547 --> 00:04:01.147
+00:03:54.847 --> 00:04:01.447
 Proving it in a test is harder: every lookup takes time, and real waits make tests slow and shaky.
 
 61
-00:04:01.333 --> 00:04:06.431
+00:04:01.667 --> 00:04:06.765
 A theatre solves this with a rehearsal: nobody waits three hours for the roast.
 
 62
-00:04:06.431 --> 00:04:08.109
+00:04:06.765 --> 00:04:08.443
 runTest is that rehearsal.
 
 63
-00:04:08.109 --> 00:04:14.111
+00:04:08.443 --> 00:04:14.444
 It skips every delay, and a virtual clock, a pretend one, jumps to the next delay that's due.
 
 64
-00:04:14.267 --> 00:04:18.044
+00:04:14.667 --> 00:04:18.444
 The lesson's VirtualTime holds a rehearsal dinner.
 
 65
-00:04:18.044 --> 00:04:23.784
+00:04:18.444 --> 00:04:24.184
 The soup simmers 1,000 milliseconds and seasons 200, then bread bakes 2,000.
 
 66
-00:04:23.784 --> 00:04:27.335
+00:04:24.184 --> 00:04:27.735
 Meanwhile, the roast cooks 3,000 and rests 500.
 
 67
-00:04:27.335 --> 00:04:29.525
+00:04:27.735 --> 00:04:29.925
 In what order do they finish?
 
 68
-00:04:32.667 --> 00:04:40.452
+00:04:33.000 --> 00:04:40.785
 Soup at 1,000 and 1,200, roast at 3,000, bread at 3,200, and the rested roast at 3,500.
 
 69
-00:04:40.452 --> 00:04:48.595
+00:04:40.785 --> 00:04:48.928
 Three and a half seconds of dinner, in about 20 real milliseconds after the library loaded.
 
 70
-00:04:48.733 --> 00:04:50.394
+00:04:49.133 --> 00:04:50.794
 Here the picture breaks.
 
 71
-00:04:50.394 --> 00:04:53.646
+00:04:50.794 --> 00:04:54.046
 The stage manager can only skip scenes he runs.
 
 72
-00:04:53.646 --> 00:05:00.497
+00:04:54.046 --> 00:05:00.897
 A delay on Dispatchers.Default stays real: a real second passed, and the virtual clock stayed at 0.
 
 73
-00:05:00.497 --> 00:05:02.435
+00:05:00.897 --> 00:05:02.835
 So pass your dispatchers in.
 
 74
-00:05:03.200 --> 00:05:07.816
+00:05:03.667 --> 00:05:08.283
 Here's the fixed addition in Kotlin, with Java's ReentrantLock below it.
 
 75
-00:05:07.816 --> 00:05:08.522
+00:05:08.283 --> 00:05:08.988
 Same shape.
 
 76
-00:05:08.522 --> 00:05:14.228
+00:05:08.988 --> 00:05:14.695
 But a Java thread waiting for the lock is blocked, and the same thread may take it twice.
 
 77
-00:05:15.000 --> 00:05:19.703
+00:05:15.500 --> 00:05:20.203
 So, if only one coroutine runs at a time, how can two lose an addition?
 
 78
-00:05:19.703 --> 00:05:23.611
+00:05:20.203 --> 00:05:24.111
 Because one at a time only holds between suspension points.
 
 79
-00:05:23.611 --> 00:05:25.797
+00:05:24.111 --> 00:05:26.297
 The pen goes down at every pause.
 
 80
-00:05:25.797 --> 00:05:27.784
+00:05:26.297 --> 00:05:28.284
 A Mutex keeps it in your hand.
 
 81
-00:05:27.933 --> 00:05:28.735
+00:05:28.500 --> 00:05:29.301
 Quick check.
 
 82
-00:05:28.735 --> 00:05:34.478
+00:05:29.301 --> 00:05:35.045
 On a one-thread view, a helper reads the list and writes it, with no pause in between.
 
 83
-00:05:34.478 --> 00:05:36.081
+00:05:35.045 --> 00:05:36.648
 Can an addition be lost?
 
 84
-00:05:39.133 --> 00:05:39.345
+00:05:39.633 --> 00:05:39.845
 No.
 
 85
-00:05:39.345 --> 00:05:43.934
+00:05:39.845 --> 00:05:44.434
 Between suspension points, the view runs one coroutine at a time.
 
 86
-00:05:43.934 --> 00:05:46.193
+00:05:44.434 --> 00:05:46.693
 That's why it counted every pea.

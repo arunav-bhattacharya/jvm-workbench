@@ -191,8 +191,8 @@ def screen_icon(color=WAITER, s=1.0, on=True):
 BELL_P = np.array([2.3, 2.45, 0])
 COOK_P = np.array([1.2, 2.25, 0])
 SLATE_P = np.array([4.75, 2.25, 0])
-WAITER_P = np.array([2.7, -0.25, 0])
-DIARY_P = np.array([5.4, -0.25, 0])
+WAITER_P = np.array([1.8, -0.25, 0])
+DIARY_P = np.array([4.9, -0.25, 0])
 GOT_Y = {"waiter": -2.2, "diary": -2.95}
 
 
@@ -226,11 +226,11 @@ class Flow07Pump(Narrated):
         sl = slate().move_to(SLATE_P)
         sl_l = T("the slate", 22, GREY_B).next_to(sl, UP, buff=0.15)
         wt = person(WAITER, 1.1).move_to(WAITER_P)
-        wt_l = T("the waiter: quick", 22, WAITER).next_to(wt, DOWN, buff=0.2)
+        wt_l = VGroup(T("the waiter", 22, WAITER), T("quick", 22, WAITER)).arrange(DOWN, buff=0.08).next_to(wt, DOWN, buff=0.2)
         dk = person(DIARY, 1.1).move_to(DIARY_P)
         desk = Rectangle(width=1.6, height=0.12).set_stroke(DIARY, 2.5).set_fill(dim(DIARY, 0.3), 1).next_to(dk, DOWN, buff=0.02)
         dbook = diary_book(0.75).next_to(desk, UP, buff=0.0).shift(RIGHT * 0.55)
-        dk_l = T("the diary keeper: 1 s a line", 22, DIARY).next_to(desk, DOWN, buff=0.2)
+        dk_l = VGroup(T("the diary keeper", 22, DIARY), T("1 s a line", 22, DIARY)).arrange(DOWN, buff=0.08).next_to(desk, DOWN, buff=0.2)
         self.say("slate")
         self.play(FadeOut(brd), FadeOut(brd_l), FadeOut(bl_l), run_time=0.5)
         self.play(FadeIn(sl), FadeIn(sl_l), run_time=0.6)
@@ -296,8 +296,7 @@ class Flow07Pump(Narrated):
         self.play(Indicate(dk, color=DIARY), run_time=0.8)
         self.hold()
 
-        busy = T("busy until 1 s", 22, DIARY).next_to(dk, RIGHT, buff=0.15).shift(UP * 0.1)
-        fit(busy, 1.3)
+        busy = T("busy until 1 s", 22, DIARY).next_to(dk, UP, buff=0.15)
         c1 = chip(1).move_to(bl.get_bottom() + DOWN * 0.3)
         self.say("walk")
         self.at_text("The diary keeper takes", lead=0.3)
@@ -322,8 +321,8 @@ class Flow07Pump(Narrated):
         self.at_text("Then 4", lead=0.3)
         c4 = chip(4, BAD).move_to(bl.get_bottom() + DOWN * 0.3)
         self.play(FadeIn(c4, scale=0.6), run_time=0.3)
-        self.play(c4.animate.move_to(sl.get_left() + LEFT * 0.45), run_time=0.5)
-        self.play(c4.animate.shift(DOWN * 0.9).set_opacity(0), run_time=0.6)
+        self.play(c4.animate.move_to(sl.get_bottom() + DOWN * 0.35), run_time=0.5)
+        self.play(c4.animate.shift(DOWN * 0.8).set_opacity(0), run_time=0.6)
         self.at_text("Nobody hears", lead=0.3)
         lostw = VGroup(*[chip(n, BAD).move_to(got_slot("waiter", 3 + k)).set_opacity(0.35) for k, n in enumerate((4, 5, 6))])
         lostw_x = VGroup(*[tick(False, 0.14).move_to(c) for c in lostw])
@@ -332,7 +331,8 @@ class Flow07Pump(Narrated):
 
         # ================= the three policies =================
         stage = VGroup(c1, c1w, c1d, c2, c3, c2w, c3w, fw, fd, busy, lostw, lostw_x)
-        self.play(FadeOut(stage), FadeOut(cc), FadeOut(cc_l), FadeOut(got_w), FadeOut(got_d), run_time=0.6)
+        house = VGroup(sl, sl_l, bl, ck, wt, wt_l, dk, desk, dbook, dk_l)
+        self.play(FadeOut(stage), FadeOut(cc), FadeOut(cc_l), FadeOut(got_w), FadeOut(got_d), FadeOut(house), run_time=0.6)
 
         def chips_row(nums, x0, y, color=ANN, missing=()):
             g = VGroup()
@@ -349,11 +349,9 @@ class Flow07Pump(Narrated):
                                      (PY[2], "DROP_OLDEST", WAITER, (1, 2, 3, 4, 5, 6), (1, 5, 6))):
             rowsP.append(VGroup(M(name, 24, color).move_to([-6.4, y, 0], aligned_edge=LEFT),
                                 chips_row(w, -1.8, y), chips_row(d, 1.6, y)))
-        notes = [T("4, 5, 6 lost for everyone", 22, BAD).move_to([5.0, PY[0] - 0.5, 0]),
-                 T("emit(4), (5), (6) return at 1, 2 and 3 s", 22, GREY_A).move_to([1.5, PY[1] - 0.5, 0]),
-                 T("only the slow listener skips", 22, WAITER).move_to([4.6, PY[2] - 0.5, 0])]
-        for nt in notes:
-            fit(nt, 6.4)
+        notes = [T("4, 5, 6 lost for everyone", 22, BAD).move_to([-1.95, PY[0] - 0.48, 0], aligned_edge=LEFT),
+                 T("emit(4), (5), (6) return at 1, 2 and 3 s", 22, GREY_A).move_to([-1.95, PY[1] - 0.48, 0], aligned_edge=LEFT),
+                 T("only the slow listener skips", 22, WAITER).move_to([-1.95, PY[2] - 0.48, 0], aligned_edge=LEFT)]
         self.play(FadeIn(heads), FadeIn(rowsP[0]), FadeIn(notes[0]), run_time=0.7)
         self.say("policies")
         self.at_text("SUSPEND, the default", lead=0.3)
@@ -365,7 +363,7 @@ class Flow07Pump(Narrated):
         self.play(FadeIn(notes[2]), run_time=0.5)
         self.hold()
         self.say("joke")
-        self.play(Wiggle(VGroup(dk, dbook), scale_value=1.1), run_time=1.0)
+        self.play(Wiggle(heads[1], scale_value=1.15), run_time=1.0)
         self.at(1)
         self.play(Indicate(VGroup(rowsP[0][0], rowsP[1][0], rowsP[2][0]), color=WHITE, scale_factor=1.05), run_time=0.9)
         self.hold()
@@ -387,7 +385,7 @@ class Flow07Pump(Narrated):
         self.at(1)
         self.play(FadeIn(rule, shift=UP * 0.1), run_time=0.7)
         self.hold()
-        self.play(FadeOut(VGroup(rule, fx, fx2, sl, sl_l, bl, ck, wt, wt_l, dk, desk, dbook, dk_l)), run_time=0.6)
+        self.play(FadeOut(VGroup(rule, fx, fx2)), run_time=0.6)
 
         # ================= the menu board: one slot, compared with equals =================
         mb = menu_board("soup: tomato", w=4.0, h=2.0).move_to([1.6, 1.3, 0])

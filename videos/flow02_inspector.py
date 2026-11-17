@@ -277,7 +277,7 @@ class Flow02Inspector(Narrated):
 
         kc = code_block(["try { emit(dish) }", "catch (e: Exception) { println(\"SORRY\") }"], 22,
                         {"emit(dish)": EMIT, "try": GREY_A, "catch": GREY_A})
-        kc.move_to([-1.0, 0.95, 0])
+        kc.move_to([-1.0, 1.55, 0])
         kcb = SurroundingRectangle(kc, buff=0.15, color=GREY_C, stroke_width=2, corner_radius=0.08).set_fill(BLACK, 1)
         kcg = VGroup(kcb, kc)
         salty = bubble("too salty!", SALAD, 24).next_to(diner, UP, buff=0.3).shift(LEFT * 0.5)
@@ -352,7 +352,7 @@ class Flow02Inspector(Narrated):
                       T("first", 24)).arrange(RIGHT, buff=0.18).move_to([0, 2.95, 0])
         fit(wrap, 12.4)
         lane = Arrow([-2.4, 0.35, 0], [3.6, 0.35, 0], buff=0, stroke_width=4, color=EMIT, max_tip_length_to_length_ratio=0.04)
-        lane_l = M("emit(dish)", 22, EMIT).next_to(lane, UP, buff=0.12).shift(LEFT * 1.6)
+        lane_l = M("emit(dish)", 22, EMIT).next_to(lane, UP, buff=0.45).shift(LEFT * 2.3)
         self.say("door")
         self.play(FadeIn(wrap, shift=DOWN * 0.1), run_time=0.7)
         self.at_text("and only then", lead=0.3)
@@ -364,13 +364,13 @@ class Flow02Inspector(Narrated):
         m_cook = VGroup(T("the cook", 24, COOK), M("your flow { } block", 20, GREY_A)).arrange(DOWN, buff=0.08).move_to([-3.3, -2.6, 0])
         m_insp = VGroup(T("the inspector", 24, INSP), M("SafeCollector", 20, YELLOW_M)).arrange(DOWN, buff=0.08).move_to([0.3, -2.6, 0])
         m_dine = VGroup(T("the diner", 24, DINER), M("your collector", 20, GREY_A)).arrange(DOWN, buff=0.08).move_to([4.6, -2.6, 0])
-        m_plate = T("each plate: one emit", 22, EMIT).next_to(lane, UP, buff=0.12).shift(RIGHT * 1.7)
+        m_plate = T("each plate: one emit", 22, EMIT).next_to(lane, UP, buff=0.45).shift(RIGHT * 2.0)
         self.say("inspector")
         self.play(Indicate(insp, color=WHITE, scale_factor=1.1), run_time=0.8)
         self.at(1)
-        p0 = dish("soup", 0.7).move_to([-2.3, 0.75, 0])
+        p0 = dish("soup", 0.7).move_to([-2.3, 0.58, 0])
         self.play(FadeIn(p0), run_time=0.3)
-        self.play(p0.animate.move_to([3.5, 0.75, 0]), run_time=1.4)
+        self.play(p0.animate.move_to([3.5, 0.58, 0]), run_time=1.4)
         self.play(FadeOut(p0), run_time=0.3)
         self.at(2)
         self.play(FadeIn(m_cook), run_time=0.4)
@@ -394,7 +394,7 @@ class Flow02Inspector(Narrated):
             g = VGroup(head, dt, et).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
             dt.shift(RIGHT * 0.45)
             et.shift(RIGHT * 0.45)
-            g.move_to([-2.9, y, 0], aligned_edge=LEFT)
+            g.move_to([-2.55, y, 0], aligned_edge=LEFT)
             return g
 
         r1 = check_row(1, "Is dinner still on?", "the diner's coroutine was not cancelled", "else: CancellationException", 2.35)
@@ -403,7 +403,7 @@ class Flow02Inspector(Narrated):
         r3 = check_row(3, "Did the last plate come back?", "the previous emit did not throw",
                        "else: \"Flow exception transparency is violated\"", -1.25)
         for r in (r1, r2, r3):
-            fit(r, 9.2)
+            fit(r, 8.9)
         self.say("c1")
         self.play(FadeIn(big), FadeIn(big_l), run_time=0.7)
         self.at(1)
@@ -414,11 +414,11 @@ class Flow02Inspector(Narrated):
         self.play(FadeIn(r1[2]), run_time=0.5)
         self.hold()
 
-        ctx_r = RoundedRectangle(corner_radius=0.1, width=3.3, height=1.75).set_stroke(GREY_B, 2).set_fill(BLACK, 1)
-        ctx_r.move_to([-4.85, -1.35, 0])
+        ctx_r = RoundedRectangle(corner_radius=0.1, width=3.7, height=1.75).set_stroke(GREY_B, 2).set_fill(BLACK, 1)
+        ctx_r.move_to([-4.6, -1.35, 0])
         ctx_t = T("a coroutine's context", 22, GREY_B).move_to(ctx_r.get_top() + DOWN * 0.27)
         ctx_rows = VGroup(T("dispatcher: picks the thread", 20), T("name", 20), T("job: may differ", 20, GREY_C))
-        ctx_rows.arrange(DOWN, aligned_edge=LEFT, buff=0.1).next_to(ctx_t, DOWN, buff=0.15)
+        ctx_rows.arrange(DOWN, aligned_edge=LEFT, buff=0.1).next_to(ctx_t, DOWN, buff=0.15).align_to(ctx_r.get_left() + RIGHT * 0.2, LEFT)
         ctx = VGroup(ctx_r, ctx_t, ctx_rows)
         self.say("c2")
         self.play(FadeIn(r2[0], shift=RIGHT * 0.1), run_time=0.6)
@@ -471,7 +471,8 @@ class Flow02Inspector(Narrated):
         self.play(soup.animate.move_to(gate), run_time=0.7)
         okm = tick(True, 0.2).move_to([0.3, ok_y, 0])
         self.play(Create(okm), run_time=0.3)
-        self.play(soup.animate.move_to(seat + LEFT * 0.5), FadeOut(okm), run_time=0.8)
+        self.play(soup.animate.move_to([3.8, LANE, 0]), FadeOut(okm), run_time=0.6)
+        self.play(soup.animate.move_to(seat + LEFT * 0.5), run_time=0.4)
         self.play(FadeOut(soup), FadeIn(eaten_t), run_time=0.5)
         self.at(1)
         sal2 = dish("salad", 0.75).move_to(start)
@@ -479,12 +480,14 @@ class Flow02Inspector(Narrated):
         self.play(sal2.animate.move_to(gate), run_time=0.6)
         okm2 = tick(True, 0.2).move_to([0.3, ok_y, 0])
         self.play(Create(okm2), run_time=0.3)
-        self.play(sal2.animate.move_to(seat + LEFT * 0.5), FadeOut(okm2), run_time=0.7)
-        back = chip_t("sent back: too salty", BAD, 20).move_to(seat + UP * 1.2 + LEFT * 0.3)
+        self.play(sal2.animate.move_to([3.8, LANE, 0]), FadeOut(okm2), run_time=0.5)
+        self.play(sal2.animate.move_to(seat + LEFT * 0.5), run_time=0.4)
+        back = chip_t("sent back: too salty", BAD, 20).move_to(seat + UP * 1.6 + LEFT * 0.3)
         self.play(FadeIn(back, shift=UP * 0.1), run_time=0.4)
-        self.play(sal2.animate.move_to(gate + RIGHT * 0.9), back.animate.move_to(gate + UP * 0.95 + RIGHT * 0.9), run_time=0.8)
+        self.play(sal2.animate.move_to([3.8, LANE, 0]), back.animate.move_to([3.8, LANE + 0.6, 0]), run_time=0.5)
+        self.play(sal2.animate.move_to(gate + RIGHT * 0.9), back.animate.move_to(gate + UP * 0.6 + RIGHT * 0.9), run_time=0.6)
         self.at(2)
-        memo = chip_t("last plate: came back", YELLOW_M, 20).move_to([0.3, 1.45, 0])
+        memo = chip_t("last plate: came back", YELLOW_M, 20).move_to([0.3, 1.8, 0])
         sorry1 = bubble("sorry!", COOK, 24).next_to(cook, UP, buff=0.3)
         self.play(FadeOut(sal2), back.animate.move_to(start + UP * 0.6), FadeIn(memo, shift=DOWN * 0.1), run_time=0.8)
         self.play(FadeOut(back), FadeIn(sorry1, scale=0.8), run_time=0.5)
@@ -574,8 +577,8 @@ class Flow02Inspector(Narrated):
         path = VMobject().set_points_as_corners([nd.get_bottom() + DOWN * 0.05, nd.get_bottom() + DOWN * 1.0,
                                                  nb.get_bottom() + DOWN * 1.0, nb.get_bottom() + DOWN * 0.05])
         path.set_stroke(BAD, 3)
-        note = VGroup(Square(side_length=0.95).set_stroke(NOTE, 2.5).set_fill(dim(NOTE, 0.3), 1),
-                      VGroup(T("no more,", 18, WHITE), T("thanks", 18, WHITE), T("signed: take", 15, NOTE)).arrange(DOWN, buff=0.05))
+        note = VGroup(RoundedRectangle(corner_radius=0.05, width=2.2, height=0.95).set_stroke(NOTE, 2.5).set_fill(dim(NOTE, 0.3), 1),
+                      VGroup(T("no more, thanks", 22, WHITE), T("signed: take", 20, NOTE)).arrange(DOWN, buff=0.08))
         note[1].move_to(note[0])
         note.set_z_index(8).move_to(nd.get_bottom() + DOWN * 1.0)
         noline = T("no line back to the kitchen: only the emit she's standing in", 24, GREY_A).move_to([0, 2.75, 0])
@@ -622,16 +625,16 @@ class Flow02Inspector(Narrated):
         khl = {"emit(dish)": EMIT, "// no try around emit": GREY_B, "SentBackException": SALAD}
         k = code_block(["flow { for (dish in dinner) emit(dish) }        // no try around emit",
                         "    .collect { dish ->", "        try { diner.eat(dish) }",
-                        "        catch (e: SentBackException) { println(\"SORRY $dish came back\") }", "    }"], 22, khl)
+                        "        catch (e: SentBackException) { println(\"SORRY $dish\") }", "    }"], 22, khl)
         j = code_block(["plates(dish -> {", "    try { diner.eat(dish); }",
-                        "    catch (SentBackException e) { System.out.println(\"SORRY \" + dish + \" came back\"); }",
+                        "    catch (SentBackException e) { System.out.println(\"SORRY \" + dish); }",
                         "});"], 22, {"SentBackException": SALAD})
         cols = VGroup(VGroup(T("Kotlin", 24, GREY_B), k).arrange(DOWN, aligned_edge=LEFT, buff=0.15),
                       VGroup(T("Java, the hand-written push flow from lesson 1", 24, GREY_B), j).arrange(DOWN, aligned_edge=LEFT, buff=0.15))
         cols.arrange(DOWN, aligned_edge=LEFT, buff=0.4)
-        fit(cols, 12.4).move_to([0, -1.55, 0])
+        fit(cols, 12.4).move_to([0, -0.55, 0])
         self.say("code")
-        self.play(FadeOut(rl3), VGroup(rl1, rl2).animate.shift(UP * 0.5), run_time=0.5)
+        self.play(FadeOut(rl3), FadeOut(rl2), rl1.animate.shift(UP * 0.5), run_time=0.5)
         self.play(FadeIn(cols, shift=UP * 0.1), run_time=0.8)
         self.at(1)
         self.play(Circumscribe(k[0], color=EMIT, buff=0.05), run_time=0.9)

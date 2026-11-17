@@ -118,7 +118,7 @@ def dim(color, k=0.14):
 
 
 # one colour per thing (cook blue as in the coroutines track; the diner green; failure red, cancel yellow)
-PROBE, DINER, COOK, SHELF, BAD, CANCEL, REACT, NOTE = GOLD_M, GREEN_M, BLUE_M, TEAL_M, RED_M, YELLOW_M, PURPLE_M, GREY_B
+PROBE, DINER, COOK, SHELF, BAD, CANCEL, REACT, NOTE = GOLD_M, TEAL_M, BLUE_M, GREEN_M, RED_M, YELLOW_M, PURPLE_M, GREY_B
 
 
 def person(color=COOK, s=1.0):
@@ -243,7 +243,7 @@ class Flow08Mailbox(Narrated):
                 "    awaitClose { registration.unregister() }",
                 "}"]
         bc = code_block(bsrc, 22, hl, buff=0.12)
-        fit(bc, 12.6).move_to([-6.4, 1.75, 0], aligned_edge=LEFT)
+        fit(bc, 12.6).move_to([-6.4, 1.6, 0], aligned_edge=LEFT)
         bc_l = T("Kotlin", 22, GREY_B).move_to([-6.4, 3.35, 0], aligned_edge=LEFT)
         csrc = ['launch { probe.events().collect { println("got $it") } }', "yield()", "probe.fire(ProbeEvent(0, 61))"]
         cc = code_block(csrc, 22, {"launch": DINER, "yield()": GREY_A, "probe.fire": PROBE}, buff=0.12)
@@ -315,14 +315,14 @@ class Flow08Mailbox(Narrated):
         # ================= the hatch fitted to the probe =================
         pr2 = probe(0.9).move_to([-5.6, 0.4, 0])
         thr2 = DashedLine([-5.6, 1.4, 0], [-5.6, 2.9, 0], dash_length=0.1).set_stroke(PROBE, 2)
-        thr2_l = T("its own thread", 22, PROBE).next_to(thr2, RIGHT, buff=0.15)
+        thr2_l = T("its own thread", 22, PROBE).next_to(pr2, DOWN, buff=0.25)
         wall = Rectangle(width=0.35, height=4.2).set_stroke(GREY_A, 3).set_fill("#202020", 1).move_to([-0.6, 0.4, 0])
         hole = Rectangle(width=0.37, height=1.0).set_stroke(SHELF, 3).set_fill(BLACK, 1).move_to([-0.6, 0.0, 0])
         sh = Rectangle(width=2.6, height=0.12).set_stroke(SHELF, 2.5).set_fill(dim(SHELF, 0.4), 1).move_to([-0.6, -0.55, 0])
         sh_l = T("the shelf: a channel", 22, SHELF).next_to(sh, DOWN, buff=0.2)
         col = person(DINER, 1.1).move_to([2.6, -0.1, 0])
         col_l = T("the collector", 22, DINER).next_to(col, DOWN, buff=0.2)
-        ts = M("trySend(reading): never waits", 22, SHELF).move_to([-3.0, 2.3, 0])
+        ts = M("trySend(reading): never waits", 22, SHELF).move_to([-3.2, 2.4, 0])
         self.say("hatch")
         self.play(FadeIn(wall), FadeIn(hole), FadeIn(sh), FadeIn(sh_l), FadeIn(col), FadeIn(col_l), run_time=0.8)
         self.play(FadeIn(pr2), Create(thr2), FadeIn(thr2_l), run_time=0.6)
@@ -331,7 +331,7 @@ class Flow08Mailbox(Narrated):
         for k, c in enumerate(rc):
             c.move_to(pr2[2].get_center())
             self.add(c)
-            self.play(c.animate.move_to([-1.3 + 0.7 * k, -0.3, 0]), run_time=0.6)
+            self.play(c.animate.move_to([-1.5 + 0.55 * k, -0.28, 0]), run_time=0.6)
         self.play(FadeIn(ts), run_time=0.5)
         self.at(2)
         sw = VGroup(M("send(reading)", 22, BAD), T("waits for room: a suspend function, so a plain listener can't call it", 22, GREY_A))
@@ -364,7 +364,7 @@ class Flow08Mailbox(Narrated):
         self.play(FadeIn(rx), run_time=0.6)
         self.hold()
         self.say("joke")
-        self.play(Indicate(err[0][15:], color=WHITE, scale_factor=1.03), run_time=1.0)
+        self.play(Indicate(err[0][22:], color=WHITE, scale_factor=1.03), run_time=1.0)
         self.at(1)
         rule2 = T("Collecting is not registering. End every callbackFlow with awaitClose.", 28, SHELF).move_to([0, 3.15, 0])
         fit(rule2, 12.4)
@@ -378,7 +378,7 @@ class Flow08Mailbox(Narrated):
         sf_l = T("64 spots", 22, SHELF).next_to(sf, UP, buff=0.15)
         hand = person(DINER, 1.1).move_to([3.6, 0.5, 0])
         hand_l = T("waiting at the hatch", 22, DINER).next_to(hand, DOWN, buff=0.2)
-        cnt = T("200 readings, one burst", 24, PROBE).next_to(pr3, DOWN, buff=0.35)
+        cnt = T("200 readings, one burst", 24, PROBE).move_to([-6.4, -0.55, 0], aligned_edge=LEFT)
         self.say("burst_q")
         self.play(FadeIn(pr3), FadeIn(cnt), run_time=0.6)
         self.at_text("while the collector", lead=0.3)
@@ -391,7 +391,7 @@ class Flow08Mailbox(Narrated):
         cells = sf[1]
         first = reading_chip("0").move_to(pr3[2].get_center())
         fill_cells = [c.copy().set_fill(dim(PROBE, 0.7), 1).set_stroke(PROBE, 1.4) for c in cells]
-        lost = T("135 trySend calls failed", 26, BAD).move_to([-4.6, -2.0, 0])
+        lost = T("135 trySend calls failed", 26, BAD).move_to([-6.2, -2.3, 0], aligned_edge=LEFT)
         got = T("65 got through: 64 on the shelf + 1 in hand", 26, DINER).move_to([2.2, -1.5, 0])
         self.say("burst_a")
         self.add(first)
@@ -399,7 +399,7 @@ class Flow08Mailbox(Narrated):
         self.play(LaggedStart(*[FadeIn(f) for f in fill_cells], lag_ratio=0.02), run_time=1.6)
         self.play(FadeIn(got), run_time=0.5)
         self.at_text("The other 135", lead=0.3)
-        fall = VGroup(*[reading_chip("x", BAD, 18).scale(0.7).move_to([-4.9 + 0.35 * (k % 6), -0.6 - 0.25 * (k // 6), 0])
+        fall = VGroup(*[reading_chip("x", BAD, 18).scale(0.7).move_to([-5.9 + 0.5 * (k % 6), -1.25 - 0.32 * (k // 6), 0])
                         for k in range(12)])
         self.play(LaggedStart(*[FadeIn(f, shift=DOWN * 0.3) for f in fall], lag_ratio=0.08), FadeIn(lost), run_time=1.2)
         self.at_text("And trySend fails", lead=0.3)
@@ -439,7 +439,8 @@ class Flow08Mailbox(Narrated):
         sts = VGroup(*[station() for _ in range(4)]).arrange(RIGHT, buff=0.55).move_to([-2.4, 1.9, 0])
         reqs = VGroup(*[Arrow(sts[k + 1].get_left(), sts[k].get_right(), buff=0.06, stroke_width=3, color=REACT,
                               max_tip_length_to_length_ratio=0.3) for k in range(3)])
-        req_l = VGroup(*[M("request(n)", 20, REACT).next_to(reqs[k], UP, buff=0.12) for k in range(3)])
+        req_l = VGroup(T("each station asks the one before it:", 22, REACT), M("request(n)", 22, REACT)).arrange(RIGHT, buff=0.2)
+        req_l.next_to(sts, UP, buff=0.3)
         nb = T("the neighbour's line of stations", 24, REACT).next_to(sts, DOWN, buff=0.25)
         a1 = VGroup(M("publisher.asFlow()", 24, SHELF), T("orders 64, then 64 more after every 64", 24))
         a2 = VGroup(M("flow.asFlux()", 24, SHELF), T("starts at the first request; out of demand, it waits inside emit", 24))
@@ -462,7 +463,7 @@ class Flow08Mailbox(Narrated):
         apig = VGroup(VGroup(T("Kotlin", 22, GREY_B), api).arrange(DOWN, aligned_edge=LEFT, buff=0.15),
                       VGroup(T("Java, Reactor types only", 22, GREY_B), jcall).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
                       ).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
-        fit(apig, 12.6).move_to([0, -2.35, 0])
+        fit(apig, 12.6).move_to([0, -1.55, 0])
         self.say("java")
         self.play(FadeOut(a1), FadeOut(a2), run_time=0.4)
         self.play(FadeIn(apig, shift=UP * 0.1), run_time=0.8)

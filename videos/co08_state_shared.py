@@ -16,22 +16,21 @@ N = {
             "for dinner now. Nobody reads yesterday's menu off it.",
     "open2": "In the kitchen hangs a bell. When dinner's ready, the cook rings it, and everyone listening hears it at "
              "that moment. Whoever comes home later hears nothing.",
-    "shy": "Last lesson, a flow cooked nothing until someone collected. A menu is different: it's there whether anyone "
-           "looks or not. So here's a question that's easy to be shy about. If the menu changes three times while "
-           "you're busy, what do you see?",
-    "board": "Kotlin's board is a StateFlow. It always has a value, which you can read at any moment, like a glance. "
-             "Collect it, and you get the current value first, then each change. And it's hot: it holds its value "
-             "whether anyone collects or not.",
+    "shy": "Last lesson, a flow cooked nothing until someone collected. A menu is there whether anyone looks or not. So "
+           "here's a question that's easy to be shy about: if the menu changes three times while you're busy, what do "
+           "you see?",
+    "board": "Kotlin's board is a StateFlow. It always has a value you can read at any moment, like a glance. Collect "
+             "it, and you get that value first, then each change. And it's hot: it's there whether anyone collects or "
+             "not.",
     "demo": "Let's try it. The board shows tomato soup, and the helper who chalks it up needs 100 milliseconds per menu. "
             "While tomato is being chalked up, the cook changes her mind three times: leek, pea, onion.",
     "demo_q": "Which soups does the board show?",
     "demo_a": "Tomato, then onion. Leek and pea were never chalked up. A slow collector doesn't get a queue of what it "
               "missed. When it's ready, it gets the latest value. That's called conflation.",
-    "equal": "Then the cook sets onion again, a new object with the same fields. Nothing happens. A StateFlow compares "
+    "equal": "Then the cook sets onion again, a new object with the same fields. Nothing happens: a StateFlow compares "
              "with equals, and an equal value wakes nobody. Nobody needs a board to announce that nothing changed.",
     "wrongfor": "That's perfect for state, where only the latest value matters. It's wrong for events, where every one "
-                "matters, like each step a dish goes through, for the kitchen log. Conflation would drop some of them "
-                "without a trace.",
+                "matters, like each step of a dish for the kitchen log. Conflation would drop some without a trace.",
     "bell": "For events, the house needs the bell: a SharedFlow. It has no current value. It sends every value to "
             "everyone subscribed at that moment, and three settings decide what it keeps: replay, for late listeners; "
             "extraBufferCapacity, room for busy ones; and what to do when that's full.",
@@ -40,36 +39,35 @@ N = {
     "trap_q": "With the default settings, how many rings reach the log?",
     "trap_a": "None. tryEmit said false five times, and the log is empty. The default bell has no buffer at all, so "
               "tryEmit fails whenever anyone is subscribed, even someone idle. Five rings, one listener, nothing heard.",
-    "buffers": "Give it room for two: two rings get in, and three are refused. Add DROP_OLDEST, and all five say true, "
-               "but only e4 and e5 arrive: three were thrown away, quietly. With room for 64, all five arrive. And a "
-               "late listener to a bell with replay 2 hears e4 and e5 first.",
+    "buffers": "Give it room for two: two rings get in, three are refused. Add DROP_OLDEST, and all five say true, but "
+               "only e4 and e5 arrive: three were quietly thrown away. With room for 64, all five arrive. And a late "
+               "listener to a bell with replay 2 hears e4 and e5 first.",
     "bell_rule": "So give the bell a buffer, and check what tryEmit returns.",
-    "bell_breaks": "Here the bell picture breaks. A real bell can't wait for someone in the shower, but a buffered "
-                   "SharedFlow keeps each ring until a busy listener is ready. In an empty house, though, they agree: "
-                   "a ring nobody hears is gone, apart from the replay.",
-    "share": "Now the problem from last lesson. A cold flow reads the oven thermometer every 100 milliseconds, and three "
-             "screens around the house each collect it. Three collectors, three runs: the oven is read three times as "
-             "often as it needs to be.",
-    "statein": "stateIn runs the cold flow once, in a scope you own, and shares it with every collector. One cook, one "
+    "bell_breaks": "Here the bell picture breaks. A real bell can't wait for someone in the shower; a buffered SharedFlow "
+                   "keeps each ring until a busy listener is ready. But in an empty house they agree: a ring nobody "
+                   "hears is gone, apart from the replay.",
+    "share": "Now last lesson's problem. A cold flow reads the oven thermometer every 100 milliseconds, and three screens "
+             "around the house each collect it: three collectors, three runs, and the oven is read three times as often "
+             "as it needs to be.",
+    "statein": "stateIn runs the cold flow once, in a scope you own, and shares it with every collector: one cook, one "
                "cake, sliced for everyone. With WhileSubscribed of 300, two screens arrive at 327 milliseconds, and "
-               "reading starts once, at 344. They leave at 581, and reading stops at 884, about 300 milliseconds later.",
-    "eagerly": "With Eagerly, reading started at 62 milliseconds, before anyone was watching. A few seconds of "
-               "WhileSubscribed is the usual choice, so a screen that restarts doesn't restart the readings.",
-    "private": "Last: who may write on the board? Only the kitchen. Since Kotlin 2.4, a property can keep a writable field "
-               "behind a read-only type. Outside the class, status is a StateFlow you can only read. Inside, it's the "
+               "reading starts once, at 344. They leave at 581, and reading stops at 884.",
+    "eagerly": "With Eagerly, reading started at 62 milliseconds, before anyone watched. A few seconds of WhileSubscribed "
+               "is the usual choice, so a screen that restarts doesn't restart the readings.",
+    "private": "Last: who may write on the board? Only the kitchen. Since Kotlin 2.4, a property can hide a writable field "
+               "behind a read-only type: outside the class, status is a StateFlow you can only read; inside, it's the "
                "MutableStateFlow.",
     "race": "And write in one step. Eight helpers each count 100,000 plates with value equals value plus 1. Expected, "
             "800,000. Got, 457,636. Two helpers read 41, both write 42, and a plate goes uncounted.",
     "race_joke": "Over 340,000 plates, washed and never counted. The dishwasher has questions. update retries with "
-                 "compare-and-set, which changes the value only if nobody got there first, and it gets 800,000 every "
-                 "time.",
+                 "compare-and-set, changing the value only if nobody got there first, and gets 800,000 every time.",
     "code": "Here's the board, the bell and the shared thermometer in Kotlin, with Reactor's sinks in Java below.",
-    "moral": "So, what do you see when the menu changes three times while you're busy? Only the last choice. A "
-             "StateFlow is the board: one current value, and nobody reads yesterday's menu. A SharedFlow is the bell: "
-             "heard only by whoever listens, and its buffer decides which rings are lost. stateIn shares one run with "
-             "many screens, and only the kitchen writes, in one step.",
-    "check": "Quick check. A StateFlow holds 0, and its collector takes 100 milliseconds per value. You set 1, 2 and 3 "
-             "within a millisecond, and later 3 again. What does the collector see?",
+    "moral": "So, three changes while you're busy? You see only the last. A StateFlow is the board: one current value, "
+             "and nobody reads yesterday's menu. A SharedFlow is the bell: heard only by whoever listens, and its buffer "
+             "decides which rings are lost. stateIn shares one run with many screens, and only the kitchen writes, in "
+             "one step.",
+    "check": "Quick check. A StateFlow holds 0, and its collector takes 100 milliseconds a value. You set 1, 2 and 3 at "
+             "once, and later 3 again. What does it see?",
     "check_a": "0 and 3. 1 and 2 were skipped, and the second 3 is equal, so it wakes nobody.",
 }
 
@@ -311,7 +309,7 @@ class Co08StateShared(Narrated):
         self.say("board")
         self.play(FadeOut(q), brd.animate.move_to([-4.5, 1.2, 0]), run_time=0.7)
         self.play(FadeIn(src[0], shift=UP * 0.1), run_time=0.6)
-        self.at_text("which you can read", lead=0.3)
+        self.at_text("you can read", lead=0.3)
         self.play(FadeIn(src[1], shift=UP * 0.1), run_time=0.5)
         self.at_text("Collect it", lead=0.3)
         self.play(FadeIn(src[2], shift=UP * 0.1), run_time=0.5)
@@ -573,12 +571,12 @@ class Co08StateShared(Narrated):
         rg = rings(lp[0].get_center() + DOWN * 0.15, n=2)
         self.play(Create(rg), Wiggle(lp[0], scale_value=1.1), run_time=0.7)
         self.play(FadeOut(rg), run_time=0.3)
-        self.at_text("but a buffered", lead=0.3)
+        self.at_text("a buffered", lead=0.3)
         self.play(FadeIn(rp), FadeIn(rp_l), run_time=0.6)
         self.play(FadeIn(rp_c, scale=0.7), run_time=0.4)
         self.play(rp_c.animate.move_to(rp[2].get_center()).scale(0.5), run_time=0.8)
         self.play(FadeOut(rp_c), run_time=0.2)
-        self.at_text("In an empty", lead=0.3)
+        self.at_text("in an empty", lead=0.3)
         self.play(FadeIn(empty[0]), FadeIn(empty[1]), FadeIn(empty_l), run_time=0.6)
         self.play(empty[1].animate.set_opacity(0.25), FadeIn(empty[2]), run_time=0.6)
         self.at_text("apart from", lead=0.3)
@@ -602,7 +600,7 @@ class Co08StateShared(Narrated):
         self.at_text("and three screens", lead=0.3)
         self.play(LaggedStart(*[FadeIn(s) for s in scr], lag_ratio=0.2), FadeIn(scr_l), run_time=0.8)
         self.play(LaggedStart(*[Create(r) for r in runs], lag_ratio=0.25), run_time=1.0)
-        self.at_text("Three collectors", lead=0.3)
+        self.at_text("three collectors", lead=0.3)
         dts = VGroup(*[Dot(th.get_right(), radius=0.07, color=OVEN) for _ in range(3)])
         self.play(*[MoveAlongPath(d, Line(th.get_right(), s.get_left())) for d, s in zip(dts, scr)], FadeIn(three), run_time=0.9)
         self.play(FadeOut(dts), run_time=0.2)
@@ -632,7 +630,7 @@ class Co08StateShared(Narrated):
         self.say("statein")
         self.play(FadeOut(runs), FadeOut(three), FadeIn(sb), GrowArrow(one), run_time=0.8)
         self.play(LaggedStart(*[GrowArrow(a) for a in outs], lag_ratio=0.2), run_time=0.8)
-        self.at_text("One cook", lead=0.3)
+        self.at_text("one cook", lead=0.3)
         self.play(FadeIn(sl_cake, shift=DOWN * 0.1), run_time=0.5)
         self.at_text("With WhileSubscribed", lead=0.3)
         self.play(FadeOut(sl_cake), FadeIn(wl), Create(axis), FadeIn(ticks), FadeIn(ms_l), run_time=0.7)
@@ -669,9 +667,9 @@ class Co08StateShared(Narrated):
         self.play(FadeIn(pk[0]), FadeIn(pk[5]), FadeIn(k24), run_time=0.6)
         self.at_text("Since Kotlin", lead=0.3)
         self.play(FadeIn(pk[1]), FadeIn(pk[2]), run_time=0.7)
-        self.at_text("Outside the class", lead=0.3)
+        self.at_text("outside the class", lead=0.3)
         self.play(FadeIn(out_l), Indicate(pk[1], color=BOARD, scale_factor=1.03), run_time=0.7)
-        self.at_text("Inside, it's", lead=0.3)
+        self.at_text("inside, it's", lead=0.3)
         self.play(FadeIn(in_l), FadeIn(pk[4]), Indicate(pk[2], color=COOK, scale_factor=1.03), run_time=0.7)
         self.hold()
 
