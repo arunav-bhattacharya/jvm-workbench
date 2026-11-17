@@ -7,18 +7,18 @@ import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 
-fun everyRate(rates: Flow<Rate>, reprice: suspend (Rate) -> Quote): Flow<Quote> =
-    rates.buffer()                    // the feed runs in its own coroutine, 64 slots ahead
-        .map { reprice(it) }          // repricing runs in the collector's coroutine, below the buffer
+fun everyReading(readings: Flow<Reading>, show: suspend (Reading) -> Shown): Flow<Shown> =
+    readings.buffer()                 // the thermometer runs in its own coroutine, 64 spots ahead
+        .map { show(it) }             // drawing runs in the collector's coroutine, below the buffer
 
-fun latestRate(rates: Flow<Rate>, reprice: suspend (Rate) -> Quote): Flow<Quote> =
-    rates.conflate()                  // a one-slot plate stand: a new rate replaces the waiting one
-        .map { reprice(it) }          // a repricing that has started always finishes
+fun latestReading(readings: Flow<Reading>, show: suspend (Reading) -> Shown): Flow<Shown> =
+    readings.conflate()               // a shelf with one spot: a new reading replaces the waiting one
+        .map { show(it) }             // a drawing that has started always finishes
 
 @OptIn(ExperimentalCoroutinesApi::class) // mapLatest is experimental in 1.11.0
-fun cancelStale(rates: Flow<Rate>, reprice: suspend (Rate) -> Quote): Flow<Quote> =
-    rates.mapLatest { reprice(it) }   // a new rate cancels the block in progress, waits for it, starts again
+fun cancelStale(readings: Flow<Reading>, show: suspend (Reading) -> Shown): Flow<Shown> =
+    readings.mapLatest { show(it) }   // a new reading cancels the block in progress, waits for it, starts again
 
-fun towardsLedger(postings: Flow<Posting>): Flow<Posting> =
-    postings.buffer(64)               // SUSPEND (the default policy): a full belt makes the reader wait.
-                                      // buffer(onBufferOverflow = DROP_OLDEST) is a ONE-slot buffer that drops
+fun towardsTable(plates: Flow<Plate>): Flow<Plate> =
+    plates.buffer(64)                 // SUSPEND (the default policy): a full shelf makes the cook wait.
+                                      // buffer(onBufferOverflow = DROP_OLDEST) is a ONE-spot buffer that drops

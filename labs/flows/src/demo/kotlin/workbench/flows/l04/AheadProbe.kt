@@ -13,17 +13,17 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-// The ledger writer is stuck on posting 1 (a row lock). How far does the settlement reader get?
+// The diner's phone rings with dumpling 1 on the plate. How far does the cook get meanwhile?
 private suspend fun probe(label: String, op: (Flow<Int>) -> Flow<Int>) = coroutineScope {
-    var returned = 0                                    // emits that have returned in the reader
-    val unlock = CompletableDeferred<Unit>()
-    val posted = mutableListOf<Int>()
-    val reader = flow { for (seq in 1..200) { emit(seq); returned = seq } }
-    val writer = launch { op(reader).collect { posted += it; if (posted.size == 1) unlock.await() } }
-    delay(100)                                          // let the reader go as far as it can
+    var returned = 0                                    // emits that have returned in the cook's loop
+    val callEnds = CompletableDeferred<Unit>()
+    val eaten = mutableListOf<Int>()
+    val cook = flow { for (dumpling in 1..200) { emit(dumpling); returned = dumpling } }
+    val diner = launch { op(cook).collect { eaten += it; if (eaten.size == 1) callEnds.await() } }
+    delay(100)                                          // let the cook go as far as she can
     val ahead = returned
-    unlock.complete(Unit); writer.join()
-    println("%-22s emits returned while the writer held posting 1: %3d   posted: %d".format(label, ahead, posted.size))
+    callEnds.complete(Unit); diner.join()
+    println("%-22s emits returned while the diner held dumpling 1: %3d   eaten: %d".format(label, ahead, eaten.size))
 }
 
 // The buffer KDoc's own sketch of what buffer(n) does: a second coroutine and a channel.

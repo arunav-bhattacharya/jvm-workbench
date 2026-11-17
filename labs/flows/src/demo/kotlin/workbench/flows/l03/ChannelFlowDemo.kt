@@ -18,19 +18,19 @@ fun main() = runBlocking {
     try {
         flow {
             coroutineScope {
-                launch { emit("north-1") }
-                launch { emit("east-1") }
+                launch { emit("grill-1") }
+                launch { emit("oven-1") }
             }
         }.collect { println("  got $it") }
     } catch (e: IllegalStateException) {
         println("  " + e.message!!.lines().drop(1).joinToString("\n  ").trim())
     }
 
-    println("=== channelFlow: two acquirer feeds, one mailbox")
+    println("=== channelFlow: two cooks, one hatch")
     t0 = System.currentTimeMillis()
     channelFlow {
-        launch(Dispatchers.IO) { repeat(2) { delay(30); send("north-$it"); at("sent north-$it") } }
-        launch(Dispatchers.Default) { repeat(2) { delay(45); send("east-$it"); at("sent east-$it") } }
+        launch(Dispatchers.IO) { repeat(2) { delay(30); send("grill-$it"); at("sent grill-$it") } }
+        launch(Dispatchers.Default) { repeat(2) { delay(45); send("oven-$it"); at("sent oven-$it") } }
         at("builder block returns (children still running)")
     }.collect { at("collect $it") }
     at("channelFlow completed after both children")
@@ -38,13 +38,13 @@ fun main() = runBlocking {
     println("=== produceIn: a hot channel in your scope")
     t0 = System.currentTimeMillis()
     coroutineScope {
-        val mailbox = flow { at("upstream started"); for (i in 1..4) { emit(i); at("emitted $i") } }
+        val hatch = flow { at("upstream started"); for (i in 1..4) { emit(i); at("emitted $i") } }
             .buffer(1)
             .produceIn(this)
         at("produceIn returned a ReceiveChannel")
         delay(100)
-        at("receiving now: ${mailbox.receive()}")
-        mailbox.cancel()
+        at("receiving now: ${hatch.receive()}")
+        hatch.cancel()
         at("cancelled the channel")
     }
 }

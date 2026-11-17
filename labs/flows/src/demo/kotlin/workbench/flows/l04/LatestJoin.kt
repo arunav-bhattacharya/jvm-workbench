@@ -14,8 +14,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 
-// A repricing that is cancelled must release a quote lock first: 50 ms that can't be cancelled.
-private fun repricingTimeline() = runTest {
+// A drawing on the oven screen that is cancelled must wipe the half-drawn number first: 50 ms that
+// can't be cancelled.
+private fun screenTimeline() = runTest {
     val t = { testScheduler.currentTime }
     flow { for (tick in 1..3) { delay(100); println("t=${t()} emit $tick"); emit(tick) } }
         .collectLatest { tick ->
@@ -24,7 +25,7 @@ private fun repricingTimeline() = runTest {
                 delay(300); println("t=${t()} done $tick")
             } catch (e: CancellationException) {
                 println("t=${t()} cancelled $tick (${e::class.simpleName})")
-                withContext(NonCancellable) { delay(50) }      // release the lock
+                withContext(NonCancellable) { delay(50) }      // wipe the half-drawn number
                 println("t=${t()} cleanup of $tick finished")
                 throw e
             }
@@ -40,7 +41,7 @@ private suspend fun cpuOnly(label: String, f: Flow<Int>) = coroutineScope {
 
 fun main() {
     println("== collectLatest: cancel the old block, wait for it, then start the new one")
-    repricingTimeline()
+    screenTimeline()
     println("== cancel() behind a buffer, with a collector that never suspends")
     runTest {
         val src = flow { for (i in 1..100) emit(i) }

@@ -28,16 +28,16 @@ class SafeToyCollector<T>(
 
     override suspend fun emit(value: T) {
         val emitContext = currentCoroutineContext()
-        // 1. is the kitchen still open?
+        // 1. is dinner still on?
         emitContext.ensureActive()
-        // 2. did the diner throw the last plate back? Then the hatch stays shut.
+        // 2. did the diner send the last plate back? Then the door stays shut.
         downstreamFailure?.let { earlier ->
             throw IllegalStateException(
                 "Flow exception transparency is violated: an earlier emit threw $earlier, " +
                     "but then '$value' was emitted. Use the catch operator instead of a try/catch around emit.",
             )
         }
-        // 3. same kitchen and same badge as the collector?
+        // 3. same kitchen, same cook as when collect started?
         if (!sameContext(emitContext, collectContext)) {
             throw IllegalStateException(
                 "Flow invariant is violated: collected in $collectContext, but emission happened in $emitContext. " +

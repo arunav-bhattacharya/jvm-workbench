@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 /**
- * A reconciliation job that cancels its own coroutine when it sees 3, and never suspends.
+ * A checker that cancels its own coroutine when it sees 3, and never suspends.
  * Which flows stop there, and which keep delivering?
  */
 suspend fun stopAtThree(name: String, f: Flow<Int>) = coroutineScope {

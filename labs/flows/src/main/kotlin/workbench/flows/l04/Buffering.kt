@@ -5,37 +5,37 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 
 /**
- * Reprices the checkout for EVERY rate, in order. The FX feed may run ahead of a slow
- * [reprice], so the feed's waits and the repricing overlap.
- * With a tick every 100 ms and 300 ms per repricing, three ticks take 1000 ms, not 1200.
+ * Shows EVERY reading, in order. The thermometer may run ahead of a slow [show], so the
+ * thermometer's waits and the screen's drawing overlap.
+ * With a reading every 100 ms and 300 ms to draw one, three readings take 1000 ms, not 1200.
  */
-fun everyRate(rates: Flow<Rate>, reprice: suspend (Rate) -> Quote): Flow<Quote> =
-    TODO("let the feed run ahead into a buffer, then reprice")
+fun everyReading(readings: Flow<Reading>, show: suspend (Reading) -> Shown): Flow<Shown> =
+    TODO("let the thermometer run ahead into a buffer, then show")
 
 /**
- * Reprices at the NEWEST rate: when [reprice] is busy, rates that arrive meanwhile are
- * skipped except the latest. Every repricing that starts is finished.
- * Three ticks at 100 ms with 300 ms repricing: ticks 1 and 3, done at 700 ms.
- * A repricer faster than the feed sees every tick.
+ * Shows the NEWEST reading: while [show] is busy, readings that arrive meanwhile are
+ * skipped except the latest. Every drawing that starts is finished.
+ * Three readings at 100 ms with 300 ms per drawing: readings 1 and 3, done at 700 ms.
+ * A screen faster than the thermometer shows every reading.
  */
-fun latestRate(rates: Flow<Rate>, reprice: suspend (Rate) -> Quote): Flow<Quote> =
-    TODO("keep only the newest rate while the repricer is busy")
+fun latestReading(readings: Flow<Reading>, show: suspend (Reading) -> Shown): Flow<Shown> =
+    TODO("keep only the newest reading while the screen is busy")
 
 /**
- * A new rate CANCELS the repricing in progress, so only the newest rate's quote survives.
- * Three ticks at 100 ms with 300 ms repricing: only tick 3, done at 600 ms.
+ * A new reading CANCELS the drawing in progress, so only the newest reading is shown in the end.
+ * Three readings at 100 ms with 300 ms per drawing: only reading 3, done at 600 ms.
  */
-fun cancelStale(rates: Flow<Rate>, reprice: suspend (Rate) -> Quote): Flow<Quote> =
-    TODO("cancel the stale repricing when a new rate arrives")
+fun cancelStale(readings: Flow<Reading>, show: suspend (Reading) -> Shown): Flow<Shown> =
+    TODO("cancel the stale drawing when a new reading arrives")
 
 /**
- * Lets the settlement-file reader run ahead of a slow ledger writer, so file reads and
- * ledger writes overlap.
+ * Lets the cook run ahead of a slow diner, so cooking and eating overlap.
  *
- * Rules: a posting must NEVER be dropped, and the reader may run at most 64 postings ahead
- * (64 waiting, plus the one the ledger is writing), so memory stays bounded.
+ * Rules: a plate must NEVER be dropped (a dropped plate is a guest with no dinner), and the cook may
+ * run at most 64 plates ahead (64 waiting on the shelf, plus the one in the diner's hands), so memory
+ * stays bounded.
  *
- * Bug: a teammate wrote this to "keep the latest 64 if the ledger falls behind".
+ * Bug: a helper wrote this to "keep the latest 64 if the table falls behind".
  */
-fun towardsLedger(postings: Flow<Posting>): Flow<Posting> =
-    postings.buffer(onBufferOverflow = BufferOverflow.DROP_OLDEST)
+fun towardsTable(plates: Flow<Plate>): Flow<Plate> =
+    plates.buffer(onBufferOverflow = BufferOverflow.DROP_OLDEST)

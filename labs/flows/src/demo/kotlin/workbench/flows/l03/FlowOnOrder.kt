@@ -8,14 +8,14 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
 
-val lines = listOf("pay-1,4250,EUR", "pay-2,990,EUR", "pay-3,12000,GBP")
+val deliveryNote = listOf("flour,2000,g", "eggs,12,pcs", "milk,1000,ml")
 
-/** The settlement reader from lesson 1. Each line is read instantly; it prints which thread read it. */
-fun settlementIds(): Flow<String> = flow {
-    for (line in lines) {
-        val id = line.substringBefore(",")
-        println("read    $id   on ${Thread.currentThread().name}")
-        emit(id)
+/** Reads the grocer's delivery note. Each line is read at once; it prints which thread read it. */
+fun deliveryItems(): Flow<String> = flow {
+    for (line in deliveryNote) {
+        val item = line.substringBefore(",")
+        println("read    $item   on ${Thread.currentThread().name}")
+        emit(item)
     }
 }
 
@@ -23,15 +23,15 @@ fun main() = runBlocking {
     val io = Executors.newSingleThreadExecutor { r -> Thread(r, "io-thread") }.asCoroutineDispatcher()
 
     println("=== plain, as in lesson 1")
-    settlementIds().collect { id ->
-        delay(30)                                   // the ledger write
-        println("posted  $id   on ${Thread.currentThread().name}")
+    deliveryItems().collect { item ->
+        delay(30)                                   // put it away and write it in the pantry book
+        println("stored  $item   on ${Thread.currentThread().name}")
     }
 
     println("=== with .flowOn(io)")
-    settlementIds().flowOn(io).collect { id ->
+    deliveryItems().flowOn(io).collect { item ->
         delay(30)
-        println("posted  $id   on ${Thread.currentThread().name}")
+        println("stored  $item   on ${Thread.currentThread().name}")
     }
     io.close()
 }

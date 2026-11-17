@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.runBlocking
 
-/** Five settlement ids. The producer reports what comes out of emit, and when its finally runs. */
+/** Five dishes, numbered. The producer reports what comes out of emit, and when its finally runs. */
 fun source(tag: String) = flow {
     try {
         for (i in 1..5) {

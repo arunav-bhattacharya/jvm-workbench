@@ -11,28 +11,28 @@ import java.util.function.Supplier;
 // Java blocks a thread where Kotlin suspends a coroutine; the counting is the same.
 public class AheadProbeJava {
 
-    static void probe(String label, Supplier<BlockingQueue<Integer>> belt) throws InterruptedException {
-        BlockingQueue<Integer> queue = belt.get();
+    static void probe(String label, Supplier<BlockingQueue<Integer>> shelf) throws InterruptedException {
+        BlockingQueue<Integer> queue = shelf.get();
         AtomicInteger returned = new AtomicInteger();          // put() calls that have returned
-        CountDownLatch unlock = new CountDownLatch(1);
-        Thread reader = Thread.ofPlatform().daemon().start(() -> {
+        CountDownLatch callEnds = new CountDownLatch(1);
+        Thread cook = Thread.ofPlatform().daemon().start(() -> {
             try {
-                for (int seq = 1; seq <= 200; seq++) { queue.put(seq); returned.set(seq); }
+                for (int dumpling = 1; dumpling <= 200; dumpling++) { queue.put(dumpling); returned.set(dumpling); }
             } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         });
-        Thread writer = Thread.ofPlatform().start(() -> {
+        Thread diner = Thread.ofPlatform().start(() -> {
             try {
-                queue.take();                                   // posting 1 ...
-                unlock.await();                                 // ... is stuck behind a row lock
+                queue.take();                                   // dumpling 1 ...
+                callEnds.await();                               // ... and then the phone rings
                 for (int i = 2; i <= 200; i++) queue.take();
             } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         });
-        while (reader.getState() != Thread.State.WAITING) Thread.sleep(5);   // reader blocked in put()
+        while (cook.getState() != Thread.State.WAITING) Thread.sleep(5);   // cook blocked in put()
         Thread.sleep(50);
         int ahead = returned.get();
-        unlock.countDown();
-        writer.join();
-        System.out.printf("%-26s puts returned while the writer held posting 1: %3d%n", label, ahead);
+        callEnds.countDown();
+        diner.join();
+        System.out.printf("%-26s puts returned while the diner held dumpling 1: %3d%n", label, ahead);
     }
 
     public static void main(String[] args) throws InterruptedException {

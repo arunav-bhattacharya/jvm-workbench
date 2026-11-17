@@ -8,7 +8,7 @@ import reactor.core.publisher.Flux;
 
 public class InvariantsJava {
     public static void main(String[] args) {
-        ExecutorService io = Executors.newSingleThreadExecutor(r -> new Thread(r, "acquirer-io"));
+        ExecutorService io = Executors.newSingleThreadExecutor(r -> new Thread(r, "kitchen-io"));
         Flux<String> pushedFromIo = Flux.create(sink -> io.execute(() -> {
             sink.next("from another thread");
             sink.complete();

@@ -20,10 +20,10 @@ import java.util.concurrent.atomic.AtomicInteger
 /** flowOn by hand: a second coroutine on [dispatcher] sends into a 64-slot channel, and we drain it. */
 fun <T> Flow<T>.myFlowOn(dispatcher: CoroutineDispatcher): Flow<T> = flow {
     coroutineScope {
-        val mailbox = produce(dispatcher, capacity = 64) {    // the second cook, behind the wall
-            this@myFlowOn.collect { send(it) }                 // the upstream emits into the mailbox
+        val hatch = produce(dispatcher, capacity = 64) {      // the second cook, behind the wall
+            this@myFlowOn.collect { send(it) }                 // the upstream's emit now puts a plate in the hatch
         }
-        for (value in mailbox) emit(value)                     // we stay in the collector's coroutine
+        for (value in hatch) emit(value)                       // we stay in the collector's coroutine
     }
 }
 
@@ -45,10 +45,10 @@ fun main() = runBlocking {
     val io = Executors.newSingleThreadExecutor { r -> Thread(r, "io-thread") }.asCoroutineDispatcher()
 
     println("=== who runs where")
-    flow { emit("pay-1"); println("emit pay-1 returned on ${Thread.currentThread().name}") }
+    flow { emit("flour"); println("emit flour returned on ${Thread.currentThread().name}") }
         .myFlowOn(io)
         .collect { println("myFlowOn: collected $it on ${Thread.currentThread().name}") }
-    flow { emit("pay-1"); println("emit pay-1 returned on ${Thread.currentThread().name}") }
+    flow { emit("flour"); println("emit flour returned on ${Thread.currentThread().name}") }
         .flowOn(io)
         .collect { println("flowOn:   collected $it on ${Thread.currentThread().name}") }
 
@@ -58,7 +58,7 @@ fun main() = runBlocking {
     ahead("flowOn(io)") { it.flowOn(io) }
 
     println("=== the collector's stack after flowOn(io)")
-    flow { emit("pay-1") }.flowOn(io).collect {
+    flow { emit("flour") }.flowOn(io).collect {
         Thread.currentThread().stackTrace.drop(1)
             .takeWhile { !it.className.startsWith("kotlinx.coroutines.DispatchedTask") }
             .forEach { println("    at ${it.className.removePrefix("workbench.flows.l03.")}.${it.methodName}") }

@@ -37,7 +37,7 @@ class SafeToyCollectorTest {
 
     @Test
     fun `emitting from another dispatcher is refused`() = runTest {
-        val other = StandardTestDispatcher(testScheduler, name = "acquirer-io")
+        val other = StandardTestDispatcher(testScheduler, name = "back-kitchen")
         val got = mutableListOf<Int>()
         val thrown = runCatching {
             safeToyFlow { withContext(other) { emit(1) } }.collect { got += it }
@@ -65,38 +65,38 @@ class SafeToyCollectorTest {
     @Test
     fun `after the collector threw, the next emit is refused and the message names the first failure`() = runTest {
         val f = safeToyFlow {
-            emit(4250L)
+            emit("soup")
             try {
-                emit(-990L)
+                emit("salad")
             } catch (e: IllegalArgumentException) {
-                emit(12000L)                      // "log and post the next one": not allowed
+                emit("roast")                     // "say sorry and serve the next dish": not allowed
             }
         }
         val thrown = runCatching {
-            f.collect { cents -> require(cents >= 0) { "negative amount $cents" } }
+            f.collect { dish -> require(dish != "salad") { "too salty: $dish" } }
         }.exceptionOrNull()
         assertThat(thrown).isInstanceOf(IllegalStateException::class.java)
             .hasMessageStartingWith("Flow exception transparency is violated")
-            .hasMessageContaining("negative amount -990")
+            .hasMessageContaining("too salty: salad")
     }
 
     @Test
-    fun `a try-catch around every emit swallows the check too, and the rest of the batch is lost`() = runTest {
+    fun `a try-catch around every emit swallows the check too, and the rest of dinner is lost`() = runTest {
         val warnings = mutableListOf<String>()
-        val postings = safeToyFlow {
-            for (cents in listOf(4250L, -990L, 12000L)) {
+        val plates = safeToyFlow {
+            for (dish in listOf("soup", "salad", "roast")) {
                 try {
-                    emit(cents)
+                    emit(dish)
                 } catch (e: Exception) {
-                    warnings += e.message.orEmpty()   // "logs and continues"
+                    warnings += e.message.orEmpty()   // "says sorry and carries on"
                 }
             }
         }
-        val posted = mutableListOf<Long>()
-        postings.collect { cents -> require(cents >= 0) { "negative amount $cents" }; posted += cents }
-        assertThat(posted).`as`("postings that reached the ledger").containsExactly(4250L)
+        val eaten = mutableListOf<String>()
+        plates.collect { dish -> require(dish != "salad") { "too salty: $dish" }; eaten += dish }
+        assertThat(eaten).`as`("plates the diner ate").containsExactly("soup")
         assertThat(warnings).hasSize(2)
-        assertThat(warnings[0]).isEqualTo("negative amount -990")
+        assertThat(warnings[0]).isEqualTo("too salty: salad")
         assertThat(warnings[1]).startsWith("Flow exception transparency is violated")
     }
 

@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 
-/** A slow acquirer feed: three lines, one second apart. */
+/** A slow reader that may fetch only one line per second: three lines, one second apart. */
 fun slowFeed() = flow { repeat(3) { delay(1_000); emit(it) } }
 
 // runTest outside JUnit: does virtual time cover a flowOn pipeline?

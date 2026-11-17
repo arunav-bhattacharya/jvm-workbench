@@ -18,9 +18,9 @@ import org.junit.jupiter.api.Test
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 
-class SettlementImportTest {
+class DeliveryImportTest {
 
-    // ---- importSettlements: only the blocking part moves behind flowOn ----
+    // ---- importDelivery: only the blocking part moves behind flowOn ----
 
     private val ioPool = Executors.newSingleThreadExecutor { r -> Thread(r, "test-io") }
     private val io = ioPool.asCoroutineDispatcher()
@@ -31,62 +31,62 @@ class SettlementImportTest {
     // tests run with -ea, which turns on coroutine debug mode: it adds " @coroutine#N" to thread names
     private fun threadName() = Thread.currentThread().name.substringBefore(" @")
 
-    private fun fileOf(vararg lines: String, readOn: MutableList<String>): LineReader {
+    private fun noteOf(vararg lines: String, readOn: MutableList<String>): LineReader {
         val left = ArrayDeque(lines.toList())
         return LineReader { readOn += threadName(); left.removeFirstOrNull() }
     }
 
     @Test
-    fun `importSettlements reads on io and posts in the collector's context`() = runTest {
+    fun `importDelivery reads on io and stores in the collector's context`() = runTest {
         val readOn = CopyOnWriteArrayList<String>()
-        val postedOn = CopyOnWriteArrayList<String>()
-        val posted = CopyOnWriteArrayList<Settlement>()
-        val ledger = Ledger { postedOn += threadName(); posted += it }
+        val storedOn = CopyOnWriteArrayList<String>()
+        val stored = CopyOnWriteArrayList<DeliveryLine>()
+        val pantry = Pantry { storedOn += threadName(); stored += it }
         val testThread = threadName()
 
         val collectedOn = mutableListOf<String>()
-        val imported = mutableListOf<Settlement>()
-        importSettlements(fileOf("pay-1,4250,EUR", "pay-2,990,EUR", "pay-3,12000,GBP", readOn = readOn), ledger, io)
+        val imported = mutableListOf<DeliveryLine>()
+        importDelivery(noteOf("flour,2000,g", "eggs,12,pcs", "milk,1000,ml", readOn = readOn), pantry, io)
             .collect { collectedOn += threadName(); imported += it }
 
-        val expected = listOf(Settlement("pay-1", 4250, "EUR"), Settlement("pay-2", 990, "EUR"), Settlement("pay-3", 12000, "GBP"))
+        val expected = listOf(DeliveryLine("flour", 2000, "g"), DeliveryLine("eggs", 12, "pcs"), DeliveryLine("milk", 1000, "ml"))
         assertThat(imported).containsExactlyElementsOf(expected)
-        assertThat(posted).containsExactlyElementsOf(expected)
+        assertThat(stored).containsExactlyElementsOf(expected)
         assertThat(readOn).`as`("threads that called readLine").containsOnly("test-io")
-        assertThat(postedOn).`as`("threads that called ledger.post").containsOnly(testThread)
+        assertThat(storedOn).`as`("threads that called pantry.store").containsOnly(testThread)
         assertThat(collectedOn).`as`("threads that ran the collector").containsOnly(testThread)
     }
 
     @Test
-    fun `importSettlements reads nothing until it is collected`() = runTest {
+    fun `importDelivery reads nothing until it is collected`() = runTest {
         val readOn = CopyOnWriteArrayList<String>()
-        importSettlements(fileOf("pay-1,4250,EUR", readOn = readOn), Ledger { }, io)
+        importDelivery(noteOf("flour,2000,g", readOn = readOn), Pantry { }, io)
         assertThat(readOn).`as`("reads made by building the flow").isEmpty()
     }
 
-    // ---- bothAcquirers: two producers, one flow ----
+    // ---- bothCooks: two producers, one flow ----
 
-    /** A feed that emits one authorization every [everyMs] of virtual time. */
-    private fun feed(acquirer: String, everyMs: Long, vararg ids: String): Flow<Authorization> = flow {
-        for (id in ids) {
+    /** A cook who sends out one plate every [everyMs] of virtual time. */
+    private fun cook(name: String, everyMs: Long, vararg dishes: String): Flow<Plate> = flow {
+        for (dish in dishes) {
             delay(everyMs)
-            emit(Authorization(acquirer, id))
+            emit(Plate(name, dish))
         }
     }
 
     @Test
-    fun `bothAcquirers delivers both feeds as they arrive and completes after the slower one`() = runTest {
-        val north = feed("north", 100, "n1", "n2", "n3")    // at 100, 200, 300
-        val east = feed("east", 130, "e1", "e2", "e3")      // at 130, 260, 390
-        val ids = bothAcquirers(north, east).toList().map { it.paymentId }
-        assertThat(ids).containsExactly("n1", "e1", "n2", "e2", "n3", "e3")
+    fun `bothCooks delivers both cooks' plates as they are ready and completes after the slower one`() = runTest {
+        val grill = cook("grill", 100, "g1", "g2", "g3")    // at 100, 200, 300
+        val oven = cook("oven", 130, "o1", "o2", "o3")      // at 130, 260, 390
+        val dishes = bothCooks(grill, oven).toList().map { it.dish }
+        assertThat(dishes).containsExactly("g1", "o1", "g2", "o2", "g3", "o3")
         assertThat(currentTime).`as`("virtual time when the merged flow completed").isEqualTo(390L)
     }
 
     @Test
-    fun `bothAcquirers keeps going when one feed is empty`() = runTest {
-        val ids = bothAcquirers(feed("north", 100), feed("east", 50, "e1", "e2")).toList().map { it.paymentId }
-        assertThat(ids).containsExactly("e1", "e2")
+    fun `bothCooks keeps going when one cook has nothing to send`() = runTest {
+        val dishes = bothCooks(cook("grill", 100), cook("oven", 50, "o1", "o2")).toList().map { it.dish }
+        assertThat(dishes).containsExactly("o1", "o2")
         assertThat(currentTime).isEqualTo(100L)
     }
 

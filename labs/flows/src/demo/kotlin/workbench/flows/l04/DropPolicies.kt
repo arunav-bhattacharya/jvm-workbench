@@ -12,16 +12,16 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-// 200 FX ticks arrive while the repricer is stuck on tick 1. Which ticks does it see afterwards?
+// 200 thermometer readings arrive while the oven screen is stuck on reading 1. Which ones does it show afterwards?
 private suspend fun policy(label: String, op: (Flow<Int>) -> Flow<Int>) = coroutineScope {
     val unstuck = CompletableDeferred<Unit>()
     val seen = mutableListOf<Int>()
-    val ticks = flow { for (tick in 1..200) emit(tick) }
-    val repricer = launch { op(ticks).collect { seen += it; if (seen.size == 1) unstuck.await() } }
+    val readings = flow { for (tick in 1..200) emit(tick) }
+    val screen = launch { op(readings).collect { seen += it; if (seen.size == 1) unstuck.await() } }
     delay(100)
-    unstuck.complete(Unit); repricer.join()
+    unstuck.complete(Unit); screen.join()
     val shown = if (seen.size > 6) "${seen.take(3)} ... ${seen.takeLast(2)}" else "$seen"
-    println("%-40s saw %3d ticks: %s".format(label, seen.size, shown))
+    println("%-40s showed %3d readings: %s".format(label, seen.size, shown))
 }
 
 fun main() = runBlocking {

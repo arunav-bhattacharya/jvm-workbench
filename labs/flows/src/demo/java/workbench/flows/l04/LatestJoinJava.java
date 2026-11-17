@@ -5,8 +5,8 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 
-// Closest Java equivalent of collectLatest: Reactor's switchMap. A new tick cancels the
-// repricing in flight. Real time, so expect a few ms of drift.
+// Closest Java equivalent of collectLatest: Reactor's switchMap. A new reading cancels the
+// drawing in progress. Real time, so expect a few ms of drift.
 public class LatestJoinJava {
     static long t0;
     static boolean quiet;

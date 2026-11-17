@@ -16,24 +16,24 @@ public class HandMadeFlowOnJava {
     @SuppressWarnings("unchecked")
     static <T> void flowOn(ExecutorService executor, Consumer<Consumer<T>> upstream, Consumer<T> downstream)
             throws InterruptedException {
-        BlockingQueue<Object> mailbox = new ArrayBlockingQueue<>(64);
+        BlockingQueue<Object> hatch = new ArrayBlockingQueue<>(64);
         executor.execute(() -> {
             upstream.accept(value -> {
-                try { mailbox.put(value); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                try { hatch.put(value); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
             });
-            try { mailbox.put(END); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            try { hatch.put(END); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         });
-        for (Object v = mailbox.take(); v != END; v = mailbox.take()) downstream.accept((T) v);   // the drain loop
+        for (Object v = hatch.take(); v != END; v = hatch.take()) downstream.accept((T) v);   // the drain loop
     }
 
     public static void main(String[] args) throws InterruptedException {
         ExecutorService io = Executors.newSingleThreadExecutor(r -> new Thread(r, "io-thread"));
         Consumer<Consumer<String>> reader = emit -> {
-            emit.accept("pay-1");
-            System.out.println("emit pay-1 returned on " + Thread.currentThread().getName());
+            emit.accept("flour");
+            System.out.println("emit flour returned on " + Thread.currentThread().getName());
         };
-        flowOn(io, reader, id -> {
-            System.out.println("collected " + id + " on " + Thread.currentThread().getName());
+        flowOn(io, reader, item -> {
+            System.out.println("collected " + item + " on " + Thread.currentThread().getName());
             for (StackTraceElement f : Thread.currentThread().getStackTrace())
                 System.out.println("    at " + f.getClassName().replace("workbench.flows.l03.", "") + "." + f.getMethodName());
         });

@@ -3,8 +3,8 @@ package workbench.flows.l04
 import kotlinx.coroutines.flow.Flow
 
 /**
- * A buffer, written by hand. Don't call buffer(): build it from flow { }, coroutineScope,
- * a Channel with [capacity] slots, and launch.
+ * A buffer, written by hand: a hatch with a shelf of [capacity] spots between the cook and the diner.
+ * Don't call buffer(): build it from flow { }, coroutineScope, a Channel with [capacity] slots, and launch.
  *
  * - A second coroutine collects this flow and sends each value into the channel.
  *   send suspends only when every slot is full.
@@ -14,5 +14,5 @@ import kotlinx.coroutines.flow.Flow
  *   hand-over with no slots, so exactly one emit returns.
  * - Every value arrives, in order, and an upstream failure reaches the collector.
  */
-fun <T> Flow<T>.belt(capacity: Int): Flow<T> =
+fun <T> Flow<T>.shelf(capacity: Int): Flow<T> =
     TODO("flow { coroutineScope { a Channel, a launch that sends into it and closes it, a loop that emits } }")

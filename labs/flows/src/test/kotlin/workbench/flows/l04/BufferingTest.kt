@@ -37,100 +37,100 @@ class BufferingTest {
         return heldAhead to got
     }
 
-    // ---- belt: a buffer by hand ----
+    // ---- shelf: a buffer by hand ----
 
     @Test
-    fun `belt(10) lets 11 emits return while the collector holds the first value`() = runTest {
-        val (returned, _) = ahead { it.belt(10) }
-        assertThat(returned).`as`("emits returned: 10 on the belt plus 1 in the collector's hands").isEqualTo(11)
+    fun `shelf(10) lets 11 emits return while the collector holds the first value`() = runTest {
+        val (returned, _) = ahead { it.shelf(10) }
+        assertThat(returned).`as`("emits returned: 10 on the shelf plus 1 in the collector's hands").isEqualTo(11)
     }
 
     @Test
-    fun `belt(0) is a hand-over with no slots, so exactly one emit returns`() = runTest {
-        val (returned, _) = ahead { it.belt(0) }
+    fun `shelf(0) is a hand-over with no spots, so exactly one emit returns`() = runTest {
+        val (returned, _) = ahead { it.shelf(0) }
         assertThat(returned).isEqualTo(1)
     }
 
     @Test
-    fun `belt delivers every value, in order`() = runTest {
-        val (_, got) = ahead { it.belt(10) }
+    fun `shelf delivers every value, in order`() = runTest {
+        val (_, got) = ahead { it.shelf(10) }
         assertThat(got).containsExactlyElementsOf(1..200)
     }
 
     @Test
-    fun `belt lets a 100 ms producer run ahead of a 300 ms collector`() = runTest {
+    fun `shelf lets a 100 ms producer run ahead of a 300 ms collector`() = runTest {
         val seen = mutableListOf<Int>()
         flow { for (i in 1..3) { delay(100); emit(i) } }
-            .belt(64)
+            .shelf(64)
             .collect { delay(300); seen += it }
         assertThat(seen).containsExactly(1, 2, 3)
         assertThat(currentTime).`as`("virtual ms: 100 + 3 x 300, where plain collection takes 1200").isEqualTo(1000)
     }
 
     @Test
-    fun `belt passes an upstream failure on to the collector`() = runTest {
-        val failing = flow { emit(1); emit(2); throw IOException("settlement file truncated") }
-        val failure = runCatching { failing.belt(4).collect { } }.exceptionOrNull()
-        assertThat(failure).isInstanceOf(IOException::class.java).hasMessage("settlement file truncated")
+    fun `shelf passes an upstream failure on to the collector`() = runTest {
+        val failing = flow { emit(1); emit(2); throw IOException("delivery note torn") }
+        val failure = runCatching { failing.shelf(4).collect { } }.exceptionOrNull()
+        assertThat(failure).isInstanceOf(IOException::class.java).hasMessage("delivery note torn")
     }
 
-    // ---- three FX repricing strategies ----
+    // ---- three ways to show the oven thermometer ----
 
-    private fun ticks(): Flow<Rate> = flow {
-        for (i in 1..3) { delay(100); emit(Rate("EUR/USD", i, 1.08 + i / 100.0)) }
+    private fun readings(): Flow<Reading> = flow {
+        for (i in 1..3) { delay(100); emit(Reading("oven", i, 180 + i)) }
     }
 
-    private fun repricer(ms: Long): suspend (Rate) -> Quote = { rate ->
+    private fun screen(ms: Long): suspend (Reading) -> Shown = { reading ->
         delay(ms)
-        Quote(rate.tick, Math.round(4_250 * rate.value))
+        Shown(reading.tick, "${reading.celsius} C")
     }
 
     @Test
-    fun `everyRate reprices all three ticks in 1000 ms`() = runTest {
-        val quotes = everyRate(ticks(), repricer(300)).toList()
-        assertThat(quotes.map { it.tick }).containsExactly(1, 2, 3)
-        assertThat(currentTime).`as`("virtual ms; 1200 means the feed waited for the repricer").isEqualTo(1000)
+    fun `everyReading shows all three readings in 1000 ms`() = runTest {
+        val shown = everyReading(readings(), screen(300)).toList()
+        assertThat(shown.map { it.tick }).containsExactly(1, 2, 3)
+        assertThat(currentTime).`as`("virtual ms; 1200 means the thermometer waited for the screen").isEqualTo(1000)
     }
 
     @Test
-    fun `latestRate skips tick 2 and finishes at 700 ms`() = runTest {
-        val quotes = latestRate(ticks(), repricer(300)).toList()
-        assertThat(quotes.map { it.tick }).containsExactly(1, 3)
+    fun `latestReading skips reading 2 and finishes at 700 ms`() = runTest {
+        val shown = latestReading(readings(), screen(300)).toList()
+        assertThat(shown.map { it.tick }).containsExactly(1, 3)
         assertThat(currentTime).isEqualTo(700)
     }
 
     @Test
-    fun `latestRate loses nothing when repricing is faster than the feed`() = runTest {
-        val quotes = latestRate(ticks(), repricer(50)).toList()
-        assertThat(quotes.map { it.tick }).`as`("conflation drops only what arrives while the repricer is busy")
+    fun `latestReading loses nothing when the screen is faster than the thermometer`() = runTest {
+        val shown = latestReading(readings(), screen(50)).toList()
+        assertThat(shown.map { it.tick }).`as`("conflation drops only what arrives while the screen is busy")
             .containsExactly(1, 2, 3)
         assertThat(currentTime).isEqualTo(350)
     }
 
     @Test
-    fun `cancelStale finishes only the newest tick, at 600 ms`() = runTest {
+    fun `cancelStale finishes only the newest reading, at 600 ms`() = runTest {
         val started = mutableListOf<Int>()
-        val quotes = cancelStale(ticks()) { rate -> started += rate.tick; repricer(300)(rate) }.toList()
-        assertThat(started).`as`("repricings started").containsExactly(1, 2, 3)
-        assertThat(quotes.map { it.tick }).`as`("repricings finished").containsExactly(3)
+        val shown = cancelStale(readings()) { reading -> started += reading.tick; screen(300)(reading) }.toList()
+        assertThat(started).`as`("drawings started").containsExactly(1, 2, 3)
+        assertThat(shown.map { it.tick }).`as`("drawings finished").containsExactly(3)
         assertThat(currentTime).isEqualTo(600)
     }
 
-    // ---- the ledger pipeline must never drop ----
+    // ---- plates for the table must never be dropped ----
 
-    private fun postings(source: Flow<Int>): Flow<Posting> = flow {
-        source.collect { n -> emit(Posting(n, "pay-$n", 100L * n)) }
+    private fun plates(source: Flow<Int>): Flow<Plate> = flow {
+        source.collect { n -> emit(Plate(n, "dumpling")) }
     }
 
     @Test
-    fun `towardsLedger never drops a posting, even when the ledger is stuck`() = runTest {
-        val (_, got) = ahead { ints -> towardsLedger(postings(ints)).map { it.seq } }
-        assertThat(got).`as`("postings that reached the ledger").containsExactlyElementsOf(1..200)
+    fun `towardsTable never drops a plate, even when the diner is stuck`() = runTest {
+        val (_, got) = ahead { ints -> towardsTable(plates(ints)).map { it.seq } }
+        assertThat(got).`as`("plates that reached the table").containsExactlyElementsOf(1..200)
     }
 
     @Test
-    fun `towardsLedger lets the reader run exactly 64 postings ahead of a stuck ledger`() = runTest {
-        val (returned, _) = ahead { ints -> towardsLedger(postings(ints)).map { it.seq } }
-        assertThat(returned).`as`("postings read while the ledger held posting 1: 64 waiting plus 1 in hand").isEqualTo(65)
+    fun `towardsTable lets the cook run exactly 64 plates ahead of a stuck diner`() = runTest {
+        val (returned, _) = ahead { ints -> towardsTable(plates(ints)).map { it.seq } }
+        assertThat(returned).`as`("plates sent while the diner held plate 1: 64 waiting plus 1 in hand").isEqualTo(65)
     }
 }

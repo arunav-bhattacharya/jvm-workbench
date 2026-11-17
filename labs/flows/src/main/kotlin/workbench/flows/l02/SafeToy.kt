@@ -2,7 +2,7 @@ package workbench.flows.l02
 
 import kotlin.coroutines.CoroutineContext
 
-// The inspector at the hatch. flow { } wraps every collector in a SafeCollector that checks each emit.
+// The inspector at the kitchen door. flow { } wraps every collector in a SafeCollector that checks each emit.
 // Here you write a small version of it for the toy flow from lesson 1.
 
 /** Given: the toy collector from lesson 1. */

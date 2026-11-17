@@ -3,53 +3,53 @@ package workbench.flows.l02
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 
-class LedgerException(message: String) : RuntimeException(message)
+class SentBackException(message: String) : RuntimeException(message)
 
-val batch = listOf("pay-1" to 4250L, "pay-2" to -990L, "pay-3" to 12000L)
+val dinner = listOf("soup", "salad", "roast")
 
-/** The ledger refuses negative amounts. */
-fun post(posted: MutableList<String>, id: String, cents: Long) {
-    if (cents < 0) throw LedgerException("negative amount $cents for $id")
-    posted += id
+/** The diner sends back anything too salty. Tonight that is the salad. */
+fun eat(eaten: MutableList<String>, dish: String) {
+    if (dish == "salad") throw SentBackException("too salty: $dish")
+    eaten += dish
 }
 
 fun main() = runBlocking {
-    println("=== flow { } with a try/catch around emit that logs and continues")
-    val postings = flow {
-        for ((id, cents) in batch) {
+    println("=== flow { } with a try/catch around emit that says sorry and carries on")
+    val plates = flow {
+        for (dish in dinner) {
             try {
-                emit(id to cents)
+                emit(dish)
             } catch (e: Exception) {
-                println("WARN posting $id failed, skipping it: ${e::class.simpleName}: ${e.message}")
+                println("SORRY $dish came back, serving the next dish. ${e::class.simpleName}: ${e.message}")
             }
         }
     }
-    val posted = mutableListOf<String>()
-    postings.collect { (id, cents) -> post(posted, id, cents) }
-    println("collect returned normally. posted=$posted")
+    val eaten = mutableListOf<String>()
+    plates.collect { dish -> eat(eaten, dish) }
+    println("collect returned normally. eaten=$eaten")
 
     println()
     println("=== the same code on the toy flow from lesson 1")
-    val toyPostings = toyFlow {
-        for ((id, cents) in batch) {
+    val toyPlates = toyFlow {
+        for (dish in dinner) {
             try {
-                emit(id to cents)
+                emit(dish)
             } catch (e: Exception) {
-                println("WARN posting $id failed, skipping it: ${e::class.simpleName}: ${e.message}")
+                println("SORRY $dish came back, serving the next dish. ${e::class.simpleName}: ${e.message}")
             }
         }
     }
-    val toyPosted = mutableListOf<String>()
-    toyPostings.collect { (id, cents) -> post(toyPosted, id, cents) }
-    println("collect returned normally. posted=$toyPosted")
+    val toyEaten = mutableListOf<String>()
+    toyPlates.collect { dish -> eat(toyEaten, dish) }
+    println("collect returned normally. eaten=$toyEaten")
 
     println()
     println("=== emit from the catch block, without a try around it")
     try {
         flow {
-            emit("pay-1" to 4250L)
-            try { emit("pay-2" to -990L) } catch (e: LedgerException) { emit("pay-3" to 12000L) }
-        }.collect { (id, cents) -> post(mutableListOf(), id, cents) }
+            emit("soup")
+            try { emit("salad") } catch (e: SentBackException) { emit("roast") }
+        }.collect { dish -> eat(mutableListOf(), dish) }
     } catch (e: IllegalStateException) {
         println("collect threw IllegalStateException. cause=${e.cause} suppressed=${e.suppressed.toList()}")
         println(e.message)

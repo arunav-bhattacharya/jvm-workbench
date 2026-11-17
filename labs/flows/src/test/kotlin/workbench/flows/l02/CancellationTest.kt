@@ -54,14 +54,14 @@ class CancellationTest {
     }
 
     @Test
-    fun `batchIds stops delivering once the reconciliation job has cancelled itself`() = runTest {
+    fun `batchIds stops delivering once the checker has cancelled itself`() = runTest {
         val seen = mutableListOf<String>()
         launch {
-            batchIds((1..1000).map { "pay-$it" }).collect { id ->
+            batchIds((1..1000).map { "cookie-$it" }).collect { id ->
                 seen += id
-                if (id == "pay-3") cancel()      // first mismatch: stop the job
+                if (id == "cookie-3") cancel()   // the first burnt cookie: stop checking
             }
         }.join()
-        assertThat(seen).containsExactly("pay-1", "pay-2", "pay-3")
+        assertThat(seen).containsExactly("cookie-1", "cookie-2", "cookie-3")
     }
 }
