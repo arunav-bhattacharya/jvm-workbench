@@ -7,15 +7,15 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-/** Emits five events with tryEmit while one subscriber is busy, and reports what got through. */
+/** Rings the bell five times with tryEmit while the one listener is busy, and reports what got through. */
 suspend fun tryFive(label: String, events: MutableSharedFlow<String>) = kotlinx.coroutines.coroutineScope {
     val received = mutableListOf<String>()
-    val auditor = launch(start = CoroutineStart.UNDISPATCHED) {
-        events.collect { delay(50); received += it } // the audit write takes 50 ms
+    val listener = launch(start = CoroutineStart.UNDISPATCHED) {
+        events.collect { delay(50); received += it } // writing each ring in the log takes 50 ms
     }
     val accepted = (1..5).map { events.tryEmit("e$it") }
     delay(400)
-    auditor.cancel()
+    listener.cancel()
     println("%-40s tryEmit: %s  received: %s".format(label, accepted, received))
 }
 

@@ -9,16 +9,16 @@ import java.util.function.Function;
  */
 public class HandlerDemoJava {
     public static void main(String[] args) {
-        Consumer<PaymentEvent> auditAll = e -> System.out.println("audit " + e.getPaymentId());
-        Function<PaymentEvent, String> describe = e -> "event " + e.getPaymentId();
+        Consumer<Fruit> weighAny = f -> System.out.println("scale: " + f + ", " + f.getGrams() + " g");
+        Function<Fruit, String> label = f -> "price card for " + f;
 
-        Consumer<? super CardAuthorized> onCard = auditAll;
-        Function<? super CardAuthorized, ? extends Object> label = describe;
-        onCard.accept(new CardAuthorized("pay_7", 4_200));
-        System.out.println(label.apply(new CardAuthorized("pay_8", 10)));
+        Consumer<? super Apple> weighApple = weighAny;
+        Function<? super Apple, ? extends Object> appleLabel = label;
+        weighApple.accept(new Apple("Gala", 180));
+        System.out.println(appleLabel.apply(new Apple("Fuji", 150)));
 
         // Wrong moves. Uncomment ONE at a time, predict the error, then run.
-        // Consumer<CardAuthorized> strict = auditAll;
-        // Function<CardAuthorized, Object> strictFn = describe;
+        // Consumer<Apple> strict = weighAny;
+        // Function<Apple, Object> strictFn = label;
     }
 }

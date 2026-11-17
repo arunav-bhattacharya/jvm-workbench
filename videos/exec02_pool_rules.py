@@ -261,6 +261,16 @@ def counter2(fmt, fn, pos, size=30, color=WHITE, edge=ORIGIN):
     return holder
 
 
+def along(t, path, s_end=1.0):
+    """Move t along path (by length) while scaling it to s_end of its width."""
+    w0 = t.width
+
+    def f(m, a):
+        m.scale_to_fit_width(w0 * (1 + (s_end - 1) * a))
+        m.move_to(path.point_from_proportion(smooth(a)))
+    return UpdateFromAlphaFunc(t, f)
+
+
 class Exec02PoolRules(Narrated):
     """exec-02, section 0: the thrifty manager's kitchen (2 permanent cooks, a rail of 2, up to 2 temps, a door policy)
     is ThreadPoolExecutor(2, 4, ..., ArrayBlockingQueue(2), AbortPolicy); seven orders through the four rules break the
@@ -317,10 +327,10 @@ class Exec02PoolRules(Narrated):
         pspots = VGroup(*[spot(PERM) .move_to(CKP[i]) for i in (0, 1)])
         tspots = VGroup(*[spot(TEMP).move_to(CKP[i]) for i in (2, 3)])
         stoves = VGroup(*[stove(1.1).move_to(p) for p in STP])
-        perm_l = T("permanent: 2", 24, PERM).move_to([1.0, 0.12, 0])
-        temp_l = T("temporary: up to 2", 24, TEMP).move_to([4.0, 0.12, 0])
-        brace = Brace(Line([-0.25, -0.1, 0], [5.25, -0.1, 0]), DOWN, color=GREY_B, buff=0.05)
-        max_l = T("at most 4 cooks", 24, GREY_A).next_to(brace, DOWN, buff=0.08)
+        perm_l = T("permanent: 2", 24, PERM).move_to([1.0, 0.2, 0])
+        temp_l = T("temporary: up to 2", 24, TEMP).move_to([4.0, 0.2, 0])
+        brace = Brace(Line([-0.25, 0.02, 0], [5.25, 0.02, 0]), DOWN, color=GREY_B, buff=0.05)
+        max_l = T("at most 4 cooks", 24, GREY_A).next_to(brace, DOWN, buff=0.06)
         door = box("door policy", DOOR, h=0.7, size=24).move_to([-5.2, 0.2, 0])
         self.say("kitchen")
         self.play(FadeIn(mgr), FadeIn(mgr_l), run_time=0.6)
@@ -338,7 +348,7 @@ class Exec02PoolRules(Narrated):
         self.play(FadeIn(door, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
-        tpe = M("ThreadPoolExecutor", 26).move_to([3.3, -0.75, 0])
+        tpe = M("ThreadPoolExecutor", 26).move_to([LOGX, -1.15, 0], aligned_edge=LEFT)
         perm_m = T("core pool size: 2", 24, PERM).move_to(perm_l)
         max_m = T("maximum pool size: 4", 24, GREY_A).move_to(max_l)
         rail_m = VGroup(T("work queue:", 22, GREY_A), M("ArrayBlockingQueue(2)", 22, GREY_A)).arrange(DOWN, buff=0.08).move_to([-2.4, 1.65, 0])
@@ -369,7 +379,7 @@ class Exec02PoolRules(Narrated):
         def rule_hl(i):
             return hl.animate.become(SurroundingRectangle(rules[i], buff=0.08, corner_radius=0.06, color=rule_c[i], stroke_width=2.5))
 
-        seven = T("7 orders at once, 500 ms each", 26).move_to([LOGX, -1.05, 0], aligned_edge=LEFT)
+        seven = T("7 orders at once, 500 ms each", 26).move_to([LOGX, -1.1, 0], aligned_edge=LEFT)
         ghosts = VGroup(*[ticket(i + 1, s=0.8).move_to(HEADP[i]) for i in range(4)],
                         *[ticket(i + 5).move_to(SLOTS2[i]) for i in range(2)], ticket(7).move_to(IN_P)).set_opacity(0.45)
         gx = tick(False, 0.25).move_to(IN_P).set_z_index(7)
@@ -389,12 +399,12 @@ class Exec02PoolRules(Narrated):
         self.predict(pos=(6.4, -3.25))
 
         # ---- the real run, one order at a time ----
-        logh = T("what PoolPuzzleDemo prints", 22, GREY_B).move_to([LOGX, -1.0, 0], aligned_edge=LEFT)
+        logh = T("what PoolPuzzleDemo prints", 22, GREY_B).move_to([LOGX, -1.05, 0], aligned_edge=LEFT)
         logs_t = ["task 1 accepted: threads=1 queued=0", "task 2 accepted: threads=2 queued=0",
                   "task 3 accepted: threads=2 queued=1", "task 4 accepted: threads=2 queued=2",
                   "task 5 accepted: threads=3 queued=2", "task 6 accepted: threads=4 queued=2",
                   "task 7 REJECTED: threads=4 queued=2"]
-        logs = [M(s, 22, BAD if "REJ" in s else GREY_A).move_to([LOGX, -1.38 - 0.3 * i, 0], aligned_edge=LEFT)
+        logs = [M(s, 22, BAD if "REJ" in s else GREY_A).move_to([LOGX, -1.42 - 0.3 * i, 0], aligned_edge=LEFT)
                 for i, s in enumerate(logs_t)]
         tk = {}
         cooks = {}
@@ -411,7 +421,7 @@ class Exec02PoolRules(Narrated):
             c = cook(color).move_to(CKP[ci])
             cooks[ci] = c
             sp = pspots[ci] if ci < 2 else tspots[ci - 2]
-            self.play(MoveAlongPath(t, path), t.animate.scale(0.8), FadeOut(sp), FadeIn(c, scale=0.8), *extra, run_time=0.9)
+            self.play(along(t, path, 0.8), FadeOut(sp), FadeIn(c, scale=0.8), *extra, run_time=0.9)
 
         def to_rail(n, si, extra=()):
             t = tk[n]
@@ -466,13 +476,13 @@ class Exec02PoolRules(Narrated):
                   FadeIn(logs[6]), run_time=1.0)
         self.hold()
 
-        wrong = T("grows first, queues second?", 28, GREY_A).move_to([LOGX, -1.0, 0], aligned_edge=LEFT)
+        wrong = T("grows first, queues second?", 28, GREY_A).move_to([LOGX, -1.05, 0], aligned_edge=LEFT)
         wrong_x = strike(wrong)
-        right = T("It queues first, and grows second.", 30, YELLOW_M).move_to([LOGX, -1.65, 0], aligned_edge=LEFT)
+        right = T("It queues first, and grows second.", 30, YELLOW_M).move_to([LOGX, -1.7, 0], aligned_edge=LEFT)
         cost1 = VGroup(ticket(s=0.6), T("a ticket on the rail: costs nothing", 24)).arrange(RIGHT, buff=0.25)
         cost2 = VGroup(cook(TEMP, 0.6), T("a temporary cook: costs wages", 24, TEMP)).arrange(RIGHT, buff=0.25)
-        cost1.move_to([LOGX, -2.35, 0], aligned_edge=LEFT)
-        cost2.move_to([LOGX, -2.95, 0], aligned_edge=LEFT)
+        cost1.move_to([LOGX, -2.4, 0], aligned_edge=LEFT)
+        cost2.move_to([LOGX, -3.0, 0], aligned_edge=LEFT)
         self.say("thrifty")
         self.play(FadeOut(VGroup(logh, *logs, x7, tk[7])), FadeOut(hl), run_time=0.6)
         self.at(1)
@@ -491,8 +501,8 @@ class Exec02PoolRules(Narrated):
         self.hold()
 
         # ---- who finished first ----
-        o500 = T("about 500 ms: orders 1, 2, 5, 6", 26, GOOD).move_to([LOGX, -1.0, 0], aligned_edge=LEFT)
-        o1000 = T("about 1,000 ms: orders 3, 4", 26, GOOD).move_to([LOGX, -1.55, 0], aligned_edge=LEFT)
+        o500 = T("about 500 ms: orders 1, 2, 5, 6", 26, GOOD).move_to([LOGX, -1.1, 0], aligned_edge=LEFT)
+        o1000 = T("about 1,000 ms: orders 3, 4", 26, GOOD).move_to([LOGX, -1.65, 0], aligned_edge=LEFT)
 
         def done(ns):
             return [*[tk[n].animate.scale(1.2).set_opacity(0) for n in ns],
@@ -520,11 +530,11 @@ class Exec02PoolRules(Narrated):
         self.hold()
 
         # ================= a rail with no end =================
-        long_rail = rail_line(-3.75, -0.25, RAIL_Y)
-        more = T("...", 30, GREY_B).move_to([-0.05, RAIL_Y - 0.35, 0])
+        long_rail = rail_line(-3.8, -0.4, RAIL_Y)
+        more = T("...", 30, GREY_B).move_to([-4.1, RAIL_Y + 0.05, 0])
         max64 = T("maximum pool size: 64", 24, GREY_A).move_to(max_l)
         temp64 = T("temporary: up to 62", 24, TEMP).move_to(temp_l)
-        rail_u = VGroup(T("work queue:", 22, GOLD_M), T("LinkedBlockingQueue, no limit", 22, GOLD_M)).arrange(DOWN, buff=0.08).move_to([-2.0, 1.65, 0])
+        rail_u = VGroup(T("work queue: no limit", 22, GOLD_M), M("LinkedBlockingQueue", 22, GOLD_M)).arrange(DOWN, buff=0.08).move_to([-2.4, 1.65, 0])
         self.say("back64")
         self.play(FadeOut(VGroup(o500, o1000, br1, br2)), *[FadeOut(c) for c in cooks.values()], FadeIn(pspots),
                   FadeIn(tspots), run_time=0.7)
@@ -553,7 +563,7 @@ class Exec02PoolRules(Narrated):
                   "task 7 accepted: threads=2 queued=5", "...", "all done in 2019 ms, completed tasks: 7"]
         ulog = [M(s, 22, GOOD if "all" in s else GREY_A).move_to([LOGX, -1.4 - 0.33 * i, 0], aligned_edge=LEFT)
                 for i, s in enumerate(u_logs)]
-        uh = T("the same seven orders, with that queue", 22, GREY_B).move_to([LOGX, -1.0, 0], aligned_edge=LEFT)
+        uh = T("the same seven orders, with that queue", 22, GREY_B).move_to([LOGX, -1.05, 0], aligned_edge=LEFT)
         u2 = {}
         self.say("demo2")
         self.play(FadeOut(dead), Transform(max_l, max4), FadeIn(uh), run_time=0.6)
@@ -581,15 +591,15 @@ class Exec02PoolRules(Narrated):
         self.hold()
 
         # ---- overload ----
-        a1 = T("orders arrive: 400 a second", 26).move_to([LOGX, -1.05, 0], aligned_edge=LEFT)
-        a2 = T("the kitchen finishes: 300 a second", 26, PERM).move_to([LOGX, -1.55, 0], aligned_edge=LEFT)
-        a3 = T("the rail grows: 100 every second", 26, GOLD_M).move_to([LOGX, -2.05, 0], aligned_edge=LEFT)
+        a1 = T("orders arrive: 400 a second", 26).move_to([LOGX, -1.1, 0], aligned_edge=LEFT)
+        a2 = T("the kitchen finishes: 300 a second", 26, PERM).move_to([LOGX, -1.6, 0], aligned_edge=LEFT)
+        a3 = T("the rail grows: 100 every second", 26, GOLD_M).move_to([LOGX, -2.1, 0], aligned_edge=LEFT)
         mins = ValueTracker(0)
         cnt = counter2("after {:.1f} min: {:,} waiting", lambda: (round(mins.get_value(), 1), int(round(mins.get_value() * 10) * 600)),
-                       [LOGX, -2.6, 0], 26, BAD, edge=LEFT)
-        PILE = [np.array([-3.45 + 0.27 * (k % 12), 1.05 + 0.22 * (k // 12) - 0.0, 0]) for k in range(48)]
-        pile = VGroup(*[ticket(s=0.3).move_to(PILE[k]) for k in range(48)])
-        wait3 = T("a new order waits over 3 minutes", 26, BAD).move_to([LOGX, -3.1, 0], aligned_edge=LEFT)
+                       [LOGX, -2.65, 0], 26, BAD, edge=LEFT)
+        PILE = [np.array([-3.45 + 0.27 * (k % 10), 1.05 + 0.22 * (k // 10), 0]) for k in range(50)]
+        pile = VGroup(*[ticket(s=0.3).move_to(PILE[k]) for k in range(50)])
+        wait3 = T("a new order waits over 3 minutes", 26, BAD).move_to([LOGX, -3.15, 0], aligned_edge=LEFT)
         self.say("safe")
         self.play(FadeOut(VGroup(uh, *ulog)), FadeOut(rail_l), run_time=0.5)
         self.at(2)
@@ -602,7 +612,7 @@ class Exec02PoolRules(Narrated):
         self.add(cnt)
 
         def pile_upd(g):
-            n = int(min(48, mins.get_value() / 10 * 48))
+            n = int(min(50, mins.get_value() / 10 * 50))
             for k, t in enumerate(g):
                 t.set_opacity(1 if k < n else 0)
         pile.set_opacity(0)
@@ -616,7 +626,7 @@ class Exec02PoolRules(Narrated):
         heap_b = Rectangle(width=4.0, height=0.36, stroke_color=GREY_B, stroke_width=2).move_to([4.0, -1.5, 0])
         heap_f = Rectangle(width=0.01, height=0.36, stroke_width=0).set_fill(BAD, 0.85).move_to(heap_b.get_left(), aligned_edge=LEFT)
         heap_l = T("heap", 24, GREY_A).next_to(heap_b, LEFT, buff=0.2)
-        nobody = T("dinners nobody will eat", 26, GOLD_M).move_to([-1.95, 0.45, 0])
+        nobody = T("dinners nobody will eat", 24, GOLD_M).move_to([-2.2, 0.5, 0])
         self.say("dinner")
         self.play(FadeIn(nobody), run_time=0.6)
         self.at(1)

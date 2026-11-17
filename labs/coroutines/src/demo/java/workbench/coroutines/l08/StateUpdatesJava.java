@@ -8,16 +8,17 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 public class StateUpdatesJava {
-    static void addCents(String label, Consumer<AtomicReference<Long>> add) {
-        AtomicReference<Long> capturedCents = new AtomicReference<>(0L);
+    /** 8 helpers each add 1 plate to a shared count 100,000 times. */
+    static void countPlates(String label, Consumer<AtomicReference<Long>> add) {
+        AtomicReference<Long> platesServed = new AtomicReference<>(0L);
         try (ExecutorService pool = Executors.newFixedThreadPool(8)) {
-            for (int t = 0; t < 8; t++) pool.submit(() -> { for (int i = 0; i < 100_000; i++) add.accept(capturedCents); });
+            for (int t = 0; t < 8; t++) pool.submit(() -> { for (int i = 0; i < 100_000; i++) add.accept(platesServed); });
         }
-        System.out.printf("%-34s expected 800000, got %d%n", label, capturedCents.get());
+        System.out.printf("%-34s expected 800000, got %d%n", label, platesServed.get());
     }
 
     public static void main(String[] args) {
-        addCents("set(get() + 1)", ref -> ref.set(ref.get() + 1));              // read-modify-write: loses updates
-        addCents("updateAndGet(c -> c + 1)", ref -> ref.updateAndGet(c -> c + 1)); // compare-and-set in a loop
+        countPlates("set(get() + 1)", ref -> ref.set(ref.get() + 1));              // read-modify-write: loses updates
+        countPlates("updateAndGet(c -> c + 1)", ref -> ref.updateAndGet(c -> c + 1)); // compare-and-set in a loop
     }
 }

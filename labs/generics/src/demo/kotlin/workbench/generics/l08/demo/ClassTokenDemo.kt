@@ -1,11 +1,10 @@
 package workbench.generics.l08.demo
 
-import java.math.BigDecimal
-
+/** The shop's standard item of each kind: ask for "an apple" without saying which, and you get a Gala. */
 private val defaults: Map<Class<*>, Any> = mapOf(
+    Apple::class.java to Apple("Gala", 180),
+    Lemon::class.java to Lemon("Eureka", 120),
     String::class.java to "",
-    BigDecimal::class.java to BigDecimal.ZERO,
-    java.util.Currency::class.java to java.util.Currency.getInstance("EUR"),
 )
 
 /** The core takes a Class token, so it works for Java callers too. */
@@ -16,10 +15,10 @@ fun <T : Any> defaultOf(type: Class<T>): T =
 inline fun <reified T : Any> defaultOf(): T = defaultOf(T::class.java)
 
 fun main() {
-    val zero: BigDecimal = defaultOf()                         // T inferred from the expected type
-    val eur = defaultOf<java.util.Currency>()
+    val apple: Apple = defaultOf()                             // T inferred from the expected type
+    val lemon = defaultOf<Lemon>()
     val blank = defaultOf(String::class.java)                  // the Java-style call, from Kotlin
-    println("zero = $zero, eur = $eur, blank = '$blank'")
+    println("apple = $apple, lemon = $lemon, blank = '$blank'")
 
     // A trap with primitives: Int::class.java is the primitive int, but a reified Int is boxed.
     println("Int::class.java = ${Int::class.java}, javaObjectType = ${Int::class.javaObjectType}")

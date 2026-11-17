@@ -9,10 +9,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 private val connections = AtomicInteger()
 
-// a cold feed: every subscriber opens its own connection and gets rates from the start, one per 100 ms
-private fun rateFeed(): Flux<String> =
+// a cold feed: every subscriber opens its own connection and gets readings from the start, one per 100 ms
+private fun thermometer(): Flux<String> =
     Flux.interval(Duration.ofMillis(100)).take(5)
-        .map { i -> "1.08$i" }
+        .map { i -> "20$i" }
         .doOnSubscribe { connections.incrementAndGet() }
 
 private fun run(title: String, feed: Flux<String>) {
@@ -27,11 +27,11 @@ private fun run(title: String, feed: Flux<String>) {
     println("%-28s connections=%d%n%5sA=%s%n%5sB=%s".format(title, connections.get(), "", a, "", b))
 }
 
-/** One cold FX feed, shared five ways between dashboard A (starts now) and dashboard B (joins 250 ms later). */
+/** One cold thermometer feed, shared five ways between screen A (starts now) and screen B (joins 250 ms later). */
 fun main() {
-    run("1. cold", rateFeed())
-    run("2. share()", rateFeed().share())
-    run("3. replay(1).refCount()", rateFeed().replay(1).refCount())
-    run("4. cache()", rateFeed().cache())
-    run("5. publish().autoConnect(2)", rateFeed().publish().autoConnect(2))
+    run("1. cold", thermometer())
+    run("2. share()", thermometer().share())
+    run("3. replay(1).refCount()", thermometer().replay(1).refCount())
+    run("4. cache()", thermometer().cache())
+    run("5. publish().autoConnect(2)", thermometer().publish().autoConnect(2))
 }

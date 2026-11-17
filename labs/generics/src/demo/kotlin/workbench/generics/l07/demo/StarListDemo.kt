@@ -1,29 +1,29 @@
 package workbench.generics.l07.demo
 
-/** Logs any list. It never cares what the elements are, so it says `*`. */
-fun logAll(items: List<*>) {
+/** Prints any list. It never cares what the elements are, so it says `*`. */
+fun printAll(items: List<*>) {
     for (item in items) println("  $item")      // each item is Any?
 }
 
-/** Empties any buffer. clear() takes no element, so a star projection allows it. */
-fun reset(buffer: MutableList<*>): Int {
-    val n = buffer.size
-    buffer.clear()
+/** Empties any crate. clear() takes no element, so a star projection allows it. */
+fun empty(crate: MutableList<*>): Int {
+    val n = crate.size
+    crate.clear()
     return n
 }
 
 fun main() {
-    val ids: MutableList<String> = mutableListOf("pay_1", "pay_2")
-    val cents: MutableList<Int> = mutableListOf(1_200, 350, 99)
-    logAll(ids)
-    logAll(cents)
+    val varieties: MutableList<String> = mutableListOf("Gala", "Fuji")
+    val weights: MutableList<Int> = mutableListOf(180, 150, 120)
+    printAll(varieties)
+    printAll(weights)
 
-    val star: MutableList<*> = ids
-    val first: Any? = star[0]                   // reading gives Any?
-    println("first = $first, removed ${reset(ids)} ids and ${reset(cents)} amounts")
+    val unlabeled: MutableList<*> = varieties
+    val first: Any? = unlabeled[0]              // reading gives Any?
+    println("first = $first, emptied ${empty(varieties)} names and ${empty(weights)} weights")
 
     // Wrong moves. Uncomment one at a time, predict the error, then run.
-    // star.add("pay_3")                        // 1
-    // star.add(null)                           // 2
-    // val id: String = star[0]                 // 3
+    // unlabeled.add("Eureka")                  // 1
+    // unlabeled.add(null)                      // 2
+    // val name: String = unlabeled[0]          // 3
 }

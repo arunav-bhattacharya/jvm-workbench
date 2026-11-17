@@ -5,37 +5,37 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Java twin of IsCheckDemo.kt. instanceof works with List<?> and Map<?, ?>, not with List<Long>. */
+/** Java twin of IsCheckDemo.kt. instanceof works with List<?> and Map<?, ?>, not with List<Integer>. */
 public class IsCheckDemoJava {
 
-    static String shape(Object payload) {
-        if (payload == null) return "empty";
-        if (payload instanceof Map<?, ?> map) return "object with keys " + map.keySet();
-        if (payload instanceof List<?> list) return "array of " + list.size();
-        return "value " + payload;
+    static String shape(Object note) {
+        if (note == null) return "empty";
+        if (note instanceof Map<?, ?> map) return "a map with keys " + map.keySet();
+        if (note instanceof List<?> list) return "a list of " + list.size();
+        return "a single value: " + note;
     }
 
-    static List<Long> amountsIn(Object payload) {
-        List<Long> out = new ArrayList<>();
-        if (payload instanceof List<?> list) {
-            for (Object e : list) if (e instanceof Long l) out.add(l);   // check every element
+    static List<Integer> weightsIn(Object note) {
+        List<Integer> out = new ArrayList<>();
+        if (note instanceof List<?> list) {
+            for (Object e : list) if (e instanceof Integer i) out.add(i);   // check every element
         }
         return out;
     }
 
     public static void main(String[] args) {
         Map<String, Object> fields = new LinkedHashMap<>();    // keeps key order, like Kotlin's mapOf
-        fields.put("id", "pay_1");
-        fields.put("amounts", List.of(1_200L, "oops", 350L));
-        Object webhook = fields;
-        System.out.println(shape(webhook));
+        fields.put("supplier", "Hillside Orchard");
+        fields.put("weights", List.of(180, "bruised", 150));
+        Object note = fields;
+        System.out.println(shape(note));
         System.out.println(shape(List.of(1, 2, 3)));
         System.out.println(shape(42));
 
-        Object amounts = ((Map<?, ?>) webhook).get("amounts");
-        System.out.println("amounts = " + amountsIn(amounts));
+        Object weights = ((Map<?, ?>) note).get("weights");
+        System.out.println("weights = " + weightsIn(weights));
 
         // Wrong move. Uncomment, predict the error, then run.
-        // if (amounts instanceof List<Long>) System.out.println("a list of longs");
+        // if (weights instanceof List<Integer>) System.out.println("a list of weights");
     }
 }

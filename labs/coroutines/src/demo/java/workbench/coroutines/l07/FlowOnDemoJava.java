@@ -11,7 +11,7 @@ public class FlowOnDemoJava {
     static String thread() { return Thread.currentThread().getName(); }
 
     public static void main(String[] args) {
-        Flux.fromIterable(List.of("pay-1,4250,EUR", "pay-2,-990,EUR"))
+        Flux.fromIterable(List.of("flour,2000,g", "eggs,12,pcs"))
             .doOnNext(line -> {
                 try { Thread.sleep(50); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } // a blocking file read
                 System.out.println("read   on " + thread());
@@ -19,7 +19,7 @@ public class FlowOnDemoJava {
             .map(line -> { System.out.println("parse  on " + thread()); return line.split(","); })
             .subscribeOn(Schedulers.boundedElastic())   // the source and the steps above run there
             .publishOn(Schedulers.single())             // the steps below move to another thread
-            .map(f -> { System.out.println("format on " + thread()); return f[0] + ": " + f[1] + " cents"; })
+            .map(f -> { System.out.println("format on " + thread()); return f[0] + ": " + f[1]; })
             .doOnNext(s -> System.out.println("save   on " + thread() + "  " + s))
             .blockLast();
     }

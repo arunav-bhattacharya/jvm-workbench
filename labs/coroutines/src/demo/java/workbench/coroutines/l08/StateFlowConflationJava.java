@@ -8,28 +8,28 @@ import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
 public class StateFlowConflationJava {
-    record Rate(String pair, double mid) {}
+    record Menu(String soup) {}
 
     public static void main(String[] args) throws InterruptedException {
-        Sinks.Many<Rate> eurUsd = Sinks.many().replay().latestOrDefault(new Rate("EUR/USD", 1.0809));
-        Disposable dashboard = eurUsd.asFlux()
+        Sinks.Many<Menu> board = Sinks.many().replay().latestOrDefault(new Menu("tomato"));
+        Disposable hall = board.asFlux()
             .distinctUntilChanged()
             .onBackpressureLatest()
             .publishOn(Schedulers.single(), 1)   // request one value at a time
-            .subscribe(rate -> {
-                System.out.println("dashboard shows " + rate.mid());
-                sleep(100); // rendering is slow
+            .subscribe(menu -> {
+                System.out.println("the board in the hall shows " + menu.soup() + " soup");
+                sleep(100); // chalking up the board is slow
             });
         Thread.sleep(20);
-        // three ticks arrive while the dashboard is busy rendering the first value
-        eurUsd.tryEmitNext(new Rate("EUR/USD", 1.0811));
-        eurUsd.tryEmitNext(new Rate("EUR/USD", 1.0812));
-        eurUsd.tryEmitNext(new Rate("EUR/USD", 1.0813));
+        // the cook changes her mind three times while the board is being chalked up
+        board.tryEmitNext(new Menu("leek"));
+        board.tryEmitNext(new Menu("pea"));
+        board.tryEmitNext(new Menu("onion"));
         Thread.sleep(250);
-        System.out.println("setting an equal rate again (a new object, same fields)");
-        eurUsd.tryEmitNext(new Rate("EUR/USD", 1.0813));
+        System.out.println("setting an equal menu again (a new object, same fields)");
+        board.tryEmitNext(new Menu("onion"));
         Thread.sleep(150);
-        dashboard.dispose();
+        hall.dispose();
     }
 
     static void sleep(long ms) { try { Thread.sleep(ms); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } }

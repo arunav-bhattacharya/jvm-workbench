@@ -8,27 +8,30 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public class ColdFlowJava {
-    static Flux<String> entries(String accountId) {
+    static final List<List<String>> PAGES =
+        List.of(List.of("apples", "bananas"), List.of("cherries", "dates"), List.of("figs", "grapes"));
+
+    static Flux<String> aisle(String name) {
         return Flux.range(0, 3)
             .concatMap(page -> Mono.fromCallable(() -> {
-                    System.out.println("  fetching page " + page + " of " + accountId);
-                    return List.of("e" + (page * 2 + 1), "e" + (page * 2 + 2));
+                    System.out.println("  fetching page " + page + " of the " + name + " aisle");
+                    return PAGES.get(page);
                 }).delayElement(Duration.ofMillis(20)), 1)   // prefetch 1: ask for one page at a time
-            .flatMapIterable(entries -> entries);
+            .flatMapIterable(items -> items);
     }
 
     public static void main(String[] args) {
         System.out.println("building the flux");
-        Flux<String> flux = entries("acc-1");
+        Flux<String> fruit = aisle("fruit");
         System.out.println("built; nothing fetched yet");
 
         System.out.println("first subscribe:");
-        System.out.println("  got " + flux.collectList().block());
+        System.out.println("  got " + fruit.collectList().block());
 
         System.out.println("second subscribe:");
-        System.out.println("  got " + flux.collectList().block());
+        System.out.println("  got " + fruit.collectList().block());
 
         System.out.println("take(3):");
-        System.out.println("  got " + flux.take(3).collectList().block());
+        System.out.println("  got " + fruit.take(3).collectList().block());
     }
 }

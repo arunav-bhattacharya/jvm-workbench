@@ -17,8 +17,8 @@ fun stringsIn(value: Any?): List<String> {
 }
 
 // MutableList<*>: "a mutable list of some element type". clear() takes no element, so it is allowed.
-fun drain(buffer: MutableList<*>): Int {
-    val n = buffer.size
-    buffer.clear()
+fun drain(crate: MutableList<*>): Int {
+    val n = crate.size
+    crate.clear()
     return n
 }

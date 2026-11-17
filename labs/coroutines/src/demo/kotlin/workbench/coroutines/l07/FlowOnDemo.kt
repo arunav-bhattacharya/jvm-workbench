@@ -13,7 +13,7 @@ fun main(args: Array<String>) = runBlocking {
     if (args.firstOrNull() == "wrong") {
         try {
             flow {
-                withContext(Dispatchers.IO) { emit("pay-1,4250,EUR") } // emit from another context
+                withContext(Dispatchers.IO) { emit("flour,2000,g") } // emit from another context
             }.collect { println("collected $it") }
         } catch (e: IllegalStateException) {
             println("IllegalStateException: " + e.message!!.lines().first())
@@ -21,15 +21,15 @@ fun main(args: Array<String>) = runBlocking {
         return@runBlocking
     }
     flow {
-        for (line in listOf("pay-1,4250,EUR", "pay-2,-990,EUR")) {
-            Thread.sleep(50) // a blocking file read
+        for (line in listOf("flour,2000,g", "eggs,12,pcs")) {
+            Thread.sleep(50) // a blocking read from the delivery note file
             println("read   on ${thread()}")
             emit(line)
         }
     }
         .map { println("parse  on ${thread()}"); parse(it) }
         .flowOn(Dispatchers.IO) // everything above this line runs on IO
-        .map { println("format on ${thread()}"); "${it.first}: ${it.second} cents" }
+        .map { println("format on ${thread()}"); "${it.first}: ${it.second}" }
         .collect { println("save   on ${thread()}  $it") }
 }
 

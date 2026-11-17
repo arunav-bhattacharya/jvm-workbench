@@ -13,23 +13,23 @@ public class StateInDemoJava {
 
     public static void main(String[] args) throws InterruptedException {
         t0 = System.nanoTime();
-        // a cold flux that polls the FX provider every 100 ms
-        Flux<Double> polls = Flux.interval(Duration.ZERO, Duration.ofMillis(100))
-            .map(n -> 1.0800 + n / 10_000.0)
-            .doOnSubscribe(s -> at("upstream: polling started"))
-            .doOnCancel(() -> at("upstream: polling stopped"));
+        // a cold flux that reads the oven thermometer every 100 ms
+        Flux<Long> readings = Flux.interval(Duration.ZERO, Duration.ofMillis(100))
+            .map(n -> 180 + n)
+            .doOnSubscribe(s -> at("thermometer: reading started"))
+            .doOnCancel(() -> at("thermometer: reading stopped"));
 
-        Flux<Double> rate = polls.replay(1).refCount(1, Duration.ofMillis(300));
-        at("refCount returned; waiting 200 ms before the first dashboard");
+        Flux<Long> temperature = readings.replay(1).refCount(1, Duration.ofMillis(300));
+        at("refCount returned; waiting 200 ms before the first screen");
         Thread.sleep(200);
 
-        Disposable a = rate.subscribe();
-        Disposable b = rate.subscribe();
-        at("two dashboards subscribed");
+        Disposable hall = temperature.subscribe();
+        Disposable kitchen = temperature.subscribe();
+        at("two screens subscribed");
         Thread.sleep(250);
-        a.dispose();
-        b.dispose();
-        at("both dashboards left");
+        hall.dispose();
+        kitchen.dispose();
+        at("both screens left");
         Thread.sleep(500);
         at("done");
     }

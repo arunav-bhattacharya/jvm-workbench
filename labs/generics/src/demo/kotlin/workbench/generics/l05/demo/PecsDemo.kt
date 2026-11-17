@@ -6,14 +6,14 @@ fun <T> copyInto(from: List<T>, to: MutableList<in T>) {   // List is already ou
 }
 
 fun main() {
-    val amounts: List<Int> = listOf(1_200, 350)
-    val numbers: MutableList<Number> = mutableListOf(2.5)
-    val anything: MutableList<Any> = mutableListOf("EUR")
+    val apples: List<Apple> = listOf(Apple("Gala", 180), Apple("Fuji", 150))
+    val shelf: MutableList<Fruit> = mutableListOf(Lemon("Eureka", 120))
+    val anything: MutableList<Any> = mutableListOf("a paper bag")
 
-    copyInto(amounts, numbers)        // T = Int; a MutableList<Number> accepts Ints
-    copyInto(amounts, anything)
-    println("numbers = $numbers, anything = $anything")
+    copyInto(apples, shelf)           // T = Apple; a MutableList<Fruit> accepts apples
+    copyInto(apples, anything)
+    println("shelf = $shelf, anything = $anything")
 
     // Wrong move. Uncomment, predict the error, then run.
-    // copyInto(numbers, mutableListOf<Int>())
+    // copyInto(shelf, mutableListOf<Apple>())
 }

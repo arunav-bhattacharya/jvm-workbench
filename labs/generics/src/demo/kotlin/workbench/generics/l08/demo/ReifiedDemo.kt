@@ -1,17 +1,26 @@
 package workbench.generics.l08.demo
 
+// The shop's fruit, used by the demos of this lesson (the Java twins use these Kotlin types too)
+interface Fruit { val name: String; val grams: Int }
+data class Apple(override val name: String, override val grams: Int) : Fruit {
+    override fun toString() = name                 // prints as "Gala", not "Apple(name=Gala, grams=180)"
+}
+data class Lemon(override val name: String, override val grams: Int) : Fruit {
+    override fun toString() = name
+}
+
 /** inline copies the body into each caller; reified copies the caller's real T in with it. */
 inline fun <reified T> Any?.isA(): Boolean = this is T
 
 inline fun <reified T : Any> nameOf(): String = T::class.java.simpleName
 
 fun main() {
-    val payload: List<Any?> = listOf("pay_1", 1_200L, null, "pay_2", 2.5)
+    val delivery: List<Any?> = listOf(Apple("Gala", 180), "a paper bag", null, Lemon("Eureka", 120), Apple("Fuji", 150))
 
-    println("\"pay_1\".isA<String>() = ${"pay_1".isA<String>()}, 1200L.isA<String>() = ${1_200L.isA<String>()}")
-    println("strings: ${payload.filterIsInstance<String>()}")   // the stdlib's reified filter
-    println("longs:   ${payload.filterIsInstance<Long>()}")
-    println("nameOf<java.math.BigDecimal>() = ${nameOf<java.math.BigDecimal>()}")
+    println("Gala isA<Apple>() = ${delivery[0].isA<Apple>()}, the bag isA<Apple>() = ${delivery[1].isA<Apple>()}")
+    println("apples: ${delivery.filterIsInstance<Apple>()}")     // the standard library's reified filter
+    println("lemons: ${delivery.filterIsInstance<Lemon>()}")
+    println("nameOf<Lemon>() = ${nameOf<Lemon>()}")
 }
 
 // Wrong moves. Uncomment one at a time, predict the error, then run.

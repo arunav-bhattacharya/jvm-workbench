@@ -6,29 +6,29 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.coroutines.cancellation.CancellationException
 
-/** Polls a settlement 20 times, 100 ms apart. A failed poll is logged and retried. */
-suspend fun pollSettlement(rethrowCancellation: Boolean, onAttempt: () -> Unit) {
+/** Phones the butcher 20 times, 100 ms apart, to ask if the order is ready. A failed call is logged and tried again. */
+suspend fun phoneButcher(rethrowCancellation: Boolean, onCall: () -> Unit) {
     repeat(20) {
         runCatching {
-            onAttempt()  // the HTTP call to the acquirer would go here
+            onCall()     // the phone call to the butcher would go here
             delay(100)
         }.onFailure { e ->
             if (rethrowCancellation && e is CancellationException) throw e
-            // swallowed: logged as a "failed poll", and the loop goes round again
+            // swallowed: logged as a "failed call", and the loop goes round again
         }
     }
 }
 
 fun main(args: Array<String>) = runBlocking {
     val fixed = args.firstOrNull() == "fixed"
-    var attempts = 0
+    var calls = 0
     var cancelledAt = -1
-    val poller = launch { pollSettlement(rethrowCancellation = fixed) { attempts++ } }
+    val caller = launch { phoneButcher(rethrowCancellation = fixed) { calls++ } }
     delay(250)
-    cancelledAt = attempts
+    cancelledAt = calls
     val asked = System.nanoTime()
-    poller.cancelAndJoin()
+    caller.cancelAndJoin()
     val ms = (System.nanoTime() - asked) / 1_000_000
     println(if (fixed) "runCatching + rethrow:" else "runCatching, swallowing:")
-    println("  attempts before cancel: $cancelledAt, after cancel: ${attempts - cancelledAt}, cancelAndJoin took $ms ms")
+    println("  calls before cancel: $cancelledAt, after cancel: ${calls - cancelledAt}, cancelAndJoin took $ms ms")
 }

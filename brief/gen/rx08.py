@@ -14,9 +14,24 @@ def code(name):
                     "run": DEMO + name + "Kt", "file": f"{lab}/demo/{PK}/{name}.kt"}}
 
 
-S1 = """A cold publisher does its work again for every subscriber (lesson 2 of this track). That is right for an HTTP call per request. It is wrong for a WebSocket of FX rates that six dashboards open: six connections to the provider, six copies of the same ticks. A hot publisher produces whether or not anyone listens, and subscribers share what it produces from the moment they join.
+def pair(java, kotlin):
+    """A Java fence and its Kotlin twin, side by side, as the validator expects."""
+    return f"```java\n{java}\n```\n\n```kotlin\n{kotlin}\n```"
 
-Reactor turns cold into hot with a few operators. They differ in two decisions: when to connect to the source, and what a subscriber that joins late receives.
+
+# ---------------------------------------------------------------- opening
+OPENING = """The bakery has started a little radio show. Every morning at seven, the head baker reads out the day's bread over the shop's radio, live. If you switch on at five past, you missed the rye. The bakery also keeps a recording of each show, and anyone who presses play hears it from the first word. The live show is shared and goes on whether anyone listens. The recording starts again for each listener.
+
+Reactor's publishers come in the same two kinds, hot and cold, and the trap is not knowing which one you hold. Six screens open six connections to the oven where one would do. A screen that switches on late shows nothing until the next reading. And a test that should check all of it can pass without running a line.
+
+Backpressure in practice ended with two screens and one thermometer. In this lesson, we'll share one source among many subscribers, push values in from ordinary code with Sinks, and test it all on a fake clock. Then we'll track down a failing operator, and end by asking when Reactor is worth it. Before we start, make a guess, and keep it in mind."""
+
+# ---------------------------------------------------------------- section 0
+S0 = """A **cold** publisher, a source of items such as a `Flux`, does its work again for every subscriber, as Mono and Flux showed. It's the recording: each listener who presses play gets the show from the first word, and the bakery plays one copy per listener. That's right for one call per request. It's wrong for the oven thermometer when six screens watch it: six connections to the oven, six copies of the same readings.
+
+A **hot** publisher is the live show. It produces whether or not anyone listens, and subscribers share what it produces from the moment they join.
+
+Reactor turns cold into hot with a few operators. They differ in two decisions: when to connect to the source, and what a subscriber who tunes in late hears.
 
 | Operator | Connects | A late subscriber gets | Disconnects |
 |---|---|---|---|
@@ -25,91 +40,188 @@ Reactor turns cold into hot with a few operators. They differ in two decisions: 
 | `publish().autoConnect(n)` | when n have subscribed | only new items | never |
 | `cache()` | at the first subscriber | every item, from the start | never |
 
-In the demo a feed emits a rate every 100 ms and dashboard B joins at 250 ms. Cold, B opens a second connection and starts from the first rate. With `share()`, B gets only the rates from 300 ms on. With `replay(1).refCount()`, B immediately gets the 200 ms rate, then the live ones. With `cache()`, B gets all of them, including the two it missed, and the cache keeps every item for as long as the Flux lives. For a long-running feed that is a memory leak, so prefer `replay(n)` or `cache(n)`. `Mono.cache(ttl)` is the right tool for a value that should be reloaded now and then, such as a fee schedule.
+In radio terms, `share()` is the live show. `replay(1)` is a show that repeats its last announcement for anyone who tunes in. `cache()` is a recorder that keeps the whole broadcast and plays it to every newcomer from the start, while the tapes pile up. `refCount` switches the transmitter off when the last listener leaves, and `autoConnect(n)` waits for n listeners, then never switches off.
 
-Two details matter in production. `publish` follows the slowest subscriber: it requests from the source only what every subscriber can take, so one slow dashboard slows them all (combine it with a policy from lesson 7 of this track). And `refCount(1, Duration.ofSeconds(5))` adds a grace period: when the last subscriber leaves, it waits 5 seconds before disconnecting, so a dashboard that refreshes the page doesn't make you reconnect to the provider."""
+`HotColdDemo`, in the Try it, runs the thermometer as a cold feed: a reading every 100 ms, five readings, `200` to `204`. Screen A subscribes at once and screen B 250 ms later. The figure below draws three of the runs:
 
-S2 = """Sometimes the values come from ordinary code: a Kafka listener callback, a webhook handler, a scheduled job. `Sinks` is Reactor's safe way to push them into a `Flux`. (Processors used to do this; Reactor has phased them out in favour of Sinks.)
-
-```java
-Sinks.Many<PaymentEvent> sink = Sinks.many().multicast().directBestEffort();
-Flux<PaymentEvent> live = sink.asFlux();                    // what subscribers see
-Sinks.EmitResult result = sink.tryEmitNext(event);          // what the listener calls
+```text
+1. cold                      connections=2
+     A=[200, 201, 202, 203, 204]
+     B=[200, 201, 202, 203, 204]
+2. share()                   connections=1
+     A=[200, 201, 202, 203, 204]
+     B=[202, 203, 204]
+3. replay(1).refCount()      connections=1
+     A=[200, 201, 202, 203, 204]
+     B=[201, 202, 203, 204]
+4. cache()                   connections=1
+     A=[200, 201, 202, 203, 204]
+     B=[200, 201, 202, 203, 204]
 ```
 
-```kotlin
-val sink: Sinks.Many<PaymentEvent> = Sinks.many().multicast().directBestEffort()
-val live: Flux<PaymentEvent> = sink.asFlux()                // what subscribers see
-val result: Sinks.EmitResult = sink.tryEmitNext(event)      // what the listener calls
+Cold, B opened a second connection and started from the first reading. With `share()`, there was one connection, and B heard only the readings from 300 ms on. With `replay(1).refCount()`, B got the 200 ms reading the moment it subscribed, then the live ones. With `cache()`, B got all of them, the two it missed included. The cache keeps every item for as long as the `Flux` lives, and for a feed that never ends, that's a memory leak. Prefer `replay(n)` or `cache(n)` there. `Mono.cache(ttl)` is the right tool for a value that should be loaded again now and then, such as the price list.
+
+Here the radio picture breaks. A radio station keeps broadcasting to an empty room. With `refCount`, the show stops when the last listener leaves, and the next listener starts it again.
+
+Two details matter in production. `publish` follows the slowest subscriber: it asks the source only for what every subscriber can take, so one slow screen slows them all (pair it with a loss policy from Backpressure in practice). And `refCount(1, Duration.ofSeconds(5))` adds a grace period. When the last subscriber leaves, it waits 5 seconds before it disconnects, so a screen that restarts doesn't make you reconnect to the oven.
+
+**Cold plays from the start for each subscriber. Hot is shared, and the operator decides what a latecomer gets.**
+
+All of these share a source that already exists. Sometimes the values come from code that isn't a publisher at all."""
+
+# ---------------------------------------------------------------- section 1
+J_SINK = """Sinks.Many<OrderEvent> bell = Sinks.many().multicast().directBestEffort();
+Flux<OrderEvent> live = bell.asFlux();                     // what the kitchen screens subscribe to
+Sinks.EmitResult result = bell.tryEmitNext(event);         // what a till calls"""
+K_SINK = """val bell: Sinks.Many<OrderEvent> = Sinks.many().multicast().directBestEffort()
+val live: Flux<OrderEvent> = bell.asFlux()                 // what the kitchen screens subscribe to
+val result: Sinks.EmitResult = bell.tryEmitNext(event)     // what a till calls"""
+
+S1 = """Sometimes the values come from ordinary code: a callback from a library, a handler for a web request, a job that runs every minute. In the bakery, each till in the shop rings a bell when an order is placed, and every screen in the kitchen hears it. Any till can ring it, and anyone in the kitchen at that moment hears the ring. Someone who walks in later didn't hear the earlier rings.
+
+A **sink** is Reactor's safe way to ring that bell from code. It takes values from ordinary method calls and hands them to subscribers as a `Flux` or a `Mono`. (Processors used to do this job, and Reactor has phased them out in favour of `Sinks`.)
+
+""" + pair(J_SINK, K_SINK) + """
+
+`Sinks.many().multicast()` sends each item to the subscribers present at that moment, and it comes in three flavours. `onBackpressureBuffer()` buffers for slow subscribers, and keeps the items pushed before the first subscriber arrives, for that subscriber. By default it also shuts down for good when its last subscriber leaves, so a subscriber that comes later receives only `onComplete`. `directBestEffort()` keeps no buffer: a subscriber that isn't asking misses the item, and the sink keeps working with no subscribers at all. `directAllOrNothing()` drops the item for everyone if one subscriber isn't ready.
+
+`SinksDemo`, in the Try it, shows the first two flavours after everyone has left:
+
+```text
+2. onBackpressureBuffer() after everyone left, a new subscriber [completed]
+2. directBestEffort()     after everyone left, a new subscriber [got 42]
 ```
 
-`Sinks.many().multicast()` sends each item to the subscribers present at that moment, in three flavours. `onBackpressureBuffer()` buffers for slow subscribers and keeps items pushed before the first subscriber arrives for it. By default it also shuts down for good when its last subscriber leaves: a subscriber that comes later just receives `onComplete`. `directBestEffort()` keeps no buffer: a subscriber that isn't asking misses the item, and the sink keeps working with zero subscribers. `directAllOrNothing()` drops the item for everyone if one subscriber isn't ready. Then `many().replay()` keeps history for late subscribers (`all()`, `limit(n)`, `limit(Duration)`, `latest()`), `many().unicast()` allows exactly one subscriber, and `Sinks.one()` and `Sinks.empty()` carry a single value or a bare completion.
+There are other kinds too. `many().replay()` keeps history for late subscribers (`all()`, `limit(n)`, `limit(Duration)` or `latest()`), `many().unicast()` allows exactly one subscriber, and `Sinks.one()` and `Sinks.empty()` carry a single value or a bare completion.
 
-The trap is threads. `tryEmitNext` never blocks and never retries. If two threads call it at the same moment, one of them gets `EmitResult.FAIL_NON_SERIALIZED` and its item is not emitted. This is rule 1.3 from lesson 1 of this track at work: a subscriber must never get two signals at once. The sink detects the overlap, and instead of breaking the rule, it fails the second call. Ignore the result and items vanish. In my runs of the demo, 8 threads emitting 10,000 items each delivered only a few thousand of the 80,000.
+The trap is threads. `tryEmitNext` never blocks and never retries. If two threads call it at the same moment, one of them gets `EmitResult.FAIL_NON_SERIALIZED`, and its item isn't emitted. That's rule 1.3 from Why reactive at work: a subscriber must never get two signals at once. The sink notices the overlap, and instead of breaking the rule, it fails the second call. Here the bell picture breaks: two hands on a real bell rope still make a ring, while the sink refuses one of them.
 
-Either check every result, or call `emitNext(item, handler)` with a handler that retries. `Sinks.EmitFailureHandler.busyLooping(Duration.ofSeconds(1))` spins until the sink is free, for up to a second. Its Javadoc asks you not to keep and reuse it, so create one per call. Wrapping the emit in a lock works too."""
+Ignore the result, and items vanish. The demo's race lets 8 threads emit 10,000 items each:
 
-S3 = """A reactive test has to subscribe, check each signal in order, and fail when anything else happens. `StepVerifier` from reactor-test does that:
+```text
+5. tryEmitNext from 8 threads    received 11,679 of 80,000 (68,321 emits failed)
+6. emitNext + busyLooping        received 80,000 of 80,000 (0 emits failed)
+```
 
-```java
-StepVerifier.create(checkout.quote("m-1", "c-1"))
+In that run, 68,321 items reached the sink at the same moment as another one. The sink said no to each of them, politely, with a return value nobody read. The number changes from run to run (15,391 arrived in the Kotlin run). Either check every result, or call `emitNext(item, handler)` with a handler that retries. `Sinks.EmitFailureHandler.busyLooping(Duration.ofSeconds(1))` spins until the sink is free, for up to a second, which is how the second line got all 80,000. Its Javadoc asks you not to keep and reuse one, so create one per call. Wrapping the emit in a lock works too.
+
+**A sink refuses an overlapping emit. From several threads, retry it or serialize it.**
+
+We now have hot sources, shared sources and sinks, and each one has timing in it. Testing timing with a real clock is slow and flaky, so Reactor gives us a fake one."""
+
+# ---------------------------------------------------------------- section 2
+J_SV = """StepVerifier.create(orderPage.quote("chocolate", "home"))
         .expectNext(expectedQuote)
         .expectComplete()
-        .verify(Duration.ofSeconds(1));
-```
-
-```kotlin
-StepVerifier.create(checkout.quote("m-1", "c-1"))
+        .verify(Duration.ofSeconds(1));"""
+K_SV = """StepVerifier.create(orderPage.quote("chocolate", "home"))
     .expectNext(expectedQuote)
     .expectComplete()
-    .verify(Duration.ofSeconds(1))
-```
+    .verify(Duration.ofSeconds(1))"""
+
+S2 = """A reactive test has to subscribe, check each signal in order, and fail when anything else happens. `StepVerifier`, from the reactor-test library, does exactly that. It's a quality inspector at the end of the belt with a script in her hand: first a loaf named `rye-1`, then the end-of-day bell, and nothing else.
+
+""" + pair(J_SV, K_SV) + """
 
 Four rules, each learned from a test that lied:
 
-1. Nothing runs until `verify()` (or a shortcut such as `verifyComplete()` or `verifyError()`). A test that ends at `expectComplete()` never subscribes, and passes whatever the code does.
-2. `verify()` has no timeout by default, so a hung publisher hangs the build. Pass a `Duration`, or set `StepVerifier.setDefaultTimeout(...)` once.
-3. `StepVerifier.withVirtualTime(() -> ...)` replaces Reactor's schedulers with a virtual clock, so a one-day delay is verified in milliseconds. Build the publisher **inside** the supplier: a `Mono.delay` built earlier has already picked the real clock, and the test times out.
+1. Nothing runs until `verify()`, or a shortcut such as `verifyComplete()` or `verifyError()`. A test that ends at `expectComplete()` never subscribes, and passes whatever the code does. It's the most optimistic test you will ever write.
+2. `verify()` has no time limit by default, so a publisher that hangs also hangs the build. Pass a `Duration`, or set `StepVerifier.setDefaultTimeout(...)` once.
+3. `StepVerifier.withVirtualTime(() -> ...)` swaps Reactor's schedulers for a **virtual clock**, a fake clock that the test winds forward, so a one-day delay is checked in milliseconds. Build the publisher **inside** the supplier lambda. A `Mono.delay` built earlier has already picked the real clock, and the test times out.
 4. `expectNoEvent(d)` checks that nothing happens during d of virtual time. The subscription counts as an event, so put `expectSubscription()` first.
 
-For a source you drive by hand there is `TestPublisher`: call `next(...)`, `complete()` or `error(...)` from the test, then check `wasCancelled()` or `assertMinRequested(n)`. `TestPublisher.create()` respects demand like a real source and fails if pushed without it; `createNoncompliant(...)` breaks the spec on purpose (lesson 1 of this track). `PublisherProbe` answers a different question: was this branch subscribed at all? Use it to prove that a `switchIfEmpty` fallback ran, or didn't. All the virtual-time tests in this track's labs, from the backoff in lesson 5 to the bank calls in lesson 7, are built from these pieces."""
+`StepVerifierDemo`, in the Try it, breaks the rules on purpose:
 
-S4 = """A stack trace from a reactive chain shows where the error was raised and how the subscription got there. It almost never shows where you wrote the operator that failed. In the demo, `Flux.just(120, 80).single()` inside a `feeRow()` method fails with `IndexOutOfBoundsException: Source emitted more than one item`. The top frame is Reactor's `MonoSingle`, and no frame of the trace is in `feeRow()`. Lesson 2 of this track explains why: `feeRow()` only assembled the chain and returned. By the time `single()` sees the second row, the data pass is running, and the frame of `feeRow()` is long gone.
-
-`checkpoint("fee-row")` marks a point in the chain. When an error passes through it, Reactor attaches a suppressed exception that reads `Error has been observed at the following site(s):` followed by `*__checkpoint` and `fee-row`. It is cheap, so put one at the edges of your own pipelines, named after what they do. `checkpoint("fee-row", true)` also records a stack trace when the chain is assembled, which points at the line in your code, at the cost of capturing that trace every time the chain is built.
-
-`Hooks.onOperatorDebug()` does that for every operator in the application. The reference guide calls it a last resort because of the cost. For production there is the reactor-tools agent (`ReactorDebugAgent.init()` as the first line of `main`), which adds the same information by instrumenting your classes when they load. It is a separate dependency and not in the labs.
-
-```java
-Mono<Integer> fee = feeRow(merchant).checkpoint("fee-row");   // name the place, cheaply
-Flux<Integer> rows = Flux.range(1, 5).log("rows").take(2);    // print every signal at this point
+```text
+1. no verify():     subscriptions=0, wrong expectation unnoticed
+2. virtual time:    one day took 52 ms of real time
+3. expectNoEvent first: expectation failed (expected no event: onSubscribe(reactor.core.publisher.MonoDelay$MonoDelayRunnable@2db7a79b))
+4. built outside the supplier: VerifySubscriber timed out on reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain@47db50c5
 ```
 
-```kotlin
-val fee: Mono<Int> = feeRow(merchant).checkpoint("fee-row")   // name the place, cheaply
-val rows: Flux<Int> = Flux.range(1, 5).log("rows").take(2)    // print every signal at this point
+The first test expected `burnt` from a `Mono` that says `baked`, and never noticed, because it never subscribed. The second checked a whole day of waiting in 52 ms. The third and fourth broke rules 4 and 3, and failed as they should. Here the inspector picture breaks in our favour: a real inspector can't wind the clock forward by a day.
+
+For a source you drive by hand, there's `TestPublisher`. Call `next(...)`, `complete()` or `error(...)` from the test, then check `wasCancelled()` or `assertMinRequested(n)`. `TestPublisher.create()` respects demand like a real source and fails if you push without it; `createNoncompliant(...)` breaks the spec on purpose (Why reactive). `PublisherProbe` answers a different question: was this branch subscribed at all? Use it to prove that a `switchIfEmpty` fallback ran, or didn't. All the virtual-time tests in this track's labs, from the mill's backoff to the courier's limit, are built from these pieces.
+
+**End every StepVerifier with verify and a time limit, and build timed publishers inside withVirtualTime.**
+
+A good test tells you that something failed. When a chain fails in a running program, the next question is where."""
+
+ASIDE = {
+    "title": "Why not just call block() in a test?",
+    "body": "For a single value, `block()` works, and it's fine for a quick check. But it can't check the order of the signals, it can't prove that nothing arrived for 90 seconds, and it can't fake time, so a one-hour delay takes an hour. It also waits forever on a publisher that never finishes, unless you pass it a timeout. `StepVerifier` does all of that, and when it fails, its message says which step went wrong.",
+}
+
+# ---------------------------------------------------------------- section 3
+J_DBG = """Mono<Integer> price = priceRow(cake).checkpoint("price-row");   // name the place, cheaply
+Flux<Integer> rows = Flux.range(1, 5).log("rows").take(2);      // print every signal at this point"""
+K_DBG = """val price: Mono<Int> = priceRow(cake).checkpoint("price-row")   // name the place, cheaply
+val rows: Flux<Int> = Flux.range(1, 5).log("rows").take(2)      // print every signal at this point"""
+
+S3 = """A stack trace from a reactive chain shows where the error was raised and how the subscription got there. It almost never shows where you wrote the operator that failed. In `DebugDemo`, a method called `priceRow(cake)` builds `Flux.just(2400, 2600).single()`: the cake has two price rows, and the code expects one. `single()` fails:
+
+```text
+1. no help
+   java.lang.IndexOutOfBoundsException: Source emitted more than one item
+   top frame: reactor.core.publisher.MonoSingle$SingleSubscriber.onNext(MonoSingle.java:135)
+   any frame in priceRow(), where single() was written? false
 ```
 
-`log("rows")` prints every signal that passes that point: `onSubscribe`, `request(2)`, `onNext(1)`, `onNext(2)`, `cancel()`. It is the quickest way to see this track's ideas in a real chain: the demand from lesson 7, the cancellation that `take` sends upstream, the thread each signal arrives on. It logs through SLF4J when that is on the classpath."""
+The top frame is Reactor's `MonoSingle`, and no frame of the trace is in `priceRow()`. Mono and Flux explains why. `priceRow()` only filled in the order form and returned. By the time `single()` sees the second row, the data is flowing, and the frame of `priceRow()` is long gone.
 
-S5 = """Reactor is not the default answer for new JVM code in 2026, and the Spring team says so itself. The Spring Framework reference still reads: "If you have a Spring MVC application that works fine, there is no need to change. Imperative programming is the easiest way to write, understand, and debug code." It warns about "the steep learning curve", tells you to "start small and measure the benefits", and adds: "We expect that, for a wide range of applications, the shift is unnecessary." Lesson 1 of this track quoted the same docs on speed: reactive doesn't make applications faster; it lets them scale with fewer threads when calls have latency.
+`checkpoint("price-row")` marks a place in the chain. When an error passes through it, Reactor attaches a suppressed exception, an extra exception carried inside the first one, that names the place:
 
-Virtual threads (final in JDK 21) took away most of the thread-count argument. Mark Paluch of the Spring team wrote in 2022, while they were still a preview: "The reasons to use asynchronous programming models go away in many cases if we start with the assumption that our code runs on Virtual Threads." The same post keeps a place for reactive: ReactiveX-style APIs "remain a powerful way to compose concurrent logic and a natural way for dealing with streams", and they are "the right approach for concurrent scenarios in which declarative concurrency (such as scatter-gather) matters."
+```text
+2. checkpoint("price-row")
+   ...
+   Error has been observed at the following site(s):
+   *__checkpoint -> price-row
+```
 
-So here is the position I'd take for your services:
+It's cheap, so put one at the edges of your own chains, named after what they do. `checkpoint("price-row", true)` also records a stack trace when the chain is built, which points at the line in your code. The cost is capturing that trace every time the chain is built. The demo's third run shows it pointing at the line in `main` where the checkpoint was written.
 
-- For request and response over JDBC, JPA or other blocking clients, use virtual threads and plain imperative code. Don't rewrite a working Quarkus REST or Spring MVC service in Reactor.
-- For streams (server-sent events, WebSockets, Kafka pipelines, anything where demand, cancellation and a loss policy matter), Reactor earns its complexity.
-- For many calls composed with timeouts, retries and fan-out, Reactor's operators are hard to beat. Coroutines, or structured concurrency once it is final, are the imperative alternatives.
-- In a stack that is already reactive end to end (WebClient, R2DBC, Reactor Netty), stay reactive and keep the few blocking calls on `boundedElastic`.
-- In Kotlin, coroutines give sequential-looking code over the same runtime. `kotlinx-coroutines-reactor` bridges both ways (`awaitSingle()`, `mono { }`, `Flow.asFlux()`), and Spring maps `Mono` to `suspend` and `Flux` to `Flow`. The coroutines track builds on that.
+`Hooks.onOperatorDebug()` does the same for every operator in the program, and the reference guide calls it a last resort because of the cost. For a program that runs for real, there's the reactor-tools agent (`ReactorDebugAgent.init()` as the first line of `main`), which adds the same information by changing your classes as they load. It's a separate dependency, and not in the labs.
 
-Quick check: one Quarkus endpoint reads a payment from Oracle over JDBC, calls the issuer once and returns. Another relays an issuer's live event stream to browsers that read at different speeds. Which one needs `request(n)`, and why? (The second. The first waits for one reply, which a virtual thread does cheaply. The second has a fast producer and slow consumers, and only demand or a loss policy stops events piling up in memory for the slow ones.)"""
+""" + pair(J_DBG, K_DBG) + """
 
+`log("rows")` prints every signal that passes that point:
+
+```text
+[ INFO] (main) | onSubscribe([Synchronous Fuseable] FluxRange.RangeSubscription)
+[ INFO] (main) | request(2)
+[ INFO] (main) | onNext(1)
+[ INFO] (main) | onNext(2)
+[ INFO] (main) | cancel()
+```
+
+It's the quickest way to see this track's ideas in a real chain: the slip that `take(2)` wrote, the cancel it sent up once it had enough, and the thread each signal arrived on. It logs through SLF4J, a common Java logging front end, when that is on the classpath.
+
+**When a chain fails far from where it was built, name the place with checkpoint.**
+
+That completes the toolkit. The last question is when to reach for it at all."""
+
+# ---------------------------------------------------------------- section 4
+S4 = """Reactor isn't the default answer for new JVM code, and the Spring team, the home of Reactor, says so itself. The Spring Framework reference compares Spring MVC, its classic style in which each request holds a thread, with the reactive Spring WebFlux. It reads: "If you have a Spring MVC application that works fine, there is no need to change. Imperative programming is the easiest way to write, understand, and debug code." Imperative code is ordinary step-by-step code, one line after another. The reference warns about "the steep learning curve", tells you to "start small and measure the benefits", and adds: "We expect that, for a wide range of applications, the shift is unnecessary." Why reactive quoted the same docs on speed: reactive code doesn't make programs faster; it lets them scale with fewer threads when calls have to wait.
+
+Virtual threads (final in JDK 21) took away most of the thread-count argument. Mark Paluch of the Spring team wrote in 2022, while they were still a preview: "The reasons to use asynchronous programming models go away in many cases if we start with the assumption that our code runs on Virtual Threads." The same post keeps a place for reactive. ReactiveX-style APIs "remain a powerful way to compose concurrent logic and a natural way for dealing with streams". They are also "the right approach for concurrent scenarios in which declarative concurrency (such as scatter-gather) matters." ReactiveX is the family of libraries that Reactor's style comes from, and scatter-gather means sending many calls out at once and collecting the answers.
+
+So here is the position I'd take for your own programs:
+
+- For one request and one reply, over databases and services whose clients block, use virtual threads and plain code. Don't rewrite a working service in Reactor.
+- For streams, such as live updates to browsers, a feed that never ends, or anything where demand, cancellation and a loss policy matter, Reactor earns its complexity.
+- For many calls composed with timeouts, retries and fan-out, Reactor's operators are hard to beat. Coroutines, and structured concurrency once it is final (it is a preview in JDK 25), are the alternatives that read from top to bottom.
+- In a program that is already reactive from end to end, stay reactive, and keep the few blocking calls on `boundedElastic`.
+- In Kotlin, coroutines give code that reads from top to bottom over the same idea. `kotlinx-coroutines-reactor` bridges both ways (`awaitSingle()`, `mono { }`, `Flow.asFlux()`), and Spring maps `Mono` to `suspend` and `Flux` to `Flow`.
+
+Quick check: the bakery's website has two pages. One reads an order from the database and shows it. The other shows the oven's live temperature to browsers that read at different speeds. Which one needs `request(n)`, and why? (The second. The first waits for one reply, which a virtual thread does cheaply. The second has a fast producer and slow consumers, and only demand or a loss policy stops readings piling up in memory for the slow ones.)
+
+That last bullet is where the next track begins."""
+
+# ---------------------------------------------------------------- figure: one feed, three ways to share it
 X0, PX = 150, 0.8
 def x(ms): return X0 + ms * PX
-SVG = ('<svg viewBox="0 0 680 290" role="img" aria-label="A feed emits rates 0 to 4 at 100 to 500 ms. Subscriber A gets all five. '
-       'Subscriber B joins at 250 ms: with share() it gets 2, 3, 4; with replay(1) it gets 1 at once, then 2, 3, 4; with cache() it gets 0 and 1 at once, then 2, 3, 4.">')
+SVG = ('<svg viewBox="0 0 680 290" role="img" aria-label="A thermometer feed emits readings 0 to 4 at 100 to 500 ms. Screen A gets all five. '
+       'Screen B joins at 250 ms: with share() it gets 2, 3, 4; with replay(1) it gets 1 at once, then 2, 3, 4; with cache() it gets 0 and 1 at once, then 2, 3, 4.">')
 for ms in range(0, 700, 100):
     SVG += f'<text class="t-s t-m" x="{x(ms):.0f}" y="22" text-anchor="middle">{ms}</text>'
     SVG += f'<line class="ln-d" x1="{x(ms):.0f}" y1="30" x2="{x(ms):.0f}" y2="36"/>'
@@ -134,86 +246,94 @@ for name, y, items, replayed in lanes:
         SVG += f'<circle class="box-a" cx="{x(ms):.0f}" cy="{y}" r="10"/><text class="t-s" x="{x(ms):.0f}" y="{y + 4}" text-anchor="middle">{label}</text>'
 SVG += '</svg>'
 
-CJ = '''// Reactor: a hub that listener threads push into, and a shared rate feed
-private final Sinks.Many<PaymentEvent> events = Sinks.many().multicast().directBestEffort();
+# ---------------------------------------------------------------- closing: the end of the track
+CLOSING = """We started with fourteen loaves on a doorstep, cured by a slip that said "send me 10 more". The bakery built a whole line on it: order forms, stations, joined belts, a broken oven, workers, a small table and a live show. Reactor frees threads while calls wait, at the price of code written as a chain of operators.
 
-void publish(PaymentEvent e) {
-    events.emitNext(e, Sinks.EmitFailureHandler.busyLooping(Duration.ofSeconds(1)));
+Now look in your code for `cache()` on a feed that never ends, and for a `StepVerifier` without `verify`.
+
+Next, we'll start the Kotlin coroutines track with Suspend functions from zero. Coroutines free the thread just as Reactor does, but the code still reads from top to bottom, like a recipe. How can a function pause halfway without holding its thread?"""
+
+# ---------------------------------------------------------------- compare, worked, drill
+CJ = '''// Reactor: a bell that till threads ring, and a shared thermometer feed
+private final Sinks.Many<OrderEvent> bell = Sinks.many().multicast().directBestEffort();
+
+void ring(OrderEvent e) {
+    bell.emitNext(e, Sinks.EmitFailureHandler.busyLooping(Duration.ofSeconds(1)));
 }
 
-Flux<PaymentEvent> live() { return events.asFlux(); }
+Flux<OrderEvent> live() { return bell.asFlux(); }
 
-Flux<Rate> rates = provider.rates()
-        .replay(1)                                    // late subscribers get the latest rate
+Flux<Reading> temperature = oven.readings()
+        .replay(1)                                    // late screens get the latest reading
         .refCount(1, Duration.ofSeconds(5));          // disconnect 5 s after the last one leaves'''
 CK = '''// Kotlin coroutines: SharedFlow for events, StateFlow for "the latest value"
-private val events = MutableSharedFlow<PaymentEvent>(extraBufferCapacity = 1_000)
+private val bell = MutableSharedFlow<OrderEvent>(extraBufferCapacity = 1_000)
 
-fun publish(e: PaymentEvent) {
-    check(events.tryEmit(e)) { "subscribers are too slow" }   // thread-safe; suspend emit() waits instead
+fun ring(e: OrderEvent) {
+    check(bell.tryEmit(e)) { "the screens are too slow" }   // thread-safe; suspend emit() waits instead
 }
 
-val live: SharedFlow<PaymentEvent> = events.asSharedFlow()
+val live: SharedFlow<OrderEvent> = bell.asSharedFlow()
 
-val rates: StateFlow<Rate?> = provider.rates()
-    .stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)   // latest rate, stop 5 s after the last leaves'''
+val temperature: StateFlow<Reading?> = oven.readings()
+    .stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)   // latest reading, stop 5 s after the last leaves'''
 
-W0 = '''Mono<Status> awaitFinal(String paymentId) {
-    return Flux.interval(Duration.ofSeconds(30))              // poll every 30 s
-            .concatMap(tick -> api.status(paymentId))         // one call at a time
-            .filter(Status::isFinal)
-            .next()                                           // first final status, then stop polling
+W0 = '''Mono<Status> awaitDone(String cakeId) {
+    return Flux.interval(Duration.ofSeconds(30))              // ask every 30 s
+            .concatMap(tick -> oven.status(cakeId))           // one call at a time
+            .filter(Status::isDone)
+            .next()                                           // the first DONE, then stop asking
             .timeout(Duration.ofMinutes(5));
 }'''
-W0K = '''fun awaitFinal(paymentId: String): Mono<Status> =
-    Flux.interval(Duration.ofSeconds(30))                     // poll every 30 s
-        .concatMap { api.status(paymentId) }                  // one call at a time
-        .filter(Status::isFinal)
-        .next()                                               // first final status, then stop polling
+W0K = '''fun awaitDone(cakeId: String): Mono<Status> =
+    Flux.interval(Duration.ofSeconds(30))                     // ask every 30 s
+        .concatMap { oven.status(cakeId) }                    // one call at a time
+        .filter(Status::isDone)
+        .next()                                               // the first DONE, then stop asking
         .timeout(Duration.ofMinutes(5))'''
-W1 = '''FakeStatusApi api = new FakeStatusApi(PENDING, PENDING, SETTLED);
+W1 = '''FakeOven oven = new FakeOven(BAKING, BAKING, DONE);
 
-StepVerifier.withVirtualTime(() -> new StatusPoller(api).awaitFinal("p-1"))   // 1. build it inside the supplier
-        .expectSubscription()                                                  // 2. before any expectNoEvent
-        .expectNoEvent(Duration.ofSeconds(90))                                 // 3. silent until the third poll
-        .expectNext(SETTLED)
+StepVerifier.withVirtualTime(() -> new CakePoller(oven).awaitDone("cake-7"))   // 1. build it inside the supplier
+        .expectSubscription()                                                   // 2. before any expectNoEvent
+        .expectNoEvent(Duration.ofSeconds(90))                                  // 3. silent until the third question
+        .expectNext(DONE)
         .verifyComplete();
 
-assertThat(api.calls()).isEqualTo(3);'''
-W1K = '''val api = FakeStatusApi(PENDING, PENDING, SETTLED)
+assertThat(oven.calls()).isEqualTo(3);'''
+W1K = '''val oven = FakeOven(BAKING, BAKING, DONE)
 
-StepVerifier.withVirtualTime { StatusPoller(api).awaitFinal("p-1") }       // 1. build it inside the supplier
-    .expectSubscription()                                                  // 2. before any expectNoEvent
-    .expectNoEvent(Duration.ofSeconds(90))                                 // 3. silent until the third poll
-    .expectNext(SETTLED)
+StepVerifier.withVirtualTime { CakePoller(oven).awaitDone("cake-7") }       // 1. build it inside the supplier
+    .expectSubscription()                                                   // 2. before any expectNoEvent
+    .expectNoEvent(Duration.ofSeconds(90))                                  // 3. silent until the third question
+    .expectNext(DONE)
     .verifyComplete()
 
-assertThat(api.calls()).isEqualTo(3)'''
-W2 = '''FakeStatusApi stuck = new FakeStatusApi(PENDING);          // pending forever
+assertThat(oven.calls()).isEqualTo(3)'''
+W2 = '''FakeOven stuck = new FakeOven(BAKING);                     // baking forever
 
-StepVerifier.withVirtualTime(() -> new StatusPoller(stuck).awaitFinal("p-2"))
+StepVerifier.withVirtualTime(() -> new CakePoller(stuck).awaitDone("cake-8"))
         .expectSubscription()
         .thenAwait(Duration.ofMinutes(5))                    // 4. jump to the deadline
         .expectError(TimeoutException.class)
         .verify(Duration.ofSeconds(1));                      // 5. a real-time safety net'''
-W2K = '''val stuck = FakeStatusApi(PENDING)                          // pending forever
+W2K = '''val stuck = FakeOven(BAKING)                                // baking forever
 
-StepVerifier.withVirtualTime { StatusPoller(stuck).awaitFinal("p-2") }
+StepVerifier.withVirtualTime { CakePoller(stuck).awaitDone("cake-8") }
     .expectSubscription()
     .thenAwait(Duration.ofMinutes(5))                        // 4. jump to the deadline
     .expectError(TimeoutException::class.java)
     .verify(Duration.ofSeconds(1))                           // 5. a real-time safety net'''
 
-DJ = '''StepVerifier.withVirtualTime(() -> Mono.delay(Duration.ofHours(1)).thenReturn("expired"))
+DJ = '''StepVerifier.withVirtualTime(() -> Mono.delay(Duration.ofHours(1)).thenReturn("cooled"))
         .expectSubscription()
         .expectNoEvent(Duration.ofHours(1))
-        .expectNext("expired")
+        .expectNext("cooled")
         .expectComplete()
         .verify(Duration.ofSeconds(1));'''
-DK = '''StepVerifier.withVirtualTime { Mono.delay(Duration.ofHours(1)).thenReturn("expired") }
+DK = '''StepVerifier.withVirtualTime { Mono.delay(Duration.ofHours(1)).thenReturn("cooled") }
     .expectSubscription()
     .expectNoEvent(Duration.ofHours(1))
-    .expectNext("expired")
+    .expectNext("cooled")
     .expectComplete()
     .verify(Duration.ofSeconds(1))'''
 
@@ -222,32 +342,33 @@ L = {
  "title": "Hot and cold publishers, Sinks, and StepVerifier",
  "minutes": 40,
  "goal": "By the end you can share one source between many subscribers with the right late-subscriber behaviour, push values in from many threads with Sinks without losing any, test timing with StepVerifier and virtual time, find a failing operator with checkpoint and log, and say when Reactor is still the right tool.",
+ "opening": OPENING,
  "warmup": {
-  "q": "An FX feed emits a rate every 100 ms. Dashboard A subscribes at 0 ms, dashboard B at 250 ms, both to `feed.share()`. What does B receive first?",
+  "q": "The oven thermometer sends a reading every 100 ms. Screen A subscribes at 0 ms and screen B at 250 ms, both to `thermometer.share()`. What does B receive first?",
   "options": [
-   "The first rate, because `share()` replays from the start",
-   "The rate emitted at 200 ms, because `share()` keeps the latest",
-   "The rate emitted at 300 ms",
+   "The first reading, because `share()` replays from the start",
+   "The reading sent at 200 ms, because `share()` keeps the latest",
+   "The reading sent at 300 ms",
    "Nothing: `share()` allows one subscriber"
   ],
   "answer": 2,
-  "why": "`share()` is `publish().refCount()`: one upstream subscription, multicast to whoever is subscribed when an item arrives. B joined at 250 ms, so its first item is the one at 300 ms. Replaying the latest is `replay(1).refCount()`, and replaying everything is `cache()`."
+  "why": "`share()` is `publish().refCount()`: one subscription to the source, shared with whoever is subscribed when an item arrives. B joined at 250 ms, so its first item is the one sent at 300 ms. Repeating the latest reading is `replay(1).refCount()`, and replaying everything is `cache()`. The first section runs all of them on the same thermometer."
  },
  "sections": [
   {
-   "h": "Cold sources run per subscriber; hot ones are shared",
-   "body": S1,
-   "figure": {"svg": SVG, "caption": "One feed, three ways to share it with a subscriber that joins at 250 ms. Blue items arrive live; yellow ones are replayed at the moment B subscribes."},
+   "h": "Cold sources play from the start for each subscriber; hot ones are shared live",
+   "body": S0,
+   "figure": {"svg": SVG, "caption": "One feed, three ways to share it with a screen that joins at 250 ms. Items on the live lanes arrive as the source sends them; the extra items at 250 ms are replayed the moment B subscribes."},
    "try": {
-    "title": "Five ways to share one feed",
+    "title": "Five ways to share one thermometer",
     "minutes": 4,
     "steps": [
-     "`HotColdDemo` runs a cold feed (a rate every 100 ms, five rates) with dashboard A subscribing at once and B 250 ms later. It tries cold, `share()`, `replay(1).refCount()`, `cache()` and `publish().autoConnect(2)`.",
+     "`HotColdDemo` runs a cold thermometer feed (a reading every 100 ms, five readings) with screen A subscribing at once and B 250 ms later. It tries cold, `share()`, `replay(1).refCount()`, `cache()` and `publish().autoConnect(2)`.",
      "For each run, predict the number of connections and what B receives.",
-     "Run it. Then explain the `autoConnect(2)` line: why does A get all five rates, starting late?"
+     "Run it. Then explain the `autoConnect(2)` line: why does A get all five readings, starting late?"
     ],
     "code": code("HotColdDemo"),
-    "expect": "Cold: 2 connections, and both get all five rates. `share()`: 1 connection, B gets `1.082` to `1.084`. `replay(1).refCount()`: B also gets `1.081` the moment it subscribes. `cache()`: B gets all five. `autoConnect(2)`: 1 connection that opens only when B subscribes at 250 ms, so both get all five, and A waited 250 ms for its first rate."
+    "expect": "Cold: 2 connections, and both screens get all five readings. `share()`: 1 connection, B gets `202` to `204`. `replay(1).refCount()`: B also gets `201` the moment it subscribes. `cache()`: B gets all five. `autoConnect(2)`: 1 connection that opens only when B subscribes at 250 ms, so both get all five, and A waited 250 ms for its first reading."
    },
    "refs": [
     {"title": "Reactor reference: Hot versus cold (source, 3.8.x)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/advancedFeatures/reactor-hotCold.adoc", "kind": "docs"},
@@ -255,8 +376,8 @@ L = {
    ]
   },
   {
-   "h": "Sinks push values in from ordinary code",
-   "body": S2,
+   "h": "Sinks push values in from ordinary code, one thread at a time",
+   "body": S1,
    "try": {
     "title": "Who gets what from a sink",
     "minutes": 4,
@@ -266,114 +387,112 @@ L = {
      "Run it twice and compare the race numbers."
     ],
     "code": code("SinksDemo"),
-    "expect": "Multicast: `early=[10, 1, 2, 3]` (the 10 waited in the warm-up buffer) and `late=[3]`. After everyone left, the `onBackpressureBuffer()` sink only completes the new subscriber, while `directBestEffort()` delivers `got 42`. Replay with limit 2: `[2, 3]`. Unicast: the second subscriber fails with `Sinks.many().unicast() sinks only allow a single Subscriber`. The `tryEmitNext` race delivers only a few thousand of 80,000, with a different number each run; `emitNext` with `busyLooping` delivers all 80,000."
+    "expect": "Multicast: `early=[10, 1, 2, 3]` (the 10 waited in the buffer for the first subscriber) and `late=[3]`. After everyone left, the `onBackpressureBuffer()` sink only completes the new subscriber, while `directBestEffort()` delivers `got 42`. Replay with limit 2: `[2, 3]`. Unicast: the second subscriber fails with `Sinks.many().unicast() sinks only allow a single Subscriber`. The `tryEmitNext` race delivers only a fraction of the 80,000 (11,679 and 15,391 in two runs here), with a different number each run; `emitNext` with `busyLooping` delivers all 80,000."
    },
    "refs": [
     {"title": "Reactor reference: Sinks (source, 3.8.x)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/processors.adoc", "kind": "docs"}
    ]
   },
   {
-   "h": "StepVerifier checks the signals, and virtual time fakes the clock",
-   "body": S3,
+   "h": "StepVerifier checks every signal, and virtual time fakes the clock",
+   "body": S2,
+   "aside": ASIDE,
    "try": {
     "title": "Break four StepVerifier rules",
     "minutes": 4,
     "steps": [
      "`StepVerifierDemo` runs five small tests: one without `verify()`, a one-day delay under virtual time, `expectNoEvent` as the first step, a delay built outside the virtual-time supplier, and a `TestPublisher` driven by hand. (It runs from `src/demo`, so the lab's build adds reactor-test to the demo classpath.)",
      "Predict which ones pass, which fail, and with what message.",
-     "Run it. In part 1, add `.verify()` to the end of the line and run again."
+     "Run it. In part 1, add `.verify()` to the end of the line and run it again."
     ],
     "code": code("StepVerifierDemo"),
-    "expect": "Part 1 reports `subscriptions=0`: without `verify()` nothing ran, and the wrong expectation (`refunded`) went unnoticed. After you add `.verify()`, it throws an `AssertionError` saying it expected `refunded` and got `charged`. Part 2 verifies a full day in a few dozen milliseconds. Part 3 fails with `expected no event: onSubscribe(...)`. Part 4 fails with `VerifySubscriber timed out`, because the delay holds the real clock. Part 5 passes."
+    "expect": "Part 1 reports `subscriptions=0`: without `verify()` nothing ran, and the wrong expectation (`burnt`) went unnoticed. After you add `.verify()`, it throws an `AssertionError` saying it expected `burnt` and got `baked`. Part 2 checks a full day in a few dozen milliseconds. Part 3 fails with `expected no event: onSubscribe(...)`. Part 4 fails with `VerifySubscriber timed out`, because the delay holds the real clock. Part 5 passes."
    },
    "refs": [
     {"title": "Reactor reference: Testing (source, 3.8.x)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/testing.adoc", "kind": "docs"}
    ]
   },
   {
-   "h": "Debugging: name the place with checkpoint, watch the signals with log",
-   "body": S4,
+   "h": "Find the failing operator with checkpoint, and watch the signals with log",
+   "body": S3,
    "try": {
     "title": "Find the operator that failed",
     "minutes": 3,
     "steps": [
-     "`DebugDemo` runs a chain whose `single()` sees two fee rows, three times: plain, with `checkpoint(\"fee-row\")`, and with `checkpoint(\"fee-row\", true)`. Then it puts `log(\"rows\")` between a range and `take(2)`.",
-     "Run it. For each of the first three, find the information that tells you where the failing operator was written.",
+     "`DebugDemo` runs a chain whose `single()` sees two price rows, three times: plain, with `checkpoint(\"price-row\")`, and with `checkpoint(\"price-row\", true)`. Then it puts `log(\"rows\")` between a range and `take(2)`.",
+     "Run it. For each of the first three runs, find the information that tells you where the failing operator was written.",
      "Predict the `log` output first: which `request` and which last signal will it show?"
     ],
     "code": code("DebugDemo"),
-    "expect": "All three report `IndexOutOfBoundsException: Source emitted more than one item` with `MonoSingle` as the top frame, and no frame in `feeRow()`. The plain run gives no clue where it came from. The checkpoint run names `fee-row`. The run with `true` adds an assembly trace pointing at the `main` line where the checkpoint was written. The log shows `onSubscribe`, `request(2)`, `onNext(1)`, `onNext(2)` and `cancel()`: `take(2)` capped the demand and then cancelled the range."
+    "expect": "All three report `IndexOutOfBoundsException: Source emitted more than one item` with `MonoSingle` as the top frame, and no frame in `priceRow()`. The plain run gives no clue where it came from. The checkpoint run names `price-row`. The run with `true` adds an assembly trace pointing at the line in `main` where the checkpoint was written. The log shows `onSubscribe`, `request(2)`, `onNext(1)`, `onNext(2)` and `cancel()`: `take(2)` capped the demand and then cancelled the range."
    },
    "refs": [
     {"title": "Reactor reference: Debugging Reactor (source, 3.8.x)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/debugging.adoc", "kind": "docs"}
    ]
   },
   {
-   "h": "When reactive is still worth it",
-   "body": S5,
+   "h": "When reactive is still worth it, and when plain code on virtual threads is enough",
+   "body": S4,
    "refs": [
     {"title": "Embracing Virtual Threads (Spring blog, Mark Paluch, 2022)", "url": "https://spring.io/blog/2022/10/11/embracing-virtual-threads", "kind": "read"},
     {"title": "Spring Framework reference: Spring WebFlux overview, applicability and performance", "url": "https://docs.spring.io/spring-framework/reference/web/webflux/new-framework.html", "kind": "docs"}
    ]
   }
  ],
- "analogy": "Cold is video on demand: everyone who presses play gets the film from the start, and the studio streams one copy per viewer. `share()` is live TV: one broadcast, and if you switch on late, you missed the start. `replay(1)` is live TV that shows you the last scene when you switch on. `cache()` is a recorder that keeps the whole broadcast forever, so every newcomer can watch from the beginning, and the recordings pile up. A sink is the studio's microphone, which only one presenter may speak into at a time. The analogy breaks at the end of the evening: a TV station keeps broadcasting to an empty room, while `refCount` switches the transmitter off when the last viewer leaves.",
- "in_your_world": "Picture a payment operations service. A Kafka consumer pushes authorization events into a sink, and dashboards follow them over server-sent events: that is a multicast `directBestEffort` sink with a thread-safe emit, because Kafka listener threads run concurrently and dashboards come and go. The FX rates come from one provider connection that a dozen screens share with `replay(1).refCount(1, grace)`. The fee schedule is read from Oracle at most once every five minutes with `Mono.cache(ttl)`. Every one of those has timing in it, so each gets a virtual-time test that runs in milliseconds in CI. And when a new service is plain request and response over Oracle, you build it on virtual threads instead.",
- "mistake": "The most common mistake is calling `tryEmitNext` on a sink from several threads and ignoring the result. It looks safe because the sink is \"thread-safe\", and it is, in the sense that it detects the concurrent call and refuses it with `FAIL_NON_SERIALIZED` instead of corrupting itself. The refused item is simply gone. In tests with one thread, everything arrives; in production, with four Kafka listener threads, events go missing with no log line. Use `emitNext(item, Sinks.EmitFailureHandler.busyLooping(Duration.ofSeconds(1)))`, or serialize the calls yourself, and write a test that emits from several threads at once.",
  "compare": {
-  "title": "A hot event hub and a shared feed in Reactor and Kotlin",
-  "java": {"title": "PaymentEvents.java (Reactor)", "src": CJ},
-  "kotlin": {"title": "PaymentEvents.kt (coroutines)", "src": CK},
-  "note": "The shapes match: a multicast sink is close to a `MutableSharedFlow`, and `replay(1).refCount(1, grace)` is close to `stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)`. The differences are in concurrency and lifetime. A `MutableSharedFlow` accepts emissions from any number of threads at once; its `tryEmit` fails only when the buffer is full, and `emit` suspends instead. A Reactor sink refuses concurrent emissions unless you retry or serialize. And `stateIn` and `shareIn` need a `CoroutineScope`: the shared upstream lives in that scope and is cancelled with it, which is structured concurrency. Reactor's sharing lives as long as subscribers keep it alive. `StateFlow` also always has a current value and skips values equal to the last one, which `replay(1)` does not. The coroutines track covers `SharedFlow` and `StateFlow` in detail."
+  "title": "A bell for order events and a shared feed in Reactor and Kotlin",
+  "java": {"title": "Kitchen.java (Reactor)", "src": CJ},
+  "kotlin": {"title": "Kitchen.kt (coroutines)", "src": CK},
+  "note": "The shapes match: a multicast sink is close to a `MutableSharedFlow`, and `replay(1).refCount(1, grace)` is close to `stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)`. The differences are in threads and lifetime. A `MutableSharedFlow` accepts emissions from any number of threads at once; its `tryEmit` fails only when the buffer is full, and `emit` suspends instead. A Reactor sink refuses overlapping emissions unless you retry or serialize them. And `stateIn` and `shareIn` need a `CoroutineScope`: the shared source lives in that scope and is cancelled with it, which is structured concurrency. Reactor's sharing lives as long as subscribers keep it alive. A `StateFlow` also always has a current value and skips values equal to the last one, which `replay(1)` does not. The coroutines track covers `SharedFlow` and `StateFlow` in detail."
  },
  "worked": {
-  "title": "Test a payment-status poller in milliseconds",
+  "title": "Test a cake-status poller in milliseconds",
   "steps": [
-   {"say": "After a payment is sent to the bank, a poller asks for its status every 30 seconds until it is final, and gives up after 5 minutes. A real-time test would take 90 seconds for the happy path and 5 minutes for the timeout. Here is the code under test.",
+   {"say": "After a cake goes into the oven, a poller asks the oven's controller for its status every 30 seconds until it says `DONE`, and gives up after 5 minutes. A real-time test would take 90 seconds for the happy path and 5 minutes for the timeout. Here is the code under test.",
     "code": W0, "lang": "java", "alt_code": W0K, "alt_lang": "kotlin"},
-   {"say": "The happy path: the fake API answers PENDING twice, then SETTLED. Under virtual time the polls happen at 30, 60 and 90 seconds of fake time. `expectNoEvent(90 s)` proves nothing came out earlier, and the settled status arrives exactly at 90 s.",
+   {"say": "The happy path: the fake oven answers `BAKING` twice, then `DONE`. Under virtual time the questions come at 30, 60 and 90 seconds of fake time. `expectNoEvent(90 s)` proves nothing came out earlier, and `DONE` arrives exactly at 90 s.",
     "code": W1, "lang": "java", "alt_code": W1K, "alt_lang": "kotlin"},
-   {"say": "The timeout path: the payment never settles. Jump the clock to the deadline and expect the `TimeoutException`. Keep a real-time limit on `verify` as well, so a mistake makes the test fail in one second instead of hanging.",
+   {"say": "The timeout path: the cake never finishes. Jump the clock to the deadline and expect the `TimeoutException`. Keep a real-time limit on `verify` as well, so a mistake makes the test fail in one second instead of hanging.",
     "code": W2, "lang": "java", "alt_code": W2K, "alt_lang": "kotlin"},
-   {"say": "Both tests run in a few milliseconds. If one of them hangs instead, look at where the poller is built: `Flux.interval` and `timeout` pick their scheduler when the chain is assembled, so a poller created before `withVirtualTime` runs on the real clock. The same goes for a `Mono` built once in a `@BeforeEach` and kept in a field.", "code": "", "lang": ""}
+   {"say": "Both tests run in a fraction of a second. If one of them hangs instead, look at where the poller is built. `Flux.interval` and `timeout` pick their scheduler when the chain is built, so a poller created before `withVirtualTime` runs on the real clock. The same goes for a `Mono` built once in a `@BeforeEach` method and kept in a field.", "code": "", "lang": ""}
   ]
  },
  "lab": {
-  "title": "A payment-event hub and two shared feeds",
+  "title": "An order bell for the kitchen and two shared feeds",
   "minutes": 15,
-  "files": [f"{lab}/main/{P}/PaymentEventHub.java", f"{lab}/main/{P}/RateFeeds.java", f"{lab}/main/{P}/PaymentEvent.java"],
+  "files": [f"{lab}/main/{P}/OrderBell.java", f"{lab}/main/{P}/SharedFeeds.java", f"{lab}/main/{P}/OrderEvent.java"],
   "run": "./gradlew :reactive:test --tests 'workbench.reactive.l08.*'",
   "steps": [
-   "Run the tests once. All six fail.",
-   "`PaymentEventHub`: choose the sink from the Javadoc of `live()` (only events after you subscribed, nothing kept while nobody listens, survives every subscriber leaving). Then make `publish` safe for 8 threads at once, and return a read-only view from `live()`.",
-   "`RateFeeds.shareWithLatest`: one upstream connection, the latest rate for late subscribers, and a disconnect when the last subscriber leaves.",
-   "`RateFeeds.cacheFor`: load at most once per ttl. Read how the test controls the clock with `VirtualTimeScheduler.getOrSet()` and `advanceTimeBy`.",
+   "Run the tests once. All six fail. `OrderEvent` is one thing that happened to a cake order, `OrderBell` is the bell the tills ring, and `SharedFeeds` shares a thermometer feed and caches the price list.",
+   "`OrderBell`: choose the sink from the Javadoc of `live()` (only events rung after you subscribed, nothing kept while nobody listens, and it survives every listener leaving). Then make `ring` safe for 8 threads at once, and return a read-only view from `live()`.",
+   "`SharedFeeds.shareWithLatest`: one connection to the thermometer, the latest reading for late subscribers, and a disconnect when the last subscriber leaves.",
+   "`SharedFeeds.cacheFor`: load at most once per ttl. Read how the test controls the clock with `VirtualTimeScheduler.getOrSet()` and `advanceTimeBy`.",
    "Run the tests until all six pass, then once more: the 8-thread test must pass every time."
   ],
   "hints": [
-   "If the hot test finds event 0 in the early subscriber's list, your sink kept events published before anyone subscribed: `multicast().onBackpressureBuffer()` does that. The same sink fails the \"every subscriber has left\" test with a completion.",
+   "If the hot test finds event 0 in the early listener's list, your sink kept events rung before anyone subscribed: `multicast().onBackpressureBuffer()` does that. The same sink fails the \"every listener has left\" test with a completion.",
    "If the 8-thread test receives fewer than 16,000 events, you ignored the result of `tryEmitNext`. If it reports crashed threads, you used `EmitFailureHandler.FAIL_FAST`, which throws on `FAIL_NON_SERIALIZED`.",
-   "`share()` fails the late-subscriber test (no latest value); `cache()` and `replay(1).autoConnect()` fail the disconnect test (they never cancel upstream).",
-   "`Mono.cache()` with no argument never reloads. There is an overload that takes a `Duration`."
+   "`share()` fails the late-subscriber test (no latest value); `cache()` and `replay(1).autoConnect()` fail the disconnect test (they never cancel the source).",
+   "`Mono.cache()` with no argument never loads again. There is a version that takes a `Duration`."
   ],
   "done_when": "All six tests in `HotPublishersTest` pass, twice in a row."
  },
  "drill": {
   "title": "A one-hour test that runs in milliseconds",
   "minutes": 3,
-  "prompt": "Close this page. Write a `StepVerifier` test for `Mono.delay(Duration.ofHours(1)).thenReturn(\"expired\")` that proves nothing is emitted before the hour is up, then `expired` and completion, runs in milliseconds, and can't hang the build. Then compare.",
+  "prompt": "Close this page. A cake must cool for an hour before it can be iced. Write a `StepVerifier` test for `Mono.delay(Duration.ofHours(1)).thenReturn(\"cooled\")` that proves nothing is emitted before the hour is up, then `cooled` and completion, runs in milliseconds, and can't hang the build. Then compare.",
   "answer": {"lang": "java", "src": DJ, "alt": {"lang": "kotlin", "src": DK}}
  },
  "recap": [
-  "`share()` (`publish().refCount()`) gives late subscribers only new items; `replay(n).refCount()` replays the last n; `cache()` replays everything forever. `refCount` disconnects when the last subscriber leaves, `autoConnect` never does.",
-  "Sinks push values from ordinary code. `tryEmitNext` refuses concurrent calls with `FAIL_NON_SERIALIZED`: check the result, or use `emitNext` with `busyLooping`.",
-  "A `multicast().onBackpressureBuffer()` sink shuts down when its last subscriber leaves; `directBestEffort()` keeps no buffer and survives an empty room.",
-  "StepVerifier runs nothing until `verify()`. Give it a timeout, build the publisher inside the `withVirtualTime` supplier, and call `expectSubscription()` before `expectNoEvent`.",
+  "`share()` (`publish().refCount()`) gives late subscribers only new items; `replay(n).refCount()` replays the last n; `cache()` replays everything, forever. `refCount` disconnects when the last subscriber leaves, `autoConnect` never does.",
+  "Sinks push values from ordinary code. `tryEmitNext` refuses overlapping calls with `FAIL_NON_SERIALIZED`: check the result, or use `emitNext` with `busyLooping`. A `multicast().onBackpressureBuffer()` sink shuts down when its last subscriber leaves; `directBestEffort()` survives an empty room.",
+  "StepVerifier runs nothing until `verify()`. Give it a time limit, build the publisher inside the `withVirtualTime` supplier, and call `expectSubscription()` before `expectNoEvent`.",
   "`checkpoint(\"name\")` tags errors with a place in your chain cheaply; `log()` prints every signal at one point.",
-  "Reactive earns its complexity for streams, backpressure and composed concurrency. For request and response over blocking libraries, the Spring team itself says imperative code on virtual threads is enough."
+  "The limit of the whole toolkit: reactive code is harder to read, debug and teach, and it isn't faster. For one request and one reply over blocking clients, the Spring team itself says plain code, now on virtual threads, is enough."
  ],
+ "closing": CLOSING,
  "quiz": [
-  {"q": "Two Kafka listener threads call `sink.tryEmitNext(event)` on the same `Sinks.many().multicast()` sink at the same moment, and ignore the return value. What can happen?",
+  {"q": "Two till threads call `bell.tryEmitNext(event)` on the same `Sinks.many().multicast()` sink at the same moment, and ignore the return value. What can happen?",
    "options": [
     "Both events are emitted, in some order",
     "One call returns `FAIL_NON_SERIALIZED` and its event is never emitted",
@@ -381,29 +500,29 @@ L = {
     "The sink throws `ConcurrentModificationException`"
    ],
    "answer": 1,
-   "why": "Reactor sinks detect concurrent emission and refuse it instead of blocking or queueing, so one of the two calls gets `FAIL_NON_SERIALIZED`. Ignoring the result loses that event silently. Use `emitNext(event, EmitFailureHandler.busyLooping(...))`, which retries, or serialize the calls."},
-  {"q": "A test reads `StepVerifier.create(service.refund(\"p-1\")).expectNext(\"REFUNDED\").expectComplete();` and passes. The refund code is in fact broken. Why does the test pass?",
+   "why": "Reactor sinks detect overlapping emissions and refuse them instead of blocking or queueing, so one of the two calls gets `FAIL_NON_SERIALIZED`. Ignoring the result loses that event silently. Use `emitNext(event, EmitFailureHandler.busyLooping(...))`, which retries, or serialize the calls."},
+  {"q": "A test reads `StepVerifier.create(orders.cancel(\"order-42\")).expectNext(\"CANCELLED\").expectComplete();` and passes. The cancel code is in fact broken. Why does the test pass?",
    "options": [
     "`expectComplete()` ignores the value",
     "Nothing subscribes until `verify()` is called, so no expectation is ever checked",
     "StepVerifier only fails on errors, not on wrong values",
-    "The refund runs on another thread, so its result arrives after the test ends"
+    "The cancel runs on another thread, so its result arrives after the test ends"
    ],
    "answer": 1,
-   "why": "`expectComplete()` only adds a step to the script. `verify()`, or a shortcut like `verifyComplete()`, is what subscribes and runs it. Add `.verify(Duration.ofSeconds(1))` and the test checks the value and fails if it hangs."},
-  {"q": "Dashboards share one FX provider connection. A dashboard that opens late must show the current rate at once, and the connection must close when nobody watches. Which operator fits?",
-   "options": ["`rates.share()`", "`rates.cache()`", "`rates.replay(1).refCount()`", "`rates.publish().autoConnect(1)`"],
+   "why": "`expectComplete()` only adds a step to the script. `verify()`, or a shortcut like `verifyComplete()`, is what subscribes and runs it. Add `.verify(Duration.ofSeconds(1))`, and the test checks the value and fails if it hangs."},
+  {"q": "Screens in the shop share one connection to the oven thermometer. A screen that switches on late must show the current temperature at once, and the connection must close when nobody watches. Which operator fits?",
+   "options": ["`readings.share()`", "`readings.cache()`", "`readings.replay(1).refCount()`", "`readings.publish().autoConnect(1)`"],
    "answer": 2,
-   "why": "`replay(1)` gives a late subscriber the latest rate, and `refCount()` connects on the first subscriber and cancels upstream when the last one leaves. `share()` gives late subscribers nothing until the next tick. `cache()` and `autoConnect` never disconnect, and `cache()` also keeps every rate forever."},
-  {"q": "A team runs a Spring MVC service on JDBC that meets its latency targets. Someone proposes rewriting it with WebFlux \"to make it faster\". What do Spring's own docs say?",
+   "why": "`replay(1)` gives a late subscriber the latest reading, and `refCount()` connects on the first subscriber and cancels the source when the last one leaves. `share()` gives late subscribers nothing until the next reading. `cache()` and `autoConnect` never disconnect, and `cache()` also keeps every reading forever."},
+  {"q": "A team runs a web service written with Spring MVC, the classic style in which each request holds a thread, on a blocking database driver. It meets its speed targets. Someone proposes a rewrite with Spring WebFlux \"to make it faster\". What do Spring's own docs say?",
    "options": [
     "Rewrite it: reactive code is faster for every workload",
-    "If an MVC application works fine there is no need to change; reactive doesn't generally make applications faster",
-    "Rewrite only the JDBC calls with Reactor and keep the controllers",
-    "Switch to WebFlux but keep JDBC on the event loop"
+    "If an MVC application works fine there is no need to change; reactive code doesn't generally make applications faster",
+    "Rewrite only the database calls with Reactor and keep the rest",
+    "Switch to WebFlux, but keep the blocking driver on the event loop"
    ],
    "answer": 1,
-   "why": "The Spring reference says a working MVC application has no need to change, that blocking persistence APIs like JDBC point to MVC, and that reactive and non-blocking generally don't make applications run faster. With virtual threads, the thread-count argument for this kind of service is mostly gone too. The last option is the worst of both: JDBC on an event loop blocks every request it serves."},
+   "why": "The Spring reference says a working MVC application has no need to change, that blocking database APIs point to MVC, and that reactive and non-blocking code generally doesn't make applications run faster. With virtual threads, the thread-count argument for this kind of service is mostly gone too. The last option is the worst of both: a blocking driver on an event loop stalls every request that loop serves."},
   {"q": "From \"Errors, retries and timeouts\": a retry uses `Retry.backoff(3, Duration.ofMillis(200))` with the default jitter. How should its virtual-time test check the slow path?",
    "options": [
     "`expectNoEvent` for exactly 1,400 ms, then expect the fallback",
@@ -412,34 +531,35 @@ L = {
     "It can't be tested while jitter is on"
    ],
    "answer": 1,
-   "why": "With jitter each wait moves by up to half its length, so exact times are not fixed. Advancing well past the maximum (the worked example used 10 seconds) and then asserting the outcome and the count is stable. Exact-time assertions need `jitter(0)`. Real sleeps make the test slow and still flaky.",
+   "why": "With jitter, each wait moves by up to half its length, so exact times are not fixed. Advancing well past the maximum (the courier example moved the clock 10 seconds) and then checking the outcome and the count is stable. Exact-time checks need `jitter(0)`. Real sleeps make the test slow and still flaky.",
    "from": "rx-05"}
  ],
  "flashcards": [
-  {"front": "What is `share()` the same as, and what does a late subscriber get?", "back": "`publish().refCount()`. A late subscriber gets only items emitted after it subscribed."},
-  {"front": "Late subscriber on `replay(1).refCount()`: what does it get?", "back": "The most recent item at once, then the live ones. The upstream is cancelled when the last subscriber leaves."},
+  {"front": "What is `share()` the same as, and what does a late subscriber get?", "back": "`publish().refCount()`. A late subscriber gets only the items emitted after it subscribed."},
+  {"front": "Late subscriber on `replay(1).refCount()`: what does it get?", "back": "The most recent item at once, then the live ones. The source is cancelled when the last subscriber leaves."},
   {"front": "Two threads call `tryEmitNext` on one sink at the same moment. What can happen?", "back": "One gets `EmitResult.FAIL_NON_SERIALIZED` and its item is not emitted. Check the result or use `emitNext(item, busyLooping(...))`."},
   {"front": "What happens to `Sinks.many().multicast().onBackpressureBuffer()` when its last subscriber leaves?", "back": "By default it shuts down: a later subscriber just receives `onComplete`. `directBestEffort()` keeps working."},
-  {"front": "A `StepVerifier` chain without `verify()`: what runs?", "back": "Nothing. `verify()` (or `verifyComplete()` etc.) is what subscribes and checks the steps."},
-  {"front": "Why must the publisher be built inside the `withVirtualTime` supplier?", "back": "Operators like `delay`, `interval` and `timeout` pick their scheduler at assembly. Built earlier, they use the real clock and the test hangs."},
-  {"front": "What does `checkpoint(\"fee-row\")` add to an error?", "back": "A suppressed exception saying the error was observed at the checkpoint named `fee-row`. Cheap; `checkpoint(name, true)` also captures the assembly stack trace."}
+  {"front": "A `StepVerifier` chain without `verify()`: what runs?", "back": "Nothing. `verify()` (or `verifyComplete()` and the other shortcuts) is what subscribes and checks the steps."},
+  {"front": "Why must the publisher be built inside the `withVirtualTime` supplier?", "back": "Operators like `delay`, `interval` and `timeout` pick their scheduler when the chain is built. Built earlier, they use the real clock and the test hangs."},
+  {"front": "What does `checkpoint(\"price-row\")` add to an error?", "back": "A suppressed exception saying the error was observed at the checkpoint named `price-row`. Cheap; `checkpoint(name, true)` also captures the stack trace of where the chain was built."}
  ],
  "terms": [
+  {"term": "Cold publisher", "plain": "A publisher that does its work again, from the start, for every subscriber."},
   {"term": "Hot publisher", "plain": "A publisher that produces whether or not anyone subscribes; subscribers see what is produced while they listen."},
   {"term": "ConnectableFlux", "plain": "What `publish()` and `replay()` return: a shared Flux that subscribes to its source when it is connected."},
   {"term": "refCount", "plain": "Connect on the first subscriber, disconnect when the last one leaves (optionally after a grace period)."},
   {"term": "Sink", "plain": "Reactor's thread-aware way to push values from ordinary code into a Flux or Mono."},
   {"term": "StepVerifier", "plain": "reactor-test's tool that subscribes to a publisher and checks its signals step by step."},
   {"term": "Virtual time", "plain": "A fake clock that replaces Reactor's schedulers in a test, so delays pass instantly."},
-  {"term": "checkpoint", "plain": "An operator that labels a place in a chain so errors passing through it say where they came from."}
+  {"term": "checkpoint", "plain": "An operator that labels a place in a chain, so errors passing through it say where they came from."}
  ],
  "explain_back": {
-  "prompt": "A teammate is building a dashboard backend: a Kafka consumer receives payment events and a dozen browsers should see them live, plus the current FX rate. Explain which Reactor pieces you would use, what can silently go wrong with each, and how you would test it.",
-  "answer": "For the events I'd use a multicast sink, `directBestEffort()`, because each browser only needs events from the moment it connects, nothing should pile up while nobody watches, and the hub must keep working after every browser disconnects (the buffered flavour shuts down when its last subscriber leaves). The Kafka listener threads would publish with `emitNext` and a `busyLooping` handler, because `tryEmitNext` refuses concurrent calls and the refused event just disappears. For the FX rate I'd wrap the provider feed in `replay(1).refCount(1, grace)`: one connection, new browsers get the current rate at once, and the connection closes a few seconds after the last browser leaves. `share()` would leave new browsers blank until the next tick, and `cache()` would never disconnect and would keep every rate. To test it I'd use `TestPublisher` for the provider, a multi-threaded test for the hub with a start latch, and `StepVerifier.withVirtualTime` for anything with time in it, always with `verify(Duration)` so a bug fails fast instead of hanging."
+  "prompt": "A teammate is building the kitchen screens: the shop's tills ring an order bell, a dozen screens should show the orders live, and every screen also shows the current oven temperature. Explain which Reactor pieces you would use, what can silently go wrong with each, and how you would test it.",
+  "answer": "For the orders I'd use a multicast sink, `directBestEffort()`, because each screen only needs the orders from the moment it connects, nothing should pile up while nobody watches, and the bell must keep working after every screen switches off (the buffered flavour shuts down when its last subscriber leaves). The till threads would ring it with `emitNext` and a `busyLooping` handler, because `tryEmitNext` refuses overlapping calls, and the refused order just disappears. For the temperature I'd wrap the thermometer feed in `replay(1).refCount(1, grace)`: one connection, new screens get the current reading at once, and the connection closes a few seconds after the last screen leaves. `share()` would leave new screens blank until the next reading, and `cache()` would never disconnect and would keep every reading. To test it I'd use `TestPublisher` for the thermometer, a multi-threaded test for the bell with a start latch, and `StepVerifier.withVirtualTime` for anything with time in it, always with `verify(Duration)` so that a bug fails fast instead of hanging."
  },
  "deeper": {
   "minutes": 10,
-  "body": "**Connecting by hand.** `publish()` and `replay()` return a `ConnectableFlux`. Besides `refCount` and `autoConnect`, you can call `connect()` yourself once every subscriber is in place, and dispose the returned `Disposable` to disconnect. That suits a startup sequence that wires several consumers before any data should flow.\n\n**Context instead of ThreadLocal.** Because a chain hops threads, a `ThreadLocal` such as an MDC trace id doesn't follow it. Reactor's `Context` does: write it at the bottom with `contextWrite(Context.of(\"traceId\", id))` and read it upstream with `Mono.deferContextual(ctx -> ...)`. It travels from the subscriber toward the source, so a `contextWrite` above the reader is invisible to it. With the Micrometer context-propagation library on the classpath, `Hooks.enableAutomaticContextPropagation()` (Reactor 3.5.3+) restores ThreadLocals such as the MDC around each operator; it isn't in the labs.\n\n**BlockHound in tests.** Calling `BlockHound.install()` at the start of a test run makes any blocking call on a non-blocking thread throw `BlockingOperationError`, which catches the JDBC call on an event loop from the schedulers lesson before production does. On JDK 13+ it needs `-XX:+AllowRedefinitionToAddDeleteMethods`.\n\n**Backpressure in tests.** `StepVerifier.create(flux, 0)` starts with no demand, and `thenRequest(n)` adds it step by step. That is how the lab of lesson 7 of this track checked which tick a slow subscriber receives."
+  "body": "**Connecting by hand.** `publish()` and `replay()` return a `ConnectableFlux`. Besides `refCount` and `autoConnect`, you can call `connect()` yourself once every subscriber is in place, and dispose the returned `Disposable` to disconnect. That suits a startup sequence that wires several consumers before any data should flow.\n\n**Context instead of ThreadLocal.** Because a chain hops threads, a `ThreadLocal`, such as the per-request id that a logging library keeps, doesn't follow it. Reactor's `Context` does: write it at the bottom with `contextWrite(Context.of(\"requestId\", id))` and read it upstream with `Mono.deferContextual(ctx -> ...)`. It travels from the subscriber toward the source, so a `contextWrite` above the reader is invisible to it. With the Micrometer context-propagation library on the classpath, `Hooks.enableAutomaticContextPropagation()` (Reactor 3.5.3+) restores ThreadLocals around each operator; it isn't in the labs.\n\n**BlockHound in tests.** Calling `BlockHound.install()` at the start of a test run makes any blocking call on a non-blocking thread throw `BlockingOperationError`. That catches a blocking database call on a server's event-loop thread, from the Schedulers lesson, before a real user does. On JDK 13+ it needs `-XX:+AllowRedefinitionToAddDeleteMethods`.\n\n**Backpressure in tests.** `StepVerifier.create(flux, 0)` starts with no demand, and `thenRequest(n)` adds it step by step. That's how the lab of Backpressure in practice checked which reading a slow screen receives."
  },
  "sources": [
   {"title": "Reactor reference: Hot versus cold (source, 3.8.x)", "url": "https://github.com/reactor/reactor-core/blob/3.8.x/docs/modules/ROOT/pages/advancedFeatures/reactor-hotCold.adoc"},

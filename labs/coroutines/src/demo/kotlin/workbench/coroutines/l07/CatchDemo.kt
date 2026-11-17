@@ -10,19 +10,19 @@ import java.io.IOException
 fun main(args: Array<String>) = runBlocking {
     val failIn = args.firstOrNull() ?: "upstream" // or "collector"
     val lines = flow {
-        emit("pay-1,4250,EUR")
-        emit("pay-2,-990,EUR")
-        if (failIn == "upstream") throw IOException("settlement file truncated")
-        emit("pay-3,120000,GBP")
+        emit("flour,2000,g")
+        emit("eggs,12,pcs")
+        if (failIn == "upstream") throw IOException("delivery note torn")
+        emit("butter,250,g")
     }
     try {
         lines
             .map { it.substringBefore(",") }
             .onCompletion { cause -> println("onCompletion: cause = $cause") }
             .catch { e -> println("catch: $e"); emit("ABORTED") }
-            .collect { id ->
-                println("collect $id")
-                if (failIn == "collector" && id == "pay-2") throw IllegalStateException("ledger db down")
+            .collect { item ->
+                println("collect $item")
+                if (failIn == "collector" && item == "eggs") throw IllegalStateException("pantry shelf full")
             }
         println("collect returned normally")
     } catch (e: Exception) {

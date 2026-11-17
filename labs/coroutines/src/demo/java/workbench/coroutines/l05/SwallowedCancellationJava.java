@@ -8,10 +8,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SwallowedCancellationJava {
-    static void pollSettlement(boolean restoreInterrupt, AtomicInteger attempts) {
+    /** Phones the butcher 20 times, 100 ms apart. A failed call is logged and tried again. */
+    static void phoneButcher(boolean restoreInterrupt, AtomicInteger calls) {
         for (int i = 0; i < 20; i++) {
             try {
-                attempts.incrementAndGet();  // the HTTP call to the acquirer would go here
+                calls.incrementAndGet();     // the phone call to the butcher would go here
                 Thread.sleep(100);
             } catch (InterruptedException e) {
                 if (restoreInterrupt) {
@@ -25,17 +26,17 @@ public class SwallowedCancellationJava {
 
     public static void main(String[] args) throws Exception {
         boolean fixed = args.length > 0 && args[0].equals("fixed");
-        AtomicInteger attempts = new AtomicInteger();
+        AtomicInteger calls = new AtomicInteger();
         ExecutorService pool = Executors.newSingleThreadExecutor();
-        pool.submit(() -> pollSettlement(fixed, attempts));
+        pool.submit(() -> phoneButcher(fixed, calls));
         Thread.sleep(250);
-        int cancelledAt = attempts.get();
+        int cancelledAt = calls.get();
         long asked = System.nanoTime();
-        pool.shutdownNow();                   // interrupts the poller
+        pool.shutdownNow();                   // interrupts the caller
         pool.awaitTermination(10, TimeUnit.SECONDS);
         long ms = (System.nanoTime() - asked) / 1_000_000;
         System.out.println(fixed ? "catch + restore the flag:" : "catch, swallowing:");
-        System.out.printf("  attempts before cancel: %d, after cancel: %d, shutdown took %d ms%n",
-            cancelledAt, attempts.get() - cancelledAt, ms);
+        System.out.printf("  calls before cancel: %d, after cancel: %d, shutdown took %d ms%n",
+            cancelledAt, calls.get() - cancelledAt, ms);
     }
 }

@@ -14,13 +14,13 @@ import reactor.core.scheduler.Schedulers;
 public class SharedFlowEventsJava {
     static void tryTwenty(String label, Sinks.Many<String> events) throws InterruptedException {
         List<String> received = new CopyOnWriteArrayList<>();
-        Disposable auditor = events.asFlux()
+        Disposable listener = events.asFlux()
             .publishOn(Schedulers.single(), 1)
-            .subscribe(e -> { sleep(50); received.add(e); }); // the audit write takes 50 ms
+            .subscribe(e -> { sleep(50); received.add(e); }); // writing each ring in the log takes 50 ms
         List<Sinks.EmitResult> results = new ArrayList<>();
         for (int i = 1; i <= 20; i++) results.add(events.tryEmitNext("e" + i));
         Thread.sleep(1_200);
-        auditor.dispose();
+        listener.dispose();
         long ok = results.stream().filter(r -> r == Sinks.EmitResult.OK).count();
         System.out.printf("%-26s tryEmitNext OK: %2d, FAIL_OVERFLOW: %2d  received %2d events%n", label, ok, results.size() - ok, received.size());
     }

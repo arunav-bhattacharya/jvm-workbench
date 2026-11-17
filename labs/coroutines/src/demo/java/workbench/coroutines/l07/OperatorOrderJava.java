@@ -6,11 +6,11 @@ import reactor.core.publisher.Flux;
 
 public class OperatorOrderJava {
     public static void main(String[] args) {
-        // amounts in cents; refunds are negative
-        Flux<String> pipeline = Flux.just(4_250L, -990L, 12_000L)
-            .doOnNext(a -> System.out.println("emit    " + a))
-            .filter(a -> a > 0).doOnNext(a -> System.out.println("  filter passed " + a))
-            .map(a -> String.format("EUR %.2f", a / 100.0)).doOnNext(s -> System.out.println("    map   -> " + s));
+        // weights in grams from the kitchen scale; a negative reading means it wasn't set to zero
+        Flux<String> pipeline = Flux.just(250L, -40L, 1_200L)
+            .doOnNext(g -> System.out.println("emit    " + g))
+            .filter(g -> g > 0).doOnNext(g -> System.out.println("  filter passed " + g))
+            .map(g -> String.format("%.2f kg", g / 1_000.0)).doOnNext(s -> System.out.println("    map   -> " + s));
         System.out.println("pipeline built: no line above has printed yet");
         pipeline.subscribe(s -> System.out.println("      subscribe " + s));
     }

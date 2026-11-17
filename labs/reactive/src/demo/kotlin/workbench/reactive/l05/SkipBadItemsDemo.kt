@@ -5,12 +5,12 @@ import reactor.core.publisher.Mono
 
 /** Skipping bad items: handle the error inside each item's own Mono, not on the whole stream. */
 fun main() {
-    val amounts: Flux<Int> = Flux.just(1, 2, 0, 4)
+    val boxCounts: Flux<Int> = Flux.just(1, 2, 0, 4)
 
-    val whole = amounts.map { i -> 8 / i }.onErrorResume { Mono.empty() }.collectList().block()
+    val whole = boxCounts.map { i -> 8 / i }.onErrorResume { Mono.empty() }.collectList().block()
     println("onErrorResume on the stream: $whole")
 
-    val perItem = amounts
+    val perItem = boxCounts
         .concatMap { i ->
             Mono.fromCallable { 8 / i }
                 .doOnError { e -> println("  skipping $i: ${e.message}") }
@@ -19,7 +19,7 @@ fun main() {
         .collectList().block()
     println("onErrorResume per item:      $perItem")
 
-    val continued = amounts.map { i -> 8 / i }
+    val continued = boxCounts.map { i -> 8 / i }
         .onErrorContinue { _, item -> println("  onErrorContinue dropped $item") }
         .collectList().block()
     println("onErrorContinue:             $continued")

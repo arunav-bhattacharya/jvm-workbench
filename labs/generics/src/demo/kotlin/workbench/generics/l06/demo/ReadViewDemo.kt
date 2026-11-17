@@ -1,22 +1,22 @@
 package workbench.generics.l06.demo
 
-/** Totals any mutable list of numbers. It only reads, so it asks for an out-projection. */
-fun total(amounts: MutableList<out Number>): Double {
-    var sum = 0.0
-    for (a in amounts) sum += a.toDouble()      // reads come out as Number
-    // amounts.add(0)                           // wrong move 1: no add() through an out-projection
+/** Weighs any mutable crate of fruit. It only takes fruit out, so it asks for an out-projection. */
+fun totalGrams(crate: MutableList<out Fruit>): Int {
+    var sum = 0
+    for (f in crate) sum += f.grams              // reads come out as Fruit
+    // crate.add(Apple("Gala", 180))             // wrong move 1: no add() through an out-projection
     return sum
 }
 
 fun main() {
-    val cents: MutableList<Int> = mutableListOf(1_200, 350, 99)
-    val rates: MutableList<Double> = mutableListOf(0.5, 1.25)
-    println("cents: ${total(cents)}, rates: ${total(rates)}")
+    val apples: MutableList<Apple> = mutableListOf(Apple("Gala", 180), Apple("Fuji", 150))
+    val lemons: MutableList<Lemon> = mutableListOf(Lemon("Eureka", 120))
+    println("apples: ${totalGrams(apples)} g, lemons: ${totalGrams(lemons)} g")
 
-    val view: MutableList<out Number> = cents   // the same projection on a variable
+    val view: MutableList<out Fruit> = apples   // the same projection on a variable
     view.removeAt(0)                            // still allowed: removeAt takes an Int, not a T
-    println("after removeAt through the view: $cents")
+    println("after removeAt through the view: $apples")
 
-    // Wrong move 2: no projection, so a MutableList<Int> is not a MutableList<Number>.
-    // val strict: MutableList<Number> = cents
+    // Wrong move 2: no projection, so a MutableList<Apple> is not a MutableList<Fruit>.
+    // val strict: MutableList<Fruit> = apples
 }

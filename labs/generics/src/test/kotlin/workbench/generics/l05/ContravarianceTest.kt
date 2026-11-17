@@ -6,72 +6,72 @@ import org.junit.jupiter.api.Test
 import workbench.generics.JavaSignatures
 
 class ContravarianceTest {
-    private val a1 = CardAuthorized("pay_3", 1_200)
-    private val a2 = CardAuthorized("pay_1", 350)
-    private val r1 = RefundIssued("pay_2", 500)
+    private val gala = Apple("Gala", 180)
+    private val fuji = Apple("Fuji", 150)
+    private val eureka = Lemon("Eureka", 120)
 
     @Test
-    fun `CollectingSink remembers every item in order`() {
-        val sink = CollectingSink<PaymentEvent>()
-        sink.accept(a1)
-        sink.accept(r1)
-        assertThat(sink.items).containsExactly(a1, r1)
+    fun `CollectingBin remembers every item in order`() {
+        val bin = CollectingBin<Fruit>()
+        bin.drop(gala)
+        bin.drop(eureka)
+        assertThat(bin.items).containsExactly(gala, eureka)
     }
 
     @Test
-    fun `CollectingSink items cannot be used to change its history`() {
-        val sink = CollectingSink<String>()
-        sink.accept("EUR")
-        val seen = sink.items
-        sink.accept("USD")
-        assertThat(seen).containsExactly("EUR")              // a snapshot, not a live view
-        assertThat(sink.items).containsExactly("EUR", "USD")
+    fun `CollectingBin items cannot be used to change what it remembers`() {
+        val bin = CollectingBin<String>()
+        bin.drop("Gala")
+        val seen = bin.items
+        bin.drop("Fuji")
+        assertThat(seen).containsExactly("Gala")               // a snapshot, not a live view
+        assertThat(bin.items).containsExactly("Gala", "Fuji")
     }
 
     @Test
-    fun `feedAll sends every event and counts them`() {
-        val sink = CollectingSink<PaymentEvent>()
-        assertThat(feedAll(listOf(a1, r1, a2), sink)).isEqualTo(3)
-        assertThat(sink.items).containsExactly(a1, r1, a2)
+    fun `dropAll drops every fruit and counts them`() {
+        val bin = CollectingBin<Fruit>()
+        assertThat(dropAll(listOf(gala, eureka, fuji), bin)).isEqualTo(3)
+        assertThat(bin.items).containsExactly(gala, eureka, fuji)
     }
 
     @Test
-    fun `Sink is declared in, so Java sees feedAll taking Sink of super PaymentEvent`() {
+    fun `Bin is declared in, so Java sees dropAll taking Bin of super Fruit`() {
         // Kotlin writes a ? super wildcard into a parameter only when the class is declared `in`
-        assertThat(JavaSignatures.paramText("workbench.generics.l05.SinkKt", "feedAll", 1))
-            .`as`("feedAll's sink parameter as Java sees it (add `in` to Sink's type parameter)")
-            .isEqualTo("Sink<? super PaymentEvent>")
+        assertThat(JavaSignatures.paramText("workbench.generics.l05.BinKt", "dropAll", 1))
+            .`as`("dropAll's bin parameter as Java sees it (add `in` to Bin's type parameter)")
+            .isEqualTo("Bin<? super Fruit>")
     }
 
     @Test
-    fun `highest ranks a list of CardAuthorized with a Comparator of PaymentEvent`() {
-        val top: CardAuthorized = highest(listOf(a2, a1), byPaymentId)
-        assertThat(top).isEqualTo(a1)                        // pay_3 sorts last
+    fun `highest ranks a list of Apple with a Comparator of Fruit`() {
+        val top: Apple = highest(listOf(fuji, gala), byWeight)
+        assertThat(top).isEqualTo(gala)                         // 180 g beats 150 g
         assertThat(highest(listOf(1, 9, 4), naturalOrder<Int>())).isEqualTo(9)
     }
 
     @Test
     fun `highest of an empty list throws IllegalArgumentException`() {
-        assertThatThrownBy { highest(emptyList<CardAuthorized>(), byPaymentId) }
+        assertThatThrownBy { highest(emptyList<Apple>(), byWeight) }
             .isInstanceOf(IllegalArgumentException::class.java)
     }
 
     @Test
-    fun `a handler for any PaymentEvent can subscribe to a Dispatcher of CardAuthorized`() {
-        val audit = mutableListOf<String>()
-        val auditAll: (PaymentEvent) -> Unit = { audit += "audit ${it.paymentId}" }
-        val cardsOnly: (CardAuthorized) -> Unit = { audit += "fraud check ${it.cents}" }
+    fun `a listener for any Fruit can listen to a DeliveryBell of Apple`() {
+        val log = mutableListOf<String>()
+        val stockCount: (Fruit) -> Unit = { log += "stock ${it.name}" }
+        val appleSign: (Apple) -> Unit = { log += "sign ${it.name} ${it.grams} g" }
 
-        val dispatcher = Dispatcher<CardAuthorized>()
-        dispatcher.subscribe(auditAll)                      // compiles: Function1 is in in its parameter
-        dispatcher.subscribe(cardsOnly)
+        val bell = DeliveryBell<Apple>()
+        bell.listen(stockCount)                     // compiles: Function1 is in in its parameter
+        bell.listen(appleSign)
 
-        assertThat(dispatcher.publish(a1)).isEqualTo(2)
-        assertThat(audit).containsExactly("audit pay_3", "fraud check 1200")
+        assertThat(bell.ring(gala)).isEqualTo(2)
+        assertThat(log).containsExactly("stock Gala", "sign Gala 180 g")
     }
 
     @Test
-    fun `publish with no handlers calls nobody`() {
-        assertThat(Dispatcher<RefundIssued>().publish(r1)).isZero()
+    fun `ring with no listeners calls nobody`() {
+        assertThat(DeliveryBell<Lemon>().ring(eureka)).isZero()
     }
 }

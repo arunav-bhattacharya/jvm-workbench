@@ -1,7 +1,7 @@
 package workbench.generics.l08
 
 /**
- * Turns text into typed values: "12.50 EUR" into a Money, "2026-03-01" into a LocalDate.
+ * Turns text into typed values: "1.25 kg" into a Weight, "2026-03-01" into a LocalDate.
  * One parser per target class, keyed by a Class token, the way a Java API would do it.
  */
 class Parsers {
@@ -13,7 +13,7 @@ class Parsers {
     }
 
     /**
-     * Parses [text] into a [type]. Java callers use this one: `parsers.parse("12.50 EUR", Money.class)`.
+     * Parses [text] into a [type]. Java callers use this one: `parsers.parse("1.25 kg", Weight.class)`.
      *
      * TODO 3: look up the parser for [type]. If there is none, throw
      * IllegalArgumentException("no parser for " + type.simpleName). Otherwise call it and return the
@@ -23,7 +23,7 @@ class Parsers {
         TODO("look up the parser, call it, cast with type.cast")
 
     /**
-     * The Kotlin-friendly version: `parsers.parse<Money>("12.50 EUR")`.
+     * The Kotlin-friendly version: `parsers.parse<Weight>("1.25 kg")`.
      *
      * TODO 4: make it inline with a reified T, and pass `T::class.java` to the version above.
      */

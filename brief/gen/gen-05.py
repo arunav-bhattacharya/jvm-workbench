@@ -25,121 +25,144 @@ def box(x, y, w, label, cls="box"):
 
 
 FIG = (
-    '<svg viewBox="0 0 700 280" role="img" aria-label="CardAuthorized is a subtype of PaymentEvent. For a producer declared out, the arrow keeps its direction: Source of CardAuthorized is a Source of PaymentEvent. '
-    'For a consumer declared in, the arrow flips: Sink of PaymentEvent is a Sink of CardAuthorized.">'
+    '<svg viewBox="0 0 700 280" role="img" aria-label="Apple is a subtype of Fruit. For a producer declared out, the arrow keeps its direction: Dispenser of Apple is a Dispenser of Fruit. '
+    'For a consumer declared in, the arrow flips: Bin of Fruit is a Bin of Apple.">'
     '<text class="t-s t-m" x="105" y="18" text-anchor="middle">element types</text>'
     '<text class="t-s t-m" x="340" y="18" text-anchor="middle">producer: out keeps it</text>'
     '<text class="t-s t-m" x="580" y="18" text-anchor="middle">consumer: in flips it</text>'
-    + box(20, 32, 170, "PaymentEvent")
-    + box(20, 200, 170, "CardAuthorized", "box-a")
+    + box(30, 32, 150, "Fruit")
+    + box(30, 200, 150, "Apple", "box-a")
     + '<line class="ln-a" x1="105" y1="200" x2="105" y2="72" marker-end="url(#arr)"/>'
-    + box(235, 32, 210, "Source&lt;PaymentEvent&gt;")
-    + box(235, 200, 210, "Source&lt;CardAuthorized&gt;", "box-a")
+    + box(240, 32, 200, "Dispenser&lt;Fruit&gt;")
+    + box(240, 200, 200, "Dispenser&lt;Apple&gt;", "box-a")
     + '<line class="ln-a" x1="340" y1="200" x2="340" y2="72" marker-end="url(#arr)"/>'
-    + box(480, 32, 200, "Sink&lt;CardAuthorized&gt;")
-    + box(480, 200, 200, "Sink&lt;PaymentEvent&gt;", "box-b")
+    + box(495, 32, 170, "Bin&lt;Apple&gt;")
+    + box(495, 200, 170, "Bin&lt;Fruit&gt;", "box-b")
     + '<line class="ln-a" x1="580" y1="200" x2="580" y2="72" marker-end="url(#arr)"/>'
     '<text class="t-s t-m" x="113" y="140">is a</text>'
     '<text class="t-s t-m" x="348" y="140">is a</text>'
     '<text class="t-s t-m" x="588" y="140">is a</text>'
-    '<text class="t-s t-m" x="350" y="262" text-anchor="middle">A sink that takes any event can stand in for a sink that only needs card authorizations.</text>'
+    '<text class="t-s t-m" x="350" y="262" text-anchor="middle">A bin that takes any fruit can stand in for a bin that only needs apples.</text>'
     '</svg>'
 )
 
-S1 = """A **consumer** is a type whose values of `T` only ever go in. An audit log, a Kafka producer, a metrics counter, a `Comparator`, an event handler. You hand it a `T`, and it hands nothing typed `T` back.
+OPENING = """Behind the fruit shop stands a compost bin. Bruised fruit goes in, any kind at all: apples, lemons, whatever is past selling. Nothing ever comes back out, and nobody has ever asked it to.
 
-Run the substitution test again, the other way round. Some code needs a sink for card authorizations. You hand it an audit log that accepts *any* payment event. Every call it can make passes a `CardAuthorized`, and the audit log takes every `PaymentEvent`, so it takes those too. Nothing can go wrong.
+One morning a helper who is sorting apples asks for "a bin for bruised apples". You point at the compost bin. It's a perfectly good apple bin, because it takes every fruit, and so every apple.
 
-So for a consumer, the more general type is the one that can stand in. A `Sink<PaymentEvent>` can be used where a `Sink<CardAuthorized>` is expected. The subtype arrow **flips**. This is **contravariance**, and Kotlin declares it with **`in`**. Java writes it at each use with **`? super`**:
+Look at which way that went. The bin for any fruit stood in for the bin for apples. In the last lesson, the arrow ran the other way: an apple dispenser stood in for a fruit dispenser. It's natural to expect one direction for every generic type, and that's the trap. A type you only put things into turns the arrow around.
+
+Covariance with out: producers ended with this bin. In this lesson, we'll write it in code with `in` and sort apples with one comparator for all fruit. Then we'll find the same flip inside function types, and finish with PECS, the rule Java programmers use to choose. Before we start, make a guess, and keep it in mind."""
+
+S1 = """A **consumer** is a type whose values of `T` only ever go in. (`T` is the type parameter, the blank on the label that each user of the type fills in.) The compost bin is a consumer. So are a scale that weighs whatever you put on it, a printer for price cards, and a `Comparator`, which takes two values and says which comes first. You hand a consumer a `T`, and it hands nothing typed `T` back.
+
+Here is the bin in code. `drop` puts an item in. The shop's fruit are the same as in the last lesson: a `Fruit` interface with a `name` and a weight in `grams`, and `Apple` and `Lemon` as data classes that implement it. `throwOut` is the helper's job. It needs a bin for apples, and drops each bruised apple into it:
 
 ```java
-interface Sink<T> {
-    void accept(T item);
+interface Bin<T> {
+    void drop(T item);
 }
 
-static void forwardAuthorizations(List<CardAuthorized> events, Sink<? super CardAuthorized> to) { ... }
+static void throwOut(List<Apple> apples, Bin<? super Apple> into) { ... }
 
-Sink<PaymentEvent> audit = e -> System.out.println("audit: " + e.getPaymentId());
-forwardAuthorizations(auths, audit);           // fine: the parameter says ? super
-Sink<CardAuthorized> strict = audit;           // error: Sink<PaymentEvent> cannot be converted to Sink<CardAuthorized>
+Bin<Fruit> compost = f -> System.out.println("compost: " + f + ", " + f.getGrams() + " g");
+throwOut(bruised, compost);              // fine: the parameter says ? super
+Bin<Apple> strict = compost;             // error: Bin<Fruit> cannot be converted to Bin<Apple>
 ```
 
 ```kotlin
-interface Sink<in T> {
-    fun accept(item: T)
+interface Bin<in T> {
+    fun drop(item: T)
 }
 
-fun forwardAuthorizations(events: List<CardAuthorized>, to: Sink<CardAuthorized>) { ... }
+fun throwOut(apples: List<Apple>, into: Bin<Apple>) { ... }
 
-val audit: Sink<PaymentEvent> = AuditLog()
-forwardAuthorizations(auths, audit)            // fine: Sink is declared in
-val cardSink: Sink<CardAuthorized> = audit     // also fine
+val compost: Bin<Fruit> = CompostBin()
+throwOut(bruised, compost)               // fine: Bin is declared in
+val appleBin: Bin<Apple> = compost       // also fine
 ```
 
-The other direction fails, and it should. A `Sink<CardAuthorized>` might be a fraud checker that reads `cents`. Handing it a `RefundIssued` through a `Sink<PaymentEvent>` view would break it:
+Run the substitution test from lesson 3 of this track, the question the compiler asks on every assignment: if I secretly hand over one type where another is expected, can any allowed call go wrong? `throwOut` expects a bin for apples, and you hand it the compost bin. Every call `throwOut` can make drops an `Apple`. The compost bin takes every `Fruit`, so it takes those too. Nothing can go wrong, and `BinDemo` in the labs prints `compost: Gala, 180 g` and `compost: Fuji, 150 g`.
+
+So for a consumer, the more general type is the one that stands in. A `Bin<Fruit>` can be used where a `Bin<Apple>` is expected. The subtype arrow **flips**: `Apple` is a subtype of `Fruit`, but `Bin<Fruit>` is a subtype of `Bin<Apple>`. This is **contravariance**, the mirror image of lesson 4's covariance, where the arrow kept its direction. Kotlin declares it on the type parameter with **`in`**. Java has no such keyword, so it writes it at each use with the wildcard **`? super Apple`**, which reads "`Apple` or some supertype of it". The figure puts the two cases side by side.
+
+The other direction fails, and it should. A `Bin<Apple>` might be the pot for apple sauce, where the cook treats every item as an apple. Through a `Bin<Fruit>` view, someone could drop a lemon into the sauce. A lemon in the apple sauce is a mistake a kitchen only makes once:
 
 ```text
-error: initializer type mismatch: expected 'Sink<PaymentEvent>', actual 'Sink<CardAuthorized>'.
+val back: Bin<Fruit> = appleBin
+error: initializer type mismatch: expected 'Bin<Fruit>', actual 'Bin<Apple>'.
 ```
 
-The position rules are the mirror image of `out`. In a type declared `in T`, `T` may appear in parameters, and not in return types or `val`s. Add `fun last(): T` to `Sink` and the compiler says `type parameter 'T' is declared as 'in' but occurs in 'out' position`. The reason mirrors lesson 4. Through a `Sink<CardAuthorized>` view of the audit log, `last()` would promise a `CardAuthorized`, and the log may be holding a `RefundIssued`.
+The rules for where `T` may appear are the mirror image of `out`, too. In a type declared `in T`, `T` may appear in parameters, which are in-positions, and not in return types or `val`s, which are out-positions. Add `fun last(): T` to `Bin`, and the compiler says `type parameter 'T' is declared as 'in' but occurs in 'out' position`. The reason mirrors lesson 4. Through a `Bin<Apple>` view of the compost bin, `last()` would promise an `Apple`, and the bin may be holding a lemon.
 
-The figure shows the two cases next to each other. Same element types, same "is a" arrow between them. A producer keeps the direction. A consumer reverses it."""
+**A type that only takes `T` in can stand in wherever a narrower `T` is wanted. Say so with `in`.**
 
-S2 = """You already use the most common consumer: a comparator. A comparator only *takes* values, two at a time, and returns an `Int`. So a comparator written for a supertype works for every subtype:
+A bin you write yourself is the easy case. The consumer you'll meet most often was written by someone else, a long time ago."""
+
+S2 = """You already use the most common consumer: a **comparator**, an object whose `compare(a, b)` says which of two values comes first. It only *takes* values, two at a time, and hands back an `Int`. So a comparator written for all fruit works for apples, for lemons, for any subtype. Here is one that orders fruit by weight, used on a list of apples:
 
 ```java
-Comparator<PaymentEvent> byId = Comparator.comparing(PaymentEvent::getPaymentId);
+Comparator<Fruit> byWeight = Comparator.comparingInt(Fruit::getGrams);
 
-List<CardAuthorized> auths = new ArrayList<>(...);
-auths.sort(byId);                                    // List<E>.sort(Comparator<? super E>)
+List<Apple> apples = new ArrayList<>(List.of(gala, fuji));
+apples.sort(byWeight);                           // List<E>.sort(Comparator<? super E>)
 
-Comparator<? super CardAuthorized> forCards = byId;  // fine
-Comparator<CardAuthorized> strict = byId;            // error: Comparator<PaymentEvent> cannot be converted to Comparator<CardAuthorized>
+Comparator<? super Apple> forApples = byWeight;  // fine
+Comparator<Apple> strict = byWeight;             // error: Comparator<Fruit> cannot be converted to Comparator<Apple>
 ```
 
 ```kotlin
-val byId: Comparator<PaymentEvent> = compareBy { it.paymentId }
+val byWeight: Comparator<Fruit> = compareBy { it.grams }
 
-val auths = listOf(CardAuthorized("pay_3", 1_200), CardAuthorized("pay_1", 350))
-auths.sortedWith(byId)                               // sortedWith(comparator: Comparator<in T>)
+val apples = listOf(gala, fuji)
+apples.sortedWith(byWeight)                      // sortedWith(comparator: Comparator<in T>)
 
-val forCards: Comparator<in CardAuthorized> = byId   // fine
-val strict: Comparator<CardAuthorized> = byId        // error: expected 'Comparator<CardAuthorized>', actual 'Comparator<PaymentEvent>'
+val forApples: Comparator<in Apple> = byWeight   // fine
+val strict: Comparator<Apple> = byWeight         // error: expected 'Comparator<Apple>', actual 'Comparator<Fruit>'
 ```
 
-The last line surprises Kotlin developers. On the JVM, Kotlin's `Comparator` is `java.util.Comparator`, a Java interface, and Java interfaces have no declared variance. So Kotlin treats `Comparator` as invariant, exactly as Java does. The flexibility comes from the use site: the standard library declares `sortedWith(comparator: Comparator<in T>)`, the Kotlin spelling of Java's `? super T`.
+`ComparatorDemo` sorts two apples and two lemons with the one `byWeight`, and prints `[Fuji 150 g, Gala 180 g]` and `[Eureka 95 g, Eureka 120 g]`.
 
-The JDK made the same choice everywhere. `List.sort`, `Collections.sort`, `Stream.sorted` and the `TreeMap` constructor all take a `Comparator<? super E>`. If you write your own ranking helper and forget the projection, it accepts only a comparator of the exact element type, and the shared `byPaymentId` comparator that the rest of the codebase uses no longer fits.
+The last Kotlin line surprises people. If a comparator is a consumer, why isn't a `Comparator<Fruit>` simply a `Comparator<Apple>`, the way the compost bin was an apple bin? Because on the JVM, Kotlin's `Comparator` *is* `java.util.Comparator`, a Java interface. Java has nowhere to write variance on a declaration, so Java interfaces have none, and Kotlin treats `Comparator` as invariant, exactly as Java does. It isn't Kotlin being stubborn. Nobody ever wrote the `in` down.
 
-Kotlin's own `Comparable` is different. It is declared `interface Comparable<in T>`, so the `in` is on the declaration. That is why lesson 2 of this track could call `maxOf2` on `LocalDate`, which is a `Comparable<ChronoLocalDate>`: a `Comparable<ChronoLocalDate>` is a `Comparable<LocalDate>`.
+So the flexibility comes from the use site, the place where the type is used. The standard library declares `sortedWith(comparator: Comparator<in T>)`. That `in` inside the angle brackets of one parameter is Kotlin's spelling of Java's `? super T`, for that parameter only. Lesson 6 of this track calls it a type projection, and gives it a full lesson.
 
-The rule of thumb for your own signatures: when a parameter is a comparator, a handler, a sink or a callback that *receives* your values, give it `in` (Kotlin) or `? super` (Java). The lab's `highest(items: List<T>, comparator: Comparator<in T>)` is the shape to copy."""
+The JDK made the same choice everywhere. `List.sort`, `Collections.sort`, `Stream.sorted` and the `TreeMap` constructor all take a `Comparator<? super E>`. If you write your own ranking helper and forget the `? super` (or the `in`), it accepts only a comparator of the exact element type. The shop's shared `byWeight` no longer fits a list of apples, and the next person writes a second comparator that does the same thing.
 
-S3 = """Function types are where producers and consumers meet. `(P) -> R` is `Function1<in P, out R>`: a function consumes its parameter and produces its result. So a function type is contravariant on the left of the arrow and covariant on the right:
+Kotlin's own `Comparable` is different. It's the interface for types with a natural order, such as `Int` and `String`, and it's declared `interface Comparable<in T>`, with the `in` on the declaration. That is why lesson 2 of this track could call `maxOf2` on two `LocalDate`s: a `LocalDate` is a `Comparable<ChronoLocalDate>`, and so it also counts as a `Comparable<LocalDate>`.
+
+**A parameter that only receives your values is a consumer. Give it `in`, or `? super` in Java.**
+
+The lab's `highest(items: List<T>, comparator: Comparator<in T>)` is the shape to copy. A comparator takes two values and returns a number. A plain function takes values too, and the same flip hides inside its type."""
+
+S3 = """A **function type** such as `(Fruit) -> String` is the type of a function value: a lambda you can store in a variable and call later. Behind the arrow notation, Kotlin writes it as `Function1<in P, out R>`. The function takes its parameter in, so it's a consumer of `P`. It hands its result out, so it's a producer of `R`. A function type is contravariant on the left of the arrow and covariant on the right.
+
+Picture the shop's scale. A scale that weighs any fruit can stand in for a scale that only weighs apples. A function that writes a price card for any fruit can stand in for one that writes cards for apples, and the `String` it returns is certainly an `Any`:
 
 ```java
 // Java's Consumer and Function are plain invariant interfaces, so say it at the use site:
-Consumer<PaymentEvent> auditAll = e -> System.out.println("audit " + e.getPaymentId());
-Function<PaymentEvent, String> describe = e -> "event " + e.getPaymentId();
+Consumer<Fruit> weighAny = f -> System.out.println("scale: " + f + ", " + f.getGrams() + " g");
+Function<Fruit, String> label = f -> "price card for " + f;
 
-Consumer<? super CardAuthorized> onCard = auditAll;                       // fine
-Function<? super CardAuthorized, ? extends Object> label = describe;      // fine
-Consumer<CardAuthorized> strict = auditAll;     // error: cannot be converted
+Consumer<? super Apple> weighApple = weighAny;                   // fine
+Function<? super Apple, ? extends Object> appleLabel = label;    // fine
+Consumer<Apple> strict = weighAny;    // error: Consumer<Fruit> cannot be converted to Consumer<Apple>
 ```
 
 ```kotlin
-val auditAll: (PaymentEvent) -> Unit = { println("audit ${it.paymentId}") }
-val describe: (PaymentEvent) -> String = { "event ${it.paymentId}" }
+val weighAny: (Fruit) -> Unit = { println("scale: $it, ${it.grams} g") }
+val label: (Fruit) -> String = { "price card for $it" }
 
-val onCard: (CardAuthorized) -> Unit = auditAll       // fine: takes more general input
-val label: (CardAuthorized) -> Any = describe         // fine: in on the left, out on the right
-val tooBroad: (PaymentEvent) -> Unit = onCard         // error: expected '(PaymentEvent) -> Unit', actual '(CardAuthorized) -> Unit'
+val weighApple: (Apple) -> Unit = weighAny     // fine: takes more general input
+val appleLabel: (Apple) -> Any = label         // fine: in on the left, out on the right
+val tooBroad: (Fruit) -> Unit = weighApple     // error: expected '(Fruit) -> Unit', actual '(Apple) -> Unit'
 ```
 
-This is why the lab's `Dispatcher<CardAuthorized>` accepts a handler written for every `PaymentEvent` without any extra work.
+`HandlerDemo` prints `scale: Gala, 180 g` and `price card for Fuji`. The last line fails for the apple-sauce reason: a scale for apples only, used as a scale for any fruit, could be handed a lemon. The flip is also why the lab's `DeliveryBell<Apple>` accepts a listener written for every `Fruit`, with no extra work.
 
-Function types also explain the odd cases from lesson 4 of this track. Follow the value. In `fun each(f: (T) -> Unit)`, the class calls `f` and hands it a `T`, so the `T` travels out of the class, even though it sits inside a parameter. In `fun handler(): (T) -> Unit`, the class hands a function to the caller, and the caller feeds it a `T`, so the `T` travels in. To get the same answer without tracing, give each position a sign: an out-position is `+`, an in-position is `−`. When one type sits inside another, multiply the signs. A plain parameter is `−`. The parameter of a function that is itself a parameter is `−` times `−`, which is `+`.
+Function types explain the odd cases from lesson 4 of this track, too: the ones where a `T` inside a parameter was allowed in an `out` type. Follow the value. In `fun each(f: (T) -> Unit)`, the class calls `f` and hands it a `T`, so the `T` travels out of the class, even though it sits inside a parameter. In `fun handler(): (T) -> Unit`, the class hands a function to the caller, and the caller feeds it a `T`, so the `T` travels in.
+
+To get the same answer without tracing, give each position a sign. An out-position is `+`, and an in-position is `−`. When one type sits inside another, multiply the signs. A plain parameter is `−`. The parameter of a function that is itself a parameter is `−` times `−`, which is `+`:
 
 | Member in `class C<…T>` | Where `T` sits | Sign | Legal under `out T` | Legal under `in T` |
 |---|---|---|---|---|
@@ -149,9 +172,11 @@ Function types also explain the odd cases from lesson 4 of this track. Follow th
 | `fun handler(): (T) -> Unit` | parameter of the result | + × − = − | no | yes |
 | `fun putAll(xs: List<T>)` | `List<out E>` in a parameter | − × + = − | no | yes |
 
-You won't run this table often. Use it when an error points at a callback and the intuition stops helping. The `Inbox` interface in the demo has three members to test it on."""
+You won't need the table often. Use it when an error points at a lambda parameter and your intuition runs out. The `SortingBin` interface in the demo has three members to try it on.
 
-S4 = """Java programmers learn variance as **PECS**: Producer Extends, Consumer Super. It comes from *Effective Java* (Item 31), and the Kotlin docs cite it as the background for `out` and `in`. The mapping is one to one:
+The table is the full theory. Java programmers carry a shorter version of it around, in four letters."""
+
+S4 = """Java programmers learn variance as **PECS**: Producer Extends, Consumer Super. It comes from Joshua Bloch's book *Effective Java* (Item 31), and the Kotlin docs cite it as the background for `out` and `in`. A producer parameter gives you values, so it gets `? extends`. A consumer parameter takes your values, so it gets `? super`. The mapping onto Kotlin is one to one:
 
 | Role of the parameter | Java | Kotlin |
 |---|---|---|
@@ -159,7 +184,7 @@ S4 = """Java programmers learn variance as **PECS**: Producer Extends, Consumer 
 | takes `T` values from you (consumer) | `? super T` | `in T` |
 | both | `T` | `T` |
 
-The JDK's copy method is the textbook case. `src` produces, `dest` consumes:
+Here is a copy helper with one of each. `from` is a list the helper only reads, a producer. `to` is a list the helper only adds to, a consumer. The test copies the morning's apples onto the shop shelf, which already holds a lemon, and into a list of anything, which already holds a paper bag:
 
 ```java
 // java.util.Collections:
@@ -169,8 +194,8 @@ static <T> void copyInto(List<? extends T> from, List<? super T> to) {
     for (T x : from) to.add(x);
 }
 
-copyInto(List.of(1_200, 350), numbers);       // List<Integer> into a List<Number>
-copyInto(numbers, new ArrayList<Integer>());  // error: method copyInto cannot be applied to given types
+copyInto(apples, shelf);                    // a List<Apple> into a List<Fruit>
+copyInto(shelf, new ArrayList<Apple>());    // error: method copyInto ... cannot be applied to given types
 ```
 
 ```kotlin
@@ -178,233 +203,254 @@ fun <T> copyInto(from: List<T>, to: MutableList<in T>) {
     for (x in from) to.add(x)
 }
 
-copyInto(listOf(1_200, 350), numbers)         // List<Int> into a MutableList<Number>
-copyInto(numbers, mutableListOf<Int>())       // error: actual type is 'MutableList<Int>', but 'MutableList<in Number>' was expected
+copyInto(apples, shelf)                     // a List<Apple> into a MutableList<Fruit>
+copyInto(shelf, mutableListOf<Apple>())     // error: actual type is 'MutableList<Apple>', but 'MutableList<in Fruit>' was expected
 ```
 
-The Kotlin version needs only one projection, on `to`. `from` is a `List`, which is already `out`, so writing `List<out T>` would only earn a warning that the projection is redundant.
+`PecsDemo` prints `shelf = [Eureka, Gala, Fuji], anything = [a paper bag, Gala, Fuji]`. The last line fails, and it's the crate of lesson 3 again. Copying a shelf of mixed fruit into a crate of apples would drop the lemon into the crate.
 
-When you design a signature, ask one question per parameter: does this parameter *give* me values of `T`, *take* values of `T` from me, or both? Give: `out` / `? extends`. Take: `in` / `? super`. Both: plain `T`. The wrong answer is rarely a compile error in your own code. It shows up later, as a caller who can't pass a perfectly good `Comparator<PaymentEvent>` and writes a cast to get around you.
+The Kotlin version needs only one `in`, on `to`. `from` is a read-only `List`, which is already declared `out`, so writing `List<out T>` would only earn a warning that the projection is redundant. Java needs both wildcards, because none of its types carries its own variance.
 
-`MutableList<in T>` is a use-site projection: `MutableList` itself is invariant, and the function asks for a write-only view of it. Lesson 6 of this track is about those."""
+When you design a signature, ask one question per parameter. Does this parameter *give* me values of `T`, *take* values of `T` from me, or both? Give: `out`, or `? extends`. Take: `in`, or `? super`. Both: plain `T`.
+
+**Ask each parameter whether it gives you `T`, takes `T`, or both. The answer picks `out`, `in` or plain `T`.**
+
+A wrong answer is rarely a compile error in your own code, and your own tests pass. It shows up later, as a caller who can't pass a perfectly good `Comparator<Fruit>`, and writes a cast to get around you.
+
+The question has a limit, and `copyInto` has just met it. A `MutableList` both gives and takes, so it can't be declared `out` or `in`. The `MutableList<in T>` on `to` is a use-site projection: `MutableList` itself stays invariant, and this one parameter asks for a drop-only view of it. The next lesson is about those views."""
+
+CLOSING = """We started at the compost bin, which takes any fruit and so makes a fine apple bin. `in T` writes that down: `T` only goes in, so a `Bin<Fruit>` can stand in for a `Bin<Apple>`, and the arrow flips. Comparators and function parameters are consumers too, and PECS is the same idea in Java's spelling.
+
+Now look in your own code for a parameter typed `Comparator<X>` or `Consumer<X>`, with no `in` or `? super`. Each one turns away a perfectly good general handler.
+
+Next, we'll take a crate that both gives and takes, and tell one helper, for one job, to treat it as take-only. How do you get variance out of a type that can't declare any?"""
 
 L = {
     "id": "gen-05",
     "title": "Contravariance with in: consumers",
     "minutes": 35,
-    "goal": "By the end you can recognise a consumer, declare it `in` in Kotlin (or write `? super` in Java), explain why a `Sink<PaymentEvent>` can stand in for a `Sink<CardAuthorized>`, and choose `out` or `in` for any parameter with the PECS question.",
+    "goal": "By the end you can recognise a consumer, declare it `in` in Kotlin (or write `? super` in Java), explain why a `Bin<Fruit>` can stand in for a `Bin<Apple>`, and choose `out` or `in` for any parameter with the PECS question.",
+    "opening": OPENING,
     "warmup": {
-        "q": "`val audit: Sink<PaymentEvent>` accepts any payment event. A function needs a `Sink<CardAuthorized>`. If `Sink` were declared `interface Sink<in T> { fun accept(item: T) }`, could you pass `audit`?",
+        "q": "`interface Bin<in T> { fun drop(item: T) }`. `compost` is a `Bin<Fruit>` that takes any fruit. A function needs a `Bin<Apple>`. Can you pass `compost`?",
         "options": [
-            "No: PaymentEvent is the supertype, so it can never stand in for the subtype",
-            "Yes: a sink that takes every event also takes card authorizations",
+            "No: `Fruit` is the wider type, so a bin of `Fruit` can never stand in for a bin of `Apple`",
+            "Yes: a bin that takes every fruit also takes every apple",
             "Only with a cast",
-            "Only if `Sink` is declared `out T`"
+            "Only if `Bin` is declared `out T`"
         ],
         "answer": 1,
-        "why": "For a consumer the arrow flips. The function will only ever pass `CardAuthorized` values in, and a sink of any `PaymentEvent` accepts all of them. `in` tells the compiler that `T` only flows in. `out` would be wrong: a sink doesn't produce."
+        "why": "For a type that only takes values in, the arrow flips. The function will only ever drop apples in, and a bin for any fruit accepts all of them. `in` tells the compiler that `T` only goes in. `out` would be wrong, because a bin hands nothing out. Lesson 4's dispenser was the opposite case."
     },
     "sections": [
         {
-            "h": "A consumer only takes values in",
+            "h": "A bin only takes fruit in, so the subtype arrow flips",
             "body": S1,
-            "figure": {"svg": FIG, "caption": "Producers keep the subtype arrow (out). Consumers flip it (in): the sink for the general type stands in for the sink for the specific one."},
+            "figure": {"svg": FIG, "caption": "A dispenser keeps the subtype arrow (out). A bin flips it (in): the bin for all fruit stands in for the bin for apples."},
             "try": {
-                "title": "Pass a general sink where a specific one is needed",
+                "title": "Hand the compost bin to the apple job",
                 "minutes": 4,
                 "steps": [
-                    "Run `SinkDemo` (or `SinkDemoJava`). Every authorization goes through the audit log.",
+                    "Run `BinDemo` (or `BinDemoJava`) with the command below. Every bruised apple lands in the compost bin.",
                     "Predict: does the wrong move at the bottom compile? Uncomment it and run.",
-                    "In `SinkDemo.kt`, remove `in` from `interface Sink<in T>` and run again. Which line breaks now? Put it back."
+                    "Comment it out again. In `BinDemo.kt`, remove `in` from `interface Bin<in T>`. Predict which lines break, then run. Put `in` back."
                 ],
-                "code": kdemo("SinkDemo", "SinkDemoJava"),
-                "expect": "Both print `audit: pay_1`, `audit: pay_2`, `audit: pay_3`. The wrong move fails: `Initializer type mismatch: expected 'Sink<PaymentEvent>', actual 'Sink<CardAuthorized>'.` in Kotlin and `Sink<PaymentEvent> cannot be converted to Sink<CardAuthorized>` in Java. Without `in`, Kotlin rejects both `forwardAuthorizations(..., audit)` and `val cardSink: Sink<CardAuthorized> = audit`: an invariant `Sink` behaves like Java's plain `Sink<T>`."
+                "code": kdemo("BinDemo", "BinDemoJava"),
+                "expect": "Both print `compost: Gala, 180 g`, `compost: Fuji, 150 g` and `compost: Fuji, 140 g`. The Kotlin wrong move tries the reverse direction and fails with `Initializer type mismatch: expected 'Bin<Fruit>', actual 'Bin<Apple>'.` The Java wrong move leaves out the `? super` and fails with `incompatible types: Bin<Fruit> cannot be converted to Bin<Apple>`, because Java's `Bin<T>` is invariant. Without `in`, Kotlin rejects two lines: `throwOut(..., compost)` with `Argument type mismatch: actual type is 'Bin<Fruit>', but 'Bin<Apple>' was expected.`, and `val appleBin: Bin<Apple> = compost`."
             }
         },
         {
-            "h": "Comparator: one ordering for many types",
+            "h": "One comparator for all fruit: a Comparator takes values in",
             "body": S2,
             "try": {
-                "title": "Sort two kinds of event with one comparator",
+                "title": "Sort apples and lemons with one comparator",
                 "minutes": 3,
                 "steps": [
-                    "Run `ComparatorDemo` (or `ComparatorDemoJava`). One `Comparator<PaymentEvent>` sorts both lists.",
-                    "Uncomment the `strict` line and run. Then change its type to `Comparator<in CardAuthorized>` (Java: `Comparator<? super CardAuthorized>`) and run again."
+                    "Run `ComparatorDemo` (or `ComparatorDemoJava`). One `Comparator<Fruit>` sorts both lists.",
+                    "Uncomment the `strict` line and run. Then change its type to `Comparator<in Apple>` (Java: `Comparator<? super Apple>`) and run again."
                 ],
                 "code": kdemo("ComparatorDemo", "ComparatorDemoJava"),
-                "expect": "Both print `[pay_1, pay_3]`, `[pay_4, pay_9]` and `forCards compares: 2`. The strict line fails in both languages: `expected 'Comparator<CardAuthorized>', actual 'Comparator<PaymentEvent>'` and `Comparator<PaymentEvent> cannot be converted to Comparator<CardAuthorized>`. `java.util.Comparator` is invariant on the JVM, even in Kotlin; the use-site `in` or `? super` fixes it."
+                "expect": "Both print `[Fuji 150 g, Gala 180 g]`, `[Eureka 95 g, Eureka 120 g]` and `forApples compares Gala with Fuji: 1`, a positive number because the Gala is heavier. The strict line fails in both languages: `Initializer type mismatch: expected 'Comparator<Apple>', actual 'Comparator<Fruit>'.` and `incompatible types: Comparator<Fruit> cannot be converted to Comparator<Apple>`. `java.util.Comparator` is invariant on the JVM, even in Kotlin, and the `in` (or `? super`) at the use site fixes it."
             }
         },
         {
-            "h": "Function types: in on the left, out on the right",
+            "h": "Function types: in on the left of the arrow, out on the right",
             "body": S3,
             "try": {
-                "title": "Assign handlers, then test the sign rule",
+                "title": "Swap scales, then test the sign rule",
                 "minutes": 5,
                 "steps": [
-                    "Run `HandlerDemo` (or `HandlerDemoJava`) and uncomment the wrong move(s). Read the errors.",
-                    "In `HandlerDemo.kt`, look at the `Inbox<in T>` interface. Use the sign table to predict which of the three numbered members compile.",
+                    "Run `HandlerDemo` (or `HandlerDemoJava`). Uncomment the wrong move (Java: the two wrong moves, one at a time) and read the errors.",
+                    "In `HandlerDemo.kt`, look at the `SortingBin<in T>` interface. Use the sign table to predict which of the three numbered members compile.",
                     "Uncomment them one at a time and run to check your predictions."
                 ],
                 "code": kdemo("HandlerDemo", "HandlerDemoJava"),
-                "expect": "The demo prints `audit pay_7` and `event pay_8`. `tooBroad` fails with `expected '(PaymentEvent) -> Unit', actual '(CardAuthorized) -> Unit'`; the Java twin's strict lines fail with `Consumer<PaymentEvent> cannot be converted to Consumer<CardAuthorized>` and `Function<PaymentEvent,String> cannot be converted to Function<CardAuthorized,Object>`. All three `Inbox` members fail with `declared as 'in' but occurs in 'out' position`: `peek(): T` is a return (+), and the `T` inside `(T) -> Unit` and `(T) -> Boolean` parameters is − × − = +."
+                "expect": "The demo prints `scale: Gala, 180 g` and `price card for Fuji`. `tooBroad` fails with `Initializer type mismatch: expected '(Fruit) -> Unit', actual '(Apple) -> Unit'.` The Java twin's lines fail with `Consumer<Fruit> cannot be converted to Consumer<Apple>` and `Function<Fruit,String> cannot be converted to Function<Apple,Object>`. All three `SortingBin` members fail with `declared as 'in' but occurs in 'out' position`: `peek(): T` is a return (+), and the `T` inside the `(T) -> Unit` and `(T) -> Boolean` parameters is − × − = +."
             }
         },
         {
-            "h": "PECS is out and in with Java spelling",
+            "h": "PECS: Java's four-letter name for out and in",
             "body": S4,
             "try": {
                 "title": "Copy from a producer into a consumer",
                 "minutes": 3,
                 "steps": [
-                    "Run `PecsDemo` (or `PecsDemoJava`). Both copy a list of ints into a list of numbers and a list of anything.",
-                    "Uncomment the wrong move and run. Say in one sentence why copying numbers into a list of ints must fail."
+                    "Run `PecsDemo` (or `PecsDemoJava`). Both copy a list of apples onto a shelf of fruit and into a list of anything.",
+                    "Uncomment the wrong move and run. Say in one sentence why copying the shelf into a list of apples must fail."
                 ],
                 "code": kdemo("PecsDemo", "PecsDemoJava"),
-                "expect": "Both print `numbers = [2.5, 1200, 350], anything = [EUR, 1200, 350]`, and Java also prints `slots = [1200, 350]` from `Collections.copy`. The wrong move fails with `actual type is 'MutableList<Int>', but 'MutableList<in Number>' was expected` (Kotlin) or `method copyInto ... cannot be applied to given types` (Java): a list of ints can't take the `2.5` that the source holds."
+                "expect": "Both print `shelf = [Eureka, Gala, Fuji], anything = [a paper bag, Gala, Fuji]`, and Java also prints `slots = [Gala, Fuji]` from the JDK's `Collections.copy`. The wrong move fails with `Argument type mismatch: actual type is 'MutableList<Apple>', but 'MutableList<in Fruit>' was expected.` (Kotlin) or `method copyInto in class PecsDemoJava cannot be applied to given types` (Java): a list of apples can't take the lemon that the shelf holds."
             },
             "refs": [
                 {"title": "Collections.copy (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/Collections.html", "kind": "docs"}
             ]
         }
     ],
-    "analogy": "A consumer is a recycling bin. A bin labeled \"any recyclables\" can stand in for a bin labeled \"glass only\": everyone who was going to drop glass into it still can. The reverse fails: if you hand out a glass-only bin as an \"any recyclables\" bin, someone drops cardboard in. So the bin with the wider label is the one that substitutes, which is the flip that `in` describes. The analogy breaks when you take things out: a real bin can be emptied and its contents inspected, but a `Sink<PaymentEvent>` seen as a `Sink<CardAuthorized>` gives you nothing typed back. Contravariant types are for putting values in, not for reading them.",
-    "in_your_world": "Consumers are everywhere on the write side of a payment service: a Kafka producer wrapper that sends `PaymentEvent`s, an audit log, a metrics recorder, a `Comparator` that orders settlement lines, a Temporal activity callback, a handler registered on an event bus. Declare your own consumer interfaces `in T`, and one audit sink or one `(PaymentEvent) -> Unit` handler can be wired into every typed pipeline (`Sink<CardAuthorized>`, `Sink<RefundIssued>`) without adapters. In Java code you'll see the same contract as `Consumer<? super T>` and `Comparator<? super T>` in well-designed APIs.",
-    "mistake": "The common mistake is writing a consumer parameter as plain `T`: `fun register(handler: Comparator<CardAuthorized>)` in Kotlin or `void register(Consumer<CardAuthorized> handler)` in Java. It compiles and works for the first caller. The second caller has a perfectly good `Comparator<PaymentEvent>` or `Consumer<PaymentEvent>` and gets a type mismatch, then writes a lambda adapter or a cast. People make the mistake because the plain type looks simpler and Kotlin's own `Comparator` is invariant on the JVM. The fix is to ask the PECS question for every parameter: if it only receives your values, write `Comparator<in T>` / `Consumer<? super T>`.",
     "compare": {
         "title": "A consumer, declared once in Kotlin, spelled at each use in Java",
         "java": {
-            "title": "Sinks.java",
-            "src": "import java.util.Comparator;\nimport java.util.List;\nimport java.util.function.Consumer;\n\ninterface Sink<T> {                          // no declaration-site variance in Java\n    void accept(T item);\n}\n\nclass Sinks {\n    // every consumer parameter must remember ? super\n    static <T> void feedAll(List<? extends T> items, Sink<? super T> sink) {\n        for (T item : items) sink.accept(item);\n    }\n\n    static <T> T highest(List<? extends T> items, Comparator<? super T> order) {\n        T best = items.get(0);\n        for (T item : items) if (order.compare(item, best) > 0) best = item;\n        return best;\n    }\n\n    static <E> void subscribe(Consumer<? super E> handler) { /* store it */ }\n}"
+            "title": "Bins.java",
+            "src": "import java.util.Comparator;\nimport java.util.List;\nimport java.util.function.Consumer;\n\ninterface Bin<T> {                           // no declaration-site variance in Java\n    void drop(T item);\n}\n\nclass Bins {\n    // every consumer parameter must remember ? super\n    static <T> void dropAll(List<? extends T> items, Bin<? super T> bin) {\n        for (T item : items) bin.drop(item);\n    }\n\n    static <T> T highest(List<? extends T> items, Comparator<? super T> order) {\n        T best = items.get(0);\n        for (T item : items) if (order.compare(item, best) > 0) best = item;\n        return best;\n    }\n\n    static <E> void listen(Consumer<? super E> listener) { /* store it */ }\n}"
         },
         "kotlin": {
-            "title": "Sinks.kt",
-            "src": "interface Sink<in T> {                       // say it once\n    fun accept(item: T)\n}\n\n// Sink and List carry their variance, so these signatures stay plain\nfun <T> feedAll(items: List<T>, sink: Sink<T>) {\n    for (item in items) sink.accept(item)\n}\n\n// java.util.Comparator is a Java interface: invariant, so project it here\nfun <T> highest(items: List<T>, order: Comparator<in T>): T {\n    var best = items[0]\n    for (item in items) if (order.compare(item, best) > 0) best = item\n    return best\n}\n\n// function types are already Function1<in P, out R>\nfun <E> subscribe(handler: (E) -> Unit) { /* store it */ }"
+            "title": "Bins.kt",
+            "src": "interface Bin<in T> {                        // say it once\n    fun drop(item: T)\n}\n\n// Bin and List carry their variance, so these signatures stay plain\nfun <T> dropAll(items: List<T>, bin: Bin<T>) {\n    for (item in items) bin.drop(item)\n}\n\n// java.util.Comparator is a Java interface: invariant, so project it here\nfun <T> highest(items: List<T>, order: Comparator<in T>): T {\n    var best = items[0]\n    for (item in items) if (order.compare(item, best) > 0) best = item\n    return best\n}\n\n// function types are already Function1<in P, out R>\nfun <E> listen(listener: (E) -> Unit) { /* store it */ }"
         },
-        "note": "The rule is identical: through a contravariant view you may put values in but get nothing typed back out. Java puts `? super` on every consumer parameter; Kotlin puts `in` on the consumer's declaration once, and its function types are contravariant in their parameters out of the box. The one trap is Java interfaces used from Kotlin. `Comparator`, `Consumer` and every other Java interface have no declared variance, so Kotlin treats them as invariant and you need a use-site `in` (`Comparator<in T>`), exactly where Java needs `? super T`. When Java calls Kotlin, a parameter of type `Sink<PaymentEvent>` shows up as `Sink<? super PaymentEvent>`."
+        "note": "The rule is the same in both languages: through a contravariant view you may put values in, but you get nothing typed back out. Java puts `? super` on every consumer parameter. Kotlin puts `in` on the consumer's declaration once, and its function types are contravariant in their parameters from the start. The one trap is a Java interface used from Kotlin. `Comparator`, `Consumer` and every other Java interface have no declared variance, so Kotlin treats them as invariant, and you need a use-site `in` (`Comparator<in T>`) exactly where Java needs `? super T`. When Java calls Kotlin, a parameter of type `Bin<Fruit>` shows up as `Bin<? super Fruit>`."
     },
     "worked": {
-        "title": "Design a dispatcher that accepts general handlers",
+        "title": "Build a delivery bell that accepts general listeners",
         "steps": [
-            {"say": "A payment service publishes `CardAuthorized` events. The fraud team writes a handler for card authorizations. The audit team writes one handler for every `PaymentEvent`. You want both to subscribe to the same dispatcher. Start by naming the role of each type: the event is produced by the dispatcher and consumed by the handler.", "code": "interface PaymentEvent { val paymentId: String }\ndata class CardAuthorized(override val paymentId: String, val cents: Long) : PaymentEvent\n\nval fraudCheck: (CardAuthorized) -> Unit = { check(it.cents) }\nval auditAll: (PaymentEvent) -> Unit = { log(it.paymentId) }", "lang": "kotlin",
-             "alt_lang": "java", "alt_code": "interface PaymentEvent { String paymentId(); }\nrecord CardAuthorized(String paymentId, long cents) implements PaymentEvent {}\n\nConsumer<CardAuthorized> fraudCheck = e -> check(e.cents());\nConsumer<PaymentEvent> auditAll = e -> log(e.paymentId());"},
-            {"say": "1. Write the subscribe signature with the handler as a consumer of `E`. In Kotlin a function type already has `in` on its parameter, so `(E) -> Unit` is enough. In Java, `Consumer<E>` would reject the audit handler, so write `Consumer<? super E>`.", "code": "class Dispatcher<E> {\n    private val handlers = ArrayList<(E) -> Unit>()\n\n    fun subscribe(handler: (E) -> Unit) { handlers.add(handler) }\n\n    fun publish(event: E): Int {\n        for (h in handlers) h(event)\n        return handlers.size\n    }\n}", "lang": "kotlin",
-             "alt_lang": "java", "alt_code": "class Dispatcher<E> {\n    private final List<Consumer<? super E>> handlers = new ArrayList<>();\n\n    void subscribe(Consumer<? super E> handler) { handlers.add(handler); }\n\n    int publish(E event) {\n        for (Consumer<? super E> h : handlers) h.accept(event);\n        return handlers.size();\n    }\n}"},
-            {"say": "2. Wire it up. Both handlers subscribe to a `Dispatcher<CardAuthorized>`. Self-check before reading on: why can't the fraud handler subscribe to a `Dispatcher<PaymentEvent>`? (That dispatcher may publish a `RefundIssued`, and `fraudCheck` reads `cents` from a `CardAuthorized`.)", "code": "val cards = Dispatcher<CardAuthorized>()\ncards.subscribe(fraudCheck)\ncards.subscribe(auditAll)                // fine: (PaymentEvent) -> Unit is a (CardAuthorized) -> Unit\ncards.publish(CardAuthorized(\"pay_1\", 1_200))   // 2\n\nval all = Dispatcher<PaymentEvent>()\nall.subscribe(fraudCheck)\n// error: argument type mismatch: actual type is '(CardAuthorized) -> Unit',\n//        but '(PaymentEvent) -> Unit' was expected.", "lang": "kotlin",
-             "alt_lang": "java", "alt_code": "var cards = new Dispatcher<CardAuthorized>();\ncards.subscribe(fraudCheck);\ncards.subscribe(auditAll);               // fine thanks to ? super E\ncards.publish(new CardAuthorized(\"pay_1\", 1_200));   // 2\n\nvar all = new Dispatcher<PaymentEvent>();\nall.subscribe(fraudCheck);\n// error: incompatible types: Consumer<CardAuthorized> cannot be converted to Consumer<? super PaymentEvent>"}
+            {"say": "The shop has a bell by the back door. When a delivery arrives, the bell calls everyone who asked to be told, once for each item. The sign-writer listens for apples, to write a card for each variety. The stock-keeper counts every fruit, whatever it is. You want both of them on the bell for apple deliveries. Start by naming the roles: the bell hands each item out, and each listener takes it in.",
+             "code": "interface Fruit { val name: String; val grams: Int }\ndata class Apple(override val name: String, override val grams: Int) : Fruit\n\nval appleSign: (Apple) -> Unit = { println(\"sign: ${it.name}, ${it.grams} g\") }\nval stockCount: (Fruit) -> Unit = { println(\"stock: ${it.name}\") }",
+             "lang": "kotlin",
+             "alt_lang": "java",
+             "alt_code": "interface Fruit { String name(); int grams(); }\nrecord Apple(String name, int grams) implements Fruit {}\n\nConsumer<Apple> appleSign = a -> System.out.println(\"sign: \" + a.name() + \", \" + a.grams() + \" g\");\nConsumer<Fruit> stockCount = f -> System.out.println(\"stock: \" + f.name());"},
+            {"say": "1. Write `listen` with the listener as a consumer of `E`. In Kotlin, a function type already has `in` on its parameter, so `(E) -> Unit` is enough. In Java, a plain `Consumer<E>` would turn the stock-keeper away, so write `Consumer<? super E>`.",
+             "code": "class DeliveryBell<E> {\n    private val listeners = ArrayList<(E) -> Unit>()\n\n    fun listen(listener: (E) -> Unit) { listeners.add(listener) }\n\n    fun ring(item: E): Int {\n        for (l in listeners) l(item)\n        return listeners.size\n    }\n}",
+             "lang": "kotlin",
+             "alt_lang": "java",
+             "alt_code": "class DeliveryBell<E> {\n    private final List<Consumer<? super E>> listeners = new ArrayList<>();\n\n    void listen(Consumer<? super E> listener) { listeners.add(listener); }\n\n    int ring(E item) {\n        for (Consumer<? super E> l : listeners) l.accept(item);\n        return listeners.size();\n    }\n}"},
+            {"say": "2. Wire it up. Both listeners join the bell for apples. Self-check before reading on: why can't the sign-writer listen to a `DeliveryBell<Fruit>`? (That bell may ring with a lemon, and `appleSign` was written for apples only.)",
+             "code": "val apples = DeliveryBell<Apple>()\napples.listen(appleSign)\napples.listen(stockCount)               // fine: a (Fruit) -> Unit is an (Apple) -> Unit\napples.ring(Apple(\"Gala\", 180))         // 2\n\nval allFruit = DeliveryBell<Fruit>()\nallFruit.listen(appleSign)\n// error: argument type mismatch: actual type is '(Apple) -> Unit',\n//        but '(Fruit) -> Unit' was expected.",
+             "lang": "kotlin",
+             "alt_lang": "java",
+             "alt_code": "var apples = new DeliveryBell<Apple>();\napples.listen(appleSign);\napples.listen(stockCount);              // fine thanks to ? super E\napples.ring(new Apple(\"Gala\", 180));    // 2\n\nvar allFruit = new DeliveryBell<Fruit>();\nallFruit.listen(appleSign);\n// error: incompatible types: Consumer<Apple> cannot be converted to Consumer<? super Fruit>"}
         ]
     },
     "lab": {
-        "title": "Consumers: a contravariant Sink, a general comparator, a dispatcher",
+        "title": "Consumers: a contravariant Bin, a comparator for all fruit, a delivery bell",
         "minutes": 12,
         "files": [
-            f"{LAB}/main/kotlin/workbench/generics/l05/Sink.kt",
+            f"{LAB}/main/kotlin/workbench/generics/l05/Bin.kt",
             f"{LAB}/main/kotlin/workbench/generics/l05/Sorting.kt",
-            f"{LAB}/main/kotlin/workbench/generics/l05/Dispatcher.kt"
+            f"{LAB}/main/kotlin/workbench/generics/l05/DeliveryBell.kt",
+            f"{LAB}/main/kotlin/workbench/generics/l05/Fruit.kt"
         ],
         "run": "./gradlew :generics:test --tests 'workbench.generics.l05.*'",
         "steps": [
-            "Run the tests. All eight fail. The variance test says `but was: \"Sink<PaymentEvent>\"`: Java sees no wildcard, because `Sink` is still invariant.",
-            "In `Sink.kt`, add `in` to `Sink`'s type parameter. Then write `CollectingSink`: keep a private `ArrayList<T>`, and return a copy from `items`. Why can't `CollectingSink` itself be declared `in T`? (Hint: look at `items`.)",
-            "Write `feedAll`.",
-            "In `Sorting.kt`, write `highest` with a loop and `comparator.compare`. The test calls it with a `List<CardAuthorized>` and a `Comparator<PaymentEvent>`.",
-            "In `Dispatcher.kt`, store the handlers in a private list and call them in order in `publish`.",
+            "Read `Fruit.kt`: the same `Fruit`, `Apple` and `Lemon` as in this lesson. Then run the tests. All eight fail. The variance test says `expected: \"Bin<? super Fruit>\"` but `was: \"Bin<Fruit>\"`: the test reads the Java signature of `dropAll`, and Java sees no wildcard while `Bin` is invariant.",
+            "In `Bin.kt`, add `in` to `Bin`'s type parameter. Then write `CollectingBin`: keep a private `ArrayList<T>`, and return a copy from `items`. Why can't `CollectingBin` itself be declared `in T`? (Hint: look at `items`.)",
+            "Write `dropAll`.",
+            "In `Sorting.kt`, write `highest` with a loop and `comparator.compare`. The test calls it with a `List<Apple>` and `byWeight`, a `Comparator<Fruit>`.",
+            "`DeliveryBell.kt` is the bell by the back door: listeners sign up with `listen`, and `ring` hands one delivered item to each of them. Store the listeners in a private list, and call them in order in `ring`.",
             "Run the tests until all eight pass."
         ],
         "hints": [
-            "`CollectingSink<T>` hands `T` back out through `items`, so its own `T` is both in and out. The class stays invariant; only the `Sink` interface it implements is `in`.",
-            "`accepted.toList()` returns a copy, which is what the snapshot test checks.",
-            "`private val handlers = ArrayList<(E) -> Unit>()` is all the storage `Dispatcher` needs."
+            "`CollectingBin<T>` hands `T` back out through `items`, so its own `T` is both in and out. The class stays invariant; only the `Bin` interface it implements is `in`.",
+            "`dropped.toList()` returns a copy, which is what the snapshot test checks.",
+            "`private val listeners = ArrayList<(E) -> Unit>()` is all the storage `DeliveryBell` needs."
         ],
         "done_when": "All eight tests in `ContravarianceTest` pass."
     },
     "drill": {
         "title": "Pick out or in for five parameters",
         "minutes": 4,
-        "prompt": "Close this page. For each parameter, write the Kotlin type and the Java type with the right variance: (1) `source`, a list you only read payments from; (2) `sink`, a mutable list you only add payments to; (3) `order`, a comparator of payments; (4) `onEvent`, a handler called with each payment event; (5) `buffer`, a mutable list you both read from and add to.",
+        "prompt": "Close this page. For each parameter, write the Kotlin type and the Java type with the right variance: (1) `source`, a list you only read fruit from; (2) `bag`, a mutable list you only add fruit to; (3) `order`, a comparator of fruit; (4) `onArrival`, a function called with each fruit that arrives; (5) `crate`, a mutable list you both read from and add to.",
         "answer": {
             "lang": "kotlin",
-            "src": "fun process(\n    source: List<Payment>,                // 1: List is already out\n    sink: MutableList<in Payment>,        // 2: write-only view\n    order: Comparator<in Payment>,        // 3: java.util.Comparator needs a use-site in\n    onEvent: (PaymentEvent) -> Unit,      // 4: function parameters are already in\n    buffer: MutableList<Payment>          // 5: read and write: invariant\n) { }",
-            "alt": {"lang": "java", "title": "Process.java", "src": "static void process(\n        List<? extends Payment> source,          // 1: producer extends\n        List<? super Payment> sink,              // 2: consumer super\n        Comparator<? super Payment> order,       // 3: consumer super\n        Consumer<? super PaymentEvent> onEvent,  // 4: consumer super\n        List<Payment> buffer) {                  // 5: both: no wildcard\n}"}
+            "src": "fun stockUp(\n    source: List<Fruit>,                  // 1: List is already out\n    bag: MutableList<in Fruit>,           // 2: a drop-only view\n    order: Comparator<in Fruit>,          // 3: java.util.Comparator needs a use-site in\n    onArrival: (Fruit) -> Unit,           // 4: function parameters are already in\n    crate: MutableList<Fruit>             // 5: read and write: invariant\n) { }",
+            "alt": {"lang": "java", "title": "StockUp.java", "src": "static void stockUp(\n        List<? extends Fruit> source,           // 1: producer extends\n        List<? super Fruit> bag,                // 2: consumer super\n        Comparator<? super Fruit> order,        // 3: consumer super\n        Consumer<? super Fruit> onArrival,      // 4: consumer super\n        List<Fruit> crate) {                    // 5: both: no wildcard\n}"}
         }
     },
     "recap": [
-        "A consumer only takes values of `T` in. A consumer of a supertype can stand in for a consumer of a subtype: the arrow flips. That is contravariance.",
-        "Kotlin declares it with `in T`. Java writes `? super T` at each use.",
-        "In an `in` type, `T` may appear in parameters, not in return types or `val`s.",
-        "Function types are `Function1<in P, out R>`: a `(PaymentEvent) -> Unit` handler is a `(CardAuthorized) -> Unit`.",
-        "`java.util.Comparator` is invariant even in Kotlin; write `Comparator<in T>` in your signatures.",
-        "PECS: Producer Extends (`out`), Consumer Super (`in`). Ask of each parameter: does it give me `T`, take `T`, or both?"
+        "A consumer only takes values of `T` in. A consumer of a supertype can stand in for a consumer of a subtype, the way the compost bin is an apple bin: the arrow flips. That is contravariance.",
+        "Kotlin declares it once, with `in T` on the declaration, and Java writes `? super T` at each use. In an `in` type, `T` may appear in parameters, not in return types or `val`s.",
+        "Function types are `Function1<in P, out R>`, so a `(Fruit) -> Unit` is an `(Apple) -> Unit`. When a `T` hides inside a lambda parameter, multiply the signs: − × − = +.",
+        "`java.util.Comparator` is a Java interface, so Kotlin treats it as invariant. Write `Comparator<in T>` in your signatures, as `sortedWith` does.",
+        "PECS: Producer Extends (`out`), Consumer Super (`in`). Ask of each parameter: does it give me `T`, take `T`, or both?",
+        "The limit: `in` only fits a type whose `T` never comes out. A type that gives and takes, such as `MutableList`, can declare neither, and needs a projection where it's used."
     ],
+    "closing": CLOSING,
     "quiz": [
         {
-            "q": "`interface Sink<in T> { fun accept(item: T) }`. Which assignment compiles?",
+            "q": "`interface Bin<in T> { fun drop(item: T) }`. Which assignment compiles?",
             "options": [
-                "`val a: Sink<PaymentEvent> = cardSink` where `cardSink: Sink<CardAuthorized>`",
-                "`val b: Sink<CardAuthorized> = auditSink` where `auditSink: Sink<PaymentEvent>`",
+                "`val a: Bin<Fruit> = appleBin`, where `appleBin: Bin<Apple>`",
+                "`val b: Bin<Apple> = compost`, where `compost: Bin<Fruit>`",
                 "Both",
-                "Neither, unless `Sink` is declared `out`"
+                "Neither, unless `Bin` is declared `out`"
             ],
             "answer": 1,
-            "why": "With `in`, the arrow flips: a sink of the supertype is a sink of the subtype. The reverse is unsafe: a card-only sink seen as a `Sink<PaymentEvent>` could be handed a refund."
+            "why": "With `in`, the arrow flips: a bin for the supertype is a bin for the subtype. The reverse is unsafe. An apple-only bin seen as a `Bin<Fruit>` could be handed a lemon, the lemon in the apple sauce."
         },
         {
-            "q": "Which member can you add to `interface Sink<in T>`?",
+            "q": "Which member can you add to `interface Bin<in T>`?",
             "options": [
                 "`fun last(): T`",
-                "`val pending: List<T>`",
-                "`fun acceptAll(items: List<T>)`",
-                "`fun forEachPending(f: (T) -> Unit)`"
+                "`val inside: List<T>`",
+                "`fun dropAll(items: List<T>)`",
+                "`fun forEachInside(f: (T) -> Unit)`"
             ],
             "answer": 2,
-            "why": "`acceptAll` takes the items in: `List<out E>` inside a parameter is − × + = −, an in-position. `last()` and `pending` hand `T` out. In `forEachPending`, the `T` is the parameter of a parameter (− × − = +), so it is an out-position too."
+            "why": "`dropAll` takes the items in: `List<out E>` inside a parameter is − × + = −, an in-position. `last()` and `inside` hand a `T` out. In `forEachInside`, the `T` is the parameter of a parameter (− × − = +), so it is an out-position too."
         },
         {
-            "q": "Kotlin: `val byId: Comparator<PaymentEvent> = compareBy { it.paymentId }`. Why does `val c: Comparator<CardAuthorized> = byId` fail?",
+            "q": "Kotlin: `val byWeight: Comparator<Fruit> = compareBy { it.grams }`. Why does `val c: Comparator<Apple> = byWeight` fail?",
             "options": [
                 "Comparators are covariant, so the arrow goes the other way",
-                "`Comparator` is `java.util.Comparator`, a Java interface with no declared variance, so Kotlin treats it as invariant",
                 "`compareBy` returns a raw type",
-                "It doesn't fail; it compiles"
+                "It doesn't fail; it compiles",
+                "`Comparator` is `java.util.Comparator`, a Java interface with no declared variance, so Kotlin treats it as invariant"
             ],
-            "answer": 1,
-            "why": "Kotlin can't add variance to a Java interface, so `Comparator<A>` and `Comparator<B>` are unrelated unless you project: `Comparator<in CardAuthorized>`. The standard library does that in `sortedWith(comparator: Comparator<in T>)`. Kotlin's own `Comparable` is declared `in T` and behaves differently."
+            "answer": 3,
+            "why": "Kotlin can't add variance to a Java interface, so `Comparator<Fruit>` and `Comparator<Apple>` are unrelated until you project: `Comparator<in Apple>`. The standard library does that in `sortedWith(comparator: Comparator<in T>)`. Kotlin's own `Comparable` is declared `in T`, and behaves the other way."
         },
         {
-            "q": "Java: you write `static void register(Consumer<CardAuthorized> handler)`. A teammate has a `Consumer<PaymentEvent>`. What is the right fix?",
+            "q": "Java: you write `static void onDelivery(Consumer<Apple> listener)`. A teammate has a `Consumer<Fruit>` that counts the stock. What is the right fix?",
             "options": [
-                "Change the parameter to `Consumer<? super CardAuthorized>`",
-                "Change the parameter to `Consumer<? extends CardAuthorized>`",
-                "Ask the teammate to cast their handler",
-                "Change the parameter to raw `Consumer`"
+                "Change the parameter to `Consumer<? super Apple>`",
+                "Change the parameter to `Consumer<? extends Apple>`",
+                "Ask the teammate to cast their listener",
+                "Change the parameter to a raw `Consumer`"
             ],
             "answer": 0,
-            "why": "The handler consumes the events you pass it, so Consumer Super. `? extends` would let you pass a consumer of some unknown subtype, which you could never call safely. A raw type turns off checking altogether."
+            "why": "The listener consumes the apples you pass it, so Consumer Super. `? extends Apple` would accept a consumer of some unknown subtype of `Apple`, which you could never safely hand a plain apple. A raw type turns the checks off altogether."
         },
         {
-            "q": "From \"Covariance with out: producers\": why is `fun <R> map(f: (T) -> R): Page<R>` allowed inside `data class Page<out T>`?",
+            "q": "From \"Covariance with out: producers\": why is `fun <R> map(f: (T) -> R): Tray<R>` allowed inside `class Tray<out T>`?",
             "options": [
                 "Because `map` has its own type parameter, which exempts the whole method",
                 "Because `T` is the parameter of `f`, which is itself a parameter: two in-positions make an out-position",
-                "Because data classes skip the variance check",
+                "Because the variance check skips functions that return a new object",
                 "It isn't allowed; it needs `@UnsafeVariance`"
             ],
             "answer": 1,
-            "why": "The page calls `f` and passes it a `T`, so values of `T` flow out of the page. By the sign rule, − × − = +. A new type parameter `R` doesn't exempt anything: `fun <R> bad(t: T): R` would still fail.",
+            "why": "The tray calls `f` and passes it a `T`, so values of `T` flow out of the tray. By the sign rule, − × − = +. A new type parameter `R` doesn't exempt anything: `fun <R> bad(t: T): R` would still fail.",
             "from": "gen-04"
         }
     ],
     "flashcards": [
-        {"front": "What makes a generic type safe to declare `in T`?", "back": "It only takes values of `T` in (parameters). No public member returns a `T`."},
-        {"front": "With `Sink<in T>`, which way does the arrow go between `Sink<PaymentEvent>` and `Sink<CardAuthorized>`?", "back": "`Sink<PaymentEvent>` is a subtype of `Sink<CardAuthorized>`: the arrow flips."},
-        {"front": "Kotlin's `in T` corresponds to what in Java?", "back": "`? super T`, written at the use site, e.g. `Consumer<? super CardAuthorized>`."},
-        {"front": "Is `(PaymentEvent) -> Unit` a subtype of `(CardAuthorized) -> Unit`?", "back": "Yes. Function types are `Function1<in P, out R>`, so a handler of the general type fits where a specific one is expected."},
+        {"front": "What makes a generic type safe to declare `in T`?", "back": "It only takes values of `T` in, through parameters. No public member returns a `T`."},
+        {"front": "With `Bin<in T>`, which way does the arrow go between `Bin<Fruit>` and `Bin<Apple>`?", "back": "`Bin<Fruit>` is a subtype of `Bin<Apple>`: the arrow flips."},
+        {"front": "Kotlin's `in T` corresponds to what in Java?", "back": "`? super T`, written at the use site, such as `Consumer<? super Apple>`."},
+        {"front": "Is `(Fruit) -> Unit` a subtype of `(Apple) -> Unit`?", "back": "Yes. Function types are `Function1<in P, out R>`, so a function for the general type fits where one for the specific type is expected."},
         {"front": "Why must Kotlin code write `Comparator<in T>` instead of plain `Comparator<T>`?", "back": "On the JVM, `Comparator` is the Java interface `java.util.Comparator`, which has no declared variance, so Kotlin treats it as invariant."},
         {"front": "What does PECS stand for?", "back": "Producer Extends, Consumer Super (Effective Java, Item 31). In Kotlin: producer `out`, consumer `in`."},
         {"front": "Sign rule: where does `T` sit in `fun each(f: (T) -> Unit)`?", "back": "Parameter of a parameter: − × − = +, an out-position. Legal under `out T`, illegal under `in T`."}
     ],
     "terms": [
-        {"term": "Consumer", "plain": "A type whose `T` values only go in: sinks, comparators, handlers."},
+        {"term": "Consumer", "plain": "A type whose `T` values only go in: bins, comparators, listeners."},
         {"term": "Contravariant", "plain": "`C<Super>` is a subtype of `C<Sub>`: the arrow flips."},
         {"term": "in", "plain": "Kotlin's keyword on a type parameter: \"T only goes into this type\"."},
         {"term": "? super T", "plain": "Java's use-site wildcard for a consumer: \"T or any supertype of T\"."},
@@ -413,12 +459,12 @@ L = {
         {"term": "Sign rule", "plain": "Out-positions are +, in-positions are −; multiply through nesting to find where `T` really sits."}
     ],
     "explain_back": {
-        "prompt": "A teammate asks: \"Why is a sink of PaymentEvent a subtype of a sink of CardAuthorized? That's backwards.\" Explain it in your own words, and say how you'd write the same idea in Java.",
-        "answer": "Subtyping means \"can be used wherever the other is expected without anything going wrong\". Code that expects a sink of card authorizations will only ever put card authorizations into it. A sink that accepts every payment event accepts those too, so it can stand in safely. The opposite substitution is unsafe: a card-only sink used as a sink of all events could be handed a refund. So for things that only take values in, the general one substitutes for the specific one, and the arrow points the other way from the element types. Kotlin declares this once with `interface Sink<in T>`. Java writes it at each use as `Sink<? super CardAuthorized>`, which is the Consumer Super half of PECS."
+        "prompt": "A teammate asks: \"Why is a bin of Fruit a subtype of a bin of Apple? That's backwards.\" Explain it in your own words, and say how you'd write the same idea in Java.",
+        "answer": "Subtyping means \"can be used wherever the other is expected without anything going wrong\". Code that expects a bin for apples will only ever drop apples into it. A bin that accepts every fruit accepts those too, so it can stand in safely. The opposite swap is unsafe: an apple-only bin, used as a bin for all fruit, could be handed a lemon. So for things that only take values in, the general one stands in for the specific one, and the arrow points the other way from the element types. Kotlin declares this once, with `interface Bin<in T>`. Java writes it at each use as `Bin<? super Apple>`, which is the Consumer Super half of PECS."
     },
     "deeper": {
         "minutes": 10,
-        "body": "Contravariance explains a detail of Kotlin's `Comparable`. It is declared `public interface Comparable<in T>`. So when Kotlin writes a Java signature for `fun <T : Comparable<T>> max(a: T, b: T)`, the bound becomes `<T extends Comparable<? super T>>`, the same bound the JDK writes by hand in `Collections.max`. That is how `LocalDate`, a `Comparable<ChronoLocalDate>`, gets through a bound that says `Comparable<LocalDate>`.\n\nThe sign rule also covers type arguments of variant classes. Inside `class C<out T>`, a parameter of type `Comparable<T>` is allowed: the parameter is −, and `Comparable`'s `in` is −, so `T` ends up in a + position. A parameter of type `MutableList<T>` is not allowed in either kind of class: an invariant argument is a 0, and anything times 0 stays 0, which is neither in nor out.\n\nC# uses the same keywords, `in` and `out`, for interfaces and delegates, which is where Kotlin borrowed them. Scala writes `+T` and `-T`, the signs from the table.\n\nOne caution for Java interop: when Java calls a Kotlin function with a parameter `handler: (PaymentEvent) -> Unit`, it sees `Function1<? super PaymentEvent, Unit>`. A Java lambda fits that type, but it must return `Unit.INSTANCE`. Kotlin APIs meant for Java callers often take a Java functional interface instead, or are marked `fun interface`."
+        "body": "Contravariance explains a detail of Kotlin's `Comparable`. It is declared `public interface Comparable<in T>`. So when Kotlin writes a Java signature for `fun <T : Comparable<T>> max(a: T, b: T)`, the bound becomes `<T extends Comparable<? super T>>`, the same bound the JDK writes by hand in `Collections.max`. That is how `LocalDate`, a `Comparable<ChronoLocalDate>`, gets through a bound that says `Comparable<LocalDate>`.\n\nThe sign rule also covers type arguments of variant classes. Inside `class C<out T>`, a parameter of type `Comparable<T>` is allowed: the parameter is −, and `Comparable`'s `in` is −, so `T` ends up in a + position. A parameter of type `MutableList<T>` is not allowed in either kind of class. An invariant argument counts as 0, and anything times 0 stays 0, which is neither in nor out.\n\nC# uses the same keywords, `in` and `out`, for interfaces and delegates, which is where Kotlin borrowed them. Scala writes `+T` and `-T`, the signs from the table.\n\nOne caution for Java callers. When Java calls a Kotlin function with a parameter `listener: (Fruit) -> Unit`, it sees `Function1<? super Fruit, Unit>`. A Java lambda fits that type, but it must return `Unit.INSTANCE`. Kotlin APIs meant for Java callers often take a Java functional interface instead, or declare a `fun interface` of their own."
     },
     "sources": [
         {"title": "Generics: variance, in and out (Kotlin docs)", "url": "https://kotlinlang.org/docs/generics.html"},

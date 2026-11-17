@@ -5,26 +5,28 @@ import reactor.core.scheduler.Schedulers
 import java.math.BigDecimal
 import java.time.Duration
 
-private fun rate(): Mono<BigDecimal> =                     // a non-blocking FX lookup
-    Mono.delay(Duration.ofMillis(20)).thenReturn(BigDecimal("0.92"))
+private fun pricePerLoaf(): Mono<BigDecimal> =             // a non-blocking price-list lookup
+    Mono.delay(Duration.ofMillis(20)).thenReturn(BigDecimal("2.50"))
+
+private fun worth(loaves: Int, price: BigDecimal): BigDecimal = price.multiply(BigDecimal.valueOf(loaves.toLong()))
 
 /** block() on a Reactor parallel thread is refused. flatMap composes instead. */
 fun main() {
-    // a timer emits on a parallel thread, just like a WebClient response emits on a Netty thread
-    val usd: Mono<BigDecimal> = Mono.delay(Duration.ofMillis(10)).thenReturn(BigDecimal("100"))
+    // a timer emits on a parallel thread, just as a non-blocking client delivers its answer on a Reactor thread
+    val loaves: Mono<Int> = Mono.delay(Duration.ofMillis(10)).thenReturn(100)
 
     try {
-        usd.map { amount -> amount.multiply(rate().block()) }.block()
+        loaves.map { n -> worth(n, pricePerLoaf().block()!!) }.block()
     } catch (e: IllegalStateException) {
         println("1. block() inside map:  ${e.message}")
     }
 
-    println("2. flatMap instead:     " + usd.flatMap { amount -> rate().map(amount::multiply) }.block())
+    println("2. flatMap instead:     " + loaves.flatMap { n -> pricePerLoaf().map { p -> worth(n, p) } }.block())
 
     println("3. Mono.just(..).block() inside map: " +
-        usd.map { amount -> amount.multiply(Mono.just(BigDecimal("0.92")).block()) }.block() +
+        loaves.map { n -> worth(n, Mono.just(BigDecimal("2.50")).block()!!) }.block() +
         " (a shortcut, not a permission)")
 
     println("4. block() after publishOn(boundedElastic): " +
-        usd.publishOn(Schedulers.boundedElastic()).map { amount -> amount.multiply(rate().block()) }.block())
+        loaves.publishOn(Schedulers.boundedElastic()).map { n -> worth(n, pricePerLoaf().block()!!) }.block())
 }

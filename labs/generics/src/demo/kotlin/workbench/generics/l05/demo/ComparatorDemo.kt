@@ -1,19 +1,19 @@
 package workbench.generics.l05.demo
 
-/** One comparator, written for the supertype, sorts lists of any subtype. */
-val byPaymentId: Comparator<PaymentEvent> = compareBy { it.paymentId }
+/** One comparator, written for all fruit, sorts lists of apples and lists of lemons. */
+val byWeight: Comparator<Fruit> = compareBy { it.grams }
 
 fun main() {
-    val auths = listOf(CardAuthorized("pay_3", 1_200), CardAuthorized("pay_1", 350))
-    val refunds = listOf(RefundIssued("pay_9", 50), RefundIssued("pay_4", 75))
+    val apples = listOf(Apple("Gala", 180), Apple("Fuji", 150))
+    val lemons = listOf(Lemon("Eureka", 120), Lemon("Eureka", 95))
 
     // sortedWith takes a Comparator<in T>: a comparator of T or of any supertype of T
-    println(auths.sortedWith(byPaymentId).map { it.paymentId })
-    println(refunds.sortedWith(byPaymentId).map { it.paymentId })
+    println(apples.sortedWith(byWeight).map { "${it.name} ${it.grams} g" })
+    println(lemons.sortedWith(byWeight).map { "${it.name} ${it.grams} g" })
 
-    val forCards: Comparator<in CardAuthorized> = byPaymentId     // fine with a use-site `in`
+    val forApples: Comparator<in Apple> = byWeight     // fine with a use-site `in`
 
     // Wrong move. Uncomment, predict the error, then run.
-    // val strict: Comparator<CardAuthorized> = byPaymentId
-    println("forCards compares: ${forCards.compare(auths[0], auths[1])}")
+    // val strict: Comparator<Apple> = byWeight
+    println("forApples compares Gala with Fuji: ${forApples.compare(apples[0], apples[1])}")
 }

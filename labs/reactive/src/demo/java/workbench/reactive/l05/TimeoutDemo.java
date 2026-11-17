@@ -10,24 +10,24 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** timeout turns silence into an error you can handle. Where you put it decides what it limits. */
 public class TimeoutDemo {
     public static void main(String[] args) {
-        Mono<String> slowRate = Mono.delay(Duration.ofMillis(300)).thenReturn("live rate 1.08")
+        Mono<String> slowPrice = Mono.delay(Duration.ofMillis(300)).thenReturn("fresh flour price 0.92")
                 .doOnCancel(() -> System.out.println("  slow call cancelled"));
 
         try {
-            slowRate.timeout(Duration.ofMillis(100)).block();
+            slowPrice.timeout(Duration.ofMillis(100)).block();
         } catch (RuntimeException e) {
             System.out.println("timeout: " + e.getCause());
         }
 
-        String rate = slowRate.timeout(Duration.ofMillis(100))
-                .onErrorResume(TimeoutException.class, e -> Mono.just("cached rate 1.07"))
+        String price = slowPrice.timeout(Duration.ofMillis(100))
+                .onErrorResume(TimeoutException.class, e -> Mono.just("yesterday's price 0.90"))
                 .block();
-        System.out.println("with fallback: " + rate);
+        System.out.println("with fallback: " + price);
 
         AtomicInteger attempts = new AtomicInteger();
         long t0 = System.nanoTime();
         try {
-            String r = Mono.defer(() -> { attempts.incrementAndGet(); return slowRate; })
+            String r = Mono.defer(() -> { attempts.incrementAndGet(); return slowPrice; })
                     .timeout(Duration.ofMillis(100))                        // per attempt
                     .retryWhen(Retry.backoff(5, Duration.ofMillis(50)).jitter(0))
                     .timeout(Duration.ofMillis(400))                        // budget for the whole call

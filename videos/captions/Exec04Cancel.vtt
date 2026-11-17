@@ -1,19 +1,19 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:04.445
+00:00:02.700 --> 00:00:04.411
 Picture a takeaway counter.
 
 2
-00:00:04.445 --> 00:00:09.832
+00:00:04.411 --> 00:00:09.799
 You order a burger, pay, and the cashier hands you a ticket with the number 42 on it.
 
 3
-00:00:09.832 --> 00:00:11.670
+00:00:09.799 --> 00:00:11.637
 The burger doesn't exist yet.
 
 4
-00:00:11.670 --> 00:00:15.347
+00:00:11.637 --> 00:00:15.313
 The ticket promises that it will, and lets you collect it.
 
 5
@@ -65,19 +65,19 @@ Here's a question most of us never ask.
 What happens to the burger?
 
 17
-00:00:55.600 --> 00:00:57.296
+00:00:55.567 --> 00:00:57.262
 Nobody tells the kitchen.
 
 18
-00:00:57.296 --> 00:00:59.194
+00:00:57.262 --> 00:00:59.161
 At minute seven, it's ready.
 
 19
-00:00:59.194 --> 00:01:01.636
+00:00:59.161 --> 00:01:01.603
 Hot, paid for, and nobody to eat it.
 
 20
-00:01:01.636 --> 00:01:05.163
+00:01:01.603 --> 00:01:05.129
 Somewhere, a burger is having a very lonely evening.
 
 21
@@ -97,23 +97,23 @@ main gives up at 285 milliseconds.
 The task never hears about it, and finishes at 771.
 
 25
-00:01:22.133 --> 00:01:25.811
+00:01:22.167 --> 00:01:25.844
 So the point is, a time limit ends your wait, not the work.
 
 26
-00:01:25.811 --> 00:01:28.803
+00:01:25.844 --> 00:01:28.836
 If the work should stop, somebody has to say so.
 
 27
-00:01:29.600 --> 00:01:32.406
+00:01:29.667 --> 00:01:32.472
 A Future has a method for that, cancel(true).
 
 28
-00:01:32.406 --> 00:01:34.900
+00:01:32.472 --> 00:01:34.966
 So here's the question we're shy to ask.
 
 29
-00:01:34.900 --> 00:01:36.895
+00:01:34.966 --> 00:01:36.961
 Does cancel(true) kill the task?
 
 30
@@ -145,213 +145,213 @@ Please stop order 42.
 Then the manager walks away.
 
 37
-00:02:01.733 --> 00:02:02.569
+00:02:01.767 --> 00:02:02.602
 Let's map it.
 
 38
-00:02:02.569 --> 00:02:05.526
+00:02:02.602 --> 00:02:05.559
 The cook is the pool thread running your task.
 
 39
-00:02:05.526 --> 00:02:10.154
+00:02:05.559 --> 00:02:10.188
 The note is an interrupt, a request to a thread to stop what it's doing.
 
 40
-00:02:10.154 --> 00:02:16.133
+00:02:10.188 --> 00:02:16.166
 And the note on the station is the interrupt flag, a true or false value inside every thread.
 
 41
-00:02:16.133 --> 00:02:19.025
+00:02:16.166 --> 00:02:19.059
 cancel(true) sets it to true, and that's all.
 
 42
-00:02:19.800 --> 00:02:22.344
+00:02:19.867 --> 00:02:22.411
 Whether a note works depends on the cook.
 
 43
-00:02:22.344 --> 00:02:23.709
+00:02:22.411 --> 00:02:23.776
 Our kitchen has three.
 
 44
-00:02:23.709 --> 00:02:25.819
+00:02:23.776 --> 00:02:25.886
 The first is waiting for the oven.
 
 45
-00:02:25.819 --> 00:02:29.480
+00:02:25.886 --> 00:02:29.547
 The second is chopping onions, and looks up after each one.
 
 46
-00:02:29.480 --> 00:02:32.335
+00:02:29.547 --> 00:02:32.401
 The third is chopping too, and never looks up.
 
 47
-00:02:32.533 --> 00:02:35.335
+00:02:32.633 --> 00:02:35.435
 The lesson's CancelDemo builds all three.
 
 48
-00:02:35.335 --> 00:02:37.658
+00:02:35.435 --> 00:02:37.758
 The first sleeps for five seconds.
 
 49
-00:02:37.658 --> 00:02:43.125
+00:02:37.758 --> 00:02:43.225
 The second does 400 slices of arithmetic, and checks the flag before each slice.
 
 50
-00:02:43.125 --> 00:02:46.747
+00:02:43.225 --> 00:02:46.847
 The third does the same 400 slices, and never checks.
 
 51
-00:02:46.933 --> 00:02:51.473
+00:02:47.067 --> 00:02:51.607
 After 100 milliseconds, main calls cancel(true) on all three.
 
 52
-00:02:51.473 --> 00:02:52.664
+00:02:51.607 --> 00:02:52.797
 Which ones stop?
 
 53
-00:02:55.667 --> 00:02:57.705
+00:02:55.767 --> 00:02:57.805
 The oven cook stops at once.
 
 54
-00:02:57.705 --> 00:03:04.694
+00:02:57.805 --> 00:03:04.794
 A thread that waits, in sleep or on a queue, is woken by the note, with an InterruptedException.
 
 55
-00:03:04.694 --> 00:03:10.663
+00:03:04.794 --> 00:03:10.763
 The checker sees the note the next time it looks up, after 51 slices, and returns.
 
 56
-00:03:10.663 --> 00:03:17.069
+00:03:10.763 --> 00:03:17.169
 The third cook chops on, all 400 slices, and finishes 769 milliseconds after the cancel.
 
 57
-00:03:17.267 --> 00:03:22.845
+00:03:17.400 --> 00:03:22.978
 Focus is a wonderful quality in a cook, and a terrible one in a task you're trying to stop.
 
 58
-00:03:22.845 --> 00:03:26.155
+00:03:22.978 --> 00:03:26.288
 The note only works on a cook who waits, or who looks.
 
 59
-00:03:26.333 --> 00:03:27.930
+00:03:26.500 --> 00:03:28.097
 Now glance at the tickets.
 
 60
-00:03:27.930 --> 00:03:31.491
+00:03:28.097 --> 00:03:31.658
 Right after the cancel, all three said cancelled and done.
 
 61
-00:03:31.491 --> 00:03:34.807
+00:03:31.658 --> 00:03:34.974
 Even the third one, while its cook was still chopping.
 
 62
-00:03:34.807 --> 00:03:38.123
+00:03:34.974 --> 00:03:38.290
 A Future changes its state the moment you call cancel.
 
 63
-00:03:38.123 --> 00:03:40.395
+00:03:38.290 --> 00:03:40.562
 It doesn't wait for the task to stop.
 
 64
-00:03:40.395 --> 00:03:44.571
+00:03:40.562 --> 00:03:44.737
 So that burger gets made anyway, under a ticket that says cancelled.
 
 65
-00:03:45.467 --> 00:03:48.030
+00:03:45.667 --> 00:03:48.230
 And here the kitchen picture breaks, twice.
 
 66
-00:03:48.030 --> 00:03:53.814
+00:03:48.230 --> 00:03:54.014
 A real cook hears you shout across the room, but a thread hears nothing unless it waits or looks.
 
 67
-00:03:53.814 --> 00:03:56.854
+00:03:54.014 --> 00:03:57.054
 And a real kitchen knows whether the dish was made.
 
 68
-00:03:56.854 --> 00:03:58.464
+00:03:57.054 --> 00:03:58.664
 A cancelled Future doesn't.
 
 69
-00:03:58.600 --> 00:04:01.186
+00:03:59.467 --> 00:04:02.053
 This is called cooperative cancellation.
 
 70
-00:04:01.186 --> 00:04:03.256
+00:04:02.053 --> 00:04:04.122
 It works only if the task helps.
 
 71
-00:04:03.256 --> 00:04:06.812
+00:04:04.122 --> 00:04:07.679
 If I could rename cancel(true), I'd call it pleaseStop.
 
 72
-00:04:09.600 --> 00:04:13.184
+00:04:08.767 --> 00:04:12.350
 That's why the cancel run of TimeoutDemo worked.
 
 73
-00:04:13.184 --> 00:04:17.812
+00:04:12.350 --> 00:04:16.979
 main gave up at 257 milliseconds, and the task stopped at 260.
 
 74
-00:04:17.812 --> 00:04:21.097
+00:04:16.979 --> 00:04:20.264
 Its cook was waiting for the oven, in sleep.
 
 75
-00:04:21.867 --> 00:04:26.359
+00:04:21.067 --> 00:04:25.559
 So a long computing loop should look up now and then, like the checker.
 
 76
-00:04:26.359 --> 00:04:30.028
+00:04:25.559 --> 00:04:29.228
 In Java and Kotlin, it's one check at the top of the loop.
 
 77
-00:04:30.028 --> 00:04:31.736
+00:04:29.228 --> 00:04:30.936
 Is this thread interrupted?
 
 78
-00:04:31.736 --> 00:04:32.369
+00:04:30.936 --> 00:04:31.569
 Then stop.
 
 79
-00:04:32.369 --> 00:04:35.532
+00:04:31.569 --> 00:04:34.732
 Calls that wait, like sleep, already look for you.
 
 80
-00:04:36.267 --> 00:04:38.136
+00:04:35.533 --> 00:04:37.403
 So, does cancel stop a task?
 
 81
-00:04:38.136 --> 00:04:38.670
+00:04:37.403 --> 00:04:37.937
 It asks.
 
 82
-00:04:38.670 --> 00:04:40.539
+00:04:37.937 --> 00:04:39.806
 A time limit ends your wait.
 
 83
-00:04:40.539 --> 00:04:42.809
+00:04:39.806 --> 00:04:42.076
 cancel puts a note on the station.
 
 84
-00:04:42.809 --> 00:04:48.417
+00:04:42.076 --> 00:04:47.684
 Only a cook who waits or looks up will read it, and the ticket can't tell you which.
 
 85
-00:04:48.600 --> 00:04:49.370
+00:04:47.900 --> 00:04:48.670
 Quick check.
 
 86
-00:04:49.370 --> 00:04:54.692
+00:04:48.670 --> 00:04:53.992
 A task runs a computing loop that never checks the flag, and you call cancel(true).
 
 87
-00:04:54.692 --> 00:04:58.412
+00:04:53.992 --> 00:04:57.712
 What does isCancelled return, and when does the task stop?
 
 88
-00:05:01.467 --> 00:05:02.413
+00:05:00.700 --> 00:05:01.646
 True, at once.
 
 89
-00:05:02.413 --> 00:05:05.320
+00:05:01.646 --> 00:05:04.553
 And the task stops only when its loop ends.

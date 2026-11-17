@@ -7,16 +7,16 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-/** 8 coroutines on Default each add 1 cent to a shared StateFlow 100,000 times. */
-suspend fun addCents(label: String, add: (MutableStateFlow<Long>) -> Unit) {
-    val capturedCents = MutableStateFlow(0L)
+/** 8 helpers on Default each add 1 plate to a shared count 100,000 times. */
+suspend fun countPlates(label: String, add: (MutableStateFlow<Long>) -> Unit) {
+    val platesServed = MutableStateFlow(0L)
     coroutineScope {
-        repeat(8) { launch(Dispatchers.Default) { repeat(100_000) { add(capturedCents) } } }
+        repeat(8) { launch(Dispatchers.Default) { repeat(100_000) { add(platesServed) } } }
     }
-    println("%-34s expected 800000, got %d".format(label, capturedCents.value))
+    println("%-34s expected 800000, got %d".format(label, platesServed.value))
 }
 
 fun main() = runBlocking {
-    addCents("value = value + 1") { it.value = it.value + 1 }  // read-modify-write: loses updates
-    addCents("update { it + 1 }") { it.update { cents -> cents + 1 } } // compare-and-set in a loop
+    countPlates("value = value + 1") { it.value = it.value + 1 }  // read-modify-write: loses updates
+    countPlates("update { it + 1 }") { it.update { plates -> plates + 1 } } // compare-and-set in a loop
 }

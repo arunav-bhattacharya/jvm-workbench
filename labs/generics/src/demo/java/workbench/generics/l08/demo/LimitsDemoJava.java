@@ -14,9 +14,9 @@ public class LimitsDemoJava {
     }
 
     public static void main(String[] args) {
-        List<Object> batches = List.of(List.of(1_200, 350), List.of("pay_1"), "pay_2");
-        List<List<String>> stringLists = filterIsInstance(batches, List.class);  // there is no List<String>.class
-        System.out.println("lists of strings? " + stringLists);
+        List<Object> boxes = List.of(List.of(180, 150), List.of("Gala"), "Fuji");
+        List<List<String>> nameLists = filterIsInstance(boxes, List.class);  // there is no List<String>.class
+        System.out.println("lists of names? " + nameLists);
 
         // getClass() on a value: a null receiver is only found at run time.
         Object maybe = null;
@@ -27,6 +27,6 @@ public class LimitsDemoJava {
         }
 
         // Uncomment, predict, then run: it compiles, so what happens at run time?
-        // String n = stringLists.get(0).get(0);
+        // String n = nameLists.get(0).get(0);
     }
 }

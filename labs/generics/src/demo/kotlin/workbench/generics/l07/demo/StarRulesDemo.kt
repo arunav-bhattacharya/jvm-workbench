@@ -1,31 +1,40 @@
 package workbench.generics.l07.demo
 
-/** out T with a bound: Source<*> means Source<out Number>. */
-interface Source<out T : Number> { fun next(): T }
+// The shop's fruit, used by the demos of this lesson (the Java twins use these Kotlin types too)
+interface Fruit { val name: String; val grams: Int }
+data class Apple(override val name: String, override val grams: Int) : Fruit {
+    override fun toString() = name                 // prints as "Gala", not "Apple(name=Gala, grams=180)"
+}
+data class Lemon(override val name: String, override val grams: Int) : Fruit {
+    override fun toString() = name
+}
 
-/** in T: Sink<*> means Sink<in Nothing>. */
-interface Sink<in T> { fun accept(item: T) }
+/** From lesson 4, with a "fruit only" bound: out T. Dispenser<*> means Dispenser<out Fruit>. */
+interface Dispenser<out T : Fruit> { fun next(): T }
 
-/** invariant T: Box<*> reads as Box<out Any?> and writes as Box<in Nothing>. */
+/** From lesson 5: in T. Bin<*> means Bin<in Nothing>. */
+interface Bin<in T> { fun drop(item: T) }
+
+/** From lesson 1: invariant T. Box<*> reads as Box<out Any?> and writes as Box<in Nothing>. */
 class Box<T>(var item: T)
 
-fun peek(source: Source<*>): Number = source.next()   // the bound survives the star
+fun peek(dispenser: Dispenser<*>): Fruit = dispenser.next()   // the "fruit only" sign survives the star
 fun peek(box: Box<*>): Any? = box.item
 
 fun main() {
-    val amounts: Source<Int> = object : Source<Int> { override fun next() = 1_200 }
-    val audit: Sink<String> = object : Sink<String> { override fun accept(item: String) = println("audit $item") }
-    val box: Box<String> = Box("EUR")
+    val apples: Dispenser<Apple> = object : Dispenser<Apple> { override fun next() = Apple("Gala", 180) }
+    val compost: Bin<Fruit> = object : Bin<Fruit> { override fun drop(item: Fruit) = println("compost: $item") }
+    val box: Box<Int> = Box(180)
 
-    println("peek(source) = ${peek(amounts)}, peek(box) = ${peek(box)}")
+    println("peek(dispenser) = ${peek(apples)}, peek(box) = ${peek(box)}")
 
-    audit.accept("pay_0")                       // through the real type: fine
-    val anySink: Sink<*> = audit                // through *: nothing can be passed in
-    val anyBox: Box<*> = box
-    println("a Box<*> still reads: ${anyBox.item}")
+    compost.drop(Lemon("Eureka", 95))           // through the real type: fine
+    val someBin: Bin<*> = compost               // through *: nothing can be dropped in
+    val someBox: Box<*> = box
+    println("a Box<*> still reads: ${someBox.item}")
 
     // Wrong moves. Uncomment one at a time, predict the error, then run.
-    // anySink.accept("pay_1")                  // 1
-    // anyBox.item = "USD"                      // 2
-    // val n: Int = peek(amounts)               // 3
+    // someBin.drop(Apple("Fuji", 150))         // 1
+    // someBox.item = 150                       // 2
+    // val a: Apple = peek(apples)              // 3
 }

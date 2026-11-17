@@ -21,13 +21,13 @@ private suspend fun timed(label: String, block: suspend () -> Any?) {
 }
 
 fun main() = runBlocking {
-    // the issuer takes 1.5 s; we give it 300 ms
-    timed("withTimeout { delay }") { withTimeout(300) { delay(1_500); "approved" } }
-    timed("withTimeoutOrNull { delay }") { withTimeoutOrNull(300) { delay(1_500); "approved" } }
+    // the bakery takes 1.5 s to answer; we wait 300 ms
+    timed("withTimeout { delay }") { withTimeout(300) { delay(1_500); "bread ready" } }
+    timed("withTimeoutOrNull { delay }") { withTimeoutOrNull(300) { delay(1_500); "bread ready" } }
     timed("withTimeout { withContext(IO) { sleep } }") {
-        withTimeout(300) { withContext(Dispatchers.IO) { Thread.sleep(1_500); "approved" } }
+        withTimeout(300) { withContext(Dispatchers.IO) { Thread.sleep(1_500); "bread ready" } }
     }
     timed("withTimeoutOrNull { runInterruptible { sleep } }") {
-        withTimeoutOrNull(300) { runInterruptible(Dispatchers.IO) { Thread.sleep(1_500); "approved" } }
+        withTimeoutOrNull(300) { runInterruptible(Dispatchers.IO) { Thread.sleep(1_500); "bread ready" } }
     }
 }

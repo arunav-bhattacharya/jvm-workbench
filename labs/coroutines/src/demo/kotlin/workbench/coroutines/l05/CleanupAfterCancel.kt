@@ -8,30 +8,30 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 
-private suspend fun releaseHold(id: String) {
-    delay(50) // the network call to the issuer
-    println("  released $id")
+private suspend fun giveBack(ticket: String) {
+    delay(50) // the phone call to the lending desk
+    println("  gave back the pan on $ticket")
 }
 
 fun main(args: Array<String>) = runBlocking {
     val fixed = args.firstOrNull() == "fixed"
-    val payment = launch {
-        val hold = "hold-4250"
-        println("  placed $hold")
+    val jam = launch {
+        val ticket = "ticket-7"
+        println("  borrowed the jam pan on $ticket")
         try {
-            delay(10_000) // waiting for the customer's 3-D Secure challenge
+            delay(10_000) // waiting for the jam to set
         } finally {
             try {
-                if (fixed) withContext(NonCancellable) { releaseHold(hold) }
-                else releaseHold(hold)
+                if (fixed) withContext(NonCancellable) { giveBack(ticket) }
+                else giveBack(ticket)
             } catch (e: CancellationException) {
-                println("  release failed at once: ${e::class.simpleName}")
+                println("  giving back failed at once: ${e::class.simpleName}")
                 throw e
             }
         }
     }
     delay(100)
-    println(if (fixed) "cancel, release inside withContext(NonCancellable):" else "cancel, plain suspend call in finally:")
-    payment.cancelAndJoin()
-    println("  payment job finished, cancelled = ${payment.isCancelled}")
+    println(if (fixed) "cancel, giveBack inside withContext(NonCancellable):" else "cancel, plain suspend call in finally:")
+    jam.cancelAndJoin()
+    println("  jam job finished, cancelled = ${jam.isCancelled}")
 }

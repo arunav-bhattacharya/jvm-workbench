@@ -4,35 +4,35 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Java twin of ChooseDemo.kt. Java has only use-site variance, so every class is like Ledger:
+ * Java twin of ChooseDemo.kt. Java has only use-site variance, so every class is like Crate:
  * invariant, with ? extends or ? super written by each method that only reads or only writes.
  */
 public class ChooseDemoJava {
 
-    static final class Ledger<T> {
-        private final List<T> entries = new ArrayList<>();
-        void record(T entry) { entries.add(entry); }
-        T latest() { return entries.get(entries.size() - 1); }
+    static final class Crate<T> {
+        private final List<T> items = new ArrayList<>();
+        void put(T item) { items.add(item); }
+        T top() { return items.get(items.size() - 1); }
     }
 
-    // only reads: ? extends
-    static String latestId(Ledger<? extends PaymentEvent> ledger) { return ledger.latest().getPaymentId(); }
+    // only takes out: ? extends
+    static String topName(Crate<? extends Fruit> crate) { return crate.top().getName(); }
 
-    // only writes cards: ? super
-    static void recordCard(Ledger<? super CardAuthorized> ledger, String id, long cents) {
-        ledger.record(new CardAuthorized(id, cents));
+    // only puts apples in: ? super
+    static void putApple(Crate<? super Apple> crate, String name, int grams) {
+        crate.put(new Apple(name, grams));
     }
 
     public static void main(String[] args) {
-        Ledger<CardAuthorized> cards = new Ledger<>();
-        Ledger<PaymentEvent> everything = new Ledger<>();
-        everything.record(new RefundIssued("pay_1", 500));
+        Crate<Apple> apples = new Crate<>();
+        Crate<Fruit> mixed = new Crate<>();
+        mixed.put(new Lemon("Eureka", 120));
 
-        recordCard(cards, "pay_2", 1_200);
-        recordCard(everything, "pay_3", 350);
-        System.out.println(latestId(cards) + " " + latestId(everything));
+        putApple(apples, "Gala", 180);
+        putApple(mixed, "Fuji", 150);
+        System.out.println(topName(apples) + " " + topName(mixed));
 
         // Wrong move: the class is invariant, so the plain type still doesn't fit.
-        // Ledger<PaymentEvent> strict = cards;
+        // Crate<Fruit> strict = apples;
     }
 }

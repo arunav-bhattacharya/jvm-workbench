@@ -7,26 +7,26 @@ import java.util.List;
 /** Java twin of WriteViewDemo.kt. ? super at the use site is Kotlin's in-projection. */
 public class WriteViewDemoJava {
 
-    static void padWithZeros(List<? super Integer> target, int count) {
-        for (int i = 0; i < count; i++) target.add(0);    // writing an Integer: fine
-        Object first = target.isEmpty() ? null : target.get(0);   // reading compiles, as Object
+    static void restock(List<? super Apple> crate, int count) {
+        for (int i = 0; i < count; i++) crate.add(new Apple("Gala", 180));   // putting an Apple in: fine
+        Object first = crate.isEmpty() ? null : crate.get(0);              // reading compiles, as Object
         System.out.println("  first is " + first);
-        // Integer firstInt = target.get(0);              // wrong move 1: ? super can't promise an Integer
+        // Apple firstApple = crate.get(0);                                // wrong move 1: ? super can't promise an Apple
     }
 
     public static void main(String[] args) {
-        List<Integer> ints = new ArrayList<>(List.of(1_200));
-        List<Number> numbers = new ArrayList<>(List.of(2.5));
-        List<Object> anything = new ArrayList<>(List.of("EUR"));
-        padWithZeros(ints, 1);
-        padWithZeros(numbers, 2);
-        padWithZeros(anything, 2);
-        System.out.println("ints = " + ints + ", numbers = " + numbers + ", anything = " + anything);
+        List<Apple> apples = new ArrayList<>(List.of(new Apple("Fuji", 150)));
+        List<Fruit> fruit = new ArrayList<>(List.of(new Lemon("Eureka", 120)));
+        List<Object> anything = new ArrayList<>(List.of("a paper bag"));
+        restock(apples, 1);
+        restock(fruit, 2);
+        restock(anything, 2);
+        System.out.println("apples = " + apples + ", fruit = " + fruit + ", anything = " + anything);
 
-        Collections.fill(numbers, 7);                      // fill(List<? super T> list, T obj)
-        System.out.println("after Collections.fill: " + numbers);
+        Collections.fill(fruit, new Apple("Fuji", 150));                    // fill(List<? super T> list, T obj)
+        System.out.println("after Collections.fill: " + fruit);
 
-        // Wrong move 2: a list of Doubles can't take an Integer.
-        // padWithZeros(new ArrayList<Double>(List.of(0.5)), 1);
+        // Wrong move 2: a crate of lemons can't take an apple.
+        // restock(new ArrayList<Lemon>(List.of(new Lemon("Eureka", 95))), 1);
     }
 }

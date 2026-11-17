@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
-/** A ticker that can't slow down (one tick per ms) and a screen that needs 10 ms per tick. */
+/** An oven thermometer that can't slow down (one reading per ms) and a screen that needs 10 ms per reading. */
 public class OverflowDemo {
     static void run(String title, Function<Flux<Long>, Flux<Long>> strategy) {
         AtomicLong produced = new AtomicLong();
@@ -18,15 +18,15 @@ public class OverflowDemo {
         String error = null;
         try {
             strategy.apply(Flux.interval(Duration.ofMillis(1)).doOnNext(produced::set))
-                    .publishOn(Schedulers.single(), 1)          // the screen asks for one tick at a time
-                    .doOnNext(tick -> sleep(10))                // and takes 10 ms to draw it
+                    .publishOn(Schedulers.single(), 1)          // the screen asks for one reading at a time
+                    .doOnNext(reading -> sleep(10))                // and takes 10 ms to draw it
                     .take(20)
                     .doOnNext(seen::add)
                     .blockLast();
         } catch (RuntimeException e) {
             error = e.getMessage();
         }
-        System.out.printf("%-28s ticker reached %3d, screen got %s%n", title, produced.get(), seen);
+        System.out.printf("%-28s thermometer at reading %3d, screen got %s%n", title, produced.get(), seen);
         if (error != null) {
             System.out.printf("%30sthen the error: %s%n", "", error);
         }
@@ -43,8 +43,8 @@ public class OverflowDemo {
     public static void main(String[] args) {
         run("1. no strategy", f -> f);
         AtomicInteger dropped = new AtomicInteger();
-        run("2. onBackpressureDrop", f -> f.onBackpressureDrop(tick -> dropped.incrementAndGet()));
-        System.out.printf("%30s(%d ticks dropped)%n", "", dropped.get());
+        run("2. onBackpressureDrop", f -> f.onBackpressureDrop(reading -> dropped.incrementAndGet()));
+        System.out.printf("%30s(%d readings dropped)%n", "", dropped.get());
         run("3. onBackpressureLatest", Flux::onBackpressureLatest);
         run("4. onBackpressureBuffer(10)", f -> f.onBackpressureBuffer(10));
         run("5. onBackpressureBuffer()", Flux::onBackpressureBuffer);

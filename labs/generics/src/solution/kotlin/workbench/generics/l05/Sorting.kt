@@ -10,4 +10,4 @@ fun <T> highest(items: List<T>, comparator: Comparator<in T>): T {
     return best
 }
 
-val byPaymentId: Comparator<PaymentEvent> = compareBy { it.paymentId }
+val byWeight: Comparator<Fruit> = compareBy { it.grams }

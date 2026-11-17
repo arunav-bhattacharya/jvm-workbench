@@ -6,24 +6,24 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-data class Rate(val pair: String, val mid: Double)
+data class Menu(val soup: String)
 
 fun main() = runBlocking {
-    val eurUsd = MutableStateFlow(Rate("EUR/USD", 1.0809))
-    val dashboard = launch(start = CoroutineStart.UNDISPATCHED) {
-        eurUsd.collect { rate ->
-            println("dashboard shows ${rate.mid}")
-            delay(100) // rendering is slow
+    val board = MutableStateFlow(Menu("tomato"))
+    val hall = launch(start = CoroutineStart.UNDISPATCHED) {
+        board.collect { menu ->
+            println("the board in the hall shows ${menu.soup} soup")
+            delay(100) // chalking up the board is slow
         }
     }
-    // three ticks arrive while the dashboard is busy rendering the first value
-    eurUsd.value = Rate("EUR/USD", 1.0811)
-    eurUsd.value = Rate("EUR/USD", 1.0812)
-    eurUsd.value = Rate("EUR/USD", 1.0813)
+    // the cook changes her mind three times while the board is being chalked up
+    board.value = Menu("leek")
+    board.value = Menu("pea")
+    board.value = Menu("onion")
     delay(150)
-    println("setting an equal rate again (a new object, same fields)")
-    eurUsd.value = Rate("EUR/USD", 1.0813)
+    println("setting an equal menu again (a new object, same fields)")
+    board.value = Menu("onion")
     delay(150)
-    println("value is ${eurUsd.value.mid}; the collector is still waiting, because a StateFlow never completes")
-    dashboard.cancel()
+    println("value is ${board.value.soup}; the collector is still waiting, because a StateFlow never completes")
+    hall.cancel()
 }

@@ -10,8 +10,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 
-/** Pure CPU work: a checksum over one fake card number. 60 million of them take about 1.5 s. */
-private fun checksum(i: Long): Long {
+/** Pure CPU work: looking at one lentil (a little arithmetic stands in for it). 60 million take about 1.5 s. */
+private fun inspect(i: Long): Long {
     var x = i
     repeat(20) {
         x = x xor (x ushr 33)
@@ -21,7 +21,7 @@ private fun checksum(i: Long): Long {
     return x
 }
 
-private const val ROWS = 60_000_000L
+private const val LENTILS = 60_000_000L
 
 @Volatile
 private var sink = 0L // keeps the JIT from deleting loops whose result nobody reads
@@ -32,28 +32,28 @@ fun main() = runBlocking {
     val loops: Map<String, suspend CoroutineScope.() -> Long> = mapOf(
         "no check" to {
             var sum = 0L
-            for (i in 0 until ROWS) sum += checksum(i)
+            for (i in 0 until LENTILS) sum += inspect(i)
             sum
         },
         "while (isActive)" to {
             var sum = 0L
             var i = 0L
-            while (isActive && i < ROWS) { sum += checksum(i); i++ }
+            while (isActive && i < LENTILS) { sum += inspect(i); i++ }
             sum
         },
         "ensureActive() every 1,000" to {
             var sum = 0L
-            for (i in 0 until ROWS) {
+            for (i in 0 until LENTILS) {
                 if (i % 1_000 == 0L) ensureActive()
-                sum += checksum(i)
+                sum += inspect(i)
             }
             sum
         },
         "yield() every 1,000" to {
             var sum = 0L
-            for (i in 0 until ROWS) {
+            for (i in 0 until LENTILS) {
                 if (i % 1_000 == 0L) yield()
-                sum += checksum(i)
+                sum += inspect(i)
             }
             sum
         },

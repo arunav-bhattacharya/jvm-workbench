@@ -11,9 +11,9 @@ private fun stamp(msg: String) = println("%5d ms  %s".format((System.nanoTime() 
 
 fun main() = runBlocking {
     since = System.nanoTime()
-    val request = launch {
+    val dinner = launch {
         // looks like "a supervised child". It is a child of a brand-new SupervisorJob instead,
-        // so it has left the request's tree: nobody waits for it and nobody cancels it.
+        // so it has left the dinner's tree: nobody waits for it and nobody cancels it.
         launch(SupervisorJob()) {
             delay(300)
             stamp("trap child: still running, nobody cancelled me")
@@ -23,8 +23,8 @@ fun main() = runBlocking {
         }
     }
     delay(100)
-    request.cancelAndJoin()
-    stamp("request cancelled and joined")
+    dinner.cancelAndJoin()
+    stamp("dinner cancelled and joined")
     delay(400)
     stamp("main done")
 }

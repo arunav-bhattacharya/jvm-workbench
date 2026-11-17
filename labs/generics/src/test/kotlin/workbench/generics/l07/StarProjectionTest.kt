@@ -10,32 +10,32 @@ class StarProjectionTest {
     @Test
     fun `describe tells null, text, lists, maps and numbers apart`() {
         assertThat(describe(null)).isEqualTo("nothing")
-        assertThat(describe("EUR")).isEqualTo("text EUR")
-        assertThat(describe(listOf(1_200, 350, 99))).isEqualTo("list of 3")
+        assertThat(describe("Gala")).isEqualTo("text Gala")
+        assertThat(describe(listOf(180, 150, 120))).isEqualTo("list of 3")
         assertThat(describe(mutableListOf<String>())).isEqualTo("list of 0")
-        assertThat(describe(mapOf("EUR" to 1_200, "USD" to 350))).isEqualTo("map of 2")
-        assertThat(describe(1_200)).isEqualTo("number 1200")
-        assertThat(describe(BigDecimal("12.50"))).isEqualTo("number 12.50")
+        assertThat(describe(mapOf("Gala" to 180, "Fuji" to 150))).isEqualTo("map of 2")
+        assertThat(describe(180)).isEqualTo("number 180")
+        assertThat(describe(BigDecimal("2.40"))).isEqualTo("number 2.40")
         assertThat(describe(setOf("a"))).isEqualTo("other")
         assertThat(describe('x')).isEqualTo("other")
     }
 
     @Test
     fun `stringsIn keeps only the String elements of a list, in order`() {
-        assertThat(stringsIn(listOf("EUR", 1_200, null, "USD"))).containsExactly("EUR", "USD")
+        assertThat(stringsIn(listOf("Gala", 180, null, "Fuji"))).containsExactly("Gala", "Fuji")
         assertThat(stringsIn(listOf(1, 2))).isEmpty()
     }
 
     @Test
     fun `stringsIn of something that is not a list is empty`() {
-        assertThat(stringsIn("EUR")).isEmpty()
-        assertThat(stringsIn(mapOf("EUR" to "x"))).isEmpty()
+        assertThat(stringsIn("Gala")).isEmpty()
+        assertThat(stringsIn(mapOf("Gala" to "x"))).isEmpty()
         assertThat(stringsIn(null)).isEmpty()
     }
 
     @Test
     fun `render sorts entries by key and wraps them in braces`() {
-        assertThat(render(mapOf("USD" to 350, "EUR" to 1_200))).isEqualTo("{EUR=1200, USD=350}")
+        assertThat(render(mapOf("lemon" to 120, "apple" to 180))).isEqualTo("{apple=180, lemon=120}")
         assertThat(render(emptyMap<String, Int>())).isEqualTo("{}")
         assertThat(render(mapOf("note" to null))).isEqualTo("{note=null}")
         assertThat(render(mapOf(2 to "b", 1 to "a"))).isEqualTo("{1=a, 2=b}")
@@ -43,16 +43,16 @@ class StarProjectionTest {
 
     @Test
     fun `render prints a nested map the same way`() {
-        val auth = mapOf("cents" to 99, "card" to mapOf("scheme" to "visa", "last4" to "4242"))
-        assertThat(render(auth)).isEqualTo("{card={last4=4242, scheme=visa}, cents=99}")
+        val note = mapOf("crates" to 4, "apple" to mapOf("name" to "Gala", "grams" to 180))
+        assertThat(render(note)).isEqualTo("{apple={grams=180, name=Gala}, crates=4}")
     }
 
     @Test
-    fun `drain empties the buffer and returns how many it removed`() {
+    fun `drain empties the crate and returns how many it removed`() {
         // this call compiles against both MutableList<Any?> and the right type
-        val buffer = mutableListOf<Any?>("pay_1", 2, null)
-        assertThat(drain(buffer)).isEqualTo(3)
-        assertThat(buffer).isEmpty()
+        val crate = mutableListOf<Any?>("Gala", 2, null)
+        assertThat(drain(crate)).isEqualTo(3)
+        assertThat(crate).isEmpty()
     }
 
     @Test
@@ -66,7 +66,7 @@ class StarProjectionTest {
 
     @Test
     fun `countNulls counts the null elements of any list`() {
-        assertThat(Nulls.countNulls(listOf("pay_1", null, "pay_2", null))).isEqualTo(2)
+        assertThat(Nulls.countNulls(listOf("Gala", null, "Fuji", null))).isEqualTo(2)
         assertThat(Nulls.countNulls(listOf(1, 2))).isZero()
         assertThat(Nulls.countNulls(emptyList<String>())).isZero()
     }

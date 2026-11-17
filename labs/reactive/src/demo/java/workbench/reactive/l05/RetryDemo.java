@@ -12,22 +12,22 @@ public class RetryDemo {
     static long t0;
 
     // fails on the first two calls, succeeds on the third
-    static String callIssuer() {
+    static String callMill() {
         int n = calls.incrementAndGet();
         System.out.printf("  [%3d ms] attempt %d%n", (System.nanoTime() - t0) / 1_000_000, n);
-        if (n < 3) throw new IllegalStateException("issuer busy");
-        return "APPROVED";
+        if (n < 3) throw new IllegalStateException("mill busy");
+        return "CONFIRMED";
     }
 
     static String alwaysFails() {
-        callIssuer();
-        throw new IllegalStateException("issuer down");
+        callMill();
+        throw new IllegalStateException("mill down");
     }
 
-    // a client that calls the issuer when the method is called, and wraps the answer in a Mono
+    // a client that calls the mill when the method is called, and wraps the answer in a Mono
     static Mono<String> eagerClient() {
         try {
-            return Mono.just(callIssuer());
+            return Mono.just(callMill());
         } catch (RuntimeException e) {
             return Mono.error(e);
         }
@@ -39,7 +39,7 @@ public class RetryDemo {
         String.format("%3d", 0);
 
         start("1. fromCallable + retryWhen(backoff 50 ms, no jitter)");
-        System.out.println("  -> " + Mono.fromCallable(RetryDemo::callIssuer)
+        System.out.println("  -> " + Mono.fromCallable(RetryDemo::callMill)
                 .retryWhen(Retry.backoff(3, Duration.ofMillis(50)).jitter(0))
                 .block());
 

@@ -7,11 +7,11 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
 
 fun main() = runBlocking {
-    // amounts in cents; refunds are negative
-    val pipeline = flowOf(4_250L, -990L, 12_000L)
+    // weights in grams from the kitchen scale; a negative reading means it wasn't set to zero
+    val pipeline = flowOf(250L, -40L, 1_200L)
         .onEach { println("emit    $it") }
         .filter { it > 0 }.onEach { println("  filter passed $it") }
-        .map { "EUR %.2f".format(it / 100.0) }.onEach { println("    map   -> $it") }
+        .map { "%.2f kg".format(it / 1_000.0) }.onEach { println("    map   -> $it") }
     println("pipeline built: no line above has printed yet")
     pipeline.collect { println("      collect $it") }
 }

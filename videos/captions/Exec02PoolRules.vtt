@@ -1,149 +1,337 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:08.744
-Here is a thread pool with two core threads, a maximum of four, and a queue that holds two tasks.
+00:00:02.700 --> 00:00:07.894
+Last time, one line gave us a kitchen: four cooks, taking tickets from one rail.
 
 2
-00:00:08.967 --> 00:00:11.163
-Seven tasks arrive, one by one.
+00:00:07.894 --> 00:00:09.582
+Then comes a busy evening.
 
 3
-00:00:11.163 --> 00:00:13.217
-Each one takes half a second.
+00:00:09.582 --> 00:00:16.139
+Orders arrive faster than four cooks can cook them, and the rail grows by a few tickets every second.
 
 4
-00:00:13.217 --> 00:00:14.917
-Where does each task go?
+00:00:16.367 --> 00:00:21.980
+So someone rebuilds the pool with a maximum of 64 threads, and keeps the same rail.
 
 5
-00:00:15.733 --> 00:00:19.900
-Every call to execute walks the same four rules, in this order.
+00:00:21.980 --> 00:00:23.198
+The code compiles.
 
 6
-00:00:20.133 --> 00:00:21.145
-Task 1 arrives.
+00:00:23.198 --> 00:00:25.024
+The setting is right there.
 
 7
-00:00:21.145 --> 00:00:26.205
-The pool has fewer threads than core, so rule 1 starts a new thread for it.
+00:00:25.024 --> 00:00:27.188
+And not one extra cook turns up.
 
 8
-00:00:26.433 --> 00:00:28.650
-Task 2 also gets a new thread.
+00:00:27.400 --> 00:00:30.518
+So here's a question many of us are too shy to ask.
 
 9
-00:00:28.650 --> 00:00:32.271
-Rule 1 starts one even if another thread is idle.
+00:00:30.518 --> 00:00:33.515
+What is a maximum for, if it never brings anyone?
 
 10
-00:00:32.500 --> 00:00:33.015
-Task 3.
+00:00:37.000 --> 00:00:40.658
+To find out, let's visit a kitchen with a thrifty manager.
 
 11
-00:00:33.015 --> 00:00:35.151
-The pool is at core size now.
+00:00:40.658 --> 00:00:42.361
+It has two permanent cooks.
 
 12
-00:00:35.151 --> 00:00:39.496
-So rule 2 offers the task to the queue, and it waits there.
+00:00:42.361 --> 00:00:44.506
+Its rail has room for two tickets.
 
 13
-00:00:39.700 --> 00:00:41.026
-Task 4 waits too.
+00:00:44.506 --> 00:00:49.804
+When the rail is full, the manager may phone for temporary cooks, up to two of them.
 
 14
-00:00:41.026 --> 00:00:42.743
-Now the queue is full.
+00:00:49.804 --> 00:00:56.489
+And when every cook is busy and the rail is full, a door policy decides what happens to the next customer.
 
 15
-00:00:42.967 --> 00:00:43.498
-Task 5.
+00:00:56.700 --> 00:01:02.104
+ThreadPoolExecutor, the class behind that one line, has a setting for each part.
 
 16
-00:00:43.498 --> 00:00:44.864
-The queue says no.
+00:01:02.104 --> 00:01:05.143
+The core pool size is the permanent cooks: 2.
 
 17
-00:00:44.864 --> 00:00:50.859
-Rule 3 starts an extra thread, because three threads is within the max of four.
+00:01:05.143 --> 00:01:09.534
+The maximum pool size counts permanent and temporary together: 4.
 
 18
-00:00:51.067 --> 00:00:53.196
-Task 6 gets the fourth thread.
+00:01:09.534 --> 00:01:13.992
+The work queue is the rail, an ArrayBlockingQueue with room for 2.
 
 19
-00:00:53.196 --> 00:00:55.112
-The pool is now at its max.
+00:01:13.992 --> 00:01:17.032
+And the rejection handler is the door policy.
 
 20
-00:00:55.333 --> 00:00:57.453
-Task 7 finds everything full.
+00:01:17.032 --> 00:01:19.801
+The default, AbortPolicy, simply refuses.
 
 21
-00:00:57.453 --> 00:01:00.449
-Rule 4 hands it to the rejection handler.
+00:01:20.033 --> 00:01:25.144
+Now seven orders arrive at once, and each one takes 500 milliseconds to cook.
 
 22
-00:01:00.449 --> 00:01:04.249
-The default one throws a RejectedExecutionException.
+00:01:25.144 --> 00:01:27.135
+Most of us expect the obvious.
 
 23
-00:01:04.467 --> 00:01:05.700
-Read rule 3 again.
+00:01:27.135 --> 00:01:32.511
+Four cooks start right away, two orders wait on the rail, and one is turned away.
 
 24
-00:01:05.700 --> 00:01:09.333
-The pool grows past core only when the queue is full.
+00:01:32.511 --> 00:01:33.905
+Is that what happens?
 
 25
-00:01:09.333 --> 00:01:11.527
-Most people expect the opposite.
+00:01:36.700 --> 00:01:39.545
+Let's follow the rules, one order at a time.
 
 26
-00:01:11.733 --> 00:01:14.583
-And tasks 5 and 6 run before tasks 3 and 4.
+00:01:39.545 --> 00:01:44.912
+Order 1: there are fewer cooks than the core size, so it gets a new permanent cook.
 
 27
-00:01:14.583 --> 00:01:19.555
-A new thread takes the task that made it, not the oldest task in the queue.
+00:01:44.912 --> 00:01:45.817
+That's rule 1.
 
 28
-00:01:20.567 --> 00:01:23.487
-Now swap in an unbounded LinkedBlockingQueue.
+00:01:45.817 --> 00:01:47.628
+Order 2 gets the second one.
 
 29
-00:01:23.487 --> 00:01:26.212
-That is the queue newFixedThreadPool uses.
+00:01:47.833 --> 00:01:52.529
+Order 3: we're at the core size, so the manager clips it to the rail.
 
 30
-00:01:26.433 --> 00:01:28.011
-Rule 2 always succeeds.
+00:01:52.529 --> 00:01:53.482
+That's rule 2.
 
 31
-00:01:28.011 --> 00:01:31.097
-Every task past core just waits in the queue.
+00:01:53.482 --> 00:01:56.408
+Order 4 joins it, and now the rail is full.
 
 32
-00:01:31.300 --> 00:01:35.482
-So rule 3 never runs, and no extra thread is ever started.
+00:01:56.633 --> 00:01:58.530
+Order 5 finds the rail full.
 
 33
-00:01:35.482 --> 00:01:39.015
-Rule 4 never runs either, so nothing is rejected.
+00:01:58.530 --> 00:02:03.612
+Only now does the manager pick up the phone, and a temporary cook takes it.
 
 34
-00:01:39.233 --> 00:01:42.749
-Set max to 100 and you still get two threads, forever.
+00:02:03.612 --> 00:02:04.560
+That's rule 3.
 
 35
-00:01:42.749 --> 00:01:45.092
-Under overload the queue just grows.
+00:02:04.560 --> 00:02:09.439
+Order 6 gets the second temp, and the kitchen is at its maximum of four.
 
 36
-00:01:45.092 --> 00:01:48.021
-The first alert you get is probably the heap.
+00:02:09.667 --> 00:02:13.024
+Order 7 finds every cook busy and the rail full.
 
 37
-00:01:48.233 --> 00:01:55.963
-A bounded queue with a finite max is the shape that pushes back: rule 4 can fire, and overload becomes visible.
+00:02:13.024 --> 00:02:18.619
+That's rule 4: the door policy turns it away, with a RejectedExecutionException.
+
+38
+00:02:18.833 --> 00:02:20.836
+So the obvious guess was wrong.
+
+39
+00:02:20.836 --> 00:02:23.743
+The pool doesn't grow first and queue second.
+
+40
+00:02:23.743 --> 00:02:25.940
+It queues first, and grows second.
+
+41
+00:02:25.940 --> 00:02:27.942
+And that's the thrifty manager.
+
+42
+00:02:27.942 --> 00:02:30.204
+A ticket on the rail costs nothing.
+
+43
+00:02:30.204 --> 00:02:32.077
+A temporary cook costs wages.
+
+44
+00:02:32.077 --> 00:02:35.243
+So he phones only when the rail has no room left.
+
+45
+00:02:35.467 --> 00:02:36.805
+One more surprise.
+
+46
+00:02:36.805 --> 00:02:43.496
+Orders 1, 2, 5 and 6 come out at about 500 milliseconds, and orders 3 and 4 only at 1,000.
+
+47
+00:02:43.496 --> 00:02:50.484
+A new cook takes the ticket that made the manager call him, not the oldest ticket on the rail.
+
+48
+00:02:50.700 --> 00:02:52.979
+Here the restaurant picture breaks.
+
+49
+00:02:52.979 --> 00:02:58.709
+A real kitchen would cook the oldest ticket first, or hear about it from tables 3 and 4.
+
+50
+00:02:58.709 --> 00:03:00.597
+A pool makes no such promise.
+
+51
+00:03:00.800 --> 00:03:03.540
+Now back to our 64 cooks who never came.
+
+52
+00:03:03.540 --> 00:03:09.567
+newFixedThreadPool builds this same class, with a LinkedBlockingQueue that has no limit.
+
+53
+00:03:09.567 --> 00:03:10.868
+A rail with no end.
+
+54
+00:03:11.100 --> 00:03:12.973
+So rule 2 always succeeds.
+
+55
+00:03:12.973 --> 00:03:16.286
+Rule 3 never runs, and no temp is ever called.
+
+56
+00:03:16.286 --> 00:03:20.319
+Rule 4 never runs either, so nobody is ever turned away.
+
+57
+00:03:20.319 --> 00:03:25.505
+The maximum of 64 is dead code: it compiles, and it never does anything.
+
+58
+00:03:25.733 --> 00:03:32.885
+Run the same seven orders with that queue, and the pool stays at two threads, with five tickets on the rail.
+
+59
+00:03:32.885 --> 00:03:38.248
+All seven finish after about 2,000 milliseconds: four rounds of 500 on two cooks.
+
+60
+00:03:38.467 --> 00:03:39.618
+That looks safe.
+
+61
+00:03:39.618 --> 00:03:40.266
+It isn't.
+
+62
+00:03:40.266 --> 00:03:45.017
+Say orders arrive at 400 a second, and the kitchen can finish 300.
+
+63
+00:03:45.017 --> 00:03:47.537
+The rail grows by 100 every second.
+
+64
+00:03:47.537 --> 00:03:56.463
+After ten minutes, 60,000 tickets are waiting, and a new order waits more than three minutes before a cook even looks at it.
+
+65
+00:03:56.667 --> 00:04:01.830
+The customer left long ago, and the kitchen is busy cooking dinners nobody will eat.
+
+66
+00:04:01.830 --> 00:04:07.240
+And nothing complains until the heap, the memory where Java keeps its objects, runs out.
+
+67
+00:04:07.467 --> 00:04:10.036
+newCachedThreadPool fails the other way.
+
+68
+00:04:10.036 --> 00:04:14.982
+Its rail has no room at all, so under a burst, every order gets a new thread.
+
+69
+00:04:14.982 --> 00:04:18.836
+That's last lesson's manager, hiring a cook for every salad.
+
+70
+00:04:19.067 --> 00:04:24.326
+The shape that pushes back is a rail with a limit, and a maximum that isn't endless.
+
+71
+00:04:24.326 --> 00:04:30.024
+Then rule 4 can fire, and overload becomes something you can see, and choose how to handle.
+
+72
+00:04:30.233 --> 00:04:32.847
+Here's our kitchen in Java and Kotlin.
+
+73
+00:04:32.847 --> 00:04:40.345
+Core 2, max 4, and a keep-alive of 60 seconds, which is how long an idle temp may stay before he's sent home.
+
+74
+00:04:40.345 --> 00:04:43.096
+Then the rail of 2, and the door policy.
+
+75
+00:04:43.300 --> 00:04:44.962
+So, what is a maximum for?
+
+76
+00:04:44.962 --> 00:04:47.390
+It's the relief valve for a full rail.
+
+77
+00:04:47.390 --> 00:04:49.946
+The pool queues first, and grows second.
+
+78
+00:04:49.946 --> 00:04:54.356
+Give the queue a limit, or the maximum is just a number in your code.
+
+79
+00:04:54.567 --> 00:04:55.400
+Quick check.
+
+80
+00:04:55.400 --> 00:04:58.385
+Core 2, max 4, and a rail with room for 10.
+
+81
+00:04:58.385 --> 00:05:01.508
+Eight orders arrive, and each takes a minute.
+
+82
+00:05:01.508 --> 00:05:03.383
+How many cooks are cooking?
+
+83
+00:05:06.367 --> 00:05:06.650
+Two.
+
+84
+00:05:06.650 --> 00:05:12.247
+The other six wait on the rail, which never fills, so the manager never phones.

@@ -7,27 +7,28 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 
-/** Three pages of two entries each, from a ledger API that takes 20 ms per page. */
-fun entries(accountId: String): Flow<String> = flow {
-    for (page in 0 until 3) {
-        println("  fetching page $page of $accountId")
+private val pages = listOf(listOf("apples", "bananas"), listOf("cherries", "dates"), listOf("figs", "grapes"))
+
+/** Three pages of two items each, from the grocer's shop, which takes 20 ms per page. */
+fun aisle(name: String): Flow<String> = flow {
+    for ((page, items) in pages.withIndex()) {
+        println("  fetching page $page of the $name aisle")
         delay(20)
-        emit("e${page * 2 + 1}")
-        emit("e${page * 2 + 2}")
+        for (item in items) emit(item)
     }
 }
 
 fun main() = runBlocking {
     println("building the flow")
-    val flow = entries("acc-1")
+    val fruit = aisle("fruit")
     println("built; nothing fetched yet")
 
     println("first collect:")
-    println("  got ${flow.toList()}")
+    println("  got ${fruit.toList()}")
 
     println("second collect:")
-    println("  got ${flow.toList()}")
+    println("  got ${fruit.toList()}")
 
     println("take(3):")
-    println("  got ${flow.take(3).toList()}")
+    println("  got ${fruit.take(3).toList()}")
 }

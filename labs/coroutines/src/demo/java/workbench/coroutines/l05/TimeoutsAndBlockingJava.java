@@ -13,13 +13,13 @@ import java.util.concurrent.TimeoutException;
 public class TimeoutsAndBlockingJava {
     static long t0;
 
-    static String callIssuer() {
+    static String callBakery() {
         try {
-            Thread.sleep(1_500); // the issuer takes 1.5 s
-            System.out.printf("    (the issuer call itself finished at %d ms)%n", ms());
-            return "approved";
+            Thread.sleep(1_500); // the bakery takes 1.5 s to answer
+            System.out.printf("    (the bakery call itself finished at %d ms)%n", ms());
+            return "bread ready";
         } catch (InterruptedException e) {
-            System.out.printf("    (the issuer call was interrupted at %d ms)%n", ms());
+            System.out.printf("    (the bakery call was interrupted at %d ms)%n", ms());
             return "interrupted";
         }
     }
@@ -31,7 +31,7 @@ public class TimeoutsAndBlockingJava {
             // 1. orTimeout: the caller gets a TimeoutException on time, the task runs on
             t0 = System.nanoTime();
             try {
-                CompletableFuture.supplyAsync(TimeoutsAndBlockingJava::callIssuer, io).orTimeout(300, TimeUnit.MILLISECONDS).join();
+                CompletableFuture.supplyAsync(TimeoutsAndBlockingJava::callBakery, io).orTimeout(300, TimeUnit.MILLISECONDS).join();
             } catch (CompletionException e) {
                 System.out.printf("orTimeout(300 ms)               caller got %s after %d ms%n", e.getCause().getClass().getSimpleName(), ms());
             }
@@ -39,7 +39,7 @@ public class TimeoutsAndBlockingJava {
 
             // 2. Future.get with a timeout, then cancel(true): the blocked thread is interrupted
             t0 = System.nanoTime();
-            Future<String> f = io.submit(TimeoutsAndBlockingJava::callIssuer);
+            Future<String> f = io.submit(TimeoutsAndBlockingJava::callBakery);
             try {
                 f.get(300, TimeUnit.MILLISECONDS);
             } catch (TimeoutException e) {

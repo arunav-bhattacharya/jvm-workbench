@@ -13,6 +13,6 @@ class Parsers {
         return type.cast(parser(text))                       // checked at run time, no unchecked warning
     }
 
-    // the Kotlin wrapper: the compiler writes Money::class.java into each call site for you
+    // the Kotlin wrapper: the compiler writes Weight::class.java into each call site for you
     inline fun <reified T : Any> parse(text: String): T = parse(text, T::class.java)
 }

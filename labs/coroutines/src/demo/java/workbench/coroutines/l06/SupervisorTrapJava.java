@@ -1,5 +1,5 @@
 // Java equivalent of SupervisorTrap.kt: a task sent to some other executor is not part of the
-// request. Shutting the request's executor down interrupts its own tasks, not that one.
+// dinner. Shutting the dinner's executor down interrupts its own tasks, not that one.
 package workbench.coroutines.l06;
 
 import java.util.concurrent.ExecutorService;
@@ -13,19 +13,19 @@ public class SupervisorTrapJava {
     public static void main(String[] args) throws Exception {
         since = System.nanoTime();
         ExecutorService shared = Executors.newCachedThreadPool();          // what launch(SupervisorJob()) amounts to
-        ExecutorService request = Executors.newVirtualThreadPerTaskExecutor();
+        ExecutorService dinner = Executors.newVirtualThreadPerTaskExecutor();
         shared.submit(() -> {
             try { Thread.sleep(300); stamp("detached task: still running, nobody cancelled me"); }
             catch (InterruptedException e) { stamp("detached task: interrupted"); }
         });
-        request.submit(() -> {
-            try { Thread.sleep(300); stamp("request task: done"); }
-            catch (InterruptedException e) { stamp("request task: interrupted"); }
+        dinner.submit(() -> {
+            try { Thread.sleep(300); stamp("dinner task: done"); }
+            catch (InterruptedException e) { stamp("dinner task: interrupted"); }
         });
         Thread.sleep(100);
-        request.shutdownNow();
-        request.awaitTermination(1, TimeUnit.SECONDS);
-        stamp("request cancelled and joined");
+        dinner.shutdownNow();
+        dinner.awaitTermination(1, TimeUnit.SECONDS);
+        stamp("dinner cancelled and joined");
         Thread.sleep(400);
         shared.shutdown();
         stamp("main done");

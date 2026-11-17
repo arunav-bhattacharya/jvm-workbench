@@ -7,7 +7,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
-import java.io.IOException
 
 private var started = 0L
 private fun log(msg: String) = println("%5d ms  %s".format((System.nanoTime() - started) / 1_000_000, msg))
@@ -18,15 +17,16 @@ private val handler = CoroutineExceptionHandler { _, e -> log("handler: ${e.mess
 fun main(args: Array<String>) = runBlocking(handler) {
     started = System.nanoTime()
     val supervised = args.firstOrNull() == "supervisor"
-    val sendAll: suspend CoroutineScope.() -> Unit = {
-        launch { try { delay(300); log("email sent") } finally { log("email: finally") } }
-        launch { delay(50); throw IOException("sms gateway down") }
-        launch { try { delay(100); log("push sent") } finally { log("push: finally") } }
+    // three trays for the bake sale, all in the oven at once
+    val bakeAll: suspend CoroutineScope.() -> Unit = {
+        launch { try { delay(300); log("cookies baked") } finally { log("cookies: finally") } }
+        launch { delay(50); throw BurnedException("the scones burned") }
+        launch { try { delay(100); log("muffins baked") } finally { log("muffins: finally") } }
     }
     try {
-        if (supervised) supervisorScope(sendAll) else coroutineScope(sendAll)
+        if (supervised) supervisorScope(bakeAll) else coroutineScope(bakeAll)
         log("scope returned normally")
-    } catch (e: IOException) {
+    } catch (e: BurnedException) {
         log("caller caught: ${e.message}")
     }
 }

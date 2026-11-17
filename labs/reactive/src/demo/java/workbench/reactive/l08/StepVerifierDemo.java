@@ -11,14 +11,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class StepVerifierDemo {
     public static void main(String[] args) {
         AtomicInteger subscriptions = new AtomicInteger();
-        Mono<String> charge = Mono.fromCallable(() -> "charged").doOnSubscribe(s -> subscriptions.incrementAndGet());
-        StepVerifier.create(charge).expectNext("refunded").expectComplete();          // no verify(): nothing runs
+        Mono<String> bake = Mono.fromCallable(() -> "baked").doOnSubscribe(s -> subscriptions.incrementAndGet());
+        StepVerifier.create(bake).expectNext("burnt").expectComplete();          // no verify(): nothing runs
         System.out.println("1. no verify():     subscriptions=" + subscriptions.get() + ", wrong expectation unnoticed");
 
-        Duration real = StepVerifier.withVirtualTime(() -> Mono.delay(Duration.ofDays(1)).thenReturn("expired"))
+        Duration real = StepVerifier.withVirtualTime(() -> Mono.delay(Duration.ofDays(1)).thenReturn("stale"))
                 .expectSubscription()
                 .expectNoEvent(Duration.ofDays(1))
-                .expectNext("expired")
+                .expectNext("stale")
                 .verifyComplete();
         System.out.println("2. virtual time:    one day took " + real.toMillis() + " ms of real time");
 
@@ -31,25 +31,25 @@ public class StepVerifierDemo {
             System.out.println("3. expectNoEvent first: " + e.getMessage());
         }
 
-        Mono<String> builtTooEarly = Mono.delay(Duration.ofDays(1)).thenReturn("expired");  // grabs the real clock
+        Mono<String> builtTooEarly = Mono.delay(Duration.ofDays(1)).thenReturn("stale");  // grabs the real clock
         try {
             StepVerifier.withVirtualTime(() -> builtTooEarly)
                     .expectSubscription()
                     .thenAwait(Duration.ofDays(1))
-                    .expectNext("expired")
+                    .expectNext("stale")
                     .expectComplete()
                     .verify(Duration.ofSeconds(1));
         } catch (AssertionError e) {
             System.out.println("4. built outside the supplier: " + e.getMessage());
         }
 
-        TestPublisher<String> rates = TestPublisher.create();
-        StepVerifier.create(rates.flux().map(r -> "EUR/USD " + r))
-                .then(() -> rates.next("1.08", "1.09"))                                // push values by hand
-                .expectNext("EUR/USD 1.08", "EUR/USD 1.09")
-                .then(rates::complete)
+        TestPublisher<String> readings = TestPublisher.create();
+        StepVerifier.create(readings.flux().map(r -> r + " C"))
+                .then(() -> readings.next("200", "201"))                                // push values by hand
+                .expectNext("200 C", "201 C")
+                .then(readings::complete)
                 .expectComplete()
                 .verify(Duration.ofSeconds(1));
-        System.out.println("5. TestPublisher:   passed; the map requested " + (rates.wasRequested() ? "some" : "no") + " items");
+        System.out.println("5. TestPublisher:   passed; the map requested " + (readings.wasRequested() ? "some" : "no") + " items");
     }
 }

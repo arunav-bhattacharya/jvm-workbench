@@ -10,11 +10,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 public class CancelABusyLoopJava {
-    static final long ROWS = 60_000_000L;
+    static final long LENTILS = 60_000_000L;
     static volatile long sink; // keeps the JIT from deleting loops whose result nobody reads
 
-    /** Pure CPU work: a checksum over one fake card number. 60 million of them take about 1.5 s. */
-    static long checksum(long i) {
+    /** Pure CPU work: looking at one lentil (a little arithmetic stands in for it). 60 million take about 1.5 s. */
+    static long inspect(long i) {
         long x = i;
         for (int k = 0; k < 20; k++) {
             x ^= x >>> 33;
@@ -28,14 +28,14 @@ public class CancelABusyLoopJava {
         Map<String, Runnable> loops = new LinkedHashMap<>();
         loops.put("no check", () -> {
             long sum = 0;
-            for (long i = 0; i < ROWS; i++) sum += checksum(i);
+            for (long i = 0; i < LENTILS; i++) sum += inspect(i);
             sink = sum;
         });
         loops.put("isInterrupted() every 1,000", () -> {
             long sum = 0;
-            for (long i = 0; i < ROWS; i++) {
+            for (long i = 0; i < LENTILS; i++) {
                 if (i % 1_000 == 0 && Thread.currentThread().isInterrupted()) break;
-                sum += checksum(i);
+                sum += inspect(i);
             }
             sink = sum;
         });

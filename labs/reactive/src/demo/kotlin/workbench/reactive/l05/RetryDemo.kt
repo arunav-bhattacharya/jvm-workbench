@@ -9,22 +9,22 @@ private val calls = AtomicInteger()
 private var t0 = 0L
 
 // fails on the first two calls, succeeds on the third
-private fun callIssuer(): String {
+private fun callMill(): String {
     val n = calls.incrementAndGet()
     println("  [%3d ms] attempt %d".format((System.nanoTime() - t0) / 1_000_000, n))
-    if (n < 3) throw IllegalStateException("issuer busy")
-    return "APPROVED"
+    if (n < 3) throw IllegalStateException("mill busy")
+    return "CONFIRMED"
 }
 
 private fun alwaysFails(): String {
-    callIssuer()
-    throw IllegalStateException("issuer down")
+    callMill()
+    throw IllegalStateException("mill down")
 }
 
-// a client that calls the issuer when the function is called, and wraps the answer in a Mono
+// a client that calls the mill when the function is called, and wraps the answer in a Mono
 private fun eagerClient(): Mono<String> =
     try {
-        Mono.just(callIssuer())
+        Mono.just(callMill())
     } catch (e: RuntimeException) {
         Mono.error(e)
     }
@@ -42,7 +42,7 @@ fun main() {
     "%3d".format(0)
 
     start("1. fromCallable + retryWhen(backoff 50 ms, no jitter)")
-    println("  -> " + Mono.fromCallable { callIssuer() }
+    println("  -> " + Mono.fromCallable { callMill() }
         .retryWhen(Retry.backoff(3, Duration.ofMillis(50)).jitter(0.0))
         .block())
 

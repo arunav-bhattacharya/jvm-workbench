@@ -11,18 +11,18 @@ public class CatchDemoJava {
     public static void main(String[] args) {
         String failIn = args.length > 0 ? args[0] : "upstream"; // or "collector"
         Flux<String> lines = Flux.concat(
-            Flux.just("pay-1,4250,EUR", "pay-2,-990,EUR"),
+            Flux.just("flour,2000,g", "eggs,12,pcs"),
             failIn.equals("upstream")
-                ? Flux.error(new UncheckedIOException(new IOException("settlement file truncated")))
-                : Flux.just("pay-3,120000,GBP"));
+                ? Flux.error(new UncheckedIOException(new IOException("delivery note torn")))
+                : Flux.just("butter,250,g"));
         try {
             lines
                 .map(l -> l.substring(0, l.indexOf(',')))
                 .doFinally(signal -> System.out.println("doFinally: signal = " + signal))
                 .onErrorResume(e -> { System.out.println("onErrorResume: " + e); return Flux.just("ABORTED"); })
-                .doOnNext(id -> {
-                    System.out.println("consume " + id);
-                    if (failIn.equals("collector") && id.equals("pay-2")) throw new IllegalStateException("ledger db down");
+                .doOnNext(item -> {
+                    System.out.println("consume " + item);
+                    if (failIn.equals("collector") && item.equals("eggs")) throw new IllegalStateException("pantry shelf full");
                 })
                 .blockLast();
             System.out.println("blockLast returned normally");

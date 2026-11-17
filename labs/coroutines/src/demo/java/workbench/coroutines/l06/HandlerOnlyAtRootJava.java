@@ -3,8 +3,6 @@
 // inside the Future until someone calls get() (like a root async and await).
 package workbench.coroutines.l06;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -12,26 +10,30 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 public class HandlerOnlyAtRootJava {
+    static class BurnedException extends RuntimeException {
+        BurnedException(String message) { super(message); }
+    }
+
     public static void main(String[] args) throws Exception {
-        Thread.UncaughtExceptionHandler handler = (t, e) -> System.out.println("  handler got: " + e.getCause().getMessage() + " (on " + t.getName() + ")");
-        ExecutorService webhooks = Executors.newFixedThreadPool(2, r -> {
-            Thread t = new Thread(r, "webhooks");
+        Thread.UncaughtExceptionHandler handler = (t, e) -> System.out.println("  handler got: " + e.getMessage() + " (on " + t.getName() + ")");
+        ExecutorService oven = Executors.newFixedThreadPool(2, r -> {
+            Thread t = new Thread(r, "oven");
             t.setUncaughtExceptionHandler(handler);
             return t;
         });
-        Runnable failing = () -> { throw new UncheckedIOException(new IOException("webhook 503")); };
+        Runnable failing = () -> { throw new BurnedException("the tray burned"); };
 
         System.out.println("1. execute(): the exception reaches the thread's handler");
-        webhooks.execute(failing);
+        oven.execute(failing);
         Thread.sleep(100);
 
         System.out.println("2. submit() that nobody waits for:");
-        Future<?> f = webhooks.submit(failing);
+        Future<?> f = oven.submit(failing);
         Thread.sleep(100);
         System.out.println("  nothing printed: the failure waits in the Future");
-        try { f.get(); } catch (ExecutionException e) { System.out.println("  get threw: " + e.getCause().getCause().getMessage()); }
+        try { f.get(); } catch (ExecutionException e) { System.out.println("  get threw: " + e.getCause().getMessage()); }
 
-        webhooks.shutdown();
-        webhooks.awaitTermination(5, TimeUnit.SECONDS);
+        oven.shutdown();
+        oven.awaitTermination(5, TimeUnit.SECONDS);
     }
 }

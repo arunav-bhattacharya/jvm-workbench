@@ -1,28 +1,28 @@
 package workbench.generics.l07.demo
 
-/** A webhook payload arrives as Any? from a JSON library. Find out what it is. */
-fun shape(payload: Any?): String = when (payload) {
+/** A supplier's delivery note, read from a text file, arrives as Any?. Find out what it is. */
+fun shape(note: Any?): String = when (note) {
     null -> "empty"
-    is Map<*, *> -> "object with keys ${payload.keys}"        // smart cast to Map<*, *>
-    is List<*> -> "array of ${payload.size}"                  // smart cast to List<*>
-    else -> "value $payload"
+    is Map<*, *> -> "a map with keys ${note.keys}"           // smart cast to Map<*, *>
+    is List<*> -> "a list of ${note.size}"                   // smart cast to List<*>
+    else -> "a single value: $note"
 }
 
 /** Safe: check every element instead of trusting the list's type. */
-fun amountsIn(payload: Any?): List<Long> {
-    if (payload !is List<*>) return emptyList()
-    return payload.mapNotNull { it as? Long }                 // as? gives null for non-Longs
+fun weightsIn(note: Any?): List<Int> {
+    if (note !is List<*>) return emptyList()
+    return note.mapNotNull { it as? Int }                    // as? gives null for anything that isn't an Int
 }
 
 fun main() {
-    val webhook: Any? = mapOf("id" to "pay_1", "amounts" to listOf(1_200L, "oops", 350L))
-    println(shape(webhook))
+    val note: Any? = mapOf("supplier" to "Hillside Orchard", "weights" to listOf(180, "bruised", 150))
+    println(shape(note))
     println(shape(listOf(1, 2, 3)))
     println(shape(42))
 
-    val amounts = (webhook as Map<*, *>)["amounts"]
-    println("amounts = ${amountsIn(amounts)}")
+    val weights = (note as Map<*, *>)["weights"]
+    println("weights = ${weightsIn(weights)}")
 
     // Wrong move. Uncomment, predict the error, then run.
-    // if (amounts is List<Long>) println("a list of longs")
+    // if (weights is List<Int>) println("a list of weights")
 }

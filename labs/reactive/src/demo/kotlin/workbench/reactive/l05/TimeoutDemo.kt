@@ -8,24 +8,24 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /** timeout turns silence into an error you can handle. Where you put it decides what it limits. */
 fun main() {
-    val slowRate: Mono<String> = Mono.delay(Duration.ofMillis(300)).thenReturn("live rate 1.08")
+    val slowPrice: Mono<String> = Mono.delay(Duration.ofMillis(300)).thenReturn("fresh flour price 0.92")
         .doOnCancel { println("  slow call cancelled") }
 
     try {
-        slowRate.timeout(Duration.ofMillis(100)).block()
+        slowPrice.timeout(Duration.ofMillis(100)).block()
     } catch (e: RuntimeException) {
         println("timeout: ${e.cause}")
     }
 
-    val rate = slowRate.timeout(Duration.ofMillis(100))
-        .onErrorResume(TimeoutException::class.java) { Mono.just("cached rate 1.07") }
+    val price = slowPrice.timeout(Duration.ofMillis(100))
+        .onErrorResume(TimeoutException::class.java) { Mono.just("yesterday's price 0.90") }
         .block()
-    println("with fallback: $rate")
+    println("with fallback: $price")
 
     val attempts = AtomicInteger()
     val t0 = System.nanoTime()
     try {
-        val r = Mono.defer { attempts.incrementAndGet(); slowRate }
+        val r = Mono.defer { attempts.incrementAndGet(); slowPrice }
             .timeout(Duration.ofMillis(100))                        // per attempt
             .retryWhen(Retry.backoff(5, Duration.ofMillis(50)).jitter(0.0))
             .timeout(Duration.ofMillis(400))                        // budget for the whole call

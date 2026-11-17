@@ -1,13 +1,13 @@
 package workbench.generics.l07
 
 /**
- * One line for a debug log, whatever [value] is. Check the cases in this order:
+ * One line for the shop log, whatever [value] is. Check the cases in this order:
  *
  * - `null`                -> "nothing"
- * - a String              -> "text " + the string, such as "text EUR"
+ * - a String              -> "text " + the string, such as "text Gala"
  * - a List of anything    -> "list of " + its size, such as "list of 3"
  * - a Map of anything     -> "map of " + its size
- * - a Number              -> "number " + its toString(), such as "number 1200"
+ * - a Number              -> "number " + its toString(), such as "number 180"
  * - anything else         -> "other"
  *
  * You can't write `value is List<String>`: type arguments are erased. Use a star projection.
@@ -23,12 +23,12 @@ fun stringsIn(value: Any?): List<String> =
     TODO("smart-cast to List<*>, then keep the elements that are Strings")
 
 /**
- * Removes every element from [buffer] and returns how many were removed.
+ * Removes every element from [crate] and returns how many were removed.
  *
  * TODO: this function never reads or adds an element, so it should accept a mutable list of ANY
  * element type: a MutableList<String>, a MutableList<Int>... Today it only accepts MutableList<Any?>,
- * which is invariant: `drain(mutableListOf("pay_1"))` does not compile. Fix the parameter type
+ * which is invariant: `drain(mutableListOf("Gala"))` does not compile. Fix the parameter type
  * (Java will then see `List<?>`), then write the body.
  */
-fun drain(buffer: MutableList<Any?>): Int =
-    TODO("fix the parameter type, then clear the buffer")
+fun drain(crate: MutableList<Any?>): Int =
+    TODO("fix the parameter type, then clear the crate")

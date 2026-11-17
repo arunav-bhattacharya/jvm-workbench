@@ -1,6 +1,7 @@
 package workbench.generics.l07.demo;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -9,30 +10,30 @@ import java.util.List;
  */
 public class StarVsAnyDemoJava {
 
-    static void addMarker(List<Object> list) { list.add("marker"); }
+    static void addPriceTag(List<Object> list) { list.add("price tag"); }
 
-    static int sizeOf(List<?> list) { return list.size(); }
+    static int countItems(List<?> list) { return list.size(); }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    static void addRaw(List list) { list.add(42); }       // raw: the compiler stops checking
+    static void addRaw(List list) { list.add(42); }        // raw: the compiler stops checking
 
     public static void main(String[] args) {
-        List<Object> anything = new ArrayList<>(List.of(1_200, "EUR"));
-        List<String> ids = new ArrayList<>(List.of("pay_1"));
+        List<Object> drawer = new ArrayList<>(Arrays.asList("pencil", 3, null));   // the drawer of odds and ends
+        List<String> varieties = new ArrayList<>(List.of("Gala"));
 
-        addMarker(anything);
-        System.out.println("anything = " + anything + ", sizeOf(ids) = " + sizeOf(ids));
+        addPriceTag(drawer);
+        System.out.println("drawer = " + drawer + ", countItems(varieties) = " + countItems(varieties));
 
-        addRaw(ids);                                       // compiles: an Integer goes into a List<String>
-        System.out.println("ids = " + ids + " (looks fine so far)");
+        addRaw(varieties);                                  // compiles: an Integer goes into a List<String>
+        System.out.println("varieties = " + varieties + " (looks fine so far)");
         try {
-            String last = ids.get(1);                      // the failure shows up here, far from addRaw
+            String last = varieties.get(1);                 // the failure shows up here, far from addRaw
             System.out.println(last);
         } catch (ClassCastException e) {
             System.out.println("ClassCastException at the read: " + e.getMessage());
         }
 
         // Wrong move. Uncomment, predict the error, then run.
-        // addMarker(ids);
+        // addPriceTag(varieties);
     }
 }

@@ -255,7 +255,7 @@ class Exec04Cancel(Narrated):
         self.at(2)
         self.play(Create(ghost), run_time=1.0)
         self.at(3)
-        self.play(Indicate(tk, color=WHITE, scale_factor=1.15), run_time=0.9)
+        self.play(Indicate(tk[1], color=RULE, scale_factor=1.4), run_time=0.9)
         self.hold()
 
         rows = VGroup(T("1. wait until 42 is called", 26), T("2. wait five minutes, then the bus", 26),
@@ -283,7 +283,7 @@ class Exec04Cancel(Narrated):
         self.play(Transform(k_lab, pool_l), FadeIn(cook_l), run_time=0.8)
         self.at(1)
         self.play(FadeIn(sub, shift=DOWN * 0.1), run_time=0.6)
-        self.play(FadeIn(fut, shift=UP * 0.1), Indicate(tk, color=WHITE, scale_factor=1.1), run_time=0.8)
+        self.play(FadeIn(fut, shift=UP * 0.1), Indicate(tk[1], color=RULE, scale_factor=1.3), run_time=0.8)
         for i in range(3):
             self.at(i + 2)
             self.play(GrowArrow(arrows[i]), FadeIn(codes[i], shift=RIGHT * 0.1), run_time=0.6)
@@ -313,8 +313,10 @@ class Exec04Cancel(Narrated):
         steam = VGroup(*[FunctionGraph(lambda t: 0.06 * np.sin(6 * t), x_range=[0, 0.5]).rotate(PI / 2).set_stroke(GREY_B, 2)
                          .move_to(bg.get_top() + UP * 0.35 + RIGHT * dx) for dx in (-0.22, 0, 0.22)])
         tag42 = ticket("42", 0.6, 0.4, 22).next_to(bg, RIGHT, buff=0.2)
-        empty = DashedVMobject(person(YOU, 1.0)[0].copy().set_fill(opacity=0), num_dashes=16).set_stroke(GREY_B, 2)
-        empty.move_to([-5.2, -0.5, 0])
+        pe = person(YOU, 1.0)
+        empty = VGroup(DashedVMobject(pe[0].copy().set_fill(opacity=0), num_dashes=16),
+                       DashedVMobject(pe[1].copy().set_fill(opacity=0), num_dashes=10)).set_stroke(GREY_B, 2)
+        empty.move_to([-5.2, -0.35, 0])
         nobody = T("nobody", 24, GREY_B).next_to(empty, DOWN, buff=0.15)
         self.say("burger")
         self.play(FadeOut(q), run_time=0.3)
@@ -353,6 +355,7 @@ class Exec04Cancel(Narrated):
         cur = Line([0, MY + 0.45, 0], [0, KY - 0.45, 0], stroke_width=3, color=WHITE)
         tt = ValueTracker(0.0)
         cur.add_updater(lambda m: m.set_x(tx(tt.get_value())))
+        cur.update()
         m_part = mb.copy()
         k_part = kb.copy().stretch_to_fit_width(0.01, about_edge=LEFT)
         gave = T("gave up: 285 ms", 24, YOU).next_to(mb, UP, buff=0.12).align_to(mb, RIGHT).shift(RIGHT * 0.9)
@@ -364,13 +367,13 @@ class Exec04Cancel(Narrated):
         self.play(GrowFromEdge(m_part, LEFT, rate_func=linear), tt.animate(rate_func=linear).set_value(285),
                   UpdateFromAlphaFunc(k_part, lambda m, a: m.become(kb.copy().stretch_to_fit_width(
                       max(0.01, (min(285, max(86, 285 * a)) - 86) * PX), about_edge=LEFT).align_to(kb, LEFT))),
-                  run_time=self.left(2))
+                  run_time=self.left(2), rate_func=linear)
         self.play(FadeIn(gave, shift=UP * 0.1), run_time=0.5)
         self.at(3)
         self.play(tt.animate(rate_func=linear).set_value(771),
                   UpdateFromAlphaFunc(k_part, lambda m, a: m.become(kb.copy().stretch_to_fit_width(
                       (285 - 86 + (771 - 285) * a) * PX, about_edge=LEFT).align_to(kb, LEFT))),
-                  run_time=2.2)
+                  run_time=2.2, rate_func=linear)
         self.play(FadeIn(done, shift=DOWN * 0.1), FadeOut(cur), run_time=0.5)
         cur.clear_updaters()
         self.hold()
@@ -520,14 +523,14 @@ class Exec04Cancel(Narrated):
 
         out = M("after cancel: isCancelled=true/true/true isDone=true/true/true", 22, GREY_A).move_to([0, 2.95, 0])
         self.say("tickets")
-        self.play(FadeOut(top_f), Indicate(VGroup(*tks), color=NOTE, scale_factor=1.05), run_time=1.0)
+        self.play(FadeOut(top_f), Indicate(VGroup(*[t[1] for t in tks]), color=NOTE, scale_factor=1.15), run_time=1.0)
         self.at(1)
         self.play(FadeIn(out, shift=DOWN * 0.1), run_time=0.6)
         self.at(2)
-        self.play(Indicate(VGroup(tks[2], cks[2]), color=IGN_C, scale_factor=1.06), run_time=1.0)
+        self.play(Indicate(VGroup(tks[2][1], cks[2]), color=IGN_C, scale_factor=1.1), run_time=1.0)
         self.at(5)
         b3 = burger(0.6).next_to(stns[2], UP, buff=0.05).shift(RIGHT * 0.6)
-        self.play(FadeOut(props[2]), FadeIn(b3, scale=0.7), Indicate(tks[2], color=NOTE, scale_factor=1.08), run_time=1.0)
+        self.play(FadeOut(props[2]), FadeIn(b3, scale=0.7), Indicate(tks[2][1], color=NOTE, scale_factor=1.15), run_time=1.0)
         self.hold()
         kitchen3 = VGroup(*stns, *cks, props[0], props[1], b3, *names, *codes3, cnts[1], cnts[2], *tks, exc, notes[1], notes[2],
                           o1, o2, o3, look, out)

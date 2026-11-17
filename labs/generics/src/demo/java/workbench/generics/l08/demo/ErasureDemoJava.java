@@ -9,12 +9,12 @@ public class ErasureDemoJava {
     @SuppressWarnings("unchecked")
     public static void main(String[] args) {
         // 1. Two different types, one class at run time.
-        List<String> ids = new ArrayList<>();
-        List<Integer> cents = new ArrayList<>();
-        System.out.println("same class at run time: " + (ids.getClass() == cents.getClass()) + " (" + ids.getClass().getName() + ")");
+        List<String> varieties = new ArrayList<>();
+        List<Integer> weights = new ArrayList<>();
+        System.out.println("same class at run time: " + (varieties.getClass() == weights.getClass()) + " (" + varieties.getClass().getName() + ")");
 
         // 2. An unchecked cast succeeds, because only the class can be checked.
-        List<String> lies = (List<String>) (Object) List.of(1_200, 350);
+        List<String> lies = (List<String>) (Object) List.of(180, 150);
         System.out.println("the cast worked, size = " + lies.size());
 
         // 3. The failure comes later, where a String is finally needed.
@@ -26,7 +26,7 @@ public class ErasureDemoJava {
         }
 
         // Wrong move 1. Uncomment, predict the error, then run.
-        // System.out.println(((Object) ids) instanceof List<String>);
+        // System.out.println(((Object) varieties) instanceof List<String>);
     }
 
     // Wrong move 2: make a T without knowing what T is.

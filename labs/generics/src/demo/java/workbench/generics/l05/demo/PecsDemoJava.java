@@ -13,19 +13,19 @@ public class PecsDemoJava {
     }
 
     public static void main(String[] args) {
-        List<Integer> amounts = List.of(1_200, 350);
-        List<Number> numbers = new ArrayList<>(List.of(2.5));
-        List<Object> anything = new ArrayList<>(List.of("EUR"));
+        List<Apple> apples = List.of(new Apple("Gala", 180), new Apple("Fuji", 150));
+        List<Fruit> shelf = new ArrayList<>(List.of(new Lemon("Eureka", 120)));
+        List<Object> anything = new ArrayList<>(List.of("a paper bag"));
 
-        copyInto(amounts, numbers);       // T = Integer, or Number: both work
-        copyInto(amounts, anything);
-        System.out.println("numbers = " + numbers + ", anything = " + anything);
+        copyInto(apples, shelf);          // T = Apple, or Fruit: both work
+        copyInto(apples, anything);
+        System.out.println("shelf = " + shelf + ", anything = " + anything);
 
-        List<Number> slots = new ArrayList<>(Collections.nCopies(2, 0));
-        Collections.copy(slots, amounts);  // the JDK version overwrites slots in place
+        List<Fruit> slots = new ArrayList<>(Collections.nCopies(2, new Lemon("Eureka", 95)));
+        Collections.copy(slots, apples);  // the JDK version overwrites the slots in place
         System.out.println("slots = " + slots);
 
         // Wrong move. Uncomment, predict the error, then run.
-        // copyInto(numbers, new ArrayList<Integer>());
+        // copyInto(shelf, new ArrayList<Apple>());
     }
 }

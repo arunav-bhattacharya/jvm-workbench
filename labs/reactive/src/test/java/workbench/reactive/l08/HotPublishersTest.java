@@ -23,48 +23,48 @@ class HotPublishersTest {
         VirtualTimeScheduler.reset();
     }
 
-    static PaymentEvent event(int n) {
-        return new PaymentEvent("pay-" + n, "authorized");
+    static OrderEvent event(int n) {
+        return new OrderEvent("order-" + n, "placed");
     }
 
     @Test
-    @DisplayName("live() is hot: each subscriber sees only the events published after it subscribed")
+    @DisplayName("live() is hot: each listener hears only the events rung after it subscribed")
     void lateSubscriberSeesOnlyNewEvents() {
-        PaymentEventHub hub = new PaymentEventHub();
-        List<PaymentEvent> early = new CopyOnWriteArrayList<>();
-        List<PaymentEvent> late = new CopyOnWriteArrayList<>();
+        OrderBell bell = new OrderBell();
+        List<OrderEvent> early = new CopyOnWriteArrayList<>();
+        List<OrderEvent> late = new CopyOnWriteArrayList<>();
 
-        hub.publish(event(0));                                         // nobody is listening yet
-        hub.live().subscribe(early::add);
-        hub.publish(event(1));
-        hub.live().subscribe(late::add);
-        hub.publish(event(2));
+        bell.ring(event(0));                                           // nobody is listening yet
+        bell.live().subscribe(early::add);
+        bell.ring(event(1));
+        bell.live().subscribe(late::add);
+        bell.ring(event(2));
 
         assertThat(early).containsExactly(event(1), event(2));
         assertThat(late).containsExactly(event(2));
     }
 
     @Test
-    @DisplayName("live() keeps working after every subscriber has left")
-    void hubSurvivesAnEmptyRoom() {
-        PaymentEventHub hub = new PaymentEventHub();
-        hub.live().subscribe().dispose();                              // the only dashboard disconnects
-        List<PaymentEvent> next = new CopyOnWriteArrayList<>();
+    @DisplayName("live() keeps working after every listener has left")
+    void bellSurvivesAnEmptyRoom() {
+        OrderBell bell = new OrderBell();
+        bell.live().subscribe().dispose();                             // the only screen switches off
+        List<OrderEvent> next = new CopyOnWriteArrayList<>();
         AtomicInteger completions = new AtomicInteger();
 
-        hub.live().subscribe(next::add, e -> { }, completions::incrementAndGet);
-        hub.publish(event(7));
+        bell.live().subscribe(next::add, e -> { }, completions::incrementAndGet);
+        bell.ring(event(7));
 
-        assertThat(completions).as("completions seen by the new dashboard").hasValue(0);
+        assertThat(completions).as("completions seen by the new screen").hasValue(0);
         assertThat(next).containsExactly(event(7));
     }
 
     @Test
-    @DisplayName("publish() from 8 threads at once loses no event (8 x 2,000)")
-    void concurrentPublishersLoseNothing() throws InterruptedException {
-        PaymentEventHub hub = new PaymentEventHub();
+    @DisplayName("ring() from 8 threads at once loses no event (8 x 2,000)")
+    void concurrentRingersLoseNothing() throws InterruptedException {
+        OrderBell bell = new OrderBell();
         AtomicInteger received = new AtomicInteger();
-        hub.live().subscribe(e -> received.incrementAndGet());
+        bell.live().subscribe(e -> received.incrementAndGet());
 
         CountDownLatch go = new CountDownLatch(1);
         List<Thread> threads = new CopyOnWriteArrayList<>();
@@ -73,7 +73,7 @@ class HotPublishersTest {
             Thread thread = new Thread(() -> {
                 try {
                     go.await();
-                    for (int i = 0; i < 2_000; i++) hub.publish(event(i));
+                    for (int i = 0; i < 2_000; i++) bell.ring(event(i));
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } catch (RuntimeException e) {
@@ -86,28 +86,28 @@ class HotPublishersTest {
         go.countDown();
         for (Thread t : threads) t.join();
 
-        assertThat(crashed).as("publisher threads that died with an exception").hasValue(0);
+        assertThat(crashed).as("till threads that died with an exception").hasValue(0);
         assertThat(received).as("events received").hasValue(16_000);
     }
 
     @Test
-    @DisplayName("shareWithLatest opens one connection, and a late subscriber gets the latest rate at once")
+    @DisplayName("shareWithLatest opens one connection, and a late subscriber gets the latest reading at once")
     void oneConnectionAndLatestForLateSubscribers() {
-        TestPublisher<String> provider = TestPublisher.create();
+        TestPublisher<String> thermometer = TestPublisher.create();
         AtomicInteger connections = new AtomicInteger();
-        var shared = RateFeeds.shareWithLatest(provider.flux().doOnSubscribe(s -> connections.incrementAndGet()));
+        var shared = SharedFeeds.shareWithLatest(thermometer.flux().doOnSubscribe(s -> connections.incrementAndGet()));
         List<String> a = new CopyOnWriteArrayList<>();
         List<String> b = new CopyOnWriteArrayList<>();
 
         Disposable first = shared.subscribe(a::add);
-        provider.next("1.0811", "1.0812");
+        thermometer.next("201", "202");
         Disposable second = shared.subscribe(b::add);
-        assertThat(b).as("late subscriber, right after subscribing").containsExactly("1.0812");
-        provider.next("1.0813");
+        assertThat(b).as("late subscriber, right after subscribing").containsExactly("202");
+        thermometer.next("203");
 
-        assertThat(a).containsExactly("1.0811", "1.0812", "1.0813");
-        assertThat(b).containsExactly("1.0812", "1.0813");
-        assertThat(connections).as("connections to the provider").hasValue(1);
+        assertThat(a).containsExactly("201", "202", "203");
+        assertThat(b).containsExactly("202", "203");
+        assertThat(connections).as("connections to the thermometer").hasValue(1);
         first.dispose();
         second.dispose();
     }
@@ -115,16 +115,16 @@ class HotPublishersTest {
     @Test
     @DisplayName("shareWithLatest closes the connection when the last subscriber leaves")
     void lastSubscriberLeavingCancelsUpstream() {
-        TestPublisher<String> provider = TestPublisher.create();
-        var shared = RateFeeds.shareWithLatest(provider.flux());
+        TestPublisher<String> thermometer = TestPublisher.create();
+        var shared = SharedFeeds.shareWithLatest(thermometer.flux());
 
         Disposable first = shared.subscribe();
         Disposable second = shared.subscribe();
-        provider.next("1.0811");
+        thermometer.next("201");
         first.dispose();
-        assertThat(provider.wasCancelled()).as("cancelled while one subscriber remains").isFalse();
+        assertThat(thermometer.wasCancelled()).as("cancelled while one subscriber remains").isFalse();
         second.dispose();
-        assertThat(provider.wasCancelled()).as("cancelled after the last subscriber left").isTrue();
+        assertThat(thermometer.wasCancelled()).as("cancelled after the last subscriber left").isTrue();
     }
 
     @Test
@@ -132,15 +132,15 @@ class HotPublishersTest {
     void cacheExpires() {
         VirtualTimeScheduler clock = VirtualTimeScheduler.getOrSet();     // Reactor's timers now use this clock
         AtomicInteger loads = new AtomicInteger();
-        Mono<Integer> fees = RateFeeds.cacheFor(Mono.fromCallable(loads::incrementAndGet), Duration.ofMinutes(5));
+        Mono<Integer> prices = SharedFeeds.cacheFor(Mono.fromCallable(loads::incrementAndGet), Duration.ofMinutes(5));
         assertThat(loads).as("loads before anyone subscribes").hasValue(0);
 
-        assertThat(fees.block(Duration.ofSeconds(1))).isEqualTo(1);
-        assertThat(fees.block(Duration.ofSeconds(1))).as("second read, same minute").isEqualTo(1);
+        assertThat(prices.block(Duration.ofSeconds(1))).isEqualTo(1);
+        assertThat(prices.block(Duration.ofSeconds(1))).as("second read, same minute").isEqualTo(1);
         clock.advanceTimeBy(Duration.ofMinutes(4));
-        assertThat(fees.block(Duration.ofSeconds(1))).as("after 4 minutes").isEqualTo(1);
+        assertThat(prices.block(Duration.ofSeconds(1))).as("after 4 minutes").isEqualTo(1);
         clock.advanceTimeBy(Duration.ofMinutes(2));
-        assertThat(fees.block(Duration.ofSeconds(1))).as("after 6 minutes").isEqualTo(2);
+        assertThat(prices.block(Duration.ofSeconds(1))).as("after 6 minutes").isEqualTo(2);
         assertThat(loads).hasValue(2);
     }
 }

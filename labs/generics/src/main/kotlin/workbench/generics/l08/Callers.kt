@@ -13,12 +13,12 @@ import java.time.LocalDate
  */
 object Callers {
     fun stringOrNull(x: Any?): String? = x.asOrNull<String>()
-    fun longOrNull(x: Any?): Long? = x.asOrNull<Long>()
-    fun eventOrNull(x: Any?): PaymentEvent? = x.asOrNull<PaymentEvent>()
+    fun intOrNull(x: Any?): Int? = x.asOrNull<Int>()
+    fun fruitOrNull(x: Any?): Fruit? = x.asOrNull<Fruit>()
 
-    fun cardsIn(items: List<Any?>): List<CardAuthorized> = instancesOf<CardAuthorized>(items)
+    fun applesIn(items: List<Any?>): List<Apple> = instancesOf<Apple>(items)
     fun stringsIn(items: List<Any?>): List<String> = instancesOf<String>(items)
 
-    fun money(parsers: Parsers, text: String): Money = parsers.parse<Money>(text)
+    fun weight(parsers: Parsers, text: String): Weight = parsers.parse<Weight>(text)
     fun date(parsers: Parsers, text: String): LocalDate = parsers.parse<LocalDate>(text)
 }

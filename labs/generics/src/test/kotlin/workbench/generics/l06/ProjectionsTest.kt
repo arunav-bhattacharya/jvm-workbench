@@ -25,9 +25,9 @@ class ProjectionsTest {
 
     @Test
     fun `fillWith appends count copies of the value`() {
-        val target = mutableListOf("EUR")
-        fillWith(target, "pending", 3)
-        assertThat(target).containsExactly("EUR", "pending", "pending", "pending")
+        val target = mutableListOf("Gala")
+        fillWith(target, "Fuji", 3)
+        assertThat(target).containsExactly("Gala", "Fuji", "Fuji", "Fuji")
     }
 
     @Test

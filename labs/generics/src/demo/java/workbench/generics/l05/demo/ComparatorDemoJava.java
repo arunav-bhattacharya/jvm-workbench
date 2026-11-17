@@ -7,23 +7,27 @@ import java.util.List;
 /** Java twin of ComparatorDemo.kt. List.sort takes a Comparator<? super E>. */
 public class ComparatorDemoJava {
 
-    static final Comparator<PaymentEvent> BY_PAYMENT_ID = Comparator.comparing(PaymentEvent::getPaymentId);
+    static final Comparator<Fruit> BY_WEIGHT = Comparator.comparingInt(Fruit::getGrams);
+
+    static List<String> show(List<? extends Fruit> fruit) {
+        return fruit.stream().map(f -> f.getName() + " " + f.getGrams() + " g").toList();
+    }
 
     public static void main(String[] args) {
-        List<CardAuthorized> auths = new ArrayList<>(List.of(new CardAuthorized("pay_3", 1_200), new CardAuthorized("pay_1", 350)));
-        List<RefundIssued> refunds = new ArrayList<>(List.of(new RefundIssued("pay_9", 50), new RefundIssued("pay_4", 75)));
+        List<Apple> apples = new ArrayList<>(List.of(new Apple("Gala", 180), new Apple("Fuji", 150)));
+        List<Lemon> lemons = new ArrayList<>(List.of(new Lemon("Eureka", 120), new Lemon("Eureka", 95)));
 
-        List<CardAuthorized> sortedAuths = new ArrayList<>(auths);
-        sortedAuths.sort(BY_PAYMENT_ID);    // List<E>.sort(Comparator<? super E>)
-        List<RefundIssued> sortedRefunds = new ArrayList<>(refunds);
-        sortedRefunds.sort(BY_PAYMENT_ID);
-        System.out.println(sortedAuths.stream().map(PaymentEvent::getPaymentId).toList());
-        System.out.println(sortedRefunds.stream().map(PaymentEvent::getPaymentId).toList());
+        List<Apple> sortedApples = new ArrayList<>(apples);
+        sortedApples.sort(BY_WEIGHT);     // List<E>.sort(Comparator<? super E>)
+        List<Lemon> sortedLemons = new ArrayList<>(lemons);
+        sortedLemons.sort(BY_WEIGHT);
+        System.out.println(show(sortedApples));
+        System.out.println(show(sortedLemons));
 
-        Comparator<? super CardAuthorized> forCards = BY_PAYMENT_ID;
+        Comparator<? super Apple> forApples = BY_WEIGHT;
 
         // Wrong move. Uncomment, predict the error, then run.
-        // Comparator<CardAuthorized> strict = BY_PAYMENT_ID;
-        System.out.println("forCards compares: " + forCards.compare(auths.get(0), auths.get(1)));
+        // Comparator<Apple> strict = BY_WEIGHT;
+        System.out.println("forApples compares Gala with Fuji: " + forApples.compare(apples.get(0), apples.get(1)));
     }
 }
