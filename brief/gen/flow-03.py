@@ -344,7 +344,7 @@ L = {
      "Run `FlowOnThreadsJava`, the Reactor version."
     ],
     "code": tryit("FlowOnThreads.kt", "FlowOnThreadsJava.java"),
-    "expect": "`emit` and `map1` run on `io-thread @coroutine#3`, `map2` on `cpu-thread @coroutine#2` and `collect` on `main @coroutine#1`: three coroutines and two channels. The fused flow prints `ChannelFlowOperatorImpl[context=Dispatchers.IO]`. With `CoroutineName`, emit and collect alternate on `main`, and the upstream shows `@renamed#1`. After the swap, `emit` and `map1` run on `cpu-thread` and `map2` on `io-thread`. The Reactor version puts `emit` and `map1` on an `io-thread` thread, `map2` on a `cpu-thread` thread and `collect` on `main`, using `publishOn` for the second wall."
+    "expect": "`emit` and `map1` run on `io-thread @coroutine#3`, `map2` on `cpu-thread @coroutine#2` and `collect` on `main @coroutine#1`: three coroutines and two channels. The fused flow prints `ChannelFlowOperatorImpl[context=Dispatchers.IO]`. With `CoroutineName`, emit and collect alternate on `main`, and the upstream shows `@renamed#1`. After the swap, `emit` and `map1` run on `cpu-thread` and `map2` on `io-thread`. The Reactor version puts `emit` and `map1` on `io-thread-2`, `map2` on `cpu-thread-1` and `collect` on `main` (Reactor adds a number to each thread name), using `publishOn` for the second wall."
    }
   },
   {
