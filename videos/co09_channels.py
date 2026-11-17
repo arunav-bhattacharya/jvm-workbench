@@ -284,15 +284,15 @@ class Co09Channels(Narrated):
         self.play(FadeOut(VGroup(q1, q2)), run_time=0.5)
 
         # ================= map it =================
-        ch_l = M("Channel", 26, SHELF).move_to([WALL_X, 3.35, 0])
+        ch_l = M("Channel", 26, SHELF).move_to([WALL_X + 1.25, 2.55, 0])
         snd = Arrow(HAND_C + UP * 0.55, spot_xy(0) + UP * 0.55, buff=0.05, stroke_width=3, color=COOK, max_tip_length_to_length_ratio=0.25)
         snd_l = M("send", 24, COOK).next_to(snd, UP, buff=0.1)
         rcv = Arrow(spot_xy(1) + UP * 0.55, HAND_H + UP * 0.55, buff=0.05, stroke_width=3, color=HELPER, max_tip_length_to_length_ratio=0.25)
         rcv_l = M("receive", 24, HELPER).next_to(rcv, UP, buff=0.1)
-        cap_l = T("the shelf: capacity = 2", 24, SHELF).move_to([WALL_X, -0.85, 0])
-        once = T("each element is received exactly once", 26, WHITE).move_to([0, -1.75, 0])
-        nothr = T("waiting = suspending: an empty hatch holds no thread", 26, SUSP).move_to([0, -2.55, 0])
-        code0 = M("val hatch = Channel<Int>(capacity = 2)", 26, t2c={"Channel": SHELF}).move_to([0, -3.25, 0])
+        cap_l = T("the shelf: capacity = 2", 24, SHELF).move_to([WALL_X, -1.05, 0])
+        once = T("each element is received exactly once", 26, WHITE).move_to([0, -1.7, 0])
+        nothr = T("waiting = suspending: an empty hatch holds no thread", 26, SUSP).move_to([0, -2.4, 0])
+        code0 = M("val hatch = Channel<Int>(capacity = 2)", 26, t2c={"Channel": SHELF}).move_to([0, -3.1, 0])
         self.say("map")
         self.play(FadeIn(ch_l), run_time=0.5)
         self.at_text("The cook calls", lead=0.3)
@@ -312,8 +312,8 @@ class Co09Channels(Narrated):
         # ================= five plates through a shelf of two =================
         stack = [plate(i, 1.0) for i in range(1, 6)]
         for i, p in enumerate(stack):
-            p.move_to([-4.5 + 0.0 * i, -0.45 + 0.13 * i, 0])
-        stack_l = T("five plates, as fast as she can", 22, COOK).move_to([-4.5, -1.15, 0])
+            p.move_to([-4.6, 0.5 + 0.13 * i, 0])
+        stack_l = T("five plates, as fast as she can", 22, COOK).move_to([-4.3, -0.2, 0])
         hl_l = T("100 ms per plate", 22, HELPER).move_to([2.3, -0.15, 0])
         clock = {"m": T("t = 0 ms", 26, GREY_A).move_to([4.6, 2.3, 0])}
         ret = M("send() returned at", 24, COOK).move_to([-4.6, -2.3, 0], aligned_edge=LEFT)
@@ -406,7 +406,7 @@ class Co09Channels(Narrated):
         self.hold()
 
         pile = VGroup(*[plate("", 0.6).move_to([1.2 + 0.45 * (i % 9), -0.2 + 0.32 * (i // 9) + 0.0, 0]) for i in range(18)])
-        oom = T("OutOfMemoryError, some hours later", 26, BAD).move_to([3.0, 2.3, 0])
+        oom = T("OutOfMemoryError, some hours later", 26, BAD).move_to([3.3, 2.3, 0])
         self.say("unl_joke")
         self.play(FadeOut(c1), Indicate(trs[2], color=WHITE), run_time=0.7)
         self.at_text("until the dining", lead=0.3)
@@ -444,7 +444,7 @@ class Co09Channels(Narrated):
         night = T("all night", 26, YELLOW_M).next_to(mn, DOWN, buff=0.2)
         apron_l = T("a real helper sees this", 24, GREY_A).move_to([-2.3, -0.35, 0])
         produce = M("val hatch = produce { for (dish in dinner) send(dish) }", 24, t2c={"produce": CANCEL}).move_to([0, -3.15, 0])
-        pr_l = T("closes the hatch when its block ends", 24, CANCEL).move_to([0, 3.4, 0])
+        pr_l = T("closes the hatch when its block ends", 24, CANCEL).move_to([0, -2.55, 0])
         self.say("last_joke")
         self.play(FadeIn(tray), FadeIn(mn), FadeIn(night), run_time=0.7)
         self.play(Wiggle(helper, scale_value=1.05, rotation_angle=0.03 * TAU), run_time=0.8)
@@ -534,7 +534,7 @@ class Co09Channels(Narrated):
 
         # ================= select: whichever answers first =================
         ck = person(COOK, 1.3).move_to([-4.9, 1.4, 0])
-        tm = timer(TIMER, 0.9).move_to([-4.9, 2.95, 0]).shift(RIGHT * 1.0)
+        tm = timer(TIMER, 0.9).move_to([-3.9, 2.8, 0])
         corner = shop_icon(0.65).move_to([1.6, 2.55, 0])
         market = shop_icon(0.65).move_to([1.6, 0.6, 0])
         corner_l = T("corner bakery: 300 ms", 24, BAKERY).next_to(corner, RIGHT, buff=0.3)
@@ -546,7 +546,7 @@ class Co09Channels(Narrated):
         def sx(ms):
             return -4.6 + ms * 0.0175
 
-        TL = -1.3
+        TL = -1.0
         axis = Line([sx(0), TL - 1.45, 0], [sx(520), TL - 1.45, 0], stroke_width=2, color=GREY_B)
         tks = VGroup(*[VGroup(Line([sx(m), TL - 1.52, 0], [sx(m), TL - 1.38, 0], stroke_width=2, color=GREY_B),
                               T(str(m), 20, GREY_B).move_to([sx(m), TL - 1.75, 0])) for m in (0, 100, 200, 300, 400, 500)])
@@ -576,7 +576,7 @@ class Co09Channels(Narrated):
         self.hold(after=0)
         self.predict(pos=(6.4, 3.15), edge=RIGHT)
 
-        won = T("after 213 ms: market bakery: plenty of sourdough", 26, BAKERY).move_to([0, -3.35, 0])
+        won = T("after 213 ms: market bakery: plenty of sourdough", 26, BAKERY).move_to([0, -3.2, 0])
         mark = DashedLine([sx(213), TL + 0.3, 0], [sx(213), TL - 1.2, 0], dash_length=0.08).set_stroke(WHITE, 2)
         hang = VGroup(T("hang up", 22, CANCEL), tick(False, 0.15).set_stroke(CANCEL, 4)).arrange(RIGHT, buff=0.12)
         hang.move_to(l1.get_center() + UP * 0.35)
@@ -587,7 +587,7 @@ class Co09Channels(Narrated):
         self.play(l1.animate.set_stroke(opacity=0.25), FadeIn(hang), run_time=0.6)
         self.at_text("With a budget", lead=0.3)
         b_t100 = tbar(100, TL - 0.9, TIMER, "timer")
-        own = T("nobody answered within 100 ms: we bake our own bread", 26, TIMER).move_to([0, -3.35, 0])
+        own = T("nobody answered within 100 ms: we bake our own bread", 26, TIMER).move_to([0, -3.2, 0])
         self.play(Transform(b_timer, b_t100), FadeOut(won), FadeOut(mark), FadeOut(hang), l1.animate.set_stroke(opacity=1),
                   l2.animate.set_stroke(GREY_B, 2.5), run_time=0.8)
         self.play(Wiggle(tm, scale_value=1.2, rotation_angle=0.08 * TAU), FadeIn(own), run_time=0.9)
@@ -619,7 +619,8 @@ class Co09Channels(Narrated):
                         "    for (String dish : dinner) putQuietly(hatch, dish);   // blocks while full",
                         "    putQuietly(hatch, LAST);                              // the end marker",
                         "});",
-                        "for (String dish = hatch.take(); !dish.equals(LAST); dish = hatch.take()) serve(dish);"], 22,
+                        "for (String dish = hatch.take(); !dish.equals(LAST); dish = hatch.take())",
+                        "    serve(dish);"], 22,
                        {"ArrayBlockingQueue": SHELF, "LAST": CANCEL, "// blocks while full": GREY_B, "// the end marker": GREY_B})
         cols = VGroup(VGroup(T("Kotlin", 24, GREY_B), k).arrange(DOWN, aligned_edge=LEFT, buff=0.18),
                       VGroup(T("Java", 24, GREY_B), j).arrange(DOWN, aligned_edge=LEFT, buff=0.18))
