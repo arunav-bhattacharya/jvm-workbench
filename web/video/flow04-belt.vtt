@@ -1,165 +1,309 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.807
-A settlement reader sends 200 postings to the ledger writer.
+00:00:02.700 --> 00:00:03.928
+A big family lunch.
 
 2
-00:00:06.807 --> 00:00:09.614
-A row lock holds the writer on posting 1.
+00:00:03.928 --> 00:00:10.457
+The cook is making dumplings, two hundred of them, one at a time, and a diner eats them as they come.
 
 3
-00:00:09.614 --> 00:00:11.531
-How far does the reader get?
+00:00:10.667 --> 00:00:14.707
+Then the diner's phone rings, with dumpling 1 still on the plate.
 
 4
-00:00:11.633 --> 00:00:14.588
-With no buffer, emit calls the writer's code.
+00:00:14.707 --> 00:00:16.945
+Somebody's aunt, by the sound of it.
 
 5
-00:00:14.588 --> 00:00:18.068
-The reader is stuck inside emit 1, so the count is 0.
+00:00:16.945 --> 00:00:22.228
+In a plain flow, the cook stands at the table holding dumpling 2 until the call ends.
 
 6
-00:00:18.800 --> 00:00:19.838
-Add buffer(10).
+00:00:22.433 --> 00:00:26.736
+Put a shelf in the hatch, and she can keep cooking while the diner talks.
 
 7
-00:00:19.838 --> 00:00:27.795
-The reader moves to a second coroutine, in a room of its own, and its emits become sends onto a belt with 10 slots.
+00:00:26.736 --> 00:00:29.743
+In code, that's buffer(10): a shelf with ten spots.
 
 8
-00:00:27.900 --> 00:00:29.688
-The writer is still stuck.
+00:00:29.967 --> 00:00:32.814
+Here's a question that's easy to be shy about.
 
 9
-00:00:29.688 --> 00:00:31.476
-How many emits return now?
+00:00:32.814 --> 00:00:34.671
+How far does she actually get?
 
 10
-00:00:33.967 --> 00:00:36.828
-Posting 1 rides the belt to the writer.
+00:00:34.671 --> 00:00:38.819
+While the diner is on the phone, how many of her emit calls return?
 
 11
-00:00:36.828 --> 00:00:39.176
-Postings 2 to 11 fill the slots.
-
-12
-00:00:39.176 --> 00:00:42.845
-Then the belt is full, and the next send suspends.
-
-13
-00:00:42.845 --> 00:00:43.359
+00:00:41.800 --> 00:00:42.276
 Eleven.
 
+12
+00:00:42.276 --> 00:00:44.451
+Ten dumplings wait on the shelf.
+
+13
+00:00:44.451 --> 00:00:49.142
+And one more, dumpling 1, left the shelf when the diner picked it up.
+
 14
-00:00:43.567 --> 00:00:48.194
-That's n plus 1: n on the belt, and one in the writer's hands.
+00:00:49.142 --> 00:00:50.637
+Ten, plus one in hand.
 
 15
-00:00:48.194 --> 00:00:52.672
-So buffer(0) gives 1, and buffer(), with 64 slots, gives 65.
+00:00:50.867 --> 00:00:52.147
+Here's the machine.
 
 16
-00:00:52.672 --> 00:00:55.583
-A full belt only makes the reader wait.
+00:00:52.147 --> 00:00:54.911
+It's the wall with a hatch from lesson 3.
 
 17
-00:00:55.583 --> 00:00:56.777
-Nothing is lost.
+00:00:54.911 --> 00:01:03.944
+buffer moves the cook into a second coroutine, and her emit becomes a send into a channel, a queue between coroutines, with ten spots.
 
 18
-00:00:57.800 --> 00:01:01.190
-Now 200 FX ticks hit a repricer stuck on tick 1.
+00:01:03.944 --> 00:01:06.573
+send returns as long as a spot is free.
 
 19
-00:01:01.190 --> 00:01:05.215
-conflate swaps the belt for a stand that holds one plate.
+00:01:06.800 --> 00:01:13.124
+On our side, a loop takes each dumpling off the shelf, and calls the real emit, which runs the diner.
 
 20
-00:01:05.215 --> 00:01:07.121
-What will the repricer see?
+00:01:13.124 --> 00:01:16.130
+flowOn builds this machine to change the thread.
 
 21
-00:01:09.600 --> 00:01:11.053
-conflate never waits.
+00:01:16.130 --> 00:01:18.447
+buffer builds it to change the shelf.
 
 22
-00:01:11.053 --> 00:01:16.382
-Each new tick replaces the one on the stand, and the old one goes in the bin.
+00:01:19.367 --> 00:01:23.002
+So the count is always one more than the shelf.
 
 23
-00:01:16.382 --> 00:01:18.665
-The repricer sees only 1 and 200.
+00:01:23.002 --> 00:01:26.482
+No buffer: zero, because emit runs the diner.
 
 24
-00:01:19.467 --> 00:01:23.975
-With collectLatest, a new tick cancels the running repricing.
+00:01:26.482 --> 00:01:30.736
+buffer(0), a hand-over where both hands must meet: one.
 
 25
-00:01:23.975 --> 00:01:30.405
-A tick every 100 milliseconds, 300 to reprice, and 50 to release a lock when cancelled.
+00:01:30.736 --> 00:01:32.205
+buffer(10): eleven.
 
 26
-00:01:30.405 --> 00:01:32.031
-When does tick 3 come?
+00:01:32.205 --> 00:01:35.763
+And buffer() with no size has 64 spots, so 65.
 
 27
-00:01:34.500 --> 00:01:37.812
-At 200, tick 2 cancels repricing 1.
+00:01:35.967 --> 00:01:39.002
+Even one dumpling of slack matters.
 
 28
-00:01:37.812 --> 00:01:43.396
-Its cleanup runs until 250, and the feed waits inside emit.
+00:01:39.002 --> 00:01:44.727
+buffer(0) turns lesson 1's dinner, 1,200 milliseconds, into 1,000.
 
 29
-00:01:43.396 --> 00:01:46.424
-So tick 3 comes at 350, not 300.
+00:01:45.633 --> 00:01:48.244
+So far, a full shelf made the cook wait.
 
 30
-00:01:46.533 --> 00:01:50.598
-Picture a cashier who tears up a half-written receipt for each new order.
+00:01:48.244 --> 00:01:52.487
+That's the default overflow policy, SUSPEND, and nothing is lost.
 
 31
-00:01:50.598 --> 00:01:55.443
-She finishes shredding before she starts the next one, and the cook waits at the hatch.
+00:01:52.487 --> 00:01:54.706
+The other two policies never wait.
 
 32
-00:01:55.567 --> 00:02:01.561
-collectLatest cancels the old block, then joins it, inside the feed's emit.
+00:01:54.706 --> 00:01:57.969
+When the shelf is full, something goes in the bin.
 
 33
-00:02:01.561 --> 00:02:03.879
-The run ends at 700, not 600.
+00:01:58.200 --> 00:02:08.237
+Dumplings are the wrong food for the bin, so take something where only the newest value matters: the oven's thermometer, and the little screen on the oven door.
 
 34
-00:02:04.700 --> 00:02:06.257
-Each choice is one line.
+00:02:08.237 --> 00:02:12.315
+The screen is stuck drawing reading 1, while 200 readings arrive.
 
 35
-00:02:06.257 --> 00:02:08.916
-Reactor's closest twins are on the right.
+00:02:12.533 --> 00:02:17.079
+buffer(10) shows all 200, because the thermometer waited.
 
 36
-00:02:10.400 --> 00:02:12.957
-So pick by what one lost value costs.
+00:02:17.079 --> 00:02:22.981
+DROP_OLDEST bins the oldest waiting reading, and shows 1, then 191 to 200.
 
 37
-00:02:12.957 --> 00:02:14.754
-FX repricing may conflate.
+00:02:22.981 --> 00:02:26.889
+DROP_LATEST bins each new one, and shows 1 to 11.
 
 38
-00:02:14.754 --> 00:02:19.039
-Ledger postings must never drop: they get a buffer that waits.
+00:02:27.100 --> 00:02:34.305
+And conflate keeps only the newest: one spot, where each new reading pushes the waiting one into the bin.
 
 39
-00:02:19.167 --> 00:02:19.985
-Quick check.
+00:02:34.305 --> 00:02:36.569
+The screen shows 1, and then 200.
 
 40
-00:02:19.985 --> 00:02:23.395
-The writer is stuck on posting 1 behind buffer(1).
+00:02:36.569 --> 00:02:38.491
+It never makes anybody wait.
 
 41
-00:02:23.395 --> 00:02:25.373
-How many emits have returned?
+00:02:38.700 --> 00:02:39.887
+Here's the trap.
+
+42
+00:02:39.887 --> 00:02:45.673
+A helper wants the newest 64, and writes buffer with DROP_OLDEST, and no size.
+
+43
+00:02:45.673 --> 00:02:49.530
+With a drop policy, the default size means one spot.
+
+44
+00:02:49.530 --> 00:02:52.794
+So that line is conflate under another name.
+
+45
+00:02:52.794 --> 00:02:54.648
+If you mean 64, write 64.
+
+46
+00:02:55.567 --> 00:02:59.825
+So before you pick a drop policy, ask what one lost value costs.
+
+47
+00:02:59.825 --> 00:03:02.286
+A stale temperature is worth nothing.
+
+48
+00:03:02.286 --> 00:03:05.680
+A lost plate of dumplings is a guest with no lunch.
+
+49
+00:03:05.680 --> 00:03:07.476
+Plates get SUSPEND, always.
+
+50
+00:03:08.400 --> 00:03:11.206
+Two shelves side by side don't stay two.
+
+51
+00:03:11.206 --> 00:03:17.450
+buffer(10) then buffer(20) snap together into one shelf of 30, so the cook gets 31 ahead.
+
+52
+00:03:17.450 --> 00:03:18.923
+That's called fusion.
+
+53
+00:03:18.923 --> 00:03:25.728
+And a drop policy at the end relabels the whole shelf: buffer(10) then conflate is just conflate.
+
+54
+00:03:26.633 --> 00:03:27.976
+Last, collectLatest.
+
+55
+00:03:27.976 --> 00:03:31.063
+A new reading cancels the drawing in progress.
+
+56
+00:03:31.063 --> 00:03:37.373
+But a cancelled drawing must wipe its half-drawn number first, and that takes 50 milliseconds.
+
+57
+00:03:37.373 --> 00:03:40.661
+Readings come every 100, and a drawing takes 300.
+
+58
+00:03:40.661 --> 00:03:43.413
+When does the thermometer emit reading 3?
+
+59
+00:03:46.600 --> 00:03:48.438
+Most people say 300.
+
+60
+00:03:48.438 --> 00:03:57.813
+The test's virtual clock, a fake clock with exact timings, says 350, and the run ends at 700, not 600.
+
+61
+00:03:58.033 --> 00:04:04.793
+collectLatest cancels the old block, then waits for it to finish, and it does that inside the thermometer's emit.
+
+62
+00:04:04.793 --> 00:04:10.057
+So the thermometer stands at the hatch with reading 2, while the screen wipes reading 1.
+
+63
+00:04:10.267 --> 00:04:17.377
+So use the Latest operators only for work you can throw away, like drawing a number, and keep the cleanup short.
+
+64
+00:04:18.300 --> 00:04:19.671
+Here it is in code.
+
+65
+00:04:19.671 --> 00:04:23.713
+Plates get buffer(64): a full shelf makes the cook wait.
+
+66
+00:04:23.713 --> 00:04:25.301
+Readings get conflate.
+
+67
+00:04:25.301 --> 00:04:33.601
+In Java, plates go through a queue with 64 slots, and Reactor's onBackpressureLatest keeps only the newest reading.
+
+68
+00:04:34.433 --> 00:04:36.326
+So, how far does the cook get?
+
+69
+00:04:36.326 --> 00:04:41.814
+One more than the shelf holds, and then she waits, unless you chose a policy that bins.
+
+70
+00:04:41.814 --> 00:04:46.608
+Shelves side by side snap into one, and collectLatest waits for the cleanup.
+
+71
+00:04:46.608 --> 00:04:48.753
+Pick by what one lost value costs.
+
+72
+00:04:48.967 --> 00:04:49.827
+Quick check.
+
+73
+00:04:49.827 --> 00:04:51.835
+buffer(10), then buffer(20).
+
+74
+00:04:51.835 --> 00:04:54.776
+The diner is stuck on the first dumpling.
+
+75
+00:04:54.776 --> 00:04:56.353
+How many emits return?
+
+76
+00:04:59.533 --> 00:04:59.761
+31.
+
+77
+00:04:59.761 --> 00:05:05.989
+The two shelves fuse into one shelf of 30, plus one dumpling in the diner's hands.
