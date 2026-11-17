@@ -1,85 +1,357 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.343
-This Kotlin function returns a Flow of ledger entries.
+00:00:02.700 --> 00:00:04.485
+Here's one line of Kotlin.
 
 2
-00:00:06.343 --> 00:00:10.863
-Its body asks the ledger service for a page, then emits each entry.
+00:00:04.485 --> 00:00:12.932
+aisle returns a Flow, a stream of values that arrive one at a time: here, the fruit in one aisle of a grocer's online shop.
 
 3
-00:00:11.667 --> 00:00:13.577
-Call it, and nothing happens.
+00:00:13.133 --> 00:00:16.122
+So here's a question that's easy to be shy about.
 
 4
-00:00:13.577 --> 00:00:15.883
-Not one request reaches the ledger.
+00:00:16.122 --> 00:00:19.477
+When this line returns, has the shop sent anything yet?
 
 5
-00:00:16.100 --> 00:00:19.436
-A Flow is a description of the work, like a recipe.
+00:00:19.477 --> 00:00:23.564
+And if two readers use the same flow, do they share what came back?
 
 6
-00:00:19.436 --> 00:00:22.641
-Calling the function only writes the recipe down.
+00:00:27.133 --> 00:00:28.838
+Let's step into the kitchen.
 
 7
-00:00:22.867 --> 00:00:24.828
-Operators don't run it either.
+00:00:28.838 --> 00:00:31.456
+A recipe card for lemon cake cooks nothing.
 
 8
-00:00:24.828 --> 00:00:28.621
-filter and map take a flow and return a new flow, at once.
+00:00:31.456 --> 00:00:35.473
+It can sit in a drawer for a year, and the kitchen stays spotless.
 
 9
-00:00:28.621 --> 00:00:30.844
-They only add steps to the recipe.
+00:00:35.700 --> 00:00:41.247
+Only when somebody cooks from it does anything happen, from the top, one step at a time.
 
 10
-00:00:31.067 --> 00:00:34.781
-Work starts only with a terminal operator, such as collect.
+00:00:41.247 --> 00:00:45.911
+And if two people cook from one card, every step happens twice: two cakes.
 
 11
-00:00:34.781 --> 00:00:40.509
-collect is a suspend function, and it runs the body right there, in the caller's coroutine.
+00:00:46.133 --> 00:00:46.937
+Let's map it.
 
 12
-00:00:40.600 --> 00:00:46.698
-Each emit pushes one entry through filter and map into your lambda, and waits until that is done.
+00:00:46.937 --> 00:00:50.276
+The card is the flow, and writing it is calling aisle.
 
 13
-00:00:46.698 --> 00:00:49.339
-Only then does the body make the next one.
+00:00:50.276 --> 00:00:53.616
+Cooking from it is collecting, with collect or toList.
 
 14
-00:00:49.567 --> 00:00:51.257
-Now collect a second time.
+00:00:53.616 --> 00:00:57.573
+And each person cooking is a collector, with a run of their own.
 
 15
-00:00:51.257 --> 00:00:55.937
-The body runs again, from the top, and the ledger gets a second request.
+00:00:58.400 --> 00:01:01.667
+Now shrink the shop: three pages, two items on each.
 
 16
-00:00:57.300 --> 00:00:58.817
-That is what cold means.
+00:01:01.667 --> 00:01:09.144
+For every page, the flow prints fetching, gets the page, and calls emit for each item, which hands it to the collector.
 
 17
-00:00:58.817 --> 00:01:02.924
-Every collector gets its own run of the producer, from the start.
+00:01:09.367 --> 00:01:10.838
+First we build the flow.
 
 18
-00:01:03.833 --> 00:01:06.525
-A Reactor Flux is cold in the same way.
+00:01:10.838 --> 00:01:13.841
+It prints building, then built, and nothing else.
 
 19
-00:01:06.525 --> 00:01:09.009
-Nothing happens until you subscribe.
+00:01:13.841 --> 00:01:15.680
+The shop hasn't heard a thing.
 
 20
-00:01:09.233 --> 00:01:14.615
-To share one run between collectors, you need a hot flow, StateFlow or SharedFlow.
+00:01:15.900 --> 00:01:17.535
+Now we collect it twice.
 
 21
-00:01:14.615 --> 00:01:16.649
-That is lesson 8 of this track.
+00:01:17.535 --> 00:01:20.329
+How many pages does the shop send in all?
+
+22
+00:01:23.300 --> 00:01:23.599
+Six.
+
+23
+00:01:23.599 --> 00:01:29.960
+The first collect fetches pages 0, 1 and 2, and the second starts again from the top.
+
+24
+00:01:29.960 --> 00:01:32.280
+Two cooks, one card, two cakes.
+
+25
+00:01:33.067 --> 00:01:36.949
+Now take(3), which collects only the first three items.
+
+26
+00:01:36.949 --> 00:01:38.008
+How many pages?
+
+27
+00:01:41.000 --> 00:01:41.288
+Two.
+
+28
+00:01:41.288 --> 00:01:44.095
+The third item, cherries, is on page 1.
+
+29
+00:01:44.095 --> 00:01:49.204
+Once take has three, it cancels the flow, so page 2 is never asked for.
+
+30
+00:01:49.204 --> 00:01:53.379
+Nobody wanted the figs and grapes, so nobody fetched them.
+
+31
+00:01:54.200 --> 00:01:56.329
+A flow like this is called cold.
+
+32
+00:01:56.329 --> 00:01:57.993
+Building it runs nothing.
+
+33
+00:01:57.993 --> 00:02:00.855
+Each collector runs it again, from the top.
+
+34
+00:02:01.067 --> 00:02:02.586
+Here the picture breaks.
+
+35
+00:02:02.586 --> 00:02:05.055
+In a kitchen, a second cake is a treat.
+
+36
+00:02:05.055 --> 00:02:10.056
+A second run of a flow is just another trip to the shop, and nothing warns you.
+
+37
+00:02:10.056 --> 00:02:12.272
+Sharing one run is the next lesson.
+
+38
+00:02:13.100 --> 00:02:15.505
+Flows have more steps, like recipes.
+
+39
+00:02:15.505 --> 00:02:21.920
+filter and map are intermediate operators: each one returns a new flow at once and runs nothing.
+
+40
+00:02:21.920 --> 00:02:24.192
+It only writes a line on the card.
+
+41
+00:02:24.400 --> 00:02:26.115
+Let's run some steps.
+
+42
+00:02:26.115 --> 00:02:32.730
+The kitchen scale sends 250 grams, minus 40, because nobody zeroed it, and 1,200.
+
+43
+00:02:32.730 --> 00:02:38.201
+filter keeps the positive ones, and map turns grams into kilograms.
+
+44
+00:02:38.433 --> 00:02:44.435
+Which line prints first: emit minus 40, or collect 0.25 kilograms?
+
+45
+00:02:47.433 --> 00:02:49.031
+collect 0.25 kilograms.
+
+46
+00:02:49.031 --> 00:02:56.118
+The first weight goes all the way down before the second is emitted, and minus 40 stops at the filter.
+
+47
+00:02:56.118 --> 00:02:59.592
+No queues between the steps, and no extra threads.
+
+48
+00:02:59.800 --> 00:03:04.815
+The steps that cook are terminal operators, such as collect, toList and first.
+
+49
+00:03:04.815 --> 00:03:07.579
+They start the flow and read it to the end.
+
+50
+00:03:07.579 --> 00:03:09.186
+Intermediate steps write.
+
+51
+00:03:09.186 --> 00:03:10.408
+Terminal ones cook.
+
+52
+00:03:11.233 --> 00:03:14.387
+So far every step ran on the collector's thread.
+
+53
+00:03:14.387 --> 00:03:21.285
+Now a delivery note arrives, one line per item, and the old reader's readLine blocks, holding its thread.
+
+54
+00:03:21.285 --> 00:03:25.227
+That belongs on the bench by the front door, Dispatchers.IO.
+
+55
+00:03:25.433 --> 00:03:28.719
+The obvious fix is withContext around the emit.
+
+56
+00:03:28.719 --> 00:03:34.172
+Run it, and the flow throws IllegalStateException: Flow invariant is violated.
+
+57
+00:03:34.400 --> 00:03:35.255
+It has a point.
+
+58
+00:03:35.255 --> 00:03:40.213
+emit runs the collector's own code, so the collector would be dragged to the bench too.
+
+59
+00:03:40.213 --> 00:03:45.855
+It's like reading the note on the bench, and making the whole family eat dinner out there with you.
+
+60
+00:03:46.667 --> 00:03:47.929
+The tool is flowOn.
+
+61
+00:03:47.929 --> 00:03:56.299
+Everything above it, the upstream, runs at the bench in a second coroutine, with a shelf of up to 64 lines between the halves.
+
+62
+00:03:56.299 --> 00:03:58.292
+Everything below it stays put.
+
+63
+00:03:58.500 --> 00:04:00.794
+The demo prints each step's thread.
+
+64
+00:04:00.794 --> 00:04:04.924
+read and parse ran on DefaultDispatcher-worker-1, at the bench.
+
+65
+00:04:04.924 --> 00:04:06.956
+format and save stayed on main.
+
+66
+00:04:06.956 --> 00:04:08.660
+The collector never moves.
+
+67
+00:04:09.467 --> 00:04:11.221
+Last: what if a step fails?
+
+68
+00:04:11.221 --> 00:04:16.549
+catch is a net under the steps above it: whatever falls from up there lands in it.
+
+69
+00:04:16.549 --> 00:04:18.823
+onCompletion is the flow's finally.
+
+70
+00:04:18.823 --> 00:04:21.163
+It runs once, however the flow ends.
+
+71
+00:04:21.367 --> 00:04:23.348
+Tear the note after two lines.
+
+72
+00:04:23.348 --> 00:04:27.509
+onCompletion prints the cause, IOException: delivery note torn.
+
+73
+00:04:27.509 --> 00:04:32.331
+catch emits ABORTED, the collector gets it, and collect returns normally.
+
+74
+00:04:32.533 --> 00:04:38.432
+Now the note is whole, but saving the eggs fails in the collector: the pantry shelf is full.
+
+75
+00:04:38.432 --> 00:04:39.587
+Does catch see it?
+
+76
+00:04:42.567 --> 00:04:42.757
+No.
+
+77
+00:04:42.757 --> 00:04:47.890
+The failure was below catch, so it went straight to the code that called collect.
+
+78
+00:04:47.890 --> 00:04:51.376
+onCompletion saw it pass, because it sees every ending.
+
+79
+00:04:51.600 --> 00:04:55.730
+A net under the stove can't catch a plate dropped in the dining room.
+
+80
+00:04:55.730 --> 00:05:02.195
+So put work that may fail above catch, and never put a try around emit, which runs the collector's code too.
+
+81
+00:05:03.000 --> 00:05:08.873
+Here it all is in Kotlin, and in Java with a Reactor Flux, which is cold in the same way.
+
+82
+00:05:10.667 --> 00:05:13.992
+So, has the shop sent anything when the line returns?
+
+83
+00:05:13.992 --> 00:05:18.197
+Not until someone collects, and every collector cooks from the top.
+
+84
+00:05:18.197 --> 00:05:27.860
+Steps write on the card, the terminal one cooks, flowOn moves the steps above it, catch catches what falls from above, and onCompletion sees every ending.
+
+85
+00:05:28.067 --> 00:05:28.926
+Quick check.
+
+86
+00:05:28.926 --> 00:05:33.579
+flow A, map B, flowOn IO, filter C, collect D, collected on main.
+
+87
+00:05:33.579 --> 00:05:35.297
+Where does each one run?
+
+88
+00:05:38.267 --> 00:05:40.341
+A and B on IO, above flowOn.
+
+89
+00:05:40.341 --> 00:05:43.379
+C and D stay on main, with the collector.

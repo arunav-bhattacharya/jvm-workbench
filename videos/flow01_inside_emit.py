@@ -28,9 +28,9 @@ N = {
             "soup comes before emit(soup) returned. The diner ate while emit was still running.",
     "cold": "That first line is what cold means: no collect, no cooking. And a second collect cooks the whole card "
             "again, from the top. Two diners, two dinners. Nobody gets leftovers.",
-    "noshelf": "So why can't the cook put the bowl down? Look around this kitchen. No counter, no shelf, not even a "
-               "windowsill. Whoever designed it never cooked for guests. But that's the point: the only place a "
-               "dish can go is into the diner's hands.",
+    "noshelf": "So why can't the cook put the bowl down? Look around: no counter, no shelf, not even a windowsill. "
+               "Whoever designed this kitchen never cooked for guests. So the only place a dish can go is into the "
+               "diner's hands.",
     "call": "In code, emit is a plain function call into the collector. The diner's code runs inside emit, and emit "
             "returns only when the diner's code returns.",
     "stack": "Draw each call that's still running as a box. main calls collect. collect runs the flow block: that's "
@@ -46,32 +46,29 @@ N = {
           "at 900, and the last bite is at 1,200.",
     "t200": "The answer 200 pictures emit dropping the dish in a queue while the cook carries on. A plain flow never "
             "does that.",
-    "seq": "Now read the rules off the picture. A flow is sequential: one value at a time. The salad can't start while "
-           "emit(soup) is still open, and the diner never holds two plates at once.",
+    "seq": "Now read the rules off the picture. A flow is sequential: one value at a time. The salad can't start "
+           "while emit(soup) is open, and the diner never holds two plates.",
     "bp": "And a slow collector slows the producer. The cook could serve a dish every 100 milliseconds. Here she "
           "serves one every 400, because she waits at the table.",
     "bp_name": "That has a name: backpressure. A slow consumer slows the producer down, so values don't pile up in "
                "memory. A plain flow gets it for free, with no extra machinery.",
     "three": "Cold, one at a time, and slowed by the diner. Three rules, and all three come from one fact: emit is a "
              "plain call.",
-    "cost": "But free isn't fast. Three dishes took 1,200 milliseconds, where the slower side alone needs only 900. "
-            "In a plain flow the times add up: each dish costs the cook's time plus the diner's.",
+    "cost": "But free isn't fast. Three dishes took 1,200 milliseconds, where the diner alone needs 900. The times "
+            "add up: each dish costs the cook's time plus the diner's.",
     "stove": "And careful where you put a stopwatch. Say the cook wraps a timer around emit. It says 300 milliseconds "
              "per dish, so she goes shopping for a faster stove. But a timer around emit measures the diner. The "
              "stove was never the problem.",
     "shelf": "If you want the cook to work ahead, you need a shelf between the kitchen and the table. Lesson 4 of this "
              "track adds one, called a buffer, and pays for it in memory.",
-    "breaks": "Here the picture breaks. A real cook standing at the table is lost to the kitchen. A coroutine is "
-              "luckier. A coroutine, remember, is work that can pause and carry on later, and while it's paused, it "
-              "holds no thread.",
+    "breaks": "Here the picture breaks. A real cook at the table is lost to the kitchen. But a coroutine, work that "
+              "can pause and carry on later, holds no thread while it's paused.",
     "breaks2": "So while the diner waits, say on a delay or a slow answer, the thread goes off and runs other "
                "coroutines. Only this one dinner is held up.",
     "code": "Here's the dinner in code. In Kotlin, emit sits in the middle of the cook's loop. Java has no Flow, so "
-            "the cook calls the diner's Consumer instead. accept is a plain call too, and the line after it runs "
-            "when the call returns.",
-    "moral": "So, does the cook put the soup down and carry on? No. There's nowhere to put it. A plain flow is one "
-             "call stack, and the collector runs inside emit. That's why a flow is cold, serves one dish at a "
-             "time, and moves at the speed of its diner.",
+            "the cook calls the diner's Consumer, and accept, like emit, returns only when the diner is done.",
+    "moral": "So, does the cook put the soup down and carry on? No, there's nowhere to put it. The collector runs "
+             "inside emit. So a plain flow is cold, serves one dish at a time, and moves at the speed of its diner.",
     "check": "Quick check. The cook needs 50 milliseconds per dish, and the diner 200 to eat it. No buffer. How long "
              "do four dishes take?",
     "check_a": "1,000 milliseconds. Each dish costs 50 plus 200, because the cook waits inside emit while the diner "
@@ -345,8 +342,13 @@ class Flow01InsideEmit(Narrated):
             g.move_to([x, 0, 0]).align_to([0, 2.15, 0], UP)
             return g
 
-        kinds = VGroup(M("cook    soup", 24, CK), M("eat     soup", 24, ET), M("emit(soup) returned", 24, RT)).arrange(RIGHT, buff=0.7)
-        kinds.move_to([0, 3.05, 0])
+        def kchip(text, c):
+            t = M(text, 24, c)
+            r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.4, height=0.55).set_stroke(c, 2).set_fill(dim(c, 0.15), 1)
+            return VGroup(r, t.move_to(r))
+
+        kinds = VGroup(kchip("cook soup", CK), kchip("eat soup", ET), kchip("emit(soup) returned", RT)).arrange(RIGHT, buff=0.6)
+        kinds.move_to([0, 3.0, 0])
         self.say("order_q")
         self.at(1)
         self.play(FadeIn(kinds[0], shift=DOWN * 0.1), run_time=0.5)
@@ -397,12 +399,12 @@ class Flow01InsideEmit(Narrated):
 
         # cold: two diners, two dinners
         mini = recipe_card().scale(0.62).move_to([-5.0, -1.75, 0])
-        d1 = person(DINER, 0.8).move_to([-1.25, -1.15, 0])
-        d2 = person(DINER, 0.8).move_to([-1.25, -2.45, 0])
+        d1 = person(DINER, 0.8).move_to([-1.0, -1.15, 0])
+        d2 = person(DINER, 0.8).move_to([-1.0, -2.45, 0])
         a1 = Arrow(mini.get_right(), d1.get_left(), buff=0.2, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.12)
         a2 = Arrow(mini.get_right(), d2.get_left(), buff=0.2, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.12)
-        c1 = T("collect: from the top", 20, GREY_A).next_to(a1, UP, buff=0.02).shift(LEFT * 0.1)
-        c2 = T("collect again: from the top", 20, GREY_A).next_to(a2, DOWN, buff=0.02).shift(LEFT * 0.1)
+        c1 = T("collect: from the top", 20, GREY_A).next_to(a1, UP, buff=0.04).align_to(a1, LEFT).shift(RIGHT * 0.1)
+        c2 = T("again, from the top", 20, GREY_A).next_to(a2, DOWN, buff=0.04).align_to(a2, LEFT).shift(RIGHT * 0.1)
         coldw = VGroup(T("cold:", 26, YELLOW_M), T("no collect, no cooking", 26)).arrange(RIGHT, buff=0.2)
         coldw.move_to([-6.2, -0.45, 0], aligned_edge=LEFT)
         self.say("cold")
@@ -425,8 +427,8 @@ class Flow01InsideEmit(Narrated):
         bowl = dish("soup", 0.8).next_to(cook2, RIGHT, buff=0.08).shift(UP * 0.05)
         shelf = DashedVMobject(Rectangle(width=1.4, height=0.18), num_dashes=24).set_stroke(GREY_B, 2).move_to([KX + 0.25, 0.75, 0])
         shelf_l = T("no shelf", 22, GREY_B).next_to(shelf, UP, buff=0.15)
-        counter = DashedVMobject(Rectangle(width=1.0, height=0.8), num_dashes=24).set_stroke(GREY_B, 2).move_to([KX + 0.05, -1.55, 0])
-        counter_l = T("no counter", 22, GREY_B).next_to(counter, UP, buff=0.12)
+        counter = DashedVMobject(Rectangle(width=0.7, height=0.8), num_dashes=20).set_stroke(GREY_B, 2).move_to([KX + 0.12, -1.57, 0])
+        counter_l = T("no counter", 22, GREY_B).move_to([KX + 0.12, -2.3, 0])
         xs, xc = tick(False, 0.15).next_to(shelf, RIGHT, buff=0.15), tick(False, 0.15).next_to(counter_l, RIGHT, buff=0.12)
         self.say("noshelf")
         self.play(FadeIn(VGroup(floor2, stv2, tbl2, din2, cook2)), FadeIn(bowl), run_time=0.8)
@@ -600,7 +602,7 @@ class Flow01InsideEmit(Narrated):
         self.play(FadeOut(VGroup(three, dots, fact)), run_time=0.4)
         self.at_text("Three dishes", lead=0.3)
         self.play(FadeIn(tot), FadeIn(tot_t), run_time=0.6)
-        self.at_text("where the slower", lead=0.3)
+        self.at_text("where the diner", lead=0.3)
         self.play(GrowFromEdge(alone, LEFT), run_time=0.7)
         self.at(2)
         self.play(FadeIn(add, shift=DOWN * 0.1), run_time=0.6)
@@ -610,7 +612,7 @@ class Flow01InsideEmit(Narrated):
                      Line(ORIGIN, UP * 0.2, stroke_width=3, color=GREY_A),
                      RoundedRectangle(corner_radius=0.03, width=0.16, height=0.1).set_stroke(GREY_A, 2))
         tmr[2].next_to(tmr[0], UP, buff=0)
-        tmr.move_to([tx(250), CY + 1.05, 0])
+        tmr.move_to([tx(250), CY + 1.6, 0])
         tbox = SurroundingRectangle(waits[0], buff=0.08, color=GREY_A, stroke_width=3)
         t_says = T("timer around emit: 300 ms", 22, GREY_A).next_to(tmr, RIGHT, buff=0.25)
         new_stove = VGroup(stove(0.5), T("faster stove?", 22, GREY_B)).arrange(RIGHT, buff=0.15).move_to([3.4, 2.75, 0])
@@ -662,7 +664,7 @@ class Flow01InsideEmit(Narrated):
         dinner_t = VGroup(T("this dinner", 22, EMIT), T("waits on delay", 20, GREY_A)).arrange(DOWN, buff=0.08).move_to(dinner)
         thread = VGroup(Circle(radius=0.32).set_stroke(GREY_A, 3).set_fill(GREY_E, 1), T("thread", 20, GREY_A))
         thread[1].next_to(thread[0], DOWN, buff=0.1)
-        thread.move_to([3.4, -1.2, 0])
+        thread.move_to([1.9, -0.75, 0])
         others = VGroup(*[RoundedRectangle(corner_radius=0.1, width=1.3, height=0.6).set_stroke(GREEN_M, 2).set_fill(dim(GREEN_M, 0.15), 1)
                           for _ in range(3)]).arrange(DOWN, buff=0.15).move_to([5.6, -0.5, 0])
         others_t = T("other coroutines", 22, GREEN_M).next_to(others, DOWN, buff=0.15)
@@ -671,8 +673,9 @@ class Flow01InsideEmit(Narrated):
         self.play(FadeIn(dinner), FadeIn(dinner_t), FadeIn(thread), run_time=0.7)
         self.at_text("the thread goes", lead=0.3)
         self.play(FadeIn(others), FadeIn(others_t), run_time=0.5)
-        self.play(thread.animate.move_to([5.6, 1.15, 0]), run_time=0.8)
-        self.play(thread.animate.move_to([5.6, -0.5, 0]).set_opacity(1), run_time=0.6)
+        self.play(thread.animate.move_to([3.75, -0.55, 0]), run_time=0.9)
+        runs = Arrow(thread[0].get_right(), others.get_left(), buff=0.12, stroke_width=3, color=GREEN_M, max_tip_length_to_length_ratio=0.3)
+        self.play(GrowArrow(runs), Indicate(others, color=GREEN_M, scale_factor=1.05), run_time=0.7)
         self.at(1)
         self.play(FadeIn(held, shift=UP * 0.1), run_time=0.5)
         self.hold()
@@ -695,9 +698,9 @@ class Flow01InsideEmit(Narrated):
         self.play(FadeIn(kcol, shift=UP * 0.1), run_time=0.8)
         self.at_text("emit sits", lead=0.3)
         self.play(Circumscribe(k[3], color=EMIT, buff=0.06), run_time=1.0)
-        self.at(1)
-        self.play(FadeIn(jcol, shift=UP * 0.1), run_time=0.8)
         self.at(2)
+        self.play(FadeIn(jcol, shift=UP * 0.1), run_time=0.8)
+        self.at_text("and accept", lead=0.3)
         self.play(Circumscribe(j[2], color=EMIT, buff=0.06), run_time=1.0)
         self.play(Indicate(j[3], color=EMIT, scale_factor=1.03), run_time=0.8)
         self.hold()
@@ -711,9 +714,9 @@ class Flow01InsideEmit(Narrated):
             fit(m, 12.4)
         self.say("moral")
         self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.7)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
-        self.at(4)
+        self.at(3)
         self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.6)
         self.hold()
 

@@ -1,34 +1,76 @@
 from fg import *
 import fg
 
-# Kokoro misreads these; fix the spoken form only (captions keep the real words).
-fg.SAY[:0] = [(r"\bcoroutine", "co-routine"), (r"\bCoroutine", "Co-routine"), (r"flow \{ \}", "flow"),
-              (r"\bflowOf\b", "flow of"), (r"\basFlow\b", "as flow"), (r"\bunsafeFlow\b", "unsafe flow"),
-              (r"\bSafeCollector\b", "safe collector"), (r"\bAbortFlowException\b", "abort flow exception"),
-              (r"try/catch", "try catch"), (r"\bpay-(\d)", r"pay \1"), (r"\b(emit|take)\((\d)\)", r"\1 \2")]
+# Spoken forms only (captions keep the written words). Kokoro misreads these.
+fg.SAY[:0] = [
+    (r"\bcoroutine", "co-routine"), (r"\bCoroutine", "Co-routine"), (r"\bflow \{ \}", "flow"),
+    (r"\bflowOf\b", "flow of"), (r"\basFlow\b", "as flow"), (r"\bunsafeFlow\b", "unsafe flow"),
+    (r"\bonEach\b", "on each"), (r"\bSafeCollector\b", "safe collector"), (r"try/catch", "try catch"),
+    (r"\bTransparencyTrap\b", "Transparency Trap"), (r"\bCancellationException\b", "Cancellation Exception"),
+    (r"\bcancellable\(\)", "cancellable"), (r"\btake\((\d)\)", r"take \1"), (r"\bwithContext\b", "with context"),
+]
 
 # every spoken line, in order
 N = {
-    "open": "A batch job posts three payments to the ledger. Each emit sits in a try/catch that logs the error and goes on.",
-    "q": "The ledger refuses pay-2, which has a negative amount. Which payments get posted?",
-    "run": "pay-1 is posted. pay-2 makes the ledger throw, back up through emit, and the catch logs it. As planned.",
-    "p3": "But pay-3 never reaches the ledger. emit refuses it, the catch logs that too, and collect returns normally.",
-    "who": "flow { } puts a SafeCollector between your block and your collector: an inspector at the serving hatch.",
-    "checks": "It checks every plate. Is the kitchen still open? Is it the same kitchen, with the same cook's badge? "
-              "Did the last emit throw? Any wrong answer, and emit throws.",
-    "why3": "Check three refused pay-3. The inspector never looks at the food, only at who emits and how the last plate went.",
-    "staff": "The library's own map, filter, take, flowOf and asFlow skip the inspector. "
-             "They are built with unsafeFlow: trusted staff, one plain call per value, and no checks.",
-    "take": "How does take(2) stop the cook? It has no handle on the cook's loop. All it can do is throw.",
-    "card": "After the second plate, take throws a red card, an AbortFlowException with its own name on it. "
-            "It flies back up through every emit, and the cook's finally runs.",
-    "land": "take catches it, checks the name, and ends the flow quietly. A card with another name would fly on.",
-    "victim": "The try/catch around emit catches the red card too. The cook emits again, the inspector refuses, "
-              "and the catch logs it. With take(1) over 1,000 items, that's 1,000 warnings.",
-    "code": "This is Kotlin only. Keep emit out of any try. Catch the narrow error where it happens, inside the collector.",
-    "rule": "So flow { } checks every emit. Never wrap emit in a try/catch.",
-    "check": "Quick check. A producer catches Throwable around emit, and the flow ends in take(1). "
-             "What does its second emit do?",
+    "open": "Back in the kitchen, the cook has pinned a rule to the fridge: if a diner sends a plate back, say sorry "
+            "and bring the next dish. Good manners.",
+    "code1": "In code, the rule is a try/catch around emit. The diner sends a plate back by throwing an exception, and "
+             "the catch says sorry and moves on. Tonight, the salad is too salty.",
+    "shyq": "Here's a question that's easy to be shy about. Catching an exception is the careful thing to do, isn't "
+            "it? So what could go wrong? Soup, salad, roast: which dishes get eaten?",
+    "show": "Here's what the lesson's TransparencyTrap prints. Sorry for the salad, as planned. Then a second sorry, "
+            "for the roast. And collect returned normally, with just the soup eaten.",
+    "hole": "As far as the cook knows, dinner went fine. The diner went home after the soup. In a real program, "
+            "that's a job that reports success with a hole in it, and a log line nobody reads.",
+    "toy": "Lesson 1's toy flow, and the same loop in Java, serve the soup and the roast. So the real flow { } does "
+           "something the toy doesn't. Something refused the roast.",
+    "door": "When you collect a flow { }, it first wraps your collector in a SafeCollector, and only then runs your "
+            "block. So every emit goes to that wrapper, never straight to the diner.",
+    "inspector": "Picture an inspector in the kitchen doorway, with a clipboard. Every plate passes the inspector on "
+                 "its way to the table. The cook is your block, the inspector is the SafeCollector, and each plate "
+                 "is one emit.",
+    "c1": "The inspector asks three questions about every plate. One: is dinner still on? A coroutine can be "
+          "cancelled, that is, asked to stop. If the diner's coroutine was cancelled, emit throws "
+          "CancellationException.",
+    "c2": "Two: is it the same kitchen, and the same cook? A coroutine carries a context: a few settings, such as "
+          "its dispatcher, which picks the thread, its name, and its job. Every part but the job must be the very "
+          "same as the collector's. If not: Flow invariant is violated.",
+    "c3": "Three: did the diner send the last plate back? If the previous emit threw, the next one throws: Flow "
+          "exception transparency is violated.",
+    "taste": "Notice what's not on the list. The inspector never tastes the food. Strictly paperwork. It never looks "
+             "at your values, only at who is emitting, and how the last plate went.",
+    "trace1": "Now replay the dinner. The soup goes through, and gets eaten. The salad goes out, and comes back. The "
+              "inspector writes it down, and the polite catch says sorry.",
+    "trace2": "The cook carries out the roast. The inspector stops her at the door: the last plate came back. That "
+              "refusal is an exception too, and the same polite catch swallows it.",
+    "name": "That third check has a name: exception transparency. A flow never hides an exception that came from "
+            "downstream, and never emits after one. And the diner's complaint survives only as text in the "
+            "message, with no cause attached.",
+    "helpers": "Not every flow has an inspector. The library's own operators, like map, filter, onEach and take, and "
+               "builders like flowOf and asFlow, are built on an internal builder called unsafeFlow. It's lesson "
+               "1's toy builder, nearly word for word.",
+    "helpers2": "They're family helpers who come in by the side door, and nobody checks their hands. The library "
+                "trusts map, because your lambda in map gets a value, never the collector. It can't emit at the "
+                "wrong time. transform hands you the collector, so it gets a real inspector.",
+    "helpers3": "The price: skipping the inspector also skips check one. A collector that cancels itself and never "
+                "pauses keeps getting values from asFlow. cancellable() puts that check back.",
+    "note": "And how does take(1) stop the cook after one dish? A flow has no line back to the kitchen, only the "
+            "emit the cook is standing in. So take throws a note back up through emit: no more, thanks, signed "
+            "with its own name, so only that take keeps it.",
+    "note2": "Now the polite rule has a second victim. The catch around emit catches the note too. The cook says "
+             "sorry, emits again, and the inspector refuses. Over 1,000 items, that loop logged 1,000 warnings. A "
+             "thousand apologies for one no more, thanks.",
+    "rule": "So the rule is simple. Never put a try/catch around emit. Catch where the failure happens. If the "
+            "diner may send a plate back, catch inside the collector, around eat.",
+    "code": "Here's the fix in Kotlin, with Java beside it. The flow is plain again, and the sorry lives with the "
+            "diner. The next dish still comes.",
+    "moral": "So, what could go wrong with a polite catch? It wraps the diner, so it swallows the diner's complaint, "
+             "the inspector's refusal, and take's note. flow { } keeps every plate honest with three checks: dinner "
+             "still on, same kitchen, and nothing after a plate came back.",
+    "check": "Quick check. A flow emits 1, then emits 2 inside withContext, with the coroutine name tasting. No "
+             "thread changes. What does the collector see?",
+    "check_a": "1 arrives. Then collect throws: Flow invariant is violated. The name is part of the context, and the "
+               "inspector checks every part.",
 }
 
 
@@ -68,9 +110,9 @@ class Narrated(VoiceScene):
         if after:
             self.wait(after)
 
-    def predict(self, secs=2.2):
+    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
         """A beat of silence for the viewer to guess, with a small on-screen prompt."""
-        tag = T("pause and predict", 24, GREY_B).move_to([6.5, 3.1, 0], aligned_edge=RIGHT)
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
         self.play(FadeIn(tag), run_time=0.3)
         self.wait(secs)
         self.play(FadeOut(tag), run_time=0.3)
@@ -80,306 +122,552 @@ def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def frame(l, r, t, b, color, k=0.12, sw=3):
-    rr = RoundedRectangle(corner_radius=0.14, width=r - l, height=t - b, stroke_color=color, stroke_width=sw)
-    rr.set_fill(dim(color, k), 1)
-    return rr.move_to([(l + r) / 2, (t + b) / 2, 0])
+# one colour per thing, for the whole flow track (the cook is the coroutines track's cook)
+COOK, DINER, EMIT, CARD, BAD, INSP, HELP, NOTE = BLUE_M, TEAL_M, PURPLE_M, GREY_A, RED_M, GREY_A, GREEN_M, YELLOW_M
+SOUP, SALAD, ROAST = YELLOW_M, GREEN_M, GOLD_M
+FLOOR = -1.95
 
 
-def row(*parts, buff=0.16):
-    return VGroup(*parts).arrange(RIGHT, buff=buff)
+def person(color=COOK, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-# one colour per thing, for the whole video
-COOK, INSP, STAFF, DINER, VAL, NET, ERR = BLUE_M, YELLOW_M, GREEN_M, TEAL_M, GOLD_M, PURPLE_M, RED_M
+def inspector(s=1.0):
+    p = person(INSP, 1.0)
+    cap = Polygon([-0.17, 0, 0], [0.17, 0, 0], [0.22, -0.05, 0], [-0.22, -0.05, 0]).set_stroke(INSP, 2.5).set_fill(GREY_D, 1)
+    cap.next_to(p[1], UP, buff=-0.06)
+    board = RoundedRectangle(corner_radius=0.03, width=0.26, height=0.34).set_stroke(WHITE, 2).set_fill(BLACK, 1)
+    lines = VGroup(*[Line(LEFT * 0.08, RIGHT * 0.08, stroke_width=1.5, color=GREY_B) for _ in range(3)]).arrange(DOWN, buff=0.06)
+    clip = VGroup(board, lines.move_to(board)).next_to(p[0], RIGHT, buff=0.02).shift(UP * 0.03)
+    return VGroup(p, cap, clip).scale(s)
 
-Y = 0.0            # the line every plate travels along
-HX = -1.5          # the hatch
-SPAWN = np.array([-2.85, Y, 0])
-AT_DINER = np.array([3.15, Y, 0])
-NET_X = -2.85
+
+def pot(color, s=1.0):
+    body = RoundedRectangle(corner_radius=0.12, width=0.9, height=0.55).set_stroke(color, 3).set_fill(dim(color, 0.3), 1)
+    rim = Line(LEFT * 0.56, RIGHT * 0.56, stroke_width=4, color=color).move_to(body.get_top())
+    hl = Line(LEFT * 0.14, ORIGIN, stroke_width=4, color=color).move_to(body.get_left() + UP * 0.12 + LEFT * 0.07)
+    hr = Line(ORIGIN, RIGHT * 0.14, stroke_width=4, color=color).move_to(body.get_right() + UP * 0.12 + RIGHT * 0.07)
+    return VGroup(body, rim, hl, hr).scale(s)
 
 
-def plate(text):
-    t = M(text, 22)
-    r = RoundedRectangle(corner_radius=0.08, width=max(0.5, t.width + 0.3), height=0.45, stroke_color=VAL, stroke_width=2.5)
-    r.set_fill(dim(VAL, 0.35), 1)
+def stove(s=1.0):
+    body = RoundedRectangle(corner_radius=0.08, width=1.5, height=0.95).set_stroke(GREY_B, 2.5).set_fill(GREY_E, 1)
+    door = RoundedRectangle(corner_radius=0.05, width=1.0, height=0.45).set_stroke(GREY_C, 2).set_fill(BLACK, 1)
+    door.move_to(body.get_center() + DOWN * 0.12)
+    knobs = VGroup(*[Circle(radius=0.05).set_stroke(GREY_B, 2).set_fill(GREY_D, 1) for _ in range(3)]).arrange(RIGHT, buff=0.2)
+    knobs.move_to(body.get_top() + DOWN * 0.15)
+    g = VGroup(body, door, knobs)
+    p = pot(ROAST, 0.7).next_to(body, UP, buff=0.02)
+    return VGroup(g, p).scale(s)
+
+
+def fridge():
+    body = RoundedRectangle(corner_radius=0.1, width=1.0, height=2.3).set_stroke(GREY_B, 2.5).set_fill(GREY_E, 1)
+    split = Line(LEFT * 0.5, RIGHT * 0.5, stroke_width=2, color=GREY_C).move_to(body.get_center() + UP * 0.35)
+    h1 = Line(DOWN * 0.22, UP * 0.22, stroke_width=4, color=GREY_B).move_to(body.get_center() + RIGHT * 0.33 + UP * 0.75)
+    h2 = Line(DOWN * 0.3, UP * 0.3, stroke_width=4, color=GREY_B).move_to(body.get_center() + RIGHT * 0.33 + DOWN * 0.2)
+    note = Square(side_length=0.36).set_stroke(NOTE, 2).set_fill(dim(NOTE, 0.4), 1).move_to(body.get_center() + LEFT * 0.12 + UP * 0.75)
+    note.rotate(0.12)
+    return VGroup(body, split, h1, h2, note)
+
+
+def doorway(x, top=0.95, w=1.3):
+    l = Line([x - w / 2, FLOOR, 0], [x - w / 2, top, 0], stroke_width=5, color=GREY_B)
+    r = Line([x + w / 2, FLOOR, 0], [x + w / 2, top, 0], stroke_width=5, color=GREY_B)
+    t = Line([x - w / 2 - 0.12, top, 0], [x + w / 2 + 0.12, top, 0], stroke_width=6, color=GREY_B)
+    return VGroup(l, r, t)
+
+
+def dish(kind, s=1.0):
+    """soup: a bowl; salad: a bowl of leaves; roast: a plate with a roast on it."""
+    if kind == "salad":
+        arc = Arc(radius=0.36, start_angle=PI, angle=PI).set_stroke(SALAD, 3)
+        top = Line(LEFT * 0.36, RIGHT * 0.36, stroke_width=3, color=SALAD)
+        leaves = VGroup(*[Circle(radius=0.08).set_stroke(SALAD, 2).set_fill(dim(SALAD, 0.5), 1).move_to([dx, 0.06, 0])
+                          for dx in (-0.2, -0.04, 0.12, 0.26)])
+        g = VGroup(leaves, arc, top)
+    elif kind == "roast":
+        plate = Ellipse(width=0.86, height=0.26).set_stroke(GREY_A, 2.5).set_fill(BLACK, 1).shift(DOWN * 0.12)
+        meat = Ellipse(width=0.5, height=0.3).set_stroke(ROAST, 3).set_fill(dim(ROAST, 0.5), 1).shift(UP * 0.02)
+        g = VGroup(plate, meat)
+    else:
+        arc = Arc(radius=0.36, start_angle=PI, angle=PI).set_stroke(SOUP, 3)
+        top = Line(LEFT * 0.36, RIGHT * 0.36, stroke_width=3, color=SOUP)
+        fill = Polygon(*[arc.point_from_proportion(a) for a in np.linspace(0, 1, 16)]).set_stroke(width=0)
+        fill.set_fill(dim(SOUP, 0.45), 1)
+        g = VGroup(fill, arc, top)
+    return g.scale(s).set_z_index(3)
+
+
+def table(w=2.6):
+    top = Line(LEFT * w / 2, RIGHT * w / 2, stroke_width=6, color=GREY_B)
+    legs = VGroup(Line(ORIGIN, DOWN * 0.7, stroke_width=4, color=GREY_B).move_to(top.get_left() + RIGHT * 0.2 + DOWN * 0.35),
+                  Line(ORIGIN, DOWN * 0.7, stroke_width=4, color=GREY_B).move_to(top.get_right() + LEFT * 0.2 + DOWN * 0.35))
+    return VGroup(top, legs)
+
+
+def bubble(text, color=WHITE, size=24):
+    t = T(text, size, color)
+    r = RoundedRectangle(corner_radius=0.18, width=t.width + 0.4, height=t.height + 0.32).set_stroke(color, 2).set_fill(BLACK, 1)
+    return VGroup(r, t.move_to(r)).set_z_index(6)
+
+
+def chip_t(text, color, size=22, mono=False):
+    t = (M if mono else T)(text, size, color)
+    r = RoundedRectangle(corner_radius=0.07, width=t.width + 0.3, height=max(0.48, t.height + 0.24)).set_stroke(color, 2.5)
+    r.set_fill(dim(color, 0.2), 1)
     return VGroup(r, t.move_to(r)).set_z_index(7)
 
 
-def spark():
-    return Dot(radius=0.11, color=ERR).set_z_index(8)
+def code_block(src, size=22, hl=None):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
 
 
-def red_card(name="take"):
-    r = RoundedRectangle(corner_radius=0.06, width=0.8, height=0.5, stroke_color=WHITE, stroke_width=1.5).set_fill(ERR, 1)
-    return VGroup(r, T(name, 20, WHITE).move_to(r)).rotate(-6 * DEGREES).set_z_index(9)
+def cross(m, s=0.22, buff=0.25):
+    return tick(False, s).next_to(m, RIGHT, buff=buff)
+
+
+def node(title, sub, color, w=2.6, mono=True):
+    r = RoundedRectangle(corner_radius=0.12, width=w, height=1.05).set_stroke(color, 3).set_fill(dim(color, 0.14), 1)
+    t = (M if mono else T)(title, 22, color)
+    s_ = T(sub, 20, GREY_A)
+    g = VGroup(t, s_).arrange(DOWN, buff=0.1).move_to(r)
+    fit(g, w - 0.2)
+    return VGroup(r, g)
 
 
 class Flow02Inspector(Narrated):
-    """flow-02 section 1 (with sections 0, 2 and 3): SafeCollector's three checks, trusted staff, and take's red card."""
+    """flow-02, section 1: the inspector at the kitchen door. The rule on the fridge (say sorry, bring the next dish)
+    as a try/catch around emit; the salad comes back and the roast is lost (eaten=[soup], collect returns normally;
+    the toy and Java serve soup and roast); flow { } wraps the collector in a SafeCollector, the inspector; its three
+    checks; the dinner replayed; exception transparency named; the family helpers on unsafeFlow and cancellable();
+    take's signed note and the 1,000 warnings; the rule (never wrap emit); the fix in Kotlin and Java; a check."""
 
     def construct(self):
-        self.title_card("The inspector at the hatch", "what flow { } checks on every emit")
+        self.title_card("The inspector at the kitchen door", "what flow { } checks on every emit")
 
-        # ================= the scene: cook, line, diner =================
-        cook_box = frame(-6.4, -3.4, 0.95, -0.95, COOK)
-        cook_t = row(M("flow { }", 22, COOK), T("the cook", 26, COOK)).move_to([-4.9, 0.6, 0])
-        batch = VGroup(M("pay-1    4250", 22), M("pay-2    -990", 22, t2c={"-990": ERR}), M("pay-3   12000", 22)
-                       ).arrange(DOWN, aligned_edge=LEFT, buff=0.12).move_to([-4.9, -0.25, 0])
-        line = Line([-3.4, Y, 0], [3.7, Y, 0], stroke_width=2.5, color=GREY_D)
-        diner = frame(3.7, 6.4, 0.7, -0.7, DINER)
-        diner_t = VGroup(T("the diner", 26, DINER), M("ledger.post(p)", 22)).arrange(DOWN, buff=0.12).move_to(diner)
-        emit_l = M("emit", 24, GREY_B).move_to([1.1, Y + 0.42, 0])
-        net = DashedVMobject(RoundedRectangle(corner_radius=0.12, width=0.85, height=1.3, stroke_color=NET, stroke_width=3),
-                             num_dashes=22).move_to([NET_X, Y, 0])
-        net_l = M("try/catch", 22, NET).move_to([NET_X, -1.12, 0])
-        rule_n = T("no negative amounts", 22, GREY_B).move_to([5.05, -1.0, 0])
-
+        # ================= hook: the rule on the fridge =================
+        floor = Line([-6.5, FLOOR, 0], [6.5, FLOOR, 0], stroke_width=1.5, color=GREY_D)
+        frg = fridge().move_to([-5.85, FLOOR + 1.15, 0])
+        stv = stove(1.0).move_to([-4.3, -0.95, 0])
+        cook = person(COOK, 1.3).move_to([-3.0, -0.9, 0])
+        door = doorway(0.3)
+        tbl = table(2.6).move_to([4.3, -1.55, 0])
+        diner = person(DINER, 1.3).move_to([5.05, -0.85, 0])
+        rule = VGroup(T("The rule on the fridge:", 26, NOTE),
+                      T("if a diner sends a plate back, say sorry and bring the next dish.", 28)).arrange(DOWN, buff=0.15)
+        rule.move_to([0.4, 2.65, 0])
+        fit(rule, 11.4)
+        pin = DashedLine(frg[4].get_top() + UP * 0.05, rule.get_left() + LEFT * 0.1 + DOWN * 0.1, dash_length=0.08)
+        pin.set_stroke(NOTE, 2)
         self.say("open")
-        self.play(FadeIn(cook_box), FadeIn(cook_t), FadeIn(batch), run_time=0.8)
-        self.play(Create(line), FadeIn(diner), FadeIn(diner_t), FadeIn(emit_l), run_time=0.8)
-        self.at(1)
-        self.play(Create(net), FadeIn(net_l), run_time=0.9)
+        self.play(FadeIn(VGroup(floor, frg, stv, cook, door, tbl, diner)), run_time=0.9)
+        self.at_text("pinned a rule", lead=0.3)
+        self.play(Indicate(frg[4], color=NOTE, scale_factor=1.4), run_time=0.7)
+        self.play(Create(pin), FadeIn(rule, shift=DOWN * 0.1), run_time=0.8)
         self.hold()
 
-        self.say("q")
-        self.play(FadeIn(rule_n, shift=UP * 0.1), Indicate(batch[1], color=ERR, scale_factor=1.08), run_time=1.0)
+        kc = code_block(["try { emit(dish) }", "catch (e: Exception) { println(\"SORRY\") }"], 22,
+                        {"emit(dish)": EMIT, "try": GREY_A, "catch": GREY_A})
+        kc.move_to([-1.0, 0.95, 0])
+        kcb = SurroundingRectangle(kc, buff=0.15, color=GREY_C, stroke_width=2, corner_radius=0.08).set_fill(BLACK, 1)
+        kcg = VGroup(kcb, kc)
+        salty = bubble("too salty!", SALAD, 24).next_to(diner, UP, buff=0.3).shift(LEFT * 0.5)
+        sal = dish("salad", 0.8).move_to(tbl[0].get_center() + LEFT * 0.4 + UP * 0.2)
+        self.say("code1")
+        self.at_text("In code", lead=0.2)
+        self.play(FadeIn(kcg, shift=UP * 0.1), run_time=0.7)
+        self.at(1)
+        self.play(Indicate(kc[1], color=WHITE, scale_factor=1.04), run_time=0.9)
+        self.at(2)
+        self.play(FadeIn(sal), FadeIn(salty, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+
+        qq = VGroup(T("soup", 30, SOUP), T("salad", 30, SALAD), T("roast", 30, ROAST)).arrange(RIGHT, buff=0.5)
+        ql = T("which dishes get eaten?", 30)
+        qg = VGroup(ql, qq).arrange(RIGHT, buff=0.5).move_to([0, -2.75, 0])
+        self.say("shyq")
+        self.at(2)
+        self.play(FadeIn(qg, shift=UP * 0.1), run_time=0.6)
         self.hold(after=0)
         self.predict()
-
-        # ---- the batch runs ----
-        posted_l = T("posted:", 24, GREY_B).move_to([3.75, -1.65, 0], aligned_edge=LEFT)
-        log_l = T("log:", 24, GREY_B).move_to([-6.4, -1.75, 0], aligned_edge=LEFT)
-        log1 = row(M("WARN pay-2", 22, GREY_B), T("LedgerException: negative amount", 24)).move_to([-6.4, -2.2, 0], aligned_edge=LEFT)
-        log2 = row(M("WARN pay-3", 22, GREY_B), T("Flow exception transparency is violated", 24, ERR)).move_to(
-            [-6.4, -2.65, 0], aligned_edge=LEFT)
-        done = T("collect returned normally", 24, GREY_B).move_to([-6.4, -3.15, 0], aligned_edge=LEFT)
-
-        def bounce(src, color=ERR, dst=NET_X):
-            """An error flies back along the line and lands in the try/catch."""
-            s = spark().move_to(src)
-            self.add(s)
-            self.play(s.animate.move_to([dst, Y, 0]), run_time=0.8)
-            self.play(FadeOut(s, scale=2), Indicate(net, color=NET, scale_factor=1.12), run_time=0.5)
-
-        self.say("run")
-        self.play(FadeIn(posted_l), FadeIn(log_l), run_time=0.4)
-        p1 = plate("pay-1").move_to(SPAWN)
-        self.play(FadeIn(p1, scale=0.6), batch[0].animate.set_opacity(0.4), run_time=0.3)
-        self.play(p1.animate.move_to(AT_DINER), run_time=1.1)
-        got = plate("pay-1").move_to([5.45, -1.65, 0])
-        self.play(FadeOut(p1, scale=0.6), FadeIn(got, shift=DOWN * 0.1), run_time=0.4)
-        self.at(1)
-        p2 = plate("pay-2").move_to(SPAWN)
-        self.play(FadeIn(p2, scale=0.6), batch[1].animate.set_opacity(0.4), run_time=0.3)
-        self.play(p2.animate.move_to(AT_DINER), run_time=1.0)
-        self.play(FadeOut(p2, scale=0.6), diner[0].animate.set_stroke(ERR), Flash(diner.get_left(), color=ERR, flash_radius=0.4),
-                  run_time=0.4)
-        bounce(diner.get_left() + LEFT * 0.15)
-        self.play(FadeIn(log1, shift=UP * 0.1), diner[0].animate.set_stroke(DINER), run_time=0.4)
-        self.hold()
-
-        self.say("p3")
-        p3 = plate("pay-3").move_to(SPAWN)
-        bar = Line([HX, Y - 0.34, 0], [HX, Y + 0.34, 0], stroke_width=9, color=ERR).set_z_index(6)
-        self.play(FadeIn(p3, scale=0.6), batch[2].animate.set_opacity(0.4), run_time=0.3)
-        self.play(p3.animate.move_to([HX - 0.62, Y, 0]), run_time=0.7, rate_func=rush_into)
-        self.play(Create(bar), Flash([HX, Y, 0], color=ERR, flash_radius=0.45), run_time=0.4)
-        self.at_text("the catch")
-        self.play(FadeOut(p3, scale=0.6), run_time=0.3)
-        bounce([HX - 0.15, Y, 0])
-        self.play(FadeIn(log2, shift=UP * 0.1), run_time=0.4)
-        self.at_text("and collect")
-        self.play(FadeIn(done, shift=UP * 0.1), Circumscribe(VGroup(posted_l, got), color=GREY_B, buff=0.1), run_time=1.2)
-        self.hold()
-
-        # ================= the inspector =================
-        walls = VGroup(Line([HX, Y + 0.34, 0], [HX, Y + 0.8, 0]), Line([HX, Y - 0.34, 0], [HX, Y - 0.8, 0])).set_stroke(INSP, 5)
-        insp = frame(-3.9, 1.15, 3.3, 1.3, INSP, k=0.12)
-        insp_t = row(M("SafeCollector:", 22, INSP), T("the inspector", 24, INSP)).move_to([-1.375, 2.95, 0])
-        tie = DashedLine([HX, Y + 0.8, 0], [HX, 1.3, 0], dash_length=0.07, stroke_width=2, color=INSP)
-        qs = VGroup(T("1. Still open?", 24), T("2. Same context as collect?", 24), T("3. Did the last emit throw?", 24))
-        for i, q in enumerate(qs):
-            q.move_to([-3.6, 2.42 - 0.45 * i, 0], aligned_edge=LEFT)
-        marks_at = [np.array([0.8, q.get_y(), 0]) for q in qs]
-
-        self.say("who")
-        self.play(FadeIn(insp), FadeIn(insp_t), Create(walls), Create(tie), run_time=1.0)
-        self.hold()
-
-        self.say("checks")
-        for i in range(3):
-            self.at(i + 1)
-            self.play(FadeIn(qs[i], shift=UP * 0.08), run_time=0.5)
-        self.at(4)
-        self.play(Indicate(bar, color=ERR, scale_factor=1.3), run_time=0.8)
-        self.hold()
-
-        verdict = VGroup(tick(True, 0.16).move_to(marks_at[0]), tick(True, 0.16).move_to(marks_at[1]),
-                         tick(False, 0.16).move_to(marks_at[2]))
-        self.say("why3")
-        self.play(LaggedStart(*[FadeIn(v, scale=0.6) for v in verdict], lag_ratio=0.35), qs[2].animate.set_color(ERR), run_time=1.2)
-        self.at(1)
-        self.play(Circumscribe(VGroup(qs[2], verdict[2]), color=ERR, buff=0.1), run_time=1.2)
-        self.hold()
-
-        # clear the batch run
-        self.play(FadeOut(VGroup(batch, posted_l, got, log_l, log1, log2, done, net, net_l, rule_n, verdict, bar, emit_l)),
-                  qs[2].animate.set_color(WHITE), run_time=0.7)
-
-        def through(text, stops, rt=1.0, check=True):
-            """One plate goes from the cook through the hatch (where the inspector ticks it) and on to `stops[-1]`."""
-            p = plate(text).move_to(SPAWN)
-            self.play(FadeIn(p, scale=0.6), run_time=0.2 * rt)
-            self.play(p.animate.move_to([HX - 0.55, Y, 0]), run_time=0.35 * rt)
-            if check:
-                ok = VGroup(*[tick(True, 0.16).move_to(m) for m in marks_at])
-                self.play(FadeIn(ok, lag_ratio=0.3), run_time=0.4 * rt)
-                self.play(FadeOut(ok), p.animate.move_to([HX + 0.6, Y, 0]), run_time=0.3 * rt)
-            for s in stops:
-                self.play(p.animate.move_to(s), run_time=0.45 * rt)
-            return p
-
-        # ================= trusted staff =================
-        mapb = frame(-0.15, 1.35, 0.5, -0.5, STAFF)
-        map_t = M("map", 24, STAFF).move_to(mapb)
-        staff_l = T("trusted staff", 22, STAFF).move_to([0.6, -0.8, 0])
-        noinsp = T("no inspector", 22, GREY_B).move_to([2.5, 0.4, 0])
-        built = VGroup(row(T("built with", 26, GREY_B), M("unsafeFlow", 24, STAFF)),
-                       M("map, filter, take, flowOf, asFlow", 24)).arrange(DOWN, buff=0.18).move_to([0.6, -2.0, 0])
-        self.say("staff")
-        self.play(FadeIn(mapb), FadeIn(map_t), FadeIn(staff_l), run_time=0.7)
-        self.play(FadeIn(built, shift=UP * 0.1), run_time=0.6)
-        self.at(1)
-        p = through("1", [mapb.get_center(), [2.55, Y, 0]], rt=1.0)
-        self.play(FadeIn(noinsp), run_time=0.4)
-        self.play(p.animate.move_to(AT_DINER), run_time=0.5)
-        self.play(FadeOut(p, scale=0.6), run_time=0.3)
-        self.hold()
-
-        # ================= take(2) and its red card =================
-        takeb = frame(1.7, 3.5, 0.5, -0.5, STAFF)
-        take_t = M("take(2)", 24, STAFF).move_to(takeb)
-        fin = M("finally { }", 22, GREY_B).move_to([-4.9, -0.35, 0])
-        self.say("take")
-        self.play(FadeOut(VGroup(noinsp, built, staff_l)), run_time=0.4)
-        self.play(FadeIn(takeb), FadeIn(take_t), FadeIn(fin), run_time=0.7)
-        self.at(1)
-        self.play(Circumscribe(cook_box, color=COOK, buff=0.08), run_time=1.0)
-        self.at(2)
-        self.play(Circumscribe(takeb, color=STAFF, buff=0.08), run_time=0.9)
-        self.hold()
-
-        self.say("card")
-        for n in (1, 2):
-            p = through(str(n), [mapb.get_center(), takeb.get_center(), AT_DINER], rt=0.6)
-            self.play(FadeOut(p, scale=0.6), run_time=0.2)
-        card = red_card().move_to([2.6, 0.85, 0])
-        cap = VGroup(M("AbortFlowException", 22, ERR), T("its owner: this take", 22, ERR)).arrange(DOWN, buff=0.12)
-        cap.move_to([4.7, 1.4, 0])
-        self.play(FadeIn(card, scale=1.6), FadeIn(cap), run_time=0.6)
-        self.at(1)
-        self.play(card.animate.move_to([HX + 0.5, Y, 0]), run_time=0.9, rate_func=linear)
-        self.play(card.animate.move_to([HX - 0.5, Y, 0]), Flash([HX, Y, 0], color=ERR, flash_radius=0.4), run_time=0.4,
-                  rate_func=linear)
-        self.play(card.animate.move_to([-2.95, Y, 0]), run_time=0.5, rate_func=linear)
-        self.at_text("and the cook")
-        self.play(fin.animate.set_color(VAL).scale(1.12), Flash(cook_box.get_right(), color=VAL, flash_radius=0.4), run_time=0.7)
-        self.hold()
-
-        slot = DashedVMobject(RoundedRectangle(corner_radius=0.1, width=1.2, height=1.0, stroke_color=STAFF, stroke_width=2.5),
-                              num_dashes=20).move_to([2.6, -1.6, 0])
-        slot_l = T("take's catch", 22, STAFF).next_to(slot, DOWN, buff=0.12)
-        route = VMobject().set_points_as_corners([[-2.95, Y, 0], [-2.95, -1.6, 0], [2.6, -1.6, 0]])
-        mine = row(tick(True, 0.18), T("its own card: the flow ends quietly", 26)).move_to([-0.6, -2.75, 0])
-        other = T("another name on the card: it flies on", 22, GREY_B).move_to([-0.6, -3.2, 0])
-        self.say("land")
-        self.play(FadeIn(slot), FadeIn(slot_l), fin.animate.set_color(GREY_B).scale(1 / 1.12), run_time=0.5)
-        self.play(MoveAlongPath(card, route), run_time=1.4)
-        self.play(FadeIn(mine, shift=UP * 0.1), FadeOut(cap), run_time=0.6)
-        self.at(1)
-        self.play(FadeIn(other, shift=UP * 0.1), run_time=0.5)
-        self.hold()
-
-        # ================= the second victim =================
-        take1 = M("take(1)", 24, STAFF).move_to(takeb)
-        many = M("1,000 items", 22, GREY_B).move_to(fin)
-        warn_n = ValueTracker(0)
-        counter = always_redraw(lambda: row(T("warnings:", 28, NET), T(f"{int(warn_n.get_value()):,}", 28))
-                                .move_to([-6.4, -2.2, 0], aligned_edge=LEFT))
-        self.play(FadeOut(VGroup(slot, slot_l, mine, other, card)), FadeIn(net), FadeIn(net_l), Transform(take_t, take1),
-                  FadeOut(fin), FadeIn(many), run_time=0.8)
-        self.say("victim")
-        p = through("1", [mapb.get_center(), takeb.get_center(), AT_DINER], rt=0.6)
-        self.play(FadeOut(p, scale=0.6), run_time=0.2)
-        card = red_card().move_to([2.6, 0.85, 0])
-        self.play(FadeIn(card, scale=1.6), run_time=0.4)
-        self.play(card.animate.move_to([NET_X, Y, 0]), run_time=1.0, rate_func=linear)
-        self.add(counter)
-        self.play(FadeOut(card, scale=0.5), Indicate(net, color=NET, scale_factor=1.12), warn_n.animate.set_value(1),
-                  qs[2].animate.set_color(ERR), run_time=0.6)
-        self.at(1)
-        for n in (2, 3):
-            p = plate(str(n)).move_to(SPAWN)
-            self.play(FadeIn(p, scale=0.6), run_time=0.2)
-            self.play(p.animate.move_to([HX - 0.45, Y, 0]), run_time=0.4, rate_func=rush_into)
-            anims = [Create(bar)] if n == 2 else [Indicate(bar, color=ERR, scale_factor=1.3)]
-            self.play(*anims, run_time=0.3)
-            self.play(FadeOut(p, scale=0.6), run_time=0.2)
-            bounce([HX - 0.15, Y, 0])
-            self.play(warn_n.animate.set_value(n), run_time=0.2)
-        self.at(2)
-        self.play(warn_n.animate.set_value(1000), run_time=2.0, rate_func=rush_into)
-        self.hold()
-        counter.clear_updaters()
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
 
-        # ================= the code, last =================
-        cw = M("0123456789", 24).width / 10
+        # ================= what it prints =================
+        hl = {"emit(dish)": EMIT, "\"SORRY $dish came back ...\"": GREY_A, "// soup, salad, roast": GREY_B,
+              "// salad: too salty": SALAD}
+        code = code_block(["val plates = flow {", "    for (dish in dinner) {             // soup, salad, roast",
+                           "        try { emit(dish) }", "        catch (e: Exception) { println(\"SORRY $dish came back ...\") }",
+                           "    }", "}", "plates.collect { dish -> eat(eaten, dish) }   // salad: too salty"], 22, hl)
+        code.move_to([0, 1.75, 0])
+        fit(code, 12.4)
+        out_l = T("TransparencyTrap prints (shortened):", 22, GREY_B)
+        o1 = M("SORRY salad came back ... SentBackException: too salty: salad", 22, SALAD)
+        o2 = M("SORRY roast came back ... IllegalStateException:", 22, ROAST)
+        o2b = M("    Flow exception transparency is violated ...", 22, BAD)
+        o3 = M("collect returned normally. eaten=[soup]", 22, WHITE)
+        out = VGroup(out_l, o1, o2, o2b, o3).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
+        fit(out, 12.4).move_to([0, -1.25, 0]).align_to(code, LEFT)
+        self.say("show")
+        self.play(FadeIn(code, shift=UP * 0.1), run_time=0.8)
+        self.play(FadeIn(out_l), run_time=0.3)
+        self.at_text("Sorry for", lead=0.3)
+        self.play(FadeIn(o1, shift=RIGHT * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(o2, shift=RIGHT * 0.1), FadeIn(o2b, shift=RIGHT * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(o3, shift=RIGHT * 0.1), run_time=0.5)
+        self.play(Circumscribe(o3, color=YELLOW_M, buff=0.06), run_time=1.0)
+        self.hold()
 
-        def code(lines, hl):
-            g = VGroup(*[M(l.lstrip(), 24, t2c=hl) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
-            for i, l in enumerate(lines):
-                g[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+        hole = T("success, with a hole in it", 26, YELLOW_M).move_to([0, -3.05, 0])
+        self.say("hole")
+        self.play(Indicate(o3, color=YELLOW_M, scale_factor=1.04), run_time=0.9)
+        self.at(2)
+        self.play(FadeIn(hole, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+
+        toy = VGroup(T("lesson 1's toy flow, and Java:", 24, GREY_A), M("eaten=[soup, roast]", 24, GREEN_M)).arrange(RIGHT, buff=0.3)
+        toy.move_to([0, -3.05, 0])
+        self.say("toy")
+        self.play(FadeOut(hole), FadeIn(toy, shift=UP * 0.1), run_time=0.7)
+        self.at(2)
+        self.play(Indicate(o2, color=BAD, scale_factor=1.04), Indicate(o2b, color=BAD, scale_factor=1.04), run_time=1.0)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
+
+        # ================= the inspector at the door =================
+        insp = inspector(1.3).move_to([0.3, -0.9, 0])
+        self.add(floor, frg, stv, cook, door, tbl, diner)
+        self.play(FadeIn(VGroup(floor, frg, stv, cook, door, tbl, diner)), run_time=0.6)
+        wrap = VGroup(M("collect", 24, DINER), T("wraps your collector in a", 24), M("SafeCollector", 24, YELLOW_M),
+                      T("first", 24)).arrange(RIGHT, buff=0.18).move_to([0, 2.95, 0])
+        fit(wrap, 12.4)
+        lane = Arrow([-2.4, 0.35, 0], [3.6, 0.35, 0], buff=0, stroke_width=4, color=EMIT, max_tip_length_to_length_ratio=0.04)
+        lane_l = M("emit(dish)", 22, EMIT).next_to(lane, UP, buff=0.12).shift(LEFT * 1.6)
+        self.say("door")
+        self.play(FadeIn(wrap, shift=DOWN * 0.1), run_time=0.7)
+        self.at_text("and only then", lead=0.3)
+        self.play(FadeIn(insp, shift=DOWN * 0.15), run_time=0.7)
+        self.at(1)
+        self.play(GrowArrow(lane), FadeIn(lane_l), run_time=0.8)
+        self.hold()
+
+        m_cook = VGroup(T("the cook", 24, COOK), M("your flow { } block", 20, GREY_A)).arrange(DOWN, buff=0.08).move_to([-3.3, -2.6, 0])
+        m_insp = VGroup(T("the inspector", 24, INSP), M("SafeCollector", 20, YELLOW_M)).arrange(DOWN, buff=0.08).move_to([0.3, -2.6, 0])
+        m_dine = VGroup(T("the diner", 24, DINER), M("your collector", 20, GREY_A)).arrange(DOWN, buff=0.08).move_to([4.6, -2.6, 0])
+        m_plate = T("each plate: one emit", 22, EMIT).next_to(lane, UP, buff=0.12).shift(RIGHT * 1.7)
+        self.say("inspector")
+        self.play(Indicate(insp, color=WHITE, scale_factor=1.1), run_time=0.8)
+        self.at(1)
+        p0 = dish("soup", 0.7).move_to([-2.3, 0.75, 0])
+        self.play(FadeIn(p0), run_time=0.3)
+        self.play(p0.animate.move_to([3.5, 0.75, 0]), run_time=1.4)
+        self.play(FadeOut(p0), run_time=0.3)
+        self.at(2)
+        self.play(FadeIn(m_cook), run_time=0.4)
+        self.at_text("the inspector is", lead=0.3)
+        self.play(FadeIn(m_insp), run_time=0.4)
+        self.at_text("each plate", lead=0.3)
+        self.play(FadeIn(m_plate), FadeIn(m_dine), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
+
+        # ================= the three checks =================
+        big = inspector(2.0).move_to([-5.0, 1.6, 0])
+        big_l = M("SafeCollector", 24, YELLOW_M).next_to(big, DOWN, buff=0.25)
+
+        def check_row(n, q, detail, err, y):
+            num = T(f"{n}", 30, YELLOW_M)
+            qt = T(q, 28)
+            head = VGroup(num, qt).arrange(RIGHT, buff=0.3)
+            dt = T(detail, 22, GREY_A)
+            et = M(err, 22, BAD)
+            g = VGroup(head, dt, et).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
+            dt.shift(RIGHT * 0.45)
+            et.shift(RIGHT * 0.45)
+            g.move_to([-2.9, y, 0], aligned_edge=LEFT)
             return g
 
-        bad = code(["// wrong: also catches the ledger's error and take's red card",
-                    "flow { for (p in batch) try { emit(p) } catch (e: Exception) { log(e) } }"],
-                   {"// wrong: also catches the ledger's error and take's red card": ERR, "try {": NET, "} catch": NET})
-        good = code(["// right: no try around emit, catch inside the collector",
-                     "flow { for (p in batch) emit(p) }",
-                     "    .collect { p ->",
-                     "        try { ledger.post(p) } catch (e: LedgerException) { log(e) }",
-                     "    }"],
-                    {"// right: no try around emit, catch inside the collector": GREEN_M, "ledger.post": DINER})
-        allc = VGroup(T("Kotlin only", 24, GREY_B), bad, good).arrange(DOWN, aligned_edge=LEFT, buff=0.45)
-        fit(allc, 12.4).move_to(ORIGIN)
-        self.say("code")
-        self.play(FadeIn(allc[0]), FadeIn(bad, shift=UP * 0.15), run_time=0.8)
+        r1 = check_row(1, "Is dinner still on?", "the diner's coroutine was not cancelled", "else: CancellationException", 2.35)
+        r2 = check_row(2, "Same kitchen, same cook?", "every part of the context but the job is the same",
+                       "else: \"Flow invariant is violated\"", 0.55)
+        r3 = check_row(3, "Did the last plate come back?", "the previous emit did not throw",
+                       "else: \"Flow exception transparency is violated\"", -1.25)
+        for r in (r1, r2, r3):
+            fit(r, 9.2)
+        self.say("c1")
+        self.play(FadeIn(big), FadeIn(big_l), run_time=0.7)
         self.at(1)
-        self.play(FadeIn(good, shift=UP * 0.15), run_time=0.8)
+        self.play(FadeIn(r1[0], shift=RIGHT * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(r1[1]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(r1[2]), run_time=0.5)
         self.hold()
-        self.play(FadeOut(allc), run_time=0.6)
 
-        # ================= the rule and a check =================
-        r1 = row(M("flow { }", 30, COOK), T("checks every", 32), M("emit:", 30), buff=0.14)
-        r2 = T("still open, same context, and the last one didn't throw.", 30, GREY_B)
-        r3 = row(T("Never wrap", 32), M("emit", 30), T("in a try/catch.", 32), buff=0.14)
-        rule = VGroup(r1, r2, r3).arrange(DOWN, buff=0.3).move_to(UP * 1.3)
-        fit(rule, 12.4)
-        qq = VGroup(T("Check:", 28, YELLOW_M),
-                    row(T("A producer catches Throwable around", 28), M("emit,", 28), buff=0.12),
-                    row(T("and the flow ends in", 28), M("take(1).", 28, STAFF), buff=0.12),
-                    row(T("What does its second", 28), M("emit", 28), T("do?", 28), buff=0.12)
-                    ).arrange(DOWN, buff=0.2).move_to(DOWN * 1.7)
-        fit(qq, 12.4)
-        self.say("rule")
-        self.play(FadeIn(VGroup(r1, r2), shift=UP * 0.1), run_time=0.7)
+        ctx_r = RoundedRectangle(corner_radius=0.1, width=3.3, height=1.75).set_stroke(GREY_B, 2).set_fill(BLACK, 1)
+        ctx_r.move_to([-4.85, -1.35, 0])
+        ctx_t = T("a coroutine's context", 22, GREY_B).move_to(ctx_r.get_top() + DOWN * 0.27)
+        ctx_rows = VGroup(T("dispatcher: picks the thread", 20), T("name", 20), T("job: may differ", 20, GREY_C))
+        ctx_rows.arrange(DOWN, aligned_edge=LEFT, buff=0.1).next_to(ctx_t, DOWN, buff=0.15)
+        ctx = VGroup(ctx_r, ctx_t, ctx_rows)
+        self.say("c2")
+        self.play(FadeIn(r2[0], shift=RIGHT * 0.1), run_time=0.6)
         self.at(1)
-        self.play(FadeIn(r3, shift=UP * 0.1), run_time=0.6)
+        self.play(FadeIn(ctx_r), FadeIn(ctx_t), run_time=0.5)
+        self.at_text("its dispatcher", lead=0.3)
+        self.play(FadeIn(ctx_rows[0]), run_time=0.4)
+        self.at_text("its name", lead=0.3)
+        self.play(FadeIn(ctx_rows[1]), run_time=0.3)
+        self.at_text("and its job", lead=0.3)
+        self.play(FadeIn(ctx_rows[2]), run_time=0.3)
+        self.at(2)
+        self.play(FadeIn(r2[1]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(r2[2]), run_time=0.5)
         self.hold()
+
+        self.say("c3")
+        self.play(FadeIn(r3[0], shift=RIGHT * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(r3[1]), run_time=0.5)
+        self.play(FadeIn(r3[2]), run_time=0.5)
+        self.hold()
+
+        taste = VGroup(T("It never tastes the food:", 26, YELLOW_M), T("it never looks at your values.", 26)).arrange(RIGHT, buff=0.2)
+        taste.move_to([0, -3.0, 0])
+        fit(taste, 12.4)
+        self.say("taste")
+        self.at(1)
+        self.play(FadeIn(taste, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(Indicate(r2[0][1], color=WHITE, scale_factor=1.05), run_time=0.7)
+        self.play(Indicate(r3[0][1], color=WHITE, scale_factor=1.05), run_time=0.7)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
+
+        # ================= the dinner, replayed =================
+        insp2 = inspector(1.3).move_to([0.3, -0.9, 0])
+        self.play(FadeIn(VGroup(floor, frg, stv, cook, door, tbl, diner, insp2)), run_time=0.6)
+        LANE = 0.45
+        ok_y = 1.35
+        start = np.array([-2.4, LANE, 0])
+        gate = np.array([0.3, LANE, 0])
+        seat = tbl[0].get_center() + UP * 0.2
+        eaten_t = VGroup(T("eaten:", 24, GREY_A), T("soup", 24, SOUP)).arrange(RIGHT, buff=0.15).move_to([4.3, -2.45, 0])
+
+        soup = dish("soup", 0.75).move_to(start)
+        self.say("trace1")
+        self.play(FadeIn(soup), run_time=0.3)
+        self.play(soup.animate.move_to(gate), run_time=0.7)
+        okm = tick(True, 0.2).move_to([0.3, ok_y, 0])
+        self.play(Create(okm), run_time=0.3)
+        self.play(soup.animate.move_to(seat + LEFT * 0.5), FadeOut(okm), run_time=0.8)
+        self.play(FadeOut(soup), FadeIn(eaten_t), run_time=0.5)
+        self.at(1)
+        sal2 = dish("salad", 0.75).move_to(start)
+        self.play(FadeIn(sal2), run_time=0.3)
+        self.play(sal2.animate.move_to(gate), run_time=0.6)
+        okm2 = tick(True, 0.2).move_to([0.3, ok_y, 0])
+        self.play(Create(okm2), run_time=0.3)
+        self.play(sal2.animate.move_to(seat + LEFT * 0.5), FadeOut(okm2), run_time=0.7)
+        back = chip_t("sent back: too salty", BAD, 20).move_to(seat + UP * 1.2 + LEFT * 0.3)
+        self.play(FadeIn(back, shift=UP * 0.1), run_time=0.4)
+        self.play(sal2.animate.move_to(gate + RIGHT * 0.9), back.animate.move_to(gate + UP * 0.95 + RIGHT * 0.9), run_time=0.8)
+        self.at(2)
+        memo = chip_t("last plate: came back", YELLOW_M, 20).move_to([0.3, 1.45, 0])
+        sorry1 = bubble("sorry!", COOK, 24).next_to(cook, UP, buff=0.3)
+        self.play(FadeOut(sal2), back.animate.move_to(start + UP * 0.6), FadeIn(memo, shift=DOWN * 0.1), run_time=0.8)
+        self.play(FadeOut(back), FadeIn(sorry1, scale=0.8), run_time=0.5)
+        self.hold()
+
+        roast = dish("roast", 0.75).move_to(start)
+        self.say("trace2")
+        self.play(FadeOut(sorry1), FadeIn(roast), run_time=0.4)
+        self.play(roast.animate.move_to(gate + LEFT * 0.75), run_time=0.7)
+        self.at(1)
+        stop = tick(False, 0.2).next_to(roast, RIGHT, buff=0.15)
+        refuse = chip_t("IllegalStateException", BAD, 20, mono=True).move_to(gate + UP * 1.0 + LEFT * 0.3)
+        self.play(Create(stop), Indicate(memo, color=YELLOW_M), run_time=0.7)
+        self.at(2)
+        sorry2 = bubble("sorry!", COOK, 24).next_to(cook, UP, buff=0.3)
+        self.play(FadeOut(memo), FadeIn(refuse, shift=DOWN * 0.1), run_time=0.5)
+        self.play(refuse.animate.move_to(start + UP * 0.6), run_time=0.8)
+        self.play(FadeOut(refuse), FadeIn(sorry2, scale=0.8), run_time=0.5)
+        self.play(FadeOut(roast), FadeOut(stop), Indicate(eaten_t, color=YELLOW_M), run_time=0.7)
+        self.hold()
+
+        nm = VGroup(T("exception transparency", 34, YELLOW_M),
+                    T("never hide an exception from downstream, and never emit after one", 24)).arrange(DOWN, buff=0.15)
+        nm.move_to([0, 2.65, 0])
+        fit(nm, 12.4)
+        cz = VGroup(T("the complaint survives only as text:", 22, GREY_A), M("cause = null", 22, BAD)).arrange(RIGHT, buff=0.2)
+        cz.move_to([0, 1.55, 0])
+        self.say("name")
+        self.play(FadeOut(sorry2), FadeIn(nm[0], shift=DOWN * 0.1), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(nm[1]), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(cz, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
+
+        # ================= family helpers: how operators are built =================
+        NY = 1.3
+        nb = node("flow { } block", "the cook", COOK, 2.6).move_to([-5.0, NY, 0])
+        ni = node("SafeCollector", "the inspector", YELLOW_M, 2.6).move_to([-1.9, NY, 0])
+        nh = node("map, filter", "family helpers", HELP, 2.6).move_to([1.2, NY, 0])
+        nd = node("your collector", "the diner", DINER, 2.4).move_to([4.75, NY, 0])
+        arrs = VGroup(*[Arrow(a.get_right(), b.get_left(), buff=0.06, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.3)
+                        for a, b in ((nb, ni), (ni, nh), (nh, nd))])
+        chain = VGroup(nb, ni, nh, nd, arrs)
+        side = T("side door: no inspector", 22, HELP).next_to(nh, UP, buff=0.2)
+        uf = VGroup(T("built on", 24, GREY_A), M("unsafeFlow", 24, HELP), T("(no checks):", 24, GREY_A),
+                    M("map  filter  onEach  take  flowOf  asFlow", 24, HELP)).arrange(RIGHT, buff=0.18)
+        uf.move_to([0, -0.6, 0])
+        fit(uf, 12.4)
+        toyb = T("lesson 1's toy builder, nearly word for word", 22, GREY_B).next_to(uf, DOWN, buff=0.18)
+        self.say("helpers")
+        self.play(FadeIn(nb), FadeIn(ni), FadeIn(nd), GrowArrow(arrs[0]), run_time=0.8)
+        self.at_text("The library's", lead=0.3)
+        self.play(FadeIn(nh), GrowArrow(arrs[1]), GrowArrow(arrs[2]), run_time=0.7)
+        self.at_text("are built on", lead=0.3)
+        self.play(FadeIn(uf, shift=UP * 0.1), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(toyb), run_time=0.5)
+        self.hold()
+
+        safe = VGroup(T("a real inspector:", 24, GREY_A), M("flow { }", 24, YELLOW_M), M("transform { }", 24, YELLOW_M)).arrange(RIGHT, buff=0.25)
+        safe.move_to([0, -2.1, 0])
+        why = VGroup(T("map's lambda gets a value,", 22, GREY_A), T("never the collector", 22, HELP)).arrange(RIGHT, buff=0.15)
+        why.next_to(nh, DOWN, buff=0.25)
+        self.say("helpers2")
+        self.play(FadeIn(side, shift=DOWN * 0.1), Indicate(nh[0], color=HELP, scale_factor=1.04), run_time=0.8)
+        self.at(1)
+        self.play(FadeIn(why), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(safe, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+
+        canc = VGroup(T("check 1 skipped too:", 24, YELLOW_M), M(".asFlow().cancellable()", 24, HELP),
+                      T("puts it back", 24)).arrange(RIGHT, buff=0.2).move_to([0, -3.0, 0])
+        fit(canc, 12.4)
+        self.say("helpers3")
+        self.at(1)
+        self.play(FadeIn(canc[0], shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(canc[1:], shift=UP * 0.1), run_time=0.6)
+        self.hold()
+
+        # take's signed note flies back through every emit
+        self.play(FadeOut(VGroup(uf, toyb, safe, why, side, canc)), run_time=0.5)
+        nt = node("take(1)", "wants one dish", HELP, 2.6).move_to(nh)
+        path = VMobject().set_points_as_corners([nd.get_bottom() + DOWN * 0.05, nd.get_bottom() + DOWN * 1.0,
+                                                 nb.get_bottom() + DOWN * 1.0, nb.get_bottom() + DOWN * 0.05])
+        path.set_stroke(BAD, 3)
+        note = VGroup(Square(side_length=0.95).set_stroke(NOTE, 2.5).set_fill(dim(NOTE, 0.3), 1),
+                      VGroup(T("no more,", 18, WHITE), T("thanks", 18, WHITE), T("signed: take", 15, NOTE)).arrange(DOWN, buff=0.05))
+        note[1].move_to(note[0])
+        note.set_z_index(8).move_to(nd.get_bottom() + DOWN * 1.0)
+        noline = T("no line back to the kitchen: only the emit she's standing in", 24, GREY_A).move_to([0, 2.75, 0])
+        fit(noline, 12.4)
+        self.say("note")
+        self.play(FadeOut(nh), FadeIn(nt), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(noline, shift=DOWN * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(Create(path), FadeIn(note, scale=0.7), run_time=0.8)
+        self.play(note.animate.move_to(nb.get_bottom() + DOWN * 1.0), run_time=1.6)
+        self.at_text("signed", lead=0.3)
+        self.play(Indicate(note[1][2], color=NOTE, scale_factor=1.3), run_time=0.8)
+        self.hold()
+
+        caught = chip_t("caught by the polite catch: sorry!", COOK, 22).next_to(nb, DOWN, buff=1.6).shift(RIGHT * 0.6)
+        warn = VGroup(M("take(1)", 26, HELP), T("over 1,000 items:", 26), T("1,000 warnings", 26, BAD)).arrange(RIGHT, buff=0.2)
+        warn.move_to([0, -3.05, 0])
+        self.say("note2")
+        self.at(1)
+        self.play(FadeIn(caught, shift=UP * 0.1), Indicate(note, color=BAD), run_time=0.8)
+        self.at(2)
+        x_i = tick(False, 0.2).next_to(ni, UP, buff=0.15)
+        self.play(Create(x_i), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(warn, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
+
+        # ================= the rule, and the fix =================
+        rl1 = T("Never put a try/catch around emit.", 38, YELLOW_M).move_to([0, 2.4, 0])
+        rl2 = T("Catch where the failure happens.", 32).move_to([0, 1.5, 0])
+        self.say("rule")
+        self.play(FadeIn(rl1, shift=DOWN * 0.1), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(rl2, shift=DOWN * 0.1), run_time=0.6)
+        rl3 = VGroup(T("a sent-back plate:", 26, GREY_A), T("catch inside the collector, around eat", 26, DINER)).arrange(RIGHT, buff=0.2)
+        rl3.move_to([0, 0.6, 0])
+        fit(rl3, 12.4)
+        self.at(3)
+        self.play(FadeIn(rl3, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+
+        khl = {"emit(dish)": EMIT, "// no try around emit": GREY_B, "SentBackException": SALAD}
+        k = code_block(["flow { for (dish in dinner) emit(dish) }        // no try around emit",
+                        "    .collect { dish ->", "        try { diner.eat(dish) }",
+                        "        catch (e: SentBackException) { println(\"SORRY $dish came back\") }", "    }"], 22, khl)
+        j = code_block(["plates(dish -> {", "    try { diner.eat(dish); }",
+                        "    catch (SentBackException e) { System.out.println(\"SORRY \" + dish + \" came back\"); }",
+                        "});"], 22, {"SentBackException": SALAD})
+        cols = VGroup(VGroup(T("Kotlin", 24, GREY_B), k).arrange(DOWN, aligned_edge=LEFT, buff=0.15),
+                      VGroup(T("Java, the hand-written push flow from lesson 1", 24, GREY_B), j).arrange(DOWN, aligned_edge=LEFT, buff=0.15))
+        cols.arrange(DOWN, aligned_edge=LEFT, buff=0.4)
+        fit(cols, 12.4).move_to([0, -1.55, 0])
+        self.say("code")
+        self.play(FadeOut(rl3), VGroup(rl1, rl2).animate.shift(UP * 0.5), run_time=0.5)
+        self.play(FadeIn(cols, shift=UP * 0.1), run_time=0.8)
+        self.at(1)
+        self.play(Circumscribe(k[0], color=EMIT, buff=0.05), run_time=0.9)
+        self.play(Circumscribe(VGroup(k[2], k[3]), color=DINER, buff=0.05), run_time=0.9)
+        self.at(2)
+        self.play(Circumscribe(VGroup(j[1], j[2]), color=DINER, buff=0.05), run_time=0.9)
+        self.hold()
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
+
+        # ================= moral and check =================
+        mq = T("What goes wrong with a polite catch around emit?", 32).move_to(UP * 2.55)
+        m1 = T("It swallows the complaint, the refusal, and take's note.", 32, BAD).move_to(UP * 1.75)
+        m2 = T("flow { } checks every plate: dinner on, same kitchen, nothing after a sent-back plate.", 30, YELLOW_M)
+        m2.move_to(UP * 0.95)
+        for m in (mq, m1, m2):
+            fit(m, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.7)
+        self.at(1)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
+        self.at(2)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+
+        qa = VGroup(T("Check:", 28, YELLOW_M), M("flow { emit(1); withContext(CoroutineName(\"tasting\")) { emit(2) } }", 22))
+        qa.arrange(RIGHT, buff=0.25)
+        qb = T("No thread changes. What does the collector see?", 28)
+        qg2 = VGroup(qa, qb).arrange(DOWN, buff=0.22).move_to(DOWN * 0.8)
+        fit(qg2, 12.4)
         self.say("check")
-        self.play(FadeIn(qq, shift=UP * 0.1), run_time=0.8)
+        self.play(FadeIn(qg2, shift=UP * 0.1), run_time=0.8)
         self.hold(after=0)
-        self.wait(2.0)
+        self.predict(2.6, pos=(6.4, -3.25), edge=RIGHT)
+        ans = T("1, then \"Flow invariant is violated\": the name is part of the context", 30, YELLOW_M).move_to(DOWN * 2.35)
+        fit(ans, 12.4)
+        self.say("check_a")
+        self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=0)
+        self.wait(2.5)

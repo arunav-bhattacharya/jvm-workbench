@@ -1,34 +1,71 @@
 from fg import *
 import fg
 
-# Kokoro misreads these; fix the spoken form only (captions keep the real words).
-fg.SAY[:0] = [(r"\bcoroutine", "co-routine"), (r"\bcallbackFlow\b", "callback flow"), (r"\btrySend\b", "try send"),
-              (r"\bawaitClose\b", "await close"), (r"\bIllegalStateException\b", "illegal state exception"),
-              (r"\bbuffer\(500\)", "buffer of 500"), (r"\brunCurrent\b", "run current"),
-              (r"\badvanceTimeBy\(100\)", "advance time by 100"), (r"\brunTest\b", "run test"),
-              (r"\bFlux\.create\b", "Flux dot create"), (r"\bonDispose\b", "on dispose"),
-              (r"\bSDK's\b", "S D K's"), (r"\bSDK\b", "S D K")]
+# Spoken forms only (captions keep the written words). Kokoro reads "coroutine" as "core-oo-teen".
+fg.SAY[:0] = [
+    (r"\bcoroutine", "co-routine"), (r"\bcallbackFlow\b", "callback flow"), (r"\btrySendBlocking\b", "try send blocking"),
+    (r"\btrySend\b", "try send"), (r"\bawaitClose's\b", "await close's"), (r"\bawaitClose\b", "await close"),
+    (r"\bFlux\.create\b", "flux dot create"), (r"\bonDispose\b", "on dispose"), (r"\basFlow\b", "as flow"),
+    (r"\basFlux\b", "as flux"), (r"\brunTest\b", "run test"), (r"\badvanceTimeBy\b", "advance time by"),
+    (r"\brunCurrent\b", "run current"), (r"\bProbeApi\b", "probe A P I"), (r"listeners=0", "listeners equals 0"),
+    (r"\bIllegalStateException\b", "illegal state exception"),
+]
 
+# every spoken line, in order
 N = {
-    "open": "A payment gateway SDK calls your listener on its own thread, once per event. Your code wants a Flow.",
-    "box": "callbackFlow bolts a mailbox to the SDK's door. Your listener drops each event through the slot with trySend, "
-           "which never blocks. Your collector takes them out, one at a time.",
-    "close": "awaitClose is you on the porch. When the flow ends, by take, a cancelled collector or an error, "
-             "it unscrews the box, and the listener is unregistered. Leave it out, and the library throws an IllegalStateException.",
-    "burst_q": "Now the SDK connects and replays 200 events in one burst, while your collector waits in receive. How many get in?",
-    "burst": "65. The first goes straight into the waiting hand. The next 64 fill the box. The other 135 trySend calls fail, "
-             "and if you ignore the result, those events vanish without a sound.",
-    "fix": "So choose a policy on purpose. A buffer(500) right after callbackFlow is fused into the same box, "
-           "and conflate keeps only the latest.",
-    "code": "Here is the bridge in Kotlin, and Reactor's Flux.create beside it, where onDispose does the job of awaitClose.",
-    "clock": "One more edge, in tests. The runTest clock jumps from task to task. Here a task is due at 100 milliseconds.",
-    "adv": "advanceTimeBy(100) runs what is due before now plus 100, not at it. The clock stands at 100, and the task has not run.",
-    "cur": "runCurrent runs what is due now, and the task fires. "
-           "Reactor's virtual clock includes the end point, so there one call is enough.",
-    "rule": "So a callbackFlow is a mailbox. trySend drops events in, awaitClose takes the box down, "
-            "and a burst gets 64 slots plus one waiting hand.",
-    "check": "Quick check. 100 events hit a default callbackFlow while the collector waits in receive. "
-             "How many trySend calls fail?",
+    "open": "The old wireless oven probe is still in the kitchen drawer. You push it into the roast, and it calls you. "
+            "Its library has a listener: you register a function, and the probe calls it on its own thread, with "
+            "every new reading, until you unregister it.",
+    "shyq": "A flow is the opposite: it waits to be collected, and hands values over by suspending. So the bridge needs "
+            "a little care, and here's a question that's easy to be shy about. Once I've started collecting, I'm "
+            "listening, right?",
+    "code": "Here's a first bridge, built with callbackFlow, a flow builder for listener APIs. Its block registers a "
+            "listener. Each event goes in with trySend. And awaitClose waits, then unregisters. The caller launches "
+            "the collector, gives way once with yield, and the probe fires a reading. What does the collector get?",
+    "reveal": "Nothing. The probe printed: fired with listeners=0. And only after that: registered.",
+    "why": "Here's what happened. collect on a callbackFlow starts a producer coroutine, and your block, with its "
+           "register call, runs only when that coroutine first gets its turn. launch and one yield got the collector "
+           "going, but not its producer. The reading found no listener, and went nowhere.",
+    "why2": "So in Kotlin, collecting is not registering. Reactor's Flux.create in Java runs its lambda inside "
+            "subscribe, on the calling thread, so the Java version gets the reading at once. A test must wait for "
+            "the registration, and real code must not count on it.",
+    "hatch": "Now picture the bridge as the hatch with a shelf from lesson 3, fitted to the probe. The probe's thread "
+             "puts each reading on the shelf with trySend, which never waits. send would wait for room, so it's a "
+             "suspend function, and a plain listener method can't call it.",
+    "await": "awaitClose is you standing at the hatch until you're told to leave, and then taking the hatch down. It "
+             "runs whatever ended the flow: take of 2, a cancelled collector, an error from the probe, or the probe "
+             "closing.",
+    "forget": "Forget it, and the library sounds an alarm. Collecting throws an IllegalStateException that names the "
+              "exact line you forgot. Reactor has no such check: a Flux.create without onDispose still has its "
+              "listener after take of 1, and nothing tells you.",
+    "joke": "It's the rare error message that hands you the fix, word for word. So the rule: collecting is not "
+            "registering, and every callbackFlow ends with awaitClose.",
+    "burst_q": "Next, the probe's first act on connect. It replays everything it stored: 200 readings in one burst, "
+               "from its own thread, while the collector waits at the hatch. The shelf has 64 spots. How many "
+               "readings get through?",
+    "burst_a": "65. 64 onto the shelf, and one handed straight to the collector who was already waiting, before the "
+               "shelf was touched. The other 135 trySend calls failed. And trySend fails quietly: it returns a "
+               "result, and nobody looked at it.",
+    "burst_fix": "So choose on purpose. A buffer of 500, right after callbackFlow, snaps onto its shelf, and all 500 "
+                 "stored readings fit. conflate keeps the first and the last: 0 and 199. And trySendBlocking looks "
+                 "safe, but it blocks the probe's own thread until there's room.",
+    "burst_rule": "A failed trySend is a lost reading. Size the shelf for the burst, or choose what to drop.",
+    "reactor": "Next door, the neighbour's kitchen runs on Reactor, a line of stations where each one asks the one "
+               "before it for n items. The bridges translate. asFlow orders 64, then 64 more after every 64. asFlux "
+               "starts the flow at the first request, and when the demand runs out, the flow waits inside emit.",
+    "java": "Java can't call a Flow's collect, so give Java a Flux, as the lab's ProbeApi does, or a future. Never a "
+            "Flow.",
+    "test": "Last, the rehearsal. runTest puts dinner on a fake clock, virtual time, that jumps from one due task to "
+            "the next. With tasks due at 100 and 200 milliseconds, what does advanceTimeBy of 100 run?",
+    "test_a": "Nothing. It stops just before 100. The clock reads 100, and fired is empty. runCurrent then runs what's "
+              "due now: the task at 100.",
+    "test_b": "And runCurrent is also the fix for our lost reading. In a test, launch the collector, call runCurrent "
+              "so the hatch gets fitted, and only then fire.",
+    "moral": "So, once you start collecting, are you listening? Not yet. The hatch is fitted when the producer first "
+             "runs. trySend fills a shelf you size for the burst, and awaitClose takes the hatch down, whatever ended "
+             "the flow.",
+    "check": "Quick check. The collector is cancelled while it waits for a reading. Which line of the bridge runs?",
+    "check_a": "awaitClose's block: it unregisters the listener, so the probe stops calling.",
 }
 
 
@@ -68,9 +105,9 @@ class Narrated(VoiceScene):
         if after:
             self.wait(after)
 
-    def predict(self, secs=2.2):
+    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
         """A beat of silence for the viewer to guess, with a small on-screen prompt."""
-        tag = T("pause and predict", 24, GREY_B).move_to([6.5, -3.2, 0], aligned_edge=RIGHT)
+        tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
         self.play(FadeIn(tag), run_time=0.3)
         self.wait(secs)
         self.play(FadeOut(tag), run_time=0.3)
@@ -80,313 +117,432 @@ def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
 
-def frame(cx, cy, w, h, color, k=0.12, sw=3):
-    rr = RoundedRectangle(corner_radius=0.12, width=w, height=h, stroke_color=color, stroke_width=sw)
-    white = ManimColor(color).to_hex().upper() in ("#FFFFFF", "#BBBBBB")
-    rr.set_fill(BLACK if white else dim(color, k), 1)
-    return rr.move_to([cx, cy, 0])
+# one colour per thing (cook blue as in the coroutines track; the diner green; failure red, cancel yellow)
+PROBE, DINER, COOK, SHELF, BAD, CANCEL, REACT, NOTE = GOLD_M, GREEN_M, BLUE_M, TEAL_M, RED_M, YELLOW_M, PURPLE_M, GREY_B
 
 
-def row(*parts, buff=0.16):
-    return VGroup(*parts).arrange(RIGHT, buff=buff)
+def person(color=COOK, s=1.0):
+    body = RoundedRectangle(corner_radius=0.16, width=0.44, height=0.42).set_stroke(color, 3).set_fill(dim(color, 0.35), 1)
+    head = Circle(radius=0.14).set_stroke(color, 3).set_fill(dim(color, 0.55), 1).next_to(body, UP, buff=0.05)
+    return VGroup(body, head).scale(s)
 
 
-def chip(text, color, size=22):
-    t = M(text, size)
-    r = RoundedRectangle(corner_radius=0.08, width=max(0.5, t.width + 0.28), height=0.44, stroke_color=color,
-                         stroke_width=2.5).set_fill(dim(color, 0.35), 1)
-    return VGroup(r, t.move_to(r)).set_z_index(7)
+def probe(s=1.0):
+    rod = Line([0, -0.9, 0], [0, 0.3, 0], stroke_width=5, color=PROBE)
+    tip = Polygon([-0.04, -0.9, 0], [0.04, -0.9, 0], [0, -1.05, 0]).set_stroke(PROBE, 2).set_fill(PROBE, 1)
+    head = RoundedRectangle(corner_radius=0.12, width=0.55, height=0.42).set_stroke(PROBE, 3).set_fill(dim(PROBE, 0.3), 1)
+    head.move_to([0, 0.5, 0])
+    face = T("61", 20, PROBE).move_to(head)
+    return VGroup(rod, tip, head, face).scale(s)
 
 
-# one colour per thing, for the whole video
-SDK, LIS, EV, COL, FAIL, PORCH, CLK = PURPLE_M, BLUE_M, GOLD_M, TEAL_M, RED_M, GREEN_M, YELLOW_M
-
-RT, RB = 3.15, -0.2        # top and bottom of the two rooms
-WX = -1.6                  # the SDK's door
-MB = 1.5                   # mailbox side
-CELL = MB / 8
-YK = 1.4
-HAND = np.array([1.15, YK, 0])
-COL_C = np.array([4.05, YK, 0])
+def waves(at, color=PROBE, n=3):
+    return VGroup(*[Arc(radius=0.18 + 0.16 * k, start_angle=-0.6, angle=1.2).set_stroke(color, 2.5)
+                    .move_arc_center_to(at) for k in range(n)])
 
 
-def slot_center(i):
-    r, c = divmod(i, 8)
-    return np.array([WX - MB / 2 + CELL * (c + 0.5), YK + MB / 2 - CELL * (r + 0.5), 0])
+def roast(s=1.0):
+    body = Ellipse(width=1.9, height=0.95).set_stroke("#A0703C", 3).set_fill("#3a2614", 1)
+    tray = RoundedRectangle(corner_radius=0.05, width=2.4, height=0.16).set_stroke(GREY_B, 2.5).set_fill("#1a1a1a", 1)
+    tray.next_to(body, DOWN, buff=-0.12)
+    return VGroup(tray, body).scale(s)
 
 
-def filled(i, color=EV):
-    return Square(CELL * 0.72, stroke_width=0).set_fill(color, 0.95).move_to(slot_center(i)).set_z_index(5)
+def drawer(s=1.0):
+    box = Rectangle(width=2.4, height=0.8).set_stroke(GREY_A, 3).set_fill("#141414", 1)
+    handle = RoundedRectangle(corner_radius=0.05, width=0.6, height=0.12).set_stroke(GREY_A, 2.5).move_to(box)
+    return VGroup(box, handle).scale(s)
+
+
+def reading_chip(text, color=PROBE, size=20):
+    r = RoundedRectangle(corner_radius=0.07, width=0.62, height=0.4).set_stroke(color, 2.2).set_fill(dim(color, 0.35), 1)
+    return VGroup(r, T(text, size).move_to(r)).set_z_index(5)
+
+
+def code_block(src, size=22, hl=None, buff=0.15):
+    cw = M("0123456789", size).width / 10
+    lines = VGroup(*[M(l.strip() or ".", size, t2c=hl or {}) for l in src]).arrange(DOWN, aligned_edge=LEFT, buff=buff)
+    for i, l in enumerate(src):
+        if not l.strip():
+            lines[i].set_opacity(0)
+        lines[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
+    return lines
+
+
+def shelf(rows=8, cols=8, cell=0.2, gap=0.04, color=SHELF):
+    g = VGroup(*[Square(cell).set_stroke(color, 1.4).set_fill("#0f1a18", 1) for _ in range(rows * cols)])
+    g.arrange_in_grid(rows=rows, cols=cols, buff=gap)
+    frame = SurroundingRectangle(g, buff=0.1, color=color, corner_radius=0.05).set_stroke(width=2.5)
+    return VGroup(frame, g)
+
+
+def station(color=REACT, s=1.0):
+    r = RoundedRectangle(corner_radius=0.08, width=0.9, height=0.6).set_stroke(color, 2.5).set_fill(dim(color, 0.2), 1)
+    return r.scale(s)
 
 
 class Flow08Mailbox(Narrated):
-    """flow-08 sections 0, 1 and 3: callbackFlow is a mailbox bolted to the SDK; a burst gets 64 slots and one waiting hand."""
+    """flow-08, section 0 (with the burst of section 1, the Reactor bridge of section 2 and the test clock of section
+    3), told with the old wireless oven probe from the kitchen drawer: the shy question (once I collect, am I
+    listening?); the DemoProbe bridge where the reading fired after one yield is lost (listeners=0, then
+    registered); collecting is not registering, and Flux.create registers in subscribe; the hatch fitted to the
+    probe, trySend and awaitClose; the exact IllegalStateException; a burst of 200 gets 65 (64 + one waiting hand),
+    buffer(500), conflate [0, 199], trySendBlocking; asFlow/asFlux and ProbeApi's Flux; advanceTimeBy(100) stops
+    before the task due at 100, runCurrent runs it; the moral and a check."""
 
     def construct(self):
-        self.title_card("A mailbox on the SDK's door", "callbackFlow, awaitClose, and a burst of 200")
+        self.title_card("A hatch fitted to the probe", "callbackFlow, Reactor and runTest in Kotlin Flow")
 
-        # ================= the two sides =================
-        left = frame((-6.4 + WX - 0.18) / 2, (RT + RB) / 2, (WX - 0.18) + 6.4, RT - RB, SDK, k=0.10).set_z_index(-1)
-        right = frame((WX + 0.18 + 6.4) / 2, (RT + RB) / 2, 6.4 - (WX + 0.18), RT - RB, GREY_B, sw=2.5).set_z_index(-1)
-        left_l = T("the SDK, on its own thread", 24, SDK).move_to([-6.15, RT - 0.3, 0], aligned_edge=LEFT)
-        right_l = T("your coroutine", 24, GREY_B).move_to([WX + 0.45, RT - 0.3, 0], aligned_edge=LEFT)
-        sdk = frame(-4.35, 2.05, 3.1, 0.75, SDK)
-        sdk_t = T("payment gateway", 24, SDK).move_to(sdk)
-        col = frame(COL_C[0], COL_C[1], 2.8, 1.0, COL)
-        col_t = T("your collector", 26, COL).move_to(col)
+        # ================= the old probe that calls you =================
+        dr = drawer(1.0).move_to([-4.6, -1.6, 0])
+        dr_l = T("the kitchen drawer", 22, GREY_B).next_to(dr, DOWN, buff=0.2)
+        pr = probe(1.0).move_to([-4.6, 0.3, 0])
+        rs = roast(1.0).move_to([-0.6, -1.0, 0])
+        you = person(DINER, 1.2).move_to([4.6, -0.6, 0])
+        you_l = T("you", 24, DINER).next_to(you, DOWN, buff=0.2)
         self.say("open")
-        self.play(FadeIn(left), FadeIn(left_l), FadeIn(sdk), FadeIn(sdk_t), run_time=0.8)
+        self.play(FadeIn(dr), FadeIn(dr_l), run_time=0.6)
+        self.play(FadeIn(pr, shift=UP * 0.4), run_time=0.7)
         self.at(1)
-        self.play(FadeIn(right), FadeIn(right_l), FadeIn(col), FadeIn(col_t), run_time=0.8)
-        self.hold()
-
-        # ================= the mailbox =================
-        wall = Rectangle(width=0.26, height=RT - RB + 0.2, stroke_width=0).set_fill(GREY_C, 1).move_to([WX, (RT + RB) / 2, 0])
-        wall.set_z_index(1)
-        mbox = Square(MB + 0.16, stroke_color=WHITE, stroke_width=3).set_fill(BLACK, 1).move_to([WX, YK, 0]).set_z_index(2)
-        cells = VGroup(*[Square(CELL * 0.8, stroke_color=GREY_D, stroke_width=1).move_to(slot_center(i)) for i in range(64)])
-        cells.set_z_index(3)
-
-        def sign(text):
-            t = T(text, 22)
-            b = RoundedRectangle(corner_radius=0.06, width=t.width + 0.24, height=t.height + 0.16, stroke_color=WHITE,
-                                 stroke_width=1.5).set_fill(BLACK, 1)
-            return VGroup(b, t).move_to([WX, YK - MB / 2 - 0.42, 0]).set_z_index(4)
-
-        mlabel = sign("64 slots")
-        lis = frame(-4.35, 0.75, 3.1, 0.88, LIS)
-        lis_t = VGroup(T("your listener", 24, LIS), M("trySend(e)", 22)).arrange(DOWN, buff=0.08).move_to(lis)
-        nl = [T("listeners: 1", 22, GREY_B).move_to([-4.35, 0.05, 0])]
-        lk = Line(sdk.get_bottom(), lis.get_top(), stroke_width=2, color=GREY_C)
-
-        def listeners(n):
-            new = T(f"listeners: {n}", 22, GREY_B if n else FAIL).move_to([-4.35, 0.05, 0])
-            old, nl[0] = nl[0], new
-            return [FadeOut(old), FadeIn(new)]
-
-        box = VGroup(mbox, cells, mlabel)
-        self.say("box")
-        self.play(GrowFromEdge(wall, UP), run_time=0.6)
-        self.play(FadeIn(mbox), Create(cells, lag_ratio=0.01), FadeIn(mlabel), run_time=0.9)
-        self.at(1)
-        self.play(FadeIn(lis), FadeIn(lis_t), Create(lk), FadeIn(nl[0]), run_time=0.7)
-        q = []
-        for n in range(3):
-            e = chip(f"e{n + 1}", EV).move_to(sdk.get_center())
-            self.play(FadeIn(e, scale=0.6), run_time=0.15)
-            self.play(e.animate.move_to(lis.get_right() + RIGHT * 0.05 + UP * 0.05), run_time=0.35)
-            self.play(e.animate.scale(0.4).move_to(slot_center(n)), run_time=0.3)
-            self.remove(e)
-            f = filled(n)
-            self.add(f)
-            q.append(f)
+        self.play(FadeIn(rs), pr.animate.move_to([-0.6, -0.15, 0]), FadeOut(dr), FadeOut(dr_l), run_time=1.0)
+        wv = waves(pr[2].get_right() + RIGHT * 0.15)
+        self.play(FadeIn(you), FadeIn(you_l), LaggedStart(*[Create(w) for w in wv], lag_ratio=0.25), run_time=0.9)
         self.at(2)
-        for n in range(3):
-            e = chip(f"e{n + 1}", EV).move_to(slot_center(n))
-            self.play(FadeOut(q[n]), FadeIn(e, scale=0.5), run_time=0.15)
-            self.play(e.animate.move_to(col.get_left() + LEFT * 0.45), run_time=0.4)
-            self.play(FadeOut(e, scale=0.6), Indicate(col_t, color=COL, scale_factor=1.06), run_time=0.3)
+        lst = VGroup(RoundedRectangle(corner_radius=0.08, width=2.3, height=0.6).set_stroke(DINER, 2.5).set_fill(dim(DINER, 0.2), 1),
+                     T("your listener", 22, DINER))
+        lst[1].move_to(lst[0])
+        lst.move_to([4.6, 1.0, 0])
+        thr = DashedLine(pr[2].get_top() + UP * 0.1, [-0.6, 2.6, 0], dash_length=0.1).set_stroke(PROBE, 2)
+        thr_l = T("the probe's own thread", 22, PROBE).next_to(thr, RIGHT, buff=0.2).shift(UP * 0.5)
+        self.play(FadeIn(lst, shift=UP * 0.1), run_time=0.6)
+        self.play(Create(thr), FadeIn(thr_l), run_time=0.7)
+        chips = [reading_chip(t) for t in ("61", "63", "66")]
+        for k, c in enumerate(chips):
+            c.move_to(pr[2].get_center())
+            self.add(c)
+            self.play(c.animate.move_to(lst.get_left() + LEFT * 0.5 + DOWN * 0.0), run_time=0.55)
+            self.play(FadeOut(c), Indicate(lst, color=DINER, scale_factor=1.04), run_time=0.35)
         self.hold()
 
-        # ================= awaitClose =================
-        porch = row(M("awaitClose", 24, PORCH), M("{ registration.unregister() }", 24)).move_to([WX + 0.35, -0.75, 0],
-                                                                                                aligned_edge=LEFT)
-        ends = T("take(n), a cancelled collector, close(error)", 24, GREY_B).move_to([WX + 0.35, -1.3, 0], aligned_edge=LEFT)
-        alarm = VGroup(M("IllegalStateException", 24, FAIL), T("when the block returns without awaitClose", 22, GREY_B)
-                       ).arrange(DOWN, buff=0.1).move_to([0, -2.55, 0])
-        self.say("close")
-        self.play(FadeIn(porch, shift=UP * 0.1), run_time=0.7)
-        self.at(1)
-        self.play(FadeIn(ends, shift=UP * 0.1), run_time=0.6)
-        self.play(Circumscribe(col, color=PORCH, buff=0.08), run_time=0.8)
-        self.play(FadeOut(box, shift=UP * 0.3), FadeOut(lis), FadeOut(lis_t), FadeOut(lk), *listeners(0), run_time=1.0)
+        q = T("Once I've started collecting, I'm listening. Right?", 30).move_to([0, -2.7, 0])
+        self.say("shyq")
         self.at(2)
-        self.play(FadeIn(alarm, shift=UP * 0.1), run_time=0.6)
+        self.play(FadeIn(q, shift=UP * 0.1), run_time=0.7)
         self.hold()
+        self.play(FadeOut(VGroup(pr, rs, you, you_l, wv, lst, thr, thr_l, q)), run_time=0.6)
 
-        # ================= the burst =================
-        self.play(FadeOut(VGroup(porch, ends, alarm)), run_time=0.5)
-        hand = DashedVMobject(RoundedRectangle(corner_radius=0.08, width=0.62, height=0.52, stroke_color=COL, stroke_width=2.5),
-                              num_dashes=16).move_to(HAND)
-        hand_l = T("waiting in receive()", 22, COL).move_to([HAND[0] + 0.1, YK - 0.62, 0])
-        self.say("burst_q")
-        self.play(FadeIn(box), FadeIn(lis), FadeIn(lis_t), Create(lk), *listeners(1), run_time=0.9)
-        self.play(Create(hand), FadeIn(hand_l), run_time=0.6)
-        self.at_text("How many")
-        self.play(Indicate(sdk_t, color=EV, scale_factor=1.08), run_time=0.7)
-        self.hold(after=0)
-        self.predict()
-
-        sent = ValueTracker(0)
-        failed = ValueTracker(0)
-        inbox = ValueTracker(0)
-        stats = always_redraw(lambda: VGroup(
-            row(T("sent:", 26, GREY_B), T(str(int(sent.get_value())), 26)),
-            row(T("got in:", 26, COL), T(f"{int(inbox.get_value())}", 26, COL)),
-            row(T("trySend failed:", 26, FAIL), T(str(int(failed.get_value())), 26, FAIL))
-        ).arrange(DOWN, aligned_edge=LEFT, buff=0.18).move_to([-6.2, -1.55, 0], aligned_edge=UL))
-        self.say("burst")
-        self.add(stats)
-        first = chip("1", EV).move_to(sdk.get_center())
-        self.play(FadeIn(first, scale=0.6), sent.animate.set_value(1), run_time=0.2)
-        self.play(first.animate.move_to(lis.get_right() + RIGHT * 0.05), run_time=0.3)
-        self.play(first.animate.move_to(HAND), inbox.animate.set_value(1), run_time=0.5)
-        self.play(Flash(HAND, color=COL, flash_radius=0.5), run_time=0.4)
-        self.at(2)
-        fills = [filled(i) for i in range(64)]
-        self.play(LaggedStart(*[FadeIn(f, scale=0.4) for f in fills], lag_ratio=0.1), sent.animate.set_value(65),
-                  inbox.animate.set_value(65), run_time=1.6, rate_func=linear)
-        self.at(3)
-        bounces = []
-        for k in range(5):
-            b = chip("e", FAIL).scale(0.8).move_to(lis.get_right() + RIGHT * 0.1)
-            bounces.append(Succession(FadeIn(b, run_time=0.05), b.animate(run_time=0.3).move_to([WX - 0.95, YK - 0.3, 0]),
-                                      b.animate(run_time=0.35).move_to([-3.0, -0.75 - 0.0, 0]).set_opacity(0),
-                                      ))
-        self.play(LaggedStart(*bounces, lag_ratio=0.25), sent.animate.set_value(200), failed.animate.set_value(135),
-                  run_time=2.2, rate_func=linear)
-        self.at_text("and if you")
-        silent = T("ignore the result: lost without a sound", 24, FAIL).move_to([-6.2, -3.1, 0], aligned_edge=LEFT)
-        self.play(FadeIn(silent, shift=UP * 0.1), run_time=0.6)
-        self.hold()
-
-        # ================= a policy on purpose =================
-        pol = VGroup(row(M(".buffer(500)", 24, COL), T("fused: the same box, 500 slots", 24)),
-                     row(M(".conflate()", 24, COL), T("one slot: only the latest", 24))
-                     ).arrange(DOWN, aligned_edge=LEFT, buff=0.22).move_to([-0.9, -1.75, 0], aligned_edge=UL)
-        self.say("fix")
-        self.play(FadeOut(silent), run_time=0.3)
-        self.at(1)
-        self.play(FadeIn(pol[0], shift=UP * 0.1), Transform(mlabel, sign("500 slots")), run_time=0.8)
-        self.at_text("and conflate")
-        self.play(FadeIn(pol[1], shift=UP * 0.1), run_time=0.6)
-        self.hold()
-        stats.clear_updaters()
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
-
-        # ================= the code =================
-        cw = M("0123456789", 22).width / 10
-
-        def code(lines, hl):
-            g = VGroup(*[M(l.lstrip(), 22, t2c=hl) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
-            for i, l in enumerate(lines):
-                g[i].shift(RIGHT * (len(l) - len(l.lstrip())) * cw)
-            return g
-
-        kt = code(["callbackFlow {",
-                   "    val registration = register(object : PayListener {",
-                   "        override fun onEvent(event: PayEvent) { trySend(event) }",
-                   "        override fun onError(error: Throwable) { close(error) }",
-                   "        override fun onClosed() { close() }",
-                   "    })",
-                   "    awaitClose { registration.unregister() }",
-                   "}"],
-                  {"trySend": EV, "awaitClose": PORCH})
-        jv = code(["Flux.create(sink -> {",
-                   "    PayRegistration registration = gateway.register(new PayListener() {",
-                   "        public void onEvent(PayEvent e) { sink.next(e); }",
-                   "    });",
-                   "    sink.onDispose(registration::unregister);",
-                   "})"],
-                  {"sink.next": EV, "onDispose": PORCH})
-        kg = VGroup(T("Kotlin", 24, GREY_B), kt).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
-        jg = VGroup(T("Java, Reactor", 24, GREY_B), jv).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
-        pair = VGroup(kg, jg).arrange(DOWN, aligned_edge=LEFT, buff=0.42)
-        fit(pair, 12.4).move_to(ORIGIN)
-        if pair.height > 6.7:
-            pair.scale(6.7 / pair.height)
+        # ================= the first bridge, and the lost reading =================
+        hl = {"callbackFlow": SHELF, "register(": PROBE, "trySend(event)": SHELF, "awaitClose": CANCEL,
+              "registration.unregister()": CANCEL, "close(error)": BAD, "close()": GREY_A}
+        bsrc = ["fun DemoProbe.events(): Flow<ProbeEvent> = callbackFlow {",
+                "    val registration = register(object : ProbeEventListener {",
+                "        override fun onEvent(event: ProbeEvent) { trySend(event) }",
+                "        override fun onError(error: Throwable) { close(error) }",
+                "        override fun onClosed() { close() }",
+                "    })",
+                "    awaitClose { registration.unregister() }",
+                "}"]
+        bc = code_block(bsrc, 22, hl, buff=0.12)
+        fit(bc, 12.6).move_to([-6.4, 1.75, 0], aligned_edge=LEFT)
+        bc_l = T("Kotlin", 22, GREY_B).move_to([-6.4, 3.35, 0], aligned_edge=LEFT)
+        csrc = ['launch { probe.events().collect { println("got $it") } }', "yield()", "probe.fire(ProbeEvent(0, 61))"]
+        cc = code_block(csrc, 22, {"launch": DINER, "yield()": GREY_A, "probe.fire": PROBE}, buff=0.12)
+        cc.move_to([-6.4, -0.95, 0], aligned_edge=LEFT)
         self.say("code")
-        self.play(FadeIn(kg, shift=UP * 0.15), run_time=0.8)
-        self.at_text("and Reactor")
-        self.play(FadeIn(jg, shift=UP * 0.15), run_time=0.8)
-        self.hold()
-        self.play(FadeOut(pair), run_time=0.6)
-
-        # ================= the test clock's edge =================
-        TX0, TS = -5.2, 0.048          # x of t=0, units per ms
-        TY = 1.0
-
-        def cx(ms):
-            return TX0 + TS * ms
-
-        axis = Arrow([cx(0), TY, 0], [cx(200) + 0.4, TY, 0], buff=0, stroke_width=2.5, color=GREY_C,
-                     max_tip_length_to_length_ratio=0.02)
-        tks = VGroup(*[VGroup(Line([cx(m), TY - 0.08, 0], [cx(m), TY + 0.08, 0], stroke_width=2, color=GREY_C),
-                              T(f"{m}" + (" ms" if m == 200 else ""), 22, GREY_B).move_to([cx(m), TY - 0.35, 0]))
-                       for m in (0, 100, 200)])
-        task = Dot(radius=0.13, color=EV).move_to([cx(100), TY + 0.55, 0]).set_z_index(5)
-        task_l = T("task due at 100", 22, EV).next_to(task, RIGHT, buff=0.15)
-        now = ValueTracker(0)
-        cur = always_redraw(lambda: VGroup(
-            Line([cx(now.get_value()), TY - 0.15, 0], [cx(now.get_value()), TY + 1.25, 0], stroke_width=2.5, color=CLK),
-            T(f"now = {int(round(now.get_value()))}", 22, CLK).move_to([cx(now.get_value()), TY + 1.5, 0])))
-        fired = [row(T("fired =", 26, GREY_B), M("[ ]", 26)).move_to([2.6, 2.4, 0], aligned_edge=LEFT)]
-
-        def set_fired(text):
-            new = row(T("fired =", 26, GREY_B), M(text, 26, EV)).move_to([2.6, 2.4, 0], aligned_edge=LEFT)
-            old, fired[0] = fired[0], new
-            return [FadeOut(old), FadeIn(new)]
-
-        kc = code(["launch { delay(100); fired += currentTime }",
-                   "advanceTimeBy(100)       // fired = []",
-                   "runCurrent()             // fired = [100]"],
-                  {"// fired = []": GREY_B, "// fired = [100]": GREY_B, "advanceTimeBy": CLK, "runCurrent": EV})
-        jc = code(["clock.advanceTimeBy(Duration.ofMillis(100));   // fired = [100]"],
-                  {"// fired = [100]": GREY_B, "advanceTimeBy": CLK})
-        kcg = VGroup(T("Kotlin, runTest", 22, GREY_B), kc).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        jcg = VGroup(T("Java, Reactor's VirtualTimeScheduler", 22, GREY_B), jc).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        cg = VGroup(kcg, jcg).arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([-5.9, -1.0, 0], aligned_edge=UL)
-        fit(cg, 12.4)
-
-        self.say("clock")
-        self.play(GrowArrow(axis), FadeIn(tks), FadeIn(cur), FadeIn(fired[0]), run_time=0.9)
+        self.play(FadeIn(bc_l), FadeIn(bc[0]), FadeIn(bc[7]), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(bc[1]), FadeIn(bc[4]), FadeIn(bc[5]), FadeIn(bc[3]), run_time=0.7)
         self.at(2)
-        self.play(FadeIn(task, scale=0.5), FadeIn(task_l), FadeIn(kcg[0]), FadeIn(kc[0]), run_time=0.7)
-        self.hold()
-
-        band = Rectangle(width=cx(100) - cx(0), height=0.5, stroke_width=0).set_fill(CLK, 0.22).move_to(
-            [(cx(0) + cx(100)) / 2, TY, 0]).set_z_index(-1)
-        edge = Circle(radius=0.1, stroke_color=CLK, stroke_width=3).move_to([cx(100), TY, 0]).set_fill(BLACK, 1).set_z_index(4)
-        rng = M("[0, 100)", 24, CLK).move_to([(cx(0) + cx(100)) / 2, TY - 0.75, 0])
-        self.say("adv")
-        self.play(FadeIn(kc[1]), FadeIn(band), Create(edge), FadeIn(rng), run_time=0.8)
-        self.play(now.animate.set_value(100), run_time=1.6, rate_func=linear)
-        self.at(1)
-        self.play(Circumscribe(task, color=EV, buff=0.1), Circumscribe(fired[0], color=GREY_B, buff=0.08), run_time=1.2)
-        self.hold()
-
-        self.say("cur")
-        self.play(FadeIn(kc[2]), run_time=0.5)
-        self.play(Flash(task, color=EV, flash_radius=0.4), edge.animate.set_fill(CLK, 1), run_time=0.6)
-        self.play(task.animate.move_to(fired[0][1]), run_time=0.6)
-        self.play(FadeOut(task), *set_fired("[100]"), run_time=0.4)
-        self.at(1)
-        self.play(FadeIn(jcg, shift=UP * 0.1), run_time=0.8)
-        self.hold()
-        cur.clear_updaters()
-        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
-
-        # ================= the rule and a check =================
-        r1 = row(T("A", 32), M("callbackFlow", 30, COL), T("is a mailbox.", 32), buff=0.14)
-        r2 = row(M("trySend", 28, EV), T("drops events in,", 30, GREY_B), M("awaitClose", 28, PORCH),
-                 T("takes the box down,", 30, GREY_B), buff=0.14)
-        r3 = T("and a burst gets 64 slots plus one waiting hand.", 30, GREY_B)
-        rule = VGroup(r1, r2, r3).arrange(DOWN, buff=0.28).move_to(UP * 1.3)
-        fit(rule, 12.4)
-        qq = VGroup(T("Check:", 28, YELLOW_M),
-                    row(T("100 events hit a default", 28), M("callbackFlow", 26, COL), T("while the collector waits in", 28),
-                        M("receive().", 26), buff=0.12),
-                    row(T("How many", 28), M("trySend", 26, EV), T("calls fail?", 28), buff=0.12)
-                    ).arrange(DOWN, buff=0.2).move_to(DOWN * 1.7)
-        fit(qq, 12.4)
-        self.say("rule")
-        self.play(FadeIn(r1, shift=UP * 0.1), run_time=0.6)
-        self.at(1)
-        self.play(FadeIn(r2, shift=UP * 0.1), run_time=0.6)
-        self.at_text("and a burst")
-        self.play(FadeIn(r3, shift=UP * 0.1), run_time=0.6)
-        self.hold()
-        self.say("check")
-        self.play(FadeIn(qq, shift=UP * 0.1), run_time=0.8)
+        self.play(FadeIn(bc[2]), run_time=0.5)
+        self.at(3)
+        self.play(FadeIn(bc[6]), run_time=0.5)
+        self.at(4)
+        self.play(FadeIn(cc[0]), run_time=0.5)
+        self.at_text("gives way", lead=0.3)
+        self.play(FadeIn(cc[1]), run_time=0.4)
+        self.at_text("and the probe fires", lead=0.3)
+        self.play(FadeIn(cc[2]), run_time=0.4)
         self.hold(after=0)
-        self.wait(2.0)
+        self.predict(pos=(6.4, -1.0), edge=RIGHT)
+
+        out = VGroup(M("[probe] fired with listeners=0", 22, BAD), M("[probe] registered", 22, GREY_A))
+        out.arrange(DOWN, aligned_edge=LEFT, buff=0.12).move_to([-6.4, -2.65, 0], aligned_edge=LEFT)
+        nothing = T("the collector got nothing", 24, BAD).move_to([3.4, -2.65, 0])
+        self.say("reveal")
+        self.play(FadeIn(nothing), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(out[0]), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(out[1]), run_time=0.5)
+        self.hold()
+        self.play(FadeOut(VGroup(bc, bc_l, cc, out, nothing)), run_time=0.5)
+
+        # the order of events, step by step
+        steps = VGroup(
+            VGroup(T("1", 26, DINER), M("launch { collect }", 24, DINER), T("the collector starts", 24, GREY_A)),
+            VGroup(T("2", 26, DINER), M("yield()", 24, GREY_A), T("collect starts a producer, which waits for its turn", 24, GREY_A)),
+            VGroup(T("3", 26, BAD), M("probe.fire(...)", 24, PROBE), T("no listener yet: the reading goes nowhere", 24, BAD)),
+            VGroup(T("4", 26, NOTE), M("register(...)", 24, PROBE), T("the producer runs at last: too late", 24, GREY_A)))
+        for k, r in enumerate(steps):
+            r[0].move_to([-6.2, 2.3 - 0.75 * k, 0])
+            r[1].move_to([-5.7, 2.3 - 0.75 * k, 0], aligned_edge=LEFT)
+            r[2].move_to([-1.6, 2.3 - 0.75 * k, 0], aligned_edge=LEFT)
+            fit(r[2], 7.9)
+        self.say("why")
+        self.at_text("starts a producer", lead=0.3)
+        self.play(FadeIn(steps[0]), run_time=0.5)
+        self.play(FadeIn(steps[1]), run_time=0.5)
+        self.at_text("launch and one", lead=0.3)
+        self.play(Indicate(steps[1], color=DINER, scale_factor=1.02), run_time=0.8)
+        self.at_text("The reading found", lead=0.3)
+        self.play(FadeIn(steps[2]), run_time=0.5)
+        self.play(FadeIn(steps[3]), run_time=0.5)
+        self.hold()
+        rule1 = T("In Kotlin, collecting is not registering.", 30, SHELF).move_to([0, -1.0, 0])
+        jx = VGroup(T("Java, Flux.create:", 24, REACT), T("registers inside subscribe(), so it gets", 24, GREY_A),
+                    M("got ProbeEvent(seq=0, celsius=61)", 22, DINER)).arrange(RIGHT, buff=0.25)
+        fit(jx, 12.6).move_to([0, -2.0, 0])
+        tw = T("a test waits for the registration; real code doesn't count on it", 24, GREY_A).move_to([0, -2.85, 0])
+        self.say("why2")
+        self.play(FadeIn(rule1, shift=UP * 0.1), run_time=0.6)
+        self.at(1)
+        self.play(FadeIn(jx), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(tw), run_time=0.6)
+        self.hold()
+        self.play(FadeOut(VGroup(steps, rule1, jx, tw)), run_time=0.5)
+
+        # ================= the hatch fitted to the probe =================
+        pr2 = probe(0.9).move_to([-5.6, 0.4, 0])
+        thr2 = DashedLine([-5.6, 1.4, 0], [-5.6, 2.9, 0], dash_length=0.1).set_stroke(PROBE, 2)
+        thr2_l = T("its own thread", 22, PROBE).next_to(thr2, RIGHT, buff=0.15)
+        wall = Rectangle(width=0.35, height=4.2).set_stroke(GREY_A, 3).set_fill("#202020", 1).move_to([-0.6, 0.4, 0])
+        hole = Rectangle(width=0.37, height=1.0).set_stroke(SHELF, 3).set_fill(BLACK, 1).move_to([-0.6, 0.0, 0])
+        sh = Rectangle(width=2.6, height=0.12).set_stroke(SHELF, 2.5).set_fill(dim(SHELF, 0.4), 1).move_to([-0.6, -0.55, 0])
+        sh_l = T("the shelf: a channel", 22, SHELF).next_to(sh, DOWN, buff=0.2)
+        col = person(DINER, 1.1).move_to([2.6, -0.1, 0])
+        col_l = T("the collector", 22, DINER).next_to(col, DOWN, buff=0.2)
+        ts = M("trySend(reading): never waits", 22, SHELF).move_to([-3.0, 2.3, 0])
+        self.say("hatch")
+        self.play(FadeIn(wall), FadeIn(hole), FadeIn(sh), FadeIn(sh_l), FadeIn(col), FadeIn(col_l), run_time=0.8)
+        self.play(FadeIn(pr2), Create(thr2), FadeIn(thr2_l), run_time=0.6)
+        self.at(1)
+        rc = [reading_chip(t) for t in ("61", "63")]
+        for k, c in enumerate(rc):
+            c.move_to(pr2[2].get_center())
+            self.add(c)
+            self.play(c.animate.move_to([-1.3 + 0.7 * k, -0.3, 0]), run_time=0.6)
+        self.play(FadeIn(ts), run_time=0.5)
+        self.at(2)
+        sw = VGroup(M("send(reading)", 22, BAD), T("waits for room: a suspend function, so a plain listener can't call it", 22, GREY_A))
+        sw.arrange(RIGHT, buff=0.25)
+        fit(sw, 12.4).move_to([0, -2.4, 0])
+        self.play(FadeIn(sw), run_time=0.6)
+        self.hold()
+
+        ends = VGroup(*[T(t, 22, CANCEL) for t in ("take(2)", "a cancelled collector", "close(error) from onError",
+                                                   "close() from onClosed")]).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
+        ends.move_to([4.4, 1.9, 0])
+        unreg = M("unregister()", 22, CANCEL).move_to([4.4, 0.55, 0])
+        aw = M("awaitClose { registration.unregister() }", 22, t2c={"awaitClose": CANCEL}).move_to([0, -3.0, 0])
+        self.say("await")
+        self.play(FadeOut(sw), FadeIn(aw), col.animate.move_to([1.0, -0.1, 0]), col_l.animate.move_to([1.0, -0.85, 0]), run_time=0.7)
+        self.at(1)
+        self.play(LaggedStart(*[FadeIn(e, shift=LEFT * 0.1) for e in ends], lag_ratio=0.3), run_time=1.4)
+        self.play(FadeIn(unreg), VGroup(hole, sh).animate.set_opacity(0.25), run_time=0.7)
+        self.hold()
+
+        err = VGroup(M("IllegalStateException: 'awaitClose { yourCallbackOrListener.cancel() }'", 22, BAD),
+                     M("should be used in the end of callbackFlow block.", 22, BAD)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+        fit(err, 12.6).move_to([0, -2.2, 0])
+        rx = T("Reactor: no check; after take(1) the listener is still there", 24, REACT).move_to([0, -3.15, 0])
+        self.say("forget")
+        self.play(FadeOut(aw), VGroup(hole, sh).animate.set_opacity(1), FadeOut(ends), FadeOut(unreg), run_time=0.5)
+        self.at(1)
+        self.play(FadeIn(err, shift=UP * 0.1), run_time=0.8)
+        self.at(2)
+        self.play(FadeIn(rx), run_time=0.6)
+        self.hold()
+        self.say("joke")
+        self.play(Indicate(err[0][15:], color=WHITE, scale_factor=1.03), run_time=1.0)
+        self.at(1)
+        rule2 = T("Collecting is not registering. End every callbackFlow with awaitClose.", 28, SHELF).move_to([0, 3.15, 0])
+        fit(rule2, 12.4)
+        self.play(FadeIn(rule2, shift=UP * 0.1), run_time=0.7)
+        self.hold()
+        self.play(FadeOut(VGroup(pr2, thr2, thr2_l, wall, hole, sh, sh_l, col, col_l, ts, *rc, err, rx, rule2)), run_time=0.6)
+
+        # ================= a burst of 200 =================
+        pr3 = probe(0.9).move_to([-5.6, 0.6, 0])
+        sf = shelf().move_to([0, 0.5, 0])
+        sf_l = T("64 spots", 22, SHELF).next_to(sf, UP, buff=0.15)
+        hand = person(DINER, 1.1).move_to([3.6, 0.5, 0])
+        hand_l = T("waiting at the hatch", 22, DINER).next_to(hand, DOWN, buff=0.2)
+        cnt = T("200 readings, one burst", 24, PROBE).next_to(pr3, DOWN, buff=0.35)
+        self.say("burst_q")
+        self.play(FadeIn(pr3), FadeIn(cnt), run_time=0.6)
+        self.at_text("while the collector", lead=0.3)
+        self.play(FadeIn(hand), FadeIn(hand_l), run_time=0.5)
+        self.at_text("The shelf has", lead=0.3)
+        self.play(FadeIn(sf), FadeIn(sf_l), run_time=0.6)
+        self.hold(after=0)
+        self.predict(pos=(6.4, -3.1), edge=RIGHT)
+
+        cells = sf[1]
+        first = reading_chip("0").move_to(pr3[2].get_center())
+        fill_cells = [c.copy().set_fill(dim(PROBE, 0.7), 1).set_stroke(PROBE, 1.4) for c in cells]
+        lost = T("135 trySend calls failed", 26, BAD).move_to([-4.6, -2.0, 0])
+        got = T("65 got through: 64 on the shelf + 1 in hand", 26, DINER).move_to([2.2, -1.5, 0])
+        self.say("burst_a")
+        self.add(first)
+        self.play(first.animate.move_to(hand.get_left() + LEFT * 0.35), run_time=0.6)
+        self.play(LaggedStart(*[FadeIn(f) for f in fill_cells], lag_ratio=0.02), run_time=1.6)
+        self.play(FadeIn(got), run_time=0.5)
+        self.at_text("The other 135", lead=0.3)
+        fall = VGroup(*[reading_chip("x", BAD, 18).scale(0.7).move_to([-4.9 + 0.35 * (k % 6), -0.6 - 0.25 * (k // 6), 0])
+                        for k in range(12)])
+        self.play(LaggedStart(*[FadeIn(f, shift=DOWN * 0.3) for f in fall], lag_ratio=0.08), FadeIn(lost), run_time=1.2)
+        self.at_text("And trySend fails", lead=0.3)
+        self.play(Indicate(lost, color=BAD), run_time=0.8)
+        self.hold()
+        self.play(FadeOut(VGroup(first, *fill_cells, fall, lost, got, sf, sf_l, hand, hand_l, pr3, cnt)), run_time=0.5)
+
+        trows = VGroup(
+            VGroup(M("callbackFlow { ... }", 24, SHELF), T("64 + 1 in hand; 135 lost", 24, BAD)),
+            VGroup(M("  .buffer(500)", 24, SHELF), T("snaps onto its shelf: all 500 stored readings fit", 24, DINER)),
+            VGroup(M("  .conflate()", 24, SHELF), T("the first and the last: [0, 199]", 24, GREY_A)),
+            VGroup(M("trySendBlocking(r)", 24, BAD), T("blocks the probe's own thread until there's room", 24, BAD)))
+        for k, r in enumerate(trows):
+            r[0].move_to([-6.2, 2.2 - 0.7 * k, 0], aligned_edge=LEFT)
+            r[1].move_to([-1.3, 2.2 - 0.7 * k, 0], aligned_edge=LEFT)
+            fit(r[1], 7.7)
+        self.say("burst_fix")
+        self.play(FadeIn(trows[0]), run_time=0.5)
+        self.at_text("A buffer of 500", lead=0.3)
+        self.play(FadeIn(trows[1]), run_time=0.6)
+        self.at_text("conflate", lead=0.3)
+        self.play(FadeIn(trows[2]), run_time=0.6)
+        self.at_text("And trySendBlocking", lead=0.3)
+        self.play(FadeIn(trows[3]), run_time=0.6)
+        self.hold()
+        rule3 = T("A failed trySend is a lost reading. Size the shelf for the burst, or choose what to drop.", 28, SHELF)
+        fit(rule3, 12.4).move_to([0, -1.2, 0])
+        jb = VGroup(T("Java:", 22, REACT), M("Flux.create(...).onBackpressureBuffer(500)", 22, REACT),
+                    T("(its default buffer has no limit)", 22, GREY_A)).arrange(RIGHT, buff=0.25)
+        fit(jb, 12.4).move_to([0, -2.2, 0])
+        self.say("burst_rule")
+        self.play(FadeIn(rule3, shift=UP * 0.1), FadeIn(jb), run_time=0.7)
+        self.hold()
+        self.play(FadeOut(VGroup(trows, rule3, jb)), run_time=0.5)
+
+        # ================= the neighbour's kitchen: Reactor =================
+        sts = VGroup(*[station() for _ in range(4)]).arrange(RIGHT, buff=0.55).move_to([-2.4, 1.9, 0])
+        reqs = VGroup(*[Arrow(sts[k + 1].get_left(), sts[k].get_right(), buff=0.06, stroke_width=3, color=REACT,
+                              max_tip_length_to_length_ratio=0.3) for k in range(3)])
+        req_l = VGroup(*[M("request(n)", 20, REACT).next_to(reqs[k], UP, buff=0.12) for k in range(3)])
+        nb = T("the neighbour's line of stations", 24, REACT).next_to(sts, DOWN, buff=0.25)
+        a1 = VGroup(M("publisher.asFlow()", 24, SHELF), T("orders 64, then 64 more after every 64", 24))
+        a2 = VGroup(M("flow.asFlux()", 24, SHELF), T("starts at the first request; out of demand, it waits inside emit", 24))
+        for k, r in enumerate((a1, a2)):
+            r[0].move_to([-6.2, -0.55 - 0.65 * k, 0], aligned_edge=LEFT)
+            r[1].move_to([-2.2, -0.55 - 0.65 * k, 0], aligned_edge=LEFT)
+            fit(r[1], 8.6)
+        self.say("reactor")
+        self.play(LaggedStart(*[FadeIn(s) for s in sts], lag_ratio=0.2), FadeIn(nb), run_time=0.9)
+        self.play(LaggedStart(*[GrowArrow(r) for r in reqs], lag_ratio=0.2), FadeIn(req_l), run_time=0.8)
+        self.at_text("asFlow orders", lead=0.3)
+        self.play(FadeIn(a1), run_time=0.6)
+        self.at_text("asFlux", lead=0.3)
+        self.play(FadeIn(a2), run_time=0.6)
+        self.hold()
+        api = code_block(["class ProbeApi(private val probe: FakeProbe) {",
+                          "    fun readingsFlux(): Flux<ProbeReading> = probe.readings().asFlux()",
+                          "}"], 22, {"asFlux()": SHELF, "Flux<ProbeReading>": REACT})
+        jcall = M("new ProbeApi(probe).readingsFlux().take(2).collectList().block();", 22, t2c={"readingsFlux()": REACT})
+        apig = VGroup(VGroup(T("Kotlin", 22, GREY_B), api).arrange(DOWN, aligned_edge=LEFT, buff=0.15),
+                      VGroup(T("Java, Reactor types only", 22, GREY_B), jcall).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
+                      ).arrange(DOWN, aligned_edge=LEFT, buff=0.3)
+        fit(apig, 12.6).move_to([0, -2.35, 0])
+        self.say("java")
+        self.play(FadeOut(a1), FadeOut(a2), run_time=0.4)
+        self.play(FadeIn(apig, shift=UP * 0.1), run_time=0.8)
+        self.hold()
+        self.play(FadeOut(VGroup(sts, reqs, req_l, nb, apig)), run_time=0.5)
+
+        # ================= the rehearsal: runTest and the test clock =================
+        X0, KX = -4.0, 8.0 / 250
+
+        def X(ms):
+            return X0 + KX * ms
+
+        CY = 0.4
+        line = Line([X(0), CY, 0], [X(250), CY, 0], stroke_width=2.5, color=GREY_B)
+        ticks_ = VGroup()
+        for ms in (0, 100, 200):
+            ticks_.add(Line([X(ms), CY - 0.1, 0], [X(ms), CY + 0.1, 0], stroke_width=2.5, color=GREY_B))
+            ticks_.add(T(f"{ms} ms", 22, NOTE).move_to([X(ms), CY - 0.4, 0]))
+        tasks = VGroup(*[VGroup(Dot([X(ms), CY + 0.6, 0], radius=0.12, color=CANCEL),
+                                T(f"task due at {ms}", 22, CANCEL).move_to([X(ms), CY + 1.05, 0])) for ms in (100, 200)])
+        hand_ = Triangle().scale(0.16).rotate(PI).set_stroke(DINER, 2).set_fill(DINER, 1).move_to([X(0), CY + 0.25, 0])
+        rt = M("runTest { ... }: a fake clock", 24, DINER).move_to([0, 2.9, 0])
+        self.say("test")
+        self.play(FadeIn(rt), Create(line), FadeIn(ticks_), FadeIn(hand_), run_time=0.8)
+        self.at_text("With tasks due", lead=0.3)
+        self.play(FadeIn(tasks), run_time=0.6)
+        self.at_text("what does", lead=0.3)
+        adv = M("advanceTimeBy(100)", 26, DINER).move_to([0, -1.5, 0])
+        self.play(FadeIn(adv), run_time=0.5)
+        self.hold(after=0)
+        self.predict(pos=(6.4, -3.1), edge=RIGHT)
+        st1 = M("t=100 fired=[]", 26, BAD).move_to([3.6, -1.5, 0])
+        rc_ = M("runCurrent()", 26, DINER).move_to([0, -2.3, 0])
+        st2 = M("fired=[100]", 26, DINER).move_to([3.6, -2.3, 0])
+        self.say("test_a")
+        self.play(hand_.animate.move_to([X(100) - 0.02, CY + 0.25, 0]), run_time=1.0)
+        self.play(FadeIn(st1), run_time=0.5)
+        self.at_text("runCurrent", lead=0.3)
+        self.play(FadeIn(rc_), run_time=0.4)
+        self.play(tasks[0][0].animate.set_color(DINER), FadeIn(st2), run_time=0.6)
+        self.hold()
+        fixc = code_block(["backgroundScope.launch { probe.readings().collect { got += it } }",
+                           "runCurrent()            // the hatch is fitted",
+                           "probe.fire(reading)"], 22, {"runCurrent()": DINER, "probe.fire": PROBE,
+                                                         "// the hatch is fitted": GREY_B})
+        fit(fixc, 12.6).move_to([0, -0.9, 0])
+        self.say("test_b")
+        self.play(FadeOut(VGroup(adv, st1, rc_, st2, line, ticks_, tasks, hand_)), run_time=0.5)
+        self.play(FadeIn(fixc, shift=UP * 0.1), run_time=0.8)
+        self.at_text("call runCurrent", lead=0.3)
+        self.play(Indicate(fixc[1], color=DINER, scale_factor=1.04), run_time=0.8)
+        self.hold()
+        self.play(FadeOut(VGroup(fixc, rt)), run_time=0.5)
+
+        # ================= the moral and a check =================
+        mq = T("Once you start collecting, are you listening? Not yet.", 32).move_to(UP * 2.55)
+        m1 = T("The hatch is fitted when the producer first runs.", 28, SHELF).move_to(UP * 1.8)
+        m2 = T("trySend fills a shelf you size for the burst.", 28, PROBE).move_to(UP * 1.15)
+        m3 = T("awaitClose takes the hatch down, whatever ended the flow.", 28, CANCEL).move_to(UP * 0.5)
+        for m in (mq, m1, m2, m3):
+            fit(m, 12.4)
+        self.say("moral")
+        self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.7)
+        self.at(2)
+        self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
+        self.at(3)
+        self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.6)
+        self.at_text("and awaitClose", lead=0.3)
+        self.play(FadeIn(m3, shift=UP * 0.1), run_time=0.6)
+        self.hold()
+        qg = VGroup(VGroup(T("Check:", 28, YELLOW_M), T("the collector is cancelled while it waits.", 28)).arrange(RIGHT, buff=0.25),
+                    T("Which line of the bridge runs?", 28)).arrange(DOWN, buff=0.2)
+        fit(qg, 12.4).move_to(DOWN * 1.0)
+        self.say("check")
+        self.play(FadeIn(qg, shift=UP * 0.1), run_time=0.8)
+        self.hold(after=0)
+        self.predict(2.4, pos=(6.4, -3.25), edge=RIGHT)
+        ans = M("awaitClose { registration.unregister() }", 28, CANCEL).move_to(DOWN * 2.45)
+        fit(ans, 12.4)
+        self.say("check_a")
+        self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.7)
+        self.hold(after=0)
+        self.wait(2.5)

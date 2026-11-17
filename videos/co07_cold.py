@@ -147,7 +147,7 @@ def code_block(src, size=22, hl=None):
 
 
 def chip_t(text, color, size=22, mono=True):
-    t = (M if mono else T)(text, size, color if color != WHITE else WHITE)
+    t = (M if mono else T)(text, size, color)
     r = RoundedRectangle(corner_radius=0.08, width=t.width + 0.3, height=0.46).set_stroke(color, 2.5)
     r.set_fill(dim(color, 0.3), 1)
     return VGroup(r, t.move_to(r)).set_z_index(6)
@@ -192,7 +192,7 @@ def shop_icon(s=1.0, color=SHOP):
     return VGroup(body, stripes, door, win).scale(s)
 
 
-def page_card(i, items, w=2.3):
+def page_card(i, items, w=2.45):
     r = RoundedRectangle(corner_radius=0.08, width=w, height=1.15).set_stroke(SHOP, 2.5).set_fill(dim(SHOP, 0.1), 1)
     h = T(f"page {i}", 22, SHOP).move_to(r.get_top() + DOWN * 0.3)
     it = T(", ".join(items), 22, GREY_A).move_to(r.get_center() + DOWN * 0.2)
@@ -387,21 +387,21 @@ class Co07ColdFlow(Narrated):
         ar_rows = acard[3]
         for i in (1, 2, 3):
             ar_rows[i].shift(RIGHT * 0.25)
-        PX, PY = (-0.25, 2.15, 4.55), 2.05
+        PX, PY = (-0.3, 2.25, 4.8), 2.05
         pages = [page_card(0, ["apples", "bananas"]), page_card(1, ["cherries", "dates"]), page_card(2, ["figs", "grapes"])]
         for p, x in zip(pages, PX):
             p.move_to([x, PY, 0])
-        shop_t = T("the shop's fruit aisle", 24, SHOP).move_to([PX[0] - 1.15, 3.1, 0], aligned_edge=LEFT)
+        shop_t = T("the shop's fruit aisle", 24, SHOP).move_to([PX[0] - 1.2, 3.1, 0], aligned_edge=LEFT)
         items_of = [["apples", "bananas"], ["cherries", "dates"], ["figs", "grapes"]]
         cnt = {"n": 0, "m": None}
 
         def count_m(n, color=SHOP):
-            return T(f"pages fetched: {n}", 26, color).move_to([5.7, 3.1, 0], aligned_edge=RIGHT)
+            return T(f"pages fetched: {n}", 26, color).move_to([6.0, 3.1, 0], aligned_edge=RIGHT)
 
         cnt["m"] = count_m(0)
-        con_box = RoundedRectangle(corner_radius=0.1, width=13.0, height=3.4).set_stroke(GREY_D, 2).set_fill("#080808", 1)
-        con_box.move_to([0, -1.5, 0])
-        con = Console(-6.2, -0.1, 22, 0.42)
+        con_box = RoundedRectangle(corner_radius=0.1, width=13.0, height=3.3).set_stroke(GREY_D, 2).set_fill("#080808", 1)
+        con_box.move_to([0, -1.6, 0])
+        con = Console(-6.2, -0.25, 22, 0.42)
         CL_X, CL_Y = -2.55, 0.7
         self.say("shrink")
         self.play(FadeIn(acard), run_time=0.7)
@@ -473,7 +473,8 @@ class Co07ColdFlow(Narrated):
 
         coll3 = person(COOK3, 1.15).move_to([CL_X, CL_Y, 0])
         self.say("take_q")
-        self.play(FadeOut(six), FadeOut(con.clear()), FadeOut(coll2), FadeIn(coll3), run_time=0.5)
+        cnt["n"] = -1
+        self.play(FadeOut(six), FadeOut(con.clear()), FadeOut(coll2), FadeIn(coll3), *bump(), run_time=0.5)
         self.play(FadeIn(con.line("take(3):", COOK3)), run_time=0.3)
         self.hold(after=0)
         self.predict(pos=(5.7, 0.62), edge=RIGHT)
@@ -774,9 +775,10 @@ class Co07ColdFlow(Narrated):
         nothing = T("prints nothing", 24, GREY_B).next_to(cb, UP, buff=0.15)
         self.say("shelf_a")
         self.play(FadeIn(ex, scale=0.7), FadeIn(nothing), run_time=0.4)
-        self.play(ex.animate.move_to(caller.get_top() + DOWN * 0.05), run_time=0.7)
+        self.play(ex.animate.move_to(caller.get_top() + UP * 0.32), run_time=0.7)
         cgot = con3.line("the caller got: java.lang.IllegalStateException: pantry shelf full", BAD)
         self.play(FadeIn(cgot), Indicate(caller[1], color=BAD), run_time=0.6)
+        self.play(FadeOut(ex, shift=DOWN * 0.3, scale=0.6), run_time=0.3)
         self.at_text("onCompletion saw", lead=0.3)
         # the onCompletion line was printed before the caller's: it goes in above it
         ocl = con3.line("onCompletion: cause = java.lang.IllegalStateException: pantry shelf full", MARK)
@@ -786,7 +788,6 @@ class Co07ColdFlow(Narrated):
         self.hold()
 
         self.say("shelf_joke")
-        self.play(FadeOut(ex), run_time=0.3)
         self.at_text("So put", lead=0.3)
         self.play(Circumscribe(VGroup(boxes["flow { }"], boxes["map"]), color=BAD, buff=0.12), run_time=1.0)
         self.at_text("never put", lead=0.3)
