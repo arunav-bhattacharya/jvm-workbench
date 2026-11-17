@@ -9,381 +9,377 @@ A table orders ten dishes on one ticket, each with a small recipe card of its ow
 At the pass, the counter where orders come in, the head cook reads the ticket line by line and hands each dish to a helper at a free burner.
 
 3
-00:00:16.767 --> 00:00:20.693
+00:00:16.633 --> 00:00:20.559
 The stove has four burners, so four dishes cook at once.
 
 4
-00:00:20.693 --> 00:00:24.689
+00:00:20.559 --> 00:00:24.556
 At 100 milliseconds a dish, ten dishes take three rounds.
 
 5
-00:00:24.689 --> 00:00:26.301
+00:00:24.556 --> 00:00:26.168
 About 300 milliseconds.
 
 6
-00:00:26.533 --> 00:00:30.580
+00:00:26.267 --> 00:00:30.314
 Kotlin has an operator for exactly this kitchen: flatMapMerge.
 
 7
-00:00:30.580 --> 00:00:33.583
+00:00:30.314 --> 00:00:33.316
 Here's a question that's easy to be shy about.
 
 8
-00:00:33.583 --> 00:00:38.479
+00:00:33.316 --> 00:00:38.212
 If I give it four burners, doesn't everything inside it run four at a time?
 
 9
-00:00:39.200 --> 00:00:44.399
+00:00:38.800 --> 00:00:43.999
 A flow is a recipe card for values, so the ticket is a flow of dish names.
 
 10
-00:00:44.399 --> 00:00:50.441
+00:00:43.999 --> 00:00:50.041
 stove.cook is a suspend call: it pauses for 100 milliseconds without holding a thread.
 
 11
-00:00:50.441 --> 00:00:55.639
+00:00:50.041 --> 00:00:55.239
 The helper's lambda cooks the dish, then returns a flow of that one plate.
 
 12
-00:00:55.639 --> 00:00:57.396
+00:00:55.239 --> 00:00:56.996
 Ten dishes, four burners.
 
 13
-00:00:57.396 --> 00:00:58.028
+00:00:56.996 --> 00:00:57.628
 How long?
 
 14
-00:01:01.000 --> 00:01:02.265
+00:01:00.200 --> 00:01:01.465
 1,000 milliseconds.
 
 15
-00:01:02.265 --> 00:01:07.392
+00:01:01.465 --> 00:01:06.592
 One dish on the stove at a time, more than three times as long as we planned.
 
 16
-00:01:07.600 --> 00:01:08.339
+00:01:06.667 --> 00:01:07.406
 Picture it.
 
 17
-00:01:08.339 --> 00:01:12.438
+00:01:07.406 --> 00:01:11.504
 Four helpers at four warm burners, each holding an empty pan.
 
 18
-00:01:12.438 --> 00:01:14.319
+00:01:11.504 --> 00:01:13.386
 The calmest kitchen in town.
 
 19
-00:01:14.319 --> 00:01:16.872
+00:01:13.386 --> 00:01:15.939
 So the cap of four wasn't the problem.
 
 20
-00:01:16.872 --> 00:01:19.089
+00:01:15.939 --> 00:01:18.156
 Something before the burners was.
 
 21
-00:01:19.700 --> 00:01:20.966
+00:01:18.633 --> 00:01:19.900
 Watch the head cook.
 
 22
-00:01:20.966 --> 00:01:25.526
+00:01:19.900 --> 00:01:24.459
 She does whatever the lambda says before she hands anything to a burner.
 
 23
-00:01:25.526 --> 00:01:27.172
+00:01:24.459 --> 00:01:26.106
 This lambda says: cook it.
 
 24
-00:01:27.172 --> 00:01:29.199
+00:01:26.106 --> 00:01:28.132
 So she cooks every dish herself.
 
 25
-00:01:30.000 --> 00:01:30.868
+00:01:28.800 --> 00:01:29.668
 Let's map it.
 
 26
-00:01:30.868 --> 00:01:32.804
+00:01:29.668 --> 00:01:31.604
 The ticket is the outer flow.
 
 27
-00:01:32.804 --> 00:01:37.478
+00:01:31.604 --> 00:01:36.278
 The flow the lambda returns is the dish's recipe card: the inner flow.
 
 28
-00:01:37.478 --> 00:01:40.883
+00:01:36.278 --> 00:01:39.683
 The burners are lanes, and concurrency counts them.
 
 29
-00:01:40.883 --> 00:01:44.689
+00:01:39.683 --> 00:01:43.489
 The head cook is the one coroutine that runs your lambda.
 
 30
-00:01:45.600 --> 00:01:47.177
+00:01:44.267 --> 00:01:45.844
 Built by hand, it's short.
 
 31
-00:01:47.177 --> 00:01:49.240
+00:01:45.844 --> 00:01:47.907
 One coroutine collects the ticket.
 
 32
-00:01:49.240 --> 00:01:52.152
+00:01:47.907 --> 00:01:50.819
 For each dish, it calls your lambda, right here.
 
 33
-00:01:52.152 --> 00:01:56.217
+00:01:50.819 --> 00:01:54.884
 Then it takes a permit from a semaphore, a counter of free burners.
 
 34
-00:01:56.217 --> 00:01:59.372
+00:01:54.884 --> 00:01:58.039
 And it launches a lane that collects the inner flow.
 
 35
-00:01:59.600 --> 00:02:04.921
+00:01:58.133 --> 00:02:03.455
 So the lambda runs in the one reading coroutine, before a burner is even asked for.
 
 36
-00:02:04.921 --> 00:02:07.293
+00:02:03.455 --> 00:02:05.827
 Only the flow it returns gets a lane.
 
 37
-00:02:08.000 --> 00:02:11.061
+00:02:06.400 --> 00:02:09.461
 So the slow call goes inside the returned flow.
 
 38
-00:02:11.061 --> 00:02:16.141
+00:02:09.461 --> 00:02:14.541
 Now the head cook only writes the recipe card, and the helpers do the cooking.
 
 39
-00:02:16.141 --> 00:02:19.007
+00:02:14.541 --> 00:02:17.407
 Reactor's flatMap in Java has the same trap.
 
 40
-00:02:19.733 --> 00:02:23.575
+00:02:18.000 --> 00:02:21.842
 Let's shrink it to five dishes on two burners.
 
 41
-00:02:23.575 --> 00:02:31.928
+00:02:21.842 --> 00:02:30.195
 Soup takes 300 milliseconds, salad 100, roast 200, bread 50 and pie 150, on the lesson's fake clock.
 
 42
-00:02:32.133 --> 00:02:36.171
+00:02:30.267 --> 00:02:34.304
 With the fix, the lambda runs for soup, salad and roast at 0.
 
 43
-00:02:36.171 --> 00:02:38.355
+00:02:34.304 --> 00:02:36.488
 So when does roast start cooking?
 
 44
-00:02:41.333 --> 00:02:44.034
+00:02:39.067 --> 00:02:41.767
 At 100, when the salad frees a burner.
 
 45
-00:02:44.034 --> 00:02:48.084
+00:02:41.767 --> 00:02:45.818
 The order is ready at 450, with two on the stove at most.
 
 46
-00:02:48.084 --> 00:02:52.774
+00:02:45.818 --> 00:02:50.508
 And plates leave as they're ready: salad, soup, roast, bread, pie.
 
 47
-00:02:52.774 --> 00:02:54.480
+00:02:50.508 --> 00:02:52.213
 That's completion order.
 
 48
-00:02:54.700 --> 00:02:57.234
+00:02:52.300 --> 00:02:54.834
 Now put the cooking back in the lambda.
 
 49
-00:02:57.234 --> 00:03:01.587
+00:02:54.834 --> 00:02:59.187
 800 milliseconds: the sum of all five, what a plain map would take.
 
 50
-00:03:01.587 --> 00:03:03.147
+00:02:59.187 --> 00:03:00.747
 The burners did nothing.
 
 51
-00:03:03.367 --> 00:03:04.635
-So here's the rule.
+00:03:00.833 --> 00:03:03.927
+The rule: the lambda only builds the inner flow.
 
 52
-00:03:04.635 --> 00:03:07.171
-The lambda only builds the inner flow.
-
-53
-00:03:07.171 --> 00:03:09.040
+00:03:03.927 --> 00:03:05.732
 Put the slow work inside it.
 
-54
-00:03:09.867 --> 00:03:13.863
+53
+00:03:06.400 --> 00:03:10.396
 flatMapMerge is one of three ways to run inner flows.
 
-55
-00:03:13.863 --> 00:03:25.475
+54
+00:03:10.396 --> 00:03:22.008
 To compare them, a table sends three orders, 100 milliseconds apart, and each opens a recipe in two parts: part a after 50 milliseconds, part b 150 later.
 
-56
-00:03:26.100 --> 00:03:28.754
+55
+00:03:22.500 --> 00:03:25.154
 flatMapConcat cooks one order at a time.
 
-57
-00:03:28.754 --> 00:03:30.679
+56
+00:03:25.154 --> 00:03:27.079
 So when does order 2 come in?
 
-58
-00:03:33.667 --> 00:03:35.422
+57
+00:03:29.667 --> 00:03:31.422
 Most people say 100.
 
-59
-00:03:35.422 --> 00:03:38.757
+58
+00:03:31.422 --> 00:03:34.757
 It's 300, and the whole run takes 800.
 
-60
-00:03:38.967 --> 00:03:45.723
+59
+00:03:34.833 --> 00:03:41.590
 flatMapConcat has no second coroutine and no shelf: each recipe runs inside the outer flow's emit.
 
-61
-00:03:45.723 --> 00:03:52.135
+60
+00:03:41.590 --> 00:03:48.002
 Like the cook from the first lesson, the waiter stands at the pass until both parts are done.
 
-62
-00:03:52.135 --> 00:03:55.307
+61
+00:03:48.002 --> 00:03:51.173
 Only then does his 100 millisecond wait begin.
 
-63
-00:03:55.533 --> 00:03:57.612
+62
+00:03:51.267 --> 00:03:53.345
 Here the kitchen picture breaks.
 
-64
-00:03:57.612 --> 00:04:00.924
+63
+00:03:53.345 --> 00:03:56.658
 A real waiter would walk back while the dish cooks.
 
-65
-00:04:00.924 --> 00:04:04.367
+64
+00:03:56.658 --> 00:04:00.100
 This one can't: even his waiting happens inside emit.
 
-66
-00:04:04.367 --> 00:04:08.979
+65
+00:04:00.100 --> 00:04:04.712
 Put buffer in front, and he leaves orders on a shelf: 600 milliseconds.
 
-67
-00:04:09.200 --> 00:04:12.795
+66
+00:04:04.800 --> 00:04:08.395
 flatMapMerge gives each order its own burner.
 
-68
-00:04:12.795 --> 00:04:15.431
+67
+00:04:08.395 --> 00:04:11.031
 Orders come in at 0, 100 and 200.
 
-69
-00:04:15.431 --> 00:04:19.745
+68
+00:04:11.031 --> 00:04:15.345
 Parts come out as they're ready, so 1b comes after 2a.
 
-70
-00:04:19.745 --> 00:04:20.704
+69
+00:04:15.345 --> 00:04:16.304
 Done at 400.
 
-71
-00:04:20.933 --> 00:04:23.663
+70
+00:04:16.400 --> 00:04:19.130
 flatMapLatest keeps only the newest.
 
-72
-00:04:23.663 --> 00:04:30.260
+71
+00:04:19.130 --> 00:04:25.727
 Each new order cancels the recipe in flight, waits for it to stop, and starts the next.
 
-73
-00:04:30.260 --> 00:04:32.231
+72
+00:04:25.727 --> 00:04:27.698
 So 1b and 2b never arrive.
 
-74
-00:04:32.231 --> 00:04:33.141
+73
+00:04:27.698 --> 00:04:28.608
 Done at 400.
 
-75
-00:04:33.367 --> 00:04:38.890
+74
+00:04:28.700 --> 00:04:34.224
 The table changed its mind twice, and the kitchen binned two half made dishes without a word.
 
-76
-00:04:38.890 --> 00:04:40.672
+75
+00:04:34.224 --> 00:04:36.006
 Every waiter knows that table.
 
-77
-00:04:40.672 --> 00:04:46.315
+76
+00:04:36.006 --> 00:04:41.648
 It's the shape you want for a search box, where each new letter makes the old search worthless.
 
-78
-00:04:47.233 --> 00:04:49.668
+77
+00:04:42.433 --> 00:04:44.868
 Three operators, three promises.
 
-79
-00:04:49.668 --> 00:04:53.473
+78
+00:04:44.868 --> 00:04:48.673
 flatMapConcat: one at a time, and the outer waits.
 
-80
-00:04:53.473 --> 00:04:57.125
+79
+00:04:48.673 --> 00:04:52.325
 flatMapMerge: side by side, in completion order.
 
-81
-00:04:57.125 --> 00:04:59.484
+80
+00:04:52.325 --> 00:04:54.684
 flatMapLatest: only the newest.
 
-82
-00:04:59.700 --> 00:05:00.567
+81
+00:04:54.767 --> 00:04:55.634
 Three rules.
 
-83
-00:05:00.567 --> 00:05:06.493
+82
+00:04:55.634 --> 00:05:01.560
 Set the burners from what the stove can take: the default is 16, Reactor's is 256.
 
-84
-00:05:06.493 --> 00:05:11.335
+83
+00:05:01.560 --> 00:05:06.402
 Keep a cancelled recipe's cleanup short: the next one waits for it.
 
-85
-00:05:11.335 --> 00:05:15.599
+84
+00:05:06.402 --> 00:05:10.665
 And if one after another is fine, a plain map reads better.
 
-86
-00:05:16.300 --> 00:05:20.023
+85
+00:05:11.233 --> 00:05:15.096
 One limit: a burnt dish in any lane cancels all the others.
 
-87
-00:05:20.023 --> 00:05:22.799
-Choosing what that costs is the next lesson.
+86
+00:05:15.096 --> 00:05:16.601
+That's the next lesson.
 
-88
-00:05:23.600 --> 00:05:27.736
+87
+00:05:17.300 --> 00:05:21.436
 So, does everything inside flatMapMerge run four at a time?
 
-89
-00:05:27.736 --> 00:05:27.947
+88
+00:05:21.436 --> 00:05:21.647
 No.
 
-90
-00:05:27.947 --> 00:05:34.677
+89
+00:05:21.647 --> 00:05:28.377
 The head cook runs your lambda one dish at a time, and only the recipe it returns gets a burner.
 
-91
-00:05:34.677 --> 00:05:38.112
+90
+00:05:28.377 --> 00:05:31.812
 Cook there, and ten dishes take 300 milliseconds.
 
-92
-00:05:38.333 --> 00:05:39.230
+91
+00:05:31.900 --> 00:05:32.796
 Quick check.
 
-93
-00:05:39.230 --> 00:05:44.160
+92
+00:05:32.796 --> 00:05:37.727
 The outer emits a value, then waits 100 milliseconds, three times.
 
-94
-00:05:44.160 --> 00:05:46.924
+93
+00:05:37.727 --> 00:05:40.491
 Each inner gives one value after 200.
 
-95
-00:05:46.924 --> 00:05:49.389
+94
+00:05:40.491 --> 00:05:42.956
 How long does flatMapConcat take?
 
-96
-00:05:52.367 --> 00:05:59.284
+95
+00:05:45.533 --> 00:05:52.451
 900 milliseconds: three times 200 plus 100, because the outer waits inside emit.
 
-97
-00:05:59.284 --> 00:06:01.532
+96
+00:05:52.451 --> 00:05:54.699
 With buffer in front, 600.
