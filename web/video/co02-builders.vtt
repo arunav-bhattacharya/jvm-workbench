@@ -1,137 +1,293 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.852
-Three FX providers answer in 300, 120 and 200 milliseconds.
+00:00:02.700 --> 00:00:08.007
+Tonight, the cook texts three shops to ask who has the cheapest tomatoes.
 
 2
-00:00:07.852 --> 00:00:13.615
-Ask them one after another, and the caller waits 620 milliseconds.
+00:00:08.007 --> 00:00:14.404
+The greengrocer takes 300 milliseconds to reply, the market 120, and the farm stand 200.
 
 3
-00:00:13.833 --> 00:00:16.204
-But the calls don't need each other.
+00:00:14.633 --> 00:00:19.679
+In code, each shop is a Grocer, and price suspends until the shop replies.
 
 4
-00:00:16.204 --> 00:00:20.417
-Start all three at once, and you wait only for the slowest: 300.
+00:00:19.679 --> 00:00:25.407
+async starts one question, and hands back a Deferred at once: a pot with the lid on.
 
 5
-00:00:21.233 --> 00:00:26.595
-In Kotlin, a builder starts each lane: a plain function that starts a coroutine.
+00:00:25.407 --> 00:00:26.771
+await lifts the lid.
 
 6
-00:00:26.595 --> 00:00:32.425
-launch starts a child and returns at once, with a Job: a handle you can join or cancel.
+00:00:27.000 --> 00:00:36.690
+Text all three first, then read the replies, and you wait only for the slowest: 300 milliseconds, not 620.
 
 7
-00:00:32.633 --> 00:00:34.133
-A Job holds no value.
+00:00:36.690 --> 00:00:40.347
+The lesson's demo took 321, against 666.
 
 8
-00:00:34.133 --> 00:00:37.703
-So launch is for work whose result you don't need.
+00:00:41.167 --> 00:00:45.556
+Now a different job: telling each shop, we'll order bread today.
 
 9
-00:00:38.433 --> 00:00:40.435
-async is launch with a result.
+00:00:45.556 --> 00:00:48.505
+No replies needed, so the cook uses launch.
 
 10
-00:00:40.435 --> 00:00:46.041
-It also returns at once, with a Deferred: a ticket for a value that isn't there yet.
+00:00:48.505 --> 00:00:55.501
+It starts a coroutine and returns a Job at once: a handle to wait for or cancel, with no value inside.
 
 11
-00:00:46.267 --> 00:00:49.562
-awaitAll suspends the caller and frees its thread.
+00:00:55.733 --> 00:00:58.679
+Here's a question that's easy to be shy about.
 
 12
-00:00:49.562 --> 00:00:52.199
-Each ticket fills when its call answers.
+00:00:58.679 --> 00:01:03.225
+launch returns at once, three times, and nothing waits for the replies.
 
 13
-00:00:52.199 --> 00:00:55.033
-Done at 300 milliseconds, the slowest call.
+00:01:03.225 --> 00:01:05.338
+So when does the function return?
 
 14
-00:00:55.767 --> 00:00:58.699
-Now await each call right after you start it.
+00:01:05.338 --> 00:01:06.875
+And who's still texting?
 
 15
-00:00:58.699 --> 00:01:00.132
-How long does it take?
+00:01:10.367 --> 00:01:12.366
+Let's entertain the scary answer.
 
 16
-00:01:02.900 --> 00:01:09.219
-Each await ends before the next async starts, so the calls run one at a time: 620 again.
+00:01:12.366 --> 00:01:13.759
+Say it returns at once.
 
 17
-00:01:09.219 --> 00:01:13.025
-The overlap lives in the gap between async and await.
+00:01:13.759 --> 00:01:18.969
+The caller thinks the job is done, and serves dinner, while three texts are still out.
 
 18
-00:01:13.733 --> 00:01:15.562
-Every child needs a parent.
+00:01:18.969 --> 00:01:21.999
+If one of them fails, there's nobody left to tell.
 
 19
-00:01:15.562 --> 00:01:18.611
-In a suspend function, that's coroutineScope.
+00:01:22.200 --> 00:01:27.963
+The cook is clearing the table, and her phone, in a drawer somewhere, is still texting the shops.
 
 20
-00:01:18.833 --> 00:01:23.841
-Its block launches three calls and awaits nothing, so the block ends right away.
+00:01:27.963 --> 00:01:30.043
+Someone has to wait for every text.
 
 21
-00:01:23.841 --> 00:01:25.844
-When does coroutineScope return?
+00:01:30.767 --> 00:01:33.558
+A kitchen already has that someone: the course.
 
 22
-00:01:28.633 --> 00:01:33.757
-The scope can't close while a child still runs, even one that nobody awaited.
+00:01:33.558 --> 00:01:37.123
+The starters don't go out until every dish in them is ready.
 
 23
-00:01:33.757 --> 00:01:35.154
-So it returns at 300.
+00:01:37.123 --> 00:01:39.439
+The cook can finish her own part early.
 
 24
-00:01:35.154 --> 00:01:39.213
-When a suspend function returns, the work it started is done.
+00:01:39.439 --> 00:01:41.993
+The plate still waits for the slowest dish.
 
 25
-00:01:39.933 --> 00:01:47.769
-If fjord-fx throws at 120, the scope cancels the other two, waits for them to stop, and rethrows.
+00:01:42.200 --> 00:01:44.753
+In code, the course is coroutineScope.
 
 26
-00:01:47.769 --> 00:01:49.547
-The call fails at 120.
+00:01:44.753 --> 00:01:47.373
+It runs its block, the cook's own part.
 
 27
-00:01:50.367 --> 00:01:51.809
-This is Kotlin only.
+00:01:47.373 --> 00:01:51.807
+Every coroutine started inside becomes one of its dishes, a child.
 
 28
-00:01:51.809 --> 00:01:54.839
-The builders come from kotlinx.coroutines.
+00:01:51.807 --> 00:01:55.368
+And the course going out is coroutineScope returning.
 
 29
-00:01:57.233 --> 00:02:00.853
-So launch and async start a child and return at once.
+00:01:56.200 --> 00:01:57.637
+So here's callAhead.
 
 30
-00:02:00.853 --> 00:02:02.628
-await waits for one value.
+00:01:57.637 --> 00:02:03.816
+Inside coroutineScope, it launches one text per grocer, and its block ends right away.
 
 31
-00:02:02.628 --> 00:02:06.384
-coroutineScope waits for every child before it returns.
+00:02:03.816 --> 00:02:05.756
+When does callAhead return?
 
 32
-00:02:06.600 --> 00:02:07.506
-Quick check.
+00:02:08.733 --> 00:02:12.564
+At 300 milliseconds, when the slowest grocer has answered.
 
 33
-00:02:07.506 --> 00:02:16.337
-In coroutineScope, you async a 300 millisecond quote, launch a 500 millisecond audit write, and await only the quote.
+00:02:12.564 --> 00:02:18.773
+The block was done at once, but the scope waits for every child, even the ones nobody awaited.
 
 34
-00:02:16.337 --> 00:02:18.375
+00:02:19.000 --> 00:02:23.206
+And if the block ends with a value, the value waits too.
+
+35
+00:02:23.206 --> 00:02:30.491
+A scope that launches a 200 millisecond job, and then says 42, returns 42 after 200 milliseconds.
+
+36
+00:02:31.200 --> 00:02:38.484
+That's the promise coroutineScope makes to your callers: when a suspend function returns, the work it started is done.
+
+37
+00:02:38.484 --> 00:02:40.953
+Nothing keeps running behind their back.
+
+38
+00:02:40.953 --> 00:02:42.249
+No phone in a drawer.
+
+39
+00:02:42.467 --> 00:02:45.401
+It's also why you can't call launch just anywhere.
+
+40
+00:02:45.401 --> 00:02:51.681
+launch needs a scope: something that keeps track of the coroutines started in it, and becomes their parent.
+
+41
+00:02:51.681 --> 00:02:53.089
+Here, that's the course.
+
+42
+00:02:53.800 --> 00:02:55.440
+Now one dish goes wrong.
+
+43
+00:02:55.440 --> 00:02:58.516
+The market's reply fails at 120 milliseconds.
+
+44
+00:02:58.516 --> 00:03:03.164
+When does callAhead finish, and what happens to the other two texts?
+
+45
+00:03:06.133 --> 00:03:08.558
+It fails at about 120 milliseconds.
+
+46
+00:03:08.558 --> 00:03:16.523
+The scope cancels the other two texts, waits for them to stop, and then hands the market's exception to its caller.
+
+47
+00:03:16.523 --> 00:03:18.185
+Nothing is left texting.
+
+48
+00:03:18.400 --> 00:03:25.255
+Waiting for the children, and stopping the rest when one fails: the next lesson draws the family tree behind both.
+
+49
+00:03:26.067 --> 00:03:30.321
+While it waits, coroutineScope suspends, so the thread is free.
+
+50
+00:03:30.321 --> 00:03:33.901
+And because it's a suspend function itself, it nests.
+
+51
+00:03:33.901 --> 00:03:43.559
+The lab's priceList asks about tomatoes and basil, each through allPrices with its own scope: six questions at once, ready in 300 milliseconds.
+
+52
+00:03:44.367 --> 00:03:45.239
+A few rules.
+
+53
+00:03:45.239 --> 00:03:47.347
+Start everything, then await.
+
+54
+00:03:47.347 --> 00:03:57.379
+An await straight after each async took 627 milliseconds in the demo, the full sum, and still passed a test that only checked the answers.
+
+55
+00:03:57.600 --> 00:04:03.564
+Use launch when you don't need the value: an async nobody awaits hides what you meant.
+
+56
+00:04:03.564 --> 00:04:06.269
+And keep runBlocking in main and tests.
+
+57
+00:04:06.269 --> 00:04:15.839
+It holds its thread while it waits, the cook back at the pot: eight lookups on two threads took 858 milliseconds that way, instead of 292.
+
+58
+00:04:16.067 --> 00:04:19.093
+One limit: the overlap comes from waiting.
+
+59
+00:04:19.093 --> 00:04:26.009
+Three dishes that each need 300 milliseconds of chopping, on one thread, take 900, async or not.
+
+60
+00:04:26.009 --> 00:04:30.764
+async can't grow the cook more hands: it overlaps waits, not work.
+
+61
+00:04:31.567 --> 00:04:40.071
+Here's callAhead in Kotlin, and its closest Java match: an executor in a try block, which waits for every task when it closes.
+
+62
+00:04:40.071 --> 00:04:43.446
+But if one task fails, it doesn't stop the others.
+
+63
+00:04:43.446 --> 00:04:45.133
+coroutineScope does both.
+
+64
+00:04:45.933 --> 00:04:48.914
+So, what stops a function from returning early?
+
+65
+00:04:48.914 --> 00:04:49.866
+coroutineScope.
+
+66
+00:04:49.866 --> 00:04:53.228
+launch and async start the dishes and return at once.
+
+67
+00:04:53.228 --> 00:04:57.350
+The course waits for every dish, and stops the rest if one fails.
+
+68
+00:04:57.350 --> 00:05:01.156
+A suspend function should return only when its work is done.
+
+69
+00:05:01.367 --> 00:05:02.313
+Quick check.
+
+70
+00:05:02.313 --> 00:05:11.695
+Inside coroutineScope, the cook awaits a 300 millisecond price, and launches a 500 millisecond text that nobody awaits.
+
+71
+00:05:11.695 --> 00:05:13.824
 When does the scope return?
+
+72
+00:05:16.800 --> 00:05:18.318
+At 500 milliseconds.
+
+73
+00:05:18.318 --> 00:05:22.872
+The price is in at 300, but the course waits for every dish.
