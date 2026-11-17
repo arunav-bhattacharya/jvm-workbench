@@ -11,19 +11,19 @@ import java.util.function.Consumer;
 public class ReceiverDemoJava {
 
     // Java's own idiom for the same job: a Consumer that gets the builder as a parameter
-    static String receiptJava(Consumer<StringBuilder> block) {
+    static String ticketJava(Consumer<StringBuilder> block) {
         StringBuilder sb = new StringBuilder();
         block.accept(sb);
         return sb.toString();
     }
 
     public static void main(String[] args) {
-        String r = ReceiverDemoKt.receipt(sb -> {
-            sb.append("captured ").append(1_999);
+        String t = ReceiverDemoKt.ticket(sb -> {
+            sb.append("flyer.pdf x ").append(250);
             return Unit.INSTANCE;                     // Kotlin's Unit is a real object here
         });
-        System.out.println(r);
-        System.out.println(receiptJava(sb -> sb.append("refunded ").append(500)));
+        System.out.println(t);
+        System.out.println(ticketJava(sb -> sb.append("menu.pdf x ").append(40)));
 
         StringBuilder sb = new StringBuilder();
         ReceiverDemoKt.getWithReceiver().invoke(sb);  // a receiver lambda, invoked with the receiver as argument

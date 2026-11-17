@@ -23,7 +23,8 @@ fun main(args: Array<String>) {
     Thread.sleep(1_000)
 
     for (t in listOf(a, b)) {
-        println("%-8s state=%s at %s".format(t.name, t.state, t.stackTrace[0]))
+        val top = t.stackTrace.firstOrNull() ?: "(finished)"   // empty once the thread has ended
+        println("%-8s state=%s at %s".format(t.name, t.state, top))
     }
     val stuck = ManagementFactory.getThreadMXBean().findDeadlockedThreads()
     println("deadlock detector: " + (stuck?.let { "${it.size} threads" } ?: "found nothing"))

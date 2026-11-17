@@ -11,28 +11,28 @@ import java.util.Map;
  */
 public class BuildersDemoJava {
 
-    record ItemJava(String sku, int qty, long unitMinor) {}
+    record LineJava(String file, int copies, int pages) {}
 
     public static void main(String[] args) {
-        List<ItemJava> building = new ArrayList<>();
-        building.add(new ItemJava("sku-1", 2, 999));
-        building.add(new ItemJava("sku-2", 1, 500));
-        if (building.size() == 2) building.add(new ItemJava("gift-wrap", 1, 0));
-        List<ItemJava> items = List.copyOf(building);
+        List<LineJava> building = new ArrayList<>();
+        building.add(new LineJava("flyer.pdf", 250, 1));
+        building.add(new LineJava("menu.pdf", 40, 8));
+        if (building.size() == 2) building.add(new LineJava("cover-sheet.pdf", 1, 1));
+        List<LineJava> lines = List.copyOf(building);
 
-        Map<String, Long> totals = new LinkedHashMap<>();
-        for (ItemJava i : items) totals.put(i.sku(), i.qty() * i.unitMinor());
+        Map<String, Integer> printed = new LinkedHashMap<>();
+        for (LineJava l : lines) printed.put(l.file(), l.copies() * l.pages());
 
         String text = new StringBuilder()
-                .append("total=")
-                .append(totals.values().stream().mapToLong(Long::longValue).sum())
+                .append("pages to print=")
+                .append(printed.values().stream().mapToInt(Integer::intValue).sum())
                 .toString();
 
-        System.out.println(items.stream().map(ItemJava::sku).toList());
-        System.out.println(totals);
+        System.out.println(lines.stream().map(LineJava::file).toList());
+        System.out.println(printed);
         System.out.println(text);
         try {
-            items.add(new ItemJava("late", 1, 1));
+            lines.add(new LineJava("late.pdf", 1, 1));
         } catch (UnsupportedOperationException e) {
             System.out.println("the copied list is read-only: " + e.getClass().getSimpleName());
         }

@@ -2,58 +2,58 @@ package workbench.kotlin.l04.demo
 
 @DslMarker
 @Target(AnnotationTarget.CLASS, AnnotationTarget.TYPE)
-annotation class PaymentDsl
+annotation class FormDsl
 
-data class Party(val name: String, val iban: String)
+data class Contact(val name: String, val phone: String)
 
-data class PaymentRequest(val id: String, val currency: String, val payer: Party, val payee: Party)
+data class OrderForm(val id: String, val copies: Int, val customer: Contact, val deliverTo: Contact)
 
-@PaymentDsl
-class PartyBuilder {
+@FormDsl
+class ContactBuilder {
     var name = ""
-    var iban = ""
+    var phone = ""
 
-    fun build(): Party {
-        require(iban.isNotBlank()) { "iban required for '$name'" }
-        return Party(name, iban)
+    fun build(): Contact {
+        require(phone.isNotBlank()) { "phone required for '$name'" }
+        return Contact(name, phone)
     }
 }
 
-@PaymentDsl
-class PaymentRequestBuilder(private val id: String) {
-    var currency = "EUR"
-    private var payer: Party? = null
-    private var payee: Party? = null
+@FormDsl
+class OrderFormBuilder(private val id: String) {
+    var copies = 1
+    private var customer: Contact? = null
+    private var deliverTo: Contact? = null
 
-    fun payer(block: PartyBuilder.() -> Unit) { payer = PartyBuilder().apply(block).build() }
+    fun customer(block: ContactBuilder.() -> Unit) { customer = ContactBuilder().apply(block).build() }
 
-    fun payee(block: PartyBuilder.() -> Unit) { payee = PartyBuilder().apply(block).build() }
+    fun deliverTo(block: ContactBuilder.() -> Unit) { deliverTo = ContactBuilder().apply(block).build() }
 
-    fun build() = PaymentRequest(id, currency, checkNotNull(payer) { "payer missing" }, checkNotNull(payee) { "payee missing" })
+    fun build() = OrderForm(id, copies, checkNotNull(customer) { "customer missing" }, checkNotNull(deliverTo) { "delivery address missing" })
 }
 
-fun paymentRequest(id: String, block: PaymentRequestBuilder.() -> Unit): PaymentRequest =
-    PaymentRequestBuilder(id).apply(block).build()
+fun orderForm(id: String, block: OrderFormBuilder.() -> Unit): OrderForm =
+    OrderFormBuilder(id).apply(block).build()
 
 fun main() {
-    val req = paymentRequest("PR-1") {
-        currency = "GBP"
-        payer { name = "ACME Ltd"; iban = "GB33BUKB20201555555555" }
-        payee {
-            name = "Corner Shop"
-            iban = "GB94BARC10201530093459"
-            this@paymentRequest.currency = "EUR"      // an outer receiver needs an explicit label
+    val form = orderForm("ord-17") {
+        copies = 100
+        customer { name = "Corner Bakery"; phone = "555-0142" }
+        deliverTo {
+            name = "Corner Bakery, back door"
+            phone = "555-0143"
+            this@orderForm.copies = 250              // an outer receiver needs an explicit label
         }
     }
-    println(req)
+    println(form)
 
-    // Wrong move. Uncomment the block, predict, run. Then remove @PaymentDsl from both builder
+    // Wrong move. Uncomment the block, predict, run. Then remove @FormDsl from both builder
     // classes and run it again.
-    // paymentRequest("PR-2") {
-    //     payer {
-    //         name = "ACME Ltd"
-    //         payee { name = "oops" }
-    //         iban = "GB33BUKB20201555555555"
+    // orderForm("ord-18") {
+    //     customer {
+    //         name = "Corner Bakery"
+    //         deliverTo { name = "oops" }
+    //         phone = "555-0142"
     //     }
     // }
 }

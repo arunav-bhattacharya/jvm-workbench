@@ -7,6 +7,11 @@ read = lambda p: (ROOT / p).read_text()
 demo = lambda cls: f"./gradlew :patterns:demo -Pmain=workbench.patterns.l09.{cls}"
 
 
+def pair(java, kotlin):
+    """A Java fence and its Kotlin twin, side by side, as the validator expects."""
+    return f"```java\n{java}\n```\n\n```kotlin\n{kotlin}\n```"
+
+
 def code(lang, name, cls, alt_lang, alt_name, alt_cls):
     d1 = J if lang == "java" else K
     d2 = J if alt_lang == "java" else K
@@ -14,206 +19,259 @@ def code(lang, name, cls, alt_lang, alt_name, alt_cls):
             "alt": {"lang": alt_lang, "title": alt_name, "src": read(f"{lab}/demo/{d2}/{alt_name}"), "run": demo(alt_cls), "file": f"{lab}/demo/{d2}/{alt_name}"}}
 
 
-FIG = """<svg viewBox="0 0 700 232" role="img" aria-label="A request passes logging, auth, idempotency and fraud before the charge. Auth can answer 401, idempotency 409 and fraud review, and the response travels back out through every step">
-<rect class="box" x="10" y="40" width="80" height="46" rx="8"/>
-<text class="t" x="50" y="68" text-anchor="middle">request</text>
-<rect class="box" x="110" y="40" width="96" height="46" rx="8"/>
-<text class="t" x="158" y="68" text-anchor="middle">logging</text>
-<rect class="box" x="230" y="40" width="80" height="46" rx="8"/>
-<text class="t" x="270" y="68" text-anchor="middle">auth</text>
-<rect class="box" x="334" y="40" width="120" height="46" rx="8"/>
-<text class="t" x="394" y="68" text-anchor="middle">idempotency</text>
-<rect class="box" x="478" y="40" width="84" height="46" rx="8"/>
-<text class="t" x="520" y="68" text-anchor="middle">fraud</text>
-<rect class="box-a" x="586" y="40" width="96" height="46" rx="8"/>
-<text class="t" x="634" y="68" text-anchor="middle">charge</text>
-<line class="ln-a" x1="90" y1="63" x2="106" y2="63" marker-end="url(#arr)"/>
-<line class="ln-a" x1="206" y1="63" x2="226" y2="63" marker-end="url(#arr)"/>
-<line class="ln-a" x1="310" y1="63" x2="330" y2="63" marker-end="url(#arr)"/>
-<line class="ln-a" x1="454" y1="63" x2="474" y2="63" marker-end="url(#arr)"/>
-<line class="ln-a" x1="562" y1="63" x2="582" y2="63" marker-end="url(#arr)"/>
-<line class="ln-bad" x1="270" y1="86" x2="270" y2="128" marker-end="url(#arr)"/>
-<rect class="box-bad" x="230" y="132" width="80" height="36" rx="8"/>
-<text class="t t-code" x="270" y="155" text-anchor="middle">401</text>
-<line class="ln-bad" x1="394" y1="86" x2="394" y2="128" marker-end="url(#arr)"/>
-<rect class="box-bad" x="354" y="132" width="80" height="36" rx="8"/>
-<text class="t t-code" x="394" y="155" text-anchor="middle">409</text>
-<line class="ln" x1="520" y1="86" x2="520" y2="128" marker-end="url(#arr)"/>
-<rect class="box-b" x="470" y="132" width="100" height="36" rx="8"/>
-<text class="t" x="520" y="155" text-anchor="middle">review</text>
-<line class="ln-d" x1="634" y1="86" x2="634" y2="196"/>
-<line class="ln-d" x1="634" y1="196" x2="158" y2="196"/>
-<line class="ln-d" x1="158" y1="196" x2="158" y2="90" marker-end="url(#arr)"/>
-<text class="t-s t-m" x="400" y="220" text-anchor="middle">the response travels back out through every step</text>
+FIG = """<svg viewBox="0 0 680 236" role="img" aria-label="A complaint passes the book, the receipt check, the assistant and the manager before head office. The receipt check can turn it away, the assistant and the manager can sort it, and the reply travels back out through every step it passed">
+<rect class="box" x="10" y="40" width="88" height="46" rx="8"/>
+<text class="t" x="54" y="68" text-anchor="middle">complaint</text>
+<rect class="box" x="122" y="40" width="64" height="46" rx="8"/>
+<text class="t" x="154" y="68" text-anchor="middle">book</text>
+<rect class="box" x="210" y="40" width="80" height="46" rx="8"/>
+<text class="t" x="250" y="68" text-anchor="middle">receipt</text>
+<rect class="box" x="314" y="40" width="92" height="46" rx="8"/>
+<text class="t" x="360" y="68" text-anchor="middle">assistant</text>
+<rect class="box" x="430" y="40" width="88" height="46" rx="8"/>
+<text class="t" x="474" y="68" text-anchor="middle">manager</text>
+<rect class="box-a" x="542" y="40" width="112" height="46" rx="8"/>
+<text class="t" x="598" y="68" text-anchor="middle">head office</text>
+<line class="ln-a" x1="98" y1="63" x2="118" y2="63" marker-end="url(#arr)"/>
+<line class="ln-a" x1="186" y1="63" x2="206" y2="63" marker-end="url(#arr)"/>
+<line class="ln-a" x1="290" y1="63" x2="310" y2="63" marker-end="url(#arr)"/>
+<line class="ln-a" x1="406" y1="63" x2="426" y2="63" marker-end="url(#arr)"/>
+<line class="ln-a" x1="518" y1="63" x2="538" y2="63" marker-end="url(#arr)"/>
+<line class="ln-bad" x1="250" y1="86" x2="250" y2="128" marker-end="url(#arr)"/>
+<rect class="box-bad" x="190" y="132" width="120" height="36" rx="8"/>
+<text class="t-s" x="250" y="155" text-anchor="middle">bring the receipt</text>
+<line class="ln" x1="360" y1="86" x2="360" y2="128" marker-end="url(#arr)"/>
+<rect class="box-ok" x="318" y="132" width="84" height="36" rx="8"/>
+<text class="t-s" x="360" y="155" text-anchor="middle">sorted</text>
+<line class="ln" x1="474" y1="86" x2="474" y2="128" marker-end="url(#arr)"/>
+<rect class="box-ok" x="432" y="132" width="84" height="36" rx="8"/>
+<text class="t-s" x="474" y="155" text-anchor="middle">sorted</text>
+<line class="ln-d" x1="598" y1="86" x2="598" y2="196"/>
+<line class="ln-d" x1="598" y1="196" x2="154" y2="196"/>
+<line class="ln-d" x1="154" y1="196" x2="154" y2="90" marker-end="url(#arr)"/>
+<text class="t-s t-m" x="376" y="222" text-anchor="middle">the reply travels back through every step it passed</text>
 </svg>""".replace("\n", "")
 
-S1 = """A payment moves from `Created` to `Authorized` to `Captured`, maybe to `Refunded`, and can end in `Failed`. The GoF State pattern gives each state its own class with one method per event: `CreatedState.capture()` throws, `AuthorizedState.capture()` returns a `CapturedState`. That is five classes with four methods each, and the rules for one transition live wherever its class happens to be.
+OPENING = """An order at the corner shop lives a short life. Someone places it, a packer boxes it in the back room, Pedal Post's rider or a Big Blue Vans driver takes it away, and someone signs for it at the door. The shop's screen has a button for each step: Pack, Ship, Deliver and Cancel. What a button may do depends on where the order is. Cancel is fine while the order sits on the packing table. Once the van has left, it's too late.
 
-Java 21 and Kotlin let you write states and events as data and the rules as one function:
+Complaints travel too. The shop assistant sorts out what she can, passes bigger ones to the manager, and the manager sends the rest to head office.
 
-```java
-sealed interface PaymentState permits Created, Authorized, Captured, Refunded, Failed {}
-record Created(String id) implements PaymentState {}
-record Authorized(String id, String authCode, long amount) implements PaymentState {}
-record Captured(String id, long amount) implements PaymentState {}
-record Refunded(String id, long amount) implements PaymentState {}
-record Failed(String id, String reason) implements PaymentState {}
+The easy trap is to scatter the rules, with an `if` in every button checking what its author remembered. The last lesson ended by asking how to keep an order's rules in one place. In this lesson, we'll make an order's states and events data, with every rule in one function the compiler checks (State). Then we'll pass a complaint along a line of people until one of them answers (Chain of Responsibility). Before we start, make a guess, and keep it in mind."""
 
-sealed interface PaymentEvent permits Authorize, Capture, Refund, Decline {}
-record Authorize(String authCode, long amount) implements PaymentEvent {}
-record Capture() implements PaymentEvent {}
-record Refund(long amount) implements PaymentEvent {}
-record Decline(String reason) implements PaymentEvent {}
+# ---------------------------------------------------------------- section 0
+J_NAIVE = """// Naive: each button guards only what its author thought of
+void pack()    { if (status == Status.PLACED) status = Status.PACKED; }
+void ship()    { if (status == Status.PACKED) status = Status.OUT_FOR_DELIVERY; }
+void deliver() { status = Status.DELIVERED; }                                 // no check: surely the driver knows
+void cancel()  { if (status != Status.DELIVERED) status = Status.CANCELLED; }  // forgot: the van may have left"""
+K_NAIVE = """// Naive: each button guards only what its author thought of
+fun pack()    { if (status == Status.PLACED) status = Status.PACKED }
+fun ship()    { if (status == Status.PACKED) status = Status.OUT_FOR_DELIVERY }
+fun deliver() { status = Status.DELIVERED }                                   // no check: surely the driver knows
+fun cancel()  { if (status != Status.DELIVERED) status = Status.CANCELLED }    // forgot: the van may have left"""
 
-static PaymentState transition(PaymentState s, PaymentEvent e) {
+J_LIFE = """sealed interface OrderState permits Placed, Packed, OutForDelivery, Delivered, Cancelled {}
+record Placed(String orderNo) implements OrderState {}
+record Packed(String orderNo, int parcels) implements OrderState {}
+record OutForDelivery(String orderNo, int parcels, String courier) implements OrderState {}
+record Delivered(String orderNo, String signedBy) implements OrderState {}
+record Cancelled(String orderNo, String reason) implements OrderState {}
+
+sealed interface OrderEvent permits Pack, Ship, Deliver, Cancel {}
+record Pack(int parcels) implements OrderEvent {}
+record Ship(String courier) implements OrderEvent {}
+record Deliver(String signedBy) implements OrderEvent {}
+record Cancel(String reason) implements OrderEvent {}
+
+static OrderState transition(OrderState s, OrderEvent e) {
     return switch (s) {                                  // no default: a new state breaks the build
-        case Created c -> switch (e) {
-            case Authorize(var code, var amt) when amt > 0 -> new Authorized(c.id(), code, amt);
-            case Decline(var reason) -> new Failed(c.id(), reason);
+        case Placed p -> switch (e) {
+            case Pack(var parcels) when parcels > 0 -> new Packed(p.orderNo(), parcels);
+            case Cancel(var reason) -> new Cancelled(p.orderNo(), reason);
             default -> throw illegal(s, e);
         };
-        case Authorized a -> switch (e) {
-            case Capture() -> new Captured(a.id(), a.amount());
-            case Decline(var reason) -> new Failed(a.id(), reason);
+        case Packed(var no, var parcels) -> switch (e) {
+            case Ship(var courier) -> new OutForDelivery(no, parcels, courier);
+            case Cancel(var reason) -> new Cancelled(no, reason);
             default -> throw illegal(s, e);
         };
-        case Captured(var id, var amt) -> switch (e) {
-            case Refund(var r) when r > 0 && r <= amt -> new Refunded(id, r);
-            default -> throw illegal(s, e);
+        case OutForDelivery o -> switch (e) {
+            case Deliver(var who) when !who.isBlank() -> new Delivered(o.orderNo(), who);
+            default -> throw illegal(s, e);              // Cancel lands here: the van has left
         };
-        case Refunded r -> throw illegal(s, e);          // terminal
-        case Failed f -> throw illegal(s, e);            // terminal
+        case Delivered d -> throw illegal(s, e);         // final
+        case Cancelled c -> throw illegal(s, e);         // final
     };
+}"""
+K_LIFE = """sealed interface OrderState {
+    data class Placed(val orderNo: String) : OrderState
+    data class Packed(val orderNo: String, val parcels: Int) : OrderState
+    data class OutForDelivery(val orderNo: String, val parcels: Int, val courier: String) : OrderState
+    data class Delivered(val orderNo: String, val signedBy: String) : OrderState
+    data class Cancelled(val orderNo: String, val reason: String) : OrderState
 }
+sealed interface OrderEvent {
+    data class Pack(val parcels: Int) : OrderEvent
+    data class Ship(val courier: String) : OrderEvent
+    data class Deliver(val signedBy: String) : OrderEvent
+    data class Cancel(val reason: String) : OrderEvent
+}
+
+fun transition(s: OrderState, e: OrderEvent): OrderState = when (s) {   // no else: a new state breaks the build
+    is OrderState.Placed -> when (e) {
+        is OrderEvent.Pack if e.parcels > 0 -> OrderState.Packed(s.orderNo, e.parcels)
+        is OrderEvent.Cancel -> OrderState.Cancelled(s.orderNo, e.reason)
+        else -> throw illegal(s, e)
+    }
+    is OrderState.Packed -> when (e) {
+        is OrderEvent.Ship -> OrderState.OutForDelivery(s.orderNo, s.parcels, e.courier)
+        is OrderEvent.Cancel -> OrderState.Cancelled(s.orderNo, e.reason)
+        else -> throw illegal(s, e)
+    }
+    is OrderState.OutForDelivery -> when (e) {
+        is OrderEvent.Deliver if e.signedBy.isNotBlank() -> OrderState.Delivered(s.orderNo, e.signedBy)
+        else -> throw illegal(s, e)                                    // Cancel lands here: the van has left
+    }
+    is OrderState.Delivered, is OrderState.Cancelled -> throw illegal(s, e)    // final
+}"""
+
+S0 = """The shop's first order screen kept track of an order with a status field: an enum (a type with a fixed list of values) holding `PLACED`, `PACKED`, `OUT_FOR_DELIVERY`, `DELIVERED` or `CANCELLED`. Each button changes the status, and each one checks what its author remembered:
+
+""" + pair(J_NAIVE, K_NAIVE) + """
+
+`OrderButtonsDemo`, in the Try it, presses Pack, Ship, Cancel, Deliver, and then Pack once more by mistake:
+
+```text
+pack     -> PACKED
+ship     -> OUT_FOR_DELIVERY
+cancel   -> CANCELLED
+deliver  -> DELIVERED
+pack     -> DELIVERED
 ```
 
-```kotlin
-sealed interface PaymentState {
-    data class Created(val id: String) : PaymentState
-    data class Authorized(val id: String, val authCode: String, val amount: Long) : PaymentState
-    data class Captured(val id: String, val amount: Long) : PaymentState
-    data class Refunded(val id: String, val amount: Long) : PaymentState
-    data class Failed(val id: String, val reason: String) : PaymentState
-}
-sealed interface PaymentEvent {
-    data class Authorize(val authCode: String, val amount: Long) : PaymentEvent
-    data object Capture : PaymentEvent
-    data class Refund(val amount: Long) : PaymentEvent
-    data class Decline(val reason: String) : PaymentEvent
-}
+The customer cancelled while the parcel was on the road, and the driver delivered it anyway. The shop now has a teapot that was cancelled and delivered, in that order. The last click did nothing at all, and nobody said so.
 
-fun transition(s: PaymentState, e: PaymentEvent): PaymentState = when (s) {   // no else
-    is PaymentState.Created -> when (e) {
-        is PaymentEvent.Authorize if e.amount > 0 -> PaymentState.Authorized(s.id, e.authCode, e.amount)
-        is PaymentEvent.Decline -> PaymentState.Failed(s.id, e.reason)
-        else -> throw illegal(s, e)
-    }
-    is PaymentState.Authorized -> when (e) {
-        PaymentEvent.Capture -> PaymentState.Captured(s.id, s.amount)
-        is PaymentEvent.Decline -> PaymentState.Failed(s.id, e.reason)
-        else -> throw illegal(s, e)
-    }
-    is PaymentState.Captured -> when (e) {
-        is PaymentEvent.Refund if e.amount in 1..s.amount -> PaymentState.Refunded(s.id, e.amount)
-        else -> throw illegal(s, e)
-    }
-    is PaymentState.Refunded, is PaymentState.Failed -> throw illegal(s, e)    // terminal
-}
-```
+The cause isn't one careless line. The rules for an order live in four places, and each button knows a different part of them. A fifth button means remembering every rule again.
 
-Read it as a table. Each outer case is a state, each inner case is an event that state accepts, and everything else is illegal. Record patterns take fields out where you need them (`Captured(var id, var amt)`), and guards state what an event requires (`when amt > 0`). Kotlin's guards in `when` (`is Refund if ...`) became stable in Kotlin 2.2.0.
+**State** is the pattern for this: an object's behavior depends on the state it's in, so each state should say which moves it allows. The 1994 book of design patterns gives each state its own class. Modern Java and Kotlin let us write it smaller. A **state** is where the order is in its life, holding exactly the data that state needs. An **event** is something that happens to the order, such as a button press. A **transition function** takes the current state and an event, and returns the next state:
 
-The function is pure: old state and event in, new state out, no I/O. You test it without mocks, and replaying history is one fold: `val current: PaymentState = events.fold(Created(id), ::transition)`, which is how the lab's `replay` works. Keep side effects out of it. If capturing needs the PSP, call the PSP first and feed its answer in as an event."""
+""" + pair(J_LIFE, K_LIFE) + """
 
-S2 = """Chargebacks arrive, and a captured payment now needs a `Disputed` state. Add the record to the sealed interface and compile, before you write a single rule:
+Read it as a table. Each outer `case` is a state, each inner `case` is an event that state accepts, and everything else throws. A **record pattern** such as `Packed(var no, var parcels)` takes the record's fields out as it matches. A **guard**, the `when parcels > 0` part, adds a condition: if it's false, the case doesn't match. Kotlin's guards in `when` (`is Pack if ...`) became stable in Kotlin 2.2.0.
+
+Picture the order board in the back room. It has five columns, one per state, and a card for each order. A rule card pinned above the board says which moves are allowed. The transition function is that rule card, kept in one place and checked by the compiler. The picture breaks in a useful spot. On a real board, every card looks the same. In code, each column has its own kind of card: an `OutForDelivery` card has a space for the courier, and a `Placed` card has none, so a placed order can't carry a courier by mistake.
+
+The function is pure: an old state and an event go in, a new state comes out, and nothing else is touched. You can test it without any fake objects, and replaying an order's history is one loop, as the lab's `replay` shows. Keep the side effects, such as booking the van, outside it: book first, then feed the answer in as an event.
+
+**Rules spread over buttons drift apart. Put them in one transition function, and let the buttons only send events.**
+
+One function holds the rules now. Next, we'll add a sixth state and let the compiler find every place it touches."""
+
+# ---------------------------------------------------------------- section 1
+S1 = """Some deliveries fail because nobody is home. The shop decides to keep those parcels at the counter until the customer collects, so an order needs a sixth state, `WaitingAtShop`. Add the record to the sealed interface and build, before you write a single rule:
 
 ```text
 javac:   error: the switch expression does not cover all possible input values
-kotlinc: error: 'when' expression must be exhaustive. Add the 'is Disputed' branch or an 'else' branch.
+kotlinc: 'when' expression must be exhaustive. Add the 'is WaitingAtShop' branch or an 'else' branch.
 ```
 
-Every switch over the state type fails, and each error points at one place: the transition function, the status label in the API, the metrics tag, the admin screen. The compiler has written your to-do list. Work through it, and the feature is done when the build is green.
+Every switch over the state type fails, and each error points at one place that needs a decision: the transition function, the label on the shop's screen, the count of orders on the evening report. A switch the compiler has checked against every subtype is called an **exhaustive** switch. The compiler, strict as ever, has written your to-do list. Work through it, and the feature is done when the build is green.
 
-That only works if you leave room for it. A `default` (or `else`) on a switch over your own sealed type means \"and anything else\", and the compiler believes you: `Disputed` falls into the default without a word. The inner switches in `transition` do use `default`, on purpose. Most (state, event) pairs are illegal, and listing each illegal pair adds nothing. So the rule is narrower than \"never write default\": never write it on the dimension you expect to grow. States grow. Here, the events within one state mostly don't.
+That only works if you leave room for it. A `default` (or `else`) on a switch over your own sealed type means "and anything else", and the compiler believes you: `WaitingAtShop` falls into the default without a word. The inner switches in `transition` do use `default`, on purpose. Most (state, event) pairs aren't allowed, and listing each one adds nothing. So the rule is narrower than "never write default": never write it on the side you expect to grow. States grow. The events one state accepts mostly don't.
 
-The check happens at compile time, so there is a gap at run time, which Brian Goetz's design notes call the remainder: `null`, and subtypes added after the switch was compiled. A switch on a null state throws `NullPointerException`. If a new subtype arrives from a separately compiled jar, Java throws `MatchException` and Kotlin throws `NoWhenBranchMatchedException`. You don't write code for those cases, but a deploy that mixes old and new jars can hit them.
+**A `default` on the switch over states hides every state you add later. Leave it off.**
 
-State and Strategy have the same structure: an object holds a value and behavior depends on it. The difference is who chooses. The caller picks a strategy, and it stays. A state machine picks its own next state as events arrive."""
+The check happens when the code is compiled, so a small gap is left for run time. The design notes for Java's pattern matching, by Brian Goetz and Gavin Bierman, call it the **remainder**: the values a checked switch can still meet. One is `null`, and a switch on a null state throws `NullPointerException`. The other is a subtype added after the switch was compiled, in a separately compiled jar (a file of compiled classes). Java throws `MatchException` for it, and Kotlin throws `NoWhenBranchMatchedException`. You don't write code for those cases, but a program that mixes old and new jars can meet them.
 
-S3 = """A payment request passes logging, authentication, an idempotency check and fraud screening before any code charges the card. Each step may answer on its own (401, 409, \"send to review\") or pass the request on. That is **Chain of Responsibility**, and you use it every day. A servlet `Filter` gets the request and a `FilterChain`, and uses the chain \"to invoke the next filter in the chain\". OkHttp's `Interceptor` has one method, `intercept(chain)`, and calls `chain.proceed(request)` to continue.
+State looks a lot like Strategy, from *Strategy and Template Method*: an object holds a value, and behavior depends on it. The difference is who chooses. The shopkeeper picks a strategy, such as "cheapest courier", and it stays put. A state machine picks its own next state as events arrive.
 
-Each link is a function of the request and `next`, the rest of the chain:
+A state machine decides what one order may do. Next, we'll look at a request that several people could answer."""
 
-```java
-Interceptor auth = (r, next) -> r.headers().containsKey("Authorization")
-        ? next.proceed(r)                              // pass it on
-        : new Response(401, "no token");               // answer now: the rest never runs
+# ---------------------------------------------------------------- section 2
+J_CHAIN = """Handler assistant = (c, next) -> c.worthCents() <= 500
+        ? new Reply("assistant", "sorted")              // answer now: the rest never runs
+        : next.passOn(c);                                // pass it on
 
-Interceptor logging = (r, next) -> {
-    Response res = next.proceed(r);                    // what follows runs on the way out
-    log.info(r.path() + " -> " + res.status());
-    return res;
+Handler book = (c, next) -> {
+    Reply r = next.passOn(c);                            // what follows runs on the way back
+    System.out.println("  book: " + c.orderNo() + " " + c.about() + " -> " + r.from());
+    return r;
 };
 
-Chain pipeline = chain(List.of(logging, auth, idempotency, fraud), chargeHandler);
-```
-
-```kotlin
-val auth = Interceptor { r, next ->
-    if ("Authorization" in r.headers) next(r)          // pass it on
-    else HttpResponse(401, "no token")                 // answer now: the rest never runs
+Chain desk = chain(List.of(book, receipt, oncePerOrder, assistant, manager), headOffice);"""
+K_CHAIN = """val assistant = Handler { c, next ->
+    if (c.worthCents <= 500) Reply("assistant", "sorted")   // answer now: the rest never runs
+    else next(c)                                             // pass it on
 }
 
-val logging = Interceptor { r, next ->
-    next(r).also { log.info("${r.path} -> ${it.status}") }   // runs on the way out
+val book = Handler { c, next ->
+    next(c).also { println("  book: ${c.orderNo} ${c.about} -> ${it.from}") }   // runs on the way back
 }
 
-val pipeline = chain(listOf(logging, auth, idempotency, fraud), chargeHandler)
-```
+val shopDesk = desk(listOf(book, receipt, oncePerOrder, assistant, manager), headOffice)"""
 
-Code before `next` runs on the way in, code after it runs on the way out with the response, and not calling `next` at all is a short-circuit. Logging wraps everything; auth can stop a request before any later step sees it.
+S2 = """A customer comes to the counter: the teapot from the gift box arrived cracked. The shop assistant can sort out anything worth up to 5.00 herself, from the shelf. Anything bigger goes to the manager, who can sort out up to 50.00. The rest goes to head office, which answers everything, eventually. Nobody needs to know who sits further down the line. Each person either answers or passes the complaint on.
 
-The GoF version links handler objects with `setNext()`. You don't need that. A list of functions and a fold make the chain, as the comparison below shows, and the result is immutable, so one pipeline serves every request on every thread. The lab's `FraudChain.build` copies the list it is given for the same reason: a later edit to the caller's list must not change a chain that is already in use."""
+That is **Chain of Responsibility**: a request travels along a list of **handlers**, and each handler either answers it or passes it to the next one. In code, each link is a function of the complaint and `next`, the rest of the chain:
 
-S4 = """Chains fail in four ways, and each looks like a bug somewhere else.
+""" + pair(J_CHAIN, K_CHAIN) + """
 
-Order. Interceptors run in list order, and order is behavior. Put the idempotency check before auth, and a request rejected for a missing token has already used up its idempotency key, so the client's corrected retry gets 409 and the customer is never charged. Put logging after auth, and rejected requests never reach your logs. Pin the order with a test.
+Each `Complaint` record says which order it's about, what went wrong, what putting it right is worth in cents, and whether the customer brought the receipt. `receipt` turns away a complaint without one, and `oncePerOrder` turns away a second complaint about an order that's already been sorted.
 
-Forgetting `next`. A handler that returns without calling `next` and without a real answer drops the request silently. In a servlet filter, the client gets an empty 200. Every path through a handler must either call `next` or return a deliberate response.
+The complaints book on the counter is the first link, and it shows the shape of every handler. Code before `next` runs on the way in, code after it runs on the way back with the reply, and not calling `next` at all ends the trip early. So the book sees every complaint and every answer, while the receipt check can turn a customer away before the assistant even looks.
 
-Calling `next` twice. A retry wrapped around `next.proceed(r)` at the front of the chain repeats everything after it: the fraud check, the idempotency check and the charge. Put retries as close as possible to the call they retry, around the PSP client, not around the pipeline.
+The 1994 book links handler objects with a `setNext()` method. You don't need that. A list of functions and a fold make the chain: start from the last stop, and wrap it in each handler, from the last one to the first. The result can't change, so one desk serves every complaint on every thread. The lab's `ComplaintDesk.build` copies the list it's given for the same reason: a later edit to the caller's list must not change a chain that's already in use.
 
-Exceptions. When a later handler throws, the code after `next.proceed(r)` in earlier handlers never runs. Timers, MDC cleanup (removing the request's entries from the logger's per-thread context map) and metrics belong in `finally`.
+The picture breaks on the way back. In the shop, an assistant who passes a complaint to the manager may never hear how it ended. In code, the reply travels back through every link that passed it on, and each one can still read it, write it down or change it. The figure shows both directions.
 
-The same shape runs your Quarkus services. A CDI interceptor's `@AroundInvoke` method calls `InvocationContext.proceed()` to continue, and JAX-RS filters and CDI interceptors are ordered by `@Priority`. When a filter seems not to run, check its priority before you read its code.
+The chain is short and easy to build. Next, we'll see the four ways it goes wrong."""
 
-Check yourself. In the pipeline from the last section, `fraud` throws for one request. Does that request get a line from `logging`, which is first in the list? (No. `logging` writes its line after `next.proceed(r)` returns, and that call never returns. Wrap `next.proceed(r)` in `try`/`finally` and log in the `finally`, and the request shows up, with the exception still on its way out.)"""
+# ---------------------------------------------------------------- section 3
+S3 = """Chains fail in four ways, and each one looks like a bug somewhere else.
+
+The order is wrong. Handlers run in list order, so the order of the list is behavior. Put the once-per-order check before the receipt check, as the Try it did, and a customer turned away for a missing receipt has already used up their one complaint. Put the book after the receipt check, and turned-away customers never reach the book. Pin the order with a test.
+
+A handler forgets `next`. A handler that neither answers nor calls `next` has nothing to return. In Java it's tempting to return `null`, and the complaint goes into a drawer, never to be seen again, until a caller trips over the `null` with a `NullPointerException`. Every path through a handler must either call `next` or return a real reply.
+
+A handler calls `next` twice. A "try again" step that wraps `next.passOn(c)` near the front of the chain repeats everything after it. If the assistant's step posts a new teapot, two teapots go out. Put a retry as close as possible to the one call it repeats, never around the rest of the chain.
+
+A later handler throws an exception. Then the code after `next.passOn(c)` in the earlier handlers never runs, so the book never writes its line. Anything that must happen on the way back, such as the book's line or stopping a timer, belongs in a `finally` block.
+
+**Every path through a handler answers or calls `next`, exactly once. Put the work for the way back in `finally`.**
+
+Check yourself. In the desk from the last section, the manager's step throws for one complaint. Does that complaint get a line in the book, which is first in the list? (No. The book writes its line after `next.passOn(c)` returns, and that call never returns. Wrap it in `try`/`finally`, write the line in the `finally`, and the complaint shows up in the book, with the exception still on its way out.)"""
+
+ASIDE = {
+ "title": "Where will I meet this chain in real programs?",
+ "body": "Almost every web framework has one. A Java web server passes each request through a list of servlet filters before your code sees it: each `Filter` gets the request and a `FilterChain`, and calls `chain.doFilter(request, response)` to pass it on. OkHttp, a widely used library for making web requests, has interceptors that call `chain.proceed(request)` in the same way. Frameworks also put interceptors around your own methods, for jobs such as opening a database transaction, and sort them by a priority number. When a filter seems not to run, check its place in the order before you read its code."
+}
 
 L = {
  "id": "pat-09",
  "title": "State and Chain of Responsibility",
  "minutes": 37,
- "goal": "By the end you can model a payment lifecycle as sealed states, sealed events and one pure transition function, use the compiler's exhaustiveness errors as a to-do list, and build an interceptor chain whose order, short-circuits and exceptions you control.",
+ "goal": "By the end you can model an order's life as sealed states, sealed events and one pure transition function, use the compiler's exhaustiveness errors as a to-do list, and build a chain of handlers whose order, early answers and exceptions you control.",
+ "opening": OPENING,
  "warmup": {
-  "q": "A payment state machine is a `switch` over a sealed `PaymentState` with `case` branches for all five states and no `default`. You add a sixth record, `Disputed`, to the sealed interface. What happens when you build?",
-  "options": ["It compiles; `Disputed` payments go to the first matching case", "It compiles; `Disputed` payments throw `MatchException` at runtime", "It fails to compile at every switch over `PaymentState` that has no default", "It fails only if a test calls the switch with a `Disputed` value"],
+  "q": "An order's life is a `switch` over a sealed `OrderState`, with a `case` for each of its five states and no `default`. You add a sixth state, `WaitingAtShop`, for parcels nobody was home to receive. What happens when you build?",
+  "options": ["It compiles; waiting orders go to the first case that matches", "It compiles; waiting orders throw `MatchException` when the switch meets one", "It fails to compile at every switch over `OrderState` that has no default", "It fails only if a test calls the switch with a `WaitingAtShop` value"],
   "answer": 2,
-  "why": "A switch expression over a sealed type must cover every permitted subtype, and with no `default` there is nothing to catch the new one, so javac reports \"the switch expression does not cover all possible input values\" at each switch. That list of errors is exactly the list of places that need a rule. `MatchException` only appears when a subtype arrives from code compiled separately after the switch."
+  "why": "A switch expression over a sealed type must cover every permitted subtype. With no `default` to catch the new one, javac reports \"the switch expression does not cover all possible input values\" at each such switch, and that list of errors is exactly the list of places that need a rule. `MatchException` only appears when a subtype arrives from code compiled separately, after the switch was compiled."
  },
  "sections": [
   {
-   "h": "State as data: a payment lifecycle in sealed types",
-   "body": S1,
+   "h": "State: an order's life in one function instead of four buttons",
+   "body": S0,
    "try": {
-    "title": "Walk a payout through its states",
+    "title": "Press the buttons in the wrong order",
     "minutes": 4,
     "steps": [
-     "Open `PayoutStateDemo.java` (or `.kt`): a merchant payout with the same shape as the payment above. Predict the five lines.",
+     "Read `OrderButtonsDemo.java` (or `OrderButtonsDemo.kt`). Predict the five lines it prints.",
      "Run it with the command below.",
-     "Change the approver from `\"dana\"` to `\" \"` (a blank name). Predict where the program stops and what it prints, then run."
+     "Fix `cancel` so it refuses once the order has left: `if (status == Status.PLACED || status == Status.PACKED) status = Status.CANCELLED;` (the same line in Kotlin, without the semicolon). Predict the output and run it. Then ask: what is the customer who pressed Cancel told?"
     ],
-    "code": code("java", "PayoutStateDemo.java", "PayoutStateDemo", "kotlin", "PayoutStateDemo.kt", "PayoutStateDemoKt"),
-    "expect": "`pending approval`, `approved by dana`, `sent, bank ref DE-REF-0091`, `settled`, then `rejected: Send not allowed in Requested`. With a blank approver, the guard `when !who.isBlank()` fails, the event falls to the inner `default`, and the program stops at the first event with `IllegalStateException: Approve not allowed in Requested`. The guard is part of the rule, not a separate check."
+    "code": code("java", "OrderButtonsDemo.java", "OrderButtonsDemo", "kotlin", "OrderButtonsDemo.kt", "OrderButtonsDemoKt"),
+    "expect": "`PACKED`, `OUT_FOR_DELIVERY`, `CANCELLED`, `DELIVERED`, then `DELIVERED` again: a cancelled order was delivered, and the last Pack did nothing without a word. With the fix, the line reads `cancel   -> OUT_FOR_DELIVERY` and the rest is right. But Cancel now fails silently too, so the customer is told nothing. One more `if` fixed one button, and the rules are still spread over four of them."
    },
    "refs": [
     {"title": "JEP 441: Pattern matching for switch", "url": "https://openjdk.org/jeps/441", "kind": "read"},
@@ -221,260 +279,255 @@ L = {
    ]
   },
   {
-   "h": "Let the compiler keep the to-do list",
-   "body": S2,
+   "h": "Add a state, and let the compiler list every place it touches",
+   "body": S1,
    "try": {
-    "title": "Add a state and read the errors",
-    "minutes": 4,
+    "title": "Walk a return, then add a state",
+    "minutes": 5,
     "steps": [
-     "In `PayoutStateDemo.java`, add `record OnHold(String id, long amountMinor) implements PayoutState {}` and add `OnHold` to the `permits` list. In Kotlin, add `data class OnHold(val id: String, val amountMinor: Long) : PayoutState` inside the sealed interface.",
-     "Build it with the demo command. Before you look, predict how many errors you'll get and where.",
-     "Fix them: in `next`, an on-hold payout accepts nothing yet (`throw illegal(s, e)`); in `label`, return `\"on hold\"`. Build again, then remove `OnHold`."
+     "Open `ReturnStateDemo.java` (or `.kt`). A customer returns a teapot, and the return has a life of its own, with the same shape as an order. Predict the five lines it prints, then run it.",
+     "Change the approver from `\"dana\"` to `\" \"` (a blank name). Predict where the program stops and what it prints, run it, then change it back.",
+     "Add a state. Java: add `record OnHold(String id, String item) implements ReturnState {}` and add `OnHold` to the `permits` list. Kotlin: add `data class OnHold(val id: String, val item: String) : ReturnState` inside the sealed interface. Before you build with the demo command, predict how many errors you'll get, and where.",
+     "Fix them: in `next`, a return on hold accepts nothing yet (`throw illegal(s, e)`); in `label`, return `\"on hold\"`. Build again, then remove `OnHold`."
     ],
-    "code": code("java", "PayoutStateDemo.java", "PayoutStateDemo", "kotlin", "PayoutStateDemo.kt", "PayoutStateDemoKt"),
-    "expect": "Two errors, one per switch over the state: `next` and `label`. javac says `the switch expression does not cover all possible input values` twice; kotlinc says `'when' expression must be exhaustive. Add the 'is OnHold' branch or an 'else' branch.` twice. Adding the two branches makes the build green: the compiler's list was complete."
+    "code": code("java", "ReturnStateDemo.java", "ReturnStateDemo", "kotlin", "ReturnStateDemo.kt", "ReturnStateDemoKt"),
+    "expect": "`waiting for approval`, `approved by dana`, `collected, label RT-0091`, `teapot is back on the shelf`, then `rejected: Collect not allowed in Requested`, because a return must be approved before anyone collects it. With a blank approver, the guard `when !who.isBlank()` fails, the event falls to the inner `default`, and the program stops at the first event with `IllegalStateException: Approve not allowed in Requested`: the guard is part of the rule. Adding `OnHold` gives two errors, one per switch over the state, in `next` and in `label`. javac says `the switch expression does not cover all possible input values` twice, and kotlinc says `'when' expression must be exhaustive. Add the 'is OnHold' branch or an 'else' branch.` twice. Two new branches make the build green: the compiler's list was complete."
    },
    "refs": [
     {"title": "Exhaustiveness, unconditionality and remainder (Goetz and Bierman)", "url": "https://raw.githubusercontent.com/openjdk/amber-docs/master/site/design-notes/patterns/exhaustiveness.md", "kind": "read"}
    ]
   },
   {
-   "h": "Chain of Responsibility: pass it on, or answer now",
-   "body": S3,
-   "figure": {"svg": FIG, "caption": "Each step either passes the request on or answers it. The response comes back out through every step it passed, so logging sees all of them."},
+   "h": "Chain of Responsibility: answer the complaint, or pass it on",
+   "body": S2,
+   "figure": {"svg": FIG, "caption": "Each handler either answers the complaint or passes it on. The reply comes back out through every handler it passed, so the book sees all of them."},
    "try": {
-    "title": "Reorder two interceptors",
+    "title": "Swap two handlers",
     "minutes": 5,
     "steps": [
-     "Read `FilterChainDemo.java` (or `.kt`). The third request has no token; the fourth is the client's fixed retry with the same idempotency key. Predict the four responses and the number of charges.",
+     "Read `ComplaintDeskDemo.java` (or `.kt`). The third complaint has no receipt; the fourth is the same customer coming back with it. Predict the four replies and the `complaints sorted` count.",
      "Run it with the command below.",
-     "Swap `auth` and `idempotency` in the list (`List.of(logging, idempotency, auth)`). Predict the last two responses and `charges`, then run."
+     "Swap `receipt` and `oncePerOrder` in the list, so it reads `book, oncePerOrder, receipt, assistant, manager`. Predict the last reply and the count, then run."
     ],
-    "code": code("java", "FilterChainDemo.java", "FilterChainDemo", "kotlin", "FilterChainDemo.kt", "FilterChainDemoKt"),
-    "expect": "In order: 200 charged, 409 duplicate (the same key again), 401 no token, 200 charged, and `charges: 2`; logging prints a line for every request, rejected ones included. After the swap, the 401 request records its key before auth rejects it, so the fixed retry gets `409 duplicate` and `charges: 1`: the customer's payment never goes through."
-   },
+    "code": code("java", "ComplaintDeskDemo.java", "ComplaintDeskDemo", "kotlin", "ComplaintDeskDemo.kt", "ComplaintDeskDemoKt"),
+    "expect": "In order: `manager: sorted` (the cracked teapot is worth 18.00, too much for the assistant), `assistant: we sorted this one already`, `assistant: please bring the receipt`, `assistant: sorted`, and `complaints sorted: 2`. The book writes a line for every complaint, the turned-away ones included. After the swap, the complaint without a receipt is marked as handled before the receipt check turns it away, so the customer who comes back with the receipt hears `we sorted this one already`, and the count drops to 1. Nobody sorted out the stale bread."
+   }
+  },
+  {
+   "h": "Four ways a chain of handlers goes wrong",
+   "body": S3,
+   "aside": ASIDE,
    "refs": [
     {"title": "Jakarta Servlet FilterChain (source)", "url": "https://raw.githubusercontent.com/jakartaee/servlet/master/api/src/main/java/jakarta/servlet/FilterChain.java", "kind": "read"},
     {"title": "OkHttp Interceptor (source)", "url": "https://raw.githubusercontent.com/square/okhttp/master/okhttp/src/commonJvmAndroid/kotlin/okhttp3/Interceptor.kt", "kind": "read"}
    ]
-  },
-  {
-   "h": "Where chains go wrong",
-   "body": S4
   }
  ],
- "analogy": "A state machine is a board game's rule card: from this square, on this roll, you may move to that square, and nothing else. A chain of responsibility is the security line at an airport: ID check, bag scan, body scan, gate. Each station can wave you on or stop you, and the order matters, because there's no point scanning the bag of someone with no ticket. The analogy breaks on the way back. At an airport you never pass through security in reverse, but in a software chain the response travels back out through every station that let the request in, and each one can still change or log it.",
- "in_your_world": "Your payment and payout services already have state machines, often hidden in a status column and scattered `if (status == ...)` checks. Pull the rules into one pure transition function over sealed types, and the Oracle status column becomes a serialized state. A Temporal workflow is a durable state machine too: its history is the list of events, and replaying it rebuilds the state, which is why workflow code must be deterministic. On the chain side, Quarkus gives you JAX-RS `ContainerRequestFilter`s and CDI interceptors ordered by `@Priority`, and Kafka clients take a list of `ProducerInterceptor`s and `ConsumerInterceptor`s in config order. In each, write down which link owns auth, idempotency and retries, and in what order they run.",
- "mistake": "The most common mistake is a `default` (or `else`) branch on the outer switch over your own sealed state type. It is often added \"to be safe\" or to silence a warning while the type is young. From then on, a new state compiles without a word and quietly takes whatever the default does, usually \"reject every event\", so disputed payments get stuck and nobody notices until support does. Leave the default off the switch over states, and let each new state break the build at every place that needs a rule. Use `default` only on dimensions you don't expect to grow, such as the illegal events inside one state, or on open sets you don't control, such as vendor codes.",
  "compare": {
   "title": "Building the chain: an index walker and a fold",
-  "java": {"title": "RealChain.java", "src": """// OkHttp's shape: an immutable chain object that knows its position
-interface Chain { Response proceed(Request r); }
-interface Interceptor { Response intercept(Request r, Chain next); }
+  "java": {"title": "RealChain.java", "src": """// OkHttp's shape: a chain object that can't change and knows its position
+interface Chain { Reply passOn(Complaint c); }
+interface Handler { Reply handle(Complaint c, Chain next); }
 
-record RealChain(List<Interceptor> interceptors, int index, Function<Request, Response> terminal) implements Chain {
+record RealChain(List<Handler> handlers, int index, Function<Complaint, Reply> lastStop) implements Chain {
     RealChain {
-        interceptors = List.copyOf(interceptors);       // cheap after the first time: copyOf keeps an unmodifiable list
+        handlers = List.copyOf(handlers);       // cheap after the first time: copyOf keeps an unmodifiable list
     }
 
-    public Response proceed(Request r) {
-        if (index == interceptors.size()) return terminal.apply(r);                       // past the last link
-        return interceptors.get(index).intercept(r, new RealChain(interceptors, index + 1, terminal));
+    public Reply passOn(Complaint c) {
+        if (index == handlers.size()) return lastStop.apply(c);                         // past the last link
+        return handlers.get(index).handle(c, new RealChain(handlers, index + 1, lastStop));
     }
 }
 
-Chain pipeline = new RealChain(List.of(logging, auth, idempotency), 0, handler);"""},
-  "kotlin": {"title": "Chain.kt", "src": """// a function type replaces the Chain interface: the chain is just (HttpRequest) -> HttpResponse
-fun interface Interceptor {
-    fun intercept(r: HttpRequest, next: (HttpRequest) -> HttpResponse): HttpResponse
+Chain desk = new RealChain(List.of(book, receipt, assistant), 0, headOffice);"""},
+  "kotlin": {"title": "Desk.kt", "src": """// a function type replaces the Chain interface: the chain is just (Complaint) -> Reply
+fun interface Handler {
+    fun handle(c: Complaint, next: (Complaint) -> Reply): Reply
 }
 
-fun chain(interceptors: List<Interceptor>, terminal: (HttpRequest) -> HttpResponse): (HttpRequest) -> HttpResponse =
-    interceptors.foldRight(terminal) { ic, next -> { r -> ic.intercept(r, next) } }   // wrap from the last to the first
+fun desk(handlers: List<Handler>, lastStop: (Complaint) -> Reply): (Complaint) -> Reply =
+    handlers.foldRight(lastStop) { h, next -> { c -> h.handle(c, next) } }   // wrap from the last to the first
 
-val pipeline = chain(listOf(logging, auth, idempotency), handler)"""},
-  "note": "Both call the interceptors in the same order and both are immutable. The Java record walks an index and creates a small chain object per step per request; that object is a natural place to carry more context, which is why OkHttp's real chain also exposes the call, its timeouts and the connection. The Kotlin fold builds the nested closures once, and `next` is a plain function, so no `Chain` interface is needed. Java can fold too, with a loop from the last interceptor to the first, as the lab's `FraudChain.build` does. What both languages make unnecessary is the GoF handler base class with a mutable `setNext()` link."
+val shopDesk = desk(listOf(book, receipt, assistant), headOffice)"""},
+  "note": "Both call the handlers in the same order, and neither can change after it's built. The Java record walks an index and creates a small chain object per step, for every complaint. That object is a natural place to carry more, which is why OkHttp (a library for making web requests) builds its real chain this way and lets it carry the call and its timeouts. The Kotlin fold builds the nested functions once, and `next` is a plain function, so no `Chain` interface is needed. Java can fold too, with a loop from the last handler to the first, as the lab's `ComplaintDesk.build` does. What both languages make unnecessary is the 1994 book's handler base class, with a `setNext()` link that anyone can change."
  },
  "worked": {
-  "title": "Add chargebacks to the payment lifecycle",
+  "title": "Add a \"nobody home\" state to an order's life",
   "steps": [
-   {"say": "A captured payment can now be disputed. A dispute ends either won (back to `Captured`) or lost (a new terminal state, `ChargedBack`). Start with data only: the new states and events.",
-    "code": """sealed interface PaymentState permits Created, Authorized, Captured, Refunded, Failed, Disputed, ChargedBack {}
-record Disputed(String id, long amount, String caseId) implements PaymentState {}      // 1. new states
-record ChargedBack(String id, long amount) implements PaymentState {}
+   {"say": "Some deliveries fail because nobody is home. The shop keeps those parcels at the counter: the customer can collect and sign there, or ask for a second try. Start with data only: one new state and one new event.",
+    "code": """sealed interface OrderState permits Placed, Packed, OutForDelivery, Delivered, Cancelled, WaitingAtShop {}
+record WaitingAtShop(String orderNo, int parcels) implements OrderState {}        // 1. the new state
 
-sealed interface PaymentEvent permits Authorize, Capture, Refund, Decline, OpenDispute, WinDispute, LoseDispute {}
-record OpenDispute(String caseId) implements PaymentEvent {}                            // 2. new events
-record WinDispute() implements PaymentEvent {}
-record LoseDispute() implements PaymentEvent {}""", "lang": "java",
-    "alt_code": """sealed interface PaymentState {
+sealed interface OrderEvent permits Pack, Ship, Deliver, Cancel, NobodyHome {}
+record NobodyHome() implements OrderEvent {}                                     // 2. the new event""", "lang": "java",
+    "alt_code": """sealed interface OrderState {
     // ...the five existing states, plus:
-    data class Disputed(val id: String, val amount: Long, val caseId: String) : PaymentState   // 1. new states
-    data class ChargedBack(val id: String, val amount: Long) : PaymentState
+    data class WaitingAtShop(val orderNo: String, val parcels: Int) : OrderState   // 1. the new state
 }
-sealed interface PaymentEvent {
+sealed interface OrderEvent {
     // ...the four existing events, plus:
-    data class OpenDispute(val caseId: String) : PaymentEvent                              // 2. new events
-    data object WinDispute : PaymentEvent
-    data object LoseDispute : PaymentEvent
+    data object NobodyHome : OrderEvent                                            // 2. the new event
 }""", "alt_lang": "kotlin"},
-   {"say": "Compile before writing any rule. Every switch over `PaymentState` in the service fails. Count them: that is the size of the feature. Why do none of the inner event switches fail?",
-    "code": """PaymentLifecycle.java:41: error: the switch expression does not cover all possible input values
-StatusLabels.java:12: error: the switch expression does not cover all possible input values
-LedgerMetrics.java:27: error: the switch expression does not cover all possible input values
+   {"say": "Compile before writing any rule. Every switch over `OrderState` fails; in a bigger program, the list might look like this. Count the errors: that's the size of the feature. Why does none of the inner switches over events fail?",
+    "code": """OrderLife.java:41: error: the switch expression does not cover all possible input values
+ScreenLabels.java:12: error: the switch expression does not cover all possible input values
+EveningReport.java:27: error: the switch expression does not cover all possible input values
 
-(kotlinc: 'when' expression must be exhaustive. Add the 'is ChargedBack', 'is Disputed' branches or an 'else' branch.)""", "lang": "text"},
-   {"say": "The inner switches have a `default`, so the new events are simply illegal in the old states until you say otherwise. Now write the rules. Note the choice in step 5: no refund while a dispute is open, because the money may be going back through the card scheme already.",
-    "code": """case Captured(var id, var amt) -> switch (e) {
-    case Refund(var r) when r > 0 && r <= amt -> new Refunded(id, r);
-    case OpenDispute(var caseId) -> new Disputed(id, amt, caseId);       // 3. captured payments can be disputed
+(kotlinc: 'when' expression must be exhaustive. Add the 'is WaitingAtShop' branch or an 'else' branch.)""", "lang": "text"},
+   {"say": "The inner switches have a `default`, so the new event simply isn't allowed in the old states until you say otherwise. Now write the rules. Note the choice in step 5: a waiting parcel is back in the shop, so cancelling is fine again.",
+    "code": """case OutForDelivery o -> switch (e) {
+    case Deliver(var who) when !who.isBlank() -> new Delivered(o.orderNo(), who);
+    case NobodyHome() -> new WaitingAtShop(o.orderNo(), o.parcels());       // 3. the parcel comes back
     default -> throw illegal(s, e);
 };
-case Disputed(var id, var amt, var caseId) -> switch (e) {
-    case WinDispute() -> new Captured(id, amt);                          // 4. won: back to captured
-    case LoseDispute() -> new ChargedBack(id, amt);                      // 5. lost: terminal; no refunds meanwhile
+case WaitingAtShop(var no, var parcels) -> switch (e) {
+    case Ship(var courier) -> new OutForDelivery(no, parcels, courier);     // 4. a second try
+    case Deliver(var who) when !who.isBlank() -> new Delivered(no, who);    //    or collected at the counter
+    case Cancel(var reason) -> new Cancelled(no, reason);                   // 5. it's in the shop: cancel is fine
     default -> throw illegal(s, e);
 };
-case Refunded r -> throw illegal(s, e);
-case Failed f -> throw illegal(s, e);
-case ChargedBack cb -> throw illegal(s, e);                              // 6. terminal""", "lang": "java",
-    "alt_code": """is PaymentState.Captured -> when (e) {
-    is PaymentEvent.Refund if e.amount in 1..s.amount -> PaymentState.Refunded(s.id, e.amount)
-    is PaymentEvent.OpenDispute -> PaymentState.Disputed(s.id, s.amount, e.caseId)   // 3. captured payments can be disputed
+case Delivered d -> throw illegal(s, e);
+case Cancelled c -> throw illegal(s, e);""", "lang": "java",
+    "alt_code": """is OrderState.OutForDelivery -> when (e) {
+    is OrderEvent.Deliver if e.signedBy.isNotBlank() -> OrderState.Delivered(s.orderNo, e.signedBy)
+    OrderEvent.NobodyHome -> OrderState.WaitingAtShop(s.orderNo, s.parcels)          // 3. the parcel comes back
     else -> throw illegal(s, e)
 }
-is PaymentState.Disputed -> when (e) {
-    PaymentEvent.WinDispute -> PaymentState.Captured(s.id, s.amount)                // 4. won: back to captured
-    PaymentEvent.LoseDispute -> PaymentState.ChargedBack(s.id, s.amount)            // 5. lost: terminal; no refunds meanwhile
+is OrderState.WaitingAtShop -> when (e) {
+    is OrderEvent.Ship -> OrderState.OutForDelivery(s.orderNo, s.parcels, e.courier) // 4. a second try
+    is OrderEvent.Deliver if e.signedBy.isNotBlank() -> OrderState.Delivered(s.orderNo, e.signedBy)   // or collected
+    is OrderEvent.Cancel -> OrderState.Cancelled(s.orderNo, e.reason)                // 5. it's in the shop: cancel is fine
     else -> throw illegal(s, e)
 }
-is PaymentState.Refunded, is PaymentState.Failed, is PaymentState.ChargedBack -> throw illegal(s, e)   // 6. terminal""", "alt_lang": "kotlin"},
-   {"say": "Fix the label and metrics switches the same way, then pin the new paths in tests. Because `transition` is pure, a whole dispute is one `replay` call with no PSP and no database.",
+is OrderState.Delivered, is OrderState.Cancelled -> throw illegal(s, e)""", "alt_lang": "kotlin"},
+   {"say": "Fix the screen label and the evening report the same way, then pin the new paths in tests. Because `transition` is pure, a whole failed delivery is one `replay` call, with no courier and no database.",
     "code": """@Test
-void lostDisputeEndsChargedBack() {
-    var events = List.<PaymentEvent>of(new Authorize("A-77", 5_000), new Capture(), new OpenDispute("CB-310"), new LoseDispute());
-    assertThat(replay("p1", events)).isEqualTo(new ChargedBack("p1", 5_000));
+void nobodyHomeThenCollectedAtTheCounter() {
+    var events = List.<OrderEvent>of(new Pack(1), new Ship("Big Blue Vans"), new NobodyHome(), new Deliver("Ben"));
+    assertThat(replay("7790", events)).isEqualTo(new Delivered("7790", "Ben"));
 }
 
 @Test
-void noRefundWhileDisputed() {
-    assertThatThrownBy(() -> transition(new Disputed("p1", 5_000, "CB-310"), new Refund(100)))
-            .hasMessage("Refund not allowed in Disputed");
+void cancelIsAllowedAgainOnceTheParcelIsBack() {
+    assertThat(transition(new WaitingAtShop("7790", 1), new Cancel("moved away")))
+            .isEqualTo(new Cancelled("7790", "moved away"));
 }""", "lang": "java",
     "alt_code": """@Test
-fun `a lost dispute ends charged back`() {
-    val events = listOf(PaymentEvent.Authorize("A-77", 5_000), PaymentEvent.Capture, PaymentEvent.OpenDispute("CB-310"), PaymentEvent.LoseDispute)
-    val end: PaymentState = events.fold(PaymentState.Created("p1"), ::transition)
-    assertThat(end).isEqualTo(PaymentState.ChargedBack("p1", 5_000))
+fun `nobody home, then collected at the counter`() {
+    val events = listOf(OrderEvent.Pack(1), OrderEvent.Ship("Big Blue Vans"), OrderEvent.NobodyHome, OrderEvent.Deliver("Ben"))
+    val end: OrderState = events.fold(OrderState.Placed("7790"), ::transition)
+    assertThat(end).isEqualTo(OrderState.Delivered("7790", "Ben"))
 }
 
 @Test
-fun `no refund while disputed`() {
-    assertThatThrownBy { transition(PaymentState.Disputed("p1", 5_000, "CB-310"), PaymentEvent.Refund(100)) }
-        .isInstanceOf(IllegalStateException::class.java)
+fun `cancel is allowed again once the parcel is back`() {
+    assertThat(transition(OrderState.WaitingAtShop("7790", 1), OrderEvent.Cancel("moved away")))
+        .isEqualTo(OrderState.Cancelled("7790", "moved away"))
 }""", "alt_lang": "kotlin"}
   ]
  },
  "lab": {
-  "title": "A payment state machine and a fraud-check chain",
+  "title": "An order's life and a complaint desk",
   "minutes": 14,
-  "files": [f"{lab}/main/{J}/PaymentLifecycle.java", f"{lab}/main/{J}/FraudChain.java"],
+  "files": [f"{lab}/main/{J}/OrderLife.java", f"{lab}/main/{J}/ComplaintDesk.java"],
   "run": "./gradlew :patterns:test --tests 'workbench.patterns.l09.*'",
   "steps": [
-   "Read the table in the Javadoc of `PaymentLifecycle`, and the given `illegal` and `replay` methods. Run the tests: all ten fail.",
-   "Write `transition` as a switch expression over the state with no `default`, and a switch over the event inside each state's case. Use record patterns and `when` guards for the amount rules.",
-   "In `FraudChain`, write `build`: copy the list, start from `Chain next = terminal::apply`, and loop from the last check to the first, wrapping `next` each time.",
-   "Write `amountLimit` and `countryMismatch` as one-line lambdas `(r, next) -> ...`.",
-   "Run the tests until all ten pass. Then add a `Disputed` record to `PaymentState` (and to `permits`), build, read the error, and remove it."
+   "Read the table in the Javadoc of `OrderLife`, and the given `illegal` and `replay` methods. Run the tests: all ten fail.",
+   "Write `transition` as a switch expression over the state with no `default`, and a switch over the event inside each state's case. Use record patterns, and `when` guards for the parcel and signature rules.",
+   "In `ComplaintDesk`, write `build`: copy the list, start from `Chain next = lastStop::apply`, and loop from the last handler to the first, wrapping `next` each time.",
+   "Write `upTo` and `lateDelivery` as one-line lambdas `(c, next) -> ...`.",
+   "Run the tests until all ten pass. Then add a `WaitingAtShop` record to `OrderState` (and to `permits`), build, read the error, and remove it."
   ],
   "hints": [
-   "In a switch expression, `case Refunded r -> throw illegal(s, e);` is a complete case: a `throw` is allowed where a value is expected.",
-   "A lambda can only capture effectively final variables, so copy the loop variable first: `Check check = copy.get(i); Chain rest = next; next = r -> check.check(r, rest);`.",
-   "`case Captured(var id, var captured) -> switch (e) { case Refund(var r) when r > 0 && r <= captured -> ... }` takes the fields out and states the refund rule in one line."
+   "In a switch expression, `case Delivered d -> throw illegal(s, e);` is a complete case: a `throw` is allowed where a value is expected.",
+   "A lambda can only use local variables that never change after they're set, so copy the loop's values first: `Handler handler = copy.get(i); Chain rest = next; next = c -> handler.handle(c, rest);`.",
+   "`case Packed(var no, var parcels) -> switch (e) { case Ship(var courier) -> new OutForDelivery(no, parcels, courier); ... }` takes the fields out and builds the next state in one line."
   ],
   "done_when": "All ten tests in `StateChainTest` pass."
  },
  "drill": {
   "title": "Fold a chain from memory",
   "minutes": 4,
-  "prompt": "Close this page. Write `chain(interceptors, terminal)` that folds a list of interceptors into one function, where each interceptor gets the request and `next`. Then answer: for `[a, b, c]`, in what order do they run on the way in, and on the way out?",
-  "answer": {"lang": "java", "src": """static Chain chain(List<Interceptor> interceptors, Chain terminal) {
-    Chain next = terminal;
-    for (int i = interceptors.size() - 1; i >= 0; i--) {   // wrap from the last to the first
-        Interceptor ic = interceptors.get(i);
+  "prompt": "Close this page. Write `chain(handlers, lastStop)`, which folds a list of handlers into one function, where each handler gets the complaint and `next`. Then answer: for `[a, b, c]`, in what order do they run on the way in, and on the way back?",
+  "answer": {"lang": "java", "src": """static Chain chain(List<Handler> handlers, Chain lastStop) {
+    Chain next = lastStop;
+    for (int i = handlers.size() - 1; i >= 0; i--) {   // wrap from the last to the first
+        Handler h = handlers.get(i);
         Chain rest = next;
-        next = r -> ic.intercept(r, rest);
+        next = c -> h.handle(c, rest);
     }
     return next;
 }
-// on the way in: a, b, c, then terminal; on the way out: c, b, a""",
-   "alt": {"lang": "kotlin", "title": "Kotlin", "src": """fun chain(interceptors: List<Interceptor>, terminal: (HttpRequest) -> HttpResponse): (HttpRequest) -> HttpResponse =
-    interceptors.foldRight(terminal) { ic, next -> { r -> ic.intercept(r, next) } }   // wrap from the last to the first
+// on the way in: a, b, c, then the last stop; on the way back: c, b, a""",
+   "alt": {"lang": "kotlin", "title": "Kotlin", "src": """fun desk(handlers: List<Handler>, lastStop: (Complaint) -> Reply): (Complaint) -> Reply =
+    handlers.foldRight(lastStop) { h, next -> { c -> h.handle(c, next) } }   // wrap from the last to the first
 
-// on the way in: a, b, c, then terminal; on the way out: c, b, a"""}}
+// on the way in: a, b, c, then the last stop; on the way back: c, b, a"""}}
  },
  "recap": [
-  "Model a lifecycle as sealed states, sealed events and one pure transition function. Record patterns and guards (`when`, or `if` in Kotlin 2.2+) state each rule in one line.",
-  "No `default` on the switch over states: a new state then fails to compile at every place that needs a rule. A `default` on the inner event switch is fine, because most pairs are illegal.",
-  "The compile-time check has a runtime remainder: `null` throws `NullPointerException`, and a separately compiled new subtype throws `MatchException` (Java) or `NoWhenBranchMatchedException` (Kotlin).",
-  "A pure transition function makes history a fold: replaying the events rebuilds the state, with no mocks needed in tests.",
-  "Chain of Responsibility: each link answers now or calls `next`. Code before `next` runs on the way in, code after it on the way out.",
-  "Chains break on order, a forgotten `next`, a doubled `next` and exceptions. Pin the order in a test, and put after-logic in `finally`."
+  "State: model a lifecycle as sealed states, sealed events and one pure transition function. Record patterns and guards (`when`, or `if` in Kotlin 2.2 and later) state each rule in one line.",
+  "No `default` on the switch over states: a new state then fails to compile at every place that needs a rule. A `default` on the inner switch over events is fine, because most pairs aren't allowed.",
+  "A pure transition function turns history into a loop: replaying the events rebuilds the state, and tests need no fake objects.",
+  "Chain of Responsibility: each handler answers now or calls `next`. Code before `next` runs on the way in, code after it on the way back.",
+  "Chains break on order, a forgotten `next`, a doubled `next` and exceptions. Pin the order in a test, and put the work for the way back in `finally`.",
+  "The limit: the compiler checks only code compiled together. `null` and a subtype from a separately compiled jar still reach a switch at run time, as `NullPointerException`, `MatchException` (Java) or `NoWhenBranchMatchedException` (Kotlin)."
  ],
+ "closing": "We started with the buttons on an order screen and a complaint at the counter. The buttons full of `if`s became one transition function over sealed states, and the compiler listed every switch a new state touches. The complaint became a chain of handlers, where each one answers or calls `next`, and the order of the list decides who answers.\n\nNow look in your own code for a status field that several methods compare with `if (status == ...)`. Each of those methods is a button holding part of the rules.\n\nNext, we'll send an inspector through the breakfast box, with a different check for each kind of item. When the kinds of goods stay fixed and the jobs keep growing, where should the new code go?",
  "quiz": [
-  {"q": "In `transition`, the outer `switch (s)` lists `Created`, `Authorized` and `Captured`, then ends with `default -> throw illegal(s, e)` instead of listing `Refunded` and `Failed`. Someone adds `Disputed`. What happens?",
-   "options": ["The build fails at that switch", "It compiles, and every event on a disputed payment throws at runtime", "Disputed payments throw `NullPointerException`", "Disputed payments throw `MatchException`"],
+  {"q": "In `transition`, the outer `switch (s)` lists `Placed`, `Packed` and `OutForDelivery`, then ends with `default -> throw illegal(s, e)` instead of listing `Delivered` and `Cancelled`. Someone adds `WaitingAtShop`. What happens?",
+   "options": ["The build fails at that switch", "It compiles, and every event on a waiting order throws when the program runs", "Waiting orders throw `NullPointerException`", "Waiting orders throw `MatchException`"],
    "answer": 1,
-   "why": "The `default` covers every state not listed, including ones that don't exist yet, so the compiler has nothing to report. `Disputed` falls into the default and rejects every event, which looks like a stuck payment in production. `MatchException` is only for subtypes the compiler couldn't know about; this one it could have flagged."},
-  {"q": "The rule is `case Refund(var r) when r > 0 && r <= captured -> new Refunded(id, r);` followed by `default -> throw illegal(s, e);`. A `Refund(6_000)` arrives for `Captured(\"p1\", 5_000)`. What happens?",
-   "options": ["It returns `Refunded(\"p1\", 6_000)`", "It returns `Refunded(\"p1\", 5_000)`", "It throws `IllegalStateException(\"Refund not allowed in Captured\")`", "It doesn't compile, because the guard can be false"],
+   "why": "The `default` covers every state not listed, including ones that don't exist yet, so the compiler has nothing to report. `WaitingAtShop` falls into the default and rejects every event, so a parcel at the counter can never be collected, and nobody notices until a customer asks. `MatchException` is only for subtypes the compiler couldn't know about; this one it could have flagged."},
+  {"q": "The rule is `case Deliver(var who) when !who.isBlank() -> new Delivered(o.orderNo(), who);` followed by `default -> throw illegal(s, e);`. A `Deliver(\" \")` arrives for an order that is out for delivery. What happens?",
+   "options": ["It returns `Delivered(\"7781\", \" \")`", "It returns the same `OutForDelivery` state", "It throws `IllegalStateException(\"Deliver not allowed in OutForDelivery\")`", "It doesn't compile, because the guard can be false"],
    "answer": 2,
-   "why": "When a guard is false, that case doesn't match, and the switch tries the next case: here the `default`, which throws. Guards are part of the pattern, so an over-refund is just one more illegal move. Nothing clamps the amount."},
-  {"q": "A chain is `[logging, idempotency, auth]`. A request with idempotency key K and no token arrives, then the client fixes its token and retries with the same key K. What does the retry get?",
-   "options": ["200 charged", "401 no token", "500 server error", "409 duplicate"],
+   "why": "When a guard is false, that case doesn't match, and the switch tries the next case: here the `default`, which throws. A guard is part of the pattern, so an unsigned delivery is one more move that isn't allowed. Nothing fills in a signature for you, and nothing quietly keeps the old state."},
+  {"q": "A complaint desk is `[book, oncePerOrder, receipt, assistant]`. A customer complains about order 7782 without a receipt, then comes back with the receipt. What does the second visit get?",
+   "options": ["`sorted`, from the assistant", "`please bring the receipt`", "An exception", "`we sorted this one already`"],
    "answer": 3,
-   "why": "Idempotency runs before auth, so the first request records K and only then gets 401. The retry finds K already used and is stopped with 409, so the customer is never charged. With auth first, the rejected request never reaches the idempotency check, and the retry goes through."},
-  {"q": "Someone adds a retry interceptor at the front of the chain that calls `next.proceed(r)` again when the response is a 5xx. What is the risk?",
-   "options": ["Every later step runs again on each retry, including the fraud check and the charge", "Nothing: retries are always safe in a chain", "The retry can't reach the terminal step", "Only the logging step runs twice"],
+   "why": "The once-per-order check runs before the receipt check, so the first visit marks 7782 as handled and only then gets turned away. The second visit finds 7782 already marked and is stopped, although nothing was sorted. With the receipt check first, the first visit never reaches the once-per-order check, and the second goes through."},
+  {"q": "Someone puts a \"try again\" handler at the front of the desk. It calls `next.passOn(c)` a second time whenever the first reply looks like an error. Further down, the assistant's step posts the customer a new teapot. What is the risk?",
+   "options": ["Every later step runs again, so a second teapot can go out", "Nothing: running a chain twice is always safe", "The second call can't reach the last stop", "Only the book writes its line twice"],
    "answer": 0,
-   "why": "`next` is the whole rest of the chain, so retrying it repeats every step after the retry interceptor, the charge included. If the PSP took the money and then timed out, the retry charges again (or, with an idempotency check in the chain, returns a confusing 409). Retry around the PSP client call, with an idempotency key."},
-  {"q": "From *Strategy and Template Method*: a `PaymentState` and a `FeeStrategy` both hold behavior behind an interface. What actually differs?",
-   "options": ["Only strategies can be lambdas", "The client chooses a strategy and it stays; a state machine chooses its own next state as events arrive", "States must be classes, strategies must be functions", "A strategy can't depend on data"],
+   "why": "`next` is the whole rest of the chain, so calling it again repeats every step after the retry handler, the new teapot included. Put a retry around the one call it should repeat, close to that call, and make that call safe to run twice."},
+  {"q": "From *Strategy and Template Method*: an order's `OrderState` and the shop's choose-a-courier strategy both hold behavior behind a type. What actually differs?",
+   "options": ["Only strategies can be lambdas", "The caller chooses a strategy and it stays; a state machine chooses its own next state as events arrive", "States must be classes, strategies must be functions", "A strategy can't depend on data"],
    "answer": 1,
-   "why": "Structurally they're the same: an object holds a value and behavior depends on it. The difference is control. You pick a fee strategy once per payment method and it doesn't change itself. A payment's state moves on its own, from `Authorized` to `Captured`, as the transition function processes events.",
+   "why": "In structure they're the same: an object holds a value, and behavior depends on it. The difference is control. The shopkeeper picks \"cheapest courier\" for the day, and it doesn't change itself. An order's state moves on its own, from `Packed` to `OutForDelivery`, as the transition function handles events.",
    "from": "pat-07"}
  ],
  "flashcards": [
-  {"front": "What replaces the GoF State pattern's class-per-state in Java 21 and Kotlin?", "back": "Sealed states and events as records or data classes, plus one pure `transition(state, event)` function with an exhaustive switch or `when`."},
-  {"front": "Why leave `default` off the switch over a sealed state type?", "back": "So a new state fails to compile at every switch that needs a rule. A default would silently absorb it."},
-  {"front": "When is `default` fine inside a state machine?", "back": "On the inner switch over events, where most (state, event) pairs are illegal. Never on the dimension you expect to grow."},
+  {"front": "What replaces the 1994 State pattern's class per state in Java 21 and Kotlin?", "back": "Sealed states and events as records or data classes, plus one pure `transition(state, event)` function with an exhaustive `switch` or `when`."},
+  {"front": "Why leave `default` off the switch over a sealed state type?", "back": "So a new state fails to compile at every switch that needs a rule. A default would quietly swallow it."},
+  {"front": "When is `default` fine inside a state machine?", "back": "On the inner switch over events, where most (state, event) pairs aren't allowed. Never on the side you expect to grow."},
   {"front": "An exhaustive Java switch meets a sealed subtype compiled after it. What happens? And in Kotlin?", "back": "Java throws `MatchException`; Kotlin throws `NoWhenBranchMatchedException`. A null state throws `NullPointerException`."},
-  {"front": "Why keep the transition function pure?", "back": "It's tested without mocks, and history becomes a fold: replaying events rebuilds the state. Side effects run outside it."},
-  {"front": "In a chain of responsibility, what are a handler's two choices?", "back": "Answer now (return a response or verdict), or pass the request on by calling `next`."},
-  {"front": "Interceptors `[a, b, c]`: order on the way in, and on the way out?", "back": "In: a, b, c, then the terminal step. Out: c, b, a."}
+  {"front": "Why keep the transition function pure?", "back": "It's tested without fakes, and history becomes a loop: replaying the events rebuilds the state. Side effects run outside it."},
+  {"front": "In a chain of responsibility, what are a handler's two choices?", "back": "Answer now (return a reply), or pass the request on by calling `next`."},
+  {"front": "Handlers `[a, b, c]`: the order on the way in, and on the way back?", "back": "In: a, b, c, then the last stop. Back: c, b, a."}
  ],
  "terms": [
-  {"term": "State machine", "plain": "A set of states and the events that move between them; anything not listed is illegal."},
+  {"term": "State machine", "plain": "A set of states and the events that move between them; any move not listed isn't allowed."},
   {"term": "Transition function", "plain": "A pure function from the current state and an event to the next state."},
-  {"term": "Guard", "plain": "An extra condition on a pattern case, such as `when amt > 0`; if false, the case doesn't match."},
+  {"term": "Guard", "plain": "An extra condition on a pattern case, such as `when parcels > 0`; if it's false, the case doesn't match."},
   {"term": "Exhaustive switch", "plain": "A switch the compiler has checked covers every possible subtype or constant."},
-  {"term": "Remainder", "plain": "The values an exhaustive switch can still meet at run time: null and subtypes compiled later."},
-  {"term": "Chain of Responsibility", "plain": "A request passes along a list of handlers; each answers it or passes it on."},
-  {"term": "Interceptor", "plain": "One link in a chain: it gets the request and the rest of the chain, and can act on the way in and out."}
+  {"term": "Remainder", "plain": "The values an exhaustive switch can still meet at run time: null, and subtypes compiled later."},
+  {"term": "Chain of Responsibility", "plain": "A request passes along a list of handlers; each one answers it or passes it on."},
+  {"term": "Handler", "plain": "One link in a chain: it gets the request and the rest of the chain, and can act on the way in and on the way back."}
  ],
  "explain_back": {
-  "prompt": "Explain to a teammate why `transition` has no `default` on its outer switch but does have one on each inner switch, and what the compiler gives you when someone adds a `Disputed` state.",
-  "answer": "The outer switch is over states, and states are what we expect to add: disputes, holds, partial captures. With no default, the compiler knows the switch must cover every permitted state, so adding `Disputed` makes every switch over `PaymentState` in the code fail to compile. Those errors are the list of places that need a decision, and the feature is finished when the build is green. The inner switches are over the events one state accepts. Most events are illegal in most states, and new events usually only matter in one or two states, so a `default` that throws \"not allowed\" is the honest rule there. Putting a default on the outer switch would swallow the new state silently, and disputed payments would just reject every event at runtime."
+  "prompt": "Explain to a teammate why `transition` has no `default` on its outer switch but does have one on each inner switch, and what the compiler gives you when someone adds a `WaitingAtShop` state.",
+  "answer": "The outer switch is over states, and states are what we expect to add: waiting at the shop, on hold, split into two parcels. With no default, the compiler knows the switch must cover every permitted state, so adding `WaitingAtShop` makes every switch over `OrderState` in the program fail to compile. Those errors are the list of places that need a decision, and the feature is finished when the build is green. The inner switches are over the events one state accepts. Most events aren't allowed in most states, and a new event usually matters in only one or two of them, so a `default` that throws \"not allowed\" is the honest rule there. A default on the outer switch would swallow the new state without a word, and waiting orders would reject every event when the program runs."
  },
  "deeper": {
   "minutes": 10,
-  "body": """Pattern matching for `switch` (JEP 441) and record patterns (JEP 440) both became final in JDK 21, so everything in this lesson compiles with `--release 21` and no preview flags. In Kotlin, sealed subclasses must live in the same package and module as their parent, and guards in `when` with a subject became stable in 2.2.0.
+  "body": """Pattern matching for `switch` (JEP 441) and record patterns (JEP 440) both became final in JDK 21, so everything in this lesson compiles with `--release 21` and no preview flags. In Kotlin, the subclasses of a sealed type must live in the same package and module as the type itself, and guards in `when` with a subject became stable in 2.2.0.
 
-Keeping the transition pure doesn't mean the machine does nothing. A common shape returns the next state together with a list of effects to run, such as \"call the PSP\", \"post to the ledger\" or \"send a receipt\", as sealed records. A thin outer layer executes them and feeds the results back in as events. Tests then assert on the returned effects, not on mocks. Temporal workflows work in a similar spirit: workflow code decides, activities do the I/O, and the history of events lets Temporal replay the workflow to rebuild its state.
+Keeping the transition pure doesn't mean the order does nothing. A common shape returns the next state together with a list of things to do, such as \"book the van\", \"text the customer\" or \"print the label\", written as sealed records. A thin outer layer does them and feeds the results back in as events. Tests then check the returned list, with no fake courier at all.
 
-Event sourcing takes replay to its end: store the events, not the state, and compute the state as a fold. Long histories get slow to replay, so systems store a snapshot every few hundred events and replay only what came after. That snapshot is a memento, from lesson 10 of this track, *Visitor, Iterator, Mediator and Memento*.
+Event sourcing takes replay to its end: store the events, not the state, and compute the state with a loop over them. A long history gets slow to replay, so programs that work this way save a snapshot every few hundred events and replay only what came after it. That snapshot is a memento, from the next lesson, *Visitor, Iterator, Mediator and Memento*.
 
-Chain of Responsibility also shows up per method, not only per request. A CDI interceptor's `@AroundInvoke` method receives an `InvocationContext` and calls `proceed()` to continue to the next interceptor or the bean itself. Transactions, metrics and fault-tolerance annotations in Quarkus are built this way, which is why the proxy rules from *Decorator and Proxy* still apply to them."""
+Chains of handlers also wrap single methods, not only whole requests. Many frameworks let you put an interceptor around a method: it gets an object describing the call and calls `proceed()` to go on to the next interceptor or the method itself. Those interceptors live in proxies, so the rules from *Decorator and Proxy* apply to them: a method that calls another method on `this` skips them."""
  },
  "sources": [
   {"title": "Sealed classes and interfaces (Kotlin docs)", "url": "https://kotlinlang.org/docs/sealed-classes.html"},

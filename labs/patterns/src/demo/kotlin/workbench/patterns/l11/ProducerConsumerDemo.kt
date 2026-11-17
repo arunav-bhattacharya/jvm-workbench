@@ -9,26 +9,26 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
 
-// One producer, four consumers, a bounded channel, and close() as the poison pill for all of them.
+// The packing rail: the counter sends order slips, four packers take them, and close() sends every packer home.
 
 fun main() = runBlocking {
-    val jobs = 1_000
-    val channel = Channel<Int>(capacity = 16)                       // bounded: send suspends when full
-    val processed = AtomicInteger()
+    val orders = 1_000
+    val rail = Channel<Int>(capacity = 16)                          // bounded: send suspends when the rail is full
+    val packed = AtomicInteger()
 
-    val workers = List(4) {
+    val packers = List(4) {
         launch(Dispatchers.Default) {
-            for (job in channel) processed.incrementAndGet()        // ends when the channel is closed and drained
+            for (slip in rail) packed.incrementAndGet()             // ends when the rail is closed and empty
         }
     }
 
-    repeat(jobs) { channel.send(it) }
-    channel.close()                                                 // one call stops every worker
+    repeat(orders) { rail.send(it) }
+    rail.close()                                                    // one call sends every packer home
 
-    val finished = withTimeoutOrNull(2.seconds) { workers.joinAll() } != null
-    println("processed $processed of $jobs, all workers finished: $finished")
+    val finished = withTimeoutOrNull(2.seconds) { packers.joinAll() } != null
+    println("packed $packed of $orders, all packers finished: $finished")
     if (!finished) {
-        workers.forEach { it.cancel() }
-        println("the workers were still waiting to receive: nobody closed the channel")
+        packers.forEach { it.cancel() }
+        println("the packers were still waiting at the rail: nobody closed it")
     }
 }

@@ -29,7 +29,8 @@ public class InitDeadlockDemo {
         Thread.sleep(1_000);
 
         for (Thread t : List.of(a, b)) {
-            System.out.printf("%-8s state=%s at %s%n", t.getName(), t.getState(), t.getStackTrace()[0]);
+            StackTraceElement[] stack = t.getStackTrace();   // empty once the thread has ended
+            System.out.printf("%-8s state=%s at %s%n", t.getName(), t.getState(), stack.length > 0 ? stack[0] : "(finished)");
         }
         long[] stuck = ManagementFactory.getThreadMXBean().findDeadlockedThreads();
         System.out.println("deadlock detector: " + (stuck == null ? "found nothing" : stuck.length + " threads"));
