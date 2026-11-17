@@ -174,7 +174,7 @@ inline fun <reified E : Fruit> listen(noinline listener: (E) -> Unit) = listen(E
 board.listen<Apple> { writeSign(it) }
 ```
 
-A lambda passed to an inline function is normally inlined too, so it never exists as an object. This one gets stored in the map, so it must stay an object, and **`noinline`** says so.
+A lambda passed to an inline function is normally inlined too, so it never exists as an object. This one gets stored in the map, so it must stay an object, and `noinline` says so.
 
 One limit to know: this board rings by the exact class. A listener under `Fruit::class` never hears anything, because no delivery's run-time class is the interface itself. The "Go deeper" part shows how to walk the supertypes when you need that.
 
@@ -210,7 +210,7 @@ val varieties: List<String>? = attributes[VARIETIES]            // no cast, no t
 
 The key's type parameter does the typing. `attributes[VARIETIES]` is a `List<String>?`, with no cast at the call site, and `attributes[VARIETIES] = 42` is a compile error: `Argument type mismatch: actual type is 'Int', but 'List<String>' was expected.` The `KType` inside the key makes `key<List<Int>>("weights")` and `key<Int>("weights")` different keys. So when two helpers both pick the name "weights", one for the weight of each piece and one for the total, the two values don't land in the same slot.
 
-`Key<T>` is invariant on purpose, and this is the last variance decision of the track. Declare it `out T`, and a `Key<List<String>>` becomes a `Key<Any>`. Then `attributes[varieties] = 42` compiles, with `T` inferred as `Any`, and the next read of the varieties throws `ClassCastException: class java.lang.Integer cannot be cast to class java.util.List`. The demo's `LeakyKey` does exactly that. A key is used to write as well as to read, so it can't be a producer, however few members it has. The one unchecked cast in `get` stays safe only while that holds. It's **safe by construction**: the only way in is `set(key: Key<T>, value: T)`, and the key can't pretend to be another type.
+`Key<T>` is invariant on purpose, and this is the last variance decision of the track. Declare it `out T`, and a `Key<List<String>>` becomes a `Key<Any>`. Then `attributes[VARIETIES] = 42` would compile, with `T` inferred as `Any`, and the next read of the varieties throws `ClassCastException: class java.lang.Integer cannot be cast to class java.util.List`. The demo's `LeakyKey` does exactly that. A key is used to write as well as to read, so it can't be a producer, however few members it has. The one unchecked cast in `get` stays safe only while that holds. It's **safe by construction**: the only way in is `set(key: Key<T>, value: T)`, and the key can't pretend to be another type.
 
 **A key that decides what may be written must be invariant.**
 

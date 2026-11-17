@@ -112,7 +112,7 @@ val k: KClass<out Fruit> = fruit::class             // the class of SOME Fruit
 val strict: KClass<Fruit> = fruit::class            // error: expected 'KClass<Fruit>', actual 'KClass<out Fruit>'
 ```
 
-Why the `out`? The compiler knows only that `fruit` is *some* `Fruit`. When the program runs, it turns out to be an `Apple`, but it could have been a `Lemon`. So the most the compiler can promise is "the class of some subtype of `Fruit`". That is what `out` meant in lesson 4: the apple dispenser, which hands out some kind of fruit and takes nothing in. Java says the same with `? extends`. The Javadoc of `Object.getClass()` says the result is `Class<? extends |X|>`, where `|X|` is the erased type of the expression.
+Why the `out`? The compiler knows only that `fruit` is *some* `Fruit`. When the program runs, it turns out to be an `Apple`, but it could have been a `Lemon`. So the most the compiler can promise is "the class of some subtype of `Fruit`". That is what `out` meant in lesson 4: the apple dispenser, which hands out some kind of fruit and takes nothing in. Java says the same with `? extends`. Java's documentation for `Object.getClass()` says the result is `Class<? extends |X|>`, where `|X|` is the erased type of the expression.
 
 The `out` doesn't stop you from using the answer. Everything that hands information out still works: `fruit::class.simpleName`, `fruit::class == Apple::class`, and `cast`, which hands back a `Fruit`. What you can't do is pass it where an exact `KClass<Fruit>` is required. The compiler makes no exception for final classes either: `"Gala"::class` is a `KClass<out String>`.
 
@@ -158,7 +158,7 @@ These are lesson 8's class-token tools, in Kotlin's spelling. `isInstance` is a 
 
 These checks are real, unlike the `as T` of lesson 8, because the `KClass` object exists while the program runs and knows what to compare against. The card index's `get` will rely on exactly that.
 
-Two traps wait here. The first is from lesson 8: `Int::class.java` is the primitive class `int`, and `Int::class.javaObjectType` is the boxed `java.lang.Integer`. The second is `javaClass`. On a value, `fruit.javaClass` is the object's `Class`. On a `KClass`, it would be the class of the `KClass` object itself, an internal Kotlin class. Kotlin 2.4.21 rejects it with a deprecation error that says what you meant:
+Two traps wait here. The first is from lesson 8: `Int::class.java` is the primitive class `int`, and `Int::class.javaObjectType` is `java.lang.Integer`, the boxed class whose objects wrap a number. The second is `javaClass`. On a value, `fruit.javaClass` is the object's `Class`. On a `KClass`, it would be the class of the `KClass` object itself, an internal Kotlin class. Kotlin 2.4.21 rejects it with a deprecation error that says what you meant:
 
 ```text
 k.javaClass

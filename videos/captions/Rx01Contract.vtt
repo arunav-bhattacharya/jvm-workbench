@@ -1,11 +1,11 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:04.827
+00:00:02.700 --> 00:00:04.794
 There are two ways to get your bread.
 
 2
-00:00:04.827 --> 00:00:10.939
+00:00:04.794 --> 00:00:10.905
 You can walk to the bakery when you want a loaf, or the bakery can leave one on your doorstep every morning.
 
 3
@@ -21,345 +21,341 @@ That's not breakfast any more, that's a science project.
 The bakery decides how much comes, and nobody asks if you're ready.
 
 6
-00:00:25.867 --> 00:00:27.984
+00:00:25.900 --> 00:00:28.017
 Programs move data the same way.
 
 7
-00:00:27.984 --> 00:00:35.459
+00:00:28.017 --> 00:00:35.492
 Picture a bakery line: an oven bakes loaves, a belt carries them, and a packer at the end puts each one in a box.
 
 8
-00:00:35.600 --> 00:00:40.230
+00:00:35.700 --> 00:00:40.330
 The oven bakes 10,000 loaves a second, and the packer boxes 2,000.
 
 9
-00:00:40.230 --> 00:00:45.491
+00:00:40.330 --> 00:00:45.591
 So the extra loaves wait in a queue with no limit, 8,000 more every second.
 
 10
-00:00:45.667 --> 00:00:47.768
+00:00:45.800 --> 00:00:47.901
 Each one is an object in memory.
 
 11
-00:00:47.768 --> 00:00:51.248
+00:00:47.901 --> 00:00:51.381
 Nothing fails at first, and then the memory runs out.
 
 12
-00:00:51.400 --> 00:00:54.793
+00:00:51.600 --> 00:00:54.993
 The lesson's demo tried 100,000 loaves.
 
 13
-00:00:54.793 --> 00:00:59.839
+00:00:54.993 --> 00:01:00.039
 The oven was done in 65 milliseconds, and went home happy.
 
 14
-00:00:59.839 --> 00:01:03.580
+00:01:00.039 --> 00:01:03.780
 96,807 loaves were still waiting in memory.
 
 15
-00:01:04.333 --> 00:01:06.848
+00:01:04.600 --> 00:01:07.115
 What we want is a note on the doorstep.
 
 16
-00:01:06.848 --> 00:01:10.910
+00:01:07.115 --> 00:01:11.177
 Here, the packer sends a slip back up the belt: send me 2 more.
 
 17
-00:01:10.910 --> 00:01:12.780
+00:01:11.177 --> 00:01:13.047
 The oven sends 2, then waits.
 
 18
-00:01:13.133 --> 00:01:19.711
+00:01:13.433 --> 00:01:20.011
 That's called backpressure: the slow side says how much it can take, and the fast side never sends more.
 
 19
-00:01:19.867 --> 00:01:22.744
+00:01:20.233 --> 00:01:23.111
 Now a question that's easy to be shy about.
 
 20
-00:01:22.744 --> 00:01:27.028
+00:01:23.111 --> 00:01:27.394
 The slip says 2, but the oven has 3 loaves ready, already baked.
 
 21
-00:01:27.028 --> 00:01:29.035
+00:01:27.394 --> 00:01:29.402
 Surely the third one goes too?
 
 22
-00:01:29.035 --> 00:01:30.240
+00:01:29.402 --> 00:01:30.607
 Hold that thought.
 
 23
-00:01:31.000 --> 00:01:38.389
+00:01:31.433 --> 00:01:38.823
 A slip only works if both ends read it the same way, and the oven and the packer often come from different libraries.
 
 24
-00:01:38.389 --> 00:01:44.389
+00:01:38.823 --> 00:01:44.823
 So they all follow one short contract, called Reactive Streams: four interfaces, seven methods.
 
 25
-00:01:44.533 --> 00:01:45.377
+00:01:45.033 --> 00:01:45.877
 Let's map it.
 
 26
-00:01:45.377 --> 00:01:50.112
+00:01:45.877 --> 00:01:50.612
 The oven is a Publisher, the source of items, with one method: subscribe.
 
 27
-00:01:50.112 --> 00:01:55.755
+00:01:50.612 --> 00:01:56.255
 The packer is a Subscriber, with four methods, one for each thing the oven can tell it.
 
 28
-00:01:55.755 --> 00:02:02.565
+00:01:56.255 --> 00:02:03.065
 And the pad of slips between them is a Subscription: request n, send me n more, and cancel, stop sending.
 
 29
-00:02:02.733 --> 00:02:10.211
+00:02:03.267 --> 00:02:10.744
 Processor, the fourth, is a station in the middle of the belt: a subscriber on one side, a publisher on the other.
 
 30
-00:02:10.211 --> 00:02:15.589
+00:02:10.744 --> 00:02:16.123
 And every method returns void, so each call is a one-way message, called a signal.
 
 31
-00:02:16.333 --> 00:02:18.295
+00:02:16.933 --> 00:02:18.895
 Let's watch one conversation.
 
 32
-00:02:18.295 --> 00:02:20.933
+00:02:18.895 --> 00:02:21.533
 Today, the oven has three loaves ready.
 
 33
-00:02:21.133 --> 00:02:23.551
+00:02:21.767 --> 00:02:24.184
 The packer calls subscribe on the oven.
 
 34
-00:02:23.733 --> 00:02:28.163
+00:02:24.400 --> 00:02:28.830
 The oven answers with onSubscribe, and hands over a pad of slips.
 
 35
-00:02:28.163 --> 00:02:29.117
+00:02:28.830 --> 00:02:29.784
 Then, nothing.
 
 36
-00:02:29.117 --> 00:02:32.116
+00:02:29.784 --> 00:02:32.783
 The oven owes zero loaves, so not one moves.
 
 37
-00:02:32.267 --> 00:02:34.805
+00:02:33.000 --> 00:02:35.538
 The packer writes a slip: request 2.
 
 38
-00:02:34.805 --> 00:02:36.568
+00:02:35.538 --> 00:02:37.301
 Now the oven owes it two.
 
 39
-00:02:36.733 --> 00:02:38.221
+00:02:37.533 --> 00:02:39.021
 Three loaves are ready.
 
 40
-00:02:38.221 --> 00:02:40.032
+00:02:39.021 --> 00:02:40.832
 How many come down the belt?
 
 41
-00:02:43.067 --> 00:02:43.406
+00:02:43.800 --> 00:02:44.139
 Two.
 
 42
-00:02:43.406 --> 00:02:44.679
+00:02:44.139 --> 00:02:45.413
 onNext, loaf-1.
 
 43
-00:02:44.679 --> 00:02:45.952
+00:02:45.413 --> 00:02:46.686
 onNext, loaf-2.
 
 44
-00:02:45.952 --> 00:02:48.923
+00:02:46.686 --> 00:02:49.656
 Each one uses up one from the slip.
 
 45
-00:02:48.923 --> 00:02:52.657
+00:02:49.656 --> 00:02:53.391
 The oven owes zero now, so loaf-3 stays put.
 
 46
-00:02:52.800 --> 00:02:54.150
+00:02:53.600 --> 00:02:54.950
 That's our answer.
 
 47
-00:02:54.150 --> 00:02:55.574
+00:02:54.950 --> 00:02:56.374
 Ready isn't enough.
 
 48
-00:02:55.574 --> 00:02:57.599
+00:02:56.374 --> 00:02:58.399
 Only a slip lets a loaf go.
 
 49
-00:02:57.733 --> 00:03:01.193
+00:02:58.600 --> 00:03:02.060
 The packer boxes both and writes another slip for 2.
 
 50
-00:03:01.193 --> 00:03:06.848
+00:03:02.060 --> 00:03:07.715
 Only loaf-3 is left, so the oven sends it, and rings the end-of-day bell: onComplete.
 
 51
-00:03:06.848 --> 00:03:08.512
+00:03:07.715 --> 00:03:09.378
 Fewer than asked is fine.
 
 52
-00:03:08.512 --> 00:03:12.437
+00:03:09.378 --> 00:03:13.304
 If the oven had broken down, it would send onError instead.
 
 53
-00:03:12.600 --> 00:03:21.288
+00:03:13.533 --> 00:03:22.221
 So every subscriber hears the same story: one onSubscribe, any number of onNext, then at most one ending, the bell or the breakdown.
 
 54
-00:03:21.288 --> 00:03:23.197
+00:03:22.221 --> 00:03:24.130
 The spec writes it like this.
 
 55
-00:03:23.197 --> 00:03:28.001
+00:03:24.130 --> 00:03:28.935
 The endings are called terminal signals: after one, nothing else arrives.
 
 56
-00:03:28.800 --> 00:03:31.168
+00:03:29.767 --> 00:03:32.135
 The contract has numbered rules.
 
 57
-00:03:31.168 --> 00:03:35.609
+00:03:32.135 --> 00:03:36.576
 Rule 1.1: never more onNext signals than requested in total.
 
 58
-00:03:35.609 --> 00:03:43.455
+00:03:36.576 --> 00:03:44.421
 Rule 1.3: signals come one at a time, so a subscriber's own fields need no lock to keep other threads out.
 
 59
-00:03:43.600 --> 00:03:47.103
+00:03:44.633 --> 00:03:48.136
 Rule 2.13: to stop, a subscriber calls cancel.
 
 60
-00:03:47.103 --> 00:03:52.433
+00:03:48.136 --> 00:03:53.467
 It never throws, because the oven's code can't hand an exception back.
 
 61
-00:03:52.433 --> 00:03:57.231
+00:03:53.467 --> 00:03:58.264
 And rule 3.9: a request for zero, or less, must end in onError.
 
 62
-00:03:58.133 --> 00:04:00.818
+00:03:59.167 --> 00:04:01.851
 Let's break that last rule on purpose.
 
 63
-00:04:00.818 --> 00:04:08.589
+00:04:01.851 --> 00:04:09.622
 A packer named Rude writes a slip for zero, once to the JDK's own publisher, and once to Reactor's Flux.range.
 
 64
-00:04:08.589 --> 00:04:10.143
+00:04:09.622 --> 00:04:11.176
 What does each one do?
 
 65
-00:04:13.200 --> 00:04:17.627
+00:04:14.167 --> 00:04:18.593
 The JDK follows the rule: onError, IllegalArgumentException.
 
 66
-00:04:17.627 --> 00:04:21.832
+00:04:18.593 --> 00:04:22.798
 Reactor sends nothing at all: no loaf, no error, no bell.
 
 67
-00:04:21.832 --> 00:04:26.553
+00:04:22.798 --> 00:04:27.520
 Just a debug note nobody sees by default, and the stream stalls.
 
 68
-00:04:26.733 --> 00:04:30.578
+00:04:27.733 --> 00:04:31.578
 In Reactor, request zero might as well be called wait forever.
 
 69
-00:04:30.578 --> 00:04:35.600
+00:04:31.578 --> 00:04:36.600
 So if a stream goes quiet and never ends, look for a slip that was never written.
 
 70
-00:04:35.800 --> 00:04:38.335
+00:04:36.800 --> 00:04:39.335
 Here's where the bakery picture breaks.
 
 71
-00:04:38.335 --> 00:04:42.691
+00:04:39.335 --> 00:04:43.691
 A real packer who stops writing slips would be missed by lunchtime.
 
 72
-00:04:42.691 --> 00:04:46.721
+00:04:43.691 --> 00:04:47.721
 Code has no lunchtime: unmet demand never times out by itself.
 
 73
-00:04:47.400 --> 00:04:48.355
+00:04:48.433 --> 00:04:49.388
 One guardrail.
 
 74
-00:04:48.355 --> 00:04:56.197
+00:04:49.388 --> 00:04:57.230
 A packer can ask for Long.MAX_VALUE, about nine quintillion loaves, and the oven may read that as: send everything.
 
 75
-00:04:56.197 --> 00:04:58.038
+00:04:57.230 --> 00:04:59.071
 That isn't a slip any more.
 
 76
-00:04:58.038 --> 00:05:01.720
+00:04:59.071 --> 00:05:02.753
 That's the doorstep again, with fourteen loaves on it.
 
 77
-00:05:01.867 --> 00:05:06.960
-You'll rarely write these interfaces yourself: Reactor and other libraries do.
+00:05:03.567 --> 00:05:07.902
+You'll rarely write one yourself, because libraries like Reactor do.
 
 78
-00:05:06.960 --> 00:05:11.139
-The rules let one library's oven serve another library's packer.
+00:05:07.902 --> 00:05:12.492
+But here's a packer in Java and Kotlin that asks for one loaf at a time.
 
 79
-00:05:11.933 --> 00:05:16.434
-Here's a packer in Java and Kotlin that asks for one loaf at a time.
-
-80
-00:05:16.434 --> 00:05:18.751
+00:05:12.492 --> 00:05:14.723
 The first slip goes in onSubscribe.
 
-81
-00:05:18.751 --> 00:05:22.855
+80
+00:05:14.723 --> 00:05:18.676
 In onNext, it boxes the loaf, and only then asks for the next.
 
-82
-00:05:23.600 --> 00:05:27.686
+81
+00:05:19.500 --> 00:05:23.586
 So, does the oven send a loaf just because it's ready?
 
-83
-00:05:27.686 --> 00:05:27.913
+82
+00:05:23.586 --> 00:05:23.813
 No.
 
-84
-00:05:27.913 --> 00:05:30.788
+83
+00:05:23.813 --> 00:05:26.688
 Demand is the only permission to send.
 
-85
-00:05:30.788 --> 00:05:32.075
+84
+00:05:26.688 --> 00:05:27.975
 No slip, no loaf.
 
-86
-00:05:32.267 --> 00:05:33.103
+85
+00:05:28.200 --> 00:05:29.036
 Quick check.
 
-87
-00:05:33.103 --> 00:05:37.703
+86
+00:05:29.036 --> 00:05:33.636
 A packer asks for 3 in onSubscribe, and never writes another slip.
 
-88
-00:05:37.703 --> 00:05:39.724
+87
+00:05:33.636 --> 00:05:35.658
 The oven has 10 loaves ready.
 
-89
-00:05:39.724 --> 00:05:41.467
+88
+00:05:35.658 --> 00:05:37.400
 What does the packer get?
 
-90
-00:05:44.533 --> 00:05:46.450
+89
+00:05:40.367 --> 00:05:42.283
 Three loaves, and then nothing.
 
-91
-00:05:46.450 --> 00:05:52.013
+90
+00:05:42.283 --> 00:05:47.847
 Not even the bell, because the oven still has loaves to send, and no slip to send them on.

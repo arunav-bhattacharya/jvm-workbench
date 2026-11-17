@@ -54,7 +54,7 @@ In code, the form is a builder, and the trap sits in its base class. A shared se
 
 KClass, Class and type tokens ended on that question. In this lesson, we'll give the base form a blank that each kind of form fills with its own name, take null out of a type with `T & Any`, see how `List<out E>` can take an `E` in `contains`, and finish with function types, `Nothing` and type aliases. Before we start, make a guess, and keep it in mind."""
 
-S1 = """A **builder** is an object you fill in one setting at a time and then ask to build the finished thing. Each setter returns the builder, so the calls can follow each other on one line, a style called a fluent chain. Put the shared setters in a base class, add a subclass with a setter of its own, and the chain breaks as soon as a base setter runs:
+S1 = """A builder is an object you fill in one setting at a time and then ask to build the finished thing. Each setter returns the builder, so the calls can follow each other on one line, a style called a fluent chain. Put the shared setters in a base class, add a subclass with a setter of its own, and the chain breaks as soon as a base setter runs:
 
 ```java
 class PlainBuilder {
@@ -156,7 +156,7 @@ class UpperCaser<T : CharSequence?> : NotNullTransformer<T> {
 
 Two rules come with it. The left side must be a type parameter with a nullable bound. With `T : Any` there is no null to take out, and the compiler says `Intersection types are supported only for definitely non-nullable types: left part must be a type parameter with nullable bounds.` And the promise is Kotlin's alone: Java sees `<T> T firstNotNullValue(List<T>)`, with no trace of `& Any`.
 
-The docs add that when you work only with Kotlin, you'll rarely need to write it, because inference handles it. Expect to type `T & Any` at the Java boundary and in small helpers like this one, which turns an optional field into a value the rest of the code can use without `!!`:
+The docs add that when you work only with Kotlin, you'll rarely need to write it, because inference handles it. Expect to type `T & Any` at the Java boundary and in small helpers like this one, which turns an optional field into a value the rest of the code can use without `!!`, Kotlin's "trust me, it isn't null" operator:
 
 ```java
 // Java: the null check happens, but the type can't record it
@@ -225,7 +225,7 @@ anyFruit.add(Lemon("Eureka", 120))              // compiles
 val last: Apple = apples.last()                 // ClassCastException
 ```
 
-It's lesson 3's lemon in the crate of apples, back through a hole we cut ourselves. The demo prints `ClassCastException: class workbench.generics.l10.demo.Lemon cannot be cast to class workbench.generics.l10.demo.Apple`.
+It's lesson 3's lemon in the crate of apples, back again. The demo prints `ClassCastException: class workbench.generics.l10.demo.Lemon cannot be cast to class workbench.generics.l10.demo.Apple`.
 
 Use `@UnsafeVariance` only on parameters that are read and compared, such as those of `contains`, `indexOf` or an equality check, never on ones that are kept. To check that a use is honest, follow the parameter through the body. If it only reaches `==`, `equals` or `hashCode`, the promise holds. If it reaches a field, a collection or a callback that keeps it, remove the annotation and make the type invariant, or split it into a read view and a write view, as lesson 11 of this track does.
 
@@ -251,7 +251,7 @@ val describe: (Any) -> String = { "<$it>" }                  // takes Any, not j
 val pipeline: (String) -> CharSequence = andThen(toGrams, describe)   // <1250> for "1.25"
 ```
 
-`Nothing` is the **bottom type**: a subtype of every type, with no values at all. It's the one box that can never hold anything, so it fits every label. `throw` and `TODO()` have the type `Nothing`, which is why `val strict: Long = text.toLongOrNull() ?: fail("not a number")` type-checks when `fun fail(reason: String): Nothing`. It also explains `emptyList()`. One shared, empty `List<Nothing>` fits every `List<Apple>`, because `List` is `out E` and `Nothing` sits below `Apple`: an empty display case is a perfectly good apple display. Lesson 11 uses the same trick for `Either`. Java has no bottom type. `Collections.emptyList()` is a generic method whose `T` is inferred at each call, and a Kotlin `List<Nothing>` reaches Java as a raw `List`.
+`Nothing` is the **bottom type**: a subtype of every type, with no values at all. It's the one box that can never hold anything, so it fits every label. `throw` and `TODO()` have the type `Nothing`, which is why `val strict: Long = text.toLongOrNull() ?: fail("not a number")` type-checks when `fun fail(reason: String): Nothing`. It also explains `emptyList()`. One shared, empty `List<Nothing>` fits every `List<Apple>`, because `List` is `out E` and `Nothing` sits below `Apple`: an empty display case is a fine apple display. Lesson 11 uses the same trick for `Either`. Java has no bottom type. `Collections.emptyList()` is a generic method whose `T` is inferred at each call, and a Kotlin `List<Nothing>` reaches Java as a raw `List`.
 
 A **type alias** gives an existing type a shorter name, and it can be generic:
 
@@ -360,7 +360,7 @@ L = {
                     "Change `fail`'s return type from `Nothing` to `Unit`. Which line breaks, and why?"
                 ],
                 "code": kdemo("FunctionTypesDemo", "FunctionTypesDemoJava"),
-                "expect": "Kotlin prints `pipeline(\"1.25\") = <1250>`, `none = [], grams = 0, strict = 180` and `sign for Gala`. Java prints the pipeline line, `JDK andThen: <350>`, `none = [], strict = 180` and `sign for Gala`. The wrong move fails with `Initializer type mismatch: expected '(Any) -> String', actual '(String) -> String'.`: a function that needs a `String` input can't stand in for one that takes `Any`. With `Unit`, the `strict` line fails with `Initializer type mismatch: expected 'Long', actual 'Any'.`, because the elvis expression's type becomes the common supertype of `Long` and `Unit`. `Nothing` fits there because it is a subtype of `Long`."
+                "expect": "Kotlin prints `pipeline(\"1.25\") = <1250>`, `none = [], grams = 0, strict = 180` and `sign for Gala`. Java prints the pipeline line, `JDK andThen: <350>`, `none = [], strict = 180` and `sign for Gala`. The wrong move fails with `Initializer type mismatch: expected '(Any) -> String', actual '(String) -> String'.`: a function that needs a `String` input can't stand in for one that takes `Any`. With `Unit`, the `strict` line fails with `Initializer type mismatch: expected 'Long', actual 'Any'.`, because the type of the `?:` expression becomes the common supertype of `Long` and `Unit`. `Nothing` fits there because it is a subtype of `Long`."
             },
             "refs": [
                 {"title": "Type aliases (Kotlin docs)", "url": "https://kotlinlang.org/docs/type-aliases.html", "kind": "docs"}

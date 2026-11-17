@@ -218,10 +218,10 @@ def cake(s=1.0, color=CAKE_C, label=None):
     top.next_to(low, UP, buff=0)
     candle = Line(top.get_top(), top.get_top() + UP * 0.22, stroke_width=3, color=GREY_A)
     flame = Dot(candle.get_end() + UP * 0.06, radius=0.05, color=GOLD_M)
-    g = VGroup(low, top, candle, flame)
+    g = VGroup(low, top, candle, flame).scale(s)
     if label:
-        g.add(M(label, 20, color).next_to(low, DOWN, buff=0.12))
-    return g.scale(s).set_z_index(4)
+        g.add(M(label, 20, color).next_to(g[0], DOWN, buff=0.1))
+    return g.set_z_index(4)
 
 
 def scribble(p, w=1.6, color=SLIP_C):
@@ -237,6 +237,13 @@ def chip_n(text, color, size=24):
     r = RoundedRectangle(corner_radius=0.08, width=max(0.6, t.width + 0.3), height=0.5).set_stroke(color, 2.5)
     r.set_fill(dim(color, 0.25), 1)
     return VGroup(r, t.move_to(r)).set_z_index(6)
+
+
+def code_line(src, x, y, color=WHITE, size=22):
+    """One line of code, left edge at x, keeping its leading spaces as indentation."""
+    cw = M("0123456789", size).width / 10
+    n = len(src) - len(src.lstrip())
+    return M(src.strip(), size, color).move_to([x + n * cw, y, 0], aligned_edge=LEFT)
 
 
 class Rx02Subscribe(Narrated):
@@ -288,13 +295,12 @@ class Rx02Subscribe(Narrated):
         tray = VGroup(*[loaf(n, s=1.0) for n in ("rye-1", "rye-2", "rye-3")]).arrange(RIGHT, buff=0.2)
         tray_b = Line(tray.get_corner(DL) + DOWN * 0.12 + LEFT * 0.15, tray.get_corner(DR) + DOWN * 0.12 + RIGHT * 0.15,
                       stroke_width=4, color=GREY_B)
-        fl = VGroup(M("Flux", 34, OVEN_C), VGroup(tray, tray_b), T("many items: a tray of loaves", 26)).arrange(DOWN, buff=0.4)
-        mo = VGroup(M("Mono", 34, OVEN_C), cake(1.2), T("one item, or none: one cake", 26)).arrange(DOWN, buff=0.4)
+        fl = VGroup(M("Flux", 34, OVEN_C), VGroup(tray, tray_b), T("many items: a tray of loaves", 26)).arrange(DOWN, buff=0.9)
+        mo = VGroup(M("Mono", 34, OVEN_C), cake(1.2), T("one item, or none: one cake", 26))
         fl.move_to([-3.3, 0.4, 0])
-        mo.move_to([3.3, 0.4, 0])
-        mo[0].match_y(fl[0])
-        mo[2].match_y(fl[2])
-        mo[1].move_to([3.3, fl[1].get_y() + 0.15, 0])
+        mo[0].move_to([3.3, fl[0].get_y(), 0])
+        mo[2].move_to([3.3, fl[2].get_y(), 0])
+        mo[1].move_to([3.3, 0, 0]).align_to(fl[1], DOWN)
         both = T("both are publishers: ovens, like last time", 26, GREY_B).move_to([0, -2.4, 0])
         self.say("lib")
         self.at(1)
@@ -319,9 +325,9 @@ class Rx02Subscribe(Narrated):
 
         # ================= count what runs =================
         CODE_X = -6.3
-        c1 = M("Flux<Integer> pricesInCents = Flux.range(1, 3)", 22).move_to([CODE_X, 2.95, 0], aligned_edge=LEFT)
-        c2 = M("        .map(euros -> euros * 100);", 22).move_to([CODE_X, 2.5, 0], aligned_edge=LEFT)
-        c3 = M("pricesInCents.subscribe(System.out::println);", 22, SLIP_C).move_to([CODE_X, 2.05, 0], aligned_edge=LEFT)
+        c1 = code_line("Flux<Integer> pricesInCents = Flux.range(1, 3)", CODE_X, 2.95)
+        c2 = code_line("        .map(euros -> euros * 100);", CODE_X, 2.5)
+        c3 = code_line("pricesInCents.subscribe(System.out::println);", CODE_X, 2.05, SLIP_C)
         cnt_box = RoundedRectangle(corner_radius=0.12, width=2.8, height=0.85).set_stroke(GREY_A, 2.5).set_fill(BLACK, 1)
         cnt_box.move_to([4.75, 2.55, 0])
         cnt = [M("map ran: ?", 28).move_to(cnt_box)]
@@ -356,12 +362,12 @@ class Rx02Subscribe(Narrated):
         s_head = T("the form", 24, GREY_A).move_to(sheet.get_corner(UL) + np.array([0.75, -0.35, 0]))
         outer = RoundedRectangle(corner_radius=0.12, width=6.9, height=2.05).set_stroke(WHITE, 2.5).set_fill(BLACK, 1)
         outer.move_to([-0.6, -0.55, 0]).set_z_index(1)
-        outer_l = M("FluxMap", 24).move_to(outer.get_corner(UL) + np.array([0.75, -0.3, 0]))
+        outer_l = M("FluxMap", 24).move_to(outer.get_corner(UL) + np.array([0.75, -0.3, 0])).set_z_index(3)
         inner = RoundedRectangle(corner_radius=0.1, width=2.6, height=0.85).set_stroke(OVEN_C, 2.5).set_fill(dim(OVEN_C, 0.14), 1)
         inner.move_to([-2.45, -0.75, 0]).set_z_index(2)
         inner_l = M("FluxRange", 24, OVEN_C).move_to(inner).set_z_index(3)
         lam = VGroup(M("euros -> euros * 100", 22, GREY_B), T("kept for later, not called", 20, GREY_B)).arrange(DOWN, buff=0.12)
-        lam.move_to([1.35, -0.75, 0])
+        lam.move_to([1.35, -0.75, 0]).set_z_index(3)
         unsigned = T("sign here:", 22, GREY_B).move_to(sheet.get_corner(DL) + np.array([1.0, 0.4, 0]))
         uline = Line(unsigned.get_right() + RIGHT * 0.15 + DOWN * 0.12, unsigned.get_right() + RIGHT * 3.2 + DOWN * 0.12,
                      stroke_width=1.5, color=GREY_B)
@@ -380,7 +386,7 @@ class Rx02Subscribe(Narrated):
         self.play(FadeOut(VGroup(sheet, s_head, outer, outer_l, inner, inner_l, lam, unsigned, uline)), run_time=0.6)
 
         # ================= sign it: three passes over one chain =================
-        CH_Y = 0.85
+        CH_Y = 0.7
         b_rng = mbox("Flux.range(1, 3)", OVEN_C, h=0.8, size=22).move_to([-4.75, CH_Y, 0])
         b_map = mbox("map(euros -> euros * 100)", WHITE, h=0.8, size=22).move_to([-0.35, CH_Y, 0])
         pk = person(PACK_C, 1.0).move_to([4.55, CH_Y, 0])
@@ -389,7 +395,7 @@ class Rx02Subscribe(Narrated):
         a2 = Arrow(b_map.get_right(), pk.get_left() + LEFT * 0.1, buff=0.08, stroke_width=3, color=GREY_B,
                    max_tip_length_to_length_ratio=0.2)
         chain = VGroup(b_rng, b_map, pk, pk_l, a1, a2)
-        L1, L2, L3 = -0.35, -1.35, -2.35
+        L1, L2, L3 = -0.45, -1.4, -2.35
 
         def lane(y, rightward, color, dashed=False):
             a, b = ([-6.0, y, 0], [6.0, y, 0]) if rightward else ([6.0, y, 0], [-6.0, y, 0])
@@ -478,8 +484,7 @@ class Rx02Subscribe(Narrated):
         o1 = M("Flux<Integer> orderSizes = Flux.just(5, 50, 500);", 22).move_to([CODE_X, 2.95, 0], aligned_edge=LEFT)
         o2 = M("orderSizes.filter(loaves -> loaves > 10);", 22).move_to([CODE_X, 2.5, 0], aligned_edge=LEFT)
         o3 = M("orderSizes.subscribe(loaves ->", 22, SLIP_C).move_to([CODE_X, 2.05, 0], aligned_edge=LEFT)
-        o4 = M('    System.out.println("big order: " + loaves + " loaves"));', 22, SLIP_C).move_to([CODE_X, 1.6, 0],
-                                                                                              aligned_edge=LEFT)
+        o4 = code_line('    System.out.println("big order: " + loaves + " loaves"));', CODE_X, 1.6, SLIP_C)
         fa = VGroup(paper(3.2, 1.5), T("orders", 24, GREY_A), M("5, 50, 500", 26))
         fa[1].move_to(fa[0].get_top() + DOWN * 0.35)
         fa[2].move_to(fa[0].get_center() + DOWN * 0.15)
@@ -558,10 +563,10 @@ class Rx02Subscribe(Narrated):
         self.hold(after=0)
         self.predict(pos=(6.4, -3.25), edge=RIGHT)
 
-        out = VGroup(M("  oven: baking the cake for order-42 (cake #1)", 22, GREY_A), M("shop log: cake-1", 22),
-                     M("  oven: baking the cake for order-42 (cake #2)", 22, GREY_A), M("handed to the customer: cake-2", 22),
-                     M("cakes baked: 2", 22, BAD_C)).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
-        out.move_to([CODE_X, -2.05, 0], aligned_edge=LEFT)
+        out = VGroup(*[code_line(t, CODE_X, -1.2 - 0.4 * i, c) for i, (t, c) in enumerate((
+            ("  oven: baking the cake for order-42 (cake #1)", GREY_A), ("shop log: cake-1", WHITE),
+            ("  oven: baking the cake for order-42 (cake #2)", GREY_A), ("handed to the customer: cake-2", WHITE),
+            ("cakes baked: 2", BAD_C)))])
         cake1 = cake(0.7, label="cake-1").move_to(ov2.get_center())
         cake2 = cake(0.7, label="cake-2").move_to(ov2.get_center())
 
@@ -594,7 +599,7 @@ class Rx02Subscribe(Narrated):
         self.play(Indicate(VGroup(k2, k3), color=SLIP_C, scale_factor=1.03), run_time=0.9)
         self.hold()
 
-        cold = T("cold: runs again for every subscriber", 28, OVEN_C).move_to([2.6, -0.85, 0])
+        cold = T("cold: runs again for every subscriber", 28, OVEN_C).move_to([0, -1.7, 0])
         fx_j = code_block(['String handedOver = bake("order-42")',
                            '        .doOnNext(c -> System.out.println("shop log: " + c))',
                            '        .block();        // one subscription, one cake'], 22)
