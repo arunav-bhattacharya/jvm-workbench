@@ -62,7 +62,7 @@ Lesson 7's loop barely sees threads that wait. In this lesson, we'll take dumps 
 
 S1 = f"""Meet the patient. `FrozenService` is the report service on a bad day, stuck in five ways at once. A thread refreshes the catalog, the service's list of every document and the shelf it's on, while holding the catalog's lock. It asks the document store for the new list, and the store never answers. Four report workers need the same lock. There's also an idle pool, a busy loop, a second kind of lock, and 10,200 virtual threads. Run it, and it waits for you to look.
 
-A **thread dump** is a printout of every thread in the JVM at one moment: its name, its state, its stack, and the locks it holds or wants. `jcmd <pid> Thread.print` asks the JVM for one. `jcmd` is the JDK tool that sends commands to a running JVM, and `<pid>` is the process id the operating system gave it. The JVM stops every Java thread at a **safepoint**, a point where it knows the full state of each frame (lesson 6 showed why profilers need one). While the threads stand still, it walks each stack and prints it, and then they all run on.
+A **thread dump** is a printout of every thread in the JVM at one moment. (A thread is one line of work inside a program.) For each one it shows the name, the state, the stack of method calls it's in, and the locks it holds or wants. `jcmd <pid> Thread.print` asks the JVM for one. `jcmd` is the JDK tool that sends commands to a running JVM, and `<pid>` is the process id the operating system gave it. The JVM stops every Java thread at a **safepoint**, a point where it knows the full state of each frame (lesson 6 showed why profilers need one). While the threads stand still, it walks each stack and prints it, and then they all run on.
 
 That pause is the photo's flash. With `-Xlog:safepoint` on JDK 25, the safepoint called `PrintThreads` took 36 to 74 ms for 28 threads on this busy 4-core machine. That's fine a few times on a live service. `jstack <pid>` prints the same dump.
 
@@ -86,7 +86,7 @@ Read each thread in this order.
 3. The frames, top first, down to the first line of your own code: `FrozenService.kt:54`. That's where it is now. The frames below say how it got there.
 4. The lock lines, which start with `-`. `- locked <a>` means it holds the monitor of object `a`. `- waiting to lock <a>` means it wants it. `- parking to wait for <a>` means a `java.util.concurrent` lock, condition or queue has parked it, put it to sleep until someone wakes it. `- waiting on <a>` means it's inside `Object.wait()` and has given `a` back.
 
-The number in `<0x0000000735c08070>` is the object's address in the heap at that moment. Inside one dump, the same address means the same object. Between dumps, a garbage collection may have moved the object, so don't match addresses across dumps.
+The number in `<0x0000000735c08070>` is the object's address in the heap at that moment. Inside one dump, the same address means the same object. Between dumps, a garbage collection, the JVM's clean-up of unused memory, may have moved the object. So don't match addresses across dumps.
 
 **Take the dump before you restart. Read each thread by name, state, first frame of your code, then its lock lines.**
 
@@ -426,7 +426,7 @@ Next, we'll look at a program's first seconds: why does a JVM start slowly, and 
     },
     "deeper": {
         "minutes": 10,
-        "body": """The JSON format is what you'd feed a tool. On JDK 25 each thread has `tid`, `name`, `state`, `stack`, and lock fields: `parkBlocker` with the parked-on object and its `owner` thread id, `blockedOn` for a monitor a thread wants, `waitingOn`, and `monitorsOwned`. On JDK 21 a thread has only `tid`, `name` and `stack`. The JSON also groups threads by **thread container**: `<root>`, each thread pool, and each executor made by `Executors.newVirtualThreadPerTaskExecutor()`. In this lesson's demo, `<root>` holds 10,212 threads, because the demo starts its virtual threads with `Thread.ofVirtual()` directly, and each `ThreadPoolExecutor` holds its own workers. With virtual threads, that grouping often says more than the stacks do.
+        "body": """The JSON format is what you'd feed a tool. On JDK 25 each thread has `tid`, `name`, `state`, `stack`, and lock fields: `parkBlocker` with the parked-on object and its `owner` thread id, `blockedOn` for a monitor a thread wants, `waitingOn`, and `monitorsOwned`. On JDK 21 a thread has only `tid`, `name` and `stack`. The JSON also groups threads by **thread container**: `<root>`, each thread pool, and each executor made by `Executors.newVirtualThreadPerTaskExecutor()`. In this lesson's demo, `<root>` holds 10,212 threads, because the demo starts its virtual threads with `Thread.ofVirtual()` directly, and each `ThreadPoolExecutor` holds its own workers. With virtual threads, that grouping often says more than the stacks do. The JSON also names owners: in the demo's file, `archive-reader`'s `parkBlocker` gives its owner as thread 29, `archive-writer`, with no `-l` needed.
 
 ```bash
 jcmd <pid> Thread.dump_to_file -format=json /tmp/threads.json

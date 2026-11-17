@@ -151,11 +151,11 @@ Most "it's slow, but only sometimes" complaints about a JVM program have that sh
 
 Two easy traps wait here: look at the average, which is fine, and stop, or change three things at once and never learn which one helped. Lesson 6 found the widest boxes. In this lesson, we'll follow a whole evening: measure the slow calls, find the lines that make the garbage, fix one thing at a time and prove each round to the byte. Before we start, make a guess, and keep it in mind."""
 
-S1 = """Here's the code under suspicion, the report step from lesson 6, now in a class called `ReportVariants` that also holds each round of the fix:
+S1 = """Here's the code under suspicion, the report step from lesson 6, now in a class called `ReportVariants` that also holds each round of the fix. It checks the two-letter language with a regex, a small pattern language for matching text. It counts the words with `split`, and it formats a line for the debug log, which is switched off:
 
 """ + pair(SLOW_J, SLOW_K) + """
 
-`ReportInvestigation` runs it on four threads for 3 seconds in a second JVM, with a 256 MB heap (`-Xmx256m`: the most memory the JVM may use for objects) and a JFR recording. It times every call into a histogram, a fixed array of counters by duration. Then it prints the **percentiles**. Sort all the calls by time: p50 is the one in the middle, p99 is the one that 99% of calls beat, and only one call in ten thousand is slower than the p99.99. Those rare slow calls are the **tail**. Here's one run on JDK 25, on the busy course machine:
+`ReportInvestigation` runs it on four threads, four lines of work side by side, for 3 seconds. It does that in a second JVM, with a 256 MB heap (`-Xmx256m`: the most memory the JVM may use for objects) and a JFR recording, lesson 5's log of what the JVM did. It times every call into a histogram, a fixed array of counters by duration. Then it prints the **percentiles**. Sort all the calls by time: p50 is the one in the middle, p99 is the one that 99% of calls beat, and only one call in ten thousand is slower than the p99.99. Those rare slow calls are the **tail**. Here's one run on JDK 25, on the busy course machine:
 
 ```text
 slow: 218,239 calls/s  p50 <1500ns  p99 <27300ns  p99.9 <110800ns  p99.99 <36700us  GCs 14 (235 ms)
@@ -163,7 +163,7 @@ slow: 218,239 calls/s  p50 <1500ns  p99 <27300ns  p99.9 <110800ns  p99.99 <36700
 
 Half the calls take under 1.5 µs. The p99.99 is over 36 ms, more than 20,000 times longer. The JVM collected garbage 14 times in 3 seconds, and `jfr view gc-pauses` on the same recording agrees: 14 pauses, 236 ms in total, the longest 53.2 ms.
 
-That's our first suspect, and the kitchen explains it. Every object a call creates is a clean plate taken from the shelf. When the young part of the heap fills up, the garbage collector stops every thread of the program while it clears the dead objects away: the whole kitchen washing up. A call that's running when a pause starts waits for the pause to end. So the slowest calls are probably the ones that met a pause, and the pauses come often because the code allocates a lot. Here the picture breaks a little. G1, the JVM's default collector, does some of its work while the program runs, like a kitchen porter washing in a corner. But the young collections, the frequent ones here, stop everyone.
+That's our first suspect, and the kitchen explains it. Every object a call creates is a clean plate taken from the shelf. When the young part of the heap, where new objects start out, fills up, the garbage collector stops every thread of the program while it clears the dead objects away: the whole kitchen washing up. A call that's running when a pause starts waits for the pause to end. So the slowest calls are probably the ones that met a pause, and the pauses come often because the code allocates a lot. Here the picture breaks a little. G1, the JVM's default collector, does some of its work while the program runs, like a kitchen porter washing in a corner. But the young collections, the frequent ones here, stop everyone.
 
 One caution before we change anything. This machine shared its four cores with more than 30 busy programs, so some slow calls simply waited for a core, and the p99.9 of 110 µs is probably that. The longest call of a run is mostly that noise too. Don't present it as the effect of a fix. The percentiles and the GC counts are the evidence.
 
@@ -207,7 +207,7 @@ So the three costs have names. The regex is compiled again on every call. `split
 
 Three costs, three fixes. The temptation is to make all of them at once."""
 
-S3 = """Round 1 removes the two costs that are pure waste. The pattern becomes a `static final` field, compiled once, and the log line is formatted only when DEBUG is on. Moving work that doesn't change out of the path that runs on every call is called **hoisting**.
+S3 = """Round 1 removes the two costs that are pure waste, work done for nothing. They're the same kind of fix, so we'll make them together and count them as one round. The pattern becomes a `static final` field, compiled once, and the log line is formatted only when DEBUG is on. Moving work that doesn't change out of the path that runs on every call is called **hoisting**.
 
 """ + pair(ROUND1_J, ROUND1_K) + """
 
@@ -245,7 +245,7 @@ Check yourself: in round 1 you hoist the `Pattern` but forget to guard the log l
 
 The harness tells us the fix helped. It can't yet tell us by exactly how much."""
 
-S4 = """JMH, from lesson 3, gives the exact answer, with `-prof gc` and its bytes per operation. `ReportBench` runs each round on one document of 12 words (one fork, 5 warm-up and 3 measured rounds of 0.3 s each):
+S4 = """JMH, the OpenJDK benchmark tool from lesson 3, gives the exact answer, with `-prof gc` and its bytes per operation. `ReportBench` runs each round on one document of 12 words (one fork, 5 warm-up and 3 measured rounds of 0.3 s each):
 
 ```text
 Benchmark           ns/op      error         B/op    error
@@ -261,7 +261,7 @@ A benchmark proves the fix today. A test keeps it fixed. The JVM counts the byte
 
 """ + pair(BUDGET_J, BUDGET_K) + """
 
-That's an **allocation budget test**: it fails the build when the code allocates more than the agreed bytes per call, which is the check lesson 3 promised. Measure after warm-up, because allocation only settles once C2 has compiled the method and its escape analysis has done its work. The lab's test runs 10 rounds of 100,000 calls and judges the best one. Measured that way, the slow version settles at about 2,400 bytes per call. Round 1 settles at about 750 on JDK 25 and 820 on JDK 21, and round 2 at 56 on JDK 25 and 128 on JDK 21. The numbers move with the JDK and with the shape of the loop, so set the budget with a margin, and look at it again when you upgrade.
+That's an **allocation budget test**: it fails the build when the code allocates more than the agreed bytes per call, which is the check lesson 3 promised. Measure after warm-up, because allocation only settles once C2 has compiled the method and its escape analysis, the trick of skipping objects that never leave a method, has done its work. The lab's test runs 10 rounds of 100,000 calls and judges the best one. Measured that way, the slow version settles at about 2,400 bytes per call. Round 1 settles at about 750 on JDK 25 and 820 on JDK 21, and round 2 at 56 on JDK 25 and 128 on JDK 21. The numbers move with the JDK and with the shape of the loop, so set the budget with a margin, and look at it again when you upgrade.
 
 Here's where this loop stops. It finds code that burns CPU or makes garbage. Some programs are slow, or frozen, because their threads are waiting for each other, or for something outside the JVM. A profile of a waiting thread shows almost nothing, so that needs a different look."""
 

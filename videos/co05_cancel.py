@@ -228,7 +228,7 @@ def bar(x0, x1, y, color, h=0.4):
 
 
 # the two lanes, as they sit on screen
-COOK_Y, HELP_Y = 0.2, -1.4
+COOK_Y, HELP_Y = -0.15, -1.8
 STEPS = [(-4.2, -2.2, "chop"), (-1.85, 0.15, "brown"), (0.5, 2.5, "simmer"), (2.85, 4.85, "season")]
 GAPS = (-2.025, 0.325, 2.675)
 RING_X = -0.9
@@ -262,8 +262,8 @@ class Co05Cancel(Narrated):
         part = block(-1.85, RING_X, COOK_Y, "", COOK)
         self.play(GrowFromEdge(part, LEFT), run_time=0.5)
         self.at_text("the phone rings", lead=0.3)
-        ring = Line([RING_X, 0.95, 0], [RING_X, -2.1, 0], stroke_width=4, color=CANCEL)
-        ring_l = T("the phone rings", 24, CANCEL).move_to([RING_X, 1.15, 0])
+        ring = Line([RING_X, COOK_Y + 0.75, 0], [RING_X, HELP_Y - 0.4, 0], stroke_width=4, color=CANCEL)
+        ring_l = T("the phone rings", 24, CANCEL).move_to([RING_X, COOK_Y + 0.95, 0])
         bub = VGroup(RoundedRectangle(corner_radius=0.18, width=2.6, height=0.55).set_stroke(CANCEL, 2).set_fill(BLACK, 1),
                      T("dinner is off", 24, CANCEL))
         bub[1].move_to(bub[0])
@@ -292,8 +292,9 @@ class Co05Cancel(Narrated):
         sk = sack(1.0).move_to([3.75, 1.9, 0])
         bw = bowl(GREY_A, 0.9).move_to([5.0, 1.75, 0])
         lane_h = T("her helper", 24, HELPER).move_to([-6.3, HELP_Y, 0], aligned_edge=LEFT)
-        hbar = block(-4.2, 6.0, HELP_Y, "picking stones out of the lentils, never looking up", HELPER)
-        whole = T("the whole sack", 24, HELPER).move_to([4.9, HELP_Y - 0.6, 0])
+        hbar = block(-4.2, 6.0, HELP_Y, "", HELPER)
+        hbar[1].become(T("sorting lentils, never looking up", 22, HELPER).move_to([2.6, HELP_Y, 0]))
+        whole = T("the whole sack", 24, HELPER).move_to([4.9, HELP_Y - 0.65, 0])
         self.say("helper")
         self.play(FadeIn(helper), FadeIn(sk), FadeIn(bw), FadeIn(lane_h), run_time=0.7)
         self.at(1)
@@ -325,7 +326,7 @@ class Co05Cancel(Narrated):
         # ================= the map: job, suspension point, CancellationException =================
         jl = M("job.cancel()", 24, CANCEL).move_to(ring_l)
         jl2 = T("marks the job: cancelling", 22, GREY_A).next_to(jl, UP, buff=0.12)
-        nostop = T("the thread keeps running", 22, GREY_A).move_to([3.2, 1.1, 0])
+        nostop = T("the thread keeps running", 22, GREY_A).move_to([3.2, COOK_Y + 0.95, 0])
         self.say("job")
         self.play(FadeOut(asks), run_time=0.4)
         self.at(1)
@@ -345,10 +346,10 @@ class Co05Cancel(Narrated):
         self.hold()
 
         ce = VGroup(M("CancellationException", 22, CANCEL), T("finally blocks run, the job ends cancelled", 22, GREY_A))
-        ce.arrange(DOWN, buff=0.12).move_to([3.1, 1.05, 0])
+        ce.arrange(DOWN, buff=0.12).move_to([3.1, COOK_Y + 1.0, 0])
         ce_ar = Arrow(ce.get_bottom() + LEFT * 1.6, heard.get_top() + RIGHT * 0.1, buff=0.08, stroke_width=3, color=CANCEL,
                       max_tip_length_to_length_ratio=0.2)
-        cpu_l = T("a CPU loop: no suspension point, so it never hears", 22, HELPER).move_to([0.9, HELP_Y - 0.6, 0])
+        cpu_l = T("a CPU loop: no suspension point, so it never hears", 22, HELPER).move_to([0.9, HELP_Y - 0.7, 0])
         self.say("throw")
         self.at(1)
         self.play(FadeIn(ce[0], shift=UP * 0.1), GrowArrow(ce_ar), run_time=0.7)
@@ -522,8 +523,8 @@ class Co05Cancel(Narrated):
         tm = timer(TIMER, 1.1).move_to([-5.4, 2.4, 0])
         bph = phone(1.0).move_to([5.6, 2.4, 0])
         bph_l = T("the bakery", 24, GREY_A).next_to(bph, LEFT, buff=0.25)
-        tline = T("withTimeout: when the timer runs out, it cancels the block", 26, TIMER).move_to([0, 2.4, 0])
-        fit(tline, 7.0)
+        tline = T("withTimeout: when the timer runs out, it cancels the block", 30, TIMER).move_to([0, 0.9, 0])
+        fit(tline, 12.4)
         self.say("timer")
         self.play(FadeIn(tm), run_time=0.5)
         self.at_text("she bakes", lead=0.3)

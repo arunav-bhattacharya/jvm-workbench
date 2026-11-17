@@ -433,7 +433,7 @@ class Conc10Synchronizers(Narrated):
             spark(i)
             self.play(recount(n), run_time=0.3)
         self.at(3)
-        self.play(Rotate(gate, -PI / 2, about_point=gate.get_end()), run_time=0.6)
+        self.play(Rotate(gate, PI / 2, about_point=gate.get_end()), run_time=0.6)
         self.play(gate.animate.set_stroke(GOOD), run_time=0.2)
         t428 = M("428 ms", 24, GOOD).next_to(frame, DOWN, buff=0.2)
         self.play(FadeOut(dt_lab), run_time=0.2)
@@ -466,7 +466,7 @@ class Conc10Synchronizers(Narrated):
         forever = T("waits forever", 22, BAD).next_to(dthread, DOWN, buff=0.2)
         self.say("stuck")
         self.play(FadeOut(VGroup(*tl, t428, noreset)), tm.animate.set_value(0), Transform(cnt[1], M("3", 32, COUNT).move_to(cnt[0])),
-                  Rotate(gate, PI / 2, about_point=gate.get_end()),
+                  Rotate(gate, -PI / 2, about_point=gate.get_end()),
                   panel.animate.stretch(1 / 0.08, 0, about_edge=LEFT), Transform(closed, sign("CLOSED", BAD)), run_time=0.8)
         self.play(FadeIn(dthread), FadeIn(dt_lab), gate.animate.set_stroke(BAD), run_time=0.4)
         self.play(tm.animate.set_value(200), run_time=0.8, rate_func=linear)

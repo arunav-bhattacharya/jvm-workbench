@@ -1,361 +1,309 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:08.768
+00:00:02.700 --> 00:00:08.735
 Back at the end of the bakery line, the packer has a small table where loaves wait to be boxed.
 
 2
-00:00:08.768 --> 00:00:09.594
+00:00:08.735 --> 00:00:09.560
 It holds ten.
 
 3
-00:00:09.594 --> 00:00:17.089
+00:00:09.560 --> 00:00:17.056
 As long as the oven waits for her slips, the table never overflows: she writes send me 10 more only when there's room.
 
 4
-00:00:17.600 --> 00:00:20.246
+00:00:17.533 --> 00:00:20.297
 But not everything in a bakery reads slips.
 
 5
-00:00:20.246 --> 00:00:22.953
-The thermometer in the oven is a chatterbox.
+00:00:20.297 --> 00:00:27.945
+The oven's thermometer is a chatterbox: it reports the temperature every millisecond, whether anyone is looking or not.
 
 6
-00:00:22.953 --> 00:00:27.815
-It reports the temperature every millisecond, whether anyone is looking or not.
+00:00:27.945 --> 00:00:32.444
+Nobody ever asked it to slow down, and it wouldn't listen if they did.
 
 7
-00:00:27.815 --> 00:00:32.368
-Nobody has ever asked it to slow down, and it wouldn't listen if they did.
+00:00:32.667 --> 00:00:39.825
+Its readings go to a screen in the shop, which asks for one at a time and takes 10 milliseconds to draw each.
 
 8
-00:00:32.533 --> 00:00:35.107
-Its readings go to a screen in the shop.
+00:00:39.825 --> 00:00:47.443
+In Reactor, Flux.interval plays the thermometer: it sends a tick, a number, every millisecond, whatever you request.
 
 9
-00:00:35.107 --> 00:00:40.383
-The screen asks for one reading at a time, and takes 10 milliseconds to draw each.
-
-10
-00:00:40.383 --> 00:00:48.297
-In Reactor, Flux.interval plays the thermometer: it sends a number, called a tick, every millisecond, whatever you request.
-
-11
-00:00:48.467 --> 00:00:50.754
+00:00:47.667 --> 00:00:49.954
 Reading 0 is asked for, and drawn.
 
-12
-00:00:50.754 --> 00:00:58.421
+10
+00:00:49.954 --> 00:00:57.621
 Reading 1 arrives before anyone asked for it, and the stream fails: could not emit tick 1 due to lack of requests.
 
+11
+00:00:58.333 --> 00:01:03.118
+Reactor has a family of operators for this, with backpressure in their names.
+
+12
+00:01:03.118 --> 00:01:12.875
+Here's the question that's easy to be shy about: backpressure means the slow side slows down the fast side, so surely one of them slows the thermometer down?
+
 13
-00:00:59.133 --> 00:01:04.211
-Reactor has a family of operators for this, with backpressure right in their names.
-
-14
-00:01:04.211 --> 00:01:07.391
-And here's the question that's easy to be shy about.
-
-15
-00:01:07.391 --> 00:01:10.939
-Backpressure means the slow side slows down the fast side.
-
-16
-00:01:10.939 --> 00:01:14.243
-So surely one of them makes the thermometer slow down?
-
-17
-00:01:14.933 --> 00:01:20.196
+00:01:13.600 --> 00:01:18.862
 Let's try the one everyone reaches for first: onBackpressureBuffer, with no size.
 
-18
-00:01:20.196 --> 00:01:22.340
+14
+00:01:18.862 --> 00:01:21.006
 The screen takes twenty readings.
 
-19
-00:01:22.340 --> 00:01:23.444
+15
+00:01:21.006 --> 00:01:22.111
 What does it get?
 
-20
-00:01:26.467 --> 00:01:29.363
+16
+00:01:25.100 --> 00:01:27.996
 Readings 0, 1, 2, all the way to 19.
 
-21
-00:01:29.363 --> 00:01:31.213
+17
+00:01:27.996 --> 00:01:29.846
 In order, and no error.
 
-22
-00:01:31.213 --> 00:01:32.581
+18
+00:01:29.846 --> 00:01:31.214
 It looks perfect.
 
-23
-00:01:32.581 --> 00:01:34.109
+19
+00:01:31.214 --> 00:01:32.743
 That's the problem.
 
+20
+00:01:32.967 --> 00:01:37.435
+When the screen drew reading 19, the thermometer was at 216.
+
+21
+00:01:37.435 --> 00:01:44.585
+Nearly 200 readings were waiting in a queue with no limit, about 90 more every 100 milliseconds.
+
+22
+00:01:45.400 --> 00:01:48.587
+It's our doorstep with fourteen loaves, back again.
+
+23
+00:01:48.587 --> 00:01:54.024
+We fixed the smoke alarm by taking out the battery: the noise stopped, the fire didn't.
+
 24
-00:01:34.267 --> 00:01:39.242
-When the screen drew reading 19, the thermometer was at reading 216.
+00:01:54.024 --> 00:01:56.086
+No error doesn't mean no problem.
 
 25
-00:01:39.242 --> 00:01:48.680
-Nearly 200 readings were waiting in a queue with no limit, about 90 more every 100 milliseconds, for as long as the program runs.
-
-26
-00:01:49.467 --> 00:01:54.298
-It's our doorstep with fourteen loaves, back again, with more every second.
-
-27
-00:01:54.298 --> 00:01:57.584
-We fixed the smoke alarm by taking out the battery.
-
-28
-00:01:57.584 --> 00:01:58.743
-The noise stopped.
-
-29
-00:01:58.743 --> 00:01:59.774
-The fire didn't.
-
-30
-00:01:59.774 --> 00:02:02.093
-So no error doesn't mean no problem.
-
-31
-00:02:02.093 --> 00:02:05.443
+00:01:56.086 --> 00:01:59.336
 The pile just moved into memory, where nobody looks.
 
-32
-00:02:06.200 --> 00:02:08.338
+26
+00:02:00.167 --> 00:02:02.356
 So, back to the packer's table.
 
-33
-00:02:08.338 --> 00:02:15.030
-When a belt won't stop, the table fills, and someone has to decide what happens to the next item.
+27
+00:02:02.356 --> 00:02:09.064
+When a belt won't stop, the table fills, and someone must decide what happens to the next item.
 
-34
-00:02:15.030 --> 00:02:17.099
-There are four honest answers.
+28
+00:02:09.064 --> 00:02:10.476
+Four honest answers.
 
-35
-00:02:17.099 --> 00:02:18.341
+29
+00:02:10.476 --> 00:02:11.747
 Keep a small pile.
 
-36
-00:02:18.341 --> 00:02:19.583
+30
+00:02:11.747 --> 00:02:13.018
 Throw it in a bin.
 
-37
-00:02:19.583 --> 00:02:21.031
+31
+00:02:13.018 --> 00:02:14.501
 Keep only the newest.
 
-38
-00:02:21.031 --> 00:02:22.204
+32
+00:02:14.501 --> 00:02:15.701
 Or stop the line.
 
-39
-00:02:22.400 --> 00:02:25.624
+33
+00:02:15.933 --> 00:02:19.254
 Each onBackpressure operator is one of those answers.
 
-40
-00:02:25.624 --> 00:02:29.881
-It asks the thermometer for everything, so nothing overflows above it.
+34
+00:02:19.254 --> 00:02:28.149
+It asks the thermometer for everything, so nothing overflows, and then decides what happens to the readings nobody further down has asked for.
 
-41
-00:02:29.881 --> 00:02:34.687
-Then it decides what happens to the readings nobody further down has asked for.
-
-42
-00:02:35.467 --> 00:02:39.224
+35
+00:02:28.967 --> 00:02:32.724
 The small pile is onBackpressureBuffer with a size, say 10.
 
-43
-00:02:39.224 --> 00:02:42.536
+36
+00:02:32.724 --> 00:02:36.036
 While the screen draws reading 0, the pile fills up.
 
-44
-00:02:42.536 --> 00:02:48.777
+37
+00:02:36.036 --> 00:02:42.277
 Then a reading finds no room, so the line stops: the thermometer is cut off, and an error is sent.
 
-45
-00:02:48.733 --> 00:02:51.535
+38
+00:02:42.267 --> 00:02:45.068
 Does the screen still get the readings on the pile?
 
-46
-00:02:54.600 --> 00:02:55.150
+39
+00:02:48.067 --> 00:02:48.645
 It does.
 
-47
-00:02:55.150 --> 00:02:57.969
-The error waits its turn behind the pile.
+40
+00:02:48.645 --> 00:02:56.163
+The error waits its turn behind the pile: readings 0 to 11, in order, and then, the receiver is overrun.
 
-48
-00:02:57.969 --> 00:03:03.264
-The screen got readings 0 to 11, in order, and then: the receiver is overrun.
-
-49
-00:03:03.264 --> 00:03:05.464
+41
+00:02:56.163 --> 00:02:58.476
 Nothing vanished without a word.
 
-50
-00:03:06.200 --> 00:03:08.374
+42
+00:02:59.300 --> 00:03:01.538
 The bin is onBackpressureDrop.
 
-51
-00:03:08.374 --> 00:03:13.446
-A reading that arrives while the screen isn't asking goes straight in.
+43
+00:03:01.538 --> 00:03:10.863
+A reading that arrives while the screen isn't asking goes straight in: the screen saw 0, 11, 22, 34, and 202 went in the bin.
 
-52
-00:03:13.446 --> 00:03:18.012
-The screen saw 0, 11, 22, 34, and 202 readings went in the bin.
-
-53
-00:03:18.012 --> 00:03:18.954
+44
+00:03:10.863 --> 00:03:11.833
 Why 11 apart?
 
-54
-00:03:18.954 --> 00:03:24.751
+45
+00:03:11.833 --> 00:03:17.801
 When the screen asks, the bin has nothing on hand, so it waits for the next one.
 
-55
-00:03:25.533 --> 00:03:28.563
+46
+00:03:18.633 --> 00:03:21.663
 Keep only the newest is onBackpressureLatest.
 
-56
-00:03:28.563 --> 00:03:32.873
+47
+00:03:21.663 --> 00:03:25.973
 It has one slot, and each new reading pushes out the one before.
 
-57
-00:03:32.873 --> 00:03:37.991
+48
+00:03:25.973 --> 00:03:31.091
 When the screen asks, the newest is ready: 0, 10, 20, 30, about every tenth.
 
-58
-00:03:38.733 --> 00:03:41.240
-And stop the line is onBackpressureError.
+49
+00:03:31.900 --> 00:03:37.451
+And stop the line is onBackpressureError: it fails at the first reading nobody asked for.
 
-59
-00:03:41.240 --> 00:03:44.114
-It fails at the first reading nobody asked for.
-
-60
-00:03:44.114 --> 00:03:46.988
+50
+00:03:37.451 --> 00:03:40.383
 That's for belts where falling behind is a bug.
 
-61
-00:03:48.467 --> 00:03:51.532
+51
+00:03:41.900 --> 00:03:44.965
 So, does any of them slow the thermometer down?
 
-62
-00:03:51.532 --> 00:03:52.053
+52
+00:03:44.965 --> 00:03:45.487
 Not one.
 
-63
-00:03:52.053 --> 00:03:57.271
+53
+00:03:45.487 --> 00:03:50.704
 Honest names would be: keep a pile, use the bin, keep the newest, stop the line.
 
-64
-00:03:57.271 --> 00:03:58.705
+54
+00:03:50.704 --> 00:03:52.139
 They're loss policies.
 
-65
-00:03:58.705 --> 00:04:01.705
+55
+00:03:52.139 --> 00:03:55.139
 They decide what to keep, and what to give up.
 
-66
-00:04:02.467 --> 00:04:04.821
-And here the bakery picture breaks.
+56
+00:03:55.967 --> 00:03:58.056
+Here the bakery picture breaks.
 
-67
-00:04:04.821 --> 00:04:07.915
-A full table in a real bakery is hard to miss.
+57
+00:03:58.056 --> 00:04:00.010
+A full table is hard to miss.
 
-68
-00:04:07.915 --> 00:04:16.524
+58
+00:04:00.010 --> 00:04:08.637
 A buffer with no size is a table nobody can see, and it grows until the heap, the memory where Java keeps its objects, runs out.
 
-69
-00:04:17.267 --> 00:04:26.367
+59
+00:04:09.467 --> 00:04:19.060
 Real backpressure needs a source that reads the slips, like the database cursor behind the nightly report, which fetches only the rows it's asked for.
 
-70
-00:04:26.367 --> 00:04:30.613
-That's backpressure for free, so pick a source like that when you can.
+60
+00:04:19.060 --> 00:04:21.811
+That's backpressure for free, so prefer it.
 
-71
-00:04:31.400 --> 00:04:34.319
+61
+00:04:22.633 --> 00:04:25.588
 When you can't, ask what one missed item costs.
 
-72
-00:04:34.319 --> 00:04:37.549
-A temperature is a value where newer replaces older.
+62
+00:04:25.588 --> 00:04:27.852
+A temperature: newer replaces older.
 
-73
-00:04:37.549 --> 00:04:42.705
+63
+00:04:27.852 --> 00:04:33.071
 A buffer here would show the oven's temperature from a minute ago, very accurately.
 
-74
-00:04:42.705 --> 00:04:43.885
+64
+00:04:33.071 --> 00:04:34.265
 So keep the newest.
 
-75
-00:04:44.067 --> 00:04:50.277
-A sample, like one visitor count out of hundreds, can go in the bin, as long as you count the drops.
+65
+00:04:34.467 --> 00:04:39.734
+A visitor count, one sample of hundreds, can go in the bin, if you count the drops.
 
-76
-00:04:50.277 --> 00:04:53.258
-But an order from the website must never vanish.
+66
+00:04:39.734 --> 00:04:48.112
+A web order must never vanish: give it a small pile that fails loudly, and a way to ask the website again from the last saved order.
 
-77
-00:04:53.258 --> 00:05:00.151
-Give it a small pile that fails loudly, and a way to ask the website for everything after the last saved order.
+67
+00:04:48.933 --> 00:04:58.711
+Here it is in Java and Kotlin: the screen keeps the newest reading, and web orders get a pile of 1,000 that logs the order that overflows.
 
-78
-00:05:00.933 --> 00:05:02.885
-Here it is in Java and Kotlin.
-
-79
-00:05:02.885 --> 00:05:05.227
-The screen keeps the newest reading.
-
-80
-00:05:05.227 --> 00:05:10.105
-The web orders get a pile of 1,000, and the order that overflows is logged.
-
-81
-00:05:10.867 --> 00:05:13.816
+68
+00:04:59.533 --> 00:05:02.484
 So, does onBackpressure slow the source down?
 
-82
-00:05:13.816 --> 00:05:14.012
+69
+00:05:02.484 --> 00:05:02.680
 No.
 
-83
-00:05:14.012 --> 00:05:17.027
+70
+00:05:02.680 --> 00:05:05.696
 Only a source that reads the slips slows down.
 
-84
-00:05:17.027 --> 00:05:24.760
-For one that can't, you choose what to lose when the table is full: a small pile, a bin, the newest, or stop the line.
+71
+00:05:05.696 --> 00:05:13.171
+For one that can't, choose what to lose when the table is full: a small pile, a bin, the newest, or stop the line.
 
-85
-00:05:24.933 --> 00:05:25.747
+72
+00:05:13.400 --> 00:05:14.214
 Quick check.
 
-86
-00:05:25.747 --> 00:05:29.002
+73
+00:05:14.214 --> 00:05:17.468
 A screen in the shop shows the oven temperature.
 
-87
-00:05:29.002 --> 00:05:34.833
+74
+00:05:17.468 --> 00:05:23.300
 The thermometer sends 200 readings a second, and the screen redraws 10 times a second.
 
-88
-00:05:34.833 --> 00:05:36.053
+75
+00:05:23.300 --> 00:05:24.520
 Which policy fits?
 
-89
-00:05:39.067 --> 00:05:41.421
+76
+00:05:27.500 --> 00:05:29.862
 Keep the newest: onBackpressureLatest.
 
-90
-00:05:41.421 --> 00:05:47.059
-At every redraw, the screen wants the temperature now, not the next old reading in a queue.
+77
+00:05:29.862 --> 00:05:35.023
+At every redraw, the screen wants the temperature now, not an old one from a queue.
