@@ -408,7 +408,7 @@ class Co09Channels(Narrated):
         self.hold()
 
         pile = VGroup(*[plate("", 0.6).move_to([1.2 + 0.45 * (i % 9), -0.2 + 0.32 * (i // 9) + 0.0, 0]) for i in range(18)])
-        oom = T("OutOfMemoryError, some hours later", 26, BAD).move_to([3.3, 2.3, 0])
+        oom = T("OutOfMemoryError, some hours later", 26, BAD).move_to([3.6, 1.55, 0])
         self.say("unl_joke")
         self.play(FadeOut(c1), FadeOut(ch_l), Indicate(trs[2], color=WHITE), run_time=0.7)
         self.at_text("until the dining", lead=0.3)
@@ -520,11 +520,11 @@ class Co09Channels(Narrated):
         self.play(FadeIn(closer, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
-        calls = T("5,000 calls in the same second", 26, BAD).move_to([1.8, -0.45, 0])
+        calls = T("5,000 calls in the same second", 26, BAD).move_to([2.3, -0.45, 0])
         ph = phone_off(1.0).next_to(calls, LEFT, buff=0.35)
         capn = T("a team of N: at most N at once", 26, HELPER).move_to([1.5, 2.85, 0])
         self.say("cap_joke")
-        self.play(FadeOut(closer), FadeOut(fi_l), run_time=0.4)
+        self.play(FadeOut(closer), FadeOut(fi_l), FadeOut(tbl_l), run_time=0.4)
         self.at_text("Because ordering", lead=0.3)
         self.play(FadeIn(calls), run_time=0.5)
         self.at_text("and the baker", lead=0.3)
