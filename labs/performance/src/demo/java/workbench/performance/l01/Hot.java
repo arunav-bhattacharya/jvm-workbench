@@ -9,18 +9,19 @@ import java.util.List;
  * Pass "all" to see every line, including the JDK's own methods.
  */
 public class Hot {
-    interface Shape { double area(); }
-    record Square(double s) implements Shape { public double area() { return s * s; } }
-    record Circle(double r) implements Shape { public double area() { return Math.PI * r * r; } }
-    record Tri(double b, double h) implements Shape { public double area() { return 0.5 * b * h; } }
+    // a document is a list of blocks, and each kind of block knows how long it takes to read
+    interface Block { long millis(); }
+    record Paragraph(long words) implements Block { public long millis() { return words * 250; } }        // 4 words a second
+    record Heading(long words) implements Block { public long millis() { return 1_000 + words * 400; } }  // a pause, then slower
+    record Quote(long words) implements Block { public long millis() { return words * 300; } }            // a little slower
 
-    static double total(Shape[] shapes) {
-        double sum = 0;
-        for (Shape s : shapes) sum += s.area();   // one call site: first only Squares, later three types
+    static long readingMillis(Block[] blocks) {
+        long sum = 0;
+        for (Block b : blocks) sum += b.millis();   // one call site: first only paragraphs, later three types
         return sum;
     }
 
-    static long longLoop() {                      // called once, but the loop runs 50 million times: OSR
+    static long longLoop() {      // called once, but its loop runs 50 million times, like one pass over a huge book: OSR
         long acc = 0;
         for (int i = 0; i < 50_000_000; i++) acc += (i ^ (i >>> 3));
         return acc;
@@ -28,14 +29,14 @@ public class Hot {
 
     static void work() {
         System.out.println(longLoop());
-        Shape[] squares = new Shape[1000];
-        for (int i = 0; i < squares.length; i++) squares[i] = new Square(i);
-        double r = 0;
-        for (int i = 0; i < 20_000; i++) r += total(squares);   // only Square seen so far
-        Shape[] mixed = new Shape[999];
+        Block[] article = new Block[1000];
+        for (int i = 0; i < article.length; i++) article[i] = new Paragraph(i);
+        long r = 0;
+        for (int i = 0; i < 20_000; i++) r += readingMillis(article);   // only paragraphs seen so far
+        Block[] mixed = new Block[999];
         for (int i = 0; i < mixed.length; i++)
-            mixed[i] = switch (i % 3) { case 0 -> new Square(i); case 1 -> new Circle(i); default -> new Tri(i, i); };
-        for (int i = 0; i < 20_000; i++) r += total(mixed);     // two new types reach the same call site
+            mixed[i] = switch (i % 3) { case 0 -> new Paragraph(i); case 1 -> new Heading(i); default -> new Quote(i); };
+        for (int i = 0; i < 20_000; i++) r += readingMillis(mixed);     // two new types reach the same call site
         System.out.println(r);
     }
 

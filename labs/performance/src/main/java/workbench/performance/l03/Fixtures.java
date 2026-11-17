@@ -1,6 +1,5 @@
 package workbench.performance.l03;
 
-import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Test data for the benchmarks. Same file in src/main and src/solution. */
@@ -10,14 +9,14 @@ public final class Fixtures {
 
     private Fixtures() { }
 
-    /** Parses {@code n} amounts such as "19.99" into cents. Deliberately not cheap. */
+    /** Writes out {@code n} made-up documents and counts their words, the slow way. Deliberately not cheap. */
     public static long[] batch(int n) {
         BUILDS.incrementAndGet();
-        long[] cents = new long[n];
+        long[] words = new long[n];
         for (int i = 0; i < n; i++) {
-            String amount = (10 + i % 990) + "." + (10 + i % 89);
-            cents[i] = new BigDecimal(amount).movePointRight(2).longValueExact();
+            String text = "word ".repeat(1 + i % 300);   // a made-up document of 1 to 300 words
+            words[i] = text.split(" ").length;
         }
-        return cents;
+        return words;
     }
 }

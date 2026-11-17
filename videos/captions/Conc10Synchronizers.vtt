@@ -1,409 +1,405 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.280
+00:00:02.700 --> 00:00:05.247
 Picture a small shop that opens at nine.
 
 2
-00:00:05.280 --> 00:00:12.030
+00:00:05.247 --> 00:00:11.996
 Before the doors open, its program loads three lists: the price list, the stock counts and today's offers.
 
 3
-00:00:12.030 --> 00:00:14.386
+00:00:11.996 --> 00:00:14.352
 Three threads load them side by side.
 
 4
-00:00:14.386 --> 00:00:18.333
+00:00:14.352 --> 00:00:18.300
 A thread is one path of work, like one clerk in the back room.
 
 5
-00:00:18.533 --> 00:00:22.252
+00:00:18.433 --> 00:00:22.152
 A fourth thread opens the doors, once all three lists are in.
 
 6
-00:00:22.400 --> 00:00:28.964
+00:00:22.267 --> 00:00:28.830
 One morning, the doors open early, and the first customer buys a loaf of bread for 0.00.
 
 7
-00:00:28.964 --> 00:00:31.052
+00:00:28.830 --> 00:00:30.919
 Great news for the customer.
 
 8
-00:00:31.052 --> 00:00:33.513
+00:00:30.919 --> 00:00:33.380
 The price list was still loading.
 
 9
-00:00:33.667 --> 00:00:36.674
+00:00:33.500 --> 00:00:36.507
 The fix most of us try first is a nap.
 
 10
-00:00:36.674 --> 00:00:44.825
+00:00:36.507 --> 00:00:44.658
 In the lesson's demo, the lists take 200, 300 and 400 milliseconds, and the door thread sleeps for 250.
 
 11
-00:00:44.825 --> 00:00:46.487
+00:00:44.658 --> 00:00:46.320
 Will all three be in?
 
 12
-00:00:49.533 --> 00:00:49.740
+00:00:48.900 --> 00:00:49.107
 No.
 
 13
-00:00:49.740 --> 00:00:54.359
+00:00:49.107 --> 00:00:53.728
 The doors opened at 271 milliseconds, with two lists still loading.
 
 14
-00:00:54.359 --> 00:00:57.806
-A longer nap passes today and fails on a slow day.
-
-15
-00:00:57.806 --> 00:01:03.597
+00:00:53.728 --> 00:00:59.523
 As the clerks taught us in the first lesson, a sleep is a guess with a number on it.
 
-16
-00:01:03.733 --> 00:01:05.628
+15
+00:00:59.633 --> 00:01:01.528
 We don't want to wait for a time.
 
-17
-00:01:05.628 --> 00:01:07.523
+16
+00:01:01.528 --> 00:01:03.423
 We want to wait for three events.
 
-18
-00:01:07.667 --> 00:01:12.964
+17
+00:01:03.533 --> 00:01:08.831
 Java has four tools for waiting: a latch, a barrier, a semaphore and a phaser.
 
-19
-00:01:12.964 --> 00:01:15.680
+18
+00:01:08.831 --> 00:01:11.547
 So here's the question we're shy to ask.
 
-20
-00:01:15.680 --> 00:01:16.292
+19
+00:01:11.547 --> 00:01:12.158
 Why four?
 
-21
-00:01:16.292 --> 00:01:18.125
+20
+00:01:12.158 --> 00:01:13.992
 Isn't waiting just waiting?
 
-22
-00:01:18.267 --> 00:01:21.101
+21
+00:01:14.100 --> 00:01:16.934
 The first is a gate with a counter on it.
 
-23
-00:01:21.101 --> 00:01:23.244
+22
+00:01:16.934 --> 00:01:19.077
 Java calls it a CountDownLatch.
 
-24
-00:01:23.244 --> 00:01:25.732
+23
+00:01:19.077 --> 00:01:21.565
 Ours starts at 3, one for each list.
 
-25
-00:01:25.867 --> 00:01:31.035
+24
+00:01:21.667 --> 00:01:26.835
 Each loading thread calls countDown when its list is in, and the counter drops by one.
 
-26
-00:01:31.035 --> 00:01:35.843
+25
+00:01:26.835 --> 00:01:31.643
 The door thread calls await, and waits at the gate until the counter reads zero.
 
-27
-00:01:36.000 --> 00:01:39.672
+26
+00:01:31.767 --> 00:01:35.439
 Price list at 228 milliseconds: two left.
 
-28
-00:01:39.672 --> 00:01:41.374
+27
+00:01:35.439 --> 00:01:37.141
 Offers at 328: one.
 
-29
-00:01:41.374 --> 00:01:43.703
+28
+00:01:37.141 --> 00:01:39.470
 Stock counts at 428: zero.
 
-30
-00:01:43.703 --> 00:01:46.927
+29
+00:01:39.470 --> 00:01:42.694
 The gate opens, and so do the doors.
 
-31
-00:01:46.927 --> 00:01:50.689
+30
+00:01:42.694 --> 00:01:46.456
 Not a moment early, and not a moment late.
 
-32
-00:01:50.867 --> 00:01:52.651
+31
+00:01:46.567 --> 00:01:48.351
 The counter only goes down.
 
-33
-00:01:52.651 --> 00:01:57.870
+32
+00:01:48.351 --> 00:01:53.570
 So a latch opens once and stays open, and a later await walks straight through.
 
-34
-00:01:57.870 --> 00:01:58.993
+33
+00:01:53.570 --> 00:01:54.693
 There's no reset.
 
-35
-00:01:59.133 --> 00:02:02.096
+34
+00:01:54.800 --> 00:01:57.763
 But say a loader throws before it counts down.
 
-36
-00:02:02.096 --> 00:02:07.829
+35
+00:01:57.763 --> 00:02:03.496
 The counter stops at 1, and the door thread waits forever, with no error and no log line.
 
-37
-00:02:08.000 --> 00:02:09.003
+36
+00:02:03.600 --> 00:02:04.603
 So, two habits.
 
-38
-00:02:09.003 --> 00:02:13.418
+37
+00:02:04.603 --> 00:02:09.018
 Count down in a finally block, which runs even when loading fails.
 
-39
-00:02:13.418 --> 00:02:18.836
+38
+00:02:09.018 --> 00:02:14.436
 And await with a deadline, say two seconds, so a load that hangs gets a clear no.
 
-40
-00:02:19.733 --> 00:02:20.732
+39
+00:02:15.267 --> 00:02:16.265
 Now the evening.
 
-41
-00:02:20.732 --> 00:02:25.787
+40
+00:02:16.265 --> 00:02:21.321
 The clerks add up the shop's three tills, one thread per till, one day at a time.
 
-42
-00:02:25.787 --> 00:02:31.529
+41
+00:02:21.321 --> 00:02:27.063
 Each day's three subtotals make the day's total, and nobody starts the next day before that.
 
-43
-00:02:31.667 --> 00:02:33.810
+42
+00:02:27.167 --> 00:02:29.310
 Let's try a latch of 3 again.
 
-44
-00:02:33.810 --> 00:02:34.697
+43
+00:02:29.310 --> 00:02:30.197
 Day 1 works.
 
-45
-00:02:34.697 --> 00:02:38.392
+44
+00:02:30.197 --> 00:02:33.892
 On day 2, thread 0 finishes first and calls await.
 
-46
-00:02:38.392 --> 00:02:40.461
+45
+00:02:33.892 --> 00:02:35.961
 Does it wait for the others?
 
-47
-00:02:43.467 --> 00:02:44.264
+46
+00:02:38.533 --> 00:02:39.331
 It doesn't.
 
-48
-00:02:44.264 --> 00:02:47.091
+47
+00:02:39.331 --> 00:02:42.158
 The latch is still open from yesterday.
 
-49
-00:02:47.091 --> 00:02:53.471
+48
+00:02:42.158 --> 00:02:48.537
 So thread 0 adds up day 2 with old numbers for two tills, and runs off into day 3 alone.
 
-50
-00:02:53.667 --> 00:02:57.972
+49
+00:02:48.667 --> 00:02:52.972
 We want a meeting point that closes again by itself, like a tour bus.
 
-51
-00:02:57.972 --> 00:03:03.899
+50
+00:02:52.972 --> 00:02:58.899
 At every stop, it leaves only when everyone is back on board, and the guide counts heads first.
 
-52
-00:03:04.067 --> 00:03:06.337
+51
+00:02:59.000 --> 00:03:01.270
 That's a CyclicBarrier, built for 3.
 
-53
-00:03:06.337 --> 00:03:10.057
+52
+00:03:01.270 --> 00:03:04.991
 Each thread calls await when it's back on board, and waits.
 
-54
-00:03:10.057 --> 00:03:16.489
+53
+00:03:04.991 --> 00:03:11.422
 The head count is the barrier action: it runs once, on the last thread to arrive, and adds up the day.
 
-55
-00:03:16.489 --> 00:03:18.948
+54
+00:03:11.422 --> 00:03:13.882
 Then the door closes for the next stop.
 
-56
-00:03:18.948 --> 00:03:20.399
+55
+00:03:13.882 --> 00:03:15.332
 That's the cyclic part.
 
-57
-00:03:20.533 --> 00:03:24.899
+56
+00:03:15.433 --> 00:03:19.799
 The demo ran three days: 6,000, then 12,000, then 18,000.
 
-58
-00:03:24.899 --> 00:03:30.872
+57
+00:03:19.799 --> 00:03:25.772
 Till 2 closed every day, because it was the slowest, and always got back last.
 
-59
-00:03:31.067 --> 00:03:33.440
+58
+00:03:25.900 --> 00:03:28.273
 And a tourist who never comes back?
 
-60
-00:03:33.440 --> 00:03:35.202
+59
+00:03:28.273 --> 00:03:30.036
 A guide would go and look.
 
-61
-00:03:35.202 --> 00:03:36.626
+60
+00:03:30.036 --> 00:03:31.460
 A barrier just waits.
 
-62
-00:03:36.626 --> 00:03:42.050
+61
+00:03:31.460 --> 00:03:36.884
 On day 4, till 2 never arrives, and the other two wait at most 300 milliseconds.
 
-63
-00:03:42.050 --> 00:03:48.423
+62
+00:03:36.884 --> 00:03:43.257
 One gets a TimeoutException, which breaks the barrier, and the other a BrokenBarrierException.
 
-64
-00:03:48.423 --> 00:03:50.051
+63
+00:03:43.257 --> 00:03:44.884
 So give await a timeout.
 
-65
-00:03:50.933 --> 00:03:54.108
+64
+00:03:45.700 --> 00:03:48.875
 For a group that changes size, there's the Phaser.
 
-66
-00:03:54.108 --> 00:03:58.045
+65
+00:03:48.875 --> 00:03:52.811
 At the yearly stocktake, helper 2 only counts, then goes home.
 
-67
-00:03:58.045 --> 00:04:00.648
+66
+00:03:52.811 --> 00:03:55.415
 A barrier of 3 would wait for it forever.
 
-68
-00:04:00.648 --> 00:04:06.363
+67
+00:03:55.415 --> 00:04:01.129
 A phaser lets a party leave, like a guide crossing a name off the list: 3 parties, then 2.
 
-69
-00:04:07.133 --> 00:04:08.530
+68
+00:04:01.833 --> 00:04:03.246
 Last, card payments.
 
-70
-00:04:08.530 --> 00:04:16.978
-The bank checks each one over the network, about 120 milliseconds a call, and it allows five calls at once from one shop.
+69
+00:04:03.246 --> 00:04:10.805
+The bank checks each one over the network, about 120 milliseconds a call, and it allows five calls at once.
 
-71
-00:04:16.978 --> 00:04:22.215
+70
+00:04:10.805 --> 00:04:16.104
 On a busy Saturday, twenty customers pay together, and fifteen are refused.
 
-72
-00:04:22.400 --> 00:04:27.209
+71
+00:04:16.233 --> 00:04:21.042
 Think of a car park with five spaces, and a sign that shows how many are free.
 
-73
-00:04:27.209 --> 00:04:31.462
+72
+00:04:21.042 --> 00:04:25.296
 A car that comes in takes a space, and one that leaves gives it back.
 
-74
-00:04:31.462 --> 00:04:34.175
+73
+00:04:25.296 --> 00:04:28.008
 At zero, the next car waits at the entrance.
 
-75
-00:04:34.333 --> 00:04:35.702
+74
+00:04:28.133 --> 00:04:29.502
 That's a Semaphore.
 
-76
-00:04:35.702 --> 00:04:37.934
+75
+00:04:29.502 --> 00:04:31.734
 The spaces are permits, here 5.
 
-77
-00:04:37.934 --> 00:04:39.950
+76
+00:04:31.734 --> 00:04:33.750
 acquire takes one, or waits.
 
-78
-00:04:39.950 --> 00:04:41.606
+77
+00:04:33.750 --> 00:04:35.406
 release gives one back.
 
-79
-00:04:41.606 --> 00:04:43.839
+78
+00:04:35.406 --> 00:04:37.639
 Each call to the bank is a car.
 
-80
-00:04:44.000 --> 00:04:47.976
+79
+00:04:37.767 --> 00:04:41.743
 Twenty calls through five permits, 120 milliseconds each.
 
-81
-00:04:47.976 --> 00:04:50.627
+80
+00:04:41.743 --> 00:04:44.393
 How many at once, and how long in all?
 
-82
-00:04:53.667 --> 00:04:58.132
+81
+00:04:46.967 --> 00:04:51.432
 At most five, and 502 milliseconds: four waves of five.
 
-83
-00:04:58.267 --> 00:05:01.949
+82
+00:04:51.533 --> 00:04:55.215
 Now a car that was never inside tells the sign it's leaving.
 
-84
-00:05:01.949 --> 00:05:03.421
+83
+00:04:55.215 --> 00:04:56.688
 What does the sign show?
 
-85
-00:05:06.467 --> 00:05:09.541
+84
+00:04:59.267 --> 00:05:02.341
 Six free spaces, in a car park built for five.
 
-86
-00:05:09.541 --> 00:05:11.613
+85
+00:05:02.341 --> 00:05:04.413
 Good luck parking in the sixth.
 
-87
-00:05:11.613 --> 00:05:15.489
+86
+00:05:04.413 --> 00:05:08.289
 Permits have no owner: release adds one, whoever calls it.
 
-88
-00:05:15.667 --> 00:05:21.417
+87
+00:05:08.400 --> 00:05:14.150
 So a stray release, say from a payment cancelled while it waited, quietly raises the limit.
 
-89
-00:05:21.417 --> 00:05:23.565
+88
+00:05:14.150 --> 00:05:16.298
 Five drifts to eight, then twelve.
 
-90
-00:05:23.565 --> 00:05:25.713
+89
+00:05:16.298 --> 00:05:18.447
 Release only the permits you took.
 
-91
-00:05:26.467 --> 00:05:30.512
+90
+00:05:19.167 --> 00:05:23.212
 The latch in code, Java on the left and Kotlin on the right.
 
-92
-00:05:30.512 --> 00:05:31.995
+91
+00:05:23.212 --> 00:05:24.695
 Count down in finally.
 
-93
-00:05:31.995 --> 00:05:34.423
+92
+00:05:24.695 --> 00:05:27.123
 Wait two seconds at most, then open.
 
-94
-00:05:35.200 --> 00:05:36.354
+93
+00:05:27.833 --> 00:05:28.987
 So, why four tools?
 
-95
-00:05:36.354 --> 00:05:38.966
+94
+00:05:28.987 --> 00:05:31.599
 Because each waits for something different.
 
-96
-00:05:38.966 --> 00:05:40.849
+95
+00:05:31.599 --> 00:05:33.482
 A latch waits for events, once.
 
-97
-00:05:40.849 --> 00:05:46.072
+96
+00:05:33.482 --> 00:05:38.706
 A barrier waits for the whole group, every round, and a phaser lets that group change.
 
-98
-00:05:46.072 --> 00:05:48.198
+97
+00:05:38.706 --> 00:05:40.831
 A semaphore waits for a free place.
 
-99
-00:05:48.198 --> 00:05:51.539
+98
+00:05:40.831 --> 00:05:44.172
 Ask what you're waiting for, and the tool picks itself.
 
-100
-00:05:51.733 --> 00:05:52.542
+99
+00:05:44.300 --> 00:05:45.108
 Quick check.
 
-101
-00:05:52.542 --> 00:05:59.142
+100
+00:05:45.108 --> 00:05:51.708
 Three helpers move stock every day for a week, and nobody starts a new day until all three finish.
 
-102
-00:05:59.142 --> 00:06:00.287
+101
+00:05:51.708 --> 00:05:52.853
 Latch or barrier?

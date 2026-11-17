@@ -16,51 +16,48 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.concurrent.TimeUnit;
 
-/** Fees for 100 card payments: BigDecimal against long cents, with JMH's GC profiler on. */
+/** Counts the words in 100 lines of text two ways, String.split and a character scan, with JMH's GC profiler on. */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Warmup(iterations = 2, time = 300, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 3, time = 300, timeUnit = TimeUnit.MILLISECONDS)
 @Fork(1)
-public class MoneyBench {
-    BigDecimal[] amounts;
-    long[] cents;
+public class WordCountBench {
+    String[] lines;
 
     @Setup
     public void setup() {                       // built once per fork, outside the measurement
-        amounts = new BigDecimal[100];
-        cents = new long[100];
-        for (int i = 0; i < 100; i++) {
-            cents[i] = 1_999 + i;
-            amounts[i] = BigDecimal.valueOf(cents[i], 2);
-        }
+        lines = new String[100];
+        for (int i = 0; i < 100; i++) lines[i] = "the report counts every word on line number " + i;
     }
 
     @Benchmark
-    public BigDecimal feeBigDecimal() {         // correct for money, and every operation allocates
-        BigDecimal total = BigDecimal.ZERO;
-        for (BigDecimal a : amounts) {
-            // a new rate object per line, as plenty of real fee code does
-            total = total.add(a.multiply(new BigDecimal("0.029")).setScale(2, RoundingMode.HALF_EVEN));
-        }
+    public long wordsBySplit() {                // short and clear, and every word becomes a new String
+        long total = 0;
+        for (String line : lines) total += line.split(" ").length;
         return total;
     }
 
     @Benchmark
-    public long feeLongCents() {                // 2.9% in integer cents, rounded half up
+    public long wordsByScan() {                 // walks the characters and counts where words start
         long total = 0;
-        for (long c : cents) total += (c * 29 + 500) / 1000;
+        for (String line : lines) {
+            boolean inWord = false;
+            for (int i = 0; i < line.length(); i++) {
+                boolean letter = line.charAt(i) != ' ';
+                if (letter && !inWord) total++;
+                inWord = letter;
+            }
+        }
         return total;
     }
 
     public static void main(String[] args) throws Exception {
         var options = new OptionsBuilder()
-                .include(MoneyBench.class.getName())
+                .include(WordCountBench.class.getName())
                 .addProfiler(GCProfiler.class)      // the same as -prof gc on the command line
                 .verbosity(VerboseMode.SILENT)
                 .build();

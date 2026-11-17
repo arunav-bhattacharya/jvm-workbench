@@ -2,7 +2,8 @@ package workbench.performance.l04
 
 import kotlin.concurrent.thread
 
-// Kotlin twin of FalseSharingDemo.java: two threads, each incrementing its OWN volatile counter.
+// Kotlin twin of FalseSharingDemo.java: two threads, each incrementing its OWN volatile counter
+// (documents parsed, reports written).
 // Run 1: the counters sit next to each other. Run 2: they are padded apart (KPadded from LayoutDemo.kt).
 // Whether you see a difference depends on your CPU and where the OS puts the threads.
 
@@ -19,10 +20,10 @@ private fun timeTwo(a: () -> Unit, b: () -> Unit): Long {
 fun main() {
     for (round in 1..3) {
         val adj = KAdjacent()
-        val msAdjacent = timeTwo({ repeat(N) { adj.card++ } }, { repeat(N) { adj.sepa++ } })
+        val msAdjacent = timeTwo({ repeat(N) { adj.parsed++ } }, { repeat(N) { adj.written++ } })
         val pad = KPadded()
-        val msPadded = timeTwo({ repeat(N) { pad.card++ } }, { repeat(N) { pad.sepa++ } })
+        val msPadded = timeTwo({ repeat(N) { pad.parsed++ } }, { repeat(N) { pad.written++ } })
         println("round %d: adjacent %,5d ms   padded %,5d ms   (counts %d/%d, %d/%d)"
-            .format(round, msAdjacent, msPadded, adj.card, adj.sepa, pad.card, pad.sepa))
+            .format(round, msAdjacent, msPadded, adj.parsed, adj.written, pad.parsed, pad.written))
     }
 }

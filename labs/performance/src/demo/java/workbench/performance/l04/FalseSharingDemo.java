@@ -1,22 +1,23 @@
 package workbench.performance.l04;
 
 /**
- * Two threads, each incrementing its OWN volatile counter 25 million times.
+ * Two threads, each incrementing its OWN volatile counter 25 million times: one counts the
+ * documents the report service has parsed, the other the reports it has written.
  * Run 1: the two counters sit next to each other. Run 2: they are padded apart.
  * Whether you see a difference depends on your CPU and where the OS puts the threads.
  */
 public class FalseSharingDemo {
     // the two counters in one 32-byte object: almost certainly on the same 64-byte cache line
     static final class Adjacent {
-        volatile long card;
-        volatile long sepa;
+        volatile long parsed;
+        volatile long written;
     }
 
-    // superclass fields come first, so the padding class sits between card and sepa
-    static class CardField { volatile long card; }
-    static class Pad1 extends CardField { long p1, p2, p3, p4, p5, p6, p7, p8; }
-    static class SepaField extends Pad1 { volatile long sepa; }
-    static final class Padded extends SepaField { long q1, q2, q3, q4, q5, q6, q7, q8; }
+    // superclass fields come first, so the padding class sits between parsed and written
+    static class ParsedField { volatile long parsed; }
+    static class Pad1 extends ParsedField { long p1, p2, p3, p4, p5, p6, p7, p8; }
+    static class WrittenField extends Pad1 { volatile long written; }
+    static final class Padded extends WrittenField { long q1, q2, q3, q4, q5, q6, q7, q8; }
 
     static final int N = 25_000_000;
 
@@ -31,13 +32,13 @@ public class FalseSharingDemo {
     public static void main(String[] args) throws InterruptedException {
         for (int round = 1; round <= 3; round++) {
             Adjacent adj = new Adjacent();
-            long msAdjacent = run(() -> { for (int i = 0; i < N; i++) adj.card++; },
-                                  () -> { for (int i = 0; i < N; i++) adj.sepa++; });
+            long msAdjacent = run(() -> { for (int i = 0; i < N; i++) adj.parsed++; },
+                                  () -> { for (int i = 0; i < N; i++) adj.written++; });
             Padded pad = new Padded();
-            long msPadded = run(() -> { for (int i = 0; i < N; i++) pad.card++; },
-                                () -> { for (int i = 0; i < N; i++) pad.sepa++; });
+            long msPadded = run(() -> { for (int i = 0; i < N; i++) pad.parsed++; },
+                                () -> { for (int i = 0; i < N; i++) pad.written++; });
             System.out.printf("round %d: adjacent %,5d ms   padded %,5d ms   (counts %d/%d, %d/%d)%n",
-                    round, msAdjacent, msPadded, adj.card, adj.sepa, pad.card, pad.sepa);
+                    round, msAdjacent, msPadded, adj.parsed, adj.written, pad.parsed, pad.written);
         }
     }
 }

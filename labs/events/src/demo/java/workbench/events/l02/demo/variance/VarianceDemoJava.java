@@ -19,7 +19,7 @@ public class VarianceDemoJava {
         private final List<Map.Entry<Class<?>, Handler<ParcelEvent>>> handlers = new ArrayList<>();
 
         // Step 2: change Handler<? super E> to Handler<E> and run again.
-        <E extends ParcelEvent> void subscribe(Class<E> type, Handler<E> handler) {
+        <E extends ParcelEvent> void subscribe(Class<E> type, Handler<? super E> handler) {
             handlers.add(Map.entry(type, event -> handler.handle(type.cast(event))));
         }
 

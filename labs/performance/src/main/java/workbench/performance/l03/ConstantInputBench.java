@@ -12,19 +12,22 @@ import org.openjdk.jmh.annotations.Warmup;
 
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Broken benchmark 2 of 3. It returns its result, and it still measures almost nothing.
+ * Make the input something neither javac nor the JIT can know in advance.
+ * Keep the field name: the test sets it to other word counts.
+ */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(2)
-public class ConstantFeeBench {
-    // not final: a final field with a constant initializer is copied into fee() by javac,
-    // and then the JIT folds the whole calculation into one number
-    long amountCents = 123_456;
+public class ConstantInputBench {
+    private final long words = 1_234;   // your IDE suggests final here
 
     @Benchmark
-    public long fee() {
-        return FeeMath.feeCents(amountCents);
+    public long seconds() {
+        return ReadingMath.readingSeconds(words);
     }
 }

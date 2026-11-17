@@ -30,9 +30,9 @@ public class ColdBatchBench {
     }
 
     @Benchmark
-    public long totalFees() {
+    public long totalSeconds() {
         long total = 0;
-        for (long cents : batch) total += FeeMath.feeCents(cents);
+        for (long words : batch) total += ReadingMath.readingSeconds(words);
         return total;
     }
 }

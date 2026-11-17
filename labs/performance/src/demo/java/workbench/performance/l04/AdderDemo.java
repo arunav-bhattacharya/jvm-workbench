@@ -4,7 +4,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
-/** Four threads count 10 million requests each, into one AtomicLong and then into one LongAdder. */
+/** Four threads count 10 million report requests each, into one AtomicLong and then into one LongAdder. */
 public class AdderDemo {
     static final int THREADS = 4, PER_THREAD = 10_000_000;
 

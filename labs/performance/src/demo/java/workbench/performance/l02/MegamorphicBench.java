@@ -29,29 +29,28 @@ import java.util.concurrent.TimeUnit;
 @Measurement(iterations = 3, time = 200, timeUnit = TimeUnit.MILLISECONDS)
 @Fork(1)
 public class MegamorphicBench {
-    interface FeeRule { long fee(long cents); }
-    static final class Card implements FeeRule { public long fee(long c) { return c * 29 / 1000 + 30; } }
-    static final class Sepa implements FeeRule { public long fee(long c) { return 35; } }
-    static final class Wallet implements FeeRule { public long fee(long c) { return c * 15 / 1000 + 10; } }
-    static final class Bnpl implements FeeRule { public long fee(long c) { return c * 45 / 1000; } }
+    interface Block { long millis(); }   // how long one block of a document takes to read
+    record Paragraph(long words) implements Block { public long millis() { return words * 250; } }
+    record Heading(long words) implements Block { public long millis() { return 1_000 + words * 400; } }
+    record Quote(long words) implements Block { public long millis() { return words * 300; } }
+    record Caption(long words) implements Block { public long millis() { return 500 + words * 200; } }
 
     @Param({"1", "2", "3"})
     int types;
 
-    FeeRule[] rules;
-    long amountCents = 12_345;   // not final: lesson 3 explains why
+    Block[] blocks;              // not final, and filled in @Setup: lesson 3 explains why
 
     @Setup
     public void setup() {
-        FeeRule[] kinds = {new Card(), new Sepa(), new Wallet(), new Bnpl()};
-        rules = new FeeRule[1024];
-        for (int i = 0; i < rules.length; i++) rules[i] = kinds[i % types];
+        Block[] kinds = {new Paragraph(42), new Heading(6), new Quote(30), new Caption(12)};
+        blocks = new Block[1024];
+        for (int i = 0; i < blocks.length; i++) blocks[i] = kinds[i % types];
     }
 
     @Benchmark
-    public long feesForBatch() {
+    public long readingMillis() {
         long sum = 0;
-        for (FeeRule r : rules) sum += r.fee(amountCents);   // the call site under test
+        for (Block b : blocks) sum += b.millis();            // the call site under test
         return sum;                                          // returned, so JMH consumes it
     }
 
@@ -61,7 +60,7 @@ public class MegamorphicBench {
                 .verbosity(VerboseMode.SILENT);
         if (args.length > 0) builder.param("types", args);   // for example -Pargs='1 3 4'
         var options = builder.build();
-        System.out.println("types at the call site -> ns per batch of 1,024 fees");
+        System.out.println("types at the call site -> ns per document of 1,024 blocks");
         for (RunResult r : new Runner(options).run()) {
             var s = r.getPrimaryResult();
             System.out.printf("  %s type(s): %8.1f ns  (+/- %.1f)%n",

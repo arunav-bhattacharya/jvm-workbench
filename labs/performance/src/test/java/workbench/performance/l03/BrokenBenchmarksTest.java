@@ -32,39 +32,39 @@ class BrokenBenchmarksTest {
     }
 
     @Test
-    @DisplayName("DeadFeeBench.fee hands its result to JMH, by returning it or by using a Blackhole")
-    void deadFeeSinksItsResult() throws Exception {
-        Method fee = benchmarkMethod(DeadFeeBench.class, "fee");
-        boolean returns = fee.getReturnType() != void.class;
-        boolean blackhole = Arrays.asList(fee.getParameterTypes()).contains(Blackhole.class);
+    @DisplayName("DeadResultBench.seconds hands its result to JMH, by returning it or by using a Blackhole")
+    void deadResultIsConsumed() throws Exception {
+        Method seconds = benchmarkMethod(DeadResultBench.class, "seconds");
+        boolean returns = seconds.getReturnType() != void.class;
+        boolean blackhole = Arrays.asList(seconds.getParameterTypes()).contains(Blackhole.class);
         assertThat(returns || blackhole)
-                .as("fee() throws its result away, so the JIT may remove the calculation")
+                .as("seconds() throws its result away, so the JIT may remove the calculation")
                 .isTrue();
-        if (returns && fee.getParameterCount() == 0) {
-            assertThat(fee.invoke(new DeadFeeBench())).isEqualTo(FeeMath.feeCents(123_456));
+        if (returns && seconds.getParameterCount() == 0) {
+            assertThat(seconds.invoke(new DeadResultBench())).isEqualTo(ReadingMath.readingSeconds(1_234));
         }
     }
 
     @Test
-    @DisplayName("ConstantFeeBench reads its input from a non-final instance field")
-    void constantFeeInputIsNotFinal() throws Exception {
-        Field amount = ConstantFeeBench.class.getDeclaredField("amountCents");
-        assertThat(Modifier.isStatic(amount.getModifiers())).as("amountCents is static").isFalse();
-        assertThat(Modifier.isFinal(amount.getModifiers()))
-                .as("amountCents is final, so javac copies 123456 into fee() and the JIT can fold the whole call")
+    @DisplayName("ConstantInputBench reads its input from a non-final instance field")
+    void constantInputIsNotFinal() throws Exception {
+        Field words = ConstantInputBench.class.getDeclaredField("words");
+        assertThat(Modifier.isStatic(words.getModifiers())).as("words is static").isFalse();
+        assertThat(Modifier.isFinal(words.getModifiers()))
+                .as("words is final, so javac copies 1234 into seconds() and the JIT can fold the whole call")
                 .isFalse();
     }
 
     @Test
-    @DisplayName("ConstantFeeBench.fee follows its input when the field changes")
-    void constantFeeFollowsItsInput() throws Exception {
-        Field amount = ConstantFeeBench.class.getDeclaredField("amountCents");
-        assertThat(Modifier.isFinal(amount.getModifiers())).as("amountCents must not be final").isFalse();
-        amount.setAccessible(true);
-        ConstantFeeBench bench = new ConstantFeeBench();
-        for (long cents : new long[] {5_000, 99, 1_000_000}) {
-            amount.setLong(bench, cents);
-            assertThat(bench.fee()).as("fee() with amountCents = " + cents).isEqualTo(FeeMath.feeCents(cents));
+    @DisplayName("ConstantInputBench.seconds follows its input when the field changes")
+    void constantInputIsFollowed() throws Exception {
+        Field words = ConstantInputBench.class.getDeclaredField("words");
+        assertThat(Modifier.isFinal(words.getModifiers())).as("words must not be final").isFalse();
+        words.setAccessible(true);
+        ConstantInputBench bench = new ConstantInputBench();
+        for (long count : new long[] {5_000, 99, 1_000_000}) {
+            words.setLong(bench, count);
+            assertThat(bench.seconds()).as("seconds() with words = " + count).isEqualTo(ReadingMath.readingSeconds(count));
         }
     }
 
@@ -83,10 +83,10 @@ class BrokenBenchmarksTest {
             setup.invoke(bench);
         }
         long expected = 0;
-        for (long cents : Fixtures.batch(1_000)) expected += FeeMath.feeCents(cents);
+        for (long words : Fixtures.batch(1_000)) expected += ReadingMath.readingSeconds(words);
 
         Fixtures.BUILDS.set(0);
-        for (int i = 0; i < 50; i++) assertThat(bench.totalFees()).isEqualTo(expected);
+        for (int i = 0; i < 50; i++) assertThat(bench.totalSeconds()).isEqualTo(expected);
         assertThat(Fixtures.BUILDS.get()).as("batches built during 50 measured calls").isZero();
     }
 
@@ -112,8 +112,8 @@ class BrokenBenchmarksTest {
             }
         }
         assertThat(list.toString()).contains(
-                "workbench.performance.l03.DeadFeeBench",
-                "workbench.performance.l03.ConstantFeeBench",
+                "workbench.performance.l03.DeadResultBench",
+                "workbench.performance.l03.ConstantInputBench",
                 "workbench.performance.l03.ColdBatchBench");
     }
 }

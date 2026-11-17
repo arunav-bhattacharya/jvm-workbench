@@ -10,29 +10,29 @@ import java.util.TreeSet;
  * JVM starts with -XX:+PrintInlining and the demo lists the intrinsic decisions for them.
  */
 public class IntrinsicsDemo {
-    static long totalCents(long[] cents) {
+    static long totalWords(long[] words) {
         long sum = 0;
-        for (long c : cents) sum = Math.addExact(sum, c);   // throws on overflow instead of wrapping
+        for (long w : words) sum = Math.addExact(sum, w);    // throws on overflow instead of wrapping
         return sum;
     }
 
-    static boolean sameKey(byte[] a, byte[] b) {
+    static boolean sameText(byte[] a, byte[] b) {
         return Arrays.equals(a, b);                          // compares many bytes per step
     }
 
-    static int riskFlags(long mask) {
-        return Long.bitCount(mask);                          // one POPCNT instruction on x86
+    static int stylesOn(long styleBits) {
+        return Long.bitCount(styleBits);                     // one POPCNT instruction on x86
     }
 
     static void work() {
-        long[] cents = new long[1_000];
-        Arrays.fill(cents, 1_999);
-        byte[] k1 = new byte[64], k2 = new byte[64];
+        long[] words = new long[1_000];                      // the word counts of 1,000 documents
+        Arrays.fill(words, 1_999);
+        byte[] t1 = new byte[64], t2 = new byte[64];         // two texts, as bytes
         long s = 0;
         for (int i = 0; i < 200_000; i++) {
-            s += totalCents(cents);
-            if (sameKey(k1, k2)) s++;
-            s += riskFlags(i);
+            s += totalWords(words);
+            if (sameText(t1, t2)) s++;
+            s += stylesOn(i);                                // bold, italic, ...: one bit per style
         }
         System.out.println("checksum " + s);
     }

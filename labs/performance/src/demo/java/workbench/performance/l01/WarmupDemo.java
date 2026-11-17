@@ -4,20 +4,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Times the same batch of fee calculations 12 times in a row.
+ * Times the same batch of 20,000 reading-time calculations 12 times in a row.
  * No argument: normal tiered JVM. "int": interpreter only (-Xint). "c1": stop at C1 (-XX:TieredStopAtLevel=1).
  */
 public class WarmupDemo {
-    static final long[] AMOUNTS = new long[20_000];
+    static final long[] WORDS = new long[20_000];   // the word counts of 20,000 documents
 
-    // 2.9% + 30 cents, rounded half up, in cents
-    static long feeCents(long amountCents) {
-        return (amountCents * 29 + 500) / 1000 + 30;
+    // seconds to read a document at 238 words a minute, rounded up
+    static long readingSeconds(long words) {
+        return (words * 60 + 237) / 238;
     }
 
     static long batch() {
         long total = 0;
-        for (long a : AMOUNTS) total += feeCents(a);
+        for (long w : WORDS) total += readingSeconds(w);
         return total;
     }
 
@@ -26,7 +26,7 @@ public class WarmupDemo {
         if (mode.equals("int")) { relaunch("-Xint"); return; }
         if (mode.equals("c1")) { relaunch("-XX:TieredStopAtLevel=1"); return; }
 
-        for (int i = 0; i < AMOUNTS.length; i++) AMOUNTS[i] = 500 + (i * 7919L) % 250_000;
+        for (int i = 0; i < WORDS.length; i++) WORDS[i] = 50 + (i * 7919L) % 25_000;
         long check = 0;
         for (int round = 1; round <= 12; round++) {
             long t0 = System.nanoTime();

@@ -18,11 +18,13 @@ import java.util.concurrent.TimeUnit;
 @Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(2)
-public class DeadFeeBench {
-    long amountCents = 123_456;
+public class ConstantInputBench {
+    // not final: a final field with a constant initializer is copied into seconds() by javac,
+    // and then the JIT folds the whole calculation into one number
+    long words = 1_234;
 
     @Benchmark
-    public long fee() {
-        return FeeMath.feeCents(amountCents);   // returned, so JMH consumes it and the JIT can't drop it
+    public long seconds() {
+        return ReadingMath.readingSeconds(words);
     }
 }

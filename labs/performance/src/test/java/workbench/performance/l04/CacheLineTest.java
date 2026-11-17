@@ -36,25 +36,25 @@ class CacheLineTest {
     }
 
     @Test
-    @DisplayName("SettlementCounters keeps card and sepa at least 64 bytes apart (real offsets, read with JOL)")
+    @DisplayName("StageCounters keeps parsed and written at least 64 bytes apart (real offsets, read with JOL)")
     void countersAreOnDifferentLines() {
-        long card = offsetOf(SettlementCounters.class, "card");
-        long sepa = offsetOf(SettlementCounters.class, "sepa");
+        long parsed = offsetOf(StageCounters.class, "parsed");
+        long written = offsetOf(StageCounters.class, "written");
         // a distance, not absolute offsets: object headers differ between JDKs and flags
-        assertThat(Math.abs(sepa - card)).as("bytes between card (at %d) and sepa (at %d)", card, sepa)
+        assertThat(Math.abs(written - parsed)).as("bytes between parsed (at %d) and written (at %d)", parsed, written)
                 .isGreaterThanOrEqualTo(CACHE_LINE);
     }
 
     @Test
-    @DisplayName("SettlementCounters still counts exactly with one writer thread per counter")
-    void settlementCountsAreExact() throws InterruptedException {
-        SettlementCounters c = new SettlementCounters();
-        Thread cards = new Thread(() -> { for (int i = 0; i < 1_000_000; i++) c.addCard(); });
-        Thread sepas = new Thread(() -> { for (int i = 0; i < 1_000_000; i++) c.addSepa(); });
-        cards.start(); sepas.start();
-        cards.join(); sepas.join();
-        assertThat(c.card()).isEqualTo(1_000_000);
-        assertThat(c.sepa()).isEqualTo(1_000_000);
+    @DisplayName("StageCounters still counts exactly with one writer thread per counter")
+    void stageCountsAreExact() throws InterruptedException {
+        StageCounters c = new StageCounters();
+        Thread parser = new Thread(() -> { for (int i = 0; i < 1_000_000; i++) c.addParsed(); });
+        Thread writer = new Thread(() -> { for (int i = 0; i < 1_000_000; i++) c.addWritten(); });
+        parser.start(); writer.start();
+        parser.join(); writer.join();
+        assertThat(c.parsed()).isEqualTo(1_000_000);
+        assertThat(c.written()).isEqualTo(1_000_000);
     }
 
     @Test
@@ -66,10 +66,10 @@ class CacheLineTest {
     }
 
     @Test
-    @DisplayName("RequestMetrics adds up every amount when 8 threads record at once")
+    @DisplayName("RequestMetrics adds up every word count when 8 threads record at once")
     void metricsTotalIsExact() throws InterruptedException {
         RequestMetrics m = new RequestMetrics();
         together(8, () -> { for (int i = 0; i < 200_000; i++) m.record(250); });
-        assertThat(m.totalCents()).as("total cents").isEqualTo(8 * 200_000L * 250);
+        assertThat(m.totalWords()).as("total words").isEqualTo(8 * 200_000L * 250);
     }
 }

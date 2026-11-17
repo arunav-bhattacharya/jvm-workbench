@@ -13,8 +13,8 @@ import org.openjdk.jmh.annotations.Warmup;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Broken benchmark 1 of 3. It reports a fee calculation that costs about as much as an empty
- * method. Find out why, and fix it so the JIT has to do the work it claims to measure.
+ * Broken benchmark 1 of 3. It reports a reading-time calculation that costs about as much as an
+ * empty method. Find out why, and fix it so the JIT has to do the work it claims to measure.
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -22,11 +22,11 @@ import java.util.concurrent.TimeUnit;
 @Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(2)
-public class DeadFeeBench {
-    long amountCents = 123_456;
+public class DeadResultBench {
+    long words = 1_234;
 
     @Benchmark
-    public void fee() {
-        FeeMath.feeCents(amountCents);
+    public void seconds() {
+        ReadingMath.readingSeconds(words);
     }
 }

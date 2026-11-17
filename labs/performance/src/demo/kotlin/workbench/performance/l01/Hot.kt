@@ -4,18 +4,19 @@ package workbench.performance.l01
 // Run without arguments: it starts a second JVM with -XX:+PrintCompilation and prints the lines
 // about this file's classes. Pass "all" to see every line.
 
-interface KShape { fun area(): Double }
-class KSquare(private val s: Double) : KShape { override fun area() = s * s }
-class KCircle(private val r: Double) : KShape { override fun area() = Math.PI * r * r }
-class KTri(private val b: Double, private val h: Double) : KShape { override fun area() = 0.5 * b * h }
+// a document is a list of blocks, and each kind of block knows how long it takes to read
+interface KBlock { fun millis(): Long }
+class KParagraph(private val words: Long) : KBlock { override fun millis() = words * 250 }       // 4 words a second
+class KHeading(private val words: Long) : KBlock { override fun millis() = 1_000 + words * 400 } // a pause, then slower
+class KQuote(private val words: Long) : KBlock { override fun millis() = words * 300 }           // a little slower
 
-fun total(shapes: Array<KShape>): Double {
-    var sum = 0.0
-    for (s in shapes) sum += s.area()        // one call site: first only squares, later three types
+fun readingMillis(blocks: Array<KBlock>): Long {
+    var sum = 0L
+    for (b in blocks) sum += b.millis()      // one call site: first only paragraphs, later three types
     return sum
 }
 
-fun longLoop(): Long {                       // called once, but the loop runs 50 million times: OSR
+fun longLoop(): Long {      // called once, but its loop runs 50 million times, like one pass over a huge book: OSR
     var acc = 0L
     for (i in 0 until 50_000_000) acc += (i xor (i ushr 3))
     return acc
@@ -23,13 +24,13 @@ fun longLoop(): Long {                       // called once, but the loop runs 5
 
 fun work() {
     println(longLoop())
-    val squares = Array<KShape>(1000) { KSquare(it.toDouble()) }
-    var r = 0.0
-    repeat(20_000) { r += total(squares) }   // only KSquare seen so far
+    val article = Array<KBlock>(1000) { KParagraph(it.toLong()) }
+    var r = 0L
+    repeat(20_000) { r += readingMillis(article) }   // only KParagraph seen so far
     val mixed = Array(999) {
-        when (it % 3) { 0 -> KSquare(it.toDouble()); 1 -> KCircle(it.toDouble()); else -> KTri(it.toDouble(), it.toDouble()) }
+        when (it % 3) { 0 -> KParagraph(it.toLong()); 1 -> KHeading(it.toLong()); else -> KQuote(it.toLong()) }
     }
-    repeat(20_000) { r += total(mixed) }     // two new types reach the same call site
+    repeat(20_000) { r += readingMillis(mixed) }     // two new types reach the same call site
     println(r)
 }
 

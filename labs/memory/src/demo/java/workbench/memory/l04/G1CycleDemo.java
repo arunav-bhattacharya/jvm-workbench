@@ -31,7 +31,7 @@ public class G1CycleDemo {
             if (!m.find() || line.endsWith("Cycle")) continue;     // skip the "cycle started" half of a pair
             counts.merge(m.group(1), 1, Integer::sum);
             firstLine.putIfAbsent(m.group(1), line);
-            if (line.contains("(Evacuation Failure)")) evacuationFailures++;
+            if (line.contains("(Evacuation Failure")) evacuationFailures++;   // JDK 25 adds a reason: "(Evacuation Failure: Allocation)"
         }
         counts.forEach((kind, n) -> System.out.printf("%4d x %s%n", n, kind));
         System.out.println(evacuationFailures + " pauses had an evacuation failure");

@@ -4,8 +4,8 @@ package workbench.performance.l01
  * One line of `-XX:+PrintCompilation` output, for example
  *
  * ```
- * 40   10 %     4       workbench.performance.l01.Hot::longLoop @ 4 (27 bytes)
- * 60   27       4       workbench.performance.l01.Hot::total (42 bytes)   made not entrant: uncommon trap
+ * 76   10 %     4       workbench.performance.l01.Hot::longLoop @ 4 (27 bytes)
+ * 309   24       4       workbench.performance.l01.Hot::readingMillis (42 bytes)   made not entrant: uncommon trap
  * ```
  */
 data class CompileEvent(

@@ -1,16 +1,16 @@
 package workbench.performance.l01
 
-// Kotlin twin of WarmupDemo.java: times the same batch of fee calculations 12 times in a row.
+// Kotlin twin of WarmupDemo.java: times the same batch of 20,000 reading-time calculations 12 times in a row.
 // No argument: normal tiered JVM. "int": interpreter only (-Xint). "c1": stop at C1 (-XX:TieredStopAtLevel=1).
 
-private val amounts = LongArray(20_000)
+private val words = LongArray(20_000)       // the word counts of 20,000 documents
 
-// 2.9% + 30 cents, rounded half up, in cents
-fun feeCents(amountCents: Long): Long = (amountCents * 29 + 500) / 1000 + 30
+// seconds to read a document at 238 words a minute, rounded up
+fun readingSeconds(words: Long): Long = (words * 60 + 237) / 238
 
 fun batch(): Long {
     var total = 0L
-    for (a in amounts) total += feeCents(a)
+    for (w in words) total += readingSeconds(w)
     return total
 }
 
@@ -19,7 +19,7 @@ fun main(args: Array<String>) {
         "int" -> return relaunch("-Xint")
         "c1" -> return relaunch("-XX:TieredStopAtLevel=1")
     }
-    for (i in amounts.indices) amounts[i] = 500 + (i * 7919L) % 250_000
+    for (i in words.indices) words[i] = 50 + (i * 7919L) % 25_000
     var check = 0L
     for (round in 1..12) {
         val t0 = System.nanoTime()

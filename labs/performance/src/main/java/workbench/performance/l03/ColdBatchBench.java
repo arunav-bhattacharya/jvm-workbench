@@ -13,9 +13,9 @@ import org.openjdk.jmh.annotations.Warmup;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Broken benchmark 3 of 3. It should measure summing the fees of a 1,000-payment batch.
- * It measures something else, in a JVM that isn't warmed up and isn't fresh.
- * Fix both problems. Keep {@code totalFees()} returning the sum.
+ * Broken benchmark 3 of 3. It should measure adding up the reading times of a 1,000-document
+ * batch. It measures something else, in a JVM that isn't warmed up and isn't fresh.
+ * Fix both problems. Keep {@code totalSeconds()} returning the sum.
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -27,10 +27,10 @@ public class ColdBatchBench {
     int size = 1_000;
 
     @Benchmark
-    public long totalFees() {
+    public long totalSeconds() {
         long[] batch = Fixtures.batch(size);
         long total = 0;
-        for (long cents : batch) total += FeeMath.feeCents(cents);
+        for (long words : batch) total += ReadingMath.readingSeconds(words);
         return total;
     }
 }

@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.LongAdder
 import kotlin.concurrent.thread
 
-// Kotlin twin of AdderDemo.java: four threads count 10 million requests each,
+// Kotlin twin of AdderDemo.java: four threads count 10 million report requests each,
 // into one AtomicLong and then into one LongAdder.
 
 private const val THREADS = 4

@@ -98,6 +98,13 @@ class Narrated(VoiceScene):
         self.play(FadeOut(tag), run_time=0.3)
 
 
+def clerk(color, s=1.0):
+    """A clerk, as in the first lesson's back room: a round head over a half-disc of shoulders."""
+    body = Sector(radius=0.38, angle=PI, start_angle=0).set_fill(color, 1).set_stroke(width=0)
+    head = Circle(radius=0.19).set_fill(color, 1).set_stroke(width=0).next_to(body, UP, buff=0.07)
+    return VGroup(body, head).scale(s)
+
+
 def dim(color, k=0.14):
     return interpolate_color(ManimColor("#000000"), ManimColor(color), k)
 
@@ -152,6 +159,24 @@ def bell_icon():
     knob = Dot([0, 0.47, 0], radius=0.07, color=BELL)
     clap = Dot([0, -0.4, 0], radius=0.08, color=BELL)
     return VGroup(body, knob, clap).scale(0.6)
+
+
+def to(c, op, shift=ORIGIN, pos=None):
+    """Move a chip and dim (or undim) it, keeping its light fill."""
+    c.generate_target()
+    if pos is not None:
+        c.target.move_to(pos)
+    c.target.shift(shift)
+    c.target[0].set_stroke(opacity=op).set_fill(opacity=0.18 * op)
+    c.target[1].set_opacity(op)
+    return MoveToTarget(c)
+
+
+def fork_icon(angle):
+    handle = Line(DOWN * 0.22, UP * 0.08).set_stroke(GREY_A, 3.5)
+    head = Line(LEFT * 0.08 + UP * 0.08, RIGHT * 0.08 + UP * 0.08).set_stroke(GREY_A, 3.5)
+    tines = VGroup(*[Line([x, 0.08, 0], [x, 0.24, 0]).set_stroke(GREY_A, 3) for x in (-0.08, 0, 0.08)])
+    return VGroup(handle, head, tines).rotate(angle - PI / 2)
 
 
 def note(i, *parts):
@@ -245,7 +270,7 @@ class Conc12Classic(Narrated):
         self.say("close")
         self.play(FadeOut(bp), FadeOut(cap), run_time=0.3)
         self.at_text("The waiters", lead=0.3)
-        self.play(*[w.animate.set_opacity(0.25) for w in waiters], prod.animate.set_opacity(0.25),
+        self.play(*[to(w, 0.25) for w in waiters], prod.animate.set_opacity(0.25),
                   FadeOut(put_l), run_time=0.6)
         while len(on_rail) > 1:
             take(cooks[len(on_rail) % 3], rt=0.4)
@@ -291,7 +316,7 @@ class Conc12Classic(Narrated):
         self.at_text("stop, right now", lead=0.3)
         self.play(*[Flash(c.get_left(), color=BAD, flash_radius=0.35) for c in cooks], FadeIn(zap), run_time=0.7)
         self.at(2)
-        self.play(*[c.animate.shift(RIGHT * 0.3).set_opacity(0.2) for c in cooks], FadeOut(zap), run_time=0.7)
+        self.play(*[to(c, 0.2, RIGHT * 0.3) for c in cooks], FadeOut(zap), run_time=0.7)
         self.play(*[Indicate(t, color=BAD) for t in on_rail], run_time=0.8)
         self.at(3)
         self.play(FadeIn(t12, shift=UP * 0.1), run_time=0.6)
@@ -302,7 +327,7 @@ class Conc12Classic(Narrated):
         clocks = VGroup(*[clock.copy().move_to(p + LEFT * 1.15) for p in CPOS])
         poll_l = M("poll(1, SECONDS)", 22, GREY_B).move_to([3.2, -0.15, 0])
         self.say("poll")
-        self.play(FadeOut(t12), *[c.animate.shift(LEFT * 0.3).set_opacity(1) for c in cooks], run_time=0.5)
+        self.play(FadeOut(t12), *[to(c, 1, LEFT * 0.3) for c in cooks], run_time=0.5)
         self.play(FadeIn(clocks), FadeIn(poll_l), run_time=0.5)
         self.play(*[Rotate(c[1], -TAU, about_point=c[0].get_center()) for c in clocks], run_time=1.2)
         self.at(1)
@@ -335,7 +360,7 @@ class Conc12Classic(Narrated):
         out2 = note(1, M("cooks still waiting: 2 (WAITING in take)", 22, BAD))
         self.say("show1")
         take(cooks[1], rt=0.5, keep=True)
-        self.play(FadeOut(p1), cooks[1].animate.shift(RIGHT * 0.3).set_opacity(0.2), FadeIn(out1), run_time=0.6)
+        self.play(FadeOut(p1), to(cooks[1], 0.2, RIGHT * 0.3), FadeIn(out1), run_time=0.6)
         self.at(2)
         self.play(cooks[0].animate.move_to(SEATS[0]), cooks[2].animate.move_to(SEATS[2]), run_time=0.8)
         self.at(3)
@@ -346,7 +371,7 @@ class Conc12Classic(Narrated):
         self.hold()
 
         # ================= one pill per cook =================
-        self.play(FadeOut(VGroup(out1, out2, sd)), *[c.animate.move_to(p).set_opacity(1) for c, p in zip(cooks, CPOS)],
+        self.play(FadeOut(VGroup(out1, out2, sd)), *[to(c, 1, pos=p) for c, p in zip(cooks, CPOS)],
                   run_time=0.7)
         pills = [pill() for _ in range(3)]
         outs = [note(0, M("cook-1 got its pill after 511 orders", 22, GREY_A)),
@@ -362,7 +387,7 @@ class Conc12Classic(Narrated):
         take(cooks[0], rt=0.35)
         for ci, o in zip((1, 2, 0), outs):
             t = take(cooks[ci], rt=0.4, keep=True)
-            self.play(FadeOut(t), cooks[ci].animate.set_opacity(0.25), FadeIn(o), run_time=0.45)
+            self.play(FadeOut(t), to(cooks[ci], 0.25), FadeIn(o), run_time=0.45)
         self.at(2)
         self.play(FadeIn(tot[0]), run_time=0.5)
         self.at(3)
@@ -384,6 +409,7 @@ class Conc12Classic(Narrated):
         self.hold()
 
         fake = ticket("PILL").scale(1.3).move_to([-1.3, -0.15, 0])
+        fake[1].become(M("PILL", 22).scale(1.3).move_to(fake[0]))
         real = pill().scale(1.3).move_to([1.3, -0.15, 0])
         eq = M("ticket == PILL ?", 24, GREY_A).move_to([0, 0.75, 0])
         no = VGroup(tick(False, 0.14), T("not the pill: cook it", 22, GOOD)).arrange(RIGHT, buff=0.15).next_to(fake, DOWN, buff=0.2)
@@ -401,9 +427,9 @@ class Conc12Classic(Narrated):
         # ================= the other two classics =================
         TC = np.array([-3.3, 0.4, 0])
         table = Circle(radius=1.15).set_stroke(GREY_A, 3).set_fill(dim(GREY_B, 0.12), 1).move_to(TC)
-        phils = VGroup(*[Dot(radius=0.2, color=TEAL_M).move_to(on_circle(TC, 1.65, 90 + 72 * k)) for k in range(5)])
-        forks = VGroup(*[Line(on_circle(TC, 0.7, 90 + 72 * k + 36), on_circle(TC, 1.05, 90 + 72 * k + 36))
-                         .set_stroke(GREY_A, 4) for k in range(5)])
+        phils = VGroup(*[clerk(TEAL_M, 0.45).move_to(on_circle(TC, 1.6, 90 + 72 * k)) for k in range(5)])
+        forks = VGroup(*[fork_icon(np.radians(90 + 72 * k + 36)).move_to(on_circle(TC, 0.8, 90 + 72 * k + 36))
+                         for k in range(5)])
         circ = VGroup(*[CurvedArrow(on_circle(TC, 2.05, 90 + 72 * k + 8), on_circle(TC, 2.05, 90 + 72 * k + 64),
                                     angle=-0.5, color=BAD, stroke_width=3) for k in range(5)])
         meals0 = VGroup(T("0 of 1,000 meals", 24, BAD), T("one lock order: 1,000", 24, GOOD)).arrange(DOWN, buff=0.15)

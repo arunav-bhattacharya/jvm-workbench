@@ -20,7 +20,7 @@ fun main(args: Array<String>) {
         if (kind == null || line.endsWith("Cycle")) null else kind to line   // skip the "cycle started" half
     }
     events.groupingBy { it.first }.eachCount().toSortedMap().forEach { (kind, n) -> println("%4d x %s".format(n, kind)) }
-    println("${events.count { "(Evacuation Failure)" in it.second }} pauses had an evacuation failure")
+    println("${events.count { "(Evacuation Failure" in it.second }} pauses had an evacuation failure")   // JDK 25 adds a reason after a colon
     println()
     events.distinctBy { it.first }.forEach { println(it.second) }                    // in the order they first happened
 }
