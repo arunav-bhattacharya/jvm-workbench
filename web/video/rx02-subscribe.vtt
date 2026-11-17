@@ -1,153 +1,377 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:05.445
-Here is a small pipeline for card fees.
+00:00:02.700 --> 00:00:06.194
+At the bakery counter, you can order a cake for Saturday.
 
 2
-00:00:05.445 --> 00:00:09.668
-Take the numbers one to three, and multiply each one by 100.
+00:00:06.194 --> 00:00:10.729
+You fill in a form: one chocolate cake, two layers, happy birthday on top.
 
 3
-00:00:10.700 --> 00:00:11.918
-The line has run.
+00:00:10.729 --> 00:00:12.875
+Nothing gets baked while you write.
 
 4
-00:00:11.918 --> 00:00:14.066
-Inside map there is a counter.
+00:00:13.100 --> 00:00:15.576
+You can use your very best handwriting.
 
 5
-00:00:14.066 --> 00:00:16.501
-How many times has map run so far?
+00:00:15.576 --> 00:00:16.465
+Still no cake.
 
 6
-00:00:18.733 --> 00:00:19.092
-Zero.
+00:00:16.465 --> 00:00:19.894
+Baking starts when you sign the form and hand it over.
 
 7
-00:00:19.092 --> 00:00:22.032
-Building the chain ran none of your code.
+00:00:19.894 --> 00:00:23.132
+And if you never do, the oven never hears about it.
 
 8
-00:00:22.233 --> 00:00:26.119
-Flux.range made an object that knows how to count to three.
+00:00:23.833 --> 00:00:28.650
+Reactor, the library this track uses from here on, works the same way.
 
 9
-00:00:26.119 --> 00:00:30.795
-map made a second object that wraps the first and stores your function.
+00:00:28.650 --> 00:00:30.507
+It has two kinds of stream.
 
 10
-00:00:30.795 --> 00:00:32.507
-That is all assembly does.
+00:00:30.507 --> 00:00:33.535
+A Flux is many items, like a tray of loaves.
 
 11
-00:00:32.507 --> 00:00:33.759
-It writes a recipe.
+00:00:33.535 --> 00:00:36.424
+A Mono is one item or none, like one cake.
 
 12
-00:00:33.967 --> 00:00:36.811
-Now add a subscriber, and call subscribe.
+00:00:36.424 --> 00:00:39.589
+Both are publishers, the ovens from last time.
 
 13
-00:00:37.033 --> 00:00:39.024
-Which end starts moving first?
+00:00:40.300 --> 00:00:43.526
+Now, a question many of us are too shy to ask.
 
 14
-00:00:41.233 --> 00:00:42.031
-The bottom.
+00:00:43.526 --> 00:00:47.103
+In Java, a line of code does its work when it runs.
 
 15
-00:00:42.031 --> 00:00:46.527
-The subscriber subscribes to map, and map subscribes to range.
+00:00:47.103 --> 00:00:50.679
+So once the line with map has run, map has run too.
 
 16
-00:00:46.527 --> 00:00:48.123
-The signal travels up.
+00:00:50.679 --> 00:00:51.100
+Right?
 
 17
-00:00:48.333 --> 00:00:52.351
-Then a request for items travels up the same path, to the source.
+00:00:51.733 --> 00:00:52.819
+Let's test it.
 
 18
-00:00:52.567 --> 00:00:54.197
-Only now does range emit.
+00:00:52.819 --> 00:00:57.935
+Flux.range gives us the numbers 1, 2 and 3: three prices in euros.
 
 19
-00:00:54.197 --> 00:00:59.087
-Each number flows down through map, which multiplies it, to the subscriber.
+00:00:57.935 --> 00:01:01.113
+map turns each one into cents, times 100.
 
 20
-00:01:00.667 --> 00:01:03.361
-Then a completion signal follows them down.
+00:01:01.113 --> 00:01:05.221
+And inside map, a counter goes up every time it runs.
 
 21
-00:01:03.967 --> 00:01:06.075
-Now call subscribe a second time.
+00:01:05.433 --> 00:01:06.943
+The line has finished.
 
 22
-00:01:06.075 --> 00:01:08.375
-What does the second subscriber get?
+00:01:06.943 --> 00:01:08.796
+How many times has map run?
 
 23
-00:01:10.600 --> 00:01:12.883
-The whole run again, from the start.
+00:01:11.767 --> 00:01:12.125
+Zero.
 
 24
-00:01:12.883 --> 00:01:16.053
-Range counts again, and map runs three more times.
+00:01:12.125 --> 00:01:14.061
+map hasn't lifted a finger.
 
 25
-00:01:18.233 --> 00:01:21.429
-Each subscriber gets its own run, from the source.
+00:01:14.061 --> 00:01:16.928
+Building the chain ran none of our code.
 
 26
-00:01:21.429 --> 00:01:23.729
-That is what a cold publisher means.
+00:01:17.133 --> 00:01:19.001
+Here's what happened instead.
 
 27
-00:01:23.933 --> 00:01:29.337
-So if the source were a Mono that charges a card, two subscribes would be two charges.
+00:01:19.001 --> 00:01:26.794
+An operator, a method like map that adds one step, writes one more line on the order form, and hands you back a new form.
 
 28
-00:01:30.367 --> 00:01:33.316
-In code, the first statement only builds.
+00:01:26.794 --> 00:01:31.431
+So map wrapped the range in a new object, a FluxMap holding a FluxRange.
 
 29
-00:01:33.316 --> 00:01:35.258
-The subscribe line runs it.
+00:01:31.431 --> 00:01:34.072
+Our lambda is kept on the form for later.
 
 30
-00:01:35.258 --> 00:01:37.704
-Kotlin calls the same Reactor API.
+00:01:34.072 --> 00:01:36.004
+And the form isn't signed yet.
 
 31
-00:01:38.533 --> 00:01:39.174
-The rule.
+00:01:36.833 --> 00:01:37.667
+Now we sign.
 
 32
-00:01:39.174 --> 00:01:41.096
-Assembly writes the recipe.
+00:01:37.667 --> 00:01:41.348
+We call subscribe, and watch which way things travel.
 
 33
-00:01:41.096 --> 00:01:44.441
-Every subscribe runs it again, from the source.
+00:01:41.567 --> 00:01:43.631
+Our subscriber subscribes to map.
 
 34
-00:01:44.667 --> 00:01:45.651
-Check yourself.
+00:01:43.631 --> 00:01:47.322
+map makes a subscriber of its own, and subscribes to range.
 
 35
-00:01:45.651 --> 00:01:48.079
-This chain is subscribed three times.
+00:01:47.322 --> 00:01:51.451
+So the signature travels up the chain, from our end to the source.
 
 36
-00:01:48.079 --> 00:01:50.639
-How many times does map's function run?
+00:01:51.451 --> 00:01:55.204
+Then the slip from last time, request, goes up the same way.
 
 37
-00:01:53.367 --> 00:01:53.784
-Nine.
+00:01:55.433 --> 00:01:57.938
+Only now does the baking start.
 
 38
-00:01:53.784 --> 00:01:56.708
+00:01:57.938 --> 00:02:01.008
+range sends 1, 2 and 3 down the chain.
+
+39
+00:02:01.008 --> 00:02:05.693
+map runs once for each, and we get 100, 200 and 300 cents.
+
+40
+00:02:05.900 --> 00:02:07.142
+And the counter?
+
+41
+00:02:07.142 --> 00:02:07.608
+Three.
+
+42
+00:02:07.608 --> 00:02:10.869
+Zero before the signature, three after it.
+
+43
+00:02:11.100 --> 00:02:12.765
+These moments have names.
+
+44
+00:02:12.765 --> 00:02:14.896
+Filling in the form is assembly.
+
+45
+00:02:14.896 --> 00:02:19.623
+Signing it is subscription: the chain links up, and the demand goes up.
+
+46
+00:02:19.623 --> 00:02:21.288
+Then the data flows down.
+
+47
+00:02:21.288 --> 00:02:23.485
+Three passes over the same chain.
+
+48
+00:02:23.700 --> 00:02:26.677
+So the rule is: building a chain runs nothing.
+
+49
+00:02:26.677 --> 00:02:28.812
+Only a subscribe starts the work.
+
+50
+00:02:29.633 --> 00:02:32.059
+Here's a trap that follows from it.
+
+51
+00:02:32.059 --> 00:02:35.040
+Three orders come in: 5 loaves, 50 and 500.
+
+52
+00:02:35.040 --> 00:02:40.030
+We only want the big ones, so we call filter, and keep the ones over 10.
+
+53
+00:02:40.030 --> 00:02:42.248
+Then we subscribe to the orders.
+
+54
+00:02:42.248 --> 00:02:43.427
+Which ones print?
+
+55
+00:02:46.400 --> 00:02:48.122
+All three, the 5 included.
+
+56
+00:02:48.122 --> 00:02:52.494
+filter wrote a new form with the change on it, and nobody kept it.
+
+57
+00:02:52.494 --> 00:02:53.951
+We signed the old one.
+
+58
+00:02:54.167 --> 00:02:57.194
+It compiles, it runs, and it filters nothing.
+
+59
+00:02:57.194 --> 00:02:59.280
+The quietest bug in the bakery.
+
+60
+00:02:59.280 --> 00:03:03.787
+So the point is: an operator never changes the form you call it on.
+
+61
+00:03:03.787 --> 00:03:05.335
+It hands you a new one.
+
+62
+00:03:05.335 --> 00:03:07.555
+Subscribe to what filter returns.
+
+63
+00:03:08.367 --> 00:03:08.955
+One more.
+
+64
+00:03:08.955 --> 00:03:14.311
+If a signature starts the baking, what happens when the same form is signed twice?
+
+65
+00:03:14.533 --> 00:03:18.724
+The lesson's ColdDemo has a Mono that bakes a cake for order-42.
+
+66
+00:03:18.724 --> 00:03:21.867
+The code subscribes once, to write the shop log.
+
+67
+00:03:21.867 --> 00:03:23.177
+Then it calls block.
+
+68
+00:03:23.177 --> 00:03:28.939
+block is a subscribe too: it waits for the cake and hands it back, here to the customer.
+
+69
+00:03:35.400 --> 00:03:36.102
+Two cakes.
+
+70
+00:03:36.102 --> 00:03:38.279
+The shop log wrote down cake-1.
+
+71
+00:03:38.279 --> 00:03:40.738
+The customer went home with cake-2.
+
+72
+00:03:40.738 --> 00:03:42.915
+And the flour bill covers both.
+
+73
+00:03:43.133 --> 00:03:47.283
+Somewhere, an accountant is asking why one birthday needed two cakes.
+
+74
+00:03:47.283 --> 00:03:49.749
+And here's where the form picture breaks.
+
+75
+00:03:49.749 --> 00:03:52.636
+A clerk handed the same form twice would notice.
+
+76
+00:03:52.636 --> 00:03:53.779
+Reactor never does.
+
+77
+00:03:53.779 --> 00:03:57.929
+Every subscribe is a fresh signature, and the whole order runs again.
+
+78
+00:03:58.133 --> 00:04:03.129
+A publisher that does its work again for every subscriber is called cold.
+
+79
+00:04:03.129 --> 00:04:04.293
+Most of them are.
+
+80
+00:04:04.293 --> 00:04:07.373
+The fix is one chain, with the log inside it.
+
+81
+00:04:07.373 --> 00:04:10.384
+doOnNext writes the log as the cake goes by.
+
+82
+00:04:10.384 --> 00:04:13.121
+Then one block: one signature, one cake.
+
+83
+00:04:13.933 --> 00:04:15.928
+Here it is in Java and Kotlin.
+
+84
+00:04:15.928 --> 00:04:18.787
+The first statement only fills in the form.
+
+85
+00:04:18.787 --> 00:04:23.041
+The subscribe line signs it, and only then do range and map run.
+
+86
+00:04:23.867 --> 00:04:26.602
+So, has map run once its line has run?
+
+87
+00:04:26.602 --> 00:04:26.818
+No.
+
+88
+00:04:26.818 --> 00:04:28.617
+A chain is an order form.
+
+89
+00:04:28.617 --> 00:04:34.304
+Subscribe signs it, and every signature on a cold publisher bakes a fresh cake.
+
+90
+00:04:34.533 --> 00:04:35.328
+Quick check.
+
+91
+00:04:35.328 --> 00:04:39.436
+Our prices chain, with three items, is subscribed three times.
+
+92
+00:04:39.436 --> 00:04:42.020
+How many times does map's function run?
+
+93
+00:04:45.000 --> 00:04:45.418
+Nine.
+
+94
+00:04:45.418 --> 00:04:48.341
 Three items, in each of three runs.
