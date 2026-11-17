@@ -111,14 +111,14 @@ class Narrated(VoiceScene):
         if rest > 0.02:
             self.wait(rest)
 
-    def hold(self, after=0.25):
+    def hold(self, after=0.12):
         rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
+    def predict(self, secs=2.0, pos=(-6.4, 3.15), edge=LEFT):
         """A beat of silence for the viewer to guess, with a small on-screen prompt."""
         tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
         self.play(FadeIn(tag), run_time=0.3)
@@ -559,9 +559,8 @@ class Flow06Upstream(Narrated):
         entries = ["flour", "eggs", "flour", "eggs", "butter"]
         ents = VGroup(*[T(e, 24, BAD if k in (2, 3) else GREY_A) for k, e in enumerate(entries)])
         ents.arrange(DOWN, aligned_edge=LEFT, buff=0.12).move_to(bk2[1].get_center()).align_to(bk2[1], LEFT).shift(RIGHT * 0.25)
-        try1 = T("try 1", 22, NOTE).move_to(bk2[0].get_center() + UP * 0.6)
-        try2 = T("try 2, from the top", 22, NETC).move_to(bk2[0].get_center() + DOWN * 0.4)
-        fit(try2, 1.25)
+        try1 = T("try 1", 22, NOTE).move_to([bk2[0].get_center()[0], ents[0].get_center()[1], 0])
+        try2 = T("try 2", 22, NETC).move_to([bk2[0].get_center()[0], ents[2].get_center()[1], 0])
         self.say("retry_a")
         self.play(FadeIn(try1), FadeIn(ents[0]), FadeIn(ents[1]), run_time=0.7)
         self.play(FadeIn(try2), FadeIn(ents[2]), FadeIn(ents[3]), FadeIn(ents[4]), run_time=0.8)
@@ -682,10 +681,10 @@ class Flow06Upstream(Narrated):
         self.say("check")
         self.play(FadeIn(qg, shift=UP * 0.1), run_time=0.8)
         self.hold(after=0)
-        self.predict(2.4, pos=(6.4, -3.25), edge=RIGHT)
+        self.predict(2.0, pos=(6.4, -3.25), edge=RIGHT)
         ans = T("not that catch: map is below the net, so it falls past, to the caller", 28, BAD)
         fit(ans, 12.4).move_to(DOWN * 2.45)
         self.say("check_a")
         self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.7)
         self.hold(after=0)
-        self.wait(2.5)
+        self.wait(1.5)

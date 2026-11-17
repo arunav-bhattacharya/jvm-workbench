@@ -436,7 +436,8 @@ class Flow04Belt(Narrated):
         self.play(FadeIn(r_new, shift=RIGHT * 0.3), r_old.animate.shift(DOWN * 0.9).set_opacity(0), run_time=0.9)
         self.at(1)
         sc2 = oven_screen("200", 1.2).move_to(sc)
-        self.play(Transform(sc, sc2), run_time=0.6)
+        free = T("free again", 22, GREY_A).move_to(stuck)
+        self.play(Transform(sc, sc2), FadeOut(stuck), FadeIn(free), run_time=0.6)
         self.hold()
 
         trap = VGroup(M("buffer(onBufferOverflow = DROP_OLDEST)", 24, GOLD_M), T("\"the newest 64\"?", 24, GREY_A)).arrange(RIGHT, buff=0.3)
