@@ -1,145 +1,393 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.241
-A batch job holds a lock for one and a half seconds.
+00:00:02.700 --> 00:00:06.135
+Back to the bank's vault: one door, one key on a hook.
 
 2
-00:00:06.241 --> 00:00:11.076
-An API thread needs the same lock, and it has a 200 millisecond budget.
+00:00:06.135 --> 00:00:14.596
+At closing time, the interest job, a thread that adds interest to every account, takes the key, and keeps it for a second and a half.
 
 3
-00:00:11.367 --> 00:00:14.912
-With synchronized, the API thread can only wait at the door.
+00:00:14.800 --> 00:00:18.446
+Just then, a customer at a cash machine asks for her balance.
 
 4
-00:00:14.912 --> 00:00:19.935
-It can't give up after a timeout, and an interrupt doesn't reach it until it gets in.
+00:00:18.446 --> 00:00:22.153
+With synchronized, her request joins the line and stays there.
 
 5
-00:00:20.233 --> 00:00:28.002
-ReentrantLock is the same room with the same rules: one owner, a release happens-before the next lock, and it's reentrant.
+00:00:22.153 --> 00:00:24.783
+She watches a spinning wheel the whole time.
 
 6
-00:00:28.002 --> 00:00:30.359
-What it adds is controls on the door.
+00:00:25.000 --> 00:00:27.806
+So here's a question that sounds a little rude.
 
 7
-00:00:30.633 --> 00:00:37.872
-tryLock with a timeout waits at most 200 milliseconds, then returns false, and the thread can answer busy.
+00:00:27.806 --> 00:00:31.507
+synchronized works, and it never forgets to give the key back.
 
 8
-00:00:38.167 --> 00:00:42.355
-lockInterruptibly waits too, but an interrupt gets it out at once.
+00:00:31.507 --> 00:00:33.596
+Why would anyone want another lock?
 
 9
-00:00:44.433 --> 00:00:47.228
-Next, a buffer with room for two payments.
+00:00:33.800 --> 00:00:35.852
+Because its line has no way out.
 
 10
-00:00:47.228 --> 00:00:54.879
-A monitor has one wait set, so producers and consumers sleep in the same place, and notify can wake the wrong kind.
+00:00:35.852 --> 00:00:39.314
+A waiting thread can't give up after 200 milliseconds.
 
 11
-00:00:55.100 --> 00:00:59.994
-A ReentrantLock can have one waiting room per reason, called a Condition.
+00:00:39.314 --> 00:00:45.212
+And an interrupt, another thread asking it to stop, doesn't reach it until it holds the key.
 
 12
-00:00:59.994 --> 00:01:01.804
-Consumers wait in notEmpty.
+00:00:46.300 --> 00:00:50.048
+Java has one: the same vault, with controls on the door.
 
 13
-00:01:01.804 --> 00:01:03.547
-Producers wait in notFull.
+00:00:50.048 --> 00:00:55.135
+Same rules: one thread inside at a time, and the next one sees every change.
 
 14
-00:01:03.767 --> 00:01:05.080
-The buffer is empty.
+00:00:55.135 --> 00:00:59.419
+The owner may even walk back in, so Java calls it ReentrantLock.
 
 15
-00:01:05.080 --> 00:01:07.380
-A consumer calls await on notEmpty.
+00:00:59.633 --> 00:01:01.002
+Here are the controls.
 
 16
-00:01:07.380 --> 00:01:10.993
-That gives back the lock, and parks it in its own room.
+00:01:01.002 --> 00:01:04.114
+tryLock takes the key only if it's free right now.
 
 17
-00:01:10.993 --> 00:01:13.095
-A second consumer does the same.
+00:01:04.114 --> 00:01:07.039
+Give it a time, and it waits at most that long.
 
 18
-00:01:13.300 --> 00:01:18.163
-A producer takes the lock, adds a payment, and calls signal on notEmpty.
+00:01:07.039 --> 00:01:11.457
+And lockInterruptibly waits, but leaves the line when it's interrupted.
 
 19
-00:01:18.163 --> 00:01:19.649
-Which thread wakes up?
+00:01:11.667 --> 00:01:13.359
+Let's play out the evening.
 
 20
-00:01:22.233 --> 00:01:22.916
-A consumer.
+00:01:13.359 --> 00:01:16.808
+The interest job holds the key for a second and a half.
 
 21
-00:01:22.916 --> 00:01:24.962
-Only consumers wait in that room.
+00:01:16.808 --> 00:01:20.193
+The cash machine waits with tryLock, 200 milliseconds.
 
 22
-00:01:24.962 --> 00:01:30.296
-It goes back to the door for the lock, then checks the buffer again in its while loop.
+00:01:20.193 --> 00:01:23.391
+The statement printer waits with lockInterruptibly.
 
 23
-00:01:31.300 --> 00:01:37.017
-Last, an FX rate cache, read 5,000 times a second and refreshed every 5 seconds.
+00:01:23.391 --> 00:01:26.463
+And an old teller screen still uses synchronized.
 
 24
-00:01:37.017 --> 00:01:41.233
-With a plain lock, readers wait for each other for nothing.
+00:01:26.667 --> 00:01:33.480
+400 milliseconds after they arrive, the program starts to shut down, and interrupts the printer and the teller.
 
 25
-00:01:41.467 --> 00:01:45.449
-A ReentrantReadWriteLock lets any number of readers in together.
+00:01:33.480 --> 00:01:36.365
+Which one keeps waiting after it's interrupted?
 
 26
-00:01:45.449 --> 00:01:50.054
-The writer needs the room empty, so it waits until the last reader leaves.
+00:01:39.633 --> 00:01:46.188
+First, at 200 milliseconds, the cash machine gives up, and asks the customer to try again.
 
 27
-00:01:50.054 --> 00:01:52.729
-Then it writes alone, and new readers wait.
+00:01:46.188 --> 00:01:48.009
+An answer, right on time.
 
 28
-00:01:53.567 --> 00:01:55.678
-In code, nothing lets go for you.
+00:01:48.233 --> 00:01:49.878
+Then the interrupt arrives.
 
 29
-00:01:55.678 --> 00:01:59.838
-Call lock just before try, and release it first thing in finally.
+00:01:49.878 --> 00:01:52.620
+The printer leaves the line at once, cleanly.
 
 30
-00:01:59.838 --> 00:02:02.269
-Kotlin's withLock writes that for you.
+00:01:52.833 --> 00:01:54.417
+The teller hears nothing.
 
 31
-00:02:03.100 --> 00:02:05.924
-Explicit locks keep the rules of synchronized.
+00:01:54.417 --> 00:02:01.956
+It waits until the interest job is done, gets in, and only then finds out it was asked to stop, about a second earlier.
 
 32
-00:02:05.924 --> 00:02:11.817
-They add a door you can leave, a waiting room per condition, and a read mode many threads share.
+00:02:02.167 --> 00:02:07.601
+It's like finding the note that says the meeting is off while you sit alone in the meeting room.
 
 33
-00:02:12.033 --> 00:02:12.896
-Quick check.
+00:02:07.601 --> 00:02:10.884
+A thread waiting for synchronized can't hear an interrupt.
 
 34
-00:02:12.896 --> 00:02:17.496
-Two consumers wait in notEmpty, and a producer waits in notFull.
+00:02:12.633 --> 00:02:14.425
+All that control has a price.
 
 35
-00:02:17.496 --> 00:02:20.875
-A consumer takes a payment and signals notFull.
+00:02:14.425 --> 00:02:18.750
+synchronized gives the key back when its block ends, even on an error.
 
 36
-00:02:20.875 --> 00:02:21.809
-Who wakes up?
+00:02:18.750 --> 00:02:22.211
+A ReentrantLock gives it back only when you call unlock.
+
+37
+00:02:22.433 --> 00:02:26.671
+So picture a thread that takes the lock and adds an entry to the ledger.
+
+38
+00:02:26.671 --> 00:02:29.026
+One day a bad input makes the add throw.
+
+39
+00:02:29.026 --> 00:02:33.440
+The unlock never runs, and the thread walks off with the key in its pocket.
+
+40
+00:02:33.667 --> 00:02:36.591
+Every thread after it parks in lock, for good.
+
+41
+00:02:36.591 --> 00:02:36.909
+Well.
+
+42
+00:02:36.909 --> 00:02:40.215
+That's a long line for a key that left the building.
+
+43
+00:02:41.033 --> 00:02:43.227
+So every use follows one pattern.
+
+44
+00:02:43.227 --> 00:02:44.690
+lock, just before try.
+
+45
+00:02:44.690 --> 00:02:45.754
+The work inside.
+
+46
+00:02:45.754 --> 00:02:47.814
+unlock, first thing in finally.
+
+47
+00:02:47.814 --> 00:02:53.598
+Read it aloud: take the key, try the work, and finally, whatever happens, give it back.
+
+48
+00:02:53.598 --> 00:02:56.391
+Kotlin's withLock writes all that for you.
+
+49
+00:02:56.600 --> 00:02:59.749
+A ReentrantLock lets go only when you tell it to.
+
+50
+00:02:59.749 --> 00:03:04.891
+So keep synchronized for short, simple code, and switch when you need a control.
+
+51
+00:03:05.700 --> 00:03:07.718
+A lock is also a place to wait.
+
+52
+00:03:07.718 --> 00:03:09.085
+Remember the kitchen?
+
+53
+00:03:09.085 --> 00:03:17.027
+A monitor has one bench, so waiters waiting for room sat with cooks waiting for a ticket, and we had to ring for everyone.
+
+54
+00:03:17.300 --> 00:03:19.773
+A ReentrantLock can have many benches.
+
+55
+00:03:19.773 --> 00:03:24.589
+Each one is a Condition: a line of threads waiting for one kind of change.
+
+56
+00:03:24.589 --> 00:03:26.997
+Cooks wait on notEmpty, for a ticket.
+
+57
+00:03:26.997 --> 00:03:29.209
+Waiters wait on notFull, for room.
+
+58
+00:03:29.433 --> 00:03:29.838
+Watch.
+
+59
+00:03:29.838 --> 00:03:32.876
+A waiter clips a ticket and signals notEmpty.
+
+60
+00:03:32.876 --> 00:03:36.117
+Only the cooks' bell rings, so one cook gets up.
+
+61
+00:03:36.117 --> 00:03:40.438
+The next waiter finds the rail full, and calls await on notFull.
+
+62
+00:03:40.438 --> 00:03:43.611
+Like wait, it hangs the key back and sits down.
+
+63
+00:03:44.433 --> 00:03:45.421
+Is it worth it?
+
+64
+00:03:45.421 --> 00:03:50.755
+Four waiters and four cooks move 20,000 tickets through a rail with room for one.
+
+65
+00:03:50.755 --> 00:03:54.311
+How often does a thread wake, look, and sit back down?
+
+66
+00:03:54.311 --> 00:03:56.023
+First one bench, then two.
+
+67
+00:03:59.000 --> 00:04:04.824
+With one bench, 88,340 times, in about 2.2 seconds.
+
+68
+00:04:04.824 --> 00:04:10.533
+With two benches, 375 times, in about 0.7 seconds.
+
+69
+00:04:10.767 --> 00:04:15.395
+One bench is like a whole office standing up each time one phone rings.
+
+70
+00:04:15.395 --> 00:04:19.698
+It isn't zero, because a running thread can grab the ticket first.
+
+71
+00:04:19.698 --> 00:04:21.197
+So keep the while loop.
+
+72
+00:04:22.000 --> 00:04:24.690
+Last, the bank's table of exchange rates.
+
+73
+00:04:24.690 --> 00:04:31.184
+Cash machines read it about 5,000 times a second, and a refresh job replaces it every five seconds.
+
+74
+00:04:31.184 --> 00:04:35.055
+With a plain lock, readers wait for each other for nothing.
+
+75
+00:04:35.133 --> 00:04:37.434
+Think of a reading room in a library.
+
+76
+00:04:37.434 --> 00:04:39.796
+Any number of people can read at once.
+
+77
+00:04:39.796 --> 00:04:46.076
+To rearrange the shelves, the librarian waits for an empty room, then works alone with the door shut.
+
+78
+00:04:46.300 --> 00:04:48.359
+That's a ReentrantReadWriteLock.
+
+79
+00:04:48.359 --> 00:04:50.160
+Readers share the read lock.
+
+80
+00:04:50.160 --> 00:04:54.277
+The refresh job takes the write lock, which needs an empty room.
+
+81
+00:04:55.300 --> 00:04:56.076
+Now a trap.
+
+82
+00:04:56.076 --> 00:04:58.191
+A reader finds a rate missing.
+
+83
+00:04:58.191 --> 00:05:02.140
+Still holding its read lock, it asks for the write lock.
+
+84
+00:05:02.140 --> 00:05:03.974
+No other thread is around.
+
+85
+00:05:03.974 --> 00:05:04.891
+What happens?
+
+86
+00:05:07.867 --> 00:05:08.896
+It waits forever.
+
+87
+00:05:08.896 --> 00:05:13.499
+The write lock waits for every reader to leave, and this thread is a reader.
+
+88
+00:05:13.499 --> 00:05:16.830
+It's waiting for the room to empty while sitting in it.
+
+89
+00:05:16.830 --> 00:05:19.435
+Java's deadlock check won't even report it.
+
+90
+00:05:19.667 --> 00:05:22.705
+That's called an upgrade, and this lock can't do it.
+
+91
+00:05:22.705 --> 00:05:29.600
+So let go of the read lock, take the write lock, then check again: another thread may have loaded the rate in between.
+
+92
+00:05:30.400 --> 00:05:31.677
+So why another lock?
+
+93
+00:05:31.677 --> 00:05:34.932
+Because sometimes a waiting thread needs a way out.
+
+94
+00:05:34.932 --> 00:05:41.443
+It's the same vault with controls on the door, a bench for each kind of waiter, and readers can share.
+
+95
+00:05:41.443 --> 00:05:44.827
+But it never lets go by itself, so unlock in finally.
+
+96
+00:05:45.033 --> 00:05:45.906
+Quick check.
+
+97
+00:05:45.906 --> 00:05:49.540
+A cash machine must answer within 50 milliseconds.
+
+98
+00:05:49.540 --> 00:05:54.120
+Which fits: lockInterruptibly, or tryLock with 50 milliseconds?
