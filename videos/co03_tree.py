@@ -17,10 +17,11 @@ N = {
     "tree": "The answer is a picture we've been building. A dinner has courses, and a course has dishes. The "
             "dinner is the root coroutine, the main course is a coroutineScope inside it, and the roast, the "
             "potatoes and the gravy are its children.",
-    "tree2": "Every coroutine becomes a child of the scope it starts in, so the work forms a tree. Its first rule "
-             "you know already: a parent can't finish until all of its children have.",
-    "burn_q": "Now the roast burns. At 100 milliseconds it throws BurnedException, an exception the demo made up. "
-              "The potatoes would need a whole second. Should they keep cooking? And when does the caller hear?",
+    "tree2": "Every coroutine becomes a child of the scope it starts in, so the work forms a tree. You already "
+             "know its first rule: a parent can't finish until all of its children have.",
+    "burn_q": "Now the roast burns. It happens to the best cooks. At 100 milliseconds it throws BurnedException, an "
+              "exception the demo made up. The potatoes would need a whole second. Should they keep cooking? And "
+              "when does the caller hear?",
     "s1": "Here's what the tree does, in order. One: the roast fails, and reports the exception to its parent, "
           "the course.",
     "s2": "Two: the course is cancelled with that exception, and a cancelled job cancels all of its children. "
@@ -50,9 +51,10 @@ N = {
     "name": "This is structured concurrency: work that runs at the same time has the same nested shape as the "
             "code that started it, and failures and cancels follow that shape. A failure goes up the tree and "
             "stops the siblings. A cancel goes down, and stops there.",
-    "why": "This is the default because it's almost always what you want: if one dish is ruined, the course is "
-           "off. Sometimes you do want siblings to survive, like a reminder sent by text, email and phone, where "
-           "any one is enough. Lesson 6 brings in a supervisor for that.",
+    "why": "This is the default because it's almost always what you want. If the roast is ruined, the course is "
+           "off: nobody serves potatoes and gravy next to a hole where the roast should be. Sometimes you do "
+           "want siblings to survive, like a reminder sent by text, email and phone, where any one is enough. "
+           "Lesson 6 brings in a supervisor for that.",
     "breaks": "And here the picture breaks, on timing. A real cook pulls the pans off at once. A coroutine hears "
               "the cancel only at its next suspension point, so a long calculation, or a blocking call, finishes "
               "first. Lesson 5 shows how to cooperate.",
@@ -188,8 +190,8 @@ def up_arrow(a, b, color, sw=4):
 
 # the tree, as it sits on screen
 DIN_P, CRS_P = np.array([0, 2.45, 0]), np.array([0, 0.75, 0])
-DISH_X, DISH_Y = (-3.6, 0.0, 3.6), -1.0
-X0, PX = -3.2, 0.0072        # timelines: x(ms)
+DISH_X, DISH_Y = (-3.7, 0.0, 3.7), -1.0
+X0, PX = -2.7, 0.0072        # timelines: x(ms)
 
 
 def tx(ms):
@@ -229,8 +231,9 @@ class Co03FailureTree(Narrated):
         self.play(FadeIn(caught), FadeOut(exc), run_time=0.4)
         self.hold()
 
-        child = VGroup(RoundedRectangle(corner_radius=0.08, width=2.8, height=0.62).set_stroke(ROAST, 2.5).set_fill(dim(ROAST, 0.18), 1),
-                       M("launch { roast() }", 22, ROAST))
+        ct = M("launch { roast() }", 22, ROAST)
+        child = VGroup(RoundedRectangle(corner_radius=0.08, width=ct.width + 0.5, height=0.62).set_stroke(ROAST, 2.5)
+                       .set_fill(dim(ROAST, 0.18), 1), ct)
         child[1].move_to(child[0])
         child.move_to([3.3, 1.2, 0])
         moved = T("its starter has moved on", 22, GREY_A).next_to(child, UP, buff=0.2)
@@ -253,7 +256,7 @@ class Co03FailureTree(Narrated):
         crs = node("coroutineScope", COURSE, w=3.3, mono=True, size=24).move_to(CRS_P)
         crs_l = T("the main course", 24, COURSE).next_to(crs, RIGHT, buff=0.3)
         din_l = T("the root coroutine", 22, GREY_B).next_to(din, RIGHT, buff=0.3)
-        dish = [node(n, c, w=2.6, icon=pot(c)).move_to([x, DISH_Y, 0]) for (n, c), x in zip(DISHES, DISH_X)]
+        dish = [node(n, c, w=2.8, icon=pot(c)).move_to([x, DISH_Y, 0]) for (n, c), x in zip(DISHES, DISH_X)]
         e1 = Line(din.get_bottom(), crs.get_top(), stroke_width=2.5, color=GREY_B)
         e2 = [Line(crs.get_bottom(), d.get_top(), stroke_width=2.5, color=GREY_B) for d in dish]
         kids_l = T("children: launch or async", 22, GREY_B).move_to([0, DISH_Y - 0.75, 0])
@@ -268,7 +271,7 @@ class Co03FailureTree(Narrated):
         self.at_text("the main course is", lead=0.3)
         self.play(FadeIn(crs_l), run_time=0.5)
         self.at_text("and the roast", lead=0.3)
-        self.play(*[Indicate(d[1], color=d[1].get_color()) for d in dish], FadeIn(kids_l), run_time=1.0)
+        self.play(*[Indicate(d[1], color=d[1].get_color(), scale_factor=1.08) for d in dish], FadeIn(kids_l), run_time=1.0)
         self.hold()
 
         stm = [steam(d[2]) for d in dish]
@@ -288,10 +291,11 @@ class Co03FailureTree(Narrated):
         qq = T("keep cooking? when does the caller hear?", 26).move_to([0, -2.6, 0])
         self.say("burn_q")
         self.play(FadeOut(wait_l), FadeOut(stm[0]), FadeIn(fl, scale=0.6), dish[0][0].animate.set_stroke(BAD), run_time=0.7)
-        self.play(FadeIn(burn_l), run_time=0.4)
         self.at(2)
-        self.play(FadeIn(need), run_time=0.5)
+        self.play(FadeIn(burn_l), run_time=0.4)
         self.at(3)
+        self.play(FadeIn(need), run_time=0.5)
+        self.at(4)
         self.play(FadeIn(qq), run_time=0.5)
         self.hold(after=0)
         self.predict()
@@ -433,7 +437,7 @@ class Co03FailureTree(Narrated):
         din = node("dinner", DINNER, w=2.6).move_to(DIN_P)
         crs = node("coroutineScope", COURSE, w=3.3, mono=True, size=24).move_to(CRS_P)
         crs_l = T("the main course", 24, COURSE).next_to(crs, RIGHT, buff=0.3)
-        dish = [node(n, c, w=2.6, icon=pot(c)).move_to([x, DISH_Y, 0]) for (n, c), x in zip(DISHES, DISH_X)]
+        dish = [node(n, c, w=2.8, icon=pot(c)).move_to([x, DISH_Y, 0]) for (n, c), x in zip(DISHES, DISH_X)]
         e1 = Line(din.get_bottom(), crs.get_top(), stroke_width=2.5, color=GREY_B)
         e2 = [Line(crs.get_bottom(), d.get_top(), stroke_width=2.5, color=GREY_B) for d in dish]
         stm = [steam(d[2]) for d in dish]
@@ -483,7 +487,8 @@ class Co03FailureTree(Narrated):
         self.at(2)
         self.play(FadeIn(ce), run_time=0.5)
         self.at(3)
-        self.play(FadeIn(go_on), Indicate(VGroup(dish[0][1], dish[1][1]), color=GREEN_M), run_time=0.9)
+        self.play(FadeIn(go_on), Circumscribe(dish[0], color=GREEN_M, buff=0.08), Circumscribe(dish[1], color=GREEN_M, buff=0.08),
+                  run_time=1.0)
         self.hold()
         self.play(FadeOut(VGroup(tree, *stm, sc, sc_l, ua, ux, ce, go_on)), run_time=0.6)
 
@@ -508,7 +513,7 @@ class Co03FailureTree(Narrated):
 
         # why it's the default, and the supervisor
         self.play(FadeOut(gl), VGroup(nm, rules).animate.scale(0.75).move_to([0, 1.75, 0]), run_time=0.7)
-        wasted = T("one dish ruined: the course is off, the rest is wasted work", 26, GREY_A).move_to([0, -0.45, 0])
+        wasted = T("the roast is ruined, so the course is off: finishing the rest is wasted", 26, GREY_A).move_to([0, -0.45, 0])
         fit(wasted, 12.4)
         rem = VGroup(*[VGroup(RoundedRectangle(corner_radius=0.08, width=1.6, height=0.6).set_stroke(GREEN_M, 2.5)
                               .set_fill(dim(GREEN_M, 0.15), 1), T(t, 24, GREEN_M)) for t in ("text", "email", "phone")])
@@ -518,10 +523,11 @@ class Co03FailureTree(Narrated):
         any1 = T("any one is enough", 24, GREEN_M).next_to(rem, DOWN, buff=0.2)
         sup = VGroup(T("a supervisor", 28, GREEN_M), T("lesson 6", 22, GREY_B)).arrange(DOWN, buff=0.1).next_to(rem, RIGHT, buff=0.8)
         self.say("why")
-        self.play(FadeIn(wasted, shift=UP * 0.1), run_time=0.6)
         self.at(1)
-        self.play(LaggedStart(*[FadeIn(r, shift=UP * 0.1) for r in rem], lag_ratio=0.2), FadeIn(any1), run_time=0.9)
+        self.play(FadeIn(wasted, shift=UP * 0.1), run_time=0.6)
         self.at(2)
+        self.play(LaggedStart(*[FadeIn(r, shift=UP * 0.1) for r in rem], lag_ratio=0.2), FadeIn(any1), run_time=0.9)
+        self.at(3)
         self.play(FadeIn(sup, shift=LEFT * 0.1), run_time=0.6)
         self.hold()
         self.play(FadeOut(VGroup(wasted, rem, any1, sup, nm, rules)), run_time=0.5)

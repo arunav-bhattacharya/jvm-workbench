@@ -353,9 +353,10 @@ class Conc12Classic(Narrated):
         self.play(FadeOut(pl_l), run_time=0.3)
         for t in list(on_rail):
             take(cooks[len(on_rail) % 3], rt=0.35)
-        self.play(FadeOut(pl), run_time=0.3)
+        chef = tch("head chef", GOLD_M).move_to([-5.15, -0.25, 0])
+        self.play(FadeOut(pl), FadeIn(chef, shift=RIGHT * 0.2), run_time=0.4)
         p1 = pill()
-        put(p1, waiters[0], rt=0.6)
+        put(p1, chef, rt=0.6)
         self.at(1)
         self.play(Indicate(on_rail[0], color=PILLC), run_time=0.7)
         self.hold(after=0)
@@ -387,7 +388,7 @@ class Conc12Classic(Narrated):
         self.say("fix")
         put(ticket(10), waiters[0], rt=0.35)
         for p in pills:
-            put(p, waiters[1], rt=0.35)
+            put(p, chef, rt=0.35)
         self.at(1)
         take(cooks[0], rt=0.35)
         for ci, o in zip((1, 2, 0), outs):

@@ -21,10 +21,10 @@ class FlightRecorderTest {
     @TempDir
     Path dir;
 
-    // a tiny document store: three documents, and a basement shelf that takes 40 ms to answer
+    // a tiny document store: three documents, and a basement shelf that takes 100 ms to answer
     private static final DocumentStore STORE = (shelf, title) -> {
         if (shelf.equals("basement")) {
-            try { Thread.sleep(40); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            try { Thread.sleep(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         }
         return switch (shelf + "/" + title) {
             case "news/weather" -> "Rain in the morning, sun after lunch.";
@@ -37,6 +37,7 @@ class FlightRecorderTest {
     // record a few lookups in a real JFR recording, written to a real .jfr file
     private Path recordScenario() throws Exception {
         Path file = dir.resolve("lookups.jfr");
+        STORE.fetch("news", "weather");   // warm up: the first call pays one-time JVM set-up costs (string building, class loading)
         try (Recording recording = new Recording()) {
             recording.enable(NAME);
             recording.enable("jdk.ThreadSleep").withThreshold(Duration.ZERO);   // other events in the file too
@@ -45,7 +46,7 @@ class FlightRecorderTest {
             librarian.lookup("news", "weather");
             librarian.lookup("news", "yesterday");          // missing
             librarian.lookup("books", "chapter-1");
-            librarian.lookup("basement", "old-letters");    // 40 ms at the store
+            librarian.lookup("basement", "old-letters");    // 100 ms at the store
             librarian.lookup("books", "chapter-9");         // missing
             librarian.lookup("books", "chapter-10");        // missing
             recording.stop();
@@ -97,7 +98,7 @@ class FlightRecorderTest {
                 .filter(e -> e.getString("shelf").equals("basement"))
                 .findFirst().orElseThrow();
         assertThat(slow.getDuration()).as("duration of the basement lookup")
-                .isGreaterThanOrEqualTo(Duration.ofMillis(35));
+                .isGreaterThanOrEqualTo(Duration.ofMillis(90));
     }
 
     @Test

@@ -6,52 +6,61 @@ K = "kotlin/workbench/performance/l06"
 read = lambda p: (ROOT / p).read_text()
 DEMO = "./gradlew :performance:demo -Pmain=workbench.performance.l06."
 
+
 def demo(name):
     return {"lang": "java", "title": f"{name}.java", "src": read(f"{lab}/demo/{P}/{name}.java"),
             "run": DEMO + name, "file": f"{lab}/demo/{P}/{name}.java",
             "alt": {"lang": "kotlin", "title": f"{name}.kt", "src": read(f"{lab}/demo/{K}/{name}.kt"),
                     "run": DEMO + name + "Kt", "file": f"{lab}/demo/{K}/{name}.kt"}}
 
-# Flame graph of PaymentSim.feeSlow, from the research notes' async-profiler 4.6 CPU profile
-# (cpu-slow.collapsed: 8,005 samples, 5,747 of them inside feeSlow). Children in alphabetical
-# order of their full frame names, as flamegraph.pl draws them; small frames grouped as "other".
-X0, W, TOTAL = 20, 640, 5747
-LEVEL1 = [("java/lang/String.format", 1864, "String.format"), ("java/math/BigDecimal.<init>", 634, "BigDec()"),
-          ("java/math/BigDecimal.setScale", 186, ""), ("java/math/BigDecimal.toPlainString", 919, "toPlainString"),
-          ("java/util/regex/Pattern.compile", 1409, "Pattern.compile"), ("java/util/regex/Pattern.matcher", 347, ""),
-          ("other", 388, "other")]
-LEVEL2 = {"java/lang/String.format": [(1730, "Formatter.format", "box-b")],
-          "java/math/BigDecimal.<init>": [(143, "", "box"), (481, "", "box")],
-          "java/math/BigDecimal.toPlainString": [(319, "", "box"), (573, "", "box")],
-          "java/util/regex/Pattern.compile": [(1381, "Pattern.<init>", "box-b")],
-          "java/util/regex/Pattern.matcher": [(329, "", "box")]}
+
+def pair(java, kotlin):
+    """A Java fence and its Kotlin twin, side by side, as the validator expects."""
+    return f"```java\n{java}\n```\n\n```kotlin\n{kotlin}\n```"
+
+
+# Flame graph of SlowReport.readingSeconds, from a real async-profiler 4.6 CPU profile on JDK 25
+# (10 s, 4 threads, 1 ms interval: 3,569 samples, 2,546 of them inside readingSeconds). Children in
+# alphabetical order of their full frame names, as flamegraph.pl draws them; small frames grouped as
+# "other"; the rest of readingSeconds (257 samples) is its own exposed top.
+X0, W, TOTAL = 20, 640, 2546
+LEVEL1 = [("java/lang/String.format", 796, "String.format"), ("java/lang/String.split", 864, "String.split"),
+          ("java/util/regex/Matcher.matches", 28, ""), ("java/util/regex/Pattern.compile", 487, "Pattern.compile"),
+          ("java/util/regex/Pattern.matcher", 54, ""), ("other", 60, "")]
+LEVEL2 = {"java/lang/String.format": [(717, "Formatter.format", "box-b")],
+          "java/lang/String.split": [(858, "split (private)", "box-b")],
+          "java/util/regex/Pattern.compile": [(452, "Pattern.<init>", "box-b")],
+          "java/util/regex/Pattern.matcher": [(47, "", "box")]}
+
 
 def fig():
-    s = ['<svg viewBox="0 0 680 200" role="img" aria-label="Flame graph of feeSlow from a real CPU profile: String.format is the widest child, then Pattern.compile, BigDecimal.toPlainString and the BigDecimal constructor. Boxes are ordered alphabetically, not by time.">',
+    s = ['<svg viewBox="0 0 680 200" role="img" aria-label="Flame graph of SlowReport.readingSeconds from a real CPU profile: String.split and String.format are the widest children, then Pattern.compile. Boxes at each level are ordered alphabetically, not by time, and the bare right end of readingSeconds is its own time.">',
          '<text class="t-s t-m" x="340" y="22" text-anchor="middle">width = samples in that frame or above it; left to right = alphabetical, not time</text>']
     sc = W / TOTAL
     s.append(f'<rect class="box-a" x="{X0}" y="110" width="{W}" height="28" rx="4"/>'
-             f'<text class="t" x="{X0 + W / 2:.0f}" y="129" text-anchor="middle">PaymentSim.feeSlow: 5,747 of 8,005 samples</text>')
+             f'<text class="t" x="{X0 + W / 2:.0f}" y="129" text-anchor="middle">SlowReport.readingSeconds: 2,546 of 3,569 samples</text>')
     x = X0
     for full, n, label in LEVEL1:
         w = n * sc
         cls = "box-dim" if full == "other" else "box"
-        s.append(f'<rect class="{cls}" x="{x:.1f}" y="80" width="{w - 1:.1f}" height="28" rx="4"/>')
+        s.append(f'<rect class="{cls}" x="{x:.1f}" y="80" width="{max(w - 1, 1):.1f}" height="28" rx="4"/>')
         if label:
             s.append(f'<text class="t-s" x="{x + w / 2:.1f}" y="98" text-anchor="middle">{label}</text>')
         x2 = x
         for m, l2, c2 in LEVEL2.get(full, []):
             w2 = m * sc
-            s.append(f'<rect class="{c2}" x="{x2:.1f}" y="50" width="{w2 - 1:.1f}" height="28" rx="4"/>')
+            s.append(f'<rect class="{c2}" x="{x2:.1f}" y="50" width="{max(w2 - 1, 1):.1f}" height="28" rx="4"/>')
             if l2:
                 esc = l2.replace("<", "&lt;").replace(">", "&gt;")
                 s.append(f'<text class="t-s" x="{x2 + w2 / 2:.1f}" y="68" text-anchor="middle">{esc}</text>')
             x2 += w2
         x += w
-    s.append('<text class="t-s t-m" x="340" y="160" text-anchor="middle">String.format 1,864 · Pattern.compile 1,409 · toPlainString 919 · BigDecimal.&lt;init&gt; 634</text>')
-    s.append('<text class="t-s t-m" x="340" y="180" text-anchor="middle">small unlabeled boxes: setScale, Pattern.matcher and their callees</text>')
+    s.append(f'<text class="t-s t-m" x="{(x + X0 + W) / 2:.1f}" y="98" text-anchor="middle">own time</text>')
+    s.append('<text class="t-s t-m" x="340" y="160" text-anchor="middle">String.split 864 · String.format 796 · Pattern.compile 487 · own time 257</text>')
+    s.append('<text class="t-s t-m" x="340" y="180" text-anchor="middle">small unlabeled boxes: Matcher.matches, Pattern.matcher and a few others</text>')
     s.append('</svg>')
     return "\n".join(s)
+
 
 SAMPLER_J = """Map<String, Long> stacks = new HashMap<>();
 while (worker.isAlive()) {
@@ -71,107 +80,220 @@ while (worker.isAlive) {
     stacks.merge(key, 1L, Long::plus)                       // 4. count identical stacks
 }"""
 
+STEP_J = """static long readingSeconds(Document d) {
+    if (!Pattern.compile("^[a-z]{2}$").matcher(d.language()).matches())   // a regex compiled per call
+        throw new IllegalArgumentException("bad language");
+    long words = d.text().split(" ").length;                               // a new String for every word
+    long seconds = (words * 60 + 237) / 238;                               // 238 words a minute, rounded up
+    debug(String.format("document %s language=%s words=%d seconds=%d",     // formatted, then thrown away
+            d.id(), d.language(), words, seconds));
+    return seconds;
+}"""
+STEP_K = """fun kReadingSeconds(d: KDocument): Long {
+    require(Regex("^[a-z]{2}$").matches(d.language)) { "bad language" }   // a regex compiled per call
+    val words = d.text.split(' ').size.toLong()                          // a new String for every word
+    val seconds = (words * 60 + 237) / 238                               // 238 words a minute, rounded up
+    kDebug("document %s language=%s words=%d seconds=%d"                 // formatted, then thrown away
+        .format(d.id, d.language, words, seconds))
+    return seconds
+}"""
+
+OPENING = """Picture the restaurant's manager, who wants to know where the evening goes without asking anyone to fill in a timesheet. Every few seconds she glances through the kitchen door and notes what each cook is doing, and for which dish: "Ana, soup, chopping onions." After a night of glances, the tally tells the story. If a third of her notes say "chopping onions", about a third of the evening went on onions.
+
+A sampling profiler does that to your program. In lesson 5, JFR's sampler gave us only 40 glances in 4 seconds; this lesson takes thousands.
+
+There's a trap. A manager who only glances when a cook puts the knife down sees many cooks at the sink and few at the cutting board. The hand-made profiler we'll build has the same habit: it blamed up to 29% of the time on a method whose real work happens in the methods it calls. In this lesson, we'll build that sampler, catch it out, profile the same code with async-profiler, read the answer as a flame graph and pick the right kind of sample for each question. Before we start, make a guess, and keep it in mind."""
+
+S1 = """Here's the code we'll profile in this lesson and the next. It's the report service's busiest step. It checks a document's language, counts its words and works out the reading time. Then it writes a line for the debug log, a level of logging that's usually switched off. The result is right, and the code looks harmless:
+
+""" + pair(STEP_J, STEP_K) + """
+
+We want to know where its CPU time goes, call by call, without changing it. We could put timers around every line, but timers change what they measure, and we'd need to know where to put them first.
+
+A **sampling profiler** does something simpler. Every few milliseconds it looks at what each thread is running, writes down the thread's whole call stack, and counts how often each stack turns up. A thread is one line of work inside a program. Its call stack is the chain of methods it's inside right now, from `Thread.run` at the bottom to the running method at the top. If a method is on top in 20% of the samples, the thread spent about 20% of its time there. That's the manager's tally: one glance is a sample, and "Ana, soup, chopping onions" is a stack, read from the bottom up.
+
+You can build one in a dozen lines:
+
+""" + pair(SAMPLER_J, SAMPLER_K) + """
+
+The output is called **collapsed stacks**, the text format that flame-graph tools read. Each distinct stack gets one line: its frames from the root to the top, separated by `;`, then the number of samples. A frame is one method call on the stack. Here's a real line:
+
+```text
+java.lang.Thread.run;workbench.performance.l06.SlowReport.lambda$hammer$0;workbench.performance.l06.SlowReport.readingSeconds;java.lang.String.split;java.lang.String.split;java.lang.String.split 60
+```
+
+Two words come up all the time. A frame's **self time** is the samples where it was on top of the stack, doing the work itself. Its **inclusive time** adds everything it called. `readingSeconds` has little self time and a large inclusive time: it does little on its own and calls expensive things.
+
+`PoorMansProfiler` runs the step on two threads for 4 seconds and samples them this way. One run on the busy course machine took 238 samples. That's fewer than the 800 the arithmetic promises, because the sampler's own thread didn't always get a CPU core on time. Its top frames:
+
+```text
+238 samples; top frames:
+   29.4%  java.lang.String.split
+   13.4%  java.util.Formatter.format
+   12.6%  java.util.Formatter.parse
+    7.1%  java.util.regex.Pattern.sequence
+    5.9%  java.util.regex.Pattern.clazz
+    5.9%  java.util.regex.Pattern.compile
+```
+
+That looks like a usable answer: splitting the text is the biggest cost. Is it really? The next section says no."""
+
+S2 = """`Thread.getStackTrace()` on another thread can't read that thread's stack at just any instruction. Compiled code keeps values in the processor's registers, and it has methods inlined into each other (lesson 2). So the JVM can only describe a thread's stack at a **safepoint**: a place in the code where it has written down the full state of every frame. Compiled code checks for a request to stop at safepoint polls, which sit mostly at method returns and at the jumps back to the top of a loop. So when the sampler asks, the thread runs on to its next poll and reports its stack from there.
+
+That's the manager who only glances when a cook puts the knife down. Samples pile up at the polls instead of where the CPU spends its time. A tight inlined loop with no poll looks free, and the method that holds the next poll gets the blame. This is **safepoint bias**, and every profiler built on `getStackTrace`, or on the JVM's tool interface call `GetAllStackTraces`, has it.
+
+Our sampler shows it. `String.split` came top with 29.4%, and every one of its stacks ended at `split` itself, three frames deep. Not one sample caught the methods that `split` calls to find each space and copy each word. They're inlined, and by the time the thread reached a poll, they had returned. A second run put 19.3% on `split` and 15.8% on `Formatter.parse`, the same pattern.
+
+**async-profiler** is an open-source profiler for the JVM, and version 4.6 is the one used here. It samples without the bias. It interrupts each thread with a signal from the operating system, driven by Linux `perf_events` or by a timer. Then it walks the stack at the exact instruction where the signal landed. To make sense of compiled frames there, it reads HotSpot's internal structures, including the records of which methods were inlined where.
+
+The same code under async-profiler 4.6 on JDK 25, four threads for 10 seconds, gave 3,569 samples. Its top self frames were `readingSeconds` 7.2%, `String.split` 5.8%, `StringLatin1.indexOf` 5.1% and `Pattern.compile` 4.0%. So `split` itself does about a fifth of what our sampler claimed. The rest is spread over `indexOf` (searching for the next space), `ArrayList.add` and `StringLatin1.newString` (building each word), exactly the frames the hand-made profiler never saw. Because it works below the JVM, async-profiler also shows native code, the JVM's own threads and the operating system's kernel. In this run, the JIT compiler threads took 21.8% of all samples, and the garbage collector 2.7%.
+
+JFR, from lesson 5, doesn't have the bias in its old form either. On JDK 25 its sampler records where the thread was at the moment of the sample. Then it lets the thread finish the stack walk at its next safepoint (cooperative sampling, JEP 518).
+
+**A profiler that waits for safepoints reports where threads can stop, not where they spend their time. Check a surprising answer with async-profiler.**
+
+Check yourself: a method has one hot inlined loop and returns once, at the end. Which method would a `getStackTrace` profiler blame for the loop's time? (Whichever frame reaches the next safepoint poll, often the loop's own jump back or the caller after the return, not the instructions that burned the CPU.)
+
+Thousands of honest samples are still just a long list of stacks. A flame graph turns them into a picture."""
+
+S3 = """A **flame graph** is the collapsed stacks drawn as boxes. In the kitchen, it's the manager's tally drawn as towers of blocks. The bottom block is the whole evening, every glance. On top of it sits a block for each dish, as wide as the number of glances that caught someone cooking it. On top of those sit the steps of each dish. Three rules make it readable.
+
+Width is samples. A box's width is the number of samples that had that frame at that place in the stack: its inclusive time there. Identical frames at the same depth, under the same parent, merge into one box.
+
+Left to right is not time. Boxes at the same level are sorted alphabetically by name. The header of flamegraph.pl, the original drawing script, says "The ordering on the x-axis has no meaning". async-profiler's guide says a flame graph "does not preserve information on when a particular stack trace was taken". A box on the left didn't run first. That's where the picture breaks: the manager's blocks for the evening would line up by clock time, and these never do.
+
+Look at the tops. The part of a box with nothing on top of it is self time: the CPU was in that frame's own code. Wide tops are where to start. A wide box covered by its children is a caller, and the fix is usually in one of those children, or in the decision to call them.
+
+The figure is drawn from the 3,569-sample profile of the last section. `readingSeconds` covers 2,546 samples, 71.3% of the total. Its widest children are `String.split` (24.2% of all samples), `String.format` (22.3%) and `Pattern.compile` (13.6%). Notice `String.format` on the far left. It isn't first because it ran first. It's first because `java/lang/String.format` sorts before `java/lang/String.split`, and both sort before `java/util/regex`.
+
+Two smaller towers sit beside `readingSeconds`. One is `os::javaTimeNanos`: the demo's own loop calls `System.nanoTime()` before every call to check its deadline, and 64 samples landed in reading the clock. The measuring shows up in the measurement. The other tall towers belong to the JIT's compiler threads, busy for a fifth of the run, because 10 seconds is a short life for a JVM, as lesson 1 showed.
+
+async-profiler's HTML colours frames by type: green for compiled Java, aqua for inlined Java, light green for interpreted Java, yellow for the JVM's own C++ code, red for native code and orange for the kernel. Clicking a box zooms in, and the search field highlights every frame that matches. Two variants are useful too. A reversed graph (`--reverse`) merges stacks from the top frame down, which gathers all the callers of one busy method. An icicle graph (`--inverted`) hangs from the top.
+
+**Width is time, left to right is the alphabet. Start at the widest top and walk down to your own code.**
+
+So the flame graph says split, format and the regex. Each of those questions came from a CPU profile. Some questions aren't about the CPU at all."""
+
+S4 = """A flame graph shows samples of something, and the mode decides what. async-profiler's main modes:
+
+| Mode | A sample means | Use it for |
+|---|---|---|
+| `cpu` (default) | the thread was running on a CPU | where CPU time goes |
+| `wall` | the thread existed, running or not | where a request waits: the network, a lock, a sleep |
+| `alloc` | the thread allocated memory | who creates the garbage |
+| `lock` | the thread waited to enter a lock | contention |
+
+`cpu` mode takes its samples from Linux `perf_events`. Those can be blocked, for example when the file `/proc/sys/kernel/perf_event_paranoid` holds 2 or more, or inside some containers. Then `-e ctimer` gives similar results from a timer, without the kernel frames.
+
+`wall` mode samples every thread at the same rate, whether it runs, sleeps or waits, and the docs recommend it per thread: `asprof -e wall -t -i 50ms -f wall.html <pid>`. Remember the document store from lesson 5. A report that's slow because it waits for the store spends no CPU while it waits, so a `cpu` profile barely shows it, and `wall` shows exactly where it waits.
+
+In `alloc` mode, "the top frame of every call trace is the class of the allocated object, and the counter is the heap pressure". It hooks into HotSpot when an object needs a fresh TLAB, the private stretch of heap each thread fills on its own, or has to be placed outside one. It doesn't disturb escape analysis, the JIT's trick of skipping objects that never leave a method: those never show up, because they were never made. An alloc profile of the report step put 34.1% of the allocated bytes under `String.format`, 33.3% under `Pattern.compile` and 28.2% under `String.split`. The top frames were `byte[]` 26.2%, `java.lang.String` 13.0% and `boolean[]` 11.0%: text being built and copied, and the regex's own tables. (Each class name ends in a short marker such as `_[i]`, which the drawing uses to pick a colour; you can ignore it.)
+
+`lock` mode puts the class of the lock on top, and the counter is the nanoseconds spent waiting to enter it: `asprof -e lock -t -i 5ms -f lock.html <pid>`.
+
+You can also load the profiler when the JVM starts instead of attaching later, which helps inside a container: `-agentpath:/path/to/libasyncProfiler.so=start,event=cpu,file=cpu.collapsed,collapsed`. `-o collapsed` (or `collapsed` in the agent's options) writes collapsed stacks instead of HTML, which is what the lab reads. `--all` switches on every mode at once, and the docs say it's not recommended for production.
+
+Here's where today's tool stops. A profile shows where the time and the bytes go, during the seconds you recorded. It doesn't say which cost you can remove, whether removing it helps the slow requests, or what the next problem will be once this one is gone. Those questions need a whole investigation, and that's the next lesson."""
+
 L = {
  "id": "perf-06",
  "title": "async-profiler and flame graphs",
  "minutes": 38,
- "goal": "By the end you can explain how a sampling profiler works and why safepoint bias misleads simple ones, profile a JVM with async-profiler in cpu, wall, alloc and lock modes, and read a flame graph correctly.",
+ "goal": "By the end you can explain how a sampling profiler works and why safepoint bias misleads simple ones, profile a JVM with async-profiler in cpu, wall, alloc and lock modes, and read a flame graph without being fooled by it.",
+ "opening": OPENING,
  "warmup": {
-  "q": "In a flame graph, the box for `Pattern.compile` sits to the left of `String.format` at the same height. What does that tell you?",
+  "q": "In a flame graph of the report step, the box for `String.format` sits to the left of `Pattern.compile`, at the same height. What does that tell you?",
   "options": [
-   "`Pattern.compile` ran before `String.format`",
+   "`String.format` ran before `Pattern.compile`",
    "Nothing about time: boxes at the same level are sorted alphabetically by frame name",
-   "`Pattern.compile` is slower than `String.format`",
+   "`String.format` is slower than `Pattern.compile`",
    "`Pattern.compile` was called by `String.format`"
   ],
   "answer": 1,
-  "why": "The x-axis of a flame graph isn't a timeline. Brendan Gregg's flamegraph.pl says the ordering \"has no meaning\" and sorts frames alphabetically. Width says how many samples had that frame; height says how deep the stack was. A caller is drawn below its callees, never beside them."
+  "why": "Left to right in a flame graph isn't a timeline. flamegraph.pl says the ordering \"has no meaning\" and sorts frames alphabetically: `java/lang/String.format` comes before `java/util/regex/Pattern.compile`. Width says how many samples had the frame; height says how deep the stack was. A caller is drawn below its callees, never beside them."
  },
  "sections": [
   {
    "h": "A sampling profiler is a loop that counts stacks",
-   "body": "Take `SlowFees.feeSlow`, the fee calculation lesson 7 investigates. You want to know where its CPU time goes, call by call, without changing its code. You could add timers around every call, but timers change what they measure, and you'd need to know where to put them.\n\nA **sampling profiler** does something simpler. Every few milliseconds it looks at what each thread is executing, records the whole call stack, and counts how often each stack shows up. If a method is on top of the stack in 20% of the samples, the thread spent about 20% of its time there. You can build one in a dozen lines:\n\n```java\n" + SAMPLER_J + "\n```\n\n```kotlin\n" + SAMPLER_K + "\n```\n\nThe output is the format every flame graph tool reads, **collapsed stacks**: one line per distinct stack, frames from the root to the top separated by `;`, then the number of samples.\n\n```text\njava.lang.Thread.run;...SlowFees.feeSlow;java.math.BigDecimal.toPlainString;java.lang.Long.toString;java.lang.Long.getChars 45\n```\n\nTwo words come up constantly. A frame's self time is the samples where it was on top of the stack, doing the work itself. Its inclusive time adds everything it called. `feeSlow` has almost no self time and a huge inclusive time: it does little itself and calls expensive things.\n\n`PoorMansProfiler` runs `feeSlow` on two threads for 4 seconds and samples them like this. One run took 702 samples. Its top frames were `BigDecimal.<init>` 15.0%, `BigDecimal.toPlainString` 15.0%, `AbstractStringBuilder.ensureCapacityInternal` 10.5% and `Formatter.parse` 9.5%. That looks like a usable answer. The next section shows why it isn't quite.",
+   "body": S1,
    "try": {
     "title": "Run a profiler you can read in one screen",
     "minutes": 4,
     "steps": [
-     "Read `PoorMansProfiler` and `SlowFees.feeSlow`. Predict the three methods that will be on top most often.",
-     "Run it. It prints the top frames and writes `build/poor-man.collapsed` (relative to `labs/performance`).",
-     "Open the collapsed file and find the line with the biggest count. Run the Kotlin twin and compare its top frames."
+     "Read `PoorMansProfiler` and `SlowReport.readingSeconds`. Predict the three methods that will be on top most often.",
+     "Run it. It prints the top frames and writes `build/poor-man.collapsed` (inside `labs/performance`).",
+     "Open the collapsed file and find the line with the biggest count. How many frames deep is it, and what's on top? Then run the Kotlin twin and compare its top frames."
     ],
     "code": demo("PoorMansProfiler"),
-    "expect": "About 700 samples in 4 seconds (2 threads, every 10 ms). The top frames are spread over `BigDecimal`, `StringBuilder`, `Formatter` and regex methods. The Kotlin twin put 13.8% on its own `kFeeSlow` frame in one run, which is odd for a method that only calls other methods. Remember that oddity for the next section."
+    "expect": "A few hundred samples in 4 seconds (2 threads, one sample each every 10 ms if the machine keeps up; 238 in a busy run here). The top frames are `String.split` (19 to 29% in two runs), then `Formatter` and regex methods. The biggest line ends in `String.split;String.split;String.split`: three `split` frames and nothing above them. The Kotlin twin shows `kotlin.text.StringsKt__StringsKt.split$StringsKt__StringsKt` on top, Kotlin's own `split`. Remember that nothing ever sits above `split` for the next section."
    }
   },
   {
-   "h": "Safepoint bias: the hand-made profiler only sees threads where they can stop",
-   "body": "`Thread.getStackTrace()` on another thread can't read that thread's stack at an arbitrary instruction. Compiled code keeps values in registers and has inlined frames, so the JVM can only describe a thread's stack at a **safepoint**: a point where it has recorded the full state of the frames. Compiled code checks for a request to stop at safepoint polls, which sit mostly at method returns and loop back-edges. So when the sampler asks, the thread runs on to the next poll and reports its stack there.\n\nThe samples pile up on polls instead of where the CPU spends its time. A tight inlined loop without a poll looks free, and the method that contains the next poll gets the blame. That's why the Kotlin twin charged 13.8% to `kFeeSlow` itself. This is **safepoint bias**, and every profiler built on `getStackTrace` or the JVMTI `GetAllStackTraces` call has it.\n\nThe same workload under async-profiler 4.6 gave a different picture. Its top frames were `Formatter.format` 17.7%, `Long.getChars` 14.9%, `Pattern.compile` 12.4% and `BigDecimal.<init>` 10.3%. `Formatter.format` didn't appear in the hand-made top six at all. And where the hand-made profiler charged 15% to `toPlainString` itself, async-profiler charged 14.9% to `Long.getChars`, a method `toPlainString` calls.\n\nasync-profiler avoids the bias by interrupting each thread with a signal, driven by Linux `perf_events` or a timer, and walking the stack at the exact instruction where the signal landed. To make sense of JIT-compiled frames there, it reads HotSpot's internal structures: originally through `AsyncGetCallTrace`, a HotSpot-only function the profiler is named after, and since version 4.2 with its own walker by default. Because it works below the JVM, it also shows native frames, JVM frames (GC, JIT compiler threads) and kernel frames, which no Java-level profiler can see.\n\nJFR, from lesson 5, doesn't have the bias in its classic form either. In JDK 25 its sampler records where the thread was at the sampling moment and lets the thread finish the stack walk at its next safepoint (cooperative sampling, JEP 518).\n\nCheck yourself: a method has one hot inlined loop and returns once at the end. Which method would a `getStackTrace` profiler blame for the loop's time? (Whichever frame reaches the next safepoint poll, often the loop's own back-edge or the caller after the return, not the instructions that burned the CPU.)",
+   "h": "Safepoint bias: the hand-made sampler only sees threads where they can stop",
+   "body": S2,
    "try": {
     "title": "Profile the same code with async-profiler",
     "minutes": 6,
     "steps": [
      "Download async-profiler from its GitHub releases page (Linux x64 or arm64, or macOS) and unpack it. `bin/asprof` is the launcher.",
-     "Run `ProfileMe`. It prints its pid and keeps four threads busy for 8 seconds.",
+     "Run `ProfileMe`. It prints its process id and keeps four threads busy for 8 seconds.",
      "In a second terminal, within those 8 seconds: `asprof -d 5 -f cpu.html <pid>`. Open `cpu.html` in a browser.",
-     "Compare its widest top frames with `PoorMansProfiler`'s list."
+     "Find `String.split` and look at what sits on top of it. Compare with `PoorMansProfiler`'s list."
     ],
     "code": demo("ProfileMe"),
-    "expect": "A flame graph with `feeSlow` covering almost the whole width of the worker threads, and `String.format`, `Pattern.compile`, `toPlainString` and `BigDecimal.<init>` as its widest children. On Linux you may also see GC and JIT compiler threads as separate towers. If `asprof` reports that perf_events are unavailable (common in containers), add `-e ctimer`, which works without them."
+    "expect": "A flame graph with `readingSeconds` covering most of the width of the `report-` threads, and `String.split`, `String.format` and `Pattern.compile` as its widest children. This time `split` has frames above it, such as `String.indexOf` and `StringLatin1.newString`. On Linux you'll also see separate towers for the JIT compiler and GC threads. If `asprof` says perf_events are unavailable (common in containers), add `-e ctimer`, which works without them."
    },
    "refs": [
     {"title": "async-profiler (README and releases)", "url": "https://github.com/async-profiler/async-profiler", "kind": "docs"}
    ]
   },
   {
-   "h": "Reading a flame graph: width is samples, the x-axis is the alphabet",
-   "body": "A flame graph is the collapsed stacks drawn as boxes. Each box is one frame. The root sits at the bottom, and each frame's callees are stacked on top of it. Three rules make it readable.\n\nWidth is samples. A box's width is the number of samples with that frame on the stack at that position, which is its inclusive time there. Identical frames at the same depth under the same parent are merged into one box.\n\nThe x-axis is not time. Boxes at the same level are sorted alphabetically. flamegraph.pl's own header says \"The ordering on the x-axis has no meaning\", and async-profiler's guide says a flame graph \"does not preserve information on when a particular stack trace was taken\". A box on the left didn't run first.\n\nLook at the tops. The part of a box with nothing above it is self time: the CPU was in that frame's own code. Wide tops are where to start. A wide box covered by its children is a caller, and the fix is usually in one of them.\n\nThe figure is drawn from a real async-profiler CPU profile of the same fee code (its class was called `PaymentSim` in that run): 8,005 samples over 10 seconds, of which `feeSlow` covered 5,747 (71.8%). Its widest children are `String.format` (23.3% of all samples), `Pattern.compile` (17.6%), `BigDecimal.toPlainString` (11.5%) and the `BigDecimal` constructor (7.9%). Outside `feeSlow`, about 8% of the samples were G1 garbage collector threads and about 9% C2 compiler threads, and 608 samples were in `__vdso_clock_gettime`: the test harness calling `System.nanoTime()` around every request, so the measurement shows up in its own profile.\n\nasync-profiler's HTML colours frames by type: green for compiled Java, aqua for inlined Java, light green for interpreted, yellow for JVM (C++) code, red for native and orange for kernel. Clicking a box zooms in, and the search field highlights every frame that matches. The same tools draw two useful variants: a reversed graph (`--reverse`) that merges stacks from the top frame down, which groups all callers of a hot leaf, and an icicle graph (`--inverted`) that hangs from the top.",
-   "figure": {"svg": fig(), "caption": "The feeSlow part of a real 8,005-sample CPU profile. Widths are sample counts; small frames are grouped as \"other\" in this drawing."},
+   "h": "Reading a flame graph: width is samples, left to right is the alphabet",
+   "body": S3,
+   "figure": {"svg": fig(), "caption": "The readingSeconds part of a real 3,569-sample CPU profile. Widths are sample counts; small frames are grouped in this drawing."},
    "try": {
     "title": "Read your flame graph like a profile",
     "minutes": 4,
     "steps": [
      "Open `cpu.html` from the previous Try it. Type `Pattern` into the search field: what share of the samples matches?",
-     "Click `feeSlow` to zoom in. Find the widest box that has nothing above it.",
-     "Predict before checking: if you moved `Pattern.compile(...)` into a `static final` field, which boxes would disappear, and roughly how much narrower would `feeSlow` get?"
+     "Click `readingSeconds` to zoom in. Find the widest box that has nothing above it.",
+     "Predict before checking: if you moved `Pattern.compile(...)` into a `static final` field, which boxes would disappear, and roughly how much narrower would `readingSeconds` get?"
     ],
-    "expect": "The search shows a match share in the bottom-right corner; in the profile the figure comes from, `Pattern.compile` and `Pattern.matcher` alone came to about 22% of all samples. The widest exposed tops sit inside `Formatter`, `Pattern` and `BigDecimal`. Hoisting the pattern removes the `Pattern.compile` tower (about 18% of samples) but keeps `Pattern.matcher`, which still allocates a `Matcher` per call. That's exactly what lesson 7 finds."
+    "expect": "The search shows the matching share in the bottom-right corner; in the profile the figure comes from, `Pattern.compile` alone was 13.6% of all samples, and `Pattern.matcher` about 1.5% more. The widest bare tops sit inside `split` (searching for spaces, copying words) and `Formatter`. Hoisting the pattern removes the `Pattern.compile` tower but keeps `Pattern.matcher`, which still creates a `Matcher` on every call. Lesson 7 runs exactly that experiment."
    },
    "refs": [
     {"title": "Interpreting a flame graph (async-profiler docs)", "url": "https://github.com/async-profiler/async-profiler/blob/master/docs/FlamegraphInterpretation.md", "kind": "read"}
    ]
   },
   {
-   "h": "Pick the mode: cpu, wall, alloc or lock",
-   "body": "A flame graph shows samples of something. The mode decides what. async-profiler's main modes:\n\n| Mode | A sample means | Use it for |\n|---|---|---|\n| `cpu` (default) | the thread was running on a CPU | where CPU time goes |\n| `wall` | the thread existed, running or not | latency: where a request waits (I/O, locks, sleep) |\n| `alloc` | the thread allocated memory | who creates the garbage |\n| `lock` | the thread waited to enter a lock | contention |\n\n`cpu` mode takes stacks from Linux `perf_events`. Those can be blocked, for example when `/proc/sys/kernel/perf_event_paranoid` is 2 or higher or in some containers. Then `-e ctimer` gives similar results from a timer, without kernel frames. `wall` samples every thread equally whether it runs, sleeps or blocks, and the docs recommend it per thread: `asprof -e wall -t -i 50ms -f wall.html <pid>`. For a payment API that is slow because it waits on an issuer, `wall` is the right mode and `cpu` is nearly empty.\n\nIn `alloc` mode, \"the top frame of every call trace is the class of the allocated object, and the counter is the heap pressure\". It hooks into HotSpot when an object is allocated in a new TLAB (a thread's private allocation buffer) or outside one, and it doesn't disturb escape analysis: objects the JIT scalar-replaced never show up. On the slow fee code, an alloc profile here put 37.4% of the allocated bytes under `Pattern.compile`, 27.9% under `String.format` and 12.3% under `toPlainString`. The top frames were `byte[]`, `int[]` and `boolean[]`: regex internals and string building. (The class names carry a short suffix in brackets; ignore it for now.)\n\n`lock` mode puts the class of the lock or monitor on top, and the counter is the nanoseconds spent waiting to enter it: `asprof -e lock -t -i 5ms -f lock.html <pid>`.\n\nYou can also load the profiler at start-up instead of attaching later, which is handy in a container: `-agentpath:/path/to/libasyncProfiler.so=start,event=cpu,file=cpu.collapsed,collapsed`. `-o collapsed` writes collapsed stacks instead of HTML, which is what the lab reads. `--all` turns on every mode at once; the docs say it's not recommended for production.",
+   "h": "Pick the mode for the question: cpu, wall, alloc or lock",
+   "body": S4,
    "try": {
     "title": "Who allocates, and who waits",
     "minutes": 4,
     "steps": [
      "Start `ProfileMe` again. Attach in alloc mode: `asprof -e alloc -d 5 -f alloc.html <pid>`.",
-     "Before opening it, predict the three widest children of `feeSlow` in the allocation graph.",
+     "Before opening it, predict the three widest children of `readingSeconds` in the allocation graph.",
      "Start `ProfileMe` once more and attach with `asprof -e wall -t -d 5 -f wall.html <pid>`. How does it differ from `cpu.html`?"
     ],
     "code": {"lang": "bash", "title": "terminal", "src": "asprof -e alloc -d 5 -f alloc.html <pid>\nasprof -e alloc -d 5 -o collapsed -f alloc.collapsed <pid>   # the same, as text\nasprof -e wall -t -d 5 -f wall.html <pid>", "run": ""},
-    "expect": "In the allocation graph, `Pattern.compile` and `String.format` are the widest children of `feeSlow`, followed by `toPlainString`, and the top frames are array classes such as `byte[]` and `int[]`. The wall graph splits by thread (`-t`): the four `fees-` threads look much like the CPU profile because they never wait, while `main` sits in `Thread.join` the whole time. In a 3-second run here, `main` got 61 samples, exactly as many as each worker: wall mode samples every thread equally, and a CPU profile would ignore `main` completely."
+    "expect": "In the allocation graph, `String.format`, `Pattern.compile` and `String.split` are the three wide children of `readingSeconds`, about a third each, and the top frames are classes such as `byte[]`, `java.lang.String` and `boolean[]`. The wall graph is split by thread (`-t`). The four `report-` threads look much like the CPU profile, because they never wait, while `main` sits in `Thread.join` the whole time. In a 3-second run here, every thread got about 60 samples, one per 50 ms, the JVM's sleeping threads included: wall mode samples every thread equally, and a CPU profile would ignore `main` completely."
    }
   }
  ],
- "analogy": "A sampling profiler is a manager who walks past the team's desks every ten seconds and notes what each person is working on. After a day, the tally says where the time went, without anyone filling in a timesheet. Safepoint bias is a manager who only looks up when someone stands up from their desk: they see people at the coffee machine and the printer, and they never see the long stretches of typing. async-profiler is a camera that takes a snapshot at a random moment, wherever people are. The analogy breaks at the end: the camera also sees the cleaners and the building's machinery, the GC and JIT threads, which a real manager would ignore.",
- "in_your_world": "Your Quarkus authorization service shows high CPU at peak. Attach async-profiler to one pod for 30 seconds in `cpu` mode and look for wide tops in your own packages: per-request `Pattern.compile` in a validator, `String.format` in a log statement that's disabled, JSON mapping you didn't expect. If the complaint is latency rather than CPU, use `wall -t` instead: a request thread waiting on the card issuer or a JDBC pool shows up there and not in `cpu`. In Kubernetes, `perf_events` is often blocked, so start with `-e ctimer`. Keep the HTML file with the incident notes. And since the profiler sees GC and JIT threads too, a wide G1 tower is a hint to go back to `alloc` mode.",
- "mistake": "The most common mistake is reading a flame graph as a timeline: \"first it validated the currency, then it formatted the log line\". Boxes at the same level are in alphabetical order, so left and right say nothing about when or in which order. The second mistake is optimizing the widest box at the bottom of the graph. A wide box covered by its children (`feeSlow` here) spends its time in those children, and making it faster on its own changes nothing. Look for wide exposed tops, then follow them down to the first frame in your own code: that's the line to change.\n\n```java\n// what the profile points at: the frame in your code under the wide top\nif (!Pattern.compile(\"^[A-Z]{3}$\").matcher(currency).matches()) { ... }\n```\n\n```kotlin\n// what the profile points at: the frame in your code under the wide top\nrequire(Regex(\"^[A-Z]{3}$\").matches(currency)) { \"bad currency\" }\n```",
  "compare": {
   "title": "The hand-made sampler in Java and Kotlin",
   "java": {"title": "PoorMansProfiler.java", "src": SAMPLER_J},
   "kotlin": {"title": "PoorMansProfiler.kt", "src": SAMPLER_K},
-  "note": "Both versions call the same JVM method, `Thread.getStackTrace()`, so both share its safepoint bias and its cost: each call stops the target thread briefly. The Kotlin twin's workload uses `Regex`, `BigDecimal` operators and the `format` extension, which call the same JDK classes, so its profile has the same hot spots with slightly different frame names, such as `kotlin.text.Regex.<init>` below `Pattern.compile`. Kotlin's frame names in profiles follow the compiled classes: top-level functions appear under the file class, such as `ProfileMeKt.kFeeSlow`."
+  "note": "Both versions call the same JVM method, `Thread.getStackTrace()`, so both share its safepoint bias and its cost: each call stops the target thread briefly. The Kotlin twin's workload uses `Regex`, `split(' ')` and the `format` extension, which call the same JDK classes, so its profile has the same hot spots under slightly different names. Kotlin's `split` is its own function, `kotlin.text.StringsKt__StringsKt.split$StringsKt__StringsKt`, and `Regex.matches` ends in `java.util.regex.Pattern`. Frame names follow the compiled classes: a top-level function appears under its file class, such as `ProfileMeKt.kReadingSeconds`."
  },
  "worked": {
   "title": "From a profile to the line to change",
   "steps": [
-   {"say": "The authorization pods run hot. Attach to one for 30 seconds in CPU mode, as collapsed stacks so you can also grep them.", "code": "asprof -d 30 -e cpu -o collapsed -f /tmp/auth-cpu.collapsed <pid>\nasprof -d 30 -e cpu -f /tmp/auth-cpu.html <pid>", "lang": "bash"},
-   {"say": "Find the widest self frames first: sort the collapsed lines by top frame. Here `Pattern.compile` and `Formatter.format` lead.", "code": "awk '{n=$NF; $NF=\"\"; k=split($0,f,\";\"); s[f[k]]+=n} END {for (x in s) print s[x], x}' /tmp/auth-cpu.collapsed | sort -rn | head -5", "lang": "bash"},
-   {"say": "A JDK frame on top is rarely the thing to fix. Walk down each hot stack to the first frame in your own package. Self-check: why stop at your own frame and not at the JDK one? (You can't make `Pattern.compile` faster, but you can stop calling it per request.)", "code": "java/util/regex/Pattern.<init>   <- top, JDK\njava/util/regex/Pattern.compile  <- JDK\ncom.acme.pay.FeeService.fee      <- first frame you own: the line to change", "lang": "text"},
-   {"say": "Fix one thing, profile again, and compare widths. Lesson 7 does exactly this and finds that the next hot spot only becomes visible after the first fix.", "code": "", "lang": ""}
+   {"say": "The report service runs hot. Attach to it for 30 seconds in CPU mode, once as collapsed stacks you can search with `grep`, and once as HTML to look at.", "code": "asprof -d 30 -e cpu -o collapsed -f /tmp/reports-cpu.collapsed <pid>\nasprof -d 30 -e cpu -f /tmp/reports-cpu.html <pid>", "lang": "bash"},
+   {"say": "Find the widest self frames first: add up the counts by the last frame of each line. Here `String.split`, `StringLatin1.indexOf` and `Pattern.compile` lead.", "code": "awk '{n=$NF; $NF=\"\"; k=split($0,f,\";\"); s[f[k]]+=n} END {for (x in s) print s[x], x}' /tmp/reports-cpu.collapsed | sort -rn | head -5", "lang": "bash"},
+   {"say": "A JDK frame on top is rarely the thing to fix. Walk down each busy stack to the first frame in your own package. Self-check: why stop at your own frame and not at the JDK one? (You can't make `String.split` faster, but you can stop asking it to build a String for every word.)", "code": "java/lang/StringLatin1.indexOf                       <- top, JDK\njava/lang/String.split                               <- JDK\nworkbench/performance/l06/SlowReport.readingSeconds  <- first frame you own: the line to change", "lang": "text"},
+   {"say": "Fix one thing, profile again, and compare the widths. Lesson 7 does exactly this, and finds that the next problem only stands out once the first one is gone.", "code": "", "lang": ""}
   ]
  },
  "lab": {
@@ -180,17 +302,17 @@ L = {
   "files": [f"{lab}/main/{K}/FlameGraph.kt", f"{lab}/main/{K}/FlameNode.kt"],
   "run": "./gradlew :performance:test --tests 'workbench.performance.l06.*'",
   "steps": [
-   "Run the tests. All five fail. The fixture is seven lines from a real async-profiler profile of the slow fee code.",
+   "Run the tests. All five fail. The fixture is seven real lines from an async-profiler 4.6 profile of `SlowReport.readingSeconds` on JDK 25.",
    "Write `parse`. Frame names can contain spaces (`itable stub`), so split on the last space.",
-   "Write `selfTime` (count goes to the last frame) and `inclusiveTime` (count goes to every distinct frame in the stack, once).",
-   "Write `build` with the `FlameNode` class provided: walk each stack from the root, adding the count to every node on the way. `FlameNode` keeps children sorted by name, like flamegraph.pl.",
+   "Write `selfTime` (the count goes to the last frame) and `inclusiveTime` (the count goes to every distinct frame in the stack, once).",
+   "Write `build` with the `FlameNode` class provided: walk each stack from the root, adding the count to every node on the way. `FlameNode` keeps its children sorted by name, like flamegraph.pl.",
    "Write `hottestPath`, then run the tests until all five pass. Optional: run your code on `build/poor-man.collapsed` from the first Try it."
   ],
   "hints": [
    "`line.lastIndexOf(' ')` splits the count off. `split(';')` gives the frames, root first.",
-   "In the fixture, `Pattern.compile` appears twice in one stack (the public `compile(String)` and the private `compile()`). Counting it twice gives 1,290 instead of 645: use `frames.toSet()`.",
-   "In `build`, start with `root.total += count`, then `node = node.child(frame); node.total += count` for each frame. Equal prefixes merge by themselves because `child` returns the existing node.",
-   "`FlameNode.self` is already there: total minus the children's totals. You don't store it."
+   "In the fixture, `String.split` appears three times in one stack (the public `split(String)` and two private versions it calls), and `Pattern.compile` twice. Counting every appearance gives 237 instead of 79 for `split`: use `frames.toSet()`.",
+   "In `build`, start with `root.total += count`, then `node = node.child(frame); node.total += count` for each frame. Equal prefixes merge by themselves, because `child` returns the existing node.",
+   "`FlameNode.self` is already there: the total minus the children's totals. You don't store it."
   ],
   "done_when": "All five tests in `FlameGraphTest` pass."
  },
@@ -202,60 +324,66 @@ L = {
              "alt": {"lang": "kotlin", "src": "// self(b) = 2 (only \"a;b\" ends in b); inclusive(b) = 3 + 2 + 1 = 6\n// flame graph, root at the bottom, children in alphabetical order:\n//   [c 3]          [b 1]\n//   [b    5     ][d  1 ]\n//   [a        6        ]\nfun inclusive(samples: List<Sample>): Map<String, Long> {\n    val result = HashMap<String, Long>()\n    for (s in samples) {\n        for (frame in s.frames.toSet()) result.merge(frame, s.count, Long::plus)   // once per sample\n    }\n    return result\n}"}}
  },
  "recap": [
-  "A sampling profiler records thread stacks every few milliseconds and counts them. Collapsed stacks (`a;b;c 42`) are the common text format.",
-  "Profilers built on `Thread.getStackTrace` or JVMTI only see threads at safepoint polls, so samples land on the next poll: safepoint bias.",
-  "async-profiler interrupts threads with signals and walks the stack where the signal landed, and it also sees native, JVM, GC, JIT and kernel frames.",
-  "In a flame graph, width is samples, the root is at the bottom and the x-axis is alphabetical, not time. Wide exposed tops are self time; follow them down to your own code.",
-  "Pick the mode for the question: `cpu` for CPU time, `wall -t` for waiting, `alloc` for who allocates, `lock` for contention. Use `-e ctimer` when perf_events is blocked."
+  "A sampling profiler writes down thread stacks every few milliseconds and counts them. Collapsed stacks (`a;b;c 42`) are the common text format.",
+  "Profilers built on `Thread.getStackTrace` or JVMTI only see threads at safepoint polls, so samples land on the next poll: safepoint bias. Ours blamed `String.split` itself and never saw the methods it calls.",
+  "async-profiler interrupts threads with a signal and walks the stack where it landed, and it also sees native code, the JIT and GC threads and the kernel.",
+  "In a flame graph, width is samples, the root is at the bottom and left to right is alphabetical, not time. Wide bare tops are self time; follow them down to your own code.",
+  "Pick the mode for the question: `cpu` for CPU time, `wall -t` for waiting, `alloc` for who allocates, `lock` for contention. Use `-e ctimer` when perf_events is blocked.",
+  "The limit: a profile shows where time and bytes went during the seconds you recorded. It doesn't say which cost to remove first, or whether removing it helps the slow requests; that takes an investigation (lesson 7)."
  ],
+ "closing": """We started with a manager who glances into the kitchen every few seconds, and a second one who only looks up when a cook puts the knife down. Our hand-made sampler was the second: it blamed `String.split` for work its inlined callees did. async-profiler looks at any moment, and a flame graph turns its tally into boxes whose width is time.
+
+Now take a profile of a program of yours and find the widest bare top. Follow it down to the first frame in your own code: that's the line to read.
+
+Next, we'll put every tool so far into one investigation. Starting from "it's slow", how do we reach a fix we can prove to the byte?""",
  "quiz": [
-  {"q": "A request is slow because each one waits 120 ms for the card issuer. The CPU flame graph of the service barely shows the request path. Which mode shows the wait?",
+  {"q": "A report is slow because each one waits 120 ms for the document store to answer. The CPU flame graph of the service barely shows the report path. Which mode shows the wait?",
    "options": ["`-e cpu` with a shorter interval", "`-e wall -t`", "`-e alloc`", "`-e lock`"],
    "answer": 1,
-   "why": "`wall` samples every thread at the same rate whether it runs, sleeps or blocks, so a thread waiting on a socket shows up. CPU sampling only sees threads that are running, and the issuer wait isn't a Java lock, so `lock` won't show it either."},
-  {"q": "In a flame graph, `FeeService.fee` is a very wide box, completely covered by `String.format` and `Pattern.compile` above it. Where is the time?",
-   "options": ["In `FeeService.fee`'s own code", "In the frames above it: `fee` has no self time, so its callees do the work", "Spread evenly over the graph", "In the frames below it"],
+   "why": "`wall` samples every thread at the same rate whether it runs, sleeps or waits, so a thread waiting on a network socket shows up. CPU sampling only sees threads that are running. Waiting for a socket isn't a Java lock, so `lock` won't show it either."},
+  {"q": "In a flame graph, `SlowReport.readingSeconds` is a very wide box, almost completely covered by `String.split`, `String.format` and `Pattern.compile` above it. Where is the time?",
+   "options": ["In `readingSeconds`'s own code", "Spread evenly over the graph", "In the frames above it: `readingSeconds` has little self time, so its callees do the work", "In the frames below it"],
+   "answer": 2,
+   "why": "Width is inclusive. A box that's covered has little self time. The fix is still in `readingSeconds`, because it's the frame in your code that calls `split`, `format` and `Pattern.compile`, but the CPU is in those callees."},
+  {"q": "A profiler built on `Thread.getStackTrace()` charges 29% of the CPU to `String.split` itself and never shows a frame above it. async-profiler charges most of that time to methods `split` calls, such as `StringLatin1.indexOf`. Which is closer to the truth, and why?",
+   "options": ["The hand-made profiler: `getStackTrace` is exact", "async-profiler: `getStackTrace` only sees a thread at a safepoint poll, after the inlined callees have returned, so their time is charged to `split`", "Neither: the two runs used different threads", "The hand-made profiler, because async-profiler can't see inlined methods"],
    "answer": 1,
-   "why": "Width is inclusive. A box with no exposed top has no self time. The fix is still in `fee`, because it's the frame in your code that calls `String.format` and `Pattern.compile`, but the CPU is in those callees."},
-  {"q": "A profiler built on `Thread.getStackTrace()` blames 14% of the CPU on a method that only calls other methods. What's the most likely explanation?",
-   "options": ["The method really does 14% of the work", "Safepoint bias: samples are taken where threads reach a safepoint poll, so time gets charged to wherever the next poll is", "Inlining makes the method slower", "The JIT removed the callees"],
-   "answer": 1,
-   "why": "`getStackTrace` on another thread needs that thread at a safepoint, and polls sit at method returns and loop back-edges. Time spent between polls is charged to the frame where the thread stopped. async-profiler samples at the exact instruction instead."},
-  {"q": "You profile with `asprof -e alloc` and see no `Money` objects, although the code creates one per payment. What could explain it?",
-   "options": ["The alloc mode only shows arrays", "The JIT scalar-replaced the `Money` objects after escape analysis, so they were never allocated on the heap", "Allocation profiles only cover the main thread", "async-profiler can't see application classes"],
-   "answer": 1,
-   "why": "async-profiler's docs say alloc mode doesn't disturb escape analysis and measures only real heap allocations. An object that never escapes its compiled method can be replaced by its fields in registers, so there's nothing to sample."},
-  {"q": "From lesson 5: you need to know which methods allocate the most in a production pod, but you can't install async-profiler there. What's the closest built-in answer?",
+   "why": "Reading another thread's stack with `getStackTrace` needs that thread at a safepoint, and polls sit at method returns and loop back-edges. Inlined callees such as `indexOf` have finished by then, so their time lands on `split`. async-profiler interrupts the thread wherever it is, and it does show inlined frames."},
+  {"q": "You profile with `asprof -e alloc` and see no `Summary` objects, although the code creates one for every document. What could explain it?",
+   "options": ["Alloc mode only shows arrays", "Allocation profiles only cover the main thread", "async-profiler can't see your own classes", "The JIT's escape analysis proved the `Summary` never leaves its method and replaced it with plain local values, so it was never made on the heap"],
+   "answer": 3,
+   "why": "async-profiler's docs say alloc mode doesn't disturb escape analysis and measures only real heap allocations. An object that never escapes its compiled method can be broken into its fields, kept in registers, so there's nothing to sample."},
+  {"q": "From lesson 5: you need to know which methods allocate the most in a running service, but you can't install async-profiler there. What's the closest built-in answer?",
    "options": ["`jfr view allocation-by-site` on a recording dumped with `jcmd <pid> JFR.dump`", "`-XX:+PrintCompilation`", "`jcmd <pid> Thread.print`", "A JMH benchmark with `-prof gc`"],
    "answer": 0,
-   "why": "JFR samples allocations as `jdk.ObjectAllocationSample` events with stack traces, and the `allocation-by-site` view groups them by top frame. It's built into the JDK, so nothing needs installing. JMH measures code in isolation, not the pod.",
+   "why": "JFR samples allocations as `jdk.ObjectAllocationSample` events with stack traces, and the `allocation-by-site` view adds them up by method. It's built into the JDK, so nothing needs installing. JMH measures a piece of code on its own, not the running service.",
    "from": "perf-05"}
  ],
  "flashcards": [
   {"front": "What does a line of collapsed stacks look like?", "back": "`root;caller;callee 42`: frames from the root to the top separated by `;`, then the number of samples."},
   {"front": "Self time vs inclusive time of a frame?", "back": "Self: samples with the frame on top of the stack. Inclusive: samples with the frame anywhere on the stack."},
-  {"front": "What is safepoint bias?", "back": "Profilers that use `getStackTrace`/JVMTI only see threads at safepoint polls, so samples land on the next poll instead of where the CPU was."},
-  {"front": "In a flame graph, what does the x-axis order mean?", "back": "Nothing about time: frames at the same level are sorted alphabetically. Width is the number of samples."},
-  {"front": "Which async-profiler mode shows where requests wait on I/O?", "back": "`wall` (ideally with `-t`), which samples threads whether they run, sleep or block."},
-  {"front": "What's on top of each stack in async-profiler's alloc mode?", "back": "The class of the allocated object; the counter is the heap pressure."},
-  {"front": "What do you do when async-profiler can't use perf_events (containers, perf_event_paranoid ≥ 2)?", "back": "Use `-e ctimer`, which samples CPU with a timer, without kernel frames."}
+  {"front": "What is safepoint bias?", "back": "Profilers that use `getStackTrace` or JVMTI only see threads at safepoint polls, so samples land on the next poll instead of where the CPU was."},
+  {"front": "In a flame graph, what does left to right mean?", "back": "Nothing about time: frames at the same level are sorted alphabetically. Width is the number of samples."},
+  {"front": "Which async-profiler mode shows where requests wait for the network?", "back": "`wall` (ideally with `-t`), which samples threads whether they run, sleep or wait."},
+  {"front": "What's on top of each stack in async-profiler's alloc mode?", "back": "The class of the allocated object, such as `byte[]`; the counter is the heap pressure."},
+  {"front": "What do you do when async-profiler can't use perf_events (containers, `perf_event_paranoid` of 2 or more)?", "back": "Use `-e ctimer`, which samples CPU with a timer, without kernel frames."}
  ],
  "terms": [
-  {"term": "Sampling profiler", "plain": "A profiler that records stacks at intervals and counts them, instead of timing every call."},
+  {"term": "Sampling profiler", "plain": "A profiler that writes down stacks at intervals and counts them, instead of timing every call."},
   {"term": "Collapsed stacks", "plain": "Text format: one line per distinct stack, frames joined by `;`, then a count."},
   {"term": "Self time", "plain": "Samples where a frame was on top of the stack, running its own code."},
-  {"term": "Inclusive time", "plain": "Samples where a frame was anywhere on the stack, including its callees."},
-  {"term": "Safepoint", "plain": "A point where the JVM knows a thread's full state and can stop it or read its stack."},
-  {"term": "Safepoint bias", "plain": "Profiling error from only seeing threads at safepoint polls."},
-  {"term": "Flame graph", "plain": "Stacks drawn as boxes: root at the bottom, width = samples, alphabetical left to right."}
+  {"term": "Inclusive time", "plain": "Samples where a frame was anywhere on the stack, including the time in what it called."},
+  {"term": "Safepoint", "plain": "A place in the code where the JVM knows a thread's full state, so it can stop the thread or read its stack."},
+  {"term": "Safepoint bias", "plain": "The error a profiler makes when it can only see threads at safepoint polls."},
+  {"term": "Flame graph", "plain": "Stacks drawn as boxes: root at the bottom, width = samples, alphabetical from left to right."}
  ],
  "explain_back": {
   "prompt": "Explain to a teammate how to read the flame graph of a slow service: what width, height and left-to-right position mean, and how you get from the picture to the line of code to change.",
-  "answer": "Each box is a frame from the sampled stacks. Its width is how many samples had that frame there, so wide means a lot of time in it or in what it calls. Height is stack depth: callers below, callees above. Left to right means nothing, because frames at each level are just sorted alphabetically, so it's not a timeline. I look for wide tops, the parts of boxes with nothing above them: that's where the CPU really was. Then I follow that tower down to the first frame in our own code, because I usually can't make a JDK method faster, but I can stop calling it per request. Then I fix that one thing and profile again."
+  "answer": "Each box is a frame from the sampled stacks. Its width is how many samples had that frame there, so wide means a lot of time in it or in what it calls. Height is stack depth: callers below, callees above. Left to right means nothing, because frames at each level are sorted alphabetically, so it's not a timeline. I look for wide tops, the parts of boxes with nothing above them: that's where the CPU really was. Then I follow that tower down to the first frame in our own code, because I usually can't make a JDK method faster, but I can stop calling it so often. And if a profiler built on getStackTrace gives a surprising answer, I check it with async-profiler, because the simple ones only see threads at safepoints."
  },
  "deeper": {
   "minutes": 10,
-  "body": "Before version 4.2, async-profiler took Java stacks with `AsyncGetCallTrace`, a HotSpot function that isn't part of any standard API. Its docs note that it \"was broken several times even in minor JDK updates\" and could crash the JVM, which is why 4.2 made its own walker over HotSpot's internal structures the default (`--cstack vm`). `vmx` mode goes further and interleaves Java and native frames in one stack.\n\n`-a` (or `--ann`) annotates frames by how they were compiled: `_[j]` for JIT-compiled methods, `_[i]` for inlined ones, `_[0]` for interpreted and `_[1]` for C1-compiled. That connects a profile back to lessons 1 and 2: a hot method stuck at `_[0]` or `_[1]` deserves a look with PrintCompilation.\n\nDifferential flame graphs compare two profiles. Brendan Gregg's FlameGraph tools colour frames \"red for more, and blue for less\", which is a quick way to see what a change did. Make both profiles the same length and under the same load, or the comparison measures traffic, not code.\n\nasync-profiler can also write JFR files (`-o jfr`) that JDK Mission Control opens, and convert them later with `jfrconv`. For CI, JMH's `-prof async:libPath=<path to libasyncProfiler.so>` runs it around a benchmark, so you get a flame graph of exactly the code you measured."
+  "body": "Before version 4.2, async-profiler took Java stacks with `AsyncGetCallTrace`, a HotSpot function that isn't part of any standard API and that the profiler is named after. Its docs say it \"was broken several times even in minor JDK updates\" and could crash the JVM. That's why 4.2 made its own walker over HotSpot's internal structures the default (`--cstack vm`). `vmx` mode goes further and mixes Java and native frames in one stack.\n\n`-a` (or `--ann`) marks frames by how they were compiled: `_[j]` for JIT-compiled methods, `_[i]` for inlined ones, `_[0]` for interpreted and `_[1]` for C1-compiled. That connects a profile back to lessons 1 and 2: a busy method stuck at `_[0]` or `_[1]` deserves a look with PrintCompilation.\n\nLesson 4 promised a symptom of false sharing: in a CPU profile, it shows up as a wide top on a line that does almost nothing, such as `count++`, because the thread spends its time waiting for the cache line.\n\nDifferential flame graphs compare two profiles. Brendan Gregg's FlameGraph tools colour frames \"red for more, and blue for less\", which is a quick way to see what a change did. Make both profiles the same length and under the same load, or the comparison measures the traffic instead of the code.\n\nasync-profiler can also write JFR files (`-o jfr`) that JDK Mission Control opens, and convert them later with `jfrconv`. With JMH, `-prof async:libPath=<path to libasyncProfiler.so>` runs it around a benchmark, so you get a flame graph of exactly the code you measured."
  },
  "sources": [
   {"title": "async-profiler: README, releases and docs", "url": "https://github.com/async-profiler/async-profiler"},

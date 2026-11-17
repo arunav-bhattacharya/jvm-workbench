@@ -1,109 +1,301 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:08.321
-A payment details endpoint makes three calls at once: account, ledger and risk.
+00:00:02.733 --> 00:00:05.611
+In plain code, an exception has an easy path.
 
 2
-00:00:08.321 --> 00:00:12.804
-In Kotlin, each one is a child coroutine of one coroutineScope.
+00:00:05.611 --> 00:00:13.349
+A function throws, and the exception climbs back up to whoever called it, one caller at a time, until someone catches it.
 
 3
-00:00:13.033 --> 00:00:16.315
-Every launch and async makes a child job of the scope.
+00:00:13.533 --> 00:00:16.604
+So here's a question that's easy to be shy about.
 
 4
-00:00:16.315 --> 00:00:19.596
-So the work forms a tree, with the request at the top.
+00:00:16.604 --> 00:00:19.738
+A launched coroutine has no caller waiting for it.
 
 5
-00:00:19.800 --> 00:00:24.308
-At 100 milliseconds, the ledger call throws an IOException.
+00:00:19.738 --> 00:00:22.433
+The line that started it moved on long ago.
 
 6
-00:00:24.533 --> 00:00:25.569
-Failure goes up.
+00:00:22.433 --> 00:00:25.379
+So when it throws, where does the exception go?
 
 7
-00:00:25.569 --> 00:00:29.709
-The ledger child reports the exception to its parent, the scope.
+00:00:29.000 --> 00:00:31.816
+The answer is a picture we've been building.
 
 8
-00:00:29.933 --> 00:00:35.937
-The scope's job is cancelled with that exception, and a cancelled job cancels all of its children.
+00:00:31.816 --> 00:00:34.759
+A dinner has courses, and a course has dishes.
 
 9
-00:00:35.937 --> 00:00:39.675
-Account and risk are cancelled, and their finally blocks run.
+00:00:34.759 --> 00:00:43.719
+The dinner is the root coroutine, the main course is a coroutineScope inside it, and the roast, the potatoes and the gravy are its children.
 
 10
-00:00:39.900 --> 00:00:43.586
-The scope waits until those children have really stopped.
+00:00:43.867 --> 00:00:48.954
+Every coroutine becomes a child of the scope it starts in, so the work forms a tree.
 
 11
-00:00:43.586 --> 00:00:47.401
-Then coroutineScope rethrows the IOException to its caller.
+00:00:48.954 --> 00:00:54.163
+Its first rule you know already: a parent can't finish until all of its children have.
 
 12
-00:00:47.633 --> 00:00:51.808
-So one failure surfaces as one exception, where the work started.
+00:00:54.333 --> 00:00:55.688
+Now the roast burns.
 
 13
-00:00:51.808 --> 00:00:57.844
-It took about 100 milliseconds, not the time of the slowest call, and nothing is left running.
+00:00:55.688 --> 00:01:00.905
+At 100 milliseconds it throws BurnedException, an exception the demo made up.
 
 14
-00:00:58.067 --> 00:00:59.333
-That fits a request.
+00:01:00.905 --> 00:01:03.547
+The potatoes would need a whole second.
 
 15
-00:00:59.333 --> 00:01:04.715
-Without the ledger there is no response, so the other two calls would be wasted work.
+00:01:03.547 --> 00:01:05.241
+Should they keep cooking?
 
 16
-00:01:05.733 --> 00:01:07.267
-Now the other direction.
+00:01:05.241 --> 00:01:07.273
+And when does the caller hear?
 
 17
-00:01:07.267 --> 00:01:10.461
-The client hangs up, and the request is cancelled.
+00:01:10.333 --> 00:01:12.523
+Here's what the tree does, in order.
 
 18
-00:01:10.667 --> 00:01:12.200
-Cancellation goes down.
+00:01:12.523 --> 00:01:17.024
+One: the roast fails, and reports the exception to its parent, the course.
 
 19
-00:01:12.200 --> 00:01:15.800
-The scope is cancelled, and then every child below it.
+00:01:17.200 --> 00:01:23.338
+Two: the course is cancelled with that exception, and a cancelled job cancels all of its children.
 
 20
-00:01:16.833 --> 00:01:18.010
-It never goes up.
+00:01:23.338 --> 00:01:29.288
+The potatoes and the gravy come off the heat, and their finally blocks, the clean up code, run.
 
 21
-00:01:18.010 --> 00:01:21.818
-Cancel only the risk child, and its parent is not told.
+00:01:29.467 --> 00:01:32.439
+Three: the course waits until they have really stopped.
 
 22
-00:01:21.818 --> 00:01:28.949
-A child that ends with CancellationException counts as cancelled, not failed, and the scope carries on.
+00:01:32.600 --> 00:01:38.930
+Four: coroutineScope throws the BurnedException to its caller, who can catch it like any exception.
 
 23
-00:01:29.167 --> 00:01:34.146
-One catch: cancellation reaches a coroutine only at a suspension point.
+00:01:38.930 --> 00:01:40.912
+The family hears what happened.
 
 24
-00:01:34.146 --> 00:01:38.844
-A child stuck in a CPU loop or a blocking call finishes that first.
+00:01:41.067 --> 00:01:49.514
+So one failure takes down the whole course, and comes out as one exception, where the work started, after about 100 milliseconds.
 
 25
-00:01:39.667 --> 00:01:44.177
-So a failure goes up to the parent, and from there down to the siblings.
+00:01:49.514 --> 00:01:51.085
+Nothing is left cooking.
 
 26
-00:01:44.177 --> 00:01:45.931
-Cancellation only goes down.
+00:01:51.867 --> 00:01:56.172
+The lesson's FailureSpreads runs this with a roast and potatoes.
 
 27
-00:01:46.133 --> 00:01:51.089
-When siblings should survive each other's failures, you ask for a supervisor instead.
+00:01:56.172 --> 00:01:58.662
+The roast burned at 161 milliseconds.
+
+28
+00:01:58.662 --> 00:02:04.851
+The potatoes' finally block ran 2 milliseconds later, and the caller caught it 2 after that.
+
+29
+00:02:04.851 --> 00:02:06.869
+Potatoes: done, never printed.
+
+30
+00:02:07.067 --> 00:02:08.735
+Why 161, and not 100?
+
+31
+00:02:08.735 --> 00:02:14.139
+A JVM, the program that runs the code, is slow just after it starts.
+
+32
+00:02:14.139 --> 00:02:16.602
+It was still finding its apron.
+
+33
+00:02:16.602 --> 00:02:19.701
+That part is the machine, not the tree.
+
+34
+00:02:20.467 --> 00:02:28.566
+Many of us carry a picture from Java's executors, the pools that run tasks you hand them: every task is on its own.
+
+35
+00:02:28.566 --> 00:02:36.032
+On an executor, the roast fails, and the potatoes carry on to potatoes: done, at about 1,000 milliseconds.
+
+36
+00:02:36.032 --> 00:02:37.511
+close waits for them.
+
+37
+00:02:37.667 --> 00:02:42.547
+The roast is on fire, and the potatoes are still being lovingly peeled.
+
+38
+00:02:42.547 --> 00:02:45.985
+So the point is: in Java, you cancel them by hand.
+
+39
+00:02:45.985 --> 00:02:49.972
+With that one line, their finally ran at 198 milliseconds.
+
+40
+00:02:49.972 --> 00:02:52.584
+coroutineScope does that step for you.
+
+41
+00:02:54.067 --> 00:02:55.526
+Now the other direction.
+
+42
+00:02:55.526 --> 00:02:58.081
+The guests phone, and call the dinner off.
+
+43
+00:02:58.081 --> 00:03:00.696
+That's a cancel, and it comes from the top.
+
+44
+00:03:00.696 --> 00:03:05.805
+It travels down: the dinner is cancelled, then the course, then every dish below it.
+
+45
+00:03:06.733 --> 00:03:07.966
+And the other way?
+
+46
+00:03:07.966 --> 00:03:10.158
+Say only the gravy is cancelled.
+
+47
+00:03:10.158 --> 00:03:11.596
+Does the course stop?
+
+48
+00:03:14.600 --> 00:03:14.811
+No.
+
+49
+00:03:14.811 --> 00:03:16.429
+A cancel never goes up.
+
+50
+00:03:16.429 --> 00:03:26.983
+A child that's cancelled, or that ends by throwing CancellationException, the exception a cancelled coroutine throws, counts as cancelled, not failed.
+
+51
+00:03:26.983 --> 00:03:31.416
+Its parent isn't told, and the roast and the potatoes carry on.
+
+52
+00:03:32.200 --> 00:03:42.623
+This is structured concurrency: work that runs at the same time has the same nested shape as the code that started it, and failures and cancels follow that shape.
+
+53
+00:03:42.623 --> 00:03:45.840
+A failure goes up the tree and stops the siblings.
+
+54
+00:03:45.840 --> 00:03:48.156
+A cancel goes down, and stops there.
+
+55
+00:03:49.067 --> 00:03:55.752
+This is the default because it's almost always what you want: if one dish is ruined, the course is off.
+
+56
+00:03:55.752 --> 00:04:03.151
+Sometimes you do want siblings to survive, like a reminder sent by text, email and phone, where any one is enough.
+
+57
+00:04:03.151 --> 00:04:05.812
+Lesson 6 brings in a supervisor for that.
+
+58
+00:04:06.533 --> 00:04:09.170
+And here the picture breaks, on timing.
+
+59
+00:04:09.170 --> 00:04:11.807
+A real cook pulls the pans off at once.
+
+60
+00:04:11.807 --> 00:04:20.055
+A coroutine hears the cancel only at its next suspension point, so a long calculation, or a blocking call, finishes first.
+
+61
+00:04:20.055 --> 00:04:22.219
+Lesson 5 shows how to cooperate.
+
+62
+00:04:23.000 --> 00:04:28.102
+Here's the demo's core in Kotlin, shortened, with the Java executor beside it.
+
+63
+00:04:28.102 --> 00:04:31.372
+In Kotlin, the scope cancels the potatoes for you.
+
+64
+00:04:31.372 --> 00:04:33.857
+In Java, you write that line yourself.
+
+65
+00:04:34.600 --> 00:04:37.070
+So, where does a child's exception go?
+
+66
+00:04:37.070 --> 00:04:38.825
+Up the tree, to its parent.
+
+67
+00:04:38.825 --> 00:04:45.261
+The parent stops the siblings, waits for them, and hands one exception to whoever started the work.
+
+68
+00:04:45.261 --> 00:04:47.341
+A cancel only ever travels down.
+
+69
+00:04:47.533 --> 00:04:48.330
+Quick check.
+
+70
+00:04:48.330 --> 00:04:50.190
+Nobody calls off the dinner.
+
+71
+00:04:50.190 --> 00:04:52.448
+Someone cancels just the potatoes.
+
+72
+00:04:52.448 --> 00:04:55.901
+What happens to the roast, the gravy and the course?
+
+73
+00:04:58.933 --> 00:05:00.586
+Nothing changes for them.
+
+74
+00:05:00.586 --> 00:05:05.212
+The potatoes count as cancelled, not failed, so the course isn't told.
+
+75
+00:05:05.212 --> 00:05:07.657
+The roast and the gravy keep cooking.

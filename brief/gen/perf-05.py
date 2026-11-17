@@ -104,11 +104,11 @@ STREAM_K = """RecordingStream().use { rs ->
     kRunWorkload(3)
 }"""
 
-OPENING = """Picture the restaurant from the last four lessons at the end of a long night. A customer says the soup took forty minutes. The cook remembers making it in six. Both can be true: the bowl may have waited on the counter for the only waiter, or for the kitchen to finish washing up. To settle it, you'd want one log of everything the kitchen did, every order, wait and wash-up, all on one clock. It must be cheap enough to keep every night, because nobody knows which night will go wrong.
+OPENING = """Back in the restaurant, a long night is over. A customer says the soup took forty minutes, and the cook remembers making it in six. Both can be true: the bowl may have waited for the only waiter, or for the kitchen to finish washing up. To settle it, you'd want one log of everything the kitchen did, every order, wait and wash-up, on one clock. It must be cheap enough to keep every night, because nobody knows which night will go wrong.
 
 The JVM, the program that runs your Java and Kotlin, keeps a log like that. It's already in your JDK, and it's called JDK Flight Recorder.
 
-The easy trap is the tool we all reach for first: a timer and a log line around the slow call. It answers one question about one call, on a clock of its own. Lesson 4 made one hot spot cheaper once we knew where it was. Now we need to find where a running program spends its time. In this lesson, we'll record the report service while it works, ask the recording questions, add our own notes to the log and watch events live. Before we start, make a guess, and keep it in mind."""
+The easy trap is the tool we all reach for first: a timer and a log line around the slow call. It answers one question about one call, on a clock of its own. Lesson 4 made one hot spot cheaper once we knew where it was. Now we need to find where a running program spends its time. In this lesson, we'll record the report service, question the recording, add our own notes to it and watch events live. Before we start, make a guess, and keep it in mind."""
 
 S1 = """Start with the hand-made answer. The report service from the earlier lessons fetches each document from a document store, another program that keeps the documents and answers over the network. Some fetches are slow, so we wrap one in a timer and log `fetch took 46 ms`. That's one number for one call. It can't say whether every thread was paused for a garbage collection at that moment. (The garbage collector, or GC, is the part of the JVM that frees memory nobody uses.) Nor can it say whether the thread waited for a lock, or whether something allocated a lot of memory that second.
 
@@ -370,7 +370,7 @@ L = {
   "steps": [
    "Open `DocumentStore`, the given interface for the program that keeps the documents, and `Librarian`, the report service's class that asks it for a document by shelf and title. Run the tests. Five of the six fail. Each one starts a real JFR recording, makes six lookups, writes a real `.jfr` file and reads it back. The one that passes checks that `lookup` still returns the store's answer.",
    "Make `LookupEvent` an event named `workbench.Lookup`, with a label, a category that includes `Reports`, and three labelled fields: `shelf`, `title` and `found`.",
-   "In `Librarian.lookup`, record one event per call. Its duration must cover the store call: the test's `basement` shelf takes 40 ms to answer, and a test checks for it.",
+   "In `Librarian.lookup`, record one event per call. Its duration must cover the store call: the test's `basement` shelf takes 100 ms to answer, and a test checks for it.",
    "Write `LookupReport.missingByShelf` and `LookupReport.slowestShelf` with `RecordingFile`. The file also holds `jdk.ThreadSleep` events, so filter by event name.",
    "Run the tests until all six pass."
   ],

@@ -291,20 +291,20 @@ class Rx08HotCold(Narrated):
         self.title_card("A live show and a recording", "hot and cold publishers, and a bell any till can ring")
 
         # ================= the radio show and the recording =================
-        rd = radio(0.85).move_to([-5.0, 1.75, 0])
+        rd = radio(0.85).move_to([-4.4, 1.75, 0])
         wv = waves(rd)
         rd_l = T("live show, 7:00", 22, OVEN_C).next_to(rd, DOWN, buff=0.15)
-        la = person(PACK_C, 0.9).move_to([-1.2, 2.3, 0])
-        lb = person(PACK_C, 0.9).move_to([-1.2, 1.1, 0])
+        la = person(PACK_C, 0.9).move_to([-0.6, 2.3, 0])
+        lb = person(PACK_C, 0.9).move_to([-0.6, 1.1, 0])
         breads = ["rye", "spelt", "sourdough"]
         heard_a = VGroup(*[chip_n(b, LOAF_C, 22) for b in breads]).arrange(RIGHT, buff=0.15).next_to(la, RIGHT, buff=0.35)
         heard_b = VGroup(*[chip_n(b, LOAF_C, 22) for b in breads]).arrange(RIGHT, buff=0.15).next_to(lb, RIGHT, buff=0.35)
         late = T("switched on at 7:05", 22, GREY_B).next_to(heard_b, RIGHT, buff=0.3)
         missed = T("missed the rye", 22, BAD_C).next_to(heard_b[0], DOWN, buff=0.12)
-        tp = tape(0.85).move_to([-5.0, -1.55, 0])
+        tp = tape(0.85).move_to([-4.4, -1.55, 0])
         tp_l = T("recording", 22, OVEN_C).next_to(tp, DOWN, buff=0.15)
-        lc = person(PACK_C, 0.9).move_to([-1.2, -1.0, 0])
-        ld = person(PACK_C, 0.9).move_to([-1.2, -2.2, 0])
+        lc = person(PACK_C, 0.9).move_to([-0.6, -1.0, 0])
+        ld = person(PACK_C, 0.9).move_to([-0.6, -2.2, 0])
         pb = [play_btn(0.9).next_to(p, LEFT, buff=0.25) for p in (lc, ld)]
         heard_c = VGroup(*[chip_n(b, LOAF_C, 22) for b in breads]).arrange(RIGHT, buff=0.15).next_to(lc, RIGHT, buff=0.35)
         heard_d = VGroup(*[chip_n(b, LOAF_C, 22) for b in breads]).arrange(RIGHT, buff=0.15).next_to(ld, RIGHT, buff=0.35)
@@ -420,7 +420,7 @@ class Rx08HotCold(Narrated):
         cold_tokens = [m for _, m in items]
         self.play(FadeOut(VGroup(out, cold_t, six, conn2, cp_on, rb, bline, bline_l, axis, src, ra,
                                  *[m for m in cold_tokens if m not in (cp_on, conn2)])), run_time=0.6)
-        SCALE["x0"], SCALE["k"] = -4.0, 0.0175
+        SCALE["x0"], SCALE["k"] = -4.3, 0.0189
         axis = time_axis(560)
         src = self.lane(ROW_Y[0], "thermometer", OVEN_C, end=560)
         ra = self.lane(ROW_Y[1], "screen A", PACK_C, end=560)
@@ -481,7 +481,7 @@ class Rx08HotCold(Narrated):
         # ================= replay(1) and cache =================
         rr = self.lane(ROW_Y[3], "B, replay(1)", PACK_C, end=560)
         rcch = self.lane(ROW_Y[4], "B, cache()", PACK_C, end=560)
-        rp_items = [(250, token(201, REPLAY_C).move_to([tx(250) + 0.3, ROW_Y[3], 0]))] + \
+        rp_items = [(250, token(201, REPLAY_C).move_to([tx(250) + 0.29, ROW_Y[3], 0]))] + \
                    [(100 * (k + 1), token(200 + k).move_to([tx(100 * (k + 1)), ROW_Y[3], 0])) for k in range(2, 5)]
         mem_l = T("from memory", 20, REPLAY_C).move_to([tx(250) - 0.85, ROW_Y[3] + 0.22, 0])
         self.say("replay")
@@ -497,8 +497,8 @@ class Rx08HotCold(Narrated):
         self.play(FadeOut(ph3), FadeIn(mem_l), run_time=0.4)
         self.hold()
 
-        ch_items = [(250, token(200, REPLAY_C).move_to([tx(250) + 0.3, ROW_Y[4] + 0.2, 0])),
-                    (250, token(201, REPLAY_C).move_to([tx(250) + 0.3, ROW_Y[4] - 0.2, 0]))]
+        ch_items = [(250, token(200, REPLAY_C).move_to([tx(250) + 0.29, ROW_Y[4] + 0.2, 0])),
+                    (250, token(201, REPLAY_C).move_to([tx(250) + 0.29, ROW_Y[4] - 0.2, 0]))]
         ch_items += [(100 * (k + 1), token(200 + k).move_to([tx(100 * (k + 1)), ROW_Y[4], 0])) for k in range(2, 5)]
         tapes = VGroup(*[RoundedRectangle(corner_radius=0.05, width=0.6, height=0.18).set_stroke(REPLAY_C, 2)
                          .set_fill(dim(REPLAY_C, 0.3), 1) for _ in range(8)]).arrange(UP, buff=0.04)
@@ -524,19 +524,19 @@ class Rx08HotCold(Narrated):
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
 
         # ================= refCount: the switch on the transmitter =================
-        r1 = radio(0.8).move_to([-4.6, 1.2, 0])
+        r1 = radio(0.8).move_to([-4.6, 0.6, 0])
         w1 = waves(r1)
         chairs = VGroup(*[RoundedRectangle(corner_radius=0.05, width=0.42, height=0.42).set_stroke(GREY_D, 2) for _ in range(3)])
         chairs.arrange(RIGHT, buff=0.3).next_to(w1, RIGHT, buff=0.4)
-        real_l = T("a real station: on, to an empty room", 24, GREY_A).move_to([-3.4, -0.35, 0])
-        r2 = radio(0.8).move_to([2.2, 1.2, 0])
+        real_l = T("a real station: on, to an empty room", 24, GREY_A).move_to([-3.4, -0.95, 0])
+        r2 = radio(0.8).move_to([2.2, 0.6, 0])
         w2 = waves(r2)
         sw_on = T("on", 26, OK_C).next_to(r2, UP, buff=0.2)
         sw_off = T("off", 26, BAD_C).next_to(r2, UP, buff=0.2)
-        lis = [screen(0.5).move_to([4.6, 1.75, 0]), screen(0.5).move_to([4.6, 0.6, 0])]
-        lis2 = screen(0.5).move_to([5.8, 1.2, 0])
-        ref_l = T("refCount: off when the last one leaves", 24, PACK_C).move_to([3.4, -0.35, 0])
-        again = T("the next listener starts it again", 22, GREY_B).move_to([3.4, -0.9, 0])
+        lis = [screen(0.5).move_to([4.6, 1.15, 0]), screen(0.5).move_to([4.6, 0.0, 0])]
+        lis2 = screen(0.5).move_to([5.8, 0.6, 0])
+        ref_l = T("refCount: off when the last one leaves", 24, PACK_C).move_to([3.4, -0.95, 0])
+        again = T("the next listener starts it again", 22, GREY_B).move_to([3.4, -1.5, 0])
         self.say("refcount")
         self.play(FadeIn(r2), FadeIn(sw_off), run_time=0.5)
         self.at_text("It connects", lead=0.3)
@@ -679,12 +679,12 @@ class Rx08HotCold(Narrated):
         self.play(GrowFromEdge(lost, LEFT), FadeIn(l_l), run_time=0.8)
         self.hold()
 
-        rope_b = bell(1.0).move_to([-3.4, -1.6, 0])
-        rope = Line(rope_b.get_bottom() + DOWN * 0.05, rope_b.get_bottom() + DOWN * 1.0, stroke_width=4, color=GREY_A)
-        hands = VGroup(*[Circle(radius=0.12).set_stroke(GREY_A, 2.5).set_fill(dim(GREY_A, 0.4), 1).move_to(rope.point_from_proportion(p) + RIGHT * dx)
-                         for p, dx in ((0.45, -0.12), (0.8, 0.12))])
-        rb_l = T("a real bell: two hands, still a ring", 22, GREY_A).next_to(rope_b, RIGHT, buff=0.5).shift(UP * 0.1)
-        sb_l2 = T("a sink: one hand lets go", 22, BAD_C)
+        rope_b = bell(1.6).move_to([-3.4, -0.9, 0])
+        rope = Line(rope_b.get_bottom() + DOWN * 0.05, rope_b.get_bottom() + DOWN * 1.7, stroke_width=5, color=GREY_A)
+        hands = VGroup(*[Circle(radius=0.17).set_stroke(GREY_A, 2.5).set_fill(dim(GREY_A, 0.4), 1).move_to(rope.point_from_proportion(p) + RIGHT * dx)
+                         for p, dx in ((0.45, -0.17), (0.8, 0.17))])
+        rb_l = T("a real bell: two hands, still a ring", 26, GREY_A).next_to(rope_b, RIGHT, buff=0.6).shift(DOWN * 0.3)
+        sb_l2 = T("a sink: one hand lets go", 26, BAD_C)
         self.say("race_break")
         self.play(FadeIn(rope_b), Create(rope), FadeIn(hands), run_time=0.7)
         self.play(FadeIn(rb_l), Wiggle(rope_b, scale_value=1.15), run_time=0.8)

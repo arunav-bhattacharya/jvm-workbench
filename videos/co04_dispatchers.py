@@ -420,7 +420,7 @@ class Co04Dispatchers(Narrated):
         self.say("joke1")
         self.play(Wiggle(tiny, scale_value=1.4), run_time=1.0)
         self.at(1)
-        nocrash = T("no error, no warning: just no chopping", 26, BAD).move_to([2.2, 1.25, 0])
+        nocrash = T("no error, no warning: just no chopping", 26, BAD).move_to([-3.4, -1.75, 0])
         self.play(FadeIn(nocrash, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
@@ -458,9 +458,9 @@ class Co04Dispatchers(Narrated):
         self.play(FadeIn(s2, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
-        there = VMobject().set_points_smoothly([crd.get_center(), [-4.7, 1.2, 0], [-1.8, 1.25, 0], [0.6, 1.15, 0],
+        there = VMobject().set_points_smoothly([crd.get_center(), [-4.7, 1.12, 0], [-1.8, 1.16, 0], [0.6, 1.08, 0],
                                                 [bench_h.get_center()[0] + 0.45, bench_h.get_center()[1] + 0.2, 0]])
-        wc_l = M("withContext(Dispatchers.IO) { ... }", 24, IOC).move_to([-1.8, 1.85, 0])
+        wc_l = M("withContext(Dispatchers.IO) { ... }", 24, IOC).move_to([-1.8, 1.76, 0])
         wait_l = dashed(ArcBetweenPoints(bench_h[1].get_center() + UP * 0.1, bk.get_bottom() + DOWN * 0.1 + LEFT * 0.2,
                                          angle=-0.5).set_stroke(GREY_B, 2))
         stp = VGroup(RoundedRectangle(corner_radius=0.06, width=0.95, height=0.4).set_stroke(IOC, 2.2)
@@ -692,8 +692,9 @@ class Co04Dispatchers(Narrated):
         self.hold()
 
         # the sign: a view of IO with its own limit, on top of the 64
-        sign = VGroup(RoundedRectangle(corner_radius=0.08, width=2.55, height=0.62).set_stroke(BAKE, 3)
-                      .set_fill(dim(BAKE, 0.25), 1), T("bakery calls: 20 seats", 24, BAKE))
+        sign_t = T("bakery calls: 20 seats", 24, BAKE)
+        sign = VGroup(RoundedRectangle(corner_radius=0.08, width=sign_t.width + 0.45, height=0.62).set_stroke(BAKE, 3)
+                      .set_fill(dim(BAKE, 0.25), 1), sign_t)
         sign[1].move_to(sign[0])
         BX0, BY0 = 2.55, 0.85
         bseats = [seat(BAKE).move_to([BX0 + SD * c, BY0 - SD * r, 0]) for r in range(4) for c in range(5)]
