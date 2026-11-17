@@ -1,149 +1,305 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:08.734
-A dashboard shows the euro to dollar rate, and drawing one rate takes 100 milliseconds.
+00:00:02.700 --> 00:00:06.482
+In the hall of a busy house hangs a board with today's menu.
 
 2
-00:00:08.734 --> 00:00:13.380
-While it draws 1.0809, three new rates arrive within a millisecond.
+00:00:06.482 --> 00:00:10.265
+Walk past, glance at it, and you know what's for dinner now.
 
 3
-00:00:16.167 --> 00:00:16.694
-1.0813.
+00:00:10.265 --> 00:00:12.597
+Nobody reads yesterday's menu off it.
 
 4
-00:00:16.694 --> 00:00:21.890
-A StateFlow holds one value, and each new value replaces the old one.
+00:00:12.800 --> 00:00:14.433
+In the kitchen hangs a bell.
 
 5
-00:00:21.890 --> 00:00:26.032
-A slow collector doesn't get a queue of what it missed.
+00:00:14.433 --> 00:00:19.506
+When dinner's ready, the cook rings it, and everyone listening hears it at that moment.
 
 6
-00:00:26.032 --> 00:00:27.463
-It gets the latest.
+00:00:19.506 --> 00:00:21.780
+Whoever comes home later hears nothing.
 
 7
-00:00:27.463 --> 00:00:28.893
-That is conflation.
+00:00:22.000 --> 00:00:25.558
+Last lesson, a flow cooked nothing until someone collected.
 
 8
-00:00:29.600 --> 00:00:31.347
-Now set 1.0813 again.
+00:00:25.558 --> 00:00:28.212
+A menu is there whether anyone looks or not.
 
 9
-00:00:31.347 --> 00:00:32.679
-Nothing happens.
+00:00:28.212 --> 00:00:35.268
+So here's a question that's easy to be shy about: if the menu changes three times while you're busy, what do you see?
 
 10
-00:00:32.679 --> 00:00:38.004
-StateFlow compares with equals, and an equal value wakes nobody.
+00:00:36.100 --> 00:00:37.941
+Kotlin's board is a StateFlow.
 
 11
-00:00:38.233 --> 00:00:39.135
-And it is hot.
+00:00:37.941 --> 00:00:41.869
+It always has a value you can read at any moment, like a glance.
 
 12
-00:00:39.135 --> 00:00:43.644
-The value sits there with no collector at all, and anyone can read it.
+00:00:41.869 --> 00:00:45.490
+Collect it, and you get that value first, then each change.
 
 13
-00:00:43.867 --> 00:00:45.336
-That's right for a rate.
+00:00:45.490 --> 00:00:48.927
+And it's hot: it's there whether anyone collects or not.
 
 14
-00:00:45.336 --> 00:00:51.091
-It's wrong for an audit log of payment transitions, where a skipped value is a missing record.
+00:00:49.633 --> 00:00:50.505
+Let's try it.
 
 15
-00:00:51.800 --> 00:00:53.616
-A SharedFlow is for events.
+00:00:50.505 --> 00:00:56.740
+The board shows tomato soup, and the helper who chalks it up needs 100 milliseconds per menu.
 
 16
-00:00:53.616 --> 00:00:55.230
-It has no current value.
+00:00:56.740 --> 00:01:02.773
+While tomato is being chalked up, the cook changes her mind three times: leek, pea, onion.
 
 17
-00:00:55.230 --> 00:01:00.609
-It hands every event to every subscriber, and its buffer decides what gets lost.
+00:01:03.600 --> 00:01:05.527
+Which soups does the board show?
 
 18
-00:01:00.833 --> 00:01:07.034
-Make one with default settings, and call tryEmit five times while the audit subscriber is busy.
+00:01:08.500 --> 00:01:09.722
+Tomato, then onion.
 
 19
-00:01:07.034 --> 00:01:12.452
-There is no buffer at all, so every tryEmit returns false, and the events are gone.
+00:01:09.722 --> 00:01:11.973
+Leek and pea were never chalked up.
 
 20
-00:01:12.667 --> 00:01:15.272
-Now give it extraBufferCapacity of 2.
+00:01:11.973 --> 00:01:15.510
+A slow collector doesn't get a queue of what it missed.
 
 21
-00:01:15.272 --> 00:01:17.032
-Which events get through?
+00:01:15.510 --> 00:01:18.211
+When it's ready, it gets the latest value.
 
 22
-00:01:19.800 --> 00:01:23.948
-Two events wait in the buffer until the slow subscriber takes them.
+00:01:18.211 --> 00:01:19.819
+That's called conflation.
 
 23
-00:01:23.948 --> 00:01:27.600
-The third finds the buffer full, and tryEmit returns false.
+00:01:20.033 --> 00:01:24.257
+Then the cook sets onion again, a new object with the same fields.
 
 24
-00:01:27.833 --> 00:01:30.332
-With 64 slots, all five get through.
+00:01:24.257 --> 00:01:29.568
+Nothing happens: a StateFlow compares with equals, and an equal value wakes nobody.
 
 25
-00:01:30.332 --> 00:01:34.844
-And emit, instead of tryEmit, waits for room, so nothing is lost.
+00:01:29.568 --> 00:01:33.024
+Nobody needs a board to announce that nothing changed.
 
 26
-00:01:35.767 --> 00:01:41.358
-replay is the other knob: it keeps the newest values for subscribers who come later.
+00:01:33.233 --> 00:01:36.940
+That's perfect for state, where only the latest value matters.
 
 27
-00:01:41.358 --> 00:01:45.618
-Emit five with nobody listening, and the first three go nowhere.
+00:01:36.940 --> 00:01:42.501
+It's wrong for events, where every one matters, like each step of a dish for the kitchen log.
 
 28
-00:01:45.618 --> 00:01:48.480
-A late subscriber to replay 2 starts at e4.
+00:01:42.501 --> 00:01:45.072
+Conflation would drop some without a trace.
 
 29
-00:01:49.400 --> 00:01:50.839
-This is Kotlin only.
+00:01:45.900 --> 00:01:49.242
+For events, the house needs the bell: a SharedFlow.
 
 30
-00:01:50.839 --> 00:01:53.213
-State goes in a MutableStateFlow.
+00:01:49.242 --> 00:01:50.815
+It has no current value.
 
 31
-00:01:53.213 --> 00:01:57.889
-Events go in a MutableSharedFlow, with a buffer sized for bursts.
+00:01:50.815 --> 00:02:04.053
+It sends every value to everyone subscribed at that moment, and three settings decide what it keeps: replay, for late listeners; extraBufferCapacity, room for busy ones; and what to do when that's full.
 
 32
-00:01:58.700 --> 00:02:01.523
-So a StateFlow keeps only the latest value.
+00:02:04.267 --> 00:02:11.980
+Now ring it five times with tryEmit, the version that never waits: if a ring doesn't fit, it returns false and walks off.
 
 33
-00:02:01.523 --> 00:02:07.759
-A SharedFlow hands every event to every subscriber, and keeps what its replay and buffer allow.
+00:02:11.980 --> 00:02:17.208
+One listener is there, and it needs 50 milliseconds to write each ring in the log.
 
 34
-00:02:07.967 --> 00:02:08.827
-Quick check.
+00:02:17.433 --> 00:02:20.640
+With the default settings, how many rings reach the log?
 
 35
-00:02:08.827 --> 00:02:10.260
-A StateFlow holds 0.
+00:02:23.633 --> 00:02:23.993
+None.
 
 36
-00:02:10.260 --> 00:02:14.989
-While its collector is busy, you set 1, 2 and 3, and then 3 again.
+00:02:23.993 --> 00:02:27.728
+tryEmit said false five times, and the log is empty.
 
 37
-00:02:14.989 --> 00:02:16.996
-What does the collector see?
+00:02:27.728 --> 00:02:35.272
+The default bell has no buffer at all, so tryEmit fails whenever anyone is subscribed, even someone idle.
+
+38
+00:02:35.272 --> 00:02:38.145
+Five rings, one listener, nothing heard.
+
+39
+00:02:38.367 --> 00:02:42.621
+Give it room for two: two rings get in, three are refused.
+
+40
+00:02:42.621 --> 00:02:49.810
+Add DROP_OLDEST, and all five say true, but only e4 and e5 arrive: three were quietly thrown away.
+
+41
+00:02:49.810 --> 00:02:52.304
+With room for 64, all five arrive.
+
+42
+00:02:52.304 --> 00:02:57.145
+And a late listener to a bell with replay 2 hears e4 and e5 first.
+
+43
+00:02:57.367 --> 00:03:00.979
+So give the bell a buffer, and check what tryEmit returns.
+
+44
+00:03:01.800 --> 00:03:03.677
+Here the bell picture breaks.
+
+45
+00:03:03.677 --> 00:03:11.380
+A real bell can't wait for someone in the shower; a buffered SharedFlow keeps each ring until a busy listener is ready.
+
+46
+00:03:11.380 --> 00:03:16.881
+But in an empty house they agree: a ring nobody hears is gone, apart from the replay.
+
+47
+00:03:17.700 --> 00:03:19.459
+Now last lesson's problem.
+
+48
+00:03:19.459 --> 00:03:33.329
+A cold flow reads the oven thermometer every 100 milliseconds, and three screens around the house each collect it: three collectors, three runs, and the oven is read three times as often as it needs to be.
+
+49
+00:03:33.533 --> 00:03:43.948
+stateIn runs the cold flow once, in a scope you own, and shares it with every collector: one cook, one cake, sliced for everyone.
+
+50
+00:03:43.948 --> 00:03:52.102
+With WhileSubscribed of 300, two screens arrive at 327 milliseconds, and reading starts once, at 344.
+
+51
+00:03:52.102 --> 00:03:55.655
+They leave at 581, and reading stops at 884.
+
+52
+00:03:55.867 --> 00:04:00.412
+With Eagerly, reading started at 62 milliseconds, before anyone watched.
+
+53
+00:04:00.412 --> 00:04:07.293
+A few seconds of WhileSubscribed is the usual choice, so a screen that restarts doesn't restart the readings.
+
+54
+00:04:08.100 --> 00:04:10.520
+Last: who may write on the board?
+
+55
+00:04:10.520 --> 00:04:11.766
+Only the kitchen.
+
+56
+00:04:11.766 --> 00:04:24.525
+Since Kotlin 2.4, a property can hide a writable field behind a read-only type: outside the class, status is a StateFlow you can only read; inside, it's the MutableStateFlow.
+
+57
+00:04:24.733 --> 00:04:26.926
+And write in one step.
+
+58
+00:04:26.926 --> 00:04:34.002
+Eight helpers each count 100,000 plates with value equals value plus 1.
+
+59
+00:04:34.002 --> 00:04:35.795
+Expected, 800,000.
+
+60
+00:04:35.795 --> 00:04:37.091
+Got, 457,636.
+
+61
+00:04:37.091 --> 00:04:43.369
+Two helpers read 41, both write 42, and a plate goes uncounted.
+
+62
+00:04:43.600 --> 00:04:47.109
+Over 340,000 plates, washed and never counted.
+
+63
+00:04:47.109 --> 00:04:49.321
+The dishwasher has questions.
+
+64
+00:04:49.321 --> 00:04:58.169
+update retries with compare-and-set, changing the value only if nobody got there first, and gets 800,000 every time.
+
+65
+00:04:59.000 --> 00:05:05.300
+Here's the board, the bell and the shared thermometer in Kotlin, with Reactor's sinks in Java below.
+
+66
+00:05:07.367 --> 00:05:09.727
+So, three changes while you're busy?
+
+67
+00:05:09.727 --> 00:05:11.169
+You see only the last.
+
+68
+00:05:11.169 --> 00:05:16.349
+A StateFlow is the board: one current value, and nobody reads yesterday's menu.
+
+69
+00:05:16.349 --> 00:05:22.971
+A SharedFlow is the bell: heard only by whoever listens, and its buffer decides which rings are lost.
+
+70
+00:05:22.971 --> 00:05:28.413
+stateIn shares one run with many screens, and only the kitchen writes, in one step.
+
+71
+00:05:28.633 --> 00:05:29.545
+Quick check.
+
+72
+00:05:29.545 --> 00:05:34.862
+A StateFlow holds 0, and its collector takes 100 milliseconds a value.
+
+73
+00:05:34.862 --> 00:05:38.355
+You set 1, 2 and 3 at once, and later 3 again.
+
+74
+00:05:38.355 --> 00:05:39.647
+What does it see?
+
+75
+00:05:42.633 --> 00:05:43.232
+0 and 3.
+
+76
+00:05:43.232 --> 00:05:48.321
+1 and 2 were skipped, and the second 3 is equal, so it wakes nobody.
