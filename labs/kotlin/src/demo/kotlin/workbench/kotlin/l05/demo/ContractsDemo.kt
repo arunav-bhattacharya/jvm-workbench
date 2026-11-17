@@ -4,29 +4,29 @@ import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
-sealed interface PaymentEvent
-data class Captured(val paymentId: String, val amountMinor: Long) : PaymentEvent
-data class Failed(val paymentId: String, val reason: String) : PaymentEvent
+sealed interface JobEvent
+data class Printed(val jobId: String, val pages: Int) : JobEvent
+data class Jammed(val jobId: String, val printer: String) : JobEvent
 
-fun lookupCurrency(merchant: String): String? = if (merchant.startsWith("m-")) "eur" else null
+fun lookupPaper(printer: String): String? = if (printer.startsWith("laser-")) "a4" else null
 
 /** Checks, but tells the compiler nothing. */
-fun requireCurrencyPlain(currency: String?) {
-    if (currency == null) throw IllegalArgumentException("currency missing")
+fun requirePaperPlain(paper: String?) {
+    if (paper == null) throw IllegalArgumentException("paper size missing")
 }
 
-/** The same check, plus a promise: if this returns, currency was not null. */
+/** The same check, plus a promise: if this returns, paper was not null. */
 @OptIn(ExperimentalContracts::class)
-fun requireCurrency(currency: String?) {
-    contract { returns() implies (currency != null) }
-    if (currency == null) throw IllegalArgumentException("currency missing")
+fun requirePaper(paper: String?) {
+    contract { returns() implies (paper != null) }
+    if (paper == null) throw IllegalArgumentException("paper size missing")
 }
 
-/** A promise about the receiver: a true result means this is a Captured. */
+/** A promise about the receiver: a true result means this is a Printed. */
 @OptIn(ExperimentalContracts::class)
-fun PaymentEvent.isCaptured(): Boolean {
-    contract { returns(true) implies (this@isCaptured is Captured) }
-    return this is Captured
+fun JobEvent.isPrinted(): Boolean {
+    contract { returns(true) implies (this@isPrinted is Printed) }
+    return this is Printed
 }
 
 /** A promise about the lambda: it runs exactly once, during this call. */
@@ -37,19 +37,19 @@ inline fun <T> once(block: () -> T): T {
 }
 
 fun main() {
-    val currency = lookupCurrency("m-981")
-    requireCurrency(currency)
-    println("currency = ${currency.uppercase()}")            // smart cast to String
+    val paper = lookupPaper("laser-1")
+    requirePaper(paper)
+    println("paper = ${paper.uppercase()}")                  // smart cast to String
 
-    val event: PaymentEvent = Captured("pay_7", 1_999)
-    if (event.isCaptured()) println("captured ${event.amountMinor}")   // smart cast to Captured
+    val event: JobEvent = Printed("job-7", 12)
+    if (event.isPrinted()) println("printed ${event.pages} pages")   // smart cast to Printed
 
     val label: String                                         // a val, assigned inside a lambda
-    once { label = "batch-17" }
+    once { label = "job-17" }
     println("label = $label")
 
     // Wrong moves, one at a time. Predict the error, run, undo.
-    // 1. Call requireCurrencyPlain(currency) instead of requireCurrency(currency).
+    // 1. Call requirePaperPlain(paper) instead of requirePaper(paper).
     // 2. Delete the line `contract { callsInPlace(...) }` in once.
-    // 3. Delete @OptIn(ExperimentalContracts::class) above isCaptured.
+    // 3. Delete @OptIn(ExperimentalContracts::class) above isPrinted.
 }

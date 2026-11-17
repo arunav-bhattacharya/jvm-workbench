@@ -137,7 +137,7 @@ fun inspect(g: Goods): List<String> = when (g) {             // a new job: one n
 
 S0 = """The breakfast box from *Composite, Bridge and Flyweight* now holds three kinds of goods: a packet with a price (an `Item`), fresh food that also knows how many days it has left (a `Fresh` item), and a smaller `Box`. The shop keeps adding jobs that treat each kind differently: the price (fresh food is half price on its last day), the inspector's check, the label printer, the weight for the courier.
 
-**Visitor** is the 1994 book's answer: put each job in a class of its own, called a visitor, with one method per kind of goods. Each kind gets one small `accept` method that calls the right one:
+**Visitor** is the 1994 book's answer: put each job in a class of its own, called a visitor, with one method per kind of goods. Each kind gets one small `accept` method that calls the right one. The goods are **records**, small classes that just hold their data, and `GoodsVisitor<R>` is generic: `R` is what the job returns, a `Long` for the price:
 
 """ + pair(J_VISITOR, K_VISITOR) + """
 
@@ -147,7 +147,7 @@ The inspector is the picture: she visits each kind of goods and does a different
 
 That trade-off is called the **expression problem**. With ordinary methods, a `price()` on each record, a new kind is cheap and a new job touches every class. With Visitor it's the other way round. Plain Java and Kotlin can't make both cheap, so you pick the side you expect to grow. In the shop, the kinds of goods change rarely and new jobs arrive every month, which favors Visitor's side.
 
-Sealed types and pattern matching give you that side without the machinery: no `accept`, no visitor interface, one function per job with a `switch` or `when` inside, over the same records:
+Sealed types and pattern matching give you that side without the machinery. A **sealed** interface lists every type allowed to implement it, so the compiler knows the whole set. **Pattern matching** lets a `switch` or `when` test which of those types a value is, and take its fields out as it matches. Together they give one function per job, with no `accept` and no visitor interface, over the same records:
 
 """ + pair(J_SWITCH, K_SWITCH) + """
 
@@ -158,7 +158,7 @@ breakfast box: 1060 cents (visitor) = 1060 cents (switch)
 inspector found: [milk: last day]
 ```
 
-The two prices agree. The switch version is one function per job, and the guard `when days == 0` states the last-day rule right in the case. The design notes for Java's pattern matching put it plainly: "if your language has sufficiently powerful pattern matching, the Visitor pattern is almost completely unnecessary". The same notes say ordinary methods are still fine where they fit.
+The two prices agree. The switch version is one function per job, and the **guard** `when days == 0`, an extra condition on a case, states the last-day rule right where it applies. The design notes for Java's pattern matching put it plainly: "if your language has sufficiently powerful pattern matching, the Visitor pattern is almost completely unnecessary". The same notes say ordinary methods are still fine where they fit.
 
 The inspector picture breaks at a new kind of goods. A real inspector who meets something new can improvise. A visitor can't: it has no method for a kind it was never told about. With sealed types that's the point, because the compiler lists every job that needs a new branch.
 
@@ -202,7 +202,7 @@ An **iterator** is an object that hands out items one at a time without saying h
 
 """ + pair(J_ITER, K_ITER) + """
 
-The Java version keeps two fields of state, and `hasNext` holds a classic bug: write `if` instead of `while`, and an empty page in the middle ends the walk early. Kotlin's `sequence {}` builder lets you write the loop you'd write for a list. `yield` and `yieldAll` pause the block until the consumer asks for the next item, and the compiler writes the bookkeeping. Nothing runs until someone starts walking. `PagingDemo`, in the Try it, takes the first two items and then all of them:
+The Java version keeps two fields of state, and `hasNext` holds a classic bug: write `if` instead of `while`, and an empty page in the middle ends the walk early. Kotlin's `sequence {}` builder lets you write the loop you'd write for a list. `yield` and `yieldAll` pause the block until the consumer, the code reading the items, asks for the next one, and the compiler writes the bookkeeping. Nothing runs until someone starts walking. `PagingDemo`, in the Try it, takes the first two items and then all of them:
 
 ```text
   warehouse: sending page 0
@@ -215,13 +215,13 @@ all: [rye bread, jam, tea]
 
 `take(2)` needed one page, and the warehouse program, which does exactly what it's asked and nothing more, sent one. The full walk needed all three pages, the empty one included.
 
-Two properties surprise people. A sequence built this way is **cold**: each new walk runs the block again from the top, so walking twice fetches every page twice. And if the consumer stops early, the rest of the block never runs. The `iterator {}` docs warn that "finally blocks may be left unexecuted". So don't open a connection inside the block and close it in `finally`; open it where you call the sequence, with `use {}`.
+Two properties surprise people. A sequence built this way is **cold**: each new walk runs the block again from the top, so walking twice fetches every page twice. And if the consumer stops early, the rest of the block never runs. The `iterator {}` docs warn that "finally blocks may be left unexecuted". So don't open a connection inside the block and close it in `finally`; open it where you call the sequence, with `use {}`, which closes it when its own block ends.
 
 The shelf picture breaks right there. A real shelf is there whether you look or not, and walking it twice shows the same items. A cold sequence builds the shelf again for every walk.
 
 **A sequence does its work again for every walk. Collect it with `toList()` when you need the items twice.**
 
-When you want your own type to work in a `for` loop, make it `Iterable` and build its iterator with `iterator {}`, the sibling of `sequence {}`: `class Shelf(...) : Iterable<String> { override fun iterator() = iterator { yieldAll(...) } }`. Java has no such builder. `Stream.iterate(seed, hasNext, next)` covers simple cases, but for pages like these the hand-written iterator is still the clearest Java.
+When you want your own type to work in a `for` loop, make it `Iterable`, the interface for anything a `for` loop can walk, and build its iterator with `iterator {}`, the sibling of `sequence {}`: `class Shelf(...) : Iterable<String> { override fun iterator() = iterator { yieldAll(...) } }`. Java has no such builder. `Stream.iterate(seed, hasNext, next)` covers simple cases, but for pages like these the hand-written iterator is still the clearest Java.
 
 The iterator reads the shelf. Next, we'll take a photo of it before a change."""
 
@@ -261,7 +261,7 @@ K_MEMENTO = """class Shelf {
 
 S2 = """Before the shopkeeper rearranges the front shelf, she takes a photo of it. If the new layout is a mess, she puts everything back exactly as in the photo. *Observer and Command* undid a change by running its opposite, and that works for "restock 12 loaves". It doesn't work for "rearrange the whole shelf for the autumn sale", which has no clean opposite.
 
-**Memento** is the photo. An object saves a snapshot of its state before a change, and puts it back on undo. The object that takes and restores the snapshot is called the **originator**; the snapshot itself is the **memento**:
+**Memento** is the photo. An object saves a snapshot, a copy of its state at one moment, before a change, and puts it back on undo. The object that takes and restores the snapshot is called the **originator**; the snapshot itself is the **memento**:
 
 """ + pair(J_MEMENTO, K_MEMENTO) + """
 
@@ -278,7 +278,7 @@ The photo picture breaks exactly where the first rule guards. A real photo can't
 
 **A snapshot that shares a changeable list is no snapshot. Copy every changeable part, on save and on restore.**
 
-Records and data classes make the rest easy. When the whole state is already an immutable record, the pattern almost disappears: the state is its own memento, and an undo history is a list of old states. That's a strong argument for immutable data.
+Records and data classes make the rest easy. When the whole state is already an immutable record, one that can't change after it's made, the pattern almost disappears: the state is its own memento, and an undo history is a list of old states. That's a strong argument for immutable data.
 
 There are two costs. History grows with every checkpoint, so bound it; the lab keeps the newest few. And a snapshot of a big object takes memory, which is why programs with long histories save one now and then and replay the changes made after it.
 
@@ -316,7 +316,7 @@ A **mediator** is that dispatcher: an object that holds the rules for how severa
 
 When the bike finds a parcel too heavy, it calls `dispatcher.send("parcel.tooHeavy")` and goes back to riding. It doesn't know the van exists. The figure counts the lines: six without the dispatcher, four with it.
 
-Mediator and Observer look alike. An observer, from *Observer and Command*, is one subject telling its listeners about itself. A mediator sits between many parties and holds the rules about who reacts to what. In coroutine code, one `MutableSharedFlow` of messages that every colleague shares is a natural mediator.
+Mediator and Observer look alike. An observer, from *Observer and Command*, is one subject telling its listeners about itself. A mediator sits between many parties and holds the rules about who reacts to what. In coroutine code (Kotlin's light tasks that can pause without holding a thread), one `MutableSharedFlow`, a stream that hands every message to everyone listening, makes a natural mediator when every colleague shares it.
 
 The dispatcher picture holds up well, and it breaks where dispatchers get ambitious. A real dispatcher who starts weighing parcels and planning routes is one person doing two jobs. A mediator that starts working out delivery fees or checking addresses becomes a **god object**, a class that knows everything and that everything depends on.
 

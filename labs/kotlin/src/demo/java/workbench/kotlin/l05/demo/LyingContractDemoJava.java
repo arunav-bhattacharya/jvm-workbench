@@ -6,21 +6,21 @@ package workbench.kotlin.l05.demo;
  */
 public class LyingContractDemoJava {
 
-    static boolean lyingIsCaptured(PaymentEvent e) {
+    static boolean lyingIsPrinted(JobEvent e) {
         return true;
     }
 
     public static void main(String[] args) {
-        PaymentEvent failed = new Failed("pay_8", "insufficient funds");
+        JobEvent jammed = new Jammed("job-8", "laser-1");
         try {
-            if (lyingIsCaptured(failed)) {
-                Captured c = (Captured) failed;                  // Java makes you write the cast yourself
-                System.out.println("captured " + c.getAmountMinor());
+            if (lyingIsPrinted(jammed)) {
+                Printed p = (Printed) jammed;                   // Java makes you write the cast yourself
+                System.out.println("printed " + p.getPages() + " pages");
             }
         } catch (ClassCastException e) {
             System.out.println("ClassCastException: " + e.getMessage());
         }
         // the Kotlin function, seen from Java: just a boolean method, the contract is gone
-        System.out.println("Kotlin lyingIsCaptured from Java: " + LyingContractDemoKt.lyingIsCaptured(failed));
+        System.out.println("Kotlin lyingIsPrinted from Java: " + LyingContractDemoKt.lyingIsPrinted(jammed));
     }
 }

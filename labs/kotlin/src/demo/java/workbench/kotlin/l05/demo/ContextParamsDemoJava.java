@@ -6,14 +6,14 @@ package workbench.kotlin.l05.demo;
  */
 public class ContextParamsDemoJava {
     public static void main(String[] args) {
-        Logger console = System.out::println;
-        TxId tx = new TxId("tx-j");
+        Logbook console = System.out::println;
+        Shift shift = new Shift("java");
 
-        // checkout(Logger, TxId, Payment, String)
-        System.out.println(ContextParamsDemoKt.checkout(console, tx, new Payment(5_000), "coffee-shop"));
-        // authorize(Logger, TxId, Payment receiver, String merchant)
-        System.out.println(ContextParamsDemoKt.authorize(console, tx, new Payment(250_000), "car-dealer"));
-        // audit(Logger, String)
-        ContextParamsDemoKt.audit(console, "called from Java");
+        // takeIn(Logbook, Shift, Job, String)
+        System.out.println(ContextParamsDemoKt.takeIn(console, shift, new Job("flyer.pdf", 250), "laser-1"));
+        // check(Logbook, Shift, Job receiver, String printer)
+        System.out.println(ContextParamsDemoKt.check(console, shift, new Job("posters.pdf", 5_000), "laser-2"));
+        // remark(Logbook, String)
+        ContextParamsDemoKt.remark(console, "called from Java");
     }
 }

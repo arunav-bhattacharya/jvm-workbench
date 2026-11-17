@@ -698,7 +698,7 @@ class Conc07Locks(Narrated):
         self.play(FadeOut(lib, shift=LEFT * 0.5), run_time=0.3)
         me = tch("reader", READ, 22).move_to([1.0, 1.45, 0])
         miss = T("rate missing", 22, BAD).next_to(me, RIGHT, buff=0.3)
-        ask = M("writeLock().lock()", 22, WRITE).next_to(me, DOWN, buff=0.25)
+        ask = M("writeLock().lock()", 22, WRITE).move_to([0.95, 0.72, 0], aligned_edge=LEFT)
         self.say("up_pred")
         self.play(FadeIn(me, shift=RIGHT * 0.3), Transform(cnt, count_t(1)), run_time=0.6)
         self.at(1)
@@ -723,7 +723,7 @@ class Conc07Locks(Narrated):
         steps = VGroup(T("1. let go of the read lock", 26), T("2. take the write lock", 26),
                        T("3. check again: someone may have loaded it", 26)).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
         steps.move_to([-6.2, -2.55, 0], aligned_edge=LEFT)
-        upg = T("upgrade", 26, BAD).next_to(ask, RIGHT, buff=0.25)
+        upg = T("an upgrade", 24, BAD).next_to(ask, DOWN, buff=0.15, aligned_edge=LEFT)
         self.say("up_fix")
         self.play(FadeOut(VGroup(rl, wl)), FadeIn(upg), run_time=0.5)
         self.at(1)

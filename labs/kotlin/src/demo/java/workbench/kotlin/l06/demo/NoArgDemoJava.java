@@ -6,9 +6,9 @@ package workbench.kotlin.l06.demo;
  */
 public class NoArgDemoJava {
     public static void main(String[] args) {
-        LedgerRow blank = new LedgerRow();                 // compiles in Java
-        System.out.println("blank.amountMinor = " + blank.getAmountMinor());
-        System.out.println("blank.note = " + blank.getNote());   // null: the initializer never ran
+        JobRow blank = new JobRow();                         // compiles in Java
+        System.out.println("blank.pages = " + blank.getPages());
+        System.out.println("blank.status = " + blank.getStatus());   // null: the initializer never ran
         System.out.println("blank.getId() = " + blank.getId());
     }
 }

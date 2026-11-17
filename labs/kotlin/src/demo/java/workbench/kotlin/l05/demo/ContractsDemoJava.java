@@ -9,19 +9,19 @@ import kotlin.Unit;
  */
 public class ContractsDemoJava {
     public static void main(String[] args) {
-        String currency = ContractsDemoKt.lookupCurrency("m-981");
-        ContractsDemoKt.requireCurrency(currency);              // to Java: a void method, nothing more
-        System.out.println("currency = " + currency.toUpperCase());
+        String paper = ContractsDemoKt.lookupPaper("laser-1");
+        ContractsDemoKt.requirePaper(paper);                    // to Java: a void method, nothing more
+        System.out.println("paper = " + paper.toUpperCase());
 
-        PaymentEvent event = new Captured("pay_7", 1_999);
-        if (event instanceof Captured c) {                      // the pattern binds c: no promise needed
-            System.out.println("captured " + c.getAmountMinor());
+        JobEvent event = new Printed("job-7", 12);
+        if (event instanceof Printed p) {                       // the pattern binds p: no promise needed
+            System.out.println("printed " + p.getPages() + " pages");
         }
 
         // String label; once(() -> { label = "x"; ... }) would not compile:
         // "local variables referenced from a lambda expression must be final or effectively final"
         String[] label = new String[1];
-        ContractsDemoKt.once(() -> { label[0] = "batch-17"; return Unit.INSTANCE; });
+        ContractsDemoKt.once(() -> { label[0] = "job-17"; return Unit.INSTANCE; });
         System.out.println("label = " + label[0]);
     }
 }

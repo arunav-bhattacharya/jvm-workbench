@@ -153,7 +153,7 @@ The customer cancelled while the parcel was on the road, and the driver delivere
 
 The cause isn't one careless line. The rules for an order live in four places, and each button knows a different part of them. A fifth button means remembering every rule again.
 
-**State** is the pattern for this: an object's behavior depends on the state it's in, so each state should say which moves it allows. The 1994 book of design patterns gives each state its own class. Modern Java and Kotlin let us write it smaller. A **state** is where the order is in its life, holding exactly the data that state needs. An **event** is something that happens to the order, such as a button press. A **transition function** takes the current state and an event, and returns the next state:
+**State** is the pattern for this: an object's behavior depends on the state it's in, so each state should say which moves it allows. The 1994 book of design patterns gives each state its own class. Modern Java and Kotlin let us write it smaller. A **state** is where the order is in its life, holding exactly the data that state needs. An **event** is something that happens to the order, such as a button press. A **transition function** takes the current state and an event, and returns the next state. The states and events below are **records**, small classes that just hold their data, and each set is **sealed**: its interface lists every type allowed to implement it, so the compiler knows the whole set:
 
 """ + pair(J_LIFE, K_LIFE) + """
 
@@ -181,7 +181,7 @@ That only works if you leave room for it. A `default` (or `else`) on a switch ov
 
 **A `default` on the switch over states hides every state you add later. Leave it off.**
 
-The check happens when the code is compiled, so a small gap is left for run time. The design notes for Java's pattern matching, by Brian Goetz and Gavin Bierman, call it the **remainder**: the values a checked switch can still meet. One is `null`, and a switch on a null state throws `NullPointerException`. The other is a subtype added after the switch was compiled, in a separately compiled jar (a file of compiled classes). Java throws `MatchException` for it, and Kotlin throws `NoWhenBranchMatchedException`. You don't write code for those cases, but a program that mixes old and new jars can meet them.
+The check happens when the code is compiled, so a small gap is left for run time. The design notes for Java's pattern matching, by Brian Goetz and Gavin Bierman, call it the **remainder**: the values a checked switch can still meet. One is `null`, and a switch on a null state throws `NullPointerException`. The other is a subtype (a type that implements the sealed interface) added after the switch was compiled, in a separately compiled jar (a file of compiled classes). Java throws `MatchException` for it, and Kotlin throws `NoWhenBranchMatchedException`. You don't write code for those cases, but a program that mixes old and new jars can meet them.
 
 State looks a lot like Strategy, from *Strategy and Template Method*: an object holds a value, and behavior depends on it. The difference is who chooses. The shopkeeper picks a strategy, such as "cheapest courier", and it stays put. A state machine picks its own next state as events arrive.
 
@@ -220,7 +220,7 @@ Each `Complaint` record says which order it's about, what went wrong, what putti
 
 The complaints book on the counter is the first link, and it shows the shape of every handler. Code before `next` runs on the way in, code after it runs on the way back with the reply, and not calling `next` at all ends the trip early. So the book sees every complaint and every answer, while the receipt check can turn a customer away before the assistant even looks.
 
-The 1994 book links handler objects with a `setNext()` method. You don't need that. A list of functions and a fold make the chain: start from the last stop, and wrap it in each handler, from the last one to the first. The result can't change, so one desk serves every complaint on every thread. The lab's `ComplaintDesk.build` copies the list it's given for the same reason: a later edit to the caller's list must not change a chain that's already in use.
+The 1994 book links handler objects with a `setNext()` method. You don't need that. A list of functions and a fold make the chain. A **fold** walks a list and builds one result from it, step by step: here, start from the last stop and wrap it in each handler, from the last one to the first. The result can't change, so one desk can serve every complaint on every thread (a path of work that runs side by side with others). The lab's `ComplaintDesk.build` copies the list it's given for the same reason: a later edit to the caller's list must not change a chain that's already in use.
 
 The picture breaks on the way back. In the shop, an assistant who passes a complaint to the manager may never hear how it ended. In code, the reply travels back through every link that passed it on, and each one can still read it, write it down or change it. The figure shows both directions.
 
@@ -231,7 +231,7 @@ S3 = """Chains fail in four ways, and each one looks like a bug somewhere else.
 
 The order is wrong. Handlers run in list order, so the order of the list is behavior. Put the once-per-order check before the receipt check, as the Try it did, and a customer turned away for a missing receipt has already used up their one complaint. Put the book after the receipt check, and turned-away customers never reach the book. Pin the order with a test.
 
-A handler forgets `next`. A handler that neither answers nor calls `next` has nothing to return. In Java it's tempting to return `null`, and the complaint goes into a drawer, never to be seen again, until a caller trips over the `null` with a `NullPointerException`. Every path through a handler must either call `next` or return a real reply.
+A handler forgets `next`. A handler that neither answers nor calls `next` has nothing to return. In Java it's tempting to return `null`, and the complaint simply disappears, until a caller trips over the `null` with a `NullPointerException`. Every path through a handler must either call `next` or return a real reply.
 
 A handler calls `next` twice. A "try again" step that wraps `next.passOn(c)` near the front of the chain repeats everything after it. If the assistant's step posts a new teapot, two teapots go out. Put a retry as close as possible to the one call it repeats, never around the rest of the chain.
 

@@ -103,14 +103,14 @@ class Narrated(VoiceScene):
         if rest > 0.02:
             self.wait(rest)
 
-    def hold(self, after=0.25):
+    def hold(self, after=0.15):
         rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def predict(self, secs=2.4, pos=(6.4, -3.25), edge=RIGHT):
+    def predict(self, secs=2.0, pos=(6.4, -3.25), edge=RIGHT):
         """A beat of silence for the viewer to guess, with a small on-screen prompt."""
         tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
         self.play(FadeIn(tag), run_time=0.3)
@@ -467,7 +467,7 @@ class Rx05Retry(Narrated):
         self.play(FadeIn(out2[3]), run_time=0.5)
         self.hold()
 
-        crowd_l = T("a crowd, not a second try", 24, BAD_C).next_to(VGroup(*crowd), RIGHT, buff=0.35)
+        crowd_l = T("a crowd, not a second try", 24, BAD_C).next_to(VGroup(*crowd), RIGHT, buff=0.35).shift(UP * 0.45)
         self.say("r2_joke")
         self.play(FadeIn(crowd_l), Wiggle(VGroup(*crowd), scale_value=1.1), run_time=1.0)
         self.hold()
@@ -620,22 +620,21 @@ class Rx05Retry(Narrated):
         self.hold()
 
         # a timeout is not a no
-        wall = DashedLine([1.0, -0.6, 0], [1.0, -2.6, 0], dash_length=0.12).set_stroke(GREY_B, 2.5)
-        us2 = VGroup(timer_icon(BAD_C, 0.9), T("we stopped waiting", 22, BAD_C)).arrange(DOWN, buff=0.12).move_to([-1.6, -1.6, 0])
-        far = VGroup(mill(0.6), T("?", 40)).arrange(RIGHT, buff=0.2).move_to([3.0, -1.5, 0])
-        far_l = T("did it say yes?", 22, GREY_B).next_to(far, DOWN, buff=0.1)
+        wall = DashedLine([0.4, 2.3, 0], [0.4, -0.4, 0], dash_length=0.12).set_stroke(GREY_B, 2.5)
+        us2 = VGroup(timer_icon(BAD_C, 1.3), T("we stopped waiting", 26, BAD_C)).arrange(DOWN, buff=0.15).move_to([-2.6, 1.0, 0])
+        far = VGroup(mill(0.9), T("?", 48)).arrange(RIGHT, buff=0.25).move_to([3.0, 1.1, 0])
+        far_l = T("did it say yes?", 26, GREY_B).next_to(far, DOWN, buff=0.15)
         same = VGroup(T("same order number every attempt:", 24), M("flour-3", 24, SLIP_C)).arrange(RIGHT, buff=0.2)
         pend = VGroup(T("out of retries:", 24), M('"PENDING:flour-3"', 24, SLIP_C), T("not failed", 24, GREY_B)).arrange(RIGHT, buff=0.2)
-        hon = VGroup(same, pend).arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to([0, -2.9, 0])
+        hon = VGroup(same, pend).arrange(DOWN, aligned_edge=LEFT, buff=0.25).move_to([0, -2.0, 0])
         self.say("honest")
-        self.play(pl.animate.scale(0.75).move_to([0, 2.45, 0]), run_time=0.7)
+        self.play(FadeOut(pl), run_time=0.6)
         self.play(FadeIn(us2), run_time=0.5)
         self.at(1)
         self.play(Create(wall), FadeIn(far), FadeIn(far_l), run_time=0.8)
         self.at(4)
         self.play(Indicate(wall, color=WHITE), run_time=0.8)
         self.at(5)
-        self.play(VGroup(us2, far, far_l, wall).animate.shift(UP * 0.65), run_time=0.5)
         self.play(FadeIn(same, shift=UP * 0.1), run_time=0.5)
         self.at_text("mark the order", lead=0.4)
         self.play(FadeIn(pend, shift=UP * 0.1), run_time=0.5)

@@ -468,7 +468,7 @@ class Rx06Schedulers(Narrated):
         self.play(FadeIn(hop), run_time=0.5)
         self.hold()
 
-        fm = VGroup(paper(4.4, 1.5))
+        fm = VGroup(paper(5.2, 1.5))
         fl1 = VGroup(T("start the oven:", 22, GREY_A), M("single", 22, SINGLE_C)).arrange(RIGHT, buff=0.15)
         fl2 = VGroup(T("start the oven:", 22, GREY_A), M("boundedElastic", 22, BE_C)).arrange(RIGHT, buff=0.15)
         VGroup(fl1, fl2).arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to(fm[0])
@@ -487,7 +487,7 @@ class Rx06Schedulers(Narrated):
 
         # ================= back to the phone =================
         par = VGroup(*[person(PAR_C, 0.95) for _ in range(4)]).arrange(RIGHT, buff=0.5).move_to([-2.8, 1.0, 0])
-        par_l = M("parallel", 26, PAR_C).next_to(par, UP, buff=0.3)
+        par_l = M("parallel", 26, PAR_C).next_to(par, UP, buff=0.85)
         ph3 = phone(0.6).next_to(par[1], UP, buff=0.12)
         call = M("stock.loavesLeft(\"shop-7\")", 24, BAD_C).move_to([3.3, 1.6, 0])
         ms100 = T("about 100 ms, and the thread does nothing else", 22, GREY_B).next_to(call, DOWN, buff=0.15)

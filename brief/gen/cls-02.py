@@ -39,7 +39,7 @@ FIG = "\n".join(parts)
 STACK_JAVA = read(f"{lab}/demo/{P}/StackDemo.java")
 STACK_KT = read(f"{lab}/demo/{K}/StackDemo.kt")
 
-OPENING = """Every show in a theatre is run from a prompt book: the stage manager's copy of the script, with every cue written in a terse shorthand such as "LX 14 GO" or "FLY 3 OUT". The audience never sees it, and neither do most of the actors. Yet when a cue goes wrong, it's the prompt book, not the script, that tells you why.
+OPENING = """Every show in a theatre is run from a prompt book, the stage manager's copy of the script. Every cue in it is written in a terse shorthand, such as "LX 14 GO" or "FLY 3 OUT". The audience never sees it, and neither do most of the actors. Yet when a cue goes wrong, it's the prompt book, not the script, that tells you why.
 
 Your class files are the JVM's prompt book. The compiler turns each method into bytecode, a list of short instructions that the JVM follows one by one. In the last lesson, the JVM loaded classes and ran their `<clinit>`. Now we open them and read what's inside.
 
@@ -78,9 +78,9 @@ static long seconds(long, int);       public static final long seconds(long, int
                                          9: lreturn
 ```
 
-The two compilers agree on almost everything. kotlinc put the top-level function in a class named `StackDemoKt`, after the file, and made it `public static final`. For the 1,000, javac loads a ready-made `long` from a table in the class file, while kotlinc pushes it as a small `int` (`sipush`) and then widens it to a `long` (`i2l`). That's a difference of style. Both leave the same `long` 1,000 for the next instruction.
+The two compilers agree on almost everything. kotlinc put the top-level function in a class named `StackDemoKt`, after the file, and made it `public static final`. For the 1,000, javac loads a ready-made `long` from a table in the class file. kotlinc pushes it as a small `int` (`sipush`) and then widens it to a `long` (`i2l`). That's a difference of style. Both leave the same `long` 1,000 for the next instruction.
 
-That's the right way to think of bytecode: it's the contract between your compiler and the JVM. Every tool in this track reads or writes it: the verifier, the JIT (the compiler inside the JVM that turns busy bytecode into machine code), `java.lang.reflect.Proxy`, Byte Buddy, Java agents. You'll rarely write bytecode, but you'll read it whenever the source doesn't explain what happens at run time.
+That's the right way to think of bytecode: it's the contract between your compiler and the JVM. Every tool in this track reads or writes it. The verifier, the JVM's type check from lesson 1, reads it. So does the JIT, the compiler inside the JVM that turns busy bytecode into machine code. `java.lang.reflect.Proxy` and Byte Buddy, a library that generates classes (lesson 5), write new classes in it, and Java agents, programs that change classes as they load (lesson 7), rewrite it. You'll rarely write bytecode, but you'll read it whenever the source doesn't explain what happens at run time.
 
 `javap -v` also prints the class-file version, which tells you which compiler settings won. The labs compile with `release 21`, so it says `major version: 65`. JDK 25's javac with no `--release` writes 69. kotlinc 2.4.21 run by hand with no `-jvm-target` writes 52, which is Java 8, and lesson 3 shows how that changes Kotlin's string templates.
 
@@ -185,7 +185,7 @@ A companion object becomes a nested class, `Actor$Companion`, and a field `publi
 
 `object Company` becomes a final class with a private constructor and a field `public static final Company INSTANCE`, built in its `<clinit>`. Top-level functions become static methods on a class named after the file, here `KotlinShapesKt`.
 
-Default arguments compile to a second, synthetic method. `greet(name: String = "Ana", punct: Char = '!')` also produces `greet$default(String, char, int, Object)`, and the `int` is a bitmask, one bit for each argument the caller left out:
+Default arguments compile to a second, synthetic method. `greet(name: String = "Ana", punct: Char = '!')` also produces `greet$default(String, char, int, Object)`, and the `int` is a bitmask, a number whose bits each answer one yes-or-no question. Here each bit says whether the caller left out one argument:
 
 ```text
  0: iload_2      // the mask
@@ -199,11 +199,11 @@ Default arguments compile to a second, synthetic method. `greet(name: String = "
 
 Java never sees the defaults. It has to say every argument out loud, every time, unless you add `@JvmOverloads`. A `data class Scene` adds `component1()`, `component2()`, `copy`, a static `copy$default`, and `equals`, `hashCode` and `toString`. And every Kotlin class is `final` unless you write `open`, which is the root of the proxy trouble in lesson 5.
 
-Kotlin keeps its own picture of the class (which types may be null, which methods are really properties, the default values) in a `@kotlin.Metadata` annotation, which `javap -v` shows as an encoded blob. The Kotlin compiler and kotlin-reflect, Kotlin's reflection library, read it. The JVM ignores it.
+Kotlin keeps its own picture of the class in a `@kotlin.Metadata` annotation: which types may be null, which methods are really properties, the default values. `javap -v` shows it as an encoded blob. The Kotlin compiler and kotlin-reflect, Kotlin's reflection library, read it. The JVM ignores it.
 
 **Java calls what kotlinc generated, not what you wrote. Check it with `javap -p`.**
 
-Here's the limit of today's tool. javap reads every instruction except one kind: an `invokedynamic` names its target nowhere in the class file, and we've already met two of them."""
+Here's the limit of today's tool. javap reads every instruction except one kind: an `invokedynamic` names its target nowhere in the class file, and `describe` already holds one."""
 
 L = {
  "id": "cls-02",
@@ -258,7 +258,7 @@ L = {
    }
   },
   {
-   "h": "The glossary at the back: constant pool entries and descriptors",
+   "h": "The prompt book's glossary: constant pool entries and descriptors",
    "body": S2,
    "try": {
     "title": "Walk the constant pool",
@@ -345,7 +345,7 @@ L = {
   "Java sees that lowered shape. Design it with `const val`, `@JvmField`, `@JvmStatic`, `@JvmOverloads`, `@Throws` and `@JvmName`, and check it with `javap -p`.",
   "The limit: an `invokedynamic` names no target in the class file, so javap alone can't tell you what it calls."
  ],
- "closing": "We opened the JVM's prompt book and read it cue by cue: a stagehand with a pile of typed cards and a row of hooks, a glossary that holds every name, and the getters, companions and `$default` methods that kotlinc writes for you.\n\nNow pick a Kotlin class that Java code in your project calls, and run `javap -p` on it. Check that every name a Java caller needs is there, with the shape they expect: a static method, a constant, an `isX()` getter.\n\nNext, we'll read the one cue that javap can't finish for us, `invokedynamic`. Who decides what it calls, and when?",
+ "closing": "We opened the JVM's prompt book and read it cue by cue: a stagehand with a pile of typed cards and a row of hooks, and a glossary that holds every name. Then we read the getters, companions and `$default` methods that kotlinc writes for you.\n\nNow pick a Kotlin class that Java code in your project calls, and run `javap -p` on it. Check that every name a Java caller needs is there, with the shape they expect: a static method, a constant, an `isX()` getter.\n\nNext, we'll read the one cue that javap can't finish for us, `invokedynamic`. Who decides what it calls, and when?",
  "quiz": [
   {
    "q": "javap shows a static method body: `iload_0`, `iload_1`, `imul`, `iconst_1`, `iadd`, `ireturn`. What source produced it?",

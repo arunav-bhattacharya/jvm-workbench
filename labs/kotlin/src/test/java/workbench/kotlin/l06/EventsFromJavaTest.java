@@ -12,7 +12,7 @@ class EventsFromJavaTest {
     @Test
     @DisplayName("Java calls the Kotlin encoder like any static method and gets the same JSON")
     void javaEncodes() {
-        String json = PaymentEventsKt.encodeEvents(List.of(new Captured("pay_9", 250L)));
-        assertThat(json).isEqualTo("[{\"type\":\"captured\",\"paymentId\":\"pay_9\",\"amountMinor\":250}]");
+        String json = JobEventsKt.encodeEvents(List.of(new Printed("job-9", 250)));
+        assertThat(json).isEqualTo("[{\"type\":\"printed\",\"jobId\":\"job-9\",\"pages\":250}]");
     }
 }

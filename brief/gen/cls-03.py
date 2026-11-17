@@ -48,7 +48,7 @@ OPENING = """Most cues in a prompt book are complete: "LX 14 GO". A few say only
 
 The JVM has a cue like that, and it's the one javap couldn't finish for us in the last lesson: `invokedynamic`. It's behind every lambda you write, and behind every string you build with `+`. The first time such an instruction runs, library code decides what it calls, and the answer is kept for good.
 
-It's easy to guess wrong about what that costs. Many people picture a lambda as a small inner class, or believe each lambda allocates on every call, so they avoid lambdas where they're cheap and miss the allocation where it's real. In this lesson, we'll watch a call site get linked once, take a lambda apart, see string `+` and records use the same trick, and then do the linking by hand. Before we start, make a guess, and keep it in mind."""
+It's easy to guess wrong about what that costs. Many people picture a lambda as a small inner class, or believe each lambda allocates on every call. So they avoid lambdas where they're cheap, and miss the allocation where it's real. In this lesson, we'll watch a call site get linked once, take a lambda apart, see string `+` and records use the same trick, and then do the linking by hand. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
 S0 = """Every other call instruction names its target. `invokestatic StackDemo.seconds:(JI)J` calls exactly that method, like a cue that says "LX 14 GO". `invokedynamic` names only a method name, a type, and a **bootstrap method**: a method that will decide the target the first time the instruction runs. Here is the method reference `IndyTour::add` in `javap -c -p`, and its entry from `javap -v`, on JDK 25:
@@ -66,11 +66,11 @@ BootstrapMethods:
 
 Read the type `()IntBinaryOperator` from the point of view of the code around it: take nothing off the operand stack, and put an `IntBinaryOperator` on it. How the instruction gets one isn't written anywhere in your class file.
 
-That's the cue that says "ask the director", and the bootstrap method is the director. The first time the instruction runs, the JVM calls the bootstrap method with four things: a `Lookup` for your class (an object that carries your class's access rights), the name, the type, and the static arguments listed above.
+That's the cue that says "ask the director", and the bootstrap method is the director. The first time the instruction runs, the JVM calls the bootstrap method with four things. They are a `Lookup` for your class (an object that carries your class's access rights), the name, the type, and the static arguments listed above.
 
 The bootstrap method returns a `CallSite`, an object that holds a target of exactly that type. The target is a **method handle**, a typed reference to a method that the JVM can call directly, much like a function pointer. The JVM links the instruction to the call site. From then on, every run calls the target directly, and the bootstrap method never runs again for that instruction. The answer is in the margin, and the director gets the rest of the run off.
 
-`LambdaMetafactory` and `StringConcatFactory` both return a `ConstantCallSite`, whose target can never change. Here the picture needs one correction. A real margin note is in pencil, and a director can change their mind. A `ConstantCallSite` is written in ink, and that's what lets the JIT compile straight through it, as if the instruction had named its target all along. For languages that do need to relink later, the JDK has `MutableCallSite`, and the Try it below relinks one by hand.
+`LambdaMetafactory`, the JDK's bootstrap method for lambdas, and `StringConcatFactory`, its bootstrap method for string `+`, both return a `ConstantCallSite`, whose target can never change. Here the picture needs one correction. A real margin note is in pencil, and a director can change their mind. A `ConstantCallSite` is written in ink, and that's what lets the JIT compile straight through it, as if the instruction had named its target all along. For languages that do need to relink later, the JDK has `MutableCallSite`, and the Try it below relinks one by hand.
 
 `invokedynamic` arrived in Java 7, for other languages that run on the JVM, and javac first used it for lambdas in Java 8. It moves a decision out of your class files and into the JDK. The bytecode says "join an `int` and a `String` with this recipe". The JDK you run on decides how, so a newer JDK can do it better, and your old class files pick that up without being recompiled.
 
@@ -111,7 +111,7 @@ kotlinc, IndyTourKt.class:
 
 Read the call-site type as a factory: `(I)IntUnaryOperator` means "give me the captured `int`, and I'll give you an operator". To **capture** is to store a value from the surrounding code inside the lambda, here `extra`. The body method takes the captured values first, then the lambda's own parameter.
 
-The three static arguments are the interface method's type after erasure, the body, and the interface method's type as this lambda uses it. Kotlin's `Function1.invoke` is erased to `(Object)Object`, so the third argument, `(Integer)Integer`, tells the factory to insert the boxing and the casts.
+Then come the three static arguments. The first is the interface method's type after erasure, the compiler removing generic types, as in the generics track. The second is the body, and the third is the interface method's type as this lambda uses it. Kotlin's `Function1.invoke` is erased to `(Object)Object`, so the third argument, `(Integer)Integer`, tells the factory to insert the boxing and the casts.
 
 At link time, `LambdaMetafactory` generates a class. On JDK 25 the demo printed its name as `IndyTour$$Lambda/0x00000000a3080210`. It's a **hidden class**, one defined with `Lookup.defineHiddenClass` (JDK 15) that no class loader can find by name, so `Class.forName` on that name throws `ClassNotFoundException`. It's also a nestmate of `IndyTour`, a class allowed to use `IndyTour`'s private members, which is how it may call the private body. Since JDK 24, the JDK writes these classes with the ClassFile API that lesson 6 covers.
 
@@ -164,7 +164,7 @@ ObjectMethods.bootstrap
 
 The JDK builds the three methods from that description the first time each is called. A Kotlin `data class` takes the other road: kotlinc writes the `toString` body itself, as `getfield name`, `getfield seconds` and a concatenation `invokedynamic` with the recipe `KCue(name=\\u0001, seconds=\\u0001)`. Both print the same kind of text. The record carries a description, and the data class carries finished code.
 
-Pattern-matching `switch` over a sealed type compiles to `invokedynamic typeSwitch`, linked by `java.lang.runtime.SwitchBootstraps`. javac 21 and later also use a related form, **condy** (`CONSTANT_Dynamic`), for enum case labels in such a switch. A condy entry is a constant whose value a bootstrap method works out on first use. Same idea, for a value instead of a call.
+Pattern-matching `switch` over a sealed type, one that lists all of its subtypes, compiles to `invokedynamic typeSwitch`, linked by `java.lang.runtime.SwitchBootstraps`. javac 21 and later also use a related form, **condy** (`CONSTANT_Dynamic`), for enum case labels in such a switch. A condy entry is a constant whose value a bootstrap method works out on first use. Same idea, for a value instead of a call.
 
 **String `+`, records and pattern switches all ask a bootstrap method. javap shows the recipe.**
 
@@ -199,7 +199,7 @@ The generated class is a nestmate of the lookup's class, so the demo printed `By
 
 `StringConcatFactory.makeConcatWithConstants(lookup, name, type, recipe)` works the same way. The demo asks it for a `(int, long)String` handle with the recipe `row \\u0001 has \\u0001 seats`, calls it with 12 and 30, and gets `row 12 has 30 seats`. Both call sites came back as `ConstantCallSite`.
 
-Why would you do this outside a lab? You rarely need to. Code that has a `Method` in hand at run time, such as a serializer or a router (code that picks which method to call by name, while the program runs), can turn it into an interface object once, and then call it as fast as a lambda. That beats paying for `Method.invoke`, the reflective call, every time.
+Why would you do this outside a lab? You rarely need to. Code that has a `Method` in hand at run time can turn it into an interface object once, and then call it as fast as a lambda. A serializer (code that turns objects into text or bytes) and a router (code that picks which method to call by name, while the program runs) are that kind of code. Doing the work once beats paying for `Method.invoke`, the reflective call, on every call.
 
 Every call site in this lesson linked to a method that already existed. The next lesson's tool goes one step further: the JDK writes a whole new class, implementing any interface you name, while your program runs."""
 

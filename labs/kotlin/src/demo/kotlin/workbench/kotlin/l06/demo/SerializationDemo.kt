@@ -6,36 +6,36 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 @Serializable
-sealed interface LedgerEvent {
-    val paymentId: String
+sealed interface JobEvent {
+    val jobId: String
 }
 
 @Serializable
-@SerialName("posted")
-data class Posted(override val paymentId: String, val amountMinor: Long, val currency: String = "EUR") : LedgerEvent
+@SerialName("queued")
+data class Queued(override val jobId: String, val pages: Int, val paper: String = "A4") : JobEvent
 
 @Serializable
-@SerialName("reversed")
-data class Reversed(override val paymentId: String, val reason: String? = null) : LedgerEvent
+@SerialName("cancelled")
+data class Cancelled(override val jobId: String, val reason: String? = null) : JobEvent
 
 private val lenient = Json { ignoreUnknownKeys = true; explicitNulls = false }
 
 fun main() {
-    val events: List<LedgerEvent> = listOf(Posted("pay_1", 1_999), Reversed("pay_1"))
+    val events: List<JobEvent> = listOf(Queued("job-1", 12), Cancelled("job-1"))
     val text = lenient.encodeToString(events)
     println(text)
-    println("round trip equal: ${lenient.decodeFromString<List<LedgerEvent>>(text) == events}")
+    println("round trip equal: ${lenient.decodeFromString<List<JobEvent>>(text) == events}")
 
-    val p = Posted("pay_2", 1)
-    println("static type Posted:      ${Json.encodeToString(p)}")
-    println("static type LedgerEvent: ${Json.encodeToString<LedgerEvent>(p)}")
+    val q = Queued("job-2", 1)
+    println("static type Queued:   ${Json.encodeToString(q)}")
+    println("static type JobEvent: ${Json.encodeToString<JobEvent>(q)}")
 
-    val newer = """{"type":"posted","paymentId":"pay_3","amountMinor":5,"acquirer":"acq-a"}"""
-    println("lenient: ${lenient.decodeFromString<LedgerEvent>(newer)}")
+    val newer = """{"type":"queued","jobId":"job-3","pages":5,"tray":"2"}"""
+    println("lenient: ${lenient.decodeFromString<JobEvent>(newer)}")
     try {
-        Json.decodeFromString<LedgerEvent>(newer)
+        Json.decodeFromString<JobEvent>(newer)
     } catch (e: SerializationException) {
         println("default Json: ${e.message?.lineSequence()?.first()}")
     }
-    println("generated serializer: ${Posted.serializer().javaClass.name}")
+    println("generated serializer: ${Queued.serializer().javaClass.name}")
 }

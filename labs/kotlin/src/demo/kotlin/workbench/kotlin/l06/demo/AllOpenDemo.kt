@@ -5,10 +5,10 @@ import java.lang.reflect.Modifier
 
 /** Marked for all-open: the plugin makes the class and its members open at compile time. */
 @OpenForProxies
-class SettlementService {
-    val feeBps: Int = 125
+class PrintQueue {
+    val traySize: Int = 500
 
-    fun settle(batch: String): String = "settled $batch at $feeBps bps"
+    fun print(job: String): String = "printed $job from a tray of $traySize sheets"
 
     private fun secret(): Int = 42                    // private stays private, and final
 }
@@ -19,13 +19,13 @@ class PlainHelper {
 }
 
 /** What a framework generates at build or run time: a subclass that wraps every call. */
-class TimedSettlementService : SettlementService() {
-    override fun settle(batch: String): String {
+class TimedPrintQueue : PrintQueue() {
+    override fun print(job: String): String {
         val start = System.nanoTime()
         try {
-            return super.settle(batch)
+            return super.print(job)
         } finally {
-            println("  settle took ${(System.nanoTime() - start) / 1_000} us")
+            println("  print took ${(System.nanoTime() - start) / 1_000} us")
         }
     }
 }
@@ -43,10 +43,10 @@ fun describe(cls: Class<*>) {
 }
 
 fun main() {
-    describe(SettlementService::class.java)
+    describe(PrintQueue::class.java)
     describe(PlainHelper::class.java)
-    val service: SettlementService = TimedSettlementService()
-    println(service.settle("batch-17"))
+    val queue: PrintQueue = TimedPrintQueue()
+    println(queue.print("flyer.pdf"))
 
-    // Wrong move. Delete @OpenForProxies above SettlementService, predict, run.
+    // Wrong move. Delete @OpenForProxies above PrintQueue, predict, run.
 }

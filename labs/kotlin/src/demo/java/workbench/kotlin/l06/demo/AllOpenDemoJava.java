@@ -3,21 +3,21 @@ package workbench.kotlin.l06.demo;
 /**
  * Java twin of AllOpenDemo.kt. Java classes are open unless you write final, so Java can extend the
  * Kotlin class only because all-open removed its final. Remove the marker and javac says:
- * "cannot inherit from final SettlementService".
+ * "cannot inherit from final PrintQueue".
  */
 public class AllOpenDemoJava {
 
-    static final class AuditedSettlementService extends SettlementService {
+    static final class LoggedPrintQueue extends PrintQueue {
         @Override
-        public String settle(String batch) {
-            System.out.println("  audit: settling " + batch);
-            return super.settle(batch);
+        public String print(String job) {
+            System.out.println("  log: printing " + job);
+            return super.print(job);
         }
     }
 
     public static void main(String[] args) {
-        SettlementService service = new AuditedSettlementService();
-        System.out.println(service.settle("batch-17"));
+        PrintQueue queue = new LoggedPrintQueue();
+        System.out.println(queue.print("flyer.pdf"));
         AllOpenDemoKt.describe(PlainHelper.class);
     }
 }

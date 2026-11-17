@@ -1,10 +1,10 @@
 package workbench.kotlin.l05
 
-/** A business rule said no. [code] is stable and goes to the client; the message is for humans. */
-class PaymentRejected(val code: String, message: String) : RuntimeException(message)
+/** A shop rule said no. [code] is stable and goes back to the customer's screen; the message is for people. */
+class JobRejected(val code: String, message: String) : RuntimeException(message)
 
 /**
- * Like require, for payment rules: throws PaymentRejected(code, lazyMessage()) when [condition] is false.
+ * Like require, for the shop's rules: throws JobRejected(code, lazyMessage()) when [condition] is false.
  *
  * TODO 1: write the body. Call lazyMessage only when you throw.
  * TODO 2: add a contract as the first statement, so that
@@ -14,5 +14,5 @@ class PaymentRejected(val code: String, message: String) : RuntimeException(mess
  * imports kotlin.contracts.contract, kotlin.contracts.InvocationKind and kotlin.contracts.ExperimentalContracts.
  */
 inline fun ensure(condition: Boolean, code: String, lazyMessage: () -> String) {
-    TODO("throw PaymentRejected when the condition is false")
+    TODO("throw JobRejected when the condition is false")
 }

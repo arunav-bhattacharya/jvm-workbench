@@ -259,7 +259,7 @@ class Cap1Limits(Narrated):
         self.hold()
 
         board = RoundedRectangle(corner_radius=0.08, width=4.4, height=2.0, stroke_color=GREY_A, stroke_width=3)
-        board.set_fill(BLACK, 1).move_to([3.9, 1.35, 0])
+        board.set_fill(BLACK, 1).move_to([3.6, 1.35, 0])
         board_l = T("the board", 22, GREY_B).next_to(board, UP, buff=0.12)
         slips = VGroup(*[slip(REQ) for _ in range(24)]).arrange_in_grid(3, 8, buff=(0.14, 0.12)).move_to(board)
         carriers = VGroup(*[person(POOLC, 0.7) for _ in range(4)]).arrange(RIGHT, buff=0.3).next_to(board, DOWN, buff=0.35)
@@ -478,7 +478,7 @@ class Cap1Limits(Narrated):
         self.play(FadeOut(l4), run_time=0.3)
         self.at(2)
         self.play(FadeIn(si[1], shift=UP * 0.1), run_time=0.6)
-        risk = T("a decision about risk, not code", 22, GREY_B).next_to(si, RIGHT, buff=0.5)
+        risk = T("a decision about risk, not code", 22, GREY_B).next_to(si, DOWN, buff=0.15).align_to(si, LEFT)
         self.at(3)
         self.play(FadeIn(risk), run_time=0.5)
         self.hold()

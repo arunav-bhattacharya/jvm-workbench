@@ -5,15 +5,15 @@ import kotlin.contracts.contract
 
 /** A contract that lies. The compiler checks neither the promise nor the body. */
 @OptIn(ExperimentalContracts::class)
-fun PaymentEvent.lyingIsCaptured(): Boolean {
-    contract { returns(true) implies (this@lyingIsCaptured is Captured) }
+fun JobEvent.lyingIsPrinted(): Boolean {
+    contract { returns(true) implies (this@lyingIsPrinted is Printed) }
     return true
 }
 
 fun main() {
-    val failed: PaymentEvent = Failed("pay_8", "insufficient funds")
+    val jammed: JobEvent = Jammed("job-8", "laser-1")
     try {
-        if (failed.lyingIsCaptured()) println("captured ${failed.amountMinor}")
+        if (jammed.lyingIsPrinted()) println("printed ${jammed.pages} pages")
     } catch (e: ClassCastException) {
         println("ClassCastException: ${e.message}")
     }

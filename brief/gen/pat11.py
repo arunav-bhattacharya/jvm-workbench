@@ -41,11 +41,11 @@ FIG = """<svg viewBox="0 0 660 240" role="img" aria-label="Circuit breaker state
 <text class="t-s t-ok" x="330" y="222" text-anchor="middle">probe succeeds</text>
 </svg>""".replace("\n", "")
 
-OPENING = """Saturday morning is the corner shop's busiest hour. Orders arrive faster than anyone can pack them, so the counter clips each slip onto a rail, and four packers take them off. At closing time, each packer must be told to go home. At ten o'clock, the Big Blue Vans booking line goes quiet, and every call hangs for two seconds, then fails. Pedal Post's line takes only twenty calls at once.
+OPENING = """Saturday morning is the corner shop's busiest hour. Orders arrive faster than anyone can pack them, so the counter clips each slip onto a rail, and four packers take them off. At closing time, each packer must be sent home. At ten o'clock, the Big Blue Vans booking line goes quiet, and every call hangs for two seconds, then fails. Pedal Post's line takes twenty calls at once.
 
 Every pattern so far was about one object. On a busy morning, many threads (paths of work that run side by side) use those objects at once. The concurrency track met this scene in a kitchen: the rail of tickets, the team of cooks, the price board nobody writes on, the ticket that says what to do next. The trap is to think cheap threads make everything cheap. The van company's line doesn't get any wider.
 
-The last lesson ended here. In this lesson, we'll name the concurrency patterns behind it, then build two from this track's patterns: a bulkhead, which caps the calls to one service, and a circuit breaker, which stops calling one that keeps failing. Before we start, make a guess, and keep it in mind."""
+The last lesson ended on a busy Saturday. In this lesson, we'll name the concurrency patterns behind it, then build two from this track's patterns: a bulkhead, which caps the calls to one service, and a circuit breaker, which stops calling one that keeps failing. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
 J_RAIL = """BlockingQueue<Card> rail = new ArrayBlockingQueue<>(16);       // bounded: a full rail makes the counter wait
@@ -68,7 +68,7 @@ val packers = List(4) {
 repeat(1_000) { rail.send(it) }
 rail.close()                                                   // one call sends every packer home"""
 
-S0 = """The safest way to share work between threads is to share a queue and nothing else. A **queue** is a line of items that leave in the order they joined. In **producer-consumer**, producers put work into a queue, consumers take it out, and the queue does all the locking and waiting. At the shop, the counter is the producer, the packers are the consumers, and the rail of order slips is the queue: the kitchen rail from *wait, notify and guarded blocks*, moved to the back room.
+S0 = """The safest way to share work between threads is to share a queue and nothing else. A **queue** is a line of items that leave in the order they joined. In **producer-consumer**, producers put work into a queue, consumers take it out, and the queue does all the locking (letting one thread in at a time) and waiting. At the shop, the counter is the producer, the packers are the consumers, and the rail of order slips is the queue: the kitchen rail from *wait, notify and guarded blocks*, moved to the back room. Java's `BlockingQueue` is that kind of queue for threads, and `team` below is a pool of threads that runs each packer. Kotlin's `Channel` is the same queue for coroutines, light tasks that can pause without holding a thread:
 
 """ + pair(J_RAIL, K_RAIL) + """
 
@@ -82,7 +82,7 @@ Three rules from *Classic problems: producer-consumer, philosophers, readers-wri
 
 The rail picture holds until closing time. A packer can see the lights go off; a thread waiting in `take()` sees nothing until an item arrives, so you must send it one. Forget a card, and three packers wait by the empty rail all night.
 
-A **worker pool**, or thread pool, is the same picture with the rail inside an `ExecutorService`: the team of cooks from *Why pools: Executor, ExecutorService and shutdown*, hired once. A fixed pool of ordinary threads still suits work that keeps the processor busy. For work that mostly waits, Java 21 brought back **thread-per-message**: `Executors.newVirtualThreadPerTaskExecutor()` starts a cheap virtual thread for every task, and in Kotlin you launch a coroutine per message. Both make it easy to send ten thousand bookings at once to a courier who takes twenty.
+A **worker pool**, or thread pool, is the same picture with the rail inside an `ExecutorService`: the team of cooks from *Why pools: Executor, ExecutorService and shutdown*, hired once. A fixed pool of ordinary threads still suits work that keeps the processor busy. For work that mostly waits, Java 21 brought back **thread-per-message**: `Executors.newVirtualThreadPerTaskExecutor()` starts a virtual thread, a cheap thread the JVM manages itself, for every task, and in Kotlin you launch a coroutine per message. Both make it easy to send ten thousand bookings at once to a courier who takes twenty.
 
 **Share a bounded queue and nothing else. Close it, or send one pill per consumer.**
 
@@ -131,7 +131,7 @@ S1 = """Most of the other concurrency patterns answer one question: who owns thi
 
 """ + pair(J_BALK, K_BALK) + """
 
-The Kotlin version uses a coroutine `Mutex`, whose `tryLock()` gives up at once instead of waiting; the Kotlin twin of the demo keeps the `AtomicBoolean`, exactly as Java does. `StockCountDemo`, in the Try it, fires eight triggers at the same moment:
+The Kotlin version uses a `Mutex`, a lock for coroutines, whose `tryLock()` gives up at once instead of waiting; the Kotlin twin of the demo keeps the `AtomicBoolean`, exactly as Java does. `StockCountDemo`, in the Try it, fires eight triggers at the same moment:
 
 ```text
 ran 1, balked 7, most counts at once: 1
@@ -230,11 +230,11 @@ state.updateAndGet { cur ->
 
 S3 = """At ten o'clock, the Big Blue Vans booking service goes quiet. Every call hangs for two seconds and then fails, and the customers at the counter wait each time. The shop's back room has a fuse box with a circuit breaker: when something goes wrong in the wiring, it trips and cuts the power, so the fault can't do more damage. The software **circuit breaker** borrows the name. After a run of failures it **opens**, and calls fail at once without even trying the van company. After a cool-down, it goes **half-open** and lets one test call through, called a **probe**. Success **closes** it again; failure opens it for another cool-down.
 
-The breaker is this track's capstone, because it is three earlier patterns in one class. Its states are sealed records with a transition, as in *State and Chain of Responsibility*. Its `call(op)` wraps any operation and keeps its shape, as a decorator does in *Decorator and Proxy*. And its state lives in an `AtomicReference` that changes by **compare-and-set**, read as "update it only if nobody beat me to it", so a thousand threads can share it without a lock:
+The breaker is this track's capstone, because it is three earlier patterns in one class. Its states are sealed records with a transition, as in *State and Chain of Responsibility*. Its `call(op)` wraps any operation and keeps its shape, as a decorator does in *Decorator and Proxy*. And its state lives in an `AtomicReference`, a holder for one object that threads can swap safely, and changes by **compare-and-set**, read as "update it only if nobody beat me to it", so a thousand threads can share it without a lock:
 
 """ + pair(J_BREAKER, K_BREAKER) + """
 
-Two choices make it testable and correct. Time comes from an injected `Clock`, so a test moves time forward 31 seconds at once instead of sleeping. And the move from open to half-open is a `compareAndSet`: when the cool-down ends and many threads arrive together, exactly one wins the right to probe, and the rest are still turned away. The figure shows the three states and the moves between them.
+Two choices make it testable and correct. Time comes from a `Clock` passed in through the constructor, so a test can hand it a fake clock and move time forward 31 seconds at once instead of sleeping. And the move from open to half-open is a `compareAndSet`: when the cool-down ends and many threads arrive together, exactly one wins the right to probe, and the rest are still turned away. The figure shows the three states and the moves between them.
 
 The fuse box picture breaks in two places. A real breaker stays off until a person resets it; the software one tries again by itself after the cool-down. And a real breaker reacts to the current in the wire, while the software one only counts failures, so you must tell it which errors mean "the service is sick". A courier who answers "no vans free in your area" is working perfectly, and must not trip the breaker.
 

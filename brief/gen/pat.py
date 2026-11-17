@@ -94,7 +94,7 @@ QUIZ = [
   "answer": 2,
   "why": "In Kotlin 2.4, a private primary constructor doesn't make the generated `copy()` private; you get a warning unless you add `@ConsistentCopyVisibility`. So `copy()` goes around the factory, and only the rules in `init` still apply. That is why validation belongs in `init`.",
   "from": "pat-03"},
- {"q": "Name these four wrappers, in order: (1) a class that makes the old warehouse program's item numbers and two-digit codes look like the shop's own stock interface; (2) a `DeliveryFee` that wraps another one and adds 2.00 for fragile parcels; (3) the stand-in object a framework hands out so that an annotation such as `@Transactional` works; (4) one `placeOrder()` call that reserves stock, writes the order down and emails the customer.",
+ {"q": "Name these four wrappers, in order: (1) a class that makes the old warehouse program's item numbers and two-digit codes look like the shop's own stock interface; (2) a `DeliveryFee` that wraps another one and adds 3.00 for heavy parcels; (3) the stand-in object a framework hands out so that an annotation such as `@Transactional` works; (4) one `placeOrder()` call that reserves stock, writes the order down and emails the customer.",
   "options": ["Adapter, Decorator, Proxy, Facade", "Decorator, Proxy, Adapter, Facade", "Adapter, Proxy, Decorator, Bridge", "Facade, Decorator, Proxy, Adapter"],
   "answer": 0,
   "why": "An adapter changes another program's interface into yours. A decorator keeps the interface and adds behavior. A proxy keeps the interface and controls access, here by running calls inside a database transaction. A facade puts one simple front door in front of several objects. Structure alone can't tell them apart; the intent does.",

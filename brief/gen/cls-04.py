@@ -128,9 +128,9 @@ K_HAND = """class HandProxy(private val h: InvocationHandler) : KWardrobe {
     }
 }"""
 
-S0 = """The show program asks the theatre's wardrobe system how many costumes each role has. It talks to it through a small interface, `Wardrobe`, with one method, `costumes(role)`, and a default method `dressed(role)` that checks the count is above 0.
+S0 = """The show program asks the theatre's wardrobe system how many costumes each role has. It talks to it through a small interface, `Wardrobe`, with one method, `costumes(role)`, and a default method `dressed(role)` that checks the count is above 0. (A default method is an interface method that has a body.)
 
-Let's first write a stand-in by hand, for this one interface. It holds one `InvocationHandler`: an object with a single method, `invoke(proxy, method, args)`, that receives every call. That's the stand-in's notebook. Each request arrives as one note: which method was called (a `java.lang.reflect.Method`, the object that describes a method) and its arguments, in an `Object[]`:
+Let's first write a stand-in by hand, for this one interface. It holds one `InvocationHandler`: an object with a single method, `invoke(proxy, method, args)`, that receives every call. In the theatre picture, the proxy object is the stand-in, and the handler is the rule the stand-in follows for every request. The real object behind it all, the actor, is called the **target**. Each request arrives as one note: which method was called (a `java.lang.reflect.Method`, the object that describes a method) and its arguments, in an `Object[]`:
 
 """ + pair(J_HAND, K_HAND) + """
 
@@ -148,7 +148,7 @@ methods    [costumes, dressed, equals, hashCode, proxyClassLookup, toString]
 
 The `Proxy` Javadoc promises most of this. A proxy class is `final`, extends `java.lang.reflect.Proxy`, and implements exactly the interfaces you passed, in the same order. Its name isn't specified, but names that start with `$Proxy` are kept for proxy classes, and `Proxy.isProxyClass` recognizes it. The module `jdk.proxy1` and the counter in `$Proxy0` are details of the JDK, free to change.
 
-Every generated method is `HandProxy.costumes`, written straight in bytecode. This is `costumes(String)` as JDK 25 generated it:
+Every generated method looks like `HandProxy.costumes`, written straight in bytecode. This is `costumes(String)` as JDK 25 generated it:
 
 ```text
 """ + "{GEN}" + """
@@ -156,9 +156,9 @@ Every generated method is `HandProxy.costumes`, written straight in bytecode. Th
 
 So every call loads the handler and the proxy, and fetches the `Method` object that the static initializer looked up once. (`m0` to `m2` are `hashCode`, `equals` and `toString`, then come your interface's methods.) It copies the arguments into a fresh `Object[]` and calls `invoke`. The result is cast back and unboxed. A `null` returned for a primitive return type becomes a `NullPointerException` at that unboxing step.
 
-The exception table is the whole exception contract. `Error` and `RuntimeException` pass straight through, and so do checked exceptions that the interface method declares. Anything else gets wrapped in `UndeclaredThrowableException`. `costumes` declares nothing, so its last entry is `any`.
+The exception table, the list at the end of a method that says which instructions each `catch` guards, is the whole exception contract. `Error` and `RuntimeException` pass straight through, and so do checked exceptions that the interface method declares. Anything else gets wrapped in `UndeclaredThrowableException`. `costumes` declares nothing, so its last entry is `any`.
 
-The Kotlin twin prints the same shape for a Kotlin interface. Proxies are a JVM feature, and kotlinc's interfaces are ordinary JVM interfaces. Since JDK 23, the JDK writes these classes with the ClassFile API; JDK 21 still used its internal copy of ASM, a library for writing class files, so its bytecode differs slightly in the exception handler.
+The Kotlin twin prints the same shape for a Kotlin interface. Proxies are a JVM feature, and kotlinc's interfaces are ordinary JVM interfaces. Since JDK 23, the JDK writes these classes with the ClassFile API. JDK 21 still used its internal copy of ASM, a library for writing class files, so its bytecode differs slightly in the exception handler.
 
 **A JDK proxy turns every call into one `invoke` with a `Method` and an `Object[]`.**
 
@@ -212,7 +212,7 @@ JDK 16 added `InvocationHandler.invokeDefault(proxy, method, args)`. It runs the
 
 """ + pair(J_INVDEF, K_INVDEF) + """
 
-Now the demo logs `[total, minutes, minutes]`. The proxy doesn't even need a target. A handler that answers the abstract methods itself, and sends default methods to `invokeDefault`, is a complete implementation: the demo's target-less proxy answers 5 for every scene, and `total` comes out at 10. Calling `invokeDefault` on an abstract method throws `IllegalArgumentException`, and on a default method your code isn't allowed to reach, it throws `IllegalAccessException`.
+Now the demo logs `[total, minutes, minutes]`. The proxy doesn't even need a target. A handler that answers the abstract methods itself, and sends default methods to `invokeDefault`, is a complete implementation. The demo's target-less proxy answers 5 for every scene, and `total` comes out at 10. Calling `invokeDefault` on an abstract method throws `IllegalArgumentException`, and on a default method your code isn't allowed to reach, it throws `IllegalAccessException`.
 
 Kotlin interfaces work too. With the labs' JVM target 21, kotlinc 2.4.21 compiles an interface function that has a body to a real JVM `default` method, plus a `DefaultImpls` class for older callers. `method.isDefault` is `true`, and `invokeDefault` runs the Kotlin body: the Kotlin twin prints the same three calls.
 
@@ -229,7 +229,7 @@ S3 = """Generating a class is the expensive part, and the JDK does it only once.
 
 Each class loader gets one dynamic module for its proxies, a module the JDK creates while the program runs. On the runs for this track, proxies for app-loader interfaces landed in `jdk.proxy1`, and a `Runnable` proxy created with the bootstrap loader (`null`) landed in `jdk.proxy2`. If any interface isn't public, the proxy class goes into that interface's package instead, and isn't public either (`demo.$Proxy8` in one run). Calling `Constructor.newInstance` on a proxy class in a dynamic module throws `IllegalAccessException`. Use `newProxyInstance`, because `Proxy.getProxyClass` is deprecated.
 
-The cost of each call is the bytecode from the first section: an `Object[]`, boxing, a call to the handler, and whatever the handler does. JMH, the JDK project's tool for timing small pieces of code, measured `add(3, 4)` four ways on JDK 25. This was one run on a shared 4-core machine, with one fork and wide error bars:
+The cost of each call is the bytecode from the first section: an `Object[]`, boxing, a call to the handler, and whatever the handler does. JMH, the JDK project's tool for timing small pieces of code, measured `add(3, 4)` four ways on JDK 25. This was one run on a shared 4-core machine, with one fork (one separate JVM run) and wide error bars:
 
 | Call | ns per call |
 |---|---|
@@ -240,7 +240,7 @@ The cost of each call is the bytecode from the first section: an `Object[]`, box
 
 Read the order, not the decimals. A few nanoseconds per call is nothing next to a 120 ms call to the seat desk on another computer. It does show up in a loop that calls a proxied interface millions of times, and there a subclass proxy or plain code wins.
 
-You can save the generated class and read it yourself. `-Djdk.proxy.ProxyGenerator.saveGeneratedFiles=true` writes it to `jdk/proxy1/$Proxy0.class` under the current folder. On JDK 21 that just works. On the JDK 24 to 27 builds tested for this track, JDK 25 included, the JDK writes the first file, and then `newProxyInstance` throws `NullPointerException`. The JDK source explains it: a `return null;` that used to sit inside a `doPrivileged` lambda now returns from `generateProxyClass` itself. The file is still written, so you can read it on any of them.
+You can save the generated class and read it yourself. `-Djdk.proxy.ProxyGenerator.saveGeneratedFiles=true` writes it to `jdk/proxy1/$Proxy0.class` under the current folder. On JDK 21 that just works. On the JDK 24 to 27 builds tested for this track, JDK 25 included, the JDK writes the first file, and then `newProxyInstance` throws `NullPointerException`. The JDK source explains it: a `return null;` that used to sit inside a `doPrivileged` block now returns from `generateProxyClass` itself. The file is still written, so you can read it on any of them.
 
 Here's the limit of today's tool, and it's a hard one. A JDK proxy can only implement interfaces. A class with no interface, or a Kotlin class that is `final` by default, can't have a stand-in this way at all."""
 
@@ -390,7 +390,7 @@ L = {
   "Proxy classes are cached per loader and ordered interface list, in one `jdk.proxyN` module per loader. A call costs a few nanoseconds: nothing next to a network call, visible in tight loops.",
   "The limit: a JDK proxy can only implement interfaces. A class with no interface, or a `final` Kotlin class, can't be wrapped this way."
  ],
- "closing": "We started with a stand-in at the stage door who takes every request for an actor, does a little extra, and passes it on. The JDK builds that stand-in as a real class: every call becomes one `invoke`, the handler must answer `equals` for itself and unwrap exceptions, and `invokeDefault` decides that `this` is the proxy.\n\nNow search your code for `InvocationHandler` or `newProxyInstance`, and check each handler for the four cases: `Object` methods, default methods, the real work, and an unwrapping `catch`.\n\nNext, we'll stand in front of classes that have no interface at all. How do Byte Buddy, Spring and Quarkus build a stand-in by writing a subclass?",
+ "closing": "We started with a stand-in at the stage door who takes every request for an actor, does a little extra, and passes it on. The JDK builds that stand-in as a real class, and every call becomes one `invoke`. The handler must answer `equals` for itself and unwrap exceptions, and `invokeDefault` makes `this` the proxy.\n\nNow search your code for `InvocationHandler` or `newProxyInstance`, and check each handler for the four cases: `Object` methods, default methods, the real work, and an unwrapping `catch`.\n\nNext, we'll stand in front of classes that have no interface at all. How do tools such as Byte Buddy, and frameworks such as Spring and Quarkus, build a stand-in by writing a subclass?",
  "quiz": [
   {
    "q": "A handler does `return method.invoke(target, args)` for every method, unwrapping exceptions. A listener proxy is added to an `ArrayList` and later removed with `listeners.remove(proxy)`. What happens?",

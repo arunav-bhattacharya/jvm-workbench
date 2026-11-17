@@ -4,17 +4,17 @@ import workbench.kotlin.NoArgEntity
 
 /** no-arg adds a zero-argument constructor that only Java and reflection can call. */
 @NoArgEntity
-class LedgerRow(val id: String, var amountMinor: Long) {
-    var note: String = "default-note"
+class JobRow(val id: String, var pages: Int) {
+    var status: String = "NEW"
 }
 
 fun main() {
-    // the way an ORM builds an empty entity before it fills in the columns
-    val blank = LedgerRow::class.java.getDeclaredConstructor().newInstance()
-    println("blank.amountMinor = ${blank.amountMinor}")
-    println("blank.note is null: ${(blank.note as String?) == null}")   // declared String, holds null
-    println("normal note = ${LedgerRow("row-1", 100).note}")
+    // the way a database library builds an empty object before it fills in the columns
+    val blank = JobRow::class.java.getDeclaredConstructor().newInstance()
+    println("blank.pages = ${blank.pages}")
+    println("blank.status is null: ${(blank.status as String?) == null}")   // declared String, holds null
+    println("normal status = ${JobRow("job-1", 12).status}")
 
     // Wrong move. Uncomment, predict, run.
-    // val direct = LedgerRow()
+    // val direct = JobRow()
 }
