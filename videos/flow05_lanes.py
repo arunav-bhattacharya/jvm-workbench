@@ -495,7 +495,7 @@ class Flow05Lanes(Narrated):
         self.play(Create(lam[0]), FadeIn(lam[1]), run_time=0.6)
         self.play(grow(soup, 0.9), grow(salad, 0.5), run_time=0.9)
         self.hold(after=0)
-        self.predict(pos=(6.4, 3.15 - 0.6), edge=RIGHT)
+        self.predict(pos=(6.4, -3.3), edge=RIGHT)
 
         roast, bread, pie = bar("roast", 100, 1), bar("bread", 300, 0), bar("pie", 300, 1)
         rwait = DashedLine([X(0) + 0.05, RY[1] + 0.42, 0], [X(100), RY[1] + 0.42, 0], dash_length=0.06,
