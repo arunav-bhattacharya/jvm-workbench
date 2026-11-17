@@ -1,137 +1,401 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.513
-An FX quote flow emits a cached rate, then calls a provider.
+00:00:02.700 --> 00:00:07.217
+Bread for dinner comes from the bakery round the corner, ordered by phone.
 
 2
-00:00:06.513 --> 00:00:12.169
-A catch below it emits a fallback rate, and the collector writes each rate to the ledger.
+00:00:07.217 --> 00:00:09.842
+It's a lovely bakery with a terrible phone.
 
 3
-00:00:12.169 --> 00:00:14.901
-Picture a pipe, with the source at the top.
+00:00:09.842 --> 00:00:14.176
+Sometimes the call drops halfway, and sometimes nobody picks up at all.
 
 4
-00:00:15.033 --> 00:00:17.301
-The provider throws an IOException.
+00:00:14.267 --> 00:00:16.077
+So the cook has a routine.
 
 5
-00:00:17.301 --> 00:00:22.224
-It falls from above, lands in the net, and catch emits the fallback instead.
+00:00:16.077 --> 00:00:16.704
+No bread?
 
 6
-00:00:22.224 --> 00:00:23.779
-The caller sees nothing.
+00:00:16.704 --> 00:00:17.888
+Crackers instead.
 
 7
-00:00:23.900 --> 00:00:29.901
-A withTimeout that fires up there lands in the net too, even though it is a CancellationException.
+00:00:17.888 --> 00:00:21.648
+Or ring again, after a short pause, then a longer one.
 
 8
-00:00:30.033 --> 00:00:31.809
-Now the ledger write fails.
+00:00:21.648 --> 00:00:24.433
+And meanwhile, plates can drop anywhere.
 
 9
-00:00:31.809 --> 00:00:33.586
-That happens below the net.
+00:00:25.100 --> 00:00:28.963
+Here's the bread course as a flow, a recipe card for values.
 
 10
-00:00:33.586 --> 00:00:35.493
-Does catch emit the fallback?
+00:00:28.963 --> 00:00:37.847
+The cook sends out yesterday's loaf, then rings the bakery inside withTimeout of 50 milliseconds, which gives up if the call takes longer.
 
 11
-00:00:37.967 --> 00:00:38.149
-No.
+00:00:37.847 --> 00:00:41.645
+Below her, catch sends out crackers if anything goes wrong.
 
 12
-00:00:38.149 --> 00:00:41.786
-It starts below the net, so it falls straight to the caller.
+00:00:41.645 --> 00:00:44.220
+Today the bakery takes 100 milliseconds.
 
 13
-00:00:41.786 --> 00:00:47.181
-catch can tell, because it remembers every exception that comes back out of its own emit.
+00:00:44.300 --> 00:00:47.476
+So here's a question that's easy to be shy about.
 
 14
-00:00:47.800 --> 00:00:52.965
-One thing from above passes the net on purpose: the cancellation of your own job.
+00:00:47.476 --> 00:00:54.736
+A timeout is a cancellation, a CancellationException: a coroutine's way of saying, stop, you've been called off.
 
 15
-00:00:52.965 --> 00:00:55.643
-A caller that leaves stops the whole pipe.
+00:00:54.736 --> 00:00:57.200
+And catch doesn't handle cancellation.
 
 16
-00:00:56.767 --> 00:00:58.776
-Now swap the net for retry(3).
+00:00:57.200 --> 00:00:59.857
+So doesn't the timeout fly straight past?
 
 17
-00:00:58.776 --> 00:01:02.994
-The settlement feed sends payment 1 and payment 2, then resets.
+00:01:02.433 --> 00:01:03.160
+It doesn't.
 
 18
-00:01:02.994 --> 00:01:04.936
-What does the ledger receive?
+00:01:03.160 --> 00:01:08.178
+The diner gets yesterday's loaf, then crackers, and the caller sees nothing.
 
 19
-00:01:07.433 --> 00:01:12.006
-A retry collects the upstream again from the top, like a rewound tape.
+00:01:08.178 --> 00:01:10.027
+The catch heard the timeout.
 
 20
-00:01:12.006 --> 00:01:14.880
-Payments 1 and 2 play again, then payment 3.
+00:01:10.100 --> 00:01:14.965
+So the rule we all learned, catch ignores cancellation, is a little too tidy.
 
 21
-00:01:14.880 --> 00:01:20.040
-Two payments are posted twice, so the ledger must skip ids it has already seen.
+00:01:14.965 --> 00:01:17.303
+Let's end the bread course five ways.
 
 22
-00:01:20.867 --> 00:01:24.210
-Last, a provider that has stopped answering.
+00:01:17.800 --> 00:01:25.473
+The bakery call throws an IOException, Java's usual exception for a failed call, like a dropped line.
 
 23
-00:01:24.210 --> 00:01:32.721
-Each call gets 300 milliseconds, the retry waits 100, 200 and 400 between attempts, and then a fallback answers.
+00:01:25.473 --> 00:01:26.157
+Crackers.
 
 24
-00:01:32.721 --> 00:01:34.241
-When does it answer?
+00:01:26.157 --> 00:01:29.348
+The bakery throws a CancellationException.
 
 25
-00:01:36.733 --> 00:01:42.911
-Calls start at 0, 400, 900 and 1600, and each is cut at 300.
+00:01:29.348 --> 00:01:30.487
+Crackers again.
 
 26
-00:01:42.911 --> 00:01:49.397
-At 1900 the primary gives up, and the fallback answers at 1930.
+00:01:30.487 --> 00:01:31.855
+The timeout fires.
 
 27
-00:01:49.500 --> 00:01:53.116
-Each timeout falls from above, so the retry sees it.
+00:01:31.855 --> 00:01:32.539
+Crackers.
 
 28
-00:01:53.116 --> 00:01:59.028
-But a timeout is a cancellation, not an IOException, so your retry rule must list it.
+00:01:32.633 --> 00:01:34.405
+Now the diner drops a plate.
 
 29
-00:01:59.833 --> 00:02:03.723
-Here is the chain in Kotlin, with the Reactor version below it.
+00:01:34.405 --> 00:01:40.604
+The catch does nothing, and the caller sees an IllegalStateException: the diner dropped the plate.
 
 30
-00:02:06.500 --> 00:02:10.304
-So catch and retry only handle what falls from above them.
+00:01:40.700 --> 00:01:44.306
+And last, the caller's own job is cancelled while it waits.
 
 31
-00:02:10.304 --> 00:02:13.191
-And a retry replays the stream from the top.
+00:01:44.306 --> 00:01:49.012
+The catch does nothing again, and the caller sees a JobCancellationException.
 
 32
-00:02:13.300 --> 00:02:14.125
-Quick check.
+00:01:49.100 --> 00:01:50.253
+Here's the picture.
 
 33
-00:02:14.125 --> 00:02:17.080
-catch sits above a map, and the map throws.
+00:01:50.253 --> 00:01:53.288
+A net is strung under the cook's side of the line.
 
 34
-00:02:17.080 --> 00:02:18.867
-Who handles the exception?
+00:01:53.288 --> 00:01:57.900
+Everything above catch is called the upstream: the cook and her bakery call.
+
+35
+00:01:57.900 --> 00:02:03.484
+Everything below it is the downstream: the diner, the collector, and whoever called collect.
+
+36
+00:02:03.567 --> 00:02:09.572
+Anything that falls from above lands in the net, even a cancellation, while the job is still running.
+
+37
+00:02:09.572 --> 00:02:13.080
+A plate the diner drops falls below the net, to the caller.
+
+38
+00:02:13.080 --> 00:02:17.837
+And when the caller calls off the whole dinner, the net steps aside, on purpose.
+
+39
+00:02:17.933 --> 00:02:21.709
+But an exception doesn't carry a label saying who threw it.
+
+40
+00:02:21.709 --> 00:02:23.180
+So how does catch know?
+
+41
+00:02:23.180 --> 00:02:25.356
+Let's build it by hand, in Kotlin.
+
+42
+00:02:26.033 --> 00:02:32.662
+First it wraps the downstream emit and remembers anything that comes out: the diner's dropped plate.
+
+43
+00:02:32.662 --> 00:02:36.506
+Then, when the whole collect fails, it asks two questions.
+
+44
+00:02:36.506 --> 00:02:38.163
+Did the diner throw this?
+
+45
+00:02:38.163 --> 00:02:38.959
+Throw it on.
+
+46
+00:02:38.959 --> 00:02:41.146
+Is it our own job's cancellation?
+
+47
+00:02:41.146 --> 00:02:42.339
+Throw that on too.
+
+48
+00:02:42.339 --> 00:02:44.725
+Everything else goes to your action.
+
+49
+00:02:45.300 --> 00:02:51.063
+Remember the inspector from lesson 2, who refuses any emit after the diner has thrown?
+
+50
+00:02:51.063 --> 00:02:57.429
+That rule is called exception transparency: an exception from downstream belongs to downstream.
+
+51
+00:02:57.429 --> 00:02:59.507
+So catch must never swallow it.
+
+52
+00:03:00.100 --> 00:03:03.926
+The net is generous, but it only covers what hangs above it.
+
+53
+00:03:03.926 --> 00:03:06.477
+Serving inside collect is below the net.
+
+54
+00:03:06.477 --> 00:03:12.536
+To protect it, move the serving into onEach, above catch, and call collect with nothing inside.
+
+55
+00:03:12.633 --> 00:03:15.704
+And a caught error still ends the upstream.
+
+56
+00:03:15.704 --> 00:03:20.846
+map fails on 2, catch emits minus 1, and the diner gets 1, then minus 1.
+
+57
+00:03:20.846 --> 00:03:22.275
+The 3 is never made.
+
+58
+00:03:22.367 --> 00:03:23.509
+So here's the rule.
+
+59
+00:03:23.509 --> 00:03:26.033
+catch hears only what falls from above it.
+
+60
+00:03:26.033 --> 00:03:28.317
+Put the work it should cover above it.
+
+61
+00:03:28.900 --> 00:03:30.929
+The net can send out crackers.
+
+62
+00:03:30.929 --> 00:03:33.972
+Sometimes you'd rather ring the bakery again.
+
+63
+00:03:33.972 --> 00:03:34.851
+That's retry.
+
+64
+00:03:35.333 --> 00:03:40.871
+The grocer's van brings a delivery note: flour, eggs and butter, read line by line.
+
+65
+00:03:40.871 --> 00:03:45.207
+On the first try, the line drops after eggs, with an IOException.
+
+66
+00:03:45.207 --> 00:03:48.209
+The pantry reads the note through retry of 3.
+
+67
+00:03:48.209 --> 00:03:50.144
+What does the pantry receive?
+
+68
+00:03:52.733 --> 00:03:55.273
+Flour, eggs, flour, eggs, butter.
+
+69
+00:03:55.273 --> 00:03:57.120
+Two lines went in twice.
+
+70
+00:03:57.200 --> 00:04:04.901
+A retry collects the upstream again, and a cold flow is a recipe card: collecting it again cooks it again, from the top.
+
+71
+00:04:04.901 --> 00:04:10.099
+So retry of 3 means up to four collections, and whatever went out goes out again.
+
+72
+00:04:10.167 --> 00:04:11.702
+The flour doesn't mind.
+
+73
+00:04:11.702 --> 00:04:16.175
+The pantry book does: it now says we bought twice the flour we did.
+
+74
+00:04:16.175 --> 00:04:21.382
+So whatever comes after a retry must be idempotent: safe to see an item twice.
+
+75
+00:04:21.382 --> 00:04:24.252
+Skip any line whose id you've already seen.
+
+76
+00:04:24.833 --> 00:04:26.381
+Now the cook's pauses.
+
+77
+00:04:26.381 --> 00:04:31.799
+Ringing a bakery that won't answer a thousand times a second isn't a routine.
+
+78
+00:04:31.799 --> 00:04:33.066
+It's a prank call.
+
+79
+00:04:33.066 --> 00:04:34.332
+So the waits grow.
+
+80
+00:04:34.400 --> 00:04:36.684
+That growing wait is a backoff.
+
+81
+00:04:36.684 --> 00:04:41.474
+In code, it's a delay inside retryWhen, the operator under retry.
+
+82
+00:04:41.474 --> 00:04:49.801
+It gets the cause, and an attempt number that starts at 0, so the waits are 100 milliseconds, then 200, then 400.
+
+83
+00:04:49.900 --> 00:04:56.651
+Against a bakery that never answers, she rings at 0, 100, 300 and 700 milliseconds.
+
+84
+00:04:56.651 --> 00:05:01.369
+Then she gives up, and the original IOException comes out.
+
+85
+00:05:01.467 --> 00:05:11.887
+Reactor's backoff rings at the same times, but wraps the last error in a RetryExhaustedException, and outside tests adds jitter, a small random spread.
+
+86
+00:05:11.887 --> 00:05:14.579
+In Flow, you write the policy yourself.
+
+87
+00:05:15.167 --> 00:05:17.719
+Position matters for the egg timer too.
+
+88
+00:05:17.719 --> 00:05:20.467
+A timeout above the retry limits each try.
+
+89
+00:05:20.467 --> 00:05:23.869
+Below it, a timeout limits them all, waits included.
+
+90
+00:05:24.467 --> 00:05:26.719
+So, does a timeout fly past catch?
+
+91
+00:05:26.719 --> 00:05:26.918
+No.
+
+92
+00:05:26.918 --> 00:05:29.435
+catch doesn't sort exceptions by type.
+
+93
+00:05:29.435 --> 00:05:30.627
+It asks who threw.
+
+94
+00:05:30.627 --> 00:05:38.775
+What falls from the cook's side lands in the net, timeouts included; the diner's plate and the caller's own cancel go past.
+
+95
+00:05:38.775 --> 00:05:42.021
+And a retry cooks the recipe again, from the top.
+
+96
+00:05:42.100 --> 00:05:43.040
+Quick check.
+
+97
+00:05:43.040 --> 00:05:45.937
+catch sits above map, and map throws.
+
+98
+00:05:45.937 --> 00:05:47.112
+Who handles it?
+
+99
+00:05:49.700 --> 00:05:50.724
+Not that catch.
+
+100
+00:05:50.724 --> 00:05:55.367
+map is below the net, so its exception falls past it, to the caller.
