@@ -1,149 +1,329 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.315
-Say you need the fees for 2,000,000 ledger entries, and you have four workers.
+00:00:02.700 --> 00:00:04.595
+Here's a question we rarely ask.
 
 2
-00:00:07.533 --> 00:00:09.580
-A RecursiveTask splits the job.
+00:00:04.595 --> 00:00:08.561
+You split a job across four threads, and the total comes out right.
 
 3
-00:00:09.580 --> 00:00:12.485
-If its range is small enough, it just loops.
+00:00:08.561 --> 00:00:11.936
+Does that prove the four of them worked at the same time?
 
 4
-00:00:12.485 --> 00:00:15.852
-If not, it cuts it in half, into two smaller tasks.
+00:00:12.667 --> 00:00:17.757
+At the end of the year, the restaurant's owner wants one number: the total card fees.
 
 5
-00:00:16.067 --> 00:00:19.574
-The lesson's demo uses a threshold of 50,000.
+00:00:17.757 --> 00:00:24.285
+Every card payment costs a small fee, there are two million payments, and each fee takes a little arithmetic.
 
 6
-00:00:19.574 --> 00:00:22.459
-Six rounds of halving give 64 leaves.
+00:00:24.500 --> 00:00:28.992
+After closing, four cooks stay, and the owner splits the pile four ways.
 
 7
-00:00:23.333 --> 00:00:28.780
-In code: fork the left half, compute the right half on this thread, then join the left half.
+00:00:28.992 --> 00:00:34.669
+Fair, until one pile turns out slower, and three cooks stand around while the fourth works.
 
 8
-00:00:30.800 --> 00:00:33.541
-A ThreadPoolExecutor has one shared queue.
+00:00:34.669 --> 00:00:36.915
+Which is how most group projects go.
 
 9
-00:00:33.541 --> 00:00:38.173
-A ForkJoinPool gives every worker its own deque: a queue with two ends.
+00:00:37.133 --> 00:00:39.472
+Splitting once, up front, is a guess.
 
 10
-00:00:38.400 --> 00:00:40.022
-The job starts on worker 1.
+00:00:39.472 --> 00:00:44.528
+What we want is every cook busy until the end, with no manager handing out work.
 
 11
-00:00:40.022 --> 00:00:46.328
-Each split forks the left half onto the top of its own deque, and the worker goes on with the right half.
+00:00:45.333 --> 00:00:47.696
+Here's how a smarter kitchen does it.
 
 12
-00:00:46.533 --> 00:00:48.190
-It also pops from the top.
+00:00:47.696 --> 00:00:49.228
+Each cook keeps a stack.
 
 13
-00:00:48.190 --> 00:00:53.480
-So it works on its newest task: the smallest one, whose data is still in its cache.
+00:00:49.228 --> 00:00:51.526
+The first cook takes the whole pile.
 
 14
-00:00:53.700 --> 00:00:56.453
-Worker 2 has nothing to do, so it steals.
+00:00:51.526 --> 00:00:52.037
+Too big?
 
 15
-00:00:56.453 --> 00:01:03.303
-It takes the bottom task of worker 1's deque: the oldest one, forked highest up, so the biggest piece.
+00:00:52.037 --> 00:00:56.442
+He splits it, puts one half on top of his stack, and keeps the other.
 
 16
-00:01:03.303 --> 00:01:04.579
-Half the whole job.
+00:00:56.442 --> 00:00:57.336
+Still too big?
 
 17
-00:01:04.800 --> 00:01:09.180
-The thief splits it on its own deque, and stays busy for a long time.
+00:00:57.336 --> 00:01:01.103
+Split again, until a bundle is small enough to just add up.
 
 18
-00:01:09.180 --> 00:01:10.957
-Workers 3 and 4 do the same.
+00:01:01.333 --> 00:01:03.779
+Now an idle cook doesn't wait to be told.
 
 19
-00:01:11.167 --> 00:01:13.742
-Three steals, and all four are busy.
+00:01:03.779 --> 00:01:07.179
+He takes the bundle at the bottom of a busy cook's stack.
 
 20
-00:01:13.742 --> 00:01:18.391
-That's why the demo needs only a handful of steals for 64 leaves.
+00:01:07.179 --> 00:01:11.354
+That's the oldest one, split highest up, so it's the biggest there is.
 
 21
-00:01:18.600 --> 00:01:20.324
-And join doesn't just park.
+00:01:11.354 --> 00:01:14.992
+He splits it on his own stack, and he's busy for a long time.
 
 22
-00:01:20.324 --> 00:01:23.644
-If nobody stole the task, the worker runs it itself.
+00:01:15.200 --> 00:01:18.208
+Two more steals, and all four cooks are busy.
 
 23
-00:01:23.644 --> 00:01:28.113
-If a thief has it, the worker runs other pending tasks while it waits.
+00:01:18.208 --> 00:01:20.013
+Nobody handed anything out.
 
 24
-00:01:29.033 --> 00:01:30.024
-Now the order.
+00:01:20.233 --> 00:01:21.469
+Notice the two ends.
 
 25
-00:01:30.024 --> 00:01:33.069
-Fork the left half, so a thief can take it.
+00:01:21.469 --> 00:01:25.424
+A cook works from the top of his own stack, the smallest bundle.
 
 26
-00:01:33.069 --> 00:01:35.051
-Compute the right half here.
+00:01:25.424 --> 00:01:28.019
+Thieves take from the bottom, the biggest.
 
 27
-00:01:35.051 --> 00:01:35.759
-Then join.
+00:01:28.233 --> 00:01:31.231
+It's the only kitchen where stealing is good manners.
 
 28
-00:01:35.967 --> 00:01:37.313
-The halves overlap.
+00:01:31.231 --> 00:01:34.455
+Just take the big one, and you won't be back for a while.
 
 29
-00:01:37.313 --> 00:01:42.273
-On four free cores, the demo runs 3 to 4 times faster than one thread.
+00:01:34.667 --> 00:01:35.519
+Now the names.
 
 30
-00:01:42.500 --> 00:01:48.032
-Swap the last two steps, and the worker waits for the left half before it even starts the right one.
+00:01:35.519 --> 00:01:38.197
+The cooks are the workers of a ForkJoinPool.
 
 31
-00:01:48.233 --> 00:01:52.635
-Usually it pops the left half and runs it itself, then the right half.
+00:01:38.197 --> 00:01:41.666
+Each stack is a deque, a line you can use from both ends.
 
 32
-00:01:52.635 --> 00:01:54.899
-At every split, one after the other.
+00:01:41.666 --> 00:01:46.475
+Putting half on your stack is fork, and waiting for that half's answer is join.
 
 33
-00:01:54.899 --> 00:01:57.917
-So the sum takes about as long as on one thread.
+00:01:46.475 --> 00:01:54.327
+The size where splitting stops is the threshold, the small bundles are leaves, and taking from another's bottom is work stealing.
 
 34
-00:01:58.833 --> 00:02:03.332
-left.compute() + right.compute() is the same thing, written honestly.
+00:01:55.233 --> 00:02:02.195
+In code, compute splits its range, forks the left half, computes the right half itself, then joins the left.
 
 35
-00:02:03.332 --> 00:02:07.636
-All of them give the right total, so the bug survives code review.
+00:02:02.400 --> 00:02:07.563
+The lesson's WorkStealingDemo works out the fee on all two million payments.
 
 36
-00:02:07.867 --> 00:02:09.678
-So: fork, compute, join.
+00:02:07.563 --> 00:02:11.300
+A threshold of 50,000 gives 64 leaves, on four workers.
 
 37
-00:02:09.678 --> 00:02:12.019
-Or let invokeAll do it for you.
+00:02:11.300 --> 00:02:15.988
+It also counts the most leaves running at the same moment: a referee.
+
+38
+00:02:16.200 --> 00:02:21.936
+The pool finished in 869 milliseconds, against 1,021 for one thread.
+
+39
+00:02:21.936 --> 00:02:25.732
+64 leaves, only 7 steals, and the same total.
+
+40
+00:02:25.732 --> 00:02:31.047
+And the referee says 4: all four workers computed side by side.
+
+41
+00:02:31.267 --> 00:02:38.169
+Only 1.2 times faster, to be honest, because other programs kept most of that machine's cores busy.
+
+42
+00:02:38.169 --> 00:02:41.307
+On a quiet machine, it can get close to four.
+
+43
+00:02:41.533 --> 00:02:42.834
+Now swap two lines.
+
+44
+00:02:42.834 --> 00:02:47.352
+Fork the left half, join it, and only then compute the right half.
+
+45
+00:02:47.352 --> 00:02:48.174
+It compiles.
+
+46
+00:02:48.174 --> 00:02:51.117
+How many leaves run at the same moment now?
+
+47
+00:02:53.900 --> 00:02:54.152
+One.
+
+48
+00:02:54.152 --> 00:03:01.084
+The total is still right, the leaves still landed on all four workers, and there were more steals than before.
+
+49
+00:03:01.084 --> 00:03:03.541
+It was a little slower than one thread.
+
+50
+00:03:04.367 --> 00:03:05.064
+Here's why.
+
+51
+00:03:05.064 --> 00:03:10.451
+The cook puts half on his stack, then waits for it before the other half even exists.
+
+52
+00:03:10.451 --> 00:03:15.331
+So the halves run one after the other, at every split, hopping between cooks.
+
+53
+00:03:16.067 --> 00:03:18.942
+It's teamwork the way a relay race is teamwork.
+
+54
+00:03:18.942 --> 00:03:21.145
+Four runners, one running at a time.
+
+55
+00:03:21.145 --> 00:03:25.305
+So the right total proves the work got done, not that it was shared.
+
+56
+00:03:25.305 --> 00:03:27.997
+Fork one half, compute the other, then join.
+
+57
+00:03:28.800 --> 00:03:32.886
+You're more likely to meet this pool through one word: parallel.
+
+58
+00:03:32.886 --> 00:03:39.652
+A parallel stream splits its data the same way, on the common pool, one ForkJoinPool the whole JVM shares.
+
+59
+00:03:39.652 --> 00:03:47.632
+It's the team of helpers the whole restaurant borrows: parallel streams, and every CompletableFuture step that names no pool.
+
+60
+00:03:47.632 --> 00:03:51.909
+Here it has three workers, plus the thread that started the stream.
+
+61
+00:03:52.133 --> 00:03:55.483
+So what happens when a helper picks up the phone?
+
+62
+00:03:55.483 --> 00:04:02.798
+StarvationDemo runs 16 lookups in a parallel stream, each a 300 millisecond call to the slow stock service.
+
+63
+00:04:02.798 --> 00:04:06.421
+Meanwhile, someone hands the common pool a tiny task.
+
+64
+00:04:06.421 --> 00:04:07.925
+How long does it wait?
+
+65
+00:04:10.700 --> 00:04:12.083
+1,202 milliseconds.
+
+66
+00:04:12.083 --> 00:04:20.015
+A task that takes microseconds waited over a second, because every helper was on hold with the stock service.
+
+67
+00:04:20.233 --> 00:04:22.164
+Here the kitchen picture breaks.
+
+68
+00:04:22.164 --> 00:04:26.326
+A real kitchen would spot a cook on the phone and share out his pile.
+
+69
+00:04:26.326 --> 00:04:28.981
+The pool can't see that a worker is waiting.
+
+70
+00:04:28.981 --> 00:04:30.308
+It just has one fewer.
+
+71
+00:04:30.533 --> 00:04:33.168
+So keep waiting off the common pool.
+
+72
+00:04:33.168 --> 00:04:42.536
+On a pool of its own, sized for waiting, the 16 lookups wait together and finish in 419 milliseconds, and the tiny task waits 5.
+
+73
+00:04:43.367 --> 00:04:46.410
+So, does a right total prove the work was shared?
+
+74
+00:04:46.410 --> 00:04:46.596
+No.
+
+75
+00:04:46.596 --> 00:04:51.626
+Cooks split their own piles, and idle cooks steal the big bundle from the bottom.
+
+76
+00:04:51.626 --> 00:04:55.539
+Fork, compute, then join, and trust the referee, not the total.
+
+77
+00:04:55.539 --> 00:04:58.333
+And keep the phone out of the shared kitchen.
+
+78
+00:04:59.033 --> 00:04:59.823
+Quick check.
+
+79
+00:04:59.823 --> 00:05:03.310
+Two million payments, and a threshold of one million.
+
+80
+00:05:03.310 --> 00:05:05.219
+How many cooks ever get work?
+
+81
+00:05:08.200 --> 00:05:08.470
+Two.
+
+82
+00:05:08.470 --> 00:05:14.421
+One split makes two leaves of a million each, so the other two cooks never get a bundle.
