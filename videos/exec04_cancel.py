@@ -431,7 +431,7 @@ class Exec04Cancel(Narrated):
         self.at(2)
         self.play(FadeIn(lab_n, shift=UP * 0.1), Indicate(n1[1], color=WHITE, scale_factor=1.15), run_time=0.8)
         self.at(3)
-        self.play(n1.animate.shift(UP * 1.6).set_opacity(0.35), run_time=0.6)
+        self.play(n1.animate.shift(UP * 1.3 + RIGHT * 1.3).set_opacity(0.35), run_time=0.6)
         self.play(FadeIn(flag), run_time=0.5)
         self.at(4)
         self.play(n1.animate.move_to(N_ON).set_opacity(1), Transform(flag[1], flag_t), run_time=0.8)
@@ -481,7 +481,7 @@ class Exec04Cancel(Narrated):
         boss = person(YOU, 0.85).move_to([-0.9, 2.95, 0])
         boss_l = M("main: cancel(true) on all three", 24, YOU).next_to(boss, RIGHT, buff=0.3)
         notes = [note(0.85).move_to(boss.get_center()) for _ in range(3)]
-        NPOS = [s.get_center() + RIGHT * 0.95 for s in stns]
+        NPOS = [s.get_center() + RIGHT * 0.05 for s in stns]
         tks_c = [future_tag("CANCELLED", NOTE).move_to(t) for t in tks]
         self.say("predq")
         self.play(FadeIn(boss), FadeIn(boss_l), sl[1].animate(rate_func=linear).set_value(51),
@@ -493,7 +493,7 @@ class Exec04Cancel(Narrated):
         self.hold(after=0)
         self.predict(2.4)
 
-        exc = T("InterruptedException", 22, NOTE).move_to(NPOS[0])
+        exc = T("InterruptedException", 24, NOTE).move_to([CX[0], CNT_Y, 0])
         o1 = T("stops at once", 24, OVEN_C).move_to([CX[0], -1.85, 0])
         look = DashedLine(cks[1][1].get_top() + UP * 0.05, notes[1].get_top() + UP * 0.05, dash_length=0.08, stroke_width=2.5,
                           color=CHECK_C).set_z_index(7)
@@ -555,19 +555,21 @@ class Exec04Cancel(Narrated):
         self.play(FadeIn(r2[1]), run_time=0.5)
         self.hold()
 
-        nm = T("cooperative cancellation", 40, RULE).move_to([0, -1.6, 0])
+        self.play(FadeOut(VGroup(hd, r1, r2)), run_time=0.6)
+        nm = T("cooperative cancellation", 40, RULE).move_to([0, 1.8, 0])
         nm_s = T("it works only if the task helps", 26, GREY_A).next_to(nm, DOWN, buff=0.2)
+        ren = VGroup(M("cancel(true)", 32, YOU), T("could be called", 26, GREY_A), M("pleaseStop()", 32, RULE)).arrange(RIGHT, buff=0.35)
+        ren.move_to([0, -0.6, 0])
+        ren_n = T("(not a real method)", 22, GREY_B).next_to(ren[2], DOWN, buff=0.15)
         self.say("name")
         self.play(FadeIn(nm, shift=UP * 0.1), run_time=0.8)
         self.at(1)
         self.play(FadeIn(nm_s), run_time=0.5)
-        self.hold()
-        self.play(FadeOut(VGroup(hd, r1, r2, sep)), VGroup(nm, nm_s).animate.move_to([0, 2.4, 0]), run_time=0.7)
-        ren = VGroup(M("cancel(true)", 32, YOU), T("could be called", 26, GREY_A), M("pleaseStop()", 32, RULE)).arrange(RIGHT, buff=0.35)
-        ren.move_to([0, 0.6, 0])
-        ren_n = T("(not a real method)", 22, GREY_B).next_to(ren[2], DOWN, buff=0.15)
-        self.play(FadeIn(ren), FadeIn(ren_n), run_time=0.7)
-        self.wait(0.6)
+        self.at(2)
+        self.play(FadeIn(ren[0]), run_time=0.5)
+        self.at_text("I'd call", lead=0.3)
+        self.play(FadeIn(ren[1]), FadeIn(ren[2], shift=LEFT * 0.1), FadeIn(ren_n), run_time=0.7)
+        self.hold(after=0.6)
 
         # ================= the cancel run of TimeoutDemo =================
         self.play(FadeOut(VGroup(ren, ren_n, nm, nm_s)), run_time=0.5)
