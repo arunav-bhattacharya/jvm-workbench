@@ -1,19 +1,19 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.496
+00:00:02.700 --> 00:00:05.462
 Halfway through the afternoon, the phone rings.
 
 2
-00:00:05.496 --> 00:00:07.670
+00:00:05.462 --> 00:00:07.637
 The guests can't come: dinner is off.
 
 3
-00:00:07.670 --> 00:00:12.842
+00:00:07.637 --> 00:00:12.809
 The cook turns the heat down, puts a lid on the soup, and takes the sauce off the stove.
 
 4
-00:00:12.842 --> 00:00:17.544
+00:00:12.809 --> 00:00:17.511
 She heard the news between two steps of a recipe, when she glanced at her phone.
 
 5
@@ -29,309 +29,309 @@ He never looks up between lentils.
 So he hears nothing, and he sorts the whole sack.
 
 8
-00:00:27.667 --> 00:00:30.751
+00:00:27.700 --> 00:00:30.784
 So here's a question that's easy to be shy about.
 
 9
-00:00:30.751 --> 00:00:33.899
+00:00:30.784 --> 00:00:33.932
 When you cancel a coroutine, doesn't it just stop?
 
 10
-00:00:33.899 --> 00:00:35.409
+00:00:33.932 --> 00:00:35.443
 How could it keep going?
 
 11
-00:00:35.600 --> 00:00:38.638
+00:00:35.667 --> 00:00:38.705
 It's natural to think cancel stops the code.
 
 12
-00:00:38.638 --> 00:00:39.397
+00:00:38.705 --> 00:00:39.464
 It doesn't.
 
 13
-00:00:39.397 --> 00:00:42.297
+00:00:39.464 --> 00:00:42.364
 It only asks, and the code has to look up.
 
 14
-00:00:42.467 --> 00:00:45.731
+00:00:42.567 --> 00:00:45.831
 Every coroutine has a job, the handle to its life.
 
 15
-00:00:45.731 --> 00:00:49.518
+00:00:45.831 --> 00:00:49.618
 job.cancel() marks that job as cancelling, and that's all.
 
 16
-00:00:49.518 --> 00:00:53.175
+00:00:49.618 --> 00:00:53.275
 It doesn't stop the thread, the worker running the code.
 
 17
-00:00:53.333 --> 00:01:00.904
+00:00:53.500 --> 00:01:01.071
 The coroutine finds out at its next suspension point, a call where it may pause, such as delay, await or withContext.
 
 18
-00:01:00.904 --> 00:01:04.269
+00:01:01.071 --> 00:01:04.436
 That's the cook glancing at her phone between steps.
 
 19
-00:01:04.467 --> 00:01:06.605
+00:01:04.667 --> 00:01:06.805
 Those calls look at the job first.
 
 20
-00:01:06.605 --> 00:01:12.203
+00:01:06.805 --> 00:01:12.403
 If it's cancelled, they throw CancellationException, the exception that carries a cancel.
 
 21
-00:01:12.203 --> 00:01:16.668
+00:01:12.403 --> 00:01:16.868
 Every finally block runs on the way out, and the job ends as cancelled.
 
 22
-00:01:17.600 --> 00:01:19.086
+00:01:17.800 --> 00:01:19.286
 Now the helper, in code.
 
 23
-00:01:19.086 --> 00:01:22.739
+00:01:19.286 --> 00:01:22.939
 countStones goes through the lentils and counts the stones.
 
 24
-00:01:22.739 --> 00:01:28.436
+00:01:22.939 --> 00:01:28.636
 It's pure calculation, with no waiting, so there's no suspension point anywhere in the loop.
 
 25
-00:01:28.600 --> 00:01:37.053
+00:01:28.867 --> 00:01:37.320
 The lesson's demo gives four loops 60 million lentils each, on Default, and cancels each one 100 milliseconds after it starts.
 
 26
-00:01:37.053 --> 00:01:38.932
+00:01:37.320 --> 00:01:39.198
 The first loop has no check.
 
 27
-00:01:38.932 --> 00:01:41.548
+00:01:39.198 --> 00:01:41.815
 How long after the cancel does it stop?
 
 28
-00:01:44.600 --> 00:01:46.146
+00:01:44.800 --> 00:01:46.346
 2,851 milliseconds.
 
 29
-00:01:46.146 --> 00:01:48.833
+00:01:46.346 --> 00:01:49.033
 It didn't stop when it was asked.
 
 30
-00:01:48.833 --> 00:01:51.681
+00:01:49.033 --> 00:01:51.881
 It stopped when the sack was empty.
 
 31
-00:01:51.867 --> 00:01:52.837
+00:01:52.100 --> 00:01:53.071
 Very thorough.
 
 32
-00:01:52.837 --> 00:01:54.293
+00:01:53.071 --> 00:01:54.526
 Not a great listener.
 
 33
-00:01:54.293 --> 00:01:59.908
+00:01:54.526 --> 00:02:00.141
 So the point is: a cancel only asks, and code that never looks up never hears it.
 
 34
-00:02:00.067 --> 00:02:02.814
+00:02:00.367 --> 00:02:03.114
 The other three loops look up now and then.
 
 35
-00:02:02.814 --> 00:02:07.159
+00:02:03.114 --> 00:02:07.459
 ensureActive throws CancellationException once the job is cancelled.
 
 36
-00:02:07.159 --> 00:02:11.311
+00:02:07.459 --> 00:02:11.611
 isActive is a plain true or false, for a loop that stops quietly.
 
 37
-00:02:11.311 --> 00:02:14.506
+00:02:11.611 --> 00:02:14.806
 And yield checks too, and lets others have a turn.
 
 38
-00:02:14.506 --> 00:02:17.956
+00:02:14.806 --> 00:02:18.256
 They stopped 10, 4 and 1 millisecond after the cancel.
 
 39
-00:02:18.133 --> 00:02:22.253
+00:02:18.467 --> 00:02:22.587
 A check only reads the job's state, so it costs almost nothing.
 
 40
-00:02:22.253 --> 00:02:24.739
+00:02:22.587 --> 00:02:25.072
 Once every thousand lentils is plenty.
 
 41
-00:02:25.533 --> 00:02:29.559
+00:02:25.900 --> 00:02:29.926
 Here's the loop with the check, in Kotlin, and its Java match.
 
 42
-00:02:29.559 --> 00:02:36.832
+00:02:29.926 --> 00:02:37.199
 Java's Future.cancel(true) works the same way: it sets the thread's interrupt flag, and the loop has to read it.
 
 43
-00:02:37.000 --> 00:02:39.086
+00:02:37.400 --> 00:02:39.486
 This is cooperative cancellation.
 
 44
-00:02:39.086 --> 00:02:42.880
+00:02:39.486 --> 00:02:43.280
 Cancelling asks, and the code stops the next time it checks.
 
 45
-00:02:43.667 --> 00:02:44.702
+00:02:44.100 --> 00:02:45.136
 Now the cleanup.
 
 46
-00:02:44.702 --> 00:02:52.211
+00:02:45.136 --> 00:02:52.645
 The cook is making jam in a big pan borrowed from the community kitchen, and the pan must go back, whatever happens.
 
 47
-00:02:52.211 --> 00:02:57.455
+00:02:52.645 --> 00:02:57.888
 Giving it back means phoning the lending desk, so giveBack is a suspend function.
 
 48
-00:02:57.455 --> 00:02:59.203
+00:02:57.888 --> 00:02:59.636
 It goes in a finally block.
 
 49
-00:02:59.400 --> 00:03:01.753
+00:02:59.867 --> 00:03:02.220
 The jam is called off while it sets.
 
 50
-00:03:01.753 --> 00:03:03.125
+00:03:02.220 --> 00:03:03.592
 Does the pan go back?
 
 51
-00:03:06.133 --> 00:03:06.337
+00:03:06.567 --> 00:03:06.770
 No.
 
 52
-00:03:06.337 --> 00:03:14.545
+00:03:06.770 --> 00:03:14.979
 The finally block runs, but inside a coroutine that is still cancelled, and there, every suspension point throws at once.
 
 53
-00:03:14.545 --> 00:03:17.462
+00:03:14.979 --> 00:03:17.896
 giveBack fails before the phone even rings.
 
 54
-00:03:17.462 --> 00:03:20.176
+00:03:17.896 --> 00:03:20.609
 The community kitchen would like a word.
 
 55
-00:03:20.333 --> 00:03:23.837
+00:03:20.833 --> 00:03:24.337
 The fix is one wrapper: withContext(NonCancellable).
 
 56
-00:03:23.837 --> 00:03:29.968
+00:03:24.337 --> 00:03:30.468
 NonCancellable is a job that is always active, so inside it, suspension points don't throw.
 
 57
-00:03:29.968 --> 00:03:36.908
+00:03:30.468 --> 00:03:37.408
 The pan went back about 50 milliseconds after the cancel, and then the cancel carried on up, as before.
 
 58
-00:03:37.667 --> 00:03:38.712
+00:03:38.233 --> 00:03:39.279
 Last, the timer.
 
 59
-00:03:38.712 --> 00:03:45.706
+00:03:39.279 --> 00:03:46.272
 The cook sets a kitchen timer on the bread order: if the bakery hasn't answered in time, she bakes her own.
 
 60
-00:03:45.706 --> 00:03:50.019
+00:03:46.272 --> 00:03:50.586
 withTimeout is that timer: when it runs out, it cancels the block.
 
 61
-00:03:50.019 --> 00:03:52.307
+00:03:50.586 --> 00:03:52.873
 A timeout is a cancel with a timer.
 
 62
-00:03:52.467 --> 00:03:57.525
+00:03:53.100 --> 00:03:58.159
 The bakery takes one and a half seconds, and we wait 300 milliseconds.
 
 63
-00:03:57.525 --> 00:04:02.656
+00:03:58.159 --> 00:04:03.289
 With delay standing in for the call, the timer works: 307 milliseconds.
 
 64
-00:04:02.800 --> 00:04:08.173
+00:04:03.500 --> 00:04:08.873
 But the bakery's old phone line blocks the thread until somebody picks up.
 
 65
-00:04:08.173 --> 00:04:15.362
+00:04:08.873 --> 00:04:16.062
 Wrapped in withContext(IO), the timer fired at 300, and the caller still waited 1,519 milliseconds.
 
 66
-00:04:15.362 --> 00:04:21.316
+00:04:16.062 --> 00:04:22.016
 The thread stayed on the line, listening to it ring, long after the timer gave up.
 
 67
-00:04:21.467 --> 00:04:23.451
+00:04:22.233 --> 00:04:24.218
 runInterruptible fixes that.
 
 68
-00:04:23.451 --> 00:04:30.184
+00:04:24.218 --> 00:04:30.951
 On a cancel, it interrupts the blocked thread, and the same call came back in 301 milliseconds.
 
 69
-00:04:30.333 --> 00:04:32.351
+00:04:31.167 --> 00:04:33.184
 Here the kitchen picture breaks.
 
 70
-00:04:32.351 --> 00:04:34.747
+00:04:33.184 --> 00:04:35.580
 A cook can hang up whenever she likes.
 
 71
-00:04:34.747 --> 00:04:39.602
+00:04:35.580 --> 00:04:40.435
 runInterruptible can only interrupt, and that helps only if the call listens.
 
 72
-00:04:39.602 --> 00:04:42.755
+00:04:40.435 --> 00:04:43.588
 Thread.sleep does; some old network clients don't.
 
 73
-00:04:43.533 --> 00:04:46.191
+00:04:44.400 --> 00:04:47.058
 So, does cancel just stop a coroutine?
 
 74
-00:04:46.191 --> 00:04:46.401
+00:04:47.058 --> 00:04:47.268
 No.
 
 75
-00:04:46.401 --> 00:04:46.961
+00:04:47.268 --> 00:04:47.827
 It asks.
 
 76
-00:04:46.961 --> 00:04:56.124
+00:04:47.827 --> 00:04:56.991
 The coroutine hears it at its next suspension point or check, carries it out as an exception, and needs NonCancellable to clean up.
 
 77
-00:04:56.124 --> 00:04:59.481
+00:04:56.991 --> 00:05:00.348
 And a timeout is the same request, with a timer.
 
 78
-00:04:59.667 --> 00:05:00.526
+00:05:00.567 --> 00:05:01.426
 Quick check.
 
 79
-00:05:00.526 --> 00:05:06.182
+00:05:01.426 --> 00:05:07.082
 A loop on Default weighs jars forever, with plain function calls and no checks.
 
 80
-00:05:06.182 --> 00:05:07.829
+00:05:07.082 --> 00:05:08.729
 You call cancelAndJoin.
 
 81
-00:05:07.829 --> 00:05:08.760
+00:05:08.729 --> 00:05:09.660
 What happens?
 
 82
-00:05:11.800 --> 00:05:12.920
+00:05:12.633 --> 00:05:13.754
 It never returns.
 
 83
-00:05:12.920 --> 00:05:15.161
+00:05:13.754 --> 00:05:15.995
 Nothing in the loop ever looks up.
 
 84
-00:05:15.161 --> 00:05:18.391
+00:05:15.995 --> 00:05:19.224
 Add ensureActive, and it stops at the next check.

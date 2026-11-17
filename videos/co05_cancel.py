@@ -304,7 +304,7 @@ class Co05Cancel(Narrated):
                   LaggedStart(*[b.animate.move_to(bw.get_center() + UP * 0.05 + RIGHT * (0.12 * k - 0.3))
                                 for k, b in enumerate(beans)], lag_ratio=0.3), run_time=3.2)
         self.at_text("he sorts the whole", lead=0.3)
-        self.play(FadeIn(whole), Indicate(hbar[0], color=HELPER, scale_factor=1.02), run_time=0.8)
+        self.play(FadeIn(whole), Indicate(hbar[1], color=HELPER, scale_factor=1.05), run_time=0.8)
         self.hold()
 
         # ================= the shy question =================
@@ -336,7 +336,7 @@ class Co05Cancel(Narrated):
         self.play(FadeIn(nostop), run_time=0.5)
         self.hold()
 
-        sp_l = T("suspension points: delay, await, withContext", 22, SUSP).move_to([0.4, COOK_Y - 0.6, 0])
+        sp_l = T("suspension points: delay, await, withContext", 22, SUSP).move_to([2.7, COOK_Y - 0.6, 0])
         self.say("point")
         self.play(FadeOut(nostop), run_time=0.3)
         self.play(LaggedStart(*[Indicate(m, color=SUSP, scale_factor=1.7) for m in marks], lag_ratio=0.3),

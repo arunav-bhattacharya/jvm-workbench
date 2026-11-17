@@ -436,10 +436,9 @@ class Conc10Synchronizers(Narrated):
         self.play(Rotate(gate, PI / 2, about_point=gate.get_end()), run_time=0.6)
         self.play(gate.animate.set_stroke(GOOD), run_time=0.2)
         t428 = M("428 ms", 24, GOOD).next_to(frame, DOWN, buff=0.2)
-        self.play(FadeOut(dt_lab), run_time=0.2)
+        self.play(FadeOut(dt_lab), panel.animate.stretch(0.08, 0, about_edge=LEFT), Transform(closed, sign("OPEN", GOOD)),
+                  FadeIn(t428), run_time=0.6)
         self.play(dthread.animate.move_to(DOOR_C + DOWN * 0.9 + LEFT * 0.4), run_time=0.9)
-        self.play(panel.animate.stretch(0.08, 0, about_edge=LEFT), Transform(closed, sign("OPEN", GOOD)), FadeIn(t428),
-                  run_time=0.6)
         self.hold()
 
         # one-shot

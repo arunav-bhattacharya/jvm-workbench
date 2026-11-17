@@ -438,7 +438,7 @@ class Rx08HotCold(Narrated):
 
         rs = self.lane(ROW_Y[2], "B, share()", PACK_C, end=560)
         bline2 = Line([tx(250), ROW_Y[2] + 0.38, 0], [tx(250), ROW_Y[4] - 0.38, 0], stroke_width=4, color=BAD_C)
-        bline2_l = T("B joins at 250 ms", 22, BAD_C).move_to([tx(250), ROW_Y[4] - 0.62, 0])
+        bline2_l = T("B joins at 250 ms", 22, BAD_C).move_to([tx(250), ROW_Y[4] - 0.7, 0])
         conn1 = T("connections: 1", 26, OVEN_C).move_to([-4.85, -1.75, 0])
         self.say("share_q")
         self.play(FadeIn(rs), FadeIn(bline2), FadeIn(bline2_l), run_time=0.6)
@@ -469,7 +469,7 @@ class Rx08HotCold(Narrated):
         self.hold()
 
         gap = Line([tx(250) + 0.05, ROW_Y[2], 0], [tx(300) - 0.32, ROW_Y[2], 0], stroke_width=8, color=BAD_C)
-        gap_l = T("blank", 20, BAD_C).next_to(gap, UP, buff=0.12)
+        gap_l = T("blank", 20, BAD_C).next_to(gap, UP, buff=0.12).shift(RIGHT * 0.14)
         minute = T("a thermometer that reads once a minute: up to a minute of nothing", 24, GREY_A).move_to([1.3, -2.95, 0])
         self.say("blank")
         self.play(Create(gap), FadeIn(gap_l), run_time=0.6)
@@ -483,7 +483,7 @@ class Rx08HotCold(Narrated):
         rcch = self.lane(ROW_Y[4], "B, cache()", PACK_C, end=560)
         rp_items = [(250, token(201, REPLAY_C).move_to([tx(250) + 0.29, ROW_Y[3], 0]))] + \
                    [(100 * (k + 1), token(200 + k).move_to([tx(100 * (k + 1)), ROW_Y[3], 0])) for k in range(2, 5)]
-        mem_l = T("from memory", 20, REPLAY_C).move_to([tx(250) - 0.85, ROW_Y[3] + 0.22, 0])
+        mem_l = T("from memory", 20, REPLAY_C).move_to([tx(250) - 0.12, ROW_Y[3] + 0.24, 0], aligned_edge=RIGHT)
         self.say("replay")
         self.play(FadeIn(rr), run_time=0.5)
         self.at(2)
@@ -681,8 +681,8 @@ class Rx08HotCold(Narrated):
 
         rope_b = bell(1.6).move_to([-3.4, -0.9, 0])
         rope = Line(rope_b.get_bottom() + DOWN * 0.05, rope_b.get_bottom() + DOWN * 1.7, stroke_width=5, color=GREY_A)
-        hands = VGroup(*[Circle(radius=0.17).set_stroke(GREY_A, 2.5).set_fill(dim(GREY_A, 0.4), 1).move_to(rope.point_from_proportion(p) + RIGHT * dx)
-                         for p, dx in ((0.45, -0.17), (0.8, 0.17))])
+        hands = VGroup(*[RoundedRectangle(corner_radius=0.1, width=0.34, height=0.24).set_stroke(GREY_A, 2.5).set_fill(dim(GREY_A, 0.4), 1)
+                         .move_to(rope.point_from_proportion(p) + RIGHT * dx) for p, dx in ((0.4, -0.12), (0.75, 0.12))])
         rb_l = T("a real bell: two hands, still a ring", 26, GREY_A).next_to(rope_b, RIGHT, buff=0.6).shift(DOWN * 0.3)
         sb_l2 = T("a sink: one hand lets go", 26, BAD_C)
         self.say("race_break")

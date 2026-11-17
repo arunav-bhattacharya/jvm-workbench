@@ -1,11 +1,11 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.611
+00:00:02.700 --> 00:00:05.578
 In plain code, an exception has an easy path.
 
 2
-00:00:05.611 --> 00:00:13.349
+00:00:05.578 --> 00:00:13.316
 A function throws, and the exception climbs back up to whoever called it, one caller at a time, until someone catches it.
 
 3
@@ -25,277 +25,285 @@ The line that started it moved on long ago.
 So when it throws, where does the exception go?
 
 7
-00:00:29.000 --> 00:00:31.816
+00:00:28.967 --> 00:00:31.782
 The answer is a picture we've been building.
 
 8
-00:00:31.816 --> 00:00:34.759
+00:00:31.782 --> 00:00:34.726
 A dinner has courses, and a course has dishes.
 
 9
-00:00:34.759 --> 00:00:43.719
+00:00:34.726 --> 00:00:43.685
 The dinner is the root coroutine, the main course is a coroutineScope inside it, and the roast, the potatoes and the gravy are its children.
 
 10
-00:00:43.867 --> 00:00:48.954
+00:00:43.900 --> 00:00:48.935
 Every coroutine becomes a child of the scope it starts in, so the work forms a tree.
 
 11
-00:00:48.954 --> 00:00:54.163
-Its first rule you know already: a parent can't finish until all of its children have.
+00:00:48.935 --> 00:00:54.089
+You already know its first rule: a parent can't finish until all of its children have.
 
 12
-00:00:54.333 --> 00:00:55.688
+00:00:54.300 --> 00:00:55.648
 Now the roast burns.
 
 13
-00:00:55.688 --> 00:01:00.905
-At 100 milliseconds it throws BurnedException, an exception the demo made up.
+00:00:55.648 --> 00:00:57.602
+It happens to the best cooks.
 
 14
-00:01:00.905 --> 00:01:03.547
-The potatoes would need a whole second.
+00:00:57.602 --> 00:01:02.790
+At 100 milliseconds it throws BurnedException, an exception the demo made up.
 
 15
-00:01:03.547 --> 00:01:05.241
-Should they keep cooking?
+00:01:02.790 --> 00:01:05.418
+The potatoes would need a whole second.
 
 16
-00:01:05.241 --> 00:01:07.273
-And when does the caller hear?
+00:01:05.418 --> 00:01:07.103
+Should they keep cooking?
 
 17
-00:01:10.333 --> 00:01:12.523
-Here's what the tree does, in order.
+00:01:07.103 --> 00:01:09.124
+And when does the caller hear?
 
 18
-00:01:12.523 --> 00:01:17.024
-One: the roast fails, and reports the exception to its parent, the course.
+00:01:12.100 --> 00:01:14.290
+Here's what the tree does, in order.
 
 19
-00:01:17.200 --> 00:01:23.338
-Two: the course is cancelled with that exception, and a cancelled job cancels all of its children.
+00:01:14.290 --> 00:01:18.791
+One: the roast fails, and reports the exception to its parent, the course.
 
 20
-00:01:23.338 --> 00:01:29.288
-The potatoes and the gravy come off the heat, and their finally blocks, the clean up code, run.
+00:01:19.000 --> 00:01:25.138
+Two: the course is cancelled with that exception, and a cancelled job cancels all of its children.
 
 21
-00:01:29.467 --> 00:01:32.439
-Three: the course waits until they have really stopped.
+00:01:25.138 --> 00:01:31.088
+The potatoes and the gravy come off the heat, and their finally blocks, the clean up code, run.
 
 22
-00:01:32.600 --> 00:01:38.930
-Four: coroutineScope throws the BurnedException to its caller, who can catch it like any exception.
+00:01:31.300 --> 00:01:34.272
+Three: the course waits until they have really stopped.
 
 23
-00:01:38.930 --> 00:01:40.912
-The family hears what happened.
+00:01:34.500 --> 00:01:40.830
+Four: coroutineScope throws the BurnedException to its caller, who can catch it like any exception.
 
 24
-00:01:41.067 --> 00:01:49.514
-So one failure takes down the whole course, and comes out as one exception, where the work started, after about 100 milliseconds.
+00:01:40.830 --> 00:01:42.812
+The family hears what happened.
 
 25
-00:01:49.514 --> 00:01:51.085
-Nothing is left cooking.
+00:01:43.033 --> 00:01:51.480
+So one failure takes down the whole course, and comes out as one exception, where the work started, after about 100 milliseconds.
 
 26
-00:01:51.867 --> 00:01:56.172
-The lesson's FailureSpreads runs this with a roast and potatoes.
+00:01:51.480 --> 00:01:53.052
+Nothing is left cooking.
 
 27
-00:01:56.172 --> 00:01:58.662
-The roast burned at 161 milliseconds.
+00:01:53.867 --> 00:01:58.172
+The lesson's FailureSpreads runs this with a roast and potatoes.
 
 28
-00:01:58.662 --> 00:02:04.851
-The potatoes' finally block ran 2 milliseconds later, and the caller caught it 2 after that.
+00:01:58.172 --> 00:02:00.662
+The roast burned at 161 milliseconds.
 
 29
-00:02:04.851 --> 00:02:06.869
-Potatoes: done, never printed.
+00:02:00.662 --> 00:02:06.851
+The potatoes' finally block ran 2 milliseconds later, and the caller caught it 2 after that.
 
 30
-00:02:07.067 --> 00:02:08.735
-Why 161, and not 100?
+00:02:06.851 --> 00:02:08.869
+Potatoes: done, never printed.
 
 31
-00:02:08.735 --> 00:02:14.139
-A JVM, the program that runs the code, is slow just after it starts.
+00:02:09.100 --> 00:02:10.769
+Why 161, and not 100?
 
 32
-00:02:14.139 --> 00:02:16.602
-It was still finding its apron.
+00:02:10.769 --> 00:02:16.172
+A JVM, the program that runs the code, is slow just after it starts.
 
 33
-00:02:16.602 --> 00:02:19.701
-That part is the machine, not the tree.
+00:02:16.172 --> 00:02:18.636
+It was still finding its apron.
 
 34
-00:02:20.467 --> 00:02:28.566
-Many of us carry a picture from Java's executors, the pools that run tasks you hand them: every task is on its own.
+00:02:18.636 --> 00:02:21.735
+That part is the machine, not the tree.
 
 35
-00:02:28.566 --> 00:02:36.032
-On an executor, the roast fails, and the potatoes carry on to potatoes: done, at about 1,000 milliseconds.
+00:02:22.567 --> 00:02:30.666
+Many of us carry a picture from Java's executors, the pools that run tasks you hand them: every task is on its own.
 
 36
-00:02:36.032 --> 00:02:37.511
-close waits for them.
+00:02:30.666 --> 00:02:38.132
+On an executor, the roast fails, and the potatoes carry on to potatoes: done, at about 1,000 milliseconds.
 
 37
-00:02:37.667 --> 00:02:42.547
-The roast is on fire, and the potatoes are still being lovingly peeled.
+00:02:38.132 --> 00:02:39.611
+close waits for them.
 
 38
-00:02:42.547 --> 00:02:45.985
-So the point is: in Java, you cancel them by hand.
+00:02:39.833 --> 00:02:44.714
+The roast is on fire, and the potatoes are still being lovingly peeled.
 
 39
-00:02:45.985 --> 00:02:49.972
-With that one line, their finally ran at 198 milliseconds.
+00:02:44.714 --> 00:02:48.151
+So the point is: in Java, you cancel them by hand.
 
 40
-00:02:49.972 --> 00:02:52.584
-coroutineScope does that step for you.
+00:02:48.151 --> 00:02:52.138
+With that one line, their finally ran at 198 milliseconds.
 
 41
-00:02:54.067 --> 00:02:55.526
-Now the other direction.
+00:02:52.138 --> 00:02:54.751
+coroutineScope does that step for you.
 
 42
-00:02:55.526 --> 00:02:58.081
-The guests phone, and call the dinner off.
+00:02:56.267 --> 00:02:57.726
+Now the other direction.
 
 43
-00:02:58.081 --> 00:03:00.696
-That's a cancel, and it comes from the top.
+00:02:57.726 --> 00:03:00.281
+The guests phone, and call the dinner off.
 
 44
-00:03:00.696 --> 00:03:05.805
-It travels down: the dinner is cancelled, then the course, then every dish below it.
+00:03:00.281 --> 00:03:02.896
+That's a cancel, and it comes from the top.
 
 45
-00:03:06.733 --> 00:03:07.966
-And the other way?
+00:03:02.896 --> 00:03:08.005
+It travels down: the dinner is cancelled, then the course, then every dish below it.
 
 46
-00:03:07.966 --> 00:03:10.158
-Say only the gravy is cancelled.
+00:03:08.933 --> 00:03:10.166
+And the other way?
 
 47
-00:03:10.158 --> 00:03:11.596
-Does the course stop?
+00:03:10.166 --> 00:03:12.358
+Say only the gravy is cancelled.
 
 48
-00:03:14.600 --> 00:03:14.811
-No.
+00:03:12.358 --> 00:03:13.796
+Does the course stop?
 
 49
-00:03:14.811 --> 00:03:16.429
-A cancel never goes up.
+00:03:16.767 --> 00:03:16.978
+No.
 
 50
-00:03:16.429 --> 00:03:26.983
-A child that's cancelled, or that ends by throwing CancellationException, the exception a cancelled coroutine throws, counts as cancelled, not failed.
+00:03:16.978 --> 00:03:18.596
+A cancel never goes up.
 
 51
-00:03:26.983 --> 00:03:31.416
-Its parent isn't told, and the roast and the potatoes carry on.
+00:03:18.596 --> 00:03:29.150
+A child that's cancelled, or that ends by throwing CancellationException, the exception a cancelled coroutine throws, counts as cancelled, not failed.
 
 52
-00:03:32.200 --> 00:03:42.623
-This is structured concurrency: work that runs at the same time has the same nested shape as the code that started it, and failures and cancels follow that shape.
+00:03:29.150 --> 00:03:33.583
+Its parent isn't told, and the roast and the potatoes carry on.
 
 53
-00:03:42.623 --> 00:03:45.840
-A failure goes up the tree and stops the siblings.
+00:03:34.400 --> 00:03:44.823
+This is structured concurrency: work that runs at the same time has the same nested shape as the code that started it, and failures and cancels follow that shape.
 
 54
-00:03:45.840 --> 00:03:48.156
-A cancel goes down, and stops there.
+00:03:44.823 --> 00:03:48.040
+A failure goes up the tree and stops the siblings.
 
 55
-00:03:49.067 --> 00:03:55.752
-This is the default because it's almost always what you want: if one dish is ruined, the course is off.
+00:03:48.040 --> 00:03:50.356
+A cancel goes down, and stops there.
 
 56
-00:03:55.752 --> 00:04:03.151
-Sometimes you do want siblings to survive, like a reminder sent by text, email and phone, where any one is enough.
+00:03:51.267 --> 00:03:55.187
+This is the default because it's almost always what you want.
 
 57
-00:04:03.151 --> 00:04:05.812
-Lesson 6 brings in a supervisor for that.
+00:03:55.187 --> 00:04:02.707
+If the roast is ruined, the course is off: nobody serves potatoes and gravy next to a hole where the roast should be.
 
 58
-00:04:06.533 --> 00:04:09.170
-And here the picture breaks, on timing.
+00:04:02.707 --> 00:04:10.034
+Sometimes you do want siblings to survive, like a reminder sent by text, email and phone, where any one is enough.
 
 59
-00:04:09.170 --> 00:04:11.807
-A real cook pulls the pans off at once.
+00:04:10.034 --> 00:04:12.669
+Lesson 6 brings in a supervisor for that.
 
 60
-00:04:11.807 --> 00:04:20.055
-A coroutine hears the cancel only at its next suspension point, so a long calculation, or a blocking call, finishes first.
+00:04:13.400 --> 00:04:16.037
+And here the picture breaks, on timing.
 
 61
-00:04:20.055 --> 00:04:22.219
-Lesson 5 shows how to cooperate.
+00:04:16.037 --> 00:04:18.674
+A real cook pulls the pans off at once.
 
 62
-00:04:23.000 --> 00:04:28.102
-Here's the demo's core in Kotlin, shortened, with the Java executor beside it.
+00:04:18.674 --> 00:04:26.922
+A coroutine hears the cancel only at its next suspension point, so a long calculation, or a blocking call, finishes first.
 
 63
-00:04:28.102 --> 00:04:31.372
-In Kotlin, the scope cancels the potatoes for you.
+00:04:26.922 --> 00:04:29.085
+Lesson 5 shows how to cooperate.
 
 64
-00:04:31.372 --> 00:04:33.857
-In Java, you write that line yourself.
+00:04:29.900 --> 00:04:35.002
+Here's the demo's core in Kotlin, shortened, with the Java executor beside it.
 
 65
-00:04:34.600 --> 00:04:37.070
-So, where does a child's exception go?
+00:04:35.002 --> 00:04:38.272
+In Kotlin, the scope cancels the potatoes for you.
 
 66
-00:04:37.070 --> 00:04:38.825
-Up the tree, to its parent.
+00:04:38.272 --> 00:04:40.757
+In Java, you write that line yourself.
 
 67
-00:04:38.825 --> 00:04:45.261
-The parent stops the siblings, waits for them, and hands one exception to whoever started the work.
+00:04:41.567 --> 00:04:44.037
+So, where does a child's exception go?
 
 68
-00:04:45.261 --> 00:04:47.341
-A cancel only ever travels down.
+00:04:44.037 --> 00:04:45.792
+Up the tree, to its parent.
 
 69
-00:04:47.533 --> 00:04:48.330
-Quick check.
+00:04:45.792 --> 00:04:52.228
+The parent stops the siblings, waits for them, and hands one exception to whoever started the work.
 
 70
-00:04:48.330 --> 00:04:50.190
-Nobody calls off the dinner.
+00:04:52.228 --> 00:04:54.308
+A cancel only ever travels down.
 
 71
-00:04:50.190 --> 00:04:52.448
-Someone cancels just the potatoes.
+00:04:54.533 --> 00:04:55.330
+Quick check.
 
 72
-00:04:52.448 --> 00:04:55.901
-What happens to the roast, the gravy and the course?
+00:04:55.330 --> 00:04:57.190
+Nobody calls off the dinner.
 
 73
-00:04:58.933 --> 00:05:00.586
-Nothing changes for them.
+00:04:57.190 --> 00:04:59.448
+Someone cancels just the potatoes.
 
 74
-00:05:00.586 --> 00:05:05.212
-The potatoes count as cancelled, not failed, so the course isn't told.
+00:04:59.448 --> 00:05:02.901
+What happens to the roast, the gravy and the course?
 
 75
-00:05:05.212 --> 00:05:07.657
+00:05:05.900 --> 00:05:07.552
+Nothing changes for them.
+
+76
+00:05:07.552 --> 00:05:12.179
+The potatoes count as cancelled, not failed, so the course isn't told.
+
+77
+00:05:12.179 --> 00:05:14.624
 The roast and the gravy keep cooking.

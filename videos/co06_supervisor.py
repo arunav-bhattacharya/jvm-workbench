@@ -59,7 +59,7 @@ N = {
              "decides about each burnt dish as it happens, but a scope decides once, when you create it.",
     "moral": "So, does a failure wait under the lid? Not under a plain parent: it goes up at once, from launch and async "
              "alike. A supervisor keeps it with the child: in the Deferred for async, in the notebook for launch. "
-             "Siblings that need each other get coroutineScope. Siblings that don't get a supervisor.",
+             "If siblings need each other, use coroutineScope. If they don't, use a supervisor.",
     "check": "Quick check. Inside coroutineScope, a launch child has its own handler, and it throws. "
              "Who gets the exception?",
     "check_a": "Not the handler. A child tells its parent first, so coroutineScope is cancelled, and throws the exception "
@@ -506,7 +506,7 @@ class Co06Supervisor(Narrated):
         self.at_text("with no parent", lead=0.3)
         self.play(FadeIn(noparent), run_time=0.5)
         self.at(3)
-        self.play(Indicate(des, color=TRAY), run_time=0.8)
+        self.play(Circumscribe(des, color=TRAY, buff=0.1), run_time=0.8)
         self.hold()
 
         tlog = log_lines([("  120 ms  normal child: finally", GREY_A), ("  165 ms  dinner cancelled and joined", CANCEL),
@@ -517,10 +517,11 @@ class Co06Supervisor(Narrated):
         self.play(din[0].animate.set_stroke(CANCEL), main.animate.set_opacity(0.4), FadeIn(tlog[0]), FadeIn(tlog[1]),
                   run_time=0.8)
         self.at(1)
-        self.play(FadeIn(tlog[2]), Indicate(des, color=BAD), run_time=0.8)
+        self.play(FadeIn(tlog[2]), Indicate(des[1], color=BAD), Circumscribe(des, color=BAD, buff=0.1), run_time=0.8)
         self.at(2)
+        gone2 = DashedLine(din.get_right(), des.get_left() + RIGHT * 1.6, dash_length=0.1).set_stroke(GREY_D, 2)
         self.play(des.animate.shift(RIGHT * 1.6), de.animate.put_start_and_end_on(sj.get_bottom(), des.get_top() + RIGHT * 1.6),
-                  run_time=0.9)
+                  Transform(gone, gone2), gx.animate.move_to(gone2.get_center()), run_time=0.9)
         self.at(3)
         self.play(FadeOut(tc), FadeIn(rule2, shift=UP * 0.1), run_time=0.7)
         self.hold()
