@@ -30,7 +30,7 @@ fun main() {
     val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())   // the service's scope
     val request = scope.future {                                         // what QuoteService.quote returns
         supervisorScope {
-            listOf("northbank" to 300L, "eastgate" to 400L, "fjord" to 500L)
+            listOf("northline" to 300L, "eastgate" to 400L, "fjord" to 500L)
                 .map { (name, latency) -> async { call(name, latency) } }.awaitAll()
         }
     }

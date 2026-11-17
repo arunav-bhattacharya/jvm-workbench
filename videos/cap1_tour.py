@@ -504,13 +504,16 @@ class Cap1Tour(Narrated):
         self.play(KA.animate.move_to(HOME_A), KB.animate.move_to(HOME_B), FadeOut(mv), run_time=0.6)
         self.play(FadeIn(ta, shift=UP * 0.1), FadeIn(tb, shift=UP * 0.1), run_time=0.5)
         self.play(KA.animate.next_to(ta, DOWN, buff=0.15), KB.animate.next_to(tb, DOWN, buff=0.15), run_time=0.7)
-        cross = VGroup(CurvedArrow(ta.get_right() + DOWN * 0.05, tb.get_left() + DOWN * 0.05, angle=TAU / 7, color=BAD,
-                                   stroke_width=3.5, tip_length=0.18),
-                       CurvedArrow(tb.get_left() + UP * 0.05, ta.get_right() + UP * 0.05, angle=TAU / 7, color=BAD,
-                                   stroke_width=3.5, tip_length=0.18))
-        self.play(Create(cross), run_time=0.6)
+        pa, pb = KA.get_bottom() + DOWN * 0.08, KB.get_bottom() + DOWN * 0.08
+        cross = VGroup(CurvedArrow(pa + RIGHT * 0.15, pb + LEFT * 0.15, angle=TAU / 6, color=BAD, stroke_width=3.5,
+                                   tip_length=0.2),
+                       CurvedArrow(pb + RIGHT * 0.15, pa + LEFT * 0.15, angle=-TAU / 4, color=BAD, stroke_width=3.5,
+                                   tip_length=0.2))
+        frz = T("each waits for the other", 24, BAD).move_to([-3.4, -1.35, 0])
+        self.play(Create(cross), FadeIn(frz), run_time=0.8)
         self.at(1)
-        self.play(FadeOut(cross), KA.animate.move_to(HOME_A), KB.animate.move_to(HOME_B), FadeIn(lst[1][0]), run_time=0.6)
+        self.play(FadeOut(cross), FadeOut(frz), KA.animate.move_to(HOME_A), KB.animate.move_to(HOME_B), FadeIn(lst[1][0]),
+                  run_time=0.6)
         self.play(KA.animate.next_to(ta, DOWN, buff=0.15).shift(LEFT * 0.65), run_time=0.5)
         self.play(KB.animate.next_to(ta, DOWN, buff=0.15).shift(RIGHT * 0.65), FadeIn(lst[1][1]), run_time=0.5)
         wn = T("waits, holding nothing", 22, GREY_B).next_to(tb, DOWN, buff=0.2)
@@ -559,7 +562,7 @@ class Cap1Tour(Narrated):
         gd = VGroup(T("A test that finds nothing: believable, not proven.", 24, GREY_A),
                     T("The proof is an argument, rule by rule, from the code.", 24, GREY_A)
                     ).arrange(DOWN, aligned_edge=LEFT, buff=0.14)
-        fit(gd, 6.3)
+        fit(gd, 5.8)
         gd.move_to([LX, -2.3, 0], aligned_edge=LEFT)
         self.say("guard")
         self.play(FadeIn(gd[0], shift=UP * 0.1), run_time=0.6)
@@ -601,12 +604,12 @@ class Cap1Tour(Narrated):
 
         # ================= three sittings =================
         def card(n, name, note, icon, x):
-            r = RoundedRectangle(corner_radius=0.14, width=3.9, height=2.7, stroke_color=GREY_A, stroke_width=3)
+            r = RoundedRectangle(corner_radius=0.14, width=4.05, height=2.7, stroke_color=GREY_A, stroke_width=3)
             r.set_fill(BLACK, 1).move_to([x, 1.15, 0])
             h = T(f"{n}. {name}", 28).move_to(r.get_top() + DOWN * 0.42)
             icon.move_to(r.get_center() + DOWN * 0.12)
             nt = T(note, 22, GREY_B).move_to(r.get_bottom() + UP * 0.38)
-            fit(nt, 3.6)
+            fit(nt, 3.45)
             return VGroup(r, h, icon, nt)
 
         ic1 = VGroup(key_icon().scale(1.1), key_icon().scale(1.1)).arrange(RIGHT, buff=0.35)
@@ -619,9 +622,9 @@ class Cap1Tour(Narrated):
         slips = VGroup(*[Rectangle(width=0.22, height=0.3, stroke_color=GREY_B, stroke_width=2) for _ in range(12)])
         slips.arrange_in_grid(2, 6, buff=(0.1, 0.1)).move_to(board)
         ic3 = VGroup(board, slips)
-        c1 = card(1, "the core", "keys, transfers, a stress test", ic1, -4.35)
-        c2 = card(2, "a pool", "the cooks and the order rail", ic2, 0)
-        c3 = card(3, "a front door", "order slips on the board", ic3, 4.35)
+        c1 = card(1, "the core", "keys, a transfer, a test", ic1, -4.3)
+        c2 = card(2, "a pool", "cooks and an order rail", ic2, 0)
+        c3 = card(3, "a front door", "order slips on a board", ic3, 4.3)
         band = RoundedRectangle(corner_radius=0.12, width=12.6, height=0.85, stroke_color=RULE, stroke_width=2.5)
         band.set_fill(dim(RULE, 0.1), 1).move_to([0, -1.25, 0])
         band_t = VGroup(T("1. conserved", 24, RULE), T("2. never below zero", 24, RULE), T("3. whole or not at all", 24, RULE)

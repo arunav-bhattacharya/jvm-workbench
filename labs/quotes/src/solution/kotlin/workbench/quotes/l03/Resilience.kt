@@ -74,9 +74,9 @@ class GuardedProvider(
     override val name: String get() = delegate.name
     override val idempotent: Boolean get() = delegate.idempotent
 
-    override suspend fun quote(symbol: String): Quote {
-        val once: suspend () -> Quote = { permits.withPermit { delegate.quote(symbol) } }   // 1. every call holds a permit
-        if (!delegate.idempotent) return once()                                            // 2. never repeat a firm quote
+    override suspend fun quote(destination: String): Quote {
+        val once: suspend () -> Quote = { permits.withPermit { delegate.quote(destination) } }   // 1. every call holds a permit
+        if (!delegate.idempotent) return once()                                            // 2. never repeat a booking
         val attempt: suspend () -> Quote = if (hedgeAfter == null) once else ({ hedged(hedgeAfter, once) })
         return retrying(backoff, random, attempt)                                          // 3. a hedge per attempt
     }

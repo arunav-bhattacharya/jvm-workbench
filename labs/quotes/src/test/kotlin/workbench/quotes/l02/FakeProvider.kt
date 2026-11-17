@@ -19,7 +19,7 @@ class FakeProvider(
 ) : Provider {
     val calls = AtomicInteger()
 
-    override suspend fun quote(symbol: String): Quote {
+    override suspend fun quote(destination: String): Quote {
         calls.incrementAndGet()
         try {
             delay(latency)
@@ -28,6 +28,6 @@ class FakeProvider(
             throw e
         }
         failure?.let { throw it }
-        return Quote.live(symbol, price, name)
+        return Quote.live(destination, price, name)
     }
 }

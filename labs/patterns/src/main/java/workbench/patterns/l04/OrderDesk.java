@@ -17,7 +17,7 @@ import workbench.patterns.l04.Warehouse.StockResult;
  *       {@code Refused(reason)};</li>
  *   <li>on {@code Unavailable}: write nothing, send nothing, return {@code RetryLater}.</li>
  * </ul>
- * Keep it orchestration only: no unit maths, no warehouse codes.
+ * Keep it orchestration only: no unit math, no warehouse codes.
  */
 public final class OrderDesk {
 

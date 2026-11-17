@@ -31,7 +31,7 @@ public final class QuoteHandler extends SimpleChannelInboundHandler<String> {
             ctx.writeAndFlush("ERR bad request\n");
             return;
         }
-        CompletableFuture<Quote> quote = source.quote(r.symbol());   // 1. returns at once
+        CompletableFuture<Quote> quote = source.quote(r.destination());   // 1. returns at once
         inFlight.add(quote);
         updateReading(ctx);                                           // 2. too many waiting? stop reading
         quote.whenCompleteAsync((q, e) -> {                           // 3. finish on this channel's loop

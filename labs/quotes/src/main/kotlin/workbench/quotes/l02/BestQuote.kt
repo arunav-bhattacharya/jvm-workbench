@@ -19,17 +19,17 @@ import kotlin.time.Duration
  * 3. A provider that fails, or whose own client timed out, counts as no answer. Await each call
  *    in a try: catch `Exception` as `null`. For `CancellationException`, first call
  *    `currentCoroutineContext().ensureActive()`: it rethrows only if *this* coroutine was cancelled.
- * 4. Keep the lowest price and `cache.remember` it. With no answer, serve `cache.lastGood(symbol)`
- *    marked `asStale()`, or throw `NoQuoteException(symbol)`.
+ * 4. Keep the lowest price and `cache.remember` it. With no answer, serve `cache.lastGood(destination)`
+ *    marked `asStale()`, or throw `NoQuoteException(destination)`.
  */
 class BestQuote(
     private val providers: List<Provider>,
     private val deadline: Duration,
     private val cache: QuoteCache = QuoteCache(),
 ) {
-    suspend fun quote(symbol: String): Quote = coroutineScope {
+    suspend fun quote(destination: String): Quote = coroutineScope {
         providers
-            .map { p -> async { withTimeout(deadline) { p.quote(symbol) } } }
+            .map { p -> async { withTimeout(deadline) { p.quote(destination) } } }
             .awaitAll()
             .minBy { it.price }
     }

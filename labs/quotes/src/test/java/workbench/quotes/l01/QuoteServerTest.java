@@ -51,11 +51,11 @@ class QuoteServerTest {
     @DisplayName("lines that arrive in pieces are framed, and each reply carries its request id")
     void framesAndAnswers() {
         EmbeddedChannel ch = channel(FakeSource.answering());
-        ch.writeInbound(Unpooled.copiedBuffer("7 EUR", UTF_8));
+        ch.writeInbound(Unpooled.copiedBuffer("7 LIS", UTF_8));
         assertThat(replies(ch)).as("half a line: nothing yet").isEmpty();
-        ch.writeInbound(Unpooled.copiedBuffer("USD\n8 GBPUSD\nhello\n", UTF_8));
+        ch.writeInbound(Unpooled.copiedBuffer("BON\n8 DUBLIN\nhello\n", UTF_8));
         assertThat(replies(ch)).containsExactlyInAnyOrder(
-                "7 OK EURUSD 1.0842 fake\n", "8 OK GBPUSD 1.0842 fake\n", "ERR bad request\n");
+                "7 OK LISBON 12.42 fake\n", "8 OK DUBLIN 12.42 fake\n", "ERR bad request\n");
         ch.finishAndReleaseAll();
     }
 
@@ -126,7 +126,7 @@ class QuoteServerTest {
 
     private static String[] requests(int from, int count) {
         String[] lines = new String[count];
-        for (int i = 0; i < count; i++) lines[i] = (from + i) + " EURUSD";
+        for (int i = 0; i < count; i++) lines[i] = (from + i) + " LISBON";
         return lines;
     }
 
@@ -219,7 +219,7 @@ class QuoteServerTest {
         QuoteServer server = new QuoteServer(1, source);
         int port = server.port();
         try (Client client = new Client(port)) {
-            client.send("1 EURUSD");
+            client.send("1 LISBON");
             assertThat(source.awaitCalls(1)).isEqualTo(1);
             assertTimeoutPreemptively(Duration.ofSeconds(10), server::close, "close() must not hang");
             assertThat(server.group().isTerminated()).as("loop threads stopped").isTrue();

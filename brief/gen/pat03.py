@@ -6,6 +6,24 @@ K = "kotlin/workbench/patterns/l03"
 read = lambda p: (ROOT / p).read_text()
 demo = lambda cls: f"./gradlew :patterns:demo -Pmain=workbench.patterns.l03.{cls}"
 
+
+def pair(java, kotlin):
+    """A Java fence and its Kotlin twin, side by side, as the validator expects."""
+    return f"```java\n{java}\n```\n\n```kotlin\n{kotlin}\n```"
+
+
+def pair_kj(kotlin, java):
+    """A Kotlin fence first, then its Java twin (the site still shows Java first)."""
+    return f"```kotlin\n{kotlin}\n```\n\n```java\n{java}\n```"
+
+
+def code(lang, name, cls, alt_lang, alt_name, alt_cls):
+    d1 = J if lang == "java" else K
+    d2 = J if alt_lang == "java" else K
+    return {"lang": lang, "title": name, "src": read(f"{lab}/demo/{d1}/{name}"), "run": demo(cls), "file": f"{lab}/demo/{d1}/{name}",
+            "alt": {"lang": alt_lang, "title": alt_name, "src": read(f"{lab}/demo/{d2}/{alt_name}"), "run": demo(alt_cls), "file": f"{lab}/demo/{d2}/{alt_name}"}}
+
+
 FIG = """<svg viewBox="0 0 660 250" role="img" aria-label="Left: a shallow copy, where c1 and c2 point to the same list. Right: a safe copy, where each cart has its own list">
 <text class="t t-bad" x="165" y="24" text-anchor="middle">shallow copy</text>
 <text class="t t-ok" x="500" y="24" text-anchor="middle">copy, then build a new list</text>
@@ -14,238 +32,264 @@ FIG = """<svg viewBox="0 0 660 250" role="img" aria-label="Left: a shallow copy,
 <rect class="box" x="20" y="150" width="130" height="40" rx="8"/>
 <text class="t t-code" x="85" y="175" text-anchor="middle">c2 = c1.copy()</text>
 <rect class="box-bad" x="190" y="100" width="130" height="40" rx="8"/>
-<text class="t-s t-code" x="255" y="125" text-anchor="middle">[sku-1, sku-2]</text>
+<text class="t-s t-code" x="255" y="125" text-anchor="middle">[bread, milk]</text>
 <line class="ln-bad" x1="150" y1="72" x2="188" y2="110" marker-end="url(#arr)"/>
 <line class="ln-bad" x1="150" y1="168" x2="188" y2="130" marker-end="url(#arr)"/>
-<text class="t-s t-bad" x="170" y="225" text-anchor="middle">c2.skus += "sku-2" changes c1 too</text>
+<text class="t-s t-bad" x="170" y="225" text-anchor="middle">c2.items += "milk" changes c1 too</text>
 <line class="ln-d" x1="335" y1="40" x2="335" y2="235"/>
 <rect class="box" x="355" y="50" width="130" height="40" rx="8"/>
 <text class="t t-code" x="420" y="75" text-anchor="middle">c1</text>
 <rect class="box" x="355" y="150" width="130" height="40" rx="8"/>
 <text class="t t-code" x="420" y="175" text-anchor="middle">c2</text>
 <rect class="box-ok" x="515" y="50" width="130" height="40" rx="8"/>
-<text class="t-s t-code" x="580" y="75" text-anchor="middle">[sku-1]</text>
+<text class="t-s t-code" x="580" y="75" text-anchor="middle">[bread]</text>
 <rect class="box-ok" x="515" y="150" width="130" height="40" rx="8"/>
-<text class="t-s t-code" x="580" y="175" text-anchor="middle">[sku-1, sku-2]</text>
+<text class="t-s t-code" x="580" y="175" text-anchor="middle">[bread, milk]</text>
 <line class="ln-a" x1="485" y1="70" x2="511" y2="70" marker-end="url(#arr)"/>
 <line class="ln-a" x1="485" y1="170" x2="511" y2="170" marker-end="url(#arr)"/>
-<text class="t-s t-ok" x="500" y="225" text-anchor="middle">copy(skus = skus + "sku-2")</text>
+<text class="t-s t-ok" x="500" y="225" text-anchor="middle">copy(items = items + "milk")</text>
 </svg>""".replace("\n", "")
 
-S1 = """A builder exists to fix the telescoping constructor: one constructor per combination of optional parameters, and call sites full of unlabeled literals.
+OPENING = """At the town's sandwich counter, nobody orders by reciting eight words in a fixed order. You say "rye bread", then "cheese", then "no onions", and the person behind the counter adds each part as you go. At the end they check that it really is a sandwich, with bread and a filling, and hand it over finished. Down the street, the print shop has a photocopier. Fill in a form once, copy it, change two lines on each copy, and you've saved an hour.
 
-```java
-new ChargeRequest(1_250, "EUR", "tok_42", null, null, true, 2, 30_000);   // which one is the timeout?
-```
+Objects with many optional parts have the same two needs. A constructor with seven parameters is a sandwich ordered in one breath, and nobody can tell which `true` meant "fragile". And a copy that changes two fields is so handy that it's easy to miss what it didn't copy.
 
-```kotlin
-ChargeRequest(1_250, "EUR", "tok_42", null, null, true, 2, 30_000)         // Kotlin allows the same mess
-```
+In the last lesson, factories decided which class to make. In this lesson, we'll decide how to make one object with many parts: Kotlin's named and default arguments, a Java record with a builder, a Kotlin DSL for nested orders, and copies that never share what they shouldn't. Before we start, make a guess, and keep it in mind."""
 
-The Java fix is the builder from Effective Java item 2: a mutable helper class with one method per field and a `build()` at the end. It works, and it costs you a second class that repeats every field.
-
-Kotlin removes the problem in the language. Parameters can have defaults, and callers can name them:
-
-```kotlin
-data class ChargeRequest(
-    val amountMinor: Long,
-    val currency: String,
-    val token: String,
-    val description: String? = null,
-    val capture: Boolean = true,
-    val maxRetries: Int = 0,
-    val timeoutMs: Long = 10_000,
+# ---------------------------------------------------------------- section 0
+J_TELE = """new Label("12 Mill Lane", "Anna", true, false, true, 2, null);   // which true is fragile?"""
+K_TELE = """Label("12 Mill Lane", "Anna", true, false, true, 2, null)         // Kotlin allows the same mess"""
+K_NAMED = """data class Label(
+    val address: String,
+    val name: String,
+    val fragile: Boolean = false,
+    val thisWayUp: Boolean = false,
+    val express: Boolean = false,
+    val copies: Int = 1,
+    val note: String? = null,
 ) {
-    init { require(maxRetries >= 0) { "maxRetries must be >= 0" } }
+    init { require(copies >= 1) { "copies must be >= 1" } }
 }
 
-val req = ChargeRequest(amountMinor = 1_250, currency = "EUR", token = "tok_42", maxRetries = 2)
-val slower = req.copy(timeoutMs = 30_000)
-```
-
-```java
-// Java has no named or default arguments: the record keeps the rules, a builder supplies the defaults
-record ChargeRequest(long amountMinor, String currency, String token, String description,
-                     boolean capture, int maxRetries, long timeoutMs) {
-    ChargeRequest {
-        if (maxRetries < 0) throw new IllegalArgumentException("maxRetries must be >= 0");
+val label = Label(address = "12 Mill Lane", name = "Anna", fragile = true, copies = 2)
+val rushed = label.copy(express = true)"""
+J_NAMED = """// Java has no named or default arguments: the record keeps the rules, a builder supplies the defaults
+record Label(String address, String name, boolean fragile, boolean thisWayUp,
+             boolean express, int copies, String note) {
+    Label {
+        if (copies < 1) throw new IllegalArgumentException("copies must be >= 1");
     }
-    ChargeRequest withTimeoutMs(long ms) {
-        return new ChargeRequest(amountMinor, currency, token, description, capture, maxRetries, ms);
+    Label withExpress(boolean e) {
+        return new Label(address, name, fragile, thisWayUp, e, copies, note);
     }
 }
 
-var req = ChargeRequest.builder(1_250, "EUR", "tok_42").maxRetries(2).build();   // the builder: next section
-var slower = req.withTimeoutMs(30_000);
-```
+var label = Label.builder("12 Mill Lane", "Anna").fragile(true).copies(2).build();   // the builder: next section
+var rushed = label.withExpress(true);"""
 
-In the Kotlin version, every argument at the call site says what it is. Optional ones can be skipped, in any order. `copy` gives you a changed copy for free. And the `init` block runs for every construction, `copy` included, so nobody can skip the validation. That covers what most Java builders do.
+S0 = """Here's how the shop prints a parcel label today:
 
-Java callers are the gap. Java has no named arguments, so they see one constructor with seven parameters. `@JvmOverloads` on the constructor generates the telescoping overloads for them (one per trailing default), which is better than nothing and worse than a builder. If a Java team will call the class a lot, give them a real builder.
+""" + pair(J_TELE, K_TELE) + """
 
-A rule of thumb for porting: if every call site of a Java builder sets two or three fields and leaves the rest at their defaults, the Kotlin version is a data class with defaults and nothing else. If call sites build the object across a loop or an `if`, keep a builder, as the next section explains.
+Seven arguments, three of them `true` or `false`, and only their positions say what they mean. Even the author of `Label` has to count. Java classes like this often grow a **telescoping constructor**: one constructor per combination of optional parameters, each calling the next with one more default. That's the sandwich ordered in one breath.
 
-Check yourself. In the Kotlin `ChargeRequest`, what does `req.copy(maxRetries = -1)` do, and why? (It throws `IllegalArgumentException`. `copy` builds the new object through the primary constructor, so the `init` block runs again.)"""
+The Java fix is the **builder** from Effective Java (item 2): a helper object with one method per field and a `build()` at the end, as in `Label.builder("12 Mill Lane", "Anna").fragile(true).copies(2).build()`. It's the sandwich counter. You add one part at a time, and `build()` hands over the finished object. It works, and it costs a second class that repeats every field.
 
-S2 = """Builders still win in four cases. The first is Java callers, as above. The second is validation that needs the whole object: "a statement descriptor is at most 22 characters, and only when `capture` is true" relates two fields. The third is construction spread across steps, such as headers added in a loop or 3-D Secure data added only for some cards; Kotlin's `buildList { }` and `buildString { }` are standard-library builders for exactly this. The fourth is nested data, which gets its own section next.
+Kotlin removes most of the problem in the language. Parameters can have defaults, and callers can name them:
 
-The modern Java shape is a record that validates plus a small builder that only collects:
+""" + pair_kj(K_NAMED, J_NAMED) + """
 
-```java
-record IssuerCall(String url, String method, Map<String, String> headers, Duration timeout, int maxRetries) {
-    IssuerCall {                                 // compact constructor: runs on every path
-        Objects.requireNonNull(url, "url");
-        headers = Map.copyOf(headers);           // immutable, and a copy
-        if (maxRetries < 0) throw new IllegalArgumentException("maxRetries must be >= 0");
+In the Kotlin version, every argument at the call site says what it is. Optional ones can be left out, in any order. `copy` gives you a changed copy for free (copies get their own section at the end of this lesson). And the `init` block, which runs whenever an object is constructed, runs for `copy` too, so nobody can skip the check. That covers what most Java builders do. Named arguments are the sandwich you can order in one breath after all, because each part comes with its name.
+
+Java callers are the gap. Java has no named arguments, so it sees one constructor with seven parameters. `@JvmOverloads` on the Kotlin constructor generates overloads for Java, one for each trailing default, which is better than nothing and worse than a builder. If Java code will call the class a lot, give it a real builder.
+
+**Name the arguments and default the rest. Most builders disappear.**
+
+A rule of thumb for porting Java to Kotlin: if every call site of a Java builder sets two or three fields and leaves the rest alone, the Kotlin version is a data class with defaults and nothing else. If call sites build the object across a loop or an `if`, keep a builder, as the next section explains.
+
+Check yourself. In the Kotlin `Label`, what does `label.copy(copies = 0)` do, and why? (It throws `IllegalArgumentException`. `copy` builds the new object through the primary constructor, so the `init` block runs again.)"""
+
+# ---------------------------------------------------------------- section 1
+J_REC = """record DeliveryRequest(String address, String speed, Map<String, String> notes, Duration window, int retries) {
+    DeliveryRequest {                             // compact constructor: runs on every path
+        Objects.requireNonNull(address, "address");
+        notes = Map.copyOf(notes);                // unmodifiable, and a copy
+        if (retries < 0) throw new IllegalArgumentException("retries must be >= 0");
     }
-    IssuerCall withTimeout(Duration t) { return new IssuerCall(url, method, headers, t, maxRetries); }
-    static Builder builder(String url) { return new Builder(url); }
+    DeliveryRequest withWindow(Duration w) { return new DeliveryRequest(address, speed, notes, w, retries); }
+    static Builder builder(String address) { return new Builder(address); }
     // Builder: fields with defaults, one setter each, and build() calls the constructor
-}
-```
-
-```kotlin
-data class IssuerCall(
-    val url: String,
-    val method: String = "GET",
-    val headers: Map<String, String> = emptyMap(),
-    val timeout: Duration = Duration.ofSeconds(2),
-    val maxRetries: Int = 0,
+}"""
+K_REC = """data class DeliveryRequest(
+    val address: String,
+    val speed: String = "STANDARD",
+    val notes: Map<String, String> = emptyMap(),
+    val window: Duration = Duration.ofHours(2),
+    val retries: Int = 0,
 ) {
-    init { require(maxRetries >= 0) { "maxRetries must be >= 0" } }   // runs on every path, copy() too
+    init { require(retries >= 0) { "retries must be >= 0" } }   // runs on every path, copy() too
 }
-// no builder and no withers: named arguments and copy(timeout = ...) do both jobs
+// no builder and no withers: named arguments and copy(window = ...) do both jobs"""
+
+S1 = """Builders still win in four cases. The first is Java callers, as we just saw. The second is a check that needs the whole object: "a this-way-up arrow only goes on a fragile label" relates two fields. The third is an object built across several steps, such as notes added in a loop, or a neighbor's name added only when nobody is home. Kotlin's `buildList { }` and `buildString { }` are standard-library builders for exactly this. The fourth is nested data, which gets its own section next.
+
+The modern Java shape is a record that checks plus a small builder that only collects. Here's the shop's request to its courier:
+
+""" + pair(J_REC, K_REC) + """
+
+`retries` is how many more times the driver comes back when nobody is home, and `window` is how long the customer will wait in. The builder holds no rules. The rules live in the record's compact constructor, which `build()`, the method `withWindow` and a direct `new DeliveryRequest(...)` all go through. A **compact constructor** is a record constructor written without a parameter list. Its body runs first, and Java assigns the fields from the parameters after it, which is why `notes = Map.copyOf(notes)` changes what gets stored.
+
+A **wither** is a method like `withWindow` that returns a copy with one field changed. Java has no `with` syntax for records yet, so you write one small wither per field you want to change. The Kotlin twin needs neither builder nor withers, and its `init` block plays the part of the compact constructor.
+
+`RecordBuilderDemo`, in the Try it, builds one request and pokes at it:
+
+```text
+built:        DeliveryRequest[address=12 Mill Lane, speed=EXPRESS, notes={door=blue gate}, window=PT2H, retries=2]
+narrower:     PT30M
+notes:        unmodifiable
+wither:       retries must be >= 0, was -1
 ```
 
-The builder holds no rules. The rules live in the compact constructor, which `build()`, the wither `withTimeout` and a direct `new IssuerCall(...)` all go through. A compact constructor is a record constructor written without a parameter list. Its body runs first, and javac assigns the fields from the parameters after it, which is why `headers = Map.copyOf(headers)` changes what gets stored. Withers are how you get Prototype on a record: Java has no `with` syntax, so you write one small method per field you want to change. The Kotlin twin needs neither builder nor withers, and its `init` block plays the role of the compact constructor.
+The wither couldn't sneak past the check either. The JDK's newer APIs follow the same idea, a builder that produces an object nobody can change: `HttpClient.newBuilder()`, and `Thread.ofVirtual()`, which returns a `Thread.Builder`.
 
-The JDK's newer APIs follow the same idea of a builder that produces an immutable result: `HttpClient.newBuilder()`, and `Thread.ofVirtual()`, which returns a `Thread.Builder`.
+One builder bug deserves a name. If `build()` checks but the class also has a public constructor that doesn't, half the program skips the rules. That's a sandwich counter with a side door into the kitchen. **Put the rules in the type, never only in the builder.**
 
-One builder bug deserves a name. If `build()` validates but the class also has a public constructor that doesn't, half the code base skips the rules. Put the rules in the type, never only in the builder."""
+The builders so far make flat things. An order has a list of items inside it and notes beside them, and for nested data Kotlin has a neater tool."""
 
-S3 = """For nested data, Kotlin lets you write a builder that reads like a configuration file:
-
-```kotlin
-val req = paymentRequest {
-    idempotencyKey = "order-981-attempt-1"
-    lineItems {
-        item("sku-1", 1_000)
-        item("sku-2", 500)
+# ---------------------------------------------------------------- section 2
+K_USE = """val o = order {
+    customer = "anna@example.com"
+    items {
+        item("rye bread", 450)
+        item("oat milk", 220)
     }
-    metadata("orderId", "981")
-}
-```
-
-```java
-// Java has no lambdas with receivers; the closest is a Consumer that receives the builder
-PaymentRequest req = paymentRequest(r -> {
-    r.idempotencyKey("order-981-attempt-1");
-    r.lineItems(items -> {
-        items.item("sku-1", 1_000);
-        items.item("sku-2", 500);
+    note("door", "blue gate")
+}"""
+J_USE = """// Java has no lambdas with receivers; the closest is a Consumer that receives the builder
+Order o = order(b -> {
+    b.customer("anna@example.com");
+    b.items(items -> {
+        items.item("rye bread", 450);
+        items.item("oat milk", 220);
     });
-    r.metadata("orderId", "981");
-});
-```
+    b.note("door", "blue gate");
+});"""
+K_BUILDER = """fun order(block: OrderBuilder.() -> Unit): Order =
+    OrderBuilder().apply(block).build()
 
-The trick is a **lambda with receiver**. `paymentRequest` takes a `PaymentRequestBuilder.() -> Unit`: a function that runs with a builder as `this`. Inside the braces, `idempotencyKey` and `lineItems` are members of that builder:
-
-```kotlin
-fun paymentRequest(block: PaymentRequestBuilder.() -> Unit): PaymentRequest =
-    PaymentRequestBuilder().apply(block).build()
-
-class PaymentRequestBuilder {
-    var idempotencyKey: String? = null
-    private val items = mutableListOf<LineItem>()
-    fun lineItems(block: LineItemsBuilder.() -> Unit) { items += LineItemsBuilder().apply(block).build() }
-    fun build(): PaymentRequest { /* validate, then copy into the request */ }
-}
-```
-
-```java
-static PaymentRequest paymentRequest(Consumer<PaymentRequestBuilder> block) {
-    PaymentRequestBuilder b = new PaymentRequestBuilder();
+class OrderBuilder {
+    var customer: String? = null
+    private val items = mutableListOf<Item>()
+    fun items(block: ItemsBuilder.() -> Unit) { items += ItemsBuilder().apply(block).build() }
+    fun build(): Order { /* check, then copy into the order */ }
+}"""
+J_BUILDER = """static Order order(Consumer<OrderBuilder> block) {
+    OrderBuilder b = new OrderBuilder();
     block.accept(b);                                   // the block gets the builder as a parameter
     return b.build();
 }
 
-final class PaymentRequestBuilder {
-    private String idempotencyKey;
-    private final List<LineItem> items = new ArrayList<>();
-    void idempotencyKey(String key) { idempotencyKey = key; }
-    void lineItems(Consumer<LineItemsBuilder> block) {
-        LineItemsBuilder b = new LineItemsBuilder();
+final class OrderBuilder {
+    private String customer;
+    private final List<Item> items = new ArrayList<>();
+    void customer(String c) { customer = c; }
+    void items(Consumer<ItemsBuilder> block) {
+        ItemsBuilder b = new ItemsBuilder();
         block.accept(b);
         items.addAll(b.build());
     }
-    PaymentRequest build() { /* validate, then copy into the request */ }
-}
+    Order build() { /* check, then copy into the order */ }
+}"""
+K_MARK = """@DslMarker annotation class OrderDsl
+
+@OrderDsl class OrderBuilder { ... }
+@OrderDsl class ItemsBuilder { ... }"""
+J_MARK = """// Java needs no marker: each block names its builder, so reaching the outer one means typing b
+b.items(items -> {
+    items.item("rye bread", 450);
+    b.customer("x");       // compiles, but you can see it in review
+});"""
+
+S2 = """For nested data, Kotlin lets you write a builder that reads like a filled-in form. Here's an order in the lab's DSL, a domain-specific language: a small language for one job, written inside Kotlin.
+
+""" + pair_kj(K_USE, J_USE) + """
+
+That's the sandwich counter again, with a smaller counter inside it for the items. The trick is a **lambda with receiver**. `order` takes an `OrderBuilder.() -> Unit`: a function that runs with a builder as `this`. Inside the braces, `customer` and `items` are members of that builder, so you call them with no prefix:
+
+""" + pair_kj(K_BUILDER, J_BUILDER) + """
+
+Read `OrderBuilder().apply(block)` as "make a builder, run the block with it as `this`, and hand the builder back". Gradle's Kotlin build files and the kotlinx.html library are built the same way. The builder is still a builder: `build()` is the one place that sees every field, so it checks them there.
+
+There's one trap. Inside `items { }`, two receivers are in scope: the `ItemsBuilder` and the outer `OrderBuilder`. So `customer = "x"` written inside the inner block compiles, and quietly sets the outer field. The demo in the Try it shows this on a delivery round, a driver and a list of stops. Without protection, one innocent-looking line inside the stops block changed the driver:
+
+```text
+Round(driver=oops, stops=[Stop(orderId=o-101, parcels=2), Stop(orderId=o-102, parcels=3)])
 ```
 
-Gradle's Kotlin DSL, Ktor routing and kotlinx.html are built the same way. The Java shape, a `Consumer` per block, is what Spring Security's lambda configuration uses. The builder is still a builder: `build()` is the one place that sees every field, so it validates there.
+`@DslMarker` closes that hole. It's an annotation for annotations: you mark your own annotation with it, then put yours on every builder class.
 
-There is one trap. Inside `lineItems { }`, two receivers are in scope: the `LineItemsBuilder` and the outer `PaymentRequestBuilder`. So `idempotencyKey = "x"` written inside the inner block compiles and quietly sets the outer field. `@DslMarker` closes that hole:
+""" + pair_kj(K_MARK, J_MARK) + """
 
-```kotlin
-@DslMarker annotation class PaymentDsl
+With both builders marked, the compiler only lets you call members of the nearest receiver without a prefix. Reaching the outer one needs an explicit label, `this@order.customer`, which nobody writes by accident.
 
-@PaymentDsl class PaymentRequestBuilder { ... }
-@PaymentDsl class LineItemsBuilder { ... }
-```
+**Mark every builder in a DSL. Then an inner block can't reach outside by accident.**
 
-```java
-// Java needs no marker: each block names its builder, so reaching the outer one means typing r
-r.lineItems(items -> {
-    items.item("sku-1", 1_000);
-    r.idempotencyKey("x");       // compiles, but you can see it in review
-});
-```
+Build a DSL only when the data nests. A flat label with seven fields is clearer with named arguments, and a DSL would add two classes for nothing. The payoff comes with structure, like items inside an order or stops on a delivery round. It also helps when many people write the same kind of thing, because inside each block the editor offers only that builder's methods.
 
-With both builders marked, the compiler only lets you call members of the nearest receiver without a prefix. Reaching the outer one needs an explicit label, `this@paymentRequest.idempotencyKey`, which nobody writes by accident.
+Building is half of this lesson. The other half starts from an object you already have."""
 
-Build a DSL only when the data nests. A flat request with seven fields is clearer with named arguments, and a DSL would add two classes and a layer of indirection for nothing. The payoff comes with structure: line items under a payment, split payouts under a marketplace order, routing rules under a merchant. It also helps when many people write the same kind of configuration, because inside each block the IDE offers only that builder's methods."""
-
-S4 = """Prototype means making a new object by copying an existing one and changing a few fields. Payment code does this constantly: a recurring-charge template copied per merchant, a default config copied per tenant, a test fixture copied per test.
-
-Java's original mechanism, `Cloneable`, is broken by design. The interface has no `clone` method, so implementing it gives callers nothing to call. `Object.clone()` is protected and makes a shallow copy. To use it you override `clone`, call `super.clone()`, catch a `CloneNotSupportedException` that can't happen, and then fix every mutable field by hand. Skip it. Use a copy constructor, a static copy factory, or a wither on a record.
-
-Records make withers easy to write and Kotlin data classes generate `copy()`. Neither copies deeply. The Kotlin docs say it plainly: `copy()` creates a shallow copy, and references to other objects are shared.
-
-```kotlin
-data class Cart(val id: String, val skus: MutableList<String>)
-val c1 = Cart("c1", mutableListOf("sku-1"))
+# ---------------------------------------------------------------- section 3
+K_CART = """data class Cart(val id: String, val items: MutableList<String>)
+val c1 = Cart("c1", mutableListOf("bread"))
 val c2 = c1.copy(id = "c2")
-c2.skus += "sku-2"          // c1.skus is now [sku-1, sku-2]
-```
-
-```java
-record Cart(String id, List<String> skus) {
-    Cart withId(String newId) { return new Cart(newId, skus); }   // a wither: shares the list
+c2.items += "milk"          // c1.items is now [bread, milk]"""
+J_CART = """record Cart(String id, List<String> items) {
+    Cart withId(String newId) { return new Cart(newId, items); }   // a wither: shares the list
 }
-var c1 = new Cart("c1", new ArrayList<>(List.of("sku-1")));
+var c1 = new Cart("c1", new ArrayList<>(List.of("bread")));
 var c2 = c1.withId("c2");
-c2.skus().add("sku-2");     // c1.skus() is now [sku-1, sku-2]
+c2.items().add("milk");     // c1.items() is now [bread, milk]"""
+
+S3 = """Now the photocopier. **Prototype** means making a new object by copying an existing one and changing a few fields. The shop does this every week: the Saturday breakfast box is set up once, and each customer gets a copy with their own name and notes. Tests do it too, with one sample order copied and changed in each test.
+
+Java's original tool for this, `Cloneable`, is broken by design. The interface has no `clone` method, so implementing it gives callers nothing to call. `Object.clone()` is protected, and it makes a shallow copy (more on that in a moment). To use it, you override `clone`, call `super.clone()`, catch a `CloneNotSupportedException` that can't happen, and then fix every changeable field by hand. Skip it. Use a copy constructor, a static copy factory, or a wither on a record.
+
+Records make withers easy to write, and Kotlin data classes generate `copy()`. Neither copies deeply. The Kotlin docs say it plainly: `copy()` creates a shallow copy, and references to other objects are shared. A **shallow copy** copies each field's value, and when the value is a reference to another object, such as a list, it copies the reference, not the list:
+
+""" + pair_kj(K_CART, J_CART) + """
+
+That was the warm-up. `copy()` is very obliging: it copies exactly what you asked for, the reference, and not one thing more. Here the photocopier picture breaks. A photocopy is a separate piece of paper, and writing on it never changes the original. But picture a form with a shopping list clipped to it. `copy()` gives you a new form with the same shopping list clipped on, so writing on the copy's list writes on the original's. The figure shows both carts holding one list.
+
+The fix is the same in both languages. Store collections that can't change, `List.copyOf` in a compact constructor in Java and a read-only `List` in Kotlin, and let withers build a new collection: `copy(items = items + "milk")`. Then sharing is harmless, because nobody can write on the shared sheet.
+
+**A copy is only as safe as the parts it shares. Share only parts that can't change.**
+
+Kotlin has a second trap. `data class Email private constructor(val value: String)` still gets a public `copy()`, so `Email.of("anna@example.com").copy(value = "not-an-email")` compiles and skips your factory. Kotlin 2.4 only warns, at the line that calls `copy`:
+
+```text
+w: CopyTrap.kt:29:24 This 'copy()' exposes the non-public primary constructor of a 'data class'. ... This will become an error in language version 2.5.
 ```
 
-The fix is the same in both languages. Store collections you can't change (`List.copyOf` in a compact constructor in Java; a read-only `List` in Kotlin), and let withers build a new collection: `copy(skus = skus + "sku-2")`.
+Add `@ConsistentCopyVisibility` to make `copy()` as private as the constructor today. A check in an `init` block is safer still, because `copy()` runs it. Java records never had this illusion. A record's canonical constructor, the one that takes every component, can't be less visible than the record itself, so the rules belong in the compact constructor from the start.
 
-Kotlin has a second trap. `data class Email private constructor(val value: String)` still gets a public `copy()`, so `Email.of("anna@example.com").copy(value = "not-an-email")` compiles and skips your factory. Kotlin 2.4 only warns, and the warning says it becomes an error in language version 2.5. Add `@ConsistentCopyVisibility` to make `copy()` as private as the constructor in the current release. Validation in an `init` block is safer still, because `copy()` runs it. Java records never had the private-constructor illusion: a record's canonical constructor can't be less visible than the record, so the rules belong in the compact constructor from the start."""
+Check yourself. The shop's breakfast box template is a data class with `val tags: MutableList<String>`. Anna's copy gets the tag `"no nuts"` through `annasBox.tags += "no nuts"`. What do Ben's box and the template now say? (Both say `no nuts` too, because all three share one list. With a read-only `List` and `copy(tags = tags + "no nuts")`, only Anna's box changes.)"""
 
 L = {
  "id": "pat-03",
  "title": "Builder and Prototype",
  "minutes": 38,
- "goal": "By the end you can choose between named arguments, a Java record plus builder, and a Kotlin DSL builder, and make copies of templates that never share mutable state with the original.",
+ "goal": "By the end you can choose between named arguments, a Java record with a builder, and a Kotlin DSL builder, and make copies of templates that never share changeable parts with the original.",
+ "opening": OPENING,
  "warmup": {
-  "q": "`data class Cart(val id: String, val skus: MutableList<String>)`. You run `val c2 = c1.copy(id = \"c2\")` and then `c2.skus += \"sku-2\"`. What happens to `c1.skus`?",
-  "options": ["Nothing: `copy()` makes a deep copy", "It now contains `sku-2` too, because both carts share one list", "It throws, because data class properties are immutable", "It depends on whether `c1` was declared with `val`"],
+  "q": "`data class Cart(val id: String, val items: MutableList<String>)`. You run `val c2 = c1.copy(id = \"c2\")` and then `c2.items += \"milk\"`. What happens to `c1.items`?",
+  "options": ["Nothing: `copy()` makes a deep copy", "It now contains `milk` too, because both carts share one list", "It throws, because data class properties can't change", "It depends on whether `c1` was declared with `val`"],
   "answer": 1,
-  "why": "`copy()` is shallow. It copies the reference to the list, not the list, so `c1` and `c2` hold the same `MutableList`. `val` only stops you from pointing the property at another list; it says nothing about the list's contents. Records in Java behave the same way."
+  "why": "`copy()` is shallow. It copies the reference to the list, not the list, so `c1` and `c2` hold the same `MutableList`. `val` only stops you from pointing the property at another list; it says nothing about what's inside the list. Java records behave the same way. The last section of this lesson takes it apart and fixes it."
  },
  "sections": [
   {
    "h": "Named and default arguments replace most builders",
-   "body": S1,
+   "body": S0,
    "refs": [
     {"title": "Functions: named and default arguments (Kotlin docs)", "url": "https://kotlinlang.org/docs/functions.html", "kind": "docs"},
     {"title": "Effective Java 3e source, item 2: the Builder", "url": "https://raw.githubusercontent.com/jbloch/effective-java-3e-source-code/master/src/effectivejava/chapter2/item2/builder/NutritionFacts.java", "kind": "read"}
@@ -253,20 +297,17 @@ L = {
   },
   {
    "h": "When a builder still earns its place",
-   "body": S2,
+   "body": S1,
    "try": {
     "title": "Find where the rules live",
     "minutes": 4,
     "steps": [
-     "Run `RecordBuilderDemo` with the command below and read the four lines.",
-     "In the Java `main`, change `.maxRetries(2)` to `.maxRetries(-1)` (in Kotlin, `maxRetries = -1`). Predict: which line throws, and from where? Run it.",
+     "Run `RecordBuilderDemo` with the command below, and read the four lines.",
+     "In the Java `main`, change `.retries(2)` to `.retries(-1)` (in Kotlin, `retries = 2` to `retries = -1`). Predict: which line throws, and from where? Run it.",
      "Undo the change."
     ],
-    "code": {"lang": "java", "title": "RecordBuilderDemo.java", "src": read(f"{lab}/demo/{J}/RecordBuilderDemo.java"),
-             "run": demo("RecordBuilderDemo"), "file": f"{lab}/demo/{J}/RecordBuilderDemo.java",
-             "alt": {"lang": "kotlin", "title": "RecordBuilderDemo.kt", "src": read(f"{lab}/demo/{K}/RecordBuilderDemo.kt"),
-                     "run": demo("RecordBuilderDemoKt"), "file": f"{lab}/demo/{K}/RecordBuilderDemo.kt"}},
-    "expect": "The first run prints the built call, `PT0.8S` for the faster copy, `headers: unmodifiable` and `wither: maxRetries must be >= 0, was -1`. With `.maxRetries(-1)` the program dies in `build()`, and the stack trace points into the record's compact constructor: the builder has no rules of its own, so it can't forget any. The Kotlin twin fails in the same place, its `init` block, and prints `copy(): maxRetries must be >= 0, was -1` for the copy."
+    "code": code("java", "RecordBuilderDemo.java", "RecordBuilderDemo", "kotlin", "RecordBuilderDemo.kt", "RecordBuilderDemoKt"),
+    "expect": "The first run prints the built request, `PT30M` for the narrower copy, `notes:        unmodifiable` and `wither:       retries must be >= 0, was -1`. With `.retries(-1)` the program stops in `build()` with `IllegalArgumentException: retries must be >= 0, was -1`, and the stack trace's top line is the record's compact constructor, `RecordBuilderDemo$DeliveryRequest.<init>`, called from `Builder.build`. The builder has no rules of its own, so it can't forget any. The Kotlin twin fails in the same place, its `init` block, and in a normal run prints `copy():       retries must be >= 0, was -1`."
    },
    "refs": [
     {"title": "HttpClient.Builder (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.net.http/java/net/http/HttpClient.Builder.html", "kind": "docs"}
@@ -274,278 +315,271 @@ L = {
   },
   {
    "h": "Type-safe builders: lambdas with receivers and @DslMarker",
-   "body": S3,
+   "body": S2,
    "try": {
     "title": "Make the inner block reach outside",
     "minutes": 5,
     "steps": [
      "Run `DslScope.kt` with the command below.",
-     "Uncomment the line `reason = \"oops\"` inside the `refunds { }` block. Predict, then run.",
-     "Now delete both `@RefundDsl` lines above the two builder classes (keep the annotation class itself) and run again. What is the batch's reason?",
-     "Restore the file. Then open the Java twin and uncomment `batchB.reason(\"oops\")`: it compiles, but notice that you had to type the outer builder's name."
+     "Uncomment the line `driver = \"oops\"` inside the `stops { }` block. Predict, then run.",
+     "Now delete both `@RoundDsl` lines above the two builder classes (keep the annotation class itself) and run again. Who is driving the round now?",
+     "Restore the file. Then open the Java twin and uncomment `rb.driver(\"oops\")`: it compiles, but notice that you had to type the outer builder's name."
     ],
-    "code": {"lang": "kotlin", "title": "DslScope.kt", "src": read(f"{lab}/demo/{K}/DslScope.kt"),
-             "run": demo("DslScopeKt"), "file": f"{lab}/demo/{K}/DslScope.kt",
-             "alt": {"lang": "java", "title": "DslScopeJava.java", "src": read(f"{lab}/demo/{J}/DslScopeJava.java"),
-                     "run": demo("DslScopeJava"), "file": f"{lab}/demo/{J}/DslScopeJava.java"}},
-    "expect": "The first run prints a batch with reason `duplicate charge` and `total refunded: 2240`. With the line uncommented, the build fails: `'var reason: String' cannot be called in this context with an implicit receiver. Use an explicit receiver if necessary.` Without the marker it compiles and prints `reason=oops`: the inner block silently rewrote the outer batch."
+    "code": code("kotlin", "DslScope.kt", "DslScopeKt", "java", "DslScopeJava.java", "DslScopeJava"),
+    "expect": "The first run prints a round with `driver=Sam` and `parcels on the van: 5`. With the line uncommented, the build fails: `'var driver: String' cannot be called in this context with an implicit receiver. Use an explicit receiver if necessary.` Without the marker it compiles and prints `driver=oops`: the inner block quietly rewrote the outer round. The Java twin prints `driver=oops` too, but the line that did it says `rb.` in plain sight."
    },
    "refs": [
     {"title": "Type-safe builders (Kotlin docs)", "url": "https://kotlinlang.org/docs/type-safe-builders.html", "kind": "docs"}
    ]
   },
   {
-   "h": "Prototype: every copy is shallow until you make it deep",
-   "body": S4,
+   "h": "Prototype: every copy is shallow until you make it safe",
+   "body": S3,
    "figure": {"svg": FIG, "caption": "A shallow copy shares the list, so changing one cart changes both. Build a new list in the copy instead."},
    "try": {
-    "title": "Spring both copy traps",
+    "title": "Trigger both copy traps",
     "minutes": 4,
     "steps": [
      "Read `CopyTrap.kt` (or its Java twin) and predict the three lines it prints.",
-     "Run it. If Gradle recompiles the file, read the `w:` warnings too.",
-     "Add `@ConsistentCopyVisibility` on the line above `data class Email` and run again."
+     "Run it. If Gradle compiles the file again, read the `w:` warnings too.",
+     "Add `@ConsistentCopyVisibility` on the line above `data class Email`, and run again."
     ],
-    "code": {"lang": "kotlin", "title": "CopyTrap.kt", "src": read(f"{lab}/demo/{K}/CopyTrap.kt"),
-             "run": demo("CopyTrapKt"), "file": f"{lab}/demo/{K}/CopyTrap.kt",
-             "alt": {"lang": "java", "title": "CopyTrapJava.java", "src": read(f"{lab}/demo/{J}/CopyTrapJava.java"),
-                     "run": demo("CopyTrapJava"), "file": f"{lab}/demo/{J}/CopyTrapJava.java"}},
-    "expect": "It prints `c1.skus after changing c2: [sku-1, sku-2]` (the copy shared the list), `copy() skipped the factory: Email(value=not-an-email)`, and `negative amount: -1`, because `init` runs on `copy()`. The compiler warns that the non-public primary constructor is exposed via `copy()`. With `@ConsistentCopyVisibility`, the build stops with `Cannot access 'fun copy(value: String = ...): Email': it is private`. The Java twin prints the same story: the wither shares the list, `new Email(\"not-an-email\")` skips the factory, and the compact constructor rejects `-1`."
+    "code": code("kotlin", "CopyTrap.kt", "CopyTrapKt", "java", "CopyTrapJava.java", "CopyTrapJava"),
+    "expect": "It prints `c1.items after changing c2: [bread, milk]` (the copy shared the list), `copy() skipped the factory: Email(value=not-an-email)`, and `Price(5).copy(cents = -1): negative price: -1`, because `init` runs on `copy()`. The compiler warns twice: `Non-public primary constructor is exposed via the generated 'copy()' method of the 'data' class.` on the class, and a second warning at the `copy` call that says it will become an error in language version 2.5. With `@ConsistentCopyVisibility`, the build stops with `Cannot access 'fun copy(value: String = ...): Email': it is private in 'workbench.patterns.l03.Email'.` The Java twin tells the same story: the wither shares the list, `new Email(\"not-an-email\")` skips the factory, and the compact constructor rejects `-1`."
    },
    "refs": [
     {"title": "Data classes: copying (Kotlin docs)", "url": "https://kotlinlang.org/docs/data-classes.html", "kind": "docs"}
    ]
   }
  ],
- "analogy": "A builder is an order form at a card-printing desk: you tick the boxes you care about, leave the rest at their defaults, and the clerk checks the whole form before printing anything. Kotlin's named arguments are a form so short you fill it in at the counter. Prototype is photocopying a filled-in form and changing two fields. The analogy breaks on the shallow copy: a photocopy is a real, separate piece of paper, while `copy()` gives you a new form that still points at the same attached sheet of line items, so writing on the copy's attachment writes on the original's.",
- "in_your_world": "Payment requests to an issuer have a dozen optional fields: descriptor, 3-D Secure data, metadata, capture mode, retry policy. In Kotlin services, a data class with defaults and an `init` block is all you need. For a shared client library that Java services call, add a builder. Test fixtures are prototypes: one `baseAuthorization` copied per test with `copy(amountMinor = 0)`. If that fixture holds a `MutableList` of line items, one test can poison every test after it. The same goes for a Quarkus `@ApplicationScoped` bean that hands out a default config object which callers then copy and modify.",
- "mistake": "The most common mistake is trusting `copy()` or a record wither to make an independent object when a component is mutable. A `MutableList`, a `HashMap`, an array or a mutable `Date` is shared between the original and the copy, so changing one changes both. It happens because the class looks immutable: every property is `val`, or it's a record. The fix is to store copies that can't change (`List.copyOf` in a compact constructor, read-only types and `toList()` in Kotlin), and to make withers build new collections instead of mutating the shared one.",
  "compare": {
   "title": "A prototype that copies safely",
-  "java": {"title": "TenantConfig.java", "src": """record TenantConfig(String tenantId, List<String> paymentMethods, Map<String, Long> dailyLimits) {
-    TenantConfig {                                        // every copy passes through here
-        paymentMethods = List.copyOf(paymentMethods);
-        dailyLimits = Map.copyOf(dailyLimits);
+  "java": {"title": "DeliveryPlan.java", "src": """record DeliveryPlan(String district, List<String> days, Map<String, Long> feeCents) {
+    DeliveryPlan {                                       // every copy passes through here
+        days = List.copyOf(days);
+        feeCents = Map.copyOf(feeCents);
     }
 
-    TenantConfig forTenant(String id) {                   // safe to share: nothing can change
-        return new TenantConfig(id, paymentMethods, dailyLimits);
+    DeliveryPlan forDistrict(String d) {                 // safe to share: nothing can change
+        return new DeliveryPlan(d, days, feeCents);
     }
 
-    TenantConfig withMethod(String method) {              // copy, change the copy, wrap again
-        var methods = new ArrayList<>(paymentMethods);
-        methods.add(method);
-        return new TenantConfig(tenantId, methods, dailyLimits);
+    DeliveryPlan withDay(String day) {                   // copy, change the copy, wrap again
+        var copy = new ArrayList<>(days);
+        copy.add(day);
+        return new DeliveryPlan(district, copy, feeCents);
     }
 }
 
-var base = new TenantConfig("default", List.of("CARD"), Map.of("CARD", 500_000L));
-var acme = base.forTenant("acme").withMethod("SEPA");"""},
-  "kotlin": {"title": "TenantConfig.kt", "src": """data class TenantConfig(
-    val tenantId: String,
-    val paymentMethods: List<String>,          // read-only types
-    val dailyLimits: Map<String, Long>,
+var base = new DeliveryPlan("town center", List.of("MON", "THU"), Map.of("BIKE", 250L));
+var harbour = base.forDistrict("harbour").withDay("SAT");"""},
+  "kotlin": {"title": "DeliveryPlan.kt", "src": """data class DeliveryPlan(
+    val district: String,
+    val days: List<String>,                    // read-only types
+    val feeCents: Map<String, Long>,
 )
 
-val base = TenantConfig("default", listOf("CARD"), mapOf("CARD" to 500_000L))
-val acme = base.copy(
-    tenantId = "acme",
-    paymentMethods = base.paymentMethods + "SEPA",  // + builds a new list
+val base = DeliveryPlan("town center", listOf("MON", "THU"), mapOf("BIKE" to 250L))
+val harbour = base.copy(
+    district = "harbour",
+    days = base.days + "SAT",                  // + builds a new list
 )"""},
-  "note": "Kotlin generates `copy()` with named arguments, so it needs no withers, and `+` on a read-only `List` or `Map` returns a new collection. Java needs one hand-written wither per field. Both copies are shallow, and the safety comes from the components, not from the copy. There is one real difference: Java's compact constructor can replace the incoming list with `List.copyOf`, while a Kotlin data class property can't be reassigned in `init`. A Kotlin `List` parameter is only read-only, so a caller who passes a `MutableList` and keeps a reference can still change it. If that matters, take the list as a plain constructor parameter and store `toList()` in a property."
+  "note": "Kotlin generates `copy()` with named arguments, so it needs no withers, and `+` on a read-only `List` or `Map` returns a new collection. Java needs one hand-written wither per field. Both copies are shallow, and the safety comes from the parts, not from the copy. There's one real difference. Java's compact constructor can replace the incoming list with `List.copyOf`, while a Kotlin data class property can't be reassigned in `init`. A Kotlin `List` parameter is only read-only, so a caller who passes a `MutableList` and keeps a reference to it can still change it. If that matters, take the list as a plain constructor parameter and store `toList()` in a property."
  },
  "worked": {
   "title": "From a telescoping constructor to a record and builder, and to a Kotlin class",
   "steps": [
-   {"say": "Here is a call to an issuer charge request with eight positional arguments. Before reading on, say which argument is the statement descriptor, and which rule you'd expect `ChargeRequest` to enforce.",
-    "code": """new ChargeRequest(1_250, "EUR", "tok_42", "ACME*ORDER 981", null, true, 2, 30_000);""", "lang": "java",
-    "alt_code": """ChargeRequest(1_250, "EUR", "tok_42", "ACME*ORDER 981", null, true, 2, 30_000)""", "alt_lang": "kotlin"},
-   {"say": "Put every rule in one place that all paths go through: the record's compact constructor in Java, the `init` block in Kotlin. The cross-field rule (a descriptor only on captured charges, and 22 characters at most) can only be checked where all fields are known. Kotlin also gets its defaults here, which is half of what a builder does.",
-    "code": """record ChargeRequest(long amountMinor, String currency, String token, String descriptor,
-                     String threeDsData, boolean capture, int maxRetries, long timeoutMs) {
-    ChargeRequest {
-        if (amountMinor <= 0) throw new IllegalArgumentException("amount must be positive");       // 1. single-field rules
-        if (maxRetries < 0) throw new IllegalArgumentException("maxRetries must be >= 0");
-        if (descriptor != null && (!capture || descriptor.length() > 22))                          // 2. cross-field rule
-            throw new IllegalArgumentException("descriptor needs capture=true and at most 22 chars");
+   {"say": "Here's the label call from the first section, with all seven arguments. Before reading on, say which argument is the note, and which rules you'd expect `Label` to enforce.",
+    "code": """new Label("12 Mill Lane", "Anna", true, true, false, 1, "ring twice");""", "lang": "java",
+    "alt_code": """Label("12 Mill Lane", "Anna", true, true, false, 1, "ring twice")""", "alt_lang": "kotlin"},
+   {"say": "Put every rule in one place that all paths go through: the record's compact constructor in Java, the `init` block in Kotlin. The rule that relates two fields (a this-way-up arrow only goes on a fragile label) can only be checked where all the fields are known. Kotlin also gets its defaults here, which is half of what a builder does.",
+    "code": """record Label(String address, String name, boolean fragile, boolean thisWayUp,
+             boolean express, int copies, String note) {
+    Label {
+        if (copies < 1) throw new IllegalArgumentException("copies must be >= 1");                 // 1. one-field rules
+        if (note != null && note.length() > 30) throw new IllegalArgumentException("note is too long");
+        if (thisWayUp && !fragile)                                                                 // 2. a rule across fields
+            throw new IllegalArgumentException("this-way-up arrows only go on fragile labels");
     }
 }""", "lang": "java",
-    "alt_code": """data class ChargeRequest @JvmOverloads constructor(
-    val amountMinor: Long,
-    val currency: String,
-    val token: String,
-    val descriptor: String? = null,                                  // 3. defaults live in the signature
-    val threeDsData: String? = null,
-    val capture: Boolean = true,
-    val maxRetries: Int = 0,
-    val timeoutMs: Long = 10_000,
+    "alt_code": """data class Label @JvmOverloads constructor(
+    val address: String,
+    val name: String,
+    val fragile: Boolean = false,                                    // 3. defaults live in the signature
+    val thisWayUp: Boolean = false,
+    val express: Boolean = false,
+    val copies: Int = 1,
+    val note: String? = null,
 ) {
     init {
-        require(amountMinor > 0) { "amount must be positive" }                   // 1. single-field rules
-        require(maxRetries >= 0) { "maxRetries must be >= 0" }
-        require(descriptor == null || (capture && descriptor.length <= 22)) {     // 2. cross-field rule
-            "descriptor needs capture=true and at most 22 chars"
+        require(copies >= 1) { "copies must be >= 1" }                             // 1. one-field rules
+        require(note == null || note.length <= 30) { "note is too long" }
+        require(!thisWayUp || fragile) {                                           // 2. a rule across fields
+            "this-way-up arrows only go on fragile labels"
         }
     }
 }""", "alt_lang": "kotlin"},
-   {"say": "Java needs a builder that only collects and supplies defaults; its `build()` calls the canonical constructor, so the rules run there. Kotlin needs no builder: named arguments do the job, and `@JvmOverloads` gives Java callers some overloads. If Java teams call the Kotlin class often, add a builder for them too.",
-    "code": """static final class Builder {
-    private final long amountMinor; private final String currency; private final String token;
-    private String descriptor; private String threeDsData;
-    private boolean capture = true; private int maxRetries = 0; private long timeoutMs = 10_000;    // 3. defaults
+   {"say": "Java needs a builder that only collects and supplies defaults. Its `build()` calls the record's constructor, so the rules run there. Kotlin needs no builder: named arguments do the job, and `@JvmOverloads` gives Java callers some overloads. If Java code calls the Kotlin class often, add a builder for it too.",
+    "code": """// inside record Label
+static Builder builder(String address, String name) { return new Builder(address, name); }
 
-    Builder(long amountMinor, String currency, String token) {
-        this.amountMinor = amountMinor; this.currency = currency; this.token = token;              // 4. required up front
-    }
-    Builder descriptor(String d) { descriptor = d; return this; }
-    Builder maxRetries(int n) { maxRetries = n; return this; }
-    Builder timeoutMs(long ms) { timeoutMs = ms; return this; }
-    ChargeRequest build() {
-        return new ChargeRequest(amountMinor, currency, token, descriptor, threeDsData, capture, maxRetries, timeoutMs);
+static final class Builder {
+    private final String address; private final String name;
+    private boolean fragile, thisWayUp, express;
+    private int copies = 1; private String note;                                         // 3. defaults
+
+    Builder(String address, String name) { this.address = address; this.name = name; }   // 4. required up front
+    Builder fragile(boolean f) { fragile = f; return this; }
+    Builder thisWayUp(boolean t) { thisWayUp = t; return this; }
+    Builder copies(int n) { copies = n; return this; }
+    Builder note(String n) { note = n; return this; }
+    Label build() {
+        return new Label(address, name, fragile, thisWayUp, express, copies, note);
     }
 }
 
-var req = new ChargeRequest.Builder(1_250, "EUR", "tok_42").descriptor("ACME*ORDER 981").maxRetries(2).build();""", "lang": "java",
+var label = Label.builder("12 Mill Lane", "Anna").fragile(true).thisWayUp(true).note("ring twice").build();""", "lang": "java",
     "alt_code": """// 4. required values have no default, so the compiler insists on them
-val req = ChargeRequest(1_250, "EUR", "tok_42", descriptor = "ACME*ORDER 981", maxRetries = 2)
-val retryFaster = req.copy(timeoutMs = 2_000)        // the "wither" is generated""", "alt_lang": "kotlin"}
+val label = Label("12 Mill Lane", "Anna", fragile = true, thisWayUp = true, note = "ring twice")
+val rushed = label.copy(express = true)              // the "wither" is generated""", "alt_lang": "kotlin"}
   ]
  },
  "lab": {
-  "title": "A validating payment DSL, and a prototype that stops leaking",
+  "title": "A checking order DSL, and a prototype that stops leaking",
   "minutes": 14,
-  "files": [f"{lab}/main/{K}/PaymentRequestDsl.kt", f"{lab}/main/{J}/ChargeTemplate.java"],
+  "files": [f"{lab}/main/{K}/OrderDsl.kt", f"{lab}/main/{J}/OrderTemplate.java"],
   "run": "./gradlew :patterns:test --tests 'workbench.patterns.l03.*'",
   "steps": [
-   "Run the tests. Twelve of thirteen fail: the DSL is all `TODO`, and `ChargeTemplate` leaks tags and metadata between copies.",
-   "In `PaymentRequestDsl.kt`, write `LineItemsBuilder`: keep a private `MutableList`, and return `toList()` from `build()`.",
-   "Write `PaymentRequestBuilder`: `lineItems` runs the block on a fresh `LineItemsBuilder` and keeps its items; `metadata` puts into a private map; `build()` validates with `require` and copies the collections into the `PaymentRequest`. Then write `paymentRequest`.",
-   "Put `@PaymentDsl` on both builder classes.",
-   "Fix `ChargeTemplate.java`: add a compact constructor that stores `List.copyOf` and `Map.copyOf`, and make the withers copy the collection, change the copy, and build a new template.",
+   "Open the two files. `OrderDsl.kt` is the order DSL from this lesson, and `OrderTemplate` is the shop's prototype for regular orders such as the Saturday breakfast box.",
+   "Run the tests. Twelve of thirteen fail: the DSL is all `TODO`, and `OrderTemplate` leaks tags and notes between copies.",
+   "In `OrderDsl.kt`, write `ItemsBuilder`: keep a private `MutableList`, and return `toList()` from `build()`.",
+   "Write `OrderBuilder`: `items` runs the block on a fresh `ItemsBuilder` and keeps its items, `note` puts into a private map, and `build()` checks with `require` and copies the collections into the `Order`. Then write `order`. Put `@OrderDsl` on both builder classes.",
+   "Fix `OrderTemplate.java`: add a compact constructor that stores `List.copyOf` and `Map.copyOf`, and make the withers copy the collection, change the copy, and build a new template.",
    "Run the tests until all thirteen pass."
   ],
   "hints": [
-   "`require(condition) { \"idempotency key is required\" }` throws `IllegalArgumentException` with that message when the condition is false.",
+   "`require(condition) { \"customer is required\" }` throws `IllegalArgumentException` with that message when the condition is false.",
    "`currency.matches(Regex(\"[A-Z]{3}\"))` checks for three capital letters.",
-   "`LineItemsBuilder().apply(block).build()`: `apply` runs the lambda with the builder as `this` and returns the builder.",
-   "In a record's compact constructor, `tags = List.copyOf(tags);` reassigns the parameter before the field is set. You don't write `this.tags = ...`."
+   "`ItemsBuilder().apply(block).build()`: `apply` runs the lambda with the builder as `this` and returns the builder.",
+   "In a record's compact constructor, `tags = List.copyOf(tags);` replaces the parameter before the field is set. You don't write `this.tags = ...`."
   ],
-  "done_when": "All thirteen tests in `PaymentDslTest` and `ChargeTemplateTest` pass."
+  "done_when": "All thirteen tests in `OrderDslTest` and `OrderTemplateTest` pass."
  },
  "drill": {
   "title": "A two-level DSL from memory",
   "minutes": 6,
-  "prompt": "Close this page. Write `fun refundBatch(block: RefundBatchBuilder.() -> Unit): RefundBatch`, where the builder has a `var reason` and a nested `refunds { refund(paymentId, amountMinor) }` block, and `@DslMarker` stops the inner block from setting `reason`. Then compare with the answer, and with the Java twin built from `Consumer`s.",
-  "answer": {"lang": "kotlin", "src": """@DslMarker annotation class RefundDsl
+  "prompt": "Close this page. Write `fun round(block: RoundBuilder.() -> Unit): Round`, where the builder has a `var driver` and a nested `stops { stop(orderId, parcels) }` block, and `@DslMarker` stops the inner block from setting `driver`. Then compare with the answer, and with the Java twin built from `Consumer`s.",
+  "answer": {"lang": "kotlin", "src": """@DslMarker annotation class RoundDsl
 
-data class Refund(val paymentId: String, val amountMinor: Long)
-data class RefundBatch(val reason: String, val refunds: List<Refund>)
+data class Stop(val orderId: String, val parcels: Int)
+data class Round(val driver: String, val stops: List<Stop>)
 
-@RefundDsl
-class RefundsBuilder {
-    private val refunds = mutableListOf<Refund>()
-    fun refund(paymentId: String, amountMinor: Long) { refunds += Refund(paymentId, amountMinor) }
-    fun build() = refunds.toList()
+@RoundDsl
+class StopsBuilder {
+    private val stops = mutableListOf<Stop>()
+    fun stop(orderId: String, parcels: Int) { stops += Stop(orderId, parcels) }
+    fun build() = stops.toList()
 }
 
-@RefundDsl
-class RefundBatchBuilder {
-    var reason: String = "unspecified"
-    private var refunds: List<Refund> = emptyList()
-    fun refunds(block: RefundsBuilder.() -> Unit) { refunds = RefundsBuilder().apply(block).build() }
-    fun build() = RefundBatch(reason, refunds)
+@RoundDsl
+class RoundBuilder {
+    var driver: String = "unassigned"
+    private var stops: List<Stop> = emptyList()
+    fun stops(block: StopsBuilder.() -> Unit) { stops = StopsBuilder().apply(block).build() }
+    fun build() = Round(driver, stops)
 }
 
-fun refundBatch(block: RefundBatchBuilder.() -> Unit): RefundBatch =
-    RefundBatchBuilder().apply(block).build()""",
+fun round(block: RoundBuilder.() -> Unit): Round =
+    RoundBuilder().apply(block).build()""",
    "alt": {"lang": "java", "title": "Java", "src": """// Java has no lambdas with receivers: each block is a Consumer of its builder
-record Refund(String paymentId, long amountMinor) {}
-record RefundBatch(String reason, List<Refund> refunds) {}
+record Stop(String orderId, int parcels) {}
+record Round(String driver, List<Stop> stops) {}
 
-final class RefundsBuilder {
-    private final List<Refund> refunds = new ArrayList<>();
-    void refund(String paymentId, long amountMinor) { refunds.add(new Refund(paymentId, amountMinor)); }
-    List<Refund> build() { return List.copyOf(refunds); }
+final class StopsBuilder {
+    private final List<Stop> stops = new ArrayList<>();
+    void stop(String orderId, int parcels) { stops.add(new Stop(orderId, parcels)); }
+    List<Stop> build() { return List.copyOf(stops); }
 }
 
-final class RefundBatchBuilder {
-    private String reason = "unspecified";
-    private List<Refund> refunds = List.of();
-    void reason(String r) { reason = r; }
-    void refunds(Consumer<RefundsBuilder> block) {
-        RefundsBuilder b = new RefundsBuilder();
+final class RoundBuilder {
+    private String driver = "unassigned";
+    private List<Stop> stops = List.of();
+    void driver(String d) { driver = d; }
+    void stops(Consumer<StopsBuilder> block) {
+        StopsBuilder b = new StopsBuilder();
         block.accept(b);
-        refunds = b.build();
+        stops = b.build();
     }
-    RefundBatch build() { return new RefundBatch(reason, refunds); }
+    Round build() { return new Round(driver, stops); }
 }
 
-static RefundBatch refundBatch(Consumer<RefundBatchBuilder> block) {
-    RefundBatchBuilder b = new RefundBatchBuilder();
+static Round round(Consumer<RoundBuilder> block) {
+    RoundBuilder b = new RoundBuilder();
     block.accept(b);
     return b.build();
 }"""}}
  },
  "recap": [
-  "Kotlin named and default arguments, plus `copy()`, replace most builders. Put validation in `init`: it runs for every construction, `copy()` included.",
-  "A builder still helps for Java callers, for construction spread over several steps, and for nested data. In Java, pair a validating record (compact constructor) with a builder that only collects.",
-  "A type-safe DSL is a function that takes a lambda with receiver (`Builder.() -> Unit`). `@DslMarker` stops an inner block from silently reaching an outer builder.",
-  "`Cloneable` has no `clone` method and `Object.clone()` is shallow. Use copy constructors, copy factories or withers.",
+  "Kotlin's named and default arguments, plus `copy()`, replace most builders. Put the checks in `init`: it runs for every construction, `copy()` included.",
+  "A builder still helps for Java callers, for objects built over several steps, and for nested data. In Java, pair a checking record (its compact constructor) with a builder that only collects.",
+  "A type-safe DSL is a function that takes a lambda with receiver (`Builder.() -> Unit`). `@DslMarker` stops an inner block from quietly reaching an outer builder.",
+  "`Cloneable` has no `clone` method, and `Object.clone()` is shallow. Use copy constructors, copy factories or withers.",
   "Record withers and data class `copy()` are shallow. Store collections that can't change, and build new collections in withers.",
-  "In Kotlin 2.4 a private constructor doesn't make `copy()` private. Add `@ConsistentCopyVisibility`, or rely on `init` checks, which `copy()` runs."
+  "The limit: no copy in either language is deep, so a copy is only as safe as the parts it shares. And in Kotlin 2.4, a private constructor doesn't make `copy()` private without `@ConsistentCopyVisibility`."
  ],
+ "closing": "We started at the sandwich counter and the photocopier. In code, named arguments let you order in one breath, and a builder still earns its place for Java callers and nested orders. Copies were the surprise: every `copy()` and wither shares whatever its fields point to.\n\nNow look in your own code for a data class or record that holds a `MutableList`, a `HashMap` or an array, then search for its `copy(` or wither calls. Each may hand out a shared shopping list.\n\nNext, we'll stop building our own objects and start fitting other people's. When an old program speaks a different language from ours, how do we use it without its words spreading through the shop?",
  "quiz": [
-  {"q": "`data class Fee(val bps: Int) { init { require(bps in 0..1_000) } }`. What does `Fee(290).copy(bps = 5_000)` do?",
-   "options": ["Returns `Fee(5000)`, because `copy()` skips `init`", "Throws `IllegalArgumentException`, because `copy()` runs `init`", "Doesn't compile", "Returns `Fee(290)` unchanged"],
+  {"q": "`data class Fee(val cents: Int) { init { require(cents in 0..1_000) } }`. What does `Fee(250).copy(cents = 5_000)` do?",
+   "options": ["Returns `Fee(5000)`, because `copy()` skips `init`", "Throws `IllegalArgumentException`, because `copy()` runs `init`", "Doesn't compile", "Returns `Fee(250)` unchanged"],
    "answer": 1,
-   "why": "`copy()` calls the primary constructor with the new values, so every `init` block runs again and `require` throws. That's why `init` is the safest place for a data class's rules. What `copy()` does skip is a validating factory, when the constructor is private."},
-  {"q": "A Java team will call your Kotlin `ChargeRequest(amountMinor, currency, token, descriptor = null, capture = true, maxRetries = 0)` constructor from many places. What helps them most?",
-   "options": ["Nothing; Java 21 supports named arguments", "Mark the class `data`", "Put `@JvmStatic` on the constructor", "Add `@JvmOverloads`, or give them a builder"],
+   "why": "`copy()` calls the primary constructor with the new values, so every `init` block runs again and `require` throws. That's why `init` is the safest place for a data class's rules. What `copy()` does skip is a checking factory, when the constructor is private."},
+  {"q": "Java code will call your Kotlin `Label(address, name, fragile = false, thisWayUp = false, express = false, copies = 1)` constructor from many places. What helps that code most?",
+   "options": ["Nothing; Java 21 supports named arguments", "Mark the class `data`", "Put `@JvmStatic` on the constructor", "Add `@JvmOverloads`, or give Java a builder"],
    "answer": 3,
-   "why": "Java has no named or default arguments, so it sees one six-parameter constructor. `@JvmOverloads` generates overloads that drop trailing defaults, and a builder lets them set any subset by name. `@JvmStatic` applies to companion members, not constructors, and `data` changes nothing for Java callers here."},
-  {"q": "A DSL has no `@DslMarker`. Inside `lineItems { }`, someone writes `currency = \"USD\"`. `LineItemsBuilder` has no `currency`, but the outer `PaymentRequestBuilder` does. What happens?",
-   "options": ["It sets the outer builder's `currency`", "Compile error: unresolved reference", "A runtime exception", "It declares a local variable"],
+   "why": "Java has no named or default arguments, so it sees one six-parameter constructor. `@JvmOverloads` generates overloads that drop trailing defaults, and a builder lets Java code set any mix of fields by name. `@JvmStatic` applies to companion members, not constructors, and `data` changes nothing for Java callers here."},
+  {"q": "A DSL has no `@DslMarker`. Inside `items { }`, someone writes `currency = \"USD\"`. `ItemsBuilder` has no `currency`, but the outer `OrderBuilder` does. What happens?",
+   "options": ["It sets the outer builder's `currency`", "Compile error: unresolved reference", "An exception at run time", "It declares a local variable"],
    "answer": 0,
-   "why": "Both receivers are in scope inside the inner lambda, so the compiler resolves `currency` on the outer builder and sets it. Nothing fails. With `@DslMarker` on both builders, that line becomes a compile error unless you write `this@paymentRequest.currency`."},
-  {"q": "`record Cart(String id, List<String> skus) {}`. `c1` was built with `new ArrayList<>(List.of(\"a\"))`. Then `Cart c2 = new Cart(\"c2\", c1.skus()); c2.skus().add(\"b\");`. What happens?",
-   "options": ["`c1` is unchanged, because records are immutable", "The `add` throws `UnsupportedOperationException`", "`c1.skus()` now contains `b` too", "It doesn't compile"],
+   "why": "Both receivers are in scope inside the inner lambda, so the compiler finds `currency` on the outer builder and sets it. Nothing fails. With `@DslMarker` on both builders, that line becomes a compile error unless you write `this@order.currency`."},
+  {"q": "`record Cart(String id, List<String> items) {}`. `c1` was built with `new ArrayList<>(List.of(\"bread\"))`. Then `Cart c2 = new Cart(\"c2\", c1.items()); c2.items().add(\"milk\");`. What happens?",
+   "options": ["`c1` is unchanged, because records can't change", "The `add` throws `UnsupportedOperationException`", "`c1.items()` now contains `milk` too", "It doesn't compile"],
    "answer": 2,
-   "why": "Records are only shallowly immutable: the field can't point elsewhere, but the `ArrayList` it points to can change, and `c2` shares it. A compact constructor with `skus = List.copyOf(skus);` would give each record its own unmodifiable list, and the `add` would then throw."},
-  {"q": "From *Factory Method and Abstract Factory*: you hide a data class's constructor (`data class Email private constructor(val value: String)`) and offer a validating `Email.of(raw)`. In Kotlin 2.4, which line still creates an unvalidated `Email`?",
+   "why": "A record only stops its fields from pointing somewhere else. The `ArrayList` a field points to can still change, and `c2` shares it. A compact constructor with `items = List.copyOf(items);` would give each record its own unmodifiable list, and the `add` would then throw."},
+  {"q": "From *Factory Method and Abstract Factory*: you hide a data class's constructor (`data class Email private constructor(val value: String)`) and offer a checking `Email.of(raw)`. In Kotlin 2.4, which line still creates an unchecked `Email`?",
    "options": ["`Email(\"x\")` in another file", "`Email.of(\"a@b.example\").copy(value = \"x\")`", "`Email.of(\"x\")`", "None: a private constructor covers every path"],
    "answer": 1,
-   "why": "The generated `copy()` stays public even when the constructor is private; Kotlin 2.4 only warns about it. So `copy` creates an `Email` your factory never saw. `@ConsistentCopyVisibility` makes `copy()` private, and an `init` check would run on `copy()` too. A direct constructor call from outside does not compile.",
+   "why": "The generated `copy()` stays public even when the constructor is private; Kotlin 2.4 only warns about it. So `copy` creates an `Email` your factory never saw. `@ConsistentCopyVisibility` makes `copy()` private, and a check in `init` would run on `copy()` too. A direct constructor call from outside doesn't compile.",
    "from": "pat-02"}
  ],
  "flashcards": [
-  {"front": "Does a Kotlin data class's `init` block run on `copy()`?", "back": "Yes. `copy()` calls the primary constructor, so `require` checks in `init` run again."},
+  {"front": "Does a Kotlin data class's `init` block run on `copy()`?", "back": "Yes. `copy()` calls the primary constructor, so the `require` checks in `init` run again."},
   {"front": "What is a lambda with receiver?", "back": "A function type like `Builder.() -> Unit`. Inside the lambda, `this` is the Builder, so you call its members without a prefix."},
-  {"front": "What does `@DslMarker` prevent?", "back": "Calling a member of an outer DSL receiver implicitly from inside an inner block. Reaching it then needs an explicit `this@label`."},
+  {"front": "What does `@DslMarker` prevent?", "back": "Calling a member of an outer DSL receiver without a prefix from inside an inner block. Reaching it then needs an explicit `this@label`."},
   {"front": "Why is `Cloneable` considered broken?", "back": "It declares no `clone` method, and `Object.clone()` is protected, shallow and throws a checked exception. Use copy constructors or withers."},
-  {"front": "Is a Kotlin data class `copy()` deep or shallow?", "back": "Shallow. A property that holds a mutable object, such as a `MutableList`, is shared by the original and the copy."},
-  {"front": "Where does validation go for a Java record that has a builder?", "back": "In the record's compact constructor, so `build()`, withers and direct `new` calls all run it."},
+  {"front": "Is a Kotlin data class `copy()` deep or shallow?", "back": "Shallow. A property that holds a changeable object, such as a `MutableList`, is shared by the original and the copy."},
+  {"front": "Where do the checks go for a Java record that has a builder?", "back": "In the record's compact constructor, so `build()`, withers and direct `new` calls all run them."},
   {"front": "`data class Email private constructor(...)`: is its `copy()` private in Kotlin 2.4?", "back": "No. It stays public, with a warning. Add `@ConsistentCopyVisibility` to make it private."}
  ],
  "terms": [
   {"term": "Telescoping constructor", "plain": "A chain of constructors, each adding one more optional parameter."},
   {"term": "Builder", "plain": "A helper that collects values step by step and makes the finished object in `build()`."},
   {"term": "Lambda with receiver", "plain": "A lambda whose `this` is a given object, written `T.() -> R`."},
-  {"term": "DslMarker", "plain": "A meta-annotation for DSL marker annotations that limits implicit calls to the nearest receiver."},
+  {"term": "DslMarker", "plain": "An annotation for your DSL's own marker annotation; it limits calls without a prefix to the nearest receiver."},
   {"term": "Prototype", "plain": "Making a new object by copying an existing one and changing a few fields."},
-  {"term": "Wither", "plain": "A method like `withTimeout(t)` that returns a copy with one field changed."},
+  {"term": "Wither", "plain": "A method like `withWindow(w)` that returns a copy with one field changed."},
   {"term": "Shallow copy", "plain": "A copy that shares the objects its fields point to, instead of copying them too."}
  ],
  "explain_back": {
-  "prompt": "A colleague says: \"Kotlin data classes are immutable, so `copy()` gives us safe, independent templates.\" Explain where that's wrong, and how you'd make templates safe in Kotlin and in Java.",
-  "answer": "Data classes are only as immutable as their properties. `val` stops a property from pointing somewhere else, but if it holds a `MutableList` or a `HashMap`, `copy()` copies the reference, so the template and every copy share that collection, and changing one changes all of them. To make templates safe, give them collections that can't change: in Kotlin, read-only `List` and `Map` types and `copy(items = items + x)` to build new ones; in Java, a record whose compact constructor stores `List.copyOf` and `Map.copyOf`, and withers that copy, change the copy and construct a new record. I'd also put the rules in `init` or the compact constructor, because `copy()` and withers go through them."
+  "prompt": "A colleague says: \"Kotlin data classes can't change, so `copy()` gives us safe, independent order templates.\" Explain where that's wrong, and how you'd make templates safe in Kotlin and in Java.",
+  "answer": "A data class is only as unchangeable as its properties. `val` stops a property from pointing somewhere else, but if it holds a `MutableList` or a `HashMap`, `copy()` copies the reference, so the template and every copy share that collection, and changing one changes all of them. To make templates safe, give them collections that can't change. In Kotlin, use read-only `List` and `Map` types, and `copy(tags = tags + x)` to build new ones. In Java, use a record whose compact constructor stores `List.copyOf` and `Map.copyOf`, and withers that copy, change the copy and construct a new record. I'd also put the rules in `init` or the compact constructor, because `copy()` and withers go through them."
  },
  "deeper": {
   "minutes": 10,
-  "body": """Effective Java's hierarchical builder solves a problem you may meet in a shared Java library: a `Pizza.Builder` that subclasses (`NyPizza.Builder`, `Calzone.Builder`) extend without losing the subclass type in a chain. It uses a recursive type parameter, `Builder<T extends Builder<T>>`, and an abstract `self()` method that each subclass implements as `return this;`. *Advanced generics: recursive bounds, T & Any, @UnsafeVariance* in the generics track showed why that recursive bound works. In Kotlin you almost never need it, because named arguments and `copy()` remove the chain.
+  "body": """Effective Java's hierarchical builder solves a problem you may meet in a shared Java library: a `Pizza.Builder` that subclasses (`NyPizza.Builder`, `Calzone.Builder`) extend without losing the subclass's type in a chain of calls. It uses a recursive type parameter, `Builder<T extends Builder<T>>`, and an abstract `self()` method that each subclass implements as `return this;`. *Advanced generics: recursive bounds, T & Any, @UnsafeVariance* in the generics track showed why that recursive bound works. In Kotlin you almost never need it, because named arguments and `copy()` remove the chain.
 
-Java has no `with` syntax for records yet. Project Amber has proposed one, derived record creation (JEP 468), where you would write something like `point with { x = 3; }`. Check its status on the JEP page before you plan around it. Until then, write withers for the fields that really change.
+Java has no `with` syntax for records yet. Project Amber, the OpenJDK project for smaller language features, has proposed one, derived record creation (JEP 468), where you would write something like `point with { x = 3; }`. Check its status on the JEP page before you plan around it. Until then, write withers for the fields that really change.
 
-People sometimes deep-copy an object graph by serializing and deserializing it, or with a reflection library. It works, it is slow, and it copies things you didn't mean to copy, such as a shared `Clock` or a connection. If you need a deep copy, the cleaner fix is usually to make the components immutable so a shallow copy is enough.
+People sometimes copy a whole tree of objects deeply by turning it into bytes and back (serialization), or with a reflection library. It works, it's slow, and it copies things you didn't mean to copy, such as a shared clock or an open connection. If you need a deep copy, the cleaner fix is usually to make the parts unchangeable, so a shallow copy is enough.
 
 Kotlin's `buildList { add(...) }`, `buildMap { }` and `buildString { }` are small standard-library builders with receivers. Use them when you build a collection with loops or conditions; the result is read-only once the block returns."""
  },

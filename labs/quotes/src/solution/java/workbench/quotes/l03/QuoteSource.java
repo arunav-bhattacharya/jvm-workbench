@@ -8,5 +8,5 @@ import java.util.concurrent.CompletableFuture;
  * Cancelling the future means nobody wants the answer any more.
  */
 public interface QuoteSource {
-    CompletableFuture<Quote> quote(String symbol);
+    CompletableFuture<Quote> quote(String destination);
 }

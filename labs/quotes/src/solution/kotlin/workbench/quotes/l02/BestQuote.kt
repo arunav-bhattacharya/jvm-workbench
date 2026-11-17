@@ -19,10 +19,10 @@ class BestQuote(
     private val deadline: Duration,
     private val cache: QuoteCache = QuoteCache(),
 ) {
-    suspend fun quote(symbol: String): Quote {
+    suspend fun quote(destination: String): Quote {
         val answers = supervisorScope {                                    // 1. a failed call doesn't cancel the others
             providers
-                .map { p -> async { withTimeoutOrNull(deadline) { p.quote(symbol) } } }   // 2. late is null, not an exception
+                .map { p -> async { withTimeoutOrNull(deadline) { p.quote(destination) } } }   // 2. late is null, not an exception
                 .map { it.awaitOrNull() }                                  // 3. failed is null too
         }.filterNotNull()
         val best = answers.minByOrNull { it.price }
@@ -30,7 +30,7 @@ class BestQuote(
             cache.remember(best)
             return best
         }
-        return cache.lastGood(symbol)?.asStale() ?: throw NoQuoteException(symbol)   // 4. stale beats nothing
+        return cache.lastGood(destination)?.asStale() ?: throw NoQuoteException(destination)   // 4. stale beats nothing
     }
 
     private suspend fun Deferred<Quote?>.awaitOrNull(): Quote? =

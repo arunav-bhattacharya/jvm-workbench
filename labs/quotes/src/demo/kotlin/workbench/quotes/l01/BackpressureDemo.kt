@@ -39,7 +39,7 @@ private class AnswerAtOnce(private val policy: Boolean) : SimpleChannelInboundHa
         update(ctx)
         CompletableFuture.completedFuture(line.substringBefore(' ')).whenCompleteAsync({ id, _ ->
             inFlight--
-            ctx.writeAndFlush("$id OK EURUSD 1.0842 northbank\n")
+            ctx.writeAndFlush("$id OK LISBON 12.42 northline\n")
             peakPending.accumulateAndGet(ctx.channel().unsafe().outboundBuffer()!!.totalPendingWriteBytes(), ::maxOf)
             update(ctx)
         }, ctx.executor())
@@ -80,7 +80,7 @@ fun main() {
                 val writer = thread {
                     runCatching {
                         val out = client.getOutputStream().buffered()
-                        repeat(PIPELINED) { out.write("$it EURUSD\n".toByteArray(UTF_8)) }
+                        repeat(PIPELINED) { out.write("$it LISBON\n".toByteArray(UTF_8)) }
                         out.flush()
                     }
                 }

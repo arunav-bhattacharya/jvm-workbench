@@ -58,7 +58,7 @@ suspend fun <T : Any> hedged(after: Duration, call: suspend () -> T): T {
  * and only if it is idempotent, retries with [backoff] and a hedge after [hedgeAfter] (null: no hedge).
  *
  * 1. Give the class a `Semaphore(maxConcurrent)` (kotlinx.coroutines.sync), and make every single
- *    call to [delegate] hold a permit: `permits.withPermit { delegate.quote(symbol) }`. A hedge is a
+ *    call to [delegate] hold a permit: `permits.withPermit { delegate.quote(destination) }`. A hedge is a
  *    second call, so it needs a permit of its own.
  * 2. If the delegate is not idempotent, make that one call and nothing else.
  * 3. Otherwise retry the call with [retrying]; if [hedgeAfter] is set, each attempt is
@@ -74,5 +74,5 @@ class GuardedProvider(
     override val name: String get() = delegate.name
     override val idempotent: Boolean get() = delegate.idempotent
 
-    override suspend fun quote(symbol: String): Quote = TODO("bulkhead, then retry and hedge for idempotent providers")
+    override suspend fun quote(destination: String): Quote = TODO("bulkhead, then retry and hedge for idempotent providers")
 }

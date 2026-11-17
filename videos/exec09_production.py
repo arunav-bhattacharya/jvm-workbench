@@ -51,7 +51,8 @@ N = {
               "and waits for it. With 20 threads and 400 tables, the first 20 bills take every thread, "
               "and their 20 fetches queue behind 380 bills.",
     "freeze2": "In the kitchen, every cook has pinned a ticket at the back of the rail and stands waiting for it. "
-               "No cook is left to take it. Nothing throws, and nothing will ever finish.",
+               "No cook is left to take it. Nothing throws, and nothing will ever finish. "
+               "It's the politest jam a kitchen ever had: everyone waiting, nobody complaining, and no error to read.",
     "freeze_name": "That's pool-induced deadlock: every thread in a bounded pool waits for a task queued in that same pool. "
                    "DeadlockDemo's smallest case shows it on two threads: active two, queued two, completed zero, forever.",
     "freeze_fix": "The fixes: don't wait inside the pool, compose with thenApply instead. Or fetch inline, in the same task. "

@@ -1,13 +1,44 @@
 import json, pathlib
 ROOT = pathlib.Path("/home/user/jvm-workbench")
 
-INTRO = """By the end of this track you can explain a Kotlin Flow from the inside, and predict what a pipeline you have never seen will do. You build a flow from two interfaces and see that the collector runs inside `emit`, which is where cold, sequential and backpressure all come from. You learn the three checks `flow { }` runs on every emit and the exact errors they throw, what `flowOn` and `buffer` build (a second coroutine and a channel), how far a producer runs ahead, and who loses values under each overflow policy. You draw the timelines of `flatMapConcat`, `flatMapMerge` and `flatMapLatest`, choose between `zip`, `combine` and `merge`, and place `catch`, `retryWhen` and `timeout` where they mean what you want. Then you share hot flows with the right `SharingStarted`, bridge listener APIs, Reactor and Java callers, and test all of it on virtual time.
+INTRO = """By the end of this track you can explain a Kotlin flow from the inside, and predict what a pipeline you have never seen will do. The whole track takes place in the house kitchen from the coroutines track, seen from inside. A flow is a recipe card, the cook who cooks it is the producer, and the diner at the table is the collector. You'll find that `emit` is the cook carrying one plate over and standing there while the diner eats, and that this one fact makes a flow cold, one value at a time, and slowed by its collector.
 
-This track assumes the Kotlin coroutines track, especially its Flow lessons: lesson 7 (cold flows and operators), lesson 8 (StateFlow, SharedFlow and `stateIn`), lesson 9 (channels and `callbackFlow`), lesson 10 (`runTest` and test dispatchers) and lesson 11 (Reactor bridges). It doesn't repeat them; it goes one level down. Each lesson opens with a small payments program whose output surprises, lets you predict it, and builds the mechanism, often as a small version by hand, before it names the API. The numbers come from runs on Kotlin 2.4.21 and kotlinx.coroutines 1.11.0, almost all on virtual time, so they repeat exactly. Install JDK 25; the labs compile with release 21.
+From there, each lesson adds one piece of the kitchen. You meet the inspector that `flow { }` posts at the kitchen door and the three questions it asks, the wall with a hatch and a shelf that `flowOn` and `buffer` build, and the overflow policies that decide which plate is lost when the shelf is full. You run sub-recipes on several burners with `flatMapMerge` and join two flows with `zip` and `combine`. You string a net under the cook with `catch`, cook again with `retry`, and set an egg timer with `timeout`. Then you share values with many diners through the house bell and the menu board, `SharedFlow` and `StateFlow`, and finish with bridges to an old probe that calls you, to Reactor, and to a rehearsal on a fake clock.
+
+This track assumes the Kotlin coroutines track, especially its Flow lessons: lesson 7 (cold flows and operators), lesson 8 (StateFlow, SharedFlow and `stateIn`), lesson 9 (channels and `callbackFlow`), lesson 10 (`runTest` and test dispatchers) and lesson 11 (Reactor bridges). It doesn't repeat them; it goes one level down. Each lesson opens with a small kitchen program whose output surprises, asks you to predict it, and builds the mechanism, often by hand, before it names the API. The numbers come from runs on Kotlin 2.4.21 and kotlinx.coroutines 1.11.0, almost all on virtual time, so they repeat exactly. Install JDK 25; the labs compile with release 21.
 
 The labs live in `labs/flows`, one package per lesson (`workbench.flows.l01` to `l08`), all in Kotlin, with a Java test in lesson 8 that sees only Reactor types. The module has kotlinx-coroutines-core, -reactive and -reactor and Reactor 3.8.8, and for tests kotlinx-coroutines-test, reactor-test and Turbine 1.2.1. Timing tests run on virtual time with injected dispatchers, so they are exact and fast. From `labs/`, run a lesson's tests with `./gradlew :flows:test --tests 'workbench.flows.l03.*'`, and the reference answers with `./gradlew :flows:solutionTest`."""
 
-CHEAT = """## The model: two interfaces and one call
+CHEAT = """## The kitchen, part by part
+
+Picture it with one house kitchen, seen from inside. Every lesson added a piece:
+
+| In the kitchen | In code | Lesson |
+|---|---|---|
+| the recipe card, which cooks nothing until someone cooks from it | a cold `Flow` | 1 |
+| the cook, and the diner at the table | the producer, and the collector | 1 |
+| the cook carrying one plate over and standing there while the diner eats | `emit` | 1 |
+| helpers on the way from the cook to the table | operators | 1 |
+| the inspector at the kitchen door, with three questions | `SafeCollector` in `flow { }` | 2 |
+| family helpers who use the side door | operators built on `unsafeFlow` | 2 |
+| a signed "no more, thanks" note | `AbortFlowException` from `take` and `first` | 2 |
+| a wall with a hatch and a 64-spot shelf, and a second cook behind it | `flowOn` | 3 |
+| several cooks sharing one hatch | `channelFlow` | 3 |
+| a shelf with n spots; a shelf with one spot; shelves that snap together | `buffer(n)`; `conflate()`; fusion | 4 |
+| a head cook at the pass who hands each dish to a free burner | `flatMapMerge` | 5 |
+| a zipper; a slate with one line per source | `zip`; `combine` | 5 |
+| a net under the cook's side of the line | `catch` | 6 |
+| cooking the recipe again from the top | `retry` | 6 |
+| the note left at one spot when the line stops | `onCompletion` | 6 |
+| the egg timer | `timeout` | 6 |
+| the house bell with one slate for every listener | `SharedFlow` | 7 |
+| the menu board in the hall | `StateFlow` | 7 |
+| one cook serving many diners | `shareIn` and `stateIn` | 7 |
+| the old oven probe that calls you, and a hatch fitted to it | `callbackFlow` | 8 |
+| the neighbour's line of stations, each asking for n items | Reactor and `request(n)` | 8 |
+| a rehearsal dinner on a fake clock, and its note-taker | `runTest` and Turbine | 8 |
+
+## The model: two interfaces and one call
 
 - `Flow.collect(collector)` and `FlowCollector.emit(value)` are two suspend functions. Only `FlowCollector` is a `fun interface`; build flows with `flow { }`.
 - `emit` calls the collector directly, so the collector's code runs inside `emit`, on the same stack and thread. That makes a flow cold (`collect` runs the block from the top, once per call), sequential (one value at a time) and slowed by its collector (100 ms per item and 300 ms per collect put the second `emit` at t=500).
@@ -15,83 +46,85 @@ CHEAT = """## The model: two interfaces and one call
 
 ## The three checks in `flow { }`
 
-| Check on every `emit` | Fails when | You see |
-|---|---|---|
-| `ensureActive()` | the collector's job was cancelled | a `CancellationException` |
-| same context | `emit` from another context (`withContext`, a launched child) | "Flow invariant is violated" |
-| exception transparency | `emit` again after the downstream threw | "Flow exception transparency is violated" |
+| Check on every `emit` | Fails when | You see | Picture it |
+|---|---|---|---|
+| `ensureActive()` | the collector's job was cancelled | a `CancellationException` | is dinner still on? |
+| same context | `emit` from another context (`withContext`, a launched child) | "Flow invariant is violated" | same kitchen, same cook? |
+| exception transparency | `emit` again after the downstream threw | "Flow exception transparency is violated" | was the last plate sent back? |
 
-`flowOf`, `asFlow` and the library's own operators skip the checks (`unsafeFlow`): add `.cancellable()` for a collector that cancels without suspending. Never wrap `emit` in try/catch; catch around the producer's own call.
+`flowOf`, `asFlow` and the library's own operators skip the checks (`unsafeFlow`, the side door): add `.cancellable()` for a collector that cancels without suspending. Never wrap `emit` in try/catch; catch around the producer's own call.
 
 ## Context and channels
 
-| You write | It builds |
-|---|---|
-| `flowOn(dispatcher)` | a second coroutine for the operators above it (up to the previous `flowOn`) and a 64-slot channel: 65 emits ahead |
-| two adjacent `flowOn` calls | one fused channel; the first one wins |
-| `flowOn(CoroutineName(...))` | no channel: the dispatcher is the same |
-| `channelFlow { launch { send(x) } }` | a flow fed by several coroutines; it completes after every child |
-| `callbackFlow { register(...); awaitClose { unregister() } }` | a listener bridge; collecting throws without `awaitClose` |
+| You write | It builds | Picture it |
+|---|---|---|
+| `flowOn(dispatcher)` | a second coroutine for the operators above it (up to the previous `flowOn`) and a 64-slot channel: 65 emits ahead | a wall with a hatch and a 64-spot shelf |
+| two adjacent `flowOn` calls | one fused channel; the first one wins | one wall, not two |
+| `flowOn(CoroutineName(...))` | no channel: the dispatcher is the same | a name tag, no wall |
+| `channelFlow { launch { send(x) } }` | a flow fed by several coroutines; it completes after every child | several cooks, one hatch |
+| `callbackFlow { register(...); awaitClose { unregister() } }` | a listener bridge; collecting throws without `awaitClose` | a hatch fitted to the probe |
 
 ## Buffering picker
 
-| You want | Use | Ahead, and what is lost |
-|---|---|---|
-| overlap a slow collector, lose nothing | `buffer(n)` | n + 1 emits ahead; `SUSPEND` |
-| the default size | `buffer()`, `Channel.BUFFERED` | 64 slots, 65 ahead |
-| the newest value; finish every job you start | `conflate()` | intermediate values |
-| the newest value; cancel the stale job | `collectLatest`, `mapLatest` (experimental) | the old block is cancelled and joined |
-| keep the newest n | `buffer(n, DROP_OLDEST)` | `buffer(onBufferOverflow = DROP_OLDEST)` has one slot |
+| You want | Use | Ahead, and what is lost | Picture it |
+|---|---|---|---|
+| overlap a slow collector, lose nothing | `buffer(n)` | n + 1 emits ahead; `SUSPEND` | a shelf with n spots; a full shelf makes the cook wait |
+| the default size | `buffer()`, `Channel.BUFFERED` | 64 slots, 65 ahead | the hatch's usual shelf |
+| the newest value; finish every job you start | `conflate()` | in-between values | a shelf with one spot |
+| the newest value; cancel the stale job | `collectLatest`, `mapLatest` (experimental) | the old block is cancelled and waited for | wipe the half-drawn number first |
+| keep the newest n | `buffer(n, DROP_OLDEST)` | `buffer(onBufferOverflow = DROP_OLDEST)` has one slot | the oldest plate goes in the bin |
 
-Adjacent buffers fuse: sizes add, and a drop policy replaces what came before (`buffer(10).conflate()` is `conflate()`). Ledger postings get `SUSPEND` only. Behind a buffer, a collector that cancels without suspending keeps receiving: add `.cancellable()` after it.
+Adjacent buffers fuse: sizes add, and a drop policy replaces what came before (`buffer(10).conflate()` is `conflate()`). Plates for the table get `SUSPEND` only. Behind a buffer, a collector that cancels without suspending keeps receiving: add `.cancellable()` after it.
 
 ## Flattening and combining
 
-| Operator | Shape | Watch out |
-|---|---|---|
-| `flatMapConcat` | one inner at a time, in order | the outer's own code pauses inside `emit` |
-| `flatMapMerge(n)` | up to n inners at once, in completion order | the lambda runs one value at a time; the default is 16 (`DEFAULT_CONCURRENCY`), Reactor's is 256 |
-| `flatMapLatest` | a new value cancels the old inner | for search-as-you-type |
-| `zip` | pairs by index | ends with the shorter flow |
-| `combine` | the latest of each, once every source has a value | a slow collector makes it skip values and slow its sources |
-| `merge` | values interleaved as they arrive | |
+| Operator | Shape | Watch out | Picture it |
+|---|---|---|---|
+| `flatMapConcat` | one inner at a time, in order | the outer's own code pauses inside `emit` | the waiter stands at the pass until the dish is done |
+| `flatMapMerge(n)` | up to n inners at once, in completion order | the lambda runs one value at a time; the default is 16 (`DEFAULT_CONCURRENCY`), Reactor's is 256 | n burners, one head cook at the pass |
+| `flatMapLatest` | a new value cancels the old inner | for a search box that searches as you type | the table changed its mind: bin the old dish |
+| `zip` | pairs by number | ends with the shorter flow, and slows its receiver | a zipper |
+| `combine` | the latest of each, once every source has a value | a slow collector makes it skip values and slow its sources | a slate with one line per source |
+| `merge` | values passed on as they arrive | one failing source cancels the others | two queues, one door |
 
 In 1.11.0, `flatMapConcat`, `flatMapMerge`, `flatMapLatest`, `mapLatest` and `transformLatest` are `@ExperimentalCoroutinesApi`, and `DEFAULT_CONCURRENCY`, `debounce`, `sample` and `timeout` are `@FlowPreview`. Without the opt-in the compiler warns.
 
 ## Errors and completion
 
-| You want | Use |
-|---|---|
-| handle upstream failures | `catch { }`: it sees only the upstream; a downstream exception passes through |
-| work the net should cover | `onEach { }` above `catch`, then `collect()` or `launchIn(scope)` |
-| try again | `retry(n)`: n + 1 collections, each replaying the upstream from the top |
-| back off | `retryWhen { cause, attempt -> delay(...); true }`, with `attempt` from 0 |
-| know how it ended | `onCompletion { cause -> }`: `null`, the exception, `JobCancellationException`, or `AbortFlowException` above `take` and `first` |
-| a deadline | `timeout(d)` throws `TimeoutCancellationException`; above `retryWhen` it limits each attempt, below it is a budget |
+| You want | Use | Picture it |
+|---|---|---|
+| handle upstream failures | `catch { }`: it sees only the upstream; a downstream exception passes through, and so does the collector's own cancellation | a net under the cook's side |
+| work the net should cover | `onEach { }` above `catch`, then `collect()` or `launchIn(scope)` | hang it above the net |
+| try again | `retry(n)`: n + 1 collections, each replaying the upstream from the top | cook the recipe again |
+| back off | `retryWhen { cause, attempt -> delay(...); true }`, with `attempt` from 0 | ring again after a longer pause |
+| know how it ended | `onCompletion { cause -> }`: `null`, the exception, `JobCancellationException`, or `AbortFlowException` above `take` and `first` | the note left when the line stops |
+| a deadline | `timeout(d)` throws `TimeoutCancellationException`; above `retryWhen` it limits each try, below it is a budget | the egg timer |
 
 ## Hot flows
 
-| | Rule |
-|---|---|
-| `MutableSharedFlow(replay, extraBufferCapacity, policy)` | one buffer of replay + extra slots for every subscriber; full when the slowest has that many values it hasn't taken |
-| full, `SUSPEND` | `emit` waits and `tryEmit` returns `false` |
-| full, `DROP_LATEST` or `DROP_OLDEST` | the new value is lost for everyone, or only the slow subscriber skips |
-| `MutableSharedFlow()` | a rendezvous: `tryEmit` fails whenever anyone is subscribed, and returns `true` (value lost) with nobody |
-| a late subscriber | the replay cache, then live values |
-| `StateFlow` | an equal set does nothing; a busy collector sees only the latest; `update { }` may run its lambda many times |
-| `shareIn`, `stateIn` | a `MutableSharedFlow` of at least 64 slots (or a `MutableStateFlow`) plus one coroutine in your scope |
+| | Rule | Picture it |
+|---|---|---|
+| `MutableSharedFlow(replay, extraBufferCapacity, policy)` | one buffer of replay + extra slots for every subscriber; full when the slowest has that many values it hasn't taken | the house bell with one slate |
+| full, `SUSPEND` | `emit` waits and `tryEmit` returns `false` | the cook waits, chalk raised |
+| full, `DROP_LATEST` or `DROP_OLDEST` | the new value is lost for everyone, or only the slow subscriber skips | never chalked up, or chalked over the slow reader's line |
+| `MutableSharedFlow()` | a rendezvous: `tryEmit` fails whenever anyone is subscribed, and returns `true` (value lost) with nobody | hand to hand, no slate |
+| a late subscriber | the replay cache, then live values | the lines kept for latecomers |
+| `StateFlow` | an equal set does nothing; a busy collector sees only the latest; `update { }` may run its lambda many times | the menu board in the hall |
+| `shareIn`, `stateIn` | a `MutableSharedFlow` of at least 64 slots (or a `MutableStateFlow`) plus one coroutine in your scope | one cook for many diners |
 
-| `SharingStarted` | Starts | Stops | A subscriber who comes back |
-|---|---|---|---|
-| `Eagerly` | at once | with the scope | |
-| `Lazily` | at the first subscriber | never | |
-| `WhileSubscribed(5_000)` | at the first subscriber | 5 s after the last leaves | within 5 s: the same run; later: the stale value, then a restart from the top |
-| `WhileSubscribed(5_000, replayExpirationMillis = 0)` | at the first subscriber | 5 s after the last leaves | after a stop: the initial value, then a restart |
-| suspend `stateIn(scope)` | at once; returns at the first value | with the scope | |
+| `SharingStarted` | Starts | Stops | A subscriber who comes back | Picture it |
+|---|---|---|---|---|
+| `Eagerly` | at once | with the scope | | the cook starts at opening time |
+| `Lazily` | at the first subscriber | never | | the first diner starts her, and she never stops |
+| `WhileSubscribed(5_000)` | at the first subscriber | 5 s after the last leaves | within 5 s: the same run; later: the stale value, then a restart from the top | she stops 5 s after the last diner leaves |
+| `WhileSubscribed(5_000, replayExpirationMillis = 0)` | at the first subscriber | 5 s after the last leaves | after a stop: the initial value, then a restart | and wipes the board when she stops |
+| suspend `stateIn(scope)` | at once; returns at the first value | with the scope | | waits for the first plate |
 
-Reading `.value` is not a subscription. An upstream failure kills the sharing coroutine, goes to the scope's handler and leaves subscribers waiting: put `retry` above the share. `shareIn` inside a per-request function leaks one coroutine per call.
+Reading `.value` is not a subscription: glancing at the board doesn't call the cook. An upstream failure kills the sharing coroutine, goes to the scope's handler and leaves subscribers waiting: put `retry` above the share. `shareIn` inside a per-request function leaks one coroutine per call.
 
 ## Flow and Reactor
+
+Picture Reactor as the neighbour's line of stations, where each station asks the one before it for n items. A Flow asks nothing; it suspends.
 
 | Kotlin Flow | Reactor | What differs |
 |---|---|---|
@@ -111,64 +144,66 @@ Give Java callers a `Flux` (`asFlux()`), a Reactive Streams `Publisher`, or a `C
 
 ## Testing recipes
 
+Picture `runTest` as a rehearsal dinner on a fake clock, and Turbine as its note-taker, who writes down every plate the instant it is served.
+
 - Run timing tests in `runTest`, and inject the dispatcher that `flowOn` uses: `flowOn(Dispatchers.Default)` inside `runTest` runs on the real clock.
 - `runCurrent()` runs what is due now, `advanceTimeBy(n)` what is due before now + n, and `advanceUntilIdle()` stops once only `backgroundScope` work is left. The `TestScope` versions are experimental; `testScheduler.runCurrent()` and `testScheduler.advanceTimeBy(Duration)` are stable.
 - Collect hot flows, and give `stateIn` and `shareIn` their scope, in `backgroundScope`. Otherwise: "there were active child jobs".
 - A SharedFlow with no replay: subscribe first (`runCurrent()`, or an Unconfined collector), then emit.
-- A StateFlow: a Standard collector shows conflation, and an Unconfined collector or Turbine shows every value. Assert on the final state. `take(n)` on a conflated StateFlow hangs: "the test body did not run to completion".
+- A StateFlow: a Standard collector shows skipped values, and an Unconfined collector or Turbine shows every value. Assert on the final state. `take(n)` on a StateFlow that skipped a value hangs: "the test body did not run to completion".
 - A `callbackFlow`: wait for the registration before firing, and test the buffer with a Standard collector.
-- Turbine: `flow.test { awaitItem(); awaitComplete() }`, `awaitError()`, `cancelAndIgnoreRemainingEvents()`, and `turbineScope { flow.testIn(backgroundScope) }`. An unread event fails the test, and the timeout is 3 s of wall-clock time."""
+- Turbine: `flow.test { awaitItem(); awaitComplete() }`, `awaitError()`, `cancelAndIgnoreRemainingEvents()`, and `turbineScope { flow.testIn(backgroundScope) }`. An unread event fails the test, and the timeout is 3 s of real time."""
 
 RECAP = [
- "A flow is two interfaces with one suspend function each. The collector runs inside `emit`, which makes a flow cold, sequential and slowed by its collector.",
+ "A flow is two interfaces with one suspend function each. The collector runs inside `emit`, like a cook who stands at the table while the diner eats, and that makes a flow cold, sequential and slowed by its collector.",
  "`flow { }` checks every emit: cancellation, the same context (\"Flow invariant is violated\") and exception transparency. The library's own operators skip the checks, so `flowOf` and `asFlow` need `cancellable()`, and `take` stops a producer by throwing through `emit`.",
  "`flowOn`, `buffer`, `channelFlow` and `callbackFlow` put a second coroutine and a channel into the chain: 64 slots by default, n + 1 emits ahead, fused when adjacent. `flowOn` moves only what is above it.",
- "Choose buffering by what may be lost: `SUSPEND` for ledger postings, `conflate()` or `collectLatest` for the newest FX rate.",
- "`flatMapMerge` runs its lambda one value at a time and the returned flows concurrently, 16 by default. `flatMapLatest` cancels the old inner. `zip` pairs by index; `combine` keeps the latest of each.",
- "`catch` handles only upstream errors, `retry` replays the upstream from the top, `onCompletion` says how the flow ended, and `timeout` throws a cancellation whose position sets its meaning.",
+ "Choose buffering by what one lost value costs: `SUSPEND` for plates for the table, `conflate()` or `collectLatest` for the newest oven reading.",
+ "`flatMapMerge` runs its lambda one value at a time and the returned flows side by side, 16 by default. `flatMapLatest` cancels the old inner. `zip` pairs by number; `combine` keeps the latest of each.",
+ "`catch` handles only upstream errors, `retry` replays the upstream from the top, `onCompletion` says how the flow ended, and `timeout` throws a cancellation whose position sets what it limits.",
  "A SharedFlow has one buffer for every subscriber, so the slowest sets the pace or the losses; a StateFlow is one slot compared with `equals`. `stateIn` and `shareIn` launch one coroutine in your scope, started and stopped by `SharingStarted`, and `.value` is not a subscription.",
  "`callbackFlow` bridges listener APIs: it registers when its producer runs, needs `awaitClose`, and holds 64 plus one. `asFlow` and `asFlux` turn `request(n)` into suspension and back, and Java gets a `Flux`.",
  "Test on virtual time with injected dispatchers. Know where `runCurrent`, `advanceTimeBy` and `advanceUntilIdle` stop, collect hot flows in `backgroundScope`, and remember that Turbine shows every value."
 ]
 
 QUIZ = [
- {"q": "What does this print?\n\n```kotlin\nflow { println(\"read\"); emit(1); println(\"next\") }\n    .map { println(\"map\"); it }\n    .collect { println(\"post\") }\n```",
-  "options": ["read, map, post, next", "read, next, map, post", "read, map, next, post", "map, read, post, next"],
+ {"q": "What does this print?\n\n```kotlin\nflow { println(\"cook\"); emit(1); println(\"next dish\") }\n    .map { println(\"helper\"); it }\n    .collect { println(\"diner\") }\n```",
+  "options": ["cook, helper, diner, next dish", "cook, next dish, helper, diner", "cook, helper, next dish, diner", "helper, cook, diner, next dish"],
   "answer": 0,
-  "why": "`emit(1)` calls `map`'s collector, which calls the final collector, all on one stack. `map` and `post` both run inside `emit`, before the producer reaches `next`. The second option is how a queue between producer and consumer would behave, and a plain flow has no queue."},
- {"q": "A producer wraps each `emit` in `try { ... } catch (e: Exception) { log.warn(...) }` and carries on. It emits three postings, and the ledger collector throws on posting 2. What reaches the ledger, and how does `collect` end?",
-  "options": ["Postings 1 and 3, and `collect` returns normally", "Only posting 1. The `emit` of posting 3 is refused with \"Flow exception transparency is violated\", the same catch swallows that, and `collect` returns normally", "Only posting 1, and `collect` throws the ledger's exception", "All three, because the failed posting is retried"],
+  "why": "`emit(1)` calls `map`'s collector, which calls the final collector, all on one stack. The helper and the diner both run inside `emit`, before the cook reaches `next dish`. The second option is how a queue between producer and consumer would behave, and a plain flow has no queue."},
+ {"q": "A cook wraps each `emit` in `try { ... } catch (e: Exception) { log.warn(...) }` and carries on. She emits three plates, and the diner throws on plate 2. What reaches the diner, and how does `collect` end?",
+  "options": ["Plates 1 and 3, and `collect` returns normally", "Only plate 1. The `emit` of plate 3 is refused with \"Flow exception transparency is violated\", the same catch swallows that, and `collect` returns normally", "Only plate 1, and `collect` throws the diner's exception", "All three, because the failed plate is sent again"],
   "answer": 1,
-  "why": "The ledger's exception comes out of `emit`, so the producer's catch sees it. `flow { }` remembers that the downstream failed and refuses the next `emit` with an `IllegalStateException`, which the same catch swallows. The batch looks successful and has a hole in it."},
- {"q": "Where does each step run?\n\n```kotlin\nflow { emit(readFile()) }\n    .map { parse(it) }\n    .flowOn(io)\n    .map { post(it) }\n    .flowOn(cpu)\n    .collect { audit(it) }\n```",
-  "options": ["Everything on cpu: the last `flowOn` wins", "Everything on io: the first `flowOn` wins", "`readFile` and `parse` on io, `post` on cpu, `audit` in the collector's context", "`readFile` on io, and `parse`, `post` and `audit` on cpu"],
+  "why": "The diner's exception comes out of `emit`, so the cook's catch sees it. `flow { }` remembers that the downstream failed and refuses the next `emit` with an `IllegalStateException`, which the same catch swallows. The dinner looks fine and has a hole in it."},
+ {"q": "Where does each step run?\n\n```kotlin\nflow { emit(readNote()) }\n    .map { parse(it) }\n    .flowOn(io)\n    .map { weigh(it) }\n    .flowOn(cpu)\n    .collect { store(it) }\n```",
+  "options": ["Everything on cpu: the last `flowOn` wins", "Everything on io: the first `flowOn` wins", "`readNote` and `parse` on io, `weigh` on cpu, `store` in the collector's context", "`readNote` on io, and `parse`, `weigh` and `store` on cpu"],
   "answer": 2,
   "why": "Each `flowOn` moves the operators above it, up to the previous `flowOn`: two walls make three rooms, and the collector never moves. \"The first one wins\" is the rule for two adjacent `flowOn` calls, which fuse into one channel. Here a `map` sits between them."},
- {"q": "FX ticks arrive every 100 ms, and repricing a checkout takes 300 ms. Each shown quote must use the newest rate, and a repricing that has started must finish, because it writes an audit row. Which operator fits?",
-  "options": ["`buffer()`", "`mapLatest { reprice(it) }`", "`buffer(64, DROP_LATEST)`", "`conflate()`"],
+ {"q": "Oven readings arrive every 100 ms, and redrawing the door screen takes 300 ms. Each drawing must use the newest reading, and a drawing that has started must finish, because it writes a line in the cooking log. Which operator fits?",
+  "options": ["`buffer()`", "`mapLatest { draw(it) }`", "`buffer(64, DROP_LATEST)`", "`conflate()`"],
   "answer": 3,
-  "why": "`conflate()` keeps only the newest tick while the repricer is busy and never interrupts it. `mapLatest` cancels the repricing in progress, `buffer()` reprices every stale tick in turn, and `DROP_LATEST` keeps the oldest ticks and throws the new ones away."},
- {"q": "`prices.zip(rates) { p, r -> p * r }`: `prices` emits 5 values, and `rates` emits 2 values and completes. What comes out?",
-  "options": ["2 results, then the flow completes", "5 results, reusing the last rate", "5 results, after waiting for 3 more rates", "10 results, every price with every rate"],
+  "why": "`conflate()` keeps only the newest reading while the screen is busy and never interrupts a drawing. `mapLatest` cancels the drawing in progress, `buffer()` draws every stale reading in turn, and `DROP_LATEST` keeps the oldest readings and throws the new ones away."},
+ {"q": "`readings.zip(dial) { c, d -> d - c }`: `readings` emits 5 values, and `dial` emits 2 values and completes. What comes out?",
+  "options": ["2 results, then the flow completes", "5 results, reusing the last dial value", "5 results, after waiting for 3 more dial values", "10 results, every reading with every dial value"],
   "answer": 0,
-  "why": "`zip` pairs values by index, one from each side, and ends when the shorter flow ends. Reusing the latest value of the other side is what `combine` does."},
- {"q": "An acquirer feed emits AUTHORIZED and CAPTURED for a payment, then fails with an `IOException`. It is collected as `feed.retry(1).collect { ledger.post(it) }`. What does the ledger receive?",
-  "options": ["AUTHORIZED and CAPTURED, and then `collect` throws", "AUTHORIZED and CAPTURED only, because `retry` skips what was already sent", "AUTHORIZED, CAPTURED, AUTHORIZED, CAPTURED, and then `collect` throws the `IOException`", "Nothing, because `retry` holds the values until the feed succeeds"],
+  "why": "`zip` pairs values by number, one from each side, and ends when the shorter flow ends. Reusing the latest value of the other side is what `combine` does."},
+ {"q": "A delivery note sends flour and eggs, then fails with an `IOException`. It is collected as `note.retry(1).collect { pantry.store(it) }`. What does the pantry receive?",
+  "options": ["Flour and eggs, and then `collect` throws", "Flour and eggs only, because `retry` skips what was already sent", "Flour, eggs, flour, eggs, and then `collect` throws the `IOException`", "Nothing, because `retry` holds the values until the note is read in full"],
   "answer": 2,
-  "why": "`retry(1)` collects the upstream again from the top, so both events are posted twice before the second failure gets out. Anything after a retry must be idempotent, for example postings keyed on the event id."},
+  "why": "`retry(1)` collects the upstream again from the top, so both lines are stored twice before the second failure gets out. Anything after a retry must be idempotent, for example a pantry that skips line ids it has already stored."},
  {"q": "A `MutableSharedFlow<Int>(replay = 2, extraBufferCapacity = 8)` has one subscriber, A, stuck on value 1 while values 1 to 6 are emitted. Subscriber B joins after 6. What does B receive first?",
   "options": ["1, the oldest value still buffered for A", "6 only", "Nothing until the next emit", "5 and 6, the replay cache"],
   "answer": 3,
   "why": "A late subscriber starts at the replay cache, the last `replay` values, and then gets live ones. It never gets the backlog that A is still working through: that part of the buffer exists only because A hasn't taken it."},
- {"q": "A dashboard collects `poller.stateIn(scope, SharingStarted.WhileSubscribed(5_000), -1)`. The only open dashboard closes at 10 s and opens again at 20 s. What does it see at 20 s?",
-  "options": ["-1, then the first value of a new run", "The last value from before it closed, then the first value of a new run that starts from the top", "The last value, and the same run carries on", "Nothing until the old run's next tick"],
+ {"q": "A kitchen screen collects `thermometer.stateIn(scope, SharingStarted.WhileSubscribed(5_000), -1)`. The only screen that is on goes off at 10 s and comes back on at 20 s. What does it show at 20 s?",
+  "options": ["-1, then the first value of a new run", "The last value from before it went off, then the first value of a new run that starts from the top", "The last value, and the same run carries on", "Nothing until the old run's next tick"],
   "answer": 1,
-  "why": "The upstream stopped at 15 s, 5 s after the last subscriber left. The StateFlow kept its last value, so the dashboard gets that stale value first, then the poller starts again from the top. `replayExpirationMillis = 0` would give -1 instead, and a return before 15 s would have kept the same run going."},
- {"q": "A Kotlin service collects `settlementsFlux.asFlow().buffer(16)`. How does it ask the Flux for items?",
+  "why": "The upstream stopped at 15 s, 5 s after the last subscriber left. The StateFlow kept its last value, so the screen gets that stale value first, then the thermometer starts again from the top. `replayExpirationMillis = 0` would give -1 instead, and a return before 15 s would have kept the same run going."},
+ {"q": "A Kotlin program collects `ordersFlux.asFlow().buffer(16)`. How does it ask the Flux for items?",
   "options": ["`request(256)`, then 192 at a time", "`request(64)`, then 64 more after every 64", "`request(16)`, then 16 more after every 16", "`request(Long.MAX_VALUE)`, once"],
   "answer": 2,
   "why": "`Publisher.asFlow()` requests the size of its channel and refills after each batch. A fused `buffer(16)` sets that size to 16; without it the size is 64. 256 then 192 is what Reactor's own `publishOn` asks for, and `Long.MAX_VALUE` is what `conflate()` or `UNLIMITED` would request."},
- {"q": "A test checks a retry that waits `delay(1_000)` before its second call to the provider. It calls `advanceTimeBy(1_000)` and asserts two calls, but sees one. Why?",
+ {"q": "A test checks a retry that waits `delay(1_000)` before its second call to the bakery. It calls `advanceTimeBy(1_000)` and asserts two calls, but sees one. Why?",
   "options": ["`advanceTimeBy(1_000)` runs tasks due before now + 1000, and the call due at exactly +1000 needs `runCurrent()`", "The retry ran on the real clock", "`advanceTimeBy` skips coroutines in the test scope", "Virtual time doesn't apply to a `delay` inside a flow"],
   "answer": 0,
   "why": "The scheduler's window for `advanceTimeBy(n)` stops just before now + n. The clock reads 1000, but the task due at 1000 hasn't run; `runCurrent()` runs it. Reactor's `VirtualTimeScheduler.advanceTimeBy` does include the end point."}

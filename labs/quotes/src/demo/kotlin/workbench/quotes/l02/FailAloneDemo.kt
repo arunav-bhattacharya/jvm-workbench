@@ -15,12 +15,12 @@ import kotlinx.coroutines.withTimeout
 import java.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
 
-// northbank fails at 50 ms; fjord's own HTTP client gives up at 100 ms; eastgate answers at 300 ms
-private suspend fun northbank(): String { delay(50); throw IOException("northbank 503") }
-private suspend fun fjord(): String = withTimeout(100) { delay(1_000); "fjord 1.0843" }
-private suspend fun eastgate(): String { delay(300); return "eastgate 1.0841" }
+// northline fails at 50 ms; fjord's own client gives up at 100 ms; eastgate answers at 300 ms
+private suspend fun northline(): String { delay(50); throw IOException("northline 503") }
+private suspend fun fjord(): String = withTimeout(100) { delay(1_000); "fjord 12.43" }
+private suspend fun eastgate(): String { delay(300); return "eastgate 12.41" }
 
-private fun CoroutineScope.callAll(): List<Deferred<String>> = listOf(async { northbank() }, async { fjord() }, async { eastgate() })
+private fun CoroutineScope.callAll(): List<Deferred<String>> = listOf(async { northline() }, async { fjord() }, async { eastgate() })
 
 private suspend fun Deferred<String>.naive(): String? =
     try { await() } catch (e: CancellationException) { throw e } catch (e: Exception) { null }

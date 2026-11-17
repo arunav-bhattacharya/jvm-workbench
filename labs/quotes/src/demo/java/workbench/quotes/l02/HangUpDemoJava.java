@@ -28,7 +28,7 @@ public class HangUpDemoJava {
     public static void main(String[] args) throws Exception {
         try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<String>> calls = List.of(
-                    CompletableFuture.supplyAsync(() -> call("northbank", 300), pool),
+                    CompletableFuture.supplyAsync(() -> call("northline", 300), pool),
                     CompletableFuture.supplyAsync(() -> call("eastgate", 400), pool),
                     CompletableFuture.supplyAsync(() -> call("fjord", 500), pool));
             CompletableFuture<List<String>> request = CompletableFuture.allOf(calls.toArray(CompletableFuture[]::new))

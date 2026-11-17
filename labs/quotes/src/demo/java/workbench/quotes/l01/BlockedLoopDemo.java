@@ -35,12 +35,12 @@ public class BlockedLoopDemo {
     static final AtomicInteger inFlight = new AtomicInteger();
     static final AtomicInteger peak = new AtomicInteger();
 
-    static CompletableFuture<String> quote(String symbol) {
+    static CompletableFuture<String> quote(String destination) {
         peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);       // count quotes waiting at once
         CompletableFuture<String> f = new CompletableFuture<>();
         provider.schedule(() -> {
             inFlight.decrementAndGet();
-            f.complete(symbol + " 1.0842");
+            f.complete(destination + " 12.42");
         }, 100, TimeUnit.MILLISECONDS);
         return f;
     }
@@ -88,7 +88,7 @@ public class BlockedLoopDemo {
 
             peak.set(0);
             long t0 = System.nanoTime();
-            for (int i = 0; i < 10; i++) clients.get(i).getOutputStream().write((i + " EURUSD\n").getBytes(UTF_8));
+            for (int i = 0; i < 10; i++) clients.get(i).getOutputStream().write((i + " LISBON\n").getBytes(UTF_8));
             for (Socket c : clients) new BufferedReader(new InputStreamReader(c.getInputStream(), UTF_8)).readLine();
             long ms = (System.nanoTime() - t0) / 1_000_000;
             System.out.printf("%-6s 10 replies after %,5d ms; quotes waiting at the same time: %2d%n",

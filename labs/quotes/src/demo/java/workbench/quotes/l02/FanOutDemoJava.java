@@ -19,21 +19,21 @@ public class FanOutDemoJava {
     }
 
     public static void main(String[] args) {
-        Mono<String> northbank = ask("northbank", 120, "1.0845");
-        Mono<String> eastgate = ask("eastgate", 300, "1.0841");
-        Mono<String> fjord = ask("fjord", 200, "1.0843");
+        Mono<String> northline = ask("northline", 120, "12.45");
+        Mono<String> eastgate = ask("eastgate", 300, "12.41");
+        Mono<String> fjord = ask("fjord", 200, "12.43");
         Duration deadline = Duration.ofMillis(250);
 
         long t0 = System.nanoTime();
-        List<String> inTurn = Flux.concat(northbank, eastgate, fjord).collectList().block();
+        List<String> inTurn = Flux.concat(northline, eastgate, fjord).collectList().block();
         System.out.printf("one after another:     %d ms  %s%n", (System.nanoTime() - t0) / 1_000_000, inTurn);
 
         t0 = System.nanoTime();
-        var atOnce = Mono.zip(northbank, eastgate, fjord).block();
+        var atOnce = Mono.zip(northline, eastgate, fjord).block();
         System.out.printf("Mono.zip, all at once: %d ms  %s%n", (System.nanoTime() - t0) / 1_000_000, atOnce);
 
         t0 = System.nanoTime();
-        var withDeadline = Mono.zip(inTime(northbank, deadline), inTime(eastgate, deadline), inTime(fjord, deadline)).block();
+        var withDeadline = Mono.zip(inTime(northline, deadline), inTime(eastgate, deadline), inTime(fjord, deadline)).block();
         System.out.printf("with a 250 ms deadline: %d ms  %s%n", (System.nanoTime() - t0) / 1_000_000, withDeadline);
     }
 }

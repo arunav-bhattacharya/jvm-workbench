@@ -425,7 +425,7 @@ L = {
         "hints": [
             "`today.isAfter(bag.bestBefore)` is only true from the day after the date, so the bag still counts on the date itself. `!today.isBefore(bag.bestBefore)` would throw it out a day early, and one test checks the date itself.",
             "`maxOf(neededGrams - usable, 0)` stops a full cupboard from asking you to buy a negative amount.",
-            "`(missing + size - 1) / size` rounds up in integer arithmetic. `missing / size + 1` looks similar but buys one bag too many when exactly one bag is missing, and the 1,700 g test checks that."
+            "`(missing + size - 1) / size` rounds up in integer arithmetic. `missing / size + 1` looks similar but buys one bag too many whenever the missing amount is an exact number of bags, zero included, and two tests check that."
         ],
         "done_when": "All nine tests in `PureShoppingTest` pass, and `flourToBuy` has no arithmetic left in it."
     },

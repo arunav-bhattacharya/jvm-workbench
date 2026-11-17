@@ -8,9 +8,9 @@ import java.util.regex.Pattern;
  * The wire protocol: one UTF-8 line per request and per reply.
  *
  * <pre>
- * client: 7 EURUSD                 server: 7 OK EURUSD 1.0842 northbank
- * client: 8 GBPUSD                 server: 8 STALE GBPUSD 1.2710 fjord     (from the cache)
- * client: 9 USDJPY                 server: 9 ERR no quote for USDJPY
+ * client: 7 LISBON                 server: 7 OK LISBON 12.42 northline
+ * client: 8 DUBLIN                 server: 8 STALE DUBLIN 9.80 fjord     (from the cache)
+ * client: 9 ATHENS                 server: 9 ERR no quote for ATHENS
  * client: hello                    server: ERR bad request
  * client: QUIT                     server: BYE, then the server closes the connection
  * </pre>
@@ -24,21 +24,21 @@ public final class QuoteProtocol {
     /** Requests one connection may have waiting for a quote before the server stops reading it. */
     public static final int MAX_IN_FLIGHT = 16;
 
-    private static final Pattern SYMBOL = Pattern.compile("[A-Z]{6}");
+    private static final Pattern DESTINATION = Pattern.compile("[A-Z]{2,20}");   // a town, in capital letters
 
     private QuoteProtocol() {}
 
-    public record Request(String id, String symbol) {}
+    public record Request(String id, String destination) {}
 
-    /** {@code "7 EURUSD"} becomes {@code Request("7", "EURUSD")}; anything else becomes null. */
+    /** {@code "7 LISBON"} becomes {@code Request("7", "LISBON")}; anything else becomes null. */
     public static Request parse(String line) {
         String[] parts = line.trim().split(" +");
-        if (parts.length != 2 || !SYMBOL.matcher(parts[1]).matches()) return null;
+        if (parts.length != 2 || !DESTINATION.matcher(parts[1]).matches()) return null;
         return new Request(parts[0], parts[1]);
     }
 
     public static String ok(String id, Quote q) {
-        return id + (q.stale() ? " STALE " : " OK ") + q.symbol() + " " + q.price().toPlainString() + " " + q.provider() + "\n";
+        return id + (q.stale() ? " STALE " : " OK ") + q.destination() + " " + q.price().toPlainString() + " " + q.provider() + "\n";
     }
 
     public static String error(String id, Throwable e) {

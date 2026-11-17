@@ -165,7 +165,7 @@ The third is **double-checked locking**, from *Lazy init done right: double-chec
 
 `synchronized (lock)` lets only one thread at a time into the block. `volatile` (`@Volatile` in Kotlin) makes a write to the field visible to every thread that reads the field afterwards. Leave `volatile` out, and another thread can see a non-null reference to a map whose contents it can't see yet. That's the bug the lab asks you to fix.
 
-**A plain null check can't keep a value to one. Use an enum, a holder or a lock.**
+**A plain null check can't promise one instance. Let the JVM or a lock promise it.**
 
 Java gives us three tools, then, and each needs a little care. Kotlin moves two of them into the language."""
 
@@ -188,7 +188,7 @@ S2 = """Kotlin builds the singleton into the language. An `object` declaration d
 
 The Kotlin docs say the initialization of an object declaration is thread-safe and done on first access. The Java twin shows why. The compiler writes a class with a static `INSTANCE` field, set when the class is initialized, so the doorkeeper from the holder idiom does the same job here. From Java, you call it as `OrderNumbers.INSTANCE.next()`.
 
-Two details trip people up. A `companion object`, the object inside a class that holds what Java would make `static`, is initialized when its outer class is loaded, like a Java static initializer. And companion members aren't really static. They're members of the companion object, so Java callers write `PriceList.Companion.of(...)` unless you mark the function `@JvmStatic`.
+Two details trip people up. A `companion object`, the object inside a class that holds what Java would make `static`, is initialized when its outer class is loaded, like a Java static initializer. And companion members aren't really static. They're members of the companion object, so Java callers write `PriceList.Companion.getInstance()` unless you mark the function `@JvmStatic`.
 
 For a lazy value inside a class, Kotlin has `by lazy`. You hand it a function, and it runs the function on the first read and keeps the result. It has three modes, and they behave very differently when threads race:
 
@@ -247,7 +247,7 @@ class OrderPricer(private val prices: Prices) {
 }
 // in a test: OrderPricer { 450 }"""
 
-S3 = """Back to the town hall for a moment. Everybody depends on it, which is handy, and also the trouble. A note pinned to its board for one visitor is read by the next. And when new staff need to practise, there's no pretend town hall to practise in. Programs have both problems. Here's the shop's code that adds up a basket, fetching the price list the singleton way:
+S3 = """Back to the town hall for a moment. Everybody depends on it, which is handy, and also the trouble. A note pinned to its board for one visitor is read by the next. And when new staff need to practice, there's no pretend town hall to practice in. Programs have both problems. Here's the shop's code that adds up a basket, fetching the price list the singleton way:
 
 """ + pair(J_HIDDEN, K_HIDDEN) + """
 

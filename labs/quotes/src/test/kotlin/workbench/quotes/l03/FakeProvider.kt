@@ -16,7 +16,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class FakeProvider(
     override val name: String,
     override val idempotent: Boolean = true,
-    private val price: String = "1.0842",
+    private val price: String = "12.42",
     private val clock: () -> Long = { 0L },
     val cancelled: MutableList<String> = CopyOnWriteArrayList(),
     private val script: (call: Int) -> Pair<Duration, Exception?> = { 100.milliseconds to null },
@@ -27,7 +27,7 @@ class FakeProvider(
     val cancelledCalls: MutableList<Int> = CopyOnWriteArrayList()
     private val active = AtomicInteger()
 
-    override suspend fun quote(symbol: String): Quote {
+    override suspend fun quote(destination: String): Quote {
         val n = calls.incrementAndGet()
         started += clock()
         peak.accumulateAndGet(active.incrementAndGet(), ::maxOf)
@@ -35,7 +35,7 @@ class FakeProvider(
             val (latency, failure) = script(n)
             delay(latency)
             failure?.let { throw it }
-            return Quote.live(symbol, price, name)
+            return Quote.live(destination, price, name)
         } catch (e: CancellationException) {
             cancelled += name
             cancelledCalls += n

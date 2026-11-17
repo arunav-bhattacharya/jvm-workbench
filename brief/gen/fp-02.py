@@ -53,11 +53,11 @@ FIG = (
     '</svg>'
 )
 
-OPENING = """Picture a box of recipe cards in a kitchen drawer. You can take a card out, lend it to a friend, or lay three cards in a row for tonight's dinner. You can even pin a note to one: "my oven runs hot, take five minutes off". A card is a thing you can hold, not only something you do.
+OPENING = """Picture a box of recipe cards in a kitchen drawer. You can take a card out, lend it to a friend, or lay three cards in a row for tonight's dinner. Or pin a note to one: "my oven runs hot, take five minutes off". A card is a thing you hold, not only something you do.
 
-Code can hold its rules the same way. Pure functions: the idea everything else builds on ended with every rule as a function we called by name. That works until each guest at your table needs different checks, and the method that checks dishes grows one `if` per guest.
+Code can hold its rules the same way. The last lesson, on pure functions, ended with every rule as a function we called by name. That works until each guest at your table needs different checks, and the method that checks dishes grows one `if` per guest.
 
-The trap waits on the other side. A function value can carry a note from the place it was made. When that note is a variable that changes, everyone who holds the card shares it, and two threads writing on one note lose marks. Kotlin compiles that without a word.
+The trap waits on the other side. A function value can carry a note from the place it was made. When that note is a variable that changes, everyone who holds the card shares it. Two threads (two paths of work running at once) writing on one note lose marks, and Kotlin compiles that without a word.
 
 In this lesson, we'll turn checks into values, write them four ways, see what a lambda becomes on the JVM, and find the shared box inside a closure. Before we start, make a guess, and keep it in mind."""
 
@@ -95,7 +95,7 @@ S0 = """Here's a dinner party in code. The host has a few dishes in mind and a f
 
 Every new need means editing this method, and every guest with a need of their own adds another flag. You can't test one check on its own, reorder them, or let a guest's settings pick which ones apply, because the checks aren't things you can hold. They're lines of code. And the guest list only ever grows.
 
-So make each check a value, like a card in the drawer. In Kotlin a function has a type, written with an arrow: `(Dish) -> Problem?` means "a function that takes a `Dish` and returns a `Problem`, or null". `Problem` is a small data class that says which check said no, and about which dish. You can keep such a function in a `val`, put it in a list, pass it as an argument and return it from another function, the same way you'd handle an `Int`. That's what people mean by **functions as values**.
+So make each check a value, like a card in the drawer. In Kotlin a function has a type, written with an arrow: `(Dish) -> Problem?` means "a function that takes a `Dish` and returns a `Problem`, or null". `Problem` is a small data class that says which check said no, and about which dish. You can keep such a function in a `val` or a list, pass it as an argument, and return it from another function, just as you'd handle an `Int`. That's what people mean by **functions as values**.
 
 """ + pair(J_VALUE, K_VALUE) + """
 
@@ -110,7 +110,7 @@ leek and bacon tart: everyone=ok, Sam=has-meat
 strawberry cake: everyone=out-of-season, Sam=out-of-season
 ```
 
-The tart is fine for everyone except Sam, and adding Sam's check changed no other line. The strawberry cake fails because this kitchen cooks in autumn, and the strawberries didn't get the memo.
+The tart is fine for everyone except Sam, and adding Sam's check changed no other line. The strawberry cake fails because this kitchen cooks in autumn, and the strawberries are five months late.
 
 The two languages spell all this differently. Java has no function types, so it uses a **functional interface**, an interface with one abstract method: `Function<T, R>`, `Predicate<T>`, `Supplier<T>`, or one of your own. You call it by its method name, `apply` or `test`.
 
@@ -208,7 +208,7 @@ Look at what the Java version needed. Java refuses to capture a local variable t
 
 The lambda outlives the frame, so all it can take is a copy of the value, and copying a variable that keeps changing would be confusing. Java programmers work around it with a one-element array or an `AtomicInteger`. Either one is an object on the **heap**, the memory where objects live for as long as something points at them, and both sides can share it.
 
-Kotlin builds that object for you, silently. When a lambda captures a `var`, the compiler moves the variable into a small heap object, `kotlin.jvm.internal.Ref$IntRef` (or `LongRef`, `ObjectRef` and so on), and both the function and the lambda use its field. The field is a plain `public int element`, with no `volatile` and no lock. Java refuses the capture; the Kotlin compiler shrugs and builds the box.
+Kotlin builds that object for you, silently. When a lambda captures a `var`, the compiler moves the variable into a small heap object, a `kotlin.jvm.internal.Ref$IntRef` (or `LongRef`, `ObjectRef` and so on). Both the function and the lambda use its field. The field is a plain `public int element`, with no `volatile` and no lock. Java refuses the capture; the Kotlin compiler shrugs and builds the box.
 
 Here the recipe card picture breaks, and it breaks in a way that matters. Lend a paper card and your friend gets their own copy of the note. Hand out a closure and everyone holds the same box.
 
@@ -224,7 +224,7 @@ run  3: expected 1,000,000, got 1,000,000 (lost 0)
 
 Runs 4 to 10 were correct too. A second try lost 202,126 in run 1, and a third lost nothing in all ten. The Java twin, with its hand-made array box, lost exactly 500,000 in one run.
 
-Most losses land in the first run, while the JVM is still interpreting the loop. Once the JIT compiler (the part of the JVM that turns busy code into machine code) has compiled it, each task keeps the count in a register and writes it back once at the end. Then a loss wipes out whole tasks, which is why 500,000 is such a round number. The memory model track explains why the JIT may do that to a plain field. A race that shows up once in ten runs is still a race, and the worst kind, because it passes most tests.
+Most losses land in the first run, while the JVM is still interpreting the loop. Then the JIT compiler, the part of the JVM that turns busy code into machine code, compiles it. From then on each task keeps the count in a register, a slot inside the processor, and writes it back once at the end. Then a loss wipes out whole tasks, which is why 500,000 is such a round number. The memory model track explains why the JIT may do that to a plain field. A race that shows up once in ten runs is still a race, and the worst kind, because it passes most tests.
 
 **A captured var is one box that everyone holding the closure shares. Never change it from two threads.**
 
@@ -352,11 +352,11 @@ L = {
                 "alt_code": "int[] saved = {0};                              // the box Java makes you write\npool.submit(() -> { ...; saved[0] += 1; });     // the same race"
             },
             {
-                "say": "2. Don't share. Make each task return its own count, and add the counts up on the calling thread. Each task's lambda now captures only its `chunk`, which nobody changes. Self-check: why is `count { }` inside the task safe? (It runs on one thread over that task's own chunk, and its running total is a local.)",
-                "code": "fun importAll(recipes: List<Recipe>, pool: ExecutorService): Int {\n    val futures = recipes.chunked(500).map { chunk ->\n        pool.submit(Callable {                            // 1. each task returns a value\n            chunk.count { r -> book.save(r) }\n        })\n    }\n    return futures.sumOf { it.get() }                     // 2. combine on one thread\n}",
+                "say": "2. Don't share. Make each task count its own saves in a local, return that count, and add the counts up on the calling thread. Each task's lambda now captures only its `chunk`, which nobody changes. Self-check: why is the `var mine` inside the task safe? (It's a local of that one task, used on one thread, and no other lambda captures it, so it never becomes a box.)",
+                "code": "fun importAll(recipes: List<Recipe>, pool: ExecutorService): Int {\n    val futures = recipes.chunked(500).map { chunk ->\n        pool.submit(Callable {                            // 1. each task returns a value\n            var mine = 0                                  //    a local: only this task touches it\n            for (r in chunk) if (book.save(r)) mine++\n            mine\n        })\n    }\n    return futures.sumOf { it.get() }                     // 2. combine on one thread\n}",
                 "lang": "kotlin",
                 "alt_lang": "java",
-                "alt_code": "static int importAll(List<Recipe> recipes, ExecutorService pool) throws Exception {\n    List<Future<Long>> futures = new ArrayList<>();\n    for (List<Recipe> chunk : chunks(recipes, 500)) {\n        futures.add(pool.submit(() -> chunk.stream()          // 1. each task returns a value\n                .filter(r -> book.save(r))\n                .count()));\n    }\n    int total = 0;\n    for (Future<Long> f : futures) total += f.get();        // 2. combine on one thread\n    return total;\n}"
+                "alt_code": "static int importAll(List<Recipe> recipes, ExecutorService pool) throws Exception {\n    List<Future<Integer>> futures = new ArrayList<>();\n    for (List<Recipe> chunk : chunks(recipes, 500)) {\n        futures.add(pool.submit(() -> {                       // 1. each task returns a value\n            int mine = 0;                                     //    a local: only this task touches it\n            for (Recipe r : chunk) if (book.save(r)) mine++;\n            return mine;\n        }));\n    }\n    int total = 0;\n    for (Future<Integer> f : futures) total += f.get();     // 2. combine on one thread\n    return total;\n}"
             },
             {
                 "say": "3. If you do need a live shared number, say a progress bar while the import runs, share a thread-safe object through a `val`, never a `var`. `LongAdder` spreads the work over several cells and is cheaper than `AtomicLong` when many threads add at once.",

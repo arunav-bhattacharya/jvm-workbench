@@ -47,20 +47,20 @@ class UnderLoadTest {
 
     @Test
     fun `each provider sees at most its limit of calls at once`() = runTest {
-        val northbank = fake("northbank") { 100.milliseconds to null }
-        val guarded = GuardedProvider(northbank, maxConcurrent = 4)
-        val quotes = List(50) { async { guarded.quote("EURUSD") } }.awaitAll()
+        val northline = fake("northline") { 100.milliseconds to null }
+        val guarded = GuardedProvider(northline, maxConcurrent = 4)
+        val quotes = List(50) { async { guarded.quote("LISBON") } }.awaitAll()
         assertThat(quotes).hasSize(50)
-        assertThat(northbank.peak.get()).`as`("calls in flight at once").isEqualTo(4)
+        assertThat(northline.peak.get()).`as`("calls in flight at once").isEqualTo(4)
         assertThat(currentTime).`as`("virtual ms: 50 calls, 4 at a time, 100 ms each").isEqualTo(1_300)
     }
 
     @Test
     fun `the limit counts hedges too`() = runTest {
-        val northbank = fake("northbank") { n -> (if (n == 1) 1_000 else 30).milliseconds to null }
-        val guarded = GuardedProvider(northbank, maxConcurrent = 1, hedgeAfter = 100.milliseconds)
-        guarded.quote("EURUSD")
-        assertThat(northbank.peak.get()).`as`("calls in flight at once, with a hedge waiting").isEqualTo(1)
+        val northline = fake("northline") { n -> (if (n == 1) 1_000 else 30).milliseconds to null }
+        val guarded = GuardedProvider(northline, maxConcurrent = 1, hedgeAfter = 100.milliseconds)
+        guarded.quote("LISBON")
+        assertThat(northline.peak.get()).`as`("calls in flight at once, with a hedge waiting").isEqualTo(1)
         assertThat(currentTime).`as`("the hedge had no permit, so the first call won").isEqualTo(1_000)
     }
 
@@ -70,19 +70,19 @@ class UnderLoadTest {
     fun `an idempotent provider is retried after a transient failure, with growing waits`() = runTest {
         val eastgate = fake("eastgate") { n -> 10.milliseconds to (if (n < 3) IOException("eastgate 503") else null) }
         val guarded = GuardedProvider(eastgate, 8, Backoff(retries = 2, first = 100.milliseconds, jitter = 0.0))
-        assertThat(guarded.quote("EURUSD").provider).isEqualTo("eastgate")
+        assertThat(guarded.quote("LISBON").provider).isEqualTo("eastgate")
         assertThat(eastgate.started).`as`("virtual ms of each attempt: waits of 100, then 200").containsExactly(0L, 110L, 320L)
     }
 
     @Test
     fun `the last failure reaches the caller, and errors that are not IOException are not retried`() = runTest {
         val down = fake("eastgate") { 10.milliseconds to IOException("eastgate 503") }
-        val thrown = runCatching { GuardedProvider(down, 8, Backoff(retries = 2, jitter = 0.0)).quote("EURUSD") }.exceptionOrNull()
+        val thrown = runCatching { GuardedProvider(down, 8, Backoff(retries = 2, jitter = 0.0)).quote("LISBON") }.exceptionOrNull()
         assertThat(thrown).isInstanceOf(IOException::class.java).hasMessage("eastgate 503")
         assertThat(down.calls.get()).`as`("one call and two retries").isEqualTo(3)
 
-        val wrong = fake("eastgate") { 10.milliseconds to IllegalArgumentException("unknown symbol") }
-        runCatching { GuardedProvider(wrong, 8, Backoff(retries = 2, jitter = 0.0)).quote("XXXYYY") }
+        val wrong = fake("eastgate") { 10.milliseconds to IllegalArgumentException("unknown destination") }
+        runCatching { GuardedProvider(wrong, 8, Backoff(retries = 2, jitter = 0.0)).quote("NOWHERE") }
         assertThat(wrong.calls.get()).`as`("a bad request is not worth repeating").isEqualTo(1)
     }
 
@@ -90,9 +90,9 @@ class UnderLoadTest {
     fun `a provider that is not idempotent is called once, never retried or hedged`() = runTest {
         val fjord = fake("fjord", idempotent = false) { 300.milliseconds to IOException("fjord 503") }
         val guarded = GuardedProvider(fjord, 8, Backoff(retries = 2, jitter = 0.0), hedgeAfter = 50.milliseconds)
-        val thrown = runCatching { guarded.quote("EURUSD") }.exceptionOrNull()
+        val thrown = runCatching { guarded.quote("LISBON") }.exceptionOrNull()
         assertThat(thrown).isInstanceOf(IOException::class.java)
-        assertThat(fjord.calls.get()).`as`("calls to a provider whose quotes are firm").isEqualTo(1)
+        assertThat(fjord.calls.get()).`as`("calls to a provider whose prices are bookings").isEqualTo(1)
     }
 
     @Test
@@ -113,19 +113,19 @@ class UnderLoadTest {
 
     @Test
     fun `a call slower than hedgeAfter gets one hedge, and the first answer wins`() = runTest {
-        val northbank = fake("northbank") { n -> (if (n == 1) 1_000 else 30).milliseconds to null }
-        val guarded = GuardedProvider(northbank, 8, hedgeAfter = 100.milliseconds)
-        assertThat(guarded.quote("EURUSD").provider).isEqualTo("northbank")
+        val northline = fake("northline") { n -> (if (n == 1) 1_000 else 30).milliseconds to null }
+        val guarded = GuardedProvider(northline, 8, hedgeAfter = 100.milliseconds)
+        assertThat(guarded.quote("LISBON").provider).isEqualTo("northline")
         assertThat(currentTime).`as`("virtual ms: the hedge starts at 100 and answers 30 ms later").isEqualTo(130)
-        assertThat(northbank.calls.get()).isEqualTo(2)
-        assertThat(northbank.cancelledCalls).`as`("the slow first call was cancelled").containsExactly(1)
+        assertThat(northline.calls.get()).isEqualTo(2)
+        assertThat(northline.cancelledCalls).`as`("the slow first call was cancelled").containsExactly(1)
     }
 
     @Test
     fun `a call that answers before hedgeAfter is never hedged`() = runTest {
-        val northbank = fake("northbank") { 40.milliseconds to null }
-        GuardedProvider(northbank, 8, hedgeAfter = 100.milliseconds).quote("EURUSD")
-        assertThat(northbank.calls.get()).isEqualTo(1)
+        val northline = fake("northline") { 40.milliseconds to null }
+        GuardedProvider(northline, 8, hedgeAfter = 100.milliseconds).quote("LISBON")
+        assertThat(northline.calls.get()).isEqualTo(1)
         assertThat(currentTime).isEqualTo(40)
     }
 
@@ -133,32 +133,32 @@ class UnderLoadTest {
 
     @Test
     fun `requests beyond maxInFlight are shed at once with a clear error`() = runTest {
-        val northbank = fake("northbank") { 200.milliseconds to null }
-        val service = QuoteService(StandardTestDispatcher(testScheduler), BestQuote(listOf(northbank), 1.seconds), maxInFlight = 4)
-        val futures = List(10) { service.quote("EURUSD") }
+        val northline = fake("northline") { 200.milliseconds to null }
+        val service = QuoteService(StandardTestDispatcher(testScheduler), BestQuote(listOf(northline), 1.seconds), maxInFlight = 4)
+        val futures = List(10) { service.quote("LISBON") }
         val shed = futures.filter { it.isCompletedExceptionally }
         assertThat(shed).`as`("requests refused at virtual time 0").hasSize(6)
         shed.forEach { f -> assertThatThrownBy { f.get() }.hasCauseInstanceOf(BusyException::class.java).hasMessageContaining("busy") }
         advanceUntilIdle()
         assertThat(futures.count { it.isDone && !it.isCompletedExceptionally }).`as`("admitted requests answered").isEqualTo(4)
-        assertThat(northbank.calls.get()).`as`("provider calls: a shed request never reaches a provider").isEqualTo(4)
-        val next = service.quote("EURUSD")
+        assertThat(northline.calls.get()).`as`("provider calls: a shed request never reaches a provider").isEqualTo(4)
+        val next = service.quote("LISBON")
         advanceUntilIdle()
-        assertThat(next.get().provider).`as`("permits came back").isEqualTo("northbank")
+        assertThat(next.get().provider).`as`("permits came back").isEqualTo("northline")
         service.close()
     }
 
     @Test
     fun `shutdown lets requests in flight finish within the grace period`() = runTest {
-        val northbank = fake("northbank") { 200.milliseconds to null }
-        val service = QuoteService(StandardTestDispatcher(testScheduler), BestQuote(listOf(northbank), 1.seconds))
-        val a = service.quote("EURUSD")
-        val b = service.quote("GBPUSD")
+        val northline = fake("northline") { 200.milliseconds to null }
+        val service = QuoteService(StandardTestDispatcher(testScheduler), BestQuote(listOf(northline), 1.seconds))
+        val a = service.quote("LISBON")
+        val b = service.quote("DUBLIN")
         runCurrent()
         assertThat(service.shutdown(grace = 1.seconds)).`as`("requests cancelled").isZero()
         assertThat(currentTime).`as`("shutdown returned when the last request was done").isEqualTo(200)
-        assertThat(listOf(a.get().symbol, b.get().symbol)).containsExactly("EURUSD", "GBPUSD")
-        assertThatThrownBy { service.quote("EURUSD").get() }.isInstanceOf(ExecutionException::class.java)
+        assertThat(listOf(a.get().destination, b.get().destination)).containsExactly("LISBON", "DUBLIN")
+        assertThatThrownBy { service.quote("LISBON").get() }.isInstanceOf(ExecutionException::class.java)
             .hasCauseInstanceOf(ShuttingDownException::class.java)
         assertThat(service.inFlight).isZero()
     }
@@ -166,10 +166,10 @@ class UnderLoadTest {
     @Test
     fun `shutdown cancels what still runs after the grace period and leaves no coroutines behind`() = runTest {
         val cancelled = CopyOnWriteArrayList<String>()
-        val hanging = listOf("northbank", "eastgate", "fjord").map { fake(it, cancelled = cancelled) { 1.hours to null } }
+        val hanging = listOf("northline", "eastgate", "fjord").map { fake(it, cancelled = cancelled) { 1.hours to null } }
         val service = QuoteService(StandardTestDispatcher(testScheduler), BestQuote(hanging, 1.minutes))
-        val a = service.quote("EURUSD")
-        val b = service.quote("GBPUSD")
+        val a = service.quote("LISBON")
+        val b = service.quote("DUBLIN")
         runCurrent()
         assertThat(service.shutdown(grace = 500.milliseconds)).`as`("requests cancelled").isEqualTo(2)
         assertThat(currentTime).isEqualTo(500)
@@ -189,10 +189,10 @@ class UnderLoadTest {
 
     private class Gated(override val name: String, private val gate: CompletableDeferred<Unit>, private val started: CountDownLatch) : Provider {
         override val idempotent = true
-        override suspend fun quote(symbol: String): Quote {
+        override suspend fun quote(destination: String): Quote {
             started.countDown()
             gate.await()
-            return Quote.live(symbol, "1.0842", name)
+            return Quote.live(destination, "12.42", name)
         }
     }
 
@@ -200,16 +200,16 @@ class UnderLoadTest {
     fun `over TCP, a request beyond the limit gets ERR busy at once`() {
         val gate = CompletableDeferred<Unit>()
         val started = CountDownLatch(2)
-        val app = QuoteApp(listOf(Gated("northbank", gate, started)), deadline = 10.seconds, maxInFlight = 2)
+        val app = QuoteApp(listOf(Gated("northline", gate, started)), deadline = 10.seconds, maxInFlight = 2)
         try {
             Client(app.port()).use { c ->
-                c.send("1 EURUSD", "2 EURUSD")
+                c.send("1 LISBON", "2 LISBON")
                 assertThat(started.await(5, TimeUnit.SECONDS)).`as`("two requests admitted").isTrue()
-                c.send("3 EURUSD")
+                c.send("3 LISBON")
                 assertThat(c.reader.readLine()).isEqualTo("3 ERR busy")
                 gate.complete(Unit)
                 assertThat(setOf(c.reader.readLine(), c.reader.readLine()))
-                    .containsExactlyInAnyOrder("1 OK EURUSD 1.0842 northbank", "2 OK EURUSD 1.0842 northbank")
+                    .containsExactlyInAnyOrder("1 OK LISBON 12.42 northline", "2 OK LISBON 12.42 northline")
             }
         } finally {
             gate.complete(Unit)
@@ -221,21 +221,21 @@ class UnderLoadTest {
     fun `over TCP, shutdown answers the request in flight, then closes the connection`() {
         val started = CountDownLatch(1)
         val slow = object : Provider {
-            override val name = "northbank"
+            override val name = "northline"
             override val idempotent = true
-            override suspend fun quote(symbol: String): Quote {
+            override suspend fun quote(destination: String): Quote {
                 started.countDown()
                 delay(300)
-                return Quote.live(symbol, "1.0842", name)
+                return Quote.live(destination, "12.42", name)
             }
         }
         val app = QuoteApp(listOf(slow), deadline = 10.seconds, maxInFlight = 16)
         val port = app.port()
         Client(port).use { c ->
-            c.send("1 EURUSD")
+            c.send("1 LISBON")
             assertThat(started.await(5, TimeUnit.SECONDS)).isTrue()
             val stopper = thread { app.shutdown(grace = 5.seconds) }
-            assertThat(c.reader.readLine()).`as`("the reply to the request in flight").isEqualTo("1 OK EURUSD 1.0842 northbank")
+            assertThat(c.reader.readLine()).`as`("the reply to the request in flight").isEqualTo("1 OK LISBON 12.42 northline")
             assertThat(c.reader.readLine()).`as`("then the server closes the connection").isNull()
             stopper.join(10_000)
             assertThat(stopper.isAlive).`as`("shutdown still running").isFalse()

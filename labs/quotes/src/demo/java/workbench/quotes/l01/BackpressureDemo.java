@@ -55,7 +55,7 @@ public class BackpressureDemo {
             update(ctx);
             CompletableFuture.completedFuture(line.split(" ")[0]).whenCompleteAsync((id, e) -> {
                 inFlight--;
-                ctx.writeAndFlush(id + " OK EURUSD 1.0842 northbank\n");
+                ctx.writeAndFlush(id + " OK LISBON 12.42 northline\n");
                 peakPending.accumulateAndGet(ctx.channel().unsafe().outboundBuffer().totalPendingWriteBytes(), Math::max);
                 update(ctx);
             }, ctx.executor());
@@ -100,7 +100,7 @@ public class BackpressureDemo {
                 Thread writer = Thread.ofPlatform().start(() -> {
                     try {
                         OutputStream out = new BufferedOutputStream(client.getOutputStream());
-                        for (int i = 0; i < REQUESTS; i++) out.write((i + " EURUSD\n").getBytes(UTF_8));
+                        for (int i = 0; i < REQUESTS; i++) out.write((i + " LISBON\n").getBytes(UTF_8));
                         out.flush();
                     } catch (Exception ignored) {
                     }

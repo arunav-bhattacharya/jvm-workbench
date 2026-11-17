@@ -185,14 +185,14 @@ def slips(n=9, w=1.5, color=PAPER):
 
 # the kitchen of stacks: bundle sizes by level, all = 2,000,000 payments, level 6 = 1/64 = 31,250
 LBL = ["all", "1/2", "1/4", "1/8", "1/16", "1/32", "1/64"]
-WID = [1.3, 1.2, 1.08, 0.97, 0.87, 0.77, 0.68]
-CX = [-4.9, -1.6, 1.7, 5.0]
-HY, Y0, DY = -1.65, -1.65, 0.36
+WID = [1.4, 1.3, 1.17, 1.05, 0.94, 0.83, 0.73]
+CX = [-4.85, -1.55, 1.75, 5.0]
+HY, Y0, DY = -0.85, -0.85, 0.4
 
 
 def bundle(level, color=PAPER):
-    r = RoundedRectangle(corner_radius=0.05, width=WID[level], height=0.3).set_stroke(color, 2).set_fill(dim(color, 0.3), 1)
-    b = VGroup(r, T(LBL[level], 20).move_to(r))
+    r = RoundedRectangle(corner_radius=0.05, width=WID[level], height=0.34).set_stroke(color, 2).set_fill(dim(color, 0.3), 1)
+    b = VGroup(r, T(LBL[level], 22).move_to(r))
     b.level = level
     return b.set_z_index(3)
 
@@ -248,7 +248,7 @@ class Exec08WorkStealing(Narrated):
         self.say("four")
         self.play(FadeIn(ck_r), run_time=0.6)
         self.play(*[ReplacementTransform(pile[k * 2:k * 2 + 3].copy(), piles[k]) for k in range(4)], FadeOut(pile),
-                  pile_l.animate.set_opacity(0.4), run_time=0.9)
+                  FadeOut(pile_l), run_time=0.9)
         self.at(1)
         grown = [b_.copy().stretch_to_fit_width(0.001, about_edge=LEFT) for b_ in bars]
         self.add(*grown)
@@ -264,19 +264,19 @@ class Exec08WorkStealing(Narrated):
         self.hold()
         guess = T("Splitting once, up front, is a guess.", 30, RULE).move_to([0, 2.9, 0])
         self.say("cash1")
-        self.play(FadeIn(guess, shift=DOWN * 0.1), FadeOut(pile_l), run_time=0.6)
+        self.play(FadeIn(guess, shift=DOWN * 0.1), run_time=0.6)
         self.hold()
         self.play(FadeOut(VGroup(own, own_l, ck_r, piles, bars, idle, idle_l, slow, guess)), run_time=0.6)
 
         # ================= each cook's stack =================
-        cks = VGroup(*[cook(WK[w], 1.0).move_to([CX[w] - 0.9, -2.5, 0]) for w in range(4)])
-        wl = VGroup(*[T(f"cook {w + 1}", 22, WK[w]).move_to([CX[w] - 0.9, -3.2, 0]) for w in range(4)])
-        shelves = VGroup(*[Line([CX[w] - 0.08, Y0 - 0.2, 0], [CX[w] + 1.18, Y0 - 0.2, 0], stroke_width=3, color=GREY_B) for w in range(4)])
+        cks = VGroup(*[cook(WK[w], 1.15).move_to([CX[w] - 0.9, -1.75, 0]) for w in range(4)])
+        wl = VGroup(*[T(f"cook {w + 1}", 24, WK[w]).move_to([CX[w] - 0.9, -2.6, 0]) for w in range(4)])
+        shelves = VGroup(*[Line([CX[w] - 0.05, Y0 - 0.22, 0], [CX[w] + 1.25, Y0 - 0.22, 0], stroke_width=3, color=GREY_B) for w in range(4)])
         stacks = [[] for _ in range(4)]
         hands = [None] * 4
 
         def slot(w, k):
-            return np.array([CX[w] + 0.55, Y0 + DY * k, 0])
+            return np.array([CX[w] + 0.6, Y0 + DY * k, 0])
 
         def hand_p(w):
             return np.array([CX[w] - 0.9, HY, 0])
@@ -345,7 +345,7 @@ class Exec08WorkStealing(Narrated):
         self.hold()
 
         top_l = T("top: his own work", 20, WK[0]).next_to(stacks[0][-1], UP, buff=0.12)
-        bot_l = T("bottom: for thieves", 20, GREY_A).move_to([slot(0, 0)[0], Y0 - 0.48, 0])
+        bot_l = T("bottom: for thieves", 20, GREY_A).move_to([slot(0, 0)[0], Y0 - 0.5, 0])
         self.say("own")
         self.at(1)
         self.play(FadeIn(top_l, shift=DOWN * 0.1), Indicate(stacks[0][-1][1], color=WK[0], scale_factor=1.3), run_time=0.8)
@@ -362,12 +362,12 @@ class Exec08WorkStealing(Narrated):
                  ("wait for that half", "join"), ("small enough", "the threshold"), ("a small bundle", "a leaf"),
                  ("take from the bottom", "work stealing")]
         nm = VGroup(*[VGroup(T(a, 24, GREY_A), T("=", 24, GREY_B), T(b, 24, RULE)).arrange(RIGHT, buff=0.15) for a, b in names])
-        col1 = VGroup(*nm[:4]).arrange(DOWN, aligned_edge=LEFT, buff=0.22)
-        col2 = VGroup(*nm[4:]).arrange(DOWN, aligned_edge=LEFT, buff=0.22)
+        col1 = VGroup(*nm[:4]).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
+        col2 = VGroup(*nm[4:]).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
         cols = VGroup(col1, col2).arrange(RIGHT, aligned_edge=UP, buff=1.2)
         fj = VGroup(T("the workers of a", 26), M("ForkJoinPool", 26, RULE)).arrange(RIGHT, buff=0.2)
-        legend = VGroup(fj, cols).arrange(DOWN, buff=0.3)
-        fit(legend, 12.4).move_to([0, 1.95, 0])
+        legend = VGroup(fj, cols).arrange(DOWN, buff=0.25)
+        fit(legend, 12.4).move_to([0, 2.2, 0])
         self.say("name")
         self.play(FadeOut(manners), FadeOut(top_l), FadeOut(bot_l), run_time=0.4)
         self.play(FadeIn(fj), FadeIn(nm[0]), run_time=0.6)
@@ -479,19 +479,20 @@ class Exec08WorkStealing(Narrated):
 
         # ---- why: the staircase ----
         self.play(FadeOut(VGroup(cg2, out2, sign1, ref, ref_l)), run_time=0.6)
-        S0, BW = -4.0, 0.58
-        R_Y = [1.95, 1.6, 1.25, 0.9]
-        W_Y = [-0.35, -0.7, -1.05, -1.4]
-        r_lab = T("right order", 26, GOOD).move_to([-6.3, 1.42, 0], aligned_edge=LEFT)
-        w_lab = T("wrong order", 26, BAD).move_to([-6.3, -0.88, 0], aligned_edge=LEFT)
-        r_blocks = VGroup(*[Rectangle(width=BW - 0.06, height=0.28).set_stroke(WK[w], 2).set_fill(dim(WK[w], 0.45), 1)
+        S0, BW = -4.0, 0.64
+        R_Y = [2.1, 1.72, 1.34, 0.96]
+        W_Y = [-0.3, -0.68, -1.06, -1.44]
+        r_lab = T("right order", 26, GOOD).move_to([-6.3, 1.53, 0], aligned_edge=LEFT)
+        w_lab = T("wrong order", 26, BAD).move_to([-6.3, -0.87, 0], aligned_edge=LEFT)
+        r_blocks = VGroup(*[Rectangle(width=BW - 0.06, height=0.3).set_stroke(WK[w], 2).set_fill(dim(WK[w], 0.45), 1)
                             .move_to([S0 + BW * (i + 0.5), R_Y[w], 0]) for w in range(4) for i in range(4)])
         order = [0, 1, 0, 2, 3, 1, 2, 0, 3, 3, 1, 2, 0, 1, 3, 2]
-        w_blocks = VGroup(*[Rectangle(width=BW - 0.06, height=0.28).set_stroke(WK[order[i]], 2).set_fill(dim(WK[order[i]], 0.45), 1)
+        w_blocks = VGroup(*[Rectangle(width=BW - 0.06, height=0.3).set_stroke(WK[order[i]], 2).set_fill(dim(WK[order[i]], 0.45), 1)
                             .move_to([S0 + BW * (i + 0.5), W_Y[order[i]], 0]) for i in range(16)])
-        r_note = T("4 at a time", 24, GOOD).move_to([S0 + BW * 4 + 1.0, 1.42, 0])
+        r_note = T("4 at a time", 26, GOOD).move_to([S0 + BW * 4 + 0.3, 1.53, 0], aligned_edge=LEFT)
         w_note = T("1 at a time, hopping between cooks", 24, BAD).next_to(w_blocks, DOWN, buff=0.25).align_to(w_blocks, RIGHT)
-        guides = VGroup(*[Line([S0, y, 0], [S0 + BW * 16, y, 0], stroke_width=1, color=GREY_D) for y in R_Y + W_Y])
+        guides = VGroup(*[Line([S0, y, 0], [S0 + BW * 4, y, 0], stroke_width=1, color=GREY_D) for y in R_Y],
+                        *[Line([S0, y, 0], [S0 + BW * 16, y, 0], stroke_width=1, color=GREY_D) for y in W_Y])
         self.say("relay")
         self.play(FadeIn(r_lab), FadeIn(w_lab), FadeIn(guides), run_time=0.6)
         self.play(LaggedStart(*[FadeIn(b_) for b_ in r_blocks], lag_ratio=0.03), FadeIn(r_note), run_time=0.9)
@@ -499,7 +500,7 @@ class Exec08WorkStealing(Narrated):
         self.play(LaggedStart(*[FadeIn(b_) for b_ in w_blocks], lag_ratio=0.35), run_time=self.left())
         self.play(FadeIn(w_note), run_time=0.5)
         self.hold()
-        relay = T("a relay race: four runners, one running at a time", 26, GREY_A).move_to([0, -2.55, 0])
+        relay = T("a relay race: four runners, one running at a time", 26, GREY_A).move_to([0, -2.75, 0])
         rule = T("Fork one half, compute the other, then join.", 30, RULE).move_to([0, 2.9, 0])
         self.say("relay_joke")
         self.play(FadeIn(relay, shift=UP * 0.1), run_time=0.6)
@@ -514,7 +515,7 @@ class Exec08WorkStealing(Narrated):
         pool.move_to([-1.8, 0.75, 0])
         pool_l = VGroup(T("the common pool", 28, GREY_A), T("one per JVM, everyone borrows it", 22, GREY_B)).arrange(DOWN, buff=0.06)
         pool_l.next_to(pool, UP, buff=0.12)
-        helpers = VGroup(*[cook(HELP, 0.9) for _ in range(3)], person(MAINC, 0.9)).arrange(RIGHT, buff=0.8)
+        helpers = VGroup(*[cook(HELP, 1.2) for _ in range(3)], person(MAINC, 1.2)).arrange(RIGHT, buff=0.75)
         helpers.move_to(pool.get_center() + UP * 0.25)
         h_l = VGroup(*[T(n, 20, c).next_to(helpers[i], DOWN, buff=0.12) for i, (n, c) in
                        enumerate([("worker-1", HELP), ("worker-2", HELP), ("worker-3", HELP), ("main", MAINC)])])

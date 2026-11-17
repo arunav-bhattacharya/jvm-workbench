@@ -10,13 +10,13 @@ import kotlin.coroutines.CoroutineContext
  *
  * 1. Give the class a private scope: `CoroutineScope(context + SupervisorJob())`. Why a supervisor?
  *    A request coroutine that fails must not cancel every other request.
- * 2. `quote` starts `best.quote(symbol)` with `scope.future { }` (from `kotlinx.coroutines.future`)
+ * 2. `quote` starts `best.quote(destination)` with `scope.future { }` (from `kotlinx.coroutines.future`)
  *    and returns the future at once. Never `runBlocking` here: the caller is an event loop.
  * 3. `inFlight` counts the children of the scope's job; `close` cancels the scope.
  */
 class QuoteService(context: CoroutineContext, private val best: BestQuote) : QuoteSource, AutoCloseable {
 
-    override fun quote(symbol: String): CompletableFuture<Quote> = TODO("scope.future { best.quote(symbol) }")
+    override fun quote(destination: String): CompletableFuture<Quote> = TODO("scope.future { best.quote(destination) }")
 
     /** Requests whose coroutine is still running. */
     val inFlight: Int

@@ -24,17 +24,17 @@ private val slowProvider = Executors.newSingleThreadScheduledExecutor()
 private val quotesInFlight = AtomicInteger()
 private val peakInFlight = AtomicInteger()
 
-private fun slowQuote(symbol: String): CompletableFuture<String> {
+private fun slowQuote(destination: String): CompletableFuture<String> {
     peakInFlight.accumulateAndGet(quotesInFlight.incrementAndGet(), ::maxOf)   // count quotes waiting at once
     val f = CompletableFuture<String>()
-    slowProvider.schedule({ quotesInFlight.decrementAndGet(); f.complete("$symbol 1.0842") }, 100, TimeUnit.MILLISECONDS)
+    slowProvider.schedule({ quotesInFlight.decrementAndGet(); f.complete("$destination 12.42") }, 100, TimeUnit.MILLISECONDS)
     return f
 }
 
 private class QuoteOnLoopKt(private val block: Boolean) : SimpleChannelInboundHandler<String>() {
     override fun channelRead0(ctx: ChannelHandlerContext, line: String) {
-        val (id, symbol) = line.split(" ")
-        val q = slowQuote(symbol)
+        val (id, destination) = line.split(" ")
+        val q = slowQuote(destination)
         if (block) {
             ctx.writeAndFlush("$id OK ${q.join()}\n")                           // waits 100 ms on the loop
         } else {
@@ -60,7 +60,7 @@ fun main() {
 
             peakInFlight.set(0)
             val t0 = System.nanoTime()
-            clients.forEachIndexed { i, c -> c.getOutputStream().write("$i EURUSD\n".toByteArray(UTF_8)) }
+            clients.forEachIndexed { i, c -> c.getOutputStream().write("$i LISBON\n".toByteArray(UTF_8)) }
             clients.forEach { it.getInputStream().bufferedReader(UTF_8).readLine() }
             val ms = (System.nanoTime() - t0) / 1_000_000
             println("%-6s 10 replies after %,5d ms; quotes waiting at the same time: %2d".format(if (block) "join" else "async", ms, peakInFlight.get()))

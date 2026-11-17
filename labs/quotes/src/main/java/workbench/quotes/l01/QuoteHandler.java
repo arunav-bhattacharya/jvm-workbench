@@ -43,7 +43,7 @@ public final class QuoteHandler extends SimpleChannelInboundHandler<String> {
             return;
         }
         try {
-            Quote q = source.quote(r.symbol()).join();               // BUG: blocks the event loop
+            Quote q = source.quote(r.destination()).join();               // BUG: blocks the event loop
             ctx.writeAndFlush(QuoteProtocol.ok(r.id(), q));
         } catch (CompletionException | CancellationException e) {
             ctx.writeAndFlush(QuoteProtocol.error(r.id(), e));

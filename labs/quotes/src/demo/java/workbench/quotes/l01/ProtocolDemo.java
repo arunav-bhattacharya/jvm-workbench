@@ -42,16 +42,16 @@ public class ProtocolDemo {
         int maxLine = args.length > 0 ? Integer.parseInt(args[0]) : 64;
         EmbeddedChannel ch = new EmbeddedChannel(
                 new LineBasedFrameDecoder(maxLine), new StringDecoder(UTF_8), new StringEncoder(UTF_8), new PendingHandler());
-        step(ch, "in \"7 EUR\"", () -> ch.writeInbound(buf("7 EUR")));
-        step(ch, "in \"USD\\n8 GBPUSD\\n\"", () -> ch.writeInbound(buf("USD\n8 GBPUSD\n")));
-        step(ch, "GBPUSD answers first", () -> answer("GBPUSD", "1.2710 fjord"));
-        step(ch, "EURUSD answers", () -> answer("EURUSD", "1.0842 northbank"));
+        step(ch, "in \"7 LIS\"", () -> ch.writeInbound(buf("7 LIS")));
+        step(ch, "in \"BON\\n8 DUBLIN\\n\"", () -> ch.writeInbound(buf("BON\n8 DUBLIN\n")));
+        step(ch, "DUBLIN answers first", () -> answer("DUBLIN", "9.80 fjord"));
+        step(ch, "LISBON answers", () -> answer("LISBON", "12.42 northline"));
         step(ch, "in a 100-byte line", () -> ch.writeInbound(buf("x".repeat(100) + "\n")));
         System.out.println("channel open: " + ch.isOpen());
     }
 
-    static void answer(String symbol, String price) {
-        CompletableFuture<String> f = pending.get(symbol);
+    static void answer(String destination, String price) {
+        CompletableFuture<String> f = pending.get(destination);
         if (f != null) f.complete(price);
     }
 

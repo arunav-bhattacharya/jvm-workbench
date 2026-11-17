@@ -9,7 +9,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
 
 // three invented providers: name, latency in ms, price
-private val providers = listOf(Triple("northbank", 120L, "1.0845"), Triple("eastgate", 300L, "1.0841"), Triple("fjord", 200L, "1.0843"))
+private val providers = listOf(Triple("northline", 120L, "12.45"), Triple("eastgate", 300L, "12.41"), Triple("fjord", 200L, "12.43"))
 
 private suspend fun ask(name: String, ms: Long, price: String): String {
     delay(ms)

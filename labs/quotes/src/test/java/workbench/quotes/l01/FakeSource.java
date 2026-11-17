@@ -27,7 +27,7 @@ final class FakeSource implements QuoteSource {
     }
 
     @Override
-    public CompletableFuture<Quote> quote(String symbol) {
+    public CompletableFuture<Quote> quote(String destination) {
         CompletableFuture<Quote> f = new CompletableFuture<>();
         f.whenComplete((q, e) -> {
             if (e instanceof CancellationException) {
@@ -38,10 +38,10 @@ final class FakeSource implements QuoteSource {
         synchronized (this) {
             calls++;
             now = answerAtOnce;
-            if (!now) pending.add(Map.entry(symbol, f));
+            if (!now) pending.add(Map.entry(destination, f));
             notifyAll();
         }
-        if (now) f.complete(Quote.live(symbol, "1.0842", "fake"));
+        if (now) f.complete(Quote.live(destination, "12.42", "fake"));
         return f;
     }
 
@@ -53,7 +53,7 @@ final class FakeSource implements QuoteSource {
             todo = List.copyOf(pending);
             pending.clear();
         }
-        todo.forEach(e -> e.getValue().complete(Quote.live(e.getKey(), "1.0842", "fake")));
+        todo.forEach(e -> e.getValue().complete(Quote.live(e.getKey(), "12.42", "fake")));
     }
 
     synchronized int calls() {

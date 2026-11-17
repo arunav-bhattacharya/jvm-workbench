@@ -56,7 +56,7 @@ Kotlin has an operator for exactly this kitchen, `flatMapMerge`, and the first v
 
 In Buffering, each value travelled on its own across one shelf. Here each value opens a whole flow of its own. In this lesson, we'll find the line that makes the burners take turns, draw the three ways to run those flows, join two flows with `zip` and `combine`, and watch a slow screen make `combine` skip. Before we start, make a guess, and keep it in mind."""
 
-S1 = r"""Start with the ticket in code. A **flow** is a recipe card for values: it does nothing until a collector, the code that calls `collect`, asks for them. Each dish name on the ticket is one value of a flow, and `stove.cook(dish)` is a suspend call that takes 100 ms, a call that pauses its coroutine (a light piece of work that can wait without holding a thread) and lets others run. A helper wrote this to cook the order four dishes at a time:
+S1 = r"""Start with the ticket in code. A **flow** is a recipe card for values: it does nothing until a collector, the code that calls `collect`, asks for them. Each dish name on the ticket is one value of a flow, and `stove.cook(dish)` is a suspend call that takes 100 ms, a call that pauses its coroutine (a light piece of work that can wait without holding a thread, the worker that runs the code) and lets others run. A helper wrote this to cook the order four dishes at a time:
 
 ```kotlin
 dishes.flatMapMerge(concurrency = 4) { dish ->
@@ -75,7 +75,7 @@ dishes.flatMap(dish -> {
 
 `flatMapMerge` is an operator, a helper on the way from the cook to the diner: a function that takes a flow and returns a new one. It is a **flattening** operator. For each value of the **outer flow** (the ticket), your lambda returns an **inner flow**, a flow of its own, and the operator collects all those inner flows into one stream of plates. `concurrency` is how many inner flows it collects at the same time: the number of burners. So ten dishes of 100 ms should take 300 ms. The kitchen log says 1,000 ms, with one dish on the stove at a time.
 
-To see why, build the operator yourself. It needs three parts: one coroutine that reads the outer flow, a **semaphore** with one permit per burner (a counter of permits: `acquire` takes one and waits while none is left, `release` gives it back), and one coroutine per inner flow. All of them send into one hatch, which is `channelFlow` from lesson 3 of this track, several cooks sharing one hatch:
+To see why, build the operator yourself. It needs three parts: one coroutine that reads the outer flow, a **semaphore** with one permit per burner (a counter of permits: `acquire` takes one and waits while none is left, `release` gives it back), and one coroutine per inner flow. All of them send into one hatch, the small window with a shelf between the kitchen and the dining room. That is `channelFlow` from lesson 3 of this track, several cooks sharing one hatch:
 
 ```kotlin
 fun <T, R> Flow<T>.mergeLanes(lanes: Int, transform: suspend (T) -> Flow<R>): Flow<R> = channelFlow {

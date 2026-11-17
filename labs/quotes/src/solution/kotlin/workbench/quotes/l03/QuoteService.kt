@@ -33,10 +33,10 @@ class QuoteService(
     private val admission = Semaphore(maxInFlight)
     @Volatile private var accepting = true
 
-    override fun quote(symbol: String): CompletableFuture<Quote> {
+    override fun quote(destination: String): CompletableFuture<Quote> {
         if (!accepting) return CompletableFuture.failedFuture(ShuttingDownException())
         if (!admission.tryAcquire()) return CompletableFuture.failedFuture(BusyException())   // 1. shed at once
-        val reply = scope.future { best.quote(symbol) }
+        val reply = scope.future { best.quote(destination) }
         reply.whenComplete { _, _ -> admission.release() }         // 2. however the request ends
         return reply
     }

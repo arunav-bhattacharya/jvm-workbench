@@ -34,8 +34,8 @@ class QuoteService(
 ) : QuoteSource, AutoCloseable {
     private val scope = CoroutineScope(context + SupervisorJob())   // one failed request can't cancel the rest
 
-    override fun quote(symbol: String): CompletableFuture<Quote> =
-        scope.future { best.quote(symbol) }                          // TODO: admission and shutdown
+    override fun quote(destination: String): CompletableFuture<Quote> =
+        scope.future { best.quote(destination) }                          // TODO: admission and shutdown
 
     /** Requests whose coroutine is still running. */
     val inFlight: Int

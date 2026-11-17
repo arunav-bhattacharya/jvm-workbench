@@ -17,10 +17,10 @@ private val pendingPrices = HashMap<String, CompletableFuture<String>>()
 // each request waits for a price that main() supplies by hand
 private class PendingPriceHandler : SimpleChannelInboundHandler<String>() {
     override fun channelRead0(ctx: ChannelHandlerContext, line: String) {
-        val (id, symbol) = line.split(" ")
+        val (id, destination) = line.split(" ")
         val price = CompletableFuture<String>()
-        pendingPrices[symbol] = price
-        price.whenCompleteAsync({ v, _ -> ctx.writeAndFlush("$id OK $symbol $v\n") }, ctx.executor())
+        pendingPrices[destination] = price
+        price.whenCompleteAsync({ v, _ -> ctx.writeAndFlush("$id OK $destination $v\n") }, ctx.executor())
     }
 
     override fun exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable) {
@@ -39,10 +39,10 @@ fun main(args: Array<String>) {
         val out = generateSequence { ch.readOutbound<ByteBuf>() }.map { b -> b.toString(UTF_8).trim().also { b.release() } }.toList()
         println("%-24s -> out %s".format(what, if (out.isEmpty()) "(nothing)" else out))
     }
-    step("in \"7 EUR\"") { ch.writeInbound(buf("7 EUR")) }
-    step("in \"USD\\n8 GBPUSD\\n\"") { ch.writeInbound(buf("USD\n8 GBPUSD\n")) }
-    step("GBPUSD answers first") { pendingPrices["GBPUSD"]?.complete("1.2710 fjord") }
-    step("EURUSD answers") { pendingPrices["EURUSD"]?.complete("1.0842 northbank") }
+    step("in \"7 LIS\"") { ch.writeInbound(buf("7 LIS")) }
+    step("in \"BON\\n8 DUBLIN\\n\"") { ch.writeInbound(buf("BON\n8 DUBLIN\n")) }
+    step("DUBLIN answers first") { pendingPrices["DUBLIN"]?.complete("9.80 fjord") }
+    step("LISBON answers") { pendingPrices["LISBON"]?.complete("12.42 northline") }
     step("in a 100-byte line") { ch.writeInbound(buf("x".repeat(100) + "\n")) }
     println("channel open: ${ch.isOpen}")
 }
