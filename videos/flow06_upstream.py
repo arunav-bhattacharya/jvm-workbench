@@ -14,20 +14,19 @@ fg.SAY[:0] = [
 N = {
     "open": "Bread for dinner comes from the bakery round the corner, ordered by phone. It's a lovely bakery with a "
             "terrible phone. Sometimes the call drops halfway, and sometimes nobody picks up at all.",
-    "routine": "So the cook has a routine. If the bread doesn't come, she serves crackers instead. Or she rings again, "
-               "after a short pause, and a longer one each time. And meanwhile, plates can drop anywhere: in the "
-               "kitchen, or at the table.",
-    "code": "Here's the bread course as a flow, a recipe card for values. The cook first sends out yesterday's loaf. "
-            "Then she rings the bakery inside withTimeout of 50 milliseconds, which gives up if the call takes "
-            "longer. Below her sits catch, a helper that sends out crackers if anything goes wrong. And today the "
-            "bakery takes 100 milliseconds.",
-    "shyq": "So here's a question that's easy to be shy about. A timeout is a kind of cancellation: a "
-            "CancellationException, a coroutine's way of saying, stop, you've been called off. And catch doesn't "
-            "handle cancellation, right? So doesn't the timeout fly straight past the catch?",
+    "routine": "So the cook has a routine. No bread? Crackers instead. Or ring again, after a short pause, then a "
+               "longer one. And meanwhile, plates can drop anywhere.",
+    "code": "Here's the bread course as a flow, a recipe card for values. The cook sends out yesterday's loaf, "
+            "then rings the bakery inside withTimeout of 50 milliseconds, which gives up if the call takes "
+            "longer. Below her, catch sends out crackers if anything goes wrong. Today the bakery takes 100 "
+            "milliseconds.",
+    "shyq": "So here's a question that's easy to be shy about. A timeout is a cancellation, a "
+            "CancellationException: a coroutine's way of saying, stop, you've been called off. And catch doesn't "
+            "handle cancellation. So doesn't the timeout fly straight past?",
     "reveal": "It doesn't. The diner gets yesterday's loaf, then crackers, and the caller sees nothing. The catch "
               "heard the timeout.",
-    "tidy": "So the rule we all learned, catch ignores cancellation, is a little too tidy. Let's find the real one, "
-            "by ending the bread course five different ways.",
+    "tidy": "So the rule we all learned, catch ignores cancellation, is a little too tidy. Let's end the bread "
+            "course five ways.",
     "cases1": "The bakery call throws an IOException, Java's usual exception for a failed call, like a dropped line. "
               "Crackers. The bakery throws a CancellationException. Crackers again. The timeout fires. Crackers.",
     "cases2": "Now the diner drops a plate. The catch does nothing, and the caller sees an IllegalStateException: "
@@ -37,18 +36,17 @@ N = {
     "net": "Here's the picture. A net is strung under the cook's side of the line. Everything above catch is called "
            "the upstream: the cook and her bakery call. Everything below it is the downstream: the diner, the "
            "collector, and whoever called collect.",
-    "net2": "Anything that falls from above lands in the net, even a cancellation, as long as the job is still "
-            "running. A plate the diner drops falls below the net, straight to the caller. And when the caller "
-            "calls off the whole dinner, the net steps aside, on purpose, so that nothing keeps cooking.",
+    "net2": "Anything that falls from above lands in the net, even a cancellation, while the job is still "
+            "running. A plate the diner drops falls below the net, to the caller. And when the caller calls off "
+            "the whole dinner, the net steps aside, on purpose.",
     "how": "But an exception doesn't carry a label saying who threw it. So how does catch know? Let's build it by "
            "hand, in Kotlin.",
-    "byhand": "First it wraps the downstream emit, and remembers anything that comes out of it. That's the diner's "
-              "dropped plate. Then, when the whole collect fails, it asks two questions. Did the diner throw this? "
-              "Throw it on. Is it the cancellation of our own job? Throw that on too. Everything else goes to your "
-              "action.",
-    "name": "Remember the inspector from lesson 2, who refuses any emit after the diner has thrown? That rule has a "
-            "name: exception transparency. An exception from downstream belongs to downstream. So catch must "
-            "never swallow it and serve crackers on top.",
+    "byhand": "First it wraps the downstream emit and remembers anything that comes out: the diner's dropped plate. "
+              "Then, when the whole collect fails, it asks two questions. Did the diner throw this? Throw it on. Is "
+              "it our own job's cancellation? Throw that on too. Everything else goes to your action.",
+    "name": "Remember the inspector from lesson 2, who refuses any emit after the diner has thrown? That rule is "
+            "called exception transparency: an exception from downstream belongs to downstream. So catch must "
+            "never swallow it.",
     "cover": "The net is generous, but it only covers what hangs above it. Serving inside collect is below the net. "
              "To protect it, move the serving into onEach, above catch, and call collect with nothing inside.",
     "ends": "And a caught error still ends the upstream. map fails on 2, catch emits minus 1, and the diner gets 1, "
@@ -59,12 +57,12 @@ N = {
                "the line drops after eggs, with an IOException. The pantry reads the note through retry of 3. "
                "What does the pantry receive?",
     "retry_a": "Flour, eggs, flour, eggs, butter. Two lines went in twice.",
-    "retry_why": "A retry collects the upstream again. And a cold flow is a recipe card: collecting it again cooks it "
-                 "again, from the top. Values that already went out go out again. So retry of 3 means three more "
-                 "tries, up to four collections in all.",
+    "retry_why": "A retry collects the upstream again, and a cold flow is a recipe card: collecting it again cooks it "
+                 "again, from the top. So retry of 3 means up to four collections, and whatever went out goes out "
+                 "again.",
     "pantry": "The flour doesn't mind. The pantry book does: it now says we bought twice the flour we did. So "
-              "whatever comes after a retry must be safe to see an item twice. That's called idempotent. For "
-              "example, skip any line whose id you've already seen.",
+              "whatever comes after a retry must be idempotent: safe to see an item twice. Skip any line whose id "
+              "you've already seen.",
     "prank": "Now the cook's pauses. Ringing a bakery that won't answer a thousand times a second isn't a routine. "
              "It's a prank call. So the waits grow.",
     "backoff": "That growing wait is a backoff. In code, it's a delay inside retryWhen, the operator under retry. It "
@@ -72,15 +70,13 @@ N = {
                "200, then 400.",
     "backoff2": "Against a bakery that never answers, she rings at 0, 100, 300 and 700 milliseconds. Then she gives "
                 "up, and the original IOException comes out.",
-    "reactor": "Reactor's backoff rings at the same times. But it wraps the last error in a RetryExhaustedException, "
-               "and outside tests it adds jitter, a small random spread on each wait. Flow has no jitter and no cap "
-               "built in: you write the policy yourself.",
+    "reactor": "Reactor's backoff rings at the same times, but wraps the last error in a RetryExhaustedException, "
+               "and outside tests adds jitter, a small random spread. In Flow, you write the policy yourself.",
     "timeout": "Position matters for the egg timer too. A timeout above the retry limits each try. Below it, a "
                "timeout limits them all, waits included.",
-    "moral": "So, does a timeout fly past catch? No. catch doesn't sort exceptions by their type. It asks who threw. "
-             "What falls from the cook's side lands in the net, timeouts included. The diner's dropped plate, and "
-             "the caller's own cancel, go past. And a retry doesn't carry on where it stopped. It cooks the recipe "
-             "again, from the top.",
+    "moral": "So, does a timeout fly past catch? No. catch doesn't sort exceptions by type. It asks who threw. "
+             "What falls from the cook's side lands in the net, timeouts included; the diner's plate and the "
+             "caller's own cancel go past. And a retry cooks the recipe again, from the top.",
     "check": "Quick check. catch sits above map, and map throws. Who handles it?",
     "check_a": "Not that catch. map is below the net, so its exception falls past it, to the caller.",
 }
@@ -276,11 +272,11 @@ class Flow06Upstream(Narrated):
         self.say("routine")
         self.play(FadeOut(VGroup(ck_l, bk_l)), VGroup(ck, ph).animate.shift(UP * 0.6), bk.animate.shift(UP * 0.6),
                   wire.animate.shift(UP * 0.6), brk.animate.shift(UP * 0.6), run_time=0.6)
-        self.at(1)
+        self.at_text("No bread", lead=0.3)
         self.play(FadeIn(steps[0], shift=UP * 0.1), run_time=0.6)
-        self.at(2)
+        self.at_text("Or ring", lead=0.3)
         self.play(FadeIn(steps[1], shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at_text("And meanwhile", lead=0.3)
         self.play(FadeIn(steps[2], shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.play(FadeOut(VGroup(ck, ph, bk, wire, brk, steps)), run_time=0.6)
@@ -290,8 +286,6 @@ class Flow06Upstream(Narrated):
         cph = phone(0.42).next_to(cook, LEFT, buff=0.12).shift(UP * 0.1)
         up_l = T("upstream", 22, NOTE).move_to(COOK_P + UP * 0.85)
         nt = net()
-        nt_l = M("catch", 22, NETC).next_to(nt, LEFT, buff=0.12).shift(DOWN * 0.15)
-        nt_l.move_to([-6.15, 0.55, 0])
         dn_l = T("downstream", 22, NOTE).move_to([-5.0, 0.42, 0])
         diner = person(DINER, 1.0).move_to(DINER_P)
         table = VGroup(Rectangle(width=1.6, height=0.12).set_stroke(DINER, 2.5).set_fill(dim(DINER, 0.3), 1)
@@ -308,14 +302,14 @@ class Flow06Upstream(Narrated):
         c_coll = code_block(["    .collect { diner.eat(it) }"], 22, hl).move_to([X0, -0.45, 0], aligned_edge=LEFT)
         self.say("code")
         self.play(FadeIn(cook), FadeIn(c_flow[0]), FadeIn(c_flow[3]), run_time=0.6)
-        self.at(1)
+        self.at_text("The cook sends", lead=0.3)
         self.play(FadeIn(c_flow[1]), run_time=0.5)
-        self.at(2)
+        self.at_text("then rings", lead=0.3)
         self.play(FadeIn(c_flow[2]), FadeIn(cph), run_time=0.6)
-        self.at(3)
-        self.play(Create(nt), FadeIn(nt_l), FadeIn(c_catch), run_time=0.8)
+        self.at_text("Below her", lead=0.3)
+        self.play(Create(nt), FadeIn(c_catch), run_time=0.8)
         self.play(FadeIn(diner), FadeIn(table), FadeIn(c_coll), FadeIn(caller), run_time=0.7)
-        self.at(4)
+        self.at_text("Today the bakery", lead=0.3)
         self.play(Indicate(c_flow[2][-6:], color=GREY_A), run_time=0.8)
         self.hold()
 
@@ -401,9 +395,9 @@ class Flow06Upstream(Narrated):
         self.say("cases3")
         self.play(FadeOut(pl), caller[0].animate.set_stroke(CALLER), run_time=0.4)
         self.play(FadeIn(jb, scale=0.5), run_time=0.3)
-        self.play(nt.animate.set_opacity(0.25), run_time=0.3)
+        self.play(nt.animate.set_stroke(opacity=0.25), run_time=0.3)
         self.play(jb.animate.move_to(CALLER_P + UP * 0.55 + LEFT * 0.6), run_time=1.0, rate_func=rate_functions.ease_in_quad)
-        self.play(nt.animate.set_opacity(1), caller[0].animate.set_stroke(CANCEL), FadeIn(rows[4]), run_time=0.6)
+        self.play(nt.animate.set_stroke(opacity=1), caller[0].animate.set_stroke(CANCEL), FadeIn(rows[4]), run_time=0.6)
         self.hold()
 
         # ================= the net, mapped =================
@@ -425,11 +419,11 @@ class Flow06Upstream(Narrated):
         self.play(pl2.animate.move_to(CALLER_P + UP * 0.55 + RIGHT * 0.55), run_time=0.7)
         self.at(2)
         jb2 = ball(CANCEL).move_to(COOK_P + DOWN * 0.5)
-        self.play(FadeIn(jb2, scale=0.5), nt.animate.set_opacity(0.25), run_time=0.4)
+        self.play(FadeIn(jb2, scale=0.5), nt.animate.set_stroke(opacity=0.25), run_time=0.4)
         self.play(jb2.animate.move_to(CALLER_P + UP * 0.55 + LEFT * 0.6), run_time=0.9)
-        self.play(nt.animate.set_opacity(1), run_time=0.3)
+        self.play(nt.animate.set_stroke(opacity=1), run_time=0.3)
         self.hold()
-        chain = VGroup(cook, cph, up_l, nt, nt_l, dn_l, diner, table, caller, c_flow, c_catch, c_coll, b1, b2, b3, pl2, jb2)
+        chain = VGroup(cook, cph, up_l, nt, dn_l, diner, table, caller, c_flow, c_catch, c_coll, b1, b2, b3, pl2, jb2)
 
         # ================= catch, built by hand =================
         q2 = T("An exception carries no label saying who threw it.", 28, GREY_A).move_to([1.6, -2.1, 0])
@@ -471,7 +465,7 @@ class Flow06Upstream(Narrated):
         self.play(Indicate(mc[9], color=WHITE, scale_factor=1.03), run_time=0.7)
         self.at_text("Did the diner", lead=0.3)
         self.play(Create(box2), run_time=0.6)
-        self.at_text("Is it the cancellation", lead=0.3)
+        self.at_text("Is it our own", lead=0.3)
         self.play(Create(box3), run_time=0.6)
         self.at_text("Everything else", lead=0.3)
         self.play(Create(box4), run_time=0.6)
@@ -488,16 +482,16 @@ class Flow06Upstream(Narrated):
         self.play(FadeIn(insp, shift=UP * 0.1), run_time=0.7)
         self.at(1)
         self.play(FadeIn(nm[0], shift=UP * 0.1), run_time=0.6)
-        self.at(2)
+        self.at_text("an exception from", lead=0.3)
         self.play(FadeIn(nm[1]), run_time=0.6)
         self.hold()
         self.play(FadeOut(nm), FadeOut(insp), run_time=0.5)
 
         # ================= what the net covers =================
         c_hl = {".catch": NETC, "emit(crackers)": NETC, ".onEach": DINER, "serve(it)": DINER, ".collect": DINER,
-                "// below the net": BAD, "// above the net": GREEN_M}
-        left = code_block(["bread", "    .catch { emit(crackers) }", "    .collect { serve(it) }   // below the net"], 22, c_hl)
-        right = code_block(["bread", "    .onEach { serve(it) }    // above the net", "    .catch { emit(crackers) }",
+                "// below": BAD, "// above": GREEN_M}
+        left = code_block(["bread", "    .catch { emit(crackers) }", "    .collect { serve(it) }  // below"], 22, c_hl)
+        right = code_block(["bread", "    .onEach { serve(it) }  // above", "    .catch { emit(crackers) }",
                             "    .collect()"], 22, c_hl)
         cols = VGroup(VGroup(T("not covered", 24, BAD), left).arrange(DOWN, aligned_edge=LEFT, buff=0.2),
                       VGroup(T("covered", 24, GREEN_M), right).arrange(DOWN, aligned_edge=LEFT, buff=0.2)).arrange(RIGHT, buff=0.8,
@@ -575,14 +569,12 @@ class Flow06Upstream(Narrated):
         self.play(Indicate(VGroup(ents[2], ents[3]), color=BAD), run_time=0.8)
         self.hold()
         self.say("retry_why")
-        self.at(1)
         self.play(Indicate(nte, color=GREY_A, scale_factor=1.05), run_time=0.8)
-        self.at(3)
+        self.at(1)
         cnt = T("retry(3): up to 4 collections", 24, NETC).next_to(arr, DOWN, buff=0.2)
         self.play(FadeIn(cnt), run_time=0.5)
         self.hold()
         idem = T("idempotent: seeing an item twice leaves the same result as once", 24, GREEN_M).next_to(arr, DOWN, buff=0.2)
-        fit(idem, 6.4)
         idem.move_to([0, -1.25, 0])
         self.say("pantry")
         self.play(Wiggle(ents[2], scale_value=1.15), run_time=0.9)
@@ -618,8 +610,8 @@ class Flow06Upstream(Narrated):
                 "}"]
         bk_c = code_block(bsrc, 22, b_hl).move_to([0, 2.35, 0])
         self.say("prank")
-        many = VGroup(*[phone(0.3).move_to([-3 + 0.5 * k, 0.4 + 0.15 * ((k * 7) % 3), 0]).rotate(0.3 * ((k % 3) - 1))
-                        for k in range(13)])
+        many = VGroup(*[phone(0.55).move_to([-4.8 + 1.2 * (k % 9), 1.2 - 1.0 * (k // 9), 0]).rotate(0.35 * ((k % 3) - 1))
+                        for k in range(27)])
         self.play(LaggedStart(*[FadeIn(p, scale=0.6) for p in many], lag_ratio=0.08), run_time=1.3)
         self.at(2)
         self.play(FadeOut(many), run_time=0.5)
@@ -679,9 +671,9 @@ class Flow06Upstream(Narrated):
         self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.7)
         self.at(4)
         self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
-        self.at(5)
+        self.at_text("the diner's plate", lead=0.3)
         self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.6)
-        self.at(6)
+        self.at(5)
         self.play(FadeIn(m3, shift=UP * 0.1), run_time=0.6)
         self.hold()
         qg = VGroup(VGroup(T("Check:", 28, YELLOW_M), T("catch sits above map, and map throws.", 28)).arrange(RIGHT, buff=0.25),

@@ -11,27 +11,27 @@ fg.SAY[:0] = [
 
 # every spoken line, in order
 N = {
-    "open": "A table orders ten dishes on one ticket, and each dish has a small recipe card of its own. At the pass, "
-            "the counter where orders come in, the head cook reads the ticket line by line, and hands each dish to a "
+    "open": "A table orders ten dishes on one ticket, each with a small recipe card of its own. At the pass, the "
+            "counter where orders come in, the head cook reads the ticket line by line and hands each dish to a "
             "helper at a free burner.",
     "rounds": "The stove has four burners, so four dishes cook at once. At 100 milliseconds a dish, ten dishes take "
               "three rounds. About 300 milliseconds.",
-    "shyq": "Kotlin has an operator for exactly this kitchen, called flatMapMerge. So here's a question that's easy to "
-            "be shy about. If I give it four burners, doesn't everything I write inside it run four at a time?",
-    "code": "A flow is a recipe card for values, so here the ticket is a flow of dish names. stove.cook is a suspend "
-            "call: it pauses for 100 milliseconds without holding a thread. A helper wrote this: cook the dish, then "
-            "return a flow of that one plate. Ten dishes, four burners. How long?",
+    "shyq": "Kotlin has an operator for exactly this kitchen: flatMapMerge. Here's a question that's easy to be "
+            "shy about. If I give it four burners, doesn't everything inside it run four at a time?",
+    "code": "A flow is a recipe card for values, so the ticket is a flow of dish names. stove.cook is a suspend "
+            "call: it pauses for 100 milliseconds without holding a thread. The helper's lambda cooks the dish, "
+            "then returns a flow of that one plate. Ten dishes, four burners. How long?",
     "slow": "1,000 milliseconds. One dish on the stove at a time, more than three times as long as we planned.",
     "joke": "Picture it. Four helpers at four warm burners, each holding an empty pan. The calmest kitchen in town. "
             "So the cap of four wasn't the problem. Something before the burners was.",
     "headcook": "Watch the head cook. She does whatever the lambda says before she hands anything to a burner. This "
                 "lambda says: cook it. So she cooks every dish herself.",
-    "map": "Let's map it. The ticket is the outer flow, and each line is a value. The flow the lambda returns is the "
-           "dish's recipe card, called the inner flow. The burners are lanes, and concurrency counts them. And the "
-           "head cook is the one coroutine that reads the ticket and runs your lambda.",
+    "map": "Let's map it. The ticket is the outer flow. The flow the lambda returns is the dish's recipe card: "
+           "the inner flow. The burners are lanes, and concurrency counts them. The head cook is the one "
+           "coroutine that runs your lambda.",
     "byhand": "Built by hand, it's short. One coroutine collects the ticket. For each dish, it calls your lambda, "
-              "right here. Then it waits for a free burner: a permit from a semaphore, a counter of permits. And it "
-              "launches a lane that collects the inner flow into one shared hatch.",
+              "right here. Then it takes a permit from a semaphore, a counter of free burners. And it launches a "
+              "lane that collects the inner flow.",
     "byhand2": "So the lambda runs in the one reading coroutine, before a burner is even asked for. Only the flow it "
                "returns gets a lane.",
     "fix": "So the slow call goes inside the returned flow. Now the head cook only writes the recipe card, and the "
@@ -39,22 +39,22 @@ N = {
     "small": "Let's shrink it to five dishes on two burners. Soup takes 300 milliseconds, salad 100, roast 200, bread "
              "50 and pie 150, on the lesson's fake clock.",
     "small_q": "With the fix, the lambda runs for soup, salad and roast at 0. So when does roast start cooking?",
-    "small_a": "At 100, when the salad frees a burner. The order is ready at 450, never more than two on the stove. "
-               "And the plates leave as they're ready: salad, soup, roast, bread, pie. That's called completion order.",
+    "small_a": "At 100, when the salad frees a burner. The order is ready at 450, with two on the stove at most. And "
+               "plates leave as they're ready: salad, soup, roast, bread, pie. That's completion order.",
     "small_bad": "Now put the cooking back in the lambda. 800 milliseconds: the sum of all five, what a plain map "
                  "would take. The burners did nothing.",
-    "rule1": "So here's the rule. The lambda only builds the inner flow. Put the slow work inside it.",
-    "setup3": "flatMapMerge is one of three ways to run inner flows. To compare them, a table sends three orders, 100 "
-              "milliseconds apart. Each order opens a recipe in two parts: part a after 50 milliseconds, part b 150 "
-              "later.",
+    "rule1": "The rule: the lambda only builds the inner flow. Put the slow work inside it.",
+    "setup3": "flatMapMerge is one of three ways to run inner flows. To compare them, a table sends three orders, "
+              "100 milliseconds apart, and each opens a recipe in two parts: part a after 50 milliseconds, part b "
+              "150 later.",
     "concat_q": "flatMapConcat cooks one order at a time. So when does order 2 come in?",
     "concat_a": "Most people say 100. It's 300, and the whole run takes 800.",
-    "concat_why": "flatMapConcat has no second coroutine and no shelf. Each recipe runs inside the outer flow's emit. "
-                  "Like the cook from the first lesson, who stands at the table while the diner eats, the waiter "
-                  "stands at the pass until both parts are done. Only then does his 100 millisecond wait begin.",
-    "breaks": "Here the kitchen picture breaks, in a useful way. A real waiter would walk back while the dish cooks. "
-              "This one can't: even his waiting happens inside emit. Put buffer in front, and he leaves the orders "
-              "on a shelf: 600 milliseconds.",
+    "concat_why": "flatMapConcat has no second coroutine and no shelf: each recipe runs inside the outer flow's emit. "
+                  "Like the cook from the first lesson, the waiter stands at the pass until both parts are done. Only "
+                  "then does his 100 millisecond wait begin.",
+    "breaks": "Here the kitchen picture breaks. A real waiter would walk back while the dish cooks. This one can't: "
+              "even his waiting happens inside emit. Put buffer in front, and he leaves orders on a shelf: 600 "
+              "milliseconds.",
     "merge3": "flatMapMerge gives each order its own burner. Orders come in at 0, 100 and 200. Parts come out as "
               "they're ready, so 1b comes after 2a. Done at 400.",
     "latest3": "flatMapLatest keeps only the newest. Each new order cancels the recipe in flight, waits for it to "
@@ -64,13 +64,13 @@ N = {
                    "makes the old search worthless.",
     "names": "Three operators, three promises. flatMapConcat: one at a time, and the outer waits. flatMapMerge: side "
              "by side, in completion order. flatMapLatest: only the newest.",
-    "guard": "Three rules. Set the burners from what the stove can take: the default is 16, and Reactor's is 256. "
-             "Keep a cancelled recipe's cleanup short: the next one waits for it. And if one after another is fine, "
-             "a suspend call in a plain map is easier to read.",
-    "limit": "One limit: a burnt dish in any lane cancels all the others. Choosing what that costs is the next lesson.",
-    "moral": "So, does everything inside flatMapMerge run four at a time? No. The head cook runs your lambda, one "
-             "dish at a time, and only the recipe it returns gets a burner. Cook there, and the ten dish ticket is "
-             "ready at 300 milliseconds.",
+    "guard": "Three rules. Set the burners from what the stove can take: the default is 16, Reactor's is 256. Keep "
+             "a cancelled recipe's cleanup short: the next one waits for it. And if one after another is fine, a "
+             "plain map reads better.",
+    "limit": "One limit: a burnt dish in any lane cancels all the others. That's the next lesson.",
+    "moral": "So, does everything inside flatMapMerge run four at a time? No. The head cook runs your lambda one "
+             "dish at a time, and only the recipe it returns gets a burner. Cook there, and ten dishes take 300 "
+             "milliseconds.",
     "check": "Quick check. The outer emits a value, then waits 100 milliseconds, three times. Each inner gives one "
              "value after 200. How long does flatMapConcat take?",
     "check_a": "900 milliseconds: three times 200 plus 100, because the outer waits inside emit. With buffer in "
@@ -107,14 +107,14 @@ class Narrated(VoiceScene):
         if rest > 0.02:
             self.wait(rest)
 
-    def hold(self, after=0.25):
+    def hold(self, after=0.12):
         rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def predict(self, secs=2.4, pos=(-6.4, 3.15), edge=LEFT):
+    def predict(self, secs=2.0, pos=(-6.4, 3.15), edge=LEFT):
         """A beat of silence for the viewer to guess, with a small on-screen prompt."""
         tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
         self.play(FadeIn(tag), run_time=0.3)
@@ -304,12 +304,12 @@ class Flow05Lanes(Narrated):
         cc = code_block(csrc, 24, c_hl).move_to([0.6, 2.45, 0])
         cc_l = T("Kotlin", 22, GREY_B).next_to(cc, LEFT, buff=0.5).align_to(cc, UP)
         self.say("code")
-        self.at_text("here the ticket", lead=0.3)
+        self.at_text("so the ticket", lead=0.3)
         self.play(Indicate(tk[0], color=ORDER, scale_factor=1.04), run_time=0.8)
         self.at_text("stove.cook is", lead=0.3)
         self.play(FadeIn(cc_l), FadeIn(cc[0]), FadeIn(cc[3]), run_time=0.5)
         self.play(FadeIn(cc[1]), run_time=0.5)
-        self.at_text("A helper wrote", lead=0.3)
+        self.at_text("The helper's lambda", lead=0.3)
         self.play(FadeIn(cc[2]), run_time=0.5)
         self.at_text("Ten dishes, four", lead=0.3)
         self.play(Indicate(cc[0], color=HEAT, scale_factor=1.03), run_time=0.8)
@@ -365,7 +365,7 @@ class Flow05Lanes(Narrated):
             VGroup(T("the head cook", 26, COOK), T("the one coroutine that reads the ticket and runs your lambda", 26)))
         for r in mp:
             r.arrange(RIGHT, buff=0.35)
-        mp.arrange(DOWN, aligned_edge=LEFT, buff=0.22).move_to([0, 2.35, 0])
+        mp.arrange(DOWN, aligned_edge=LEFT, buff=0.2).move_to([0, 2.5, 0])
         fit(mp, 12.6)
         cards_t = VGroup(*[recipe_card(0.55).move_to([BURNER_X[i], BURNER_Y + 0.3, 0]) for i in range(4)])
         self.say("map")
@@ -374,7 +374,7 @@ class Flow05Lanes(Narrated):
         self.play(FadeIn(mp[1]), FadeIn(cards_t, shift=DOWN * 0.1), run_time=0.8)
         self.at_text("The burners are", lead=0.3)
         self.play(FadeIn(mp[2]), *[light(r) for r in rings], run_time=0.8)
-        self.at_text("And the head cook", lead=0.3)
+        self.at_text("The head cook is", lead=0.3)
         self.play(FadeIn(mp[3]), Indicate(hc, color=COOK), run_time=0.8)
         self.hold()
         kitchen = VGroup(tk, tk_l, counter, hc, pass_l, hc_l, sbody, rings, helpers, st_l, cards_t)
@@ -405,7 +405,7 @@ class Flow05Lanes(Narrated):
         self.play(FadeIn(bc[3]), FadeIn(bc[10]), run_time=0.5)
         self.at_text("For each dish", lead=0.3)
         self.play(FadeIn(bc[4]), run_time=0.5)
-        self.at_text("Then it waits", lead=0.3)
+        self.at_text("Then it takes", lead=0.3)
         self.play(FadeIn(bc[2]), FadeIn(bc[5]), run_time=0.6)
         self.at_text("And it launches", lead=0.3)
         self.play(FadeIn(bc[6]), FadeIn(bc[7]), FadeIn(bc[8]), FadeIn(bc[9]), run_time=0.7)
@@ -514,7 +514,7 @@ class Flow05Lanes(Narrated):
         self.play(FadeIn(most), run_time=0.5)
         order = VGroup(T("plates leave:", 22, GREY_B), *[T(n, 22, CARD) for n in ("salad", "soup", "roast", "bread", "pie")])
         order.arrange(RIGHT, buff=0.25).move_to([0, -3.1, 0])
-        self.at_text("And the plates", lead=0.3)
+        self.at_text("And plates", lead=0.3)
         self.play(LaggedStart(*[FadeIn(o, shift=UP * 0.1) for o in order], lag_ratio=0.2), run_time=1.6)
         self.hold()
 
@@ -543,7 +543,6 @@ class Flow05Lanes(Narrated):
         fit(rule, 12.6)
         self.say("rule1")
         self.play(FadeOut(code2), FadeOut(legend), run_time=0.4)
-        self.at(1)
         self.play(FadeIn(rule, shift=UP * 0.1), run_time=0.7)
         self.hold()
         self.play(FadeOut(VGroup(rule, row_l, guides, axis, soup, salad, roast, bread, pie, sum_l)), run_time=0.6)
@@ -591,7 +590,7 @@ class Flow05Lanes(Narrated):
         self.at(1)
         sample = VGroup(*[order_dot(n, 100 * (n - 1), YR[1]) for n in (1, 2, 3)])
         self.play(LaggedStart(*[FadeIn(s, scale=0.6) for s in sample], lag_ratio=0.3), run_time=1.0)
-        self.at(2)
+        self.at_text("and each opens", lead=0.3)
         sp = VGroup(part("1a", 50, YR[1]), part("1b", 200, YR[1]))
         self.play(FadeIn(head3), LaggedStart(*[FadeIn(p, shift=DOWN * 0.1) for p in sp], lag_ratio=0.4), run_time=1.0)
         self.hold()
@@ -619,7 +618,7 @@ class Flow05Lanes(Narrated):
                         T("the waiter stands at the pass, inside emit", 20, ORDER))
         paused[1].next_to(paused[0], UP, buff=0.06)
         self.say("concat_why")
-        self.at_text("Each recipe runs", lead=0.3)
+        self.at_text("each recipe runs", lead=0.3)
         self.play(Create(paused[0]), run_time=0.6)
         self.at_text("the waiter", lead=0.3)
         self.play(FadeIn(paused[1]), run_time=0.6)
@@ -694,7 +693,7 @@ class Flow05Lanes(Narrated):
         grows = VGroup(
             VGroup(T("1", 26, HEAT), T("set the burners from the stove: the default is 16, Reactor's 256", 26)),
             VGroup(T("2", 26, HEAT), T("keep a cancelled recipe's cleanup short: the next one waits", 26)),
-            VGroup(T("3", 26, HEAT), T("one after another is fine? a plain map is easier to read", 26)))
+            VGroup(T("3", 26, HEAT), T("one after another is fine? a plain map reads better", 26)))
         for r in grows:
             r.arrange(RIGHT, buff=0.3)
         grows.arrange(DOWN, aligned_edge=LEFT, buff=0.28).move_to([0, -0.9, 0])
@@ -731,7 +730,7 @@ class Flow05Lanes(Narrated):
         mq = T("Does everything inside flatMapMerge run four at a time? No.", 32).move_to(UP * 2.5)
         m1 = T("The head cook runs your lambda, one dish at a time.", 28, COOK).move_to(UP * 1.7)
         m2 = T("Only the recipe it returns gets a burner.", 28, CARD).move_to(UP * 1.05)
-        m3 = T("Cooking inside it: the ten dish ticket is ready at 300 ms.", 28, HEAT).move_to(UP * 0.4)
+        m3 = T("Cook inside it, and ten dishes take 300 ms.", 28, HEAT).move_to(UP * 0.4)
         for m in (mq, m1, m2, m3):
             fit(m, 12.4)
         self.say("moral")
@@ -750,10 +749,10 @@ class Flow05Lanes(Narrated):
         self.say("check")
         self.play(FadeIn(qg, shift=UP * 0.1), run_time=0.8)
         self.hold(after=0)
-        self.predict(2.4, pos=(6.4, -3.25), edge=RIGHT)
+        self.predict(2.0, pos=(6.4, -3.25), edge=RIGHT)
         ans = T("900 ms: 3 x (200 + 100), the outer waits inside emit; with buffer() first, 600", 26, GREEN_M)
         fit(ans, 12.4).move_to(DOWN * 2.45)
         self.say("check_a")
         self.play(FadeIn(ans, shift=UP * 0.1), run_time=0.7)
         self.hold(after=0)
-        self.wait(2.5)
+        self.wait(1.5)

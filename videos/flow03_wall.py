@@ -7,7 +7,7 @@ fg.SAY[:0] = [
     (r"\bflowOn\(io\)", "flow on I O"), (r"\bflowOn\b", "flow on"), (r"\bwithContext\(io\)", "with context I O"),
     (r"\bwithContext\b", "with context"), (r"\breadLine\b", "read line"), (r"\bchannelFlow\b", "channel flow"),
     (r"\bDefaultDispatcher-worker-1\b", "default dispatcher worker 1"), (r"\bio-thread\b", "I O thread"),
-    (r"\bthread-safe\b", "thread safe"), (r"\bsixty-sixth\b", "sixty sixth"),
+    (r"\bthread-safe\b", "thread safe"), (r"\bsixty-sixth\b", "sixty sixth"), (r"\bio\b", "I O"),
 ]
 
 # every spoken line, in order
@@ -18,8 +18,9 @@ N = {
               "That's slow, waiting work, and it belongs in the back room, on another thread.",
     "book": "But the pantry book stays at the kitchen table. It isn't thread-safe: two threads writing in it at the "
             "same moment can mix up their lines. So all the writing must happen on one side.",
-    "shyq": "Here's a question that's easy to be shy about. For any other slow call, we'd use withContext to run it "
-            "on the IO dispatcher. So why not wrap the read and the emit in withContext(io)?",
+    "shyq": "Here's a question that's easy to be shy about. For any other slow call, we'd use withContext to move it "
+            "to the IO dispatcher, the part that picks a thread for waiting work. So why not wrap the read and the "
+            "emit in withContext(io)?",
     "alarm": "Because the inspector from lesson 2 refuses it: Flow invariant is violated. And it's right to. The "
              "collector's code runs inside emit. So an emit on an IO thread drags the collector, pantry book and "
              "all, onto that thread.",
@@ -62,7 +63,7 @@ N = {
              "along. flowOn builds a wall instead: a second cook behind it, a hatch with 64 spots, and a collector "
              "that never moves.",
     "check": "Quick check. In this chain, where do a, b and c run?",
-    "check_a": "a runs on io, because it's above flowOn. b and c run in the collector's context. flowOn only ever "
+    "check_a": "a runs on io, because it sits above flowOn. b and c run in the collector's context. flowOn only ever "
                "looks up.",
 }
 
@@ -277,8 +278,8 @@ class Flow03Wall(Narrated):
         self.at(3)
         drag = VGroup(coll, bk).copy()
         self.play(FadeOut(VGroup(coll, bk)), FadeIn(drag), run_time=0.1)
-        self.play(drag.animate.move_to([-1.9, -0.75, 0]), run_time=1.6)
-        dragged = T("dragged onto the IO thread", 24, BAD).next_to(drag, DOWN, buff=0.35)
+        self.play(drag.animate.move_to([-2.15, -0.75, 0]), run_time=1.6)
+        dragged = T("dragged onto the IO thread", 24, BAD).next_to(drag, UP, buff=0.35)
         self.play(FadeIn(dragged), run_time=0.5)
         self.hold()
 
@@ -367,11 +368,11 @@ class Flow03Wall(Narrated):
         sendw = T("send waits when it's full", 20, HATCH).move_to([-2.0, 0.6, 0])
         self.say("map")
         self.play(FadeOut(p1), FadeIn(wl, shift=DOWN * 0.1), run_time=0.5)
-        self.at(1)
-        self.play(FadeIn(bl), FadeIn(nt2), FadeIn(second), run_time=0.8)
         self.at(2)
-        self.play(FadeIn(shelf_l), Indicate(w[2], color=HATCH, scale_factor=1.1), run_time=0.8)
+        self.play(FadeIn(bl), FadeIn(nt2), FadeIn(second), run_time=0.8)
         self.at(3)
+        self.play(FadeIn(shelf_l), Indicate(w[2], color=HATCH, scale_factor=1.1), run_time=0.8)
+        self.at(4)
         self.play(FadeIn(sendw), run_time=0.5)
         self.hold()
 
@@ -389,10 +390,10 @@ class Flow03Wall(Narrated):
         self.play(FadeIn(its[1]), its[0].animate.move_to([WX + 0.65, HB + 0.25, 0]), run_time=0.5)
         self.play(its[1].animate.move_to([WX - 0.65, HB + 0.25, 0]), FadeIn(loop), run_time=0.6)
         self.play(its[0].animate.move_to(coll2.get_left() + LEFT * 0.35 + UP * 0.1), run_time=0.7)
-        self.at(2)
+        self.at(1)
         okk = tick(True, 0.2).move_to([WX, HT + 0.35, 0])
         self.play(Create(okk), run_time=0.5)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(never), Indicate(bk2, color=BOOK, scale_factor=1.3), run_time=0.8)
         self.hold()
 
@@ -403,7 +404,7 @@ class Flow03Wall(Narrated):
         pq = T("How many emits return meanwhile?", 28).move_to([2.9, 1.85, 0])
         self.say("probe_q")
         self.at(1)
-        self.play(FadeIn(hl), Indicate(held, color=DINER, scale_factor=1.2), run_time=0.8)
+        self.play(FadeIn(hl), Circumscribe(held, color=DINER, buff=0.06), run_time=0.8)
         self.at(2)
         self.play(FadeIn(pq, shift=DOWN * 0.1), run_time=0.5)
         self.hold(after=0)
@@ -436,7 +437,7 @@ class Flow03Wall(Narrated):
         self.say("bp")
         self.play(FadeIn(bpt[0], shift=UP * 0.1), run_time=0.6)
         self.at(1)
-        self.play(FadeIn(bpt[1], shift=UP * 0.1), Indicate(waitc, color=BAD), run_time=0.8)
+        self.play(FadeIn(bpt[1], shift=UP * 0.1), Indicate(waitc[1], color=BAD), run_time=0.8)
         self.hold()
 
         rule = VGroup(T("flowOn moves the code above it behind a wall.", 32, YELLOW_M),
@@ -478,7 +479,7 @@ class Flow03Wall(Narrated):
         self.play(Create(bx), run_time=0.4)
         self.at(3)
         self.play(FadeIn(good, shift=UP * 0.1), FadeIn(gb), FadeIn(gbl), run_time=0.8)
-        self.hold()
+        self.hold(after=1.2)
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
 
         # ================= where the picture breaks =================

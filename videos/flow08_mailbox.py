@@ -232,7 +232,7 @@ class Flow08Mailbox(Narrated):
         self.play(FadeOut(VGroup(pr, rs, you, you_l, wv, lst, thr, thr_l, q)), run_time=0.6)
 
         # ================= the first bridge, and the lost reading =================
-        hl = {"callbackFlow": SHELF, "register(": PROBE, "trySend(event)": SHELF, "awaitClose": CANCEL,
+        hl = {"callbackFlow": SHELF, "= register(": PROBE, "trySend(event)": SHELF, "awaitClose": CANCEL,
               "registration.unregister()": CANCEL, "close(error)": BAD, "close()": GREY_A}
         bsrc = ["fun DemoProbe.events(): Flow<ProbeEvent> = callbackFlow {",
                 "    val registration = register(object : ProbeEventListener {",
@@ -319,7 +319,7 @@ class Flow08Mailbox(Narrated):
         wall = Rectangle(width=0.35, height=4.2).set_stroke(GREY_A, 3).set_fill("#202020", 1).move_to([-0.6, 0.4, 0])
         hole = Rectangle(width=0.37, height=1.0).set_stroke(SHELF, 3).set_fill(BLACK, 1).move_to([-0.6, 0.0, 0])
         sh = Rectangle(width=2.6, height=0.12).set_stroke(SHELF, 2.5).set_fill(dim(SHELF, 0.4), 1).move_to([-0.6, -0.55, 0])
-        sh_l = T("the shelf: a channel", 22, SHELF).next_to(sh, DOWN, buff=0.2)
+        sh_l = T("the shelf: a channel", 22, SHELF).move_to([-0.9, -0.9, 0], aligned_edge=RIGHT)
         col = person(DINER, 1.1).move_to([2.6, -0.1, 0])
         col_l = T("the collector", 22, DINER).next_to(col, DOWN, buff=0.2)
         ts = M("trySend(reading): never waits", 22, SHELF).move_to([-3.2, 2.4, 0])
@@ -346,7 +346,7 @@ class Flow08Mailbox(Narrated):
         unreg = M("unregister()", 22, CANCEL).move_to([4.4, 0.55, 0])
         aw = M("awaitClose { registration.unregister() }", 22, t2c={"awaitClose": CANCEL}).move_to([0, -3.0, 0])
         self.say("await")
-        self.play(FadeOut(sw), FadeIn(aw), col.animate.move_to([1.0, -0.1, 0]), col_l.animate.move_to([1.0, -0.85, 0]), run_time=0.7)
+        self.play(FadeOut(sw), FadeIn(aw), col.animate.move_to([1.9, -0.1, 0]), col_l.animate.move_to([1.9, -0.85, 0]), run_time=0.7)
         self.at(1)
         self.play(LaggedStart(*[FadeIn(e, shift=LEFT * 0.1) for e in ends], lag_ratio=0.3), run_time=1.4)
         self.play(FadeIn(unreg), VGroup(hole, sh).animate.set_opacity(0.25), run_time=0.7)

@@ -236,6 +236,13 @@ def code_block(src, size=22, hl=None):
     return lines
 
 
+def part(t, s):
+    """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
+    k = s.replace(" ", "")
+    i = t.text.index(k)
+    return t[i:i + len(k)]
+
+
 def travel_note(scene, pts, rt=1.4, color=CANCEL):
     """A cancel note that flies along a path of points; returns the note, left at the last point."""
     n = note(color).move_to(pts[0])
@@ -377,7 +384,7 @@ class Co11Bridges(Narrated):
         self.play(FadeIn(aw, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
-        exc = M("IOException, not ExecutionException", 20, BAD).move_to([-2.3, -0.45, 0])
+        exc = M("IOException, not ExecutionException", 20, BAD).move_to([-2.3, -0.6, 0])
         cx = M("future.cancel(false)", 22, CANCEL).move_to([3.6, 1.75, 0])
         stopped = T("she stops baking", 22, CANCEL).next_to(ov, DOWN, buff=0.25)
         self.say("await2")
@@ -386,8 +393,8 @@ class Co11Bridges(Narrated):
         self.play(FadeIn(exc), run_time=0.5)
         self.at_text("And if the", lead=0.3)
         n2 = travel_note(self, [PHONE_P + UP * 0.4, POT_P + DOWN * 0.1, TICKET_OURS + LEFT * 0.2 + DOWN * 0.45,
-                                OVEN_P + LEFT * 0.5 + DOWN * 0.95], rt=1.6)
-        self.play(FadeIn(cx), ov[1].animate.set_fill(dim(GREY_B, 0.15), 1), FadeIn(stopped), run_time=0.6)
+                                OVEN_P + LEFT * 0.98 + DOWN * 0.2], rt=1.6)
+        self.play(FadeIn(cx), ov[1].animate.set_fill(dim(GREY_B, 0.15), 1), FadeIn(stopped), FadeOut(n2), run_time=0.6)
         self.hold()
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
 
@@ -435,24 +442,24 @@ class Co11Bridges(Narrated):
         # ================= future { }: our ticket for her =================
         fn = fence()
         ck = person(COOK, 1.2).move_to(COOK_P)
-        door = Rectangle(width=0.7, height=1.4).set_stroke(GREY_A, 3).set_fill(GREY_E, 1).move_to([-0.8, 0.7, 0])
+        door = Rectangle(width=0.7, height=1.4).set_stroke(GREY_A, 3).set_fill(GREY_E, 1).move_to([-0.9, 0.7, 0])
         door_l = M("KitchenDoor", 22, GREY_A).next_to(door, DOWN, buff=0.15)
         nb = person(NEIGH, 1.2).move_to(NEIGH_P)
         nb_l = T("a Java caller", 22, NEIGH).next_to(nb, DOWN, buff=0.2)
-        scope = DashedVMobject(RoundedRectangle(corner_radius=0.2, width=3.3, height=3.0), num_dashes=50)
-        scope.set_stroke(COOK, 2).move_to([-3.3, 0.45, 0])
+        scope = DashedVMobject(RoundedRectangle(corner_radius=0.2, width=3.0, height=3.0), num_dashes=50)
+        scope.set_stroke(COOK, 2).move_to([-3.4, 0.45, 0])
         scope_l = T("the door's own scope", 22, COOK).next_to(scope, UP, buff=0.12)
-        leek = pot(DISH, 0.9).move_to([-3.3, 1.0, 0])
+        leek = pot(DISH, 0.9).move_to([-3.4, 1.0, 0])
         leek_l = T("leek soup", 22, DISH).next_to(leek, DOWN, buff=0.15)
         order = ticket("leek soup", NEIGH).next_to(nb, LEFT, buff=0.15)
-        ours_t = ticket("ticket", COOK).move_to([0.5, 0.7, 0])
+        ours_t = ticket("ticket", COOK).move_to([0.6, 0.7, 0])
         tie = DashedLine(leek.get_right() + RIGHT * 0.1, door.get_left() + LEFT * 0.05, dash_length=0.08, stroke_width=2, color=COOK)
         fut = M("scope.future { cook(order) }", 24, COOK).move_to([0, 2.65, 0])
         self.say("out")
         self.play(FadeIn(fn), FadeIn(ck), FadeIn(nb), FadeIn(nb_l), FadeIn(door), FadeIn(door_l), run_time=0.8)
         self.at_text("The neighbour", lead=0.3)
         self.play(FadeIn(order, shift=LEFT * 0.1), run_time=0.5)
-        self.play(order.animate.move_to([0.5, 0.7, 0]), run_time=0.8)
+        self.play(order.animate.move_to([0.6, 0.7, 0]), run_time=0.8)
         self.at_text("That's the", lead=0.3)
         self.play(Indicate(door_l, color=WHITE), run_time=0.7)
         self.at_text("Its cookAsync", lead=0.3)
@@ -464,19 +471,19 @@ class Co11Bridges(Narrated):
         self.play(ours_t.animate.next_to(nb, LEFT, buff=0.15), run_time=0.8)
         self.hold()
 
-        orto = M("orTimeout(800 ms)", 20, NEIGH).next_to(ours_t, DOWN, buff=0.2)
+        orto = M("orTimeout(800 ms)", 20, NEIGH).next_to(ours_t, UP, buff=0.2).align_to(ours_t, RIGHT)
         printed = M("[kotlin] cooking leek was cancelled", 22, CANCEL).move_to([-2.0, -2.3, 0])
         self.say("out2")
         self.at_text("If the Java", lead=0.3)
         self.play(FadeIn(orto), run_time=0.5)
         n3 = travel_note(self, [ours_t.get_center() + DOWN * 0.45, door.get_right() + RIGHT * 0.2, leek.get_center() + DOWN * 0.1],
                          rt=1.2)
-        self.play(dim_pot(leek), leek_l.animate.set_color(CANCEL), run_time=0.5)
+        self.play(dim_pot(leek), leek_l.animate.set_color(CANCEL), FadeOut(n3), run_time=0.5)
         self.at_text("In FutureBridge", lead=0.3)
         self.play(FadeIn(printed, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
-        more = VGroup(pot(DISH, 0.8, steam=True).move_to([-4.2, -0.35, 0]), pot(DISH, 0.8).move_to([-2.4, -0.35, 0]))
+        more = VGroup(pot(DISH, 0.8, steam=True).move_to([-4.15, -0.35, 0]), pot(DISH, 0.8).move_to([-2.65, -0.35, 0]))
         closed = T("close(): everything in the scope is cancelled", 22, COOK).move_to([-2.0, -2.85, 0])
         self.say("scope")
         self.play(FadeIn(more), run_time=0.5)

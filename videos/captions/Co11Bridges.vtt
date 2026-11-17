@@ -1,165 +1,337 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:07.396
-Your Kotlin service needs a fraud score, and the fraud client is Java.
+00:00:02.700 --> 00:00:05.675
+Next door lives a neighbour who cooks the old way.
 
 2
-00:00:07.396 --> 00:00:09.476
-It returns a CompletableFuture.
+00:00:05.675 --> 00:00:11.268
+Ask her for a pie, and she hands you a ticket: come back with this, and the pie will be ready.
 
 3
-00:00:09.700 --> 00:00:11.135
-The quick way is get().
+00:00:11.500 --> 00:00:16.101
+In code, the neighbour is Java, and her ticket is a CompletableFuture.
 
 4
-00:00:11.135 --> 00:00:12.321
-It works in a demo.
+00:00:16.101 --> 00:00:20.571
+A future is an object that stands for a result that isn't ready yet.
 
 5
-00:00:12.321 --> 00:00:18.061
-But a thread sits blocked for the whole wait, and under load every call in flight holds one.
+00:00:20.571 --> 00:00:23.266
+Our kitchen runs on bookmarks and timers.
 
 6
-00:00:18.267 --> 00:00:20.203
-Now the request is cancelled.
+00:00:23.266 --> 00:00:24.647
+Hers runs on tickets.
 
 7
-00:00:20.203 --> 00:00:22.205
-What happens to the Java call?
+00:00:24.867 --> 00:00:27.705
+The lab's bakery library works the same way.
 
 8
-00:00:24.033 --> 00:00:24.545
-Nothing.
+00:00:27.705 --> 00:00:34.608
+loavesLeft of rye returns a future at once, and later, the future completes with the number of loaves left.
 
 9
-00:00:24.545 --> 00:00:28.448
-It keeps running, and the blocked thread waits for it anyway.
+00:00:34.833 --> 00:00:38.109
+So here's a question that's easy to be shy about.
 
 10
-00:00:28.448 --> 00:00:30.560
-Cancellation stops at the bridge.
+00:00:38.109 --> 00:00:39.846
+A future has a get method.
 
 11
-00:00:31.400 --> 00:00:33.092
-await is the real bridge.
+00:00:39.846 --> 00:00:43.322
+It waits for the answer, and it works in every demo.
 
 12
-00:00:33.092 --> 00:00:36.071
-The coroutine suspends, and no thread waits.
+00:00:43.322 --> 00:00:44.993
+So why not just call get?
 
 13
-00:00:36.071 --> 00:00:39.185
-The thread goes off and runs other coroutines.
+00:00:45.200 --> 00:00:49.791
+Here's how many of us write it: get, inside withContext(Dispatchers.IO).
 
 14
-00:00:39.400 --> 00:00:44.098
-When the future completes, its value crosses, and the coroutine resumes.
+00:00:49.791 --> 00:00:53.043
+Our coroutine isn't blocked, it works, so it ships.
 
 15
-00:00:44.098 --> 00:00:48.992
-If it failed, await rethrows the real exception, not an ExecutionException.
+00:00:53.267 --> 00:00:54.617
+Now watch the kitchen.
 
 16
-00:00:49.733 --> 00:00:51.639
-And cancellation crosses too.
+00:00:54.617 --> 00:00:57.073
+Dispatchers.IO is the bench by the door.
 
 17
-00:00:51.639 --> 00:00:55.976
-Cancel the coroutine, and await calls cancel(false) on the future.
+00:00:57.073 --> 00:01:04.502
+get sends a helper from the bench to the neighbour's fence, and she stands there, holding the ticket, for the whole wait.
 
 18
-00:00:56.233 --> 00:01:02.785
-If the future must finish anyway, like a capture already sent to the issuer, call asDeferred, then await.
+00:01:04.502 --> 00:01:06.159
+She can't do anything else.
 
 19
-00:01:02.785 --> 00:01:04.844
-That waits without cancelling it.
+00:01:06.159 --> 00:01:08.063
+She's a doorstop with a ticket.
 
 20
-00:01:05.767 --> 00:01:09.398
-The other way, future { } gives Java a CompletableFuture.
+00:01:08.267 --> 00:01:12.719
+Worse, the guests phone and call dinner off, so our coroutine is cancelled.
 
 21
-00:01:09.398 --> 00:01:12.265
-Like async, it starts a coroutine in a scope.
+00:01:12.719 --> 00:01:16.222
+But the helper is stuck inside get, and get doesn't listen.
 
 22
-00:01:12.467 --> 00:01:20.324
-When the Java caller calls cancel(true), or an orTimeout fires, the future completes, and that cancels the coroutine.
+00:01:16.222 --> 00:01:20.319
+Nobody tells the neighbour, and she bakes a pie that nobody will eat.
 
 23
-00:01:20.567 --> 00:01:25.459
-Give it a scope you own, so closing the facade cancels every call still in flight.
+00:01:20.533 --> 00:01:26.343
+So get costs twice: a thread held for the whole wait, and a cancel that stops at the fence.
 
 24
-00:01:26.367 --> 00:01:28.751
-Reactor gets the same kind of bridge.
+00:01:26.567 --> 00:01:29.281
+What we want is the cook we've had all along.
 
 25
-00:01:28.751 --> 00:01:31.329
-mono { } turns suspend code into a Mono.
+00:01:29.281 --> 00:01:34.286
+She leaves a bookmark, goes back to her pots, and returns when the ticket is ready.
 
 26
-00:01:31.533 --> 00:01:32.315
-It is cold.
+00:01:34.286 --> 00:01:37.543
+And if dinner's off, she passes a note over the fence.
 
 27
-00:01:32.315 --> 00:01:38.288
-Nothing runs until someone subscribes, and each subscriber starts its own coroutine.
+00:01:37.543 --> 00:01:38.327
+That's await.
 
 28
-00:01:38.500 --> 00:01:41.963
-Dispose a subscription, and its coroutine is cancelled.
+00:01:38.533 --> 00:01:42.379
+await suspends until the future completes, so no thread waits.
 
 29
-00:01:42.900 --> 00:01:48.568
-Going back, awaitSingle waits for exactly one value, and throws if the Mono is empty.
+00:01:42.379 --> 00:01:46.410
+If the future fails, you catch the real exception, not a wrapper.
 
 30
-00:01:48.568 --> 00:01:54.369
-asFlow turns a Flux into a Flow, and cancelling the collector cancels the subscription.
+00:01:46.410 --> 00:01:50.628
+And if the waiting coroutine is cancelled, await cancels the future.
 
 31
-00:01:55.200 --> 00:01:57.189
-The bridges are Kotlin code.
+00:01:51.433 --> 00:01:52.277
+Let's check.
 
 32
-00:01:57.189 --> 00:02:01.592
-The Java side just sees an ordinary CompletableFuture or Mono.
+00:01:52.277 --> 00:01:58.116
+The lesson's FutureBridge asks the neighbour for a pie that takes 500 milliseconds.
 
 33
-00:02:01.800 --> 00:02:02.432
-The rule.
+00:01:58.116 --> 00:02:03.392
+A coroutine awaits it, and after 100 milliseconds, we cancel the coroutine.
 
 34
-00:02:02.432 --> 00:02:03.908
-Use the real bridges.
+00:02:03.392 --> 00:02:05.924
+Is the neighbour's future cancelled?
 
 35
-00:02:03.908 --> 00:02:08.967
-They suspend instead of blocking, and they carry cancellation both ways.
+00:02:08.700 --> 00:02:09.081
+Yes.
 
 36
-00:02:09.800 --> 00:02:10.794
-Check yourself.
+00:02:09.081 --> 00:02:11.273
+Future cancelled: true.
 
 37
-00:02:10.794 --> 00:02:14.836
-A coroutine awaits a Java future, and its scope is cancelled.
+00:02:11.273 --> 00:02:13.179
+The note got across.
 
 38
-00:02:14.836 --> 00:02:16.626
-What happens to the future?
+00:02:13.400 --> 00:02:19.026
+Sometimes you don't want that: the future is shared, or the pie is already in the oven.
 
 39
-00:02:16.626 --> 00:02:18.680
-And how do you keep it running?
+00:02:19.026 --> 00:02:21.612
+Then asDeferred, then await, only waits.
 
 40
-00:02:21.400 --> 00:02:23.774
-await cancels it, with cancel(false).
+00:02:21.612 --> 00:02:25.751
+Same test: future cancelled, false, and the pie still comes out.
 
 41
-00:02:23.774 --> 00:02:26.853
-To keep it running, call asDeferred, then await.
+00:02:26.567 --> 00:02:27.749
+Now the other way.
+
+42
+00:02:27.749 --> 00:02:32.345
+The neighbour wants a dish from us, so our kitchen hands her a ticket.
+
+43
+00:02:32.345 --> 00:02:34.249
+That's the lab's KitchenDoor.
+
+44
+00:02:34.249 --> 00:02:43.639
+Its cookAsync calls future, a builder like async: it starts a coroutine in the door's own scope, and returns the result as a CompletableFuture.
+
+45
+00:02:43.867 --> 00:02:45.810
+And this link runs both ways.
+
+46
+00:02:45.810 --> 00:02:51.776
+If the Java caller cancels that future, or her timeout fires, our coroutine is cancelled.
+
+47
+00:02:51.776 --> 00:02:58.479
+In FutureBridge, Java cancels the leek soup, and the Kotlin side prints: cooking leek was cancelled.
+
+48
+00:02:58.700 --> 00:03:03.699
+And because the door owns its scope, closing the door cancels everything still cooking.
+
+49
+00:03:04.500 --> 00:03:06.492
+Here the picture breaks a little.
+
+50
+00:03:06.492 --> 00:03:09.992
+Cancelling a plain Java future only marks it as cancelled.
+
+51
+00:03:09.992 --> 00:03:15.967
+Whether the work stops is up to the code that made it, like a neighbour who may not read your note.
+
+52
+00:03:15.967 --> 00:03:19.588
+A future from our future builder always stops its coroutine.
+
+53
+00:03:19.800 --> 00:03:22.466
+So, cross the fence with await and future.
+
+54
+00:03:22.466 --> 00:03:25.957
+get and runBlocking hold a thread, and drop the cancel.
+
+55
+00:03:26.767 --> 00:03:34.150
+The neighbour across the road cooks with Reactor, a Java library where a Mono is a recipe for at most one value.
+
+56
+00:03:34.150 --> 00:03:36.655
+Nothing runs until someone subscribes.
+
+57
+00:03:36.655 --> 00:03:39.885
+The mono builder turns our suspend code into one.
+
+58
+00:03:40.100 --> 00:03:50.956
+The lesson's ReactorBridge builds a Mono that looks up the soup recipe, then waits for it twice with awaitSingle, which suspends until the Mono's one value arrives.
+
+59
+00:03:50.956 --> 00:03:52.081
+How many lookups?
+
+60
+00:03:54.867 --> 00:03:57.912
+Two, and none while the Mono was being built.
+
+61
+00:03:57.912 --> 00:04:01.161
+mono is cold: one coroutine for each subscriber.
+
+62
+00:04:01.161 --> 00:04:02.244
+And dragon stew?
+
+63
+00:04:02.244 --> 00:04:07.523
+The book, sensibly, has nothing, so the Mono is empty, and awaitSingle throws.
+
+64
+00:04:08.333 --> 00:04:15.322
+Plain Java can't call a suspend function in any useful way: it would have to hand over the hidden bookmark.
+
+65
+00:04:15.322 --> 00:04:23.159
+So give it doors: a future door like KitchenDoor, a Mono door for Reactor code, or a blocking door with its own timeout.
+
+66
+00:04:23.159 --> 00:04:27.404
+One suspend function stays the real code, and every door is thin.
+
+67
+00:04:28.233 --> 00:04:31.153
+Which kitchen should a new program start in?
+
+68
+00:04:31.153 --> 00:04:34.006
+Virtual threads, for mostly blocking calls.
+
+69
+00:04:34.006 --> 00:04:39.978
+Coroutines, for one deadline over several calls, cancels that reach every child, and Flow.
+
+70
+00:04:39.978 --> 00:04:42.434
+Reactor, where it's already in place.
+
+71
+00:04:42.434 --> 00:04:44.424
+And convert only at the edges.
+
+72
+00:04:44.424 --> 00:04:52.785
+A coroutine that calls runBlocking, which subscribes to a Mono, which blocks on a database, is three kitchens to boil one egg.
+
+73
+00:04:53.600 --> 00:05:00.929
+Here's KitchenDoor in Kotlin, and below it, the Java caller's side, which is plain CompletableFuture code.
+
+74
+00:05:00.929 --> 00:05:06.115
+If her 800 millisecond timeout fires, the coroutine behind it is cancelled.
+
+75
+00:05:06.933 --> 00:05:08.510
+So, why not just call get?
+
+76
+00:05:08.510 --> 00:05:12.693
+Because get stands a thread at the fence, and the cancel stops there.
+
+77
+00:05:12.693 --> 00:05:16.089
+await waits with a bookmark, and passes the note across.
+
+78
+00:05:16.089 --> 00:05:20.272
+And future hands the neighbour a ticket that's tied to our coroutine.
+
+79
+00:05:20.500 --> 00:05:21.342
+Quick check.
+
+80
+00:05:21.342 --> 00:05:29.058
+A Java caller calls cookAsync, then get, and her thread is interrupted, Java's way of asking a thread to stop.
+
+81
+00:05:29.058 --> 00:05:31.443
+Is the Kotlin coroutine cancelled?
+
+82
+00:05:34.433 --> 00:05:34.639
+No.
+
+83
+00:05:34.639 --> 00:05:37.043
+The interrupt only makes get throw.
+
+84
+00:05:37.043 --> 00:05:44.736
+The future isn't cancelled, so the coroutine keeps cooking, until someone cancels the future or closes the door.

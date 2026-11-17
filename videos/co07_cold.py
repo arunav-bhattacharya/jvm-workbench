@@ -320,7 +320,7 @@ class Co07ColdFlow(Narrated):
         self.play(FadeOut(VGroup(hook, shop, shop_l, q1, q2)), run_time=0.6)
 
         # ================= the recipe card =================
-        card = recipe_card("Lemon cake", ["cream butter and sugar", "beat in two eggs", "fold in the flour",
+        card = recipe_card("Lemon cake", ["cream the butter", "beat in two eggs", "fold in the flour",
                                           "bake for 40 minutes"]).move_to([0, 0.75, 0])
         home = card.get_center().copy()
         drawer = drawer_icon().move_to([0, -2.6, 0])
@@ -484,7 +484,7 @@ class Co07ColdFlow(Narrated):
         self.play(FadeIn(con.line("  got [apples, bananas, cherries]", COOK3)), run_time=0.3)
         self.at_text("Once take", lead=0.3)
         stop = VGroup(T("cancel", 26, CANCEL), tick(False, 0.18).set_stroke(CANCEL, 5)).arrange(RIGHT, buff=0.15)
-        stop.move_to([CL_X + 0.3, 1.75, 0])
+        stop.move_to([-2.45, 1.75, 0])
         self.play(FadeIn(stop, scale=0.8), Flash(coll3.get_top(), color=CANCEL, flash_radius=0.4), run_time=0.6)
         never = T("never fetched", 24, GREY_B).move_to([PX[2], PY - 0.85, 0])
         self.play(pages[2].animate.set_opacity(0.3), FadeIn(never), run_time=0.7)
@@ -608,7 +608,7 @@ class Co07ColdFlow(Narrated):
         bch_l = T("the bench by the front door", 24, IOC).move_to([2.85, -1.6, 0])
         tbl = dining_table(2.6).move_to([-3.4, -2.55, 0]).set_z_index(3)
         fam = VGroup(person(COOK2, 0.95), person(COOK2, 0.95)).arrange(RIGHT, buff=0.7).move_to([-3.4, -1.85, 0])
-        fam_l = T("the collector, at its own table", 24, COOK2).move_to([0.6, -2.65, 0], aligned_edge=LEFT)
+        fam_l = T("the collector, at its own table", 24, COOK2).move_to([-3.4, -3.22, 0])
         rd = person(COOK, 1.0).move_to([-2.9, HELP_Y, 0])
         nt = note_icon(0.8).move_to([-2.15, 0.55, 0])
         blk = call_chip(IOC, 0.42).move_to([-2.9, 1.25, 0])

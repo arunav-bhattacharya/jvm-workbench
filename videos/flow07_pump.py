@@ -452,7 +452,7 @@ class Flow07Pump(Narrated):
         self.at_text("WhileSubscribed", lead=0.3)
         self.play(FadeIn(srows[2]), run_time=0.5)
         self.hold()
-        self.play(FadeOut(VGroup(cook2, cook_l, diners, lines_, srows)), run_time=0.5)
+        self.play(FadeOut(VGroup(cook2, cook_l, diners, lines_, srows, si)), run_time=0.5)
 
         # the lesson's WhileSubscribed(5_000) timeline
         X0, KX = -3.6, 9.8 / 16

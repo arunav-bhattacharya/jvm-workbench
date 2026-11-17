@@ -138,8 +138,10 @@ def code_block(src, size=22, hl=None):
 def plate(n, s=1.0, color=WHITE):
     rim = Circle(radius=0.3).set_stroke(color, 3).set_fill(GREY_E, 1)
     inner = Circle(radius=0.19).set_stroke(GREY_B, 1.5)
-    t = T(str(n), 22, color).move_to(rim)
-    return VGroup(rim, inner, t).scale(s).set_z_index(6)
+    g = VGroup(rim, inner)
+    if str(n):
+        g.add(T(str(n), 22, color).move_to(rim))
+    return g.scale(s).set_z_index(6)
 
 
 def tag(text, color=SUSP, size=22):
@@ -312,7 +314,7 @@ class Co09Channels(Narrated):
         # ================= five plates through a shelf of two =================
         stack = [plate(i, 1.0) for i in range(1, 6)]
         for i, p in enumerate(stack):
-            p.move_to([-4.6, 0.5 + 0.13 * i, 0])
+            p.move_to([-4.6, 0.5 + 0.13 * (4 - i), 0]).set_z_index(12 - i)
         stack_l = T("five plates, as fast as she can", 22, COOK).move_to([-4.3, -0.2, 0])
         hl_l = T("100 ms per plate", 22, HELPER).move_to([2.3, -0.15, 0])
         clock = {"m": T("t = 0 ms", 26, GREY_A).move_to([4.6, 2.3, 0])}
@@ -408,7 +410,7 @@ class Co09Channels(Narrated):
         pile = VGroup(*[plate("", 0.6).move_to([1.2 + 0.45 * (i % 9), -0.2 + 0.32 * (i // 9) + 0.0, 0]) for i in range(18)])
         oom = T("OutOfMemoryError, some hours later", 26, BAD).move_to([3.3, 2.3, 0])
         self.say("unl_joke")
-        self.play(FadeOut(c1), Indicate(trs[2], color=WHITE), run_time=0.7)
+        self.play(FadeOut(c1), FadeOut(ch_l), Indicate(trs[2], color=WHITE), run_time=0.7)
         self.at_text("until the dining", lead=0.3)
         self.play(FadeOut(helper), FadeOut(tbl), LaggedStart(*[FadeIn(p, scale=0.6) for p in pile], lag_ratio=0.06), run_time=1.3)
         self.at_text("runs out", lead=0.3)
@@ -442,7 +444,7 @@ class Co09Channels(Narrated):
         tray.move_to(HAND_H)
         mn = moon(1.0).move_to([4.6, 2.5, 0])
         night = T("all night", 26, YELLOW_M).next_to(mn, DOWN, buff=0.2)
-        apron_l = T("a real helper sees this", 24, GREY_A).move_to([-2.3, -0.35, 0])
+        apron_l = T("apron off: a real helper would see it", 24, GREY_A).move_to([-3.2, -0.35, 0])
         produce = M("val hatch = produce { for (dish in dinner) send(dish) }", 24, t2c={"produce": CANCEL}).move_to([0, -3.15, 0])
         pr_l = T("closes the hatch when its block ends", 24, CANCEL).move_to([0, -2.55, 0])
         self.say("last_joke")
@@ -518,7 +520,7 @@ class Co09Channels(Narrated):
         self.play(FadeIn(closer, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
-        calls = T("5,000 calls in the same second", 26, BAD).move_to([2.6, -0.45, 0])
+        calls = T("5,000 calls in the same second", 26, BAD).move_to([1.8, -0.45, 0])
         ph = phone_off(1.0).next_to(calls, LEFT, buff=0.35)
         capn = T("a team of N: at most N at once", 26, HELPER).move_to([1.5, 2.85, 0])
         self.say("cap_joke")

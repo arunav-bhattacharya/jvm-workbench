@@ -1,121 +1,301 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.409
-Here is the reader and the ledger writer from lesson 1.
+00:00:02.733 --> 00:00:04.491
+The grocer's van has been.
 
 2
-00:00:06.409 --> 00:00:10.927
-As a plain flow, it prints read, posted, read, posted, all on main.
+00:00:04.491 --> 00:00:10.170
+With the shopping comes a delivery note, one line per item, like flour, 2000, grams.
 
 3
-00:00:11.533 --> 00:00:16.181
-Now add one line: flowOn(io), a dispatcher with one thread, io-thread.
+00:00:10.170 --> 00:00:15.105
+Each line is an item to put away, and a line to write in the pantry book.
 
 4
-00:00:16.181 --> 00:00:18.837
-Each ledger write takes 30 milliseconds.
+00:00:16.067 --> 00:00:19.236
+The note is read by the old reader from Flow basics.
 
 5
-00:00:18.837 --> 00:00:21.559
-In what order do the six lines print now?
+00:00:19.236 --> 00:00:21.978
+Its readLine holds its thread while it waits.
 
 6
-00:00:24.333 --> 00:00:28.026
-flowOn(io) changes the dispatcher, so it builds a wall.
+00:00:21.978 --> 00:00:26.732
+That's slow, waiting work, and it belongs in the back room, on another thread.
 
 7
-00:00:28.026 --> 00:00:34.203
-Everything above it runs behind the wall, in a second coroutine on io-thread: a second cook.
+00:00:26.867 --> 00:00:29.618
+But the pantry book stays at the kitchen table.
 
 8
-00:00:34.433 --> 00:00:37.923
-In the wall sits a mailbox with 64 slots, a channel.
+00:00:29.618 --> 00:00:34.887
+It isn't thread-safe: two threads writing in it at the same moment can mix up their lines.
 
 9
-00:00:37.923 --> 00:00:42.084
-The second cook's emit now just drops a plate in, and returns.
+00:00:34.887 --> 00:00:37.404
+So all the writing must happen on one side.
 
 10
-00:00:42.300 --> 00:00:48.224
-In front of the wall, a loop on main takes the plates out, one at a time, and calls your collector.
+00:00:37.600 --> 00:00:40.631
+Here's a question that's easy to be shy about.
 
 11
-00:00:48.224 --> 00:00:49.780
-The collector never moves.
+00:00:40.631 --> 00:00:45.704
+For any other slow call, we'd use withContext to run it on the IO dispatcher.
 
 12
-00:00:50.000 --> 00:00:54.836
-So the reader runs ahead: all three reads print before the first posting is done.
+00:00:45.704 --> 00:00:49.460
+So why not wrap the read and the emit in withContext(io)?
 
 13
-00:00:54.836 --> 00:00:56.925
-Then the postings come out on main.
+00:00:52.467 --> 00:00:57.600
+Because the inspector from lesson 2 refuses it: Flow invariant is violated.
 
 14
-00:00:58.533 --> 00:01:00.109
-The mailbox can fill up.
+00:00:57.600 --> 00:00:58.832
+And it's right to.
 
 15
-00:01:00.109 --> 00:01:06.413
-With 64 plates in it and one in the diner's hands, the next send suspends until a slot frees up.
+00:00:58.832 --> 00:01:01.433
+The collector's code runs inside emit.
 
 16
-00:01:06.413 --> 00:01:08.252
-Backpressure didn't go away.
+00:01:01.433 --> 00:01:07.320
+So an emit on an IO thread drags the collector, pantry book and all, onto that thread.
 
 17
-00:01:08.252 --> 00:01:12.192
-The reader now waits for a free slot, not for the collector.
+00:01:07.467 --> 00:01:15.432
+A hand-written flow with no inspector shows it: its collector ran on DefaultDispatcher-worker-1, a thread it never asked for.
 
 18
-00:01:13.100 --> 00:01:14.765
-Why build a wall at all?
+00:01:15.432 --> 00:01:19.192
+That's carrying the pantry book into the back room by hand.
 
 19
-00:01:14.765 --> 00:01:18.511
-Why not wrap the read and the emit in withContext(io)?
+00:01:20.067 --> 00:01:22.193
+The fix is one line: flowOn(io).
 
 20
-00:01:18.733 --> 00:01:21.362
-Remember, the collector runs inside emit.
+00:01:22.193 --> 00:01:25.980
+Putting an item away takes the collector 30 milliseconds.
 
 21
-00:01:21.362 --> 00:01:25.402
-An emit on io-thread would drag your collector behind the wall.
+00:01:25.980 --> 00:01:29.701
+Without flowOn, read and stored take turns, all on main.
 
 22
-00:01:25.402 --> 00:01:29.121
-Your ledger code would run on a thread it never asked for.
+00:01:29.701 --> 00:01:32.957
+With it, in what order do the six lines come out?
 
 23
-00:01:29.333 --> 00:01:34.255
-So the inspector from lesson 2 sounds the alarm: Flow invariant is violated.
+00:01:36.200 --> 00:01:38.818
+All three reads come first, on io-thread.
 
 24
-00:01:34.255 --> 00:01:41.443
-To move the reader and not the collector, you must break the call chain, with a second coroutine and a mailbox.
+00:01:38.818 --> 00:01:40.797
+Then the three stores, on main.
 
 25
-00:01:42.367 --> 00:01:49.541
-Here is the Kotlin, and its Java twin: a reader thread fills a 64 slot queue, and main empties it.
+00:01:40.797 --> 00:01:45.905
+The reader ran ahead: its emit calls returned without waiting for the collector.
 
 26
-00:01:50.367 --> 00:01:56.188
-So flowOn moves the code above it behind a wall, with a 64 slot channel in between.
+00:01:46.067 --> 00:01:49.828
+In lesson 1, emit couldn't return before the collector did.
 
 27
-00:01:56.188 --> 00:01:58.572
-Your collector stays where it was.
+00:01:49.828 --> 00:01:53.781
+So something now sits between the two sides, and holds values.
 
 28
-00:01:58.800 --> 00:01:59.685
-Quick check.
+00:01:54.667 --> 00:01:58.740
+Kitchens solved this long ago, with a wall and a hatch in it.
 
 29
-00:01:59.685 --> 00:02:06.542
-Behind flowOn(io), a reader emits 100 lines at once, and the collector is stuck on the first.
+00:01:58.740 --> 00:01:59.941
+Plates go through.
 
 30
-00:02:06.542 --> 00:02:08.164
-How many emits return?
+00:01:59.941 --> 00:02:00.809
+People don't.
+
+31
+00:02:01.000 --> 00:02:01.885
+Let's map it.
+
+32
+00:02:01.885 --> 00:02:03.723
+flowOn(io) builds the wall.
+
+33
+00:02:03.723 --> 00:02:10.600
+Behind it, a second cook, which is a second coroutine, runs everything above flowOn on the IO thread.
+
+34
+00:02:10.600 --> 00:02:13.323
+In the hatch sits a shelf with 64 spots.
+
+35
+00:02:13.323 --> 00:02:18.633
+That's a channel: a queue between coroutines, where send waits when it's full.
+
+36
+00:02:18.800 --> 00:02:25.504
+In front of the wall, a loop takes each item off the shelf, and calls emit in the collector's own coroutine.
+
+37
+00:02:25.504 --> 00:02:28.421
+So the inspector has nothing to complain about.
+
+38
+00:02:28.421 --> 00:02:31.215
+The collector and the pantry book never move.
+
+39
+00:02:31.933 --> 00:02:33.982
+How far ahead can the reader get?
+
+40
+00:02:33.982 --> 00:02:37.583
+Say the collector holds the first item and doesn't let go.
+
+41
+00:02:37.583 --> 00:02:39.569
+How many emits return meanwhile?
+
+42
+00:02:42.800 --> 00:02:44.409
+In a plain flow, zero.
+
+43
+00:02:44.409 --> 00:02:49.603
+With flowOn(io), 65: 64 on the shelf, and one in the collector's hands.
+
+44
+00:02:49.603 --> 00:02:53.920
+Then the sixty-sixth send waits, because the shelf is full.
+
+45
+00:02:53.920 --> 00:02:56.992
+Shrink the shelf to 10 spots, and it's 11.
+
+46
+00:02:57.533 --> 00:03:02.353
+So flowOn doesn't remove backpressure, the slow side slowing the fast one.
+
+47
+00:03:02.353 --> 00:03:07.042
+It moves it: from waiting for the collector, to waiting for a free spot.
+
+48
+00:03:07.042 --> 00:03:11.015
+A slow collector still slows the reader, just 64 items later.
+
+49
+00:03:11.200 --> 00:03:12.795
+Here's the rule to keep.
+
+50
+00:03:12.795 --> 00:03:15.785
+flowOn moves the code above it behind a wall.
+
+51
+00:03:15.785 --> 00:03:17.513
+The collector never moves.
+
+52
+00:03:18.400 --> 00:03:20.603
+So read a chain from the bottom up.
+
+53
+00:03:20.603 --> 00:03:26.078
+Put the pantry writes above flowOn, and the pantry book quietly moves to the back room.
+
+54
+00:03:26.078 --> 00:03:27.399
+Nobody told the book.
+
+55
+00:03:27.399 --> 00:03:30.672
+Put flowOn right below the last line that must move.
+
+56
+00:03:31.467 --> 00:03:33.362
+The picture breaks in one place.
+
+57
+00:03:33.362 --> 00:03:35.436
+A real hatch just sits in the wall.
+
+58
+00:03:35.436 --> 00:03:42.900
+This one makes the cook behind it wait when the shelf is full, and when the collector stops, the whole back room is cancelled.
+
+59
+00:03:43.667 --> 00:03:49.765
+One more kitchen: two cooks, at the grill and the oven, and one diner who wants plates from both.
+
+60
+00:03:49.765 --> 00:03:54.480
+The obvious code launches two children inside flow { }, and both call emit.
+
+61
+00:03:54.480 --> 00:03:58.692
+The inspector refuses: emission from another coroutine is detected.
+
+62
+00:03:58.692 --> 00:04:03.469
+Two children could emit at the same moment, and run the diner twice at once.
+
+63
+00:04:03.667 --> 00:04:08.177
+The message names the cure: channelFlow, a flow with a hatch built in.
+
+64
+00:04:08.177 --> 00:04:14.620
+Each cook calls send, which is safe from any child, and the flow ends only when both cooks are done.
+
+65
+00:04:14.620 --> 00:04:16.231
+Several cooks, one hatch.
+
+66
+00:04:17.000 --> 00:04:22.611
+Here's the delivery import in Kotlin: read and parse above flowOn, store below it.
+
+67
+00:04:22.611 --> 00:04:30.069
+And the Java twin: a reader thread puts items into a queue with 64 slots, and the main thread takes them out.
+
+68
+00:04:30.867 --> 00:04:33.275
+So, why not withContext around emit?
+
+69
+00:04:33.275 --> 00:04:37.756
+Because the collector runs inside emit, and would be dragged along.
+
+70
+00:04:37.756 --> 00:04:45.180
+flowOn builds a wall instead: a second cook behind it, a hatch with 64 spots, and a collector that never moves.
+
+71
+00:04:45.333 --> 00:04:46.260
+Quick check.
+
+72
+00:04:46.260 --> 00:04:49.272
+In this chain, where do a, b and c run?
+
+73
+00:04:52.533 --> 00:04:55.667
+a runs on io, because it sits above flowOn.
+
+74
+00:04:55.667 --> 00:04:58.509
+b and c run in the collector's context.
+
+75
+00:04:58.509 --> 00:05:00.404
+flowOn only ever looks up.

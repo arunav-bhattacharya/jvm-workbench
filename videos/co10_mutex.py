@@ -60,7 +60,7 @@ N = {
             "then bread bakes 2,000. Meanwhile, the roast cooks 3,000 and rests 500. In what order do they finish?",
     "vt_a": "Soup at 1,000 and 1,200, roast at 3,000, bread at 3,200, and the rested roast at 3,500. Three and a half "
             "seconds of dinner, in about 20 real milliseconds after the library loaded.",
-    "vt_break": "Here the picture breaks. The stage manager can only skip scenes he runs. A delay on "
+    "vt_break": "Here the picture breaks. A rehearsal can only skip its own scenes. A delay on "
                 "Dispatchers.Default stays real: a real second passed, and the virtual clock stayed at 0. So pass "
                 "your dispatchers in.",
     "code_end": "Here's the fixed addition in Kotlin, with Java's ReentrantLock below it. Same shape. But a Java "
@@ -211,7 +211,7 @@ class Kitchen:
         self.hook = Dot(HOOK, radius=0.06, color=GREY_B)
         self.pen = pen(pen_color).move_to(PEN_REST)
         self.string = always_redraw(lambda: Line(self.hook.get_center(), self.pen[2].get_center(),
-                                                 stroke_width=1.5, color=GREY_B).set_z_index(5))
+                                                 stroke_width=1.5, color=GREY_B).set_z_index(2))
         self.h = {"A": helper(HA, "A").move_to(HOME["A"]), "B": helper(HB, "B").move_to(HOME["B"])}
         self.col = {"A": HA, "B": HB}
         self.app = phone(2.2).move_to(APP)
@@ -340,7 +340,7 @@ class Co10Mutex(Narrated):
 
         # ================= the fridge, the list and the pen =================
         k = Kitchen(self)
-        rule = T("the house rule: one person holds the pen at a time", 26).move_to([1.2, 3.05, 0])
+        rule = T("the house rule: one person holds the pen at a time", 26).move_to([1.6, 3.05, 0])
         self.say("fridge")
         self.play(FadeIn(k.fr), FadeIn(k.val), run_time=0.8)
         self.at_text("and helpers", lead=0.3)
@@ -352,7 +352,7 @@ class Co10Mutex(Narrated):
         self.hold()
 
         m_h = T("each helper: a coroutine", 24, GREY_A).move_to([-0.1, -3.25, 0])
-        m_l = T("the list: shared state", 24, GREY_A).move_to([-4.65, 2.75, 0])
+        m_l = T("the list: shared state", 24, GREY_A).move_to([-4.65, 2.68, 0])
         m_r = M("Dispatchers.Default.limitedParallelism(1)", 22, PEN).next_to(rule, DOWN, buff=0.2)
         m_p = VGroup(T("holding the pen =", 24, PEN), T("running on its one thread", 24, PEN)).arrange(DOWN, buff=0.08)
         m_p.move_to([-0.9, 0.45, 0])
@@ -417,7 +417,7 @@ class Co10Mutex(Narrated):
         self.play(Indicate(k.pen, color=WHITE, scale_factor=1.4), run_time=0.9)
         self.hold()
 
-        moral1 = T("the rule guards the pen, not the addition", 28, LOCK).move_to([1.2, 3.05, 0])
+        moral1 = T("the rule guards the pen, not the addition", 28, LOCK).move_to([1.6, 3.05, 0])
         self.say("reveal2")
         self.play(FadeOut(rule, shift=UP * 0.1), FadeOut(m_r), FadeIn(moral1, shift=UP * 0.1), run_time=0.8)
         self.hold()
@@ -526,7 +526,7 @@ class Co10Mutex(Narrated):
         lv.set_opacity(0.45)
         self.play(FadeIn(dtitle), FadeIn(lv), FadeIn(lm[0]), run_time=0.5)
         self.play(LaggedStart(*[FadeIn(l, shift=RIGHT * 0.1) for l in lm[1:]], lag_ratio=0.2), run_time=1.3)
-        pairs = VGroup(*[SurroundingRectangle(VGroup(lm[1 + 2 * i], lm[2 + 2 * i]), buff=0.06, color=LOCK, stroke_width=2)
+        pairs = VGroup(*[SurroundingRectangle(VGroup(lm[1 + 2 * i], lm[2 + 2 * i]), buff=0.09, color=LOCK, stroke_width=2)
                          for i in range(3)])
         self.play(Create(pairs), run_time=0.6)
         self.hold()
@@ -535,9 +535,9 @@ class Co10Mutex(Narrated):
         # ================= the lab's fix: ask first, then read and write =================
         k = Kitchen(self, LOCK)
         k.show(0.6)
-        fx = T("ask the app first, then read and write with no pause between", 26, LOCK).move_to([1.0, 3.05, 0])
+        fix_t = T("ask the app first, then read and write with no pause between", 26, LOCK).move_to([1.0, 3.05, 0])
         self.say("fix2")
-        self.play(FadeIn(fx, shift=UP * 0.1), *k.walk("A", SLOT[0]), *k.walk("B", SLOT[1]), run_time=1.0)
+        self.play(FadeIn(fix_t, shift=UP * 0.1), *k.walk("A", SLOT[0]), *k.walk("B", SLOT[1]), run_time=1.0)
         self.play(*k.set_tag("A", "waiting"), *k.set_tag("B", "waiting"), run_time=0.4)
         self.play(*k.set_tag("A", "100 g", WHITE), *k.set_tag("B", "100 g", WHITE), run_time=0.5)
         self.play(*k.walk("A", SPOT), run_time=0.8)
@@ -553,7 +553,7 @@ class Co10Mutex(Narrated):
         ov = T("the two lookups overlapped", 24, GREY_A).move_to([3.9, -2.75, 0])
         self.play(FadeIn(ov), run_time=0.5)
         self.hold()
-        self.play(FadeOut(VGroup(k.leave(), fx, ok, ov)), run_time=0.6)
+        self.play(FadeOut(VGroup(k.leave(), fix_t, ok, ov)), run_time=0.6)
 
         # ================= the name: a critical section =================
         cg2 = VGroup(ctitle, code).copy()

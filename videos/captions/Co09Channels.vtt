@@ -1,153 +1,285 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.109
-One coroutine reads payment ids from a batch, fast.
+00:00:02.700 --> 00:00:09.141
+Between the kitchen and the dining room of an old house there's a hatch: a small window in the wall, with a shelf.
 
 2
-00:00:06.109 --> 00:00:09.785
-Another settles each one, which takes 100 milliseconds.
+00:00:09.141 --> 00:00:14.169
+The cook puts a plate on the shelf, and on the other side a helper takes it to the table.
 
 3
-00:00:09.785 --> 00:00:12.725
-How does the reader hand ids to the settler?
+00:00:14.400 --> 00:00:16.068
+The shelf holds two plates.
 
 4
-00:00:12.933 --> 00:00:16.316
-Put a channel between them: a queue with room for two.
+00:00:16.068 --> 00:00:17.982
+When it's full, the cook waits.
 
 5
-00:00:16.316 --> 00:00:19.197
-send puts an id in, and receive takes one out.
+00:00:17.982 --> 00:00:20.082
+When it's empty, the helper waits.
 
 6
-00:00:19.400 --> 00:00:23.453
-The settler is already waiting, so id 1 goes straight to it.
+00:00:20.082 --> 00:00:23.664
+And unlike a ring of the bell, a plate is eaten only once.
 
 7
-00:00:23.453 --> 00:00:25.749
-Ids 2 and 3 wait in the two spots.
+00:00:23.867 --> 00:00:27.836
+Last lesson, the board and the bell sent every value to everyone.
 
 8
-00:00:25.967 --> 00:00:29.407
-Now the reader sends id 4, and both spots are full.
+00:00:27.836 --> 00:00:30.829
+So here's a question that's easy to be shy about.
 
 9
-00:00:29.407 --> 00:00:31.228
-What happens to the reader?
+00:00:30.829 --> 00:00:34.005
+How do you hand each plate to exactly one coroutine?
 
 10
-00:00:34.000 --> 00:00:34.860
-It suspends.
+00:00:34.005 --> 00:00:38.891
+And when the cook is done, how does the helper know that nothing more is coming?
 
 11
-00:00:34.860 --> 00:00:39.733
-send waits for room, and the thread is free to run other coroutines.
+00:00:42.367 --> 00:00:44.162
+Kotlin's hatch is a Channel.
 
 12
-00:00:39.733 --> 00:00:45.753
-When the settler finishes id 1 and takes id 2, a spot opens, and the reader goes on.
+00:00:44.162 --> 00:00:49.547
+The cook calls send to put a plate in, and the helper calls receive to take one out.
 
 13
-00:00:45.967 --> 00:00:51.737
-So the fast reader now runs at the settler's pace: one id every 100 milliseconds.
+00:00:49.547 --> 00:00:51.983
+Each element is received exactly once.
 
 14
-00:00:51.737 --> 00:00:57.223
-And when the queue is empty, it's receive that suspends, until an id arrives.
+00:00:51.983 --> 00:00:56.919
+The shelf is the capacity: how many plates can wait before send has to pause.
 
 15
-00:00:57.433 --> 00:01:00.305
-When the reader is done, it closes the channel.
+00:00:56.919 --> 00:01:02.368
+And waiting here means suspending: a helper at an empty hatch holds no thread at all.
 
 16
-00:01:00.305 --> 00:01:02.871
-The settler's loop ends after the last id.
+00:01:03.100 --> 00:01:04.040
+Let's time it.
 
 17
-00:01:02.871 --> 00:01:05.560
-Forget close, and the settler waits forever.
+00:01:04.040 --> 00:01:10.887
+The cook puts five plates through as fast as she can, and the helper needs 100 milliseconds per plate.
 
 18
-00:01:06.367 --> 00:01:09.069
-The default channel has no spots at all.
+00:01:10.887 --> 00:01:12.229
+The shelf holds two.
 
 19
-00:01:09.069 --> 00:01:13.121
-Each send waits until a receiver takes the id from its hand.
+00:01:12.433 --> 00:01:14.083
+When does each send return?
 
 20
-00:01:13.933 --> 00:01:15.860
-Channels chain into pipelines.
+00:01:17.067 --> 00:01:26.104
+The first three return at once: plate 1 goes straight into the waiting helper's hands, and plates 2 and 3 sit on the shelf.
 
 21
-00:01:15.860 --> 00:01:18.301
-Four workers receive from one channel.
+00:01:26.104 --> 00:01:29.631
+Plate 4 finds the shelf full, so the cook waits.
 
 22
-00:01:18.301 --> 00:01:23.311
-Each id goes to exactly one of them, so at most four settle calls run at once.
+00:01:29.631 --> 00:01:34.260
+Then one send returns every 100 milliseconds: at 101, then 201.
 
 23
-00:01:23.311 --> 00:01:27.293
-Their receipts go into a second channel, which one loop reads.
+00:01:34.733 --> 00:01:36.809
+The slow helper set the cook's pace.
 
 24
-00:01:28.100 --> 00:01:31.111
-Sometimes you want whichever answer comes first.
+00:01:36.809 --> 00:01:40.443
+That's called backpressure, and it keeps plates from piling up.
 
 25
-00:01:31.111 --> 00:01:34.812
-Ask two acquirers for a quote, and let select wait on both.
+00:01:40.667 --> 00:01:42.916
+The shelf size changes everything.
 
 26
-00:01:35.033 --> 00:01:38.894
-North needs 300 milliseconds, east needs 120.
+00:01:42.916 --> 00:01:50.986
+With no shelf at all, the default, called rendezvous, the cook hands each plate over directly, one every 100 milliseconds.
 
 27
-00:01:38.894 --> 00:01:41.553
-Which quote does select return?
+00:01:50.986 --> 00:01:53.037
+UNLIMITED never makes her wait.
 
 28
-00:01:44.333 --> 00:01:44.825
-East's.
+00:01:53.037 --> 00:01:59.851
+And CONFLATED keeps one spot, where each new plate replaces the old one: the helper got plates 1 and 5.
 
 29
-00:01:44.825 --> 00:01:49.250
-select takes the first clause that is ready and drops the rest.
+00:02:00.067 --> 00:02:07.725
+UNLIMITED sounds generous, until the dining room is full of plates and the program runs out of memory, some hours later.
 
 30
-00:01:49.250 --> 00:01:52.621
-Stopping the loser is your job, so cancel north.
+00:02:07.725 --> 00:02:10.277
+So be suspicious of a shelf with no end.
 
 31
-00:01:52.621 --> 00:01:57.608
-A timeout clause gives a default if nobody answers in 500 milliseconds.
+00:02:11.100 --> 00:02:12.920
+Now the trap: the last plate.
 
 32
-00:01:58.433 --> 00:01:59.733
-This is Kotlin only.
+00:02:12.920 --> 00:02:16.371
+The helper loops: for each dish in the hatch, serve it.
 
 33
-00:01:59.733 --> 00:02:04.868
-A channel with room for two, a sender that closes it, and a loop that receives.
+00:02:16.371 --> 00:02:17.877
+When does that loop end?
 
 34
-00:02:05.700 --> 00:02:09.295
-So a channel hands each element to exactly one receiver.
+00:02:17.877 --> 00:02:20.512
+Only when the channel is closed and empty.
 
 35
-00:02:09.295 --> 00:02:16.551
-send suspends when it's full, receive suspends when it's empty, and select takes whichever clause is ready first.
+00:02:20.512 --> 00:02:23.336
+Delete the close, and the program never ends.
 
 36
-00:02:16.767 --> 00:02:17.619
-Quick check.
+00:02:23.567 --> 00:02:29.500
+The helper stands at the hatch all night with an empty tray, waiting for a plate that will never come.
 
 37
-00:02:17.619 --> 00:02:24.150
-A rendezvous channel, a fast sender, and a receiver that needs 100 milliseconds per element.
+00:02:29.500 --> 00:02:33.979
+Here the picture breaks: a real helper would see the cook take off her apron.
 
 38
-00:02:24.150 --> 00:02:26.067
+00:02:33.979 --> 00:02:37.876
+A coroutine can't tell later from never, until someone calls close.
+
+39
+00:02:37.876 --> 00:02:40.959
+Or let produce close it for you, when its block ends.
+
+40
+00:02:41.767 --> 00:02:48.366
+One helper carries one plate at a time, so twenty dishes of about 100 milliseconds take two seconds.
+
+41
+00:02:48.366 --> 00:02:52.788
+The fix in a real kitchen is plain: more helpers at the same hatch.
+
+42
+00:02:53.000 --> 00:03:01.903
+That's fan-out: several coroutines receive from one channel, and each plate still goes to exactly one of them.
+
+43
+00:03:01.903 --> 00:03:06.678
+With four helpers, the twenty dishes took 614 milliseconds.
+
+44
+00:03:06.678 --> 00:03:09.916
+One helper took 2,181, and ten took 324.
+
+45
+00:03:10.133 --> 00:03:16.678
+And fan-in is the way back: every helper sends finished plates into a second channel, read at one table.
+
+46
+00:03:16.678 --> 00:03:23.096
+Close it after the whole team is done, from a coroutine of its own, or that table waits all night too.
+
+47
+00:03:23.300 --> 00:03:25.808
+Why not start an async for every dish?
+
+48
+00:03:25.808 --> 00:03:34.122
+Because ordering 5,000 loaves that way means 5,000 phone calls in the same second, and the baker takes the phone off the hook.
+
+49
+00:03:34.122 --> 00:03:36.696
+A team of N helpers caps the work at N.
+
+50
+00:03:37.500 --> 00:03:38.453
+Last, a race.
+
+51
+00:03:38.453 --> 00:03:41.311
+The cook phones two bakeries for bread.
+
+52
+00:03:41.311 --> 00:03:46.735
+The corner bakery takes 300 milliseconds to answer, the market bakery 120.
+
+53
+00:03:46.735 --> 00:03:50.619
+She takes the first answer and hangs up on the other.
+
+54
+00:03:50.619 --> 00:03:53.917
+If neither answers in 500, she bakes her own.
+
+55
+00:03:54.133 --> 00:03:56.231
+Which answer does select return?
+
+56
+00:03:59.200 --> 00:04:06.901
+The market bakery's: plenty of sourdough, after 213 milliseconds on a cold, busy machine, not quite 120.
+
+57
+00:04:06.901 --> 00:04:12.528
+select waits for the first clause that's ready, runs it, and drops the rest.
+
+58
+00:04:12.528 --> 00:04:18.377
+With a budget of 100 milliseconds, the timer wins, and she bakes her own bread.
+
+59
+00:04:18.600 --> 00:04:19.281
+Two rules.
+
+60
+00:04:19.281 --> 00:04:23.366
+If two clauses are ready at once, the first one listed wins.
+
+61
+00:04:23.366 --> 00:04:27.111
+And hanging up is your job: cancel the losers yourself.
+
+62
+00:04:27.933 --> 00:04:31.759
+Here's the hatch in Kotlin, with Java's BlockingQueue below.
+
+63
+00:04:31.759 --> 00:04:35.648
+A queue can't be closed, so Java sends an end marker instead.
+
+64
+00:04:37.433 --> 00:04:40.876
+So, how do you hand each plate to exactly one coroutine?
+
+65
+00:04:40.876 --> 00:04:42.659
+Through a channel, the hatch.
+
+66
+00:04:42.659 --> 00:04:52.557
+The shelf sets the pace, a team of helpers caps the work, select takes whichever answer comes first, and close is the cook's word that the last plate is through.
+
+67
+00:04:52.767 --> 00:04:53.629
+Quick check.
+
+68
+00:04:53.629 --> 00:04:59.807
+A hatch with no shelf, a fast cook, and a helper who needs 100 milliseconds per plate.
+
+69
+00:04:59.807 --> 00:05:01.747
 How often does send return?
+
+70
+00:05:04.733 --> 00:05:07.013
+About once every 100 milliseconds.
+
+71
+00:05:07.013 --> 00:05:10.635
+With no shelf, each send waits for the helper's hands.

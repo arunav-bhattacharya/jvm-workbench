@@ -22,8 +22,8 @@ N = {
     "a11": "Eleven. Ten dumplings wait on the shelf. And one more, dumpling 1, left the shelf when the diner picked "
            "it up. Ten, plus one in hand.",
     "how": "Here's the machine. It's the wall with a hatch from lesson 3. buffer moves the cook into a second "
-           "coroutine, and her emit becomes a send into a channel with ten spots. send returns as long as a spot "
-           "is free.",
+           "coroutine, and her emit becomes a send into a channel, a queue between coroutines, with ten spots. "
+           "send returns as long as a spot is free.",
     "how2": "On our side, a loop takes each dumpling off the shelf, and calls the real emit, which runs the diner. "
             "flowOn builds this machine to change the thread. buffer builds it to change the shelf.",
     "nums": "So the count is always one more than the shelf. No buffer: zero, because emit runs the diner. buffer(0), "
@@ -50,7 +50,8 @@ N = {
     "latest": "Last, collectLatest. A new reading cancels the drawing in progress. But a cancelled drawing must wipe "
               "its half-drawn number first, and that takes 50 milliseconds. Readings come every 100, and a drawing "
               "takes 300. When does the thermometer emit reading 3?",
-    "latest_a": "Most people say 300. The virtual clock says 350, and the run ends at 700, not 600.",
+    "latest_a": "Most people say 300. The test's virtual clock, a fake clock with exact timings, says 350, and the run "
+                "ends at 700, not 600.",
     "latest_why": "collectLatest cancels the old block, then waits for it to finish, and it does that inside the "
                   "thermometer's emit. So the thermometer stands at the hatch with reading 2, while the screen wipes "
                   "reading 1.",
@@ -299,9 +300,9 @@ class Flow04Belt(Narrated):
         self.play(FadeOut(qn), LaggedStart(*[FadeIn(d, shift=RIGHT * 0.3) for d in dumps], lag_ratio=0.12), run_time=1.6)
         self.play(FadeIn(tally), run_time=0.4)
         self.at(1)
-        self.play(Indicate(VGroup(*dumps), color=DUMP, scale_factor=1.1), run_time=0.8)
+        self.play(Circumscribe(VGroup(*dumps), color=DUMP, buff=0.08), run_time=0.8)
         self.at(2)
-        self.play(Indicate(plate1, color=DUMP, scale_factor=1.3), run_time=0.8)
+        self.play(Circumscribe(plate1, color=DUMP, shape=Circle, buff=0.06), run_time=0.8)
         self.at(3)
         self.play(FadeIn(tsum), FadeIn(d12), run_time=0.5)
         self.hold()
@@ -311,14 +312,14 @@ class Flow04Belt(Narrated):
         sec.move_to([-4.2, 0.65, 0])
         chan = VGroup(T("a channel with 10 spots", 22, HATCH), T("send returns while a spot is free", 20, GREY_A)).arrange(DOWN, buff=0.06)
         chan.move_to([WX, -2.6, 0])
-        full = chip_t("send 12: waits", BAD, 20).next_to(d12, UP, buff=0.25)
+        full = chip_t("send 12: waits", BAD, 20).move_to([-4.75, 0.0, 0])
         self.say("how")
         self.play(FadeOut(tally), FadeOut(tsum), Indicate(w[2], color=HATCH, scale_factor=1.05), run_time=0.8)
         self.at(1)
         self.play(FadeIn(sec, shift=DOWN * 0.1), run_time=0.6)
         self.at_text("into a channel", lead=0.3)
         self.play(FadeIn(chan, shift=UP * 0.1), run_time=0.6)
-        self.at(2)
+        self.at(3)
         self.play(FadeIn(full, shift=UP * 0.1), run_time=0.5)
         self.hold()
 
@@ -396,9 +397,9 @@ class Flow04Belt(Narrated):
         self.hold()
 
         self.say("oven")
-        self.at(1)
+        self.at_text("the oven's thermometer", lead=0.3)
         self.play(FadeIn(th), FadeIn(th_l), FadeIn(sh), GrowArrow(a1), GrowArrow(a2), FadeIn(sc), FadeIn(sc_l), run_time=1.0)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(stuck), Indicate(sc[1], color=SCREEN, scale_factor=1.3), run_time=0.8)
         self.hold()
 
@@ -502,8 +503,9 @@ class Flow04Belt(Narrated):
         self.play(FadeIn(fname, shift=UP * 0.1), run_time=0.6)
         self.at(3)
         self.play(FadeIn(s3), FadeIn(s3l), run_time=0.6)
-        self.at(4)
-        self.play(FadeOut(s3), FadeOut(s3l), FadeIn(s4), run_time=0.8)
+        self.at_text("then conflate is just", lead=0.3)
+        self.play(FadeOut(s3), FadeOut(s3l), run_time=0.4)
+        self.play(FadeIn(s4), run_time=0.5)
         self.hold()
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
 
@@ -606,9 +608,9 @@ class Flow04Belt(Narrated):
             fit(m, 12.4)
         self.say("moral")
         self.play(FadeIn(mq, shift=UP * 0.1), run_time=0.7)
-        self.at(2)
+        self.at_text("unless you chose", lead=0.3)
         self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at_text("and collectLatest", lead=0.3)
         self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.6)
         self.hold()
 

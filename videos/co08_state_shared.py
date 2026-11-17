@@ -302,9 +302,9 @@ class Co08StateShared(Narrated):
         # ================= the board: StateFlow =================
         src = code_block(['val board = MutableStateFlow(Menu("tomato"))',
                           "board.value                // a glance",
-                          "board.collect { show(it) } // now, then each change"], 24,
+                          "board.collect { show(it) } // now, then each change"], 22,
                          {"MutableStateFlow": BOARD, "// a glance": GREY_B, "// now, then each change": GREY_B})
-        src.move_to([2.4, 1.25, 0])
+        src.move_to([2.2, 1.25, 0])
         hot = T("hot: it holds its value with no collector at all", 26, BOARD).move_to([0.6, -0.6, 0])
         self.say("board")
         self.play(FadeOut(q), brd.animate.move_to([-4.5, 1.2, 0]), run_time=0.7)
@@ -373,10 +373,10 @@ class Co08StateShared(Narrated):
         skipped = VGroup(T("leek", 26, GREY_B), T("pea", 26, GREY_B)).arrange(RIGHT, buff=0.5).move_to([2.6, -0.2, 0])
         xs = VGroup(*[Line(s.get_left() + LEFT * 0.05, s.get_right() + RIGHT * 0.05, stroke_width=3, color=BAD) for s in skipped])
         sk_l = T("never chalked up", 22, GREY_B).next_to(skipped, RIGHT, buff=0.35)
-        self.play(FadeIn(skipped), run_time=0.4)
+        self.play(FadeIn(skipped), FadeOut(bar), FadeOut(bar_bg), run_time=0.4)
         self.play(Create(xs), FadeIn(sk_l), run_time=0.5)
         self.at_text("That's called", lead=0.3)
-        conf = T("conflation: a slow collector gets only the latest", 26, BOARD).move_to([1.4, -0.62, 0])
+        conf = T("conflation: only the latest value", 26, BOARD).move_to([-0.6, -0.62, 0], aligned_edge=LEFT)
         self.play(FadeIn(conf, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
@@ -465,7 +465,7 @@ class Co08StateShared(Narrated):
         def row(i, a, res, got, got_color=WHITE):
             y = TY0 - TS * (i + 1)
             ra = M(a, 22, BELL).move_to([CX1, y, 0], aligned_edge=LEFT)
-            words = VGroup(*[M("true" if r else "false", 22, OK_ if r else BAD) for r in res]).arrange(RIGHT, buff=0.16)
+            words = VGroup(*[M("true" if r else "false", 22, OK_ if r else BAD) for r in res]).arrange(RIGHT, buff=0.12)
             words.move_to([CX2, y, 0], aligned_edge=LEFT)
             rg_ = M(got, 22, got_color).move_to([CX3, y, 0], aligned_edge=LEFT)
             return VGroup(ra, words, rg_)
