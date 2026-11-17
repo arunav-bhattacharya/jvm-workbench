@@ -8,18 +8,18 @@ public class MarkerDemoJava {
         Bus bus = new Bus();
         Timings timings = new Timings();
         JavaDsl.subscriptions(bus, timings, b -> {
-            b.timed("ledger", g -> {
-                g.on(PaymentCaptured.class, c -> System.out.println("ledger  +" + c.getCents()));
+            b.timed("load", g -> {
+                g.on(ParcelCollected.class, c -> System.out.println("load     +" + c.getGrams() + " g"));
                 // Step 2 (Java): this is the same mistake, and it has to be written out: b.timed, not g.timed.
-                b.timed("refunds", r -> {
-                    r.on(PaymentRefunded.class, e -> System.out.println("ledger  -" + e.getCents()));
+                b.timed("deliveries", d -> {
+                    d.on(ParcelDelivered.class, e -> System.out.println("load     -" + e.getGrams() + " g"));
                     return Unit.INSTANCE;
                 });
                 return Unit.INSTANCE;
             });
         });
-        bus.publish(new PaymentCaptured("pay_7781", 1_999));
-        bus.publish(new PaymentRefunded("pay_7781", 500));
+        bus.publish(new ParcelCollected("PP-7781", 2_500));
+        bus.publish(new ParcelDelivered("PP-7781", 2_500));
         System.out.println("timed groups: " + timings.getCalls());
     }
 }

@@ -14,16 +14,16 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KVariance
 
 class BusTest {
-    private val id = PaymentId("pay_7781")
-    private val auth = PaymentAuthorized(id, Money(1_999))
-    private val capture = PaymentCaptured(id, Money(1_999))
-    private val refund = PaymentRefunded(id, Money(500))
-    private val decline = PaymentDeclined(PaymentId("pay_7782"), DeclineReason.CARD_EXPIRED)
+    private val id = ParcelId("PP-7781")
+    private val booking = ParcelBooked(id, Weight(2_500))
+    private val collection = ParcelCollected(id, Weight(2_500))
+    private val delivery = ParcelDelivered(id, Weight(2_500))
+    private val failure = DeliveryFailed(ParcelId("PP-7782"), FailReason.NOBODY_HOME)
 
     /** Records what each named handler saw, in one shared order. */
     private val seen: MutableList<String> = Collections.synchronizedList(mutableListOf())
 
-    private fun <E : PaymentEvent> record(name: String) = Handler<E> { seen += "$name ${it::class.simpleName}" }
+    private fun <E : ParcelEvent> record(name: String) = Handler<E> { seen += "$name ${it::class.simpleName}" }
 
     private fun quietBus(vararg middleware: Middleware) = EventBus(middleware.toList()) { _, _ -> }
 
@@ -40,55 +40,55 @@ class BusTest {
     @Test
     fun `an event reaches the handlers of its own class, and not of its siblings`() {
         val bus = quietBus()
-        bus.subscribe(PaymentCaptured::class, record("captures"))
-        bus.subscribe(PaymentRefunded::class, record("refunds"))
-        bus.publish(capture)
-        assertThat(seen).containsExactly("captures PaymentCaptured")
+        bus.subscribe(ParcelCollected::class, record("collections"))
+        bus.subscribe(ParcelDelivered::class, record("deliveries"))
+        bus.publish(collection)
+        assertThat(seen).containsExactly("collections ParcelCollected")
     }
 
     @Test
     fun `an event also reaches the handlers of every event supertype`() {
         val bus = quietBus()
-        bus.subscribe(MoneyMovement::class, record("movements"))
-        bus.subscribe(PaymentEvent::class, record("audit"))
-        listOf(auth, capture, refund, decline).forEach { bus.publish(it) }
-        assertThat(seen.filter { it.startsWith("movements") })
-            .containsExactly("movements PaymentCaptured", "movements PaymentRefunded")
-        assertThat(seen.filter { it.startsWith("audit") }).hasSize(4)
+        bus.subscribe(Handover::class, record("handovers"))
+        bus.subscribe(ParcelEvent::class, record("tracking"))
+        listOf(booking, collection, delivery, failure).forEach { bus.publish(it) }
+        assertThat(seen.filter { it.startsWith("handovers") })
+            .containsExactly("handovers ParcelCollected", "handovers ParcelDelivered")
+        assertThat(seen.filter { it.startsWith("tracking") }).hasSize(4)
     }
 
     @Test
     fun `the most specific handlers run first, then each supertype, each in subscription order`() {
         val bus = quietBus()
-        bus.subscribe(PaymentEvent::class, record("audit"))
-        bus.subscribe(MoneyMovement::class, record("movements"))
-        bus.subscribe(PaymentCaptured::class, record("ledger"))
-        bus.subscribe(PaymentCaptured::class, record("receipts"))
-        bus.publish(capture)
+        bus.subscribe(ParcelEvent::class, record("tracking"))
+        bus.subscribe(Handover::class, record("handovers"))
+        bus.subscribe(ParcelCollected::class, record("load"))
+        bus.subscribe(ParcelCollected::class, record("texts"))
+        bus.publish(collection)
         assertThat(seen).containsExactly(
-            "ledger PaymentCaptured", "receipts PaymentCaptured", "movements PaymentCaptured", "audit PaymentCaptured",
+            "load ParcelCollected", "texts ParcelCollected", "handovers ParcelCollected", "tracking ParcelCollected",
         )
     }
 
     @Test
     fun `publish returns the number of handlers it called`() {
         val bus = quietBus()
-        assertThat(bus.publish(capture)).isZero()
-        bus.subscribe(PaymentCaptured::class, record("ledger"))
-        bus.subscribe(PaymentEvent::class, record("audit"))
-        assertThat(bus.publish(capture)).isEqualTo(2)
-        assertThat(bus.publish(auth)).isEqualTo(1)
+        assertThat(bus.publish(collection)).isZero()
+        bus.subscribe(ParcelCollected::class, record("load"))
+        bus.subscribe(ParcelEvent::class, record("tracking"))
+        assertThat(bus.publish(collection)).isEqualTo(2)
+        assertThat(bus.publish(booking)).isEqualTo(1)
         assertThat(bus.handlerCount()).isEqualTo(2)
     }
 
     @Test
     fun `the reified subscribe uses the type argument as the key`() {
         val bus = quietBus()
-        Callers.onCaptured(bus, record("ledger"))
-        Callers.onMoneyMovement(bus, record("movements"))
-        bus.publish(refund)
-        bus.publish(capture)
-        assertThat(seen).containsExactly("movements PaymentRefunded", "ledger PaymentCaptured", "movements PaymentCaptured")
+        Callers.onCollected(bus, record("load"))
+        Callers.onHandover(bus, record("handovers"))
+        bus.publish(delivery)
+        bus.publish(collection)
+        assertThat(seen).containsExactly("handovers ParcelDelivered", "load ParcelCollected", "handovers ParcelCollected")
     }
 
     // ---- variance ----
@@ -108,30 +108,30 @@ class BusTest {
 
     @Test
     fun `a failing handler does not stop the others, and the error handler hears about it`() {
-        val errors = CopyOnWriteArrayList<Pair<PaymentEvent, Exception>>()
+        val errors = CopyOnWriteArrayList<Pair<ParcelEvent, Exception>>()
         val bus = EventBus(onError = { e, x -> errors += e to x })
-        bus.subscribe(PaymentCaptured::class) { throw IllegalStateException("ledger is down") }
-        bus.subscribe(PaymentCaptured::class, record("receipts"))
-        bus.subscribe(PaymentEvent::class, record("audit"))
-        assertThat(bus.publish(capture)).isEqualTo(3)
-        assertThat(seen).containsExactly("receipts PaymentCaptured", "audit PaymentCaptured")
+        bus.subscribe(ParcelCollected::class) { throw IllegalStateException("load board is down") }
+        bus.subscribe(ParcelCollected::class, record("texts"))
+        bus.subscribe(ParcelEvent::class, record("tracking"))
+        assertThat(bus.publish(collection)).isEqualTo(3)
+        assertThat(seen).containsExactly("texts ParcelCollected", "tracking ParcelCollected")
         assertThat(errors).hasSize(1)
-        assertThat(errors[0].first).isEqualTo(capture)
-        assertThat(errors[0].second).hasMessage("ledger is down")
+        assertThat(errors[0].first).isEqualTo(collection)
+        assertThat(errors[0].second).hasMessage("load board is down")
     }
 
     @Test
     fun `closing a subscription stops delivery, and closing it twice is harmless`() {
         val bus = quietBus()
-        val ledger = bus.subscribe(PaymentCaptured::class, record("ledger"))
-        val sameHandler = record<PaymentCaptured>("twice")
-        val first = bus.subscribe(PaymentCaptured::class, sameHandler)
-        bus.subscribe(PaymentCaptured::class, sameHandler)
-        ledger.close()
-        ledger.close()
+        val load = bus.subscribe(ParcelCollected::class, record("load"))
+        val sameHandler = record<ParcelCollected>("twice")
+        val first = bus.subscribe(ParcelCollected::class, sameHandler)
+        bus.subscribe(ParcelCollected::class, sameHandler)
+        load.close()
+        load.close()
         first.close()
-        bus.publish(capture)
-        assertThat(seen).containsExactly("twice PaymentCaptured")
+        bus.publish(collection)
+        assertThat(seen).containsExactly("twice ParcelCollected")
         assertThat(bus.handlerCount()).isEqualTo(1)
     }
 
@@ -139,11 +139,11 @@ class BusTest {
     fun `a handler can unsubscribe itself while it is being called`() {
         val bus = quietBus()
         val handle = AtomicReference<Subscription>()
-        handle.set(bus.subscribe(PaymentCaptured::class) { seen += "once"; handle.get().close() })
-        bus.subscribe(PaymentCaptured::class, record("ledger"))
-        bus.publish(capture)
-        bus.publish(capture)
-        assertThat(seen).containsExactly("once", "ledger PaymentCaptured", "ledger PaymentCaptured")
+        handle.set(bus.subscribe(ParcelCollected::class) { seen += "once"; handle.get().close() })
+        bus.subscribe(ParcelCollected::class, record("load"))
+        bus.publish(collection)
+        bus.publish(collection)
+        assertThat(seen).containsExactly("once", "load ParcelCollected", "load ParcelCollected")
     }
 
     // ---- chain of responsibility ----
@@ -154,10 +154,10 @@ class BusTest {
             seen += "$name in"
             try { next.proceed(event) } finally { seen += "$name out" }
         }
-        val bus = quietBus(tracing("logging"), tracing("tracing"))
-        bus.subscribe(PaymentCaptured::class, record("ledger"))
-        assertThat(bus.publish(capture)).isEqualTo(1)
-        assertThat(seen).containsExactly("logging in", "tracing in", "ledger PaymentCaptured", "tracing out", "logging out")
+        val bus = quietBus(tracing("logging"), tracing("counting"))
+        bus.subscribe(ParcelCollected::class, record("load"))
+        assertThat(bus.publish(collection)).isEqualTo(1)
+        assertThat(seen).containsExactly("logging in", "counting in", "load ParcelCollected", "counting out", "logging out")
     }
 
     @Test
@@ -165,10 +165,10 @@ class BusTest {
         val list = mutableListOf<Middleware>(DropDuplicates())
         val bus = EventBus(list) { _, _ -> }
         list += Middleware { _, _ -> 0 }                 // added after construction: must not take effect
-        bus.subscribe(PaymentCaptured::class, record("ledger"))
-        assertThat(bus.publish(capture)).isEqualTo(1)
-        assertThat(bus.publish(PaymentCaptured(id, Money(1_999)))).isZero()   // equal: a redelivery
-        assertThat(bus.publish(PaymentCaptured(id, Money(2_000)))).isEqualTo(1)
+        bus.subscribe(ParcelCollected::class, record("load"))
+        assertThat(bus.publish(collection)).isEqualTo(1)
+        assertThat(bus.publish(ParcelCollected(id, Weight(2_500)))).isZero()   // equal: the same scan sent twice
+        assertThat(bus.publish(ParcelCollected(id, Weight(2_600)))).isEqualTo(1)
         assertThat(seen).hasSize(2)
     }
 
@@ -176,8 +176,8 @@ class BusTest {
     fun `DropDuplicates passes each distinct event once when 8 threads publish the same events`() {
         val bus = quietBus(DropDuplicates())
         val delivered = AtomicInteger()
-        bus.subscribe(PaymentEvent::class) { delivered.incrementAndGet() }
-        val events = (1..2_000).map { PaymentCaptured(PaymentId("pay_" + it.toString().padStart(4, '0')), Money(it.toLong())) }
+        bus.subscribe(ParcelEvent::class) { delivered.incrementAndGet() }
+        val events = (1..2_000).map { ParcelCollected(ParcelId("PP-" + it.toString().padStart(4, '0')), Weight(it.toLong())) }
         collide(8) { events.forEach(bus::publish) }
         assertThat(delivered.get()).isEqualTo(events.size)
     }
@@ -194,21 +194,21 @@ class BusTest {
     fun `timed records the elapsed time of each call under its name`() {
         val timings = Timings(SteppingTicker(7_000_000))
         val bus = quietBus()
-        bus.subscribe(PaymentCaptured::class, record<PaymentCaptured>("ledger").timed("ledger", timings))
-        bus.publish(capture)
-        bus.publish(capture)
-        assertThat(seen).containsExactly("ledger PaymentCaptured", "ledger PaymentCaptured")
-        assertThat(timings.calls("ledger")).isEqualTo(2)
-        assertThat(timings.totalNanos("ledger")).isEqualTo(14_000_000)
+        bus.subscribe(ParcelCollected::class, record<ParcelCollected>("load").timed("load", timings))
+        bus.publish(collection)
+        bus.publish(collection)
+        assertThat(seen).containsExactly("load ParcelCollected", "load ParcelCollected")
+        assertThat(timings.calls("load")).isEqualTo(2)
+        assertThat(timings.totalNanos("load")).isEqualTo(14_000_000)
     }
 
     @Test
     fun `timed records a call that throws, and lets the exception through`() {
         val timings = Timings(SteppingTicker(3))
-        val failing = Handler<PaymentCaptured> { throw IllegalStateException("boom") }.timed("ledger", timings)
-        assertThatThrownBy { failing.handle(capture) }.isInstanceOf(IllegalStateException::class.java).hasMessage("boom")
-        assertThat(timings.calls("ledger")).isEqualTo(1)
-        assertThat(timings.totalNanos("ledger")).isEqualTo(3)
+        val failing = Handler<ParcelCollected> { throw IllegalStateException("boom") }.timed("load", timings)
+        assertThatThrownBy { failing.handle(collection) }.isInstanceOf(IllegalStateException::class.java).hasMessage("boom")
+        assertThat(timings.calls("load")).isEqualTo(1)
+        assertThat(timings.totalNanos("load")).isEqualTo(3)
     }
 
     // ---- under load ----
@@ -216,24 +216,24 @@ class BusTest {
     @Test
     fun `8 publishers and a thread that keeps subscribing and closing lose no events`() {
         val bus = quietBus()
-        val captures = AtomicInteger()
+        val collections = AtomicInteger()
         val all = AtomicInteger()
-        bus.subscribe(PaymentCaptured::class) { captures.incrementAndGet() }
-        bus.subscribe(PaymentEvent::class) { all.incrementAndGet() }
+        bus.subscribe(ParcelCollected::class) { collections.incrementAndGet() }
+        bus.subscribe(ParcelEvent::class) { all.incrementAndGet() }
         val stop = AtomicBoolean()
         val failure = AtomicReference<Throwable>()
         val churn = thread {
             try {
-                while (!stop.get()) bus.subscribe(MoneyMovement::class) { }.close()
+                while (!stop.get()) bus.subscribe(Handover::class) { }.close()
             } catch (t: Throwable) {
                 failure.set(t)
             }
         }
-        collide(8) { repeat(10_000) { bus.publish(capture); bus.publish(auth) } }
+        collide(8) { repeat(10_000) { bus.publish(collection); bus.publish(booking) } }
         stop.set(true)
         churn.join()
         assertThat(failure.get()).isNull()
-        assertThat(captures.get()).isEqualTo(80_000)
+        assertThat(collections.get()).isEqualTo(80_000)
         assertThat(all.get()).isEqualTo(160_000)
     }
 }

@@ -26,7 +26,7 @@ public class AllocationCounterDemo {
         show("new byte[1 MiB]", () -> sink = new byte[1 << 20]);
         show("1,000 x Long.valueOf(i % 128)", () -> { for (int i = 0; i < 1_000; i++) sink = Long.valueOf(i % 128); });
         show("1,000 x Long.valueOf(1_000 + i)", () -> { for (int i = 0; i < 1_000; i++) sink = Long.valueOf(1_000 + i); });
-        show("1,000 x \"pay-\" + i", () -> { for (int i = 0; i < 1_000; i++) sink = "pay-" + i; });
+        show("1,000 x \"img-\" + i", () -> { for (int i = 0; i < 1_000; i++) sink = "img-" + i; });
 
         Thread.ofVirtual().start(() ->
                 System.out.println("on a virtual thread the counter says " + THREADS.getCurrentThreadAllocatedBytes())).join();

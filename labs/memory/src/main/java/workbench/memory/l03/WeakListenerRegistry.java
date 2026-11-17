@@ -5,8 +5,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 /**
- * Fraud-rule listeners register here to hear about each authorization. Rules are loaded and unloaded
- * at runtime, and a rule that was unloaded must not stay in memory just because it once registered.
+ * Plugins register here to hear about each finished thumbnail. Plugins are loaded and unloaded
+ * at runtime, and a plugin that was unloaded must not stay in memory just because it once registered.
  *
  * <p>Make the registry hold its listeners weakly: a listener stays registered only while something
  * else still refers to it. {@link #size()} and {@link #fire} must skip listeners the GC has cleared.

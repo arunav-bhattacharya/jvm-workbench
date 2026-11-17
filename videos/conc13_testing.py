@@ -297,9 +297,12 @@ class Conc13Testing(Narrated):
                   d_l.animate.shift(RIGHT * 1.4), run_time=0.6)
         tab = VGroup()
         for k, (a, b) in enumerate(habits):
-            a.move_to([-6.2, 2.4 - 0.75 * k, 0], aligned_edge=LEFT)
-            b.move_to([-6.2, 2.05 - 0.75 * k, 0], aligned_edge=LEFT)
-            tab.add(VGroup(a, b))
+            y = 2.5 - 0.95 * k
+            a.move_to([-6.2, y, 0], aligned_edge=LEFT)
+            arr = Arrow([-2.75, y, 0], [-2.05, y, 0], buff=0, stroke_width=3, color=GREY_B,
+                        max_tip_length_to_length_ratio=0.3)
+            b.move_to([-1.85, y, 0], aligned_edge=LEFT)
+            tab.add(VGroup(a, arr, b))
         self.at(1)
         self.play(FadeIn(tab[0], shift=RIGHT * 0.1), run_time=0.6)
         self.at(2)
@@ -311,7 +314,7 @@ class Conc13Testing(Narrated):
         self.say("inv")
         self.play(FadeIn(tab[3], shift=RIGHT * 0.1), run_time=0.6)
         self.at(2)
-        never_t = T("never: how long it took", 22, BAD).next_to(tab[3], DOWN, buff=0.2).align_to(tab[3], LEFT)
+        never_t = T("never: how long it took", 22, BAD).next_to(tab[3][2], DOWN, buff=0.2).align_to(tab[3][2], LEFT)
         self.play(FadeIn(never_t), run_time=0.5)
         self.hold()
         self.clear()
@@ -436,11 +439,11 @@ class Conc13Testing(Narrated):
                 ("1, 1", "interesting: a refund lost", 36.34, BAD)]
         bars = VGroup()
         for k, (o, lab, pct, col) in enumerate(rows):
-            y = 0.9 - 0.75 * k
+            y = 0.95 - 0.85 * k
             bars.add(VGroup(M(o, 26).move_to([-5.6, y, 0]),
-                            Rectangle(width=0.1 * pct, height=0.4).set_stroke(width=0).set_fill(col, 0.85)
-                            .move_to([-4.7 + 0.05 * pct, y, 0]),
-                            T(lab, 22, col).move_to([-4.7 + 0.1 * pct + 0.25, y, 0], aligned_edge=LEFT)))
+                            Rectangle(width=0.165 * pct, height=0.45).set_stroke(width=0).set_fill(col, 0.85)
+                            .move_to([-4.7 + 0.0825 * pct, y, 0]),
+                            T(lab, 24, col).move_to([-4.7 + 0.165 * pct + 0.25, y, 0], aligned_edge=LEFT)))
         pcts = VGroup(*[M(f"{p}%", 22, GREY_A).next_to(b[2], RIGHT, buff=0.3) for b, (_, _, p, _) in zip(bars, rows)])
         self.say("jcs")
         self.play(FadeIn(jl), run_time=0.6)
@@ -452,8 +455,8 @@ class Conc13Testing(Narrated):
         self.play(FadeIn(bars[2][0]), FadeIn(bars[2][2]), run_time=0.6)
         self.hold()
 
-        samples = T("almost two billion samples", 24, GREY_A).move_to([0, -1.55, 0])
-        forb = VGroup(M("FORBIDDEN", 24, BAD), T("seen once: the test fails", 24)).arrange(RIGHT, buff=0.3).move_to([0, -2.4, 0])
+        samples = T("almost two billion samples", 24, GREY_A).move_to([0, -1.75, 0])
+        forb = VGroup(M("FORBIDDEN", 24, BAD), T("seen once: the test fails", 24)).arrange(RIGHT, buff=0.3).move_to([0, -2.6, 0])
         self.say("jcs2")
         self.play(FadeIn(samples), *[GrowFromEdge(b[1], LEFT) for b in bars], run_time=1.0)
         self.play(FadeIn(pcts), Indicate(bars[2][1], color=BAD), run_time=0.7)

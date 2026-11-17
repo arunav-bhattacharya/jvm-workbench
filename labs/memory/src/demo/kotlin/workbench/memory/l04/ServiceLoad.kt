@@ -6,9 +6,9 @@ import kotlin.random.Random
 private var sink: Any? = null                                     // garbage goes here, so it's really allocated
 
 /**
- * A stand-in for a payment service under load, used by the GC demos of lessons 4 and 5. Runs for [seconds]:
- * 5,000 short-lived request objects per round, a cache that grows to [cacheShare] of the max heap and then
- * sheds every other entry, and a 3 MiB buffer every 50 rounds. Returns how many rounds it finished.
+ * A stand-in for the thumbnail service under load, used by the GC demos of lessons 4, 5 and 6. Runs for [seconds]:
+ * 5,000 short-lived request objects per round, a thumbnail cache that grows to [cacheShare] of the max heap and
+ * then sheds every other entry, and a 3 MiB photo every 50 rounds. Returns how many rounds it finished.
  */
 fun serviceLoad(seconds: Double, cacheShare: Double): Int {
     val maxHeap = Runtime.getRuntime().maxMemory()
@@ -21,11 +21,11 @@ fun serviceLoad(seconds: Double, cacheShare: Double): Int {
         round++
         repeat(5_000) { sink = ByteArray(64 + random.nextInt(256)) }                       // dies young
         if (cached < maxHeap * cacheShare) {
-            repeat(8) { cache.add(ByteArray(8 * 1024)); cached += 8 * 1024 }                // lives long
+            repeat(8) { cache.add(ByteArray(8 * 1024)); cached += 8 * 1024 }                // a cached thumbnail: lives long
         } else {
             for (i in cache.size - 1 downTo 0 step 2) cached -= cache.removeAt(i).size      // half-empty old regions
         }
-        if (round % 50 == 0) sink = ByteArray(3 * 1024 * 1024)                             // a 3 MiB settlement file
+        if (round % 50 == 0) sink = ByteArray(3 * 1024 * 1024)                             // a 3 MiB photo in one array
     }
     return round
 }

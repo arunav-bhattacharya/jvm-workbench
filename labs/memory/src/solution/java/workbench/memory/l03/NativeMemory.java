@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Stands in for a native library (a card-terminal SDK, a compression codec): it hands out handles
+ * Stands in for a native library (an image decoder, a compression codec): it hands out handles
  * to memory outside the heap, and every handle must come back to {@link #free} exactly once.
  * You don't need to change this class.
  */

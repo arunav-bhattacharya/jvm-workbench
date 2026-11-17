@@ -8,17 +8,17 @@ public class DslDemoJava {
         Bus bus = new Bus();
         Timings timings = new Timings();
         Subscription handle = JavaDsl.subscriptions(bus, timings, b -> {                  // a Consumer: void lambda
-            b.on(PaymentEvent.class, e -> System.out.println("audit   " + e.getPaymentId() + " " + e.getClass().getSimpleName()));
-            b.timed("ledger", g -> {                                                     // a Function1: the price of a
-                g.on(PaymentCaptured.class, c -> System.out.println("ledger  +" + c.getCents()));   // receiver lambda
-                g.on(PaymentRefunded.class, r -> System.out.println("ledger  -" + r.getCents()));
+            b.on(ParcelEvent.class, e -> System.out.println("tracking " + e.getParcelId() + " " + e.getClass().getSimpleName()));
+            b.timed("load", g -> {                                                       // a Function1: the price of a
+                g.on(ParcelCollected.class, c -> System.out.println("load     +" + c.getGrams() + " g"));   // receiver lambda
+                g.on(ParcelDelivered.class, d -> System.out.println("load     -" + d.getGrams() + " g"));
                 return Unit.INSTANCE;
             });
         });
-        bus.publish(new PaymentCaptured("pay_7781", 1_999));
-        bus.publish(new PaymentRefunded("pay_7781", 500));
-        bus.publish(new PaymentAuthorized("pay_7782", 250));
-        System.out.println("ledger: " + timings.getCalls().get("ledger") + " calls, " + timings.getMillis().get("ledger")
+        bus.publish(new ParcelCollected("PP-7781", 2_500));
+        bus.publish(new ParcelDelivered("PP-7781", 2_500));
+        bus.publish(new ParcelBooked("PP-7782", 1_200));
+        System.out.println("load: " + timings.getCalls().get("load") + " calls, " + timings.getMillis().get("load")
                 + " ms; handlers: " + bus.handlerCount());
 
         handle.close();                                                                  // close() throws nothing
@@ -26,8 +26,8 @@ public class DslDemoJava {
 
         try {
             JavaDsl.subscriptions(bus, timings, b -> {
-                b.on(PaymentCaptured.class, c -> System.out.println("never subscribed"));
-                throw new IllegalStateException("missing configuration: ledger account");
+                b.on(ParcelCollected.class, c -> System.out.println("never subscribed"));
+                throw new IllegalStateException("missing configuration: load limit");
             });
         } catch (IllegalStateException e) {
             System.out.println("block failed (" + e.getMessage() + "); handlers: " + bus.handlerCount());

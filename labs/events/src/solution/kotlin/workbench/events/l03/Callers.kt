@@ -7,23 +7,23 @@ package workbench.events.l03
  * these ordinary functions, which are compiled together with your code, so they always run a fresh copy.
  */
 object Callers {
-    /** A typical wiring: an audit line for every event, and a timed ledger group. */
-    fun wireLedger(bus: EventBus, timings: Timings, log: MutableList<String>): Subscription = bus.subscriptions(timings) {
-        on<PaymentEvent> { log += "audit ${it.paymentId}" }
-        timed("ledger") {
-            on<PaymentCaptured> { log += "credit ${it.amount}" }
-            on<PaymentRefunded> { log += "debit ${it.amount}" }
+    /** A typical wiring: a tracking line for every event, and a timed group for the load board. */
+    fun wireLoadBoard(bus: EventBus, timings: Timings, log: MutableList<String>): Subscription = bus.subscriptions(timings) {
+        on<ParcelEvent> { log += "tracking ${it.parcelId}" }
+        timed("load") {
+            on<ParcelCollected> { log += "load ${it.weight}" }
+            on<ParcelDelivered> { log += "unload ${it.weight}" }
         }
     }
 
     /** A block that fails halfway, after declaring one handler. */
     fun brokenWiring(bus: EventBus): Subscription = bus.subscriptions {
-        on<PaymentCaptured> { }
-        error("missing configuration: ledger account")
+        on<ParcelCollected> { }
+        error("missing configuration: load limit")
     }
 
     /** A handler that tries to subscribe from inside another handler, after the block has finished. */
     fun subscribeFromInsideAHandler(bus: EventBus): Subscription = bus.subscriptions {
-        on<PaymentCaptured> { on<PaymentRefunded> { } }
+        on<ParcelCollected> { on<ParcelDelivered> { } }
     }
 }

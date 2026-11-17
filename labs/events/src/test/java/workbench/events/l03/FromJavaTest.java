@@ -17,26 +17,26 @@ class FromJavaTest {
     @Test
     @DisplayName("Java builds events through the facade, and the value classes still validate")
     void facadeValidates() {
-        PaymentCaptured c = Events.captured("pay_7781", 1_999);
-        assertThat(Events.paymentId(c)).isEqualTo("pay_7781");
-        assertThat(Events.amountMinor(c)).isEqualTo(1_999L);
-        assertThat(c).isEqualTo(Events.captured("pay_7781", 1_999));
-        assertThatIllegalArgumentException().isThrownBy(() -> Events.captured("7781", 1_999)).withMessageContaining("7781");
-        assertThatIllegalArgumentException().isThrownBy(() -> Events.captured("pay_7781", -1));
-        assertThatIllegalArgumentException().isThrownBy(() -> Events.refunded("pay_7781", 0));
+        ParcelCollected c = Events.collected("PP-7781", 2_500);
+        assertThat(Events.parcelId(c)).isEqualTo("PP-7781");
+        assertThat(Events.grams(c)).isEqualTo(2_500L);
+        assertThat(c).isEqualTo(Events.collected("PP-7781", 2_500));
+        assertThatIllegalArgumentException().isThrownBy(() -> Events.collected("7781", 2_500)).withMessageContaining("7781");
+        assertThatIllegalArgumentException().isThrownBy(() -> Events.collected("PP-7781", -1));
+        assertThatIllegalArgumentException().isThrownBy(() -> Events.delivered("PP-7781", 0));
     }
 
     @Test
-    @DisplayName("Java subscribes with a Class token, and a Handler<PaymentEvent> fits any subscription")
+    @DisplayName("Java subscribes with a Class token, and a Handler<ParcelEvent> fits any subscription")
     void classTokensAndVariance() {
         EventBus bus = new EventBus();                                 // @JvmOverloads (and all defaults)
         List<String> seen = new CopyOnWriteArrayList<>();
-        Handler<PaymentEvent> audit = e -> seen.add("audit " + Events.paymentId(e));
-        bus.subscribe(PaymentCaptured.class, c -> seen.add("ledger " + Events.amountMinor(c)));
-        bus.subscribe(PaymentCaptured.class, audit);                   // Handler<? super E>
-        bus.publish(Events.captured("pay_7781", 1_999));
-        bus.publish(Events.refunded("pay_7781", 500));
-        assertThat(seen).containsExactly("ledger 1999", "audit pay_7781");
+        Handler<ParcelEvent> tracking = e -> seen.add("tracking " + Events.parcelId(e));
+        bus.subscribe(ParcelCollected.class, c -> seen.add("load " + Events.grams(c)));
+        bus.subscribe(ParcelCollected.class, tracking);                // Handler<? super E>
+        bus.publish(Events.collected("PP-7781", 2_500));
+        bus.publish(Events.delivered("PP-7781", 2_500));
+        assertThat(seen).containsExactly("load 2500", "tracking PP-7781");
     }
 
     @Test
@@ -46,14 +46,14 @@ class FromJavaTest {
         List<Exception> errors = new ArrayList<>();
         EventBus reporting = new EventBus(List.of(), (event, error) -> errors.add(error));
         List<String> seen = new ArrayList<>();
-        deduping.subscribe(PaymentEvent.class, e -> seen.add(e.toString()));
-        deduping.publish(Events.captured("pay_7781", 1_999));
-        deduping.publish(Events.captured("pay_7781", 1_999));          // a redelivery
+        deduping.subscribe(ParcelEvent.class, e -> seen.add(e.toString()));
+        deduping.publish(Events.collected("PP-7781", 2_500));
+        deduping.publish(Events.collected("PP-7781", 2_500));          // the same scan, sent twice
         assertThat(seen).hasSize(1);
-        reporting.subscribe(PaymentEvent.class, e -> { throw new IllegalStateException("ledger is down"); });
-        assertThat(reporting.publish(Events.captured("pay_7781", 1_999))).isEqualTo(1);
+        reporting.subscribe(ParcelEvent.class, e -> { throw new IllegalStateException("load board is down"); });
+        assertThat(reporting.publish(Events.collected("PP-7781", 2_500))).isEqualTo(1);
         assertThat(errors).hasSize(1);
-        assertThat(errors.get(0)).hasMessage("ledger is down");
+        assertThat(errors.get(0)).hasMessage("load board is down");
     }
 
     @Test
@@ -62,14 +62,14 @@ class FromJavaTest {
         EventBus bus = new EventBus();
         List<String> seen = new ArrayList<>();
         try (Subscription handle = Events.subscriptions(bus, b -> {
-            b.on(PaymentCaptured.class, c -> seen.add("credit " + Events.amountMinor(c)));
-            b.on(MoneyMovement.class, m -> seen.add("moved " + Events.amountMinor(m)));
+            b.on(ParcelCollected.class, c -> seen.add("load " + Events.grams(c)));
+            b.on(Handover.class, h -> seen.add("handover " + Events.grams(h)));
         })) {
-            bus.publish(Events.captured("pay_7781", 1_999));
+            bus.publish(Events.collected("PP-7781", 2_500));
             assertThat(bus.handlerCount()).isEqualTo(2);
         }                                                              // no catch: close() throws nothing
         assertThat(bus.handlerCount()).isZero();
-        assertThat(seen).containsExactly("credit 1999", "moved 1999");
+        assertThat(seen).containsExactly("load 2500", "handover 2500");
     }
 
     @Test
@@ -78,48 +78,51 @@ class FromJavaTest {
         AtomicLong clock = new AtomicLong();
         Timings timings = new Timings(() -> clock.addAndGet(250));
         EventBus bus = new EventBus();
-        bus.subscribe(PaymentCaptured.class, Handlers.timed(c -> { }, "ledger", timings));
-        bus.publish(Events.captured("pay_7781", 1_999));
-        assertThat(timings.calls("ledger")).isEqualTo(1);
-        assertThat(timings.totalNanos("ledger")).isEqualTo(250L);
+        bus.subscribe(ParcelCollected.class, Handlers.timed(c -> { }, "load", timings));
+        bus.publish(Events.collected("PP-7781", 2_500));
+        assertThat(timings.calls("load")).isEqualTo(1);
+        assertThat(timings.totalNanos("load")).isEqualTo(250L);
         assertThat(Ticker.SYSTEM).isNotNull();                          // @JvmField: no Companion.getSYSTEM()
     }
 
     // javac checks this switch for exhaustiveness: kotlinc wrote PermittedSubclasses for the Kotlin model
-    private static String kind(PaymentEvent e) {
+    private static String kind(ParcelEvent e) {
         return switch (e) {
-            case PaymentAuthorized a -> "authorized " + Events.amountMinor(a);
-            case PaymentDeclined d -> "declined " + d.getReason();
-            case PaymentCaptured c -> "captured " + Events.amountMinor(c);
-            case PaymentRefunded r -> "refunded " + Events.amountMinor(r);
+            case ParcelBooked b -> "booked " + Events.grams(b);
+            case DeliveryFailed f -> "failed " + f.getReason();
+            case ParcelCollected c -> "collected " + Events.grams(c);
+            case ParcelDelivered d -> "delivered " + Events.grams(d);
         };
     }
 
     @Test
     @DisplayName("Java switches exhaustively over the Kotlin sealed model")
     void exhaustiveSwitchFromJava() {
-        assertThat(kind(Events.authorized("pay_7781", 1_999))).isEqualTo("authorized 1999");
-        assertThat(kind(Events.declined("pay_7782", DeclineReason.CARD_EXPIRED))).isEqualTo("declined CARD_EXPIRED");
-        assertThat(kind(Events.refunded("pay_7781", 500))).isEqualTo("refunded 500");
+        assertThat(kind(Events.booked("PP-7781", 2_500))).isEqualTo("booked 2500");
+        assertThat(kind(Events.failed("PP-7782", FailReason.NOBODY_HOME))).isEqualTo("failed NOBODY_HOME");
+        assertThat(kind(Events.delivered("PP-7781", 2_500))).isEqualTo("delivered 2500");
     }
 
     @Test
-    @DisplayName("RefundDesk adds up refunds per payment, counts declines, and stops after close")
-    void refundDesk() {
+    @DisplayName("SupportDesk counts failed attempts per parcel, adds up delivered weight, and stops after close")
+    void supportDesk() {
         EventBus bus = new EventBus();
-        RefundDesk desk = new RefundDesk(bus);
-        bus.publish(Events.refunded("pay_7781", 500));
-        bus.publish(Events.refunded("pay_7781", 250));
-        bus.publish(Events.refunded("pay_9001", 100));
-        bus.publish(Events.captured("pay_7781", 1_999));
-        bus.publish(Events.declined("pay_7782", DeclineReason.SUSPECTED_FRAUD));
-        assertThat(desk.refundedMinor("pay_7781")).isEqualTo(750L);
-        assertThat(desk.refundedMinor("pay_9001")).isEqualTo(100L);
-        assertThat(desk.refundedMinor("pay_0000")).isZero();
-        assertThat(desk.declines()).isEqualTo(1);
+        SupportDesk desk = new SupportDesk(bus);
+        bus.publish(Events.failed("PP-7781", FailReason.NOBODY_HOME));
+        bus.publish(Events.failed("PP-7781", FailReason.NOBODY_HOME));
+        bus.publish(Events.failed("PP-9001", FailReason.ADDRESS_NOT_FOUND));
+        bus.publish(Events.collected("PP-7781", 2_500));
+        bus.publish(Events.delivered("PP-7781", 2_500));
+        bus.publish(Events.delivered("PP-9001", 500));
+        assertThat(desk.failedAttempts("PP-7781")).isEqualTo(2);
+        assertThat(desk.failedAttempts("PP-9001")).isEqualTo(1);
+        assertThat(desk.failedAttempts("PP-0000")).isZero();
+        assertThat(desk.deliveredGrams()).isEqualTo(3_000L);
         desk.close();
         assertThat(bus.handlerCount()).isZero();
-        bus.publish(Events.refunded("pay_7781", 500));
-        assertThat(desk.refundedMinor("pay_7781")).isEqualTo(750L);
+        bus.publish(Events.failed("PP-7781", FailReason.NOBODY_HOME));
+        bus.publish(Events.delivered("PP-7781", 2_500));
+        assertThat(desk.failedAttempts("PP-7781")).isEqualTo(2);
+        assertThat(desk.deliveredGrams()).isEqualTo(3_000L);
     }
 }

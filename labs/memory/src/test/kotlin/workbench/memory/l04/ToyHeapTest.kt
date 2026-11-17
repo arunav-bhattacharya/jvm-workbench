@@ -9,12 +9,12 @@ class ToyHeapTest {
     fun `mark finds everything reachable through chains of references, and nothing else`() {
         val heap = ToyHeap()
         val request = heap.allocate()
-        val payment = heap.allocate()
-        val currency = heap.allocate()
+        val photo = heap.allocate()
+        val pixels = heap.allocate()
         val orphan = heap.allocate()
-        heap.link(request, payment)
-        heap.link(payment, currency)
-        assertThat(heap.mark(listOf(request))).containsExactlyInAnyOrder(request, payment, currency)
+        heap.link(request, photo)
+        heap.link(photo, pixels)
+        assertThat(heap.mark(listOf(request))).containsExactlyInAnyOrder(request, photo, pixels)
         assertThat(heap.contains(orphan)).`as`("mark only looks; it frees nothing").isTrue()
     }
 
@@ -53,14 +53,14 @@ class ToyHeapTest {
         val heap = ToyHeap()
         val cache = heap.allocate()
         val entry = heap.allocate()
-        val response = heap.allocate()
-        val receipt = heap.allocate()
+        val thumbnail = heap.allocate()
+        val pixels = heap.allocate()
         heap.link(cache, entry)
-        heap.link(entry, response)
-        heap.link(response, receipt)
+        heap.link(entry, thumbnail)
+        heap.link(thumbnail, pixels)
         assertThat(heap.collect(listOf(cache))).isEmpty()
         heap.unlink(cache, entry)                           // evict the entry
-        assertThat(heap.collect(listOf(cache))).containsExactlyInAnyOrder(entry, response, receipt)
+        assertThat(heap.collect(listOf(cache))).containsExactlyInAnyOrder(entry, thumbnail, pixels)
     }
 
     @Test

@@ -1,35 +1,38 @@
 package workbench.events.l01
 
 /**
- * Every event the payments service can see. The list is closed: every direct subtype is declared
- * in this package and module, so a `when` over a PaymentEvent can be checked for exhaustiveness.
+ * Everything that can happen to a parcel at Pedal Post. The list is closed: every direct subtype
+ * is declared in this package and module, so a `when` over a ParcelEvent can be checked for
+ * exhaustiveness.
  */
-sealed interface PaymentEvent {
-    val paymentId: PaymentId
+sealed interface ParcelEvent {
+    val parcelId: ParcelId
 }
 
-/** The issuer reserved [amount] on the card. No money has moved yet. */
-data class PaymentAuthorized(override val paymentId: PaymentId, val amount: Money) : PaymentEvent {
-    // TODO 3: refuse an amount of zero ("authorized amount must be positive: <amount>")
+/** A sender booked a pickup for a parcel of [weight]. Nothing has moved yet. */
+data class ParcelBooked(override val parcelId: ParcelId, val weight: Weight) : ParcelEvent {
+    // TODO 3: refuse a weight of zero ("booked weight must be positive: <weight>")
 }
 
-/** The issuer said no. */
-data class PaymentDeclined(override val paymentId: PaymentId, val reason: DeclineReason) : PaymentEvent
+/** A rider tried to deliver the parcel and couldn't. */
+data class DeliveryFailed(override val parcelId: ParcelId, val reason: FailReason) : ParcelEvent
 
 /**
- * The events that move money. Sealed again, one level down: a handler or a `when` branch for
- * MoneyMovement covers captures and refunds, and the compiler still knows there are only two.
+ * The moments a parcel changes hands. Sealed again, one level down: a handler or a `when` branch
+ * for Handover covers collections and deliveries, and the compiler still knows there are only two.
  */
-sealed interface MoneyMovement : PaymentEvent {
-    val amount: Money
+sealed interface Handover : ParcelEvent {
+    val weight: Weight
 }
 
-data class PaymentCaptured(override val paymentId: PaymentId, override val amount: Money) : MoneyMovement {
-    // TODO 3: refuse an amount of zero
+/** A rider collected the parcel from the sender. */
+data class ParcelCollected(override val parcelId: ParcelId, override val weight: Weight) : Handover {
+    // TODO 3: refuse a weight of zero
 }
 
-data class PaymentRefunded(override val paymentId: PaymentId, override val amount: Money) : MoneyMovement {
-    // TODO 3: refuse an amount of zero
+/** A rider handed the parcel over at the door. */
+data class ParcelDelivered(override val parcelId: ParcelId, override val weight: Weight) : Handover {
+    // TODO 3: refuse a weight of zero
 }
 
-enum class DeclineReason { INSUFFICIENT_FUNDS, SUSPECTED_FRAUD, CARD_EXPIRED }
+enum class FailReason { NOBODY_HOME, ADDRESS_NOT_FOUND, PARCEL_DAMAGED }

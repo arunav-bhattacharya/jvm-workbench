@@ -1,43 +1,43 @@
 package workbench.events.l01.demo.exhaustive
 
-sealed interface PaymentEvent { val paymentId: String }
-data class PaymentAuthorized(override val paymentId: String, val cents: Long) : PaymentEvent
-data class PaymentDeclined(override val paymentId: String, val reason: String) : PaymentEvent
+sealed interface ParcelEvent { val parcelId: String }
+data class ParcelBooked(override val parcelId: String, val grams: Long) : ParcelEvent
+data class DeliveryFailed(override val parcelId: String, val reason: String) : ParcelEvent
 
-sealed interface MoneyMovement : PaymentEvent { val cents: Long }
-data class PaymentCaptured(override val paymentId: String, override val cents: Long) : MoneyMovement
-data class PaymentRefunded(override val paymentId: String, override val cents: Long) : MoneyMovement
+sealed interface Handover : ParcelEvent { val grams: Long }
+data class ParcelCollected(override val parcelId: String, override val grams: Long) : Handover
+data class ParcelDelivered(override val parcelId: String, override val grams: Long) : Handover
 
 // Step 2: uncomment this line, then run the demo again (Gradle compiles it first).
-// data class PaymentDisputed(override val paymentId: String, val cents: Long) : PaymentEvent
+// data class ParcelLost(override val parcelId: String, val grams: Long) : ParcelEvent
 
 /** One branch per leaf, no else: checked by the compiler. */
-fun summary(e: PaymentEvent): String = when (e) {
-    is PaymentAuthorized -> "${e.paymentId} authorized ${e.cents}"
-    is PaymentDeclined -> "${e.paymentId} declined: ${e.reason}"
-    is PaymentCaptured -> "${e.paymentId} captured ${e.cents}"
-    is PaymentRefunded -> "${e.paymentId} refunded ${e.cents}"
+fun summary(e: ParcelEvent): String = when (e) {
+    is ParcelBooked -> "${e.parcelId} booked, ${e.grams} g"
+    is DeliveryFailed -> "${e.parcelId} not delivered: ${e.reason}"
+    is ParcelCollected -> "${e.parcelId} collected, ${e.grams} g"
+    is ParcelDelivered -> "${e.parcelId} delivered, ${e.grams} g"
 }
 
 /** One branch covers the whole sealed middle level, and the check still holds. */
-fun movesMoney(e: PaymentEvent): Boolean = when (e) {
-    is MoneyMovement -> true
-    is PaymentAuthorized, is PaymentDeclined -> false
+fun changesHands(e: ParcelEvent): Boolean = when (e) {
+    is Handover -> true
+    is ParcelBooked, is DeliveryFailed -> false
 }
 
 /** An else branch: compiles today, and after every change anyone ever makes. */
-fun label(e: PaymentEvent): String = when (e) {
-    is PaymentCaptured -> "capture"
-    is PaymentRefunded -> "refund"
+fun label(e: ParcelEvent): String = when (e) {
+    is ParcelCollected -> "pickup"
+    is ParcelDelivered -> "drop-off"
     else -> "other"
 }
 
 fun main() {
     val events = listOf(
-        PaymentAuthorized("pay_7781", 1_999),
-        PaymentCaptured("pay_7781", 1_999),
-        PaymentRefunded("pay_7781", 500),
-        PaymentDeclined("pay_7782", "CARD_EXPIRED"),
+        ParcelBooked("PP-7781", 2_500),
+        ParcelCollected("PP-7781", 2_500),
+        ParcelDelivered("PP-7781", 2_500),
+        DeliveryFailed("PP-7782", "NOBODY_HOME"),
     )
-    for (e in events) println("%-34s moves money: %-5s label: %s".format(summary(e), movesMoney(e), label(e)))
+    for (e in events) println("%-36s changes hands: %-5s label: %s".format(summary(e), changesHands(e), label(e)))
 }

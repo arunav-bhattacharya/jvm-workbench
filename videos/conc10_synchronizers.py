@@ -19,7 +19,6 @@ N = {
     "nap": "The fix most of us try first is a nap. In the lesson's demo, the lists take 200, 300 and 400 milliseconds, "
            "and the door thread sleeps for 250. Will all three be in?",
     "nap2": "No. The doors opened at 271 milliseconds, with two lists still loading. "
-            "A longer nap passes today and fails on a slow day. "
             "As the clerks taught us in the first lesson, a sleep is a guess with a number on it.",
     "wish": "We don't want to wait for a time. We want to wait for three events.",
     "shy": "Java has four tools for waiting: a latch, a barrier, a semaphore and a phaser. "
@@ -57,7 +56,7 @@ N = {
               "then goes home. A barrier of 3 would wait for it forever. A phaser lets a party leave, "
               "like a guide crossing a name off the list: 3 parties, then 2.",
     "bank": "Last, card payments. The bank checks each one over the network, about 120 milliseconds a call, "
-            "and it allows five calls at once from one shop. On a busy Saturday, twenty customers pay together, "
+            "and it allows five calls at once. On a busy Saturday, twenty customers pay together, "
             "and fifteen are refused.",
     "park": "Think of a car park with five spaces, and a sign that shows how many are free. "
             "A car that comes in takes a space, and one that leaves gives it back. "
@@ -110,14 +109,14 @@ class Narrated(VoiceScene):
         if rest > 0.02:
             self.wait(rest)
 
-    def hold(self, after=0.25):
+    def hold(self, after=0.15):
         rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def predict(self, secs=2.4):
+    def predict(self, secs=2.0):
         """A beat of silence for the viewer to guess, with a small on-screen prompt."""
         tag = T("pause and guess", 24, GREY_B).move_to([-6.4, -3.2, 0], aligned_edge=LEFT)
         self.play(FadeIn(tag), run_time=0.3)
@@ -161,9 +160,9 @@ ROWS = [1.75, 0.55, -0.65]            # the three loaders
 CX, CARD_X, CARD_W = -5.75, -3.0, 3.5
 FLOOR = -1.5
 DOOR_C = np.array([5.15, -0.15, 0])   # the shop door
-DT_HOME = np.array([1.5, -1.05, 0])   # the door thread
-DT_WAIT = np.array([2.45, -1.05, 0])  # waiting at the gate
-GX = 3.35                             # the gate
+DT_HOME = np.array([0.85, -1.05, 0])  # the door thread
+DT_WAIT = np.array([2.0, -1.05, 0])   # waiting at the gate
+GX = 2.9                              # the gate
 
 
 def list_card(name, color):
@@ -212,7 +211,7 @@ def tx(ms):
 
 
 def work(t0, t1, row, color):
-    return Rectangle(width=U * (t1 - t0) - 0.04, height=0.26).set_stroke(width=0).set_fill(color, 0.95).move_to(
+    return Rectangle(width=U * (t1 - t0) - 0.08, height=0.26).set_stroke(width=0).set_fill(color, 0.95).move_to(
         [(tx(t0) + tx(t1)) / 2, TROWS[row], 0])
 
 
@@ -321,12 +320,12 @@ class Conc10Synchronizers(Narrated):
         # the doors open early
         opened = sign("OPEN", GOOD)
         cust = clerk(GREY_B, 0.75).move_to(DOOR_C + DOWN * 0.9)
-        bread = loaf().move_to([3.55, 0.55, 0])
+        bread = loaf().move_to([2.35, 0.55, 0])
         price = chip("0.00", BAD, size=26, mono=True).next_to(bread, RIGHT, buff=0.2)
         self.say("early")
         self.play(panel.animate.stretch(0.08, 0, about_edge=LEFT), Transform(closed, opened), run_time=0.9)
         self.play(FadeIn(cust), run_time=0.3)
-        self.play(cust.animate.move_to([3.55, -1.05, 0]), run_time=0.8)
+        self.play(cust.animate.move_to([3.2, -1.05, 0]), run_time=0.8)
         self.play(FadeIn(bread, shift=DOWN * 0.15), FadeIn(price), run_time=0.6)
         self.at(1)
         self.play(Indicate(price, color=BAD, scale_factor=1.1), run_time=0.8)
@@ -358,7 +357,7 @@ class Conc10Synchronizers(Narrated):
         self.play(panel.animate.stretch(0.08, 0, about_edge=LEFT), Transform(closed, sign("OPEN", GOOD)), FadeIn(t271),
                   FadeOut(nap), run_time=0.7)
         self.play(FadeIn(still), run_time=0.5)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(guess, shift=UP * 0.1), run_time=0.7)
         self.hold()
 
@@ -433,6 +432,7 @@ class Conc10Synchronizers(Narrated):
         self.play(Rotate(gate, -PI / 2, about_point=gate.get_end()), run_time=0.6)
         self.play(gate.animate.set_stroke(GOOD), run_time=0.2)
         t428 = M("428 ms", 24, GOOD).next_to(frame, DOWN, buff=0.2)
+        self.play(FadeOut(dt_lab), run_time=0.2)
         self.play(dthread.animate.move_to(DOOR_C + DOWN * 0.9 + LEFT * 0.4), run_time=0.9)
         self.play(panel.animate.stretch(0.08, 0, about_edge=LEFT), Transform(closed, sign("OPEN", GOOD)), FadeIn(t428),
                   run_time=0.6)
@@ -443,7 +443,7 @@ class Conc10Synchronizers(Narrated):
         late_lab = T("a later await()", 22, DOOR).next_to(late, DOWN, buff=0.18)
         noreset = T("no reset", 24, COUNT).next_to(cnt, LEFT, buff=0.3)
         self.say("oneshot")
-        self.play(FadeOut(dt_lab), FadeOut(dthread), run_time=0.4)
+        self.play(FadeOut(dthread), run_time=0.4)
         self.play(Indicate(cnt[1], color=COUNT, scale_factor=1.3), run_time=0.7)
         self.at(1)
         self.play(FadeIn(late), FadeIn(late_lab), run_time=0.4)
@@ -539,8 +539,8 @@ class Conc10Synchronizers(Narrated):
 
         # the bus
         bpic = bus().move_to([4.7, 2.6, 0])
-        guide = clerk(COUNT, 0.5).move_to([2.95, 2.45, 0])
-        g_lab = T("guide", 22, COUNT).next_to(guide, DOWN, buff=0.12)
+        guide = clerk(COUNT, 0.5).move_to([3.0, 2.55, 0])
+        g_lab = T("guide", 22, COUNT).next_to(guide, LEFT, buff=0.15)
         self.say("bus")
         self.play(FadeOut(VGroup(d1d, d2w0, d2w12, old, d3w0, alone, latch_l, d1w, d1l, d1t)), FadeOut(ltag), run_time=0.6)
         self.play(FadeIn(bpic, shift=LEFT * 0.3), run_time=0.8)
@@ -647,6 +647,7 @@ class Conc10Synchronizers(Narrated):
         # ================= the semaphore: a car park =================
         bankb = VGroup(RoundedRectangle(corner_radius=0.12, width=2.2, height=1.5, stroke_color=GREY_A, stroke_width=3)
                        .set_fill(dim(GREY_B, 0.15), 1), T("bank", 28)).move_to([4.6, 0.3, 0])
+        bankb[1].shift(UP * 0.32)
         bank_n = T("5 calls at once", 22, GREY_B).next_to(bankb, DOWN, buff=0.2)
         calls = VGroup(*[Dot(radius=0.12, color=CALL) for _ in range(20)]).arrange_in_grid(4, 5, buff=0.35).move_to([-3.6, 0.3, 0])
         ms120 = T("120 ms a call", 22, GREY_B).next_to(bankb, UP, buff=0.2)
@@ -658,7 +659,7 @@ class Conc10Synchronizers(Narrated):
         self.play(FadeIn(bank_n), run_time=0.5)
         self.at(2)
         self.play(LaggedStart(*[FadeIn(c, scale=0.5) for c in calls], lag_ratio=0.04), run_time=0.9)
-        ins = [bankb.get_left() + RIGHT * 0.35 + UP * (0.5 - 0.25 * k) for k in range(5)]
+        ins = [bankb.get_center() + DOWN * 0.3 + RIGHT * (0.36 * (k - 2)) for k in range(5)]
         self.play(*[calls[k].animate.move_to(ins[k]) for k in range(5)],
                   *[calls[k].animate.shift(RIGHT * 2.4) for k in range(5, 20)], run_time=0.8)
         refused = T("15 refused", 26, BAD).move_to([-1.2, -1.6, 0])
@@ -806,16 +807,16 @@ class Conc10Synchronizers(Narrated):
 
         # ================= the moral and a check =================
         mq = T("Why four? Each one waits for something different.", 32, YELLOW_M).move_to(UP * 2.8)
-        rows = [("CountDownLatch", "events, once", "countDown() in finally, await with a deadline"),
+        rows = [("CountDownLatch", "events, once", "countDown() in finally, a deadline"),
                 ("CyclicBarrier", "the whole group, every round", "await with a timeout"),
                 ("Phaser", "a group that changes size", "parties join and leave"),
                 ("Semaphore", "a free place", "release only what you took")]
         table = VGroup()
         for k, (a, b, c) in enumerate(rows):
             y = 1.6 - 0.75 * k
-            table.add(VGroup(M(a, 24, COUNT).move_to([-6.2, y, 0], aligned_edge=LEFT),
-                             T(b, 26).move_to([-3.0, y, 0], aligned_edge=LEFT),
-                             T(c, 22, GREY_B).move_to([1.3, y, 0], aligned_edge=LEFT)))
+            table.add(VGroup(M(a, 24, COUNT).move_to([-6.3, y, 0], aligned_edge=LEFT),
+                             T(b, 24).move_to([-3.45, y, 0], aligned_edge=LEFT),
+                             T(c, 22, GREY_B).move_to([0.75, y, 0], aligned_edge=LEFT)))
         fit(table, 12.6)
         qq = VGroup(T("Check:", 28, YELLOW_M),
                     T("three helpers move stock every day for a week, and nobody starts", 28),

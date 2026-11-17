@@ -3,57 +3,57 @@ package workbench.events.l01.demo.exhaustive;
 import java.util.List;
 
 public class ExhaustiveDemoJava {
-    sealed interface PaymentEvent permits PaymentAuthorized, PaymentDeclined, MoneyMovement {
-        String paymentId();
+    sealed interface ParcelEvent permits ParcelBooked, DeliveryFailed, Handover {
+        String parcelId();
     }
-    record PaymentAuthorized(String paymentId, long cents) implements PaymentEvent {}
-    record PaymentDeclined(String paymentId, String reason) implements PaymentEvent {}
+    record ParcelBooked(String parcelId, long grams) implements ParcelEvent {}
+    record DeliveryFailed(String parcelId, String reason) implements ParcelEvent {}
 
-    sealed interface MoneyMovement extends PaymentEvent permits PaymentCaptured, PaymentRefunded {
-        long cents();
+    sealed interface Handover extends ParcelEvent permits ParcelCollected, ParcelDelivered {
+        long grams();
     }
-    record PaymentCaptured(String paymentId, long cents) implements MoneyMovement {}
-    record PaymentRefunded(String paymentId, long cents) implements MoneyMovement {}
+    record ParcelCollected(String parcelId, long grams) implements Handover {}
+    record ParcelDelivered(String parcelId, long grams) implements Handover {}
 
-    // Step 2: uncomment this line, add PaymentDisputed to the permits list above, and run again.
-    // record PaymentDisputed(String paymentId, long cents) implements PaymentEvent {}
+    // Step 2: uncomment this line, add ParcelLost to the permits list above, and run again.
+    // record ParcelLost(String parcelId, long grams) implements ParcelEvent {}
 
     /** One case per leaf, no default: checked by javac. */
-    static String summary(PaymentEvent e) {
+    static String summary(ParcelEvent e) {
         return switch (e) {
-            case PaymentAuthorized a -> a.paymentId() + " authorized " + a.cents();
-            case PaymentDeclined d -> d.paymentId() + " declined: " + d.reason();
-            case PaymentCaptured c -> c.paymentId() + " captured " + c.cents();
-            case PaymentRefunded r -> r.paymentId() + " refunded " + r.cents();
+            case ParcelBooked b -> b.parcelId() + " booked, " + b.grams() + " g";
+            case DeliveryFailed f -> f.parcelId() + " not delivered: " + f.reason();
+            case ParcelCollected c -> c.parcelId() + " collected, " + c.grams() + " g";
+            case ParcelDelivered d -> d.parcelId() + " delivered, " + d.grams() + " g";
         };
     }
 
     /** One case covers the whole sealed middle level, and the check still holds. */
-    static boolean movesMoney(PaymentEvent e) {
+    static boolean changesHands(ParcelEvent e) {
         return switch (e) {
-            case MoneyMovement m -> true;
-            case PaymentAuthorized a -> false;
-            case PaymentDeclined d -> false;
+            case Handover h -> true;
+            case ParcelBooked b -> false;
+            case DeliveryFailed f -> false;
         };
     }
 
     /** A default branch: compiles today, and after every change anyone ever makes. */
-    static String label(PaymentEvent e) {
+    static String label(ParcelEvent e) {
         return switch (e) {
-            case PaymentCaptured c -> "capture";
-            case PaymentRefunded r -> "refund";
+            case ParcelCollected c -> "pickup";
+            case ParcelDelivered d -> "drop-off";
             default -> "other";
         };
     }
 
     public static void main(String[] args) {
-        List<PaymentEvent> events = List.of(
-                new PaymentAuthorized("pay_7781", 1_999),
-                new PaymentCaptured("pay_7781", 1_999),
-                new PaymentRefunded("pay_7781", 500),
-                new PaymentDeclined("pay_7782", "CARD_EXPIRED"));
-        for (PaymentEvent e : events) {
-            System.out.printf("%-34s moves money: %-5s label: %s%n", summary(e), movesMoney(e), label(e));
+        List<ParcelEvent> events = List.of(
+                new ParcelBooked("PP-7781", 2_500),
+                new ParcelCollected("PP-7781", 2_500),
+                new ParcelDelivered("PP-7781", 2_500),
+                new DeliveryFailed("PP-7782", "NOBODY_HOME"));
+        for (ParcelEvent e : events) {
+            System.out.printf("%-36s changes hands: %-5s label: %s%n", summary(e), changesHands(e), label(e));
         }
     }
 }

@@ -19,7 +19,7 @@ N = {
             "1, 2, 0 and 4. Eight over 1 is 8. Eight over 2 is 4. Then eight over 0 throws.",
     "predict4": "What happens to the 4?",
     "terminal": "Nothing. The demo printed 8, then 4, then the error. The 4 is never divided. "
-                "An error is the oven breaking down: a terminal signal, and after it, nothing else arrives.",
+                "An error is the oven breaking down: a terminal signal. After it, nothing else arrives, not even an apology.",
     "shy": "Now the question that's easy to be shy about. If we catch that error, surely the stream carries on, "
            "and the 4 gets its turn?",
     "box": "Well, the packer can't make a broken oven finish the tray. She can only decide what goes in the box instead. "
@@ -319,10 +319,12 @@ class Rx05Retry(Narrated):
         never = T("never divided", 22, GREY_B).next_to(src[3], UP, buff=0.15)
         term = T("onError: a terminal signal, nothing after it", 26, BAD_C).move_to([0, -2.75, 0])
         self.say("terminal")
-        self.play(FadeOut(qm), LaggedStart(*[FadeIn(r) for r in raw], lag_ratio=0.4), run_time=1.2)
+        self.play(FadeOut(qm), run_time=0.3)
         self.at(1)
-        self.play(src[3].animate.set_opacity(0.3), FadeIn(never), run_time=0.6)
+        self.play(LaggedStart(*[FadeIn(r) for r in raw], lag_ratio=0.4), run_time=1.2)
         self.at(2)
+        self.play(src[3].animate.set_opacity(0.3), FadeIn(never), run_time=0.6)
+        self.at(3)
         self.play(FadeIn(term, shift=UP * 0.1), run_time=0.6)
         self.hold()
 

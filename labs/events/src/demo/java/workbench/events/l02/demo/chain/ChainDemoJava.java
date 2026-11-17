@@ -5,14 +5,14 @@ import java.util.List;
 import java.util.Set;
 
 public class ChainDemoJava {
-    sealed interface PaymentEvent permits PaymentCaptured { String paymentId(); }
-    record PaymentCaptured(String paymentId, long cents) implements PaymentEvent {}
+    sealed interface ParcelEvent permits ParcelCollected { String parcelId(); }
+    record ParcelCollected(String parcelId, long grams) implements ParcelEvent {}
 
-    @FunctionalInterface interface Next { int proceed(PaymentEvent event); }
-    @FunctionalInterface interface Middleware { int intercept(PaymentEvent event, Next next); }
+    @FunctionalInterface interface Next { int proceed(ParcelEvent event); }
+    @FunctionalInterface interface Middleware { int intercept(ParcelEvent event, Next next); }
 
     @FunctionalInterface interface Handler {
-        void handle(PaymentEvent event);
+        void handle(ParcelEvent event);
 
         /** Decorator: the same Handler interface, plus timing. Virtual time keeps the output stable. */
         default Handler timed(String name) {
@@ -39,26 +39,26 @@ public class ChainDemoJava {
 
     static Middleware logging(String name) {
         return (event, next) -> {
-            System.out.println(name + " > " + event.paymentId());
+            System.out.println(name + " > " + event.parcelId());
             int called = next.proceed(event);
-            System.out.println(name + " < " + event.paymentId() + ": " + called + " handler(s)");
+            System.out.println(name + " < " + event.parcelId() + ": " + called + " handler(s)");
             return called;
         };
     }
 
     static Middleware dropDuplicates() {
-        Set<PaymentEvent> seen = new HashSet<>();
+        Set<ParcelEvent> seen = new HashSet<>();
         return (event, next) -> seen.add(event) ? next.proceed(event) : 0;
     }
 
     public static void main(String[] args) {
-        Handler ledger = ((Handler) e -> System.out.println("    ledger posts " + e.paymentId())).timed("ledger");
+        Handler load = ((Handler) e -> System.out.println("    load board adds " + e.parcelId())).timed("load");
         Next pipeline = chain(
                 List.of(logging("outer"), dropDuplicates(), logging("inner")),    // Step 2: swap the first two
-                e -> { ledger.handle(e); return 1; });
-        PaymentCaptured capture = new PaymentCaptured("pay_7781", 1_999);
-        pipeline.proceed(capture);
-        System.out.println("-- the same capture again (a Kafka redelivery)");
-        pipeline.proceed(new PaymentCaptured("pay_7781", 1_999));
+                e -> { load.handle(e); return 1; });
+        ParcelCollected scan = new ParcelCollected("PP-7781", 2_500);
+        pipeline.proceed(scan);
+        System.out.println("-- the same scan again (the scanner sent it twice)");
+        pipeline.proceed(new ParcelCollected("PP-7781", 2_500));
     }
 }

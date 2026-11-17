@@ -1,42 +1,44 @@
 package workbench.events.l01.demo.stringly
 
-// Three handlers each read the raw fields of a message. Nothing checked the message first.
+// Three handlers each read the raw fields of a scan. Nothing checked the scan first.
 
-var balanceCents = 0L
-var receiptsSent = 0
+var onTheBikeGrams = 0L
+var textsSent = 0
 
-fun audit(fields: Map<String, String>) {
-    println("audit    ${fields["type"]} ${fields["paymentId"]}")
+fun tracking(fields: Map<String, String>) {
+    println("tracking ${fields["type"]} ${fields["parcelId"]}")
 }
 
-fun ledger(fields: Map<String, String>) {
-    if (fields["type"] == "captured") {
-        val cents = fields.getValue("amountMinor").toLong()    // parsing, deep inside a handler
-        balanceCents += cents
-        println("ledger   +$cents, balance $balanceCents")
+fun loadBoard(fields: Map<String, String>) {
+    val grams = when (fields["type"]) {
+        "collected" -> fields.getValue("grams").toLong()          // parsing, deep inside a handler
+        "delivered" -> -fields.getValue("grams").toLong()
+        else -> return
     }
+    onTheBikeGrams += grams
+    println("load     %+d g, on the bike: %d g".format(grams, onTheBikeGrams))
 }
 
-fun receipts(fields: Map<String, String>) {
-    if (fields["type"] == "capture") {                          // a typo the compiler can't see
-        receiptsSent++
+fun texts(fields: Map<String, String>) {
+    if (fields["type"] == "deliver") {                            // a typo the compiler can't see
+        textsSent++
     }
 }
 
 fun main() {
-    val messages = listOf(
-        mapOf("type" to "captured", "paymentId" to "pay_7781", "amountMinor" to "1999"),
-        mapOf("type" to "refunded", "paymentId" to "pay_7781", "amountMinor" to "500"),
-        mapOf("type" to "captured", "paymentId" to "pay_7782", "amountMinor" to "12.50"),
+    val scans = listOf(
+        mapOf("type" to "collected", "parcelId" to "PP-7781", "grams" to "2500"),
+        mapOf("type" to "delivered", "parcelId" to "PP-7781", "grams" to "2500"),
+        mapOf("type" to "collected", "parcelId" to "PP-7782", "grams" to "2.5"),
     )
-    for (m in messages) {
+    for (scan in scans) {
         try {
-            audit(m)
-            ledger(m)
-            receipts(m)
+            tracking(scan)
+            loadBoard(scan)
+            texts(scan)
         } catch (e: RuntimeException) {
             println("FAILED   $e")
         }
     }
-    println("receipts sent: $receiptsSent")
+    println("texts sent: $textsSent")
 }

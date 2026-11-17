@@ -67,15 +67,15 @@ class ReachabilityTest {
     void firesLiveListeners() {
         WeakListenerRegistry<Consumer<String>> registry = new WeakListenerRegistry<>();
         List<String> seen = new ArrayList<>();
-        Consumer<String> velocity = e -> seen.add("velocity:" + e);
-        Consumer<String> geo = e -> seen.add("geo:" + e);
-        registry.register(velocity);
-        registry.register(geo);
-        registry.fire(l -> l.accept("auth-1"));
-        assertThat(seen).containsExactly("velocity:auth-1", "geo:auth-1");
+        Consumer<String> watermark = e -> seen.add("watermark:" + e);
+        Consumer<String> stats = e -> seen.add("stats:" + e);
+        registry.register(watermark);
+        registry.register(stats);
+        registry.fire(l -> l.accept("photo-1"));
+        assertThat(seen).containsExactly("watermark:photo-1", "stats:photo-1");
         assertThat(registry.size()).isEqualTo(2);
-        Reference.reachabilityFence(velocity);
-        Reference.reachabilityFence(geo);
+        Reference.reachabilityFence(watermark);
+        Reference.reachabilityFence(stats);
     }
 
     @Test
@@ -83,14 +83,14 @@ class ReachabilityTest {
     void unloadedListenerDisappears() throws Exception {
         WeakListenerRegistry<Consumer<String>> registry = new WeakListenerRegistry<>();
         List<String> seen = new ArrayList<>();
-        Consumer<String> rule = e -> seen.add("unloaded rule saw " + e);
-        registry.register(rule);
+        Consumer<String> plugin = e -> seen.add("unloaded plugin saw " + e);
+        registry.register(plugin);
         ReferenceQueue<Object> queue = new ReferenceQueue<>();
-        WeakReference<Object> probe = new WeakReference<>(rule, queue);
-        rule = null;                                             // the rule is unloaded: nothing else refers to it
+        WeakReference<Object> probe = new WeakReference<>(plugin, queue);
+        plugin = null;                                           // the plugin is unloaded: nothing else refers to it
         assertThat(GcWait.untilEnqueued(queue, probe)).as("the listener was collected").isTrue();
         assertThat(registry.size()).isZero();
-        registry.fire(l -> l.accept("auth-2"));
+        registry.fire(l -> l.accept("photo-2"));
         assertThat(seen).isEmpty();
     }
 
@@ -99,14 +99,14 @@ class ReachabilityTest {
     void heldListenerSurvives() throws Exception {
         WeakListenerRegistry<Consumer<String>> registry = new WeakListenerRegistry<>();
         List<String> seen = new ArrayList<>();
-        Consumer<String> rule = e -> seen.add("live rule saw " + e);
-        registry.register(rule);
+        Consumer<String> plugin = e -> seen.add("live plugin saw " + e);
+        registry.register(plugin);
         ReferenceQueue<Object> queue = new ReferenceQueue<>();
         WeakReference<Object> garbage = new WeakReference<>(new Object(), queue);
         assertThat(GcWait.untilEnqueued(queue, garbage)).as("a GC processed weak references").isTrue();
-        registry.fire(l -> l.accept("auth-3"));
-        assertThat(seen).containsExactly("live rule saw auth-3");
+        registry.fire(l -> l.accept("photo-3"));
+        assertThat(seen).containsExactly("live plugin saw photo-3");
         assertThat(registry.size()).isEqualTo(1);
-        Reference.reachabilityFence(rule);                       // keeps `rule` strongly reachable up to here
+        Reference.reachabilityFence(plugin);                     // keeps `plugin` strongly reachable up to here
     }
 }

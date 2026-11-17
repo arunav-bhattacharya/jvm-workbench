@@ -1,41 +1,41 @@
 package workbench.events.l03
 
-/** What the edge hands to the rest of the service: a valid event, or a reason it was refused. */
+/** What the edge hands to the rest of the program: a valid event, or a reason it was refused. */
 sealed interface Parsed {
-    data class Ok(val event: PaymentEvent) : Parsed
+    data class Ok(val event: ParcelEvent) : Parsed
     data class Rejected(val reason: String) : Parsed
 }
 
 /**
- * The edge of the service: turns the raw fields of one message (for example a Kafka record's JSON,
- * already read into a map of strings) into the model. Never throws. Behind this function nothing
- * checks events again, because no invalid PaymentEvent can be built.
+ * The edge of the program: turns the raw fields of one message (for example a scan sent by a
+ * rider's handheld scanner, already read into a map of strings) into the model. Never throws.
+ * Behind this function nothing checks events again, because no invalid ParcelEvent can be built.
  *
- * Fields: `type` (authorized, captured, refunded, declined), `paymentId`, `amountMinor` (whole euro
- * cents, for the first three types) and `reason` (a DeclineReason name, for declined).
+ * Fields: `type` (booked, collected, delivered, failed), `parcelId`, `grams` (a whole number of
+ * grams, for the first three types) and `reason` (a FailReason name, for failed).
  */
 fun parseEvent(fields: Map<String, String>): Parsed {
     // 1. small readers that throw IllegalArgumentException, like the constructors do
     fun field(name: String): String = fields[name] ?: throw IllegalArgumentException("missing field '$name'")
 
-    fun amount(): Money {
-        val raw = field("amountMinor")
-        val minor = raw.toLongOrNull() ?: throw IllegalArgumentException("amountMinor is not a whole number: '$raw'")
-        return Money(minor)                                   // Money refuses negative amounts
+    fun weight(): Weight {
+        val raw = field("grams")
+        val grams = raw.toLongOrNull() ?: throw IllegalArgumentException("grams is not a whole number: '$raw'")
+        return Weight(grams)                                  // Weight refuses negative numbers
     }
 
     return try {
         // 2. one branch per type; the constructors make the final checks
         val type = field("type")
         val event = when (type) {
-            "authorized" -> PaymentAuthorized(PaymentId(field("paymentId")), amount())
-            "captured" -> PaymentCaptured(PaymentId(field("paymentId")), amount())
-            "refunded" -> PaymentRefunded(PaymentId(field("paymentId")), amount())
-            "declined" -> {
+            "booked" -> ParcelBooked(ParcelId(field("parcelId")), weight())
+            "collected" -> ParcelCollected(ParcelId(field("parcelId")), weight())
+            "delivered" -> ParcelDelivered(ParcelId(field("parcelId")), weight())
+            "failed" -> {
                 val raw = field("reason")
-                val reason = DeclineReason.entries.find { it.name == raw }
-                    ?: throw IllegalArgumentException("unknown decline reason: '$raw'")
-                PaymentDeclined(PaymentId(field("paymentId")), reason)
+                val reason = FailReason.entries.find { it.name == raw }
+                    ?: throw IllegalArgumentException("unknown fail reason: '$raw'")
+                DeliveryFailed(ParcelId(field("parcelId")), reason)
             }
             else -> return Parsed.Rejected("unknown event type: '$type'")
         }

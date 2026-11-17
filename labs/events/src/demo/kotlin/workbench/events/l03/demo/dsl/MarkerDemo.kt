@@ -6,17 +6,17 @@ fun main() {
     val bus = Bus()
     val timings = Timings()
     bus.subscriptions(timings) {
-        timed("ledger") {
-            on<PaymentCaptured> { println("ledger  +${it.cents}") }
+        timed("load") {
+            on<ParcelCollected> { println("load     +${it.grams} g") }
 
-            // Step 2: uncomment. You meant "time refunds inside the ledger group". Run it.
-            // timed("refunds") { on<PaymentRefunded> { println("ledger  -${it.cents}") } }
+            // Step 2: uncomment. You meant "time deliveries inside the load group". Run it.
+            // timed("deliveries") { on<ParcelDelivered> { println("load     -${it.grams} g") } }
 
             // Step 4: uncomment instead. The label says which builder you mean.
-            // this@subscriptions.timed("refunds") { on<PaymentRefunded> { println("ledger  -${it.cents}") } }
+            // this@subscriptions.timed("deliveries") { on<ParcelDelivered> { println("load     -${it.grams} g") } }
         }
     }
-    bus.publish(PaymentCaptured("pay_7781", 1_999))
-    bus.publish(PaymentRefunded("pay_7781", 500))
+    bus.publish(ParcelCollected("PP-7781", 2_500))
+    bus.publish(ParcelDelivered("PP-7781", 2_500))
     println("timed groups: ${timings.calls}")
 }

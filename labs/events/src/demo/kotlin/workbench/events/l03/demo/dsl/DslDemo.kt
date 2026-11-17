@@ -5,24 +5,24 @@ import java.util.function.Consumer
 import kotlin.reflect.KClass
 import kotlin.reflect.cast
 
-// A compact copy of the library: plain ids and cents, a flat-list bus, timing, and the DSL.
+// A compact copy of the library: plain ids and grams, a flat-list bus, timing, and the DSL.
 
-sealed interface PaymentEvent { val paymentId: String }
-data class PaymentAuthorized(override val paymentId: String, val cents: Long) : PaymentEvent
-data class PaymentCaptured(override val paymentId: String, val cents: Long) : PaymentEvent
-data class PaymentRefunded(override val paymentId: String, val cents: Long) : PaymentEvent
+sealed interface ParcelEvent { val parcelId: String }
+data class ParcelBooked(override val parcelId: String, val grams: Long) : ParcelEvent
+data class ParcelCollected(override val parcelId: String, val grams: Long) : ParcelEvent
+data class ParcelDelivered(override val parcelId: String, val grams: Long) : ParcelEvent
 
-fun interface Handler<in E : PaymentEvent> { fun handle(event: E) }
+fun interface Handler<in E : ParcelEvent> { fun handle(event: E) }
 fun interface Subscription : AutoCloseable { override fun close() }
 
 class Bus {
-    private val handlers = CopyOnWriteArrayList<Pair<KClass<*>, Handler<PaymentEvent>>>()
-    fun <E : PaymentEvent> subscribe(type: KClass<E>, handler: Handler<E>): Subscription {
-        val entry = type to Handler<PaymentEvent> { handler.handle(type.cast(it)) }
+    private val handlers = CopyOnWriteArrayList<Pair<KClass<*>, Handler<ParcelEvent>>>()
+    fun <E : ParcelEvent> subscribe(type: KClass<E>, handler: Handler<E>): Subscription {
+        val entry = type to Handler<ParcelEvent> { handler.handle(type.cast(it)) }
         handlers += entry
         return Subscription { handlers -= entry }
     }
-    fun publish(event: PaymentEvent) = handlers.filter { it.first.isInstance(event) }.forEach { it.second.handle(event) }
+    fun publish(event: ParcelEvent) = handlers.filter { it.first.isInstance(event) }.forEach { it.second.handle(event) }
     fun handlerCount() = handlers.size
 }
 
@@ -33,7 +33,7 @@ class Timings {
     fun tick(): Long { clock += 2_000_000; return clock }
 }
 
-fun <E : PaymentEvent> Handler<E>.timed(name: String, t: Timings): Handler<E> = Handler { e ->
+fun <E : ParcelEvent> Handler<E>.timed(name: String, t: Timings): Handler<E> = Handler { e ->
     val start = t.tick()
     try { handle(e) } finally {
         t.calls.merge(name, 1) { a, b -> a + b }
@@ -48,9 +48,9 @@ annotation class EventsDsl
 @EventsDsl
 class SubscriptionsBuilder(private val bus: Bus, private val timings: Timings) {
     private val pending = mutableListOf<() -> Subscription>()
-    fun <E : PaymentEvent> on(type: KClass<E>, handler: Handler<E>) { pending += { bus.subscribe(type, handler) } }
-    fun <E : PaymentEvent> on(type: Class<E>, handler: Handler<E>) = on(type.kotlin, handler)
-    inline fun <reified E : PaymentEvent> on(crossinline handler: (E) -> Unit) = on(E::class, Handler { handler(it) })
+    fun <E : ParcelEvent> on(type: KClass<E>, handler: Handler<E>) { pending += { bus.subscribe(type, handler) } }
+    fun <E : ParcelEvent> on(type: Class<E>, handler: Handler<E>) = on(type.kotlin, handler)
+    inline fun <reified E : ParcelEvent> on(crossinline handler: (E) -> Unit) = on(E::class, Handler { handler(it) })
     fun timed(name: String, block: TimedGroup.() -> Unit) = TimedGroup(name, timings, this).block()
     fun commit(): Subscription {
         val handles = pending.map { it() }                // subscribe only after the block has finished
@@ -60,9 +60,9 @@ class SubscriptionsBuilder(private val bus: Bus, private val timings: Timings) {
 
 @EventsDsl
 class TimedGroup(private val name: String, private val timings: Timings, private val parent: SubscriptionsBuilder) {
-    fun <E : PaymentEvent> on(type: KClass<E>, handler: Handler<E>) = parent.on(type, handler.timed(name, timings))
-    fun <E : PaymentEvent> on(type: Class<E>, handler: Handler<E>) = on(type.kotlin, handler)
-    inline fun <reified E : PaymentEvent> on(crossinline handler: (E) -> Unit) = on(E::class, Handler { handler(it) })
+    fun <E : ParcelEvent> on(type: KClass<E>, handler: Handler<E>) = parent.on(type, handler.timed(name, timings))
+    fun <E : ParcelEvent> on(type: Class<E>, handler: Handler<E>) = on(type.kotlin, handler)
+    inline fun <reified E : ParcelEvent> on(crossinline handler: (E) -> Unit) = on(E::class, Handler { handler(it) })
 }
 
 /** The Kotlin entry point. */
@@ -80,24 +80,24 @@ fun main() {
     val bus = Bus()
     val timings = Timings()
     val handle = bus.subscriptions(timings) {
-        on<PaymentEvent> { println("audit   ${it.paymentId} ${it::class.simpleName}") }
-        timed("ledger") {
-            on<PaymentCaptured> { println("ledger  +${it.cents}") }
-            on<PaymentRefunded> { println("ledger  -${it.cents}") }
+        on<ParcelEvent> { println("tracking ${it.parcelId} ${it::class.simpleName}") }
+        timed("load") {
+            on<ParcelCollected> { println("load     +${it.grams} g") }
+            on<ParcelDelivered> { println("load     -${it.grams} g") }
         }
     }
-    bus.publish(PaymentCaptured("pay_7781", 1_999))
-    bus.publish(PaymentRefunded("pay_7781", 500))
-    bus.publish(PaymentAuthorized("pay_7782", 250))
-    println("ledger: ${timings.calls["ledger"]} calls, ${timings.millis["ledger"]} ms; handlers: ${bus.handlerCount()}")
+    bus.publish(ParcelCollected("PP-7781", 2_500))
+    bus.publish(ParcelDelivered("PP-7781", 2_500))
+    bus.publish(ParcelBooked("PP-7782", 1_200))
+    println("load: ${timings.calls["load"]} calls, ${timings.millis["load"]} ms; handlers: ${bus.handlerCount()}")
 
     handle.close()
     println("after close: ${bus.handlerCount()} handlers")
 
     try {
         bus.subscriptions(timings) {
-            on<PaymentCaptured> { println("never subscribed") }
-            error("missing configuration: ledger account")
+            on<ParcelCollected> { println("never subscribed") }
+            error("missing configuration: load limit")
         }
     } catch (e: IllegalStateException) {
         println("block failed (${e.message}); handlers: ${bus.handlerCount()}")

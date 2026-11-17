@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test
 import kotlin.reflect.KClass
 
 class ModelTest {
-    private val id = PaymentId("pay_7781")
+    private val id = ParcelId("PP-7781")
 
     private fun rejected(fields: Map<String, String>): String {
         val result = parseEvent(fields)
@@ -19,85 +19,86 @@ class ModelTest {
     // ---- value classes ----
 
     @Test
-    fun `a payment id is pay_ followed by 4 to 24 letters or digits`() {
-        assertThat(PaymentId("pay_7781").value).isEqualTo("pay_7781")
-        assertThat(PaymentId("pay_AbC123xyz").value).isEqualTo("pay_AbC123xyz")
-        for (bad in listOf("7781", "pay_", "pay_77", "PAY_7781", "pay_7781!", " pay_7781", "pay_" + "1".repeat(25))) {
-            assertThatIllegalArgumentException().`as`("PaymentId(\"$bad\")")
-                .isThrownBy { PaymentId(bad) }
+    fun `a parcel id is PP- followed by 4 to 12 digits`() {
+        assertThat(ParcelId("PP-7781").value).isEqualTo("PP-7781")
+        assertThat(ParcelId("PP-000123456789").value).isEqualTo("PP-000123456789")
+        for (bad in listOf("7781", "PP-", "PP-77", "pp-7781", "PP-77A1", "PP-7781!", " PP-7781", "PP-" + "1".repeat(13))) {
+            assertThatIllegalArgumentException().`as`("ParcelId(\"$bad\")")
+                .isThrownBy { ParcelId(bad) }
                 .withMessageContaining(bad)
         }
     }
 
     @Test
-    fun `money is never negative`() {
-        assertThat(Money(0).minor).isZero()
-        assertThatIllegalArgumentException().isThrownBy { Money(-1) }.withMessageContaining("-1")
+    fun `a weight is never negative`() {
+        assertThat(Weight(0).grams).isZero()
+        assertThatIllegalArgumentException().isThrownBy { Weight(-1) }.withMessageContaining("-1")
     }
 
     @Test
-    fun `money adds and subtracts exactly`() {
-        assertThat(Money(1_999) + Money(1)).isEqualTo(Money(2_000))
-        assertThat(Money(1_999) - Money(999)).isEqualTo(Money(1_000))
-        assertThatIllegalArgumentException().`as`("5.00 - 5.01").isThrownBy { Money(500) - Money(501) }
-        assertThatThrownBy { Money(Long.MAX_VALUE) + Money(1) }.isInstanceOf(ArithmeticException::class.java)
+    fun `weights add and subtract exactly`() {
+        assertThat(Weight(2_499) + Weight(1)).isEqualTo(Weight(2_500))
+        assertThat(Weight(2_500) - Weight(500)).isEqualTo(Weight(2_000))
+        assertThatIllegalArgumentException().`as`("5 kg - 5.001 kg").isThrownBy { Weight(5_000) - Weight(5_001) }
+        assertThatThrownBy { Weight(Long.MAX_VALUE) + Weight(1) }.isInstanceOf(ArithmeticException::class.java)
     }
 
     @Test
-    fun `money prints as euros with two decimals`() {
-        assertThat(Money(1_999).toString()).isEqualTo("19.99")
-        assertThat(Money(5).toString()).isEqualTo("0.05")
+    fun `a weight prints in kilograms`() {
+        assertThat(Weight(2_500).toString()).isEqualTo("2.5 kg")
+        assertThat(Weight(2_000).toString()).isEqualTo("2 kg")
+        assertThat(Weight(5).toString()).isEqualTo("0.005 kg")
     }
 
     @Test
-    fun `authorized, captured and refunded amounts must be positive`() {
-        assertThatIllegalArgumentException().isThrownBy { PaymentAuthorized(id, Money.ZERO) }
-        assertThatIllegalArgumentException().isThrownBy { PaymentCaptured(id, Money.ZERO) }
-        assertThatIllegalArgumentException().isThrownBy { PaymentRefunded(id, Money.ZERO) }
-        assertThat(PaymentCaptured(id, Money(1)).amount).isEqualTo(Money(1))
+    fun `booked, collected and delivered weights must be positive`() {
+        assertThatIllegalArgumentException().isThrownBy { ParcelBooked(id, Weight.ZERO) }
+        assertThatIllegalArgumentException().isThrownBy { ParcelCollected(id, Weight.ZERO) }
+        assertThatIllegalArgumentException().isThrownBy { ParcelDelivered(id, Weight.ZERO) }
+        assertThat(ParcelCollected(id, Weight(1)).weight).isEqualTo(Weight(1))
     }
 
     // ---- the edge ----
 
     @Test
     fun `parse builds each event type from valid fields`() {
-        assertThat(parseEvent(mapOf("type" to "authorized", "paymentId" to "pay_7781", "amountMinor" to "1999")))
-            .isEqualTo(Parsed.Ok(PaymentAuthorized(id, Money(1_999))))
-        assertThat(parseEvent(mapOf("type" to "captured", "paymentId" to "pay_7781", "amountMinor" to "1999")))
-            .isEqualTo(Parsed.Ok(PaymentCaptured(id, Money(1_999))))
-        assertThat(parseEvent(mapOf("type" to "refunded", "paymentId" to "pay_7781", "amountMinor" to "500")))
-            .isEqualTo(Parsed.Ok(PaymentRefunded(id, Money(500))))
-        assertThat(parseEvent(mapOf("type" to "declined", "paymentId" to "pay_7781", "reason" to "CARD_EXPIRED")))
-            .isEqualTo(Parsed.Ok(PaymentDeclined(id, DeclineReason.CARD_EXPIRED)))
+        assertThat(parseEvent(mapOf("type" to "booked", "parcelId" to "PP-7781", "grams" to "2500")))
+            .isEqualTo(Parsed.Ok(ParcelBooked(id, Weight(2_500))))
+        assertThat(parseEvent(mapOf("type" to "collected", "parcelId" to "PP-7781", "grams" to "2500")))
+            .isEqualTo(Parsed.Ok(ParcelCollected(id, Weight(2_500))))
+        assertThat(parseEvent(mapOf("type" to "delivered", "parcelId" to "PP-7781", "grams" to "2500")))
+            .isEqualTo(Parsed.Ok(ParcelDelivered(id, Weight(2_500))))
+        assertThat(parseEvent(mapOf("type" to "failed", "parcelId" to "PP-7781", "reason" to "NOBODY_HOME")))
+            .isEqualTo(Parsed.Ok(DeliveryFailed(id, FailReason.NOBODY_HOME)))
     }
 
     @Test
     fun `parse names the field that is missing`() {
-        assertThat(rejected(mapOf("paymentId" to "pay_7781", "amountMinor" to "1999"))).contains("type")
-        assertThat(rejected(mapOf("type" to "captured", "amountMinor" to "1999"))).contains("paymentId")
-        assertThat(rejected(mapOf("type" to "captured", "paymentId" to "pay_7781"))).contains("amountMinor")
-        assertThat(rejected(mapOf("type" to "declined", "paymentId" to "pay_7781"))).contains("reason")
+        assertThat(rejected(mapOf("parcelId" to "PP-7781", "grams" to "2500"))).contains("type")
+        assertThat(rejected(mapOf("type" to "collected", "grams" to "2500"))).contains("parcelId")
+        assertThat(rejected(mapOf("type" to "collected", "parcelId" to "PP-7781"))).contains("grams")
+        assertThat(rejected(mapOf("type" to "failed", "parcelId" to "PP-7781"))).contains("reason")
     }
 
     @Test
-    fun `parse rejects amounts that are not whole numbers of cents`() {
-        for (raw in listOf("12.50", "1e3", "", " 1999", "19,99", "99999999999999999999")) {
-            assertThat(rejected(mapOf("type" to "captured", "paymentId" to "pay_7781", "amountMinor" to raw)))
-                .`as`("amountMinor '$raw'").contains("amountMinor")
+    fun `parse rejects weights that are not whole numbers of grams`() {
+        for (raw in listOf("2.5", "1e3", "", " 2500", "2,5", "99999999999999999999")) {
+            assertThat(rejected(mapOf("type" to "collected", "parcelId" to "PP-7781", "grams" to raw)))
+                .`as`("grams '$raw'").contains("grams")
         }
     }
 
     @Test
     fun `parse turns a constructor's refusal into Rejected`() {
-        assertThat(rejected(mapOf("type" to "captured", "paymentId" to "7781", "amountMinor" to "1999"))).contains("7781")
-        assertThat(rejected(mapOf("type" to "refunded", "paymentId" to "pay_7781", "amountMinor" to "-500"))).contains("-500")
-        assertThat(rejected(mapOf("type" to "captured", "paymentId" to "pay_7781", "amountMinor" to "0"))).contains("positive")
+        assertThat(rejected(mapOf("type" to "collected", "parcelId" to "7781", "grams" to "2500"))).contains("7781")
+        assertThat(rejected(mapOf("type" to "delivered", "parcelId" to "PP-7781", "grams" to "-500"))).contains("-500")
+        assertThat(rejected(mapOf("type" to "collected", "parcelId" to "PP-7781", "grams" to "0"))).contains("positive")
     }
 
     @Test
-    fun `parse rejects unknown event types and decline reasons by name`() {
-        assertThat(rejected(mapOf("type" to "chargeback", "paymentId" to "pay_7781", "amountMinor" to "1999"))).contains("chargeback")
-        assertThat(rejected(mapOf("type" to "declined", "paymentId" to "pay_7781", "reason" to "stolen"))).contains("stolen")
+    fun `parse rejects unknown event types and fail reasons by name`() {
+        assertThat(rejected(mapOf("type" to "lost", "parcelId" to "PP-7781", "grams" to "2500"))).contains("lost")
+        assertThat(rejected(mapOf("type" to "failed", "parcelId" to "PP-7781", "reason" to "dog_in_garden"))).contains("dog_in_garden")
     }
 
     @Test
@@ -105,11 +106,11 @@ class ModelTest {
         val hostile = listOf(
             emptyMap(),
             mapOf("type" to ""),
-            mapOf("type" to "CAPTURED", "paymentId" to "pay_7781", "amountMinor" to "1"),
-            mapOf("type" to "captured", "paymentId" to "", "amountMinor" to ""),
-            mapOf("type" to "declined", "paymentId" to "pay_7781", "reason" to "card_expired"),
-            mapOf("type" to "refunded", "paymentId" to "pay_7781", "amountMinor" to "-9223372036854775808"),
-            mapOf("type" to "authorized", "paymentId" to "pay_\u0000\u0000\u0000\u0000", "amountMinor" to "1"),
+            mapOf("type" to "COLLECTED", "parcelId" to "PP-7781", "grams" to "1"),
+            mapOf("type" to "collected", "parcelId" to "", "grams" to ""),
+            mapOf("type" to "failed", "parcelId" to "PP-7781", "reason" to "nobody_home"),
+            mapOf("type" to "delivered", "parcelId" to "PP-7781", "grams" to "-9223372036854775808"),
+            mapOf("type" to "booked", "parcelId" to "PP-\u0000\u0000\u0000\u0000", "grams" to "1"),
         )
         for (fields in hostile) {
             assertThatCode { assertThat(parseEvent(fields)).isInstanceOf(Parsed.Rejected::class.java) }
@@ -119,11 +120,11 @@ class ModelTest {
 
     // ---- exhaustive operations ----
 
-    private val samples: List<PaymentEvent> = listOf(
-        PaymentAuthorized(id, Money(1_999)),
-        PaymentDeclined(id, DeclineReason.SUSPECTED_FRAUD),
-        PaymentCaptured(id, Money(1_999)),
-        PaymentRefunded(id, Money(500)),
+    private val samples: List<ParcelEvent> = listOf(
+        ParcelBooked(id, Weight(2_500)),
+        DeliveryFailed(id, FailReason.NOBODY_HOME),
+        ParcelCollected(id, Weight(2_500)),
+        ParcelDelivered(id, Weight(2_500)),
     )
 
     private fun leaves(type: KClass<*>): Set<KClass<*>> =
@@ -132,12 +133,12 @@ class ModelTest {
     @Test
     fun `every event type has a summary line`() {
         // if this first check fails, someone added an event type: add a sample for it above
-        assertThat(samples.map { it::class }.toSet()).isEqualTo(leaves(PaymentEvent::class))
+        assertThat(samples.map { it::class }.toSet()).isEqualTo(leaves(ParcelEvent::class))
         assertThat(samples.map(::summary)).containsExactly(
-            "pay_7781 authorized 19.99 EUR",
-            "pay_7781 declined: SUSPECTED_FRAUD",
-            "pay_7781 captured 19.99 EUR",
-            "pay_7781 refunded 5.00 EUR",
+            "PP-7781 booked, 2.5 kg",
+            "PP-7781 not delivered: NOBODY_HOME",
+            "PP-7781 collected, 2.5 kg",
+            "PP-7781 delivered, 2.5 kg",
         )
     }
 }

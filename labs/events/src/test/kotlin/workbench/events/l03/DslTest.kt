@@ -6,10 +6,10 @@ import org.junit.jupiter.api.Test
 import java.util.concurrent.CopyOnWriteArrayList
 
 class DslTest {
-    private val id = PaymentId("pay_7781")
-    private val capture = PaymentCaptured(id, Money(1_999))
-    private val refund = PaymentRefunded(id, Money(500))
-    private val auth = PaymentAuthorized(id, Money(1_999))
+    private val id = ParcelId("PP-7781")
+    private val collection = ParcelCollected(id, Weight(2_500))
+    private val delivery = ParcelDelivered(id, Weight(1_200))
+    private val booking = ParcelBooked(id, Weight(2_500))
 
     private val errors = CopyOnWriteArrayList<Exception>()
     private val bus = EventBus(emptyList()) { _, e -> errors += e }
@@ -24,33 +24,33 @@ class DslTest {
     fun `a subscriptions block wires handlers and timed groups in one go`() {
         val log = CopyOnWriteArrayList<String>()
         val timings = Timings(SteppingTicker(1_000))
-        Callers.wireLedger(bus, timings, log)
-        listOf(capture, refund, auth).forEach { bus.publish(it) }
+        Callers.wireLoadBoard(bus, timings, log)
+        listOf(collection, delivery, booking).forEach { bus.publish(it) }
         assertThat(log).containsExactly(
-            "credit 19.99", "audit pay_7781",
-            "debit 5.00", "audit pay_7781",
-            "audit pay_7781",
+            "load 2.5 kg", "tracking PP-7781",
+            "unload 1.2 kg", "tracking PP-7781",
+            "tracking PP-7781",
         )
-        assertThat(timings.calls("ledger")).`as`("only the handlers inside timed(\"ledger\") are timed").isEqualTo(2)
-        assertThat(timings.totalNanos("ledger")).isEqualTo(2_000)
+        assertThat(timings.calls("load")).`as`("only the handlers inside timed(\"load\") are timed").isEqualTo(2)
+        assertThat(timings.totalNanos("load")).isEqualTo(2_000)
         assertThat(errors).isEmpty()
     }
 
     @Test
     fun `one handle closes everything the block subscribed, timed groups included`() {
         val log = CopyOnWriteArrayList<String>()
-        val handle = Callers.wireLedger(bus, Timings(), log)
+        val handle = Callers.wireLoadBoard(bus, Timings(), log)
         assertThat(bus.handlerCount()).isEqualTo(3)
         handle.close()
         handle.close()
         assertThat(bus.handlerCount()).isZero()
-        bus.publish(capture)
+        bus.publish(collection)
         assertThat(log).isEmpty()
     }
 
     @Test
     fun `a block that throws halfway subscribes nothing`() {
-        assertThatIllegalStateException().isThrownBy { Callers.brokenWiring(bus) }.withMessageContaining("ledger account")
+        assertThatIllegalStateException().isThrownBy { Callers.brokenWiring(bus) }.withMessageContaining("load limit")
         assertThat(bus.handlerCount()).isZero()
     }
 
@@ -58,7 +58,7 @@ class DslTest {
     fun `subscribing from inside a handler fails loudly instead of being lost`() {
         Callers.subscribeFromInsideAHandler(bus)
         assertThat(bus.handlerCount()).isEqualTo(1)
-        assertThat(bus.publish(capture)).isEqualTo(1)
+        assertThat(bus.publish(collection)).isEqualTo(1)
         assertThat(errors).singleElement().isInstanceOf(IllegalStateException::class.java)
         assertThat(errors[0]).hasMessageContaining("committed")
         assertThat(bus.handlerCount()).isEqualTo(1)
@@ -72,10 +72,10 @@ class DslTest {
 
     @Test
     fun `the non-reified on and the Class overload of subscribe work from Kotlin too`() {
-        val seen = CopyOnWriteArrayList<PaymentEvent>()
-        bus.subscriptions { on(MoneyMovement::class, Handler { seen += it }) }
-        bus.subscribe(PaymentAuthorized::class.java, Handler { seen += it })
-        listOf(capture, auth, refund).forEach { bus.publish(it) }
-        assertThat(seen).containsExactly(capture, auth, refund)
+        val seen = CopyOnWriteArrayList<ParcelEvent>()
+        bus.subscriptions { on(Handover::class, Handler { seen += it }) }
+        bus.subscribe(ParcelBooked::class.java, Handler { seen += it })
+        listOf(collection, booking, delivery).forEach { bus.publish(it) }
+        assertThat(seen).containsExactly(collection, booking, delivery)
     }
 }

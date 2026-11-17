@@ -6,13 +6,13 @@ import workbench.memory.Jvm
 private var humongousSink: Any? = null
 
 /**
- * Allocates 3 MiB "settlement files" in a 1 GB G1 heap, where regions are 1 MB, and prints the
+ * Allocates 3 MiB photos in a 1 GB G1 heap, where regions are 1 MB, and prints the
  * region counts G1 logs for the first young pause.
  */
 fun main(args: Array<String>) {
     if (args.isNotEmpty()) {
         repeat(40) {
-            humongousSink = ByteArray(3 * 1024 * 1024)                 // 3 MiB + a 16-byte header
+            humongousSink = ByteArray(3 * 1024 * 1024)                 // a 3 MiB photo: 3 MiB + a 16-byte header
             repeat(20_000) { humongousSink = ByteArray(200) }          // some ordinary garbage in between
         }
         return

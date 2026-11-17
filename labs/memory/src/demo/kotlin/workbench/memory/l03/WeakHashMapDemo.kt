@@ -2,23 +2,23 @@ package workbench.memory.l03
 
 import java.util.WeakHashMap
 
-data class KSession(val id: String)
-data class KCheckoutState(val cart: String)
-data class KSessionAudit(val session: KSession, val note: String)  // refers back to its own key
+data class KPhoto(val name: String)
+data class KPreview(val width: Int)                                // knows nothing about its photo
+data class KThumbnail(val source: KPhoto, val width: Int)          // refers back to its own key
 
 /** WeakHashMap drops an entry when its key is unreachable, unless the value refers to the key. */
 fun main() {
-    val checkouts = WeakHashMap<KSession, KCheckoutState>()
-    val audits = WeakHashMap<KSession, KSessionAudit>()
-    var s1: KSession? = KSession("s-1")
-    var s2: KSession? = KSession("s-2")
-    checkouts[s1!!] = KCheckoutState("2 items")
-    audits[s2!!] = KSessionAudit(s2, "opened")
+    val previews = WeakHashMap<KPhoto, KPreview>()
+    val thumbnails = WeakHashMap<KPhoto, KThumbnail>()
+    var beach: KPhoto? = KPhoto("beach.jpg")
+    var dog: KPhoto? = KPhoto("dog.jpg")
+    previews[beach!!] = KPreview(160)
+    thumbnails[dog!!] = KThumbnail(dog, 160)
 
-    s1 = null                                                      // the sessions end: nothing else refers to them
-    s2 = null
+    beach = null                                                   // the photos are deleted: nothing else refers to them
+    dog = null
     repeat(5) { System.gc(); Thread.sleep(20) }                    // demo only: ask for a few GCs
 
-    println("checkouts left: ${checkouts.size}")                   // size also removes cleared entries
-    println("audits left:    ${audits.size}")
+    println("previews left:   ${previews.size}")                   // size also removes cleared entries
+    println("thumbnails left: ${thumbnails.size}")
 }

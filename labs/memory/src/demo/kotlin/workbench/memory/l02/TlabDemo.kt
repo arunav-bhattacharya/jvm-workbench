@@ -6,7 +6,7 @@ import workbench.memory.Jvm
 private var tlabSink: Any? = null
 
 /**
- * Allocates 2,000,000 small arrays in a child JVM that logs a TLAB summary at every GC.
+ * Allocates 5,000,000 small arrays in a child JVM that logs a TLAB summary at every GC.
  * Each "refills" count is how often a thread went back to eden for a fresh buffer.
  */
 fun main(args: Array<String>) {
@@ -15,6 +15,6 @@ fun main(args: Array<String>) {
             .forEach { println(it.replace(Regex("\\s+"), " ")) }
         return
     }
-    repeat(2_000_000) { tlabSink = ByteArray(24) }                 // 16-byte header + 24 bytes = 40 bytes each
-    println("allocated 2,000,000 arrays of 40 bytes: 80,000,000 bytes")
+    repeat(5_000_000) { tlabSink = ByteArray(24) }                 // 16-byte header + 24 bytes = 40 bytes each
+    println("allocated 5,000,000 arrays of 40 bytes: 200,000,000 bytes")
 }

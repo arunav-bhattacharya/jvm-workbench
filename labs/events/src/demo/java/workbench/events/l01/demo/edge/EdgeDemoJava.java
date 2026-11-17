@@ -4,26 +4,26 @@ import java.util.List;
 import java.util.Map;
 
 public class EdgeDemoJava {
-    record PaymentId(String value) {
-        PaymentId {
-            if (!value.matches("pay_[A-Za-z0-9]{4,24}")) throw new IllegalArgumentException("invalid payment id: '" + value + "'");
+    record ParcelId(String value) {
+        ParcelId {
+            if (!value.matches("PP-[0-9]{4,12}")) throw new IllegalArgumentException("invalid parcel id: '" + value + "'");
         }
         @Override public String toString() { return value; }
     }
 
-    record Money(long minor) {
-        Money {
-            if (minor < 0) throw new IllegalArgumentException("amount must not be negative: " + minor);
+    record Weight(long grams) {
+        Weight {
+            if (grams < 0) throw new IllegalArgumentException("weight must not be negative: " + grams);
         }
-        @Override public String toString() { return minor + " cents"; }
+        @Override public String toString() { return grams + " g"; }
     }
 
-    sealed interface PaymentEvent permits PaymentCaptured, PaymentRefunded {}
-    record PaymentCaptured(PaymentId paymentId, Money amount) implements PaymentEvent {}
-    record PaymentRefunded(PaymentId paymentId, Money amount) implements PaymentEvent {}
+    sealed interface ParcelEvent permits ParcelCollected, ParcelDelivered {}
+    record ParcelCollected(ParcelId parcelId, Weight weight) implements ParcelEvent {}
+    record ParcelDelivered(ParcelId parcelId, Weight weight) implements ParcelEvent {}
 
     sealed interface Parsed permits Ok, Rejected {}
-    record Ok(PaymentEvent event) implements Parsed {}
+    record Ok(ParcelEvent event) implements Parsed {}
     record Rejected(String reason) implements Parsed {}
 
     static String field(Map<String, String> fields, String name) {
@@ -32,12 +32,12 @@ public class EdgeDemoJava {
         return v;
     }
 
-    static Money amount(Map<String, String> fields) {
-        String raw = field(fields, "amountMinor");
+    static Weight weight(Map<String, String> fields) {
+        String raw = field(fields, "grams");
         try {
-            return new Money(Long.parseLong(raw));
+            return new Weight(Long.parseLong(raw));
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("amountMinor is not a whole number: '" + raw + "'");
+            throw new IllegalArgumentException("grams is not a whole number: '" + raw + "'");
         }
     }
 
@@ -46,8 +46,8 @@ public class EdgeDemoJava {
         try {
             String type = field(fields, "type");
             return switch (type) {
-                case "captured" -> new Ok(new PaymentCaptured(new PaymentId(field(fields, "paymentId")), amount(fields)));
-                case "refunded" -> new Ok(new PaymentRefunded(new PaymentId(field(fields, "paymentId")), amount(fields)));
+                case "collected" -> new Ok(new ParcelCollected(new ParcelId(field(fields, "parcelId")), weight(fields)));
+                case "delivered" -> new Ok(new ParcelDelivered(new ParcelId(field(fields, "parcelId")), weight(fields)));
                 default -> new Rejected("unknown event type: '" + type + "'");
             };
         } catch (IllegalArgumentException e) {
@@ -57,12 +57,12 @@ public class EdgeDemoJava {
 
     public static void main(String[] args) {
         List<Map<String, String>> inbox = List.of(
-                Map.of("type", "captured", "paymentId", "pay_7781", "amountMinor", "1999"),
-                Map.of("type", "captured", "paymentId", "pay_7782", "amountMinor", "12.50"),
-                Map.of("type", "refunded", "paymentId", "7781", "amountMinor", "500"),
-                Map.of("type", "refunded", "paymentId", "pay_7781", "amountMinor", "-500"),
-                Map.of("type", "captured", "paymentId", "pay_7783"),
-                Map.of("type", "declined", "paymentId", "pay_7784", "reason", "CARD_EXPIRED"));
+                Map.of("type", "collected", "parcelId", "PP-7781", "grams", "2500"),
+                Map.of("type", "collected", "parcelId", "PP-7782", "grams", "2.5"),
+                Map.of("type", "delivered", "parcelId", "7781", "grams", "2500"),
+                Map.of("type", "delivered", "parcelId", "PP-7781", "grams", "-500"),
+                Map.of("type", "collected", "parcelId", "PP-7783"),
+                Map.of("type", "failed", "parcelId", "PP-7784", "reason", "NOBODY_HOME"));
         int accepted = 0;
         for (Map<String, String> fields : inbox) {
             switch (parse(fields)) {

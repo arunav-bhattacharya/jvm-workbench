@@ -8,39 +8,39 @@ import java.util.function.Consumer
  * takes and returns plain String and long, and still validates: it builds the value classes, so
  * every init block runs.
  *
- * @JvmStatic makes each function a real static method: Java writes Events.captured(...), not
- * Events.INSTANCE.captured(...).
+ * @JvmStatic makes each function a real static method: Java writes Events.collected(...), not
+ * Events.INSTANCE.collected(...).
  */
 object Events {
     @JvmStatic
-    fun authorized(paymentId: String, amountMinor: Long): PaymentAuthorized =
-        PaymentAuthorized(PaymentId(paymentId), Money(amountMinor))
+    fun booked(parcelId: String, grams: Long): ParcelBooked =
+        ParcelBooked(ParcelId(parcelId), Weight(grams))
 
-    /** TODO 6: like authorized above. */
+    /** TODO 6: like booked above. */
     @JvmStatic
-    fun captured(paymentId: String, amountMinor: Long): PaymentCaptured = TODO("build a PaymentCaptured")
-
-    @JvmStatic
-    fun refunded(paymentId: String, amountMinor: Long): PaymentRefunded =
-        PaymentRefunded(PaymentId(paymentId), Money(amountMinor))
+    fun collected(parcelId: String, grams: Long): ParcelCollected = TODO("build a ParcelCollected")
 
     @JvmStatic
-    fun declined(paymentId: String, reason: DeclineReason): PaymentDeclined =
-        PaymentDeclined(PaymentId(paymentId), reason)
+    fun delivered(parcelId: String, grams: Long): ParcelDelivered =
+        ParcelDelivered(ParcelId(parcelId), Weight(grams))
+
+    @JvmStatic
+    fun failed(parcelId: String, reason: FailReason): DeliveryFailed =
+        DeliveryFailed(ParcelId(parcelId), reason)
 
     /** TODO 6: the id as a plain String. */
     @JvmStatic
-    fun paymentId(event: PaymentEvent): String = TODO("unwrap the PaymentId")
+    fun parcelId(event: ParcelEvent): String = TODO("unwrap the ParcelId")
 
-    /** TODO 6: the amount in euro cents. */
+    /** TODO 6: the weight in grams. */
     @JvmStatic
-    fun amountMinor(event: MoneyMovement): Long = TODO("unwrap the Money")
+    fun grams(event: Handover): Long = TODO("unwrap the Weight")
 
     @JvmStatic
-    fun amountMinor(event: PaymentAuthorized): Long = event.amount.minor
+    fun grams(event: ParcelBooked): Long = event.weight.grams
 
     /**
-     * The subscription DSL for Java: Events.subscriptions(bus, b -> { b.on(PaymentCaptured.class, e -> ...); }).
+     * The subscription DSL for Java: Events.subscriptions(bus, b -> { b.on(ParcelCollected.class, e -> ...); }).
      * A Consumer, not a Function1, so the Java lambda needs no `return Unit.INSTANCE`.
      *
      * TODO 6: call SubscriptionsBuilder.build with a receiver lambda that hands `this` to block.accept.

@@ -39,12 +39,12 @@ class G1ModelTest {
     }
 
     @Test
-    fun `a 3 MiB settlement file on a 4 GB heap is humongous and wastes 1 MB`() {
+    fun `a 3 MiB photo on a 4 GB heap is humongous and wastes 1 MB`() {
         val region = G1Model.regionSize(4 * GB)
-        val file = 3 * MB + 16                                     // byte[3 MiB]: data plus a 16-byte header
+        val photo = 3 * MB + 16                                    // byte[3 MiB]: data plus a 16-byte header
         assertThat(region).isEqualTo(2 * MB)
-        assertThat(G1Model.isHumongous(file, region)).isTrue()
-        assertThat(G1Model.regionsFor(file, region) * region - file).isEqualTo(1 * MB - 16)
+        assertThat(G1Model.isHumongous(photo, region)).isTrue()
+        assertThat(G1Model.regionsFor(photo, region) * region - photo).isEqualTo(1 * MB - 16)
     }
 
     @Test

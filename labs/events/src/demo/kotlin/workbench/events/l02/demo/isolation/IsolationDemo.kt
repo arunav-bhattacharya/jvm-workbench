@@ -1,19 +1,19 @@
 package workbench.events.l02.demo.isolation
 
-import workbench.events.l02.demo.PaymentCaptured
-import workbench.events.l02.demo.PaymentEvent
+import workbench.events.l02.demo.ParcelCollected
+import workbench.events.l02.demo.ParcelEvent
 import java.util.concurrent.CopyOnWriteArrayList
 
-// The event model (PaymentEvent and friends) is in DemoModel.kt, one package up.
+// The event model (ParcelEvent and friends) is in DemoModel.kt, one package up.
 
 /** A list of handlers, stored in [handlers]; publish can isolate failures or not. */
-class Bus(private val handlers: MutableList<(PaymentEvent) -> Unit>, private val isolate: Boolean) {
-    fun subscribe(handler: (PaymentEvent) -> Unit): AutoCloseable {
+class Bus(private val handlers: MutableList<(ParcelEvent) -> Unit>, private val isolate: Boolean) {
+    fun subscribe(handler: (ParcelEvent) -> Unit): AutoCloseable {
         handlers += handler
         return AutoCloseable { handlers -= handler }
     }
 
-    fun publish(event: PaymentEvent) {
+    fun publish(event: ParcelEvent) {
         for (h in handlers) {
             if (!isolate) { h(event); continue }
             try {
@@ -28,12 +28,12 @@ class Bus(private val handlers: MutableList<(PaymentEvent) -> Unit>, private val
 fun scenario(title: String, bus: Bus) {
     println(title)
     var once: AutoCloseable? = null
-    once = bus.subscribe { println("  welcome email, once"); once?.close() }   // unsubscribes itself
-    bus.subscribe { throw IllegalStateException("ledger is down") }
-    bus.subscribe { println("  receipt for ${it.paymentId}") }
+    once = bus.subscribe { println("  welcome text, once"); once?.close() }   // unsubscribes itself
+    bus.subscribe { throw IllegalStateException("load board is down") }
+    bus.subscribe { println("  text to sender: ${it.parcelId} is on its way") }
     try {
-        bus.publish(PaymentCaptured("pay_7781", 1_999))
-        bus.publish(PaymentCaptured("pay_7782", 250))
+        bus.publish(ParcelCollected("PP-7781", 2_500))
+        bus.publish(ParcelCollected("PP-7782", 1_200))
     } catch (e: Exception) {
         println("  publish threw $e")
     }

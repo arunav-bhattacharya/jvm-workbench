@@ -3,30 +3,30 @@ package workbench.events.l01.demo.values
 import java.math.BigDecimal
 
 @JvmInline
-value class PaymentId(val value: String) {
-    init { require(Regex("pay_[A-Za-z0-9]{4,24}").matches(value)) { "invalid payment id: '$value'" } }
+value class ParcelId(val value: String) {
+    init { require(Regex("PP-[0-9]{4,12}").matches(value)) { "invalid parcel id: '$value'" } }
     override fun toString(): String = value
 }
 
 @JvmInline
-value class Money(val minor: Long) {
-    init { require(minor >= 0) { "amount must not be negative: $minor" } }
-    override fun toString(): String = BigDecimal.valueOf(minor, 2).toPlainString()
+value class Weight(val grams: Long) {
+    init { require(grams >= 0) { "weight must not be negative: $grams" } }
+    override fun toString(): String = BigDecimal.valueOf(grams, 3).stripTrailingZeros().toPlainString() + " kg"
 }
 
-data class PaymentCaptured(val paymentId: PaymentId, val amount: Money)
+data class ParcelCollected(val parcelId: ParcelId, val weight: Weight)
 
-/** The same event with raw types: nothing stops a caller from swapping the two Longs. */
-data class RawRefund(val paymentId: String, val amountMinor: Long, val feeMinor: Long)
+/** A parcel described with raw types: nothing stops a caller from swapping the two Longs. */
+data class RawParcel(val parcelId: String, val grams: Long, val centimetres: Long)
 
 fun main() {
-    println(PaymentCaptured(PaymentId("pay_7781"), Money(1_999)))
-    println(RawRefund("pay_7781", 30, 500))               // amount and fee swapped: compiles, wrong money
+    println(ParcelCollected(ParcelId("PP-7781"), Weight(2_500)))
+    println(RawParcel("PP-7781", 40, 2_500))              // swapped: a 40-gram parcel, 25 metres long
 
     // Step 2: uncomment. The arguments are in the wrong order.
-    // println(PaymentCaptured(Money(1_999), PaymentId("pay_7781")))
+    // println(ParcelCollected(Weight(2_500), ParcelId("PP-7781")))
 
-    for (attempt in listOf({ PaymentId("7781") }, { Money(-500) })) {
+    for (attempt in listOf({ ParcelId("7781") }, { Weight(-500) })) {
         try {
             attempt()
         } catch (e: IllegalArgumentException) {
@@ -35,5 +35,5 @@ fun main() {
     }
 
     // What the JVM stores: the value classes are gone, only their one field is left
-    for (f in PaymentCaptured::class.java.declaredFields) println("field ${f.name}: ${f.type.name}")
+    for (f in ParcelCollected::class.java.declaredFields) println("field ${f.name}: ${f.type.name}")
 }

@@ -431,7 +431,7 @@ class Conc12Classic(Narrated):
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.6)
 
         # ================= the code, last =================
-        hl = {"==": PILLC, "===": PILLC, "PILL": PILLC}
+        hl = {"t == PILL": PILLC, "t === PILL": PILLC, "rail.put(PILL)": PILLC}
         jsrc = ["// each cook", "while (true) {", "    String t = rail.take();", "    if (t == PILL) break;",
                 "    cook(t);", "}", "", "// head chef, after the last waiter", "for (int i = 0; i < cooks; i++)",
                 "    rail.put(PILL);"]

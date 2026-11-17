@@ -32,5 +32,5 @@ class Timings(val ticker: Ticker = Ticker.SYSTEM) {
  * TODO 7: read timings.ticker before and after calling the wrapped handler, and record the difference
  * even when the handler throws. The exception must still reach the bus.
  */
-fun <E : PaymentEvent> Handler<E>.timed(name: String, timings: Timings): Handler<E> =
+fun <E : ParcelEvent> Handler<E>.timed(name: String, timings: Timings): Handler<E> =
     TODO("wrap this handler: same interface, plus timing")

@@ -34,7 +34,7 @@ class Timings(val ticker: Ticker = Ticker.SYSTEM) {
  * under [name]. It records in `finally`, so a handler that throws is timed too, and the exception
  * still reaches the bus.
  */
-fun <E : PaymentEvent> Handler<E>.timed(name: String, timings: Timings): Handler<E> {
+fun <E : ParcelEvent> Handler<E>.timed(name: String, timings: Timings): Handler<E> {
     val inner = this
     return Handler { event ->
         val start = timings.ticker.nanos()

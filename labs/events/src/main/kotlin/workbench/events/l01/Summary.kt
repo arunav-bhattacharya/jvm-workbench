@@ -1,12 +1,12 @@
 package workbench.events.l01
 
 /**
- * One log line per event, for example `pay_7781 captured 19.99 EUR` or
- * `pay_7781 declined: CARD_EXPIRED`.
+ * One line per event for the parcel's tracking page, for example `PP-7781 collected, 2.5 kg` or
+ * `PP-7781 not delivered: NOBODY_HOME`.
  *
  * TODO 5: delete the else branch, compile, and let the compiler list the cases you still need.
  */
-fun summary(event: PaymentEvent): String = when (event) {
-    is PaymentAuthorized -> "${event.paymentId} authorized ${event.amount} EUR"
-    else -> "event ${event.paymentId}"
+fun summary(event: ParcelEvent): String = when (event) {
+    is ParcelBooked -> "${event.parcelId} booked, ${event.weight}"
+    else -> "event ${event.parcelId}"
 }

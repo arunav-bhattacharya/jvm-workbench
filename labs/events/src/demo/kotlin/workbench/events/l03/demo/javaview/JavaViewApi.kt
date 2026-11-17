@@ -8,26 +8,26 @@ import kotlin.reflect.cast
 // it pleasant from Java. JavaViewDemo.java calls it; JavaViewDemo.kt calls the same API from Kotlin.
 
 @JvmInline
-value class PaymentId(val value: String) {
-    init { require(value.startsWith("pay_")) { "invalid payment id: '$value'" } }
+value class ParcelId(val value: String) {
+    init { require(value.startsWith("PP-")) { "invalid parcel id: '$value'" } }
     override fun toString(): String = value
 }
 
 @JvmInline
-value class Money(val minor: Long) {
-    init { require(minor >= 0) { "amount must not be negative: $minor" } }
-    override fun toString(): String = "$minor cents"
+value class Weight(val grams: Long) {
+    init { require(grams >= 0) { "weight must not be negative: $grams" } }
+    override fun toString(): String = "$grams g"
 }
 
-data class PaymentCaptured(val paymentId: PaymentId, val amount: Money)
+data class ParcelCollected(val parcelId: ParcelId, val weight: Weight)
 
 fun interface Handler<in E : Any> { fun handle(event: E) }
 
 /** Defaults only: Java gets the all-defaults constructor and the full one, nothing in between. */
-class PlainBus(val name: String = "payments", val strict: Boolean = false)
+class PlainBus(val name: String = "parcels", val strict: Boolean = false)
 
 /** The same, with @JvmOverloads: Java also gets FriendlyBus(String). */
-class FriendlyBus @JvmOverloads constructor(val name: String = "payments", val strict: Boolean = false)
+class FriendlyBus @JvmOverloads constructor(val name: String = "parcels", val strict: Boolean = false)
 
 object Registry {
     private val handlers = CopyOnWriteArrayList<Pair<KClass<*>, Handler<Any>>>()
@@ -46,17 +46,17 @@ object Registry {
     fun publish(event: Any) = handlers.filter { it.first.isInstance(event) }.forEach { it.second.handle(event) }
 
     /** Takes a value class, so its JVM name is mangled: Java can't call it. */
-    fun describe(id: PaymentId): String = "payment $id"
+    fun describe(id: ParcelId): String = "parcel $id"
 }
 
 /** The Java door for the model: plain String and long in and out, and the value classes still validate. */
 object Events {
     @JvmStatic
-    fun captured(paymentId: String, amountMinor: Long): PaymentCaptured = PaymentCaptured(PaymentId(paymentId), Money(amountMinor))
+    fun collected(parcelId: String, grams: Long): ParcelCollected = ParcelCollected(ParcelId(parcelId), Weight(grams))
 
     @JvmStatic
-    fun paymentId(event: PaymentCaptured): String = event.paymentId.value
+    fun parcelId(event: ParcelCollected): String = event.parcelId.value
 
     @JvmStatic
-    fun amountMinor(event: PaymentCaptured): Long = event.amount.minor
+    fun grams(event: ParcelCollected): Long = event.weight.grams
 }

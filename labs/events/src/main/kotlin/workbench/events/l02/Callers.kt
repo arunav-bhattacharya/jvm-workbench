@@ -8,7 +8,7 @@ package workbench.events.l02
  * So the tests call these ordinary functions, which are compiled together with your code.
  */
 object Callers {
-    fun onCaptured(bus: EventBus, handler: Handler<PaymentCaptured>): Subscription = bus.subscribe<PaymentCaptured>(handler)
+    fun onCollected(bus: EventBus, handler: Handler<ParcelCollected>): Subscription = bus.subscribe<ParcelCollected>(handler)
 
-    fun onMoneyMovement(bus: EventBus, handler: Handler<MoneyMovement>): Subscription = bus.subscribe<MoneyMovement>(handler)
+    fun onHandover(bus: EventBus, handler: Handler<Handover>): Subscription = bus.subscribe<Handover>(handler)
 }

@@ -5,7 +5,7 @@ import workbench.memory.Jvm;
 import java.util.List;
 
 /**
- * Allocates 2,000,000 small arrays in a child JVM that logs a TLAB summary at every GC.
+ * Allocates 5,000,000 small arrays in a child JVM that logs a TLAB summary at every GC.
  * Each "refills" count is how often a thread went back to eden for a fresh buffer.
  */
 public class TlabDemo {
@@ -18,7 +18,7 @@ public class TlabDemo {
             }
             return;
         }
-        for (int i = 0; i < 2_000_000; i++) sink = new byte[24];   // 16-byte header + 24 bytes = 40 bytes each
-        System.out.println("allocated 2,000,000 arrays of 40 bytes: 80,000,000 bytes");
+        for (int i = 0; i < 5_000_000; i++) sink = new byte[24];   // 16-byte header + 24 bytes = 40 bytes each
+        System.out.println("allocated 5,000,000 arrays of 40 bytes: 200,000,000 bytes");
     }
 }

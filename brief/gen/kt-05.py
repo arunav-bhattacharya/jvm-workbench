@@ -52,7 +52,7 @@ OPENING = """At the print shop, jobs travel between desks in envelopes. A clerk 
 
 The Kotlin compiler works the same way. It knows what it saw in the function it is reading, and it never opens a function you call, so your own check function, however careful, teaches it nothing. A contract is the stamp on the outside. The easy trap is the other half of the story: nobody checks a stamp. The compiler believes it, true or not.
 
-In the last lesson we wrote a small language and saw context receivers retire. This time we stamp our own envelopes, watch a false stamp fail at run time, and meet context parameters: values that every clerk on a shift carries without being handed them on each job. Before we start, make a guess, and keep it in mind."""
+In the last lesson we wrote a small language and saw context receivers retire. This time we stamp our own envelopes, watch a false stamp fail at run time, and meet context parameters, the values every clerk on a shift carries without being handed them on each job. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
 J_PLAIN = """// Java's type system doesn't track null at all, so the question never comes up
@@ -100,9 +100,9 @@ A **contract** is the stamp on the outside of the envelope. It is a `contract { 
 
 """ + pair(J_CONTRACT, K_CONTRACT) + """
 
-With the contract, `requirePaper(paper)` can be followed by `paper.uppercase()`, and the demo prints `paper = A4`. With `once`, a `val` declared without a value can be assigned inside the lambda, because the compiler now knows the lambda runs exactly once, before the next line. Take the `callsInPlace` line out, and being inline isn't enough. You get `'val' cannot be reassigned.` and `variable 'label' must be initialized.`, because an inline function may still call its lambda twice, or not at all.
+With the contract, `requirePaper(paper)` can be followed by `paper.uppercase()`, and the demo prints `paper = A4`. With `once`, a `val` declared without a value can be assigned inside the lambda, because the compiler now knows the lambda runs exactly once, before the next line. Take the `callsInPlace` line out, and being inline (pasted into the caller, as lesson 1 showed) isn't enough. You get `'val' cannot be reassigned.` and `variable 'label' must be initialized.`, because an inline function may still call its lambda twice, or not at all.
 
-This is how `require`, `check`, `requireNotNull`, `run`, `let` and `apply` work in the standard library. Contracts are still Experimental in Kotlin 2.4, which means the feature may still change and you must agree to use it in writing. The 2.4.0 release notes say so, and without `@OptIn(ExperimentalContracts::class)` every word of the block fails with `this declaration needs opt-in.` No compiler flag is needed, only that annotation.
+This is how `require`, `check`, `requireNotNull`, `run`, `let` and `apply` work in the standard library. Contracts are still Experimental in Kotlin 2.4, which means the feature may still change and you must agree to use it in writing. The 2.4.0 release notes say so, and without `@OptIn(ExperimentalContracts::class)` every part of the block fails with `this declaration needs opt-in.` No compiler flag is needed, only that annotation.
 
 **The compiler smart-casts only from checks it can see. A contract writes the check on the outside of the function.**
 
@@ -178,7 +178,7 @@ The Kotlin version declares the two values once per function, in `context(...)` 
 
 In the print shop, the context parameters are what every clerk on a shift carries: the shift's logbook and the shift's name. Nobody hands them over with each job. The demo hands them out once, at the start of the shift, with `context(console, Shift("early")) { ... }`, and inside that block every function that needs them has them.
 
-The compiler finds a context argument in one of three places: an enclosing function's own context parameter (as `takeIn` passes its `logbook` and `shift` on to `check`), a `context(a, b) { ... }` block from the standard library, or an implicit receiver, such as the `this` of a `with(console) { ... }` block. If you don't need a name, write `_` and read the value with `contextOf<Logbook>()`, as the demo's `remark` does. Forget the context altogether, and the call doesn't compile: `no context argument for 'logbook: Logbook' found.`
+The compiler finds a context argument in one of three places. The first is an enclosing function's own context parameter, as `takeIn` passes its `logbook` and `shift` on to `check`. The second is a `context(a, b) { ... }` block from the standard library. The third is an implicit receiver, such as the `this` of a `with(console) { ... }` block. If you don't need a name, write `_` and read the value with `contextOf<Logbook>()`, as the demo's `remark` does. Forget the context altogether, and the call doesn't compile: `no context argument for 'logbook: Logbook' found.`
 
 The docs describe context parameters as dependencies that are "implicitly available in the surrounding context". On the JVM nothing about them is implicit, as the figure shows. They become ordinary leading parameters: the context parameters first, then the extension receiver, then the value parameters. `javap` prints `check(Logbook, Shift, Job, String)`, and Java calls it by passing all four. That's where the shift picture breaks. On the JVM the clerk is handed the logbook with every single job, and a Java caller hands it over in person, every time.
 
@@ -193,7 +193,7 @@ Finding a value by type works well while there is exactly one candidate. The nex
 # ---------------------------------------------------------------- section 3
 S3 = """The compiler finds context arguments by type, so two values of the same type in the same place are a problem. Take a smaller `note` that needs only a logbook, `context(logbook: Logbook) fun note(line: String)`. Put the front desk's logbook and the back room's logbook in one block, `context(front, back) { note("x") }`, and the compiler won't pick one: `multiple potential context arguments for 'logbook: Logbook' in scope.` The docs give the rule: if several compatible values exist at the same scope level, the compiler reports an ambiguity. A nearer scope still wins over an outer one. In `context(front) { context(back) { note("x") } }`, the inner `back` is used, and the line goes to the back room.
 
-That's a reason to give context parameters specific types: a `Shift` class instead of a bare `String`, a `Logbook` interface instead of a `(String) -> Unit` function type. A bare `String` in a context would match every string in sight.
+That's a reason to give context parameters specific types: a `Shift` class instead of a bare `String`, a `Logbook` interface instead of a `(String) -> Unit` function type. A bare `String` in a context would match any string in scope.
 
 A few things are not allowed. Constructors can't have context parameters: `context parameters on primary constructors are unsupported.` A property can have them only if it has no backing field, the hidden field that stores a property's value, so it must be a computed getter: `property with context parameters cannot be initialized because it has no backing field.` And two parts are still not stable in Kotlin 2.4. One is passing a context argument by name, as in `note(logbook = front, line = "x")`, an Experimental feature behind `-Xexplicit-context-arguments`. Without the flag, 2.4.21 says it "is only available since language version 2.5". The other is a callable reference, `::note`, which fails with `callable reference to 'context(logbook: Logbook) fun note(line: String): Unit' is unsupported because it has context parameters.` Leave both alone for now.
 
@@ -205,7 +205,7 @@ So where do context parameters fit? Not for the long-lived helpers an object is 
 
 That's also the limit of both tools in this lesson. A contract is believed without checks, and a context argument is found by its type, never by its meaning. Keeping either honest is your job.
 
-A check to finish: `with(Logbook { println(it) }) { context(Shift("late")) { JobRequest(40, "a3", "poster.pdf").review(1_000) } }`. Will it compile, and where does each context argument come from? (It compiles. The `Logbook` comes from the implicit receiver of `with`, and the `Shift` from the `context(...)` block. Each type has exactly one candidate.)"""
+A check to finish, with the lab's `review`, which needs a `Logbook` and a `Shift`: `with(Logbook { println(it) }) { context(Shift("late")) { JobRequest(40, "a3", "poster.pdf").review(1_000) } }`. Will it compile, and where does each context argument come from? (It compiles. The `Logbook` comes from the implicit receiver of `with`, and the `Shift` from the `context(...)` block. Each type has exactly one candidate.)"""
 
 # ---------------------------------------------------------------- closing
 CLOSING = """We started with envelopes moving between desks. A contract is the stamp on the outside, `returns() implies` or `callsInPlace`, and the compiler believes it without opening the envelope, so a false stamp turns into a `ClassCastException` later. Context parameters are what every clerk carries for the whole shift: passed by the compiler, and on the JVM as plain leading parameters.

@@ -45,11 +45,11 @@ FIG = (
 )
 
 # ---------------------------------------------------------------- opening
-OPENING = """Picture the print shop's print line. A job goes in at one end as a file and comes out at the other as paper. On the way, small machines change every job that passes: one adds a cover sheet, another a blank back page, a third a slip that describes the job. Nobody edits the file. Each machine reads a note on the job's ticket and acts on it.
+OPENING = """Picture the print shop's print line, where a job goes in as a file and comes out as paper. On the way, machines change every job that passes. One takes off the shrink-wrap so that a cover sheet can go in front, one adds a blank form at the back, one clips on a slip that describes the job. Each acts on a note on the job's ticket.
 
-The Kotlin compiler has a line like that, and compiler plugins are its machines. You mark a class with an annotation, and a plugin changes what the compiler writes for it: it takes away a `final`, adds a constructor, or writes a whole new class. The trap is that your source shows none of it. The class you read and the class the JVM loads are no longer the same.
+The Kotlin compiler has a line like that, and compiler plugins are its machines. You mark a class with an annotation, a label that tools can read. A plugin then changes what the compiler writes for it: it takes away a `final`, adds a constructor, or writes a whole new class. The trap is that your source shows none of it: the class you read is not the class the JVM loads.
 
-In the last lesson, contracts told the compiler facts. Now plugins change what it writes. We'll open classes for frameworks that subclass them, add an empty constructor for frameworks that build objects first, write JSON with a serializer nobody typed, and meet the tools that write new source files instead. Before we start, make a guess, and keep it in mind."""
+In the last lesson, contracts told the compiler facts; now plugins change what it writes. We'll open classes for frameworks that subclass them, add an empty constructor for frameworks that fill objects in later, write JSON with a serializer nobody typed, and meet tools that write source files instead. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
 J_FINAL = """class LoggedPrintQueue extends PrintQueue {      // error: cannot inherit from final PrintQueue
@@ -69,7 +69,7 @@ plugins {
 allOpen { annotation("workbench.kotlin.OpenForProxies") }
 noArg { annotation("workbench.kotlin.NoArgEntity") }"""
 
-S0 = """Many libraries add behavior to your classes without touching your source. A **framework**, a library that calls your code rather than the other way round, often does it with a **proxy**: a class it generates that extends yours and overrides each method, to do some work before and after calling the original through `super`. A timing proxy starts a clock, calls your method, and writes down how long it took. Write such a subclass by hand for the shop's `PrintQueue`, and the problem shows at once:
+S0 = """Many libraries add behavior to your classes without touching your source. A **framework** is a library that calls your code, rather than the other way round. Many frameworks do it with a **proxy**: a class they generate that extends yours and overrides each method. The override does some work before and after calling your original through `super`. A timing proxy starts a clock, calls your method, and writes down how long it took. Write such a subclass by hand for the shop's `PrintQueue`, and the problem shows at once:
 
 """ + pair(J_FINAL, K_FINAL) + """
 
@@ -77,7 +77,7 @@ Kotlin classes and their members are final unless you write `open`: nobody may e
 
 On the print line, a final class is a job that arrives shrink-wrapped and ready to ship. Nobody can slip a cover sheet in front of it.
 
-A **compiler plugin** is a jar that the Kotlin compiler loads to change what it writes into class files. The **all-open** plugin "makes classes and their members open at compile time without requiring the open keyword", for every class that carries an annotation you name in the build, or whose superclass does. It's the machine that takes the shrink-wrap off every job with the right note on its ticket. This lab module names `workbench.kotlin.OpenForProxies` for all-open, and a second marker for the plugin of the next section:
+A **compiler plugin** is a jar (the zip file a Java library ships in) that the Kotlin compiler loads to change what it writes into class files. The **all-open** plugin "makes classes and their members open at compile time without requiring the open keyword". It does that for every class that carries an annotation you name in the build, or whose superclass does. It's the machine that takes the shrink-wrap off every job with the right note on its ticket. This lab module names `workbench.kotlin.OpenForProxies` for all-open, and a second marker for the plugin of the next section:
 
 ```kotlin solo
 """ + K_GRADLE + """
@@ -91,7 +91,7 @@ The figure puts the three plugins of this lesson side by side. Each one reads an
 
 ASIDE0 = {
     "title": "Which annotations does my framework need?",
-    "body": "Real frameworks come with presets, ready-made lists of annotations. `kotlin-spring` is all-open with the annotations of Spring, a widely used Java framework for web services, already listed: `@Component`, `@Transactional` and a few more. Presets can lag behind their framework, though. In the Kotlin 2.4.21 plugin, the `quarkus` preset still lists only the old `javax.enterprise.context` annotations, while Quarkus 3, another framework for services, uses `jakarta.enterprise.context`, so a class marked with the new name stays final. Whatever your framework, name the annotations it needs yourself in `allOpen { annotation(...) }`, and check one class with `javap` after every change to the build.",
+    "body": "Real frameworks come with presets, ready-made lists of annotations. `kotlin-spring` is all-open with the annotations of Spring, a widely used Java framework for web services, already listed: `@Component`, `@Transactional` and a few more. Presets can lag behind their framework, though. In the Kotlin 2.4.21 plugin, the `quarkus` preset still lists only the old `javax.enterprise.context` annotations. Quarkus 3, another framework for services, uses `jakarta.enterprise.context`, so a class marked with the new name stays final. Whatever your framework, name the annotations it needs yourself in `allOpen { annotation(...) }`, and check one class with `javap` after every change to the build.",
 }
 
 # ---------------------------------------------------------------- section 1
@@ -109,13 +109,13 @@ K_NOARG = """class JobRow(val id: String, var pages: Int) {
     constructor() : this("", 0)                    // the hand-written version: invented values
 }"""
 
-S1 = """Some libraries build your objects in two steps. A library that loads records from a database, such as Hibernate, the best-known one for Java, first calls a constructor with no parameters to get an empty object. Then it sets each field from the stored row. So it needs every such class to have a constructor with no parameters that isn't private. The shop's `JobRow(val id: String, var pages: Int)` has none. By hand, you'd add one:
+S1 = """Some libraries build your objects in two steps. A library that loads records from a database, for example, first calls a constructor with no parameters to get an empty object. Then it sets each field from the stored record. So it needs every such class to have a constructor with no parameters that isn't private. The shop's `JobRow(val id: String, var pages: Int)` has none. By hand, you'd add one:
 
 """ + pair(J_NOARG, K_NOARG) + """
 
 The hand-written Kotlin constructor works, but it invents an empty id and zero pages, and now any Kotlin caller can create that half-made row by mistake. The **no-arg** plugin generates the constructor instead, for classes with an annotation you configure, here `workbench.kotlin.NoArgEntity`. The docs say it's "annotated with @Deprecated at the HIDDEN level, so you can call it from Java but not from Kotlin". `javap -v` shows both annotations on it, `kotlin.Deprecated` with `level=HIDDEN` and `java.lang.Deprecated`. The demo shows the two sides: Kotlin's `JobRow()` fails with `no value passed for parameter 'id'.`, and Java's `new JobRow()` compiles, with only a deprecation note from javac.
 
-On the print line, no-arg is the machine that adds a blank form to every job marked for it, so that a clerk further down can fill it in.
+On the print line, no-arg is the machine that adds a blank form at the back of every job marked for it, so that a clerk further down can fill it in.
 
 Now the trap, and the picture shows it. The blank form is really blank. The generated constructor runs no property initializers: its bytecode is three instructions, `aload_0`, `invokespecial Object.<init>` and `return`, and nothing else. The option that would run them, `invokeInitializers`, is "disabled by default". So after `new JobRow()`, `status` holds `null`, even though Kotlin declared it a non-null `String` with the value `"NEW"`. The first `status.length` in Kotlin code throws a `NullPointerException`. A paper form would at least have "status: NEW" printed on it.
 
@@ -123,7 +123,7 @@ For a database library that's usually fine, because it sets every stored field r
 
 **A no-arg constructor skips your initializers. Don't trust a field of an object you didn't build yourself.**
 
-For Hibernate and the other JPA libraries (JPA is the Java standard for mapping classes to database tables), use `kotlin-jpa` rather than configuring no-arg yourself. It is no-arg with a preset for `@Entity`, `@Embeddable` and `@MappedSuperclass`, in both the `javax.persistence` and `jakarta.persistence` packages. Since Kotlin 2.3.20, the Gradle `org.jetbrains.kotlin.plugin.jpa` plugin also applies all-open with a JPA preset, so that, in the release notes' words, "lazy associations work as expected instead of causing eager loading". On older Kotlin versions you had to add all-open for those classes yourself.
+Hibernate is the best-known such library for Java, and it follows JPA, the Java standard for mapping classes to database tables. For Hibernate and other JPA libraries, use `kotlin-jpa` rather than configuring no-arg yourself. It is no-arg with a preset for `@Entity`, `@Embeddable` and `@MappedSuperclass`, in both the `javax.persistence` and `jakarta.persistence` packages. Since Kotlin 2.3.20, the Gradle `org.jetbrains.kotlin.plugin.jpa` plugin also applies all-open with a JPA preset, so that, in the release notes' words, "lazy associations work as expected instead of causing eager loading". On older Kotlin versions you had to add all-open for those classes yourself.
 
 The first two machines change the shape of a class. The third writes code the class never had."""
 
@@ -153,7 +153,7 @@ S2 = """The shop's app records what happens to each job as events: a job was que
 
 Most JSON libraries on the JVM work by **reflection**, which means inspecting a class while the program runs: they find its constructor and its properties, and guess how to fill them. Kotlin classes make the guessing harder, with default arguments and non-null types that the JVM knows nothing about. kotlinx.serialization doesn't guess. "When you annotate a class with @Serializable, the Kotlin serialization plugin generates a KSerializer for that class."
 
-The demo's `Queued` gets a nested class, `Queued$$serializer`, that implements `GeneratedSerializer<Queued>` with real `serialize` and `deserialize` methods, plus `Queued.serializer()` on the companion object. On the print line, it's the machine that clips a slip to each job, listing its fields one by one, so that anyone further down can write the job out as text and read it back. Without the plugin, `Queued.serializer()` is `unresolved reference 'serializer'.`
+The demo's `Queued` gets a nested class, `Queued$$serializer`, that implements `GeneratedSerializer<Queued>` with real `serialize` and `deserialize` methods, plus `Queued.serializer()` on the companion object. On the print line, it's the machine that clips a slip to each job, listing its fields one by one. With the slip, anyone further down can write the job out as text and read it back. Without the plugin, `Queued.serializer()` is `unresolved reference 'serializer'.`
 
 """ + pair(J_SER, K_SER) + """
 
@@ -161,7 +161,7 @@ A sealed hierarchy, a base type whose subclasses are all known when the code com
 
 The discriminator is written only when the static type, the type the compiler sees, is the base. `List<JobEvent>` gets `"type":"queued"`, while `Json.encodeToString(q)` with `q` typed `Queued` gets none. Its value is the fully qualified class name unless you set `@SerialName`, so without it, moving a class to another package changes your saved files. And the default `Json` leaves out properties that equal their default (`encodeDefaults` is off), writes nulls, and rejects keys it doesn't know: `Encountered an unknown key 'tray'`.
 
-For saved events, that last default matters most. A newer version of the app adds a `tray` field, and every older reader with the default `Json` stops reading the file. So set `ignoreUnknownKeys = true`. Build one `Json` instance and reuse it: the docs say instances "are immutable and thread-safe", and reusing one is faster. The JSON format is Stable; HOCON, ProtoBuf, CBOR and Properties are still Experimental.
+For saved events, that last default matters most. A newer version of the app adds a `tray` field, and every older reader with the default `Json` puts the whole file down at the first key it doesn't know. So set `ignoreUnknownKeys = true`. Build one `Json` instance and reuse it: the docs say instances "are immutable and thread-safe", and reusing one is faster. The JSON format is Stable; HOCON, ProtoBuf, CBOR and Properties are still Experimental.
 
 **Pin every subtype with @SerialName, and tolerate unknown keys in data that outlives one version of the app.**
 
@@ -172,7 +172,7 @@ All three machines so far change the compiler's own output. A second family of t
 # ---------------------------------------------------------------- section 3
 S3 = """The three plugins above change the compiler's output from the inside. A second family of tools generates new source files from your annotations, the way Java's annotation processors do. An **annotation processor** is a program that runs during compilation, reads the annotations in your code and writes extra source files, which are then compiled with the rest. Libraries use them for code that would be dull to write by hand: mappers that copy fields from one class to another, or the glue that builds your objects and hands each one the helpers it needs.
 
-**kapt** runs Java annotation processors on Kotlin code. The docs say it "generates stub files from Kotlin source code and then runs the Java annotation processors on those stubs". Those stubs are Java declarations of your Kotlin classes, written only so that a Java processor can read them, and the migration guide calls them "expensive": they "significantly increase build time" and lose Kotlin-specific features.
+**kapt** runs Java annotation processors on Kotlin code. The docs say it "generates stub files from Kotlin source code and then runs the Java annotation processors on those stubs". Those stubs are Java declarations of your Kotlin classes, written only so that a Java processor can read them. The migration guide calls them "expensive": they "significantly increase build time" and lose Kotlin-specific features.
 
 **KSP**, Kotlin Symbol Processing, is the Kotlin-native alternative, "a source code generation framework for Kotlin". Its processors read Kotlin declarations directly, and its README says they "can run up to 2x faster" than kapt. The limits are part of the design: KSP processors "can't examine expressions or statements, and they can't modify the source code". They only add new files.
 

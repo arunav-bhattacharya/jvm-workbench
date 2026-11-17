@@ -144,27 +144,34 @@ GLASS = "#BFE3EE"
 ITEMS = ["bread", "milk", "eggs", "apples"]
 
 
+def word(text, size, x_left, y, color=WHITE):
+    """A label whose baseline matches its neighbours': lay it out after "Hg", then drop those two letters."""
+    full = T("Hg" + text, size, color).move_to([0, y, 0])
+    vis = VGroup(*full[2:])
+    return vis.shift(RIGHT * (x_left - vis.get_left()[0]))
+
+
 def cell(text, color, w=1.05):
-    r = RoundedRectangle(corner_radius=0.08, width=w, height=0.44, stroke_color=color, stroke_width=2.5)
+    r = RoundedRectangle(corner_radius=0.08, width=w, height=0.42, stroke_color=color, stroke_width=2.5)
     r.set_fill(dim(color, 0.22), 1)
     return VGroup(r, M(text, 22, color).move_to(r))
 
 
 def board(vals, title="prices", w=3.3):
     """A price board: one row per item, one cell per price. vals: (text, colour) per item."""
-    frame = RoundedRectangle(corner_radius=0.12, width=w, height=2.75, stroke_color=GREY_A, stroke_width=4)
+    frame = RoundedRectangle(corner_radius=0.12, width=w, height=2.95, stroke_color=GREY_A, stroke_width=4)
     frame.set_fill(dim(GREY_B, 0.1), 1)
     head = T(title, 26, GREY_A).move_to(frame.get_top() + DOWN * 0.36)
     names, cells = VGroup(), VGroup()
     for k, (it, (txt, col)) in enumerate(zip(ITEMS, vals)):
-        y = frame.get_top()[1] - 0.92 - 0.47 * k
-        names.add(T(it, 24).move_to([frame.get_left()[0] + 0.25, y, 0], aligned_edge=LEFT))
+        y = frame.get_top()[1] - 0.92 - 0.52 * k
+        names.add(word(it, 24, frame.get_left()[0] + 0.25, y))
         cells.add(cell(txt, col).move_to([frame.get_right()[0] - 0.25 - 0.525, y, 0]))
     return VGroup(frame, head, names, cells)
 
 
 def set_cell(b, k, txt, col):
-    return Transform(b[3][k], cell(txt, col).move_to(b[3][k]))
+    return Transform(b[3][k], cell(txt, col).match_height(b[3][k][0]).move_to(b[3][k]))
 
 
 def strip(vals):
@@ -208,9 +215,9 @@ class Conc11Confine(Narrated):
         self.title_card("Nothing to lock", "take away the sharing, or take away the change")
 
         # ================= the price board =================
-        b0 = board([("old", OLD)] * 4).move_to([0, 1.2, 0])
-        custs = VGroup(*[clerk(READ, 0.48) for _ in range(10)]).arrange(RIGHT, buff=0.55).move_to([0, -1.55, 0])
-        c_lab = T("ten customers, reading at once", 24, READ).move_to([0, -2.35, 0])
+        b0 = board([("old", OLD)] * 4).scale(1.1).move_to([0, 1.25, 0])
+        custs = VGroup(*[clerk(READ, 0.5) for _ in range(10)]).arrange(RIGHT, buff=0.55).move_to([0, -1.85, 0])
+        c_lab = T("ten customers, reading at once", 24, READ).move_to([0, -2.65, 0])
         looks = VGroup(*[DashedLine(c.get_top() + UP * 0.08, b0[0].get_bottom() + RIGHT * (c.get_x() * 0.25),
                                     dash_length=0.07).set_stroke(READ, 1.5, opacity=0.5) for c in custs])
         self.say("open")
@@ -220,19 +227,19 @@ class Conc11Confine(Narrated):
         self.play(Create(looks), FadeIn(c_lab), run_time=0.9)
         self.hold()
 
-        b1 = board([("new", NEW)] * 4).scale(0.55).move_to([5.0, 1.6, 0])
+        b1 = board([("new", NEW)] * 4).scale(0.6).move_to([5.0, 1.6, 0])
         owner = clerk(REF, 0.6).move_to([5.0, -0.25, 0])
         o_lab = T("owner", 22, REF).next_to(owner, DOWN, buff=0.12)
-        one = T("one move", 24, REF).move_to([0, 3.0, 0])
+        one = T("one move", 24, REF).move_to([0, 3.2, 0])
         self.say("swap")
         self.play(FadeIn(owner), FadeIn(o_lab), run_time=0.5)
         self.at(1)
         self.play(FadeIn(b1, shift=DOWN * 0.15), run_time=0.7)
-        self.play(FadeOut(b0, shift=LEFT * 0.4), b1.animate.scale(1 / 0.55).move_to([0, 1.2, 0]), FadeIn(one), run_time=1.0)
+        self.play(FadeOut(b0, shift=LEFT * 0.4), b1.animate.scale(1.1 / 0.6).move_to([0, 1.25, 0]), FadeIn(one), run_time=1.0)
         self.hold()
 
         # ================= the program does the opposite =================
-        bm = board([("old", OLD)] * 4, title="prices: one map").move_to([-1.2, 1.2, 0])
+        bm = board([("old", OLD)] * 4, title="prices: one map").scale(1.1).move_to([-1.2, 1.25, 0])
         refr = clerk(REF, 0.6).move_to([2.6, 1.2, 0])
         r_lab = T("refresher thread", 22, REF).next_to(refr, DOWN, buff=0.15)
         t_lab = T("threads at the tills", 24, READ).move_to(c_lab)
@@ -557,7 +564,7 @@ class Conc11Confine(Narrated):
 
         # ================= the limit, on the table =================
         self.clear()
-        grid_all.move_to([0.4, -0.1, 0])
+        grid_all.move_to([0, -0.1, 0])
         snap = T("immutable snapshot", 24, NEW).move_to(grid_all[0][0][1])
         conf = VGroup(T("notepad, handed-over", 22, TEAL_M), T("ticket, ThreadLocal", 22, TEAL_M)).arrange(DOWN, buff=0.1)
         conf.move_to(grid_all[0][0][2])

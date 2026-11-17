@@ -1,45 +1,45 @@
 package workbench.events.l02.demo.variance
 
-import workbench.events.l02.demo.PaymentCaptured
-import workbench.events.l02.demo.PaymentEvent
-import workbench.events.l02.demo.PaymentRefunded
+import workbench.events.l02.demo.ParcelCollected
+import workbench.events.l02.demo.ParcelDelivered
+import workbench.events.l02.demo.ParcelEvent
 import kotlin.reflect.KClass
 import kotlin.reflect.cast
 
-// The event model (PaymentEvent and friends) is in DemoModel.kt, one package up.
+// The event model (ParcelEvent and friends) is in DemoModel.kt, one package up.
 
 /** Step 2: delete the word `in` and run again. */
-fun interface Handler<in E : PaymentEvent> {
+fun interface Handler<in E : ParcelEvent> {
     fun handle(event: E)
 }
 
 class Bus {
-    private val handlers = mutableListOf<Pair<KClass<*>, Handler<PaymentEvent>>>()
+    private val handlers = mutableListOf<Pair<KClass<*>, Handler<ParcelEvent>>>()
 
-    fun <E : PaymentEvent> subscribe(type: KClass<E>, handler: Handler<E>) {
+    fun <E : ParcelEvent> subscribe(type: KClass<E>, handler: Handler<E>) {
         handlers += type to Handler { event -> handler.handle(type.cast(event)) }
     }
 
-    fun publish(event: PaymentEvent) {
+    fun publish(event: ParcelEvent) {
         for ((type, h) in handlers) if (type.isInstance(event)) h.handle(event)
     }
 }
 
 fun main() {
-    val audit = Handler<PaymentEvent> { println("audit   ${it.paymentId} (${it::class.simpleName})") }
-    val ledger = Handler<PaymentCaptured> { println("ledger  +${it.cents}") }
+    val tracking = Handler<ParcelEvent> { println("tracking ${it.parcelId} (${it::class.simpleName})") }
+    val load = Handler<ParcelCollected> { println("load     +${it.grams} g") }
 
     val bus = Bus()
-    bus.subscribe(PaymentCaptured::class, ledger)
-    bus.subscribe(PaymentCaptured::class, audit)              // a handler of any event fits here
-    val forCaptures: Handler<PaymentCaptured> = audit         // the same subtyping, written out
+    bus.subscribe(ParcelCollected::class, load)
+    bus.subscribe(ParcelCollected::class, tracking)            // a handler of any event fits here
+    val forCollections: Handler<ParcelCollected> = tracking    // the same subtyping, written out
 
-    // Step 3: uncomment. A handler that only knows captures can't take every event.
-    // val tooWide: Handler<PaymentEvent> = ledger
+    // Step 3: uncomment. A handler that only knows collections can't take every event.
+    // val tooWide: Handler<ParcelEvent> = load
 
-    bus.publish(PaymentCaptured("pay_7781", 1_999))
-    bus.publish(PaymentRefunded("pay_7781", 500))             // nobody subscribed to refunds
-    forCaptures.handle(PaymentCaptured("pay_7782", 250))
+    bus.publish(ParcelCollected("PP-7781", 2_500))
+    bus.publish(ParcelDelivered("PP-7781", 2_500))             // nobody subscribed to deliveries
+    forCollections.handle(ParcelCollected("PP-7782", 1_200))
 
     // What Java callers see for subscribe:
     println(Bus::class.java.getMethod("subscribe", KClass::class.java, Handler::class.java).toGenericString())

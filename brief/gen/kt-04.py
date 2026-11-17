@@ -75,7 +75,7 @@ The parameter type in the Kotlin version, `StringBuilder.() -> Unit`, is a **fun
 
 You may wonder what the JVM makes of it. The JVM has no idea what a receiver is. To the JVM, `StringBuilder.() -> Unit` and `(StringBuilder) -> Unit` are one and the same: `kotlin.jvm.functions.Function1<StringBuilder, Unit>`, Kotlin's interface for a function with one parameter. The receiver is simply the first argument. So Kotlin lets you assign one type to the other, and it lets you call a receiver lambda both ways, `sb.withReceiver()` or `withReceiver(sb)`. Only the compiler cares about the difference, because it decides what `this` means inside the braces.
 
-That is also exactly what Java sees. Java calls the Kotlin `ticket` with a lambda that gets the builder as a parameter, and the lambda has to end with `return Unit.INSTANCE`. A Kotlin function with nothing useful to return returns `Unit`, and to Java, `Unit` is a real object. Leave the line out, and javac says `bad return type in lambda expression` and `missing return value`. It's a small toll Java pays on every block.
+That is also exactly what Java sees. Java calls the Kotlin `ticket` with a lambda that gets the builder as a parameter, and the lambda has to end with `return Unit.INSTANCE`. A Kotlin function with nothing useful to return returns `Unit`, and to Java, `Unit` is a real object. Leave the line out, and javac, the Java compiler, says `bad return type in lambda expression` and `missing return value`. It's a small toll Java pays on every block.
 
 Two more facts turn this into a language. A receiver lambda can take ordinary parameters too: `Builder.(Int) -> Unit` gets a `this` and an `Int`. And an extension function, a function you declare as if it were a member of a class you didn't write, works like a named lambda with receiver. A `fun BookletBuilder.folded(...)` can be called inside any `BookletBuilder.() -> Unit` block. The worked example uses that to add a new word to the shop's DSL.
 
@@ -132,13 +132,13 @@ K_STD = """val lines = buildList {
 val printed = buildMap { for (l in lines) put(l.file, l.copies * l.pages) }
 val text = buildString { append("pages to print="); append(printed.values.sum()) }"""
 
-S1 = """One clipboard holds one form. The shop's real orders have sections inside sections. Take a booklet, such as a restaurant menu: a cover on thick card, then a few parts on plain paper, say the starters and the mains. The shop makes booklets by folding sheets in half, and one folded sheet gives four pages. So every booklet needs a multiple of 4 pages, or a customer gets blank pages nobody asked for.
+S1 = """Every section of an order needs its own clipboard, and some sections hold smaller ones. Take a booklet, such as a restaurant menu: a cover on thick card, then a few parts on plain paper, say the starters and the mains. The shop makes booklets by folding sheets in half, and one folded sheet gives four pages. So every booklet needs a multiple of 4 pages, or a customer gets blank pages nobody asked for.
 
 The pattern Kotlin's docs call a **type-safe builder** has two pieces. A builder class holds the state and offers the words: properties to set and functions to call. An entry function creates the builder, runs your lambda on it, and returns the finished result. Here is the lab's booklet builder, cut down to its shape:
 
 """ + pair(J_BOOKLET, K_BOOKLET) + """
 
-The Kotlin entry function is one line, `BookletBuilder(title).apply(block).build()`. First `apply` runs the block with the new builder as `this`. Then `build()` turns the builder into a finished `Booklet`. The Java version does the same three steps by hand, and its block names the builder, `b.`, on every line.
+The Kotlin entry function is one line, `BookletBuilder(title).apply(block).build()`. It creates a builder, runs the block with that builder as `this`, and turns the builder into a finished `Booklet`. The Java version does the same three steps by hand, and its block names the builder, `b.`, on every line.
 
 Nesting is the same trick again. The lab's `OrderBuilder` has a function `booklet(title) { ... }` that takes another receiver lambda, so an order holds booklets the way a form holds sections. No library is involved: only classes, functions and lambdas with receivers.
 
@@ -199,7 +199,7 @@ You can still reach the outer section on purpose, by naming it. `this@orderForm`
 
 **Without a marker, a missing name falls through to the outer builder. Mark every builder class.**
 
-The rules are narrow, so learn them exactly. A marker counts only where it marks a type: a builder class, a common superclass of all the builders (enough for a DSL with twenty of them), the receiver type of a function type (the `TYPE` target, as in `@FormDsl ContactBuilder.() -> Unit`), or a type alias, which is a second name for a type. Every builder needs it. Leave `ContactBuilder` unmarked, and the wrong move compiles again.
+The rules are narrow, so learn them exactly. A marker counts only where it marks a type. That can be a builder class, or a common superclass of all the builders, which is enough for a DSL with twenty of them. It can be the receiver type of a function type (the `TYPE` target, as in `@FormDsl ContactBuilder.() -> Unit`). Or it can be a type alias, a second name for a type. Every builder needs it. Leave `ContactBuilder` unmarked, and the wrong move compiles again.
 
 On a function, the marker does nothing. If your annotation's `@Target` allows functions, Kotlin 2.4.21 warns `applying DSL marker annotation 'FormDsl' to target 'member function' has no effect`. With `@Target(CLASS, TYPE)`, as here, it refuses outright: `this annotation is not applicable to target 'member function'`. Extension functions on a marked builder still work inside its block, because they resolve against the nearest receiver.
 

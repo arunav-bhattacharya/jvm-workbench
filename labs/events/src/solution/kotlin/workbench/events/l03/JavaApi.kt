@@ -8,37 +8,37 @@ import java.util.function.Consumer
  * takes and returns plain String and long, and still validates: it builds the value classes, so
  * every init block runs.
  *
- * @JvmStatic makes each function a real static method: Java writes Events.captured(...), not
- * Events.INSTANCE.captured(...).
+ * @JvmStatic makes each function a real static method: Java writes Events.collected(...), not
+ * Events.INSTANCE.collected(...).
  */
 object Events {
     @JvmStatic
-    fun authorized(paymentId: String, amountMinor: Long): PaymentAuthorized =
-        PaymentAuthorized(PaymentId(paymentId), Money(amountMinor))
+    fun booked(parcelId: String, grams: Long): ParcelBooked =
+        ParcelBooked(ParcelId(parcelId), Weight(grams))
 
     @JvmStatic
-    fun captured(paymentId: String, amountMinor: Long): PaymentCaptured =
-        PaymentCaptured(PaymentId(paymentId), Money(amountMinor))
+    fun collected(parcelId: String, grams: Long): ParcelCollected =
+        ParcelCollected(ParcelId(parcelId), Weight(grams))
 
     @JvmStatic
-    fun refunded(paymentId: String, amountMinor: Long): PaymentRefunded =
-        PaymentRefunded(PaymentId(paymentId), Money(amountMinor))
+    fun delivered(parcelId: String, grams: Long): ParcelDelivered =
+        ParcelDelivered(ParcelId(parcelId), Weight(grams))
 
     @JvmStatic
-    fun declined(paymentId: String, reason: DeclineReason): PaymentDeclined =
-        PaymentDeclined(PaymentId(paymentId), reason)
+    fun failed(parcelId: String, reason: FailReason): DeliveryFailed =
+        DeliveryFailed(ParcelId(parcelId), reason)
 
     @JvmStatic
-    fun paymentId(event: PaymentEvent): String = event.paymentId.value
+    fun parcelId(event: ParcelEvent): String = event.parcelId.value
 
     @JvmStatic
-    fun amountMinor(event: MoneyMovement): Long = event.amount.minor
+    fun grams(event: Handover): Long = event.weight.grams
 
     @JvmStatic
-    fun amountMinor(event: PaymentAuthorized): Long = event.amount.minor
+    fun grams(event: ParcelBooked): Long = event.weight.grams
 
     /**
-     * The subscription DSL for Java: Events.subscriptions(bus, b -> { b.on(PaymentCaptured.class, e -> ...); }).
+     * The subscription DSL for Java: Events.subscriptions(bus, b -> { b.on(ParcelCollected.class, e -> ...); }).
      * A Consumer, not a Function1, so the Java lambda needs no `return Unit.INSTANCE`.
      */
     @JvmStatic

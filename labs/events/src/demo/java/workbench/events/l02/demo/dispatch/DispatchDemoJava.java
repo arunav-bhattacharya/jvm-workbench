@@ -9,25 +9,25 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 public class DispatchDemoJava {
-    sealed interface PaymentEvent permits PaymentAuthorized, PaymentDeclined, MoneyMovement { String paymentId(); }
-    record PaymentAuthorized(String paymentId, long cents) implements PaymentEvent {}
-    record PaymentDeclined(String paymentId, String reason) implements PaymentEvent {}
-    sealed interface MoneyMovement extends PaymentEvent permits PaymentCaptured, PaymentRefunded { long cents(); }
-    record PaymentCaptured(String paymentId, long cents) implements MoneyMovement {}
-    record PaymentRefunded(String paymentId, long cents) implements MoneyMovement {}
+    sealed interface ParcelEvent permits ParcelBooked, DeliveryFailed, Handover { String parcelId(); }
+    record ParcelBooked(String parcelId, long grams) implements ParcelEvent {}
+    record DeliveryFailed(String parcelId, String reason) implements ParcelEvent {}
+    sealed interface Handover extends ParcelEvent permits ParcelCollected, ParcelDelivered { long grams(); }
+    record ParcelCollected(String parcelId, long grams) implements Handover {}
+    record ParcelDelivered(String parcelId, long grams) implements Handover {}
 
     /** Keys every handler by the class it was subscribed under; delivery can look up keys two ways. */
     static final class Bus {
-        private final Map<Class<?>, List<Consumer<PaymentEvent>>> handlers = new HashMap<>();
+        private final Map<Class<?>, List<Consumer<ParcelEvent>>> handlers = new HashMap<>();
         private final boolean walkSupertypes;
 
         Bus(boolean walkSupertypes) { this.walkSupertypes = walkSupertypes; }
 
-        <E extends PaymentEvent> void subscribe(Class<E> type, Consumer<? super E> handler) {
+        <E extends ParcelEvent> void subscribe(Class<E> type, Consumer<? super E> handler) {
             handlers.computeIfAbsent(type, t -> new ArrayList<>()).add(event -> handler.accept(type.cast(event)));
         }
 
-        void publish(PaymentEvent event) {
+        void publish(ParcelEvent event) {
             List<Class<?>> keys = walkSupertypes ? dispatchKeys(event.getClass()) : List.of(event.getClass());
             for (Class<?> key : keys) handlers.getOrDefault(key, List.of()).forEach(h -> h.accept(event));
         }
@@ -39,7 +39,7 @@ public class DispatchDemoJava {
         ArrayDeque<Class<?>> queue = new ArrayDeque<>(List.of(type));
         while (!queue.isEmpty()) {
             Class<?> c = queue.removeFirst();
-            if (!PaymentEvent.class.isAssignableFrom(c) || !found.add(c)) continue;
+            if (!ParcelEvent.class.isAssignableFrom(c) || !found.add(c)) continue;
             queue.addAll(List.of(c.getInterfaces()));
             if (c.getSuperclass() != null) queue.add(c.getSuperclass());
         }
@@ -50,13 +50,13 @@ public class DispatchDemoJava {
         for (boolean walk : new boolean[] {false, true}) {
             List<String> ran = new ArrayList<>();
             Bus bus = new Bus(walk);
-            bus.subscribe(PaymentEvent.class, e -> ran.add("audit"));
-            bus.subscribe(MoneyMovement.class, e -> ran.add("movements"));
-            bus.subscribe(PaymentCaptured.class, e -> ran.add("ledger"));
-            bus.publish(new PaymentCaptured("pay_7781", 1_999));
+            bus.subscribe(ParcelEvent.class, e -> ran.add("tracking"));
+            bus.subscribe(Handover.class, e -> ran.add("handovers"));
+            bus.subscribe(ParcelCollected.class, e -> ran.add("load"));
+            bus.publish(new ParcelCollected("PP-7781", 2_500));
             System.out.printf("%-22s %s%n", walk ? "walking supertypes:" : "exact class only:", ran);
         }
-        System.out.println("keys for PaymentCaptured: " + dispatchKeys(PaymentCaptured.class).stream().map(Class::getSimpleName).toList());
-        System.out.println("keys for PaymentDeclined: " + dispatchKeys(PaymentDeclined.class).stream().map(Class::getSimpleName).toList());
+        System.out.println("keys for ParcelCollected: " + dispatchKeys(ParcelCollected.class).stream().map(Class::getSimpleName).toList());
+        System.out.println("keys for DeliveryFailed: " + dispatchKeys(DeliveryFailed.class).stream().map(Class::getSimpleName).toList());
     }
 }

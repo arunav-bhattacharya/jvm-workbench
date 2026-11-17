@@ -26,7 +26,7 @@ fun main() {
     show("ByteArray(1 MiB)") { sink = ByteArray(1 shl 20) }
     show("1,000 x boxing (i % 128).toLong()") { for (i in 0 until 1_000) sink = (i % 128).toLong() }
     show("1,000 x boxing (1_000 + i).toLong()") { for (i in 0 until 1_000) sink = (1_000 + i).toLong() }
-    show("1,000 x \"pay-\$i\"") { for (i in 0 until 1_000) sink = "pay-$i" }
+    show("1,000 x \"img-\$i\"") { for (i in 0 until 1_000) sink = "img-$i" }
 
     Thread.ofVirtual().start {
         println("on a virtual thread the counter says ${THREADS.currentThreadAllocatedBytes}")
