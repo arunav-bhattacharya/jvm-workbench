@@ -1,169 +1,297 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:04.596
-A refund ledger has a race.
+00:00:02.700 --> 00:00:04.807
+Picture the refund desk at a shop.
 
 2
-00:00:04.596 --> 00:00:09.581
-A test starts two threads, each makes one refund, and checks the total.
+00:00:04.807 --> 00:00:09.827
+A customer brings something back and gets money back, sometimes in several parts.
 
 3
-00:00:09.581 --> 00:00:11.125
-It passes, every time.
+00:00:09.827 --> 00:00:14.475
+The rule: the refunds for one sale must never add up to more than the sale.
 
 4
-00:00:11.333 --> 00:00:15.553
-Starting a thread takes a while, and one refund is over in a moment.
+00:00:14.700 --> 00:00:18.114
+The shop's program handles refunds on several threads.
 
 5
-00:00:15.553 --> 00:00:18.408
-They never overlap, so the race never happens.
+00:00:18.114 --> 00:00:24.625
+So the team wrote a test: two threads ask for refunds at once, and the total must stay within the sale.
 
 6
-00:00:18.633 --> 00:00:20.389
-How would you make them collide?
+00:00:24.625 --> 00:00:26.837
+It has passed every day for a year.
 
 7
-00:00:22.900 --> 00:00:26.875
-Hold every thread at a start latch, then release them all at once.
+00:00:27.067 --> 00:00:33.874
+Then, on the first busy day of a sale, a coat that sold for 100.00 is refunded 160.00.
 
 8
-00:00:27.100 --> 00:00:32.696
-Use more threads than cores, and many operations each, so they overlap for a long time.
+00:00:33.874 --> 00:00:35.932
+The customer is delighted.
 
 9
-00:00:33.300 --> 00:00:35.400
-Run many rounds with fresh state.
+00:00:35.932 --> 00:00:37.199
+The shop is not.
 
 10
-00:00:35.400 --> 00:00:38.327
-Each round is one sample of the interleavings.
+00:00:37.400 --> 00:00:39.919
+So here's the question we're shy to ask.
 
 11
-00:00:38.533 --> 00:00:40.838
-After join, check an invariant.
+00:00:39.919 --> 00:00:41.116
+Was the test lying?
 
 12
-00:00:40.838 --> 00:00:45.894
-Eight threads try 2,000 one-cent refunds each, against 10,000 cents.
+00:00:41.116 --> 00:00:44.076
+And if it wasn't, what is a passing test worth?
 
 13
-00:00:45.894 --> 00:00:48.943
-A correct ledger approves exactly 10,000.
+00:00:44.900 --> 00:00:46.308
+The test wasn't lying.
 
 14
-00:00:49.167 --> 00:00:51.733
-The racy one approves 16,000.
+00:00:46.308 --> 00:00:47.973
+Its two threads never met.
 
 15
-00:00:51.967 --> 00:00:57.162
-On the lesson's racy counter, the naive test failed at most 6 of 20 runs.
+00:00:47.973 --> 00:00:57.448
+A small test like this takes a few microseconds, about as long as starting a thread, so the first thread is often done before the second one starts.
 
 16
-00:00:57.162 --> 00:00:59.297
-The stress test failed all 20.
+00:00:57.448 --> 00:01:01.417
+As the race lesson put it, a race is shy around small numbers.
 
 17
-00:01:00.200 --> 00:01:01.142
-Next, waiting.
+00:01:01.633 --> 00:01:04.923
+It's like testing the refund desk on a quiet Tuesday.
 
 18
-00:01:01.142 --> 00:01:06.592
-This test submits a payment, sleeps 50 milliseconds, then checks that it settled.
+00:01:04.923 --> 00:01:08.522
+One customer at a time, and the clerk never gets confused.
 
 19
-00:01:06.800 --> 00:01:09.558
-On a busy CI machine, the work runs longer.
+00:01:08.522 --> 00:01:11.253
+The bug needs the first morning of the sale.
 
 20
-00:01:09.558 --> 00:01:13.341
-The check comes too soon, and the test fails for no reason.
+00:01:12.067 --> 00:01:13.838
+So let's build that morning.
 
 21
-00:01:13.567 --> 00:01:16.944
-In the lesson's runs, it failed about a quarter of the time.
+00:01:13.838 --> 00:01:19.025
+A crowd waits outside, and at nine the doors open, and everyone rushes in at once.
 
 22
-00:01:17.167 --> 00:01:18.915
-Instead, wait for the event.
+00:01:19.025 --> 00:01:23.263
+That's the start latch from the synchronizers lesson, a latch of 1.
 
 23
-00:01:18.915 --> 00:01:25.159
-A latch counts down when the payment settles, and the test awaits it, with a deadline of 10 seconds.
+00:01:23.263 --> 00:01:27.880
+Every thread waits in await, and one countDown lets them all in together.
 
 24
-00:01:25.367 --> 00:01:29.312
-Fast when the work is fast, patient when the machine is slow.
+00:01:28.100 --> 00:01:29.260
+Three more habits.
 
 25
-00:01:29.312 --> 00:01:30.671
-It failed zero times.
+00:01:29.260 --> 00:01:38.601
+More customers than clerks: more threads than cores, the parts of the processor that each run one thread, so the system must switch between them.
 
 26
-00:01:31.600 --> 00:01:34.935
-In Java and Kotlin, it is the same four lines.
+00:01:38.601 --> 00:01:44.722
+Each customer brings many returns: many operations per thread, so they overlap for a long time.
 
 27
-00:01:36.067 --> 00:01:38.906
-Some races need millions of tries.
+00:01:44.722 --> 00:01:48.265
+And many sale days: many rounds, each with fresh state.
 
 28
-00:01:38.906 --> 00:01:42.331
-jcstress, the OpenJDK harness, does that.
+00:01:48.467 --> 00:01:50.760
+At closing time, the till must balance.
 
 29
-00:01:42.533 --> 00:01:46.259
-Two actors increment one counter, and record what they read.
+00:01:50.760 --> 00:01:54.523
+That's the invariant, a fact that must hold whatever the timing.
 
 30
-00:01:46.259 --> 00:01:49.736
-It runs this millions of times, and counts each outcome.
+00:01:54.523 --> 00:01:59.345
+Check it after every thread has finished, and never check how long something took.
 
 31
-00:01:49.967 --> 00:01:51.980
-1, 2 and 2, 1 are acceptable.
+00:02:00.167 --> 00:02:06.325
+The lesson ran the usual test twenty times: two threads, a thousand hits each, no start line.
 
 32
-00:01:51.980 --> 00:01:55.591
-1, 1 means both read zero, so an increment was lost.
+00:02:06.325 --> 00:02:12.815
+Then the stress test twenty times: eight threads, a hundred thousand hits each, and a start latch.
 
 33
-00:01:55.591 --> 00:01:59.480
-It is labeled interesting: the race you are looking for.
+00:02:12.815 --> 00:02:14.338
+Same counter, same bug.
 
 34
-00:01:59.700 --> 00:02:03.547
-Label an outcome forbidden, and one sighting fails the test.
+00:02:14.338 --> 00:02:15.596
+How many runs fail?
 
 35
-00:02:04.367 --> 00:02:04.962
-The rule.
+00:02:18.567 --> 00:02:21.053
+The usual test failed once in twenty.
 
 36
-00:02:04.962 --> 00:02:11.975
-Make threads collide on purpose, wait for events instead of time, and read a pass as: not found this time.
+00:02:21.053 --> 00:02:23.338
+The stress test failed all twenty.
 
 37
-00:02:12.200 --> 00:02:13.243
-Check yourself.
+00:02:23.338 --> 00:02:27.035
+And in another run, the usual test never failed at all.
 
 38
-00:02:13.243 --> 00:02:18.387
-A test starts two threads, each makes one refund, and it has never failed.
+00:02:27.867 --> 00:02:30.508
+Now the refund desk, under stress.
 
 39
-00:02:18.387 --> 00:02:19.708
-Is the ledger safe?
+00:02:30.508 --> 00:02:36.489
+Eight threads each try 2,000 one-cent refunds against a sale of 10,000 cents.
 
 40
-00:02:22.233 --> 00:02:23.278
-You can't tell.
+00:02:36.489 --> 00:02:39.674
+A correct ledger approves exactly 10,000.
 
 41
-00:02:23.278 --> 00:02:25.925
-The refunds probably never overlapped.
+00:02:39.674 --> 00:02:41.927
+The racy one approved 16,000.
 
 42
-00:02:25.925 --> 00:02:28.781
-A pass only means this run found nothing.
+00:02:41.927 --> 00:02:45.500
+That's our coat: 160.00 back on a 100.00 sale.
+
+43
+00:02:46.333 --> 00:02:47.317
+Two more rules.
+
+44
+00:02:47.317 --> 00:02:55.186
+Give every concurrency test a timeout, so a deadlock fails in seconds instead of hanging the whole test run for an hour.
+
+45
+00:02:55.186 --> 00:02:58.595
+And read a pass for what it is: not found this time.
+
+46
+00:02:58.595 --> 00:02:59.907
+Never: can't happen.
+
+47
+00:03:00.733 --> 00:03:02.117
+Tests also love a nap.
+
+48
+00:03:02.117 --> 00:03:06.266
+Hand some work to a background thread, sleep a little, then check.
+
+49
+00:03:06.266 --> 00:03:12.930
+In the lesson, eight busy threads kept every core working, like a shared test machine on a busy afternoon.
+
+50
+00:03:12.930 --> 00:03:16.514
+The work took about 2 milliseconds, and the test slept 3.
+
+51
+00:03:16.514 --> 00:03:17.897
+How often did it fail?
+
+52
+00:03:20.867 --> 00:03:22.294
+45 times out of 100.
+
+53
+00:03:22.294 --> 00:03:26.075
+A nap half as long again as the work was a coin toss.
+
+54
+00:03:26.075 --> 00:03:35.137
+The latch version waits for the event itself, with 5 seconds only as a deadline: zero failures, and as fast as the work allows.
+
+55
+00:03:35.967 --> 00:03:38.457
+Some races need millions of tries.
+
+56
+00:03:38.457 --> 00:03:46.805
+jcstress, a Java tool from the people who build Java, runs a tiny test millions of times and counts every outcome.
+
+57
+00:03:46.805 --> 00:03:51.053
+Two actors bump one refund counter and keep what they saw.
+
+58
+00:03:51.053 --> 00:03:53.177
+1 and 2, or 2 and 1, is fine.
+
+59
+00:03:53.177 --> 00:03:55.520
+1 and 1 means a refund was lost.
+
+60
+00:03:55.733 --> 00:04:01.235
+In one run of almost two billion samples, 1 and 1 came up 36 percent of the time.
+
+61
+00:04:01.235 --> 00:04:05.581
+Mark an outcome forbidden, and a single sighting fails the test.
+
+62
+00:04:06.400 --> 00:04:10.431
+The lab packs the habits into a small helper called Stress.
+
+63
+00:04:10.431 --> 00:04:13.027
+Java on the left, Kotlin on the right.
+
+64
+00:04:13.027 --> 00:04:14.735
+Rounds, threads and hits.
+
+65
+00:04:14.735 --> 00:04:16.375
+A setup for fresh state.
+
+66
+00:04:16.375 --> 00:04:18.288
+The actor every thread runs.
+
+67
+00:04:18.288 --> 00:04:19.517
+And the invariant.
+
+68
+00:04:20.333 --> 00:04:22.426
+So, what is a passing test worth?
+
+69
+00:04:22.426 --> 00:04:25.026
+Only as much as the collisions it forced.
+
+70
+00:04:25.026 --> 00:04:30.289
+Open the doors at nine, crowd the desk, run it for many days, and balance the till.
+
+71
+00:04:30.289 --> 00:04:33.587
+And when it passes, read it as: not found this time.
+
+72
+00:04:33.800 --> 00:04:34.636
+Quick check.
+
+73
+00:04:34.636 --> 00:04:39.792
+A test starts two threads, each makes one refund, and it has never failed.
+
+74
+00:04:39.792 --> 00:04:41.116
+Is the ledger safe?
