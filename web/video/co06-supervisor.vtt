@@ -1,137 +1,305 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:04.377
-A payment is captured.
+00:00:02.700 --> 00:00:03.706
+The gravy burns.
 
 2
-00:00:04.377 --> 00:00:09.561
-Now three messages go out: an email, an SMS and a push notification.
+00:00:03.706 --> 00:00:08.295
+Nobody in the kitchen has to be told: the smell reaches everyone at once.
 
 3
-00:00:09.767 --> 00:00:17.773
-Each one is an async child of one coroutineScope, and each async hands back a Deferred: a box for its result.
+00:00:08.295 --> 00:00:16.907
+The cook takes the potatoes off the heat too, because the main course can't go out without gravy, and she tells the family what happened.
 
 4
-00:00:18.000 --> 00:00:20.961
-At 50 milliseconds the SMS call throws.
+00:00:17.133 --> 00:00:23.197
+But by the window, three trays for tomorrow's bake sale are in the oven: cookies, scones and muffins.
 
 5
-00:00:20.961 --> 00:00:23.086
-Nobody has called await yet.
+00:00:23.197 --> 00:00:25.538
+They have nothing to do with the gravy.
 
 6
-00:00:23.086 --> 00:00:25.060
-What happens to the email?
+00:00:25.538 --> 00:00:28.780
+If the scones burn, the cookies should still come out.
 
 7
-00:00:27.833 --> 00:00:29.583
-The failure goes up at once.
+00:00:29.700 --> 00:00:32.876
+So here's a question that's easy to be shy about.
 
 8
-00:00:29.583 --> 00:00:34.832
-A failed child tells its parent the moment it fails, and that is true for async too.
+00:00:32.876 --> 00:00:36.376
+An async hands back a Deferred, a pot with the lid on.
 
 9
-00:00:34.832 --> 00:00:36.707
-Nothing waits in the Deferred.
+00:00:36.376 --> 00:00:41.496
+If it fails, doesn't the failure wait under the lid until somebody calls await?
 
 10
-00:00:36.933 --> 00:00:44.019
-The parent cancels the email and the push, and coroutineScope throws the SMS exception to the caller.
+00:00:42.200 --> 00:00:43.116
+Let's try it.
 
 11
-00:00:44.019 --> 00:00:45.843
-The customer gets nothing.
+00:00:43.116 --> 00:00:48.470
+Inside coroutineScope, the gravy is an async that burns at 100 milliseconds.
 
 12
-00:00:46.067 --> 00:00:48.913
-But these messages don't need each other.
+00:00:48.470 --> 00:00:52.134
+The potatoes are a launch that needs a whole second.
 
 13
-00:00:48.913 --> 00:00:51.691
-An SMS outage should not stop the email.
+00:00:52.134 --> 00:00:56.572
+And the body waits 500 milliseconds before it awaits the gravy.
 
 14
-00:00:52.600 --> 00:00:56.106
-So give them a parent that lets a child fail alone.
+00:00:56.572 --> 00:00:58.404
+When does anything happen?
 
 15
-00:00:56.106 --> 00:00:57.000
-Same failure.
+00:01:01.400 --> 00:01:03.109
+At 100 milliseconds.
 
 16
-00:00:57.000 --> 00:00:58.444
-Where does it go now?
+00:01:03.109 --> 00:01:14.134
+On a JVM that had just started, the lesson's run printed potatoes, finally, at 161, and the caller caught the burnt gravy at 188.
 
 17
-00:01:01.233 --> 00:01:02.818
-It stays with the child.
+00:01:14.134 --> 00:01:17.296
+The body's line at 500 never printed.
 
 18
-00:01:02.818 --> 00:01:07.967
-The parent doesn't cancel anyone, and the exception waits in the SMS Deferred.
+00:01:17.296 --> 00:01:19.176
+Nobody lifted the lid.
 
 19
-00:01:08.200 --> 00:01:12.772
-The push is sent at 100 milliseconds, and the email at 300.
+00:01:19.400 --> 00:01:24.620
+A failed child tells its parent the moment it fails, from async just as from launch.
 
 20
-00:01:13.000 --> 00:01:14.967
-Later the block calls await.
+00:01:24.620 --> 00:01:30.150
+The parent cancels its other children, waits for them, and fails with the same exception.
 
 21
-00:01:14.967 --> 00:01:22.976
-Each Deferred hands back what it holds, and for the SMS, await rethrows the IOException, where a try can catch it.
+00:01:30.150 --> 00:01:35.121
+So a try around await comes too late: by then, everything around it has stopped.
 
 22
-00:01:23.200 --> 00:01:26.663
-This parent is a supervisor: here, supervisorScope.
+00:01:35.933 --> 00:01:39.101
+Now the trays, under the same kind of parent.
 
 23
-00:01:26.663 --> 00:01:31.213
-Its children fail alone, but cancelling it still stops every child.
+00:01:39.101 --> 00:01:44.591
+The scones burn at 50 milliseconds, the muffins need 100, and the cookies 300.
 
 24
-00:01:32.133 --> 00:01:34.292
-With launch there is no Deferred.
+00:01:44.591 --> 00:01:46.492
+What comes out of the oven?
 
 25
-00:01:34.292 --> 00:01:42.728
-A failed launch child of a supervisor hands its exception to the CoroutineExceptionHandler in its context, which can only log it.
+00:01:49.467 --> 00:01:50.113
+Nothing.
 
 26
-00:01:43.733 --> 00:01:50.333
-Put that handler on a child of a plain parent, and it is never called: the child tells its parent first.
+00:01:50.113 --> 00:01:57.786
+The cookies came off at 100, the muffins at 125, and the caller caught the burnt scones at 131.
 
 27
-00:01:50.333 --> 00:01:54.712
-A handler works only at a root, or on a direct child of a supervisor.
+00:01:57.786 --> 00:02:01.583
+One burnt tray, and the whole oven was emptied.
 
 28
-00:01:55.633 --> 00:01:56.991
-This is Kotlin only.
+00:02:01.800 --> 00:02:03.207
+That's not a bake sale.
 
 29
-00:01:56.991 --> 00:02:04.863
-Write supervisorScope inside a function, or put SupervisorJob and the handler in the constructor of a scope you own.
+00:02:03.207 --> 00:02:04.431
+That's a fire drill.
 
 30
-00:02:05.667 --> 00:02:08.551
-So a plain parent sends a failure up at once.
+00:02:04.431 --> 00:02:07.490
+For a course that needs every dish, this is right.
 
 31
-00:02:08.551 --> 00:02:14.384
-A supervisor keeps it with the child: in the Deferred for async, in the handler for launch.
+00:02:07.490 --> 00:02:10.488
+For trays that don't need each other, it's wrong.
 
 32
-00:02:14.600 --> 00:02:15.418
-Quick check.
+00:02:10.700 --> 00:02:15.584
+So we change one word: supervisorScope instead of coroutineScope.
 
 33
-00:02:15.418 --> 00:02:20.050
-A launch child of coroutineScope has its own handler, and it throws.
+00:02:15.584 --> 00:02:17.839
+Same trays, same burnt scones.
 
 34
-00:02:20.050 --> 00:02:21.617
+00:02:18.067 --> 00:02:21.237
+This time the failure stays with the scones.
+
+35
+00:02:21.237 --> 00:02:28.155
+The muffins were baked at 148 milliseconds, the cookies at 342, and the scope returned normally.
+
+36
+00:02:28.155 --> 00:02:32.551
+Every line ran about 50 milliseconds late, on a busy machine.
+
+37
+00:02:32.767 --> 00:02:37.320
+This parent is a supervisor: a job whose children fail on their own.
+
+38
+00:02:37.320 --> 00:02:41.673
+A child's failure doesn't cancel its siblings, or the supervisor.
+
+39
+00:02:41.673 --> 00:02:46.696
+But a cancel still flows down: cancel the supervisor, and every tray stops.
+
+40
+00:02:46.900 --> 00:02:49.303
+So where did the scones' exception go?
+
+41
+00:02:49.303 --> 00:02:55.057
+A launch has no await, so it went to the notebook by the oven, a CoroutineExceptionHandler.
+
+42
+00:02:55.057 --> 00:03:00.874
+It's an element in the coroutine's context, and it writes down failures nobody else handled.
+
+43
+00:03:00.874 --> 00:03:05.743
+It can't save this week's scones: by the time it runs, the coroutine is over.
+
+44
+00:03:05.967 --> 00:03:07.960
+And it's only read at the top.
+
+45
+00:03:07.960 --> 00:03:14.274
+An ordinary child hands its exception to its parent, so a handler on that child is never asked.
+
+46
+00:03:14.274 --> 00:03:20.920
+Only root coroutines, the ones with no parent coroutine, and direct children of a supervisor use it.
+
+47
+00:03:21.733 --> 00:03:25.250
+With async children, the lid finally keeps its promise.
+
+48
+00:03:25.250 --> 00:03:32.157
+Under a supervisor, each failure waits in its own Deferred, and await rethrows it, where a try can catch it.
+
+49
+00:03:32.157 --> 00:03:35.802
+That's how bakeAll turns every tray into baked or failed.
+
+50
+00:03:35.802 --> 00:03:41.173
+Java's futures work like this without being asked: each one handles its own failure.
+
+51
+00:03:41.400 --> 00:03:47.832
+For background work, the owning class builds its scope with a SupervisorJob, a dispatcher and a handler.
+
+52
+00:03:47.832 --> 00:03:49.193
+That's the lab's Oven.
+
+53
+00:03:49.193 --> 00:03:53.708
+Every tray launched into it fails alone, and the notebook writes it down.
+
+54
+00:03:54.433 --> 00:03:58.573
+One wrong fix looks almost the same: launch(SupervisorJob()).
+
+55
+00:03:58.573 --> 00:04:00.813
+It reads like a supervised child.
+
+56
+00:04:00.813 --> 00:04:09.840
+But the context you pass a builder replaces the parent, so the child's parent is now a fresh SupervisorJob with no parent of its own.
+
+57
+00:04:09.840 --> 00:04:11.740
+The child has left the tree.
+
+58
+00:04:11.967 --> 00:04:15.592
+The lesson cancelled the dinner at 100 milliseconds.
+
+59
+00:04:15.592 --> 00:04:20.263
+At 324, the trap child printed: still running, nobody cancelled me.
+
+60
+00:04:20.263 --> 00:04:22.285
+It slipped out the back door.
+
+61
+00:04:22.285 --> 00:04:24.586
+So never pass a Job to a builder.
+
+62
+00:04:24.586 --> 00:04:26.677
+Put the supervisor in a scope.
+
+63
+00:04:27.500 --> 00:04:28.119
+One limit.
+
+64
+00:04:28.119 --> 00:04:32.761
+A supervisor protects the children from each other, not from its own block.
+
+65
+00:04:32.761 --> 00:04:37.218
+If the body of supervisorScope throws, everything under it is cancelled.
+
+66
+00:04:37.218 --> 00:04:45.575
+And here the picture breaks a little: a cook decides about each burnt dish as it happens, but a scope decides once, when you create it.
+
+67
+00:04:46.400 --> 00:04:48.882
+So, does a failure wait under the lid?
+
+68
+00:04:48.882 --> 00:04:53.716
+Not under a plain parent: it goes up at once, from launch and async alike.
+
+69
+00:04:53.716 --> 00:04:59.725
+A supervisor keeps it with the child: in the Deferred for async, in the notebook for launch.
+
+70
+00:04:59.725 --> 00:05:02.860
+If siblings need each other, use coroutineScope.
+
+71
+00:05:02.860 --> 00:05:04.951
+If they don't, use a supervisor.
+
+72
+00:05:05.167 --> 00:05:06.039
+Quick check.
+
+73
+00:05:06.039 --> 00:05:11.344
+Inside coroutineScope, a launch child has its own handler, and it throws.
+
+74
+00:05:11.344 --> 00:05:13.016
 Who gets the exception?
+
+75
+00:05:16.000 --> 00:05:17.075
+Not the handler.
+
+76
+00:05:17.075 --> 00:05:23.992
+A child tells its parent first, so coroutineScope is cancelled, and throws the exception to its caller.

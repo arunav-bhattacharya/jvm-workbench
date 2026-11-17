@@ -1,145 +1,313 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.665
-Two dashboards show live FX rates from one provider.
+00:00:02.700 --> 00:00:05.419
+The bakery has started a little radio show.
 
 2
-00:00:06.665 --> 00:00:13.145
-A subscribes at once, B joins 250 milliseconds later, and a new rate comes every 100.
+00:00:05.419 --> 00:00:09.908
+Every morning at seven, the head baker reads out the day's bread, live.
 
 3
-00:00:13.267 --> 00:00:16.146
-First the feed is cold, like an HTTP call.
+00:00:09.908 --> 00:00:12.880
+Switch on at five past, and you missed the rye.
 
 4
-00:00:16.146 --> 00:00:20.533
-What does B get, and how many connections does the provider see?
+00:00:12.880 --> 00:00:15.852
+The bakery also keeps a recording of each show.
 
 5
-00:00:22.533 --> 00:00:25.817
-A cold publisher runs again for every subscriber.
+00:00:15.852 --> 00:00:19.203
+Anyone who presses play hears it from the first word.
 
 6
-00:00:25.817 --> 00:00:30.039
-B gets its own connection, and its own run from the first rate.
+00:00:19.433 --> 00:00:23.112
+So the live show is shared, and goes on whether anyone listens.
 
 7
-00:00:30.039 --> 00:00:32.452
-The provider sends every tick twice.
+00:00:23.112 --> 00:00:25.740
+The recording starts again for each listener.
 
 8
-00:00:33.167 --> 00:00:36.781
-share() makes it hot: one run, shared by everyone.
+00:00:26.567 --> 00:00:29.502
+Reactor's publishers come in the same two kinds.
 
 9
-00:00:36.781 --> 00:00:37.937
-What does B get?
+00:00:29.502 --> 00:00:38.612
+And here's the question that's easy to be shy about: when two screens subscribe to the same Flux, do they share one stream, or does each get its own?
 
 10
-00:00:39.933 --> 00:00:43.918
-B joins late, so it gets only what comes after: 3 and 4.
+00:00:39.433 --> 00:00:40.671
+Let's shrink it.
 
 11
-00:00:43.918 --> 00:00:44.844
-It's live TV.
+00:00:40.671 --> 00:00:47.404
+The oven thermometer sends a reading every 100 milliseconds, five readings, 200 to 204.
 
 12
-00:00:44.844 --> 00:00:47.761
-Switch on late, and you missed the start.
+00:00:47.404 --> 00:00:50.654
+Screen A, in the shop, subscribes at once.
 
 13
-00:00:48.367 --> 00:00:52.891
-replay(1).refCount() also shares one run, but keeps the last item.
+00:00:50.654 --> 00:00:55.375
+Screen B, in the kitchen, switches on 250 milliseconds later.
 
 14
-00:00:52.891 --> 00:00:54.604
-cache() keeps every item.
+00:00:55.600 --> 00:00:56.980
+First, the plain feed.
 
 15
-00:00:54.604 --> 00:00:56.387
-What does B get from each?
+00:00:56.980 --> 00:01:01.181
+How many connections does the oven see, and what does screen B get?
 
 16
-00:00:58.367 --> 00:01:02.768
-With replay(1), B gets 2 the moment it joins, then the live ones.
+00:01:04.167 --> 00:01:05.339
+Two connections.
 
 17
-00:01:04.933 --> 00:01:07.161
-With cache, B gets 1 and 2 at once.
+00:01:05.339 --> 00:01:10.760
+And B gets all five readings, 200 to 204, from the start, on its own copy.
 
 18
-00:01:07.161 --> 00:01:10.788
-But cache keeps every item for as long as the Flux lives.
+00:01:10.760 --> 00:01:16.987
+It's the recording: each listener who presses play gets the show from the first word.
 
 19
-00:01:10.788 --> 00:01:12.697
-On a long feed, that's a leak.
+00:01:17.200 --> 00:01:19.358
+A publisher like that is called cold.
 
 20
-00:01:13.300 --> 00:01:17.986
-Sometimes the values come from ordinary code, like a Kafka listener.
+00:01:19.358 --> 00:01:24.315
+It does its work again for every subscriber, like the birthday that needed two cakes.
 
 21
-00:01:17.986 --> 00:01:25.153
-A sink lets it push them into a Flux: the listener calls tryEmitNext, and subscribers see sink.asFlux().
+00:01:24.315 --> 00:01:29.913
+And with six screens on one thermometer, that's six connections to the oven, where one would do.
 
 22
-00:01:25.267 --> 00:01:30.012
-A multicast sink sends each item to the subscribers present at that moment.
+00:01:30.733 --> 00:01:32.787
+A hot publisher is the live show.
 
 23
-00:01:30.012 --> 00:01:33.365
-So it's hot, and B misses what came before it joined.
+00:01:32.787 --> 00:01:39.384
+It produces whether or not anyone listens, and each subscriber hears what's sent from the moment it joins.
 
 24
-00:01:34.133 --> 00:01:38.074
-Now two listener threads call tryEmitNext at the same moment.
+00:01:39.384 --> 00:01:47.351
+Reactor makes a cold feed hot with a few operators, and they differ in two things: when they connect, and what a latecomer gets.
 
 25
-00:01:38.074 --> 00:01:40.077
-What happens to the two events?
+00:01:47.967 --> 00:01:52.243
+The simplest is share: one connection, shared by everyone.
 
 26
-00:01:42.067 --> 00:01:42.927
-One goes in.
+00:01:52.243 --> 00:01:54.824
+Screen B joins at 250 milliseconds.
 
 27
-00:01:42.927 --> 00:01:47.943
-The other call gets FAIL_NON_SERIALIZED, and its event is not emitted.
+00:01:54.824 --> 00:01:56.520
+What does it get first?
 
 28
-00:01:47.943 --> 00:01:52.028
-If you ignore the result, events vanish with no log line.
+00:01:59.500 --> 00:02:01.832
+202, the reading sent at 300.
 
 29
-00:01:52.133 --> 00:01:55.889
-So check every result, or call emitNext with busyLooping.
+00:02:01.832 --> 00:02:10.116
+Readings 200 and 201 went out before B switched on, and nobody rewinds a live show for a late listener.
 
 30
-00:01:55.889 --> 00:01:59.315
-It spins until the sink is free, for up to a second.
+00:02:10.116 --> 00:02:12.448
+The oven sees one connection.
 
 31
-00:02:00.100 --> 00:02:04.117
-Here are the shared feed and the sink, in Java and in Kotlin.
+00:02:12.667 --> 00:02:15.825
+For a screen, that's a blank face until the next reading.
 
 32
-00:02:05.500 --> 00:02:08.458
-Cold runs the work again for each subscriber.
+00:02:15.825 --> 00:02:20.147
+With a thermometer that reads once a minute, that's up to a minute of nothing.
 
 33
-00:02:08.458 --> 00:02:14.045
-Hot runs it once and shares it, and the operator decides what a late subscriber gets.
+00:02:20.767 --> 00:02:25.681
+So let the show repeat its last announcement for anyone who tunes in.
 
 34
-00:02:14.045 --> 00:02:17.595
-A sink is a hot source that ordinary code pushes into.
+00:02:25.681 --> 00:02:27.676
+That's replay(1).refCount().
 
 35
-00:02:17.700 --> 00:02:18.645
-Quick check.
+00:02:27.676 --> 00:02:31.308
+B gets 201 the moment it joins, then the live ones.
 
 36
-00:02:18.645 --> 00:02:24.711
-With replay(2).refCount(), what does B get when it joins at 250 milliseconds?
+00:02:31.308 --> 00:02:32.804
+Still one connection.
+
+37
+00:02:33.033 --> 00:02:39.145
+And cache is a recorder that keeps the whole broadcast, and plays it to every newcomer from the start.
+
+38
+00:02:39.145 --> 00:02:41.721
+B gets all five, the two it missed at once.
+
+39
+00:02:41.721 --> 00:02:45.376
+On a feed that never ends, cache keeps every reading forever.
+
+40
+00:02:45.376 --> 00:02:50.169
+That's our doorstep again, only this time we're piling up the loaves on purpose.
+
+41
+00:02:51.000 --> 00:02:54.043
+The refCount part is the switch on the transmitter.
+
+42
+00:02:54.043 --> 00:02:59.234
+It connects when the first listener arrives, and switches off when the last one leaves.
+
+43
+00:02:59.234 --> 00:03:04.126
+Here the radio picture breaks: a real station keeps broadcasting to an empty room.
+
+44
+00:03:04.126 --> 00:03:08.243
+With refCount, the show stops, and the next listener starts it again.
+
+45
+00:03:09.067 --> 00:03:09.977
+One guardrail.
+
+46
+00:03:09.977 --> 00:03:16.801
+A shared feed asks the source only for what every subscriber can take, so one slow screen slows them all.
+
+47
+00:03:16.801 --> 00:03:20.116
+Pair it with a loss policy from the packer's table.
+
+48
+00:03:20.933 --> 00:03:25.615
+Sometimes the values don't come from a publisher at all, but from ordinary code.
+
+49
+00:03:25.615 --> 00:03:31.527
+Each till in the shop rings a bell when an order is placed, and every screen in the kitchen hears it.
+
+50
+00:03:31.527 --> 00:03:34.863
+Someone who walks in later didn't hear the earlier rings.
+
+51
+00:03:35.067 --> 00:03:38.704
+A sink is Reactor's safe way to ring that bell from code.
+
+52
+00:03:38.704 --> 00:03:44.127
+A till calls tryEmitNext with the order, and the kitchen screens subscribe to asFlux.
+
+53
+00:03:44.127 --> 00:03:49.679
+A multicast sink sends each order to whoever is subscribed at that moment, so it's hot.
+
+54
+00:03:50.300 --> 00:03:54.334
+Now two tills ring at exactly the same moment, on two threads.
+
+55
+00:03:54.334 --> 00:03:56.351
+What happens to the two orders?
+
+56
+00:03:59.333 --> 00:04:00.180
+One goes in.
+
+57
+00:04:00.180 --> 00:04:05.402
+The other call gets back FAIL_NON_SERIALIZED, and its order is never sent.
+
+58
+00:04:05.402 --> 00:04:11.753
+That's rule 1.3 from the start of this track: a subscriber never gets two signals at once.
+
+59
+00:04:11.753 --> 00:04:14.293
+So the sink refuses the second ring.
+
+60
+00:04:15.100 --> 00:04:20.519
+The lesson's demo let 8 threads ring 10,000 times each.
+
+61
+00:04:20.519 --> 00:04:23.968
+The kitchen heard 11,679 of 80,000.
+
+62
+00:04:23.968 --> 00:04:31.653
+The sink said no 68,321 times, very politely, with a return value nobody read.
+
+63
+00:04:31.867 --> 00:04:33.874
+And here the bell picture breaks.
+
+64
+00:04:33.874 --> 00:04:36.794
+Two hands on a real bell rope still make a ring.
+
+65
+00:04:36.794 --> 00:04:38.863
+The sink makes one of them let go.
+
+66
+00:04:39.067 --> 00:04:47.878
+So check every result, or ring with emitNext and a busyLooping handler, which tries again until the sink is free, for up to a second.
+
+67
+00:04:47.878 --> 00:04:50.131
+Then the kitchen heard all 80,000.
+
+68
+00:04:50.933 --> 00:05:00.753
+Here it is in Java and Kotlin: the thermometer shared with replay(1), with a 5 second grace before it disconnects, and a bell the tills ring safely.
+
+69
+00:05:01.567 --> 00:05:03.742
+So, do two screens share one Flux?
+
+70
+00:05:03.742 --> 00:05:05.278
+Only if you make it hot.
+
+71
+00:05:05.278 --> 00:05:09.117
+Cold plays the recording from the start for each subscriber.
+
+72
+00:05:09.117 --> 00:05:13.533
+Hot is the live show, and the operator decides what a latecomer gets.
+
+73
+00:05:13.533 --> 00:05:16.156
+And a sink is a bell your own code rings.
+
+74
+00:05:16.156 --> 00:05:18.716
+From many threads, ring it with a retry.
+
+75
+00:05:18.933 --> 00:05:19.828
+Quick check.
+
+76
+00:05:19.828 --> 00:05:26.093
+With replay(2).refCount(), what does screen B get when it joins at 250 milliseconds?
+
+77
+00:05:29.067 --> 00:05:33.907
+200 and 201 at once, the last two readings.
+
+78
+00:05:33.907 --> 00:05:37.059
+Then 202, 203 and 204, live.
