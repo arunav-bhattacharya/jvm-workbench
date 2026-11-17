@@ -13,20 +13,20 @@ import workbench.container.l03.SubclassBridge
 import java.lang.management.ManagementFactory
 import java.lang.reflect.Proxy
 
-interface KFees {
-    fun feeMinor(amountMinor: Long): Long
+interface KPrices {
+    fun feeCents(priceCents: Long): Long
 }
 
-open class KPlainFees : KFees {
-    override fun feeMinor(amountMinor: Long) = (amountMinor * 29 + 500) / 1000
+open class KPlainPrices : KPrices {
+    override fun feeCents(priceCents: Long) = (priceCents * 29 + 500) / 1000
 }
 
 private val chain = listOf(Interceptor { it.proceed() })          // does nothing but carry on
 
 /** The shape RegistryGenerator writes for an intercepted interface. */
-class KFeesProxy(private val target: KFees) : KFees {
-    override fun feeMinor(amountMinor: Long): Long =
-        Invocation("KFees.feeMinor", arrayOf(amountMinor), chain) { target.feeMinor(amountMinor) }.proceed() as Long
+class KPricesProxy(private val target: KPrices) : KPrices {
+    override fun feeCents(priceCents: Long): Long =
+        Invocation("KPrices.feeCents", arrayOf(priceCents), chain) { target.feeCents(priceCents) }.proceed() as Long
 }
 
 private val threads = ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
@@ -41,20 +41,20 @@ private inline fun bytesPerCall(call: (Long) -> Long): Double {
 }
 
 fun main() {
-    val fee = KFees::class.java.getMethod("feeMinor", Long::class.java)
-    val jdkProxy = Proxy.newProxyInstance(KFees::class.java.classLoader, arrayOf(KFees::class.java),
-        InterceptingHandler(KPlainFees(), mapOf(fee to chain))) as KFees
-    val byteBuddy = ByteBuddy().subclass(KPlainFees::class.java)
-        .method(named("feeMinor"))
+    val fee = KPrices::class.java.getMethod("feeCents", Long::class.java)
+    val jdkProxy = Proxy.newProxyInstance(KPrices::class.java.classLoader, arrayOf(KPrices::class.java),
+        InterceptingHandler(KPlainPrices(), mapOf(fee to chain))) as KPrices
+    val byteBuddy = ByteBuddy().subclass(KPlainPrices::class.java)
+        .method(named("feeCents"))
         .intercept(MethodDelegation.withDefaultConfiguration().filter(named("intercept"))
-            .to(SubclassBridge(mapOf(KPlainFees::class.java.getMethod("feeMinor", Long::class.java) to chain))))
-        .make().load(KPlainFees::class.java.classLoader).loaded
+            .to(SubclassBridge(mapOf(KPlainPrices::class.java.getMethod("feeCents", Long::class.java) to chain))))
+        .make().load(KPlainPrices::class.java.classLoader).loaded
         .getConstructor().newInstance()
-    val direct = KPlainFees()
-    val generated = KFeesProxy(KPlainFees())
-    println("%-10s %8.1f B/call".format("direct", bytesPerCall { direct.feeMinor(it) }))
-    println("%-10s %8.1f B/call".format("jdkProxy", bytesPerCall { jdkProxy.feeMinor(it) }))
-    println("%-10s %8.1f B/call".format("byteBuddy", bytesPerCall { byteBuddy.feeMinor(it) }))
-    println("%-10s %8.1f B/call".format("generated", bytesPerCall { generated.feeMinor(it) }))
+    val direct = KPlainPrices()
+    val generated = KPricesProxy(KPlainPrices())
+    println("%-10s %8.1f B/call".format("direct", bytesPerCall { direct.feeCents(it) }))
+    println("%-10s %8.1f B/call".format("jdkProxy", bytesPerCall { jdkProxy.feeCents(it) }))
+    println("%-10s %8.1f B/call".format("byteBuddy", bytesPerCall { byteBuddy.feeCents(it) }))
+    println("%-10s %8.1f B/call".format("generated", bytesPerCall { generated.feeCents(it) }))
     println("(checksum $sink)")
 }

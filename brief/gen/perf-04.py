@@ -102,12 +102,12 @@ ADDER_K = """class RequestMetrics {
 
 OPENING = """Picture two cooks at one counter, sharing a single cutting board. One chops onions, the other chops peppers. They never touch each other's vegetables, so there's nothing to argue about. But only one knife fits on the board at a time, so each cook keeps stepping back to wait for the other.
 
-Your processor has the same problem in miniature. Two threads that each write their own field, never the same one, can slow each other down. The two fields share one small block of memory, and the hardware moves that block around as a unit.
+Your processor has the same problem in miniature. Two threads, two lines of work running at the same time, can slow each other down even when each writes only its own field. The two fields share one small block of memory, and the hardware moves that block around as a unit.
 
 It's an easy trap, because the code looks perfect: no shared data, no locks, no race. And this time the JIT isn't involved at all; the cost lives in the hardware. Lesson 3 gave us honest benchmarks on one thread; now a second thread joins. In this lesson, we'll see how caches move memory, read real field offsets, set two counters fighting over one line, pad them apart, and meet the JDK's own answer, `LongAdder`. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
-S0 = """A processor never reads a single `long` from memory on its own. Main memory is far away, as distances inside a computer go, so each core keeps small, fast memories close by, its **caches** (called L1 and L2). They don't hold single variables. They hold **cache lines**, blocks of 64 bytes on x86 processors. The course machine says so directly: the file `/sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size` contains 64.
+S0 = """A processor never reads a single `long` from memory on its own. Main memory is far away, as distances inside a computer go. So each core, one of the processor's units that runs a thread, keeps small, fast memories close by: its **caches** (called L1 and L2). They don't hold single variables. They hold **cache lines**, blocks of 64 bytes on x86 processors. The course machine says so directly: the file `/sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size` contains 64.
 
 A cache line is the cutting board: a fixed-size surface where the work happens. The hardware moves the whole board, never a single onion.
 
@@ -117,7 +117,7 @@ Now look at an ordinary object in memory. The report service works in two stages
 
 """ + pair(ADJ_J, ADJ_K) + """
 
-The first 12 bytes are the object header: 8 bytes of bookkeeping and a 4-byte pointer to the object's class. Then come 4 bytes of gap, so the `long`s start on an 8-byte boundary, and then the two fields, 8 bytes apart. The whole object is 32 bytes. Unless it happens to straddle the edge of a line, both counters sit on the same 64-byte line: the same board.
+(`volatile` makes each write visible to other threads at once, as the memory model track showed.) The first 12 bytes are the object header: 8 bytes of bookkeeping and a 4-byte pointer to the object's class. Then come 4 bytes of gap, so the `long`s start on an 8-byte boundary, and then the two fields, 8 bytes apart. The whole object is 32 bytes. Unless it happens to straddle the edge of a line, both counters sit on the same 64-byte line: the same board.
 
 For code that reads, that's good news. Reading `parsed` brings `written` along for free, and arrays of numbers are fast to scan for the same reason. For two threads that each write their own field, it's bad news, as the next section shows.
 
@@ -128,7 +128,7 @@ Offsets depend on the JVM and its flags. On JDK 25 with `-XX:+UseCompactObjectHe
 Two counters on one line cost nothing while one thread reads them. Let's give each of them a writer of its own."""
 
 # ---------------------------------------------------------------- section 1
-S1 = """The parsing thread now writes only `parsed`, and the writing thread writes only `written`. They share no data, so there's nothing to lock and no race. But they share a line, and the line can live in only one core's cache for writing at a time.
+S1 = """The parsing thread now writes only `parsed`, and the writing thread writes only `written`. They share no data, so there's nothing to lock and no race, no two threads writing the same variable. But they share a line, and the line can live in only one core's cache for writing at a time.
 
 Trace two writes. Core 1 holds the line and adds 1 to `parsed`. Core 2 wants to add 1 to `written`, finds its copy invalid, and waits while the line travels over. Now core 1's copy is invalid, so its next `parsed++` waits for the line to travel back. Each `++` is a few nanoseconds of work wrapped in a wait. When both threads run at the same moment, the line bounces between the cores on almost every write. This is **false sharing**: the program shares nothing, and the hardware shares a lot. The figure shows the bounce.
 
@@ -140,7 +140,7 @@ round 2: adjacent   977 ms   padded   784 ms
 round 3: adjacent 1,124 ms   padded   806 ms
 ```
 
-That's a gap, but a small one, and the other runs were worse. In most of them the padded version lost one round in three, and the Kotlin twin lost two. Was the mechanism wrong? No. More than 20 other busy programs were sharing the machine's four cores, so our two threads were rarely running at the same moment. A line can only bounce between two cores that both want it right now. When this lesson was first written, on a quieter day, the same demo on the same machine told the textbook story: adjacent took 957 to 1,387 ms and padded 206 to 247 ms, about five times faster.
+That's a gap, but a small one, and it wasn't even steady. Across nine runs here, in Java and Kotlin, the padded version lost one round in three. Was the mechanism wrong? No. More than 20 other busy programs were sharing the machine's four cores, so our two threads were rarely running at the same moment. A line can only bounce between two cores that both want it right now. When this lesson was first written, on a quieter day, the same demo on the same machine told the textbook story: adjacent took 957 to 1,387 ms and padded 206 to 247 ms, about five times faster.
 
 Where the threads run matters too. Two hyperthreads, two hardware threads that share one physical core, also share that core's L1 and L2 caches. Put the two writers there, and there's no line to bounce at all.
 
@@ -178,7 +178,7 @@ S3 = """Hand padding is for library authors. For a counter in your own code, use
 
 In the kitchen, it's each cook keeping a tally of dishes on a slip by their own board, and the manager adding the slips up at closing time.
 
-The slips are only handed out when needed. The source says: "When there is no contention, all updates are made to the base field." **Contention** means threads getting in each other's way; here, a compare-and-set that fails because another thread changed the value first. On the first failed compare-and-set, `LongAdder` creates a table of 2 cells, and it doubles the table under more contention. Each thread then mostly updates its own cell, on its own line. `sum()` adds up the base and the cells. As "Atomics and compare-and-set" said, `sum()` is not an atomic snapshot. So use `LongAdder` for counters you read now and then, such as metrics, and `AtomicLong` when the value drives a decision.
+The slips are only handed out when needed. The source says: "When there is no contention, all updates are made to the base field." **Contention** means threads getting in each other's way. Here it's a failed compare-and-set. Compare-and-set is the "update it only if nobody beat me to it" instruction behind `AtomicLong`, the JDK's thread-safe counter, and it fails when another thread changed the value first. On the first failed compare-and-set, `LongAdder` creates a table of 2 cells, and it doubles the table under more contention. Each thread then mostly updates its own cell, on its own line. `sum()` adds up the base and the cells. As "Atomics and compare-and-set" said, `sum()` is not an atomic snapshot. So use `LongAdder` for counters you read now and then, such as metrics, and `AtomicLong` when the value drives a decision.
 
 Here's the report service's request counter, the one the lab fixes. Every request thread calls `record` once per report, and a monitoring program reads the totals every few seconds:
 

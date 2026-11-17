@@ -63,12 +63,12 @@ public final class RegistryGenerator {
         return out.append("}\n").toString();
     }
 
-    /** The name of a singleton's holder class: {@code FxRates_Holder}. */
+    /** The name of a singleton's holder class: {@code SeatingPlan_Holder}. */
     static String holder(Class<?> component) {
         return component.getSimpleName() + "_Holder";
     }
 
-    /** The name of a prototype's factory method: {@code new_PaymentAttempt}. */
+    /** The name of a prototype's factory method: {@code new_Basket}. */
     static String factory(Class<?> component) {
         return "new_" + component.getSimpleName();
     }
@@ -79,12 +79,12 @@ public final class RegistryGenerator {
         return proxy != null ? proxy : component.getCanonicalName();
     }
 
-    /** Java code for the bean: {@code FxRates_Holder.INSTANCE} for a singleton, {@code new_PaymentAttempt()} for a prototype. */
+    /** Java code for the bean: {@code SeatingPlan_Holder.INSTANCE} for a singleton, {@code new_Basket()} for a prototype. */
     static String reference(Class<?> component) {
         return Container.scopeOf(component) == Scope.SINGLETON ? holder(component) + ".INSTANCE" : factory(component) + "()";
     }
 
-    /** Java code that builds a new bean, its dependencies passed in: {@code new FeeCalculator(FxRates_Holder.INSTANCE)}. */
+    /** Java code that builds a new bean, its dependencies passed in: {@code new PriceList(SeatingPlan_Holder.INSTANCE)}. */
     static String newExpression(BeanGraph graph, Class<?> component) {
         Class<?>[] params = Constructors.pick(component).getParameterTypes();
         List<Class<?>> deps = graph.dependenciesOf(component);

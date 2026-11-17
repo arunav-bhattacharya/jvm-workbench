@@ -12,8 +12,8 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * A child JVM with -Xmx256m that does what services do: a 64 MiB direct buffer (think Netty) and 50
- * threads. It then compares what the JVM reports with what the operating system says it uses.
+ * A child JVM with -Xmx256m that does what services do: a 64 MiB direct buffer (network code often uses
+ * these for socket data) and 50 threads. It then compares what the JVM reports with what the operating system says it uses.
  */
 public class FootprintDemo {
     static final long MB = 1024 * 1024;

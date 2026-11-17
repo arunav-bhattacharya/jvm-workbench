@@ -2,72 +2,73 @@ package workbench.container.l02
 
 import java.util.concurrent.atomic.AtomicInteger
 
-class IssuerUnavailableException(message: String) : RuntimeException(message)
+class BookingUnavailableException(message: String) : RuntimeException(message)
 
-interface CardIssuerClient {
+/** The box office's link to the city's booking service. */
+interface BookingClient {
     @Timed
-    @Retry(attempts = 3, on = [IssuerUnavailableException::class])
-    fun authorize(pan: String, amountMinor: Long): String
+    @Retry(attempts = 3, on = [BookingUnavailableException::class])
+    fun reserve(seat: String, priceCents: Long): String
 
     @Timed
-    @Retry(attempts = 3, on = [IssuerUnavailableException::class])
-    fun capture(authId: String): String
+    @Retry(attempts = 3, on = [BookingUnavailableException::class])
+    fun confirm(holdId: String): String
 
     /** A default method: each call inside it must go through the proxy on its own. */
-    fun authorizeAndCapture(pan: String, amountMinor: Long): String = capture(authorize(pan, amountMinor))
+    fun reserveAndConfirm(seat: String, priceCents: Long): String = confirm(reserve(seat, priceCents))
 }
 
-/** What the fake issuer should do, and what it saw. A component, so a test gets it from the container. */
+/** What the fake booking service should do, and what it saw. A component, so a test gets it from the container. */
 @Component
-class IssuerScript {
-    val authorizeFailures = AtomicInteger()          // fail this many authorize calls first
-    val captureFailures = AtomicInteger()
-    val authorizeCalls = AtomicInteger()
-    val captureCalls = AtomicInteger()
-    @Volatile var badCard = false                    // a failure that no retry can fix
+class BookingScript {
+    val reserveFailures = AtomicInteger()            // fail this many reserve calls first
+    val confirmFailures = AtomicInteger()
+    val reserveCalls = AtomicInteger()
+    val confirmCalls = AtomicInteger()
+    @Volatile var badSeat = false                    // a failure that no retry can fix
 }
 
 /** A final Kotlin class: fine, because a JDK proxy needs only the interface. */
 @Component
-class FakeIssuer(private val script: IssuerScript) : CardIssuerClient {
-    override fun authorize(pan: String, amountMinor: Long): String {
-        script.authorizeCalls.incrementAndGet()
-        if (script.badCard) throw IllegalArgumentException("card number fails the Luhn check")
-        if (script.authorizeFailures.getAndDecrement() > 0) throw IssuerUnavailableException("issuer timed out")
-        return "auth-${pan.takeLast(4)}"
+class FakeBooking(private val script: BookingScript) : BookingClient {
+    override fun reserve(seat: String, priceCents: Long): String {
+        script.reserveCalls.incrementAndGet()
+        if (script.badSeat) throw IllegalArgumentException("no such seat: $seat")
+        if (script.reserveFailures.getAndDecrement() > 0) throw BookingUnavailableException("booking service timed out")
+        return "hold-$seat"
     }
 
-    override fun capture(authId: String): String {
-        script.captureCalls.incrementAndGet()
-        if (script.captureFailures.getAndDecrement() > 0) throw IssuerUnavailableException("issuer timed out")
-        return "cap-$authId"
+    override fun confirm(holdId: String): String {
+        script.confirmCalls.incrementAndGet()
+        if (script.confirmFailures.getAndDecrement() > 0) throw BookingUnavailableException("booking service timed out")
+        return "ticket-$holdId"
     }
 }
 
 /** No interface: intercepted with a subclass, so it must be open. */
 @Component
-open class RatesFetcher(private val script: IssuerScript) {
+open class ReviewFetcher(private val script: BookingScript) {
     val calls = AtomicInteger()
 
-    @Retry(attempts = 4, on = [IssuerUnavailableException::class])
+    @Retry(attempts = 4, on = [BookingUnavailableException::class])
     open fun fetch(): String {
-        if (calls.incrementAndGet() < 3) throw IssuerUnavailableException("rates feed down")
-        return "EUR/USD 1.0870"
+        if (calls.incrementAndGet() < 3) throw BookingUnavailableException("reviews page down")
+        return "4 stars"
     }
 }
 
 /** Final, with an intercepted method: the container must refuse it. */
 @Component
-class FrozenFees {
+class FrozenPrices {
     @Timed
-    fun feeMinor(amountMinor: Long) = amountMinor * 29 / 1000
+    fun feeCents(priceCents: Long) = priceCents * 29 / 1000
 }
 
 /** Open class, but the intercepted method was left final. */
 @Component
 open class HalfOpen {
     @Timed
-    fun region() = "EU"
+    fun hall() = "Main hall"
 }
 
 interface Pinger {

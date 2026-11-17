@@ -131,7 +131,7 @@ fun wordsByScan(): Long {
 
 OPENING = """Picture a restaurant that wants to know which of two cooks makes the house soup faster. The manager hands each cook an order, starts a stopwatch, and stops it when the bowl lands on the counter. Simple enough. But one cook has noticed that nobody ever eats the test bowls, so they stop making them. The stopwatch reads zero.
 
-A loop timed with `System.nanoTime()` gives the JIT the same chance. In this lesson's first demo, a loop of 100 million square roots reported 0.0000 ns per call. The work wasn't fast; it was missing, because nothing used the result.
+A loop timed with `System.nanoTime()` gives the JIT, the JVM's compiler for busy code, the same chance. In this lesson's first demo, a loop of 100 million square roots reported 0.0000 ns per call. The work wasn't fast; it was missing, because nothing used the result.
 
 The trap is easy to fall into, because those numbers look so precise. Lesson 2 asked you to trust a JMH benchmark that counted types at a call site; now JMH has to earn that trust. In this lesson, we'll watch a hand-made timing loop lie, let JMH build the loop instead, learn the two rules that fix most broken benchmarks, and find a number steady enough to check on a busy machine. Before we start, make a guess, and keep it in mind."""
 
@@ -152,14 +152,14 @@ round 5: discarded 0.0000 ns/op, used 3.5381 ns/op
 
 Zero nanoseconds per square root. That's faster than light, and a little suspicious. The second loop settled at about 3 ns per call, which is believable for a square root and an addition on a busy machine.
 
-The first loop measured nothing because, once C2 had compiled it, there was nothing left to measure. C2 proved that nobody used the result of `Math.sqrt(x)`, so it deleted the call, and then the empty loop. That's **dead-code elimination**: work whose result nobody uses can go. It's the cook skipping the bowl nobody eats.
+The first loop measured nothing because, once C2 (the JIT's optimizing compiler) had compiled it, there was nothing left to measure. C2 proved that nobody used the result of `Math.sqrt(x)`, so it deleted the call, and then the empty loop. That's **dead-code elimination**: work whose result nobody uses can go. It's the cook skipping the bowl nobody eats.
 
 Here the picture breaks, and in a useful way. A cook who skips a bowl knows they're cutting a corner. The JIT isn't cheating at all. Removing unused work is exactly its job, and our benchmark gave it permission.
 
 Dead code is one of several ways a hand-made loop lies:
 
 - If the input is a constant, C2 can compute the answer at compile time, and you end up timing the load of one number. That's **constant folding**: the cook who gets the same order every time makes it before the doors open.
-- The first rounds run in the interpreter and in OSR code, as lesson 1 showed. A benchmark written as one long loop in `main` keeps measuring OSR code.
+- The first rounds run in the interpreter, which reads bytecode one instruction at a time, and in OSR code, a loop compiled while it runs, as lesson 1 showed. A benchmark written as one long loop in `main` keeps measuring OSR code.
 - The JIT unrolls loops and moves work out of them. JMH's own sample on loops reports the measured cost of an addition falling "up to the point we do each addition with 1/20 ns, well beyond what hardware can actually do".
 
 A broken benchmark can also print a believable number, which is worse. Change the discarded call to `Math.log(x)`. On JDK 21, that loop was never removed: it reported 10 to 13 ns per call, round after round. On JDK 25, it dropped to 0.0000 by round 3, like the square root. Same source, two JDKs, two stories. Whether the JIT can remove a call depends on what it can prove, and you can't see that from the outside.
@@ -179,10 +179,10 @@ Think of it as the taste test done fairly. A fair test warms the kitchen up firs
 
 What each piece does:
 
-- `@State(Scope.Thread)`: one instance of the class per benchmark thread. Its fields are your inputs, the ingredients the cook can't predict.
+- `@State(Scope.Thread)`: one instance of the class per benchmark thread (a thread is one line of work inside a program, and JMH can run several at once). Its fields are your inputs, the ingredients the cook can't predict.
 - `@Setup`: a method that prepares the state outside the measured time. `Level.Trial`, the default, runs it once per fork.
 - `@Warmup` and `@Measurement`: how many iterations, and how long each lasts. Warm-up results, the practice dishes, are thrown away.
-- `@Fork`: how many fresh JVMs to run in, the fresh kitchens. A new JVM starts with a clean profile, so one benchmark can't skew the next. `@Fork(0)` runs inside the JVM that launched it, which brings back every problem of the hand-made loop.
+- `@Fork`: how many fresh JVMs to run in, the fresh kitchens. A new JVM starts with a clean profile, the JIT's notes on what the code did, so one benchmark can't skew the next. `@Fork(0)` runs inside the JVM that launched it, which brings back every problem of the hand-made loop.
 - `@BenchmarkMode`: `Throughput` (operations per unit of time, the default), `AverageTime`, `SampleTime` or `SingleShotTime`.
 - `@Param`: runs the benchmark once per value, as lesson 2's `MegamorphicBench` did with its number of types.
 
@@ -216,7 +216,7 @@ public long seconds();
 
 From there C2 can fold the whole calculation into one number. JMH's constant-folding sample puts it bluntly: "IDEs will say 'Look, this field could be final'. Don't. Trust. Them." A `static final` input has the same problem, which is what `sqrtOfConstant` shows in the Try it above. Even the judge can't help then. With `final double x`, `sqrtBlackhole` dropped to the baseline too, because a Blackhole can't stop the cook from making the dish in advance.
 
-You can check both rules against a **baseline**: an empty `@Benchmark` method that measures the harness alone, 0.6 to 0.9 ns in the busy runs here. A benchmark that scores like the baseline is measuring nothing, whatever its name says. In those runs, the discarded and the constant square roots sat right on it, and the returned and consumed ones took three to six times as long. The absolute numbers change from run to run on a busy machine. Which benchmarks sit on the baseline doesn't.
+You can check both rules against a **baseline**: an empty `@Benchmark` method that measures the harness alone, 0.6 to 0.9 ns in the busy runs here. A benchmark that scores like the baseline is measuring nothing, whatever its name says. In those runs, the discarded and the constant square roots sat right on it, and the returned and consumed ones took two to seven times as long. The absolute numbers change from run to run on a busy machine. Which benchmarks sit on the baseline doesn't.
 
 Check yourself: a benchmark returns `ReadingMath.readingSeconds(words * PAGES)`, where `PAGES` is a `static final long` and `words` is a non-final `@State` field. Can C2 fold the whole result into a constant? (No. `PAGES` is known, but `words` can change between calls, so the calculation has to run.)
 
@@ -225,7 +225,7 @@ Check yourself: a benchmark returns `ReadingMath.readingSeconds(words * PAGES)`,
 Even an honest benchmark has one weak spot, though: look at the error column on any of these runs. There's a steadier number to watch."""
 
 # ---------------------------------------------------------------- section 3
-S3 = """Time is the noisiest thing you can measure. On a shared machine, the error bar of a short JMH run is often bigger than the score itself. Allocation is different. **Allocation** is the memory a method asks for when it creates objects. For the same code and the same input, a method allocates the same number of bytes every time. JMH's GC profiler (`-prof gc` on the command line, or `addProfiler(GCProfiler.class)` in code) reports it as `gc.alloc.rate.norm`, in bytes per operation (B/op).
+S3 = """Time is the noisiest thing you can measure. On a shared machine, the error bar of a short JMH run is often bigger than the score itself. Allocation is different. **Allocation** is the memory a method asks for when it creates objects. For the same code and the same input, a method allocates the same number of bytes every time. JMH's GC profiler reports it as `gc.alloc.rate.norm`, in bytes per operation (B/op). GC stands for the garbage collector, the part of the JVM that frees memory nobody uses. You turn the profiler on with `-prof gc` on the command line, or `addProfiler(GCProfiler.class)` in code.
 
 The report service counts words all day, so `WordCountBench` counts the words in 100 lines of text, two ways. One splits each line with `String.split(" ")` and counts the pieces. The other walks the characters and counts where words start:
 
@@ -242,7 +242,7 @@ wordsByScan          7485.8    11955.5          0.173    0.297
 wordsBySplit        32185.0    70883.8      54425.122  769.564
 ```
 
-Look at the error columns. Every time error is bigger than its score, two to seven times bigger, so the times say almost nothing. The bytes barely moved: about 54,400 bytes per call, 544 per line, and the same on JDK 21. `split` builds a new `String` for each of a line's nine words, plus an array to hand them back in. The scan allocates nothing at all. (The second run's ±770 is the profiler's own sampling showing through, and it's still under 2% of the score.)
+Look at the error columns. Every time error is bigger than its score, from one and a half to seven times bigger, so the times say almost nothing. The bytes barely moved: about 54,400 bytes per call, 544 per line, and the same on JDK 21. `split` builds a new `String` for each of a line's nine words, plus an array to hand them back in. The scan allocates nothing at all. (The second run's ±770 is the profiler's own sampling showing through, and it's still under 2% of the score.)
 
 `split` is the clear choice for most code. In the report service's busiest loop, though, 54 KB for every 100 lines adds up, and lesson 7 follows an allocation problem like it from start to finish.
 
@@ -300,7 +300,7 @@ L = {
      "Change `double x = 2.0;` to `final double x = 2.0;` and run the Java version again. Which benchmarks change?"
     ],
     "code": demo("TrapsBench"),
-    "expect": "`sqrtDiscarded` and `sqrtOfConstant` land on top of `baseline`, between 0.4 and 0.9 ns on the busy course machine. `sqrtReturned` and `sqrtBlackhole` take about 2 to 5 ns. With `final double x = 2.0`, javac copies `2.0` into every method, so every benchmark drops to the baseline, `sqrtReturned` and `sqrtBlackhole` included: 0.44 and 0.47 ns in the run here. The Kotlin twin's log shows `# Blackhole mode: compiler (auto-detected ...)` and ends with JMH's \"REMEMBER: The numbers below are just data\" warning."
+    "expect": "`sqrtDiscarded` and `sqrtOfConstant` usually land on top of `baseline`: 0.4 to 0.9 ns on the busy course machine, with error bars bigger than the scores. `sqrtReturned` and `sqrtBlackhole` take about 2 to 5 ns. With `final double x = 2.0`, javac copies `2.0` into every method, so every benchmark drops to the baseline, `sqrtReturned` and `sqrtBlackhole` included: 0.44 and 0.47 ns in the run here. The Kotlin twin's log shows `# Blackhole mode: compiler (auto-detected ...)` and ends with JMH's \"REMEMBER: The numbers below are just data\" warning."
    }
   },
   {

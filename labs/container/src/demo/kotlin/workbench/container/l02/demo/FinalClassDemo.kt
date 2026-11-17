@@ -9,22 +9,22 @@ import java.lang.reflect.Modifier
 
 // Two Kotlin classes with the same @Timed method. The build's all-open plugin opens only the second.
 @Component
-class KFinalFees {
+class KFinalPrices {
     @Timed
-    fun feeMinor(amountMinor: Long) = (amountMinor * 29 + 500) / 1000
+    fun feeCents(priceCents: Long) = (priceCents * 29 + 500) / 1000
 }
 
 @OpenForProxies
 @Component
-class KOpenedFees {
+class KOpenedPrices {
     @Timed
-    fun feeMinor(amountMinor: Long) = (amountMinor * 29 + 500) / 1000
+    fun feeCents(priceCents: Long) = (priceCents * 29 + 500) / 1000
 }
 
 fun main() {
-    for (type in listOf(KFinalFees::class.java, KOpenedFees::class.java)) {
-        val fee = type.getMethod("feeMinor", Long::class.java)
-        println("${type.simpleName}: class final=${Modifier.isFinal(type.modifiers)}, feeMinor final=${Modifier.isFinal(fee.modifiers)}")
+    for (type in listOf(KFinalPrices::class.java, KOpenedPrices::class.java)) {
+        val fee = type.getMethod("feeCents", Long::class.java)
+        println("${type.simpleName}: class final=${Modifier.isFinal(type.modifiers)}, feeCents final=${Modifier.isFinal(fee.modifiers)}")
         try {
             val c = Container(listOf(type))
             val bean = c.get(type)
@@ -35,7 +35,7 @@ fun main() {
         }
     }
     try {
-        ByteBuddy().subclass(KFinalFees::class.java).make()             // what you get without the check
+        ByteBuddy().subclass(KFinalPrices::class.java).make()             // what you get without the check
     } catch (e: IllegalArgumentException) {
         println("Byte Buddy on its own: ${e.message}")
     }

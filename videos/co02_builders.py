@@ -194,12 +194,14 @@ def tx(ms):
     return X0 + ms * PX
 
 
-def bar(ms0, ms1, y, color, h=0.32, label=None, size=20):
+def bar(ms0, ms1, y, color, h=0.32, label=None, size=20, left=False):
     r = Rectangle(width=max(0.04, (ms1 - ms0) * PX), height=h).set_stroke(color, 2).set_fill(dim(color, 0.45), 1)
     r.move_to([(tx(ms0) + tx(ms1)) / 2, y, 0])
     if label:
-        t = T(label, size, WHITE)
-        if t.width > r.width - 0.1:
+        t = T(label, size, color if left else WHITE)
+        if left:
+            t.move_to([tx(0) - 0.25, y, 0], aligned_edge=RIGHT)
+        elif t.width > r.width - 0.1:
             t.next_to(r, RIGHT, buff=0.12)
         else:
             t.move_to(r)
@@ -249,7 +251,7 @@ class Co02Builders(Narrated):
         d_l.move_to([-4.3, -0.35, 0])
         self.say("recap")
         self.at_text("async starts", lead=0.3)
-        texts = [Line(ph.get_right() + RIGHT * 0.05, s[0].get_left() + LEFT * 0.1) for s in shops]
+        texts = [ArcBetweenPoints(ph.get_top() + UP * 0.05, s[1].get_top() + UP * 0.08, angle=-0.6) for s in shops]
         self.play(*[travel(l, c, run_time=0.9) for l, (n, ms, c) in zip(texts, SHOPS)], run_time=0.9)
         self.at_text("and hands", lead=0.3)
         self.play(LaggedStart(*[FadeIn(p, shift=UP * 0.1) for p in pots], lag_ratio=0.2), FadeIn(d_l), run_time=0.9)
@@ -451,7 +453,7 @@ class Co02Builders(Narrated):
 
         # ================= failure =================
         ax4 = axis(-3.0, [0, 120, 200, 300])
-        kids = [bar(0, ms, y, c, label=n) for (n, ms, c), y in zip(SHOPS, (1.3, 0.75, 0.2))]
+        kids = [bar(0, ms, y, c, label=n, left=True) for (n, ms, c), y in zip(SHOPS, (1.3, 0.75, 0.2))]
         f_sc_l = M("coroutineScope", 22, COURSE).move_to([tx(0) - 0.25, -0.55, 0], aligned_edge=RIGHT)
         self.say("fail_q")
         self.play(FadeIn(ax4), *[GrowFromEdge(k, LEFT) for k in kids], FadeIn(f_sc_l), run_time=1.0)
@@ -470,18 +472,18 @@ class Co02Builders(Narrated):
         f_sc = Rectangle(width=120 * PX, height=0.36).set_stroke(BAD, 2.5).set_fill(dim(BAD, 0.35), 1)
         f_sc.move_to([(tx(0) + tx(120)) / 2, -0.55, 0])
         f_ret = marker(120, 1.65, -2.85, BAD, "fails at 120 ms", 22, UP)
-        f_ret[1].move_to([tx(120) + 0.2, -1.2, 0], aligned_edge=LEFT)
+        f_ret[1].move_to([tx(120) + 0.2, -2.4, 0], aligned_edge=LEFT)
         self.play(GrowFromEdge(f_sc, LEFT), Create(f_ret[0]), FadeIn(f_ret[1]), run_time=0.8)
         self.at(1)
         rest = [kids[0][0], kids[2][0]]
         stubs = [cut(kids[0][0], 120, GG), cut(kids[2][0], 120, FS)]
-        offs = VGroup(*[T("cancelled", 22, GREY_A).move_to([tx(260), b.get_y(), 0]) for b in rest])
+        offs = VGroup(*[T("cancelled", 22, GREY_A).move_to([tx(300) + 0.25, b.get_y(), 0], aligned_edge=LEFT) for b in rest])
         self.play(*[r.animate.set_stroke(OFF).set_fill(dim(OFF, 0.3)) for r in rest],
                   *[FadeIn(s) for s in stubs], FadeIn(offs), run_time=0.9)
         self.at(2)
-        up = Arrow([tx(120) + 1.4, -0.55, 0], [tx(120) + 1.4, -1.95, 0], buff=0, stroke_width=3, color=BAD,
+        up = Arrow([tx(120) + 0.1, -0.55, 0], [tx(120) + 1.5, -0.55, 0], buff=0, stroke_width=3, color=BAD,
                    max_tip_length_to_length_ratio=0.15)
-        cl = T("to the caller", 22, BAD).next_to(up, RIGHT, buff=0.15)
+        cl = T("the market's exception, to the caller", 22, BAD).next_to(up, RIGHT, buff=0.15)
         self.play(GrowArrow(up), FadeIn(cl), run_time=0.6)
         self.hold()
 
@@ -504,8 +506,8 @@ class Co02Builders(Narrated):
             t = M(f"allPrices({item})", 22, COURSE).move_to(r.get_top() + DOWN * 0.3)
             bs = VGroup()
             for k, (n, ms, c) in enumerate(SHOPS):
-                b = Rectangle(width=ms * 0.0125, height=0.32).set_stroke(c, 2).set_fill(dim(c, 0.45), 1)
-                b.move_to([cx - 2.1 + ms * 0.0125 / 2, -0.75 - 0.5 * k, 0])
+                b = Rectangle(width=ms * 0.009, height=0.32).set_stroke(c, 2).set_fill(dim(c, 0.45), 1)
+                b.move_to([cx - 2.1 + ms * 0.009 / 2, -0.75 - 0.5 * k, 0])
                 bs.add(VGroup(b, T(n, 20, WHITE).next_to(b, RIGHT, buff=0.1)))
             return VGroup(r, t, bs)
 

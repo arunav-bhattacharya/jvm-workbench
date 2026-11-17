@@ -8,8 +8,8 @@ import java.util.List;
 
 /** Runs the build-time half of the container on the demo app and prints the class it writes. */
 public class GenerateDemo {
-    public static class Payouts { public Payouts(Statements s) {} }
-    public static class Statements { public Statements(Payouts p) {} }
+    public static class Rota { public Rota(CastList c) {} }
+    public static class CastList { public CastList(Rota r) {} }
 
     public static void main(String[] args) {
         String source = RegistryGenerator.generate("workbench.container.l03.demo.gen", "AppRegistry", DemoApp.COMPONENTS);
@@ -19,7 +19,7 @@ public class GenerateDemo {
                 source.lines().filter(l -> l.contains("_Holder {")).count(),
                 source.lines().filter(l -> l.startsWith("    static final class")).count());
         try {
-            RegistryGenerator.generate("x", "Broken", List.of(Payouts.class, Statements.class));
+            RegistryGenerator.generate("x", "Broken", List.of(Rota.class, CastList.class));
         } catch (ContainerException e) {
             System.out.println("the build fails: " + e.getMessage());
         }

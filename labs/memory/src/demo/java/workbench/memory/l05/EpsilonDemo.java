@@ -7,23 +7,23 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Epsilon never frees anything, so a heap of 64 MB is an allocation budget. Two versions of the same
- * settlement totals run against that budget, each in its own child JVM.
+ * Epsilon never frees anything, so a heap of 64 MB is an allocation budget. Two versions of lesson 2's
+ * upload report (the bytes each user uploaded) run against that budget, each in its own child JVM.
  */
 public class EpsilonDemo {
-    static final int PAYMENTS = 5_000_000, MERCHANTS = 500;
+    static final int UPLOADS = 5_000_000, USERS = 500;
 
     static long boxedTotals() {
         Map<Integer, Long> totals = new HashMap<>();
-        // every sum is a new Long stored in the map: at least 24 bytes per payment, even when the JIT
-        // removes the temporary boxes for the key and the amount
-        for (int i = 0; i < PAYMENTS; i++) totals.merge(i % MERCHANTS, 1_000L + i % 9_000, Long::sum);
+        // every sum is a new Long stored in the map: at least 24 bytes per upload, even when the JIT
+        // removes the temporary boxes for the key and the size
+        for (int i = 0; i < UPLOADS; i++) totals.merge(i % USERS, 1_000L + i % 9_000, Long::sum);
         return totals.values().stream().mapToLong(Long::longValue).sum();
     }
 
     static long primitiveTotals() {
-        long[] totals = new long[MERCHANTS];
-        for (int i = 0; i < PAYMENTS; i++) totals[i % MERCHANTS] += 1_000L + i % 9_000;                // no objects
+        long[] totals = new long[USERS];
+        for (int i = 0; i < UPLOADS; i++) totals[i % USERS] += 1_000L + i % 9_000;                // no objects
         long sum = 0;
         for (long t : totals) sum += t;
         return sum;

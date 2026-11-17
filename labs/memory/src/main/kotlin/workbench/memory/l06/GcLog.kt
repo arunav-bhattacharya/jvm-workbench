@@ -18,6 +18,6 @@ object GcLog {
 
     /** Parses every line and adds up the pauses. */
     fun summarize(lines: List<String>): PauseSummary {
-        TODO("count, total, longest, full GCs, evacuation failures, heap after the last full GC")
+        TODO("count, total, longest, full GCs, evacuation failures (any label starting with Evacuation Failure), heap after the last full GC")
     }
 }

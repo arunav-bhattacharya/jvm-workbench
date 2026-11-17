@@ -4,7 +4,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.Test
 
-/** Every line here is copied from a real JDK 21 run. */
+/** Every line here is copied from a real JDK 21 or JDK 25 run. */
 class GcLogTest {
 
     @Test
@@ -26,6 +26,17 @@ class GcLogTest {
     fun `an evacuation failure shows up as a third label`() {
         val p = GcLog.parsePause("[7.885s][info][gc] GC(22) Pause Young (Prepare Mixed) (G1 Evacuation Pause) (Evacuation Failure) 996M->760M(1024M) 43.391ms")
         assertThat(p?.labels).containsExactly("Prepare Mixed", "G1 Evacuation Pause", "Evacuation Failure")
+    }
+
+    @Test
+    fun `JDK 25 adds the reason to an evacuation failure, and it still counts as one`() {
+        val mixed = "[2026-11-17T07:31:29.031+0000][1.399s][info][gc          ] GC(19) Pause Young (Mixed) (G1 Evacuation Pause) (Evacuation Failure: Allocation) 248M->211M(256M) 14.287ms"
+        assertThat(GcLog.parsePause(mixed)?.labels).containsExactly("Mixed", "G1 Evacuation Pause", "Evacuation Failure: Allocation")
+        val full = "[2026-11-17T07:31:29.495+0000][1.863s][info][gc             ] GC(41) Pause Full (G1 Compaction Pause) 224M->84M(256M) 16.337ms"
+        val s = GcLog.summarize(listOf(mixed, full))
+        assertThat(s.evacuationFailures).isEqualTo(1)
+        assertThat(s.fullGcs).isEqualTo(1)
+        assertThat(s.liveAfterLastFullMb).isEqualTo(84)
     }
 
     @Test

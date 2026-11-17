@@ -1,8 +1,8 @@
 package workbench.container.l03.demo
 
 import workbench.container.l03.Container
-import workbench.container.l03.SettlementService
-import workbench.container.l03.demo.app.CardIssuerClient
+import workbench.container.l03.ShowCloser
+import workbench.container.l03.demo.app.BookingClient
 import workbench.container.l03.demo.app.DemoApp
 import java.lang.ref.WeakReference
 import java.nio.file.Files
@@ -24,8 +24,8 @@ fun main(args: Array<String>) {
 
     container = Container(DemoApp.COMPONENTS)
     println("app: " + DemoApp.run(container!!))
-    val generatedLoader = WeakReference(container!!.get(SettlementService::class.java).javaClass.classLoader)
-    val proxyClass = container!!.get(CardIssuerClient::class.java).javaClass.name
+    val generatedLoader = WeakReference(container!!.get(ShowCloser::class.java).javaClass.classLoader)
+    val proxyClass = container!!.get(BookingClient::class.java).javaClass.name
 
     if (wait) {
         println("pid $pid. In a second terminal, from labs/:")
@@ -57,7 +57,7 @@ fun main(args: Array<String>) {
 private fun histogram(pid: Long, ourProxy: String) {
     val lines = jcmd(pid, "GC.class_histogram")
     println(lines[1])                                              // the column headings
-    val ours = Regex(""".*(\.Container|SingletonCell|InterceptingHandler|SubclassBridge|\${'$'}ByteBuddy\${'$'}\w+|ByteArrayClassLoader|app\.PaymentService)( \(.*)?$""")
+    val ours = Regex(""".*(\.Container|SingletonCell|InterceptingHandler|SubclassBridge|\${'$'}ByteBuddy\${'$'}\w+|ByteArrayClassLoader|app\.BoxOffice)( \(.*)?$""")
     lines.filter { ours.matches(it) || " $ourProxy " in it }.forEach(::println)
     val proxies = lines.map { it.trim().split(Regex("\\s+")) }.filter { it.size >= 4 && "\$Proxy" in it[3] }
     val instances = proxies.sumOf { it[1].toInt() }

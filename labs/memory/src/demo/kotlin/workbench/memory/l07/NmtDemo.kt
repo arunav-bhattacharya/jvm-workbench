@@ -41,7 +41,7 @@ fun main(args: Array<String>) {
         return
     }
     printNmt("at startup")
-    val direct = ByteBuffer.allocateDirect(64 * 1024 * 1024)               // what Netty does for socket buffers
+    val direct = ByteBuffer.allocateDirect(64 * 1024 * 1024)               // network code often keeps socket data in these
     val never = CountDownLatch(1)
     repeat(100) { thread(isDaemon = true) { try { never.await() } catch (e: InterruptedException) { } } }
     printNmt("after a 64 MiB direct buffer and 100 more threads")

@@ -14,13 +14,13 @@ public class ArenaDemo {
         long before = directBytes();                                      // the JDK may already hold a little
         MemorySegment escaped;
         try (Arena arena = Arena.ofConfined()) {                          // 1. one owner thread, closed by try-with-resources
-            MemorySegment ledger = arena.allocate(32L * 1024 * 1024);      // 2. 32 MiB outside the heap
-            for (long i = 0; i < ledger.byteSize() / Long.BYTES; i++) {
-                ledger.setAtIndex(ValueLayout.JAVA_LONG, i, i * 100);      //    4 million longs, and no objects
+            MemorySegment block = arena.allocate(32L * 1024 * 1024);       // 2. 32 MiB outside the heap
+            for (long i = 0; i < block.byteSize() / Long.BYTES; i++) {
+                block.setAtIndex(ValueLayout.JAVA_LONG, i, i * 100);       //    4 million longs, and no objects
             }
-            System.out.println("entry 1,000 holds " + ledger.getAtIndex(ValueLayout.JAVA_LONG, 1_000));
+            System.out.println("entry 1,000 holds " + block.getAtIndex(ValueLayout.JAVA_LONG, 1_000));
             System.out.printf("inside the arena: %+d MiB of direct memory%n", (directBytes() - before) >> 20);
-            escaped = ledger;
+            escaped = block;
         }                                                                 // 3. freed here, not by the GC
         System.out.printf("after close():    %+d MiB of direct memory%n", (directBytes() - before) >> 20);
         try {

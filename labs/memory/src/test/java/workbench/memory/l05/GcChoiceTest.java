@@ -17,7 +17,7 @@ class GcChoiceTest {
     @DisplayName("JDK 21 to 26 pick G1 only with 2 CPUs and 1,792 MB; otherwise Serial")
     void defaultBeforeJdk27() {
         assertThat(GcChoice.defaultCollector(21, 1, 8_192)).as("1 CPU").isEqualTo(SERIAL);
-        assertThat(GcChoice.defaultCollector(21, 2, 1_024)).as("1 GB pod").isEqualTo(SERIAL);
+        assertThat(GcChoice.defaultCollector(21, 2, 1_024)).as("1 GB container").isEqualTo(SERIAL);
         assertThat(GcChoice.defaultCollector(25, 2, 1_791)).isEqualTo(SERIAL);
         assertThat(GcChoice.defaultCollector(25, 2, 1_792)).isEqualTo(G1);
         assertThat(GcChoice.defaultCollector(25, 4, 8_192)).isEqualTo(G1);
@@ -69,14 +69,14 @@ class GcChoiceTest {
     }
 
     @Test
-    @DisplayName("the decision table: tests, tiny pods, batch jobs, tight pause budgets, everything else")
+    @DisplayName("the decision table: tests, tiny containers, batch jobs, tight pause budgets, everything else")
     void recommend() {
         assertThat(GcChoice.recommend(new Workload(ALLOCATION_TEST, 4, 64, 1_000))).as("allocation budget test").isEqualTo(EPSILON);
-        assertThat(GcChoice.recommend(new Workload(SERVICE, 1, 256, 200))).as("1 CPU, 256 MB webhook relay").isEqualTo(SERIAL);
-        assertThat(GcChoice.recommend(new Workload(BATCH, 8, 16_384, 5_000))).as("nightly settlement batch").isEqualTo(PARALLEL);
-        assertThat(GcChoice.recommend(new Workload(SERVICE, 8, 16_384, 5))).as("fraud scoring with a 5 ms budget").isEqualTo(ZGC);
+        assertThat(GcChoice.recommend(new Workload(SERVICE, 1, 256, 200))).as("1 CPU, 256 MB helper service").isEqualTo(SERIAL);
+        assertThat(GcChoice.recommend(new Workload(BATCH, 8, 16_384, 5_000))).as("nightly batch job").isEqualTo(PARALLEL);
+        assertThat(GcChoice.recommend(new Workload(SERVICE, 8, 16_384, 5))).as("a service with a 5 ms budget and 8 CPUs").isEqualTo(ZGC);
         assertThat(GcChoice.recommend(new Workload(SERVICE, 2, 4_096, 5))).as("5 ms budget but only 2 CPUs").isEqualTo(G1);
-        assertThat(GcChoice.recommend(new Workload(SERVICE, 4, 2_048, 100))).as("ordinary payments API").isEqualTo(G1);
+        assertThat(GcChoice.recommend(new Workload(SERVICE, 4, 2_048, 100))).as("an ordinary web service").isEqualTo(G1);
         assertThat(GcChoice.recommend(new Workload(SERVICE, 1, 4_096, 100))).as("1 CPU but a 4 GB heap").isEqualTo(G1);
     }
 }

@@ -8,7 +8,7 @@ import workbench.container.l02.TimedInterceptor
 import java.util.concurrent.atomic.AtomicLong
 import java.util.function.LongSupplier
 
-// One issuer call that fails twice, sent through the same two interceptors in both orders.
+// One booking call that fails twice, sent through the same two interceptors in both orders.
 fun main() {
     val ticks = AtomicLong()
     val clock = LongSupplier { ticks.addAndGet(10_000_000) }          // a fake clock: 10 ms per read
@@ -24,9 +24,9 @@ fun main() {
         val chain = if (order.startsWith("timed")) listOf(timed, retry, shout) else listOf(retry, timed, shout)
         var calls = 0
         println("$order:")
-        val result = Invocation("Issuer.authorize", arrayOf("4111111111111111"), chain) {
-            if (++calls < 3) throw IllegalStateException("issuer timed out")   // fails twice
-            "auth-1111"
+        val result = Invocation("Booking.reserve", arrayOf("C12"), chain) {
+            if (++calls < 3) throw IllegalStateException("booking service timed out")   // fails twice
+            "hold-C12"
         }.proceed()
         println("  result $result after $calls calls, log ${log.calls()}")
     }

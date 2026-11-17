@@ -1,8 +1,8 @@
 package workbench.container.l03.demo;
 
 import workbench.container.l03.Container;
-import workbench.container.l03.SettlementService;
-import workbench.container.l03.demo.app.CardIssuerClient;
+import workbench.container.l03.ShowCloser;
+import workbench.container.l03.demo.app.BookingClient;
 import workbench.container.l03.demo.app.DemoApp;
 
 import java.lang.ref.WeakReference;
@@ -27,8 +27,8 @@ public class RunningContainer {
         Container container = new Container(DemoApp.COMPONENTS);
         System.out.println("app: " + DemoApp.run(container));
         WeakReference<ClassLoader> generatedLoader =
-                new WeakReference<>(container.get(SettlementService.class).getClass().getClassLoader());
-        String proxyClass = container.get(CardIssuerClient.class).getClass().getName();
+                new WeakReference<>(container.get(ShowCloser.class).getClass().getClassLoader());
+        String proxyClass = container.get(BookingClient.class).getClass().getName();
 
         if (wait) {
             System.out.printf("pid %d. In a second terminal, from labs/:%n", pid);
@@ -62,7 +62,7 @@ public class RunningContainer {
         List<String> lines = jcmd(pid, "GC.class_histogram");
         System.out.println(lines.get(1));                                // the column headings
         lines.stream().filter(l -> l.matches(".*(\\.Container|SingletonCell|InterceptingHandler|SubclassBridge"
-                + "|\\$ByteBuddy\\$\\w+|ByteArrayClassLoader|app\\.PaymentService)( \\(.*)?$")
+                + "|\\$ByteBuddy\\$\\w+|ByteArrayClassLoader|app\\.BoxOffice)( \\(.*)?$")
                 || l.contains(" " + ourProxy + " ")).forEach(System.out::println);
         int annotations = 0, byteBuddy = 0, others = 0, ours = 0, instances = 0;
         for (String line : lines) {

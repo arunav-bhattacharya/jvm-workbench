@@ -46,7 +46,7 @@ public class NmtDemo {
             return;
         }
         print("at startup");
-        ByteBuffer direct = ByteBuffer.allocateDirect(64 * 1024 * 1024);   // what Netty does for socket buffers
+        ByteBuffer direct = ByteBuffer.allocateDirect(64 * 1024 * 1024);   // network code often keeps socket data in these
         CountDownLatch never = new CountDownLatch(1);
         for (int i = 0; i < 100; i++) {
             Thread t = new Thread(() -> { try { never.await(); } catch (InterruptedException e) { } });

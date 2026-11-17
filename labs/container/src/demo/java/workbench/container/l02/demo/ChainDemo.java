@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 
-/** One issuer call that fails twice, sent through the same two interceptors in both orders. */
+/** One booking call that fails twice, sent through the same two interceptors in both orders. */
 public class ChainDemo {
     public static void main(String[] args) {
         AtomicLong ticks = new AtomicLong();
@@ -28,9 +28,9 @@ public class ChainDemo {
             List<Interceptor> chain = order.startsWith("timed") ? List.of(timed, retry, shout) : List.of(retry, timed, shout);
             AtomicInteger calls = new AtomicInteger();
             System.out.println(order + ":");
-            Object result = new Invocation("Issuer.authorize", new Object[] {"4111111111111111"}, chain, () -> {
-                if (calls.incrementAndGet() < 3) throw new IllegalStateException("issuer timed out");   // fails twice
-                return "auth-1111";
+            Object result = new Invocation("Booking.reserve", new Object[] {"C12"}, chain, () -> {
+                if (calls.incrementAndGet() < 3) throw new IllegalStateException("booking service timed out");   // fails twice
+                return "hold-C12";
             }).proceed();
             System.out.println("  result " + result + " after " + calls.get() + " calls, log " + log.calls());
         }

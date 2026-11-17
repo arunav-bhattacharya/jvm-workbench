@@ -74,20 +74,20 @@ GUARD_K = """fun requireWordCount(words: Long): Long {
 fun badWordCount(words: Long) =                                        // cold path, its own function
     IllegalArgumentException("word count must be between 1 and %d, got %d".format(MAX_WORDS, words))"""
 
-OPENING = """Back in the kitchen, the cook knows the house favourites by heart now, thanks to two habits. When a recipe says "make the sauce on page 12", the cook copies the sauce into the main recipe, so the onions for both get chopped at once. And when nearly every customer wants fries, a basket of fries waits by the stove.
+OPENING = """Back in the kitchen, the cook knows the favourites by heart now, thanks to two habits. When a recipe says "make the sauce on page 12", the cook copies the sauce into the main recipe, so the onions for both get chopped at once. And when nearly every customer wants fries, a basket of fries waits by the stove.
 
-C2 has both habits. It copies small methods into their callers, and it bets on the types that usually show up at a call. Then a customer asks for rice, the bet is lost, and the cook is back at the recipe card. Lesson 1 caught exactly that: `readingMillis` thrown away with `made not entrant: uncommon trap` when headings arrived.
+C2, the JVM's optimizing compiler, has both habits. It copies small methods into their callers, and it bets on the types that usually show up at a call. Then a customer asks for rice, the bet is lost, and the cook is back at the recipe card. Lesson 1 caught exactly that: `readingMillis` thrown away with `made not entrant: uncommon trap` when headings arrived.
 
-None of this shows in your source, so it's easy to miss: a third kind of block, or a long error message, can change the speed of code that looks the same. In this lesson, we'll watch C2 copy one method and refuse another, count the types at a call, trip its bets on purpose, and meet the JDK methods it swaps for ready-made machine code. Before we start, make a guess, and keep it in mind."""
+None of this shows in your source, so it's easy to miss: a third kind of block, or a long error message, can change the speed of identical-looking code. In this lesson, we'll watch C2 copy one method and refuse another, count the types at a call, trip its bets on purpose, and meet the JDK methods it swaps for ready-made machine code. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
 S0 = """Start with something you can see. The report service checks every document it receives, and here's one check, written the way most of us would write it the first time:
 
 """ + pair(INLINE_J, INLINE_K) + """
 
-It looks tiny. C2 disagrees: it's 49 bytes of bytecode, and that number decides whether C2 will copy it into its callers.
+It looks tiny. C2 disagrees: it's 49 bytes of bytecode, the instructions javac writes into the class file, and that number decides whether C2 will copy it into its callers.
 
-**Inlining** means C2 pastes the body of a called method into the caller and compiles the two as one piece. It's the cook copying the sauce recipe from page 12 into the main recipe. Skipping the call itself is the small win. The big win is that C2's other optimizations can now see both sides of the call. Escape analysis can prove that an object never leaves the method, so it needn't be put on the heap at all. Constant folding can work out results from values known at compile time. Loop optimizations, such as unrolling (copying the loop body a few times so the loop makes fewer laps), can work on the whole loop. A method C2 doesn't inline is a wall it can't see through.
+**Inlining** means C2 pastes the body of a called method into the caller and compiles the two as one piece. It's the cook copying the sauce recipe from page 12 into the main recipe. Skipping the call itself is the small win. The big win is that C2's other optimizations can now see both sides of the call. Escape analysis can prove that an object never leaves the method, so it needn't be put on the heap, the memory where objects live, at all. Constant folding can work out results from values known at compile time. Loop optimizations, such as unrolling (copying the loop body a few times so the loop makes fewer laps), can work on the whole loop. A method C2 doesn't inline is a wall it can't see through.
 
 C2 decides at each **call site**, one call instruction in the bytecode, using the callee's bytecode size: the `(N bytes)` from lesson 1. The rule in HotSpot's `bytecodeInfo.cpp` is short. If the call runs on at least 25% of the caller's invocations (`InlineFrequencyRatio`), the site counts as hot, and C2 inlines methods of up to 325 bytes (`FreqInlineSize`). Otherwise the limit is 35 bytes (`MaxInlineSize`). C2 also stops 15 levels deep (`MaxInlineLevel`), and it refuses a callee that is already compiled into more than 2,500 bytes of machine code (`InlineSmallCode`). These values are the same from JDK 21 to JDK 27.
 
@@ -116,7 +116,7 @@ ASIDE = {
 # ---------------------------------------------------------------- section 1
 S1 = """Back to the documents. `readingMillis` from lesson 1 calls `b.millis()` on every block. That's a call through an interface, so it could go to `Paragraph`, `Heading`, `Quote` or a class nobody has written yet. C2 can only inline it if it knows which one.
 
-The object a method is called on is the **receiver**. At tier 3, C1 records the receiver types it sees at each call site, and C2 reads that **type profile** when it compiles. It's the cook's tally of side dishes, and C2 handles three cases:
+The object a method is called on is the **receiver**. At tier 3, C1, the quick compiler from lesson 1, records the receiver types it sees at each call site, and C2 reads that **type profile** when it compiles. It's the cook's tally of side dishes, and C2 handles three cases:
 
 - One type seen: C2 inlines that type's method behind a cheap check, "is it a `Paragraph`?". The site is **monomorphic**, one shape. That's the basket of fries by the stove.
 - Two types: it inlines both, behind two checks (**bimorphic**). The profile keeps two types per site (`TypeProfileWidth` is 2).
@@ -156,9 +156,9 @@ K_DEOPT = """val ms = blocks[i].millis()             // which types has it seen?
 if (folded[i]) total += GLANCE_MILLIS   // has this branch ever been taken?
 else total += ms"""
 
-S2 = """C2 compiles what the profile showed and nothing else. A branch that was never taken, or a receiver type that never appeared, gets no compiled code. In its place C2 puts an **uncommon trap**, the stub from lesson 1 that hands the running call back to the interpreter if the "impossible" case ever happens.
+S2 = """C2 compiles what the profile showed and nothing else. A branch that was never taken, or a receiver type that never appeared, gets no compiled code. In its place C2 puts an **uncommon trap**, the stub from lesson 1. If the "impossible" case ever happens, the trap hands the running call back to the interpreter, the part of the JVM that runs bytecode one instruction at a time.
 
-When a trap fires, the JVM **deoptimizes**: it rebuilds an interpreter frame from the compiled one and carries on in the interpreter. The compiled code is made not entrant. The method goes back to tier 3 for more profiling, now with the new case in its tally, and is compiled again. In the kitchen, the customer who asks for rice sends the cook back to the recipe card, and soon rice is part of the routine. The figure shows the cycle.
+When a trap fires, the JVM **deoptimizes**: it rebuilds an interpreter frame from the compiled one and carries on in the interpreter. The compiled code is made not entrant, which means retired: no new call will enter it. The method goes back to tier 3 for more profiling, now with the new case in its tally, and is compiled again. In the kitchen, the customer who asks for rice sends the cook back to the recipe card, and soon rice is part of the routine. The figure shows the cycle.
 
 `DeoptDemo` trips both common kinds of trap on purpose. It adds up the reading time of a document in three phases. First come paragraphs only. Then each document gets one folded block, such as a hidden spoiler, which costs the reader only a glance. Finally headings and quotes arrive. The loop body:
 
@@ -264,7 +264,7 @@ L = {
      "Run it with `-Pargs='1 4'`. Does a fourth type cost more than the third? The Kotlin twin runs 1, 3 and 4 types."
     ],
     "code": demo("MegamorphicBench"),
-    "expect": "One and two types are close, and three types cost several times more: on the busy course machine, about 1 µs per document for one type and 5 to 8 µs for three. Four types cost about the same as three (7.0 µs in one run): once the site is megamorphic, it's a virtual call either way. Expect wide error bars on any machine with other work running."
+    "expect": "One and two types are close, and three types cost several times more: on the busy course machine, 1 to 2 µs per document for one type and 5 to 10 µs for three. Four types cost about the same as three (7.0 µs in one run): once the site is megamorphic, it's a virtual call either way. Expect wide error bars on any machine with other work running."
    }
   },
   {

@@ -13,8 +13,8 @@ import kotlin.io.path.readLines
 private const val MB = 1024L * 1024
 
 /**
- * A child JVM with -Xmx256m that does what services do: a 64 MiB direct buffer (think Netty) and 50
- * threads. It then compares what the JVM reports with what the operating system says it uses.
+ * A child JVM with -Xmx256m that does what services do: a 64 MiB direct buffer (network code often uses
+ * these for socket data) and 50 threads. It then compares what the JVM reports with what the operating system says it uses.
  */
 fun main(args: Array<String>) {
     if (args.isEmpty()) {

@@ -22,7 +22,7 @@ fun main(args: Array<String>) {
     }
     val dir = Path.of("build", "gc-logs").createDirectories()        // labs/memory/build/gc-logs under Gradle
     dir.listDirectoryEntries().filter { it.name.startsWith("gc.log") }.forEach { it.deleteExisting() }
-    val logging = "-Xlog:gc*:file=${dir.resolve("gc.log")}:time,uptime,level,tags:filecount=3,filesize=200k"
+    val logging = "-Xlog:gc*:file=${dir.resolve("gc.log")}:time,uptime,level,tags:filecount=3,filesize=40k"
     Jvm.lines(listOf("-XX:+UseG1GC", "-Xmx256m", logging), "workbench.memory.l06.GcLogFileDemoKt", "load")
 
     // rotated files (gc.log.0, gc.log.1, ...) hold the older lines; gc.log is the current one
@@ -31,7 +31,8 @@ fun main(args: Array<String>) {
     val lines = files.flatMap { it.readLines() }
     // the three checks: full GCs, evacuation failures, and the heap left after young pauses
     println("Pause Full lines:          ${lines.count { "Pause Full" in it }}")
-    println("(Evacuation Failure) lines: ${lines.count { "(Evacuation Failure)" in it }}")
+    // JDK 21 prints "(Evacuation Failure)"; JDK 25 adds the reason, as in "(Evacuation Failure: Allocation)"
+    println("Evacuation Failure lines:  ${lines.count { "(Evacuation Failure" in it }}")
     val young = lines.filter { "[gc " in it && "Pause Young" in it && it.endsWith("ms") }
     if (young.isNotEmpty()) {
         println("first young pause: GC${young.first().substringAfter("] GC")}")

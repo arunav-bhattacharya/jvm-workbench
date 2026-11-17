@@ -20,7 +20,11 @@ data class GcPause(
     val millis: Double,
 )
 
-/** What a GC log says about pauses. [liveAfterLastFullMb] is the heap after the last full GC: the live set then. */
+/**
+ * What a GC log says about pauses. [evacuationFailures] counts the pauses with a label that starts with
+ * `Evacuation Failure`: JDK 21 prints `(Evacuation Failure)`, JDK 25 adds the reason, as in
+ * `(Evacuation Failure: Allocation)`. [liveAfterLastFullMb] is the heap after the last full GC: the live set then.
+ */
 data class PauseSummary(
     val pauses: Int,
     val totalMillis: Double,

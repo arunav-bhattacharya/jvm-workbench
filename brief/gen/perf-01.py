@@ -49,7 +49,7 @@ static long readingSeconds(long words) {
 K_READ = """// seconds to read a document at 238 words a minute, rounded up
 fun readingSeconds(words: Long): Long = (words * 60 + 237) / 238"""
 
-S0 = """Let's meet the program we'll follow through this track. It's a small **report service**: a program that takes a document, such as an article or a chapter of a book, and writes a short report about it. How many words does it have? How long does it take to read? Is it made of paragraphs, headings or quotes?
+S0 = """Let's meet the program we'll follow through this track. It's a small report service: a program that takes a document, such as an article or a chapter of a book, and writes a short report about it. How many words does it have? How long does it take to read? Is it made of paragraphs, headings or quotes?
 
 One of its jobs is the reading time. At 238 words a minute, rounded up to the next second, it's one line:
 
@@ -72,13 +72,13 @@ batch 11:     76 us
 batch 12:     76 us
 ```
 
-The course machine was busy, with more than 20 programs sharing its four cores, so treat every number as rough. The shape is what matters: four slow batches, then a drop to about 78 µs. Batch 6 is an odd one. A slow batch showed up there in most runs, even with the compiler switched off, so blame the busy machine. Lesson 3 teaches you to distrust a single strange number.
+The course machine was busy, with more than 20 programs sharing its four cores, so treat every number as rough. The shape is what matters: four slow batches, then a drop to about 78 µs. Batch 6 is an odd one. A slow batch showed up there in most runs, even with the compiler switched off, so the compiler isn't the culprit; the busy machine is the likely one. Lesson 3 teaches you to distrust a single strange number.
 
-The speed-up comes from how the JVM runs code. `javac` and `kotlinc` don't produce machine code for your processor. They produce **bytecode**: compact instructions for the JVM, stored in `.class` files, such as `lload` (push a local `long` onto a stack) or `lmul` (multiply two longs). HotSpot, the JVM in every OpenJDK build, starts every method in the **interpreter**, a loop inside the JVM that reads one bytecode instruction at a time and carries it out. That's the cook on day one, reading the card line by line.
+The speed-up comes from how the JVM runs code. `javac` and `kotlinc` don't produce machine code for your processor. They produce **bytecode**: compact instructions for the JVM, stored in `.class` files, such as `lload` (push a local `long` onto the JVM's working stack) or `lmul` (multiply two longs). HotSpot, the JVM in every OpenJDK build, starts every method in the **interpreter**, a loop inside the JVM that reads one bytecode instruction at a time and carries it out. That's the cook on day one, reading the card line by line.
 
-While it reads, the JVM keeps tally marks: how often each method is called, and how often each loop jumps back to its start (a **back-edge**). When the marks pass a threshold, a compiler thread turns the method into machine code in the background, and the next call runs that instead. This is the **JIT** (just-in-time) compiler. It compiles while the program runs, so it can see what your code really does.
+While it reads, the JVM keeps tally marks: how often each method is called, and how often each loop jumps back to its start (a back-edge). When the marks pass a threshold, a compiler thread turns the method into machine code in the background. (A thread is a separate line of work that runs alongside the rest of your program.) The next call runs the machine code instead. This is the **JIT** (just-in-time) compiler. It compiles while the program runs, so it can see what your code really does.
 
-HotSpot has two JIT compilers. **C1** compiles quickly and optimizes a little: the cheat sheet. **C2** compiles slowly and optimizes hard, using a **profile**, notes on what the code really did: which branches ran, which types turned up at each call. That's the dish practised until it's automatic, with shortcuts that bet on the usual orders. Tiered compilation, on by default, uses all of them in five levels:
+HotSpot has two JIT compilers. C1 compiles quickly and optimizes a little: the cheat sheet. At tier 3 it also takes notes on every order, a **profile** of what the code really did: which branches ran, which types turned up at each call. C2 compiles slowly and optimizes hard, using those notes. That's the dish practised until it's automatic, with shortcuts that bet on the usual orders. Tiered compilation, on by default, uses all of them in five levels:
 
 | Tier | Runs the code | Notes |
 |---|---|---|
@@ -187,19 +187,19 @@ Here is the rest of `longLoop`'s story, from the same JDK 25 run:
 The first retirement is housekeeping: once the C2 OSR code exists, the JVM retires C1's. The second is more interesting. When the loop finishes at 246 ms, the C2 code throws itself away. Running the same program with `-Xlog:deoptimization=debug` says why:
 
 ```text
-cid=13 osr level=4 workbench.performance.l01.Hot.longLoop()J trap_bci=7 osr_bci=4 unstable_if reinterpret
+cid=  13 osr level=4 workbench.performance.l01.Hot.longLoop()J trap_bci=7 osr_bci=4 unstable_if reinterpret
 ```
 
 `trap_bci=7` is the exit test. While C1 watched the loop, it never saw the loop end, so C2 didn't compile the exit at all. It put an **uncommon trap** there instead: a small stub that hands the running call back to the interpreter if a branch C2 never saw ever runs. C2 bet that this loop would never end. It lost exactly once, at the very end, and it cost nothing. That's the JIT's betting habit in miniature, and lesson 2 is all about those bets.
 
-The same log has lines for `readingMillis` with `trap_bci=27 class_check`, printed the moment the headings and quotes arrived. Bytecode 27 is the `b.millis()` call. That's id 24 from the last section, thrown away when a new kind of block showed up, and lesson 2 picks it up from there.
+The same log has lines for `readingMillis` with `trap_bci=27 class_check`, printed the moment the headings and quotes arrived. Bytecode 27 is the `b.millis()` call. It's the same event as id 24's retirement in the last section, C2 code thrown away when a new kind of block showed up, and lesson 2 picks it up from there.
 
 OSR matters to you for one practical reason. A benchmark written as one long loop in `main` measures OSR code and its quirks, which may not be the code your program runs after warm-up. JMH, the benchmarking tool in lesson 3, avoids that trap.
 
 So the JVM compiles loops and methods, and retires code it no longer trusts. All that machine code has to live somewhere, and it doesn't survive a restart."""
 
 # ---------------------------------------------------------------- section 3
-S3 = """Machine code needs a place to live. HotSpot keeps it in the **code cache**, a memory area outside the heap, where your objects live. It's the cook's shelf of cheat sheets. With tiered compilation the JVM sets aside 240 MB for it (`ReservedCodeCacheSize`), split into three parts. `java -XX:+PrintCodeCache -version` on JDK 25 prints them as the JVM exits:
+S3 = """Machine code needs a place to live. HotSpot keeps it in the **code cache**, a memory area outside the heap (the heap is where your objects live). It's the cook's shelf of cheat sheets. With tiered compilation the JVM sets aside 240 MB for it (`ReservedCodeCacheSize`), split into three parts. `java -XX:+PrintCodeCache -version` on JDK 25 prints them as the JVM exits:
 
 ```text
 CodeHeap 'non-profiled nmethods': size=120032Kb used=2Kb max_used=2Kb free=120029Kb

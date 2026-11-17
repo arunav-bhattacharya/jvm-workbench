@@ -32,7 +32,7 @@ object GcLog {
             totalMillis = pauses.sumOf { it.millis },
             longestMillis = pauses.maxOfOrNull { it.millis } ?: 0.0,
             fullGcs = fulls.size,
-            evacuationFailures = pauses.count { "Evacuation Failure" in it.labels },
+            evacuationFailures = pauses.count { p -> p.labels.any { it.startsWith("Evacuation Failure") } },   // JDK 25 adds ": Allocation"
             liveAfterLastFullMb = fulls.lastOrNull()?.heapAfterMb,
         )
     }

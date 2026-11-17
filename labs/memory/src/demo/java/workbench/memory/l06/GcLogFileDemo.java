@@ -25,7 +25,7 @@ public class GcLogFileDemo {
         try (Stream<Path> old = Files.list(dir)) {
             for (Path f : old.toList()) if (f.getFileName().toString().startsWith("gc.log")) Files.delete(f);
         }
-        String logging = "-Xlog:gc*:file=" + dir.resolve("gc.log") + ":time,uptime,level,tags:filecount=3,filesize=200k";
+        String logging = "-Xlog:gc*:file=" + dir.resolve("gc.log") + ":time,uptime,level,tags:filecount=3,filesize=40k";
         Jvm.lines(List.of("-XX:+UseG1GC", "-Xmx256m", logging), GcLogFileDemo.class.getName(), "load");
 
         List<String> lines = new ArrayList<>();
@@ -38,7 +38,8 @@ public class GcLogFileDemo {
         }
         // the three checks: full GCs, evacuation failures, and the heap left after young pauses
         System.out.println("Pause Full lines:          " + lines.stream().filter(l -> l.contains("Pause Full")).count());
-        System.out.println("(Evacuation Failure) lines: " + lines.stream().filter(l -> l.contains("(Evacuation Failure)")).count());
+        // JDK 21 prints "(Evacuation Failure)"; JDK 25 adds the reason, as in "(Evacuation Failure: Allocation)"
+        System.out.println("Evacuation Failure lines:  " + lines.stream().filter(l -> l.contains("(Evacuation Failure")).count());
         List<String> young = lines.stream().filter(l -> l.contains("[gc ") && l.contains("Pause Young") && l.endsWith("ms")).toList();
         if (!young.isEmpty()) {
             System.out.println("first young pause: " + young.get(0).substring(young.get(0).indexOf("GC(")));

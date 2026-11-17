@@ -20,13 +20,13 @@ fun main(args: Array<String>) {                                        // args u
     val before = directBytes()                                            // the JDK may already hold a little
     val escaped: MemorySegment
     Arena.ofConfined().use { arena ->                                     // 1. one owner thread, closed by use {}
-        val ledger = arena.allocate(32L * 1024 * 1024)                     // 2. 32 MiB outside the heap
-        for (i in 0 until ledger.byteSize() / Long.SIZE_BYTES) {
-            ledger.setAtIndex(ValueLayout.JAVA_LONG, i, i * 100)           //    4 million longs, and no objects
+        val block = arena.allocate(32L * 1024 * 1024)                      // 2. 32 MiB outside the heap
+        for (i in 0 until block.byteSize() / Long.SIZE_BYTES) {
+            block.setAtIndex(ValueLayout.JAVA_LONG, i, i * 100)            //    4 million longs, and no objects
         }
-        println("entry 1,000 holds ${ledger.getAtIndex(ValueLayout.JAVA_LONG, 1_000)}")
+        println("entry 1,000 holds ${block.getAtIndex(ValueLayout.JAVA_LONG, 1_000)}")
         println("inside the arena: %+d MiB of direct memory".format((directBytes() - before) shr 20))
-        escaped = ledger
+        escaped = block
     }                                                                     // 3. freed here, not by the GC
     println("after close():    %+d MiB of direct memory".format((directBytes() - before) shr 20))
     try {
