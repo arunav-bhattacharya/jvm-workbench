@@ -63,8 +63,8 @@ class BlockingEchoServerTest {
     void echoesLines() throws Exception {
         try (BlockingEchoServer server = new BlockingEchoServer(Executors.newCachedThreadPool());
              Client c = new Client(server.port())) {
-            assertThat(c.roundTrip("auth-1")).isEqualTo("auth-1");
-            assertThat(c.roundTrip("auth-2 amount=12.50")).isEqualTo("auth-2 amount=12.50");
+            assertThat(c.roundTrip("hello-1")).isEqualTo("hello-1");
+            assertThat(c.roundTrip("hello-2, return to sender")).isEqualTo("hello-2, return to sender");
         }
     }
 

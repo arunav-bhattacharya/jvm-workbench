@@ -16,9 +16,9 @@ fun main() = runBlocking {
     println("limitedParallelism(1):")
     List(3) { i ->
         launch(oneAtATime) {
-            println("  credit $i: read balance")
-            delay(20) // the FX call suspends: the single thread is free for someone else
-            println("  credit $i: write balance")
+            println("  helper $i: read the list")
+            delay(20) // the recipe-app lookup suspends: the single thread is free for someone else
+            println("  helper $i: write the list")
         }
     }.joinAll()
 
@@ -27,9 +27,9 @@ fun main() = runBlocking {
     List(3) { i ->
         launch(Dispatchers.Default) {
             mutex.withLock {
-                println("  credit $i: read balance")
-                delay(20) // still suspends, but nobody else can enter the lock
-                println("  credit $i: write balance")
+                println("  helper $i: read the list")
+                delay(20) // still suspends, but nobody else can take the lock
+                println("  helper $i: write the list")
             }
         }
     }.joinAll()

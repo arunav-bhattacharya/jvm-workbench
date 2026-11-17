@@ -19,11 +19,11 @@ public class NonNullDemoJava {
     static <T> T elvis(T x, T y) { return x != null ? x : Objects.requireNonNull(y); }
 
     public static void main(String[] args) {
-        List<String> currencies = Arrays.asList(null, "eur", "usd");
-        String first = firstNotNullValue(currencies);
+        List<String> varieties = Arrays.asList(null, "Gala", "Fuji");
+        String first = firstNotNullValue(varieties);
         String shown = elvis(null, "no note");
         System.out.println("first = " + first + ", shown = " + shown);
-        System.out.println("transformed = " + new UpperCaser<String>().transform("pay_1"));
+        System.out.println("transformed = " + new UpperCaser<String>().transform("Gala"));
 
         // Uncomment and run: it compiles in Java. What happens at run time?
         // String oops = elvis(null, null);

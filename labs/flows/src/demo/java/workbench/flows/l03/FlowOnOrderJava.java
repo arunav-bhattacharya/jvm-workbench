@@ -18,7 +18,7 @@ public class FlowOnOrderJava {
             try {
                 for (String line : deliveryNote) {
                     String item = line.substring(0, line.indexOf(','));
-                    System.out.println("read    " + item + "   on " + Thread.currentThread().getName());
+                    System.out.printf("read    %-6s on %s%n", item, Thread.currentThread().getName());
                     hatch.put(item);                   // blocks only when all 64 slots are full
                 }
                 hatch.put(END);
@@ -30,7 +30,7 @@ public class FlowOnOrderJava {
 
         for (String item = hatch.take(); !item.equals(END); item = hatch.take()) {
             Thread.sleep(30);                          // put it away and write it in the pantry book
-            System.out.println("stored  " + item + "   on " + Thread.currentThread().getName());
+            System.out.printf("stored  %-6s on %s%n", item, Thread.currentThread().getName());
         }
         reader.join();
     }

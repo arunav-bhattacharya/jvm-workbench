@@ -19,20 +19,20 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.text.Charsets.UTF_8
 
-/** One event loop. Client A asks for SLOW (a 1 s "JDBC call"); client B asks for FAST 50 ms later. */
+/** One event loop. Client A asks for SLOW (a 1 s call to the back office); client B asks for FAST 50 ms later. */
 fun main() {
     runLoop(dispatch = false)
     runLoop(dispatch = true)
 }
 
 private fun slowWork(line: String): String {
-    if (line == "SLOW") Thread.sleep(1_000)   // stands in for a blocking JDBC call
+    if (line == "SLOW") Thread.sleep(1_000)   // stands in for a slow blocking call, such as a database query
     return "$line on ${Thread.currentThread().name}"
 }
 
 private fun runLoop(dispatch: Boolean) {
     val group = MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory())
-    val blockingPool = Executors.newFixedThreadPool(4) { r -> Thread(r, "app-blocking-pool") }
+    val blockingPool = Executors.newFixedThreadPool(4) { r -> Thread(r, "back-office") }
     try {
         val server = ServerBootstrap().group(group).channel(NioServerSocketChannel::class.java)
             .childHandler(object : ChannelInitializer<SocketChannel>() {
@@ -67,7 +67,7 @@ private fun runLoop(dispatch: Boolean) {
                 val fast = bIn.readLine()
                 val fastMs = (System.nanoTime() - t0) / 1_000_000
 
-                println(if (dispatch) "[dispatch to app pool]" else "[blocking in the handler]")
+                println(if (dispatch) "[dispatch to the back office]" else "[blocking in the handler]")
                 println("   event-loop lag probe: $lagMs ms")
                 println("   FAST reply after $fastMs ms: $fast")
                 println("   SLOW reply: ${aIn.readLine()}")

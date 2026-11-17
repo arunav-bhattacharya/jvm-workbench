@@ -1,21 +1,23 @@
 package workbench.generics.l09
 
-/** Services the payment app looks up by type. */
-interface PaymentGateway { fun authorize(paymentId: String, cents: Long): String }
-interface FraudCheck { fun score(paymentId: String): Int }
+/** The shop's fruit, as in the earlier lessons. */
+interface Fruit { val name: String; val grams: Int }
+data class Apple(override val name: String, override val grams: Int) : Fruit
+data class Lemon(override val name: String, override val grams: Int) : Fruit
 
-class FakeGateway(private val name: String) : PaymentGateway {
-    override fun authorize(paymentId: String, cents: Long) = "$name approved $paymentId for $cents"
+/** Tools the shop looks up by their type. */
+interface Scale { fun weigh(fruit: Fruit): String }
+interface LabelPrinter { fun labelFor(fruit: Fruit): String }
+
+class ShopScale(private val name: String) : Scale {
+    override fun weigh(fruit: Fruit) = "$name: ${fruit.name} weighs ${fruit.grams} g"
 }
-class AlwaysLowRisk : FraudCheck {
-    override fun score(paymentId: String) = 1
+class PlainLabels : LabelPrinter {
+    override fun labelFor(fruit: Fruit) = "${fruit.name}, ${fruit.grams} g"
 }
 
-data class Payment(val id: String, val cents: Long)
-data class Refund(val id: String, val cents: Long)
-
-/** A generic service: Repository<Payment> and Repository<Refund> are different types with ONE class. */
-interface Repository<T> { fun all(): List<T> }
-class InMemoryRepository<T>(private val items: List<T>) : Repository<T> {
+/** A generic tool: Shelf<Apple> and Shelf<Lemon> are different types with ONE class, Shelf. */
+interface Shelf<out T> { fun all(): List<T> }
+class FixedShelf<out T>(private val items: List<T>) : Shelf<T> {
     override fun all(): List<T> = items
 }

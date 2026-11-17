@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-/** One event loop. Client A asks for SLOW (a 1 s "JDBC call"); client B asks for FAST 50 ms later. */
+/** One event loop. Client A asks for SLOW (a 1 s call to the back office); client B asks for FAST 50 ms later. */
 public class BlockingLoopDemo {
     public static void main(String[] args) throws Exception {
         run(false);
@@ -33,13 +33,13 @@ public class BlockingLoopDemo {
     }
 
     static String work(String line) throws InterruptedException {
-        if (line.equals("SLOW")) Thread.sleep(1_000);   // stands in for a blocking JDBC call
+        if (line.equals("SLOW")) Thread.sleep(1_000);   // stands in for a slow blocking call, such as a database query
         return line + " on " + Thread.currentThread().getName();
     }
 
     static void run(boolean dispatch) throws Exception {
         EventLoopGroup group = new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());
-        ExecutorService blockingPool = Executors.newFixedThreadPool(4, r -> new Thread(r, "app-blocking-pool"));
+        ExecutorService blockingPool = Executors.newFixedThreadPool(4, r -> new Thread(r, "back-office"));
         try {
             Channel server = new ServerBootstrap().group(group).channel(NioServerSocketChannel.class)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
@@ -78,7 +78,7 @@ public class BlockingLoopDemo {
                 String fast = bIn.readLine();
                 long fastMs = (System.nanoTime() - t0) / 1_000_000;
 
-                System.out.println(dispatch ? "[dispatch to app pool]" : "[blocking in the handler]");
+                System.out.println(dispatch ? "[dispatch to the back office]" : "[blocking in the handler]");
                 System.out.printf("   event-loop lag probe: %d ms%n", lagMs);
                 System.out.printf("   FAST reply after %d ms: %s%n", fastMs, fast);
                 System.out.printf("   SLOW reply: %s%n", aIn.readLine());

@@ -1,47 +1,47 @@
 package workbench.generics.l10
 
-abstract class PaymentRequestBuilder<B : PaymentRequestBuilder<B>> {
-    protected var cents: Long = 0
-    protected var currency: String? = null
-    protected var reference: String = ""
+abstract class OrderBuilder<B : OrderBuilder<B>> {
+    protected var grams: Int = 0
+    protected var variety: String? = null
+    protected var note: String = ""
 
     // each setter returns self(): typed B, so the chain keeps the subclass type
-    fun amount(cents: Long): B { this.cents = cents; return self() }
-    fun currency(code: String): B { currency = code; return self() }
-    fun reference(text: String): B { reference = text; return self() }
+    fun grams(grams: Int): B { this.grams = grams; return self() }
+    fun variety(name: String): B { variety = name; return self() }
+    fun note(text: String): B { note = text; return self() }
 
     protected abstract fun self(): B
 
     protected fun checkCommon() {
-        check(cents > 0) { "amount must be positive" }
-        check(currency != null) { "currency is required" }
+        check(grams > 0) { "weight must be positive" }
+        check(variety != null) { "variety is required" }
     }
 }
 
-class CardPaymentBuilder : PaymentRequestBuilder<CardPaymentBuilder>() {
-    private var token: String? = null
+class GiftBoxBuilder : OrderBuilder<GiftBoxBuilder>() {
+    private var ribbon: String? = null
 
-    fun cardToken(token: String): CardPaymentBuilder { this.token = token; return this }
+    fun ribbon(colour: String): GiftBoxBuilder { ribbon = colour; return this }
 
-    override fun self(): CardPaymentBuilder = this      // no cast needed: B is CardPaymentBuilder here
+    override fun self(): GiftBoxBuilder = this      // no cast needed: B is GiftBoxBuilder here
 
-    fun build(): CardPayment {
+    fun build(): GiftBox {
         checkCommon()
-        val t = checkNotNull(token) { "card token is required" }
-        return CardPayment(cents, currency!!, reference, t)
+        val r = checkNotNull(ribbon) { "ribbon is required" }
+        return GiftBox(grams, variety!!, note, r)
     }
 }
 
-class BankTransferBuilder : PaymentRequestBuilder<BankTransferBuilder>() {
-    private var iban: String? = null
+class DeliveryBuilder : OrderBuilder<DeliveryBuilder>() {
+    private var address: String? = null
 
-    fun iban(iban: String): BankTransferBuilder { this.iban = iban; return this }
+    fun address(text: String): DeliveryBuilder { address = text; return this }
 
-    override fun self(): BankTransferBuilder = this
+    override fun self(): DeliveryBuilder = this
 
-    fun build(): BankTransfer {
+    fun build(): Delivery {
         checkCommon()
-        val i = checkNotNull(iban) { "iban is required" }
-        return BankTransfer(cents, currency!!, reference, i)
+        val a = checkNotNull(address) { "address is required" }
+        return Delivery(grams, variety!!, note, a)
     }
 }

@@ -10,10 +10,10 @@ import java.util.Arrays;
  */
 public class ReflectDemoJava {
     public static void main(String[] args) throws Exception {
-        System.out.println("fields:  " + Arrays.stream(CardAuthorized.class.getDeclaredFields()).map(Field::getName).sorted().toList());
-        System.out.println("methods: " + Arrays.stream(CardAuthorized.class.getDeclaredMethods()).map(Method::getName).sorted().toList());
+        System.out.println("fields:  " + Arrays.stream(Apple.class.getDeclaredFields()).map(Field::getName).sorted().toList());
+        System.out.println("methods: " + Arrays.stream(Apple.class.getDeclaredMethods()).map(Method::getName).sorted().toList());
         // A Kotlin object is a class with a static INSTANCE field: Java's way to get objectInstance.
-        System.out.println("Origin.INSTANCE: " + Origin.class.getField("INSTANCE").get(null).getClass().getSimpleName());
+        System.out.println("Storeroom.INSTANCE: " + Storeroom.class.getField("INSTANCE").get(null).getClass().getSimpleName());
         System.out.println("is it a data class? Java reflection can't say: it has no such idea.");
     }
 }

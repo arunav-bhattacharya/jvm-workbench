@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Timeout(20)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class PaymentCodecTest {
+class LetterCodecTest {
     static final List<String> leaks = new CopyOnWriteArrayList<>();
 
     @BeforeAll
@@ -41,18 +41,18 @@ class PaymentCodecTest {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.SIMPLE);
     }
 
-    /** Approves every authorization; replies with type APPROVED and the same body. */
-    static final class Approver extends SimpleChannelInboundHandler<PaymentMessage> {
+    /** Answers every letter with a receipt: type RECEIPT and the same body. */
+    static final class ReceiptDesk extends SimpleChannelInboundHandler<Letter> {
         @Override
-        protected void channelRead0(ChannelHandlerContext ctx, PaymentMessage m) {
-            ctx.writeAndFlush(new PaymentMessage(PaymentMessage.APPROVED, m.body()));
+        protected void channelRead0(ChannelHandlerContext ctx, Letter m) {
+            ctx.writeAndFlush(new Letter(Letter.RECEIPT, m.body()));
         }
     }
 
-    static ByteBuf encode(PaymentMessage... messages) {
-        EmbeddedChannel enc = new EmbeddedChannel(new PaymentFrameEncoder());
+    static ByteBuf encode(Letter... messages) {
+        EmbeddedChannel enc = new EmbeddedChannel(new LetterFrameEncoder());
         ByteBuf all = Unpooled.buffer();
-        for (PaymentMessage m : messages) {
+        for (Letter m : messages) {
             enc.writeOutbound(m);
             ByteBuf b = enc.readOutbound();
             all.writeBytes(b);
@@ -66,8 +66,8 @@ class PaymentCodecTest {
     @Order(1)
     @DisplayName("the encoder writes [length][type][UTF-8 body], and the length counts the type byte")
     void encoderWritesFrame() {
-        ByteBuf wire = encode(new PaymentMessage(PaymentMessage.AUTHORIZE, "auth-1"));
-        assertThat(ByteBufUtil.hexDump(wire)).isEqualTo("00000007" + "01" + "617574682d31");
+        ByteBuf wire = encode(new Letter(Letter.NOTE, "note-1"));
+        assertThat(ByteBufUtil.hexDump(wire)).isEqualTo("00000007" + "01" + "6e6f74652d31");
         wire.release();
     }
 
@@ -75,24 +75,24 @@ class PaymentCodecTest {
     @Order(2)
     @DisplayName("the decoder waits for whole frames, however the bytes are split")
     void decoderReassemblesFragments() {
-        ByteBuf wire = encode(new PaymentMessage(PaymentMessage.AUTHORIZE, "auth-1"),
-                new PaymentMessage(PaymentMessage.CAPTURE, "capture-1"));   // 11 bytes + 14 bytes
-        EmbeddedChannel ch = new EmbeddedChannel(PaymentCodec.handlers(new Approver()));
+        ByteBuf wire = encode(new Letter(Letter.NOTE, "note-1"),
+                new Letter(Letter.PARCEL, "parcel-1"));   // 11 bytes + 13 bytes
+        EmbeddedChannel ch = new EmbeddedChannel(LetterCodec.handlers(new ReceiptDesk()));
         assertThat(ch.writeInbound(wire.retainedSlice(0, 3))).as("half a length field").isFalse();
         assertThat(ch.writeInbound(wire.retainedSlice(3, 6))).as("frame 1 still incomplete").isFalse();
         ch.writeInbound(wire.retainedSlice(9, 5));                         // ends frame 1, starts frame 2
         ch.writeInbound(wire.retainedSlice(14, wire.readableBytes() - 14));
         wire.release();
 
-        EmbeddedChannel decode = new EmbeddedChannel(PaymentCodec.handlers(new SimpleChannelInboundHandler<PaymentMessage>() {
-            @Override protected void channelRead0(ChannelHandlerContext ctx, PaymentMessage m) {
+        EmbeddedChannel decode = new EmbeddedChannel(LetterCodec.handlers(new SimpleChannelInboundHandler<Letter>() {
+            @Override protected void channelRead0(ChannelHandlerContext ctx, Letter m) {
                 ctx.fireChannelRead(m);   // let the test read the decoded replies
             }
         }));
         ByteBuf reply;
         while ((reply = ch.readOutbound()) != null) decode.writeInbound(reply);
-        assertThat((PaymentMessage) decode.readInbound()).isEqualTo(new PaymentMessage(PaymentMessage.APPROVED, "auth-1"));
-        assertThat((PaymentMessage) decode.readInbound()).isEqualTo(new PaymentMessage(PaymentMessage.APPROVED, "capture-1"));
+        assertThat((Letter) decode.readInbound()).isEqualTo(new Letter(Letter.RECEIPT, "note-1"));
+        assertThat((Letter) decode.readInbound()).isEqualTo(new Letter(Letter.RECEIPT, "parcel-1"));
         assertThat((Object) decode.readInbound()).isNull();
         assertThat(ch.finish()).as("no bytes left over").isFalse();
         decode.finishAndReleaseAll();
@@ -102,8 +102,8 @@ class PaymentCodecTest {
     @Order(3)
     @DisplayName("a frame longer than MAX_FRAME is rejected before its body arrives")
     void oversizedFrameIsRejected() {
-        EmbeddedChannel ch = new EmbeddedChannel(PaymentCodec.handlers(new Approver()));
-        ByteBuf hostile = Unpooled.buffer().writeInt(5_000).writeByte(PaymentMessage.AUTHORIZE);
+        EmbeddedChannel ch = new EmbeddedChannel(LetterCodec.handlers(new ReceiptDesk()));
+        ByteBuf hostile = Unpooled.buffer().writeInt(5_000).writeByte(Letter.NOTE);
         assertThatThrownBy(() -> ch.writeInbound(hostile))
                 .isInstanceOf(TooLongFrameException.class)
                 .hasMessage("Adjusted frame length exceeds 1024: 5004 - discarded");
@@ -112,9 +112,9 @@ class PaymentCodecTest {
 
     @Test
     @Order(4)
-    @DisplayName("AuditTap counts the bytes and passes the same buffer on, so it can be released")
+    @DisplayName("CountingTap counts the bytes and passes the same buffer on, so it can be released")
     void auditTapPassesOwnershipOn() {
-        AuditTap tap = new AuditTap();
+        CountingTap tap = new CountingTap();
         EmbeddedChannel ch = new EmbeddedChannel(tap);
         ByteBuf in = ByteBufAllocator.DEFAULT.buffer(16).writeInt(42).writeLong(7);
         ch.writeInbound(in);
@@ -131,10 +131,10 @@ class PaymentCodecTest {
     void noLeaksUnderParanoid() throws Exception {
         for (int i = 0; i < 10; i++) {
             EmbeddedChannel ch = new EmbeddedChannel();
-            ch.pipeline().addLast(new AuditTap());
-            ch.pipeline().addLast(PaymentCodec.handlers(new Approver()));
+            ch.pipeline().addLast(new CountingTap());
+            ch.pipeline().addLast(LetterCodec.handlers(new ReceiptDesk()));
             ByteBuf frame = ByteBufAllocator.DEFAULT.buffer();
-            frame.writeBytes(encode(new PaymentMessage(PaymentMessage.AUTHORIZE, "auth-" + i)));   // test-owned copy
+            frame.writeBytes(encode(new Letter(Letter.NOTE, "note-" + i)));   // test-owned copy
             ch.writeInbound(frame);
             ch.finishAndReleaseAll();
         }

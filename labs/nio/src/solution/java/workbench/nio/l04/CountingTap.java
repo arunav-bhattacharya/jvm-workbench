@@ -6,7 +6,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-public class AuditTap extends ChannelInboundHandlerAdapter {
+public class CountingTap extends ChannelInboundHandlerAdapter {
     private final AtomicLong bytesSeen = new AtomicLong();
 
     public long bytesSeen() {

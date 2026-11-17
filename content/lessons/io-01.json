@@ -3,8 +3,9 @@
  "title": "Blocking IO, threads and the C10K problem",
  "minutes": 35,
  "goal": "By the end you can say what a blocked socket read costs, use Little's law to count the threads a blocking server needs, and explain why ten thousand mostly idle connections broke thread-per-connection servers.",
+ "opening": "Picture a post office with an odd rule. Every customer who walks in gets a clerk of their own, for as long as they stay. The clerk hands over a form and waits at the counter while the customer fills it in. Some write slowly. Some stay at the counter when they're done, in case another question comes to mind, and their clerk waits too.\n\nOn a busy day, ten thousand customers need ten thousand clerks, and nearly all of them are standing still.\n\nMany servers run like that post office, a cousin of the waiter at the kitchen door in The thread-per-request wall. The trap is easy to fall into, because the code is the plainest kind there is. It passes every test and fails only when the building is full.\n\nThe last track ended by bridging Kotlin flows to callbacks and to Reactor, code that never sits and waits. This track goes underneath, to the sockets where the waiting happens. In this lesson, we'll count what a waiting clerk costs, size a server with arithmetic, meet the ten-thousand-customer problem and weigh two ways out. Before we start, make a guess, and keep it in mind.",
  "warmup": {
-  "q": "A blocking echo server gives each connection its own platform thread. 2,000 clients connect and then send nothing. How many platform threads does the server hold, and what does `Thread.getState()` say about them?",
+  "q": "An echo server sends back every line it receives. This one gives each connection its own platform thread, a thread backed by one operating system thread. 2,000 clients connect and then send nothing. How many platform threads does the server hold, and what does `Thread.getState()` say about them?",
   "options": [
    "About 8, one per core, because idle sockets don't need a thread",
    "About 2,000, each reporting RUNNABLE",
@@ -12,19 +13,19 @@
    "About 200, because the JVM caps platform threads at 200"
   ],
   "answer": 1,
-  "why": "Thread-per-connection means one thread per open socket, busy or not, and each one sits inside `read()`. The wait happens in native code, so `getState()` reports RUNNABLE. That is why a thread dump of an idle server looks busy. The demo in this lesson prints it: 2,007 platform threads for 2,000 clients, and RUNNABLE for the blocked handler."
+  "why": "Thread-per-connection means one thread per open socket, busy or not, and each one sits inside `read()`, like a clerk waiting at the counter. The wait happens in native code, so `getState()` reports RUNNABLE, and a thread dump of an idle server looks busy. The demo in the first section prints it: about 2,000 platform threads for 2,000 clients, and RUNNABLE for the blocked handler."
  },
  "sections": [
   {
-   "h": "A blocked read holds a whole thread",
-   "body": "Here is the core of every classic Java server. One thread accepts connections. Each connection gets a task that reads a line and writes it back.\n\n```java\ntry (ServerSocket server = new ServerSocket(8080)) {\n    while (true) {\n        Socket socket = server.accept();          // blocks until a client connects\n        pool.execute(() -> echo(socket));         // one task per connection\n    }\n}\n\nstatic void echo(Socket socket) {\n    try (socket; var in = new BufferedReader(new InputStreamReader(socket.getInputStream(), UTF_8))) {\n        var out = socket.getOutputStream();\n        String line;\n        while ((line = in.readLine()) != null) {  // blocks until the client sends a line\n            out.write((line + \"\\n\").getBytes(UTF_8));\n        }\n    } catch (IOException e) {\n        // the client went away\n    }\n}\n```\n\n```kotlin\nServerSocket(8080).use { server ->\n    while (true) {\n        val socket = server.accept()              // blocks until a client connects\n        pool.execute { echo(socket) }             // one task per connection\n    }\n}\n\nfun echo(socket: Socket) {\n    try {\n        socket.use { s ->\n            val reader = s.getInputStream().bufferedReader(UTF_8)\n            val out = s.getOutputStream()\n            while (true) {\n                val line = reader.readLine() ?: break   // blocks until the client sends a line\n                out.write(\"$line\\n\".toByteArray(UTF_8))\n            }\n        }\n    } catch (e: IOException) {\n        // the client went away\n    }\n}\n```\n\nThe code is easy to read, and that is its strength. The cost hides in `readLine()`.\n\nGo one level down to see it. A socket is the kernel's object for one end of a TCP connection, and the kernel keeps a receive buffer for it: bytes that have arrived from the network but that your program hasn't read yet. `read()` copies bytes out of that buffer. If the buffer is empty, the kernel takes the calling thread off the CPU and parks it on the socket's wait list. When a packet arrives, the kernel appends its bytes to the buffer and wakes the parked thread, which then returns from `read()`. While the client thinks, or sits idle on a keep-alive connection (one it leaves open between requests), that thread can do nothing else.\n\nTwo things surprise people the first time they look.\n\nThe thread is not free to keep. A Java platform thread is a thin wrapper around one operating system thread, with its own stack, and Jetty's documentation puts it at about 1 MiB of native memory. The OS scheduler also has to track every one of them.\n\nAnd a thread dump hides the waiting. A platform thread blocked in a socket read reports `RUNNABLE`, because the JVM sees it running native code (`SocketDispatcher.read0`). A server with 2,000 idle connections shows 2,000 runnable threads and almost no CPU use.\n\nVert.x's documentation makes the same point about every blocking API: while the thread waits for a result it can do nothing else, so a lot of concurrency needs a lot of threads. For a blocking server, the question is never how fast one request runs. It is how many threads you can hold, and how many your traffic needs.",
+   "h": "One clerk per customer: what a blocked read holds",
+   "body": "Our running example is the simplest server there is. A **server** is a program that waits for other programs, its **clients**, to connect and ask for something. An **echo server** answers every line a client sends with the same line, like a post office desk that hands each letter straight back: return to sender.\n\nEach client talks to the server over a **connection**, an open line between two programs that TCP, the network's way of delivering bytes in order, keeps alive. Each end of a connection is a **socket**, the handle a program reads and writes those bytes through.\n\nHere is the classic echo server. One thread, a path of work through the program, accepts new connections. Each connection then gets a task of its own, run by a thread pool (a set of threads that run the tasks you hand it):\n\n```java\ntry (ServerSocket server = new ServerSocket(8080)) {\n    while (true) {\n        Socket socket = server.accept();          // waits until a client connects\n        pool.execute(() -> echo(socket));         // one task per connection\n    }\n}\n\nstatic void echo(Socket socket) {\n    try (socket; var in = new BufferedReader(new InputStreamReader(socket.getInputStream(), UTF_8))) {\n        var out = socket.getOutputStream();\n        String line;\n        while ((line = in.readLine()) != null) {  // waits until the client sends a line\n            out.write((line + \"\\n\").getBytes(UTF_8));\n        }\n    } catch (IOException e) {\n        // the client went away\n    }\n}\n```\n\n```kotlin\nServerSocket(8080).use { server ->\n    while (true) {\n        val socket = server.accept()              // waits until a client connects\n        pool.execute { echo(socket) }             // one task per connection\n    }\n}\n\nfun echo(socket: Socket) {\n    try {\n        socket.use { s ->\n            val reader = s.getInputStream().bufferedReader(UTF_8)\n            val out = s.getOutputStream()\n            while (true) {\n                val line = reader.readLine() ?: break   // waits until the client sends a line\n                out.write(\"$line\\n\".toByteArray(UTF_8))\n            }\n        }\n    } catch (e: IOException) {\n        // the client went away\n    }\n}\n```\n\nFirst, `accept()` waits for a client and returns its socket. We hand the socket to the pool and go straight back to `accept()`. Inside `echo`, `readLine()` waits for a whole line, and we write it back. The code reads like a recipe, which is its strength. The cost hides in `readLine()`.\n\nLet's go one level down. The operating system's core, the **kernel**, keeps a receive buffer for every socket: bytes that have arrived from the network but that the program hasn't read yet. `read()` copies bytes out of that buffer. When the buffer is empty, the kernel takes the calling thread off the processor and parks it on the socket's wait list. When a packet arrives, the kernel adds its bytes to the buffer and wakes the thread. A call that makes its thread wait like this is a **blocking** call.\n\nWhile the client thinks, the thread waits. Many clients also keep the connection open between requests, so they don't pay to connect again. That's a **keep-alive** connection, the customer who stays at the counter in case another question comes to mind, and its thread waits for that too. One thread for every open socket, busy or not, is called **thread-per-connection**.\n\nA waiting thread isn't free to keep. Each one here is a **platform thread**, a thin Java wrapper around one operating system thread, with its own stack, the memory for its method calls. Jetty's documentation (Jetty is a Java web server, lesson 7) puts that at about 1 MiB per thread, and the operating system's scheduler tracks every one.\n\n`ThreadPerConnectionDemo`, in the Try it below, connects 2,000 clients that never send a byte. One run on a busy 4-core machine with JDK 21 printed:\n\n```text\nplatform thread per connection: 2,000 idle clients connected in 1,492 ms\n   platform threads: 6 before, 2007 now\n   a handler blocked in read() reports state RUNNABLE\n```\n\nTwo thousand customers, two thousand clerks, and not one of them doing anything. Now look at the state. A platform thread blocked in a socket read reports `RUNNABLE`, because the JVM sees it running native code (`SocketDispatcher.read0`) and can't tell waiting from working there.\n\nThat's where the post office picture breaks. In a real post office, you can see a clerk standing still. In a thread dump, every idle clerk of an idle server reports `RUNNABLE`, which is generous of it.\n\n**A blocked read holds a whole thread for the whole wait. Count the waits, not the work.**\n\nSo for a blocking server, the question isn't how fast one line comes back. It's how many threads your traffic needs, and arithmetic can answer that.",
    "try": {
     "title": "Count the threads",
     "minutes": 4,
     "steps": [
-     "Open `ThreadPerConnectionDemo.java` (or the Kotlin twin, `ThreadPerConnectionDemo.kt`). It connects 2,000 clients that never send anything: first to a server with a cached thread pool, then to one with a virtual thread per connection.",
+     "Open `ThreadPerConnectionDemo.java` (or the Kotlin twin, `ThreadPerConnectionDemo.kt`). It connects 2,000 clients that never send anything: first to a server with a cached thread pool, which makes a new thread whenever none is free, then to one with a virtual thread per connection.",
      "Before you run it, write down two predictions: how many platform threads the first server holds, and what `getState()` returns for a handler stuck in `read()`.",
-     "Run it from `labs/` with the command below. Then run it again with `-Pargs=5000` added."
+     "Run it from `labs/` with the command below. Then run it again with `-Pargs=5000` added. Which number grows, and which one stays put?"
     ],
     "code": {
      "lang": "java",
@@ -40,21 +41,25 @@
       "file": "labs/nio/src/demo/kotlin/workbench/nio/l01/ThreadPerConnectionDemo.kt"
      }
     },
-    "expect": "On my 4-core machine with JDK 21 the platform version went from 6 platform threads to 2,007, one per client plus the JVM's own, and the blocked handler reported `RUNNABLE`. The virtual version held the same 2,000 connections with 15 platform threads, and its blocked handler reported `WAITING`. With 5,000 clients the first number became 5,007 and the second stayed at 15."
+    "expect": "On a 4-core machine with JDK 21, the platform version went from 6 platform threads to 2,007: one per client plus the JVM's own. The blocked handler reported `RUNNABLE`. The virtual version held the same 2,000 connections with about 15 platform threads, and its blocked handler reported `WAITING`. With 5,000 clients, the first number grew to about 5,007 and the second stayed near 15."
    }
   },
   {
-   "h": "Little's law counts the threads you need",
-   "body": "The number of requests in a system equals the arrival rate times the time each one spends there: L = λ × W. That is Little's law, which you met in the executors and virtual threads tracks. With thread-per-request, L is also the number of threads you need.\n\nTake an authorization service. At peak it gets 800 requests a second. Each request spends 30 ms in your code and 120 ms waiting for the card issuer. That is 800 × 0.15 s = 120 requests in flight, so 120 busy threads, and a pool of 200 copes. If the issuer slows to 600 ms, the same traffic needs 800 × 0.63 s = 504 threads. Your CPU is no busier. The extra threads are all waiting.\n\nThread-per-connection is worse than thread-per-request, because it pays for connections, not requests. A connection holds its thread for its whole life, including the idle time between requests. Picture 10,000 point-of-sale terminals that each keep a connection open and send one request every 10 seconds. That is 1,000 requests a second. At 150 ms each, Little's law says 150 are in flight. The thread-per-connection server still needs 10,000 threads, because 9,850 of them sit in `read()` waiting for their terminal's next request.\n\nThat gap explains two defaults you may have seen in Tomcat's connector docs. `maxThreads` is 200 and caps simultaneous requests. `maxConnections` is 8,192 and caps open connections. The NIO connector's poller watches the idle sockets with `select()`, so a worker thread is needed only while a request is being processed. Threads follow requests in flight, not open sockets.\n\nEach extra platform thread costs a stack and a slot in the scheduler. When many threads are runnable, the OS also pays for context switches: saving one thread's registers and loading another's, with the CPU caches going cold in between. A few thousand works, as the demo showed. Tens of thousands is where servers in the late 1990s fell over, and it is still a bad place to be.",
+   "h": "Counting the clerks with Little's law",
+   "body": "Picture a counter on the post office door. If 10 customers come in each minute and each stays 3 minutes, about 30 are inside at any moment. That's **Little's law**: the number of items in a system equals the rate they arrive times the time each one stays, L = λ × W. You met it in the executors and virtual threads tracks.\n\nWith **thread-per-request**, where a pool lends a thread only while a request is being served, L is also the number of threads you need.\n\nTake a server that gets 800 requests a second at its busiest. Each request spends 30 ms in our own code and 120 ms waiting for a slow web service, another program it calls over the network. That's 800 × 0.15 s = 120 requests in flight, so 120 busy threads, and a pool of 200 copes. Then the slow service has a bad day and takes 600 ms. The same traffic now needs 800 × 0.63 s = 504 threads. The processor is no busier. The extra threads are all waiting.\n\nThread-per-connection is worse, because it pays for connections, not requests. A connection holds its thread for its whole life, idle time included. Picture 10,000 clients that each keep a connection open and send one request every 10 seconds. That's 1,000 requests a second. At 150 ms each, Little's law says 150 are in flight.\n\nThe thread-per-connection server still holds 10,000 threads. 9,850 of them sit in `read()`, waiting for their client's next request. In the post office, 150 customers are being served and 9,850 are standing at the counter, thinking.\n\nServers built for many connections keep those two numbers apart. Tomcat, a widely used Java web server, has two settings for it: `maxThreads` (200 by default) caps the requests being served at once, and `maxConnections` (8,192 by default) caps the open connections. One Tomcat thread watches the idle sockets, so a worker thread is needed only while a request is being served.\n\nEvery extra platform thread costs a stack and a place in the scheduler. When many are ready to run, the operating system also pays for **context switches**: saving one thread's registers and loading another's, while the processor's caches go cold. A few thousand threads work, as the demo showed. Tens of thousands is where servers fell over in the late 1990s, and it's still a bad place to be.\n\n**Waiting threads are still threads. Size a blocking server with Little's law, not with the number of cores.**\n\nIn 1999, those tens of thousands of connections got a name.",
+   "aside": {
+    "title": "Is one thread per connection ever the right choice?",
+    "body": "Yes, when the number of connections stays small and doesn't grow with your traffic. An internal tool with 50 long-lived connections and steady traffic is simpler to write and easier to debug with one thread each, and its thread count never gets near any limit. The trouble starts when connections grow on their own, as they do with keep-alive clients, phones and devices that stay connected all day. Then every new customer brings a clerk, and the clerks run out first."
+   },
    "try": {
-    "title": "Do the arithmetic before the incident",
+    "title": "Do the arithmetic before the bad day",
     "minutes": 3,
     "steps": [
-     "A settlement service reads from Kafka and calls a ledger API: 300 calls a second, 40 ms in your own code, 260 ms waiting for the ledger. How many threads does thread-per-request need?",
-     "The ledger has an incident and takes 2 s per call. Traffic stays the same. How many threads now?",
-     "Open the lab test `fixedPoolCapsConnections`. Which of your two numbers would a fixed pool of 100 survive, and what would callers see in the other case?"
+     "A server calls a slow web service 300 times a second. Each call spends 40 ms in your own code and 260 ms waiting for the answer. How many threads does thread-per-request need?",
+     "The slow service has a bad day and takes 2 s per call. Traffic stays the same. How many threads now?",
+     "Open the lab test `fixedPoolCapsConnections`. Which of your two numbers would a fixed pool of 100 threads survive, and what would callers see in the other case?"
     ],
-    "expect": "300 × 0.3 s = 90 threads normally, and 300 × 2.04 s = 612 threads during the incident. A pool of 100 copes with the first. In the second, tasks queue behind busy threads, latency climbs past every client timeout, and the service looks down while its CPU is idle. The pool ran out of threads that were waiting, not threads that were working."
+    "expect": "300 × 0.3 s = 90 threads normally, and 300 × 2.04 s = 612 threads on the bad day. A pool of 100 copes with the first. In the second, tasks queue behind busy threads, waits climb past every caller's patience, and the server looks down while its processor sits idle. The pool ran out of threads that were waiting, not threads that were working."
    },
    "refs": [
     {
@@ -65,18 +70,18 @@
    ]
   },
   {
-   "h": "C10K: ten thousand clients at once",
-   "body": "In 1999 Dan Kegel wrote a page called \"The C10K problem\". The name is short for ten thousand concurrent clients. His argument was that the hardware of the day could already serve that many connections and the server software could not, because of how it used threads and system calls.\n\nThe answer the industry settled on is the one this whole track is about: stop giving each connection a thread. Put many sockets in non-blocking mode, where a `read` on an empty receive buffer returns 0 bytes at once instead of parking the thread. Then ask the kernel one question: which of these sockets are ready right now? `select` and `poll` were the first system calls for that, and they take the whole list of sockets on every call, which gets slow with thousands of them. Linux added `epoll` and the BSDs and macOS added `kqueue`. Both keep the watched sockets inside the kernel and report only the ones that are ready. One thread can then watch thousands of connections and run code only for those with data. That loop (wait for ready sockets, serve each one a little, wait again) is called an event loop.\n\nThat one idea has many names on the JVM:\n\n- `java.nio`'s `Selector`, which is `epoll` on Linux and `kqueue` on macOS (lesson 2).\n- Netty's event loop: one thread running a selector and your handlers (lessons 3 and 4).\n- Vert.x and Quarkus, which run on Netty (lessons 5 and 6).\n- Jetty's `ManagedSelector` (lesson 7).\n- The JDK's internal poller, which virtual threads use when they block on a socket (lesson 8).\n\nThe price is the programming model. A thread that serves thousands of sockets must never block on any one of them. Every read has to return at once with whatever bytes are there, maybe none. Every write has to accept that only part of the buffer went out. Your code becomes a small state machine per connection, called whenever the kernel reports that something happened. The rest of this track is about writing that state machine well, or picking a framework that writes it for you.",
+   "h": "C10K: ten thousand clients at once, and the wall of lights",
+   "body": "In 1999, Dan Kegel wrote a web page called \"The C10K problem\". The name is short for ten thousand concurrent clients: ten thousand connections open at the same moment. His point was that the hardware of the day could already serve that many, and the server software couldn't, because of how it used threads.\n\nThe answer the industry settled on is the one this whole track is about: stop giving each connection a thread. First, put each socket in **non-blocking** mode, where a `read` on an empty receive buffer returns 0 bytes at once instead of parking the thread. Then ask the kernel one question: which of these sockets are ready right now?\n\nIn the post office, that's a new floor plan. Instead of a clerk per customer, each customer gets a box in the wall with a small light above it. A customer drops a form in whenever it's ready, and the box lights up. One clerk watches the wall, serves only the boxes that are lit, and dozes when none are. The next lesson builds that wall in Java.\n\nThe first answers to \"which sockets are ready?\" were `select` and `poll`, two **system calls** (requests a program makes to the kernel). Both take the whole list of sockets on every call, which gets slow with thousands of them. It's a clerk who reads out every box number, one by one, to ask whether there's mail. Linux added `epoll`, and the BSDs and macOS added `kqueue`. They keep the watched sockets inside the kernel and report only the ones that are ready. That's **readiness notification**.\n\nOne thread can then watch thousands of connections and run code only for those with data. That loop (wait for ready sockets, serve each one a little, wait again) is called an **event loop**. The idea has many names on the JVM, and this track visits each:\n\n- `java.nio`'s `Selector`, built on `epoll` on Linux and `kqueue` on macOS (lesson 2).\n- Netty, a Java library for network servers, whose event loop is one thread running a selector and your code (lessons 3 and 4).\n- Vert.x, a toolkit built on Netty, and Quarkus, a framework for web services built on Vert.x (lessons 5 and 6).\n- Jetty's selectors (lesson 7).\n- The JDK's own poller, which virtual threads use when they wait on a socket (lesson 8).\n\nThe price is the way you write code. A thread that serves thousands of sockets must never block on any one of them. Every read returns at once with whatever bytes are there, maybe none, and every write may send only part of the data. Each connection becomes a small record of where it got to, picked up whenever the kernel says something happened. The rest of this track is about writing that well, or choosing a library that writes it for you.\n\n**A thread that watches many sockets must never wait on one. Ask which are ready, then serve only those.**\n\nThat leaves two ways out of the C10K corner, and the JDK now offers both.",
    "figure": {
-    "svg": "<svg viewBox=\"0 0 680 270\" role=\"img\" aria-label=\"Left: four clients, each with its own thread waiting in read. Right: four clients watched by one selector, and one thread that only runs the ready ones\"><text class=\"t\" x=\"170\" y=\"28\" text-anchor=\"middle\">Thread per connection</text><text class=\"t\" x=\"565\" y=\"28\" text-anchor=\"middle\">Event loop</text><rect class=\"box\" x=\"20\" y=\"50\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"60\" y=\"72\" text-anchor=\"middle\">client</text><line class=\"ln\" x1=\"100\" y1=\"67\" x2=\"146\" y2=\"67\" marker-end=\"url(#arr)\"/><rect class=\"box-dim\" x=\"150\" y=\"50\" width=\"170\" height=\"34\" rx=\"8\"/><text class=\"t-s t-m\" x=\"235\" y=\"72\" text-anchor=\"middle\">thread: in read()</text><rect class=\"box\" x=\"370\" y=\"50\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"410\" y=\"72\" text-anchor=\"middle\">client</text><line class=\"ln-d\" x1=\"450\" y1=\"67\" x2=\"486\" y2=\"115\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"20\" y=\"100\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"60\" y=\"122\" text-anchor=\"middle\">client</text><line class=\"ln\" x1=\"100\" y1=\"117\" x2=\"146\" y2=\"117\" marker-end=\"url(#arr)\"/><rect class=\"box-a\" x=\"150\" y=\"100\" width=\"170\" height=\"34\" rx=\"8\"/><text class=\"t-s t-a\" x=\"235\" y=\"122\" text-anchor=\"middle\">thread: echoing</text><rect class=\"box\" x=\"370\" y=\"100\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"410\" y=\"122\" text-anchor=\"middle\">client</text><line class=\"ln-d\" x1=\"450\" y1=\"117\" x2=\"486\" y2=\"115\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"20\" y=\"150\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"60\" y=\"172\" text-anchor=\"middle\">client</text><line class=\"ln\" x1=\"100\" y1=\"167\" x2=\"146\" y2=\"167\" marker-end=\"url(#arr)\"/><rect class=\"box-dim\" x=\"150\" y=\"150\" width=\"170\" height=\"34\" rx=\"8\"/><text class=\"t-s t-m\" x=\"235\" y=\"172\" text-anchor=\"middle\">thread: in read()</text><rect class=\"box\" x=\"370\" y=\"150\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"410\" y=\"172\" text-anchor=\"middle\">client</text><line class=\"ln-d\" x1=\"450\" y1=\"167\" x2=\"486\" y2=\"115\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"20\" y=\"200\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"60\" y=\"222\" text-anchor=\"middle\">client</text><line class=\"ln\" x1=\"100\" y1=\"217\" x2=\"146\" y2=\"217\" marker-end=\"url(#arr)\"/><rect class=\"box-dim\" x=\"150\" y=\"200\" width=\"170\" height=\"34\" rx=\"8\"/><text class=\"t-s t-m\" x=\"235\" y=\"222\" text-anchor=\"middle\">thread: in read()</text><rect class=\"box\" x=\"370\" y=\"200\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"410\" y=\"222\" text-anchor=\"middle\">client</text><line class=\"ln-d\" x1=\"450\" y1=\"217\" x2=\"486\" y2=\"115\" marker-end=\"url(#arr)\"/><rect class=\"box-a\" x=\"490\" y=\"95\" width=\"170\" height=\"40\" rx=\"8\"/><text class=\"t-s t-code\" x=\"575\" y=\"120\" text-anchor=\"middle\">selector: epoll_wait</text><line class=\"ln-a\" x1=\"575\" y1=\"135\" x2=\"575\" y2=\"171\" marker-end=\"url(#arr)\"/><rect class=\"box-ok\" x=\"490\" y=\"175\" width=\"170\" height=\"40\" rx=\"8\"/><text class=\"t-s\" x=\"575\" y=\"200\" text-anchor=\"middle\">1 thread, ready only</text><text class=\"t-s t-bad\" x=\"170\" y=\"258\" text-anchor=\"middle\">4 sockets, 4 threads, 3 of them idle</text><text class=\"t-s t-ok\" x=\"565\" y=\"258\" text-anchor=\"middle\">4 sockets, 1 thread</text></svg>",
-    "caption": "Thread per connection parks one thread on every socket. An event loop asks the kernel which sockets are ready and runs only those."
+    "svg": "<svg viewBox=\"0 0 680 270\" role=\"img\" aria-label=\"Left: four clients, each with its own thread waiting in read, like a clerk for every customer. Right: four clients watched by one selector, and one thread that only runs the ready ones, like one clerk watching a wall of lights\"><text class=\"t\" x=\"170\" y=\"28\" text-anchor=\"middle\">Thread per connection</text><text class=\"t\" x=\"565\" y=\"28\" text-anchor=\"middle\">Event loop</text><rect class=\"box\" x=\"20\" y=\"50\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"60\" y=\"72\" text-anchor=\"middle\">client</text><line class=\"ln\" x1=\"100\" y1=\"67\" x2=\"146\" y2=\"67\" marker-end=\"url(#arr)\"/><rect class=\"box-dim\" x=\"150\" y=\"50\" width=\"170\" height=\"34\" rx=\"8\"/><text class=\"t-s t-m\" x=\"235\" y=\"72\" text-anchor=\"middle\">thread: in read()</text><rect class=\"box\" x=\"370\" y=\"50\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"410\" y=\"72\" text-anchor=\"middle\">client</text><line class=\"ln-d\" x1=\"450\" y1=\"67\" x2=\"486\" y2=\"115\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"20\" y=\"100\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"60\" y=\"122\" text-anchor=\"middle\">client</text><line class=\"ln\" x1=\"100\" y1=\"117\" x2=\"146\" y2=\"117\" marker-end=\"url(#arr)\"/><rect class=\"box-a\" x=\"150\" y=\"100\" width=\"170\" height=\"34\" rx=\"8\"/><text class=\"t-s t-a\" x=\"235\" y=\"122\" text-anchor=\"middle\">thread: echoing</text><rect class=\"box\" x=\"370\" y=\"100\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"410\" y=\"122\" text-anchor=\"middle\">client</text><line class=\"ln-d\" x1=\"450\" y1=\"117\" x2=\"486\" y2=\"115\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"20\" y=\"150\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"60\" y=\"172\" text-anchor=\"middle\">client</text><line class=\"ln\" x1=\"100\" y1=\"167\" x2=\"146\" y2=\"167\" marker-end=\"url(#arr)\"/><rect class=\"box-dim\" x=\"150\" y=\"150\" width=\"170\" height=\"34\" rx=\"8\"/><text class=\"t-s t-m\" x=\"235\" y=\"172\" text-anchor=\"middle\">thread: in read()</text><rect class=\"box\" x=\"370\" y=\"150\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"410\" y=\"172\" text-anchor=\"middle\">client</text><line class=\"ln-d\" x1=\"450\" y1=\"167\" x2=\"486\" y2=\"115\" marker-end=\"url(#arr)\"/><rect class=\"box\" x=\"20\" y=\"200\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"60\" y=\"222\" text-anchor=\"middle\">client</text><line class=\"ln\" x1=\"100\" y1=\"217\" x2=\"146\" y2=\"217\" marker-end=\"url(#arr)\"/><rect class=\"box-dim\" x=\"150\" y=\"200\" width=\"170\" height=\"34\" rx=\"8\"/><text class=\"t-s t-m\" x=\"235\" y=\"222\" text-anchor=\"middle\">thread: in read()</text><rect class=\"box\" x=\"370\" y=\"200\" width=\"80\" height=\"34\" rx=\"8\"/><text class=\"t-s\" x=\"410\" y=\"222\" text-anchor=\"middle\">client</text><line class=\"ln-d\" x1=\"450\" y1=\"217\" x2=\"486\" y2=\"115\" marker-end=\"url(#arr)\"/><rect class=\"box-a\" x=\"490\" y=\"95\" width=\"170\" height=\"40\" rx=\"8\"/><text class=\"t-s t-code\" x=\"575\" y=\"120\" text-anchor=\"middle\">selector: epoll_wait</text><line class=\"ln-a\" x1=\"575\" y1=\"135\" x2=\"575\" y2=\"171\" marker-end=\"url(#arr)\"/><rect class=\"box-ok\" x=\"490\" y=\"175\" width=\"170\" height=\"40\" rx=\"8\"/><text class=\"t-s\" x=\"575\" y=\"200\" text-anchor=\"middle\">1 thread, ready only</text><text class=\"t-s t-bad\" x=\"170\" y=\"258\" text-anchor=\"middle\">4 sockets, 4 threads, 3 of them idle</text><text class=\"t-s t-ok\" x=\"565\" y=\"258\" text-anchor=\"middle\">4 sockets, 1 thread</text></svg>",
+    "caption": "Thread per connection parks one thread on every socket, a clerk for every customer. An event loop asks the kernel which sockets are ready, like one clerk watching a wall of lights, and runs only those."
    },
    "try": {
-    "title": "See the waiting threads in a dump",
+    "title": "See the waiting threads in a thread dump",
     "minutes": 4,
     "steps": [
      "Start the demo with 300 clients and hold the connections for 20 seconds: run the command below.",
-     "While it holds the platform-thread version, run `jcmd workbench.nio.l01.ThreadPerConnectionDemo Thread.print | grep -c NioSocketImpl.implRead` in a second terminal. `jcmd` accepts the main class name instead of a pid.",
+     "While it holds the platform-thread version, run `jcmd workbench.nio.l01.ThreadPerConnectionDemo Thread.print | grep -c NioSocketImpl.implRead` in a second terminal. `jcmd` is a tool that comes with the JDK; `Thread.print` asks the running program for a thread dump, a snapshot of every thread and what it's doing. `jcmd` accepts the main class name instead of the process number.",
      "Run the same `jcmd` line again once the demo prints the virtual-thread section. Predict the count first."
     ],
     "code": {
@@ -96,17 +101,17 @@
    ]
   },
   {
-   "h": "Two ways out: fewer threads, or cheaper threads",
-   "body": "There are two ways to serve 10,000 connections from one JVM.\n\nThe first is the C10K answer: a few threads, each running an event loop over many non-blocking sockets. Netty, Vert.x and Quarkus work this way. It scales very far, and you pay with code that must never block. Call JDBC from an event loop and every other connection on that loop stops until the query returns.\n\nThe second arrived in JDK 21: virtual threads (JEP 444). You keep the blocking code from the first section and change the executor.\n\n```java\n// echo() stays exactly as it was\nExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();\n```\n\n```kotlin\n// echo() stays exactly as it was\nval pool = Executors.newVirtualThreadPerTaskExecutor()\n```\n\nThe demo showed the effect: 2,000 blocked readers on 15 platform threads. It works because the JDK runs an event loop for you. When a virtual thread's socket read would block, the JDK registers the socket with an internal poller built on `epoll` or `kqueue`, parks the virtual thread, and frees its carrier (the platform thread that was running it) for other work. Lesson 8 opens that poller up.\n\nNeither way makes a single request faster. Non-blocking IO and virtual threads buy concurrency per unit of memory, not latency. A request that waits 120 ms for the card issuer still takes 120 ms. Neither removes the limits behind your service either. If 10,000 virtual threads all want one of 20 database connections, 9,980 of them wait in the pool's queue. The virtual threads track shows how to cap that with a semaphore.\n\nMy default for a new blocking service is virtual threads. I'd move to an event-loop framework when measurements say memory per connection or scheduling is the problem, or when the service already lives on one, as every Quarkus service does. Most payment services hit the limits of their downstreams long before either wall.",
+   "h": "Two ways out: fewer clerks, or cheaper clerks",
+   "body": "There are two ways to serve 10,000 connections from one JVM. One uses fewer clerks; the other makes each clerk cheaper.\n\nThe first is the C10K answer: a few threads, each running an event loop over many non-blocking sockets. Netty and Vert.x work this way. It scales very far, and you pay with code that must never block. Call a database the blocking way from an event loop, and every other connection on that loop stops until the query returns. In the post office, it's the clerk at the wall of lights stepping out for a long lunch.\n\nThe second arrived in JDK 21: virtual threads (JEP 444). A **virtual thread** is a thread the JDK runs on a few platform threads, setting it aside whenever it waits. You keep the blocking code from the first section and change one line, the pool:\n\n```java\n// echo() stays exactly as it was\nExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();\n```\n\n```kotlin\n// echo() stays exactly as it was\nval pool = Executors.newVirtualThreadPerTaskExecutor()\n```\n\nThe demo showed the effect: the same 2,000 blocked readers on 15 platform threads. You may remember the trick from How virtual threads work, where a waiter clips the order slip to a board and serves another table. For sockets, the JDK runs an event loop for you. When a virtual thread's read would block, the JDK hands the socket to an internal **poller** built on `epoll` or `kqueue`. Then it parks the virtual thread and frees its **carrier**, the platform thread that was running it. Lesson 8 opens that poller up.\n\nIn the post office, these are cheap clerks: a clerk leaves a note at a slow customer's counter and serves someone else, and any free clerk comes back when the form is done.\n\nNeither way makes a single request faster. Event loops and virtual threads buy more waiting per megabyte, not speed. A request that waits 120 ms for the slow web service still takes 120 ms. Neither removes the limits behind your server, either. If 10,000 virtual threads all want one of 20 database connections, 9,980 of them wait in line. The virtual threads track showed how to cap that with a semaphore, a counter of permits that lets only so many threads in at once.\n\nMy default for a new blocking server is virtual threads. I'd move to an event-loop library when measurements say memory per connection is the problem, or when the server already lives on one. Most servers hit the limits of the services they call long before either wall.\n\n**Event loops and virtual threads make waiting cheap. Neither makes the wait shorter.**",
    "try": {
-    "title": "Swap the executor, keep the code",
+    "title": "Swap the pool, keep the code",
     "minutes": 3,
     "steps": [
      "Finish the lab first, so `BlockingEchoServer` works.",
      "Read the test `virtualThreadsScale`. It passes `Executors.newVirtualThreadPerTaskExecutor()` to the same server class that `idleClientsHoldThreads` runs on a cached pool.",
      "Change its client count from 500 to 1,500 (the loop bound and the `isEqualTo(500)`) and run only that test with `--tests '*virtualThreadsScale'`. Predict whether the platform-thread assertion still holds."
     ],
-    "expect": "It still passes. The platform-thread count grows by a few threads (carriers and poller threads) whether 500 or 1,500 connections are open, because a parked virtual thread holds no OS thread. Put the count back to 500 when you're done."
+    "expect": "It still passes. The platform-thread count grows by a few threads (carriers and poller threads) whether 500 or 1,500 connections are open, because a parked virtual thread holds no operating system thread. Put the count back to 500 when you're done."
    },
    "refs": [
     {
@@ -117,9 +122,6 @@
    ]
   }
  ],
- "analogy": "A thread-per-connection server is a restaurant that gives every table its own waiter for the whole evening. The waiter stands by the table while the guests read the menu, eat and talk, and serves nobody else. Forty tables need forty waiters even when only three tables want something. An event loop is one waiter walking the room who stops only at tables where someone raised a hand. The analogy breaks at the kernel: a real waiter has to scan the room, while `epoll` hands the event loop a list of exactly the tables with raised hands.",
- "in_your_world": "Your Quarkus services already avoid thread-per-connection: Vert.x accepts and reads every connection on a few event-loop threads and borrows a worker thread only while a blocking endpoint runs. Thread-per-connection still hides in the code around them: a TCP client to a card network that keeps one reader thread per terminal, an ISO 8583 gateway written years ago, or a Kafka consumer you scaled by adding threads that each block on a 120 ms issuer call. Run Little's law on each one: requests per second times seconds per request gives threads in flight. Then compare that with the threads it actually holds while it waits.",
- "mistake": "The common mistake is sizing a blocking server by CPU: \"we have 8 cores, so 16 threads is plenty.\" That rule is for CPU-bound work. A thread waiting on a socket uses no CPU, so the number comes from Little's law, and for thread-per-connection from the number of open sockets. The opposite mistake usually follows the first outage: raising `maxThreads` to 5,000 to ride out a slow downstream. Now a slow issuer fills 5,000 threads instead of 200, memory climbs, and the issuer receives 5,000 concurrent calls it can't serve either. Size from the traffic you expect, cap concurrency toward each dependency, and make idle connections cheap with an event loop or virtual threads.",
  "compare": {
   "title": "One virtual thread per connection, in both languages",
   "java": {
@@ -130,36 +132,36 @@
    "title": "VirtualEchoServer.kt",
    "src": "ServerSocket(8080).use { server ->\n    Executors.newVirtualThreadPerTaskExecutor().use { pool ->\n        while (true) {\n            val socket = server.accept()\n            pool.submit { echo(socket) }   // a blocked read parks the virtual thread\n        }\n    }\n}"
   },
-  "note": "The JDK does the work in both: `ExecutorService` is `AutoCloseable` since JDK 19, so Java's try-with-resources and Kotlin's `use` both shut the pool down and wait for running tasks. The difference worth knowing is coroutines. A Kotlin coroutine that calls the blocking `readLine()` does not suspend. It holds its dispatcher thread for the whole wait, so `launch(Dispatchers.IO) { echo(socket) }` is thread-per-connection again, capped by the IO dispatcher's 64 threads. Coroutines only free the thread when the IO call itself suspends, which is what Ktor and Vert.x's Kotlin APIs provide."
+  "note": "The JDK does the work in both. `ExecutorService` is `AutoCloseable` since JDK 19, so Java's try-with-resources and Kotlin's `use` both shut the pool down and wait for running tasks. The difference worth knowing is coroutines. A Kotlin coroutine that calls the blocking `readLine()` does not suspend: it holds its dispatcher thread for the whole wait. So `launch(Dispatchers.IO) { echo(socket) }` is thread-per-connection again, capped by the IO dispatcher's 64 threads. Coroutines free the thread only when the read itself suspends, which is what Kotlin server libraries such as Ktor and Vert.x's Kotlin API provide."
  },
  "worked": {
-  "title": "Size a terminal gateway with Little's law",
+  "title": "Size a server for parcel lockers with Little's law",
   "steps": [
    {
-    "say": "A gateway keeps one TCP connection per payment terminal: 6,000 terminals. Each terminal sends an authorization every 20 seconds. The gateway spends 15 ms of CPU and 135 ms waiting for the card switch per request. Today it runs one platform thread per connection.",
-    "code": "// 1. today: one platform thread per terminal connection\nExecutorService pool = Executors.newCachedThreadPool();\nwhile (true) {\n    Socket terminal = server.accept();\n    pool.execute(() -> serveTerminal(terminal));   // loops: read request, call switch, reply\n}",
+    "say": "A parcel company runs 6,000 lockers, the metal cabinets where people collect their parcels. Each locker keeps one connection open to a server and sends a status line every 20 seconds. Handling a line takes 15 ms of work and 135 ms waiting for a slow tracking service. Today the server runs one platform thread per connection.",
+    "code": "// 1. today: one platform thread per locker connection\nExecutorService pool = Executors.newCachedThreadPool();\nwhile (true) {\n    Socket locker = server.accept();\n    pool.execute(() -> serveLocker(locker));   // loops: read a status line, call tracking, reply\n}",
     "lang": "java",
     "alt_lang": "kotlin",
-    "alt_code": "// 1. today: one platform thread per terminal connection\nval pool = Executors.newCachedThreadPool()\nwhile (true) {\n    val terminal = server.accept()\n    pool.execute { serveTerminal(terminal) }       // loops: read request, call switch, reply\n}"
+    "alt_code": "// 1. today: one platform thread per locker connection\nval pool = Executors.newCachedThreadPool()\nwhile (true) {\n    val locker = server.accept()\n    pool.execute { serveLocker(locker) }       // loops: read a status line, call tracking, reply\n}"
    },
    {
-    "say": "Apply Little's law to requests, then compare with connections. The gap is the cost of idle connections.",
-    "code": "arrival rate   = 6,000 terminals / 20 s       = 300 requests/s\ntime in system = 15 ms + 135 ms              = 0.15 s\nin flight      = 300 x 0.15                  = 45 requests\nthreads held   = one per connection          = 6,000 threads\nidle threads   = 6,000 - 45                  = 5,955 waiting in read()",
+    "say": "Apply Little's law to the requests, then compare with the connections. The gap is the cost of idle connections: clerks standing at the counter.",
+    "code": "arrival rate   = 6,000 lockers / 20 s         = 300 requests/s\ntime in system = 15 ms + 135 ms              = 0.15 s\nin flight      = 300 x 0.15                  = 45 requests\nthreads held   = one per connection          = 6,000 threads\nidle threads   = 6,000 - 45                  = 5,955 waiting in read()",
     "lang": "text"
    },
    {
-    "say": "Make idle connections cheap. A virtual thread parked in `read()` holds no OS thread, so the 5,955 idle connections cost a little heap each instead of a platform thread each. The serving code does not change.",
-    "code": "// 2. same serveTerminal(), cheap waiting\nExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();",
+    "say": "Make idle connections cheap. A virtual thread parked in `read()` holds no operating system thread, so the 5,955 idle connections cost a little memory each instead of a platform thread each. The serving code doesn't change.",
+    "code": "// 2. same serveLocker(), cheap waiting\nExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();",
     "lang": "java",
     "alt_lang": "kotlin",
-    "alt_code": "// 2. same serveTerminal(), cheap waiting\nval pool = Executors.newVirtualThreadPerTaskExecutor()"
+    "alt_code": "// 2. same serveLocker(), cheap waiting\nval pool = Executors.newVirtualThreadPerTaskExecutor()"
    },
    {
-    "say": "Now protect the switch. It allows 64 concurrent requests. The old design limited concurrency by accident, through thread count. Virtual threads remove that accident, so put the limit back on purpose, around the call that needs it.",
-    "code": "// 3. cap concurrency toward the switch, not the number of connections\nprivate final Semaphore switchSlots = new Semaphore(64);\n\nAuthResponse authorize(AuthRequest req) throws InterruptedException {\n    switchSlots.acquire();\n    try {\n        return cardSwitch.send(req);       // 135 ms\n    } finally {\n        switchSlots.release();\n    }\n}",
+    "say": "Now protect the tracking service. It accepts 64 requests at once. The old design limited that by accident, through the number of threads. Virtual threads remove the accident, so put the limit back on purpose, around the call that needs it.",
+    "code": "// 3. cap the calls to the tracking service, not the number of connections\nprivate final Semaphore trackingSlots = new Semaphore(64);\n\nStatusReply report(StatusLine line) throws InterruptedException {\n    trackingSlots.acquire();\n    try {\n        return tracking.send(line);        // 135 ms\n    } finally {\n        trackingSlots.release();\n    }\n}",
     "lang": "java",
     "alt_lang": "kotlin",
-    "alt_code": "// 3. cap concurrency toward the switch, not the number of connections\nprivate val switchSlots = Semaphore(64)\n\nfun authorize(req: AuthRequest): AuthResponse {\n    switchSlots.acquire()\n    try {\n        return cardSwitch.send(req)        // 135 ms\n    } finally {\n        switchSlots.release()\n    }\n}"
+    "alt_code": "// 3. cap the calls to the tracking service, not the number of connections\nprivate val trackingSlots = Semaphore(64)\n\nfun report(line: StatusLine): StatusReply {\n    trackingSlots.acquire()\n    try {\n        return tracking.send(line)         // 135 ms\n    } finally {\n        trackingSlots.release()\n    }\n}"
    }
   ]
  },
@@ -171,15 +173,15 @@
   ],
   "run": "./gradlew :nio:test --tests 'workbench.nio.l01.*'",
   "steps": [
-   "Run the tests once. All four fail: the accept loop and the handler are stubs, so the clients time out after 3 seconds.",
+   "Run the tests once. All four fail: the accept loop and the handler are stubs, so the clients give up after 3 seconds.",
    "Write `acceptLoop()`: while the server socket is open, `accept()` a socket, add it to `open`, and call `handlers.execute(() -> handle(socket))`. Return when `accept()` throws.",
    "Write `handle(Socket)`: increment `inHandler`, wrap the input stream in a UTF-8 `BufferedReader`, and write every line back with `\\n` and a `flush()`. In `finally`, remove the socket from `open` and decrement `inHandler`.",
-   "Run the tests until all four pass. Then read `fixedPoolCapsConnections` and `virtualThreadsScale` side by side: the same server code with three executors gives three very different limits."
+   "Run the tests until all four pass. Then read `fixedPoolCapsConnections` and `virtualThreadsScale` side by side: the same server code with three different pools gives three very different limits."
   ],
   "hints": [
-   "`try (socket; BufferedReader in = ...)` closes the socket for you. Since Java 9 you can list an existing effectively final variable in try-with-resources.",
+   "`try (socket; BufferedReader in = ...)` closes the socket for you. Since Java 9 you can list an existing, effectively final variable in try-with-resources.",
    "`accept()` throws a `SocketException` once `close()` closes the server socket. Treat that as the signal to return.",
-   "After `shutdownNow()`, `execute` throws `RejectedExecutionException`. Catch it in the accept loop too, so the acceptor thread ends quietly."
+   "After `shutdownNow()`, `execute` throws `RejectedExecutionException`. Catch it in the accept loop too, so the accepting thread ends quietly."
   ],
   "done_when": "All four tests in `BlockingEchoServerTest` pass."
  },
@@ -197,12 +199,14 @@
   }
  },
  "recap": [
-  "A blocking read holds its thread for the whole wait. A platform thread blocked in a socket read even reports `RUNNABLE`.",
+  "A blocking read holds its thread for the whole wait. A platform thread blocked in a socket read even reports `RUNNABLE`, so an idle server looks busy in a thread dump.",
   "Little's law, L = λ × W, gives the requests in flight. Thread-per-request needs that many threads; thread-per-connection needs one per open socket, idle or not.",
-  "The C10K problem (Dan Kegel, 1999) is serving ten thousand concurrent clients. Thread-per-connection didn't get there.",
-  "The fix was readiness notification: non-blocking sockets plus `select`, `poll`, and later `epoll` or `kqueue`, so one thread watches thousands of sockets.",
-  "Virtual threads keep blocking code and let the JDK's poller do the watching. Neither they nor event loops make one request faster, and neither removes downstream limits."
+  "The C10K problem (Dan Kegel, 1999) was serving ten thousand concurrent clients. Thread-per-connection didn't get there; non-blocking sockets plus readiness notification (`select`, `poll`, later `epoll` or `kqueue`) did.",
+  "An event loop is one thread that waits for ready sockets, serves each one a little and waits again. It must never block on any one socket.",
+  "Virtual threads keep the blocking code and let the JDK's poller do the watching.",
+  "The limit: neither event loops nor virtual threads make one request faster, and neither removes the limits of the services you call."
  ],
+ "closing": "We started with a post office that gave every customer a clerk, and found the same design in an echo server: 2,000 idle clients held 2,007 platform threads, and the waiting ones all claimed to be RUNNABLE. Little's law counts the requests in flight, while thread-per-connection pays for every open socket.\n\nNow look in your own code for a loop that calls `accept()` and hands each socket to a pool. Count the connections it may face, not the requests, and compare that with the pool's size.\n\nNext, we'll rebuild the post office with a wall of lights: one thread, a `Selector` and non-blocking channels. What does a server have to do by hand once `read` and `write` stop waiting?",
  "quiz": [
   {
    "q": "A thread-per-connection server has 3,000 clients with open connections. Together they send 600 requests a second, and each request takes 50 ms. How many threads does the server hold?",
@@ -213,18 +217,18 @@
     "8, one per core"
    ],
    "answer": 2,
-   "why": "Little's law gives 600 × 0.05 s = 30 requests in flight, which is what thread-per-request would need. Thread-per-connection keeps a thread on every open socket, so about 3,000. The 30 is the tempting answer, and the difference is the idle time between requests."
+   "why": "Little's law gives 600 × 0.05 s = 30 requests in flight, which is what thread-per-request would need. Thread-per-connection keeps a thread on every open socket, so about 3,000. The 30 is the tempting answer, and the difference is the idle time between requests: clerks standing at the counter."
   },
   {
-   "q": "A thread dump of a slow service shows 400 threads in `SocketDispatcher.read0` with state RUNNABLE, and CPU is at 2%. What is going on?",
+   "q": "A thread dump of a slow server shows 400 threads in `SocketDispatcher.read0` with state RUNNABLE, and the processor is 2% busy. What is going on?",
    "options": [
-    "400 threads are spinning on the CPU",
+    "400 threads are spinning on the processor",
     "400 threads are waiting for bytes on their sockets; native blocking reads show up as RUNNABLE",
     "The JVM is deadlocked",
     "The garbage collector has paused them"
    ],
    "answer": 1,
-   "why": "A platform thread blocked in a socket read is inside native code, so the JVM reports it as RUNNABLE. Low CPU confirms they are waiting, not working. A deadlock would show BLOCKED threads waiting on monitors."
+   "why": "A platform thread blocked in a socket read is inside native code, so the JVM reports it as RUNNABLE. The low processor use confirms they are waiting, not working. A deadlock would show BLOCKED threads waiting on locks."
   },
   {
    "q": "Which change lets the lab's `BlockingEchoServer` hold 10,000 idle connections without 10,000 platform threads, with no change to `handle()`?",
@@ -235,10 +239,10 @@
     "Pass `Executors.newVirtualThreadPerTaskExecutor()`"
    ],
    "answer": 3,
-   "why": "A virtual thread blocked in `read()` parks on the JDK's poller and frees its carrier, so idle connections hold no OS thread. A fixed pool of 10,000 is still 10,000 platform threads. `supplyAsync` runs on the common pool, which has about one thread per core, so most connections would never be served. A short timeout only makes reads fail."
+   "why": "A virtual thread blocked in `read()` parks on the JDK's poller and frees its carrier, so idle connections hold no operating system thread. A fixed pool of 10,000 is still 10,000 platform threads. `supplyAsync` runs on the common pool, which has about one thread per core, so most connections would never be served. A short timeout only makes the reads fail."
   },
   {
-   "q": "From the executors track: every thread of a 50-thread pool waits on a payment API that takes 2 s. What is the most this pool can finish per second, however much traffic arrives?",
+   "q": "From the executors track: every thread of a 50-thread pool waits on a slow web service that takes 2 s. What is the most this pool can finish per second, however much traffic arrives?",
    "options": [
     "25",
     "50",
@@ -246,19 +250,19 @@
     "200"
    ],
    "answer": 0,
-   "why": "Turn Little's law around: throughput = threads / time per request = 50 / 2 s = 25 requests a second. Extra traffic only lengthens the queue.",
+   "why": "Turn Little's law around: throughput = threads / time per request = 50 / 2 s = 25 requests a second. Extra traffic only makes the queue longer.",
    "from": "exec-03"
   },
   {
-   "q": "What do non-blocking IO and virtual threads change for a single request that waits 120 ms for the card issuer?",
+   "q": "What do non-blocking IO and virtual threads change for a single request that waits 120 ms for a slow web service?",
    "options": [
     "It completes in well under 120 ms",
-    "Not its latency: they let many more such requests wait at the same time, at a lower cost per wait",
+    "Not its waiting time: they let many more such requests wait at the same moment, at a lower cost per wait",
     "It no longer needs a database connection",
-    "It gets retried automatically when the issuer is slow"
+    "It gets retried automatically when the service is slow"
    ],
    "answer": 1,
-   "why": "Both techniques make waiting cheap, so one JVM can keep more requests in flight. The request itself still waits 120 ms for the issuer. Downstream limits such as connection pools stay exactly where they were."
+   "why": "Both make waiting cheap, so one JVM can keep more requests in flight. The request itself still waits 120 ms for the service. Limits behind the server, such as a pool of database connections, stay exactly where they were."
   }
  ],
  "flashcards": [
@@ -268,7 +272,7 @@
   },
   {
    "front": "Little's law, in one line?",
-   "back": "Requests in the system = arrival rate × time in system (L = λ × W). With thread-per-request, that is the number of threads you need."
+   "back": "Requests in the system = arrival rate × time in the system (L = λ × W). With thread-per-request, that's the number of threads you need."
   },
   {
    "front": "Why does thread-per-connection need more threads than thread-per-request?",
@@ -276,7 +280,7 @@
   },
   {
    "front": "What is the C10K problem?",
-   "back": "Dan Kegel's 1999 name for serving ten thousand concurrent clients from one server. Thread-per-connection didn't scale there; non-blocking sockets with kernel readiness notification did."
+   "back": "Dan Kegel's 1999 name for serving ten thousand concurrent clients from one server. Thread-per-connection didn't scale there; non-blocking sockets with readiness notification did."
   },
   {
    "front": "What does `epoll` (Linux) or `kqueue` (macOS) give a server?",
@@ -284,7 +288,7 @@
   },
   {
    "front": "Do virtual threads make a request faster?",
-   "back": "No. They make waiting cheap, so more requests can wait at once. A 120 ms issuer call still takes 120 ms."
+   "back": "No. They make waiting cheap, so more requests can wait at once. A 120 ms call to a slow service still takes 120 ms."
   },
   {
    "front": "2,000 virtual threads blocked in socket reads on a 4-core JDK 21 machine: about how many platform threads?",
@@ -297,24 +301,28 @@
    "plain": "A read or write that makes the calling thread wait until the operation can finish."
   },
   {
+   "term": "Socket",
+   "plain": "A program's handle on one end of a network connection, kept by the kernel."
+  },
+  {
    "term": "Thread-per-connection",
    "plain": "A server design that gives every open socket its own thread for the socket's whole life."
   },
   {
    "term": "Thread-per-request",
-   "plain": "A design where a thread is taken from a pool only while a request is being processed."
+   "plain": "A design where a thread is taken from a pool only while a request is being served."
   },
   {
    "term": "Little's law",
-   "plain": "In-flight items = arrival rate × time each item spends in the system."
+   "plain": "Items in flight = arrival rate × time each item spends in the system."
   },
   {
    "term": "C10K",
-   "plain": "Ten thousand concurrent clients on one server; the name of the scaling problem Dan Kegel described in 1999."
+   "plain": "Ten thousand concurrent clients on one server; the name of the problem Dan Kegel described in 1999."
   },
   {
    "term": "Readiness notification",
-   "plain": "The kernel tells you which sockets can be read or written now (select, poll, epoll, kqueue)."
+   "plain": "The kernel tells you which sockets can be read or written right now (select, poll, epoll, kqueue)."
   },
   {
    "term": "Keep-alive connection",
@@ -322,12 +330,12 @@
   }
  ],
  "explain_back": {
-  "prompt": "A teammate wants to raise `maxThreads` from 200 to 4,000 because the card issuer got slow and requests piled up. Explain what those threads were doing, what Little's law says about the incident, and what you would do instead.",
-  "answer": "The threads were not working, they were waiting: each one sat in a blocking call to the issuer. Little's law says in-flight requests equal arrival rate times latency, so when the issuer's latency went up the same traffic needed many more threads, and the pool ran out. Raising the limit to 4,000 makes waiting more expensive and sends 4,000 concurrent calls to an issuer that is already struggling. I would keep the pool sized for normal traffic, cap concurrency toward the issuer with a semaphore or bulkhead, add a timeout so callers fail fast, and, if the problem is the cost of waiting threads, move the blocking code to virtual threads or an event loop so waiting stops costing an OS thread."
+  "prompt": "A teammate wants to raise a server's thread limit from 200 to 4,000, because a web service it calls got slow and requests piled up. Explain what those threads were doing, what Little's law says about the bad day, and what you would do instead.",
+  "answer": "The threads weren't working, they were waiting: each one sat in a blocking call to the slow service. Little's law says requests in flight equal the arrival rate times the time each one takes, so when the service's answers took longer, the same traffic needed many more threads, and the pool ran out. Raising the limit to 4,000 makes waiting more expensive and sends 4,000 calls at once to a service that is already struggling. I would keep the pool sized for normal traffic, cap the calls to that service with a semaphore, add a timeout so callers fail fast, and, if the cost of waiting threads is the real problem, move the blocking code to virtual threads or an event loop, so that waiting stops costing an operating system thread."
  },
  "deeper": {
   "minutes": 10,
-  "body": "\"About 1 MiB per platform thread\" needs one detail to be useful. On 64-bit Linux the default stack size (`-Xss`) is 1 MB, and the JVM reserves that much address space per thread. The kernel commits pages only as the stack actually grows, so 2,000 idle threads don't use 2 GB of RAM. They do use real memory for the pages they touched, kernel structures per thread, and a scheduler entry each.\n\nYou can see the JVM's view with Native Memory Tracking. Start a JVM with `-XX:NativeMemoryTracking=summary` and run `jcmd <pid> VM.native_memory summary`. The `Thread` section shows how many threads exist and their reserved and committed stack memory. Run it on the demo while it holds 2,000 platform threads and again during the virtual-thread phase.\n\nThe limit you hit first in production is often not memory. Containers and hosts cap the number of processes and threads per user or per cgroup (`ulimit -u`, the cgroup `pids.max`). When a JVM can't create a thread it throws `OutOfMemoryError: unable to create native thread`, a confusing name for a thread-count limit.\n\nThread-per-connection is not always wrong. An internal service with 50 long-lived connections and steady traffic is simpler and faster to debug with one thread per connection, and the thread count never gets near any limit. The problem starts when connection count grows independently of the work, as with keep-alive clients, terminals and mobile apps."
+  "body": "\"About 1 MiB per platform thread\" needs one detail to be useful. On 64-bit Linux the default stack size (`-Xss`) is 1 MB, and the JVM reserves that much address space per thread. The kernel hands out real memory pages only as the stack actually grows, so 2,000 idle threads don't use 2 GB of RAM. They do use real memory for the pages they touched, kernel bookkeeping per thread, and a place in the scheduler each.\n\nYou can see the JVM's view with Native Memory Tracking. Start a JVM with `-XX:NativeMemoryTracking=summary` and run `jcmd <pid> VM.native_memory summary`, where `<pid>` is the number the operating system gives the running program. The `Thread` section shows how many threads exist and their reserved and committed stack memory. Run it on the demo while it holds 2,000 platform threads, and again during the virtual-thread part.\n\nThe limit you hit first in production is often not memory. Machines and containers (sealed-off boxes that a program runs in) cap the number of processes and threads per user (`ulimit -u`, or the container's `pids.max`). When a JVM can't create a thread, it throws `OutOfMemoryError: unable to create native thread`, a confusing name for a limit on the number of threads.\n\nKegel's page sorted the ways out of C10K roughly like this: many clients per thread with level-triggered readiness (`select`, `poll`), the same with edge-triggered readiness (`kqueue`, `epoll` in edge mode), asynchronous IO that reports completion instead of readiness, and one client per thread. Lesson 2 meets level-triggered readiness, and lesson 8 compares readiness with completion (`io_uring` on Linux)."
  },
  "sources": [
   {

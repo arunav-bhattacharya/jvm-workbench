@@ -2,19 +2,19 @@ package workbench.nio.l04;
 
 import io.netty.channel.ChannelHandler;
 
-/** The pipeline of the payment link. */
-public final class PaymentCodec {
+/** The pipeline of the letter link. */
+public final class LetterCodec {
     /** The largest frame we accept, counting the length field: 4 + 1 + body. */
     public static final int MAX_FRAME = 1024;
 
-    private PaymentCodec() { }
+    private LetterCodec() { }
 
     /**
      * The handlers in pipeline order:
      * <ol>
      *   <li>{@code new LengthFieldBasedFrameDecoder(MAX_FRAME, 0, 4, 0, 4)}: whole frames, length stripped</li>
-     *   <li>{@link PaymentFrameDecoder}</li>
-     *   <li>{@link PaymentFrameEncoder}</li>
+     *   <li>{@link LetterFrameDecoder}</li>
+     *   <li>{@link LetterFrameEncoder}</li>
      *   <li>{@code business}</li>
      * </ol>
      */

@@ -9,19 +9,19 @@ fun <T> List<T>.firstNotNullValue(): T & Any {
 /** The docs' example: fall back to a value that is known not to be null. */
 fun <T> elvis(x: T, y: T & Any): T & Any = x ?: y
 
-/** Implements the Java interface in NonNullDemoJava.java, whose methods are annotated @NotNull. */
+/** Implements the Java interface in NotNullTransformer.java, whose methods are annotated @NotNull. */
 class UpperCaser<T : CharSequence?> : NotNullTransformer<T> {
     @Suppress("UNCHECKED_CAST")
     override fun transform(value: T & Any): T & Any = value.toString().uppercase() as (T & Any)
 }
 
 fun main() {
-    val currencies: List<String?> = listOf(null, "eur", "usd")
-    val first: String = currencies.firstNotNullValue()      // T = String?, result String
+    val varieties: List<String?> = listOf(null, "Gala", "Fuji")   // the first order form left it blank
+    val first: String = varieties.firstNotNullValue()       // T = String?, result String
     val note: String? = null
     val shown: String = elvis(note, "no note")
     println("first = $first, shown = $shown")
-    println("transformed = ${UpperCaser<String?>().transform("pay_1")}")
+    println("transformed = ${UpperCaser<String?>().transform("Gala")}")
 
     // Wrong moves. Uncomment one at a time, predict the error, then run.
     // fun <T> forget(x: T): T & Any = x                    // 1

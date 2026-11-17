@@ -25,26 +25,26 @@ class LeakyAttributes {
     operator fun <T> get(key: LeakyKey<T>): T? = values[key] as T?
 }
 
-val CURRENCIES = key<List<String>>("currencies")
-val RETRIES = key<Int>("retries")
+val VARIETIES = key<List<String>>("varieties")
+val TOTAL = key<Int>("total grams")
 
 fun main() {
     val attrs = Attributes()
-    attrs[CURRENCIES] = listOf("EUR", "USD")
-    attrs[RETRIES] = 3
-    val currencies: List<String>? = attrs[CURRENCIES]  // typed by the key: no cast here
-    println("currencies = $currencies, retries = ${attrs[RETRIES]}")
+    attrs[VARIETIES] = listOf("Gala", "Fuji")
+    attrs[TOTAL] = 330
+    val varieties: List<String>? = attrs[VARIETIES]    // typed by the key: no cast here
+    println("varieties = $varieties, total = ${attrs[TOTAL]} g")
 
     val leaky = LeakyAttributes()
-    val leakyCurrencies = leakyKey<List<String>>("currencies")
-    leaky[leakyCurrencies] = 42                       // compiles: T is inferred as Any
+    val leakyVarieties = leakyKey<List<String>>("varieties")
+    leaky[leakyVarieties] = 42                        // compiles: T is inferred as Any
     try {
-        val first: String? = leaky[leakyCurrencies]?.first()
+        val first: String? = leaky[leakyVarieties]?.first()
         println(first)
     } catch (e: ClassCastException) {
         println("ClassCastException: ${e.message?.substringBefore(" (")}")
     }
 
     // Wrong move. Uncomment, predict the error, then run.
-    // attrs[CURRENCIES] = 42
+    // attrs[VARIETIES] = 42
 }

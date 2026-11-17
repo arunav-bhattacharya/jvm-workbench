@@ -24,7 +24,7 @@ fun main() = runTest {
     unconfined += "after launch"
     println("UnconfinedTestDispatcher: $unconfined")
 
-    // 3. backgroundScope: for work that never ends, such as a rate poller
+    // 3. backgroundScope: for work that never ends, such as a loop that reads the oven probe every second
     var polls = 0
     backgroundScope.launch { while (true) { delay(1_000); polls++ } }
     advanceTimeBy(5_500)

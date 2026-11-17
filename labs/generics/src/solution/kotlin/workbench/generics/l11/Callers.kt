@@ -5,10 +5,10 @@ package workbench.generics.l11
  * As in lessons 8 and 9: the tests reach your inline functions through these ordinary functions.
  */
 object Callers {
-    fun onCard(bus: EventBus, handler: (CardAuthorized) -> Unit) = bus.subscribe<CardAuthorized>(handler)
-    fun onRefund(bus: EventBus, handler: (RefundIssued) -> Unit) = bus.subscribe<RefundIssued>(handler)
+    fun onApple(board: BellBoard, listener: (Apple) -> Unit) = board.listen<Apple>(listener)
+    fun onLemon(board: BellBoard, listener: (Lemon) -> Unit) = board.listen<Lemon>(listener)
 
-    fun currencies(): Key<List<String>> = key<List<String>>("currencies")
-    fun retryDelays(): Key<List<Long>> = key<List<Long>>("retries")
-    fun retryCount(): Key<Int> = key<Int>("retries")
+    fun varieties(): Key<List<String>> = key<List<String>>("varieties")
+    fun weighings(): Key<List<Int>> = key<List<Int>>("weights")
+    fun totalWeight(): Key<Int> = key<Int>("weights")
 }

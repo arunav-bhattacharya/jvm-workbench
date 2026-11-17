@@ -8,100 +8,100 @@ class WorkshopTest {
 
     // ---- Either ----
 
-    private fun parseCents(text: String): Either<String, Long> =
+    private fun parseGrams(text: String): Either<String, Long> =
         text.toLongOrNull()?.let { Either.Right(it) } ?: Either.Left("not a number: $text")
 
     @Test
     fun `map transforms a Right and passes a Left through`() {
-        assertThat(parseCents("1200").map { it / 100 }).isEqualTo(Either.Right(12L))
-        val failed: Either<String, String> = parseCents("x").map { "cents $it" }
+        assertThat(parseGrams("1250").map { it * 2 }).isEqualTo(Either.Right(2500L))
+        val failed: Either<String, String> = parseGrams("x").map { "$it g" }
         assertThat(failed).isEqualTo(Either.Left("not a number: x"))
     }
 
     @Test
     fun `getOrElse returns the Right value or the fallback for a Left`() {
-        assertThat(parseCents("350").getOrElse { -1 }).isEqualTo(350L)
-        assertThat(parseCents("oops").getOrElse { it.length.toLong() }).isEqualTo(18L)   // "not a number: oops"
+        assertThat(parseGrams("180").getOrElse { -1 }).isEqualTo(180L)
+        assertThat(parseGrams("oops").getOrElse { it.length.toLong() }).isEqualTo(18L)   // "not a number: oops"
     }
 
-    // ---- Repository ----
+    // ---- Storeroom ----
 
     @Test
-    fun `InMemoryRepository saves, finds by id and lists in id order`() {
-        val merchants = InMemoryRepository<Merchant, Long>()
-        merchants.save(Merchant(7, "Kiosk"))
-        merchants.save(Merchant(2, "Bakery"))
-        assertThat(merchants.findById(7)).isEqualTo(Merchant(7, "Kiosk"))
-        assertThat(merchants.findById(99)).isNull()
-        assertThat(merchants.findAll().map { it.id }).containsExactly(2L, 7L)
+    fun `InMemoryStoreroom saves, finds by id and lists in id order`() {
+        val suppliers = InMemoryStoreroom<Supplier, Long>()
+        suppliers.save(Supplier(7, "Orchard Lane"))
+        suppliers.save(Supplier(2, "Hill Farm"))
+        assertThat(suppliers.findById(7)).isEqualTo(Supplier(7, "Orchard Lane"))
+        assertThat(suppliers.findById(99)).isNull()
+        assertThat(suppliers.findAll().map { it.id }).containsExactly(2L, 7L)
     }
 
     @Test
     fun `saveAll saves every item and returns them in the order given`() {
-        val settlements = InMemoryRepository<Settlement, String>()
-        val saved = settlements.saveAll(listOf(Settlement("s-2", 500), Settlement("s-1", 1_200)))
-        assertThat(saved.map { it.id }).containsExactly("s-2", "s-1")
-        assertThat(settlements.findAll().map { it.id }).containsExactly("s-1", "s-2")
+        val crates = InMemoryStoreroom<Crate, String>()
+        val saved = crates.saveAll(listOf(Crate("c-2", 9_000), Crate("c-1", 12_000)))
+        assertThat(saved.map { it.id }).containsExactly("c-2", "c-1")
+        assertThat(crates.findAll().map { it.id }).containsExactly("c-1", "c-2")
     }
 
     @Test
-    fun `describeAll prints one line per entity`() {
-        val view = object : ReadRepository<Entity<*>> {
-            override fun findAll(): List<Entity<*>> = listOf(Merchant(1, "Kiosk"), Settlement("s-9", 99))
+    fun `describeAll prints one line per item`() {
+        val view = object : DisplayCase<Item<*>> {
+            override fun findAll(): List<Item<*>> = listOf(Supplier(1, "Hill Farm"), Crate("c-9", 8_000))
         }
-        assertThat(describeAll(view)).containsExactly("entity 1", "entity s-9")
+        assertThat(describeAll(view)).containsExactly("item 1", "item c-9")
     }
 
     @Test
-    fun `ReadRepository is covariant, so describeAll accepts a repository of any entity`() {
+    fun `DisplayCase is covariant, so describeAll accepts a storeroom of any item`() {
         // with `out T`, Kotlin writes a ? extends wildcard into describeAll's Java signature
-        assertThat(JavaSignatures.paramText("workbench.generics.l11.RepositoryKt", "describeAll", 0))
-            .`as`("describeAll's parameter as Java sees it (add `out` to ReadRepository)")
-            .isEqualTo("ReadRepository<? extends Entity<?>>")
+        assertThat(JavaSignatures.paramText("workbench.generics.l11.StoreroomKt", "describeAll", 0))
+            .`as`("describeAll's parameter as Java sees it (add `out` to DisplayCase)")
+            .isEqualTo("DisplayCase<? extends Item<?>>")
     }
 
-    // ---- EventBus ----
+    // ---- BellBoard ----
 
     @Test
-    fun `publish calls the handlers for the event's class, in order, and counts them`() {
-        val bus = EventBus()
+    fun `ring calls the listeners for the item's class, in order, and counts them`() {
+        val board = BellBoard()
         val log = mutableListOf<String>()
-        bus.subscribe(CardAuthorized::class) { log += "fraud ${it.cents}" }
-        bus.subscribe(CardAuthorized::class) { log += "ledger ${it.paymentId}" }
-        bus.subscribe(RefundIssued::class) { log += "refund ${it.paymentId}" }
+        board.listen(Apple::class) { log += "sign ${it.name}" }
+        board.listen(Apple::class) { log += "scale ${it.grams}" }
+        board.listen(Lemon::class) { log += "lemon ${it.name}" }
 
-        assertThat(bus.publish(CardAuthorized("pay_1", 1_200))).isEqualTo(2)
-        assertThat(log).containsExactly("fraud 1200", "ledger pay_1")
-    }
-
-    @Test
-    fun `a handler for every PaymentEvent can subscribe to one event class`() {
-        val bus = EventBus()
-        val log = mutableListOf<String>()
-        val auditAll: (PaymentEvent) -> Unit = { log += "audit ${it.paymentId}" }
-        bus.subscribe(CardAuthorized::class, auditAll)    // (PaymentEvent) -> Unit is a (CardAuthorized) -> Unit
-        bus.subscribe(RefundIssued::class, auditAll)
-        bus.publish(CardAuthorized("pay_1", 1_200))
-        bus.publish(RefundIssued("pay_2", 500))
-        assertThat(log).containsExactly("audit pay_1", "audit pay_2")
+        assertThat(board.ring(Apple("Gala", 180))).isEqualTo(2)
+        assertThat(log).containsExactly("sign Gala", "scale 180")
     }
 
     @Test
-    fun `reified subscribe takes the event class from the type argument`() {
-        val bus = EventBus()
+    fun `a listener for every Fruit can listen to one kind`() {
+        val board = BellBoard()
         val log = mutableListOf<String>()
-        Callers.onCard(bus) { log += "card ${it.cents}" }
-        Callers.onRefund(bus) { log += "refund ${it.cents}" }
-        bus.publish(RefundIssued("pay_3", 75))
-        assertThat(log).containsExactly("refund 75")
+        val stockCount: (Fruit) -> Unit = { log += "stock ${it.name}" }
+        board.listen(Apple::class, stockCount)    // (Fruit) -> Unit is an (Apple) -> Unit
+        board.listen(Lemon::class, stockCount)
+        board.ring(Apple("Gala", 180))
+        board.ring(Lemon("Eureka", 120))
+        assertThat(log).containsExactly("stock Gala", "stock Eureka")
     }
 
     @Test
-    fun `publish with no handlers for that class calls nobody`() {
-        val bus = EventBus()
+    fun `reified listen takes the class from the type argument`() {
+        val board = BellBoard()
         val log = mutableListOf<String>()
-        bus.subscribe(CardAuthorized::class) { log += "card" }
-        assertThat(bus.publish(RefundIssued("pay_4", 10))).isZero()
+        Callers.onApple(board) { log += "apple ${it.grams}" }
+        Callers.onLemon(board) { log += "lemon ${it.grams}" }
+        board.ring(Lemon("Eureka", 120))
+        assertThat(log).containsExactly("lemon 120")
+    }
+
+    @Test
+    fun `ring with no listeners for that class calls nobody`() {
+        val board = BellBoard()
+        val log = mutableListOf<String>()
+        board.listen(Apple::class) { log += "apple" }
+        assertThat(board.ring(Lemon("Eureka", 120))).isZero()
         assertThat(log).isEmpty()
     }
 
@@ -110,29 +110,29 @@ class WorkshopTest {
     @Test
     fun `attributes return the value with the key's type, or null`() {
         val attrs = Attributes()
-        attrs[Callers.currencies()] = listOf("EUR", "USD")
-        val currencies: List<String>? = attrs[Callers.currencies()]   // no cast at the call site
-        assertThat(currencies).containsExactly("EUR", "USD")
-        assertThat(attrs[Callers.retryCount()]).isNull()
-        assertThat(attrs.getOrDefault(Callers.retryCount(), 3)).isEqualTo(3)
+        attrs[Callers.varieties()] = listOf("Gala", "Fuji")
+        val varieties: List<String>? = attrs[Callers.varieties()]   // no cast at the call site
+        assertThat(varieties).containsExactly("Gala", "Fuji")
+        assertThat(attrs[Callers.totalWeight()]).isNull()
+        assertThat(attrs.getOrDefault(Callers.totalWeight(), 0)).isEqualTo(0)
     }
 
     @Test
     fun `keys with the same name but different types do not collide`() {
         val attrs = Attributes()
-        attrs[Callers.retryDelays()] = listOf(100L, 400L)
-        attrs[Callers.retryCount()] = 2
-        assertThat(Callers.retryDelays()).isNotEqualTo(Callers.retryCount())   // same name, different KType
-        assertThat(attrs[Callers.retryDelays()]).containsExactly(100L, 400L)
-        assertThat(attrs[Callers.retryCount()]).isEqualTo(2)
+        attrs[Callers.weighings()] = listOf(180, 150)
+        attrs[Callers.totalWeight()] = 330
+        assertThat(Callers.weighings()).isNotEqualTo(Callers.totalWeight())   // same name, different KType
+        assertThat(attrs[Callers.weighings()]).containsExactly(180, 150)
+        assertThat(attrs[Callers.totalWeight()]).isEqualTo(330)
     }
 
     @Test
     fun `remove returns the old value and clears it`() {
         val attrs = Attributes()
-        attrs[Callers.retryCount()] = 5
-        assertThat(attrs.remove(Callers.retryCount())).isEqualTo(5)
-        assertThat(attrs[Callers.retryCount()]).isNull()
-        assertThat(attrs.remove(Callers.retryCount())).isNull()
+        attrs[Callers.totalWeight()] = 330
+        assertThat(attrs.remove(Callers.totalWeight())).isEqualTo(330)
+        assertThat(attrs[Callers.totalWeight()]).isNull()
+        assertThat(attrs.remove(Callers.totalWeight())).isNull()
     }
 }

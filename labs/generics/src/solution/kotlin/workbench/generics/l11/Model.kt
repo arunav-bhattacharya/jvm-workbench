@@ -1,10 +1,10 @@
 package workbench.generics.l11
 
-/** Events: produced by the bus, consumed by handlers. */
-interface PaymentEvent { val paymentId: String }
-data class CardAuthorized(override val paymentId: String, val cents: Long) : PaymentEvent
-data class RefundIssued(override val paymentId: String, val cents: Long) : PaymentEvent
+/** The shop's fruit. Each delivery is one piece of fruit, and it rings the bell for its kind. */
+interface Fruit { val name: String; val grams: Int }
+data class Apple(override val name: String, override val grams: Int) : Fruit
+data class Lemon(override val name: String, override val grams: Int) : Fruit
 
-/** Entities with ids of different types. */
-data class Merchant(override val id: Long, val name: String) : Entity<Long>
-data class Settlement(override val id: String, val cents: Long) : Entity<String>
+/** Things the storeroom keeps, with ids of different types. */
+data class Supplier(override val id: Long, val name: String) : Item<Long>
+data class Crate(override val id: String, val grams: Int) : Item<String>

@@ -14,7 +14,7 @@ import kotlin.system.measureTimeMillis
 private var plain = 0L
 @Volatile private var volatileCount = 0L
 
-/** 100 coroutines on Dispatchers.Default each count 10,000 captured payments. */
+/** 100 helpers, coroutines on Dispatchers.Default, each count 10,000 peas into the same pot. */
 suspend fun count(label: String, increment: suspend CoroutineScope.() -> Unit, read: () -> Long) {
     val ms = measureTimeMillis {
         coroutineScope { repeat(100) { launch(Dispatchers.Default) { repeat(10_000) { increment() } } } }

@@ -26,7 +26,7 @@ public class EitherDemoJava {
         };
     }
 
-    static Either<String, Long> parseCents(String text) {
+    static Either<String, Long> parseGrams(String text) {
         try {
             return new Right<>(Long.parseLong(text));
         } catch (NumberFormatException ex) {
@@ -35,9 +35,9 @@ public class EitherDemoJava {
     }
 
     public static void main(String[] args) {
-        Either<String, Long> ok = parseCents("1200");
-        Either<String, Long> bad = parseCents("12,00");
-        System.out.println(EitherDemoJava.<String, Long, String>fold(ok, l -> "error: " + l, r -> "cents: " + r));
+        Either<String, Long> ok = parseGrams("180");
+        Either<String, Long> bad = parseGrams("a handful");
+        System.out.println(EitherDemoJava.<String, Long, String>fold(ok, l -> "error: " + l, r -> "grams: " + r));
         System.out.println(mapLeft(bad, String::toUpperCase));
 
         Either<? extends Object, ? extends Number> wider = ok;     // Java: wildcards at the use site

@@ -30,10 +30,10 @@ public class RefCountDemo {
         }
 
         ByteBuf header = Unpooled.copiedBuffer("HDR:", US_ASCII);
-        ByteBuf body = Unpooled.copiedBuffer("payload", US_ASCII);
+        ByteBuf body = Unpooled.copiedBuffer("letter", US_ASCII);
         CompositeByteBuf frame = Unpooled.compositeBuffer();
         frame.addComponents(true, header, body);                 // no bytes copied; frame now owns both parts
-        body.setByte(0, 'P');
+        body.setByte(0, 'L');
         System.out.println("composite: " + frame.toString(US_ASCII) + " (sees the change to body: shared memory)");
         frame.release();
         System.out.println("composite.release(): header.refCnt=" + header.refCnt() + " body.refCnt=" + body.refCnt());

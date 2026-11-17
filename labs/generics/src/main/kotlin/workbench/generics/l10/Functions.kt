@@ -1,7 +1,7 @@
 package workbench.generics.l10
 
-/** A handler of events of type E. A type alias is a new NAME, not a new type: it is still (E) -> Unit. */
-typealias Handler<E> = (E) -> Unit
+/** A listener for items of type E. A type alias is a new NAME, not a new type: it is still (E) -> Unit. */
+typealias Listener<E> = (E) -> Unit
 
 /**
  * A function that runs [first], then feeds its result to [second].
@@ -11,9 +11,9 @@ typealias Handler<E> = (E) -> Unit
 fun <A, B, C> andThen(first: (A) -> B, second: (B) -> C): (A) -> C =
     TODO("return a lambda: a -> second(first(a))")
 
-/** One handler that calls every handler in [handlers], in order. */
-fun <E> fanOut(handlers: List<Handler<E>>): Handler<E> =
-    TODO("return a lambda that loops over handlers")
+/** One listener that calls every listener in [listeners], in order. */
+fun <E> fanOut(listeners: List<Listener<E>>): Listener<E> =
+    TODO("return a lambda that loops over listeners")
 
 /**
  * The first element that is not null. T may be a nullable type such as String?, so the return

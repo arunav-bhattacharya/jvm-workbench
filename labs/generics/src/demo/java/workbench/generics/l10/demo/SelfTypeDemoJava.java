@@ -4,33 +4,33 @@ package workbench.generics.l10.demo;
 public class SelfTypeDemoJava {
 
     static class PlainBuilder {
-        protected long cents;
-        PlainBuilder amount(long cents) { this.cents = cents; return this; }
+        protected int grams;
+        PlainBuilder grams(int grams) { this.grams = grams; return this; }
     }
-    static final class PlainCardBuilder extends PlainBuilder {
-        private String token = "";
-        PlainCardBuilder cardToken(String t) { token = t; return this; }
-        String build() { return "card " + cents + " with " + token; }
+    static final class PlainGiftBoxBuilder extends PlainBuilder {
+        private String ribbon = "";
+        PlainGiftBoxBuilder ribbon(String colour) { ribbon = colour; return this; }
+        String build() { return "gift box, " + grams + " g, " + ribbon + " ribbon"; }
     }
 
     static abstract class Builder<B extends Builder<B>> {
-        protected long cents;
-        B amount(long cents) { this.cents = cents; return self(); }
+        protected int grams;
+        B grams(int grams) { this.grams = grams; return self(); }
         protected abstract B self();
     }
-    static final class CardBuilder extends Builder<CardBuilder> {
-        private String token = "";
-        CardBuilder cardToken(String t) { token = t; return this; }
-        @Override protected CardBuilder self() { return this; }
-        String build() { return "card " + cents + " with " + token; }
+    static final class GiftBoxBuilder extends Builder<GiftBoxBuilder> {
+        private String ribbon = "";
+        GiftBoxBuilder ribbon(String colour) { ribbon = colour; return this; }
+        @Override protected GiftBoxBuilder self() { return this; }
+        String build() { return "gift box, " + grams + " g, " + ribbon + " ribbon"; }
     }
 
     public static void main(String[] args) {
-        PlainBuilder lost = new PlainCardBuilder().cardToken("tok_1").amount(1_200);   // amount() returns a PlainBuilder
-        System.out.println("after amount(): static type PlainBuilder, run-time class " + lost.getClass().getSimpleName());
-        System.out.println(new CardBuilder().amount(1_200).cardToken("tok_1").build());
+        PlainBuilder lost = new PlainGiftBoxBuilder().ribbon("red").grams(1_200);   // grams() returns a PlainBuilder
+        System.out.println("after grams(): static type PlainBuilder, run-time class " + lost.getClass().getSimpleName());
+        System.out.println(new GiftBoxBuilder().grams(1_200).ribbon("red").build());
 
         // Wrong move. Uncomment, predict the error, then run.
-        // System.out.println(new PlainCardBuilder().amount(1_200).cardToken("tok_1").build());
+        // System.out.println(new PlainGiftBoxBuilder().grams(1_200).ribbon("red").build());
     }
 }

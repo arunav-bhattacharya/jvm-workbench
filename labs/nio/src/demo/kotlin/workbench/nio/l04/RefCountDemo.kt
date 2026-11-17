@@ -25,10 +25,10 @@ fun main() {
     }
 
     val header = Unpooled.copiedBuffer("HDR:", US_ASCII)
-    val body = Unpooled.copiedBuffer("payload", US_ASCII)
+    val body = Unpooled.copiedBuffer("letter", US_ASCII)
     val frame = Unpooled.compositeBuffer()
     frame.addComponents(true, header, body)                  // no bytes copied; frame now owns both parts
-    body.setByte(0, 'P'.code)
+    body.setByte(0, 'L'.code)
     println("composite: ${frame.toString(US_ASCII)} (sees the change to body: shared memory)")
     frame.release()
     println("composite.release(): header.refCnt=${header.refCnt()} body.refCnt=${body.refCnt()}")

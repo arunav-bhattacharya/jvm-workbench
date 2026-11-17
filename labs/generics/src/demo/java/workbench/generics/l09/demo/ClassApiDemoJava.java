@@ -3,15 +3,15 @@ package workbench.generics.l09.demo;
 /** Java twin of ClassApiDemo.kt: the same checks and names, on java.lang.Class. */
 public class ClassApiDemoJava {
     public static void main(String[] args) {
-        PaymentEvent event = new CardAuthorized("pay_1", 1_200);
+        Fruit fruit = new Apple("Gala", 180);
 
-        Class<CardAuthorized> c = CardAuthorized.class;
-        System.out.println("c.getSimpleName() = " + c.getSimpleName() + ", event.getClass() == c: " + (event.getClass() == c));
+        Class<Apple> c = Apple.class;
+        System.out.println("c.getSimpleName() = " + c.getSimpleName() + ", fruit.getClass() == c: " + (fruit.getClass() == c));
 
-        System.out.println("isInstance: " + c.isInstance(event) + ", cast(...).getCents(): " + c.cast(event).getCents()
-            + ", no safeCast in Java: " + (RefundIssued.class.isInstance(event) ? RefundIssued.class.cast(event) : null));
+        System.out.println("isInstance: " + c.isInstance(fruit) + ", cast(...).getGrams(): " + c.cast(fruit).getGrams()
+            + ", no safeCast in Java: " + (Lemon.class.isInstance(fruit) ? Lemon.class.cast(fruit) : null));
         try {
-            RefundIssued.class.cast(event);
+            Lemon.class.cast(fruit);
         } catch (ClassCastException e) {
             System.out.println("cast failed: " + e.getMessage());
         }

@@ -17,13 +17,13 @@ fun <L, R, T> Either<L, R>.fold(onLeft: (L) -> T, onRight: (R) -> T): T = when (
     is Either.Right -> onRight(value)
 }
 
-fun parseCents(text: String): Either<String, Long> =
+fun parseGrams(text: String): Either<String, Long> =
     text.toLongOrNull()?.let { Either.Right(it) } ?: Either.Left("not a number: $text")
 
 fun main() {
-    val ok = parseCents("1200")
-    val bad = parseCents("12,00")
-    println(ok.fold({ "error: $it" }, { "cents: $it" }))
+    val ok = parseGrams("180")
+    val bad = parseGrams("a handful")
+    println(ok.fold({ "error: $it" }, { "grams: $it" }))
     println(bad.mapLeft { it.uppercase() })
 
     val wider: Either<Any, Number> = ok          // out on both sides: String -> Any, Long -> Number

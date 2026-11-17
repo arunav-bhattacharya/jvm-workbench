@@ -24,7 +24,7 @@ public class StaleKeyDemo {
                  SocketChannel conn = server.accept()) {
                 conn.configureBlocking(false);
                 conn.register(selector, SelectionKey.OP_READ);
-                client.write(ByteBuffer.wrap("auth-1".getBytes()));   // exactly one message
+                client.write(ByteBuffer.wrap("letter".getBytes()));   // exactly one message
 
                 ByteBuffer buf = ByteBuffer.allocate(64);
                 int loops = 0, handled = 0, bytes = 0;

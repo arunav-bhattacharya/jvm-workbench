@@ -22,7 +22,7 @@ private fun staleKeys(removeHandledKeys: Boolean) {
                 server.accept().use { conn ->
                     conn.configureBlocking(false)
                     conn.register(selector, SelectionKey.OP_READ)
-                    client.write(ByteBuffer.wrap("auth-1".toByteArray()))   // exactly one message
+                    client.write(ByteBuffer.wrap("letter".toByteArray()))   // exactly one message
 
                     val buf = ByteBuffer.allocate(64)
                     var loops = 0

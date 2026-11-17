@@ -34,7 +34,7 @@ public class CodecDemo {
         }
     }
 
-    static final class Approver extends SimpleChannelInboundHandler<Frame> {
+    static final class Stamper extends SimpleChannelInboundHandler<Frame> {
         @Override protected void channelRead0(ChannelHandlerContext ctx, Frame f) {
             ctx.writeAndFlush(new Frame(f.type() + 1, f.text().toUpperCase()));
         }
@@ -42,12 +42,12 @@ public class CodecDemo {
 
     static EmbeddedChannel server() {
         return new EmbeddedChannel(new LengthFieldBasedFrameDecoder(1024, 0, 4, 0, 4),
-                new FrameDecoder(), new FrameEncoder(), new Approver());
+                new FrameDecoder(), new FrameEncoder(), new Stamper());
     }
 
     public static void main(String[] args) {
         EmbeddedChannel encoder = new EmbeddedChannel(new FrameEncoder());
-        encoder.writeOutbound(new Frame(1, "auth-1"), new Frame(7, "capture-1"));
+        encoder.writeOutbound(new Frame(1, "note-1"), new Frame(7, "parcel-1"));
         ByteBuf wire = Unpooled.buffer();
         ByteBuf part;
         while ((part = encoder.readOutbound()) != null) { wire.writeBytes(part); part.release(); }

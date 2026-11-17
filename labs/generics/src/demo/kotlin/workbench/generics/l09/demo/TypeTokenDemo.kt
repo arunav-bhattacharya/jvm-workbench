@@ -16,7 +16,7 @@ inline fun <reified T> tokenOf(): KType = typeOf<T>()
 
 @OptIn(ExperimentalStdlibApi::class)                  // KType.javaType still needs the opt-in in 2.4.21
 fun main() {
-    val t = typeOf<Map<String, List<Int>>>()
+    val t = typeOf<Map<String, List<Int>>>()       // each variety's name, and the grams of each piece
     println("typeOf:           $t")
     println("arguments:        ${t.arguments.size}, second is ${t.arguments[1]}")
     println("javaType:         ${t.javaType}")

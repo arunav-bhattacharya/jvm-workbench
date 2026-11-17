@@ -19,31 +19,31 @@ import kotlin.time.Duration.Companion.seconds
 @OptIn(ExperimentalCoroutinesApi::class)
 class SharedStateAndTestingTest {
 
-    // ---- BalanceBook: a critical section across coroutines ----
+    // ---- ShoppingList: a critical section across coroutines ----
 
     @Test
-    fun `100 concurrent credits all land`() = runTest {
-        val book = BalanceBook { amount, _ -> delay(50); amount * 100 } // 50 ms FX call, EUR to cents
-        val credits = List(100) { launch { book.credit("acc-1", 1, "EUR") } }
-        credits.joinAll() // waits even for work that escaped to a real dispatcher
-        assertThat(book.balance("acc-1")).`as`("cents after 100 credits of 1 EUR").isEqualTo(10_000)
+    fun `100 helpers adding at once all land`() = runTest {
+        val list = ShoppingList { amount, _ -> delay(50); amount * 100 } // a 50 ms lookup; one scoop is 100 g
+        val helpers = List(100) { launch { list.add("flour", 1, "scoop") } }
+        helpers.joinAll() // waits even for work that escaped to a real dispatcher
+        assertThat(list.total("flour")).`as`("grams after 100 scoops of 100 g").isEqualTo(10_000)
     }
 
     @Test
-    fun `conversions overlap, and only the balance update is one at a time`() = runTest {
+    fun `conversions overlap, and only the update of the list is one at a time`() = runTest {
         val active = AtomicInteger()
         val peak = AtomicInteger()
-        val book = BalanceBook { amount, _ ->
+        val list = ShoppingList { amount, _ ->
             peak.accumulateAndGet(active.incrementAndGet(), ::maxOf)
             delay(50)
             active.decrementAndGet()
             amount * 100
         }
-        val credits = List(100) { launch { book.credit("acc-1", 1, "EUR") } }
-        credits.joinAll()
-        assertThat(peak.get()).`as`("FX calls in flight at once").isEqualTo(100)
-        assertThat(currentTime).`as`("virtual ms for 100 credits").isEqualTo(50)
-        assertThat(book.balance("acc-1")).isEqualTo(10_000)
+        val helpers = List(100) { launch { list.add("flour", 1, "scoop") } }
+        helpers.joinAll()
+        assertThat(peak.get()).`as`("lookups in flight at once").isEqualTo(100)
+        assertThat(currentTime).`as`("virtual ms for 100 additions").isEqualTo(50)
+        assertThat(list.total("flour")).isEqualTo(10_000)
     }
 
     // ---- retryWithBackoff, tested on virtual time ----
@@ -53,9 +53,9 @@ class SharedStateAndTestingTest {
         val attempts = CopyOnWriteArrayList<Pair<Int, Long>>()
         val result = retryWithBackoff(times = 5, initialDelay = 100.milliseconds, maxDelay = 10.seconds) { attempt ->
             attempts += attempt to currentTime
-            if (attempt < 3) throw IOException("issuer 503") else "approved"
+            if (attempt < 3) throw IOException("the line is busy") else "loaf ordered"
         }
-        assertThat(result).isEqualTo("approved")
+        assertThat(result).isEqualTo("loaf ordered")
         assertThat(attempts).`as`("(attempt, virtual ms)").containsExactly(1 to 0L, 2 to 100L, 3 to 300L)
     }
 
@@ -63,10 +63,10 @@ class SharedStateAndTestingTest {
     fun `gives up after the last attempt and rethrows its exception`() = runTest {
         val thrown = runCatching {
             retryWithBackoff<String>(times = 4, initialDelay = 100.milliseconds, maxDelay = 10.seconds) { attempt ->
-                throw IOException("issuer 503 on attempt $attempt")
+                throw IOException("the line is busy on attempt $attempt")
             }
         }.exceptionOrNull()
-        assertThat(thrown).isInstanceOf(IOException::class.java).hasMessage("issuer 503 on attempt 4")
+        assertThat(thrown).isInstanceOf(IOException::class.java).hasMessage("the line is busy on attempt 4")
         assertThat(currentTime).`as`("virtual ms: 100 + 200 + 400").isEqualTo(700)
     }
 
@@ -76,7 +76,7 @@ class SharedStateAndTestingTest {
         runCatching {
             retryWithBackoff<Unit>(times = 4, initialDelay = 1.seconds, maxDelay = 5.seconds, factor = 10.0) {
                 attempts += currentTime
-                throw IOException("down")
+                throw IOException("the line is dead")
             }
         }
         assertThat(attempts).`as`("virtual ms of each attempt: waits of 1 s, 5 s, 5 s").containsExactly(0L, 1_000L, 6_000L, 11_000L)
@@ -88,7 +88,7 @@ class SharedStateAndTestingTest {
         val thrown = runCatching {
             retryWithBackoff<Unit>(times = 5, initialDelay = 100.milliseconds, maxDelay = 1.seconds) {
                 calls.incrementAndGet()
-                throw IllegalArgumentException("card number invalid")
+                throw IllegalArgumentException("no such bread")
             }
         }.exceptionOrNull()
         assertThat(thrown).isInstanceOf(IllegalArgumentException::class.java)
@@ -102,7 +102,7 @@ class SharedStateAndTestingTest {
         val job = launch {
             retryWithBackoff<Unit>(times = 10, initialDelay = 100.milliseconds, maxDelay = 10.seconds) {
                 calls.incrementAndGet()
-                throw IOException("down")
+                throw IOException("the line is dead")
             }
         }
         advanceTimeBy(150) // attempt 1 at 0 ms, attempt 2 at 100 ms, now waiting until 300 ms

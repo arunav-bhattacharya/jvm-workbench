@@ -63,8 +63,8 @@ class QuoteServerTest {
         QuoteServer(pool) { "quote $it" }.use { server ->
             assertThat(server.group).isInstanceOf(MultiThreadIoEventLoopGroup::class.java)
             Client(server.port()).use { c ->
-                c.send("EURUSD")
-                assertThat(c.reader.readLine()).isEqualTo("quote EURUSD")
+                c.send("parcel 2kg")
+                assertThat(c.reader.readLine()).isEqualTo("quote parcel 2kg")
             }
         }
         pool.shutdown()
@@ -76,7 +76,7 @@ class QuoteServerTest {
         val lookupThreads = ConcurrentHashMap.newKeySet<String>()
         val lookup: (String) -> String = { key ->
             lookupThreads += Thread.currentThread().name
-            if (key == "SLOW") Thread.sleep(1_000)          // stands in for a 1 s JDBC call
+            if (key == "SLOW") Thread.sleep(1_000)          // stands in for a 1 s call to the back office
             "quote $key"
         }
         QuoteServer(pool, lookup).use { server ->

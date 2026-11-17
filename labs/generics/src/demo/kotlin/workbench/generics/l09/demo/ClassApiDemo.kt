@@ -5,17 +5,17 @@ import kotlin.reflect.cast
 import kotlin.reflect.safeCast
 
 fun main() {
-    val event: PaymentEvent = CardAuthorized("pay_1", 1_200)
+    val fruit: Fruit = Apple("Gala", 180)
 
     // 1. KClass <-> Class
-    val k: KClass<CardAuthorized> = CardAuthorized::class
-    val c: Class<CardAuthorized> = k.java
-    println("k.java = ${c.simpleName}, c.kotlin == k: ${c.kotlin == k}, event.javaClass == c: ${event.javaClass == c}")
+    val k: KClass<Apple> = Apple::class
+    val c: Class<Apple> = k.java
+    println("k.java = ${c.simpleName}, c.kotlin == k: ${c.kotlin == k}, fruit.javaClass == c: ${fruit.javaClass == c}")
 
     // 2. checked is / as / as?
-    println("isInstance: ${k.isInstance(event)}, cast(...).cents: ${k.cast(event).cents}, safeCast to RefundIssued: ${RefundIssued::class.safeCast(event)}")
+    println("isInstance: ${k.isInstance(fruit)}, cast(...).grams: ${k.cast(fruit).grams}, safeCast to Lemon: ${Lemon::class.safeCast(fruit)}")
     try {
-        RefundIssued::class.cast(event)
+        Lemon::class.cast(fruit)
     } catch (e: ClassCastException) {
         println("cast failed: ${e.message}")
     }

@@ -22,7 +22,7 @@ public class TypeTokenDemoJava {
     static <T> Type listOf() { return new TypeRef<List<T>>() {}.type; }
 
     public static void main(String[] args) {
-        Type t = new TypeRef<Map<String, List<Integer>>>() {}.type;
+        Type t = new TypeRef<Map<String, List<Integer>>>() {}.type;   // each variety's name, and the grams of each piece
         System.out.println("super type token: " + t);
         System.out.println("arguments:        " + Arrays.toString(((ParameterizedType) t).getActualTypeArguments()));
         System.out.println("inside a generic method: " + TypeTokenDemoJava.<String>listOf());

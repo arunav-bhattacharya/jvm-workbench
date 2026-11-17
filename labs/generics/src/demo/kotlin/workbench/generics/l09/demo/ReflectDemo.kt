@@ -3,9 +3,9 @@ package workbench.generics.l09.demo
 import kotlin.reflect.full.createInstance
 import kotlin.reflect.typeOf
 
-/** A Kotlin object: exactly one instance. */
-object Origin { override fun toString() = "Origin" }
-class NoArg { override fun toString() = "NoArg()" }
+/** A Kotlin object: exactly one instance. The shop has one storeroom. */
+object Storeroom { override fun toString() = "Storeroom" }
+class PaperBag { override fun toString() = "PaperBag()" }
 
 private fun attempt(label: String, block: () -> Any?) {
     val result = try {
@@ -23,15 +23,15 @@ private fun attempt(label: String, block: () -> Any?) {
  */
 fun main() {
     println("-- standard library only")
-    attempt("simpleName") { PaymentEvent::class.simpleName }
-    attempt("isInstance") { CardAuthorized::class.isInstance(CardAuthorized("pay_1", 1)) }
-    attempt("== and .java") { CardAuthorized::class.java == CardAuthorized("pay_1", 1).javaClass }
+    attempt("simpleName") { Fruit::class.simpleName }
+    attempt("isInstance") { Apple::class.isInstance(Apple("Gala", 180)) }
+    attempt("== and .java") { Apple::class.java == Apple("Gala", 180).javaClass }
     attempt("typeOf arguments") { typeOf<List<String>>().arguments.size }
     attempt("toString()") { String::class }
     println("-- needs kotlin-reflect")
-    attempt("objectInstance") { Origin::class.objectInstance }
-    attempt("sealedSubclasses") { PaymentEvent::class.sealedSubclasses.map { it.simpleName } }
-    attempt("isData") { CardAuthorized::class.isData }
-    attempt("members") { CardAuthorized::class.members.map { it.name }.sorted() }
-    attempt("createInstance()") { NoArg::class.createInstance() }
+    attempt("objectInstance") { Storeroom::class.objectInstance }
+    attempt("sealedSubclasses") { Fruit::class.sealedSubclasses.map { it.simpleName } }
+    attempt("isData") { Apple::class.isData }
+    attempt("members") { Apple::class.members.map { it.name }.sorted() }
+    attempt("createInstance()") { PaperBag::class.createInstance() }
 }

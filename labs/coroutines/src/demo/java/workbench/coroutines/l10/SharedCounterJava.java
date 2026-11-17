@@ -1,4 +1,4 @@
-// Java equivalent of SharedCounter.kt: the same counter on 8 platform threads. Coroutines on
+// Java equivalent of SharedCounter.kt: the same pea counter on 8 platform threads. Coroutines on
 // Dispatchers.Default run in parallel, so they race exactly like threads do.
 package workbench.coroutines.l10;
 

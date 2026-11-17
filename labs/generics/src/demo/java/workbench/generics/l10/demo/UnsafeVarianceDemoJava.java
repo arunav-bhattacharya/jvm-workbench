@@ -12,17 +12,17 @@ public class UnsafeVarianceDemoJava {
 
     @SuppressWarnings("unchecked")
     public static void main(String[] args) {
-        List<? extends Number> amounts = List.of(1_200, 350);
-        System.out.println("contains(350): " + amounts.contains(350) + ", contains(2.5): " + amounts.contains(2.5));
+        List<? extends Number> weights = List.of(180, 150);
+        System.out.println("contains(150): " + weights.contains(150) + ", contains(2.5): " + weights.contains(2.5));
 
-        System.out.println("contains(\"1200\") compiles in Java: " + List.of(1_200, 350).contains("1200"));
+        System.out.println("contains(\"180\") compiles in Java: " + List.of(180, 150).contains("180"));
 
-        List<String> ids = new ArrayList<>(List.of("pay_1"));
-        List<? extends Object> view = ids;
-        ((List<Object>) view).add(42);                     // the unchecked cast is the Java "unsafe variance"
+        List<Apple> apples = new ArrayList<>(List.of(new Apple("Gala", 180)));
+        List<? extends Fruit> view = apples;
+        ((List<Fruit>) view).add(new Lemon("Eureka", 120));    // the unchecked cast is the Java "unsafe variance"
         try {
-            String lastId = ids.get(ids.size() - 1);
-            System.out.println(lastId);
+            Apple last = apples.get(apples.size() - 1);
+            System.out.println(last);
         } catch (ClassCastException e) {
             System.out.println("ClassCastException: " + e.getMessage().split(" \\(")[0]);
         }

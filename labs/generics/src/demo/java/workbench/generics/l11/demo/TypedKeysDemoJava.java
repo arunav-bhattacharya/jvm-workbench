@@ -24,17 +24,17 @@ public class TypedKeysDemoJava {
         <T> T get(Key<T> key) { return (T) values.get(key); }
     }
 
-    static final Key<List<String>> CURRENCIES = Key.of("currencies", new TypeRef<List<String>>() {});
-    static final Key<Integer> RETRIES = Key.of("retries", new TypeRef<Integer>() {});
+    static final Key<List<String>> VARIETIES = Key.of("varieties", new TypeRef<List<String>>() {});
+    static final Key<Integer> TOTAL = Key.of("total grams", new TypeRef<Integer>() {});
 
     public static void main(String[] args) {
         Attributes attrs = new Attributes();
-        attrs.set(CURRENCIES, List.of("EUR", "USD"));
-        attrs.set(RETRIES, 3);
-        List<String> currencies = attrs.get(CURRENCIES);       // typed by the key: no cast here
-        System.out.println("currencies = " + currencies + ", retries = " + attrs.get(RETRIES));
+        attrs.set(VARIETIES, List.of("Gala", "Fuji"));
+        attrs.set(TOTAL, 330);
+        List<String> varieties = attrs.get(VARIETIES);         // typed by the key: no cast here
+        System.out.println("varieties = " + varieties + ", total = " + attrs.get(TOTAL) + " g");
 
         // Wrong move. Uncomment, predict the error, then run.
-        // attrs.set(CURRENCIES, 42);
+        // attrs.set(VARIETIES, 42);
     }
 }

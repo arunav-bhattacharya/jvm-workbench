@@ -14,19 +14,19 @@ import kotlinx.coroutines.withContext
 fun main() {
     val realStart = System.nanoTime()
     fun real() = (System.nanoTime() - realStart) / 1_000_000
-    // runTest is meant for tests, but a plain main can call it too
+    // a rehearsal dinner on a fake clock: runTest is meant for tests, but a plain main can call it too
     runTest {
         fun TestScope.log(what: String) = println("virtual %5d ms (real %4d ms)  %s".format(currentTime, real(), what))
         launch {
-            delay(1_000); log("settlement file fetched")
-            delay(200); log("file parsed")
-            delay(2_000); log("ledger posted")
+            delay(1_000); log("soup simmered")
+            delay(200); log("soup seasoned")
+            delay(2_000); log("bread baked")
         }
-        val fx = async {
-            delay(3_000); log("FX rates fetched")
-            delay(500); log("rates cached")
+        val roast = async {
+            delay(3_000); log("roast cooked")
+            delay(500); log("roast rested")
         }
-        fx.await()
+        roast.await()
         log("await returned")
     }
     println("whole runTest took %d ms of real time".format(real()))

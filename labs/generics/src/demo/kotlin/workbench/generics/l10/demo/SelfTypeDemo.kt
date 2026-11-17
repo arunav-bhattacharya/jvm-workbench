@@ -2,34 +2,34 @@ package workbench.generics.l10.demo
 
 // 1. Without a self type: the base setters return the base class, and the chain loses the subclass.
 open class PlainBuilder {
-    protected var cents = 0L
-    fun amount(cents: Long): PlainBuilder { this.cents = cents; return this }
+    protected var grams = 0
+    fun grams(grams: Int): PlainBuilder { this.grams = grams; return this }
 }
-class PlainCardBuilder : PlainBuilder() {
-    private var token = ""
-    fun cardToken(t: String): PlainCardBuilder { token = t; return this }
-    fun build() = "card $cents with $token"
+class PlainGiftBoxBuilder : PlainBuilder() {
+    private var ribbon = ""
+    fun ribbon(colour: String): PlainGiftBoxBuilder { ribbon = colour; return this }
+    fun build() = "gift box, $grams g, $ribbon ribbon"
 }
 
 // 2. With a self type: B names "my own subclass", so the base setters return it.
 abstract class Builder<B : Builder<B>> {
-    protected var cents = 0L
-    fun amount(cents: Long): B { this.cents = cents; return self() }
+    protected var grams = 0
+    fun grams(grams: Int): B { this.grams = grams; return self() }
     protected abstract fun self(): B
 }
-class CardBuilder : Builder<CardBuilder>() {
-    private var token = ""
-    fun cardToken(t: String): CardBuilder { token = t; return this }
+class GiftBoxBuilder : Builder<GiftBoxBuilder>() {
+    private var ribbon = ""
+    fun ribbon(colour: String): GiftBoxBuilder { ribbon = colour; return this }
     override fun self() = this
-    fun build() = "card $cents with $token"
+    fun build() = "gift box, $grams g, $ribbon ribbon"
 }
 
 fun main() {
-    val lost: PlainBuilder = PlainCardBuilder().cardToken("tok_1").amount(1_200)   // amount() returns a PlainBuilder
-    println("after amount(): static type PlainBuilder, run-time class ${lost::class.simpleName}")
-    println(CardBuilder().amount(1_200).cardToken("tok_1").build())    // the chain keeps CardBuilder
+    val lost: PlainBuilder = PlainGiftBoxBuilder().ribbon("red").grams(1_200)   // grams() returns a PlainBuilder
+    println("after grams(): static type PlainBuilder, run-time class ${lost::class.simpleName}")
+    println(GiftBoxBuilder().grams(1_200).ribbon("red").build())    // the chain keeps GiftBoxBuilder
 
     // Wrong moves. Uncomment one at a time, predict the error, then run.
-    // println(PlainCardBuilder().amount(1_200).cardToken("tok_1").build())   // 1
-    // class Liar : Builder<CardBuilder>() { override fun self() = CardBuilder() }   // 2 (compiles: what does it break?)
+    // println(PlainGiftBoxBuilder().grams(1_200).ribbon("red").build())          // 1
+    // class Liar : Builder<GiftBoxBuilder>() { override fun self() = GiftBoxBuilder() }   // 2 (compiles: what does it break?)
 }

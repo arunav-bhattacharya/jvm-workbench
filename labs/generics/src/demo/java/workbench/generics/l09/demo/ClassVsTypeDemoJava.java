@@ -11,11 +11,11 @@ import java.util.List;
  */
 public class ClassVsTypeDemoJava {
 
-    static List<String> ids = List.of("pay_1");     // a declaration keeps its generic type
+    static List<String> varieties = List.of("Gala");   // a declaration keeps its generic type
 
     public static void main(String[] args) throws Exception {
         Class<String> c = String.class;
-        Type t = ClassVsTypeDemoJava.class.getDeclaredField("ids").getGenericType();
+        Type t = ClassVsTypeDemoJava.class.getDeclaredField("varieties").getGenericType();
         System.out.println("Class: " + c);
         System.out.println("Type:  " + t + " (read from the field declaration)");
 

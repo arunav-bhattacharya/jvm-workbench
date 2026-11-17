@@ -1,13 +1,13 @@
 package workbench.generics.l10
 
-typealias Handler<E> = (E) -> Unit
+typealias Listener<E> = (E) -> Unit
 
 // (A) -> C built from (A) -> B and (B) -> C. Variance of Function1 lets callers pass
-// a more general `second`, such as (Any) -> String where (Money) -> String is expected.
+// a more general `second`, such as (Any) -> String where (Long) -> String is expected.
 fun <A, B, C> andThen(first: (A) -> B, second: (B) -> C): (A) -> C = { a -> second(first(a)) }
 
-fun <E> fanOut(handlers: List<Handler<E>>): Handler<E> = { event ->
-    for (h in handlers) h(event)
+fun <E> fanOut(listeners: List<Listener<E>>): Listener<E> = { item ->
+    for (l in listeners) l(item)
 }
 
 fun <T> List<T>.firstNotNullValue(): T & Any {

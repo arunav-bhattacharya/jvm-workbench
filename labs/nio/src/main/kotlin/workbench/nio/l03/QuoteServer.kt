@@ -9,7 +9,7 @@ import java.net.InetSocketAddress
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 
-/** The pipeline of a line-based quote server. */
+/** The pipeline of a line-based quote server: a post office price desk that answers each line with a price. */
 object QuotePipeline {
     const val MAX_LINE = 64
 
@@ -32,7 +32,7 @@ class UpperCaseHandler : SimpleChannelInboundHandler<String>() {
 }
 
 /**
- * Answers each line with `lookup(line)`. The lookup may block (it stands in for a JDBC call),
+ * Answers each line with `lookup(line)`. The lookup may block (it stands in for a slow call to the back office),
  * and this version calls it on the event loop. Fix it: run the lookup on [blocking] and write the
  * reply from there. `ctx.writeAndFlush` is safe to call from any thread.
  */

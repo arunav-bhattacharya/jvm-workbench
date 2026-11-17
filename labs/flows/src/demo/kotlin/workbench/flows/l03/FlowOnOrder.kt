@@ -14,7 +14,7 @@ val deliveryNote = listOf("flour,2000,g", "eggs,12,pcs", "milk,1000,ml")
 fun deliveryItems(): Flow<String> = flow {
     for (line in deliveryNote) {
         val item = line.substringBefore(",")
-        println("read    $item   on ${Thread.currentThread().name}")
+        println("read    %-6s on %s".format(item, Thread.currentThread().name))
         emit(item)
     }
 }
@@ -25,13 +25,13 @@ fun main() = runBlocking {
     println("=== plain, as in lesson 1")
     deliveryItems().collect { item ->
         delay(30)                                   // put it away and write it in the pantry book
-        println("stored  $item   on ${Thread.currentThread().name}")
+        println("stored  %-6s on %s".format(item, Thread.currentThread().name))
     }
 
     println("=== with .flowOn(io)")
     deliveryItems().flowOn(io).collect { item ->
         delay(30)
-        println("stored  $item   on ${Thread.currentThread().name}")
+        println("stored  %-6s on %s".format(item, Thread.currentThread().name))
     }
     io.close()
 }

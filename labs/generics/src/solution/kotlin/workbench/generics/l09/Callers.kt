@@ -6,13 +6,13 @@ package workbench.generics.l09
  * compiled together with your code and so always hold a fresh copy of them.
  */
 object Callers {
-    fun gateway(registry: ServiceRegistry): PaymentGateway = registry.get<PaymentGateway>()
-    fun fraudCheck(registry: ServiceRegistry): FraudCheck = registry.get<FraudCheck>()
+    fun scale(index: CardIndex): Scale = index.get<Scale>()
+    fun labels(index: CardIndex): LabelPrinter = index.get<LabelPrinter>()
 
-    fun registerRepositories(registry: ServiceRegistry, payments: Repository<Payment>, refunds: Repository<Refund>) {
-        registry.registerTyped<Repository<Payment>>(payments)
-        registry.registerTyped<Repository<Refund>>(refunds)
+    fun fileShelves(index: CardIndex, apples: Shelf<Apple>, lemons: Shelf<Lemon>) {
+        index.registerTyped<Shelf<Apple>>(apples)
+        index.registerTyped<Shelf<Lemon>>(lemons)
     }
-    fun payments(registry: ServiceRegistry): Repository<Payment> = registry.getTyped<Repository<Payment>>()
-    fun refunds(registry: ServiceRegistry): Repository<Refund> = registry.getTyped<Repository<Refund>>()
+    fun apples(index: CardIndex): Shelf<Apple> = index.getTyped<Shelf<Apple>>()
+    fun lemons(index: CardIndex): Shelf<Lemon> = index.getTyped<Shelf<Lemon>>()
 }

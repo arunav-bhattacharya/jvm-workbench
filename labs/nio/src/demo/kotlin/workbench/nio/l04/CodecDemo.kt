@@ -29,7 +29,7 @@ private class CodecFrameDecoder : ByteToMessageDecoder() {   // runs after the l
     }
 }
 
-private class CodecApprover : SimpleChannelInboundHandler<CodecFrame>() {
+private class CodecStamper : SimpleChannelInboundHandler<CodecFrame>() {
     override fun channelRead0(ctx: ChannelHandlerContext, f: CodecFrame) {
         ctx.writeAndFlush(CodecFrame(f.type + 1, f.text.uppercase()))
     }
@@ -37,7 +37,7 @@ private class CodecApprover : SimpleChannelInboundHandler<CodecFrame>() {
 
 fun main() {
     val encoder = EmbeddedChannel(CodecFrameEncoder())
-    encoder.writeOutbound(CodecFrame(1, "auth-1"), CodecFrame(7, "capture-1"))
+    encoder.writeOutbound(CodecFrame(1, "note-1"), CodecFrame(7, "parcel-1"))
     val wire = Unpooled.buffer()
     while (true) {
         val part = encoder.readOutbound<ByteBuf>() ?: break
@@ -47,7 +47,7 @@ fun main() {
     println("wire: ${wire.readableBytes()} bytes, hex ${ByteBufUtil.hexDump(wire)}")
 
     val ch = EmbeddedChannel(LengthFieldBasedFrameDecoder(1024, 0, 4, 0, 4),
-        CodecFrameDecoder(), CodecFrameEncoder(), CodecApprover())
+        CodecFrameDecoder(), CodecFrameEncoder(), CodecStamper())
     var from = 0
     for (to in listOf(3, 9, 14, wire.readableBytes())) {   // inside the length, inside body 1, across the boundary, the rest
         ch.writeInbound(wire.retainedSlice(from, to - from))

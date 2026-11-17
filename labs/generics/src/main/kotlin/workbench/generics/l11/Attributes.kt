@@ -4,7 +4,7 @@ import kotlin.reflect.KType
 
 /**
  * A key that carries the type of its value. Two keys are equal when both the name AND the full type are
- * equal, so key<List<String>>("limits") and key<List<Long>>("limits") are different keys.
+ * equal, so key<List<Int>>("weights") and key<Int>("weights") are different keys.
  *
  * Key is invariant in T on purpose. If it were `out T`, a Key<List<String>> could be used as a Key<Any>,
  * and set(key, 42) would put an Int where a List<String> belongs.
@@ -15,7 +15,7 @@ data class Key<T>(val name: String, val type: KType)
 fun <T> key(name: String): Key<T> = TODO("inline + reified, then Key(name, typeOf<T>())")
 
 /**
- * Per-payment attributes of many types in one map, e.g. attributes[CURRENCIES] = listOf("EUR").
+ * Facts about one order, of many types, in one map: attributes[VARIETIES] = listOf("Gala", "Fuji").
  * TODO 8: write the four operations.
  */
 class Attributes {
