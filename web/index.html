@@ -133,12 +133,7 @@ h1 code, h2 code, h3 code { font-weight: 400; letter-spacing: 0; }
 }
 @media (max-width: 560px) { .hide-sm { display: none; } body { font-size: 17px; } }
 
-.nav { display: grid; gap: 1px; padding: 0 10px; }
-.nav button { display: flex; align-items: center; gap: 10px; text-align: left; background: none; border: 0; border-radius: var(--r); padding: 6px 10px; cursor: pointer; color: var(--fg); font: 400 14.5px/1.4 var(--body); width: 100%; }
-.nav button:hover { background: color-mix(in srgb, var(--fg) 5%, transparent); }
-.nav button.on { background: var(--soft); color: var(--accent); font-weight: 600; }
-.nav .count { margin-left: auto; font: 400 12.5px var(--body); color: var(--faint); }
-.navsec { margin-top: 14px; border-top: 1px solid var(--rule); padding-top: 14px; }
+.navsec { padding-top: 6px; }
 .navsec > .label { padding: 0 20px 8px; display: block; }
 .sidenote { padding: 18px 20px 0; line-height: 1.55; color: var(--faint); margin: 0; }
 .trk { border-bottom: 1px solid var(--rule-2); }
@@ -666,6 +661,19 @@ figure.vid figcaption b { font: 600 11.5px/1 var(--body); letter-spacing: .06em;
   .main.wide .lgrid > article { width: 100%; max-width: var(--wide-w); justify-self: center; --read-w: 100%; }
 }
 
+/* the page links live in the top bar only; the sidebar holds tracks and lessons. When the bar is too
+   narrow for them they drop to a second row that scrolls sideways. */
+.topnav { display: flex; align-items: center; gap: 2px; margin-left: 14px; min-width: 0; font-family: var(--body); }
+.topnav button { flex: none; background: none; border: 0; border-radius: var(--r); padding: 6px 9px; cursor: pointer; color: var(--mute); font: 500 13.5px/1.3 var(--body); white-space: nowrap; }
+.topnav button:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 5%, transparent); }
+.topnav button.on { color: var(--accent); background: var(--soft); font-weight: 600; }
+@media (max-width: 1399px) {
+  :root { --top: 92px; }
+  .top { padding-bottom: 40px; }
+  .topnav { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; margin: 0; padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); border-top: 1px solid var(--rule-2); overflow-x: auto; scrollbar-width: none; }
+  .topnav::-webkit-scrollbar { display: none; }
+}
+
 /* phones: section headings a step smaller, so long class names fit */
 @media (max-width: 560px) { .shead h2, .block > h2, .sheet > h2 { font-size: 22px; } }
 </style>
@@ -872,6 +880,7 @@ figure.vid figcaption b { font: 600 11.5px/1 var(--body); letter-spacing: .06em;
     <header class="top">
       <button class="iconbtn" data-act="menu" aria-label="Show or hide contents">${icon.menu}</button>
       <button class="brand" data-go="home" aria-label="JVM Workbench home">${brandMark}<b>JVM <i>Workbench</i></b></button>
+      <nav class="topnav" aria-label="Pages">${[["home", "Today"], ["review", "Review"], ["practice", "Mixed practice"], ["plan", "Plan and progress"], ["sheets", "Cheat sheets"], ["glossary", "Glossary"], ["setup", "Set up the labs"]].map(([go, label]) => `<button data-go="${go}" class="${route() === go ? "on" : ""}">${label}</button>`).join("")}</nav>
       <span class="spacer"></span>
       <div class="gsearch" id="gsearch-box"><span class="gs-ic">${icon.search}</span>
         <input id="gsearch" type="search" autocomplete="off" spellcheck="false" placeholder="Search everything" aria-label="Search lessons, labs, quizzes, cheat sheets and terms" aria-controls="gres" aria-expanded="false">
@@ -974,17 +983,7 @@ figure.vid figcaption b { font: 600 11.5px/1 var(--body); letter-spacing: .06em;
     const nx = nextUp();
     const nxTrack = nx ? L[nx].track : null;
     const due = dueIds().length;
-    const item = (go, label, extra = "") => `<button data-go="${go}" class="${cur === go ? "on" : ""}">${label}${extra}</button>`;
-    let h = `<div class="nav">
-      ${item("home", "Today")}
-      ${item("review", "Review", `<span class="count tnum">${due} due</span>`)}
-      ${item("practice", "Mixed practice")}
-      ${item("plan", "Plan and progress")}
-      ${item("sheets", "Cheat sheets")}
-      ${item("glossary", "Glossary")}
-      ${item("setup", "Set up the labs")}
-    </div>
-    <div class="navsec"><span class="label">Tracks · ${doneCount()} of ${ORDER.length} lessons done</span>
+    let h = `<div class="navsec"><span class="label">Tracks · ${doneCount()} of ${ORDER.length} lessons done</span>
     <input class="field filter" id="lesson-filter" type="search" placeholder="Find a lesson" aria-label="Find a lesson" value="${esc(filterText)}"></div>`;
     const hereTrack = curTrack || nxTrack;
     const partOpen = (p) => filterText ? true : S.open["part-" + p.id] ?? p.tracks.includes(hereTrack);

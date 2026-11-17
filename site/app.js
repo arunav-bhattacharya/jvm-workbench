@@ -196,6 +196,7 @@
     <header class="top">
       <button class="iconbtn" data-act="menu" aria-label="Show or hide contents">${icon.menu}</button>
       <button class="brand" data-go="home" aria-label="JVM Workbench home">${brandMark}<b>JVM <i>Workbench</i></b></button>
+      <nav class="topnav" aria-label="Pages">${[["home", "Today"], ["review", "Review"], ["practice", "Mixed practice"], ["plan", "Plan and progress"], ["sheets", "Cheat sheets"], ["glossary", "Glossary"], ["setup", "Set up the labs"]].map(([go, label]) => `<button data-go="${go}" class="${route() === go ? "on" : ""}">${label}</button>`).join("")}</nav>
       <span class="spacer"></span>
       <div class="gsearch" id="gsearch-box"><span class="gs-ic">${icon.search}</span>
         <input id="gsearch" type="search" autocomplete="off" spellcheck="false" placeholder="Search everything" aria-label="Search lessons, labs, quizzes, cheat sheets and terms" aria-controls="gres" aria-expanded="false">
@@ -298,17 +299,7 @@
     const nx = nextUp();
     const nxTrack = nx ? L[nx].track : null;
     const due = dueIds().length;
-    const item = (go, label, extra = "") => `<button data-go="${go}" class="${cur === go ? "on" : ""}">${label}${extra}</button>`;
-    let h = `<div class="nav">
-      ${item("home", "Today")}
-      ${item("review", "Review", `<span class="count tnum">${due} due</span>`)}
-      ${item("practice", "Mixed practice")}
-      ${item("plan", "Plan and progress")}
-      ${item("sheets", "Cheat sheets")}
-      ${item("glossary", "Glossary")}
-      ${item("setup", "Set up the labs")}
-    </div>
-    <div class="navsec"><span class="label">Tracks · ${doneCount()} of ${ORDER.length} lessons done</span>
+    let h = `<div class="navsec"><span class="label">Tracks · ${doneCount()} of ${ORDER.length} lessons done</span>
     <input class="field filter" id="lesson-filter" type="search" placeholder="Find a lesson" aria-label="Find a lesson" value="${esc(filterText)}"></div>`;
     const hereTrack = curTrack || nxTrack;
     const partOpen = (p) => filterText ? true : S.open["part-" + p.id] ?? p.tracks.includes(hereTrack);
