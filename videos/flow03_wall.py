@@ -279,7 +279,7 @@ class Flow03Wall(Narrated):
         drag = VGroup(coll, bk).copy()
         self.play(FadeOut(VGroup(coll, bk)), FadeIn(drag), run_time=0.1)
         self.play(drag.animate.move_to([-2.15, -0.75, 0]), run_time=1.6)
-        dragged = T("dragged onto the IO thread", 24, BAD).next_to(drag, UP, buff=0.35)
+        dragged = T("dragged onto the IO thread", 24, BAD).next_to(drag, UP, buff=0.35).shift(LEFT * 0.55)
         self.play(FadeIn(dragged), run_time=0.5)
         self.hold()
 
@@ -389,7 +389,7 @@ class Flow03Wall(Narrated):
         self.play(its[0].animate.move_to([WX - 0.65, HB + 0.25, 0]), run_time=0.6)
         self.play(FadeIn(its[1]), its[0].animate.move_to([WX + 0.65, HB + 0.25, 0]), run_time=0.5)
         self.play(its[1].animate.move_to([WX - 0.65, HB + 0.25, 0]), FadeIn(loop), run_time=0.6)
-        self.play(its[0].animate.move_to(coll2.get_left() + LEFT * 0.35 + UP * 0.1), run_time=0.7)
+        self.play(its[0].animate.move_to(coll2.get_left() + LEFT * 0.35 + UP * 0.45), run_time=0.7)
         self.at(1)
         okk = tick(True, 0.2).move_to([WX, HT + 0.35, 0])
         self.play(Create(okk), run_time=0.5)

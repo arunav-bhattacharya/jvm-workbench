@@ -1,15 +1,15 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:06.366
+00:00:02.700 --> 00:00:06.333
 The old wireless oven probe is still in the kitchen drawer.
 
 2
-00:00:06.366 --> 00:00:09.137
+00:00:06.333 --> 00:00:09.104
 You push it into the roast, and it calls you.
 
 3
-00:00:09.137 --> 00:00:17.943
+00:00:09.104 --> 00:00:17.909
 Its library has a listener: you register a function, and the probe calls it on its own thread, with every new reading, until you unregister it.
 
 4
@@ -25,253 +25,253 @@ So the bridge needs a little care, and here's a question that's easy to be shy a
 Once I've started collecting, I'm listening, right?
 
 7
-00:00:32.600 --> 00:00:37.715
+00:00:32.633 --> 00:00:37.748
 Here's a first bridge, built with callbackFlow, a flow builder for listener APIs.
 
 8
-00:00:37.715 --> 00:00:39.672
+00:00:37.748 --> 00:00:39.706
 Its block registers a listener.
 
 9
-00:00:39.672 --> 00:00:41.693
+00:00:39.706 --> 00:00:41.726
 Each event goes in with trySend.
 
 10
-00:00:41.693 --> 00:00:44.156
+00:00:41.726 --> 00:00:44.189
 And awaitClose waits, then unregisters.
 
 11
-00:00:44.156 --> 00:00:49.965
+00:00:44.189 --> 00:00:49.999
 The caller launches the collector, gives way once with yield, and the probe fires a reading.
 
 12
-00:00:49.965 --> 00:00:51.733
+00:00:49.999 --> 00:00:51.767
 What does the collector get?
 
 13
-00:00:54.733 --> 00:00:55.399
+00:00:54.767 --> 00:00:55.433
 Nothing.
 
 14
-00:00:55.399 --> 00:00:58.895
+00:00:55.433 --> 00:00:58.928
 The probe printed: fired with listeners=0.
 
 15
-00:00:58.895 --> 00:01:01.559
+00:00:58.928 --> 00:01:01.592
 And only after that: registered.
 
 16
-00:01:02.267 --> 00:01:03.573
+00:01:02.300 --> 00:01:03.606
 Here's what happened.
 
 17
-00:01:03.573 --> 00:01:12.591
+00:01:03.606 --> 00:01:12.625
 collect on a callbackFlow starts a producer coroutine, and your block, with its register call, runs only when that coroutine first gets its turn.
 
 18
-00:01:12.591 --> 00:01:16.759
+00:01:12.625 --> 00:01:16.792
 launch and one yield got the collector going, but not its producer.
 
 19
-00:01:16.759 --> 00:01:19.744
+00:01:16.792 --> 00:01:19.777
 The reading found no listener, and went nowhere.
 
 20
-00:01:19.933 --> 00:01:22.993
+00:01:20.000 --> 00:01:23.060
 So in Kotlin, collecting is not registering.
 
 21
-00:01:22.993 --> 00:01:32.173
+00:01:23.060 --> 00:01:32.239
 Reactor's Flux.create in Java runs its lambda inside subscribe, on the calling thread, so the Java version gets the reading at once.
 
 22
-00:01:32.173 --> 00:01:37.319
+00:01:32.239 --> 00:01:37.385
 A test must wait for the registration, and real code must not count on it.
 
 23
-00:01:38.000 --> 00:01:42.883
+00:01:38.100 --> 00:01:42.983
 Now picture the bridge as the hatch with a shelf from lesson 3, fitted to the probe.
 
 24
-00:01:42.883 --> 00:01:47.650
+00:01:42.983 --> 00:01:47.750
 The probe's thread puts each reading on the shelf with trySend, which never waits.
 
 25
-00:01:47.650 --> 00:01:53.231
+00:01:47.750 --> 00:01:53.331
 send would wait for room, so it's a suspend function, and a plain listener method can't call it.
 
 26
-00:01:53.400 --> 00:01:59.364
+00:01:53.533 --> 00:01:59.497
 awaitClose is you standing at the hatch until you're told to leave, and then taking the hatch down.
 
 27
-00:01:59.364 --> 00:02:06.171
+00:01:59.497 --> 00:02:06.304
 It runs whatever ended the flow: take of 2, a cancelled collector, an error from the probe, or the probe closing.
 
 28
-00:02:06.333 --> 00:02:09.254
+00:02:06.533 --> 00:02:09.454
 Forget it, and the library sounds an alarm.
 
 29
-00:02:09.254 --> 00:02:14.689
+00:02:09.454 --> 00:02:14.889
 Collecting throws an IllegalStateException that names the exact line you forgot.
 
 30
-00:02:14.689 --> 00:02:22.908
+00:02:14.889 --> 00:02:23.108
 Reactor has no such check: a Flux.create without onDispose still has its listener after take of 1, and nothing tells you.
 
 31
-00:02:23.067 --> 00:02:27.370
+00:02:23.333 --> 00:02:27.636
 It's the rare error message that hands you the fix, word for word.
 
 32
-00:02:27.370 --> 00:02:33.107
+00:02:27.636 --> 00:02:33.373
 So the rule: collecting is not registering, and every callbackFlow ends with awaitClose.
 
 33
-00:02:33.867 --> 00:02:36.438
+00:02:34.200 --> 00:02:36.772
 Next, the probe's first act on connect.
 
 34
-00:02:36.438 --> 00:02:44.351
+00:02:36.772 --> 00:02:44.684
 It replays everything it stored: 200 readings in one burst, from its own thread, while the collector waits at the hatch.
 
 35
-00:02:44.351 --> 00:02:45.867
+00:02:44.684 --> 00:02:46.201
 The shelf has 64 spots.
 
 36
-00:02:45.867 --> 00:02:47.845
+00:02:46.201 --> 00:02:48.179
 How many readings get through?
 
 37
-00:02:50.867 --> 00:02:51.094
+00:02:51.167 --> 00:02:51.394
 65.
 
 38
-00:02:51.094 --> 00:02:59.728
+00:02:51.394 --> 00:03:00.028
 64 onto the shelf, and one handed straight to the collector who was already waiting, before the shelf was touched.
 
 39
-00:02:59.728 --> 00:03:02.379
+00:03:00.028 --> 00:03:02.679
 The other 135 trySend calls failed.
 
 40
-00:03:02.379 --> 00:03:07.832
+00:03:02.679 --> 00:03:08.132
 And trySend fails quietly: it returns a result, and nobody looked at it.
 
 41
-00:03:08.533 --> 00:03:10.124
+00:03:08.833 --> 00:03:10.424
 So choose on purpose.
 
 42
-00:03:10.124 --> 00:03:17.470
+00:03:10.424 --> 00:03:17.770
 A buffer of 500, right after callbackFlow, snaps onto its shelf, and all 500 stored readings fit.
 
 43
-00:03:17.470 --> 00:03:21.181
+00:03:17.770 --> 00:03:21.481
 conflate keeps the first and the last: 0 and 199.
 
 44
-00:03:21.181 --> 00:03:27.845
+00:03:21.481 --> 00:03:28.145
 And trySendBlocking looks safe, but it blocks the probe's own thread until there's room.
 
 45
-00:03:28.000 --> 00:03:30.364
+00:03:28.367 --> 00:03:30.731
 A failed trySend is a lost reading.
 
 46
-00:03:30.364 --> 00:03:33.944
+00:03:30.731 --> 00:03:34.311
 Size the shelf for the burst, or choose what to drop.
 
 47
-00:03:34.667 --> 00:03:43.353
+00:03:35.033 --> 00:03:43.720
 Next door, the neighbour's kitchen runs on Reactor, a line of stations where each one asks the one before it for n items.
 
 48
-00:03:43.353 --> 00:03:44.933
+00:03:43.720 --> 00:03:45.299
 The bridges translate.
 
 49
-00:03:44.933 --> 00:03:48.235
+00:03:45.299 --> 00:03:48.601
 asFlow orders 64, then 64 more after every 64.
 
 50
-00:03:48.235 --> 00:03:55.557
+00:03:48.601 --> 00:03:55.924
 asFlux starts the flow at the first request, and when the demand runs out, the flow waits inside emit.
 
 51
-00:03:55.733 --> 00:04:02.632
+00:03:56.133 --> 00:04:03.032
 Java can't call a Flow's collect, so give Java a Flux, as the lab's ProbeApi does, or a future.
 
 52
-00:04:02.632 --> 00:04:03.576
+00:04:03.032 --> 00:04:03.976
 Never a Flow.
 
 53
-00:04:04.267 --> 00:04:05.763
+00:04:04.700 --> 00:04:06.197
 Last, the rehearsal.
 
 54
-00:04:05.763 --> 00:04:12.647
+00:04:06.197 --> 00:04:13.081
 runTest puts dinner on a fake clock, virtual time, that jumps from one due task to the next.
 
 55
-00:04:12.647 --> 00:04:18.559
+00:04:13.081 --> 00:04:18.992
 With tasks due at 100 and 200 milliseconds, what does advanceTimeBy of 100 run?
 
 56
-00:04:21.600 --> 00:04:22.238
+00:04:21.967 --> 00:04:22.605
 Nothing.
 
 57
-00:04:22.238 --> 00:04:24.233
+00:04:22.605 --> 00:04:24.600
 It stops just before 100.
 
 58
-00:04:24.233 --> 00:04:27.425
+00:04:24.600 --> 00:04:27.791
 The clock reads 100, and fired is empty.
 
 59
-00:04:27.425 --> 00:04:31.653
+00:04:27.791 --> 00:04:32.020
 runCurrent then runs what's due now: the task at 100.
 
 60
-00:04:31.800 --> 00:04:35.125
+00:04:32.233 --> 00:04:35.558
 And runCurrent is also the fix for our lost reading.
 
 61
-00:04:35.125 --> 00:04:41.136
+00:04:35.558 --> 00:04:41.569
 In a test, launch the collector, call runCurrent so the hatch gets fitted, and only then fire.
 
 62
-00:04:41.867 --> 00:04:45.033
+00:04:42.300 --> 00:04:45.467
 So, once you start collecting, are you listening?
 
 63
-00:04:45.033 --> 00:04:45.550
+00:04:45.467 --> 00:04:45.984
 Not yet.
 
 64
-00:04:45.550 --> 00:04:48.717
+00:04:45.984 --> 00:04:49.150
 The hatch is fitted when the producer first runs.
 
 65
-00:04:48.717 --> 00:04:55.632
+00:04:49.150 --> 00:04:56.065
 trySend fills a shelf you size for the burst, and awaitClose takes the hatch down, whatever ended the flow.
 
 66
-00:04:55.800 --> 00:04:56.536
+00:04:56.267 --> 00:04:57.003
 Quick check.
 
 67
-00:04:56.536 --> 00:04:59.973
+00:04:57.003 --> 00:05:00.440
 The collector is cancelled while it waits for a reading.
 
 68
-00:04:59.973 --> 00:05:01.815
+00:05:00.440 --> 00:05:02.281
 Which line of the bridge runs?
 
 69
-00:05:04.867 --> 00:05:09.887
+00:05:05.267 --> 00:05:10.287
 awaitClose's block: it unregisters the listener, so the probe stops calling.

@@ -578,7 +578,7 @@ class Flow02Inspector(Narrated):
         path = VMobject().set_points_as_corners([nd.get_bottom() + DOWN * 0.05, nd.get_bottom() + DOWN * 1.0,
                                                  nb.get_bottom() + DOWN * 1.0, nb.get_bottom() + DOWN * 0.05])
         path.set_stroke(BAD, 3)
-        note = VGroup(RoundedRectangle(corner_radius=0.05, width=2.2, height=0.95).set_stroke(NOTE, 2.5).set_fill(dim(NOTE, 0.3), 1),
+        note = VGroup(RoundedRectangle(corner_radius=0.05, width=2.6, height=0.95).set_stroke(NOTE, 2.5).set_fill(dim(NOTE, 0.3), 1),
                       VGroup(T("no more, thanks", 22, WHITE), T("signed: take", 20, NOTE)).arrange(DOWN, buff=0.08))
         note[1].move_to(note[0])
         note.set_z_index(8).move_to(nd.get_bottom() + DOWN * 1.0)
