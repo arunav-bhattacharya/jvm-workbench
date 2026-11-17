@@ -15,8 +15,9 @@ sealed interface Goods {
     data class ByWeight(val name: String, val grams: Int, val centsPerKg: Long) : Goods
 
     /** A box of goods: its price is the sum of what is inside. An empty box costs 0. */
-    data class Box(val contents: List<Goods>) : Goods {
+    class Box(contents: List<Goods>) : Goods {
         constructor(vararg contents: Goods) : this(contents.toList())
+        val contents: List<Goods> = contents.toList()     // a copy: the box can't change behind your back
     }
 
     /** [percent] off whatever [inside] costs, rounded down: 10% off 5.50 is 4.95. */

@@ -12,10 +12,10 @@ public class BoxingDemoJava {
     static Object asGeneric(Object x) { return x; }
 
     public static void main(String[] args) {
-        long minor = 1_999;
-        Object boxed = asGeneric(minor);                 // autoboxed to Long
+        long sheets = 1_999;
+        Object boxed = asGeneric(sheets);                // autoboxed to Long
         System.out.println("as Object:   " + boxed.getClass().getSimpleName());
-        System.out.println("in a list:   " + List.of(minor).get(0).getClass().getSimpleName());
+        System.out.println("in a list:   " + List.of(sheets).get(0).getClass().getSimpleName());
 
         Long a = 1_999L, b = 1_999L;
         System.out.println("a == b (identity):  " + (a == b));         // two different Long objects

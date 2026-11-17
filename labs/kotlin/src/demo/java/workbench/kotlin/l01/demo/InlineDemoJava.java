@@ -7,12 +7,12 @@ package workbench.kotlin.l01.demo;
 public class InlineDemoJava {
     public static void main(String[] args) {
         // the Java lambda becomes a Function0 object; timed() calls its invoke() like any other method
-        long fee = InlineDemoKt.timed("from Java", () -> 12_000L * 3 / 100);
-        System.out.println("fee = " + fee);
+        long ink = InlineDemoKt.timed("from Java", () -> 12_000L * 3 / 100);
+        System.out.println("ink = " + ink + " ml");
 
         // the same idea written in plain Java: a Supplier and a call through it
         long same = timedJava("plain Java", () -> 12_000L * 3 / 100);
-        System.out.println("fee = " + same);
+        System.out.println("ink = " + same + " ml");
     }
 
     static <T> T timedJava(String label, java.util.function.Supplier<T> block) {

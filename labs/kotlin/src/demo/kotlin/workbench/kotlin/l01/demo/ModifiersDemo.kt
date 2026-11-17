@@ -19,9 +19,9 @@ inline fun runInBackground(executor: Executor, crossinline task: () -> Unit) {
 
 fun main() {
     subscribe({ println(it) }) { event -> println("listener got $event") }
-    listeners.forEach { it("payment-captured") }
+    listeners.forEach { it("job-finished") }
 
-    val pool = Executors.newSingleThreadExecutor { Thread(it, "settlement-worker") }
+    val pool = Executors.newSingleThreadExecutor { Thread(it, "night-shift") }
     runInBackground(pool) { println("running on ${Thread.currentThread().name}") }
     pool.shutdown()
     pool.awaitTermination(5, TimeUnit.SECONDS)

@@ -40,5 +40,5 @@ fun screenMessage(result: HoldResult): String = when (result) {
     is Unavailable if result.reason == Reason.NOT_IN_CATALOGUE -> "We don't have this title. Ask us to order it."
     is Unavailable if result.reason == Reason.ACCOUNT_BLOCKED -> "Please ask at the desk."
     is Unavailable -> "This title is not available right now."
-    is Waitlisted -> "You're on the waiting list. Expected wait: ${result.wait.toDays()} days."
+    is Waitlisted -> "You're on the waiting list. Expected wait: ${result.expectedWait.toDays()} days."
 }

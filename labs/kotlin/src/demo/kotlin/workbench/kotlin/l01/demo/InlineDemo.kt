@@ -20,11 +20,12 @@ fun <T> timedNotInline(label: String, block: () -> T): T {
     }
 }
 
-fun feeInline(amountMinor: Long): Long = timed("inline") { amountMinor * 3 / 100 }
+/** The shop's rule of thumb: 3 ml of ink for every 100 pages. */
+fun inkInline(pages: Long): Long = timed("inline") { pages * 3 / 100 }
 
-fun feeNotInline(amountMinor: Long): Long = timedNotInline("not inline") { amountMinor * 3 / 100 }
+fun inkNotInline(pages: Long): Long = timedNotInline("not inline") { pages * 3 / 100 }
 
 fun main() {
-    println("fee = ${feeInline(12_000)}")
-    println("fee = ${feeNotInline(12_000)}")
+    println("ink = ${inkInline(12_000)} ml")
+    println("ink = ${inkNotInline(12_000)} ml")
 }

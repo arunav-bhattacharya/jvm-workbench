@@ -27,12 +27,12 @@ public class PropertyDelegateDemoJava {
 
     public static void main(String[] args) {
         Order order = new Order();                 // the Kotlin class
-        order.setStatus("AUTHORIZED");             // goes through status$delegate.setValue
-        order.setAmountMinor(4_250L);
-        System.out.println("status = " + order.getStatus() + ", amountMinor = " + order.getAmountMinor());
+        order.setStatus("PRINTING");               // goes through status$delegate.setValue
+        order.setCopies(250L);
+        System.out.println("status = " + order.getStatus() + ", copies = " + order.getCopies());
 
         OrderJava hand = new OrderJava();
-        hand.setStatus("AUTHORIZED");
+        hand.setStatus("PRINTING");
 
         System.out.println("fields of the Kotlin Order, seen by reflection:");
         for (Field f : Order.class.getDeclaredFields()) {

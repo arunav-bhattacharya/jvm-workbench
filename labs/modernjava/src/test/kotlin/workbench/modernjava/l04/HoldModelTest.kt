@@ -35,8 +35,8 @@ class HoldModelTest {
 
     @Test
     fun `a wait on the waiting list is between one day and one year`() {
-        assertThat(Waitlisted(Duration.ofDays(1)).wait).isEqualTo(Duration.ofDays(1))
-        assertThat(Waitlisted(Duration.ofDays(365)).wait).isEqualTo(Duration.ofDays(365))
+        assertThat(Waitlisted(Duration.ofDays(1)).expectedWait).isEqualTo(Duration.ofDays(1))
+        assertThat(Waitlisted(Duration.ofDays(365)).expectedWait).isEqualTo(Duration.ofDays(365))
         assertThatThrownBy { Waitlisted(Duration.ZERO) }.isInstanceOf(IllegalArgumentException::class.java)
         assertThatThrownBy { Waitlisted(Duration.ofDays(366)) }.isInstanceOf(IllegalArgumentException::class.java)
     }

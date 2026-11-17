@@ -8,17 +8,17 @@ package workbench.kotlin.l02.demo
  */
 @JvmExposeBoxed
 @JvmInline
-value class Fee(val minor: Long) {
+value class Copies(val count: Long) {
     init {
-        require(minor >= 0) { "negative fee: $minor" }
+        require(count >= 0) { "negative copies: $count" }
     }
 
-    fun doubled(): Fee = Fee(minor * 2)
+    fun doubled(): Copies = Copies(count * 2)
 }
 
 @JvmExposeBoxed
-fun describeFee(fee: Fee): String = "fee of ${fee.minor} minor units"
+fun describeRun(copies: Copies): String = "a run of ${copies.count} copies"
 
 fun main() {
-    println(describeFee(Fee(125).doubled()))
+    println(describeRun(Copies(125).doubled()))
 }

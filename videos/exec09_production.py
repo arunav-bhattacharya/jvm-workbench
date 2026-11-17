@@ -272,10 +272,10 @@ class Exec09Production(Narrated):
         self.say("names2")
         self.play(FadeOut(same), FadeOut(dump), run_time=0.4)
         self.play(FadeIn(code, shift=UP * 0.1), run_time=0.6)
-        self.at_text("grill-0", lead=0.4)
+        self.at_text("names them", lead=0.3)
         self.play(*[ReplacementTransform(a_, b_) for a_, b_ in zip(tags_old, tags_new)],
                   *[ReplacementTransform(a_, b_) for a_, b_ in zip(cks_w, cks)], run_time=0.8)
-        self.hold()
+        self.hold(after=1.2)
         self.play(FadeOut(VGroup(h1, cks, tags_new, code)), run_time=0.5)
 
         # ================= 2. the note on the jacket =================
@@ -388,6 +388,8 @@ class Exec09Production(Narrated):
         otags = VGroup(*[name_tag(f"orders-{k + 1}", COOK, 18).next_to(c_, DOWN, buff=0.12) for k, c_ in enumerate(ocks)])
         cook_seat = [c_.get_center() + RIGHT * 0.62 for c_ in ocks]
         door = Line([-4.2, RY - 0.6, 0], [-4.2, RY + 0.6, 0]).set_stroke(GREY_B, 5)
+        door_l = T("door", 20, GREY_B).next_to(door, DOWN, buff=0.1)
+        door = VGroup(door, door_l)
         self.say("board_q")
         self.play(FadeOut(h3), FadeIn(rl2), FadeIn(sl_box), FadeIn(rl_l), FadeIn(ocks), FadeIn(otags), FadeIn(door), run_time=0.8)
         self.hold(after=0)
@@ -496,7 +498,8 @@ class Exec09Production(Narrated):
         nm = VGroup(T("pool-induced deadlock", 30, BAD), T("(also called thread starvation deadlock)", 22, GREY_B)).arrange(RIGHT, buff=0.3)
         nm.move_to([0, -1.2, 0])
         self.say("freeze_name")
-        self.play(FadeOut(trace), FadeIn(nm, shift=UP * 0.1), run_time=0.7)
+        self.play(FadeOut(trace), run_time=0.4)
+        self.play(FadeIn(nm, shift=UP * 0.1), run_time=0.5)
         self.at(1)
         self.play(FadeIn(dd), run_time=0.7)
         self.hold()
@@ -529,16 +532,16 @@ class Exec09Production(Narrated):
         lock.move_to(door2[0].get_center() + RIGHT * 0.25 + DOWN * 0.1)
         d_l = T("1. lock the door", 22).next_to(door2, DOWN, buff=0.15)
         kp = VGroup(RoundedRectangle(corner_radius=0.12, width=2.4, height=1.1).set_stroke(COOK, 2.5).set_fill(dim(COOK, 0.12), 1),
-                    T("kitchen pool", 24, COOK)).move_to([-1.9, SY, 0])
+                    T("kitchen pool", 24, COOK)).move_to([-2.3, SY, 0])
         kp[1].move_to(kp[0])
         bp = VGroup(RoundedRectangle(corner_radius=0.12, width=2.4, height=1.1).set_stroke(GOLD_M, 2.5).set_fill(dim(GOLD_M, 0.12), 1),
-                    T("billing pool", 24, GOLD_M)).move_to([1.6, SY, 0])
+                    T("billing pool", 24, GOLD_M)).move_to([0.9, SY, 0])
         bp[1].move_to(bp[0])
         feed = Arrow(kp.get_right(), bp.get_left(), buff=0.1, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.2)
         feed_l = T("feeds", 20, GREY_B).next_to(feed, UP, buff=0.08)
-        o_l = T("2. upstream first", 22).move_to([-0.15, SY - 0.95, 0])
+        o_l = T("2. upstream first", 22).move_to([-0.7, SY - 0.95, 0])
         clk = VGroup(Circle(radius=0.45).set_stroke(GREY_A, 3), Line(ORIGIN, UP * 0.3, stroke_width=3, color=RULE),
-                     Line(ORIGIN, RIGHT * 0.22, stroke_width=3, color=RULE)).move_to([4.75, SY, 0])
+                     Line(ORIGIN, RIGHT * 0.22, stroke_width=3, color=RULE)).move_to([4.2, SY, 0])
         c_l = VGroup(T("3. one deadline:", 22), T("20 s inside the 30 s grace period", 20, GREY_A)).arrange(DOWN, buff=0.06)
         c_l.next_to(clk, DOWN, buff=0.15)
         lost = VGroup(T("4. log what never ran:", 24), M("shutdownNow()", 24, GREY_A),
@@ -564,7 +567,7 @@ class Exec09Production(Narrated):
 
         self.play(kp.animate.set_opacity(1), bp.animate.set_opacity(1), FadeOut(lost), run_time=0.5)
         dsh = Ellipse(width=0.55, height=0.2).set_stroke(GOLD_M, 2).set_fill(dim(GOLD_M, 0.5), 1).move_to(kp.get_center() + DOWN * 0.3)
-        rej = M("RejectedExecutionException", 22, BAD).move_to([1.6, -0.5, 0])
+        rej = M("RejectedExecutionException", 22, BAD).move_to([0.9, -0.5, 0])
         free = T("cooked, served, never billed: a free dinner nobody planned", 26, GREY_A).move_to([0, -1.5, 0])
         fit(free, 12.4)
         self.say("close_joke")

@@ -46,13 +46,13 @@ FIG = """<svg viewBox="0 0 680 262" role="img" aria-label="A caller's call goes 
 <text class="t-s t-bad" x="340" y="252" text-anchor="middle">the inner calls never pass the proxy: nobody times them</text>
 </svg>""".replace("\n", "")
 
-OPENING = """A customer at the corner shop buys a teapot as a present. The shopkeeper puts it in its box, wraps the box in gift paper and ties a ribbon around it. Then Pedal Post's rider weighs it, scans the label and rides off, quite unmoved by the bow. A wrapped parcel is still a parcel. The teapot didn't change, and the courier handles it exactly as before.
+OPENING = """A customer at the corner shop buys a teapot as a present. The shopkeeper boxes it, wraps the box in gift paper and ties a ribbon around it. Then Pedal Post's rider weighs it, scans the label and rides off, quite unmoved by the bow. A wrapped parcel is still a parcel, and the courier handles it exactly as before.
 
-In the back office, the shop's manager is too busy to answer the phone, so a receptionist answers for her. Callers dial the same number as always. The receptionist checks who's calling, takes messages and puts the right calls through.
+In the back office, the manager is too busy to answer the phone, so a receptionist answers for her. Callers dial the same number as always, and the receptionist decides which calls to put through.
 
 Code wraps objects in both ways. The easy trap is to think a wrapper is invisible. It isn't: the order of the layers can change a price, and some calls never pass the receptionist at all.
 
-The last lesson ended on a wrapper that keeps the interface exactly as it is. In this lesson, we'll build two: a decorator, which adds one thing and passes the call on, and a proxy, which stands in front of an object and decides how to call it. Kotlin's `by` will write the passing-on for us. Before we start, make a guess, and keep it in mind."""
+The last lesson ended on a wrapper that keeps the interface. In this lesson, we'll build two: a decorator, which adds one thing and passes the call on, and a proxy, which stands in front of an object and decides how to call it, with Kotlin's `by` writing the passing-on. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
 J_FEE = """@FunctionalInterface
@@ -84,7 +84,7 @@ S0 = """The corner shop charges for every parcel it sends. The rules are simple:
 
 Here's a way to do that. Give each rule its own small object that wraps the rule before it. Each wrapper is still a delivery fee, with the same one method, so whoever asks for the price can't tell how many layers there are. A **decorator** is exactly that: an object with the same interface as the object it wraps, which does one extra thing and passes the call on. It's the gift wrap. The parcel inside doesn't change, the paper adds one thing, and the courier still handles one parcel.
 
-In Java, a functional interface with default methods turns each rule into a one-line decorator. In Kotlin, the rules are extension functions on a `fun interface`. Either way, each call returns a new fee and leaves the one it wraps alone:
+In Java, `DeliveryFee` is a functional interface: an interface with one abstract method, which a lambda can implement. Each rule is a default method, a method with a body inside the interface. In Kotlin, each rule is an extension function, a function you call like a method on a type, and `fun interface` is Kotlin's interface for lambdas. Either way, each call returns a new fee and leaves the one it wraps alone:
 
 """ + pair(J_FEE, K_FEE) + """
 
@@ -185,9 +185,9 @@ A decorator is written for one interface. A **dynamic proxy** is written once an
 
 """ + pair(J_PROXY, K_PROXY) + """
 
-The handler gets the proxy, the `Method` being called, and its arguments. First it asks the real object, the **target**, with `method.invoke(target, args)`. If that throws, it remembers the exception and tries again, and after the last attempt it throws what it remembered. A retry, a timer or a check of who's calling is written once and covers every method of every interface you wrap.
+The handler gets the proxy, the `Method` being called (an object that describes one method of the interface), and its arguments. First it asks the real object, the **target**, with `method.invoke(target, args)`. If that throws, it remembers the exception and tries again, and after the last attempt it throws what it remembered. A retry, a timer or a check of who's calling is written once and covers every method of every interface you wrap.
 
-The tricky line is the `catch`. `method.invoke` is an eager gift wrapper: whatever the target throws, it wraps in an `InvocationTargetException`. Unwrap it with `getCause()` and rethrow that. If you rethrow the wrapper instead, the proxy is throwing a checked exception that `book` never declared, and Java wraps it once more. `RetryingProxyDemo`, in the Try it, does exactly that when you remove the unwrap:
+The tricky line is the `catch`. `method.invoke` is an eager gift wrapper: whatever the target throws, it wraps in an `InvocationTargetException`. Unwrap it with `getCause()` and rethrow that. If you rethrow the wrapper instead, the proxy is throwing a checked exception, one the Java compiler makes you catch or declare, that the interface's `book` method never declared. So Java wraps it once more. `RetryingProxyDemo`, in the Try it, does exactly that when you remove the unwrap:
 
 ```text
 Exception in thread "main" java.lang.reflect.UndeclaredThrowableException
@@ -199,7 +199,7 @@ That's three layers of paper around one small `line busy`. Worse, no `catch (Ill
 
 **A handler must unwrap what `method.invoke` throws. Rethrow `getCause()`.**
 
-JDK proxies have one more limit: they implement interfaces only, and can't extend a class. Tools that must proxy a class generate a subclass instead, and a subclass can't override `final` methods. The Kotlin version is shorter for one reason: `reified T` lets the function read `T::class.java` itself, so callers write `retrying(busy, 3)` and pass no `Class` object.
+JDK proxies have one more limit: they implement interfaces only, and can't extend a class. Tools that must proxy a class generate a subclass instead, and a subclass can't override `final` methods. The Kotlin version is shorter for one reason: `reified T`, which keeps the type parameter available while an inline function runs, lets the function read `T::class.java` itself, so callers write `retrying(busy, 3)` and pass no `Class` object.
 
 Before you wrap the shop's order line in this proxy, notice that it retries everything. A check of an order's status is safe to repeat. Placing an order isn't: if the first attempt timed out after the warehouse had already taken it, the second attempt orders the bread again. The worked example fixes that.
 
@@ -245,7 +245,7 @@ Check yourself. The timing proxy wraps the courier, and the shop's code calls `b
 
 ASIDE = {
  "title": "Why does a framework annotation sometimes do nothing?",
- "body": "If you write web services, your framework probably hands out proxies like ours. In Spring, a popular Java framework, an annotation such as `@Transactional` (run this method inside a database transaction, a group of changes that all succeed or all fail together) is carried out by a proxy that stands in front of your class. So a call from one of its methods to another, through `this`, skips the proxy, exactly like `pickBoth` calling `pick`; the Spring docs say self-invocation \"will bypass the advice\". Their preferred fix is to move the inner method to another class, so the call crosses a proxy. Quarkus, another framework, does intercept such calls, as a feature its docs mark non-standard, so the same code can behave differently in the two. And because Kotlin classes are final unless marked `open`, Kotlin Spring projects add the `kotlin-spring` compiler plugin, which opens Spring-annotated classes so the framework's subclass proxies can override them."
+ "body": "If you write web services, your framework probably hands out proxies like ours. In Spring, a popular Java framework, an annotation such as `@Transactional` (run this method inside a database transaction, a group of changes that all succeed or all fail together) is carried out by a proxy that stands in front of your class. So a call from one of its methods to another, through `this`, skips the proxy, exactly like `pickBoth` calling `pick`; the Spring docs say self-invocation \"will bypass the advice\". Their preferred fix is to move the inner method to another class, so the call crosses a proxy. Quarkus, another framework, does intercept such calls, as a feature its docs mark non-standard, so the same code can behave differently in the two. And because Kotlin classes are final (no subclass may extend them) unless marked `open`, Kotlin Spring projects add the `kotlin-spring` compiler plugin, which opens Spring-annotated classes so the framework's subclass proxies can override them."
 }
 
 L = {
@@ -506,7 +506,7 @@ static <T> T logging(Class<T> iface, T target, List<String> log) {
   "A dynamic proxy (`java.lang.reflect.Proxy`) sends every call on an interface to one handler. Unwrap `InvocationTargetException`, or callers get `UndeclaredThrowableException`.",
   "The limit: a proxy sees only the calls made on it, so an object's calls on `this` skip it, and it knows only a method's name and arguments. It can't tell a status check from an order that must happen once unless you mark the method."
  ],
- "closing": "We started at the counter, with a teapot in gift paper and a receptionist in the back office. In code, the paper became decorators around a delivery fee, where moving one layer changed the price, and Kotlin's `by` wrote the passing-on for us. The receptionist became a proxy that answers for every method, and misses every call an object makes on itself.\n\nNow look in your own code for a class that implements an interface and passes most calls to a field of the same type. That's a decorator. Check what order it's stacked in, and whether a test pins that order.\n\nNext, we'll stop wrapping one object and start building trees of them. How can a box full of smaller boxes answer \"what do you cost?\" as if it were one parcel?",
+ "closing": "We started at the counter, with a teapot in gift paper and a receptionist in the back office. The paper became decorators around a delivery fee, where moving one layer changed the price. The receptionist became a proxy that answers for every method, and misses every call an object makes on itself.\n\nNow look in your own code for a class that implements an interface and passes most calls to a field of the same type. That's a decorator. Does a test pin the order it's stacked in?\n\nNext, we'll stop wrapping one object and start building trees of them. How can a box full of smaller boxes answer \"what do you cost?\" as if it were one parcel?",
  "quiz": [
   {"q": "`DeliveryFee.perKm(50).plusFixed(200).cappedAt(800).heavySurcharge(5_000, 300)` prices a 12 kg parcel going 20 km. What does it return, in cents?",
    "options": ["800", "1,100", "1,500", "1,200"],
@@ -558,7 +558,7 @@ static <T> T logging(Class<T> iface, T target, List<String> log) {
 
 Resilience4j, a widely used Java library for calls that may fail, is a decorator library by design. Its README says it provides "higher-order functions (decorators)" for any functional interface, lambda or method reference, and that you can stack more than one. You wrap a `Supplier` in a retry, wrap the result in a circuit breaker (a switch that stops calling a service that keeps failing), and so on. The order question from this lesson comes back: a retry outside the breaker retries calls the breaker refused, and a retry inside it counts every attempt as a call. Lesson 11 of this track, *Concurrency patterns that tie it all together*, builds a breaker by hand.
 
-The GoF book lists several kinds of proxy by job. A virtual proxy creates the expensive real object only on the first call, like the lazy price list in lesson 1 of this track. A remote proxy makes an object in another program look local. A protection proxy checks who is calling. All three have the same structure as a decorator, which is why intent, not shape, is how people tell them apart."""
+*Design Patterns*, the 1994 book that named these patterns, lists several kinds of proxy by job. A virtual proxy creates the expensive real object only on the first call, like the lazy price list in lesson 1 of this track. A remote proxy makes an object in another program look local. A protection proxy checks who is calling. All three have the same structure as a decorator, which is why intent, not shape, is how people tell them apart."""
  },
  "sources": [
   {"title": "Delegation (Kotlin docs)", "url": "https://kotlinlang.org/docs/delegation.html"},

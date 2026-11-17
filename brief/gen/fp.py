@@ -2,10 +2,31 @@ import json, pathlib
 
 ROOT = pathlib.Path("/home/user/jvm-workbench")
 
-CHEATSHEET = """## Pure functions and the shape of a program
+CHEATSHEET = """## The pictures of this track
 
-- A pure function's result depends only on its arguments, and calling it changes nothing outside it. The clock, `Random` and mutable globals are hidden inputs; I/O, logging and mutation are side effects.
-- Only a pure call can be replaced by its value, so only then are extracting, inlining, caching, retrying and parallel calls safe without reading the body.
+One kitchen runs through all eight lessons: a recipe book, a kitchen scale and a home cook's recipe app.
+
+| Idea | Picture it | In code |
+|---|---|---|
+| Pure function | a recipe card: same ingredients, same pancakes, kitchen left as found | `gramsToBuy(needed, bag, today)` |
+| Impure function | a second cook who checks the clock, trusts a scale left on ounces and eats batter | reads `now()` or a global, writes a log line |
+| Functional core, imperative shell | the card decides, the cook does the errands | `planShopping(...)` called from `ShoppingJob.run()` |
+| Function value | a card you can lend or line up | `val checks: List<(Dish) -> Problem?>` |
+| Closure | a card with a note pinned on: one shared box, not a copy | a captured `var` becomes a `Ref` |
+| Higher-order function | a friend who hands back a changed card | `retry`, `memoize`, `andThen` |
+| List operations | cookie trays: each step finishes the whole tray first | `filter { }.map { }` |
+| Sequence | one cookie at a time down the whole line, stopping when the lunchbox is full | `asSequence().filter { }.first()` |
+| Java stream | the same line in a disposable piping bag: squeeze it once | `stream().filter(...).findFirst()` |
+| Scope functions | five small kitchen habits, each with one job | `apply`, `also`, `let`, `run`, `with` |
+| Error as a value | a note saying what went wrong, instead of a pan thrown across the room | a sealed result, `Either` |
+| Railway | a note that leaves by the side door and skips to the end of the line | `andThen`, `either { bind() }` |
+| Read-only `List` | a shop window: you can't touch the cakes, the baker can | a `List` over someone's `MutableList` |
+| Immutable data | a printed recipe nobody edits; new editions instead of crossings-out | `val`s of immutable types, `PersistentList.adding` |
+
+## Pure functions and the shape of a program
+
+- A pure function's result depends only on its arguments, and calling it changes nothing outside it. The clock, `Random` and mutable globals are hidden inputs; I/O, logging and changing shared state are side effects.
+- Only a pure call can be replaced by its value, so only then are extracting, inlining, caching, retrying and running calls in parallel safe without reading the body.
 - `if`, `when` and `try` are expressions: compute a `val` instead of assigning a `var` in branches.
 - **Functional core, imperative shell**: decisions in pure functions that take plain values (today's date included) and return a value; I/O in a thin shell that reads, calls the core and acts. Many tests for the core, one wiring test for the shell.
 
@@ -13,8 +34,8 @@ CHEATSHEET = """## Pure functions and the shape of a program
 
 | You write | On the JVM (Kotlin 2.x) |
 |---|---|
-| `{ p: Payment -> p.amount > limit }` | `invokedynamic`, no class file; one shared instance if it captures nothing, a new object per evaluation if it does |
-| `::isOverLimit`, `Payment::isDomestic` | still a generated class |
+| `{ d: Dish -> d.minutes > 30 }` | `invokedynamic`, no class file; one shared instance if it captures nothing, a new object per evaluation if it does |
+| `::inSeason`, `Dish::name` | still a generated class |
 | a captured `var` | a `Ref` box with a plain field: shared between threads, it loses updates |
 | a lambda passed to an `inline` function (`map`, `filter`, `let`) | nothing: the body is pasted into the caller |
 
@@ -39,25 +60,26 @@ CHEATSHEET = """## Pure functions and the shape of a program
 
 | | List operations | `Sequence` | Java `Stream` |
 |---|---|---|---|
+| Picture it | a whole tray per step | one cookie down the whole line | the same line, single use |
 | Runs | eagerly, a whole list per step | lazily, one element through every step | lazily, like a Sequence |
 | Stops early (`first`, `take`, `any`) | no, each step finishes first | yes | yes |
 | Run it twice | it's data: free | reruns the chain; a few are once-only (`This sequence can be consumed only once.`) | never: `stream has already been operated upon or closed` |
 | Parallel | no | no | `parallelStream()` |
 | Primitives | boxed in `List<Long>` | boxed | `LongStream`, `mapToLong` |
 
-Default to List operations. Use `asSequence()` when the last step can stop early or a long chain runs over a big input; `sorted` still reads everything. Build lazy sources with `generateSequence(seed) { next }` and `sequence { yield(x); yieldAll(page) }`. Reach for a Stream for `parallel()`, primitive streams, Gatherers (JDK 24+) or a Java API. If one pass does the job, write one pass (`sumOf`, `count { }`, `firstOrNull { }`).
+Default to List operations. Use `asSequence()` when the last step can stop early or a long chain runs over a big input; `sorted` still reads everything. Build lazy sources with `generateSequence(seed) { next }` and `sequence { yield(x); yieldAll(page) }`. Reach for a stream for `parallel()`, primitive streams, gatherers (JDK 24+) or a Java API. If one pass does the job, write one pass (`sumOf`, `count { }`, `firstOrNull { }`).
 
 ## Scope functions
 
-| Function | Object in the block | Returns | Use it to | Trap |
-|---|---|---|---|---|
-| `apply` | `this` | the object | configure an object | a computed last line is dropped |
-| `also` | `it` | the object | do something extra (log, audit) and keep the object | `also { it.copy(...) }` drops the copy |
-| `let` | `it` | the block's result | transform a value, often after `?.` | `?.let { A } ?: B` runs B when A is null |
-| `run` | `this` | the block's result | configure and compute; `run { }` alone for a block where an expression is needed | |
-| `with(x)` | `this` | the block's result | group calls on an object you already have | no `?.with`: `this` stays nullable |
+| Function | Picture it | Value in the block | Hands back | Use it to | Trap |
+|---|---|---|---|---|---|
+| `apply` | set up a new tray | `this` | the value | set up an object | a computed last line is dropped |
+| `also` | note it in passing | `it` | the value | do something extra (log, count) and keep the value | `also { it.copy(...) }` drops the copy |
+| `let` | taste with a spoon | `it` | the block's result | compute from a value, often after `?.` | `?.let { A } ?: B` runs B when A gives null |
+| `run` | read the oven's own dials | `this` | the block's result | use an object's members to compute; `run { }` alone where an expression is needed | |
+| `with(x)` | read off the card in your hand | `this` | the block's result | group calls on a value you already hold | no `?.with`: `this` stays nullable |
 
-All five are `inline` and declare `callsInPlace(block, EXACTLY_ONCE)`, so a `val` can be assigned inside and a bare `return` leaves the enclosing function. Checklist: do you need one at all? Object back or result back? Members or argument? Nullable: never `with`, and check the left side of `?:` can't be null. Nested or long: extract a function. Nested receivers and nested `it` silently bind to the innermost one.
+All five are `inline` and declare `callsInPlace(block, EXACTLY_ONCE)`, so a `val` can be assigned inside and a bare `return` leaves the enclosing function. Checklist: do you need one at all? Value back or result back? Members or argument? Nullable: never `with`, and check the left side of `?:` can't be null. Nested or long: extract a function. Nested receivers and nested `it` silently bind to the innermost one.
 
 ## Nulls instead of Optional
 
@@ -69,61 +91,61 @@ All five are `inline` and declare `callsInPlace(block, EXACTLY_ONCE)`, so a `val
 | `opt.filter(p)` | `x?.takeIf(p)` |
 | `opt.ifPresent(c)` | `x?.let(c)` or `x?.also(c)` |
 
-`?:` can `return` or `throw`: `val token = card?.token ?: return Declined(...)`. A `var` property never smart-casts: use `?.let` or copy it into a local `val`.
+`?:` can `return` or `throw`: `val favorite = guest?.favorite ?: return "serve soup"`. A `var` property never smart-casts: use `?.let` or copy it into a local `val`.
 
 ## Error-handling picker
 
-| The failure | Use |
-|---|---|
-| a bug or broken invariant | an exception: `require`, `check`, `error()` |
-| absence that needs no reason | a nullable type |
-| a few expected outcomes of one function | a sealed interface and an exhaustive `when` with no `else` |
-| several steps that can each fail, stop at the first | Arrow `either { }` with `bind()` and `ensure` |
-| independent checks, report every failure | Arrow `zipOrAccumulate` / `mapOrAccumulate`: `Either<NonEmptyList<E>, A>` |
-| wrapping a throwing Java or HTTP call | `Either.catch { }`, or `runCatching` with `CancellationException` rethrown |
-| a domain signature | never `Result<T>`: its error is just `Throwable` |
+| The failure | Use | Picture it |
+|---|---|---|
+| a bug or broken invariant | an exception: `require`, `check`, `error()` | the pan thrown across the room, kept for real accidents |
+| absence that needs no reason | a nullable type | an empty jar |
+| a few expected outcomes of one function | a sealed interface and an exhaustive `when` with no `else` | a note with a fixed set of messages |
+| several steps that can each fail, stop at the first | Arrow `either { }` with `bind()` and `ensure` | the note skips to the end of the line |
+| independent checks, report every failure | Arrow `zipOrAccumulate` / `mapOrAccumulate`: `Either<NonEmptyList<E>, A>` | one note listing every problem with the form |
+| wrapping a call to a library that throws | `Either.catch { }`, or `runCatching` with `CancellationException` rethrown | catch the pan at the door |
+| your own function's signature | never `Result<T>`: its error is just `Throwable` | |
 
-`runCatching` catches every `Throwable`, cancellation included, and `Result.map` doesn't catch (`mapCatching` does). Error unions (`User | NotFound`) are a proposal; Kotlin 2.4.21 rejects the syntax.
+`runCatching` catches every `Throwable`, cancellation included, and `Result.map` doesn't catch (`mapCatching` does). Error unions (`Recipe | NotFound`) are a proposal; Kotlin 2.4.21 rejects the syntax.
 
 ## Immutable data and recursion
 
 - `val` stops reassignment; `List` stops writes through that reference. Neither freezes the object. Copy at the boundary (`toList()`), or use `toImmutableList()` / `toPersistentList()`.
-- `copy()` is shallow. Data class `equals` uses `BigDecimal.equals`, so `10.00 != 10.0`: normalize the scale when you parse.
+- `copy()` is shallow. Data class `equals` uses `BigDecimal.equals`, so `2.50 != 2.5`: bring prices to one scale when you read them.
 - kotlinx.collections.immutable 0.5.2 (still experimental): `adding`, `addingAll`, `removingAt`, `replacingAt`, `putting` return new versions that share structure; `mutate { }` batches changes; the old `add`/`put` names are deprecated.
 - `tailrec` turns a self-call in tail position into a `goto`; otherwise it's only a warning (`Recursive call is not a tail call.`) and the stack still overflows. `DeepRecursiveFunction` handles deep recursion that can't be put in tail form. A `fold` is usually simpler than either.
 """
 
 T = {
- "id": "fp",
- "intro": """By the end of this track you can write payment code in a functional style on purpose. You'll pull decisions out of code that reads the clock and the database into pure functions you test with plain values. You'll pass rules around as values, replace loops with collection operations, and use lazy sequences where they pay off. You'll pick `let`, `run`, `with`, `apply` or `also` for a reason, return expected failures as values with sealed types and Arrow's `Either`, and keep your data immutable. The last lesson puts it together: a settlement job split into a pure core that decides and a thin shell that does the I/O.
+    "id": "fp",
+    "intro": """By the end of this track you can write Kotlin in a functional style on purpose. You'll pull decisions out of code that reads the clock or a store into pure functions you test with plain values, like a recipe card that gives the same pancakes every time. You'll hold rules as values, replace loops with collection operations, and send one item at a time down a lazy pipeline when that saves work. You'll pick `let`, `run`, `with`, `apply` or `also` for a reason, return expected failures as values with sealed types and Arrow's `Either`, and keep your data truly immutable. The last lesson puts it together: a shopping job split into a pure core that decides and a thin shell that does the errands.
 
-You need no functional programming background, only the Kotlin and Java you write every day. Each lesson starts from a small payments program that hurts (hard to test, broken by shared state, a loop nobody wants to read) and names an idea only after you have felt why it exists. Then it shows what the Kotlin feature compiles to. Every sample comes in Kotlin and in the equivalent Java, with streams, `Function`, `Optional` and records, so you see what Kotlin changes. The compiler messages and outputs in the lessons are copied from runs on Kotlin 2.4.21. Install JDK 25; the labs compile with release 21.
+You need no functional programming background, only the Kotlin and Java you can already read. The whole track follows one home cook's recipe app: a flour shopping helper, dish checks for dinner guests, a converter from the measuring jug to the kitchen scale, a baking-day report, a recipe search, a meal planner, an ingredient form and a morning shopping job. Each lesson starts from a small program in that app that hurts (hard to test, broken by shared state, a loop nobody wants to read) and names an idea only after you have felt why it exists. Then it shows what the Kotlin feature compiles to. Every sample comes in Kotlin and in the equivalent Java, with streams, `Function`, `Optional` and records, so you see what Kotlin changes. The compiler messages and outputs in the lessons are copied from runs on Kotlin 2.4.21. Install JDK 25; the labs compile with release 21.
 
 The labs live in `labs/functional`, one package per lesson (`workbench.functional.l01` to `l08`), all in Kotlin. The module already has `arrow-core` 2.3.0 for lesson 7, `kotlinx-collections-immutable` 0.5.2 for lesson 8, and kotlinx-coroutines with its test library. From `labs/`, run `./gradlew :functional:test --tests 'workbench.functional.lNN.*'` until it passes, `./gradlew :functional:solutionTest` to see the reference answers pass the same tests, and `./gradlew :functional:demo -Pmain=<class>` for the Try-it programs.""",
- "cheatsheet": CHEATSHEET,
- "recap": [
-  "A pure function depends only on its arguments and changes nothing; only then can a call be replaced by its value. Put decisions in a pure core and I/O in a thin shell.",
-  "Functions are values with types like `(Payment) -> Rejection?`. Kotlin 2.x lambdas compile through `invokedynamic`; a captured `var` is a shared `Ref` box that loses updates across threads.",
-  "Higher-order functions keep the shape of a computation (retry, timing, caching, composition) apart from the work; `inline` makes the lambdas of `map`, `filter` and `let` free.",
-  "List operations are eager and inlined; `fold` is the general loop. Watch the empty-input and duplicate-key traps: `reduce`, `first()` and `associateBy`.",
-  "A Sequence moves one element through the whole chain and only runs at a terminal operation. It pays when the last step stops early or produces data on demand; a Java Stream adds parallelism and single use.",
-  "Scope functions differ on two axes: `this` or `it`, the object or the block's result. `?.let { } ?: run { }`, `also { copy() }`, nested receivers and nested `it` all compile without a warning.",
-  "Nullable types replace `Optional`: `?.`, `?:` (which can return or throw), `takeIf`, and `requireNotNull`/`checkNotNull` with smart casts.",
-  "Expected failures are values: sealed types with exhaustive `when`, Arrow's fail-fast `either { }` and accumulating `zipOrAccumulate`. `kotlin.Result` is for throwing foreign code, and `runCatching` swallows cancellation.",
-  "Read-only isn't immutable, `copy()` is shallow, and `BigDecimal` equality counts the scale. Persistent collections make new versions cheaply; `tailrec` is a loop only in true tail position."
- ],
- "quiz": [
-  {"q": "`val fee = quoteFee(payment)` is used twice in a method. When can you replace both uses with two direct calls to `quoteFee(payment)` without changing what the program does?", "options": ["Always: it's the same expression", "Only if `quoteFee` is pure: no hidden inputs and no side effects", "Only if `quoteFee` is `inline`", "Only if `fee` is a `val`, not a `var`"], "answer": 1, "why": "Replacing a value with the call that produced it is safe only for a pure function. If `quoteFee` reads the clock, it could return two different fees; if it logs or charges, it now does that twice. `inline` and `val` don't change what the function does."},
-  {"q": "Four threads share a lambda that runs `repeat(250_000) { total += 1 }` on a captured `var total = 0L`. What does `total` hold when all four finish?", "options": ["Exactly 1,000,000, because each lambda has its own copy of `total`", "It doesn't compile: lambdas can't change captured variables", "Sometimes less than 1,000,000: the captured `var` lives in one shared box with a plain field, and `+=` is a read, an add and a write", "Exactly 1,000,000, because Kotlin makes captured variables volatile"], "answer": 2, "why": "Kotlin compiles a captured `var` into a `Ref` object with a plain field, shared by every closure that captured it. Four threads doing read-modify-write on that field lose updates. Return a value from each task and add them up, or use an atomic held in a `val`."},
-  {"q": "Why does `payments.filter { it.settled }.map { it.amountCents }` create no lambda objects at run time?", "options": ["`filter` and `map` on a List are `inline`: the compiler pastes the loops and lambda bodies into the caller", "The JIT removes them with escape analysis", "Kotlin caches every lambda in a static field", "Lambdas on the JVM are free"], "answer": 0, "why": "`inline` functions are expanded at the call site, together with the lambdas passed to them, so no `Function1` exists. The cost of the chain is elsewhere: one new `ArrayList` per step and boxed `Long`s. On a Sequence the same lambdas do become objects."},
-  {"q": "Two payments in a batch share the idempotency key `k-1`. What does `payments.associateBy { it.idempotencyKey }` do?", "options": ["Throws `IllegalStateException: Duplicate key k-1`", "Keeps both in a list under `k-1`", "Keeps the first payment for `k-1`", "Keeps the last payment for `k-1`, silently"], "answer": 3, "why": "`associateBy` keeps the last element for a repeated key and says nothing. Java's `Collectors.toMap` throws on the duplicate instead. When keys should be unique, check first with `groupingBy { it.idempotencyKey }.eachCount().filterValues { it > 1 }`, or use `groupBy` to keep all of them."},
-  {"q": "A reconciliation job reads an acquirer API page by page and needs only the first settlement over 1,000.00. Which fits best?", "options": ["Fetch every page into a List, then `first { }`", "`sequence { while (true) { val page = api.page(n++); if (page.isEmpty()) break; yieldAll(page) } }.first { ... }`", "`pages.parallelStream()` over all page numbers", "`(0..100).map { api.page(it) }.flatten().first { ... }`"], "answer": 1, "why": "A `sequence { }` fetches a page only when the consumer asks for its next element, so `first { }` stops the fetching as soon as it finds a match. Fetching into a List, or mapping over a range of page numbers, calls the API for every page before looking. A parallel stream would fetch pages you never need, in parallel."},
-  {"q": "`val r = PaymentRequest().also { it.amount = total }.let { gateway.send(it) }`. What is `r`?", "options": ["The `PaymentRequest`", "`Unit`", "Whatever `gateway.send` returns", "`total`"], "answer": 2, "why": "`also` returns the request itself, so the chain continues with it. `let` returns its block's result, which is the return value of `gateway.send`. Change `let` to `also` and `r` would be the request, with the result of `send` thrown away."},
-  {"q": "`fun settle(cached: Payment?) = cached?.let { ledger.post(it) } ?: run { ledger.post(fetch()) }`. `ledger.post` returns `null` for an already-posted payment. What happens on a cache hit for a duplicate?", "options": ["`run` also runs: it fetches and posts again", "Only the `let` branch runs, and `settle` returns null", "It doesn't compile", "It throws a NullPointerException"], "answer": 0, "why": "`?:` tests the result of the `let` block, not `cached`. The block returns `null` for the duplicate, so the right side runs too: a second fetch and a second post. Decide the value first (`val p = cached ?: fetch()`), then post once."},
-  {"q": "A sign-up form has five independent fields, and the client should see every problem at once. Which Arrow tool fits?", "options": ["`either { }` with five `ensure` calls", "`zipOrAccumulate` over five checks, returning `Either<NonEmptyList<FormError>, Form>`", "`runCatching` around the five checks", "`Either.catch { }` around each field"], "answer": 1, "why": "`either { }` is fail-fast: the first failing `ensure` ends the block, so the client learns about one problem per round trip. `zipOrAccumulate` runs every check and collects all the failures. `runCatching` and `Either.catch` are for exceptions from foreign code, not for validation."},
-  {"q": "A coroutine wraps a call to a throwing Java HTTP client. Which wrapper turns the client's exceptions into values but still lets the coroutine's cancellation through?", "options": ["`runCatching { client.call() }`", "`try { client.call() } catch (e: Throwable) { null }`", "`Result.success(client.call())`", "`Either.catch { client.call() }`"], "answer": 3, "why": "Arrow's `Either.catch` captures ordinary exceptions as a `Left` and rethrows `CancellationException` and fatal errors. `runCatching` and `catch (e: Throwable)` both catch the `CancellationException`, so a cancelled coroutine keeps running. `Result.success(...)` doesn't catch anything."},
-  {"q": "You are splitting a settlement job into a pure core and an imperative shell. Which of these belongs in the shell?", "options": ["Rounding the fee `HALF_EVEN` to two decimals", "Deciding that a payment captured yesterday is still on hold", "`LocalDate.now(clock)`", "Grouping due payments by merchant"], "answer": 2, "why": "Reading the clock is a hidden input, so it belongs in the shell, which passes `today` to the core as a plain value. Rounding, the hold rule and the grouping are decisions: they go in the pure core, where a test can call them with fixed values and no fakes."}
- ]
+    "cheatsheet": CHEATSHEET,
+    "recap": [
+        "A pure function depends only on its arguments and changes nothing, like a recipe card that gives the same pancakes every time; only then can a call be replaced by its value. Put decisions in a pure core and the errands in a thin shell.",
+        "Functions are values with types like `(Dish) -> Problem?`. Kotlin 2.x lambdas compile through `invokedynamic`; a captured `var` is one shared `Ref` box that loses updates across threads.",
+        "Higher-order functions keep the shape of a computation (retry, timing, remembering answers, composition) apart from the work; `inline` makes the lambdas of `map`, `filter` and `let` free.",
+        "List operations are eager and inlined; `fold` is the general loop. Watch the empty-input and duplicate-key traps: `reduce`, `first()` and `associateBy`.",
+        "A sequence sends one item at a time down the whole chain and only runs at a terminal operation. It pays when the last step stops early or items are made on demand; a Java stream adds parallelism and is single-use.",
+        "Scope functions differ on two axes: `this` or `it`, the value or the block's result. `?.let { } ?: run { }`, `also { copy() }`, nested receivers and nested `it` all compile without a warning.",
+        "Nullable types replace `Optional`: `?.`, `?:` (which can return or throw), `takeIf`, and `requireNotNull`/`checkNotNull` with smart casts.",
+        "Expected failures are values: sealed types with an exhaustive `when`, Arrow's fail-fast `either { }` and collecting `zipOrAccumulate`. `kotlin.Result` is for code that throws, and `runCatching` swallows cancellation.",
+        "Read-only isn't immutable, `copy()` is shallow, and `BigDecimal` equality counts the scale. Persistent collections make new versions cheaply; `tailrec` is a loop only in true tail position."
+    ],
+    "quiz": [
+        {"q": "`val portion = portionFor(guest)` is used twice in a method. When can you replace both uses with two direct calls to `portionFor(guest)` without changing what the program does?", "options": ["Always: it's the same expression", "Only if `portionFor` is pure: no hidden inputs and no side effects", "Only if `portionFor` is `inline`", "Only if `portion` is a `val`, not a `var`"], "answer": 1, "why": "Replacing a value with the call that produced it is safe only for a pure function. If `portionFor` reads the clock, it could return two different portions; if it writes to the shopping list, it now does that twice. `inline` and `val` don't change what the function does."},
+        {"q": "Four threads share a lambda that runs `repeat(250_000) { total += 1 }` on a captured `var total = 0L`. What does `total` hold when all four finish?", "options": ["Exactly 1,000,000, because each lambda has its own copy of `total`", "It doesn't compile: lambdas can't change captured variables", "Sometimes less than 1,000,000: the captured `var` lives in one shared box with a plain field, and `+=` is a read, an add and a write", "Exactly 1,000,000, because Kotlin makes captured variables volatile"], "answer": 2, "why": "Kotlin compiles a captured `var` into a `Ref` object with a plain field, shared by every closure that captured it. Four threads doing read-add-write on that field lose updates. Return a value from each task and add them up, or use an atomic held in a `val`."},
+        {"q": "Why does `cookies.filter { it.status == GOLDEN }.map { it.grams }` create no lambda objects at run time?", "options": ["`filter` and `map` on a List are `inline`: the compiler pastes the loops and lambda bodies into the caller", "The JIT removes them with escape analysis", "Kotlin caches every lambda in a static field", "Lambdas on the JVM are free"], "answer": 0, "why": "`inline` functions are expanded at the call site, together with the lambdas passed to them, so no `Function1` exists. The cost of the chain is elsewhere: one new `ArrayList` per step. On a sequence the same lambdas do become objects."},
+        {"q": "Someone wrote a tray down twice, so two cookies share the id `c3`. What does `cookies.associateBy { it.id }` do?", "options": ["Throws `IllegalStateException: Duplicate key c3`", "Keeps both in a list under `c3`", "Keeps the first cookie for `c3`", "Keeps the last cookie for `c3`, silently"], "answer": 3, "why": "`associateBy` keeps the last element for a repeated key and says nothing. Java's `Collectors.toMap` throws on the duplicate instead. When keys should be unique, check first with `groupingBy { it.id }.eachCount().filterValues { it > 1 }`, or use `groupBy` to keep all of them."},
+        {"q": "A recipe website shows its search results one page at a time, and the app needs only the first recipe under 20 minutes. Which fits best?", "options": ["Fetch every page into a List, then `first { }`", "`sequence { while (true) { val page = site.page(n++); if (page.isEmpty()) break; yieldAll(page) } }.first { ... }`", "`pages.parallelStream()` over all page numbers", "`(0..100).map { site.page(it) }.flatten().first { ... }`"], "answer": 1, "why": "A `sequence { }` fetches a page only when someone asks for its next item, so `first { }` stops the fetching as soon as it finds a match. Fetching into a List, or mapping over a range of page numbers, calls the site for every page before looking. A parallel stream would fetch pages you never need, in parallel."},
+        {"q": "`val r = OvenProgram().also { it.minutes = 12 }.let { oven.start(it) }`. What is `r`?", "options": ["The `OvenProgram`", "`Unit`", "Whatever `oven.start` returns", "`12`"], "answer": 2, "why": "`also` hands back the program itself, so the chain continues with it. `let` hands back its block's result, which is the return value of `oven.start`. Change `let` to `also` and `r` would be the program, with the result of `start` thrown away."},
+        {"q": "`fun planDish(open: Dish?) = open?.let { menu.add(it) } ?: run { menu.add(suggest()) }`. `menu.add` returns `null` for a dish that is on the menu already. What happens when the open dish is on the menu already?", "options": ["`run` also runs: it downloads a suggestion and adds that too", "Only the `let` branch runs, and `planDish` returns null", "It doesn't compile", "It throws a NullPointerException"], "answer": 0, "why": "`?:` tests the result of the `let` block, not `open`. The block gives `null` for the dish on the menu already, so the right side runs too: a download and a second add. Decide the value first (`val dish = open ?: suggest()`), then add it once."},
+        {"q": "An ingredient form has four independent fields, and the cook should see every problem at once. Which Arrow tool fits?", "options": ["`either { }` with four `ensure` calls", "`zipOrAccumulate` over four checks, returning `Either<NonEmptyList<KitchenError>, Ingredient>`", "`runCatching` around the four checks", "`Either.catch { }` around each field"], "answer": 1, "why": "`either { }` is fail-fast: the first failing `ensure` ends the block, so the cook learns about one problem per try. `zipOrAccumulate` runs every check and collects all the failures. `runCatching` and `Either.catch` are for exceptions from code that throws, not for checking a form."},
+        {"q": "A coroutine wraps a call to a Java library that throws. Which wrapper turns the library's exceptions into values but still lets the coroutine's cancellation through?", "options": ["`runCatching { library.call() }`", "`try { library.call() } catch (e: Throwable) { null }`", "`Result.success(library.call())`", "`Either.catch { library.call() }`"], "answer": 3, "why": "Arrow's `Either.catch` captures ordinary exceptions as a `Left` and rethrows `CancellationException` and fatal errors. `runCatching` and `catch (e: Throwable)` both catch the `CancellationException`, so a cancelled coroutine keeps running. `Result.success(...)` doesn't catch anything."},
+        {"q": "You are splitting the morning shopping job into a pure core and an imperative shell. Which of these belongs in the shell?", "options": ["Rounding the discount `HALF_EVEN` to two decimals", "Deciding that an item needed in ten days is still waiting", "`LocalDate.now(clock)`", "Grouping the items due today by shop"], "answer": 2, "why": "Reading the clock is a hidden input, so it belongs in the shell, which passes `today` to the core as a plain value. Rounding, the waiting rule and the grouping are decisions: they go in the pure core, where a test can call them with fixed values and no fakes."}
+    ]
 }
 
 out = ROOT / "content/tracks/fp.json"

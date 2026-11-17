@@ -16,10 +16,10 @@ class RetryFromJavaTest {
         // Java sees: static <T> T retry(int, Function1<? super Exception, Boolean>, Function1<? super Integer, ? extends T>)
         String result = RetryKt.retry(3, e -> true, attempt -> {
             calls.incrementAndGet();
-            if (attempt < 2) throw new IllegalStateException("issuer timeout");
-            return "approved@" + attempt;
+            if (attempt < 2) throw new IllegalStateException("paper jam");
+            return "printed@" + attempt;
         });
-        assertThat(result).isEqualTo("approved@2");
+        assertThat(result).isEqualTo("printed@2");
         assertThat(calls).hasValue(2);
     }
 }

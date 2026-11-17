@@ -35,9 +35,9 @@ sealed interface HoldResult {
     // no fields to check: the enum already allows only the four reasons
     data class Unavailable(val reason: Reason) : HoldResult
 
-    data class Waitlisted(val wait: Duration) : HoldResult {
+    data class Waitlisted(val expectedWait: Duration) : HoldResult {
         init {
-            require(wait >= Duration.ofDays(1) && wait <= Duration.ofDays(365)) { "wait out of range: $wait" }
+            require(expectedWait >= Duration.ofDays(1) && expectedWait <= Duration.ofDays(365)) { "wait out of range: $expectedWait" }
         }
     }
 }

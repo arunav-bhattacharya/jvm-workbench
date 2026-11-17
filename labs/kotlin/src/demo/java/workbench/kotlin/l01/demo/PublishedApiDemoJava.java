@@ -6,8 +6,8 @@ package workbench.kotlin.l01.demo;
  */
 public class PublishedApiDemoJava {
     public static void main(String[] args) {
-        long refunded = PublishedApiDemoKt.traced("refund pay_7", () -> 1_999L);
-        System.out.println("refunded " + PublishedApiDemoKt.getAsEuros(refunded));
+        long grams = PublishedApiDemoKt.traced("weigh parcel job_7", () -> 1_999L);
+        System.out.println("parcel weighs " + PublishedApiDemoKt.getAsKilos(grams));
         System.out.println("Java can call the internal helper too: " + PublishedApiDemoKt.nextTraceId());
     }
 }

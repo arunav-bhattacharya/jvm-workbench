@@ -2,35 +2,35 @@ package workbench.modernjava.l04.demo
 
 import java.time.Duration
 
-// the "bag of optionals" a JSON mapper gives you for the issuer's reply
-data class IssuerReplyDto(
-    val status: String?,              // "APPROVED", "DECLINED" or "SOFT_DECLINE"
-    val authCode: String?,            // should be set only when approved
-    val declineCode: String?,         // should be set only when declined
-    val retryAfterSeconds: Long?,     // should be set only on a soft decline
-    val amountMinor: Long?,           // should be set only when approved
+// the "bag of optionals" a JSON mapper gives you for the catalogue's reply to a hold request
+data class HoldReplyDto(
+    val status: String?,              // "READY", "UNAVAILABLE" or "WAITLISTED"
+    val pickupCode: String?,          // should be set only when ready
+    val reasonCode: String?,          // should be set only when unavailable
+    val waitDays: Int?,               // should be set only when waitlisted
+    val holdShelf: Int?,              // should be set only when ready
 )
 
 // a consumer of the DTO: it trusts that the fields match the status
-fun captureCommand(r: IssuerReplyDto): String =
-    if (r.status == "APPROVED") "capture ${r.amountMinor} with auth code ${r.authCode}" else "no capture"
+fun pickupSlip(r: HoldReplyDto): String =
+    if (r.status == "READY") "print slip: shelf ${r.holdShelf}, code ${r.pickupCode}" else "no slip"
 
 // the same information as a closed model: three shapes, each with only its own fields
-sealed interface AuthResult {
-    data class Approved(val authCode: String, val amountMinor: Long) : AuthResult {   // String, not String?
+sealed interface HoldResult {
+    data class Ready(val pickupCode: String, val shelf: Int) : HoldResult {   // String, not String?
         init {
-            require(authCode.isNotBlank()) { "authCode is required" }
-            require(amountMinor > 0) { "amount must be positive" }
+            require(pickupCode.isNotBlank()) { "pickupCode is required" }
+            require(shelf >= 1) { "hold shelves start at 1" }
         }
     }
-    data class Declined(val declineCode: String?) : AuthResult
-    data class RetryLater(val after: Duration) : AuthResult
+    data class Unavailable(val reasonCode: String?) : HoldResult
+    data class Waitlisted(val expectedWait: Duration) : HoldResult
 }
 
-fun captureCommand(r: AuthResult): String = when (r) {
-    is AuthResult.Approved -> "capture ${r.amountMinor} with auth code ${r.authCode}"
-    is AuthResult.Declined -> "no capture"
-    is AuthResult.RetryLater -> "no capture yet"
+fun pickupSlip(r: HoldResult): String = when (r) {
+    is HoldResult.Ready -> "print slip: shelf ${r.shelf}, code ${r.pickupCode}"
+    is HoldResult.Unavailable -> "no slip"
+    is HoldResult.Waitlisted -> "no slip yet"
 }
 
 /** One class with optional fields, against a sealed model that has only the valid shapes. */
@@ -39,15 +39,15 @@ fun main() {
     val optionalFields = 4
     println("shapes the DTO allows: ${statuses * (1 shl optionalFields)}, shapes that make sense: 3")
 
-    // approved, but with no auth code and a decline code: nothing stops it
-    val broken = IssuerReplyDto("APPROVED", null, "51", null, 4_200)
-    println("DTO consumer:    ${captureCommand(broken)}")
+    // ready, but with no pickup code and a reason code: nothing stops it
+    val broken = HoldReplyDto("READY", null, "10", null, 12)
+    println("DTO consumer:    ${pickupSlip(broken)}")
 
-    // AuthResult.Approved(null, 4_200) doesn't even compile: the type says the code is there
+    // HoldResult.Ready(null, 12) doesn't even compile: the type says the code is there
     try {
-        AuthResult.Approved("", 4_200)
+        HoldResult.Ready("", 12)
     } catch (e: IllegalArgumentException) {
         println("sealed model:    refused, ${e.message}")
     }
-    println("sealed consumer: ${captureCommand(AuthResult.Approved("A1B2C3", 4_200))}")
+    println("sealed consumer: ${pickupSlip(HoldResult.Ready("K7P2QX", 12))}")
 }

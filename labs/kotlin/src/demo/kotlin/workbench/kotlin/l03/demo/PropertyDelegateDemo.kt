@@ -15,14 +15,14 @@ class Audited<T>(private var value: T) : ReadWriteProperty<Any?, T> {
 
 class Order {
     var status: String by Audited("NEW")
-    var amountMinor: Long by Audited(0L)
+    var copies: Long by Audited(0L)
 }
 
 fun main() {
     val order = Order()
-    order.status = "AUTHORIZED"
-    order.amountMinor = 4_250
-    println("status = ${order.status}, amountMinor = ${order.amountMinor}")
+    order.status = "PRINTING"
+    order.copies = 250
+    println("status = ${order.status}, copies = ${order.copies}")
     println("fields the compiler generated:")
     Order::class.java.declaredFields.forEach { println("  ${it.type.simpleName} ${it.name}") }
 }

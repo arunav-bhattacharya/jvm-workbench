@@ -6,48 +6,48 @@ import java.util.Objects;
 /** One class with optional fields, against a sealed model that has only the valid shapes. */
 public class IllegalStates {
 
-    // the "bag of optionals" a JSON mapper gives you for the issuer's reply
-    static final class IssuerReplyDto {
-        final String status;              // "APPROVED", "DECLINED" or "SOFT_DECLINE"
-        final String authCode;            // should be set only when approved
-        final String declineCode;         // should be set only when declined
-        final Long retryAfterSeconds;     // should be set only on a soft decline
-        final Long amountMinor;           // should be set only when approved
+    // the "bag of optionals" a JSON mapper gives you for the catalogue's reply to a hold request
+    static final class HoldReplyDto {
+        final String status;              // "READY", "UNAVAILABLE" or "WAITLISTED"
+        final String pickupCode;          // should be set only when ready
+        final String reasonCode;          // should be set only when unavailable
+        final Integer waitDays;           // should be set only when waitlisted
+        final Integer holdShelf;          // should be set only when ready
 
-        IssuerReplyDto(String status, String authCode, String declineCode, Long retryAfterSeconds, Long amountMinor) {
+        HoldReplyDto(String status, String pickupCode, String reasonCode, Integer waitDays, Integer holdShelf) {
             this.status = status;
-            this.authCode = authCode;
-            this.declineCode = declineCode;
-            this.retryAfterSeconds = retryAfterSeconds;
-            this.amountMinor = amountMinor;
+            this.pickupCode = pickupCode;
+            this.reasonCode = reasonCode;
+            this.waitDays = waitDays;
+            this.holdShelf = holdShelf;
         }
     }
 
     // a consumer of the DTO: it trusts that the fields match the status
-    static String captureCommand(IssuerReplyDto r) {
-        if ("APPROVED".equals(r.status)) return "capture " + r.amountMinor + " with auth code " + r.authCode;
-        return "no capture";
+    static String pickupSlip(HoldReplyDto r) {
+        if ("READY".equals(r.status)) return "print slip: shelf " + r.holdShelf + ", code " + r.pickupCode;
+        return "no slip";
     }
 
     // the same information as a closed model: three shapes, each with only its own fields
-    sealed interface AuthResult permits Approved, Declined, RetryLater {}
+    sealed interface HoldResult permits Ready, Unavailable, Waitlisted {}
 
-    record Approved(String authCode, long amountMinor) implements AuthResult {
-        Approved {
-            Objects.requireNonNull(authCode, "authCode");
-            if (amountMinor <= 0) throw new IllegalArgumentException("amount must be positive");
+    record Ready(String pickupCode, int shelf) implements HoldResult {
+        Ready {
+            Objects.requireNonNull(pickupCode, "pickupCode");
+            if (shelf < 1) throw new IllegalArgumentException("hold shelves start at 1");
         }
     }
 
-    record Declined(String declineCode) implements AuthResult {}
+    record Unavailable(String reasonCode) implements HoldResult {}
 
-    record RetryLater(Duration after) implements AuthResult {}
+    record Waitlisted(Duration expectedWait) implements HoldResult {}
 
-    static String captureCommand(AuthResult r) {
+    static String pickupSlip(HoldResult r) {
         return switch (r) {
-            case Approved(var code, var amount) -> "capture " + amount + " with auth code " + code;
-            case Declined d -> "no capture";
-            case RetryLater later -> "no capture yet";
+            case Ready(var code, var shelf) -> "print slip: shelf " + shelf + ", code " + code;
+            case Unavailable u -> "no slip";
+            case Waitlisted w -> "no slip yet";
         };
     }
 
@@ -55,15 +55,15 @@ public class IllegalStates {
         int statuses = 3, optionalFields = 4;
         System.out.println("shapes the DTO allows: " + statuses * (1 << optionalFields) + ", shapes that make sense: 3");
 
-        // approved, but with no auth code and a decline code: nothing stops it
-        IssuerReplyDto broken = new IssuerReplyDto("APPROVED", null, "51", null, 4_200L);
-        System.out.println("DTO consumer:    " + captureCommand(broken));
+        // ready, but with no pickup code and a reason code: nothing stops it
+        HoldReplyDto broken = new HoldReplyDto("READY", null, "10", null, 12);
+        System.out.println("DTO consumer:    " + pickupSlip(broken));
 
         try {
-            new Approved(null, 4_200);
+            new Ready(null, 12);
         } catch (NullPointerException e) {
             System.out.println("sealed model:    refused, " + e.getMessage() + " is required");
         }
-        System.out.println("sealed consumer: " + captureCommand(new Approved("A1B2C3", 4_200)));
+        System.out.println("sealed consumer: " + pickupSlip(new Ready("K7P2QX", 12)));
     }
 }

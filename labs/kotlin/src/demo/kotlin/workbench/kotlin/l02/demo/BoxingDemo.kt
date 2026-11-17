@@ -1,27 +1,27 @@
 package workbench.kotlin.l02.demo
 
-interface Priced {
-    val minor: Long
+interface Counted {
+    val count: Long
 }
 
 @JvmInline
-value class Amount(override val minor: Long) : Priced
+value class Sheets(override val count: Long) : Counted
 
-class Invoice(val amount: Amount)                  // used as Amount: stored as a long
+class PrintRun(val sheets: Sheets)                  // used as Sheets: stored as a long
 
 fun <T> asGeneric(x: T): Any? = x                  // used as T: boxed
-fun asNullable(a: Amount?): Any? = a               // used as Amount?: boxed
-fun asInterface(p: Priced): Any = p                // used as Priced: boxed
+fun asNullable(s: Sheets?): Any? = s               // used as Sheets?: boxed
+fun asInterface(c: Counted): Any = c               // used as Counted: boxed
 
 fun main() {
-    val a = Amount(1_999)
-    println("field in Invoice: ${Invoice::class.java.getDeclaredField("amount").type}")
-    println("as generic:       ${asGeneric(a)!!.javaClass.simpleName}")
-    println("as nullable:      ${asNullable(a)!!.javaClass.simpleName}")
-    println("as Priced:        ${asInterface(a).javaClass.simpleName}")
-    println("in a list:        ${(listOf(a)[0] as Any).javaClass.simpleName}")
-    println("a == Amount(1999): ${a == Amount(1_999)}")
+    val s = Sheets(1_999)
+    println("field in PrintRun: ${PrintRun::class.java.getDeclaredField("sheets").type}")
+    println("as generic:        ${asGeneric(s)!!.javaClass.simpleName}")
+    println("as nullable:       ${asNullable(s)!!.javaClass.simpleName}")
+    println("as Counted:        ${asInterface(s).javaClass.simpleName}")
+    println("in a list:         ${(listOf(s)[0] as Any).javaClass.simpleName}")
+    println("s == Sheets(1999): ${s == Sheets(1_999)}")
 
     // Wrong move. Uncomment, predict the error, then run.
-    // println(a === Amount(1_999))
+    // println(s === Sheets(1_999))
 }

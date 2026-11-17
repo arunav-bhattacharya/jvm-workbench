@@ -5,44 +5,45 @@ import java.util.List;
 /** Data in records, operations in functions. Add an operation, then add a type, and compare the cost. */
 public class ExpressionProblem {
 
-    sealed interface LedgerEntry permits Charge, Refund, Fee {}
+    // what can happen on a member's account
+    sealed interface Activity permits Borrowed, Returned, Renewed {}
 
-    record Charge(String paymentId, long amountMinor) implements LedgerEntry {}
+    record Borrowed(String title, int days) implements Activity {}
 
-    record Refund(String paymentId, long amountMinor) implements LedgerEntry {}
+    record Returned(String title) implements Activity {}
 
-    record Fee(String reason, long amountMinor) implements LedgerEntry {}
+    record Renewed(String title, int extraDays) implements Activity {}
 
-    // Step 3: add Chargeback to the permits clause, then uncomment this record.
-    // record Chargeback(String paymentId, long amountMinor, String caseId) implements LedgerEntry {}
+    // Step 3: add Lost to the permits clause, then uncomment this record.
+    // record Lost(String title, int daysOverdue) implements Activity {}
 
-    // operation 1: how the entry moves the merchant's balance
-    static long balanceDelta(LedgerEntry e) {
-        return switch (e) {
-            case Charge c -> c.amountMinor();
-            case Refund r -> -r.amountMinor();
-            case Fee f -> -f.amountMinor();
+    // operation 1: how the activity changes the number of books the member has out
+    static int booksOutDelta(Activity a) {
+        return switch (a) {
+            case Borrowed b -> 1;
+            case Returned r -> -1;
+            case Renewed r -> 0;
         };
     }
 
-    // operation 2: the line on the merchant's statement
-    static String statementLine(LedgerEntry e) {
-        return switch (e) {
-            case Charge(var id, var amt) -> "payment " + id + "  +" + amt;
-            case Refund(var id, var amt) -> "refund  " + id + "  -" + amt;
-            case Fee(var reason, var amt) -> "fee     " + reason + "  -" + amt;
+    // operation 2: the line in the member's history
+    static String historyLine(Activity a) {
+        return switch (a) {
+            case Borrowed(var title, var days) -> "borrowed " + title + " for " + days + " days";
+            case Returned(var title) -> "returned " + title;
+            case Renewed(var title, var extra) -> "renewed  " + title + " for " + extra + " more days";
         };
     }
 
-    // Step 2: write operation 3 here, isCustomerFacing(LedgerEntry), as one more switch.
+    // Step 2: write operation 3 here, sendsReceipt(Activity), as one more switch.
 
     public static void main(String[] args) {
-        List<LedgerEntry> day = List.of(new Charge("pay_1", 10_000), new Fee("scheme fee", 35), new Refund("pay_1", 2_500));
-        long balance = 0;
-        for (LedgerEntry e : day) {
-            balance += balanceDelta(e);
-            System.out.println(statementLine(e));
+        List<Activity> week = List.of(new Borrowed("Dune", 21), new Borrowed("Emma", 21), new Returned("Dune"), new Renewed("Emma", 14));
+        int booksOut = 0;
+        for (Activity a : week) {
+            booksOut += booksOutDelta(a);
+            System.out.println(historyLine(a));
         }
-        System.out.println("balance " + balance);
+        System.out.println("books out: " + booksOut);
     }
 }

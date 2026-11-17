@@ -1,38 +1,38 @@
 package workbench.kotlin.l02.demo
 
-/** A value class: a Cents in your code, a long in the bytecode. */
+/** A value class: a Grams in your code, a long in the bytecode. */
 @JvmInline
-value class Cents(val value: Long) {
+value class Grams(val value: Long) {
     init {
-        require(value >= 0) { "negative amount: $value" }
+        require(value >= 0) { "negative weight: $value" }
     }
 
-    operator fun plus(other: Cents): Cents = Cents(value + other.value)
+    operator fun plus(other: Grams): Grams = Grams(value + other.value)
 
-    override fun toString(): String = "$value cents"
+    override fun toString(): String = "$value g"
 }
 
-/** A type alias is only a second name. Any Long is accepted where a CentsAlias is expected. */
-typealias CentsAlias = Long
+/** A type alias is only a second name. Any Long is accepted where a GramsAlias is expected. */
+typealias GramsAlias = Long
 
-fun charge(amount: Cents): String = "charged $amount"
+fun ship(weight: Grams): String = "shipped $weight"
 
-@JvmName("chargeFromJava")
-fun chargeJava(amount: Cents): String = "charged $amount"
+@JvmName("shipFromJava")
+fun shipJava(weight: Grams): String = "shipped $weight"
 
-fun chargeAlias(amount: CentsAlias): String = "charged $amount (alias)"
+fun shipAlias(weight: GramsAlias): String = "shipped $weight g (alias)"
 
 fun main() {
-    val fee = Cents(150) + Cents(49)
-    println(charge(fee))
-    val orderId: Long = 981
-    println(chargeAlias(orderId))      // compiles: an order id is a Long, so it is a CentsAlias too
+    val parcel = Grams(150) + Grams(49)
+    println(ship(parcel))
+    val sheets: Long = 500
+    println(shipAlias(sheets))         // compiles: a sheet count is a Long, so it is a GramsAlias too
     try {
-        Cents(-1)
+        Grams(-1)
     } catch (e: IllegalArgumentException) {
         println("rejected: ${e.message}")
     }
 
     // Wrong move. Uncomment, predict the error, then run.
-    // println(charge(199L))
+    // println(ship(sheets))
 }

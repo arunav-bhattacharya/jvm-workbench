@@ -3,11 +3,12 @@ package workbench.modernjava.l04.demo;
 /** Records are identity objects today. Here is what that identity looks like. */
 public class IdentityDemo {
 
-    record Money(long minor, String currency) {}
+    // one physical copy of a book: its ISBN and its copy number
+    record Copy(String isbn, int number) {}
 
     public static void main(String[] args) {
-        Money a = new Money(4_200, "EUR");
-        Money b = new Money(4_200, "EUR");
+        Copy a = new Copy("9780441013593", 1);
+        Copy b = new Copy("9780441013593", 1);
 
         System.out.println("equals: " + a.equals(b) + ", ==: " + (a == b));
         System.out.println("identity hash codes differ: " + (System.identityHashCode(a) != System.identityHashCode(b)));
@@ -20,7 +21,7 @@ public class IdentityDemo {
         System.out.println("Integer 127 == 127: " + (x == y) + ", 128 == 128: " + (p == q));
 
         // an array of records is an array of references to separate heap objects
-        Money[] ledger = { a, b, a };
-        System.out.println("ledger[0] == ledger[2]: " + (ledger[0] == ledger[2]) + ", ledger[0] == ledger[1]: " + (ledger[0] == ledger[1]));
+        Copy[] shelf = { a, b, a };
+        System.out.println("shelf[0] == shelf[2]: " + (shelf[0] == shelf[2]) + ", shelf[0] == shelf[1]: " + (shelf[0] == shelf[1]));
     }
 }

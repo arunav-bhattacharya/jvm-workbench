@@ -19,13 +19,14 @@ object Callers {
         retryAsync(executor, maxAttempts, block)
 
     /**
-     * Tries each card in turn and returns the first one the gateway approves. A gateway exception
-     * is retried, up to 3 attempts per card. `return card` is a non-local return: it leaves
-     * firstApproved, not just the lambda. It compiles only while retry's block is inlined.
+     * Sends a job to each printer in turn and returns the first printer that accepts it. A printer
+     * that throws (a paper jam, say) is retried, up to 3 attempts per printer. `return printer` is a
+     * non-local return: it leaves firstAccepted, not just the lambda. It compiles only while
+     * retry's block is inlined.
      */
-    fun firstApproved(cards: List<String>, authorize: (String) -> String): String? {
-        for (card in cards) {
-            retry(maxAttempts = 3) { if (authorize(card) == "APPROVED") return card }
+    fun firstAccepted(printers: List<String>, send: (String) -> String): String? {
+        for (printer in printers) {
+            retry(maxAttempts = 3) { if (send(printer) == "ACCEPTED") return printer }
         }
         return null
     }

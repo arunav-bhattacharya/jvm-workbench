@@ -1,13 +1,13 @@
 package workbench.kotlin.l03.demo
 
-var rateCalls = 0
+var lookups = 0
 
-class FxQuote {
+class PaperSpec {
     /** Default mode: SYNCHRONIZED. The first reader runs the initializer under a lock. */
-    val eurUsd: Double by lazy {
-        rateCalls++
-        if (rateCalls == 1) throw IllegalStateException("rate service timed out")
-        1.0842
+    val sheetGrams: Double by lazy {
+        lookups++
+        if (lookups == 1) throw IllegalStateException("paper catalogue timed out")
+        4.99                                   // one A4 sheet of 80 g/m2 paper
     }
 }
 
@@ -16,13 +16,13 @@ fun main() {
         println("$mode -> ${lazy(mode) { 0 }.javaClass.name}")
     }
 
-    val quote = FxQuote()
+    val spec = PaperSpec()
     try {
-        quote.eurUsd
+        spec.sheetGrams
     } catch (e: IllegalStateException) {
         println("first read failed: ${e.message}")
     }
-    println("second read: ${quote.eurUsd} (initializer ran $rateCalls times)")
-    println("third read:  ${quote.eurUsd} (initializer ran $rateCalls times)")
-    println("field: ${FxQuote::class.java.declaredFields.joinToString { "${it.type.name} ${it.name}" }}")
+    println("second read: ${spec.sheetGrams} (initializer ran $lookups times)")
+    println("third read:  ${spec.sheetGrams} (initializer ran $lookups times)")
+    println("field: ${PaperSpec::class.java.declaredFields.joinToString { "${it.type.name} ${it.name}" }}")
 }

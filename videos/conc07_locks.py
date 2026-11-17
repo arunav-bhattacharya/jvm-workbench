@@ -11,8 +11,8 @@ fg.SAY[:0] = [
 
 # every spoken line, in order
 N = {
-    "open": "Back to the bank's vault: one door, and one key on a hook. At the end of the day, the interest job, "
-            "a thread that adds interest to every account, takes the key. It keeps it for a second and a half.",
+    "open": "Back to the bank's vault: one door, one key on a hook. At closing time, the interest job, "
+            "a thread that adds interest to every account, takes the key, and keeps it for a second and a half.",
     "atm": "Just then, a customer at a cash machine asks for her balance. With synchronized, her request joins the line "
            "and stays there. She watches a spinning wheel the whole time.",
     "shy": "So here's a question that sounds a little rude. synchronized works, and it never forgets to give the key back. "
@@ -37,11 +37,9 @@ N = {
               "and only then finds out it was asked to stop, about a second earlier.",
     "joke": "It's like finding the note that says the meeting is off while you sit alone in the meeting room. "
             "A thread waiting for synchronized can't hear an interrupt.",
-    "states": "The demo also printed their states. The printer was WAITING, parked until someone wakes it. "
-              "The teller was BLOCKED, waiting for a monitor.",
-    "price": "All that control has a price. synchronized gives the key back when its block ends, even when the code throws "
-             "an error. A ReentrantLock gives it back only when you call unlock.",
-    "leak": "So picture a thread that calls lock, adds an entry to the ledger, then calls unlock. "
+    "price": "All that control has a price. synchronized gives the key back when its block ends, even on an error. "
+             "A ReentrantLock gives it back only when you call unlock.",
+    "leak": "So picture a thread that takes the lock and adds an entry to the ledger. "
             "One day a bad input makes the add throw. The unlock never runs, "
             "and the thread walks off with the key in its pocket.",
     "leak2": "Every thread after it parks in lock, for good. Well. That's a long line for a key that left the building.",
@@ -49,19 +47,19 @@ N = {
            "Read it aloud: take the key, try the work, and finally, whatever happens, give it back. "
            "Kotlin's withLock writes all that for you.",
     "rule": "A ReentrantLock lets go only when you tell it to. So keep synchronized for short, simple code, "
-            "and switch when you need one of these controls. For ordinary code, the two cost about the same.",
+            "and switch when you need a control. For ordinary code, the two cost about the same.",
     "kitchen": "A lock is also a place to wait. Remember the kitchen? A monitor has one bench, so waiters waiting for room "
-               "sat with cooks waiting for a ticket. A bell for a cook could wake a waiter, so we rang for everyone.",
+               "sat with cooks waiting for a ticket, and we had to ring for everyone.",
     "benches": "A ReentrantLock can have many benches. Each one is a Condition: a line of threads waiting for one kind of "
                "change. Cooks wait on notEmpty, for a ticket. Waiters wait on notFull, for room on the rail.",
-    "await": "Watch. A waiter clips a ticket and calls signal on notEmpty. That rings only the cooks' bell, "
+    "await": "Watch. A waiter clips a ticket and signals notEmpty. Only the cooks' bell rings, "
              "so one cook gets up. The next waiter finds the rail full, and calls await on notFull. "
              "Like wait, it hangs the key back and sits down.",
     "wk_pred": "Is it worth it? Four waiters and four cooks move 20,000 tickets through a rail with room for one. "
-               "How often does a thread wake up, look, and have to sit back down? First with one bench, then with two.",
+               "How often does a thread wake, look, and sit back down? First one bench, then two.",
     "wk_show": "With one bench, 88,340 times, in about 2.2 seconds. With two benches, 375 times, in about 0.7 seconds.",
-    "wk_joke": "One bench is like a whole office standing up each time one phone rings. Two benches, and only the right "
-               "person stands. It isn't zero, because a running thread can grab the ticket first. So keep the while loop.",
+    "wk_joke": "One bench is like a whole office standing up each time one phone rings. "
+               "It isn't zero, because a running thread can grab the ticket first. So keep the while loop.",
     "rates": "Last, the bank's table of exchange rates. Cash machines read it about 5,000 times a second, "
              "and a refresh job replaces it every five seconds. With a plain lock, readers wait for each other, "
              "though reading changes nothing.",
@@ -69,12 +67,12 @@ N = {
             "the librarian waits until the room is empty, then works alone with the door shut.",
     "rwmap": "That's a ReentrantReadWriteLock. Readers share the read lock. "
              "The refresh job takes the write lock, which needs an empty room.",
-    "up_pred": "Now a trap. A reader finds a rate missing. Still holding its read lock, it asks for the write lock, "
-               "to load the rate. No other thread is around. What happens?",
+    "up_pred": "Now a trap. A reader finds a rate missing. Still holding its read lock, it asks for the write lock. "
+               "No other thread is around. What happens?",
     "up_show": "It waits forever. The write lock waits for every reader to leave, and this thread is a reader. "
-               "It's waiting for the room to empty while sitting in it. And Java's deadlock check won't even report it.",
-    "up_fix": "That move is called an upgrade, and this lock can't do it. So let go of the read lock, take the write lock, "
-              "then check again, because another thread may have loaded the rate in between.",
+               "It's waiting for the room to empty while sitting in it. Java's deadlock check won't even report it.",
+    "up_fix": "That's called an upgrade, and this lock can't do it. So let go of the read lock, take the write lock, "
+              "then check again: another thread may have loaded the rate in between.",
     "moral": "So why another lock? Because sometimes a waiting thread needs a way out. ReentrantLock is the same vault "
              "with controls on the door, and a bench for each kind of waiter. Its read write cousin lets readers share. "
              "But it never lets go by itself, so unlock in finally.",
@@ -395,6 +393,7 @@ class Conc07Locks(Narrated):
                       .set_fill(dim(YELLOW_M, 0.4), 1), T("!", 22, YELLOW_M))
         note[1].move_to(note[0])
         note.move_to(tell.get_corner(UR) + np.array([0.05, 0.05, 0])).set_z_index(8)
+        self.play(FadeIn(outs[1], shift=UP * 0.1), run_time=0.4)
         self.play(Flash(stmt.get_center(), color=YELLOW_M, flash_radius=0.9), FadeOut(b1),
                   ReplacementTransform(b2, note), run_time=0.6)
         self.play(FadeOut(stmt, shift=LEFT * 0.6), FadeOut(lab_s), run_time=0.6)
@@ -410,7 +409,7 @@ class Conc07Locks(Narrated):
         note.add_updater(lambda m: m.move_to(note_pos()))
         self.play(FadeOut(lab_t), run_time=0.2)
         walk_in(tell, key, rt=0.8)
-        self.at(2)
+        self.at_text("only then", lead=0.3)
         note.clear_updaters()
         self.play(FadeIn(outs[3], shift=UP * 0.1), run_time=0.5)
         self.play(Indicate(outs[3][-16:], color=YELLOW_M, scale_factor=1.08), run_time=0.8)
@@ -419,13 +418,6 @@ class Conc07Locks(Narrated):
         self.say("joke")
         self.hold()
 
-        self.say("states")
-        self.play(FadeIn(outs[1], shift=UP * 0.1), run_time=0.5)
-        self.at(1)
-        self.play(Indicate(outs[1][17:24], color=STMT, scale_factor=1.12), run_time=0.8)
-        self.at(2)
-        self.play(Indicate(outs[1][-7:], color=TELL, scale_factor=1.12), run_time=0.8)
-        self.hold()
 
         # ================= the price: it never lets go by itself =================
         self.play(FadeOut(note), run_time=0.2)
@@ -443,7 +435,7 @@ class Conc07Locks(Narrated):
         self.play(FadeIn(pr2, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
-        hl = {"lock()": KEY, "unlock()": KEY}
+        hl = {"lock.lock()": KEY, "lock.unlock()": KEY}
         naive = code_block(["lock.lock();", "entries.add(e);", "lock.unlock();"], 26, hl)
         naive.move_to([-6.2, -2.3, 0], aligned_edge=LEFT)
         bad_x = tick(False, 0.2).next_to(naive[1], RIGHT, buff=0.4)
@@ -481,7 +473,7 @@ class Conc07Locks(Narrated):
         jsrc = ["lock.lock();             // just before try", "try {", "    entries.add(e);", "} finally {",
                 "    lock.unlock();       // first line of finally", "}"]
         ksrc = ["lock.withLock {", "    entries += e", "}", "", "// withLock writes the lock,", "// the try and the finally"]
-        hl = {"lock()": KEY, "unlock()": KEY, "withLock": KEY, "finally": GOOD, "try": GOOD}
+        hl = {"lock.lock()": KEY, "lock.unlock()": KEY, "withLock": KEY, "finally": GOOD, "try": GOOD}
         jc, kc = code_block(jsrc, 24, hl), code_block(ksrc, 24, hl)
         for c in (jc[0][-15:], jc[4][-20:], kc[4], kc[5]):
             c.set_color(GREY_B)
@@ -541,7 +533,7 @@ class Conc07Locks(Narrated):
         self.at(2)
         self.play(Indicate(VGroup(w1[1], w2[1]), color=W1C), run_time=0.7)
         self.play(Indicate(VGroup(c1[1], c2[1]), color=C1C), run_time=0.7)
-        self.at(3)
+        self.at_text("ring for everyone", lead=0.5)
         self.play(FadeIn(bell, scale=0.7), run_time=0.4)
         self.play(Wiggle(bell, scale_value=1.18, rotation_angle=0.1 * TAU), *[ch.animate.shift(UP * 0.35) for ch in (w1, c1, w2, c2)],
                   run_time=0.8)
@@ -580,7 +572,7 @@ class Conc07Locks(Narrated):
         self.play(FadeOut(cond), run_time=0.3)
         self.play(w1.animate.move_to(STATION), kkey.animate.move_to(STATION + RIGHT * (w1.width / 2 + 0.45)), run_time=0.8)
         self.play(tk.animate.move_to(SLOT).set_opacity(1), run_time=0.5)
-        self.at_text("calls signal", lead=0.3)
+        self.at_text("signals notEmpty", lead=0.3)
         self.play(FadeIn(sig), run_time=0.4)
         self.at(1)
         self.play(Wiggle(bell_r, scale_value=1.2, rotation_angle=0.1 * TAU), Flash(bell_r.get_center(), color=BELL,

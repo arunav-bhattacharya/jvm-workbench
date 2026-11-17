@@ -494,7 +494,7 @@ class Cap1Snapshot(Narrated):
         self.at(2)
         self.play(GrowArrow(aa), run_time=0.6)
         self.hold(after=0)
-        self.predict()
+        self.predict(pos=(-6.4, 3.25))
 
         rule1 = T("old or new, never a mix", 30, WHITE).move_to([0, 0.35, 0])
         self.say("readers_a")

@@ -21,12 +21,12 @@ internal fun nextTraceId(): String = "trace-" + counter.incrementAndGet()
 private val counter = AtomicInteger()   // fine: nextTraceId is not inline, so its body is never copied
 
 /** An inline property: no backing field, and the getter is pasted into each caller. */
-val Long.asEuros: String
-    inline get() = "EUR " + (this / 100) + "." + (this % 100).toString().padStart(2, '0')
+val Long.asKilos: String
+    inline get() = "" + (this / 1_000) + "." + (this % 1_000).toString().padStart(3, '0') + " kg"
 
 fun main() {
-    val refunded = traced("refund pay_7") { 1_999L }
-    println("refunded ${refunded.asEuros}")
+    val grams = traced("weigh parcel job_7") { 1_999L }
+    println("parcel weighs ${grams.asKilos}")
 
     // Wrong move. Change `@PublishedApi internal` on nextTraceId to `private`, predict, run.
 }

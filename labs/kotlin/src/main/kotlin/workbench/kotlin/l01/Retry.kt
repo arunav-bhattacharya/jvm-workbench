@@ -29,7 +29,7 @@ private fun giveUp(attempts: Int, last: Exception, earlier: List<Exception>): Re
  * - maxAttempts below 1 is a caller bug: throw IllegalArgumentException before calling the block.
  *
  * TODO 1: write the loop. Keep the function inline and leave the `block` parameter as it is:
- * Callers.firstApproved puts a `return` inside the block, which only compiles while it is inlined.
+ * Callers.firstAccepted puts a `return` inside the block, which only compiles while it is inlined.
  */
 inline fun <T> retry(
     maxAttempts: Int,

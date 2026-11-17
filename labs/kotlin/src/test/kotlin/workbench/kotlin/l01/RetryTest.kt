@@ -15,9 +15,9 @@ class RetryTest {
         var calls = 0
         val result = Callers.retrying(5, { true }) { attempt ->
             calls++
-            if (attempt < 3) throw IllegalStateException("issuer timeout $attempt") else "approved@$attempt"
+            if (attempt < 3) throw IllegalStateException("paper jam $attempt") else "printed@$attempt"
         }
-        assertThat(result).isEqualTo("approved@3")
+        assertThat(result).isEqualTo("printed@3")
         assertThat(calls).isEqualTo(3)
     }
 
@@ -39,7 +39,7 @@ class RetryTest {
     fun `retry stops at once when shouldRetry says no`() {
         var calls = 0
         val thrown = catchThrowable {
-            Callers.retrying(5, { it !is IllegalArgumentException }) { calls++; throw IllegalArgumentException("bad card number") }
+            Callers.retrying(5, { it !is IllegalArgumentException }) { calls++; throw IllegalArgumentException("page range 9-3 is backwards") }
         }
         assertThat(thrown).isInstanceOf(RetryExhaustedException::class.java)
         assertThat((thrown as RetryExhaustedException).attempts).isEqualTo(1)
@@ -58,18 +58,18 @@ class RetryTest {
     @Test
     fun `a return inside the block returns from the calling function`() {
         val calls = mutableListOf<String>()
-        var timedOut = false
-        val card = Callers.firstApproved(listOf("card-A", "card-B", "card-C")) { c ->
-            calls += c
+        var jammed = false
+        val printer = Callers.firstAccepted(listOf("laser-A", "laser-B", "laser-C")) { p ->
+            calls += p
             when {
-                c == "card-A" && !timedOut -> { timedOut = true; throw IllegalStateException("timeout") }
-                c == "card-B" -> "APPROVED"
-                else -> "DECLINED"
+                p == "laser-A" && !jammed -> { jammed = true; throw IllegalStateException("paper jam") }
+                p == "laser-B" -> "ACCEPTED"
+                else -> "BUSY"
             }
         }
-        assertThat(card).isEqualTo("card-B")
-        // card-A timed out once and was retried, then declined; card-C was never tried
-        assertThat(calls).containsExactly("card-A", "card-A", "card-B")
+        assertThat(printer).isEqualTo("laser-B")
+        // laser-A jammed once and was retried, then said busy; laser-C was never tried
+        assertThat(calls).containsExactly("laser-A", "laser-A", "laser-B")
     }
 
     @Test
@@ -79,9 +79,9 @@ class RetryTest {
             val threads = mutableListOf<String>()
             val future = Callers.retryingAsync(pool, 3) { attempt ->
                 synchronized(threads) { threads += Thread.currentThread().name }
-                if (attempt == 1) throw IllegalStateException("timeout") else "captured@$attempt"
+                if (attempt == 1) throw IllegalStateException("paper jam") else "printed@$attempt"
             }
-            assertThat(future.get(5, TimeUnit.SECONDS)).isEqualTo("captured@2")
+            assertThat(future.get(5, TimeUnit.SECONDS)).isEqualTo("printed@2")
             assertThat(threads).containsExactly("retry-worker", "retry-worker")
         } finally {
             pool.shutdownNow()
@@ -92,7 +92,7 @@ class RetryTest {
     fun `retryAsync completes exceptionally with RetryExhaustedException`() {
         val pool = Executors.newSingleThreadExecutor()
         try {
-            val future = Callers.retryingAsync<String>(pool, 2) { throw IllegalStateException("issuer down") }
+            val future = Callers.retryingAsync<String>(pool, 2) { throw IllegalStateException("printer offline") }
             assertThatThrownBy { future.get(5, TimeUnit.SECONDS) }
                 .isInstanceOf(ExecutionException::class.java)
                 .hasCauseInstanceOf(RetryExhaustedException::class.java)

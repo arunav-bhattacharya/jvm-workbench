@@ -34,7 +34,7 @@ sealed interface HoldResult {
     data class Unavailable(val reason: Reason) : HoldResult
 
     /** TODO 3: reject a wait shorter than 1 day or longer than 365 days. */
-    data class Waitlisted(val wait: Duration) : HoldResult
+    data class Waitlisted(val expectedWait: Duration) : HoldResult
 }
 
 /** What reading a reply at the edge of the program produces. */

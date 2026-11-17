@@ -1,5 +1,12 @@
 package workbench.modernjava.l01.demo
 
+// Naive: written by hand. The shelf was added later, and not to every method.
+class OldShelfmark(val section: String, val shelf: Int) {               // shelf added later
+    override fun equals(other: Any?) = other is OldShelfmark && other.section == section   // nobody updated this
+    override fun hashCode() = section.hashCode()
+    override fun toString() = "OldShelfmark(section=$section)"
+}
+
 // a plain data class: Kotlin generates equals, hashCode, toString, componentN and copy
 data class Shelfmark(val section: String, val shelf: Int)
 
@@ -9,6 +16,10 @@ data class ShelfmarkRecord(val section: String, val shelf: Int)
 
 /** What kotlinc gives a one-line data class, seen from the outside. */
 fun main() {
+    val old12 = OldShelfmark("FIC", 12)
+    val old40 = OldShelfmark("FIC", 40)
+    println("by hand:    $old12 equals $old40: ${old12 == old40}")
+
     val a = Shelfmark("FIC", 12)
     val b = Shelfmark("FIC", 12)
 

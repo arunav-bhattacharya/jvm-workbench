@@ -17,9 +17,9 @@ public class ModifiersDemoJava {
         ModifiersDemoKt.subscribe(
                 line -> { System.out.println(line); return Unit.INSTANCE; },
                 event -> { System.out.println("listener got " + event); return Unit.INSTANCE; });
-        ModifiersDemoKt.getListeners().forEach(l -> l.invoke("payment-captured"));
+        ModifiersDemoKt.getListeners().forEach(l -> l.invoke("job-finished"));
 
-        ExecutorService pool = Executors.newSingleThreadExecutor(r -> new Thread(r, "settlement-worker"));
+        ExecutorService pool = Executors.newSingleThreadExecutor(r -> new Thread(r, "night-shift"));
         // runInBackground(Executor, Function0<Unit>)
         ModifiersDemoKt.runInBackground(pool, () -> {
             System.out.println("running on " + Thread.currentThread().getName());

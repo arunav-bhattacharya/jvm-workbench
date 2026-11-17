@@ -3,45 +3,46 @@
  "title": "Value classes and what they compile to",
  "minutes": 35,
  "goal": "By the end you can write a validated value class, predict where it is a plain `long` and where it gets boxed, read its mangled names in `javap`, and give Java callers a safe way in.",
+ "opening": "At the print shop's parcel desk, every number on a job sheet carries a unit: 500 sheets, 2,500 grams. The clerk reads the units before a parcel goes out, and a sheet that says \"weight: 500 sheets\" goes straight back. In the back room the units are gone. The scale and the label printer only ever see numbers.\n\nCode tends to lose its units much earlier. A `Long` called `grams` and a `Long` called `sheets` look the same to the compiler, so swap them in a call and it compiles. The classic fix is a small wrapper class, `Grams`, and it costs one object for every number. Kotlin's value class keeps the unit for the compiler and drops the object at run time. Mostly. The easy trap is to read \"mostly\" as \"always\".\n\nIn the last lesson, `inline` made the compiler paste away the object behind a lambda. This time it erases a wrapper. We'll see what a value class compiles to, find where the box comes back, read the strange names Java sees, and meet the one-field limit that waits for Valhalla. Before we start, make a guess, and keep it in mind.",
  "warmup": {
-  "q": "`@JvmInline value class Money(val cents: Long)`. Which of these creates a `Money` object on the heap at run time?",
+  "q": "`@JvmInline value class Weight(val grams: Long)`. Which of these creates a `Weight` object on the heap (the memory where the JVM keeps objects) at run time?",
   "options": [
-   "`val total = a + b`, where `a` and `b` are `Money`",
+   "`val total = a + b`, where `a` and `b` are `Weight`",
    "`listOf(a, b)`",
-   "`class Invoice(val amount: Money)` when you build an `Invoice`",
+   "`class Parcel(val weight: Weight)`, when you build a `Parcel`",
    "None of them: a value class is never boxed"
   ],
   "answer": 1,
-  "why": "A `List` holds objects, so each element is boxed into a real `Money` (the compiler calls `Money.box-impl(long)`). Inside `Invoice` the property is stored as a `long` field, and `a + b` compiles to a static method on two longs. The last option is the common belief, and the docs say the opposite: value classes are boxed whenever they are used as another type."
+  "why": "A `List` holds objects, so each element is boxed into a real `Weight` (the compiler calls `Weight.box-impl(long)`). Inside `Parcel` the property is stored as a `long` field, and `a + b` compiles to a static method on two longs. The last option is the common belief, and the docs say the opposite: value classes are boxed whenever they are used as another type. The section on boxing lists every case."
  },
  "sections": [
   {
-   "h": "A value class is a type at compile time and a long at run time",
-   "body": "A `Long` parameter named `amountMinor` will accept an order id without complaint. Both are `Long`, so the compiler can't tell them apart. The classic fix is a small wrapper class, `class Cents(val value: Long)`, and it works, but every amount is now an extra object on the heap. Kotlin's **value class** keeps the wrapper's type safety and, wherever it can, drops the object: at run time only the wrapped value, the **underlying type** (`Long` here), is left. Here is the wrapper in both languages:\n\n```java\n// Java's closest shape today: a record. It's a real object, allocated on every new.\nrecord Cents(long value) {\n    Cents {\n        if (value < 0) throw new IllegalArgumentException(\"negative amount: \" + value);\n    }\n}\n```\n\n```kotlin\n@JvmInline\nvalue class Cents(val value: Long) {\n    init {\n        require(value >= 0) { \"negative amount: $value\" }\n    }\n\n    operator fun plus(other: Cents): Cents = Cents(value + other.value)\n\n    override fun toString(): String = \"$value cents\"\n}\n\nfun charge(amount: Cents): String = \"charged $amount\"\n\ncharge(199L)   // error: argument type mismatch: actual type is 'Long', but 'Cents' was expected.\n```\n\nThe rules are short. On the JVM you write `@JvmInline value class` with exactly one property in the primary constructor. You may add `init` blocks, functions, secondary constructors and properties without backing fields (so no `lateinit` and no delegation). A value class can implement interfaces, can't extend a class, and is always final.\n\nAt run time most of it disappears. `javap -p` on the demo shows what the compiler built:\n\n```text\npublic static final java.lang.String charge-X49TzF8(long);   // takes a plain long\npublic static long constructor-impl(long);                  // Cents(...) runs init here\npublic static final long plus-dpzqtSM(long, long);          // a member, now static on longs\npublic static final Cents box-impl(long);                   // used only when a box is needed\n```\n\n`Cents(150)` compiles to a call to `constructor-impl`, which runs your `init` block and returns the same `long`. No object is created. `plus` turned into a static method that adds two longs. The `Cents` class still exists, with one `long` field, for the moments when a real object is needed. That's the next section.\n\nCompare a type alias. `typealias CentsAlias = Long` gives you a second name and nothing else: the docs say aliases are assignment-compatible with their underlying type, and value classes are not. In the demo, an `orderId: Long` goes straight into `chargeAlias` and compiles. Use aliases to shorten long generic types. Use value classes where mixing up two values would be a bug.\n\nYou already use value classes from the standard library: `UInt`, `ULong`, `kotlin.time.Duration` and `kotlin.Result` are all declared this way, and `javap` shows the same `box-impl` and `unbox-impl` on each.",
+   "h": "A value class is its own type to the compiler and a plain long at run time",
+   "body": "Here are two numbers from the print shop's app: the weight of a parcel in grams, and the number of sheets in it. Both are `Long`:\n\n```java\nstatic String ship(long grams) { return \"shipped \" + grams + \" g\"; }\n\nlong grams = 2_500;\nlong sheets = 500;\nship(sheets);                  // compiles: both are long\n```\n\n```kotlin\nfun ship(grams: Long): String = \"shipped $grams g\"\n\nval grams: Long = 2_500\nval sheets: Long = 500\nship(sheets)                   // compiles: both are Long\n```\n\nThe compiler can't tell them apart, so `ship(sheets)` happily posts a parcel that weighs 500 sheets. The classic fix is a small wrapper class, `class Grams(val value: Long)`. It works, and every weight is now an extra object on the **heap**, the memory where the JVM keeps objects.\n\nKotlin's **value class** keeps the wrapper's type for the compiler and, wherever it can, drops the object. At run time only the wrapped value is left, the underlying type (`Long` here). In the print shop, the unit on the job sheet is the value class. The clerk, who is the compiler, checks it at the desk. The machines in the back room, which are the JVM at run time, only see the number.\n\nHere is the wrapper in both languages:\n\n```java\n// Java's closest shape today: a record. It's a real object, created on every new.\nrecord Grams(long value) {\n    Grams {\n        if (value < 0) throw new IllegalArgumentException(\"negative weight: \" + value);\n    }\n}\n```\n\n```kotlin\n@JvmInline\nvalue class Grams(val value: Long) {\n    init {\n        require(value >= 0) { \"negative weight: $value\" }\n    }\n\n    operator fun plus(other: Grams): Grams = Grams(value + other.value)\n\n    override fun toString(): String = \"$value g\"\n}\n\nfun ship(weight: Grams): String = \"shipped $weight\"\n\nship(sheets)   // error: argument type mismatch: actual type is 'Long', but 'Grams' was expected.\n```\n\nThe rules are short. On the JVM you write `@JvmInline value class` with exactly one property in the primary constructor. You may add `init` blocks, functions, secondary constructors, and properties without backing fields (so no `lateinit` and no delegation). A value class can implement interfaces, can't extend a class, and is always final.\n\nAt run time most of it disappears. `javap -p`, the JDK tool that lists what a class file contains, shows what the compiler built for the demo:\n\n```text\npublic static final java.lang.String ship-P0HeBCA(long);   // takes a plain long\npublic static long constructor-impl(long);                // Grams(...) runs init here\npublic static final long plus-vak4SgM(long, long);        // a member, now static on two longs\npublic static final Grams box-impl(long);                 // used only when a box is needed\n```\n\n`Grams(150)` compiles to a call to `constructor-impl`, which runs your `init` block and hands back the same `long`. No object is created. `plus` turned into a static method that adds two longs. The `Grams` class still exists, with one `long` field, for the moments when a real object is needed. The odd hash after `ship` is the compiler's work too, and a later section explains it.\n\nCompare a type alias. `typealias GramsAlias = Long` gives you a second name and nothing else. The docs say aliases are assignment-compatible with their underlying type, and value classes are not. In the demo, `sheets: Long` goes straight into `shipAlias` and compiles. Use aliases to shorten long type names. Use value classes where mixing up two values would be a bug.\n\nYou already use value classes from the standard library. `UInt`, `ULong`, `kotlin.time.Duration` and `kotlin.Result` are all declared this way, and `javap` shows the same `box-impl` and `unbox-impl` on each.\n\n**When two values share a type but must never be swapped, give each one its own value class.**\n\n\"Wherever it can\" is doing a lot of work in that description, though. Let's find the places where it can't.",
    "try": {
-    "title": "See what Cents compiles to",
+    "title": "See what Grams compiles to",
     "minutes": 4,
     "steps": [
      "Run `ValueClassDemo` with the command below.",
-     "From `labs/`, run `javap -p -cp kotlin/build/classes/kotlin/demo workbench.kotlin.l02.demo.ValueClassDemoKt workbench.kotlin.l02.demo.Cents`. Find `charge`, `constructor-impl` and `plus`.",
+     "From `labs/`, run `javap -p -cp kotlin/build/classes/kotlin/demo workbench.kotlin.l02.demo.ValueClassDemoKt workbench.kotlin.l02.demo.Grams`. Find `ship`, `constructor-impl` and `plus`.",
      "Uncomment the wrong move in `main`, predict the error, and run. Comment it out again.",
-     "Run `ValueClassDemoJava`. Before you do, predict its second line: Java calls `chargeFromJava(-5L)`."
+     "Run `ValueClassDemoJava`. Before you do, predict its second line: Java calls `shipFromJava(-5L)`."
     ],
     "code": {
      "lang": "kotlin",
      "title": "ValueClassDemo.kt",
-     "src": "package workbench.kotlin.l02.demo\n\n/** A value class: a Cents in your code, a long in the bytecode. */\n@JvmInline\nvalue class Cents(val value: Long) {\n    init {\n        require(value >= 0) { \"negative amount: $value\" }\n    }\n\n    operator fun plus(other: Cents): Cents = Cents(value + other.value)\n\n    override fun toString(): String = \"$value cents\"\n}\n\n/** A type alias is only a second name. Any Long is accepted where a CentsAlias is expected. */\ntypealias CentsAlias = Long\n\nfun charge(amount: Cents): String = \"charged $amount\"\n\n@JvmName(\"chargeFromJava\")\nfun chargeJava(amount: Cents): String = \"charged $amount\"\n\nfun chargeAlias(amount: CentsAlias): String = \"charged $amount (alias)\"\n\nfun main() {\n    val fee = Cents(150) + Cents(49)\n    println(charge(fee))\n    val orderId: Long = 981\n    println(chargeAlias(orderId))      // compiles: an order id is a Long, so it is a CentsAlias too\n    try {\n        Cents(-1)\n    } catch (e: IllegalArgumentException) {\n        println(\"rejected: ${e.message}\")\n    }\n\n    // Wrong move. Uncomment, predict the error, then run.\n    // println(charge(199L))\n}\n",
+     "src": "package workbench.kotlin.l02.demo\n\n/** A value class: a Grams in your code, a long in the bytecode. */\n@JvmInline\nvalue class Grams(val value: Long) {\n    init {\n        require(value >= 0) { \"negative weight: $value\" }\n    }\n\n    operator fun plus(other: Grams): Grams = Grams(value + other.value)\n\n    override fun toString(): String = \"$value g\"\n}\n\n/** A type alias is only a second name. Any Long is accepted where a GramsAlias is expected. */\ntypealias GramsAlias = Long\n\nfun ship(weight: Grams): String = \"shipped $weight\"\n\n@JvmName(\"shipFromJava\")\nfun shipJava(weight: Grams): String = \"shipped $weight\"\n\nfun shipAlias(weight: GramsAlias): String = \"shipped $weight g (alias)\"\n\nfun main() {\n    val parcel = Grams(150) + Grams(49)\n    println(ship(parcel))\n    val sheets: Long = 500\n    println(shipAlias(sheets))         // compiles: a sheet count is a Long, so it is a GramsAlias too\n    try {\n        Grams(-1)\n    } catch (e: IllegalArgumentException) {\n        println(\"rejected: ${e.message}\")\n    }\n\n    // Wrong move. Uncomment, predict the error, then run.\n    // println(ship(sheets))\n}\n",
      "run": "./gradlew :kotlin:demo -Pmain=workbench.kotlin.l02.demo.ValueClassDemoKt",
      "file": "labs/kotlin/src/demo/kotlin/workbench/kotlin/l02/demo/ValueClassDemo.kt",
      "alt": {
       "lang": "java",
       "title": "ValueClassDemoJava.java",
-      "src": "package workbench.kotlin.l02.demo;\n\n/**\n * Java twin of ValueClassDemo.kt. Java has no value classes (Valhalla's are a JDK 28 preview), so it\n * sees what the bytecode holds: charge-<hash>(long), which javac can't call, and chargeFromJava(long).\n */\npublic class ValueClassDemoJava {\n\n    // the closest Java shape today: a record, which is a real object with identity\n    record CentsRecord(long value) {\n        CentsRecord {\n            if (value < 0) throw new IllegalArgumentException(\"negative amount: \" + value);\n        }\n    }\n\n    public static void main(String[] args) {\n        System.out.println(ValueClassDemoKt.chargeFromJava(199L));\n        // Java passes a raw long, so Cents' init block never runs:\n        System.out.println(ValueClassDemoKt.chargeFromJava(-5L));\n        System.out.println(new CentsRecord(199));\n\n        // Wrong move. Uncomment, predict the error, then run.\n        // System.out.println(ValueClassDemoKt.charge(199L));\n    }\n}\n",
+      "src": "package workbench.kotlin.l02.demo;\n\n/**\n * Java twin of ValueClassDemo.kt. Java has no value classes (Valhalla's are a JDK 28 preview), so it\n * sees what the bytecode holds: ship-<hash>(long), which javac can't call, and shipFromJava(long).\n */\npublic class ValueClassDemoJava {\n\n    // the closest Java shape today: a record, which is a real object with identity\n    record GramsRecord(long value) {\n        GramsRecord {\n            if (value < 0) throw new IllegalArgumentException(\"negative weight: \" + value);\n        }\n    }\n\n    public static void main(String[] args) {\n        System.out.println(ValueClassDemoKt.shipFromJava(199L));\n        // Java passes a raw long, so Grams' init block never runs:\n        System.out.println(ValueClassDemoKt.shipFromJava(-5L));\n        System.out.println(new GramsRecord(199));\n\n        // Wrong move. Uncomment, predict the error, then run.\n        // System.out.println(ValueClassDemoKt.ship(199L));\n    }\n}\n",
       "run": "./gradlew :kotlin:demo -Pmain=workbench.kotlin.l02.demo.ValueClassDemoJava",
       "file": "labs/kotlin/src/demo/java/workbench/kotlin/l02/demo/ValueClassDemoJava.java"
      }
     },
-    "expect": "The Kotlin demo prints `charged 199 cents`, `charged 981 (alias)` and `rejected: negative amount: -1`. `javap` lists `charge-X49TzF8(long)`, `chargeFromJava(long)` and, on `Cents`, `constructor-impl(long)` and `plus-dpzqtSM(long, long)`. The wrong move fails with `argument type mismatch: actual type is 'Long', but 'Cents' was expected.` The Java twin prints `charged -5 cents`: Java passed a raw `long`, so `init` never ran. The last section explains that door."
+    "expect": "The Kotlin demo prints `shipped 199 g`, `shipped 500 g (alias)` and `rejected: negative weight: -1`. `javap` lists `ship-P0HeBCA(long)`, `shipFromJava(long)` and, on `Grams`, `constructor-impl(long)` and `plus-vak4SgM(long, long)`. The wrong move fails with `argument type mismatch: actual type is 'Long', but 'Grams' was expected.` The Java twin prints `shipped -5 g`: Java passed a raw `long`, so `init` never ran. The section on mangled names explains that side door."
    },
    "refs": [
     {
@@ -52,63 +53,63 @@
    ]
   },
   {
-   "h": "Boxed whenever it is used as another type",
-   "body": "Value classes do get **boxed**, which means wrapped in a real `Money` object on the heap, the way Java wraps a `long` in a `Long`. The rule fits in one line of the docs: inline classes are boxed whenever they are used as another type.\n\n```java\n// Java's long and Long follow the same rule: a primitive where it can, a box when it must\nstatic Object asGeneric(Object x) { return x; }\n\nlong minor = 1_999;\nObject boxed = asGeneric(minor);      // autoboxed into a Long object\nList<Long> list = List.of(minor);     // another Long object\n```\n\n```kotlin\nfun <T> asGeneric(x: T): Any? = x     // used as T: boxed\nfun asNullable(a: Amount?): Any? = a  // used as Amount?: boxed\nfun asInterface(p: Priced): Any = p   // used as Priced: boxed\n\nclass Invoice(val amount: Amount)     // used as Amount: stored as a long field\n```\n\nFour cases box: a generic type parameter, a nullable type (`Amount?` must be able to hold `null`, and a `long` can't), an interface the class implements, and anything typed `Any`, which includes every collection and `println`. In the bytecode each one shows up as a call to `Amount.box-impl(long)` right before the call that needs the object. So a `List<Money>` holds one `Money` object per element. The docs draw the same comparison you'd draw: it's like `Int` being either a primitive `int` or a `java.lang.Integer`.\n\nEquality still works by value. `a == Amount(1_999)` compiles to `equals-impl0(long, long)`, a comparison of two longs. Identity doesn't exist: `a === b` is a compile error, `identity equality for arguments of types 'Amount' and 'Amount' is prohibited.` That's stricter than Java, where `Long a = 1_999L, b = 1_999L; a == b` is `false` and the same code with `100L` is `true`, because small boxes are cached.\n\nIn practice, a value class saves the allocation wherever it's used as itself: fields, parameters, return values, arithmetic. That covers most domain code. A hot path that pushes millions of amounts through a `List<Money>` or a generic `Map` pays the same boxing as `List<Long>`. If that shows up in a profile, use a `LongArray`, as you would in Java.",
+   "h": "When the box comes back: generics, nullables, interfaces and collections",
+   "body": "Value classes do get **boxed** after all. Boxing means wrapping the value in a real object on the heap, the way Java wraps a `long` in a `Long`. The rule fits in one line of the docs: inline classes are boxed whenever they are used as another type.\n\nBack in the print shop, some shelves only take envelopes. The shared pigeonholes accept envelopes of any kind, but never a loose number. So a number on its way there goes into an envelope with its unit printed on the front, and comes out again when someone needs the number itself.\n\nThe demo uses a second value class, `Sheets`, which implements a small interface, `Counted`. Here are the four ways it can end up in an envelope:\n\n```java\n// Java's long and Long follow the same rule: a primitive where it can, a box when it must\nstatic Object asGeneric(Object x) { return x; }\n\nlong sheets = 1_999;\nObject boxed = asGeneric(sheets);     // autoboxed into a Long object\nList<Long> list = List.of(sheets);    // another Long object\n```\n\n```kotlin\nfun <T> asGeneric(x: T): Any? = x     // used as T: boxed\nfun asNullable(s: Sheets?): Any? = s  // used as Sheets?: boxed\nfun asInterface(c: Counted): Any = c  // used as Counted, an interface: boxed\n\nclass PrintRun(val sheets: Sheets)    // used as Sheets: stored as a long field\n```\n\nFour cases box. The first is a generic type parameter such as `T`. The second is a nullable type: `Sheets?` must be able to hold `null`, and a `long` can't. The third is an interface the class implements, and the fourth is anything typed `Any`, which includes every collection and `println`.\n\nIn the bytecode, each case shows up as a call to `Sheets.box-impl(long)` right before the call that needs the object. So a `List<Sheets>` holds one `Sheets` object per element. The docs draw the comparison you'd draw yourself: it's like `Int`, which is either a primitive `int` or a `java.lang.Integer`.\n\nEquality still works by value. `s == Sheets(1_999)` compiles to `equals-impl0(long, long)`, a comparison of two longs. Identity doesn't exist. **Identity** asks \"is this the very same object?\", which is what Java's `==` asks of two objects and Kotlin's `===` asks too. For value classes, Kotlin refuses the question: `s === t` fails with `identity equality for arguments of types 'Sheets' and 'Sheets' is prohibited.`\n\nThat's stricter than Java, and for good reason. In Java, `Long a = 1_999L, b = 1_999L; a == b` is `false`, while the same code with `100L` is `true`, because the JDK keeps one shared box for each small number. That's a fine way to lose an afternoon.\n\nHere the picture breaks a little. A real envelope stays the same envelope wherever it goes. A boxed value doesn't: put the same `Sheets` into two lists and you get two different boxes. That's one more reason Kotlin won't let you ask whether two of them are the same object.\n\n**A value class is a plain value only while it's used as itself. Anywhere else, it travels in a box.**\n\nIn practice, a value class saves the allocation (the work of creating an object) wherever it's used as itself: fields, parameters, return values, arithmetic. That covers most of an app's own code. A busy loop that pushes millions of values through a `List<Sheets>` or a generic `Map` pays the same boxing as `List<Long>`. If that shows up when you measure, use a `LongArray`, as you would in Java.\n\nBoxing stays invisible from Kotlin. Java, though, sees the bytecode exactly as it is, and the names in it look strange.",
    "figure": {
-    "svg": "<svg viewBox=\"0 0 680 300\" role=\"img\" aria-label=\"Where a Money value class stays a plain long and where the compiler boxes it into a Money object\"><text class=\"t t-ok\" x=\"170\" y=\"28\" text-anchor=\"middle\">used as Money: a plain long</text><text class=\"t t-bad\" x=\"510\" y=\"28\" text-anchor=\"middle\">used as another type: boxed</text><rect class=\"box-ok\" x=\"30\" y=\"46\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"170\" y=\"71\" text-anchor=\"middle\">val m: Money</text><rect class=\"box-ok\" x=\"30\" y=\"96\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"170\" y=\"121\" text-anchor=\"middle\">fun charge(m: Money)</text><rect class=\"box-ok\" x=\"30\" y=\"146\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"170\" y=\"171\" text-anchor=\"middle\">class Invoice(val m: Money)</text><rect class=\"box-ok\" x=\"30\" y=\"196\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"170\" y=\"221\" text-anchor=\"middle\">m + other, m == other</text><rect class=\"box-bad\" x=\"370\" y=\"46\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"510\" y=\"71\" text-anchor=\"middle\">fun &lt;T&gt; id(x: T)</text><rect class=\"box-bad\" x=\"370\" y=\"96\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"510\" y=\"121\" text-anchor=\"middle\">val m: Money?</text><rect class=\"box-bad\" x=\"370\" y=\"146\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"510\" y=\"171\" text-anchor=\"middle\">val p: Priced = m</text><rect class=\"box-bad\" x=\"370\" y=\"196\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"510\" y=\"221\" text-anchor=\"middle\">listOf(m), println(m)</text><line class=\"ln-d\" x1=\"340\" y1=\"46\" x2=\"340\" y2=\"236\"/><text class=\"t-s t-m\" x=\"170\" y=\"264\" text-anchor=\"middle\">bytecode: long, constructor-impl, plus-hash</text><text class=\"t-s t-m\" x=\"510\" y=\"264\" text-anchor=\"middle\">bytecode: Money.box-impl(long) first</text><text class=\"t-s t-a\" x=\"340\" y=\"290\" text-anchor=\"middle\">the same rule as long and Long in Java</text></svg>",
-    "caption": "Used as itself, a value class is its underlying long. Used as anything else, the compiler boxes it first."
+    "svg": "<svg viewBox=\"0 0 680 300\" role=\"img\" aria-label=\"Where a Sheets value class stays a loose long and where the compiler puts it in an envelope, a boxed Sheets object\"><text class=\"t t-ok\" x=\"170\" y=\"28\" text-anchor=\"middle\">used as Sheets: a loose long</text><text class=\"t t-bad\" x=\"510\" y=\"28\" text-anchor=\"middle\">used as another type: boxed</text><rect class=\"box-ok\" x=\"30\" y=\"46\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"170\" y=\"71\" text-anchor=\"middle\">val s: Sheets</text><rect class=\"box-ok\" x=\"30\" y=\"96\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"170\" y=\"121\" text-anchor=\"middle\">fun feed(s: Sheets)</text><rect class=\"box-ok\" x=\"30\" y=\"146\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"170\" y=\"171\" text-anchor=\"middle\">class PrintRun(val s: Sheets)</text><rect class=\"box-ok\" x=\"30\" y=\"196\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"170\" y=\"221\" text-anchor=\"middle\">s == Sheets(500)</text><rect class=\"box-bad\" x=\"370\" y=\"46\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"510\" y=\"71\" text-anchor=\"middle\">fun &lt;T&gt; id(x: T)</text><rect class=\"box-bad\" x=\"370\" y=\"96\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"510\" y=\"121\" text-anchor=\"middle\">val s: Sheets?</text><rect class=\"box-bad\" x=\"370\" y=\"146\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"510\" y=\"171\" text-anchor=\"middle\">val c: Counted = s</text><rect class=\"box-bad\" x=\"370\" y=\"196\" width=\"280\" height=\"40\" rx=\"8\"/><text class=\"t t-code\" x=\"510\" y=\"221\" text-anchor=\"middle\">listOf(s), println(s)</text><line class=\"ln-d\" x1=\"340\" y1=\"46\" x2=\"340\" y2=\"236\"/><text class=\"t-s t-m\" x=\"170\" y=\"264\" text-anchor=\"middle\">bytecode: long, constructor-impl, equals-impl0</text><text class=\"t-s t-m\" x=\"510\" y=\"264\" text-anchor=\"middle\">bytecode: Sheets.box-impl(long) first</text><text class=\"t-s t-a\" x=\"340\" y=\"290\" text-anchor=\"middle\">the same rule as long and Long in Java</text></svg>",
+    "caption": "Used as itself, a value class is its underlying long. Used as anything else, the compiler puts it in a box first."
    },
    "try": {
     "title": "Count the boxes",
     "minutes": 4,
     "steps": [
      "Run `BoxingDemo` and `BoxingDemoJava`. Predict each line before you look.",
-     "From `labs/`, run `javap -c -p -cp kotlin/build/classes/kotlin/demo workbench.kotlin.l02.demo.BoxingDemoKt` and count the calls to `Amount.\"box-impl\"` in `main`.",
+     "From `labs/`, run `javap -c -p -cp kotlin/build/classes/kotlin/demo workbench.kotlin.l02.demo.BoxingDemoKt` and count the calls to `Sheets.\"box-impl\"` in `main`.",
      "Uncomment the wrong move in `BoxingDemo.kt` and run it."
     ],
     "code": {
      "lang": "kotlin",
      "title": "BoxingDemo.kt",
-     "src": "package workbench.kotlin.l02.demo\n\ninterface Priced {\n    val minor: Long\n}\n\n@JvmInline\nvalue class Amount(override val minor: Long) : Priced\n\nclass Invoice(val amount: Amount)                  // used as Amount: stored as a long\n\nfun <T> asGeneric(x: T): Any? = x                  // used as T: boxed\nfun asNullable(a: Amount?): Any? = a               // used as Amount?: boxed\nfun asInterface(p: Priced): Any = p                // used as Priced: boxed\n\nfun main() {\n    val a = Amount(1_999)\n    println(\"field in Invoice: ${Invoice::class.java.getDeclaredField(\"amount\").type}\")\n    println(\"as generic:       ${asGeneric(a)!!.javaClass.simpleName}\")\n    println(\"as nullable:      ${asNullable(a)!!.javaClass.simpleName}\")\n    println(\"as Priced:        ${asInterface(a).javaClass.simpleName}\")\n    println(\"in a list:        ${(listOf(a)[0] as Any).javaClass.simpleName}\")\n    println(\"a == Amount(1999): ${a == Amount(1_999)}\")\n\n    // Wrong move. Uncomment, predict the error, then run.\n    // println(a === Amount(1_999))\n}\n",
+     "src": "package workbench.kotlin.l02.demo\n\ninterface Counted {\n    val count: Long\n}\n\n@JvmInline\nvalue class Sheets(override val count: Long) : Counted\n\nclass PrintRun(val sheets: Sheets)                  // used as Sheets: stored as a long\n\nfun <T> asGeneric(x: T): Any? = x                  // used as T: boxed\nfun asNullable(s: Sheets?): Any? = s               // used as Sheets?: boxed\nfun asInterface(c: Counted): Any = c               // used as Counted: boxed\n\nfun main() {\n    val s = Sheets(1_999)\n    println(\"field in PrintRun: ${PrintRun::class.java.getDeclaredField(\"sheets\").type}\")\n    println(\"as generic:        ${asGeneric(s)!!.javaClass.simpleName}\")\n    println(\"as nullable:       ${asNullable(s)!!.javaClass.simpleName}\")\n    println(\"as Counted:        ${asInterface(s).javaClass.simpleName}\")\n    println(\"in a list:         ${(listOf(s)[0] as Any).javaClass.simpleName}\")\n    println(\"s == Sheets(1999): ${s == Sheets(1_999)}\")\n\n    // Wrong move. Uncomment, predict the error, then run.\n    // println(s === Sheets(1_999))\n}\n",
      "run": "./gradlew :kotlin:demo -Pmain=workbench.kotlin.l02.demo.BoxingDemoKt",
      "file": "labs/kotlin/src/demo/kotlin/workbench/kotlin/l02/demo/BoxingDemo.kt",
      "alt": {
       "lang": "java",
       "title": "BoxingDemoJava.java",
-      "src": "package workbench.kotlin.l02.demo;\n\nimport java.util.List;\n\n/**\n * Java twin of BoxingDemo.kt. Java has the same split for long and Long: a primitive where it can,\n * a box when the value is used as a generic type, a nullable, or Object. Kotlin forbids === on\n * value classes; Java lets you compare boxes by identity, and it goes wrong above 127.\n */\npublic class BoxingDemoJava {\n\n    static Object asGeneric(Object x) { return x; }\n\n    public static void main(String[] args) {\n        long minor = 1_999;\n        Object boxed = asGeneric(minor);                 // autoboxed to Long\n        System.out.println(\"as Object:   \" + boxed.getClass().getSimpleName());\n        System.out.println(\"in a list:   \" + List.of(minor).get(0).getClass().getSimpleName());\n\n        Long a = 1_999L, b = 1_999L;\n        System.out.println(\"a == b (identity):  \" + (a == b));         // two different Long objects\n        System.out.println(\"a.equals(b):        \" + a.equals(b));\n        Long small1 = 100L, small2 = 100L;\n        System.out.println(\"100L == 100L:       \" + (small1 == small2)); // cached box, so true\n    }\n}\n",
+      "src": "package workbench.kotlin.l02.demo;\n\nimport java.util.List;\n\n/**\n * Java twin of BoxingDemo.kt. Java has the same split for long and Long: a primitive where it can,\n * a box when the value is used as a generic type, a nullable, or Object. Kotlin forbids === on\n * value classes; Java lets you compare boxes by identity, and it goes wrong above 127.\n */\npublic class BoxingDemoJava {\n\n    static Object asGeneric(Object x) { return x; }\n\n    public static void main(String[] args) {\n        long sheets = 1_999;\n        Object boxed = asGeneric(sheets);                // autoboxed to Long\n        System.out.println(\"as Object:   \" + boxed.getClass().getSimpleName());\n        System.out.println(\"in a list:   \" + List.of(sheets).get(0).getClass().getSimpleName());\n\n        Long a = 1_999L, b = 1_999L;\n        System.out.println(\"a == b (identity):  \" + (a == b));         // two different Long objects\n        System.out.println(\"a.equals(b):        \" + a.equals(b));\n        Long small1 = 100L, small2 = 100L;\n        System.out.println(\"100L == 100L:       \" + (small1 == small2)); // cached box, so true\n    }\n}\n",
       "run": "./gradlew :kotlin:demo -Pmain=workbench.kotlin.l02.demo.BoxingDemoJava",
       "file": "labs/kotlin/src/demo/java/workbench/kotlin/l02/demo/BoxingDemoJava.java"
      }
     },
-    "expect": "The field in `Invoice` is a `long`. Every other line prints `Amount`, because generic, nullable, interface and list uses all box, and `javap` shows four `box-impl` calls in `main`, one before each of those calls. The equality line prints `true` through `equals-impl0`. The wrong move fails with `identity equality for arguments of types 'Amount' and 'Amount' is prohibited.` The Java twin prints `false` for `a == b` with 1,999 and `true` with 100: that's the Long cache, a trap Kotlin closes for value classes."
+    "expect": "The field in `PrintRun` is a `long`. Every other line prints `Sheets`, because generic, nullable, interface and list uses all box, and `javap` shows four `box-impl` calls in `main`, one before each of those calls. The equality line prints `true` through `equals-impl0`. The wrong move fails with `identity equality for arguments of types 'Sheets' and 'Sheets' is prohibited.` The Java twin prints `false` for `a == b` with 1,999 and `true` with 100: that's the JDK's shared box for small numbers, a trap Kotlin closes for value classes."
    }
   },
   {
    "h": "Mangled names keep Java out, and @JvmName lets it back in",
-   "body": "Look at that name again: `charge-X49TzF8(long)`. The compiler adds a hash to every function that takes a value class. The docs call it mangling, and it does two jobs. It prevents clashes: `describe(key: IdempotencyKey)` and `describe(raw: String)` would both be `describe(String)` in the bytecode, and with mangling they become `describe-<hash>(String)` and `describe(String)`. And it keeps Java away from functions that expect a valid value: a `-` can't appear in a Java method name.\n\nIt reaches further than functions. A class with a value-class property gets a private constructor, plus a public synthetic one with an extra `DefaultConstructorMarker` parameter, and a mangled getter: the demo's `Invoice` has `getAmount-hwXtt_M()`. Java can't build it or read it by name. Members that return a value class are mangled too, so the lab's `Money.Companion.parse` becomes `parse-LC5NfZc(String)`. A top-level function that only returns one is not: `parseAmount(String)` hands Java a plain `long`.\n\nFor a single function, the quick fix is `@JvmName`:\n\n```java\nSystem.out.println(ValueClassDemoKt.chargeFromJava(199L));   // charged 199 cents\nSystem.out.println(ValueClassDemoKt.chargeFromJava(-5L));    // charged -5 cents: init never ran\n// ValueClassDemoKt.charge(199L);                            // error: cannot find symbol\n```\n\n```kotlin\n@JvmName(\"chargeFromJava\")\nfun chargeJava(amount: Cents): String = \"charged $amount\"\n```\n\nRead the second Java line again. Java passes a raw `long`, and nothing runs `init` on the way in. **`@JvmName` opens a door around your validation**, so a function meant for Java should validate again, for example by building a fresh `Cents(amount.value)`.\n\nKotlin 2.2.0 added a fuller answer, `@JvmExposeBoxed`. It is still Experimental in 2.4, so you opt in with `@OptIn(ExperimentalStdlibApi::class)`. On a class it adds a public constructor that runs `init`. On a function it adds a version that takes and returns the box, `describeFee(Fee)`, next to the mangled `describeFee-pUsR5hI(long)`. The compiler flag `-Xjvm-expose-boxed` does the same for a whole module.\n\n```java\nFee fee = new Fee(125);                              // a real constructor: init runs\nSystem.out.println(ExposeBoxedDemoKt.describeFee(fee.doubled()));\n```\n\n```kotlin\n@file:OptIn(ExperimentalStdlibApi::class)\n\n@JvmExposeBoxed\n@JvmInline\nvalue class Fee(val minor: Long) {\n    init { require(minor >= 0) { \"negative fee: $minor\" } }\n    fun doubled(): Fee = Fee(minor * 2)\n}\n\n@JvmExposeBoxed\nfun describeFee(fee: Fee): String = \"fee of ${fee.minor} minor units\"\n```\n\nFrameworks see the same bytecode Java does. Anything that finds getters by name through reflection, such as a JSON mapper or an ORM reading an entity, will meet `getAmount-hwXtt_M`. Check how your libraries handle that before you put value classes in DTOs or entities.",
+   "body": "Look at that name again: `ship-P0HeBCA(long)`. The compiler adds a hash to the name of every function that takes a value class. The docs call this **mangling**, and it does two jobs.\n\nThe first job is to prevent clashes. A `JobId` value class wraps a `String`, so `describe(id: JobId)` and `describe(text: String)` would both be `describe(String)` in the bytecode. With mangling they become `describe-<hash>(String)` and `describe(String)`.\n\nThe second job is to keep Java away from functions that expect a checked value. A `-` can't appear in a Java method name, so `javac` can't call `ship-P0HeBCA`, however nicely you ask.\n\nMangling reaches further than functions. A class with a value-class property gets a private constructor, plus a public one with an extra `DefaultConstructorMarker` parameter that Java can't sensibly call. It also gets a mangled getter: the demo's `PrintRun` has `getSheets-auOsFv4()`. Members that return a value class are mangled too, so the lab's `Weight.Companion.parse` becomes `parse-D9kyZD4(String)`. A top-level function that only returns one is not: `parseWeight(String)` hands Java a plain `long`.\n\nThis is where the print shop picture breaks. Java comes in by the side door, and it can't read units at all. Either it can't call the function, or, once you open a door for it, it hands over a bare number that nobody checked.\n\nFor a single function, the quick door is `@JvmName`, which sets the name the function gets in the bytecode:\n\n```java\nSystem.out.println(ValueClassDemoKt.shipFromJava(199L));   // shipped 199 g\nSystem.out.println(ValueClassDemoKt.shipFromJava(-5L));    // shipped -5 g: init never ran\n// ValueClassDemoKt.ship(199L);                            // error: cannot find symbol\n```\n\n```kotlin\n@JvmName(\"shipFromJava\")\nfun shipJava(weight: Grams): String = \"shipped $weight\"\n```\n\nRead the second Java line again. Java passes a raw `long`, and nothing runs `init` on the way in.\n\n**@JvmName opens a door around your validation, so a function meant for Java must check its input again**, for example by building a fresh `Grams(weight.value)`.\n\nKotlin 2.2.0 added a fuller answer, `@JvmExposeBoxed`. It is still Experimental in Kotlin 2.4, so you opt in with `@OptIn(ExperimentalStdlibApi::class)`. On a class, it adds a public constructor that runs `init`. On a function, it adds a version that takes and returns the box, `describeRun(Copies)`, next to the mangled `describeRun-D2JSnUo(long)`. The compiler flag `-Xjvm-expose-boxed` does the same for a whole module:\n\n```java\nCopies copies = new Copies(125);                     // a real constructor: init runs\nSystem.out.println(ExposeBoxedDemoKt.describeRun(copies.doubled()));\n```\n\n```kotlin\n@file:OptIn(ExperimentalStdlibApi::class)\n\n@JvmExposeBoxed\n@JvmInline\nvalue class Copies(val count: Long) {\n    init { require(count >= 0) { \"negative copies: $count\" } }\n    fun doubled(): Copies = Copies(count * 2)\n}\n\n@JvmExposeBoxed\nfun describeRun(copies: Copies): String = \"a run of ${copies.count} copies\"\n```\n\nLibraries see the same bytecode that Java does. Some find getters by name through reflection, that is, by inspecting a class's members while the program runs. A library that turns objects into JSON text, or one that saves them to a database, will meet `getSheets-auOsFv4`. Check how your libraries handle that before you put value classes into the classes they read.\n\nMangling, boxing and side doors all come from one fact: on today's JVM, a value class is a trick the compiler plays. That trick has a hard limit.",
    "try": {
     "title": "Open the door for Java, properly",
     "minutes": 4,
     "steps": [
      "Run `ExposeBoxedDemo`, then `ExposeBoxedDemoJava`.",
-     "Run `javap -p -cp kotlin/build/classes/kotlin/demo workbench.kotlin.l02.demo.Fee workbench.kotlin.l02.demo.ExposeBoxedDemoKt`. Find the two `doubled` methods and the two `describeFee` methods.",
+     "Run `javap -p -cp kotlin/build/classes/kotlin/demo workbench.kotlin.l02.demo.Copies workbench.kotlin.l02.demo.ExposeBoxedDemoKt`. Find the two `doubled` methods and the two `describeRun` methods.",
      "Delete the first line of `ExposeBoxedDemo.kt` (`@file:OptIn(...)`) and run. Put it back."
     ],
     "code": {
      "lang": "kotlin",
      "title": "ExposeBoxedDemo.kt",
-     "src": "@file:OptIn(ExperimentalStdlibApi::class)\n\npackage workbench.kotlin.l02.demo\n\n/**\n * @JvmExposeBoxed (Experimental since Kotlin 2.2.0) adds Java-friendly members next to the\n * mangled ones: a public constructor that runs init, and overloads that take and return the box.\n */\n@JvmExposeBoxed\n@JvmInline\nvalue class Fee(val minor: Long) {\n    init {\n        require(minor >= 0) { \"negative fee: $minor\" }\n    }\n\n    fun doubled(): Fee = Fee(minor * 2)\n}\n\n@JvmExposeBoxed\nfun describeFee(fee: Fee): String = \"fee of ${fee.minor} minor units\"\n\nfun main() {\n    println(describeFee(Fee(125).doubled()))\n}\n",
+     "src": "@file:OptIn(ExperimentalStdlibApi::class)\n\npackage workbench.kotlin.l02.demo\n\n/**\n * @JvmExposeBoxed (Experimental since Kotlin 2.2.0) adds Java-friendly members next to the\n * mangled ones: a public constructor that runs init, and overloads that take and return the box.\n */\n@JvmExposeBoxed\n@JvmInline\nvalue class Copies(val count: Long) {\n    init {\n        require(count >= 0) { \"negative copies: $count\" }\n    }\n\n    fun doubled(): Copies = Copies(count * 2)\n}\n\n@JvmExposeBoxed\nfun describeRun(copies: Copies): String = \"a run of ${copies.count} copies\"\n\nfun main() {\n    println(describeRun(Copies(125).doubled()))\n}\n",
      "run": "./gradlew :kotlin:demo -Pmain=workbench.kotlin.l02.demo.ExposeBoxedDemoKt",
      "file": "labs/kotlin/src/demo/kotlin/workbench/kotlin/l02/demo/ExposeBoxedDemo.kt",
      "alt": {
       "lang": "java",
       "title": "ExposeBoxedDemoJava.java",
-      "src": "package workbench.kotlin.l02.demo;\n\n/**\n * Java twin of ExposeBoxedDemo.kt. With @JvmExposeBoxed, Java gets a real constructor that runs the\n * init block, and boxed overloads of doubled() and describeFee().\n */\npublic class ExposeBoxedDemoJava {\n    public static void main(String[] args) {\n        Fee fee = new Fee(125);                                // runs init: validation is back\n        System.out.println(ExposeBoxedDemoKt.describeFee(fee.doubled()));\n        try {\n            new Fee(-1);\n        } catch (IllegalArgumentException e) {\n            System.out.println(\"rejected: \" + e.getMessage());\n        }\n    }\n}\n",
+      "src": "package workbench.kotlin.l02.demo;\n\n/**\n * Java twin of ExposeBoxedDemo.kt. With @JvmExposeBoxed, Java gets a real constructor that runs the\n * init block, and boxed overloads of doubled() and describeRun().\n */\npublic class ExposeBoxedDemoJava {\n    public static void main(String[] args) {\n        Copies copies = new Copies(125);                       // runs init: validation is back\n        System.out.println(ExposeBoxedDemoKt.describeRun(copies.doubled()));\n        try {\n            new Copies(-1);\n        } catch (IllegalArgumentException e) {\n            System.out.println(\"rejected: \" + e.getMessage());\n        }\n    }\n}\n",
       "run": "./gradlew :kotlin:demo -Pmain=workbench.kotlin.l02.demo.ExposeBoxedDemoJava",
       "file": "labs/kotlin/src/demo/java/workbench/kotlin/l02/demo/ExposeBoxedDemoJava.java"
      }
     },
-    "expect": "Both print `fee of 250 minor units`, and the Java twin also prints `rejected: negative fee: -1`, so the public constructor ran `init`. `javap` shows `doubled-etMGDqA(long)` next to `Fee doubled()`, `describeFee-pUsR5hI(long)` next to `describeFee(Fee)`, and a public `Fee(long)` constructor. Without the opt-in, both annotations fail with `this declaration needs opt-in. Its usage must be marked with '@kotlin.ExperimentalStdlibApi' or '@OptIn(kotlin.ExperimentalStdlibApi::class)'`."
+    "expect": "Both print `a run of 250 copies`, and the Java twin also prints `rejected: negative copies: -1`, so the public constructor ran `init`. `javap` shows `doubled-8FQRi2g(long)` next to `Copies doubled()`, `describeRun-D2JSnUo(long)` next to `describeRun(Copies)`, and a public `Copies(long)` constructor. Without the opt-in, both annotations fail with `this declaration needs opt-in. Its usage must be marked with '@kotlin.ExperimentalStdlibApi' or '@OptIn(kotlin.ExperimentalStdlibApi::class)'`."
    },
    "refs": [
     {
@@ -125,149 +126,147 @@
   },
   {
    "h": "One field only, until Valhalla",
-   "body": "Give a value class two properties and the compiler stops you: `value class must have exactly one primary constructor parameter.` So `Point(x, y)` or `Money(cents, currency)` can't be value classes on the JVM in Kotlin 2.4, and there is no hidden flag for it.\n\nThe limit comes from the JVM. Kotlin can erase a one-field class into its field because the JVM already has a `long`. A two-field value with no identity needs support from the JVM itself, which is Project Valhalla. JEP 401, value classes and objects for Java, is integrated into JDK 28 as a preview feature, and JDK 28 is still in development. The Kotlin team's design notes explain why `@JvmInline` is mandatory today: it marks the current compile-time trick, so that a plain `value class` without the annotation can later compile to real Valhalla value classes. They call multi-field value classes before Valhalla \"all theoretical\". No Kotlin release has a Valhalla mode yet.\n\nFor now, the one-field limit shapes your design. An amount that carries its own currency stays a data class. Or you keep the currency elsewhere: many payment services give each account one currency, so the amount needs none of its own.\n\nWhere do value classes pay off? IDs and keys (`PaymentId`, `MerchantId`, `IdempotencyKey`), amounts in minor units, and validated strings such as an IBAN: anywhere two `String`s or two `Long`s could be swapped by accident. Validation runs once, in `init`, and the type is the proof that it ran. Where don't they? In APIs that Java code calls a lot, unless you add `@JvmName` overloads or `@JvmExposeBoxed`, and in classes that reflection-heavy frameworks read. Keep them in the Kotlin domain code and convert at the edges.",
+   "body": "Give a value class two properties and the compiler stops you: `value class must have exactly one primary constructor parameter.` So a paper size, `PaperSize(widthMm, heightMm)`, can't be a value class on the JVM in Kotlin 2.4, and neither can a weight that carries its own unit. There is no hidden flag for it either. Even the internal `-XXLanguage:+ValueClasses` earns only `warning: unknown language feature 'ValueClasses'`.\n\nThe limit comes from the JVM. Kotlin can erase a one-field class into its field because the JVM already has a `long` to erase it into. A value with two fields and no identity needs support from the JVM itself, and that is what Project Valhalla is building.\n\nAs the last track's Valhalla section said, JEP 401, Value Objects (Preview), was integrated into the JDK's main source tree on 31 July 2026. It ships in JDK 28, scheduled for March 2027, behind `--enable-preview`, the switch that turns on preview features. JDK 25, 26 and 27 don't have it.\n\nKotlin's design notes explain why `@JvmInline` is required today. It marks the current compile-time trick, so that a plain `value class` without the annotation can later compile to real Valhalla value classes. The notes call multi-field value classes before Valhalla \"all theoretical\", and no Kotlin release has a Valhalla mode yet.\n\nFor now, the one-field limit shapes your design. A paper size stays a data class, perhaps holding two value classes, a `Millimetres` for each side.\n\nWhere do value classes pay off? In ids (`JobId`, `CustomerId`), in counts and measures with one fixed unit (`Sheets`, `Grams`), and in checked strings such as a postcode: anywhere two `String`s or two `Long`s could be swapped by accident. Validation runs once, in `init`, and the type is the proof that it ran.\n\nWhere don't they? In functions that Java code calls a lot, unless you add `@JvmName` doors or `@JvmExposeBoxed`, and in classes that reflection-heavy libraries read. Keep value classes in your Kotlin code, and convert at the edges.\n\n**A value class holds exactly one value. Anything with two parts stays a data class, for now.**\n\nIn the lab, you'll build two of them, a `Weight` and a `JobId`, and give Java a door that still checks.",
    "try": {
     "title": "Try a second field",
     "minutes": 2,
     "steps": [
-     "In `ValueClassDemo.kt`, change `value class Cents(val value: Long)` to `value class Cents(val value: Long, val currency: String)`. Run the demo.",
+     "In `ValueClassDemo.kt`, change `value class Grams(val value: Long)` to `value class Grams(val value: Long, val unit: String)`. Run the demo.",
      "Undo it. Which of your own types would you make a value class, and which would stay a data class?"
     ],
-    "expect": "The build fails with `value class must have exactly one primary constructor parameter.` Single-value concepts such as ids, keys and minor-unit amounts fit. Anything with two parts (amount plus currency, a card's expiry month and year) stays a data class for now."
+    "expect": "The build fails with `value class must have exactly one primary constructor parameter.` Single-value ideas such as ids, counts and measures in one fixed unit fit. Anything with two parts (a paper size with a width and a height, a weight with its unit) stays a data class for now."
    }
   }
  ],
- "analogy": "A value class is a label the compiler checks and then peels off. Inside Kotlin, the label `Money` stops you from putting an order id in the amount slot. At run time the label is gone and only the number travels, except when the number has to go somewhere that only takes objects, like a list. Then the compiler packs it in a box with the label printed on the outside. The analogy breaks at the border with Java: Java can't read the label at all, so it either can't call the function, or, through `@JvmName`, hands in a bare number that nobody checked.",
- "in_your_world": "Payment code is full of values that share a JVM type and must never be mixed. `paymentId`, `merchantId` and `idempotencyKey` are all `String`; `amountMinor`, `feeMinor` and `createdAtEpochMs` are all `Long`. One value class per concept turns a swapped argument in `refund(merchantId, paymentId)` into a compile error, with no allocation in Kotlin code. Keep them in the domain and service layers of your Quarkus service. At the edges, look at what reads them: a REST DTO with `val amount: Money` has a getter named `getAmount-<hash>` in the bytecode, and the Java modules your team still maintains can't call a mangled function until you add `@JvmName` or `@JvmExposeBoxed`.",
- "mistake": "Believing a value class is never boxed, and then counting on it in a hot path that goes through generics. A `Map<PaymentId, Money>` or a `List<Money>` holds a boxed object per entry, exactly like `List<Long>`, and a nullable `Money?` field holds a reference to a box:\n\n```java\nList<Long> amounts = new ArrayList<>();\nfor (long m : rawAmounts) amounts.add(m);          // one Long object per element\n```\n\n```kotlin\nval amounts = ArrayList<Money>()\nfor (m in rawAmounts) amounts += Money(m)         // one Money object per element\n```\n\nThe value class still gives you type safety in those places, just not the allocation savings. Profile before you rely on them, and use a primitive array (`LongArray`) for large numeric batches.",
  "compare": {
-  "title": "An idempotency key: Java record vs Kotlin value class",
+  "title": "A job id: Java record vs Kotlin value class",
   "java": {
-   "title": "IdempotencyKey.java",
-   "src": "public record IdempotencyKey(String value) {\n    public IdempotencyKey {\n        if (value.length() < 8 || value.length() > 64)\n            throw new IllegalArgumentException(\"idempotency key must be 8 to 64 characters\");\n        if (!value.matches(\"[A-Za-z0-9_-]+\"))\n            throw new IllegalArgumentException(\"bad character in idempotency key: \" + value);\n    }\n}\n\n// every new IdempotencyKey(...) is an object with identity\nstatic Charge findCharge(IdempotencyKey key) { ... }   // JVM: findCharge(IdempotencyKey)"
+   "title": "JobId.java",
+   "src": "public record JobId(String value) {\n    public JobId {\n        if (value.length() < 8 || value.length() > 64)\n            throw new IllegalArgumentException(\"job id must be 8 to 64 characters\");\n        if (!value.matches(\"[A-Za-z0-9_-]+\"))\n            throw new IllegalArgumentException(\"bad character in job id: \" + value);\n    }\n}\n\n// every new JobId(...) is an object with identity\nstatic PrintJob findJob(JobId id) { ... }   // JVM: findJob(JobId)"
   },
   "kotlin": {
-   "title": "IdempotencyKey.kt",
-   "src": "@JvmInline\nvalue class IdempotencyKey(val value: String) {\n    init {\n        require(value.length in 8..64) { \"idempotency key must be 8 to 64 characters\" }\n        require(value.matches(Regex(\"[A-Za-z0-9_-]+\"))) { \"bad character in idempotency key: $value\" }\n    }\n}\n\n// IdempotencyKey(...) runs init and returns the same String\nfun findCharge(key: IdempotencyKey): Charge? = TODO()  // JVM: findCharge-<hash>(String)"
+   "title": "JobId.kt",
+   "src": "@JvmInline\nvalue class JobId(val value: String) {\n    init {\n        require(value.length in 8..64) { \"job id must be 8 to 64 characters\" }\n        require(value.matches(Regex(\"[A-Za-z0-9_-]+\"))) { \"bad character in job id: $value\" }\n    }\n}\n\n// JobId(...) runs init and returns the same String\nfun findJob(id: JobId): PrintJob? = TODO()   // JVM: findJob-<hash>(String)"
   },
-  "note": "Both validate once at construction and both compare by value. The record is a real object: each `new` allocates, and a map keyed by it holds those objects. The value class is a `String` at run time wherever it is used as itself, so `findCharge` costs exactly what a `String` parameter costs. The price is on the Java side: Java sees `findCharge-<hash>(String)`, which it can't call, and can't construct an `IdempotencyKey` at all without `@JvmExposeBoxed`. JEP 401, a preview in JDK 28, adds `value record` to Java: a record without identity, which gives the JVM room to flatten it."
+  "note": "Both validate once, when the value is built, and both compare by value. The record is a real object: each `new` creates one, and a map keyed by job ids holds those objects. The value class is a `String` at run time wherever it is used as itself, so `findJob` costs exactly what a `String` parameter costs. The price is on the Java side: Java sees `findJob-<hash>(String)`, which it can't call, and it can't construct a `JobId` at all without `@JvmExposeBoxed`. JEP 401, a preview in JDK 28, adds `value record` to Java: a record without identity, which lets the JVM flatten it, that is, store its fields in place with no separate object."
  },
  "worked": {
   "title": "Make a swapped argument a compile error, then give Java a safe door",
   "steps": [
    {
-    "say": "A refund call takes two `String`s and a `Long`. Someone swapped the ids in a hotfix, and it compiled.",
-    "code": "static String refund(String merchantId, String paymentId, long amountMinor) { ... }\n\nrefund(paymentId, merchantId, 1_999);   // swapped: compiles, refunds the wrong thing",
+    "say": "The shop can reprint an old job for a customer. The reprint call takes two `String`s and a `Long`. Someone swapped the two ids in a quick fix, and it compiled.",
+    "code": "static String reprint(String customerId, String jobId, long copies) { ... }\n\nreprint(jobId, customerId, 200);   // swapped: compiles, reprints the wrong thing",
     "lang": "java",
     "alt_lang": "kotlin",
-    "alt_code": "fun refund(merchantId: String, paymentId: String, amountMinor: Long): String = TODO()\n\nrefund(paymentId, merchantId, 1_999)    // swapped: compiles, refunds the wrong thing"
+    "alt_code": "fun reprint(customerId: String, jobId: String, copies: Long): String = TODO()\n\nreprint(jobId, customerId, 200)    // swapped: compiles, reprints the wrong thing"
    },
    {
-    "say": "Give each concept its own value class. The swapped call now fails to compile, twice, and nothing allocates: in the bytecode the function still takes two Strings and a long.",
-    "code": "@JvmInline value class MerchantId(val value: String)\n@JvmInline value class PaymentId(val value: String)\n@JvmInline value class Money(val cents: Long)\n\n// 1. one type per concept\nfun refund(merchant: MerchantId, payment: PaymentId, amount: Money): String = TODO()\n\nrefund(payment, merchant, Money(1_999))\n// error: argument type mismatch: actual type is 'PaymentId', but 'MerchantId' was expected.\n// error: argument type mismatch: actual type is 'MerchantId', but 'PaymentId' was expected.",
+    "say": "Give each idea its own value class. The swapped call now fails to compile, twice, and nothing is allocated: in the bytecode the function still takes two `String`s and a `long`.",
+    "code": "@JvmInline value class CustomerId(val value: String)\n@JvmInline value class JobId(val value: String)\n@JvmInline value class Copies(val count: Long)\n\n// 1. one type per idea\nfun reprint(customer: CustomerId, job: JobId, copies: Copies): String = TODO()\n\nreprint(job, customer, Copies(200))\n// error: argument type mismatch: actual type is 'JobId', but 'CustomerId' was expected.\n// error: argument type mismatch: actual type is 'CustomerId', but 'JobId' was expected.",
     "lang": "kotlin",
     "alt_lang": "java",
-    "alt_code": "// Java gets the same safety from records, at the cost of an object each\nrecord MerchantId(String value) {}\nrecord PaymentId(String value) {}\n\nstatic String refund(MerchantId merchant, PaymentId payment, long amountMinor) { ... }\n\nrefund(payment, merchant, 1_999);   // error: incompatible types: PaymentId cannot be converted to MerchantId"
+    "alt_code": "// Java gets the same safety from records, at the cost of an object each\nrecord CustomerId(String value) {}\nrecord JobId(String value) {}\n\nstatic String reprint(CustomerId customer, JobId job, long copies) { ... }\n\nreprint(job, customer, 200);   // error: incompatible types: JobId cannot be converted to CustomerId"
    },
    {
-    "say": "Check the Java view. `javap` shows `refund-<hash>(String, String, long)`: the Java module that also issues refunds can't call it any more. Don't reach for `@JvmName` here, because Java would pass raw values past every `init`. Add a Java entry point that takes the raw types and builds the value classes, so validation runs.",
-    "code": "// 2. a door for Java: raw types in, value classes (and their init blocks) inside\nfun refundFromJava(merchantId: String, paymentId: String, amountMinor: Long): String =\n    refund(MerchantId(merchantId), PaymentId(paymentId), Money(amountMinor))\n\n// javap: refund-<hash>(String, String, long) and refundFromJava(String, String, long)",
+    "say": "Check the Java view. `javap` shows `reprint-<hash>(String, String, long)`, so the older Java program that also reprints jobs can't call it any more. Don't reach for `@JvmName` here, because Java would pass raw values past every `init`. Add a Java entry point that takes the raw types and builds the value classes itself, so validation runs.",
+    "code": "// 2. a door for Java: raw types in, value classes (and their init blocks) inside\nfun reprintFromJava(customerId: String, jobId: String, copies: Long): String =\n    reprint(CustomerId(customerId), JobId(jobId), Copies(copies))\n\n// javap: reprint-<hash>(String, String, long) and reprintFromJava(String, String, long)",
     "lang": "kotlin",
     "alt_lang": "java",
-    "alt_code": "// 3. the Java module calls the plain name; a negative amount fails inside Money's init\nString result = RefundsKt.refundFromJava(\"m-981\", \"pay_7\", 1_999L);"
+    "alt_code": "// 3. the Java program calls the plain name; a negative count would fail inside Copies' init\nString result = ReprintsKt.reprintFromJava(\"c-17\", \"job-2026-0042\", 200L);"
    },
    {
-    "say": "Java can still swap the two strings in `refundFromJava`, so the door is a compromise: it validates values, it can't check names. That's why the type safety belongs in Kotlin and the door belongs at the edge, used by as few callers as possible.",
+    "say": "Java can still swap the two strings in `reprintFromJava`, so the door is a compromise: it checks values, but it can't check names. That's why the type safety belongs in Kotlin, and the door belongs at the edge, used by as few callers as possible.",
     "code": "",
     "lang": ""
    }
   ]
  },
  "lab": {
-  "title": "Money and IdempotencyKey value classes with validation",
+  "title": "Weight and JobId value classes with validation",
   "minutes": 13,
   "files": [
-   "labs/kotlin/src/main/kotlin/workbench/kotlin/l02/Money.kt",
-   "labs/kotlin/src/main/kotlin/workbench/kotlin/l02/IdempotencyKey.kt",
-   "labs/kotlin/src/main/kotlin/workbench/kotlin/l02/Receipts.kt"
+   "labs/kotlin/src/main/kotlin/workbench/kotlin/l02/Weight.kt",
+   "labs/kotlin/src/main/kotlin/workbench/kotlin/l02/JobId.kt",
+   "labs/kotlin/src/main/kotlin/workbench/kotlin/l02/Labels.kt"
   ],
   "run": "./gradlew :kotlin:test --tests 'workbench.kotlin.l02.*'",
   "steps": [
-   "Run the tests. All nine fail.",
-   "In `Money.kt`, add the `init` block (TODO 1), then write `plus`, `times`, `compareTo`, `toString` and `parse` (TODOs 2 to 5).",
-   "In `IdempotencyKey.kt`, add the `init` block (TODO 6): 8 to 64 characters, ASCII letters, digits, `-` and `_` only.",
-   "In `Receipts.kt`, write `receiptLine`, then add the Java entry point (TODO 7) with `@JvmName`. Make it validate.",
-   "Run the tests until all nine pass. Then run `javap -p -cp kotlin/build/classes/kotlin/main workbench.kotlin.l02.ReceiptsKt` and match each name to the Kotlin function it came from."
+   "The shop's app weighs every parcel and gives every job an id. Run the tests. All nine fail.",
+   "In `Weight.kt`, add the `init` block (TODO 1), then write `plus`, `times`, `compareTo`, `toString` and `parse` (TODOs 2 to 5). `parse` reads kilograms, the way the shop's scale shows them, and keeps grams.",
+   "In `JobId.kt`, add the `init` block (TODO 6): 8 to 64 characters, ASCII letters, digits, `-` and `_` only.",
+   "In `Labels.kt`, write `parcelLabel`, then add the Java entry point (TODO 7) with `@JvmName`. Make it validate.",
+   "Run the tests until all nine pass. Then run `javap -p -cp kotlin/build/classes/kotlin/main workbench.kotlin.l02.LabelsKt` and match each name to the Kotlin function it came from."
   ],
   "hints": [
-   "`init { require(cents >= 0) { \"amount must be non-negative, was $cents\" } }` goes inside the class body.",
-   "`BigDecimal(\"1.234\").setScale(2)` throws `ArithmeticException: Rounding necessary`. That's what you want, so don't pass a rounding mode.",
-   "For ASCII only, test `it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '_'`. `isLetterOrDigit()` alone also accepts letters such as `é`.",
-   "TODO 7: `@JvmName(\"receiptLineForJava\") fun receiptLineJava(amount: Money): String = receiptLine(Money(amount.cents))`. Building a new `Money` calls `constructor-impl`, which runs `init`.",
+   "`init { require(grams >= 0) { \"weight must be non-negative, was $grams\" } }` goes inside the class body.",
+   "`BigDecimal(\"1.2345\").setScale(3)` throws `ArithmeticException: Rounding necessary`. That's what you want, so don't pass a rounding mode.",
+   "For ASCII only, test `it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '_'`. `isLetterOrDigit()` alone also accepts letters such as `ö`.",
+   "TODO 7: `@JvmName(\"parcelLabelForJava\") fun parcelLabelJava(weight: Weight): String = parcelLabel(Weight(weight.grams))`. Building a new `Weight` calls `constructor-impl`, which runs `init`.",
    "Keep `override fun toString(): String` with its explicit return type. Kotlin 2.4.21 (and 2.3.21) crash with `Backend Internal error: Exception during IR lowering` when a value class's `toString()` infers its type from a Java call such as `toPlainString()` and the value is then used in a string template."
   ],
-  "done_when": "All nine tests in `MoneyTest` and `ReceiptsFromJavaTest` pass."
+  "done_when": "All nine tests in `WeightTest` and `LabelsFromJavaTest` pass."
  },
  "drill": {
-  "title": "Write a validated Iban from memory",
+  "title": "Write a validated Isbn from memory",
   "minutes": 4,
-  "prompt": "Close this page. Write `@JvmInline value class Iban(val value: String)` that rejects anything other than 15 to 34 characters of capital letters and digits starting with two letters. Then write the Java record version. Which one allocates when you call `send(to: Iban)` with it, and what is the JVM name of `send` in each language?",
+  "prompt": "The shop prints short runs of books, and every book has an ISBN. Close this page. Write `@JvmInline value class Isbn(val value: String)` that rejects anything other than 13 digits starting with 978 or 979. Then write the Java record version. Which one allocates when you call `printCover(isbn: Isbn)` with it, and what is the JVM name of `printCover` in each language?",
   "answer": {
    "lang": "kotlin",
-   "src": "@JvmInline\nvalue class Iban(val value: String) {\n    init {\n        require(value.length in 15..34) { \"IBAN must be 15 to 34 characters\" }\n        require(value.matches(Regex(\"[A-Z]{2}[A-Z0-9]+\"))) { \"bad IBAN: $value\" }\n    }\n}\n\nfun send(to: Iban): Unit = TODO()   // JVM: send-<hash>(String); no object is created",
+   "src": "@JvmInline\nvalue class Isbn(val value: String) {\n    init {\n        require(value.length == 13 && value.all { it in '0'..'9' }) { \"ISBN must be 13 digits: $value\" }\n        require(value.startsWith(\"978\") || value.startsWith(\"979\")) { \"ISBN must start with 978 or 979: $value\" }\n    }\n}\n\nfun printCover(isbn: Isbn): Unit = TODO()   // JVM: printCover-<hash>(String); no object is created",
    "alt": {
     "lang": "java",
-    "title": "Iban.java",
-    "src": "public record Iban(String value) {\n    public Iban {\n        if (value.length() < 15 || value.length() > 34)\n            throw new IllegalArgumentException(\"IBAN must be 15 to 34 characters\");\n        if (!value.matches(\"[A-Z]{2}[A-Z0-9]+\"))\n            throw new IllegalArgumentException(\"bad IBAN: \" + value);\n    }\n}\n\nstatic void send(Iban to) { }   // JVM: send(Iban); every new Iban(...) is an object"
+    "title": "Isbn.java",
+    "src": "public record Isbn(String value) {\n    public Isbn {\n        if (!value.matches(\"[0-9]{13}\"))\n            throw new IllegalArgumentException(\"ISBN must be 13 digits: \" + value);\n        if (!value.startsWith(\"978\") && !value.startsWith(\"979\"))\n            throw new IllegalArgumentException(\"ISBN must start with 978 or 979: \" + value);\n    }\n}\n\nstatic void printCover(Isbn isbn) { }   // JVM: printCover(Isbn); every new Isbn(...) is an object"
    }
   }
  },
  "recap": [
-  "`@JvmInline value class X(val v: T)` has one property, validates in `init`, is its own type in Kotlin and a plain `T` in the bytecode wherever it's used as itself.",
+  "`@JvmInline value class X(val v: T)` has one property, validates in `init`, is its own type in Kotlin, and is a plain `T` in the bytecode wherever it's used as itself.",
   "It is boxed whenever it's used as another type: a generic `T`, a nullable `X?`, an interface, `Any`, and so every collection.",
-  "Functions that take a value class get mangled JVM names such as `charge-X49TzF8(long)`. That avoids overload clashes and keeps Java out.",
+  "Functions that take a value class get mangled JVM names such as `ship-P0HeBCA(long)`. That avoids clashes between overloads and keeps Java out.",
   "`@JvmName` lets Java call such a function, but Java passes the raw value and skips `init`, so validate again. `@JvmExposeBoxed` (Experimental, opt-in) gives Java a constructor that runs `init`.",
   "A type alias is only a second name. A value class is a new type.",
-  "Only one field on the JVM. Multi-field value classes wait for Valhalla, and JEP 401 is a preview in JDK 28."
+  "The limit: only one field on the JVM. Multi-field value classes wait for Valhalla, and JEP 401 is a preview in JDK 28."
  ],
+ "closing": "We started at the parcel desk, where every number carries its unit until it reaches the machines. A value class is that unit: checked by the compiler, gone at run time, and back in an envelope whenever the value goes somewhere that only takes objects. Java comes in by the side door and sees bare numbers under strange names.\n\nNow look in your own code for a function with two parameters of the same type side by side, two `String` ids or two `Long` counts. Each one is a swap that would compile.\n\nNext, we'll let the compiler write a wrapper for us instead of erasing one. What does `by` forward, and to which object?",
  "quiz": [
   {
-   "q": "`@JvmInline value class Money(val cents: Long)`. Which call boxes `m`?",
+   "q": "`@JvmInline value class Weight(val grams: Long)`. Which call boxes `w`?",
    "options": [
-    "`total(m, other)`, where `fun total(a: Money, b: Money) = a + b`",
-    "`audit(m)`, where `fun audit(x: Any?)`",
-    "`Invoice(amount = m)`, where `class Invoice(val amount: Money)`",
-    "`m.cents * 2`"
+    "`total(w, other)`, where `fun total(a: Weight, b: Weight) = a + b`",
+    "`log(w)`, where `fun log(x: Any?)`",
+    "`Parcel(weight = w)`, where `class Parcel(val weight: Weight)`",
+    "`w.grams * 2`"
    ],
    "answer": 1,
-   "why": "`Any?` is another type, so the compiler calls `Money.box-impl` before `audit`. `total` takes `Money` as itself (two longs in the bytecode), `Invoice` stores a `long` field, and `m.cents` reads the long directly."
+   "why": "`Any?` is another type, so the compiler calls `Weight.box-impl` before `log`. `total` takes `Weight` as itself (two longs in the bytecode), `Parcel` stores a `long` field, and `w.grams` reads the long directly."
   },
   {
-   "q": "What can Java call for `fun refund(id: PaymentId, amount: Money): Boolean`, where both are value classes over `String` and `Long`?",
+   "q": "What can Java call for `fun reprint(id: JobId, copies: Copies): Boolean`, where both are value classes over `String` and `Long`?",
    "options": [
-    "`refund(PaymentId, Money)`",
-    "`refund(String, long)`",
+    "`reprint(JobId, Copies)`",
+    "`reprint(String, long)`",
     "Nothing: value classes can't be parameters of top-level functions",
-    "Nothing by that name: the JVM method is `refund-<hash>(String, long)`, which javac can't call"
+    "Nothing by that name: the JVM method is `reprint-<hash>(String, long)`, which javac can't call"
    ],
    "answer": 3,
-   "why": "Functions with value-class parameters are mangled, and the `-` makes the name impossible to write in Java. The parameters are the underlying types, so it isn't `refund(PaymentId, Money)` either. Add `@JvmName`, a raw-typed entry point, or `@JvmExposeBoxed` for Java."
+   "why": "Functions with value-class parameters are mangled, and the `-` makes the name impossible to write in Java. The parameters are the underlying types, so it isn't `reprint(JobId, Copies)` either. Add `@JvmName`, a raw-typed entry point, or `@JvmExposeBoxed` for Java."
   },
   {
-   "q": "Java calls `ReceiptsKt.receiptLineForJava(-500L)`. In Kotlin: `@JvmName(\"receiptLineForJava\") fun receiptLineJava(amount: Money) = \"EUR $amount\"`, and `Money`'s `init` rejects negative amounts. What happens?",
+   "q": "Java calls `LabelsKt.parcelLabelForJava(-500L)`. In Kotlin: `@JvmName(\"parcelLabelForJava\") fun parcelLabelJava(weight: Weight) = \"Parcel $weight kg\"`, and `Weight`'s `init` rejects negative weights. What happens?",
    "options": [
-    "It returns `\"EUR -5.00\"`: Java passed a raw long, so no `Money` was constructed and `init` never ran",
-    "`IllegalArgumentException` from Money's `init`",
-    "javac refuses the call, because the parameter is a `Money`",
+    "It returns `\"Parcel -0.500 kg\"`: Java passed a raw long, so no `Weight` was constructed and `init` never ran",
+    "`IllegalArgumentException` from Weight's `init`",
+    "javac refuses the call, because the parameter is a `Weight`",
     "`ClassCastException` at run time"
    ],
    "answer": 0,
-   "why": "`init` runs in `constructor-impl`, which only runs when someone writes `Money(...)`. Java skipped that and handed the function a bare `long`. The fix is to build a fresh `Money(amount.cents)` inside the Java entry point."
+   "why": "`init` runs in `constructor-impl`, which only runs when someone writes `Weight(...)`. Java skipped that and handed the function a bare `long`. The fix is to build a fresh `Weight(weight.grams)` inside the Java entry point."
   },
   {
-   "q": "You try `@JvmInline value class Price(val cents: Long, val currency: String)`. What does Kotlin 2.4 do?",
+   "q": "You try `@JvmInline value class PaperSize(val widthMm: Int, val heightMm: Int)`. What does Kotlin 2.4 do?",
    "options": [
-    "It compiles, and the JVM stores a long and a reference",
+    "It compiles, and the JVM stores two ints in place",
     "It compiles if you add `-XXLanguage:+ValueClasses`",
     "It reports `value class must have exactly one primary constructor parameter.`",
     "It compiles, but every use is boxed"
@@ -276,7 +275,7 @@
    "why": "On the JVM a value class has exactly one field. Even the internal flag `-XXLanguage:+ValueClasses` only earns `warning: unknown language feature 'ValueClasses'`, and the error stays. Multi-field value classes wait for Valhalla support in the JVM."
   },
   {
-   "q": "From the last lesson: `inline fun <T> inTx(block: () -> T): T = runner.execute(Callable { block() })`. What does the compiler ask for?",
+   "q": "From the last lesson: `inline fun <T> printing(block: () -> T): T = queue.withPrinter(Callable { block() })`. What does the compiler ask for?",
    "options": [
     "`noinline` on `block`",
     "`crossinline` on `block`, because it's called inside the `Callable`",
@@ -290,15 +289,15 @@
  ],
  "flashcards": [
   {
-   "front": "What does `@JvmInline value class PaymentId(val value: String)` compile to where it's used as a `PaymentId`?",
-   "back": "A plain `String`. `PaymentId(...)` calls the static `constructor-impl`, which runs `init` and returns the same String."
+   "front": "What does `@JvmInline value class JobId(val value: String)` compile to where it's used as a `JobId`?",
+   "back": "A plain `String`. `JobId(...)` calls the static `constructor-impl`, which runs `init` and returns the same String."
   },
   {
    "front": "When is a value class boxed?",
    "back": "Whenever it's used as another type: a generic `T`, a nullable `X?`, an interface it implements, or `Any` (collections, `println`)."
   },
   {
-   "front": "Why does `fun charge(amount: Cents)` compile to `charge-X49TzF8(long)`?",
+   "front": "Why does `fun ship(weight: Grams)` compile to `ship-P0HeBCA(long)`?",
    "back": "Mangling. It avoids clashes with overloads on the underlying type, and Java can't call a name with a `-` in it."
   },
   {
@@ -307,7 +306,7 @@
   },
   {
    "front": "Type alias vs value class?",
-   "back": "An alias is another name, assignment-compatible with the original type. A value class is a new type: a `Long` won't go where `Cents` is expected."
+   "back": "An alias is another name, assignment-compatible with the original type. A value class is a new type: a `Long` won't go where `Grams` is expected."
   },
   {
    "front": "How many properties can a Kotlin value class have on the JVM?",
@@ -324,12 +323,16 @@
    "plain": "`@JvmInline value class X(val v: T)`: its own type in Kotlin, its single property `T` at run time where possible."
   },
   {
+   "term": "Underlying type",
+   "plain": "The type of a value class's one property, which is what the JVM actually sees."
+  },
+  {
    "term": "Boxing",
    "plain": "Wrapping the underlying value in a real object of the value class, done when it is used as another type."
   },
   {
    "term": "Name mangling",
-   "plain": "The hash suffix, as in `charge-X49TzF8`, that the compiler adds to functions with value-class parameters."
+   "plain": "The hash suffix, as in `ship-P0HeBCA`, that the compiler adds to functions with value-class parameters."
   },
   {
    "term": "@JvmName",
@@ -349,12 +352,12 @@
   }
  ],
  "explain_back": {
-  "prompt": "A teammate who mostly writes Java asks why `fun charge(m: Money)` costs no allocation but `List<Money>` does, and why their Java code can't call `charge`. Explain both in your own words.",
-  "answer": "A value class exists for the compiler, not for the JVM. Where the code uses a `Money` as a `Money` (a parameter, a field, a return value), the compiler passes the `long` inside it, so `charge` really takes a `long` and nothing is allocated. A `List` holds objects, so when a `Money` goes into one, the compiler has to wrap the long in a real `Money` object first, the same way Java wraps a `long` in a `Long`. That's boxing, and it happens whenever the value is used as another type: generic, nullable, interface or `Any`. Java can't call `charge` because the compiler mangles its name to something like `charge-X49TzF8(long)`. The hash avoids clashes with a `charge(Long)` overload and keeps unchecked longs out. To let Java in, add a function with `@JvmName`, or one that takes a raw `Long` and builds the `Money` itself, so the validation in `init` still runs."
+  "prompt": "A teammate who mostly writes Java asks why `fun ship(weight: Grams)` costs no allocation but `List<Grams>` does, and why their Java code can't call `ship`. Explain both in your own words.",
+  "answer": "A value class exists for the compiler, not for the JVM. Where the code uses a `Grams` as a `Grams` (a parameter, a field, a return value), the compiler passes the `long` inside it, so `ship` really takes a `long` and nothing is allocated. A `List` holds objects, so when a `Grams` goes into one, the compiler has to wrap the long in a real `Grams` object first, the same way Java wraps a `long` in a `Long`. That's boxing, and it happens whenever the value is used as another type: generic, nullable, interface or `Any`. Java can't call `ship` because the compiler mangles its name to something like `ship-P0HeBCA(long)`. The hash avoids clashes with a `ship(Long)` overload and keeps unchecked longs out. To let Java in, add a function with `@JvmName`, or one that takes a raw `Long` and builds the `Grams` itself, so the validation in `init` still runs."
  },
  "deeper": {
   "minutes": 8,
-  "body": "Two details that matter when you design with value classes.\n\nA value class can wrap a generic type: `@JvmInline value class Box<T>(val value: T)`. The docs say the underlying type is then mapped to `Any?`, or to the upper bound of `T`, so at run time it's an `Object` field and you rarely save anything. Generic value classes help for type safety, not for speed.\n\nThe second detail is a compiler bug worth knowing about. In Kotlin 2.4.21 (and 2.3.21) this crashes the compiler with `Backend Internal error: Exception during IR lowering` and a `NoSuchElementException` from the string-concatenation lowering:\n\n```text\n@JvmInline value class M(val c: Long) { override fun toString() = java.math.BigDecimal.valueOf(c, 2).toPlainString() }\nfun f(m: M) = \"x $m\"\n```\n\nThe trigger is the inferred return type: `toPlainString()` returns a Java platform type, `String!`. Write `override fun toString(): String = ...` and it compiles. It's a small, concrete argument for explicit return types on anything public: they keep platform types from leaking into your API, and here they also keep the compiler alive.\n\nFinally, the history of the keyword, which explains old code you'll still meet. Kotlin 1.5.0 made these classes stable with the `value` modifier plus `@JvmInline` on the JVM, and deprecated the old `inline class` spelling with a warning. The design notes give the reason for the split: `@JvmInline` names today's erasure trick, which leaves the plain `value class` free to mean a real Valhalla value class one day."
+  "body": "Two details that matter when you design with value classes.\n\nA value class can wrap a generic type: `@JvmInline value class Box<T>(val value: T)`. The docs say the underlying type is then mapped to `Any?`, or to the upper bound of `T`, so at run time it's an `Object` field and you rarely save anything. Generic value classes help with type safety, not with speed.\n\nThe second detail is a compiler bug worth knowing about. In Kotlin 2.4.21 (and 2.3.21) this crashes the compiler with `Backend Internal error: Exception during IR lowering` and a `NoSuchElementException` from the string-concatenation lowering:\n\n```text\n@JvmInline value class W(val grams: Long) { override fun toString() = java.math.BigDecimal.valueOf(grams, 3).toPlainString() }\nfun label(w: W) = \"Parcel $w kg\"\n```\n\nThe trigger is the inferred return type: `toPlainString()` returns a Java platform type, `String!`, a type whose nullability Kotlin doesn't know. Write `override fun toString(): String = ...` and it compiles. It's a small, concrete argument for explicit return types on anything public: they keep platform types from leaking into your API, and here they also keep the compiler alive.\n\nFinally, the history of the keyword, which explains old code you'll still meet. Kotlin 1.5.0 made these classes stable with the `value` modifier plus `@JvmInline` on the JVM, and deprecated the old `inline class` spelling with a warning. The design notes give the reason for the split: `@JvmInline` names today's erasure trick, which leaves the plain `value class` free to mean a real Valhalla value class one day."
  },
  "sources": [
   {
@@ -374,7 +377,7 @@
    "url": "https://github.com/Kotlin/KEEP/blob/master/notes/value-classes.md"
   },
   {
-   "title": "JEP 401: value objects for the JVM (Project Valhalla, preview)",
+   "title": "JEP 401: Value Objects (Preview)",
    "url": "https://openjdk.org/jeps/401"
   }
  ]

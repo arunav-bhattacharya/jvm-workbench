@@ -5,8 +5,9 @@ sealed interface Goods {
 
     data class ByWeight(val name: String, val grams: Int, val centsPerKg: Long) : Goods
 
-    data class Box(val contents: List<Goods>) : Goods {
+    class Box(contents: List<Goods>) : Goods {
         constructor(vararg contents: Goods) : this(contents.toList())
+        val contents: List<Goods> = contents.toList()     // a copy: the box can't change behind your back
     }
 
     data class PercentOff(val inside: Goods, val percent: Int) : Goods

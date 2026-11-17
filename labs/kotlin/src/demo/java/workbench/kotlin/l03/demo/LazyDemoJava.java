@@ -6,20 +6,20 @@ package workbench.kotlin.l03.demo;
  */
 public class LazyDemoJava {
 
-    static int rateCalls = 0;
+    static int lookups = 0;
 
-    static final class FxQuoteJava {
-        private volatile Double eurUsd;              // null means "not computed yet"
+    static final class PaperSpecJava {
+        private volatile Double sheetGrams;          // null means "not computed yet"
 
-        double eurUsd() {
-            Double v = eurUsd;
+        double sheetGrams() {
+            Double v = sheetGrams;
             if (v == null) {
                 synchronized (this) {
-                    v = eurUsd;
+                    v = sheetGrams;
                     if (v == null) {
-                        rateCalls++;
-                        if (rateCalls == 1) throw new IllegalStateException("rate service timed out");
-                        eurUsd = v = 1.0842;
+                        lookups++;
+                        if (lookups == 1) throw new IllegalStateException("paper catalogue timed out");
+                        sheetGrams = v = 4.99;
                     }
                 }
             }
@@ -28,22 +28,22 @@ public class LazyDemoJava {
     }
 
     public static void main(String[] args) {
-        FxQuoteJava quote = new FxQuoteJava();
+        PaperSpecJava spec = new PaperSpecJava();
         try {
-            quote.eurUsd();
+            spec.sheetGrams();
         } catch (IllegalStateException e) {
             System.out.println("first read failed: " + e.getMessage());
         }
-        System.out.println("second read: " + quote.eurUsd() + " (initializer ran " + rateCalls + " times)");
-        System.out.println("third read:  " + quote.eurUsd() + " (initializer ran " + rateCalls + " times)");
+        System.out.println("second read: " + spec.sheetGrams() + " (initializer ran " + lookups + " times)");
+        System.out.println("third read:  " + spec.sheetGrams() + " (initializer ran " + lookups + " times)");
 
-        // the Kotlin class from Java: getEurUsd() calls Lazy.getValue() on every read
-        FxQuote kotlinQuote = new FxQuote();
+        // the Kotlin class from Java: getSheetGrams() calls Lazy.getValue() on every read
+        PaperSpec kotlinSpec = new PaperSpec();
         try {
-            kotlinQuote.getEurUsd();
+            kotlinSpec.getSheetGrams();
         } catch (IllegalStateException e) {
-            System.out.println("Kotlin FxQuote from Java, first read failed: " + e.getMessage());
+            System.out.println("Kotlin PaperSpec from Java, first read failed: " + e.getMessage());
         }
-        System.out.println("Kotlin FxQuote from Java, second read: " + kotlinQuote.getEurUsd());
+        System.out.println("Kotlin PaperSpec from Java, second read: " + kotlinSpec.getSheetGrams());
     }
 }

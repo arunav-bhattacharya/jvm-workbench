@@ -8,9 +8,9 @@ import java.util.NoSuchElementException;
  */
 public class StdDelegatesDemoJava {
 
-    static final class PayoutJava {
+    static final class PrintRequestJava {
         private String owner = "<none>";
-        private int limit = 100;
+        private int copies = 1;
 
         void setOwner(String owner) {
             String old = this.owner;
@@ -18,16 +18,16 @@ public class StdDelegatesDemoJava {
             System.out.println("owner: " + old + " -> " + owner);
         }
 
-        void setLimit(int limit) {
-            if (limit <= 100) this.limit = limit;                 // vetoable: check, then assign
+        void setCopies(int copies) {
+            if (copies <= 100) this.copies = copies;              // vetoable: check, then assign
         }
 
-        int getLimit() { return limit; }
+        int getCopies() { return copies; }
     }
 
-    static final class IssuerConfigJava {
+    static final class PrinterConfigJava {
         private final Map<String, Object> settings;
-        IssuerConfigJava(Map<String, Object> settings) { this.settings = settings; }
+        PrinterConfigJava(Map<String, Object> settings) { this.settings = settings; }
 
         String host() { return (String) get("host"); }
         int port() { return (Integer) get("port"); }
@@ -39,24 +39,24 @@ public class StdDelegatesDemoJava {
     }
 
     // provideDelegate has no Java twin: Java validates in the constructor, which also runs at build time
-    static final class SettingsJava {
-        final String issuerUrl;
-        SettingsJava() {
-            System.out.println("binding issuerUrl");
-            issuerUrl = "value of issuerUrl";
+    static final class ShopSettingsJava {
+        final String printerHost;
+        ShopSettingsJava() {
+            System.out.println("binding printerHost");
+            printerHost = "value of printerHost";
         }
     }
 
     public static void main(String[] args) {
-        PayoutJava p = new PayoutJava();
-        p.setOwner("alice");
-        p.setOwner("bob");
-        p.setLimit(500);
-        System.out.println("limit after veto: " + p.getLimit());
-        p.setLimit(50);
-        System.out.println("limit after ok: " + p.getLimit());
+        PrintRequestJava request = new PrintRequestJava();
+        request.setOwner("alice");
+        request.setOwner("bob");
+        request.setCopies(500);
+        System.out.println("copies after veto: " + request.getCopies());
+        request.setCopies(50);
+        System.out.println("copies after ok: " + request.getCopies());
 
-        IssuerConfigJava config = new IssuerConfigJava(Map.of("host", "issuer.example"));
+        PrinterConfigJava config = new PrinterConfigJava(Map.of("host", "laser-1.local"));
         System.out.println("host = " + config.host());
         try {
             System.out.println("port = " + config.port());
@@ -64,8 +64,8 @@ public class StdDelegatesDemoJava {
             System.out.println("port failed on access: " + e.getMessage());
         }
 
-        System.out.println("building Settings...");
-        SettingsJava s = new SettingsJava();
-        System.out.println("built; issuerUrl = " + s.issuerUrl);
+        System.out.println("building ShopSettings...");
+        ShopSettingsJava s = new ShopSettingsJava();
+        System.out.println("built; printerHost = " + s.printerHost);
     }
 }

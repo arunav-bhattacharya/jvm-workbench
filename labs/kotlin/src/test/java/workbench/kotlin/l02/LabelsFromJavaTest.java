@@ -6,14 +6,14 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class ReceiptsFromJavaTest {
+class LabelsFromJavaTest {
 
     @Test
-    @DisplayName("Java calls parseAmount and gets the raw cents as a long: Money does not exist at run time here")
+    @DisplayName("Java calls parseWeight and gets the raw grams as a long: Weight does not exist at run time here")
     void javaSeesALong() {
-        long cents = ReceiptsKt.parseAmount("19.99");     // the Kotlin return type Money is a long for Java
-        assertThat(cents).isEqualTo(1_999L);
-        assertThatThrownBy(() -> ReceiptsKt.parseAmount("-1.00"))
+        long grams = LabelsKt.parseWeight("1.25");        // the Kotlin return type Weight is a long for Java
+        assertThat(grams).isEqualTo(1_250L);
+        assertThatThrownBy(() -> LabelsKt.parseWeight("-1.0"))
                 .isInstanceOf(IllegalArgumentException.class);   // validation ran inside Kotlin
     }
 }
