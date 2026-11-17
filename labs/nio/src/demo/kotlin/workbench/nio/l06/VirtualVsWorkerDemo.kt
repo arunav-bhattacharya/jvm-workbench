@@ -20,7 +20,7 @@ fun main() {
             server.runOnContext {
                 val blockingCall = Runnable {
                     threads += Thread.currentThread().name
-                    Thread.sleep(100)                     // JDBC, a card-issuer call...
+                    Thread.sleep(100)                     // a database, a slow web service...
                     done.complete()
                 }
                 if (virtual) virtualThreads.start(blockingCall)   // like @RunOnVirtualThread

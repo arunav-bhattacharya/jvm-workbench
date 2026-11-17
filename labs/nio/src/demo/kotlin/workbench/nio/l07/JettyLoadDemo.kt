@@ -21,14 +21,14 @@ import java.util.concurrent.atomic.AtomicInteger
 /** 40 concurrent requests to a handler that blocks 300 ms, on three kinds of thread pool. */
 private val loadClient = HttpClient.newBuilder().proxy(HttpClient.Builder.NO_PROXY).version(HttpClient.Version.HTTP_1_1).build()
 
-private class KtSlowLedger : Handler.Abstract() {
+private class KtSlowPriceDesk : Handler.Abstract() {
     val inFlight = AtomicInteger()
     val max = AtomicInteger()
 
     override fun handle(request: Request, response: Response, callback: Callback): Boolean {
         max.accumulateAndGet(inFlight.incrementAndGet()) { a, b -> maxOf(a, b) }
         try {
-            Thread.sleep(300)                                       // the "JDBC call"
+            Thread.sleep(300)                                       // the slow "database lookup"
         } finally {
             inFlight.decrementAndGet()
         }
@@ -38,17 +38,17 @@ private class KtSlowLedger : Handler.Abstract() {
 }
 
 private fun runLoad(label: String, pool: ThreadPool) {
-    val ledger = KtSlowLedger()
+    val desk = KtSlowPriceDesk()
     val server = Server(pool)
     val connector = ServerConnector(server).apply { host = "127.0.0.1"; port = 0 }
     server.addConnector(connector)
-    server.handler = ledger
+    server.handler = desk
     server.start()
     val uri = URI.create("http://127.0.0.1:${connector.localPort}/")
     val t0 = System.nanoTime()
     val calls = List(40) { loadClient.sendAsync(HttpRequest.newBuilder(uri).build(), HttpResponse.BodyHandlers.ofString()) }
     calls.forEach { it.get(30, TimeUnit.SECONDS) }
-    println("%-38s 40 x 300 ms -> %,5d ms, at most %d in the handler at once".format(label, (System.nanoTime() - t0) / 1_000_000, ledger.max.get()))
+    println("%-38s 40 x 300 ms -> %,5d ms, at most %d in the handler at once".format(label, (System.nanoTime() - t0) / 1_000_000, desk.max.get()))
     server.stop()
 }
 

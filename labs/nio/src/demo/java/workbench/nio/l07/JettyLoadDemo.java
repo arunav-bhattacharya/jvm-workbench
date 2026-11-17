@@ -27,13 +27,13 @@ public class JettyLoadDemo {
     static final HttpClient CLIENT = HttpClient.newBuilder()
             .proxy(HttpClient.Builder.NO_PROXY).version(HttpClient.Version.HTTP_1_1).build();
 
-    static class SlowLedger extends Handler.Abstract {
+    static class SlowPriceDesk extends Handler.Abstract {
         final AtomicInteger inFlight = new AtomicInteger(), max = new AtomicInteger();
 
         @Override public boolean handle(Request req, Response res, Callback cb) throws Exception {
             max.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
             try {
-                Thread.sleep(300);                                  // the "JDBC call"
+                Thread.sleep(300);                                  // the slow "database lookup"
             } finally {
                 inFlight.decrementAndGet();
             }
@@ -43,13 +43,13 @@ public class JettyLoadDemo {
     }
 
     static void run(String label, ThreadPool pool) throws Exception {
-        SlowLedger ledger = new SlowLedger();
+        SlowPriceDesk desk = new SlowPriceDesk();
         Server server = new Server(pool);
         ServerConnector connector = new ServerConnector(server);
         connector.setHost("127.0.0.1");
         connector.setPort(0);
         server.addConnector(connector);
-        server.setHandler(ledger);
+        server.setHandler(desk);
         server.start();
         URI uri = URI.create("http://127.0.0.1:" + connector.getLocalPort() + "/");
         long t0 = System.nanoTime();
@@ -57,7 +57,7 @@ public class JettyLoadDemo {
         for (int i = 0; i < 40; i++) calls.add(CLIENT.sendAsync(HttpRequest.newBuilder(uri).build(), HttpResponse.BodyHandlers.ofString()));
         for (var call : calls) call.get(30, TimeUnit.SECONDS);
         System.out.printf("%-38s 40 x 300 ms -> %,5d ms, at most %d in the handler at once%n",
-                label, (System.nanoTime() - t0) / 1_000_000, ledger.max.get());
+                label, (System.nanoTime() - t0) / 1_000_000, desk.max.get());
         server.stop();
     }
 

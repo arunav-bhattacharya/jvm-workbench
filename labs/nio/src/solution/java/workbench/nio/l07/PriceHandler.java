@@ -8,12 +8,12 @@ import org.eclipse.jetty.util.Callback;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class LedgerHandler extends Handler.Abstract {
+public class PriceHandler extends Handler.Abstract {
     private final long delayMs;
     private final AtomicInteger inFlight = new AtomicInteger();
     private final AtomicInteger maxInFlight = new AtomicInteger();
 
-    public LedgerHandler(long delayMs) {
+    public PriceHandler(long delayMs) {
         this.delayMs = delayMs;
     }
 
@@ -32,9 +32,9 @@ public class LedgerHandler extends Handler.Abstract {
     }
 
     private boolean serve(Request request, Response response, Callback callback) throws Exception {
-        if (delayMs > 0) Thread.sleep(delayMs);                     // the "JDBC call": blocks this thread
+        if (delayMs > 0) Thread.sleep(delayMs);                     // the "database lookup": blocks this thread
         Thread t = Thread.currentThread();
-        String body = "balance=12500 thread=" + t.getName() + " virtual=" + t.isVirtual() + "\n";
+        String body = "price=1250 thread=" + t.getName() + " virtual=" + t.isVirtual() + "\n";
         Content.Sink.write(response, true, body, callback);         // completes the callback when written
         return true;                                                // we own this request now
     }

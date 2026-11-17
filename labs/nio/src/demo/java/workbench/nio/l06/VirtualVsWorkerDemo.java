@@ -27,7 +27,7 @@ public class VirtualVsWorkerDemo {
                     Runnable blockingCall = () -> {
                         threads.add(Thread.currentThread().getName());
                         try {
-                            Thread.sleep(100);            // JDBC, a card-issuer call...
+                            Thread.sleep(100);            // a database, a slow web service...
                         } catch (InterruptedException ignored) { }
                         done.complete();
                     };

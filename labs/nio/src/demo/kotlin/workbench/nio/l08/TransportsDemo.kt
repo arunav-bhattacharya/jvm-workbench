@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit
 /** Sends a 32 MiB file with Netty's DefaultFileRegion over every transport available on this machine. */
 fun main() {
     val size = 32L shl 20
-    val file = Files.createTempFile("statement", ".bin")
+    val file = Files.createTempFile("parcel", ".bin")
     RandomAccessFile(file.toFile(), "rw").use { it.setLength(size) }
     try {
         sendRegion("nio", NioIoHandler.newFactory(), NioServerSocketChannel::class.java, file, size)

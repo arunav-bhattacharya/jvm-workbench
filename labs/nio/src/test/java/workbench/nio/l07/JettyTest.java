@@ -24,7 +24,7 @@ class JettyTest {
             .proxy(HttpClient.Builder.NO_PROXY).version(HttpClient.Version.HTTP_1_1).build();
 
     static URI uri(Server server) {
-        return URI.create("http://127.0.0.1:" + PaymentServer.port(server) + "/");
+        return URI.create("http://127.0.0.1:" + BranchServer.port(server) + "/");
     }
 
     /** n concurrent GETs; returns the bodies. */
@@ -43,9 +43,9 @@ class JettyTest {
     }
 
     @Test
-    @DisplayName("handlers declare their invocation type: the ledger blocks, status and echo don't")
+    @DisplayName("handlers declare their invocation type: the price desk blocks, status and echo don't")
     void invocationTypes() {
-        assertThat(new LedgerHandler(0).getInvocationType()).isEqualTo(Invocable.InvocationType.BLOCKING);
+        assertThat(new PriceHandler(0).getInvocationType()).isEqualTo(Invocable.InvocationType.BLOCKING);
         assertThat(new StatusHandler().getInvocationType()).isEqualTo(Invocable.InvocationType.NON_BLOCKING);
         assertThat(new EchoHandler().getInvocationType()).isEqualTo(Invocable.InvocationType.NON_BLOCKING);
     }
@@ -53,12 +53,12 @@ class JettyTest {
     @Test
     @DisplayName("the echo handler reads the body asynchronously and completes the callback later")
     void asyncEcho() throws Exception {
-        Server server = PaymentServer.start(new QueuedThreadPool(), new EchoHandler());
+        Server server = BranchServer.start(new QueuedThreadPool(), new EchoHandler());
         try {
             HttpResponse<String> r = CLIENT.send(HttpRequest.newBuilder(uri(server))
-                    .POST(HttpRequest.BodyPublishers.ofString("auth-42")).build(), HttpResponse.BodyHandlers.ofString());
+                    .POST(HttpRequest.BodyPublishers.ofString("letter-42")).build(), HttpResponse.BodyHandlers.ofString());
             assertThat(r.statusCode()).isEqualTo(200);
-            assertThat(r.body()).isEqualTo("echo: auth-42");
+            assertThat(r.body()).isEqualTo("echo: letter-42");
         } finally {
             server.stop();
         }
@@ -67,12 +67,12 @@ class JettyTest {
     @Test
     @DisplayName("on a 12-thread platform pool, at most a handful of 40 blocking requests run at once")
     void platformPoolCapsConcurrency() throws Exception {
-        LedgerHandler ledger = new LedgerHandler(300);
-        Server server = PaymentServer.start(new QueuedThreadPool(12), ledger);
+        PriceHandler prices = new PriceHandler(300);
+        Server server = BranchServer.start(new QueuedThreadPool(12), prices);
         try {
             List<String> bodies = load(server, 40);
-            assertThat(bodies).allMatch(b -> b.startsWith("balance=12500") && b.contains("virtual=false"));
-            assertThat(ledger.maxConcurrent()).as("requests in the handler at once").isLessThanOrEqualTo(12);
+            assertThat(bodies).allMatch(b -> b.startsWith("price=1250") && b.contains("virtual=false"));
+            assertThat(prices.maxConcurrent()).as("requests in the handler at once").isLessThanOrEqualTo(12);
         } finally {
             server.stop();
         }
@@ -81,12 +81,12 @@ class JettyTest {
     @Test
     @DisplayName("with a virtual threads executor, the 40 blocking requests run on virtual threads, all at once")
     void virtualThreadsLiftTheCap() throws Exception {
-        LedgerHandler ledger = new LedgerHandler(300);
-        Server server = PaymentServer.start(PaymentServer.virtualQueuedThreadPool(12), ledger);
+        PriceHandler prices = new PriceHandler(300);
+        Server server = BranchServer.start(BranchServer.virtualQueuedThreadPool(12), prices);
         try {
             List<String> bodies = load(server, 40);
-            assertThat(bodies).allMatch(b -> b.contains("thread=ledger-vt-") && b.contains("virtual=true"));
-            assertThat(ledger.maxConcurrent()).as("requests in the handler at once").isGreaterThanOrEqualTo(30);
+            assertThat(bodies).allMatch(b -> b.contains("thread=price-vt-") && b.contains("virtual=true"));
+            assertThat(prices.maxConcurrent()).as("requests in the handler at once").isGreaterThanOrEqualTo(30);
         } finally {
             server.stop();
         }
@@ -95,7 +95,7 @@ class JettyTest {
     @Test
     @DisplayName("a NON_BLOCKING handler stays on a platform thread even when virtual threads are enabled")
     void nonBlockingStaysOnPlatformThreads() throws Exception {
-        Server server = PaymentServer.start(PaymentServer.virtualQueuedThreadPool(12), new StatusHandler());
+        Server server = BranchServer.start(BranchServer.virtualQueuedThreadPool(12), new StatusHandler());
         try {
             for (String body : load(server, 5)) {
                 assertThat(body).startsWith("UP").contains("virtual=false");

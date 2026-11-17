@@ -10,21 +10,21 @@ import java.util.concurrent.Callable
 import java.util.concurrent.TimeUnit
 import java.net.http.HttpClient as JdkHttpClient
 
-/** One event loop, an HTTP server, 4 concurrent requests that each make a 500 ms "JDBC call". Three ways. */
+/** One event loop, an HTTP server, 4 concurrent requests that each make a 500 ms blocking lookup. Three ways. */
 fun main() {
     for (mode in listOf("block-on-event-loop", "executeBlocking-ordered", "executeBlocking-unordered")) {
         val vertx = Vertx.vertx(VertxOptions().setEventLoopPoolSize(1))
-        val fakeJdbc = Callable {
+        val slowLookup = Callable {
             Thread.sleep(500)
             Thread.currentThread().name
         }
         val server = vertx.createHttpServer().requestHandler { req ->
             when (mode) {
-                "block-on-event-loop" -> req.response().end(fakeJdbc.call())            // blocks the loop
+                "block-on-event-loop" -> req.response().end(slowLookup.call())          // blocks the loop
                 "executeBlocking-ordered" ->                                             // the default: ordered = true
-                    vertx.executeBlocking(fakeJdbc).onComplete { ar -> req.response().end(ar.result()) }
+                    vertx.executeBlocking(slowLookup).onComplete { ar -> req.response().end(ar.result()) }
                 else ->
-                    vertx.executeBlocking(fakeJdbc, false).onComplete { ar -> req.response().end(ar.result()) }
+                    vertx.executeBlocking(slowLookup, false).onComplete { ar -> req.response().end(ar.result()) }
             }
         }.listen(0, "127.0.0.1").toCompletionStage().toCompletableFuture().get()
 

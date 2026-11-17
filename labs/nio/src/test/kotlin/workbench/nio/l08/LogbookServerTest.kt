@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
 @Timeout(30)
-class StatementServerTest {
+class LogbookServerTest {
     @TempDir
     lateinit var dir: Path
 
@@ -37,7 +37,7 @@ class StatementServerTest {
         override fun close() {}
     }
 
-    private fun statement(day: String, size: Int): ByteArray {
+    private fun logbook(day: String, size: Int): ByteArray {
         val bytes = Random(day.hashCode()).nextBytes(size)
         Files.write(dir.resolve("$day.csv"), bytes)
         return bytes
@@ -52,7 +52,7 @@ class StatementServerTest {
 
     @Test
     fun `transferFully keeps calling transferTo until every byte is sent`() {
-        val expected = statement("2026-11-01", 1024 * 1024)
+        val expected = logbook("2026-11-01", 1024 * 1024)
         val target = TrickleChannel()
         val calls = FileChannel.open(dir.resolve("2026-11-01.csv")).use { f ->
             FileSender.transferFully(f, 0, f.size(), target)
@@ -63,8 +63,8 @@ class StatementServerTest {
 
     @Test
     fun `twenty concurrent downloads get every byte, with at most four exports at once`() {
-        val expected = statement("2026-11-06", 512 * 1024)
-        StatementServer(dir, maxConcurrentExports = 4).use { server ->
+        val expected = logbook("2026-11-06", 512 * 1024)
+        LogbookServer(dir, maxConcurrentExports = 4).use { server ->
             val clients = Executors.newFixedThreadPool(20)
             try {
                 val downloads = List(20) { clients.submit(Callable { download(server.port, "2026-11-06") }) }
@@ -78,7 +78,7 @@ class StatementServerTest {
 
     @Test
     fun `300 idle connections cost a handful of platform threads`() {
-        StatementServer(dir, maxConcurrentExports = 4).use { server ->
+        LogbookServer(dir, maxConcurrentExports = 4).use { server ->
             val before = ManagementFactory.getThreadMXBean().threadCount   // platform threads only
             val idle = List(300) { Socket(InetAddress.getLoopbackAddress(), server.port) }
             try {

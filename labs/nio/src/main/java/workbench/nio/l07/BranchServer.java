@@ -6,9 +6,9 @@ import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.eclipse.jetty.util.thread.ThreadPool;
 
-/** Starts Jetty 12 servers for the tests. */
-public final class PaymentServer {
-    private PaymentServer() { }
+/** Starts Jetty 12 servers for the tests: one branch of the post office per call. */
+public final class BranchServer {
+    private BranchServer() { }
 
     /**
      * Start a {@link Server} on {@code pool} with one {@link ServerConnector} bound to host
@@ -26,8 +26,8 @@ public final class PaymentServer {
 
     /**
      * A {@link QueuedThreadPool} with {@code maxThreads} platform threads whose BLOCKING tasks run on
-     * virtual threads named {@code ledger-vt-N}: use {@code setVirtualThreadsExecutor} with
-     * {@code VirtualThreads.getNamedVirtualThreadsExecutor("ledger-vt-")}.
+     * virtual threads named {@code price-vt-N}: use {@code setVirtualThreadsExecutor} with
+     * {@code VirtualThreads.getNamedVirtualThreadsExecutor("price-vt-")}.
      */
     public static QueuedThreadPool virtualQueuedThreadPool(int maxThreads) {
         throw new UnsupportedOperationException("TODO: QueuedThreadPool + virtual threads executor");

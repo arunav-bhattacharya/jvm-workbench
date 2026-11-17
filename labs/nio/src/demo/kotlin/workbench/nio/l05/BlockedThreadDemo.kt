@@ -8,7 +8,7 @@ fun main(args: Array<String>) {
     val vertx = Vertx.vertx()                              // all defaults: 2 s limit, checked every 1 s
     vertx.runOnContext {
         println("[handler] Thread.sleep($sleepMs) on ${Thread.currentThread().name}")
-        Thread.sleep(sleepMs)                              // stands in for JDBC, a lock, a slow loop...
+        Thread.sleep(sleepMs)                              // stands in for a database call, a lock, a slow loop...
         println("[handler] woke up")
     }
     Thread.sleep(sleepMs + 300)

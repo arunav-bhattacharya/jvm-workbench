@@ -8,18 +8,18 @@ import org.eclipse.jetty.util.Callback;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * A blocking handler: each request makes a "JDBC call" that takes {@code delayMs}. It extends
- * {@link Handler.Abstract}, so it declares itself BLOCKING and Jetty never runs it on a selector
- * thread in a way that would stall other connections.
+ * The price desk, a blocking handler: each request makes a slow "database lookup" that takes
+ * {@code delayMs}. It extends {@link Handler.Abstract}, so it declares itself BLOCKING and Jetty
+ * never runs it on a selector thread in a way that would stall other connections.
  *
  * <p>The counting around {@link #serve} is done for you; the tests use {@link #maxConcurrent()}.
  */
-public class LedgerHandler extends Handler.Abstract {
+public class PriceHandler extends Handler.Abstract {
     private final long delayMs;
     private final AtomicInteger inFlight = new AtomicInteger();
     private final AtomicInteger maxInFlight = new AtomicInteger();
 
-    public LedgerHandler(long delayMs) {
+    public PriceHandler(long delayMs) {
         this.delayMs = delayMs;
     }
 
@@ -39,8 +39,8 @@ public class LedgerHandler extends Handler.Abstract {
     }
 
     /**
-     * Sleep {@code delayMs} (the "JDBC call"), then write the body
-     * {@code "balance=12500 thread=<thread name> virtual=<true|false>\n"} with
+     * Sleep {@code delayMs} (the "database lookup"), then write the body
+     * {@code "price=1250 thread=<thread name> virtual=<true|false>\n"} with
      * {@code Content.Sink.write(response, true, body, callback)}, which completes the callback once
      * the bytes are written. Return true: "I handled this request".
      */

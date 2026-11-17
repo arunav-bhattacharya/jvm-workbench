@@ -27,7 +27,7 @@ public class QuarkusLikeLoopDemo {
             System.out.println("[endpoint] on " + Thread.currentThread().getName()
                     + ", Context.isOnEventLoopThread()=" + Context.isOnEventLoopThread());
             try {
-                Thread.sleep(sleepMs);   // a JDBC call inside an endpoint that returns Uni
+                Thread.sleep(sleepMs);   // a database call inside an endpoint that returns Uni
             } catch (InterruptedException ignored) { }
         });
         Thread.sleep(sleepMs + 300);

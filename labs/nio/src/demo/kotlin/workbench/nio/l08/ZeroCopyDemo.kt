@@ -15,7 +15,7 @@ import kotlin.concurrent.thread
 /** Sends a file over a loopback socket twice: FileChannel.transferTo (zero-copy) and read/write through a heap buffer. Arg: MiB (default 64). */
 fun main(args: Array<String>) {
     val size = (args.getOrNull(0)?.toLong() ?: 64L) shl 20
-    val file = Files.createTempFile("statement", ".bin")
+    val file = Files.createTempFile("parcel", ".bin")
     RandomAccessFile(file.toFile(), "rw").use { it.setLength(size) }
     try {
         for (mode in listOf("transferTo", "copy")) sendFile(file, size, mode)

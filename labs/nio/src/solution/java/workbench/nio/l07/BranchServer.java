@@ -7,8 +7,8 @@ import org.eclipse.jetty.util.VirtualThreads;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.eclipse.jetty.util.thread.ThreadPool;
 
-public final class PaymentServer {
-    private PaymentServer() { }
+public final class BranchServer {
+    private BranchServer() { }
 
     public static Server start(ThreadPool pool, Handler handler) throws Exception {
         Server server = new Server(pool);                  // one pool for acceptors, selectors and requests
@@ -28,7 +28,7 @@ public final class PaymentServer {
     public static QueuedThreadPool virtualQueuedThreadPool(int maxThreads) {
         QueuedThreadPool pool = new QueuedThreadPool(maxThreads);
         // BLOCKING tasks go to virtual threads; selectors, acceptors and NON_BLOCKING tasks stay on platform threads
-        pool.setVirtualThreadsExecutor(VirtualThreads.getNamedVirtualThreadsExecutor("ledger-vt-"));
+        pool.setVirtualThreadsExecutor(VirtualThreads.getNamedVirtualThreadsExecutor("price-vt-"));
         return pool;
     }
 }

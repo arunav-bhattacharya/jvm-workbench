@@ -23,7 +23,7 @@ fun main(args: Array<String>) {
         .setWarningExceptionTime(2).setWarningExceptionTimeUnit(TimeUnit.SECONDS))       // Quarkus: 2 s, Vert.x: 5 s
     vertx.runOnContext {
         println("[endpoint] on ${Thread.currentThread().name}, Context.isOnEventLoopThread()=${Context.isOnEventLoopThread()}")
-        Thread.sleep(sleepMs)   // a JDBC call inside an endpoint that returns Uni
+        Thread.sleep(sleepMs)   // a database call inside an endpoint that returns Uni
     }
     Thread.sleep(sleepMs + 300)
     vertx.close().toCompletionStage().toCompletableFuture().get()

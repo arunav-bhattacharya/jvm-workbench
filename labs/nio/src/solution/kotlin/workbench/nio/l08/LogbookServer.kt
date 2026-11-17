@@ -9,25 +9,26 @@ import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
 import java.nio.file.Path
 import java.util.concurrent.Executors
+import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 /**
- * Serves settlement statement files: a client sends a day (`2026-11-06\n`) and gets the bytes of
- * `<day>.csv` from [statements], then the connection closes.
+ * Serves the post office's daily logbooks: a client sends a day (`2026-11-06\n`) and gets the bytes
+ * of `<day>.csv` from [logbooks], then the connection closes.
  *
  * One virtual thread per connection (plain blocking code; a blocked read parks on the JDK's poller).
- * Each export first runs a 100 ms "query" (a blocking database call), then sends the file with
- * zero-copy [FileSender.transferFully].
+ * Each export first runs a 100 ms "query" (a blocking call to the records database), then sends
+ * the file with zero-copy [FileSender.transferFully].
  *
- * The database allows only [maxConcurrentExports] queries at once, and virtual threads don't limit
- * anything by themselves. Fix [export] so that at most [maxConcurrentExports] exports run at once.
+ * A Semaphore keeps the exports at [maxConcurrentExports] at once.
  */
-class StatementServer(private val statements: Path, private val maxConcurrentExports: Int) : AutoCloseable {
+class LogbookServer(private val logbooks: Path, private val maxConcurrentExports: Int) : AutoCloseable {
     private val server = ServerSocketChannel.open().bind(InetSocketAddress(InetAddress.getLoopbackAddress(), 0))
     private val handlers = Executors.newVirtualThreadPerTaskExecutor()
     private val inFlight = AtomicInteger()
     private val maxInFlight = AtomicInteger()
+    private val exportSlots = Semaphore(maxConcurrentExports)       // virtual threads are cheap; the database isn't
 
     val port: Int = (server.localAddress as InetSocketAddress).port
 
@@ -35,7 +36,7 @@ class StatementServer(private val statements: Path, private val maxConcurrentExp
     fun maxConcurrent(): Int = maxInFlight.get()
 
     init {
-        thread(isDaemon = true, name = "statement-acceptor") {
+        thread(isDaemon = true, name = "logbook-acceptor") {
             while (server.isOpen) {
                 val ch = try {
                     server.accept()
@@ -64,13 +65,17 @@ class StatementServer(private val statements: Path, private val maxConcurrentExp
         }
     }
 
-    /** TODO: let at most [maxConcurrentExports] exports into `measured { ... }` at once. */
     fun export(day: String, out: SocketChannel) {
-        measured {
-            Thread.sleep(QUERY_MILLIS)                         // the statement query: blocks, parks the virtual thread
-            FileChannel.open(statements.resolve("$day.csv")).use { file ->
-                FileSender.transferFully(file, 0, file.size(), out)
+        exportSlots.acquire()                                  // waiting here parks the virtual thread, no carrier held
+        try {
+            measured {
+                Thread.sleep(QUERY_MILLIS)                     // the records query: blocks, parks the virtual thread
+                FileChannel.open(logbooks.resolve("$day.csv")).use { file ->
+                    FileSender.transferFully(file, 0, file.size(), out)   // sendfile on Linux
+                }
             }
+        } finally {
+            exportSlots.release()
         }
     }
 

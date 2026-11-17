@@ -71,12 +71,12 @@ class DispatcherTest {
     @Test
     fun `blocking on the IO thread fails fast, and the same body works on a worker`() {
         val dispatcher = Dispatcher(vertx)
-        val body = { BlockingGuard.check("a JDBC query"); "ok" }
+        val body = { BlockingGuard.check("a database query"); "ok" }
         assertThatThrownBy { dispatcher.invoke(Endpoint("reactive", ReturnKind.UNI), body).awaitResult() }
             .isInstanceOf(ExecutionException::class.java)
             .cause()
             .isInstanceOf(BlockingNotAllowedException::class.java)
-            .hasMessage("Attempting a JDBC query on an IO thread")
+            .hasMessage("Attempting a database query on an IO thread")
         assertThat(dispatcher.invoke(Endpoint("blocking", ReturnKind.PLAIN), body).awaitResult()).isEqualTo("ok")
         assertThat(dispatcher.invoke(Endpoint("vt", ReturnKind.UNI, setOf(Marker.RUN_ON_VIRTUAL_THREAD)), body).awaitResult()).isEqualTo("ok")
     }
@@ -85,7 +85,7 @@ class DispatcherTest {
     fun `four blocking endpoints overlap on the worker pool`() {
         val dispatcher = Dispatcher(vertx)
         val t0 = System.nanoTime()
-        val calls = List(4) { i -> dispatcher.invoke(Endpoint("balance-$i", ReturnKind.PLAIN)) { Thread.sleep(300); i } }
+        val calls = List(4) { i -> dispatcher.invoke(Endpoint("price-$i", ReturnKind.PLAIN)) { Thread.sleep(300); i } }
         Future.all(calls).awaitResult()
         val ms = (System.nanoTime() - t0) / 1_000_000
         assertThat(ms).`as`("4 x 300 ms on the worker pool, total ms").isLessThan(900)

@@ -15,7 +15,7 @@ import java.nio.file.Path;
 public class ZeroCopyDemo {
     public static void main(String[] args) throws Exception {
         long size = (args.length > 0 ? Long.parseLong(args[0]) : 64) << 20;
-        Path file = Files.createTempFile("statement", ".bin");
+        Path file = Files.createTempFile("parcel", ".bin");
         try (RandomAccessFile raf = new RandomAccessFile(file.toFile(), "rw")) {
             raf.setLength(size);
         }

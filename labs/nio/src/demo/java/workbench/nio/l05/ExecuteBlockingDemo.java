@@ -15,12 +15,12 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-/** One event loop, an HTTP server, 4 concurrent requests that each make a 500 ms "JDBC call". Three ways. */
+/** One event loop, an HTTP server, 4 concurrent requests that each make a 500 ms blocking lookup. Three ways. */
 public class ExecuteBlockingDemo {
     public static void main(String[] args) throws Exception {
         for (String mode : List.of("block-on-event-loop", "executeBlocking-ordered", "executeBlocking-unordered")) {
             Vertx vertx = Vertx.vertx(new VertxOptions().setEventLoopPoolSize(1));
-            Callable<String> fakeJdbc = () -> {
+            Callable<String> slowLookup = () -> {
                 Thread.sleep(500);
                 return Thread.currentThread().getName();
             };
@@ -28,15 +28,15 @@ public class ExecuteBlockingDemo {
                 switch (mode) {
                     case "block-on-event-loop" -> {
                         try {
-                            req.response().end(fakeJdbc.call());                       // blocks the loop
+                            req.response().end(slowLookup.call());                     // blocks the loop
                         } catch (Exception e) {
                             req.response().setStatusCode(500).end();
                         }
                     }
                     case "executeBlocking-ordered" ->                                  // the default: ordered = true
-                            vertx.executeBlocking(fakeJdbc).onComplete(ar -> req.response().end(ar.result()));
+                            vertx.executeBlocking(slowLookup).onComplete(ar -> req.response().end(ar.result()));
                     default ->
-                            vertx.executeBlocking(fakeJdbc, false).onComplete(ar -> req.response().end(ar.result()));
+                            vertx.executeBlocking(slowLookup, false).onComplete(ar -> req.response().end(ar.result()));
                 }
             }).listen(0, "127.0.0.1").toCompletionStage().toCompletableFuture().get();
 

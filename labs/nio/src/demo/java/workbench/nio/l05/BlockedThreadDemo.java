@@ -10,7 +10,7 @@ public class BlockedThreadDemo {
         vertx.runOnContext(v -> {
             System.out.println("[handler] Thread.sleep(" + sleepMs + ") on " + Thread.currentThread().getName());
             try {
-                Thread.sleep(sleepMs);                     // stands in for JDBC, a lock, a slow loop...
+                Thread.sleep(sleepMs);                     // stands in for a database call, a lock, a slow loop...
             } catch (InterruptedException ignored) { }
             System.out.println("[handler] woke up");
         });
