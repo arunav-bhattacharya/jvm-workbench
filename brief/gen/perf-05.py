@@ -104,11 +104,11 @@ STREAM_K = """RecordingStream().use { rs ->
     kRunWorkload(3)
 }"""
 
-OPENING = """Picture the restaurant from the last four lessons at the end of a long night. A customer says the soup took forty minutes. The cook remembers making it in six. Both can be true: the bowl may have waited on the counter for the only waiter, or for the kitchen to finish washing up. To settle it, you'd want one log of everything the kitchen did that night, every order, every wait and every wash-up, all on one clock. And it must be cheap enough to keep every night, because nobody knows in advance which night goes wrong.
+OPENING = """Picture the restaurant from the last four lessons at the end of a long night. A customer says the soup took forty minutes. The cook remembers making it in six. Both can be true: the bowl may have waited on the counter for the only waiter, or for the kitchen to finish washing up. To settle it, you'd want one log of everything the kitchen did, every order, wait and wash-up, all on one clock. It must be cheap enough to keep every night, because nobody knows which night will go wrong.
 
-The JVM, the program that runs your Java and Kotlin, keeps a log like that, and it's already in your JDK: JDK Flight Recorder.
+The JVM, the program that runs your Java and Kotlin, keeps a log like that. It's already in your JDK, and it's called JDK Flight Recorder.
 
-The easy trap is the tool we all reach for first, a timer and a log line around the slow call. It answers one question about one call, on a clock of its own. Lesson 4 made one hot spot cheaper once we knew where it was. Now we need to find out where a running program spends its time. In this lesson, we'll record the report service while it works, ask the recording questions, add our own lines to the same log and watch events as they happen. Before we start, make a guess, and keep it in mind."""
+The easy trap is the tool we all reach for first: a timer and a log line around the slow call. It answers one question about one call, on a clock of its own. Lesson 4 made one hot spot cheaper once we knew where it was. Now we need to find where a running program spends its time. In this lesson, we'll record the report service while it works, ask the recording questions, add our own notes to the log and watch events live. Before we start, make a guess, and keep it in mind."""
 
 S1 = """Start with the hand-made answer. The report service from the earlier lessons fetches each document from a document store, another program that keeps the documents and answers over the network. Some fetches are slow, so we wrap one in a timer and log `fetch took 46 ms`. That's one number for one call. It can't say whether every thread was paused for a garbage collection at that moment. (The garbage collector, or GC, is the part of the JVM that frees memory nobody uses.) Nor can it say whether the thread waited for a lock, or whether something allocated a lot of memory that second.
 
@@ -218,7 +218,7 @@ The `shouldCommit()` check matters because Java works out each field's value bef
 
 Kotlin needs nothing special. JFR records the field behind each Kotlin property, and a Java annotation such as `@Label` on a property lands on that field.
 
-Compare it with the log line from section 1. The event has fields you can filter instead of text you have to parse, and a recording can keep only the slow ones: `+workbench.StoreCall#threshold=30ms` on the command line keeps calls of 30 ms or more. The `+` is needed because your event isn't listed in the `.jfc` file. Leave it out, and JDK 25 warns `The .jfc option/setting 'workbench.StoreCall#threshold' doesn't exist.` and ignores it. Above all, the event sits on the same timeline as the GC pauses and lock waits, with the same thread names. `jfr view workbench.StoreCall` showed the demo's events like this (trimmed to two rows):
+Compare it with the log line from section 1. The event has fields you can filter, instead of text you have to parse. A recording can also keep only the slow ones: `+workbench.StoreCall#threshold=30ms` on the command line keeps calls of 30 ms or more. The `+` is needed because your event isn't listed in the `.jfc` file. Leave it out, and JDK 25 warns `The .jfc option/setting 'workbench.StoreCall#threshold' doesn't exist.` and ignores it. Above all, the event sits on the same timeline as the GC pauses and lock waits, with the same thread names. `jfr view workbench.StoreCall` showed the demo's events like this (trimmed to two rows):
 
 ```text
 Start Time Duration Event Thread Stack Trace                                                     Shelf   Words Found
