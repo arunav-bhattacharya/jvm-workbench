@@ -137,11 +137,11 @@ K_CLOSE = """override fun close() {
         .syncUninterruptibly()
 }"""
 
-OPENING = """Picture the counter of the post office from the Servers track, with a new job. A customer asks: "How much to send this parcel to Lisbon?" The post office doesn't carry parcels that far itself. It asks three courier companies, Northline, Eastgate and Fjord, and tells the customer the cheapest price, all within a third of a second. That's a quote service: a program that gives a price for a job before anyone books it.
+OPENING = """Picture the counter of the post office from the Servers track, with a new job. A customer asks: "How much to send this parcel to Lisbon?" The post office doesn't carry parcels that far. It asks three courier companies, Northline, Eastgate and Fjord, and tells the customer the cheapest price within a third of a second. That's a quote service: a program that gives a price for a job before anyone books it.
 
 The trap hides in the first line of code. The clerk holding the question needs a price, and the price is a phone call away. Make the call from the counter, and every customer in that clerk's row waits too. It passes every test with one customer, which is exactly how many customers a simple test has.
 
-Zero-copy, epoll, io_uring, and choosing a server model ended the Servers track at the loading dock, with a promise of a server whose loop never waits. In this lesson, we'll build that server's shell on Netty: a small protocol, a handler that hands the wait back, a tap that stops reading a customer who stops listening, and a clean close. Before we start, make a guess, and keep it in mind."""
+Zero-copy, epoll, io_uring, and choosing a server model ended the Servers track with a promise: a server whose loop never waits. In this lesson, we'll build that server's shell on Netty: a small protocol, a handler that hands the wait back, a tap that stops reading a customer who stops listening, and a clean close. Before we start, make a guess, and keep it in mind."""
 
 S1 = fill("""Over three sittings, we'll build one program: the quote service from the opening. A **server** is a program that waits for other programs to connect and ask it things, and those other programs are its **clients**. A client opens a **TCP connection**, a two-way line between two programs over a network, and sends one line of text. The server answers with one line:
 
@@ -375,11 +375,11 @@ DRILL_K = """override fun channelRead0(ctx: ChannelHandlerContext, line: String)
 // the rule: read only while writable and under the cap
 // isAutoRead = ctx.channel().isWritable && inFlight.size < MAX_IN_FLIGHT"""
 
-CLOSING = """We started at the post office counter, with a customer asking for a price to Lisbon and a clerk who must never make the phone call. Now the counter hands each question back as a ticket and finishes it on its own loop. It stops reading a customer who stops listening, and it closes on purpose, in order.
+CLOSING = """We started at the post office counter, with a customer asking for a price to Lisbon and a clerk who must never make the phone call. Now the counter hands each question back as a ticket and finishes it on its own loop. It stops reading a customer who stops listening, and it closes in order.
 
 Now look in your own code for `join()`, `get()`, `block()` or `runBlocking` inside a callback that runs on an event loop. Each one is the clerk on the phone.
 
-Next, we'll make the phone calls, all three at once, with Kotlin coroutines. How do we ask three couriers together, keep the answers that arrive in time, and stop the calls when the customer walks away?"""
+Next, we'll make the phone calls with Kotlin coroutines. How do we ask three couriers together, keep the answers that arrive in time, and stop the calls when the customer walks away?"""
 
 L = {
  "id": "cap2-01",
