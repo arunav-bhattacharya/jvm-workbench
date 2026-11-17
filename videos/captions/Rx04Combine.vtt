@@ -1,405 +1,397 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:07.757
+00:00:02.700 --> 00:00:07.723
 At the end of the bakery line there's a packing table, and two belts arrive at it.
 
 2
-00:00:07.757 --> 00:00:09.717
+00:00:07.723 --> 00:00:09.684
 One brings loaves from the oven.
 
 3
-00:00:09.717 --> 00:00:12.780
+00:00:09.684 --> 00:00:12.747
 The other brings jars of jam from the jam kitchen.
 
 4
-00:00:12.933 --> 00:00:15.066
+00:00:12.867 --> 00:00:14.999
 The packer can work in four ways.
 
 5
-00:00:15.066 --> 00:00:16.811
+00:00:14.999 --> 00:00:16.744
 Box whatever arrives first.
 
 6
-00:00:16.811 --> 00:00:19.202
+00:00:16.744 --> 00:00:19.135
 Finish all the loaves before the jam.
 
 7
-00:00:19.202 --> 00:00:22.175
+00:00:19.135 --> 00:00:22.108
 Make gift boxes, one loaf and one jar in each.
 
 8
-00:00:22.175 --> 00:00:25.212
+00:00:22.108 --> 00:00:25.145
 Or keep the price board on the wall up to date.
 
 9
-00:00:25.400 --> 00:00:27.397
+00:00:25.267 --> 00:00:27.264
 Reactor has an operator for each.
 
 10
-00:00:27.397 --> 00:00:33.691
+00:00:27.264 --> 00:00:33.557
 And here's the question that's easy to be shy about: aren't they all just names for, put these together?
 
 11
-00:00:33.867 --> 00:00:36.674
+00:00:33.667 --> 00:00:36.474
 They're not, and two questions tell them apart.
 
 12
-00:00:36.674 --> 00:00:38.885
+00:00:36.474 --> 00:00:38.685
 First: when is each belt switched on?
 
 13
-00:00:38.885 --> 00:00:42.947
+00:00:38.685 --> 00:00:42.747
 Switching a belt on means subscribing to it, signing its order form.
 
 14
-00:00:42.947 --> 00:00:45.157
+00:00:42.747 --> 00:00:44.957
 Second: when does something come out?
 
 15
-00:00:45.933 --> 00:00:47.543
-Let's try the first two.
+00:00:45.667 --> 00:00:49.249
+Let's try the first two, on the kitchen's order screen.
 
 16
-00:00:47.543 --> 00:00:51.232
-The kitchen has a screen for new orders from two belts.
+00:00:49.249 --> 00:00:54.981
+The shop counter sends an order every 30 milliseconds, the website every 40, three each.
 
 17
-00:00:51.232 --> 00:00:57.068
-The shop counter sends one every 30 milliseconds, the website one every 40, three each.
-
-18
-00:00:57.267 --> 00:01:00.434
+00:00:55.100 --> 00:00:58.267
 First, the packer who boxes whatever comes first.
 
-19
-00:01:00.434 --> 00:01:02.696
+18
+00:00:58.267 --> 00:01:00.529
 Both belts are switched on at once.
 
-20
-00:01:02.696 --> 00:01:03.665
+19
+00:01:00.529 --> 00:01:01.499
 What comes out?
 
-21
-00:01:06.667 --> 00:01:11.533
+20
+00:01:04.067 --> 00:01:08.933
 Orders as they arrive: counter, web, counter, web, counter, web.
 
-22
-00:01:11.533 --> 00:01:13.890
+21
+00:01:08.933 --> 00:01:11.290
 Done at about 130 milliseconds.
 
-23
-00:01:13.890 --> 00:01:14.879
+22
+00:01:11.290 --> 00:01:12.279
 That's merge.
 
-24
-00:01:15.600 --> 00:01:19.641
+23
+00:01:12.900 --> 00:01:16.941
 Now the packer who finishes one belt before she touches the other.
 
-25
-00:01:19.641 --> 00:01:22.581
+24
+00:01:16.941 --> 00:01:19.881
 The counter belt runs until its end-of-day bell.
 
-26
-00:01:22.581 --> 00:01:24.601
+25
+00:01:19.881 --> 00:01:21.901
 When is the web belt switched on?
 
-27
-00:01:27.667 --> 00:01:32.079
+26
+00:01:24.500 --> 00:01:28.994
 When the bell rings: the demo printed 92 milliseconds.
 
-28
-00:01:32.079 --> 00:01:39.760
+27
+00:01:28.994 --> 00:01:36.816
 Only then does the web belt start its own clock, so its orders land at about 130, 170 and 210.
 
-29
-00:01:39.760 --> 00:01:41.803
-One belt, then the other.
-
-30
-00:01:41.803 --> 00:01:42.947
+28
+00:01:36.816 --> 00:01:37.981
 That's concat.
 
-31
-00:01:43.133 --> 00:01:48.083
+29
+00:01:38.100 --> 00:01:43.049
 Now make the counter belt endless, like a live feed that never closes.
 
-32
-00:01:48.083 --> 00:01:52.254
+30
+00:01:43.049 --> 00:01:47.221
 The bell never rings, so the web belt is never switched on.
 
-33
-00:01:52.254 --> 00:01:52.890
+31
+00:01:47.221 --> 00:01:47.857
 Not late.
 
-34
-00:01:52.890 --> 00:01:53.315
+32
+00:01:47.857 --> 00:01:48.281
 Never.
 
-35
-00:01:53.467 --> 00:01:58.854
+33
+00:01:48.400 --> 00:01:53.788
 It's the customer ahead of you at the till who keeps saying: oh, and one more thing.
 
-36
-00:01:58.854 --> 00:02:00.201
+34
+00:01:53.788 --> 00:01:55.135
 You never get served.
 
-37
-00:02:00.201 --> 00:02:04.178
+35
+00:01:55.135 --> 00:01:59.111
 So behind an endless source, concat never starts the next one.
 
-38
-00:02:04.178 --> 00:02:05.845
+36
+00:01:59.111 --> 00:02:00.779
 For live feeds, use merge.
 
-39
-00:02:06.600 --> 00:02:09.439
+37
+00:02:01.500 --> 00:02:04.334
 And the clerk at the exit of the icing room?
 
-40
-00:02:09.439 --> 00:02:14.859
-That's mergeSequential: both belts on at once, early web orders held until the bell.
+38
+00:02:04.334 --> 00:02:09.357
+That's mergeSequential: both belts on at once, web orders held until the bell.
 
-41
-00:02:14.859 --> 00:02:16.988
+39
+00:02:09.357 --> 00:02:11.483
 concat's order, at merge's speed.
 
-42
-00:02:17.667 --> 00:02:19.026
+40
+00:02:12.100 --> 00:02:13.459
 Now the gift boxes.
 
-43
-00:02:19.026 --> 00:02:20.671
+41
+00:02:13.459 --> 00:02:15.104
 Three loaves, two jars.
 
-44
-00:02:20.671 --> 00:02:24.533
+42
+00:02:15.104 --> 00:02:18.967
 The packer takes one of each, boxes them, and repeats.
 
-45
-00:02:24.533 --> 00:02:27.966
+43
+00:02:18.967 --> 00:02:22.400
 Then the jam belt rings its bell, and she stops.
 
-46
-00:02:27.966 --> 00:02:29.540
+44
+00:02:22.400 --> 00:02:23.973
 Loaf 3 is never boxed.
 
-47
-00:02:29.733 --> 00:02:30.455
+45
+00:02:24.100 --> 00:02:24.821
 That's zip.
 
-48
-00:02:30.455 --> 00:02:37.341
+46
+00:02:24.821 --> 00:02:31.708
 It pairs by position, first with first, second with second, and it's done as soon as either belt is done.
 
-49
-00:02:38.133 --> 00:02:40.387
+47
+00:02:32.433 --> 00:02:34.687
 You'll meet it most as Mono.zip.
 
-50
-00:02:40.387 --> 00:02:49.752
+48
+00:02:34.687 --> 00:02:44.052
 The order page builds a quote from three lookups: a price that takes 200 milliseconds, a delivery fee that takes 100, and a discount.
 
-51
-00:02:49.933 --> 00:02:57.719
+49
+00:02:44.167 --> 00:02:51.953
 Mono.zip switches all three on at once, so the quote is ready when the slowest is, at about 200 milliseconds.
 
-52
-00:02:57.719 --> 00:02:59.291
+50
+00:02:51.953 --> 00:02:53.524
 That's called fan-out.
 
-53
-00:02:59.467 --> 00:03:00.484
+51
+00:02:53.633 --> 00:02:54.651
 Now the trap.
 
-54
-00:03:00.484 --> 00:03:07.292
+52
+00:02:54.651 --> 00:03:01.458
 This customer has no discount, so that lookup completes empty: no value, just the bell.
 
-55
-00:03:07.292 --> 00:03:08.935
+53
+00:03:01.458 --> 00:03:03.102
 What does the zip do?
 
-56
-00:03:08.935 --> 00:03:09.326
+54
+00:03:03.102 --> 00:03:03.493
 Fail?
 
-57
-00:03:09.326 --> 00:03:10.265
+55
+00:03:03.493 --> 00:03:04.432
 Leave a gap?
 
-58
-00:03:10.265 --> 00:03:11.283
+56
+00:03:04.432 --> 00:03:05.449
 Wait forever?
 
-59
-00:03:14.333 --> 00:03:15.323
+57
+00:03:08.033 --> 00:03:09.023
 None of those.
 
-60
-00:03:15.323 --> 00:03:20.057
+58
+00:03:09.023 --> 00:03:13.757
 It completes empty, at once, and cancels the lookups still running.
 
-61
-00:03:20.057 --> 00:03:25.003
+59
+00:03:13.757 --> 00:03:18.703
 The demo printed: price lookup cancelled, then: Mono.zip result: null.
 
-62
-00:03:25.003 --> 00:03:27.264
+60
+00:03:18.703 --> 00:03:20.964
 Here null means completed empty.
 
-63
-00:03:27.264 --> 00:03:29.172
+61
+00:03:20.964 --> 00:03:22.872
 No quote, no error, no log.
 
-64
-00:03:29.333 --> 00:03:31.718
+62
+00:03:23.000 --> 00:03:25.384
 And here the gift box picture breaks.
 
-65
-00:03:31.718 --> 00:03:35.327
+63
+00:03:25.384 --> 00:03:28.993
 A real packer with no jam would shout: we're out of jam!
 
-66
-00:03:35.327 --> 00:03:38.420
+64
+00:03:28.993 --> 00:03:32.087
 Mono.zip just turns off the light and goes home.
 
-67
-00:03:38.420 --> 00:03:42.480
+65
+00:03:32.087 --> 00:03:36.147
 So decide what empty means for each source, and say it in code.
 
-68
-00:03:43.267 --> 00:03:49.995
+66
+00:03:36.867 --> 00:03:43.595
 Where empty has a sensible meaning, like no discount, write defaultIfEmpty: 24.00, 3.50, 0.00.
 
-69
-00:03:49.995 --> 00:03:57.296
+67
+00:03:43.595 --> 00:03:50.896
 Where empty is a real problem, write switchIfEmpty with an error, and the demo says: missing discount.
 
-70
-00:04:00.200 --> 00:04:05.257
+68
+00:03:53.767 --> 00:03:58.824
 Last, the price board: a cake's weight times the price per kilo.
 
-71
-00:04:05.257 --> 00:04:09.366
+69
+00:03:58.824 --> 00:04:02.933
 The weight is 1.5 kilos, then 2 at 300 milliseconds.
 
-72
-00:04:09.366 --> 00:04:12.764
+70
+00:04:02.933 --> 00:04:06.331
 The price per kilo is 20, then 22, then 21.
 
-73
-00:04:12.933 --> 00:04:15.009
+71
+00:04:06.433 --> 00:04:08.509
 With zip, what does the board show?
 
-74
-00:04:18.067 --> 00:04:20.487
+72
+00:04:09.100 --> 00:04:11.521
 Just two prices: 30, then 44.
 
-75
-00:04:20.487 --> 00:04:23.576
+73
+00:04:11.521 --> 00:04:14.609
 First with first, second with second.
 
-76
-00:04:23.576 --> 00:04:28.668
+74
+00:04:14.609 --> 00:04:19.701
 The board never showed 1.5 times 22, and it never saw the 21.
 
-77
-00:04:28.867 --> 00:04:30.039
+75
+00:04:19.833 --> 00:04:21.005
 Now combineLatest.
 
-78
-00:04:30.039 --> 00:04:36.224
+76
+00:04:21.005 --> 00:04:27.191
 Once each belt has sent something, every new item goes out with the latest from the other belt.
 
-79
-00:04:36.224 --> 00:04:37.527
+77
+00:04:27.191 --> 00:04:28.493
 How many prices now?
 
-80
-00:04:40.533 --> 00:04:42.140
+78
+00:04:31.067 --> 00:04:32.673
 Four: 30, 33, 44, 42.
 
-81
-00:04:42.140 --> 00:04:45.047
+79
+00:04:32.673 --> 00:04:35.581
 Every state the inputs passed through.
 
-82
-00:04:45.047 --> 00:04:47.572
+80
+00:04:35.581 --> 00:04:38.105
 That's what a price board is for.
 
-83
-00:04:47.733 --> 00:04:54.418
+81
+00:04:38.233 --> 00:04:44.918
 A zip board would be the politest board in town: it waits for the customer and the owner to take turns.
 
-84
-00:04:54.418 --> 00:04:56.559
+82
+00:04:44.918 --> 00:04:47.059
 combineLatest shows every change.
 
-85
-00:04:56.559 --> 00:04:58.441
+83
+00:04:47.059 --> 00:04:48.941
 zip shows only matched pairs.
 
-86
-00:04:59.200 --> 00:05:00.921
+84
+00:04:49.667 --> 00:04:51.388
 So, by our two questions.
 
-87
-00:05:00.921 --> 00:05:03.812
+85
+00:04:51.388 --> 00:04:54.279
 merge: all on at once, out as they arrive.
 
-88
-00:05:03.812 --> 00:05:06.497
+86
+00:04:54.279 --> 00:04:56.964
 concat: the next one on after the bell.
 
-89
-00:05:06.497 --> 00:05:08.906
+87
+00:04:56.964 --> 00:04:59.373
 zip: all on at once, one from each.
 
-90
-00:05:08.906 --> 00:05:12.417
+88
+00:04:59.373 --> 00:05:02.884
 combineLatest: all on at once, out on every change.
 
-91
-00:05:13.200 --> 00:05:19.820
+89
+00:05:03.600 --> 00:05:10.220
 Here's the safe quote in Java and Kotlin: a missing discount means zero, a missing price is an error.
 
-92
-00:05:20.600 --> 00:05:23.696
+90
+00:05:10.933 --> 00:05:14.030
 So, are they all names for, put these together?
 
-93
-00:05:23.696 --> 00:05:23.894
+91
+00:05:14.030 --> 00:05:14.227
 No.
 
-94
-00:05:23.894 --> 00:05:28.110
+92
+00:05:14.227 --> 00:05:18.443
 Ask when each belt is switched on, and when something comes out.
 
-95
-00:05:28.110 --> 00:05:31.272
+93
+00:05:18.443 --> 00:05:21.605
 And with zip, ask: what if a belt arrives empty?
 
-96
-00:05:31.467 --> 00:05:32.343
+94
+00:05:21.733 --> 00:05:22.609
 Quick check.
 
-97
-00:05:32.343 --> 00:05:41.174
+95
+00:05:22.609 --> 00:05:31.441
 Mono.zip of saving the order, a Mono of Void that completes after 20 milliseconds, and the cake's price, which takes 100.
 
-98
-00:05:41.174 --> 00:05:43.583
+96
+00:05:31.441 --> 00:05:33.849
 What does the zip emit, and when?
 
-99
-00:05:46.600 --> 00:05:48.955
+97
+00:05:36.433 --> 00:05:38.788
 Nothing, at about 20 milliseconds.
 
-100
-00:05:48.955 --> 00:05:55.119
+98
+00:05:38.788 --> 00:05:44.952
 A Mono of Void is always empty, so the zip completes empty, and cancels the price lookup.
 
-101
-00:05:55.119 --> 00:05:57.543
+99
+00:05:44.952 --> 00:05:47.376
 Use then instead: save, then price.

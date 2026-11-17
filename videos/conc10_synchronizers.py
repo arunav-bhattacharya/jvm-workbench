@@ -328,9 +328,9 @@ class Conc10Synchronizers(Narrated):
         self.play(FadeIn(cust), run_time=0.3)
         self.play(cust.animate.move_to([3.55, -1.05, 0]), run_time=0.8)
         self.play(FadeIn(bread, shift=DOWN * 0.15), FadeIn(price), run_time=0.6)
-        self.at(2)
+        self.at(1)
         self.play(Indicate(price, color=BAD, scale_factor=1.1), run_time=0.8)
-        self.at(3)
+        self.at(2)
         self.play(Circumscribe(cards[0], color=BAD, buff=0.08), run_time=1.0)
         self.hold()
 
@@ -358,7 +358,7 @@ class Conc10Synchronizers(Narrated):
         self.play(panel.animate.stretch(0.08, 0, about_edge=LEFT), Transform(closed, sign("OPEN", GOOD)), FadeIn(t271),
                   FadeOut(nap), run_time=0.7)
         self.play(FadeIn(still), run_time=0.5)
-        self.at(2)
+        self.at(3)
         self.play(FadeIn(guess, shift=UP * 0.1), run_time=0.7)
         self.hold()
 
@@ -423,6 +423,8 @@ class Conc10Synchronizers(Narrated):
               for i, ms in ((0, 228), (2, 328), (1, 428))]
         self.say("run")
         for k, (i, ms, n) in enumerate(((0, 228, 2), (2, 328, 1), (1, 428, 0))):
+            if k:
+                self.at(k)
             self.play(tm.animate.set_value(ms), run_time=0.55 if k else 1.0, rate_func=linear)
             self.play(FadeIn(tl[k]), run_time=0.2)
             spark(i)
@@ -527,8 +529,9 @@ class Conc10Synchronizers(Narrated):
         d3w0 = work(200, 250, 0, COLS[0]).set_fill(BAD, 0.95)
         alone = T("day 3, alone", 22, BAD).next_to(d3w0, UP, buff=0.12)
         self.say("t_break")
-        self.play(Indicate(latch_l, color=GOOD), run_time=0.8)
         self.at(1)
+        self.play(Indicate(latch_l, color=GOOD), run_time=0.8)
+        self.at(2)
         self.play(GrowFromEdge(d2w12[0], LEFT, run_time=0.8), GrowFromEdge(d2w12[1], LEFT, run_time=1.2),
                   FadeIn(old, shift=UP * 0.1, run_time=0.6))
         self.play(GrowFromEdge(d3w0, LEFT), FadeIn(alone), run_time=0.7)
@@ -568,7 +571,7 @@ class Conc10Synchronizers(Narrated):
         tot = [total_chip(s, 150 * (d + 1)) for d, s in enumerate(("6,000", "12,000", "18,000"))]
         self.play(Create(dl[0]), Indicate(dw[0][2], color=COUNT), run_time=0.6)
         self.play(Indicate(guide, color=COUNT), FadeIn(tot[0], shift=UP * 0.1), run_time=0.7)
-        self.at(4)
+        self.at(3)
         self.play(Flash(dl[0].get_top(), color=COUNT, flash_radius=0.3), run_time=0.6)
         self.hold()
 
@@ -598,16 +601,16 @@ class Conc10Synchronizers(Narrated):
         d4lab = T("day 4", 22, GREY_B).move_to([tx(625), -1.05, 0])
         self.say("bus_lost")
         self.play(bpic[4][2].animate.set_opacity(0), FadeIn(seat), run_time=0.5)
-        self.at(2)
+        self.at(3)
         self.play(FadeIn(d4lab), GrowFromEdge(d4[0], LEFT, run_time=0.4), GrowFromEdge(d4[1], LEFT, run_time=0.8),
                   FadeIn(never, run_time=0.6))
         self.at_text("wait at most", lead=0.4)
         self.play(Create(d4d[0]), Create(d4d[1]), run_time=1.6)
-        self.at(3)
+        self.at(4)
         self.play(FadeIn(ex0), Create(x0), run_time=0.5)
         self.at_text("and the other", lead=0.2)
         self.play(FadeIn(ex1), Create(x1), run_time=0.5)
-        self.at(4)
+        self.at(5)
         self.play(Circumscribe(VGroup(d4d, x0, x1), color=COUNT, buff=0.1), run_time=1.0)
         self.hold()
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
@@ -653,7 +656,7 @@ class Conc10Synchronizers(Narrated):
         self.play(FadeIn(ms120), run_time=0.4)
         self.at_text("and it allows", lead=0.3)
         self.play(FadeIn(bank_n), run_time=0.5)
-        self.at(1)
+        self.at(2)
         self.play(LaggedStart(*[FadeIn(c, scale=0.5) for c in calls], lag_ratio=0.04), run_time=0.9)
         ins = [bankb.get_left() + RIGHT * 0.35 + UP * (0.5 - 0.25 * k) for k in range(5)]
         self.play(*[calls[k].animate.move_to(ins[k]) for k in range(5)],
@@ -702,12 +705,13 @@ class Conc10Synchronizers(Narrated):
             row[0].move_to([-6.2, y, 0], aligned_edge=LEFT)
             row[1].move_to([-3.7, y, 0], aligned_edge=LEFT)
         self.say("park_map")
-        self.play(FadeIn(p1, shift=UP * 0.1), Indicate(bays, color=COUNT), run_time=0.8)
         self.at(1)
-        self.play(FadeIn(p2, shift=UP * 0.1), run_time=0.5)
+        self.play(FadeIn(p1, shift=UP * 0.1), Indicate(bays, color=COUNT), run_time=0.8)
         self.at(2)
-        self.play(FadeIn(p3, shift=UP * 0.1), run_time=0.5)
+        self.play(FadeIn(p2, shift=UP * 0.1), run_time=0.5)
         self.at(3)
+        self.play(FadeIn(p3, shift=UP * 0.1), run_time=0.5)
+        self.at(4)
         self.play(FadeIn(p4, shift=UP * 0.1), run_time=0.5)
         self.hold()
 

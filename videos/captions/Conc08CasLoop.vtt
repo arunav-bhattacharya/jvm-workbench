@@ -1,413 +1,413 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:05.660
+00:00:02.700 --> 00:00:05.626
 Picture the bank's busiest account on payday.
 
 2
-00:00:05.660 --> 00:00:10.212
+00:00:05.626 --> 00:00:10.178
 Eight tellers, each one a thread, add deposits to its balance at once.
 
 3
-00:00:10.212 --> 00:00:15.934
+00:00:10.178 --> 00:00:15.901
 Back in the lesson on count++, a plain long lost more than two thirds of those deposits.
 
 4
-00:00:15.934 --> 00:00:19.251
+00:00:15.901 --> 00:00:19.217
 An atomic number fixed it, and we took it on trust.
 
 5
-00:00:19.400 --> 00:00:23.142
+00:00:19.433 --> 00:00:23.175
 Last time, every lock made threads wait in line for a key.
 
 6
-00:00:23.142 --> 00:00:25.013
+00:00:23.175 --> 00:00:25.046
 An atomic has no line at all.
 
 7
-00:00:25.013 --> 00:00:29.852
+00:00:25.046 --> 00:00:29.885
 So how can two threads change one number safely, if neither one ever waits?
 
 8
-00:00:30.600 --> 00:00:32.648
+00:00:30.700 --> 00:00:32.748
 Let's find out with a small job.
 
 9
-00:00:32.648 --> 00:00:36.679
+00:00:32.748 --> 00:00:36.779
 The fraud team watches a screen with the day's largest payment.
 
 10
-00:00:36.679 --> 00:00:42.247
+00:00:36.779 --> 00:00:42.347
 Many threads report payments, and each one raises the maximum if its payment is bigger.
 
 11
-00:00:42.400 --> 00:00:44.061
+00:00:42.567 --> 00:00:44.228
 The first try is one line.
 
 12
-00:00:44.061 --> 00:00:47.320
+00:00:44.228 --> 00:00:47.487
 If the amount is bigger than the maximum, write it.
 
 13
-00:00:47.467 --> 00:00:49.110
+00:00:47.700 --> 00:00:49.343
 Let's slow it down.
 
 14
-00:00:49.110 --> 00:00:50.753
+00:00:49.343 --> 00:00:50.986
 The maximum is 500.
 
 15
-00:00:50.753 --> 00:00:56.548
+00:00:50.986 --> 00:00:56.781
 Thread 1 reports 900, and thread 2 reports 700, at the same moment.
 
 16
-00:00:56.548 --> 00:00:57.759
+00:00:56.781 --> 00:00:57.992
 Both read 500.
 
 17
-00:00:57.759 --> 00:00:59.834
+00:00:57.992 --> 00:01:00.068
 Both decide to raise it.
 
 18
-00:00:59.834 --> 00:01:01.564
+00:01:00.068 --> 00:01:01.797
 Thread 1 writes 900.
 
 19
-00:01:01.564 --> 00:01:05.369
+00:01:01.797 --> 00:01:05.603
 A moment later, thread 2 writes 700 over it.
 
 20
-00:01:05.533 --> 00:01:08.870
+00:01:05.833 --> 00:01:09.170
 The day's biggest payment just vanished from the screen.
 
 21
-00:01:08.870 --> 00:01:13.397
+00:01:09.170 --> 00:01:13.697
 And since max is volatile, every thread now sees the wrong answer, promptly.
 
 22
-00:01:13.533 --> 00:01:15.323
+00:01:13.900 --> 00:01:15.689
 The trouble is the last step.
 
 23
-00:01:15.323 --> 00:01:16.742
+00:01:15.689 --> 00:01:17.108
 Thread 2 wrote blindly.
 
 24
-00:01:16.742 --> 00:01:20.382
+00:01:17.108 --> 00:01:20.748
 It never checked that the number was still the one it read.
 
 25
-00:01:20.382 --> 00:01:24.824
+00:01:20.748 --> 00:01:25.191
 What we want is a careful write: change it only if nobody beat me to it.
 
 26
-00:01:25.600 --> 00:01:30.143
+00:01:26.000 --> 00:01:30.543
 Picture a clerk who keeps a tally on a board behind the bank's counter.
 
 27
-00:01:30.143 --> 00:01:34.303
+00:01:30.543 --> 00:01:34.703
 You may ask her to change it, but you must say what it shows now.
 
 28
-00:01:34.303 --> 00:01:36.223
+00:01:34.703 --> 00:01:36.623
 It says 41, please make it 42.
 
 29
-00:01:36.400 --> 00:01:39.209
+00:01:36.833 --> 00:01:39.642
 If the board still says 41, she writes 42.
 
 30
-00:01:39.209 --> 00:01:44.759
+00:01:39.642 --> 00:01:45.192
 If someone got there first and it already says 42, she refuses, and you look again.
 
 31
-00:01:44.759 --> 00:01:47.300
+00:01:45.192 --> 00:01:47.733
 She never makes anyone wait in a line.
 
 32
-00:01:47.467 --> 00:01:48.312
+00:01:47.967 --> 00:01:48.812
 Let's map it.
 
 33
-00:01:48.312 --> 00:01:50.003
+00:01:48.812 --> 00:01:50.503
 The board is the variable.
 
 34
-00:01:50.003 --> 00:01:52.864
+00:01:50.503 --> 00:01:53.364
 What you say it shows is the expected value.
 
 35
-00:01:52.864 --> 00:01:55.336
+00:01:53.364 --> 00:01:55.836
 The number you want is the next value.
 
 36
-00:01:55.336 --> 00:02:01.644
+00:01:55.836 --> 00:02:02.144
 And the clerk is one processor instruction, so nobody can slip in between her look and her write.
 
 37
-00:02:01.800 --> 00:02:04.398
+00:02:02.367 --> 00:02:04.965
 Java calls the request compareAndSet.
 
 38
-00:02:04.398 --> 00:02:09.244
+00:02:04.965 --> 00:02:09.810
 If the value still equals expected, it stores next, and returns true.
 
 39
-00:02:09.244 --> 00:02:12.474
+00:02:09.810 --> 00:02:13.040
 If not, it changes nothing, and returns false.
 
 40
-00:02:12.474 --> 00:02:14.861
+00:02:13.040 --> 00:02:15.428
 Compare and set, or CAS for short.
 
 41
-00:02:15.533 --> 00:02:20.013
+00:02:16.133 --> 00:02:20.613
 Now two threads add one to the tally at the same moment.
 
 42
-00:02:20.013 --> 00:02:21.052
+00:02:20.613 --> 00:02:21.652
 Both read 41.
 
 43
-00:02:21.052 --> 00:02:24.492
+00:02:21.652 --> 00:02:25.092
 Thread 1 asks first: 41, please make it 42.
 
 44
-00:02:24.492 --> 00:02:24.892
+00:02:25.092 --> 00:02:25.492
 Done.
 
 45
-00:02:24.892 --> 00:02:28.011
+00:02:25.492 --> 00:02:28.611
 Then thread 2 asks the very same thing.
 
 46
-00:02:28.011 --> 00:02:29.931
+00:02:28.611 --> 00:02:30.531
 What does the clerk say?
 
 47
-00:02:32.933 --> 00:02:33.236
+00:02:33.500 --> 00:02:33.803
 No.
 
 48
-00:02:33.236 --> 00:02:37.875
+00:02:33.803 --> 00:02:38.442
 The board says 42 now, so thread 2 gets false.
 
 49
-00:02:37.875 --> 00:02:45.036
+00:02:38.442 --> 00:02:45.603
 It drops its old plan, reads 42, and asks again: 42, please make it 43.
 
 50
-00:02:45.036 --> 00:02:45.440
+00:02:45.603 --> 00:02:46.006
 Yes.
 
 51
-00:02:45.440 --> 00:02:46.549
+00:02:46.006 --> 00:02:47.116
 41, 42, 43.
 
 52
-00:02:46.549 --> 00:02:48.163
+00:02:47.116 --> 00:02:48.729
 Nothing is lost.
 
 53
-00:02:48.933 --> 00:02:51.818
+00:02:49.533 --> 00:02:52.418
 That's the whole trick, written as a loop.
 
 54
-00:02:51.818 --> 00:02:52.848
+00:02:52.418 --> 00:02:53.448
 Read the value.
 
 55
-00:02:52.848 --> 00:02:54.290
+00:02:53.448 --> 00:02:54.890
 Decide what you want.
 
 56
-00:02:54.290 --> 00:02:55.251
+00:02:54.890 --> 00:02:55.851
 Ask the clerk.
 
 57
-00:02:55.251 --> 00:03:01.020
+00:02:55.851 --> 00:03:01.620
 If she says no, your decision was based on old news, so read again and decide again.
 
 58
-00:03:01.200 --> 00:03:03.238
+00:03:01.833 --> 00:03:03.872
 Back to the fraud screen.
 
 59
-00:03:03.238 --> 00:03:07.559
+00:03:03.872 --> 00:03:08.193
 Thread 2 read 500, and asks: 500, please make it 700.
 
 60
-00:03:07.559 --> 00:03:11.147
+00:03:08.193 --> 00:03:11.780
 But the board says 900, so the answer is no.
 
 61
-00:03:11.147 --> 00:03:16.202
+00:03:11.780 --> 00:03:16.835
 It reads 900, sees that 700 isn't bigger, and leaves it alone.
 
 62
-00:03:16.202 --> 00:03:18.321
+00:03:16.835 --> 00:03:18.955
 The biggest payment stays.
 
 63
-00:03:19.067 --> 00:03:21.302
+00:03:19.767 --> 00:03:22.002
 Here it is in Java and in Kotlin.
 
 64
-00:03:21.302 --> 00:03:25.773
+00:03:22.002 --> 00:03:26.473
 Read, decide, and write only if the maximum is still what we read.
 
 65
-00:03:25.773 --> 00:03:27.535
+00:03:26.473 --> 00:03:28.235
 Otherwise, go round again.
 
 66
-00:03:28.333 --> 00:03:30.479
+00:03:29.067 --> 00:03:31.213
 How often does the clerk say no?
 
 67
-00:03:30.479 --> 00:03:36.716
+00:03:31.213 --> 00:03:37.449
 A demo adds one in a hand-written loop, a million times per thread, on 1, 2, 4 and 8 threads.
 
 68
-00:03:36.716 --> 00:03:40.001
+00:03:37.449 --> 00:03:40.735
 Guess the failures for one thread, and for eight.
 
 69
-00:03:43.067 --> 00:03:47.163
+00:03:43.733 --> 00:03:47.829
 One thread never fails, because nobody else changes the value.
 
 70
-00:03:47.163 --> 00:03:49.739
+00:03:47.829 --> 00:03:50.406
 With eight, about 2.8 million failures.
 
 71
-00:03:49.739 --> 00:03:52.580
+00:03:50.406 --> 00:03:53.247
 And the counter came out exact, every time.
 
 72
-00:03:52.733 --> 00:03:55.580
+00:03:53.467 --> 00:03:56.313
 2.8 million noes, and not one hurt feeling.
 
 73
-00:03:55.580 --> 00:03:58.161
+00:03:56.313 --> 00:03:58.894
 A failed CAS costs a retry, not a wait.
 
 74
-00:03:58.161 --> 00:04:03.920
+00:03:58.894 --> 00:04:04.653
 And it only fails because another thread succeeded, so some thread always gets through.
 
 75
-00:04:03.920 --> 00:04:05.773
+00:04:04.653 --> 00:04:06.507
 That's what lock-free means.
 
 76
-00:04:06.533 --> 00:04:08.811
+00:04:07.333 --> 00:04:09.611
 You'll rarely write that loop yourself.
 
 77
-00:04:08.811 --> 00:04:12.606
+00:04:09.611 --> 00:04:13.406
 updateAndGet runs it for you, around a function of the old value.
 
 78
-00:04:12.606 --> 00:04:15.876
+00:04:13.406 --> 00:04:16.676
 So what happens to your function when the clerk says no?
 
 79
-00:04:16.067 --> 00:04:24.439
+00:04:16.900 --> 00:04:25.272
 Four threads each make 250,000 one-cent deposits with updateAndGet, and the function counts how often it runs.
 
 80
-00:04:24.439 --> 00:04:26.341
+00:04:25.272 --> 00:04:27.175
 A million times, exactly?
 
 81
-00:04:29.400 --> 00:04:33.612
+00:04:30.167 --> 00:04:34.378
 The balance came out at exactly a million cents.
 
 82
-00:04:33.612 --> 00:04:36.858
+00:04:34.378 --> 00:04:37.625
 But the function ran 1,294,839 times.
 
 83
-00:04:36.858 --> 00:04:41.772
+00:04:37.625 --> 00:04:42.539
 Every lost race ran it again, and threw the result away.
 
 84
-00:04:41.933 --> 00:04:48.520
+00:04:42.767 --> 00:04:49.353
 If that function had sent the customer a text, the bank would have sent nearly 300,000 extra texts.
 
 85
-00:04:48.520 --> 00:04:53.509
+00:04:49.353 --> 00:04:54.343
 So keep the function pure: it only looks at its input and returns a result.
 
 86
-00:04:54.267 --> 00:04:55.310
+00:04:55.167 --> 00:04:56.210
 One last trap.
 
 87
-00:04:55.310 --> 00:04:59.407
+00:04:56.210 --> 00:05:00.307
 An account holds 100, and two threads each withdraw 80.
 
 88
-00:04:59.407 --> 00:05:03.578
+00:05:00.307 --> 00:05:04.478
 Each checks get, then calls addAndGet, two atomic calls.
 
 89
-00:05:03.578 --> 00:05:05.813
+00:05:04.478 --> 00:05:06.713
 Can the balance go below zero?
 
 90
-00:05:06.000 --> 00:05:06.297
+00:05:06.933 --> 00:05:07.230
 Yes.
 
 91
-00:05:06.297 --> 00:05:11.714
+00:05:07.230 --> 00:05:12.647
 Both check, both see 100, both take 80, and the balance ends at minus 60.
 
 92
-00:05:11.714 --> 00:05:16.537
+00:05:12.647 --> 00:05:17.471
 Two atomic calls in a row are two steps, with a gap between them.
 
 93
-00:05:16.733 --> 00:05:19.306
+00:05:17.700 --> 00:05:20.272
 So put the check inside the request.
 
 94
-00:05:19.306 --> 00:05:25.165
+00:05:20.272 --> 00:05:26.132
 Read 100, decide it covers 80, then ask the clerk: it says 100, please make it 20.
 
 95
-00:05:25.165 --> 00:05:29.809
+00:05:26.132 --> 00:05:30.776
 The other thread hears no, reads 20, and sees there isn't enough.
 
 96
-00:05:30.600 --> 00:05:34.100
+00:05:31.600 --> 00:05:35.100
 So how do two threads change one number without waiting?
 
 97
-00:05:34.100 --> 00:05:35.726
+00:05:35.100 --> 00:05:36.726
 They never hold the board.
 
 98
-00:05:35.726 --> 00:05:41.101
+00:05:36.726 --> 00:05:42.101
 They ask the clerk: write only if nothing changed, and when she says no, decide again.
 
 99
-00:05:41.101 --> 00:05:44.664
+00:05:42.101 --> 00:05:45.664
 Keep the function pure, and the check inside the request.
 
 100
-00:05:44.800 --> 00:05:45.718
+00:05:45.867 --> 00:05:46.784
 Quick check.
 
 101
-00:05:45.718 --> 00:05:47.094
+00:05:46.784 --> 00:05:48.160
 The board says 43.
 
 102
-00:05:47.094 --> 00:05:50.840
+00:05:48.160 --> 00:05:51.907
 You ask the clerk: it says 42, please make it 43.
 
 103
-00:05:50.840 --> 00:05:54.128
+00:05:51.907 --> 00:05:55.195
 What does she say, and what do you do next?

@@ -1,133 +1,369 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.735
-A fee job divides 8 by each amount: 1, 2, 0 and 4.
+00:00:02.733 --> 00:00:07.623
+Ten in the morning, halfway through a tray of rye, the bakery's oven breaks down.
 
 2
-00:00:06.735 --> 00:00:11.012
-Time runs left to right, and each marble is one item.
+00:00:07.623 --> 00:00:09.675
+The packer has boxed a few loaves.
 
 3
-00:00:11.233 --> 00:00:12.346
-8 over 1 is 8.
+00:00:09.675 --> 00:00:14.081
+Then nothing more comes down the belt, only a note: the oven has stopped.
 
 4
-00:00:12.346 --> 00:00:13.458
-8 over 2 is 4.
+00:00:14.867 --> 00:00:16.292
+Let's shrink that.
 
 5
-00:00:13.458 --> 00:00:18.067
-Then the 0 throws, and an error signal goes down the line.
+00:00:16.292 --> 00:00:24.129
+The program shares 8 loaves among some boxes, and the box counts come down the belt: 1, 2, 0 and 4.
 
 6
-00:00:18.067 --> 00:00:19.815
-What happens to the 4?
+00:00:24.129 --> 00:00:25.554
+Eight over 1 is 8.
 
 7
-00:00:22.600 --> 00:00:23.211
-Nothing.
+00:00:25.554 --> 00:00:26.979
+Eight over 2 is 4.
 
 8
-00:00:23.211 --> 00:00:24.814
-An error is terminal.
+00:00:26.979 --> 00:00:28.959
+Then eight over 0 throws.
 
 9
-00:00:24.814 --> 00:00:28.401
-It ended the source, so the 4 is never divided.
+00:00:29.133 --> 00:00:30.697
+What happens to the 4?
 
 10
-00:00:28.633 --> 00:00:34.742
-onErrorResume catches the error on its way down, and switches to a fallback, like cached fees.
+00:00:33.733 --> 00:00:34.315
+Nothing.
 
 11
-00:00:34.742 --> 00:00:37.017
-It replaces the rest of the stream.
+00:00:34.315 --> 00:00:37.443
+The demo printed 8, then 4, then the error.
 
 12
-00:00:37.017 --> 00:00:38.381
-It doesn't resume it.
+00:00:37.443 --> 00:00:39.117
+The 4 is never divided.
 
 13
-00:00:39.300 --> 00:00:41.279
-Now an issuer that keeps failing.
+00:00:39.117 --> 00:00:45.664
+An error is the oven breaking down: a terminal signal, and after it, nothing else arrives.
 
 14
-00:00:41.279 --> 00:00:44.277
-When the error reaches retry, it subscribes again.
+00:00:45.800 --> 00:00:48.630
+Now the question that's easy to be shy about.
 
 15
-00:00:44.277 --> 00:00:49.133
-The subscription travels up to the source, and the source calls the issuer again.
+00:00:48.630 --> 00:00:53.536
+If we catch that error, surely the stream carries on, and the 4 gets its turn?
 
 16
-00:00:49.367 --> 00:00:56.413
-retry(3) does that three times, in the same millisecond: four calls, then the original error comes through.
+00:00:53.733 --> 00:00:57.285
+Well, the packer can't make a broken oven finish the tray.
 
 17
-00:00:56.633 --> 00:01:01.294
-Retry.backoff(3, 100 milliseconds) spreads them out.
+00:00:57.285 --> 00:01:00.285
+She can only decide what goes in the box instead.
 
 18
-00:01:01.294 --> 00:01:11.153
-With jitter off, the calls go at 0, 100, 300 and 700 milliseconds, then it fails with RetryExhaustedException.
+00:01:00.285 --> 00:01:02.244
+Reactor gives her three choices.
 
 19
-00:01:11.867 --> 00:01:18.022
-This client calls the issuer when you call the method, and wraps the stored answer in Mono.error.
+00:01:02.400 --> 00:01:06.830
+One loaf from yesterday: onErrorReturn gives 8, 4, minus 1.
 
 20
-00:01:18.022 --> 00:01:20.307
-How many calls reach the issuer now?
+00:01:06.830 --> 00:01:12.237
+The backup oven: onErrorResume switches to another belt, 8, 4, 100, 200.
 
 21
-00:01:23.100 --> 00:01:23.741
-Just one.
+00:01:12.237 --> 00:01:19.145
+Or a clearer note: onErrorMap turns the error into a better one, and the stream still fails.
 
 22
-00:01:23.741 --> 00:01:29.442
-Each retry re-reads the stored error, because nothing runs at subscription time.
+00:01:19.333 --> 00:01:20.290
+Look for the 4.
 
 23
-00:01:29.442 --> 00:01:32.933
-Mono.defer makes every subscription a fresh call.
+00:01:20.290 --> 00:01:21.821
+It isn't in any of them.
 
 24
-00:01:34.133 --> 00:01:38.882
-An issuer that never answers sends no error, so retry never fires.
+00:01:21.821 --> 00:01:27.116
+Each operator caught the note on its way down, and replaced the rest of the stream.
 
 25
-00:01:38.882 --> 00:01:45.069
-timeout(500 milliseconds) turns that silence into an error, and cancels the slow call.
+00:01:27.116 --> 00:01:29.540
+The oven above it had already stopped.
 
 26
-00:01:45.300 --> 00:01:50.597
-Put it above retryWhen, and each new attempt gets its own 500 milliseconds.
-
-27
-00:01:51.500 --> 00:01:57.864
-In Java and in Kotlin: a fresh call per attempt, a timeout per attempt, and a filtered backoff.
-
-28
-00:02:00.033 --> 00:02:02.283
-So an error ends a stream for good.
-
-29
-00:02:02.283 --> 00:02:04.597
+00:01:29.540 --> 00:01:31.836
 Error operators replace what's left.
 
+27
+00:01:31.836 --> 00:01:33.176
+They never resume it.
+
+28
+00:01:33.933 --> 00:01:35.667
+So what about trying again?
+
+29
+00:01:35.667 --> 00:01:40.934
+Every morning, the bakery orders flour from a mill, a service on another computer.
+
 30
-00:02:04.597 --> 00:02:09.739
-retry subscribes again from the source, and timeout turns silence into an error.
+00:01:40.934 --> 00:01:42.603
+Usually it says CONFIRMED.
 
 31
-00:02:09.967 --> 00:02:10.847
-Quick check.
+00:01:42.603 --> 00:01:46.521
+Sometimes it's busy, and a minute later the same order works.
 
 32
-00:02:10.847 --> 00:02:17.080
-Retry.backoff(2, 50 milliseconds), jitter off, against a lazy call that always fails.
+00:01:46.521 --> 00:01:49.668
+And sometimes it refuses: no rye flour this week.
 
 33
-00:02:17.080 --> 00:02:21.187
-When is the issuer called, and when does the chain fail?
+00:01:49.668 --> 00:01:51.659
+Asking again won't change that.
+
+34
+00:01:52.533 --> 00:01:55.004
+For the busy mill, we want another try.
+
+35
+00:01:55.004 --> 00:01:56.905
+retry doesn't rewind anything.
+
+36
+00:01:56.905 --> 00:02:05.268
+When an error reaches it, it subscribes again: it signs a fresh order form, and the whole order is baked again, from the first loaf.
+
+37
+00:02:05.467 --> 00:02:07.330
+Here the oven picture breaks.
+
+38
+00:02:07.330 --> 00:02:10.158
+A repaired oven carries on where it stopped.
+
+39
+00:02:10.158 --> 00:02:13.756
+A retried Flux starts over, so rye-1 may be boxed twice.
+
+40
+00:02:13.756 --> 00:02:17.355
+For one flour order, starting over is just what we want.
+
+41
+00:02:18.133 --> 00:02:19.006
+Let's count.
+
+42
+00:02:19.006 --> 00:02:21.769
+retry(2), on a mill that always fails.
+
+43
+00:02:21.769 --> 00:02:24.169
+How many calls does the mill get?
+
+44
+00:02:27.200 --> 00:02:27.602
+Three.
+
+45
+00:02:27.602 --> 00:02:34.701
+Two retries means three attempts, all within a millisecond or two, and then the original error: mill down.
+
+46
+00:02:34.867 --> 00:02:39.310
+Three calls in one millisecond, to a mill that's already struggling.
+
+47
+00:02:39.310 --> 00:02:41.924
+That's not a second try, that's a crowd.
+
+48
+00:02:41.924 --> 00:02:43.100
+So we want pauses.
+
+49
+00:02:43.267 --> 00:02:56.317
+With its random part switched off, Retry.backoff(3, 100 milliseconds) waits before each retry, twice as long each time: 100, then 200, then 400.
+
+50
+00:02:56.317 --> 00:03:01.392
+So the calls go out at 0, 100, 300 and 700 milliseconds.
+
+51
+00:03:01.533 --> 00:03:04.778
+Four attempts, because 3 counts the retries.
+
+52
+00:03:04.778 --> 00:03:14.880
+At 700 milliseconds it gives up with RetryExhaustedException, Retries exhausted: 3/3, and the mill's last error rides along as its cause.
+
+53
+00:03:15.067 --> 00:03:18.118
+Add a filter, and only the busy error is retried.
+
+54
+00:03:18.118 --> 00:03:20.111
+A refusal goes straight through.
+
+55
+00:03:20.111 --> 00:03:28.207
+And keep the random jitter in production, so a thousand bakeries that failed together don't all call back in the same millisecond.
+
+56
+00:03:29.000 --> 00:03:29.712
+Now a trap.
+
+57
+00:03:29.712 --> 00:03:37.158
+Some clients call the mill the moment you call the method, and hand you a Mono holding the answer they already got.
+
+58
+00:03:37.158 --> 00:03:38.647
+Retry that three times.
+
+59
+00:03:38.647 --> 00:03:40.589
+How many calls reach the mill?
+
+60
+00:03:43.600 --> 00:03:43.913
+One.
+
+61
+00:03:43.913 --> 00:03:47.906
+The demo printed: mill busy, after 4 subscriptions.
+
+62
+00:03:47.906 --> 00:03:50.959
+Each retry read the same stored answer.
+
+63
+00:03:51.133 --> 00:03:55.473
+It's asking the same note, four times, if the mill is still busy.
+
+64
+00:03:55.473 --> 00:03:58.144
+The note isn't going to change its mind.
+
+65
+00:03:58.144 --> 00:04:02.951
+So make the call lazy: Mono.defer makes every subscription a fresh call.
+
+66
+00:04:03.733 --> 00:04:06.462
+The hardest failure sends nothing at all.
+
+67
+00:04:06.462 --> 00:04:09.324
+The mill takes the order and never answers.
+
+68
+00:04:09.324 --> 00:04:10.522
+No item, no error.
+
+69
+00:04:10.522 --> 00:04:14.448
+retry needs an error to react to, so nothing ever gives up.
+
+70
+00:04:14.600 --> 00:04:16.513
+So we set a kitchen timer.
+
+71
+00:04:16.513 --> 00:04:23.209
+timeout(500 milliseconds) turns silence into a TimeoutException, and cancels the slow call.
+
+72
+00:04:23.209 --> 00:04:30.641
+In the demo, a 100 millisecond timer on a 300 millisecond call rang, and the slow call was cancelled.
+
+73
+00:04:31.400 --> 00:04:33.573
+Where you put the timer matters.
+
+74
+00:04:33.573 --> 00:04:40.499
+Above retryWhen, each attempt gets its own 500 milliseconds, and a timeout is one more error to retry.
+
+75
+00:04:40.499 --> 00:04:43.623
+Below it, it's one budget for the whole order.
+
+76
+00:04:43.800 --> 00:04:44.781
+One last thing.
+
+77
+00:04:44.781 --> 00:04:47.330
+A timer only means you stopped waiting.
+
+78
+00:04:47.330 --> 00:04:49.487
+It doesn't mean the mill said no.
+
+79
+00:04:49.487 --> 00:04:52.952
+A real kitchen timer lets you open the oven and look.
+
+80
+00:04:52.952 --> 00:04:54.979
+timeout can't see the far side.
+
+81
+00:04:54.979 --> 00:05:01.973
+So send the same order number every time, and when the retries run out, mark the order pending, not failed.
+
+82
+00:05:02.733 --> 00:05:10.676
+Here's the whole order in Java and Kotlin: a lazy call, a timer per attempt, a filtered backoff, and pending at the end.
+
+83
+00:05:11.467 --> 00:05:14.542
+So, does catching an error carry the stream on?
+
+84
+00:05:14.542 --> 00:05:14.739
+No.
+
+85
+00:05:14.739 --> 00:05:19.909
+An error ends it, and error operators only choose what goes in the box instead.
+
+86
+00:05:19.909 --> 00:05:24.882
+retry bakes the whole order again, so make the call lazy, pause, and filter.
+
+87
+00:05:24.882 --> 00:05:27.500
+And a timer turns silence into an error.
+
+88
+00:05:27.667 --> 00:05:28.534
+Quick check.
+
+89
+00:05:28.534 --> 00:05:35.472
+Retry.backoff(3, 50 milliseconds), no jitter, and a mill that's busy twice, then says CONFIRMED.
+
+90
+00:05:35.472 --> 00:05:38.652
+When is the mill called, and what comes out?
+
+91
+00:05:41.667 --> 00:05:45.732
+At 0, 50 and 150 milliseconds, and then CONFIRMED.
+
+92
+00:05:45.732 --> 00:05:49.147
+Once an attempt works, the retrying stops.
