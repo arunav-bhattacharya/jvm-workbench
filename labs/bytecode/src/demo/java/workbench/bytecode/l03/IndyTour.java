@@ -6,17 +6,17 @@ import java.util.function.Supplier;
 
 /** Lambdas, a method reference, string concatenation and a record: every one is an invokedynamic. */
 public class IndyTour {
-    record Fee(String currency, long amountMinor) {}
+    record Cue(String name, int seconds) {}
 
     static int add(int a, int b) { return a + b; }
 
-    static Supplier<String> greeter() { return () -> "hello"; }        // captures nothing
-    static IntUnaryOperator plus(int fee) { return x -> x + fee; }     // captures fee
+    static Supplier<String> greeter() { return () -> "hello"; }              // captures nothing
+    static IntUnaryOperator delay(int extra) { return s -> s + extra; }      // captures extra
 
     public static void main(String[] args) {
         IntBinaryOperator ref = IndyTour::add;
         Class<?> c = ref.getClass();
-        System.out.println("method ref: " + ref.applyAsInt(1_250, 30) + ", class " + c.getName());
+        System.out.println("method ref: " + ref.applyAsInt(90, 30) + ", class " + c.getName());
         System.out.println("hidden: " + c.isHidden() + ", nestmate of IndyTour: " + (c.getNestHost() == IndyTour.class));
         try {
             Class.forName(c.getName());
@@ -25,10 +25,10 @@ public class IndyTour {
         }
 
         System.out.println("captures nothing: same object both times? " + (greeter() == greeter()));
-        IntUnaryOperator p30 = plus(30), p45 = plus(45);
-        System.out.println("captures fee: same object? " + (p30 == p45) + ", same class? " + (p30.getClass() == p45.getClass()));
+        IntUnaryOperator d5 = delay(5), d10 = delay(10);
+        System.out.println("captures extra: same object? " + (d5 == d10) + ", same class? " + (d5.getClass() == d10.getClass()));
 
-        Fee fee = new Fee("EUR", 3_625);
-        System.out.println("concat: " + fee.amountMinor() + " " + fee.currency() + ", record: " + fee);
+        Cue cue = new Cue("thunder", 90);
+        System.out.println("concat: " + cue.seconds() + " s to " + cue.name() + ", record: " + cue);
     }
 }

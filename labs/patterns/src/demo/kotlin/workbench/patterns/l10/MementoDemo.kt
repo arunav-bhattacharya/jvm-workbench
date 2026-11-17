@@ -1,36 +1,36 @@
 package workbench.patterns.l10
 
-// A cart that can hand out a snapshot of itself and later put it back.
+// A shelf that can hand out a photo of itself and later be put back exactly as in the photo.
 
-class Cart {
+class Shelf {
     private val items = mutableListOf<String>()
-    private var coupon = ""
+    private var sign = ""
 
     fun add(item: String) { items += item }
-    fun coupon(code: String) { coupon = code }
-    override fun toString() = "$items coupon=$coupon"
+    fun sign(text: String) { sign = text }
+    override fun toString() = "$items sign=$sign"
 
-    // callers see an opaque Memento; only Cart can read the State inside it
+    // callers see an opaque Memento; only Shelf can read the Photo inside it
     interface Memento
-    private data class State(val items: List<String>, val coupon: String) : Memento
+    private data class Photo(val items: List<String>, val sign: String) : Memento
 
-    fun save(): Memento = State(items.toList(), coupon)          // copy: later edits must not leak in
+    fun save(): Memento = Photo(items.toList(), sign)            // copy: later changes must not leak in
 
     fun restore(m: Memento) {
-        val s = m as State
+        val p = m as Photo
         items.clear()
-        items += s.items                                          // copy back in: the memento stays as it was
-        coupon = s.coupon
+        items += p.items                                          // copy back in: the photo stays as it was
+        sign = p.sign
     }
 }
 
 fun main() {
-    val cart = Cart()
-    cart.add("sku-1")
-    val before = cart.save()
-    cart.add("sku-2")
-    cart.coupon("AUTUMN10")
-    println("edited:   $cart")
-    cart.restore(before)
-    println("restored: $cart")
+    val shelf = Shelf()
+    shelf.add("rye bread")
+    val before = shelf.save()
+    shelf.add("jam")
+    shelf.sign("Autumn sale")
+    println("changed:  $shelf")
+    shelf.restore(before)
+    println("restored: $shelf")
 }

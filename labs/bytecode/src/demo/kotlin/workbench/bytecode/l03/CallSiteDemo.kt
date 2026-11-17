@@ -7,25 +7,25 @@ import java.lang.invoke.MutableCallSite
 
 // A call site is a slot holding a target method handle. invokedynamic calls through one.
 object Formats {
-    @JvmStatic fun eur(minor: Long) = "%d.%02d EUR".format(minor / 100, minor % 100)
-    @JvmStatic fun usd(minor: Long) = "$%d.%02d".format(minor / 100, minor % 100)
+    @JvmStatic fun inSeconds(s: Long) = "$s seconds"
+    @JvmStatic fun inMinutes(s: Long) = "${s / 60} minutes"
 }
 
 fun main() {
     val lookup = MethodHandles.lookup()
     val type = MethodType.methodType(String::class.java, Long::class.javaPrimitiveType)
-    val eur = lookup.findStatic(Formats::class.java, "eur", type)
-    val usd = lookup.findStatic(Formats::class.java, "usd", type)
+    val inSeconds = lookup.findStatic(Formats::class.java, "inSeconds", type)
+    val inMinutes = lookup.findStatic(Formats::class.java, "inMinutes", type)
 
-    val site = MutableCallSite(eur)
+    val site = MutableCallSite(inSeconds)
     val invoker = site.dynamicInvoker()             // what an invokedynamic instruction would call through
-    println("linked to eur: " + invoker.invoke(362_550L) as String)
-    site.target = usd                               // relink: same invoker, new target
-    println("relinked to usd: " + invoker.invoke(362_550L) as String)
+    println("linked to inSeconds: " + invoker.invoke(120L) as String)
+    site.target = inMinutes                         // relink: same invoker, new target
+    println("relinked to inMinutes: " + invoker.invoke(120L) as String)
 
-    val fixed = ConstantCallSite(eur)               // what lambdas and string concatenation get
+    val fixed = ConstantCallSite(inSeconds)         // what lambdas and string concatenation get
     try {
-        fixed.target = usd
+        fixed.target = inMinutes
     } catch (e: UnsupportedOperationException) {
         println("ConstantCallSite.setTarget -> UnsupportedOperationException: linked for good")
     }

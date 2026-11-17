@@ -4,20 +4,20 @@ import java.lang.reflect.InvocationHandler
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Proxy
 
-interface KLedger {
-    fun balanceMinor(account: String): Long
+interface KScenes {
+    fun minutes(scene: String): Int
 
-    fun totalMinor(a: String, b: String): Long =       // calls balanceMinor twice, on `this`
-        balanceMinor(a) + balanceMinor(b)
+    fun total(a: String, b: String): Int =       // calls minutes twice, on `this`
+        minutes(a) + minutes(b)
 }
 
-class RealKLedger : KLedger {
-    override fun balanceMinor(account: String) = account.length * 1_000L
+class RealKScenes : KScenes {
+    override fun minutes(scene: String) = scene.length * 10
 }
 
 /** Logs every call it sees. Default methods go either to the target or through invokeDefault. */
-fun logging(target: KLedger, useInvokeDefault: Boolean, log: MutableList<String>): KLedger =
-    Proxy.newProxyInstance(KLedger::class.java.classLoader, arrayOf(KLedger::class.java)) { proxy, m, args ->
+fun logging(target: KScenes, useInvokeDefault: Boolean, log: MutableList<String>): KScenes =
+    Proxy.newProxyInstance(KScenes::class.java.classLoader, arrayOf(KScenes::class.java)) { proxy, m, args ->
         log += m.name
         if (useInvokeDefault && m.isDefault) {
             InvocationHandler.invokeDefault(proxy, m, *args)       // the body runs with this = proxy
@@ -28,26 +28,26 @@ fun logging(target: KLedger, useInvokeDefault: Boolean, log: MutableList<String>
                 throw e.cause!!
             }
         }
-    } as KLedger
+    } as KScenes
 
 /** Who is `this` inside a default method? It decides which inner calls the handler sees. */
 fun main() {
     val log = mutableListOf<String>()
-    var t = logging(RealKLedger(), false, log).totalMinor("ops", "fees")
+    var t = logging(RealKScenes(), false, log).total("prologue", "duel")
     println("forward to target: total=$t, handler saw $log")
 
     log.clear()
-    t = logging(RealKLedger(), true, log).totalMinor("ops", "fees")
+    t = logging(RealKScenes(), true, log).total("prologue", "duel")
     println("invokeDefault:     total=$t, handler saw $log")
 
-    // no implementation class at all: the handler answers balanceMinor, the interface supplies totalMinor
-    val noTarget = Proxy.newProxyInstance(KLedger::class.java.classLoader, arrayOf(KLedger::class.java)) { proxy, m, a ->
-        if (m.isDefault) InvocationHandler.invokeDefault(proxy, m, *a) else 500L
-    } as KLedger
-    println("no target:         total=${noTarget.totalMinor("x", "y")}")
+    // no implementation class at all: the handler answers minutes, the interface supplies total
+    val noTarget = Proxy.newProxyInstance(KScenes::class.java.classLoader, arrayOf(KScenes::class.java)) { proxy, m, a ->
+        if (m.isDefault) InvocationHandler.invokeDefault(proxy, m, *a) else 5
+    } as KScenes
+    println("no target:         total=${noTarget.total("x", "y")}")
 
     try {
-        InvocationHandler.invokeDefault(noTarget, KLedger::class.java.getMethod("balanceMinor", String::class.java), "x")
+        InvocationHandler.invokeDefault(noTarget, KScenes::class.java.getMethod("minutes", String::class.java), "x")
     } catch (e: Throwable) {
         println("invokeDefault on an abstract method -> ${e.javaClass.simpleName}")
     }

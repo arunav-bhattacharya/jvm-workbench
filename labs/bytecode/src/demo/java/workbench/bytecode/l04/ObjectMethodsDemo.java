@@ -11,18 +11,18 @@ import java.util.Set;
 
 /** Two handler bugs: forwarding equals to the target, and throwing a checked exception the method doesn't declare. */
 public class ObjectMethodsDemo {
-    public interface IssuerClient {
-        String authorize(String pan) throws IOException;   // declares IOException
-        String status();                                   // declares nothing
+    public interface PropStore {
+        String fetch(String prop) throws IOException;   // declares IOException
+        String status();                                // declares nothing
     }
 
-    static class RealIssuer implements IssuerClient {
-        public String authorize(String pan) throws IOException { throw new IOException("issuer timed out after 120 ms"); }
-        public String status() { return "UP"; }
+    static class RealPropStore implements PropStore {
+        public String fetch(String prop) throws IOException { throw new IOException("prop store took longer than 120 ms"); }
+        public String status() { return "OPEN"; }
     }
 
-    static IssuerClient forwardingEverything(IssuerClient target) {
-        return (IssuerClient) Proxy.newProxyInstance(IssuerClient.class.getClassLoader(), new Class<?>[]{IssuerClient.class},
+    static PropStore forwardingEverything(PropStore target) {
+        return (PropStore) Proxy.newProxyInstance(PropStore.class.getClassLoader(), new Class<?>[]{PropStore.class},
                 (proxy, m, args) -> {
                     try {
                         return m.invoke(target, args);   // equals and hashCode go to the target too
@@ -33,22 +33,22 @@ public class ObjectMethodsDemo {
     }
 
     public static void main(String[] args) {
-        IssuerClient p = forwardingEverything(new RealIssuer());
+        PropStore p = forwardingEverything(new RealPropStore());
         System.out.println("p.equals(p): " + p.equals(p) + "   (target.equals(p) was asked)");
-        List<IssuerClient> listeners = new ArrayList<>();
+        List<PropStore> listeners = new ArrayList<>();
         listeners.add(p);
         System.out.println("listeners.remove(p) after listeners.add(p): " + listeners.remove(p) + ", size still " + listeners.size());
-        Set<IssuerClient> set = new HashSet<>(listeners);
+        Set<PropStore> set = new HashSet<>(listeners);
         System.out.println("HashSet.contains(p): " + set.contains(p) + "   (HashMap checks == before equals)");
 
         try {
-            p.authorize("4111111111111111");
+            p.fetch("crown");
         } catch (IOException e) {
             System.out.println("declared IOException passes through: " + e.getMessage());
         }
 
-        IssuerClient angry = (IssuerClient) Proxy.newProxyInstance(IssuerClient.class.getClassLoader(),
-                new Class<?>[]{IssuerClient.class}, (proxy, m, a) -> { throw new IOException("connection reset"); });
+        PropStore angry = (PropStore) Proxy.newProxyInstance(PropStore.class.getClassLoader(),
+                new Class<?>[]{PropStore.class}, (proxy, m, a) -> { throw new IOException("connection reset"); });
         try {
             angry.status();
         } catch (UndeclaredThrowableException e) {

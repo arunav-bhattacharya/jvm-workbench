@@ -15,8 +15,8 @@ import static java.lang.invoke.MethodType.methodType;
 public final class HandMadeLambdas {
     private HandMadeLambdas() {}
 
-    static int addMinor(int a, int b) { return a + b; }
-    static int addFee(int feeMinor, int amountMinor) { return amountMinor + feeMinor; }
+    static int addSeconds(int a, int b) { return a + b; }
+    static int addDelay(int delay, int seconds) { return seconds + delay; }
 
     // a full-power lookup for this class: it may see the package-private implementation methods
     private static final MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
@@ -26,14 +26,14 @@ public final class HandMadeLambdas {
             "applyAsInt",
             methodType(IntBinaryOperator.class),                 // factory type: no captures, returns the interface
             methodType(int.class, int.class, int.class),         // the interface method, erased: applyAsInt(II)I
-            findStatic("addMinor", methodType(int.class, int.class, int.class)),
+            findStatic("addSeconds", methodType(int.class, int.class, int.class)),
             methodType(int.class, int.class, int.class));        // the interface method as this lambda sees it
 
-    private static final MethodHandle PLUS_FEE_FACTORY = link(
+    private static final MethodHandle PLUS_DELAY_FACTORY = link(
             "applyAsInt",
-            methodType(IntUnaryOperator.class, int.class),       // takes the captured fee
+            methodType(IntUnaryOperator.class, int.class),       // takes the captured delay
             methodType(int.class, int.class),
-            findStatic("addFee", methodType(int.class, int.class, int.class)),   // (fee, amount)
+            findStatic("addDelay", methodType(int.class, int.class, int.class)),  // (delay, seconds)
             methodType(int.class, int.class));
 
     private static final MethodHandle LENGTH_FACTORY;
@@ -54,13 +54,13 @@ public final class HandMadeLambdas {
     private static final IntBinaryOperator ADDER = (IntBinaryOperator) invoke(ADDER_FACTORY);
     private static final Function<String, Integer> LENGTH = castFunction(invoke(LENGTH_FACTORY));
 
-    private static final MethodHandle RECEIPT;
+    private static final MethodHandle COUNTDOWN;
     static {
         try {
             CallSite site = StringConcatFactory.makeConcatWithConstants(
-                    LOOKUP, "receipt", methodType(String.class, long.class, String.class),
-                    "paid \u0001 to \u0001");                         // \u0001 marks each argument
-            RECEIPT = site.getTarget();
+                    LOOKUP, "countdown", methodType(String.class, long.class, String.class),
+                    "\u0001 seconds to \u0001");                       // \u0001 marks each argument
+            COUNTDOWN = site.getTarget();
         } catch (Exception e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -70,9 +70,9 @@ public final class HandMadeLambdas {
         return ADDER;
     }
 
-    public static IntUnaryOperator plusFee(int feeMinor) {
+    public static IntUnaryOperator plusDelay(int delay) {
         try {
-            return (IntUnaryOperator) PLUS_FEE_FACTORY.invokeExact(feeMinor);   // one new object per call
+            return (IntUnaryOperator) PLUS_DELAY_FACTORY.invokeExact(delay);    // one new object per call
         } catch (Throwable t) {
             throw new IllegalStateException(t);
         }
@@ -82,8 +82,8 @@ public final class HandMadeLambdas {
         return LENGTH;
     }
 
-    public static MethodHandle receipt() {
-        return RECEIPT;
+    public static MethodHandle countdown() {
+        return COUNTDOWN;
     }
 
     private static MethodHandle link(String name, MethodType factoryType, MethodType erased,

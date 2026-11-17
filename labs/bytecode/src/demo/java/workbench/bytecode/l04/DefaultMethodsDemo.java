@@ -9,20 +9,20 @@ import java.util.List;
 
 /** Who is `this` inside a default method? It decides which inner calls the handler sees. */
 public class DefaultMethodsDemo {
-    public interface Ledger {
-        long balanceMinor(String account);
+    public interface Scenes {
+        int minutes(String scene);
 
-        default long totalMinor(String a, String b) {   // calls balanceMinor twice, on `this`
-            return balanceMinor(a) + balanceMinor(b);
+        default int total(String a, String b) {   // calls minutes twice, on `this`
+            return minutes(a) + minutes(b);
         }
     }
 
-    static class RealLedger implements Ledger {
-        public long balanceMinor(String account) { return account.length() * 1_000L; }
+    static class RealScenes implements Scenes {
+        public int minutes(String scene) { return scene.length() * 10; }
     }
 
     /** Logs every call it sees. Default methods go either to the target or through invokeDefault. */
-    static Ledger logging(Ledger target, boolean useInvokeDefault, List<String> log) {
+    static Scenes logging(Scenes target, boolean useInvokeDefault, List<String> log) {
         InvocationHandler h = (proxy, m, args) -> {
             log.add(m.getName());
             if (useInvokeDefault && m.isDefault()) {
@@ -34,25 +34,25 @@ public class DefaultMethodsDemo {
                 throw e.getCause();
             }
         };
-        return (Ledger) Proxy.newProxyInstance(Ledger.class.getClassLoader(), new Class<?>[]{Ledger.class}, h);
+        return (Scenes) Proxy.newProxyInstance(Scenes.class.getClassLoader(), new Class<?>[]{Scenes.class}, h);
     }
 
     public static void main(String[] args) throws Exception {
         List<String> log = new ArrayList<>();
-        long t = logging(new RealLedger(), false, log).totalMinor("ops", "fees");
+        int t = logging(new RealScenes(), false, log).total("prologue", "duel");
         System.out.println("forward to target: total=" + t + ", handler saw " + log);
 
         log.clear();
-        t = logging(new RealLedger(), true, log).totalMinor("ops", "fees");
+        t = logging(new RealScenes(), true, log).total("prologue", "duel");
         System.out.println("invokeDefault:     total=" + t + ", handler saw " + log);
 
-        // no implementation class at all: the handler answers balanceMinor, the interface supplies totalMinor
-        Ledger noTarget = (Ledger) Proxy.newProxyInstance(Ledger.class.getClassLoader(), new Class<?>[]{Ledger.class},
-                (proxy, m, a) -> m.isDefault() ? InvocationHandler.invokeDefault(proxy, m, a) : 500L);
-        System.out.println("no target:         total=" + noTarget.totalMinor("x", "y"));
+        // no implementation class at all: the handler answers minutes, the interface supplies total
+        Scenes noTarget = (Scenes) Proxy.newProxyInstance(Scenes.class.getClassLoader(), new Class<?>[]{Scenes.class},
+                (proxy, m, a) -> m.isDefault() ? InvocationHandler.invokeDefault(proxy, m, a) : 5);
+        System.out.println("no target:         total=" + noTarget.total("x", "y"));
 
         try {
-            Method abstractOne = Ledger.class.getMethod("balanceMinor", String.class);
+            Method abstractOne = Scenes.class.getMethod("minutes", String.class);
             InvocationHandler.invokeDefault(noTarget, abstractOne, "x");
         } catch (Throwable e) {
             System.out.println("invokeDefault on an abstract method -> " + e.getClass().getSimpleName());

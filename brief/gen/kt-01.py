@@ -103,7 +103,7 @@ The part in braces, `{ pages * 3 / 100 }`, is a **lambda**: a small function wri
 
 This lambda uses `pages`, a variable from outside its braces, so it is a closure: a lambda that carries the outside values it needs. To make that work, the JVM builds a small object that holds a copy of `pages`, and `timedNotInline` calls that object's `invoke` method. Kotlin creates the object with `invokedynamic`, the bytecode instruction Java also uses for its lambdas. (Bytecode is the list of instructions in a `.class` file that the JVM runs. The lesson "invokedynamic: how lambdas and string concatenation compile", later in the course, takes that instruction apart.)
 
-Because the helper is generic, the `Long` result also travels back as a plain `Object` and has to be unboxed, that is, turned from a `java.lang.Long` object back into a primitive `long`. That's one object, one call through an interface and one unboxing, on every call. The Kotlin docs name the same three costs.
+The helper is also generic: it works for any result type `T`. So the `Long` result travels back as a plain `Object` and has to be unboxed, that is, turned from a `java.lang.Long` object back into a primitive `long`. That's one object, one call through an interface (a type that only names its methods, here `invoke`) and one unboxing, on every call. The Kotlin docs name the same three costs.
 
 In the print shop, this is the clerk handing the job to a colleague. The lambda is the slip with her own step on it, and `invoke` is the colleague calling her back to do it.
 
@@ -111,7 +111,7 @@ You could skip all of that by hand, by pasting the helper's body into the caller
 
 """ + pair(J_PASTED, K_PASTED) + """
 
-Nobody writes that fifty times. The compiler, on the other hand, is happy to. Write `inline fun <T> timed(...)` with the same body, and the compiler stops making the call. At every **call site**, each place in the code that calls the function, it copies the function's body and the body of the lambda you passed. That's the photocopy: the whole procedure lands in the job's own folder, with the clerk's step written in place.
+Nobody writes that fifty times. The compiler, on the other hand, is happy to. Write `inline fun <T> timed(...)` with the same body, and the compiler stops making the call. At every call site, each place in the code that calls the function, it copies the function's body and the body of the lambda you passed. That's the photocopy: the whole procedure lands in the job's own folder, with the clerk's step written in place.
 
 `javap`, a tool that comes with the JDK and prints the bytecode in a class file, shows the difference in the demo below. The ordinary call site in `inkNotInline` is seven instructions long. `invokedynamic` builds a `Function0` (Kotlin's interface for a function with no parameters), `invokestatic` calls `timedNotInline` with it, and `checkcast java/lang/Number` plus `longValue` unbox the result. The inline call site has none of that. The multiply (`lmul`) and the divide (`ldiv`) sit right inside `inkInline`, between two calls to `System.nanoTime`, just like the hand-pasted version.
 
@@ -209,13 +209,13 @@ The first is using the lambda as a value. An inlined lambda has no object behind
 
 In the print shop, that's a note that has to stay a separate slip, because it gets pinned to the notice board. A photocopy inside one folder would be no use to whoever reads the board later.
 
-The second is calling the lambda from somewhere else: from inside an object, a `Runnable` or another lambda. The docs call this "another execution context". That code may run later, on another **thread** (a separate path of execution inside the same program), when the caller may have returned long ago. A non-local `return` from there can't work, so the compiler stops you: `cannot inline 'task: () -> Unit' here: it might contain non-local returns. Add 'crossinline' modifier to parameter declaration 'task: () -> Unit'.`
+The second is calling the lambda from somewhere else: from inside an object, a `Runnable` or another lambda. The docs call this "another execution context". That code may run later, on another thread (a separate path of execution inside the same program), when the caller may have returned long ago. A non-local `return` from there can't work, so the compiler stops you: `cannot inline 'task: () -> Unit' here: it might contain non-local returns. Add 'crossinline' modifier to parameter declaration 'task: () -> Unit'.`
 
 In the print shop, it's a set of steps sealed in an envelope for the night shift. Nobody may write "stop the whole job" inside, because by the time the night shift opens the envelope, the clerk has gone home.
 
 `crossinline` is that rule, applied to the caller's lambda: no bare `return` inside it. With the rule in place, the compiler still pastes the lambda's body, now into a `Runnable` class it generates for that call site. In the demo, `javap` finds a class called `ModifiersDemoKt$main$$inlined$runInBackground$1` with no `Function0` field: the body of `main`'s lambda sits inside its `run()`.
 
-Here is the pair. An **executor** is a JDK object that runs tasks on threads it manages; `nightShift` has one thread, named `night-shift`:
+Here is the pair. An executor is a JDK object that runs tasks on threads it manages; `nightShift` has one thread, named `night-shift`:
 
 """ + pair(J_CROSS, K_CROSS) + """
 

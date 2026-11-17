@@ -13,9 +13,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class HandMadeLambdasTest {
 
     @Test
-    @DisplayName("adder() adds two amounts")
+    @DisplayName("adder() adds two numbers of seconds")
     void adderAdds() {
-        assertThat(HandMadeLambdas.adder().applyAsInt(1_250, 30)).isEqualTo(1_280);
+        assertThat(HandMadeLambdas.adder().applyAsInt(90, 30)).isEqualTo(120);
     }
 
     @Test
@@ -29,34 +29,34 @@ class HandMadeLambdasTest {
     }
 
     @Test
-    @DisplayName("plusFee(fee) adds the captured fee to each amount")
-    void plusFeeCaptures() {
-        assertThat(HandMadeLambdas.plusFee(30).applyAsInt(1_250)).isEqualTo(1_280);
-        assertThat(HandMadeLambdas.plusFee(45).applyAsInt(1_250)).isEqualTo(1_295);
+    @DisplayName("plusDelay(delay) adds the captured delay to each cue time")
+    void plusDelayCaptures() {
+        assertThat(HandMadeLambdas.plusDelay(5).applyAsInt(90)).isEqualTo(95);
+        assertThat(HandMadeLambdas.plusDelay(10).applyAsInt(90)).isEqualTo(100);
     }
 
     @Test
-    @DisplayName("plusFee: one linked call site, so two fees give two objects of ONE class")
-    void plusFeeLinksOnce() {
-        IntUnaryOperator f30 = HandMadeLambdas.plusFee(30);
-        IntUnaryOperator f45 = HandMadeLambdas.plusFee(45);
-        assertThat(f30).isNotSameAs(f45);
-        assertThat(f30.getClass()).isSameAs(f45.getClass());
-        assertThat(f30.getClass().isHidden()).isTrue();
+    @DisplayName("plusDelay: one linked call site, so two delays give two objects of ONE class")
+    void plusDelayLinksOnce() {
+        IntUnaryOperator d5 = HandMadeLambdas.plusDelay(5);
+        IntUnaryOperator d10 = HandMadeLambdas.plusDelay(10);
+        assertThat(d5).isNotSameAs(d10);
+        assertThat(d5.getClass()).isSameAs(d10.getClass());
+        assertThat(d5.getClass().isHidden()).isTrue();
     }
 
     @Test
     @DisplayName("lengthOf() is String::length behind the erased Function.apply, with the int boxed")
     void lengthOf() {
-        assertThat(HandMadeLambdas.lengthOf().apply("4111111111111111")).isEqualTo(16);
+        assertThat(HandMadeLambdas.lengthOf().apply("Hamlet")).isEqualTo(6);
         assertThat(HandMadeLambdas.lengthOf().getClass().isHidden()).isTrue();
     }
 
     @Test
-    @DisplayName("receipt() is a (long, String)String handle that fills the recipe")
-    void receipt() throws Throwable {
-        MethodHandle h = HandMadeLambdas.receipt();
+    @DisplayName("countdown() is a (long, String)String handle that fills the recipe")
+    void countdown() throws Throwable {
+        MethodHandle h = HandMadeLambdas.countdown();
         assertThat(h.type()).isEqualTo(MethodType.methodType(String.class, long.class, String.class));
-        assertThat((String) h.invokeExact(1_250L, "Corner Coffee")).isEqualTo("paid 1250 to Corner Coffee");
+        assertThat((String) h.invokeExact(90L, "thunder")).isEqualTo("90 seconds to thunder");
     }
 }

@@ -12,8 +12,8 @@ public class InitPuzzle {
     }
 
     static class Limits {
-        static final int MAX_MINOR = 500_000;     // a constant variable: javac copies 500000 into callers
-        static final Integer CAP = 500_000;       // boxed, so not a constant variable
+        static final int MAX_CAST = 12;          // a constant variable: javac copies 12 into callers
+        static final Integer CAP = 12;            // boxed, so not a constant variable
         static { System.out.println("    Limits.<clinit>"); }
     }
 
@@ -32,7 +32,7 @@ public class InitPuzzle {
     public static void main(String[] args) throws Exception {
         step("1. read Child.parentValue", () -> { int v = Child.parentValue; });
         step("2. new Child()", () -> new Child());
-        step("3. read Limits.MAX_MINOR", () -> { int v = Limits.MAX_MINOR; });
+        step("3. read Limits.MAX_CAST", () -> { int v = Limits.MAX_CAST; });
         step("4. read Limits.CAP", () -> { Integer v = Limits.CAP; });
         step("5. new Lazy[3]", () -> { Lazy[] a = new Lazy[3]; });
         step("6. Lazy.class", () -> { Class<?> c = Lazy.class; });

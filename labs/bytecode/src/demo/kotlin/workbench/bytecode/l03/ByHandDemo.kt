@@ -7,7 +7,7 @@ import java.lang.invoke.StringConcatFactory
 import java.util.function.Supplier
 
 object Banners {
-    @JvmStatic fun banner() = "settlement batch 42"
+    @JvmStatic fun banner() = "curtain up in five minutes"
 }
 
 // The two bootstrap calls an invokedynamic would make, made by hand from Kotlin.
@@ -27,10 +27,10 @@ fun main() {
     val s = site.target.invoke() as Supplier<String>
     println("${s.get()}  <- ${s.javaClass.name}, call site: ${site.javaClass.simpleName}")
 
-    // 2. "batch " + id + " has " + count + " payments"
+    // 2. "row " + row + " has " + count + " seats"
     val concat = StringConcatFactory.makeConcatWithConstants(
         lookup, "concat", methodType(String::class.java, Int::class.javaPrimitiveType, Long::class.javaPrimitiveType),
-        "batch \u0001 has \u0001 payments",
+        "row \u0001 has \u0001 seats",
     )
-    println("${concat.target.invoke(42, 1_250L)}  <- call site: ${concat.javaClass.simpleName}")
+    println("${concat.target.invoke(12, 30L)}  <- call site: ${concat.javaClass.simpleName}")
 }

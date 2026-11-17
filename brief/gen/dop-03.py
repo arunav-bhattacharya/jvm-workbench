@@ -48,11 +48,11 @@ FIG = (
     '</svg>'
 )
 
-OPENING = """At the lending desk, a clerk picks up each item a member wants to borrow, looks at it once, and stamps a due date. A large-print book gets six weeks. A new release gets one week, because other people are waiting for it. A box set of DVDs gets two. One look tells the clerk what kind of item it is and reads the stickers on its label at the same time. The clerk works down a printed instruction sheet, and the first line that fits wins.
+OPENING = """At the lending desk, a clerk picks up each item a member wants to borrow, looks at it once, and stamps a due date. A large-print book gets six weeks. A new release gets one week, because other people are waiting for it. A box set of DVDs gets two. One look tells the clerk what kind of item it is and reads the stickers on its label too. The clerk works down a printed instruction sheet, and the first line that fits wins.
 
 Java code used to sort things the slow way: `instanceof`, a cast, a getter, then another `instanceof`. It works, and it hides two traps. Nothing checks that the chain covers every kind of item, and nothing checks that a line further down can ever be reached.
 
-Sealed types, in the last lesson, gave the compiler the complete list of kinds. In this lesson, we'll give that list to a clerk who can use it: a switch the compiler checks, record patterns that read several boxes in one look, guards that decide the order, and the odd things that happen with null. Before we start, make a guess, and keep it in mind."""
+Sealed types, in the last lesson, gave the compiler the complete list of kinds. In this lesson, we'll give that list to a clerk who can use it. We'll write a switch the compiler checks, read several boxes in one look with record patterns, let guards decide the order, and meet the odd things that happen with null. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
 J_FLOW = """if (!(o instanceof Book b)) return "not a book";
@@ -84,19 +84,19 @@ when (i) {
     is Item.Magazine -> "magazine ${i.title} #${i.issue}"
 }"""
 
-S0 = """A **pattern** is a test with a binding. `Book b` asks "is this value a `Book`?" and, if it is, gives you a new variable `b` of type `Book`. Pattern matching came to Java in steps. JDK 16 made `instanceof` patterns final (JEP 394): the type test and the cast become one, and the binding is in scope wherever the test is known to have passed:
+S0 = """A **pattern** is a test with a binding. `Book b` asks "is this value a `Book`?" and, if it is, gives you a new variable `b` of type `Book`. Pattern matching came to Java in steps. JDK 16 made `instanceof` patterns a standard feature (JEP 394, the JDK Enhancement Proposal that describes them). The type test and the cast become one, and the binding is in scope wherever the test is known to have passed:
 
 """ + pair(J_FLOW, K_FLOW) + """
 
-JDK 21 made pattern `switch` final (JEP 441), together with record patterns (JEP 440). Here are two ways to describe an item at the desk, both from the `PatternBasics` demo:
+JDK 21 made pattern `switch` standard (JEP 441), together with record patterns (JEP 440). Here are two ways to describe an item at the desk, both from the `PatternBasics` demo:
 
 """ + pair(J_CHAIN, K_CHAIN) + """
 
-Both print the same three lines, starting with `book Emma by Jane Austen`. It's tempting to read the switch as a tidier chain, but the differences are the reason to prefer it. Delete the `Magazine` line from the chain, and it still compiles; the run reaches the magazine and dies in the chain's `IllegalStateException`. Delete the `Magazine` case from the switch, and javac refuses: `the switch expression does not cover all possible input values`. A pattern switch used as a statement must be exhaustive too.
+Both print the same three lines, starting with `book Emma by Jane Austen`. It's tempting to read the switch as a tidier chain, but the differences are the reason to prefer it. Delete the `Magazine` line from the chain, and it still compiles; the run reaches the magazine and dies in the chain's `IllegalStateException`. Delete the `Magazine` case from the switch, and javac, the Java compiler, refuses: `the switch expression does not cover all possible input values`. A pattern switch used as a statement must be exhaustive too.
 
-javac checks two more things the chain never gets: dominance, that is, whether each case can ever be reached (the third section), and fixed rules for `null` (the fourth). One level down, javac compiles the switch to one `invokedynamic` call to `SwitchBootstraps.typeSwitch`, which works out the first matching case, plus a hidden last arm that throws `MatchException` if nothing matches at run time. Hold on to that hidden arm; it comes back at the end of the lesson.
+javac checks two more things the chain never gets: dominance, that is, whether each case can ever be reached (the third section), and fixed rules for `null` (the fourth). One level down, javac compiles the switch to one `invokedynamic` call, a call whose target the JVM picks the first time the call runs, to `SwitchBootstraps.typeSwitch`. That method works out the first matching case. javac also adds a hidden last arm that throws `MatchException` if nothing matches at run time. Hold on to that hidden arm; it comes back at the end of the lesson.
 
-Kotlin has had most of this for years. A `when` with a subject checks exhaustiveness over a sealed type, whether you use it as an expression or a statement, and a smart cast merges the `is` check with the cast. `javap` shows that kotlinc 2.4, with the JDK 21 target, compiles that `when` to the same `typeSwitch` call; its hidden arm throws `NoWhenBranchMatchedException` instead.
+Kotlin has had most of this for years. A `when` with a subject checks exhaustiveness over a sealed type, whether you use it as an expression or a statement, and a smart cast merges the `is` check with the cast. `javap`, the JDK's class-file reader, shows that kotlinc 2.4 (the Kotlin compiler), with the JDK 21 target, compiles that `when` to the same `typeSwitch` call; its hidden arm throws `NoWhenBranchMatchedException` instead.
 
 In the paperwork picture, the switch is a clerk whose printed sheet lists every kind of item the library has. The chain is a clerk who remembers the kinds. Mostly.
 
@@ -159,7 +159,7 @@ kotlinc has no dominance check at all. Put the unguarded `is LoanItem.Book` firs
 
 **The sheet is read from the top. Put the most specific rule first, and end each family with an unguarded case.**
 
-Several patterns can share one arm only if they bind nothing. On JDK 21 that makes such arms awkward: `case Return ret, Renew ren ->` fails with `illegal fall-through from a pattern`, so you write two arms. JDK 22 made unnamed patterns final, and `case Return _, Renew _ ->` is legal. `_` also stands in for a component you don't need, as in `case Borrow(var member, _)`. On JDK 21 it's a preview feature, and javac stops with `unnamed variables are a preview feature and are disabled by default`.
+Several patterns can share one arm only if they bind nothing. On JDK 21 that makes such arms awkward: `case Return ret, Renew ren ->` fails with `illegal fall-through from a pattern`, so you write two arms. JDK 22 made unnamed patterns standard, and `case Return _, Renew _ ->` is legal. `_` also stands in for a component you don't need, as in `case Borrow(var member, _)`. On JDK 21 it's a preview feature, one that is switched off unless you pass `--enable-preview`, and javac stops with `unnamed variables are a preview feature and are disabled by default`.
 
 The sheet now has the right lines in the right order. What happens when the clerk is handed a blank sheet, or a form that didn't exist when the sheet was printed?"""
 
@@ -428,9 +428,9 @@ val (_, daysLate) = returned      // skip the item, keep the days late"""}
   "Cases run top to bottom and the first match wins. Guards don't count toward exhaustiveness, so end each guarded family with an unguarded case. kotlinc doesn't check dominance.",
   "A null selector throws unless you write `case null`, and `default` doesn't catch it. A nested type pattern matches a null component; a nested record pattern doesn't.",
   "The limit: exhaustive is a compile-time promise. A subtype or enum constant added later makes an old program throw `MatchException` (`NoWhenBranchMatchedException` in Kotlin).",
-  "Pattern switch and record patterns are final from JDK 21, `_` from JDK 22, JDK 27 lists the missing patterns, and primitive patterns are still a preview."
+  "Pattern switch and record patterns are standard from JDK 21, `_` from JDK 22, JDK 27 lists the missing patterns, and primitive patterns are still a preview."
  ],
- "closing": "We started at the lending desk, with a clerk who reads each item in one look and works down a printed sheet. A pattern switch is that clerk: javac checks that the sheet covers every kind of item, record patterns read the boxes inside each record, and the order of the guards is the order of the rules.\n\nNow look in your own code for `instanceof` followed by a cast or a getter on the next line. Each one is a chain that a switch could check.\n\nNext, we'll put records, sealed types and switches together into one way of designing programs. What does a program look like when the forms can't be filled in wrong?",
+ "closing": "We started at the lending desk, with a clerk who reads each item in one look and works down a printed sheet. A pattern switch is that clerk. javac checks that the sheet covers every kind of item, record patterns read the boxes inside each record, and the order of the guards is the order of the rules.\n\nNow look in your own code for `instanceof` followed by a cast or a getter on the next line. Each one is a chain that a switch could check.\n\nNext, we'll put records, sealed types and switches together into one way of designing programs. What does a program look like when the forms can't be filled in wrong?",
  "quiz": [
   {"q": "The switch is `case Line(Point(var x1, var y1), Point(var x2, var y2)) when x1 == x2 -> \"vertical\"; case Line(Point from, Point to) -> \"other\";`. What does it return for `new Line(null, new Point(1, 1))`?",
    "options": ["It throws NullPointerException", "`\"other\"`, with `from` bound to null", "It throws MatchException", "`\"vertical\"`"],

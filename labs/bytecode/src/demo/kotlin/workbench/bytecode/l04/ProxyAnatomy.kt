@@ -4,9 +4,9 @@ import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
 
-interface KFxQuotes {
-    fun quoteMicros(pair: String): Long
-    fun spreadMicros(pair: String): Long = quoteMicros(pair) / 1_000   // a JVM default method (jvmTarget 21)
+interface KWardrobe {
+    fun costumes(role: String): Int
+    fun dressed(role: String): Boolean = costumes(role) > 0   // a JVM default method (jvmTarget 21)
 }
 
 interface KAudited {
@@ -19,15 +19,15 @@ fun main() {
     val h = InvocationHandler { proxy, m, a ->
         seen += "${m.declaringClass.simpleName}.${m.name}"
         when (m.name) {
-            "quoteMicros" -> 1_084_250L
+            "costumes" -> 3
             "hashCode" -> 42
             "equals" -> proxy === a[0]
-            "toString" -> "KFxQuotes proxy"
+            "toString" -> "KWardrobe proxy"
             else -> null
         }
     }
-    val app = KFxQuotes::class.java.classLoader
-    val q = Proxy.newProxyInstance(app, arrayOf(KFxQuotes::class.java), h) as KFxQuotes
+    val app = KWardrobe::class.java.classLoader
+    val q = Proxy.newProxyInstance(app, arrayOf(KWardrobe::class.java), h) as KWardrobe
 
     // 1. the generated class
     val pc = q.javaClass
@@ -38,7 +38,7 @@ fun main() {
     println("methods    ${pc.declaredMethods.map { it.name }.sorted()}")
 
     // 2. which calls reach the handler
-    q.quoteMicros("EURUSD")
+    q.costumes("Hamlet")
     q.toString()
     q.hashCode()
     q.equals(q)
@@ -46,9 +46,9 @@ fun main() {
     println("handler saw $seen")
 
     // 3. the class is cached per loader and per ordered interface list
-    val again = Proxy.newProxyInstance(app, arrayOf(KFxQuotes::class.java)) { _, _, _ -> 0L }
-    val ab = Proxy.newProxyInstance(app, arrayOf(KFxQuotes::class.java, KAudited::class.java), h)
-    val ba = Proxy.newProxyInstance(app, arrayOf(KAudited::class.java, KFxQuotes::class.java), h)
+    val again = Proxy.newProxyInstance(app, arrayOf(KWardrobe::class.java)) { _, _, _ -> 0 }
+    val ab = Proxy.newProxyInstance(app, arrayOf(KWardrobe::class.java, KAudited::class.java), h)
+    val ba = Proxy.newProxyInstance(app, arrayOf(KAudited::class.java, KWardrobe::class.java), h)
     println("same class for the same interface: ${again.javaClass == pc}")
-    println("{KFxQuotes, KAudited} -> ${ab.javaClass.name}, {KAudited, KFxQuotes} -> ${ba.javaClass.name}")
+    println("{KWardrobe, KAudited} -> ${ab.javaClass.name}, {KAudited, KWardrobe} -> ${ba.javaClass.name}")
 }

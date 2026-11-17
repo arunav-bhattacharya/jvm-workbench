@@ -353,9 +353,9 @@ class Conc08CasLoop(Narrated):
                     for s, c in lines]
         a_read = M("read 41", 24).next_to(t1, DOWN, buff=0.22).align_to(t1, LEFT)
         b_read = M("read 41", 24).next_to(t2, DOWN, buff=0.22).align_to(t2, LEFT)
-        a_cas = M("CAS(41, 42)", 24, T1C).next_to(t1, RIGHT, buff=0.4)
+        a_cas = M("CAS(41, 42)", 24, T1C).next_to(a_read, RIGHT, buff=0.5)
         a_res = M("true", 24, GOOD).next_to(a_cas, RIGHT, buff=0.3)
-        b_cas = M("CAS(41, 42)", 24, T2C).next_to(t2, RIGHT, buff=0.4)
+        b_cas = M("CAS(41, 42)", 24, T2C).next_to(b_read, RIGHT, buff=0.5)
         b_res = M("false", 24, BAD).next_to(b_cas, RIGHT, buff=0.3)
         self.say("race_pred")
         self.play(VGroup(bd, bd_lab, clerk, clerk_lab, cas).animate.shift(RIGHT * 1.7), run_time=0.6)
@@ -444,8 +444,8 @@ class Conc08CasLoop(Narrated):
                 "    if (amount <= prev) return  // 2. decide", "} while (!max.compareAndSet(prev, amount))"]
         jc, kc = code_block(jsrc, 22, hl), code_block(ksrc, 22, hl)
         for c in (jc, kc):
-            c[2][-7:].set_color(GREY_B)
-            c[3][-9:].set_color(GREY_B)
+            c[2][-8:].set_color(GREY_B)
+            c[3][-10:].set_color(GREY_B)
         cols = VGroup(VGroup(T("Java", 24, GREY_B), jc).arrange(DOWN, aligned_edge=LEFT, buff=0.2),
                       VGroup(T("Kotlin", 24, GREY_B), kc).arrange(DOWN, aligned_edge=LEFT, buff=0.2)
                       ).arrange(DOWN, aligned_edge=LEFT, buff=0.55)

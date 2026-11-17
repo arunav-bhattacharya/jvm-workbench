@@ -41,7 +41,7 @@ class ResilienceTest {
     private final CircuitBreaker breaker = new CircuitBreaker(3, Duration.ofSeconds(30), clock);
     private final AtomicInteger calls = new AtomicInteger();
     private final Supplier<String> ok = () -> { calls.incrementAndGet(); return "ok"; };
-    private final Supplier<String> failing = () -> { calls.incrementAndGet(); throw new IllegalStateException("PSP 503"); };
+    private final Supplier<String> failing = () -> { calls.incrementAndGet(); throw new IllegalStateException("vans booking line down"); };
 
     private void failTimes(int n) {
         for (int i = 0; i < n; i++) {
@@ -73,7 +73,7 @@ class ResilienceTest {
     @Test
     @DisplayName("The operation's own exception reaches the caller unchanged")
     void rethrowsTheSameException() {
-        IllegalStateException boom = new IllegalStateException("issuer timeout");
+        IllegalStateException boom = new IllegalStateException("booking timed out");
         assertThatThrownBy(() -> breaker.call(() -> { throw boom; })).isSameAs(boom);
     }
 
@@ -168,7 +168,7 @@ class ResilienceTest {
     @DisplayName("A call that throws still gives its permit back")
     void permitReturnedOnFailure() {
         Bulkhead bulkhead = new Bulkhead(1);
-        assertThatThrownBy(() -> bulkhead.call(() -> { throw new IllegalStateException("PSP 503"); }))
+        assertThatThrownBy(() -> bulkhead.call(() -> { throw new IllegalStateException("vans booking line down"); }))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(bulkhead.available()).isEqualTo(1);
         assertThat(bulkhead.call(() -> "next")).isEqualTo("next");

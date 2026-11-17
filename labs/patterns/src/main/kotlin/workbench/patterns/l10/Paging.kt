@@ -1,6 +1,9 @@
 package workbench.patterns.l10
 
-/** One page of a cursor-paginated PSP API. [next] is the cursor of the next page, or null on the last page. */
+/**
+ * One page of the warehouse program's stock list. [next] is the cursor of the next page (a bookmark the
+ * warehouse hands back, saying where to start reading next), or null on the last page.
+ */
 data class Page(val items: List<String>, val next: Int?)
 
 /**

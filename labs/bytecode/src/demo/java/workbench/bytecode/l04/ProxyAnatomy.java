@@ -9,9 +9,9 @@ import java.util.List;
 
 /** What Proxy.newProxyInstance generates, which calls reach the handler, and how the class is cached. */
 public class ProxyAnatomy {
-    public interface FxQuotes {
-        long quoteMicros(String pair);
-        default long spreadMicros(String pair) { return quoteMicros(pair) / 1_000; }
+    public interface Wardrobe {
+        int costumes(String role);
+        default boolean dressed(String role) { return costumes(role) > 0; }
     }
 
     public interface Audited { String auditId(); }
@@ -21,15 +21,15 @@ public class ProxyAnatomy {
         InvocationHandler h = (proxy, m, a) -> {
             seen.add(m.getDeclaringClass().getSimpleName() + "." + m.getName());
             return switch (m.getName()) {
-                case "quoteMicros" -> 1_084_250L;
+                case "costumes" -> 3;
                 case "hashCode" -> 42;
                 case "equals" -> proxy == a[0];
-                case "toString" -> "FxQuotes proxy";
+                case "toString" -> "Wardrobe proxy";
                 default -> null;
             };
         };
-        ClassLoader app = FxQuotes.class.getClassLoader();
-        FxQuotes q = (FxQuotes) Proxy.newProxyInstance(app, new Class<?>[]{FxQuotes.class}, h);
+        ClassLoader app = Wardrobe.class.getClassLoader();
+        Wardrobe q = (Wardrobe) Proxy.newProxyInstance(app, new Class<?>[]{Wardrobe.class}, h);
 
         // 1. the generated class
         Class<?> pc = q.getClass();
@@ -40,7 +40,7 @@ public class ProxyAnatomy {
         System.out.println("methods    " + Arrays.stream(pc.getDeclaredMethods()).map(m -> m.getName()).sorted().toList());
 
         // 2. which calls reach the handler
-        q.quoteMicros("EURUSD");
+        q.costumes("Hamlet");
         q.toString();
         q.hashCode();
         q.equals(q);
@@ -48,10 +48,10 @@ public class ProxyAnatomy {
         System.out.println("handler saw " + seen);
 
         // 3. the class is cached per loader and per ordered interface list
-        Object again = Proxy.newProxyInstance(app, new Class<?>[]{FxQuotes.class}, (p, m, a) -> 0L);
-        Object ab = Proxy.newProxyInstance(app, new Class<?>[]{FxQuotes.class, Audited.class}, h);
-        Object ba = Proxy.newProxyInstance(app, new Class<?>[]{Audited.class, FxQuotes.class}, h);
+        Object again = Proxy.newProxyInstance(app, new Class<?>[]{Wardrobe.class}, (p, m, a) -> 0);
+        Object ab = Proxy.newProxyInstance(app, new Class<?>[]{Wardrobe.class, Audited.class}, h);
+        Object ba = Proxy.newProxyInstance(app, new Class<?>[]{Audited.class, Wardrobe.class}, h);
         System.out.println("same class for the same interface: " + (again.getClass() == pc));
-        System.out.println("{FxQuotes, Audited} -> " + ab.getClass().getName() + ", {Audited, FxQuotes} -> " + ba.getClass().getName());
+        System.out.println("{Wardrobe, Audited} -> " + ab.getClass().getName() + ", {Audited, Wardrobe} -> " + ba.getClass().getName());
     }
 }

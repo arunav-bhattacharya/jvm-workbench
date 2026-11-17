@@ -10,7 +10,7 @@ import java.util.function.IntUnaryOperator;
  * {@code invokedynamic} instruction would call, and keep the {@code CallSite} it returns.
  *
  * <p>Use {@code LambdaMetafactory.metafactory} for the three lambdas and
- * {@code StringConcatFactory.makeConcatWithConstants} for the receipt. Don't write a lambda
+ * {@code StringConcatFactory.makeConcatWithConstants} for the countdown. Don't write a lambda
  * or a method reference anywhere in this class: the point is to build them yourself.
  *
  * <p>Link each one ONCE (a static field is fine), the way the JVM links one call site once.
@@ -19,16 +19,16 @@ public final class HandMadeLambdas {
     private HandMadeLambdas() {}
 
     // the implementation methods: the bodies javac would have written as lambda$...$0
-    static int addMinor(int a, int b) { return a + b; }
-    static int addFee(int feeMinor, int amountMinor) { return amountMinor + feeMinor; }  // captured value first
+    static int addSeconds(int a, int b) { return a + b; }
+    static int addDelay(int delay, int seconds) { return seconds + delay; }  // captured value first
 
-    /** {@code (a, b) -> addMinor(a, b)}. Captures nothing, so every call returns the same object. */
+    /** {@code (a, b) -> addSeconds(a, b)}. Captures nothing, so every call returns the same object. */
     public static IntBinaryOperator adder() {
-        throw new UnsupportedOperationException("TODO: metafactory with implementation addMinor");
+        throw new UnsupportedOperationException("TODO: metafactory with implementation addSeconds");
     }
 
-    /** {@code amount -> addFee(feeMinor, amount)}. One linked call site, a new object per fee. */
-    public static IntUnaryOperator plusFee(int feeMinor) {
+    /** {@code seconds -> addDelay(delay, seconds)}. One linked call site, a new object per delay. */
+    public static IntUnaryOperator plusDelay(int delay) {
         throw new UnsupportedOperationException("TODO: metafactory whose factory type takes the captured int");
     }
 
@@ -37,8 +37,8 @@ public final class HandMadeLambdas {
         throw new UnsupportedOperationException("TODO: metafactory with a findVirtual handle");
     }
 
-    /** A handle of type {@code (long, String) String} that formats {@code "paid <amount> to <merchant>"}. */
-    public static MethodHandle receipt() {
+    /** A handle of type {@code (long, String) String} that formats {@code "<seconds> seconds to <cue>"}. */
+    public static MethodHandle countdown() {
         throw new UnsupportedOperationException("TODO: makeConcatWithConstants with a \\u0001 recipe");
     }
 }

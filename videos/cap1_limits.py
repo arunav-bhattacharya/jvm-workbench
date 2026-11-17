@@ -158,7 +158,7 @@ TOK = np.array([-5.2, 0.6, 0])           # where the request waits while it is c
 GATE = np.array([-1.6, 1.6, 0])          # the hook with 20 tokens
 SERV = np.array([2.2, 1.6, 0])           # the safety service
 LIM = np.array([-1.6, -0.8, 0])          # the daily-limit check
-POOL = np.array([4.6, -0.8, 0])          # the ledger pool
+POOL = np.array([4.4, -0.8, 0])          # the ledger pool
 BAR_W = 2.4
 
 
@@ -297,7 +297,7 @@ class Cap1Limits(Narrated):
         oldp = DashedVMobject(RoundedRectangle(corner_radius=0.12, width=2.6, height=1.5, stroke_color=POOLC, stroke_width=3),
                               num_dashes=36).move_to([-1.3, 0.2, 0])
         oldp_t = VGroup(T("a pool of,", 22, POOLC), T("say, 200 threads", 22, POOLC)).arrange(DOWN, buff=0.08).move_to(oldp)
-        sv = frame_box(3.0, 1.5, SAFE).move_to([3.6, 0.2, 0])
+        sv = frame_box(3.6, 1.5, SAFE).move_to([3.6, 0.2, 0])
         sv_t = T("safety service", 26, SAFE).move_to(sv.get_center() + UP * 0.3)
         cnt = VGroup(T("calls inside:", 22, GREY_B), M("200", 26)).arrange(RIGHT, buff=0.2).move_to(sv.get_center() + DOWN * 0.3)
         fence = T("a limit nobody wrote down", 26, POOLC).next_to(oldp, DOWN, buff=0.3)

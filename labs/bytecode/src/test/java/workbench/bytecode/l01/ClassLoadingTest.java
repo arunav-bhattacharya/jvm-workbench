@@ -6,14 +6,14 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.management.ManagementFactory;
 import java.util.function.Supplier;
-import workbench.bytecode.l01.plugin.FxPlugin;
+import workbench.bytecode.l01.plugin.ScenePlugin;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ClassLoadingTest {
     private static final String PREFIX = "workbench.bytecode.l01.plugin.";
-    private static final String PLUGIN = PREFIX + "FxPlugin";
+    private static final String PLUGIN = PREFIX + "ScenePlugin";
     private final ClassLoader app = ClassLoadingTest.class.getClassLoader();
 
     @BeforeEach
@@ -24,21 +24,21 @@ class ClassLoadingTest {
     // ---- part 1: initialization order ----
 
     @Test
-    @DisplayName("FeeSchedule: a known country gets its own fee")
-    void knownCountry() {
-        assertThat(FeeSchedule.INSTANCE.bpsFor("FR")).isEqualTo(310);
+    @DisplayName("CallSheet: a listed role gets its own call time")
+    void listedRole() {
+        assertThat(CallSheet.INSTANCE.minutesBefore("CHORUS")).isEqualTo(45);
     }
 
     @Test
-    @DisplayName("FeeSchedule: an unknown country gets the 350 bps default, not 0")
-    void unknownCountryGetsDefault() {
-        assertThat(FeeSchedule.INSTANCE.bpsFor("XX")).isEqualTo(350);
+    @DisplayName("CallSheet: an unlisted role gets the 60-minute default, not 0")
+    void unlistedRoleGetsDefault() {
+        assertThat(CallSheet.INSTANCE.minutesBefore("VIOLIN")).isEqualTo(60);
     }
 
     @Test
-    @DisplayName("FeeSchedule: the currency constant is right in every version (javac inlined it)")
+    @DisplayName("CallSheet: the unit constant is right in every version (javac inlined it)")
     void constantIsInlined() {
-        assertThat(FeeSchedule.INSTANCE.currency()).isEqualTo("EUR");
+        assertThat(CallSheet.INSTANCE.unit()).isEqualTo("minutes");
     }
 
     // ---- part 2: one class file, two loaders ----
@@ -64,13 +64,13 @@ class ClassLoadingTest {
         assertThatThrownBy(() -> b.cast(fromA)).isInstanceOf(ClassCastException.class);
         // a real checkcast to the app loader's copy: the JVM's message names both loaders
         assertThatThrownBy(() -> {
-            FxPlugin p = (FxPlugin) fromA;
+            ScenePlugin p = (ScenePlugin) fromA;
         })
                 .isInstanceOf(ClassCastException.class)
                 .hasMessageContaining("cannot be cast to class " + PLUGIN)
                 .hasMessageContaining("loader 'A'");
         // the interface came from the parent, so both copies share it
-        assertThat(((Supplier<?>) fromA).get()).isEqualTo("rates from A");
+        assertThat(((Supplier<?>) fromA).get()).isEqualTo("scene from A");
     }
 
     @Test
@@ -80,7 +80,7 @@ class ClassLoadingTest {
         Class<?> b = new IsolatingLoader("B", PREFIX, app).loadClass(PLUGIN);
         assertThat(a.getField("INITS").getInt(null)).isEqualTo(1);
         assertThat(b.getField("INITS").getInt(null)).isEqualTo(1);
-        assertThat(Events.LOG).containsExactlyInAnyOrder("FxPlugin init in A", "FxPlugin init in B");
+        assertThat(Events.LOG).containsExactlyInAnyOrder("ScenePlugin init in A", "ScenePlugin init in B");
     }
 
     @Test
@@ -107,7 +107,7 @@ class ClassLoadingTest {
         assertThat(mx.getTotalLoadedClassCount()).isGreaterThan(before);
         assertThat(Events.LOG).isEmpty();
         assertThat(c.getField("INITS").getInt(null)).isEqualTo(1);
-        assertThat(Events.LOG).containsExactly("FxPlugin init in C");
+        assertThat(Events.LOG).containsExactly("ScenePlugin init in C");
     }
 
     @Test

@@ -486,7 +486,7 @@ class Cap1Snapshot(Narrated):
         ra = box("reader A", READ, w=2.9, h=0.75, size=26).move_to([-4.9, LOW_Y, 0])
         rb = box("reader B", READ, w=2.9, h=0.75, size=26).move_to([4.6, LOW_Y, 0])
         aa, ab = edge_arrow(ra, v1, READ), edge_arrow(rb, v2, READ)
-        nolock = T("no lock", 22, READ).next_to(ra, UP, buff=0.12)
+        nolock = T("no lock", 22, READ).next_to(ra, RIGHT, buff=0.12).shift(DOWN * 0.12)
         self.say("readers")
         self.play(FadeOut(board), run_time=0.3)
         self.at(1)

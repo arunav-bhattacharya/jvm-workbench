@@ -3,18 +3,18 @@ package workbench.bytecode.l02;
 /** The Kotlin shapes from KotlinShapes.kt, called from Java: this is the API javap describes. */
 public class KotlinShapesJava {
     public static void main(String[] args) {
-        Payment p = new Payment("p-1", 1_250);             // Java must pass every argument
-        Payment q = p.copy("p-2", 99);                       // copy() takes all of them too
-        System.out.println(p.getAmountMinor() + " " + p.component1() + " " + q);
+        Scene duel = new Scene("The duel", 12);              // Java must pass every argument
+        Scene ball = duel.copy("The ball", 20);              // copy() takes all of them too
+        System.out.println(duel.getMinutes() + " " + duel.component1() + " " + ball);
 
-        Account a = Account.open("ana");                    // @JvmStatic: a real static method
-        Account b = Account.Companion.create("bo");         // no @JvmStatic: through the Companion
-        a.iban = "DE89 3704 0044 0532 0130 00";              // lateinit: a public field
-        // a.setBalanceMinor(5);                             // does not compile: private set, no setter
-        System.out.println(a.getBalanceMinor() + " " + a.isEmpty() + " " + b.getOwner());
-        System.out.println("max=" + Account.MAX_MINOR + " currency=" + Account.Companion.getDEFAULT_CURRENCY());
+        Actor ana = Actor.hire("ana");                       // @JvmStatic: a real static method
+        Actor bo = Actor.Companion.guest("bo");              // no @JvmStatic: through the Companion
+        ana.dressingRoom = "Room 4";                         // lateinit: a public field
+        // ana.setLines(5);                                  // does not compile: private set, no setter
+        System.out.println(ana.getLines() + " " + ana.isSpeaking() + " " + bo.getName());
+        System.out.println("max=" + Actor.MAX_ROLES + " stage=" + Actor.Companion.getHOME_STAGE());
 
-        Registry.INSTANCE.getAccounts().add(a);              // object: a singleton behind INSTANCE
-        System.out.println(KotlinShapesKt.greet("Bo", '?')); // top-level function: static on the file class
+        Company.INSTANCE.getActors().add(ana);               // object: a singleton behind INSTANCE
+        System.out.println(KotlinShapesKt.greet("Bo", '?'));  // top-level function: static on the file class
     }
 }

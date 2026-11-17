@@ -88,17 +88,17 @@ A **sealed type** is a class or interface that names its permitted subtypes, the
 
 In the paperwork picture, a sealed type is a form with a fixed set of boxes to tick. The boxes are printed on the form, so the clerk knows every possible answer.
 
-Sealed classes and interfaces have been final since JDK 17 (JEP 409), and javac checks the list from both sides. Uncomment `Donate` in the `SealedBasics` demo without adding it to the list, and javac stops:
+Sealed classes and interfaces have been a standard feature since JDK 17 (JEP 409, the JDK Enhancement Proposal that added them). javac, the Java compiler, checks the list from both sides. Uncomment `Donate` in the `SealedBasics` demo without adding it to the list, and javac stops:
 
 ```text
 error: class is not allowed to extend sealed class: Request (as it is not listed in its 'permits' clause)
 ```
 
-javac also writes the list into the class file, as a `PermittedSubclasses` attribute, a small table the JVM reads when it loads a class. So the JVM checks it too: a class compiled against an older, unsealed `Request` fails to load with `IncompatibleClassChangeError` next to the sealed one. Nobody gets to scribble a fifth box in the margin.
+javac also writes the list into the class file, as a `PermittedSubclasses` attribute, a small table the JVM (the program that runs Java code) reads when it loads a class. So the JVM checks it too: a class compiled against an older, unsealed `Request` fails to load with `IncompatibleClassChangeError` next to the sealed one. Nobody gets to scribble a fifth box in the margin.
 
-You can leave `permits` out when every subtype is declared in the same source file. javac then takes the subtypes it finds there. Reflection shows the result: `Request.class.isSealed()` is true, and `getPermittedSubclasses()` returns the three records.
+You can leave `permits` out when every subtype is declared in the same source file. javac then takes the subtypes it finds there. Reflection, the API a program uses to look at its own classes, shows the result: `Request.class.isSealed()` is true, and `getPermittedSubclasses()` returns the three records.
 
-Kotlin has no `permits` clause. Its rule is location: any class in the same package and the same module may extend a sealed type. So `class Donate : Request` in that package compiles, and the list grows by itself. The same line in another package fails with `a class can only extend a sealed class or interface declared in the same package`. With the JDK 21 target these labs use, kotlinc 2.4 writes the same `PermittedSubclasses` attribute as javac. Java code therefore sees a Kotlin sealed interface as sealed: a Java switch over it needs no `default`, and javac rejects a Java class that tries to implement it.
+Kotlin has no `permits` clause. Its rule is location: any class in the same package and the same module may extend a sealed type. So `class Donate : Request` in that package compiles, and the list grows by itself. The same line in another package fails with `a class can only extend a sealed class or interface declared in the same package`. With the JDK 21 target these labs use, kotlinc 2.4, the Kotlin compiler, writes the same `PermittedSubclasses` attribute as javac. Java code therefore sees a Kotlin sealed interface as sealed: a Java switch over it needs no `default`, and javac rejects a Java class that tries to implement it.
 
 Sealing restricts direct subtypes only. `Renew.class.isSealed()` is false. What may sit below each permitted subtype is the next question."""
 
@@ -194,7 +194,7 @@ The third switch isn't on that list. `reminderDays` ends with `default -> 0`, wh
 
 **A default on a list that grows hides the next item. Leave it out.**
 
-Keep `default` for switches where "everything else" really is one answer, such as the illegal (state, event) pairs of a state machine in *State and Chain of Responsibility*. The same guide asks authors to say in the Javadoc why a type is sealed: because it models a closed set, like the statuses of a copy, or only because the author wants to control who implements it. Say which, and whether you expect to add subtypes, so the people switching over it know what's coming.
+Keep `default` for switches where "everything else" really is one answer, such as the illegal (state, event) pairs of a state machine in *State and Chain of Responsibility*. The same guide asks authors to say in the Javadoc why a type is sealed. Maybe it models a closed set, like the statuses of a copy. Or maybe the author only wants to control who implements it. Say which, and whether you expect to add subtypes, so the people switching over it know what's coming.
 
 Exhaustive has one limit, and it's about time. javac checks a switch against the list it can see when it compiles. A program compiled against the old list can still meet an `InRepair` from a newer library at run time, and lesson 3 of this track shows what happens then. Sealing also fits only lists you own: a plug-in point that other people extend should stay open."""
 

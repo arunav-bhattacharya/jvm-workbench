@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 /**
- * A small circuit breaker, safe to share between request threads.
+ * A small circuit breaker, safe to share between many threads that call the same service.
  *
  * <pre>
  *   Closed(n)    calls go through. Each failure adds one to n; a success resets n to 0.

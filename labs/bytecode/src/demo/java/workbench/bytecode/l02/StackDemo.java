@@ -2,17 +2,17 @@ package workbench.bytecode.l02;
 
 /** Small methods to read with javap: run the demo once so Gradle compiles it, then javap -c -p. */
 public class StackDemo {
-    /** Card fee in minor units: amount times basis points, divided by 10,000. */
-    static long feeMinor(long amountMinor, int bps) {
-        return amountMinor * bps / 10_000;
+    /** How long a lighting fade runs: steps of stepMillis milliseconds each, in whole seconds. */
+    static long seconds(long stepMillis, int steps) {
+        return stepMillis * steps / 1_000;
     }
 
-    static String describe(String currency, long amountMinor) {
-        return amountMinor + " " + currency;
+    static String describe(String unit, long amount) {
+        return amount + " " + unit;
     }
 
     public static void main(String[] args) {
-        long fee = feeMinor(125_000, 290);
-        System.out.println(describe("EUR", fee));   // 3625 EUR
+        long fade = seconds(32, 12_500);
+        System.out.println(describe("seconds", fade));   // 400 seconds
     }
 }

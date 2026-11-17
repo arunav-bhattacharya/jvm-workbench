@@ -19,8 +19,8 @@ N = {
     "two_q": "They're not, and two questions tell them apart. First: when is each belt switched on? "
              "Switching a belt on means subscribing to it, signing its order form. "
              "Second: when does something come out?",
-    "screen": "Let's try the first two. The kitchen has a screen for new orders from two belts. "
-              "The shop counter sends one every 30 milliseconds, the website one every 40, three each.",
+    "screen": "Let's try the first two, on the kitchen's order screen. "
+              "The shop counter sends an order every 30 milliseconds, the website every 40, three each.",
     "merge_q": "First, the packer who boxes whatever comes first. Both belts are switched on at once. What comes out?",
     "merge_a": "Orders as they arrive: counter, web, counter, web, counter, web. "
                "Done at about 130 milliseconds. That's merge.",
@@ -28,14 +28,14 @@ N = {
                 "The counter belt runs until its end-of-day bell. When is the web belt switched on?",
     "concat_a": "When the bell rings: the demo printed 92 milliseconds. "
                 "Only then does the web belt start its own clock, so its orders land at about 130, 170 and 210. "
-                "One belt, then the other. That's concat.",
+                "That's concat.",
     "endless": "Now make the counter belt endless, like a live feed that never closes. The bell never rings, "
                "so the web belt is never switched on. Not late. Never.",
     "endless_joke": "It's the customer ahead of you at the till who keeps saying: oh, and one more thing. "
                     "You never get served. So behind an endless source, concat never starts the next one. "
                     "For live feeds, use merge.",
     "mseq": "And the clerk at the exit of the icing room? That's mergeSequential: both belts on at once, "
-            "early web orders held until the bell. concat's order, at merge's speed.",
+            "web orders held until the bell. concat's order, at merge's speed.",
     "gift": "Now the gift boxes. Three loaves, two jars. The packer takes one of each, boxes them, and repeats. "
             "Then the jam belt rings its bell, and she stops. Loaf 3 is never boxed.",
     "gift_name": "That's zip. It pairs by position, first with first, second with second, "
@@ -107,14 +107,14 @@ class Narrated(VoiceScene):
         if rest > 0.02:
             self.wait(rest)
 
-    def hold(self, after=0.25):
+    def hold(self, after=0.15):
         rest = self._end - self.renderer.time
         if rest > 0.02:
             self.wait(rest)
         if after:
             self.wait(after)
 
-    def predict(self, secs=2.4, pos=(6.4, -3.25), edge=RIGHT):
+    def predict(self, secs=2.0, pos=(6.4, -3.25), edge=RIGHT):
         """A beat of silence for the viewer to guess, with a small on-screen prompt."""
         tag = T("pause and guess", 24, GREY_B).move_to([pos[0], pos[1], 0], aligned_edge=edge)
         self.play(FadeIn(tag), run_time=0.3)
@@ -309,8 +309,8 @@ class Rx04Combine(Narrated):
             board = RoundedRectangle(corner_radius=0.06, width=1.7, height=0.75).set_stroke(GREY_A, 3).set_fill(GREY_E, 1)
             return VGroup(board, M("30.00", 26, SLIP_C).move_to(board))
 
-        kinds = [("first", "whatever comes first"), ("turns", "all loaves, then the jam"),
-                 ("gift", "gift boxes: one of each"), ("board", "the price board")]
+        kinds = [("first", "first come, first boxed"), ("turns", "loaves, then jam"),
+                 ("gift", "gift boxes"), ("board", "price board")]
         panels = []
         for i, (k, lab) in enumerate(kinds):
             x = -4.95 + 3.3 * i
@@ -355,8 +355,8 @@ class Rx04Combine(Narrated):
         axis = VGroup()
         for ms in (0, 50, 100, 150, 200):
             axis.add(DashedLine([X(ms), YC + 0.45, 0], [X(ms), YO - 0.45, 0], dash_length=0.06).set_stroke(GREY_D, 1.5))
-            axis.add(M(str(ms), 20, GREY_B).move_to([X(ms), 2.85, 0]))
-        axis.add(T("ms", 20, GREY_B).move_to([X(200) + 0.6, 2.85, 0]))
+            axis.add(M(str(ms), 20, GREY_B).move_to([X(ms), 3.0, 0]))
+        axis.add(T("ms", 20, GREY_B).move_to([X(200) + 0.6, 3.0, 0]))
 
         def lane(y, label, color):
             ln = Arrow([X(0) - 0.2, y, 0], [X(225), y, 0], buff=0, stroke_width=2.5, color=GREY_C, max_tip_length_to_length_ratio=0.02)
@@ -364,8 +364,8 @@ class Rx04Combine(Narrated):
 
         l_c, l_w, l_o = lane(YC, "counter", LOAF_C), lane(YW, "web", JAM_C), lane(YO, "screen", GREY_A)
         CT, WT = [30, 60, 90], [40, 80, 120]
-        cm = [marble(f"c{i}", LOAF_C).move_to([X(t), YC, 0]) for i, t in enumerate(CT)]
-        wm = [marble(f"w{i}", JAM_C).move_to([X(t), YW, 0]) for i, t in enumerate(WT)]
+        cm = [marble(f"c{i}", LOAF_C, r=0.25).move_to([X(t), YC, 0]) for i, t in enumerate(CT)]
+        wm = [marble(f"w{i}", JAM_C, r=0.25).move_to([X(t), YW, 0]) for i, t in enumerate(WT)]
         c_end = end_bar(X(90) + 0.4, YC)
         w_end = end_bar(X(120) + 0.4, YW)
         tm = ValueTracker(0)
@@ -378,9 +378,11 @@ class Rx04Combine(Narrated):
                 self.play(tm.animate.set_value(t), run_time=dt / speed, rate_func=linear)
 
         def drop(m, x, rt=0.35):
+            """Counter orders land just above the screen line, web orders just below, so close ones never overlap."""
             c = m.copy()
             self.add(c)
-            self.play(c.animate.move_to([x, YO, 0]), run_time=rt)
+            dy = 0.24 if any(m is c_ for c_ in cm) else -0.24
+            self.play(c.animate.move_to([x, YO + dy, 0]), run_time=rt)
             return c
 
         self.say("screen")
@@ -435,7 +437,7 @@ class Rx04Combine(Narrated):
         self.predict()
 
         WT2 = [132, 172, 212]
-        wm2 = [marble(f"w{i}", JAM_C).move_to([X(t), YW, 0]) for i, t in enumerate(WT2)]
+        wm2 = [marble(f"w{i}", JAM_C, r=0.25).move_to([X(t), YW, 0]) for i, t in enumerate(WT2)]
         on_w2 = on_tag(X(92), YW)
         n92 = T("92 ms", 20, SLIP_C).next_to(on_w2[0], DOWN, buff=0.08).shift(RIGHT * 0.38)
         self.say("concat_a")
@@ -463,7 +465,7 @@ class Rx04Combine(Narrated):
         self.hold()
 
         # the endless counter belt
-        more = [marble(f"c{i}", LOAF_C).move_to([X(90 + 30 * (i - 2)), YC, 0]) for i in range(3, 7)]
+        more = [marble(f"c{i}", LOAF_C, r=0.25).move_to([X(90 + 30 * (i - 2)), YC, 0]) for i in range(3, 7)]
         never = T("never switched on", 24, BAD_C).move_to([X(150), YW + 0.45, 0])
         dots = T("...", 30, LOAF_C).move_to([X(222) + 0.2, YC + 0.1, 0])
         self.say("endless")
@@ -503,7 +505,7 @@ class Rx04Combine(Narrated):
         self.play(FadeIn(clerk, shift=UP * 0.1), run_time=0.6)
         self.at_text("That's", lead=0.3)
         self.play(FadeIn(ms_l), run_time=0.5)
-        self.at_text("early web", lead=0.3)
+        self.at_text("web orders held", lead=0.3)
         self.play(FadeIn(held), FadeIn(held_l), run_time=0.6)
         self.at_text("concat's order", lead=0.3)
         self.play(FadeIn(ms_o, shift=UP * 0.1), run_time=0.6)
@@ -563,8 +565,8 @@ class Rx04Combine(Narrated):
         f_axis = VGroup()
         for ms in (0, 100, 200, 300):
             f_axis.add(DashedLine([FX(ms), YP + 0.45, 0], [FX(ms), YQ - 0.45, 0], dash_length=0.06).set_stroke(GREY_D, 1.5))
-            f_axis.add(M(str(ms), 20, GREY_B).move_to([FX(ms), 2.85, 0]))
-        f_axis.add(T("ms", 20, GREY_B).move_to([FX(300) + 0.6, 2.85, 0]))
+            f_axis.add(M(str(ms), 20, GREY_B).move_to([FX(ms), 3.0, 0]))
+        f_axis.add(T("ms", 20, GREY_B).move_to([FX(300) + 0.6, 3.0, 0]))
 
         def flane(y, label, color):
             ln = Arrow([FX(0) - 0.2, y, 0], [FX(310), y, 0], buff=0, stroke_width=2.5, color=GREY_C, max_tip_length_to_length_ratio=0.02)
@@ -604,7 +606,7 @@ class Rx04Combine(Narrated):
 
         # the empty discount
         ebell = bell(0.42).move_to([FX(0) + 0.4, YD + 0.05, 0])
-        e_l = T("empty: just the bell", 22, DISC_C).next_to(ebell, RIGHT, buff=0.2)
+        e_l = T("empty: just the bell", 22, DISC_C).next_to(ebell, RIGHT, buff=0.2).shift(UP * 0.3)
         self.say("empty_q")
         self.play(FadeOut(VGroup(quote, brace, b_l, fo)), run_time=0.4)
         self.play(FadeOut(cd), FadeIn(ebell), FadeIn(e_l), run_time=0.7)
@@ -615,9 +617,10 @@ class Rx04Combine(Narrated):
         self.predict()
 
         x_p, x_f = cross_at([FX(200), YP, 0]), cross_at([FX(100), YF, 0])
-        canc = VGroup(T("cancelled", 22, BAD_C).next_to(x_p, RIGHT, buff=0.2), T("cancelled", 22, BAD_C).next_to(x_f, RIGHT, buff=0.2))
+        canc = VGroup(T("cancelled", 22, BAD_C).next_to(x_p, RIGHT, buff=0.2).shift(UP * 0.3),
+                      T("cancelled", 22, BAD_C).next_to(x_f, RIGHT, buff=0.2).shift(UP * 0.3))
         zbell = bell(0.42).move_to([FX(0) + 0.4, YQ + 0.05, 0])
-        z_l = T("completed empty", 22, PACK_C).next_to(zbell, RIGHT, buff=0.2)
+        z_l = T("completed empty", 22, PACK_C).next_to(zbell, RIGHT, buff=0.2).shift(UP * 0.3)
         out = VGroup(M("  price lookup cancelled", 22, GREY_A), M("Mono.zip result: null", 22)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
         out.move_to([-2.0, -2.45, 0])
         self.say("empty_a")
@@ -699,8 +702,7 @@ class Rx04Combine(Narrated):
 
         self.say("board_q")
         self.play(FadeIn(bz), run_time=0.5)
-        self.hold(after=0)
-        self.predict()
+        self.hold(after=0.6)
 
         def combine(wc, pc, val, t, y, flash=None):
             res = chip_n(val, PACK_C).move_to([BX(t), y, 0])
@@ -725,7 +727,7 @@ class Rx04Combine(Narrated):
         self.hold()
 
         self.say("board_cl_q")
-        self.play(FadeIn(bl2), run_time=0.5)
+        self.play(FadeIn(bl2), FadeOut(miss), run_time=0.5)
         self.hold(after=0)
         self.predict()
 
@@ -754,13 +756,13 @@ class Rx04Combine(Narrated):
         # ================= two questions, four answers =================
         hdr = VGroup(T("switched on", 26, SLIP_C), T("out comes", 26, SLIP_C))
         rows = [("merge", "all at once", "each item, as it arrives"),
-                ("concat", "the next, after the bell", "each item, one belt at a time"),
-                ("zip", "all at once", "one from each, paired by position"),
-                ("combineLatest", "all at once", "a new value on every change")]
-        CX = [-6.2, -2.55, 1.75]
+                ("concat", "the next, after the bell", "one belt at a time"),
+                ("zip", "all at once", "one from each belt"),
+                ("combineLatest", "all at once", "on every change")]
+        CX = [-6.0, -2.6, 1.9]
         hdr[0].move_to([CX[1], 2.3, 0], aligned_edge=LEFT)
         hdr[1].move_to([CX[2], 2.3, 0], aligned_edge=LEFT)
-        rule_ln = Line([-6.3, 1.9, 0], [6.4, 1.9, 0], stroke_width=1.5, color=GREY_D)
+        rule_ln = Line([-6.1, 1.9, 0], [6.3, 1.9, 0], stroke_width=1.5, color=GREY_D)
         trows = []
         for i, (a, b, c) in enumerate(rows):
             y = 1.3 - 0.85 * i
@@ -768,7 +770,7 @@ class Rx04Combine(Narrated):
                                 T(b, 26).move_to([CX[1], y, 0], aligned_edge=LEFT),
                                 T(c, 26).move_to([CX[2], y, 0], aligned_edge=LEFT)))
         table = VGroup(hdr, rule_ln, *trows)
-        fit(table, 12.8)
+        fit(table, 12.6).move_to([0, 0.35, 0])
         self.say("table")
         self.play(FadeIn(hdr), Create(rule_ln), run_time=0.6)
         for i in range(4):

@@ -12,7 +12,7 @@ import static java.lang.invoke.MethodType.methodType;
 
 /** The two bootstrap calls javac's invokedynamic would make, made by hand. */
 public class ByHandDemo {
-    static String banner() { return "settlement batch 42"; }
+    static String banner() { return "curtain up in five minutes"; }
 
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Throwable {
@@ -29,11 +29,11 @@ public class ByHandDemo {
         Supplier<String> s = (Supplier<String>) site.getTarget().invoke();
         System.out.println(s.get() + "  <- " + s.getClass().getName() + ", call site: " + site.getClass().getSimpleName());
 
-        // 2. "batch " + id + " has " + count + " payments"
+        // 2. "row " + row + " has " + count + " seats"
         CallSite concat = StringConcatFactory.makeConcatWithConstants(
                 lookup, "concat", methodType(String.class, int.class, long.class),
-                "batch \u0001 has \u0001 payments");
+                "row \u0001 has \u0001 seats");
         MethodHandle mh = concat.getTarget();
-        System.out.println((String) mh.invokeExact(42, 1_250L) + "  <- call site: " + concat.getClass().getSimpleName());
+        System.out.println((String) mh.invokeExact(12, 30L) + "  <- call site: " + concat.getClass().getSimpleName());
     }
 }

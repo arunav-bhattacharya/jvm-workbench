@@ -1,16 +1,16 @@
 package workbench.patterns.l10
 
-// Walk a cursor-paginated refunds API lazily. The sequence builder writes the iterator's state machine.
+// Walk the warehouse program's stock list lazily. The sequence builder writes the iterator's state machine.
 
-data class RefundPage(val items: List<String>, val next: Int?)
+data class StockPage(val items: List<String>, val next: Int?)
 
-private val refundPages = mapOf(
-    0 to RefundPage(listOf("rf_1", "rf_2"), 1),
-    1 to RefundPage(emptyList(), 2),                    // an empty page in the middle
-    2 to RefundPage(listOf("rf_3"), null),
+private val stockPages = mapOf(
+    0 to StockPage(listOf("rye bread", "jam"), 1),
+    1 to StockPage(emptyList(), 2),                     // an empty page in the middle
+    2 to StockPage(listOf("tea"), null),
 )
 
-fun refunds(fetch: (Int) -> RefundPage): Sequence<String> = sequence {
+fun stock(fetch: (Int) -> StockPage): Sequence<String> = sequence {
     var cursor: Int? = 0
     while (cursor != null) {
         val page = fetch(cursor)                         // runs only when the consumer needs more
@@ -20,7 +20,7 @@ fun refunds(fetch: (Int) -> RefundPage): Sequence<String> = sequence {
 }
 
 fun main() {
-    val fetchPage = { cursor: Int -> println("  GET /refunds?cursor=$cursor"); refundPages.getValue(cursor) }
-    println("first two: ${refunds(fetchPage).take(2).toList()}")
-    println("all: ${refunds(fetchPage).toList()}")
+    val fetchPage = { cursor: Int -> println("  warehouse: sending page $cursor"); stockPages.getValue(cursor) }
+    println("first two: ${stock(fetchPage).take(2).toList()}")
+    println("all: ${stock(fetchPage).toList()}")
 }

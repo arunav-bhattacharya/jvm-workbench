@@ -45,11 +45,11 @@ FIG = (
     '</svg>'
 )
 
-OPENING = """When a member reserves a book this library doesn't own, the request goes to the regional catalogue, a program run by another organization that knows what every library nearby holds. Its answer comes back as text fields: a status, and a few boxes that should be filled in only for some statuses. A ready book has a pickup code and a hold shelf. An unavailable one has a reason. A place on the waiting list has an expected wait.
+OPENING = """When a member reserves a book this library doesn't own, the request goes to the regional catalogue, a program run by another organization that knows what every library nearby holds. Its answer comes back as text fields: a status, and a few boxes that should be filled in only for some statuses. A ready book has a pickup code and a hold shelf. An unavailable one has a reason. A waiting-list place has an expected wait.
 
 Picture it as one paper form with every box printed on it. Nothing stops someone from ticking Ready and also writing "Reason: lost". The form allows 48 combinations, and 3 of them make sense. The easy trap is to trust the notes beside the boxes, not the shape of the form.
 
-The last three lessons gave us records, sealed types and a clerk who sorts by shape. In this lesson, we'll put them together: forms that can't be filled in wrong, one door where outside answers are checked, the rules kept in one place, and a look at Project Valhalla, which wants to print small forms straight onto the page. Before we start, make a guess, and keep it in mind."""
+The last three lessons gave us records, sealed types and a clerk who sorts by shape. In this lesson, we'll put them together: forms that can't be filled in wrong, one door where outside answers are checked, and the rules kept in one place. Then we'll look at Project Valhalla, which wants to print small forms straight onto the page. Before we start, make a guess, and keep it in mind."""
 
 # ---------------------------------------------------------------- section 0
 J_DTO = """public class HoldReplyDto {
@@ -80,7 +80,7 @@ S0 = """Here is how the catalogue's answer usually arrives in a program: one cla
 
 """ + pair(J_DTO, K_DTO) + """
 
-A DTO, short for data transfer object, is a class whose only job is to hold the fields of a message as they arrived. Count what this one allows. Three statuses, times four optional fields that are each set or null, gives 48 shapes. Three of them make sense. The other 45, such as ready with no pickup code, or ready with a reason code, can be built, stored and passed around, and the comments are the only place that says which fields go together. Every piece of code that reads the DTO has to check that again, and one of them won't. The `IllegalStates` demo hands a broken reply to the code that prints pickup slips:
+A DTO, short for data transfer object, is a class whose only job is to hold the fields of a message as they arrived. Count what this one allows. Three statuses, times four optional fields that are each set or null, gives 48 shapes. Three of them make sense. The other 45, such as ready with no pickup code, or ready with a reason code, can be built, stored and passed around. The comments are the only place that says which fields go together. Every piece of code that reads the DTO has to check that again, and one of them won't. The `IllegalStates` demo hands a broken reply to the code that prints pickup slips:
 
 ```text
 shapes the DTO allows: 48, shapes that make sense: 3
@@ -139,7 +139,7 @@ S1 = """The sealed model helps only if untrusted data can't get in around it. So
 
 Read `parse` from the top. It switches on the status string. A ready reply needs its code and its shelf, or it's rejected with a reason. An unavailable reply looks up its code in a small table of reasons. A waiting-list reply needs its days. Anything else, `null` included, is rejected. The tricky part is the `try` around it all: it catches the `IllegalArgumentException` a constructor throws when it refuses a value, and turns it into a `Rejected` too.
 
-Two details make this work. The function never throws. A reply the model refuses comes back as `Rejected` with a reason, and the caller decides what that means (log it, ask the catalogue again, tell the member to ask at the desk) instead of an exception escaping from somewhere deep inside. And the constructors stay the final check: `parse` doesn't repeat the pickup-code rule, it calls `new PickupCode(...)` and reports the refusal.
+Two details make this work. The function never throws. A reply the model refuses comes back as `Rejected` with a reason. The caller decides what that means (log it, ask the catalogue again, tell the member to ask at the desk), and no exception escapes from somewhere deep inside. And the constructors stay the final check: `parse` doesn't repeat the pickup-code rule, it calls `new PickupCode(...)` and reports the refusal.
 
 Behind the edge, nothing checks again. A method that takes a `Ready` knows it has a valid code and a real shelf, because no other kind of `Ready` can exist. Records and sealed types make this cheap: the model is a dozen lines, the edge is one function, and the compiler checks every switch in between. The lab builds exactly this, in Kotlin, including a case the snippets above skip: a ready reply that also carries a reason code contradicts itself, and must be rejected.
 
@@ -169,7 +169,7 @@ S2 = """In classic object-oriented design, behavior lives in the classes: `resul
 
 Everything about the screen at the self-service desk sits in one function. The records don't depend on screen text, and the next operation, say the text message sent to the member's phone, is a new function that touches nothing else. Note the account-blocked line: the screen stands in a public place, so it never says what's wrong with an account.
 
-That's one side of the **expression problem**, which *Visitor, Iterator, Mediator and Memento* in the patterns track introduced: no design makes both kinds of change cheap, adding a new type and adding a new operation. With methods on the classes, adding a type is local, and adding an operation means editing every class. With sealed types and switches it's the other way round: a new operation is one function, and a new type breaks every switch until you handle it. The figure shows the grid. Choose by the change you expect more often.
+That's one side of the **expression problem**, which *Visitor, Iterator, Mediator and Memento* in the patterns track introduced. It says that no design makes both kinds of change cheap: adding a new type, and adding a new operation. With methods on the classes, adding a type is local, and adding an operation means editing every class. With sealed types and switches it's the other way round: a new operation is one function, and a new type breaks every switch until you handle it. The figure shows the grid. Choose by the change you expect more often.
 
 For the library's data (hold results, desk events, loans, copy statuses) the set of types changes rarely, and new operations keep arriving: a new report, a new reminder, a new screen. So the data-oriented side wins there. For open hierarchies that others extend, such as the partner libraries' `PartnerItem` from lesson 2, keep an interface with methods. And behavior that's about the value itself, like `Shelfmark.next()`, belongs on the record. Keep the library's rules out of the records; small methods that compute with the value itself can stay.
 
@@ -205,7 +205,7 @@ In the paperwork picture, each record is a form in its own envelope, and the arr
 
 """ + pair(J_VALUE, K_VALUE) + """
 
-The status is often misreported, so here it is precisely. JEP 401, Value Objects (Preview), together with JEP 539 (strict field initialization in the JVM), was integrated into the JDK's main code line on 31 July 2026. JDK 27 had already branched off, so the feature ships in JDK 28, scheduled for 23 March 2027, and early-access builds of JDK 28 have it now. It's a preview: it needs `--enable-preview` and can still change. JDK 25, 26 and 27 don't have it.
+The status is often misreported, so here it is precisely. JEP 401, Value Objects (Preview), is the JDK Enhancement Proposal for this feature. Together with JEP 539 (strict field initialization in the JVM), it was integrated into the JDK's main code line on 31 July 2026. JDK 27 had already branched off, so the feature ships in JDK 28, scheduled for 23 March 2027, and early-access builds of JDK 28 have it now. It's a preview: it needs `--enable-preview` and can still change. JDK 25, 26 and 27 don't have it.
 
 The Valhalla docs define value objects as immutable objects that lack identity, "distinguished solely by the values of their fields". `==` compares two value objects by their fields, and identity operations such as `synchronized` fail. Two identical printed lines are interchangeable, and you can't seal an envelope that isn't there. In return, the JVM may store them flat. In JDK 28 that means two optimizations. **Flattening** stores a value's fields directly inside the field or array element that holds it, with no separate object and no reference. Scalarization lets code compiled by the JIT (the part of the JVM that turns busy code into machine code) keep the fields in registers and skip creating the object at all.
 
@@ -213,7 +213,7 @@ Here the picture breaks: you don't choose what gets printed onto the page, the J
 
 With the preview on, 28 JDK classes become value classes, among them `Integer`, `Long`, `Optional`, `LocalDate`, `Instant` and `Duration`. Synchronizing on an `Integer` then throws `IdentityException`. Null-restricted types, the other thing people expect from Valhalla, are still draft JEPs.
 
-Kotlin's `@JvmInline value class` is an older, different trick. It holds one property and is erased to that property where the compiler can: `javap` shows that `describeIsbn(Isbn)` compiles to `describeIsbn-3aCjwxg(java.lang.String)`, a plain `String` under a mangled name. It's boxed, that is, wrapped in a real `Isbn` object, when used as a generic `T`, an interface or a nullable type; the demo prints `in a List, the element is a Isbn`. Kotlin's design notes say the annotation leaves room for real Valhalla value classes later, but no such mode has shipped, so a Kotlin data class on JDK 28 is still an identity object.
+Kotlin's `@JvmInline value class` is an older, different trick. It holds one property and is erased to that property where the compiler can: `javap`, the JDK's class-file reader, shows that `describeIsbn(Isbn)` compiles to `describeIsbn-3aCjwxg(java.lang.String)`, a plain `String` under a mangled name. It's boxed, that is, wrapped in a real `Isbn` object, when used as a generic `T`, an interface or a nullable type; the demo prints `in a List, the element is a Isbn`. Kotlin's design notes say the annotation leaves room for real Valhalla value classes later. No such mode has shipped, so a Kotlin data class on JDK 28 is still an identity object.
 
 **Don't lean on a record's identity. Then `value` can be a one-word change later.**
 
@@ -514,7 +514,7 @@ fun parse(type: String?, loanId: String, refusalCode: String?): RenewalReply = w
  ],
  "explain_back": {
   "prompt": "Your team lead asks: \"Should we move the library's data to records and sealed types now, or wait for Valhalla to make it fast?\" Answer in your own words: what the data-oriented style gives you today, where you would and wouldn't use it, and what Valhalla changes.",
-  "answer": "The data-oriented style pays off today, with no new JDK: records and sealed types are final since JDK 17, and pattern switches since 21. Modeling each valid outcome as its own record means contradictory states can't be built, parsing at the edge means only valid values get in, and exhaustive switches mean the compiler tells us every place to update when a type is added. I'd use it for closed data such as hold results, desk events and copy statuses, and keep ordinary interfaces for things others extend, like the partner libraries' items. Valhalla changes performance and identity; it doesn't change this design. JEP 401 is only a preview in JDK 28, and even there, a record with a `long` and anything else wouldn't normally be flattened. So we shouldn't wait for it; we should just avoid depending on record identity, so that adding `value` later is easy."
+  "answer": "The data-oriented style pays off today, with no new JDK: records and sealed types are standard since JDK 17, and pattern switches since 21. Modeling each valid outcome as its own record means contradictory states can't be built, parsing at the edge means only valid values get in, and exhaustive switches mean the compiler tells us every place to update when a type is added. I'd use it for closed data such as hold results, desk events and copy statuses, and keep ordinary interfaces for things others extend, like the partner libraries' items. Valhalla changes performance and identity; it doesn't change this design. JEP 401 is only a preview in JDK 28, and even there, a record with a `long` and anything else wouldn't normally be flattened. So we shouldn't wait for it; we should just avoid depending on record identity, so that adding `value` later is easy."
  },
  "deeper": {
   "minutes": 8,

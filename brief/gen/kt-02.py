@@ -91,7 +91,7 @@ S0 = """Here are two numbers from the print shop's app: the weight of a parcel i
 
 """ + pair(J_SWAP, K_SWAP) + """
 
-The compiler can't tell them apart, so `ship(sheets)` happily posts a parcel that weighs 500 sheets. The classic fix is a small wrapper class, `class Grams(val value: Long)`. It works, and every weight is now an extra object on the **heap**, the memory where the JVM keeps objects.
+The compiler can't tell them apart, so `ship(sheets)` happily posts a parcel that weighs 500 sheets. A wrapper class, `class Grams(val value: Long)`, would catch the swap. It works, and every weight is now an extra object on the heap, the memory where the JVM keeps objects.
 
 Kotlin's **value class** keeps the wrapper's type for the compiler and, wherever it can, drops the object. At run time only the wrapped value is left, the underlying type (`Long` here). In the print shop, the unit on the job sheet is the value class. The clerk, who is the compiler, checks it at the desk. The machines in the back room, which are the JVM at run time, only see the number.
 
@@ -99,7 +99,7 @@ Here is the wrapper in both languages:
 
 """ + pair(J_VC, K_VC) + """
 
-The rules are short. On the JVM you write `@JvmInline value class` with exactly one property in the primary constructor. You may add `init` blocks, functions, secondary constructors, and properties without backing fields (so no `lateinit` and no delegation). A value class can implement interfaces, can't extend a class, and is always final.
+The rules are short. On the JVM you write `@JvmInline value class` with exactly one property in the primary constructor. You may add `init` blocks, functions, secondary constructors, and properties without backing fields, that is, without a stored value of their own (so no `lateinit` and no delegation). A value class can implement interfaces (types that only name methods and properties), can't extend a class, and is always final.
 
 At run time most of it disappears. `javap -p`, the JDK tool that lists what a class file contains, shows what the compiler built for the demo:
 
@@ -145,7 +145,7 @@ Four cases box. The first is a generic type parameter such as `T`. The second is
 
 In the bytecode, each case shows up as a call to `Sheets.box-impl(long)` right before the call that needs the object. So a `List<Sheets>` holds one `Sheets` object per element. The docs draw the comparison you'd draw yourself: it's like `Int`, which is either a primitive `int` or a `java.lang.Integer`.
 
-Equality still works by value. `s == Sheets(1_999)` compiles to `equals-impl0(long, long)`, a comparison of two longs. Identity doesn't exist. **Identity** asks "is this the very same object?", which is what Java's `==` asks of two objects and Kotlin's `===` asks too. For value classes, Kotlin refuses the question: `s === t` fails with `identity equality for arguments of types 'Sheets' and 'Sheets' is prohibited.`
+Equality still works by value. `s == Sheets(1_999)` compiles to `equals-impl0(long, long)`, a comparison of two longs. Identity doesn't exist. Identity asks "is this the very same object?", which is what Java's `==` asks of two objects and Kotlin's `===` asks too. For value classes, Kotlin refuses the question: `s === t` fails with `identity equality for arguments of types 'Sheets' and 'Sheets' is prohibited.`
 
 That's stricter than Java, and for good reason. In Java, `Long a = 1_999L, b = 1_999L; a == b` is `false`, while the same code with `100L` is `true`, because the JDK keeps one shared box for each small number. That's a fine way to lose an afternoon.
 
@@ -195,7 +195,7 @@ Read the second Java line again. Java passes a raw `long`, and nothing runs `ini
 
 **@JvmName opens a door around your validation, so a function meant for Java must check its input again**, for example by building a fresh `Grams(weight.value)`.
 
-Kotlin 2.2.0 added a fuller answer, `@JvmExposeBoxed`. It is still Experimental in Kotlin 2.4, so you opt in with `@OptIn(ExperimentalStdlibApi::class)`. On a class, it adds a public constructor that runs `init`. On a function, it adds a version that takes and returns the box, `describeRun(Copies)`, next to the mangled `describeRun-D2JSnUo(long)`. The compiler flag `-Xjvm-expose-boxed` does the same for a whole module:
+Kotlin 2.2.0 added a fuller answer, `@JvmExposeBoxed`. It is still Experimental in Kotlin 2.4, which means it may still change, so you opt in with `@OptIn(ExperimentalStdlibApi::class)`. On a class, it adds a public constructor that runs `init`. On a function, it adds a version that takes and returns the box, `describeRun(Copies)`, next to the mangled `describeRun-D2JSnUo(long)`. The compiler flag `-Xjvm-expose-boxed` does the same for a whole module:
 
 """ + pair(J_EXPOSE, K_EXPOSE) + """
 
@@ -204,7 +204,7 @@ Libraries see the same bytecode that Java does. Some find getters by name throug
 Mangling, boxing and side doors all come from one fact: on today's JVM, a value class is a trick the compiler plays. That trick has a hard limit."""
 
 # ---------------------------------------------------------------- section 3
-S3 = """Give a value class two properties and the compiler stops you: `value class must have exactly one primary constructor parameter.` So a paper size, `PaperSize(widthMm, heightMm)`, can't be a value class on the JVM in Kotlin 2.4, and neither can a weight that carries its own unit. There is no hidden flag for it either. Even the internal `-XXLanguage:+ValueClasses` earns only `warning: unknown language feature 'ValueClasses'`.
+S3 = """Give a value class two properties and the compiler stops you: `value class must have exactly one primary constructor parameter.` So a paper size, `PaperSize(widthMm, heightMm)`, can't be a value class on the JVM in Kotlin 2.4. Neither can a weight that carries its own unit. There is no hidden flag for it either. Even the internal `-XXLanguage:+ValueClasses` earns only `warning: unknown language feature 'ValueClasses'`.
 
 The limit comes from the JVM. Kotlin can erase a one-field class into its field because the JVM already has a `long` to erase it into. A value with two fields and no identity needs support from the JVM itself, and that is what Project Valhalla is building.
 
@@ -214,7 +214,7 @@ Kotlin's design notes explain why `@JvmInline` is required today. It marks the c
 
 For now, the one-field limit shapes your design. A paper size stays a data class, perhaps holding two value classes, a `Millimetres` for each side.
 
-Where do value classes pay off? In ids (`JobId`, `CustomerId`), in counts and measures with one fixed unit (`Sheets`, `Grams`), and in checked strings such as a postcode: anywhere two `String`s or two `Long`s could be swapped by accident. Validation runs once, in `init`, and the type is the proof that it ran.
+Where do value classes pay off? Anywhere two `String`s or two `Long`s could be swapped by accident: ids (`JobId`, `CustomerId`), counts and measures with one fixed unit (`Sheets`, `Grams`), and checked strings such as a postcode. Validation runs once, in `init`, and the type is the proof that it ran.
 
 Where don't they? In functions that Java code calls a lot, unless you add `@JvmName` doors or `@JvmExposeBoxed`, and in classes that reflection-heavy libraries read. Keep value classes in your Kotlin code, and convert at the edges.
 

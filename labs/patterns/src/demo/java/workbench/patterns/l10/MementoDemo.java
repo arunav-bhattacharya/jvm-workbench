@@ -3,40 +3,40 @@ package workbench.patterns.l10;
 import java.util.ArrayList;
 import java.util.List;
 
-/** A cart that can hand out a snapshot of itself and later put it back. */
+/** A shelf that can hand out a photo of itself and later be put back exactly as in the photo. */
 public class MementoDemo {
-    static final class Cart {
+    static final class Shelf {
         private final List<String> items = new ArrayList<>();
-        private String coupon = "";
+        private String sign = "";
 
         void add(String item) { items.add(item); }
-        void coupon(String code) { coupon = code; }
-        @Override public String toString() { return items + " coupon=" + coupon; }
+        void sign(String text) { sign = text; }
+        @Override public String toString() { return items + " sign=" + sign; }
 
-        // callers see an opaque Memento; only Cart can read the State inside it
+        // callers see an opaque Memento; only Shelf can read the Photo inside it
         interface Memento {}
-        private record State(List<String> items, String coupon) implements Memento {}
+        private record Photo(List<String> items, String sign) implements Memento {}
 
         Memento save() {
-            return new State(List.copyOf(items), coupon);         // copy: later edits must not leak in
+            return new Photo(List.copyOf(items), sign);           // copy: later changes must not leak in
         }
 
         void restore(Memento m) {
-            State s = (State) m;
+            Photo p = (Photo) m;
             items.clear();
-            items.addAll(s.items());                              // copy back in: the memento stays as it was
-            coupon = s.coupon();
+            items.addAll(p.items());                              // copy back in: the photo stays as it was
+            sign = p.sign();
         }
     }
 
     public static void main(String[] args) {
-        Cart cart = new Cart();
-        cart.add("sku-1");
-        Cart.Memento before = cart.save();
-        cart.add("sku-2");
-        cart.coupon("AUTUMN10");
-        System.out.println("edited:   " + cart);
-        cart.restore(before);
-        System.out.println("restored: " + cart);
+        Shelf shelf = new Shelf();
+        shelf.add("rye bread");
+        Shelf.Memento before = shelf.save();
+        shelf.add("jam");
+        shelf.sign("Autumn sale");
+        System.out.println("changed:  " + shelf);
+        shelf.restore(before);
+        System.out.println("restored: " + shelf);
     }
 }

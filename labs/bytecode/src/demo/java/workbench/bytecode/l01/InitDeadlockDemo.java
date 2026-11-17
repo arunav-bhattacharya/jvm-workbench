@@ -5,14 +5,14 @@ import java.util.List;
 
 /** Two static initializers that need each other, started from two threads. */
 public class InitDeadlockDemo {
-    static class FxRates {
-        static final long EUR_USD;
-        static { pause(); EUR_USD = Fees.CARD_BPS + 108_000; }   // needs Fees
+    static class Cast {
+        static final long ACTORS;
+        static { pause(); ACTORS = Costumes.COUNT / 3; }   // needs Costumes: 3 costumes an actor
     }
 
-    static class Fees {
-        static final long CARD_BPS;
-        static { pause(); CARD_BPS = FxRates.EUR_USD / 1_000; }  // needs FxRates
+    static class Costumes {
+        static final long COUNT;
+        static { pause(); COUNT = Cast.ACTORS * 3; }       // needs Cast
     }
 
     static void pause() {
@@ -20,8 +20,8 @@ public class InitDeadlockDemo {
     }
 
     public static void main(String[] args) throws Exception {
-        Thread a = new Thread(() -> System.out.println(FxRates.EUR_USD), "rates");
-        Thread b = new Thread(() -> System.out.println(Fees.CARD_BPS), "fees");
+        Thread a = new Thread(() -> System.out.println(Cast.ACTORS), "cast");
+        Thread b = new Thread(() -> System.out.println(Costumes.COUNT), "costumes");
         a.setDaemon(true);   // daemon, so the JVM can still exit at the end
         b.setDaemon(true);
         a.start();
@@ -29,7 +29,7 @@ public class InitDeadlockDemo {
         Thread.sleep(1_000);
 
         for (Thread t : List.of(a, b)) {
-            System.out.printf("%-5s state=%s at %s%n", t.getName(), t.getState(), t.getStackTrace()[0]);
+            System.out.printf("%-8s state=%s at %s%n", t.getName(), t.getState(), t.getStackTrace()[0]);
         }
         long[] stuck = ManagementFactory.getThreadMXBean().findDeadlockedThreads();
         System.out.println("deadlock detector: " + (stuck == null ? "found nothing" : stuck.length + " threads"));

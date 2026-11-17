@@ -120,9 +120,9 @@ def dim(color, k=0.14):
 AC, BC, CC, DC, LOCK, BAD, GOOD = BLUE_M, TEAL_M, PURPLE_M, "#E88AB8", GOLD_M, RED_M, GREEN_M
 
 # the cabinet: two rows of four drawers (bins 0 to 7)
-DW, DH = 1.9, 0.95
-COLS = [-3.15, -1.05, 1.05, 3.15]
-ROWY = [2.3, 1.2]
+DW, DH = 2.45, 1.2
+COLS = [-3.9, -1.3, 1.3, 3.9]
+ROWY = [2.2, 0.88]
 
 
 def bin_pos(i):
@@ -133,7 +133,7 @@ def drawer(i):
     r = RoundedRectangle(corner_radius=0.08, width=DW, height=DH, stroke_color=GREY_A, stroke_width=2.5)
     r.set_fill(GREY_E, 1)
     handle = Line([-0.25, 0, 0], [0.25, 0, 0]).set_stroke(GREY_B, 4).move_to(r.get_bottom() + UP * 0.17)
-    lab = M(f"bin {i}", 20, GREY_B).move_to(r.get_top() + DOWN * 0.2)
+    lab = M(f"bin {i}", 20, GREY_B).move_to(r.get_top() + DOWN * 0.22)
     return VGroup(r, handle, lab).move_to(bin_pos(i))
 
 
@@ -147,7 +147,7 @@ def padlock(color=LOCK):
 
 def lock_on(d):
     """A padlock on the drawer's front, where its handle is."""
-    return padlock().scale(0.75).move_to(d[1].get_center() + UP * 0.04)
+    return padlock().scale(0.85).move_to(d[1].get_center() + UP * 0.05)
 
 
 def tch(text, color, size=26):
@@ -257,8 +257,9 @@ class Conc09Chm(Narrated):
 
         # ================= the card cabinet =================
         drawers = [drawer(i) for i in range(8)]
-        frame = RoundedRectangle(corner_radius=0.12, width=4 * DW + 5 * 0.2, height=2 * DH + 3 * 0.15 + 0.1,
-                                 stroke_color=GREY_B, stroke_width=3).move_to([0, (ROWY[0] + ROWY[1]) / 2, 0])
+        dg = VGroup(*drawers)
+        frame = RoundedRectangle(corner_radius=0.12, width=dg.width + 0.3, height=dg.height + 0.3,
+                                 stroke_color=GREY_B, stroke_width=3).move_to(dg)
         cab_lab = T("the card cabinet", 26, GREY_A).next_to(frame, UP, buff=0.18)
         cabinet = VGroup(frame, *drawers)
         clerk1 = tch("clerk", AC, 24).move_to(bin_pos(5) + DOWN * 1.35)
@@ -319,7 +320,7 @@ class Conc09Chm(Narrated):
                   drawers[5].animate.shift(UP * 0.18), drawers[7].animate.shift(UP * 0.18), run_time=0.6)
 
         # ================= get, then put =================
-        card = M("1042: 500", 22).move_to(drawers[5][0].get_center() + UP * 0.02).set_z_index(3)
+        card = M("1042: 500", 26).move_to(drawers[5][0].get_center() + UP * 0.02).set_z_index(3)
         A = tch("teller A: +20", AC, 24).move_to([-4.3, -0.55, 0])
         B = tch("teller B: +30", BC, 24).move_to([2.2, -0.55, 0])
         calls = M("balances.put(acct, balances.get(acct) + cents);", 24).move_to([0, -3.1, 0])
@@ -348,7 +349,7 @@ class Conc09Chm(Narrated):
         lk.move_to(lock_on(drawers[5]))
         self.play(FadeIn(lk, scale=0.6), run_time=0.3)
         self.fly(ap.get_top(), card.get_left(), AC, rt=0.5)
-        self.play(Transform(card, M("1042: 520", 22, AC).move_to(card)), run_time=0.4)
+        self.play(Transform(card, M("1042: 520", 26, AC).move_to(card)), run_time=0.4)
         self.play(FadeOut(lk), run_time=0.3)
         self.at(4)
         self.play(FadeIn(bp), run_time=0.3)
@@ -363,7 +364,7 @@ class Conc09Chm(Narrated):
         gap_t.shift(RIGHT * max(0, -6.4 - gap_t.get_left()[0]))
         gap_g = VGroup(gap, gap_t)
         self.say("trace_a")
-        self.play(Transform(card, M("1042: 530", 22, BAD).move_to(card)), run_time=0.5)
+        self.play(Transform(card, M("1042: 530", 26, BAD).move_to(card)), run_time=0.5)
         self.at(1)
         self.play(Indicate(ap, color=BAD, scale_factor=1.2), run_time=0.7)
         self.at(3)
@@ -374,7 +375,7 @@ class Conc09Chm(Narrated):
         mcall = M("balances.merge(acct, cents, Long::sum);", 24, GOOD).move_to(calls)
         quote = T("“The entire method invocation is performed atomically.”", 24, GREY_B).move_to([0, -2.45, 0])
         self.say("merge")
-        self.play(FadeOut(VGroup(ag, bg, ap, bp, gap_g)), Transform(card, M("1042: 500", 22).move_to(card)),
+        self.play(FadeOut(VGroup(ag, bg, ap, bp, gap_g)), Transform(card, M("1042: 500", 26).move_to(card)),
                   Transform(calls, mcall), run_time=0.8)
         self.at(1)
         self.play(FadeIn(quote, shift=UP * 0.1), run_time=0.6)
@@ -382,14 +383,14 @@ class Conc09Chm(Narrated):
 
         am = note(A, "merge: read 500 ...", 0, AC)
         self.say("merge_q")
-        self.play(FadeOut(quote), A.animate.move_to(bin_pos(5) + DOWN * 1.35 + LEFT * 1.2), run_time=0.6)
+        self.play(FadeOut(quote), A.animate.move_to(bin_pos(5) + DOWN * 1.35 + LEFT * 1.35), run_time=0.6)
         self.play(drawers[5].animate.shift(DOWN * 0.18), card.animate.shift(DOWN * 0.18), run_time=0.4)
         lk.move_to(lock_on(drawers[5]))
         self.play(FadeIn(lk, scale=0.6), run_time=0.3)
         am.next_to(A, DOWN, buff=0.2)
         self.play(FadeIn(am), run_time=0.3)
         self.at(1)
-        self.play(B.animate.move_to(bin_pos(5) + DOWN * 1.35 + RIGHT * 1.2), run_time=0.7)
+        self.play(B.animate.move_to(bin_pos(5) + DOWN * 1.35 + RIGHT * 1.35), run_time=0.7)
         bq = M("?", 30, BC).next_to(B, RIGHT, buff=0.2)
         self.play(FadeIn(bq), run_time=0.3)
         self.hold(after=0)
@@ -400,12 +401,12 @@ class Conc09Chm(Narrated):
         self.say("merge_a")
         self.play(FadeOut(bq), FadeIn(bw), run_time=0.4)
         self.at(1)
-        self.play(Transform(card, M("1042: 520", 22, AC).move_to(card)), run_time=0.5)
-        self.play(FadeOut(lk), FadeOut(am), A.animate.shift(LEFT * 1.6), run_time=0.5)
+        self.play(Transform(card, M("1042: 520", 26, AC).move_to(card)), run_time=0.5)
+        self.play(FadeOut(lk), FadeOut(am), A.animate.shift(LEFT * 1.1), run_time=0.5)
         self.at(2)
         self.play(FadeIn(lk, scale=0.6), FadeOut(bw), run_time=0.4)
         self.play(FadeIn(bm), run_time=0.4)
-        self.play(Transform(card, M("1042: 550", 22, GOOD).move_to(card)), run_time=0.5)
+        self.play(Transform(card, M("1042: 550", 26, GOOD).move_to(card)), run_time=0.5)
         self.play(FadeOut(lk), run_time=0.3)
         self.at(3)
         self.play(Indicate(card, color=GOOD, scale_factor=1.15), run_time=0.7)
@@ -413,7 +414,7 @@ class Conc09Chm(Narrated):
 
         # ================= other drawers run side by side =================
         C = tch("teller C", CC, 24).move_to(bin_pos(7) + DOWN * 1.35)
-        D = tch("teller D", DC, 24).move_to([-5.6, -1.25, 0])
+        D = tch("teller D", DC, 24).move_to([-5.7, -1.4, 0])
         eyeD = DashedLine(D.get_top(), drawers[0][0].get_left() + RIGHT * 0.05, dash_length=0.08).set_stroke(DC, 2.5)
         side = T("only writes to the same drawer take turns", 26).move_to([0, -3.0, 0])
         self.say("scale")

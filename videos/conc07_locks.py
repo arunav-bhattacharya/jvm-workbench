@@ -18,11 +18,9 @@ N = {
     "shy": "So here's a question that sounds a little rude. synchronized works, and it never forgets to give the key back. "
            "Why would anyone want another lock?",
     "pain": "Because its line has no way out. A waiting thread can't give up after 200 milliseconds. "
-            "And an interrupt, another thread asking it to stop, doesn't reach it until it holds the key. "
-            "We want a line with exits.",
-    "same": "Java has one. It's the same vault, with controls on the door. Same rules: one thread inside at a time, "
-            "and the next one sees every change. The owner may even walk back in, which makes it reentrant. "
-            "Java calls it ReentrantLock.",
+            "And an interrupt, another thread asking it to stop, doesn't reach it until it holds the key.",
+    "same": "Java has one: the same vault, with controls on the door. Same rules: one thread inside at a time, "
+            "and the next one sees every change. The owner may even walk back in, so Java calls it ReentrantLock.",
     "controls": "Here are the controls. tryLock takes the key only if it's free right now. Give it a time, "
                 "and it waits at most that long. And lockInterruptibly waits, but leaves the line when it's interrupted.",
     "three": "Let's play out the evening. The interest job holds the key for a second and a half. "
@@ -47,11 +45,11 @@ N = {
            "Read it aloud: take the key, try the work, and finally, whatever happens, give it back. "
            "Kotlin's withLock writes all that for you.",
     "rule": "A ReentrantLock lets go only when you tell it to. So keep synchronized for short, simple code, "
-            "and switch when you need a control. For ordinary code, the two cost about the same.",
+            "and switch when you need a control.",
     "kitchen": "A lock is also a place to wait. Remember the kitchen? A monitor has one bench, so waiters waiting for room "
                "sat with cooks waiting for a ticket, and we had to ring for everyone.",
     "benches": "A ReentrantLock can have many benches. Each one is a Condition: a line of threads waiting for one kind of "
-               "change. Cooks wait on notEmpty, for a ticket. Waiters wait on notFull, for room on the rail.",
+               "change. Cooks wait on notEmpty, for a ticket. Waiters wait on notFull, for room.",
     "await": "Watch. A waiter clips a ticket and signals notEmpty. Only the cooks' bell rings, "
              "so one cook gets up. The next waiter finds the rail full, and calls await on notFull. "
              "Like wait, it hangs the key back and sits down.",
@@ -61,10 +59,9 @@ N = {
     "wk_joke": "One bench is like a whole office standing up each time one phone rings. "
                "It isn't zero, because a running thread can grab the ticket first. So keep the while loop.",
     "rates": "Last, the bank's table of exchange rates. Cash machines read it about 5,000 times a second, "
-             "and a refresh job replaces it every five seconds. With a plain lock, readers wait for each other, "
-             "though reading changes nothing.",
+             "and a refresh job replaces it every five seconds. With a plain lock, readers wait for each other for nothing.",
     "room": "Think of a reading room in a library. Any number of people can read at once. To rearrange the shelves, "
-            "the librarian waits until the room is empty, then works alone with the door shut.",
+            "the librarian waits for an empty room, then works alone with the door shut.",
     "rwmap": "That's a ReentrantReadWriteLock. Readers share the read lock. "
              "The refresh job takes the write lock, which needs an empty room.",
     "up_pred": "Now a trap. A reader finds a rate missing. Still holding its read lock, it asks for the write lock. "
@@ -73,8 +70,8 @@ N = {
                "It's waiting for the room to empty while sitting in it. Java's deadlock check won't even report it.",
     "up_fix": "That's called an upgrade, and this lock can't do it. So let go of the read lock, take the write lock, "
               "then check again: another thread may have loaded the rate in between.",
-    "moral": "So why another lock? Because sometimes a waiting thread needs a way out. ReentrantLock is the same vault "
-             "with controls on the door, and a bench for each kind of waiter. Its read write cousin lets readers share. "
+    "moral": "So why another lock? Because sometimes a waiting thread needs a way out. It's the same vault "
+             "with controls on the door, a bench for each kind of waiter, and readers can share. "
              "But it never lets go by itself, so unlock in finally.",
     "check": "Quick check. A cash machine must answer within 50 milliseconds. "
              "Which fits: lockInterruptibly, or tryLock with 50 milliseconds?",
@@ -278,9 +275,8 @@ class Conc07Locks(Narrated):
         self.play(FadeIn(no1, shift=UP * 0.1), run_time=0.5)
         self.at(2)
         self.play(FadeIn(no2, shift=UP * 0.1), run_time=0.5)
-        self.at(3)
+        self.hold(after=0.6)
         self.play(FadeOut(VGroup(no_t, nos)), run_time=0.5)
-        self.hold()
 
         # ================= same vault, controls on the door =================
         panel = VGroup(RoundedRectangle(corner_radius=0.06, width=0.34, height=0.82, stroke_color=KEY, stroke_width=2.5)
@@ -298,11 +294,11 @@ class Conc07Locks(Narrated):
         self.play(Indicate(intj[1], color=INT), run_time=0.7)
         self.at_text("the next one", lead=0.3)
         self.play(Indicate(ledger, color=WHITE, scale_factor=1.05), run_time=0.7)
-        self.at(2)
+        self.at_text("walk back in", lead=0.6)
         self.play(FadeIn(holds), run_time=0.3)
         self.play(Transform(holds, M("holds: 2", 22, INT).move_to(holds)), run_time=0.4)
         self.play(Transform(holds, M("holds: 1", 22, INT).move_to(holds)), run_time=0.4)
-        self.at(3)
+        self.at_text("so Java calls", lead=0.2)
         self.play(FadeOut(holds), Transform(room_lab, rl_lab), run_time=0.7)
         self.hold()
 
@@ -566,7 +562,7 @@ class Conc07Locks(Narrated):
 
         # a waiter signals the cooks' bench; the next waiter awaits on notFull
         tk = ticket(1).move_to(SLOT + UP * 0.4).set_opacity(0)
-        sig = M("notEmpty.signal()", 22, YELLOW_M).move_to([2.6, 1.55, 0])
+        sig = M("notEmpty.signal()", 22, YELLOW_M).move_to([3.5, 1.55, 0])
         aw = M("notFull.await()", 22, YELLOW_M).move_to([-2.6, 1.55, 0])
         self.say("await")
         self.play(FadeOut(cond), run_time=0.3)
@@ -700,8 +696,8 @@ class Conc07Locks(Narrated):
         # the upgrade
         self.play(FadeOut(shut), lib.animate.move_to(door_spot), run_time=0.5)
         self.play(FadeOut(lib, shift=LEFT * 0.5), run_time=0.3)
-        me = tch("reader", READ, 22).move_to(spots[1])
-        miss = T("rate missing", 22, BAD).next_to(me, UP, buff=0.2)
+        me = tch("reader", READ, 22).move_to([1.0, 1.45, 0])
+        miss = T("rate missing", 22, BAD).next_to(me, RIGHT, buff=0.3)
         ask = M("writeLock().lock()", 22, WRITE).next_to(me, DOWN, buff=0.25)
         self.say("up_pred")
         self.play(FadeIn(me, shift=RIGHT * 0.3), Transform(cnt, count_t(1)), run_time=0.6)
@@ -758,12 +754,12 @@ class Conc07Locks(Narrated):
         self.play(FadeIn(m1, shift=UP * 0.1), run_time=0.6)
         self.at_text("a bench for each", lead=0.3)
         self.play(FadeIn(m2, shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at_text("readers can share", lead=0.3)
         self.play(FadeIn(m3, shift=UP * 0.1), run_time=0.6)
-        self.at(4)
+        self.at(3)
         self.play(FadeIn(m4, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.say("check")
         self.play(FadeIn(qq, shift=UP * 0.1), run_time=0.8)
         self.hold(after=0)
-        self.wait(3.0)
+        self.wait(2.2)

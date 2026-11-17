@@ -1,7 +1,7 @@
 package workbench.bytecode.l01;
 
 /**
- * A child-first class loader for plugins. Classes whose binary name starts with
+ * A child-first class loader for the show program's plugins. Classes whose binary name starts with
  * {@code prefix} are defined by THIS loader from the bytes the parent can see.
  * Everything else (JDK classes, the host application) is delegated to the parent
  * as usual.

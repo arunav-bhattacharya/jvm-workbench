@@ -4,26 +4,26 @@ import java.lang.management.ManagementFactory
 import kotlin.concurrent.thread
 
 // Two objects whose initializers need each other, started from two threads.
-object KFxRates {
-    @JvmField val EUR_USD: Long
-    init { pausePlease(); EUR_USD = KFees.CARD_BPS + 108_000 }   // needs KFees
+object KCast {
+    @JvmField val ACTORS: Long
+    init { pausePlease(); ACTORS = KCostumes.COUNT / 3 }   // needs KCostumes: 3 costumes an actor
 }
 
-object KFees {
-    @JvmField val CARD_BPS: Long
-    init { pausePlease(); CARD_BPS = KFxRates.EUR_USD / 1_000 }  // needs KFxRates
+object KCostumes {
+    @JvmField val COUNT: Long
+    init { pausePlease(); COUNT = KCast.ACTORS * 3 }       // needs KCast
 }
 
 private fun pausePlease() = Thread.sleep(200)
 
 fun main(args: Array<String>) {
     // daemon threads, so the JVM can still exit at the end
-    val a = thread(name = "rates", isDaemon = true) { println(KFxRates.EUR_USD) }
-    val b = thread(name = "fees", isDaemon = true) { println(KFees.CARD_BPS) }
+    val a = thread(name = "cast", isDaemon = true) { println(KCast.ACTORS) }
+    val b = thread(name = "costumes", isDaemon = true) { println(KCostumes.COUNT) }
     Thread.sleep(1_000)
 
     for (t in listOf(a, b)) {
-        println("%-5s state=%s at %s".format(t.name, t.state, t.stackTrace[0]))
+        println("%-8s state=%s at %s".format(t.name, t.state, t.stackTrace[0]))
     }
     val stuck = ManagementFactory.getThreadMXBean().findDeadlockedThreads()
     println("deadlock detector: " + (stuck?.let { "${it.size} threads" } ?: "found nothing"))

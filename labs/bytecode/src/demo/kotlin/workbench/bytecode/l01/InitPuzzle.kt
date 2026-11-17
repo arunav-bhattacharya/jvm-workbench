@@ -17,8 +17,8 @@ class KChild : KParent() {
 }
 
 object KLimits {
-    const val MAX_MINOR = 500_000             // a constant: kotlinc copies 500000 into callers
-    val CAP: Int = 500_000                    // a property: reading it goes through KLimits
+    const val MAX_CAST = 12                  // a constant: kotlinc copies 12 into callers
+    val CAP: Int = 12                         // a property: reading it goes through KLimits
     init { println("    KLimits.<clinit>") }
 }
 
@@ -36,7 +36,7 @@ private fun step(what: String, s: () -> Any?) {
 fun main() {
     step("1. read KParent.parentValue") { KParent.parentValue }
     step("2. KChild()") { KChild() }
-    step("3. read KLimits.MAX_MINOR") { KLimits.MAX_MINOR }
+    step("3. read KLimits.MAX_CAST") { KLimits.MAX_CAST }
     step("4. read KLimits.CAP") { KLimits.CAP }
     step("5. arrayOfNulls<KLazy>(3)") { arrayOfNulls<KLazy>(3) }
     step("6. KLazy::class.java") { KLazy::class.java }

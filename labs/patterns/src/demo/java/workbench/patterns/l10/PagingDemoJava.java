@@ -8,23 +8,23 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.Function;
 
-/** Walk a cursor-paginated refunds API lazily. Java has no generators, so the iterator's state is written by hand. */
+/** Walk the warehouse program's stock list lazily. Java has no generators, so the iterator's state is written by hand. */
 public class PagingDemoJava {
-    record RefundPage(List<String> items, Integer next) {}
+    record StockPage(List<String> items, Integer next) {}
 
-    static final Map<Integer, RefundPage> PAGES = Map.of(
-            0, new RefundPage(List.of("rf_1", "rf_2"), 1),
-            1, new RefundPage(List.of(), 2),                       // an empty page in the middle
-            2, new RefundPage(List.of("rf_3"), null));
+    static final Map<Integer, StockPage> PAGES = Map.of(
+            0, new StockPage(List.of("rye bread", "jam"), 1),
+            1, new StockPage(List.of(), 2),                         // an empty page in the middle
+            2, new StockPage(List.of("tea"), null));
 
-    static Iterator<String> refunds(Function<Integer, RefundPage> fetch) {
+    static Iterator<String> stock(Function<Integer, StockPage> fetch) {
         return new Iterator<>() {
             private Iterator<String> current = Collections.emptyIterator();
             private Integer cursor = 0;                            // null = no more pages
 
             @Override public boolean hasNext() {
                 while (!current.hasNext() && cursor != null) {     // while, not if: skip empty pages
-                    RefundPage page = fetch.apply(cursor);
+                    StockPage page = fetch.apply(cursor);
                     current = page.items().iterator();
                     cursor = page.next();
                 }
@@ -45,11 +45,11 @@ public class PagingDemoJava {
     }
 
     public static void main(String[] args) {
-        Function<Integer, RefundPage> fetchPage = cursor -> {
-            System.out.println("  GET /refunds?cursor=" + cursor);
+        Function<Integer, StockPage> fetchPage = cursor -> {
+            System.out.println("  warehouse: sending page " + cursor);
             return PAGES.get(cursor);
         };
-        System.out.println("first two: " + take(refunds(fetchPage), 2));
-        System.out.println("all: " + take(refunds(fetchPage), Integer.MAX_VALUE));
+        System.out.println("first two: " + take(stock(fetchPage), 2));
+        System.out.println("all: " + take(stock(fetchPage), Integer.MAX_VALUE));
     }
 }
