@@ -185,7 +185,7 @@ class Cap1Limits(Narrated):
         btn_t = T("send", 24, REQ).move_to(btn)
         amt = VGroup(T("to Ben", 22, GREY_B), M("40.00", 26)).arrange(DOWN, buff=0.12).move_to(ph.get_center() + UP * 0.45)
         phone = VGroup(ph, btn, btn_t, amt)
-        prog = frame_box(3.0, 1.2, GREY_A, fill=False).move_to([-1.2, 0.4, 0])
+        prog = frame_box(3.5, 1.2, GREY_A, fill=False).move_to([-1.2, 0.4, 0])
         prog_t = T("the bank's program", 24).move_to(prog)
         req = chip("request", REQ, 24).move_to(btn).set_z_index(5)
         self.say("open")
@@ -242,7 +242,7 @@ class Cap1Limits(Narrated):
 
         # ================= personal waiters, then slips on a board =================
         door = Rectangle(width=0.5, height=1.6, stroke_color=GREY_A, stroke_width=3).move_to([-1.0, 1.2, 0])
-        door_l = T("kitchen door", 20, GREY_B).next_to(door, UP, buff=0.12)
+        door_l = T("kitchen door", 20, GREY_B).next_to(door, RIGHT, buff=0.15)
         waiters = VGroup(*[person(POOLC, 0.7) for _ in range(12)]).arrange_in_grid(2, 6, buff=(0.22, 0.25))
         waiters.next_to(door, LEFT, buff=0.35)
         w_l = VGroup(T("a personal waiter per request", 24, POOLC),
@@ -348,7 +348,7 @@ class Cap1Limits(Narrated):
             return box(f"request {amount}", REQ, w=2.4, h=0.8, size=26).move_to(TOK)
 
         tok = token("40.00")
-        vt = T("its own virtual thread", 22, REQ).move_to(TOK + DOWN * 0.65)
+        vt = T("own virtual thread", 22, REQ).move_to(TOK + DOWN * 0.65).align_to(tok, LEFT)
         l1, l2, l3 = link(tok, gate, GREY_C), link(gate, serv, GREY_C), link(tok, limb, GREY_C)
         bh = T("a bulkhead", 26, TOKEN).next_to(gate, DOWN, buff=0.18)
         self.play(FadeOut(title), run_time=0.3)
@@ -475,6 +475,7 @@ class Cap1Limits(Narrated):
         self.play(FadeOut(VGroup(bar, bar_bg, cd, vt, l1, l3)), Create(l4), run_time=0.5)
         self.play(tok.animate.scale(0.6).move_to(POOL).set_opacity(0), run_time=1.0)
         self.remove(tok)
+        self.play(FadeOut(l4), run_time=0.3)
         self.at(2)
         self.play(FadeIn(si[1], shift=UP * 0.1), run_time=0.6)
         risk = T("a decision about risk, not code", 22, GREY_B).next_to(si, RIGHT, buff=0.5)
@@ -490,7 +491,7 @@ class Cap1Limits(Narrated):
         demo.move_to([-0.4, -2.45, 0])
         dl = T("400 requests a second, 3 s", 22, GREY_B).next_to(demo, UP, buff=0.15).align_to(demo, LEFT)
         self.say("demo")
-        self.play(FadeOut(si), FadeOut(risk), FadeOut(l4), FadeIn(dl), run_time=0.5)
+        self.play(FadeOut(si), FadeOut(risk), FadeIn(dl), run_time=0.5)
         self.at(1)
         self.play(FadeIn(demo[0], shift=UP * 0.1), run_time=0.5)
         self.at(2)

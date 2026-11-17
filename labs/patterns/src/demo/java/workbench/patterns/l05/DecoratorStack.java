@@ -3,34 +3,34 @@ package workbench.patterns.l05;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Two decorators around a flaky issuer. Same pieces, two orders, two different behaviors. */
+/** Two decorators around a busy courier line. Same pieces, two orders, two different behaviors. */
 public class DecoratorStack {
-    interface IssuerCall { String authorize(long amountMinor); }
+    interface Booker { String book(int grams); }
 
-    // the real client: fails twice, then succeeds
-    static final class FlakyIssuer implements IssuerCall {
+    // the real line: busy twice, then it books the parcel
+    static final class BusyLine implements Booker {
         private int calls;
-        public String authorize(long amountMinor) {
-            if (++calls <= 2) throw new IllegalStateException("issuer timeout #" + calls);
-            return "A-" + amountMinor;
+        public String book(int grams) {
+            if (++calls <= 2) throw new IllegalStateException("line busy, try #" + calls);
+            return "BB-" + grams;
         }
     }
 
     // decorator 1: logs every call that passes through it
-    record Logging(IssuerCall inner, List<String> log) implements IssuerCall {
-        public String authorize(long amountMinor) {
-            log.add("authorize " + amountMinor);
-            return inner.authorize(amountMinor);
+    record Logging(Booker inner, List<String> log) implements Booker {
+        public String book(int grams) {
+            log.add("book " + grams);
+            return inner.book(grams);
         }
     }
 
     // decorator 2: tries up to `attempts` times
-    record Retrying(IssuerCall inner, int attempts) implements IssuerCall {
-        public String authorize(long amountMinor) {
+    record Retrying(Booker inner, int attempts) implements Booker {
+        public String book(int grams) {
             RuntimeException last = null;
             for (int i = 1; i <= attempts; i++) {
                 try {
-                    return inner.authorize(amountMinor);
+                    return inner.book(grams);
                 } catch (RuntimeException e) {
                     last = e;
                 }
@@ -41,11 +41,11 @@ public class DecoratorStack {
 
     public static void main(String[] args) {
         List<String> log = new ArrayList<>();
-        IssuerCall retryOutside = new Retrying(new Logging(new FlakyIssuer(), log), 3);
-        System.out.println("Retrying(Logging(issuer)): " + retryOutside.authorize(1_250) + ", log lines: " + log.size());
+        Booker retryOutside = new Retrying(new Logging(new BusyLine(), log), 3);
+        System.out.println("Retrying(Logging(line)): " + retryOutside.book(1_250) + ", log lines: " + log.size());
 
         log.clear();
-        IssuerCall logOutside = new Logging(new Retrying(new FlakyIssuer(), 3), log);
-        System.out.println("Logging(Retrying(issuer)): " + logOutside.authorize(1_250) + ", log lines: " + log.size());
+        Booker logOutside = new Logging(new Retrying(new BusyLine(), 3), log);
+        System.out.println("Logging(Retrying(line)): " + logOutside.book(1_250) + ", log lines: " + log.size());
     }
 }

@@ -9,37 +9,40 @@ import java.io.Serializable
 
 // Kotlin's init block is the compact constructor's twin: it runs on every construction.
 // Kotlin can't reassign a constructor parameter, so normalizing happens in a factory instead.
-data class Amount(val minor: Long, val currency: String) {
+data class SpineLabel(val section: String, val shelf: Int) {
     init {
-        require(minor >= 0) { "negative amount: $minor" }
-        require(currency == currency.uppercase()) { "currency must be upper case: $currency" }
+        require(shelf >= 1) { "shelf must be 1 or more: $shelf" }
+        require(section == section.uppercase()) { "section must be upper case: $section" }
     }
 
-    constructor(minor: Long) : this(minor, "EUR")                    // secondary: must delegate
+    constructor(section: String) : this(section, 1)                   // secondary: must delegate
 
     companion object {
-        fun of(minor: Long, ccy: String) = Amount(minor, ccy.uppercase())   // normalize, then construct
-        fun ofMajor(major: Long, ccy: String) = of(Math.multiplyExact(major, 100L), ccy)
+        fun of(section: String, shelf: Int) = SpineLabel(section.uppercase(), shelf)   // normalize, then construct
+        fun parse(label: String): SpineLabel {
+            val (section, shelf) = label.trim().split(" ")
+            return of(section, shelf.toInt())
+        }
     }
 }
 
-data class RangeK(val lo: Int, val hi: Int) : Serializable {
-    init { require(lo <= hi) { "lo > hi: $lo > $hi" } }
+data class PageRangeK(val first: Int, val last: Int) : Serializable {
+    init { require(first <= last) { "first > last: $first > $last" } }
 }
 
 @JvmRecord                                                            // a real JVM record
-data class RangeR(val lo: Int, val hi: Int) : Serializable {
-    init { require(lo <= hi) { "lo > hi: $lo > $hi" } }
+data class PageRangeR(val first: Int, val last: Int) : Serializable {
+    init { require(first <= last) { "first > last: $first > $last" } }
 }
 
 /** Every way of making a data class runs init... except Java deserialization of a plain data class. */
 fun main() {
-    println(Amount.of(1250, "eur"))
-    println(Amount(5))
-    println(Amount.ofMajor(3, "usd"))
-    try { Amount(-1, "EUR") } catch (e: IllegalArgumentException) { println("IAE: ${e.message}") }
+    println(SpineLabel.of("fic", 12))
+    println(SpineLabel("BIO"))
+    println(SpineLabel.parse("ref 7"))
+    try { SpineLabel("FIC", 0) } catch (e: IllegalArgumentException) { println("IAE: ${e.message}") }
 
-    for (range in listOf<Any>(RangeK(1, 5), RangeR(1, 5))) {
+    for (range in listOf<Any>(PageRangeK(1, 5), PageRangeR(1, 5))) {
         val bytes = serialize(range)
         swapLastTwoInts(bytes)
         try {
@@ -57,7 +60,7 @@ private fun serialize(o: Any): ByteArray {
     return buf.toByteArray()
 }
 
-// the stream ends with the int fields (hi, then lo); swapping them turns (1, 5) into (5, 1)
+// the stream ends with the two int fields; swapping them turns (1, 5) into (5, 1)
 private fun swapLastTwoInts(b: ByteArray) {
     val n = b.size
     for (i in 0 until 4) {

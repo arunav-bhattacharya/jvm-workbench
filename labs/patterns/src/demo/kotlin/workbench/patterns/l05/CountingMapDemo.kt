@@ -29,11 +29,11 @@ class CountingSet<E>(private val inner: MutableSet<E> = HashSet()) : MutableSet<
 
 fun main() {
     val m = CountingMap<String, Int>()
-    m["a"] = 1                                 // goes through our put
-    m.putAll(mapOf("b" to 2, "c" to 3))        // forwarded to inner.putAll, which never calls our put
+    m["tea"] = 1                               // goes through our put
+    m.putAll(mapOf("jam" to 2, "rye" to 3))    // forwarded to inner.putAll, which never calls our put
     println("CountingMap: puts=${m.puts}, size=${m.size}")
 
     val s = CountingSet<String>()
-    s.addAll(listOf("x", "y", "z"))
+    s.addAll(listOf("tea", "jam", "rye"))
     println("CountingSet: added=${s.added}, size=${s.size}")
 }

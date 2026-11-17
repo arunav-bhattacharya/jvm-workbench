@@ -17,112 +17,112 @@ import java.io.IOException
 @OptIn(ExperimentalCoroutinesApi::class)
 class ErrorsAsValuesTest {
 
-    private val good = PaymentRequest(4_250, "EUR", "4111111111111111", "Order 981, Acme Books")
+    private val good = IngredientForm("strong flour", 500, "g", "the blue bag, please")
 
     // ---- validate: collect every error ----
 
     @Test
-    fun `validate accepts a good request`() {
-        assertThat(validate(good)).isEqualTo(ValidPayment(4_250, "EUR", "4111111111111111", "Order 981, Acme Books").right())
+    fun `validate accepts a good line`() {
+        assertThat(validate(good)).isEqualTo(Ingredient("strong flour", 500, "g", "the blue bag, please").right())
     }
 
     @Test
     fun `validate reports one broken rule`() {
-        assertThat(validate(good.copy(currency = "XYZ")))
-            .isEqualTo(nonEmptyListOf<PaymentError>(PaymentError.UnsupportedCurrency("XYZ")).left())
+        assertThat(validate(good.copy(unit = "oz")))
+            .isEqualTo(nonEmptyListOf<KitchenError>(KitchenError.UnsupportedUnit("oz")).left())
     }
 
     @Test
     fun `validate reports every broken rule at once, in order`() {
-        val bad = PaymentRequest(-5, "XYZ", "41111111111x1234", "x".repeat(40))
+        val bad = IngredientForm("fl0ur", -5, "oz", "x".repeat(40))
         assertThat(validate(bad)).isEqualTo(
             nonEmptyListOf(
-                PaymentError.InvalidAmount(-5),
-                PaymentError.UnsupportedCurrency("XYZ"),
-                PaymentError.InvalidCardNumber("1234"),
-                PaymentError.ReferenceTooLong(40),
+                KitchenError.InvalidName("fl0ur"),
+                KitchenError.InvalidAmount(-5),
+                KitchenError.UnsupportedUnit("oz"),
+                KitchenError.NoteTooLong(40),
             ).left()
         )
     }
 
     @Test
-    fun `validate checks the card number length and the reference length`() {
-        assertThat(validate(good.copy(cardNumber = "411111111111111"))) // 15 digits
-            .isEqualTo(nonEmptyListOf<PaymentError>(PaymentError.InvalidCardNumber("1111")).left())
-        assertThat(validate(good.copy(reference = "r".repeat(35))).isRight()).`as`("35 characters is allowed").isTrue()
+    fun `validate checks a blank name and the note length`() {
+        assertThat(validate(good.copy(name = " ")))
+            .isEqualTo(nonEmptyListOf<KitchenError>(KitchenError.InvalidName(" ")).left())
+        assertThat(validate(good.copy(note = "n".repeat(35))).isRight()).`as`("35 characters is allowed").isTrue()
     }
 
-    // ---- pay: fail fast ----
+    // ---- order: fail fast ----
 
-    private val valid = ValidPayment(4_250, "EUR", "4111111111111111", "Order 981")
+    private val flour = Ingredient("strong flour", 500, "g", "")
 
-    private class FakeGateway(
-        private val auth: Either<PaymentError, String> = "A-1".right(),
-        private val score: Int = 12,
-        private val capture: Either<PaymentError, String> = "C-1".right(),
-    ) : Gateway {
+    private class FakeShop(
+        private val reserve: Either<KitchenError, String> = "B-1".right(),
+        private val minutes: Int = 45,
+        private val book: Either<KitchenError, String> = "S-1".right(),
+    ) : Shop {
         val calls = mutableListOf<String>()
-        override fun authorize(payment: ValidPayment) = auth.also { calls += "authorize" }
-        override fun riskScore(authCode: String) = score.also { calls += "riskScore" }
-        override fun capture(authCode: String) = capture.also { calls += "capture" }
+        override fun reserve(ingredient: Ingredient) = reserve.also { calls += "reserve" }
+        override fun deliveryMinutes(basketId: String) = minutes.also { calls += "deliveryMinutes" }
+        override fun book(basketId: String) = book.also { calls += "book" }
     }
 
     @Test
-    fun `pay returns a receipt when every step succeeds`() {
-        val gateway = FakeGateway()
-        assertThat(pay(valid, gateway)).isEqualTo(Receipt("A-1", "C-1").right())
-        assertThat(gateway.calls).containsExactly("authorize", "riskScore", "capture")
+    fun `order returns a delivery when every step succeeds`() {
+        val shop = FakeShop()
+        assertThat(order(flour, shop)).isEqualTo(Delivery("B-1", "S-1").right())
+        assertThat(shop.calls).containsExactly("reserve", "deliveryMinutes", "book")
     }
 
     @Test
-    fun `pay stops at a declined authorization`() {
-        val gateway = FakeGateway(auth = PaymentError.CardDeclined.left())
-        assertThat(pay(valid, gateway)).isEqualTo(PaymentError.CardDeclined.left())
-        assertThat(gateway.calls).containsExactly("authorize")
+    fun `order stops when the shop is out of stock`() {
+        val shop = FakeShop(reserve = KitchenError.OutOfStock.left())
+        assertThat(order(flour, shop)).isEqualTo(KitchenError.OutOfStock.left())
+        assertThat(shop.calls).containsExactly("reserve")
     }
 
     @Test
-    fun `pay refuses a high fraud score and never captures`() {
-        val gateway = FakeGateway(score = 91)
-        assertThat(pay(valid, gateway)).isEqualTo(PaymentError.FraudSuspected(91).left())
-        assertThat(gateway.calls).containsExactly("authorize", "riskScore")
+    fun `order refuses a late delivery and never books it`() {
+        val shop = FakeShop(minutes = 150)
+        assertThat(order(flour, shop)).isEqualTo(KitchenError.TooLate(150).left())
+        assertThat(shop.calls).containsExactly("reserve", "deliveryMinutes")
     }
 
     @Test
-    fun `pay treats the threshold itself as fraud`() {
-        assertThat(pay(valid, FakeGateway(score = FRAUD_THRESHOLD))).isEqualTo(PaymentError.FraudSuspected(80).left())
-        assertThat(pay(valid, FakeGateway(score = FRAUD_THRESHOLD - 1)).isRight()).isTrue()
+    fun `order treats the limit itself as too late`() {
+        assertThat(order(flour, FakeShop(minutes = LATEST_MINUTES))).isEqualTo(KitchenError.TooLate(120).left())
+        assertThat(order(flour, FakeShop(minutes = LATEST_MINUTES - 1)).isRight()).isTrue()
     }
 
     @Test
-    fun `pay returns a failed capture as it is`() {
-        val gateway = FakeGateway(capture = PaymentError.ProviderUnavailable.left())
-        assertThat(pay(valid, gateway)).isEqualTo(PaymentError.ProviderUnavailable.left())
+    fun `order returns a failed booking as it is`() {
+        val shop = FakeShop(book = KitchenError.ShopClosed.left())
+        assertThat(order(flour, shop)).isEqualTo(KitchenError.ShopClosed.left())
     }
 
     // ---- runCatchingCancellable ----
 
     @Test
     fun `runCatchingCancellable wraps a value`() = runTest {
-        assertThat(runCatchingCancellable { delay(100); "auth-1" }).isEqualTo(Result.success("auth-1"))
+        assertThat(runCatchingCancellable { delay(100); "basket-1" }).isEqualTo(Result.success("basket-1"))
     }
 
     @Test
     fun `runCatchingCancellable wraps an ordinary exception`() = runTest {
-        val result = runCatchingCancellable<String> { delay(100); throw IOException("issuer timeout") }
-        assertThat(result.exceptionOrNull()).isInstanceOf(IOException::class.java).hasMessage("issuer timeout")
+        val result = runCatchingCancellable<String> { delay(100); throw IOException("shop timeout") }
+        assertThat(result.exceptionOrNull()).isInstanceOf(IOException::class.java).hasMessage("shop timeout")
     }
 
     @Test
     fun `a cancelled caller does not carry on after runCatchingCancellable`() = runTest {
-        val ledger = mutableListOf<String>()
-        val payment = launch {
-            val result = runCatchingCancellable { delay(1_000); "auth-1" }
-            ledger += "charged card ($result)"     // must never run once the payment is cancelled
+        val placed = mutableListOf<String>()
+        val shopping = launch {
+            val result = runCatchingCancellable { delay(1_000); "basket-1" }
+            placed += "placed the order ($result)"   // must never run once the shopping is cancelled
         }
         advanceTimeBy(50)
-        payment.cancelAndJoin()
-        assertThat(ledger).`as`("ledger writes after the cancel").isEmpty()
-        assertThat(payment.isCancelled).isTrue()
+        shopping.cancelAndJoin()
+        assertThat(placed).`as`("orders placed after the cancel").isEmpty()
+        assertThat(shopping.isCancelled).isTrue()
     }
 }

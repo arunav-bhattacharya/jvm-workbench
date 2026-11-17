@@ -8,26 +8,26 @@ import java.util.Objects;
 
 public class FlexibleConstructor {
 
-    record Money(long minor, String currency) {
-        Money {
-            Objects.requireNonNull(currency, "currency");
-            if (minor < 0) throw new IllegalArgumentException("negative amount: " + minor);
-            currency = currency.toUpperCase(Locale.ROOT);
+    record Shelfmark(String section, int shelf) {
+        Shelfmark {
+            Objects.requireNonNull(section, "section");
+            if (shelf < 1) throw new IllegalArgumentException("shelf must be 1 or more: " + shelf);
+            section = section.toUpperCase(Locale.ROOT);
         }
 
-        // parse "12.50 EUR": statements before this(...) are allowed from JDK 25
-        Money(String text) {
-            String[] parts = text.trim().split(" ");
-            if (parts.length != 2) throw new IllegalArgumentException("expected '<amount> <currency>': " + text);
-            long minor = new java.math.BigDecimal(parts[0]).movePointRight(2).longValueExact();
-            this(minor, parts[1]);
+        // read a spine label such as "fic 12": statements before this(...) are allowed from JDK 25
+        Shelfmark(String label) {
+            String[] parts = label.trim().split(" ");
+            if (parts.length != 2) throw new IllegalArgumentException("expected '<section> <shelf>': " + label);
+            int shelf = Integer.parseInt(parts[1]);
+            this(parts[0], shelf);
         }
     }
 
     public static void main(String[] args) {
-        System.out.println(new Money("12.50 eur"));
+        System.out.println(new Shelfmark("fic 12"));
         try {
-            new Money("12.50");
+            new Shelfmark("fic");
         } catch (IllegalArgumentException e) {
             System.out.println("IAE: " + e.getMessage());
         }

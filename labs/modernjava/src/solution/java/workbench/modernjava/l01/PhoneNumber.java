@@ -2,13 +2,13 @@ package workbench.modernjava.l01;
 
 import java.util.Objects;
 
-public record CardNumber(String digits) {
+public record PhoneNumber(String digits) {
 
-    public CardNumber {
+    public PhoneNumber {
         Objects.requireNonNull(digits, "digits");
         digits = digits.replace(" ", "");
-        if (!digits.matches("[0-9]{12,19}")) {
-            throw new IllegalArgumentException("a card number has 12 to 19 digits");
+        if (!digits.matches("[0-9]{7,15}")) {
+            throw new IllegalArgumentException("a phone number has 7 to 15 digits");
         }
     }
 
@@ -20,6 +20,6 @@ public record CardNumber(String digits) {
     // so overriding digits() would not hide anything from the logs
     @Override
     public String toString() {
-        return "CardNumber[****" + last4() + "]";
+        return "PhoneNumber[****" + last4() + "]";
     }
 }

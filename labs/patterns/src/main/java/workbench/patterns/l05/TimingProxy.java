@@ -9,7 +9,7 @@ import java.util.function.LongSupplier;
  * <p>Rules for {@link #wrap}:
  * <ul>
  *   <li>Read {@code nanoTime} once before and once after each forwarded call, and report the
- *       difference to the sink as "InterfaceSimpleName.methodName", for example "IssuerClient.authorize".</li>
+ *       difference to the sink as "InterfaceSimpleName.methodName", for example "CourierBooking.book".</li>
  *   <li>If the real object throws, report the call with {@code failed = true} and rethrow the
  *       ORIGINAL exception. Callers must never see {@code InvocationTargetException} or
  *       {@code UndeclaredThrowableException}.</li>

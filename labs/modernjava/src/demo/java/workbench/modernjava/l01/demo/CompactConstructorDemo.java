@@ -11,35 +11,37 @@ import java.util.Objects;
 /** Every way of making a record goes through its canonical constructor, even deserialization. */
 public class CompactConstructorDemo {
 
-    record Money(long minor, String currency) {
-        Money {                                                   // compact canonical constructor
-            Objects.requireNonNull(currency, "currency");
-            if (minor < 0) throw new IllegalArgumentException("negative amount: " + minor);
-            currency = currency.toUpperCase(Locale.ROOT);         // reassign the parameter
+    record Shelfmark(String section, int shelf) {
+        Shelfmark {                                               // compact canonical constructor
+            Objects.requireNonNull(section, "section");
+            if (shelf < 1) throw new IllegalArgumentException("shelf must be 1 or more: " + shelf);
+            section = section.toUpperCase(Locale.ROOT);           // reassign the parameter
         }                                                         // fields are assigned here
 
-        Money(long minor) { this(minor, "EUR"); }                 // non-canonical: must delegate
+        Shelfmark(String section) { this(section, 1); }          // non-canonical: must delegate
 
-        static Money ofMajor(long major, String ccy) {            // a factory: still goes through it
-            return new Money(Math.multiplyExact(major, 100), ccy);
+        static Shelfmark parse(String label) {                   // a factory: still goes through it
+            String[] parts = label.trim().split(" ");
+            return new Shelfmark(parts[0], Integer.parseInt(parts[1]));
         }
     }
 
-    record Range(int lo, int hi) implements Serializable {
-        Range {
-            if (lo > hi) throw new IllegalArgumentException("lo > hi: " + lo + " > " + hi);
+    // a request to photocopy pages first to last of a book
+    record PageRange(int first, int last) implements Serializable {
+        PageRange {
+            if (first > last) throw new IllegalArgumentException("first > last: " + first + " > " + last);
         }
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.println(new Money(1250, "eur"));
-        System.out.println(new Money(5));
-        System.out.println(Money.ofMajor(3, "usd"));
-        try { new Money(-1, "EUR"); } catch (IllegalArgumentException e) { System.out.println("IAE: " + e.getMessage()); }
-        try { new Money(1, null); } catch (NullPointerException e) { System.out.println("NPE: " + e.getMessage()); }
+        System.out.println(new Shelfmark("fic", 12));
+        System.out.println(new Shelfmark("bio"));
+        System.out.println(Shelfmark.parse("ref 7"));
+        try { new Shelfmark("FIC", 0); } catch (IllegalArgumentException e) { System.out.println("IAE: " + e.getMessage()); }
+        try { new Shelfmark(null, 1); } catch (NullPointerException e) { System.out.println("NPE: " + e.getMessage()); }
 
-        // serialize a valid Range, then swap its two int fields in the byte stream
-        byte[] bytes = serialize(new Range(1, 5));
+        // serialize a valid PageRange, then swap its two int fields in the byte stream
+        byte[] bytes = serialize(new PageRange(1, 5));
         swapLastTwoInts(bytes);
         try (var in = new ObjectInputStream(new ByteArrayInputStream(bytes))) {
             System.out.println("tampered stream gave: " + in.readObject());
@@ -54,7 +56,7 @@ public class CompactConstructorDemo {
         return buf.toByteArray();
     }
 
-    // the stream ends with the int fields (hi, then lo); swapping them turns (1, 5) into (5, 1)
+    // the stream ends with the two int fields; swapping them turns (1, 5) into (5, 1)
     static void swapLastTwoInts(byte[] b) {
         int n = b.length;
         for (int i = 0; i < 4; i++) {

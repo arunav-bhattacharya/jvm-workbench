@@ -1,39 +1,39 @@
 package workbench.modernjava.l01.demo
 
 // List<String> is a read-only view in Kotlin, not an immutable list: the caller may still hold a MutableList
-data class Batch(val id: String, val paymentIds: List<String>)
+data class Crate(val branch: String, val titles: List<String>)
 
 // Kotlin can't reassign a constructor parameter, so the defensive copy goes in a factory
-data class SafeBatch(val id: String, val paymentIds: List<String>) {
+data class SafeCrate(val branch: String, val titles: List<String>) {
     companion object {
-        fun of(id: String, paymentIds: List<String>) = SafeBatch(id, java.util.List.copyOf(paymentIds))
+        fun of(branch: String, titles: List<String>) = SafeCrate(branch, java.util.List.copyOf(titles))
     }
 }
 
-data class Rate(val value: Double)
+data class Rating(val stars: Double)
 
 /** Equality, hashCode and toString are only as deep as the properties. */
 fun main() {
-    val ids = mutableListOf("pay_1", "pay_2")
-    val batch = Batch("b-7", ids)
-    val sent = hashSetOf(batch)
-    val before = batch.hashCode()
+    val titles = mutableListOf("Dune", "Emma")
+    val crate = Crate("NORTH", titles)
+    val sent = hashSetOf(crate)
+    val before = crate.hashCode()
 
-    ids += "pay_3"                                              // someone reuses their list
+    titles += "Ulysses"                                         // someone reuses their list
 
-    println("batch now:          $batch")
-    println("hashCode changed:   ${before != batch.hashCode()}")
-    println("sent.contains:      ${batch in sent}")
+    println("crate now:          $crate")
+    println("hashCode changed:   ${before != crate.hashCode()}")
+    println("sent.contains:      ${crate in sent}")
 
-    val copy = batch.copy(id = "b-9")                           // copy() is shallow too
-    ids += "pay_4"
+    val copy = crate.copy(branch = "SOUTH")                     // copy() is shallow too
+    titles += "Persuasion"
     println("copy shares list:   $copy")
 
-    val ids2 = mutableListOf("pay_1", "pay_2")
-    val safe = SafeBatch.of("b-8", ids2)
-    ids2 += "pay_3"
-    println("safe batch:         $safe")
+    val titles2 = mutableListOf("Dune", "Emma")
+    val safe = SafeCrate.of("SOUTH", titles2)
+    titles2 += "Ulysses"
+    println("safe crate:         $safe")
 
-    println("NaN data class ==:  ${Rate(Double.NaN) == Rate(Double.NaN)}  (but NaN == NaN is ${Double.NaN == Double.NaN})")
-    println("0.0 vs -0.0 ==:     ${Rate(0.0) == Rate(-0.0)} (but 0.0 == -0.0 is ${0.0 == -0.0})")
+    println("NaN data class ==:  ${Rating(Double.NaN) == Rating(Double.NaN)}  (but NaN == NaN is ${Double.NaN == Double.NaN})")
+    println("0.0 vs -0.0 ==:     ${Rating(0.0) == Rating(-0.0)} (but 0.0 == -0.0 is ${0.0 == -0.0})")
 }

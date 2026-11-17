@@ -285,7 +285,8 @@ class Cap1Tour(Narrated):
 
         noerr = VGroup(T("no exception, no warning", 30, GREY_A)).move_to([0, 2.05, 0])
         self.say("nothrow")
-        self.play(FadeOut(cols), FadeOut(nolock), FadeIn(noerr), run_time=0.7)
+        self.play(FadeOut(cols), FadeOut(nolock), run_time=0.4)
+        self.play(FadeIn(noerr), run_time=0.4)
         self.hold()
         self.play(FadeOut(VGroup(noerr, setup, ten, *[m for r in rows for m in r])), run_time=0.6)
 
@@ -542,17 +543,17 @@ class Cap1Tour(Narrated):
         self.hold()
 
         SL_Y = -3.05
-        sline = Line([-6.2, SL_Y + 0.45, 0], [-6.2, SL_Y - 0.45, 0], stroke_color=GREY_A, stroke_width=4)
+        sline = Line([-5.0, SL_Y + 0.45, 0], [-5.0, SL_Y - 0.45, 0], stroke_color=GREY_A, stroke_width=4)
         runners = VGroup(*[Dot(radius=0.09, color=c) for c in [ANA, BEN] * 4]).arrange(DOWN, buff=0.04)
         runners.arrange_in_grid(2, 4, buff=0.12).next_to(sline, LEFT, buff=0.08).shift(RIGHT * 0.0)
-        runners.move_to([-6.45, SL_Y, 0])
-        st_l = T("start line: 8 threads", 22, GREY_B).move_to([-4.9, SL_Y + 0.62, 0])
+        runners.move_to([-5.65, SL_Y, 0])
+        st_l = T("start line: 8 threads", 22, GREY_B).move_to([-4.2, SL_Y + 0.62, 0])
         aud2 = auditor(0.4).move_to([-0.75, SL_Y, 0])
         self.say("d_test")
         self.play(FadeOut(env_l), FadeIn(lst[4][0]), run_time=0.4)
         self.play(FadeIn(sline), FadeIn(runners), FadeIn(st_l), run_time=0.6)
         self.at(1)
-        self.play(runners.animate.shift(RIGHT * 3.6), run_time=1.1, rate_func=rush_into)
+        self.play(runners.animate.shift(RIGHT * 3.1), run_time=1.1, rate_func=rush_into)
         self.play(FadeIn(lst[4][1]), FadeIn(aud2), run_time=0.5)
         self.at(2)
         for _ in range(3):

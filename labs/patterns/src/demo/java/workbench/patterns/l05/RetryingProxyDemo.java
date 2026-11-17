@@ -8,8 +8,8 @@ import java.util.List;
 
 /** Dynamic proxies: a retrying proxy for any interface, and a tracing proxy that shows self-invocation. */
 public class RetryingProxyDemo {
-    interface PspClient { String charge(String token, long amountMinor); }
-    interface Ledger { void post(String entry); void postTwice(String entry); }
+    interface CourierLine { String book(String address, int grams); }
+    interface Stockroom { void pick(String item); void pickBoth(String first, String second); }
 
     static <T> T retrying(Class<T> iface, T target, int maxAttempts) {
         InvocationHandler handler = (proxy, method, args) -> {
@@ -40,20 +40,20 @@ public class RetryingProxyDemo {
 
     public static void main(String[] args) {
         int[] calls = {0};
-        PspClient flaky = (token, amount) -> {
-            if (++calls[0] < 3) throw new IllegalStateException("PSP 503");
-            return "ch_" + amount;
+        CourierLine busy = (address, grams) -> {
+            if (++calls[0] < 3) throw new IllegalStateException("line busy");
+            return "BB-" + grams;
         };
-        PspClient psp = retrying(PspClient.class, flaky, 3);
-        System.out.println("charge -> " + psp.charge("tok_42", 1_250) + " after " + calls[0] + " target calls");
-        System.out.println("proxy class: " + Proxy.isProxyClass(psp.getClass()));
+        CourierLine line = retrying(CourierLine.class, busy, 3);
+        System.out.println("book -> " + line.book("12 Mill Lane", 1_250) + " after " + calls[0] + " target calls");
+        System.out.println("proxy class: " + Proxy.isProxyClass(line.getClass()));
 
         List<String> trace = new ArrayList<>();
-        Ledger real = new Ledger() {
-            public void post(String entry) { }
-            public void postTwice(String entry) { post(entry); post(entry); }   // this.post(): skips the proxy
+        Stockroom real = new Stockroom() {
+            public void pick(String item) { }
+            public void pickBoth(String first, String second) { pick(first); pick(second); }   // this.pick(): skips the proxy
         };
-        tracing(Ledger.class, real, trace).postTwice("fee 3.20");
+        tracing(Stockroom.class, real, trace).pickBoth("tea", "jam");
         System.out.println("calls the proxy saw: " + trace);
     }
 }

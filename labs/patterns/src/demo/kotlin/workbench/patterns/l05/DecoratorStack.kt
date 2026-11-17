@@ -1,33 +1,33 @@
 package workbench.patterns.l05
 
-// Two decorators around a flaky issuer. Same pieces, two orders, two different behaviors.
+// Two decorators around a busy courier line. Same pieces, two orders, two different behaviors.
 
-fun interface IssuerCall { fun authorize(amountMinor: Long): String }
+fun interface Booker { fun book(grams: Int): String }
 
-// the real client: fails twice, then succeeds
-class FlakyIssuer : IssuerCall {
+// the real line: busy twice, then it books the parcel
+class BusyLine : Booker {
     private var calls = 0
-    override fun authorize(amountMinor: Long): String {
-        check(++calls > 2) { "issuer timeout #$calls" }
-        return "A-$amountMinor"
+    override fun book(grams: Int): String {
+        check(++calls > 2) { "line busy, try #$calls" }
+        return "BB-$grams"
     }
 }
 
 // decorator 1: logs every call that passes through it
-class Logging(private val inner: IssuerCall, private val log: MutableList<String>) : IssuerCall {
-    override fun authorize(amountMinor: Long): String {
-        log += "authorize $amountMinor"
-        return inner.authorize(amountMinor)
+class Logging(private val inner: Booker, private val log: MutableList<String>) : Booker {
+    override fun book(grams: Int): String {
+        log += "book $grams"
+        return inner.book(grams)
     }
 }
 
 // decorator 2: tries up to `attempts` times
-class Retrying(private val inner: IssuerCall, private val attempts: Int) : IssuerCall {
-    override fun authorize(amountMinor: Long): String {
+class Retrying(private val inner: Booker, private val attempts: Int) : Booker {
+    override fun book(grams: Int): String {
         var last: RuntimeException? = null
         repeat(attempts) {
             try {
-                return inner.authorize(amountMinor)
+                return inner.book(grams)
             } catch (e: RuntimeException) {
                 last = e
             }
@@ -38,10 +38,10 @@ class Retrying(private val inner: IssuerCall, private val attempts: Int) : Issue
 
 fun main() {
     val log = mutableListOf<String>()
-    val retryOutside = Retrying(Logging(FlakyIssuer(), log), 3)
-    println("Retrying(Logging(issuer)): ${retryOutside.authorize(1_250)}, log lines: ${log.size}")
+    val retryOutside = Retrying(Logging(BusyLine(), log), 3)
+    println("Retrying(Logging(line)): ${retryOutside.book(1_250)}, log lines: ${log.size}")
 
     log.clear()
-    val logOutside = Logging(Retrying(FlakyIssuer(), 3), log)
-    println("Logging(Retrying(issuer)): ${logOutside.authorize(1_250)}, log lines: ${log.size}")
+    val logOutside = Logging(Retrying(BusyLine(), 3), log)
+    println("Logging(Retrying(line)): ${logOutside.book(1_250)}, log lines: ${log.size}")
 }

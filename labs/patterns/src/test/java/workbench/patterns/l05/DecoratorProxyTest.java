@@ -2,7 +2,7 @@ package workbench.patterns.l05;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import workbench.patterns.l05.FeeCalculator.Payment;
+import workbench.patterns.l05.DeliveryFee.Delivery;
 
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -17,70 +17,71 @@ class DecoratorProxyTest {
 
     // ---- decorator chain ----
 
-    private static final FeeCalculator STANDARD =
-            FeeCalculator.percent(290).plusFixed(30).crossBorder("DE", 100).cappedAt(500);
+    private static final DeliveryFee STANDARD =
+            DeliveryFee.perKm(50).plusFixed(200).heavySurcharge(5_000, 300).cappedAt(800);
 
     @Test
-    @DisplayName("percent takes basis points of the amount, with integer division")
-    void percent() {
-        assertThat(FeeCalculator.percent(290).feeMinor(new Payment(10_000, "DE"))).isEqualTo(290);
-        assertThat(FeeCalculator.percent(150).feeMinor(new Payment(999, "DE"))).isEqualTo(14);
+    @DisplayName("perKm charges the same amount for every kilometer")
+    void perKm() {
+        assertThat(DeliveryFee.perKm(50).cents(new Delivery(4, 2_000))).isEqualTo(200);
+        assertThat(DeliveryFee.perKm(35).cents(new Delivery(7, 2_000))).isEqualTo(245);
     }
 
     @Test
-    @DisplayName("Domestic 100.00 EUR: 2.9% + 0.30 = 3.20")
-    void domestic() {
-        assertThat(STANDARD.feeMinor(new Payment(10_000, "DE"))).isEqualTo(320);
+    @DisplayName("A light parcel, 4 km: 2.00 to start + 4 x 0.50 = 4.00")
+    void light() {
+        assertThat(STANDARD.cents(new Delivery(4, 2_000))).isEqualTo(400);
     }
 
     @Test
-    @DisplayName("Cross-border 100.00 EUR: 3.20 + 1% = 4.20")
-    void crossBorder() {
-        assertThat(STANDARD.feeMinor(new Payment(10_000, "FR"))).isEqualTo(420);
+    @DisplayName("A heavy parcel, 4 km: 4.00 + 3.00 surcharge = 7.00; exactly 5 kg is not heavy")
+    void heavy() {
+        assertThat(STANDARD.cents(new Delivery(4, 12_000))).isEqualTo(700);
+        assertThat(STANDARD.cents(new Delivery(4, 5_000))).isEqualTo(400);
     }
 
     @Test
-    @DisplayName("Cross-border 1,000.00 EUR hits the 5.00 cap")
+    @DisplayName("A heavy parcel, 20 km, hits the 8.00 cap")
     void capped() {
-        assertThat(STANDARD.feeMinor(new Payment(100_000, "FR"))).isEqualTo(500);
+        assertThat(STANDARD.cents(new Delivery(20, 12_000))).isEqualTo(800);
     }
 
     @Test
-    @DisplayName("Order matters: capping before the surcharge gives 15.00")
+    @DisplayName("Order matters: capping before the surcharge gives 11.00")
     void orderMatters() {
-        FeeCalculator capFirst = FeeCalculator.percent(290).plusFixed(30).cappedAt(500).crossBorder("DE", 100);
-        assertThat(capFirst.feeMinor(new Payment(100_000, "FR"))).isEqualTo(1_500);
+        DeliveryFee capFirst = DeliveryFee.perKm(50).plusFixed(200).cappedAt(800).heavySurcharge(5_000, 300);
+        assertThat(capFirst.cents(new Delivery(20, 12_000))).isEqualTo(1_100);
     }
 
     @Test
-    @DisplayName("Each decorator returns a new calculator and leaves the one it wraps unchanged")
+    @DisplayName("Each decorator returns a new fee and leaves the one it wraps unchanged")
     void decoratorsDontMutate() {
-        FeeCalculator base = FeeCalculator.percent(290);
-        FeeCalculator withFixed = base.plusFixed(30);
-        assertThat(base.feeMinor(new Payment(10_000, "DE"))).isEqualTo(290);
-        assertThat(withFixed.feeMinor(new Payment(10_000, "DE"))).isEqualTo(320);
+        DeliveryFee base = DeliveryFee.perKm(50);
+        DeliveryFee withFixed = base.plusFixed(200);
+        assertThat(base.cents(new Delivery(4, 2_000))).isEqualTo(200);
+        assertThat(withFixed.cents(new Delivery(4, 2_000))).isEqualTo(400);
     }
 
     // ---- timing proxy ----
 
-    public interface IssuerClient {
-        String authorize(String pan, long amountMinor) throws TimeoutException;
-        String authorizeTwice(String pan, long amountMinor) throws TimeoutException;
+    public interface CourierBooking {
+        String book(String address, int grams) throws TimeoutException;
+        String bookTwice(String address, int grams) throws TimeoutException;
     }
 
-    static final class RealIssuer implements IssuerClient {
+    static final class RealCourier implements CourierBooking {
         int calls;
-        @Override public String authorize(String pan, long amountMinor) throws TimeoutException {
+        @Override public String book(String address, int grams) throws TimeoutException {
             calls++;
-            if (amountMinor < 0) throw new IllegalArgumentException("negative amount");
-            if (pan.startsWith("0000")) throw new TimeoutException("issuer took longer than 120 ms");
-            return "A-" + pan.substring(pan.length() - 4);
+            if (grams < 0) throw new IllegalArgumentException("negative weight");
+            if (address.startsWith("Gull Island")) throw new TimeoutException("the courier took longer than 120 ms");
+            return "PP-" + grams;
         }
-        @Override public String authorizeTwice(String pan, long amountMinor) throws TimeoutException {
-            authorize(pan, amountMinor);                 // self-invocation: this.authorize, not the proxy
-            return authorize(pan, amountMinor);
+        @Override public String bookTwice(String address, int grams) throws TimeoutException {
+            book(address, grams);                       // self-invocation: this.book, not the proxy
+            return book(address, grams);
         }
-        @Override public String toString() { return "RealIssuer"; }
+        @Override public String toString() { return "RealCourier"; }
     }
 
     /** A fake clock: every read moves time forward by 7 ms. */
@@ -95,57 +96,57 @@ class DecoratorProxyTest {
     @Test
     @DisplayName("The proxy implements the interface and forwards arguments and results")
     void forwards() throws Exception {
-        RealIssuer real = new RealIssuer();
-        IssuerClient proxy = TimingProxy.wrap(IssuerClient.class, real, ticking(), sink);
+        RealCourier real = new RealCourier();
+        CourierBooking proxy = TimingProxy.wrap(CourierBooking.class, real, ticking(), sink);
         assertThat(Proxy.isProxyClass(proxy.getClass())).isTrue();
-        assertThat(proxy.authorize("4111111111111111", 1_250)).isEqualTo("A-1111");
+        assertThat(proxy.book("12 Mill Lane", 1_250)).isEqualTo("PP-1250");
         assertThat(real.calls).isEqualTo(1);
     }
 
     @Test
     @DisplayName("Each call is reported as Interface.method with the time between two clock reads")
     void reportsTiming() throws Exception {
-        IssuerClient proxy = TimingProxy.wrap(IssuerClient.class, new RealIssuer(), ticking(), sink);
-        proxy.authorize("4111111111111111", 1_250);
-        proxy.authorize("4242424242424242", 990);
-        assertThat(records).containsExactly("IssuerClient.authorize 7ms", "IssuerClient.authorize 7ms");
+        CourierBooking proxy = TimingProxy.wrap(CourierBooking.class, new RealCourier(), ticking(), sink);
+        proxy.book("12 Mill Lane", 1_250);
+        proxy.book("3 Harbour Road", 990);
+        assertThat(records).containsExactly("CourierBooking.book 7ms", "CourierBooking.book 7ms");
     }
 
     @Test
     @DisplayName("A runtime exception from the target reaches the caller unwrapped, and is reported as failed")
     void runtimeExceptionUnwrapped() {
-        IssuerClient proxy = TimingProxy.wrap(IssuerClient.class, new RealIssuer(), ticking(), sink);
-        assertThatThrownBy(() -> proxy.authorize("4111111111111111", -1))
+        CourierBooking proxy = TimingProxy.wrap(CourierBooking.class, new RealCourier(), ticking(), sink);
+        assertThatThrownBy(() -> proxy.book("12 Mill Lane", -1))
                 .isExactlyInstanceOf(IllegalArgumentException.class)
-                .hasMessage("negative amount");
-        assertThat(records).containsExactly("IssuerClient.authorize 7ms FAILED");
+                .hasMessage("negative weight");
+        assertThat(records).containsExactly("CourierBooking.book 7ms FAILED");
     }
 
     @Test
     @DisplayName("A checked exception the interface declares reaches the caller as itself")
     void checkedExceptionUnwrapped() {
-        IssuerClient proxy = TimingProxy.wrap(IssuerClient.class, new RealIssuer(), ticking(), sink);
-        assertThatThrownBy(() -> proxy.authorize("0000111122223333", 100))
+        CourierBooking proxy = TimingProxy.wrap(CourierBooking.class, new RealCourier(), ticking(), sink);
+        assertThatThrownBy(() -> proxy.book("Gull Island pier", 100))
                 .isExactlyInstanceOf(TimeoutException.class);
-        assertThat(records).containsExactly("IssuerClient.authorize 7ms FAILED");
+        assertThat(records).containsExactly("CourierBooking.book 7ms FAILED");
     }
 
     @Test
     @DisplayName("toString, equals and hashCode are forwarded but not timed")
     void objectMethodsNotTimed() {
-        IssuerClient proxy = TimingProxy.wrap(IssuerClient.class, new RealIssuer(), ticking(), sink);
-        assertThat(proxy.toString()).isEqualTo("RealIssuer");
+        CourierBooking proxy = TimingProxy.wrap(CourierBooking.class, new RealCourier(), ticking(), sink);
+        assertThat(proxy.toString()).isEqualTo("RealCourier");
         proxy.hashCode();
         assertThat(records).isEmpty();
     }
 
     @Test
-    @DisplayName("Self-invocation skips the proxy: authorizeTwice is timed, its inner calls are not")
+    @DisplayName("Self-invocation skips the proxy: bookTwice is timed, its inner calls are not")
     void selfInvocationBypassesProxy() throws Exception {
-        RealIssuer real = new RealIssuer();
-        IssuerClient proxy = TimingProxy.wrap(IssuerClient.class, real, ticking(), sink);
-        proxy.authorizeTwice("4111111111111111", 100);
+        RealCourier real = new RealCourier();
+        CourierBooking proxy = TimingProxy.wrap(CourierBooking.class, real, ticking(), sink);
+        proxy.bookTwice("12 Mill Lane", 100);
         assertThat(real.calls).isEqualTo(2);
-        assertThat(records).containsExactly("IssuerClient.authorizeTwice 7ms");
+        assertThat(records).containsExactly("CourierBooking.bookTwice 7ms");
     }
 }

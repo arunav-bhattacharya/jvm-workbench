@@ -1,33 +1,34 @@
 package workbench.modernjava.l01.demo;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /** Java has no copy(): you write withers by hand, and each one calls the canonical constructor. */
 public class WitherDemo {
 
-    record Refund(String paymentId, long amountMinor, List<String> reasons) {
-        Refund {
-            if (amountMinor <= 0) throw new IllegalArgumentException("refund must be positive: " + amountMinor);
-            reasons = List.copyOf(reasons);
+    record Loan(String memberId, int days, List<String> titles) {
+        Loan {
+            if (days <= 0) throw new IllegalArgumentException("days must be positive: " + days);
+            titles = List.copyOf(titles);
         }
 
-        Refund withAmount(long newAmount) { return new Refund(paymentId, newAmount, reasons); }
-        Refund withReason(String extra) {
-            var more = new java.util.ArrayList<>(reasons);
+        Loan withDays(int newDays) { return new Loan(memberId, newDays, titles); }
+        Loan withTitle(String extra) {
+            var more = new ArrayList<>(titles);
             more.add(extra);
-            return new Refund(paymentId, amountMinor, more);
+            return new Loan(memberId, days, more);
         }
     }
 
     public static void main(String[] args) {
-        Refund full = new Refund("pay_81", 5_000, List.of("duplicate charge"));
-        Refund part = full.withAmount(2_000).withReason("partial goodwill");
+        Loan first = new Loan("M-1042", 21, List.of("Dune"));
+        Loan renewed = first.withDays(35).withTitle("Emma");
 
-        System.out.println("original: " + full);
-        System.out.println("changed:  " + part);
-        System.out.println("same reasons list object: " + (full.reasons() == full.withAmount(1_000).reasons()));
+        System.out.println("original: " + first);
+        System.out.println("changed:  " + renewed);
+        System.out.println("same titles list object: " + (first.titles() == first.withDays(14).titles()));
         try {
-            full.withAmount(-1);
+            first.withDays(-1);
         } catch (IllegalArgumentException e) {
             System.out.println("wither ran the checks: " + e.getMessage());
         }

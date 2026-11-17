@@ -1,38 +1,38 @@
 package workbench.functional.l06
 
-// The types the settlement desk works with. You don't need to change this file.
+// The types the meal planner works with. You don't need to change this file.
 
-enum class Status { AUTHORIZED, CAPTURED, REFUNDED, DECLINED }
+enum class Stage { PLANNED, COOKING, SERVED, SKIPPED }
 
-data class Money(val minor: Long, val currency: String)
+/** One dish for the week. */
+data class Dish(val id: String, val name: String, val servings: Int, val stage: Stage)
 
-data class Payment(val id: String, val amount: Money, val status: Status, val cardToken: String?)
-
-/** Posts payments. Returns the new ledger entry id, or null when this payment id was posted before. */
-fun interface Ledger {
-    fun post(payment: Payment): String?
+/** This week's menu. add returns the new slot id, or null when a dish with this id is on the menu already. */
+fun interface WeekMenu {
+    fun add(dish: Dish): String?
 }
 
-sealed interface SettleResult {
-    data class Posted(val entryId: String) : SettleResult
-    data class AlreadyPosted(val paymentId: String) : SettleResult
+sealed interface PlanResult {
+    data class Added(val slotId: String) : PlanResult
+    data class AlreadyOnMenu(val dishId: String) : PlanResult
 }
 
-/** What the gateway receives. [reference] is the idempotency key the gateway deduplicates on. */
-class PaymentRequest {
-    var amount: Money? = null
-    var merchantId: String = ""
-    var reference: String = ""
-    val metadata = Metadata()
+/** A program for the oven. [name] is what the oven's screen shows while it bakes. */
+class OvenProgram {
+    var temperatureC: Int = 0
+    var minutes: Int = 0
+    var name: String = ""
+    val timer = Timer()
 }
 
-class Metadata {
-    var channel: String = ""
-    var reference: String = ""   // the merchant's own free-text reference, not the idempotency key
+class Timer {
+    var beep: String = ""
+    var name: String = ""   // a reminder the timer shows when it beeps, such as "turn the tray"; empty unless set
 }
 
-data class Order(val id: String, val merchantId: String, val total: Money)
+/** What a recipe says about baking it. */
+data class Bake(val recipe: String, val temperatureC: Int, val minutes: Int)
 
-data class Merchant(val id: String, val name: String, val scheduleId: String)
+data class Cake(val id: String, val name: String, val tinId: String)
 
-data class FeeSchedule(val id: String, val name: String, val rateBps: Int)
+data class Tin(val id: String, val name: String, val sizeCm: Int)

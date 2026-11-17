@@ -7,34 +7,35 @@ import arrow.core.raise.either
 import arrow.core.raise.ensure
 import arrow.core.raise.zipOrAccumulate
 
-val SUPPORTED_CURRENCIES = setOf("EUR", "USD", "GBP")
+/** Grams, millilitres and pieces. A scale left on ounces gives UnsupportedUnit("oz"). */
+val SUPPORTED_UNITS = setOf("g", "ml", "pcs")
 
-fun Raise<PaymentError>.checkAmount(amountMinor: Long): Long {
-    ensure(amountMinor > 0) { PaymentError.InvalidAmount(amountMinor) }
-    return amountMinor
+fun Raise<KitchenError>.checkAmount(amount: Int): Int {
+    ensure(amount > 0) { KitchenError.InvalidAmount(amount) }
+    return amount
 }
 
-fun Raise<PaymentError>.checkCurrency(code: String): String {
-    ensure(code in SUPPORTED_CURRENCIES) { PaymentError.UnsupportedCurrency(code) }
-    return code
+fun Raise<KitchenError>.checkUnit(unit: String): String {
+    ensure(unit in SUPPORTED_UNITS) { KitchenError.UnsupportedUnit(unit) }
+    return unit
 }
 
-fun Raise<PaymentError>.checkCardNumber(number: String): String {
-    ensure(number.length == 16 && number.all { it.isDigit() }) { PaymentError.InvalidCardNumber(number.takeLast(4)) }
-    return number
+fun Raise<KitchenError>.checkName(name: String): String {
+    ensure(name.isNotBlank() && name.all { it.isLetter() || it == ' ' }) { KitchenError.InvalidName(name) }
+    return name
 }
 
-fun Raise<PaymentError>.checkReference(reference: String): String {
-    ensure(reference.length <= 35) { PaymentError.ReferenceTooLong(reference.length) }
-    return reference
+fun Raise<KitchenError>.checkNote(note: String): String {
+    ensure(note.length <= 35) { KitchenError.NoteTooLong(note.length) }
+    return note
 }
 
-fun validate(request: PaymentRequest): Either<NonEmptyList<PaymentError>, ValidPayment> = either {
+fun validate(form: IngredientForm): Either<NonEmptyList<KitchenError>, Ingredient> = either {
     // every lambda runs, even after one fails; the errors are collected in order
     zipOrAccumulate(
-        { checkAmount(request.amountMinor) },
-        { checkCurrency(request.currency) },
-        { checkCardNumber(request.cardNumber) },
-        { checkReference(request.reference) },
-    ) { amount, currency, card, reference -> ValidPayment(amount, currency, card, reference) }
+        { checkName(form.name) },
+        { checkAmount(form.amount) },
+        { checkUnit(form.unit) },
+        { checkNote(form.note) },
+    ) { name, amount, unit, note -> Ingredient(name, amount, unit, note) }
 }

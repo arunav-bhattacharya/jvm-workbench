@@ -35,12 +35,12 @@ public class CountingMapDemoJava {
 
     public static void main(String[] args) {
         CountingMap<String, Integer> m = new CountingMap<>();
-        m.put("a", 1);
-        m.putAll(Map.of("b", 2, "c", 3));      // HashMap.putAll doesn't call put, today
+        m.put("tea", 1);
+        m.putAll(Map.of("jam", 2, "rye", 3));  // HashMap.putAll doesn't call put, today
         System.out.println("CountingMap: puts=" + m.puts + ", size=" + m.size());
 
         CountingSet<String> s = new CountingSet<>();
-        s.addAll(List.of("x", "y", "z"));
+        s.addAll(List.of("tea", "jam", "rye"));
         System.out.println("CountingSet: added=" + s.added + ", size=" + s.size());
     }
 }

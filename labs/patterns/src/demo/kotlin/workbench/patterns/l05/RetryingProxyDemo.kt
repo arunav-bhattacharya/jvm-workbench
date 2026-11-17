@@ -5,8 +5,8 @@ import java.lang.reflect.Proxy
 
 // Dynamic proxies: a retrying proxy for any interface, and a tracing proxy that shows self-invocation.
 
-fun interface PspClient { fun charge(token: String, amountMinor: Long): String }
-interface Ledger { fun post(entry: String); fun postTwice(entry: String) }
+fun interface CourierLine { fun book(address: String, grams: Int): String }
+interface Stockroom { fun pick(item: String); fun pickBoth(first: String, second: String) }
 
 // reified T replaces the Class<T> parameter the Java version needs
 inline fun <reified T : Any> retrying(target: T, maxAttempts: Int): T =
@@ -34,19 +34,19 @@ inline fun <reified T : Any> tracing(target: T, trace: MutableList<String>): T =
 
 fun main() {
     var calls = 0
-    val flaky = PspClient { _, amount ->
-        check(++calls >= 3) { "PSP 503" }
-        "ch_$amount"
+    val busy = CourierLine { _, grams ->
+        check(++calls >= 3) { "line busy" }
+        "BB-$grams"
     }
-    val psp = retrying(flaky, 3)
-    println("charge -> ${psp.charge("tok_42", 1_250)} after $calls target calls")
-    println("proxy class: ${Proxy.isProxyClass(psp.javaClass)}")
+    val line = retrying(busy, 3)
+    println("book -> ${line.book("12 Mill Lane", 1_250)} after $calls target calls")
+    println("proxy class: ${Proxy.isProxyClass(line.javaClass)}")
 
     val trace = mutableListOf<String>()
-    val real = object : Ledger {
-        override fun post(entry: String) {}
-        override fun postTwice(entry: String) { post(entry); post(entry) }   // this.post(): skips the proxy
+    val real = object : Stockroom {
+        override fun pick(item: String) {}
+        override fun pickBoth(first: String, second: String) { pick(first); pick(second) }   // this.pick(): skips the proxy
     }
-    tracing<Ledger>(real, trace).postTwice("fee 3.20")
+    tracing<Stockroom>(real, trace).pickBoth("tea", "jam")
     println("calls the proxy saw: $trace")
 }

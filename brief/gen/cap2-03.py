@@ -156,7 +156,7 @@ Fan out with coroutines, inside a deadline asked the three couriers at once, und
 
 S1 = fill("""Lesson 2's fan-out sends every request to every courier at once. With a thousand requests in flight, Northline sees a thousand calls at once, and its contract allows 10. Past that, it answers 429, the web's code for "too many requests", or it slows down for everyone.
 
-The fix is a **bulkhead**, named after the walls inside a ship's hull that keep one flooded section from sinking the whole ship. Here, it's a limit on the calls in flight to one courier, so that one courier's limit can't become everybody's outage. Using virtual threads: one per task, limits with semaphores pictured it as twenty tokens by the grill: a pan goes on only with a token in hand, and a cook without one waits. A **semaphore** is that box of tokens, and each token is a **permit**.
+The fix is a **bulkhead**, named after the walls inside a ship's hull that keep one flooded section from sinking the whole ship. Here, it's a limit on the calls in flight to one courier, so that one courier's limit can't become everybody's outage. Using virtual threads: one per task, limits with semaphores pictured it as twenty tokens by the grill: a pan goes on only with a token in hand, and a cook without one waits. A **semaphore** is that box of tokens, and each token is a permit.
 
 In the lab, the guards for one courier live in `GuardedProvider`, a wrapper that applies them and then passes each call on to the real courier. Its bulkhead is a `Semaphore` from `kotlinx.coroutines.sync`:
 
@@ -174,7 +174,7 @@ Two placement rules matter. The permit goes around each single call, not around 
 
 Now each courier sees no more than its share. Some of those calls still fail, and the question is whether to ask again.""", BULK=pair_kj(K_BULK, J_BULK))
 
-S2 = fill("""A **transient failure**, one that goes away by itself, often succeeds on a second try: a 503, the web's code for "busy, try again later", or a connection that broke halfway. But a **retry**, asking again after a failure, is a second request, and the courier can't tell it from a new one.
+S2 = fill("""A transient failure, one that goes away by itself, often succeeds on a second try: a 503, the web's code for "busy, try again later", or a connection that broke halfway. But a retry, asking again after a failure, is a second request, and the courier can't tell it from a new one.
 
 That matters more for some couriers than others. Northline and Eastgate only look up a price, so asking twice changes nothing. Fjord's price is a booking: each call holds a place on one of its vans for two minutes and counts against our daily allowance of calls. Ask Fjord twice, and it holds two places. A call is **idempotent** when repeating it does no harm, like reading a price. So the decision belongs to the courier, as `Provider.idempotent`, which is false unless the courier says otherwise:
 
@@ -182,7 +182,7 @@ That matters more for some couriers than others. Northline and Eastgate only loo
 
 Let's read it in order. Every single call holds a permit (1). A courier that isn't idempotent gets exactly one call (2). The rest go through `retrying`, with a hedge around each attempt when one is set (3).
 
-`retrying` is the retry loop with growing waits from Shared state and testing coroutines, a **backoff**, with one change: jitter. When Northline has a bad moment, every request in flight fails in the same millisecond. Without jitter, they all come back one backoff later, punctual to the millisecond, and hit a courier that is still getting back on its feet. **Jitter** multiplies each wait by a random factor, here between 0.5 and 1.5, which spreads the retries out. Reactor's `Retry.backoff` does the same by default, as Errors, retries and timeouts showed:
+`retrying` is the retry loop with growing waits from Shared state and testing coroutines, a backoff, with one change: jitter. When Northline has a bad moment, every request in flight fails in the same millisecond. Without jitter, they all come back one backoff later, punctual to the millisecond, and hit a courier that is still getting back on its feet. **Jitter** multiplies each wait by a random factor, here between 0.5 and 1.5, which spreads the retries out. Reactor's `Retry.backoff` does the same by default, as Errors, retries and timeouts showed:
 
 @@JITTER@@
 
@@ -198,7 +198,7 @@ Retries help when a call fails. Some calls don't fail at all. They're just slow.
 
 S3 = fill("""Northline answers in 40 ms most of the time, but one call in twenty takes 600 ms. Nothing failed, so a retry doesn't help. Northline is simply lost in thought now and then.
 
-To talk about slow calls, we need one more word. A **percentile** says how slow the slow ones are: p50 is the time half the calls beat, and p99 is the time 99 calls in 100 beat. The slowest few calls are the **tail**, and **tail latency** is what the unluckiest customers see. Northline's p50 is 40 ms. Its p99 is 600 ms.
+To talk about slow calls, we need one more word. A percentile says how slow the slow ones are: p50 is the time half the calls beat, and p99 is the time 99 calls in 100 beat. The slowest few calls are the tail, and **tail latency** is what the unluckiest customers see. Northline's p50 is 40 ms. Its p99 is 600 ms.
 
 A **hedge** cuts the tail. If the first call hasn't answered by the time 95 calls in 100 would have (its p95), send one more identical call and take whichever answers first. It's the cook texting a second branch of the same shop when the first hasn't replied by the time shops usually do:
 
@@ -235,11 +235,11 @@ Shutdown uses the same pieces. Pools in production: names, errors, context, shut
 
 @@SHUT@@
 
-That order has a name, a **graceful shutdown**: no new work, a **grace period** for the work in flight to finish, then cancel the rest and release everything. First, the server stops accepting connections (1). Then the service stops admitting requests, which now get `ERR shutting down` (2). The requests in flight get the grace period (3). What is left is cancelled, and `cancelAndJoin()` waits until those coroutines have finished their cleanup, so that no coroutine outlives the service (4). Finally, the server closes the connections and stops its loops (5). Lesson 1's `ChannelGroup` pays off here: each connection is closed on its own loop, behind the reply that the drain just let through.
+That order has a name, a **graceful shutdown**: no new work, a grace period for the work in flight to finish, then cancel the rest and release everything. First, the server stops accepting connections (1). Then the service stops admitting requests, which now get `ERR shutting down` (2). The requests in flight get the grace period (3). What is left is cancelled, and `cancelAndJoin()` waits until those coroutines have finished their cleanup, so that no coroutine outlives the service (4). Finally, the server closes the connections and stops its loops (5). Lesson 1's `ChannelGroup` pays off here: each connection is closed on its own loop, behind the reply that the drain just let through.
 
 That's the whole service. Before we call it done, a reviewer has a fair question.""", ADMIT=pair_kj(K_ADMIT, J_ADMIT), SHUT=pair_kj(K_SHUT, J_SHUT))
 
-S5 = """Here is the finished design next to the question every reviewer asks about it: wouldn't one virtual thread per connection, with plain blocking calls to the couriers, be simpler? A **virtual thread** is a thread the JDK makes so cheap that a program can run thousands of them, and **blocking** means a call that holds its thread until the answer comes.
+S5 = """Here is the finished design next to the question every reviewer asks about it: wouldn't one virtual thread per connection, with plain blocking calls to the couriers, be simpler? A **virtual thread** is a thread the JDK makes so cheap that a program can run thousands of them, and blocking means a call that holds its thread until the answer comes.
 
 Blocking IO, threads and the C10K problem offered the post office two ways out of the crowd: fewer clerks, or cheaper clerks. This service took the first way: a few clerks, each watching a row of boxes, who never wait. Virtual threads take the second: a clerk for every customer, so cheap that most of them can stand and wait. Here are the two side by side:
 
@@ -339,11 +339,11 @@ DRILL_J = """// Java equivalent with Reactor
     return Mono.firstWithValue(call, Mono.delay(after).then(call));   // the loser is cancelled
 }"""
 
-CLOSING = """We started at the post office on its busiest day, with a crowd at the door and three couriers with limits of their own. Now each courier gets its share of calls, only harmless questions are asked twice, a slow answer gets one second chance, and a customer we can't serve in time hears "busy" at once.
+CLOSING = """We started on the post office's busiest day. Now each courier gets its share of calls, only harmless questions are asked twice, a slow answer gets a second chance, and a customer we can't serve hears "busy" at once.
 
-That's Part 2 in one program: the bakery's slip became auto-read, the home cook texted the couriers under a kitchen timer, the shelf decided what to lose, and the clerk never picked up the phone.
+That's Part 2 in one program: the bakery's slip became auto-read, the cook texted the couriers under a kitchen timer, the shelf chose what to lose, and the clerk never picked up the phone.
 
-Now search your own code for a retry around a call that books or charges something.
+Search your code for a retry around a call that books or charges something.
 
 Next, we'll start Part 3 with Generics from zero, in a fruit shop's storeroom. Our service kept promises about time. Can a label on a box make the compiler keep promises about types?"""
 

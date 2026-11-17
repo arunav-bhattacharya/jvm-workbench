@@ -143,26 +143,26 @@ The trap hides in the first line of code. The clerk holding the question needs a
 
 Zero-copy, epoll, io_uring, and choosing a server model ended the Servers track with a promise: a server whose loop never waits. In this lesson, we'll build that server's shell on Netty: a small protocol, a handler that hands the wait back, a tap that stops reading a customer who stops listening, and a clean close. Before we start, make a guess, and keep it in mind."""
 
-S1 = fill("""Over three sittings, we'll build one program: the quote service from the opening. A **server** is a program that waits for other programs to connect and ask it things, and those other programs are its **clients**. A client opens a **TCP connection**, a two-way line between two programs over a network, and sends one line of text. The server answers with one line:
+S1 = fill("""Over three sittings, we'll build one program: the quote service from the opening. A server is a program that waits for other programs to connect and ask it things, and those other programs are its clients. A client opens a TCP connection, a two-way line between two programs over a network, and sends one line of text. The server answers with one line:
 
 ```text
 client: 7 LISBON
 server: 7 OK LISBON 12.42 northline
 ```
 
-Read the reply aloud: request 7 went fine, sending the parcel to Lisbon costs 12.42, and Northline offered that price. The 7 is the client's own number for its question, a **request id**, and the server repeats it on the answer. We'll see in a moment why the client needs it. The three couriers are invented, and like real ones, they're slow on a bad day and sometimes don't answer at all.
+Read the reply aloud: request 7 went fine, sending the parcel to Lisbon costs 12.42, and Northline offered that price. The 7 is the client's own number for its question, a request id, and the server repeats it on the answer. We'll see in a moment why the client needs it. The three couriers are invented, and like real ones, they're slow on a bad day and sometimes don't answer at all.
 
 The three sittings build the program from the outside in, and each one leans on a track of Part 2. This sitting builds the counter on Netty, the Java library for network servers from the Servers track. The next sitting asks the three couriers at once with Kotlin coroutines, the way the home cook from the coroutines track texted three shops. The last sitting keeps the service standing when a crowd arrives, with the slips of the Reactive track, the shelf of the Flow track and the limits of Part 1. Whenever we lean on an earlier lesson, we'll name it.
 
 One rule shapes every decision: **the event loop never waits.** Netty: the event loop and the channel pipeline pictured Netty as a post office. Each clerk owns a row of mailboxes for good, and one house rule matters more than the rest: a clerk never stops to make a phone call. In Netty's words, the clerk is an **event loop**, one thread that serves many connections in turn, and each box is a **channel**, Netty's object for one open connection. If the code for one channel waits 100 ms for a courier, every channel in that row gets 100 ms of silence.
 
-The **protocol**, the agreed shape of the messages, is lines of text. A client can be `nc`, a small terminal tool that opens a TCP connection and sends what you type, and tests can write requests as plain strings. A binary protocol would carry a length field instead, as Netty in practice: codecs, flow control and leaks did with its page count on the envelope, and nothing else in the design would change. Two details are there on purpose.
+The protocol, the agreed shape of the messages, is lines of text. A client can be `nc`, a small terminal tool that opens a TCP connection and sends what you type, and tests can write requests as plain strings. A binary protocol would carry a length field instead, as Netty in practice: codecs, flow control and leaks did with its page count on the envelope, and nothing else in the design would change. Two details are there on purpose.
 
 The server reads at most 64 bytes per line. Without a limit, a client that sends bytes and never a newline would make the server keep them all, waiting for a line that never ends. A longer line fails with `TooLongFrameException`.
 
 Every request carries an id, and every reply repeats it. A reply leaves when its price arrives, so a quick answer overtakes a slow one, and replies come back out of order. The client matches them by id, the way you match a ticket stub to a coat.
 
-Here's the **pipeline**, the line of stations that every message on a channel passes through. Each station is a **handler**, a small object that reacts to the channel's events. Each connection gets new instances, because the last handler keeps state for its own connection:
+Here's the pipeline, the line of stations that every message on a channel passes through. Each station is a handler, a small object that reacts to the channel's events. Each connection gets new instances, because the last handler keeps state for its own connection:
 
 @@PIPE@@
 
@@ -197,11 +197,11 @@ How do we prove the loop is free? Netty: the event loop and the channel pipeline
 
 The loop is free now. It reads as fast as clients send, and some clients send a great deal.""", JOIN=pair(J_JOIN, K_JOIN), ASYNC=pair(J_ASYNC, K_ASYNC))
 
-S3 = fill("""A client may **pipeline**: send many requests without waiting for a single reply. Say one client sends 20,000 requests and doesn't read its replies for half a second. Two things grow in the server's memory. Each request that waits for its price is a future in the in-flight set. And each reply the client hasn't read yet waits in the channel's **outbound buffer**, the queue of bytes Netty keeps until the network can take them. Netty in practice: codecs, flow control and leaks pictured it as the out-tray behind each box. `writeAndFlush` never blocks, so the out-tray simply fills. Nothing limits either one.
+S3 = fill("""A client may pipeline: send many requests without waiting for a single reply. Say one client sends 20,000 requests and doesn't read its replies for half a second. Two things grow in the server's memory. Each request that waits for its price is a future in the in-flight set. And each reply the client hasn't read yet waits in the channel's outbound buffer, the queue of bytes Netty keeps until the network can take them. Netty in practice: codecs, flow control and leaks pictured it as the out-tray behind each box. `writeAndFlush` never blocks, so the out-tray simply fills. Nothing limits either one.
 
-Netty gives you one control, **auto-read**: whether the loop keeps reading a channel. While it's on, the loop reads the socket whenever bytes arrive. Turn it off, and the clerk stops taking letters from that box. The kernel's buffers for that connection, small queues the operating system keeps, fill up, and TCP makes the client wait before it sends more. It's the packer's slip from the Reactive track, "send me 10 more", carried by the network itself: the server asks for more only when it has room. That's **backpressure**, a slow receiver slowing down a fast sender.
+Netty gives you one control, **auto-read**: whether the loop keeps reading a channel. While it's on, the loop reads the connection whenever bytes arrive. Turn it off, and the clerk stops taking letters from that box. The operating system's buffers for that connection fill up, and TCP makes the client wait before it sends more. It's the packer's slip from the Reactive track, "send me 10 more", carried by the network itself: the server asks for more only when it has room. That's **backpressure**, a slow receiver slowing down a fast sender.
 
-The out-tray has two painted marks that say when there's room. They are Netty's **water marks**, 32 KiB low and 64 KiB high by default. When the bytes waiting pass the high mark, `isWritable()` turns false. When they drain below the low mark, it turns true again. Our policy is one rule, applied after every new request, after every reply, and whenever writability changes:
+The out-tray has two painted marks that say when there's room. They are Netty's water marks, 32 KiB low and 64 KiB high by default. When the bytes waiting pass the high mark, `isWritable()` turns false. When they drain below the low mark, it turns true again. Our policy is one rule, applied after every new request, after every reply, and whenever writability changes:
 
 @@RULE@@
 
