@@ -4,18 +4,19 @@ import java.util.concurrent.CompletableFuture
 
 // Shared model. This file is the same in src/main and src/solution.
 
-data class AuthRequest(val paymentId: String, val amountCents: Long)
+/** What the neighbour's Java code asks our kitchen to cook. */
+data class Order(val dish: String, val portions: Int)
 
-enum class Decision { APPROVED, DECLINED }
+enum class Outcome { SERVED, REFUSED }
 
-/** A Java fraud client: returns at once with a future that completes when the score is ready. */
-fun interface LegacyFraudClient {
-    fun score(req: AuthRequest): CompletableFuture<Int>
+/** The bakery's Java library: returns at once with a future that completes with the loaves left. */
+fun interface JavaBakery {
+    fun loavesLeft(bread: String): CompletableFuture<Int>
 }
 
-data class Quote(val acquirer: String, val feeBasisPoints: Int)
+data class Recipe(val dish: String, val minutes: Int)
 
-/** A Kotlin quote source. Returns null when no acquirer will quote. */
-fun interface QuoteSource {
-    suspend fun quote(req: AuthRequest): Quote?
+/** A Kotlin recipe book. Returns null when it has no recipe for the dish. */
+fun interface RecipeBook {
+    suspend fun recipe(dish: String): Recipe?
 }

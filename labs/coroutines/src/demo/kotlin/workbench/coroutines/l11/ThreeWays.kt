@@ -11,33 +11,33 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
 import kotlin.system.measureTimeMillis
 
-// one payment-details request: account (100 ms), ledger (300 ms) and risk (200 ms), done at once
+// one dinner: soup (100 ms), roast (300 ms) and salad (200 ms), all started at once
 
-suspend fun detailsWithCoroutines(): List<String> = coroutineScope {
-    val account = async { delay(100); "account" }
-    val ledger = async { delay(300); "ledger" }
-    val risk = async { delay(200); "risk" }
-    listOf(account.await(), ledger.await(), risk.await())
+suspend fun dinnerWithCoroutines(): List<String> = coroutineScope {
+    val soup = async { delay(100); "soup" }
+    val roast = async { delay(300); "roast" }
+    val salad = async { delay(200); "salad" }
+    listOf(soup.await(), roast.await(), salad.await())
 }
 
-/** The same calls written as BLOCKING code, run on whatever dispatcher you pass. */
-suspend fun detailsBlocking(vt: CoroutineDispatcher): List<String> = coroutineScope {
-    val account = async(vt) { Thread.sleep(100); "account" }
-    val ledger = async(vt) { Thread.sleep(300); "ledger" }
-    val risk = async(vt) { Thread.sleep(200); "risk" }
-    listOf(account.await(), ledger.await(), risk.await())
+/** The same dinner written as BLOCKING code, run on whatever dispatcher you pass. */
+suspend fun dinnerBlocking(on: CoroutineDispatcher): List<String> = coroutineScope {
+    val soup = async(on) { Thread.sleep(100); "soup" }
+    val roast = async(on) { Thread.sleep(300); "roast" }
+    val salad = async(on) { Thread.sleep(200); "salad" }
+    listOf(soup.await(), roast.await(), salad.await())
 }
 
 fun main() = runBlocking {
-    repeat(2) { detailsWithCoroutines() } // warm up
-    val c = measureTimeMillis { println("coroutines:                       ${detailsWithCoroutines()}") }
+    repeat(2) { dinnerWithCoroutines() } // warm up
+    val c = measureTimeMillis { println("coroutines:                       ${dinnerWithCoroutines()}") }
     println("  took $c ms on ${Thread.currentThread().name.substringBefore(" @")}")
     Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher().use { vt ->
-        val v = measureTimeMillis { println("blocking code on virtual threads: ${detailsBlocking(vt)}") }
+        val v = measureTimeMillis { println("blocking code on virtual threads: ${dinnerBlocking(vt)}") }
         println("  took $v ms")
     }
     val b = measureTimeMillis {
-        withContext(Dispatchers.IO) { println("blocking code on Dispatchers.IO: ${detailsBlocking(Dispatchers.IO)}") }
+        withContext(Dispatchers.IO) { println("blocking code on Dispatchers.IO: ${dinnerBlocking(Dispatchers.IO)}") }
     }
     println("  took $b ms")
 }

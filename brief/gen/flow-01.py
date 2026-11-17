@@ -18,21 +18,21 @@ def tryit(kt, java):
 
 FIG = (
     '<svg viewBox="0 0 700 330" role="img" aria-label="Nested boxes show the call stack for one value: main calls collect, '
-    'collect runs the flow block, the block calls emit, emit runs map\'s collector, and that runs your lambda. '
-    'A timeline on the right shows the producer waiting inside emit while a 300 ms collector works: emit 1 is called at 100 ms '
-    'and returns at 400 ms, emit 2 is called at 500 ms.">'
+    'collect runs the flow block, which is the cook; the block calls emit, emit runs map\'s collector, the helper, and that runs '
+    'your lambda, the diner. A timeline on the right shows the cook waiting inside emit while the diner eats for 300 ms: '
+    'emit 1 is called at 100 ms and returns at 400 ms, emit 2 is called at 500 ms.">'
     '<text class="t-s t-m" x="215" y="24" text-anchor="middle">One thread, one stack. Each box is a call still running.</text>'
     '<rect class="box" x="10" y="38" width="410" height="284" rx="8"/>'
     '<text class="t-s" x="215" y="58" text-anchor="middle">main calls collect { }</text>'
     '<rect class="box" x="30" y="72" width="370" height="242" rx="8"/>'
     '<text class="t-s" x="215" y="92" text-anchor="middle">the flow { } block runs: the cook</text>'
     '<rect class="box-b" x="50" y="106" width="330" height="200" rx="8"/>'
-    '<text class="t-s t-b" x="215" y="126" text-anchor="middle">emit(pay-1): the cook walks to the table</text>'
+    '<text class="t-s t-b" x="215" y="126" text-anchor="middle">emit(soup): the cook walks to the table</text>'
     '<rect class="box" x="70" y="140" width="290" height="158" rx="8"/>'
-    '<text class="t-s" x="215" y="160" text-anchor="middle">map\'s collector: the waiter</text>'
+    '<text class="t-s" x="215" y="160" text-anchor="middle">map\'s collector: the helper</text>'
     '<rect class="box-a" x="90" y="174" width="250" height="116" rx="8"/>'
     '<text class="t-s" x="215" y="198" text-anchor="middle">your collect { } lambda: the diner</text>'
-    '<text class="t-s t-code" x="215" y="222" text-anchor="middle">ledger.post(pay-1)</text>'
+    '<text class="t-s t-code" x="215" y="222" text-anchor="middle">eat(SOUP)</text>'
     '<text class="t-s t-a" x="215" y="252" text-anchor="middle">emit returns only when</text>'
     '<text class="t-s t-a" x="215" y="270" text-anchor="middle">this box closes</text>'
     '<text class="t-s t-b" x="565" y="24" text-anchor="middle">The cook\'s clock</text>'
@@ -55,58 +55,68 @@ FIG = (
     '</svg>'
 )
 
-S1 = """Here is a settlement-file reader feeding a ledger writer through a flow. Before you read on, write down the order of the lines it prints.
+OPENING = """Picture the home cook from the coroutines track at dinner time. Tonight's recipe card lists three dishes: soup, salad and roast. The card cooks nothing by itself. When a diner sits down and asks to be served, the cook starts at the top. She makes the soup, carries the bowl to the table and stays there while the diner eats. This kitchen has no counter and no shelf, so there is nowhere to put a plate down. Only when the bowl is empty does she walk back and start the salad. It's lovely service, and it makes for a long dinner.
+
+A Kotlin flow serves its values the same way. The easy trap is to picture `emit` dropping a value into a queue while the cook carries on.
+
+The coroutines track ended with Coroutines meet Java, where flows crossed into Java and Reactor and back like sealed boxes. In this lesson, we'll open the box: predict a dinner's print order, build a flow from two small interfaces, read the stack from inside the diner, and trace the rules from Flow basics back to one function call. Before we start, make a guess, and keep it in mind."""
+
+S1 = r"""Here is that dinner as a flow. A **flow** is a stream of values that a program hands over one at a time, and `flow { }` is the usual way to build one. Inside its block, `emit(dish)` hands one value to whoever is collecting. `collect { }` is the call that asks for the values: it runs the block and receives each one.
+
+In this track the people in the kitchen get jobs in the code. The cook is the **producer**, the code inside `flow { }` that makes the values. The diner is the **collector**, the code inside `collect { }` that receives them.
+
+The cook prints a line before and after each `emit`, and the diner prints a line for each dish. Before you read on, write down the order of the lines:
 
 ```kotlin
-val records = flow {
-    for (line in lines) {                    // "pay-1,4250,EUR", "pay-2,990,EUR", "pay-3,12000,GBP"
-        val id = line.substringBefore(",")
-        println("read    $id")
-        emit(id)
-        println("emit($id) returned")
+val dinner = flow {
+    for (dish in card) {                     // "soup", "salad", "roast"
+        println("cook    $dish")
+        emit(dish)
+        println("emit($dish) returned")
     }
 }
 println("flow built")
-records.collect { id -> println("posted  $id") }
+dinner.collect { dish -> println("eat     $dish") }
 println("collect returned")
 ```
 
 ```java
 // Java equivalent: Java has no Flow, so this is a hand-written push "flow".
-// The reader calls the ledger writer's Consumer once per line.
-static void readSettlementFile(List<String> lines, Consumer<String> ledgerWriter) {
-    for (String line : lines) {
-        String id = line.substring(0, line.indexOf(','));
-        System.out.println("read    " + id);
-        ledgerWriter.accept(id);
-        System.out.println("accept(" + id + ") returned");
+// The cook calls the diner's Consumer once per dish.
+static void cookDinner(List<String> card, Consumer<String> diner) {
+    for (String dish : card) {
+        System.out.println("cook    " + dish);
+        diner.accept(dish);
+        System.out.println("accept(" + dish + ") returned");
     }
 }
 
-readSettlementFile(lines, id -> System.out.println("posted  " + id));
+cookDinner(card, dish -> System.out.println("eat     " + dish));
 ```
 
-Two guesses are tempting. One says all three `read` lines come first and then the three `posted` lines, as if `emit` dropped the value into a queue for later. The other gets the pairs right but prints `emit(pay-1) returned` before `posted pay-1`, as if `emit` handed the value over and moved on. Here is the real output:
+Two guesses are tempting. One says the three `cook` lines come first and then the three `eat` lines, as if `emit` put each dish on a shelf for later. The other gets the pairs right but prints `emit(soup) returned` before `eat soup`, as if `emit` handed the bowl over and walked off. Here is the real output:
 
 ```text
 flow built
-read    pay-1
-posted  pay-1
-emit(pay-1) returned
-read    pay-2
-posted  pay-2
-emit(pay-2) returned
-read    pay-3
-posted  pay-3
-emit(pay-3) returned
+cook    soup
+eat     soup
+emit(soup) returned
+cook    salad
+eat     salad
+emit(salad) returned
+cook    roast
+eat     roast
+emit(roast) returned
 collect returned
 ```
 
-`flow built` comes first, so building the flow ran none of its body. And `posted pay-1` comes before `emit(pay-1) returned`: the ledger writer's code ran while `emit` was still running. There is no queue here and no second thread.
+`flow built` comes first, so building the flow ran none of its block. And `eat soup` comes before `emit(soup) returned`: the diner's code ran while `emit` was still running. The cook never put a plate down anywhere, because this kitchen has nowhere to put one. There is no queue here and no second **thread**, the worker that runs the code.
 
-Lesson 7 of the coroutines track gave you three rules about flows. They are cold, they run one value at a time, and a slow collector slows the producer. All three come from a single fact: `emit` is a plain function call into the collector. About ten lines of code are enough to prove it. The Java version prints the same order for the same reason. `accept` is a method call, and the line after a call runs when the call returns."""
+Flow basics gave you three rules about flows. They are cold, they handle one value at a time, and a slow collector slows the producer. All three come from one fact: `emit` is a plain function call into the collector.
 
-S2 = """A flow needs a receiving end and a sending end. Each is a single suspend function.
+The Java version prints the same order for the same reason. `accept` is a method call, and the line after a call runs when the call returns. About a dozen lines of Kotlin are enough to build a flow that works the same way, so let's write them."""
+
+S2 = r"""A flow needs a receiving end and a sending end, and each one is a single suspend function. A **suspend function** is one that can pause without holding its thread, as the coroutines track showed from its first lesson. The piece of work that runs it is a **coroutine**, which can pause and carry on later. Here are the two ends, written from scratch, with toy names so they don't clash with the library's:
 
 ```kotlin
 fun interface ToyCollector<in T> {
@@ -134,12 +144,14 @@ interface ToyFlow<T> {
 }
 ```
 
-The builder is the whole trick. `toyFlow { ... }` stores your block in an object and returns it. Nothing runs. When someone calls `collect(collector)`, the object runs your block with that collector as the receiver. So every `emit(x)` inside the block is really `collector.emit(x)`: a direct call into the collector's code.
+The first interface is the diner. A `ToyCollector` has one function, `emit`, that takes one value. The second is the recipe card. A `ToyFlow` has one function, `collect`, that takes a collector and pushes values into it. The `in T` and `out T` say which way values travel: a collector only takes values in, and a flow only hands them out.
 
-Use it like the real thing:
+The builder is the whole trick. `toyFlow { ... }` stores your block in an object and returns it. Nothing runs. When someone calls `collect(collector)`, the object runs your block with that collector as its receiver, so `this` inside the block is the collector. Every `emit(x)` inside the block is really `collector.emit(x)`: a direct call into the diner's code.
+
+Let's use it like the real thing:
 
 ```kotlin
-val payments = toyFlow {
+val dishes = toyFlow {
     for (id in 1..3) {
         println("  [producer] before emit($id)")
         emit(id)
@@ -147,12 +159,12 @@ val payments = toyFlow {
     }
 }
 println("built the flow, nothing ran yet")
-payments.collect { v -> println("  [collector] got $v") }
-payments.collect { v -> println("  [collector] got $v") }   // the body runs again
+dishes.collect { v -> println("  [collector] got $v") }
+dishes.collect { v -> println("  [collector] got $v") }   // the block runs again
 ```
 
 ```java
-ToyFlow<Integer> payments = collector -> {
+ToyFlow<Integer> dishes = collector -> {
     for (int id = 1; id <= 3; id++) {
         System.out.println("  [producer] before emit(" + id + ")");
         collector.emit(id);
@@ -160,15 +172,17 @@ ToyFlow<Integer> payments = collector -> {
     }
 };
 System.out.println("built the flow, nothing ran yet");
-payments.collect(v -> System.out.println("  [collector] got " + v));
-payments.collect(v -> System.out.println("  [collector] got " + v));   // the body runs again
+dishes.collect(v -> System.out.println("  [collector] got " + v));
+dishes.collect(v -> System.out.println("  [collector] got " + v));   // the block runs again
 ```
 
-Building prints nothing. The first `collect` runs the body, and each `before emit(n)` is followed by `got n` and only then by `after emit(n)`. That's the same pattern the settlement reader printed. The second `collect` runs the whole body again from the top. That is all **cold** means: a flow is a function you haven't called yet, and `collect` calls it.
+Building prints nothing. The first `collect` runs the block, and each `before emit(n)` is followed by `got n` and only then by `after emit(n)`. That's the pattern the dinner printed. The second `collect` runs the whole block again from the top. That is all **cold** means: a flow is a function you haven't called yet, and `collect` calls it. Two diners get two dinners, each cooked from the top.
 
-The Java twin has the same shape and prints the same lines. What differs is the cost of waiting. Java's `emit` is an ordinary call, so while the collector works, the producer's thread sits inside `emit` and can do nothing else. Kotlin's `emit` is a suspend call. If the collector calls `delay` or waits on a socket, the coroutine suspends and the thread goes off to run other coroutines. The order of events is the same in both."""
+The Java twin has the same shape and prints the same lines. What differs is the cost of waiting. Java's `emit` is an ordinary call, so while the diner eats, the cook's thread sits inside `emit` and can do nothing else. Kotlin's `emit` is a suspend call. If the diner calls `delay` or waits for a slow answer, the coroutine pauses and the thread goes off to run other coroutines. The order of events is the same in both.
 
-S3 = """You can see the call shape for yourself. Print the stack from inside the collector:
+The order matches. But "a direct call" is still my claim, and the call stack can settle it."""
+
+S3 = r"""A **call stack** is the chain of method calls a thread is in the middle of, newest on top, and any thread can print its own. Let's print it from inside the diner:
 
 ```kotlin
 fun printStack(label: String) {
@@ -178,7 +192,7 @@ fun printStack(label: String) {
         .forEach { println("    at ${it.className}.${it.methodName}") }
 }
 
-toyFlow { emit("pay-1") }.collect { printStack("collector got $it") }
+toyFlow { emit("soup") }.collect { printStack("collector got $it") }
 ```
 
 ```java
@@ -189,15 +203,15 @@ static void printStack(String label) {
         System.out.println("    at " + frames[i].getClassName() + "." + frames[i].getMethodName());
 }
 
-ToyFlow<String> payments = collector -> collector.emit("pay-1");
-payments.collect(value -> printStack("collector got " + value));
+ToyFlow<String> dinner = collector -> collector.emit("soup");
+dinner.collect(value -> printStack("collector got " + value));
 ```
 
-For the toy flow it prints this, newest call on top (I trimmed the package names):
+For the toy flow it prints this. I trimmed the package names and the coroutine machinery at the bottom:
 
 ```text
-collector got pay-1, thread=main
-    at StackDemoKt$main$1$2.emit             <- your collector lambda
+collector got soup, thread=main
+    at StackDemoKt$main$1$2.emit             <- your collector lambda: the diner
     at StackDemoKt$main$1$2.emit
     at StackDemoKt$main$1$1.invokeSuspend    <- the toyFlow { } block, calling emit
     at StackDemoKt$main$1$1.invoke
@@ -206,10 +220,12 @@ collector got pay-1, thread=main
     at StackDemoKt$main$1.invokeSuspend      <- main, calling collect
 ```
 
-Read it from the bottom. `main` called `collect`. `collect` ran the block. The block called `emit`, and `emit` is your lambda. It is all one thread. The real `flow { }.map { }` gives a taller stack with the same shape (here I also dropped repeated frames and two helper frames):
+Read it from the bottom. `main` called `collect`. `collect` ran the block. The block called `emit`, and `emit` is your lambda. It's all one thread, `main`. (Names such as `$main$1$2` are classes the Kotlin compiler makes for lambdas, and `invokeSuspend` is where a suspend lambda's body runs.)
+
+The real `flow { }.map { }` gives a taller stack with the same shape. Here I also dropped repeated frames and two helper frames:
 
 ```text
-collector got PAY-1, thread=main
+collector got SOUP, thread=main
     at StackDemoKt$main$1$5.emit                                   <- your lambda
     at StackDemoKt$main$1$invokeSuspend$$inlined$map$1$2.emit      <- map's collector
     at kotlinx.coroutines.flow.internal.SafeCollector.emit         <- a checker
@@ -220,32 +236,46 @@ collector got PAY-1, thread=main
     at StackDemoKt$main$1.invokeSuspend                            <- main
 ```
 
-`map` is an inline function, so its collector is compiled into your own file. `SafeCollector` is a checker that `flow { }` puts in front of your collector. Lesson 2 of this track opens it up.
+`map` is an **operator**, a function that takes a flow and returns a new one, here a flow that changes each value. It's also an inline function: the compiler copies its body into the calling code, so its collector shows up as a class in your own file. `SafeCollector` is a checker that `flow { }` puts in front of your collector. Lesson 2 of this track opens it up.
 
-Here is the picture to keep. A plain flow is a small restaurant with one cook and no counter. The cook plates a dish (`emit`), walks it to the table, and stands there while the diner eats (your collector). Only when the diner is done does the cook walk back and plate the next one. A `map` is a waiter between them, and the waiter stands at the table too. In the stack, each of them is a box inside the one before."""
+Here is the picture to keep. In the coroutines track the cook stood for a thread. Here she stands for the producer, and `emit` is her walk to the table: she carries one plate over and stands there while the diner eats. Only when the diner is done does she walk back and plate the next one. A `map` is a helper who stands between them, adds the sauce, carries the plate on and waits at the table too. In the stack, each of them is a box inside the one before.
 
-S4 = """The rules you learned about flows all follow from that stack.
+The picture breaks at the waiting. A real cook standing at the table is lost to the kitchen. A suspended coroutine holds no thread: while your diner is inside `delay` or waiting for a slow answer, the thread runs other coroutines, and only this one dinner is held up.
 
-A flow is **cold** because the block is the body of `collect`. No `collect`, no run. Two `collect` calls, two runs.
+**A plain flow is one call stack. The collector runs inside `emit`.**
 
-A flow is sequential because `emit` cannot return before the collector's code returns. The producer can't start on the second value while the first one is still being posted, and inside one collection the collector never runs twice at once. That is also why the KDoc of `FlowCollector` says `emit` "is not thread-safe and should not be invoked concurrently". A plain call has nothing that would protect the collector from two callers at the same time.
+So the call shape is real. Next, the three rules from Flow basics fall straight out of it."""
 
-A flow also gets backpressure for free. Backpressure means a slow consumer slows the producer down, so values don't pile up in memory. Reactive Streams needs a protocol for that. A flow needs nothing, because the producer is stuck inside `emit` until the consumer is done. Take a reader that needs 100 ms per settlement line and a ledger writer that needs 300 ms per posting. In virtual time, which is exact, both the toy and the real `flow { }` print:
+S4 = r"""The rules you learned about flows all follow from that stack.
+
+A flow is cold because the block is the body of `collect`. No `collect`, no run. Two `collect` calls, two runs.
+
+A flow is **sequential**, one value at a time, because `emit` can't return before the collector's code returns. The cook can't start the salad while the soup is still being eaten, and within one collection the diner never holds two plates at once. That's also why the KDoc of `FlowCollector` (KDoc is the documentation written in Kotlin source, like Javadoc) says `emit` "is not thread-safe and should not be invoked concurrently". `FlowCollector` is the library's version of our toy collector, and a plain call has nothing that would protect it from two callers at once.
+
+A flow also gets backpressure for free. **Backpressure** means a slow consumer slows the producer down, so values don't pile up in memory. Reactive Streams, the standard behind the Reactor library from the reactive track, needs a whole protocol of requests for that. A flow needs nothing, because the cook is stuck inside `emit` until the diner is done.
+
+Let's put numbers on it. The cook needs 100 ms per dish and the diner 300 ms to eat it. The demo runs under `runTest`, which uses **virtual time**: a fake clock from the coroutines test library, where `delay` moves the clock forward at once. So the numbers are exact and the run takes no real time. Both the toy and the real `flow { }` print:
 
 ```text
 t= 100 emit 1
-t= 400 posted 1     <- emit(1) returns only now
+t= 400 eaten  1     <- emit(1) returns only now
 t= 500 emit 2       <- 100 + 300 + 100
-t= 800 posted 2
+t= 800 eaten  2
 t= 900 emit 3
-t=1200 posted 3     <- (100 + 300) x 3
+t=1200 eaten  3     <- (100 + 300) x 3
 ```
 
-The second `emit` happens at t=500, and it can't happen earlier: from 100 to 400 the producer was inside `emit(1)`. In the restaurant, that's the cook standing at the table. Free backpressure has a price, and this is it: 1200 ms for three items, where the slower side alone needs only 900. Lesson 4 of this track adds a buffer to win some of that back, and pays for it in memory.
+The second `emit` happens at t=500, and it can't happen earlier: from 100 to 400 the cook was inside `emit(1)`, standing at the table. That's the warm-up question.
 
-Stopping early goes through the same call. A collector that wants no more values, like the one behind `take(2)`, has no handle on the producer's loop. All it can do is throw. The exception flies back up through `emit`, the producer's loop ends, and its `finally` blocks run on the way out. The real `take` does this with an internal exception, which the next lesson takes apart. You'll write the toy version in the lab."""
+Free backpressure isn't fast backpressure. Three dishes took 1,200 ms, where the slower side alone needs only 900. A shelf between the kitchen and the table would let the cook work while the diner eats. Lesson 4 of this track adds one, called a buffer, and pays for it in memory.
 
-S5 = """The library's two interfaces have the toy's shape. In kotlinx.coroutines 1.11.0 they are:
+**In a plain flow the times add up: each value costs the producer's time plus the collector's.**
+
+Stopping early goes through the same call. A collector that wants no more values, like the one behind `take(2)`, has no handle on the cook's loop. All it can do is throw an exception. The exception flies back up through `emit`, the cook's loop ends, and her `finally` blocks run on the way out. The real `take` does exactly this with a special exception, which the next lesson takes apart. You'll write the toy version in the lab.
+
+So the toy and the real thing behave alike, down to the millisecond. How close is the toy to the library's own interfaces?"""
+
+S5 = r"""Very close. In kotlinx.coroutines 1.11.0, the coroutines library this course uses, the two interfaces are:
 
 ```kotlin
 public interface Flow<out T> {
@@ -269,9 +299,9 @@ interface Subscriber<T> {
 }
 ```
 
-Only `FlowCollector` is a `fun interface`. That is how `flow.collect { v -> ... }` takes your lambda: Kotlin converts the lambda into a `FlowCollector`. `Flow` is a plain interface, so `Flow { ... }` does not compile ("interface ... does not have constructors"). That's on purpose. Its KDoc says `Flow` "is not stable for inheritance in 3rd party libraries", because new methods may be added to it later. Build flows with `flow { }`, or extend `AbstractFlow`, which is marked `@ExperimentalCoroutinesApi`.
+Only `FlowCollector` is a `fun interface`, an interface with one abstract method that a lambda can be turned into. That's how `flow.collect { v -> ... }` takes your lambda: Kotlin converts the lambda into a `FlowCollector`. `Flow` is a plain interface, so `Flow { ... }` doesn't compile ("interface ... does not have constructors"). That's on purpose. Its KDoc says `Flow` "is not stable for inheritance in 3rd party libraries", because new methods may be added to it later. Build flows with `flow { }`, or extend `AbstractFlow`, which is marked `@ExperimentalCoroutinesApi`.
 
-Java's own `java.util.concurrent.Flow` works the other way round. The subscriber pulls: it calls `request(n)`, and the publisher may send at most `n` more items. Kotlin's flow needs no such call, because the producer can't get ahead of a function call that hasn't returned yet.
+Java's own `java.util.concurrent.Flow`, in the JDK since Java 9, works the other way round. The subscriber pulls: it calls `request(n)`, and the publisher may send at most `n` more items. Kotlin's flow needs no such call, because the cook can't get ahead of a call that hasn't returned yet.
 
 Operators are flows built on flows. Here is `map` on the toy:
 
@@ -287,42 +317,53 @@ default <R> ToyFlow<R> map(Function<T, R> transform) {
 }
 ```
 
-Read it from the inside out. `map` returns a new flow. When that flow is collected, it collects the flow above it with a collector of its own, and that collector calls the next `emit` with the new value. It is a collector wrapped in a collector. `filter` is the same thing with an `if` around the `emit`. The library writes both in nearly the same way, as the next lesson shows. So a chain of five operators is five nested calls for each value. That's why the stack grew by one `emit` frame per `map`, and why operators need no locks or queues between them."""
+Read it from the inside out. `map` returns a new flow. When that flow is collected, it collects the flow above it with a collector of its own, and that collector calls the next `emit` with the new value. It's a collector wrapped in a collector: the helper who takes each plate from the cook, adds the sauce and carries it on. `filter` is the same thing with an `if` around the `emit`, a helper who only passes on the plates that pass a check. The library writes both in nearly the same way, as the next lesson shows.
+
+So a chain of five operators is five nested calls for each value. That's why the stack grew by one `emit` frame per `map`, and why operators need no locks or queues between them. This shape also names the parts of a chain. Everything above an operator, towards the cook, is its **upstream**. Everything below it, towards the diner, is its **downstream**.
+
+The toy is honest, but it's also trusting. Nothing stops a toy flow from calling `emit` from another thread, or from carrying on after the diner sent a plate back. The real `flow { }` checks for both, and that's where we go next."""
+
+CLOSING = """We started with a cook who carries each plate to the table and waits while the diner eats. A flow is that kitchen: two interfaces, a builder that only stores the recipe, and an `emit` that calls straight into the collector. Cold, one value at a time and backpressure all come from that one call, and so does the wait.
+
+Now look in your own code for a timer or a log line wrapped around `emit`. It measures everything downstream, not the producer's own work.
+
+Next, we'll meet the inspector that `flow { }` puts at the kitchen door. What does it check on every `emit`, and why does a try/catch around `emit` lose the rest of dinner?"""
 
 L = {
  "id": "flow-01",
  "title": "A flow from scratch: two interfaces and a function call",
  "minutes": 35,
  "goal": "By the end you can build a working flow from two small interfaces, read a collector's call stack, and explain from that call shape why a flow is cold, runs one value at a time, and slows down to the speed of its collector.",
+ "opening": OPENING,
  "warmup": {
-  "q": "A flow reads a settlement line every 100 ms and emits it. The collector needs 300 ms to post each line to the ledger. There is no buffer. When does the second `emit` happen?",
+  "q": "A flow cooks one dish every 100 ms and emits it. The collector, the diner, needs 300 ms to eat each dish. There is no buffer. When does the second `emit` happen?",
   "options": [
-   "At t=200 ms: the producer keeps reading while the collector works",
-   "At t=400 ms: right after the first posting finishes",
-   "At t=500 ms: the first posting finishes at 400, then the producer needs 100 ms more",
+   "At t=200 ms: the cook keeps cooking while the diner eats",
+   "At t=400 ms: right after the first dish is eaten",
+   "At t=500 ms: the first dish is eaten at 400, then the cook needs 100 ms more",
    "At t=300 ms: the two sides overlap halfway"
   ],
   "answer": 2,
-  "why": "`emit(1)` is called at 100 ms and does not return until the collector has posted the line at 400 ms. Only then does the producer read the next line, which takes another 100 ms. The answer t=200 assumes `emit` drops the value into a queue, which a plain flow never does."
+  "why": "`emit(1)` is called at 100 ms and doesn't return until the diner has finished, at 400 ms. Only then does the cook start the next dish, which takes another 100 ms. The answer t=200 assumes `emit` drops the value into a queue, which a plain flow never does. The section on the three rules works it out on a virtual clock."
  },
  "sections": [
   {
-   "h": "A reader and a ledger writer: predict the print order",
+   "h": "Predict the order: a cook, a diner and three dishes",
    "body": S1,
    "try": {
-    "title": "Predict, then run the reader",
+    "title": "Predict, then serve dinner",
     "minutes": 3,
     "steps": [
-     "Write your predicted order on paper. Then run `SettlementOrder.kt` with the command below.",
-     "Move the `println(\"read    $id\")` line below `emit(id)`. Predict the new order for one record, then run it again.",
-     "Run the Java twin, `SettlementOrderJava`, and compare the two outputs line by line."
+     "Write your predicted order on paper. Then run `DinnerOrder.kt` with the command below.",
+     "Move the `println(\"cook    $dish\")` line below `emit(dish)`. Predict the new order for one dish, then run it again.",
+     "Run the Java twin, `DinnerOrderJava`, and compare the two outputs line by line."
     ],
-    "code": tryit("SettlementOrder.kt", "SettlementOrderJava.java"),
-    "expect": "Each record prints `read`, then `posted`, then `emit(...) returned`, and nothing from the flow's body prints before `flow built`. After your move, each record prints `posted` before `read`, because the whole collector ran inside `emit`. The Java twin prints the same pattern with `accept(...) returned`: a Consumer call behaves the same way."
+    "code": tryit("DinnerOrder.kt", "DinnerOrderJava.java"),
+    "expect": "Each dish prints `cook`, then `eat`, then `emit(...) returned`, and nothing from the flow's block prints before `flow built`. After your move, each dish prints `eat` before `cook`, because the whole diner ran inside `emit`. The Java twin prints the same pattern with `accept(...) returned`: a `Consumer` call behaves the same way."
    }
   },
   {
-   "h": "Two interfaces and a three-line builder",
+   "h": "A flow from scratch: two interfaces and a three-line builder",
    "body": S2,
    "try": {
     "title": "Build it and collect it twice",
@@ -330,18 +371,15 @@ L = {
     "steps": [
      "Open `ToyFlow.kt` in the demo folder. It holds the two interfaces, the builder, a toy `map` and a `main`. Predict how many `[producer] start` lines it prints.",
      "Run it. Check that `built the flow, nothing ran yet` comes before any producer line.",
-     "Add a third collection at the end of `main`: `payments.map { it + 1 }.map { it * 2 }.collect { println(it) }`. Predict the values and the number of `[producer] start` lines, then run it.",
+     "Add a third collection at the end of `main`: `dishes.map { it + 1 }.map { it * 2 }.collect { println(it) }`. Predict the values and the number of `[producer] start` lines, then run it.",
      "Run the Java twin, `ToyFlowJava`."
     ],
     "code": tryit("ToyFlow.kt", "ToyFlowJava.java"),
-    "expect": "Two `[producer] start` lines, one per `collect`, and none before the `built` line. The first collection prints `got 100`, `got 200` and `got 300` through the toy `map`. Your third collection starts the body a third time and prints 4, 6 and 8: each value goes through both maps inside one `emit` call before the producer reads the next. The Java twin prints the same lines as the original Kotlin program."
-   },
-   "refs": [
-    {"title": "Flow (kotlinx.coroutines API)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-flow/", "kind": "docs"}
-   ]
+    "expect": "Two `[producer] start` lines, one per `collect`, and none before the `built` line. The first collection prints `got 100`, `got 200` and `got 300` through the toy `map`. Your third collection starts the block a third time and prints 4, 6 and 8: each value goes through both maps inside one `emit` call before the producer makes the next. The Java twin prints the same lines as the original Kotlin program."
+   }
   },
   {
-   "h": "The collector runs inside emit: read the stack",
+   "h": "The diner runs inside emit: reading the stack",
    "body": S3,
    "figure": {"svg": FIG, "caption": "The collector's code runs inside emit, so the cook waits at the table until the diner is done, and only then plates the next dish."},
    "try": {
@@ -353,11 +391,11 @@ L = {
      "Run `StackDemoJava`. Find the frame of the lambda that called `emit`."
     ],
     "code": tryit("StackDemo.kt", "StackDemoJava.java"),
-    "expect": "Every frame is on thread `main`, and the collector's frames sit above the block that called `emit`. The second `map` adds exactly one `emit` frame (`$$inlined$map$2$2.emit`) above the first one, and one `collect` frame near the bottom: one more box in the nest. In the Java twin, the collector (`lambda$main$1`) sits right on top of the flow body (`lambda$main$0`), which sits on `main`."
+    "expect": "Every frame is on thread `main`, and the diner's frames sit above the block that called `emit`. The second `map` adds exactly one `emit` frame (`$$inlined$map$2$2.emit`) above the first one, and one `collect` frame near the bottom: one more box in the nest, one more helper at the table. In the Java twin, the collector (`lambda$main$1`) sits right on top of the flow body (`lambda$main$0`), which sits on `main`."
    }
   },
   {
-   "h": "Cold, sequential and slowed by its collector, all from one call",
+   "h": "Cold, one at a time, and slowed by the diner: three rules from one call",
    "body": S4,
    "try": {
     "title": "Time the cook in virtual time",
@@ -365,63 +403,80 @@ L = {
     "steps": [
      "Read `Backpressure.kt`. It runs the toy flow and the real `flow { }` under `runTest`, where `delay` moves a virtual clock. Predict the time of `emit 3`.",
      "Run it.",
-     "Change the collector's `delay(300)` to `delay(50)` in both halves. Predict when `emit 2` happens and the total, then run it.",
+     "Change the diner's `delay(300)` to `delay(50)` in both halves. Predict when `emit 2` happens and the total, then run it.",
      "Run `BackpressureJava`, the same model with `Thread.sleep` in real time."
     ],
     "code": tryit("Backpressure.kt", "BackpressureJava.java"),
-    "expect": "`emit 3` at t=900 and a total of 1200 ms, the same for both flows. With a 50 ms collector, `emit 2` is at t=250 (100 + 50 + 100) and the total is 450 ms, three rounds of 150. The Java run shows the same pattern in real time. Every number is a little later than the model, by a few milliseconds up to a few dozen on the first lines, because real sleeps overshoot and a cold JVM is slow at its first prints."
-   },
-   "refs": [
-    {"title": "Asynchronous Flow (Kotlin docs)", "url": "https://kotlinlang.org/docs/coroutines-flow.html", "kind": "read"}
-   ]
+    "expect": "`emit 3` at t=900 and a total of 1200 ms, the same for both flows. With a 50 ms diner, `emit 2` is at t=250 (100 + 50 + 100) and the total is 450 ms, three rounds of 150. The Java run shows the same pattern in real time, with every number a little late. On this busy machine the first `eaten` line came about 70 ms late and the total was 1277 ms, because real sleeps overshoot and a cold JVM is slow at its first prints."
+   }
   },
   {
    "h": "The real Flow, and operators as collectors inside collectors",
-   "body": S5,
-   "refs": [
-    {"title": "FlowCollector (kotlinx.coroutines API)", "url": "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/-flow-collector/", "kind": "docs"},
-    {"title": "java.util.concurrent.Flow (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/Flow.html", "kind": "docs"}
-   ]
+   "body": S5
   }
  ],
- "analogy": "A plain flow is a restaurant with one cook and no counter. The recipe card (the flow) does nothing by itself. A meal is cooked only when a diner sits down and calls `collect`, and every new diner gets a fresh cooking session from the top. The cook plates a dish, walks it to the table and waits there while the diner eats, so the kitchen can never get ahead of the dining room. A waiter (an operator such as `map`) can stand between them, but he too walks each plate over and waits. The analogy breaks at the waiting. A real cook standing at a table is lost to the kitchen. A suspended coroutine holds no thread: while your collector is inside `delay` or a database call, the thread goes off and runs other coroutines, and only this one collection is stuck.",
- "in_your_world": "Picture a Kafka consumer wrapped in `flow { }`: it polls a batch, emits each payment event, and the collector writes ledger entries to Oracle. Each `emit` returns only after the ledger write, so the consumer never polls the next batch while the current one is half posted. If Oracle slows down, the whole flow slows with it, and you see that as growing consumer lag, not as memory filling up with events nobody has written. Two things follow. A long stall in the collector is also a long gap between polls, so keep the consumer's `max.poll.interval.ms` in mind. And a metric around `emit` in the consumer measures the ledger, not Kafka.",
- "mistake": "The most common mistake is reading a timer around `emit` as the producer's own time. A settlement reader records `read_ms` around `emit(record)`, the dashboard shows 300 ms per line, and someone spends a day tuning the CSV parser. The 300 ms belongs to the ledger writer: everything downstream runs inside that `emit`. People make this mistake because `emit` looks like `queue.put`. Time the work you own, and keep `emit` outside the timer:\n\n```kotlin\nval start = System.nanoTime()\nval record = parse(line)                             // only the reader's work\nmetrics.record(\"read_ns\", System.nanoTime() - start)\nemit(record)                                         // the downstream's time, not ours\n```\n\n```java\nlong start = System.nanoTime();\nRecord record = parse(line);                         // only the reader's work\nmetrics.record(\"read_ns\", System.nanoTime() - start);\ncollector.emit(record);                              // the downstream's time, not ours\n```",
  "compare": {
   "title": "The toy flow in Java and Kotlin",
-  "java": {
-   "title": "ToyFlowJava.java (abridged)",
-   "src": "// Java equivalent: a hand-written push flow. emit blocks the thread while the collector works.\ninterface ToyCollector<T> {\n    void emit(T value);\n}\n\ninterface ToyFlow<T> {\n    void collect(ToyCollector<T> collector);\n\n    default <R> ToyFlow<R> map(Function<T, R> transform) {\n        return downstream -> this.collect(value -> downstream.emit(transform.apply(value)));\n    }\n}\n\nToyFlow<Integer> payments = collector -> {\n    for (int id = 1; id <= 3; id++) collector.emit(id);\n};\npayments.map(id -> id * 100).collect(v -> System.out.println(\"got \" + v));"
-  },
-  "kotlin": {
-   "title": "ToyFlow.kt (abridged)",
-   "src": "fun interface ToyCollector<in T> {\n    suspend fun emit(value: T)\n}\n\ninterface ToyFlow<out T> {\n    suspend fun collect(collector: ToyCollector<T>)\n}\n\nfun <T> toyFlow(block: suspend ToyCollector<T>.() -> Unit): ToyFlow<T> =\n    object : ToyFlow<T> {\n        override suspend fun collect(collector: ToyCollector<T>) = collector.block()\n    }\n\nfun <T, R> ToyFlow<T>.map(transform: suspend (T) -> R): ToyFlow<R> =\n    toyFlow { this@map.collect { value -> emit(transform(value)) } }\n\nval payments = toyFlow { for (id in 1..3) emit(id) }\npayments.map { it * 100 }.collect { v -> println(\"got $v\") }"
-  },
-  "note": "The shapes match line for line, and the calls happen in the same order. What differs is underneath. Java's `emit` blocks a thread while the collector works, so a thousand slow collections need a thousand threads. Kotlin's `emit` suspends a coroutine, and the thread is free during the wait. Java lets any interface with one abstract method take a lambda, so a lambda can be a `ToyFlow`. Kotlin asks for `fun interface`, and the real `Flow` leaves it out on purpose, which is why you build flows through `flow { }`. Kotlin also declares variance on the interfaces (`out T` on the flow, `in T` on the collector), where Java would write `? super T` at every use."
+  "java": {"title": "ToyFlowJava.java (abridged)", "src": """// Java equivalent: a hand-written push flow. emit blocks the thread while the collector works.
+interface ToyCollector<T> {
+    void emit(T value);
+}
+
+interface ToyFlow<T> {
+    void collect(ToyCollector<T> collector);
+
+    default <R> ToyFlow<R> map(Function<T, R> transform) {
+        return downstream -> this.collect(value -> downstream.emit(transform.apply(value)));
+    }
+}
+
+ToyFlow<Integer> dishes = collector -> {
+    for (int id = 1; id <= 3; id++) collector.emit(id);
+};
+dishes.map(id -> id * 100).collect(v -> System.out.println("got " + v));"""},
+  "kotlin": {"title": "ToyFlow.kt (abridged)", "src": """fun interface ToyCollector<in T> {
+    suspend fun emit(value: T)
+}
+
+interface ToyFlow<out T> {
+    suspend fun collect(collector: ToyCollector<T>)
+}
+
+fun <T> toyFlow(block: suspend ToyCollector<T>.() -> Unit): ToyFlow<T> =
+    object : ToyFlow<T> {
+        override suspend fun collect(collector: ToyCollector<T>) = collector.block()
+    }
+
+fun <T, R> ToyFlow<T>.map(transform: suspend (T) -> R): ToyFlow<R> =
+    toyFlow { this@map.collect { value -> emit(transform(value)) } }
+
+val dishes = toyFlow { for (id in 1..3) emit(id) }
+dishes.map { it * 100 }.collect { v -> println("got $v") }"""},
+  "note": "Both versions have the same two interfaces and the same `map`, and the calls happen in the same order. What differs is underneath. Java's `emit` blocks a thread while the collector works, so a thousand slow collections need a thousand threads. Kotlin's `emit` suspends a coroutine, and the thread is free during the wait. Java lets any interface with one abstract method take a lambda, so a lambda can be a `ToyFlow`. Kotlin asks for `fun interface`, and the real `Flow` leaves it out on purpose, which is why you build flows through `flow { }`. Kotlin also declares variance on the interfaces (`out T` on the flow, `in T` on the collector), where Java would write `? super T` at every use."
  },
  "worked": {
   "title": "Write a toy operator that times the downstream",
   "steps": [
    {
-    "say": "The settlement dashboard says each line takes 300 ms to read. Before you tune the parser, write a toy operator that measures exactly what a timer around `emit` measures. It has the shape of `map`: collect the flow above, and wrap the call to the next `emit`.",
+    "say": "The cook wants to know how long each dish takes, so she wraps a timer around `emit`. It says 300 ms per dish, and she starts looking for a faster stove. Before she buys one, write a toy operator that measures exactly what a timer around `emit` measures. It has the shape of `map`: collect the flow above, and wrap the call to the next `emit`.",
     "code": "fun <T> ToyFlow<T>.timeDownstream(record: (value: T, took: Duration) -> Unit): ToyFlow<T> =\n    toyFlow {\n        this@timeDownstream.collect { value ->\n            val mark = TimeSource.Monotonic.markNow()   // 1. start the clock\n            emit(value)                                 // 2. every operator below, and the collector\n            record(value, mark.elapsedNow())            // 3. stop it when the downstream returns\n        }\n    }",
     "lang": "kotlin",
     "alt_lang": "java",
     "alt_code": "// a default method in the Java ToyFlow interface\ndefault ToyFlow<T> timeDownstream(BiConsumer<T, Long> record) {\n    return downstream -> this.collect(value -> {\n        long start = System.nanoTime();                                 // 1. start the clock\n        downstream.emit(value);                                         // 2. everything below runs here\n        record.accept(value, (System.nanoTime() - start) / 1_000_000);  // 3. stop it, in ms\n    });\n}"
    },
    {
-    "say": "Put it between a reader that needs 100 ms per line and a ledger writer that needs 300 ms per posting. In a real-time run it printed 300, 302 and 300 ms. That's the ledger's time. The reader's own 100 ms happens before `emit` and never shows up.",
-    "code": "toyFlow { for (i in 1..3) { delay(100); emit(\"pay-$i\") } }       // the reader\n    .timeDownstream { id, took -> println(\"$id downstream took ${took.inWholeMilliseconds} ms\") }\n    .collect { delay(300) }                                      // the ledger writer\n// pay-1 downstream took 300 ms\n// pay-2 downstream took 302 ms\n// pay-3 downstream took 300 ms",
+    "say": "Put it between a cook who needs 100 ms per dish and a diner who needs 300 ms to eat. In real time it prints about 300 ms for every dish. That's the diner's time. The cook's own 100 ms happens before `emit` and never shows up, so the stove was never the problem.",
+    "code": "toyFlow { for (i in 1..3) { delay(100); emit(\"dish-$i\") } }      // the cook\n    .timeDownstream { dish, took -> println(\"$dish downstream took ${took.inWholeMilliseconds} ms\") }\n    .collect { delay(300) }                                       // the diner\n// dish-1 downstream took 300 ms (give or take a few, in real time)",
     "lang": "kotlin",
     "alt_lang": "java",
-    "alt_code": "ToyFlow<String> reader = collector -> {\n    for (int i = 1; i <= 3; i++) { sleep(100); collector.emit(\"pay-\" + i); }   // the reader\n};\nreader.timeDownstream((id, ms) -> System.out.println(id + \" downstream took \" + ms + \" ms\"))\n    .collect(id -> sleep(300));                                               // the ledger writer"
+    "alt_code": "ToyFlow<String> cook = collector -> {\n    for (int i = 1; i <= 3; i++) { sleep(100); collector.emit(\"dish-\" + i); }   // the cook\n};\ncook.timeDownstream((dish, ms) -> System.out.println(dish + \" downstream took \" + ms + \" ms\"))\n    .collect(dish -> sleep(300));                                              // the diner"
    },
    {
     "say": "Where you put it decides what it measures. Each operator in a plain flow sees, inside its `emit`, the time of everything below it. So moving the timer down the chain takes operators out of the number.",
-    "code": "reader.map { parse(it) }.timeDownstream(log).collect { ledger.post(it) }   // the ledger only\nreader.timeDownstream(log).map { parse(it) }.collect { ledger.post(it) }   // parse plus the ledger",
+    "code": "cook.map { plate(it) }.timeDownstream(log).collect { diner.eat(it) }   // the diner only\ncook.timeDownstream(log).map { plate(it) }.collect { diner.eat(it) }   // plating plus the diner",
     "lang": "kotlin",
     "alt_lang": "java",
-    "alt_code": "reader.map(r -> parse(r)).timeDownstream(log).collect(ledger::post);   // the ledger only\nreader.timeDownstream(log).map(r -> parse(r)).collect(ledger::post);   // parse plus the ledger"
+    "alt_code": "cook.map(d -> plate(d)).timeDownstream(log).collect(diner::eat);   // the diner only\ncook.timeDownstream(log).map(d -> plate(d)).collect(diner::eat);   // plating plus the diner"
    },
    {
     "say": "The library's `onEach` has the same shape with your action in front of `emit`. In its source it is `transform { value -> action(value); return@transform emit(value) }`. On the toy it is one line:",
@@ -435,19 +490,19 @@ L = {
  "lab": {
   "title": "Build the toy flow and make take stop the producer",
   "minutes": 12,
-  "files": [f"{LAB}/main/{P}/ToyFlow.kt"],
+  "files": ["labs/flows/src/main/kotlin/workbench/flows/l01/ToyFlow.kt"],
   "run": "./gradlew :flows:test --tests 'workbench.flows.l01.*'",
   "steps": [
    "Run the tests once. All eight fail with `NotImplementedError`. Read the test names in `ToyFlowTest`: they are the spec.",
-   "Write `toyFlow` and `toList`. Three tests turn green: running the body again, the event order, and the slow collector in virtual time.",
-   "Write `map` and `filter` as collectors wrapped in collectors. Don't collect into a list first. The event-order test checks that each value goes all the way down before the producer reads the next one.",
+   "Write `toyFlow` and `toList`. Three tests turn green: running the block again, the event order, and the slow collector in virtual time.",
+   "Write `map` and `filter` as collectors wrapped in collectors. Don't collect into a list first. The event-order test checks that each value goes all the way down before the producer makes the next one.",
    "Write `take`. Check `count` with `require` before you build the flow. Inside, make a fresh `Any()` as your marker, emit each value, and after the `count`-th one throw `ToyAbortException(marker)`. Catch it around the upstream `collect`, and rethrow it if `e.owner !== marker`.",
    "Run the tests until all eight pass, then run them once more."
   ],
   "hints": [
    "`take` can't `return` from the producer's loop, because that loop is someone else's code. Throwing from the collector is the only way out. The exception travels back through the producer's `emit`, which is why the producer's `finally` runs.",
-   "Compare markers with `!==`, which tests identity. Two `Any()` objects are never the same object, and that is the point of the marker.",
-   "If the nested-take test fails and your result has an extra 99 in it, your `take` catches every `ToyAbortException`. The inner `take(3)` swallowed the outer `take(1)`'s abort, so the outer body carried on and emitted 99.",
+   "Compare markers with `!==`, which tests identity. Two `Any()` objects are never the same object, and that is the point of the marker: it's the name signed on the note.",
+   "If the nested-take test fails and your result has an extra 99 in it, your `take` catches every `ToyAbortException`. The inner `take(3)` swallowed the outer `take(1)`'s abort, so the outer block carried on and emitted 99.",
    "Put `require(count > 0)` before `return toyFlow { ... }`, so a bad count fails when the flow is built, as it does for the library's `take`."
   ],
   "done_when": "All eight tests in `ToyFlowTest` pass."
@@ -467,12 +522,13 @@ L = {
  },
  "recap": [
   "A flow is two interfaces with one suspend function each: `Flow.collect(collector)` and `FlowCollector.emit(value)`.",
-  "`flow { }` only stores your block. `collect` runs it, from the top, once per call. That is what cold means.",
-  "`emit` is a direct call into the collector. The collector's code runs inside `emit`, on the same stack and the same thread.",
-  "So a plain flow handles one value at a time, and a slow collector slows the producer: with 100 ms and 300 ms per item, the second `emit` is at t=500.",
+  "`flow { }` only stores your block, like a recipe card. `collect` runs it, from the top, once per call. That is what cold means.",
+  "`emit` is a direct call into the collector. The collector's code runs inside `emit`, on the same stack and the same thread: the cook stands at the table while the diner eats.",
+  "So a plain flow handles one value at a time, and a slow collector slows the producer. With 100 ms and 300 ms per item, the second `emit` is at t=500.",
   "Operators like `map` and `filter` are collectors wrapped in collectors. A collector stops the producer by throwing back up through `emit`, so the producer's `finally` runs.",
-  "Only `FlowCollector` is a `fun interface`. Build flows with `flow { }`, because `Flow` is not stable for inheritance."
+  "The limit: the times add up (1,200 ms where the slower side alone needs 900), and the toy checks nothing at all. Lesson 2 shows the checks in `flow { }`; lesson 4 adds a shelf so the cook can work ahead."
  ],
+ "closing": CLOSING,
  "quiz": [
   {
    "q": "`toyFlow { println(\"A\"); emit(1); println(\"B\") }.collect { println(\"C\") }` prints what?",
@@ -481,10 +537,10 @@ L = {
    "why": "`emit(1)` is a call into the collector, so `C` prints inside it, before `emit` returns and `B` prints. A B C is the queue model, where `emit` leaves the value for later. `collect` does start the flow, so something prints."
   },
   {
-   "q": "A flow fetches a ledger page in 50 ms and the collector needs 200 ms per page. There is no buffer. How long do 4 pages take?",
+   "q": "A flow cooks a dish in 50 ms and the diner needs 200 ms to eat each one. There is no buffer. How long do 4 dishes take?",
    "options": ["200 ms", "850 ms", "1,000 ms", "800 ms"],
    "answer": 2,
-   "why": "Each page costs 50 + 200 = 250 ms, because the producer waits inside `emit` while the collector works, so 4 pages take 1,000 ms. 850 ms (50 + 4 x 200) is what you'd get if the producer could fetch ahead into a buffer. A plain flow can't."
+   "why": "Each dish costs 50 + 200 = 250 ms, because the cook waits inside `emit` while the diner eats, so 4 dishes take 1,000 ms. 850 ms (50 + 4 x 200) is what you'd get if the cook could work ahead onto a shelf, a buffer. A plain flow can't."
   },
   {
    "q": "Which line compiles with kotlinx.coroutines 1.11.0?",
@@ -498,11 +554,11 @@ L = {
    "why": "Only `FlowCollector` is a `fun interface`, so a lambda converts to it. `Flow` is a plain interface and not stable for inheritance, and `Flow { }` fails with \"does not have constructors\". Build flows with `flow { }`."
   },
   {
-   "q": "A settlement reader wraps `emit(record)` in a timer, and the metric says 300 ms per line. Parsing a line takes 2 ms. Where did the rest of the time go?",
+   "q": "A cook wraps `emit(dish)` in a timer, and the timer says 300 ms per dish. Making a dish takes 2 ms. Where did the rest of the time go?",
    "options": [
-    "The JIT hasn't warmed up the parser yet",
+    "The first dishes are always slow while the JVM warms up",
     "A hidden buffer that `flow { }` fills and drains",
-    "Thread switches between the reader's thread and the collector's",
+    "Thread switches between the cook's thread and the diner's",
     "The downstream: every operator below and the collector run inside that `emit` call"
    ],
    "answer": 3,
@@ -531,17 +587,17 @@ L = {
   {"front": "What does a timer around `emit(x)` measure?", "back": "The downstream: every operator below and the collector, for that value."}
  ],
  "terms": [
-  {"term": "Collector", "plain": "The receiving end of a flow: an object with one suspend function, `emit(value)`."},
+  {"term": "Collector", "plain": "The receiving end of a flow: an object with one suspend function, `emit(value)`. In the kitchen, the diner."},
   {"term": "Emit", "plain": "Hand one value to the collector. In a plain flow it is a direct call that returns when the collector is done."},
   {"term": "Cold flow", "plain": "A flow whose block runs only when it is collected, from the top, once per `collect` call."},
   {"term": "Backpressure", "plain": "A slow consumer slowing the producer down, so values don't pile up in memory."},
-  {"term": "Upstream and downstream", "plain": "The part of a chain above an operator (towards the source) and the part below it (towards the collector)."},
+  {"term": "Upstream and downstream", "plain": "The part of a chain above an operator (towards the producer) and the part below it (towards the collector)."},
   {"term": "fun interface", "plain": "A Kotlin interface with one abstract method, which a lambda can be converted to."},
   {"term": "Virtual time", "plain": "A fake clock in kotlinx-coroutines-test. `delay` moves it at once, so timings are exact and tests finish fast."}
  ],
  "explain_back": {
-  "prompt": "A colleague says: \"Our settlement reader is a flow, so it reads the file in the background and keeps lines in a buffer until the ledger writer catches up.\" Explain, from the call shape, what really happens.",
-  "answer": "There's no background work and no buffer in a plain flow. `flow { }` only stores the reader's code, and `collect` runs it in the collector's own coroutine. Each `emit(line)` is a direct call into the ledger writer's code, so the writer posts the line while the reader is still inside `emit`. Only when the posting returns does `emit` return, and only then does the reader read the next line. So the reader is never more than one line ahead, it runs on the same thread, and a slow ledger slows the reader down. If we want the reader to run ahead, we have to ask for it with an operator such as `buffer` or `flowOn`, and those add a second coroutine and a channel."
+  "prompt": "A friend says: \"My flow cooks in the background and keeps the dishes on a shelf until the diner catches up.\" Explain, from the call shape, what really happens in a plain flow.",
+  "answer": "A plain flow has no background work and no shelf. `flow { }` only stores the cook's code, and `collect` runs it in the collector's own coroutine. Each `emit(dish)` is a direct call into the collector's code, so the diner eats while the cook is still inside `emit`. Only when the collector returns does `emit` return, and only then does the cook make the next dish. So the cook is never more than one dish ahead, it all runs on the same thread, and a slow diner slows the cook down. If we want the cook to work ahead, we have to ask for it with an operator such as `buffer` or `flowOn`, and those add a second coroutine and a channel between the two sides."
  },
  "deeper": {
   "minutes": 10,

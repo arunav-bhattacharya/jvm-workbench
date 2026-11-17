@@ -1,5 +1,5 @@
-// Java equivalent of ThreeWays.kt: the same request with virtual threads (plain blocking code)
-// and with Reactor (operators, no blocking). Same total time: the slowest call.
+// Java equivalent of ThreeWays.kt: the same dinner with virtual threads (plain blocking code)
+// and with Reactor (operators, no blocking). Same total time: the slowest dish.
 package workbench.coroutines.l11;
 
 import java.time.Duration;
@@ -10,25 +10,25 @@ import java.util.concurrent.Future;
 import reactor.core.publisher.Mono;
 
 public class ThreeWaysJava {
-    static String call(String name, long ms) throws InterruptedException {
-        Thread.sleep(ms); // a blocking client call
-        return name;
+    static String cook(String dish, long ms) throws InterruptedException {
+        Thread.sleep(ms); // a blocking call
+        return dish;
     }
 
     static List<String> withVirtualThreads() throws Exception {
         try (ExecutorService vt = Executors.newVirtualThreadPerTaskExecutor()) {
-            Future<String> account = vt.submit(() -> call("account", 100));
-            Future<String> ledger = vt.submit(() -> call("ledger", 300));
-            Future<String> risk = vt.submit(() -> call("risk", 200));
-            return List.of(account.get(), ledger.get(), risk.get());
+            Future<String> soup = vt.submit(() -> cook("soup", 100));
+            Future<String> roast = vt.submit(() -> cook("roast", 300));
+            Future<String> salad = vt.submit(() -> cook("salad", 200));
+            return List.of(soup.get(), roast.get(), salad.get());
         }
     }
 
     static List<String> withReactor() {
         return Mono.zip(
-                Mono.just("account").delayElement(Duration.ofMillis(100)),
-                Mono.just("ledger").delayElement(Duration.ofMillis(300)),
-                Mono.just("risk").delayElement(Duration.ofMillis(200)))
+                Mono.just("soup").delayElement(Duration.ofMillis(100)),
+                Mono.just("roast").delayElement(Duration.ofMillis(300)),
+                Mono.just("salad").delayElement(Duration.ofMillis(200)))
             .map(t -> List.of(t.getT1(), t.getT2(), t.getT3()))
             .block();
     }

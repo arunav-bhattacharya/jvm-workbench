@@ -17,309 +17,321 @@ In the second, every dish goes into an oven.
 A cook spends one minute getting it ready, then waits nine minutes while it bakes.
 
 5
-00:00:16.459 --> 00:00:19.027
+00:00:16.433 --> 00:00:19.001
 How many cooks should each kitchen hire?
 
 6
-00:00:19.027 --> 00:00:27.052
+00:00:19.001 --> 00:00:27.026
 Every thread pool asks the same question, and the answer is often habit: ten because it sounds right, two hundred to be safe.
 
 7
-00:00:27.052 --> 00:00:30.005
+00:00:27.026 --> 00:00:29.979
 So here's the question we rarely ask out loud.
 
 8
-00:00:30.005 --> 00:00:31.931
+00:00:29.979 --> 00:00:31.905
 Are more threads always safer?
 
 9
-00:00:34.731 --> 00:00:36.406
+00:00:34.700 --> 00:00:36.375
 The first kitchen needs four.
 
 10
-00:00:36.406 --> 00:00:40.680
+00:00:36.375 --> 00:00:40.648
 A fifth cook would only stand around holding a knife, waiting for a board.
 
 11
-00:00:40.680 --> 00:00:46.570
+00:00:40.648 --> 00:00:46.539
 The second kitchen needs about forty, because a cook waiting for the oven doesn't need a board at all.
 
 12
-00:00:46.820 --> 00:00:47.647
+00:00:46.767 --> 00:00:47.629
 Let's map it.
 
 13
-00:00:47.647 --> 00:00:49.046
+00:00:47.629 --> 00:00:49.090
 The cooks are threads.
 
 14
-00:00:49.046 --> 00:00:54.389
-The boards are cores, the parts of the processor that each run one thread at a time.
+00:00:49.090 --> 00:00:55.262
+The boards are cores, the parts of the processor, or CPU, that each run one thread at a time.
 
 15
-00:00:54.389 --> 00:01:00.177
+00:00:55.262 --> 00:01:01.302
 And chopping is work that keeps a core busy from start to finish, with nothing to wait for.
 
 16
-00:01:00.177 --> 00:01:02.021
+00:01:01.302 --> 00:01:03.227
 That's called CPU-bound work.
 
 17
-00:01:02.271 --> 00:01:12.654
+00:01:03.433 --> 00:01:13.816
 The lesson's demo tests the chopping kitchen: 32 checksums, short fingerprints of data, with no waiting at all, on 4 cores.
 
 18
-00:01:12.654 --> 00:01:15.524
+00:01:13.816 --> 00:01:16.686
 One thread takes 359 milliseconds.
 
 19
-00:01:15.524 --> 00:01:16.284
+00:01:16.686 --> 00:01:17.446
 Two: 171.
 
 20
-00:01:16.284 --> 00:01:17.044
+00:01:17.446 --> 00:01:18.206
 Four: 92.
 
 21
-00:01:17.044 --> 00:01:18.817
+00:01:18.206 --> 00:01:19.979
 What will eight take?
 
 22
-00:01:21.617 --> 00:01:21.881
+00:01:22.767 --> 00:01:23.031
 96.
 
 23
-00:01:21.881 --> 00:01:22.763
+00:01:23.031 --> 00:01:23.913
 No faster.
 
 24
-00:01:22.763 --> 00:01:23.820
+00:01:23.913 --> 00:01:24.970
 Sixteen: 98.
 
 25
-00:01:23.820 --> 00:01:29.814
+00:01:24.970 --> 00:01:30.964
 And the checksum was the same on every row, so it was the same work.
 
 26
-00:01:30.064 --> 00:01:32.256
+00:01:31.167 --> 00:01:33.359
 A core runs one thread at a time.
 
 27
-00:01:32.256 --> 00:01:39.497
+00:01:33.359 --> 00:01:40.600
 So a fifth thread gets a core only by taking it from another one, and the switch costs time and adds no work.
 
 28
-00:01:39.497 --> 00:01:42.088
+00:01:40.600 --> 00:01:43.191
 That's the fifth cook, holding a knife.
 
 29
-00:01:42.088 --> 00:01:48.267
+00:01:43.191 --> 00:01:49.369
 So for CPU-bound work, use about one thread per core, the number availableProcessors returns.
 
 30
-00:01:48.517 --> 00:01:51.700
+00:01:49.600 --> 00:01:52.783
 Now the oven kitchen, where most programs live.
 
 31
-00:01:51.700 --> 00:01:56.576
+00:01:52.783 --> 00:01:57.659
 To build one product page, our shop's program works for 20 milliseconds.
 
 32
-00:01:56.576 --> 00:02:05.177
+00:01:57.659 --> 00:02:06.260
 Then it asks a slow web service, a program on another computer, for the stock level, and waits 180 milliseconds for the answer.
 
 33
-00:02:05.427 --> 00:02:10.542
+00:02:06.467 --> 00:02:11.582
 Work that mostly waits like this is called I/O-bound, after input and output.
 
 34
-00:02:10.542 --> 00:02:16.256
+00:02:11.582 --> 00:02:17.296
 And a waiting thread uses no core, just as a cook waiting for the oven needs no board.
 
 35
-00:02:16.506 --> 00:02:20.715
+00:02:17.500 --> 00:02:21.709
 So with one core, how many threads does it take to keep that core busy?
 
 36
-00:02:23.515 --> 00:02:24.196
+00:02:24.500 --> 00:02:25.181
 About ten.
 
 37
-00:02:24.196 --> 00:02:31.274
+00:02:25.181 --> 00:02:32.258
 Each page needs the core for 20 milliseconds out of every 200, so while one thread works, nine can wait.
 
 38
-00:02:31.274 --> 00:02:34.949
+00:02:32.258 --> 00:02:35.933
 With four cores, that's forty: the oven kitchen again.
 
 39
-00:02:35.199 --> 00:02:47.483
-Brian Goetz's book, Java Concurrency in Practice, writes it as a formula: cores, times the target CPU use, times one plus the wait over the compute.
+00:02:36.167 --> 00:02:51.275
+Brian Goetz's book, Java Concurrency in Practice, writes it as a formula: cores, times the target CPU use, which is how busy you want the cores to be, times one plus the wait over the compute.
 
 40
-00:02:47.483 --> 00:02:52.961
+00:02:51.275 --> 00:02:56.468
 On 8 cores at 80 percent, that's 8 times 0.8 times 10: 64 threads.
 
 41
-00:02:53.211 --> 00:02:56.466
+00:02:56.700 --> 00:02:59.955
 Here the kitchen picture breaks, and not in our favor.
 
 42
-00:02:56.466 --> 00:02:59.540
+00:02:59.955 --> 00:03:03.029
 A real cook would chop onions while the dish bakes.
 
 43
-00:02:59.540 --> 00:03:03.578
+00:03:03.029 --> 00:03:07.067
 A Java thread can't: it waits for its answer and does nothing else.
 
 44
-00:03:03.578 --> 00:03:07.315
+00:03:07.067 --> 00:03:10.804
 That's why we need ten threads where one clever cook would do.
 
 45
-00:03:07.315 --> 00:03:09.485
+00:03:10.804 --> 00:03:12.974
 So measure the wait and the compute.
 
 46
-00:03:09.485 --> 00:03:10.510
+00:03:12.974 --> 00:03:13.999
 Don't guess them.
 
 47
-00:03:10.760 --> 00:03:13.131
+00:03:14.200 --> 00:03:16.571
 The formula starts from the processor.
 
 48
-00:03:13.131 --> 00:03:18.560
+00:03:16.571 --> 00:03:22.000
 A busy shop asks from the other side: how many requests are inside our program at once?
 
 49
-00:03:18.810 --> 00:03:21.046
+00:03:22.233 --> 00:03:24.469
 Picture the ticket window at a cinema.
 
 50
-00:03:21.046 --> 00:03:26.047
+00:03:24.469 --> 00:03:29.471
 About 2 people join the line every minute, and each one spends about 5 minutes there.
 
 51
-00:03:26.047 --> 00:03:29.283
+00:03:29.471 --> 00:03:32.707
 How many people do you see at the window at any moment?
 
 52
-00:03:32.083 --> 00:03:32.812
+00:03:35.500 --> 00:03:36.229
 About 10.
 
 53
-00:03:32.812 --> 00:03:35.403
+00:03:36.229 --> 00:03:38.820
 Two a minute, each staying five.
 
 54
-00:03:35.653 --> 00:03:37.975
+00:03:39.033 --> 00:03:41.355
 That multiplication is Little's law.
 
 55
-00:03:37.975 --> 00:03:42.683
+00:03:41.355 --> 00:03:46.063
 The number inside equals the arrival rate, times the time each one stays.
 
 56
-00:03:42.683 --> 00:03:46.681
+00:03:46.063 --> 00:03:50.061
 It holds for a ticket window, a supermarket, or a thread pool.
 
 57
-00:03:46.931 --> 00:03:54.451
+00:03:50.267 --> 00:03:57.786
 Our shop's website gets 400 requests a second at its busiest, and each one takes 250 milliseconds.
 
 58
-00:03:54.451 --> 00:03:59.132
+00:03:57.786 --> 00:04:02.467
 400 times a quarter of a second: 100 requests inside at once.
 
 59
-00:03:59.132 --> 00:04:02.738
+00:04:02.467 --> 00:04:06.073
 If each one holds a thread, that's 100 threads.
 
 60
-00:04:02.988 --> 00:04:09.245
+00:04:06.300 --> 00:04:12.557
 Turned around, threads divided by the time each one is held is the most a pool can finish.
 
 61
-00:04:09.245 --> 00:04:13.138
+00:04:12.557 --> 00:04:16.450
 50 threads at a quarter of a second finish 200 a second.
 
 62
-00:04:13.138 --> 00:04:17.170
+00:04:16.450 --> 00:04:20.482
 If 400 arrive, the other 200 a second pile up on the rail.
 
 63
-00:04:17.170 --> 00:04:21.063
+00:04:20.482 --> 00:04:24.375
 That's last lesson's rail with no end, now with numbers.
 
 64
-00:04:21.313 --> 00:04:23.976
+00:04:24.600 --> 00:04:27.263
 Does it hold on a real machine?
 
 65
-00:04:23.976 --> 00:04:32.654
+00:04:27.263 --> 00:04:35.941
 The demo sends 200 requests, each waiting 50 milliseconds, through pools of 5, 10, 20 and 40 threads.
 
 66
-00:04:32.654 --> 00:04:36.778
+00:04:35.941 --> 00:04:40.065
 The law predicts 100, 200, 400 and 800 a second.
 
 67
-00:04:37.028 --> 00:04:39.772
+00:04:40.267 --> 00:04:43.010
 Measured: 96, 181, 389 and 689.
 
 68
-00:04:39.772 --> 00:04:43.754
+00:04:43.010 --> 00:04:46.993
 The first three land within about 10 percent.
 
 69
-00:04:43.754 --> 00:04:51.277
+00:04:46.993 --> 00:04:54.516
 With 40 threads, 200 requests are only five rounds, so starting the pool weighs more.
 
 70
-00:04:51.472 --> 00:04:55.047
+00:04:54.733 --> 00:04:58.235
 One honest limit: a request needs more than a thread.
 
 71
-00:04:55.047 --> 00:05:00.578
+00:04:58.235 --> 00:05:03.654
 Give the oven kitchen only two ovens, and extra cooks just stand in line for them.
 
 72
-00:05:00.578 --> 00:05:06.446
-In the demo, with only 10 database connections, the rows go flat at about 200 a second.
+00:05:03.654 --> 00:05:11.055
+In the demo, every request also needs one of only 10 connections to a database, the program that keeps the data.
 
 73
-00:05:06.605 --> 00:05:08.985
-So, are more threads always safer?
+00:05:11.055 --> 00:05:13.896
+And the rows go flat at about 200 a second.
 
 74
-00:05:08.985 --> 00:05:09.195
-No.
+00:05:14.100 --> 00:05:16.480
+So, are more threads always safer?
 
 75
-00:05:09.195 --> 00:05:11.084
-For chopping, one per core.
+00:05:16.480 --> 00:05:16.690
+No.
 
 76
-00:05:11.084 --> 00:05:14.724
-For waiting, cores times one plus wait over compute.
+00:05:16.690 --> 00:05:18.579
+For chopping, one per core.
 
 77
-00:05:14.724 --> 00:05:18.223
-To count requests, arrival rate times time inside.
+00:05:18.579 --> 00:05:22.219
+For waiting, cores times one plus wait over compute.
 
 78
-00:05:18.223 --> 00:05:22.282
-More threads help only while threads are the scarce thing.
+00:05:22.219 --> 00:05:25.718
+To count requests, arrival rate times time inside.
 
 79
-00:05:22.472 --> 00:05:23.311
-Quick check.
+00:05:25.718 --> 00:05:29.777
+More threads help only while threads are the scarce thing.
 
 80
-00:05:23.311 --> 00:05:26.948
-20 threads, and each request takes 100 milliseconds.
+00:05:30.000 --> 00:05:30.839
+Quick check.
 
 81
-00:05:26.948 --> 00:05:30.236
+00:05:30.839 --> 00:05:34.477
+20 threads, and each request takes 100 milliseconds.
+
+82
+00:05:34.477 --> 00:05:37.764
 How many requests a second can the pool finish?
+
+83
+00:05:40.733 --> 00:05:41.076
+200.
+
+84
+00:05:41.076 --> 00:05:43.989
+Each thread finishes ten a second.

@@ -14,31 +14,31 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.time.Duration
 
-/** A Kotlin suspend call, exposed to Reactor code as a cold Mono. */
-fun quoteFor(acquirer: String): Mono<String> = mono {
-    println("  [kotlin] asking $acquirer for a quote")
+/** A Kotlin suspend call, handed to Reactor code as a cold Mono. */
+fun recipeFor(dish: String): Mono<String> = mono {
+    println("  [kotlin] looking up $dish")
     delay(50)
-    if (acquirer == "nobody") null else "$acquirer: 1.80%"
+    if (dish == "dragon stew") null else "$dish: 40 minutes"
 }
 
-/** A Kotlin Flow of FX ticks, exposed to Reactor code as a Flux. */
-fun ticks(): Flow<Double> = flow { for (i in 0 until 5) { delay(20); emit(1.0800 + i / 10_000.0) } }
-fun tickFlux(): Flux<Double> = ticks().asFlux()
+/** A Kotlin Flow of oven temperatures, handed to Reactor code as a Flux. */
+fun temperatures(): Flow<Int> = flow { for (i in 0 until 5) { delay(20); emit(180 + i * 5) } }
+fun temperatureFlux(): Flux<Int> = temperatures().asFlux()
 
 fun main() = runBlocking {
     println("1. mono { } is cold:")
-    val m = quoteFor("north")
-    println("  built the Mono; nothing asked yet")
+    val m = recipeFor("soup")
+    println("  built the Mono; nothing looked up yet")
     println("  awaitSingle() -> ${m.awaitSingle()}")
     println("  awaitSingle() again -> ${m.awaitSingle()}")
 
     println("2. an empty Mono:")
-    try { quoteFor("nobody").awaitSingle() } catch (e: NoSuchElementException) { println("  awaitSingle() threw NoSuchElementException") }
+    try { recipeFor("dragon stew").awaitSingle() } catch (e: NoSuchElementException) { println("  awaitSingle() threw NoSuchElementException") }
 
     println("3. a Flux consumed as a Flow (cancelling the flow cancels the subscription):")
-    val settlements = Flux.interval(Duration.ofMillis(10)).map { "batch-$it" }.doOnCancel { println("  [reactor] subscription cancelled") }
-    println("  ${settlements.asFlow().take(3).toList()}")
+    val plates = Flux.interval(Duration.ofMillis(10)).map { "plate-$it" }.doOnCancel { println("  [reactor] subscription cancelled") }
+    println("  ${plates.asFlow().take(3).toList()}")
 
     println("4. a Flow handed to Reactor as a Flux:")
-    println("  ${tickFlux().map { "%.4f".format(it) }.collectList().block()}")
+    println("  ${temperatureFlux().map { "$it C" }.collectList().block()}")
 }

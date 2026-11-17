@@ -18,42 +18,42 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
 
-/** Builds facades for JavaCallerTest: Java can't easily write a Kotlin suspend lambda. */
+/** Builds doors for JavaCallerTest: Java can't easily write a Kotlin suspend lambda. */
 object JavaFixtures {
     @JvmStatic
-    fun approvingFacade(): AuthorizationFacade = AuthorizationFacade({ delay(10); Decision.APPROVED })
+    fun servingDoor(): KitchenDoor = KitchenDoor({ delay(10); Outcome.SERVED })
 }
 
 class JavaInteropTest {
-    private val req = AuthRequest("pay-1", 4_250)
+    private val order = Order("soup", 4)
 
-    // ---- AuthorizationFacade: suspend code for Java callers ----
+    // ---- KitchenDoor: suspend code for Java callers ----
 
     @Test
-    fun `authorizeAsync completes the future with the decision`() {
-        AuthorizationFacade({ delay(50); Decision.APPROVED }).use { facade ->
-            assertThat(facade.authorizeAsync(req).get(5, TimeUnit.SECONDS)).isEqualTo(Decision.APPROVED)
+    fun `cookAsync completes the future with the outcome`() {
+        KitchenDoor({ delay(50); Outcome.SERVED }).use { door ->
+            assertThat(door.cookAsync(order).get(5, TimeUnit.SECONDS)).isEqualTo(Outcome.SERVED)
         }
     }
 
     @Test
     fun `a failure reaches the Java caller as the cause of an ExecutionException`() {
-        AuthorizationFacade({ throw IOException("issuer unreachable") }).use { facade ->
-            val thrown = runCatching { facade.authorizeAsync(req).get(5, TimeUnit.SECONDS) }.exceptionOrNull()
+        KitchenDoor({ throw IOException("the stove won't light") }).use { door ->
+            val thrown = runCatching { door.cookAsync(order).get(5, TimeUnit.SECONDS) }.exceptionOrNull()
             assertThat(thrown).isInstanceOf(ExecutionException::class.java)
-            assertThat(thrown!!.cause).isInstanceOf(IOException::class.java).hasMessage("issuer unreachable")
+            assertThat(thrown!!.cause).isInstanceOf(IOException::class.java).hasMessage("the stove won't light")
         }
     }
 
-    /** An authorization that waits for the issuer until it is cancelled (or gives up after 3 s). */
+    /** An order that cooks until it is cancelled (or gives up after 3 s). */
     private class Waiting {
         val started = CountDownLatch(1)
         val cancelled = CountDownLatch(1)
-        val authorize: suspend (AuthRequest) -> Decision = {
+        val cook: suspend (Order) -> Outcome = {
             started.countDown()
             try {
                 withTimeoutOrNull(3.seconds) { awaitCancellation() } // bounded, so a stub can't hang the build
-                Decision.DECLINED
+                Outcome.REFUSED
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 cancelled.countDown()
                 throw e
@@ -62,10 +62,10 @@ class JavaInteropTest {
     }
 
     @Test
-    fun `cancelling the future cancels the authorization coroutine`() {
+    fun `cancelling the future cancels the cooking coroutine`() {
         val w = Waiting()
-        AuthorizationFacade(w.authorize).use { facade ->
-            val future = facade.authorizeAsync(req)
+        KitchenDoor(w.cook).use { door ->
+            val future = door.cookAsync(order)
             assertThat(w.started.await(5, TimeUnit.SECONDS)).isTrue()
             future.cancel(true)
             assertThat(w.cancelled.await(2, TimeUnit.SECONDS)).`as`("the coroutine saw the cancel").isTrue()
@@ -73,62 +73,62 @@ class JavaInteropTest {
     }
 
     @Test
-    fun `close cancels the authorizations still running`() {
+    fun `close cancels the orders still cooking`() {
         val w = Waiting()
-        val facade = AuthorizationFacade(w.authorize)
-        val future = facade.authorizeAsync(req)
+        val door = KitchenDoor(w.cook)
+        val future = door.cookAsync(order)
         assertThat(w.started.await(5, TimeUnit.SECONDS)).isTrue()
-        facade.close()
+        door.close()
         assertThat(w.cancelled.await(2, TimeUnit.SECONDS)).`as`("the coroutine saw the cancel").isTrue()
         val thrown = runCatching { future.get(2, TimeUnit.SECONDS) }.exceptionOrNull()
         assertThat(thrown).`as`("what the Java caller gets").isInstanceOf(CancellationException::class.java)
     }
 
-    // ---- scoreAwait: a CompletableFuture inside suspend code ----
+    // ---- loavesLeftAwait: a CompletableFuture inside suspend code ----
 
     @Test
-    fun `scoreAwait returns the score when the future completes`() = runBlocking<Unit> {
-        val client = LegacyFraudClient { CompletableFuture.supplyAsync { Thread.sleep(20); 37 } }
-        assertThat(client.scoreAwait(req)).isEqualTo(37)
+    fun `loavesLeftAwait returns the count when the future completes`() = runBlocking<Unit> {
+        val bakery = JavaBakery { CompletableFuture.supplyAsync { Thread.sleep(20); 37 } }
+        assertThat(bakery.loavesLeftAwait("rye")).isEqualTo(37)
     }
 
     @Test
-    fun `cancelling the caller cancels the client's future`() = runBlocking<Unit> {
+    fun `cancelling the caller cancels the bakery's future`() = runBlocking<Unit> {
         val pending = CompletableFuture<Int>()
         val asked = CountDownLatch(1)
-        val client = LegacyFraudClient { asked.countDown(); pending }
-        val caller = launch(Dispatchers.Default) { client.scoreAwait(req) }
+        val bakery = JavaBakery { asked.countDown(); pending }
+        val caller = launch(Dispatchers.Default) { bakery.loavesLeftAwait("rye") }
         assertThat(asked.await(5, TimeUnit.SECONDS)).isTrue()
         caller.cancel()
         val stopped = withTimeoutOrNull(2.seconds) { caller.join() } != null
         pending.complete(0) // releases a thread that is stuck in get()
         assertThat(stopped).`as`("the caller stopped within 2 s of the cancel").isTrue()
-        assertThat(pending.isCancelled).`as`("the client's future was cancelled").isTrue()
+        assertThat(pending.isCancelled).`as`("the bakery's future was cancelled").isTrue()
     }
 
-    // ---- quoteMono: a coroutine as a Reactor Mono ----
+    // ---- recipeMono: a coroutine as a Reactor Mono ----
 
     @Test
-    fun `quoteMono is cold and asks again for every subscriber`() {
-        val calls = AtomicInteger()
-        val mono = quoteMono({ calls.incrementAndGet(); delay(10); Quote("north", 180) }, req)
+    fun `recipeMono is cold and looks the recipe up again for every subscriber`() {
+        val lookups = AtomicInteger()
+        val mono = recipeMono({ lookups.incrementAndGet(); delay(10); Recipe("soup", 40) }, "soup")
         Thread.sleep(100)
-        assertThat(calls.get()).`as`("quotes requested before anyone subscribed").isZero()
-        StepVerifier.create(mono).expectNext(Quote("north", 180)).verifyComplete()
-        StepVerifier.create(mono).expectNext(Quote("north", 180)).verifyComplete()
-        assertThat(calls.get()).`as`("quotes requested for two subscribers").isEqualTo(2)
+        assertThat(lookups.get()).`as`("lookups before anyone subscribed").isZero()
+        StepVerifier.create(mono).expectNext(Recipe("soup", 40)).verifyComplete()
+        StepVerifier.create(mono).expectNext(Recipe("soup", 40)).verifyComplete()
+        assertThat(lookups.get()).`as`("lookups for two subscribers").isEqualTo(2)
     }
 
     @Test
-    fun `quoteMono completes empty when nobody quotes`() {
-        StepVerifier.create(quoteMono({ null }, req)).verifyComplete()
+    fun `recipeMono completes empty when the book has no recipe`() {
+        StepVerifier.create(recipeMono({ null }, "dragon stew")).verifyComplete()
     }
 
     @Test
     fun `disposing the subscription cancels the coroutine`() {
         val started = CountDownLatch(1)
         val cancelled = CountDownLatch(1)
-        val mono = quoteMono({
+        val mono = recipeMono({
             started.countDown()
             try {
                 withTimeoutOrNull(3.seconds) { awaitCancellation() } // bounded, so a stub can't hang the build
@@ -137,7 +137,7 @@ class JavaInteropTest {
                 cancelled.countDown()
                 throw e
             }
-        }, req)
+        }, "soup")
         val subscription = mono.subscribe()
         assertThat(started.await(5, TimeUnit.SECONDS)).isTrue()
         subscription.dispose()
