@@ -40,7 +40,7 @@ A processor runs during the build, before the Kotlin compiler. It reads declarat
 | Move | KSP | Lesson |
 |---|---|---|
 | 1. Find | `resolver.getSymbolsWithAnnotation("workbench.ksp.annotations.Inventory")`: the full name; a short name finds nothing | 2 |
-| 2. Check | `if (symbol !is KSClassDeclaration or classKind != ClassKind.CLASS) logger.error("...", symbol)`; check every symbol, report every problem | 2, 5 |
+| 2. Check | keep `symbol is KSClassDeclaration && symbol.classKind == ClassKind.CLASS`, else `logger.error("...", symbol)`; check every symbol, report every problem | 2, 5 |
 | 3. Read | `primaryConstructor?.parameters`, `type.resolve()`, `isMarkedNullable`, `annotations` and their `arguments` | 3 |
 | 4. Write | KotlinPoet `FileSpec`, then `writeTo(codeGenerator, Dependencies(...))` with the right files and category | 4, 7 |
 | 5. Prove | kctfork tests (exit code, text, messages, a call), then the real build | 8 |
@@ -163,14 +163,14 @@ QUIZ = [
   "options": ["Every class with an annotation named Inventory", "Nothing: the call needs the fully qualified name", "An error that the name is ambiguous", "Only the classes in the default package"],
   "answer": 1, "why": "The lookup takes the annotation's fully qualified name, here `workbench.ksp.annotations.Inventory`. A short name silently finds nothing, and the trouble shows up later as `Unresolved reference` errors for cards that were never written."},
  {"q": "A property is declared `val shade: String?`. Which call tells the processor it is nullable?",
-  "options": ["`property.type.toString()`", "`property.type.resolve().isMarkedNullable`", "`property.hasDefault`", "`property.isMutable`"],
-  "answer": 1, "why": "`type` is a `KSTypeReference`, the type as written; `resolve()` gives the `KSType`, which knows its nullability and arguments. Resolving costs time, so do it once per reference. `toString()` is a display form, not reliable code."},
+  "options": ["`property.type.toString()`", "`property.hasDefault`", "`property.isMutable`", "`property.type.resolve().isMarkedNullable`"],
+  "answer": 3, "why": "`type` is a `KSTypeReference`, the type as written; `resolve()` gives the `KSType`, which knows its nullability and arguments. Resolving costs time, so do it once per reference. `toString()` is a display form, not reliable code."},
  {"q": "In a KotlinPoet format string, which placeholder writes a type and adds its import?",
   "options": ["`%S`", "`%L`", "`%T`", "`%N`"],
   "answer": 2, "why": "`%T` emits a type and imports it if it can. `%N` is for names and escapes keywords, `%S` quotes and escapes a string, and `%L` writes a literal as it is."},
  {"q": "A processor finds an interface where it needs a class. What should it do?",
-  "options": ["`throw IllegalStateException(\"not a class\")`", "`logger.error(\"@Builder goes on a class, but Shape is an interface\", symbol)` and carry on with the other symbols", "`logger.exception(e)`, so the build fails", "Skip the symbol without a word"],
-  "answer": 1, "why": "`logger.error` on the symbol points at the user's file and the declaration's line, lets the processor report every problem in one build, and fails the build at the end. A thrown exception points into the processor, skips `onError()` in KSP 2.3.14, and stops everything. `logger.exception` doesn't fail the build at all."},
+  "options": ["`logger.error(\"@Builder goes on a class, but Shape is an interface\", symbol)` and carry on with the other symbols", "`throw IllegalStateException(\"not a class\")`", "`logger.exception(e)`, so the build fails", "Skip the symbol without a word"],
+  "answer": 0, "why": "`logger.error` on the symbol points at the user's file and the declaration's line, lets the processor report every problem in one build, and fails the build at the end. A thrown exception points into the processor, skips `onError()` in KSP 2.3.14, and stops everything. `logger.exception` doesn't fail the build at all."},
  {"q": "A processor returns the same symbol from `process()` in every round, because its type never becomes valid. What does KSP 2.3.14 do at the end?",
   "options": ["Logs an error for the symbol, as the docs say", "Logs a warning", "Drops it silently, calls `finish()`, and the build can pass", "Keeps running rounds until a timeout"],
   "answer": 2, "why": "Processing stops when a round writes no file, and 2.3.14 reports nothing about symbols still deferred, although the multi-round docs promise an error. A careful processor checks in `finish()` and reports each leftover with `logger.error` on the symbol."},
@@ -178,14 +178,14 @@ QUIZ = [
   "options": ["The index lists every class, the new one too", "The index is rewritten with only the new class, and the build passes", "KSP fails with a Dependencies error", "The index keeps the old classes until a clean build adds the new one"],
   "answer": 1, "why": "A new file is tied to no output, so only that file is dirty, and the processor sees one class. Only an aggregating output, `Dependencies(aggregating = true, ...)`, is redone for new files. Clean builds and in-memory tests never show the mistake."},
  {"q": "A builder test checks that the compile succeeded and that the text contains `class LampBuilder`. The processor drops the `?` from `shade: String?`. Which check would catch it?",
-  "options": ["Checking the exit code again with `--info`", "Calling `shade(null)` on the generated builder through the class loader", "Checking that the text contains `fun build()`", "Running the test twice"],
-  "answer": 1, "why": "The broken builder is valid code, so it compiles and contains its class and `build()`. Calling the code with `null` fails with `NullPointerException: Parameter specified as non-null is null`. A golden file would catch it too, by the changed line."},
+  "options": ["Checking the exit code again with `--info`", "Checking that the text contains `fun build()`", "Running the test twice", "Calling `shade(null)` on the generated builder through the class loader"],
+  "answer": 3, "why": "The broken builder is valid code, so it compiles and contains its class and `build()`. Calling the code with `null` fails with `NullPointerException: Parameter specified as non-null is null`. A golden file would catch it too, by the changed line."},
  {"q": "A team wants each `@Serializable` class to contain its own generated serializer. Which tool does that?",
-  "options": ["A KSP processor", "A compiler plugin, kotlinx.serialization", "kapt", "Reflection at start-up"],
-  "answer": 1, "why": "The serializer goes inside the class, with a `serializer()` function on its companion, which changes a class you wrote. Only a compiler plugin can do that. A KSP processor could write a separate serializer class next to it, which is a different design."},
+  "options": ["A compiler plugin, kotlinx.serialization", "A KSP processor", "kapt", "Reflection at start-up"],
+  "answer": 0, "why": "The serializer goes inside the class, with a `serializer()` function on its companion, which changes a class you wrote. Only a compiler plugin can do that. A KSP processor could write a separate serializer class next to it, which is a different design."},
  {"q": "A module runs Moshi's codegen with KSP and one Java-only processor with kapt. Why is the build still slow?",
-  "options": ["KSP and kapt can't run in one module", "kapt still writes Java stubs of every class in the module for the one processor left", "KSP processes kapt's stubs again", "Moshi runs twice"],
-  "answer": 1, "why": "kapt runs Java processors on Java stubs of the module's Kotlin classes, and writing the stubs is the cost. As long as one kapt processor remains in a module, the stubs are written there. KSP and kapt can run side by side, which is how a migration goes one library at a time."}
+  "options": ["KSP and kapt can't run in one module", "KSP processes kapt's stubs again", "kapt still writes Java stubs of every class in the module for the one processor left", "Moshi runs twice"],
+  "answer": 2, "why": "kapt runs Java processors on Java stubs of the module's Kotlin classes, and writing the stubs is the cost. As long as one kapt processor remains in a module, the stubs are written there. KSP and kapt can run side by side, which is how a migration goes one library at a time."}
 ]
 
 T = {"id": "ksp", "intro": INTRO, "cheatsheet": CHEAT, "recap": RECAP, "quiz": QUIZ}

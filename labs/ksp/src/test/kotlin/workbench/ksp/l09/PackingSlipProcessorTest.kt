@@ -62,7 +62,7 @@ class PackingSlipProcessorTest {
     fun `the KSP port writes the javac processor's packing slip, byte for byte`() {
         val run = compileWithKsp(things, plant, processors = listOf(PackingSlipProcessorProvider()), options = mapOf(HOUSEHOLD to "Okafor"))
 
-        assertThat(run.exitCode).isEqualTo(ExitCode.OK)
+        assertThat(run.exitCode).describedAs(run.messages).isEqualTo(ExitCode.OK)
         assertThat(run.slip()).isEqualTo(resources.resolve("javac-packing-slip.txt").readText())
     }
 
@@ -70,7 +70,7 @@ class PackingSlipProcessorTest {
     fun `without the household option the slip is headed MoveMate`() {
         val run = compileWithKsp(plant, processors = listOf(PackingSlipProcessorProvider()))
 
-        assertThat(run.exitCode).isEqualTo(ExitCode.OK)
+        assertThat(run.exitCode).describedAs(run.messages).isEqualTo(ExitCode.OK)
         assertThat(run.slip()).isEqualTo(
             "# MoveMate packing slip. Generated, do not edit.\n" +
                 "Plant [no room]: kind, potLitres, waterEveryDays\n",
@@ -95,7 +95,7 @@ class PackingSlipProcessorTest {
 
         // javac said:  bad/movemate/Shape.java:6: error: @Inventory goes on a class, but Shape is an interface
         val javacText = resources.resolve("javac-messages.txt").readLines().first().substringAfter("error: ")
-        assertThat(run.exitCode).isEqualTo(ExitCode.COMPILATION_ERROR)
+        assertThat(run.exitCode).describedAs(run.messages).isEqualTo(ExitCode.COMPILATION_ERROR)
         assertThat(run.messages).containsPattern("""e: \[ksp] \S*/Shape\.kt:6: """ + Regex.escape(javacText))
     }
 
@@ -115,7 +115,7 @@ class PackingSlipProcessorTest {
 
         val run = compileWithKsp(van, processors = listOf(PackingSlipProcessorProvider()))
 
-        assertThat(run.exitCode).isEqualTo(ExitCode.COMPILATION_ERROR)
+        assertThat(run.exitCode).describedAs(run.messages).isEqualTo(ExitCode.COMPILATION_ERROR)
         assertThat(run.messages).containsPattern("""e: \[ksp] \S*/Van\.kt:6: @Inventory goes on a class, but Van is an object""")
     }
 

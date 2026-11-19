@@ -55,7 +55,7 @@ class MasterListProcessorTest {
         val run = compileWithKsp(lampAndPlant, boxAndShelf, processors = listOf(MasterListProcessorProvider()), options = jobSheet)
 
         // 1. the exit code: OK also proves the list was written once, though KSP ran a second round
-        assertThat(run.exitCode).isEqualTo(ExitCode.OK)
+        assertThat(run.exitCode).describedAs(run.messages).isEqualTo(ExitCode.OK)
         // 2. the generated text
         assertThat(run.generated("movemate/MovingDayList.kt")).isEqualTo(
             """
@@ -102,7 +102,7 @@ class MasterListProcessorTest {
             options = mapOf(LIST_NAME to "PackingList", LIST_PACKAGE to "movemate.lists"),
         )
 
-        assertThat(run.exitCode).isEqualTo(ExitCode.OK)
+        assertThat(run.exitCode).describedAs(run.messages).isEqualTo(ExitCode.OK)
         val text = run.generated("movemate/lists/PackingList.kt")
         assertThat(text)
             .contains("package movemate.lists")
@@ -116,7 +116,7 @@ class MasterListProcessorTest {
     fun `a missing movemate listName is an error that says how to fix it`() {
         val run = compileWithKsp(lampAndPlant, processors = listOf(MasterListProcessorProvider()))
 
-        assertThat(run.exitCode).isEqualTo(ExitCode.COMPILATION_ERROR)
+        assertThat(run.exitCode).describedAs(run.messages).isEqualTo(ExitCode.COMPILATION_ERROR)
         assertThat(run.messages).contains(
             "e: [ksp] MasterListProcessor needs the processor option movemate.listName, the name of the list it generates. " +
                 "Add ksp { arg(\"movemate.listName\", \"MovingDayList\") } to the build file.",
@@ -132,7 +132,7 @@ class MasterListProcessorTest {
             options = mapOf(LIST_NAME to "moving-day"),
         )
 
-        assertThat(run.exitCode).isEqualTo(ExitCode.COMPILATION_ERROR)
+        assertThat(run.exitCode).describedAs(run.messages).isEqualTo(ExitCode.COMPILATION_ERROR)
         assertThat(run.messages)
             .contains("e: [ksp] movemate.listName must be a class name such as MovingDayList, but it is 'moving-day'")
         assertThat(run.generated).isEmpty()
