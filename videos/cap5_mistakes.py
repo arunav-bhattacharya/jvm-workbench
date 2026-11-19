@@ -203,7 +203,7 @@ class Cap5Mistakes(Narrated):
         hse = house(1.2).move_to([3.9, -0.9, 0])
         drv = person(SING, 1.3).move_to([2.2, -1.05, 0])
         clock = VGroup(Circle(radius=0.42).set_stroke(GREY_A, 3), Line(ORIGIN, UP * 0.3, stroke_width=3, color=GREY_A),
-                       Line(ORIGIN, LEFT * 0.0 + RIGHT * 0.22, stroke_width=3, color=GREY_A).rotate(-PI / 2, about_point=ORIGIN))
+                       Line(ORIGIN, 0.22 * np.array([-0.5, -0.87, 0]), stroke_width=3, color=GREY_A))
         clock.move_to([-5.6, 2.6, 0])
         seven = T("7:00 on moving day", 26, GREY_A).next_to(clock, RIGHT, buff=0.3)
         b_drv = bubble("I'll leave home when the truck picks me up.", SING, 24).move_to([2.6, 1.15, 0])
@@ -408,7 +408,7 @@ class Cap5Mistakes(Narrated):
         self.hold(after=0)
         self.predict(2.6, pos=(6.4, -2.0), edge=RIGHT)
 
-        red = CurvedArrow(B["DR"].get_bottom() + DOWN * 0.08 + LEFT * 0.2, B["TR"].get_bottom() + DOWN * 0.08, angle=-1.6,
+        red = CurvedArrow(B["DR"].get_bottom() + DOWN * 0.08 + LEFT * 0.2, B["TR"].get_bottom() + DOWN * 0.08, angle=-2.0,
                           color=BAD, stroke_width=5, tip_length=0.22)
         red_t = T("Driver asks for Truck: already on the path", 24, BAD).move_to([0.35, -1.55, 0])
         self.say("reveal")

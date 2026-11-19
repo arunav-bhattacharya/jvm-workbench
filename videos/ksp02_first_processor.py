@@ -145,7 +145,8 @@ def helper(s=1.0):
 
 
 def paper(lines, size=20, pad=0.16):
-    t = VGroup(*[M(l, size, INK) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.08)
+    """A paper label: one Text with line breaks, so every line sits on an even baseline."""
+    t = M("\n".join(lines), size, INK)
     r = Rectangle(width=t.width + 2 * pad, height=t.height + 2 * pad).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
     t.move_to(r)
     return VGroup(r, t)
@@ -213,8 +214,8 @@ def code_block(src, size=22, hl=None, color=WHITE):
 
 def part(t, s):
     """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
-    k = s.replace(" ", "")
-    i = t.text.replace(" ", "").index(k)
+    k = re.sub(r"\s", "", s)
+    i = re.sub(r"\s", "", t.text).index(k)
     return t[i:i + len(k)]
 
 
@@ -346,7 +347,7 @@ class Ksp02FirstProcessor(Narrated):
         self.play(Indicate(kt[2], color=HELPER, scale_factor=1.04), run_time=0.9)
         self.hold()
 
-        NX = 3.3
+        NX = 3.0
 
         def side(i, text, color=GREY_A, mono=False):
             t = (M(text, 20, color) if mono else T(text, 22, color))
@@ -355,7 +356,7 @@ class Ksp02FirstProcessor(Narrated):
         n5 = side(5, "LampInventoryCard.kt", CARD, mono=True)
         n4 = side(4, "in Lamp's package")
         n3 = side(3, "it came from Lamp.kt", BOX)
-        n6 = side(6, "write the text, then close", CARD)
+        n6 = side(6, "write the text, close it", CARD)
         self.say("readaloud")
         self.at_text("make a new file", lead=0.2)
         self.play(Indicate(kt[5], color=CARD, scale_factor=1.04), FadeIn(n5), run_time=0.8)
@@ -424,7 +425,7 @@ class Ksp02FirstProcessor(Narrated):
         kept = T("untouched", 22, GREY_B).next_to(k2, RIGHT, buff=0.3)
         self.say("deps2")
         self.play(Wiggle(b1, scale_value=1.06), run_time=1.0)
-        self.play(Indicate(k1[0], color=CARD, scale_factor=1.06), FadeIn(redo), FadeIn(kept), run_time=0.8)
+        self.play(Circumscribe(k1[0][0], color=CARD, buff=0.06), FadeIn(redo), FadeIn(kept), run_time=0.9)
         self.at(1)
         self.play(Indicate(k1[1], color=BOX, scale_factor=1.2), run_time=0.8)
         self.hold()
@@ -432,11 +433,16 @@ class Ksp02FirstProcessor(Narrated):
 
         # ================= the dollar trap =================
         src = M("val pairs = properties.joinToString(\", \") { \"$it=\\$$it\" }", 26, WHITE).move_to([0, 2.9, 0])
-        pieces = [("\"", WHITE), ("$it", HELPER), ("=", WHITE), ("\\$", NOTE), ("$it", HELPER), ("\"", WHITE)]
-        big = VGroup(*[M(t, 52, c) for t, c in pieces]).arrange(RIGHT, buff=0.02, aligned_edge=DOWN).move_to([-2.6, 1.0, 0])
-        lab_a = T("the processor's: filled in now", 22, HELPER).next_to(big[1], DOWN, buff=0.45).shift(LEFT * 0.6)
+        big = M("\"$it=\\$$it\"", 52, WHITE).move_to([-2.6, 1.0, 0])
+        p1, p3, p4 = big[1:4], big[5:7], big[7:10]
+        p1.set_color(HELPER)
+        p3.set_color(NOTE)
+        p4.set_color(HELPER)
+        lab_a = T("the processor's: filled in now", 22, HELPER).next_to(p1, DOWN, buff=0.45).shift(LEFT * 0.6)
         out_h = T("for the property name:", 24, GREY_A)
-        outp = VGroup(M("name", 44, HELPER), M("=", 44), M("$name", 44, CARD)).arrange(RIGHT, buff=0.03, aligned_edge=DOWN)
+        outp = M("name=$name", 44, WHITE)
+        outp[0:4].set_color(HELPER)
+        outp[5:10].set_color(CARD)
         outg = VGroup(out_h, outp).arrange(DOWN, buff=0.2).move_to([3.4, 1.0, 0])
         arr = Arrow(big.get_right() + RIGHT * 0.2, outg.get_left() + LEFT * 0.15, buff=0.05, stroke_width=3, color=GREY_B,
                     max_tip_length_to_length_ratio=0.12)
@@ -448,15 +454,15 @@ class Ksp02FirstProcessor(Narrated):
         self.play(FadeIn(card_h), FadeIn(card_t), run_time=0.7)
         self.at(2)
         self.play(FadeIn(big), run_time=0.6)
-        self.play(Indicate(big[1], color=HELPER, scale_factor=1.15), FadeIn(lab_a), run_time=0.9)
+        self.play(Indicate(p1, color=HELPER, scale_factor=1.15), FadeIn(lab_a), run_time=0.9)
         self.hold()
 
-        lab_b = T("not my dollar, the card's", 26, NOTE).next_to(big[3], UP, buff=0.4)
+        lab_b = T("not my dollar, the card's", 26, NOTE).next_to(p3, UP, buff=0.4)
         self.say("dollar2")
-        self.play(Circumscribe(big[3], color=NOTE, buff=0.08), run_time=1.0)
+        self.play(Circumscribe(p3, color=NOTE, buff=0.08), run_time=1.0)
         self.play(FadeIn(lab_b, shift=DOWN * 0.1), run_time=0.5)
         self.play(GrowArrow(arr), FadeIn(outg), run_time=0.8)
-        self.play(Indicate(outp[2], color=CARD, scale_factor=1.12), run_time=0.8)
+        self.play(Indicate(outp[5:10], color=CARD, scale_factor=1.12), run_time=0.8)
         self.at(2)
         later = T("plain strings know nothing about Kotlin: lesson 4", 24, GREY_A).move_to([0, -3.1, 0])
         self.play(FadeIn(later), run_time=0.6)
@@ -500,7 +506,8 @@ class Ksp02FirstProcessor(Narrated):
         rl1 = T("round 1", 26, NOTE).move_to([-5.7, R1, 0])
         rl2 = T("round 2", 26, NOTE).move_to([-5.7, R2, 0])
         sb1 = VGroup(named_box("Lamp", 1.2, 0.9, 18), named_box("Plant", 1.2, 0.9, 18)).arrange(RIGHT, buff=0.2).move_to([-3.4, R1, 0])
-        sn1 = VGroup(*[note("@", 18, 6).scale(0.8).move_to(b[0].get_corner(UL) + RIGHT * 0.2 + UP * 0.05) for b in sb1])
+        sn1 = VGroup(*[Rectangle(width=0.42, height=0.3).set_stroke(dim(NOTE, 0.7), 1.5).set_fill(NOTE, 1).rotate(6 * DEGREES)
+                       .move_to(b[0].get_corner(UL) + RIGHT * 0.22 + UP * 0.06).set_z_index(6) for b in sb1])
         h1 = helper(0.95).move_to([-0.95, R1, 0])
         oc = VGroup(*[VGroup(mini_card(CARD, 0.9, 0.6), T(n, 18, CARD)).arrange(DOWN, buff=0.06) for n in ("Lamp card", "Plant card")])
         oc.arrange(RIGHT, buff=0.25).move_to([1.6, R1, 0])
@@ -535,15 +542,14 @@ class Ksp02FirstProcessor(Narrated):
 
         bend1 = VGroup(T("sees new files", 22, GREY_A), T("only in the next round", 22, GREY_A)).arrange(DOWN, buff=0.06)
         bend1.move_to([4.7, R1 + 0.1, 0])
-        br = BraceBetweenPoints([0.0, R2 - 0.6, 0], [0.0, R1 + 0.6, 0], direction=RIGHT, color=HELPER).shift(LEFT * 0.35)
-        same = VGroup(T("one processor,", 20, HELPER), T("process()", 20, HELPER), T("each round", 20, HELPER)).arrange(DOWN, buff=0.04)
-        same.next_to(br, RIGHT, buff=0.1)
+        br = DashedLine(h1.get_bottom() + DOWN * 0.08, h2.get_top() + UP * 0.08, dash_length=0.1).set_stroke(HELPER, 2.5)
+        same = T("one processor: process() runs again each round", 22, HELPER).move_to([-0.5, 0.35, 0])
         self.say("bends")
         self.play(FadeOut(new_l), run_time=0.3)
         self.at(2)
         self.play(FadeIn(bend1), run_time=0.6)
         self.at(3)
-        self.play(FadeOut(empty), GrowFromCenter(br), FadeIn(same), Indicate(h1, color=HELPER), Indicate(h2, color=HELPER), run_time=1.0)
+        self.play(Create(br), FadeIn(same), Indicate(h1, color=HELPER), Indicate(h2, color=HELPER), run_time=1.0)
         self.hold()
         self.wipe()
 
@@ -591,12 +597,12 @@ class Ksp02FirstProcessor(Narrated):
         self.at(1)
         self.play(GrowArrow(b2), FadeIn(again, shift=RIGHT * 0.2), run_time=0.8)
         boom = VGroup(again, made)
-        self.play(Wiggle(boom, scale_value=1.1), boom.animate.set_color(BAD), run_time=0.9)
+        self.play(Wiggle(boom, scale_value=1.1), made[0].animate.set_stroke(BAD), made[1].animate.set_color(BAD), run_time=0.9)
         self.at(2)
         self.play(FadeIn(log_t), FadeIn(log), run_time=0.8)
         self.hold()
 
-        rule = T("a file may be created only once per build", 26, NOTE).move_to([0.3, 2.35, 0])
+        rule = T("a file may be created only once per build", 26, NOTE).move_to([0, 3.15, 0])
         jx = VGroup(T("javac:", 22, GREY_A), M("Filer", 22, GREY_A), T("throws", 22, GREY_A), M("FilerException", 22, BAD))
         jx.arrange(RIGHT, buff=0.15).next_to(rule, DOWN, buff=0.12)
         self.say("twice2")

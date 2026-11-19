@@ -1,0 +1,313 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:05.153
+Remember the helper with the clipboard?
+
+2
+00:00:05.153 --> 00:00:11.852
+During the build, it finds every box with an @Inventory sticky note, reads the label, and writes a new card.
+
+3
+00:00:11.852 --> 00:00:14.209
+Today, we write that helper ourselves.
+
+4
+00:00:14.400 --> 00:00:21.606
+In code, the helper is a processor: a class with one function, process, that KSP calls during the build.
+
+5
+00:00:21.606 --> 00:00:27.149
+KSP hands it a Resolver, the clipboard, which answers questions about your code.
+
+6
+00:00:27.333 --> 00:00:34.737
+Ask the clipboard for every symbol with the note, by its full name, package and all, and it answers: Lamp and Plant.
+
+7
+00:00:34.737 --> 00:00:37.800
+The wardrobe has no note, so it stays out of it.
+
+8
+00:00:38.667 --> 00:00:41.974
+Now here's a question that's easy to be shy about.
+
+9
+00:00:41.974 --> 00:00:44.487
+You run one build, with one processor.
+
+10
+00:00:44.487 --> 00:00:47.397
+So why would its process function run twice?
+
+11
+00:00:47.397 --> 00:00:48.720
+Hold on to that one.
+
+12
+00:00:49.667 --> 00:00:51.013
+First, the writing.
+
+13
+00:00:51.013 --> 00:00:53.704
+A card is just a file with text in it.
+
+14
+00:00:53.704 --> 00:00:59.159
+KSP hands the processor a code generator, and createNewFile makes a new file.
+
+15
+00:00:59.333 --> 00:01:09.964
+Read it aloud: make a new file called LampInventoryCard.kt, in Lamp's package, note that it comes from Lamp's source file, and write the card's text into it.
+
+16
+00:01:10.133 --> 00:01:14.412
+createNewFile hands back a stream, and the use block closes it.
+
+17
+00:01:14.412 --> 00:01:17.400
+KSP picks the file up only once it's closed.
+
+18
+00:01:17.600 --> 00:01:21.604
+A Java annotation processor does the same with javac's Filer.
+
+19
+00:01:21.604 --> 00:01:26.659
+createSourceFile takes the new class's full name, and the class it came from.
+
+20
+00:01:27.533 --> 00:01:30.157
+Now look at the first argument, Dependencies.
+
+21
+00:01:30.157 --> 00:01:32.781
+It names the source file this card came from.
+
+22
+00:01:32.781 --> 00:01:37.153
+In the picture, the helper writes the box number in the corner of the card.
+
+23
+00:01:37.333 --> 00:01:42.271
+Next weekend you repack one box, and only that box's card needs redoing.
+
+24
+00:01:42.271 --> 00:01:44.328
+That's what the corner is for.
+
+25
+00:01:44.328 --> 00:01:47.551
+Lesson 7 shows what goes wrong when it's blank.
+
+26
+00:01:48.467 --> 00:01:50.951
+One small trap hides in the text itself.
+
+27
+00:01:50.951 --> 00:01:55.112
+The card we generate is Kotlin, with its own template: dollar name.
+
+28
+00:01:55.112 --> 00:01:59.708
+But the processor is Kotlin too, so its template would fill that in early.
+
+29
+00:01:59.867 --> 00:02:02.801
+So we put a backslash before the second dollar.
+
+30
+00:02:02.801 --> 00:02:05.673
+The backslash says: not my dollar, the card's.
+
+31
+00:02:05.673 --> 00:02:14.415
+That's the first of several traps in writing code as plain strings, and lesson 4 trades the strings for a library that knows Kotlin's rules.
+
+32
+00:02:15.333 --> 00:02:20.067
+Now let's run the whole processor on two classes, Lamp and Plant.
+
+33
+00:02:20.067 --> 00:02:22.980
+It logs one line each time process runs.
+
+34
+00:02:22.980 --> 00:02:24.072
+How many lines?
+
+35
+00:02:24.072 --> 00:02:25.237
+Pause and guess.
+
+36
+00:02:28.267 --> 00:02:28.560
+Two.
+
+37
+00:02:28.560 --> 00:02:31.352
+Round 1: @Inventory on Lamp and Plant.
+
+38
+00:02:31.352 --> 00:02:34.069
+Round 2: @Inventory on an empty list.
+
+39
+00:02:34.069 --> 00:02:38.256
+Then the two cards it wrote, and the lamp's card, called.
+
+40
+00:02:38.400 --> 00:02:39.602
+That's our answer.
+
+41
+00:02:39.602 --> 00:02:43.473
+KSP calls process once per round, one pass over the files.
+
+42
+00:02:43.473 --> 00:02:51.817
+A round that writes new files earns another round, so those files get read too, in case they carry sticky notes of their own.
+
+43
+00:02:52.000 --> 00:02:55.663
+The new cards carry no notes, so round 2 finds nothing.
+
+44
+00:02:55.663 --> 00:03:00.258
+Nothing new is written, processing ends, and the compiler takes over.
+
+45
+00:03:00.258 --> 00:03:01.257
+The van leaves.
+
+46
+00:03:01.400 --> 00:03:03.004
+Here the picture bends.
+
+47
+00:03:03.004 --> 00:03:07.328
+A real helper would notice a new card the moment it's written.
+
+48
+00:03:07.328 --> 00:03:10.884
+KSP's helper sees new files only in the next round.
+
+49
+00:03:10.884 --> 00:03:18.835
+And it's the same helper every time: KSP creates the processor once per build, and calls process again each round.
+
+50
+00:03:19.733 --> 00:03:21.385
+Now let's be extra careful.
+
+51
+00:03:21.385 --> 00:03:30.074
+Instead of asking the clipboard for notes, a helper could walk through every file, every round, and write a card for each class with the note.
+
+52
+00:03:30.074 --> 00:03:31.359
+More thorough, right?
+
+53
+00:03:31.533 --> 00:03:34.910
+Round 1 sees Lamp.kt and writes its card.
+
+54
+00:03:34.910 --> 00:03:36.721
+What does round 2 see?
+
+55
+00:03:36.721 --> 00:03:38.039
+Pause and guess.
+
+56
+00:03:41.067 --> 00:03:45.393
+Round 2 sees both files: Lamp.kt, again, and the new card.
+
+57
+00:03:45.393 --> 00:03:52.031
+So the helper cheerfully starts Lamp's card a second time, and KSP stops the whole build.
+
+58
+00:03:52.031 --> 00:03:54.045
+FileAlreadyExistsException.
+
+59
+00:03:54.045 --> 00:03:55.984
+Exit code: internal error.
+
+60
+00:03:56.133 --> 00:03:57.727
+Careful once is good.
+
+61
+00:03:57.727 --> 00:03:59.625
+Careful twice is a crash.
+
+62
+00:03:59.625 --> 00:04:09.188
+A file may be created only once per build, in KSP, and in javac too, whose Filer throws a FilerException for the same mistake.
+
+63
+00:04:10.067 --> 00:04:12.114
+The clipboard protects you here.
+
+64
+00:04:12.114 --> 00:04:19.730
+In each round, getSymbolsWithAnnotation returns only symbols from that round's new files, plus any set aside for later.
+
+65
+00:04:19.730 --> 00:04:23.185
+That's why our real processor's round 2 found nothing.
+
+66
+00:04:23.333 --> 00:04:25.534
+So, three habits for writing files.
+
+67
+00:04:25.534 --> 00:04:26.980
+Write each output once.
+
+68
+00:04:26.980 --> 00:04:31.129
+Ask the resolver for what's new in this round, not for everything.
+
+69
+00:04:31.129 --> 00:04:33.707
+And name the source file in Dependencies.
+
+70
+00:04:34.600 --> 00:04:36.601
+So, why did process run twice?
+
+71
+00:04:36.601 --> 00:04:41.938
+Because writing a file earns another round, in case the new file carries a note.
+
+72
+00:04:41.938 --> 00:04:43.539
+Round 1 wrote two cards.
+
+73
+00:04:43.539 --> 00:04:47.875
+Round 2 read them, found nothing new, and the compiler took over.
+
+74
+00:04:48.067 --> 00:04:48.902
+Quick check.
+
+75
+00:04:48.902 --> 00:04:51.824
+The processor runs on Lamp, Plant and Box.
+
+76
+00:04:51.824 --> 00:04:55.233
+How many rounds, and what does the last one find?
+
+77
+00:04:58.467 --> 00:04:59.260
+Two rounds.
+
+78
+00:04:59.260 --> 00:05:05.755
+Round 1 writes three cards, and round 2 finds an empty list, because cards carry no notes.

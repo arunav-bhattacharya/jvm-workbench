@@ -460,14 +460,14 @@ class Cap5Payoff(Narrated):
                             stroke_width=3, tip_length=0.16)
             return a
 
-        lk1 = lookup(1, 0, "", 1.2)
-        lk2 = lookup(3, 0, "", 1.0)
+        lk1 = lookup(1, 0, "", 2.0)
+        lk2 = lookup(3, 0, "", 1.6)
         lk_t = T("looked up Truck", 22, WALK).move_to([-0.4, ry(1.5), 0])
         self.say("r2")
         self.play(Create(lk1), Create(lk2), FadeIn(lk_t), run_time=0.9)
         self.play(*dirty(1), *dirty(3), run_time=0.6)
         self.hold()
-        lk3 = lookup(2, 1, "", 1.5)
+        lk3 = lookup(2, 1, "", 2.0)
         lk3_t = T("looked up Crew", 22, WALK).move_to([-0.4, ry(2.6), 0])
         self.say("r3")
         self.play(FadeOut(ed), Create(lk3), run_time=0.7)
@@ -478,7 +478,7 @@ class Cap5Payoff(Narrated):
         cnt.move_to([0, -2.95, 0])
         self.say("r4")
         self.play(FadeIn(rm_t), *dirty(4), run_time=0.7)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(cnt, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
@@ -501,7 +501,8 @@ class Cap5Payoff(Narrated):
         for o in redone:
             o[0].set_stroke(OK, 3).set_fill(dim(OK, 0.25), 1)
         self.play(LaggedStart(*[FadeIn(o, scale=1.08) for o in redone], lag_ratio=0.3), run_time=1.4)
-        rd_t = T("redone", 24, OK).next_to(O[0], UP, buff=0.12).align_to(O[0], RIGHT)
+        rd_t = VGroup(Square(0.26).set_stroke(OK, 2.5).set_fill(dim(OK, 0.25), 1), T("redone", 24, OK)).arrange(RIGHT, buff=0.15)
+        rd_t.move_to([-6.4, -2.8, 0], aligned_edge=LEFT)
         self.play(FadeIn(rd_t), run_time=0.3)
         self.at(1)
         self.play(FadeIn(backup), FadeIn(backup_t), run_time=0.5)
@@ -514,7 +515,9 @@ class Cap5Payoff(Narrated):
         for s0, o in zip(starts, rest):
             self.remove(s0)
             self.add(o)
-        unt = T("untouched", 22, GREY_B).next_to(O[5], UP, buff=0.08).align_to(O[5], RIGHT)
+        unt = VGroup(Square(0.26).set_stroke(CARD, 2.5).set_fill(dim(CARD, 0.1), 1).set_opacity(0.55),
+                     T("back from backup, untouched", 24, GREY_B)).arrange(RIGHT, buff=0.15)
+        unt.move_to([-6.4, -3.22, 0], aligned_edge=LEFT)
         self.play(FadeIn(unt), run_time=0.4)
         self.hold()
         self.say("out_j")
@@ -563,7 +566,7 @@ class Cap5Payoff(Narrated):
         self.at(1)
         self.play(FadeIn(every), Indicate(comp, color=OK, scale_factor=1.05), run_time=0.8)
         self.at(3)
-        self.play(comp.animate.stretch_to_fit_width(6.8).move_to([-2.0, -2.65, 0]), every.animate.shift(RIGHT * 0.8), run_time=0.8)
+        self.play(comp[0].animate.stretch_to_fit_width(6.8), every.animate.shift(RIGHT * 0.8), run_time=0.8)
         self.at_text("a fair price", lead=0.3)
         self.play(FadeIn(price), run_time=0.6)
         self.hold()

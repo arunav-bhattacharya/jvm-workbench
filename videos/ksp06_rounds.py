@@ -300,6 +300,17 @@ def bubble(text, size=22, color=WHITE):
     return VGroup(tail, r, t.move_to(r))
 
 
+def terminal(lines, size=20, w=None, colors=None):
+    ls = VGroup(*[M(l or ".", size, (colors or {}).get(i, GREY_A)) for i, l in enumerate(lines)]).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+    for i, l in enumerate(lines):
+        if not l:
+            ls[i].set_opacity(0)
+    r = RoundedRectangle(corner_radius=0.1, width=(w or ls.width + 0.5), height=ls.height + 0.45).set_stroke(GREY_C, 1.5)
+    r.set_fill("#0b0b0b", 1)
+    ls.move_to(r).align_to(r.get_left() + RIGHT * 0.25, LEFT)
+    return VGroup(r, ls)
+
+
 class Ksp06Rounds(Narrated):
     """ksp-06, section 0: a receipt that needs its own card: rounds made visible. Moving-day receipts; the two lab
     processors (@Moving writes LampReceipt with @Inventory; the card processor) with the real LampReceipt.kt and card;

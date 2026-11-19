@@ -378,16 +378,16 @@ class Ksp05Errors(Narrated):
         self.clear()
 
         # the light moment: a tour of the helper's own pockets
-        hp2 = helper(1.6).move_to([-3.6, -0.6, 0])
+        hp2 = helper(1.6).move_to([-2.6, -0.6, 0])
         pockets = VGroup(*[Arrow([x, 2.2, 0], hp2.get_top() + RIGHT * (x + 3.6) * 0.08 + UP * 0.1, buff=0.15, stroke_width=2.5,
                                  color=HELPER, max_tip_length_to_length_ratio=0.12) for x in (-5.0, -3.6, -2.2)])
         frames = VGroup(*[M(s, 20, HELPER) for s in ("constructorParameters", "builderType", "builderFile")])
         for f_, x in zip(frames, (-5.0, -3.6, -2.2)):
             f_.move_to([x, 2.5, 0])
-        frames.arrange(RIGHT, buff=0.35).move_to([-3.6, 2.5, 0])
+        frames.arrange(RIGHT, buff=0.4).move_to([-2.6, 2.5, 0])
         for a_, f_ in zip(pockets, frames):
-            a_.put_start_and_end_on(f_.get_bottom() + DOWN * 0.08, hp2.get_top() + UP * 0.12 + RIGHT * (f_.get_center()[0] + 3.6) * 0.12)
-        wb = cbox(2.8, 1.3, ["interface Wardrobe"], 20).move_to([3.6, -0.9, 0])
+            a_.put_start_and_end_on(f_.get_bottom() + DOWN * 0.08, hp2.get_top() + UP * 0.12 + RIGHT * (f_.get_center()[0] + 2.6) * 0.12)
+        wb = cbox(2.8, 1.3, ["interface Wardrobe"], 20).move_to([4.2, -0.9, 0])
         wq = T("?", 54, BAD).next_to(wb, UP, buff=0.3)
         rule1 = rule_card("A crash shows where the processor broke, not where the user went wrong.", NOTE, 26).move_to([0, -3.0, 0])
         self.say("pockets")
@@ -426,9 +426,9 @@ class Ksp05Errors(Narrated):
         self.clear()
 
         # ================= the wish and the map: a note on the box itself =================
-        wb2 = cbox(3.4, 1.7, ["interface Wardrobe"], 22).move_to([-3.3, -0.4, 0])
+        wb2 = cbox(3.4, 1.7, ["interface Wardrobe"], 22).move_to([-4.6, -0.2, 0])
         wn2 = note("@Builder").move_to(wb2[0].get_corner(UR) + LEFT * 0.45 + DOWN * 0.02)
-        hp3 = helper(1.3).move_to([-0.3, -0.75, 0])
+        hp3 = helper(1.3).move_to([-1.9, -0.55, 0])
         t1 = tag(["needs a class to build", "Put @Builder on a class"], BAD, 20).move_to(wb2[0].get_corner(DR) + LEFT * 0.4 + DOWN * 0.15)
         self.say("wish")
         self.play(FadeIn(wb2), FadeIn(wn2), FadeIn(hp3), run_time=0.7)
@@ -442,10 +442,11 @@ class Ksp05Errors(Narrated):
             (wb2[0], VGroup(T("its place:", 24, HELPER), T("the file and the line", 24, WHITE)).arrange(RIGHT, buff=0.2)),
             (t1, VGroup(T("the words:", 24, OK), T("yours", 24, WHITE)).arrange(RIGHT, buff=0.2)),
         ]
-        labs = VGroup(*[m_[1] for m_ in mp]).arrange(DOWN, aligned_edge=LEFT, buff=0.3).move_to([3.5, 0.3, 0])
-        fit(labs, 6.0).move_to([3.6, 0.2, 0], aligned_edge=ORIGIN)
-        labs.align_to([1.2, 0, 0], LEFT)
+        labs = VGroup(*[m_[1] for m_ in mp]).arrange(DOWN, aligned_edge=LEFT, buff=0.32)
+        fit(labs, 7.3)
+        labs.move_to([-0.85, 0.4, 0], aligned_edge=LEFT)
         self.say("map")
+        self.play(FadeOut(hp3), run_time=0.4)
         for i in range(4):
             self.at(i + 1)
             self.play(FadeIn(labs[i], shift=LEFT * 0.1), Indicate(mp[i][0], color=labs[i][0].get_color(), scale_factor=1.04), run_time=0.7)
@@ -458,7 +459,7 @@ class Ksp05Errors(Narrated):
         jm.move_to([0, -3.45, 0])
         fit(jm, 12.4)
         self.say("levels")
-        self.play(FadeOut(hp3), LaggedStart(*[FadeIn(x, shift=UP * 0.1) for x in lv], lag_ratio=0.25), FadeIn(loud), run_time=1.2)
+        self.play(LaggedStart(*[FadeIn(x, shift=UP * 0.1) for x in lv], lag_ratio=0.25), FadeIn(loud), run_time=1.2)
         self.at(1)
         self.play(FadeOut(loud), FadeIn(jm, shift=UP * 0.1), run_time=0.6)
         self.hold()
@@ -485,8 +486,8 @@ class Ksp05Errors(Narrated):
         outp.move_to([PX + 5.525, -1.1, 0])
         src_l = T("ErrorLadderDemo, real output (paths cut to the file name)", 20, GREY_B).next_to(outp, DOWN, buff=0.08).align_to(outp, RIGHT)
 
-        def outlines(rows, size=20):
-            g = VGroup(*[M(t_, size, c_) for t_, c_ in rows]).arrange(DOWN, aligned_edge=LEFT, buff=0.16)
+        def outlines(rows, size=22):
+            g = VGroup(*[M(t_, size, c_) for t_, c_ in rows]).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
             fit(g, 10.6)
             return g.move_to([PX + 0.25, 0.8, 0], aligned_edge=UL)
 
@@ -564,10 +565,10 @@ class Ksp05Errors(Narrated):
         self.hold()
 
         o4 = outlines([("=== 4. every problem in one build, plus a warning: COMPILATION_ERROR", GREY_B),
-                       ("w: [ksp] Plant.kt:9: PlantBuilder can't see the default value of waterEveryDays, ...", WARN),
-                       ("e: [ksp] Crate.kt:6: Crate has no primary constructor, so CrateBuilder ...", BAD),
-                       ("e: [ksp] Wardrobe.kt:6: @Builder needs a class to build, but Wardrobe is an interface. ...", BAD),
-                       ("e: [ksp] Wardrobe.kt:9: @Builder needs a class to build, but Settings is an object. ...", BAD)])
+                       ("w: [ksp] Plant.kt:9: PlantBuilder can't see the default value ...", WARN),
+                       ("e: [ksp] Crate.kt:6: Crate has no primary constructor, so ...", BAD),
+                       ("e: [ksp] Wardrobe.kt:6: ... but Wardrobe is an interface. ...", BAD),
+                       ("e: [ksp] Wardrobe.kt:9: ... but Settings is an object. ...", BAD)])
         cont = VGroup(M("continue", 24, OK), T("instead of", 22, GREY_A), M("return", 24, GREY_B), T("(next section)", 22, GREY_B)).arrange(RIGHT, buff=0.2)
         cont.move_to([PX + 5.5, -2.55, 0])
         t4w = tag(["an interface"], BAD, 16).move_to(boxes["w"][0][0].get_corner(DR) + LEFT * 0.5 + DOWN * 0.2)
@@ -582,8 +583,6 @@ class Ksp05Errors(Narrated):
         self.play(FadeIn(t4s, shift=UP * 0.3, scale=0.8), Indicate(part(o4[4], "Wardrobe.kt:9:"), color=HELPER), run_time=0.7)
         self.at_text("Crate.kt line 6", lead=0.3)
         self.play(Indicate(t3, color=BAD), Indicate(part(o4[2], "Crate.kt:6:"), color=HELPER), run_time=0.7)
-        self.at(1)
-        self.play(FadeIn(VGroup(*files.values())), run_time=0.6)
         self.hold(after=0.6)
         self.clear()
 
@@ -591,10 +590,10 @@ class Ksp05Errors(Narrated):
         src = ["package movemate", "", "import workbench.ksp.annotations.Builder", "", "@Builder", "interface Wardrobe", "",
                "@Builder", "object Settings"]
         sl = code_block(src, 26, hl={"@Builder": NOTE})
-        sl.move_to([-2.2, 0.3, 0])
+        sl.move_to([-4.6, 0.3, 0], aligned_edge=LEFT)
         sn = VGroup()
         for i, l_ in enumerate(sl):
-            sn.add(M(str(i + 1), 24, GREY_C).move_to([-5.0, l_.get_center()[1], 0]))
+            sn.add(M(str(i + 1), 24, GREY_C).move_to([-5.2, l_.get_center()[1], 0]))
         sl_t = M("Wardrobe.kt", 24, BOX).next_to(VGroup(sn, sl), UP, buff=0.3).align_to(sn, LEFT)
         self.say("line_q")
         self.play(FadeIn(sl_t), FadeIn(sn), FadeIn(sl), run_time=0.8)

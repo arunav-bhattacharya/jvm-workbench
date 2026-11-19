@@ -52,23 +52,22 @@ N = {
              "points at the reader of the list, not at the note that lost it.",
     "rename": "Honestly, Dependencies with no file should have been called: please delete me later.",
     "all": "The third note plays it safe: Dependencies.ALL_FILES, made from everything. One comment in Lamp.kt, and "
-           "every file is dirty, 100 percent. KSP's own docs say it essentially disables incremental processing. "
-           "Correct, and slow.",
-    "clean": "Now, here's what makes these bugs sneaky. A clean build fixes all three, because it reads every box from "
-             "scratch. The kctfork tests pass too, because kctfork starts clean on every compile. Only an incremental "
-             "build, after an ordinary edit, shows the mistake.",
+           "every file is dirty. KSP's own docs say it essentially disables incremental processing. Correct, and "
+           "slow.",
+    "clean": "Here's what makes these bugs sneaky. A clean build fixes all three, because it reads every box from "
+             "scratch. So do the kctfork tests, which start clean on every compile. Only an incremental build, after "
+             "an ordinary edit, shows the mistake.",
     "java": "Java has one safety net here. When an isolating javac processor names no source element, Gradle "
-            "recompiles every file. Slow, but right. KSP has no such net. It believes your note.",
+            "recompiles every file: slow, but right. KSP believes your note.",
     "habit": "So it's tempting to run clean whenever something looks odd. That's redoing every card in the house "
              "because one looked wrong. It works, and it's how weekends disappear.",
     "rule": "So here's the rule. A generated file that's right after a clean build, and wrong after an edit, has the "
             "wrong Dependencies. Fix them. Don't make cleaning a habit.",
     "code": "Here's the right note in code. Read it aloud: this list came from the file of every class on it, each file "
-            "once, and new files can change it too. Java writes the same list with every class as its origin, and "
-            "marks the processor aggregating.",
-    "moral": "So, does a wrong Dependencies fail the build? No. It fails a later build, after an ordinary edit, and "
-             "only sometimes. A card for one box names its box. A list of many boxes names them all, and says yes "
-             "to new ones.",
+            "once, and new files can change it too. Java names every class as an origin, and marks the whole "
+            "processor aggregating.",
+    "moral": "So, does a wrong Dependencies fail the build? No. It fails a later build, after an ordinary edit. A card "
+             "for one box names its box. A list of many boxes names them all, and says yes to new ones.",
     "check": "Quick check. Your processor writes one builder per class, each made from its own class's file, and "
              "isolating. You add a new class. Does anything go stale?",
     "check_a": "No. The new file is dirty itself, so it gets its own builder, and no other output needs it. Only an "
@@ -554,11 +553,11 @@ class Ksp07Incremental(Narrated):
         self.say("none2")
         self.play(FadeOut(nc), run_time=0.4)
         self.play(FadeIn(lstb), FadeOut(lst1), run_time=0.6)
-        self.at(1)
+        self.at_text("added a comment", lead=0.2)
         self.play(FadeIn(cmg, scale=0.8), run_time=0.6)
-        self.at(2)
+        self.at(1)
         self.play(Create(pm), run_time=0.5)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(nobox), Indicate(hp, color=HELPER, scale_factor=1.08), run_time=0.8)
         self.at_text("and KSP threw", lead=0.2)
         self.play(FadeIn(bn), FadeIn(bnl), FadeOut(nlnk), run_time=0.5)
@@ -644,17 +643,15 @@ class Ksp07Incremental(Narrated):
 
         jv = VGroup(T("Java:", 26, GREY_A), T("an isolating javac processor that names no element", 24),
                     T("Gradle recompiles every file: slow, but right", 24, OK)).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
-        kt = VGroup(T("KSP:", 26, HELPER), T("no such net", 24), T("it believes your note", 24, NOTE)).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
+        kt = VGroup(T("KSP:", 26, HELPER), T("no such net:", 24), T("it believes your note", 24, NOTE)).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
         jk = VGroup(jv, kt).arrange(RIGHT, buff=1.0, aligned_edge=UP).move_to([0, -1.55, 0])
         fit(jk, 12.6)
         self.say("java")
         self.play(FadeIn(jv[0]), FadeIn(jv[1]), run_time=0.7)
-        self.at(1)
+        self.at_text("recompiles every", lead=0.2)
         self.play(FadeIn(jv[2], shift=UP * 0.1), run_time=0.6)
-        self.at(3)
-        self.play(FadeIn(kt[0]), FadeIn(kt[1]), run_time=0.6)
-        self.at(4)
-        self.play(FadeIn(kt[2], shift=UP * 0.1), run_time=0.5)
+        self.at(2)
+        self.play(FadeIn(kt, shift=UP * 0.1), run_time=0.6)
         self.hold()
 
         hb = VGroup(T("\"Just run clean\":", 26, GREY_A), T("redo every card because one looked wrong", 26)).arrange(RIGHT, buff=0.25)
@@ -709,7 +706,7 @@ class Ksp07Incremental(Narrated):
 
         # ================= moral and a check =================
         mq = T("Does a wrong Dependencies fail the build? No.", 32)
-        m1 = T("It fails a later build, after an ordinary edit, and only sometimes.", 28, GREY_A)
+        m1 = T("It fails a later build, after an ordinary edit.", 28, GREY_A)
         m2 = T("A card for one box names its box.", 30, CARD)
         m3 = T("A list of many boxes names them all, and says yes to new ones.", 30, VAN)
         mg = VGroup(mq, m1, m2, m3).arrange(DOWN, buff=0.3).move_to(UP * 1.6)

@@ -159,7 +159,8 @@ def helper(s=1.0):
 
 
 def paper(lines, size=20, pad=0.16):
-    t = VGroup(*[M(l, size, INK) for l in lines]).arrange(DOWN, aligned_edge=LEFT, buff=0.08)
+    """A paper label: one Text with line breaks, so every line sits on an even baseline."""
+    t = M("\n".join(lines), size, INK)
     r = Rectangle(width=t.width + 2 * pad, height=t.height + 2 * pad).set_stroke(GREY_B, 1.5).set_fill(PAPER, 1)
     t.move_to(r)
     return VGroup(r, t)
@@ -227,8 +228,8 @@ def code_block(src, size=22, hl=None, color=WHITE):
 
 def part(t, s):
     """The letters of Text t that spell s (Text keeps no submobjects for spaces)."""
-    k = s.replace(" ", "")
-    i = t.text.replace(" ", "").index(k)
+    k = re.sub(r"\s", "", s)
+    i = re.sub(r"\s", "", t.text).index(k)
     return t[i:i + len(k)]
 
 
@@ -700,10 +701,11 @@ class Ksp01Cards(Narrated):
         self.say("breaks")
         self.play(Create(floor), FadeIn(bx), FadeIn(hp2), run_time=0.8)
         self.at(1)
-        self.play(Rotate(flap, angle=0.45, about_point=flap.get_left()), hp2.animate.shift(LEFT * 0.6), run_time=1.0)
+        piv = flap.get_left()
+        self.play(Rotate(flap, angle=0.45, about_point=piv), hp2.animate.shift(LEFT * 0.6), run_time=1.0)
         self.at(2)
         nope = tick(False, 0.3).move_to(bx.get_top() + UP * 0.75 + RIGHT * 0.3)
-        self.play(Rotate(flap, angle=-0.45, about_point=flap.get_left()), Create(nope), FadeIn(cant), run_time=0.9)
+        self.play(Rotate(flap, angle=-0.45, about_point=piv), Create(nope), FadeIn(cant), run_time=0.9)
         self.at(3)
         relabel = VGroup(T("never repacks a box:", 26, BAD), T("it only adds new files", 24, CARD)).arrange(DOWN, buff=0.1)
         relabel.move_to([2.9, 1.0, 0])
