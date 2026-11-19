@@ -757,6 +757,70 @@
           "title": "Measure it, then make it start fast"
         }
       ]
+    },
+    {
+      "id": "ksp",
+      "lab": "ksp",
+      "title": "Kotlin Symbol Processing (KSP)",
+      "short": "Generate Kotlin code during the build: processors, the symbol model, KotlinPoet, errors, rounds, incremental builds and testing.",
+      "lessons": [
+        {
+          "id": "ksp-01",
+          "title": "Code that writes code: what KSP is and where it runs"
+        },
+        {
+          "id": "ksp-02",
+          "title": "Your first processor"
+        },
+        {
+          "id": "ksp-03",
+          "title": "Reading declarations, types and annotations"
+        },
+        {
+          "id": "ksp-04",
+          "title": "Generating code with KotlinPoet"
+        },
+        {
+          "id": "ksp-05",
+          "title": "Errors, validation and helpful messages"
+        },
+        {
+          "id": "ksp-06",
+          "title": "Rounds, generated code and deferral"
+        },
+        {
+          "id": "ksp-07",
+          "title": "Incremental builds and processor options"
+        },
+        {
+          "id": "ksp-08",
+          "title": "Testing a processor"
+        },
+        {
+          "id": "ksp-09",
+          "title": "Choosing the tool: KSP, reflection, kapt or a compiler plugin"
+        }
+      ]
+    },
+    {
+      "id": "cap5",
+      "lab": "injector",
+      "title": "Capstone: dependency injection at compile time",
+      "short": "Generate the wiring with KSP: factories, a component, and wiring mistakes caught as compile errors.",
+      "lessons": [
+        {
+          "id": "cap5-01",
+          "title": "Factories and a component, generated at build time"
+        },
+        {
+          "id": "cap5-02",
+          "title": "Wiring mistakes as compile errors"
+        },
+        {
+          "id": "cap5-03",
+          "title": "Measure the payoff, then meet the real tools"
+        }
+      ]
     }
   ],
   "sections": [
@@ -807,6 +871,15 @@
         "perf",
         "boot",
         "cap4"
+      ]
+    },
+    {
+      "id": "p5",
+      "title": "Code generation with KSP",
+      "short": "How KSP reads your code during the build and writes new code for it, then dependency injection generated at compile time.",
+      "tracks": [
+        "ksp",
+        "cap5"
       ]
     }
   ]
