@@ -222,8 +222,10 @@ Stubs follow ksp-labs.md's stub style so an unfinished processor never breaks th
   calls, labeled as loaded-machine numbers). When reflection is fine; when a compiler plugin is needed (it must
   change your code, as kotlinx.serialization and all-open do: link to kt-06); when kapt is still needed (a
   processor that only exists for Java) and how to migrate a library from kapt to KSP in Gradle. Real libraries
-  that ship KSP processors, as a short aside after the idea (Room, Moshi, Dagger and Hilt, Koin Annotations,
-  kotlin-inject, others from the notes, each in one plain sentence). KSP2 and version notes; multiplatform in
+  that ship KSP processors, as a short aside after the idea (Room 3 is KSP-only, Dagger and Hilt, kotlin-inject,
+  Moshi codegen, each in one plain sentence), and the opposite move: Koin and Arrow Optics now steer users from
+  their KSP processors to compiler plugins. Explain why with the picture (a helper can only add new cards; some
+  jobs need the mover who repacks the box), with dated sources from ksp_ecosystem_testing.md. KSP2 and version notes; multiplatform in
   one section (per-target ksp configurations). Lab: port a small javac annotation processor (given, in Java) to a
   KSP processor that generates the same output, with tests comparing both outputs; this drills the mapping
   between the two APIs. Close the track by handing off to the capstone.

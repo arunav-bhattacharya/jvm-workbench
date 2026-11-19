@@ -190,6 +190,13 @@ fun processorLab(lab: String) {
                 compilerOptions.optIn.add("org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi")
             }
         }
+        // the Kotlin compiler inside kctfork leaves a non-daemon thread running, so a demo that compiles in memory
+        // would never exit: the demo task starts -Pmain through src/demo/.../DemoLauncher.kt, which exits after it
+        tasks.named<JavaExec>("demo") {
+            val demoMain = providers.gradleProperty("main").getOrElse("missing.PassMainWithDashPmain")
+            mainClass.set("workbench.$lab.DemoLauncher")
+            setArgs(listOf(demoMain) + args.orEmpty())
+        }
         // kctfork works in build/kctfork/<task>/ (see KspCompile.kt in src/test): open it to read what was generated
         tasks.withType<Test>().configureEach {
             val dir = layout.buildDirectory.dir("kctfork/$name").get().asFile

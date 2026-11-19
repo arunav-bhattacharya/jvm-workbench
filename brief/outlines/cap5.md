@@ -57,7 +57,8 @@ for, `@Module` with `@Provides` functions for things the reader can't annotate (
   and confirm the generated code uses no reflection. Incremental behaviour in the app: change one class and read
   the incremental log (factories regenerate alone, the component regenerates because it aggregates). Then the
   real tools in a short aside after the idea, each in one plain sentence from the research notes: Dagger and
-  Hilt, kotlin-inject, Koin Annotations, and how their designs differ from ours. Lab: lazy and provider
+  Hilt, kotlin-inject, and Koin (whose KSP processor is now deprecated in favour of a compiler plugin), and how
+  their designs differ from ours. Lab: lazy and provider
   injection (`Lazy<T>` or `() -> T` for something expensive, such as the truck's GPS), plus a small benchmark
   demo; tests for laziness and for "no reflection at start" (the generated code references no java.lang.reflect).
   The closing looks back over the whole part.
