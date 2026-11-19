@@ -12,31 +12,28 @@ fg.SAY[:0] = [
 N = {
     "open": "Picture moving day. The truck needs a driver, the driver needs the route, and each packer needs a roll "
             "of tape. The crew can't start until the truck and the packers are ready.",
-    "open2": "Someone has to write the plan: who comes first, and what is shared. One truck for the whole day, but a "
-             "new roll of tape for each packer.",
-    "part4": "In Part 4, you built a small container that worked this out while the program ran, by reading your "
-             "classes with reflection. That's planning on the street, at seven in the morning, with the crew "
-             "waiting. This time, the build writes the plan the night before.",
+    "open2": "Someone has to write the plan: who comes first, and what is shared. One truck for the whole day, a new "
+             "roll of tape for each packer.",
+    "part4": "In Part 4, you built a container that worked this out while the program ran, by reflection. That's "
+             "planning on the street, at seven in the morning. This time, the build writes the plan the night before.",
     "cards": "KSP has already written one card per class: a factory, a small object that builds just that class. "
-             "DriverFactory takes a route and builds a driver. But no card says when to call it.",
+             "But no card says when to call it.",
     "shyq": "So here's a question that's easy to be shy about. The plan is a list of lines, one per member of the "
-            "crew. Does the order of those lines matter? Or will the compiler sort it out? Keep your guess.",
-    "pain": "By hand, the plan is the block near main that we've all written. Five lines are easy to keep right. "
-            "Eighty are not.",
-    "pain2": "Someone adds a parameter to Truck, and the block breaks. Or worse, it still compiles, "
-             "and quietly builds a second truck. The family finds out at seven, when two trucks are blocking the "
-             "street.",
-    "wish": "So we'd like the plan written by something that never gets bored, and never gets the order wrong.",
+            "crew. Does the order of those lines matter? Or will the compiler sort it out?",
+    "pain": "By hand, the plan is the block near main we've all written. Five lines are easy. Eighty are not.",
+    "pain2": "Someone adds a parameter to Truck, and the block breaks. Or worse, it still compiles, and quietly builds "
+             "a second truck. Two trucks, blocking the street at seven.",
+    "wish": "So we'd like the plan written by something that never gets the order wrong.",
     "graph": "First, let's draw who needs whom. Each arrow means needs. The moving day needs the crew and the route. "
              "The crew needs the truck and two packers.",
     "graph2": "The truck needs the driver, and the driver needs the route. Each packer needs its own roll of tape.",
-    "graph3": "Gold boxes exist once for the whole day: we call that a singleton. Purple ones are new every time "
-              "someone asks. The whole drawing is the graph of the day.",
-    "phone": "Now, how would you write the plan by hand, the night before? You'd phone round. Call the moving day "
-             "and ask: what do you need before you can start? Put it on hold, and call what it needs.",
+    "graph3": "Gold boxes exist once for the whole day: a singleton. Purple ones are new every time someone asks. "
+              "All together, that's the graph of the day.",
+    "phone": "How would you write the plan by hand? You'd phone round. Call the moving day and ask: what do you need "
+             "before you can start? Put it on hold, and call what it needs.",
     "map": "Let's map that. A call is the walk visiting one class. What do you need is reading its constructor. "
-           "Each line on the sheet says how to get one kind of thing, and that's called a binding.",
-    "rule": "And the one rule for the sheet: write someone down only when everything they need is already on it.",
+           "Each line on the sheet says how to get one kind of thing: that's a binding.",
+    "rule": "And one rule: write someone down only when everything they need is already on the sheet.",
     "predict": "The walk starts at the moving day. Which one lands on the sheet first?",
     "w1": "The moving day needs the crew. The crew needs the truck. The truck needs the driver. The driver needs "
           "the route.",
@@ -45,38 +42,35 @@ N = {
     "w4": "Back at the crew, the first packer needs a tape roll. The tape roll needs nothing: four. The packer: "
           "five.",
     "w5": "The second packer is already on the sheet. Same line, so we skip it. Now the crew has everything: six.",
-    "w6": "Back at the moving day, the route is already on the sheet. It's shared, not written twice. And the moving "
-          "day itself: seven.",
+    "w6": "Back at the moving day, the route is already on the sheet: shared, not written twice. And the moving day "
+          "itself: seven.",
     "asked": "Notice: the moving day was asked first, and written last. The walk never thinks about order. It just "
              "refuses to write anyone down before their helpers. Stubborn, and that's exactly the job.",
     "name": "That walk has two names. Depth first: follow one answer all the way down before you try the next. "
             "Post-order: write each one on the way back up, after everything it needs.",
     "name2": "In one sentence: a binding joins the plan when the walk leaves it.",
     "file": "Now the processor writes the sheet as Kotlin. This class is the component: it builds the whole crew. "
-            "Read it aloud. First the route, then the driver who needs it, then the truck.",
+            "First the route, then the driver who needs it, then the truck.",
     "file2": "The gold ones are vals, in the walk's order: one, two, three, six, seven. The purple ones became "
              "functions, below them. A function can sit anywhere, because it runs only when it's called.",
-    "file3": "The crew's line calls newPacker twice, and each call makes a new packer with a new roll of tape. The "
-             "app prints: one truck for the whole day, true. Tape rolls made: two.",
-    "java": "A javac processor would write the same plan in Java, with its fields in the same order.",
+    "file3": "The crew's line calls newPacker twice, so it gets two packers with two new rolls of tape. The app "
+             "prints: one truck for the whole day, true. Tape rolls made: two.",
     "break_q": "Now, back to our question. Say the processor wrote the driver's line above the route's. What "
                "happens? Does it run anyway, does the driver get null, or does it not compile?",
-    "break_a": "It doesn't compile. Kotlin runs these lines from top to bottom, the way Java runs field "
-               "initializers. The driver's line reads a route that isn't there yet, and the compiler says: "
-               "Variable 'route' must be initialized. javac says: illegal forward reference.",
+    "break_a": "It doesn't compile. Kotlin runs these lines top to bottom, like Java's field initializers. The "
+               "driver's line reads a route that isn't there yet: Variable 'route' must be initialized. In Java, "
+               "javac says: illegal forward reference.",
     "break_j": "In moving-day terms, Sam is told to drive before anyone has printed the route. He's not going "
                "anywhere, and neither is the build. So the order isn't decoration. It's what makes the class compile.",
-    "code": "Here's the walk on its own, from the lesson's drill. If the name is already on the sheet, return. "
-            "Otherwise visit everything it needs, then add the name. Java says the same in a few more words.",
-    "caution": "One caution. The walk looks at the sheet, but it never looks at who's on hold. Give it a driver who "
-               "waits for the truck, and it calls the truck, who calls the driver, who calls the truck, until the "
-               "stack runs out. The next lesson gives it that memory.",
-    "breaks": "And here the picture breaks. A real planner can improvise in the morning, when a neighbour turns up "
-              "with a ladder. A plan written by the build can't. Everything it will ever build has to be in it when "
-              "the build runs.",
+    "code": "Here's the walk in code. If the name is already on the sheet, return. Otherwise visit everything it "
+            "needs, then add the name. Java says the same, a little longer.",
+    "caution": "One caution. The walk looks at the sheet, but never at who's on hold. Give it a driver who waits "
+               "for the truck, and it calls the truck, who calls the driver, who calls the truck, until the stack "
+               "runs out. The next lesson fixes that.",
+    "breaks": "And here the picture breaks. A real planner can improvise when a neighbour turns up with a ladder. "
+              "The build's plan can't.",
     "moral": "So, does the order of the lines matter? It's the whole point. The walk asks from the top and writes "
-             "from the bottom: each line after everything it needs. Shared things become vals, built once. The "
-             "rest become functions, built on every call.",
+             "from the bottom. Shared things become vals, built once. The rest become functions, built on every call.",
     "check": "Quick check. Delete @Singleton from Truck. What does one truck for the whole day print?",
     "check_a": "It prints false. The truck becomes a function, newTruck. The crew got its truck when it was built, "
                "and truck() builds another one.",
@@ -319,9 +313,8 @@ class Cap5Component(Narrated):
         fit(when, 12.4)
         self.say("cards")
         self.play(FadeIn(small, lag_ratio=0.15), run_time=0.9)
-        self.at_text("DriverFactory takes", lead=0.3)
         self.play(FadeIn(c_drv, shift=DOWN * 0.1), run_time=0.7)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(when, shift=UP * 0.1), run_time=0.7)
         self.hold()
 
@@ -556,7 +549,7 @@ class Cap5Component(Narrated):
         self.play(travel(A[("MD", "RT")], WALK, 0.6), run_time=0.7)
         shared = T("shared", 24, OK).next_to(B["RT"], UP, buff=0.18).shift(RIGHT * 0.6)
         self.play(FadeIn(shared), Indicate(entries[0], color=SING), run_time=0.8)
-        self.at(2)
+        self.at(1)
         drop("MD", 7)
         self.hold()
 
@@ -607,7 +600,7 @@ class Cap5Component(Narrated):
         ftitle = T("GeneratedMovingDayComponent.kt   (blank lines removed)", 24, CARD).move_to([0, 3.2, 0])
         self.say("file")
         self.play(FadeIn(ftitle), FadeIn(code[:2]), FadeIn(code[9:]), run_time=0.8)
-        self.at_text("Read it", lead=0.3)
+        self.at_text("First the route", lead=0.3)
         for i in (2, 3, 4):
             self.play(FadeIn(code[i], shift=RIGHT * 0.1), FadeIn(cb[i], scale=1.3), run_time=0.55)
             self.wait(0.25)
@@ -636,27 +629,7 @@ class Cap5Component(Narrated):
         self.play(FadeIn(out[1]), run_time=0.5)
         self.hold()
 
-        jsrc = ["public final class GeneratedMovingDayComponent implements MovingDayComponent {",
-                "  private final Route route = RouteFactory.create();",
-                "  private final Driver driver = DriverFactory.create(route);",
-                "  private final Truck truck = TruckFactory.create(driver);",
-                "  private final Crew crew = CrewFactory.create(truck, newPacker(), newPacker());",
-                "  private final MovingDay movingDay = MovingDayFactory.create(crew, route);",
-                "  private TapeRoll newTapeRoll() { return TapeRollFactory.create(); }",
-                "  private Packer newPacker() { return PackerFactory.create(newTapeRoll()); }",
-                "  @Override public MovingDay movingDay() { return movingDay; }",
-                "  @Override public Truck truck() { return truck; }",
-                "}"]
-        jcode = code_block(jsrc, 22)
-        fit(jcode, 12.6).move_to([0, 0.55, 0])
-        jtitle = T("the same plan in Java, as a javac processor would write it", 24, GREY_B).move_to([0, 3.2, 0])
-        self.say("java")
-        self.play(FadeOut(VGroup(code, *cb.values(), ftitle, outg)), run_time=0.5)
-        self.play(FadeIn(jtitle), FadeIn(jcode, shift=UP * 0.1), run_time=0.8)
-        self.at_text("in the same order", lead=0.4)
-        self.play(Circumscribe(VGroup(*jcode[1:6]), color=SING, buff=0.06), run_time=1.1)
-        self.hold()
-        self.play(FadeOut(VGroup(jcode, jtitle)), run_time=0.6)
+        self.play(FadeOut(VGroup(code, *cb.values(), ftitle, outg)), run_time=0.6)
 
         # ================= break it: swap two lines =================
         bl = code_block(["private val route: Route = RouteFactory.create()",
@@ -694,7 +667,7 @@ class Cap5Component(Narrated):
         self.play(GrowArrow(reads), FadeIn(reads_t), run_time=0.7)
         self.at_text("Variable", lead=0.3)
         self.play(FadeIn(err_k, shift=UP * 0.1), run_time=0.6)
-        self.at_text("javac says", lead=0.3)
+        self.at_text("In Java", lead=0.3)
         self.play(FadeIn(err_j, shift=UP * 0.1), run_time=0.6)
         self.hold()
         sam = VGroup(person(SING, 0.9), truck_icon(SING, 0.7), map_icon(GREY_C, 0.8)).arrange(RIGHT, buff=0.35)

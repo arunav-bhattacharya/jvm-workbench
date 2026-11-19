@@ -109,7 +109,7 @@ The functions hold two surprises. The constructor is a function named `<init>`; 
 
 Now look for what's missing. `waterEveryDays: Int (hasDefault)` says the parameter has a default value, and nothing more: the `7` is an expression, and KSP shows no expressions. `areaCm2(): Int` is there with its name and return type, and inside it `property area: Int`, because a local `val` is a named declaration too. The multiplication `widthCm * heightCm` is nowhere. That's lesson 1's limit, now proved: the helper reads labels, never what's packed.
 
-javac builds the same kind of tree from `Element`s: a `TypeElement` for a class, an `ExecutableElement` for a method or constructor, and a `VariableElement` for a field or parameter. Walking a class's members looks much the same in both:
+Java has had annotation processors since Java 6, and KSP is Kotlin's own, faster way to do the same job for Kotlin code. javac builds the same kind of tree for them, from `Element`s: a `TypeElement` for a class, an `ExecutableElement` for a method or constructor, and a `VariableElement` for a field or parameter. Walking a class's members looks much the same in both:
 
 """ + pair(J_WALK, K_WALK) + """
 

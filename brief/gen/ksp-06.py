@@ -89,7 +89,7 @@ S0 = """This lesson's lab has two processors. The receipt processor is new: for 
 
 The card processor must write a card for a class that the receipt processor writes during the same build. How can it see that class?
 
-The answer is rounds. A round is one pass in which KSP calls `process()` on every processor, one after another, in the order of the services file. Each call gets a new `Resolver`, the object a processor asks for symbols. In round 1, the Resolver offers the source files. When a round is over, KSP reads the files written during it, and the next round offers those, plus the symbols set aside the round before. A new round starts only if the previous one wrote at least one file.
+The answer is rounds. A round is one pass in which KSP calls `process()` on every processor, one after another, in the order of the services file. Each call gets a new `Resolver`, the object a processor asks for symbols. In round 1, the Resolver offers the source files. When a round is over, KSP reads the files written during it, and the next round offers those, plus the symbols set aside the round before. A new round starts only if the previous one wrote at least one file. javac, which has run Java's annotation processors since Java 6, works in rounds too. KSP is Kotlin's own, faster way to do the same job for Kotlin code.
 
 To watch the rounds, count them. KSP's docs say it "creates a processor instance only once", so a field lives from round to round. The Resolver must not be kept: each round brings a new one. Both lab processors log each round with `logger.warn`, so it shows at Gradle's default log level:
 

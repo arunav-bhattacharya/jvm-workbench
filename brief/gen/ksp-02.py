@@ -119,7 +119,7 @@ Let's walk through the Kotlin version from the top. KSP calls the provider's `cr
 
 KSP then calls `process` with a `Resolver`, the helper's clipboard: it answers questions such as "which symbols carry this note?" `process` returns the symbols it couldn't handle yet, and an empty list means "all done". The `apiFeatures` line opts in to newer KSP behavior; without it, KSP 2.3.14 prints three notes on every run asking you to.
 
-Two things differ in the Java twin. Java has no provider: javac creates the processor itself, through a public constructor with no parameters. And `@SupportedAnnotationTypes` tells javac which annotations the processor wants, while every KSP processor simply sees every file.
+Java has had annotation processors like this one since Java 6, and KSP is Kotlin's own, faster way to do the same job for Kotlin code. Two things differ in the Java twin. Java has no provider: javac creates the processor itself, through a public constructor with no parameters. And `@SupportedAnnotationTypes` tells javac which annotations the processor wants, while every KSP processor simply sees every file.
 
 The services file is one line, the provider's full class name:
 

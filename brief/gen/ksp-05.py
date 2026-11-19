@@ -110,7 +110,7 @@ logger.error(
     cls,
 )"""
 
-S1 = """A processor talks to you through `KSPLogger`, which KSP passes in when it creates the processor. It has `error`, `warn`, `info` and `logging`, from loudest to quietest, and each takes a message and, optionally, a symbol. Gradle shows `warn` and `error` by default; `info` needs `--info`. Java's annotation processors have the same tool, the `Messager`, with `printMessage(kind, message, element)`. Here are two rungs of the ladder in both languages:
+S1 = """A processor talks to you through `KSPLogger`, which KSP passes in when it creates the processor. It has `error`, `warn`, `info` and `logging`, from loudest to quietest, and each takes a message and, optionally, a symbol. Gradle shows `warn` and `error` by default; `info` needs `--info`. Java's annotation processors, which javac has run since Java 6, have the same tool, the `Messager`, with `printMessage(kind, message, element)`. KSP is Kotlin's own, faster way to do their job for Kotlin code. Here are two rungs of the ladder in both languages:
 
 """ + pair(J_REPORT, K_REPORT) + """
 
@@ -372,7 +372,7 @@ boolean check(Element element) {
   "run": "./gradlew :ksp:test --tests 'workbench.ksp.l05.*'",
   "steps": [
    "Open `BuilderProcessor.kt` in `labs/ksp/src/main/kotlin/workbench/ksp/l05/`. Lesson 4's processor is copied there as given code (`describe`, `builderFile` and the specs below it). Run the tests: all five fail, and the messages include `l05 not done yet: processBuilders: ...`.",
-   "Find: in `processBuilders`, ask the Resolver for the `@Builder` symbols, as in lesson 4. Split them with `partition { it.validate(apiFeatures = apiFeatures) }`; the ones that aren't valid are what `processBuilders` returns.",
+   "Find: in `processBuilders`, ask the Resolver, the clipboard KSP passes to `process`, for the `@Builder` symbols, as in lesson 4. Split them with `partition { it.validate(apiFeatures = apiFeatures) }`; the ones that aren't valid are what `processBuilders` returns.",
    "Check: write `check(symbol)`. Its KDoc lists the four rules in order and the exact message for each. Report each error on the exact symbol (the class, or the constructor when it is private) and each default-value warning on its parameter, and return `false` only for errors.",
    "Read and Write: for each valid symbol that passes `check`, call `builderFile(symbol as KSClassDeclaration).writeTo(codeGenerator, aggregating = false)`. After a failed check, `continue`: don't `return`.",
    "Prove: run the tests until all five pass. Then add a `@Builder interface Wardrobe` to `labs/ksp/app/src/l05/kotlin/workbench/ksp/app/l05/`, run `./gradlew :ksp:app:kspL05Kotlin -Pmine=l05`, read your own message with its full path, and delete the file again.",

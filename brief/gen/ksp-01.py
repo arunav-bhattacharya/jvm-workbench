@@ -206,7 +206,7 @@ class InventoryProcessor(private val codeGenerator: CodeGenerator) : SymbolProce
     }
 }"""
 
-S3 = """KSP runs as its own Gradle task, one step of the build, just before the Kotlin compiler. For the lesson 1 folder the task is `kspL01Kotlin`, and the compile task is `compileL01Kotlin`; in an ordinary project with one source folder they're called `kspKotlin` and `compileKotlin`. Gradle's `-m` flag lists the tasks a command would run, in order, without running them:
+S3 = """KSP runs as its own Gradle task, one step of the build, just before the Kotlin compiler. For the lesson 1 folder the task is `kspL01Kotlin`, and the compile task is `compileL01Kotlin`; in an ordinary project with one source folder they're called `kspKotlin` and `compileKotlin`. Gradle calls such a group of source folders a source set: an ordinary project has one, `main`, and this playground has one per lesson, `l01` here. Gradle's `-m` flag lists the tasks a command would run, in order, without running them:
 
 ```text
 $ ./gradlew :ksp:app:compileL01Kotlin -m
@@ -323,7 +323,7 @@ L = {
     "steps": [
      "Run `GeneratedCardDemo`. It compiles the new `Lamp` in memory with the ready-made processor and prints the card file it wrote.",
      "In the demo's source string, give `Lamp` one more property, `val colour: String`, and pass `\"white\"` to it in `deskLampCard()`. Predict the new card, then run it.",
-     "Now add `val price = watts * 2` inside the class body instead, as a property that isn't in the constructor. Predict whether the card shows it, then run."
+     "Now add `val heat = watts * 2` inside the class body instead, as a property that isn't in the constructor. Predict whether the card shows it, then run."
     ],
     "code": {"lang": "kotlin", "title": "GeneratedCardDemo.kt", "src": read(f"{lab}/demo/kotlin/workbench/ksp/l01/demo/GeneratedCardDemo.kt"),
              "run": RUN + "GeneratedCardDemoKt", "file": f"{lab}/demo/kotlin/workbench/ksp/l01/demo/GeneratedCardDemo.kt", "solo": True},

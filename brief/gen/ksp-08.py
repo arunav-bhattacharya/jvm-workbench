@@ -68,7 +68,7 @@ FIG = (
 )
 
 # ---------------------------------------------------------------- opening
-OPENING = """Before moving day, a careful family does a practice pack. One empty room, a few boxes, the helper with his clipboard, and a good look at the cards he writes. If he labels the lamp wrong, they want to find out today, in that room, not at the new house with the van gone.
+OPENING = """Before moving day, a careful family does a practice pack. One empty room, a few boxes, the helper with the clipboard, and a good look at the cards the helper writes. If the lamp gets the wrong card, they want to find out today, in that room, not at the new house with the van gone.
 
 Since the first lab of this track, you've run tests that someone else wrote: a few lines of Kotlin compiled in memory, then checks on what came out. Lesson 7 ended on their limit, because they never run a second, incremental build. Now you'll write that kind of test yourself, the way the author of a processor library does. The trap is a test that looks thorough and checks almost nothing: it passes, the processor is broken, and a lamp with no shade fails on a user's machine.
 
@@ -103,7 +103,7 @@ val run = bench.run(
 
 S0 = """A processor test needs four things. It needs a few lines of source code, and KSP to run the processor on them. It needs the Kotlin compiler, to compile the sources together with whatever was generated. And it needs a way to look at the results. A real Gradle build does all four, and takes seconds and a whole project per test. So processor tests run the compiler in memory instead, inside the test's own JVM.
 
-The library that does it here is **kctfork**, a community fork of Kotlin Compile Testing. It runs KSP2 and the Kotlin compiler on source code held in strings, in a fresh folder per compile, and hands back what happened. Its Maven group is `dev.zacsweers.kctfork`, and its classes still live in the old package, `com.tschuchort.compiletesting`. Java has had annotation processors, programs that javac runs while it compiles, since Java 6, and KSP is Kotlin's own way to do that job for Kotlin code. Java's processors have a test library of the same kind, Google's compile-testing, and kctfork describes itself as "in the spirit of" it.
+The library that does it here is **kctfork**, a community fork of Kotlin Compile Testing. It runs KSP2 and the Kotlin compiler on source code held in strings, in a fresh folder per compile, and hands back what happened. Its Maven group, the first part of the name a build uses to download it, is `dev.zacsweers.kctfork`, and its classes still live in the old package, `com.tschuchort.compiletesting`. Java has had annotation processors, programs that javac runs while it compiles, since Java 6, and KSP is Kotlin's own way to do that job for Kotlin code. Java's processors have a test library of the same kind, Google's compile-testing, and kctfork describes itself as "in the spirit of" it.
 
 Every test that calls kctfork by hand repeats the same dozen lines. A **test harness** is the reusable code around a test that does the setting up, the running and the collecting, so that each test states only what's special about it. This lesson's lab is one, `ProcessorBench`, and its tests use it on two processors from earlier lessons:
 
@@ -115,7 +115,7 @@ The result carries what the four checks need. One part is a **class loader**, th
 
 You may wonder why the compiler is a parameter of the bench. The plain reason is the build: kctfork is on this project's test and demo class paths only, and the bench lives in `src/main`, so it can't create a kctfork compile itself. Instead the bench asks for the one thing it needs, any `InMemoryCompiler`, and the tests hand it one. Giving an object what it needs, instead of letting it build its own, is called **dependency injection**, and this is it in miniature; the capstone after this track builds it at full size. That split pays for itself: the bench's message parsing and golden files are tested with no compiler at all, in milliseconds. A compile costs more. The first one in a test JVM takes 4 to 7 seconds while the compiler loads, and later ones under a second.
 
-In the picture, this is the practice pack: a few boxes in an empty room, the same helper, and a look at his cards. The picture breaks in one useful place. kctfork tidies the room after every practice pack, deleting its caches, so it never sees a second build. A compile that ran tells you almost nothing yet, though. The checks do the work."""
+In the picture, this is the practice pack: a few boxes in an empty room, the same helper, and a look at the cards. The picture breaks in one useful place. kctfork tidies the room after every practice pack, deleting its caches, so it never sees a second build. A compile that ran tells you almost nothing yet, though. The checks do the work."""
 
 # ---------------------------------------------------------------- section 1
 J_CHECKS = """// Closest Java equivalent: the same checks with compile-testing and Truth
@@ -338,7 +338,7 @@ L = {
   "files": [f"{lab}/main/kotlin/workbench/ksp/l08/ProcessorBench.kt", f"{lab}/main/kotlin/workbench/ksp/l08/GivenProcessors.kt", f"{lab}/test/kotlin/workbench/ksp/l08/BuilderProcessorTest.kt", f"{lab}/test/resources/workbench/ksp/l08/golden/LampBuilder.kt.golden"],
   "run": "./gradlew :ksp:test --tests 'workbench.ksp.l08.*'",
   "steps": [
-   "Read `GivenProcessors.kt`: copies of lesson 2's card processor and lessons 4 and 5's builder processor, given, so this lesson stands on its own. You won't change them; you'll test them.",
+   "Read `GivenProcessors.kt`: small copies of lesson 2's card processor and lessons 4 and 5's builder processor, given, so this lesson stands on its own. They are a little shorter than the originals: the setters use `apply`, and the messages are worded more briefly, so expect `@Builder goes on a class` where lesson 5 said `@Builder needs a class to build`. You won't change them; you'll test them.",
    "Read `ProcessorBench.kt`. Given: `Source`, the `InMemoryCompiler` interface, `Compiled`, `Message`, `newInstance`, the three `Regex` values and `GoldenResult`. Five functions are yours. Then read `KctforkCompiler.kt` in `src/test`: the compiler the tests plug in.",
    "Run the tests: all ten fail with `NotImplementedError`. This lab is the fifth move, Prove. Each check you build proves one of the other four moves: the messages prove Check, the generated text proves Read and Write, a call into the code proves Write from end to end, and the exit code proves the processor finished.",
    "Write `run` (trim each source, compile, wrap) and `generated` (walk the folder; paths with `/`). Then `parseMessage`: try the three `Regex` values in order, and keep only the file name of a path.",

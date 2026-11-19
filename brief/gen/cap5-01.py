@@ -57,7 +57,7 @@ FIG = (
 # ---------------------------------------------------------------- opening
 OPENING = """Picture moving day at a family's house. The truck needs a driver, the driver needs the route, and every packer needs a roll of tape. The crew can't start until the truck and the packers are ready. Someone has to work out the order, and what is shared: one truck for the whole day, but a new roll of tape for each packer.
 
-You can write that plan the night before, or work it out on the street at seven in the morning, with the crew waiting and the meter running. In Part 4's capstone you built a small dependency injection container, a program that builds your objects and hands each one what its constructor asks for. It did the second: it read your classes by reflection every time the program started. The last lesson, Choosing the tool, weighed reflection against KSP.
+You can write that plan the night before, or work it out on the street at seven in the morning, with the crew already waiting. In Part 4's capstone you built a small dependency injection container, a program that builds your objects and hands each one what its constructor asks for. It did the second: it read your classes by reflection every time the program started. The last lesson, Choosing the tool, weighed reflection against KSP.
 
 In this capstone we'll write the plan the night before. In this sitting, a KSP processor writes one factory per class, then a component that builds the whole crew in the right order. Before we start, make a guess, and keep it in mind."""
 

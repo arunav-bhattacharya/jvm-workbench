@@ -153,7 +153,7 @@ The string `"return %S"` is a format string: code text with placeholders, which 
 | `%S` | a string | a string literal, quoted, with `"` and `$` escaped |
 | `%L` | anything | the value as it is, with no escaping |
 
-`%S` given `Total: $5 for a "fragile" box` prints `"Total: ${'$'}5 for a \\"fragile\\" box"`, which is the same text as a Kotlin string, `$` and all. `%L` would paste it raw and break the file. Each placeholder knows the one rule its kind of value needs, which is exactly what the handwriting kept forgetting.
+`%S` given `Write $room on each "fragile" box` prints `"Write ${'$'}room on each \\"fragile\\" box"`, which is the same text as a Kotlin string, `$` and all. `%L` would paste it raw and break the file, and an unescaped `$room` would quietly read a variable named `room`. Each placeholder knows the one rule its kind of value needs, which is exactly what the handwriting kept forgetting.
 
 **Pass types with `%T` and names with `%N`. Never paste them into the format string.**
 
@@ -422,7 +422,7 @@ TypeSpec builderType(TypeElement type, List<? extends VariableElement> params) {
   "run": "./gradlew :ksp:test --tests 'workbench.ksp.l04.*'",
   "steps": [
    "Open `BuilderProcessor.kt` in `labs/ksp/src/main/kotlin/workbench/ksp/l04/` and run the tests first. All five fail with `KSP generated no movemate/LampBuilder.kt` and the warning `l04 not done yet: builderFile: ...`.",
-   "Find and Check are given, in `processBuilders`: it asks the Resolver for every `@Builder` symbol and skips anything that isn't a class declaration. Read them; lesson 5 makes Check strict.",
+   "Find and Check are given, in `processBuilders`: it asks the Resolver, the helper's clipboard that KSP passes to `process`, for every `@Builder` symbol and skips anything that isn't a class declaration. Read them; lesson 5 makes Check strict.",
    "Read is given too: `constructorParameters(cls)` lists the parameters, and inside each spec `param.type.toTypeName()` turns a type into a KotlinPoet `TypeName`.",
    "Write, the property: fill in `builderProperty` so it prints `private var name: String? = null`. Then the function and its parameter: `setterFunction`. Then the class: `builderType`, with the originating file. Then the file: `builderFile`, with the comment line from its KDoc. `buildFunction` is given; read how it uses `%T`, `%N` and `%S`.",
    "Prove: run the tests until all five pass. Then run it in the real build with your processor, `./gradlew :ksp:app:kspL04Kotlin -Pmine=l04`, open `labs/ksp/app/build/generated/ksp/l04/kotlin/workbench/ksp/app/l04/LampBuilder.kt`, and run `./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l04.MoveDayKt -Pmine=l04`. While your processor is unfinished, use only the `kspL04Kotlin` task: the app's code calls the builders, so compiling it fails until they exist.",
@@ -461,8 +461,8 @@ TypeSpec builderType(TypeElement type, List<? extends VariableElement> params) {
   {"q": "A processor tags its builder with `addOriginatingKSFile(...)` but calls `writeTo(codeGenerator, aggregating = false)` for a file that lists every `@Builder` class in the module. Where does the mistake show first?",
    "options": ["The processor doesn't compile: `aggregating` is checked against the content", "In the kctfork tests, which compile in memory", "Nowhere: KSP corrects the flag from the content", "On a later incremental build, as a list that silently misses classes"],
    "answer": 3, "why": "`aggregating` describes what the output depends on, and nothing checks it against what the file contains. A list of every class depends on every file, so it must be aggregating. Declared isolating, it is regenerated only from the files that changed, and the other classes drop out. A clean build and kctfork (which starts fresh each time) both look fine; lesson 7 reproduces the failure."},
-  {"q": "What does `%S` print for the Kotlin string `Total: $5 for a \"fragile\" box`?",
-   "options": ["`\"Total: ${'$'}5 for a \\\"fragile\\\" box\"`", "`Total: $5 for a \"fragile\" box`, unquoted", "`\"Total: $5 for a \\\"fragile\\\" box\"`, so `$5` becomes a template", "It throws, because `$` isn't allowed in `%S`"],
+  {"q": "What does `%S` print for the Kotlin string `Write $room on each \"fragile\" box`?",
+   "options": ["`\"Write ${'$'}room on each \\\"fragile\\\" box\"`", "`Write $room on each \"fragile\" box`, unquoted", "`\"Write $room on each \\\"fragile\\\" box\"`, so `$room` becomes a template", "It throws, because `$` isn't allowed in `%S`"],
    "answer": 0, "why": "`%S` writes a string literal that means exactly the text you passed: it adds quotes and escapes `\"` and `$`, which in Kotlin source would otherwise start a template. Unquoted output is what `%L` gives. If you want a real string template in the generated code, KotlinPoet has `%P`, which doesn't escape `$`."},
   {"q": "From lesson 3: `toTypeName()` on a parameter's `KSTypeReference` resolves the type before it converts it. What does resolving do, and why did lesson 3 call it the expensive step?",
    "options": ["It reads the type's name as written, which is free", "It loads the class with reflection while the processor runs", "It asks the compiler what the written name refers to, possibly across other files, and KSP records that lookup for incremental builds", "It compiles the generated file early to check the type"],

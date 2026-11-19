@@ -95,7 +95,7 @@ Gradle does this one task at a time. A task's **inputs** are the files and setti
 
 KSP goes one level further, inside its own task. When a source file did change, KSP works out which files must be processed again. Those are the **dirty** files, and the processors see only them in round 1. Every output of a clean file comes back from a copy KSP keeps under `build/kspCaches/`.
 
-Let's watch it decide. Lesson 7's source set in the playground, `labs/ksp/app/src/l07`, holds the four MoveMate classes, one per file, each with `@Inventory`, plus `MovingDay.kt`, which prints the cards, and its Java twin. The lesson's processor writes two kinds of output: a card per class, as in lesson 2, and one master list of every class, which we'll meet in the next section. The Gradle property `ksp.incremental.log` makes KSP write what it decided into `labs/ksp/app/build/kspCaches/l07/logs/`. After a first build, we added one comment line to `Lamp.kt` and built again:
+Let's watch it decide. The playground gives each lesson its own source set, a group of source folders that Gradle compiles together. Lesson 7's, `labs/ksp/app/src/l07`, holds the four MoveMate classes, one per file, each with `@Inventory`, plus `MovingDay.kt`, which prints the cards, and its Java twin. The lesson's processor writes two kinds of output: a card per class, as in lesson 2, and one master list of every class, which we'll meet in the next section. The Gradle property `ksp.incremental.log` makes KSP write what it decided into `labs/ksp/app/build/kspCaches/l07/logs/`. After a first build, we added one comment line to `Lamp.kt` and built again:
 
 ```bash
 ./gradlew :ksp:app:compileL07Kotlin -Pksp.incremental.log=true
