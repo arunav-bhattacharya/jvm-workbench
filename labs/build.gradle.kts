@@ -202,6 +202,8 @@ fun processorLab(lab: String) {
             val dir = layout.buildDirectory.dir("kctfork/$name").get().asFile
             systemProperty("kctfork.dir", dir.absolutePath)
             doFirst { dir.deleteRecursively() }
+            // the in-memory compiler is hungry; cap each test JVM so parallel builds fit on a small machine
+            maxHeapSize = "1536m"
         }
 
         // two processor jars per unit, each published as its own variant for :<lab>:app to ask for by capability
