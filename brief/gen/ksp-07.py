@@ -205,7 +205,7 @@ Dirty:
 Dirty / All: 12.50%
 ```
 
-A new file is tied to no output yet, and nothing marks the list as dirty, so the processor saw one class and wrote a list of one, right over the old one. The build passed. Then the program ran:
+A new file is tied to no output yet, so nothing marked the list as dirty. The processor saw one class and wrote a list of one, right over the old one. The build passed. Then the program ran:
 
 ```text
 MovingDayList: [Mirror]
@@ -270,7 +270,7 @@ tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.add("-Amovemate.listName=MovingDayList")
 }"""
 
-S3 = """The master list needs a name, and the processor can't guess it: one family calls it `MovingDayList`, another `PackingList`. A **processor option** is a key and a text value that the build passes to every processor, like a job sheet the moving company hands the helper with the address on it. In Gradle you write them in the module's build file:
+S3 = """The master list needs a name, and the processor can't guess it: one family calls it `MovingDayList`, another `PackingList`. A **processor option** is a key and a text value that the build passes to every processor. It's the job sheet the moving company hands the helper, with the address on it. In Gradle you write them in the module's build file:
 
 ```kotlin solo
 """ + GRADLE + """
@@ -280,7 +280,7 @@ In this lab, each lesson's source set has its own job sheet instead, `labs/ksp/a
 
 """ + pair(J_OPT, K_OPT) + """
 
-`movemate.listPackage` has a sensible default, so a missing value is fine. `movemate.listName` has none, so a missing value is an error that says what's missing, why it matters and the exact line to add, the three parts of a good message from lesson 5. The option isn't on any box, so the message has no file and line. We deleted the line from `ksp.properties` and ran KSP:
+`movemate.listPackage` has a sensible default, so a missing value is fine. `movemate.listName` has none, so a missing value is an error. Lesson 5's rule holds: say what is wrong and how to fix it. An option isn't on any box, though, so there's no symbol to say where, and the words name the place instead: the build file. We deleted the line from `ksp.properties` and ran KSP:
 
 ```text
 > Task :ksp:app:kspL07Kotlin FAILED
@@ -288,7 +288,7 @@ e: [ksp] MasterListProcessor needs the processor option movemate.listName, the n
 e: [ksp] MovingDay.kt:14: Unresolved reference 'MovingDayList'.
 ```
 
-The second line is a follow-on: the list was never written, so the code that uses it can't resolve. Fix the first line. The two sides differ in one more way: javac warns about an `-A` option that no processor declared in `@SupportedOptions`, and KSP passes every option to every processor without a word.
+The second line is a follow-on: the list was never written, so the code that uses it can't resolve. Fix the first line. The two sides differ in one more way. javac warns about an `-A` option that no processor declared in `@SupportedOptions`. KSP passes every option to every processor without a word.
 
 Now the trap. An option changes the output, so it must be one of the KSP task's inputs, or Gradle skips the task after you change it. `ksp { arg(key, value) }` is a tracked input: change the value, and KSP runs again. A lambda `CommandLineArgumentProvider` isn't, and its values can't contain spaces either. This lab's own wiring has the same trap, and the build showed it: we changed `ksp.properties`, and `kspL07Kotlin` stayed `UP-TO-DATE`. The lab passes those options through a KSP setting, `processorOptions`, that KSP 2.3.14 marks `@Internal`, which tells Gradle not to compare it. That's why every Try-it in this lesson runs `./gradlew :ksp:app:kspL07Kotlin --rerun` after an edit to `ksp.properties`: `--rerun` makes Gradle run that one task, and run it in full.
 
@@ -297,7 +297,7 @@ Now the trap. An option changes the output, so it must be one of the KSP task's 
 In the picture, the job sheet goes to every helper the company sends to this house, and to no other house. The picture breaks a little: one sheet serves every processor in the module at once, so name your keys with a prefix, as `movemate.` does here."""
 
 # ---------------------------------------------------------------- closing
-CLOSING = """We started a week after the move, with one more bulb for the reading lamp. KSP redid the lamp's card and the master list, and read the other boxes again only because the list came from them. Then we broke the list twice, once into a move with one mirror and once into no list at all, and both builds stayed green until something used the list.
+CLOSING = """We started a week after the move, with one more bulb for the reading lamp. KSP redid the lamp's card and the master list, and read the other boxes again only because the list came from them. Then we broke the list twice, into a move with one mirror and into no list at all, and both builds stayed green.
 
 In your own processors, find every `Dependencies(` and `writeTo(`, and ask of each output: does it list one box or many? If many, it says `aggregating = true`.
 

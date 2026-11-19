@@ -63,7 +63,7 @@ S0 = """Let's give lesson 4's processor something it didn't expect. A symbol is 
 interface Wardrobe
 ```
 
-KSP hands the processor a `KSClassDeclaration` whose `classKind` is `INTERFACE`. An interface has no constructor at all, so `primaryConstructor` is `null`, and lesson 4 read it without looking:
+KSP hands the processor a `KSClassDeclaration` whose `classKind` is `INTERFACE`. An interface has no constructor at all, so `primaryConstructor` is `null`. Lesson 4 read it without looking:
 
 """ + pair(J_CRASH, K_CRASH) + """
 
@@ -187,14 +187,14 @@ val (ready, later) = symbols.partition { it.validate(apiFeatures = apiFeatures) 
 // ... check and write the ready ones, as before
 return later        // KSP offers these again in the next round"""
 
-S3 = """Here is a class whose label mentions a type that doesn't exist, perhaps a typo, perhaps a type that another processor hasn't written yet:
+S3 = """Here is a class whose label mentions a type that doesn't exist. It may be a typo, or a type that another processor hasn't written yet:
 
 ```text
 @Builder
 class Parcel(val label: String, val sticker: Sticker)
 ```
 
-KSP doesn't stop at the unknown `Sticker`; it hands the processor a type it calls an error type, one the compiler can't resolve. The checks pass, `Parcel` is a class with a public primary constructor, and then KotlinPoet's `toTypeName()` meets the error type and throws:
+KSP doesn't stop at the unknown `Sticker`; it hands the processor a type it calls an error type, one the compiler can't resolve. The checks pass, because `Parcel` is a class with a public primary constructor. Then KotlinPoet's `toTypeName()` meets the error type and throws:
 
 ```text
 === without validate(): lesson 4's processor: INTERNAL_ERROR
@@ -219,7 +219,7 @@ Our builder needs a second round only when someone else writes `Sticker`. Lesson
 Checks catch only what you thought of. Put `@Builder` on `abstract class Furniture(val legs: Int)`: it is a class, its constructor is public, and every check passes. Then the compiler rejects the generated code, `e: FurnitureBuilder.kt:14:35 Cannot create an instance of an abstract class.`, pointing at a file the user never wrote. Each such case is one more check, written before you read."""
 
 # ---------------------------------------------------------------- closing
-CLOSING = """We started with a helper who dropped the clipboard at the first interface, and a build that said only `NullPointerException`. Now every bad box gets its own note, `Wardrobe.kt:6: ...`, in one pass, with a warning where the helper can help only halfway, and a box with an unknown word on its label waits instead of crashing the move.
+CLOSING = """We started with a helper who dropped the clipboard at the first interface, and a build that said only `NullPointerException`. Now every bad box gets its own note, `Wardrobe.kt:6: ...`, all in one pass. A box with an unknown word on its label waits instead of crashing the move.
 
 In a processor of your own, search for `!!` and for `as` casts on anything you got from the Resolver. Each one is a place where a check belongs, before the read.
 
