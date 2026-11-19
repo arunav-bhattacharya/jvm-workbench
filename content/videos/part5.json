@@ -5,6 +5,9 @@
     {"slug": "ksp04-kotlinpoet", "lesson": "ksp-04", "section": 1, "title": "KotlinPoet: build the file from specs, and let the placeholders write the imports"},
     {"slug": "ksp05-errors", "lesson": "ksp-05", "section": 1, "title": "From a crash to a note on the exact box: errors that name the file and line"},
     {"slug": "ksp06-rounds", "lesson": "ksp-06", "section": 0, "title": "Rounds made visible: a receipt written in round 1 gets its card in round 2, and a box set aside waits its turn"},
+    {"slug": "ksp07-incremental", "lesson": "ksp-07", "section": 2, "title": "Wrong Dependencies on purpose: a master list that shrinks to one line, and a build that stays green"},
+    {"slug": "ksp08-testing", "lesson": "ksp-08", "section": 1, "title": "Four checks, weakest first: a planted bug that two checks miss and two catch"},
+    {"slug": "ksp09-choosing", "lesson": "ksp-09", "section": 1, "title": "Jobs a helper can't do: when the class itself must change, and how to choose the tool"},
     {"slug": "cap5-component", "lesson": "cap5-01", "section": 2, "title": "The plan for the whole day: a generated component builds the crew in dependency order"},
     {"slug": "cap5-mistakes", "lesson": "cap5-02", "section": 2, "title": "The driver waits for the truck: finding a cycle the night before, with the whole path"},
     {"slug": "cap5-payoff", "lesson": "cap5-03", "section": 2, "title": "Proof, not promises: no reflection in the generated code, and what one edit rebuilds"}

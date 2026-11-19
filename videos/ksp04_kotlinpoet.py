@@ -488,8 +488,7 @@ class Ksp04KotlinPoet(Narrated):
         self.play(FadeIn(spec_w), Indicate(parts, color=WHITE, scale_factor=1.04), FadeOut(knows), run_time=0.8)
         self.play(VGroup(pr, kp, strip, parts, spec_w).animate.shift(UP * 0.85), run_time=0.6)
         for i in range(5):
-            self.at(2 + i if i < 1 else 2, lead=0.3) if i == 0 else None
-            self.at_text(rows[i][0] + (" describes" if i == 0 else ""), lead=0.25)
+            self.at_text(rows[i][0], lead=0.25)
             self.play(FadeIn(specs[i], shift=RIGHT * 0.1), run_time=0.45)
         self.at(3)
         self.play(FadeIn(bb), run_time=0.5)
@@ -533,7 +532,6 @@ class Ksp04KotlinPoet(Narrated):
         rbox = Circle(radius=0.62).set_stroke(BOX, 3).set_fill(dim(BOX, 0.26), 1).move_to([4.9, -2.55, 0])
         up_l = VGroup(Arrow(DOWN * 0.22, UP * 0.26, buff=0, stroke_width=4, color=INK, max_tip_length_to_length_ratio=0.4),
                       M("THIS WAY UP", 14, INK)).arrange(DOWN, buff=0.04)
-        up_p = paper([" "], 8, 0.05)
         up_bg = Rectangle(width=up_l.width + 0.16, height=up_l.height + 0.12).set_stroke(GREY_B, 1).set_fill(PAPER, 1)
         upg = VGroup(up_bg, up_l.move_to(up_bg)).move_to(rbox)
         port = T("on purpose: explicit visibility, portable code", 22, GREY_A).move_to([-1.2, -2.55, 0])
@@ -542,7 +540,6 @@ class Ksp04KotlinPoet(Narrated):
         self.at(1)
         self.play(FadeIn(port, shift=RIGHT * 0.1), run_time=0.6)
         self.hold()
-        del up_p
 
         jv = code_block(['MethodSpec.methodBuilder("greet")', "    .addModifiers(Modifier.PUBLIC)", "    .returns(String.class)",
                          '    .addStatement("return $S", "Hello from Lamp")', "    .build();"], 22,
@@ -733,7 +730,6 @@ class Ksp04KotlinPoet(Narrated):
 
         q1m = SurroundingRectangle(part(L["pShade"], "String?"), buff=0.05, color=NOTE, stroke_width=2.5)
         cpy = M("copy(nullable = true)", 22, NOTE).next_to(chips["shade"], RIGHT, buff=0.2)
-        fit(cpy, 12.8 - cpy.get_left()[0] - 6.4) if False else None
         cpy.move_to([FX + 3.0, -3.0, 0])
         self.say("asm2")
         self.play(Create(q1m), run_time=0.6)
