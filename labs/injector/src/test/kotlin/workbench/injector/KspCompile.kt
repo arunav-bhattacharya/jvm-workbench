@@ -55,7 +55,7 @@ class KspResult(val result: JvmCompilationResult, private val generatedDir: File
 
     /**
      * Everything the compiler and the processors printed, one message per line, for example
-     * `e: [ksp] /…/sources/Truck.kt:6: Truck(driver) ...`.
+     * `e: [ksp] /…/sources/Truck.kt:7: Truck needs a driver, and the smoke factory only builds …`.
      */
     val messages: String get() = result.messages
 
@@ -72,7 +72,7 @@ class KspResult(val result: JvmCompilationResult, private val generatedDir: File
     /** Loads a compiled class (yours or generated) by its binary name, for example `movemate.RouteFactory`. */
     fun loadClass(name: String): Class<*> = result.classLoader.loadClass(name)
 
-    /** Calls a top-level function without parameters, for example ("movemate.RouteHelloKt", "helloFromRoute"). */
+    /** Calls a top-level function without parameters, for example ("movemate.CrewKt", "crewSize"). */
     fun callTopLevel(fileClass: String, function: String): Any? =
         loadClass(fileClass).getMethod(function).invoke(null)
 

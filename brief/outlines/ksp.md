@@ -116,7 +116,7 @@ since Java 6 and that KSP is Kotlin's own, faster way to do the same job for Kot
 
 Kotlin 2.4.21, KSP 2.3.14 (KSP2), KotlinPoet and kotlinpoet-ksp 2.4.0, kctfork 0.14.0, Gradle 9.8.2, JUnit
 6.1.3, AssertJ 3.27.7, JDK 25 running the build with release 21. ksp-labs.md lists anything pinned. Don't add
-dependencies beyond those in labs/ksp/build.gradle.kts without saying why in your final message.
+dependencies beyond those in `processorLab()` (labs/build.gradle.kts) without saying why in your final message.
 
 ## Labs: build the muscle memory
 
@@ -145,7 +145,7 @@ Stubs follow ksp-labs.md's stub style so an unfinished processor never breaks th
   reflection while the program runs (works; show it with real output and a timing; costs run time, no check
   until it runs, needs every box unpacked at the new house), generate the code during the build. Define
   annotation, build, compile time, run time, code generation, annotation processor, KSP. Then watch a ready-made
-  processor (the track's solution processor for `@Inventory`) run in labs/ksp/app: `./gradlew :ksp:app:kspKotlin`,
+  processor (the track's solution processor for `@Inventory`) run in labs/ksp/app: `./gradlew :ksp:app:kspL01Kotlin` (app/src/l01/processors.txt lists l02),
   open build/generated/ksp/..., read the card function. Where KSP sits: a Gradle task that runs before the Kotlin
   compile; its output joins the compile. The two limits, stated as facts with the docs' words: KSP reads
   declarations, not bodies; it adds new files, never edits yours. The Java side: javac annotation processors,
