@@ -566,7 +566,7 @@ class Ksp06Rounds(Narrated):
         self.play(GrowArrow(a23), FadeIn(c3, shift=RIGHT * 0.2), run_time=0.8)
         self.at(1)
         self.play(Indicate(heads[3], color=NOTE), FadeIn(r4), FadeIn(c4), run_time=0.7)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(fin, shift=UP * 0.1), run_time=0.6)
         self.hold()
 

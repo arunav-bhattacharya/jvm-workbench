@@ -22,21 +22,19 @@ N = {
             "compiles.",
     "load_q": "Now Load. It lives in package movemate.van, and its field is a Box, from package movemate. What happens "
               "when the build compiles its builder?",
-    "load_a": "Unresolved reference Box: the template never wrote the import. And notice who complained. Not KSP, "
-              "which wrote the file without a word, but the Kotlin compiler, which reads a generated file exactly "
-              "like yours.",
+    "load_a": "Unresolved reference Box: the template never wrote the import. And notice who complained: not KSP, "
+              "but the Kotlin compiler, which reads a generated file exactly like yours.",
     "slips": "The others slip the same way. Lamp's shade gets a second question mark. A nested Drawer must be called "
              "Kitchen.Drawer. And a property named in, a Kotlin keyword, needs backticks.",
     "hand": "In the moving house, that's handwriting: a smudged mark, an abbreviation nobody explains, a forgotten room, "
             "and a word the reader takes as an order.",
     "patch": "You could patch each slip by hand, until you notice you've written a small program that prints Kotlin. "
              "Good news: somebody already wrote it, and tested it far better.",
-    "printer": "So swap the handwriting for a label printer. You don't type letters. You hand it the parts: a class "
-               "called LampBuilder, a field called name, of type String. It prints them, and it knows which names need "
-               "an import, where the question marks go, and which words are keywords.",
+    "printer": "So swap the handwriting for a label printer. You hand it parts, not letters: a class called LampBuilder, "
+               "a field called name, of type String. It knows which names need an import, where the question marks go, "
+               "and which words are keywords.",
     "map": "Let's map it. The printer is KotlinPoet, a library from Square. Each part is a spec: FileSpec for a file, "
-           "TypeSpec for a class, then PropertySpec, FunSpec and ParameterSpec. You make each one with a builder, and "
-           "finish it with build.",
+           "TypeSpec for a class, then PropertySpec, FunSpec and ParameterSpec.",
     "greet_q": "Let's shrink it to one spec: a function called greet, which returns a String, Hello from Lamp. Before "
                "it prints, guess what comes out.",
     "greet_a": "One line, with three habits. It wrote public by itself. It turned a one line return into an expression "
@@ -50,11 +48,10 @@ N = {
     "pS": "%S takes a string, and writes a string literal: in quotes, with quotes and dollar signs escaped.",
     "pL": "And %L pastes a value as it is, no questions asked.",
     "cat": "That %S line looks like a cat walked across the keyboard. But Kotlin reads it back as exactly your text, "
-           "dollar sign and all. Left bare, $room would quietly read a variable named room. Each placeholder knows the "
-           "one rule its kind of value needs, which is just what the handwriting forgot.",
-    "rule": "So pass types with %T, and names with %N. Never paste them into the format string.",
-    "asm": "Now the whole builder, spec by spec. Watch the top of the file: every type that goes in through %T joins "
-           "the import list.",
+           "dollar sign and all. Left bare, $room would quietly read a variable named room. So pass types with %T and "
+           "names with %N, never pasted into the format string.",
+    "asm": "Now the whole builder. Watch the top of the file: every type that goes in through %T joins the import "
+           "list.",
     "asm1": "FileSpec starts the file with its package, and TypeSpec adds the class. The first PropertySpec adds name, "
             "a String, and import kotlin.String appears. bulbs is an Int, so import kotlin.Int joins it, sorted. shade "
             "is a String again: nothing new.",
@@ -359,7 +356,7 @@ class Ksp04KotlinPoet(Narrated):
         self.play(FadeIn(err, shift=UP * 0.1), Create(ul), run_time=0.7)
         self.at_text("the template never", lead=0.3)
         self.play(Create(slot), FadeIn(slot_t), run_time=0.7)
-        self.at(2)
+        self.at_text("not KSP", lead=0.3)
         self.play(FadeIn(who[0]), run_time=0.5)
         self.at_text("but the Kotlin", lead=0.3)
         self.play(FadeIn(who[1]), run_time=0.5)
@@ -427,9 +424,9 @@ class Ksp04KotlinPoet(Narrated):
         fit(strip, 3.9)
         self.say("printer")
         self.play(FadeIn(pr, scale=0.9), run_time=0.8)
-        self.at(2)
+        self.at(1)
         self.play(LaggedStart(*[FadeIn(p_, shift=RIGHT * 0.2) for p_ in parts], lag_ratio=0.4), run_time=1.0)
-        self.at(3)
+        self.at_text("of type String", lead=0.1)
         pc = parts.copy()
         self.play(pc.animate.scale(0.4).move_to(pr[0].get_left() + RIGHT * 0.2).set_opacity(0), run_time=0.9)
         self.remove(pc)
@@ -452,7 +449,6 @@ class Ksp04KotlinPoet(Narrated):
         for s_ in specs:
             s_.arrange(RIGHT, buff=0.25)
         specs.arrange(DOWN, aligned_edge=LEFT, buff=0.14).move_to([-1.4, -2.0, 0])
-        bb = M(".builder(...) ... .build()", 24, GREY_B).next_to(specs, RIGHT, buff=0.6)
         self.say("map")
         self.at_text("The printer", lead=0.3)
         self.play(FadeIn(kp, shift=DOWN * 0.1), run_time=0.6)
@@ -462,8 +458,6 @@ class Ksp04KotlinPoet(Narrated):
         for i in range(5):
             self.at_text(rows[i][0], lead=0.25)
             self.play(FadeIn(specs[i], shift=RIGHT * 0.1), run_time=0.45)
-        self.at_text("You make", lead=0.3)
-        self.play(FadeIn(bb), run_time=0.5)
         self.hold()
         self.clear()
 
@@ -571,16 +565,13 @@ class Ksp04KotlinPoet(Narrated):
         self.play(Indicate(prow[2][2], color=WHITE, scale_factor=1.06), run_time=0.8)
         self.at(2)
         self.play(Indicate(part(prow[2][2], "$room"), color=BAD, scale_factor=1.3), run_time=0.8)
-        self.at(3)
-        self.play(*[Indicate(r[0], color=r[0].get_color(), scale_factor=1.25) for r in prow], run_time=1.0)
-        self.hold()
-
         rc = rule_card("Pass types with %T and names with %N. Never paste them into the format string.", NOTE, 28)
         rc.move_to([0, -3.25, 0])
-        self.say("rule")
+        self.at(3)
         self.play(FadeOut(cat_box), FadeOut(VGroup(fmt, blank_l)), VGroup(heads, *prow).animate.shift(UP * 1.2), run_time=0.6)
-        self.play(FadeIn(rc, shift=UP * 0.1), run_time=0.6)
-        self.hold(after=0.5)
+        self.play(FadeIn(rc, shift=UP * 0.1), *[Indicate(prow[i][0], color=prow[i][0].get_color(), scale_factor=1.25) for i in (0, 1)],
+                  run_time=0.9)
+        self.hold(after=0.8)
         self.clear()
 
         # ================= the key picture: specs assemble LampBuilder.kt =================

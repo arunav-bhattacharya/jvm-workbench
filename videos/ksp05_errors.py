@@ -12,62 +12,60 @@ fg.SAY[:0] = [
 # every spoken line, in order
 N = {
     "open": "Back to the move. Our helper prints a builder for every box with an @Builder note. Now someone puts the "
-            "note on an interface, Wardrobe. Kotlin allows that: to Kotlin, an interface is class-like.",
+            "note on an interface, Wardrobe, and Kotlin allows that.",
     "shyq": "Here's a question that's easy to be shy about. When a processor meets something it can't handle, why not "
             "just throw an exception? That's how the rest of our code says no.",
-    "npe_setup": "That's what lesson 4's processor does, by accident. It reads the primary constructor with two "
-                 "exclamation marks, which say: I'm sure it's there. An interface has no constructor at all. So what "
-                 "will the build tell you?",
+    "npe_setup": "Lesson 4's processor does just that, by accident. It reads the primary constructor with two exclamation "
+                 "marks: I'm sure it's there. An interface has none. So what will the build tell you?",
     "npe": "This. A NullPointerException, with no error message. No file, no line, no class name.",
     "trace": "Ask for the stack trace, the list of calls that were running when it was thrown. Over a hundred lines "
              "down sits the cause: constructorParameters, in BuilderProcessor.kt, line 88. Every frame points into "
              "the processor. None points at Wardrobe.kt, where the mistake is.",
     "pockets": "It's a very detailed tour of the helper's own pockets. So the point is, a crash shows where the "
                "processor broke, not where the user went wrong.",
-    "worse": "And a crash does more harm than a bad message. It stops KSP on the spot: the rest of the round doesn't "
-             "run, other processors never get their turn, and in KSP 2.3.14 even onError, the clean-up method, is "
-             "skipped. The helper dropped the clipboard in the hallway and walked off.",
+    "worse": "And a crash does more harm than a bad message. It stops KSP on the spot: the rest of the round never "
+             "runs, nor do the other processors, and in KSP 2.3.14 even onError, the clean-up method, is skipped. The "
+             "helper dropped the clipboard in the hallway and walked off.",
     "wish": "What we want is the opposite: a helper who sticks a note on the wrong box itself, saying what's wrong and "
             "what to do.",
     "map": "Let's map it. The note is a message from KSPLogger, the logger KSP hands every processor. The box is a "
-           "symbol, KSP's object for one declaration, such as a class. Its place in the house is the file and the "
-           "line. And the words on the note are yours.",
+           "symbol: KSP's object for one declaration. Its place in the house is the file and line. And the words are "
+           "yours.",
     "levels": "The logger has error, warn, info and logging, from loudest to quietest. Java's annotation processors "
               "have the same tool, called the Messager.",
-    "ladder": "Now let's climb a ladder, one rung at a time. Three bad boxes stay the same all the way: Wardrobe, an "
-              "interface; Settings, an object; and Crate, a class with no primary constructor. Each rung changes one "
-              "thing.",
+    "ladder": "Now let's climb a ladder. Three bad boxes stay the same all the way: Wardrobe, an interface; Settings, "
+              "an object; and Crate, with no primary constructor. Each rung changes one thing.",
     "r1": "Rung one, no check at all: the NullPointerException we just saw.",
     "r2": "Rung two adds a check, and calls logger.error with a message but no symbol. The build fails with a sentence "
           "now: @Builder can't build this. But which this?",
     "fridge": "It's like a note on the fridge that says: somebody broke something. True, and you still search the "
               "whole house. A message without a symbol has no where.",
     "r3_q": "Rung three passes the symbol as the second argument. What does KSP add to the message?",
-    "r3": "The where: Crate.kt, colon 6, in front of the message. In a real Gradle build that's the full path to the "
-          "file, which a good editor turns into a link. There's a line, and no column.",
+    "r3": "The where: Crate.kt, colon 6, in front of the message. A real Gradle build prints the full path, which a "
+          "good editor turns into a link, and a line, but no column.",
     "r3b": "But it reported Crate and stopped, and Wardrobe and Settings were just as wrong. The early stop was our "
            "choice: a return inside the loop.",
-    "r4": "Swap it for continue, the next section's fix, and the top rung puts a note on every bad box in one build: "
-          "Wardrobe.kt line 6, Wardrobe.kt line 9, Crate.kt line 6. One walk through the house, then one phone call, "
-          "instead of a call per box.",
+    "r4": "Swap it for continue, the next section's fix, and the top rung puts a note on every bad box in one "
+          "build: Wardrobe.kt line 6, Wardrobe.kt line 9, Crate.kt line 6. One walk, then one phone call, not a "
+          "call per box.",
     "line_q": "Now a detail that trips up almost everyone. In Wardrobe.kt, the @Builder note is on line 5, and "
               "interface Wardrobe is on line 6. Which line does the error name?",
     "line_a": "Line 6. A symbol's location is its declaration's line, not its annotation's. The helper's note goes on "
               "the box, not on the sticky note. So a test that expects line 5 fails.",
-    "good": "The symbol says where, so your sentence has two jobs: what is wrong, and how to fix it. Read it as a user "
-            "who never saw the processor's code. It names the annotation, the class, its kind and the next step, with "
-            "no word from KSP's own API.",
+    "good": "The symbol says where, so your sentence has two jobs: what is wrong, and how to fix it. Read it as a "
+            "user who never saw the processor's code: the annotation, the class, its kind, the next step, and no word "
+            "from KSP's own API.",
     "rule": "So every error names its symbol. The symbol is the where; your sentence is the what and the how.",
-    "java": "Here it is in both languages. Kotlin passes the class's symbol to logger.error. Java passes the element "
-            "to the Messager's printMessage, with the kind ERROR, and javac prints the file and line too, with the "
-            "source line and a caret under it.",
+    "java": "In both languages, the symbol goes along. Kotlin passes the class to logger.error. Java passes the "
+            "element to the Messager's printMessage, with the kind ERROR, and javac prints the file and line, with "
+            "the source line and a caret.",
     "trap": "Two guardrails. First, a trap with a polite name: logger.exception. It prints a line that starts with e, "
-            "just like an error. But in KSP 2.3.14, the build passes.",
+            "like an error, but in KSP 2.3.14 the build passes.",
     "rename": "It should have been called logger.mention. If you mean fail, call logger.error.",
     "before": "Second: check before you read. Every two exclamation marks, and every as cast on something from the "
               "Resolver, is a place where a check belongs, with a note on the symbol.",
-    "moral": "So, why not just throw? Because an exception points into the processor, stops everyone, and names no "
-             "box. logger.error with the symbol points at the user's own file and line. The symbol is the where. Your "
+    "moral": "So, why not just throw? An exception points into the processor, stops everyone, and names no box. "
+             "logger.error with the symbol points at the user's own file and line. The symbol is the where; your "
              "sentence is the what and the how.",
     "check": "Quick check. In the same file, @Builder is on line 8, and object Settings is on line 9. Which line does "
              "the error name?",
@@ -305,7 +303,7 @@ class Ksp05Errors(Narrated):
         self.at(2)
         self.play(FadeIn(ward, shift=DOWN * 0.2), run_time=0.7)
         self.play(FadeIn(wnote, scale=0.6), run_time=0.5)
-        self.at(3)
+        self.at_text("and Kotlin allows", lead=0.3)
         self.play(FadeIn(ok_t), run_time=0.5)
         self.hold()
 
@@ -641,7 +639,7 @@ class Ksp05Errors(Narrated):
         self.play(FadeIn(msg[2]), FadeIn(lw[2]), FadeIn(yours), run_time=0.6)
         self.at(1)
         self.play(Indicate(msg[1], color=BAD, scale_factor=1.03), run_time=0.8)
-        self.at(2)
+        self.at_text("the next step", lead=0.3)
         self.play(Indicate(msg[2], color=OK, scale_factor=1.03), run_time=0.8)
         self.hold()
 
@@ -684,7 +682,7 @@ class Ksp05Errors(Narrated):
         self.play(FadeIn(ex, shift=UP * 0.1), run_time=0.6)
         self.at(2)
         self.play(FadeIn(exo, shift=UP * 0.1), run_time=0.6)
-        self.at(3)
+        self.at_text("but in KSP", lead=0.3)
         self.play(FadeIn(exb, shift=UP * 0.1), run_time=0.6)
         self.hold()
 

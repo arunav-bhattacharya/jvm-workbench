@@ -664,7 +664,7 @@ class Cap5Component(Narrated):
         topdown_t = T("top to bottom", 22, GREY_B).next_to(topdown, DOWN, buff=0.12)
         self.play(GrowArrow(topdown), FadeIn(topdown_t), run_time=0.7)
         self.at(2)
-        self.play(GrowArrow(reads), FadeIn(reads_t), run_time=0.7)
+        self.play(Create(reads), FadeIn(reads_t), run_time=0.7)
         self.at_text("Variable", lead=0.3)
         self.play(FadeIn(err_k, shift=UP * 0.1), run_time=0.6)
         self.at_text("In Java", lead=0.3)
