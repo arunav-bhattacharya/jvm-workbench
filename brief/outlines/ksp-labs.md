@@ -102,7 +102,10 @@ No Gradle edits. Copy the smoke files and rename.
      set's KSP task only (lesson 7's `movemate.listName=MovingDayList`). This is the per-lesson equivalent of
      `ksp { arg(...) }`, which would reach every lesson. Options belong to the source set, not to the
      processor: a processor that runs on another lesson's source set through `processors.txt` does not get them
-     (checked).
+     (checked). Like `arg()`, `processorLab` puts each value into both settings of the KSP task,
+     `processorOptions` (what the processors read, `@Internal`) and `apOptions` (an `@Input`), so changing a
+     value makes the next build run KSP again, over every file. No `--rerun` is needed (checked with lesson 7's
+     `movemate.listName`).
 9. Check (from labs/):
    ```
    ./gradlew :ksp:solutionTest --tests 'workbench.ksp.lNN.*' --console=plain     # must pass

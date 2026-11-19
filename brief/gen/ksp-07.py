@@ -194,7 +194,7 @@ S2 = """A wrong `Dependencies` doesn't fail the build. It fails a later build, a
 
 """ + pair(J_WRONG, K_WRONG) + """
 
-The first one deserves a word of credit. `Dependencies(false, *files)` names every file the list came from, so an edit to an existing box still redoes it: a dirty list makes all its files dirty, whatever its category. Its flaw is the new box. We set the switch to `isolating`, ran one full KSP pass (the next section explains why it needs `--rerun`), then added `Mirror.kt` with one more `@Inventory` class:
+The first one deserves a word of credit. `Dependencies(false, *files)` names every file the list came from, so an edit to an existing box still redoes it: a dirty list makes all its files dirty, whatever its category. Its flaw is the new box. We set the switch to `isolating` and built once. A changed option is a changed input, so that build ran KSP over every file (`Dirty / All: 100.00%`), and the list's `AnyChanges` key was gone. Then we added `Mirror.kt` with one more `@Inventory` class:
 
 ```text
 Modified
@@ -215,7 +215,7 @@ Exception in thread "main" java.lang.IllegalStateException: MovingDayList has no
 
 A move with one mirror in it. That's the warm-up's answer: only `Mirror`.
 
-The second one is lesson 2's promise, paid. With `Dependencies(false)` and no file, the list belongs to no box. We switched to `none`, ran a full pass, and added one comment to `MovingDay.kt`, a file with no annotation at all. Only `MovingDay.kt` was dirty (12.50%), the processor found no `@Inventory` class to list, and KSP filed the list under `<This is a virtual key for removed outputs; DO NOT USE>` and deleted it. The compiler had the last word:
+The second one is lesson 2's promise, paid. With `Dependencies(false)` and no file, the list belongs to no box. We switched to `none`, built once, and added one comment to `MovingDay.kt`, a file with no annotation at all. Only `MovingDay.kt` was dirty (12.50%), the processor found no `@Inventory` class to list, and KSP filed the list under `<This is a virtual key for removed outputs; DO NOT USE>` and deleted it. The compiler had the last word:
 
 ```text
 e: file:///.../labs/ksp/app/src/l07/kotlin/workbench/ksp/app/l07/MovingDay.kt:14:31 Unresolved reference 'MovingDayList'.
@@ -223,7 +223,7 @@ e: file:///.../labs/ksp/app/src/l07/kotlin/workbench/ksp/app/l07/MovingDay.kt:14
 
 The third one is the safe retreat. With `Dependencies.ALL_FILES`, one comment in `Lamp.kt` made every file dirty, `MovingDay.kt` and the Java file included: `Dirty / All: 100.00%`. KSP's own KDoc says it "essentially disables incremental processing". It's correct, and slow.
 
-Notice what all three have in common. A clean build, `./gradlew clean` or one `--rerun`, puts them right, because it reprocesses everything. The kctfork tests from lesson 2 pass too, because kctfork deletes its caches and runs a clean build every time. Only an incremental build shows the mistake. The Java side has one safety net here that KSP lacks: when an isolating javac processor gives no originating element, Gradle recompiles every source file, slowly but correctly. KSP believes you.
+Notice what all three have in common. A clean build, `./gradlew clean` or `--rerun` on the KSP task, puts them right, because it reprocesses everything. The kctfork tests from lesson 2 pass too, because kctfork deletes its caches and runs a clean build every time. Only an incremental build shows the mistake. The Java side has one safety net here that KSP lacks: when an isolating javac processor gives no originating element, Gradle recompiles every source file, slowly but correctly. KSP believes you.
 
 **A generated file that is right after a clean build and wrong after an edit has the wrong Dependencies. Fix them; don't make cleaning a habit.**
 
@@ -290,7 +290,9 @@ e: [ksp] MovingDay.kt:14: Unresolved reference 'MovingDayList'.
 
 The second line is a follow-on: the list was never written, so the code that uses it can't resolve. Fix the first line. The two sides differ in one more way. javac warns about an `-A` option that no processor declared in `@SupportedOptions`. KSP passes every option to every processor without a word.
 
-Now the trap. An option changes the output, so it must be one of the KSP task's inputs, or Gradle skips the task after you change it. `ksp { arg(key, value) }` is a tracked input: change the value, and KSP runs again. A lambda `CommandLineArgumentProvider` isn't, and its values can't contain spaces either. This lab's own wiring has the same trap, and the build showed it: we changed `ksp.properties`, and `kspL07Kotlin` stayed `UP-TO-DATE`. The lab passes those options through a KSP setting, `processorOptions`, that KSP 2.3.14 marks `@Internal`, which tells Gradle not to compare it. That's why every Try-it in this lesson runs `./gradlew :ksp:app:kspL07Kotlin --rerun` after an edit to `ksp.properties`: `--rerun` makes Gradle run that one task, and run it in full.
+Now the trap. An option changes the output, so it must be one of the KSP task's inputs, or Gradle skips the task after you change it. In KSP 2.3.14, `ksp { arg(key, value) }` fills two settings of the KSP task. `processorOptions` is what the processors read, and it's marked `@Internal`, so Gradle doesn't compare it. `apOptions` is an `@Input`, and Gradle does. Change the value, and KSP runs again, over every file. This lab's `ksp.properties` fills the same two settings, and the build showed it: we changed `movemate.listName` to `moving-day` and ran `kspL07Kotlin` with no extra flag. It ran, and failed with `movemate.listName must be a class name such as MovingDayList, but it is 'moving-day'`.
+
+Not every way of passing an option is compared, though. A lambda `CommandLineArgumentProvider`, `arg(CommandLineArgumentProvider { listOf("movemate.listName=$name") })`, isn't: in the research behind this lesson, changing the lambda's value left the task `UP-TO-DATE`, with the old option. A provider class with an `@get:Input` property is compared. And a provider's values can't contain spaces: `Processor arguments not in the format \\S+=\\S+`.
 
 **An option that changes the output must be a tracked input of the task. Check it by changing the value and watching the task run.**
 
@@ -357,10 +359,10 @@ L = {
     "title": "Break the master list, then mend it",
     "minutes": 6,
     "steps": [
-     f"Add the line `movemate.listDependencies=isolating` to `labs/ksp/app/src/l07/ksp.properties`, then run one full KSP pass: `./gradlew :ksp:app:kspL07Kotlin --rerun {FLAG}`.",
+     f"Add the line `movemate.listDependencies=isolating` to `labs/ksp/app/src/l07/ksp.properties` and build: `./gradlew :ksp:app:compileL07Kotlin {FLAG}`. The option changed, so `kspDirtySet.log` shows every file dirty.",
      f"Create `Mirror.kt` like `Rug.kt`, with `@Inventory data class Mirror(val widthCm: Int)`. Predict the list, then build with `./gradlew :ksp:app:compileL07Kotlin {FLAG}` and run the program.",
-     f"Change the switch to `none`, run the full pass again, add a comment to `MovingDay.kt`, and build. Which file does the compiler complain about?",
-     f"Mend it: delete the switch line, run the full pass, remove your comment, delete `Rug.kt` and `Mirror.kt`, and run the program once more."
+     f"Change the switch to `none` and build once. Then add a comment to `MovingDay.kt` and build again. Which file does the compiler complain about?",
+     f"Mend it: delete the switch line, remove your comment, delete `Rug.kt` and `Mirror.kt`, build, and run the program once more."
     ],
     "expect": "With `isolating`, only `Mirror.kt` is dirty (12.50% on our run), the build passes, and the program prints `MovingDayList: [Mirror]`, then fails with `IllegalStateException: MovingDayList has no card for Box`. With `none`, only `MovingDay.kt` is dirty, `kspSourceToOutputs.log` files the list under the virtual key for removed outputs, and the compile fails with `MovingDay.kt:14:31 Unresolved reference 'MovingDayList'.` After the mending, the program prints the four names again."
    },
@@ -374,11 +376,11 @@ L = {
     "minutes": 4,
     "steps": [
      "Run `MasterListDemo`. It compiles two classes in memory twice: once with `movemate.listName`, once with no options at all.",
-     "In `labs/ksp/app/src/l07/ksp.properties`, change `movemate.listName` to `moving-day`. Run `./gradlew :ksp:app:kspL07Kotlin` and note the status, then run it again with `--rerun`.",
-     "Put `MovingDayList` back and run with `--rerun` once more."
+     "In `labs/ksp/app/src/l07/ksp.properties`, change `movemate.listName` to `moving-day`. Predict whether `./gradlew :ksp:app:kspL07Kotlin` runs, then run it.",
+     "Change it to `PackingList`, run the same task, and look in `labs/ksp/app/build/generated/ksp/l07/kotlin/workbench/ksp/app/l07/`. Then put `MovingDayList` back."
     ],
     "code": kdemo("MasterListDemo"),
-    "expect": "The demo prints `exit code: OK`, the generated list for `Lamp` and `Plant` and `Lamp: name=desk lamp, bulbs=1, shade=null`, then `exit code: COMPILATION_ERROR`, the `needs the processor option movemate.listName` error and `generated files: []`. In the app, the first run is `UP-TO-DATE`, because the lab's options aren't tracked; with `--rerun` it fails with `e: [ksp] movemate.listName must be a class name such as MovingDayList, but it is 'moving-day'`, plus follow-on errors for code that uses the list."
+    "expect": "The demo prints `exit code: OK`, the generated list for `Lamp` and `Plant` and `Lamp: name=desk lamp, bulbs=1, shade=null`, then `exit code: COMPILATION_ERROR`, the `needs the processor option movemate.listName` error and `generated files: []`. In the app, the task runs, because the option is a tracked input, and fails with `e: [ksp] movemate.listName must be a class name such as MovingDayList, but it is 'moving-day'`, plus follow-on errors for code that uses the list. With `PackingList`, it succeeds and writes `PackingList.kt` instead of `MovingDayList.kt`; putting the old name back may come `FROM-CACHE`."
    },
    "refs": [{"title": "ProcessingEnvironment.getOptions (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.compiler/javax/annotation/processing/ProcessingEnvironment.html", "kind": "docs"}]
   }
@@ -454,7 +456,7 @@ L = {
    "answer": 1, "why": "An output that names no source file belongs to no box: when the processor doesn't write it again, KSP files it under removed outputs and deletes it. The lab reproduced this with `Dependencies(false)`. A clean build reprocesses everything, which hides the mistake. A processor that throws fails the build, which this one doesn't."},
   {"q": "A build passes the list name as `ksp { arg(CommandLineArgumentProvider { listOf(\"movemate.listName=$name\") }) }`. Someone changes `name`, and `kspKotlin` is `UP-TO-DATE`, with the old list. Why?",
    "options": ["Options are read only on a clean build", "A lambda argument provider isn't a tracked input of the task, so Gradle sees nothing new", "KSP caches options in kspCaches", "The value contains a space"],
-   "answer": 1, "why": "Gradle reruns a task only when a tracked input changes. `arg(key, value)` is tracked; a lambda `CommandLineArgumentProvider` isn't (a class with an `@get:Input` property is). This lab's `ksp.properties` has the same trap, which is why its Try-its use `--rerun`. A space would fail the task instead, with `Processor arguments not in the format \\S+=\\S+`."},
+   "answer": 1, "why": "Gradle reruns a task only when a tracked input changes. `arg(key, value)` is tracked; a lambda `CommandLineArgumentProvider` isn't (a class with an `@get:Input` property is). This lab's `ksp.properties` feeds the same tracked input as `arg()`. A space would fail the task instead, with `Processor arguments not in the format \\S+=\\S+`."},
   {"q": "From lesson 2: a processor writes `MovingDayList.kt` at the top of every `process()` call, with no flag. Round 1 also wrote four cards. What happens next?",
    "options": ["KSP skips round 2, because the list already exists", "Round 2 runs, because round 1 wrote files, and the second `createNewFile` for the same path throws `FileAlreadyExistsException`", "The second list replaces the first", "Round 2 runs only on an incremental build"],
    "answer": 1, "why": "A round follows any round that wrote a file, and `CodeGenerator` refuses a path it already created in this run: `kotlin.io.FileAlreadyExistsException`, and the build fails. That's why the lesson's processor writes the list once, guarded by `listWritten`, in the round that found the classes.",

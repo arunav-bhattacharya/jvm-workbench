@@ -12,82 +12,69 @@ fg.SAY[:0] = [
 N = {
     "open": "Picture a family packing their home for a move. Every box gets a card taped to it that lists what's "
             "inside, so nothing goes missing on the way.",
-    "movemate": "MoveMate is a small program that helps them. It prints the same kind of card for each kind of thing "
-                "being moved. For a lamp, the card gives its name, desk lamp, its one bulb, and its shade, which is "
-                "null, because this lamp has none.",
-    "byhand": "We wrote each card by hand, one small function per class. The class lists the properties. The card "
-              "repeats that list as text.",
-    "watts": "Then the lamps gained a property, watts: how much power each one draws. Nobody touched the lamp's "
-             "card. So what happens when we build and run?",
+    "movemate": "MoveMate is a small program that helps them, and prints a card for each kind of thing. For a lamp: "
+                "its name, desk lamp, one bulb, and its shade, null, because it has none.",
+    "byhand": "We wrote each card by hand. The class lists the properties, and a small function repeats that list as "
+              "text.",
+    "watts": "Then the lamps gained a property, watts. Nobody touched the card. What happens when we build and run?",
     "drift": "The build is green, and the program runs. The lamp knows it draws 40 watts, and its card keeps that a "
              "secret. Nothing printed a warning.",
-    "drift2": "Every word on that card is still true. It's just not the whole truth, like a moving quote that forgets "
-              "to mention the stairs. The compiler checks that each name on the card exists. It can't check that "
-              "the card says everything.",
-    "driftname": "That gap has a name: the card has drifted from its class. MoveMate has four classes today. A real "
-                 "program may have forty, and each one is a card waiting to drift.",
-    "shyq": "So here's a question that's easy to be shy about. People say a tool generates code. Generates it when? "
-            "Where does that code go, if it's never in my source folder? And how would that keep a card right?",
-    "moments": "Let's start with three moments in a program's life. The build is everything a tool such as Gradle "
-               "does to turn your source files into a program you can run. Compile time is one step of it, when "
-               "the compiler turns source into class files. And run time comes later, when the JVM runs them.",
-    "twoways": "Now place our cards on that line. The hand-written card was written before the build, by a person. "
-               "And people forget. A second way is reflection: the program looks at its own fields while it runs, "
-               "and works the card out every time.",
-    "reflect": "Reflection never forgets a property. But it pays on every call: about 220 nanoseconds a card, against "
-               "25 by hand, on a busy machine. It's like unpacking every box at the new house, each time someone "
-               "asks for the list.",
-    "wish": "Wouldn't it be nice to have both? The speed of the hand-written card, and the memory of reflection. "
-            "That's the third spot on the line: let a program write the cards, once, during the build.",
-    "house": "Back to the house, to see how. Your source files are sealed boxes. The label on top lists what's "
-             "inside: the class name, and each property with its type. Those are the declarations, the named things "
-             "you declared. The packing inside, the code in the functions, stays sealed.",
-    "note": "Now stick a note on a box: make an inventory card for this one. In code, that sticky note is an "
-            "annotation, @Inventory. An annotation is a note written with an at sign. By itself it does nothing. It "
-            "waits for someone to read it.",
-    "helper": "Here's who reads it. A helper with a clipboard walks through the house, finds every box with that "
-              "note, reads its label, and writes a new card. The helper is an annotation processor: a program that "
-              "runs during the build, finds the declarations with a given note, and writes new source files.",
-    "travel": "And the new cards travel with the move. When the van leaves, the boxes and the cards go in together. "
-              "That's code generation: one program writes source code, and it's compiled together with yours.",
-    "bored": "The helper has one great quality: it never gets bored. Card number forty gets the same care as card "
-             "number one. So the point is, it reads every label afresh, on every build, and can't forget a property.",
-    "ksp": "Now the name. KSP, short for Kotlin Symbol Processing, is a tool from Google that runs such helpers on "
-           "Kotlin code. A symbol is any named thing in your code, which is just what a helper reads.",
-    "run": "Let's watch a ready-made helper in a real build. The lab's playground holds the four MoveMate classes, "
-           "each with the note, and no card functions at all. We run the KSP task on its own.",
+    "drift2": "Every word on the card is still true. It's just not the whole truth, like a moving quote that forgets "
+              "the stairs. The compiler checks that each name on the card exists. It can't check that the card says "
+              "everything.",
+    "driftname": "That gap has a name: the card has drifted from its class. And every class you add is one more card "
+                 "waiting to drift.",
+    "shyq": "Here's a question that's easy to be shy about. People say a tool generates code. Generates it when? Where "
+            "does it go, if it's never in my source folder? And how would that keep a card right?",
+    "moments": "First, three moments. The build is everything Gradle does to turn your source into a program. Compile "
+               "time is one step of it: source becomes class files. Run time comes later, when the JVM runs them.",
+    "twoways": "The hand-written card came before the build, from a person, and people forget. Reflection works it out "
+               "at run time: the program reads its own fields, every time.",
+    "reflect": "It never forgets. But it pays on every call: about 220 nanoseconds a card, against 25 by hand, on a "
+               "busy machine. Like unpacking every box at the new house, each time someone asks for the list.",
+    "wish": "Wouldn't it be nice to have the speed of one and the memory of the other? That's the third spot: a program "
+            "writes the cards, once, during the build.",
+    "house": "Back to the house. Your source files are sealed boxes. The label on top lists the class name and each "
+             "property with its type: the declarations. The code inside the functions stays sealed.",
+    "note": "Stick a note on a box: make an inventory card for this one. In code, that's an annotation, @Inventory, a "
+            "note written with an at sign. It does nothing until someone reads it.",
+    "helper": "A helper with a clipboard walks the house, finds each box with that note, reads its label, and writes a "
+              "new card. That helper is an annotation processor: a program that runs during the build and writes new "
+              "source files from what it reads.",
+    "travel": "When the van leaves, the boxes and the new cards go in together. That's code generation: a program "
+              "writes source code that's compiled together with yours.",
+    "bored": "And the helper never gets bored. Card forty gets the same care as card one, because it reads every label "
+             "afresh, on every build.",
+    "ksp": "Now the name. KSP, Kotlin Symbol Processing, is a tool from Google that runs such helpers on Kotlin code. "
+           "A symbol is any named thing in your code.",
+    "run": "Let's watch a ready-made helper in a real build. The lab's playground holds the four MoveMate classes, each "
+           "with the note, and no cards. We run the KSP task alone.",
     "files_q": "How many files will it write? Pause and guess.",
-    "files": "Four, one for each class with the note. And look where they land: under build, generated, KSP. Never "
-             "in your source folder. That folder belongs to you.",
-    "open_card": "Open the lamp's card. It's our hand-written card, line for line, with a comment on top: generated "
-                 "by InventoryProcessor from Lamp. Do not edit.",
-    "order": "And when does the helper work? Gradle can list the steps of a build, in order. First it builds the "
-             "helper itself, because a processor is a program, and it must exist before it can run. Then the KSP "
-             "task. Only then the Kotlin compiler, which compiles your classes and the new cards together.",
+    "files": "Four, one per class with the note. And they land under build, generated, KSP. Never in your source "
+             "folder: that one belongs to you.",
+    "open_card": "Open the lamp's card: our hand-written card, line for line, with one comment on top. Generated from "
+                 "Lamp. Do not edit.",
+    "order": "And when? Gradle lists a build's steps in order. First it builds the helper: a processor must exist "
+             "before it can run. Then the KSP task. Only then the Kotlin compiler, with your classes and the new "
+             "cards together.",
     "watts2": "Now the real test. Add watts to Lamp, and run the KSP task again. Nobody touches any card.",
     "watts3": "The new card gains watts, all by itself. Call it, and it says: watts equals 40. The hand-written card "
               "from before still stops at the shade.",
-    "same": "Is the generated card special in some way? No. It's an ordinary Kotlin file. The compiler checks it like "
-            "your own code, and it runs just as fast. Only the writing moved, from a person to the build.",
-    "breaks": "Here the picture breaks, and it matters. A real helper could lift a flap and peek inside a box. KSP "
-              "can't. It reads declarations, never the code inside a function. And it never relabels or repacks a "
-              "box. It only adds new files.",
-    "ext": "That's why the card is an extension function, in a file of its own. lamp.inventoryCard() reads like a "
-           "member, but Lamp itself was never touched.",
-    "java": "Java has had this idea for a long time. Since Java 6, javac has run annotation processors, and KSP is "
-            "Kotlin's own, faster way to do the same job for Kotlin code. Both kinds of helper have the same shape.",
-    "java2": "And since the card is plain Kotlin, Java calls it like any other Kotlin function: a static method that "
-             "takes the lamp.",
-    "guard": "So should every card come from a helper? Not always. A processor is a program you write and keep. It "
-             "pays off when the same code repeats across many classes, runs often, or must be checked before the "
-             "program ships. A small test helper that prints whatever object it's handed, a few dozen times? "
-             "Reflection is fine.",
-    "guard2": "Two more habits. Never edit a generated file: the next build writes over it, so fix the helper or the "
-              "class instead. And if your editor marks the call red before the first build, don't panic. The card "
-              "just hasn't been written yet.",
+    "breaks": "Here the picture breaks. A real helper could lift a flap and peek inside. KSP can't: it reads "
+              "declarations, never the code in a function. And it never repacks a box. It only adds new files.",
+    "ext": "That's why the card is an extension function in its own file: lamp.inventoryCard() reads like a "
+           "member, and Lamp is untouched.",
+    "java": "Java has had this since Java 6: javac runs annotation processors, and KSP is Kotlin's own, faster "
+            "way to do the same job. Java can even call the generated card, as a static method that takes the "
+            "lamp.",
+    "guard": "Should every card come from a helper? Not always. It pays off when the code repeats across many "
+             "classes, runs often, or must be checked at build time. A test helper that prints any object a few "
+             "dozen times? Reflection is fine.",
+    "guard2": "Never edit a generated file: the next build writes over it. And if your editor shows red before the "
+              "first build, relax. The card just isn't written yet.",
     "moral": "So, who keeps the card in step with its class? Nobody has to. A helper reads every label on every "
-             "build, and writes fresh cards before the van leaves. Generated code is checked like yours and runs as "
-             "fast. Only the writing moves, from a person to the build.",
+             "build, and writes fresh cards before the van leaves. Only the writing moved, from a person to the "
+             "build.",
     "check": "Quick check. You add a property, colour, to Plant, and build. Which file changes, and in which folder?",
     "check_a": "PlantInventoryCard.kt gains colour. It lives under build, generated, KSP, and nobody wrote it by hand.",
 }
