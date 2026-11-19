@@ -20,6 +20,23 @@ real grasp of it and build muscle memory.
 5. Two finished lessons for tone and length: content/lessons/conc-02.json and content/lessons/kt-06.json (the
    kt-06 lesson already has one short KSP section; this track is the full story).
 
+## Where KSP 2.3.14 disagrees with its own docs (verified by running it; see ksp_mechanics.md)
+
+Teach what the build really does, and when a lesson touches one of these, say plainly that the docs or common
+tutorials describe it differently (that's a useful lesson in itself: let the build be the referee).
+- A symbol still deferred when processing ends produces no error and no warning; the build passes. A careful
+  processor checks in finish() and reports it itself (lesson 6 makes this its trap).
+- onError() runs only after logger.error, not when a processor throws. logger.exception(e) prints `e: [ksp]`
+  but doesn't fail the build.
+- `KSVisitorVoid()` and `validate()` as the official quickstart writes them are deprecated since 2.3.12 and
+  compile with warnings. Use the warning-free 2.3.14 style in section 13 of ksp_mechanics.md
+  (SymbolProcessor.apiFeatures with buildApiFeatures {}) in every lab, and mention the old spelling once.
+- In round 1, getNewFiles() returns the source files. Deferred symbols are shared across processors.
+- The log line format is `w: [ksp] <absolute path>:<line>: message` (no column).
+- KSP1 is removed in 2.3.x (`ksp.useKSP2=false` fails the build). KSP2 runs inside the Gradle daemon.
+- The "up to 2x faster than kapt" claim comes from a 2021 Room benchmark; present it as that, not as a law.
+- A lambda CommandLineArgumentProvider is not a tracked task input, and option values can't contain spaces.
+
 ## The reader
 
 A complete newcomer to KSP and to annotation processing. They read basic Kotlin and Java. They have never
