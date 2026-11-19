@@ -106,7 +106,7 @@ So let's give the block a picture. The night before the move, someone writes the
 
 The picture breaks in one place, and it matters. A real planner can improvise in the morning, when a neighbour turns up with a ladder. A plan written by the build can't. Everything it will ever build must be in it when the build runs.
 
-Part 4's container worked the plan out on the street: it read your classes while the program ran. This capstone writes it the night before, with KSP. MoveMate's classes get sticky notes, three annotations from `labs/injector/annotations`:
+Part 4's container worked the plan out on the street: it read your classes while the program ran. This capstone writes it the night before, with KSP. MoveMate's classes get sticky notes: **annotations**, labels in the code that tools can read. Three come from `labs/injector/annotations`:
 
 """ + pair(J_NOTES, K_NOTES) + """
 
@@ -142,17 +142,17 @@ S1 = """A **factory** is a small piece of code whose only job is to build one cl
 
 A processor writes them. A **processor** is a plug-in for the build that reads your declarations and writes new source files. **KSP**, Kotlin Symbol Processing, runs processors during the build, before the Kotlin compiler compiles your code, and then compiles what they wrote along with it. In the KSP track's picture, a processor is the helper with a clipboard. It reads the labels on the boxes, never opens one, and writes new cards that travel with the move. Java has had the same idea since Java 6, as annotation processors that javac runs. KSP is Kotlin's own, faster way to do that job for Kotlin code.
 
-Our factory processor follows the five moves of the KSP track. Find: ask the Resolver, KSP's view of your code, for every symbol that carries `@Inject`. Check: refuse what the plan can't build, such as an interface, with an error on its line. Read: the constructor's parameters. Write: one file per class. Prove: tests, then a real build. Here is the loop, next to the closest Java equivalent:
+Our factory processor follows the five moves of the KSP track. Find: ask the Resolver, KSP's view of your code, for every symbol, that is, every declaration it can see, that carries `@Inject`. Check: refuse what the plan can't build, such as an interface, with an error on its line. Read: the constructor's parameters. Write: one file per class. Prove: tests, then a real build. Here is the loop, next to the closest Java equivalent:
 
 """ + pair(J_FIND, K_FIND) + """
 
-Find has one surprise. `@Inject` on a constructor gives you a `KSFunctionDeclaration`, while `@Inject` on the class gives you a `KSClassDeclaration`. The given `checked` function turns both into a `Binding`: the class, plus the constructor the plan will call. `factoryFile` then reads that constructor's parameters and builds the file with KotlinPoet, one `ParameterSpec` per parameter, as in the KSP track. The demo prints what it wrote:
+Find has one surprise. `@Inject` on a constructor gives you a `KSFunctionDeclaration`, while `@Inject` on the class gives you a `KSClassDeclaration`. The given `checked` function turns both into a `Binding`: the class, plus the constructor the plan will call. `factoryFile` then reads that constructor's parameters and builds the file with KotlinPoet, a library for writing Kotlin source from code, one `ParameterSpec` per parameter, as in the KSP track. The demo prints what it wrote:
 
 ```text
 """ + OUT_FACTORY + """
 ```
 
-`create` takes what the constructor takes and passes it straight on. KotlinPoet wrote the `public` modifiers and turned the one-statement body into an expression body.
+`create` takes what the constructor takes and passes it straight on. KotlinPoet wrote the `public` modifiers and turned the one-statement body into an expression body: `= Driver(route)` instead of a block with `return`.
 
 The last argument of `writeTo` matters most. `Dependencies(aggregating = false, driverFile)` tells KSP that this card depends on `Driver.kt` and on nothing else. That makes it an **isolating** output: when `Truck.kt` changes, KSP has no reason to redo the driver's card. Lesson 3 watches that happen in KSP's own log.
 

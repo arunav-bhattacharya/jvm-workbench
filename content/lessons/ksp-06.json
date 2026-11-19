@@ -1,0 +1,352 @@
+{
+ "id": "ksp-06",
+ "title": "Rounds, generated code and deferral",
+ "minutes": 40,
+ "goal": "By the end you can explain what a round is and when KSP starts another, make the rounds visible in the log, set aside a symbol whose types haven't been generated yet and pick it up in the next round, and catch in `finish()` a symbol that stays set aside to the end, which KSP 2.3.14 itself doesn't report.",
+ "opening": "A family is moving house. Every box is sealed and labeled, and a helper with a clipboard reads the labels and writes new cards that travel with the move. On moving day, the movers also sign a receipt for each piece of furniture, and each receipt needs an inventory card of its own. Nobody can write that card on the first walk through the house, because the receipt didn't exist when the walk began. So the helpers walk through again, looking at what the last walk produced.\n\nKSP works the same way, and lesson 2 saw the edge of it: processing stopped when a pass brought nothing new. In the last lesson, `validate()` set aside a class whose label mentioned a type that didn't exist yet, with a promise that a later pass might bring it. Now we'll write the processor that brings it, and meet the catch. In KSP 2.3.14, a box that stays set aside until the van leaves gets no word at all.\n\nIn this lesson, we'll make the passes visible, set a class aside until its type exists, and check what's left at the end. Before we start, make a guess, and keep it in mind.",
+ "warmup": {
+  "q": "In one build, processor A writes `LampReceipt.kt`, and the class in it carries `@Inventory`. Processor B, which runs after A, writes a card for every `@Inventory` class. When does B see `LampReceipt`?",
+  "options": [
+   "In the same round, right after A writes it, because B runs second",
+   "In the next round: files written during a round are offered to every processor in the round after",
+   "Never: B only sees the source files you wrote",
+   "Only if B is listed before A in the services file"
+  ],
+  "answer": 1,
+  "why": "KSP reads the files written during a round only when the round is over, and offers them in the next round to every processor. So B, even running right after A, can't see `LampReceipt` until round 2. That's why one build can need several rounds, and why the lab's log shows the receipt's card one round after the receipt. The first option is the natural guess when you picture the processors running side by side."
+ },
+ "sections": [
+  {
+   "h": "A receipt that needs its own card: rounds made visible",
+   "body": "This lesson's lab has two processors. The receipt processor is new: for each class marked `@Moving`, it writes a `<Name>Receipt` data class with the same properties plus `signedBy`, and a `receipt(signedBy)` function to make one. The receipt carries `@Inventory`, the sticky note that asks for an inventory card. The second processor is lesson 2's card processor, copied into the lab and rewritten with KotlinPoet, which writes `inventoryCard()` for every `@Inventory` class. Used from code, the two outputs look like this:\n\n```java\n// Java calling the same generated Kotlin: extension functions are static methods of their file's class\nLampReceipt lampReceipt = LampReceiptKt.receipt(new Lamp(\"desk lamp\", 1, null), \"Ana\");\nSystem.out.println(LampReceiptInventoryCardKt.inventoryCard(lampReceipt));\n```\n\n```kotlin\nval lampReceipt = Lamp(\"desk lamp\", 1, null).receipt(signedBy = \"Ana\")\nprintln(lampReceipt.inventoryCard())   // LampReceipt: name=desk lamp, bulbs=1, shade=null, signedBy=Ana\n```\n\nThe card processor must write a card for a class that the receipt processor writes during the same build. How can it see that class?\n\nThe answer is rounds. A round is one pass in which KSP calls `process()` on every processor, one after another, in the order of the services file. Each call gets a new `Resolver`, the object a processor asks for symbols. In round 1, the Resolver offers the source files. When a round is over, KSP reads the files written during it, and the next round offers those, plus the symbols set aside the round before. A new round starts only if the previous one wrote at least one file.\n\nTo watch the rounds, count them. KSP's docs say it \"creates a processor instance only once\", so a field lives from round to round. The Resolver must not be kept: each round brings a new one. Both lab processors log each round with `logger.warn`, so it shows at Gradle's default log level:\n\n```java\n// Closest Java equivalent: javac calls process() once per round, on the same processor object\nprivate int round = 0;\n\n@Override\npublic boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {\n    round++;\n    processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,\n            \"[receipts] round \" + round + \", processingOver=\" + roundEnv.processingOver());\n    // ... find, check, read, write\n    return false;\n}\n```\n\n```kotlin\nprivate var round = 0      // KSP creates the processor once, so the field lives across rounds\n\nfun processReceipts(resolver: Resolver): List<KSAnnotated> {\n    round++\n    // ... find, check, read, write\n    logger.warn(\"[receipts] round $round: wrote $written, set aside ${later.map(::nameOf)}\")\n    return later\n}\n```\n\nHere is `./gradlew :ksp:app:kspL06Kotlin` on the lab's playground, with `@Moving` on `Lamp` and `Van`, and `@Inventory` on `Box`:\n\n```text\nw: [ksp] [receipts] round 1: wrote [LampReceipt], set aside [Van]\nw: [ksp] [cards] round 1: wrote cards for [Box]\nw: [ksp] [receipts] round 2: wrote [VanReceipt], set aside []\nw: [ksp] [cards] round 2: wrote cards for [LampReceipt]\nw: [ksp] [receipts] round 3: wrote [], set aside []\nw: [ksp] [cards] round 3: wrote cards for [VanReceipt]\nw: [ksp] [receipts] round 4: wrote [], set aside []\nw: [ksp] [cards] round 4: wrote cards for []\nw: [ksp] [receipts] finish() after 4 rounds\n```\n\nRead it as a story. In round 1 the receipts processor wrote `LampReceipt`, and the cards processor, running right after it, still didn't see it: it found only `Box`. In round 2 the new file was offered to everyone, and `LampReceipt` got its card. Each round wrote something, so another followed, until round 4 wrote nothing and KSP ended with `finish()`. Four rounds for three classes.\n\nIn the picture, each round is a walk through the house, and the cards written on one walk are new boxes for the next. The picture breaks in one way. Real helpers work side by side, while KSP's take turns, and a card that helper A writes is invisible to helper B until the next walk.\n\n**What a round writes, the next round reads.**\n\nThat leaves `Van`, set aside in round 1. Why it had to wait is the next step.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 700 260\" role=\"img\" aria-label=\"Four rounds side by side. Round 1: the receipt processor writes LampReceipt and sets Van aside, the card processor writes the card for Box. Round 2: VanReceipt and the card for LampReceipt. Round 3: the card for VanReceipt. Round 4: nothing new, so KSP calls finish()\"><text class=\"t-s t-m\" x=\"175\" y=\"36\" text-anchor=\"middle\">round 1</text><text class=\"t-s t-m\" x=\"320\" y=\"36\" text-anchor=\"middle\">round 2</text><text class=\"t-s t-m\" x=\"465\" y=\"36\" text-anchor=\"middle\">round 3</text><text class=\"t-s t-m\" x=\"610\" y=\"36\" text-anchor=\"middle\">round 4</text><text class=\"t-s\" x=\"55\" y=\"90\" text-anchor=\"middle\">receipts</text><text class=\"t-s\" x=\"55\" y=\"170\" text-anchor=\"middle\">cards</text><rect class=\"box-a\" x=\"110\" y=\"60\" width=\"130\" height=\"50\" rx=\"8\"/><text class=\"t-s t-code\" x=\"175\" y=\"82\" text-anchor=\"middle\">LampReceipt</text><text class=\"t-s t-bad\" x=\"175\" y=\"100\" text-anchor=\"middle\">Van set aside</text><rect class=\"box-a\" x=\"255\" y=\"60\" width=\"130\" height=\"50\" rx=\"8\"/><text class=\"t-s t-code\" x=\"320\" y=\"82\" text-anchor=\"middle\">VanReceipt</text><text class=\"t-s t-m\" x=\"320\" y=\"100\" text-anchor=\"middle\">nothing set aside</text><rect class=\"box-dim\" x=\"400\" y=\"60\" width=\"130\" height=\"50\" rx=\"8\"/><text class=\"t-s t-code\" x=\"465\" y=\"90\" text-anchor=\"middle\">nothing new</text><rect class=\"box-dim\" x=\"545\" y=\"60\" width=\"130\" height=\"50\" rx=\"8\"/><text class=\"t-s t-code\" x=\"610\" y=\"90\" text-anchor=\"middle\">nothing new</text><rect class=\"box-b\" x=\"110\" y=\"140\" width=\"130\" height=\"50\" rx=\"8\"/><text class=\"t-s t-code\" x=\"175\" y=\"170\" text-anchor=\"middle\">Box card</text><rect class=\"box-b\" x=\"255\" y=\"140\" width=\"130\" height=\"50\" rx=\"8\"/><text class=\"t-s t-code\" x=\"320\" y=\"170\" text-anchor=\"middle\">LampReceipt card</text><rect class=\"box-b\" x=\"400\" y=\"140\" width=\"130\" height=\"50\" rx=\"8\"/><text class=\"t-s t-code\" x=\"465\" y=\"170\" text-anchor=\"middle\">VanReceipt card</text><rect class=\"box-dim\" x=\"545\" y=\"140\" width=\"130\" height=\"50\" rx=\"8\"/><text class=\"t-s t-code\" x=\"610\" y=\"170\" text-anchor=\"middle\">nothing new</text><line class=\"ln-d\" x1=\"240\" y1=\"98\" x2=\"252\" y2=\"98\" marker-end=\"url(#arr)\"/><line class=\"ln\" x1=\"232\" y1=\"112\" x2=\"262\" y2=\"136\" marker-end=\"url(#arr)\"/><line class=\"ln\" x1=\"377\" y1=\"112\" x2=\"407\" y2=\"136\" marker-end=\"url(#arr)\"/><text class=\"t-s t-m\" x=\"350\" y=\"222\" text-anchor=\"middle\">what one round writes, the next round reads, for every processor</text><text class=\"t-s t-m\" x=\"350\" y=\"242\" text-anchor=\"middle\">a round runs only if the round before wrote a file: round 4 wrote none, so KSP calls finish()</text></svg>",
+    "caption": "The lab's build, round by round: each output is read one round later, and Van, set aside in round 1, is written in round 2."
+   },
+   "try": {
+    "title": "Watch the rounds in a real build",
+    "minutes": 4,
+    "steps": [
+     "From `labs/`, run `./gradlew :ksp:app:kspL06Kotlin` and read the nine `w: [ksp]` lines. Before you look at the figure, mark for each line which file it saw for the first time.",
+     "Open `labs/ksp/app/build/generated/ksp/l06/kotlin/workbench/ksp/app/l06/` and match the five files to the rounds that wrote them.",
+     "Run the two programs below, which make receipts and print cards from Kotlin and from Java."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "MovingDay.kt",
+     "src": "package workbench.ksp.app.l06\n\n// Lesson 6, Try it in the real build: receipts from round 1 and 2, cards from rounds 1 to 3.\n//   ./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l06.MovingDayKt\nfun main() {\n    val lampReceipt = Lamp(\"desk lamp\", 1, null).receipt(signedBy = \"Ana\")\n    val vanReceipt = Van(\"MV-1\", lastLoad = lampReceipt).receipt(signedBy = \"Ben\")\n\n    println(Box(\"plates\", \"kitchen\", 4200, fragile = true).inventoryCard())\n    println(lampReceipt.inventoryCard())\n    println(vanReceipt.inventoryCard())\n}\n",
+     "run": "./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l06.MovingDayKt",
+     "file": "labs/ksp/app/src/l06/kotlin/workbench/ksp/app/l06/MovingDay.kt",
+     "alt": {
+      "lang": "java",
+      "title": "MovingDayJava.java",
+      "src": "package workbench.ksp.app.l06;\n\n// Lesson 6, Try it: the same calls from Java. A top-level Kotlin function lives in a class named after its file,\n// so the extension Lamp.receipt(...) from LampReceipt.kt is the static method LampReceiptKt.receipt(lamp, ...).\n//   ./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l06.MovingDayJava\npublic class MovingDayJava {\n    public static void main(String[] args) {\n        LampReceipt lampReceipt = LampReceiptKt.receipt(new Lamp(\"desk lamp\", 1, null), \"Ana\");\n        VanReceipt vanReceipt = VanReceiptKt.receipt(new Van(\"MV-1\", lampReceipt), \"Ben\");\n\n        System.out.println(BoxInventoryCardKt.inventoryCard(new Box(\"plates\", \"kitchen\", 4200, true)));\n        System.out.println(LampReceiptInventoryCardKt.inventoryCard(lampReceipt));\n        System.out.println(VanReceiptInventoryCardKt.inventoryCard(vanReceipt));\n    }\n}\n",
+      "run": "./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l06.MovingDayJava",
+      "file": "labs/ksp/app/src/l06/java/workbench/ksp/app/l06/MovingDayJava.java"
+     }
+    },
+    "expect": "The log matches this section line for line, ending with `[receipts] finish() after 4 rounds`. The folder holds `LampReceipt.kt` and `BoxInventoryCard.kt` from round 1, `VanReceipt.kt` and `LampReceiptInventoryCard.kt` from round 2, and `VanReceiptInventoryCard.kt` from round 3. Both programs print `Box: label=plates, ...`, `LampReceipt: name=desk lamp, bulbs=1, shade=null, signedBy=Ana`, and a `VanReceipt` card that holds the lamp's receipt. If the log doesn't appear, the task was `UP-TO-DATE`: add a comment to `MoveMate.kt` and run again."
+   },
+   "refs": [
+    {
+     "title": "Multiple round processing (KSP docs)",
+     "url": "https://kotlinlang.org/docs/ksp-multi-round.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "A label that mentions a card not written yet: setting Van aside",
+   "body": "`Van` is a moving van whose label mentions the last receipt it carried:\n\n```text\n@Moving\ndata class Van(val plate: String, val lastLoad: LampReceipt)\n```\n\nA receipt copies its class's property types, so `VanReceipt` needs the type `LampReceipt`, and in round 1 that type doesn't exist yet. Let's first see what happens if the processor doesn't care. The Try it's first run writes every receipt at once, ready or not:\n\n```text\n=== 1. eager, no validate(): INTERNAL_ERROR\njava.lang.IllegalArgumentException: Error type '<ERROR TYPE: LampReceipt>' is not resolvable in the current round of processing.\n```\n\nThat's the crash from lesson 5, and this time the missing type isn't a typo. It's on its way, written by the same build one round from now. An error type is a type the compiler can't resolve; KSP shows it as `<ERROR TYPE: LampReceipt>`.\n\nSo the processor sets `Van` aside: `validate()` returns `false` for it, and `process()` returns it to KSP. Setting a symbol aside for a later round is called deferral. Here is the lab's whole round, with the Java version for comparison:\n\n```java\n// Closest Java equivalent: javac has no deferral; keep the names and look them up next round\nfor (TypeElement type : candidates) {\n    boolean ready = ElementFilter.fieldsIn(type.getEnclosedElements()).stream()\n            .noneMatch(f -> f.asType().getKind() == TypeKind.ERROR);\n    if (ready) writeReceipt(type);\n    else waiting.add(type.getQualifiedName().toString());   // next round: elements.getTypeElement(name)\n}\n```\n\n```kotlin\nfun processReceipts(resolver: Resolver): List<KSAnnotated> {\n    round++\n    val symbols = resolver.getSymbolsWithAnnotation(Moving::class.qualifiedName!!).toList()\n    val (ready, later) = symbols.partition { it.validate(apiFeatures = apiFeatures) }\n    val written = mutableListOf<String>()\n    for (symbol in ready) {\n        if (!check(symbol)) continue\n        val file = receiptFile(symbol as KSClassDeclaration)\n        file.writeTo(codeGenerator, aggregating = false)\n        written += file.name\n    }\n    waiting = later\n    logger.warn(\"[receipts] round $round: wrote $written, set aside ${later.map(::nameOf)}\")\n    return later\n}\n```\n\nWalk through it in order. Count the round. Ask for the `@Moving` symbols. Split them into the ones whose types all resolve and the rest. Check, read and write the ready ones. Remember the rest in `waiting` for later, log the round, and hand the rest back.\n\nWhat KSP does with that list is the second half of the mechanism. Its docs say that in later rounds `getSymbolsWithAnnotation` returns \"only deferred symbols from the last round and symbols from newly generated files\". So in round 2 the receipt processor asks for `@Moving` again and gets `Van` back, now with a `LampReceipt` to point at. `validate()` says yes, and `VanReceipt` is written. javac has no such list: a Java processor keeps the class names itself and looks them up again with `Elements.getTypeElement`, as the Java twin's comment says.\n\nWhy return the symbol, rather than keep it in a field and reuse it? Because KSP drops its caches between rounds, and its docs warn that \"not all KSP symbols can be reused across rounds\". The symbol you get back from the next Resolver is the safe one.\n\nIn the picture, `Van` is a box set aside because its label mentions a receipt that isn't written yet. On the next walk, the receipt is there, and the box goes on the van.\n\nThe set-aside pile has one more property, and it's easy to miss.",
+   "try": {
+    "title": "Crash, then wait a round",
+    "minutes": 4,
+    "steps": [
+     "Open `labs/ksp/src/demo/kotlin/workbench/ksp/l06/demo/RoundsDemo.kt`. `Eager` writes every receipt at once; `Quiet` sets aside what isn't valid yet. Each run also has the card processor.",
+     "Predict the first two runs, then run `./gradlew :ksp:demo -Pmain=workbench.ksp.l06.demo.RoundsDemoKt`. Look only at runs 1 and 2 for now.",
+     "In the demo's `move` source, add `@Moving data class Truck(val plate: String, val towing: VanReceipt)`. How many rounds will run 2 need now? Predict, then run."
+    ],
+    "expect": "Run 1 ends `INTERNAL_ERROR` with `Error type '<ERROR TYPE: LampReceipt>' is not resolvable in the current round of processing.` Run 2 ends `OK` with the same eight round lines as the real build: `Van` is set aside in round 1 and written in round 2. With `Truck` added, `Truck` waits two rounds (round 1 for `LampReceipt`, round 2 for `VanReceipt`), `TruckReceipt` is written in round 3, its card in round 4, and round 5 is the empty one. Runs 3 and 4 belong to the last section of this lesson.",
+    "refs": [
+     {
+      "title": "Java annotation processing to KSP reference (Kotlin docs)",
+      "url": "https://kotlinlang.org/docs/ksp-reference.html",
+      "kind": "docs"
+     }
+    ]
+   }
+  },
+  {
+   "h": "The set-aside pile is shared by every processor",
+   "body": "Suppose `Van` deserves an inventory card too, so it carries both notes, `@Moving @Inventory`. In round 1 the receipt processor sets it aside, and the card processor writes `VanInventoryCard.kt`, since a card needs only names, never types. Now remove one line from the card processor, the guard that remembers which classes have a card, and run the real build again:\n\n```text\nw: [ksp] [receipts] round 1: wrote [LampReceipt], set aside [Van]\nw: [ksp] [cards] round 1: wrote cards for [Box, Van]\nw: [ksp] [receipts] round 2: wrote [VanReceipt], set aside []\ne: [ksp] kotlin.io.FileAlreadyExistsException: /…/build/generated/ksp/l06/kotlin/workbench/ksp/app/l06/VanInventoryCard.kt\n```\n\nThe card processor set nothing aside, and yet in round 2 it got `Van` again. KSP keeps one pile of set-aside symbols for all processors, and a symbol on the pile comes back in every processor's lookup, for every annotation it carries. The card processor wrote the same file a second time, and KSP refuses that, in round 2 just as in round 1.\n\nThe fix is to remember what you've written, keyed by the class's full name:\n\n```java\n// Closest Java equivalent: javac's Filer refuses a second file with the same name,\n// so a processor that may meet an element twice keeps its own list\nprivate final Set<String> carded = new HashSet<>();\n\nif (!carded.add(type.getQualifiedName().toString())) continue;\nwriteCard(type);   // a second createSourceFile for the same name throws FilerException\n```\n\n```kotlin\n/** Classes that already have a card. A symbol another processor set aside comes back here too. */\nprivate val carded = mutableSetOf<String>()\n\nif (!carded.add(cls.qualifiedName!!.asString())) continue\ncardFile(cls).writeTo(codeGenerator, aggregating = false)\n```\n\nWith the guard in place, the same build prints `[cards] round 2: wrote cards for [LampReceipt]` and carries on to round 4. In javac the problem has a different source, since nothing is ever handed back. A Java processor meets an element twice only when it looks up its own saved names again, and its `Filer` refuses the second file with a `FilerException`.\n\nThis is where the picture breaks again. In a real house each helper keeps their own pile of boxes to come back to. In KSP the pile is shared, and every helper on the next walk trips over every box on it.\n\n**A set-aside symbol comes back to every processor. Never write a file twice for one symbol.**\n\nSo far every set-aside box found its type a round later. The last case is the one the docs and KSP 2.3.14 disagree about.",
+   "try": {
+    "title": "Give Van a second sticky note",
+    "minutes": 3,
+    "steps": [
+     "In `labs/ksp/app/src/l06/kotlin/workbench/ksp/app/l06/MoveMate.kt`, change `@Moving` above `Van` to `@Moving @Inventory`. Predict in which round `Van` gets its card, and whether it gets two.",
+     "Run `./gradlew :ksp:app:kspL06Kotlin` and read the `[cards]` lines.",
+     "After you finish the lab: in your own `labs/ksp/src/main/kotlin/workbench/ksp/l06/InventoryProcessor.kt`, comment out the line with `carded.add`, run `./gradlew :ksp:app:kspL06Kotlin -Pmine=l06`, read the failure, then put the line back and undo the change to `MoveMate.kt`."
+    ],
+    "expect": "With the guard, round 1 prints `[cards] round 1: wrote cards for [Box, Van]` and round 2 `[cards] round 2: wrote cards for [LampReceipt]`: `Van` came back in round 2, and the guard skipped it. Without the guard, round 2 fails with `e: [ksp] kotlin.io.FileAlreadyExistsException: .../VanInventoryCard.kt`, the output shown in this section.",
+    "refs": [
+     {
+      "title": "Filer (Java SE 25 API)",
+      "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.compiler/javax/annotation/processing/Filer.html",
+      "kind": "docs"
+     }
+    ]
+   }
+  },
+  {
+   "h": "A box set aside forever, and the check in finish()",
+   "body": "Here is a trailer that will wait forever, because nobody put `@Moving` on `Piano`, so no round will ever write `PianoReceipt`:\n\n```text\ndata class Piano(val keys: Int)\n\n@Moving\ndata class Trailer(val plate: String, val load: PianoReceipt)\n```\n\nKSP's docs say what should happen: \"If deferred symbols remain unprocessed, KSP logs an error for each processor with remaining deferred symbols.\" Let the build be the referee. Here is the KSP task with a receipt processor that sets `Trailer` aside each round and checks nothing at the end:\n\n```text\n> Task :ksp:app:kspL06Kotlin\nw: [ksp] [receipts] round 1: wrote [LampReceipt], set aside [Van, Trailer]\n...\nw: [ksp] [receipts] round 4: wrote [], set aside [Trailer]\nw: [ksp] [cards] round 4: wrote cards for []\nw: [ksp] [receipts] finish() after 4 rounds\n\nBUILD SUCCESSFUL in 2s\n```\n\nNot a word. KSP 2.3.14 has no code that reports leftovers. When a round writes nothing, the loop stops, `finish()` runs, and the set-aside symbols are dropped. The lab has a test that proves it with a processor that sets every symbol aside forever: the exit code is `OK`, and there is no error. Here the compiler trips over `PianoReceipt` later, `e: …/Trailer.kt:9:49 Unresolved reference 'PianoReceipt'.`, because `Trailer`'s own label mentions it. That error names the type but not the reason, and a processor that sets symbols aside for any other reason gets a green build and a missing file.\n\nSo the careful processor checks at the end itself. `finish()` is the method KSP calls on every processor once, after the last round, when no error was logged (after an error it calls `onError()` instead). Our processor still holds the last round's set-aside list in `waiting`, and its symbols are still good for a location:\n\n```java\n// Closest Java equivalent: javac's last round, where processingOver() is true\nif (roundEnv.processingOver()) {\n    for (String name : waiting) {\n        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,\n                name + \"Receipt was never written: a type it needs was never generated\",\n                processingEnv.getElementUtils().getTypeElement(name));\n    }\n}\n```\n\n```kotlin\nfun reportLeftovers() {     // called from finish(), after the last round\n    logger.warn(\"[receipts] finish() after ${rounds(round)}\")\n    for (symbol in waiting) {\n        val cls = symbol as KSClassDeclaration\n        val missing = missingTypes(cls).joinToString(\", \")\n        logger.error(\n            \"${receiptName(cls).simpleName} was never written: ${nameOf(cls)} still needed $missing \" +\n                \"when processing ended after ${rounds(round)}. Check the spelling, or the annotation that should generate $missing.\",\n            cls,\n        )\n    }\n}\n```\n\nNow the same build fails where the cause is:\n\n```text\ne: [ksp] /…/l06/Trailer.kt:9: TrailerReceipt was never written: Trailer still needed PianoReceipt when processing ended after 4 rounds. Check the spelling, or the annotation that should generate PianoReceipt.\n```\n\nAn error logged in `finish()` still fails the build. javac's twin is its last round: javac runs one more round in which `processingOver()` returns `true`, and leftovers are checked there.\n\nIn the picture, `finish()` is the last walk through the empty house before the van leaves, and the careful helper counts the set-aside pile.\n\n**KSP 2.3.14 forgets what you set aside. Check in `finish()`, and report each symbol still waiting.**\n\nRounds have limits worth knowing. Every round costs a new Resolver and a new `validate()` pass, so a chain of receipts that need receipts adds a round per link. A file written in `finish()` is compiled, but no round reads it, so its sticky notes are ignored. And none of this lets a processor see more of a box: each round still reads labels, never bodies.",
+   "try": {
+    "title": "Leave a trailer waiting forever",
+    "minutes": 4,
+    "steps": [
+     "Look at runs 3 and 4 of the demo from the second Try it. Run 3 uses `Quiet`, run 4 the lab's processor, on the same `Trailer`.",
+     "Create `labs/ksp/app/src/l06/kotlin/workbench/ksp/app/l06/Trailer.kt` with `package workbench.ksp.app.l06`, `import workbench.ksp.annotations.Moving`, `data class Piano(val keys: Int)`, and `@Moving data class Trailer(val plate: String, val load: PianoReceipt)`.",
+     "Run `./gradlew :ksp:app:kspL06Kotlin`. Read the last line, then add `@Moving` above `Piano`, predict, and run again. Delete `Trailer.kt` when you're done."
+    ],
+    "expect": "In the demo, run 3 prints the round lines and then only the compiler's `e: Trailer.kt:8:49 Unresolved reference 'PianoReceipt'.`; run 4 adds `[receipts] finish() after 1 round` and the lab's error on `Trailer.kt:8`. In the real build the task fails with `TrailerReceipt was never written: Trailer still needed PianoReceipt when processing ended after 4 rounds. ...` on `Trailer.kt`'s declaration line. The round count can be lower when KSP rereads only the files that changed, which lesson 7 explains. With `@Moving` on `Piano`, `PianoReceipt` is written in round 1, `Trailer` is set aside once and written in round 2, and the build passes.",
+    "refs": [
+     {
+      "title": "RoundEnvironment and processingOver() (Java SE 25 API)",
+      "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.compiler/javax/annotation/processing/RoundEnvironment.html",
+      "kind": "docs"
+     }
+    ]
+   }
+  }
+ ],
+ "compare": {
+  "title": "Rounds and leftovers: javac's processingOver() and KSP's finish()",
+  "java": {
+   "title": "ReceiptProcessor.java (javac)",
+   "src": "// Closest Java equivalent: a javac annotation processor\nprivate final Set<String> waiting = new LinkedHashSet<>();\nprivate int round = 0;\n\n@Override\npublic boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {\n    round++;\n    Elements elements = processingEnv.getElementUtils();\n    List<TypeElement> candidates = new ArrayList<>();\n    for (Element e : roundEnv.getElementsAnnotatedWith(Moving.class)) candidates.add((TypeElement) e);\n    for (String name : waiting) candidates.add(elements.getTypeElement(name));   // no deferral: look up again\n    waiting.clear();\n    for (TypeElement type : candidates) {\n        if (hasErrorTypes(type)) waiting.add(type.getQualifiedName().toString());\n        else writeReceipt(type);\n    }\n    if (roundEnv.processingOver()) {                 // javac's extra, final round\n        for (String name : waiting) {\n            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,\n                    name + \"Receipt was never written\", elements.getTypeElement(name));\n        }\n    }\n    return false;\n}"
+  },
+  "kotlin": {
+   "title": "ReceiptProcessor.kt (KSP)",
+   "src": "private var round = 0\nprivate var waiting: List<KSAnnotated> = emptyList()\n\noverride fun process(resolver: Resolver): List<KSAnnotated> {\n    round++\n    val symbols = resolver.getSymbolsWithAnnotation(Moving::class.qualifiedName!!).toList()\n    val (ready, later) = symbols.partition { it.validate(apiFeatures = apiFeatures) }\n    for (symbol in ready) {\n        if (check(symbol)) receiptFile(symbol as KSClassDeclaration).writeTo(codeGenerator, aggregating = false)\n    }\n    waiting = later\n    return later                                      // KSP hands these back next round\n}\n\noverride fun finish() {                               // once, after the last round\n    for (symbol in waiting) {\n        logger.error(\"${receiptName(symbol as KSClassDeclaration).simpleName} was never written\", symbol)\n    }\n}"
+  },
+  "note": "Both run in rounds, and in both a file written in one round is read in the next. The bookkeeping differs. javac has no deferral, so the Java processor keeps class names itself and looks them up again each round with `Elements.getTypeElement`; KSP takes the symbols back from `process()` and returns them, pooled across all processors. javac ends with one extra round in which `processingOver()` is `true` and nothing new is processed; KSP has no extra round and calls `finish()` instead (or `onError()` after an error). And in KSP 2.3.14, unlike its docs, nothing reports what is still set aside: the Kotlin version must do it in `finish()`."
+ },
+ "worked": {
+  "title": "Predict the rounds for a truck that tows a van",
+  "steps": [
+   {
+    "say": "Add one class to the lab's move: a truck whose label mentions the van's receipt. Before you run anything, decide in which round `TruckReceipt` will be written.",
+    "code": "@Moving\ndata class Lamp(val name: String, val bulbs: Int, val shade: String?)\n\n@Moving\ndata class Van(val plate: String, val lastLoad: LampReceipt)\n\n@Moving\ndata class Truck(val plate: String, val towing: VanReceipt)",
+    "lang": "kotlin",
+    "alt_lang": "java",
+    "alt_code": "// The same chain in Java, using the generated Kotlin receipts as ordinary types\n@Moving public record Truck(String plate, VanReceipt towing) {}\n// VanReceipt needs LampReceipt, which needs Lamp: three links, one per round"
+   },
+   {
+    "say": "Trace it like a helper. Round 1 offers all three classes: only `Lamp` is valid, so `LampReceipt` is written and `Van` and `Truck` are set aside. Round 2 offers the set-aside pair plus `LampReceipt.kt`: `Van` is valid now, `Truck` still isn't, and the cards processor meets `LampReceipt`. Round 3: `Truck` at last, and `VanReceipt`'s card. Round 4: `TruckReceipt`'s card. Round 5 writes nothing, so it's the last.",
+    "code": "",
+    "lang": ""
+   },
+   {
+    "say": "Now the referee. This is the real log from the lab's processors:",
+    "code": "w: [ksp] [receipts] round 1: wrote [LampReceipt], set aside [Van, Truck]\nw: [ksp] [cards] round 1: wrote cards for []\nw: [ksp] [receipts] round 2: wrote [VanReceipt], set aside [Truck]\nw: [ksp] [cards] round 2: wrote cards for [LampReceipt]\nw: [ksp] [receipts] round 3: wrote [TruckReceipt], set aside []\nw: [ksp] [cards] round 3: wrote cards for [VanReceipt]\nw: [ksp] [receipts] round 4: wrote [], set aside []\nw: [ksp] [cards] round 4: wrote cards for [TruckReceipt]\nw: [ksp] [receipts] round 5: wrote [], set aside []\nw: [ksp] [cards] round 5: wrote cards for []\nw: [ksp] [receipts] finish() after 5 rounds",
+    "lang": "text"
+   },
+   {
+    "say": "Read the shape, not just the numbers. Each link in a chain of generated types costs one round, and the cards trail one round behind the receipts they describe. The last round always writes nothing, because that is how KSP knows to stop. Each round also means a fresh Resolver and another `validate()` pass over everything set aside, which is why a processor should validate only what its output needs.",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "Receipts over several rounds, and a check in finish()",
+  "minutes": 15,
+  "files": [
+   "labs/ksp/src/main/kotlin/workbench/ksp/l06/ReceiptProcessor.kt",
+   "labs/ksp/src/main/kotlin/workbench/ksp/l06/InventoryProcessor.kt",
+   "labs/ksp/src/test/kotlin/workbench/ksp/l06/RoundsTest.kt",
+   "labs/ksp/app/src/l06/kotlin/workbench/ksp/app/l06/MoveMate.kt"
+  ],
+  "run": "./gradlew :ksp:test --tests 'workbench.ksp.l06.*'",
+  "steps": [
+   "Run the tests in `labs/ksp/src/test/kotlin/workbench/ksp/l06/RoundsTest.kt`. Four fail, with `KSP generated no movemate/LampReceipt.kt` and `l06 not done yet: processReceipts: ...`. One passes from the start: it proves what KSP 2.3.14 itself does with a symbol that stays set aside, which is nothing.",
+   "Read the given code in `labs/ksp/src/main/kotlin/workbench/ksp/l06/`: `InventoryProcessor.kt` (lesson 2's card processor, with a round log and the guard), and in `ReceiptProcessor.kt` the fields `round` and `waiting`, `check`, `receiptFile`, `missingTypes` and `rounds`.",
+   "Find: in `processReceipts`, count the round, then ask the Resolver for the `@Moving` symbols.",
+   "Check: split them with `partition { it.validate(apiFeatures = apiFeatures) }`, and call the given `check` on each valid one.",
+   "Read and Write: `receiptFile(cls).writeTo(codeGenerator, aggregating = false)` for each symbol that passed, collecting `file.name` for the log. Store the set-aside symbols in `waiting`, log the round with the exact line from the KDoc, and return them.",
+   "Then the end of the build: write `reportLeftovers`, which `finish()` calls. Log `[receipts] finish() after ...` with `rounds(round)`, then call `logger.error` on each symbol still in `waiting`, with the message from the KDoc.",
+   "Prove: run the tests until all five pass. Then run `./gradlew :ksp:app:kspL06Kotlin -Pmine=l06`, compare your round log with this lesson's, and open `labs/ksp/app/build/generated/ksp/l06/kotlin/workbench/ksp/app/l06/VanReceipt.kt`.",
+   "From memory: do the drill below without looking at your code."
+  ],
+  "hints": [
+   "The log line relies on Kotlin's list printing: `\"[receipts] round $round: wrote $written, set aside ${later.map(::nameOf)}\"` prints `[LampReceipt]` and `[Van]`.",
+   "If the round test shows `set aside [Van]` in every round, you're returning all the symbols, or setting `waiting` before the split. Return only the ones `validate` rejected.",
+   "If round 2 crashes with `Error type '<ERROR TYPE: LampReceipt>'`, a symbol reached `receiptFile` without passing `validate`.",
+   "In `reportLeftovers`, the symbols in `waiting` still carry their location: pass each one as the second argument of `logger.error`, and the test finds `Trailer.kt:9`."
+  ],
+  "done_when": "All five tests in `RoundsTest` pass, and the real build with `-Pmine=l06` prints the same nine round lines as this lesson."
+ },
+ "drill": {
+  "title": "A round and its last check, from memory",
+  "minutes": 5,
+  "prompt": "Close this page. Write a KSP processor's `process()` that counts rounds, sets aside every symbol that isn't valid yet and remembers them, and a `finish()` that reports each symbol still set aside with `logger.error` on the symbol. Then write the javac version, with `processingOver()`. What does each one do about symbols it can't handle yet?",
+  "answer": {
+   "lang": "kotlin",
+   "src": "private var round = 0\nprivate var waiting: List<KSAnnotated> = emptyList()\n\noverride fun process(resolver: Resolver): List<KSAnnotated> {\n    round++\n    val (ready, later) = resolver.getSymbolsWithAnnotation(\"workbench.ksp.annotations.Moving\").toList()\n        .partition { it.validate(apiFeatures = apiFeatures) }\n    ready.forEach(::write)\n    waiting = later\n    return later                 // KSP offers these again next round\n}\n\noverride fun finish() {\n    for (symbol in waiting) logger.error(\"still set aside after $round rounds\", symbol)\n}",
+   "alt": {
+    "lang": "java",
+    "title": "javac",
+    "src": "private final Set<String> waiting = new LinkedHashSet<>();\n\n@Override\npublic boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {\n    List<TypeElement> candidates = new ArrayList<>();\n    for (Element e : roundEnv.getElementsAnnotatedWith(Moving.class)) candidates.add((TypeElement) e);\n    for (String name : waiting) candidates.add(processingEnv.getElementUtils().getTypeElement(name));\n    waiting.clear();\n    for (TypeElement type : candidates) {\n        if (hasErrorTypes(type)) waiting.add(type.getQualifiedName().toString());   // keep the name\n        else write(type);\n    }\n    if (roundEnv.processingOver()) {\n        for (String name : waiting) {\n            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, \"still waiting\",\n                    processingEnv.getElementUtils().getTypeElement(name));\n        }\n    }\n    return false;\n}"
+   }
+  }
+ },
+ "recap": [
+  "A round is one pass: KSP calls `process()` on every processor in services-file order, each with a fresh Resolver. A new round starts only if the round before wrote a file, and files written in a round are read in the next one, by every processor.",
+  "KSP creates each processor once, so a field can count the rounds; logging the count with `logger.warn` makes the passes visible. Never keep a Resolver from one round to the next.",
+  "Return from `process()` the symbols that can't be handled yet, those where `validate(apiFeatures = apiFeatures)` is false; KSP offers them again with the next round's new files.",
+  "The set-aside pile is shared: a deferred symbol comes back to every processor, for every annotation it carries, so never write a file twice for one symbol.",
+  "The trap: in KSP 2.3.14, a symbol still set aside at the end gets no error and no warning, although the docs promise one. Check in `finish()` and report it with `logger.error` on the symbol.",
+  "The limit: every round costs a new Resolver and new validation, a file written in `finish()` is compiled but never processed, and no round shows a processor any function bodies."
+ ],
+ "closing": "We started with a moving day that needed more than one walk through the house: receipts on the first, their cards on the second. Now the walks are visible in the log, `Van` waits one round for `LampReceipt`, and a `Trailer` that would wait forever gets a note in `finish()` instead of silence.\n\nIn a processor of your own, find the `return` at the end of `process()`. If it can return anything but an empty list, make sure something checks that list in `finish()`.\n\nNext, we'll repack one box a week after the move. Which cards does KSP redo, and how does it know which box each card came from?",
+ "quiz": [
+  {
+   "q": "In a build, the last file any processor writes is `TruckReceiptInventoryCard.kt`, in round 4. How many rounds run in total?",
+   "options": [
+    "4: the round that wrote the last file is the last round",
+    "5: round 5 runs because round 4 wrote a file, finds nothing to do, and ends the loop",
+    "As many as there are annotated classes",
+    "Until every symbol has been set aside at least once"
+   ],
+   "answer": 1,
+   "why": "KSP starts a new round whenever the previous one wrote at least one file, so round 4's card triggers round 5. Round 5 writes nothing, and only then does KSP stop and call `finish()`. The lab's log shows the same shape: the last line before `finish()` is always a round that wrote nothing."
+  },
+  {
+   "q": "The receipt processor sets aside `Van`, which carries `@Moving` and `@Inventory`. In round 2, what does the card processor get from `getSymbolsWithAnnotation(\"workbench.ksp.annotations.Inventory\")`?",
+   "options": [
+    "Only `LampReceipt`, from the new file",
+    "Nothing: the card processor deferred nothing",
+    "`LampReceipt` and `Van`: set-aside symbols return to every processor, for every annotation they carry",
+    "Only `Van`, because deferred symbols come first"
+   ],
+   "answer": 2,
+   "why": "KSP keeps one pool of set-aside symbols and merges it into every processor's lookup. So `Van` comes back to the card processor even though the receipt processor set it aside, and a card processor without a guard writes `VanInventoryCard.kt` a second time and fails with `FileAlreadyExistsException`."
+  },
+  {
+   "q": "A processor returns the same perfectly valid symbol from every `process()` call and never reports anything. What does KSP 2.3.14 do at the end?",
+   "options": [
+    "Logs an error for that processor, as the docs say",
+    "Logs a warning and passes the build",
+    "Keeps starting rounds until a timeout",
+    "Nothing: no file was written, so the loop stops, `finish()` runs, the symbol is dropped, and the build passes"
+   ],
+   "answer": 3,
+   "why": "A round that writes no file ends processing, whatever is still set aside. KSP's docs say it logs an error for each processor with deferred symbols left; 2.3.14 has no code that does, and the lab's test shows exit code `OK` with no error. That's why the lab's processor checks `waiting` in `finish()` itself."
+  },
+  {
+   "q": "Where should a processor report the symbols that are still set aside when processing ends?",
+   "options": [
+    "In `finish()`, which KSP calls once after the last round",
+    "In `process()`, when it notices that this is the last round",
+    "In `onError()`, which KSP calls when processing ends",
+    "In the provider's `create()`"
+   ],
+   "answer": 0,
+   "why": "`process()` can't know a round is the last one: KSP decides that only after the round, when it sees no new files. `finish()` runs exactly once afterwards, and an error logged there still fails the build. `onError()` runs only after an error was already logged, and `create()` runs before the first round."
+  },
+  {
+   "q": "From lesson 5: the receipt processor skips `validate()` and calls KotlinPoet's `toTypeName()` on `Van`'s property `lastLoad: LampReceipt` in round 1. What happens?",
+   "options": [
+    "KotlinPoet writes `LampReceipt` anyway, and the build passes",
+    "The processor throws `IllegalArgumentException: Error type '<ERROR TYPE: LampReceipt>' is not resolvable in the current round of processing.`, and KSP stops with an internal error",
+    "KSP sets `Van` aside by itself",
+    "The compiler reports `Unresolved reference 'LampReceipt'`"
+   ],
+   "answer": 1,
+   "why": "In round 1, `LampReceipt` is an error type, because it is only being written in this round. `toTypeName()` refuses error types and throws, which ends processing at once, as lesson 5's crash did. KSP never sets symbols aside by itself: a processor must check with `validate()` and return the symbol, and then `Van` is written in round 2.",
+   "from": "ksp-05"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "When does KSP start another round?",
+   "back": "When the round that just ended wrote at least one file. A round that writes nothing ends processing."
+  },
+  {
+   "front": "In round 2, what does `getSymbolsWithAnnotation` return?",
+   "back": "Symbols from the files written in round 1, plus the symbols set aside in round 1, by any processor."
+  },
+  {
+   "front": "Can a processor keep state from one round to the next?",
+   "back": "Yes, in fields: KSP creates each processor once. But never keep the Resolver; each round brings a new one."
+  },
+  {
+   "front": "What does KSP 2.3.14 report about symbols still set aside at the end?",
+   "back": "Nothing: no error, no warning. The docs say it logs an error; check in `finish()` yourself."
+  },
+  {
+   "front": "`finish()` or `onError()`: which runs when?",
+   "back": "Exactly one runs, once, after the last round: `onError()` if an error was logged, otherwise `finish()`. A thrown exception skips both."
+  },
+  {
+   "front": "Why can a symbol set aside by processor A crash processor B?",
+   "back": "The set-aside pile is shared: the symbol returns to B for every annotation it carries, and B may write the same file twice (`FileAlreadyExistsException`)."
+  },
+  {
+   "front": "What is javac's counterpart of KSP's `finish()`?",
+   "back": "The final round, in which `RoundEnvironment.processingOver()` returns true."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Round",
+   "plain": "One pass in which KSP calls `process()` on every processor; files written in it are read in the next round."
+  },
+  {
+   "term": "Resolver",
+   "plain": "The object a processor asks for symbols; KSP gives it a new one each round."
+  },
+  {
+   "term": "Deferral",
+   "plain": "Returning a symbol from `process()` so that KSP offers it again in the next round."
+  },
+  {
+   "term": "Error type",
+   "plain": "A type the compiler can't resolve yet, shown by KSP as `<ERROR TYPE: LampReceipt>`."
+  },
+  {
+   "term": "finish()",
+   "plain": "The method KSP calls on every processor once, after the last round, when no error was logged."
+  },
+  {
+   "term": "processingOver()",
+   "plain": "javac's signal, on `RoundEnvironment`, that this is the final round of annotation processing."
+  }
+ ],
+ "explain_back": {
+  "prompt": "A teammate says: \"My processor returns the classes it can't handle yet from `process()`, so KSP will tell me if one is never handled.\" Explain what really happens in KSP 2.3.14, using rounds, and what you'd add to the processor.",
+  "answer": "Returning a symbol from `process()` sets it aside: KSP offers it again in the next round, together with the symbols from the files written in this round, and it offers it to every processor. A new round starts only if the round before wrote a file. When a round writes nothing, KSP stops, calls `finish()` on every processor, and simply drops whatever is still set aside. The docs say KSP logs an error for that, but 2.3.14 has no such code: the build passes and the file for that class is just missing. Sometimes the compiler trips over the missing type later, but it can't say why it's missing. So I'd keep the last round's set-aside list in a field and, in `finish()`, call `logger.error` on each symbol still in it, with a message that says which generated file was never written and which type it was waiting for. An error in `finish()` still fails the build, on the right file and line."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "Processors run in the order the services file lists them: swap two lines, and the order swaps in every round. KSP's docs make no promise about order, though, and across several jars it depends on the classpath, so write processors that don't care who runs first.\n\nIn round 1, `resolver.getNewFiles()` returns the source files themselves, not an empty list. On an incremental build, a later lesson's subject, it returns only the files KSP decided to reprocess, and `getSymbolsWithAnnotation` likewise offers only symbols from those files. A processor that expects to see every annotated class in round 1 will be surprised on the second build.\n\nFiles are parsed for the next round only if they are Kotlin or Java. A processor can also write other files, such as a text resource with `createNewFile(..., extensionName = \"txt\")`, and those don't start a new round's processing of their own content. Everything a processor writes in `finish()` is still compiled and packed, but no round reads it, so its annotations are never seen.\n\n`getSymbolsWithAnnotation(name, inDepth = true)` also finds annotated declarations nested inside function bodies, such as a local class, at a higher cost. The notes on what a round offers apply to it in the same way."
+ },
+ "sources": [
+  {
+   "title": "Multiple round processing (KSP docs)",
+   "url": "https://kotlinlang.org/docs/ksp-multi-round.html"
+  },
+  {
+   "title": "Java annotation processing to KSP reference (Kotlin docs)",
+   "url": "https://kotlinlang.org/docs/ksp-reference.html"
+  },
+  {
+   "title": "RoundEnvironment (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.compiler/javax/annotation/processing/RoundEnvironment.html"
+  },
+  {
+   "title": "Filer (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.compiler/javax/annotation/processing/Filer.html"
+  }
+ ]
+}

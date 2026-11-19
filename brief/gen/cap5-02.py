@@ -96,7 +96,7 @@ java.lang.StackOverflowError
 --- twice: two routes, no names
 no error: the driver takes the back roads"""
 
-S0 = """First, the words, since all of them are in play today. A **dependency** is an object another object needs, and **dependency injection** hands it in from outside, here through the constructor, which is **constructor injection**. A **binding** is one line of the plan: how to get one type. A **singleton** is built once per plan, and anything else is built new for each request. The **graph** is all the bindings, with an arrow for each "needs". The **component** is the class our processor generates to build that graph, calling one generated **factory**, a small object that builds one class, for each.
+S0 = """First, the words, since all of them are in play today. A **dependency** is an object another object needs, and **dependency injection** hands it in from outside, here through the constructor, which is **constructor injection**. A **binding** is one line of the plan: how to get one type. A **singleton** is built once per plan, and anything else is built new for each request. The **graph** is all the bindings, with an arrow for each "needs". Our KSP processor is a plug-in for the build that reads declarations and writes code. The **component** is the class it generates to build that graph, calling one generated **factory**, a small object that builds one class, for each.
 
 Three mistakes in bindings are common enough to have names. A **missing binding**: somebody needs a type that nobody provides. A **cycle**: the "needs" arrows lead back to where they started. A **duplicate binding**: two bindings answer the same request, and the plan can't say which one is meant. Here they are, one small crew each:
 
@@ -110,7 +110,7 @@ Let's meet them the way a container that works things out on the street would. `
 
 Three mistakes, three different failures, and every one of them at run time. The first names the class but not who asked for it, and its top frames are the container's own lines. The second is 1,024 frames of the container asking itself for a truck, which is as many frames as the JVM keeps in a stack trace by default. The third is the worst, because it isn't a failure at all. The container stored both routes under one key, and the second one it read quietly replaced the first. `getDeclaredMethods()` returns methods "not in any particular order", in the Javadoc's words, so which route wins is luck.
 
-And lesson 1's processor? As promised, its walk has no memory of the path it is on, so it fails on the cycle the same way, only earlier. In a test compile it stopped with `INTERNAL_ERROR` and a `java.lang.StackOverflowError` whose top frames are inside KotlinPoet. Earlier is better. But a stack overflow says nothing about which classes are to blame, at either time.
+And lesson 1's processor? As promised, its walk has no memory of the path it is on, so it fails on the cycle the same way, only earlier. In a test compile it stopped with `INTERNAL_ERROR`, the exit code a test compile gives when a processor crashes, and a `java.lang.StackOverflowError` whose top frames are inside KotlinPoet. Earlier is better. But a stack overflow says nothing about which classes are to blame, at either time.
 
 So the night-before check needs two things lesson 1's walk lacks: the path it's on, and the patience to report a problem and carry on."""
 
@@ -164,7 +164,7 @@ Two details make the message useful. The error goes on `dependency.node`, the pa
 """ + OUT_BUILD + """
 ```
 
-`Missing.kt:8` is the truck's constructor, where the driver is asked for. (KSP prints the absolute path; the demo shortens it to the file name.) The javac twin finds the first two mistakes the same way, through the Messager, and prints `Missing.java:7: error: MovingDay needs Crew needs Truck needs Driver: nobody provides Driver`. Java has had annotation processors that javac runs since Java 6; KSP is Kotlin's own, faster way to do the same job for Kotlin code.
+`Missing.kt:8` is the truck's constructor, where the driver is asked for. (KSP prints the absolute path; the demo shortens it to the file name.) The javac twin finds the first two mistakes the same way. It reports through the Messager, javac's channel for a processor's messages, and prints `Missing.java:7: error: MovingDay needs Crew needs Truck needs Driver: nobody provides Driver`. Java has had annotation processors that javac runs since Java 6; KSP is Kotlin's own, faster way to do the same job for Kotlin code.
 
 A good message says what is wrong, where, and how to fix it. In a graph, "where" has two halves. The file and line tell you which parameter asked, and the path tells you why the plan needed it at all. The hint at the end covers "how": add `@Inject`, or a `@Provides` function in a `@Module`, which the last section brings in.
 
@@ -296,7 +296,7 @@ L = {
     "steps": [
      "Read the three files in `labs/injector/src/demo/kotlin/workbench/injector/l02/demo/` named `missing/Missing.kt`, `cycle/Cycle.kt` and `twice/Twice.kt`. Predict which crew fails loudest, and which fails quietest.",
      "Run `RunTimeMistakesDemo`, then its Java twin, which asks the same Kotlin container for the same crews.",
-     "In `missing/Missing.kt`, give `Driver` its note back (`class Driver @Inject constructor(val route: Route)`), predict, and run the Kotlin demo again."
+     "In `missing/Missing.kt`, give `Driver` its note back (`class Driver @Inject constructor(val route: Route)`), predict, and run the Kotlin demo again. Then take the note off once more: the next Try it compiles this file and expects the mistake in it."
     ],
     "code": code(f"{DEMO_K}/RunTimeMistakesDemo.kt", "./gradlew :injector:demo -Pmain=workbench.injector.l02.demo.RunTimeMistakesDemoKt",
                  f"{DEMO_J}/RunTimeMistakesDemoJava.java", "./gradlew :injector:demo -Pmain=workbench.injector.l02.demo.RunTimeMistakesDemoJava"),

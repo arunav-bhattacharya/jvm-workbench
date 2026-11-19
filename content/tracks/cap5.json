@@ -1,0 +1,139 @@
+{
+ "id": "cap5",
+ "intro": "Across three sittings you build a dependency injection container that does its work during the build. Dependency injection means that each class says in its constructor what it needs, and something else builds the objects in the right order and hands them over. Part 4's capstone did that by reflection while the program ran. Here a KSP processor writes the same wiring as ordinary Kotlin, so a wiring mistake becomes a compile error with a file and a line, and nothing is looked up when the program starts. Lesson 1 generates a factory for each `@Inject` class and a component that builds the whole graph in dependency order. Lesson 2 makes the processor report missing bindings with their whole path, cycles and duplicate bindings, all in one build, and adds `@Named` qualifiers and `@Module` objects with `@Provides` functions. Lesson 3 races the result against a reflection container from a cold start, lets an expensive part wait with `Lazy<T>` and `() -> T`, reads KSP's incremental log after one edit, and sets the processor next to Dagger, Hilt, kotlin-inject and Koin.\n\nThe picture continues the KSP track's moving house: the moving-day plan. The truck needs a driver, the driver needs the route, every packer needs a roll of tape, and the crew can't start until all of them are ready. Someone writes the plan the night before: who comes first, who waits for whom, what is shared (one truck for the whole day) and what is new each time (a roll of tape per packer). Writing the plan the night before is compile-time wiring; working it out on the street in the morning is reflection. A driver waiting for the truck that waits for him is a cycle, and it's far better to find it the night before. You need the KSP track first, and Part 4's capstone helps; each lesson reminds you of what it uses.\n\nThe labs live in `labs/injector`. `:injector` holds the processors you write (packages `workbench.injector.l01` to `l03`), `:injector:annotations` the six annotations, and `:injector:app` a real Gradle build that runs your processors on the full MoveMate crew, one source set per lesson. Each lesson's package is self-contained and starts from the previous lesson's solution as given code. Run `./gradlew :injector:test --tests 'workbench.injector.lNN.*'` from `labs/` for your processor and `./gradlew :injector:solutionTest` for the reference answers; the tests compile small graphs in memory with kctfork and check the generated text, the messages with their file and line, and calls into the generated component. `./gradlew :injector:app:kspLNNKotlin -Pmine=lNN` runs your processor in the real build, and the demos run the reference processors, so every Try it works before you finish a lab. Versions: Kotlin 2.4.21, KSP 2.3.14, KotlinPoet 2.4.0, kctfork 0.14.0, Gradle 9.8.2, JDK 25 running a build with release 21.",
+ "cheatsheet": "## The program in one picture\n\n`FactoryProcessor` writes one `<Name>Factory` per `@Inject` class, an isolating output. `ComponentProcessor` finds each `@Component` interface and every `@Module`, checks duplicate bindings once, walks each component's graph depth first with the path it is on, and writes `Generated<Interface>` in post-order, an aggregating output. Lesson 3's processor unwraps `Lazy<T>` and `() -> T` to the type inside, so the checks stay the same.\n\n## The pictures, part by part\n\n| Idea | Picture it | In the code | Lesson |\n|---|---|---|---|\n| dependency, constructor injection | what each member of the crew waits for, written on their card | constructor parameters | 1 |\n| binding | one line of the plan: how to get one kind of thing | an `@Inject` constructor or a `@Provides` function | 1 |\n| singleton; new each time | the one truck for the whole day; a new roll of tape per packer | a `private val`; a `private fun new...()` | 1 |\n| factory | one card per person: what they need and how to bring them | `object DriverFactory { fun create(route: Route): Driver }`, isolating | 1 |\n| component | the plan for the whole day, the master list | `GeneratedMovingDayComponent`, aggregating | 1 |\n| compile-time wiring; reflection | the plan written the night before; worked out on the street | generated `new` calls; `getConstructors()` and `newInstance` at start | 1 |\n| missing binding | a driver nobody called | `MovingDay needs Crew needs Truck needs Driver: nobody provides Driver.` | 2 |\n| cycle | the driver waits for the truck, the truck for the driver | `Dependency cycle: Truck needs Driver needs Truck.` | 2 |\n| duplicate binding; qualifier | two printed routes on the table; \"highway\" and \"back roads\" written on them | `Route is provided twice: ...`; `@Named(\"highway\")` | 2 |\n| module, `@Provides` | how to get things you can't put a note on, such as a library class | `@Module object RouteModule { @Provides fun highway(): Route }` | 2 |\n| `Lazy<T>`; `() -> T` | the GPS on call, switched on when first needed; a fresh roll for every room | `lazy { GpsUnitFactory.create() }`; `{ newTapeRoll() }` | 3 |\n| incremental processing | repack one box: its card and the master list are redone | `kspDirtySet.log`, `kspSourceToOutputs.log` | 3 |\n\nWhere the pictures break: a real planner can improvise in the morning, but a generated plan can't add a part while the program runs. People in a cycle could talk it out; code needs a changed constructor. And a singleton is one per component object, not one in the world: two components, two trucks.\n\n## The annotations (package `workbench.injector.annotations`, RUNTIME retention)\n\n| Annotation | Goes on | Means |\n|---|---|---|\n| `@Inject` | a constructor, or a class (its primary constructor) | the plan may build this class with that constructor |\n| `@Singleton` | a class, or a `@Provides` function | one per component, shared by everyone who asks |\n| `@Component` | an interface of functions without parameters | what the app asks for; KSP writes `Generated<Name>` |\n| `@Module` | an `object` | its `@Provides` functions are bindings |\n| `@Provides` | a function in a `@Module` | \"to get my return type, call me\"; its parameters are dependencies |\n| `@Named(\"...\")` | a parameter, a `@Provides` function or a component function | a qualifier, part of the binding's key |\n\nKSP would be content with SOURCE retention; RUNTIME is there for the reflection containers in the demos.\n\n## The walk\n\n- Depth first from each entry point; a binding joins the plan when the walk leaves it (post-order), once. Kotlin rejects a wrong order: `Variable 'route' must be initialized.` (javac: `illegal forward reference`).\n- For each dependency, in this order: nobody provides it (missing), it's finished (shared), it's on the current path (cycle), else visit it.\n- Report with `logger.error(message, node)` and carry on: one build lists every mistake. Duplicates are checked once, before any walk. A component is written only when its plan is clean.\n- Errors land on the declaration's line: the parameter that asks (missing), the parameter that closes the loop (cycle), the second binding (duplicate).\n- After a failed run, `Unresolved reference 'GeneratedMovingDayComponent'` lines are follow-ons. Fix the first errors.\n\n## What the generated code looks like\n\n| Asked for as | singleton held in a `Lazy` | singleton built at once | no `@Singleton` |\n|---|---|---|---|\n| the type | `gpsUnit.value` | `truck` | `newTapeRoll()` |\n| `Lazy<T>` | `gpsUnit` | `lazyOf(truck)` | `lazy { newTapeRoll() }` |\n| `() -> T` | `{ gpsUnit.value }` | `{ truck }` | `{ newTapeRoll() }` |\n\nA singleton becomes `private val truck: Truck = TruckFactory.create(driver)`, or `private val gpsUnit: Lazy<GpsUnit> = lazy { GpsUnitFactory.create() }` when someone asks for it lazily. Anything else becomes `private fun newTapeRoll(): TapeRoll = TapeRollFactory.create()`. A `@Provides` binding calls the module: `RouteModule.highway()`.\n\n## Dependencies and incremental builds\n\n| Output | Dependencies | Redone when |\n|---|---|---|\n| `<Name>Factory` | `Dependencies(aggregating = false, thatClassFile)` | that file changes, or a type it looked up does |\n| `Generated<Interface>` | `Dependencies(aggregating = true, componentFile, *moduleFiles)` | any file changes (`<AnyChanges is a virtual file; DO NOT USE.>`) |\n\nOne comment in lesson 3's `Truck.kt`: 5 of 17 files dirty (`Dirty / All: 29.41%`), three factories and the component redone, four factories restored from backup. `touch` changes nothing (Gradle compares text), and the build cache can skip KSP after an undo: make a fresh edit or add `--no-build-cache`.\n\n## Measured (lesson 3, seven cold starts each, a busy four-core machine)\n\n| Question | Tool | Generated component | Reflection container |\n|---|---|---|---|\n| Wiring: create plus first request | `System.nanoTime()` in a fresh JVM | 17.6 to 32.1 ms | 46.3 to 71.9 ms |\n| Whole JVM run | the parent's clock | 139 to 196 ms | 192 to 256 ms |\n| Classes loaded | `-Xlog:class+load` | 817 | 1,059 |\n| Proxy classes made at run time | classes in `jdk.proxy*` | 0 | 6 |\n| Annotation classes loaded | `workbench.injector.annotations.*` | 0 | 4 |\n| Second request | `System.nanoTime()` | a few microseconds or less | a few microseconds or less |\n\nTimes moved by a third between runs; the class counts didn't move. A test that scans the generated text for `java.lang.reflect`, `kotlin.reflect`, `::class` and the like keeps the generated side honest.\n\n## The real tools (November 2026)\n\n| Tool | KSP status | Next to ours |\n|---|---|---|\n| Dagger | `ksp(\"com.google.dagger:dagger-compiler:2.60.1\")`; \"stable as of Dagger 2.60+ and KSP 2.3.9+\" | also generates component implementations and factories; SPI plugins must move to the new Dagger SPI |\n| Hilt | `hilt-compiler` 2.60.1, built on Dagger for Android | the same approach, for Android apps |\n| kotlin-inject | `kotlin-inject-compiler-ksp:0.9.0`, KSP only | the implementation is generated and reached through a `.create()` extension |\n| Koin Annotations | `koin-ksp-compiler` deprecated; the Koin Compiler Plugin (1.2.3) replaces it | the plugin rewrites `single<T>()` calls into constructor calls, which KSP can't do; `get()` still asks the container at run time |\n\nkotlinlang's KSP page still lists \"Dagger: Alpha\" and \"Hilt: In progress\"; trust dagger.dev.\n\n## Commands (from `labs/`)\n\n| What | Command |\n|---|---|\n| Your processor's tests | `./gradlew :injector:test --tests 'workbench.injector.lNN.*'` |\n| The reference answers | `./gradlew :injector:solutionTest --tests 'workbench.injector.lNN.*'` |\n| Your processor in the real build | `./gradlew :injector:app:kspLNNKotlin -Pmine=lNN` |\n| A demo in the app | `./gradlew :injector:app:demo -Pmain=workbench.injector.app.l03.StartupRaceKt` |\n| The incremental log | `./gradlew :injector:app:compileL03Kotlin -Pksp.incremental.log=true`, then `injector/app/build/kspCaches/l03/logs/` |\n\n## Review questions for any container\n\n1. When is the wiring checked: in the build, at start, or on the first request?\n2. Where does a missing binding point: at a line of mine, or inside the container?\n3. Does it find a cycle with the loop named, or by running out of stack?\n4. What happens with two bindings for one type: an error, or a silent winner?\n5. How many classes does a cold start load, and how many are made while the program runs?",
+ "recap": [
+  "Dependency injection hands each object what its constructor asks for. A binding says how to get one type; a singleton exists once per component, and anything else is built for each request.",
+  "The factory processor writes one `<Name>Factory` per `@Inject` class, an isolating output tied to that class's file.",
+  "The component processor walks the graph depth first from the `@Component` functions and writes the plan in post-order: a `private val` per singleton, a `new...()` function for the rest. The order is what makes it compile.",
+  "The component is aggregating: built from the component's file and every module's file, and redone whenever any file changes.",
+  "A missing binding is reported on the parameter that asks, with the path joined by \"needs\"; a cycle is a dependency that is still on the path; a duplicate is reported on the second binding. One build reports them all.",
+  "A reflection container meets the same mistakes only on the day: an exception from its own code, a 1,024-frame `StackOverflowError`, or a silent winner between two routes.",
+  "`@Module` objects with `@Provides` functions bind classes you can't annotate, and `@Named` qualifiers tell two bindings of one type apart; a misspelt name is a missing binding.",
+  "`Lazy<T>` builds once on first use and `() -> T` gives one more per call; laziness moves a cost rather than removing it.",
+  "From cold, the generated component wired the crew two to three times faster and loaded 817 classes against 1,059, with no proxies and no annotation classes at run time.",
+  "Dagger, Hilt and kotlin-inject generate wiring with KSP as we did; Koin moved to a compiler plugin because rewriting your calls is a job KSP can't do."
+ ],
+ "quiz": [
+  {
+   "q": "A generator writes `private val truck: Truck = TruckFactory.create(driver)` on the line above `private val driver: Driver = DriverFactory.create(route)`. What happens?",
+   "options": [
+    "It compiles, and the truck's driver is `null` at run time",
+    "It doesn't compile: `Variable 'driver' must be initialized.`",
+    "Kotlin reorders the properties",
+    "KSP reports a cycle"
+   ],
+   "answer": 1,
+   "why": "Kotlin initializes properties from top to bottom and rejects an initializer that reads a property declared below it. That's why the component must be written in post-order. Nothing loops here, so it isn't a cycle.",
+   "from": "cap5-01"
+  },
+  {
+   "q": "Which generated file must be declared aggregating, and why?",
+   "options": [
+    "`DriverFactory.kt`, because the driver is shared",
+    "Every factory, because they're all used by the component",
+    "`GeneratedMovingDayComponent.kt`, because a new file, such as a new `@Module`, can change the plan",
+    "None: KSP works it out from the imports"
+   ],
+   "answer": 2,
+   "why": "A factory depends on its own class's file, so it's isolating. The component is built from many files and every module, and a brand-new file can add a binding or a duplicate, which only an aggregating output notices.",
+   "from": "ksp-07"
+  },
+  {
+   "q": "A test creates two `GeneratedMovingDayComponent` objects. How many trucks exist?",
+   "options": [
+    "One: `@Singleton` means one per program",
+    "Two: a singleton is one per component object",
+    "None until `truck()` is called",
+    "It depends on the order of creation"
+   ],
+   "answer": 1,
+   "why": "Each component holds its singletons as its own fields, so each component builds its own truck. One per component is usually what tests want: each test gets a fresh plan.",
+   "from": "cap5-01"
+  },
+  {
+   "q": "The walk is inside `MovingDay`, `Crew`, `Truck` and `Driver`, and the driver asks for `Crew`. What is reported?",
+   "options": [
+    "`Dependency cycle: Crew needs Truck needs Driver needs Crew.`",
+    "`Dependency cycle: MovingDay needs Crew needs Truck needs Driver needs Crew.`",
+    "Nothing: `Crew` is shared",
+    "A missing binding for `Crew`"
+   ],
+   "answer": 0,
+   "why": "`Crew` is still on the path, so this is a loop, and the loop starts at the repeated binding. `Crew` isn't finished yet, so it isn't shared. The real build reported exactly this line when `val crew: Crew` was added to the driver.",
+   "from": "cap5-02"
+  },
+  {
+   "q": "`Crew` needs `Route` and `MovingDay` needs the same singleton `Route`. Why does the walk not report a cycle when it meets `Route` again?",
+   "options": [
+    "Because `Route` comes from a module",
+    "Because it checks the finished set before the path, and `Route` is finished",
+    "Because it only checks for cycles at entry points",
+    "Because singletons can't be in cycles"
+   ],
+   "answer": 1,
+   "why": "Two arrows into one finished binding are sharing, not a loop. Checking the finished set first is what keeps a diamond-shaped graph from looking like a cycle.",
+   "from": "cap5-02"
+  },
+  {
+   "q": "`Route` has an `@Inject` constructor, and a module also has `@Provides fun route(): Route`. What does the build say, and where?",
+   "options": [
+    "Nothing: the module wins",
+    "Nothing: the constructor wins",
+    "A cycle between `Route` and the module",
+    "`Route is provided twice: by Route's @Inject constructor and by RouteModule.route().`, on the `@Provides` function"
+   ],
+   "answer": 3,
+   "why": "Both bindings answer the key `Route`, so the plan can't choose. The `@Inject` constructor counts as the first, and the error lands on the second binding's own line, the line you would edit.",
+   "from": "cap5-02"
+  },
+  {
+   "q": "A reflection container is given two unqualified `@Provides` functions for `Route`. What did the lesson's container do?",
+   "options": [
+    "It refused when it was created",
+    "It threw when the driver asked for a route",
+    "It kept one of them without a word",
+    "It gave the driver both"
+   ],
+   "answer": 2,
+   "why": "It stored providers in a map by key, so the second one replaced the first, and `getDeclaredMethods()` promises no order. The driver took the back roads and nothing was printed. The processor turns the same mistake into a compile error.",
+   "from": "cap5-02"
+  },
+  {
+   "q": "Which request fits each part: the truck's GPS, slow to switch on and not needed every day; a fresh label sticker for every box?",
+   "options": [
+    "`Lazy<GpsUnit>` and `() -> Sticker`",
+    "`() -> GpsUnit` and `Lazy<Sticker>`",
+    "`GpsUnit` and `Sticker`, both direct",
+    "`Lazy` for both"
+   ],
+   "answer": 0,
+   "why": "`Lazy<GpsUnit>` builds the GPS on first use and keeps it. `() -> Sticker` returns one more sticker on every call, as long as `Sticker` isn't a singleton. `Lazy<Sticker>` would give every box the same sticker.",
+   "from": "cap5-03"
+  },
+  {
+   "q": "On a busy machine you race generated wiring against reflection. Which number should you trust most from a single run?",
+   "options": [
+    "The milliseconds to wire the crew",
+    "The whole JVM run time",
+    "The count of classes loaded",
+    "The second request's microseconds"
+   ],
+   "answer": 2,
+   "why": "Timings move with whatever else is running; ours moved by a third between runs. The classes a program loads depend only on the code it runs, so 817 against 1,059 held in every run. Count first, then time with many runs.",
+   "from": "cap5-03"
+  },
+  {
+   "q": "Why did Koin move its annotations from a KSP processor to a compiler plugin?",
+   "options": [
+    "KSP can't read annotations on classes",
+    "Its plugin rewrites `single<T>()` calls in your code into constructor calls, and KSP can only add new files",
+    "KSP is deprecated",
+    "Compiler plugins run while the program runs"
+   ],
+   "answer": 1,
+   "why": "KSP reads declarations and writes new files; it can't change an expression in your code. Rewriting a call is a compiler plugin's job, as the compiler plugins lesson showed. KSP itself is alive and well: Dagger, Hilt and kotlin-inject use it.",
+   "from": "kt-06"
+  }
+ ]
+}

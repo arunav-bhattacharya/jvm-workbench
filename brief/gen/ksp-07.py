@@ -121,7 +121,7 @@ The card is the easy half. Lamp's card was written with these Dependencies:
 
 """ + pair(J_CARD, K_CARD) + """
 
-Read the Kotlin line aloud: "this card came from this class's file, and from nothing else." KSP calls that an **isolating output**: it depends only on the source files you name. The Java side has the same idea one level up. Gradle sorts whole javac processors into categories, and an isolating one must give exactly one originating element, the element the file came from, for each file it writes.
+Read the Kotlin line aloud: "this card came from this class's file, and from nothing else." KSP calls that an **isolating output**: it depends only on the source files you name. Java has had annotation processors, programs that javac runs while it compiles, since Java 6, and KSP is Kotlin's own way to do that job for Kotlin code, without going through Java. The Java side has the same idea one level up. Gradle sorts whole javac processors into categories, and an isolating one must give exactly one originating element, the element the file came from, for each file it writes.
 
 In the moving-house picture, `Lamp.kt` is the repacked box, and its card is the only card that must be redone because of it. The cards of the untouched boxes come back from storage. The picture breaks in one place: a real helper sees which box was repacked. KSP sees only what your Dependencies say, plus the types your processor looked up. It doesn't open boxes to check.
 

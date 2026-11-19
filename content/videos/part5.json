@@ -1,5 +1,8 @@
 {"videos": [
     {"slug": "ksp01-cards", "lesson": "ksp-01", "section": 2, "title": "Code that writes code: a helper reads each box's label during the build and writes the card, so it can't drift"},
     {"slug": "ksp02-first-processor", "lesson": "ksp-02", "section": 2, "title": "Your first processor: find the sticky notes, write one file per class, and why writing it twice fails"},
-    {"slug": "ksp03-labels", "lesson": "ksp-03", "section": 1, "title": "Reading a label: a type reference, the resolved type, nullability and type arguments, level by level"}
+    {"slug": "ksp03-labels", "lesson": "ksp-03", "section": 1, "title": "Reading a label: a type reference, the resolved type, nullability and type arguments, level by level"},
+    {"slug": "ksp04-kotlinpoet", "lesson": "ksp-04", "section": 1, "title": "KotlinPoet: build the file from specs, and let the placeholders write the imports"},
+    {"slug": "ksp05-errors", "lesson": "ksp-05", "section": 1, "title": "From a crash to a note on the exact box: errors that name the file and line"},
+    {"slug": "ksp06-rounds", "lesson": "ksp-06", "section": 0, "title": "Rounds made visible: a receipt written in round 1 gets its card in round 2, and a box set aside waits its turn"}
 ]}
