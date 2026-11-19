@@ -24,6 +24,8 @@ SAY = [
     (r"\bTLABs?\b", lambda m: "T lab" + ("s" if m.group(0).endswith("s") else "")), (r"\bepoll\b", "E poll"), (r"\bio_uring\b", "I O uring"),
     (r"\bVert\.x\b", "Vert X"), (r"\bjavac\b", "java C"), (r"\bjavap\b", "java P"), (r"\bjcmd\b", "J command"), (r"\bCRaC\b", "crack"),
     (r"\bAPIs?\b", lambda m: "A P I" + ("s" if m.group(0).endswith("s") else "")), (r"\bJSON\b", "jay-son"), (r"\bSQL\b", "S Q L"),
+    (r"\bKSP2\b", "K S P two"), (r"\bKSP\b", "K S P"), (r"\bkapt\b", "kay apt"), (r"\bAPT\b", "A P T"),
+    (r"\bDI\b", "D I"), (r"\bIDE\b", "I D E"), (r"\bKMP\b", "K M P"),
     (r"count\+\+", "count plus plus"), (r"\+\+", " plus plus"), (r"\be\.g\.", "for example"), (r"\bi\.e\.", "that is"),
 ]
 

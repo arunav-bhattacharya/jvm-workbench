@@ -1,0 +1,390 @@
+{
+ "id": "ksp-02",
+ "title": "Your first processor",
+ "minutes": 40,
+ "goal": "By the end you can write a KSP processor from an empty file (a provider, a services file, and a `process` that finds the classes with a sticky note, checks them, and writes one new file per class with `createNewFile`), and read what KSP prints when one of those pieces is wrong.",
+ "opening": "Picture the helper from the last lesson on their first morning. They have a clipboard, a pen, a house full of sealed boxes, and one instruction: every box with an `@Inventory` sticky note gets an inventory card. Before the first card, though, the moving company has to know the helper exists, and the helper has to know exactly which note to look for.\n\nIn the last lesson, we watched a ready-made processor write MoveMate's cards during the build, and we saw its two limits: it can't look inside a box, and it can't change one. Now we'll write that processor ourselves, rung by rung: one that only reports in, one that finds the notes, and one that writes a card for each class. Along the way we'll break it on purpose, five different ways, and read exactly what KSP prints each time. Before we start, make a guess, and keep it in mind.",
+ "warmup": {
+  "q": "A processor asks `resolver.getSymbolsWithAnnotation(\"Inventory\")`, with the annotation's short name, on a file with two classes marked `@Inventory`. What happens?",
+  "options": [
+   "It finds both classes",
+   "It finds nothing, and KSP prints no warning",
+   "KSP stops with an error about an unknown annotation",
+   "It finds every annotation whose name ends in `Inventory`"
+  ],
+  "answer": 1,
+  "why": "`getSymbolsWithAnnotation` compares fully qualified names, and no annotation is called just `Inventory`, so the honest answer is an empty list. Nothing warns. The first sign of trouble is later code that calls a card nobody generated. `RungsDemo` in the second section shows it: `asked for \"Inventory\", found 0`."
+ },
+ "sections": [
+  {
+   "h": "The smallest processor KSP will run: a provider, a processor and a services file",
+   "body": "An annotation is a note in the code written with `@`, such as `@Inventory`, MoveMate's sticky note for \"make an inventory card for this one\". An annotation processor is a program that runs during the build (the steps Gradle takes to turn your source files into a program), reads the annotated classes, and writes new source files. KSP, Kotlin Symbol Processing, runs such processors on Kotlin code.\n\nA KSP processor is two small classes and one text file. The **processor** is the helper: a class that implements `SymbolProcessor`, whose `process` function KSP calls during the build. The **provider** is the moving company that sends the helper: a class that implements `SymbolProcessorProvider`, whose one job is to create the processor and hand it its tools. The **services file** is how KSP finds the company: a text file inside the processor's jar (the zip file a Java library ships in) that names the provider class.\n\nHere's the first rung, a processor that only reports each pass it makes, with the closest Java equivalent first:\n\n```java\n// Closest Java equivalent: a javac annotation processor (javax.annotation.processing)\n@SupportedAnnotationTypes(\"workbench.ksp.annotations.Inventory\")\n@SupportedSourceVersion(SourceVersion.RELEASE_21)\npublic class RoundLogger extends AbstractProcessor {     // javac creates it with new RoundLogger()\n    private int round = 0;\n\n    @Override\n    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {\n        round++;\n        processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, \"round \" + round);\n        return false;                                     // don't claim @Inventory for this processor alone\n    }\n}\n```\n\n```kotlin\nclass RoundLoggerProvider : SymbolProcessorProvider {   // KSP finds this through the services file\n    override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =\n        RoundLogger(environment.logger)\n}\n\nclass RoundLogger(private val logger: KSPLogger) : SymbolProcessor {\n    override val apiFeatures = buildApiFeatures { enableBackingFields = true; enableContextParameters = true }\n    private var round = 0\n\n    override fun process(resolver: Resolver): List<KSAnnotated> {\n        round++\n        logger.warn(\"round $round\")\n        return emptyList()                                // nothing set aside for a later round\n    }\n}\n```\n\nLet's walk through the Kotlin version from the top. KSP calls the provider's `create` once per build and passes it an environment, a bag of tools. `codeGenerator` writes files, `logger` prints messages, and `options` holds settings from the build file (lesson 7). Our processor keeps only the logger.\n\nKSP then calls `process` with a `Resolver`, the helper's clipboard: it answers questions such as \"which symbols carry this note?\" `process` returns the symbols it couldn't handle yet, and an empty list means \"all done\". The `apiFeatures` line opts in to newer KSP behavior; without it, KSP 2.3.14 prints three notes on every run asking you to.\n\nTwo things differ in the Java twin. Java has no provider: javac creates the processor itself, through a public constructor with no parameters. And `@SupportedAnnotationTypes` tells javac which annotations the processor wants, while every KSP processor simply sees every file.\n\nThe services file is one line, the provider's full class name:\n\n```text\nworkbench.ksp.l02.InventoryProcessorProvider\n```\n\nIn an ordinary project it lives at `src/main/resources/META-INF/services/com.google.devtools.ksp.processing.SymbolProcessorProvider`. In this lab each lesson keeps its own copy, at `src/main/resources/workbench/ksp/l02/SymbolProcessorProvider`, and the build moves it to that path inside lesson 2's jar. Java's file has a different name, `META-INF/services/javax.annotation.processing.Processor`, and the same job.\n\nWhat happens without it? Empty the lab's file, keep it, and run `./gradlew :ksp:app:kspL02Kotlin -Pmine=l02`:\n\n```text\n> Task :ksp:app:kspL02Kotlin FAILED\ne: [ksp] No providers found in processor classpath.\n```\n\nMisspell the class name instead, and the build names the typo: `Provider workbench.ksp.l02.InventoryProcessorProvidr not found`. KSP is strict about this file, and that's a kindness: it fails at once, not three steps later.\n\nWhy does the processor live in its own module, a project of its own within the build (`labs/ksp`), and not next to MoveMate's classes in `labs/ksp/app`? Because it's a program that must be compiled before it can run on your code. If the app's KSP task needed the app's own compiled classes, each would wait for the other, and Gradle refuses such a loop with `Circular dependency between the following tasks`. So the processor sits in a module of its own, and the app adds it through the `ksp` configuration, a named list of dependencies that only KSP uses:\n\n```kotlin solo\n// app/build.gradle.kts in an ordinary project: the processor lives in a module of its own\nplugins {\n    kotlin(\"jvm\") version \"2.4.21\"\n    id(\"com.google.devtools.ksp\") version \"2.3.14\"\n}\n\ndependencies {\n    implementation(project(\":annotations\"))    // the sticky notes: your code uses them\n    ksp(project(\":processor\"))                 // the helper: only the build uses it\n}\n```\n\n**A processor is a provider, a processor and a services file. If KSP can't find all three, nothing runs.**\n\nEvery processor in this track makes the same five moves, named the same way each time. Find the symbols with the note. Check that each one is something you can handle. Read the parts of its label you need. Write the new file. Prove it works, in tests and then in a real build. Rung one makes none of them yet; it only shows that KSP found the helper. Next, the helper should notice the sticky notes.",
+   "try": {
+    "title": "Run your processor in a real build, then break the services file",
+    "minutes": 4,
+    "steps": [
+     "From `labs/`, run `./gradlew :ksp:app:kspL02Kotlin -Pmine=l02`. `-Pmine=l02` uses your processor from `src/main`, still the lab's stub. Read the one `w: [ksp]` line it prints. (If the task says `UP-TO-DATE` and prints nothing, Gradle reused its last result: add `--rerun`.)",
+     "Open `labs/ksp/src/main/resources/workbench/ksp/l02/SymbolProcessorProvider`, delete its one line (keep the empty file), and run the same command. Then type the class name back with one letter missing and run it again. Put the correct line back.",
+     "Run `./gradlew :ksp:app:kspL02Kotlin` without `-Pmine`, so the reference processor runs, and list `labs/ksp/app/build/generated/ksp/l02/kotlin/workbench/ksp/app/l02/`. The `MovingDay.kt` below calls those files, and so does its Java twin."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "MovingDay.kt",
+     "src": "package workbench.ksp.app.l02\n\nimport workbench.ksp.annotations.Inventory\n\n// Lesson 2, the real build: your @Inventory processor (with -Pmine=l02) or the reference one runs on this file.\n//   ./gradlew :ksp:app:kspL02Kotlin -Pmine=l02          run KSP alone with yours; it works even on the stub\n//   then open labs/ksp/app/build/generated/ksp/l02/kotlin/workbench/ksp/app/l02/LampInventoryCard.kt\n//   ./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l02.MovingDayKt -Pmine=l02     once your lab passes\n\n@Inventory\ndata class Box(val label: String, val room: String, val weightGrams: Int, val fragile: Boolean = false)\n\n@Inventory\ndata class Lamp(val name: String, val bulbs: Int, val shade: String?)\n\n@Inventory\nclass Bookshelf(val shelves: Int, val books: List<String>)\n\n@Inventory\ndata class Plant(val kind: String, val potLitres: Double, val waterEveryDays: Int = 7)\n\nfun main() {\n    val van = listOf(\n        Box(\"kitchen 1\", \"kitchen\", 5200, fragile = true).inventoryCard(),\n        Lamp(\"desk lamp\", 1, null).inventoryCard(),\n        Bookshelf(3, listOf(\"atlas\", \"cookbook\")).inventoryCard(),\n        Plant(\"fern\", 2.5).inventoryCard(),\n    )\n    van.forEach(::println)\n}\n",
+     "run": "./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l02.MovingDayKt",
+     "file": "labs/ksp/app/src/l02/kotlin/workbench/ksp/app/l02/MovingDay.kt",
+     "alt": {
+      "lang": "java",
+      "title": "MovingDayJava.java",
+      "src": "package workbench.ksp.app.l02;\n\nimport java.util.List;\n\n// The Java twin: Java calling the cards your processor generated. LampInventoryCard.kt compiles to the class\n// LampInventoryCardKt, and the extension function becomes a static method that takes the lamp.\n//   ./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l02.MovingDayJava -Pmine=l02\npublic class MovingDayJava {\n    public static void main(String[] args) {\n        List<String> van = List.of(\n                BoxInventoryCardKt.inventoryCard(new Box(\"kitchen 1\", \"kitchen\", 5200, true)),\n                LampInventoryCardKt.inventoryCard(new Lamp(\"desk lamp\", 1, null)),\n                BookshelfInventoryCardKt.inventoryCard(new Bookshelf(3, List.of(\"atlas\", \"cookbook\"))),\n                PlantInventoryCardKt.inventoryCard(new Plant(\"fern\", 2.5, 7)));\n        van.forEach(System.out::println);\n    }\n}\n",
+      "run": "./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l02.MovingDayJava",
+      "file": "labs/ksp/app/src/l02/java/workbench/ksp/app/l02/MovingDayJava.java"
+     }
+    },
+    "expect": "Step 1 prints `w: [ksp] l02 not done yet: 1. Find: ask the resolver for every symbol annotated @Inventory, by its fully qualified name` and `BUILD SUCCESSFUL`: KSP found your provider, created your processor and called `process`, which is rung one. The empty file gives `e: [ksp] No providers found in processor classpath.` and a failed task; the typo gives `Provider workbench.ksp.l02.InventoryProcessorProvidr not found`. Step 3 lists four files, one per class, such as `LampInventoryCard.kt`."
+   },
+   "refs": [
+    {
+     "title": "KSP quickstart (Kotlin docs)",
+     "url": "https://kotlinlang.org/docs/ksp-quickstart.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "Finding the sticky notes: getSymbolsWithAnnotation and the annotation's full name",
+   "body": "Rung two asks the clipboard its first question. A **symbol** is anything in your code with a name: a class, a function, a property, a parameter. A declaration is a symbol you declared yourself, and a class declaration arrives as a `KSClassDeclaration`. KSP calls everything that can carry an annotation a `KSAnnotated`, and `getSymbolsWithAnnotation` returns those that carry the one you name:\n\n```java\n// Closest Java equivalent: javac's RoundEnvironment\n@Override\npublic boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {\n    Messager messager = processingEnv.getMessager();\n    TypeElement inventory = processingEnv.getElementUtils().getTypeElement(\"workbench.ksp.annotations.Inventory\");\n    Set<? extends Element> found = roundEnv.getElementsAnnotatedWith(inventory);\n    messager.printMessage(Diagnostic.Kind.WARNING, \"found \" + found.size());\n    for (Element element : found) {\n        messager.printMessage(Diagnostic.Kind.WARNING, \"found \" + element.getSimpleName(), element);\n    }\n    return false;\n}\n```\n\n```kotlin\noverride fun process(resolver: Resolver): List<KSAnnotated> {\n    val found = resolver.getSymbolsWithAnnotation(\"workbench.ksp.annotations.Inventory\").toList()\n    logger.warn(\"found ${found.size}\")\n    for (symbol in found) {\n        if (symbol is KSClassDeclaration) logger.warn(\"found ${symbol.simpleName.asString()}\", symbol)\n    }\n    return emptyList()\n}\n```\n\nBoth versions ask by the annotation's identity. Java looks up the annotation's `TypeElement` and passes it in. KSP takes the annotation's **fully qualified name**, its package and class name together, as a plain string. The second argument to `logger.warn` is the symbol itself, and that's worth making a habit: KSP then prints where the symbol is, its file and line.\n\n`RungsDemo` runs rung one, this rung, and a variant that asks for the short name `\"Inventory\"`, all on one MoveMate file. The file has two `@Inventory` classes and a `Wardrobe` without the note. Predict the three counts, then compare:\n\n```text\nexit code: OK\nw: [ksp] [rung 1] round 1\nw: [ksp] [rung 2] asked for \"workbench.ksp.annotations.Inventory\", found 2\nw: [ksp] .../MoveMate.kt:6: [rung 2] found Lamp\nw: [ksp] .../MoveMate.kt:9: [rung 2] found Plant\nw: [ksp] [rung 2] asked for \"Inventory\", found 0\n```\n\nThe full name found both classes, each with its file and line, and the wardrobe stayed out of it, as it should. The short name found nothing. That isn't an error and it isn't a warning. It's an honest answer to a question nobody meant to ask, because no annotation is called just `Inventory`. The processor goes on, generates nothing, and the first complaint comes much later, when some code calls a card that was never written.\n\n(The lab's processors write the full name as a string, so you can see it. The smoke example writes `Hello::class.qualifiedName!!` instead, which lets the compiler catch a typo in the package.)\n\n**Ask for an annotation by its full name, and pass the symbol to the logger, so KSP can say where it is.**\n\nThe helper now knows which boxes to card. Time to write one.",
+   "try": {
+    "title": "Ask the clipboard three ways",
+    "minutes": 3,
+    "steps": [
+     "Read `RungsDemo`: three processors, run one after the other on the same file. Write down your guess for each count.",
+     "Run it from `labs/`. It takes about 10 s, most of it starting the compiler.",
+     "In the source string, put `@Inventory` on `Wardrobe` too. Predict the new count and the line number KSP prints for it, then run again."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "RungsDemo.kt",
+     "src": "package workbench.ksp.l02.demo\n\nimport com.google.devtools.ksp.ApiFeatures\nimport com.google.devtools.ksp.buildApiFeatures\nimport com.google.devtools.ksp.processing.KSPLogger\nimport com.google.devtools.ksp.processing.Resolver\nimport com.google.devtools.ksp.processing.SymbolProcessor\nimport com.google.devtools.ksp.processing.SymbolProcessorProvider\nimport com.google.devtools.ksp.symbol.KSAnnotated\nimport com.google.devtools.ksp.symbol.KSClassDeclaration\nimport com.tschuchort.compiletesting.KotlinCompilation\nimport com.tschuchort.compiletesting.SourceFile\nimport com.tschuchort.compiletesting.configureKsp\nimport java.io.File\nimport java.io.OutputStream\n\n// The first two rungs of lesson 2's ladder, run together on one MoveMate file in memory:\n//   rung 1: a processor that only says which round it is in\n//   rung 2: a processor that asks for the classes with the sticky note, once by full name and once\n//           (the trap) by short name\n//   ./gradlew :ksp:demo -Pmain=workbench.ksp.l02.demo.RungsDemoKt\n\n/** Rung 1: KSP calls process() once per round; this processor only reports it. */\nclass RoundLogger(private val logger: KSPLogger) : SymbolProcessor {\n    override val apiFeatures: ApiFeatures = buildApiFeatures { enableBackingFields = true; enableContextParameters = true }\n    private var round = 0\n    override fun process(resolver: Resolver): List<KSAnnotated> {\n        round++\n        logger.warn(\"[rung 1] round $round\")\n        return emptyList()\n    }\n}\n\n/** Rung 2: find the annotated symbols and log their names. [annotation] is the name it asks for. */\nclass NoteFinder(private val logger: KSPLogger, private val annotation: String) : SymbolProcessor {\n    override val apiFeatures: ApiFeatures = buildApiFeatures { enableBackingFields = true; enableContextParameters = true }\n    override fun process(resolver: Resolver): List<KSAnnotated> {\n        val found = resolver.getSymbolsWithAnnotation(annotation).toList()\n        logger.warn(\"[rung 2] asked for \\\"$annotation\\\", found ${found.size}\")\n        for (symbol in found) {\n            if (symbol is KSClassDeclaration) logger.warn(\"[rung 2] found ${symbol.simpleName.asString()}\", symbol)\n        }\n        return emptyList()\n    }\n}\n\nprivate val moveMate = SourceFile.kotlin(\n    \"MoveMate.kt\",\n    \"\"\"\n    package movemate\n\n    import workbench.ksp.annotations.Inventory\n\n    @Inventory\n    data class Lamp(val name: String, val bulbs: Int, val shade: String?)\n\n    @Inventory\n    data class Plant(val kind: String, val potLitres: Double, val waterEveryDays: Int = 7)\n\n    class Wardrobe(val doors: Int)\n    \"\"\",\n)\n\nfun main() {\n    // all three processors in one compilation: KSP runs them one after the other in every round\n    val compilation = KotlinCompilation().apply {\n        workingDir = File(\"build/kctfork/demo\").apply { deleteRecursively() }\n        sources = listOf(moveMate)\n        inheritClassPath = true\n        jvmTarget = \"21\"\n        messageOutputStream = OutputStream.nullOutputStream()\n        configureKsp {\n            symbolProcessorProviders += SymbolProcessorProvider { env -> RoundLogger(env.logger) }\n            symbolProcessorProviders += SymbolProcessorProvider { env ->\n                NoteFinder(env.logger, \"workbench.ksp.annotations.Inventory\")\n            }\n            symbolProcessorProviders += SymbolProcessorProvider { env -> NoteFinder(env.logger, \"Inventory\") }\n        }\n    }\n    val result = compilation.compile()\n    println(\"exit code: ${result.exitCode}\")\n    // the KSP lines only, with the long work-folder path cut down to the file name\n    result.messages.lines().filter { \"[ksp]\" in it }\n        .forEach { println(it.replace(Regex(\"\"\"/\\S*/sources/\"\"\"), \".../\")) }\n}\n",
+     "run": "./gradlew :ksp:demo -Pmain=workbench.ksp.l02.demo.RungsDemoKt",
+     "file": "labs/ksp/src/demo/kotlin/workbench/ksp/l02/demo/RungsDemo.kt",
+     "solo": true
+    },
+    "expect": "The output in this section: `[rung 1] round 1`, then `found 2` with `MoveMate.kt:6` for Lamp and `MoveMate.kt:9` for Plant, and `found 0` for the short name. With the note on the wardrobe, the full name finds 3, and the wardrobe's line is the `class Wardrobe` line, not the line of its note. The short name still finds 0."
+   }
+  },
+  {
+   "h": "Writing the card: createNewFile, Dependencies and a string template",
+   "body": "Rung three writes a file. The environment's `CodeGenerator` creates it, and we write the card's text into it:\n\n```java\n// Closest Java equivalent: writing a file with javac's Filer\nvoid writeCard(TypeElement cls, String source) throws IOException {\n    String pkg = processingEnv.getElementUtils().getPackageOf(cls).getQualifiedName().toString();\n    JavaFileObject file = processingEnv.getFiler()\n            .createSourceFile(pkg + \".\" + cls.getSimpleName() + \"InventoryCard\", cls);  // cls: where it came from\n    try (Writer out = file.openWriter()) {\n        out.write(source);\n    }\n}\n\nString cardSource(String pkg, String name, List<String> properties) {\n    String pairs = properties.stream()\n            .map(p -> \"\\\"\" + p + \"=\\\" + thing.\" + p + \"()\")          // \"name=\" + thing.name()\n            .collect(Collectors.joining(\" + \\\", \\\" + \"));\n    return \"package \" + pkg + \";\\n\\n\"\n            + \"public final class \" + name + \"InventoryCard {\\n\"\n            + \"    public static String inventoryCard(\" + name + \" thing) {\\n\"\n            + \"        return \\\"\" + name + \": \\\" + \" + pairs + \";\\n\"\n            + \"    }\\n\"\n            + \"}\\n\";\n}\n```\n\n```kotlin\nfun writeCard(cls: KSClassDeclaration, source: String) {\n    val file = cls.containingFile!! // a class from source code always has one\n    codeGenerator.createNewFile(\n        Dependencies(aggregating = false, file),\n        cls.packageName.asString(),\n        \"${cls.simpleName.asString()}InventoryCard\",\n    ).use { it.write(source.toByteArray()) }\n}\n\nfun cardSource(cls: KSClassDeclaration, properties: List<String>): String {\n    val name = cls.simpleName.asString()\n    val pairs = properties.joinToString(\", \") { \"$it=\\$$it\" } // name=$name: the generated code's own template\n    return \"\"\"\n        |// Generated by InventoryProcessor from $name. Do not edit.\n        |package ${cls.packageName.asString()}\n        |\n        |fun $name.inventoryCard(): String =\n        |    \"$name: $pairs\"\n        |\"\"\".trimMargin()\n}\n```\n\nRead `writeCard` aloud: \"make a new file called `LampInventoryCard.kt` in Lamp's package, note that it comes from Lamp's source file, and write the card's text into it.\" `createNewFile` returns an `OutputStream`, and `use` closes it when the block ends; KSP picks the file up only once it's closed. The Java version does the same with `Filer.createSourceFile`, which takes the new class's full name and the elements the file came from.\n\nThe `properties` it receives come from the Read move, one filter in `readProperties`: the names of the primary constructor's `val` and `var` parameters, in order. A plain constructor parameter isn't a property, so a card couldn't read it.\n\nTwo lines deserve a second look. The first is the string template inside `cardSource`. The card we generate contains Kotlin's own `$name`, so the processor must write a dollar sign without letting its own template expand it. `\"$it=\\$$it\"` turns `name` into `name=$name`: the backslash keeps the second dollar sign for the generated code. That's the first of several small traps in writing code as plain strings, and lesson 4 trades the strings for a library that knows Kotlin's rules.\n\nThe second is `Dependencies(aggregating = false, file)`. It tells KSP which source file this output was made from: this card comes from Lamp's file alone. On a later build, KSP uses that to redo only the cards whose files changed. For now, one sentence is enough: name the file each output came from. Lesson 7 shows what goes wrong when you don't.\n\n`CardDemo` runs the whole lesson 2 processor on two classes in memory, and prints what KSP said and every file it wrote:\n\n```text\nexit code: OK\ni: [ksp] l02 round 1: @Inventory on [Lamp, Plant]\ni: [ksp] l02 round 2: @Inventory on []\n--- movemate/LampInventoryCard.kt\n// Generated by InventoryProcessor from Lamp. Do not edit.\npackage movemate\n\nfun Lamp.inventoryCard(): String =\n    \"Lamp: name=$name, bulbs=$bulbs, shade=$shade\"\n--- movemate/PlantInventoryCard.kt\n// Generated by InventoryProcessor from Plant. Do not edit.\npackage movemate\n\nfun Plant.inventoryCard(): String =\n    \"Plant: kind=$kind, potLitres=$potLitres, waterEveryDays=$waterEveryDays\"\n--- lampCard() returns: Lamp: name=desk lamp, bulbs=1, shade=null\n```\n\nNotice the two `i:` lines at the top: the processor ran twice. KSP calls `process` once per **round**, one pass over the files. A round that writes new files earns another round, in which those files are read too, in case they carry sticky notes of their own. Round 2 asked the same question and got `[]`, because the cards carry no `@Inventory`. Nothing new was written, so processing ended and the compiler took over. The figure draws those two rounds, and lesson 6 makes rounds the whole topic.\n\nHere the picture bends. A real helper would notice a new card the moment it was written. KSP's helper sees new files only in the next round, and it's the same helper on every pass: KSP creates the processor once per build and calls `process` again each round.\n\nRounds set a trap. `TwiceDemo` has a processor that doesn't ask for annotated symbols. It walks `getAllFiles()`, every file, in every round, and round 2's files include `Lamp.kt` again:\n\n```text\nexit code: INTERNAL_ERROR\nw: [ksp] round 1: getAllFiles() = [Lamp.kt]\nw: [ksp] round 2: getAllFiles() = [Lamp.kt, LampInventoryCard.kt]\nkotlin.io.FileAlreadyExistsException: .../kotlin/movemate/LampInventoryCard.kt\n```\n\nThe helper cheerfully started Lamp's card a second time, and KSP stopped the whole build. A file may be created only once per build, in KSP as in javac, whose `Filer` throws a `FilerException` for the same mistake. `getSymbolsWithAnnotation` protects you here: in each round it returns only symbols from that round's new files, plus any set aside for later.\n\n**Write each output once. Ask the resolver for what's new in this round, not for everything.**\n\nThe happy path works. But a sticky note can land on something that isn't a class at all.",
+   "figure": {
+    "svg": "<svg viewBox=\"0 0 700 300\" role=\"img\" aria-label=\"How KSP starts a processor and runs it in rounds: the services file names the provider, the provider creates the processor once, round 1 finds Lamp and Plant and writes two card files, round 2 reads the new files and finds no notes, and with nothing new written the compiler takes over\"><rect class=\"box\" x=\"20\" y=\"20\" width=\"200\" height=\"56\" rx=\"8\"/><text class=\"t\" x=\"120\" y=\"44\" text-anchor=\"middle\">services file</text><text class=\"t-s t-m\" x=\"120\" y=\"64\" text-anchor=\"middle\">names the provider</text><line class=\"ln\" x1=\"224\" y1=\"48\" x2=\"246\" y2=\"48\" marker-end=\"url(#arr)\"/><rect class=\"box-b\" x=\"250\" y=\"20\" width=\"200\" height=\"56\" rx=\"8\"/><text class=\"t-s t-code\" x=\"350\" y=\"44\" text-anchor=\"middle\">provider.create(env)</text><text class=\"t-s t-m\" x=\"350\" y=\"64\" text-anchor=\"middle\">once per build</text><line class=\"ln\" x1=\"454\" y1=\"48\" x2=\"476\" y2=\"48\" marker-end=\"url(#arr)\"/><rect class=\"box-a\" x=\"480\" y=\"20\" width=\"200\" height=\"56\" rx=\"8\"/><text class=\"t-s t-code\" x=\"580\" y=\"44\" text-anchor=\"middle\">InventoryProcessor</text><text class=\"t-s t-m\" x=\"580\" y=\"64\" text-anchor=\"middle\">the helper, ready to work</text><line class=\"ln-d\" x1=\"560\" y1=\"80\" x2=\"140\" y2=\"126\" marker-end=\"url(#arr)\"/><rect class=\"box-a\" x=\"20\" y=\"130\" width=\"200\" height=\"56\" rx=\"8\"/><text class=\"t-s t-code\" x=\"120\" y=\"154\" text-anchor=\"middle\">round 1: process()</text><text class=\"t-s t-m\" x=\"120\" y=\"174\" text-anchor=\"middle\">finds Lamp and Plant</text><line class=\"ln\" x1=\"224\" y1=\"158\" x2=\"246\" y2=\"158\" marker-end=\"url(#arr)\"/><rect class=\"box-b\" x=\"250\" y=\"130\" width=\"200\" height=\"56\" rx=\"8\"/><text class=\"t-s t-code\" x=\"350\" y=\"154\" text-anchor=\"middle\">LampInventoryCard.kt</text><text class=\"t-s t-m\" x=\"350\" y=\"174\" text-anchor=\"middle\">and PlantInventoryCard.kt</text><line class=\"ln\" x1=\"454\" y1=\"158\" x2=\"476\" y2=\"158\" marker-end=\"url(#arr)\"/><rect class=\"box-a\" x=\"480\" y=\"130\" width=\"200\" height=\"56\" rx=\"8\"/><text class=\"t-s t-code\" x=\"580\" y=\"154\" text-anchor=\"middle\">round 2: process()</text><text class=\"t-s t-m\" x=\"580\" y=\"174\" text-anchor=\"middle\">reads the new files: []</text><line class=\"ln\" x1=\"580\" y1=\"190\" x2=\"460\" y2=\"236\" marker-end=\"url(#arr)\"/><rect class=\"box-ok\" x=\"250\" y=\"240\" width=\"200\" height=\"44\" rx=\"8\"/><text class=\"t-s\" x=\"350\" y=\"267\" text-anchor=\"middle\">nothing new: compile</text><text class=\"t-s t-m\" x=\"120\" y=\"267\" text-anchor=\"middle\">new files earn a new round</text></svg>",
+    "caption": "The services file leads KSP to the provider; the processor then runs once per round, and a round that writes files earns another."
+   },
+   "try": {
+    "title": "Print the cards, then write one twice",
+    "minutes": 4,
+    "steps": [
+     "Run `CardDemo` and read every line it prints. Which line tells you there were two rounds?",
+     "Run `TwiceDemo` with `./gradlew :ksp:demo -Pmain=workbench.ksp.l02.demo.TwiceDemoKt`. Find the round where it went wrong, and the file it tried to write again.",
+     "Once your lab passes, run `CardDemo` again with `-Pmine=l02`. Your processor should print the same output, line for line."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "CardDemo.kt",
+     "src": "package workbench.ksp.l02.demo\n\nimport com.tschuchort.compiletesting.KotlinCompilation\nimport com.tschuchort.compiletesting.SourceFile\nimport com.tschuchort.compiletesting.configureKsp\nimport com.tschuchort.compiletesting.kspSourcesDir\nimport java.io.File\nimport java.io.OutputStream\nimport workbench.ksp.l02.InventoryProcessorProvider\n\n// Rung 3: the whole @Inventory processor on two MoveMate classes, in memory. Prints what KSP said, every file the\n// processor wrote, and the result of calling one generated card. Reference processor by default; -Pmine=l02 for yours.\n//   ./gradlew :ksp:demo -Pmain=workbench.ksp.l02.demo.CardDemoKt\nfun main() {\n    val moveMate = SourceFile.kotlin(\n        \"MoveMate.kt\",\n        \"\"\"\n        package movemate\n\n        import workbench.ksp.annotations.Inventory\n\n        @Inventory\n        data class Lamp(val name: String, val bulbs: Int, val shade: String?)\n\n        @Inventory\n        data class Plant(val kind: String, val potLitres: Double, val waterEveryDays: Int = 7)\n\n        fun lampCard() = Lamp(\"desk lamp\", 1, null).inventoryCard()\n        \"\"\",\n    )\n    val compilation = KotlinCompilation().apply {\n        workingDir = File(\"build/kctfork/demo\").apply { deleteRecursively() }\n        sources = listOf(moveMate)\n        inheritClassPath = true\n        jvmTarget = \"21\"\n        messageOutputStream = OutputStream.nullOutputStream()\n        configureKsp { symbolProcessorProviders += InventoryProcessorProvider() }\n    }\n    val result = compilation.compile()\n    println(\"exit code: ${result.exitCode}\")\n    result.messages.lines().filter { \"[ksp]\" in it }.forEach(::println)\n\n    val generated = compilation.kspSourcesDir.resolve(\"kotlin\")\n    generated.walk().filter { it.isFile }.sorted().forEach { file ->\n        println(\"--- ${file.relativeTo(generated).invariantSeparatorsPath}\")\n        print(file.readText())\n    }\n    if (result.exitCode == KotlinCompilation.ExitCode.OK) {\n        val card = result.classLoader.loadClass(\"movemate.MoveMateKt\").getMethod(\"lampCard\").invoke(null)\n        println(\"--- lampCard() returns: $card\")\n    }\n}\n",
+     "run": "./gradlew :ksp:demo -Pmain=workbench.ksp.l02.demo.CardDemoKt",
+     "file": "labs/ksp/src/demo/kotlin/workbench/ksp/l02/demo/CardDemo.kt",
+     "solo": true
+    },
+    "expect": "`CardDemo` prints `exit code: OK`, the two `i: [ksp] l02 round ...` lines (round 2 finds `[]`), both card files and `lampCard() returns: Lamp: name=desk lamp, bulbs=1, shade=null`. `TwiceDemo` ends with `exit code: INTERNAL_ERROR` and `kotlin.io.FileAlreadyExistsException: .../kotlin/movemate/LampInventoryCard.kt`, right after its round 2 line lists `Lamp.kt` again. An exception thrown inside a processor is an internal error; a `logger.error` gives a compilation error instead, as the next section shows."
+   },
+   "refs": [
+    {
+     "title": "Multiple round processing (Kotlin docs)",
+     "url": "https://kotlinlang.org/docs/ksp-multi-round.html",
+     "kind": "docs"
+    },
+    {
+     "title": "Filer (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.compiler/javax/annotation/processing/Filer.html",
+     "kind": "docs"
+    }
+   ]
+  },
+  {
+   "h": "When the note is on the wrong thing: an error that points at the exact box",
+   "body": "`@Inventory` can be put on an interface, which has no constructor and no properties to put on a card. The quickest reaction is to throw an exception. That stops the build with a stack trace from inside the processor, which tells the user about our code instead of theirs (lesson 5 shows one). The better reaction is a message on the symbol, which is the Check move:\n\n```java\n// Closest Java equivalent: javac's Messager, with the element as the location\nif (element.getKind() != ElementKind.CLASS) {\n    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,\n            \"@Inventory goes on a class, but \" + element.getSimpleName() + \" is an \" + element.getKind(),\n            element);\n    continue;\n}\n```\n\n```kotlin\nfun checkIsClass(symbol: KSAnnotated): KSClassDeclaration? {\n    if (symbol is KSClassDeclaration && symbol.classKind == ClassKind.CLASS) return symbol\n    logger.error(\"@Inventory goes on a class, but ${describe(symbol)}\", symbol)\n    return null\n}\n```\n\n`classKind` tells a class apart from an interface, an object or an enum class. `describe` is a small given helper that turns the symbol into words, such as \"Shape is an interface\". The Java twin reads the same fact from `getKind()`.\n\nPut `@Inventory interface Shape` in the lesson 2 playground and run `./gradlew :ksp:app:kspL02Kotlin`. Here is what it printed, trimmed:\n\n```text\n> Task :ksp:app:kspL02Kotlin\ne: [ksp] /home/user/jvm-workbench/labs/ksp/app/src/l02/kotlin/workbench/ksp/app/l02/Shape.kt:6: @Inventory goes on a class, but Shape is an interface\ne: [ksp] MovingDayJava.java:11: Unresolved reference 'BoxInventoryCardKt'\ne: [ksp] MovingDay.kt:24: Unresolved reference 'inventoryCard' on receiver of type 'Box'.\n...\n> Task :ksp:app:kspL02Kotlin FAILED\n\n* What went wrong:\nExecution failed for task ':ksp:app:kspL02Kotlin' (registered by plugin 'org.jetbrains.kotlin.jvm').\n> A failure occurred while executing com.google.devtools.ksp.gradle.KspAAWorkerAction\n   > KSP failed with exit code: PROCESSING_ERROR\n```\n\nThe first line is the real one. It names the absolute path, the line, and the reason. Line 6 is `interface Shape`, not line 5, where `@Inventory` sits: KSP points at the declaration, not at its note.\n\nThe lines after it are follow-on errors, about a dozen in the full output. After a failed run, KSP type-checks the code that calls the cards, and the cards were never written. They name only a file, `MovingDay.kt:24`, without a folder, which is the clue that they aren't the problem to fix first. Then the build fails with `KSP failed with exit code: PROCESSING_ERROR`.\n\nA `logger.error` doesn't stop the helper in the middle of the round. The round finishes, so one build can report every bad box at once, and only then does KSP fail the build. In the lab's tests, the same error arrives as text that a test can match: `e: [ksp] .../Shape.kt:6: @Inventory goes on a class, but Shape is an interface`.\n\n**Report a bad box with logger.error on the symbol, never with an exception: the message lands on the user's file and line.**\n\nThat completes the five moves. Find asks for the full name, Check reports on the symbol, Read takes the constructor's properties, Write creates one file per class, and Prove is the lab.",
+   "try": {
+    "title": "Put a note on the wrong box",
+    "minutes": 3,
+    "steps": [
+     "Create `labs/ksp/app/src/l02/kotlin/workbench/ksp/app/l02/Shape.kt` with `package workbench.ksp.app.l02`, `import workbench.ksp.annotations.Inventory`, a blank line, then `@Inventory` on line 5 and `interface Shape` on line 6.",
+     "Run `./gradlew :ksp:app:kspL02Kotlin`. Find the one line that names `Shape.kt`, and count the follow-on lines after it.",
+     "Delete `Shape.kt`, run the task again, and check that it passes."
+    ],
+    "code": {
+     "lang": "kotlin",
+     "title": "MovingDay.kt",
+     "src": "package workbench.ksp.app.l02\n\nimport workbench.ksp.annotations.Inventory\n\n// Lesson 2, the real build: your @Inventory processor (with -Pmine=l02) or the reference one runs on this file.\n//   ./gradlew :ksp:app:kspL02Kotlin -Pmine=l02          run KSP alone with yours; it works even on the stub\n//   then open labs/ksp/app/build/generated/ksp/l02/kotlin/workbench/ksp/app/l02/LampInventoryCard.kt\n//   ./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l02.MovingDayKt -Pmine=l02     once your lab passes\n\n@Inventory\ndata class Box(val label: String, val room: String, val weightGrams: Int, val fragile: Boolean = false)\n\n@Inventory\ndata class Lamp(val name: String, val bulbs: Int, val shade: String?)\n\n@Inventory\nclass Bookshelf(val shelves: Int, val books: List<String>)\n\n@Inventory\ndata class Plant(val kind: String, val potLitres: Double, val waterEveryDays: Int = 7)\n\nfun main() {\n    val van = listOf(\n        Box(\"kitchen 1\", \"kitchen\", 5200, fragile = true).inventoryCard(),\n        Lamp(\"desk lamp\", 1, null).inventoryCard(),\n        Bookshelf(3, listOf(\"atlas\", \"cookbook\")).inventoryCard(),\n        Plant(\"fern\", 2.5).inventoryCard(),\n    )\n    van.forEach(::println)\n}\n",
+     "run": "./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l02.MovingDayKt",
+     "file": "labs/ksp/app/src/l02/kotlin/workbench/ksp/app/l02/MovingDay.kt",
+     "alt": {
+      "lang": "java",
+      "title": "MovingDayJava.java",
+      "src": "package workbench.ksp.app.l02;\n\nimport java.util.List;\n\n// The Java twin: Java calling the cards your processor generated. LampInventoryCard.kt compiles to the class\n// LampInventoryCardKt, and the extension function becomes a static method that takes the lamp.\n//   ./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l02.MovingDayJava -Pmine=l02\npublic class MovingDayJava {\n    public static void main(String[] args) {\n        List<String> van = List.of(\n                BoxInventoryCardKt.inventoryCard(new Box(\"kitchen 1\", \"kitchen\", 5200, true)),\n                LampInventoryCardKt.inventoryCard(new Lamp(\"desk lamp\", 1, null)),\n                BookshelfInventoryCardKt.inventoryCard(new Bookshelf(3, List.of(\"atlas\", \"cookbook\"))),\n                PlantInventoryCardKt.inventoryCard(new Plant(\"fern\", 2.5, 7)));\n        van.forEach(System.out::println);\n    }\n}\n",
+      "run": "./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l02.MovingDayJava",
+      "file": "labs/ksp/app/src/l02/java/workbench/ksp/app/l02/MovingDayJava.java"
+     }
+    },
+    "expect": "The first error is `e: [ksp] /home/user/jvm-workbench/labs/ksp/app/src/l02/kotlin/workbench/ksp/app/l02/Shape.kt:6: @Inventory goes on a class, but Shape is an interface` (your path may differ). About a dozen follow-on errors name only `MovingDayJava.java` and `MovingDay.kt`, the code that calls cards that were never written. The task fails with `KSP failed with exit code: PROCESSING_ERROR`, and passes again once `Shape.kt` is gone."
+   },
+   "refs": [
+    {
+     "title": "Messager (Java SE 25 API)",
+     "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.compiler/javax/annotation/processing/Messager.html",
+     "kind": "docs"
+    }
+   ]
+  }
+ ],
+ "compare": {
+  "title": "The same first processor, as a javac processor and as a KSP processor",
+  "java": {
+   "title": "InventoryProcessor.java",
+   "src": "// Closest Java equivalent: a javac annotation processor\n@SupportedAnnotationTypes(\"workbench.ksp.annotations.Inventory\")\n@SupportedSourceVersion(SourceVersion.RELEASE_21)\npublic class InventoryProcessor extends AbstractProcessor {\n    @Override\n    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {\n        Elements elements = processingEnv.getElementUtils();\n        TypeElement inventory = elements.getTypeElement(\"workbench.ksp.annotations.Inventory\");\n        for (Element element : roundEnv.getElementsAnnotatedWith(inventory)) {      // 1. Find\n            if (element.getKind() != ElementKind.CLASS) {                           // 2. Check\n                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,\n                        \"@Inventory goes on a class\", element);\n                continue;\n            }\n            TypeElement cls = (TypeElement) element;\n            String pkg = elements.getPackageOf(cls).getQualifiedName().toString();\n            String name = cls.getSimpleName().toString();\n            try (Writer out = processingEnv.getFiler()                              // 4. Write\n                    .createSourceFile(pkg + \".\" + name + \"InventoryCard\", cls).openWriter()) {\n                out.write(\"package \" + pkg + \";\\n...\");\n            } catch (IOException e) {\n                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, e.toString(), cls);\n            }\n        }\n        return false;\n    }\n}\n// registered in META-INF/services/javax.annotation.processing.Processor"
+  },
+  "kotlin": {
+   "title": "InventoryProcessor.kt",
+   "src": "class InventoryProcessorProvider : SymbolProcessorProvider {\n    override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =\n        InventoryProcessor(environment.codeGenerator, environment.logger)\n}\n\nclass InventoryProcessor(\n    private val codeGenerator: CodeGenerator,\n    private val logger: KSPLogger,\n) : SymbolProcessor {\n    override val apiFeatures = buildApiFeatures { enableBackingFields = true; enableContextParameters = true }\n\n    override fun process(resolver: Resolver): List<KSAnnotated> {\n        for (symbol in resolver.getSymbolsWithAnnotation(\"workbench.ksp.annotations.Inventory\")) {   // 1. Find\n            if (symbol !is KSClassDeclaration || symbol.classKind != ClassKind.CLASS) {          // 2. Check\n                logger.error(\"@Inventory goes on a class\", symbol)\n                continue\n            }\n            val names = symbol.primaryConstructor?.parameters.orEmpty()                           // 3. Read\n                .filter { it.isVal || it.isVar }.map { it.name!!.asString() }\n            codeGenerator.createNewFile(                                                          // 4. Write\n                Dependencies(false, symbol.containingFile!!),\n                symbol.packageName.asString(), \"${symbol.simpleName.asString()}InventoryCard\",\n            ).use { it.write(cardSource(symbol, names).toByteArray()) }\n        }\n        return emptyList()\n    }\n}\n// registered in META-INF/services/com.google.devtools.ksp.processing.SymbolProcessorProvider"
+  },
+  "note": "The two processors make the same moves in the same order, and most of the API maps one to one: `getElementsAnnotatedWith` to `getSymbolsWithAnnotation`, `Messager.printMessage(ERROR, ..., element)` to `logger.error(..., symbol)`, `Filer.createSourceFile(name, element)` to `createNewFile(Dependencies(...), package, name)`. Three differences are real. javac creates its processor through a no-argument constructor, while KSP asks a provider, so a KSP processor can take its tools as constructor parameters. javac returns `true` or `false` to \"claim\" annotations from other processors; KSP has no claiming, and `process` returns the symbols it set aside for a later round. And the Java version needs a read step of its own to find a constructor, because Java has no primary constructor; lesson 3 shows how much more of the Kotlin label KSP can read."
+ },
+ "worked": {
+  "title": "Find out why a processor generates nothing",
+  "steps": [
+   {
+    "say": "A teammate's build is green, yet `LampInventoryCard.kt` never appears, and the app fails later with `Unresolved reference 'inventoryCard'`. First, make the processor say what it sees, at the top of `process`.",
+    "code": "override fun process(resolver: Resolver): List<KSAnnotated> {\n    val found = resolver.getSymbolsWithAnnotation(\"Inventory\").toList()\n    // 1. say what this round found\n    logger.warn(\"round ${++round}: found ${found.map { (it as KSDeclaration).simpleName.asString() }}\")\n    // ... the rest of the processor ...\n    return emptyList()\n}",
+    "lang": "kotlin",
+    "alt_lang": "java",
+    "alt_code": "@Override\npublic boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {\n    TypeElement inventory = processingEnv.getElementUtils().getTypeElement(\"Inventory\");\n    // 1. say what this round found: here getTypeElement returned null\n    processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,\n            \"round \" + (++round) + \": annotation type = \" + inventory);\n    return false;\n}"
+   },
+   {
+    "say": "The build prints `w: [ksp] round 1: found []`. Two facts follow. The processor runs, since a missing services file would have failed with `No providers found in processor classpath.`, and the clipboard came back empty. So the question was wrong, not the house: the short name `\"Inventory\"` matches nothing. The Java twin trips earlier and louder, because `getTypeElement(\"Inventory\")` returns `null`.",
+    "code": "",
+    "lang": ""
+   },
+   {
+    "say": "Fix the question with the full name, and the next build prints both rounds: the classes in round 1, and nothing in round 2, once the new cards have been read.",
+    "code": "// 2. ask by the fully qualified name\nval found = resolver.getSymbolsWithAnnotation(\"workbench.ksp.annotations.Inventory\").toList()\n// w: [ksp] round 1: found [Box, Lamp, Bookshelf, Plant]\n// w: [ksp] round 2: found []",
+    "lang": "kotlin",
+    "alt_lang": "java",
+    "alt_code": "// 2. look the annotation up by its fully qualified name\nTypeElement inventory = processingEnv.getElementUtils()\n        .getTypeElement(\"workbench.ksp.annotations.Inventory\");\nSet<? extends Element> found = roundEnv.getElementsAnnotatedWith(inventory);"
+   },
+   {
+    "say": "A warning on every build is noisy for everyone who uses the processor, so lower it to `logger.info` once it works. Info lines show only when you ask Gradle for them: `./gradlew :ksp:app:kspL02Kotlin --rerun --info | grep '\\[ksp\\]'` printed `i: [ksp] loaded provider(s): [workbench.ksp.l02.InventoryProcessorProvider]` and the lesson 2 processor's own `i: [ksp] l02 round 1: @Inventory on [Box, Lamp, Bookshelf, Plant]` and `round 2: @Inventory on []`. `--rerun` makes Gradle run the task even when nothing changed.",
+    "code": "",
+    "lang": ""
+   }
+  ]
+ },
+ "lab": {
+  "title": "The @Inventory card processor, five moves with plain strings",
+  "minutes": 15,
+  "files": [
+   "labs/ksp/src/main/kotlin/workbench/ksp/l02/InventoryProcessor.kt",
+   "labs/ksp/src/main/resources/workbench/ksp/l02/SymbolProcessorProvider",
+   "labs/ksp/app/src/l02/kotlin/workbench/ksp/app/l02/MovingDay.kt"
+  ],
+  "run": "./gradlew :ksp:test --tests 'workbench.ksp.l02.*'",
+  "steps": [
+   "Read `InventoryProcessor.kt`. The provider, `apiFeatures`, the `process` wrapper and the loop in `processCards` are given. Each function under the loop holds one move and one `TODO`.",
+   "Run `./gradlew :ksp:app:kspL02Kotlin -Pmine=l02`. Your processor already runs in a real build: it prints `w: [ksp] l02 not done yet: 1. Find: ...` and the build passes. Each move you finish moves that message along to the next one. If the task says `UP-TO-DATE` and prints nothing, add `--rerun`.",
+   "1. Find: in `findAnnotated`, ask the resolver for `workbench.ksp.annotations.Inventory`, and return the result as a list.",
+   "2. Check: in `checkIsClass`, return the symbol when it's a class (`ClassKind.CLASS`). Otherwise log `@Inventory goes on a class, but ${describe(symbol)}` with `logger.error`, on the symbol, and return null.",
+   "3. Read: in `readProperties`, take the primary constructor's parameters, keep the `val` and `var` ones, and return their names in order.",
+   "4. Write: build the file's text in `cardSource` (the comment shows it exactly), then create the file in `writeCard` with `codeGenerator.createNewFile(Dependencies(false, file), package, \"${name}InventoryCard\")`.",
+   "5. Prove: run the tests until all four pass. Then run `./gradlew :ksp:app:kspL02Kotlin -Pmine=l02`, open `labs/ksp/app/build/generated/ksp/l02/kotlin/workbench/ksp/app/l02/LampInventoryCard.kt`, and run `./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l02.MovingDayKt -Pmine=l02`.",
+   "From memory: close the file, and write the provider class and the services file's one line on paper. Then compare them with the file."
+  ],
+  "hints": [
+   "`getSymbolsWithAnnotation` returns a `Sequence`; call `.toList()` so the loop can read it once.",
+   "`classKind == ClassKind.CLASS` is true for a class or a data class, and false for an interface, an object or an enum class.",
+   "In `cardSource`, `\"$it=\\$$it\"` writes `name=$name`. A raw string `\"\"\"...\"\"\"` with `trimMargin()` keeps the layout readable; inside it, write the generated dollar sign as `${'$'}`.",
+   "`createNewFile` returns an `OutputStream`: `.use { it.write(source.toByteArray()) }` writes the text and closes the file.",
+   "The error must be logged on the symbol, `logger.error(message, symbol)`, or the test can't find `Shape.kt:6` in the message."
+  ],
+  "done_when": "All four tests in `InventoryProcessorTest` pass, and `./gradlew :ksp:app:kspL02Kotlin -Pmine=l02` writes the four card files."
+ },
+ "drill": {
+  "title": "Write a first processor from memory",
+  "minutes": 6,
+  "prompt": "Close this page. Write a provider and a processor that, for each class annotated `@Hello` (`workbench.ksp.annotations.smoke.Hello`), writes `<Name>Hello.kt` in the class's package, holding `fun helloFrom<Name>() = \"Hello from <Name>\"`. Add the services file's line. Then write the javac version: an `AbstractProcessor` with `getElementsAnnotatedWith` and the `Filer`. Compare with the answer.",
+  "answer": {
+   "lang": "kotlin",
+   "src": "class HelloProvider : SymbolProcessorProvider {\n    override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =\n        HelloProcessor(environment.codeGenerator)\n}\n\nclass HelloProcessor(private val codeGenerator: CodeGenerator) : SymbolProcessor {\n    override val apiFeatures = buildApiFeatures { enableBackingFields = true; enableContextParameters = true }\n\n    override fun process(resolver: Resolver): List<KSAnnotated> {\n        for (cls in resolver.getSymbolsWithAnnotation(\"workbench.ksp.annotations.smoke.Hello\")\n            .filterIsInstance<KSClassDeclaration>()) {\n            val name = cls.simpleName.asString()\n            val pkg = cls.packageName.asString()\n            codeGenerator.createNewFile(Dependencies(false, cls.containingFile!!), pkg, \"${name}Hello\")\n                .use { it.write(\"package $pkg\\n\\nfun helloFrom$name() = \\\"Hello from $name\\\"\\n\".toByteArray()) }\n        }\n        return emptyList()\n    }\n}\n\n// META-INF/services/com.google.devtools.ksp.processing.SymbolProcessorProvider:\n// workbench.ksp.smoke.HelloProvider",
+   "alt": {
+    "lang": "java",
+    "title": "HelloProcessor.java",
+    "src": "@SupportedAnnotationTypes(\"workbench.ksp.annotations.smoke.Hello\")\n@SupportedSourceVersion(SourceVersion.RELEASE_21)\npublic class HelloProcessor extends AbstractProcessor {\n    @Override\n    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {\n        TypeElement hello = processingEnv.getElementUtils().getTypeElement(\"workbench.ksp.annotations.smoke.Hello\");\n        for (Element element : roundEnv.getElementsAnnotatedWith(hello)) {\n            String name = element.getSimpleName().toString();\n            String pkg = processingEnv.getElementUtils().getPackageOf(element).getQualifiedName().toString();\n            try (Writer out = processingEnv.getFiler().createSourceFile(pkg + \".\" + name + \"Hello\", element).openWriter()) {\n                out.write(\"package \" + pkg + \";\\n\\npublic final class \" + name + \"Hello {\\n\"\n                        + \"    public static String helloFrom\" + name + \"() { return \\\"Hello from \" + name + \"\\\"; }\\n}\\n\");\n            } catch (IOException e) {\n                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, e.toString(), element);\n            }\n        }\n        return false;\n    }\n}\n// META-INF/services/javax.annotation.processing.Processor: the class's full name"
+   }
+  }
+ },
+ "recap": [
+  "A KSP processor is a provider (`SymbolProcessorProvider.create`, called once per build), a processor (`SymbolProcessor.process`) and a services file that names the provider. Without the file: `No providers found in processor classpath.`",
+  "`getSymbolsWithAnnotation` takes the annotation's fully qualified name. A short name silently finds nothing.",
+  "`codeGenerator.createNewFile(Dependencies(false, file), package, name)` makes one new file. `Dependencies` names the source file it came from, which incremental builds rely on (lesson 7).",
+  "`process` runs once per round, and a round that writes files earns another round over them. Writing the same file twice fails with `FileAlreadyExistsException`.",
+  "`logger.error(message, symbol)` reports on the user's file and the declaration's line, lets the round finish, then fails the build with `PROCESSING_ERROR`.",
+  "The limit: plain strings know nothing about Kotlin. A `$` must be escaped by hand, and imports, nullable and generic types and awkward names are still ahead (lesson 4)."
+ ],
+ "closing": "We started with a helper on their first morning, with a clipboard and one instruction. KSP found the helper through the services file, the helper found the notes by their full name, wrote one card per class, reported the interface on its exact line, and stopped writing when a round brought nothing new.\n\nIn a project of your own that uses KSP, open `build/generated/ksp/main/kotlin` after a build, and find one file that a processor wrote for you. Then find the class it came from.\n\nNext, we'll read the rest of the label. What does KSP know about a type like `Map<String, List<Int?>>?`, and how do you print it without losing a question mark?",
+ "quiz": [
+  {
+   "q": "The lesson's services file is present but empty. What does `./gradlew :ksp:app:kspL02Kotlin -Pmine=l02` print?",
+   "options": [
+    "`w: [ksp] l02 not done yet: ...`, and the build passes",
+    "`e: [ksp] No providers found in processor classpath.`, and the task fails",
+    "Nothing: KSP skips a processor without a provider",
+    "`Provider workbench.ksp.l02 not found`"
+   ],
+   "answer": 1,
+   "why": "KSP loads providers from the services file, and an empty file names none, so there is nothing to run and the task fails at once. The first option is what you see when the file is right and the stub runs. A typo in a non-empty file gives the `Provider ... not found` message, with the misspelled class name."
+  },
+  {
+   "q": "A processor writes `LampInventoryCard.kt` in round 1, and in every round asks `getSymbolsWithAnnotation` for `@Inventory`. What does round 2 return?",
+   "options": [
+    "`Lamp` again, so the processor must remember which cards it wrote",
+    "Every symbol in the generated card file",
+    "Nothing: only symbols from round 2's new files, and the card carries no `@Inventory`",
+    "There is no round 2, because the processor returned an empty list"
+   ],
+   "answer": 2,
+   "why": "From round 2 on, `getSymbolsWithAnnotation` returns symbols from the files the last round created, plus symbols set aside for later. The card has no `@Inventory`, so the answer is empty. Round 2 happens because round 1 wrote a file; the returned list only says what was set aside. Walking `getAllFiles()` instead would find `Lamp` again and fail with `FileAlreadyExistsException`."
+  },
+  {
+   "q": "`@Inventory` is on line 5 and `interface Shape` on line 6, and the processor calls `logger.error(message, symbol)`. Which line does the error name?",
+   "options": [
+    "Line 6, the declaration",
+    "Line 5, the annotation",
+    "Line 1, the package line",
+    "No line: only the file name"
+   ],
+   "answer": 0,
+   "why": "KSP reports a symbol's own location, and a class declaration's location is its `interface` or `class` line, not the line of its annotation. That's why the lab's test looks for `Shape.kt:6`. Only the follow-on errors after a failed run name a file without its folder."
+  },
+  {
+   "q": "Why does the processor live in its own module instead of next to the classes it reads?",
+   "options": [
+    "KSP only reads files from other modules",
+    "The services file must sit in a separate jar for licensing reasons",
+    "Kotlin can't compile two kinds of class in one module",
+    "It must be compiled before it can run, and the module's KSP task runs before that module's own compile"
+   ],
+   "answer": 3,
+   "why": "The processor is a program. Gradle compiles and packs it first, then KSP runs it on the app's sources before the app is compiled. If the processor were part of the app, the app's KSP task would need the app's classes, which need the KSP task: Gradle reports that loop as a circular dependency."
+  },
+  {
+   "q": "From lesson 1 of this track: you build the lesson 1 playground. Which of these runs first?",
+   "options": [
+    "`compileL01Kotlin`, so that KSP can read class files",
+    "`kspL01Kotlin`, so that its files can join the compile",
+    "`compileL01Java`",
+    "They run at the same time"
+   ],
+   "answer": 1,
+   "why": "KSP reads source files, not class files, and its output must exist before the Kotlin compiler starts, because your code calls it. So `kspL01Kotlin` runs first and `compileL01Kotlin` compiles your files and the generated ones together; `compileL01Java` comes after, and sees the Kotlin classes.",
+   "from": "ksp-01"
+  }
+ ],
+ "flashcards": [
+  {
+   "front": "Which interface does KSP call to create your processor, and how often?",
+   "back": "`SymbolProcessorProvider.create(environment)`, once per build. KSP finds the provider through the services file."
+  },
+  {
+   "front": "Where does a KSP services file live, and what's in it?",
+   "back": "`META-INF/services/com.google.devtools.ksp.processing.SymbolProcessorProvider`, with one fully qualified provider class name per line."
+  },
+  {
+   "front": "What does `getSymbolsWithAnnotation(\"Inventory\")` return when the annotation is `workbench.ksp.annotations.Inventory`?",
+   "back": "Nothing, and without a warning. It needs the fully qualified name."
+  },
+  {
+   "front": "What does `process()` return?",
+   "back": "The symbols it couldn't process yet, to try again next round. `emptyList()` means everything was handled."
+  },
+  {
+   "front": "What happens when a processor creates the same file twice in one build?",
+   "back": "KSP throws `kotlin.io.FileAlreadyExistsException` and the build fails. javac's `Filer` throws a `FilerException` for the same mistake."
+  },
+  {
+   "front": "When does KSP run another round?",
+   "back": "Only when the last round created at least one new file. The new files are read in that next round."
+  },
+  {
+   "front": "Which line does `logger.error(msg, symbol)` name for an annotated class?",
+   "back": "The declaration's line (`class` or `interface`), not the annotation's, as `e: [ksp] <path>:<line>: msg`."
+  }
+ ],
+ "terms": [
+  {
+   "term": "Processor",
+   "plain": "A class implementing `SymbolProcessor`; KSP calls its `process` function during the build."
+  },
+  {
+   "term": "Provider",
+   "plain": "A class implementing `SymbolProcessorProvider` that creates the processor and hands it its tools."
+  },
+  {
+   "term": "Services file",
+   "plain": "A text file in the processor's jar, under `META-INF/services/`, that names the provider class."
+  },
+  {
+   "term": "Resolver",
+   "plain": "What KSP passes to `process`: it answers questions such as which symbols carry an annotation."
+  },
+  {
+   "term": "Symbol",
+   "plain": "Anything in the code with a name: a class, a function, a property, a parameter."
+  },
+  {
+   "term": "Fully qualified name",
+   "plain": "A name with its package, such as `workbench.ksp.annotations.Inventory`."
+  },
+  {
+   "term": "Round",
+   "plain": "One pass of every processor over the files; a round that writes files earns another one."
+  },
+  {
+   "term": "Dependencies",
+   "plain": "The `createNewFile` argument naming the source files an output came from, so incremental builds redo the right files."
+  }
+ ],
+ "explain_back": {
+  "prompt": "Explain, step by step, what happens between typing `./gradlew :ksp:app:kspL02Kotlin` and the moment `LampInventoryCard.kt` exists, and why there is a second round.",
+  "answer": "Gradle first compiles the processor module and packs lesson 2's processor into a jar, with the services file inside it. The KSP task loads that jar, reads the services file, and calls the provider's `create` once, which builds the processor with the code generator and the logger. Then round 1 starts: KSP calls `process` with a resolver, the processor asks it for every symbol annotated `workbench.ksp.annotations.Inventory`, checks that each one is a class, reads the names of its constructor's properties, and creates one new file per class with `createNewFile`, naming the source file it came from. Because round 1 wrote files, KSP runs round 2 over them, in case they carry annotations too. The cards don't, so round 2 finds nothing and writes nothing, and processing ends. Then the Kotlin compiler compiles the app's files and the new cards together."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "Where do a processor's messages show up? KSP's levels follow Gradle's. At the default level you see `warn` and `error` lines; `info` appears with `--info`, `logging` only with `--debug`, and `-q` hides even warnings. A message logged on a symbol from source gets `<absolute path>:<line>: ` in front of it, with no column. That's why the lab's round lines use `logger.info`: they're there when you ask, and quiet when you don't.\n\njavac's rounds work almost the same way, with one extra step. javac keeps calling a processor in every later round once it has been asked to process, and it ends with a final round in which `roundEnv.processingOver()` returns `true` and no new files will be read. KSP has no such empty round; its end hook is `finish()`, which lesson 6 uses. javac also lets a processor claim annotations by returning `true`, so that no other processor sees them. KSP has no claiming at all.\n\nWriting the services file by hand is fine for one provider, but easy to forget when classes are renamed. Many Java libraries use AutoService, which generates `META-INF/services/javax.annotation.processing.Processor` from an annotation on the processor class, and a KSP port of it, `auto-service-ksp`, does the same for KSP providers. A typo in the class name is still possible either way, and the build still names it: `Provider ... not found`.\n\nOne trap from the Java side: since JDK 23, javac no longer runs a processor just because its jar is on the class path. Gradle's `annotationProcessor` configuration passes processors explicitly, so Gradle builds don't notice, but a plain `javac -cp processor.jar` command quietly generates nothing until you add `--processor-path` or `-proc:full`."
+ },
+ "sources": [
+  {
+   "title": "KSP quickstart (Kotlin docs)",
+   "url": "https://kotlinlang.org/docs/ksp-quickstart.html"
+  },
+  {
+   "title": "Multiple round processing (Kotlin docs)",
+   "url": "https://kotlinlang.org/docs/ksp-multi-round.html"
+  },
+  {
+   "title": "AbstractProcessor (Java SE 25 API)",
+   "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.compiler/javax/annotation/processing/AbstractProcessor.html"
+  },
+  {
+   "title": "Kotlin Symbol Processing API (google/ksp on GitHub)",
+   "url": "https://github.com/google/ksp"
+  }
+ ]
+}

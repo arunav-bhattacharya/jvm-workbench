@@ -1,0 +1,84 @@
+How javac-packing-slip.txt and javac-messages.txt were made (lesson 9). They are the real output of
+JavacPackingSlipProcessor, run by the JDK's javac (25.0.5) on the Java twins below; the KSP port must match them.
+
+  javac --processor-path <ksp solution classes>:<annotations.jar>:<kotlin-stdlib.jar> \
+        -processor workbench.ksp.l09.JavacPackingSlipProcessor -Amovemate.household=Okafor \
+        -cp <annotations.jar>:<kotlin-stdlib.jar> -d out movemate/*.java
+  (and the same without -A on Shape.java, for javac-messages.txt)
+
+----- movemate/Box.java
+package movemate;
+
+import workbench.ksp.annotations.Inventory;
+import workbench.ksp.annotations.Room;
+
+@Inventory
+@Room(name = "hall")
+public class Box {
+    private final String label;
+    private final String room;
+    private final int weightGrams;
+    private final boolean fragile;
+
+    public Box(String label, String room, int weightGrams, boolean fragile) {
+        this.label = label; this.room = room; this.weightGrams = weightGrams; this.fragile = fragile;
+    }
+}
+----- movemate/Lamp.java
+package movemate;
+
+import workbench.ksp.annotations.Inventory;
+import workbench.ksp.annotations.Room;
+
+@Inventory
+@Room(name = "living room")
+public class Lamp {
+    private final String name;
+    private final int bulbs;
+    private final String shade;
+
+    public Lamp(String name, int bulbs, String shade) {
+        this.name = name; this.bulbs = bulbs; this.shade = shade;
+    }
+}
+----- movemate/Bookshelf.java
+package movemate;
+
+import java.util.List;
+import workbench.ksp.annotations.Inventory;
+import workbench.ksp.annotations.Room;
+
+@Inventory
+@Room(name = "study")
+public class Bookshelf {
+    private final int shelves;
+    private final List<String> books;
+
+    public Bookshelf(int shelves, List<String> books) {
+        this.shelves = shelves; this.books = books;
+    }
+}
+----- movemate/Plant.java
+package movemate;
+
+import workbench.ksp.annotations.Inventory;
+
+@Inventory
+public class Plant {
+    private static final int DEFAULT_DAYS = 7;
+    private final String kind;
+    private final double potLitres;
+    private final int waterEveryDays;
+
+    public Plant(String kind, double potLitres, int waterEveryDays) {
+        this.kind = kind; this.potLitres = potLitres; this.waterEveryDays = waterEveryDays;
+    }
+}
+----- movemate/Shape.java
+package movemate;
+
+import workbench.ksp.annotations.Inventory;
+
+@Inventory
+public interface Shape {
+}

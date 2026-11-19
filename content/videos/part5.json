@@ -1,0 +1,5 @@
+{"videos": [
+    {"slug": "ksp01-cards", "lesson": "ksp-01", "section": 2, "title": "Code that writes code: a helper reads each box's label during the build and writes the card, so it can't drift"},
+    {"slug": "ksp02-first-processor", "lesson": "ksp-02", "section": 2, "title": "Your first processor: find the sticky notes, write one file per class, and why writing it twice fails"},
+    {"slug": "ksp03-labels", "lesson": "ksp-03", "section": 1, "title": "Reading a label: a type reference, the resolved type, nullability and type arguments, level by level"}
+]}

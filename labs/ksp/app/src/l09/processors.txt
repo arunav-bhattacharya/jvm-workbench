@@ -1,0 +1,3 @@
+# Lesson 9 runs its own processor (the packing slip, ported from javac) and lesson 7's (the inventory cards and the
+# MovingDayList master list), so the timing demo can compare generated cards with reflection.
+l07

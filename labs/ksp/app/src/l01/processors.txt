@@ -1,0 +1,2 @@
+# Lesson 1 has no processor of its own: run lesson 2's ready-made @Inventory card processor here.
+l02

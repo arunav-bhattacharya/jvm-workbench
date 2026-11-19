@@ -1,0 +1,5 @@
+# Okafor packing slip. Generated, do not edit.
+Bookshelf [study]: shelves, books
+Box [hall]: label, room, weightGrams, fragile
+Lamp [living room]: name, bulbs, shade
+Plant [no room]: kind, potLitres, waterEveryDays

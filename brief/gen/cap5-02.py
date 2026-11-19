@@ -1,0 +1,472 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+read = lambda p: (ROOT / p).read_text()
+MAIN = "labs/injector/src/main/kotlin/workbench/injector/l02"
+DEMO_K = "labs/injector/src/demo/kotlin/workbench/injector/l02/demo"
+DEMO_J = "labs/injector/src/demo/java/workbench/injector/l02/demo"
+APP_K = "labs/injector/app/src/l02/kotlin/workbench/injector/app/l02"
+APP_J = "labs/injector/app/src/l02/java/workbench/injector/app/l02"
+
+
+def code(kotlin_file, kotlin_run, java_file, java_run):
+    """A Kotlin demo with its runnable Java twin."""
+    return {"lang": "kotlin", "title": kotlin_file.rsplit("/", 1)[1], "src": read(kotlin_file), "run": kotlin_run, "file": kotlin_file,
+            "alt": {"lang": "java", "title": java_file.rsplit("/", 1)[1], "src": read(java_file), "run": java_run, "file": java_file}}
+
+
+def pair(java, kotlin):
+    """A Java fence and its Kotlin twin, side by side, as the validator expects."""
+    return f"```java\n{java}\n```\n\n```kotlin\n{kotlin}\n```"
+
+
+# ---------------------------------------------------------------- figure (section 2)
+FIG = (
+    '<svg viewBox="0 0 680 230" role="img" aria-label="The walk is inside MovingDay, Crew, Truck and Driver. Driver asks for Truck, '
+    'which is already on the path, so the loop is Truck needs Driver needs Truck, reported on the driver\'s truck parameter.">'
+    '<text class="t-s t-m" x="290" y="26" text-anchor="middle">the path the walk is on: entered, not yet left</text>'
+    '<line class="ln-d" x1="20" y1="38" x2="570" y2="38"/>'
+    '<line class="ln-d" x1="20" y1="38" x2="20" y2="50"/>'
+    '<line class="ln-d" x1="570" y1="38" x2="570" y2="50"/>'
+    '<rect class="box" x="20" y="60" width="120" height="44" rx="8"/>'
+    '<text class="t" x="80" y="87" text-anchor="middle">MovingDay</text>'
+    '<rect class="box" x="180" y="60" width="100" height="44" rx="8"/>'
+    '<text class="t" x="230" y="87" text-anchor="middle">Crew</text>'
+    '<rect class="box-a" x="320" y="60" width="100" height="44" rx="8"/>'
+    '<text class="t" x="370" y="87" text-anchor="middle">Truck</text>'
+    '<rect class="box-a" x="470" y="60" width="100" height="44" rx="8"/>'
+    '<text class="t" x="520" y="87" text-anchor="middle">Driver</text>'
+    '<line class="ln" x1="140" y1="82" x2="176" y2="82" marker-end="url(#arr)"/>'
+    '<line class="ln" x1="280" y1="82" x2="316" y2="82" marker-end="url(#arr)"/>'
+    '<line class="ln" x1="420" y1="82" x2="466" y2="82" marker-end="url(#arr)"/>'
+    '<rect class="box-ok" x="590" y="60" width="80" height="44" rx="8"/>'
+    '<text class="t" x="630" y="87" text-anchor="middle">Route</text>'
+    '<line class="ln-d" x1="570" y1="70" x2="588" y2="70"/>'
+    '<path class="ln-bad" d="M520 106 C520 168 370 168 370 108" fill="none" marker-end="url(#arr)"/>'
+    '<text class="t-s t-bad" x="445" y="188" text-anchor="middle">Driver asks for Truck: already on the path</text>'
+    '<text class="t-s t-code" x="340" y="216" text-anchor="middle">Dependency cycle: Truck needs Driver needs Truck</text>'
+    '</svg>'
+)
+
+# ---------------------------------------------------------------- opening
+OPENING = """Picture seven o'clock on moving day. The truck is in the street and the packers are in the hall, but the driver has no route. Or the driver says he'll leave home when the truck picks him up, and the truck can't move without its driver. Or two printed routes lie on the table, and nobody knows which one was meant. Every one of these mistakes was on the plan the night before. Nobody read the plan closely enough to see it.
+
+Last time, KSP wrote the plan during the build: a factory for each class and a component that builds the crew in order. The easy trap is to think that a plan which compiles is a plan that's right.
+
+In this sitting we'll make three classic mistakes on purpose and meet each one on the day, in a reflection container. Then we'll catch all three the night before, each with its file, its line and its whole path. Before we start, make a guess, and keep it in mind."""
+
+# ---------------------------------------------------------------- section 0
+J_BROKEN = """// missing: Driver forgot its @Inject
+class Driver { Driver(Route route) { } }
+
+// cycle: the driver waits for the truck, and the truck for the driver
+class Driver { @Inject Driver(Route route, Truck truck) { } }
+class Truck { @Inject Truck(Driver driver) { } }
+
+// twice: two routes, and nothing says which one the driver means
+@Module
+public final class RouteModule {
+    @Provides public Route highway() { return new Route("highway"); }
+    @Provides public Route backRoads() { return new Route("back roads"); }
+}"""
+K_BROKEN = """// missing: Driver forgot its @Inject
+class Driver(val route: Route)
+
+// cycle: the driver waits for the truck, and the truck for the driver
+class Driver @Inject constructor(val route: Route, val truck: Truck)
+class Truck @Inject constructor(val driver: Driver)
+
+// twice: two routes, and nothing says which one the driver means
+@Module
+object RouteModule {
+    @Provides fun highway(): Route = Route("highway")
+    @Provides fun backRoads(): Route = Route("back roads")
+}"""
+OUT_STREET = """--- missing: Driver has no @Inject
+java.lang.IllegalStateException: no @Inject constructor on workbench.injector.l02.demo.missing.Driver
+  19 stack frames, the first three:
+    at workbench.injector.l02.demo.ReflectionContainer.construct(ReflectionContainer.kt:47)
+    at workbench.injector.l02.demo.ReflectionContainer.get(ReflectionContainer.kt:37)
+    at workbench.injector.l02.demo.ReflectionContainer.argumentsFor(ReflectionContainer.kt:52)
+--- cycle: the driver waits for the truck
+java.lang.StackOverflowError
+  1024 stack frames, the first three:
+    at java.base/java.lang.Class.privateGetDeclaredConstructors(Class.java:3540)
+    at java.base/java.lang.Class.getConstructors(Class.java:2229)
+    at workbench.injector.l02.demo.ReflectionContainer.construct(ReflectionContainer.kt:45)
+--- twice: two routes, no names
+no error: the driver takes the back roads"""
+
+S0 = """First, the words, since all of them are in play today. A **dependency** is an object another object needs, and **dependency injection** hands it in from outside, here through the constructor, which is **constructor injection**. A **binding** is one line of the plan: how to get one type. A **singleton** is built once per plan, and anything else is built new for each request. The **graph** is all the bindings, with an arrow for each "needs". The **component** is the class our processor generates to build that graph, calling one generated **factory**, a small object that builds one class, for each.
+
+Three mistakes in bindings are common enough to have names. A **missing binding**: somebody needs a type that nobody provides. A **cycle**: the "needs" arrows lead back to where they started. A **duplicate binding**: two bindings answer the same request, and the plan can't say which one is meant. Here they are, one small crew each:
+
+""" + pair(J_BROKEN, K_BROKEN) + """
+
+Let's meet them the way a container that works things out on the street would. `ReflectionContainer` in this lesson's demos is about forty lines. It reads the sticky notes, the annotations, while the program runs. Ask it for a type, and it builds that type's constructor arguments first, then the type. It checks nothing in advance, on purpose. Asked for each crew's `MovingDay`, it printed:
+
+```text
+""" + OUT_STREET + """
+```
+
+Three mistakes, three different failures, and every one of them at run time. The first names the class but not who asked for it, and its top frames are the container's own lines. The second is 1,024 frames of the container asking itself for a truck, which is as many frames as the JVM keeps in a stack trace by default. The third is the worst, because it isn't a failure at all. The container stored both routes under one key, and the second one it read quietly replaced the first. `getDeclaredMethods()` returns methods "not in any particular order", in the Javadoc's words, so which route wins is luck.
+
+And lesson 1's processor? As promised, its walk has no memory of the path it is on, so it fails on the cycle the same way, only earlier. In a test compile it stopped with `INTERNAL_ERROR` and a `java.lang.StackOverflowError` whose top frames are inside KotlinPoet. Earlier is better. But a stack overflow says nothing about which classes are to blame, at either time.
+
+So the night-before check needs two things lesson 1's walk lacks: the path it's on, and the patience to report a problem and carry on."""
+
+# ---------------------------------------------------------------- section 1
+J_MISSING = """// Closest Java equivalent: the javac processor in CompileTimeMistakesDemoJava
+ExecutableElement constructor = ElementFilter.constructorsIn(cls.getEnclosedElements()).stream()
+        .filter(c -> c.getAnnotation(Inject.class) != null).findFirst().orElse(null);
+if (constructor == null) {                                       // nobody provides it
+    List<String> needs = new ArrayList<>(path);
+    needs.add(name);
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+            String.join(" needs ", needs) + ": nobody provides " + name, askedBy);
+    return;
+}
+path.add(name);                                                  // on the way in
+for (VariableElement p : constructor.getParameters()) walk(p.asType(), path, done, p);
+path.remove(path.size() - 1);                                    // on the way out
+done.add(name);"""
+K_MISSING = """fun visit(binding: Binding) {
+    path += binding                                              // on the way in
+    for (dependency in binding.dependencies) {
+        val target = bindingFor(dependency.key, dependency.type)
+        when {
+            target == null -> error(                             // nobody provides it
+                (path + dependency.key).joinToString(" needs ") +
+                    ": nobody provides ${dependency.key}. ${hint(dependency.key)}",
+                dependency.node,                                 // the parameter that asks
+            )
+            target.key in done -> Unit                           // already built: shared
+            // ... the cycle check comes here, in the next section
+            else -> visit(target)
+        }
+    }
+    path.removeAt(path.lastIndex)                                // on the way out
+    done[binding.key] = binding
+}"""
+OUT_BUILD = """exit code: COMPILATION_ERROR
+e: [ksp] Twice.kt:13: Route is provided twice: by RouteModule.highway() and by RouteModule.backRoads(). Give each one its own @Named qualifier and ask for the one you mean.
+e: [ksp] Missing.kt:8: MovingDay needs Crew needs Truck needs Driver: nobody provides Driver. Add @Inject to its constructor, or a @Provides function in a @Module.
+e: [ksp] Cycle.kt:7: Dependency cycle: Truck needs Driver needs Truck. Nothing in a cycle can be built first: change one of these constructors."""
+
+S1 = """Lesson 1's message said `Truck needs Driver, but nobody provides Driver`. That's true, and it's enough when one class needs a driver. When ten classes do, you want to know how the plan got there. The walk already knows: it just has to keep the path it's on, the bindings it has entered and not yet left.
+
+So lesson 2's walk carries a list called `path`. It adds a binding on the way in and removes it on the way out. When a dependency has no binding, the message is the path plus the missing type, joined with "needs". Here is the KSP walk next to the javac processor that does the same check:
+
+""" + pair(J_MISSING, K_MISSING) + """
+
+Two details make the message useful. The error goes on `dependency.node`, the parameter that asks, so `logger.error` prints that parameter's file and line. And the walk doesn't stop there. It reports, skips the missing piece and carries on, so one build can list every problem. The demo compiles the three broken crews from the last section, the very same files, in one build:
+
+```text
+""" + OUT_BUILD + """
+```
+
+`Missing.kt:8` is the truck's constructor, where the driver is asked for. (KSP prints the absolute path; the demo shortens it to the file name.) The javac twin finds the first two mistakes the same way, through the Messager, and prints `Missing.java:7: error: MovingDay needs Crew needs Truck needs Driver: nobody provides Driver`. Java has had annotation processors that javac runs since Java 6; KSP is Kotlin's own, faster way to do the same job for Kotlin code.
+
+A good message says what is wrong, where, and how to fix it. In a graph, "where" has two halves. The file and line tell you which parameter asked, and the path tells you why the plan needed it at all. The hint at the end covers "how": add `@Inject`, or a `@Provides` function in a `@Module`, which the last section brings in.
+
+**A missing binding is reported where it's asked for, with the path that led there. Report it there, and keep walking.**
+
+The other two lines in that output come from checks we haven't built yet. The cycle comes first, because the path makes it almost free."""
+
+# ---------------------------------------------------------------- section 2
+J_CYCLE = """if (path.contains(name)) {                                       // we are inside it already
+    List<String> loop = new ArrayList<>(path.subList(path.indexOf(name), path.size()));
+    loop.add(name);
+    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+            "Dependency cycle: " + String.join(" needs ", loop), askedBy);
+    return;
+}"""
+K_CYCLE = """path.any { it.key == target.key } -> {                           // we are inside it already
+    val loop = path.dropWhile { it.key != target.key } + target
+    error(
+        "Dependency cycle: ${loop.joinToString(" needs ")}. " +
+            "Nothing in a cycle can be built first: change one of these constructors.",
+        dependency.node,
+    )
+}"""
+OUT_CYCLE = """e: [ksp] .../labs/injector/app/src/l02/kotlin/workbench/injector/app/l02/Driver.kt:12: Dependency cycle: Truck needs Driver needs Truck. Nothing in a cycle can be built first: change one of these constructors.
+> Task :injector:app:kspL02Kotlin FAILED"""
+
+S2 = """A cycle is a path of "needs" arrows that comes back to where it started: the truck needs a driver, and the driver needs the truck. Nothing in a cycle can be built first, because each constructor needs the other object already built.
+
+With the path in hand, finding one takes a single check. Before visiting a dependency, ask whether it's already on the path. If it is, the walk has come back to a binding it's still inside. The loop is the part of the path from that binding on, plus the binding once more:
+
+""" + pair(J_CYCLE, K_CYCLE) + """
+
+Let's trace the broken crew from the walk's point of view. It enters `MovingDay`, then `Crew`, then `Truck`, then `Driver`, so the path is `[MovingDay, Crew, Truck, Driver]`. The driver's first parameter, the route, is fine. His second asks for `Truck`, which is on the path. Drop everything before `Truck`, add `Truck` again, and the loop reads `Truck needs Driver needs Truck`. The error goes on the driver's `truck` parameter, the arrow that closes the loop, as the figure shows.
+
+The order of the checks matters. A binding that is finished is shared, not a loop, even when two classes need it: the crew and the moving day both need a route. So the walk checks `done` before it checks the path. Part 4's container made the same choice for the same reason.
+
+In the real build it looks like this. Uncomment `val truck: Truck` in `app/src/l02/.../Driver.kt` and run `./gradlew :injector:app:kspL02Kotlin`:
+
+```text
+""" + OUT_CYCLE + """
+```
+
+Here the picture breaks again. On a real street, the driver and the truck company would sort it out with a phone call. Code can't negotiate. Someone has to change a constructor, and the message lists the constructors to look at. Lesson 3 meets `Lazy`, which delays building something until it's first used, but our processor still calls a loop through a `Lazy` a cycle. It's the safe answer.
+
+**A cycle is a request for something you're still building. Check the path before you visit.**
+
+Missing bindings and cycles are about too few answers. The last mistake is one answer too many."""
+
+# ---------------------------------------------------------------- section 3
+J_MODULE = """// The same module in Java: a Kotlin object compiles to a final class with one INSTANCE
+@Module
+public final class RouteModule {
+    public static final RouteModule INSTANCE = new RouteModule();
+    private RouteModule() { }
+
+    @Provides @Singleton @Named("highway")
+    public Route highway() { return new Route("highway", 42); }
+
+    @Provides @Singleton @Named("back roads")
+    public Route backRoads() { return new Route("back roads", 51); }
+}"""
+K_MODULE = """@Module
+object RouteModule {
+    @Provides @Singleton @Named("highway")
+    fun highway(): Route = Route("highway", 42)
+
+    @Provides @Singleton @Named("back roads")
+    fun backRoads(): Route = Route("back roads", 51)
+}"""
+J_ASK = """public class Driver {
+    @Inject
+    public Driver(@Named("highway") Route route) { /* ... */ }
+}
+
+public class MovingDay {
+    @Inject
+    public MovingDay(Crew crew, @Named("back roads") Route familyRoute) { /* ... */ }
+}"""
+K_ASK = """@Singleton
+class Driver @Inject constructor(@Named("highway") val route: Route)
+
+@Singleton
+class MovingDay @Inject constructor(val crew: Crew, @Named("back roads") val familyRoute: Route)"""
+
+S3 = """So far every binding came from an `@Inject` constructor. That works for your own classes. But MoveMate's `Route` now comes from a maps library, and you can't put a sticky note on a class you can't edit. A **module** fills that gap: an object whose functions say how to get such things. Each function marked `@Provides` is a binding, and its parameters are its own dependencies:
+
+""" + pair(J_MODULE, K_MODULE) + """
+
+Take the names away first, as in the third broken crew, and the plan has two answers to one question. The reflection container shrugged and kept whichever one it read last. The processor's duplicate check groups every `@Provides` function by its key, the type plus any qualifier. Then it reports every binding after the first on its own line: `Twice.kt:13: Route is provided twice: by RouteModule.highway() and by RouteModule.backRoads().` An `@Inject` constructor counts too. Provide a `Route` from a module while `Route` also has an `@Inject` constructor, and the message says `by Route's @Inject constructor and by RouteModule.route()`.
+
+The fix is a **qualifier**: a name that tells two bindings of the same type apart. `@Named("highway")` on a `@Provides` function marks one binding, and `@Named("highway")` on a parameter asks for exactly that one:
+
+""" + pair(J_ASK, K_ASK) + """
+
+Now the truck takes the highway, and the family follows in their own car on the back roads. The generated plan names each route after its qualifier, so the two never mix: `private val highwayRoute: Route = RouteModule.highway()`, `private val backRoadsRoute: Route = RouteModule.backRoads()`, and the driver's line reads `DriverFactory.create(highwayRoute)`.
+
+A qualifier is part of the key, so a misspelt one is simply a missing binding. Ask for `@Named("hihgway")`, a road no map has heard of, and the walk says so, path and all: `MovingDay needs Crew needs Truck needs Driver needs @Named("hihgway") Route: nobody provides @Named("hihgway") Route.`
+
+Duplicates belong to the modules, not to one component, so the processor checks them once per build, before it walks any component. Then each component's walk adds what it finds. Missing, circular or doubled, every mistake gets its own line in one build, and a component is written only when its plan is clean. When a component isn't written, the app code that uses it can't compile either. So KSP adds follow-on lines such as `MovingDayApp.kt:6: Unresolved reference 'GeneratedMovingDayComponent'.` Fix the first errors; those go away with them.
+
+That leaves the limit of today's checks. They see what the plan is made of: types, names and constructors. They can't tell you that a route of 42 minutes is a bad one, or that a constructor will throw on the day. Those stay run-time problems."""
+
+# ---------------------------------------------------------------- closing
+CLOSING = """We started at seven o'clock on moving day: a driver with no route, a driver waiting for the truck, and two routes on the table. On the street, the reflection container met them as a deep exception, a 1,024-frame stack overflow and a silent wrong turn. The night before, the processor names each one on its file and line, with its path.
+
+In your own code, find a class that a framework builds and nothing calls directly. What would tell you, before the program starts, that its constructor can be satisfied?
+
+Next, we'll measure what this buys at start-up, and let the slow GPS wait until it's needed. What does the generated plan save, in time and in classes?"""
+
+L = {
+ "id": "cap5-02",
+ "title": "Wiring mistakes as compile errors",
+ "minutes": 40,
+ "goal": "By the end you can make a KSP processor report a missing binding with its whole dependency path, a cycle with its loop and a duplicate binding, each on the exact file and line and all in one build, and fix them with @Inject, @Named and a @Module of @Provides functions.",
+ "opening": OPENING,
+ "warmup": {
+  "q": "A small reflection container that checks nothing in advance is asked for a `MovingDay` whose `Driver` needs the `Truck`, while the `Truck` needs the `Driver`. What happens?",
+  "options": ["It refuses with a clear message naming the loop", "It waits forever, like a driver and a truck waiting for each other", "A `StackOverflowError`, after about a thousand stack frames of the container calling itself", "It builds a truck whose driver is `null`"],
+  "answer": 2,
+  "why": "The container builds each constructor argument first, so it asks for a truck, which asks for a driver, which asks for a truck, deeper each time, until the stack runs out. The demo's trace has 1,024 frames, as many as the JVM keeps. Waiting forever is tempting, because that's what people would do, but nothing in the code waits: it only goes deeper. Part 4's container named the loop because it had a check for it; the third section builds that check into the processor."
+ },
+ "sections": [
+  {
+   "h": "Three mistakes, met on the day: what a reflection container does with them",
+   "body": S0,
+   "try": {
+    "title": "Run the three broken crews by reflection",
+    "minutes": 4,
+    "steps": [
+     "Read the three files in `labs/injector/src/demo/kotlin/workbench/injector/l02/demo/` named `missing/Missing.kt`, `cycle/Cycle.kt` and `twice/Twice.kt`. Predict which crew fails loudest, and which fails quietest.",
+     "Run `RunTimeMistakesDemo`, then its Java twin, which asks the same Kotlin container for the same crews.",
+     "In `missing/Missing.kt`, give `Driver` its note back (`class Driver @Inject constructor(val route: Route)`), predict, and run the Kotlin demo again."
+    ],
+    "code": code(f"{DEMO_K}/RunTimeMistakesDemo.kt", "./gradlew :injector:demo -Pmain=workbench.injector.l02.demo.RunTimeMistakesDemoKt",
+                 f"{DEMO_J}/RunTimeMistakesDemoJava.java", "./gradlew :injector:demo -Pmain=workbench.injector.l02.demo.RunTimeMistakesDemoJava"),
+    "expect": "The missing crew throws `IllegalStateException: no @Inject constructor on workbench.injector.l02.demo.missing.Driver` with 19 frames, the top three inside `ReflectionContainer`. The cycle ends in `StackOverflowError` with 1024 frames. The twice crew prints `no error: the driver takes the back roads`. The Java twin prints the same three results. With `@Inject` back, the first crew prints `no error:` and the name of a `MovingDay` object."
+   },
+   "refs": [{"title": "Class.getDeclaredMethods (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Class.html#getDeclaredMethods()", "kind": "docs"}]
+  },
+  {
+   "h": "Nobody provides Driver: a missing binding named with its whole path",
+   "body": S1,
+   "try": {
+    "title": "Catch all three mistakes in one build",
+    "minutes": 4,
+    "steps": [
+     "Run `CompileTimeMistakesDemo`. It reads the same three files from disk, compiles them in one build with lesson 2's reference processors, and prints every error.",
+     "Run `CompileTimeMistakesDemoJava`: a javac annotation processor doing the first two checks on the same crews, written in Java.",
+     "Match each error to its run-time failure in the last Try it. Which mistake did the reflection container not report at all?"
+    ],
+    "code": code(f"{DEMO_K}/CompileTimeMistakesDemo.kt", "./gradlew :injector:demo -Pmain=workbench.injector.l02.demo.CompileTimeMistakesDemoKt",
+                 f"{DEMO_J}/CompileTimeMistakesDemoJava.java", "./gradlew :injector:demo -Pmain=workbench.injector.l02.demo.CompileTimeMistakesDemoJava"),
+    "expect": "`exit code: COMPILATION_ERROR` and three `e: [ksp]` lines: `Twice.kt:13` (provided twice), `Missing.kt:8` (`MovingDay needs Crew needs Truck needs Driver: nobody provides Driver.`) and `Cycle.kt:7` (`Dependency cycle: Truck needs Driver needs Truck.`). The Java twin prints `javac succeeded: false`, `Missing.java:7: error: ...` and `Cycle.java:6: error: Dependency cycle: Truck needs Driver needs Truck`. The duplicate route is the one the reflection container hid."
+   },
+   "refs": [{"title": "javax.annotation.processing.Messager (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.compiler/javax/annotation/processing/Messager.html", "kind": "docs"}]
+  },
+  {
+   "h": "The driver waits for the truck: finding a cycle before anyone moves",
+   "body": S2,
+   "figure": {"svg": FIG, "caption": "The walk keeps the path it is on. When Driver asks for Truck, Truck is still on the path, so the loop is Truck needs Driver needs Truck, reported on the driver's parameter."},
+   "try": {
+    "title": "Make the driver wait for the truck in the real build",
+    "minutes": 4,
+    "steps": [
+     "In `labs/injector/app/src/l02/kotlin/workbench/injector/app/l02/Driver.kt`, uncomment the line `val truck: Truck,`. Write down the loop you expect, then run `./gradlew :injector:app:kspL02Kotlin` from `labs/`.",
+     "Comment that line out again, and on the same line write `val crew: Crew,` instead. Predict the loop now, and run the task again.",
+     "Put `Driver.kt` back as it was, and run the task once more to see it pass."
+    ],
+    "expect": "The first run fails with `Driver.kt:12: Dependency cycle: Truck needs Driver needs Truck.` The second fails with `Dependency cycle: Crew needs Truck needs Driver needs Crew.`, again on line 12 of `Driver.kt`, because that parameter still closes the loop; the loop just starts further up the path. The last run is `BUILD SUCCESSFUL`."
+   }
+  },
+  {
+   "h": "Two routes: duplicate bindings, @Named, and a @Module for a class you can't annotate",
+   "body": S3,
+   "try": {
+    "title": "Send the truck and the family down different roads",
+    "minutes": 4,
+    "steps": [
+     "Run `MovingDayApp` and its Java twin. Which road does the truck take, and which does the family take?",
+     "Open `injector/app/build/generated/ksp/l02/kotlin/workbench/injector/app/l02/GeneratedMovingDayComponent.kt` and find the two route lines and the driver's line.",
+     "In `RouteModule.kt`, change `@Named(\"back roads\")` to `@Named(\"highway\")`. Predict every error, run `./gradlew :injector:app:kspL02Kotlin`, then change it back."
+    ],
+    "code": code(f"{APP_K}/MovingDayApp.kt", "./gradlew :injector:app:demo -Pmain=workbench.injector.app.l02.MovingDayAppKt",
+                 f"{APP_J}/MovingDayAppJava.java", "./gradlew :injector:app:demo -Pmain=workbench.injector.app.l02.MovingDayAppJava"),
+    "expect": "Both languages print `Sam drives truck MOVE-1 on the highway (42 min)`, `the family takes the back roads (51 min)`, two tape-roll numbers and `one truck for the whole day: true`. With two highways, one build reports both real problems: `RouteModule.kt:16: @Named(\"highway\") Route is provided twice: ...` and `MovingDay.kt:12: MovingDay needs @Named(\"back roads\") Route: nobody provides @Named(\"back roads\") Route.`, followed by two follow-on `Unresolved reference 'GeneratedMovingDayComponent'` lines from the app code."
+   }
+  }
+ ],
+ "compare": {
+  "title": "One mistake, two messengers: javac's Messager and KSP's logger",
+  "java": {"title": "GraphCheckProcessor (javac)", "src": "// in the processor: the message, and the element it is about\nprocessingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,\n        \"MovingDay needs Crew needs Truck needs Driver: nobody provides Driver\", parameter);\n\n// what the demo's DiagnosticCollector gives back: the file, the line, the message\n// Missing.java:7: error: MovingDay needs Crew needs Truck needs Driver: nobody provides Driver"},
+  "kotlin": {"title": "Graph (KSP)", "src": "// in the processor: the message, and the symbol it is about\nlogger.error(\n    \"MovingDay needs Crew needs Truck needs Driver: nobody provides Driver. \" + hint(key),\n    dependency.node,\n)\n\n// what the build prints: the absolute path and the line, no column\n// e: [ksp] /.../Missing.kt:8: MovingDay needs Crew needs Truck needs Driver: nobody provides Driver. ..."},
+  "note": "Both APIs take a message and the symbol it is about, and both report the declaration's line, which for a parameter is the parameter's own line. A javac diagnostic also carries a column, and javac's default printer shows the source line with a caret; KSP prints `e: [ksp]`, the absolute path and the line, with no column. In both, an error lets the current round finish, so a processor that reports and carries on gets every mistake into one build. The difference is in the model, not the messenger: our KSP processor reads Kotlin types such as `Lazy<T>` and nullability as Kotlin sees them, where javac sees the Java view of them."
+ },
+ "worked": {
+  "title": "Bind a class from a library with a module",
+  "steps": [
+   {"say": "The truck rental company hands you a `LoadingRamp` class in their library, and the truck needs one. You can't add `@Inject` to it.",
+    "code": "class LoadingRamp(val lengthCm: Int)        // from the rental company's library", "lang": "kotlin",
+    "alt_lang": "java", "alt_code": "public class LoadingRamp {                  // from the rental company's library\n    public LoadingRamp(int lengthCm) { /* ... */ }\n}"},
+   {"say": "Write a module: an object with a `@Provides` function that builds one. Its parameters, if it had any, would be dependencies like a constructor's.",
+    "code": "@Module\nobject RampModule {\n    @Provides\n    fun ramp(): LoadingRamp = LoadingRamp(240)\n}", "lang": "kotlin",
+    "alt_lang": "java", "alt_code": "@Module\npublic final class RampModule {\n    public static final RampModule INSTANCE = new RampModule();\n\n    @Provides\n    public LoadingRamp ramp() { return new LoadingRamp(240); }\n}"},
+   {"say": "Ask for it in the truck's constructor and build. The component calls the module: a `new...()` function, because the ramp has no `@Singleton`.",
+    "code": "private fun newLoadingRamp(): LoadingRamp = RampModule.ramp()\n\nprivate val truck: Truck = TruckFactory.create(driver, newLoadingRamp())", "lang": "kotlin",
+    "alt_lang": "java", "alt_code": "private LoadingRamp newLoadingRamp() { return RampModule.INSTANCE.ramp(); }\n\nprivate final Truck truck = TruckFactory.create(driver, newLoadingRamp());"},
+   {"say": "Forget the module, and the build names the gap on the truck's parameter: `MovingDay needs Crew needs Truck needs LoadingRamp: nobody provides LoadingRamp. Add @Inject to its constructor, or a @Provides function in a @Module.` That's the third error the lab's test `every problem is reported in one build` expects.", "code": "", "lang": ""}
+  ]
+ },
+ "lab": {
+  "title": "Write the graph checks",
+  "minutes": 15,
+  "files": [f"{MAIN}/Graph.kt", f"{MAIN}/Bindings.kt", f"{MAIN}/ComponentProcessor.kt"],
+  "run": "./gradlew :injector:test --tests 'workbench.injector.l02.*'",
+  "steps": [
+   "Run the tests once. Seven of eight fail with `l02 not done yet: ...`; the one that passes checks that a `@Module` is an object, which is given code. `MoveMateSources.kt` in the test folder holds the crew with its two named routes, and each test swaps in one broken file.",
+   "Read `Bindings.kt`: a `Key` is a type plus an optional qualifier, and prints as `Driver` or `@Named(\"highway\") Route`. A `Binding` is a `ConstructorBinding` or a `ProvidesBinding`; each has `dependencies`, a `node` for errors and an `origin` for messages. Then read `writeComponents` in `ComponentProcessor.kt`: Find, then the duplicates once, then one walk per component.",
+   "Check: write `Graph.checkDuplicates`. For each key in `byKey`, list its bindings (the `@Inject` constructor first, when the key has no qualifier and the type has one), and report every binding after the first on its own `node`, with the message in the KDoc. Run the two duplicate tests.",
+   "Read: write `Graph.creationOrder` with a `path` list. Add a binding on the way in and remove it on the way out. For each dependency, decide between missing, shared (already in `done`), cycle (on the path) and visit, and use `error(...)` and `hint(key)` for the messages.",
+   "Prove: run the tests until all eight pass. Then run `./gradlew :injector:app:kspL02Kotlin -Pmine=l02`, uncomment `val truck: Truck,` in `app/src/l02/.../Driver.kt`, run it again and read your own cycle message. Comment the line out again.",
+   "From memory: without looking, write the four cases for one dependency (missing, shared, cycle, visit) with their two messages. Check them against your `creationOrder`."
+  ],
+  "hints": [
+   "`(path + dependency.key).joinToString(\" needs \")` works because a `Binding` prints as its key.",
+   "Check `target.key in done` before the path. A finished binding is shared, not a cycle, even when two classes need it.",
+   "`path.dropWhile { it.key != target.key } + target` gives the loop from the repeated binding: `[Truck, Driver, Truck]`.",
+   "Report and carry on: don't leave the walk after an error. The test `every problem is reported in one build` counts exactly three errors.",
+   "For an entry point that nobody provides, the message starts with `entry.name`, for example `MovingDayComponent.helicopter() needs Helicopter: nobody provides Helicopter.`"
+  ],
+  "done_when": "All eight tests in `GraphChecksTest` pass, and your processor prints `Dependency cycle: Truck needs Driver needs Truck.` in the real build when the driver waits for the truck."
+ },
+ "drill": {
+  "title": "Write a cycle finder from memory",
+  "minutes": 5,
+  "prompt": "Close this page. Write `findCycle(needs, start)`: `needs` maps each class name to the names its constructor asks for, and the function returns the first loop a depth-first walk from `start` meets, as `[Truck, Driver, Truck]`, or null when there is none. A name the walk has finished is shared, not a loop. Then write it in Java.",
+  "answer": {"lang": "kotlin", "src": "fun findCycle(needs: Map<String, List<String>>, start: String): List<String>? {\n    val done = mutableSetOf<String>()\n    val path = mutableListOf<String>()\n    fun visit(name: String): List<String>? {\n        if (name in done) return null                                  // finished: shared, not a loop\n        if (name in path) return path.dropWhile { it != name } + name  // back where we started\n        path += name                                                   // on the way in\n        for (d in needs[name].orEmpty()) visit(d)?.let { return it }\n        path.removeAt(path.lastIndex)                                  // on the way out\n        done += name\n        return null\n    }\n    return visit(start)\n}\n// findCycle(mapOf(\"Truck\" to listOf(\"Driver\"), \"Driver\" to listOf(\"Truck\")), \"Truck\") == [Truck, Driver, Truck]",
+             "alt": {"lang": "java", "title": "FindCycle.java", "src": "static List<String> findCycle(Map<String, List<String>> needs, String start) {\n    return visit(start, needs, new HashSet<>(), new ArrayList<>());\n}\n\nstatic List<String> visit(String name, Map<String, List<String>> needs, Set<String> done, List<String> path) {\n    if (done.contains(name)) return null;                         // finished: shared, not a loop\n    if (path.contains(name)) {                                    // back where we started\n        List<String> loop = new ArrayList<>(path.subList(path.indexOf(name), path.size()));\n        loop.add(name);\n        return loop;\n    }\n    path.add(name);                                               // on the way in\n    for (String d : needs.getOrDefault(name, List.of())) {\n        List<String> loop = visit(d, needs, done, path);\n        if (loop != null) return loop;\n    }\n    path.remove(path.size() - 1);                                 // on the way out\n    done.add(name);\n    return null;\n}"}}
+ },
+ "recap": [
+  "A missing binding, a cycle and a duplicate binding are mistakes in the plan. A reflection container meets them only on the day: as an exception from its own code, as a 1,024-frame `StackOverflowError`, or as no error at all.",
+  "Keep the path the walk is on. A missing binding is reported on the parameter that asks, with the path joined by \"needs\"; a cycle is a dependency that is still on the path.",
+  "Check the finished set before the path: a finished binding is shared, not a loop.",
+  "A `@Module` object's `@Provides` functions bind types you can't annotate. A `@Named` qualifier is part of the key, so two bindings of one type need different names, and a misspelt name is a missing binding.",
+  "Report with `logger.error(message, symbol)` and carry on: one build lists every mistake, and the component is written only when its plan is clean.",
+  "The limit: the checks see types, names and constructors, not values. A constructor that throws on the day is still a run-time problem."
+ ],
+ "closing": CLOSING,
+ "quiz": [
+  {"q": "The walk's path is `[MovingDay, Crew, Truck, Driver]` when the driver's constructor asks for `Truck`. What does the processor report?",
+   "options": ["`Dependency cycle: MovingDay needs Crew needs Truck needs Driver needs Truck`", "`Dependency cycle: Truck needs Driver needs Truck`", "Nothing: `Truck` is already built, so it's shared", "A missing binding for `Truck`"],
+   "answer": 1,
+   "why": "The loop starts at the binding that repeats, so the processor drops `MovingDay` and `Crew`, which lead into the loop but aren't part of it. `Truck` isn't finished yet, because the walk is still inside it, so it isn't in `done` and isn't shared."},
+  {"q": "`Crew` and `MovingDay` both need the same singleton `Route`. What happens when the walk reaches `Route` for the second time?",
+   "options": ["The processor reports a cycle, because `Route` was visited before", "The processor reports a duplicate binding", "Nothing: `Route` is in `done`, so it's shared", "The component builds a second route"],
+   "answer": 2,
+   "why": "`Route` was finished on the first visit, so it's in `done`, and the walk checks `done` before the path. Two arrows into one binding are sharing, not a loop. A duplicate would be two bindings for one key, which isn't the case here."},
+  {"q": "A module has `@Provides @Named(\"highway\") fun highway(): Route`, and the driver asks for `@Named(\"Highway\") route: Route`. What does the build say?",
+   "options": ["A missing binding: nobody provides `@Named(\"Highway\") Route`", "Nothing: qualifiers are compared without case", "A duplicate binding for `Route`", "It compiles, and the driver gets the highway at run time"],
+   "answer": 0,
+   "why": "A qualifier is part of the key, and `Highway` and `highway` are different strings. So the request has no binding, and the walk reports it with the whole path, on the driver's parameter."},
+  {"q": "From Errors, validation and helpful messages: your processor throws an `IllegalStateException` with a clear message when it finds a mistake, instead of calling `logger.error`. What changes?",
+   "options": ["Nothing: KSP turns the exception into the same error", "The message gains the file and line of the symbol", "KSP calls `onError()` first, then stops", "Processing stops at the first mistake, and kctfork reports `INTERNAL_ERROR` instead of `COMPILATION_ERROR`"],
+   "answer": 3,
+   "why": "A thrown exception stops processing at once: later checks and processors don't run, and KSP 2.3.14 doesn't call `onError()` for it. `logger.error(message, symbol)` lets the round finish, points at the symbol's file and line, and gives `COMPILATION_ERROR` in kctfork, so one build can list every mistake.",
+   "from": "ksp-05"},
+  {"q": "The lesson's reflection container is given two `@Provides` functions for `Route` with no qualifiers. What does it do?",
+   "options": ["Refuses when it's created", "Throws when the driver first asks for a route", "Keeps one of them without a word, and which one depends on method order", "Gives the driver a list of both routes"],
+   "answer": 2,
+   "why": "It stores providers in a map by key, so the second `put` replaces the first. `getDeclaredMethods()` returns methods in no particular order, so the winner isn't something you chose. The demo's driver took the back roads, and nothing printed a warning."}
+ ],
+ "flashcards": [
+  {"front": "What is a missing binding?", "back": "A type someone needs that no binding provides: no `@Inject` constructor and no `@Provides` function."},
+  {"front": "How does the walk detect a cycle?", "back": "Before visiting a dependency, it checks whether that binding is on the current path: entered, and not yet left."},
+  {"front": "Why check the finished set before the path?", "back": "A finished binding is shared, not a loop. The crew and the moving day can both need one route."},
+  {"front": "What is a qualifier?", "back": "A name such as `@Named(\"highway\")` that's part of a binding's key, so two bindings of one type can be told apart."},
+  {"front": "What does a `@Module` give the plan?", "back": "Bindings for types you can't annotate: each `@Provides` function says how to get its return type, and its parameters are dependencies."},
+  {"front": "Why `logger.error(message, node)` and carry on, instead of throwing?", "back": "The error lands on that symbol's file and line, the round finishes, and one build reports every mistake. A thrown exception stops at the first one."},
+  {"front": "Where should a missing-binding error point?", "back": "At the parameter that asks for the type, with the path from the entry point in the message."}
+ ],
+ "terms": [
+  {"term": "Binding", "plain": "One line of the plan: how to get one type, from an @Inject constructor or a @Provides function."},
+  {"term": "Missing binding", "plain": "A request for a type that no binding provides."},
+  {"term": "Cycle", "plain": "A chain of \"needs\" that leads back to where it started, so nothing in it can be built first."},
+  {"term": "Duplicate binding", "plain": "Two bindings for the same type and qualifier, so the plan can't tell which one is meant."},
+  {"term": "Module", "plain": "An object whose @Provides functions are bindings for types you can't annotate."},
+  {"term": "Qualifier", "plain": "A name, such as @Named(\"highway\"), that tells two bindings of the same type apart."}
+ ],
+ "explain_back": {
+  "prompt": "Using the truck and the driver, explain why a cycle check needs the path the walk is on, and not just the set of bindings it has finished. Then say why the processor reports problems and carries on instead of stopping at the first.",
+  "answer": "The finished set only says what has been fully built. When the driver asks for the truck, the truck isn't finished yet: the walk entered it, went down into its constructor and is now inside the driver. So the finished set says nothing, and a walk with only that set goes round and round until the stack runs out, which is what lesson 1's processor did. The path is the list of bindings the walk has entered and not left: MovingDay, Crew, Truck, Driver. If the driver asks for something on that list, the walk has come back to something it's still building, so that's a loop, and the loop is the part from the truck on: Truck needs Driver needs Truck. The order of the checks matters: something in the finished set is shared, not a loop, so check it first. Reporting with logger.error and carrying on puts each mistake on its own file and line, and the round still finishes, so one build tells you about the missing driver, the loop and the two routes together, instead of one per build."
+ },
+ "deeper": {
+  "minutes": 8,
+  "body": "When the component isn't written, every line of your code that uses it breaks too, and KSP adds follow-on messages after the real ones, with the file name only: `e: [ksp] MovingDayApp.kt:6: Unresolved reference 'GeneratedMovingDayComponent'.` They come from a type check KSP runs on a failed build, and they disappear when the first errors are fixed. Read the messages from the top.\n\nWhere an error points is a choice the processor makes. Ours puts a missing binding on the parameter that asks, a cycle on the parameter that closes the loop, and a duplicate on the second binding. Each is the line you would edit. javac's `Messager` has overloads that take an `AnnotationMirror` or an `AnnotationValue` too, so a Java processor can point at a single annotation argument, such as a misspelt `@Named` value. KSP's logger takes any `KSNode`, and its location is the line of the declaration.\n\nThe checks are cheap because the graph is small and each binding is visited once. Resolving types is the expensive part of KSP, and the walk resolves each parameter's type once per binding. A much larger graph would want each resolved type cached in the binding, which ours does with `by lazy`.\n\nOur checks stop at what the plan is made of. They don't warn about a binding nobody uses, or a singleton that depends on something built fresh each time and so keeps one copy for good. Real tools add checks like those; once you have the graph and the path, each one is a few lines in the same walk."
+ },
+ "sources": [
+  {"title": "KSP overview (Kotlin docs)", "url": "https://kotlinlang.org/docs/ksp-overview.html"},
+  {"title": "Java annotation processing to KSP reference (Kotlin docs)", "url": "https://kotlinlang.org/docs/ksp-reference.html"},
+  {"title": "javax.annotation.processing.Messager (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.compiler/javax/annotation/processing/Messager.html"},
+  {"title": "Class.getDeclaredMethods (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Class.html#getDeclaredMethods()"}
+ ]
+}
+out = ROOT / "content/lessons/cap5-02.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)

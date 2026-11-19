@@ -1,0 +1,4 @@
+bad/movemate/Shape.java:6: error: @Inventory goes on a class, but Shape is an interface
+public interface Shape {
+       ^
+1 error

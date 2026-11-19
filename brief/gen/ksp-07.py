@@ -1,0 +1,498 @@
+import json, pathlib
+ROOT = pathlib.Path("/home/user/jvm-workbench")
+lab = "labs/ksp/src"
+app = "labs/ksp/app/src/l07"
+read = lambda p: (ROOT / p).read_text()
+RUN = "./gradlew :ksp:demo -Pmain=workbench.ksp.l07.demo."
+FLAG = "-Pksp.incremental.log=true"
+
+
+def pair(java, kotlin):
+    """A Java fence and its Kotlin twin, side by side, as the validator expects."""
+    return f"```java\n{java}\n```\n\n```kotlin\n{kotlin}\n```"
+
+
+def app_code():
+    """The lesson 7 playground's MovingDay.kt, with its Java twin calling the same generated list."""
+    k = f"{app}/kotlin/workbench/ksp/app/l07/MovingDay.kt"
+    j = f"{app}/java/workbench/ksp/app/l07/MovingDayJava.java"
+    return {"lang": "kotlin", "title": "MovingDay.kt", "src": read(k),
+            "run": f"./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l07.MovingDayKt {FLAG}", "file": k,
+            "alt": {"lang": "java", "title": "MovingDayJava.java", "src": read(j),
+                    "run": f"./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l07.MovingDayJava {FLAG}", "file": j}}
+
+
+def kdemo(name):
+    """A kctfork demo: Kotlin only (a processor run in memory has no Java twin)."""
+    f = f"{lab}/demo/kotlin/workbench/ksp/l07/demo/{name}.kt"
+    return {"lang": "kotlin", "title": f"{name}.kt", "src": read(f), "run": RUN + name + "Kt", "file": f, "solo": True}
+
+
+FIG = (
+    '<svg viewBox="0 0 700 300" role="img" aria-label="Lesson 7 source set: each annotated file feeds its own card on '
+    'the left, an isolating output, and the one master list on the right, an aggregating output that also hangs off a '
+    'virtual any-change key. Editing Lamp.kt makes the four annotated files dirty; MovingDay.kt feeds nothing and stays clean.">'
+    '<text class="t-s t-m" x="120" y="28" text-anchor="middle">isolating: one card per file</text>'
+    '<text class="t-s t-m" x="340" y="28" text-anchor="middle">source files</text>'
+    '<text class="t-s t-m" x="580" y="28" text-anchor="middle">aggregating: one list</text>'
+    # sources
+    '<rect class="box" x="260" y="44" width="160" height="32" rx="8"/>'
+    '<text class="t-s t-code" x="340" y="65" text-anchor="middle">Box.kt</text>'
+    '<rect class="box-a" x="260" y="86" width="160" height="32" rx="8"/>'
+    '<text class="t-s t-code" x="340" y="107" text-anchor="middle">Lamp.kt (edited)</text>'
+    '<rect class="box" x="260" y="128" width="160" height="32" rx="8"/>'
+    '<text class="t-s t-code" x="340" y="149" text-anchor="middle">Bookshelf.kt</text>'
+    '<rect class="box" x="260" y="170" width="160" height="32" rx="8"/>'
+    '<text class="t-s t-code" x="340" y="191" text-anchor="middle">Plant.kt</text>'
+    '<rect class="box-dim" x="260" y="226" width="160" height="32" rx="8"/>'
+    '<text class="t-s t-code" x="340" y="247" text-anchor="middle">MovingDay.kt</text>'
+    # cards (isolating), arrows from each source to its card
+    '<rect class="box-b" x="20" y="44" width="200" height="32" rx="8"/>'
+    '<text class="t-s t-code" x="120" y="65" text-anchor="middle">BoxInventoryCard.kt</text>'
+    '<rect class="box-b" x="20" y="86" width="200" height="32" rx="8"/>'
+    '<text class="t-s t-code" x="120" y="107" text-anchor="middle">LampInventoryCard.kt</text>'
+    '<rect class="box-b" x="20" y="128" width="200" height="32" rx="8"/>'
+    '<text class="t-s t-code" x="120" y="149" text-anchor="middle">BookshelfInventoryCard.kt</text>'
+    '<rect class="box-b" x="20" y="170" width="200" height="32" rx="8"/>'
+    '<text class="t-s t-code" x="120" y="191" text-anchor="middle">PlantInventoryCard.kt</text>'
+    '<line class="ln" x1="258" y1="60" x2="224" y2="60" marker-end="url(#arr)"/>'
+    '<line class="ln-a" x1="258" y1="102" x2="224" y2="102" marker-end="url(#arr)"/>'
+    '<line class="ln" x1="258" y1="144" x2="224" y2="144" marker-end="url(#arr)"/>'
+    '<line class="ln" x1="258" y1="186" x2="224" y2="186" marker-end="url(#arr)"/>'
+    # the master list (aggregating) and its virtual key
+    '<rect class="box-dim" x="480" y="44" width="200" height="32" rx="8"/>'
+    '<text class="t-s t-code" x="580" y="65" text-anchor="middle">AnyChanges (virtual)</text>'
+    '<line class="ln-d" x1="580" y1="78" x2="580" y2="102" marker-end="url(#arr)"/>'
+    '<rect class="box-ok" x="480" y="106" width="200" height="60" rx="8"/>'
+    '<text class="t-s t-code" x="580" y="130" text-anchor="middle">MovingDayList.kt</text>'
+    '<text class="t-s t-m" x="580" y="150" text-anchor="middle">names every class</text>'
+    '<line class="ln" x1="422" y1="60" x2="476" y2="124" marker-end="url(#arr)"/>'
+    '<line class="ln-a" x1="422" y1="102" x2="476" y2="132" marker-end="url(#arr)"/>'
+    '<line class="ln" x1="422" y1="144" x2="476" y2="140" marker-end="url(#arr)"/>'
+    '<line class="ln" x1="422" y1="186" x2="476" y2="150" marker-end="url(#arr)"/>'
+    '<text class="t-s t-m" x="350" y="288" text-anchor="middle">edit Lamp.kt: the list came from all four annotated files, so all four are dirty</text>'
+    '</svg>'
+)
+
+# ---------------------------------------------------------------- opening
+OPENING = """Picture the family a week after the move. They repack one box: the reading lamp gets a second bulb. The lamp's card has to change, and so does the master list on the fridge, the one sheet that names every box in the house. Nobody wants to rewrite every card in the house for one bulb.
+
+A build that redoes only what changed is fast, and KSP works that way out of the box. The catch is that it trusts you to say where each card came from. In lesson 2 you wrote `Dependencies(false, file)`, with a promise that lesson 7 would explain it. Here it is: get that one argument wrong for the master list, and a later build hands you a list that has lost most of the house, with no error and a green build.
+
+In this lesson, we'll watch KSP decide what to redo, write the master list as the right kind of output, break it twice on purpose, and hand the processor a job sheet of options. Before we start, make a guess, and keep it in mind."""
+
+# ---------------------------------------------------------------- section 0
+J_CARD = """// Closest Java equivalent: a javac processor writing one card per class
+JavaFileObject card = processingEnv.getFiler()
+        .createSourceFile(pkg + "." + name + "InventoryCard", cls);   // cls: the one element it came from
+// META-INF/gradle/incremental.annotation.processors:  workbench.ksp.l07.CardProcessor,isolating"""
+K_CARD = """// lesson 2's card, written with KotlinPoet: it came from this class's own file, and nothing else
+inventoryCardFile(cls).writeTo(codeGenerator, Dependencies(aggregating = false, cls.containingFile!!))"""
+
+S0 = """A **build** turns your source files into a program you can run, and on a real project it runs dozens of times a day. Most of those runs follow a small edit. An **incremental build** redoes only the work that edit can affect and reuses the rest from the last run.
+
+Gradle does this one task at a time. A task's **inputs** are the files and settings it reads. Before running a task, Gradle compares them with the last run, and if nothing changed, it skips the task and marks it `UP-TO-DATE`. It compares contents, not dates: `touch Lamp.kt` changes the file's time, and the KSP task stays `UP-TO-DATE`. Touching a file fools nobody.
+
+KSP goes one level further, inside its own task. When a source file did change, KSP works out which files must be processed again. Those are the **dirty** files, and the processors see only them in round 1. Every output of a clean file comes back from a copy KSP keeps under `build/kspCaches/`.
+
+Let's watch it decide. Lesson 7's source set in the playground, `labs/ksp/app/src/l07`, holds the four MoveMate classes, one per file, each with `@Inventory`, plus `MovingDay.kt`, which prints the cards, and its Java twin. The lesson's processor writes two kinds of output: a card per class, as in lesson 2, and one master list of every class, which we'll meet in the next section. The Gradle property `ksp.incremental.log` makes KSP write what it decided into `labs/ksp/app/build/kspCaches/l07/logs/`. After a first build, we added one comment line to `Lamp.kt` and built again:
+
+```bash
+./gradlew :ksp:app:compileL07Kotlin -Pksp.incremental.log=true
+```
+
+`kspDirtySet.log` then read like this (empty sections trimmed):
+
+```text
+Modified
+  src/l07/kotlin/workbench/ksp/app/l07/Lamp.kt
+Dirty:
+  src/l07/kotlin/workbench/ksp/app/l07/Bookshelf.kt
+  src/l07/kotlin/workbench/ksp/app/l07/Lamp.kt
+  src/l07/kotlin/workbench/ksp/app/l07/Plant.kt
+  src/l07/kotlin/workbench/ksp/app/l07/Box.kt
+
+Dirty / All: 66.67%
+```
+
+One file was modified, and four were read again. `MovingDay.kt` and the Java file were not. That's the first thing to notice: KSP doesn't reprocess everything, and it doesn't reprocess only the edited file either. It follows the outputs back to their sources.
+
+The card is the easy half. Lamp's card was written with these Dependencies:
+
+""" + pair(J_CARD, K_CARD) + """
+
+Read the Kotlin line aloud: "this card came from this class's file, and from nothing else." KSP calls that an **isolating output**: it depends only on the source files you name. The Java side has the same idea one level up. Gradle sorts whole javac processors into categories, and an isolating one must give exactly one originating element, the element the file came from, for each file it writes.
+
+In the moving-house picture, `Lamp.kt` is the repacked box, and its card is the only card that must be redone because of it. The cards of the untouched boxes come back from storage. The picture breaks in one place: a real helper sees which box was repacked. KSP sees only what your Dependencies say, plus the types your processor looked up. It doesn't open boxes to check.
+
+So why were Box, Bookshelf and Plant read again for one bulb? Because of the master list."""
+
+# ---------------------------------------------------------------- section 1
+J_LIST = """// Closest Java equivalent: one file made from many classes
+JavaFileObject list = processingEnv.getFiler()
+        .createSourceFile(pkg + ".MovingDayList", classes.toArray(new Element[0]));
+// Gradle can only mark the whole processor, in META-INF/gradle/incremental.annotation.processors:
+//   workbench.ksp.l07.MasterListProcessor,aggregating"""
+K_LIST = """fun listDependencies(classes: List<KSClassDeclaration>): Dependencies =
+    Dependencies(aggregating = true, *classes.mapNotNull { it.containingFile }.distinct().toTypedArray())
+
+masterListFile(classes, listOptions).writeTo(codeGenerator, listDependencies(classes))"""
+
+S1 = """The master list is one file, `MovingDayList.kt`, that names every `@Inventory` class and hands out the right card for any of them:
+
+```kotlin solo
+public object MovingDayList {
+  public val names: List<String> = listOf("Bookshelf", "Box", "Lamp", "Plant")
+
+  public fun cardFor(thing: Any): String = when (thing) {
+    is Bookshelf -> thing.inventoryCard()
+    is Box -> thing.inventoryCard()
+    is Lamp -> thing.inventoryCard()
+    is Plant -> thing.inventoryCard()
+    else -> error("MovingDayList has no card for ${thing::class.simpleName}")
+  }
+}
+```
+
+That's generated code, shown as KotlinPoet printed it. A list like this can't belong to one box. Change any class on it, and the list may change. Add a new class anywhere in the source set, and the list must change, though no file on the list was touched. KSP's docs call such an output **aggregating**: it "can be affected by changes in any source file". The opposite, isolating, depends "only on their specified sources".
+
+Here is how the processor says so, and what the Java side writes:
+
+""" + pair(J_LIST, K_LIST) + """
+
+Read `listDependencies` aloud: "this list came from the file of every class on it, each file once, and new files can change it too." `aggregating = true` is the second half of that sentence. The two languages split the work differently. Gradle puts its category on a whole javac processor, and its isolating processors need exactly one originating element per file. KSP puts the category on each output, and an isolating output may name several files. If you build files with KotlinPoet, `addOriginatingKSFile(file)` on the top-level `TypeSpec` and `writeTo(codeGenerator, aggregating = true)` do the same job. KotlinPoet collects originating files only from top-level members, though, not from nested types.
+
+The second log, `kspSourceToOutputs.log`, shows what KSP recorded. Each annotated file maps to its card and to the list, and one more key stands alone:
+
+```text
+  src/l07/kotlin/workbench/ksp/app/l07/Lamp.kt:
+    build/generated/ksp/l07/kotlin/workbench/ksp/app/l07/LampInventoryCard.kt
+    build/generated/ksp/l07/kotlin/workbench/ksp/app/l07/MovingDayList.kt
+  <AnyChanges is a virtual file; DO NOT USE.>:
+    build/generated/ksp/l07/kotlin/workbench/ksp/app/l07/MovingDayList.kt
+```
+
+That virtual key is how "any change" reaches the list: every edit dirties it, and a dirty list makes every file it came from dirty. KSP's label, `DO NOT USE`, is fair, because you never name the key yourself; `aggregating = true` does it for you. That explains the 66.67%: one edit, the whole list, and with it all four of its boxes.
+
+Now add a fifth box. We created `Rug.kt` with `@Inventory data class Rug(val size: String)` and built again. The dirty set held all five annotated files (71.43%), and the program printed `MovingDayList: [Bookshelf, Box, Lamp, Plant, Rug]`. In the picture, the master list on the fridge is rewritten after any change to the house, from every box on it. The picture breaks here: a family would add one line for the rug. KSP rewrites the whole list, from scratch, from every file it came from.
+
+**An output that lists many boxes depends on all of them, and on boxes not packed yet. Mark it aggregating.**
+
+The price is visible in the log: every edit re-reads every box on the list. Still, `MovingDay.kt` stayed clean, and on a real project the cards of classes outside the list stay clean too. That's the right Dependencies. Let's see the wrong ones."""
+
+# ---------------------------------------------------------------- section 2
+J_WRONG = """// Closest Java equivalent: what Gradle does with a javac processor's originating elements
+filer.createSourceFile(pkg + ".MovingDayList");          // isolating processor, no element:
+                                                          // Gradle recompiles every source file (slow, safe)
+filer.createSourceFile(pkg + ".MovingDayList", lamp);    // isolating, one element: Gradle trusts it"""
+K_WRONG = """// Naive: three Dependencies for the master list, each wrong in its own way
+Dependencies(false, *files)      // isolating: right after an edit, wrong after a new box
+Dependencies(false)              // no file at all: the list belongs to nobody
+Dependencies.ALL_FILES           // safe, but every edit dirties every file"""
+
+S2 = """A wrong `Dependencies` doesn't fail the build. It fails a later build, after an ordinary edit, and only sometimes. So let's make the mistakes on purpose and watch. The lab's processor has a teaching switch that no real processor has: the option `movemate.listDependencies` in `labs/ksp/app/src/l07/ksp.properties` replaces your Dependencies for the list with one of three wrong ones.
+
+""" + pair(J_WRONG, K_WRONG) + """
+
+The first one deserves a word of credit. `Dependencies(false, *files)` names every file the list came from, so an edit to an existing box still redoes it: a dirty list makes all its files dirty, whatever its category. Its flaw is the new box. We set the switch to `isolating`, ran one full KSP pass (the next section explains why it needs `--rerun`), then added `Mirror.kt` with one more `@Inventory` class:
+
+```text
+Modified
+  src/l07/kotlin/workbench/ksp/app/l07/Mirror.kt
+Dirty:
+  src/l07/kotlin/workbench/ksp/app/l07/Mirror.kt
+
+Dirty / All: 12.50%
+```
+
+A new file is tied to no output yet, and nothing marks the list as dirty, so the processor saw one class and wrote a list of one, right over the old one. The build passed. Then the program ran:
+
+```text
+MovingDayList: [Mirror]
+Exception in thread "main" java.lang.IllegalStateException: MovingDayList has no card for Box
+	at workbench.ksp.app.l07.MovingDayList.cardFor(MovingDayList.kt:13)
+```
+
+A move with one mirror in it. That's the warm-up's answer: only `Mirror`.
+
+The second one is lesson 2's promise, paid. With `Dependencies(false)` and no file, the list belongs to no box. We switched to `none`, ran a full pass, and added one comment to `MovingDay.kt`, a file with no annotation at all. Only `MovingDay.kt` was dirty (12.50%), the processor found no `@Inventory` class to list, and KSP filed the list under `<This is a virtual key for removed outputs; DO NOT USE>` and deleted it. The compiler had the last word:
+
+```text
+e: file:///.../labs/ksp/app/src/l07/kotlin/workbench/ksp/app/l07/MovingDay.kt:14:31 Unresolved reference 'MovingDayList'.
+```
+
+The third one is the safe retreat. With `Dependencies.ALL_FILES`, one comment in `Lamp.kt` made every file dirty, `MovingDay.kt` and the Java file included: `Dirty / All: 100.00%`. KSP's own KDoc says it "essentially disables incremental processing". It's correct, and slow.
+
+Notice what all three have in common. A clean build, `./gradlew clean` or one `--rerun`, puts them right, because it reprocesses everything. The kctfork tests from lesson 2 pass too, because kctfork deletes its caches and runs a clean build every time. Only an incremental build shows the mistake. The Java side has one safety net here that KSP lacks: when an isolating javac processor gives no originating element, Gradle recompiles every source file, slowly but correctly. KSP believes you.
+
+**A generated file that is right after a clean build and wrong after an edit has the wrong Dependencies. Fix them; don't make cleaning a habit.**
+
+In the picture, these are helpers who didn't write down which boxes a card came from: the master list goes stale, or gets thrown out with the packing paper. The switch we flipped lives in a file of options, and options have a trap of their own."""
+
+# ---------------------------------------------------------------- section 3
+J_OPT = """// Closest Java equivalent: a javac processor's options, passed as -Amovemate.listName=MovingDayList
+@SupportedOptions({"movemate.listName", "movemate.listPackage"})
+public class MasterListProcessor extends AbstractProcessor {
+    ListOptions readListOptions() {
+        String listName = processingEnv.getOptions().get("movemate.listName");
+        if (listName == null) {
+            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                    "MasterListProcessor needs the processor option movemate.listName, the name of the list it generates. "
+                            + "Add -Amovemate.listName=MovingDayList to the compiler arguments.");
+            return null;
+        }
+        return new ListOptions(listName, processingEnv.getOptions().getOrDefault("movemate.listPackage", "movemate"));
+    }
+}"""
+K_OPT = """fun readListOptions(options: Map<String, String>, logger: KSPLogger): ListOptions? {
+    val listName = options[LIST_NAME]                     // "movemate.listName", null when missing
+    if (listName == null) {
+        logger.error(
+            "MasterListProcessor needs the processor option $LIST_NAME, the name of the list it generates. " +
+                "Add ksp { arg(\\"$LIST_NAME\\", \\"MovingDayList\\") } to the build file.",
+        )
+        return null
+    }
+    if (!listName.matches(Regex("[A-Z][A-Za-z0-9]*"))) {
+        logger.error("$LIST_NAME must be a class name such as MovingDayList, but it is '$listName'")
+        return null
+    }
+    return ListOptions(listName, options[LIST_PACKAGE] ?: "movemate")   // optional, with a default
+}"""
+GRADLE = """// build.gradle.kts of a Kotlin module that uses the processor
+ksp {
+    arg("movemate.listName", "MovingDayList")
+    arg("movemate.listPackage", "movemate.lists")
+}
+
+// the same options for a javac processor in a Java module
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("-Amovemate.listName=MovingDayList")
+}"""
+
+S3 = """The master list needs a name, and the processor can't guess it: one family calls it `MovingDayList`, another `PackingList`. A **processor option** is a key and a text value that the build passes to every processor, like a job sheet the moving company hands the helper with the address on it. In Gradle you write them in the module's build file:
+
+```kotlin solo
+""" + GRADLE + """
+```
+
+In this lab, each lesson's source set has its own job sheet instead, `labs/ksp/app/src/l07/ksp.properties`, with lines such as `movemate.listName=MovingDayList`. The processor gets every option as one `Map<String, String>`, `environment.options`, and reads two kinds:
+
+""" + pair(J_OPT, K_OPT) + """
+
+`movemate.listPackage` has a sensible default, so a missing value is fine. `movemate.listName` has none, so a missing value is an error that says what's missing, why it matters and the exact line to add, the three parts of a good message from lesson 5. The option isn't on any box, so the message has no file and line. We deleted the line from `ksp.properties` and ran KSP:
+
+```text
+> Task :ksp:app:kspL07Kotlin FAILED
+e: [ksp] MasterListProcessor needs the processor option movemate.listName, the name of the list it generates. Add ksp { arg("movemate.listName", "MovingDayList") } to the build file.
+e: [ksp] MovingDay.kt:14: Unresolved reference 'MovingDayList'.
+```
+
+The second line is a follow-on: the list was never written, so the code that uses it can't resolve. Fix the first line. The two sides differ in one more way: javac warns about an `-A` option that no processor declared in `@SupportedOptions`, and KSP passes every option to every processor without a word.
+
+Now the trap. An option changes the output, so it must be one of the KSP task's inputs, or Gradle skips the task after you change it. `ksp { arg(key, value) }` is a tracked input: change the value, and KSP runs again. A lambda `CommandLineArgumentProvider` isn't, and its values can't contain spaces either. This lab's own wiring has the same trap, and the build showed it: we changed `ksp.properties`, and `kspL07Kotlin` stayed `UP-TO-DATE`. The lab passes those options through a KSP setting, `processorOptions`, that KSP 2.3.14 marks `@Internal`, which tells Gradle not to compare it. That's why every Try-it in this lesson runs `./gradlew :ksp:app:kspL07Kotlin --rerun` after an edit to `ksp.properties`: `--rerun` makes Gradle run that one task, and run it in full.
+
+**An option that changes the output must be a tracked input of the task. Check it by changing the value and watching the task run.**
+
+In the picture, the job sheet goes to every helper the company sends to this house, and to no other house. The picture breaks a little: one sheet serves every processor in the module at once, so name your keys with a prefix, as `movemate.` does here."""
+
+# ---------------------------------------------------------------- closing
+CLOSING = """We started a week after the move, with one more bulb for the reading lamp. KSP redid the lamp's card and the master list, and read the other boxes again only because the list came from them. Then we broke the list twice, once into a move with one mirror and once into no list at all, and both builds stayed green until something used the list.
+
+In your own processors, find every `Dependencies(` and `writeTo(`, and ask of each output: does it list one box or many? If many, it says `aggregating = true`.
+
+Next, we'll test a processor the way a library author does. How do you prove, in a test that runs in a second, that a generated builder accepts a lamp with no shade?"""
+
+L = {
+ "id": "ksp-07",
+ "title": "Incremental builds and processor options",
+ "minutes": 40,
+ "goal": "By the end you can read KSP's incremental logs, say which of a processor's outputs are isolating and which aggregating, write Dependencies that keep a master list right after any edit, and read a processor option with a clear error when it's missing.",
+ "opening": OPENING,
+ "warmup": {
+  "q": "MoveMate's master list of every `@Inventory` class is written with `Dependencies(aggregating = false, *filesOfEveryListedClass)`. You add a new file, `Mirror.kt`, with one more `@Inventory` class, and build again without cleaning. What does the new master list contain?",
+  "options": ["The old classes plus `Mirror`", "Only `Mirror`", "The old classes without `Mirror`, until a clean build", "Nothing: KSP stops with an error about the new file"],
+  "answer": 1,
+  "why": "KSP reprocesses the changed files and every file tied to an output that changed. A new file is tied to nothing yet, so the processor sees one class and writes a list of one over the old list, and the build stays green. The first option is what `aggregating = true` gives you. Section 3 runs both."
+ },
+ "sections": [
+  {
+   "h": "Repacking one box: which files KSP reads again after an edit",
+   "body": S0,
+   "try": {
+    "title": "Edit one box and read what KSP read again",
+    "minutes": 5,
+    "steps": [
+     f"From `labs/`, build lesson 7's source set once: `./gradlew :ksp:app:compileL07Kotlin {FLAG}`. Keep that flag on every command in this lesson. Gradle counts it as part of the task's setup, so a run without it makes the next run start over.",
+     "Run `touch ksp/app/src/l07/kotlin/workbench/ksp/app/l07/Lamp.kt`, then the same build. Predict the status of `kspL07Kotlin` before you look.",
+     "Add a comment line at the end of `Lamp.kt` and build again. Open `labs/ksp/app/build/kspCaches/l07/logs/kspDirtySet.log`. Which files are under `Dirty:`, and which aren't?",
+     "Run the program with the command below, or its Java twin. Then remove your comment."
+    ],
+    "code": app_code(),
+    "expect": "`touch` leaves `kspL07Kotlin` `UP-TO-DATE`: Gradle compares contents, not dates. After the comment, `Modified` lists only `Lamp.kt`, and `Dirty:` lists the four files with an `@Inventory` class (`Dirty / All: 66.67%` on our run), but not `MovingDay.kt` or `MovingDayJava.java`. The program prints `MovingDayList: [Bookshelf, Box, Lamp, Plant]` and one card per thing, such as `Lamp: name=desk lamp, bulbs=1, shade=null`."
+   },
+   "refs": [{"title": "Incremental processing (Kotlin docs)", "url": "https://kotlinlang.org/docs/ksp-incremental.html", "kind": "docs"}]
+  },
+  {
+   "h": "The master list: an aggregating output that every box feeds",
+   "body": S1,
+   "figure": {"svg": FIG, "caption": "Each card comes from one file, an isolating output; the master list comes from every annotated file and from any change, an aggregating output, so one edit makes all four annotated files dirty."},
+   "try": {
+    "title": "Add a box and watch the list follow",
+    "minutes": 4,
+    "steps": [
+     "Create `labs/ksp/app/src/l07/kotlin/workbench/ksp/app/l07/Rug.kt` with `package workbench.ksp.app.l07`, `import workbench.ksp.annotations.Inventory` and `@Inventory data class Rug(val size: String)`.",
+     f"Predict which files will be dirty, then build with `./gradlew :ksp:app:compileL07Kotlin {FLAG}`.",
+     "Open `kspDirtySet.log`, then `kspSourceToOutputs.log`. Find `Rug.kt`'s two outputs, and the line under `<AnyChanges is a virtual file; DO NOT USE.>`.",
+     f"Run `./gradlew :ksp:app:demo -Pmain=workbench.ksp.app.l07.MovingDayKt {FLAG}`. Keep `Rug.kt` for the next Try-it."
+    ],
+    "expect": "All five annotated files are dirty (`Dirty / All: 71.43%` on our run), and `MovingDay.kt` is not. `Rug.kt` maps to `RugInventoryCard.kt` and `MovingDayList.kt`, and the virtual key maps to `MovingDayList.kt` alone. The program prints `MovingDayList: [Bookshelf, Box, Lamp, Plant, Rug]`, and its four cards as before, because `MovingDay.kt` doesn't make a rug."
+   },
+   "refs": [{"title": "Incremental annotation processing (Gradle Java plugin docs)", "url": "https://docs.gradle.org/current/userguide/java_plugin.html", "kind": "docs"}]
+  },
+  {
+   "h": "Wrong Dependencies on purpose: a list that shrinks, and a list that vanishes",
+   "body": S2,
+   "try": {
+    "title": "Break the master list, then mend it",
+    "minutes": 6,
+    "steps": [
+     f"Add the line `movemate.listDependencies=isolating` to `labs/ksp/app/src/l07/ksp.properties`, then run one full KSP pass: `./gradlew :ksp:app:kspL07Kotlin --rerun {FLAG}`.",
+     f"Create `Mirror.kt` like `Rug.kt`, with `@Inventory data class Mirror(val widthCm: Int)`. Predict the list, then build with `./gradlew :ksp:app:compileL07Kotlin {FLAG}` and run the program.",
+     f"Change the switch to `none`, run the full pass again, add a comment to `MovingDay.kt`, and build. Which file does the compiler complain about?",
+     f"Mend it: delete the switch line, run the full pass, remove your comment, delete `Rug.kt` and `Mirror.kt`, and run the program once more."
+    ],
+    "expect": "With `isolating`, only `Mirror.kt` is dirty (12.50% on our run), the build passes, and the program prints `MovingDayList: [Mirror]`, then fails with `IllegalStateException: MovingDayList has no card for Box`. With `none`, only `MovingDay.kt` is dirty, `kspSourceToOutputs.log` files the list under the virtual key for removed outputs, and the compile fails with `MovingDay.kt:14:31 Unresolved reference 'MovingDayList'.` After the mending, the program prints the four names again."
+   },
+   "refs": [{"title": "KSP README: Gradle properties such as ksp.incremental and ksp.incremental.log", "url": "https://github.com/google/ksp/blob/main/README.md", "kind": "docs"}]
+  },
+  {
+   "h": "Processor options: the job sheet you hand the helper",
+   "body": S3,
+   "try": {
+    "title": "Run the list without its job sheet",
+    "minutes": 4,
+    "steps": [
+     "Run `MasterListDemo`. It compiles two classes in memory twice: once with `movemate.listName`, once with no options at all.",
+     "In `labs/ksp/app/src/l07/ksp.properties`, change `movemate.listName` to `moving-day`. Run `./gradlew :ksp:app:kspL07Kotlin` and note the status, then run it again with `--rerun`.",
+     "Put `MovingDayList` back and run with `--rerun` once more."
+    ],
+    "code": kdemo("MasterListDemo"),
+    "expect": "The demo prints `exit code: OK`, the generated list for `Lamp` and `Plant` and `Lamp: name=desk lamp, bulbs=1, shade=null`, then `exit code: COMPILATION_ERROR`, the `needs the processor option movemate.listName` error and `generated files: []`. In the app, the first run is `UP-TO-DATE`, because the lab's options aren't tracked; with `--rerun` it fails with `e: [ksp] movemate.listName must be a class name such as MovingDayList, but it is 'moving-day'`, plus follow-on errors for code that uses the list."
+   },
+   "refs": [{"title": "ProcessingEnvironment.getOptions (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.compiler/javax/annotation/processing/ProcessingEnvironment.html", "kind": "docs"}]
+  }
+ ],
+ "compare": {
+  "title": "One master list from many classes: a javac processor and a KSP processor",
+  "java": {"title": "MasterListProcessor.java", "src": "// Closest Java equivalent: a javac annotation processor\n@SupportedAnnotationTypes(\"workbench.ksp.annotations.Inventory\")\n@SupportedOptions({\"movemate.listName\", \"movemate.listPackage\"})\npublic class MasterListProcessor extends AbstractProcessor {\n    private boolean written;\n\n    @Override\n    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {\n        if (written || roundEnv.processingOver()) return false;\n        String listName = processingEnv.getOptions().get(\"movemate.listName\");          // the job sheet\n        String pkg = processingEnv.getOptions().getOrDefault(\"movemate.listPackage\", \"movemate\");\n        List<Element> classes = new ArrayList<>(roundEnv.getElementsAnnotatedWith(Inventory.class));\n        if (listName == null || classes.isEmpty()) return false;\n        try (Writer out = processingEnv.getFiler()\n                .createSourceFile(pkg + \".\" + listName, classes.toArray(new Element[0]))  // every origin\n                .openWriter()) {\n            out.write(listSource(pkg, listName, classes));\n        } catch (IOException e) {\n            processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, e.toString());\n        }\n        written = true;\n        return false;\n    }\n}\n// META-INF/gradle/incremental.annotation.processors:\n//   workbench.ksp.l07.MasterListProcessor,aggregating"},
+  "kotlin": {"title": "MasterListProcessor.kt", "src": "class MasterListProcessor(\n    private val codeGenerator: CodeGenerator,\n    private val logger: KSPLogger,\n    private val options: Map<String, String>,\n) : SymbolProcessor {\n    override val apiFeatures = buildApiFeatures { enableBackingFields = true; enableContextParameters = true }\n    private var listWritten = false\n\n    override fun process(resolver: Resolver): List<KSAnnotated> {\n        if (listWritten) return emptyList()\n        val listOptions = readListOptions(options, logger) ?: return emptyList()          // the job sheet\n        val classes = resolver.getSymbolsWithAnnotation(\"workbench.ksp.annotations.Inventory\")\n            .filterIsInstance<KSClassDeclaration>().toList()\n        if (classes.isEmpty()) return emptyList()\n        masterListFile(classes, listOptions)\n            .writeTo(codeGenerator, Dependencies(aggregating = true, *classes.mapNotNull { it.containingFile }\n                .distinct().toTypedArray()))                                                   // every origin\n        listWritten = true\n        return emptyList()\n    }\n}"},
+  "note": "Both write one file from many classes, once, and both name every class's source as an origin: javac through `createSourceFile`'s originating elements, KSP through `Dependencies`. The difference is where the category lives. Gradle marks a whole javac processor isolating or aggregating, in a file inside the processor's jar, and falls back to a full recompile when an isolating processor gives no origin. KSP marks each output, so one processor can write isolating cards and an aggregating list, and it trusts what you declare: there's no fallback when it's wrong. Options travel the same way in both, as text keys (`-A` for javac, `ksp { arg(...) }` for KSP), but only javac warns about a key no processor declared."
+ },
+ "worked": {
+  "title": "A list that's right after a clean build and wrong after an edit: find the cause",
+  "steps": [
+   {"say": "The report: a teammate added a class with the `@Registered` annotation, and the generated `Registry` lost every older entry. `./gradlew clean build` fixed it, so the team now cleans before each release. That's the shape of a Dependencies bug: right on a clean build, wrong on an incremental one.", "code": "", "lang": ""},
+   {"say": "Turn the logs on, add a throwaway annotated file, and build. Then read `kspSourceToOutputs.log` for the registry's file. If it isn't under the `AnyChanges` key, the output was declared isolating.",
+    "code": "./gradlew :app:compileKotlin -Pksp.incremental.log=true\n# then read app/build/kspCaches/main/logs/kspSourceToOutputs.log:\n#   <AnyChanges is a virtual file; DO NOT USE.>:\n#     (Registry.kt should be listed here)", "lang": "bash"},
+   {"say": "Find where the processor writes the file, and make the output aggregating, with the file of every class it lists. The javac version names every class as an originating element and declares the processor aggregating.",
+    "code": "// 1. every class on the registry, from this round\nval registered = resolver.getSymbolsWithAnnotation(\"movemate.Registered\").filterIsInstance<KSClassDeclaration>().toList()\n// 2. aggregating, from every file\nregistryFile(registered).writeTo(\n    codeGenerator,\n    Dependencies(aggregating = true, *registered.mapNotNull { it.containingFile }.distinct().toTypedArray()),\n)", "lang": "kotlin",
+    "alt_lang": "java", "alt_code": "// 1. every class on the registry, from this round\nList<Element> registered = new ArrayList<>(roundEnv.getElementsAnnotatedWith(Registered.class));\n// 2. every class is an origin; the processor is aggregating in META-INF/gradle/incremental.annotation.processors\nJavaFileObject file = processingEnv.getFiler()\n        .createSourceFile(\"movemate.Registry\", registered.toArray(new Element[0]));"},
+   {"say": "Prove it the way the bug showed up: build, add another annotated file, build again without cleaning, and check that `kspDirtySet.log` lists every registered file and that the registry names them all. Then stop cleaning before releases.",
+    "code": "./gradlew :app:compileKotlin -Pksp.incremental.log=true      # after adding one more @Registered class\n# kspDirtySet.log: Dirty: lists every @Registered file, not just the new one", "lang": "bash"}
+  ]
+ },
+ "lab": {
+  "title": "The master list processor: aggregating Dependencies and a job sheet",
+  "minutes": 15,
+  "files": [f"{lab}/main/kotlin/workbench/ksp/l07/MasterListProcessor.kt", f"{app}/ksp.properties", f"{app}/kotlin/workbench/ksp/app/l07/MovingDay.kt"],
+  "run": "./gradlew :ksp:test --tests 'workbench.ksp.l07.*'",
+  "steps": [
+   "Read `MasterListProcessor.kt`. Given: the provider, `apiFeatures`, the `process` wrapper, `processList` with the five moves in order, lesson 2's card written with KotlinPoet (`inventoryCardFile`), and the teaching switch from section 3. Three functions are yours: one for Check, one for Write, and the Dependencies.",
+   "Run the tests: all five fail. Then run `./gradlew :ksp:app:kspL07Kotlin -Pmine=l07`. Your processor already runs in the real build and warns `w: [ksp] l07 not done yet: read movemate.listName ...`. Use the KSP task while you work: `MovingDay.kt` calls the list, so the full compile can't pass before you finish.",
+   "1. Find is given: `processList` asks the resolver for `@Inventory` once, in round 1.",
+   "2. Check: write `readListOptions`. `movemate.listName` is required: when it's missing, log the error the third test expects, with no symbol, and return null. When it isn't a class name, log the fourth test's error. `movemate.listPackage` defaults to `movemate`.",
+   "3. Read and 4. Write: write `masterListFile` with KotlinPoet: an `object` named by the option, in the option's package, with a `names` property and a `cardFor` function that has one `is` branch per class, sorted by simple name. The first test shows the exact text.",
+   "4. Write, the Dependencies: write `listDependencies`: aggregating, with the file of every class on the list, each file once. The fifth test checks it from inside a small processor of its own, because kctfork can't run an incremental build.",
+   f"5. Prove: run the tests until all five pass. Then run `./gradlew :ksp:app:compileL07Kotlin -Pmine=l07 {FLAG}`, add `Rug.kt` as in section 2's Try-it, build again, and check that `kspDirtySet.log` and the program's list both name `Rug`. Delete `Rug.kt` afterwards.",
+   "From memory: close the file and write `listDependencies` and the two lines that read the options on paper. Then compare."
+  ],
+  "hints": [
+   "`classes.mapNotNull { it.containingFile }.distinct().toTypedArray()` gives each file once; pass the array to `Dependencies` with the spread operator, `*`.",
+   "For the names, map each class to `CodeBlock.of(\"%S\", simpleName)` and call `joinToCode()`. Then `initializer(\"listOf(%L)\", names)`.",
+   "For `cardFor`: `beginControlFlow(\"return when (thing)\")`, one `addStatement(\"is %T -> thing.%M()\", cls.toClassName(), MemberName(pkg, \"inventoryCard\"))` per class, the `else` branch, then `endControlFlow()`. `%M` imports the card when the list lives in another package.",
+   "The `else` branch is a plain string template. `%L` writes it as it is; `%P` would choose triple quotes, and the first test compares the whole file.",
+   "When the whole-file test fails on one line, open the generated file in the work folder: `labs/ksp/build/kctfork/test/<nnn>-writes-one-master-list.../ksp/sources/kotlin/movemate/MovingDayList.kt`."
+  ],
+  "done_when": "All five tests in `MasterListProcessorTest` pass, and after adding `Rug.kt` the app's incremental build lists it, in `kspDirtySet.log` and in the program's output."
+ },
+ "drill": {
+  "title": "Write an aggregating output and its options from memory",
+  "minutes": 5,
+  "prompt": "Close this page. A processor writes one `Registry.kt` that lists every `@Registered` class. Write its `Dependencies`, and the lines that read a required option `movemate.registryName` (with an error that says how to fix it) and an optional `movemate.registryPackage` (default `movemate`). Then write the javac version of the same three things. Which of the two languages lets one processor write an isolating output and an aggregating one?",
+  "answer": {"lang": "kotlin", "src": "val name = environment.options[\"movemate.registryName\"]\nif (name == null) {\n    logger.error(\"RegistryProcessor needs the processor option movemate.registryName. \" +\n        \"Add ksp { arg(\\\"movemate.registryName\\\", \\\"Registry\\\") } to the build file.\")\n    return emptyList()\n}\nval pkg = environment.options[\"movemate.registryPackage\"] ?: \"movemate\"\n\nval files = registered.mapNotNull { it.containingFile }.distinct()\nregistryFile(registered, name, pkg)\n    .writeTo(codeGenerator, Dependencies(aggregating = true, *files.toTypedArray()))\n// KSP: the category belongs to each output, so a card in the same processor can stay isolating",
+             "alt": {"lang": "java", "title": "RegistryProcessor.java", "src": "// Closest Java equivalent: a javac annotation processor\nString name = processingEnv.getOptions().get(\"movemate.registryName\");\nif (name == null) {\n    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,\n            \"RegistryProcessor needs the processor option movemate.registryName. \"\n                    + \"Add -Amovemate.registryName=Registry to the compiler arguments.\");\n    return false;\n}\nString pkg = processingEnv.getOptions().getOrDefault(\"movemate.registryPackage\", \"movemate\");\n\nprocessingEnv.getFiler().createSourceFile(pkg + \".\" + name, registered.toArray(new Element[0]));\n// Gradle: the category belongs to the whole processor, in\n// META-INF/gradle/incremental.annotation.processors: movemate.RegistryProcessor,aggregating"}}
+ },
+ "recap": [
+  "An incremental build redoes only what an edit can affect. Gradle skips a whole task when its inputs are unchanged (by contents, not dates); inside its task, KSP hands the processors only the dirty files and restores every other output.",
+  "Each output says where it came from in `Dependencies`. An isolating output, like one card per class, depends only on the files it names. An aggregating output, like one master list, can change with any file, including files not written yet.",
+  "An aggregating output hangs off a virtual `AnyChanges` key, so every edit dirties it, and a dirty output makes every file it came from dirty. That's its price, and the reason not to mark everything aggregating.",
+  "Wrong Dependencies are silent until an incremental build: declared isolating, a list shrinks to the new file; with no file, it's deleted. Clean builds and kctfork tests never show it. `Dependencies.ALL_FILES` is safe and turns incremental processing off.",
+  "Options reach a processor as `environment.options` (javac: `getOptions()`). A required option needs an error that names it and the line to add, and every option must be a tracked task input, or a new value leaves the old output.",
+  "The limit: KSP believes whatever you declare, and nothing checks it. Only an incremental build with `ksp.incremental.log=true` shows a wrong Dependencies, which is why the next lesson's in-memory tests can't."
+ ],
+ "closing": CLOSING,
+ "quiz": [
+  {"q": "With correct Dependencies, you add one comment line to `Plant.kt` in lesson 7's source set. Which files does KSP hand the processors in round 1?",
+   "options": ["Only `Plant.kt`", "Every file in the source set, `MovingDay.kt` included", "The four files with an `@Inventory` class, because the master list came from all of them", "None: a comment doesn't change any declaration"],
+   "answer": 2, "why": "`Plant.kt` changed, and the master list is aggregating, so every edit makes it dirty, and a dirty output makes every file it came from dirty. `MovingDay.kt` fed no output and stays clean. KSP compares file contents, so a comment counts as a change; it doesn't know which edits matter to your processor."},
+  {"q": "A processor writes one `Index.kt` that names every class annotated `@Indexed`. Which Dependencies should it pass?",
+   "options": ["`Dependencies(aggregating = true, *filesOfEveryIndexedClass)`", "`Dependencies(aggregating = false, *filesOfEveryIndexedClass)`", "`Dependencies(false)`, since the index belongs to no single class", "`Dependencies.ALL_FILES`, the only safe choice for a list"],
+   "answer": 0, "why": "A new `@Indexed` class in a new file must change the index, and only an aggregating output is redone for new files. Declared isolating, the index shrinks to the new file; with no file it can be deleted; `ALL_FILES` works but makes every edit reprocess everything."},
+  {"q": "A team's generated file is right after `./gradlew clean` and sometimes missing after an ordinary edit, with a green build. What do you suspect first?",
+   "options": ["A KSP bug in the incremental caches", "The output's Dependencies: it was written without naming the file it came from", "The build cache restored an old copy", "The processor throws in round 2"],
+   "answer": 1, "why": "An output that names no source file belongs to no box: when the processor doesn't write it again, KSP files it under removed outputs and deletes it. The lab reproduced this with `Dependencies(false)`. A clean build reprocesses everything, which hides the mistake. A processor that throws fails the build, which this one doesn't."},
+  {"q": "A build passes the list name as `ksp { arg(CommandLineArgumentProvider { listOf(\"movemate.listName=$name\") }) }`. Someone changes `name`, and `kspKotlin` is `UP-TO-DATE`, with the old list. Why?",
+   "options": ["Options are read only on a clean build", "A lambda argument provider isn't a tracked input of the task, so Gradle sees nothing new", "KSP caches options in kspCaches", "The value contains a space"],
+   "answer": 1, "why": "Gradle reruns a task only when a tracked input changes. `arg(key, value)` is tracked; a lambda `CommandLineArgumentProvider` isn't (a class with an `@get:Input` property is). This lab's `ksp.properties` has the same trap, which is why its Try-its use `--rerun`. A space would fail the task instead, with `Processor arguments not in the format \\S+=\\S+`."},
+  {"q": "From lesson 2: a processor writes `MovingDayList.kt` at the top of every `process()` call, with no flag. Round 1 also wrote four cards. What happens next?",
+   "options": ["KSP skips round 2, because the list already exists", "Round 2 runs, because round 1 wrote files, and the second `createNewFile` for the same path throws `FileAlreadyExistsException`", "The second list replaces the first", "Round 2 runs only on an incremental build"],
+   "answer": 1, "why": "A round follows any round that wrote a file, and `CodeGenerator` refuses a path it already created in this run: `kotlin.io.FileAlreadyExistsException`, and the build fails. That's why the lesson's processor writes the list once, guarded by `listWritten`, in the round that found the classes.",
+   "from": "ksp-02"}
+ ],
+ "flashcards": [
+  {"front": "What does `Dependencies(aggregating = false, file)` tell KSP about an output?", "back": "It depends only on that file: redo it when that file is dirty, restore it from the caches otherwise."},
+  {"front": "When is an output aggregating?", "back": "When a new file or a change in any file can change it, such as one list of every annotated class. Mark it `aggregating = true`."},
+  {"front": "A master list is declared isolating, with every file named. You add a new annotated file. What does the next incremental build write?", "back": "A list of one: only the new file is dirty, so the processor sees one class. The build stays green."},
+  {"front": "What happens to an output written with `Dependencies(false)` and no file?", "back": "It belongs to no source file. On a later incremental build where nothing writes it again, KSP files it under removed outputs and deletes it."},
+  {"front": "What does `Dependencies.ALL_FILES` cost?", "back": "Any change makes every file dirty, so incremental processing is effectively off. Safe, and slow."},
+  {"front": "How do you see what KSP reprocessed, and where?", "back": "Build with `-Pksp.incremental.log=true`, then read `build/kspCaches/<source set>/logs/kspDirtySet.log` and `kspSourceToOutputs.log`. Each build rewrites them."},
+  {"front": "How does a processor read `ksp { arg(\"k\", \"v\") }`, and what's the javac twin?", "back": "`environment.options[\"k\"]`, which is null when missing. javac: `processingEnv.getOptions().get(\"k\")`, passed as `-Ak=v`."}
+ ],
+ "terms": [
+  {"term": "Incremental build", "plain": "A build that redoes only the work an edit can affect and reuses the rest from the last run."},
+  {"term": "Task input", "plain": "A file or setting a Gradle task reads; when none changed, Gradle skips the task as `UP-TO-DATE`."},
+  {"term": "Dirty file", "plain": "A source file KSP must hand to the processors again on this build."},
+  {"term": "Isolating output", "plain": "A generated file that depends only on the source files it names, such as one card per class."},
+  {"term": "Aggregating output", "plain": "A generated file that any source file can change, new files included, such as one list of every class."},
+  {"term": "Dependencies", "plain": "What a processor tells KSP about each output: which files it came from, and whether it's aggregating."},
+  {"term": "Processor option", "plain": "A key and a text value the build passes to every processor: `ksp { arg(...) }` for KSP, `-A` for javac."}
+ ],
+ "explain_back": {
+  "prompt": "A teammate says: \"Our generated list is right after `./gradlew clean`, but now and then it's missing classes, so we just clean before every release.\" Explain to them what's going on, and what you'd change instead.",
+  "answer": "KSP builds incrementally: it hands the processors only the files that changed, plus the files of any output that has to be redone, and it decides that from the Dependencies each output was written with. A list of every annotated class has to change when a new file appears, which only an aggregating output does. If the list was written as isolating, a new class in a new file makes only that file dirty, so the processor sees one class and writes a list of one. If it was written with no file at all, it can be deleted on a later build. A clean build reprocesses everything, so the list comes out right, and the habit of cleaning hides the bug while making every build slow. I'd write the list with `Dependencies(aggregating = true, ...)` and the file of every class on it, then prove it: turn on `ksp.incremental.log`, add a class in a new file, build without cleaning, and check that the dirty set and the list both include every class."
+ },
+ "deeper": {
+  "minutes": 10,
+  "body": "Dependencies aren't the only thing KSP tracks. Every time a processor resolves a type, KSP records the lookup, and `kspLookupGraph.log` lists them. On lesson 7's first build it held lines such as `src/l07/kotlin/workbench/ksp/app/l07/Lamp.kt -> workbench.ksp.annotations.Inventory` and `src/l07/kotlin/workbench/ksp/app/l07/Lamp.kt -> workbench.ksp.app.l07.String`. The second looks odd until you remember how Kotlin resolves a name: `String` in `Lamp.kt` could mean a class called `String` in Lamp's own package, so a new file in that package could change what the processor saw. KSP's docs call this resolution tracing: a file that resolved a type depends on the files that could change the answer. It's also why resolving types you don't need costs incremental builds, not just time.\n\nA few more switches and facts, from the KSP README and the research behind this lesson. `ksp.incremental=false` turns incremental processing off and deletes the caches. `ksp.incremental.log.graph.origin=<a fully qualified name>` writes a `kspLookupGraphOrigin.dot` graph for one symbol. A file that calls `getSealedSubclasses()` is dirty on every build, because any file could add a subclass. Since 2.3.14, when nothing at all is dirty, KSP restores the outputs and returns without creating any processor.\n\nTwo traps come from Gradle rather than KSP. The labs turn on the build cache, and the KSP task is cacheable: undo an edit, and Gradle may restore the outputs `FROM-CACHE` without running KSP, so the logs describe an older run. Make a fresh edit, or add `--no-build-cache`. And processor jars are a classpath input: change the processor itself, and Gradle runs the KSP task again in full, which is why switching between `-Pmine=l07` and the reference jar always starts with a 100% dirty set."
+ },
+ "sources": [
+  {"title": "Incremental processing (Kotlin docs)", "url": "https://kotlinlang.org/docs/ksp-incremental.html"},
+  {"title": "Incremental annotation processing (Gradle Java plugin docs)", "url": "https://docs.gradle.org/current/userguide/java_plugin.html"},
+  {"title": "KSP README: Gradle properties", "url": "https://github.com/google/ksp/blob/main/README.md"},
+  {"title": "ProcessingEnvironment (Java SE 25 API)", "url": "https://docs.oracle.com/en/java/javase/25/docs/api/java.compiler/javax/annotation/processing/ProcessingEnvironment.html"}
+ ]
+}
+out = ROOT / "content/lessons/ksp-07.json"
+out.write_text(json.dumps(L, indent=1, ensure_ascii=False) + "\n")
+print(out)
