@@ -190,7 +190,9 @@ CLOSING = """We started with the box office computer restarting ten minutes befo
 
 Now run a program of your own with `-Xlog:class+load`, and count the classes it loads before its first request.
 
-That ends Part 4, and the course. Part 1 kept a bank correct under many threads, Part 2 kept a post office counter answering while it waited, Part 3 gave a courier's events types the compiler checks, and Part 4 went backstage at the theatre, the warehouse and the kitchen. From here, take one program you know well and try one tool from each Part on it: a thread dump, a cancellation, a sealed type, a class count. The flashcards will keep the rest fresh."""
+That ends Part 4. Part 1 kept a bank correct under many threads, Part 2 kept a post office counter answering while it waited, Part 3 gave a courier's events types the compiler checks, and Part 4 went backstage at the theatre, the warehouse and the kitchen.
+
+Next, Part 5 takes today's last step all the way. Our registry was written by a small generator we ran by hand. What if the build itself read the annotations in your code and wrote such files every time, so they could never fall out of step?"""
 
 L = {
  "id": "cap4-03",

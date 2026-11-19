@@ -1,6 +1,6 @@
 {
   "title": "JVM Workbench",
-  "tagline": "Concurrency, the JVM runtime, generics and design patterns in Java and Kotlin, one focused session a day.",
+  "tagline": "Concurrency, the JVM runtime, generics, design patterns and code generation in Java and Kotlin, one focused session a day.",
   "tracks": [
     {
       "id": "conc",

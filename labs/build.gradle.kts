@@ -275,7 +275,12 @@ fun processorLab(lab: String) {
                 val options = java.util.Properties().apply { optionsFile.reader().use(::load) }
                     .entries.associate { (k, v) -> k.toString() to v.toString() }
                 tasks.withType<com.google.devtools.ksp.gradle.KspAATask>().configureEach {
-                    if (name == "ksp${unit.cap()}Kotlin") kspConfig.processorOptions.putAll(options)
+                    if (name == "ksp${unit.cap()}Kotlin") {
+                        // the same two places ksp { arg(k, v) } fills: processorOptions reaches the processors but
+                        // is @Internal; apOptions is the @Input, so a changed value makes Gradle run KSP again
+                        kspConfig.processorOptions.putAll(options)
+                        kspConfig.apOptions.putAll(options)
+                    }
                 }
             }
 

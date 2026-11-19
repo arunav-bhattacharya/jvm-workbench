@@ -180,7 +180,7 @@ On the print line, kapt and KSP aren't machines at all. They are a second shop t
 
 Two version facts matter today. KSP2 "is no longer a compiler plugin" and is built on the same compiler APIs as IntelliJ IDEA. And since KSP 2.3.0, KSP1 is deprecated and "KSP version is no longer tied to the Kotlin compiler version", so a KSP release number no longer has to match your Kotlin version.
 
-My rule: use KSP whenever the library ships a KSP processor, and kapt only for processors that exist just for Java. Watch the build time when you add kapt: every module that uses it pays for the stub step on each build.
+My rule: use KSP whenever the library ships a KSP processor, and kapt only for processors that exist just for Java. Watch the build time when you add kapt: every module that uses it pays for the stub step on each build. Part 5 of this course is all about KSP: there you'll write processors of your own, from the first one to a small dependency injection tool.
 
 That's also the limit of this whole family of tools, plugins included. They change what the compiler writes, and your source doesn't show it. A class that reads as final is open, a constructor nobody wrote exists, and a serializer nobody typed runs. When something surprises you, `javap` shows what is really there, and the build file says who put it there.
 

@@ -1,8 +1,8 @@
 # JVM Workbench
 
-A 147-lesson course on how Java and Kotlin really run: concurrency, async servers, generics and design, and the JVM itself. One lesson a day, about 35 minutes each, with real code to write and tests that tell you when it works. Live at https://jvm-workbench.ai-arunav.workers.dev.
+A 159-lesson course on how Java and Kotlin really run: concurrency, async servers, generics and design, the JVM itself, and code generation with KSP. One lesson a day, about 35 minutes each, with real code to write and tests that tell you when it works. Live at https://jvm-workbench.ai-arunav.workers.dev.
 
-The course has four parts. Each one ends with a capstone: three sittings that build one working program from everything the part taught.
+The course has five parts. Each one ends with a capstone: three sittings that build one working program from everything the part taught.
 
 | Part | Track | Lessons | Lab project |
 |---|---|---|---|
@@ -27,6 +27,8 @@ The course has four parts. Each one ends with a capstone: three sittings that bu
 | | JIT, profiling and benchmarking | 8 | `labs/performance` |
 | | Startup and footprint | 4 | `labs/startup` |
 | | Capstone: a tiny dependency injection container | 3 | `labs/container` |
+| 5. Code generation with KSP | Kotlin Symbol Processing (KSP) | 9 | `labs/ksp` |
+| | Capstone: dependency injection at compile time | 3 | `labs/injector` |
 
 Every track assumes no knowledge of its topic. Lessons show the program that breaks before they name the fix, and go one level down (what the CPU, the OS, the JVM or the compiler does) so you can predict cases the lesson never showed.
 
