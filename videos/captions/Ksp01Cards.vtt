@@ -1,0 +1,389 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:05.590
+Picture a family packing their home for a move.
+
+2
+00:00:05.590 --> 00:00:11.365
+Every box gets a card taped to it that lists what's inside, so nothing goes missing on the way.
+
+3
+00:00:11.533 --> 00:00:16.710
+MoveMate is a small program that helps them, and prints a card for each kind of thing.
+
+4
+00:00:16.710 --> 00:00:21.765
+For a lamp: its name, desk lamp, one bulb, and its shade, null, because it has none.
+
+5
+00:00:21.933 --> 00:00:23.594
+We wrote each card by hand.
+
+6
+00:00:23.594 --> 00:00:28.453
+The class lists the properties, and a small function repeats that list as text.
+
+7
+00:00:28.600 --> 00:00:31.082
+Then the lamps gained a property, watts.
+
+8
+00:00:31.082 --> 00:00:32.571
+Nobody touched the card.
+
+9
+00:00:32.571 --> 00:00:34.743
+What happens when we build and run?
+
+10
+00:00:37.800 --> 00:00:40.437
+The build is green, and the program runs.
+
+11
+00:00:40.437 --> 00:00:44.745
+The lamp knows it draws 40 watts, and its card keeps that a secret.
+
+12
+00:00:44.745 --> 00:00:46.417
+Nothing printed a warning.
+
+13
+00:00:46.600 --> 00:00:48.748
+Every word on the card is still true.
+
+14
+00:00:48.748 --> 00:00:53.103
+It's just not the whole truth, like a moving quote that forgets the stairs.
+
+15
+00:00:53.103 --> 00:00:56.238
+The compiler checks that each name on the card exists.
+
+16
+00:00:56.238 --> 00:00:58.851
+It can't check that the card says everything.
+
+17
+00:00:59.000 --> 00:01:02.591
+That gap has a name: the card has drifted from its class.
+
+18
+00:01:02.591 --> 00:01:06.245
+And every class you add is one more card waiting to drift.
+
+19
+00:01:07.133 --> 00:01:10.049
+Here's a question that's easy to be shy about.
+
+20
+00:01:10.049 --> 00:01:12.140
+People say a tool generates code.
+
+21
+00:01:12.140 --> 00:01:13.281
+Generates it when?
+
+22
+00:01:13.281 --> 00:01:16.576
+Where does it go, if it's never in my source folder?
+
+23
+00:01:16.576 --> 00:01:18.921
+And how would that keep a card right?
+
+24
+00:01:20.067 --> 00:01:21.516
+First, three moments.
+
+25
+00:01:21.516 --> 00:01:26.418
+The build is everything Gradle does to turn your source into a program.
+
+26
+00:01:26.418 --> 00:01:30.491
+Compile time is one step of it: source becomes class files.
+
+27
+00:01:30.491 --> 00:01:33.597
+Run time comes later, when the JVM runs them.
+
+28
+00:01:33.733 --> 00:01:38.524
+The hand-written card came before the build, from a person, and people forget.
+
+29
+00:01:38.524 --> 00:01:43.560
+Reflection works it out at run time: the program reads its own fields, every time.
+
+30
+00:01:43.733 --> 00:01:44.994
+It never forgets.
+
+31
+00:01:44.994 --> 00:01:52.039
+But it pays on every call: about 220 nanoseconds a card, against 25 by hand, on a busy machine.
+
+32
+00:01:52.039 --> 00:01:57.897
+Like unpacking every box at the new house, each time someone asks for the list.
+
+33
+00:01:58.067 --> 00:02:02.131
+Wouldn't it be nice to have the speed of one and the memory of the other?
+
+34
+00:02:02.131 --> 00:02:06.251
+That's the third spot: a program writes the cards, once, during the build.
+
+35
+00:02:07.133 --> 00:02:08.280
+Back to the house.
+
+36
+00:02:08.280 --> 00:02:10.508
+Your source files are sealed boxes.
+
+37
+00:02:10.508 --> 00:02:16.112
+The label on top lists the class name and each property with its type: the declarations.
+
+38
+00:02:16.112 --> 00:02:18.851
+The code inside the functions stays sealed.
+
+39
+00:02:19.000 --> 00:02:22.900
+Stick a note on a box: make an inventory card for this one.
+
+40
+00:02:22.900 --> 00:02:27.791
+In code, that's an annotation, @Inventory, a note written with an at sign.
+
+41
+00:02:27.791 --> 00:02:30.369
+It does nothing until someone reads it.
+
+42
+00:02:30.533 --> 00:02:37.436
+A helper with a clipboard walks the house, finds each box with that note, reads its label, and writes a new card.
+
+43
+00:02:37.436 --> 00:02:45.011
+That helper is an annotation processor: a program that runs during the build and writes new source files from what it reads.
+
+44
+00:02:45.200 --> 00:02:49.043
+When the van leaves, the boxes and the new cards go in together.
+
+45
+00:02:49.043 --> 00:02:54.387
+That's code generation: a program writes source code that's compiled together with yours.
+
+46
+00:02:54.533 --> 00:02:56.633
+And the helper never gets bored.
+
+47
+00:02:56.633 --> 00:03:02.867
+Card forty gets the same care as card one, because it reads every label afresh, on every build.
+
+48
+00:03:03.067 --> 00:03:04.021
+Now the name.
+
+49
+00:03:04.021 --> 00:03:10.701
+KSP, Kotlin Symbol Processing, is a tool from Google that runs such helpers on Kotlin code.
+
+50
+00:03:10.701 --> 00:03:13.711
+A symbol is any named thing in your code.
+
+51
+00:03:14.600 --> 00:03:17.824
+Let's watch a ready-made helper in a real build.
+
+52
+00:03:17.824 --> 00:03:23.668
+The lab's playground holds the four MoveMate classes, each with the note, and no cards.
+
+53
+00:03:23.668 --> 00:03:25.415
+We run the KSP task alone.
+
+54
+00:03:25.600 --> 00:03:27.616
+How many files will it write?
+
+55
+00:03:27.616 --> 00:03:28.728
+Pause and guess.
+
+56
+00:03:31.733 --> 00:03:34.005
+Four, one per class with the note.
+
+57
+00:03:34.005 --> 00:03:36.810
+And they land under build, generated, KSP.
+
+58
+00:03:36.810 --> 00:03:40.351
+Never in your source folder: that one belongs to you.
+
+59
+00:03:40.533 --> 00:03:46.449
+Open the lamp's card: our hand-written card, line for line, with one comment on top.
+
+60
+00:03:46.449 --> 00:03:47.858
+Generated from Lamp.
+
+61
+00:03:47.858 --> 00:03:48.703
+Do not edit.
+
+62
+00:03:49.600 --> 00:03:50.214
+And when?
+
+63
+00:03:50.214 --> 00:03:52.806
+Gradle lists a build's steps in order.
+
+64
+00:03:52.806 --> 00:03:57.514
+First it builds the helper: a processor must exist before it can run.
+
+65
+00:03:57.514 --> 00:03:58.742
+Then the KSP task.
+
+66
+00:03:58.742 --> 00:04:03.927
+Only then the Kotlin compiler, with your classes and the new cards together.
+
+67
+00:04:04.067 --> 00:04:05.506
+Now the real test.
+
+68
+00:04:05.506 --> 00:04:09.186
+Add watts to Lamp, and run the KSP task again.
+
+69
+00:04:09.186 --> 00:04:11.105
+Nobody touches any card.
+
+70
+00:04:11.267 --> 00:04:13.789
+The new card gains watts, all by itself.
+
+71
+00:04:13.789 --> 00:04:16.185
+Call it, and it says: watts equals 40.
+
+72
+00:04:16.185 --> 00:04:19.905
+The hand-written card from before still stops at the shade.
+
+73
+00:04:21.267 --> 00:04:22.968
+Here the picture breaks.
+
+74
+00:04:22.968 --> 00:04:26.369
+A real helper could lift a flap and peek inside.
+
+75
+00:04:26.369 --> 00:04:30.834
+KSP can't: it reads declarations, never the code in a function.
+
+76
+00:04:30.834 --> 00:04:32.747
+And it never repacks a box.
+
+77
+00:04:32.747 --> 00:04:34.377
+It only adds new files.
+
+78
+00:04:34.533 --> 00:04:43.137
+That's why the card is an extension function in its own file: lamp.inventoryCard() reads like a member, and Lamp is untouched.
+
+79
+00:04:44.067 --> 00:04:53.272
+Java has had this since Java 6: javac runs annotation processors, and KSP is Kotlin's own, faster way to do the same job.
+
+80
+00:04:53.272 --> 00:04:59.205
+Java can even call the generated card, as a static method that takes the lamp.
+
+81
+00:05:00.133 --> 00:05:02.606
+Should every card come from a helper?
+
+82
+00:05:02.606 --> 00:05:03.342
+Not always.
+
+83
+00:05:03.342 --> 00:05:10.026
+It pays off when the code repeats across many classes, runs often, or must be checked at build time.
+
+84
+00:05:10.026 --> 00:05:13.702
+A test helper that prints any object a few dozen times?
+
+85
+00:05:13.702 --> 00:05:14.972
+Reflection is fine.
+
+86
+00:05:15.133 --> 00:05:18.917
+Never edit a generated file: the next build writes over it.
+
+87
+00:05:18.917 --> 00:05:22.701
+And if your editor shows red before the first build, relax.
+
+88
+00:05:22.701 --> 00:05:24.753
+The card just isn't written yet.
+
+89
+00:05:25.667 --> 00:05:28.622
+So, who keeps the card in step with its class?
+
+90
+00:05:28.622 --> 00:05:29.521
+Nobody has to.
+
+91
+00:05:29.521 --> 00:05:35.174
+A helper reads every label on every build, and writes fresh cards before the van leaves.
+
+92
+00:05:35.174 --> 00:05:38.451
+Only the writing moved, from a person to the build.
+
+93
+00:05:38.600 --> 00:05:39.399
+Quick check.
+
+94
+00:05:39.399 --> 00:05:42.593
+You add a property, colour, to Plant, and build.
+
+95
+00:05:42.593 --> 00:05:45.255
+Which file changes, and in which folder?
+
+96
+00:05:48.467 --> 00:05:51.251
+PlantInventoryCard.kt gains colour.
+
+97
+00:05:51.251 --> 00:05:56.501
+It lives under build, generated, KSP, and nobody wrote it by hand.

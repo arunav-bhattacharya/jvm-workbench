@@ -12,82 +12,72 @@ fg.SAY[:0] = [
 
 # every spoken line, in order
 N = {
-    "open": "Back to the move. Every box is sealed, and its label lists what's inside. A helper with a clipboard reads "
-            "the labels and writes new cards, which travel with the move.",
+    "open": "Back to the move. A helper with a clipboard reads each box's label and writes new cards, which travel "
+            "with the move.",
     "builder": "This time, the box with the @Builder note gets a builder: LampBuilder, a small class that collects a "
-               "lamp's values one call at a time, and then builds the lamp.",
+               "lamp's values one call at a time, then builds the lamp.",
     "shyq": "Here's a question many of us are too shy to ask. A generated file is just text. So why would anyone "
-            "need a library to print text? In lesson 2, a string template wrote the cards, and that worked.",
-    "tmpl": "So let's try it. The template pastes each name and each type into a line of text. For Lamp, the builder "
+            "need a library to print text? Lesson 2's string template worked fine.",
+    "tmpl": "Let's try it. The template pastes each name and each type into a line of text. For Lamp, the builder "
             "compiles.",
-    "load_q": "Now Load. It lives in package movemate.van, and its one field is a Box, from package movemate. Same "
-              "program, different package. What happens when the build compiles its builder?",
-    "load_a": "Unresolved reference Box. The template wrote Box, but never wrote the import. And notice who "
-              "complained. Not KSP: it wrote the file without a word. The Kotlin compiler did, afterwards, because a "
-              "generated file is compiled exactly like one of yours.",
-    "slips": "The other classes slip the same way. Lamp's shade is already a String with a question mark, the template "
-             "adds one more, and you get two. A nested Drawer must be called Kitchen.Drawer from outside. And a "
-             "property named in, a Kotlin keyword, is a syntax error unless it sits in backticks.",
+    "load_q": "Now Load. It lives in package movemate.van, and its field is a Box, from package movemate. What happens "
+              "when the build compiles its builder?",
+    "load_a": "Unresolved reference Box. The template never wrote the import. And notice who complained. Not KSP, "
+              "which wrote the file without a word, but the Kotlin compiler, afterwards. A generated file is compiled "
+              "exactly like yours.",
+    "slips": "The others slip the same way. Lamp's shade gets a second question mark. A nested Drawer must be called "
+             "Kitchen.Drawer. And a property named in, a Kotlin keyword, needs backticks.",
     "hand": "In the moving house, that's handwriting. It smudges a mark. It abbreviates without saying what the short "
-            "name means. It forgets which room a box sits in. And it writes a word the reader takes for an "
-            "instruction.",
-    "patch": "You could patch each slip by hand: full names everywhere, a list of keywords, a check before every "
-             "question mark. Keep patching, and one day you notice you've written a small program that prints Kotlin. "
-             "The good news: somebody already wrote it, and tested it far more than we ever would.",
-    "printer": "So swap the handwriting for a label printer. You don't type the label letter by letter. You hand the "
-               "printer the parts: a class called LampBuilder, a field called name, of type String. It prints them, "
-               "and it knows the rules: which short names need an import, where the question marks go, and which "
-               "words are keywords.",
+            "name means. It forgets which room a box is in. And it writes a word the reader takes as an order.",
+    "patch": "You could patch each slip by hand. Keep patching, and one day you notice you've written a small program "
+             "that prints Kotlin. The good news: somebody already wrote it, and tested it far more than we would.",
+    "printer": "So swap the handwriting for a label printer. You don't type letters. You hand it the parts: a class "
+               "called LampBuilder, a field called name, of type String. It prints them, and it knows the rules: "
+               "which short names need an import, where the question marks go, and which words are keywords.",
     "map": "Let's map it. The printer is KotlinPoet, a library from Square that writes Kotlin source files. Each part "
-           "you hand it is a spec. FileSpec describes a whole file, TypeSpec a class, PropertySpec a property, FunSpec "
-           "a function, and ParameterSpec a parameter. You make each one with its builder, and finish it with build.",
+           "is a spec: FileSpec for a file, TypeSpec for a class, then PropertySpec, FunSpec and ParameterSpec. You "
+           "make each one with a builder, and finish it with build.",
     "greet_q": "Let's shrink it to one spec: a function called greet, which returns a String, Hello from Lamp. Before "
                "it prints, guess what comes out.",
-    "greet_a": "One line, and three habits show. It wrote public by itself. It turned a one line return into an "
-               "expression body. And printed on its own, it spells out kotlin.String. Inside a file, the same type "
-               "prints as plain String, with an import at the top.",
-    "public": "Public on everything is a bit like a mover who writes this way up on every box, even the round ones. "
-              "But it's on purpose: KotlinPoet's docs say explicit visibility keeps the code portable.",
-    "java": "Java has an older sibling, JavaPoet. A MethodSpec instead of a FunSpec, a dollar sign where KotlinPoet "
-            "writes a percent sign, and the same greet comes out as a Java method.",
-    "fmt": "That string, return %S, is a format string: code text with blanks in it, which KotlinPoet fills from the "
-           "arguments after it. Four blanks, called placeholders, do nearly all the work.",
+    "greet_a": "One line, with three habits. It wrote public by itself. It turned a one line return into an expression "
+               "body. And alone, it spells out kotlin.String. Inside a file, that's plain String, plus an import.",
+    "public": "Public on everything is like a mover who writes this way up on every box, even the round ones. But "
+              "it's on purpose: explicit visibility keeps the code portable.",
+    "java": "Java has an older sibling, JavaPoet. A MethodSpec, a dollar sign where KotlinPoet has a percent sign, and "
+            "the same greet as a Java method.",
+    "fmt": "That string, return %S, is a format string: code text with blanks, filled from the arguments after it. "
+           "Four blanks, called placeholders, do nearly all the work.",
     "pT": "%T takes a type. It prints the type's name, and puts the type on the file's import list.",
     "pN": "%N takes a name, and adds backticks when the name needs them. Give it in, and out comes in, in backticks.",
     "pS": "%S takes a string, and writes a string literal: in quotes, with quotes and dollar signs escaped.",
     "pL": "And %L pastes a value as it is, no questions asked.",
-    "cat": "Look at what %S made of that note. It looks like a cat walked across the keyboard. But it's the same "
-           "text, dollar sign and all, written so that Kotlin reads it back exactly. So the point is, each "
-           "placeholder knows the one rule its kind of value needs. That's exactly what the handwriting kept "
-           "forgetting.",
+    "cat": "That %S line looks like a cat walked across the keyboard. But it's the same text, dollar sign and all, "
+           "written so Kotlin reads it back exactly. Each placeholder knows the one rule its kind of value needs, "
+           "which is just what the handwriting forgot.",
     "rule": "So pass types with %T, and names with %N. Never paste them into the format string.",
-    "asm": "Now the whole builder, spec by spec. Keep an eye on the top of the file. Every type that goes in through "
-           "%T joins the import list.",
+    "asm": "Now the whole builder, spec by spec. Watch the top of the file: every type that goes in through %T joins "
+           "the import list.",
     "asm1": "FileSpec starts the file, with its package. TypeSpec adds the class. The first PropertySpec adds name, a "
             "String that starts out empty, and import kotlin.String appears. bulbs is an Int, so import kotlin.Int "
             "joins it, in alphabetical order. shade is a String again, so nothing new.",
-    "asm2": "And notice shade: one question mark, not two. The field's type is made nullable with copy, nullable "
-            "equals true, which leaves a type that's already nullable alone. The smudge is gone.",
-    "asm3": "Then one FunSpec per setter. Each fills its slot and hands the builder back, so the calls chain. A last "
-            "FunSpec writes build, which calls Lamp with named arguments. And writeTo hands the finished file to KSP, "
-            "together with the box it came from, Lamp.kt.",
-    "load": "Now the one that failed. Load, in package movemate.van. Same processor, same specs. And the top of the "
-            "file reads: import movemate.Box. The line the handwriting forgot, printed for us. Nobody typed a single "
-            "import.",
-    "breaks": "Here the picture breaks. A label printer prints exactly the words you type. KotlinPoet edits as it "
-              "prints: it adds imports, public and backticks, and reshapes a one line body. So read what it prints "
-              "at least once before you trust it.",
-    "limit": "And it has a blind spot. KotlinPoet describes declarations: classes, properties, functions. It doesn't "
-             "model what happens inside a body. The body of build is just a format string. If it filled name from the "
-             "bulbs slot, KotlinPoet would print that mistake, neatly indented.",
-    "proof": "It's a printer, not a proofreader. The compiler is the one who reads for meaning. That's why every test "
-             "in this lesson's lab compiles the generated builder, and then calls it.",
-    "moral": "So, why a library to print text? Because generated code is ordinary source code, with the strictest "
-             "reader on the move. Describe the file as specs, pass types with %T and names with %N, and the printer "
-             "writes the imports, the question marks and the backticks. Then compile what you generate, and call it.",
+    "asm2": "And shade has one question mark, not two. The type is made nullable with copy, nullable equals true, which "
+            "leaves an already nullable type alone.",
+    "asm3": "Then a FunSpec per setter: each fills its slot and hands the builder back. A last FunSpec writes build. "
+            "And writeTo hands the file to KSP, together with the box it came from, Lamp.kt.",
+    "load": "Now the one that failed: Load, in package movemate.van. Same specs, and the top of the file reads: import "
+            "movemate.Box. The line the handwriting forgot. Nobody typed a single import.",
+    "breaks": "Here the picture breaks. A label printer prints exactly what you type. KotlinPoet edits as it prints: "
+              "imports, public, backticks, a reshaped body. So read its output once before you trust it.",
+    "limit": "And it has a blind spot. It describes declarations, not what happens inside a body: the body of build is "
+             "just a format string. Fill name from the bulbs slot, and KotlinPoet prints that mistake, neatly "
+             "indented.",
+    "proof": "It's a printer, not a proofreader. The compiler reads for meaning, so every test in the lab compiles the "
+             "generated builder, and calls it.",
+    "moral": "So, why a library to print text? Because generated code is ordinary source code, with a strict reader. "
+             "Describe it as specs, pass types with %T and names with %N, and the printer writes the imports and the "
+             "backticks. Then compile it, and call it.",
     "check": "Quick check. Crate has a property called object. Which placeholder carries its name, and what comes out?",
-    "check_a": "%N. It prints object in backticks, because object is a keyword in Kotlin. The real CrateBuilder has a "
-               "setter named object, in backticks.",
+    "check_a": "%N. It prints object in backticks, because object is a keyword in Kotlin.",
 }
 
 
@@ -285,9 +275,9 @@ class Ksp04KotlinPoet(Narrated):
         self.say("open")
         self.play(Create(floor), FadeIn(lamp, shift=DOWN * 0.2), run_time=0.9)
         self.at(1)
-        self.play(Indicate(lamp[3], color=WHITE, scale_factor=1.05), run_time=0.8)
-        self.at(2)
         self.play(FadeIn(hp, shift=LEFT * 0.2), run_time=0.7)
+        self.at_text("label", lead=0.2)
+        self.play(Indicate(lamp[3], color=WHITE, scale_factor=1.05), run_time=0.8)
         self.hold()
 
         bcard = card(["class LampBuilder"], CARD, 22, "LampBuilder.kt").move_to([3.6, -0.6, 0])
@@ -359,9 +349,9 @@ class Ksp04KotlinPoet(Narrated):
         self.at(1)
         self.play(Indicate(load[3][1][0], color=INK, scale_factor=1.06), run_time=0.7)
         self.play(Indicate(part(load[3][1][1], "Box"), color=BAD, scale_factor=1.3), run_time=0.6)
-        self.at(2)
+        self.at_text("from package movemate", lead=0.2)
         self.play(FadeIn(lq), run_time=0.5)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(ftitle), FadeIn(fileg), run_time=0.8)
         self.hold(after=0)
         self.predict(2.4)
@@ -483,14 +473,15 @@ class Ksp04KotlinPoet(Narrated):
         specs.arrange(DOWN, aligned_edge=LEFT, buff=0.16).move_to([0, -1.95, 0])
         bb = M(".builder(...) ... .build()", 22, GREY_B).next_to(specs, RIGHT, buff=0.5)
         self.say("map")
+        self.at_text("The printer", lead=0.3)
         self.play(FadeIn(kp, shift=DOWN * 0.1), run_time=0.6)
-        self.at(1)
+        self.at(2)
         self.play(FadeIn(spec_w), Indicate(parts, color=WHITE, scale_factor=1.04), FadeOut(knows), run_time=0.8)
         self.play(VGroup(pr, kp, strip, parts, spec_w).animate.shift(UP * 0.85), run_time=0.6)
         for i in range(5):
             self.at_text(rows[i][0], lead=0.25)
             self.play(FadeIn(specs[i], shift=RIGHT * 0.1), run_time=0.45)
-        self.at(3)
+        self.at_text("You make", lead=0.3)
         self.play(FadeIn(bb), run_time=0.5)
         self.hold()
         self.clear()
@@ -555,7 +546,7 @@ class Ksp04KotlinPoet(Narrated):
         self.at_text("a dollar sign", lead=0.3)
         self.play(Indicate(part(jv[3], "$S"), color=PS, scale_factor=1.5), Indicate(part(gk[2], "%S"), color=PS, scale_factor=1.5),
                   run_time=0.9)
-        self.at(1)
+        self.at_text("and the same", lead=0.3)
         self.play(FadeIn(jvo, shift=LEFT * 0.1), run_time=0.7)
         self.hold()
         self.clear()
@@ -608,9 +599,9 @@ class Ksp04KotlinPoet(Narrated):
         cat_box = SurroundingRectangle(prow[2][4], buff=0.1, color=PS, stroke_width=2.5)
         self.say("cat")
         self.play(Create(cat_box), run_time=0.7)
-        self.at(2)
+        self.at(1)
         self.play(Indicate(prow[2][2], color=WHITE, scale_factor=1.06), run_time=0.8)
-        self.at(3)
+        self.at(2)
         self.play(*[Indicate(r[0], color=r[0].get_color(), scale_factor=1.25) for r in prow], run_time=1.0)
         self.hold()
 
@@ -778,7 +769,7 @@ class Ksp04KotlinPoet(Narrated):
         self.play(FadeOut(VGroup(*chips.values(), lk)), FadeOut(VGroup(*[L[k] for k in present])), FadeOut(ftag), run_time=0.6)
         self.play(FadeIn(loadchip, shift=RIGHT * 0.2), FadeIn(ftag2), FadeIn(old), run_time=0.7)
         self.play(LaggedStart(*[FadeIn(m_, shift=LEFT * 0.1) for m_ in [LB[0]] + LB[2:]], lag_ratio=0.15), run_time=1.2)
-        self.at_text("And the top", lead=0.3)
+        self.at_text("and the top", lead=0.3)
         self.play(FadeIn(LB[1], shift=DOWN * 0.15), Create(glow), run_time=0.9)
         self.at_text("The line the", lead=0.3)
         self.play(Create(oldx), FadeIn(fixed, shift=UP * 0.1), run_time=0.7)
@@ -795,11 +786,12 @@ class Ksp04KotlinPoet(Narrated):
         div = DashedLine([0, 3.1, 0], [0, -0.6, 0], dash_length=0.1).set_stroke(GREY_D, 2)
         readit = T("read what it prints at least once", 26, NOTE).move_to([0, -1.3, 0])
         self.say("breaks")
-        self.play(FadeIn(lp), run_time=0.7)
         self.at(1)
+        self.play(FadeIn(lp), run_time=0.7)
+        self.at(2)
         self.play(Create(div), FadeIn(kpc), run_time=0.6)
         self.play(LaggedStart(*[FadeIn(a, shift=LEFT * 0.1) for a in adds], lag_ratio=0.3), run_time=1.2)
-        self.at(2)
+        self.at(3)
         self.play(FadeIn(readit, shift=UP * 0.1), run_time=0.6)
         self.hold()
         self.clear()
@@ -815,12 +807,13 @@ class Ksp04KotlinPoet(Narrated):
         bg = VGroup(bad_l, bad).arrange(DOWN, aligned_edge=LEFT, buff=0.15).move_to([0, -0.75, 0])
         fit(bg, 12.4)
         self.say("limit")
-        self.play(FadeIn(decl), run_time=0.6)
         self.at(1)
+        self.play(FadeIn(decl), run_time=0.6)
+        self.at_text("not what", lead=0.3)
         self.play(FadeIn(body), run_time=0.6)
-        self.at(2)
+        self.at_text("the body of", lead=0.3)
         self.play(FadeIn(gg, shift=UP * 0.1), run_time=0.7)
-        self.at(3)
+        self.at(2)
         self.play(FadeIn(bg, shift=UP * 0.1), run_time=0.8)
         self.hold()
 
@@ -829,9 +822,8 @@ class Ksp04KotlinPoet(Narrated):
         rc2.move_to([0, -3.05, 0])
         self.say("proof")
         self.play(FadeIn(pp, shift=UP * 0.1), run_time=0.7)
-        self.at(1)
         self.play(Indicate(bad, color=BAD, scale_factor=1.03), run_time=0.8)
-        self.at(2)
+        self.at(1)
         self.play(FadeIn(rc2, shift=UP * 0.1), run_time=0.7)
         self.hold(after=0.5)
         self.clear()
