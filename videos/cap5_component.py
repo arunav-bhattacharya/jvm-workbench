@@ -199,7 +199,7 @@ def cross(m, s=0.22, buff=0.25):
 # the graph of the day, as in the lesson's figure; the plan sheet sits on the right
 BW, BH = 2.1, 0.64
 C1, C2, C3, C4 = -5.25, -2.85, -0.45, 1.95
-R1, R2, R3, R4 = 2.35, 1.15, -0.05, -1.25
+R1, R2, R3, R4 = 2.45, 1.15, -0.2, -1.55
 POS = {"MD": (C3, R1), "CR": (C2, R2), "TR": (C1, R3), "P1": (C2, R3), "P2": (C3, R3),
        "DR": (C1, R4), "T1": (C2, R4), "T2": (C3, R4), "RT": (C4, R4)}
 NAME = {"MD": "MovingDay", "CR": "Crew", "TR": "Truck", "P1": "Packer", "P2": "Packer", "DR": "Driver",
@@ -375,7 +375,7 @@ class Cap5Component(Narrated):
         # ================= the graph of the day =================
         B = {}
         for k, (x, y) in POS.items():
-            B[k] = box(NAME[k], KIND[k], w=BW, h=BH, size=26).move_to([x, y, 0])
+            B[k] = box(NAME[k], KIND[k], w=(2.5 if k == "MD" else BW), h=BH, size=26).move_to([x, y, 0])
 
         def ar(a, b):
             return edge_arrow(B[a], B[b], color=GREY_B, buff=0.08)
@@ -383,7 +383,7 @@ class Cap5Component(Narrated):
         A = {("MD", "CR"): ar("MD", "CR"), ("MD", "RT"): ar("MD", "RT"), ("CR", "TR"): ar("CR", "TR"),
              ("CR", "P1"): ar("CR", "P1"), ("CR", "P2"): ar("CR", "P2"), ("TR", "DR"): ar("TR", "DR"),
              ("P1", "T1"): ar("P1", "T1"), ("P2", "T2"): ar("P2", "T2")}
-        yb = -2.2
+        yb = -2.45
         dr_rt = VGroup(Line(B["DR"].get_bottom() + DOWN * 0.06, [C1, yb, 0]), Line([C1, yb, 0], [C4, yb, 0]),
                        Arrow([C4, yb, 0], B["RT"].get_bottom() + DOWN * 0.04, buff=0, stroke_width=3,
                              max_tip_length_to_length_ratio=0.35, max_stroke_width_to_length_ratio=10))
@@ -396,7 +396,12 @@ class Cap5Component(Narrated):
                                T("one for the whole day", 24, SING)).arrange(RIGHT, buff=0.15),
                         VGroup(RoundedRectangle(corner_radius=0.06, width=0.36, height=0.3).set_stroke(FRESH, 2.5).set_fill(dim(FRESH), 1),
                                T("new every time", 24, FRESH)).arrange(RIGHT, buff=0.15)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
-        legend.move_to([-6.45, 2.5, 0], aligned_edge=LEFT)
+        sing_w = T("(a singleton)", 24, SING)
+        legend.add(sing_w)
+        legend.submobjects = [legend[0], sing_w, legend[1]]
+        legend.arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+        sing_w.shift(RIGHT * 0.51)
+        legend.move_to([-6.45, 2.4, 0], aligned_edge=LEFT)
         needs_t = T("each arrow means \"needs\"", 24, GREY_B).move_to([3.3, 2.5, 0])
         self.say("graph")
         self.play(FadeIn(needs_t), run_time=0.4)
@@ -417,10 +422,9 @@ class Cap5Component(Narrated):
         self.say("graph3")
         self.play(FadeIn(legend[0]), *[Indicate(B[k][1], color=SING, scale_factor=1.08) for k in ("MD", "CR", "TR", "DR", "RT")], run_time=1.0)
         self.at_text("a singleton", lead=0.3)
-        sing_w = T("singleton", 26, SING).next_to(legend[0], RIGHT, buff=0.3)
         self.play(FadeIn(sing_w), run_time=0.5)
         self.at(1)
-        self.play(FadeIn(legend[1]), *[Indicate(B[k][1], color=FRESH, scale_factor=1.08) for k in ("P1", "P2", "T1", "T2")], run_time=1.0)
+        self.play(FadeIn(legend[2]), *[Indicate(B[k][1], color=FRESH, scale_factor=1.08) for k in ("P1", "P2", "T1", "T2")], run_time=1.0)
         self.at(2)
         graph_w = T("the graph", 30, WHITE).move_to([3.3, 2.0, 0])
         self.play(FadeIn(graph_w, shift=DOWN * 0.1), run_time=0.6)
@@ -471,7 +475,7 @@ class Cap5Component(Narrated):
         self.say("predict")
         self.play(Indicate(B["MD"][1], color=WALK), run_time=0.8)
         self.hold(after=0)
-        self.predict(2.6, pos=(-6.4, 3.2))
+        self.predict(2.6, pos=(6.4, 3.2), edge=RIGHT)
 
         # ================= the walk =================
         holds = {"MD": hold_md}
@@ -594,7 +598,7 @@ class Cap5Component(Narrated):
                "}"]
         code = code_block(src, 22)
         code[0].set_color(GREY_B)
-        code.move_to([0.3, 0.65, 0])
+        code.move_to([0.3, 0.25, 0])
         nums = {2: (1, SING), 3: (2, SING), 4: (3, SING), 5: (6, SING), 6: (7, SING), 7: (4, FRESH), 8: (5, FRESH)}
         cb = {i: badge(n, c, r=0.21, size=24).next_to(code[i], LEFT, buff=0.18).set_x(-6.15) for i, (n, c) in nums.items()}
         ftitle = T("GeneratedMovingDayComponent.kt   (blank lines removed)", 24, CARD).move_to([0, 3.2, 0])
@@ -654,8 +658,8 @@ class Cap5Component(Narrated):
         err_k = VGroup(T("Kotlin:", 26, GREY_B), M("Variable 'route' must be initialized.", 26, BAD)).arrange(RIGHT, buff=0.3)
         err_j = VGroup(T("javac:", 26, GREY_B), M("illegal forward reference", 26, BAD)).arrange(RIGHT, buff=0.3)
         errs = VGroup(err_k, err_j).arrange(DOWN, aligned_edge=LEFT, buff=0.25).move_to([0, -1.35, 0])
-        reads = CurvedArrow(bl[1].get_left() + LEFT * 0.15, bl[0].get_left() + LEFT * 0.15, angle=1.4, color=BAD,
-                            stroke_width=4, tip_length=0.18)
+        reads = CurvedArrow(bl[1].get_left() + LEFT * 0.15 + UP * 0.05, bl[0].get_left() + LEFT * 0.15 + DOWN * 0.05,
+                            angle=2.6, color=BAD, stroke_width=5, tip_length=0.2)
         reads_t = T("the driver's line reads a route that isn't there yet", 22, BAD).move_to([-6.4, 1.0, 0], aligned_edge=LEFT)
         self.say("break_a")
         self.play(opts[2].animate.set_color(BAD), FadeOut(opts[:2]), run_time=0.6)

@@ -417,11 +417,11 @@ class Ksp04KotlinPoet(Narrated):
         self.clear()
 
         # ================= the label printer, mapped =================
-        pr = printer(1.3).move_to([0, 0.75, 0])
+        pr = printer(1.2).move_to([-1.0, 0.75, 0])
         parts = VGroup(spec_chip("a class: LampBuilder", WHITE, 24), spec_chip("a field: name, String", WHITE, 24)).arrange(DOWN, buff=0.3)
-        parts.move_to([-4.65, 0.75, 0])
-        strip = paper(["private var name: String? = null"], 22).move_to([4.4, 0.75, 0])
-        fit(strip, 3.9)
+        parts.move_to([-4.85, 0.75, 0])
+        strip = paper(["private var name: String? = null"], 22)
+        fit(strip, 5.4).move_to([3.75, 0.75, 0])
         self.say("printer")
         self.play(FadeIn(pr, scale=0.9), run_time=0.8)
         self.at(1)
@@ -476,7 +476,7 @@ class Ksp04KotlinPoet(Narrated):
         h1 = SurroundingRectangle(part(gout, "public"), buff=0.06, color=NOTE, stroke_width=2.5)
         h2 = SurroundingRectangle(part(gout, "="), buff=0.06, color=NOTE, stroke_width=2.5)
         h3 = SurroundingRectangle(part(gout, "kotlin.String"), buff=0.06, color=NOTE, stroke_width=2.5)
-        l1 = T("public, by itself", 24, NOTE).next_to(h1, DOWN, buff=0.2)
+        l1 = T("public, by itself", 24, NOTE).next_to(h1, DOWN, buff=0.2).align_to(h1, LEFT)
         l2 = T("an expression body", 24, NOTE).next_to(h2, UP, buff=0.2)
         l3 = T("spelled out, alone", 24, NOTE).next_to(h3, DOWN, buff=0.2)
         infile = VGroup(T("inside a file:", 24, GREY_A), M("String", 24, WHITE), T("plus", 24, GREY_A),
@@ -500,10 +500,9 @@ class Ksp04KotlinPoet(Narrated):
         jvl = T("Java, JavaPoet", 24, GREY_B)
         jvo = code_block(["public String greet() {", '  return "Hello from Lamp";', "}"], 24, color=GREY_A)
         jvg = VGroup(VGroup(jvl, jv).arrange(DOWN, aligned_edge=LEFT, buff=0.2), jvo).arrange(RIGHT, buff=0.7, aligned_edge=DOWN)
-        fit(jvg, 12.4).move_to([0, -1.85, 0])
+        fit(jvg, 12.4).move_to([0, -2.25, 0])
         self.say("java")
-        self.play(FadeOut(VGroup(infile, l1, l2, l3, h1, h2, h3)), gout.animate.shift(UP * 0.45), prints.animate.shift(UP * 0.45),
-                  run_time=0.5)
+        self.play(FadeOut(VGroup(infile, l1, l2, l3, h1, h2, h3)), run_time=0.5)
         self.play(FadeIn(jvl), LaggedStart(*[FadeIn(l, shift=RIGHT * 0.1) for l in jv], lag_ratio=0.15), run_time=1.2)
         self.at_text("a dollar sign", lead=0.3)
         self.play(Indicate(part(jv[3], "$S"), color=PS, scale_factor=1.5), Indicate(part(gk[2], "%S"), color=PS, scale_factor=1.5),
@@ -523,11 +522,11 @@ class Ksp04KotlinPoet(Narrated):
         self.play(FadeIn(blank_l), Indicate(part(fmt, "%S"), color=PS, scale_factor=1.6), run_time=0.8)
         self.hold()
 
-        Y = [0.95, -0.15, -1.25, -2.35]
-        heads = VGroup(T("takes", 24, GREY_B).move_to([-4.0, 1.75, 0]), T("you pass", 24, GREY_B).move_to([-1.0, 1.75, 0]),
-                       T("it prints", 24, GREY_B).move_to([1.6, 1.75, 0], aligned_edge=LEFT))
+        Y = [1.05, -0.1, -1.25, -2.4]
+        heads = VGroup(T("takes", 24, GREY_B).move_to([-4.3, 1.85, 0]),
+                       T("you pass, and it prints", 24, GREY_B).move_to([-2.9, 1.85, 0], aligned_edge=LEFT))
         rowdata = [
-            ("%T", PT, "a type", "Box", [("Box", WHITE), ("import movemate.Box", PT)]),
+            ("%T", PT, "a type", "Box", [("Box", WHITE), (",  plus", GREY_B), ("import movemate.Box", PT)]),
             ("%N", PN, "a name", '"in"', [("`in`", WHITE)]),
             ("%S", PS, "a string", 'Write $room on each "fragile" box', [('"Write ${\'$\'}room on each \\"fragile\\" box"', WHITE)]),
             ("%L", PL, "anything", "null", [("null", WHITE)]),
@@ -535,13 +534,12 @@ class Ksp04KotlinPoet(Narrated):
         prow = []
         for (ph, c, takes, given, out), y in zip(rowdata, Y):
             k = M(ph, 36, c).move_to([-5.9, y, 0])
-            tk = T(takes, 26, c).move_to([-4.0, y, 0])
-            gv = M(given, 22, GREY_A).move_to([-1.0, y, 0])
-            fit(gv, 3.3)
-            ar = Arrow([0.85, y, 0], [1.4, y, 0], buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.3)
-            ot = VGroup(*[M(s_, 22, cc) for s_, cc in out]).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
-            fit(ot, 4.6)
-            ot.move_to([1.6, y, 0], aligned_edge=LEFT)
+            tk = T(takes, 26, c).move_to([-4.3, y, 0])
+            gv = M(given, 24, GREY_A).move_to([-2.9, y + 0.24, 0], aligned_edge=LEFT)
+            ar = Arrow([-2.85, y - 0.24, 0], [-2.3, y - 0.24, 0], buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.3)
+            ot = VGroup(*[(T if s_.startswith(",") else M)(s_, 24, cc) for s_, cc in out]).arrange(RIGHT, buff=0.15)
+            fit(ot, 8.6)
+            ot.move_to([-2.15, y - 0.24, 0], aligned_edge=LEFT)
             prow.append(VGroup(k, tk, gv, ar, ot))
         for key, idx in (("pT", 0), ("pN", 1), ("pS", 2), ("pL", 3)):
             self.say(key)
@@ -553,7 +551,7 @@ class Ksp04KotlinPoet(Narrated):
             if idx == 0:
                 self.play(FadeIn(r[4][0]), run_time=0.4)
                 self.at_text("and puts", lead=0.3)
-                self.play(FadeIn(r[4][1], shift=DOWN * 0.1), run_time=0.6)
+                self.play(FadeIn(r[4][1:], shift=LEFT * 0.1), run_time=0.6)
             else:
                 self.play(FadeIn(r[4], shift=RIGHT * 0.1), run_time=0.6)
             self.hold()
@@ -713,11 +711,11 @@ class Ksp04KotlinPoet(Narrated):
         for i, (m_, y) in enumerate(zip(LB, lys)):
             m_.move_to([FX + (2 * cw if i in (3, 4, 5) else 0) + m_.width / 2, y, 0])
         ftag2 = M("LoadBuilder.kt", 24, CARD).move_to(ftag, aligned_edge=LEFT)
-        loadchip = spec_chip("@Builder class Load(val first: Box)", BOX).move_to([SX, 2.75, 0], aligned_edge=LEFT)
-        fit(loadchip, 4.4)
+        lbox = cbox(4.1, 1.35, ["package movemate.van", "class Load(val first: Box)"], 20).move_to([SX, 2.15, 0], aligned_edge=LEFT)
+        loadchip = VGroup(lbox, note("@Builder", 18).move_to(lbox[0].get_corner(UR) + LEFT * 0.45 + DOWN * 0.02))
         old = VGroup(T("the template, earlier:", 24, GREY_B), M("e: LoadBuilder.kt:4:24", 22, BAD),
                      M("Unresolved reference 'Box'.", 22, BAD)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        old.move_to([SX, 0.9, 0], aligned_edge=LEFT)
+        old.move_to([SX, 0.25, 0], aligned_edge=LEFT)
         oldx = VGroup(*[Line(o_.get_left(), o_.get_right(), stroke_width=3, color=GREY_B) for o_ in old[1:]])
         glow = SurroundingRectangle(LB[1], buff=0.1, color=PT, stroke_width=3)
         fixed = VGroup(tick(True, 0.16), T("printed through %T", 26, PT)).arrange(RIGHT, buff=0.2)
@@ -734,7 +732,7 @@ class Ksp04KotlinPoet(Narrated):
         self.clear()
 
         # ================= where the picture breaks, and the blind spot =================
-        lp = VGroup(printer(1.0), T("a label printer", 30, GREY_A), T("prints exactly what you type", 26, GREY_B))
+        lp = VGroup(printer(1.35), T("a label printer", 30, GREY_A), T("prints exactly what you type", 26, GREY_B))
         lp.arrange(DOWN, buff=0.25).move_to([-3.4, 1.0, 0])
         kpc = VGroup(T("KotlinPoet", 34, POET), T("edits as it prints", 28, WHITE)).arrange(DOWN, buff=0.15)
         adds = VGroup(*[spec_chip(s_, POET, 24) for s_ in ("+ imports", "+ public", "+ backticks", "a one line body: =")]).arrange(DOWN, buff=0.16)
