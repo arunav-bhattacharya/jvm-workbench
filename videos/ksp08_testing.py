@@ -499,7 +499,7 @@ class Ksp08Testing(Narrated):
         self.hold()
 
         npe = code_block(["NullPointerException: Parameter specified as non-null is null:",
-                          "  method movemate.LampBuilder.shade, parameter shade"], 22, BAD, buff=0.12)
+                          "  method movemate.LampBuilder.shade, parameter shade"], 22, color=BAD, buff=0.12)
         npeh = T("check 4, real output", 20, GREY_B)
         npg = VGroup(npeh, npe).arrange(DOWN, aligned_edge=LEFT, buff=0.12).move_to([0, BOT - 0.1, 0])
         noshade = lamp_icon(False, 0.7).move_to([5.9, BOT - 0.1, 0])
@@ -573,7 +573,7 @@ class Ksp08Testing(Narrated):
         sp_t = T("a moved space", 24, NOTE).next_to(files, RIGHT, buff=0.5).align_to(fa[6], UP)
         flaw = VGroup(T("no sense of proportion:", 26, GREY_A),
                       T("a moved space fails as loudly as a lost question mark", 26, NOTE)).arrange(DOWN, buff=0.12)
-        flaw2 = T("KotlinPoet 2.4.0 changed how annotation arrays are written: every golden file with one failed", 22, GREY_A)
+        flaw2 = T("a formatting change fails every golden file you have, as KotlinPoet 2.4.0 did with annotation arrays", 22, GREY_A)
         flg = VGroup(flaw, flaw2).arrange(DOWN, buff=0.22).move_to([0, -2.3, 0])
         fit(flg, 12.6)
         self.say("proof")

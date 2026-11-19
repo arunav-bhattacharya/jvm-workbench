@@ -456,27 +456,27 @@ class Ksp06Rounds(Narrated):
                           dash_length=0.12).set_stroke(GREY_C, 2)
         src_boxes = VGroup(labelled_box("Lamp", "@Moving", 1.4, 0.8, 18, 13), labelled_box("Box", "@Inventory", 1.4, 0.8, 18, 13))
         src_boxes.arrange(RIGHT, buff=0.6).move_to(walls.get_center() + LEFT * 1.8 + UP * 0.55)
-        wr_ = helper(0.9).move_to(path.get_start() + UP * 0.45)
-        wc_ = helper(0.9).move_to(path.get_start() + UP * 0.45 + LEFT * 0.05)
+        wr_ = helper(1.1).move_to(path.get_start() + UP * 0.5)
+        wc_ = helper(1.1).move_to(path.get_start() + UP * 0.5 + LEFT * 0.05)
         wr_l = T("receipts", 18, RECEIPT).next_to(wr_, UP, buff=0.08)
         wc_l = T("cards", 18, CARD).next_to(wc_, UP, buff=0.08)
-        pile_tray = VGroup(Line(LEFT * 0.9, RIGHT * 0.9, stroke_width=4, color=PILE),
-                           Line(LEFT * 0.9, LEFT * 0.9 + UP * 0.25, stroke_width=4, color=PILE),
-                           Line(RIGHT * 0.9, RIGHT * 0.9 + UP * 0.25, stroke_width=4, color=PILE))
+        pile_tray = VGroup(Line(LEFT * 0.85, RIGHT * 0.85, stroke_width=4, color=PILE),
+                           Line(LEFT * 0.85, LEFT * 0.85 + UP * 0.25, stroke_width=4, color=PILE),
+                           Line(RIGHT * 0.85, RIGHT * 0.85 + UP * 0.25, stroke_width=4, color=PILE))
         pile_tray.next_to(door, RIGHT, buff=0.35).align_to(door, DOWN).shift(UP * 0.05)
         pile_l = T("the pile by the door", 20, PILE).next_to(pile_tray, DOWN, buff=0.12)
         walk_l = T("walk 1", 28, WHITE).move_to(hs[1].get_top() + DOWN * 0.55)
         self.say("walk")
         self.play(Create(hs), FadeIn(src_boxes), run_time=1.0)
-        self.play(Create(path), FadeIn(walk_l), run_time=0.6)
+        self.play(Create(path), FadeIn(walk_l), FadeIn(pile_tray), FadeIn(pile_l), run_time=0.6)
         self.at(1)
         self.play(FadeIn(wr_), FadeIn(wr_l), run_time=0.4)
         self.play(VGroup(wr_, wr_l).animate.move_to(path.get_end() + UP * 0.6 + LEFT * 0.4), run_time=1.6, rate_func=linear)
-        r_new = receipt("LampReceipt", 0.55).move_to(pile_tray.get_center() + UP * 0.3)
+        r_new = receipt("LampReceipt", 0.7).move_to(pile_tray.get_center() + UP * 0.38)
         self.play(FadeIn(r_new, shift=RIGHT * 0.3), VGroup(wr_, wr_l).animate.set_opacity(0.35), run_time=0.6)
         self.play(FadeIn(wc_), FadeIn(wc_l), run_time=0.3)
         self.play(VGroup(wc_, wc_l).animate.move_to(path.get_end() + UP * 0.6 + LEFT * 1.4), run_time=1.6, rate_func=linear)
-        c_new = icard("Box", 0.55).move_to(pile_tray.get_center() + UP * 0.62)
+        c_new = icard("Box", 0.7).move_to(pile_tray.get_center() + UP * 0.95)
         self.play(FadeIn(c_new, shift=RIGHT * 0.3), run_time=0.5)
         self.at_text("nobody reads the pile", lead=0.3)
         self.play(Indicate(VGroup(r_new, c_new), color=WHITE, scale_factor=1.1), run_time=0.8)
@@ -515,17 +515,17 @@ class Ksp06Rounds(Narrated):
 
         # ================= the key picture: four rounds, two lanes =================
         CX = [-2.55, 0.25, 2.95, 5.45]
-        RY, CY, PY, HY = 0.85, -0.75, -2.45, 1.95
+        RY, CY, PY, HY = 0.95, -0.7, -2.4, 2.05
         heads = VGroup(*[T(f"round {i + 1}", 26, WHITE).move_to([x, HY, 0]) for i, x in enumerate(CX)])
         seps = VGroup(*[DashedLine([x, 2.3, 0], [x, -1.4, 0], dash_length=0.08).set_stroke(GREY_D, 1.5)
                         for x in ((CX[0] + CX[1]) / 2, (CX[1] + CX[2]) / 2, (CX[2] + CX[3]) / 2)])
         lane_r = VGroup(helper(0.75), T("receipts", 22, RECEIPT)).arrange(DOWN, buff=0.08).move_to([-5.55, RY, 0])
         lane_c = VGroup(helper(0.75), T("cards", 22, CARD)).arrange(DOWN, buff=0.08).move_to([-5.55, CY, 0])
         srcs = VGroup(labelled_box("Lamp", "@Moving", 1.5, 0.75, 18, 12), labelled_box("Van", "@Moving", 1.5, 0.75, 18, 12),
-                      labelled_box("Box", "@Inventory", 1.5, 0.75, 18, 12)).arrange(RIGHT, buff=0.45).move_to([-0.6, 3.15, 0])
+                      labelled_box("Box", "@Inventory", 1.5, 0.75, 18, 12)).arrange(RIGHT, buff=0.45).move_to([-1.6, 3.15, 0])
         srcs_l = T("the source files", 20, GREY_B).next_to(srcs, LEFT, buff=0.35)
         pile = RoundedRectangle(corner_radius=0.1, width=4.6, height=1.0).set_stroke(PILE, 2).set_fill(dim(PILE, 0.06), 1)
-        pile.move_to([-1.15, PY, 0])
+        pile.move_to([-1.15, PY, 0]).set_z_index(-1)
         pile_t = T("set aside", 22, PILE).next_to(pile, LEFT, buff=0.25)
         self.say("tl_intro")
         self.play(FadeIn(srcs), FadeIn(srcs_l), run_time=0.8)
@@ -533,26 +533,28 @@ class Ksp06Rounds(Narrated):
         self.play(FadeIn(lane_r), FadeIn(lane_c), FadeIn(heads), Create(seps), run_time=0.9)
         self.hold()
 
-        r1 = receipt("LampReceipt", 0.95).move_to([CX[0], RY, 0])
-        c1 = icard("Box", 0.95).move_to([CX[0], CY, 0])
+        r1 = receipt("LampReceipt", 1.12).move_to([CX[0], RY, 0])
+        c1 = icard("Box", 1.12).move_to([CX[0], CY, 0])
         van_b = srcs[1]
         self.say("tl_r1")
         self.play(Indicate(heads[0], color=NOTE), srcs.animate.set_opacity(1), FadeIn(pile), FadeIn(pile_t), run_time=0.6)
         self.at(1)
         self.play(TransformFromCopy(srcs[0], r1), run_time=0.9)
         self.at(2)
-        mention = Arrow(van_b.get_bottom(), r1.get_top() + RIGHT * 0.3, buff=0.1, stroke_width=2.5, color=BAD,
-                        max_tip_length_to_length_ratio=0.12)
-        notyet = T("mentions LampReceipt: not there yet", 20, BAD).next_to(mention, RIGHT, buff=0.15).shift(DOWN * 0.15)
-        self.play(GrowArrow(mention), FadeIn(notyet), run_time=0.7)
+        mention = SurroundingRectangle(van_b, buff=0.08, color=BAD, stroke_width=2.5)
+        notyet = VGroup(M("Van(..., lastLoad: LampReceipt)", 20, WHITE, t2c={"LampReceipt": BAD}),
+                        T("LampReceipt isn't there yet", 22, BAD)).arrange(DOWN, aligned_edge=LEFT, buff=0.08)
+        notyet.next_to(srcs, RIGHT, buff=0.5)
+        fit(notyet, 6.45 - notyet.get_left()[0])
+        self.play(Create(mention), FadeIn(notyet), run_time=0.7)
         self.at(3)
         self.play(FadeOut(mention), FadeOut(notyet), van_b.animate.move_to(pile.get_center() + LEFT * 1.0), run_time=1.0)
         self.at(4)
         self.play(TransformFromCopy(srcs[2], c1), run_time=0.9)
         self.hold()
 
-        r2 = receipt("VanReceipt", 0.95).move_to([CX[1], RY, 0])
-        c2 = icard("LampReceipt", 0.95).move_to([CX[1], CY, 0])
+        r2 = receipt("VanReceipt", 1.12).move_to([CX[1], RY, 0])
+        c2 = icard("LampReceipt", 1.12).move_to([CX[1], CY, 0])
         a12 = Arrow(r1.get_right() + DOWN * 0.15, c2.get_left() + UP * 0.15, buff=0.1, stroke_width=3, color=CARD,
                     max_tip_length_to_length_ratio=0.12)
         self.say("tl_r2")
@@ -566,7 +568,7 @@ class Ksp06Rounds(Narrated):
         self.hold()
 
         r3 = empty_cell("nothing new").move_to([CX[2], RY, 0])
-        c3 = icard("VanReceipt", 0.95).move_to([CX[2], CY, 0])
+        c3 = icard("VanReceipt", 1.12).move_to([CX[2], CY, 0])
         a23 = Arrow(r2.get_right() + DOWN * 0.15, c3.get_left() + UP * 0.15, buff=0.1, stroke_width=3, color=CARD,
                     max_tip_length_to_length_ratio=0.12)
         r4 = empty_cell("nothing new", 2.0).move_to([CX[3], RY, 0])
@@ -598,19 +600,19 @@ class Ksp06Rounds(Narrated):
         self.clear()
 
         # ================= where the picture breaks =================
-        left = VGroup(helper(1.1), helper(1.1)).arrange(RIGHT, buff=1.4).move_to([-3.4, 0.3, 0])
-        pass_c = icard("LampReceipt", 0.7).move_to(left[0].get_right() + RIGHT * 0.3 + UP * 0.5)
-        lt = VGroup(T("real helpers:", 26, GREY_A), T("side by side", 26)).arrange(DOWN, buff=0.1).move_to([-3.4, 2.4, 0])
+        left = VGroup(helper(1.6), helper(1.6)).arrange(RIGHT, buff=1.8).move_to([-3.4, 0.2, 0])
+        pass_c = icard("LampReceipt", 0.85).move_to(left[0].get_right() + RIGHT * 0.45 + UP * 0.75)
+        lt = VGroup(T("real helpers:", 30, GREY_A), T("side by side", 30)).arrange(DOWN, buff=0.1).move_to([-3.4, 2.4, 0])
         div = DashedLine([0, 3.1, 0], [0, -2.2, 0], dash_length=0.1).set_stroke(GREY_D, 2)
-        right = VGroup(helper(1.1), helper(1.1)).arrange(RIGHT, buff=1.4).move_to([3.4, 0.3, 0])
-        rt = VGroup(T("KSP's helpers:", 26, GREY_A), T("take turns", 26, NOTE)).arrange(DOWN, buff=0.1).move_to([3.4, 2.4, 0])
-        wait_c = icard("LampReceipt", 0.7).move_to(right[0].get_right() + RIGHT * 0.3 + UP * 0.5)
-        inv = T("invisible until the next walk", 24, BAD).move_to([3.4, -1.5, 0])
+        right = VGroup(helper(1.6), helper(1.6)).arrange(RIGHT, buff=1.8).move_to([3.4, 0.2, 0])
+        rt = VGroup(T("KSP's helpers:", 30, GREY_A), T("take turns", 30, NOTE)).arrange(DOWN, buff=0.1).move_to([3.4, 2.4, 0])
+        wait_c = icard("LampReceipt", 0.85).move_to(right[0].get_right() + RIGHT * 0.45 + UP * 0.75)
+        inv = T("invisible until the next walk", 28, BAD).move_to([3.4, -1.6, 0])
         self.say("breaks")
         self.play(FadeIn(lt), FadeIn(left), run_time=0.7)
         self.at_text("and could pass", lead=0.3)
         self.play(FadeIn(pass_c), run_time=0.3)
-        self.play(pass_c.animate.move_to(left[1].get_left() + LEFT * 0.3 + UP * 0.5), run_time=0.9)
+        self.play(pass_c.animate.move_to(left[1].get_left() + LEFT * 0.45 + UP * 0.75), run_time=0.9)
         self.at(2)
         self.play(Create(div), FadeIn(rt), FadeIn(right), run_time=0.7)
         self.play(FadeIn(wait_c), right[1].animate.set_opacity(0.35), run_time=0.6)
@@ -668,7 +670,7 @@ class Ksp06Rounds(Narrated):
         self.play(Indicate(dcode[2], color=NOTE, scale_factor=1.04), run_time=0.8)
         self.hold()
 
-        chain = VGroup(receipt("LampReceipt", 0.8), receipt("VanReceipt", 0.8), receipt("TruckReceipt", 0.8)).arrange(RIGHT, buff=0.9)
+        chain = VGroup(receipt("LampReceipt", 1.05), receipt("VanReceipt", 1.05), receipt("TruckReceipt", 1.05)).arrange(RIGHT, buff=0.9)
         chain.move_to([0, -0.55, 0])
         links = VGroup(*[Arrow(chain[i].get_right(), chain[i + 1].get_left(), buff=0.1, stroke_width=3, color=GREY_B,
                                max_tip_length_to_length_ratio=0.2) for i in range(2)])

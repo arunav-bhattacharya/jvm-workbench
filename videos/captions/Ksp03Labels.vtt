@@ -1,0 +1,349 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:05.193
+Picture the helper reading box labels.
+
+2
+00:00:05.193 --> 00:00:07.523
+Desk lamp, one bulb, no shade: easy.
+
+3
+00:00:07.523 --> 00:00:12.442
+A bookshelf with a list of books: you need a word about what the list holds.
+
+4
+00:00:12.442 --> 00:00:15.225
+Some labels use shorthand you must look up.
+
+5
+00:00:15.225 --> 00:00:17.167
+A few are in another language.
+
+6
+00:00:17.333 --> 00:00:21.604
+Today the helper writes a new kind of label, the class's typed shape.
+
+7
+00:00:21.604 --> 00:00:23.399
+For the lamp: name, a String.
+
+8
+00:00:23.399 --> 00:00:24.266
+Bulbs, an Int.
+
+9
+00:00:24.266 --> 00:00:29.093
+And shade, a String with a question mark, which says: this one may be missing.
+
+10
+00:00:30.000 --> 00:00:32.830
+Here's a question that's easy to be shy about.
+
+11
+00:00:32.830 --> 00:00:34.984
+The type is right there in my file.
+
+12
+00:00:34.984 --> 00:00:37.999
+Why can't the helper just print it as I wrote it?
+
+13
+00:00:37.999 --> 00:00:41.013
+Why two objects and a function call for one type?
+
+14
+00:00:42.000 --> 00:00:49.118
+Two quick attempts come to mind: print the type with toString, or look it up and print the name of the class it names.
+
+15
+00:00:49.118 --> 00:00:54.365
+The lesson's ShapeDemo tries both, on a crate with tricky types and a small Java class.
+
+16
+00:00:54.533 --> 00:00:56.240
+Which one breaks first?
+
+17
+00:00:56.240 --> 00:00:57.427
+Pause and guess.
+
+18
+00:01:01.733 --> 00:01:03.380
+Name only breaks at once.
+
+19
+00:01:03.380 --> 00:01:07.465
+It drops every question mark and every pair of angle brackets.
+
+20
+00:01:07.465 --> 00:01:14.645
+So shade becomes a String that can never be null, which the first lamp without a shade will quickly disprove.
+
+21
+00:01:14.645 --> 00:01:16.885
+And the big map becomes just: Map.
+
+22
+00:01:17.067 --> 00:01:18.448
+toString looks right.
+
+23
+00:01:18.448 --> 00:01:21.539
+The shade, the list, even the big map: perfect.
+
+24
+00:01:21.539 --> 00:01:24.169
+And that's exactly what makes it a trap.
+
+25
+00:01:24.333 --> 00:01:30.541
+On the type alias, a second name for a type, it prints: typealias Litres, in square brackets.
+
+26
+00:01:30.541 --> 00:01:35.013
+On the Java class, it prints String, dot dot, String question mark.
+
+27
+00:01:35.200 --> 00:01:39.367
+If toString had an honest name, it would be called looksAboutRight.
+
+28
+00:01:39.367 --> 00:01:44.280
+It's a display form for people reading logs, not a promise about Kotlin syntax.
+
+29
+00:01:45.200 --> 00:01:50.120
+To print a type right, the helper has to know what each word on the label means.
+
+30
+00:01:50.120 --> 00:01:51.596
+Say a label says Litres.
+
+31
+00:01:51.596 --> 00:01:55.347
+Is that a box in this house, or shorthand for something else?
+
+32
+00:01:55.347 --> 00:01:57.131
+The helper has to look it up.
+
+33
+00:01:57.267 --> 00:01:58.801
+That's the two objects.
+
+34
+00:01:58.801 --> 00:02:03.672
+A KSTypeReference is the word as written on the label, not looked up yet.
+
+35
+00:02:03.672 --> 00:02:05.674
+Calling resolve is the lookup.
+
+36
+00:02:05.674 --> 00:02:13.080
+The KSType it returns is what the word means: the class it names, whether it may be null, and the types inside.
+
+37
+00:02:13.267 --> 00:02:18.337
+Looking up is real work, through imports, packages and type aliases.
+
+38
+00:02:18.337 --> 00:02:23.631
+KSP's docs call it one of the most expensive operations in the KSP API.
+
+39
+00:02:23.631 --> 00:02:29.372
+So KSP resolves nothing until you ask, and you should ask once per reference.
+
+40
+00:02:29.533 --> 00:02:31.667
+The picture breaks a little here.
+
+41
+00:02:31.667 --> 00:02:34.125
+A person looks a word up and moves on.
+
+42
+00:02:34.125 --> 00:02:41.756
+KSP writes down every lookup a processor makes, because a later build needs to know which boxes each card depended on.
+
+43
+00:02:42.667 --> 00:02:45.590
+So we build the text ourselves, in three steps.
+
+44
+00:02:45.590 --> 00:02:47.891
+First the name, from the declaration.
+
+45
+00:02:47.891 --> 00:02:53.363
+Then the type arguments, the types inside the angle brackets, each printed the same way.
+
+46
+00:02:53.363 --> 00:02:56.411
+Then the mark: a question mark if it may be null.
+
+47
+00:02:56.600 --> 00:02:58.332
+Each printed the same way.
+
+48
+00:02:58.332 --> 00:03:05.061
+A list of nullable Ints holds a type that needs exactly the same treatment, so typeText calls itself.
+
+49
+00:03:05.933 --> 00:03:12.766
+Let's walk the biggest one: a map from String to a list of nullable Ints, where the map itself may be null.
+
+50
+00:03:12.766 --> 00:03:14.809
+How many times will resolve run?
+
+51
+00:03:14.809 --> 00:03:15.831
+Pause and guess.
+
+52
+00:03:19.667 --> 00:03:20.988
+Level one, the map.
+
+53
+00:03:20.988 --> 00:03:22.101
+Its name is Map.
+
+54
+00:03:22.101 --> 00:03:26.343
+It has two type arguments, and its nullability says nullable.
+
+55
+00:03:26.533 --> 00:03:28.227
+Level two, the arguments.
+
+56
+00:03:28.227 --> 00:03:32.088
+String has no arguments and no mark, so it's just String.
+
+57
+00:03:32.088 --> 00:03:35.001
+List has one argument, so we go down again.
+
+58
+00:03:35.200 --> 00:03:39.388
+Level three: Int, marked nullable, so Int with a question mark.
+
+59
+00:03:39.533 --> 00:03:41.422
+Now the text climbs back up.
+
+60
+00:03:41.422 --> 00:03:43.176
+List of Int question mark.
+
+61
+00:03:43.176 --> 00:03:45.402
+Then Map of String and that list.
+
+62
+00:03:45.402 --> 00:03:47.965
+And last, the map's own question mark.
+
+63
+00:03:48.133 --> 00:03:51.192
+Four lookups: the map, String, the list, and Int.
+
+64
+00:03:51.192 --> 00:03:53.065
+One for each type in the tree.
+
+65
+00:03:53.065 --> 00:03:56.623
+And the result matches toString, character for character.
+
+66
+00:03:57.533 --> 00:03:59.560
+Two cases are left for the lab.
+
+67
+00:03:59.560 --> 00:04:04.333
+A star, as in a list of anything, has no type inside, so we print a star.
+
+68
+00:04:04.333 --> 00:04:11.591
+And a type from Java is a platform type: Kotlin can't tell if it may be null, so it writes an exclamation mark.
+
+69
+00:04:11.733 --> 00:04:14.800
+In the picture, that's a label in another language.
+
+70
+00:04:14.800 --> 00:04:16.303
+The helper doesn't guess.
+
+71
+00:04:16.303 --> 00:04:20.031
+It writes an exclamation mark, the label's version of a shrug.
+
+72
+00:04:20.933 --> 00:04:30.540
+Put it together, and our column is right on every row: the question marks, the brackets, Litres, the star, and the Java String with its exclamation mark.
+
+73
+00:04:31.467 --> 00:04:39.853
+A javac annotation processor, the closest Java equivalent, prints a TypeMirror much the same way: the name, then each argument.
+
+74
+00:04:39.853 --> 00:04:45.731
+But it can't print a question mark at all, because Java's type system has no nullability.
+
+75
+00:04:46.600 --> 00:04:47.619
+So, three rules.
+
+76
+00:04:47.619 --> 00:04:51.123
+Resolve each reference once, and build from the result.
+
+77
+00:04:51.123 --> 00:04:54.372
+Keep toString for your eyes, never for your output.
+
+78
+00:04:54.372 --> 00:04:59.277
+And never print the name alone: it throws away exactly the parts that matter.
+
+79
+00:05:00.200 --> 00:05:02.459
+So, why two objects for one type?
+
+80
+00:05:02.459 --> 00:05:05.129
+The reference is the word on the label.
+
+81
+00:05:05.129 --> 00:05:07.525
+The resolved type is what it means.
+
+82
+00:05:07.525 --> 00:05:11.427
+Resolve once, then build the text: name, arguments, mark.
+
+83
+00:05:11.600 --> 00:05:12.392
+Quick check.
+
+84
+00:05:12.392 --> 00:05:16.816
+The crate gets one more parameter, spare, a Crate that may be null.
+
+85
+00:05:16.816 --> 00:05:19.919
+What do toString, name only and typeText print?
+
+86
+00:05:23.133 --> 00:05:26.588
+Crate question mark, Crate, and Crate question mark.
+
+87
+00:05:26.588 --> 00:05:29.312
+Only the name-only column loses the mark.

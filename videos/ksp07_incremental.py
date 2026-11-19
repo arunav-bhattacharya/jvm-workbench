@@ -266,7 +266,8 @@ PLAIN_X = [COLX[1], COLX[2]]
 FRIDGE_C = (3.85, 0.35)
 LIST_C = (3.85, -0.02)
 HELP_C = (1.75, -0.45)
-CNT_C = (1.72, 0.72)   # the dirty-file counter, above the helper
+CNT_C = (1.72, 0.72)   # above the helper
+CNT_L = (-6.4, 2.95)   # the dirty-file counter, top left
 BOT = -2.45            # the bottom band, for logs, code and output
 
 
@@ -291,7 +292,7 @@ class Ksp07Incremental(Narrated):
         names5 = ["Bookshelf", "Box", "Lamp", "Plant", "Rug"]
         lst = list_paper(names5).move_to([*LIST_C, 0])
         hp = helper(1.3).move_to([*HELP_C, 0])
-        hp_l = T("the helper", 22, HELPER).next_to(hp, DOWN, buff=0.2)
+        hp_l = T("the helper", 20, HELPER).next_to(hp, DOWN, buff=0.2)
         ghost = DashedVMobject(Rectangle(width=1.75, height=1.05), num_dashes=30).set_stroke(BOX, 2.5).move_to([*SLOT["Mirror"], 0])
         ghost_t = M("Mirror?", 22, BOX).move_to(ghost)
         ghost_line = M("Mirror?", 22, GREY_B).move_to([lst[0].get_left()[0] + 0.18, lst[3][-1].get_center()[1] - 0.33, 0], aligned_edge=LEFT)
@@ -387,7 +388,7 @@ class Ksp07Incremental(Narrated):
         # the rug, done right
         an = [boxes[n] for n in order]
         marks5 = VGroup(*[mark(b) for b in an])
-        cnt = VGroup(T("dirty files", 22, HELPER), T("5 of 7", 28, HELPER)).arrange(DOWN, buff=0.08).move_to([*CNT_C, 0])
+        cnt = VGroup(T("dirty files:", 28, HELPER), T("5 of 7", 30, HELPER)).arrange(RIGHT, buff=0.2).move_to([*CNT_L, 0], aligned_edge=LEFT)
         log5 = VGroup(M("kspDirtySet.log", 20, GREY_B), M("Dirty / All: 71.43%", 24, WHITE)).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
         log5.move_to([-3.4, BOT, 0])
         right = VGroup(T("Not cheap, but right", 28, OK), tick(True, 0.18)).arrange(RIGHT, buff=0.2).move_to([-3.4, BOT - 0.9, 0])
@@ -433,7 +434,7 @@ class Ksp07Incremental(Narrated):
 
         # ================= the moment: add Mirror.kt =================
         mirror = fbox("Mirror").move_to([*SLOT["Mirror"], 0])
-        newt = T("new file: Mirror.kt", 22, NOTE).next_to(mirror, DOWN, buff=0.14)
+        newt = VGroup(T("new:", 20, NOTE), M("Mirror.kt", 20, NOTE)).arrange(RIGHT, buff=0.12).next_to(mirror, DOWN, buff=0.14)
         mq1 = T("Which boxes will KSP show the helper?", 30)
         mq2 = T("And what will the fridge say?", 30, NOTE)
         mqg = VGroup(mq1, mq2).arrange(DOWN, buff=0.2).move_to([0, BOT - 0.05, 0])
@@ -454,7 +455,7 @@ class Ksp07Incremental(Narrated):
         logg = VGroup(logp, logl)
         logh.next_to(logp, UP, buff=0.08).align_to(logp, LEFT)
         VGroup(logg, logh).move_to([-4.3, BOT - 0.05, 0])
-        cnt1 = VGroup(T("dirty files", 22, HELPER), T("1 of 8", 28, HELPER)).arrange(DOWN, buff=0.08).move_to([*CNT_C, 0])
+        cnt1 = VGroup(T("dirty files:", 28, HELPER), T("1 of 8", 30, HELPER)).arrange(RIGHT, buff=0.2).move_to([*CNT_L, 0], aligned_edge=LEFT)
         noq = VGroup(T("no note mentions", 22, BAD), M("Mirror", 22, BAD)).arrange(RIGHT, buff=0.12)
         noq.move_to(lt2, aligned_edge=LEFT)
         self.say("one")
@@ -507,7 +508,7 @@ class Ksp07Incremental(Narrated):
         outp = panel(outl, GREY_B, 0.18)
         outg = VGroup(outp, outl)
         outh.next_to(outp, UP, buff=0.08).align_to(outp, LEFT)
-        VGroup(outg, outh).move_to([3.0, BOT - 0.05, 0])
+        VGroup(outg, outh).move_to([3.0, BOT - 0.2, 0])
         fit(VGroup(outg, outh), 6.6)
         bxm = mark(boxes["Box"], BAD)
         self.say("crash")
@@ -593,7 +594,9 @@ class Ksp07Incremental(Narrated):
         at_ = tag([VGroup(T("made from:", 22, GREY_A), T("everything", 22, OK)).arrange(RIGHT, buff=0.15)]).move_to(nt, aligned_edge=RIGHT)
         lstf = list_paper([], blank=True).move_to([*LIST_C, 0])
         alnk = DashedLine(at_.get_corner(DL) + RIGHT * 0.5, lstf[4].get_top(), dash_length=0.08, stroke_width=2, color=GREY_B)
-        cm2 = cmg.copy().move_to([COLX[1], 0.71, 0])
+        c2t = M("//", 20, NOTE)
+        c2r = Rectangle(width=c2t.width + 0.16, height=c2t.height + 0.16).set_stroke(NOTE, 1.5).set_fill(BLACK, 0.85)
+        cm2 = VGroup(c2r, c2t.move_to(c2r)).move_to(boxes["Lamp"][0].get_center() + RIGHT * 0.62 + DOWN * 0.1)
         allm = VGroup(*[mark(b) for b in an + [mirror] + plain])
         acode = M("Dependencies.ALL_FILES", 26, CARD)
         aq = T("\"essentially disables incremental processing\"", 24, GREY_A)
@@ -601,7 +604,7 @@ class Ksp07Incremental(Narrated):
         av = T("Correct, and slow.", 28, NOTE)
         acg = VGroup(acode, VGroup(aq, aqs).arrange(RIGHT, buff=0.25), av).arrange(DOWN, buff=0.15).move_to([0, BOT - 0.05, 0])
         fit(acg, 12.6)
-        cnt100 = VGroup(T("dirty files", 22, HELPER), T("100.00%", 28, HELPER)).arrange(DOWN, buff=0.08).move_to([*CNT_C, 0])
+        cnt100 = VGroup(T("dirty files:", 28, HELPER), T("100.00%", 30, HELPER)).arrange(RIGHT, buff=0.2).move_to([*CNT_L, 0], aligned_edge=LEFT)
         self.say("all")
         self.play(FadeOut(VGroup(ren, cmg, pm, bn, bnl)), FadeOut(nt), FadeIn(lstf), run_time=0.6)
         self.play(FadeIn(at_), Create(alnk), FadeIn(acode, shift=UP * 0.1), run_time=0.7)
@@ -685,8 +688,8 @@ class Ksp07Incremental(Narrated):
         jc[2].set_color(GREY_B)
         jc[3].set_color(GREY_B)
         jc[3][-12:].set_color(VAN)
-        code = VGroup(VGroup(jh, jc).arrange(DOWN, aligned_edge=LEFT, buff=0.18),
-                      VGroup(kh, kc).arrange(DOWN, aligned_edge=LEFT, buff=0.18)).arrange(DOWN, aligned_edge=LEFT, buff=0.5)
+        code = VGroup(VGroup(kh, kc).arrange(DOWN, aligned_edge=LEFT, buff=0.18),
+                      VGroup(jh, jc).arrange(DOWN, aligned_edge=LEFT, buff=0.18)).arrange(DOWN, aligned_edge=LEFT, buff=0.5)
         fit(code, 12.6)
         code.move_to([0, 0.2, 0])
         self.say("code")

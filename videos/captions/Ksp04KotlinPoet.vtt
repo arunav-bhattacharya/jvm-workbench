@@ -1,11 +1,11 @@
 WEBVTT
 
 1
-00:00:02.733 --> 00:00:03.811
+00:00:02.700 --> 00:00:03.777
 Back to the move.
 
 2
-00:00:03.811 --> 00:00:10.021
+00:00:03.777 --> 00:00:09.988
 A helper with a clipboard reads each box's label and writes new cards, which travel with the move.
 
 3
@@ -13,309 +13,309 @@ A helper with a clipboard reads each box's label and writes new cards, which tra
 This time, the box with the @Builder note gets a builder: LampBuilder, a small class that collects a lamp's values one call at a time, then builds the lamp.
 
 4
-00:00:20.133 --> 00:00:23.231
+00:00:20.200 --> 00:00:23.297
 Here's a question many of us are too shy to ask.
 
 5
-00:00:23.231 --> 00:00:28.263
+00:00:23.297 --> 00:00:28.330
 A generated file is just text, so why would anyone need a library to print it?
 
 6
-00:00:28.263 --> 00:00:30.457
+00:00:28.330 --> 00:00:30.524
 Lesson 2's string template worked.
 
 7
-00:00:31.733 --> 00:00:32.611
+00:00:31.800 --> 00:00:32.678
 Let's try it.
 
 8
-00:00:32.611 --> 00:00:36.934
+00:00:32.678 --> 00:00:37.001
 The template pastes each name and each type into a line of text.
 
 9
-00:00:36.934 --> 00:00:39.028
+00:00:37.001 --> 00:00:39.095
 For Lamp, the builder compiles.
 
 10
-00:00:39.200 --> 00:00:39.836
+00:00:39.300 --> 00:00:39.936
 Now Load.
 
 11
-00:00:39.836 --> 00:00:45.487
+00:00:39.936 --> 00:00:45.587
 It lives in package movemate.van, and its field is a Box, from package movemate.
 
 12
-00:00:45.487 --> 00:00:48.948
+00:00:45.587 --> 00:00:49.048
 What happens when the build compiles its builder?
 
 13
-00:00:52.000 --> 00:00:56.553
+00:00:52.033 --> 00:00:56.586
 Unresolved reference Box: the template never wrote the import.
 
 14
-00:00:56.553 --> 00:01:04.557
+00:00:56.586 --> 00:01:04.591
 And notice who complained: not KSP, but the Kotlin compiler, which reads a generated file exactly like yours.
 
 15
-00:01:05.467 --> 00:01:07.394
+00:01:05.500 --> 00:01:07.428
 The others slip the same way.
 
 16
-00:01:07.394 --> 00:01:10.119
+00:01:07.428 --> 00:01:10.153
 Lamp's shade gets a second question mark.
 
 17
-00:01:10.119 --> 00:01:13.177
+00:01:10.153 --> 00:01:13.210
 A nested Drawer must be called Kitchen.Drawer.
 
 18
-00:01:13.177 --> 00:01:17.099
+00:01:13.210 --> 00:01:17.132
 And a property named in, a Kotlin keyword, needs backticks.
 
 19
-00:01:17.267 --> 00:01:26.681
+00:01:17.333 --> 00:01:26.748
 In the moving house, that's handwriting: a smudged mark, an abbreviation nobody explains, a forgotten room, and a word the reader takes as an order.
 
 20
-00:01:26.867 --> 00:01:32.717
+00:01:26.967 --> 00:01:32.817
 You could patch each slip by hand, until you notice you've written a small program that prints Kotlin.
 
 21
-00:01:32.717 --> 00:01:36.331
+00:01:32.817 --> 00:01:36.431
 Good news: somebody already wrote it, and tested it far better.
 
 22
-00:01:37.200 --> 00:01:39.896
+00:01:37.333 --> 00:01:40.029
 So swap the handwriting for a label printer.
 
 23
-00:01:39.896 --> 00:01:45.778
+00:01:40.029 --> 00:01:45.911
 You hand it parts, not letters: a class called LampBuilder, a field called name, of type String.
 
 24
-00:01:45.778 --> 00:01:51.599
+00:01:45.911 --> 00:01:51.732
 It knows which names need an import, where the question marks go, and which words are keywords.
 
 25
-00:01:51.733 --> 00:01:52.684
+00:01:51.933 --> 00:01:52.884
 Let's map it.
 
 26
-00:01:52.684 --> 00:01:56.265
+00:01:52.884 --> 00:01:56.465
 The printer is KotlinPoet, a library from Square.
 
 27
-00:01:56.265 --> 00:02:04.233
+00:01:56.465 --> 00:02:04.433
 Each part is a spec: FileSpec for a file, TypeSpec for a class, then PropertySpec, FunSpec and ParameterSpec.
 
 28
-00:02:05.133 --> 00:02:10.887
+00:02:05.367 --> 00:02:11.121
 Let's shrink it to one spec: a function called greet, which returns a String, Hello from Lamp.
 
 29
-00:02:10.887 --> 00:02:13.275
+00:02:11.121 --> 00:02:13.508
 Before it prints, guess what comes out.
 
 30
-00:02:16.533 --> 00:02:18.431
+00:02:16.700 --> 00:02:18.597
 One line, with three habits.
 
 31
-00:02:18.431 --> 00:02:20.192
+00:02:18.597 --> 00:02:20.359
 It wrote public by itself.
 
 32
-00:02:20.192 --> 00:02:23.716
+00:02:20.359 --> 00:02:23.883
 It turned a one line return into an expression body.
 
 33
-00:02:23.716 --> 00:02:26.359
+00:02:23.883 --> 00:02:26.525
 And alone, it spells out kotlin.String.
 
 34
-00:02:26.359 --> 00:02:29.815
+00:02:26.525 --> 00:02:29.981
 Inside a file, that's plain String, plus an import.
 
 35
-00:02:30.000 --> 00:02:32.582
+00:02:30.200 --> 00:02:32.782
 Java has an older sibling, JavaPoet.
 
 36
-00:02:32.582 --> 00:02:39.827
+00:02:32.782 --> 00:02:40.027
 A MethodSpec, a dollar sign where KotlinPoet has a percent sign, and the same greet as a Java method.
 
 37
-00:02:40.733 --> 00:02:47.461
+00:02:40.933 --> 00:02:47.661
 That string, return %S, is a format string: code text with blanks, filled from the arguments after it.
 
 38
-00:02:47.461 --> 00:02:51.221
+00:02:47.661 --> 00:02:51.421
 Four blanks, called placeholders, do nearly all the work.
 
 39
-00:02:51.400 --> 00:02:52.462
+00:02:51.633 --> 00:02:52.695
 %T takes a type.
 
 40
-00:02:52.462 --> 00:02:57.173
+00:02:52.695 --> 00:02:57.407
 It prints the type's name, and puts the type on the file's import list.
 
 41
-00:02:57.333 --> 00:03:01.320
+00:02:57.633 --> 00:03:01.620
 %N takes a name, and adds backticks when the name needs them.
 
 42
-00:03:01.320 --> 00:03:04.131
+00:03:01.620 --> 00:03:04.431
 Give it in, and out comes in, in backticks.
 
 43
-00:03:04.267 --> 00:03:10.929
+00:03:04.633 --> 00:03:11.296
 %S takes a string, and writes a string literal: in quotes, with quotes and dollar signs escaped.
 
 44
-00:03:11.067 --> 00:03:15.127
+00:03:11.500 --> 00:03:15.560
 And %L pastes a value as it is, no questions asked.
 
 45
-00:03:15.267 --> 00:03:19.235
+00:03:15.767 --> 00:03:19.735
 That %S line looks like a cat walked across the keyboard.
 
 46
-00:03:19.235 --> 00:03:23.900
+00:03:19.735 --> 00:03:24.400
 But Kotlin reads it back as exactly your text, dollar sign and all.
 
 47
-00:03:23.900 --> 00:03:27.938
+00:03:24.400 --> 00:03:28.438
 Left bare, $room would quietly read a variable named room.
 
 48
-00:03:27.938 --> 00:03:33.299
+00:03:28.438 --> 00:03:33.799
 So pass types with %T and names with %N, never pasted into the format string.
 
 49
-00:03:34.800 --> 00:03:36.348
+00:03:35.267 --> 00:03:36.815
 Now the whole builder.
 
 50
-00:03:36.348 --> 00:03:42.259
+00:03:36.815 --> 00:03:42.725
 Watch the top of the file: every type that goes in through %T joins the import list.
 
 51
-00:03:42.800 --> 00:03:47.756
+00:03:43.333 --> 00:03:48.289
 FileSpec starts the file with its package, and TypeSpec adds the class.
 
 52
-00:03:47.756 --> 00:03:53.130
+00:03:48.289 --> 00:03:53.664
 The first PropertySpec adds name, a String, and import kotlin.String appears.
 
 53
-00:03:53.130 --> 00:03:56.969
+00:03:53.664 --> 00:03:57.503
 bulbs is an Int, so import kotlin.Int joins it, sorted.
 
 54
-00:03:56.969 --> 00:03:59.552
+00:03:57.503 --> 00:04:00.085
 shade is a String again: nothing new.
 
 55
-00:03:59.733 --> 00:04:02.428
+00:04:00.300 --> 00:04:02.995
 And shade has one question mark, not two.
 
 56
-00:04:02.428 --> 00:04:09.197
+00:04:02.995 --> 00:04:09.764
 The type is made nullable with copy, nullable equals true, which leaves an already nullable type alone.
 
 57
-00:04:09.733 --> 00:04:14.992
+00:04:10.367 --> 00:04:15.625
 Then a FunSpec per setter: each fills its slot and hands the builder back.
 
 58
-00:04:14.992 --> 00:04:16.982
+00:04:15.625 --> 00:04:17.615
 A last FunSpec writes build.
 
 59
-00:04:16.982 --> 00:04:22.596
+00:04:17.615 --> 00:04:23.229
 And writeTo hands the file to KSP, together with the box it came from, Lamp.kt.
 
 60
-00:04:22.733 --> 00:04:26.805
+00:04:23.433 --> 00:04:27.505
 Now the one that failed: Load, in package movemate.van.
 
 61
-00:04:26.805 --> 00:04:33.467
+00:04:27.505 --> 00:04:34.167
 Same specs, and the file starts with import movemate.Box, the line the handwriting forgot.
 
 62
-00:04:33.467 --> 00:04:35.169
+00:04:34.167 --> 00:04:35.869
 Nobody typed an import.
 
 63
-00:04:36.467 --> 00:04:38.082
+00:04:37.167 --> 00:04:38.782
 Here the picture breaks.
 
 64
-00:04:38.082 --> 00:04:41.112
+00:04:38.782 --> 00:04:41.812
 A label printer prints exactly what you type.
 
 65
-00:04:41.112 --> 00:04:46.161
+00:04:41.812 --> 00:04:46.861
 KotlinPoet edits as it prints: imports, public, backticks, a reshaped body.
 
 66
-00:04:46.161 --> 00:04:49.123
+00:04:46.861 --> 00:04:49.823
 So read its output once before you trust it.
 
 67
-00:04:50.000 --> 00:04:51.620
+00:04:50.733 --> 00:04:52.353
 And it has a blind spot.
 
 68
-00:04:51.620 --> 00:04:58.435
+00:04:52.353 --> 00:04:59.168
 It describes declarations, not what happens inside a body: the body of build is just a format string.
 
 69
-00:04:58.435 --> 00:05:04.036
+00:04:59.168 --> 00:05:04.769
 Fill name from the bulbs slot, and KotlinPoet prints that mistake, neatly indented.
 
 70
-00:05:04.200 --> 00:05:06.315
+00:05:05.000 --> 00:05:07.115
 It's a printer, not a proofreader.
 
 71
-00:05:06.315 --> 00:05:12.661
+00:05:07.115 --> 00:05:13.461
 The compiler reads for meaning, so every test in the lab compiles the generated builder, and calls it.
 
 72
-00:05:13.800 --> 00:05:15.941
+00:05:14.633 --> 00:05:16.775
 So, why a library to print text?
 
 73
-00:05:15.941 --> 00:05:20.559
+00:05:16.775 --> 00:05:21.392
 Because generated code is ordinary source code, with a strict reader.
 
 74
-00:05:20.559 --> 00:05:28.121
+00:05:21.392 --> 00:05:28.954
 Describe it as specs, pass types with %T and names with %N, and the printer writes the imports and the backticks.
 
 75
-00:05:28.121 --> 00:05:30.061
+00:05:28.954 --> 00:05:30.895
 Then compile it, and call it.
 
 76
-00:05:30.200 --> 00:05:30.973
+00:05:31.100 --> 00:05:31.873
 Quick check.
 
 77
-00:05:30.973 --> 00:05:33.227
+00:05:31.873 --> 00:05:34.127
 Crate has a property called object.
 
 78
-00:05:33.227 --> 00:05:36.769
+00:05:34.127 --> 00:05:37.669
 Which placeholder carries its name, and what comes out?
 
 79
-00:05:40.000 --> 00:05:40.242
+00:05:40.867 --> 00:05:41.109
 %N.
 
 80
-00:05:40.242 --> 00:05:45.816
+00:05:41.109 --> 00:05:46.683
 It prints object in backticks, because object is a keyword in Kotlin.

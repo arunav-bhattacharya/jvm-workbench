@@ -1,0 +1,317 @@
+WEBVTT
+
+1
+00:00:02.733 --> 00:00:03.409
+Moving day.
+
+2
+00:00:03.409 --> 00:00:09.985
+The movers sign a receipt for each piece of furniture, and each receipt needs an inventory card of its own.
+
+3
+00:00:09.985 --> 00:00:17.175
+Nobody can write that card on the first walk through the house, because the receipt didn't exist when the walk began.
+
+4
+00:00:18.067 --> 00:00:19.864
+The lab has two processors.
+
+5
+00:00:19.864 --> 00:00:29.582
+The receipt processor is new: for each class with an @Moving note, it writes a receipt class, LampReceipt, with the same properties plus signedBy.
+
+6
+00:00:29.582 --> 00:00:32.444
+And the receipt carries an @Inventory note.
+
+7
+00:00:32.444 --> 00:00:38.701
+The card processor is lesson 2's: it writes an inventory card for every class with @Inventory.
+
+8
+00:00:38.867 --> 00:00:44.953
+Used from code, it reads like this: make the lamp's receipt, signed by Ana, and print its card.
+
+9
+00:00:45.867 --> 00:00:49.050
+So here's the question a lot of us are shy to ask.
+
+10
+00:00:49.050 --> 00:00:51.661
+The receipt processor writes LampReceipt.
+
+11
+00:00:51.661 --> 00:00:55.353
+The card processor runs right after it, in the same build.
+
+12
+00:00:55.353 --> 00:00:57.136
+Does it see the new receipt?
+
+13
+00:01:00.400 --> 00:01:04.984
+The natural guess is yes: it runs second, and the file is right there.
+
+14
+00:01:04.984 --> 00:01:07.276
+Let's let the build be the referee.
+
+15
+00:01:07.276 --> 00:01:09.764
+Each processor logs one line per pass.
+
+16
+00:01:09.933 --> 00:01:10.707
+First pass.
+
+17
+00:01:10.707 --> 00:01:12.607
+Receipts wrote LampReceipt.
+
+18
+00:01:12.607 --> 00:01:15.493
+Cards wrote a card for Box, and only Box.
+
+19
+00:01:15.493 --> 00:01:17.815
+It walked right past the receipt.
+
+20
+00:01:17.815 --> 00:01:21.615
+Only on the second pass does LampReceipt get its card.
+
+21
+00:01:21.800 --> 00:01:25.808
+If the card processor could talk, it would say: LampReceipt?
+
+22
+00:01:25.808 --> 00:01:27.010
+Never heard of it.
+
+23
+00:01:27.010 --> 00:01:28.346
+It isn't being rude.
+
+24
+00:01:28.346 --> 00:01:30.083
+It can't see the file yet.
+
+25
+00:01:31.000 --> 00:01:33.808
+Picture each pass as a walk through the house.
+
+26
+00:01:33.808 --> 00:01:38.935
+On a walk, the helpers take turns, one after the other, each with a fresh clipboard.
+
+27
+00:01:38.935 --> 00:01:44.794
+The cards they write go on a pile by the door, and nobody reads the pile until the walk is over.
+
+28
+00:01:44.794 --> 00:01:50.653
+Then, if the pile isn't empty, everyone walks again, and the new cards are new boxes to look at.
+
+29
+00:01:50.800 --> 00:01:51.663
+Let's map it.
+
+30
+00:01:51.663 --> 00:01:59.430
+A walk is a round: one pass in which KSP calls process on every processor, in the order the services file lists them.
+
+31
+00:01:59.430 --> 00:02:06.467
+The fresh clipboard is the Resolver, the object a processor asks for symbols; each round brings a new one.
+
+32
+00:02:06.467 --> 00:02:10.383
+The pile by the door is the files written during the round.
+
+33
+00:02:10.383 --> 00:02:14.897
+And a new round starts only if the last one wrote at least one file.
+
+34
+00:02:15.800 --> 00:02:22.184
+Here's the whole build on the lab's playground: @Moving on Lamp and Van, and @Inventory on Box.
+
+35
+00:02:22.184 --> 00:02:25.477
+One lane per processor, and one column per round.
+
+36
+00:02:25.667 --> 00:02:27.856
+Round 1 offers the source files.
+
+37
+00:02:27.856 --> 00:02:29.771
+Receipts writes LampReceipt.
+
+38
+00:02:29.771 --> 00:02:35.381
+Van's label mentions a LampReceipt, which doesn't exist yet, so Van can't be read.
+
+39
+00:02:35.381 --> 00:02:37.706
+The processor sets that box aside.
+
+40
+00:02:37.706 --> 00:02:39.759
+Cards writes the card for Box.
+
+41
+00:02:39.933 --> 00:02:43.689
+Round 2 offers the new files, plus the boxes set aside.
+
+42
+00:02:43.689 --> 00:02:48.947
+LampReceipt exists now, so Van comes off the pile, and VanReceipt is written.
+
+43
+00:02:48.947 --> 00:02:52.839
+And cards finally meets LampReceipt, and writes its card.
+
+44
+00:02:53.000 --> 00:02:57.013
+Round 3: no new receipts, and VanReceipt gets its card.
+
+45
+00:02:57.013 --> 00:02:59.349
+Round 4: nobody writes anything.
+
+46
+00:02:59.349 --> 00:03:02.705
+An empty walk, so KSP stops, and calls finish.
+
+47
+00:03:02.867 --> 00:03:04.766
+Four rounds for three classes.
+
+48
+00:03:04.766 --> 00:03:08.817
+If you ask the helpers, moving day has more walking than moving.
+
+49
+00:03:08.817 --> 00:03:15.906
+But read the shape: every output is read one round after it's written, and the last round always writes nothing.
+
+50
+00:03:15.906 --> 00:03:17.741
+That's how KSP knows to stop.
+
+51
+00:03:17.933 --> 00:03:21.716
+What a round writes, the next round reads, for every processor.
+
+52
+00:03:23.000 --> 00:03:24.541
+Here the picture breaks.
+
+53
+00:03:24.541 --> 00:03:29.612
+Real helpers work side by side, and could pass a fresh card across the hallway.
+
+54
+00:03:29.612 --> 00:03:36.417
+KSP's helpers take turns, and a card one of them writes stays invisible to the others until the next walk.
+
+55
+00:03:37.333 --> 00:03:39.951
+To make the rounds visible, count them.
+
+56
+00:03:39.951 --> 00:03:49.146
+KSP creates each processor once, so a plain field lives from round to round, and logger.warn shows the line at Gradle's normal log level.
+
+57
+00:03:49.146 --> 00:03:54.313
+Keep the counter, but never keep the Resolver: next round, there's a new one.
+
+58
+00:03:54.467 --> 00:03:57.679
+Java's annotation processors have rounds too.
+
+59
+00:03:57.679 --> 00:04:07.600
+javac calls process once per round, on the same processor object, and then runs one extra, last round in which processingOver returns true.
+
+60
+00:04:08.533 --> 00:04:11.065
+Setting Van aside has a name: deferral.
+
+61
+00:04:11.065 --> 00:04:17.361
+The processor checks each box with validate, and returns the ones it can't read yet from process.
+
+62
+00:04:17.361 --> 00:04:19.503
+KSP offers them again next round.
+
+63
+00:04:19.503 --> 00:04:22.619
+The next section of the lesson takes that apart.
+
+64
+00:04:22.800 --> 00:04:24.300
+And rounds aren't free.
+
+65
+00:04:24.300 --> 00:04:28.212
+Every round brings a new Resolver and another validate pass.
+
+66
+00:04:28.212 --> 00:04:33.949
+A chain adds a round per link: a Truck whose label mentions VanReceipt waits two rounds.
+
+67
+00:04:33.949 --> 00:04:40.469
+And a file written in finish is compiled, but no round reads it, so its sticky notes are never seen.
+
+68
+00:04:41.400 --> 00:04:45.859
+So, does the card processor see a receipt written in the same round?
+
+69
+00:04:45.859 --> 00:04:46.055
+No.
+
+70
+00:04:46.055 --> 00:04:47.367
+A round is one walk.
+
+71
+00:04:47.367 --> 00:04:51.498
+What a round writes, the next round reads, for every processor.
+
+72
+00:04:51.498 --> 00:04:55.957
+A box whose label mentions a card not written yet waits on the pile.
+
+73
+00:04:55.957 --> 00:04:59.104
+And the walk that finds nothing new is the last.
+
+74
+00:04:59.267 --> 00:05:00.024
+Quick check.
+
+75
+00:05:00.024 --> 00:05:02.800
+Add a Truck whose label mentions VanReceipt.
+
+76
+00:05:02.800 --> 00:05:05.260
+In which round is TruckReceipt written?
+
+77
+00:05:08.467 --> 00:05:09.071
+Round 3.
+
+78
+00:05:09.071 --> 00:05:14.283
+Round 1 writes LampReceipt, round 2 VanReceipt, round 3 TruckReceipt.
+
+79
+00:05:14.283 --> 00:05:18.513
+Its card comes in round 4, and round 5 is the empty one.

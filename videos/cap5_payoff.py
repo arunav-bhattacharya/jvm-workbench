@@ -271,7 +271,7 @@ class Cap5Payoff(Narrated):
         # ================= promise 1: the test =================
         gen = ["TruckFactory.kt", "CrewFactory.kt", "MovingDayFactory.kt", "DriverFactory.kt", "GpsUnitFactory.kt",
                "PackerFactory.kt", "TapeRollFactory.kt", "GeneratedMovingDayComponent.kt"]
-        gfiles = VGroup(*[fbox(n, CARD, w=5.2, h=0.44, size=20) for n in gen]).arrange(DOWN, buff=0.12)
+        gfiles = VGroup(*[fbox(n, CARD, w=5.3, h=0.44, size=22) for n in gen]).arrange(DOWN, buff=0.12)
         gfiles.move_to([-3.3, -0.35, 0])
         gt = T("every file KSP wrote", 24, CARD).next_to(gfiles, UP, buff=0.25)
         words = VGroup(*[M(w, 24, BAD) for w in ("java.lang.reflect", "kotlin.reflect", "::class", "Class.forName",
@@ -396,7 +396,7 @@ class Cap5Payoff(Narrated):
         self.at(2)
         rep = T("repacked", 22, EDIT).next_to(row[1], UP, buff=0.15)
         self.play(row[1][0].animate.set_stroke(EDIT, 4), FadeIn(rep), run_time=0.6)
-        self.play(Indicate(cs[1], color=OK, scale_factor=1.15), Indicate(master, color=OK, scale_factor=1.06), run_time=1.0)
+        self.play(Circumscribe(cs[1], color=OK, buff=0.08), Circumscribe(master, color=OK, buff=0.08), run_time=1.0)
         self.at(3)
         same = VGroup(*[cs[i] for i in (0, 2, 3, 4)])
         self.play(same.animate.set_opacity(0.4), run_time=0.6)
@@ -521,7 +521,7 @@ class Cap5Payoff(Narrated):
         self.play(FadeIn(unt), run_time=0.4)
         self.hold()
         self.say("out_j")
-        self.play(Indicate(VGroup(*rest), color=GREY_A, scale_factor=1.03), run_time=1.0)
+        self.play(*[Wiggle(o, scale_value=1.04) for o in rest], run_time=1.0)
         self.hold(after=0.6)
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
 
@@ -564,7 +564,7 @@ class Cap5Payoff(Narrated):
         self.say("limit")
         self.play(FadeIn(comp), run_time=0.5)
         self.at(1)
-        self.play(FadeIn(every), Indicate(comp, color=OK, scale_factor=1.05), run_time=0.8)
+        self.play(FadeIn(every), Circumscribe(comp, color=OK, buff=0.06), run_time=0.8)
         self.at(3)
         self.play(comp[0].animate.stretch_to_fit_width(6.8), every.animate.shift(RIGHT * 0.8), run_time=0.8)
         self.at_text("a fair price", lead=0.3)

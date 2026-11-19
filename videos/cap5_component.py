@@ -60,7 +60,7 @@ N = {
     "break_a": "It doesn't compile. Kotlin runs these lines top to bottom, like Java's field initializers. The "
                "driver's line reads a route that isn't there yet: Variable 'route' must be initialized. In Java, "
                "javac says: illegal forward reference.",
-    "break_j": "In moving-day terms, Sam is told to drive before anyone has printed the route. He's not going "
+    "break_j": "In moving-day terms, the driver is told to drive before anyone has printed the route. He's not going "
                "anywhere, and neither is the build. So the order isn't decoration. It's what makes the class compile.",
     "code": "Here's the walk in code. If the name is already on the sheet, return. Otherwise visit everything it "
             "needs, then add the name. Java says the same, a little longer.",
@@ -220,7 +220,7 @@ class Cap5Component(Narrated):
         self.title_card("The plan for the whole day", "a walk that writes each line after everything it needs")
 
         # ================= hook: moving day =================
-        floor = Line([-6.4, -1.75, 0], [6.4, -1.75, 0], stroke_width=1.5, color=GREY_D)
+        floor = Line([-6.2, -1.75, 0], [6.0, -1.75, 0], stroke_width=1.5, color=GREY_D)
         i_route = map_icon(SING, 1.1).move_to([-5.4, -1.25, 0])
         i_driver = person(SING, 1.25).move_to([-3.6, -1.18, 0])
         i_truck = truck_icon(SING, 1.15).move_to([-1.2, -1.25, 0])
@@ -251,7 +251,7 @@ class Cap5Component(Narrated):
         self.play(Create(crew_box), FadeIn(crew_l), run_time=0.9)
         self.hold()
 
-        sheet0 = RoundedRectangle(corner_radius=0.1, width=4.4, height=2.0).set_stroke(GREY_A, 2.5).set_fill("#141414", 1)
+        sheet0 = RoundedRectangle(corner_radius=0.1, width=5.0, height=2.0).set_stroke(GREY_A, 2.5).set_fill("#141414", 1)
         sheet0.move_to([0.4, 2.1, 0])
         sh_t = T("the plan", 28).move_to(sheet0.get_top() + DOWN * 0.35)
         sh_a = VGroup(Dot(radius=0.07, color=SING), T("one truck for the whole day", 24, SING)).arrange(RIGHT, buff=0.15)
@@ -263,9 +263,9 @@ class Cap5Component(Narrated):
         self.at_text("who comes", lead=0.3)
         self.play(FadeIn(q_order), run_time=0.5)
         self.at(1)
-        self.play(FadeIn(sh_a), Indicate(i_truck, color=SING), run_time=0.8)
+        self.play(FadeIn(sh_a), Wiggle(i_truck, scale_value=1.12), run_time=0.8)
         self.at_text("a new roll", lead=0.2)
-        self.play(FadeIn(sh_b), Indicate(VGroup(i_t1, i_t2), color=FRESH), run_time=0.8)
+        self.play(FadeIn(sh_b), Wiggle(i_t1, scale_value=1.2), Wiggle(i_t2, scale_value=1.2), run_time=0.8)
         self.hold()
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
 
@@ -452,7 +452,7 @@ class Cap5Component(Narrated):
         m2 = VGroup(T("what do you need?", 26, WALK), T("= read its constructor", 26)).arrange(RIGHT, buff=0.18)
         m3 = VGroup(T("a line on the sheet", 26, CARD), T("= a binding: how to get one type", 26)).arrange(RIGHT, buff=0.18)
         mg = VGroup(m1, m2, m3).arrange(DOWN, aligned_edge=LEFT, buff=0.25).move_to([0.3, 0.3, 0])
-        mpanel = BackgroundRectangle(mg, color=BLACK, fill_opacity=0.92, buff=0.35)
+        mpanel = BackgroundRectangle(mg, color=BLACK, fill_opacity=1, buff=0.35)
         mframe = SurroundingRectangle(mg, buff=0.35, color=GREY_C, stroke_width=2, corner_radius=0.12)
         self.say("map")
         self.play(FadeOut(phone_t), FadeOut(hold_l), FadeIn(mpanel), Create(mframe), run_time=0.6)
@@ -562,7 +562,7 @@ class Cap5Component(Narrated):
         self.say("asked")
         self.play(FadeIn(asked), Indicate(entries[6], color=SING), run_time=0.8)
         self.at(1)
-        self.play(Indicate(VGroup(*badges.values()), color=WHITE, scale_factor=1.15), run_time=1.0)
+        self.play(*[Wiggle(b, scale_value=1.25) for b in badges.values()], run_time=1.0)
         self.hold()
 
         nm1 = VGroup(T("depth first:", 28, WALK), T("follow one answer all the way down", 28)).arrange(RIGHT, buff=0.2)

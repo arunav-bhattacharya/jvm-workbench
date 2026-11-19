@@ -549,10 +549,10 @@ class Ksp03Labels(Narrated):
         self.predict(2.6)
         self.play(FadeOut(bq), big.animate.scale(0.8).move_to([-3.3, 3.1, 0]), run_time=0.6)
 
-        nm = tnode("Map", True).move_to([-3.4, 1.85, 0])
-        ns = tnode("String").move_to([-5.1, 0.3, 0])
-        nli = tnode("List").move_to([-1.7, 0.3, 0])
-        ni = tnode("Int", True).move_to([-1.7, -1.25, 0])
+        nm = tnode("Map", True).move_to([-2.8, 1.85, 0])
+        ns = tnode("String").move_to([-4.4, 0.3, 0])
+        nli = tnode("List").move_to([-1.15, 0.3, 0])
+        ni = tnode("Int", True).move_to([-1.15, -1.25, 0])
         e1 = Line(nm.get_bottom(), ns.get_top(), stroke_width=2.5, color=GREY_B)
         e2 = Line(nm.get_bottom(), nli.get_top(), stroke_width=2.5, color=GREY_B)
         e3 = Line(nli.get_bottom(), ni.get_top(), stroke_width=2.5, color=GREY_B)
@@ -562,9 +562,7 @@ class Ksp03Labels(Narrated):
 
         t1, t2, t3, t4 = rtag(nm, 1), rtag(ns, 2), rtag(nli, 3), rtag(ni, 4)
         t2.next_to(ns, DOWN, buff=0.12)
-        lv = VGroup(*[T(f"level {i}", 22, GREY_B).move_to([-6.2, y, 0], aligned_edge=LEFT) for i, y in ((1, 1.85), (2, 0.3), (3, -1.25))])
-        lv[1].shift(DOWN * 0.55)
-        lv[2].shift(DOWN * 0.35)
+        lv = VGroup(*[T(f"level {i}", 22, GREY_B).move_to([-6.4, y, 0], aligned_edge=LEFT) for i, y in ((1, 1.85), (2, 0.3), (3, -1.25))])
         nla = T("2 arguments", 20, GREY_A).next_to(nm, RIGHT, buff=0.35)
         self.say("walk1")
         self.play(FadeIn(lv[0]), FadeIn(nm[:2]), FadeIn(t1), run_time=0.7)
@@ -588,7 +586,7 @@ class Ksp03Labels(Narrated):
         self.play(FadeIn(ni[2], scale=1.5), run_time=0.5)
         self.hold()
 
-        RX = 0.9
+        RX = 1.1
         ts_h = T("toString() prints", 22, TOS).move_to([RX, 2.25, 0], aligned_edge=LEFT)
         ts_v = M("Map<String, List<Int?>>?", 26, TOS).next_to(ts_h, DOWN, buff=0.1).align_to(ts_h, LEFT)
         up_h = T("typeText builds, from the bottom up", 22, CARD).move_to([RX, 1.1, 0], aligned_edge=LEFT)
