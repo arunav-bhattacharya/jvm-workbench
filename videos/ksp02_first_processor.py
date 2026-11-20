@@ -340,7 +340,7 @@ class Ksp02FirstProcessor(Narrated):
                          "        \"${cls.simpleName.asString()}InventoryCard\",",
                          "    ).use { it.write(source.toByteArray()) }",
                          "}"], 22, hl={"createNewFile": HELPER, "Dependencies": BOX})
-        ktg = VGroup(kt_h, kt).arrange(DOWN, aligned_edge=LEFT, buff=0.15).move_to([-6.3, 1.75, 0], aligned_edge=LEFT)
+        ktg = VGroup(kt_h, kt).arrange(DOWN, aligned_edge=LEFT, buff=0.15).move_to([-6.3, 1.6, 0], aligned_edge=LEFT)
         self.say("write")
         self.play(FadeIn(ktg, shift=UP * 0.1), run_time=0.9)
         self.at(2)
@@ -489,7 +489,7 @@ class Ksp02FirstProcessor(Narrated):
                           "--- movemate/PlantInventoryCard.kt",
                           "--- lampCard() returns: Lamp: name=desk lamp, bulbs=1, shade=null"], 22,
                          hl={"round 1": NOTE, "round 2": NOTE, "LampInventoryCard.kt": CARD, "PlantInventoryCard.kt": CARD})
-        log.move_to([-6.2, 2.15, 0], aligned_edge=LEFT)
+        log.move_to([-6.2, 1.85, 0], aligned_edge=LEFT)
         log_t = T("CardDemo, real output (the files' text cut)", 20, GREY_B).next_to(log, UP, buff=0.15).align_to(log, LEFT)
         self.say("run")
         self.play(FadeOut(rqg), FadeIn(log_t), FadeIn(log[0]), run_time=0.5)

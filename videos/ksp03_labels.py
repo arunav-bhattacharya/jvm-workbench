@@ -261,7 +261,7 @@ BAD_TOS = {"water", "label"}
 
 def table(y0=2.25, dy=0.47, size=22):
     cw = M("0123456789", size).width / 10
-    xs = [-6.2, -6.2 + 13 * cw, -6.2 + 39 * cw, -6.2 + 50 * cw]
+    xs = [-6.2, -6.2 + 13 * cw, -6.2 + 40 * cw, -6.2 + 52 * cw]
     heads = VGroup(*[T(h, 24, c).move_to([x, y0, 0], aligned_edge=LEFT) for h, c, x in
                      zip(("parameter", "toString()", "name only", "typeText"), (GREY_B, TOS, GREY_B, CARD), xs)])
     rule = Line([-6.2, y0 - 0.27, 0], [6.3, y0 - 0.27, 0], stroke_width=1.5, color=GREY_D)
@@ -482,7 +482,7 @@ class Ksp03Labels(Narrated):
         self.at(1)
         self.play(FadeIn(quote, shift=UP * 0.1), run_time=0.7)
         self.at(2)
-        self.play(quote.animate.move_to([-2.4, -2.7, 0]), run_time=0.5)
+        self.play(quote.animate.move_to([-2.2, -2.7, 0]), run_time=0.5)
         self.play(FadeIn(once), run_time=0.5)
         self.hold()
 
@@ -609,8 +609,8 @@ class Ksp03Labels(Narrated):
         cnt.move_to([0, -2.7, 0])
         fit(cnt, 12.4)
         same = VGroup(tick(True, 0.16), T("same as toString(), character for character", 22, OK)).arrange(RIGHT, buff=0.15)
+        fit(same, 5.2)
         same.next_to(bl[3], DOWN, buff=0.25).align_to(bl[3], LEFT)
-        fit(same, 5.5)
         self.say("walk_a")
         self.play(LaggedStart(*[Indicate(t, color=HELPER, scale_factor=1.2) for t in (t1, t2, t3, t4)], lag_ratio=0.3), run_time=1.4)
         self.play(FadeIn(cnt, shift=UP * 0.1), run_time=0.5)
