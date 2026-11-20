@@ -1,0 +1,277 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:06.251
+Moving day, and a different person for each kind of job.
+
+2
+00:00:06.251 --> 00:00:09.991
+A helper with a clipboard writes new cards from the labels.
+
+3
+00:00:09.991 --> 00:00:12.211
+A mover opens a box and repacks it.
+
+4
+00:00:12.211 --> 00:00:16.142
+Someone at the new house unpacks a box to check what's inside.
+
+5
+00:00:16.142 --> 00:00:19.565
+And an older helper reads only labels written in Java.
+
+6
+00:00:19.767 --> 00:00:23.231
+Eight lessons were about the helper with the clipboard.
+
+7
+00:00:23.231 --> 00:00:32.303
+Lesson 1 gave him two limits, in the docs' own words: processors can't examine expressions or statements, and they can't modify the source code.
+
+8
+00:00:33.233 --> 00:00:40.259
+Now say Java callers want lamp.inventoryCard() as a real member function, inside Lamp itself.
+
+9
+00:00:40.467 --> 00:00:44.333
+Here's the workaround many of us think of, and never say out loud.
+
+10
+00:00:44.333 --> 00:00:50.251
+If the helper can't add a function to Lamp, can't he just write Lamp again, with the function inside?
+
+11
+00:00:50.733 --> 00:00:51.727
+Let's try it.
+
+12
+00:00:51.727 --> 00:00:54.862
+RepackDemo's processor does exactly that.
+
+13
+00:00:54.862 --> 00:01:03.425
+It finds Lamp, and writes a new file, LampExtra.kt, with a second data class Lamp that has inventoryCard inside.
+
+14
+00:01:03.633 --> 00:01:05.795
+KSP lets it write the file.
+
+15
+00:01:05.795 --> 00:01:07.236
+What happens next?
+
+16
+00:01:07.236 --> 00:01:08.517
+Pause and guess.
+
+17
+00:01:11.700 --> 00:01:15.721
+The Kotlin compiler meets two classes with one name.
+
+18
+00:01:15.721 --> 00:01:18.737
+Redeclaration, in LampExtra.kt, line 3.
+
+19
+00:01:18.737 --> 00:01:21.676
+And Redeclaration, in Lamp.kt, line 6.
+
+20
+00:01:21.676 --> 00:01:26.084
+It points at both boxes, and refuses to pick a favourite.
+
+21
+00:01:26.300 --> 00:01:29.013
+KSP never checks what's inside a new file.
+
+22
+00:01:29.013 --> 00:01:34.825
+It hands the file to the compiler along with yours, and the compiler won't keep two Lamps.
+
+23
+00:01:35.033 --> 00:01:42.193
+That's a helper who can't open a box, so he packs a second box with the same label and hopes nobody notices.
+
+24
+00:01:42.193 --> 00:01:44.049
+The compiler always notices.
+
+25
+00:01:44.267 --> 00:01:45.894
+Now the way that works.
+
+26
+00:01:45.894 --> 00:01:52.970
+The second compile writes a new card next to the box: an extension function, fun Lamp.inventoryCard.
+
+27
+00:01:52.970 --> 00:01:57.428
+It compiles, and desk.inventoryCard() returns the card we know.
+
+28
+00:01:57.633 --> 00:02:01.667
+In Kotlin it reads like a member, but Lamp is untouched.
+
+29
+00:02:01.667 --> 00:02:08.151
+A Java caller writes LampExtraKt.inventoryCard(desk): a static method that takes the lamp.
+
+30
+00:02:08.151 --> 00:02:15.211
+Java's annotation processors have the same limit, so the Java twin is a separate class, LampCards.
+
+31
+00:02:18.100 --> 00:02:20.994
+So some jobs need the class itself to change.
+
+32
+00:02:20.994 --> 00:02:27.426
+That's a compiler plugin: a jar the Kotlin compiler loads to change what it writes into class files.
+
+33
+00:02:27.426 --> 00:02:30.707
+In the picture, it's the mover who repacks the box.
+
+34
+00:02:30.933 --> 00:02:33.396
+The Advanced Kotlin track met three.
+
+35
+00:02:33.396 --> 00:02:37.637
+all-open removes final from classes a framework must subclass.
+
+36
+00:02:37.637 --> 00:02:41.262
+no-arg adds a constructor that Kotlin code can't see.
+
+37
+00:02:41.262 --> 00:02:46.734
+kotlinx.serialization writes a serializer inside each class marked Serializable.
+
+38
+00:02:46.734 --> 00:02:52.001
+No processor can do any of those, because each one changes a class you wrote.
+
+39
+00:02:52.233 --> 00:02:53.756
+Good news and bad news.
+
+40
+00:02:53.756 --> 00:02:56.734
+The good news: the mover can repack anything.
+
+41
+00:02:56.734 --> 00:03:01.169
+The bad news: the box you packed is not quite the box that arrives.
+
+42
+00:03:01.169 --> 00:03:06.596
+The class you read isn't the class the JVM loads, so a plugin asks for more trust.
+
+43
+00:03:07.500 --> 00:03:09.800
+Libraries show the same line.
+
+44
+00:03:09.800 --> 00:03:21.539
+Checked in November 2026: Arrow Optics now recommends its compiler plugin, because KSP can add functions to a companion object but can't create one.
+
+45
+00:03:21.539 --> 00:03:30.581
+Koin deprecated its KSP compiler for the Koin Compiler Plugin, and Kotlin DataFrame deprecated its KSP plugin too.
+
+46
+00:03:31.500 --> 00:03:32.800
+So here's the rule.
+
+47
+00:03:32.800 --> 00:03:37.044
+If the job is to change a class, it's a compiler plugin's job.
+
+48
+00:03:37.044 --> 00:03:41.013
+If it's to write a new file next to the class, it's KSP's.
+
+49
+00:03:42.000 --> 00:03:44.609
+Now the whole choice, in three questions.
+
+50
+00:03:44.833 --> 00:03:47.557
+First: must the job change a class you wrote?
+
+51
+00:03:47.557 --> 00:03:50.159
+Then it needs a compiler plugin, the mover.
+
+52
+00:03:50.367 --> 00:03:53.572
+If not: does it run a few times, on a few classes?
+
+53
+00:03:53.572 --> 00:03:56.906
+Then reflection is fine: unpacking at the new house.
+
+54
+00:03:56.906 --> 00:04:02.228
+Earlier in this lesson, a warm reflection card cost about a fifth of a microsecond.
+
+55
+00:04:02.228 --> 00:04:05.497
+Nobody waits for that, unless it's a million cards.
+
+56
+00:04:05.700 --> 00:04:09.286
+If not: does a KSP processor exist for the job?
+
+57
+00:04:09.286 --> 00:04:12.796
+Then use KSP, the helper who writes new cards.
+
+58
+00:04:13.000 --> 00:04:17.813
+And if only a Java processor exists, kapt runs it: the older helper.
+
+59
+00:04:17.813 --> 00:04:23.829
+Every label is first copied out in Java, as stubs, and that copying is the slow part.
+
+60
+00:04:25.100 --> 00:04:27.735
+So, can the helper write the class again?
+
+61
+00:04:27.735 --> 00:04:30.820
+No: two Lamps, and the compiler stops the build.
+
+62
+00:04:30.820 --> 00:04:33.583
+A helper adds new files next to your boxes.
+
+63
+00:04:33.583 --> 00:04:36.668
+When the box itself must change, call the mover.
+
+64
+00:04:36.900 --> 00:04:37.794
+Quick check.
+
+65
+00:04:37.794 --> 00:04:41.297
+A framework needs your classes open, not final.
+
+66
+00:04:41.297 --> 00:04:43.533
+Could a KSP processor do that?
+
+67
+00:04:46.700 --> 00:04:46.919
+No.
+
+68
+00:04:46.919 --> 00:04:49.981
+Opening a class changes a class you wrote.
+
+69
+00:04:49.981 --> 00:04:52.971
+That's a compiler plugin's job: all-open.
