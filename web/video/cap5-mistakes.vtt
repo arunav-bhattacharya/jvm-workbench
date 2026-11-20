@@ -1,0 +1,393 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:04.337
+Seven o'clock on moving day.
+
+2
+00:00:04.337 --> 00:00:07.846
+The truck is in the street, and the packers are in the hall.
+
+3
+00:00:07.846 --> 00:00:11.588
+But the driver says: I'll leave home when the truck picks me up.
+
+4
+00:00:11.588 --> 00:00:14.161
+And the truck can't move without its driver.
+
+5
+00:00:14.367 --> 00:00:15.462
+So nobody moves.
+
+6
+00:00:15.462 --> 00:00:18.817
+And the mistake was on the plan the night before.
+
+7
+00:00:19.733 --> 00:00:22.868
+Last lesson, KSP wrote that plan during the build.
+
+8
+00:00:22.868 --> 00:00:27.820
+A walk visits each class, and writes it on the sheet after everything it needs.
+
+9
+00:00:27.820 --> 00:00:31.017
+Here's the driver who waits for the truck, in code.
+
+10
+00:00:31.233 --> 00:00:34.095
+So here's a question that's easy to be shy about.
+
+11
+00:00:34.095 --> 00:00:37.306
+The walk already remembers every class it has finished.
+
+12
+00:00:37.306 --> 00:00:40.576
+Isn't that enough to notice it's going round in circles?
+
+13
+00:00:43.667 --> 00:00:46.145
+Let's watch it go wrong on the day first.
+
+14
+00:00:46.145 --> 00:00:55.029
+A reflection container, like the one you built in Part 4, reads your classes while the program runs, and builds each constructor's arguments first.
+
+15
+00:00:55.233 --> 00:00:58.629
+Each call that hasn't finished yet keeps a stack frame.
+
+16
+00:00:58.629 --> 00:01:03.631
+The truck asks for a driver, the driver asks for a truck, and the frames pile up.
+
+17
+00:01:03.833 --> 00:01:11.673
+It ends in a StackOverflowError, with 1,024 frames: as many as the JVM keeps in a stack trace by default.
+
+18
+00:01:11.673 --> 00:01:16.302
+That's the container asking itself for a truck, over and over.
+
+19
+00:01:16.302 --> 00:01:19.064
+The longest phone call nobody wanted.
+
+20
+00:01:19.267 --> 00:01:22.939
+Lesson 1's processor fails the same way, only earlier.
+
+21
+00:01:22.939 --> 00:01:29.196
+In a test compile, it stops with INTERNAL_ERROR, and a StackOverflowError inside KotlinPoet.
+
+22
+00:01:29.196 --> 00:01:30.421
+Earlier is better.
+
+23
+00:01:30.421 --> 00:01:33.821
+But neither message names the truck or the driver.
+
+24
+00:01:34.633 --> 00:01:37.398
+So no, remembering what's finished isn't enough.
+
+25
+00:01:37.398 --> 00:01:40.912
+When the driver asks for the truck, the truck isn't finished.
+
+26
+00:01:40.912 --> 00:01:42.525
+The walk is still inside it.
+
+27
+00:01:42.733 --> 00:01:45.741
+Remember the planner's phone round from the last video?
+
+28
+00:01:45.741 --> 00:01:49.514
+You call the moving day, and keep it on hold while you call the crew.
+
+29
+00:01:49.514 --> 00:01:54.380
+The crew stays on hold while you call the truck, and the truck while you call the driver.
+
+30
+00:01:54.600 --> 00:01:55.420
+Let's map it.
+
+31
+00:01:55.420 --> 00:02:00.592
+The calls on hold are the path: the classes the walk has entered and not yet left.
+
+32
+00:02:00.592 --> 00:02:02.610
+The names on the sheet are done.
+
+33
+00:02:02.610 --> 00:02:05.196
+Lesson 1's walk only looked at the sheet.
+
+34
+00:02:05.196 --> 00:02:06.836
+Look at the hold list too.
+
+35
+00:02:07.067 --> 00:02:07.899
+Let's run it.
+
+36
+00:02:07.899 --> 00:02:12.954
+The walk enters the moving day, then the crew, then the truck, then the driver.
+
+37
+00:02:12.954 --> 00:02:15.897
+The path reads MovingDay, Crew, Truck, Driver.
+
+38
+00:02:16.100 --> 00:02:18.289
+The driver's first need is the route.
+
+39
+00:02:18.289 --> 00:02:21.660
+It needs nothing, so it goes straight on the sheet: done.
+
+40
+00:02:21.867 --> 00:02:23.685
+His second need is the truck.
+
+41
+00:02:23.685 --> 00:02:26.381
+Is the truck on the sheet, on hold, or new?
+
+42
+00:02:29.567 --> 00:02:30.062
+On hold.
+
+43
+00:02:30.062 --> 00:02:31.982
+The truck is still on the path.
+
+44
+00:02:31.982 --> 00:02:35.450
+The walk has come back to something it's still building.
+
+45
+00:02:35.450 --> 00:02:36.441
+That's the loop.
+
+46
+00:02:36.667 --> 00:02:39.003
+To report it, cut the path at the truck.
+
+47
+00:02:39.003 --> 00:02:44.083
+Drop everything before it, and add the truck once more: Truck needs Driver needs Truck.
+
+48
+00:02:44.083 --> 00:02:48.463
+The moving day and the crew lead into the loop, but they aren't part of it.
+
+49
+00:02:48.667 --> 00:02:53.393
+And the error goes on the driver's truck parameter, the arrow that closes the loop.
+
+50
+00:02:53.393 --> 00:02:54.931
+That's the line you'd edit.
+
+51
+00:02:56.233 --> 00:02:58.549
+This has a name: a dependency cycle.
+
+52
+00:02:58.549 --> 00:03:02.344
+A path of needs arrows that comes back to where it started.
+
+53
+00:03:02.344 --> 00:03:08.840
+Nothing in a cycle can be built first, because each constructor needs the other object already built.
+
+54
+00:03:09.067 --> 00:03:11.752
+In the real build, it reads like this.
+
+55
+00:03:11.752 --> 00:03:16.628
+Driver.kt, line 12: Dependency cycle: Truck needs Driver needs Truck.
+
+56
+00:03:16.628 --> 00:03:21.716
+Nothing in a cycle can be built first: change one of these constructors.
+
+57
+00:03:21.933 --> 00:03:24.771
+Notice it doesn't blame the driver, or the truck.
+
+58
+00:03:24.771 --> 00:03:27.320
+It hands you the list of suspects, in order.
+
+59
+00:03:27.320 --> 00:03:29.868
+Each name is a constructor you could change.
+
+60
+00:03:30.800 --> 00:03:35.976
+Now, here's a shortcut you might try: if I've met this class before, it's a loop.
+
+61
+00:03:35.976 --> 00:03:37.254
+Let's be fair to it.
+
+62
+00:03:37.254 --> 00:03:39.299
+On this crew, it finds the loop.
+
+63
+00:03:39.299 --> 00:03:41.216
+But try it on lesson 1's crew.
+
+64
+00:03:42.233 --> 00:03:46.097
+There, the driver and the moving day both need the route.
+
+65
+00:03:46.097 --> 00:03:49.011
+The walk finishes the route for the driver.
+
+66
+00:03:49.011 --> 00:03:51.722
+Later, the moving day asks for it again.
+
+67
+00:03:51.722 --> 00:03:53.349
+Met before, so: a cycle?
+
+68
+00:03:53.349 --> 00:03:53.552
+No.
+
+69
+00:03:53.552 --> 00:03:56.737
+Two arrows into one box is sharing, not a loop.
+
+70
+00:03:56.967 --> 00:03:59.889
+So the walk asks its questions in order.
+
+71
+00:03:59.889 --> 00:04:01.277
+Nobody provides it?
+
+72
+00:04:01.277 --> 00:04:04.930
+That's a missing binding, from the section before.
+
+73
+00:04:04.930 --> 00:04:06.464
+Already on the sheet?
+
+74
+00:04:06.464 --> 00:04:07.852
+Shared, so skip it.
+
+75
+00:04:07.852 --> 00:04:08.437
+On hold?
+
+76
+00:04:08.437 --> 00:04:10.044
+A cycle, so report it.
+
+77
+00:04:10.044 --> 00:04:11.505
+Otherwise, visit it.
+
+78
+00:04:13.433 --> 00:04:15.467
+Here's the cycle check in Kotlin.
+
+79
+00:04:15.467 --> 00:04:23.047
+If the target is on the path, drop everything before it, add it once more, and report the loop on the parameter that asked.
+
+80
+00:04:23.267 --> 00:04:29.247
+And its Java twin, a javac processor doing the same check with its list called path.
+
+81
+00:04:30.067 --> 00:04:31.542
+Here the picture breaks.
+
+82
+00:04:31.542 --> 00:04:36.892
+On a real street, the driver and the truck company would sort it out with a phone call.
+
+83
+00:04:36.892 --> 00:04:38.184
+Code can't negotiate.
+
+84
+00:04:38.184 --> 00:04:40.397
+Someone has to change a constructor.
+
+85
+00:04:40.600 --> 00:04:45.367
+Lesson 3 meets Lazy, which waits to build something until it's first used.
+
+86
+00:04:45.367 --> 00:04:48.974
+Our processor still calls a loop through a Lazy a cycle.
+
+87
+00:04:48.974 --> 00:04:50.327
+It's the safe answer.
+
+88
+00:04:51.233 --> 00:04:53.776
+So, is remembering what's finished enough?
+
+89
+00:04:53.776 --> 00:04:53.958
+No.
+
+90
+00:04:53.958 --> 00:04:57.409
+A cycle is a request for something you're still building.
+
+91
+00:04:57.409 --> 00:05:00.133
+Keep the path, and check it before you visit.
+
+92
+00:05:00.133 --> 00:05:02.979
+Then the build names the loop the night before.
+
+93
+00:05:03.200 --> 00:05:03.943
+Quick check.
+
+94
+00:05:03.943 --> 00:05:07.098
+Instead of the truck, the driver asks for the crew.
+
+95
+00:05:07.098 --> 00:05:08.831
+What does the loop read now?
+
+96
+00:05:12.000 --> 00:05:14.685
+Crew needs Truck needs Driver needs Crew.
+
+97
+00:05:14.685 --> 00:05:20.514
+The error is on line 12 of Driver.kt again, because that parameter still closes the loop.
+
+98
+00:05:20.514 --> 00:05:23.199
+The loop just starts further up the path.
