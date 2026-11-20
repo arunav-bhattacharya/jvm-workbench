@@ -1,0 +1,313 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:03.788
+Back to the move.
+
+2
+00:00:03.788 --> 00:00:07.883
+Our helper prints a builder for every box with an @Builder note.
+
+3
+00:00:07.883 --> 00:00:12.747
+Now someone puts the note on an interface, Wardrobe, and Kotlin allows that.
+
+4
+00:00:12.967 --> 00:00:15.665
+Here's a question that's easy to be shy about.
+
+5
+00:00:15.665 --> 00:00:20.475
+When a processor meets something it can't handle, why not just throw an exception?
+
+6
+00:00:20.475 --> 00:00:22.821
+That's how the rest of our code says no.
+
+7
+00:00:23.733 --> 00:00:26.871
+Lesson 4's processor does just that, by accident.
+
+8
+00:00:26.871 --> 00:00:32.057
+It reads the primary constructor with two exclamation marks: I'm sure it's there.
+
+9
+00:00:32.057 --> 00:00:33.466
+An interface has none.
+
+10
+00:00:33.466 --> 00:00:35.515
+So what will the build tell you?
+
+11
+00:00:38.500 --> 00:00:38.898
+This.
+
+12
+00:00:38.898 --> 00:00:42.563
+A NullPointerException, with no error message.
+
+13
+00:00:42.563 --> 00:00:45.112
+No file, no line, no class name.
+
+14
+00:00:45.333 --> 00:00:50.914
+Ask for the stack trace, the list of calls that were running when it was thrown.
+
+15
+00:00:50.914 --> 00:00:57.680
+Over a hundred lines down sits the cause: constructorParameters, in BuilderProcessor.kt, line 88.
+
+16
+00:00:57.680 --> 00:01:00.331
+Every frame points into the processor.
+
+17
+00:01:00.331 --> 00:01:03.749
+None points at Wardrobe.kt, where the mistake is.
+
+18
+00:01:04.667 --> 00:01:07.901
+It's a very detailed tour of the helper's own pockets.
+
+19
+00:01:07.901 --> 00:01:13.171
+So the point is, a crash shows where the processor broke, not where the user went wrong.
+
+20
+00:01:14.100 --> 00:01:17.430
+And a crash does more harm than a bad message.
+
+21
+00:01:17.430 --> 00:01:28.504
+It stops KSP on the spot: the rest of the round never runs, nor do the other processors, and in KSP 2.3.14 even onError, the clean-up method, is skipped.
+
+22
+00:01:28.504 --> 00:01:33.064
+The helper dropped the clipboard in the hallway and walked off.
+
+23
+00:01:33.967 --> 00:01:40.992
+What we want is the opposite: a helper who sticks a note on the wrong box itself, saying what's wrong and what to do.
+
+24
+00:01:41.200 --> 00:01:42.175
+Let's map it.
+
+25
+00:01:42.175 --> 00:01:47.803
+The note is a message from KSPLogger, the logger KSP hands every processor.
+
+26
+00:01:47.803 --> 00:01:51.854
+The box is a symbol: KSP's object for one declaration.
+
+27
+00:01:51.854 --> 00:01:55.155
+Its place in the house is the file and line.
+
+28
+00:01:55.155 --> 00:01:56.956
+And the words are yours.
+
+29
+00:01:57.167 --> 00:02:01.901
+The logger has error, warn, info and logging, from loudest to quietest.
+
+30
+00:02:01.901 --> 00:02:06.503
+Java's annotation processors have the same tool, called the Messager.
+
+31
+00:02:07.433 --> 00:02:09.116
+Now let's climb a ladder.
+
+32
+00:02:09.116 --> 00:02:17.665
+Three bad boxes stay the same all the way: Wardrobe, an interface; Settings, an object; and Crate, with no primary constructor.
+
+33
+00:02:17.665 --> 00:02:19.549
+Each rung changes one thing.
+
+34
+00:02:19.767 --> 00:02:23.955
+Rung one, no check at all: the NullPointerException we just saw.
+
+35
+00:02:24.167 --> 00:02:29.144
+Rung two adds a check, and calls logger.error with a message but no symbol.
+
+36
+00:02:29.144 --> 00:02:33.325
+The build fails with a sentence now: @Builder can't build this.
+
+37
+00:02:33.325 --> 00:02:34.320
+But which this?
+
+38
+00:02:34.533 --> 00:02:38.459
+It's like a note on the fridge that says: somebody broke something.
+
+39
+00:02:38.459 --> 00:02:40.978
+True, and you still search the whole house.
+
+40
+00:02:40.978 --> 00:02:43.321
+A message without a symbol has no where.
+
+41
+00:02:43.533 --> 00:02:47.091
+Rung three passes the symbol as the second argument.
+
+42
+00:02:47.091 --> 00:02:49.349
+What does KSP add to the message?
+
+43
+00:02:52.333 --> 00:02:56.073
+The where: Crate.kt, colon 6, in front of the message.
+
+44
+00:02:56.073 --> 00:03:03.483
+A real Gradle build prints the full path, which a good editor turns into a link, and a line, but no column.
+
+45
+00:03:03.700 --> 00:03:08.426
+But it reported Crate and stopped, and Wardrobe and Settings were just as wrong.
+
+46
+00:03:08.426 --> 00:03:11.735
+The early stop was our choice: a return inside the loop.
+
+47
+00:03:11.967 --> 00:03:25.230
+Swap it for continue, the next section's fix, and the top rung puts a note on every bad box in one build: Wardrobe.kt line 6, Wardrobe.kt line 9, Crate.kt line 6.
+
+48
+00:03:25.230 --> 00:03:29.324
+One walk, then one phone call, not a call per box.
+
+49
+00:03:30.600 --> 00:03:33.706
+Now a detail that trips up almost everyone.
+
+50
+00:03:33.706 --> 00:03:39.773
+In Wardrobe.kt, the @Builder note is on line 5, and interface Wardrobe is on line 6.
+
+51
+00:03:39.773 --> 00:03:42.012
+Which line does the error name?
+
+52
+00:03:45.200 --> 00:03:45.696
+Line 6.
+
+53
+00:03:45.696 --> 00:03:50.514
+A symbol's location is its declaration's line, not its annotation's.
+
+54
+00:03:50.514 --> 00:03:54.623
+The helper's note goes on the box, not on the sticky note.
+
+55
+00:03:54.623 --> 00:03:57.173
+So a test that expects line 5 fails.
+
+56
+00:03:58.100 --> 00:04:04.029
+The symbol says where, so your sentence has two jobs: what is wrong, and how to fix it.
+
+57
+00:04:04.029 --> 00:04:13.367
+Read it as a user who never saw the processor's code: the annotation, the class, its kind, the next step, and no word from KSP's own API.
+
+58
+00:04:13.600 --> 00:04:15.502
+So every error names its symbol.
+
+59
+00:04:15.502 --> 00:04:19.245
+The symbol is the where; your sentence is the what and the how.
+
+60
+00:04:20.333 --> 00:04:23.080
+In both languages, the symbol goes along.
+
+61
+00:04:23.080 --> 00:04:25.760
+Kotlin passes the class to logger.error.
+
+62
+00:04:25.760 --> 00:04:35.543
+Java passes the element to the Messager's printMessage, with the kind ERROR, and javac prints the file and line, with the source line and a caret.
+
+63
+00:04:36.467 --> 00:04:37.719
+Two guardrails.
+
+64
+00:04:37.719 --> 00:04:41.978
+First, a trap with a polite name: logger.exception.
+
+65
+00:04:41.978 --> 00:04:49.244
+It prints a line that starts with e, like an error, but in KSP 2.3.14 the build passes.
+
+66
+00:04:49.467 --> 00:04:52.196
+It should have been called logger.mention.
+
+67
+00:04:52.196 --> 00:04:54.536
+If you mean fail, call logger.error.
+
+68
+00:04:54.767 --> 00:04:56.663
+Second: check before you read.
+
+69
+00:04:56.663 --> 00:05:05.447
+Every two exclamation marks, and every as cast on something from the Resolver, is a place where a check belongs, with a note on the symbol.
+
+70
+00:05:06.367 --> 00:05:07.856
+So, why not just throw?
+
+71
+00:05:07.856 --> 00:05:12.585
+An exception points into the processor, stops everyone, and names no box.
+
+72
+00:05:12.585 --> 00:05:16.990
+logger.error with the symbol points at the user's own file and line.
+
+73
+00:05:16.990 --> 00:05:21.071
+The symbol is the where; your sentence is the what and the how.
+
+74
+00:05:21.300 --> 00:05:22.147
+Quick check.
+
+75
+00:05:22.147 --> 00:05:27.368
+In the same file, @Builder is on line 8, and object Settings is on line 9.
+
+76
+00:05:27.368 --> 00:05:29.555
+Which line does the error name?
+
+77
+00:05:32.733 --> 00:05:35.249
+Line 9, the declaration's line.
+
+78
+00:05:35.249 --> 00:05:40.768
+That's the real output: Wardrobe.kt, colon 9, Settings is an object.
