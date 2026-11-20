@@ -329,7 +329,7 @@ class Ksp04KotlinPoet(Narrated):
         nums = VGroup(*[M(str(i + 1), 22, GREY_C).move_to([-1.75, l_.get_center()[1], 0]) for i, l_ in enumerate(lb)])
         ftitle = VGroup(M("LoadBuilder.kt", 24, HAND), T("written by the template", 22, GREY_B)).arrange(RIGHT, buff=0.3)
         ftitle.next_to(lb, UP, buff=0.4).align_to(nums, LEFT)
-        lq = T("same program, different package", 24, GREY_A).next_to(load, DOWN, buff=0.3)
+        lq = T("same program, different package", 22, GREY_A).next_to(load, DOWN, buff=0.3).align_to(load, LEFT)
         self.say("load_q")
         self.play(FadeOut(VGroup(tg, lamp_ok)), run_time=0.5)
         self.play(FadeIn(load, shift=DOWN * 0.15), FadeIn(lnote2), run_time=0.7)
@@ -345,9 +345,7 @@ class Ksp04KotlinPoet(Narrated):
 
         err = M("e: LoadBuilder.kt:4:24 Unresolved reference 'Box'.", 24, BAD).move_to([-1.75, -1.1, 0], aligned_edge=LEFT)
         fit(err, 8.0)
-        slot = DashedVMobject(Rectangle(width=3.4, height=0.36), num_dashes=26).set_stroke(BAD, 2)
-        slot.move_to([lb[0].get_left()[0] + 1.7, lb[1].get_center()[1], 0])
-        slot_t = T("no import line", 20, BAD).move_to(slot)
+        slot_t = T("(no import line here)", 22, BAD).move_to([lb[0].get_left()[0], lb[1].get_center()[1], 0], aligned_edge=LEFT)
         ul = Underline(part(lb[3], "Box"), color=BAD, buff=0.05, stroke_width=3)
         who = VGroup(VGroup(T("KSP:", 26, GREY_A), T("wrote it, without a word", 26, GREY_B)).arrange(RIGHT, buff=0.15),
                      VGroup(T("the Kotlin compiler:", 26, WHITE), M("e: ...", 26, BAD)).arrange(RIGHT, buff=0.15))
@@ -355,7 +353,7 @@ class Ksp04KotlinPoet(Narrated):
         self.say("load_a")
         self.play(FadeIn(err, shift=UP * 0.1), Create(ul), run_time=0.7)
         self.at_text("the template never", lead=0.3)
-        self.play(Create(slot), FadeIn(slot_t), run_time=0.7)
+        self.play(FadeIn(slot_t), run_time=0.7)
         self.at_text("not KSP", lead=0.3)
         self.play(FadeIn(who[0]), run_time=0.5)
         self.at_text("but the Kotlin", lead=0.3)
@@ -417,11 +415,11 @@ class Ksp04KotlinPoet(Narrated):
         self.clear()
 
         # ================= the label printer, mapped =================
-        pr = printer(1.2).move_to([-1.0, 0.75, 0])
+        pr = printer(1.2).move_to([-0.65, 0.75, 0])
         parts = VGroup(spec_chip("a class: LampBuilder", WHITE, 24), spec_chip("a field: name, String", WHITE, 24)).arrange(DOWN, buff=0.3)
-        parts.move_to([-4.85, 0.75, 0])
+        parts.move_to([-4.45, 0.75, 0])
         strip = paper(["private var name: String? = null"], 22)
-        fit(strip, 5.4).move_to([3.75, 0.75, 0])
+        fit(strip, 5.2).move_to([3.85, 0.75, 0])
         self.say("printer")
         self.play(FadeIn(pr, scale=0.9), run_time=0.8)
         self.at(1)
@@ -526,7 +524,7 @@ class Ksp04KotlinPoet(Narrated):
         heads = VGroup(T("takes", 24, GREY_B).move_to([-4.3, 1.85, 0]),
                        T("you pass, and it prints", 24, GREY_B).move_to([-2.9, 1.85, 0], aligned_edge=LEFT))
         rowdata = [
-            ("%T", PT, "a type", "Box", [("Box", WHITE), (",  plus", GREY_B), ("import movemate.Box", PT)]),
+            ("%T", PT, "a type", "Box", [("Box", WHITE), ("plus", GREY_B), ("import movemate.Box", PT)]),
             ("%N", PN, "a name", '"in"', [("`in`", WHITE)]),
             ("%S", PS, "a string", 'Write $room on each "fragile" box', [('"Write ${\'$\'}room on each \\"fragile\\" box"', WHITE)]),
             ("%L", PL, "anything", "null", [("null", WHITE)]),
@@ -537,7 +535,7 @@ class Ksp04KotlinPoet(Narrated):
             tk = T(takes, 26, c).move_to([-4.3, y, 0])
             gv = M(given, 24, GREY_A).move_to([-2.9, y + 0.24, 0], aligned_edge=LEFT)
             ar = Arrow([-2.85, y - 0.24, 0], [-2.3, y - 0.24, 0], buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.3)
-            ot = VGroup(*[(T if s_.startswith(",") else M)(s_, 24, cc) for s_, cc in out]).arrange(RIGHT, buff=0.15)
+            ot = VGroup(*[(T if s_ == "plus" else M)(s_, 24, cc) for s_, cc in out]).arrange(RIGHT, buff=0.25)
             fit(ot, 8.6)
             ot.move_to([-2.15, y - 0.24, 0], aligned_edge=LEFT)
             prow.append(VGroup(k, tk, gv, ar, ot))

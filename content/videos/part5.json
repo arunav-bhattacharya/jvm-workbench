@@ -1,14 +1,14 @@
 {"videos": [
     {"slug": "ksp01-cards", "lesson": "ksp-01", "section": 2, "title": "Code that writes code: a helper reads each box's label during the build and writes the card, so it can't drift"},
-    {"slug": "ksp02-first-processor", "lesson": "ksp-02", "section": 2, "title": "Your first processor: find the sticky notes, write one file per class, and why writing it twice fails"},
+    {"slug": "ksp02-first-processor", "lesson": "ksp-02", "section": 2, "title": "Your first processor writes the cards: one file per class, a second round that finds nothing new, and why writing a file twice fails"},
     {"slug": "ksp03-labels", "lesson": "ksp-03", "section": 1, "title": "Reading a label: a type reference, the resolved type, nullability and type arguments, level by level"},
-    {"slug": "ksp04-kotlinpoet", "lesson": "ksp-04", "section": 1, "title": "KotlinPoet: build the file from specs, and let the placeholders write the imports"},
+    {"slug": "ksp04-kotlinpoet", "lesson": "ksp-04", "section": 1, "title": "KotlinPoet as a label printer: specs build LampBuilder.kt, and %T writes the import the template forgot"},
     {"slug": "ksp05-errors", "lesson": "ksp-05", "section": 1, "title": "From a crash to a note on the exact box: errors that name the file and line"},
     {"slug": "ksp06-rounds", "lesson": "ksp-06", "section": 0, "title": "Rounds made visible: a receipt written in round 1 gets its card in round 2, and a box set aside waits its turn"},
-    {"slug": "ksp07-incremental", "lesson": "ksp-07", "section": 2, "title": "Wrong Dependencies on purpose: a master list that shrinks to one line, and a build that stays green"},
-    {"slug": "ksp08-testing", "lesson": "ksp-08", "section": 1, "title": "Four checks, weakest first: a planted bug that two checks miss and two catch"},
-    {"slug": "ksp09-choosing", "lesson": "ksp-09", "section": 1, "title": "Jobs a helper can't do: when the class itself must change, and how to choose the tool"},
-    {"slug": "cap5-component", "lesson": "cap5-01", "section": 2, "title": "The plan for the whole day: a generated component builds the crew in dependency order"},
-    {"slug": "cap5-mistakes", "lesson": "cap5-02", "section": 2, "title": "The driver waits for the truck: finding a cycle the night before, with the whole path"},
-    {"slug": "cap5-payoff", "lesson": "cap5-03", "section": 2, "title": "Proof, not promises: no reflection in the generated code, and what one edit rebuilds"}
+    {"slug": "ksp07-incremental", "lesson": "ksp-07", "section": 2, "title": "Wrong Dependencies on purpose: the master list shrinks to one mirror, then vanishes, and only an incremental build shows it"},
+    {"slug": "ksp08-testing", "lesson": "ksp-08", "section": 1, "title": "Four checks, weakest first: a dropped question mark that the exit code and a contains miss, and a golden file and a call catch"},
+    {"slug": "ksp09-choosing", "lesson": "ksp-09", "section": 1, "title": "Jobs a helper can't do: a second Lamp won't compile, a card next to the box will, and three questions pick the tool"},
+    {"slug": "cap5-component", "lesson": "cap5-01", "section": 2, "title": "The plan for the whole day: a depth-first walk writes the crew in dependency order, and a swapped line won't compile"},
+    {"slug": "cap5-mistakes", "lesson": "cap5-02", "section": 2, "title": "The driver waits for the truck: keep the path the walk is on, and the build names the loop before anyone moves"},
+    {"slug": "cap5-payoff", "lesson": "cap5-03", "section": 2, "title": "Proof, not promises: a test reads the generated code, the class log agrees, and KSP's log shows what one edit redoes"}
 ]}

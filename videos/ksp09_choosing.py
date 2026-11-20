@@ -287,10 +287,10 @@ class Ksp09Choosing(Narrated):
         self.wipe()
 
         # ================= the wish and the shy question =================
-        lamp = cbox(["Lamp", "name: String", "bulbs: Int", "shade: String?"], 2.9, 2.1).move_to([-3.6, 0.2, 0])
+        lamp = cbox(["Lamp", "name: String", "bulbs: Int", "shade: String?"], 2.9, 2.1).move_to([-3.6, 0.75, 0])
         lamp_t = M("Lamp.kt", 22, BOX).next_to(lamp, DOWN, buff=0.2)
         wish = VGroup(T("Java callers want", 26, GREY_A), M("lamp.inventoryCard()", 26, NOTE),
-                      T("a real member, inside Lamp itself", 24, NOTE)).arrange(DOWN, buff=0.15).move_to([2.8, 0.9, 0])
+                      T("a real member, inside Lamp itself", 24, NOTE)).arrange(DOWN, buff=0.15).move_to([2.8, 1.2, 0])
         self.say("wish")
         self.play(FadeIn(lamp, shift=DOWN * 0.2), FadeIn(lamp_t), run_time=0.8)
         self.play(FadeIn(wish[0]), FadeIn(wish[1], shift=UP * 0.1), run_time=0.7)
@@ -310,8 +310,8 @@ class Ksp09Choosing(Narrated):
         self.hold(after=0.5)
 
         # ================= RepackDemo: write Lamp again =================
-        hp = helper(1.25).move_to([-0.6, -0.35, 0])
-        lamp2 = cbox(["Lamp", "... the same,", "+ inventoryCard()"], 2.9, 2.1).move_to([3.2, 0.2, 0])
+        hp = helper(1.25).move_to([-0.6, 0.2, 0])
+        lamp2 = cbox(["Lamp", "... the same,", "+ inventoryCard()"], 2.9, 2.1).move_to([3.2, 0.75, 0])
         lamp2_t = M("LampExtra.kt, generated", 22, CARD).next_to(lamp2, DOWN, buff=0.2)
         wr = Arrow(hp.get_right() + UP * 0.2, lamp2.get_left() + DOWN * 0.1, buff=0.12, stroke_width=3, color=HELPER,
                    max_tip_length_to_length_ratio=0.2)
@@ -388,7 +388,7 @@ class Ksp09Choosing(Narrated):
         excard = card(["fun Lamp.inventoryCard(): String =", "    \"Lamp: name=$name, ...\""], CARD, 22)
         exl = M("LampExtra.kt, a new file", 22, CARD)
         exg = VGroup(exl, excard).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        exg.move_to([lamp.get_right()[0] + 0.3, 0.3, 0], aligned_edge=LEFT)
+        exg.move_to([lamp.get_right()[0] + 0.3, 0.85, 0], aligned_edge=LEFT)
         ok_l = code_block(["=== add a new card next to it: OK",
                            "desk.inventoryCard() returns: Lamp: name=desk lamp, bulbs=1, shade=null"], 22, buff=0.12)
         part(ok_l[0], "OK").set_color(OK)
@@ -401,7 +401,7 @@ class Ksp09Choosing(Narrated):
         self.say("ext")
         self.play(FadeOut(VGroup(ea1, ea2, x1, x2, comp, sly, lamp2_t)), FadeOut(lamp2, shift=RIGHT * 0.5), run_time=0.7)
         self.at(1)
-        self.play(hp.animate.move_to([5.6, -0.35, 0]), run_time=0.6)
+        self.play(hp.animate.move_to([5.6, 0.2, 0]), run_time=0.6)
         self.play(FadeIn(exg, shift=LEFT * 0.8), run_time=1.0)
         self.at(2)
         self.play(FadeIn(okh), FadeIn(okp), FadeIn(ok_l, shift=UP * 0.1), run_time=0.8)
@@ -440,15 +440,17 @@ class Ksp09Choosing(Narrated):
         self.wipe()
 
         # ================= the mover: a compiler plugin =================
-        FL = -0.6
+        FL = 0.3
         floor = Line([-6.5, FL, 0], [6.5, FL, 0], stroke_width=1.5, color=GREY_D)
-        mv = person(MOVER, 1.4).move_to([-4.6, FL + 0.48, 0])
-        ob = open_box(BOX, 1.4).move_to([-2.5, FL + 0.66, 0])
+        mv = person(MOVER, 1.4).move_to([-4.6, 0, 0])
+        mv.shift(UP * (FL - mv.get_bottom()[1]))
+        ob = open_box(BOX, 1.4).move_to([-2.5, 0, 0])
+        ob.shift(UP * (FL - ob[0].get_bottom()[1]))
         inside = mini_card(MOVER, 0.6, 0.4).move_to(ob.get_top() + UP * 1.0)
         nm = VGroup(T("compiler plugin:", 30, MOVER),
                     T("a jar the Kotlin compiler loads", 26),
                     T("to change what it writes into class files", 26)).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        nm.move_to([2.6, 1.6, 0])
+        nm.move_to([2.6, 2.1, 0])
         mvl = T("the mover who repacks the box", 24, MOVER).next_to(VGroup(mv, ob), DOWN, buff=0.3)
         self.say("name")
         self.play(Create(floor), FadeIn(mv), FadeIn(ob), run_time=0.8)
@@ -467,7 +469,7 @@ class Ksp09Choosing(Narrated):
         tr = VGroup(chip_row("all-open", "removes final from classes a framework must subclass"),
                     chip_row("no-arg", "adds a constructor Kotlin code can't see"),
                     chip_row("kotlinx.serialization", "writes a serializer inside each @Serializable class")
-                    ).arrange(DOWN, aligned_edge=LEFT, buff=0.22).move_to([0, -2.35, 0])
+                    ).arrange(DOWN, aligned_edge=LEFT, buff=0.22).move_to([0, -2.45, 0])
         fit(tr, 12.6)
         trh = T("met in the Advanced Kotlin track (kt-06):", 22, GREY_B).next_to(tr, UP, buff=0.18).align_to(tr, LEFT)
         self.say("three")
@@ -524,19 +526,20 @@ class Ksp09Choosing(Narrated):
         self.play(FadeOut(rc), run_time=0.5)
 
         # ================= the decision chart =================
-        QX, AX = -2.75, 4.15
+        QX, AX = -2.95, 3.975
         QY = [2.0, 0.55, -0.9]
 
         def qbox(text, y):
-            t = T(text, 26)
-            r = RoundedRectangle(corner_radius=0.12, width=7.2, height=0.95).set_stroke(GREY_A, 2.5).set_fill("#141414", 1)
+            t = T(text, 24)
+            r = RoundedRectangle(corner_radius=0.12, width=6.7, height=0.95).set_stroke(GREY_A, 2.5).set_fill("#141414", 1)
             return VGroup(r, t.move_to(r)).move_to([QX, y, 0])
 
         def abox(kind, title, sub, color, y):
-            fig = cast_member(kind, 0.62)
+            fig = cast_member(kind, 0.55)
             t = VGroup(T(title, 26, color), T(sub, 20, GREY_A)).arrange(DOWN, buff=0.06)
             inner = VGroup(fig, t).arrange(RIGHT, buff=0.25)
-            r = RoundedRectangle(corner_radius=0.12, width=4.5, height=1.15).set_stroke(color, 2.5).set_fill(dim(color, 0.12), 1)
+            fit(inner, 4.6)
+            r = RoundedRectangle(corner_radius=0.12, width=4.95, height=1.15).set_stroke(color, 2.5).set_fill(dim(color, 0.12), 1)
             return VGroup(r, inner.move_to(r)).move_to([AX, y, 0])
 
         q = [qbox("Must the job change a class you wrote?", QY[0]),

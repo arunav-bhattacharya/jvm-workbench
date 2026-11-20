@@ -13,325 +13,325 @@ One empty room, a few boxes, the helper with his clipboard, and a good look at t
 If he labels the lamp wrong, they want to know today, not at the new house.
 
 4
-00:00:16.917 --> 00:00:19.747
+00:00:16.900 --> 00:00:19.730
 A processor test is that practice pack.
 
 5
-00:00:19.747 --> 00:00:29.398
+00:00:19.730 --> 00:00:29.381
 A library called kctfork compiles a few lines of Kotlin in memory, runs KSP and your processor on them, and hands back what happened.
 
 6
-00:00:29.398 --> 00:00:32.809
+00:00:29.381 --> 00:00:32.792
 No Gradle project, and a fresh room every time.
 
 7
-00:00:33.750 --> 00:00:36.918
+00:00:33.700 --> 00:00:36.868
 Here's a question many of us never ask out loud.
 
 8
-00:00:36.918 --> 00:00:41.802
+00:00:36.868 --> 00:00:41.752
 My test compiles the code, and finds the class the processor should write.
 
 9
-00:00:41.802 --> 00:00:42.527
+00:00:41.752 --> 00:00:42.477
 It's green.
 
 10
-00:00:42.527 --> 00:00:44.507
+00:00:42.477 --> 00:00:44.457
 So the processor works, right?
 
 11
-00:00:45.600 --> 00:00:48.577
+00:00:45.533 --> 00:00:48.510
 Let's find out with the smallest example there is.
 
 12
-00:00:48.577 --> 00:00:51.553
+00:00:48.510 --> 00:00:51.487
 A lamp has a name, a number of bulbs, and a shade.
 
 13
-00:00:51.553 --> 00:00:56.137
+00:00:51.487 --> 00:00:56.071
 The shade is a String with a question mark, because some lamps have no shade.
 
 14
-00:00:56.383 --> 00:01:04.734
+00:00:56.300 --> 00:01:04.651
 The @Builder processor writes LampBuilder: a small class that collects a lamp's values one call at a time, then builds the lamp.
 
 15
-00:01:04.734 --> 00:01:08.322
+00:01:04.651 --> 00:01:08.239
 Line 18 sets the shade, and it keeps the question mark.
 
 16
-00:01:08.567 --> 00:01:10.014
+00:01:08.467 --> 00:01:09.914
 Now let's plant a bug.
 
 17
-00:01:10.014 --> 00:01:15.539
+00:01:09.914 --> 00:01:15.439
 The processor turns each type into KotlinPoet's TypeName through one small function.
 
 18
-00:01:15.539 --> 00:01:21.920
+00:01:15.439 --> 00:01:21.820
 The demo hands it a broken one, copy with nullable equals false, which drops every question mark.
 
 19
-00:01:22.167 --> 00:01:24.190
+00:01:22.033 --> 00:01:24.057
 So line 18 loses one character.
 
 20
-00:01:24.190 --> 00:01:31.631
+00:01:24.057 --> 00:01:31.497
 The smallest mark on the line, doing the heaviest lifting: it's the only thing that says a lamp may have no shade.
 
 21
-00:01:32.567 --> 00:01:41.289
+00:01:32.400 --> 00:01:41.123
 Every processor test makes some of four checks: the exit code, the generated text, the messages, and a call into the generated code.
 
 22
-00:01:41.289 --> 00:01:46.906
+00:01:41.123 --> 00:01:46.740
 Messages matter when a processor refuses bad input, and this builder refuses nothing.
 
 23
-00:01:46.906 --> 00:01:51.268
+00:01:46.740 --> 00:01:51.101
 So the demo reads the text two ways, a quick one and a strict one.
 
 24
-00:01:51.268 --> 00:01:53.052
+00:01:51.101 --> 00:01:52.885
 Four checks, weakest first.
 
 25
-00:01:53.300 --> 00:01:56.098
+00:01:53.100 --> 00:01:55.898
 One, the exit code: how the compile ended.
 
 26
-00:01:56.098 --> 00:02:00.762
+00:01:55.898 --> 00:02:00.562
 OK, a compilation error, or an internal error when a processor throws.
 
 27
-00:02:00.762 --> 00:02:03.560
+00:02:00.562 --> 00:02:03.360
 Call it the glance: did the helper finish?
 
 28
-00:02:03.800 --> 00:02:07.234
+00:02:03.567 --> 00:02:07.001
 Two, does the generated text contain class LampBuilder?
 
 29
-00:02:07.234 --> 00:02:10.107
+00:02:07.001 --> 00:02:09.873
 The skim: is there a card with the right name?
 
 30
-00:02:10.350 --> 00:02:17.767
+00:02:10.100 --> 00:02:17.517
 Three, a golden file: a stored copy of the output you expect, compared with the real output on every run.
 
 31
-00:02:17.767 --> 00:02:18.897
+00:02:17.517 --> 00:02:18.647
 The proofreader.
 
 32
-00:02:19.133 --> 00:02:20.590
+00:02:18.867 --> 00:02:20.323
 Four, call the code.
 
 33
-00:02:20.590 --> 00:02:31.880
+00:02:20.323 --> 00:02:31.613
 kctfork's class loader, the JVM object that loads compiled classes, can see LampBuilder, even though the test was compiled long before LampBuilder existed.
 
 34
-00:02:31.880 --> 00:02:35.886
+00:02:31.613 --> 00:02:35.619
 So the test can call it, with a lamp that has no shade.
 
 35
-00:02:35.886 --> 00:02:36.760
+00:02:35.619 --> 00:02:36.493
 The try out.
 
 36
-00:02:37.000 --> 00:02:39.195
+00:02:36.700 --> 00:02:38.895
 Same broken builder, four checks.
 
 37
-00:02:39.195 --> 00:02:42.121
+00:02:38.895 --> 00:02:41.821
 Which ones notice the missing question mark?
 
 38
-00:02:42.121 --> 00:02:43.185
+00:02:41.821 --> 00:02:42.885
 Pause and guess.
 
 39
-00:02:46.583 --> 00:02:49.436
+00:02:46.267 --> 00:02:49.119
 The glance: passes, the exit code is OK.
 
 40
-00:02:49.436 --> 00:02:53.573
+00:02:49.119 --> 00:02:53.256
 The skim: passes, the text does contain class LampBuilder.
 
 41
-00:02:53.817 --> 00:02:56.453
+00:02:53.467 --> 00:02:56.103
 The proofreader: fails, at line 18.
 
 42
-00:02:56.453 --> 00:02:59.390
+00:02:56.103 --> 00:02:59.040
 Expected: shade, String, question mark.
 
 43
-00:02:59.390 --> 00:03:01.047
+00:02:59.040 --> 00:03:00.697
 Actual: shade, String.
 
 44
-00:03:01.283 --> 00:03:02.974
+00:03:00.900 --> 00:03:02.591
 And the try out: fails.
 
 45
-00:03:02.974 --> 00:03:09.958
+00:03:02.591 --> 00:03:09.575
 Calling shade with null throws a NullPointerException: parameter specified as non null is null.
 
 46
-00:03:10.200 --> 00:03:12.568
+00:03:09.800 --> 00:03:12.168
 Notice the first two passed honestly.
 
 47
-00:03:12.568 --> 00:03:17.815
+00:03:12.168 --> 00:03:17.415
 The broken builder is valid Kotlin, so it compiles, and it does contain the class.
 
 48
-00:03:17.815 --> 00:03:22.295
+00:03:17.415 --> 00:03:21.895
 A test made of those two proves one thing: the processor didn't crash.
 
 49
-00:03:22.533 --> 00:03:28.679
+00:03:22.100 --> 00:03:28.246
 It's like checking moving day by confirming that a van showed up, with the right name painted on the side.
 
 50
-00:03:28.679 --> 00:03:31.405
+00:03:28.246 --> 00:03:30.971
 True, and it tells you nothing about your lamp.
 
 51
-00:03:31.405 --> 00:03:35.289
+00:03:30.971 --> 00:03:34.856
 The bug would reach the first family with a lamp that has no shade.
 
 52
-00:03:36.233 --> 00:03:37.513
+00:03:35.767 --> 00:03:37.046
 So, the golden file.
 
 53
-00:03:37.513 --> 00:03:38.728
+00:03:37.046 --> 00:03:38.261
 It has good habits.
 
 54
-00:03:38.728 --> 00:03:46.659
+00:03:38.261 --> 00:03:46.193
 When the file is missing, the check writes it and fails once, so a person reads the new text before it becomes the standard.
 
 55
-00:03:46.659 --> 00:03:49.154
+00:03:46.193 --> 00:03:48.687
 It reports the first line that differs.
 
 56
-00:03:49.154 --> 00:03:52.736
+00:03:48.687 --> 00:03:52.269
 And UPDATE_GOLDEN equals true rewrites them, on purpose.
 
 57
-00:03:52.983 --> 00:03:56.488
+00:03:52.500 --> 00:03:56.005
 But it's a proofreader with no sense of proportion.
 
 58
-00:03:56.488 --> 00:04:00.199
+00:03:56.005 --> 00:03:59.715
 A moved space fails as loudly as a lost question mark.
 
 59
-00:04:00.199 --> 00:04:10.300
+00:03:59.715 --> 00:04:09.817
 An upgrade that changes the formatting fails every golden file you have, as KotlinPoet 2.4.0 did when it changed how annotation arrays are written.
 
 60
-00:04:10.300 --> 00:04:11.399
+00:04:09.817 --> 00:04:10.916
 No bug in sight.
 
 61
-00:04:11.633 --> 00:04:13.657
+00:04:11.133 --> 00:04:13.157
 That's why the try out matters.
 
 62
-00:04:13.657 --> 00:04:15.941
+00:04:13.157 --> 00:04:15.441
 The golden file catches any change.
 
 63
-00:04:15.941 --> 00:04:18.943
+00:04:15.441 --> 00:04:18.443
 The call tells you whether the change matters.
 
 64
-00:04:18.943 --> 00:04:19.596
+00:04:18.443 --> 00:04:19.096
 Keep both.
 
 65
-00:04:20.533 --> 00:04:21.769
+00:04:20.000 --> 00:04:21.236
 So here's the rule.
 
 66
-00:04:21.769 --> 00:04:25.671
+00:04:21.236 --> 00:04:25.138
 A test that only compiles proves the processor didn't crash.
 
 67
-00:04:25.671 --> 00:04:27.167
+00:04:25.138 --> 00:04:26.633
 Call the code it wrote.
 
 68
-00:04:28.167 --> 00:04:38.520
+00:04:27.600 --> 00:04:37.953
 Here are the four checks in one Kotlin test: the exit code, the text against a golden file, no messages, and a call into the builder, with null for the shade.
 
 69
-00:04:38.767 --> 00:04:44.241
+00:04:38.167 --> 00:04:43.641
 Java's annotation processors have the same kind of library, Google's compile-testing.
 
 70
-00:04:44.241 --> 00:04:47.140
+00:04:43.641 --> 00:04:46.540
 It checks the compile and the generated file.
 
 71
-00:04:47.140 --> 00:04:52.035
+00:04:46.540 --> 00:04:51.435
 To call the code, you test from a module whose own build runs the processor.
 
 72
-00:04:52.983 --> 00:04:55.784
+00:04:52.367 --> 00:04:55.167
 So, does a green test mean a working processor?
 
 73
-00:04:55.784 --> 00:04:57.333
+00:04:55.167 --> 00:04:56.716
 Only if it calls the code.
 
 74
-00:04:57.333 --> 00:05:00.193
+00:04:56.716 --> 00:04:59.576
 The glance and the skim say the helper finished.
 
 75
-00:05:00.193 --> 00:05:02.457
+00:04:59.576 --> 00:05:01.840
 The proofreader says the card changed.
 
 76
-00:05:02.457 --> 00:05:05.198
+00:05:01.840 --> 00:05:04.581
 The try out says whether the lamp still works.
 
 77
-00:05:05.433 --> 00:05:09.509
+00:05:04.800 --> 00:05:08.875
 One more thing about the practice room: it's fresh every time.
 
 78
-00:05:09.509 --> 00:05:15.950
+00:05:08.875 --> 00:05:15.317
 A second, incremental build never happens there, so lesson 7's wrong Dependencies pass every test.
 
 79
-00:05:15.950 --> 00:05:17.528
+00:05:15.317 --> 00:05:16.895
 Those need a real build.
 
 80
-00:05:17.767 --> 00:05:18.553
+00:05:17.100 --> 00:05:17.886
 Quick check.
 
 81
-00:05:18.553 --> 00:05:22.943
+00:05:17.886 --> 00:05:22.277
 Fix the bug with copy and no arguments, so the question marks stay.
 
 82
-00:05:22.943 --> 00:05:25.040
+00:05:22.277 --> 00:05:24.373
 What do the four checks say now?
 
 83
-00:05:28.233 --> 00:05:35.177
+00:05:27.567 --> 00:05:34.511
 The exit code is OK, the text has the class, the golden file says Matches, and shade with null works.
 
 84
-00:05:35.177 --> 00:05:36.140
+00:05:34.511 --> 00:05:35.473
 All four pass.

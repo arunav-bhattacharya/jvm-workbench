@@ -265,117 +265,117 @@ KSP's own docs say it essentially disables incremental processing.
 Correct, and slow.
 
 67
-00:03:57.033 --> 00:03:59.475
+00:03:57.033 --> 00:03:59.461
 Here's what makes these bugs sneaky.
 
 68
-00:03:59.475 --> 00:04:04.290
+00:03:59.461 --> 00:04:04.248
 A clean build fixes all three, because it reads every box from scratch.
 
 69
-00:04:04.290 --> 00:04:08.359
-So do the kctfork tests, which start clean on every compile.
+00:04:04.248 --> 00:04:08.429
+The kctfork tests pass too: they start clean on every compile.
 
 70
-00:04:08.359 --> 00:04:13.039
+00:04:08.429 --> 00:04:13.081
 Only an incremental build, after an ordinary edit, shows the mistake.
 
 71
-00:04:13.267 --> 00:04:15.473
+00:04:13.300 --> 00:04:15.506
 Java has one safety net here.
 
 72
-00:04:15.473 --> 00:04:23.462
+00:04:15.506 --> 00:04:23.495
 When an isolating javac processor names no source element, Gradle recompiles every file: slow, but right.
 
 73
-00:04:23.462 --> 00:04:25.212
+00:04:23.495 --> 00:04:25.245
 KSP believes your note.
 
 74
-00:04:25.433 --> 00:04:28.888
+00:04:25.467 --> 00:04:28.922
 So it's tempting to run clean whenever something looks odd.
 
 75
-00:04:28.888 --> 00:04:32.636
+00:04:28.922 --> 00:04:32.670
 That's redoing every card in the house because one looked wrong.
 
 76
-00:04:32.636 --> 00:04:35.096
+00:04:32.670 --> 00:04:35.129
 It works, and it's how weekends disappear.
 
 77
-00:04:36.000 --> 00:04:37.288
+00:04:36.033 --> 00:04:37.321
 So here's the rule.
 
 78
-00:04:37.288 --> 00:04:44.270
+00:04:37.321 --> 00:04:44.304
 A generated file that's right after a clean build, and wrong after an edit, has the wrong Dependencies.
 
 79
-00:04:44.270 --> 00:04:44.881
+00:04:44.304 --> 00:04:44.914
 Fix them.
 
 80
-00:04:44.881 --> 00:04:46.779
+00:04:44.914 --> 00:04:46.812
 Don't make cleaning a habit.
 
 81
-00:04:47.767 --> 00:04:49.712
+00:04:47.800 --> 00:04:49.746
 Here's the right note in code.
 
 82
-00:04:49.712 --> 00:04:57.106
+00:04:49.746 --> 00:04:57.139
 Read it aloud: this list came from the file of every class on it, each file once, and new files can change it too.
 
 83
-00:04:57.106 --> 00:05:02.229
+00:04:57.139 --> 00:05:02.263
 Java names every class as an origin, and marks the whole processor aggregating.
 
 84
-00:05:03.133 --> 00:05:06.259
+00:05:03.167 --> 00:05:06.292
 So, does a wrong Dependencies fail the build?
 
 85
-00:05:06.259 --> 00:05:06.467
+00:05:06.292 --> 00:05:06.500
 No.
 
 86
-00:05:06.467 --> 00:05:09.731
+00:05:06.500 --> 00:05:09.765
 It fails a later build, after an ordinary edit.
 
 87
-00:05:09.731 --> 00:05:12.023
+00:05:09.765 --> 00:05:12.057
 A card for one box names its box.
 
 88
-00:05:12.023 --> 00:05:16.329
+00:05:12.057 --> 00:05:16.363
 A list of many boxes names them all, and says yes to new ones.
 
 89
-00:05:16.533 --> 00:05:17.356
+00:05:16.567 --> 00:05:17.389
 Quick check.
 
 90
-00:05:17.356 --> 00:05:23.937
+00:05:17.389 --> 00:05:23.971
 Your processor writes one builder per class, each made from its own class's file, and isolating.
 
 91
-00:05:23.937 --> 00:05:25.309
+00:05:23.971 --> 00:05:25.342
 You add a new class.
 
 92
-00:05:25.309 --> 00:05:26.885
+00:05:25.342 --> 00:05:26.919
 Does anything go stale?
 
 93
-00:05:30.067 --> 00:05:30.280
+00:05:30.100 --> 00:05:30.314
 No.
 
 94
-00:05:30.280 --> 00:05:36.475
+00:05:30.314 --> 00:05:36.508
 The new file is dirty itself, so it gets its own builder, and no other output needs it.
 
 95
-00:05:36.475 --> 00:05:40.604
+00:05:36.508 --> 00:05:40.637
 Only an output that lists many boxes must say aggregating.

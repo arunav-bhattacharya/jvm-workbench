@@ -1,0 +1,293 @@
+WEBVTT
+
+1
+00:00:02.700 --> 00:00:07.059
+The last two lessons made two promises about the generated plan.
+
+2
+00:00:07.059 --> 00:00:08.898
+One: it uses no reflection.
+
+3
+00:00:08.898 --> 00:00:12.235
+Two: one small edit doesn't redo the whole build.
+
+4
+00:00:12.467 --> 00:00:16.708
+Reflection is a program inspecting its own classes while it runs.
+
+5
+00:00:16.708 --> 00:00:25.451
+Part 4's container did exactly that: at the new house, every time the program started, it opened the boxes to read their sticky notes.
+
+6
+00:00:25.667 --> 00:00:28.602
+So here's a question that's easy to be shy about.
+
+7
+00:00:28.602 --> 00:00:31.538
+How would I actually know either promise is true?
+
+8
+00:00:31.538 --> 00:00:33.815
+Do I just take the tool's word for it?
+
+9
+00:00:36.200 --> 00:00:36.405
+No.
+
+10
+00:00:36.405 --> 00:00:39.619
+Each promise gets a check you can run yourself.
+
+11
+00:00:39.619 --> 00:00:41.671
+For the first, read the cards.
+
+12
+00:00:41.671 --> 00:00:44.269
+For the second, read the helper's log.
+
+13
+00:00:45.200 --> 00:00:47.302
+The first check is a test.
+
+14
+00:00:47.302 --> 00:01:00.403
+It reads every file KSP generated, and fails if any of them mentions reflection: java.lang.reflect, kotlin.reflect, Class.forName, and three more words like them.
+
+15
+00:01:00.633 --> 00:01:04.467
+Here it is in Kotlin, with the same check in Java below it.
+
+16
+00:01:04.467 --> 00:01:05.701
+It's a cheap habit.
+
+17
+00:01:05.701 --> 00:01:10.444
+It fails on the day someone just quickly reads an annotation at run time.
+
+18
+00:01:10.444 --> 00:01:12.393
+There's always a just quickly.
+
+19
+00:01:13.300 --> 00:01:19.231
+The cold-start race from earlier in this lesson agrees, from the other side.
+
+20
+00:01:19.231 --> 00:01:23.055
+A JVM switch logged every class as it was loaded.
+
+21
+00:01:23.055 --> 00:01:26.020
+The generated plan loaded 817 classes.
+
+22
+00:01:26.020 --> 00:01:28.985
+The reflection container loaded 1,059.
+
+23
+00:01:29.200 --> 00:01:34.766
+The generated side loaded no proxy classes, and none of the four annotation classes.
+
+24
+00:01:34.766 --> 00:01:40.861
+Reflection made six proxy classes while it ran, to stand for the annotations it was reading.
+
+25
+00:01:41.067 --> 00:01:49.494
+The times jumped around on a busy machine, so treat them as rough: 25.5 milliseconds to wire the crew, against 71.9.
+
+26
+00:01:49.494 --> 00:01:51.601
+The class counts never moved.
+
+27
+00:01:51.601 --> 00:01:56.468
+The sticky notes were read once, the night before, and never again.
+
+28
+00:01:57.400 --> 00:01:59.069
+Now the second promise.
+
+29
+00:01:59.069 --> 00:02:04.513
+Incremental processing means KSP redoes only the files a change can affect.
+
+30
+00:02:04.513 --> 00:02:12.061
+In the moving-house picture, you repack one box next weekend, so you redo its card, and the master list.
+
+31
+00:02:12.061 --> 00:02:13.149
+Not every card.
+
+32
+00:02:13.367 --> 00:02:18.797
+To know which cards, the helper keeps a log of whose label he looked at while writing each one.
+
+33
+00:02:18.797 --> 00:02:23.769
+Change the truck's label, and everything written after looking at it gets another look.
+
+34
+00:02:24.700 --> 00:02:25.780
+Let's test it.
+
+35
+00:02:25.780 --> 00:02:28.712
+Build once with KSP's log switched on.
+
+36
+00:02:28.712 --> 00:02:32.955
+Then add one comment line to Truck.kt, and build again.
+
+37
+00:02:33.167 --> 00:02:35.698
+Lesson 3's source set has 17 files.
+
+38
+00:02:35.698 --> 00:02:40.327
+How many does KSP mark as dirty, meaning they need another look?
+
+39
+00:02:44.000 --> 00:02:44.485
+Five.
+
+40
+00:02:44.485 --> 00:02:48.173
+First Truck.kt, because we changed it.
+
+41
+00:02:48.400 --> 00:02:55.873
+Then Crew.kt and MovingDayComponent.kt, because the processors looked up Truck while reading them.
+
+42
+00:02:56.100 --> 00:02:59.022
+Then MovingDay.kt, which looked up Crew.
+
+43
+00:02:59.022 --> 00:03:02.748
+The dirt spreads like that until no new file joins.
+
+44
+00:03:02.967 --> 00:03:06.015
+And RouteModule.kt, for another reason.
+
+45
+00:03:06.015 --> 00:03:13.207
+It's a declared source of the component, the aggregating master list that any change redoes.
+
+46
+00:03:13.207 --> 00:03:16.256
+Five of 17: the log says 29.41 percent.
+
+47
+00:03:16.867 --> 00:03:17.868
+Now the cards.
+
+48
+00:03:17.868 --> 00:03:23.804
+TruckFactory, CrewFactory and MovingDayFactory are redone, and so is the component.
+
+49
+00:03:23.804 --> 00:03:31.671
+The other four, for the driver, the GPS, the packer and the tape roll, come back from KSP's backup, untouched.
+
+50
+00:03:31.900 --> 00:03:35.578
+As far as those four cards know, nothing happened this weekend.
+
+51
+00:03:35.578 --> 00:03:39.081
+That's what writing down where each card came from buys you.
+
+52
+00:03:40.367 --> 00:03:42.813
+Two traps if you try this yourself.
+
+53
+00:03:42.813 --> 00:03:49.035
+touch Truck.kt changes nothing: it changes the file's date, and Gradle compares the text.
+
+54
+00:03:49.035 --> 00:03:51.692
+A pretend edit gets a pretend rebuild.
+
+55
+00:03:51.692 --> 00:03:59.871
+And the build cache can bring back old outputs after you undo an edit, so make a fresh edit, or add --no-build-cache.
+
+56
+00:04:00.100 --> 00:04:01.557
+And one honest oddity.
+
+57
+00:04:01.557 --> 00:04:07.252
+In the lesson's three tries, one run did a full pass, with no file listed as modified.
+
+58
+00:04:07.252 --> 00:04:09.967
+The lesson didn't find what triggered it.
+
+59
+00:04:09.967 --> 00:04:12.351
+The next edit was incremental again.
+
+60
+00:04:12.567 --> 00:04:15.702
+That's also the limit of the aggregating design.
+
+61
+00:04:15.702 --> 00:04:19.164
+The component is redone on every edit, however small.
+
+62
+00:04:19.164 --> 00:04:20.797
+Here it's one short file.
+
+63
+00:04:20.797 --> 00:04:27.591
+With hundreds of classes, it's one long file every time: a fair price for a plan that's always complete.
+
+64
+00:04:28.500 --> 00:04:29.769
+So how do you know?
+
+65
+00:04:29.769 --> 00:04:31.840
+You don't take the tool's word.
+
+66
+00:04:31.840 --> 00:04:38.519
+Test the generated text for reflection, count the classes it loads, and read the log after one edit.
+
+67
+00:04:38.519 --> 00:04:39.855
+Proof, not promises.
+
+68
+00:04:40.067 --> 00:04:40.986
+Quick check.
+
+69
+00:04:40.986 --> 00:04:44.511
+This time, add a comment to Packer.kt instead.
+
+70
+00:04:44.511 --> 00:04:46.273
+Which cards are redone?
+
+71
+00:04:49.467 --> 00:04:54.033
+PackerFactory, CrewFactory, MovingDayFactory, and the component.
+
+72
+00:04:54.033 --> 00:04:58.385
+The crew looked up Packer, and the moving day looked up Crew.
+
+73
+00:04:58.385 --> 00:04:59.812
+29.41 percent again.

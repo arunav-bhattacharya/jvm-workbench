@@ -309,7 +309,7 @@ class Ksp02FirstProcessor(Narrated):
         self.at_text("by its full", lead=0.3)
         self.play(FadeIn(full), run_time=0.5)
         self.at_text("and it answers", lead=0.3)
-        self.play(FadeIn(ans), Indicate(bl[3], color=WHITE, scale_factor=1.1), Indicate(bp[3], color=WHITE, scale_factor=1.1),
+        self.play(FadeIn(ans), Circumscribe(bl[3][0], color=HELPER, buff=0.05), Circumscribe(bp[3][0], color=HELPER, buff=0.05),
                   run_time=0.9)
         self.at(1)
         self.play(bw.animate.set_opacity(0.35), run_time=0.6)
@@ -427,7 +427,7 @@ class Ksp02FirstProcessor(Narrated):
         self.play(Wiggle(b1, scale_value=1.06), run_time=1.0)
         self.play(Circumscribe(k1[0][0], color=CARD, buff=0.06), FadeIn(redo), FadeIn(kept), run_time=0.9)
         self.at(1)
-        self.play(Indicate(k1[1], color=BOX, scale_factor=1.2), run_time=0.8)
+        self.play(Circumscribe(k1[1], color=BOX, buff=0.05), run_time=0.8)
         self.hold()
         self.wipe()
 
@@ -593,7 +593,7 @@ class Ksp02FirstProcessor(Narrated):
         self.say("twice")
         self.play(FadeIn(rl2), FadeIn(f2, shift=DOWN * 0.1), FadeIn(h2), run_time=0.8)
         self.at_text("Lamp.kt, again", lead=0.3)
-        self.play(Indicate(f2[0], color=BOX, scale_factor=1.15), GrowArrow(b1), run_time=0.7)
+        self.play(Indicate(f2[0][1], color=BOX, scale_factor=1.2), GrowArrow(b1), run_time=0.7)
         self.at(1)
         self.play(GrowArrow(b2), FadeIn(again, shift=RIGHT * 0.2), run_time=0.8)
         boom = VGroup(again, made)

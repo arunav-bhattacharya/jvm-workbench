@@ -199,7 +199,7 @@ With the path in hand, finding one takes a single check. Before visiting a depen
 
 Let's trace the broken crew from the walk's point of view. It enters `MovingDay`, then `Crew`, then `Truck`, then `Driver`, so the path is `[MovingDay, Crew, Truck, Driver]`. The driver's first parameter, the route, is fine. His second asks for `Truck`, which is on the path. Drop everything before `Truck`, add `Truck` again, and the loop reads `Truck needs Driver needs Truck`. The error goes on the driver's `truck` parameter, the arrow that closes the loop, as the figure shows.
 
-The order of the checks matters. A binding that is finished is shared, not a loop, even when two classes need it: the crew and the moving day both need a route. So the walk checks `done` before it checks the path. Part 4's container made the same choice for the same reason.
+The order of the checks matters. A binding that is finished is shared, not a loop, even when two classes need it: the driver and the moving day both need a route. So the walk checks `done` before it checks the path. Part 4's container made the same choice for the same reason.
 
 In the real build it looks like this. Uncomment `val truck: Truck` in `app/src/l02/.../Driver.kt` and run `./gradlew :injector:app:kspL02Kotlin`:
 

@@ -333,105 +333,105 @@ The driver's line reads a route that isn't there yet: Variable 'route' must be i
 In Java, javac says: illegal forward reference.
 
 84
-00:04:27.467 --> 00:04:32.279
-In moving-day terms, Sam is told to drive before anyone has printed the route.
+00:04:27.467 --> 00:04:32.745
+In moving-day terms, the driver is told to drive before anyone has printed the route.
 
 85
-00:04:32.279 --> 00:04:35.364
+00:04:32.745 --> 00:04:35.850
 He's not going anywhere, and neither is the build.
 
 86
-00:04:35.364 --> 00:04:37.214
+00:04:35.850 --> 00:04:37.713
 So the order isn't decoration.
 
 87
-00:04:37.214 --> 00:04:39.312
+00:04:37.713 --> 00:04:39.824
 It's what makes the class compile.
 
 88
-00:04:40.233 --> 00:04:41.764
+00:04:40.733 --> 00:04:42.264
 Here's the walk in code.
 
 89
-00:04:41.764 --> 00:04:44.569
+00:04:42.264 --> 00:04:45.069
 If the name is already on the sheet, return.
 
 90
-00:04:44.569 --> 00:04:48.076
+00:04:45.069 --> 00:04:48.576
 Otherwise visit everything it needs, then add the name.
 
 91
-00:04:48.076 --> 00:04:50.372
+00:04:48.576 --> 00:04:50.872
 Java says the same, a little longer.
 
 92
-00:04:51.200 --> 00:04:51.934
+00:04:51.700 --> 00:04:52.434
 One caution.
 
 93
-00:04:51.934 --> 00:04:55.357
+00:04:52.434 --> 00:04:55.857
 The walk looks at the sheet, but never at who's on hold.
 
 94
-00:04:55.357 --> 00:05:03.549
+00:04:55.857 --> 00:05:04.049
 Give it a driver who waits for the truck, and it calls the truck, who calls the driver, who calls the truck, until the stack runs out.
 
 95
-00:05:03.549 --> 00:05:05.200
+00:05:04.049 --> 00:05:05.700
 The next lesson fixes that.
 
 96
-00:05:05.400 --> 00:05:07.082
+00:05:05.900 --> 00:05:07.582
 And here the picture breaks.
 
 97
-00:05:07.082 --> 00:05:11.228
+00:05:07.582 --> 00:05:11.728
 A real planner can improvise when a neighbour turns up with a ladder.
 
 98
-00:05:11.228 --> 00:05:12.609
+00:05:11.728 --> 00:05:13.109
 The build's plan can't.
 
 99
-00:05:13.533 --> 00:05:15.986
+00:05:14.033 --> 00:05:16.486
 So, does the order of the lines matter?
 
 100
-00:05:15.986 --> 00:05:17.306
+00:05:16.486 --> 00:05:17.806
 It's the whole point.
 
 101
-00:05:17.306 --> 00:05:20.702
+00:05:17.806 --> 00:05:21.202
 The walk asks from the top and writes from the bottom.
 
 102
-00:05:20.702 --> 00:05:23.091
+00:05:21.202 --> 00:05:23.591
 Shared things become vals, built once.
 
 103
-00:05:23.091 --> 00:05:26.047
+00:05:23.591 --> 00:05:26.547
 The rest become functions, built on every call.
 
 104
-00:05:26.267 --> 00:05:27.068
+00:05:26.767 --> 00:05:27.568
 Quick check.
 
 105
-00:05:27.068 --> 00:05:29.003
+00:05:27.568 --> 00:05:29.503
 Delete @Singleton from Truck.
 
 106
-00:05:29.003 --> 00:05:31.940
+00:05:29.503 --> 00:05:32.440
 What does one truck for the whole day print?
 
 107
-00:05:35.133 --> 00:05:36.075
+00:05:35.633 --> 00:05:36.575
 It prints false.
 
 108
-00:05:36.075 --> 00:05:38.369
+00:05:36.575 --> 00:05:38.869
 The truck becomes a function, newTruck.
 
 109
-00:05:38.369 --> 00:05:42.663
+00:05:38.869 --> 00:05:43.163
 The crew got its truck when it was built, and truck() builds another one.

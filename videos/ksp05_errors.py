@@ -695,7 +695,8 @@ class Ksp05Errors(Narrated):
         self.play(FadeIn(mean, shift=LEFT * 0.1), run_time=0.6)
         self.hold()
 
-        rd = code_block(["cls.primaryConstructor!!", "symbol as KSClassDeclaration"], 28, hl={"!!": BAD, "as": BAD})
+        rd = code_block(["cls.primaryConstructor!!", "symbol as KSClassDeclaration"], 28, hl={"!!": BAD})
+        part(rd[1], "as").set_color(BAD)
         rd.move_to([-2.0, -1.4, 0])
         arr = Arrow(rd.get_right() + RIGHT * 0.2, rd.get_right() + RIGHT * 1.4, buff=0, stroke_width=3, color=GREY_B, max_tip_length_to_length_ratio=0.2)
         chk = VGroup(T("check first,", 26, OK), T("note on the symbol", 26, OK)).arrange(DOWN, aligned_edge=LEFT, buff=0.1).next_to(arr, RIGHT, buff=0.25)

@@ -55,7 +55,7 @@ N = {
            "every file is dirty. KSP's own docs say it essentially disables incremental processing. Correct, and "
            "slow.",
     "clean": "Here's what makes these bugs sneaky. A clean build fixes all three, because it reads every box from "
-             "scratch. So do the kctfork tests, which start clean on every compile. Only an incremental build, after "
+             "scratch. The kctfork tests pass too: they start clean on every compile. Only an incremental build, after "
              "an ordinary edit, shows the mistake.",
     "java": "Java has one safety net here. When an isolating javac processor names no source element, Gradle "
             "recompiles every file: slow, but right. KSP believes your note.",
@@ -434,7 +434,7 @@ class Ksp07Incremental(Narrated):
 
         # ================= the moment: add Mirror.kt =================
         mirror = fbox("Mirror").move_to([*SLOT["Mirror"], 0])
-        newt = VGroup(T("new:", 20, NOTE), M("Mirror.kt", 20, NOTE)).arrange(RIGHT, buff=0.12).next_to(mirror, DOWN, buff=0.14)
+        newt = T("new file", 20, NOTE).next_to(mirror, DOWN, buff=0.14)
         mq1 = T("Which boxes will KSP show the helper?", 30)
         mq2 = T("And what will the fridge say?", 30, NOTE)
         mqg = VGroup(mq1, mq2).arrange(DOWN, buff=0.2).move_to([0, BOT - 0.05, 0])

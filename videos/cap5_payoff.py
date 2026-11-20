@@ -27,7 +27,7 @@ N = {
             "class as it was loaded. The generated plan loaded 817 classes. The reflection container loaded 1,059.",
     "race2": "The generated side loaded no proxy classes, and none of the four annotation classes. Reflection made "
              "six proxy classes while it ran, to stand for the annotations it was reading.",
-    "race3": "The times jumped around on this busy machine, so treat them as rough: 25.5 milliseconds to wire the "
+    "race3": "The times jumped around on a busy machine, so treat them as rough: 25.5 milliseconds to wire the "
              "crew, against 71.9. The class counts never moved. The sticky notes were read once, the night before, "
              "and never again.",
     "inc": "Now the second promise. Incremental processing means KSP redoes only the files a change can affect. In "
@@ -52,7 +52,7 @@ N = {
              "Gradle compares the text. A pretend edit gets a pretend rebuild. And the build cache can bring back "
              "old outputs after you undo an edit, so make a fresh edit, or add --no-build-cache.",
     "odd": "And one honest oddity. In the lesson's three tries, one run did a full pass, with no file listed as "
-           "modified. We didn't find what triggered it. The next edit was incremental again.",
+           "modified. The lesson didn't find what triggered it. The next edit was incremental again.",
     "limit": "That's also the limit of the aggregating design. The component is redone on every edit, however "
              "small. Here it's one short file. With hundreds of classes, it's one long file every time: a fair "
              "price for a plan that's always complete.",
@@ -210,13 +210,13 @@ class Cap5Payoff(Narrated):
         # ================= two promises =================
         def promise(n, text, x):
             hd = T(f"promise {n}", 26, YELLOW_M)
-            tx = T(text, 28)
+            tx = T(text, 26)
             g = VGroup(hd, tx).arrange(DOWN, buff=0.18)
-            r = RoundedRectangle(corner_radius=0.12, width=5.8, height=g.height + 0.6).set_stroke(GREY_B, 2.5).set_fill("#111111", 1)
+            r = RoundedRectangle(corner_radius=0.12, width=max(6.0, tx.width + 0.6), height=g.height + 0.6).set_stroke(GREY_B, 2.5).set_fill("#111111", 1)
             return VGroup(r, g.move_to(r)).move_to([x, 2.0, 0])
 
-        p1 = promise(1, "no reflection in the generated code", -3.3)
-        p2 = promise(2, "one edit doesn't redo everything", 3.3)
+        p1 = promise(1, "no reflection in the generated code", -3.25)
+        p2 = promise(2, "one edit doesn't redo everything", 3.25)
         self.say("open")
         self.at(1)
         self.play(FadeIn(p1, shift=DOWN * 0.1), run_time=0.7)
@@ -549,7 +549,7 @@ class Cap5Payoff(Narrated):
         self.play(FadeIn(t2, shift=UP * 0.1), run_time=0.7)
         self.hold()
         od = VGroup(T("an oddity:", 26, GREY_B), T("1 of the lesson's 3 tries:", 26), M("Dirty / All: 100.00%", 24, BOXC),
-                    T(", nothing listed as modified", 26)).arrange(RIGHT, buff=0.18)
+                    T("with nothing listed as modified", 26)).arrange(RIGHT, buff=0.18)
         fit(od, 12.4).move_to([0, -1.05, 0])
         od2 = T("cause not found; the next edit was incremental again", 24, GREY_B).move_to([0, -1.6, 0])
         self.say("odd")

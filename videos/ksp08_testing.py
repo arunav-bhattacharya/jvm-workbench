@@ -249,7 +249,7 @@ def stripes(n=25, w=2.4, bad=None, color=GOLD):
 
 # the four checks: one row each
 ROWY = [1.75, 0.85, -0.05, -0.95]
-X_NUM, X_WHAT, X_WHO, X_VERD = -6.1, -5.6, -0.25, 2.0
+X_NUM, X_WHAT, X_WHO, X_VERD = -6.1, -5.6, 0.25, 2.85
 BOT = -2.55
 
 
@@ -323,7 +323,7 @@ class Ksp08Testing(Narrated):
         lg = VGroup(lnote, lsrc).move_to([0, 2.6, 0])
         l1 = lamp_icon(True, 1.0)
         l2 = lamp_icon(False, 1.0)
-        lamps = VGroup(l1, l2).arrange(RIGHT, buff=1.2).move_to([0, 0.6, 0])
+        lamps = VGroup(l1, l2).arrange(RIGHT, buff=1.2, aligned_edge=DOWN).move_to([0, 0.6, 0])
         l2t = T("no shade: null", 22, NOTE).next_to(l2, DOWN, buff=0.2)
         l1t = T("a shade", 22, GREY_A).next_to(l1, DOWN, buff=0.2)
         self.say("lamp")
@@ -391,11 +391,11 @@ class Ksp08Testing(Narrated):
             num = VGroup(Circle(radius=0.24).set_stroke(GREY_A, 2.5), T(str(i + 1), 26)).move_to([X_NUM, y, 0])
             num[1].move_to(num[0])
             w = what.move_to([X_WHAT, y, 0], aligned_edge=LEFT)
-            p = T(who, 26, GREY_A).move_to([X_WHO, y, 0], aligned_edge=LEFT)
+            p = T(who, 24, GREY_A).move_to([X_WHO, y, 0], aligned_edge=LEFT)
             return VGroup(num, w, p)
 
         rows = [row(0, VGroup(T("the exit code is", 26), M("OK", 24, OK)).arrange(RIGHT, buff=0.15), "the glance"),
-                row(1, VGroup(T("the text contains", 26), M("class LampBuilder", 24, CARD)).arrange(RIGHT, buff=0.15), "the skim"),
+                row(1, VGroup(T("the text contains", 26), M("class LampBuilder", 22, CARD)).arrange(RIGHT, buff=0.15), "the skim"),
                 row(2, T("the golden file matches", 26), "the proofreader"),
                 row(3, VGroup(T("a call:", 26), M("shade(null)", 24, NOTE)).arrange(RIGHT, buff=0.15), "the try out")]
         for r in rows:
@@ -470,7 +470,10 @@ class Ksp08Testing(Narrated):
             g = VGroup(v)
             if detail:
                 g.add((M if mono else T)(detail, 22 if mono else 24, GREY_A if ok else BAD))
-                g.arrange(RIGHT, buff=0.2)
+                if i == 3:
+                    g.arrange(DOWN, aligned_edge=LEFT, buff=0.1)
+                    return g.move_to([X_VERD, ROWY[i] - 0.17, 0], aligned_edge=LEFT)
+                g.arrange(RIGHT, buff=0.15)
             return g.move_to([X_VERD, ROWY[i], 0], aligned_edge=LEFT)
 
         ve = [verdict(0, True, "(OK)", True), verdict(1, True), verdict(2, False, "at line 18"),
