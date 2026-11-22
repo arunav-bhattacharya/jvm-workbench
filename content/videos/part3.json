@@ -136,25 +136,25 @@
       "slug": "fp01-pure",
       "lesson": "fp-01",
       "section": 1,
-      "title": "A fee function with a hidden clock and a log line is impure; a pure one depends only on its arguments, so a call can be swapped for its value"
+      "title": "A pure function is like a recipe card: same ingredients, same result, kitchen left as it was; a hidden clock or global breaks it"
     },
     {
       "slug": "fp02-closures",
       "lesson": "fp-02",
       "section": 3,
-      "title": "A lambda is a value that keeps the variables it uses, and a captured var becomes one shared Ref box where two threads lose an update"
+      "title": "A closure is a recipe card with a note pinned on, and a captured var is one shared box, so two threads lose updates on it"
     },
     {
       "slug": "fp03-hof",
       "lesson": "fp-03",
       "section": 0,
-      "title": "retry takes the call as a function, feeFor hands back a fee function, and three small functions compose into one price where the order matters"
+      "title": "Pass in the work, not its answer: retry takes the call as a function, so one loop serves every flaky call"
     },
     {
       "slug": "fp04-fold",
       "lesson": "fp-04",
       "section": 2,
-      "title": "fold carries one accumulator down the list from a start value with a step; map and filter are the same walk, and reduce throws on an empty day"
+      "title": "fold carries one reading past every cookie, like a jar on the kitchen scale; reduce has no start and throws on an empty day"
     },
     {
       "slug": "gen06-projections",

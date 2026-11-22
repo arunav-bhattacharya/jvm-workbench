@@ -1,137 +1,321 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:09.960
-Three places in a payment service call something flaky: the card issuer, the ledger, and the FX rate service.
+00:00:02.700 --> 00:00:05.407
+Picture a friend who is good in the kitchen.
 
 2
-00:00:10.167 --> 00:00:14.805
-Each call sits inside the same loop: try up to three times, then give up.
+00:00:05.407 --> 00:00:09.097
+You hand them any recipe card, and they hand back a new one.
 
 3
-00:00:14.805 --> 00:00:17.092
-Only the call in the middle changes.
+00:00:09.097 --> 00:00:10.881
+The same, but for six people.
 
 4
-00:00:17.300 --> 00:00:21.083
-How do you write that loop once, when the part that changes is a call?
+00:00:10.881 --> 00:00:12.112
+The same, but vegan.
 
 5
-00:00:22.667 --> 00:00:24.861
-Pass the call in, as a function.
+00:00:12.112 --> 00:00:14.388
+The same, and if it burns, try again.
 
 6
-00:00:24.861 --> 00:00:26.232
-retry owns the loop.
+00:00:14.388 --> 00:00:17.217
+They don't need to know what the recipe makes.
 
 7
-00:00:26.232 --> 00:00:30.345
-The call arrives as block, and retry decides when to run it.
+00:00:17.217 --> 00:00:19.493
+They change the card, not the dinner.
 
 8
-00:00:30.533 --> 00:00:32.668
-Here the issuer times out twice.
+00:00:19.700 --> 00:00:22.616
+Here's a question that's easy to be shy about.
 
 9
-00:00:32.668 --> 00:00:37.139
-retry runs block again, and the third try returns an authorization.
+00:00:22.616 --> 00:00:26.293
+A method's parameters are values: numbers, strings, lists.
 
 10
-00:00:37.400 --> 00:00:39.988
-The ledger call plugs into the same socket.
+00:00:26.293 --> 00:00:28.385
+How do you pass in a thing to do?
 
 11
-00:00:39.988 --> 00:00:43.600
-A function that takes a function is a higher-order function.
+00:00:28.385 --> 00:00:30.351
+And why would you ever want to?
 
 12
-00:00:44.400 --> 00:00:46.125
-It works the other way too.
+00:00:31.267 --> 00:00:35.318
+Look at three places in a recipe app that call something flaky.
 
 13
-00:00:46.125 --> 00:00:49.576
-feeFor takes a country, and hands back a fee function.
+00:00:35.318 --> 00:00:42.779
+A flaky call fails now and then, for reasons outside your code, like a website that is slow to answer and times out.
 
 14
-00:00:49.767 --> 00:00:51.732
-It looks up the Dutch rate once.
+00:00:42.779 --> 00:00:48.503
+So each place wraps its call in the same retry loop: try up to three times, then give up.
 
 15
-00:00:51.732 --> 00:00:56.585
-The function it returns keeps that number, and prices every payment after that.
+00:00:48.733 --> 00:00:51.763
+The three loops are the same, except for one line.
 
 16
-00:00:57.367 --> 00:00:59.962
-Small functions also snap together.
+00:00:51.763 --> 00:00:53.581
+The first copy was convenient.
 
 17
-00:00:59.962 --> 00:01:04.633
-Add a 25-cent scheme fee, take 10 percent off, cap at 10 euros.
+00:00:53.581 --> 00:00:54.854
+The third is a habit.
 
 18
-00:01:04.833 --> 00:01:07.341
-Feed each result into the next.
+00:00:54.854 --> 00:00:59.277
+And when someone finds a bug in it, they'll fix exactly one of the three.
 
 19
-00:01:07.341 --> 00:01:12.437
-That's composition: three functions become one pipeline, price.
+00:01:00.200 --> 00:01:05.206
+Wouldn't it be nice to write the loop once, and pass in the one line that changes?
 
 20
-00:01:12.437 --> 00:01:14.944
-1,200 cents comes out as 1,000.
+00:01:05.206 --> 00:01:10.091
+Here's the obvious try: a retry method that takes the fetch as a plain argument.
 
 21
-00:01:15.167 --> 00:01:17.215
-Move the cap to the front.
+00:01:10.300 --> 00:01:11.464
+Look at that call.
 
 22
-00:01:17.215 --> 00:01:18.081
-Same price?
+00:01:11.464 --> 00:01:13.599
+How many times can the fetch run?
 
 23
-00:01:19.667 --> 00:01:20.024
-No.
+00:01:16.567 --> 00:01:18.880
+Once, and before retry even starts.
 
 24
-00:01:20.024 --> 00:01:20.501
-922.
+00:01:18.880 --> 00:01:24.036
+An argument is a value, so the fetch runs first, and retry is handed the page.
 
 25
-00:01:20.501 --> 00:01:24.316
-The order is part of the result.
+00:01:24.036 --> 00:01:27.605
+If that one call times out, retry never gets a chance.
 
 26
-00:01:25.133 --> 00:01:27.583
-In code, the call goes in as a lambda.
+00:01:27.605 --> 00:01:31.505
+What we need to pass in is the work itself, not its answer.
 
 27
-00:01:27.583 --> 00:01:29.968
-Java's Function has andThen built in.
+00:01:32.433 --> 00:01:34.448
+That's the friend from the start.
 
 28
-00:01:29.968 --> 00:01:33.772
-Kotlin's function types don't, so you write it in one line.
+00:01:34.448 --> 00:01:36.342
+You hand over a card: the work.
 
 29
-00:01:34.567 --> 00:01:40.248
-The rule: write the shape of the work once, and pass in the part that changes as a function.
+00:01:36.342 --> 00:01:39.517
+The friend decides when to follow it, and how often.
 
 30
-00:01:40.467 --> 00:01:41.322
-Quick check.
+00:01:39.517 --> 00:01:45.196
+And the friend never needs to know what the card makes: a page, a price list, or the weather.
 
 31
-00:01:41.322 --> 00:01:44.530
-timed runs a block and logs how long it took.
+00:01:46.100 --> 00:01:52.357
+A function that takes a function as a parameter, or returns one, is called a higher-order function.
 
 32
-00:01:44.530 --> 00:01:45.884
-Is it higher-order?
+00:01:52.357 --> 00:01:54.127
+Here's retry written as one.
 
 33
-00:01:47.467 --> 00:01:47.793
-Yes.
+00:01:54.127 --> 00:01:58.741
+The work arrives as block, a function that takes nothing and returns a T.
 
 34
-00:01:47.793 --> 00:01:50.488
-It takes the block as a function.
+00:01:58.741 --> 00:02:03.291
+The loop calls block up to times times, and hands back the first answer.
+
+35
+00:02:03.291 --> 00:02:07.147
+If every try fails, it gives up with the last error attached.
+
+36
+00:02:08.067 --> 00:02:13.085
+Java needs an interface for the parameter, here a Supplier, and calls it with get.
+
+37
+00:02:13.085 --> 00:02:17.552
+Kotlin has a real function type, and calls block like any other function.
+
+38
+00:02:18.467 --> 00:02:23.313
+The lesson's demo has a fake website that times out twice, and then answers.
+
+39
+00:02:23.313 --> 00:02:26.373
+With retry three, how many calls reach the site?
+
+40
+00:02:29.367 --> 00:02:29.797
+Three.
+
+41
+00:02:29.797 --> 00:02:31.805
+Two timeouts, then the page.
+
+42
+00:02:31.805 --> 00:02:35.893
+And neither retry nor the website knows what a recipe is.
+
+43
+00:02:36.100 --> 00:02:42.491
+The demo wraps it in a second friend, timed, which runs any block and reports how long it took.
+
+44
+00:02:42.491 --> 00:02:45.317
+A friend around a friend, around the card.
+
+45
+00:02:45.317 --> 00:02:48.412
+It printed 41 milliseconds, on a busy machine.
+
+46
+00:02:48.412 --> 00:02:52.852
+Most of that is the JVM running brand new code for the first time.
+
+47
+00:02:53.767 --> 00:02:56.599
+Now a site that stays down for five calls.
+
+48
+00:02:56.599 --> 00:03:05.300
+retry tries three times, and gives up with a clear message: gave up after 3 attempts, and the last cause, site timeout on call 3.
+
+49
+00:03:05.533 --> 00:03:09.531
+Change it to retry one, and it says: gave up after 1 attempts.
+
+50
+00:03:09.531 --> 00:03:12.626
+That message never expected to be used this way.
+
+51
+00:03:12.626 --> 00:03:16.753
+A little bad grammar is a small price for writing the loop once.
+
+52
+00:03:17.667 --> 00:03:20.429
+One more thing makes this pleasant in Kotlin.
+
+53
+00:03:20.429 --> 00:03:25.708
+When the last parameter is a function, you can write the lambda after the parentheses.
+
+54
+00:03:25.708 --> 00:03:27.672
+That's called a trailing lambda.
+
+55
+00:03:27.672 --> 00:03:32.030
+So the call reads like a keyword: retry three, then the work in braces.
+
+56
+00:03:32.030 --> 00:03:35.161
+That's why repeat, use and buildList look built in.
+
+57
+00:03:35.161 --> 00:03:37.739
+They're ordinary functions in a nice coat.
+
+58
+00:03:38.667 --> 00:03:46.305
+Java has one more hurdle: checked exceptions, the ones the compiler makes you catch or declare, like IOException.
+
+59
+00:03:46.305 --> 00:03:53.876
+Supplier's get can't throw one, so retrying file or network code needs a Callable, and a throws clause on retry.
+
+60
+00:03:53.876 --> 00:03:58.676
+Kotlin has no checked exceptions, so one function type fits every call.
+
+61
+00:03:59.600 --> 00:04:01.579
+Here the friend picture breaks.
+
+62
+00:04:01.579 --> 00:04:06.558
+A real friend would read the card, and notice when trying again is a bad idea.
+
+63
+00:04:06.558 --> 00:04:07.899
+retry never reads it.
+
+64
+00:04:07.899 --> 00:04:10.963
+It runs whatever you hand it, up to three times.
+
+65
+00:04:10.963 --> 00:04:14.538
+Remember the fridge from the first lesson of this track?
+
+66
+00:04:14.538 --> 00:04:19.198
+A call that takes an egg, retried after a failure, may take a second egg.
+
+67
+00:04:19.198 --> 00:04:23.220
+Retry is safe for a call that only reads, like fetching a page.
+
+68
+00:04:24.133 --> 00:04:29.484
+So the rule: when code differs by one call, pass the call in, and write the loop once.
+
+69
+00:04:29.484 --> 00:04:34.835
+Keep the shape of the work, like retrying it or timing it, apart from the work itself.
+
+70
+00:04:35.067 --> 00:04:38.255
+And the friend can also hand back a new card.
+
+71
+00:04:38.255 --> 00:04:48.031
+Ask gramsFor for honey, and it hands back a converter, from the measuring jug to the kitchen scale: 250 millilitres of honey is 355 grams.
+
+72
+00:04:48.031 --> 00:04:50.511
+That's the next part of the lesson.
+
+73
+00:04:51.433 --> 00:04:53.585
+So, how do you pass in a thing to do?
+
+74
+00:04:53.585 --> 00:04:54.748
+You pass a function.
+
+75
+00:04:54.748 --> 00:05:00.157
+The friend holds the loop, you hold the work, and neither needs to know the other's business.
+
+76
+00:05:00.367 --> 00:05:01.206
+Quick check.
+
+77
+00:05:01.206 --> 00:05:04.984
+timed wraps retry, around a site that times out twice.
+
+78
+00:05:04.984 --> 00:05:07.363
+How many timing lines get printed?
+
+79
+00:05:10.333 --> 00:05:10.618
+One.
+
+80
+00:05:10.618 --> 00:05:15.317
+timed wraps the whole retry, so it times all three calls together.

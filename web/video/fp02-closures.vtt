@@ -1,149 +1,337 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:06.616
-Fraud screening runs each payment through a list of rules.
+00:00:02.700 --> 00:00:07.845
+Earlier in this lesson, each check became a value, like a card from a recipe drawer.
 
 2
-00:00:06.616 --> 00:00:09.519
-Here, 900,000 cents trips the amount limit.
+00:00:07.845 --> 00:00:11.520
+You can hold it, keep it in a list, and lend it to a friend.
 
 3
-00:00:09.733 --> 00:00:12.155
-A rule here is a value, like a number.
+00:00:11.520 --> 00:00:15.685
+Now pin a note to one card: my oven runs hot, take five minutes off.
 
 4
-00:00:12.155 --> 00:00:16.615
-It sits in a variable, it goes into a list, and it gets passed around.
+00:00:15.685 --> 00:00:20.647
+The note was written where the card was made, and it goes wherever the card goes.
 
 5
-00:00:16.615 --> 00:00:19.737
-A function written as a value is called a lambda.
+00:00:20.867 --> 00:00:23.642
+Here's a question that's easy to be shy about.
 
 6
-00:00:20.600 --> 00:00:24.627
-A lambda can also use a variable from outside its braces.
+00:00:23.642 --> 00:00:27.021
+A lambda uses a variable from the function that made it.
 
 7
-00:00:24.627 --> 00:00:26.181
-This rule reads limit.
+00:00:27.021 --> 00:00:29.374
+But that function has already returned.
 
 8
-00:00:26.367 --> 00:00:29.609
-It carries that value along, wherever the rule goes.
+00:00:29.374 --> 00:00:31.546
+So where does the variable live now?
 
 9
-00:00:29.609 --> 00:00:33.100
-Code plus the variables it captured is called a closure.
+00:00:31.546 --> 00:00:35.769
+And if two people hold the card, does each of them get their own note?
 
 10
-00:00:33.900 --> 00:00:36.292
-Now capture a var, one that changes.
+00:00:39.467 --> 00:00:42.597
+Let's shrink it to the smallest closure there is.
 
 11
-00:00:36.292 --> 00:00:40.676
-makeCounter makes count, and returns a lambda that adds one to it.
+00:00:42.597 --> 00:00:46.303
+makeCounter has a local variable, count, starting at zero.
 
 12
-00:00:40.867 --> 00:00:44.418
-When makeCounter returns, its local variables are gone.
+00:00:46.303 --> 00:00:50.200
+It returns a lambda that adds one to count and hands it back.
 
 13
-00:00:44.418 --> 00:00:46.549
-But the lambda still needs count.
+00:00:50.200 --> 00:00:53.394
+Call that lambda three times, and you get 1, 2, 3.
 
 14
-00:00:46.549 --> 00:00:47.969
-Where does count live?
+00:00:53.394 --> 00:00:56.972
+So count is still alive, after makeCounter has returned.
 
 15
-00:00:49.567 --> 00:00:55.353
-The compiler moves count into a small object on the heap, a Ref box with one plain field.
+00:00:57.900 --> 00:01:00.523
+Java won't even compile the same idea.
 
 16
-00:00:55.353 --> 00:00:57.239
-The lambda points at the box.
+00:01:00.523 --> 00:01:07.151
+It says: local variables referenced from a lambda expression must be final or effectively final.
 
 17
-00:00:57.433 --> 00:01:01.259
-Call the lambda three times, and the box counts one, two, three.
+00:01:08.067 --> 00:01:09.646
+The reason is mechanical.
 
 18
-00:01:02.267 --> 00:01:05.297
-Now hand that lambda to two threads at once.
+00:01:09.646 --> 00:01:15.902
+A local variable lives in the method's stack frame, the memory one method call uses for its locals.
 
 19
-00:01:05.297 --> 00:01:09.981
-Each ++count is three steps: read the field, add one, write it back.
+00:01:15.902 --> 00:01:18.746
+When makeCounter returns, that frame is gone.
 
 20
-00:01:10.167 --> 00:01:11.845
-Both threads read 41.
+00:01:18.746 --> 00:01:22.600
+But the lambda lives on, and it would be pointing at nothing.
 
 21
-00:01:11.845 --> 00:01:13.764
-What ends up in the box?
+00:01:22.833 --> 00:01:28.179
+So Java makes you build the box yourself: a one element array, or an AtomicInteger.
 
 22
-00:01:15.333 --> 00:01:15.604
-42.
+00:01:28.179 --> 00:01:35.071
+Either one is an object on the heap, the memory where objects live for as long as something points at them.
 
 23
-00:01:15.604 --> 00:01:18.486
-Both add one, and both write 42.
+00:01:35.300 --> 00:01:38.073
+Kotlin builds that box for you, silently.
 
 24
-00:01:18.486 --> 00:01:21.369
-Two increments, and one is lost.
+00:01:38.073 --> 00:01:44.500
+The compiler moves count into a small heap object, a Ref$IntRef, with one field called element.
 
 25
-00:01:21.567 --> 00:01:31.963
-In the lesson's run, four threads each added 250,000, and the total came out 669,421, not a million.
+00:01:44.500 --> 00:01:47.949
+makeCounter and the lambda both use that one field.
 
 26
-00:01:32.167 --> 00:01:34.332
-Nothing in the source looks shared.
+00:01:48.167 --> 00:01:51.490
+And the field is a plain int: no volatile, no lock.
 
 27
-00:01:34.332 --> 00:01:35.940
-The compiler made the box.
+00:01:51.490 --> 00:01:53.119
+Java refuses the capture.
 
 28
-00:01:35.940 --> 00:01:40.208
-The fix: let each task count its own, and add the results at the end.
+00:01:53.119 --> 00:01:56.117
+The Kotlin compiler shrugs and builds the box.
 
 29
-00:01:41.000 --> 00:01:47.510
-Java refuses to capture a local that changes, so you build the box yourself, a one-element array.
+00:01:56.117 --> 00:01:59.962
+So the point really is: the note isn't written on the card.
 
 30
-00:01:47.510 --> 00:01:50.933
-Kotlin builds the same box for you, without a word.
+00:01:59.962 --> 00:02:03.155
+It sits in a box, and the card points at the box.
 
 31
-00:01:51.733 --> 00:01:54.838
-The rule: a lambda keeps the variables it uses.
+00:02:04.067 --> 00:02:04.878
+Let's map it.
 
 32
-00:01:54.838 --> 00:01:59.000
-A captured var is one shared box, so keep other threads off it.
+00:02:04.878 --> 00:02:06.751
+The card is the lambda's code.
 
 33
-00:01:59.233 --> 00:02:00.116
-Quick check.
+00:02:06.751 --> 00:02:08.873
+The note is the captured variable.
 
 34
-00:02:00.116 --> 00:02:01.807
-Call makeCounter twice.
+00:02:08.873 --> 00:02:11.120
+Pinning the note on is capturing it.
 
 35
-00:02:01.807 --> 00:02:04.160
-Do the two counters share a box?
+00:02:11.120 --> 00:02:14.553
+And the box on the heap is where the note really lives.
 
 36
-00:02:05.733 --> 00:02:05.958
-No.
+00:02:15.467 --> 00:02:19.409
+Here the card picture breaks, and it breaks in a way that matters.
 
 37
-00:02:05.958 --> 00:02:10.760
-Each call makes its own count, so each counter gets its own box.
+00:02:19.409 --> 00:02:23.410
+Lend a paper card, and your friend gets their own copy of the note.
+
+38
+00:02:23.410 --> 00:02:26.516
+Hand out a closure, and everyone holds the same box.
+
+39
+00:02:27.433 --> 00:02:29.170
+On one thread, that's fine.
+
+40
+00:02:29.170 --> 00:02:34.765
+A thread is one path of work through a program, and several can run at the same moment.
+
+41
+00:02:34.765 --> 00:02:37.851
+So let's share one closure between four threads.
+
+42
+00:02:37.851 --> 00:02:41.388
+Each one does total += 1, a quarter of a million times.
+
+43
+00:02:41.388 --> 00:02:43.253
+Four quarters make a million.
+
+44
+00:02:43.467 --> 00:02:45.927
+What does total hold when all four are done?
+
+45
+00:02:49.600 --> 00:02:50.953
+Here's the catch.
+
+46
+00:02:50.953 --> 00:02:56.206
+total += 1 is three steps: read the field, add one, write it back.
+
+47
+00:02:56.206 --> 00:02:59.708
+Two threads read the same old value, say 41.
+
+48
+00:02:59.708 --> 00:03:00.743
+Both add one.
+
+49
+00:03:00.743 --> 00:03:01.857
+Both write 42.
+
+50
+00:03:01.857 --> 00:03:04.723
+Two additions, and only one counted.
+
+51
+00:03:05.633 --> 00:03:12.427
+The lesson's demo ran it ten times on a busy four core machine.
+
+52
+00:03:12.427 --> 00:03:14.368
+Run 1 got 250,956.
+
+53
+00:03:14.368 --> 00:03:16.093
+It lost 749,044.
+
+54
+00:03:16.093 --> 00:03:19.975
+Runs 2 to 10 were all exactly right.
+
+55
+00:03:20.200 --> 00:03:20.506
+Well.
+
+56
+00:03:20.506 --> 00:03:25.152
+Three quarters of the count are gone, and nine runs out of ten look perfect.
+
+57
+00:03:25.152 --> 00:03:28.821
+That's the worst kind of race: it passes most of your tests.
+
+58
+00:03:28.821 --> 00:03:34.018
+Kotlin compiled all of it without a word, because nothing in the source looks shared.
+
+59
+00:03:34.018 --> 00:03:35.913
+The sharing comes from the box.
+
+60
+00:03:36.833 --> 00:03:37.695
+Now the name.
+
+61
+00:03:37.695 --> 00:03:41.404
+Code plus the variables it captured is called a closure.
+
+62
+00:03:41.404 --> 00:03:44.186
+And a captured var becomes one shared box.
+
+63
+00:03:44.186 --> 00:03:47.697
+Everyone holding the closure writes on the same note.
+
+64
+00:03:48.600 --> 00:03:49.887
+There are two fixes.
+
+65
+00:03:49.887 --> 00:03:53.039
+One: share a thread safe object instead of a var.
+
+66
+00:03:53.039 --> 00:03:59.151
+Capture a val that holds an AtomicLong, and call incrementAndGet, one step that can't be split.
+
+67
+00:03:59.151 --> 00:04:01.468
+Two, and better: don't share at all.
+
+68
+00:04:01.468 --> 00:04:05.842
+Let each task count its own work, and add up the results at the end.
+
+69
+00:04:05.842 --> 00:04:08.416
+Both print exactly a million, every run.
+
+70
+00:04:09.333 --> 00:04:10.588
+So here's the rule.
+
+71
+00:04:10.588 --> 00:04:15.012
+A captured var is one box that everyone holding the closure shares.
+
+72
+00:04:15.012 --> 00:04:17.191
+Never change it from two threads.
+
+73
+00:04:17.191 --> 00:04:26.171
+In your own code, look for a var declared just before a lambda that runs somewhere else: inside submit, inside thread, or in a callback.
+
+74
+00:04:27.100 --> 00:04:30.955
+So, where does the variable live once the function returns?
+
+75
+00:04:30.955 --> 00:04:32.327
+In a box on the heap.
+
+76
+00:04:32.327 --> 00:04:35.725
+And two people holding the card don't get two notes.
+
+77
+00:04:35.725 --> 00:04:36.705
+They share one.
+
+78
+00:04:36.933 --> 00:04:37.807
+Quick check.
+
+79
+00:04:37.807 --> 00:04:41.591
+a and b come from two separate calls to makeCounter.
+
+80
+00:04:41.591 --> 00:04:43.556
+You call a, then a, then b.
+
+81
+00:04:43.556 --> 00:04:44.939
+What does b return?
+
+82
+00:04:47.933 --> 00:04:48.076
+1.
+
+83
+00:04:48.076 --> 00:04:51.143
+Each call to makeCounter makes its own box.
+
+84
+00:04:51.143 --> 00:04:54.567
+Sharing happens only when one closure is shared.

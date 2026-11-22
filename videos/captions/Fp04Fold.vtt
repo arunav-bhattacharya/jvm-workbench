@@ -1,153 +1,361 @@
 WEBVTT
 
 1
-00:00:02.700 --> 00:00:03.428
-End of day.
+00:00:02.700 --> 00:00:04.722
+Picture the end of a baking day.
 
 2
-00:00:03.428 --> 00:00:05.743
-The account starts at 10,000 cents.
+00:00:04.722 --> 00:00:11.169
+Two trays of cookies come out of the oven, five cookies in all: two oat, two chocolate and one ginger.
 
 3
-00:00:05.743 --> 00:00:10.507
-Walk down the day's payments with a note that holds the running balance.
+00:00:11.169 --> 00:00:12.180
+Most are golden.
 
 4
-00:00:10.700 --> 00:00:16.872
-pay_1 settled for 1,500, so the note goes to 11,500.
+00:00:12.180 --> 00:00:20.839
+One chocolate cookie is still raw in the middle, the ginger one is burnt, and someone has already taken a 10 gram bite out of an oat one.
 
 5
-00:00:17.100 --> 00:00:19.923
-pay_2 is still pending, so the note stays.
+00:00:21.067 --> 00:00:25.756
+There's a cookie jar on the kitchen scale, and it already holds 200 grams.
 
 6
-00:00:20.133 --> 00:00:24.214
-pay_3 settled for 2,000, but 500 of it was refunded.
+00:00:25.756 --> 00:00:29.939
+At the end of the day, each golden cookie goes in, minus any bite.
 
 7
-00:00:24.214 --> 00:00:26.333
-What does the note say now?
+00:00:29.939 --> 00:00:31.967
+The raw and burnt ones stay out.
 
 8
-00:00:27.933 --> 00:00:28.643
-13,000.
+00:00:32.767 --> 00:00:35.698
+Here's a question that's easy to be shy about.
 
 9
-00:00:28.643 --> 00:00:34.215
-The failed payment changes nothing, and pay_5 adds 700.
+00:00:35.698 --> 00:00:37.355
+map and filter make sense.
 
 10
-00:00:34.215 --> 00:00:36.444
-The balance is 13,700.
+00:00:37.355 --> 00:00:41.498
+But whenever I need one total, I'm back to a for loop with a var.
 
 11
-00:00:36.633 --> 00:00:40.104
-Each step took the note and one payment, and wrote a new note.
+00:00:41.498 --> 00:00:42.390
+Is that wrong?
 
 12
-00:00:40.104 --> 00:00:43.687
-You choose only two things: where the note starts, and the step.
+00:00:42.390 --> 00:00:45.131
+And what is this fold everyone talks about?
 
 13
-00:00:43.900 --> 00:00:45.530
-This loop is called fold.
+00:00:46.033 --> 00:00:48.826
+Let's start with the loop we'd all write.
 
 14
-00:00:45.530 --> 00:00:48.073
-The note it carries is the accumulator.
+00:00:48.826 --> 00:00:50.052
+jar starts at 200.
 
 15
-00:00:49.067 --> 00:00:50.710
-Change what the note holds.
+00:00:50.052 --> 00:00:54.342
+For each cookie, if it's golden, add its grams, minus the bite.
 
 16
-00:00:50.710 --> 00:00:54.300
-Start with an empty list, and let the step add each amount.
+00:00:54.342 --> 00:00:56.385
+At the end, jar is the answer.
 
 17
-00:00:54.300 --> 00:00:56.916
-The walk builds exactly what map gives you.
+00:00:56.600 --> 00:00:57.816
+Look at its shape.
 
 18
-00:00:57.833 --> 00:01:02.107
-Add a payment only when it settled, and the same walk gives you filter.
+00:00:57.816 --> 00:01:01.058
+Every loop that builds one result has two parts.
 
 19
-00:01:02.333 --> 00:01:07.145
-sumOf, count and maxByOrNull are folds too, already written and named.
+00:01:01.058 --> 00:01:02.882
+A starting value, here 200.
 
 20
-00:01:07.145 --> 00:01:08.725
-Use them when they fit.
+00:01:02.882 --> 00:01:08.893
+And a step, which takes the result so far and the next cookie, and gives the next result.
 
 21
-00:01:09.633 --> 00:01:13.259
-In code, the start and the step are the two arguments.
+00:01:09.800 --> 00:01:12.612
+Let's walk it cookie by cookie, with the scale.
 
 22
-00:01:13.259 --> 00:01:17.220
-Java's reduce takes a third, used only by parallel streams.
+00:01:12.612 --> 00:01:15.125
+Before we do: where will the scale end up?
 
 23
-00:01:18.000 --> 00:01:18.722
-Two traps.
+00:01:18.100 --> 00:01:19.634
+Start at 200.
 
 24
-00:01:18.722 --> 00:01:21.107
-On a quiet day the list is empty.
+00:01:19.634 --> 00:01:24.473
+c1 is a golden oat cookie, 45 grams: 245.
 
 25
-00:01:21.107 --> 00:01:23.780
-fold just hands back its start value.
+00:01:24.473 --> 00:01:28.957
+c2 is raw, so it stays out: still 245.
 
 26
-00:01:23.967 --> 00:01:25.601
-reduce has no start value.
+00:01:29.167 --> 00:01:36.507
+c3 is golden, 50 grams, but with a 10 gram bite, so 40 more: 285.
 
 27
-00:01:25.601 --> 00:01:27.675
-It begins with the first element.
+00:01:36.507 --> 00:01:39.104
+c4 is burnt: still 285.
 
 28
-00:01:27.675 --> 00:01:29.875
-What does it do when there is none?
+00:01:39.104 --> 00:01:43.395
+c5 is golden chocolate, 30 grams: 315.
 
 29
-00:01:31.467 --> 00:01:32.647
-It throws.
+00:01:45.200 --> 00:01:46.287
+Now let's map it.
 
 30
-00:01:32.867 --> 00:01:35.648
-And associateBy keeps one element per key.
+00:01:46.287 --> 00:01:51.020
+The reading on the scale is the one value you carry from cookie to cookie.
 
 31
-00:01:35.648 --> 00:01:39.224
-When a key repeats, the last one wins, without a word.
+00:01:51.020 --> 00:01:54.154
+The 200 already in the jar is the starting value.
 
 32
-00:01:39.224 --> 00:01:41.079
-Java's toMap throws instead.
+00:01:54.154 --> 00:01:57.288
+Your rule at each cookie, in or out, is the step.
 
 33
-00:01:41.967 --> 00:01:45.244
-The rule: a loop that builds one result is a fold.
+00:01:57.288 --> 00:01:59.527
+And the last reading is the answer.
 
 34
-00:01:45.244 --> 00:01:48.849
-A start value, plus a step from one result to the next.
+00:02:00.433 --> 00:02:01.343
+Now the names.
 
 35
-00:01:49.067 --> 00:01:49.937
-Quick check.
+00:02:01.343 --> 00:02:04.720
+The value you carry along is called the accumulator.
 
 36
-00:01:49.937 --> 00:01:52.547
-count is a fold that starts at zero.
+00:02:04.720 --> 00:02:14.917
+And fold is that loop, with both parts passed in: the starting value in parentheses, and the step as a lambda that gets the accumulator and the next element.
 
 37
-00:01:52.547 --> 00:01:54.143
-What does its step do?
+00:02:15.833 --> 00:02:16.888
+Here's the jar.
 
 38
-00:01:55.733 --> 00:01:57.724
-It adds one for each element.
+00:02:16.888 --> 00:02:20.121
+cookies.fold, starting at 200, with jar and c.
+
+39
+00:02:20.121 --> 00:02:24.127
+A golden cookie gives jar plus its grams, minus the bite.
+
+40
+00:02:24.127 --> 00:02:26.516
+Raw or burnt gives jar, unchanged.
+
+41
+00:02:26.516 --> 00:02:34.107
+Java's stream reduce takes the same two parts, plus a third argument that only matters for parallel streams.
+
+42
+00:02:35.033 --> 00:02:36.595
+So where did the var go?
+
+43
+00:02:36.595 --> 00:02:44.271
+The standard library's fold is the loop you'd write by hand: a var set to the start, a for loop, one step per element.
+
+44
+00:02:44.271 --> 00:02:48.369
+And it's inline, so your lambda is pasted right into that loop.
+
+45
+00:02:48.369 --> 00:02:49.995
+The var didn't disappear.
+
+46
+00:02:49.995 --> 00:02:55.589
+It moved inside fold, where nobody else can touch it, and your own code has only vals.
+
+47
+00:02:56.500 --> 00:02:58.616
+You've been using folds already.
+
+48
+00:02:58.616 --> 00:03:04.040
+sumOf, count and maxByOrNull are special cases of fold, already written and named.
+
+49
+00:03:04.040 --> 00:03:08.339
+The sum of all five weights is 295, and three cookies are golden.
+
+50
+00:03:08.339 --> 00:03:12.638
+Prefer them when they fit: sumOf says more than a fold that adds.
+
+51
+00:03:12.638 --> 00:03:16.672
+Reach for fold when the step needs a when, like the jar does.
+
+52
+00:03:17.600 --> 00:03:19.227
+And then there's reduce.
+
+53
+00:03:19.227 --> 00:03:25.598
+It looks like fold without the starting value: it uses the first element as the start instead.
+
+54
+00:03:25.598 --> 00:03:29.936
+It's shorter, and on a normal day it gives the same answer, 295.
+
+55
+00:03:29.936 --> 00:03:32.240
+So why ever type a starting value?
+
+56
+00:03:33.167 --> 00:03:37.210
+Here's a day when nothing was baked: an empty list of weights.
+
+57
+00:03:37.210 --> 00:03:39.558
+fold starting at 0, sum, and reduce.
+
+58
+00:03:39.558 --> 00:03:41.123
+What does each one give?
+
+59
+00:03:44.100 --> 00:03:45.135
+fold gives 0.
+
+60
+00:03:45.135 --> 00:03:46.090
+sum gives 0.
+
+61
+00:03:46.090 --> 00:03:50.308
+And reduce throws: Empty collection can't be reduced.
+
+62
+00:03:50.308 --> 00:03:53.492
+first fails the same way: List is empty.
+
+63
+00:03:54.200 --> 00:03:55.299
+Think of the jar.
+
+64
+00:03:55.299 --> 00:04:01.180
+On an empty day, fold still has a jar on the scale, and the scale shows the starting value.
+
+65
+00:04:01.180 --> 00:04:06.092
+reduce has nothing to put on the scale at all, so all it can do is complain.
+
+66
+00:04:06.092 --> 00:04:09.065
+A quiet day in the kitchen isn't an emergency.
+
+67
+00:04:09.065 --> 00:04:10.745
+reduce treats it like one.
+
+68
+00:04:11.667 --> 00:04:13.494
+Kotlin gives you two names.
+
+69
+00:04:13.494 --> 00:04:16.404
+reduce throws, and reduceOrNull gives null.
+
+70
+00:04:16.404 --> 00:04:19.178
+first throws, and firstOrNull gives null.
+
+71
+00:04:19.178 --> 00:04:20.735
+Java chose differently.
+
+72
+00:04:20.735 --> 00:04:29.193
+Its reduce without a starting value returns an Optional, a box that may be empty, so the type makes you handle the empty day.
+
+73
+00:04:30.100 --> 00:04:32.033
+The jar picture has one limit.
+
+74
+00:04:32.033 --> 00:04:38.026
+A scale shows one number, but an accumulator can be anything: a list, a map, even a function.
+
+75
+00:04:38.026 --> 00:04:45.565
+The last lesson folded a list of recipe adjustments into one function, starting from a function that changes nothing.
+
+76
+00:04:46.467 --> 00:04:47.776
+So here's the rule.
+
+77
+00:04:47.776 --> 00:04:49.844
+An empty list is a normal day.
+
+78
+00:04:49.844 --> 00:04:54.739
+Use fold, sumOf, or an OrNull function whenever the input can be empty.
+
+79
+00:04:54.739 --> 00:05:01.149
+Keep reduce and first for places where an empty list is a bug you want to hear about, loudly.
+
+80
+00:05:02.067 --> 00:05:04.616
+So, is the for loop with a var wrong?
+
+81
+00:05:04.616 --> 00:05:04.823
+No.
+
+82
+00:05:04.823 --> 00:05:07.097
+It's a fold, written out by hand.
+
+83
+00:05:07.097 --> 00:05:13.229
+fold is that loop, with the start and the step passed in, and the var tucked away inside.
+
+84
+00:05:13.433 --> 00:05:14.300
+Quick check.
+
+85
+00:05:14.300 --> 00:05:16.394
+A day with no cookies at all.
+
+86
+00:05:16.394 --> 00:05:19.932
+cookies.fold, starting at 200, with the jar rule.
+
+87
+00:05:19.932 --> 00:05:21.737
+What does the scale show?
+
+88
+00:05:24.733 --> 00:05:25.023
+200.
+
+89
+00:05:25.023 --> 00:05:29.084
+With nothing to add, fold hands back the starting value.
+
+90
+00:05:29.084 --> 00:05:31.623
+That's exactly why it never throws.

@@ -293,7 +293,7 @@ class Fp04Fold(Narrated):
         rule = VGroup(T("golden: in, minus any bite", 24, GOLDEN), T("raw or burnt: stays out", 24, GREY_A))
         rule.arrange(DOWN, aligned_edge=LEFT, buff=0.15).move_to([3.9, -2.2, 0])
         self.say("jar")
-        self.play(day.animate.scale(0.8).move_to([0, 1.9, 0]), run_time=0.9)
+        self.play(day.animate.scale(0.9).move_to([0, 1.95, 0]), run_time=0.9)
         self.play(FadeIn(jar, shift=UP * 0.15), run_time=0.7)
         self.at(1)
         self.play(FadeIn(rule[0]), run_time=0.5)
@@ -446,21 +446,23 @@ class Fp04Fold(Narrated):
         self.wipe()
 
         # ================= inside fold =================
-        src = code_block(["inline fun <T, R> Iterable<T>.fold(initial: R, operation: (acc: R, T) -> R): R {",
+        src = code_block(["inline fun <T, R> Iterable<T>.fold(",
+                          "        initial: R, operation: (acc: R, T) -> R): R {",
                           "    var accumulator = initial",
-                          "    for (element in this) accumulator = operation(accumulator, element)",
-                          "    return accumulator", "}"], 22)
+                          "    for (element in this)",
+                          "        accumulator = operation(accumulator, element)",
+                          "    return accumulator", "}"], 24)
         sl = T("Kotlin's standard library", 22, GREY_B)
         sg = VGroup(sl, src).arrange(DOWN, aligned_edge=LEFT, buff=0.15)
-        fit(sg, 12.4).move_to([0, 1.3, 0])
-        house = SurroundingRectangle(src[1:4], color=ACC, buff=0.12)
+        fit(sg, 12.4).move_to([0, 0.9, 0])
+        house = SurroundingRectangle(src[2:6], color=ACC, buff=0.12)
         hl = T("the var lives in here", 26, ACC).next_to(house, DOWN, buff=0.25)
         yours = VGroup(T("your code:", 26, GREY_B), M("val jar = cookies.fold(200) { ... }", 26, CARD)).arrange(RIGHT, buff=0.3)
         yours.move_to([0, -2.4, 0])
         self.say("inside")
         self.at(1)
         self.play(FadeIn(sg, shift=UP * 0.1), run_time=0.9)
-        self.play(Indicate(src[1], color=ACC, scale_factor=1.03), run_time=0.8)
+        self.play(Indicate(src[2], color=ACC, scale_factor=1.03), run_time=0.8)
         self.at(2)
         self.play(Indicate(part_of(src[0], "inline"), color=CARD), run_time=0.8)
         self.at(3)
@@ -521,7 +523,7 @@ class Fp04Fold(Narrated):
         Ys = [1.6, 0.95, 0.3, -0.25, -0.9]
         for (ln, y) in zip(lines, Ys):
             ln[0].move_to([-6.0, y, 0], aligned_edge=LEFT)
-            ln[1].move_to([-1.6, y, 0], aligned_edge=LEFT)
+            ln[1].move_to([-1.3, y, 0], aligned_edge=LEFT)
         tg = VGroup(lines)
         fit(tg, 12.4).move_to([0, 0.35, 0])
         self.say("reduce_q")
